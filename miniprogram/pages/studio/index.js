@@ -110,13 +110,17 @@ editScript() { const buffer = studio.read().editorBuffer; this.setData({ sheet: 
 inputEdit(e) { this.setData({ editingText: e.detail.value }); const state = studio.read(); state.editorBuffer = { source: this.data.original, text: e.detail.value }; studio.write(state); },
 saveScript() {
 if (!this.data.editingText.trim()) { wx.showToast({ title: '请填写口播文案', icon: 'none' }); return; }
-const state = studio.read(); state.script = this.data.editingText.trim(); delete state.editorBuffer; studio.write(state);
+const state = studio.read(); state.script = this.data.editingText.trim(); state.scriptEdited=true; delete state.editorBuffer; studio.write(state);
 const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft'));
 if (draft && draft.text === state.original) wx.setStorageSync(studio.scopedKey('zhongshu-creation-draft'), Object.assign({}, draft, { rewrittenText: state.script, updatedAt: Date.now() }));
 this.setData({ script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), sheet: '' }); this.refreshData();
 },
-regenerate() {this.attempt(()=>{const state=studio.read();Demo.rewrite(state,{rewriteMode:this.data.rewriteMode,customIp:this.data.customIp,ip:this.data.ipOptions[this.data.ipIndex],requirement:this.data.requirement});state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,requirement:this.data.requirement};studio.write(state);this.refreshData();wx.showToast({title:'模拟二创已生成',icon:'none'});});},
+regenerate() {this.attempt(()=>{const state=studio.read();Demo.rewrite(state,{rewriteMode:this.data.rewriteMode,customIp:this.data.customIp,ip:this.data.ipOptions[this.data.ipIndex],requirement:this.data.requirement});state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,requirement:this.data.requirement};studio.write(state);const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.refreshData();wx.showToast({title:'模拟二创已生成',icon:'none'});});},
+openOptimization(){if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});this.setData({sheet:'optimize',sheetTitle:'AI优化',optimizeRequirement:'口语自然'});},
+inputOptimization(e){this.setData({optimizeRequirement:e.currentTarget.dataset.value});},
+optimizeScript(){this.attempt(()=>{const state=studio.read();Demo.optimizeCopy(state,this.data.optimizeRequirement);studio.write(state);const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.setData({sheet:''});this.refreshData();wx.showToast({title:'模拟优化已完成',icon:'none'});});},
 makeDigital() {
+if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});
 const state = studio.read(); state.script = this.data.script; state.title = this.data.title; studio.write(state);
 this.go('digital');
 },

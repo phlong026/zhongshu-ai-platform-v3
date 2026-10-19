@@ -20,7 +20,7 @@ const script = '想把二层乡墅住得舒适，先从家人的日常出发。\
 function initial() {
 const now = Date.parse('2026-10-17T10:45:00+08:00');
 return {
-version: 2, title, original, script,
+version: 3, title, original, script: '',
 tasks: [
 { id: 'task-progress', title: '乡墅厨房怎么布局', status: 'generating', saved: false, progress: 63 },
 { id: 'task-complete', title, status: 'completed', saved: false, progress: 100 },
@@ -45,11 +45,12 @@ state.works = Array.isArray(state.works) ? state.works.filter(Boolean) : [];
 state.records = Array.isArray(state.records) ? state.records.filter(Boolean) : [];
 state.title = typeof state.title === 'string' ? state.title : title;
 state.original = typeof state.original === 'string' ? state.original : original;
-state.script = typeof state.script === 'string' ? state.script : script;
+state.script = typeof state.script === 'string' ? state.script : '';
+if(!state.scriptEdited&&!state.rewriteHistory?.length&&(state.script===state.original||raw?.version<3&&state.script===script))state.script='';
 state.publishDrafts = state.publishDrafts && typeof state.publishDrafts === 'object' ? state.publishDrafts : {};
 if (state.publishDraft && state.publishDraft.workId && !state.publishDrafts[state.publishDraft.workId]) state.publishDrafts[state.publishDraft.workId] = clone(state.publishDraft);
 delete state.publishDraft;
-state.version = 2;state._scope=storageKey();
+state.version = 3;state._scope=storageKey();
 state.tasks = state.tasks.map(task => Object.assign({}, task, { kind: task.kind || 'digital', script: typeof task.script === 'string' ? task.script : (['task-progress', 'task-complete', 'task-retry'].includes(task.id) ? script : ''), configuration: task.configuration || {}, demo: true }));
 state.works = state.works.map(work => {
 const task = state.tasks.find(item => item.id === work.taskId);
@@ -66,7 +67,7 @@ const config = clone(configuration || {});if(!['ai','digital'].includes(kind)||!
 const count = (config.parameters || []).find(item => item.key === 'count');
 if (count && count.value !== '1 个') throw new Error('演示模式每次生成1个结果');
 const task = { id: uid('demo'), title: kind === 'ai' ? description.trim().slice(0, 28) : state.title, script: kind === 'ai' ? description : state.script, configuration: config, kind, status: 'generating', saved: false, progress: 0, demo: true, createdAt: Date.now() };
-task.contentSource=clone({extraction:state.extraction||null,rewrite:state.rewriteHistory?.at(-1)||null});
+task.contentSource=clone({extraction:state.extraction||null,rewrite:state.rewriteHistory?.at(-1)||null,optimization:state.copyOptimizations?.at(-1)||null});
 task.image = imageFor(task);
 state.tasks.unshift(task); write(state,AUTH); return task;
 }
@@ -142,6 +143,6 @@ return list;
 function restoreManualDraft() {
 const draft = wx.getStorageSync(scopedKey('zhongshu-creation-draft'));
 if (!draft || !draft.text || (typeof draft.workingText === 'string' && draft.workingText !== draft.text)) return false;
-const state = read(); delete state.extraction;state.rewriteHistory=[];state.original = draft.text; state.script = draft.rewrittenText || draft.text; state.title = draft.text.split('\n')[0].slice(0, 28); delete state.editorBuffer; write(state); return true;
+const state = read(); delete state.extraction;state.rewriteHistory=[];state.original = draft.text; state.script = draft.rewrittenText && draft.rewrittenText !== draft.text ? draft.rewrittenText : ''; state.title = draft.text.split('\n')[0].slice(0, 28); delete state.editorBuffer; write(state); return true;
 }
 module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, createDemoTask, completeTask, saveWork, createPublication, confirmDemoPublication, normalizePublishedUrl, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts };

@@ -66,7 +66,7 @@ saveDraft() {
 const text = this.data.editorText.trim();
 if (!text) { wx.showToast({ title: '请先填写文案', icon: 'none' }); return; }
 const previous = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || {};
-const draft = { text, rewrittenText: previous.text === text ? previous.rewrittenText || text : text, updatedAt: Date.now() };
+const draft = { text, rewrittenText: previous.text === text ? previous.rewrittenText || '' : '', updatedAt: Date.now() };
 wx.setStorageSync(studio.scopedKey('zhongshu-creation-draft'), draft);
 this.setData({ draft, sheet: '' });
 const state = studio.read(); delete state.editorBuffer;
