@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "check:sales": "node scripts/verify-sales-customers.cjs && node scripts/verify-sales-creation-chain.cjs && node scripts/verify-sales-design.cjs && node scripts/verify-business-four-flows.cjs && node scripts/verify-guest-home-role-nav.cjs && npm run check",
+    "check:sales:native": "node scripts/verify-sales-module-native.cjs && node scripts/verify-sales-typography-native.cjs",
     "check": "node scripts/verify.cjs",
     "check:guest-home": "node scripts/verify-guest-home-role-nav.cjs",
     "check:guest-home:native": "node scripts/verify-guest-home-role-nav-native.cjs",

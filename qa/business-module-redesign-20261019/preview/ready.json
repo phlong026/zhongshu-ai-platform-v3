@@ -1,0 +1,19 @@
+{
+  "result": "passed",
+  "accounts": [
+    {
+      "id": "sales-lead",
+      "role": "sales-lead",
+      "customers": 5
+    },
+    {
+      "id": "zhang",
+      "role": "sales",
+      "customers": 5
+    }
+  ],
+  "route": "pages/business/index",
+  "previousContinuousDemoRestored": true,
+  "beforeStorage": "prepare-preview-before-storage.json",
+  "intent": "Keep local mock clients and videos ready for manual review"
+}

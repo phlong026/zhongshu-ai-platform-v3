@@ -1,0 +1,29 @@
+{
+  "result": "passed",
+  "checks": [
+    {
+      "name": "zhang：精选案例、客户选择、户型检索及原设计配置保持同一客户",
+      "result": "passed"
+    },
+    {
+      "name": "zhang：原生成确认、候选选择、方案版本保存通过",
+      "result": "passed"
+    },
+    {
+      "name": "zhang：参考预算按参数测算并回存同一客户",
+      "result": "passed"
+    },
+    {
+      "name": "sales-lead：精选案例、客户选择、户型检索及原设计配置保持同一客户",
+      "result": "passed"
+    },
+    {
+      "name": "sales-lead：原生成确认、候选选择、方案版本保存通过",
+      "result": "passed"
+    },
+    {
+      "name": "sales-lead：参考预算按参数测算并回存同一客户",
+      "result": "passed"
+    }
+  ]
+}

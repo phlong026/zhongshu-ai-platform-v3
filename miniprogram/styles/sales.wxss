@@ -15,7 +15,7 @@ page{--sales-brand:#89512a;--sales-paper:#faf8f4;--sales-soft:#f7f3ed;--sales-in
 .sales-page .sales-stats{display:flex;padding:22rpx 0 10rpx}
 .sales-page .sales-stat{flex:1;min-width:0;text-align:center;border-right:1rpx solid var(--sales-line)}
 .sales-page .sales-stat:last-child{border-right:0}
-.sales-page .sales-stat-value{display:block;color:var(--sales-brand);font-size:48rpx;font-weight:600;line-height:62rpx}
+.sales-page .sales-stat-value{display:block;color:var(--sales-brand);font-size:40rpx;font-weight:600;line-height:52rpx}
 .sales-page .sales-stat-label{display:block;font-size:24rpx;line-height:38rpx;color:var(--sales-muted)}
 .sales-page .sales-search{display:flex;align-items:center;gap:18rpx;min-height:80rpx;background:var(--sales-paper);border:2rpx solid #fff;border-radius:42rpx;padding:12rpx 22rpx}
 .sales-page .sales-search>image{width:32rpx;height:32rpx;flex-shrink:0}

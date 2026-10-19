@@ -1,0 +1,49 @@
+{
+  "result": "passed",
+  "checks": [
+    {
+      "name": "多人主链",
+      "file": "qa/franchise-phase-20261018/model-main/results.json",
+      "checks": 11,
+      "failed": 0,
+      "scope": "Node真实Page处理器及模型联动，非微信实际渲染或外部平台／银行测试"
+    },
+    {
+      "name": "同人兼岗主链",
+      "file": "qa/role-auto-implementation-20261019/model-same/results.json",
+      "checks": 12,
+      "failed": 0,
+      "scope": "Node真实Page处理器及模型联动，非微信实际渲染或外部平台／银行测试"
+    },
+    {
+      "name": "异常检查",
+      "file": "qa/franchise-phase-20261018/model-exceptions/results.json",
+      "checks": 57,
+      "failed": 0,
+      "scope": "隔离Node Page/命令联动，非微信渲染或真实银行操作"
+    },
+    {
+      "name": "自动流转",
+      "file": "qa/role-auto-implementation-20261019/model-auto/results.json",
+      "checks": 27,
+      "failed": 0,
+      "scope": "本机模拟数据、真实Page处理器与模型，未连接银行或外部平台"
+    },
+    {
+      "name": "全身份页面",
+      "file": "qa/franchise-phase-20261018/role-pages/results.json",
+      "checks": 30,
+      "identities": 30,
+      "pages": 300,
+      "failed": 0,
+      "scope": "实际Page处理器、WXML条件及自定义导航组件的Node检查；非微信实际渲染"
+    },
+    {
+      "name": "岗位导航",
+      "file": "qa/guest-home-role-nav-20261019/model-results.json",
+      "checks": 41,
+      "failed": 0,
+      "scope": "真实角色模型、页面处理器和导航组件；原生视觉另行验收"
+    }
+  ]
+}
