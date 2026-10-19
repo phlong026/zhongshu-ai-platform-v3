@@ -8,7 +8,7 @@ function customerRows(){
  return B.load().customers.filter(c=>c.ownership!=='public'||c.ownerId).map(c=>{
   const follow=last(c.follows),appointment=String(follow?.appointment||''),status=category(c),canFollow=Access.workflow('follow',c,true),date=appointment.slice(0,10),dateText=date===today()?'今天':date||'';
   const next=follow?(appointment?dateText+' '+appointment.slice(11,16)+' · '+(follow.next||'客户回访'):B.stage(c)):'待首次沟通';
-  return {id:c.id,name:c.name,initial:c.name.slice(0,1),status,phone:maskPhone(c.phone)||c.wechat||'暂无联系方式',city:c.city,summary:c.summary,stage:B.stage(c),appointment,next,canFollow,action:canFollow?'去跟进':'看记录',owner:c.owner||'',view:'customer',url:'/pages/workflow/index?view=customer'+(!follow&&canFollow?'&modal=follow':'')+'&id='+encodeURIComponent(c.id),hasPlan:!!c.plans?.length,hasVisit:c.status==='已到店'};
+  return {id:c.id,name:c.name,initial:c.name.slice(0,1),status,phone:maskPhone(c.phone)||c.wechat||'暂无联系方式',searchText:[c.name,c.phone,c.wechat,c.city,c.summary,c.owner].filter(Boolean).join(' '),city:c.city,summary:c.summary,stage:B.stage(c),appointment,next,canFollow,action:canFollow?'去跟进':'看记录',owner:c.owner||'',view:'customer',url:'/pages/workflow/index?view=customer'+(!follow&&canFollow?'&modal=follow':'')+'&id='+encodeURIComponent(c.id),hasPlan:!!c.plans?.length,hasVisit:c.status==='已到店'};
  });
 }
 function counts(rows){return {all:rows.length,pending:rows.filter(r=>r.status==='待跟进').length,following:rows.filter(r=>r.status==='跟进中').length,visited:rows.filter(r=>r.status==='已到店').length};}
