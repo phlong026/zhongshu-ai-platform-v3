@@ -189,6 +189,7 @@ this.persistEditor(); this.go('records');
 },
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
 refreshRecords() { this.refreshData(); wx.showToast({ title: '演示状态已刷新', icon: 'none' }); },
+registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.contentId)wx.navigateTo({url:'/pages/growth/index?view=capture&contentId='+encodeURIComponent(record.contentId)});},
 advancePublication() {
 const state = studio.read(); const record = state.records.find(record => record.id === this.data.recordId);
 if (record && ['publishing', 'verify', 'scheduled'].includes(record.status)) {

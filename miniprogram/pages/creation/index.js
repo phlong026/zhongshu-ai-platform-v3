@@ -3,7 +3,8 @@ const studio = require('../../utils/studio');
 const Demo=require('../../utils/creation-demo');
 Page({
 data: {
-link: '', sheet: '', editorText: '', draft: null, assets, demoSamples:Demo.samples, sampleId:'daylight',
+link: Demo.samples[0].url, sheet: '', editorText: '', draft: null, assets, demoSamples:Demo.samples, sampleId:'daylight',sampleIndex:0,
+modes:[{id:'remix',title:'爆款二创',subtitle:'参考视频改写',icon:'video-filled'},{id:'digital',title:'数字人口播',subtitle:'文案生成口播',icon:'person-filled'},{id:'ai',title:'AI视频',subtitle:'文字图片成片',icon:'home-video-icon'}],
 shortcuts: [
 { key: 'library', title: '素材库', icon: 'folder' },
 { key: 'tasks', title: '任务中心', icon: 'tasks' },
@@ -22,11 +23,13 @@ if (options.editor === '1') this.openEditor();
 onShow() {require('../../utils/demo-session').apply(this);
 if(!studio.guard())return;if(this.actorScope!==studio.scope()){this.actorScope=studio.scope();this.setData({link:"",sheet:"",editorText:""});}
 const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || null;
-const recent = studio.recentItems(studio.read()).slice(0, 4);
+const recent = studio.recentItems(studio.read()).slice(0, 2).map(item=>({...item,updatedText:item.updatedAt?studio.formatTime(item.updatedAt):''}));
 this.setData({ draft, recent });
 },
 inputLink(e) { this.setData({ link: e.detail.value }); },
-chooseDemo(e){const sample=Demo.samples.find(s=>s.id===e.currentTarget.dataset.id);if(sample)this.setData({link:sample.url,sampleId:sample.id});},
+chooseDemo(e){const sample=Demo.samples.find(s=>s.id===e.currentTarget.dataset.id);if(sample)this.setData({link:sample.url,sampleId:sample.id,sampleIndex:Demo.samples.indexOf(sample)});},
+pickDemo(e){const sample=Demo.samples[Number(e.detail.value)];if(sample)this.chooseDemo({currentTarget:{dataset:{id:sample.id}}});},
+chooseMode(e){const mode=e.currentTarget.dataset.mode;if(mode==='digital')wx.navigateTo({url:'/pages/studio/index?view=digital'});else if(mode==='ai')this.startVideo();},
 paste() {
 wx.getClipboardData({
 success: ({ data }) => this.setData({ link: String(data || '').slice(0, 2000) }),

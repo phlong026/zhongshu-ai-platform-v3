@@ -1,8 +1,9 @@
+@import './sales.wxss';
 page {
-  --creation-brand: #824019;
+  --creation-brand: #89512a;
   --creation-text: #141312;
   --creation-muted: #68717f;
-  --creation-bg: #fcfaf6;
+  --creation-bg: #faf8f4;
   --creation-soft: #fbf1e7;
   --creation-border: #e5dfd7;
   background: var(--creation-bg);
@@ -14,16 +15,16 @@ page {
 .creation-page { min-height: 100vh; padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
 .creation-page button { min-width: 44px; min-height: 44px; }
 .creation-body { padding: 24rpx 28rpx 0; }
-.creation-card { background: #fff; border-radius: 24rpx; }
+.creation-card { background: #fff; border-radius: 22rpx; }
 .creation-heading { min-height: 48rpx; display: flex; align-items: center; gap: 16rpx; }
-.creation-heading-title { font-size: 34rpx; font-weight: 600; line-height: 48rpx; }
+.creation-heading-title { font-size: 32rpx; font-weight: 600; line-height: 46rpx; }
 .creation-mark { width: 10rpx; height: 32rpx; flex-shrink: 0; }
 .creation-arrow { width: 14rpx; height: 24rpx; flex-shrink: 0; }
 .creation-brown, .studio-brown { color: var(--creation-brand); }
 .creation-muted, .studio-muted { color: var(--creation-muted); }
 .creation-primary, .studio-primary, .studio-outline {
   position: relative; min-height: 44px; height: 88rpx; padding: 12rpx 24rpx;
-  border-radius: 16rpx; font-size: 30rpx; font-weight: 600; line-height: 44rpx;
+  border-radius: 14rpx; font-size: 28rpx; font-weight: 500; line-height: 42rpx;
   display: flex; align-items: center; justify-content: center; gap: 12rpx;
 }
 .creation-primary, .studio-primary { background: var(--creation-brand); color: #fffaf4; overflow: hidden; }

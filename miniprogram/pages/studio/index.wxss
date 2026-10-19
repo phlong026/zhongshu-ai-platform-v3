@@ -1,6 +1,6 @@
 @import '../../styles/creation.wxss';
-.studio-card { padding: 24rpx; margin-bottom: 24rpx; }
-.studio-heading { display: flex; align-items: center; gap: 16rpx; min-height: 48rpx; font-size: 34rpx; line-height: 48rpx; font-weight: 600; margin-bottom: 16rpx; }
+.studio-card { padding: 22rpx; margin-bottom: 24rpx; }
+.studio-heading { display: flex; align-items: center; gap: 16rpx; min-height: 48rpx; font-size: 32rpx; line-height: 46rpx; font-weight: 600; margin-bottom: 16rpx; }
 .studio-mark { width: 10rpx; height: 32rpx; flex-shrink: 0; }
 .studio-bordered { border: 1rpx solid var(--creation-border); border-radius: 16rpx; }
 .studio-outline > image:not(.studio-chevron) { width: 32rpx; height: 32rpx; }
@@ -137,3 +137,4 @@
 .timeline > view > text:last-child { margin-left: auto; font-size: 24rpx; text-align: right; }
 .detail-primary { margin-top: 24rpx; }
 .detail-return { margin-top: 16rpx; }
+.consultation-entry{width:100%;margin:24rpx 0}

@@ -1,6 +1,6 @@
-.creation-header { background: #fcfaf6; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+.creation-header { background: #faf8f4; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
 .creation-nav { height: 88rpx; min-height: 44px; position: relative; display: flex; align-items: center; justify-content: center; }
-.nav-title { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 34rpx; line-height: 48rpx; font-weight: 600; color: #141312; max-width: calc(100% - 240rpx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-title { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 30rpx; line-height: 40rpx; font-weight: 600; color: #141312; max-width: calc(100% - 240rpx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .back { position: absolute; left: 12rpx; top: 0; width: 88rpx; min-width: 44px; height: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0; background: transparent; }
 .back::after { border: 0; }
 .back image { width: 25rpx; height: 36rpx; }

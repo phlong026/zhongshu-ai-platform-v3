@@ -113,7 +113,7 @@ function confirmDemoPublication(id){const state=read(),r=state.records.find(r=>r
 function recentItems(state) {
 const list = [];
 const draft = wx.getStorageSync(scopedKey('zhongshu-creation-draft'));
-if (draft && (draft.workingText || draft.text)) list.push({ id: 'draft', title: (draft.workingText || draft.text).split('\n')[0].slice(0, 28), badge: '文案草稿', image: '/assets/creation-house.jpg', action: '继续编辑', updatedAt: draft.updatedAt || 0 });
+if (draft && (draft.workingText || draft.text)) list.push({ id: 'draft', title: draft.title||(draft.workingText || draft.text).split('\n')[0].slice(0, 28), badge: '文案草稿', image: '/assets/creation-house.jpg', action: '继续编辑', updatedAt: draft.updatedAt || 0 });
 const video = wx.getStorageSync(scopedKey('zhongshu-video-draft'));
 if (video && video.description) list.push({ id: 'video-draft', title: video.description.slice(0, 28), badge: 'AI视频草稿', image: video.firstFrame || '/assets/creation-house.jpg', action: '继续编辑', updatedAt: video.updatedAt || 0 });
 Object.keys(state.videoTaskDrafts || {}).forEach(taskId => {
