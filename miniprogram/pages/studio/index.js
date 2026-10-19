@@ -1,9 +1,9 @@
 const studio = require('../../utils/studio');
 const Demo=require('../../utils/creation-demo');
 const { unavailable, assets } = require('../../utils/creation');
-const titles = { remix: '文案二创', digital: '数字人口播', tasks: '任务中心', result: '视频结果', publish: '发布设置', records: '发布记录', detail: '发布详情', works: '我的作品', library: '素材库', recent: '全部创作' };
+const titles = { remix: '文案二创', digital: '数字人口播', tasks: '任务中心', result: '视频结果', publish: '发布设置', receipt:'登记发布链接', records: '发布记录', detail: '发布详情', works: '我的作品', library: '素材库', recent: '全部创作' };
 const statusInfo = {
-publishing: { label: '发布中', icon: 'clock', tone: 'warm', action: '查看进度' },
+publishing: { label: '待登记链接', icon: 'clock', tone: 'warm', action: '补填链接' },
 published: { label: '已发布', icon: 'check-green', tone: 'green', action: '查看回执' },
 verify: { label: '待核实', icon: 'warning', tone: 'yellow', action: '核实结果', note: '请勿重复发布' },
 failed: { label: '失败', icon: 'error', tone: 'red', action: '查看原因', note: '账号授权已失效' },
@@ -14,7 +14,7 @@ data: {
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0,
 ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
-tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,
+tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,
 publishText: '想把二层乡墅住得舒适，先从家人的日常出发。\n采光、动线和通风，才是住得舒服的关键。',
 tags: '#乡墅设计  #农村建房', scheduled: '', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
 actor: '李顾问', voice: '李顾问原声', filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
@@ -22,7 +22,7 @@ actor: '李顾问', voice: '李顾问原声', filter: '', detail: null, activeTa
 onLoad(options) {
 if(!studio.guard())return;this.actorScope=studio.scope();
 const view = titles[options.view] ? options.view : 'remix';
-this.options = options;this.setData({autoContentApproved:false,confirmationContentId:options.confirm||''});
+this.options = options;
 const state = studio.read();
 this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: state.title, taskId: options.task || 'task-complete', recordId: options.record || 'record-success', workId: options.work || '' });
 if (view === 'result' && options.task) {
@@ -44,14 +44,16 @@ if (state.publishDrafts[work.id]) this.setData(state.publishDrafts[work.id]);
 }
 }
 if (view === 'remix' && state.rewriteSettings) this.setData(state.rewriteSettings);
-if(options.confirm){const c=require('../../utils/growth').load().contents.find(c=>c.id===options.confirm&&c.workId===options.work&&c.status==='审核通过');if(c){this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,scheduled:c.pack.scheduled,selectedAccount:studio.accounts.findIndex(a=>a.id===c.pack.accountId),autoContentApproved:true,confirmationSignature:c.signature,pageTitle:'审核通过 · 确认发布'});}}
+const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,scheduled:c.pack.scheduled,selectedAccount:studio.accounts.findIndex(a=>a.id===c.pack.accountId)});}
 this.refreshData();
+if(view==='receipt')this.setData({publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||''});
 },
 onShow() {require('../../utils/demo-session').apply(this); if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
 onHide() { this.persistEditor(); },
 onUnload() { this.persistEditor(); },
 persistEditor() {
 if(!studio.allowed()||this.actorScope!==studio.scope())return;
+if(this.data.view==='receipt'&&!this.data.receiptSaved&&this.data.detail){const state=studio.read();state.publicationLinkDrafts=state.publicationLinkDrafts||{};state.publicationLinkDrafts[this.data.recordId]=this.data.publishedUrlInput;studio.write(state);}
 if (this.data.view === 'remix') {
 const state = studio.read();
 const { rewriteMode, ipIndex, customIp, requirement } = this.data;
@@ -72,7 +74,7 @@ const decorateRecord = record => {
 const work = record.workSnapshot || state.works.find(item => item.id === record.workId);
 const task = state.tasks.find(item => item.id === record.taskId);
 const kind = record.kind || (work && work.kind) || (task && task.kind) || '';
-return Object.assign({}, record, statusInfo[record.status] || { label: '状态待确认', icon: 'warning', tone: 'yellow', action: '查看详情' }, { kindLabel: studio.kindLabel(kind), cover: record.cover || (work && work.image) || studio.imageFor(task || {}), time: (record.status === 'published' ? '发布 ' : '提交 ') + studio.formatTime(record.publishedAt || record.submittedAt || record.createdAt), timeLabel: record.scheduledAt ? '计划发布时间' : record.status === 'published' ? '演示完成时间' : '提交时间', displayTime: record.scheduledAt || studio.formatTime(record.publishedAt || record.submittedAt || record.createdAt), identifier: record.id });
+return Object.assign({}, record, statusInfo[record.status] || { label: '状态待确认', icon: 'warning', tone: 'yellow', action: '查看详情' }, { kindLabel: studio.kindLabel(kind), cover: record.cover || (work && work.image) || studio.imageFor(task || {}), time: (record.status === 'published' ? '发布 ' : '提交 ') + studio.formatTime(record.publishedAt || record.submittedAt || record.createdAt), timeLabel: record.scheduledAt ? '计划发布时间' : record.status === 'published' ? '发布时间' : '提交时间', displayTime: record.scheduledAt || studio.formatTime(record.publishedAt || record.submittedAt || record.createdAt), identifier: record.id });
 };
 const records = state.records.filter(record => recordFilter === 0 || (recordFilter === 1 && ['publishing', 'scheduled'].includes(record.status)) || (recordFilter === 2 && record.status === 'published') || (recordFilter === 3 && ['verify', 'failed'].includes(record.status))).map(decorateRecord);
 const activeTask = state.tasks.find(task => task.id === this.data.taskId) || null;
@@ -81,7 +83,7 @@ const detail = detailRecord ? decorateRecord(detailRecord) : null;
 const work = state.works.find(item => item.id === this.data.workId);
 let invalidMessage = '';
 if (this.data.view === 'result' && !activeTask) invalidMessage = '任务不存在或已清理，请从任务中心重新选择。';
-if (this.data.view === 'detail' && !detail) invalidMessage = '发布记录不存在或已清理，请返回发布记录。';
+if (['detail','receipt'].includes(this.data.view) && !detail) invalidMessage = '发布记录不存在或已清理，请返回发布记录。';
 if (this.data.view === 'publish' && !work) invalidMessage = '作品不存在或已清理，请从我的作品重新选择。';
 const configuration = (activeTask && activeTask.configuration) || {};
 const params = configuration.parameters || [];
@@ -91,8 +93,8 @@ const resultInfo = activeTask && activeTask.kind === 'ai'
 : [{ label: '人物', value: configuration.actor || '李顾问' }, { label: '声音', value: configuration.voice || '李顾问原声' }];
 const timeline = detailRecord ? [
 { label: '作品已保存', time: studio.formatTime(detailRecord.workSnapshot && detailRecord.workSnapshot.savedAt) },
-{ label: '提交演示发布', time: studio.formatTime(detailRecord.submittedAt || detailRecord.createdAt) },
-{ label: detailRecord.status === 'published' ? '演示发布完成' : (statusInfo[detailRecord.status] || {}).label || '状态待确认', time: detailRecord.status === 'published' ? studio.formatTime(detailRecord.publishedAt) : '尚未完成' }
+{ label: '发布信息已保存', time: studio.formatTime(detailRecord.submittedAt || detailRecord.createdAt) },
+{ label: detailRecord.status === 'published' ? '发布链接已登记' : (statusInfo[detailRecord.status] || {}).label || '状态待确认', time: detailRecord.status === 'published' ? studio.formatTime(detailRecord.publishedAt) : '尚未完成' }
 ] : [];
 this.setData({ extraction:state.extraction||null,rewriteVersion:state.rewriteHistory?.at(-1)?.version||0,tasks, records, works: state.works, activeTask, saved: !!(activeTask && activeTask.saved), detail, resultInfo, invalidMessage, timeline, recent: studio.recentItems(state) });
 },
@@ -180,20 +182,21 @@ if (!this.data.title.trim() || !this.data.publishText.trim()) { wx.showToast({ t
 const invalidSchedule = studio.scheduleError(this.data.scheduled);
 if (invalidSchedule) { wx.showToast({ title: invalidSchedule, icon: 'none' }); return; }
 this.attempt(() => {
-const result = studio.createPublication(this.data.workId, { title: this.data.title, publishText: this.data.publishText, tags: this.data.tags, cover: this.data.cover, account: this.data.selectedAccount, scheduled: this.data.scheduled, publishConfirmed:!!this.data.autoContentApproved,confirmationSignature:this.data.confirmationSignature });
-if(result.confirmationRequired){this.persistEditor();return wx.redirectTo({url:'/pages/studio/index?view=publish&work='+encodeURIComponent(this.data.workId)+'&confirm='+encodeURIComponent(result.contentId)});}
-if(result.reviewRequired){wx.navigateTo({url:'/pages/growth/index?view=content&id='+encodeURIComponent(result.contentId)});return;}
+const result = studio.createPublication(this.data.workId, { title: this.data.title, publishText: this.data.publishText, tags: this.data.tags, cover: this.data.cover, account: this.data.selectedAccount, scheduled: this.data.scheduled });
 if (result.duplicate) wx.showToast({ title: '此账号已有发布记录，请勿重复提交', icon: 'none' });
-this.persistEditor(); this.go('records');
+this.persistEditor();this.go(result.record.status==='published'&&result.record.publishedUrl?'detail':'receipt','&record='+encodeURIComponent(result.record.id));
 });
 },
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
 refreshRecords() { this.refreshData(); wx.showToast({ title: '演示状态已刷新', icon: 'none' }); },
 registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.contentId)wx.navigateTo({url:'/pages/growth/index?view=capture&contentId='+encodeURIComponent(record.contentId)});},
+inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:''});},
+savePublicationLink(){try{studio.confirmDemoPublication(this.data.recordId,this.data.publishedUrlInput);const state=studio.read();if(state.publicationLinkDrafts)delete state.publicationLinkDrafts[this.data.recordId];studio.write(state);this.setData({receiptSaved:true,receiptError:''});wx.redirectTo({url:'/pages/studio/index?view=detail&record='+encodeURIComponent(this.data.recordId)});}catch(error){this.setData({receiptError:error.message});wx.showToast({title:error.message,icon:'none'});}},
+copyPublishedUrl(){if(this.data.detail?.publishedUrl)wx.setClipboardData({data:this.data.detail.publishedUrl});},
 advancePublication() {
 const state = studio.read(); const record = state.records.find(record => record.id === this.data.recordId);
-if (record && ['publishing', 'verify', 'scheduled'].includes(record.status)) {
-wx.showModal({ title: '演示发布结果', content: '可将此本地演示记录标记为已发布，体验成功回执。不会发生真实发布。', confirmText: '演示成功', confirmColor: '#824019', success: ({ confirm }) => { if (confirm) { studio.confirmDemoPublication(record.id); this.refreshData(); } } });
+if (record && ['publishing', 'verify', 'scheduled','published'].includes(record.status)) {
+this.go('receipt','&record='+encodeURIComponent(record.id));
 } else if (record && record.status === 'failed') {
 wx.showModal({ title: '账号授权已失效', content: '真实账号授权尚未接入。可返回发布设置更换示例账号，体验重试流程。', confirmText: '更换账号', confirmColor: '#824019', success: ({ confirm }) => {
 if (confirm) this.attempt(() => {

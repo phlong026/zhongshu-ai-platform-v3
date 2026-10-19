@@ -138,3 +138,4 @@
 .detail-primary { margin-top: 24rpx; }
 .detail-return { margin-top: 16rpx; }
 .consultation-entry{width:100%;margin:24rpx 0}
+.receipt-auto,.receipt-required{margin-left:auto;font-size:24rpx;line-height:36rpx;font-weight:400;color:#89512a}.receipt-url{display:block;width:100%;height:160rpx;min-height:160rpx;box-sizing:border-box;padding:20rpx;font-size:28rpx;line-height:42rpx;word-break:break-all}.receipt-help{display:block;margin-top:20rpx;font-size:24rpx;line-height:36rpx}.receipt-error{display:block;margin-top:12rpx;color:#a83126;font-size:24rpx;line-height:36rpx}.saved-publication-url{display:block;width:100%;padding:16rpx;text-align:left;word-break:break-all;font-size:26rpx;line-height:40rpx;color:#89512a;background:#f7f3ed;border-radius:14rpx}.receipt-work .detail-work-title{word-break:break-word}.receipt-work .detail-line>text:last-child{min-width:0;word-break:break-all;text-align:right}

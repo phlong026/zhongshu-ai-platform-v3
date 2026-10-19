@@ -102,14 +102,25 @@ if (!account) throw new Error('请选择有效的发布账号');
 if (!String(form.title || '').trim() || !String(form.publishText || '').trim()) throw new Error('请填写标题和发布文案');
 const invalidSchedule = scheduleError(form.scheduled);
 if (invalidSchedule) throw new Error(invalidSchedule);
-const content=require('./growth').prepare(workId,form,account);if(!['审核通过','发布中','演示已发布'].includes(content.status))return {reviewRequired:true,contentId:content.id};require('./growth').assertPublish(content,Access.context());if(content.review?.autoReview&&(!form.publishConfirmed||form.confirmationSignature!==content.signature))return {confirmationRequired:true,contentId:content.id};
+const content=require('./growth').prepare(workId,form,account);require('./growth').assertPublish(content,Access.context());
 const existing = state.records.find(record => record.workId === workId && record.platform === account.platform && record.account === account.name && record.status !== 'failed');
 if (existing) return { record: existing, duplicate: true };
 const now = Date.now();
-const record = { id: uid('demo-record'), workId, taskId: work.taskId, kind: work.kind, title: form.title.trim(), publishText: form.publishText.trim(), tags: String(form.tags || '').trim(), cover: form.cover || work.image, platform: account.platform, accountId: account.id, account: account.name, status: form.scheduled ? 'scheduled' : 'publishing', demo: true, scheduledAt: form.scheduled || '', createdAt: now, submittedAt: now, publishedAt: null, workSnapshot: clone(work),contentId:content.id,contentSignature:content.signature };
+const a=Access.context();
+const record = { id: uid('demo-record'), workId, taskId: work.taskId, kind: work.kind, title: form.title.trim(), publishText: form.publishText.trim(), tags: String(form.tags || '').trim(), cover: form.cover || work.image, platform: account.platform, accountId: account.id, account: account.name, status: form.scheduled ? 'scheduled' : 'publishing', demo: true, scheduledAt: form.scheduled || '', createdAt: now, submittedAt: now, publishedAt: null, workSnapshot: clone(work),contentId:content.id,contentSignature:content.signature,publicationFlow:'direct-v1',companyId:a.companyId,teamId:a.teamId,authorId:a.staffId,authorPersonId:a.personId,authorName:a.name,publishedUrl:'',collection:{status:'awaiting-link',metrics:null} };
 state.records.unshift(record); write(state,AUTH);require('./growth').publishing(content.id,record.id);return { record, duplicate: false };
 }
-function confirmDemoPublication(id){const state=read(),r=state.records.find(r=>r.id===id);if(!r||!r.demo||!['publishing','verify','scheduled','published'].includes(r.status))throw Error('请选择可核实的原演示发布');if(r.contentId){const c=require('./growth').load().contents.find(c=>c.id===r.contentId);require('./growth').assertPublish(c,Access.context());}r.status='published';r.publishedAt=r.publishedAt||Date.now();write(state,AUTH);if(r.contentId)require('./growth').published(id);return r;}
+function normalizePublishedUrl(value){const url=String(value||'').trim();if(!url)throw Error('请填写发布后的作品链接');if(url.length>2000||!/^(https?):\/\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d{1,5})?(?:[/?#][^\s<>]*)?$/i.test(url))throw Error('请输入有效的 http 或 https 作品链接');return url;}
+function confirmDemoPublication(id,publishedUrl){
+ const before=read(),state=clone(before),r=state.records.find(r=>r.id===id),a=Access.context(),G=require('./growth');
+ if(!r||!r.demo||!['publishing','verify','scheduled','published'].includes(r.status))throw Error('请选择本人有效的发布记录');
+ const url=normalizePublishedUrl(publishedUrl);if(state.records.some(x=>x.id!==id&&x.publishedUrl===url))throw Error('此发布链接已登记到其他作品，请核对后填写');
+ if(r.contentId){const c=G.load().contents.find(c=>c.id===r.contentId);G.assertPublish(c,a);if(c.signature!==r.contentSignature)throw Error('发布版本已变化，请重新打开原记录');}
+ if(r.status==='published'&&r.publishedUrl===url)return r;
+ const now=Date.now();r.linkHistory=(r.linkHistory||[]).concat({previousUrl:r.publishedUrl||'',publishedUrl:url,...Access.actor()});
+ Object.assign(r,{status:'published',publishedAt:r.publishedAt||now,publishedUrl:url,linkRecordedAt:now,linkRecordedById:a.staffId,linkRecordedByName:a.name,companyId:r.companyId||a.companyId,authorId:r.authorId||a.staffId,authorName:r.authorName||a.name,collection:{status:'pending',sourceUrl:url,platform:r.platform,accountId:r.accountId,publicationId:r.id,contentId:r.contentId,workId:r.workId,publishedAt:r.publishedAt||now,registeredAt:now,metrics:null}});
+ const growthBefore=wx.getStorageSync(G.KEY);try{write(state,AUTH);if(r.contentId)G.published(id);}catch(error){wx.setStorageSync(storageKey(),before);if(growthBefore)wx.setStorageSync(G.KEY,growthBefore);else wx.removeStorageSync(G.KEY);throw error;}return r;
+}
 function recentItems(state) {
 const list = [];
 const draft = wx.getStorageSync(scopedKey('zhongshu-creation-draft'));
@@ -133,4 +144,4 @@ const draft = wx.getStorageSync(scopedKey('zhongshu-creation-draft'));
 if (!draft || !draft.text || (typeof draft.workingText === 'string' && draft.workingText !== draft.text)) return false;
 const state = read(); delete state.extraction;state.rewriteHistory=[];state.original = draft.text; state.script = draft.rewrittenText || draft.text; state.title = draft.text.split('\n')[0].slice(0, 28); delete state.editorBuffer; write(state); return true;
 }
-module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, createDemoTask, completeTask, saveWork, createPublication, confirmDemoPublication, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts };
+module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, createDemoTask, completeTask, saveWork, createPublication, confirmDemoPublication, normalizePublishedUrl, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts };
