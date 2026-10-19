@@ -1,8 +1,11 @@
-<view class="page design-page workbench-page">
-  <view class="workbench-header"><brand-header divider="{{true}}" account-font="{{true}}" title="方案设计" /></view>
+<view class="page design-page workbench-page sales-page">
+  <view class="workbench-header"><brand-header divider="{{true}}" title="AI设计" /></view>
   <view class="content">
-    <view class="section"><view class="section-heading"><text class="section-title">方案设计</text></view><text class="hint design-intro">选择设计方式，关联客户后继续办理。</text><view class="design-entry-grid"><button wx:for="{{entries}}" wx:key="view" class="design-entry" data-view="{{item.view}}" bindtap="open"><image src="/assets/{{item.image}}" mode="aspectFill" /><view class="design-entry-copy"><text>{{item.title}}</text><text class="hint">{{item.description}}</text><view class="chevron" /></view></button></view></view>
-    <text class="design-note">AI概念方案与预算用于沟通参考，正式设计、施工图及交付沿客户流程办理。</text>
+    <view class="design-hero"><image class="design-hero-picture" src="{{imagesReady?cases[0].image:'/assets/creation-house.jpg'}}" mode="aspectFill"/><view class="design-hero-copy"><view class="design-hero-title"><text>把建房想法</text><text>变成方案</text></view><text>从需求到平面、立面与预算参考</text><button class="primary" data-view="ai-config" bindtap="open">开始AI设计</button></view></view>
+    <view class="design-quick"><button data-view="inspiration" bindtap="open"><image src="/assets/home-design-icon.png" mode="aspectFit"/><view><text>灵感库</text><text class="hint">从优秀方案找灵感</text></view><view class="chevron"/></button><button data-view="budget" bindtap="open"><image src="/assets/contract.png" mode="aspectFit"/><view><text>快速预算</text><text class="hint">快速估算建造投入</text></view><view class="chevron"/></button></view>
+    <view class="section design-cases"><view class="section-heading"><text class="section-title">精选户型</text><button class="text-link" data-view="inspiration" bindtap="open">查看全部<view class="chevron"/></button></view><view class="design-cases-grid"><button wx:for="{{cases}}" wx:key="id" class="design-case" data-id="{{item.id}}" bindtap="openCase"><image src="{{imagesReady?item.image:'/assets/facade.jpg'}}" mode="aspectFill"/><view class="design-case-copy"><text>{{item.name}}</text><text class="hint">建面{{item.area}}㎡ · {{item.floors}}层 · {{item.style}}</text><view class="chevron"/></view></button></view><button wx:if="{{imageFailed}}" class="sales-footer-link" bindtap="loadImages">图片暂未加载，点击重试</button></view>
+    <view class="section design-more"><button data-view="search" bindtap="open">按尺寸检索户型<view class="chevron"/></button><button data-view="ai-facade" bindtap="open">继续立面方案<view class="chevron"/></button></view>
+    <text class="sales-note">关联客户后保存方案与预算，正式设计和施工图沿原客户流程办理。</text>
   </view>
 </view>
 <workspace-nav id="design-workspace-nav" active-index="{{6}}" nested />
