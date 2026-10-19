@@ -15,6 +15,6 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict');
   await open('/pages/customers/index');assert.equal(p().data.counts.all,before+1);p().setFilter({currentTarget:{dataset:{value:'已到店'}}});assert(p().data.filteredCustomers.some(c=>c.id===customer.id));p().search({detail:{value:'9900100'}});assert(p().data.filteredCustomers.some(c=>c.id===customer.id));assert(p().data.filteredCustomers.every(c=>c.phone.includes('****')));pass(id+'：到店状态、筛选、手机号搜索与脱敏联动');
  }
  A.mutate(a=>A.loginDemo(a,'zhang'));await open('/pages/customers/index');assert(p().data.customers.every(c=>!c.name.includes('sales-lead')));assert(!p().data.isLead);pass('业务员看不到负责人私人客户及管理入口');
- A.mutate(a=>A.loginDemo(a,'manager-li'));await open('/pages/customers/index');assert.equal(p().route,'pages/engineering/index');pass('非业务岗位不能进入客户模块');
- const out=path.resolve('qa/business-module-redesign-20261019');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'customers-results.json'),JSON.stringify({result:'passed',kind:'real Page/WXML handlers and existing business models',checks},null,2));console.log(JSON.stringify({result:'passed',checks:checks.length}));
+ A.mutate(a=>A.loginDemo(a,'manager-li'));await open('/pages/customers/index');assert(['pages/engineering/index','pages/build/home/index'].includes(p().route),'工程岗位返回工程首页，不能停留客户模块');pass('非业务岗位不能进入客户模块');
+ const out=path.resolve('qa/business-followups-20261019');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'customers-results.json'),JSON.stringify({result:'passed',kind:'real Page/WXML handlers and existing business models',checks},null,2));console.log(JSON.stringify({result:'passed',checks:checks.length}));
 })().catch(e=>{console.error(e.stack);process.exitCode=1;});

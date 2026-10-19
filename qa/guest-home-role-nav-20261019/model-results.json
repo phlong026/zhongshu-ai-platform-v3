@@ -1,0 +1,170 @@
+{
+  "result": "passed",
+  "kind": "真实角色模型、页面处理器和导航组件；原生视觉另行验收",
+  "checks": [
+    {
+      "name": "游客保留原有五项原生导航",
+      "result": "passed"
+    },
+    {
+      "name": "zhang / sales：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "liu / sales：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "sales-lead / sales-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "sales-dual / sales：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "sales-dual / sales-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "manager-li / engineer：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "manager-wang / engineer：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "engineering-lead / project-manager：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "engineering-dual / engineer：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "engineering-dual / project-manager：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "finance-wang / finance：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "finance-li / finance：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "finance-lead / finance-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "finance-dual / finance：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "finance-dual / finance-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "boss / boss：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "store-owner / owner：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-designer / hq-designer：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-designer-2 / hq-designer：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-design-lead / hq-design-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-design-lead-2 / hq-design-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-design-dual / hq-designer：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-design-dual / hq-design-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-finance / finance：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-finance-2 / finance：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-finance-lead / finance-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-finance-lead-2 / finance-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-finance-dual / finance：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "hq-finance-dual / finance-lead：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
+      "name": "五页选中态、原生/普通页跳转、替换页面栈与隐藏入口保护",
+      "result": "passed"
+    },
+    {
+      "name": "zhang：直接访问公开首页回到本人工作台",
+      "result": "passed"
+    },
+    {
+      "name": "sales-lead：直接访问公开首页回到本人工作台",
+      "result": "passed"
+    },
+    {
+      "name": "manager-li：直接访问公开首页回到本人工作台",
+      "result": "passed"
+    },
+    {
+      "name": "engineering-lead：直接访问公开首页回到本人工作台",
+      "result": "passed"
+    },
+    {
+      "name": "finance-wang：直接访问公开首页回到本人工作台",
+      "result": "passed"
+    },
+    {
+      "name": "finance-lead：直接访问公开首页回到本人工作台",
+      "result": "passed"
+    },
+    {
+      "name": "store-owner：直接访问公开首页回到本人工作台",
+      "result": "passed"
+    },
+    {
+      "name": "新增业务设计与客户页校验实际岗位",
+      "result": "passed"
+    },
+    {
+      "name": "新增业务页的游客登录保护",
+      "result": "passed"
+    },
+    {
+      "name": "停用或未授权会话只显示我的",
+      "result": "passed"
+    }
+  ]
+}

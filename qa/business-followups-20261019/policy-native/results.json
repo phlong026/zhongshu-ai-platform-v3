@@ -1,0 +1,163 @@
+{
+  "result": "passed",
+  "scope": "微信原生真实控件与 Page 处理器；每个阶段使用模型跑通后生成的明确模拟前置状态，完整连续链另由模型测试验证",
+  "checks": [
+    {
+      "index": 5,
+      "area": "studio",
+      "view": "publish",
+      "actor": "sales-dual",
+      "role": "sales-lead",
+      "name": "视频结果选择账号直接进入发布",
+      "result": "passed"
+    },
+    {
+      "index": 6,
+      "area": "studio",
+      "view": "receipt",
+      "actor": "sales-dual",
+      "role": "sales-lead",
+      "name": "发布完成后登记作品链接",
+      "result": "passed"
+    },
+    {
+      "index": 19,
+      "area": "workflow",
+      "view": "money-review",
+      "actor": "zhao-boss",
+      "role": "boss",
+      "name": "老板金额审批",
+      "result": "passed"
+    },
+    {
+      "index": 36,
+      "area": "workflow",
+      "view": "deliverable-review",
+      "actor": "hq-design-lead",
+      "role": "hq-design-lead",
+      "name": "设计成果审核",
+      "result": "passed"
+    },
+    {
+      "index": 42,
+      "area": "workflow",
+      "view": "confirmation",
+      "actor": "sales-dual",
+      "role": "sales-lead",
+      "name": "正式成果确认",
+      "result": "passed"
+    },
+    {
+      "index": 45,
+      "area": "workflow",
+      "view": "review-record",
+      "actor": "hq-design-lead",
+      "role": "hq-design-lead",
+      "name": "施工图审核办理",
+      "result": "passed"
+    },
+    {
+      "index": 127,
+      "area": "workflow",
+      "view": "change-new",
+      "actor": "hq-design-dual",
+      "role": "hq-design-lead",
+      "name": "变更申请",
+      "result": "passed"
+    },
+    {
+      "index": 128,
+      "area": "workflow",
+      "view": "change-approval",
+      "actor": "hq-design-lead",
+      "role": "hq-design-lead",
+      "name": "设计变更审批",
+      "result": "passed"
+    },
+    {
+      "index": 130,
+      "area": "workflow",
+      "view": "amendment",
+      "actor": "sales-dual",
+      "role": "sales-lead",
+      "name": "合同补充协议",
+      "result": "passed"
+    },
+    {
+      "index": 131,
+      "area": "workflow",
+      "view": "change-result",
+      "actor": "hq-design-dual",
+      "role": "hq-design-lead",
+      "name": "提交变更正式成果",
+      "result": "passed"
+    },
+    {
+      "index": 132,
+      "area": "workflow",
+      "view": "change-result-review",
+      "actor": "hq-design-lead",
+      "role": "hq-design-lead",
+      "name": "变更成果审核",
+      "result": "passed"
+    },
+    {
+      "index": 133,
+      "area": "workflow",
+      "view": "change-confirmation",
+      "actor": "sales-dual",
+      "role": "sales-lead",
+      "name": "变更成果确认",
+      "result": "passed"
+    },
+    {
+      "index": 126,
+      "area": "build",
+      "view": "inspection-review",
+      "actor": "engineering-lead",
+      "role": "project-manager",
+      "name": "工程负责人独立阶段验收",
+      "result": "passed"
+    },
+    {
+      "index": 90,
+      "area": "build",
+      "view": "archive",
+      "actor": "engineering-dual",
+      "role": "project-manager",
+      "name": "工程归档",
+      "result": "passed"
+    }
+  ],
+  "screens": [
+    "5-publish-before.png",
+    "5-publish-after.png",
+    "6-receipt-before.png",
+    "6-receipt-after.png",
+    "19-money-review-before.png",
+    "19-money-review-after.png",
+    "36-deliverable-review-before.png",
+    "36-deliverable-review-after.png",
+    "42-confirmation-before.png",
+    "42-confirmation-after.png",
+    "45-review-record-before.png",
+    "45-review-record-after.png",
+    "127-change-new-before.png",
+    "127-change-new-after.png",
+    "128-change-approval-before.png",
+    "128-change-approval-after.png",
+    "130-amendment-before.png",
+    "130-amendment-after.png",
+    "131-change-result-before.png",
+    "131-change-result-after.png",
+    "132-change-result-review-before.png",
+    "132-change-result-review-after.png",
+    "133-change-confirmation-before.png",
+    "133-change-confirmation-after.png",
+    "126-inspection-review-before.png",
+    "126-inspection-review-after.png",
+    "90-archive-before.png",
+    "90-archive-after.png"
+  ],
+  "exceptions": []
+}

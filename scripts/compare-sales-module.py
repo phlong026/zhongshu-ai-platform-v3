@@ -3,7 +3,7 @@ from PIL import Image, ImageDraw, ImageFont
 import json
 
 root = Path(__file__).resolve().parents[1]
-folder = root / 'qa/business-module-redesign-20261019'
+folder = root / 'qa/business-followups-20261019'
 out = folder / 'comparisons'
 out.mkdir(parents=True, exist_ok=True)
 font = ImageFont.truetype('C:/Windows/Fonts/msyh.ttc', 17)
@@ -43,5 +43,15 @@ for key, (label, source) in sources.items():
                      'normalizedWidth':390, 'fullComparison':str((out/(key+'.png')).relative_to(root)),
                      'focusedComparison':str((out/(key+'-focus.png')).relative_to(root)),
                      'focusedNormalizedTop':{'source':starts[0],'implementation':starts[1]}})
-(out/'manifest.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding='utf-8')
+(out/'manifest.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding='utf-8', newline='\n')
 print('Created 4 full-view and 4 focused reference/native comparisons.')
+
+# Required post URL stays above long automatic publication information.
+receipt_files=[folder/'receipt-before.png',folder/'native/05-link-required.png']
+if all(p.exists() for p in receipt_files):
+    pictures=[normalized(p) for p in receipt_files]
+    board=Image.new('RGB',(796,max(p.height for p in pictures)+42),'#eae6df')
+    draw=ImageDraw.Draw(board)
+    for i,(pic,label) in enumerate(zip(pictures,['发布链接 · 调整前','发布链接 · 调整后'])):
+        board.paste(pic,(i*406,42)); draw.text((i*406+8,10),label,fill='#141312',font=font)
+    board.save(out/'receipt-order.png')

@@ -49,7 +49,10 @@
     "check:franchise:pages": "node scripts/verify-franchise-role-pages.cjs",
     "check:franchise": "npm run check:franchise:main && npm run check:franchise:exceptions && npm run check:franchise:pages && npm run check",
     "check:role-auto": "npm run check:franchise && node scripts/verify-role-same-person-main.cjs && node scripts/verify-role-auto-routing.cjs",
-    "check:demo": "node scripts/check-demo-business.cjs"
+    "check:demo": "node scripts/check-demo-business.cjs",
+    "check:business:confirmed": "node scripts/verify-role-same-person-main.cjs && node scripts/verify-confirmed-approval-policy.cjs && node scripts/verify-design-reference-flow.cjs",
+    "prepare:demo:confirmed": "node scripts/prepare-confirmed-demo.cjs",
+    "check:business:confirmed:native": "node scripts/verify-confirmed-policy-native.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0"

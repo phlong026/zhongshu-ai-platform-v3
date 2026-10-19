@@ -1,2 +1,2 @@
-const {spawnSync}=require('child_process'),path=require('path');
-for(const [script,capture]of [['verify-role-same-person-main.cjs','chain'],['verify-demo-extra.cjs','extra'],['verify-franchise-exceptions.cjs','exceptions'],['build-demo-fixtures.cjs'],['verify-demo-pages.cjs'],['verify.cjs']]){const env={...process.env};delete env.DEMO_CAPTURE;if(capture)env.DEMO_CAPTURE=path.resolve('qa/demo-business-20261019/'+capture+'-capture.json');const r=spawnSync(process.execPath,['scripts/'+script],{stdio:'inherit',env});if(r.status!==0)process.exit(r.status||1);}
+const {spawnSync}=require('child_process');
+for(const script of ['verify-role-same-person-main.cjs','verify-confirmed-approval-policy.cjs','verify-design-reference-flow.cjs','verify-demo-pages.cjs','verify.cjs']){const env={...process.env};delete env.DEMO_CAPTURE;const r=spawnSync(process.execPath,['scripts/'+script],{stdio:'inherit',env});if(r.status!==0)process.exit(r.status||1);}

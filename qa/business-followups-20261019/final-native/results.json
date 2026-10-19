@@ -1,0 +1,152 @@
+{
+  "result": "passed",
+  "system": {
+    "brand": "devtools",
+    "model": "iPhone 12/13 (Pro)",
+    "system": "iOS 10.0.1",
+    "platform": "devtools",
+    "benchmarkLevel": -1,
+    "pixelRatio": 3,
+    "screenWidth": 390,
+    "screenHeight": 844,
+    "windowWidth": 390,
+    "windowHeight": 844,
+    "statusBarHeight": 47,
+    "safeArea": {
+      "top": 47,
+      "left": 0,
+      "right": 390,
+      "bottom": 810,
+      "width": 390,
+      "height": 763
+    },
+    "language": "zh_CN",
+    "version": "8.0.5",
+    "fontSizeSetting": 16,
+    "SDKVersion": "3.17.4",
+    "host": {
+      "env": "WeChat"
+    },
+    "enableDebug": false,
+    "mode": "default",
+    "deviceOrientation": "portrait",
+    "bluetoothEnabled": true,
+    "locationEnabled": true,
+    "wifiEnabled": true,
+    "albumAuthorized": true,
+    "cameraAuthorized": true,
+    "locationAuthorized": true,
+    "microphoneAuthorized": true,
+    "notificationAuthorized": true,
+    "notificationAlertAuthorized": true,
+    "notificationBadgeAuthorized": true,
+    "notificationSoundAuthorized": true,
+    "phoneCalendarAuthorized": true,
+    "bluetoothAuthorized": true,
+    "locationReducedAccuracy": true,
+    "devicePixelRatio": 3
+  },
+  "styles": {
+    "home": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "customers": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "creation": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "design": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "customer-detail": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "budget": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "studio": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "video": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "growth": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    },
+    "receipt": {
+      "font-family": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "23px",
+      "color": "rgb(20, 19, 18)"
+    }
+  },
+  "metrics": {
+    "home": {
+      "size": "20px",
+      "lineHeight": "27px",
+      "weight": "600"
+    },
+    "customers": {
+      "size": "20px",
+      "lineHeight": "27px",
+      "weight": "600"
+    }
+  },
+  "screens": [
+    "home-top.png",
+    "home-bottom.png",
+    "customers-top.png",
+    "customers-bottom.png",
+    "creation-top.png",
+    "creation-bottom.png",
+    "design-top.png",
+    "design-bottom.png",
+    "customer-detail.png",
+    "budget.png",
+    "studio.png",
+    "video.png",
+    "growth.png",
+    "receipt.png",
+    "publication-detail-top.png",
+    "publication-detail-bottom.png"
+  ],
+  "exceptions": []
+}

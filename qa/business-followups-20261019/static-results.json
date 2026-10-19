@@ -1,0 +1,26 @@
+{
+  "result": "passed",
+  "appid": "wxe584f6fad7b54487",
+  "wxmlChecked": 29,
+  "nativePages": 20,
+  "jsChecked": 102,
+  "jsonChecked": 35,
+  "assetsChecked": 160,
+  "packageBytes": 7656649,
+  "mainBytes": 2087211,
+  "ignoredFiles": [
+    "assets/manifest.json",
+    "assets/studio-record-cover.jpg",
+    "assets/studio-video-play.png",
+    "assets/avatar-profile.jpg"
+  ],
+  "ignoredBytes": 85579,
+  "subPackages": {
+    "business-workflow": 1710400,
+    "engineering-workflow": 881114,
+    "account-workflow": 1280756,
+    "management-workflow": 543208,
+    "growth-workflow": 11007,
+    "demo-workflow": 1142953
+  }
+}
