@@ -1,0 +1,101 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/business/index",
+    "pages/engineering/index",
+    "pages/management/index",
+    "pages/profile/index",
+    "pages/creation/index",
+    "pages/ai-video/index",
+    "pages/studio/index",
+    "pages/design/index",
+    "pages/customers/index"
+  ],
+  "subPackages": [
+    {
+      "root": "pages/workflow",
+      "name": "business-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/build",
+      "name": "engineering-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "pages": [
+        "index"
+      ],
+      "root": "pages/account",
+      "name": "account-workflow"
+    },
+    {
+      "pages": [
+        "index"
+      ],
+      "root": "pages/admin",
+      "name": "management-workflow"
+    },
+    {
+      "root": "pages/growth",
+      "name": "growth-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/demo",
+      "name": "demo-workflow",
+      "pages": [
+        "index",
+        "live"
+      ]
+    }
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "众墅之家",
+    "backgroundColor": "#faf8f4",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#7d8085",
+    "selectedColor": "#75451f",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/business/index",
+        "text": "业务"
+      },
+      {
+        "pagePath": "pages/engineering/index",
+        "text": "工程"
+      },
+      {
+        "pagePath": "pages/management/index",
+        "text": "管理"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "usingComponents": {
+    "brand-header": "/components/brand-header/index",
+    "action-panel": "/components/action-panel/index",
+    "demo-guide": "/components/demo-guide/index"
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

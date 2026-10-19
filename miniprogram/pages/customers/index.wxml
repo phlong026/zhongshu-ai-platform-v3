@@ -1,0 +1,8 @@
+<view class="page customers-page workbench-page">
+  <view class="workbench-header"><brand-header divider="{{true}}" account-font="{{true}}" title="客户" /></view>
+  <view class="content">
+    <view class="customer-search"><image src="/assets/search.png" mode="aspectFit" /><input placeholder="搜索姓名、手机号或所在城市" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
+    <view class="section"><view class="section-heading"><text class="section-title">我的客户</text><button class="primary" bindtap="register">＋ 登记客户</button></view><view class="customer-filters"><button wx:for="{{filters}}" wx:key="*this" class="{{filter===item?'active':''}}" data-value="{{item}}" bindtap="setFilter">{{item}}</button></view><button wx:for="{{filteredCustomers}}" wx:key="id" class="customer-list-row" data-id="{{item.id}}" bindtap="open"><view class="customer-initial">{{item.name[0]}}</view><view class="customer-row-copy"><view class="customer-row-heading"><text>{{item.name}}</text><text class="customer-status">{{item.status}}</text></view><text class="hint">{{item.phone||item.wechat||'暂无联系方式'}} · {{item.city}}</text></view><view class="chevron" /></button><view wx:if="{{!filteredCustomers.length}}" class="empty">{{keyword||filter!=='全部'?'暂无符合条件的客户':'当前没有可见客户，可先登记客户。'}}</view></view>
+  </view>
+</view>
+<workspace-nav id="customers-workspace-nav" active-index="{{7}}" nested />

@@ -1,0 +1,252 @@
+[
+  {
+    "asset": "miniprogram\\assets\\account-avatar.jpg",
+    "source": "P02_个人资料.png",
+    "crop": [
+      310,
+      214,
+      547,
+      453
+    ]
+  },
+  {
+    "asset": "miniprogram\\assets\\account-course.jpg",
+    "source": "P01_我的首页.png",
+    "crop": [
+      77,
+      780,
+      442,
+      1021
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\course-hero.jpg",
+    "source": "P04_课程详情.png",
+    "crop": [
+      33,
+      178,
+      820,
+      507
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\course-engineering.jpg",
+    "source": "P03_学习中心.png",
+    "crop": [
+      81,
+      1127,
+      314,
+      1300
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\course-sales.jpg",
+    "source": "P03_学习中心.png",
+    "crop": [
+      81,
+      1335,
+      314,
+      1506
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\service-banner.jpg",
+    "source": "P08_加盟商服务中心.png",
+    "crop": [
+      36,
+      263,
+      817,
+      604
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\service-store.jpg",
+    "source": "P09_门店形象服务详情_复核版.png",
+    "crop": [
+      32,
+      177,
+      821,
+      579
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\service-showroom.jpg",
+    "source": "P08_加盟商服务中心.png",
+    "crop": [
+      433,
+      930,
+      818,
+      1161
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\service-brand.jpg",
+    "source": "P08_加盟商服务中心.png",
+    "crop": [
+      52,
+      1317,
+      363,
+      1483
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\service-card.jpg",
+    "source": "P11_我的服务订单_品牌复核版.png",
+    "crop": [
+      50,
+      1319,
+      331,
+      1548
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\service-material.jpg",
+    "source": "P08_加盟商服务中心.png",
+    "crop": [
+      53,
+      1505,
+      366,
+      1654
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\service-plan.jpg",
+    "source": "S24_门店服务方案确认.png",
+    "crop": [
+      55,
+      638,
+      797,
+      873
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\receipt-proof.jpg",
+    "source": "S21_部分付款记录.png",
+    "crop": [
+      260,
+      1365,
+      430,
+      1468
+    ]
+  },
+  {
+    "asset": "miniprogram\\assets\\account-message.jpg",
+    "source": "P01_我的首页.png",
+    "crop": [
+      62,
+      463,
+      135,
+      539
+    ]
+  },
+  {
+    "asset": "miniprogram\\assets\\account-chart.jpg",
+    "source": "P01_我的首页.png",
+    "crop": [
+      454,
+      465,
+      521,
+      533
+    ]
+  },
+  {
+    "asset": "miniprogram\\assets\\account-shop.jpg",
+    "source": "P01_我的首页.png",
+    "crop": [
+      85,
+      1200,
+      156,
+      1278
+    ]
+  },
+  {
+    "asset": "miniprogram\\assets\\account-bag.jpg",
+    "source": "P01_我的首页.png",
+    "crop": [
+      462,
+      1198,
+      539,
+      1275
+    ]
+  },
+  {
+    "asset": "miniprogram\\assets\\account-order.jpg",
+    "source": "P01_我的首页.png",
+    "crop": [
+      68,
+      1383,
+      118,
+      1441
+    ]
+  },
+  {
+    "asset": "miniprogram\\assets\\account-headset.jpg",
+    "source": "P01_我的首页.png",
+    "crop": [
+      65,
+      1488,
+      121,
+      1546
+    ]
+  },
+  {
+    "asset": "miniprogram\\assets\\account-shield.jpg",
+    "source": "P01_我的首页.png",
+    "crop": [
+      67,
+      1594,
+      117,
+      1648
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\file.jpg",
+    "source": "S17_学习中心_资料.png",
+    "crop": [
+      89,
+      731,
+      153,
+      808
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\star.jpg",
+    "source": "S17_学习中心_资料.png",
+    "crop": [
+      88,
+      1465,
+      151,
+      1530
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\camera.jpg",
+    "source": "P10_提交服务需求.png",
+    "crop": [
+      161,
+      755,
+      219,
+      812
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\pdf.jpg",
+    "source": "S25_门店服务成果接收.png",
+    "crop": [
+      88,
+      912,
+      144,
+      986
+    ]
+  },
+  {
+    "asset": "miniprogram\\pages\\account\\assets\\zip.jpg",
+    "source": "S25_门店服务成果接收.png",
+    "crop": [
+      88,
+      1073,
+      144,
+      1147
+    ]
+  }
+]

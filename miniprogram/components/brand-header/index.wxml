@@ -1,0 +1,7 @@
+<view class="header {{home ? 'header-home' : ''}} {{accountFont?'account-font':''}}" style="padding-top: {{statusHeight}}px;">
+  <view class="nav-row">
+    <image class="brand" src="/assets/brand.png" mode="aspectFit" />
+    <view wx:if="{{divider&&title}}" class="brand-divider"/>
+    <view wx:if="{{title}}" class="heading"><text class="title">{{title}}</text><text wx:if="{{subtitle}}" class="subtitle">{{subtitle}}</text></view>
+  </view>
+</view>

@@ -1,0 +1,36 @@
+<view class="page business-page workbench-page">
+  <view class="workbench-header"><brand-header divider="{{true}}" account-font="{{true}}" id="business-workbench-header" title="{{deskTitle||'业务工作台'}}" /></view>
+  <view class="content"><view wx:if="{{!canBusiness}}" class="section workbench-denied"><text class="section-title">{{active?'当前身份无业务办理权限':'登录后查看业务工作台'}}</text><text>客户跟进、设计和移交按岗位分工办理。请使用本人已授权的工作台。</text><button wx:if="{{active}}" class="primary return-workbench" data-tab="{{homeTab}}" bindtap="goTab">返回{{homeTitle}}</button><button wx:else class="primary" data-action="login" bindtap="openAction">登录后继续</button></view><block wx:else>
+    <view wx:if="{{isDesign}}" class="section"><text class="section-title">{{actorRole==='hq-design-lead'?'团队设计办理':'本人设计任务'}}</text><text class="empty">{{deskDescription}}</text></view><view class="search-box"><image src="/assets/search.png" class="search-icon" /><input placeholder="搜索客户、项目或方案" placeholder-class="search-placeholder" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
+    <view class="section todo-section">
+      <view class="section-heading"><text class="section-title">{{isDesign?'业务与交付待办':'客户跟进'}}</text><button wx:if="{{canSalesWrite}}" class="primary" data-action="customer" bindtap="openAction" hover-class="pressed"><text class="plus">＋</text>客户</button></view>
+      <view class="customer-card">
+        <view wx:for="{{filteredCustomers}}" wx:key="id" class="customer-row">
+          <image class="avatar" src="{{item.avatar}}" mode="aspectFill" />
+          <view class="customer-info"><text class="customer-name">{{item.name}}</text><text class="customer-desc">{{item.desc}}</text></view>
+          <button class="outline" data-action="{{item.action}}" data-customer="{{item.id}}" bindtap="openAction" hover-class="pressed">{{item.button}}</button>
+        </view>
+        <view wx:if="{{!filteredCustomers.length}}" class="empty">当前没有需要本人办理的事项</view>
+        <button wx:if="{{canBrowseCustomers}}" class="customer-footer" data-action="customers" bindtap="openAction">{{isDesign?'设计任务列表':'客户与预约'}}<view class="chevron" /></button>
+      </view>
+    </view>
+    <view wx:if="{{canCreate}}" class="section video-section">
+      <view class="section-heading"><text class="section-title">视频创作</text><button class="text-link" data-action="works" bindtap="openAction">我的作品<view class="chevron" /></button></view>
+      <view class="video-content">
+        <button class="video-preview" data-action="works" bindtap="openAction" hover-class="pressed"><image src="/assets/business-video.jpg" mode="aspectFill" /></button>
+        <view class="creation-actions"><button wx:for="{{creation}}" wx:key="action" class="creation-action" data-action="{{item.action}}" bindtap="openAction" hover-class="pressed"><image class="creation-icon" src="/assets/{{item.icon}}.png" mode="aspectFit" /><text>{{item.title}}</text><view class="chevron" /></button></view>
+      </view>
+    </view>
+    <view wx:if="{{canSalesWrite}}" class="section design-section">
+      <view class="section-heading"><text class="section-title">方案设计</text><button class="primary" data-action="autonomous" bindtap="openAction" hover-class="pressed"><text class="plus">＋</text>自主设计</button></view>
+      <view class="design-cards">
+        <button class="design-card" data-action="planSearch" bindtap="openAction" hover-class="pressed"><image src="/assets/plan-search-cover.jpg" mode="aspectFill" /><view class="design-caption"><text>户型检索</text><view class="chevron" /></view></button>
+        <button class="design-card" data-action="plan" bindtap="openAction" hover-class="pressed"><image src="/assets/floor-plan.png" mode="aspectFill" /><view class="design-caption"><text>平面方案</text><view class="chevron" /></view></button>
+        <button class="design-card" data-action="facade" bindtap="openAction" hover-class="pressed"><image src="/assets/facade.jpg" mode="aspectFill" /><view class="design-caption"><text>立面方案</text><view class="chevron" /></view></button>
+        <button class="design-card" data-action="budget" bindtap="openAction" hover-class="pressed"><image src="/assets/quote-estimate-cover.jpg" mode="aspectFill" /><view class="design-caption"><text>报价测算</text><view class="chevron" /></view></button>
+      </view>
+    </view>
+    <view wx:if="{{staffTodos.length}}" class="section"><text class="section-title">审批待办</text><button wx:for="{{staffTodos}}" wx:key="id" class="customer-footer" data-view="{{item.view}}" data-id="{{item.id}}" bindtap="goAdmin">{{item.name}} · {{item.status}} ›</button></view><button wx:if="{{!active}}" class="primary guest-login-button" data-action="login" bindtap="openAction">登录后查看本人工作台</button><button wx:if="{{showServices}}" class="customer-footer" data-action="serviceOrders" bindtap="openAction">门店服务订单 ›</button>
+  </block></view>
+</view>
+<action-panel workbench="{{true}}" id="dashboard-action-panel" panel="{{panel}}" bindclose="closePanel" bindsubmit="submitPanel" />

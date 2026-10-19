@@ -1,0 +1,21 @@
+const roles={sales:'业务员','sales-lead':'业务负责人',engineer:'工程师','project-manager':'项目经理',finance:'财务专员','finance-lead':'财务负责人',boss:'老板',owner:'门店负责人','hq-operations':'运营专员','hq-operations-lead':'运营负责人','hq-designer':'设计师','hq-design-lead':'设计负责人'};
+const templates={store:['sales','sales-lead','engineer','project-manager','finance','finance-lead','boss','owner'],headquarters:['hq-operations','hq-operations-lead','hq-designer','hq-design-lead','finance','finance-lead','boss']};
+const teamForRole=r=>['sales','sales-lead'].includes(r)?'sales':['engineer','project-manager'].includes(r)?'engineering':r.startsWith('hq-operations')?'operations':r.startsWith('hq-')?'design':['finance','finance-lead'].includes(r)?'finance':'management';
+const allowed=(type,role)=>(templates[type]||[]).includes(role);
+const enabled=(type,role)=>allowed(type,role)&&(type!=='headquarters'||['hq-designer','hq-design-lead','finance','finance-lead'].includes(role));
+const home=c=>!c.active?'profile':['finance','finance-lead','boss','owner'].includes(c.role)?'management':['engineer','project-manager'].includes(c.role)?'engineering':'business';
+function navigation(c){
+ const guest=!c.loggedIn,boss=['boss','owner'].includes(c.role),canBusiness=c.active&&(boss||['sales','sales-lead','hq-designer','hq-design-lead'].includes(c.role)),canEngineering=c.active&&(boss||['engineer','project-manager'].includes(c.role)),canManagement=c.active&&(boss||['finance','finance-lead'].includes(c.role)),homeTab=home(c),homeTitle={business:c.orgType==='headquarters'?'设计工作台':'业务工作台',engineering:'工程工作台',management:['finance','finance-lead'].includes(c.role)?'财务工作台':'管理工作台',profile:'我的'}[homeTab];
+ const base=[{key:'home',text:'首页',index:0},{key:'business',text:!guest&&c.orgType==='headquarters'&&!boss?'设计':'业务',index:1},{key:'engineering',text:'工程',index:2},{key:'management',text:!guest&&['finance','finance-lead'].includes(c.role)?'财务':'管理',index:3},{key:'profile',text:'我的',index:4}];
+ let tabs;
+ if(guest)tabs=base;
+ else if(!c.active)tabs=[base[4]];
+ else if(['sales','sales-lead'].includes(c.role))tabs=[{key:'business',text:'首页',index:1,icon:'home'},{key:'creation',text:'创作',index:5,icon:'business',native:false},{key:'design',text:'设计',index:6,customIcon:'/assets/home-design-icon.png',native:false},{key:'customers',text:'客户',index:7,customIcon:'/assets/team.png',native:false},base[4]];
+ else{const primary=base.find(t=>t.key===homeTab)||base[4];tabs=[{...primary,text:'首页',icon:'home'},...base.filter(t=>t.key!==homeTab&&t.index!==0&&(t.index===4||[false,canBusiness,canEngineering,canManagement][t.index]))];}
+ return {guest,canBusiness,canEngineering,canManagement,homeTab,homeTitle,tabs:tabs.map(t=>({...t,url:'/pages/'+t.key+'/index',native:t.native!==false}))};
+}
+const inherited={'sales-lead':'sales','project-manager':'engineer','hq-design-lead':'hq-designer','finance-lead':'finance','hq-operations-lead':'hq-operations'};
+const has=(role,wanted)=>role===wanted||inherited[role]===wanted;
+const staffHas=(p,wanted)=>(p?.roles||[p?.roleId]).some(r=>has(r,wanted));
+const defaultRole=(grants,preferred)=>{const first=grants.includes(preferred)?preferred:grants[0];return Object.keys(inherited).find(r=>inherited[r]===first&&grants.includes(r))||first;};
+module.exports={defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation};

@@ -1,0 +1,1 @@
+<view class="header" style="padding-top:{{statusHeight}}px"><view class="nav"><button class="back" bindtap="back" aria-label="返回"><image src="/assets/creation-back.png" mode="aspectFit"/></button><text>{{title}}</text></view></view>

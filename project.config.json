@@ -1,0 +1,144 @@
+{
+  "description": "众墅之家五大工作台与内容创作流程 · 原生复刻",
+  "miniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "appid": "wxe584f6fad7b54487",
+  "projectname": "众墅之家AI赋能平台V3",
+  "libVersion": "3.17.4",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "minifyWXSS": true,
+    "enhance": true,
+    "urlCheck": true,
+    "packNpmManually": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmRelationList": [],
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "packOptions": {
+    "ignore": [
+      {
+        "value": "assets/manifest.json",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-record-cover.jpg",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-video-play.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/avatar-profile.jpg",
+        "type": "file"
+      }
+    ],
+    "include": []
+  },
+  "condition": {
+    "miniprogram": {
+      "list": [
+        {
+          "id": 0,
+          "name": "首页",
+          "pathName": "pages/home/index",
+          "query": ""
+        },
+        {
+          "id": 1,
+          "name": "业务工作台",
+          "pathName": "pages/business/index",
+          "query": ""
+        },
+        {
+          "id": 2,
+          "name": "工程工作台",
+          "pathName": "pages/engineering/index",
+          "query": ""
+        },
+        {
+          "id": 3,
+          "name": "管理工作台",
+          "pathName": "pages/management/index",
+          "query": ""
+        },
+        {
+          "id": 4,
+          "name": "我的",
+          "pathName": "pages/profile/index",
+          "query": ""
+        },
+        {
+          "id": 5,
+          "name": "创作中心",
+          "pathName": "pages/creation/index",
+          "query": ""
+        },
+        {
+          "id": 6,
+          "name": "AI视频",
+          "pathName": "pages/ai-video/index",
+          "query": ""
+        },
+        {
+          "id": 7,
+          "name": "文案二创",
+          "pathName": "pages/studio/index",
+          "query": "view=remix"
+        },
+        {
+          "id": 8,
+          "name": "数字人口播",
+          "pathName": "pages/studio/index",
+          "query": "view=digital"
+        },
+        {
+          "id": 9,
+          "name": "任务中心",
+          "pathName": "pages/studio/index",
+          "query": "view=tasks"
+        },
+        {
+          "id": 10,
+          "name": "发布记录",
+          "pathName": "pages/studio/index",
+          "query": "view=records"
+        },
+        {
+          "id": 11,
+          "name": "视频结果",
+          "pathName": "pages/studio/index",
+          "query": "view=result"
+        },
+        {
+          "id": 12,
+          "name": "发布设置",
+          "pathName": "pages/studio/index",
+          "query": "view=publish"
+        },
+        {
+          "id": 13,
+          "name": "发布详情",
+          "pathName": "pages/studio/index",
+          "query": "view=detail"
+        }
+      ]
+    }
+  },
+  "simulatorPluginLibVersion": {},
+  "editorSetting": {}
+}

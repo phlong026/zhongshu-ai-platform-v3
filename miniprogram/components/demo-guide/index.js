@@ -1,0 +1,2 @@
+const Demo=require('../../utils/demo-session'),Live=require('../../utils/live-demo');
+Component({data:{active:false,index:0,live:false},lifetimes:{attached(){this.refresh();}},pageLifetimes:{show(){this.refresh();}},methods:{refresh(){const s=Demo.active(),live=!!Live.active();this.setData({active:!!s||live,live,index:(s?.index||0)+1});},open(){wx.redirectTo({url:this.data.live?'/pages/demo/live':'/pages/demo/index'});}}});

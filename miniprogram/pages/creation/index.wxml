@@ -1,0 +1,42 @@
+<view class="creation-page center-page">
+  <creation-header id="creation-page-header" title="创作中心" /><demo-guide id="demo-guide"/>
+  <view class="creation-body center-body"><text class="creation-notice">本地演示 · 可编辑草稿，AI生成与平台发布尚未接入</text>
+    <view class="creation-card remix-card">
+      <text class="remix-title">爆款文案二创</text>
+      <text class="remix-subtitle creation-muted">粘贴链接，改文案做口播。</text>
+      <view class="demo-samples"><text class="creation-muted">选择模拟视频，查看对应原文</text><button wx:for="{{demoSamples}}" wx:key="id" class="demo-sample {{sampleId===item.id?'selected':''}}" data-id="{{item.id}}" bindtap="chooseDemo">{{item.title}}</button></view>
+      <view class="share-input">
+        <image class="link-icon" src="/assets/creation-link.png" mode="aspectFit" />
+        <input class="link-input" value="{{link}}" bindinput="inputLink" placeholder="粘贴视频分享链接" placeholder-class="creation-muted" maxlength="2000" aria-label="视频分享链接" />
+        <button class="paste-button creation-brown" bindtap="paste" hover-class="pressed">粘贴</button>
+      </view>
+      <button class="creation-primary extract-button" bindtap="extract" hover-class="pressed"><text class="button-label">提取文案（模拟）</text></button>
+      <button class="manual-link creation-brown" bindtap="openEditor" hover-class="pressed"><text>没有链接？手动写文案</text><image class="creation-arrow" src="/assets/creation-chevron.png" mode="aspectFit" /></button>
+      <text class="creation-steps creation-muted">提取文案 → 改写 → 生成口播</text>
+    </view>
+    <view class="creation-card ai-entry">
+      <image class="ai-cover" src="/assets/creation-ai-cover.jpg" mode="aspectFill" />
+      <view class="ai-entry-copy"><text class="ai-entry-title">AI视频</text><text class="ai-entry-desc creation-muted">文字、图片或参考素材生成视频</text></view>
+      <button class="start-video creation-brown" bindtap="startVideo" hover-class="pressed"><text>开始创作</text><image class="creation-arrow" src="/assets/creation-chevron.png" mode="aspectFit" /></button>
+    </view>
+    <view class="creation-card shortcuts">
+      <button wx:for="{{shortcuts}}" wx:key="key" class="shortcut" data-key="{{item.key}}" bindtap="openShortcut" hover-class="pressed"><image src="/assets/creation-{{item.icon}}.png" class="shortcut-icon" mode="aspectFit" /><text>{{item.title}}</text></button>
+    </view>
+    <view class="creation-card recent-card">
+      <view class="creation-heading recent-heading"><image src="/assets/creation-section-mark.png" class="creation-mark" /><text class="creation-heading-title">最近创作</text><button class="all-recent creation-muted" bindtap="allRecent"><text>全部</text><image src="/assets/creation-chevron-muted.png" class="creation-arrow" /></button></view>
+      <view wx:if="{{!recent.length}}" class="creation-empty">暂无创作内容，可以先写一份文案。</view><view wx:for="{{recent}}" wx:key="id" class="recent-row">
+        <image class="recent-cover" src="{{item.image}}" mode="aspectFill" />
+        <view class="recent-copy"><text class="recent-title">{{item.title}}</text><text class="recent-badge {{item.badge === '已保存' ? 'badge-success' : ''}}">{{item.badge}}</text></view>
+        <button class="recent-action creation-brown" data-id="{{item.id}}" data-task="{{item.taskId}}" bindtap="editRecent" hover-class="pressed"><text>{{item.action}}</text><image class="creation-arrow" src="/assets/creation-chevron.png" mode="aspectFit" /></button>
+      </view>
+    </view>
+  </view>
+</view>
+<workspace-nav wx:if="{{!sheet}}" id="creation-workspace-nav" active-index="{{1}}" nested />
+<view wx:if="{{sheet}}" class="creation-sheet-overlay" bindtap="closeSheet" catchtouchmove="noop">
+  <view class="creation-sheet" catchtap="noop">
+    <view class="creation-sheet-header"><text>{{sheetTitle}}</text><button class="creation-sheet-close" bindtap="closeSheet">关闭</button></view>
+    <block wx:if="{{sheet === 'editor'}}"><text class="creation-sheet-text">输入会自动暂存，关闭后可以继续。</text><textarea cursor-spacing="24" class="creation-sheet-input" value="{{editorText}}" bindinput="inputEditor" placeholder="写下创作主题和口播文案" maxlength="7000" aria-label="口播文案" /><button class="creation-primary creation-sheet-button" bindtap="saveDraft">保存并继续</button></block>
+
+  </view>
+</view>

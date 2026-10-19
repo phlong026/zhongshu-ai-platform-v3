@@ -1,0 +1,8 @@
+<view class="page design-page workbench-page">
+  <view class="workbench-header"><brand-header divider="{{true}}" account-font="{{true}}" title="方案设计" /></view>
+  <view class="content">
+    <view class="section"><view class="section-heading"><text class="section-title">方案设计</text></view><text class="hint design-intro">选择设计方式，关联客户后继续办理。</text><view class="design-entry-grid"><button wx:for="{{entries}}" wx:key="view" class="design-entry" data-view="{{item.view}}" bindtap="open"><image src="/assets/{{item.image}}" mode="aspectFill" /><view class="design-entry-copy"><text>{{item.title}}</text><text class="hint">{{item.description}}</text><view class="chevron" /></view></button></view></view>
+    <text class="design-note">AI概念方案与预算用于沟通参考，正式设计、施工图及交付沿客户流程办理。</text>
+  </view>
+</view>
+<workspace-nav id="design-workspace-nav" active-index="{{6}}" nested />
