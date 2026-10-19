@@ -1,0 +1,25 @@
+{
+  "result": "passed",
+  "modelChecks": 131,
+  "sets": [
+    {
+      "name": "业务基础回归",
+      "checks": 85,
+      "command": "npm run check:sales"
+    },
+    {
+      "name": "已确认业务审批规则及完整链",
+      "checks": 31,
+      "command": "npm run check:business:confirmed"
+    },
+    {
+      "name": "本轮反馈与独立设计衔接",
+      "checks": 15,
+      "command": "npm run check:sales:refinements"
+    }
+  ],
+  "demoScenes": 134,
+  "beforeAfterPages": 268,
+  "nativeChecks": 13,
+  "nativeScreens": 37
+}

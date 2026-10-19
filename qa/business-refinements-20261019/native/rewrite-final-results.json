@@ -1,0 +1,38 @@
+{
+  "result": "passed",
+  "checks": [
+    {
+      "name": "二创为空时口播按钮禁用，结果区域显示待生成提示",
+      "result": "passed"
+    },
+    {
+      "name": "生成后自动定位到可见二创结果",
+      "result": "passed"
+    },
+    {
+      "name": "结果区域的AI优化按当前文案执行",
+      "result": "passed"
+    },
+    {
+      "name": "灵感筛选、设计参数及预算选择框统一为可见表单样式",
+      "result": "passed"
+    },
+    {
+      "name": "首次实测正确带入本次预算面积，仍可按现场结果修改",
+      "result": "passed"
+    }
+  ],
+  "screens": [
+    "rewrite-final-empty-top.png",
+    "rewrite-final-empty-result.png",
+    "rewrite-final-generated.png",
+    "rewrite-final-optimization.png",
+    "rewrite-final-optimized.png",
+    "polish-entry-inspiration.png",
+    "polish-entry-ai-config.png",
+    "polish-entry-ai-facade.png",
+    "polish-entry-budget.png",
+    "polish-budget-measurement.png"
+  ],
+  "exceptions": []
+}
