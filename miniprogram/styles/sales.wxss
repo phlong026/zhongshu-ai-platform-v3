@@ -1,0 +1,28 @@
+/* Shared sales surface: entry pages and their existing business flows. */
+page{--sales-brand:#89512a;--sales-paper:#faf8f4;--sales-soft:#f7f3ed;--sales-ink:#141312;--sales-muted:#858991;--sales-line:#eee8df;--sales-font:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.sales-page.sales-page{background:var(--sales-paper);color:var(--sales-ink);font-family:var(--sales-font);font-size:28rpx;font-weight:400;line-height:42rpx;letter-spacing:0;min-height:100vh;padding-bottom:calc(140rpx + env(safe-area-inset-bottom))}
+.sales-page.sales-page button,.sales-page.sales-page input,.sales-page.sales-page textarea{font-family:inherit;letter-spacing:0}
+.sales-page.sales-page .content{padding:20rpx 28rpx 0}
+.sales-page.sales-page .section{background:#fff;border:0;border-radius:22rpx;padding:22rpx;margin:0 0 24rpx;box-shadow:none}
+.sales-page.sales-page .section-heading{min-height:52rpx;height:auto;padding:0 0 0 18rpx;margin:0 0 18rpx;display:flex;align-items:center;justify-content:space-between;gap:16rpx}
+.sales-page.sales-page .section-heading::before{left:0;top:10rpx;width:6rpx;height:30rpx;border-radius:4rpx;background:var(--sales-brand)}
+.sales-page.sales-page .section-title{font-family:inherit;font-size:32rpx;font-weight:600;line-height:46rpx;letter-spacing:0}
+.sales-page.sales-page .hint,.sales-page.sales-page .muted{font-size:24rpx;font-weight:400;line-height:36rpx;color:var(--sales-muted)}
+.sales-page.sales-page .primary,.sales-page.sales-page .outline{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;min-height:72rpx;height:auto;line-height:36rpx;padding:12rpx 22rpx;border:1rpx solid var(--sales-brand);border-radius:14rpx;font-size:26rpx;font-weight:500;flex-shrink:0;background:var(--sales-brand);color:#fffaf3}
+.sales-page.sales-page .outline{background:#fff;color:var(--sales-brand)}
+.sales-page.sales-page .text-link{display:inline-flex;align-items:center;gap:10rpx;min-height:60rpx;font-size:24rpx;font-weight:400;line-height:36rpx;color:var(--sales-brand);padding:0}
+.sales-page.sales-page .chevron{border-color:var(--sales-brand)}
+.sales-page .sales-stats{display:flex;padding:22rpx 0 10rpx}
+.sales-page .sales-stat{flex:1;min-width:0;text-align:center;border-right:1rpx solid var(--sales-line)}
+.sales-page .sales-stat:last-child{border-right:0}
+.sales-page .sales-stat-value{display:block;color:var(--sales-brand);font-size:48rpx;font-weight:600;line-height:62rpx}
+.sales-page .sales-stat-label{display:block;font-size:24rpx;line-height:38rpx;color:var(--sales-muted)}
+.sales-page .sales-search{display:flex;align-items:center;gap:18rpx;min-height:80rpx;background:var(--sales-paper);border:2rpx solid #fff;border-radius:42rpx;padding:12rpx 22rpx}
+.sales-page .sales-search>image{width:32rpx;height:32rpx;flex-shrink:0}
+.sales-page .sales-search>input{flex:1;min-width:0;height:48rpx;font-size:28rpx;line-height:42rpx}
+.sales-page .sales-note{display:block;padding:4rpx 8rpx 22rpx;color:var(--sales-muted);font-size:23rpx;line-height:36rpx}
+.sales-page .sales-icon{width:44rpx;height:44rpx;flex-shrink:0}
+.sales-page .sales-footer-link{display:flex;align-items:center;justify-content:center;gap:14rpx;min-height:76rpx;width:100%;font-size:26rpx;color:var(--sales-brand)}
+.sales-page .sales-empty{padding:34rpx 12rpx;text-align:center;font-size:28rpx;line-height:44rpx;color:var(--sales-muted)}
+.sales-page .sales-badge{font-size:22rpx;line-height:32rpx;font-weight:400;color:var(--sales-brand);background:#faf1e5;padding:2rpx 12rpx;border-radius:8rpx}
+@media(max-width:360px){.sales-page.sales-page .content{padding-left:24rpx;padding-right:24rpx}.sales-page.sales-page .section{padding:20rpx}.sales-page.sales-page .section-title{font-size:30rpx}}
