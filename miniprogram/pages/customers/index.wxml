@@ -5,6 +5,7 @@
       <view class="section-heading"><text class="section-title">{{isLead?'客户管理':'我的客户'}}</text><button class="primary" bindtap="register">＋ 登记客户</button></view>
       <view class="sales-stats customer-counts"><view class="sales-stat"><text class="sales-stat-value">{{counts.all}}</text><text class="sales-stat-label">全部</text></view><view class="sales-stat"><text class="sales-stat-value">{{counts.pending}}</text><text class="sales-stat-label">待跟进</text></view><view class="sales-stat"><text class="sales-stat-value">{{counts.following}}</text><text class="sales-stat-label">跟进中</text></view><view class="sales-stat"><text class="sales-stat-value">{{counts.visited}}</text><text class="sales-stat-label">已到店</text></view></view>
       <text wx:if="{{isDemo}}" class="customer-demo-label">演示数据</text>
+      <view wx:if="{{focus}}" class="customer-focus"><text>{{focusLabel}} · {{filteredCustomers.length}}位</text><button bindtap="clearFocus">全部客户<view class="chevron"/></button></view>
       <view class="sales-search customer-search"><image src="/assets/search.png" mode="aspectFit" /><input placeholder="搜索姓名、手机号或地区" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
       <view class="customer-filters"><button wx:for="{{filters}}" wx:key="*this" class="{{filter===item?'active':''}}" data-value="{{item}}" bindtap="setFilter">{{item}}</button></view>
       <view wx:for="{{visibleCustomers}}" wx:key="id" class="customer-list-row" data-id="{{item.id}}" bindtap="open">

@@ -12,15 +12,15 @@ function customerRows(){
  });
 }
 function counts(rows){return {all:rows.length,pending:rows.filter(r=>r.status==='待跟进').length,following:rows.filter(r=>r.status==='跟进中').length,visited:rows.filter(r=>r.status==='已到店').length};}
+function focusRows(rows,focus){const day=today();if(focus==='due')return rows.filter(r=>r.canFollow&&(r.status==='待跟进'||r.appointment&&r.appointment.slice(0,10)<=day)).sort((a,b)=>(a.appointment||day).localeCompare(b.appointment||day));if(focus==='appointments')return rows.filter(r=>r.appointment&&r.appointment.slice(0,10)>=day&&r.status!=='已到店'&&/到店/.test(r.next));return rows;}
 function home(){
  const actor=Access.context();if(!actor.active||!Job.has(actor.role,'sales'))return {isSalesHome:false};
- const rows=customerRows(),day=today(),due=rows.filter(r=>r.canFollow&&(r.status==='待跟进'||r.appointment&&r.appointment.slice(0,10)<=day)).sort((a,b)=>(a.appointment||day).localeCompare(b.appointment||day));
- const upcoming=rows.filter(r=>r.appointment&&r.appointment.slice(0,10)>=day&&r.status!=='已到店'&&/到店/.test(r.next));
+ const rows=customerRows(),day=today(),due=focusRows(rows,'due'),upcoming=focusRows(rows,'appointments');
  const state=require('./studio').read(),recent=require('./studio').recentItems(state),draft=recent.find(r=>r.id==='draft'||r.id==='video-draft'),work=recent.find(r=>r!==draft);
  const project=rows.find(r=>r.hasPlan)||rows.find(r=>r.status!=='待跟进');
  const date=new Date(day+'T12:00:00+08:00'),week=['周日','周一','周二','周三','周四','周五','周六'][date.getUTCDay()];
  return {isSalesHome:true,salesName:require('./account').load().profile.name,salesDate:Number(day.slice(5,7))+'月'+Number(day.slice(8,10))+'日 '+week,customerLabel:actor.role==='sales-lead'?'可见客户':'我的客户',salesCounts:counts(rows),todayCount:due.length,appointmentCount:upcoming.length,salesTodos:due.slice(0,2),hasMoreTodos:due.length>2,
-  salesShortcuts:[{title:'登记客户',icon:'person-filled',action:'customer'},{title:'内容创作',icon:'video-filled',action:'remix'},{title:'方案设计',icon:'home-design-icon',action:'salesDesign'},{title:'报价测算',icon:'contract',action:'budget'}],
+  salesShortcuts:[{title:'内容创作',icon:'video-filled',action:'remix'},{title:'方案设计',icon:'home-design-icon',action:'salesDesign'},{title:'报价测算',icon:'contract',action:'budget'},{title:'登记客户',icon:'person-filled',action:'customer'}],
   recentCustomer:project||null,recentCreation:draft||work||null,isDemo:!!wx.getStorageSync('zhongshu-account-v1')?.session?.demo};
 }
-module.exports={customerRows,counts,category,maskPhone,home};
+module.exports={customerRows,counts,category,maskPhone,focusRows,home};

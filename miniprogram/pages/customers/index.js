@@ -1,9 +1,11 @@
 const B=require('../../utils/business'),Access=require('../../utils/access'),Job=require('../../utils/organization'),Workspace=require('../../utils/sales-workspace');
 require('../../utils/load-local-fonts')(require('../../utils/dashboard-font-sources'),'dashboard');
 Page({
- data:{keyword:'',filter:'全部',filters:['全部','待跟进','跟进中','已到店'],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10},
+ data:{keyword:'',filter:'全部',focus:'',focusLabel:'',filters:['全部','待跟进','跟进中','已到店'],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10},
+ onLoad(o){const focus=['due','appointments'].includes(o.focus)?o.focus:'';this.setData({focus,focusLabel:focus==='due'?'今日待跟进':focus==='appointments'?'预约到店':''});},
  onShow(){const actor=Access.context();if(!actor.loggedIn){this.setData({customers:[],filteredCustomers:[],visibleCustomers:[]});return wx.redirectTo({url:'/pages/account/index?view=login'});}if(!actor.active||!Job.has(actor.role,'sales')){this.setData({customers:[],filteredCustomers:[],visibleCustomers:[]});return wx.switchTab({url:'/pages/'+Access.home()+'/index'});}const rows=Workspace.customerRows();this.setData({customers:rows,counts:Workspace.counts(rows),isLead:actor.role==='sales-lead',isDemo:!!wx.getStorageSync('zhongshu-account-v1')?.session?.demo});this.filterCustomers();},
- filterCustomers(){const keyword=this.data.keyword.trim(),rows=this.data.customers.filter(c=>(this.data.filter==='全部'||c.status===this.data.filter)&&c.searchText.includes(keyword));this.setData({filteredCustomers:rows,visibleCustomers:rows.slice(0,this.data.pageSize),hasMore:rows.length>this.data.pageSize});},
+ filterCustomers(){const keyword=this.data.keyword.trim(),rows=Workspace.focusRows(this.data.customers,this.data.focus).filter(c=>(this.data.filter==='全部'||c.status===this.data.filter)&&c.searchText.includes(keyword));this.setData({filteredCustomers:rows,visibleCustomers:rows.slice(0,this.data.pageSize),hasMore:rows.length>this.data.pageSize});},
+ clearFocus(){this.setData({focus:'',focusLabel:'',filter:'全部',keyword:'',pageSize:10});this.filterCustomers();},
  search(e){this.setData({keyword:e.detail.value});this.filterCustomers();},
  setFilter(e){this.setData({filter:e.currentTarget.dataset.value,pageSize:10});this.filterCustomers();},
  more(){this.setData({pageSize:this.data.pageSize+10});this.filterCustomers();},

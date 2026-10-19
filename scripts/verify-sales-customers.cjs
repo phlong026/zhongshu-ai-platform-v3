@@ -5,6 +5,9 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict');
  for(const [index,id]of ['zhang','sales-lead'].entries()){
   A.mutate(a=>A.loginDemo(a,id));assert(D.ensure());const before=W.customerRows().length;assert(!D.ensure());assert.equal(W.customerRows().length,before);pass(id+'：一次性模拟客户、草稿和作品，不重复注入');
   await open('/pages/business/index');assert(p().data.isSalesHome);assert.equal(p().data.salesCounts.all,before);assert(p().data.salesTodos.length);assert(p().data.recentCreation);pass(id+'：首页统计与可见记录一致，待办与最近创作非空');
+  assert.deepEqual(p().data.salesShortcuts.map(x=>x.title),['内容创作','方案设计','报价测算','登记客户']);
+  for(const[focus,count]of [['all',before],['due',p().data.todayCount],['appointments',p().data.appointmentCount]]){await open('/pages/business/index');await(await(await r.currentPage()).$('.sales-stat[data-focus="'+focus+'"]')).tap();assert.equal(p().route,'pages/customers/index');assert.equal(p().data.filteredCustomers.length,count);assert.equal(p().data.focus,focus==='all'?'':focus);if(focus!=='all'){p().clearFocus();assert.equal(p().data.filteredCustomers.length,before);}}
+  pass(id+'：首页三项数字跳转对应客户集合，数量一致且可清除筛选');await open('/pages/business/index');
   const page=await r.currentPage();await(await page.$('[data-action="customer"]')).tap();assert.equal(p().data.modal,'register');
   const phone='1399900100'+index;p().setData({'form.name':'界面联动测试'+id,'form.phone':phone,'form.source':'视频号咨询','form.summary':'两层乡墅，老人房及预算沟通'});await(await(await r.currentPage()).$('.sheet-save')).tap();
   assert.equal(p().data.view,'customer');const customer=p().data.customer;assert(customer&&customer.phone===phone);assert.equal(customer.ownerId,A.access.context().staffId);pass(id+'：首页登记入口通过原WXML表单创建归本人客户');

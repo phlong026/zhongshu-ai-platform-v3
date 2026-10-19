@@ -15,6 +15,7 @@ definition.onShow=function(){dashboardShow.call(this);this.setData(require('../.
 definition.openSalesTask=function(e){const row=this.data.salesTodos.find(r=>r.id===e.currentTarget.dataset.id);if(row)wx.navigateTo({url:row.url});};
 definition.openSalesShortcut=function(e){const action=e.currentTarget.dataset.action;if(action==='salesDesign')return wx.navigateTo({url:'/pages/design/index'});this.openAction(e);};
 definition.allSalesCustomers=function(){wx.navigateTo({url:'/pages/customers/index'});};
+definition.openSalesMetric=function(e){const focus=e.currentTarget.dataset.focus;if(['all','due','appointments'].includes(focus))wx.navigateTo({url:'/pages/customers/index'+(focus==='all'?'':'?focus='+focus)});};
 definition.continueSalesCustomer=function(){if(this.data.recentCustomer)wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.recentCustomer.id)});};
 definition.continueSalesCreation=function(){wx.navigateTo({url:'/pages/creation/index'});};
 Page(definition);
