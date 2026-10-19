@@ -1,5 +1,5 @@
 const roles={sales:'业务员','sales-lead':'业务负责人',engineer:'工程师','project-manager':'项目经理',finance:'财务专员','finance-lead':'财务负责人',boss:'老板',owner:'门店负责人','hq-operations':'运营专员','hq-operations-lead':'运营负责人','hq-designer':'设计师','hq-design-lead':'设计负责人'};
-const templates={store:['sales','sales-lead','engineer','project-manager','finance','finance-lead','boss','owner'],headquarters:['hq-operations','hq-operations-lead','hq-designer','hq-design-lead','finance','finance-lead','boss']};
+const templates={store:['hq-designer','hq-design-lead','sales','sales-lead','engineer','project-manager','finance','finance-lead','boss','owner'],headquarters:['hq-operations','hq-operations-lead','hq-designer','hq-design-lead','finance','finance-lead','boss']};
 const teamForRole=r=>['sales','sales-lead'].includes(r)?'sales':['engineer','project-manager'].includes(r)?'engineering':r.startsWith('hq-operations')?'operations':r.startsWith('hq-')?'design':['finance','finance-lead'].includes(r)?'finance':'management';
 const allowed=(type,role)=>(templates[type]||[]).includes(role);
 const enabled=(type,role)=>allowed(type,role)&&(type!=='headquarters'||['hq-designer','hq-design-lead','finance','finance-lead'].includes(role));

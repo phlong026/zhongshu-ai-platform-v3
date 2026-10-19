@@ -11,7 +11,7 @@ if(index===0)this.setData({tools:[{title:'业务工作台',tab:'business',icon:'
 if(index===1)this.setData(require('./workbench').business());
 if (typeof this.getTabBar === 'function' && this.getTabBar()) {this.getTabBar().refresh?.();this.getTabBar().setData({ selected: index, hidden: !!this.data.panel });}
 },
-goAdmin(e){const d=e.currentTarget.dataset;wx.navigateTo({url:'/pages/admin/index?view='+d.view+'&id='+encodeURIComponent(d.id)});},
+goAdmin(e){const d=e.currentTarget.dataset;wx.navigateTo({url:'/pages/'+(d.area==='workflow'?'workflow':'admin')+'/index?view='+d.view+'&id='+encodeURIComponent(d.id)+(d.record?'&record='+encodeURIComponent(d.record):'')});},
 goGrowth(e){const d=e.currentTarget.dataset;wx.navigateTo({url:'/pages/growth/index?view='+d.view+'&id='+encodeURIComponent(d.id)});},
 openAction(e) {
 const key = e.currentTarget.dataset.action;if(key==='engineeringReview')return wx.navigateTo({url:'/pages/build/index?view=review&id='+encodeURIComponent(e.currentTarget.dataset.customer)});

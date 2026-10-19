@@ -1,7 +1,20 @@
-const Job=require('./organization');
-const X=require('./access'),copy=x=>JSON.parse(JSON.stringify(x)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-function validate(old,row,c,kind){const a=X.context(),e=old.confirmationEvidence,n=row.confirmationEvidence,approval=!same(old.confirmation,row.confirmation);if(!same(e,n)){X.assert(['sales','sales-lead','boss','owner'].includes(a.role),'签认登记仅限授权门店岗位');if(e?.status==='pending'){X.assert(['sales-lead','boss','owner'].includes(a.role)&&!X.isSelf(e.registrarId,c.companyId||'quanzhou',e.registrarPersonId),'签认须由另一名负责人核验');X.assert(['returned','confirmed'].includes(n?.status)&&n.reviewOpinion&&n.reviewerId===a.staffId,'请保存独立核验意见');for(const k of ['file','date','version','registrarId','registrarPersonId','result'])X.assert(same(e[k],n[k]),'核验人不能改写原客户签认材料');}else{X.assert(Job.has(a.role,'sales')&&n?.status==='pending'&&n.file&&n.date&&n.registrarId===a.staffId,'请由业务人员提交真实客户签认依据');X.assert(!old.confirmation,'已确认版本只读，请办理变更');}}
-if(approval){X.assert(!old.confirmation&&e?.status==='pending'&&n?.status==='confirmed'&&['sales-lead','boss','owner'].includes(a.role)&&!X.isSelf(e.registrarId,c.companyId||'quanzhou',e.registrarPersonId),'客户签认须先登记，再由另一名负责人核验');X.assert(row.confirmation?.reviewerId===a.staffId&&same(row.confirmation.file,e.file)&&row.confirmation.version===e.version,'签认核验结果必须绑定原材料及版本');}if(kind==='confirmation'&&n)X.assert(c.release&&n.version===c.release.version,'签认必须绑定当前正式下发版本');}
-function process(c,change,f){const a=X.context(),row=change||c,e=row.confirmationEvidence;if(row.confirmation)throw Error('已确认记录只读');if(e?.status==='pending'){X.assert(['sales-lead','boss','owner'].includes(a.role)&&!X.isSelf(e.registrarId,c.companyId||'quanzhou',e.registrarPersonId),'请由另一名获授权负责人核验');X.assert(String(f.signoffNote||'').trim(),'请填写核验意见');X.assert(['通过','退回补充'].includes(f.signoffDecision),'请选择通过或退回补充');const pass=f.signoffDecision==='通过';row.confirmationEvidence={...e,status:pass?'confirmed':'returned',reviewerId:a.staffId,reviewerPersonId:a.personId,reviewOpinion:f.signoffNote,...X.actor()};if(pass){row.confirmation={...copy(e),status:'confirmed',reviewerId:a.staffId,reviewerPersonId:a.personId,reviewOpinion:f.signoffNote,reviewedAt:new Date().toISOString()};if(change){row.result=copy(e.result);row.status='confirmed';}}else if(change)row.status='confirmation-returned';return pass?'客户签认独立核验通过':'客户签认退回补充';}
-X.assert(['sales','sales-lead'].includes(a.role),'请由业务人员登记客户真实签认');const file=change?f.changeConfirmationFile:f.confirmationFile,date=change?f.changeConfirmationDate:f.confirmationDate,checked=change?f.changeConfirmationChecked:f.confirmationChecked;X.assert(file&&checked&&/^\d{4}-\d{2}-\d{2}$/.test(date||'')&&!Number.isNaN(Date.parse(date)),'请上传客户真实签认依据并核对日期和版本');X.assert(!change||f.changeResultFile,'请关联本次变更成果');row.confirmationHistory=(row.confirmationHistory||[]).concat(e?[copy(e)]:[]);row.confirmationEvidence={file:copy(file),date,version:change?change.version:c.release?.version,status:'pending',registrarId:a.staffId,registrarPersonId:a.personId,registeredAt:new Date().toISOString(),...(change?{result:copy(f.changeResultFile)}:{})};if(change)row.status='confirmation-pending';return '登记客户签认，待负责人独立核验';}
+const O=require('./organization'),X=require('./access'),copy=x=>JSON.parse(JSON.stringify(x)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function validate(old,row,c,kind){
+ const a=X.context(),e=row.confirmationEvidence,n=row.confirmation;
+ X.assert(!old.confirmation,'已签认版本只读，请办理变更');
+ X.assert(O.has(a.role,'sales')&&e?.status==='confirmed'&&e.file&&e.date&&e.registrarId===a.staffId&&e.registrarPersonId===a.personId,'请由获授权业务人员登记客户真实签认');
+ X.assert(n?.status==='confirmed'&&same(n.file,e.file)&&n.date===e.date&&n.version===e.version&&n.registrarId===e.registrarId,'客户签认须绑定同一份材料、日期及版本');
+ X.assert(kind!=='confirmation'||c.release&&e.version===c.release.version,'签认必须绑定当前正式下发版本');
+}
+function process(c,change,f){
+ const a=X.context(),row=change||c,e=row.confirmationEvidence;
+ X.assert(!row.confirmation&&O.has(a.role,'sales'),'请由获授权业务人员登记客户真实签认，已签认版本只读');
+ const file=change?f.changeConfirmationFile:f.confirmationFile,date=change?f.changeConfirmationDate:f.confirmationDate,checked=change?f.changeConfirmationChecked:f.confirmationChecked;
+ X.assert(file&&checked&&/^\d{4}-\d{2}-\d{2}$/.test(date||'')&&!Number.isNaN(Date.parse(date))&&new Date(date).toISOString().slice(0,10)===date,'请上传客户真实签认依据并核对日期和版本');
+ X.assert(!change||f.changeResultFile,'请关联本次变更成果');
+ const evidence={file:copy(file),date,version:change?change.version:c.release?.version,status:'confirmed',registrarId:a.staffId,registrarPersonId:a.personId,registeredAt:new Date().toISOString(),...(change?{result:copy(f.changeResultFile)}:{})};
+ row.confirmationHistory=(row.confirmationHistory||[]).concat(e?[copy(e)]:[]);row.confirmationEvidence=evidence;row.confirmation=copy(evidence);
+ if(change){row.result=copy(evidence.result);row.status='confirmed';}
+ return '客户成果签认已登记';
+}
 module.exports={validate,process};

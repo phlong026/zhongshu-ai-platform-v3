@@ -1,5 +1,5 @@
 const E=require('./model');
-const titles={'delivery-review':'交付资料独立核验',projects:'我的项目',new:'新增项目',overview:'工程项目',prepare:'开工准备',start:'正式开工登记',documents:'项目工作区',schedule:'施工计划',materials:'材料计划',supply:'供应安排',node:'施工节点',collection:'工程收款', 'supply-payment':'供应付款申请',finance:'财务办理',delivery:'竣工交付',boss:'工程概览',reship:'差异补发',rectify:'整改与复验',archive:'交付档案',batches:'进场批次',receive:'材料收货',inspection:'验收登记',site:'现场记录',payments:'节点款项',history:'项目记录',review:'施工图专业审核','document-edit':'补齐项目资料',customer:'业主项目进度',quality:'材料质量处置','collection-review':'工程收款核算'};
+const titles={'inspection-review':'工程阶段独立验收',projects:'我的项目',new:'新增项目',overview:'工程项目',prepare:'开工准备',start:'正式开工登记',documents:'项目工作区',schedule:'施工计划',materials:'材料计划',supply:'供应安排',node:'施工节点',collection:'工程收款', 'supply-payment':'供应付款申请',finance:'财务办理',delivery:'竣工交付',boss:'工程概览',reship:'差异补发',rectify:'整改与复验',archive:'交付档案',batches:'进场批次',receive:'材料收货',inspection:'验收登记',site:'现场记录',payments:'节点款项',history:'项目记录',review:'施工图专业审核','document-edit':'补齐项目资料',customer:'业主项目进度',quality:'材料质量处置','collection-review':'工程收款核算'};
 const section=(title,items,extra={})=>Object.assign({title,items},extra);
 const kv=(label,value)=>({type:'kv',label,value});
 const text=(value)=>({type:'text',value});

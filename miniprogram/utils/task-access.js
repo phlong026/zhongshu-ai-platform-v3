@@ -2,7 +2,7 @@ const Job=require('./organization');
 const copy=x=>JSON.parse(JSON.stringify(x));
 const actions={sales:['follow','measurement','documents','confirmation'],engineer:['site','receive','reship','reship-receive'],'hq-design-lead':['design-part','deliverable','release','documents','intake'],'hq-designer':['design-part','deliverable','release','documents','intake']};
 const permitted=role=>actions[role]||actions[{'sales-lead':'sales','project-manager':'engineer','hq-design-lead':'hq-designer'}[role]]||[];
-const fields={follow:['follows','status'],measurement:['measurements','measurementFile','quotes'],documents:['drawings','drawingFile','copies','handover'],'design-part':['designParts'],deliverable:['designStarted','deliverables','deliverableFile','designHistory','tailApplication','release','confirmation'],release:['release'],confirmation:['confirmationEvidence','confirmationHistory']};
+const fields={follow:['follows','status'],measurement:['measurements','measurementFile','quotes'],documents:['drawings','drawingFile','copies','handover'],'design-part':['designParts'],deliverable:['designStarted','deliverables','deliverableFile','designHistory','tailApplication','release','confirmation'],release:['release'],confirmation:['confirmation','confirmationEvidence','confirmationHistory']};
 function scope(module,p){return module==='design'?p.designOrganizationId:(p.companyId||'quanzhou');}
 function valid(g,p,module,c){if(!c.active||!g||g.revoked||g.companyId!==c.companyId||g.staffId!==c.staffId||!Job.has(c.role,g.role)||g.module!==module||scope(module,p)!==c.companyId)return false;const until=Date.parse(g.expiresAt||'');return Number.isFinite(until)&&until>Date.now();}
 function grants(p,module,c){return (p.collaborations||[]).filter(g=>valid(g,p,module,c));}

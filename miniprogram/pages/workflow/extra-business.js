@@ -112,6 +112,7 @@ function transition(c, action, f, record) {
     return { event: '设计变更审批：' + f.changeDecision, next: 'change-detail', record: ch.id };
   }
   if (action === 'amendment') {
+    requireValue(!Number(ch.delta)||require('../../utils/commercial-approval').approved(c,ch.id),'变更金额须先经老板审批。');
     requireValue(ch.status === 'approved' && !ch.agreementId, '请先审批变更，已签补充协议不能重复登记。');
     requireValue(f.agreementNo.trim() && !c.agreements.some(x => x.number === f.agreementNo.trim()) && validDate(f.agreementDate) && f.agreementFile && f.agreementChecked, '请填写唯一的协议编号、签署日期，上传双方已签文件并核对。');
     const agreement = { id: 'agreement-' + (c.agreements.length + 1), version: c.agreements.length + 1, changeId: ch.id, number: f.agreementNo.trim(), date: f.agreementDate, file: B.clone(f.agreementFile), baseContractVersion: c.contract.version, previousAgreementVersion: ch.baseline.agreementVersion, delta: ch.delta, total: ch.total, days: ch.days };

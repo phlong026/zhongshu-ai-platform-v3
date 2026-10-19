@@ -9,7 +9,7 @@ searchStaff(e){if(!this.data.guest&&this.data.allowed)this.setData(staffSearch(t
 clearStaffSearch(){if(!this.data.guest&&this.data.allowed)this.setData(staffSearch(this.data));},
 searchGuest(e){if(this.data.guest)this.setData(guestSearch(e.detail.value));},
 clearGuestSearch(){if(this.data.guest)this.setData(guestSearch());},
-go(e){const d=e.currentTarget.dataset;if(this.data.guest||!this.data.allowed)return this.identity();wx.navigateTo({url:'/pages/'+(d.area==='workflow'?'workflow':'admin')+'/index?view='+d.view+(d.id?'&id='+encodeURIComponent(d.id):'')+(d.taskType?'&taskType='+encodeURIComponent(d.taskType):'')});},
+go(e){const d=e.currentTarget.dataset;if(this.data.guest||!this.data.allowed)return this.identity();wx.navigateTo({url:'/pages/'+(d.area==='workflow'?'workflow':'admin')+'/index?view='+d.view+(d.id?'&id='+encodeURIComponent(d.id):'')+(d.taskType?'&taskType='+encodeURIComponent(d.taskType):'')+(d.record?'&record='+encodeURIComponent(d.record):'')});},
 preview(e){if(!this.data.guest)return;const key=e.currentTarget.dataset.key,item=(this.data.guestGroups||[]).flatMap(g=>g.items).find(x=>x.key===key);if(item){this.setData({guestDetail:item});this.getTabBar()?.setData({hidden:true});}},
 closePreview(){this.setData({guestDetail:null});this.getTabBar()?.setData({hidden:false});},
 loginPreview(){const detail=this.data.guestDetail;this.closePreview();const target=detail?'/pages/admin/index?view='+detail.target:'';wx.navigateTo({url:'/pages/account/index?view=login'+(target?'&content='+encodeURIComponent(detail.label)+'&return='+encodeURIComponent(target):'')});},
