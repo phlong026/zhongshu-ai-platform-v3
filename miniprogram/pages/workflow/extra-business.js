@@ -25,6 +25,7 @@ function effectiveTotal(c) { const agreement = last(c, 'agreements'); return agr
 function context(view, c, record) {
   if (['review-submit', 'review-record', 'supplement-handover', 'supplement-receive'].includes(view)) return (drawing(c) || {}).version || 'none';
   if (['change-approval', 'amendment', 'change-confirmation'].includes(view)) return (selected(c, record) || {}).id || 'none';
+  if (['change-result','change-result-review'].includes(view))return (selected(c,record)||{}).id||'none';
   if (view === 'start-check') return fingerprint(c) + '|' + ((activeChange(c) || {}).id || '');
   if (view === 'change-new') return String(list(c, 'changes').length);
   return (c.request || {}).version || 'none';
@@ -38,8 +39,9 @@ function block(view, c, record) {
   if (view === 'change-new' && activeChange(c)) return b('已有未完成的设计变更，请先继续办理。', 'change-detail');
   if (['change-new', 'change-list', 'change-detail', 'change-approval', 'amendment', 'change-confirmation'].includes(view) && !c.contract) return b('签署合同后可办理设计变更及补充协议。', 'contract');
   const ch = selected(c, record);
-  if (['change-detail', 'change-approval', 'amendment', 'change-confirmation'].includes(view) && !ch) return b('变更记录不存在或尚未提交。', 'change-list');
+  if (['change-result','change-result-review','change-detail', 'change-approval', 'amendment', 'change-confirmation'].includes(view) && !ch) return b('变更记录不存在或尚未提交。', 'change-list');
   if (view === 'amendment' && !['approved', 'signed', 'confirmed', 'completed'].includes(ch.status)) return b('请先完成本次变更审批。', 'change-detail');
+  if(view==='change-confirmation'&&ch&&(!ch.result||ch.resultReview?.status!=='passed'))return b('等待设计师提交本次变更正式成果，并由设计负责人审核通过。','change-detail');
   if (view === 'change-confirmation' && !ch.agreementId) return b('双方签署补充协议后才能登记变更成果确认。', 'amendment');
   if (['supplement-handover', 'supplement-receive', 'start-check', 'start-receipt'].includes(view) && !c.acceptance) return b('请先完成工程师的工程接收。', 'receive');
   if (view === 'supplement-receive' && !list(c, 'supplements').some(x => drawing(c) && x.drawingVersion === drawing(c).version)) return b('本版资料尚未提交补充交接。', 'supplement-handover');
@@ -77,7 +79,7 @@ function transition(c, action, f, record) {
     requireValue(!c.firstPayment && !c.tailPayment, '付款办理后服务费核定版本已锁定，请保留原服务单。');
     const total = cents(f.serviceTotal); requireValue(total > 0, '请填写大于零的设计服务费总额。');
     requireValue(f.serviceBasis.trim() && f.serviceVerifier.trim() && validDate(f.serviceDate) && f.serviceFile && f.serviceChecked, '请填写核定依据、核定人、日期，上传约定文件并完成核对。');
-    const first = Math.round(total / 2), order = { id: 'service-' + (c.serviceOrders.length + 1), version: c.serviceOrders.length + 1, total: total / 100, first: first / 100, tail: (total - first) / 100, basis: f.serviceBasis.trim(), verifier: f.serviceVerifier.trim(), date: f.serviceDate, file: B.clone(f.serviceFile), requestVersion: c.request.version };
+    const local=c.designOrganizationId===(c.companyId||'quanzhou');requireValue(!local||String(f.serviceRecipient||'').trim(),'请填写本店设计服务实际收款人，不需要登记组织内部往来到款。');const first = Math.round(total / 2), order = { id: 'service-' + (c.serviceOrders.length + 1), version: c.serviceOrders.length + 1, total: total / 100, recipient:local?f.serviceRecipient.trim():'总部设计服务中心', first: first / 100, tail: (total - first) / 100, basis: f.serviceBasis.trim(), verifier: f.serviceVerifier.trim(), date: f.serviceDate, file: B.clone(f.serviceFile), requestVersion: c.request.version };
     c.serviceOrders.push(order); return { event: '核定设计服务费 V' + order.version, next: 'service-order' };
   }
   if (action === 'review-submit') {
@@ -94,6 +96,7 @@ function transition(c, action, f, record) {
     Object.assign(r, { status: f.reviewResult === '审核通过' ? 'passed' : 'returned', opinion: f.reviewOpinion.trim(), date: f.reviewDate, report: B.clone(f.reviewFile) });
     return { event: '登记施工图专业审核：' + f.reviewResult, next: 'drawing-review' };
   }
+  if(['change-result','change-result-review'].includes(action)){requireValue(ch,'变更记录不存在');require('../../utils/design-change-results')[action==='change-result'?'submit':'review'](c,ch,f);return {event:action==='change-result'?'设计师提交变更正式成果':'设计负责人审核变更正式成果',next:'change-detail',record:ch.id};}
   if (action === 'change-new') {
     requireValue(c.contract && !activeChange(c), '请先完成当前变更，勿重复提交并行变更。');
     const delta = cents(f.changeDelta || 0, true), total = Math.round(effectiveTotal(c) * 100) + delta;
@@ -148,7 +151,7 @@ function transition(c, action, f, record) {
   }
   throw new Error('不支持的办理事项');
 }
-const views = ['service-order', 'service-prepare', 'drawing-review', 'review-submit', 'review-record', 'change-list', 'change-new', 'change-detail', 'change-approval', 'amendment', 'change-confirmation', 'supplement-handover', 'supplement-receive', 'start-check', 'start-receipt'];
+const views = ['service-order', 'service-prepare', 'drawing-review', 'review-submit', 'review-record', 'change-list', 'change-new', 'change-result', 'change-result-review', 'change-detail', 'change-approval', 'amendment', 'change-confirmation', 'supplement-handover', 'supplement-receive', 'start-check', 'start-receipt'];
 function submit(page, c, f) {
   const view = page.data.view; if (!views.includes(view)) return false;
   const ch = selected(c, page.options.record), r = review(c), order = service(c);
@@ -168,7 +171,7 @@ function submit(page, c, f) {
   if (view === 'start-check' && validStart(c)) target = 'start-receipt';
   if (view === 'start-receipt') target = 'hub';
   if (target && !B.Access.workflow(target,c,false)) {page.setData({busy:false});wx.switchTab({url:'/pages/'+B.Access.home()+'/index'});return true;}
-  if (target) { page.setData({ busy: false }); page.openView(target, true, null, ['change-detail','change-approval','amendment','change-confirmation'].includes(target) && ch ? ch.id : ''); return true; }
+  if (target) { page.setData({ busy: false }); page.openView(target, true, null, ['change-detail','change-result','change-result-review','change-approval','amendment','change-confirmation'].includes(target) && ch ? ch.id : ''); return true; }
   const next = B.clone(c), result = transition(next, view === 'service-prepare' ? 'service' : view, f, page.options.record);
   if (page.update(x => {for(const key of Object.keys(next))if(JSON.stringify(next[key])!==JSON.stringify(c[key])){if(Array.isArray(next[key])&&Array.isArray(c[key])){const old=c[key];x[key]=next[key].map(row=>{const prior=old.find(r=>r.id&&r.id===row.id),raw=x[key].find(r=>r.id&&r.id===row.id);if(!prior||!raw)return row;const patch={};for(const k of Object.keys(row))if(JSON.stringify(row[k])!==JSON.stringify(prior[k]))patch[k]=row[k];return Object.assign({},raw,patch);});}else x[key]=next[key];}}, result.event)) {if(B.Access.workflow(result.next,c,false))page.openView(result.next,true,null,result.record||'');else wx.switchTab({url:'/pages/'+B.Access.home()+'/index'});}
   return true;

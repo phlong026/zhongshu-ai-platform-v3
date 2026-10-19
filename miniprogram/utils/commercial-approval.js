@@ -1,7 +1,7 @@
 const X=require('./access'),P=require('./approval-policy'),copy=x=>JSON.parse(JSON.stringify(x));
 function sources(c){return [c.quotes?.at(-1)&&{kind:'quote',name:'正式报价及合同金额',row:c.quotes.at(-1)},c.serviceOrders?.at(-1)&&{kind:'service',name:'设计服务费',row:c.serviceOrders.at(-1)},...(c.changes||[]).filter(r=>Number(r.delta)!==0).map(row=>({kind:row.id,name:'设计变更金额',row}))].filter(Boolean);}
 function source(c,kind){return sources(c).find(s=>s.kind===kind);}
-function signature(s){const r=s.row;return JSON.stringify([s.kind,r.version,r.total,r.delta,r.measurementVersion,r.requestVersion,r.file||null,r.basis||null,r.first,r.tail]);}
+function signature(s){const r=s.row;return JSON.stringify([s.kind,r.version,r.total,r.delta,r.measurementVersion,r.requestVersion,r.file||null,r.basis||null,r.first,r.tail,r.recipient]);}
 function latest(c,kind){const s=source(c,kind);return s&&(c.moneyApprovals||[]).findLast(r=>r.kind===kind&&r.signature===signature(s));}
 function approved(c,kind){const r=latest(c,kind);return !!(r&&r.status==='approved'&&r.approverRole==='boss');}
 function enqueue(b,n){for(const s of sources(n)){const old=source(b,s.kind);if(old&&signature(old)===signature(s))continue;n.moneyApprovals=(n.moneyApprovals||[]).concat({id:'money-'+s.kind+'-'+s.row.version,kind:s.kind,name:s.name,version:s.row.version,total:s.row.total,signature:signature(s),snapshot:copy(s.row),status:'pending',submittedById:X.context().staffId,submittedByPersonId:X.context().personId,submittedAt:new Date().toISOString()});}}
