@@ -4,6 +4,7 @@
     <view class="section customer-overview">
       <view class="section-heading"><text class="section-title">{{isLead?'客户管理':'我的客户'}}</text><button class="primary" bindtap="register">＋ 登记客户</button></view>
       <view class="sales-stats customer-counts"><view class="sales-stat"><text class="sales-stat-value">{{counts.all}}</text><text class="sales-stat-label">全部</text></view><view class="sales-stat"><text class="sales-stat-value">{{counts.pending}}</text><text class="sales-stat-label">待跟进</text></view><view class="sales-stat"><text class="sales-stat-value">{{counts.following}}</text><text class="sales-stat-label">跟进中</text></view><view class="sales-stat"><text class="sales-stat-value">{{counts.visited}}</text><text class="sales-stat-label">已到店</text></view></view>
+      <view class="customer-work-filters"><button class="customer-day-button {{focus==='due'?'active':''}}" data-focus="due" bindtap="selectFocus"><text>今日待跟进</text><text>{{dueCount}}人</text></button><button class="customer-day-button {{focus==='appointments'?'active':''}}" data-focus="appointments" bindtap="selectFocus"><text>预约到店</text><text>{{appointmentCount}}人</text></button></view>
       <text wx:if="{{isDemo}}" class="customer-demo-label">演示数据</text>
       <view wx:if="{{focus}}" class="customer-focus"><text>{{focusLabel}} · {{filteredCustomers.length}}位</text><button bindtap="clearFocus">全部客户<view class="chevron"/></button></view>
       <view class="sales-search customer-search"><image src="/assets/search.png" mode="aspectFit" /><input placeholder="搜索姓名、手机号或地区" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
@@ -14,7 +15,8 @@
       <view wx:if="{{!filteredCustomers.length}}" class="sales-empty">{{keyword||filter!=='全部'?'暂无符合条件的客户':'当前没有可见客户，可先登记客户。'}}</view>
       <button wx:if="{{hasMore}}" class="sales-footer-link" bindtap="more">查看更多客户<view class="chevron" /></button>
     </view>
-    <view wx:if="{{isLead}}" class="section customer-management"><button data-view="allocation" bindtap="manage"><image src="/assets/team.png" mode="aspectFit"/><text>公有客资分配</text><view class="chevron"/></button><button data-view="transfer" bindtap="manage"><image src="/assets/folder.png" mode="aspectFit"/><text>责任转交</text><view class="chevron"/></button></view>
+    <view wx:if="{{isLead}}" class="section"><view class="section-heading"><text class="section-title">团队与分配</text></view><view class="customer-management"><button class="customer-manage-button" data-view="business-team" bindtap="manage"><image src="/assets/person-filled.png" mode="aspectFit"/><text>业务团队</text><view class="chevron"/></button><button class="customer-manage-button" data-view="allocation" bindtap="manage"><image src="/assets/team.png" mode="aspectFit"/><text>公有客资分配</text><view class="chevron"/></button><button class="customer-manage-button" data-view="transfer" bindtap="manage"><image src="/assets/folder.png" mode="aspectFit"/><text>责任转交</text><view class="chevron"/></button></view></view>
+    <view wx:if="{{isDemo}}" class="section"><button class="sales-footer-link customer-demo-entry" bindtap="demo">全流程模拟演示<view class="chevron"/></button></view>
     <text class="sales-note">{{isLead?'按已授权团队查看客户，责任分配与转交沿原流程办理。':'登记后由本人持续跟进，客户资料与方案在同一记录中留档。'}}</text>
   </view>
 </view>
