@@ -16,6 +16,7 @@
       "root": "pages/workflow",
       "name": "business-workflow",
       "pages": [
+        "explore/index",
         "index"
       ]
     },
