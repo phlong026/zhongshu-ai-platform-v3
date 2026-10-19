@@ -29,6 +29,7 @@
     },
     {
       "pages": [
+        "sales/index",
         "index"
       ],
       "root": "pages/account",
