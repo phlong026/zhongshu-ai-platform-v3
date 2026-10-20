@@ -14,7 +14,7 @@ data: {
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0,
 ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
-tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,
+tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,demoPublishedUrl:'',
 publishText: '想把二层乡墅住得舒适，先从家人的日常出发。\n采光、动线和通风，才是住得舒服的关键。',
 tags: '#乡墅设计  #农村建房', scheduled: '', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
 actor: '李顾问', voice: '李顾问原声', filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
@@ -46,7 +46,10 @@ if (state.publishDrafts[work.id]) this.setData(state.publishDrafts[work.id]);
 if (view === 'remix' && state.rewriteSettings) this.setData(state.rewriteSettings);
 const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,scheduled:c.pack.scheduled,selectedAccount:studio.accounts.findIndex(a=>a.id===c.pack.accountId)});}
 this.refreshData();
-if(view==='receipt')this.setData({publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||''});
+if(view==='receipt'){
+const demoPublishedUrl=studio.demoPublicationUrl(this.data.recordId);
+this.setData({demoPublishedUrl,publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||demoPublishedUrl});
+}
 },
 onShow() {require('../../utils/demo-session').apply(this); if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
 onHide() { this.persistEditor(); },
@@ -195,8 +198,25 @@ this.persistEditor();this.go(result.record.status==='published'&&result.record.p
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
 refreshRecords() { this.refreshData(); wx.showToast({ title: '演示状态已刷新', icon: 'none' }); },
 registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.contentId)wx.navigateTo({url:'/pages/growth/index?view=capture&contentId='+encodeURIComponent(record.contentId)});},
-inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:''});},
-savePublicationLink(){try{studio.confirmDemoPublication(this.data.recordId,this.data.publishedUrlInput);const state=studio.read();if(state.publicationLinkDrafts)delete state.publicationLinkDrafts[this.data.recordId];studio.write(state);this.setData({receiptSaved:true,receiptError:''});wx.redirectTo({url:'/pages/studio/index?view=detail&record='+encodeURIComponent(this.data.recordId)});}catch(error){this.setData({receiptError:error.message});wx.showToast({title:error.message,icon:'none'});}},
+inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:'',receiptSaved:false});},
+savePublicationLink(){
+if(this.data.receiptSaving)return;
+this.setData({receiptSaving:true,receiptError:''});
+try{
+ if(this.actorScope!==studio.scope())throw Error('工作身份已变化，请重新打开本人发布记录');
+ if(!this.data.receiptSaved){
+  studio.confirmDemoPublication(this.data.recordId,this.data.publishedUrlInput);
+  const state=studio.read();if(state.publicationLinkDrafts)delete state.publicationLinkDrafts[this.data.recordId];studio.write(state);
+  this.setData({receiptSaved:true});
+ }
+}catch(error){this.setData({receiptSaving:false,receiptError:error.message});wx.showToast({title:error.message,icon:'none'});return;}
+wx.reLaunch({
+ url:'/pages/business/index',
+ success:()=>wx.showToast({title:'发布链接已保存',icon:'success'}),
+ fail:()=>this.setData({receiptError:'链接已保存，返回首页失败，请点击按钮重试。'}),
+ complete:()=>this.setData({receiptSaving:false})
+});
+},
 copyPublishedUrl(){if(this.data.detail?.publishedUrl)wx.setClipboardData({data:this.data.detail.publishedUrl});},
 advancePublication() {
 const state = studio.read(); const record = state.records.find(record => record.id === this.data.recordId);
@@ -212,6 +232,7 @@ this.go('publish', '&work=' + encodeURIComponent(work.id));
 } });
 } else unavailable('查看平台作品');
 },
+returnHome(){wx.reLaunch({url:'/pages/business/index'});},
 returnRecords() { wx.redirectTo({ url: '/pages/studio/index?view=records' }); },
 openWork(e) { this.go('result', '&task=' + e.currentTarget.dataset.task); },
 openTasks() { this.go('tasks'); },

@@ -1,0 +1,39 @@
+{
+  "result": "passed",
+  "kind": "WeChat native rendered controls and actual Page handlers; local demo links",
+  "checks": [
+    {
+      "name": "sales 原生输入框实际预填，保存并返回首页按钮可见且无遮挡",
+      "result": "passed"
+    },
+    {
+      "name": "sales 点击预填链接的保存按钮后实际回到业务首页并保存发布来源",
+      "result": "passed"
+    },
+    {
+      "name": "sales 发布详情底部返回首页可见并实际跳转，修改链接入口保留",
+      "result": "passed"
+    },
+    {
+      "name": "sales-lead 原生输入框实际预填，保存并返回首页按钮可见且无遮挡",
+      "result": "passed"
+    },
+    {
+      "name": "sales-lead 点击预填链接的保存按钮后实际回到业务首页并保存发布来源",
+      "result": "passed"
+    },
+    {
+      "name": "sales-lead 发布详情底部返回首页可见并实际跳转，修改链接入口保留",
+      "result": "passed"
+    }
+  ],
+  "screens": [
+    "sales-prefilled-link.png",
+    "sales-saved-home.png",
+    "sales-detail-home-button.png",
+    "sales-lead-prefilled-link.png",
+    "sales-lead-saved-home.png",
+    "sales-lead-detail-home-button.png"
+  ],
+  "exceptions": []
+}

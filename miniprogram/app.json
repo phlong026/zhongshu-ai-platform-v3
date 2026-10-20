@@ -7,7 +7,6 @@
     "pages/profile/index",
     "pages/creation/index",
     "pages/ai-video/index",
-    "pages/studio/index",
     "pages/design/index",
     "pages/customers/index"
   ],
@@ -55,6 +54,13 @@
       "pages": [
         "index",
         "live"
+      ]
+    },
+    {
+      "root": "pages/studio",
+      "name": "studio-workflow",
+      "pages": [
+        "index"
       ]
     }
   ],

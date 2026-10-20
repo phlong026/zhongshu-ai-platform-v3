@@ -1,0 +1,39 @@
+{
+  "result": "passed",
+  "checks": [
+    {
+      "name": "三条预置链接分别提取对应原文",
+      "result": "passed"
+    },
+    {
+      "name": "二创→口播→结果→直接发布设置→按账号生成发布记录，不经审核",
+      "result": "passed"
+    },
+    {
+      "name": "链接必填并保存待回采信息，登记咨询自动带入发布来源",
+      "result": "passed"
+    },
+    {
+      "name": "负责人首页无需内容审核，仅按原规则分配咨询线索",
+      "result": "passed"
+    },
+    {
+      "name": "接受→跟进→转客户，作品、账号及发布链接可追溯",
+      "result": "passed"
+    },
+    {
+      "name": "新客户在同一客户页显示",
+      "result": "passed"
+    },
+    {
+      "name": "负责人本人创作与预置AI任务保留",
+      "result": "passed"
+    }
+  ],
+  "source": {
+    "contentId": "content-1792468278951-t0ri8k",
+    "publicationId": "demo-record-1792468278951-5",
+    "workId": "work-1792468278945-4",
+    "customerId": "customer-from-lead-1792468278985-od8x27"
+  }
+}

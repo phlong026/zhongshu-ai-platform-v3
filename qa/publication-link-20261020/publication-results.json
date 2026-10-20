@@ -1,0 +1,38 @@
+{
+  "result": "passed",
+  "kind": "Actual Page/WXML handlers and publication models; local fixtures",
+  "checks": [
+    {
+      "name": "生成结果直接进入发布设置，提交后登记链接，无审核步骤",
+      "result": "passed"
+    },
+    {
+      "name": "发布链接必填，非法协议及无效链接不能完成发布",
+      "result": "passed"
+    },
+    {
+      "name": "只填写链接，作品、标题、账号、人员、时间自动关联且同步待回采来源",
+      "result": "passed"
+    },
+    {
+      "name": "相同链接幂等，修正链接保留原发布时间与修改历史",
+      "result": "passed"
+    },
+    {
+      "name": "同作品可按账号独立发布，重复提交幂等，重复链接不串作品",
+      "result": "passed"
+    },
+    {
+      "name": "跨人员同公司重复链接被拦截，失败时发布状态与来源原子回滚",
+      "result": "passed"
+    },
+    {
+      "name": "普通状态写入不能伪造链接，新发布内容不能进入旧审核动作",
+      "result": "passed"
+    },
+    {
+      "name": "他人记录隔离，账号授权撤回后仍拒绝发布登记",
+      "result": "passed"
+    }
+  ]
+}

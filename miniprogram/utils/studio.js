@@ -111,6 +111,12 @@ const a=Access.context();
 const record = { id: uid('demo-record'), workId, taskId: work.taskId, kind: work.kind, title: form.title.trim(), publishText: form.publishText.trim(), tags: String(form.tags || '').trim(), cover: form.cover || work.image, platform: account.platform, accountId: account.id, account: account.name, status: form.scheduled ? 'scheduled' : 'publishing', demo: true, scheduledAt: form.scheduled || '', createdAt: now, submittedAt: now, publishedAt: null, workSnapshot: clone(work),contentId:content.id,contentSignature:content.signature,publicationFlow:'direct-v1',companyId:a.companyId,teamId:a.teamId,authorId:a.staffId,authorPersonId:a.personId,authorName:a.name,publishedUrl:'',collection:{status:'awaiting-link',metrics:null} };
 state.records.unshift(record); write(state,AUTH);require('./growth').publishing(content.id,record.id);return { record, duplicate: false };
 }
+function demoPublicationUrl(id){
+ const a=Access.context();if(!a.demo||!allowed())return '';
+ const record=read().records.find(r=>r.id===id);
+ if(!record?.demo||!['publishing','verify','scheduled','published'].includes(record.status))return '';
+ return 'https://example.com/published/'+[a.companyId,a.staffId,record.id].map(encodeURIComponent).join('/');
+}
 function normalizePublishedUrl(value){const url=String(value||'').trim();if(!url)throw Error('请填写发布后的作品链接');if(url.length>2000||!/^(https?):\/\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d{1,5})?(?:[/?#][^\s<>]*)?$/i.test(url))throw Error('请输入有效的 http 或 https 作品链接');return url;}
 function confirmDemoPublication(id,publishedUrl){
  const before=read(),state=clone(before),r=state.records.find(r=>r.id===id),a=Access.context(),G=require('./growth');
@@ -145,4 +151,4 @@ const draft = wx.getStorageSync(scopedKey('zhongshu-creation-draft'));
 if (!draft || !draft.text || (typeof draft.workingText === 'string' && draft.workingText !== draft.text)) return false;
 const state = read(); delete state.extraction;state.rewriteHistory=[];state.original = draft.text; state.script = draft.rewrittenText && draft.rewrittenText !== draft.text ? draft.rewrittenText : ''; state.title = draft.text.split('\n')[0].slice(0, 28); delete state.editorBuffer; write(state); return true;
 }
-module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, createDemoTask, completeTask, saveWork, createPublication, confirmDemoPublication, normalizePublishedUrl, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts };
+module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, createDemoTask, completeTask, saveWork, createPublication, confirmDemoPublication, demoPublicationUrl, normalizePublishedUrl, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts };
