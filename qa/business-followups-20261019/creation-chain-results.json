@@ -10,15 +10,19 @@
       "result": "passed"
     },
     {
-      "name": "链接必填并保存待回采信息，登记咨询自动带入发布来源",
+      "name": "链接必填并保存待回采信息，咨询客资直接登记为本人客户",
       "result": "passed"
     },
     {
-      "name": "负责人首页无需内容审核，仅按原规则分配咨询线索",
+      "name": "作品、账号及发布链接随客户可追溯，无需分配与接受",
       "result": "passed"
     },
     {
-      "name": "接受→跟进→转客户，作品、账号及发布链接可追溯",
+      "name": "负责人不再执行分配动作，客资由经办人直接跟进",
+      "result": "passed"
+    },
+    {
+      "name": "同手机号再次咨询自动关联原客户，不重复建档且保留来源",
       "result": "passed"
     },
     {
@@ -31,9 +35,9 @@
     }
   ],
   "source": {
-    "contentId": "content-1792461890883-e5opyj",
-    "publicationId": "demo-record-1792461890883-5",
-    "workId": "work-1792461890876-4",
-    "customerId": "customer-from-lead-1792461890901-8zbvvx"
+    "contentId": "content-1792492082246-i3x0wg",
+    "publicationId": "demo-record-1792492082247-5",
+    "workId": "work-1792492082241-4",
+    "customerId": "customer-from-lead-1792492082280-pzfoyx"
   }
 }

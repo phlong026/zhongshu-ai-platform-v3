@@ -13,6 +13,6 @@ Page({
  register(){if(Access.context().active&&Job.has(Access.context().role,'sales'))wx.navigateTo({url:'/pages/workflow/index?view=customers&modal=register'});},
  open(e){const id=e.currentTarget.dataset.id;if(!this.data.customers.some(c=>c.id===id)||!Access.customer(B.customer(id)))return;wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});},
  act(e){const row=this.data.customers.find(c=>c.id===e.currentTarget.dataset.id);if(row&&B.customer(row.id))wx.navigateTo({url:row.url});},
- manage(e){if(!Access.context().active||Access.context().role!=='sales-lead')return;const view=e.currentTarget.dataset.view;if(view==='business-team')return wx.navigateTo({url:'/pages/admin/index?view=business-team'});if(['allocation','transfer'].includes(view))wx.navigateTo({url:'/pages/workflow/index?view='+view});},
+ manage(e){if(!Access.context().active||Access.context().role!=='sales-lead')return;const view=e.currentTarget.dataset.view;if(view==='business-team')return wx.navigateTo({url:'/pages/admin/index?view=business-team'});if(view==='transfer')wx.navigateTo({url:'/pages/workflow/index?view='+view});},
  demo(){if(Access.context().active&&Job.has(Access.context().role,'sales')&&wx.getStorageSync('zhongshu-account-v1')?.session?.demo)wx.navigateTo({url:'/pages/demo/index'});}
 });

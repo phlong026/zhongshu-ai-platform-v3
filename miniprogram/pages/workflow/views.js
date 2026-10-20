@@ -60,8 +60,8 @@ function config(view,c,form) {
  if(c.returns.length){const pending=c.returns.filter(r=>r.status==='pending');if(pending.length&&['request','handover','delivery'].includes(view))out.sections.unshift(section('待补充事项',pending.map(r=>notice(r.reason))));}
  return out;
 }
-Object.assign(titles,{'design-receipt':'门店收图确认','design-feedback':'设计修改意见','deliverable-review':'设计成果审核',allocation:'公有客资分配',transfer:'责任转交','facade-config':'立面方案','facade-candidates':'立面方案候选','facade-result':'立面方案结果','formal-progress':'正式设计','tail-apply':'正式设计'});
-Object.assign(defaults,{requestScope:'',designBasisChecked:false,designReceiveChecked:false,designReceiveNote:'',designFeedbackNote:'',designFeedbackFile:null,style:'现代简约',palette:'米白 + 深灰',facadeNotes:'白墙灰瓦、入口简洁大气，适当增加木色细节。',assignee:'张业务',newOwner:'刘业务',allocationNote:'按建房地区安排跟进。',transferReason:'人员调岗，客户资料及待跟进事项一并转交。',tailApplyNote:'正式成果 v1 已完成，请按原设计服务单办理尾款。',receiptPurpose:'客户定金',receiptReceiver:'王财务',receiptTransaction:'',facadeArea:'400'});
+Object.assign(titles,{'design-receipt':'门店收图确认','design-feedback':'设计修改意见','deliverable-review':'设计成果审核',transfer:'责任转交','facade-config':'立面方案','facade-candidates':'立面方案候选','facade-result':'立面方案结果','formal-progress':'正式设计','tail-apply':'正式设计'});
+Object.assign(defaults,{requestScope:'',designBasisChecked:false,designReceiveChecked:false,designReceiveNote:'',designFeedbackNote:'',designFeedbackFile:null,style:'现代简约',palette:'米白 + 深灰',facadeNotes:'白墙灰瓦、入口简洁大气，适当增加木色细节。',newOwner:'刘业务',transferReason:'人员调岗，客户资料及待跟进事项一并转交。',tailApplyNote:'正式成果 v1 已完成，请按原设计服务单办理尾款。',receiptPurpose:'客户定金',receiptReceiver:'王财务',receiptTransaction:'',facadeArea:'400'});
 defaults.exterior={window:true,paint:true,stone:true,light:true,waterproof:true,lightning:true,insurance:true};
 defaults.sitePhotos=['/pages/workflow/assets/biz-site.jpg','/pages/workflow/assets/biz-measure.jpg'];
 module.exports={titles,defaults,config};

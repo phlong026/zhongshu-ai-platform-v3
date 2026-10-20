@@ -15,7 +15,7 @@ goAdmin(e){const d=e.currentTarget.dataset;wx.navigateTo({url:'/pages/'+(d.area=
 goGrowth(e){const d=e.currentTarget.dataset;wx.navigateTo({url:'/pages/growth/index?view='+d.view+'&id='+encodeURIComponent(d.id)});},
 openAction(e) {
 const key = e.currentTarget.dataset.action;if(key==='engineeringReview')return wx.navigateTo({url:'/pages/build/index?view=review&id='+encodeURIComponent(e.currentTarget.dataset.customer)});
-const businessRoutes = { customer: 'customers&modal=register', customers: 'customers', follow: 'customer&modal=follow', customerDetail: 'customer', autonomous: 'ai-config', plan: 'ai-config', planSearch: 'search', facade: 'ai-facade', quote: 'measurement', contract: 'contract', delivery: 'delivery', inspiration: 'inspiration', budget: 'budget', publicLeads: 'allocation', transfer: 'transfer', businessHub: 'hub' };
+const businessRoutes = { customer: 'customers&modal=register', customers: 'customers', follow: 'customer&modal=follow', customerDetail: 'customer', autonomous: 'ai-config', plan: 'ai-config', planSearch: 'search', facade: 'ai-facade', quote: 'measurement', contract: 'contract', delivery: 'delivery', inspiration: 'inspiration', budget: 'budget', transfer: 'transfer', businessHub: 'hub' };
 const businessView = index === 1 ? businessRoutes[key] : index === 2 && key === 'projects' ? 'customers&destination=hub' : index === 2 && key === 'siteConfirm' ? 'customers&destination=start-check' : index === 3 && key === 'receipts' ? 'customers&destination=funds' : index === 3 && key === 'approval' ? 'hub' : '';
 if (businessView) {
 const business = require('./business');if(!business.scope().active){wx.navigateTo({url:'/pages/account/index?view=login'});return;}let contextId = '';

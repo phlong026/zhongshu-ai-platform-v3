@@ -123,6 +123,10 @@
       "result": "passed"
     },
     {
+      "name": "hq-boss / boss：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
       "name": "五页选中态、原生/普通页跳转、替换页面栈与隐藏入口保护",
       "result": "passed"
     },

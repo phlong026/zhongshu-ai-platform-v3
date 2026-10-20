@@ -3,19 +3,19 @@
   "scope": "实际Page处理器与WXML事件，非原生渲染；原生结果另见final/results.json",
   "checks": [
     {
-      "name": "inspiration 新设计页入口、选择客户及原模块标题对应",
+      "name": "inspiration 新设计页入口直接进入功能，不预选客户",
       "result": "passed"
     },
     {
-      "name": "ai-config 新设计页入口、选择客户及原模块标题对应",
+      "name": "ai-config 新设计页入口直接进入功能，不预选客户",
       "result": "passed"
     },
     {
-      "name": "ai-facade 新设计页入口、选择客户及原模块标题对应",
+      "name": "ai-facade 新设计页入口直接进入功能，不预选客户",
       "result": "passed"
     },
     {
-      "name": "budget 新设计页入口、选择客户及原模块标题对应",
+      "name": "budget 新设计页入口直接进入功能，不预选客户",
       "result": "passed"
     },
     {
