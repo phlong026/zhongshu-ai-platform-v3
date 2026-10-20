@@ -52,7 +52,8 @@ function config(view, c, f, record) {
 function decorate(view, out, c) {
   const order = X.service(c), d = X.drawing(c);
   if (['hub', 'delivery'].includes(view)) {
-    if(X.validStart(c))out.sections[0].items[0].value='开工条件已核查 · 待开工';
+    const stage=out.sections.find(s=>s.title==='当前阶段');
+    if(X.validStart(c)&&stage)stage.items[0].value='开工条件已核查 · 待开工';
     out.sections.push(section('审核与开工', [{ type: 'steps', values: [{ title: '设计服务单', view: 'service-order', done: !!order }, { title: '施工图专业审核', view: 'drawing-review', done: !!X.approvedReview(c) }, { title: '开工条件核查', view: 'start-check', done: !!X.validStart(c) }] }]));
   }
   if (['documents', 'copies', 'handover', 'accepted'].includes(view)) out.sections.push(section('项目协同', [links([['施工图专业审核', 'drawing-review'], ['开工条件核查', 'start-check']])]));
