@@ -12,8 +12,6 @@ function snapshot(){if(!allowed())return {projects:[],incoming:[],tasks:[]};E.sy
  for(const c of incomingRows){const row=incoming(c);tasks.push({...row,id:'handover:'+c.id,projectId:c.projectId,title:'业务移交待接收',button:row.action,image,date:row.date});}
  for(const p of projects){
   if(p.archived)continue;
-  const c=customers.find(c=>c.id===p.sourceCustomerId);
-  if(c){const pending=(c.supplements||[]).find(s=>s.status==='pending');if(pending&&X.workflow('supplement-receive',c,true))tasks.push({id:p.id+':supplement',projectId:p.id,name:p.name,city:p.city,title:'变更图纸补充交接待接收',button:'核对新图',url:business('supplement-receive',c),image:card(p).image,date:pending.date||''});}
   const reviews=p.inspections.concat(p.rectifications).filter(r=>r.reviewStatus==='pending'&&r.reviewerId===X.context().staffId);
   for(const r of reviews)if(V.engineering(p,'inspection-review'))add(p,r.id,'阶段'+(r.inspectionId?'复验':'验收')+'待负责人审核','去审核','inspection-review',{nodeId:r.nodeId||p.inspections.find(i=>i.id===r.inspectionId)?.nodeId,inspectionId:r.inspectionId||r.id,rectificationId:r.inspectionId?r.id:''},r.reviewDate||r.date);
   if(p.delivery){if(V.engineering(p,'archive'))add(p,'archive','交付资料待归档','去归档','archive');continue;}
