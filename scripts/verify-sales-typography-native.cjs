@@ -6,7 +6,7 @@ const {connect}=require('./franchise-native-runtime.cjs');
  async function measure(name,selector){r.mp.pageMap.clear();const el=await(await r.mp.currentPage()).$(selector);assert(el,name+' visible title');const value={};for(const key of ['font-family','font-size','font-weight','line-height','color'])value[key]=await el.style(key);styles[name]=value;for(const key of ['font-family','font-size','font-weight','line-height'])if(styles.home)assert.equal(value[key],styles.home[key],name+' '+key);}
  async function capture(name){screens.push(await r.capture(name));}
  try{
-  await r.replace([]);await r.login('zhang','sales');let customerId;
+  await r.replace([]);await r.login('sales-dual','sales');let customerId;
   for(const[area,route]of [['home','business'],['customers','customers'],['creation','creation'],['design','design']]){
    await r.open('/pages/'+route+'/index','.sales-page');await r.sleep(450);
    if(area==='customers')customerId=(await r.data()).customers[0].id;
