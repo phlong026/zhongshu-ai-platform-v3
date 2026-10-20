@@ -3,7 +3,7 @@
   "phase": "through-engineering-delivery",
   "checks": [
     {
-      "name": "内容直接发布并登记链接→负责人分配→本人接受跟进转客户",
+      "name": "内容直接发布并登记链接→咨询客资直接登记为本人客户",
       "result": "passed"
     },
     {
@@ -31,7 +31,7 @@
       "result": "passed"
     },
     {
-      "name": "项目经理派单→指定工程师接收→开工条件核查",
+      "name": "移交直达工程负责人→接收核查→开工条件核查",
       "result": "passed"
     },
     {

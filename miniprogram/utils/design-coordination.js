@@ -2,17 +2,17 @@
 const copy=x=>JSON.parse(JSON.stringify(x)),last=rows=>rows?.[rows.length-1]||null;
 const first=c=>c.request?.flow==='design-first';
 function basis(c){
- const m=last(c.measurements),b=last(c.budgets),p=m||b?.parameters;
+ const b=last(c.budgets),p=b?.parameters;
  if(!p)return null;
- const width=Number(p.width),depth=Number(p.depth),floors=Number(p.floors),area=Number(p.area||b?.area);
+ const width=Number(p.width),depth=Number(p.depth),floors=Number(p.floors),area=Number(b?.area||p.area);
  if(![width,depth,floors,area].every(n=>Number.isFinite(n)&&n>0))return null;
- return {kind:m?'measurement':'budget',version:m?.version||b.version,width,depth,floors,area,file:m?.file?copy(m.file):null};
+ return {kind:'budget',version:b.version,width,depth,floors,area};
 }
 function request(c,f,date){
  const source=basis(c),flow=c.request?.flow||(c.contract?'legacy':'design-first');
- if(!source||!String(f.requestText||'').trim())throw Error('请先保存有效预算或现场测量资料，并填写设计需求。');
+ if(!source||!String(f.requestText||'').trim())throw Error('请先保存有效参考预算，并填写设计需求。');
  if(flow==='design-first'&&(!String(f.requestScope||'').trim()||!f.designBasisChecked))throw Error('请填写本次设计交付范围，并核对需求、尺寸及资料来源。');
- return {version:(c.request?.version||0)+1,commissionId:c.request?.commissionId||'design:'+c.projectId,flow,text:f.requestText.trim(),scope:String(f.requestScope||c.request?.scope||'按本次需求及设计服务约定交付').trim(),date,basis:source,basisChecked:!!f.designBasisChecked,budgetVersion:last(c.budgets)?.version||null,planVersion:last(c.plans)?.version||null,facadeVersion:last(c.facades)?.version||null,contractVersion:c.contract?.version||null,measurementVersion:last(c.measurements)?.version||null,attachment:f.requestAttachment?copy(f.requestAttachment):null};
+ return {version:(c.request?.version||0)+1,commissionId:c.request?.commissionId||'design:'+c.projectId,flow,text:f.requestText.trim(),scope:String(f.requestScope||c.request?.scope||'按本次需求及设计服务约定交付').trim(),date,basis:source,basisChecked:!!f.designBasisChecked,budgetVersion:last(c.budgets)?.version||null,planVersion:last(c.plans)?.version||null,facadeVersion:last(c.facades)?.version||null,contractVersion:c.contract?.version||null,attachment:f.requestAttachment?copy(f.requestAttachment):null};
 }
 function receipt(c){return (c.designReceipts||[]).find(r=>r.version===c.release?.version&&r.signature===c.release?.signature)||null;}
 function confirmed(c){return !!(c.release&&c.confirmation&&c.confirmation.version===c.release.version&&(!first(c)||receipt(c)));}
@@ -36,7 +36,7 @@ function next(c){
  if(!c.release)return result('待正式下发','获授权总部人员','formal-progress','查看正式下发进度');
  if(first(c)&&!receipt(c))return result('已下发 · 待门店收图','业务人员','design-receipt','核查并确认收图',true);
  if(!confirmed(c))return result('待客户成果签认','业务人员','confirmation','登记客户成果签认',true);
- if(!c.contract){if(!quoteCurrent(c))return result('设计已确认 · 待建造报价','业务人员','measurement','继续实测与建造报价',true);if(!M.approved(c,'quote'))return result('建造报价待老板审批','老板','quote','查看建造报价审批');return result('待签建造合同','业务人员','contract-prepare','登记建造合同签署',true);}
+ if(!c.contract){if(!quoteCurrent(c))return result('设计已确认 · 待建造报价','业务人员','quote','按预算与AI方案生成建造报价',true);if(!M.approved(c,'quote'))return result('建造报价待老板审批','老板','quote','查看建造报价审批');return result('待签建造合同','业务人员','contract-prepare','登记建造合同签署',true);}
  if(c.acceptance)return result('工程已接收 · 待开工','工程人员','accepted','查看工程接收回执');
  if(c.handover)return result('工程待接收','指定工程人员','handover','查看移交进度');
  const drawing=last(c.drawings),review=last((c.reviews||[]).filter(r=>r.drawingVersion===drawing?.version));
