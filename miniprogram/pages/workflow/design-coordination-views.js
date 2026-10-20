@@ -19,9 +19,26 @@ function decorate(view,c,f,out){
   out.title='设计修改意见';out.sections=[section('本版成果',[kv('正式下发版本',c.release?'V'+c.release.version:'尚未下发'),...(c.release?.files?[file('正式设计文件',c.release.files)]:[]),notice('修改意见沿原委托回到设计师；新版本重新审核、下发和确认，已核对款项保留。新增收费须另核对服务约定。')]),section('修改意见',[area('designFeedbackNote'),upload('补充修改说明','designFeedbackFile')])];out.primary='提交本版修改意见';out.secondary='';
  }
  if(['delivery','hub'].includes(view)&&sales){
-  const customerView=out.sections.filter(s=>s.title==='客户视角 · 这一单走到哪了');
-  out.title='设计协同';out.sections=customerView.concat([section('当前办理',[notice(n.state),kv('当前责任',n.owner),notice('设计委托 → 服务费及首款 → 总部设计审核 → 尾款及下发 → 收图与客户签认 → 建造报价合同')]),section('需求与费用',[links([{title:'需求书与设计委托',view:'request'},{title:'设计服务费及约定',view:'service-order'},{title:'设计首款进度',view:'payment-first'},{title:'设计尾款进度',view:'payment-tail'}])]),section('设计与成果',[links([{title:'总部设计进度',view:'formal-progress'},{title:'申请设计尾款',view:'tail-apply'},...(D.first(c)?[{title:'门店收图确认',view:'design-receipt'}]:[]),{title:'客户成果签认',view:'confirmation'},...(c.release&&!c.confirmation?[{title:'提出本版修改意见',view:'design-feedback'}]:[])])]),section('建造与工程',[links([{title:'建造报价',view:'quote'},{title:'建造合同与资金',view:'contract'},{title:'施工图及审核记录',view:'drawing-review'},{title:'工程移交',view:'handover'}])])]);
-  out.primary=n.label;out.secondary='';
+  const CA=require('../../utils/commercial-approval');
+  const svc=(c.serviceOrders||[]).slice(-1)[0];
+  const paid1=T.condition(c,'first').ready;
+  const lastDelivery=(c.deliverables||[]).slice(-1)[0];
+  const reviewOk=lastDelivery&&(c.deliverableReviews||[]).some(r=>r.version===lastDelivery.version&&r.status==='passed');
+  const steps=[
+   {title:'发起设计委托',done:!!c.request,view:'request'},
+   {title:'核定设计服务费',done:!!svc,view:svc?'service-order':'service-prepare'},
+   {title:'老板批准费用',done:CA.approved(c,'service'),view:'service-order'},
+   {title:'首款办理',done:paid1,view:'payment-first'},
+   {title:'设计出图',done:!!reviewOk,view:'formal-progress'},
+   {title:'尾款与下发',done:!!c.release,view:c.release?'release':(c.tailApplication||lastDelivery?'tail-apply':'formal-progress')},
+   {title:'客户签认',done:!!c.confirmation,view:D.first(c)&&!D.receipt(c)?'design-receipt':'confirmation'},
+   {title:'建造报价与合同',done:!!c.contract,view:c.contract?'contract':'quote'},
+   {title:'移交工程',done:!!c.acceptance,view:'handover'}
+  ];
+  const current=steps.find(s=>!s.done);
+  const values=steps.map(s=>{const isCur=s===current;return {title:s.title,state:s.done?'done':isCur?'current':'todo',meta:s.done?'已完成':isCur?'进行中':'未开始',view:s.view,action:isCur?'去办理':'查看'};});
+  out.title='设计协同';out.sections=[section('设计办理流程',[{type:'checklist',values}])];
+  out.primary=n.actionable?n.label:'返回客户工作区';out.secondary='';
  }
  if(view==='formal-progress'&&sales){out.sections.unshift(section('设计协同进度',[notice(n.state),kv('当前责任',n.owner),kv('设计师',c.assignment?.designer),kv('计划完成',c.assignment?.date),links([{title:'返回设计协同',view:'delivery'},...(c.release?[{title:'查看正式下发成果',view:D.first(c)?'design-receipt':'confirmation'}]:[])])]));out.primary=n.view==='formal-progress'?'返回设计协同':n.label;}
  if(['formal-progress','deliverable','delivery'].includes(view)&&(c.designFeedbacks||[]).length){const feedback=c.designFeedbacks[c.designFeedbacks.length-1];out.sections.push(section('本轮修改意见',[kv('对应成果','V'+feedback.version),notice(feedback.note),...(feedback.file?[file('修改说明',feedback.file)]:[])]));}
