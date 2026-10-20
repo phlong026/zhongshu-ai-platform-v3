@@ -6,10 +6,10 @@ const business=(view,c)=>'/pages/workflow/index?view='+view+'&id='+encodeURIComp
 const stage=p=>p.archived?'已归档':p.delivery?'已交付':!p.actualStart?'待开工':p.plan.nodes.every(n=>n.status==='已完成')?'待交付':'在建';
 function current(p){return p.plan.nodes.find(n=>n.status!=='已完成')||p.plan.nodes.at(-1);}
 function card(p){const n=current(p),done=p.plan.nodes.filter(n=>n.status==='已完成').length;return {id:p.id,name:p.name,customer:p.customer,city:p.city,area:p.area,floors:p.floors,manager:p.manager,image:p.image||image,status:stage(p),stage:p.delivery?'已交付':!p.actualStart?'开工准备':n?.name||'施工节点待编制',progress:p.plan.nodes.length?Math.round(done/p.plan.nodes.length*100):0,date:n?.end||'',next:!p.actualStart?'核查开工条件':p.delivery?'交付资料与款项收尾':p.plan.nodes.every(n=>n.status==='已完成')?'整理竣工资料并办理交付':E.inspectPassed(p,n.id)?'材料核对与节点完成':'现场检查与节点验收',url:build('overview',p),sample:!!p.sample,canFunds:X.managerId(p)===X.context().staffId||['project-manager','boss','owner'].includes(X.context().role)};}
-function incoming(c){const assign=!c.handover.assignedById&&X.workflow('engineering-assign',c,true);return {id:c.id,name:c.name+' · '+c.city+'乡墅',city:c.city,area:c.measurements?.at(-1)?.area||'',drawingVersion:c.handover.drawingVersion||'',date:c.handover.date||'',action:assign?'分配工程师':'核对接收',url:business(assign?'engineering-assign':'receive',c),sample:!!c.sample};}
+function incoming(c){return {id:c.id,name:c.name+' · '+c.city+'乡墅',city:c.city,area:c.measurements?.at(-1)?.area||'',drawingVersion:c.handover.drawingVersion||'',date:c.handover.date||'',action:'核对接收',url:business('receive',c),sample:!!c.sample};}
 function snapshot(){if(!allowed())return {projects:[],incoming:[],tasks:[]};E.sync();const projects=E.load().projects,customers=B.load().customers,incomingRows=customers.filter(c=>c.handover&&!c.acceptance&&c.handover.status==='pending'&&X.customer(c)),tasks=[];
  const add=(p,key,title,button,view,extra={},date='')=>tasks.push({id:p.id+':'+key,projectId:p.id,name:p.name,city:p.city,title,button,url:build(view,p,extra),image:card(p).image,date,sample:!!p.sample});
- for(const c of incomingRows){const row=incoming(c);tasks.push({...row,id:'handover:'+c.id,projectId:c.projectId,title:!c.handover.assignedById?'业务移交待分配':'业务移交待接收',button:row.action,image,date:row.date});}
+ for(const c of incomingRows){const row=incoming(c);tasks.push({...row,id:'handover:'+c.id,projectId:c.projectId,title:'业务移交待接收',button:row.action,image,date:row.date});}
  for(const p of projects){
   if(p.archived)continue;
   const c=customers.find(c=>c.id===p.sourceCustomerId);
