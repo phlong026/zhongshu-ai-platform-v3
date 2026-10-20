@@ -14,7 +14,7 @@ function fixture() {
     navigateTo: options => navigation.push(options.url), redirectTo: options => navigation.push(options.url), switchTab: options => navigation.push(options.url),
     getFileSystemManager: () => ({ saveFile: options => options.success({ savedFilePath: 'wxfile://usr/saved-image.jpg' }) })
   };
-  function load(file, requireFn) { const module = { exports: {} }; vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), { module, exports: module.exports, wx, Date, Promise, require: requireFn, getCurrentPages: () => [1] }); return module.exports; }
+  function load(file, requireFn) { const module = { exports: {} }; vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), { module, exports: module.exports, wx, Date, Promise, require: requireFn || (n => n.startsWith('.') ? require(path.resolve(root, path.dirname(file), n)) : undefined), getCurrentPages: () => [1] }); return module.exports; }
   const studio = load('miniprogram/utils/studio.js');
   const creation = load('miniprogram/utils/creation.js');
   function page(name, options = {}) {

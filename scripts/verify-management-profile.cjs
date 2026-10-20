@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('fs');
-const storage={};global.wx={getStorageSync:k=>storage[k],setStorageSync:(k,v)=>{storage[k]=JSON.parse(JSON.stringify(v));}};
+const storage={};global.wx={getStorageSync:k=>storage[k],setStorageSync:(k,v)=>{storage[k]=JSON.parse(JSON.stringify(v));}};const Account=require('../miniprogram/utils/account');Account.mutate(s=>Account.loginDemo(s,'sales-dual'));
 const A=require('../miniprogram/utils/account'),M=require('../miniprogram/pages/admin/model'),V=require('../miniprogram/pages/admin/views'),checks=[];
 const test=(name,fn)=>{fn();checks.push({name,result:'passed'});console.log('PASS '+name);};
 const role=r=>{const s=A.load();s.session.role=r;A.save(s);};A.save(A.seed());role('owner');

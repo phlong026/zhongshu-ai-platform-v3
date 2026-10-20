@@ -1,6 +1,6 @@
-const assert=require('assert/strict'),fs=require('fs');let store={};global.wx={getStorageSync:k=>store[k],setStorageSync:(k,v)=>{store[k]=JSON.parse(JSON.stringify(v));}};
+const assert=require('assert/strict'),fs=require('fs');let store={};global.wx={getStorageSync:k=>store[k],setStorageSync:(k,v)=>{store[k]=JSON.parse(JSON.stringify(v));}};const Account=require('../miniprogram/utils/account');Account.mutate(s=>Account.loginDemo(s,'sales-dual'));
 const E=require('../miniprogram/pages/build/model'),B=require('../miniprogram/utils/business'),{fixture,file}=require('./engineering-fixtures.cjs');const results=[];let id='demo-chen';
-const pass=(name,fn)=>{fn();results.push({name,result:'passed'});console.log('PASS '+name);};const reset=stage=>{store={};E.save(fixture(stage));};const apply=(a,f,c)=>E.apply(id,a,f,c);const p=()=>E.get(id);const rejects=(action,form,ctx,pattern)=>assert.throws(()=>apply(action,form,ctx),pattern);
+const pass=(name,fn)=>{fn();results.push({name,result:'passed'});console.log('PASS '+name);};const reset=stage=>{const acct=store['zhongshu-account-v1'];store={};if(acct)store['zhongshu-account-v1']=acct;E.save(fixture(stage));};const apply=(a,f,c)=>E.apply(id,a,f,c);const p=()=>E.get(id);const rejects=(action,form,ctx,pattern)=>assert.throws(()=>apply(action,form,ctx),pattern);
 reset('initial');pass('初始项目3种状态与材料数量口径',()=>{assert.equal(E.load().projects.length,3);assert.equal(E.status(p()),'待开工');assert.deepEqual(E.materialStats(p(),'m1').unarranged,40);assert.equal(E.materialStats(p(),'m1').received,0);});
 pass('无开工条件不能登记实际开工',()=>rejects('start',{}, {},/条件/));
 pass('不允许以计划保存自动开工',()=>{apply('plan');assert.equal(p().actualStart,null);});
