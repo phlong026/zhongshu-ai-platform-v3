@@ -1,3 +1,4 @@
+require('./runtime-compat');
 const Job=require('./organization');
 const Access=require('./access');
 const KEY = 'zhongshu-studio',AUTH=Symbol('studio-command');
@@ -46,6 +47,7 @@ state.records = Array.isArray(state.records) ? state.records.filter(Boolean) : [
 state.title = typeof state.title === 'string' ? state.title : title;
 state.original = typeof state.original === 'string' ? state.original : original;
 state.script = typeof state.script === 'string' ? state.script : '';
+state.rewriteHistory = Array.isArray(state.rewriteHistory) ? state.rewriteHistory.filter(Boolean) : [];
 if(!state.scriptEdited&&!state.rewriteHistory?.length&&(state.script===state.original||raw?.version<3&&state.script===script))state.script='';
 state.publishDrafts = state.publishDrafts && typeof state.publishDrafts === 'object' ? state.publishDrafts : {};
 if (state.publishDraft && state.publishDraft.workId && !state.publishDrafts[state.publishDraft.workId]) state.publishDrafts[state.publishDraft.workId] = clone(state.publishDraft);

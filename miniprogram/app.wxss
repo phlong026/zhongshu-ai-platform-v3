@@ -23,7 +23,8 @@ button[disabled] { color: #aaa; }
 
 /* Shared viewport action bar: all page families use the same baseline. */
 .page-actions{position:fixed;left:0;right:0;bottom:0;z-index:90;display:flex;align-items:center;gap:16rpx;margin:0;padding:16rpx 28rpx calc(20rpx + env(safe-area-inset-bottom));background:#fffdfa;border-top:1rpx solid #eee9e1;box-sizing:border-box}
-.page-actions.page-actions>button{flex:1;min-width:0;width:0;height:88rpx;min-height:88rpx;margin:0;position:static;display:flex;align-items:center;justify-content:center;padding:0 16rpx;line-height:38rpx;box-sizing:border-box}
+/* Native button ::after must stay inside its own button, including when disabled. */
+.page-actions.page-actions>button{flex:1;min-width:0;width:0;height:88rpx;min-height:88rpx;margin:0;position:relative;display:flex;align-items:center;justify-content:center;padding:0 16rpx;line-height:38rpx;box-sizing:border-box}
 .page-actions.studio-bottom-pair{margin:0;flex-wrap:nowrap}
 .page-actions.studio-bottom-pair>button{min-width:0}
 .workflow.workflow,.build.build,.admin.admin,.account.account,.video-page.video-page,.studio-page.studio-page{padding-bottom:calc(176rpx + env(safe-area-inset-bottom))}

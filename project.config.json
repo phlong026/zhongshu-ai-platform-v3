@@ -26,7 +26,9 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    }
+    },
+    "ignoreUploadUnusedFiles": false,
+    "ignoreDevUnusedFiles": false
   },
   "packOptions": {
     "ignore": [
@@ -44,6 +46,102 @@
       },
       {
         "value": "assets/avatar-profile.jpg",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-button-surface.jpg",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-channels.jpg",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-check-brown.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-check-empty.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-control-play.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-digital-presenter.jpg",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-douyin.jpg",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-edit.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-error.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-fullscreen.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-ip.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-play.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-portrait.jpg",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-refresh.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-save.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-section-mark.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-spinner.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-success-large.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-success.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-task-error.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-task-success.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-voice.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-volume.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/studio-warning.png",
         "type": "file"
       }
     ],

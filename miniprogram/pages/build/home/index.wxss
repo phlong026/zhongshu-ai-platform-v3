@@ -1,0 +1,2 @@
+@import "../../../styles/engineering.wxss";
+.engineering-home .eng-name{display:block;font-size:27rpx;line-height:40rpx}.engineering-home .eng-todo .eng-thumb{width:140rpx;height:126rpx}.engineering-home .eng-todo{gap:14rpx}.engineering-home .eng-todo .eng-primary,.engineering-home .eng-todo .eng-outline{font-size:24rpx;padding:10rpx 14rpx;min-height:64rpx}

@@ -1,3 +1,4 @@
+require('./utils/runtime-compat');
 App({
 globalData: { windowInfo: null },
 onLaunch() {

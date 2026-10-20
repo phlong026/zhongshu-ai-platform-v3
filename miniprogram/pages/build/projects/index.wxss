@@ -1,0 +1,2 @@
+@import "../../../styles/engineering.wxss";
+.eng-project-card .eng-tools>button{padding:12rpx 0;gap:8rpx}.eng-project-compact .eng-progress-row{margin:10rpx 0}.eng-project-compact .eng-name{font-size:28rpx}.eng-incoming-action{font-size:24rpx;padding:10rpx 16rpx}.eng-selection-note{margin-bottom:18rpx;color:#89512a;font-size:27rpx}.eng-tasks-count{font-size:25rpx;color:#858991}

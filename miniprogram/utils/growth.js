@@ -29,8 +29,49 @@ function review(id,result,note,expected){const a=actor(),s=all(),r=s.contents.fi
 function assertPublish(r,a){X.assert(r&&r.companyId===a.companyId&&r.authorId===a.staffId&&accountAllowed(r.pack.accountId,a),'原作品或发布账号授权已失效');X.assert(r.signature===signature(r.pack),'发布内容已变化，请重新打开原作品');if(r.publicationFlow==='direct-v1'){X.assert(r.versions.at(-1)?.sig===r.signature&&['待发布','发布中','演示已发布'].includes(r.status),'发布内容版本已变化，请重新打开');return;}X.assert(r.review?.result==='通过'&&r.review.signature===r.signature,'历史发布记录未完成原流程，请从发布设置重新提交');}
 function publishing(id,recordId){const a=actor(),s=all(),r=s.contents.find(r=>r.id===id);assertPublish(r,a);r.publicationId=recordId;r.status='发布中';r.revision++;commit(s,'publication-submit',id);}
 function published(recordId){const a=actor(),s=all(),r=s.contents.find(r=>r.publicationId===recordId),actual=require('./studio').read().records.find(r=>r.id===recordId);X.assert(actual?.status==='published'&&actual.contentId===r?.id&&actual.contentSignature===r?.signature,'须先取得原作品的发布结果');assertPublish(r,a);const url=require('./studio').normalizePublishedUrl(actual.publishedUrl);X.assert(!s.contents.some(c=>c.companyId===a.companyId&&c.id!==r.id&&c.publishedUrl===url),'此发布链接已登记到其他作品，请核对后填写');if(r.status==='演示已发布'&&r.publishedUrl===url)return;Object.assign(r,{status:'演示已发布',publishedAt:actual.publishedAt,publishedUrl:url,collection:copy(actual.collection),linkRecordedAt:actual.linkRecordedAt,revision:r.revision+1});commit(s,'publication-link-recorded',r.id);}
-function capture(f){const a=actor();X.assert(Job.has(a.role,'sales'),'请由业务员登记真实来源线索');X.assert(String(f.name||'').trim()&&/^1\d{10}$/.test(String(f.phone||''))&&String(f.need||'').trim(),'请填写称呼、有效手机号及咨询需求');const s=all(),content=f.contentId?s.contents.find(c=>c.id===f.contentId&&c.companyId===a.companyId&&c.status==='演示已发布'&&canContent(c,a)):null;X.assert(!f.contentId||content,'请关联有权查看且已确认发布的原内容');X.assert(!s.leads.some(r=>r.companyId===a.companyId&&r.phone===f.phone&&r.status!=='无效'),'本门店已有该联系人线索，请由负责人查重归并');const r={id:uid('lead'),companyId:a.companyId,teamId:a.teamId,name:f.name.trim(),phone:f.phone,need:f.need.trim(),source:content?'内容咨询':String(f.source||'直接来访'),contentId:content?.id||'',publicationId:content?.publicationId||'',publicationUrl:content?.publishedUrl||'',sourceSnapshot:content?{title:content.pack.title,platform:content.pack.platform,accountId:content.pack.accountId,workId:content.workId,publishedUrl:content.publishedUrl||''}:null,registrarId:a.staffId,registrarPersonId:a.personId,ownerId:content?'':a.staffId,status:content?'待分配':'待接受',follows:[],history:[],revision:1,...X.actor()};s.leads.push(r);commit(s,'lead-capture',r.id);return copy(r);}
-function change(id,action,f,expected){const a=actor(),s=all(),r=s.leads.find(r=>r.id===id);X.assert(r&&canLead(r,a),'线索不存在或无权访问');X.assert(expected===r.revision,'线索已更新，请刷新');X.assert(r.status!=='已转客户','已转客户的线索不能重新分配或跟进');if(action==='assign'){X.assert(manages(r,a)&&['sales-lead','boss','owner'].includes(a.role),'只有负责人可分配线索');const to=X.rawBook(a.companyId)?.staff.find(p=>p.id===f.staffId&&p.active!==false&&Job.staffHas(p,'sales'));X.assert(to&&(X.isBoss(a)||a.managedTeamIds.includes(to.teamIds?.sales||'sales')),'请选择授权团队内有效业务员');r.history.push({from:r.ownerId,to:to.id,...X.actor()});r.ownerId=to.id;r.status='待接受';}else{X.assert(Job.has(a.role,'sales')&&r.ownerId===a.staffId,'请由当前业务经办人办理');if(action==='accept'){X.assert(r.status==='待接受','本线索无需重复接受');r.status='跟进中';}else if(action==='return'){X.assert(String(f.note||'').trim(),'请说明退回分配原因');r.history.push({action,note:f.note,...X.actor()});r.status='待分配';r.ownerId='';}else if(action==='follow'){X.assert(r.status==='跟进中'&&String(f.note||'').trim(),'请先接受线索并填写跟进内容');r.follows.push({note:f.note,...X.actor()});}else if(action==='invalid'){X.assert(String(f.note||'').trim(),'请说明无效原因');r.status='无效';}else throw Error('未知线索动作');}r.revision++;commit(s,action,id);return copy(r);}
+function findStoreCustomer(a,phone){return ((wx.getStorageSync('zhongshu-business-v3')||{}).customers||[]).find(c=>(c.companyId||'quanzhou')===a.companyId&&c.phone===phone&&(X.isBoss(a)||X.teamAccess(c,a)))||null;}
+function capture(f){
+ const a=actor();X.assert(Job.has(a.role,'sales'),'请由业务员登记真实客资');
+ X.assert(String(f.name||'').trim()&&/^1\d{10}$/.test(String(f.phone||''))&&String(f.need||'').trim(),'请填写称呼、有效手机号及咨询需求');
+ const s=all(),content=f.contentId?s.contents.find(c=>c.id===f.contentId&&c.companyId===a.companyId&&c.status==='演示已发布'&&canContent(c,a)):null;
+ X.assert(!f.contentId||content,'请关联有权查看且已确认发布的原内容');
+ X.assert(!s.leads.some(r=>r.companyId===a.companyId&&r.phone===f.phone&&!['无效','已转客户'].includes(r.status)),'本门店已有该联系人客资，请在原客资关联的客户下继续跟进');
+ const r={id:uid('lead'),companyId:a.companyId,teamId:a.teamId,name:f.name.trim(),phone:f.phone,need:f.need.trim(),source:content?'内容咨询':String(f.source||'直接来访'),contentId:content?.id||'',publicationId:content?.publicationId||'',publicationUrl:content?.publishedUrl||'',sourceSnapshot:content?{title:content.pack.title,platform:content.pack.platform,accountId:content.pack.accountId,workId:content.workId,publishedUrl:content.publishedUrl||''}:null,registrarId:a.staffId,registrarPersonId:a.personId,ownerId:a.staffId,status:'跟进中',follows:[{note:'登记客资，保留作品与发布来源',...X.actor()}],history:[],revision:1,...X.actor()};
+ const existing=findStoreCustomer(a,r.phone);
+ if(existing){
+  const before=wx.getStorageSync('zhongshu-business-v3'),business=copy(before),c=business.customers.find(c=>c.id===existing.id);
+  c.leadAssociations=c.leadAssociations||[];
+  r.status='已转客户';r.conversionKind='existing-customer';r.customerId=c.id;
+  if(!c.leadAssociations.some(l=>l.leadId===r.id))c.leadAssociations.push({leadId:r.id,contentId:r.contentId,publicationId:r.publicationId,source:r.source,sourceSnapshot:copy(r.sourceSnapshot),need:r.need,follows:copy(r.follows),originalLeadOwnerId:r.ownerId,customerOwnerId:X.ownerId(c),...X.actor()});
+  c.revision=(c.revision||0)+1;
+  r.history.push({action:'link-existing',customerId:c.id,preservedOwnerId:X.ownerId(c),...X.actor()});
+  s.leads.push(r);
+  try{wx.setStorageSync('zhongshu-business-v3',business);commit(s,'lead-capture',r.id);}catch(error){if(before)wx.setStorageSync('zhongshu-business-v3',before);throw error;}
+  return {lead:copy(r),customer:{id:c.id,linked:true,name:c.name,ownerId:X.ownerId(c)}};
+ }
+ s.leads.push(r);
+ commit(s,'lead-capture',r.id);
+ const c=require('./business').fromLead(r.id,{});
+ const s2=all(),r2=s2.leads.find(x=>x.id===r.id);
+ r2.customerId=c.id;r2.status='已转客户';r2.conversionKind='direct-capture';r2.revision++;
+ commit(s2,'lead-capture',r.id);
+ return {lead:copy(r2),customer:c};
+}
+function change(id,action,f,expected){const a=actor(),s=all(),r=s.leads.find(r=>r.id===id);X.assert(r&&canLead(r,a),'线索不存在或无权访问');X.assert(expected===r.revision,'线索已更新，请刷新');X.assert(r.status!=='已转客户','已转客户的线索不能重新分配或跟进');if(action==='assign'){X.assert(manages(r,a)&&['sales-lead','boss','owner'].includes(a.role),'只有负责人可分配线索');const to=X.rawBook(a.companyId)?.staff.find(p=>p.id===f.staffId&&p.active!==false&&Job.staffHas(p,'sales'));X.assert(to&&(X.isBoss(a)||a.managedTeamIds.includes(to.teamIds?.sales||'sales')),'请选择授权团队内有效业务员');r.history.push({from:r.ownerId,to:to.id,...X.actor()});r.ownerId=to.id;r.status='待接受';}else{X.assert(Job.has(a.role,'sales')&&r.ownerId===a.staffId,'请由当前业务经办人办理');if(action==='request-link'){X.assert(['跟进中','待负责人关联'].includes(r.status),'请先接受并跟进');r.status='待负责人关联';r.linkRequest={note:f.note||'同手机号原客户需要负责人关联',...X.actor()};}else if(action==='accept'){X.assert(r.status==='待接受','本线索无需重复接受');r.status='跟进中';}else if(action==='return'){X.assert(String(f.note||'').trim(),'请说明退回分配原因');r.history.push({action,note:f.note,...X.actor()});r.status='待分配';r.ownerId='';}else if(action==='follow'){X.assert(r.status==='跟进中'&&String(f.note||'').trim(),'请先接受线索并填写跟进内容');r.follows.push({note:f.note,...X.actor()});}else if(action==='invalid'){X.assert(String(f.note||'').trim(),'请说明无效原因');r.status='无效';}else throw Error('未知线索动作');}r.revision++;commit(s,action,id);return copy(r);}
 function convert(id,f,expected){const a=actor(),s=all(),r=s.leads.find(r=>r.id===id);X.assert(Job.has(a.role,'sales')&&r&&r.companyId===a.companyId&&r.ownerId===a.staffId,'请由线索当前业务员转客户');if(r.status==='已转客户')return require('./business').customer(r.customerId);X.assert(r.revision===expected&&r.status==='跟进中'&&r.follows.length,'请先接受并跟进线索，刷新后转客户');const c=require('./business').fromLead(id,f);r.customerId=c.id;r.status='已转客户';r.revision++;commit(s,'lead-convert',id);return c;}
 function currentLead(id){const a=actor(),r=all().leads.find(r=>r.id===id);X.assert(r&&r.companyId===a.companyId&&r.ownerId===a.staffId&&Job.has(a.role,'sales'),'线索未分配给本人');return r;}
-module.exports={KEY,load,prepare,review,publishing,published,capture,change,convert,currentLead,accountAllowed,assertPublish,signature};
+function existingCustomer(lead){const a=actor();if(!lead||!manages(lead,a))return null;return ((wx.getStorageSync('zhongshu-business-v3')||{}).customers||[]).find(c=>(c.companyId||'quanzhou')===a.companyId&&c.phone===lead.phone&&(X.isBoss(a)||X.teamAccess(c,a)))||null;}
+function linkExisting(id,expected){
+ const a=actor(),s=all(),r=s.leads.find(l=>l.id===id);X.assert(r&&manages(r,a),'请由有权负责人关联原客户');
+ if(r.status==='已转客户'&&r.customerId)return {id:r.customerId};
+ X.assert(r.revision===expected&&r.status!=='无效','线索已变化，请刷新');
+ const customer=existingCustomer(r);X.assert(customer,'未找到本人有权处理的同手机号原客户，请交对应团队负责人或老板核对');
+ const before=wx.getStorageSync('zhongshu-business-v3'),business=copy(before),c=business.customers.find(c=>c.id===customer.id);
+ c.leadAssociations=c.leadAssociations||[];
+ if(!c.leadAssociations.some(l=>l.leadId===id))c.leadAssociations.push({leadId:id,contentId:r.contentId,publicationId:r.publicationId,source:r.source,sourceSnapshot:copy(r.sourceSnapshot),need:r.need,follows:copy(r.follows),originalLeadOwnerId:r.ownerId,customerOwnerId:X.ownerId(c),...X.actor()});
+ c.revision=(c.revision||0)+1;r.customerId=c.id;r.status='已转客户';r.conversionKind='existing-customer';r.revision++;
+ r.history.push({action:'link-existing',customerId:c.id,preservedOwnerId:X.ownerId(c),...X.actor()});
+ try{wx.setStorageSync('zhongshu-business-v3',business);commit(s,'lead-link-existing',id);}catch(error){if(before)wx.setStorageSync('zhongshu-business-v3',before);throw error;}
+ return {id:c.id,ownerId:X.ownerId(c)};
+}
+module.exports={KEY,load,prepare,review,publishing,published,capture,change,convert,currentLead,existingCustomer,linkExisting,accountAllowed,assertPublish,signature};

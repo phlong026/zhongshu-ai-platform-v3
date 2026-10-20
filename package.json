@@ -6,6 +6,7 @@
     "check:sales": "node scripts/verify-sales-customers.cjs && node scripts/verify-sales-publication.cjs && node scripts/verify-sales-creation-chain.cjs && node scripts/verify-sales-design.cjs && node scripts/verify-business-four-flows.cjs && node scripts/verify-guest-home-role-nav.cjs && npm run check",
     "check:sales:native": "node scripts/verify-sales-module-native.cjs && node scripts/verify-sales-typography-native.cjs",
     "check": "node scripts/verify.cjs",
+    "check:packages": "node scripts/verify-design-package.cjs && node scripts/verify.cjs",
     "check:guest-home": "node scripts/verify-guest-home-role-nav.cjs",
     "check:guest-home:native": "node scripts/verify-guest-home-role-nav-native.cjs",
     "check:appid": "node scripts/verify-wechat-project.cjs",
@@ -20,7 +21,7 @@
     "capture:business": "node scripts/capture-business.cjs final",
     "check:business:completion": "node scripts/verify-business-completion.cjs",
     "check:business:full": "node scripts/verify-business-completion-simulator.cjs",
-    "check:engineering": "node scripts/verify-engineering.cjs",
+    "check:engineering": "node scripts/verify-engineering-module.cjs && node scripts/verify-role-same-person-main.cjs && node scripts/verify-confirmed-approval-policy.cjs",
     "check:engineering:simulator": "node scripts/verify-engineering-simulator.cjs",
     "check:engineering:extra": "node scripts/verify-engineering-extra-simulator.cjs",
     "capture:engineering": "node scripts/capture-engineering.cjs final",
@@ -43,6 +44,7 @@
     "check:roles:complete:native": "node scripts/check-role-complete.cjs native",
     "report:roles:complete": "node scripts/build-role-complete-report.cjs",
     "check:layout:footer": "node scripts/check-role-complete.cjs layout",
+    "check:layout:footer:hit": "node scripts/verify-footer-hit-native.cjs",
     "check:workbenches": "node scripts/verify-role-workbenches-complete.cjs",
     "check:franchise:main": "node scripts/verify-franchise-main.cjs",
     "check:franchise:exceptions": "node scripts/verify-franchise-exceptions.cjs",
@@ -54,7 +56,15 @@
     "prepare:demo:confirmed": "node scripts/prepare-confirmed-demo.cjs",
     "check:business:confirmed:native": "node scripts/verify-confirmed-policy-native.cjs",
     "check:sales:refinements": "node scripts/verify-sales-refinements.cjs",
-    "check:sales:refinements:native": "node scripts/verify-sales-refinements-native.cjs && node scripts/verify-sales-refinements-native.cjs --rewrite-only"
+    "check:sales:refinements:native": "node scripts/verify-sales-refinements-native.cjs && node scripts/verify-sales-refinements-native.cjs --rewrite-only",
+    "check:engineering:module": "node scripts/verify-engineering-module.cjs",
+    "check:engineering:module:native": "node scripts/verify-engineering-module-native.cjs navigation && node scripts/verify-engineering-module-native.cjs materials && node scripts/verify-engineering-module-native.cjs profile && node scripts/verify-engineering-module-native.cjs links",
+    "check:closed-loop": "node scripts/verify-role-same-person-main.cjs && node scripts/verify-confirmed-approval-policy.cjs && node scripts/verify-closed-loop-remediation.cjs && node scripts/verify.cjs",
+    "check:closed-loop:native": "node scripts/verify-closed-loop-native.cjs",
+    "check:design-coordination": "node scripts/verify-design-coordination.cjs && node scripts/verify.cjs",
+    "check:design-coordination:native": "node scripts/verify-design-coordination-native.cjs",
+    "check:quote-export": "node scripts/verify-quote-export.cjs && node scripts/verify.cjs",
+    "check:quote-export:native": "node scripts/verify-quote-export-native.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0"

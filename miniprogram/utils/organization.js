@@ -2,7 +2,7 @@ const roles={sales:'业务员','sales-lead':'业务负责人',engineer:'工程�
 const templates={store:['hq-designer','hq-design-lead','sales','sales-lead','engineer','project-manager','finance','finance-lead','boss','owner'],headquarters:['hq-operations','hq-operations-lead','hq-designer','hq-design-lead','finance','finance-lead','boss']};
 const teamForRole=r=>['sales','sales-lead'].includes(r)?'sales':['engineer','project-manager'].includes(r)?'engineering':r.startsWith('hq-operations')?'operations':r.startsWith('hq-')?'design':['finance','finance-lead'].includes(r)?'finance':'management';
 const allowed=(type,role)=>(templates[type]||[]).includes(role);
-const enabled=(type,role)=>allowed(type,role)&&(type!=='headquarters'||['hq-designer','hq-design-lead','finance','finance-lead'].includes(role));
+const enabled=(type,role)=>allowed(type,role)&&(type!=='headquarters'||['hq-designer','hq-design-lead','finance','finance-lead','boss'].includes(role));
 const home=c=>!c.active?'profile':['finance','finance-lead','boss','owner'].includes(c.role)?'management':['engineer','project-manager'].includes(c.role)?'engineering':'business';
 function navigation(c){
  const guest=!c.loggedIn,boss=['boss','owner'].includes(c.role),canBusiness=c.active&&(boss||['sales','sales-lead','hq-designer','hq-design-lead'].includes(c.role)),canEngineering=c.active&&(boss||['engineer','project-manager'].includes(c.role)),canManagement=c.active&&(boss||['finance','finance-lead'].includes(c.role)),homeTab=home(c),homeTitle={business:c.orgType==='headquarters'?'设计工作台':'业务工作台',engineering:'工程工作台',management:['finance','finance-lead'].includes(c.role)?'财务工作台':'管理工作台',profile:'我的'}[homeTab];
@@ -10,9 +10,12 @@ function navigation(c){
  let tabs;
  if(guest)tabs=base;
  else if(!c.active)tabs=[base[4]];
+ else if(boss)tabs=[['home','首页','home'],['finance','财务','management'],['performance','绩效','management'],['profile','我的','profile']].map((t,i)=>({key:'owner-'+t[0],text:t[1],icon:t[2],index:10+i,url:'/pages/admin/'+t[0]+'/index',native:false}));
  else if(['sales','sales-lead'].includes(c.role))tabs=[{key:'business',text:'首页',index:1,icon:'home'},{key:'creation',text:'创作',index:5,icon:'business',native:false},{key:'design',text:'设计',index:6,customIcon:'/assets/home-design-icon.png',native:false},{key:'customers',text:'客户',index:7,customIcon:'/assets/team.png',native:false},base[4]];
+ else if(['engineer','project-manager'].includes(c.role))tabs=[{key:'engineering',text:'首页',index:2,icon:'home',url:'/pages/build/home/index',native:false},{key:'projects',text:'项目',index:8,customIcon:'/pages/engineering/assets/folder.png',url:'/pages/build/projects/index',native:false},{key:'materials',text:'材料',index:9,customIcon:'/assets/box.png',url:'/pages/build/materials/index',native:false},base[4]];
+ else if(['finance','finance-lead'].includes(c.role))tabs=[{...base[3],text:'首页',icon:'management'},{key:'finance-operations',text:'财务办理',index:14,icon:'management',native:false,url:'/pages/admin/operations/index'},base[4]];
  else{const primary=base.find(t=>t.key===homeTab)||base[4];tabs=[{...primary,text:'首页',icon:'home'},...base.filter(t=>t.key!==homeTab&&t.index!==0&&(t.index===4||[false,canBusiness,canEngineering,canManagement][t.index]))];}
- return {guest,canBusiness,canEngineering,canManagement,homeTab,homeTitle,tabs:tabs.map(t=>({...t,url:'/pages/'+t.key+'/index',native:t.native!==false}))};
+ return {guest,canBusiness,canEngineering,canManagement,homeTab,homeTitle,tabs:tabs.map(t=>({...t,url:t.url||'/pages/'+t.key+'/index',native:t.native!==false}))};
 }
 const inherited={'sales-lead':'sales','project-manager':'engineer','hq-design-lead':'hq-designer','finance-lead':'finance','hq-operations-lead':'hq-operations'};
 const has=(role,wanted)=>role===wanted||inherited[role]===wanted;

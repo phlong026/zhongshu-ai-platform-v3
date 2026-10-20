@@ -5,16 +5,21 @@
     "pages/engineering/index",
     "pages/management/index",
     "pages/profile/index",
-    "pages/creation/index",
-    "pages/ai-video/index",
-    "pages/design/index",
     "pages/customers/index"
   ],
   "subPackages": [
     {
+      "root": "pages/design",
+      "name": "design-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
       "root": "pages/workflow",
       "name": "business-workflow",
       "pages": [
+        "quote-export/index",
         "explore/index",
         "index"
       ]
@@ -23,7 +28,10 @@
       "root": "pages/build",
       "name": "engineering-workflow",
       "pages": [
-        "index"
+        "index",
+        "home/index",
+        "projects/index",
+        "materials/index"
       ]
     },
     {
@@ -36,7 +44,13 @@
     },
     {
       "pages": [
-        "index"
+        "index",
+        "home/index",
+        "finance/index",
+        "performance/index",
+        "profile/index",
+        "detail/index",
+        "operations/index"
       ],
       "root": "pages/admin",
       "name": "management-workflow"
@@ -59,6 +73,20 @@
     {
       "root": "pages/studio",
       "name": "studio-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/creation",
+      "name": "creation-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/ai-video",
+      "name": "ai-video-workflow",
       "pages": [
         "index"
       ]

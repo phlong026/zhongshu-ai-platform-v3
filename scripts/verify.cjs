@@ -3,6 +3,7 @@ const path = require('path');
 const vm = require('vm');
 const root = path.resolve(__dirname, '..');
 const wechatProject = require('./verify-wechat-project.cjs')(root);
+const packageResources = require('./verify-package-resources.cjs')(root);
 const mini = path.join(root, 'miniprogram');
 const project = JSON.parse(fs.readFileSync(path.join(root, 'project.config.json'), 'utf8'));
 const ignoredFiles = new Set((project.packOptions?.ignore || []).filter(item => item.type === 'file').map(item => item.value.replace(/\\/g, '/').replace(/^\//, '')));
@@ -40,5 +41,6 @@ const mainBytes=bytes-Object.values(packageSizes).reduce((a,b)=>a+b,0);
 if(Object.values(packageSizes).some(size=>size>2097152))throw new Error('A subpackage exceeds 2MiB');
 if(mainBytes>2097152)throw new Error('Main package exceeds 2MiB target: '+mainBytes);
 const wxml=require('./verify-wxml-complete.cjs')();
+if(packageResources.totalBytes!==bytes)throw new Error('Package resource audit size mismatch');
 console.log(JSON.stringify({ result: 'passed', appid:wechatProject.appid, wxmlChecked:wxml.wxmlChecked, nativePages: pages.length, jsChecked: js, jsonChecked: json, assetsChecked: manifest.length, packageBytes: bytes, mainBytes, ignoredFiles:[...ignoredFiles], ignoredBytes, subPackages:packageSizes },null,2));
 

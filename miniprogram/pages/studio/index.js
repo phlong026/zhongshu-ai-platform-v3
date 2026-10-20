@@ -11,7 +11,7 @@ scheduled: { label: '待发布', icon: 'clock', tone: 'warm', action: '查看进
 };
 Page({
 data: {
-view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0,
+view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
 ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
 tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,demoPublishedUrl:'',
@@ -99,7 +99,7 @@ const timeline = detailRecord ? [
 { label: '发布信息已保存', time: studio.formatTime(detailRecord.submittedAt || detailRecord.createdAt) },
 { label: detailRecord.status === 'published' ? '发布链接已登记' : (statusInfo[detailRecord.status] || {}).label || '状态待确认', time: detailRecord.status === 'published' ? studio.formatTime(detailRecord.publishedAt) : '尚未完成' }
 ] : [];
-this.setData({ extraction:state.extraction||null,rewriteVersion:state.rewriteHistory?.at(-1)?.version||0,tasks, records, works: state.works, activeTask, saved: !!(activeTask && activeTask.saved), detail, resultInfo, invalidMessage, timeline, recent: studio.recentItems(state) });
+this.setData({ extraction:state.extraction||null,rewriteVersion:(state.rewriteHistory[state.rewriteHistory.length-1]||{}).version||0,tasks, records, works: state.works, activeTask, saved: !!(activeTask && activeTask.saved), detail, resultInfo, invalidMessage, timeline, recent: studio.recentItems(state) });
 },
 go(view, query) {
 const options = { url: '/pages/studio/index?view=' + view + (query || '') };
@@ -107,7 +107,8 @@ if (getCurrentPages().length >= 9) wx.redirectTo(options); else wx.navigateTo(op
 },
 switchRewrite(e) { this.setData({ rewriteMode: Number(e.currentTarget.dataset.index) }); },
 changeIp(e) { this.setData({ ipIndex: Number(e.detail.value) }); },
-inputRequirement(e) { this.setData({ requirement: e.detail.value }); },
+inputRequirement(e) { this.setData({ requirement: e.detail.value, operationError: '' }); },
+inputOriginal(e) { const state=studio.read();state.original=String(e.detail.value||'');state.script='';state.rewriteHistory=[];delete state.extraction;studio.write(state);this.setData({original:state.original,script:'',scriptShort:'',scriptLength:0,estimatedSeconds:0,rewriteVersion:0,operationError:'',extraction:null}); },
 inputCustomIp(e) { this.setData({ customIp: e.detail.value }); },
 editScript() { const buffer = studio.read().editorBuffer; this.setData({ sheet: 'editor', sheetTitle: '编辑口播文案', editingText: buffer && buffer.source === this.data.original ? buffer.text : this.data.script }); },
 inputEdit(e) { this.setData({ editingText: e.detail.value }); const state = studio.read(); state.editorBuffer = { source: this.data.original, text: e.detail.value }; studio.write(state); },
@@ -118,8 +119,27 @@ const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft'));
 if (draft && draft.text === state.original) wx.setStorageSync(studio.scopedKey('zhongshu-creation-draft'), Object.assign({}, draft, { rewrittenText: state.script, updatedAt: Date.now() }));
 this.setData({ script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), sheet: '' }); this.refreshData();
 },
-regenerate() {this.attempt(()=>{const state=studio.read();Demo.rewrite(state,{rewriteMode:this.data.rewriteMode,customIp:this.data.customIp,ip:this.data.ipOptions[this.data.ipIndex],requirement:this.data.requirement});state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,requirement:this.data.requirement};studio.write(state);const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.refreshData();this.scrollToCopy();wx.showToast({title:'模拟二创已生成',icon:'none'});});},
-scrollToCopy(){if(!wx.createSelectorQuery)return;wx.nextTick(()=>{const q=wx.createSelectorQuery();q.select('.rewritten-card').boundingClientRect();q.selectViewport().scrollOffset();q.exec(rows=>{if(rows[0]&&rows[1])wx.pageScrollTo({scrollTop:Math.max(0,rows[0].top+rows[1].scrollTop-((getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight+56)),duration:250});});});},
+regenerate() {
+if(this.data.rewriting)return;
+this.setData({rewriting:true,operationError:''});
+try {
+this.attempt(()=>{
+const state=studio.read();
+state.original=String(this.data.original||'').trim();
+Demo.rewrite(state,{rewriteMode:this.data.rewriteMode,customIp:this.data.customIp,ip:this.data.ipOptions[this.data.ipIndex],requirement:this.data.requirement});
+state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,requirement:this.data.requirement};
+studio.write(state);
+const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);
+if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});
+this.setData({script:state.script,scriptShort:state.script.split('\n').slice(0,2).join('\n'),scriptLength:state.script.length,estimatedSeconds:Math.ceil(state.script.replace(/\s/g,'').length/4),rewriteVersion:state.rewriteHistory[state.rewriteHistory.length-1].version});
+wx.showToast({title:'模拟二创已生成',icon:'none'});
+});
+} finally {
+this.setData({rewriting:false});
+this.scrollToCopy();
+}
+},
+scrollToCopy(){if(!wx.createSelectorQuery)return;const scroll=()=>{try{const q=wx.createSelectorQuery();if(!q.selectViewport)return;q.select('.rewritten-card').boundingClientRect();q.selectViewport().scrollOffset();q.exec(rows=>{if(rows&&rows[0]&&rows[1])wx.pageScrollTo({scrollTop:Math.max(0,rows[0].top+rows[1].scrollTop-((getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight+56)),duration:250});});}catch(_){/* Scrolling must never block a successfully generated script. */}};if(wx.nextTick)wx.nextTick(scroll);else scroll();},
 openOptimization(){if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});this.setData({sheet:'optimize',sheetTitle:'AI优化',optimizeRequirement:'口语自然'});},
 inputOptimization(e){this.setData({optimizeRequirement:e.currentTarget.dataset.value});},
 optimizeScript(){this.attempt(()=>{const state=studio.read();Demo.optimizeCopy(state,this.data.optimizeRequirement);studio.write(state);const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.setData({sheet:''});this.refreshData();wx.showToast({title:'模拟优化已完成',icon:'none'});});},
@@ -153,7 +173,7 @@ this.attempt(() => { studio.saveWork(id); this.refreshData(); wx.showToast({ tit
 },
 refreshTasks() { this.refreshData(); wx.showToast({ title: '演示状态已刷新', icon: 'none' }); },
 playVideo() { wx.showModal({ title: '视频播放说明', content: '当前为本地演示，仅提供封面预览，尚未接入视频生成与播放。', showCancel: false, confirmColor: '#824019' }); },
-attempt(action) { try { return action(); } catch (error) { wx.showToast({ title: error.message || '操作未完成，请重试', icon: 'none' }); return null; } },
+attempt(action) { try { this.setData({operationError:''});return action(); } catch (error) { const message=error.message||'操作未完成，请重试';this.setData({operationError:message});wx.showToast({ title: message, icon: 'none' }); return null; } },
 saveResult() { this.attempt(() => { const work = studio.saveWork(this.data.taskId); this.setData({ workId: work.id, saved: true }); wx.showToast({ title: '已保存到我的作品' }); }); },
 publishResult() {
 this.attempt(() => { const work = studio.saveWork(this.data.taskId); this.setData({ workId: work.id, saved: true }); this.go('publish', '&work=' + encodeURIComponent(work.id)); });

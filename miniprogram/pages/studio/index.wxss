@@ -145,3 +145,5 @@
 .copy-optimize-options{display:flex;gap:16rpx;margin:24rpx 0}.copy-optimize-options>button{flex:1;padding:18rpx 8rpx;border:1rpx solid #eee8df;border-radius:12rpx;font-size:26rpx;line-height:40rpx;background:#faf8f4}.copy-optimize-options>button.selected{color:#89512a;border-color:#89512a;background:#f7ebdc}
 
 .studio-bottom-pair .studio-primary[disabled]{opacity:.45}
+
+.operation-error{display:block;margin:16rpx 0;padding:20rpx;color:#a13e2f;background:#fff0ec;border-radius:14rpx;font-size:26rpx;line-height:40rpx}.original-text{box-sizing:border-box;width:100%;min-height:180rpx}

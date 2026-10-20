@@ -4,6 +4,7 @@ function validate(old,row,c,kind){
  X.assert(!old.confirmation,'已签认版本只读，请办理变更');
  X.assert(O.has(a.role,'sales')&&e?.status==='confirmed'&&e.file&&e.date&&e.registrarId===a.staffId&&e.registrarPersonId===a.personId,'请由获授权业务人员登记客户真实签认');
  X.assert(n?.status==='confirmed'&&same(n.file,e.file)&&n.date===e.date&&n.version===e.version&&n.registrarId===e.registrarId,'客户签认须绑定同一份材料、日期及版本');
+ if(kind==='confirmation'&&require('./design-coordination').first(c))X.assert(require('./design-coordination').receipt(c),'请先确认收到本版正式图纸');
  if(kind==='change')X.assert(old.result&&old.resultReview?.status==='passed'&&same(row.result,old.result)&&same(n.result,old.result),'客户签认必须引用设计负责人审核通过的变更成果');X.assert(kind!=='confirmation'||c.release&&e.version===c.release.version,'签认必须绑定当前正式下发版本');
 }
 function process(c,change,f){
