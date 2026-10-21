@@ -7,8 +7,7 @@ function unavailable(title) {
 wx.showModal({ title, content: '服务暂未接入，当前可编辑内容、选择素材并保存本地草稿。', showCancel: false, confirmColor: '#824019' });
 }
 function back() {
-if (getCurrentPages().length > 1) wx.navigateBack();
-else wx.switchTab({ url: '/pages/business/index' });
+return require('./page-navigation').back();
 }
 function persistMedia(path) {
 if (!path) return Promise.reject(new Error('未能读取素材，请重新选择'));

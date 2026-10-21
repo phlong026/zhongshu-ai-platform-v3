@@ -25,5 +25,5 @@ Page({
  async exportPdf(){if(this.data.busy)return;try{await this.ensure();this.setData({busy:true});const fs=wx.getFileSystemManager(),jpeg=await call(fs.readFile.bind(fs),{filePath:this.jpeg}),filePath=wx.env.USER_DATA_PATH+'/'+S.filename(this.doc,'pdf');await call(fs.writeFile.bind(fs),{filePath,data:PDF.pdf(jpeg.data,R.WIDTH*R.SCALE,R.HEIGHT*R.SCALE)});this.setData({pdfFile:filePath,error:''});await call(wx.openDocument,{filePath,fileType:'pdf',showMenu:true});}catch(e){this.setData({error:e.message||e.errMsg||'PDF导出失败，请重试'});}finally{this.setData({busy:false});}},
  async sharePdf(){try{await this.ensure();if(!this.data.pdfFile)return this.exportPdf();if(!wx.shareFileMessage)throw Error('请打开PDF后通过右上角菜单发送或保存');await call(wx.shareFileMessage,{filePath:this.data.pdfFile,fileName:S.filename(this.doc,'pdf')});}catch(e){this.setData({error:e.message||e.errMsg});}},
  openSettings(){wx.openSetting({});},
- back(){if(getCurrentPages().length>1)wx.navigateBack();else wx.redirectTo({url:'/pages/workflow/index?view='+(this.kind==='quote'?'quote':'budget-result')+'&id='+encodeURIComponent(this.id)});}
+ back(){return require('../../../utils/page-navigation').back();}
 });

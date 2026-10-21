@@ -1,1 +1,5 @@
 :host{display:block}.boss-header{background:#faf8f4;font-family:ZSAdmin,sans-serif;color:#30291f}.boss-header-row{height:90rpx;display:flex;align-items:center;gap:24rpx;padding:0 28rpx}.boss-brand{width:242rpx;height:62rpx;flex-shrink:0}.boss-divider{height:36rpx;width:1rpx;background:#b68d55}.boss-header-title{font-size:32rpx;line-height:46rpx;font-weight:700;white-space:nowrap}.boss-back{display:flex;align-items:center;justify-content:center;width:54rpx;height:82rpx;margin:0;background:transparent;padding:0}.boss-back::after{border:0}.boss-back image{width:23rpx;height:34rpx}
+
+.boss-back{min-width:44px;min-height:44px;width:88rpx}.boss-workbench{font-family:inherit;min-width:44px;min-height:44px;padding:0 8rpx;background:transparent;color:#89512a;font-size:22rpx;flex-shrink:0}.boss-workbench::after{border:0}.boss-header-title{overflow:hidden;text-overflow:ellipsis}.boss-header-row{gap:8rpx}
+
+.boss-subpage{position:fixed;top:0;left:0;right:0;z-index:100}

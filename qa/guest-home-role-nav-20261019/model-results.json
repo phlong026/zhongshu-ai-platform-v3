@@ -7,6 +7,10 @@
       "result": "passed"
     },
     {
+      "name": "hq-design-admin / hq-design-admin：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
       "name": "zhang / sales：首页与角色导航一致",
       "result": "passed"
     },

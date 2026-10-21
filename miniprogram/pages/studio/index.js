@@ -51,6 +51,7 @@ const demoPublishedUrl=studio.demoPublicationUrl(this.data.recordId);
 this.setData({demoPublishedUrl,publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||demoPublishedUrl});
 }
 },
+onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
 onShow() {require('../../utils/demo-session').apply(this); if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
 onHide() { this.persistEditor(); },
 onUnload() { this.persistEditor(); },
@@ -103,7 +104,7 @@ this.setData({ extraction:state.extraction||null,rewriteVersion:(state.rewriteHi
 },
 go(view, query) {
 const options = { url: '/pages/studio/index?view=' + view + (query || '') };
-if (getCurrentPages().length >= 9) wx.redirectTo(options); else wx.navigateTo(options);
+require('../../utils/page-navigation').open(options.url);
 },
 switchRewrite(e) { this.setData({ rewriteMode: Number(e.currentTarget.dataset.index) }); },
 changeIp(e) { this.setData({ ipIndex: Number(e.detail.value) }); },

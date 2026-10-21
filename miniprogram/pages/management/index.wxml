@@ -1,4 +1,6 @@
-<view class="page management-page workbench-page"><view class="workbench-header"><brand-header id="management-workbench-header" divider="{{true}}" account-font="{{true}}" title="{{deskTitle}}"/></view><view class="content">
+<import src="./finance-home.wxml"/>
+<template wx:if="{{financeDesk}}" is="financeHome" data="{{desk:financeDesk}}"/>
+<view wx:else class="page management-page workbench-page"><view class="workbench-header"><brand-header id="management-workbench-header" divider="{{true}}" account-font="{{true}}" title="{{deskTitle}}"/></view><view class="content">
 <block wx:if="{{guest}}">
 <view class="guest-search-box"><image src="/assets/search.png" mode="aspectFit"/><input value="{{guestKeyword}}" bindinput="searchGuest" placeholder="搜索项目、客户或管理事项" placeholder-class="guest-search-placeholder" confirm-type="search" maxlength="60" aria-label="搜索项目、客户或管理事项"/><button wx:if="{{guestKeyword}}" class="guest-search-clear" bindtap="clearGuestSearch" aria-label="清空搜索"><image src="/assets/studio-clear.png" mode="aspectFit"/></button></view>
 <view wx:if="{{guestHasSearch&&!guestResultCount}}" class="section guest-search-empty"><text>没有找到匹配内容</text><text class="hint">试试客户姓名、项目或事项关键词</text><button class="outline" bindtap="clearGuestSearch">重置搜索</button></view>

@@ -1,5 +1,6 @@
 const A=require('../../../utils/account'),X=require('../../../utils/access'),J=require('../../../utils/organization');
 Page({data:{name:'',company:'',role:'',avatar:'/assets/account-avatar.jpg',unread:0,progress:{completed:0,total:8,percent:0}},
+ logout(){return require('../../../utils/session-actions').logout();},
  onShow(){const a=X.context();if(!a.active||!J.has(a.role,'sales'))return wx.switchTab({url:'/pages/profile/index'});const account=A.load();this.setData({name:account.profile.name,avatar:account.profile.avatar,company:A.company(account)?.name||'',role:A.roles[a.role],unread:A.scoped(account,account.messages).filter(m=>!m.read).length,progress:A.progress(account,'ai-video'),courseImage:A.courseImage});},
  open(e){const a=X.context();if(!a.active||!J.has(a.role,'sales'))return;const routes={profile:'/pages/account/index?view=profile',messages:'/pages/account/index?view=messages',performance:'/pages/account/index?view=personal-performance',identity:'/pages/account/index?view=identity',learning:'/pages/account/index?view=learning',resources:'/pages/account/index?view=learning&tab=资料',course:'/pages/account/index?view=course&id=ai-video',help:'/pages/account/index?view=help',privacy:'/pages/account/index?view=privacy'};const action=e.currentTarget.dataset.action;const url=routes[action];if(url)wx.navigateTo({url});}
 });

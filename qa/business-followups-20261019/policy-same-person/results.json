@@ -1,6 +1,6 @@
 {
   "scope": "Node真实Page处理器及模型联动，非微信实际渲染或外部平台／银行测试",
-  "phase": "through-engineering-delivery",
+  "phase": "through-project-finance-closure",
   "checks": [
     {
       "name": "内容直接发布并登记链接→咨询客资直接登记为本人客户",
@@ -48,6 +48,10 @@
     },
     {
       "name": "兼岗工程人员阶段验收直接生效→交付直接完成→工程归档",
+      "result": "passed"
+    },
+    {
+      "name": "工程资料归档后财务独立核对成本、收付款及往来并确认结清",
       "result": "passed"
     }
   ]

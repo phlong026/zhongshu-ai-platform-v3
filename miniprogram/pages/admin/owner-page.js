@@ -6,6 +6,8 @@ const titles = { home:'首页', finance:'财务', performance:'绩效', profile:
 module.exports = function(kind) {
   return {
     data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', financeTab:'projects', rows:[], error:'', form:{}, saving:false },
+    openDesignPolicy(){require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=policy');},
+    logout(){return require('../../utils/session-actions').logout();},
     onLoad(options = {}) { this.options = options; this.kind = kind === 'detail' ? titles[options.view] ? options.view : 'business' : kind; this.setData({ title:titles[this.kind] }); },
     onShow() { if (!W.allowed()) { this.setData({ready:false,desk:null,rows:[]}); wx.switchTab({url:'/pages/profile/index'}); return; } this.refresh(); },
     refresh() {

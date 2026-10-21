@@ -19,6 +19,8 @@
       "root": "pages/workflow",
       "name": "business-workflow",
       "pages": [
+        "commission/index",
+        "design-desk/index",
         "quote-export/index",
         "explore/index",
         "index"
@@ -31,7 +33,8 @@
         "index",
         "home/index",
         "projects/index",
-        "materials/index"
+        "materials/index",
+        "record/index"
       ]
     },
     {
@@ -50,6 +53,7 @@
         "performance/index",
         "profile/index",
         "detail/index",
+        "finance-desk/index",
         "operations/index"
       ],
       "root": "pages/admin",

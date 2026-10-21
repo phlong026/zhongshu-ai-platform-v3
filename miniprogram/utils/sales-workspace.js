@@ -17,11 +17,11 @@ function home(){
  const actor=Access.context();if(!actor.active||!Job.has(actor.role,'sales'))return {isSalesHome:false};
  const rows=customerRows(),day=today(),due=focusRows(rows,'due'),upcoming=focusRows(rows,'appointments');
  const state=require('./studio').read(),recent=require('./studio').recentItems(state),draft=recent.find(r=>r.id==='draft'||r.id==='video-draft'),work=recent.find(r=>r!==draft);
- const Coord=require('./design-coordination'),designTodos=B.load().customers.filter(c=>c.request&&(!Coord.confirmed(c)||!c.contract)).map(c=>{const n=Coord.next(c);return {id:c.id,name:c.name,state:n.state,owner:n.owner,action:n.actionable?n.label:'查看设计进度',url:'/pages/workflow/index?view='+(n.actionable?n.view:'delivery')+'&id='+encodeURIComponent(c.id),actionable:n.actionable};}).sort((a,b)=>Number(b.actionable)-Number(a.actionable));
  const project=rows.find(r=>r.hasDesign)||rows.find(r=>r.hasPlan)||rows.find(r=>r.status!=='待跟进');
  const date=new Date(day+'T12:00:00+08:00'),week=['周日','周一','周二','周三','周四','周五','周六'][date.getUTCDay()];
- return {isSalesHome:true,salesName:require('./account').load().profile.name,salesDate:Number(day.slice(5,7))+'月'+Number(day.slice(8,10))+'日 '+week,customerLabel:actor.role==='sales-lead'?'可见客户':'我的客户',salesCounts:counts(rows),todayCount:due.length,appointmentCount:upcoming.length,salesTodos:due.slice(0,2),designTodos:designTodos.slice(0,3),hasMoreTodos:due.length>2,
-  salesShortcuts:[{title:'内容创作',icon:'video-filled',action:'remix'},{title:'方案设计',icon:'home-design-icon',action:'salesDesign'},{title:'报价测算',icon:'contract',action:'budget'},{title:'登记客户',icon:'person-filled',action:'customer'}],
+ return {isSalesHome:true,salesName:require('./account').load().profile.name,salesDate:Number(day.slice(5,7))+'月'+Number(day.slice(8,10))+'日 '+week,customerLabel:actor.role==='sales-lead'?'可见客户':'我的客户',salesCounts:counts(rows),todayCount:due.length,appointmentCount:upcoming.length,
+  ...(()=>{const t=require('./sales-todos').list();return {flowPending:t.pending,flowWaiting:t.waiting};})(),
+  salesShortcuts:[{title:'内容创作',icon:'video-filled',action:'remix'},{title:'方案设计',icon:'home-design-icon',action:'salesDesign'},{title:'参考预算',icon:'contract',action:'budget'},{title:'登记客户',icon:'person-filled',action:'customer'}],
   recentCustomer:project||null,recentCreation:draft||work||null,isDemo:!!wx.getStorageSync('zhongshu-account-v1')?.session?.demo};
 }
 module.exports={customerRows,counts,category,maskPhone,focusRows,home};

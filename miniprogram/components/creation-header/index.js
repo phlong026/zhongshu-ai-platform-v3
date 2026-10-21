@@ -8,9 +8,6 @@ this.setData({ statusHeight: info.statusBarHeight || 20, navHeight: Math.max(44,
 }
 },
 methods: {
-back() {
-if (getCurrentPages().length > 1) wx.navigateBack();
-else wx.switchTab({ url: '/pages/business/index' });
-}
+back(){return require('../../utils/page-navigation').back();},workbench(){return require('../../utils/page-navigation').home();}
 }
 });
