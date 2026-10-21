@@ -26,6 +26,8 @@
         <module>platform-command</module>
         <!-- 组织与任职：组织/团队标注、岗位模板、任职（兼岗、撤销）及角色同步 -->
         <module>platform-org</module>
+        <!-- 待办与审批：业务域待办汇总、审批中心 -->
+        <module>platform-workflow</module>
     </modules>
 
 </project>
