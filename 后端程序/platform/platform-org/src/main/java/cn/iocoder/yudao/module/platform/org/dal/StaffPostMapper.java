@@ -24,6 +24,14 @@ public interface StaffPostMapper extends BaseMapperX<StaffPostDO> {
                 .orderByAsc(StaffPostDO::getCreateTime));
     }
 
+    /** 用户任职过的全部组织（含已撤销），用于审计记录分发到各组织 */
+    default List<Long> selectOrgIdsEverHeld(Long userId) {
+        return selectList(new LambdaQueryWrapperX<StaffPostDO>()
+                .select(StaffPostDO::getOrgId)
+                .eq(StaffPostDO::getUserId, userId))
+                .stream().map(StaffPostDO::getOrgId).distinct().sorted().toList();
+    }
+
     default boolean existsActive(Long userId, Long orgId, String roleCode) {
         return selectCount(new LambdaQueryWrapperX<StaffPostDO>()
                 .eq(StaffPostDO::getUserId, userId)

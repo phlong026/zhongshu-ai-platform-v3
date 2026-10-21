@@ -107,6 +107,16 @@ zhongshu:
           path-style-access: ${ZS_COS_PATH_STYLE_ACCESS:false}
           api-call-timeout-ms: ${ZS_COS_API_CALL_TIMEOUT_MS:20000}
 
+# 赋能平台 · 员工登录：接入员工微信登录的小程序（AI 赋能平台小程序）。secret 只经环境变量注入，不写入任何文件。
+# provider=real 直连微信（默认）；stub 为本地联调替身，prod 配置下拒绝启动。
+platform:
+  identity:
+    wechat:
+      provider: ${PF_WX_PROVIDER:real}
+      apps:
+        - appid: ${PF_WX_STAFF_APPID:}
+          secret: ${PF_WX_STAFF_APPSECRET:}
+
 # T13-02：管理端不得回显密钥——将 Actuator env/configprops 端点的值回显显式设为安全默认值 NEVER。
 # Spring Boot 3.5 默认即 never（值以 ****** 呈现），此处在生产安全基线显式声明，令「不回显密钥」不依赖框架默认。
 # 注意：这是 profile 级默认值，更高优先级来源（命令行 --management.endpoint.env.show-values=ALWAYS、环境变量）仍可覆盖；

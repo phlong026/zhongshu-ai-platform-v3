@@ -2,8 +2,8 @@ spring:
   application:
     name: yudao-server
 
-  profiles:
-    active: local
+  # 不设默认 profile：local 开启了 mock 登录（security.mock-enable），漏配 profile 的部署会让 `Bearer test1` 成为超管。
+  # 必须显式指定：本机 start-local-dev.sh 传 local,pg,zsdev；生产传 pg,prod。未指定时缺少数据源配置，启动即失败。
 
   main:
     allow-circular-references: true # 允许循环依赖，因为项目是三层架构，无法避免这个情况。
