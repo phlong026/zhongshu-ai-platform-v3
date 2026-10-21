@@ -20,6 +20,9 @@
         <module>yudao-module-design</module>
         <module>yudao-module-commerce</module>
         <module>yudao-module-ai-orchestration</module>
+        <!-- 赋能平台分层（见 项目文档/平台/后台改造方案-2026-10-21.md）：平台能力层 + 业务域层 -->
+        <module>platform</module>
+        <module>domains</module>
     </modules>
 
     <name>${project.artifactId}</name>

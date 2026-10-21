@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>cn.iocoder.boot</groupId>
+        <artifactId>yudao</artifactId>
+        <version>${revision}</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>yudao-domain-franchise</artifactId>
+    <packaging>pom</packaging>
+
+    <name>${project.artifactId}</name>
+    <description>
+        加盟协同域（域编码 franchise）：总部与加盟门店的客户、方案预算、设计委托、工程、财务、绩效。
+        业务规则来源：小程序/docs 与 小程序/miniprogram/utils。
+        业务线模块从 M2 起加入；franchise-api 为本域对其他业务域公开的接口。
+    </description>
+
+    <modules>
+        <module>franchise-api</module>
+    </modules>
+
+</project>

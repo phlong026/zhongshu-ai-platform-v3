@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>cn.iocoder.boot</groupId>
+        <artifactId>yudao</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>yudao-platform</artifactId>
+    <packaging>pom</packaging>
+
+    <name>${project.artifactId}</name>
+    <description>
+        平台能力层：所有业务域共用的组织、账号与登录、对象授权、命令与事件、待办、审批中心、通知、文件、AI 能力。
+        规则：不出现任何业务域名词；业务域只能依赖本层与框架底座。
+        模块从 M1 起按需加入，见 项目文档/平台/后台改造方案-2026-10-21.md 第 3 节。
+    </description>
+
+    <modules>
+    </modules>
+
+</project>

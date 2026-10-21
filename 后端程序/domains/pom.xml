@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>cn.iocoder.boot</groupId>
+        <artifactId>yudao</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>yudao-domains</artifactId>
+    <packaging>pom</packaging>
+
+    <name>${project.artifactId}</name>
+    <description>
+        业务域层：每个业务域一个子目录，只依赖平台能力层与框架底座，业务域之间不直接读对方的表。
+        新建业务域按 _template/README.md 执行（_template 不参与构建）。
+    </description>
+
+    <modules>
+        <!-- 加盟协同域：AI 赋能平台小程序的门店协同业务 -->
+        <module>franchise</module>
+    </modules>
+
+</project>
