@@ -24,6 +24,8 @@
         <module>platform-test-support</module>
         <!-- 命令与事件：revision 乐观锁 + 命令事件日志 -->
         <module>platform-command</module>
+        <!-- 组织与任职：组织/团队标注、岗位模板、任职（兼岗、撤销）及角色同步 -->
+        <module>platform-org</module>
     </modules>
 
 </project>
