@@ -8,7 +8,7 @@ async function attach(runtime,output){
  const check=(name,ok,detail)=>{report.checks.push({name,result:ok?'passed':'failed',detail});persist();assert(ok,name+' '+JSON.stringify(detail||''));};
  async function find(spec){spec=typeof spec==='string'?{selector:spec}:spec;mp.pageMap?.clear();const p=await mp.currentPage();for(const el of await p.$$(spec.selector)){let match=true;for(const[k,v]of Object.entries(spec.dataset||{}))if(String(await el.attribute('data-'+k.replace(/[A-Z]/g,c=>'-'+c.toLowerCase())))!==String(v))match=false;if(match)return el;}return null;}
  async function event(spec,handler,detail={}){
-  spec=typeof spec==='string'?{selector:spec}:spec;const el=await R.until(()=>find(spec),'SDK control '+handler,15000),size=await el.size();assert(Number(size.width)>0&&Number(size.height)>0,'Rendered control '+spec.selector);
+  await R.sleep(650);spec=typeof spec==='string'?{selector:spec}:spec;const el=await R.until(()=>find(spec),'SDK control '+handler,15000),size=await el.size();assert(Number(size.width)>0&&Number(size.height)>0,'Rendered control '+spec.selector);
   const route=(await R.current()).route,input=['input','search'].includes(handler),change=['pick','chooseManager','check','inputDate','date'].includes(handler);
   if(input)await el.input(String(detail.value??''));else if(change)await el.trigger('change',detail);else await el.tap();
   report.interactions.push({route,selector:spec.selector,dataset:spec.dataset||{},handler,via:input?'Element.input':change?'Element.trigger(change)':'Element.tap'});persist();await R.sleep(500);
@@ -24,7 +24,7 @@ async function attach(runtime,output){
   check(who+' 自动出现 '+view+' '+(stage||''),!!task,{tasks:d.tasks.map(t=>({id:t.id,view:t.view}))});
   check(who+' 首页总数与本人全部待办一致',d.taskCount===d.tasks.length);
   await capture('finance-'+who+'-'+view+'-'+(stage||'review')+'-home');
-  await event({selector:'.staff-todos .fin-text',dataset:{url:d.tasksUrl}},'financeGo');await R.until(async()=>(await R.data()).view==='tasks','Finance task list',15000);
+  await event({selector:'.staff-todos .fin-text',dataset:{url:d.tasksUrl}},'financeGo');await R.until(async()=>(await R.data()).view==='tasks','Finance task list',15000);await R.sleep(800);
   check(who+' 全部待办含当前原单',(await R.data()).rows.some(t=>t.key===task.key));
   await event({selector:'.fin-task',dataset:{url:task.url}},'go');await R.until(async()=>(await R.data()).view===view,'Finance original '+view,15000);return task;
  }
