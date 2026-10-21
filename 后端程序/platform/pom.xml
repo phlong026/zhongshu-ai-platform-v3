@@ -28,6 +28,8 @@
         <module>platform-org</module>
         <!-- 待办与审批：业务域待办汇总、审批中心 -->
         <module>platform-workflow</module>
+        <!-- 授权：当前岗位上下文、岗位功能权限、组织范围自动过滤、对象规则 -->
+        <module>platform-authz</module>
     </modules>
 
 </project>

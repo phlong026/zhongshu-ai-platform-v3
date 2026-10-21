@@ -24,4 +24,10 @@ public interface SystemDirectory {
     /** 用给定集合整体替换用户的角色 */
     void replaceUserRoles(long userId, Set<Long> roleIds);
 
+    /**
+     * 岗位对应的角色（须为启用状态）是否拥有该权限码。
+     * 与 yudao 一致采用严格模式：权限码找不到对应菜单时视为没有权限。
+     */
+    boolean roleHasPermission(String roleCode, String permission);
+
 }

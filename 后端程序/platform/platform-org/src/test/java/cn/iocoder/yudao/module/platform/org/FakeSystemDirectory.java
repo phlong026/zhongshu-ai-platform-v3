@@ -16,6 +16,7 @@ class FakeSystemDirectory implements SystemDirectory {
     final Map<String, Long> roleIdsByCode = new HashMap<>();
     final Set<Long> users = new HashSet<>();
     final Map<Long, Set<Long>> userRoles = new HashMap<>();
+    final Map<String, Set<String>> rolePermissions = new HashMap<>();
 
     @Override
     public long createDept(Long parentDeptId, String name) {
@@ -58,6 +59,11 @@ class FakeSystemDirectory implements SystemDirectory {
     @Override
     public void replaceUserRoles(long userId, Set<Long> roleIds) {
         userRoles.put(userId, new HashSet<>(roleIds));
+    }
+
+    @Override
+    public boolean roleHasPermission(String roleCode, String permission) {
+        return rolePermissions.getOrDefault(roleCode, Set.of()).contains(permission);
     }
 
 }

@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqV
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -12,6 +13,7 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -29,6 +31,8 @@ public class YudaoSystemDirectory implements SystemDirectory {
     private PermissionService permissionService;
     @Resource
     private AdminUserService adminUserService;
+    @Resource
+    private MenuService menuService;
 
     @Override
     public long createDept(Long parentDeptId, String name) {
@@ -49,9 +53,27 @@ public class YudaoSystemDirectory implements SystemDirectory {
 
     @Override
     public Long roleIdByCode(String roleCode) {
+        RoleDO role = roleByCode(roleCode);
+        return role == null ? null : role.getId();
+    }
+
+    @Override
+    public boolean roleHasPermission(String roleCode, String permission) {
+        RoleDO role = roleByCode(roleCode);
+        if (role == null || !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus())) {
+            return false;
+        }
+        List<Long> menuIds = menuService.getMenuIdListByPermissionFromCache(permission);
+        if (menuIds == null || menuIds.isEmpty()) {
+            return false;
+        }
+        Set<Long> roleMenuIds = permissionService.getRoleMenuListByRoleId(role.getId());
+        return menuIds.stream().anyMatch(roleMenuIds::contains);
+    }
+
+    private RoleDO roleByCode(String roleCode) {
         return roleService.getRoleList().stream()
                 .filter(r -> Objects.equals(r.getCode(), roleCode))
-                .map(RoleDO::getId)
                 .findFirst().orElse(null);
     }
 
