@@ -36,6 +36,13 @@ cd 后端程序
 JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home mvn -DskipTests package
 ```
 
+后端测试需要 Docker（Testcontainers 启动 PostgreSQL）。本机如开启了系统 SOCKS 代理，JVM 会继承它导致连不上测试数据库，需要显式关掉：
+
+```bash
+cd 后端程序
+mvn test -DargLine="-DsocksProxyHost= -DsocksNonProxyHosts=localhost|127.*|[::1]"
+```
+
 管理后台：
 
 ```bash

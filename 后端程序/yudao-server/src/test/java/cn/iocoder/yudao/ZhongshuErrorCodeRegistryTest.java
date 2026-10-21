@@ -37,6 +37,9 @@ class ZhongshuErrorCodeRegistryTest {
             "BUDGET_INPUT_INVALID", "BUDGET_INCOMPLETE", "BUDGET_PRICE_CONFLICT", "BUDGET_AMOUNT_LIMIT",
             // T14 账号级预算单价覆盖（T14 方案 §2 已批准新增码，本次回填登记）
             "BUDGET_ACCOUNT_PRICE_INVALID",
+            // 2026-10-20 地区报价配置与基准价版本（design 已新增，原仓库未回填登记）
+            "BUDGET_PRICE_PROFILE_INVALID", "BUDGET_PRICE_PROFILE_STALE", "BUDGET_QUOTE_USER_PRICED",
+            "BUDGET_PRICE_BOOK_INVALID", "BUDGET_PRICE_BOOK_EMPTY", "BUDGET_PRICE_BOOK_STALE",
             // ai-orchestration 1-073
             "AI_JOB_NOT_CANCELLABLE",
             // commerce 1-072

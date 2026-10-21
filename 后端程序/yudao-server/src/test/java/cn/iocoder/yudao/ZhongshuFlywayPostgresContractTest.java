@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ZhongshuFlywayPostgresContractTest {
 
     /** platform location 原有 16 项，加上 V20261016.602 灵感库菜单更名；其他 location 的迁移不计入。 */
-    private static final int MIGRATION_COUNT = 17;
+    private static final int MIGRATION_COUNT = 18; // 含 V20261020.605 访问日志字段扩容
 
     @Container
     static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>(
