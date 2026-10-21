@@ -13,3 +13,5 @@
 .account-font{font-family:ZSDashboard,sans-serif}.account-font .title{font-weight:700;letter-spacing:0}.account-font .subtitle{font-weight:400}
 
 .header-subpage{position:fixed;top:0;left:0;right:0;z-index:100}
+
+.account-font{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}.account-font .title{font-weight:600}

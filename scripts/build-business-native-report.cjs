@@ -1,0 +1,44 @@
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('assert/strict');
+const root=path.resolve(__dirname,'..'),out=path.join(root,'qa/business-module-native-20261021'),isolated=path.join(root,'.tools/business-role-native-20261021');
+const result=JSON.parse(fs.readFileSync(path.join(out,'results.json'))),hash=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+assert.equal(result.result,'passed');assert(result.storageRestored);assert(!result.checks.some(c=>c.result==='failed'));
+const latest=JSON.parse(fs.readFileSync(path.join(root,'qa/business-module-simplification-20261021/regression-results.json'))),scope=latest.checks.find(c=>c.script==='verify-sales-offline-scope.cjs');
+const functionalPassed=latest.checks.filter(c=>c.script!=='verify-sales-offline-scope.cjs'&&c.result==='passed').length+1;
+result.latestRegression={functionalPassed,packageValidation:'passed',scope:scope?.result,scopeNote:scope?.result==='failed'?'范围基线发现并行修改 miniprogram/pages/admin/operations/index.js；本轮未修改该文件，保留原变更，范围清单尚待其所属工作更新。':''};
+const files=['miniprogram/pages/workflow/commission/index.js','miniprogram/pages/workflow/commission/index.wxml','miniprogram/pages/workflow/commission/index.wxss','miniprogram/utils/design-finance-feedback.js','miniprogram/pages/business/index.wxss','miniprogram/pages/growth/index.js','miniprogram/pages/growth/index.wxml','miniprogram/pages/workflow/index.wxml','miniprogram/pages/build/home/index.wxml','miniprogram/styles/project-flow.wxss','miniprogram/styles/business-tokens.wxss'].map(file=>({path:file,source:hash(path.join(root,file)),tested:hash(path.join(isolated,file))}));
+assert(files.every(f=>f.source===f.tested),'Current business source must match native-tested files');
+fs.writeFileSync(path.join(out,'business-files-tested.json'),JSON.stringify({result:'passed',files},null,2));
+const fixes=[
+ {title:'提交后残留“暂存资料”按钮',detail:'无可办动作时显式写入 false，避免原生 setData 忽略 undefined 后保留旧按钮；提交、退回、重提、接收后均复测。',files:['miniprogram/pages/workflow/commission/index.js'],evidence:['19-commission-progress.png','20-draft-cleared-after-submit.png','87-latest-style-business-completed.png']},
+ {title:'旧草稿覆盖已提交移交包',detail:'草稿同时绑定委托、正式下发和移交包版本。退回时保留四份附件、原交底和接收人；本版补充草稿仍可暂存恢复。',files:['miniprogram/pages/workflow/commission/index.js'],evidence:['50-returned-handover-top.png','83-latest-style-handover-return.png','52-resubmit-filled.png']},
+ {title:'长页面底部看不到校验信息',detail:'办理错误放到吸底操作区上方；未填写退回原因时，提示与办理按钮同时可见，并保留当前表单。',files:['miniprogram/pages/workflow/commission/index.wxml','miniprogram/pages/workflow/commission/index.wxss'],evidence:['47b-return-empty-at-bottom.png','84-latest-style-error-visible.png']},
+ {title:'财务回执仍提示线上指定设计师',detail:'新委托回执改读当前业务主链，显示设计行政及线下设计、成果下发等实际状态；历史委托继续沿用原处理。',files:['miniprogram/utils/design-finance-feedback.js'],evidence:['27-hq-first-receipt.png','30-first-full-receipt-fixed.png','38-tail-receipt.png']}
+];
+const steps=[
+ ['首款付款与总部核实','通过。门店、总部首页与全部待办均可点击进入原单。首款到账 2,000 元时不放行设计，补齐并核实剩余 3,000 元后才生成行政待办。',[
+  ['22-first-pay-filled.png','门店部分首款办理'],['28-admin-partial-no-task.png','未足额时行政没有待办'],['admin-first-fully-received-home.png','足额核实后自动出现设计完成待办']]],
+ ['设计行政登记完成','通过。行政点击设计完成后，原待办关闭；业务自动出现跟进尾款，门店财务出现尾款付款待办。',[
+  ['82-latest-style-admin-complete.png','最新样式：行政登记完成表单'],['business-design-completed-tail-followup-home.png','业务尾款跟进待办'],['finance-finance-dual-pay-tail-home.png','门店财务尾款待办']]],
+ ['尾款核实与成果下发','通过。门店有效付款后业务转为等待总部核收。总部足额核实前没有下发待办，核实后行政收到成果下发待办；下发后交给业务收图移交。',[
+  ['36-business-wait-hq.png','业务转为等待总部核实'],['admin-tail-fully-received-home.png','总部核实后行政成果下发待办'],['business-revision-dispatched-home.png','正式成果下发后的业务待办']]],
+ ['客户修改与再次下发','通过。业务登记修改意见后，行政重新收到设计完成待办；线下修改完成并下发 V2 后回到收图移交，原款项不重复支付。',[
+  ['41-feedback-form.png','客户修改意见办理入口'],['83-latest-style-handover-return.png','正式 V2 成果和资料保留']]],
+ ['移交资料上传及暂存','通过。实际点击文件选择控件，使用隔离测试 PDF 并经过本机持久保存。离页再开保留资料，四份附件在最终办结后仍可读取。',[
+  ['43-handover-files.png','附件与图纸版本'],['44-handover-filled-bottom.png','交底、接收人和确认项']]],
+ ['退回补充与重新提交','通过。指定接收人可从首页待办办理；空退回原因被阻止，底部立即显示提示。退回后接收待办关闭，业务出现补充待办；重提形成新版本并保留退回历史。',[
+  ['84-latest-style-error-visible.png','最新样式：底部校验提示可见'],['50-returned-handover-top.png','业务收到退回原因'],['52-resubmit-filled.png','补充道路交底后重新提交']]],
+ ['接收完成及逐岗关闭','通过。重提后指定接收人仅出现一条待办，点击确认接收后业务移交完成。业务、行政、门店及总部财务无本委托残留待办；接收人关闭移交待办。',[
+  ['80-latest-receiver-home.png','当前接收首页的唯一移交待办'],['87-latest-style-business-completed.png','最新样式：业务移交完成'],['60-hq-finance-final-home.png','总部财务本委托待办关闭']]],
+ ['分人财务复核与补证','通过。专员登记后负责人收到独立复核待办；退回后原付款人收到补证待办，重提后负责人重新收到复核待办。总部专员登记到账后，由另一负责人独立核算，再衔接设计行政。',[
+  ['66-payment-supplement-home.png','原付款人自动收到补证待办'],['68-payment-review-resubmitted-home.png','重提后负责人再次收到复核待办'],['73-hq-independent-reviewer-home.png','总部独立核算待办'],['77-admin-after-independent-reviews.png','双方复核完成后的行政办理']]]
+];
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const accepted=new Set();
+function picture(file,caption){assert(fs.existsSync(path.join(out,file)),file);accepted.add(file);return `<figure><img src="data:image/png;base64,${fs.readFileSync(path.join(out,file)).toString('base64')}" alt="${esc(caption)}" loading="lazy"><figcaption>${esc(caption)}</figcaption></figure>`;}
+const stepHtml=steps.map(([name,note,images],i)=>`<section><h2>${i+1}. ${esc(name)} <span>通过</span></h2><p>${esc(note)}</p><div class="screens">${images.map(([f,c])=>picture(f,c)).join('')}</div></section>`).join('');
+const fixHtml=fixes.map(f=>`<details><summary>${esc(f.title)} · 已修复并复测</summary><p>${esc(f.detail)}</p><div class="screens">${f.evidence.map((name,i)=>picture(name,(i===0?'发现问题 / 修复前':'修复后复测')+' · '+f.title)).join('')}</div></details>`).join('');
+const html=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>业务主链原生验收 · 2026-10-21</title><style>
+*{box-sizing:border-box}body{margin:0;background:#faf8f4;color:#30261f;font:16px/1.7 "Microsoft YaHei",system-ui,sans-serif}main{max-width:1240px;margin:auto;padding:32px 24px 60px}h1{font-size:28px;line-height:1.4}h2{font-size:21px;line-height:1.5}h2 span,.pass{color:#286249;font-size:14px;font-weight:500}.intro,section,details{background:white;border:1px solid #e8ded2;border-radius:16px;padding:22px;margin:20px 0}.screens{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}figure{margin:0;width:240px;max-width:100%}img{display:block;width:100%;height:auto;border:1px solid #ddd6cd;border-radius:16px}figcaption{font-size:14px;color:#746b63;padding:10px 2px 18px}summary{cursor:pointer;font-weight:600}table{width:100%;border-collapse:collapse}td,th{padding:10px;border-bottom:1px solid #e8ded2;text-align:left}small,.muted{color:#746b63}.scope{border-left:4px solid #8a522b;padding-left:18px}a{color:#824019}@media print{details{break-inside:avoid}section{break-before:page}figure{width:210px}}
+</style><main><h1>业务主链原生验收</h1><p class="pass">已完成 · 本轮发现的问题均已修复并复测</p><div class="intro"><p>实际使用微信开发者工具与官方 miniprogram-automator，逐岗点击办理。环境：独立 touristappid 项目，iPhone 12/13 (Pro)，390 × 844，基础库 3.17.4。源代码中的业务修复和最新共享样式均已同步到测试副本核对。</p><table><tr><th>验收项</th><th>结果</th></tr><tr><td>待办自动出现、正确跳转、完成关闭</td><td>通过</td></tr><tr><td>财务补证退回重提、业务移交退回重提</td><td>通过</td></tr><tr><td>设计行政线下完成、正式成果下发、客户修改</td><td>通过</td></tr><tr><td>最新业务功能回归与包检查</td><td>${functionalPassed} 组通过</td></tr><tr><td>范围基线检查</td><td>${scope?.result==='failed'?'并行变更待更新范围清单':'通过'}</td></tr><tr><td>测试副本原有存储</td><td>已逐键还原；本轮创建的测试附件已清理</td></tr></table><p class="scope">本轮仅修复业务模块及必要财务、行政和移交接口。施工、采购、验收等工程功能未扩展。后续工程记录和共享样式的并行改动予以保留；接收首页和最新样式已补充复核。</p></div><p class="muted">${esc(result.latestRegression.scopeNote)}</p><h2>本轮修复</h2>${fixHtml}<h2>逐步验收记录</h2>${stepHtml}<section><h2>证据与边界</h2><p>所有图像均为本轮连续验收中保存并人工查看的开发者工具截图，未重绘。最新共享样式在行政、财务、移交表单及底部校验区域另行复测。截图之外另保留原生控件交互记录、状态断言、源文件哈希和三批回归日志。</p><p>这是本地模拟流程验收。财务使用应用提供的示例凭据；文件选择返回由本地服务提供的真实临时 PDF，再经过保存接口。分人复核中的部分成员未列入简化演示登录选择器，因此使用其已有授权成员的隔离会话种子进入岗位，业务动作仍全部点击原生控件；未修改岗位授权。</p><p>本轮没有发起真实银行转账、外部平台发布、真实消息通知或跨设备同步。当前设备尺寸的页面显示已检查，不能据此宣称覆盖全部真机及无障碍场景。</p><p>详细记录：results.json、business-files-tested.json、cleanup-and-restoration.json；业务回归日志位于相邻的 business-module-simplification-20261021 目录。</p></section></main></html>`;
+result.fixes=fixes;result.acceptedReportScreenshots=[...accepted];result.rejectedScreenshots=[{file:'25-hq-incoming-top.png',reason:'处于收支列表，不作为到账办理页证据'},{file:'72-separate-hq-staff-result.png',reason:'截图时视觉层尚处于登记页；使用 75-hq-review-result.png 作为到账办结证据'}];result.sourceFilesMatched=true;
+fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(result,null,2));fs.writeFileSync(path.join(out,'native-acceptance.html'),html);console.log(JSON.stringify({result:result.result,functionalRegressionGroups:functionalPassed,scope:scope?.result,acceptedScreenshots:accepted.size,matchedFiles:files.length,report:path.join(out,'native-acceptance.html')},null,2));

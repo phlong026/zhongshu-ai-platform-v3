@@ -8,3 +8,5 @@
 .admin .upload-row>.hint{min-width:0;max-width:100%;word-break:break-all}
 .admin .value{min-width:0;word-break:break-all}
 .admin .hero-copy{flex:1;min-width:0;word-break:break-all}
+
+@import "../../styles/project-flow.wxss";

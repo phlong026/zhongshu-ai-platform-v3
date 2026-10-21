@@ -19,9 +19,10 @@ Page({
    const c=B.customer(this.id);X.assert(c,'客户不存在或当前岗位无权查看');
    if(SF.legacy(c)){wx.redirectTo({url:'/pages/workflow/index?view=delivery&id='+encodeURIComponent(c.id)});return;}
    const existing=SF.is(c),n=SF.next(c),p=SF.policy(c.companyId),packet=c.businessFlow?.packet;
-   const savedDraft=c.drafts?.[B.draftKey('offline:'+this.view)],draft=savedDraft?.__requestVersion===(c.request?.version||0)&&(this.view!=='handover'||savedDraft.dispatchVersion===c.businessFlow?.dispatch?.version)?savedDraft:null;
+   // Submitted packets supersede drafts saved against an earlier handover.
+   const savedDraft=c.drafts?.[B.draftKey('offline:'+this.view)],draft=savedDraft?.__requestVersion===(c.request?.version||0)&&(this.view!=='handover'||savedDraft.dispatchVersion===c.businessFlow?.dispatch?.version&&(savedDraft.__packetVersion||0)===(packet?.version||0))?savedDraft:null;
    const initial=this.view==='submit'?{text:c.request?.text||c.summary||'',scope:c.request?.scope||p?.scope||'',total:c.serviceOrders?.at(-1)?.total||p?.total||'',first:c.serviceOrders?.at(-1)?.first||p?.first||'',recipient:c.serviceOrders?.at(-1)?.recipient||p?.recipient||'',attachment:c.request?.attachment||null,checked:false}:this.view==='handover'?{resultFile:packet?.resultFile||null,drawingFile:packet?.drawingFile||null,reviewFile:packet?.reviewFile||null,confirmationFile:packet?.confirmationFile||null,drawingVersion:packet?.drawingVersion||'',confirmationDate:packet?.confirmationDate||B.date(),note:packet?.note||'',managerId:c.handover?.managerId||'',received:false,confirmed:false}:{recipient:c.owner||'',note:'',checked:false};
-   initial.__requestVersion=c.request?.version||0;if(this.view==='handover')initial.dispatchVersion=c.businessFlow?.dispatch?.version;
+   initial.__requestVersion=c.request?.version||0;if(this.view==='handover'){initial.dispatchVersion=c.businessFlow?.dispatch?.version;initial.__packetVersion=packet?.version||0;}
    const form=reset||!this.initialized?{...initial,...draft}:this.data.form;this.initialized=true;
    const map={submit:'commission-submit',feedback:'commission-feedback',complete:'design-complete',dispatch:'design-dispatch',handover:'packet-submit',receive:'packet-receive'},action=map[this.view];
    const can=!!(action&&SF.allowed(action,c)&&((this.view==='submit'&&(!existing||n.view==='submit'))||this.view==='feedback'&&existing&&c.businessFlow.dispatch&&!c.handover&&!c.acceptance||n.view===this.view&&n.actionable));
