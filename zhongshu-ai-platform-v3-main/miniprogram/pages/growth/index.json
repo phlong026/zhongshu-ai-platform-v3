@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "business-header": "/components/business-header/index"
+  },
+  "navigationStyle": "custom"
+}

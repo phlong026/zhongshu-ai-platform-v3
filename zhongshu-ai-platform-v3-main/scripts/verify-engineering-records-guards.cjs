@@ -1,0 +1,22 @@
+const fs=require('fs'),path=require('path'),assert=require('assert/strict');
+(async()=>{
+ await require('./role-page-runtime.cjs').connect();
+ const scenes=JSON.parse(fs.readFileSync('qa/engineering-records-20261021/page-scenes.json','utf8')),final=JSON.parse(fs.readFileSync('qa/engineering-records-20261021/continuous-final-state.json','utf8'));
+ const R=require('../miniprogram/utils/engineering-records'),A=require('../miniprogram/utils/account'),E=require('../miniprogram/pages/build/model');
+ const checks=[],file={name:'记录校验凭据.pdf',sample:true},date=A.localDate();
+ const install=rows=>{for(const k of wx.getStorageInfoSync().keys)wx.removeStorageSync(k);for(const[k,v]of rows)wx.setStorageSync(k,v);};
+ const raw=()=>wx.getStorageSync(E.KEY).projects.find(p=>p.recordFlow),login=(id,role)=>{A.mutate(s=>A.loginDemo(s,id));if(role)A.mutate(s=>A.switchIdentity(s,s.session.companyId,role));};
+ const pass=name=>{checks.push(name);console.log('PASS '+name);};
+ const submit=scenes.find(s=>s.action==='material-plan');install(submit.after);let p=raw(),plan=R.plans(p)[0];
+ assert(!plan.known&&plan.payment==='待记录采购金额');assert(!R.materialReady(p,plan.nodeId));pass('待核价材料保持待完善金额，未到货不满足节点材料条件');
+ const before=JSON.stringify(wx.getStorageSync(E.KEY));assert.throws(()=>R.run(p.id,'arrival',{planId:plan.id,file,date,lines:[{id:plan.lines[0].id,actual:'999'}]},p.revision),/超过/);assert.equal(JSON.stringify(wx.getStorageSync(E.KEY)),before);pass('超出计划的到货不保存，原计划和数量保持一致');
+ const moneyBefore=JSON.stringify(wx.getStorageSync('zhongshu-management-v1'));assert.throws(()=>R.run(p.id,'funding-plan',{nodeId:'foreign-node',amount:'1000',due:date}),/本项目节点/);R.run(p.id,'funding-plan',{nodeId:plan.nodeId,amount:'1000',due:date,note:'仅记录本节点预计用款'});assert.equal(R.nodeFunds(raw(),plan.nodeId).planned,100000);assert.equal(JSON.stringify(wx.getStorageSync('zhongshu-management-v1')),moneyBefore);assert.equal(R.nodeFunds(raw(),raw().plan.nodes.find(n=>n.id!==plan.nodeId).id).funding,null);install(submit.after);p=raw();pass('资金计划仅关联本节点，预计金额不生成付款或改写财务实际事实');
+ R.run(p.id,'arrival',{planId:plan.id,file,date,lines:[{id:plan.lines[0].id,actual:'1'}]},p.revision);assert.throws(()=>R.run(p.id,'arrival',{planId:plan.id,file,date,lines:[{id:plan.lines[0].id,actual:'1'}]},p.revision),/已更新/);pass('重复旧版本操作被拦截，分批实收只累计有效记录');
+ install(submit.after);p=raw();login('manager-wang','engineer');assert.equal(R.get(p.id),null);assert.throws(()=>R.run(p.id,'node',{nodeId:plan.nodeId,file,note:'无权办理',noMaterials:true}),/无权/);pass('其他工程人员不能记录本项目，单人责任与项目范围一致');
+ install(submit.after);p=raw();login('finance-dual','finance');assert(R.get(p.id));assert.throws(()=>R.run(p.id,'node',{nodeId:plan.nodeId,file,note:'跨岗记录',noMaterials:true}),/工程人员/);pass('财务可办理原材料金额及款项，不能跨岗完成施工节点');
+ install(scenes.find(s=>s.action==='collect').after);p=raw();assert.throws(()=>R.run(p.id,'start',{file,date}),/足额|核对|确认|合同款/);assert(!raw().actualStart);pass('工程登记付款凭据不替代财务实际到账，未核实不能开工');
+ install(submit.after);p=raw();assert.throws(()=>E.apply(p.id,'complete-node',{}, {nodeId:plan.nodeId}),/项目记录页/);pass('新记录项目的旧操作入口统一转接，不允许绕过新记录逻辑');
+ install(final);login('manager-li','engineer');p=raw();plan=R.plans(p)[0];const line=plan.lines[0];assert.throws(()=>R.run(p.id,'material-terms',{planId:plan.id,file,lines:[{id:line.id,supplier:line.supplier,unitPrice:String(line.unitPrice+1),freight:'0'}]}),/已有实际付款/);pass('已付材料保留原金额和凭据，原项目补充不覆盖资金事实');
+ install(submit.before);p=raw();const snapshot=JSON.stringify(wx.getStorageSync(E.KEY)),save=wx.setStorageSync;let fail=true;wx.setStorageSync=(key,value)=>{if(key===E.KEY&&fail){fail=false;throw Error('模拟存储失败');}return save(key,value);};try{assert.throws(()=>R.run(p.id,'material-plan',{nodeId:p.plan.nodes[0].id,due:date,lines:[{name:'材料',quantity:'1',unit:'批'}]},p.revision),/存储失败/);assert.equal(JSON.stringify(wx.getStorageSync(E.KEY)),snapshot);}finally{wx.setStorageSync=save;}pass('保存失败整体回滚，原材料和原项目可继续办理');
+ fs.writeFileSync(path.resolve('qa/engineering-records-20261021/guards.json'),JSON.stringify({result:'passed',checks,evidence:'Isolated model consistency checks, no external operations'},null,2));
+})().catch(e=>{console.error(e.stack);process.exitCode=1;});

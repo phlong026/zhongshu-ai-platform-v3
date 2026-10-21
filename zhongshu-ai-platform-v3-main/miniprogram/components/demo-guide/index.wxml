@@ -1,0 +1,1 @@
+<button wx:if="{{active}}" class="demo-guide" bindtap="open">{{live?'连续案例 · 切换岗位／查看实时进度':'模拟步骤 '+index+' · 返回全流程演示'}} ›</button>

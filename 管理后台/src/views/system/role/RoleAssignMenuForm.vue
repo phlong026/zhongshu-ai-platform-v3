@@ -1,0 +1,204 @@
+<template>
+  <Dialog v-model="dialogVisible" title="菜单权限">
+    <el-form ref="formRef" v-loading="formLoading" :model="formData" label-width="80px">
+      <el-form-item label="角色名称">
+        <el-tag>{{ formData.name }}</el-tag>
+      </el-form-item>
+      <el-form-item label="角色标识">
+        <el-tag>{{ formData.code }}</el-tag>
+      </el-form-item>
+      <el-form-item label="菜单权限">
+        <el-card class="w-full h-400px !overflow-y-scroll" shadow="never">
+          <template #header>
+            F-3 角色模板:
+            <el-button size="small" link type="primary" @click="applyTemplate('reviewer')"
+              >审核员</el-button
+            >
+            <el-button size="small" link type="primary" @click="applyTemplate('support')"
+              >客服</el-button
+            >
+            <el-button size="small" link type="primary" @click="applyTemplate('finance')"
+              >财务</el-button
+            >
+            <el-divider direction="vertical" />
+            全选/全不选:
+            <el-switch
+              v-model="treeNodeAll"
+              active-text="是"
+              inactive-text="否"
+              inline-prompt
+              @change="handleCheckedTreeNodeAll"
+            />
+            全部展开/折叠:
+            <el-switch
+              v-model="menuExpand"
+              active-text="展开"
+              inactive-text="折叠"
+              inline-prompt
+              @change="handleCheckedTreeExpand"
+            />
+          </template>
+          <el-tree
+            ref="treeRef"
+            :data="menuOptions"
+            :props="defaultProps"
+            empty-text="加载中，请稍候"
+            node-key="id"
+            show-checkbox
+          />
+        </el-card>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button :disabled="formLoading" type="primary" @click="submitForm">确 定</el-button>
+      <el-button @click="dialogVisible = false">取 消</el-button>
+    </template>
+  </Dialog>
+</template>
+<script lang="ts" setup>
+import { defaultProps, handleTree } from '@/utils/tree'
+import * as RoleApi from '@/api/system/role'
+import * as MenuApi from '@/api/system/menu'
+import * as PermissionApi from '@/api/system/permission'
+
+defineOptions({ name: 'SystemRoleAssignMenuForm' })
+
+const { t } = useI18n() // 国际化
+const message = useMessage() // 消息弹窗
+
+const dialogVisible = ref(false) // 弹窗的是否展示
+const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
+const formData = reactive({
+  id: undefined as number | undefined,
+  name: '',
+  code: '',
+  menuIds: []
+})
+const formRef = ref() // 表单 Ref
+const menuOptions = ref<any[]>([]) // 菜单树形结构
+const menuExpand = ref(false) // 展开/折叠
+const treeRef = ref() // 菜单树组件 Ref
+const treeNodeAll = ref(false) // 全选/全不选
+
+/** 打开弹窗 */
+const open = async (row: RoleApi.RoleVO) => {
+  dialogVisible.value = true
+  resetForm()
+  // 加载 Menu 列表。注意，必须放在前面，不然下面 setChecked 没数据节点
+  menuOptions.value = handleTree(await filterProjectMenus(await MenuApi.getSimpleMenusList()))
+  // 设置数据
+  formData.id = row.id
+  formData.name = row.name
+  formData.code = row.code
+  formLoading.value = true
+  try {
+    formData.menuIds = await PermissionApi.getRoleMenuList(row.id)
+    // 设置选中
+    formData.menuIds.forEach((menuId: number) => {
+      treeRef.value.setChecked(menuId, true, false)
+    })
+  } finally {
+    formLoading.value = false
+  }
+}
+
+// 2026-10-02 运营确认：授权树只保留本项目子树（/zs 业务 + /system 系统设置 + /infra 运维支持），
+// 上游 CRM/商城/ERP 等模板节点不再出现在角色配置中；仅影响展示，已勾选的历史权限不受影响。
+const PROJECT_MENU_ROOTS = new Set(['/zs', '/system', '/infra'])
+// F-3 角色模板：按菜单种子 ID 预勾选（9501-9550 为本项目业务菜单段）
+const ROLE_TEMPLATES: Record<string, number[]> = {
+  // 审核员：灵感库（查）、AI案例审核（审）、AI任务（看）、工作台统计
+  reviewer: [9502, 9503, 9529, 9533, 9525, 9547],
+  // 客服：授权码全套、C端用户（停用）、隐私申请、人工调点、数据导出
+  support: [9505, 9512, 9534, 9523, 9528, 9550, 9539, 9540, 9526],
+  // 财务：充值方案/订单、点数流水、两类价格、对账退款、点数导出、数据导出
+  finance: [9507, 9508, 9509, 9510, 9513, 9535, 9536, 9537, 9538, 9539, 9541, 9526]
+}
+function applyTemplate(key: string) {
+  const ids = ROLE_TEMPLATES[key]
+  if (!ids) return
+  ids.forEach((id) => treeRef.value?.setChecked(id, true, false))
+}
+const filterProjectMenus = async (menus: any[]) => {
+  if (!menus.length) return menus
+  const nodeById = new Map<number, any>()
+  menus.forEach((item) => nodeById.set(item.id, item))
+  const rootIds = new Set(
+    menus
+      .filter((item) => item.parentId === 0 && PROJECT_MENU_ROOTS.has(item.path))
+      .map((item) => item.id)
+  )
+  if (!rootIds.size) return menus
+  const inProject = (item: any) => {
+    let current = item
+    const seen = new Set<number>()
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id)
+      if (rootIds.has(current.id)) return true
+      current = nodeById.get(current.parentId)
+    }
+    return false
+  }
+  return menus.filter(inProject)
+}
+defineExpose({ open }) // 提供 open 方法，用于打开弹窗
+
+/** 提交表单 */
+const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
+const submitForm = async () => {
+  // 校验表单
+  if (!formRef) return
+  const valid = await formRef.value.validate()
+  if (!valid) return
+  // 提交请求
+  formLoading.value = true
+  try {
+    const data = {
+      roleId: formData.id!,
+      menuIds: [
+        ...(treeRef.value.getCheckedKeys(false) as unknown as Array<number>), // 获得当前选中节点
+        ...(treeRef.value.getHalfCheckedKeys() as unknown as Array<number>) // 获得半选中的父节点
+      ]
+    }
+    await PermissionApi.assignRoleMenu(data)
+    message.success(t('common.updateSuccess'))
+    dialogVisible.value = false
+    // 发送操作成功的事件
+    emit('success')
+  } finally {
+    formLoading.value = false
+  }
+}
+
+/** 重置表单 */
+const resetForm = () => {
+  // 重置选项
+  treeNodeAll.value = false
+  menuExpand.value = false
+  // 重置表单
+  Object.assign(formData, {
+    id: undefined,
+    name: '',
+    code: '',
+    menuIds: []
+  })
+  treeRef.value?.setCheckedNodes([])
+  formRef.value?.resetFields()
+}
+
+/** 全选/全不选 */
+const handleCheckedTreeNodeAll = () => {
+  treeRef.value.setCheckedNodes(treeNodeAll.value ? menuOptions.value : [])
+}
+
+/** 展开/折叠全部 */
+const handleCheckedTreeExpand = () => {
+  const nodes = treeRef.value?.store.nodesMap
+  for (let node in nodes) {
+    if (nodes[node].expanded === menuExpand.value) {
+      continue
+    }
+    nodes[node].expanded = menuExpand.value
+  }
+}
+</script>

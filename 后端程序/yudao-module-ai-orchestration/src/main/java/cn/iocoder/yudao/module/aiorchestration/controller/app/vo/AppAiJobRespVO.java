@@ -1,0 +1,100 @@
+package cn.iocoder.yudao.module.aiorchestration.controller.app.vo;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+@Schema(description = "小程序 - AI 任务 Response VO（页面 06/09 生成中、07/10 选择）")
+@Data
+public class AppAiJobRespVO {
+
+    @Schema(description = "任务编号")
+    private String jobId;
+
+    @Schema(description = "项目编号")
+    private String projectId;
+
+    private String userId;
+
+    @Schema(description = "阶段：FLAT / ELEVATION")
+    private String phase;
+
+    @Schema(description = "任务状态：CREATED/QUEUED/RUNNING/VALIDATING/SETTLING/SUCCEEDED/PARTIALLY_SUCCEEDED/FAILED/CANCELLED/CANCEL_REQUESTED")
+    private String status;
+
+    @Schema(description = "请求数量 N")
+    private Integer requestedCount;
+
+    @Schema(description = "服务端冻结的出图选项")
+    private Map<String, String> imageOptions;
+
+    @Schema(description = "已接受的有效结果数")
+    private Integer acceptedCount;
+
+    @Schema(description = "单价（设计点）")
+    private Long unitPointCost;
+
+    @Schema(description = "总扣点（快照）")
+    private Long totalPointCost;
+
+    @Schema(description = "结算实际退点；未结算或无结算记录时为空")
+    private Long refundedPointCost;
+
+    @Schema(description = "结算后净消耗；未结算时为空")
+    private Long netPointCost;
+
+    @Schema(description = "提示词调用实扣点数（生图前文本模型计费）；未实际扣点时为空，仅管理端详情下发")
+    private Long promptPointCost;
+
+    @Schema(description = "进度百分比 0~100")
+    private Integer progress;
+
+    @Schema(description = "预计完成时间")
+    private LocalDateTime estimatedFinishedAt;
+
+    @Schema(description = "候选列表（任务终态后可见，仅 ACCEPTED 槽位）")
+    private List<Candidate> candidates;
+
+    @Schema(description = "当前对象允许执行的动作集合（如 CANCEL、SELECT）")
+    private List<String> allowedActions;
+
+    @Schema(description = "创建时间")
+    private LocalDateTime createdAt;
+
+    @Schema(description = "终态时间")
+    private LocalDateTime finishedAt;
+
+    @Schema(description = "客户昵称（仅管理端生成记录下发；未注册昵称为空）")
+    private String nickname;
+
+    @Schema(description = "总耗时秒（任务创建到最后一次尝试结束，含排队与重试，不等于供应商出图耗时；仅管理端下发）")
+    private Integer durationSeconds;
+
+    @Schema(description = "最近一次失败原因（attempt 级 last_error；仅管理端下发）")
+    private String lastError;
+
+    @Schema(description = "plan 阶段产出的最终提示词（含用户补充需求的衍生文本；仅管理端详情下发，列表与小程序视图不带）")
+    private String promptText;
+
+    @Schema(description = "生成该提示词所用的模型标识（仅管理端详情下发）")
+    private String providerModel;
+
+    @Schema(description = "候选槽位")
+    @Data
+    public static class Candidate {
+
+        @Schema(description = "候选编号")
+        private String candidateId;
+
+        @Schema(description = "槽位号")
+        private Integer slotNo;
+
+        @Schema(description = "资产编号（隔离校验通过后的正式资产）")
+        private String assetId;
+
+    }
+
+}

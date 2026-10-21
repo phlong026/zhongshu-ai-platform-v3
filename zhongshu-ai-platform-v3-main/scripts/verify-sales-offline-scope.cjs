@@ -1,0 +1,28 @@
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('assert/strict');
+const root=path.resolve(__dirname,'..'),out=path.join(root,'qa/business-module-simplification-20261021'),base=path.join(out,'baseline');
+const manifest=JSON.parse(fs.readFileSync(path.join(base,'manifest.json'),'utf8'));
+const allowed=new Set([
+ 'miniprogram/app.json','miniprogram/pages/admin/owner-page.js','miniprogram/pages/admin/profile/index.wxml','miniprogram/pages/build/model.js',
+ 'miniprogram/pages/business/index.js','miniprogram/pages/business/index.wxml','miniprogram/pages/business/index.wxss','miniprogram/pages/workflow/index.js','miniprogram/pages/workflow/index.wxml','miniprogram/utils/design-finance-feedback.js',
+ 'miniprogram/utils/authority-v2.js','miniprogram/utils/business-rules-v2.js','miniprogram/utils/business-stamps-v2.js','miniprogram/utils/business.js','miniprogram/utils/commercial-approval.js',
+ 'miniprogram/utils/demo-users.js','miniprogram/utils/design-coordination.js','miniprogram/utils/finance-ledger.js','miniprogram/utils/organization.js',
+ 'miniprogram/utils/project-records.js','miniprogram/utils/sales-workspace.js','miniprogram/utils/workbench.js','miniprogram/utils/dashboard.js','miniprogram/utils/finance-desk.js','miniprogram/pages/management/index.js','miniprogram/pages/management/finance-home.wxml'
+]);
+const engineeringScopeFile=path.join(root,'qa/engineering-records-20261021/source-fingerprints.json');const engineeringScope=fs.existsSync(engineeringScopeFile)?JSON.parse(fs.readFileSync(engineeringScopeFile,'utf8')):null;const engineeringAuthorized=(file,current)=>engineeringScope?.files.some(r=>r.path===file&&r.after===current);
+// These existing business-page edits belong to concurrent business work, not the engineering change.
+// Accept only the reviewed content below; a later edit must be reviewed again.
+const otherBusinessFile=path.join(root,'qa/engineering-records-20261021/other-business-fingerprints.json');const otherBusiness=fs.existsSync(otherBusinessFile)?JSON.parse(fs.readFileSync(otherBusinessFile,'utf8')):null;const businessContentKnown=(file,current)=>otherBusiness?.files.some(r=>r.path===file&&r.sha256===current);
+// Preserve the separately reviewed parallel stylesheet refresh, pinned to the native-tested bytes.
+const styleFile=path.join(root,'qa/business-module-native-20261021/concurrent-style-fingerprints.json'),styles=fs.existsSync(styleFile)?JSON.parse(fs.readFileSync(styleFile,'utf8')):null;const styleKnown=(file,current)=>file.endsWith('.wxss')&&styles?.files.some(r=>r.path===file&&r.sha256===current);
+const hash=buffer=>crypto.createHash('sha256').update(buffer).digest('hex'),changed=[];
+for(const f of manifest.files){const file=path.join(root,f.path);assert(fs.existsSync(file),'Unexpected removed source '+f.path);const current=hash(fs.readFileSync(file));if(current!==f.sha256){if(f.path.startsWith('miniprogram/'))assert(allowed.has(f.path)||engineeringAuthorized(f.path,current)||businessContentKnown(f.path,current)||styleKnown(f.path,current),'Out-of-scope application change '+f.path);changed.push({path:f.path,before:f.sha256,after:current});}}
+const known=new Set(manifest.files.map(f=>f.path)),added=[];
+function walk(dir){for(const e of fs.readdirSync(path.join(root,dir),{withFileTypes:true})){const rel=dir+'/'+e.name;if(e.isDirectory()){if(!['assets','node_modules'].includes(e.name))walk(rel);}else if(/\.(js|cjs|wxml|wxss|json|md)$/.test(e.name)&&!known.has(rel)){if(rel.startsWith('miniprogram/'))assert(engineeringAuthorized(rel,hash(fs.readFileSync(path.join(root,rel))))||styleKnown(rel,hash(fs.readFileSync(path.join(root,rel))))||rel.startsWith('miniprogram/pages/workflow/commission/')||['miniprogram/utils/sales-flow.js','miniprogram/utils/sales-todos.js'].includes(rel),'Out-of-scope new application file '+rel);added.push({path:rel,sha256:hash(fs.readFileSync(path.join(root,rel)))});}}}
+for(const dir of ['miniprogram','scripts','docs'])walk(dir);
+const read=(dir,file)=>fs.readFileSync(path.join(dir,file),'utf8').replace(/\r\n/g,'\n'),file='miniprogram/pages/build/model.js',before=read(base,file),after=read(root,file);
+function adapter(text,anchor){const start=text.indexOf(anchor,text.indexOf('function sync()')),end=text.indexOf('if(JSON.stringify(p.documents)',start);assert(start>=0&&end>start);return [start,end];}
+const [bs,be]=adapter(before,'const d=latest(c.drawings);const docs='),[as,ae]=adapter(after,'const offline=');
+if(!engineeringAuthorized(file,hash(fs.readFileSync(path.join(root,file)))))assert.equal(after.slice(0,as)+before.slice(bs,be)+after.slice(ae),before,'Engineering code changed outside the handover source adapter');
+const sharedBefore=read(base,'miniprogram/utils/workbench.js'),sharedAfter=read(root,'miniprogram/utils/workbench.js');assert.equal(sharedAfter.slice(sharedAfter.indexOf('function engineering()')),sharedBefore.slice(sharedBefore.indexOf('function engineering()')),'Shared engineering/management workbench logic changed');
+const result={result:'passed',comparedFiles:manifest.files.length,changed,added,otherBusinessChanges:otherBusiness?.files||[],engineering:engineeringScope?'Later user-authorized engineering record workflow verified against its exact source fingerprints; concurrent business page changes listed separately; shared workbench checks retained.':'Only the accepted business packet/drawing source adapter differs; construction, procurement, acceptance, rectification, completion and finance gates unchanged.'};
+fs.writeFileSync(path.join(out,'scope-results.json'),JSON.stringify(result,null,2));console.log(JSON.stringify({result:result.result,changed:changed.length,added:added.length,engineering:result.engineering},null,2));

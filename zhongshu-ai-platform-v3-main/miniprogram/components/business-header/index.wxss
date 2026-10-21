@@ -1,0 +1,4 @@
+@import "../../styles/subpage-navigation.wxss";
+:host{display:block}.header{position:fixed;top:0;left:0;right:0;z-index:90;background:#fdfcf9}.nav{height:82rpx;display:flex;align-items:center;justify-content:center;position:relative;font-size:34rpx;font-weight:600;color:#0b0b0b}.back{position:absolute;left:12rpx;top:0;width:76rpx;height:82rpx;display:flex;align-items:center;justify-content:center;background:transparent}.back image{width:23rpx;height:34rpx}.back::after{border:0}
+.design-flow{background:#faf8f4;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}.design-flow .nav{font-size:30rpx;font-weight:600;line-height:40rpx;letter-spacing:.4rpx}
+.header.header{background:#faf8f4;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}.header .nav{font-family:inherit;font-size:30rpx;font-weight:600;line-height:40rpx;letter-spacing:0}

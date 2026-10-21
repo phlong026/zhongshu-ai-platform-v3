@@ -1,0 +1,118 @@
+--- #################### 众墅专项 PostgreSQL 基线（P1B 冻结）####################
+# 启用方式：--spring.profiles.active=local,pg
+# 部署形态：整库 PostgreSQL（唯一关系数据库，架构 D-08）。
+# 注意：底座数据源由 dynamic-datasource 接管，必须覆盖 spring.datasource.dynamic.datasource.master.*；
+# Flyway 必须显式给 spring.flyway.url，否则会回退到路由数据源（= master）。
+# 边界：底座 system/infra 在 PG 上的初始化与回归属于平台阶段 1A/1B 门禁（见 T00 登记 §4）；
+# 本 profile 当前承载业务库基线与 CI，完整服务器 PG 启动验收在平台门禁通过后补证。
+spring:
+  data:
+    redis:
+      host: ${ZS_REDIS_HOST:127.0.0.1}
+      port: ${ZS_REDIS_PORT:6379}
+  flyway:
+    enabled: true
+    url: ${ZS_PG_URL:jdbc:postgresql://127.0.0.1:5432/zhongshu_design}
+    user: ${ZS_PG_USERNAME:zhongshu}
+    password: ${ZS_PG_PASSWORD:zhongshu}
+    # 各业务包拥有自己的迁移目录；platform 为平台/工程级（Outbox、审计、示例基线等）
+    locations: classpath:db/migration/platform,classpath:db/migration/identity,classpath:db/migration/design,classpath:db/migration/commerce,classpath:db/migration/ai-orchestration
+    # 底座 system/infra 表由 sql/postgresql 基线 dump 先行建好（全新环境引导顺序：dump → Flyway），
+    # schema 非空且无 Flyway 历史时必须允许建基线，否则首次启动直接被 non-empty schema 守卫拦截。
+    # baseline-version 取 20260905.000（低于全部真实迁移），保证基线不吞掉任何业务迁移。
+    baseline-on-migrate: true
+    baseline-version: "20260905.000"
+    # 段位命名（platform=0xx / identity=1xx / design=2xx / commerce=3xx / ai-orchestration=4xx）
+    # 下，后补低段位迁移（如 platform 004 晚于 commerce 402 落地）必然全局乱序，必须允许。
+    # 各段表集零交叉依赖，乱序仅影响 history 排序，不影响正确性。
+    out-of-order: true
+    table: flyway_schema_history
+  datasource:
+    dynamic:
+      druid: # 覆盖 local profile 的 MySQL 校验语句（PG 无 DUAL 表）
+        validation-query: SELECT 1
+        validation-query-timeout: 5
+        # PG 下必须关闭 Druid PreparedStatement 缓存：PSCache 会跨事务复用语句对象，
+        # 与 PG JDBC（事务中止后语句失效）+ MyBatis-Plus 3.5.17 cursor 版 selectOne
+        # 组合会拿到已关闭的 statement（日志特征：getMaxRows error / statement 已被关闭）。
+        pool-prepared-statements: false
+        max-pool-prepared-statement-per-connection-size: 0
+      datasource:
+        master:
+          url: ${ZS_PG_URL:jdbc:postgresql://127.0.0.1:5432/zhongshu_design}
+          username: ${ZS_PG_USERNAME:zhongshu}
+          password: ${ZS_PG_PASSWORD:zhongshu}
+          driver-class-name: org.postgresql.Driver
+
+# 安全基线：本 profile 不携带任何密钥默认值，也不打开开发便利开关。
+# 密钥缺失时兑换/发码接口按合同快速失败（AccessCodeCipher.requirePepper），不得静默降级为公开值。
+# 本机联调请追加 zsdev profile：--spring.profiles.active=local,pg,zsdev
+# T13-01：本 profile 刻意不声明各端口 provider（真实/Stub 选择）。生产必须显式配置为真实实现
+# （环境变量 ZHONGSHU_*_PROVIDER 或 -Dzhongshu.*.provider=real/cos）；缺失即被启动守卫快速失败，
+# 避免生产误装配 Stub 或静默无实现。开发默认值放在 zsdev profile。
+zhongshu:
+  ai:
+    # C6：internal-api 服务签名密钥——生产必须配置，空值时 internal 端点全部拒绝（快速失败）
+    internal-secret: ${ZS_INTERNAL_SECRET:}
+    internal-replay-window: ${ZS_INTERNAL_REPLAY_WINDOW:300}
+    # D-11（EXT-05）AI Provider 配置面，2026-09-12 冻结：apilio.ai，OpenAI 兼容 /v1/chat/completions。
+    # Provider 调用由仓库 ai-runtime/ 独立进程承担，直接读取自己的部署环境。
+    # Java AiProviderProperties 仅保留兼容绑定；Provider 密钥只需注入 Runtime，不会自动转发。
+    # 遵 T12「只登记已被消费的键」纪律：api-key 暂不纳入 RealServiceWiringPolicy 强制启动守卫（无消费者时纳入会令生产为无用键失败）。
+    # 安全基线：本 profile 不给任何默认值；api-key 属机密，只经部署环境 ZS_AI_API_KEY 带外注入，绝不落文件/提交；
+    #    Actuator env/configprops show-values=NEVER（见文件末）兜底不回显。
+    provider:
+      base-url: ${ZS_AI_BASE_URL:}
+      api-key: ${ZS_AI_API_KEY:}
+      model: ${ZS_AI_MODEL:}
+      temperature: ${ZS_AI_TEMPERATURE:}
+    # 补充需求「AI 优化」（方案 A）：后端经内部签名（共用上面的 internal-secret）调用 ai-runtime 的
+    # POST /internal/note-polish，供应商密钥只在 runtime 进程里、后端不持有。
+    # runtime-url 必须是不含路径/凭据的 origin（如 http://127.0.0.1:8081）；为空即未启用，小程序提示"暂未配置"。
+    note-polish:
+      runtime-url: ${ZS_AI_RUNTIME_URL:}
+  identity:
+    wechat-appid: ${ZS_WX_APPID:}
+    # T13-04：真实 code2session AppSecret——生产安全基线不给默认值；provider=real 时必须由 ZS_WX_APPSECRET 注入，
+    # 缺失即被启动守卫 RealServiceWiringPolicy 快速失败（本 profile 不声明 provider，见上方 T13-01 注释）。
+    wechat-appsecret: ${ZS_WX_APPSECRET:}
+    access-code-pepper: ${ZS_ACCESS_CODE_PEPPER:}
+    access-code-pepper-version: ${ZS_ACCESS_CODE_PEPPER_VERSION:v1}
+    access-code-artifact-key: ${ZS_ACCESS_CODE_ARTIFACT_KEY:}
+  commerce:
+    payment:
+      # 生产安全基线：stub 通道默认不再自动结算（查单返回 UNKNOWN），
+      # 避免开发替身把未支付订单查成已支付并触发自动到账。本地联调由 zsdev 显式开启。
+      stub-auto-settle: ${ZS_PAY_STUB_AUTO_SETTLE:false}
+    recharge:
+      # 临时充值总开关：真实支付通道未就绪时保持 false（建单 503、方案列表为空、前端隐藏入口）。
+      enabled: ${ZS_RECHARGE_ENABLED:false}
+  design:
+    seed-dev-data: ${ZS_SEED_DEV_DATA:false}
+    # 基线默认关闭；production profile 显式开启尾程与补偿驱动。
+    driver-enabled: ${ZS_DRIVER_ENABLED:false}
+    asset:
+      dev-content-endpoint: ${ZS_DEV_CONTENT_ENDPOINT:false}
+      # T13-11：真实 COS 私有桶所需配置——生产安全基线不给默认值；provider=cos 时必须由 ZS_COS_* 注入，
+      # 缺失即被启动守卫 RealServiceWiringPolicy 快速失败（本 profile 不声明 provider，见上方 T13-01 注释）。
+      # secret-id/secret-key 属机密，只经部署环境带外注入，绝不落库/回显（Actuator show-values=NEVER，见文件末）。
+      storage:
+        cos:
+          endpoint: ${ZS_COS_ENDPOINT:}
+          region: ${ZS_COS_REGION:}
+          bucket: ${ZS_COS_BUCKET:}
+          secret-id: ${ZS_COS_SECRET_ID:}
+          secret-key: ${ZS_COS_SECRET_KEY:}
+          path-style-access: ${ZS_COS_PATH_STYLE_ACCESS:false}
+          api-call-timeout-ms: ${ZS_COS_API_CALL_TIMEOUT_MS:20000}
+
+# T13-02：管理端不得回显密钥——将 Actuator env/configprops 端点的值回显显式设为安全默认值 NEVER。
+# Spring Boot 3.5 默认即 never（值以 ****** 呈现），此处在生产安全基线显式声明，令「不回显密钥」不依赖框架默认。
+# 注意：这是 profile 级默认值，更高优先级来源（命令行 --management.endpoint.env.show-values=ALWAYS、环境变量）仍可覆盖；
+# 生产部署须同时确保 actuator 端点受访问控制/不公网暴露（属 T13-34 部署安全范围）。仅收敛「值回显」，不改动 local/dev 的端点暴露范围（不影响本地联调）。
+management:
+  endpoint:
+    env:
+      show-values: NEVER
+    configprops:
+      show-values: NEVER

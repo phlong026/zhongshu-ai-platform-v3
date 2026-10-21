@@ -1,0 +1,11 @@
+# 系统与构建产物
+.DS_Store
+node_modules/
+dist/
+target/
+*.log
+
+# 环境变量与密钥：只提交 .env.example（占位值），实际值部署时注入
+.env
+.env.*
+!.env.example

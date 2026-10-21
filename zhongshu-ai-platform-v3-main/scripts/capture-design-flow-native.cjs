@@ -1,0 +1,40 @@
+const path=require('path'),fs=require('fs'),assert=require('assert/strict');
+const automator=require('miniprogram-automator');
+const A=require('../miniprogram/utils/account'),B=require('../miniprogram/utils/business'),CA=require('../miniprogram/utils/commercial-approval');
+const {stateAt}=require('./business-fixtures.cjs');
+const out=path.resolve('qa/native-design-flow-20261020');fs.mkdirSync(out,{recursive:true});
+(async()=>{
+ const mp=await automator.connect({wsEndpoint:process.env.FRANCHISE_WS||'ws://127.0.0.1:9430'});
+ const route=async(url,p2)=>{for(let i=0;i<16;i++){await mp.reLaunch(url).catch(()=>{});await new Promise(r=>setTimeout(r,700));const info=await mp.evaluate(()=>{const p=getCurrentPages().at(-1);return {path:p.route,dataKeys:Object.keys(p.data||{}).length}});if(info.path===p2&&info.dataKeys>0)return true;}throw Error('route fail: '+url);};
+ await mp.reLaunch('/pages/home/index').catch(()=>{});await new Promise(r=>setTimeout(r,1500));
+ for(const[k,v]of [['zhongshu-account-v1',A.seed()],['zhongshu-business-v3',B.initial()]])await mp.callWxMethod('setStorageSync',k,v).catch(()=>{});
+ await route('/pages/account/index?view=login','pages/account/index');
+ await mp.evaluate(id=>{const p=getCurrentPages().at(-1);p.setData({selectedDemoUser:id,checked:true});p.login();p.confirmModal();},'sales-dual');
+ await route('/pages/business/index','pages/business/index');
+ await new Promise(r=>setTimeout(r,1200));
+ // 注入“首款待办理”状态的演示数据（服务费已核定并批准）
+ {const fx=stateAt(7),c=fx.customers[0];
+  c.designOrganizationId='headquarters';c.budgets[0].parameters={width:'12.5',depth:'16',floors:'2',area:400};
+  c.serviceOrders=[{id:'service-1',version:1,total:12000,first:6000,tail:6000,recipient:'总部设计服务中心',basis:'总部设计服务约定',verifier:'业务负责人',date:'2026-10-22',file:{name:'服务约定.pdf',sample:true},requestVersion:1,financeStates:{}}];
+  c.moneyApprovals=[{id:'money-service-1',kind:'service',name:'设计服务费',version:1,total:12000,signature:CA.signature(CA.source(c,'service')),snapshot:CA.source(c,'service').row,status:'approved',note:'批准',approverRole:'boss',approverId:'zhao-boss'}];
+  await mp.callWxMethod('setStorageSync','zhongshu-business-v3',fx);}
+ await route('/pages/workflow/index?view=delivery&id=customer-chen','pages/workflow/index');
+ await new Promise(r=>setTimeout(r,800));
+ const dv=await mp.evaluate(()=>{const p=getCurrentPages().at(-1),d=p.data;return {title:d.title,error:d.error,sections:(d.sections||[]).map(s=>({title:s.title,values:(s.items||[]).filter(i=>i.type==='checklist').map(i=>i.values)[0]}))};});
+ if(dv.title!=='设计协同')throw Error('delivery 数据异常 title='+dv.title+' error='+dv.error);
+ assert.equal(dv.sections.length,1);
+ assert.equal(dv.sections[0].title,'设计办理流程');
+ const flow=dv.sections[0].values;
+ assert.equal(flow.length,9);
+ assert(flow.some(s=>s.state==='current'&&s.title==='首款办理'),'当前步应为首款办理');
+ await mp.screenshot({path:path.join(out,'design-flow-delivery.png')});
+ await route('/pages/workflow/index?view=payment-first&id=customer-chen','pages/workflow/index');
+ await new Promise(r=>setTimeout(r,800));
+ const pv=await mp.evaluate(()=>{const d=getCurrentPages().at(-1).data;return {primary:d.primary,url:d.primaryUrl,steps:((d.sections||[])[0]||{items:[]}).items.filter(i=>i.type==='checklist').map(i=>i.values)[0]};});
+ assert.equal(pv.steps.length,6);
+ assert.equal(pv.steps[1].state,'current');
+ assert(pv.steps[1].title.includes('老板批准'));
+ await mp.screenshot({path:path.join(out,'design-flow-payment.png')});
+ console.log('PASS 设计协同步骤流与付款清单原生渲染，截图 '+out);
+ await mp.disconnect();process.exit(0);
+})().catch(async e=>{console.error('ERR',e.message);try{await mp.disconnect();}catch(_){}process.exit(1);});

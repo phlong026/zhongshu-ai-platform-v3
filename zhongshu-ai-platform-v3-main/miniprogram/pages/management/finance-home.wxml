@@ -1,0 +1,20 @@
+<template name="financeHome">
+<view class="fin-page fin-home"><brand-header divider account-font title="{{desk.title}}"/><demo-guide id="finance-home-demo-guide"/>
+ <view class="fin-content">
+  <view class="fin-context"><text>{{desk.company}}</text><text class="fin-context-role">{{desk.role}}</text></view>
+  <view class="fin-card"><view class="fin-heading"><text class="fin-title">{{desk.summaryTitle}}</text><picker mode="date" fields="month" value="{{desk.period}}" bindchange="financeMonth"><text class="fin-muted">{{desk.periodText}}⌄</text></picker></view>
+   <view class="fin-metrics"><button wx:for="{{desk.metrics}}" wx:key="label" class="fin-metric {{item.tone}}" data-index="{{index}}" bindtap="financeMetric"><image src="{{item.icon}}" mode="aspectFit"/><view><text class="fin-muted">{{item.label}}</text><text class="fin-number">{{item.value}}</text></view></button></view>
+   <text class="fin-note">{{desk.footnote}}</text>
+  </view>
+  <view class="fin-card staff-todos"><view class="fin-heading"><text class="fin-title">{{desk.taskTitle}}</text><button class="fin-text" data-url="{{desk.tasksUrl}}" bindtap="financeGo">全部 {{desk.taskCount}}<image class="fin-chevron" src="/assets/creation-chevron-muted.png"/></button></view>
+   <button wx:for="{{desk.previewTasks}}" wx:key="key" class="fin-task finance-todo" data-url="{{item.url}}" bindtap="financeGo"><image class="fin-row-icon" src="{{item.icon}}" mode="aspectFit"/><view class="fin-grow"><text class="fin-name">{{item.company?item.company+' · ':''}}{{item.name}}</text><text class="fin-amount">{{item.amount}}</text><text class="fin-status">{{item.status}}</text></view><text class="fin-small-primary">{{item.label}}</text></button>
+   <view wx:if="{{!desk.previewTasks.length}}" class="fin-empty"><text>当前暂无需本人办理事项</text><button class="fin-text" data-url="{{desk.allTasksUrl}}" bindtap="financeGo">查看全部办理事项</button></view>
+  </view>
+  <view wx:if="{{desk.team&&!desk.hq}}" class="fin-card"><view class="fin-heading"><text class="fin-title">财务团队</text><button class="fin-text" data-url="{{desk.team.url}}" bindtap="financeGo">团队管理<image class="fin-chevron" src="/assets/creation-chevron-muted.png"/></button></view><view class="fin-three"><view><text class="fin-muted">在岗人员</text><text class="fin-value">{{desk.team.count}}</text></view><view><text class="fin-muted">待核对原单</text><text class="fin-value">{{desk.team.pending}}</text></view><view><text class="fin-muted">待补证</text><text class="fin-value">{{desk.team.supplements}}</text></view></view><button wx:if="{{desk.team.incompleteCost}}" class="fin-link-row" data-url="{{desk.team.costUrl}}" bindtap="financeGo"><text>{{desk.team.incompleteCost}}个项目成本资料待完善</text><image class="fin-chevron" src="/assets/creation-chevron-muted.png"/></button></view>
+  <view class="fin-card staff-common"><view class="fin-heading"><text class="fin-title">常用办理</text></view><view class="fin-shortcuts"><button wx:for="{{desk.shortcuts}}" wx:key="label" data-url="{{item.url}}" bindtap="financeGo"><image src="{{item.icon}}" mode="aspectFit"/><text>{{item.label}}</text><text class="fin-muted">{{item.description}}</text></button></view></view>
+  <view wx:if="{{desk.focus.length}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{desk.focusTitle}}</text><button class="fin-text" data-url="{{desk.focusUrl}}" bindtap="financeGo">查看全部<image class="fin-chevron" src="/assets/creation-chevron-muted.png"/></button></view><button wx:for="{{desk.focus}}" wx:key="id" class="fin-link-row" data-url="{{item.url}}" bindtap="financeGo"><view class="fin-grow"><text class="fin-name">{{item.name}}</text><text class="fin-muted">{{item.status}} · {{item.amount}}</text></view><image class="fin-chevron" src="/assets/creation-chevron-muted.png"/></button></view>
+  <view class="fin-card fin-secondary"><button wx:for="{{desk.secondary}}" wx:key="label" data-url="{{item.url}}" bindtap="financeGo">{{item.label}}<image class="fin-chevron" src="/assets/creation-chevron-muted.png"/></button></view>
+  <button class="fin-identity" bindtap="identity">{{desk.company}} · {{desk.role}} · 切换身份</button>
+ </view>
+</view>
+</template>

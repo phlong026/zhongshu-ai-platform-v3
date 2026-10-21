@@ -1,0 +1,2 @@
+const a=require('miniprogram-automator');
+(async()=>{const mp=await a.connect({wsEndpoint:'ws://127.0.0.1:9720'});console.log('connected');try{const c=mp.CDP();c.onEvent((d,e,p)=>console.log('EVENT',d,e,JSON.stringify(p).slice(0,600)));console.log('ENABLE',await c.enable());console.log('DEBUGGER',await c.sendCommand('Debugger','enable',{}));console.log('RUNTIME',await c.sendCommand('Runtime','evaluate',{expression:'1+1'}));}finally{await mp.disconnect();}})().catch(e=>{console.error(e);process.exitCode=1});

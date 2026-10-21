@@ -1,0 +1,13 @@
+<view class="export-page">
+ <business-header id="subpage-header" title="报价单导出"/>
+ <view class="export-content">
+
+  <view class="export-summary"><text class="export-title">{{label||'报价单'}}</text><text class="export-total">¥ {{total}}</text><text class="export-hint">按客户基本信息、主体工程、装饰工程及费用汇总生成。</text></view>
+  <view wx:if="{{error}}" class="export-error">{{error}}<button wx:if="{{albumDenied}}" bindtap="openSettings">开启相册权限</button></view>
+  <view wx:if="{{label}}" class="export-card"><view class="export-card-title">补充表格信息</view><text class="export-hint">未填写的项目留空，已用于计价的配置沿用原记录。补充信息不改变计价面积和金额。</text><view class="export-fields"><label wx:for="{{fields}}" wx:key="key">{{item.label}}<input maxlength="{{item.key==='village'?36:16}}" disabled="{{!canEdit||busy}}" value="{{form[item.key]}}" data-key="{{item.key}}" bindinput="input" placeholder="选填"/></label></view><view class="export-fields"><label wx:for="{{choices}}" wx:key="key">{{item.label}}<picker disabled="{{!canEdit||busy||item.locked}}" range="{{item.values}}" data-key="{{item.key}}" bindchange="pick"><view class="export-select">{{form[item.key]||'未填写'}} ▾</view></picker></label></view><view class="export-options"><button wx:for="{{options}}" wx:key="key" disabled="{{!canEdit||busy}}" class="{{form[item.key]?'selected':''}}" data-key="{{item.key}}" bindtap="toggle">{{form[item.key]?'☑':'□'}} {{item.label}}</button></view><button class="export-refresh" loading="{{busy}}" disabled="{{busy}}" bindtap="generate">{{dirty?'保存信息并刷新预览':'刷新报价单预览'}}</button></view>
+  <view wx:if="{{image}}" class="export-card"><view class="export-card-title">A4 报价单预览</view><image class="quote-sheet-preview" src="{{image}}" mode="widthFix" bindtap="preview"/><text class="export-hint">点击可放大查看，图片和PDF使用同一份表格。</text></view>
+  <view wx:if="{{label}}" class="export-actions"><button class="export-png" loading="{{busy}}" disabled="{{busy||!allowed}}" bindtap="exportImage">导出图片</button><button class="export-pdf" loading="{{busy}}" disabled="{{busy||!allowed}}" bindtap="exportPdf">导出 PDF</button></view>
+  <button wx:if="{{pdfFile&&allowed}}" class="export-share" bindtap="sharePdf">发送已生成的 PDF</button>
+ </view>
+ <canvas type="2d" id="quote-canvas" class="quote-export-canvas"/>
+</view>

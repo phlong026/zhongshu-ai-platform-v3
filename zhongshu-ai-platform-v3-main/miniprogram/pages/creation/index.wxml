@@ -1,0 +1,20 @@
+<view class="page workbench-page sales-page creation-page center-page">
+  <view class="workbench-header"><brand-header divider="{{true}}" title="内容创作" /></view>
+  <view class="content center-body">
+    <view class="section remix-card">
+      <view class="section-heading"><text class="section-title">视频创作</text><button class="text-link" data-key="works" bindtap="openShortcut">我的作品<view class="chevron" /></button></view>
+      <view class="creation-modes"><button wx:for="{{modes}}" wx:key="id" class="creation-mode {{item.id==='remix'?'selected':''}}" data-mode="{{item.id}}" bindtap="chooseMode"><image src="/assets/{{item.icon}}.png" mode="aspectFit"/><text>{{item.title}}</text><text class="creation-mode-hint">{{item.subtitle}}</text></button></view>
+      <view class="section-heading remix-heading"><text class="section-title">爆款文案二创</text></view>
+      <text class="hint remix-subtitle">粘贴参考视频链接，改成自己的表达。</text>
+      <view class="share-input"><image class="link-icon" src="/assets/creation-link.png" mode="aspectFit" /><input class="link-input" value="{{link}}" bindinput="inputLink" placeholder="粘贴视频分享链接" maxlength="2000" aria-label="视频分享链接" /><button class="paste-button" bindtap="paste">粘贴</button></view>
+      <picker class="demo-video-picker" range="{{demoSamples}}" range-key="title" value="{{sampleIndex}}" bindchange="pickDemo"><view class="demo-video-row"><text>预置示例</text><text class="demo-video-title">{{demoSamples[sampleIndex].title}}</text><view class="chevron" /></view></picker>
+<button class="creation-primary extract-button" bindtap="extract">提取文案</button>
+      <button class="manual-link" bindtap="openEditor">没有链接？手动写文案<view class="chevron" /></button>
+    </view>
+    <view class="section creation-tools"><view class="section-heading"><text class="section-title">创作工具</text></view><view class="shortcuts"><button wx:for="{{shortcuts}}" wx:key="key" class="shortcut" data-key="{{item.key}}" bindtap="openShortcut"><image src="/assets/creation-{{item.icon}}.png" mode="aspectFit" /><text>{{item.title}}</text></button></view></view>
+    <view class="section recent-card"><view class="section-heading"><text class="section-title">最近创作</text><button class="text-link" bindtap="allRecent">查看全部<view class="chevron" /></button></view><view wx:for="{{recent}}" wx:key="id" class="recent-row"><image class="recent-cover" src="{{item.image}}" mode="aspectFill" /><view class="recent-copy"><text class="recent-title">{{item.title}}</text><text class="hint">{{item.badge}}</text><text wx:if="{{item.updatedText}}" class="hint">{{item.updatedText}}</text></view><button class="recent-action" data-id="{{item.id}}" data-task="{{item.taskId}}" bindtap="editRecent">{{item.action}}<view class="chevron" /></button></view><view wx:if="{{!recent.length}}" class="sales-empty">开始创作后，草稿和作品会保存在这里。</view></view>
+    <text class="sales-note">预置视频用于本地体验，作品保存后在发布环节选择账号。</text>
+  </view>
+</view>
+<workspace-nav wx:if="{{!sheet}}" id="creation-workspace-nav" active-index="{{5}}" nested />
+<view wx:if="{{sheet}}" class="creation-sheet-overlay" bindtap="closeSheet" catchtouchmove="noop"><view class="creation-sheet" catchtap="noop"><view class="creation-sheet-header"><text>{{sheetTitle}}</text><button class="creation-sheet-close" bindtap="closeSheet">关闭</button></view><text class="creation-sheet-text">输入会自动暂存，关闭后可以继续。</text><textarea class="creation-sheet-input" value="{{editorText}}" bindinput="inputEditor" placeholder="写下创作主题和口播文案" maxlength="7000" aria-label="口播文案"/><button class="creation-primary creation-sheet-button" bindtap="saveDraft">保存并继续</button></view></view>

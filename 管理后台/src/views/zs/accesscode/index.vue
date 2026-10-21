@@ -1,0 +1,945 @@
+<template>
+  <div class="zs-page">
+    <div class="zs-page-header">
+      <div>
+        <h1 class="zs-page-title">激活码管理</h1>
+        <div class="zs-page-subtitle">通过激活码控制小程序用户准入与微信账号绑定</div>
+      </div>
+      <div class="zs-actions">
+        <el-button class="zs-btn-primary" @click="single.visible = true">
+          <Icon icon="ep:plus" class="mr-4px" /> 生成激活码
+        </el-button>
+        <el-button @click="$router.push('/zs/access-code/batch')">批量生成激活码</el-button>
+      </div>
+    </div>
+
+    <!-- 统计卡（可点击联动列表筛选） -->
+    <div class="zs-stat-cards">
+      <div
+        class="zs-stat-card zs-stat-card--clickable"
+        :class="{ 'zs-stat-card--active': activeTab === s.tab }"
+        v-for="s in stats"
+        :key="s.label"
+        @click="clickStat(s)"
+      >
+        <div class="zs-stat-icon" :style="{ color: s.color }"><Icon :icon="s.icon" /></div>
+        <div>
+          <div class="zs-stat-label">{{ s.label }}</div>
+          <div class="zs-stat-value">{{ s.value }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zs-table-card">
+      <!-- 页内视图：授权码 | 批次（原独立批次页合并于此） -->
+      <el-tabs v-model="viewMode">
+        <el-tab-pane label="授权码" name="codes" />
+        <el-tab-pane label="批次" name="batches" />
+      </el-tabs>
+
+      <!-- ====== 批次视图 ====== -->
+      <template v-if="viewMode === 'batches'">
+        <div class="batch-toolbar">
+          <el-button class="zs-btn-primary" @click="openCompanySummary">
+            <Icon icon="ep:data-analysis" class="mr-4px" /> 按公司汇总
+          </el-button>
+        </div>
+        <el-alert
+          v-if="batchLoadError"
+          type="error"
+          :closable="false"
+          title="批次加载失败，请重试"
+          style="margin-bottom: 12px"
+        />
+        <el-table :data="batches" v-loading="batchLoading" stripe>
+          <el-table-column label="批次号" prop="id" width="190" />
+          <el-table-column label="数量" prop="quantity" width="80" />
+          <el-table-column label="已兑换" width="90">
+            <template #default="{ row }">
+              <span class="zs-tag zs-tag--blue">{{ row.redeemedCount }}/{{ row.quantity }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="交付方式" width="100">
+            <template #default="{ row }">{{
+              row.deliveryMode === 'TICKET' ? '加密票据' : '明文即时'
+            }}</template>
+          </el-table-column>
+          <el-table-column label="明文暴露数" prop="exposedCount" width="95" />
+          <el-table-column
+            label="用途备注"
+            prop="purposeNote"
+            min-width="140"
+            show-overflow-tooltip
+          />
+          <el-table-column label="发行人" prop="issuedBy" width="110" />
+          <el-table-column label="有效期至" width="120">
+            <template #default="{ row }">{{
+              row.expiresAt ? fmtDate(row.expiresAt) : '长期'
+            }}</template>
+          </el-table-column>
+          <el-table-column label="创建时间" width="160">
+            <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="130" fixed="right">
+            <template #default="{ row }">
+              <span class="zs-link" @click="viewBatchCodes(row)">查看授权码 ›</span>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          class="mt-16px"
+          layout="total, prev, pager, next"
+          :total="batchTotal"
+          :page-size="batchQuery.pageSize"
+          v-model:current-page="batchQuery.pageNo"
+          @current-change="loadBatches"
+        />
+      </template>
+
+      <!-- ====== 授权码视图 ====== -->
+      <template v-else>
+        <el-tabs v-model="activeTab" @tab-change="search">
+          <el-tab-pane label="全部" name="ALL" />
+          <el-tab-pane label="未使用" name="ACTIVE" />
+          <el-tab-pane label="已绑定" name="CONSUMED" />
+          <el-tab-pane label="已过期" name="EXPIRED" />
+          <el-tab-pane label="已停用" name="DISABLED" />
+        </el-tabs>
+
+        <el-form inline class="zs-filter">
+          <el-form-item label="授权码">
+            <el-input
+              v-model="query.codeMask"
+              placeholder="搜索掩码"
+              clearable
+              style="width: 200px"
+              @keyup.enter="search"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button class="zs-btn-primary" @click="search">查询</el-button>
+            <el-button
+              @click="
+                () => {
+                  query.codeMask = ''
+                  search()
+                }
+              "
+              >重置</el-button
+            >
+          </el-form-item>
+        </el-form>
+
+        <el-alert
+          v-if="batchFilter"
+          type="info"
+          :closable="true"
+          style="margin-bottom: 12px"
+          @close="clearBatchFilter"
+          ><template #title
+            >正在按批次 <b>{{ batchFilter }}</b> 过滤授权码（来自批次视图）</template
+          ></el-alert
+        >
+        <el-alert
+          v-if="loadError"
+          type="error"
+          :closable="false"
+          title="激活码列表加载失败，请重试后再执行批量操作"
+          style="margin-bottom: 12px"
+        />
+
+        <el-table :data="list" v-loading="loading" stripe @row-dblclick="copyMaskQuick">
+          <el-table-column label="授权码" width="200">
+            <template #default="{ row }">
+              <span class="zs-code-text">{{ row.codeMask }}</span>
+              <el-tooltip content="复制授权码明文" placement="top">
+                <Icon icon="ep:copy-document" class="zs-copy-icon" @click.stop="copyRow(row)" />
+              </el-tooltip>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <span class="zs-tag" :class="statusColor(row.status)">{{
+                statusText(row.status)
+              }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="绑定用户" width="140">
+            <template #default="{ row }">
+              <span v-if="row.boundUser" class="zs-link" @click="openDetail(row)">{{
+                maskUser(row.boundUser)
+              }}</span>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="账户绑定" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span v-if="row.companyName">
+                {{ row.companyName }} · {{ row.contactName }} · {{ row.contactPhone }}
+              </span>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="使用次数" width="90">
+            <template #default="{ row }">{{ row.status === 'CONSUMED' ? '1/1' : '0/1' }}</template>
+          </el-table-column>
+          <el-table-column label="创建时间" width="160">
+            <template #default="{ row }">{{ fmtTime(row.issuedAt) }}</template>
+          </el-table-column>
+          <el-table-column label="有效期至" width="150">
+            <template #default="{ row }">{{
+              row.expiresAt ? fmtDate(row.expiresAt) : '长期'
+            }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }">
+              <span class="zs-link" @click="openDetail(row)">详情</span>
+              <span v-if="row.boundUser" class="zs-link" @click="openBinding(row)">绑定信息</span>
+              <span v-if="row.status === 'ACTIVE'" class="zs-link" @click="doDisable(row)"
+                >停用</span
+              >
+              <span v-if="row.status !== 'CONSUMED'" class="zs-link-danger" @click="doDelete(row)"
+                >删除</span
+              >
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-pagination
+          class="mt-16px"
+          layout="total, sizes, prev, pager, next"
+          :total="total"
+          v-model:page-size="query.pageSize"
+          @size-change="search"
+          v-model:current-page="query.pageNo"
+          @current-change="load"
+        />
+
+        <div class="zs-footnote">
+          <div>明确规则：一码一账号，激活码仅可绑定一个微信账号；统计卡可点击筛选对应状态。</div>
+          <div>
+            激活码旁的复制图标：任意状态均复制明文（需导出权限，失败时退回复制掩码）；双击行复制掩码。
+          </div>
+          <div>
+            已停用的激活码不可重新启用（安全规则），请生成新码；已兑换码不可删除，解绑只会撤销用户访问、码仍作废。
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 单个生成授权码 -->
+    <el-dialog
+      v-model="single.visible"
+      title="生成授权码"
+      width="460px"
+      :close-on-click-modal="false"
+    >
+      <el-form label-width="90px">
+        <el-form-item label="有效期(天)">
+          <el-input-number v-model="single.validityDays" :min="1" :max="3650" />
+          <span class="ml-8px" style="font-size: 12px; color: #8a8a8a">留空为长期有效</span>
+        </el-form-item>
+        <el-form-item label="用途备注">
+          <el-input
+            v-model="single.purposeNote"
+            placeholder="如：核心客户 / 渠道A"
+            maxlength="100"
+            style="width: 260px"
+          />
+        </el-form-item>
+      </el-form>
+      <div v-if="single.code" class="zs-single-code">
+        <el-alert
+          type="warning"
+          :closable="false"
+          show-icon
+          title="请立即复制保存；明文仅此一次展示。"
+        />
+        <code>{{ single.code }}</code>
+      </div>
+      <template #footer>
+        <el-button :disabled="single.creating" @click="single.visible = false">关闭</el-button>
+        <el-button
+          v-if="!single.code"
+          class="zs-btn-primary"
+          :loading="single.creating"
+          @click="createSingle"
+          >生成</el-button
+        >
+        <el-button v-else class="zs-btn-primary" @click="copySingle">复制授权码</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 按公司汇总：公司 → 码数/账号数/有效授权/点数消耗/最近兑换（加盟商对账视角） -->
+    <el-dialog v-model="companySummary.visible" title="按公司汇总（加盟商维度）" width="720px">
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        title="码数和账号按当前登记公司统计；业务净消耗按扣点时的绑定历史归属，扣除任务退点，不含人工调点和充值退款。归属冲突或缺失计入「归属待核实」。"
+        style="margin-bottom: 12px"
+      />
+      <el-table
+        :data="companySummary.rows"
+        v-loading="companySummary.loading"
+        stripe
+        max-height="480"
+      >
+        <el-table-column label="公司" prop="company" min-width="220" show-overflow-tooltip />
+        <el-table-column label="兑换码数" prop="codeCount" width="100" />
+        <el-table-column label="账号数" prop="accountCount" width="90" />
+        <el-table-column label="有效授权" prop="activeGrantCount" width="100" />
+        <el-table-column label="业务净消耗" prop="netPointsConsumed" width="110" />
+        <el-table-column label="最近兑换" width="160">
+          <template #default="{ row }">{{ row.lastRedeemedAt || '—' }}</template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="companySummary.visible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 账户绑定信息修正（仅已兑换的码） -->
+    <el-dialog
+      v-model="binding.visible"
+      title="账户绑定信息"
+      width="480px"
+      :close-on-click-modal="false"
+    >
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        title="修正兑换时登记的加盟商信息；保存后小程序端授权状态不受影响。"
+        style="margin-bottom: 14px"
+      />
+      <el-form label-width="90px">
+        <el-form-item label="授权码">
+          <code>{{ binding.codeMask }}</code>
+        </el-form-item>
+        <el-form-item label="公司名称" required>
+          <el-input
+            v-model="binding.companyName"
+            maxlength="60"
+            placeholder="加盟商公司名称"
+            style="width: 300px"
+          />
+        </el-form-item>
+        <el-form-item label="联系人" required>
+          <el-input
+            v-model="binding.contactName"
+            maxlength="30"
+            placeholder="联系人姓名"
+            style="width: 300px"
+          />
+        </el-form-item>
+        <el-form-item label="联系电话" required>
+          <el-input
+            v-model="binding.contactPhone"
+            maxlength="20"
+            placeholder="手机或座机"
+            style="width: 300px"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="binding.saving" @click="binding.visible = false">取消</el-button>
+        <el-button class="zs-btn-primary" :loading="binding.saving" @click="saveBinding"
+          >保存</el-button
+        >
+      </template>
+    </el-dialog>
+
+    <!-- 授权码详情抽屉 -->
+    <el-drawer v-model="detail.visible" title="激活码详情" size="520px">
+      <div v-loading="detail.loading">
+        <el-alert v-if="detail.error" type="error" :title="detail.error" :closable="false"
+          ><el-button @click="loadDetail">重新加载</el-button></el-alert
+        >
+        <template v-if="detail.row">
+          <h4 class="zs-drawer-section">基本信息</h4>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="授权码">{{ detail.row.codeMask }}</el-descriptions-item>
+            <el-descriptions-item label="状态">{{
+              statusText(detail.row.status)
+            }}</el-descriptions-item>
+            <el-descriptions-item label="批次编号">{{
+              detail.row.batchId || '—'
+            }}</el-descriptions-item>
+            <el-descriptions-item label="有效期至">{{
+              detail.row.expiresAt ? fmtDate(detail.row.expiresAt) : '长期'
+            }}</el-descriptions-item>
+            <el-descriptions-item label="发行时间">{{
+              fmtTime(detail.row.issuedAt)
+            }}</el-descriptions-item>
+            <el-descriptions-item label="兑换时间">{{
+              detail.row.consumedAt ? fmtTime(detail.row.consumedAt) : '—'
+            }}</el-descriptions-item>
+            <el-descriptions-item label="明文交付时间" :span="2">{{
+              detail.row.secretExposedAt ? fmtTime(detail.row.secretExposedAt) : '未交付明文'
+            }}</el-descriptions-item>
+          </el-descriptions>
+
+          <template v-if="detail.account">
+            <h4 class="zs-drawer-section">绑定用户</h4>
+            <el-descriptions :column="2" border size="small">
+              <el-descriptions-item label="用户编号">{{ detail.account.id }}</el-descriptions-item>
+              <el-descriptions-item label="昵称">{{
+                detail.account.nickname || '—'
+              }}</el-descriptions-item>
+              <el-descriptions-item label="授权状态">{{ accountGrantText }}</el-descriptions-item>
+              <el-descriptions-item label="可用点数">{{
+                detail.account.availablePoints ?? '—'
+              }}</el-descriptions-item>
+              <el-descriptions-item label="项目 / 投稿 / 任务" :span="2"
+                >{{ detail.account.stats?.projectCount ?? 0 }} /
+                {{ detail.account.stats?.approvedSubmissionCount ?? 0 }} /
+                {{ detail.account.stats?.aiJobCount ?? 0 }}</el-descriptions-item
+              >
+            </el-descriptions>
+          </template>
+
+          <template v-if="detail.orders?.length">
+            <h4 class="zs-drawer-section">该用户近期充值记录</h4>
+            <el-table :data="detail.orders" size="small" stripe>
+              <el-table-column label="金额(元)" width="80">
+                <template #default="{ row }">{{ (row.amountCents / 100).toFixed(2) }}</template>
+              </el-table-column>
+              <el-table-column label="点数" width="80">
+                <template #default="{ row }">{{ row.basePoints + row.bonusPoints }}</template>
+              </el-table-column>
+              <el-table-column label="支付/到账" min-width="120">
+                <template #default="{ row }"
+                  >{{ payStateText(row.paymentState) }}/{{
+                    payStateText(row.fulfillmentState)
+                  }}</template
+                >
+              </el-table-column>
+              <el-table-column label="时间" min-width="150">
+                <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
+              </el-table-column>
+            </el-table>
+          </template>
+
+          <template v-if="detail.account?.recentLedger?.length">
+            <h4 class="zs-drawer-section">该用户近期点数流水（含充值入账）</h4>
+            <el-table :data="detail.account.recentLedger" size="small" stripe>
+              <el-table-column label="类型" min-width="110">
+                <template #default="{ row }">{{ ledgerTypeText(row.type) }}</template>
+              </el-table-column>
+              <el-table-column label="变动" width="80">
+                <template #default="{ row }">
+                  <span
+                    :style="{
+                      color: (row.delta || 0) > 0 ? '#3f9e56' : '#d0342c',
+                      fontWeight: 600
+                    }"
+                  >
+                    {{ (row.delta || 0) > 0 ? '+' : '' }}{{ row.delta }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="时间" width="150">
+                <template #default="{ row }">{{
+                  fmtTime(row.create_time || row.createdAt)
+                }}</template>
+              </el-table-column>
+            </el-table>
+          </template>
+
+          <h4 class="zs-drawer-section">操作</h4>
+          <div class="zs-drawer-actions">
+            <el-button v-hasPermi="['identity:access-code:export']" @click="copyCode(detail.row)"
+              >复制授权码</el-button
+            >
+            <el-button
+              v-if="detail.row.status === 'ACTIVE'"
+              type="warning"
+              plain
+              @click="disableAndRefresh(detail.row)"
+              >停用</el-button
+            >
+            <el-button v-if="canUnbind" type="danger" plain @click="doUnbind">解绑用户</el-button>
+            <el-button
+              v-if="detail.row.status !== 'CONSUMED'"
+              type="danger"
+              plain
+              @click="doDelete(detail.row)"
+              >删除</el-button
+            >
+          </div>
+          <p class="zs-drawer-hint"
+            >解绑将立即撤销该用户的访问授权；授权码保持已兑换状态、不会恢复为未使用，如需重新激活请生成新码。</p
+          >
+        </template>
+      </div>
+    </el-drawer>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import * as ZsApi from '@/api/zs'
+import { fmtDate, fmtTime } from '@/utils/zsFormat'
+import { ElMessageBox } from 'element-plus'
+
+defineOptions({ name: 'ZsAccessCode' })
+const message = useMessage()
+
+const activeTab = ref('ALL')
+const loading = ref(false)
+/** 接口失败标记：用于把“加载失败”与“确实没有数据”区分开 */
+const loadError = ref(false)
+const list = ref<any[]>([])
+const total = ref(0)
+const route = useRoute()
+// 页内视图切换：授权码 | 批次（原独立批次页合并于此）
+const viewMode = ref(route.query.view === 'batches' ? 'batches' : 'codes')
+// 从批次视图跳入时按批次过滤
+const batchFilter = ref(String(route.query.batchId || ''))
+const query = reactive({ status: '', codeMask: '', pageNo: 1, pageSize: 10 })
+
+// ---- 批次视图数据 ----
+const batches = ref<any[]>([])
+const batchTotal = ref(0)
+const batchLoading = ref(false)
+const batchLoadError = ref(false)
+const batchQuery = reactive({ pageNo: 1, pageSize: 10 })
+async function loadBatches() {
+  batchLoading.value = true
+  batchLoadError.value = false
+  try {
+    const res = await ZsApi.getBatchPage({ ...batchQuery })
+    batches.value = res?.list || []
+    batchTotal.value = res?.total || 0
+  } catch {
+    batches.value = []
+    batchTotal.value = 0
+    batchLoadError.value = true
+  } finally {
+    batchLoading.value = false
+  }
+}
+watch(viewMode, (mode) => {
+  if (mode === 'batches' && !batches.value.length) loadBatches()
+})
+function viewBatchCodes(row: any) {
+  batchFilter.value = String(row.id)
+  viewMode.value = 'codes'
+  query.pageNo = 1
+  load()
+}
+
+function clearBatchFilter() {
+  batchFilter.value = ''
+  load()
+}
+
+// 统计卡：可点击，数字联动列表筛选（EXPIRED 为派生态，后端按有效期计算）
+const stats = ref([
+  { label: '未使用', tab: 'ACTIVE', value: 0, icon: 'ep:ticket', color: '#2d68c4' },
+  { label: '已绑定', tab: 'CONSUMED', value: 0, icon: 'ep:user', color: '#3f9e56' },
+  { label: '已过期', tab: 'EXPIRED', value: 0, icon: 'ep:clock', color: '#8a8a8a' },
+  { label: '已停用', tab: 'DISABLED', value: 0, icon: 'ep:circle-close', color: '#d0342c' }
+])
+function clickStat(s: { tab: string }) {
+  viewMode.value = 'codes'
+  if (activeTab.value === s.tab) {
+    search()
+  } else {
+    activeTab.value = s.tab
+  }
+}
+
+const statusText = (s: string) =>
+  ({ ACTIVE: '未使用', CONSUMED: '已绑定', DISABLED: '已停用' })[s] || s
+const statusColor = (s: string) =>
+  ({ ACTIVE: 'blue', CONSUMED: 'green', DISABLED: 'red' })[s] || 'gray'
+const maskUser = (id: string) => (String(id).length > 10 ? `${String(id).slice(0, 6)}…` : id)
+const ledgerTypeText = (t: string) =>
+  ({
+    RECHARGE_BASE_CREDIT: '充值基础点',
+    RECHARGE_BONUS_CREDIT: '充值赠送点',
+    FLAT_GENERATION_DEBIT: '平面生成扣点',
+    ELEVATION_GENERATION_DEBIT: '立面生成扣点',
+    TASK_SETTLEMENT_REFUND: '结算退回',
+    MANUAL_CREDIT: '人工调增',
+    MANUAL_DEBIT: '人工调减',
+    RECHARGE_BASE_REVERSAL: '退款冲正(基础)',
+    RECHARGE_BONUS_REVERSAL: '退款冲正(赠送)'
+  })[t] || t
+
+const loadStats = async () => {
+  try {
+    const res = await ZsApi.getAccessCodeStats()
+    if (res) {
+      stats.value[0].value = res.UNUSED || 0
+      stats.value[1].value = res.BOUND || 0
+      stats.value[2].value = res.EXPIRED || 0
+      stats.value[3].value = res.DISABLED || 0
+    }
+  } catch {
+    /* 统计卡容错 */
+  }
+}
+
+const search = () => {
+  query.pageNo = 1
+  return load()
+}
+
+const load = async () => {
+  query.status = activeTab.value === 'ALL' ? '' : activeTab.value
+  loading.value = true
+  loadError.value = false
+  try {
+    const res = await ZsApi.getAccessCodePage({
+      ...query,
+      codeMask: query.codeMask || undefined,
+      batchId: batchFilter.value || undefined
+    })
+    list.value = res?.list || []
+    total.value = res?.total || 0
+  } catch {
+    // 加载失败必须与"没有访问码"区分，避免误判为可重新批量生成
+    list.value = []
+    total.value = 0
+    loadError.value = true
+  } finally {
+    loading.value = false
+  }
+  loadStats()
+}
+
+// ---- 行内复制：任意状态均复制明文（需导出权限，失败退回复制掩码）；双击行复制掩码 ----
+async function copyRow(row: any) {
+  try {
+    const code = await ZsApi.copyAccessCode(row.id)
+    await navigator.clipboard.writeText(code)
+    message.success('激活码明文已复制')
+  } catch {
+    await copyMaskQuick(row, true)
+  }
+}
+async function copyMaskQuick(row: any, fallback = false) {
+  try {
+    await navigator.clipboard.writeText(row.codeMask)
+    if (fallback) {
+      message.warning('明文复制失败（需导出权限），已复制掩码')
+    } else {
+      message.success('掩码已复制')
+    }
+  } catch {
+    message.error('复制失败，请手动选择复制')
+  }
+}
+onMounted(load)
+
+// ---- 按公司汇总（批次视图工具条） ----
+const companySummary = reactive({ visible: false, loading: false, rows: [] as any[] })
+const openCompanySummary = async () => {
+  companySummary.visible = true
+  companySummary.loading = true
+  try {
+    companySummary.rows = (await ZsApi.getAccessCodeCompanySummary()) || []
+  } catch (e: any) {
+    companySummary.rows = []
+    message.error(e?.msg || '汇总加载失败，请重试')
+  } finally {
+    companySummary.loading = false
+  }
+}
+
+// ---- 账户绑定信息修正（仅已兑换的码；全量覆盖） ----
+const binding = reactive({
+  visible: false,
+  saving: false,
+  codeId: '',
+  codeMask: '',
+  companyName: '',
+  contactName: '',
+  contactPhone: ''
+})
+const openBinding = (row: any) => {
+  binding.codeId = row.id
+  binding.codeMask = row.codeMask
+  binding.companyName = row.companyName || ''
+  binding.contactName = row.contactName || ''
+  binding.contactPhone = row.contactPhone || ''
+  binding.visible = true
+}
+const saveBinding = async () => {
+  if (!binding.companyName.trim()) {
+    message.warning('请输入公司名称')
+    return
+  }
+  if (!binding.contactName.trim()) {
+    message.warning('请输入联系人')
+    return
+  }
+  if (!/^[0-9+\-() ]{5,20}$/.test(binding.contactPhone.trim())) {
+    message.warning('联系电话格式不正确')
+    return
+  }
+  binding.saving = true
+  try {
+    await ZsApi.updateAccessCodeBinding(binding.codeId, {
+      companyName: binding.companyName.trim(),
+      contactName: binding.contactName.trim(),
+      contactPhone: binding.contactPhone.trim()
+    })
+    message.success('绑定信息已更新')
+    binding.visible = false
+    load()
+  } catch (e: any) {
+    message.error(e?.msg || '保存失败，请重试')
+  } finally {
+    binding.saving = false
+  }
+}
+
+// ---- 单个生成 ----
+const single = reactive({
+  visible: false,
+  creating: false,
+  validityDays: 365 as number | undefined,
+  purposeNote: '',
+  code: ''
+})
+const createSingle = async () => {
+  single.creating = true
+  try {
+    const res = await ZsApi.createAccessCodeBatch({
+      quantity: 1,
+      deliveryMode: 'INLINE',
+      validityDays: single.validityDays || undefined,
+      purposeNote: single.purposeNote || undefined
+    })
+    const code = (res?.oneTimeCodes || [])[0]
+    if (!code) {
+      message.error('未返回明文，请重试')
+      return
+    }
+    single.code = code
+    load()
+  } catch (e: any) {
+    message.error(e?.msg || '生成失败，请重试')
+  } finally {
+    single.creating = false
+  }
+}
+const copySingle = async () => {
+  try {
+    await navigator.clipboard.writeText(single.code)
+    message.success('激活码已复制')
+  } catch {
+    message.error('复制失败，请手动选择复制')
+  }
+}
+
+// ---- 详情抽屉 ----
+const detail = reactive({
+  visible: false,
+  loading: false,
+  error: '',
+  row: null as any,
+  account: null as any,
+  orders: [] as any[]
+})
+const accountGrantText = computed(() => {
+  const grant = (detail.account?.grants || []).find((g: any) => g.status === 'ACTIVE')
+  return grant ? '已授权（可用）' : '无有效授权'
+})
+const payStateText = (s: string) =>
+  ({
+    CREATED: '已创建',
+    PENDING: '待支付',
+    SUCCEEDED: '成功',
+    FAILED: '失败',
+    UNKNOWN: '未知',
+    CREDITED: '已到账',
+    VOID: '已作废'
+  })[s] || s
+const canUnbind = computed(() => {
+  if (detail.row?.status !== 'CONSUMED' || !detail.account) return false
+  return (detail.account.grants || []).some((g: any) => g.status === 'ACTIVE')
+})
+const openDetail = (row: any) => {
+  detail.row = row
+  detail.account = null
+  detail.orders = []
+  detail.error = ''
+  detail.visible = true
+  loadDetail()
+}
+const loadDetail = async () => {
+  detail.loading = true
+  detail.error = ''
+  try {
+    if (detail.row?.boundUser) {
+      detail.account = await ZsApi.getAccount(detail.row.boundUser)
+      // 充值记录独立加载：订单接口失败不阻塞详情主体
+      try {
+        const orders = await ZsApi.getOrderPage({
+          userId: String(detail.row.boundUser),
+          pageNo: 1,
+          pageSize: 5
+        })
+        detail.orders = orders?.list || []
+      } catch {
+        detail.orders = []
+      }
+    }
+  } catch (e: any) {
+    detail.error = e?.msg || '绑定用户信息加载失败，可关闭后重试'
+  } finally {
+    detail.loading = false
+  }
+}
+
+const copyCode = async (row: any) => {
+  try {
+    const code = await ZsApi.copyAccessCode(row.id)
+    await navigator.clipboard.writeText(code)
+    message.success('激活码已复制')
+  } catch (e: any) {
+    message.error(e?.msg || '复制失败，请检查复制权限后重试')
+  }
+}
+const doDisable = async (row: any) => {
+  try {
+    await ZsApi.disableAccessCode(row.id)
+    message.success('已停用')
+    row.status = 'DISABLED'
+    load()
+  } catch (e: any) {
+    message.error(e?.msg || '停用失败，请重试')
+  }
+}
+// 抽屉内停用：除刷新列表外同步重拉详情
+const disableAndRefresh = async (row: any) => {
+  await doDisable(row)
+  await loadDetail()
+}
+const doDelete = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      '删除后该码会立即停用并从列表隐藏，历史兑换事实仍会保留。已兑换的授权码不可删除。',
+      '确认删除激活码',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+    const deleted = await ZsApi.deleteAccessCode(row.id)
+    if (!deleted) {
+      message.warning('该授权码已兑换或已删除，不能删除')
+      return
+    }
+    message.success('激活码已删除并停用')
+    if (detail.visible && detail.row?.id === row.id) detail.visible = false
+    load()
+  } catch (e: any) {
+    if (e !== 'cancel' && e !== 'close') message.error(e?.msg || '删除失败')
+  }
+}
+const doUnbind = async () => {
+  const grant = (detail.account?.grants || []).find((g: any) => g.status === 'ACTIVE')
+  if (!grant) return
+  try {
+    await ElMessageBox.confirm(
+      '解绑后该用户将立即失去访问授权；授权码不会恢复为未使用。确定解绑？',
+      '确认解绑用户',
+      { type: 'warning', confirmButtonText: '解绑', cancelButtonText: '取消' }
+    )
+    await ZsApi.revokeAccessGrant(grant.id)
+    message.success('已解绑，用户访问已撤销')
+    await loadDetail()
+    load()
+  } catch (e: any) {
+    if (e !== 'cancel' && e !== 'close') message.error(e?.msg || '解绑失败，请重试')
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+// 统计卡可点击联动：hover 抬升 + 选中态描边
+.zs-stat-card--clickable {
+  cursor: pointer;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.zs-stat-card--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+}
+
+.zs-stat-card--active {
+  border-color: #a0561f;
+  box-shadow: 0 0 0 1px #a0561f inset;
+}
+
+.zs-code-text {
+  font-family: monospace;
+}
+
+.zs-copy-icon {
+  margin-left: 6px;
+  color: #a0561f;
+  vertical-align: -2px;
+  cursor: pointer;
+
+  &:hover {
+    color: #7c3f16;
+  }
+}
+
+.zs-footnote {
+  padding: 12px 16px;
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 1.9;
+  color: #8a8a8a;
+  background: #faf6f0;
+  border-radius: 8px;
+}
+
+.zs-single-code {
+  margin-top: 12px;
+
+  code {
+    display: block;
+    padding: 10px 14px;
+    margin-top: 8px;
+    font-size: 16px;
+    letter-spacing: 1px;
+    background: #f5f3ef;
+    border-radius: 6px;
+    user-select: all;
+  }
+}
+
+.zs-drawer-section {
+  margin: 18px 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.zs-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.zs-drawer-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #8a8a8a;
+}
+
+.batch-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+</style>

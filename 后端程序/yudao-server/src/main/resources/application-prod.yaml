@@ -1,0 +1,126 @@
+# RG1/R06: use --spring.profiles.active=pg,prod. Never combine with local/dev/zsdev.
+# Secrets and endpoints are supplied by deployment; no production fallback credentials.
+spring:
+  task:
+    scheduling:
+      pool:
+        size: 8
+  data:
+    redis:
+      host: ${ZS_REDIS_HOST}
+      port: ${ZS_REDIS_PORT:6379}
+      password: ${ZS_REDIS_PASSWORD}
+  datasource:
+    druid:
+      stat-view-servlet:
+        enabled: false
+      web-stat-filter:
+        enabled: false
+    dynamic:
+      primary: master
+      datasource:
+        master:
+          url: ${ZS_PG_URL}
+          username: ${ZS_PG_USERNAME}
+          password: ${ZS_PG_PASSWORD}
+          driver-class-name: org.postgresql.Driver
+  flyway:
+    url: ${ZS_PG_URL}
+    user: ${ZS_PG_USERNAME}
+    password: ${ZS_PG_PASSWORD}
+yudao:
+  security:
+    mock-enable: false
+  web:
+    cors:
+      # 生产跨域白名单（逗号分隔的 origin pattern）。留空 = 不放开任何跨域来源。
+      # 说明：管理后台经 Nginx 以 /admin-api 同源代理、小程序不走浏览器 CORS，二者均不需要跨域放行；
+      # 因此生产默认留空最安全。若管理后台确为跨域（独立域名直连后端），在此填入其域名，例如：
+      #   allowed-origin-patterns: https://admin.zszhj.com
+      # 未配置时框架默认值 "*"（见 YudaoWebAutoConfiguration#corsFilterBean）会放开任意来源，禁止在生产使用。
+      allowed-origin-patterns: ${ZS_CORS_ALLOWED_ORIGINS:}
+zhongshu:
+  ai:
+    # P2-D（报告 15）：取消收敛调度器——未领取取消即时退款、失联取消超时兜底（资损修复）
+    job-cancel-recovery-enabled: true
+    job-deadline-minutes: 30
+    job-cancel-minutes: 10
+    job-cancel-sweep-interval-ms: 15000
+  privacy:
+    export-worker-enabled: true
+    retention-policy-version: ${ZS_PRIVACY_RETENTION_POLICY_VERSION:}
+  support:
+    phone: ${ZS_SUPPORT_PHONE:}
+    wecom-corp-id: ${ZS_SUPPORT_WECOM_CORP_ID:}
+    wecom-url: ${ZS_SUPPORT_WECOM_URL:}
+    help-url: ${ZS_SUPPORT_HELP_URL:}
+  identity:
+    wechat:
+      provider: real
+  commerce:
+    payment:
+      # T-XPAY：虚拟商品（设计点）合规通道=微信小程序虚拟支付（wx.requestVirtualPayment）。
+      # 如需临时切回商户号微信支付，置 ZS_PAY_PROVIDER=real 并确保 wechat.* 五键齐备（启动守卫强制）。
+      provider: ${ZS_PAY_PROVIDER:virtual}
+      virtual:
+        offer-id: ${ZS_XPAY_OFFER_ID}
+        app-key: ${ZS_XPAY_APP_KEY}
+        # 虚拟支付固定现网（0）；沙箱仅限开发者工具，生产不得改
+        env: 0
+        # MP 后台「开发设置→消息推送」Token（xpay_* 发货/退款推送验签；推送 URL=/design/v1/payments/xpay/push，明文模式）
+        push-token: ${ZS_XPAY_PUSH_TOKEN}
+      wechat:
+        # 仅 ZS_PAY_PROVIDER=real 时消费（启动守卫按 provider 校验）；virtual 通道留空即可
+        merchant-id: ${ZS_PAY_MERCHANT_ID:}
+        merchant-serial-no: ${ZS_PAY_MERCHANT_SERIAL_NO:}
+        api-v3-key: ${ZS_PAY_API_V3_KEY:}
+        merchant-private-key-path: ${ZS_PAY_MERCHANT_PRIVATE_KEY_PATH:}
+        notify-url: ${ZS_PAY_NOTIFY_URL:}
+        refund-notify-url: ${ZS_PAY_REFUND_NOTIFY_URL:}
+      # 生产禁止 stub 自动结算；即使误配 provider=stub，也不会把未支付订单查成已支付。
+      stub-auto-settle: ${ZS_PAY_STUB_AUTO_SETTLE:false}
+    recharge:
+      # 临时充值总开关：真实支付通道验收通过前保持 false；切 virtual 并完成道具配置后再置 true。
+      enabled: ${ZS_RECHARGE_ENABLED:false}
+  design:
+    driver-enabled: true
+    refund-recovery-enabled: true
+    export-worker-enabled: true
+    seed-dev-data: false
+    asset:
+      validation-worker-enabled: true
+      dev-content-endpoint: false
+      storage:
+        provider: cos
+      moderation:
+        provider: real
+        secret-id: ${ZS_MODERATION_SECRET_ID}
+        secret-key: ${ZS_MODERATION_SECRET_KEY}
+        region: ${ZS_MODERATION_REGION:ap-guangzhou}
+        biz-type: ${ZS_MODERATION_BIZ_TYPE}
+        daily-limit: ${ZS_MODERATION_DAILY_LIMIT}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+    env:
+      show-values: NEVER
+    configprops:
+      show-values: NEVER
+
+# 上线加固（2026-10-04 上线前排查）：生产关闭接口文档与 Knife4j。
+# 底座 application.yaml 默认 springdoc/knife4j 均为 true，且安全链对 GET /*.html 放行，
+# 导致 /swagger-ui/index.html、/doc.html 在生产可匿名打开，接口结构对外暴露。
+# 关闭后 YudaoSwaggerAutoConfiguration 因 @ConditionalOnProperty 不再装配（见该类的 matchIfMissing=true）。
+# 如需临时排查，用命令行 --springdoc.api-docs.enabled=true 显式开启，排查后立即关闭。
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+knife4j:
+  enable: false

@@ -1,0 +1,3 @@
+const money=n=>Number(n||0).toLocaleString('zh-CN',{maximumFractionDigits:2});
+function present(b){if(!b)return null;const rows=values=>(values||[]).map(r=>({...r,money:money(r.value),formula:r.quantity!=null&&r.unitPrice!=null?r.quantity+'㎡ × '+money(r.unitPrice)+'元':''}));return {total:money(b.total),main:money(b.main),exterior:money(b.exterior),area:b.area,floors:b.parameters?.floors||'',version:b.version||null,priceVersion:b.priceVersion||'历史记录',bodyRows:rows(b.bodyRows?.length?b.bodyRows:[{label:'主体工程（历史汇总）',value:b.main}]),exteriorRows:rows(b.exteriorRows?.length?b.exteriorRows:[{label:'外装工程（历史汇总）',value:b.exterior}])};}
+module.exports={present};

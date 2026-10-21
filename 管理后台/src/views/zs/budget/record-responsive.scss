@@ -1,0 +1,64 @@
+@media (width <= 767px) {
+  .budget-record-page {
+    padding: 12px;
+
+    .zs-page-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .zs-page-title {
+      font-size: 24px;
+      white-space: normal;
+    }
+
+    .zs-page-header > div:last-child,
+    .revision-actions,
+    .zs-sticky-save,
+    .zs-line-toolbar,
+    .zs-revision-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .zs-table-card {
+      padding: 12px;
+    }
+
+    .zs-revision-switch > span {
+      flex: 0 0 100%;
+    }
+
+    .zs-revision-switch :deep(.el-select) {
+      max-width: 100%;
+    }
+
+    :deep(.el-button + .el-button) {
+      margin-left: 0;
+    }
+
+    :deep(.el-form--inline .el-form-item) {
+      max-width: 100%;
+      margin-right: 0;
+    }
+
+    :deep(.el-descriptions__body),
+    :deep(.el-descriptions__table),
+    :deep(.el-descriptions__table tbody) {
+      display: block;
+      width: 100%;
+    }
+
+    :deep(.el-descriptions__table tr) {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+    }
+
+    :deep(.el-descriptions__cell) {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+}

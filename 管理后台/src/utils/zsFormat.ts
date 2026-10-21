@@ -1,0 +1,70 @@
+/**
+ * 众墅之家管理端展示格式化。
+ * 后端 Jackson 把 LocalDateTime 统一序列化为 epoch 毫秒，时间列必须经 fmtTime 转换。
+ */
+
+/** 毫秒时间戳 / ISO 字符串 → 「yyyy-MM-dd HH:mm」；withSeconds 用于审计取证等需要秒级精度的场景 */
+export const fmtTime = (value: any, withSeconds = false): string => {
+  if (value === null || value === undefined || value === '') return '—'
+  let raw: any = value
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) raw = Number(value.trim())
+  const date = new Date(raw)
+  if (isNaN(date.getTime())) return String(value)
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      ...(withSeconds ? { second: '2-digit' as const } : {}),
+      hourCycle: 'h23'
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value])
+  )
+  const base = `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`
+  return withSeconds ? `${base}:${parts.second}` : base
+}
+
+/** 毫秒时间戳 / ISO 字符串 → 「yyyy-MM-dd」 */
+export const fmtDate = (value: any): string => fmtTime(value).slice(0, 10)
+
+// 兼容各代风格码：老表单（EURO/AMERICAN）与各期预设表（CHINESE/SONG 等）；
+// 美式/日式/法式已从预设下架，但历史案例仍可能携带，映射保留以正确显示；
+// 未映射的自定义风格直接展示原文
+export const STYLE_TEXT: Record<string, string> = {
+  NEW_CHINESE: '新中式',
+  MODERN: '现代',
+  CHINESE: '中式',
+  EUROPEAN: '欧式',
+  EURO: '欧式',
+  NEW_ASIAN: '新亚洲',
+  SONG: '宋式',
+  AMERICAN: '美式',
+  JAPANESE: '日式',
+  FRENCH: '法式',
+  COUNTRYSIDE: '田园'
+}
+export const styleText = (code: any): string => STYLE_TEXT[code] || code || '—'
+
+export const AUDIT_EVENT_TEXT: Record<string, string> = {
+  MANUAL_POINT_ADJUSTMENT: '人工调点',
+  ACCESS_CODE_ISSUED: '授权码发放',
+  ACCESS_CODE_DISABLED: '授权码停用',
+  ACCESS_GRANT_REVOKED: '授权解绑',
+  ACCESS_CODE_REDEEMED: '授权码兑换',
+  SUBMISSION_REVIEWED: '投稿审核',
+  SUBMISSION_PUBLISHED: '投稿发布',
+  ORDER_REFUND: '订单退款',
+  EXPORT_FILE: '数据导出'
+}
+export const auditEventText = (code: any): string => AUDIT_EVENT_TEXT[code] || code || '—'
+
+export const AUDIT_RESULT_TEXT: Record<string, string> = {
+  SUCCESS: '成功',
+  FAILED: '失败',
+  DENIED: '已拒绝'
+}
+export const auditResultText = (code: any): string => AUDIT_RESULT_TEXT[code] || code || '—'

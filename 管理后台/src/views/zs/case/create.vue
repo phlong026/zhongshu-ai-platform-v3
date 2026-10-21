@@ -1,0 +1,509 @@
+<template>
+  <div class="zs-page">
+    <div class="zs-page-header">
+      <div>
+        <h1 class="zs-page-title">{{
+          isEdit ? (isAiCase ? '编辑AI案例参数' : '编辑公司案例') : '新增公司案例'
+        }}</h1>
+        <div class="zs-page-subtitle"
+          >参数校核通过后可上架至小程序灵感库；AI 案例也可在此修正参数</div
+        >
+      </div>
+      <el-button @click="$router.push('/zs/case')">返回列表</el-button>
+    </div>
+
+    <div class="zs-table-card zs-form" v-loading="loading">
+      <el-alert v-if="loadError" :title="loadError" type="error" :closable="false"
+        ><el-button @click="loadCase">重新加载</el-button></el-alert
+      >
+      <el-form :model="form" label-width="110px" label-position="left">
+        <el-form-item label="案例名称" required>
+          <el-input
+            v-model="form.title"
+            placeholder="如：云栖雅院"
+            maxlength="60"
+            style="max-width: 420px"
+          />
+        </el-form-item>
+        <el-form-item label="案例说明">
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="3"
+            placeholder="设计亮点、户型说明等"
+            maxlength="300"
+            style="max-width: 640px"
+          />
+        </el-form-item>
+        <el-form-item label="风格" required>
+          <el-select
+            v-model="form.styleCode"
+            style="width: 200px"
+            filterable
+            allow-create
+            default-first-option
+            :fit-input-width="false"
+            placeholder="选择或输入自定义风格"
+            @change="onStyleChange"
+          >
+            <el-option
+              v-for="s in STYLE_PRESETS"
+              :key="s.value"
+              :label="s.label"
+              :value="s.value"
+            />
+            <el-option label="自定义风格…" value="__custom__" />
+          </el-select>
+          <template v-if="customStyleMode">
+            <el-input
+              v-model="customStyleText"
+              maxlength="32"
+              show-word-limit
+              placeholder="输入自定义风格名称"
+              style="max-width: 200px"
+              @keyup.enter="confirmCustomStyle"
+            />
+            <el-button class="ml-8px" @click="confirmCustomStyle">确定</el-button>
+          </template>
+          <span v-else class="ml-8px" style="font-size: 12px; color: #8a8a8a"
+            >下拉选预设，选「自定义风格…」或直接输入新风格（≤32字符）</span
+          >
+        </el-form-item>
+        <el-form-item label="层数" required>
+          <el-input-number v-model="form.floorCount" :min="1" :max="8" />
+        </el-form-item>
+        <el-form-item label="建筑面积(㎡)" required>
+          <el-input-number v-model="form.buildingArea" :min="30" :max="2000" />
+        </el-form-item>
+        <el-form-item label="面宽(m)">
+          <el-input-number v-model="form.faceWidth" :min="4" :max="40" :precision="1" />
+        </el-form-item>
+        <el-form-item label="进深(m)">
+          <el-input-number v-model="form.depth" :min="4" :max="40" :precision="1" />
+        </el-form-item>
+        <el-form-item label="尺寸口径">
+          <div class="dimension-basis-control">
+            <el-select v-model="form.dimensionBasis" style="width: 220px; max-width: 100%">
+              <el-option label="待核实" value="UNKNOWN" />
+              <el-option label="宅基地尺寸（已核实）" value="SITE" />
+              <el-option label="建筑外轮廓（已核实）" value="BUILDING_OUTLINE" />
+            </el-select>
+            <p class="dimension-basis-note"
+              >依据原始图纸核实后选择；历史尺寸默认待核实，不会自动判断或改写。</p
+            >
+          </div>
+        </el-form-item>
+        <el-form-item label="案例图纸">
+          <div class="case-images">
+            <el-alert
+              v-if="draftSavedNotice"
+              type="success"
+              :title="draftSavedNotice"
+              :closable="true"
+              style="margin: 8px 0"
+              @close="draftSavedNotice = ''"
+            />
+            <p
+              >先保存草稿及楼层参数，再上传图纸。上传校验成功后立即保存到案例新版本；上架至少需要封面和平面图。</p
+            >
+            <p v-if="publicationStatus === 'PUBLISHED'"
+              >此案例已上架：参数与图纸保存后立即对小程序生效（按版本留痕，可随时下架回退展示）。</p
+            >
+            <el-alert
+              v-if="isAiCase"
+              type="info"
+              :closable="false"
+              title="AI 案例的图纸来自用户投稿的冻结版本、由审核流程管理；此处可修改名称、风格、层数、面积等参数。"
+              style="margin: 8px 0"
+            />
+            <template v-else>
+              <el-checkbox v-model="publicDisplay"
+                >确认公司拥有图片使用权，并允许公开展示</el-checkbox
+              >
+              <el-checkbox v-model="generationReference"
+                >另外允许这些新上传图片用作 AI 设计参考（可不选）</el-checkbox
+              >
+            </template>
+            <template v-if="!isAiCase"
+              ><div v-for="slot in imageSlots" :key="slot.key" class="case-image-slot">
+                <strong>{{ slot.label }}</strong>
+                <el-image
+                  v-if="images[slot.key]?.url"
+                  :src="images[slot.key].url"
+                  fit="contain"
+                  :preview-src-list="[images[slot.key].url]"
+                />
+                <span v-else>{{
+                  images[slot.key]?.assetId ? '已关联，预览加载中或失败' : '尚未上传'
+                }}</span>
+                <el-button v-if="images[slot.key]?.error" text @click="previewImage(slot.key)"
+                  >重试预览</el-button
+                >
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/bmp,image/tiff"
+                  :aria-label="`上传${slot.label}`"
+                  :disabled="
+                    !isEdit ||
+                    !publicDisplay ||
+                    uploading ||
+                    saving ||
+                    loading ||
+                    !!loadError ||
+                    loadedVersion == null ||
+                    !checkPermi(['design:case:update'])
+                  "
+                  @change="uploadImage($event, slot)"
+                />
+              </div>
+            </template>
+            <p>支持 JPG / PNG / GIF / BMP / TIFF，单张不超过 16MB。缺图不使用示例图片代替。</p>
+            <p v-if="uploading">正在上传并进行安全校验，请勿重复提交…</p>
+            <el-alert v-if="uploadError" :title="uploadError" type="error" :closable="false" />
+          </div>
+        </el-form-item>
+        <el-form-item>
+          <el-button
+            class="zs-btn-primary"
+            :disabled="uploading || loading || !!loadError"
+            :loading="saving"
+            @click="save(false)"
+            >保存草稿</el-button
+          >
+          <el-button
+            :disabled="uploading || loading || !!loadError"
+            :loading="saving"
+            @click="saveAndPublish"
+            >保存并上架</el-button
+          >
+        </el-form-item>
+      </el-form>
+    </div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import * as ZsApi from '@/api/zs'
+import { checkPermi } from '@/utils/permission'
+import { setCarriedDraftState, takeCarriedDraftState } from './draftCarry'
+
+defineOptions({ name: 'ZsCaseCreate' })
+const message = useMessage()
+const route = useRoute()
+const router = useRouter()
+
+const isEdit = computed(() => !!route.query.id)
+const saving = ref(false)
+const loading = ref(false)
+const loadError = ref('')
+const loadedVersion = ref<number | null>(null)
+const publicationStatus = ref('DRAFT')
+// AI 案例：参数开放编辑（运营纠错），图纸仍由投稿审核流程管理
+const isAiCase = ref(false)
+const publicDisplay = ref(false)
+const generationReference = ref(false)
+const uploading = ref(false)
+const uploadError = ref('')
+const images = reactive<Record<string, { assetId: string; url: string; error: boolean }>>({})
+const imageSlots = computed(() => [
+  { key: 'COVER', role: 'COVER', label: '封面图', floorNo: null },
+  { key: 'ELEVATION', role: 'ELEVATION', label: '立面图', floorNo: null },
+  ...Array.from({ length: Math.min(8, Math.max(1, Number(form.floorCount) || 1)) }, (_, i) => ({
+    key: `FLOOR_PLAN:${i + 1}`,
+    role: 'FLOOR_PLAN',
+    label: `${i + 1}层平面图`,
+    floorNo: i + 1
+  }))
+])
+let sequence = 0
+// 常用风格预设；后端 style_code 为 VARCHAR(32)，无枚举约束——选「自定义风格…」可输入任意名称
+const STYLE_PRESETS = [
+  { label: '新中式', value: 'NEW_CHINESE' },
+  { label: '中式', value: 'CHINESE' },
+  { label: '欧式', value: 'EUROPEAN' },
+  { label: '新亚洲', value: 'NEW_ASIAN' },
+  { label: '宋式', value: 'SONG' },
+  { label: '田园', value: 'COUNTRYSIDE' },
+  { label: '现代', value: 'MODERN' }
+]
+// 「自定义风格…」下拉项的哨兵值；确认输入后才写入 form.styleCode，禁止把哨兵提交到后端
+const CUSTOM_STYLE_SENTINEL = '__custom__'
+const customStyleMode = ref(false)
+const customStyleText = ref('')
+const styleBeforeCustom = ref('')
+const onStyleChange = (value: string) => {
+  if (value === CUSTOM_STYLE_SENTINEL) {
+    customStyleMode.value = true
+    // 编辑既有自定义风格时带回原名，避免一进自定义模式就丢名
+    customStyleText.value = styleBeforeCustom.value
+    return
+  }
+  customStyleMode.value = false
+  styleBeforeCustom.value = STYLE_PRESETS.some((s) => s.value === value) ? '' : value
+}
+const confirmCustomStyle = () => {
+  const text = customStyleText.value.trim()
+  if (!text) {
+    message.error('请输入自定义风格名称')
+    return
+  }
+  form.styleCode = text
+  styleBeforeCustom.value = text
+  customStyleMode.value = false
+}
+const form = reactive({
+  title: '',
+  description: '',
+  styleCode: 'NEW_CHINESE',
+  floorCount: 2,
+  buildingArea: 168,
+  faceWidth: 12,
+  depth: 10,
+  dimensionBasis: 'UNKNOWN'
+})
+const draftSavedNotice = ref('')
+// 保存草稿触发重挂载后，恢复带出的授权勾选与「已保存」提示
+const carriedDraftState = takeCarriedDraftState()
+if (carriedDraftState && String(route.query.id || '') === carriedDraftState.id) {
+  publicDisplay.value = carriedDraftState.publicDisplay
+  generationReference.value = carriedDraftState.generationReference
+  if (carriedDraftState.justSaved)
+    draftSavedNotice.value = publicDisplay.value
+      ? `草稿已保存（编号 ${carriedDraftState.id}），现在可以上传图纸`
+      : `草稿已保存（编号 ${carriedDraftState.id}）。勾选「确认公司拥有图片使用权」后即可上传图纸`
+}
+const clearImages = () => {
+  for (const key of Object.keys(images)) {
+    if (images[key].url) URL.revokeObjectURL(images[key].url)
+    delete images[key]
+  }
+}
+const previewImage = async (key: string) => {
+  const image = images[key]
+  if (!image) return
+  const seq = sequence
+  image.error = false
+  try {
+    const blob = await ZsApi.getCaseAsset(String(route.query.id), image.assetId)
+    if (seq !== sequence || images[key] !== image) return
+    if (image.url) URL.revokeObjectURL(image.url)
+    image.url = URL.createObjectURL(blob)
+  } catch {
+    if (seq === sequence && images[key] === image) image.error = true
+  }
+}
+const uploadImage = async (
+  event: Event,
+  slot: { key: string; role: string; floorNo: number | null }
+) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (
+    !file ||
+    uploading.value ||
+    saving.value ||
+    loading.value ||
+    loadError.value ||
+    !route.query.id ||
+    loadedVersion.value == null
+  )
+    return
+  if (!publicDisplay.value || !checkPermi(['design:case:update'])) return
+  if (
+    !['image/png', 'image/jpeg', 'image/gif', 'image/bmp', 'image/tiff'].includes(file.type) ||
+    file.size <= 0 ||
+    file.size > 16 * 1024 * 1024
+  ) {
+    uploadError.value = '请选择不超过16MB的 JPG/PNG/GIF/BMP/TIFF 图片'
+    return
+  }
+  const seq = sequence
+  const caseId = String(route.query.id)
+  uploading.value = true
+  uploadError.value = ''
+  try {
+    const data = new FormData()
+    data.append('file', file)
+    data.append('version', String(loadedVersion.value))
+    data.append('role', slot.role)
+    if (slot.floorNo != null) data.append('floorNo', String(slot.floorNo))
+    data.append('publicDisplay', String(publicDisplay.value))
+    data.append('generationReference', String(generationReference.value))
+    const result = await ZsApi.uploadCaseImage(caseId, data)
+    if (seq !== sequence || String(route.query.id) !== caseId) return
+    loadedVersion.value = Number(result.version)
+    if (images[slot.key]?.url) URL.revokeObjectURL(images[slot.key].url)
+    images[slot.key] = { assetId: result.assetId, url: '', error: false }
+    await previewImage(slot.key)
+    message.success('图纸已校验并保存到案例')
+  } catch (error: any) {
+    if (seq === sequence)
+      uploadError.value =
+        (error?.msg || error?.message || '上传失败') +
+        '；如响应丢失或版本冲突，请保留参数后重新加载案例核对，勿重复上传。'
+  } finally {
+    if (seq === sequence) uploading.value = false
+  }
+}
+const loadCase = async () => {
+  const seq = ++sequence
+  loadError.value = ''
+  loadedVersion.value = null
+  if (!route.query.id) return
+  loading.value = true
+  try {
+    const detail = await ZsApi.getCase(String(route.query.id))
+    if (seq !== sequence) return
+    isAiCase.value = detail.sourceType === 'AI'
+    for (const key of [
+      'title',
+      'description',
+      'styleCode',
+      'floorCount',
+      'buildingArea',
+      'faceWidth',
+      'depth'
+    ])
+      form[key] = detail[key]
+    form.dimensionBasis = detail.dimensionBasis || 'UNKNOWN'
+    // 案例已是预设外风格时记为自定义原名，进入自定义模式可带回
+    styleBeforeCustom.value = STYLE_PRESETS.some((s) => s.value === form.styleCode)
+      ? ''
+      : String(form.styleCode || '')
+    loadedVersion.value = Number(detail.version)
+    publicationStatus.value = detail.publicationStatus || 'DRAFT'
+    clearImages()
+    const addImage = (key: string, assetId?: string) => {
+      if (assetId) images[key] = { assetId, url: '', error: false }
+    }
+    addImage('COVER', detail.coverAssetId)
+    addImage('ELEVATION', detail.elevationAssetId)
+    for (const plan of detail.floorPlans || []) addImage(`FLOOR_PLAN:${plan.floorNo}`, plan.assetId)
+    await Promise.all(Object.keys(images).map(previewImage))
+  } catch (error: any) {
+    if (seq === sequence) loadError.value = error?.msg || error?.message || '案例加载失败'
+  } finally {
+    if (seq === sequence) loading.value = false
+  }
+}
+onMounted(loadCase)
+onBeforeUnmount(() => {
+  sequence++
+  clearImages()
+})
+
+const save = async (thenPublish?: boolean) => {
+  if (
+    saving.value ||
+    uploading.value ||
+    loading.value ||
+    loadError.value ||
+    (isEdit.value && loadedVersion.value == null)
+  )
+    return
+  if (!form.title) {
+    message.error('请填写案例名称')
+    return
+  }
+  const styleCode = String(form.styleCode || '').trim()
+  if (!styleCode || styleCode === CUSTOM_STYLE_SENTINEL) {
+    message.error('请选择风格；选「自定义风格…」后需输入名称并确定')
+    return
+  }
+  if (styleCode.length > 32) {
+    message.error('自定义风格不能超过32字符')
+    return
+  }
+  form.styleCode = styleCode
+  saving.value = true
+  try {
+    let caseId: string
+    if (isEdit.value) {
+      caseId = String(route.query.id)
+      const saved = await ZsApi.updateCase(caseId, { ...form, version: loadedVersion.value })
+      loadedVersion.value = Number(saved.version)
+    } else {
+      const res = await ZsApi.createCase({ ...form })
+      caseId = res?.caseId
+      loadedVersion.value = Number(res.version)
+      // 重挂载会重置组件状态，先把授权勾选与提示带到新实例
+      setCarriedDraftState({
+        id: caseId,
+        publicDisplay: publicDisplay.value,
+        generationReference: generationReference.value,
+        justSaved: !thenPublish
+      })
+      await router.replace({ path: route.path, query: { ...route.query, id: caseId } })
+    }
+    if (thenPublish) {
+      if ((await ZsApi.publishCase(caseId)) !== true)
+        throw Error('已保存，但上架状态未变化，请返回列表核对')
+      message.success('已保存并上架')
+      publicationStatus.value = 'PUBLISHED'
+    } else {
+      message.success('草稿已保存')
+    }
+  } catch (e: any) {
+    message.error(e?.msg || e?.message || '保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+const saveAndPublish = () => save(true)
+</script>
+
+<style lang="scss" scoped>
+.zs-form {
+  max-width: 760px;
+}
+
+.dimension-basis-control {
+  width: 100%;
+  min-width: 0;
+}
+
+.dimension-basis-note {
+  margin: 6px 0 0;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+}
+
+.case-images {
+  width: 100%;
+}
+
+.case-images p {
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+}
+
+.case-images .el-checkbox {
+  display: flex;
+  height: auto;
+  margin: 12px 0;
+  white-space: normal;
+}
+
+.case-images :deep(.el-checkbox__label) {
+  line-height: 1.5;
+}
+
+.case-image-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.case-image-slot .el-image {
+  width: 100%;
+  height: 180px;
+  max-width: 360px;
+}
+
+.case-image-slot input {
+  max-width: 100%;
+}
+</style>
