@@ -58,6 +58,13 @@
             <version>${revision}</version>
         </dependency>
 
+        <!-- 赋能平台 · 平台能力层 -->
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-platform-command</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- spring boot 配置所需依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

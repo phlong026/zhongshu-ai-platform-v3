@@ -20,6 +20,10 @@
     </description>
 
     <modules>
+        <!-- 集成测试支撑（只以 test 范围被引用） -->
+        <module>platform-test-support</module>
+        <!-- 命令与事件：revision 乐观锁 + 命令事件日志 -->
+        <module>platform-command</module>
     </modules>
 
 </project>
