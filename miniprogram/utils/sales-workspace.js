@@ -19,12 +19,12 @@ function monthCommission(){const period=today().slice(0,7);const total=B.load().
 const TODO_TABS=[['all','全部'],['customer','客户'],['creation','创作'],['commission','委托款项']],TODO_LIMIT=3;
 function todoBoard(pending=[],waiting=[],staff=[],tab='all',expanded=false){
  const rows=[...pending,...staff.map(t=>({id:'staff:'+t.key,staffKey:t.key,name:t.name,state:t.status,action:'去办理',actionable:true,group:'commission',urgency:3,staff:true,view:t.view,targetId:t.id,area:t.area,record:t.record})),...waiting].sort((x,y)=>(x.urgency??8)-(y.urgency??8));
- const count=key=>key==='all'?rows.length:rows.filter(r=>r.group===key).length;
- const tabs=TODO_TABS.filter(([key])=>key!=='commission'||count(key)).map(([key,label])=>({key,label,count:count(key)}));
+ const inGroup=key=>rows.filter(r=>key==='all'||r.group===key),count=key=>inGroup(key).filter(r=>r.actionable).length;
+ const tabs=TODO_TABS.filter(([key])=>key!=='commission'||inGroup(key).length).map(([key,label])=>({key,label,count:count(key)}));
  if(!tabs.some(t=>t.key===tab))tab='all';
  const inTab=rows.filter(r=>tab==='all'||r.group===tab),first=inTab.find(r=>r.actionable);
  const shown=new Set(inTab.slice(0,expanded?inTab.length:TODO_LIMIT).map(r=>r.id));
- return {todoTab:tab,todoExpanded:expanded,todoTabs:tabs,todoTotal:inTab.length,todoMore:inTab.length>TODO_LIMIT,todoActionable:rows.filter(r=>r.actionable).length,
+ return {todoTab:tab,todoExpanded:expanded,todoTabs:tabs,todoMore:inTab.length>TODO_LIMIT,todoActionable:rows.filter(r=>r.actionable).length,
   todoRows:rows.map(r=>({...r,show:shown.has(r.id),primary:!!first&&r.id===first.id,tone:r.urgency<=1?'tone-danger':r.urgency===2?'tone-warning':''}))};
 }
 function home(){

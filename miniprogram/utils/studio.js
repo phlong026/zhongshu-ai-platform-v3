@@ -144,7 +144,7 @@ state.works.forEach(work => list.push({ id: work.id, taskId: work.taskId, title:
 list.sort((a, b) => b.updatedAt - a.updatedAt);
 if (!list.length) {
 const example = state.tasks.find(task => task.id === 'task-complete');
-if (example) list.push({ id: 'example-result', taskId: example.id, title: example.title, badge: '示例作品', image: imageFor(example), action: '查看示例' });
+if (example) list.push({ id: 'example-result', taskId: example.id, title: example.title, badge: '视频已生成', image: imageFor(example), action: '查看结果' });
 }
 return list;
 }
