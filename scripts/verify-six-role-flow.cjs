@@ -12,7 +12,9 @@ async function main() {
     ? await require('./franchise-native-runtime.cjs').connect('six-role-business', { directory, realEvents: true })
     : await require('./role-page-runtime.cjs').connect();
   const mp = native ? runtime.mp : runtime;
-  const report = { result: 'running', evidence: native ? 'WeChat native Element controls' : 'Node Page/WXML integration', steps: [], interactions: [], checkpoints: [], exceptions: [] };
+  const previous = native && process.env.FLOW_RESUME_BUSINESS === '1' ? JSON.parse(fs.readFileSync(path.join(directory, 'results.json'))) : null;
+  const report = previous || { result: 'running', evidence: native ? 'WeChat native Element controls' : 'Node Page/WXML integration', steps: [], interactions: [], checkpoints: [], exceptions: [] };
+  if (previous) { report.resumptions = [...(report.resumptions || []), { after: report.steps.at(-1)?.id, error: report.error }]; delete report.error; delete report.failedPage; report.result = 'running'; }
   const save = (name, value) => fs.writeFileSync(path.join(directory, name), JSON.stringify(value, null, 2));
   const persist = () => save('results.json', report);
   const current = () => mp.evaluate(() => ({ route: getCurrentPages().at(-1).route, data: getCurrentPages().at(-1).data }));
@@ -31,7 +33,14 @@ async function main() {
   }
   async function control(selector) {
     let element;
-    await until(async () => { mp.pageMap?.clear(); element = await (await mp.currentPage()).$(selector); return !!element; }, 'Rendered control ' + selector);
+    const label = native && ({ 'button[bindtap="openFeedback"]': '客户需修改，登记意见', 'button[bindtap="returnPacket"]': '退回补充' })[selector];
+    await until(async () => {
+      mp.pageMap?.clear(); const page = await mp.currentPage();
+      if (label) {
+        for (const candidate of await page.$$('.commission-secondary')) if ((await candidate.text()).trim() === label) { element = candidate; break; }
+      } else element = await page.$(selector);
+      return !!element;
+    }, 'Rendered control ' + selector);
     if (native) {
       const offset = await element.offset();
       await mp.evaluate(top => wx.pageScrollTo({ scrollTop: Math.max(0, top - 150), duration: 0 }), offset.top);
@@ -56,6 +65,7 @@ async function main() {
     report.interactions.push({ route: (await current()).route, via: 'local sample attachment', key, name });
   }
   async function step(id, name, action) {
+    if (previous?.steps.some(step => step.id === id)) { console.log('PRESERVED ' + id + ' ' + name); return; }
     console.log('START ' + id + ' ' + name);
     await action();
     assert(!(await data()).error, (await data()).error);
@@ -78,6 +88,7 @@ async function main() {
     await tap('.sheet .solid');
     await until(async () => !(await current()).route.startsWith('pages/account/'), 'Login home');
     let session = await mp.evaluate(() => wx.getStorageSync('zhongshu-account-v1').session);
+    if (native) await runtime.homeReady(session.role);
     if (role && session.role !== role) {
       await open('/pages/account/index?view=identity');
       await tap('.identity-option[data-role="' + role + '"]');
@@ -85,6 +96,7 @@ async function main() {
       await until(async () => !(await current()).route.startsWith('pages/account/'), 'Identity home');
       session = await mp.evaluate(() => wx.getStorageSync('zhongshu-account-v1').session);
     }
+    if (native) await runtime.homeReady(session.role);
     assert.equal(session.staffId, id === 'boss' ? 'zhao-boss' : id);
     assert.equal(session.companyId, id.startsWith('hq-') ? 'headquarters' : 'quanzhou');
   }
@@ -102,9 +114,11 @@ async function main() {
     save('checkpoint-state.json', await snapshot()); persist();
   }
   async function financeSubmit() {
+    const action = (await data()).action;
     await tap('[data-handler="submit"]');
     if ((await data()).modal?.action) await tap('[data-handler="confirm"]');
-    await until(async () => !(await data()).busy && !(await data()).modal, 'Financial record saved');
+    const view = action === 'pay' ? 'partial-payment' : action === 'incoming-register' ? 'receipt' : '';
+    await until(async () => { const d = await data(); return !d.busy && !d.modal && (!view || d.view === view); }, 'Financial record saved ' + view);
     assert(!(await data()).error, (await data()).error);
   }
   async function pay(stage, amount, transaction) {
@@ -163,7 +177,13 @@ async function main() {
   try {
     if (native) {
       await runtime.open('/pages/account/index?view=policy');
-      await runtime.replace([]);
+      const resumedRows = previous ? JSON.parse(fs.readFileSync(path.join(directory, previous.steps.at(-1).fixture))) : [];
+      await runtime.replace(resumedRows);
+      if (previous) {
+        const c = resumedRows.find(([key]) => key === 'zhongshu-business-v3')[1].customers.find(c => c.phone === '13900008823');
+        assert(c, '续跑保留已建主链客户');
+        customerId = c.id; projectId = c.projectId; workId = c.acquisitionSnapshot.workId; publicationId = c.originPublicationId;
+      }
       await mp.mockWxMethod('showModal', { confirm: true, cancel: false });
     } else wx.showModal = options => options.success?.({ confirm: true, cancel: false });
     await step('B01', '李业务创作、保存并登记同一作品发布链接', async () => {
@@ -173,7 +193,7 @@ async function main() {
       await until(async () => (await data()).view === 'remix', 'Extracted script');
       await tap('.rewrite-generate');
       assert((await data()).script);
-      await tap('button[bindtap="makeDigital"]');
+      await tap('.studio-bottom-pair .studio-primary');
       await until(async () => (await data()).view === 'digital', 'Digital creation');
       await tap('.digital-generate');
       await until(async () => (await data()).view === 'tasks', 'Creation task');
@@ -187,7 +207,7 @@ async function main() {
       await tap('.publish-submit');
       await until(async () => (await data()).view === 'receipt', 'Publication link form');
       publicationId = (await data()).detail.id;
-      await input('[bindinput="inputPublishedUrl"]', 'https://example.com/zhongshu/six-role-project');
+      await input('.receipt-url', 'https://example.com/zhongshu/six-role-project');
       await tap('.receipt-save');
       await until(async () => (await current()).route === 'pages/business/index', 'Publication persisted');
     });
@@ -226,7 +246,7 @@ async function main() {
       await tap('.bottom-inline');
       await until(async () => (await data()).view === 'budget-result', 'Budget result');
       assert((await rawCustomer()).budgets.at(-1).total > 0);
-      await tap('button[bindtap="continueBudget"]');
+      await tap('.budget-next');
       await until(async () => (await data()).view === 'submit', 'Commission from budget');
       await input('textarea[data-key="text"]', '周建国家两层住宅，一层老人房，沿本版参考预算及尺寸继续设计');
       await input('textarea[data-key="scope"]', '平面、立面及施工图');
@@ -281,6 +301,7 @@ async function main() {
       const before = await rawCustomer();
       await login('sales-dual', 'sales'); await commission('handover');
       await tap('button[bindtap="openFeedback"]');
+      await until(async () => (await data()).view === 'feedback', '原项目修改意见页');
       await input('textarea[data-key="note"]', '周建国要求调整二层采光，李业务登记原项目修改意见');
       await tap('.commission-actions .commission-primary');
       await adminCompleteAndDispatch(2); await dispatch(2);

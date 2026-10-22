@@ -11,9 +11,15 @@ assert(Array.isArray(fixture.scenes)&&fixture.scenes.length,'工程纠错场景�
 
 (async()=>{
  const r=await require('./franchise-native-runtime.cjs').connect('engineering-corrections',{directory,wsEndpoint:endpoint,realEvents:true});
+ fs.writeFileSync(path.join(directory,'input-scenes.json'),JSON.stringify(fixture,null,2));
  const checks=[],screens=[],seeded=new Set(),selectors=[];
  const scene=name=>{const row=fixture.scenes.find(s=>s.name===name);assert(row,'缺少独立场景 '+name);assert(row.independentFixture,'场景必须声明为独立前置状态');return row;};
- const pass=(name,meta={})=>{checks.push({name,result:'passed',...meta});console.log('PASS '+name);};
+ const pass=async(name,meta={})=>{
+  const id=['C06','C01-reduce','C01-cancel','C02','C03','C04-C05','E13-archive'][checks.length],file='fixtures/'+id+'.json';
+  fs.mkdirSync(path.join(directory,'fixtures'),{recursive:true});
+  fs.writeFileSync(path.join(directory,file),JSON.stringify(await r.snapshot(),null,2));
+  checks.push({id,name,result:'passed',fixture:file,...meta});console.log('PASS '+name);
+ };
  const project=id=>r.mp.evaluate(id=>wx.getStorageSync('zhongshu-engineering-v1').projects.find(p=>p.id===id),id);
  const account=()=>r.mp.evaluate(()=>{const a=wx.getStorageSync('zhongshu-account-v1');return {name:a.profile?.name,loginId:a.session?.staffId,role:a.session?.role};});
  const data=()=>r.data();
@@ -39,9 +45,9 @@ assert(Array.isArray(fixture.scenes)&&fixture.scenes.length,'工程纠错场景�
  }
  try{
   const lead=scene('leader-readonly');await seed(lead,'.engineering-home');const leadBefore=JSON.stringify(await project(lead.project.engineeringId));
-  await r.open('/pages/build/projects/index','.engineering-projects');await r.open('/pages/build/materials/index','.engineering-materials');
+  await r.open('/pages/build/projects/index','.projects-page');await r.open('/pages/build/materials/index','.materials-page');
   assert.equal(JSON.stringify(await project(lead.project.engineeringId)),leadBefore,'内部负责人查看列表不得改写张工程项目');
-  pass('内部负责人只读打开团队工程，不代建或改写六类角色项目',{boundary:lead.actor.boundary});
+  await pass('内部负责人只读打开团队工程，不代建或改写六类角色项目',{boundary:lead.actor.boundary});
 
   const reduce=scene('material-adjust-reduce');let p=await seed(reduce);const reducePlan=reduce.material.planId;
   for(const [i,line]of reduce.material.lines.entries())if(line.adjust!=='')await input('input[data-index="'+i+'"][data-key="adjust"]',line.adjust);
@@ -49,25 +55,37 @@ assert(Array.isArray(fixture.scenes)&&fixture.scenes.length,'工程纠错场景�
   await until(async()=>{const x=await project(reduce.project.engineeringId),plan=x.recordFlow.materialPlans.find(r=>r.id===reducePlan);return plan?.adjustments?.length===2;},'材料计划减少留痕');
   p=await project(reduce.project.engineeringId);let plan=p.recordFlow.materialPlans.find(r=>r.id===reducePlan);assert.deepEqual(plan.materialIds.map(id=>p.materials.find(m=>m.id===id).quantity),[6,1]);assert.equal((await data()).plan.arrival,'已验收齐全');
   await completeNode(reduce,'调整后材料数量与现场一致，节点完成');p=await project(reduce.project.engineeringId);assert.equal(p.plan.nodes.find(n=>n.id===reduce.material.nodeId).status,'已完成');
-  await shot('01-material-adjust-and-node');pass('张工程真实点击调整材料数量，原材料ID与版本历史保留，节点不再卡住',{projectId:p.projectId,planId:reducePlan,materialIds:reduce.material.lines.map(l=>l.id)});
+  await shot('01-material-adjust-and-node');await pass('张工程真实点击调整材料数量，原材料ID与版本历史保留，节点不再卡住',{projectId:p.projectId,planId:reducePlan,materialIds:reduce.material.lines.map(l=>l.id)});
 
   const cancel=scene('material-adjust-cancel');p=await seed(cancel);const cancelLine=cancel.material.lines[0];
   await input('input[data-index="0"][data-key="adjust"]','0');await input('input[data-key="adjustReason"]','改用现场旧料');await tap('button[data-action="material-adjust"]');
   await until(async()=>{const x=await project(cancel.project.engineeringId);return x.materials.find(m=>m.id===cancelLine.id)?.quantity===0;},'材料取消');
   p=await project(cancel.project.engineeringId);assert.equal(p.materials.find(m=>m.id===cancelLine.id).id,cancelLine.id);assert.equal(p.supplies.find(s=>s.id===cancelLine.supplyId).status,'已取消');assert.equal((await data()).plan.arrival,'已取消');assert.equal((await data()).plan.payment,'已取消');
-  await completeNode(cancel,'已核对现场旧料，本节点无需新增材料');p=await project(cancel.project.engineeringId);assert.equal(p.plan.nodes.find(n=>n.id===cancel.material.nodeId).status,'已完成');
-  await shot('02-material-cancel-and-node');pass('张工程真实点击取消未采购材料，原项目与材料ID不变且节点可继续',{projectId:p.projectId,materialId:cancelLine.id});
+  await shot('02-material-cancel');
+  await r.open(cancel.url,'.record-page');
+  await input('input[data-index="0"][data-key="adjust"]',cancelLine.quantity);
+  await input('input[data-key="adjustReason"]','恢复采购，现场重新确认材料需求');
+  await tap('button[data-action="material-adjust"]');
+  await until(async()=>{const x=await project(cancel.project.engineeringId),m=x.materials.find(m=>m.id===cancelLine.id),s=x.supplies.find(s=>s.id===cancelLine.supplyId);return m?.quantity===cancelLine.quantity&&s?.status!=='已取消';},'材料取消后恢复采购');
+  p=await project(cancel.project.engineeringId);const restoredMaterial=p.materials.find(m=>m.id===cancelLine.id),restoredSupply=p.supplies.find(s=>s.id===cancelLine.supplyId);assert.equal(restoredMaterial.id,cancelLine.id);assert.equal(restoredSupply.id,cancelLine.supplyId);assert.equal(restoredMaterial.quantity,cancelLine.quantity);assert.notEqual(restoredSupply.status,'已取消');
+  await r.open(cancel.url,'.record-page');
+  await input('input[data-index="0"][data-key="adjust"]','0');
+  await input('input[data-key="adjustReason"]','再次确认不采购，恢复取消');
+  await tap('button[data-action="material-adjust"]');
+  await until(async()=>{const x=await project(cancel.project.engineeringId);return x.materials.find(m=>m.id===cancelLine.id)?.quantity===0&&x.supplies.find(s=>s.id===cancelLine.supplyId)?.status==='已取消';},'材料恢复后再次取消');
+  p=await project(cancel.project.engineeringId);assert.equal(p.materials.find(m=>m.id===cancelLine.id).id,cancelLine.id);assert.equal(p.supplies.find(s=>s.id===cancelLine.supplyId).id,cancelLine.supplyId);await completeNode(cancel,'再次取消材料后确认本节点无需新增材料');p=await project(cancel.project.engineeringId);assert.equal(p.plan.nodes.find(n=>n.id===cancel.material.nodeId).status,'已完成');
+  await pass('张工程真实点击取消、恢复采购、再次取消，原材料与供应ID保持一致且节点可继续',{projectId:p.projectId,materialId:cancelLine.id,supplyId:cancelLine.supplyId,restoredQuantity:cancelLine.quantity});
 
   const arrival=scene('arrival-correct');p=await seed(arrival);const receiptBefore=p.receipts.find(x=>x.id===arrival.material.receiptId);assert.equal(receiptBefore.actual,arrival.material.from);
   await tap('button[data-id="'+arrival.material.receiptId+'"]','pickArrival');await input('input[data-key="correctActual"]',arrival.material.to);await input('input[data-key="correctReason"]','送货单实为 4 包');await tap('button[data-action="arrival-correct"]');
   await until(async()=>{const x=await project(arrival.project.engineeringId),row=x.receipts.find(r=>r.id===arrival.material.receiptId);return row?.actual===arrival.material.to&&row.corrections?.length===1;},'到货数量更正');
   p=await project(arrival.project.engineeringId);const receipt=p.receipts.find(x=>x.id===arrival.material.receiptId);assert.equal(receipt.supplyId,arrival.material.supplyId);assert.equal(receipt.corrections[0].from,arrival.material.from);
-  await shot('03-arrival-correct');pass('张工程真实点击更正原到货记录，数量、原值和材料关联一致',{receiptId:receipt.id,supplyId:receipt.supplyId});
+  await shot('03-arrival-correct');await pass('张工程真实点击更正原到货记录，数量、原值和材料关联一致',{receiptId:receipt.id,supplyId:receipt.supplyId});
 
   const site=scene('site-correct');p=await seed(site);await tap('button[data-id="'+site.node.recordId+'"]','pickSite');await input('textarea[data-key="siteNote"]',site.expect.note);await attachment('siteFile');await input('input[data-key="siteReason"]','原记录写错工序');await tap('button[data-action="site-correct"]');
   await until(async()=>{const x=await project(site.project.engineeringId),row=x.siteRecords.find(r=>r.id===site.node.recordId);return row?.note===site.expect.note&&row.corrections?.length===1;},'普通现场记录更正');
   p=await project(site.project.engineeringId);const siteRow=p.siteRecords.find(r=>r.id===site.node.recordId);assert.equal(siteRow.nodeId,site.node.nodeId);assert.equal(siteRow.corrections[0].note,site.node.originalNote);
-  await shot('04-site-correct');pass('张工程真实点击更正普通现场记录，原节点和历史版本保留',{recordId:siteRow.id,nodeId:siteRow.nodeId});
+  await shot('04-site-correct');await pass('张工程真实点击更正普通现场记录，原节点和历史版本保留',{recordId:siteRow.id,nodeId:siteRow.nodeId});
 
   const nodeScene=scene('node-correct-reopen-recomplete');p=await seed(nodeScene);const nodeId=nodeScene.node.nodeId;
   await input('textarea[data-key="nodeNote"]',nodeScene.expect.correctedNote);await attachment('nodeFile');await input('input[data-key="nodeReason"]','原照片选错');await tap('button[data-action="node-correct"]');
@@ -76,12 +94,12 @@ assert(Array.isArray(fixture.scenes)&&fixture.scenes.length,'工程纠错场景�
   await until(async()=>{const x=await project(nodeScene.project.engineeringId),n=x.plan.nodes.find(n=>n.id===nodeId);return n?.status==='施工中'&&n.reopenHistory?.length===1;},'节点撤回');
   p=await project(nodeScene.project.engineeringId);assert(!p.plan.nodes.find(n=>n.id===nodeId).responsibleId);assert(p.recordFlow&&p.plan.nodes.find(n=>n.id===nodeId).reopenHistory[0].responsibleId);assert((await data()).pending.some(t=>t.title===nodeScene.expect.reopenPendingTitle),'撤回后原项目待办应恢复');
   await completeNode(nodeScene,nodeScene.expect.recompletedNote);p=await project(nodeScene.project.engineeringId);const reopened=p.plan.nodes.find(n=>n.id===nodeId);assert.equal(reopened.status,'已完成');assert.equal(reopened.reopenHistory.length,1);assert.equal(p.siteRecords.filter(r=>r.nodeId===nodeId&&r.completion).at(-1).note,nodeScene.expect.recompletedNote);
-  await shot('05-node-correct-reopen-recomplete');pass('张工程真实点击节点更正、撤回并重新完成，责任历史和待办恢复后闭环',{nodeId,reopenVersions:reopened.reopenHistory.length,correctionVersions:reopened.corrections.length});
+  await shot('05-node-correct-reopen-recomplete');await pass('张工程真实点击节点更正、撤回并重新完成，责任历史和待办恢复后闭环',{nodeId,reopenVersions:reopened.reopenHistory.length,correctionVersions:reopened.corrections.length});
 
-  const archive=scene('archive-readonly-close');p=await seed(archive);assert(!(await r.rects(['button[data-view="settlement"]']))[0],'归档页不得渲染已关闭的财务结清动作');assert.equal((await data()).p.id,archive.project.engineeringId);await shot('06-archive-readonly-close');pass('归档页保留同一项目只读款项与成本入口，不显示关闭流程动作',{projectId:p.projectId});
+  const archive=scene('archive-readonly-close');p=await seed(archive);assert(!(await r.rects(['button[data-view="settlement"]']))[0],'归档页不得渲染已关闭的财务结清动作');assert.equal((await data()).p.id,archive.project.engineeringId);await shot('06-archive-readonly-close');await pass('归档页保留同一项目只读款项与成本入口，不显示关闭流程动作',{projectId:p.projectId});
 
   assert.equal(seeded.size,fixture.scenes.length,'所有独立夹具应各安装一次');assert.equal(r.errors.length,0,JSON.stringify(r.errors));
-  fs.mkdirSync(directory,{recursive:true});fs.writeFileSync(path.join(directory,'results.json'),JSON.stringify({result:'passed',scope:fixture.scope,checks,screens,selectors,seedCounts:Object.fromEntries([...seeded].map(name=>[name,1])),storageRestored:'由 finally 中 runtime.restore 校验'},null,2));
+  fs.mkdirSync(directory,{recursive:true});fs.writeFileSync(path.join(directory,'results.json'),JSON.stringify({result:'passed',inputScenes:'input-scenes.json',scope:fixture.scope,checks,screens,selectors,seedCounts:Object.fromEntries([...seeded].map(name=>[name,1])),storageRestored:'由 finally 中 runtime.restore 校验'},null,2));
  }catch(error){try{fs.mkdirSync(directory,{recursive:true});fs.writeFileSync(path.join(directory,'failed.json'),JSON.stringify({result:'failed',error:error.stack,checks,selectors,current:await r.current(),exceptions:r.errors},null,2));await shot('failure');}catch(_){}throw error;
  }finally{await r.restore();}
 })().then(()=>process.exit(0)).catch(error=>{console.error(error.stack);process.exit(1);});

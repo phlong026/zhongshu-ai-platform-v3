@@ -27,8 +27,8 @@ async function main() {
     await r.login('sales-dual', 'sales');
     await r.open('/pages/workflow/explore/index?view=inspiration', '.explore-case');
     await r.event('.explore-search-open', 'openSearch'); await waitView('search');
-    await r.event({ selector: '.explore-input', dataset: { key: 'searchWidth' } }, 'searchDimension', { value: '11.6' });
-    await r.event({ selector: '.explore-input', dataset: { key: 'searchDepth' } }, 'searchDimension', { value: '15.5' });
+    await r.event({ selector: '.explore-input', dataset: { key: 'searchWidth' } }, 'input', { value: '11.6' });
+    await r.event({ selector: '.explore-input', dataset: { key: 'searchDepth' } }, 'input', { value: '15.5' });
     await r.event('.explore-search-submit', 'searchPlans');
     assert((await data()).filteredCases.some(row => row.id === 'ZS001'));
     await r.event({ selector: '.explore-case', dataset: { id: 'ZS001' } }, 'openCase'); await waitView('case');
