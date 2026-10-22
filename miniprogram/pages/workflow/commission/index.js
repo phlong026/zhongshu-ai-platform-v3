@@ -1,15 +1,17 @@
-const B=require('../../../utils/business'),X=require('../../../utils/access'),SF=require('../../../utils/sales-flow'),Nav=require('../../../utils/page-navigation');
+const B=require('../../../utils/business'),X=require('../../../utils/access'),SF=require('../../../utils/sales-flow'),Nav=require('../../../utils/page-navigation'),Admin=require('../../../utils/design-admin-workbench');
 const copy=B.clone;
 Page({
- data:{title:'设计委托',view:'progress',customer:null,fields:[],form:{},rows:[],tasks:[],error:'',busy:false,primary:'',canDraft:false,canReturn:false,canFeedback:false,preview:null},
- onLoad(options){this.options=options||{};this.id=options.id||'';this.view=options.view||'progress';this.refresh(true);},
+ data:{title:'设计委托',view:'progress',customer:null,fields:[],form:{},rows:[],tasks:[],taskCount:0,metrics:[],recent:[],projectRows:[],projectFilters:[],projectCounts:{},projectTotal:0,projectHasMore:false,keyword:'',projectFilter:'全部',error:'',busy:false,primary:'',canDraft:false,canReturn:false,canFeedback:false,preview:null},
+ onLoad(options){this.options=options||{};this.id=options.id||'';this.view=options.view||'progress';if(!['admin','projects'].includes(this.view))this.refresh(true);},
  onShow(){this.refresh(false);},
  refresh(reset=false){
   try{
    const a=X.context();X.assert(a.active,'请先登录有效岗位');
-   if(this.view==='admin'){
+   if(['admin','projects'].includes(this.view)){
     X.assert(a.role==='hq-design-admin','当前岗位无设计行政权限');
-    return this.setData({title:'设计行政',view:'admin',tasks:SF.tasks(),error:'',primary:''});
+    const desk=Admin.load(a),keyword=this.data.keyword||'',projectFilter=this.data.projectFilter||'全部';this.adminDesk=desk;this.projectLimit=20;
+    this.setData({title:this.view==='projects'?'项目':'首页',view:this.view,tasks:desk.todos,taskCount:desk.taskCount,metrics:desk.metrics,recent:desk.recent,projectFilters:desk.filters,projectCounts:desk.counts,adminName:require('../../../utils/organization').roles[a.role],adminDate:desk.date,keyword,projectFilter,error:'',primary:''});
+    return this.renderAdminProjects(true);
    }
    if(this.view==='policy'){
     X.assert(a.role==='boss'&&a.orgType==='store','标准费用由加盟商老板配置');const p=SF.policy(a.companyId);
@@ -34,7 +36,7 @@ Page({
    if(this.view==='handover'&&can){add('resultFile','正式设计成果','file');add('drawingFile','本版施工图','file');add('drawingVersion','本次施工图版本');add('reviewFile','对应版本的线下专业审核依据','file');add('confirmationFile','客户对本版成果的确认凭据','file');add('confirmationDate','客户确认日期','date');add('note','现场重点与电子交底','textarea');add('managerId','项目工程人员','manager');add('received','正式文件已收齐且可读取','check');add('confirmed','客户已确认本次采用的成果版本','check');}
    if(this.view==='receive'&&can){add('note','退回原因（退回时必填）','textarea');add('checked','本版图纸、客户确认、审核依据及交底已核对','check');}
    const rows=[{label:'当前进度',value:n.state},{label:'当前办理',value:n.owner},{label:'交付范围',value:c.request?.scope||'随委托确认'}];
-   if(c.request)rows.push({label:'设计需求',value:c.request.text});const order=c.serviceOrders?.at(-1);if(order){rows.push({label:'设计服务总额',value:'￥'+B.money(order.total)});for(const stage of ['first','tail']){const pay=require('../../../utils/intercompany').condition(c,stage);rows.push({label:stage==='first'?'首款':'尾款',value:'应付 ￥'+B.money(order[stage])+' · '+pay.text});}}
+   if(c.request){rows.push({label:'设计需求',value:c.request.text});const basis=c.request.basis;if(basis)rows.push({label:'尺寸依据',value:`预算 V${basis.version} · ${basis.width}m × ${basis.depth}m · ${basis.floors}层 · ${basis.area}㎡`});if(c.request.attachment)rows.push({label:'需求附件',value:c.request.attachment.name,file:c.request.attachment});}const order=c.serviceOrders?.at(-1);if(order){rows.push({label:'设计服务总额',value:'￥'+B.money(order.total)});for(const stage of ['first','tail']){const pay=require('../../../utils/intercompany').condition(c,stage);rows.push({label:stage==='first'?'首款':'尾款',value:'应付 ￥'+B.money(order[stage])+' · '+pay.text});}}
    if(c.businessFlow?.completed)rows.push({label:'设计完成',value:c.businessFlow.completed.date+' · '+c.businessFlow.completed.by});
    if(c.businessFlow?.dispatch)rows.push({label:'交付记录',value:c.businessFlow.dispatch.date+' · '+c.businessFlow.dispatch.note});
    if(c.businessFlow?.feedbacks?.at(-1))rows.push({label:'本次修改意见',value:c.businessFlow.feedbacks.at(-1).note});
@@ -45,9 +47,16 @@ Page({
    const nextAllowed=n.actionable&&map[n.view]&&SF.allowed(map[n.view],c);
    this.action=can?action:'';this.revision=c.revision;this.nextView=!can&&nextAllowed?n.view:'';
    this.setData({title:({submit:'设计委托',feedback:'登记修改意见',progress:'委托与交付',handover:'成果与移交',complete:'登记设计完成',dispatch:'登记成果下发',receive:'业务资料接收'})[this.view]||'委托与交付',view:this.view,customer:{id:c.id,name:c.name,city:c.city,revision:c.revision},form,fields,rows,error:'',primary:can?labels[this.view]:this.nextView?'继续办理':'',canDraft:can&&['submit','handover'].includes(this.view),canReturn:can&&this.view==='receive',canFeedback:can&&this.view==='handover'&&!c.handover,managerOptions:(X.rawBook(c.companyId)?.staff||[]).filter(p=>p.active!==false&&require('../../../utils/organization').staffHas(p,'engineer')).map(p=>({id:p.id,name:p.name})),selectedManager:(X.rawBook(c.companyId)?.staff||[]).find(p=>p.id===form.managerId)?.name||'',isComplete:!!c.acceptance});
-  }catch(e){this.action='';this.nextView='';this.revision=undefined;this.initialized=false;this.setData({error:e.message,customer:null,rows:[],tasks:[],form:{},fields:[],preview:null,primary:'',canDraft:false,canReturn:false,canFeedback:false,managerOptions:[],selectedManager:'',isComplete:false});}
+  }catch(e){this.action='';this.nextView='';this.revision=undefined;this.initialized=false;this.adminDesk=null;this.setData({error:e.message,customer:null,rows:[],tasks:[],taskCount:0,metrics:[],recent:[],projectRows:[],projectFilters:[],projectCounts:{},projectTotal:0,projectHasMore:false,form:{},fields:[],preview:null,primary:'',canDraft:false,canReturn:false,canFeedback:false,managerOptions:[],selectedManager:'',isComplete:false});}
  },
  input(e){this.setData({['form.'+e.currentTarget.dataset.key]:e.detail.value,error:''});},
+ renderAdminProjects(reset=false){if(!this.adminDesk)return;if(reset)this.projectLimit=20;const page=Admin.paginate(this.adminDesk.rows,this.data.keyword,this.data.projectFilter,this.projectLimit);this.setData({projectRows:page.rows,projectTotal:page.total,projectHasMore:page.hasMore});},
+ searchProjects(e){this.setData({keyword:e.detail.value});this.renderAdminProjects(true);},
+ selectProjectFilter(e){this.setData({projectFilter:e.currentTarget.dataset.filter});this.renderAdminProjects(true);},
+ loadMoreProjects(){if(!this.data.projectHasMore)return;this.projectLimit+=20;this.renderAdminProjects(false);},
+ onReachBottom(){if(this.view==='projects')this.loadMoreProjects();},
+ openMetric(e){this.tabStates=this.tabStates||{};this.tabStates.admin={keyword:this.data.keyword,projectFilter:this.data.projectFilter};this.view='projects';this.setData({title:'项目',view:'projects',keyword:'',projectFilter:e.currentTarget.dataset.filter||'全部'});this.renderAdminProjects(true);wx.pageScrollTo({scrollTop:0,duration:0});},
+ switchWorkspaceTab(tab){const home=tab.key==='business'&&tab.index===19,projects=tab.key==='design-admin-projects'&&tab.index===20;if(!home&&!projects)return false;this.tabStates=this.tabStates||{};this.tabStates[this.view]={keyword:this.data.keyword,projectFilter:this.data.projectFilter};const next=projects?'projects':'admin';this.view=next;this.setData({title:next==='projects'?'项目':'首页',view:next,keyword:'',projectFilter:'全部',...(this.tabStates[next]||{})});this.renderAdminProjects(true);wx.pageScrollTo({scrollTop:0,duration:0});return true;},
  check(e){this.setData({['form.'+e.currentTarget.dataset.key]:e.detail.value.length>0,error:''});},
  chooseManager(e){const p=this.data.managerOptions[Number(e.detail.value)];if(p)this.setData({'form.managerId':p.id,selectedManager:p.name});},
  chooseFile(e){const key=e.currentTarget.dataset.key;wx.chooseMessageFile({count:1,type:'file',success:async r=>{try{const f=r.tempFiles[0],saved=await require('../../../utils/creation').persistMedia(f.path);this.setData({['form.'+key]:{name:f.name,path:saved,size:f.size},error:''});}catch(err){this.setData({error:err.message});}},fail:err=>{if(!/cancel/i.test(err.errMsg||''))this.setData({error:'文件选择失败，请重新选择'});}});},

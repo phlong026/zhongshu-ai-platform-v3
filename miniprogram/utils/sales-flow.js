@@ -50,8 +50,11 @@ function paymentAuthorization(c,signature){
  return {status:'approved',role:'boss',signature,kind:standardApproved(c)?'standing-design-policy':'commission-service-authorization',actorId:a.approvedById||a.approverId,personId:a.approvedPersonId||a.approverPersonId,at:a.approvedAt||a.reviewedAt,sourceId:a.id,serviceVersion:last(c).version};
 }
 function next(c){
- c=raw(c);
- const f=c.businessFlow||{},T=require('./intercompany'),r=(state,owner,view,actionable=false)=>({state,owner,view,actionable,label:view==='submit'?'提交设计委托':view==='handover'?'收图并移交':view==='receive'?'核查接收':view==='complete'?'设计完成':view==='dispatch'?'成果已下发':'查看进度'});
+ return nextRecord(raw(c));
+}
+// Workbench batches already have current records; avoid reading all customers once per row.
+function nextRecord(c){
+ const f=c.businessFlow||{},r=(state,owner,view,actionable=false)=>({state,owner,view,actionable,label:view==='submit'?'提交设计委托':view==='handover'?'收图并移交':view==='receive'?'核查接收':view==='complete'?'设计完成':view==='dispatch'?'成果已下发':'查看进度'});
  if(!is(c))return r('待提交设计委托','经办业务','submit',true);
  if(c.acceptance)return r('业务移交完成','已完成','progress');
  if(c.handover?.status==='returned')return r('移交资料待补充','经办业务','handover',true);
@@ -131,4 +134,4 @@ function tasks(a=X.context()){
  }
  return rows;
 }
-module.exports={TYPE,is,legacy,legacyActions,entry,actions,url,policy,savePolicy,standardApproved,paymentAuthorization,allowed,feeApproved,next,transition,validate,run,packageRows,tasks,file,raw};
+module.exports={TYPE,is,legacy,legacyActions,entry,actions,url,policy,savePolicy,standardApproved,paymentAuthorization,allowed,feeApproved,next,nextRecord,transition,validate,run,packageRows,tasks,file,raw};

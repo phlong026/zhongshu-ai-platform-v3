@@ -34,6 +34,8 @@
     "report:roles:complete": "node scripts/build-role-complete-report.cjs",
     "check:layout:footer": "node scripts/verify-footer-layout.cjs",
     "check:layout:footer:hit": "node scripts/verify-footer-hit-native.cjs",
+    "check:design-admin": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-design-admin-workbench.cjs && npm run check",
+    "check:design-admin:native": "node scripts/verify-design-admin-native.cjs",
     "check:workbenches": "node scripts/verify-role-workbenches-complete.cjs",
     "check:franchise:pages": "node scripts/verify-franchise-role-pages.cjs",
     "check:franchise": "npm run check:franchise:pages && npm run check",

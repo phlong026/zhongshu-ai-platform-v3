@@ -2,7 +2,7 @@ const fs=require('fs'),path=require('path'),{spawnSync}=require('child_process')
 const root=path.resolve(__dirname,'..'),out=path.join(root,'qa/business-module-simplification-20261021'),checks=[];
 const stages={
  1:['verify-sales-offline-flow.cjs'],
- 2:['verify-sales-offline-pages.cjs'],
+ 2:['verify-sales-offline-pages.cjs','verify-design-admin-workbench.cjs'],
  3:['verify-sales-offline-exceptions.cjs','verify-sales-todo-handoffs.cjs','verify-sales-offline-residual.cjs','verify-sales-customers.cjs','verify-sales-publication.cjs','verify-sales-creation-chain.cjs','verify-sales-design.cjs','verify-business-four-flows.cjs','verify-guest-home-role-nav.cjs','verify-finance-navigation-restore.cjs','verify-owner-signing.cjs','verify.cjs','verify-closed-loop-remediation.cjs','verify-engineering-records.cjs','verify-finance-desk-acceptance.cjs','verify-franchise-showcase.cjs']
 };
 const selected=process.argv[2]?[process.argv[2]]:['1','2','3'];
