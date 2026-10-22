@@ -8,11 +8,13 @@ module.exports = function(kind) {
     data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', financeTab:'projects', rows:[], error:'', form:{}, saving:false },
     openDesignPolicy(){require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=policy');},
     logout(){return require('../../utils/session-actions').logout();},
+    openRow(e) { if (!W.allowed()) return this.onShow(); const url = require('./owner-business').rows(this.kind, W.snapshot()).find(r => r.key === e.currentTarget.dataset.key)?.url; if (url) { if (getCurrentPages().length >= 8) wx.redirectTo({url}); else wx.navigateTo({url}); } },
     onLoad(options = {}) { this.options = options; this.kind = kind === 'detail' ? titles[options.view] ? options.view : 'business' : kind; this.setData({ title:titles[this.kind] }); },
     onShow() { if (!W.allowed()) { this.setData({ready:false,desk:null,rows:[]}); wx.switchTab({url:'/pages/profile/index'}); return; } this.refresh(); },
     refresh() {
       try {
         const desk = W.snapshot(), view = this.kind;
+        Object.assign(desk, require('./owner-business').forView(view, desk));
         desk.previewApprovals = desk.approvals.slice(0,2); desk.previewQueue = desk.queue.slice(0,2); desk.previewTeam = desk.team.slice(0,5); desk.secondaryMetrics = desk.metrics.slice(1); desk.dateShort = desk.date.split(' ')[0]; desk.salesTargetLabel = desk.metrics[0].target ? '/' + desk.metrics[0].target + '万' : '目标待设置';
         const keyword = this.data.keyword.trim();
         let rows = W.rowsFor(view, desk, this.options?.person || '');
