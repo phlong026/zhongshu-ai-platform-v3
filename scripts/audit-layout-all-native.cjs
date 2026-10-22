@@ -13,6 +13,8 @@ fs.mkdirSync(path.join(out, 'shots'), { recursive: true });
 const { classesOf, measure, analyse } = require('./audit-layout-lib.cjs');
 const matrix = require(path.resolve('qa/business-flow-priority-20261021/route-matrix.json')).groups;
 const app = require(path.resolve('miniprogram/app.json'));
+// Screenshots leave temp files in the simulator sandbox (10MB quota); remove them between targets.
+const cleanTmp = () => { try { const base = path.join(process.env.LOCALAPPDATA || '', '微信开发者工具', 'User Data'); for (const h of fs.readdirSync(base)) { const root = path.join(base, h, 'WeappSimulator', 'WeappFileSystem'); if (!fs.existsSync(root)) continue; for (const u of fs.readdirSync(root)) for (const app of fs.readdirSync(path.join(root, u))) { const tmp = path.join(root, u, app, 'tmp'); if (fs.existsSync(tmp)) for (const x of fs.readdirSync(tmp)) fs.rmSync(path.join(tmp, x), { force: true, recursive: true }); } } } catch (e) { /* best effort */ } };
 const only = process.env.LAYOUT_AUDIT_MATCH ? new RegExp(process.env.LAYOUT_AUDIT_MATCH) : null;
 
 const ROLES = {
@@ -106,6 +108,7 @@ const COMMISSION_VIEWS = ['submit', 'progress', 'feedback', 'handover', 'receive
         } catch (e) { /* page without scrolling */ }
         const shot = 'shots/' + name + '.png';
         await r.mp.screenshot({ path: path.join(out, shot) });
+        cleanTmp();
         results.push({ n: index, label: t.label, route: t.route, view: t.view, role: accepted.role, url: accepted.url, shot, bottom, status: 'rendered', attempts: attempts.length, ...a });
         console.log(name + ' ' + t.label + ' [' + accepted.role + '] -> ' + a.issues.length + ' ' + a.issues.map(i => i.severity + ':' + i.rule).join(' '));
       } catch (e) {

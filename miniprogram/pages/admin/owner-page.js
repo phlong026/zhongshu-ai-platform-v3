@@ -42,7 +42,7 @@ module.exports = function(kind) {
         goals:W.detail('targets'), team:W.detail('team'), reviews:W.detail('reviews'), activity:W.detail('activity'),
         receipts:W.admin('finance') + '&tab=' + encodeURIComponent('收款'), payments:W.admin('finance') + '&tab=' + encodeURIComponent('付款'),
         financeProgress:W.detail('finance-progress'), staff:W.admin('staff'), settings:W.detail('settings'), handover:W.detail('handover'), company:W.detail('company'),
-        profile:'/pages/account/index?view=profile', messages:'/pages/account/index?view=messages', learning:'/pages/account/index?view=learning', services:'/pages/account/index?view=services', help:'/pages/account/index?view=help', privacy:'/pages/account/index?view=privacy', rules:W.admin('rules'), engineeringTeam:W.admin('engineering-team'), businessTeam:W.admin('business-team'), financeTeam:W.admin('finance-team'), designTeam:W.admin('design-team')
+        profile:'/pages/account/index?view=profile', messages:'/pages/account/index?view=messages', learning:'/pages/account/index?view=learning', services:'/pages/account/index?view=services', help:'/pages/account/index?view=help', privacy:'/pages/account/index?view=privacy', rules:W.admin('rules'), engineeringTeam:W.admin('engineering-team'), businessTeam:W.admin('business-team'), financeTeam:W.admin('finance-team')
       };
       let url = actions[d.action];
       if (d.key) url = [...s.approvals, ...s.queue, ...s.focus, ...s.projectRows, ...s.team, ...s.events, ...W.rowsFor(this.kind,s,this.options?.person || '')].find(r => r.key === d.key)?.url;
