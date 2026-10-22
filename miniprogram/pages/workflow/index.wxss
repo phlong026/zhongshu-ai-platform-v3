@@ -42,3 +42,10 @@ page{background:#fdfcf9;color:#0e0e0e;font-family:-apple-system,BlinkMacSystemFo
 .journey-steps{gap:4rpx;margin:16rpx 0 4rpx}.journey-steps .flow-step{font-size:21rpx;line-height:30rpx;gap:8rpx}
 .progress-now{margin-top:18rpx}.progress-now text{display:block}.progress-now .muted{margin-top:6rpx}
 .workflow .list-title .customer-register{flex:0 0 auto;min-height:88rpx;padding:14rpx 24rpx;color:#fffaf3}
+
+/* Keep the follow action at the page bottom without covering long records. */
+.workflow.customer-workspace{display:flex;flex-direction:column;box-sizing:border-box}
+.customer-workspace>business-header{flex-shrink:0}
+.customer-workspace>.body{display:flex;flex:1;flex-direction:column}
+.customer-workspace>.body>view{flex-shrink:0}
+.customer-workspace .customer-follow-actions{margin-top:auto}
