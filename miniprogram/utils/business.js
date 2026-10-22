@@ -38,6 +38,14 @@ function dimension(value) { return /^\d{1,2}(\.\d)?$/.test(String(value)) && Num
 function money(value) { return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
 function date() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function engineeringStatus(c) { const state=wx.getStorageSync('zhongshu-engineering-v1')||{};const p=(state.projects||[]).find(p=>p.sourceCustomerId===c.id);if(!p)return '';if(p.delivery?.status==='已核验'||p.archived)return '已交付';if(p.delivery)return '交付待独立核验';if(p.actualStart)return p.plan&&p.plan.nodes.length&&p.plan.nodes.every(n=>n.status==='已完成')?'待交付':'施工中';return ''; }
+// Customer journey shown on the project-progress tab; returns the index of the current stage (STAGES.length once delivered).
+const STAGES=['客户跟进','需求沟通','设计与预算','设计协同','设计完成','施工阶段','交付'];
+function stageIndex(c){
+const engineering=engineeringStatus(c);if(engineering==='已交付')return STAGES.length;if(engineering==='待交付'||engineering==='交付待独立核验')return 6;if(engineering||c.acceptance)return 5;
+const SF=require('./sales-flow');if(SF.is(c))return c.businessFlow?.completed&&c.businessFlow.feedbacks?.at(-1)?.status!=='pending'?4:3;
+if(c.request||c.contract)return 3;if((c.plans||[]).length||(c.facades||[]).length||(c.budgets||[]).length||c.salesIntent?.ready)return 2;
+return (c.follows||[]).some(f=>!String(f.note||'').startsWith('登记客资'))?1:0;
+}
 function stage(c) {
 if(require('./sales-flow').is(c))return require('./sales-flow').next(c).state;
 const engineering=engineeringStatus(c);
@@ -57,4 +65,4 @@ if(view==='facade-result'&&!facade)return block('尚未选用并保存立面方�
 if(view==='budget-result'&&!c.budgets.length)return block('尚未完成参考预算测算。','budget');
 return null;
 }
-module.exports={ KEY,Access,draftKey,scope,clone,sample,initial,load,persist,customer,reassign,write,add,authorize,fromLead,latest,referenceUsed,validDate,positive,dimension,money,date,stage,engineeringStatus,blockingStep };
+module.exports={ KEY,Access,draftKey,scope,clone,sample,initial,load,persist,customer,reassign,write,add,authorize,fromLead,latest,referenceUsed,validDate,positive,dimension,money,date,stage,STAGES,stageIndex,engineeringStatus,blockingStep };

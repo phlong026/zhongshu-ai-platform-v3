@@ -7,7 +7,7 @@ const legacy=c=>!!c&&!is(c)&&!!(c.workflowVersion==='legacy-v1'||c.request||c.co
 const legacyActions=['request','tail-apply','service-prepare','intake','assign','deliverable','deliverable-review','release','design-part','review-submit','review-record','quote','contract','contract-prepare','confirmation','design-receipt','design-feedback','documents','copies','handover','receive'];
 const legacyViews=[...legacyActions,'delivery','hub','formal-progress','drawing-review','accepted','service-order','payment-first','payment-tail','funds'];
 function entry(c,view){
- if(!c||legacy(c)||!legacyViews.includes(view)&&!(is(c)&&['progress','history'].includes(view)))return '';
+ if(!c||legacy(c)||!legacyViews.includes(view)&&!(is(c)&&view==='history'))return '';
  let target='progress';
  if(view==='request'&&(!c.request||next(c).view==='submit')||!is(c)&&['delivery','hub'].includes(view))target='submit';
  else if(is(c)&&['handover','receive'].includes(view))target=view;
