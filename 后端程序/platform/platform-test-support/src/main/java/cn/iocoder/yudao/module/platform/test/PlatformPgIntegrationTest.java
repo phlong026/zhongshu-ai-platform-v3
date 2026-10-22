@@ -19,7 +19,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * 平台层与业务域集成测试基类：真实 PostgreSQL + Flyway + MyBatis-Plus。
  *
  * <p>同一个 JVM 内所有测试类共用一个容器（Testcontainers 的 Ryuk 负责退出时清理）。
- * Flyway 执行测试类路径上 {@code db/migration/pf} 下的全部迁移（平台层各模块共用这一目录）。
+ * Flyway 执行测试类路径上 {@code db/migration/pf} 下的全部迁移（平台层各模块共用这一目录），
+ * 以及子类通过 {@code platform.test.extra-flyway-locations} 追加的业务域目录。
  * 子类用 {@code @Import} 引入被测的 Service；Mapper 由 yudao 的 {@code @MapperScan} 自动扫描。
  *
  * <p>测试之间不自动清库，用例应使用各自唯一的数据（如不同的 aggregateId）。
@@ -47,7 +48,8 @@ public abstract class PlatformPgIntegrationTest {
         registry.add("spring.datasource.url", PG::getJdbcUrl);
         registry.add("spring.datasource.username", PG::getUsername);
         registry.add("spring.datasource.password", PG::getPassword);
-        registry.add("spring.flyway.locations", () -> "classpath:db/migration/pf");
+        // 业务域测试用 @TestPropertySource 设置 platform.test.extra-flyway-locations（以逗号开头）追加本域迁移目录
+        registry.add("spring.flyway.locations", () -> "classpath:db/migration/pf${platform.test.extra-flyway-locations:}");
     }
 
     @Import({

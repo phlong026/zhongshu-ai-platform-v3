@@ -1,0 +1,5 @@
+-- 回滚 V20261022.851：须先撤销这些岗位的任职（任职会同步 system_user_role）
+DELETE FROM system_user_role WHERE role_id BETWEEN 810001 AND 810013;
+DELETE FROM system_role_menu WHERE id BETWEEN 811001 AND 811999;
+DELETE FROM system_menu WHERE id BETWEEN 810100 AND 810199;
+DELETE FROM system_role WHERE id BETWEEN 810001 AND 810013;

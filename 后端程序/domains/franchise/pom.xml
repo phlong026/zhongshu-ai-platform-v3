@@ -21,6 +21,8 @@
 
     <modules>
         <module>franchise-api</module>
+        <module>franchise-test-support</module>
+        <module>franchise-org</module>
     </modules>
 
 </project>

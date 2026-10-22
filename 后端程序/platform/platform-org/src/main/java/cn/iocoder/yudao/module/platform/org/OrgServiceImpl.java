@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes.*;
@@ -63,6 +64,11 @@ public class OrgServiceImpl implements OrgService {
     @Override
     public OrgUnitDO getUnit(long deptId) {
         return orgUnitMapper.selectById(deptId);
+    }
+
+    @Override
+    public List<Long> listActiveOrgIds(String orgType) {
+        return orgUnitMapper.selectActiveOrgIds(orgType);
     }
 
     private OrgUnitDO requireOrg(long orgId) {

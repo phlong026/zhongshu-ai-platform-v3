@@ -88,6 +88,18 @@ class OrgAndPostIntegrationTest extends PlatformPgIntegrationTest {
         assertError(() -> orgService.createTeam(teamOfB, null, "团队下当组织", "sales"), ORG_NOT_FOUND);
     }
 
+    @Test
+    void listsActiveOrgsOfAType() {
+        jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('t-list-hq','test','只供本用例') ON CONFLICT DO NOTHING");
+        long hq = orgService.createOrg("t-list-hq", "总部", null);
+        long disabled = orgService.createOrg("t-list-hq", "停用的总部", null);
+        orgService.setOrgActive(disabled, false);
+        long team = orgService.createTeam(hq, null, "设计部", "design");
+
+        assertThat(orgService.listActiveOrgIds("t-list-hq")).containsExactly(hq).doesNotContain(team);
+        assertThat(orgService.listActiveOrgIds("t-none")).isEmpty();
+    }
+
     // ===================== 任职 =====================
 
     @Test
