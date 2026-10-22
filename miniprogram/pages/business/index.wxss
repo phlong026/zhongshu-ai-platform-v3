@@ -48,7 +48,6 @@
 
 /* Pending items: one primary action for the most urgent card, compact outline actions for the rest. */
 /* home to-do board: plain list rows (same as 最近办理); only the first row carries a filled action */
-.sales-stat-dot{width:14rpx;height:14rpx;border-radius:50%;background:#c0392b;margin:0 10rpx 0 auto}
 .sales-todo-tabs{margin:4rpx 0 6rpx}
 .sales-todo-row .sales-task-name{font-size:28rpx;font-weight:600;line-height:42rpx}
 .sales-todo-row .sales-badge{margin-left:12rpx}

@@ -1755,5 +1755,11 @@
       1212
     ],
     "transparent": false
+  },
+  {
+    "asset": "phone.png",
+    "source": "generated",
+    "transparent": true,
+    "usage": "Customer-list call button; Material Icons 'call' glyph (Apache-2.0) filled in --business-brand #89512a"
   }
 ]
