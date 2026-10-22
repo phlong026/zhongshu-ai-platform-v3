@@ -79,30 +79,6 @@
       "result": "passed"
     },
     {
-      "name": "hq-designer / hq-designer：首页与角色导航一致",
-      "result": "passed"
-    },
-    {
-      "name": "hq-designer-2 / hq-designer：首页与角色导航一致",
-      "result": "passed"
-    },
-    {
-      "name": "hq-design-lead / hq-design-lead：首页与角色导航一致",
-      "result": "passed"
-    },
-    {
-      "name": "hq-design-lead-2 / hq-design-lead：首页与角色导航一致",
-      "result": "passed"
-    },
-    {
-      "name": "hq-design-dual / hq-designer：首页与角色导航一致",
-      "result": "passed"
-    },
-    {
-      "name": "hq-design-dual / hq-design-lead：首页与角色导航一致",
-      "result": "passed"
-    },
-    {
       "name": "hq-finance / finance：首页与角色导航一致",
       "result": "passed"
     },
