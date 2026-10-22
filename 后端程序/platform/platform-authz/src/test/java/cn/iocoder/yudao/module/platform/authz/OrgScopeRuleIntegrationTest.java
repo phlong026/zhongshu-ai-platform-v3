@@ -87,6 +87,21 @@ class OrgScopeRuleIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(mapper.selectBatchWithAlias(batch)).extracting(ScopeProbeDO::getCompanyId).containsOnly(ORG_B).hasSize(2);
     }
 
+    /** MyBatis-Plus 3.5.17 的 selectOne 走游标查询，默认不经过数据权限拦截 */
+    @Test
+    void selectOneIsScopedToo() {
+        long rowOfB = jdbc.queryForObject("SELECT id FROM authz_scope_probe WHERE batch = ? AND company_id = ? AND design_org_id IS NULL",
+                Long.class, batch, ORG_B);
+        currentPost.post = post(ORG_A);
+
+        assertThat(mapper.selectOne(ScopeProbeDO::getId, rowOfB)).isNull();
+        assertThat(mapper.selectCount(ScopeProbeDO::getId, rowOfB)).isZero();
+        currentPost.post = post(ORG_B);
+        assertThat(mapper.selectOne(ScopeProbeDO::getId, rowOfB)).isNotNull();
+        currentPost.post = null;
+        assertThat(DataPermissionUtils.executeIgnore(() -> mapper.selectOne(ScopeProbeDO::getId, rowOfB))).isNotNull();
+    }
+
     @Test
     void withoutAPostNothingIsVisible() {
         currentPost.post = null;

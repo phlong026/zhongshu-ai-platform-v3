@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.platform.authz;
 import cn.iocoder.yudao.framework.datapermission.core.rule.DataPermissionRule;
 import cn.iocoder.yudao.framework.mybatis.core.util.MyBatisUtils;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
@@ -29,9 +30,12 @@ public class OrgScopeRule implements DataPermissionRule {
     private final CurrentPost currentPost;
     private final Map<String, List<String>> columnsByTable = new HashMap<>();
 
-    public OrgScopeRule(CurrentPost currentPost, ObjectProvider<OrgScopeCustomizer> customizers) {
+    public OrgScopeRule(CurrentPost currentPost, ObjectProvider<OrgScopeCustomizer> customizers,
+                        ObjectProvider<MybatisPlusInterceptor> mybatisPlusInterceptor) {
         this.currentPost = currentPost;
         customizers.orderedStream().forEach(c -> c.customize(this));
+        // selectOne 走游标查询，默认绕过数据权限；规则存在即同时装上游标查询的过滤（见 CursorQueryOrgScope）
+        mybatisPlusInterceptor.ifAvailable(i -> MyBatisUtils.addInterceptor(i, new CursorQueryOrgScope(this), 0));
     }
 
     /** 登记表及其组织列；第一列为归属组织，其余为额外可见组织（如委托给总部的 design_org_id） */
