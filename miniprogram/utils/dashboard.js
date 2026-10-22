@@ -13,14 +13,14 @@ if (typeof this.getTabBar === 'function' && this.getTabBar()) {this.getTabBar().
 },
 goAdmin(e){const d=e.currentTarget.dataset;wx.navigateTo({url:'/pages/'+(d.area==='workflow'?'workflow':'admin')+'/index?view='+d.view+'&id='+encodeURIComponent(d.id)+(d.record?'&record='+encodeURIComponent(d.record):'')});},
 openAction(e) {
-const key = e.currentTarget.dataset.action;if(key==='engineeringReview')return wx.navigateTo({url:'/pages/build/index?view=review&id='+encodeURIComponent(e.currentTarget.dataset.customer)});
-const businessRoutes = { customer: 'customers&modal=register', customers: 'customers', follow: 'customer&modal=follow', customerDetail: 'customer', autonomous: 'ai-config', plan: 'ai-config', planSearch: 'search', facade: 'ai-facade', quote: 'quote', contract: 'contract', delivery: 'delivery', inspiration: 'inspiration', budget: 'budget', transfer: 'transfer', businessHub: 'hub' };
-const businessView = index === 1 ? businessRoutes[key] : index === 2 && key === 'projects' ? 'customers&destination=hub' : index === 2 && key === 'siteConfirm' ? 'customers&destination=start-check' : index === 3 && key === 'receipts' ? 'customers&destination=funds' : index === 3 && key === 'approval' ? 'hub' : '';
+const key = e.currentTarget.dataset.action;
+const businessRoutes = { customer: 'customers&modal=register', customers: 'customers', customerDetail: 'customer', autonomous: 'ai-config', plan: 'ai-config', planSearch: 'search', facade: 'ai-facade', budget: 'budget' };
+const businessView = index === 1 ? businessRoutes[key] : index === 2 && key === 'projects' ? 'customers&destination=hub' : '';
 if (businessView) {
 const business = require('./business');if(!business.scope().active){wx.navigateTo({url:'/pages/account/index?view=login'});return;}let contextId = '';
 const todo = this.data.customers && this.data.customers.find(item => String(item.id) === String(e.currentTarget.dataset.customer));
 if(todo)contextId=todo.id;
-const chooseCustomer = index === 1 && !contextId && ['inspiration','search','ai-config','ai-facade','quote','contract','delivery','budget'].includes(businessView);
+const chooseCustomer = index === 1 && !contextId && ['search','ai-config','ai-facade','budget'].includes(businessView);
 const destination=contextId&&key==='customerDetail'?(todo.view||require('./workbench').next(business.customer(contextId))):chooseCustomer?'customers&destination='+businessView:businessView;
 wx.navigateTo({ url: '/pages/workflow/index?view=' + destination + (contextId ? '&id=' + encodeURIComponent(contextId) : '') }); return;
 }
