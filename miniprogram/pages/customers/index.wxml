@@ -1,3 +1,4 @@
+<wxs src="../../utils/tone.wxs" module="st"/>
 <view class="page customers-page workbench-page sales-page">
   <view class="workbench-header"><brand-header divider="{{true}}" title="客户" /></view>
   <view class="content">
@@ -9,7 +10,7 @@
       <view class="sales-search customer-search"><image src="/assets/search.png" mode="aspectFit" /><input placeholder="搜索姓名、手机号或地区" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
       <view class="customer-filters"><button wx:for="{{filters}}" wx:key="*this" class="{{filter===item?'active':''}}" data-value="{{item}}" bindtap="setFilter">{{item}}</button></view>
       <view wx:for="{{visibleCustomers}}" wx:key="id" class="customer-list-row" data-id="{{item.id}}" bindtap="open">
-        <view class="customer-initial">{{item.initial}}</view><view class="customer-row-copy"><view class="customer-row-heading"><text>{{item.name}}</text><text class="sales-badge">{{item.status}}</text></view><text class="hint">{{item.city}} · {{item.phone}}</text><text wx:if="{{isLead}}" class="hint customer-owner">负责人：{{item.owner}}</text><text class="customer-next">{{item.next}}</text></view><button class="outline customer-action" data-id="{{item.id}}" catchtap="act">{{item.action}}</button>
+        <view class="customer-initial">{{item.initial}}</view><view class="customer-row-copy"><view class="customer-row-heading"><text>{{item.name}}</text><text class="sales-badge {{st.tone(item.status)}}">{{item.status}}</text></view><text class="hint">{{item.city}} · {{item.phone}}</text><text wx:if="{{isLead}}" class="hint customer-owner">负责人：{{item.owner}}</text><text class="customer-next">{{item.next}}</text></view><button class="outline customer-action" data-id="{{item.id}}" catchtap="act">{{item.action}}</button>
       </view>
       <view wx:if="{{!filteredCustomers.length}}" class="sales-empty">{{keyword||filter!=='全部'?'暂无符合条件的客户':'当前没有可见客户，可先登记客户。'}}</view>
       <button wx:if="{{hasMore}}" class="sales-footer-link" bindtap="more">查看更多客户<view class="chevron" /></button>

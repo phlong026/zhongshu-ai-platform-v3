@@ -42,7 +42,7 @@ const ROLES = ['sales-lead', 'boss', 'project-manager', 'finance-lead', 'hq-desi
         snap[key] = {
           route: p.route, view: p.data.view, error: p.data.error || '', missing: !!p.data.missing,
           text: nodes.map(text).join('').replace(/\s+/g, ' ').replace(/\d{4}-\d\d-\d\d[T ]\d\d:\d\d(?::\d\d(?:\.\d+)?)?Z?/g, '<time>').replace(/\d{1,2}:\d\d(?::\d\d)?/g, '<hm>').trim(),
-          controls: flat(nodes).filter(n => n.attrs && (n.attrs.bindtap || n.attrs.bindinput || n.attrs.bindchange)).map(n => (n.attrs.bindtap || n.attrs.bindinput || n.attrs.bindchange) + ':' + text(n).replace(/\s+/g, ' ').slice(0, 40))
+          controls: flat(nodes).filter(n => n.attrs && (n.attrs.bindtap || n.attrs.bindinput || n.attrs.bindchange)).map(n => (n.attrs.bindtap || n.attrs.bindinput || n.attrs.bindchange) + ':' + text(n).replace(/\s+/g, ' ').replace(/\d{4}-\d\d-\d\d[T ]\d\d:\d\d(?::\d\d(?:\.\d+)?)?Z?/g, '<time>').replace(/\d{1,2}:\d\d(?::\d\d)?/g, '<hm>').slice(0, 40))
         };
       } catch (e) { snap[key] = { throws: String(e.message || e).slice(0, 160) }; }
     }

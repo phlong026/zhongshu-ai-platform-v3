@@ -10,3 +10,22 @@
 .input-row.input-row{min-height:88rpx!important}
 .input-row .input.input,.input-row.input-row input,.input-row.input-row picker{min-height:80rpx}
 button.link.link{min-height:88rpx!important}
+/* Status tones: the same state reads the same colour on every page. */
+.tone-success.tone-success{background:#e8f4ec!important;color:#2e7d52!important;border-color:#cfe6d7!important}
+.tone-warning.tone-warning{background:#fbf0dc!important;color:#8a5a12!important;border-color:#f1dcb4!important}
+.tone-danger.tone-danger{background:#fdecea!important;color:#b3402a!important;border-color:#f3cbc4!important}
+
+/* Blocks nested in a card are flat rows with hairlines, not a second card. */
+.card .soft.soft,.card .soft-kv.soft-kv,.inset.inset{background:transparent!important;border-radius:0!important;padding-left:0!important;padding-right:0!important}
+.card .soft .kv,.card .soft-kv.soft-kv{border-bottom:1rpx solid #eee8df}
+.card .soft .kv:last-child{border-bottom:0}
+
+/* Inline link buttons, option chips and outline buttons reach the 88rpx minimum. */
+.account button.brown.brown{display:inline-flex;align-items:center;min-height:88rpx!important;margin-top:-22rpx;margin-bottom:-22rpx}
+.account .outline.outline,.admin .outline.outline{min-height:88rpx!important}
+.workflow .options button{min-height:80rpx!important}
+
+/* One primary colour: account/admin primary buttons follow the brand brown instead of the old orange gradient. */
+.account .solid:not(.is-disabled),.admin .solid:not(.is-disabled),.sheet .solid:not(.is-disabled){background:#89512a!important;color:#fffaf3!important}
+.account .pill.pill{display:inline-flex;align-items:center;justify-content:center;min-height:80rpx!important}
+.account button.inset.row{min-height:88rpx!important}

@@ -1,3 +1,4 @@
+<wxs src="../../../utils/tone.wxs" module="st"/>
 <view class="page engineering-desk projects-page"><brand-header title="项目" divider="{{true}}"/><view class="eng-content">
  <view wx:if="{{!allowed}}" class="eng-empty"><text>当前身份无工程项目访问权限</text><button class="eng-outline" bindtap="home">返回工作台</button></view>
  <block wx:else><view class="eng-search"><image src="/pages/engineering/assets/search.png"/><input class="eng-search-input" placeholder="搜索项目名称、客户姓名或地址" value="{{keyword}}" bindinput="search" aria-label="搜索授权项目"/><button class="eng-search-clear" wx:if="{{keyword}}" bindtap="clear">清空</button></view>
