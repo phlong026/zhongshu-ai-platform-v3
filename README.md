@@ -10,6 +10,8 @@
 
 ## 当前实现与验收记录
 
+2026年10月23日六角色完整流程补齐：管理首页增加交接待办、预约与内容获客汇总、六项统计原单明细；工程增加材料数量调整与取消、到货及现场记录更正、节点更正和满足条件的撤回。当前真实连续模拟案例由李业务、张工程、王财务、张老板、林设计、罗财务沿同一客户/项目办理，逐环节保存可重放状态。流程范围及角色矩阵见 [六角色全流程验收清单](docs/六角色全流程验收清单_20261023.md)。提交前运行 `npm run check:flow:all`，原生逐控件运行 `npm run check:flow:native`；后者使用独立项目与端口9983，不上传微信或执行真实支付。原生验收生成后，`npm run demo:flow -- --list` 列出每环节数据，`npm run demo:flow -- B06` 可在独立微信项目载入相应阶段并切换六人接续，`npm run demo:flow -- --restore` 恢复载入前数据。
+
 2026年10月23日老板管理工作台移植：将 Claude 版“首页、经营、绩效、我的”迁入当前 V3，复用设计委托、实际收付款及统一个人页。首页展示六项经营数据及业务工程概况；经营展示收支、应收和已批准应付；绩效按部门追溯原记录，目标在“我的”中设置。原设计及完成度、验收边界见 [移植与完成度](docs/管理工作台移植与完成度_20261023.md)。复测 `npm run check:owner:workbench`；微信开发者工具原生复测 `npm run check:owner:workbench:native`，使用独立项目及 9946 自动化端口。字体核对使用 `python3 scripts/extend-owner-fonts.py --check-only`；补字需显式传入现有 NotoSansSC 可变字体，例如 `python3 scripts/extend-owner-fonts.py --font /path/to/NotoSansSC-VF.ttf`。脚本不新增依赖。
 
 2026年10月23日新增“我的 → 跨设备模拟联调”：使用同一 HTTP 模拟服务及独立财务、行政会话，财务确认本版首尾款足额到账后，行政自动收到待办、站内消息及模拟微信通知，再沿通知进入办理正式图纸下发。共享原单、幂等记录及通知发件箱保存在服务端；原有本地工作台数据独立保留。启动 `PORT=8787 npm run demo:design-collaboration`；复测 `npm run check:design-collaboration` 与 `npm run check:design-collaboration:native`。当前验证范围为行政原生模拟器与独立财务客户端进程、模拟微信网关；尚未进行两台实体手机和真实微信送达验收。操作、接口与边界见[跨设备到账与模拟微信联调](docs/跨设备到账与模拟微信联调_20261023.md)。

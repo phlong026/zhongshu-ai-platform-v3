@@ -25,7 +25,7 @@
     "check:management-profile": "node scripts/verify-management-profile.cjs",
     "check:management-profile:simulator": "node scripts/verify-management-profile-simulator.cjs",
     "capture:management-profile": "node scripts/capture-management-profile.cjs final",
-    "check:demo-data": "node scripts/verify-demo-consistency.cjs",
+    "check:demo-data": "node scripts/verify-demo-consistency.cjs && node scripts/verify-six-role-demo-data.cjs",
     "check:demo-login": "node scripts/verify-demo-login-picker.cjs",
     "check:demo-login:native": "node scripts/verify-demo-login-picker-native.cjs",
     "check:visible-copy": "node scripts/verify-visible-copy.cjs && node scripts/verify-legacy-visible-copy.cjs && node scripts/verify-legacy-visible-copy-pages.cjs",
@@ -92,7 +92,15 @@
     "check:finance:acceptance": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-finance-desk-acceptance.cjs",
     "check:franchise:showcase": "node scripts/verify-franchise-showcase.cjs",
     "check:owner:workbench": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-owner-signing.cjs && node scripts/verify-owner-port-core.cjs && node scripts/verify-owner-workbench.cjs && node scripts/verify-owner-business-performance.cjs && node scripts/verify-owner-profile-port.cjs && npm run check",
-    "check:owner:workbench:native": "npm run check:owner:workbench && node scripts/verify-owner-workbench-port-native.cjs"
+    "check:owner:workbench:native": "npm run check:owner:workbench && node scripts/verify-owner-workbench-port-native.cjs",
+    "check:engineering:corrections": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-engineering-record-corrections.cjs",
+    "check:engineering:corrections:native": "node scripts/verify-engineering-corrections-native.cjs",
+    "check:owner:p0": "node scripts/verify-owner-p0-completion.cjs",
+    "check:owner:p0:native": "node scripts/verify-owner-p0-native.cjs",
+    "check:flow:all": "node scripts/check-full-flow.cjs",
+    "check:flow:business": "node scripts/verify-six-role-flow.cjs",
+    "check:flow:native": "node scripts/verify-full-flow-native.cjs",
+    "demo:flow": "node scripts/open-flow-fixture.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0"
