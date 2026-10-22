@@ -1,7 +1,7 @@
 require('./runtime-compat');
 // Local, authored fixtures. These URLs identify samples; no video is fetched.
 const samples=[
- {id:'daylight',title:'二层乡墅的采光与动线',url:'https://example.com/zhongshu-demo/daylight',original:'这套二层乡墅，开间12米、进深15米。\n客厅朝南，厨房靠近餐厅，一层为老人预留卧室。\n建房先看家人的生活习惯，再决定外观和房间数量。',points:['先安排一层老人房，让家人少走楼梯。','把朝南采光留给常用的客厅，餐厅靠近厨房。','12米开间、15米进深只是示例，最终要按现场测量来定。']},
+ {id:'daylight',title:'二层乡墅的采光与动线',url:'https://example.com/zhongshu-demo/daylight',original:'这套二层乡墅，开间12米、进深15米。\n客厅朝南，厨房靠近餐厅，一层为老人预留卧室。\n建房先看家人的生活习惯，再决定外观和房间数量。',points:['先安排一层老人房，让家人少走楼梯。','把朝南采光留给常用的客厅，餐厅靠近厨房。','12米开间、15米进深为参考尺寸，最终要按现场测量来定。']},
  {id:'budget',title:'农村建房预算怎么分配',url:'https://example.com/zhongshu-demo/budget',original:'农村建房做预算，不能只算主体。\n地基、主体、屋面、门窗、水电和装修都要分别列项。\n先明确面积与结构，再按实际工程量核价，并预留变更空间。',points:['先确认面积和结构，把基础、主体、屋面分开核算。','门窗、水电和装修也要列项，别只比较主体单价。','以现场工程量和正式报价为准，给变更留出预算空间。']},
  {id:'courtyard',title:'小庭院也能住得舒服',url:'https://example.com/zhongshu-demo/courtyard',original:'乡墅庭院不一定越大越好。\n进出道路、晾晒、排水与日常打理都应先安排。\n种植区和休闲区分开，留出适合老人和孩子活动的空间。',points:['先把进出、晾晒和排水安排顺畅。','种植区与休闲区分开，给老人和孩子留出活动空间。','庭院按家人的打理能力来规划，舒服比一味求大更重要。']}
 ];

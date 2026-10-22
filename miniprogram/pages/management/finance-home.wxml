@@ -1,6 +1,7 @@
 <template name="financeHome">
 <view class="fin-page fin-home"><brand-header divider account-font title="{{desk.title}}"/>
  <view class="fin-content">
+  <view class="fin-heading"><text class="fin-title">你好，{{desk.name}}</text></view>
   <view class="fin-context"><text>{{desk.company}}</text><text class="fin-context-role">{{desk.role}}</text></view>
   <view class="fin-card"><view class="fin-heading"><text class="fin-title">{{desk.summaryTitle}}</text><picker mode="date" fields="month" value="{{desk.period}}" bindchange="financeMonth"><text class="fin-muted">{{desk.periodText}}⌄</text></picker></view>
    <view class="fin-metrics"><button wx:for="{{desk.metrics}}" wx:key="label" class="fin-metric {{item.tone}}" data-index="{{index}}" bindtap="financeMetric"><image src="{{item.icon}}" mode="aspectFit"/><view><text class="fin-muted">{{item.label}}</text><text class="fin-number">{{item.value}}</text></view></button></view>

@@ -44,7 +44,7 @@ module.exports = function (tabIndex) {
       this.setData({
         engineeringProfile, courseId: engineeringProfile ? 'engineering' : 'ai-video', courseTitle: engineeringProfile ? '乡墅开工与现场交底' : 'AI短视频获客实战',
         courseImage: engineeringProfile ? '/pages/account/assets/course-engineering.jpg' : A.courseImage,
-        loggedIn: s.session.loggedIn, showStoreServices: !s.session.loggedIn || a.orgType === 'store', entries: entries(a).concat(a.active && a.demo ? [{ text: '跨设备模拟联调', url: '/pages/collaboration/index' }] : []),
+        loggedIn: s.session.loggedIn, showStoreServices: !s.session.loggedIn || a.orgType === 'store', entries: entries(a).concat(a.active && a.demo ? [{ text: '跨设备联调', url: '/pages/collaboration/index' }] : []),
         name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? c.name : '未选择公司',
         unread: A.scoped(s, s.messages).filter(x => !x.read).length, progress: A.progress(s, engineeringProfile ? 'engineering' : 'ai-video')
       });

@@ -9,8 +9,8 @@ if(team==='sales'||team==='engineering'){const perf=require('../../utils/perform
  const projects=team==='engineering'?(wx.getStorageSync('zhongshu-engineering-v1')?.projects||[]).filter(p=>(p.companyId||'quanzhou')===a.companyId):[];
  const specialists=people.filter(m=>(m.roles||[]).includes(team)).map(m=>{
   const cycle=s.archives.filter(c=>c.dynamic&&c.person===m.id&&c.period===period).slice(-1)[0];
-  if(team==='sales'){const mine=customers.filter(c=>X.ownerId(c)===m.id);return {id:m.id,name:m.name,summary:'客户 '+mine.length+' · 跟进中 '+mine.filter(c=>c.status==='跟进中').length+' · 已到店 '+mine.filter(c=>c.status==='已到店').length,perf:'本月来源 '+sources.filter(r=>r.person===m.id).length+' 项 · 考核 '+(cycle?cycle.status:'暂无样本')};}
-  const mine=projects.filter(pj=>X.managerId(pj)===m.id);return {id:m.id,name:m.name,summary:'项目 '+mine.length+' · 在建 '+mine.filter(pj=>pj.actualStart&&!pj.delivery&&!pj.archived).length+' · 待开工 '+mine.filter(pj=>!pj.actualStart&&!pj.archived).length,perf:'本月来源 '+sources.filter(r=>r.person===m.id).length+' 项 · 考核 '+(cycle?cycle.status:'暂无样本')};});
+  if(team==='sales'){const mine=customers.filter(c=>X.ownerId(c)===m.id);return {id:m.id,name:m.name,summary:'客户 '+mine.length+' · 跟进中 '+mine.filter(c=>c.status==='跟进中').length+' · 已到店 '+mine.filter(c=>c.status==='已到店').length,perf:'本月来源 '+sources.filter(r=>r.person===m.id).length+' 项 · 考核 '+(cycle?cycle.status:'暂无记录')};}
+  const mine=projects.filter(pj=>X.managerId(pj)===m.id);return {id:m.id,name:m.name,summary:'项目 '+mine.length+' · 在建 '+mine.filter(pj=>pj.actualStart&&!pj.delivery&&!pj.archived).length+' · 待开工 '+mine.filter(pj=>!pj.actualStart&&!pj.archived).length,perf:'本月来源 '+sources.filter(r=>r.person===m.id).length+' 项 · 考核 '+(cycle?cycle.status:'暂无记录')};});
  if(specialists.length)out.sections.push(section('专员进展与绩效',specialists.map(m=>link(m.name,'targets',m.id,m.summary+' · '+m.perf))));
 }
 out.sections.push(section('授权范围内成员',people.length?people.map(p=>a.role==='boss'?link(p.name,'staff-roles',p.id,(p.roles||[]).map(r=>O.roles[r]).join('、')):kv(p.name,(p.roles||[]).filter(r=>O.teamForRole(r)===team).map(r=>O.roles[r]).join('、'))):[notice('当前授权范围暂无成员')]));

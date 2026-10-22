@@ -3,12 +3,12 @@ const path = require('path');
 const assert = require('assert/strict');
 
 const accounts = [
-  { id: 'sales-dual', label: '业务', roles: ['sales', 'sales-lead'], companyId: 'quanzhou', home: 'pages/business/index' },
-  { id: 'engineering-dual', label: '工程', roles: ['engineer', 'project-manager'], companyId: 'quanzhou', home: 'pages/build/home/index' },
-  { id: 'finance-dual', label: '财务', roles: ['finance', 'finance-lead'], companyId: 'quanzhou', home: 'pages/management/index' },
-  { id: 'boss', label: '老板', roles: ['boss', 'owner'], companyId: 'quanzhou', home: 'pages/admin/home/index' },
-  { id: 'hq-design-admin', label: '总部设计', roles: ['hq-design-admin'], companyId: 'headquarters', home: 'pages/workflow/commission/index', view: 'admin' },
-  { id: 'hq-finance-dual', label: '总部财务', roles: ['finance', 'finance-lead'], companyId: 'headquarters', home: 'pages/management/index' }
+  { id: 'sales-dual', label: '李业务', name: '李业务', greeting: '.sales-greeting', roles: ['sales', 'sales-lead'], companyId: 'quanzhou', home: 'pages/business/index' },
+  { id: 'engineering-dual', label: '张工程', name: '张工程', greeting: '.eng-hello', roles: ['engineer', 'project-manager'], companyId: 'quanzhou', home: 'pages/build/home/index' },
+  { id: 'finance-dual', label: '王财务', name: '王财务', greeting: '.fin-home .fin-heading .fin-title', roles: ['finance', 'finance-lead'], companyId: 'quanzhou', home: 'pages/management/index' },
+  { id: 'boss', label: '张老板', name: '张老板', greeting: '.owner-hello', roles: ['boss', 'owner'], companyId: 'quanzhou', home: 'pages/admin/home/index' },
+  { id: 'hq-design-admin', label: '林设计（总部设计）', name: '林设计', greeting: '.admin-greeting', roles: ['hq-design-admin'], companyId: 'headquarters', home: 'pages/workflow/commission/index', view: 'admin' },
+  { id: 'hq-finance-dual', label: '罗财务（总部财务）', name: '罗财务', greeting: '.fin-home .fin-heading .fin-title', roles: ['finance', 'finance-lead'], companyId: 'headquarters', home: 'pages/management/index' }
 ];
 
 process.env.FRANCHISE_WS = process.env.FRANCHISE_WS || 'ws://127.0.0.1:9890';
@@ -80,6 +80,13 @@ process.env.FRANCHISE_NATIVE_OUT = process.env.FRANCHISE_NATIVE_OUT || path.reso
     }, 'settled home ' + account.id, 12000);
     await r.sleep(500);
   };
+  const checkHomeName = async account => {
+    r.mp.pageMap?.clear();
+    const page = await r.mp.currentPage();
+    const greeting = await page.$(account.greeting);
+    assert(greeting, account.label + '首页问候元素存在');
+    assert((await greeting.text()).includes('你好，' + account.name), account.label + '首页显示本人姓名');
+  };
   const restore = async () => {
     const navigationErrors = [];
     try {
@@ -109,9 +116,9 @@ process.env.FRANCHISE_NATIVE_OUT = process.env.FRANCHISE_NATIVE_OUT || path.reso
     const loginData = await r.data();
     assert.deepEqual(loginData.demoUsers, accounts.map(({ id, label }) => ({ id, label })));
     assert.equal(loginData.selectedDemoUser, 'sales-dual');
-    assert.equal(loginData.demoUserLabel, '业务');
+    assert.equal(loginData.demoUserLabel, '李业务');
     await shot('01-login-default-business');
-    pass('登录列表按序仅显示业务、工程、财务、老板、总部设计、总部财务，默认业务');
+    pass('登录列表按序仅显示六个人名，总部岗位附备注，默认李业务');
 
     for (const account of accounts) {
       await login(account);
@@ -120,16 +127,11 @@ process.env.FRANCHISE_NATIVE_OUT = process.env.FRANCHISE_NATIVE_OUT || path.reso
       assert.equal(active.companyId, account.companyId);
       assert.equal(await route(), account.home);
 
+      await checkHomeName(account);
       await openAccount('identity');
       let identity = await r.data();
       assert.deepEqual(identity.roleOptions.map(option => option.id), account.roles);
-      assert.equal(identity.profile.name, account.id === 'boss' ? '赵老板' : {
-        'sales-dual': '业务兼岗人员',
-        'engineering-dual': '工程兼岗人员',
-        'finance-dual': '门店财务兼岗人员',
-        'hq-design-admin': '总部设计行政',
-        'hq-finance-dual': '总部财务兼岗人员'
-      }[account.id]);
+      assert.equal(identity.profile.name, account.name);
 
       for (const role of account.roles) {
         await r.event({ selector: '.identity-option', dataset: { role } }, 'selectRole');
@@ -151,9 +153,11 @@ process.env.FRANCHISE_NATIVE_OUT = process.env.FRANCHISE_NATIVE_OUT || path.reso
         assert.equal(active.companyId, account.companyId);
         assert.equal(active.role, role);
         assert.equal(await route(), account.home);
+        await checkHomeName(account);
         if (role !== account.roles.at(-1)) await openAccount('identity');
       }
-      pass(account.label + '通过真实原生控件登录，并逐一切换所有授权岗位');
+      await shot('home-' + account.id);
+      pass(account.label + '通过真实原生控件登录并切换所有授权岗位，首页显示本人姓名');
     }
 
     assert.equal(r.errors.length, 0, JSON.stringify(r.errors));

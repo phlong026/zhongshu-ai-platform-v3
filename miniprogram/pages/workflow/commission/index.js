@@ -6,11 +6,11 @@ Page({
  onShow(){this.refresh(false);},
  refresh(reset=false){
   try{
-   const a=X.context();X.assert(a.active,'请先登录有效岗位');
+   const a=X.context(require('../../../utils/account').load());X.assert(a.active,'请先登录有效岗位');
    if(['admin','projects'].includes(this.view)){
     X.assert(a.role==='hq-design-admin','当前岗位无设计行政权限');
     const desk=Admin.load(a),keyword=this.data.keyword||'',projectFilter=this.data.projectFilter||'全部';this.adminDesk=desk;this.projectLimit=20;
-    this.setData({title:this.view==='projects'?'项目':'首页',view:this.view,tasks:desk.todos,taskCount:desk.taskCount,metrics:desk.metrics,recent:desk.recent,projectFilters:desk.filters,projectCounts:desk.counts,adminName:require('../../../utils/organization').roles[a.role],adminDate:desk.date,keyword,projectFilter,error:'',primary:''});
+    this.setData({title:this.view==='projects'?'项目':'首页',view:this.view,tasks:desk.todos,taskCount:desk.taskCount,metrics:desk.metrics,recent:desk.recent,projectFilters:desk.filters,projectCounts:desk.counts,adminName:a.name,adminDate:desk.date,keyword,projectFilter,error:'',primary:''});
     return this.renderAdminProjects(true);
    }
    if(this.view==='policy'){

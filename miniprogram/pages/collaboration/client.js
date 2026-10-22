@@ -54,7 +54,7 @@ function createClient(options = {}) {
     stop();
     const version = generation;
     const session = await request(baseUrl, '', '/sessions', 'POST', { inviteCode: inviteCode.trim() });
-    if (!session.accessToken || session.mode !== 'simulated-cross-device' || !session.actor) throw Error('当前服务不支持模拟跨端联调');
+    if (!session.accessToken || session.mode !== 'simulated-cross-device' || !session.actor) throw Error('当前服务不支持跨端联调');
     const value = await request(baseUrl, session.accessToken, '/snapshot');
     if (version !== generation) throw Error('接入已取消');
     state = { baseUrl, token: session.accessToken, expiresAt: session.expiresAt, actor: session.actor };

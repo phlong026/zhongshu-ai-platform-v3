@@ -70,7 +70,7 @@ Page({
       tasks: tasks.map(row => ({ ...row, amountText: finance ? money(row.amount || 0) : '', actionLabel: row.kind === 'receipt' ? '确认到账' : row.action === 'complete' ? '设计完成' : '登记下发' })),
       projects, projectRows: this.filter(projects), messages, unread: messages.filter(row => !row.read).length,
       deliveries: (snapshot.wechat?.deliveries || []).map(row => ({ ...row, sentAtText: dateTime(row.sentAt) })),
-      jobs: (snapshot.wechat?.jobs || []).map(row => ({ ...row, statusText: ({ 'waiting-consent': '等待授权', pending: '等待发送', sending: '正在发送', delivered: '模拟已送达', failed: '发送失败', cancelled: '已取消', 'recipient-unavailable': '接收人暂不可用' })[row.status] || '等待更新' })),
+      jobs: (snapshot.wechat?.jobs || []).map(row => ({ ...row, statusText: ({ 'waiting-consent': '等待授权', pending: '等待发送', sending: '正在发送', delivered: '测试网关已送达', failed: '发送失败', cancelled: '已取消', 'recipient-unavailable': '接收人暂不可用' })[row.status] || '等待更新' })),
       consent: snapshot.wechat?.consent || 'none', recent: (snapshot.recent || []).map(row => ({ ...row, atText: dateTime(row.at) })),
       synchronizedAt: new Date().toLocaleTimeString('zh-CN', { hour12: false }), pending: this.client.pending?.() || false
     };
