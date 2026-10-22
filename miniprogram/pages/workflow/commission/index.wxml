@@ -1,6 +1,6 @@
 <wxs src="../../../utils/tone.wxs" module="st"/>
 <view class="commission-page {{view==='admin'?'commission-admin':''}}">
- <brand-header wx:if="{{view==='admin'}}" divider="{{true}}" title="首页"/>
+ <brand-header wx:if="{{view==='admin'}}" branded divider="{{true}}" title="首页"/>
  <business-header wx:else title="{{title}}"/>
  <view class="commission-body">
   <view wx:if="{{error && !(primary||canDraft||canReturn)}}" class="commission-error" role="alert">{{error}}</view>
