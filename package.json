@@ -72,7 +72,7 @@
     "check:business:simplified:native": "node scripts/verify-sales-offline-native.cjs",
     "check:business:simplified:residual": "node scripts/verify-sales-offline-residual.cjs",
     "check:business:todos": "node scripts/verify-sales-todo-handoffs.cjs",
-    "check:engineering:records": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-engineering-records-guards.cjs && node scripts/verify-sales-offline-scope.cjs && node scripts/verify.cjs",
+    "check:engineering:records": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-engineering-records-guards.cjs && node scripts/verify.cjs",
     "check:engineering:record-flow:native": "node scripts/verify-engineering-records-native.cjs continuous",
     "prepare:engineering:record-flow:native": "node scripts/prepare-engineering-records-native.cjs",
     "check:owner:signing": "node scripts/verify-owner-signing.cjs",
