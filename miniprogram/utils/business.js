@@ -46,6 +46,15 @@ const SF=require('./sales-flow');if(SF.is(c))return c.businessFlow?.completed&&c
 if(c.request||c.contract)return 3;if((c.plans||[]).length||(c.facades||[]).length||(c.budgets||[]).length||c.salesIntent?.ready)return 2;
 return (c.follows||[]).some(f=>!String(f.note||'').startsWith('登记客资'))?1:0;
 }
+// Plain-language summary for the project-progress tab: what is happening now, who owns it, and the latest record.
+function progressSummary(c){
+const p=((wx.getStorageSync('zhongshu-engineering-v1')||{}).projects||[]).find(p=>p.sourceCustomerId===c.id),index=stageIndex(c);
+const follow=(c.follows||[]).filter(f=>!String(f.note||'').startsWith('登记客资')).at(-1),followLatest=follow?{date:follow.date,by:follow.method?follow.method+'沟通':'',text:follow.content||follow.note||'已记录跟进'}:null;
+if(p&&p.actualStart){const node=(p.plan?.nodes||[]).find(n=>n.status!=='已完成'),r=(p.siteRecords||[]).at(-1),f=r?.file||{},src=f.path||f.url||f.fileID||'',delivered=index>=STAGES.length;
+return {title:delivered?'工程已交付':node?node.name+'施工中':'主体施工已完成',owner:p.assignedEngineerName||p.manager||'',next:delivered?'':node?node.name+'验收':'工程交付',latest:r?{date:r.date,by:r.by||'',text:r.note,image:/\.(jpe?g|png|webp)$/i.test(src)||f.fileID?src:''}:followLatest};}
+if(index>=3){const n=require('./design-coordination').next(c);return {title:n.state,owner:n.owner,next:'',latest:followLatest};}
+return {title:['待首次沟通','需求沟通中','方案预算已出'][index],owner:c.owner||'',next:index<2?'出方案与预算':'发起设计委托',latest:followLatest};
+}
 function stage(c) {
 if(require('./sales-flow').is(c))return require('./sales-flow').next(c).state;
 const engineering=engineeringStatus(c);
@@ -65,4 +74,4 @@ if(view==='facade-result'&&!facade)return block('尚未选用并保存立面方�
 if(view==='budget-result'&&!c.budgets.length)return block('尚未完成参考预算测算。','budget');
 return null;
 }
-module.exports={ KEY,Access,draftKey,scope,clone,sample,initial,load,persist,customer,reassign,write,add,authorize,fromLead,latest,referenceUsed,validDate,positive,dimension,money,date,stage,STAGES,stageIndex,engineeringStatus,blockingStep };
+module.exports={ KEY,Access,draftKey,scope,clone,sample,initial,load,persist,customer,reassign,write,add,authorize,fromLead,latest,referenceUsed,validDate,positive,dimension,money,date,stage,STAGES,stageIndex,progressSummary,engineeringStatus,blockingStep };
