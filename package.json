@@ -26,6 +26,8 @@
     "check:management-profile:simulator": "node scripts/verify-management-profile-simulator.cjs",
     "capture:management-profile": "node scripts/capture-management-profile.cjs final",
     "check:demo-data": "node scripts/verify-demo-consistency.cjs",
+    "check:demo-login": "node scripts/verify-demo-login-picker.cjs",
+    "check:demo-login:native": "node scripts/verify-demo-login-picker-native.cjs",
     "check:logic:simulator": "node scripts/verify-full-logic-simulator.cjs",
     "check:native:all": "node scripts/audit-native-all.cjs",
     "capture:typography": "node scripts/capture-management-profile.cjs typography-final",
