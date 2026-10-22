@@ -60,6 +60,27 @@ async function main() {
   assert.equal(report.profit.available, true);
   assert.equal(report.profit.profitCents, 100000);
   assert.equal(report.paidComposition.rows.find(row => row.key === '推广获客').amountCents, 10000);
+
+  const originalBusiness = wx.getStorageSync('zhongshu-business-v3');
+  const atOnlyCustomer = { ...customer, follows: [{ id:'follow-at-only', at:'2026-10-03T09:00:00.000Z', note:'仅记录时间戳的真实跟进' }] };
+  const atOnlyIssues = [];
+  wx.setStorageSync('zhongshu-business-v3', { version:1, customers:[atOnlyCustomer] });
+  const atOnlyReport = Report.analytics(state, '2026-10', '2026-10-23');
+  if (atOnlyReport.acquisition.effectiveCustomers !== 1) atOnlyIssues.push('本月 at-only 真实跟进未计入有效客户');
+  if (atOnlyReport.acquisition.costCents !== 30000) atOnlyIssues.push('本月 at-only 真实跟进未参与推广获客成本');
+
+  const currentAtSignature = Report.sourceSignature(state, '2026-10');
+  wx.setStorageSync('zhongshu-business-v3', { version:1, customers:[{ ...atOnlyCustomer, follows:[{ ...atOnlyCustomer.follows[0], at:'2026-10-04T09:00:00.000Z' }] }] });
+  if (Report.sourceSignature(state, '2026-10') === currentAtSignature) atOnlyIssues.push('本月 at-only 跟进时间变化未改变来源签名');
+
+  const septemberAtCustomer = { ...customer, follows:[{ id:'follow-september-at', at:'2026-09-18T09:00:00.000Z', note:'九月真实跟进' }] };
+  wx.setStorageSync('zhongshu-business-v3', { version:1, customers:[septemberAtCustomer] });
+  const septemberAtSignature = Report.sourceSignature(state, '2026-09');
+  wx.setStorageSync('zhongshu-business-v3', { version:1, customers:[{ ...septemberAtCustomer, follows:septemberAtCustomer.follows.concat({ id:'follow-future-at', at:'2026-10-05T09:00:00.000Z', note:'未来月份真实跟进' }) }] });
+  if (Report.sourceSignature(state, '2026-09') !== septemberAtSignature) atOnlyIssues.push('未来月份 at-only 跟进错误改写过去月来源签名');
+  wx.setStorageSync('zhongshu-business-v3', originalBusiness);
+  assert.deepEqual(atOnlyIssues, [], 'at-only 跟进必须与 date 跟进口径一致并按月份隔离');
+
   const crossMonth = clone(state);
   crossMonth.receipts.push({ id: 'receipt-september-project', projectId, customer: customer.name, amount: 10000, status: '已核算', bankDate: '2026-09-25', receiptStage: 'start', source: { module: 'engineering', id: engineering.id, kind: 'receipt' }, revisions: [] });
   crossMonth.refunds.push({ id: 'refund-cross-month', receiptId: 'receipt-september-project', projectId, amount: 2000, status: '已核实', date: '2026-10-12' });

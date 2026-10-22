@@ -29,7 +29,7 @@ async function start(options = {}) {
   };
   const server = await createSimulationServer({
     dataFile,
-    invites: { finance: 'hq-finance', finance2: 'hq-finance-2', admin: 'hq-design-admin', sales: 'sales-dual' },
+    invites: { finance: 'hq-finance', finance2: 'hq-finance-2', admin: 'hq-design-admin', sales: 'sales-dual', visibleFinance: 'hq-finance-dual' },
     gateway,
     persist: options.persist
   });
@@ -79,9 +79,23 @@ async function confirmAll(env, token, prefix) {
 (async () => {
   const env = await start();
   try {
+    const initial = JSON.parse(fs.readFileSync(env.dataFile, 'utf8'));
+    const mainCustomer = initial.storage['zhongshu-business-v3'].customers.find(row => row.id === initial.fixtureCustomerId);
+    const budget = mainCustomer.budgets.at(-1);
+    assert.equal(budget.area, Number(budget.parameters.width) * Number(budget.parameters.depth) * Number(budget.parameters.floors), '跨会话案例面积与尺寸层数一致');
+    assert.equal(String(mainCustomer.width), String(budget.parameters.width));
+    assert.equal(String(mainCustomer.depth), String(budget.parameters.depth));
+    assert.equal(budget.bodyRows.reduce((sum,row)=>sum+row.value,0), budget.main);
+    assert.equal(budget.exteriorRows.reduce((sum,row)=>sum+row.value,0), budget.exterior);
+    assert.equal(mainCustomer.designPayments.length,2);
+    assert(mainCustomer.designPayments.every(row => row.registrarId === 'finance-dual'), '跨会话案例门店付款仍由同一王财务登记');
     const finance = await session(env, 'finance');
     const finance2 = await session(env, 'finance2');
     const admin = await session(env, 'admin');
+    const visibleFinance = await session(env, 'visibleFinance');
+    assert.equal(visibleFinance.actor.staffId, 'hq-finance-dual');
+    assert.equal(visibleFinance.actor.name, '罗财务');
+    assert.equal(visibleFinance.actor.role, 'finance');
     assert.equal(finance.mode, 'simulated-cross-device');
     assert.equal(finance.actor.role, 'finance');
     assert.equal(admin.actor.role, 'hq-design-admin');

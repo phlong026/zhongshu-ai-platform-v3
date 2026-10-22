@@ -47,8 +47,8 @@ const snapshot = {
 };
 
 const home = Home.home(snapshot);
-assert.deepEqual(home.six.map(row => row.key), ['metric:sales', 'metric:income', 'metric:commissions', 'metric:new-customers', 'metric:effective', 'metric:visits']);
-assert(home.six.every(row => row.url.startsWith('/pages/admin/detail/index?view=metric&metric=')));
+assert.deepEqual(home.six.map(row => row.key), ['stat:commission-amount', 'stat:income', 'stat:commission-count', 'stat:new-leads', 'stat:effective-customers', 'stat:visited-customers']);
+assert(home.six.every(row => row.url.startsWith('/pages/admin/detail/index?view=stat&id=')));
 
 const metrics = Object.fromEntries(['sales', 'income', 'commissions', 'new-customers', 'effective', 'visits'].map(metric => [metric, Home.rows('metric', snapshot, { metric })]));
 assert.equal(metrics.sales.reduce((sum, row) => sum + row.amount, 0), 2000000, '设计委托明细金额使用整数分');

@@ -18,19 +18,42 @@ async function connect(label,options={}){const directory=path.resolve(options.di
   await until(async()=>{const state=await mp.evaluate(()=>{const p=getCurrentPages().at(-1);return {route:p?.route,view:p?.data?.view,id:p?.id,navigation:getApp().globalData.__qaNavigation};});if(state.navigation?.token===token&&state.navigation.error)throw Error(state.navigation.error);return state.navigation?.token===token&&state.navigation.done&&state.route===route&&(!view||state.view===view)&&(!id||state.id===id);},route+(view?' '+view:''),12000);
   if(selector)await until(async()=>!!(await rects([selector]))[0],selector);await sleep(150);if(realEvents)mp.pageMap?.clear();navigations.push({url,method,callback:'success',elapsedMs:Date.now()-started});return current();
  }
- async function event(selector,method,detail={}){const spec=typeof selector==='string'?{selector}:selector;const rows=await mp.evaluate(selector=>new Promise(resolve=>{const timer=setTimeout(()=>resolve([]),2500);wx.createSelectorQuery().selectAll(selector).boundingClientRect().exec(result=>{clearTimeout(timer);resolve(result[0]||[]);});}),spec.selector);const rectIndex=rows.findIndex(r=>!spec.dataset||Object.entries(spec.dataset).every(([k,v])=>String(r.dataset[k])===String(v))),rect=rows[rectIndex];assert(rect&&rect.width>0&&rect.height>0,'Rendered native control '+spec.selector);
+ async function event(selector,method,detail={}){
+  const spec=typeof selector==='string'?{selector}:selector;let page,element,rect;
   if(realEvents){
-   mp.pageMap?.clear();const page=await mp.currentPage(),elements=await page.$$(spec.selector);let element;
-   for(const candidate of elements){let matches=true;for(const [key,value]of Object.entries(spec.dataset||{})){const attribute='data-'+key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase()),actual=await candidate.attribute(attribute);if(String(actual??'')!==String(value??'')){matches=false;break;}}if(matches){element=candidate;break;}}
-   assert(element,'SDK rendered control with matching dataset '+spec.selector+' '+JSON.stringify(spec.dataset||{}));
+   mp.pageMap?.clear();page=await mp.currentPage();let elements;
+   try{elements=await page.$$(spec.selector);}catch(error){if(!/timeout waiting for automator response/.test(error.message))throw error;await sleep(350);mp.pageMap?.clear();page=await mp.currentPage();elements=await page.$$(spec.selector);}
+   for(const candidate of elements){
+    let matches=true;
+    for(const[key,value]of Object.entries(spec.dataset||{})){
+     const attribute='data-'+key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase());
+     if(String(await candidate.attribute(attribute)??'')!==String(value??'')){matches=false;break;}
+    }
+    if(matches){element=candidate;break;}
+   }
+   assert(element,'SDK rendered control '+spec.selector+' '+JSON.stringify(spec.dataset||{}));
+   const offset=await element.offset();
+   await mp.evaluate(top=>wx.pageScrollTo({scrollTop:Math.max(0,top-150),duration:0}),offset.top);await sleep(150);
+   const size=await element.size();assert(size.width>0&&size.height>0,'Rendered SDK control '+spec.selector);
+   rect={dataset:spec.dataset||{}};
+  }else{
+  const rows=await mp.evaluate(selector=>new Promise(resolve=>{const timer=setTimeout(()=>resolve([]),2500);wx.createSelectorQuery().selectAll(selector).boundingClientRect().exec(result=>{clearTimeout(timer);resolve(result[0]||[]);});}),spec.selector);
+  rect=rows.find(r=>!spec.dataset||Object.entries(spec.dataset).every(([k,v])=>String(r.dataset[k])===String(v)));
+  assert(rect&&rect.width>0&&rect.height>0,'Rendered native control '+spec.selector);
+  }
+  if(realEvents){
    const action=['input','search','goalFieldInput','companyInput','commissionInput'].includes(method)?'input':['pick','date','pickDate','change','selectDemoUser'].includes(method)?'change':'tap';
    if(action==='input')await element.input(String(detail.value??''));else if(action==='change')await element.trigger('change',detail);else await element.tap();
-   interactions.push({route:page.path,selector:spec.selector,dataset:rect.dataset||{},expectedHandler:method,via:action==='tap'?'Element.tap':action==='input'?'Element.input':'Element.trigger(change)'});fs.writeFileSync(path.join(directory,label+'-interactions.json'),JSON.stringify(interactions,null,2));
-  }else await mp.evaluate(({method,detail,dataset})=>{const p=getCurrentPages().at(-1);if(typeof p[method]!=='function')throw Error('Native Page handler not found: '+method);setTimeout(()=>p[method]({currentTarget:{dataset},target:{dataset},detail}),120);return true;},{method,detail,dataset:rect.dataset||{}});await sleep(350);}
- async function login(id,role){await open('/pages/account/index?view=login','.account',{relaunch:true});const state=await data(),index=state.demoUsers.findIndex(p=>p.id===id);assert(index>=0,'Unknown current demo login '+id);await event('.demo-user-picker','selectDemoUser',{value:index});await event('.agreement-row .check-row','toggle');await event('.page-actions .solid','login');await until(async()=>!!(await rects(['.sheet .solid']))[0],'login dialog');await event('.sheet .solid','confirmModal');await until(async()=>!(await current()).route.startsWith('pages/account/'),'login '+id);if(role&&await mp.evaluate(()=>wx.getStorageSync('zhongshu-account-v1').session.role)!==role){await open('/pages/account/index?view=identity','.account');await event({selector:'.identity-option',dataset:{role}},'selectRole');await event('.page-actions .solid','switchRole');await until(async()=>!(await current()).route.startsWith('pages/account/'),'switch '+role);}return current();}
+   interactions.push({route:page.path,selector:spec.selector,dataset:rect.dataset||{},expectedHandler:method,via:action==='tap'?'Element.tap':action==='input'?'Element.input':'Element.trigger(change)'});
+   fs.writeFileSync(path.join(directory,label+'-interactions.json'),JSON.stringify(interactions,null,2));
+  }else await mp.evaluate(({method,detail,dataset})=>{const p=getCurrentPages().at(-1);if(typeof p[method]!=='function')throw Error('Native Page handler not found: '+method);setTimeout(()=>p[method]({currentTarget:{dataset},target:{dataset},detail}),120);return true;},{method,detail,dataset:rect.dataset||{}});
+  await sleep(350);
+ }
+ async function login(id,role){await open('/pages/account/index?view=login','.account',{relaunch:true});const state=await data(),index=state.demoUsers.findIndex(p=>p.id===id);assert(index>=0,'Unknown current demo login '+id);await event('.demo-user-picker','selectDemoUser',{value:index});await event('.agreement-row .check-row','toggle');await event('.page-actions .solid','login');await until(async()=>!!(await rects(['.sheet .solid']))[0],'login dialog');await event('.sheet .solid','confirmModal');await until(async()=>!(await current()).route.startsWith('pages/account/'),'login '+id);await homeReady(await mp.evaluate(()=>wx.getStorageSync('zhongshu-account-v1').session.role));if(role&&await mp.evaluate(()=>wx.getStorageSync('zhongshu-account-v1').session.role)!==role){await open('/pages/account/index?view=identity','.account');await event({selector:'.identity-option',dataset:{role}},'selectRole');await event('.page-actions .solid','switchRole');await until(async()=>!(await current()).route.startsWith('pages/account/'),'switch '+role);}await homeReady(await mp.evaluate(()=>wx.getStorageSync('zhongshu-account-v1').session.role));return current();}
+ async function homeReady(role){const route=['boss','owner'].includes(role)?'pages/admin/home/index':['engineer','project-manager'].includes(role)?'pages/build/home/index':role==='hq-design-admin'?'pages/workflow/commission/index':['finance','finance-lead'].includes(role)?'pages/management/index':'pages/business/index';await until(async()=>(await current()).route===route,'final login destination '+route,12000);}
  async function data(){return (await current()).data;}
  async function capture(name){const file=name+'.png';await mp.screenshot({path:path.join(directory,file)});return file;}
  async function rects(selectors){return mp.evaluate(selectors=>new Promise(resolve=>{const timer=setTimeout(()=>resolve(selectors.map(()=>null)),2500),q=wx.createSelectorQuery();selectors.forEach(s=>q.select(s).boundingClientRect());q.exec(rows=>{clearTimeout(timer);resolve(rows);});}),selectors);}
- return {get mp(){return mp;},errors,navigations,interactions,snapshot,replace,before,restore,until,open,login,event,current,data,capture,rects,sleep,directory};
+ return {get mp(){return mp;},errors,navigations,interactions,snapshot,replace,before,restore,until,open,login,homeReady,event,current,data,capture,rects,sleep,directory};
 }
 module.exports={connect,directory,sleep};

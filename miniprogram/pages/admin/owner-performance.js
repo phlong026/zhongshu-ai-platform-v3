@@ -89,7 +89,7 @@ function facts(snapshot) {
     add(owners.get(receipt.projectId), 'business', 'collectionsAmount', Number(receiptAmount(receipt) || 0) / 100);
   }
   for (const customer of snapshot.customers || []) {
-    if (realFollows(customer).some(follow => inMonth(follow.date, period))) add(C.owner(customer), 'business', 'effectiveCustomers');
+    if (realFollows(customer).some(follow => inMonth(follow.date || follow.at, period))) add(C.owner(customer), 'business', 'effectiveCustomers');
   }
   for (const fund of snapshot.state.operations?.funds || []) if (inMonth(fund.date || fund.at, period)) add(fund.actorId, 'finance', 'fundChecks');
   return result;
@@ -177,7 +177,7 @@ function build(snapshot, selectedDepartment = 'all', expandedPerson = '') {
   const engineering = snapshot.metrics?.[2] || { value: '0', target: '', percent: null, width: 0 };
   const collections = Number(F.summary(snapshot.state).income || 0) / 1000000;
   const collectionsTarget = snapshot.goals.collections ? snapshot.goals.collections / 10000 : null;
-  const effective = (snapshot.customers || []).filter(customer => realFollows(customer).some(follow => inMonth(follow.date, snapshot.period))).length;
+  const effective = (snapshot.customers || []).filter(customer => realFollows(customer).some(follow => inMonth(follow.date || follow.at, snapshot.period))).length;
   const companyTargets = [
     { ...sales, label: '设计委托金额', unit: '万' },
     { label: '回款金额', value: String(collections), target: collectionsTarget ? String(collectionsTarget) : '', unit: '万', percent: ratio(collections, collectionsTarget), width: Math.min(100, ratio(collections, collectionsTarget) || 0) },

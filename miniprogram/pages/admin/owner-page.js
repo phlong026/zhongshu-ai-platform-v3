@@ -7,7 +7,7 @@ const A = require('../../utils/account');
 const M = require('./model');
 const routeValue = value => { try { return decodeURIComponent(value || ''); } catch (_) { return String(value || ''); } };
 require('../../utils/load-local-fonts')(require('./font-sources'), 'admin');
-const titles = { home:'首页', finance:'经营', performance:'绩效', profile:'我的', metric:'经营指标明细', appointments:'预约到店', acquisition:'内容获客', todos:'全部待办', approvals:'待我审批', 'finance-progress':'财务办理进度', receivables:'应收账款', payables:'应付账款', receivable:'应收原单', payable:'应付原单', business:'业务概览', engineering:'工程概览', targets:'月度目标设置', team:'团队绩效', reviews:'结果复核', activity:'操作记录', settings:'审批与分工', company:'门店资料', handover:'项目经理交接' };
+const titles = { home:'首页', finance:'经营', performance:'绩效', profile:'我的', stat:'经营原单明细', metric:'经营指标明细', appointments:'预约到店', acquisition:'内容获客', todos:'全部待办', approvals:'待我审批', 'finance-progress':'财务办理进度', receivables:'应收账款', payables:'应付账款', receivable:'应收原单', payable:'应付原单', business:'业务概览', engineering:'工程概览', targets:'月度目标设置', team:'团队绩效', reviews:'结果复核', activity:'操作记录', settings:'审批与分工', company:'门店资料', handover:'项目经理交接' };
 
 module.exports = function(kind) {
   return {
@@ -33,8 +33,8 @@ module.exports = function(kind) {
         if (view === 'performance') desk.performance = P.build(desk, this.data.selectedDepartment, this.data.expandedPerson);
         const keyword = this.data.keyword.trim();
         const homeRows = H.rows(view, desk, this.options);
-        let rows = homeRows !== null ? homeRows : ['receivables','payables'].includes(view) ? B.rows(view, desk) : W.rowsFor(view, desk, this.options.person, this.options.department, this.options.tab || 'all');
-        if (keyword) rows = rows.filter(row => [row.name,row.status,row.meta,row.key].filter(Boolean).join(' ').includes(keyword));
+        let rows = homeRows !== null ? homeRows : view === 'todos' ? H.todoRows(desk, this.options.tab || 'all') : ['receivables','payables','stat'].includes(view) ? B.rows(view, desk, this.options.id) : W.rowsFor(view, desk, this.options.person, this.options.department, this.options.tab || 'all');
+        if (keyword) rows = rows.filter(row => [row.name,row.status,row.detail,row.meta,row.tag,row.key].filter(Boolean).join(' ').includes(keyword));
         const total = rows.length;
         rows = rows.slice(0, this.data.pageLimit);
         const form = view === 'targets' ? this.dirty ? this.data.form : P.formFor(desk) : this.data.form;
@@ -83,8 +83,8 @@ module.exports = function(kind) {
         goals:W.detail('targets'),team:W.detail('team'),reviews:W.detail('reviews'),activity:W.detail('activity'),receipts:W.admin('finance')+'&tab='+encodeURIComponent('收款'),payments:W.detail('payables'),financeProgress:W.detail('finance-progress'),staff:W.admin('staff'),settings:W.detail('settings'),handover:W.detail('handover'),company:W.detail('company'),
         profile:'/pages/account/index?view=profile',messages:'/pages/account/index?view=messages',learning:'/pages/account/index?view=learning',services:'/pages/account/index?view=services',selection:'/pages/account/index?view=selection',help:'/pages/account/index?view=help',privacy:'/pages/account/index?view=privacy',rules:W.admin('rules'),engineeringTeam:W.admin('engineering-team'),businessTeam:W.admin('business-team'),designTeam:W.admin('design-team'),financeTeam:W.admin('finance-team')
       };
-      let url=actions[d.action];
-      if(d.key) url=[...this.data.rows,...s.approvals,...s.queue,...s.focus,...s.projectRows,...s.team,...s.events,...H.todoRows(s),...home.six,home.business.appointments,home.business.acquisition,...home.engineering.sites,...B.rows(this.kind,s)].find(row=>row?.key===d.key)?.url;
+      let url=d.url || actions[d.action];
+      if(d.key) url=[...this.data.rows,...s.approvals,...s.queue,...s.focus,...s.projectRows,...s.team,...s.events,...H.todoRows(s),...home.six,...home.business.notes,home.business.appointments,home.business.acquisition,...home.engineering.sites,...B.rows(this.kind,s,this.options.id)].find(row=>row?.key===d.key)?.url;
       if(url) require('../../utils/page-navigation').open(url);
     },
     input(e) {

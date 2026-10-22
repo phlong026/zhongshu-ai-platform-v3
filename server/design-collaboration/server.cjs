@@ -219,7 +219,7 @@ function domainError(error) {
 async function createSimulationServer({ dataFile, invites, gateway, now = () => new Date(), persist } = {}) {
   if (!dataFile || !path.isAbsolute(dataFile)) throw Error('dataFile必须是绝对路径');
   if (!invites || !Object.keys(invites).length) throw Error('请配置测试邀请码');
-  const allowedUsers = new Set(['hq-finance', 'hq-finance-2', 'hq-design-admin', 'sales-dual']);
+  const allowedUsers = new Set(['hq-finance-dual', 'hq-finance', 'hq-finance-2', 'hq-design-admin', 'sales-dual']);
   for (const userId of Object.values(invites)) if (!allowedUsers.has(userId)) throw Error(`不支持的模拟身份：${userId}`);
   const fixture = bootstrapStorage();
   const dataLock = await acquireDataLock(dataFile);

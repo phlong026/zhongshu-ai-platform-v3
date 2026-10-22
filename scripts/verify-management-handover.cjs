@@ -83,6 +83,19 @@ login('boss-1','boss');
 Handover.apply(state,'handover-mark',projectWork.id,{ checked:true, reason:'新委托工程责任需转给另一名在岗工程人员' });
 assert.equal(Handover.pending(state, state.work[1]), true, '工程项目责任与客户责任使用同一标记闭环');
 
+const legacyWork = { id:'legacy-content', customer:'秋季建房口播', name:'内容任务', owner:'sales-1', author:'sales-1' };
+state.work.push(legacyWork);
+Handover.apply(state,'handover-mark',legacyWork.id,{ checked:true, reason:'离岗前需转交已登记的内部内容任务' });
+assert.equal(Handover.pending(state, legacyWork), true, '原有无 kind 内部任务仍可沿原记录标记交接');
+const legacyFlag = Handover.load(state, legacyWork.id);
+const legacyTransfer = { id:'legacy-transfer', workId:legacyWork.id, from:'sales-1', to:'sales-2', effectiveAt:new Date(Date.parse(legacyFlag.markedAt) + 1).toISOString() };
+state.transfers.push(legacyTransfer);
+legacyWork.owner = 'sales-2';
+assert.equal(Handover.closeTransferred(state,legacyTransfer),true);
+assert.equal(Handover.pending(state,legacyWork),false);
+state.work.push({ id:'engineering-handover', kind:'engineering-handover', name:'内容任务', owner:'sales-1' });
+assert.throws(() => Handover.apply(state,'handover-mark','engineering-handover',form), /仅能标记/);
+
 const otherState = { ...clone(state), companyId:'other-company' };
 login('boss-1','boss');
 assert.throws(() => Handover.apply(otherState,'handover-mark',work.id,form), /组织|公司/);

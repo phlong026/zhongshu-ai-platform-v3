@@ -143,7 +143,7 @@ function person(snapshot, staff, role, department, collectionsByOwner) {
 }
 
 function performance(snapshot) {
-  const effective = snapshot.customers.filter(customer => realFollows(customer).some(follow => inMonth(follow.date, snapshot.period))).length;
+  const effective = snapshot.customers.filter(customer => realFollows(customer).some(follow => inMonth(follow.date || follow.at, snapshot.period))).length;
   const targets = [
     { ...snapshot.metrics[0], label: '设计委托金额' },
     moneyTarget('回款金额', F.summary(snapshot.state).income, snapshot.goals.collections),
@@ -176,7 +176,8 @@ function forView(view, snapshot) {
   return {};
 }
 
-function rows(view, snapshot) {
+function rows(view, snapshot, metric) {
+  if (view === 'stat') return require('./owner-home').statRows(snapshot, metric);
   if (view === 'receivables' || view === 'payables') {
     const historical = snapshot.period !== snapshot.today.slice(0, 7);
     const archived = historical && R.currentSnapshot(snapshot.state, snapshot.period);

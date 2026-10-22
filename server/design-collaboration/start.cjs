@@ -12,7 +12,7 @@ const invite = label => `${label}-${crypto.randomBytes(8).toString('hex')}`;
 (async () => {
   fs.mkdirSync(privateRoot, { recursive: true, mode: 0o700 });
   const invites = {
-    [invite('finance')]: 'hq-finance',
+    [invite('finance')]: 'hq-finance-dual',
     [invite('finance2')]: 'hq-finance-2',
     [invite('admin')]: 'hq-design-admin',
     [invite('sales')]: 'sales-dual'

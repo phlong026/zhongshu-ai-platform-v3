@@ -76,10 +76,15 @@ function bootstrapStorage() {
     name: '跨端联调客户', phone: '13900007666', source: '模拟联调', city: '武汉市',
     summary: '模拟两层住宅设计委托，不连接真实收付款或微信服务。'
   });
-  B.write(customer.id, row => row.budgets.push({
-    version: 1, area: 280, total: 320000,
-    parameters: { width: 12, depth: 14, floors: 2, area: 280 }, date: A.localDate()
-  }), '保存模拟参考预算', 'budget');
+  const parameters = {
+    ...runtime.requireMini('pages/workflow/views.js').defaults,
+    width: '12', depth: '14', floors: '2', footprint: '168', area: '336', roofArea: '184.8'
+  };
+  const cost = runtime.requireMini('pages/workflow/design-adapter.js').budget(parameters);
+  B.write(customer.id, row => {
+    Object.assign(row, { width:parameters.width, depth:parameters.depth, floors:parameters.floors });
+    row.budgets.push({ version:1, ...cost, area:Number(parameters.area), parameters, date:A.localDate() });
+  }, '保存模拟参考预算', 'budget');
   SF.run(customer.id, 'commission-submit', {
     text: '两层住宅设计联调', scope: '全案设计', total: '100', first: '40',
     recipient: '众墅之家总部', checked: true
@@ -89,7 +94,7 @@ function bootstrapStorage() {
 
   const file = { name: '模拟门店付款凭据.pdf', sample: true };
   for (const [stage, amount, transaction] of [['first', '40', 'MOCK-STORE-FIRST'], ['tail', '60', 'MOCK-STORE-TAIL']]) {
-    runtime.login('finance-wang', 'finance');
+    runtime.login('finance-dual', 'finance');
     const payable = M.load().payables.find(row => row.source?.id === customer.id && row.source.stage === stage);
     M.mutate(state => M.apply(state, 'pay', payable.id, {
       amount, date: A.localDate(), transaction, file, checked: true

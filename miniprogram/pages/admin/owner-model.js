@@ -81,7 +81,7 @@ function saveGoals(period, form) {
   wx.setStorageSync(KEY, store);
 }
 function rowsFor(view, s, person, department, todoTab = 'all') {
-  if (view === 'handover') return (s.state.work || []).filter(w => ['project-responsibility','customer-responsibility'].includes(w.kind)).map(w => ({ workId:w.id, marked:require('../../utils/management-handover').pending(s.state,w), key:'handover:' + w.id, name:w.customer + ' · ' + w.name, status:(s.staff.find(p => p.id === w.owner)?.name || w.owner || '待配置负责人') + ' · ' + w.stage, url:admin('transfer',w.id) }));
+  if (view === 'handover') return (s.state.work || []).filter(w => require('../../utils/management-handover').transferable(w)).map(w => ({ workId:w.id, marked:require('../../utils/management-handover').pending(s.state,w), key:'handover:' + w.id, name:w.customer + ' · ' + w.name, status:(s.staff.find(p => p.id === w.owner)?.name || w.owner || '待配置负责人') + ' · ' + w.stage, url:admin('transfer',w.id) }));
   if (view === 'approvals') return s.approvals;
   if (view === 'todos') return require('./owner-home').todoRows(s, todoTab).map(row => ({ ...row, status:row.status || row.detail }));
   if (view === 'finance-progress') return s.queue;

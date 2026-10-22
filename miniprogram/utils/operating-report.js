@@ -5,6 +5,10 @@ const F = require('./finance-source');
 const clone = value => JSON.parse(JSON.stringify(value));
 const value = row => row.revisions?.length ? row.revisions.at(-1).amount : row.amount;
 const cashDate = row => F.cashDate(row);
+const followDate = follow => {
+  const date = follow.date || follow.at || '';
+  return String(date).includes('T') ? A.localDate(date) : String(date);
+};
 const validReceipt = (row, end) => ['已核算', '已备案'].includes(row.status) && cashDate(row) <= end;
 const validPayment = (row, end) => row.status === '已核实' && row.date <= end;
 const endOfMonth = period => new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).toISOString().slice(0, 10);
@@ -165,7 +169,7 @@ function profit(state, ids, asOf) {
 }
 
 function effectiveCustomers(state, period) {
-  return raw(state.companyId).customers.filter(customer => (customer.follows || []).some(follow => String(follow.date || '').slice(0, 7) === period && !String(follow.note || follow.content || '').startsWith('登记客资'))).length;
+  return raw(state.companyId).customers.filter(customer => (customer.follows || []).some(follow => followDate(follow).slice(0, 7) === period && !String(follow.note || follow.content || '').startsWith('登记客资'))).length;
 }
 
 function flowFor(state, period) {
@@ -232,7 +236,7 @@ function sourceSignature(state, period) {
     funds: (state.operations?.funds || []).filter(row => within(row.date)).map(row => [row.id, row.date, row.amount]),
     expenses: (state.operations?.expenses || []).filter(row => within(row.date)).map(row => [row.id, row.amount, row.category, row.purpose || '', row.name || '', row.status]),
     payroll: (state.operations?.payrollSettlements || []).filter(row => row.period <= period).map(row => [row.id, row.period, row.amount, row.status]),
-    customers: sources.customers.map(row => [row.id, row.projectId || '', (row.follows || []).filter(follow => within(follow.date)).map(follow => [follow.id || '', follow.date || '', follow.note || follow.content || '']).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))]),
+    customers: sources.customers.map(row => [row.id, row.projectId || '', (row.follows || []).filter(follow => within(followDate(follow))).map(follow => [follow.id || '', followDate(follow), follow.note || follow.content || '']).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))]),
     projects
   };
   for (const rows of Object.values(facts)) rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));

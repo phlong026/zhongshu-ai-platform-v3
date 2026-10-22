@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path'),assert=require('assert/strict');
 (async()=>{
- await require('./role-page-runtime.cjs').connect();
+ const runtime=await require('./role-page-runtime.cjs').connect();
  const scenes=JSON.parse(fs.readFileSync('qa/engineering-records-20261021/page-scenes.json','utf8')),final=JSON.parse(fs.readFileSync('qa/engineering-records-20261021/continuous-final-state.json','utf8'));
  const R=require('../miniprogram/utils/engineering-records'),A=require('../miniprogram/utils/account'),E=require('../miniprogram/pages/build/model');
  const checks=[],file={name:'记录校验凭据.pdf',sample:true},date=A.localDate();
@@ -19,5 +19,11 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict');
  install(submit.after);p=raw();assert.throws(()=>E.apply(p.id,'complete-node',{}, {nodeId:plan.nodeId}),/项目记录页/);pass('新记录项目的旧操作入口统一转接，不允许绕过新记录逻辑');
  install(final);login('manager-li','engineer');p=raw();plan=R.plans(p)[0];const line=plan.lines[0];assert.throws(()=>R.run(p.id,'material-terms',{planId:plan.id,file,lines:[{id:line.id,supplier:line.supplier,unitPrice:String(line.unitPrice+1),freight:'0'}]}),/已有实际付款/);pass('已付材料保留原金额和凭据，原项目补充不覆盖资金事实');
  install(submit.before);p=raw();const snapshot=JSON.stringify(wx.getStorageSync(E.KEY)),save=wx.setStorageSync;let fail=true;wx.setStorageSync=(key,value)=>{if(key===E.KEY&&fail){fail=false;throw Error('模拟存储失败');}return save(key,value);};try{assert.throws(()=>R.run(p.id,'material-plan',{nodeId:p.plan.nodes[0].id,due:date,lines:[{name:'材料',quantity:'1',unit:'批'}]},p.revision),/存储失败/);assert.equal(JSON.stringify(wx.getStorageSync(E.KEY)),snapshot);}finally{wx.setStorageSync=save;}pass('保存失败整体回滚，原材料和原项目可继续办理');
+ install(scenes.find(s=>s.action==='collect').before);login('finance-dual','finance');p=raw();
+ await runtime.callWxMethod('reLaunch',{url:R.link(p,'collection',{stage:'start'})});
+ assert.equal(getCurrentPages().at(-1).data.own,false,'财务不是项目工程经办人');
+ for(const selector of ['input[data-key="amount"]','picker[data-key="date"]','input[data-key="receiver"]','input[data-key="transaction"]','button[data-key="file"]','button[data-action="collect"]'])assert(await(await runtime.currentPage()).$(selector),'财务工程收款须渲染原生输入控件 '+selector);
+ for(const [person,role]of [['engineering-dual','engineer'],['boss','boss']]){login(person,role);await runtime.callWxMethod('reLaunch',{url:R.link(p,'collection',{stage:'start'})});assert.equal(await(await runtime.currentPage()).$('input[data-key="amount"]'),null,'非财务不显示收款输入');assert.equal(await(await runtime.currentPage()).$('button[data-action="collect"]'),null);}
+ pass('财务工程收款同时显示金额日期流水和凭据，非财务仍只读');
  fs.writeFileSync(path.resolve('qa/engineering-records-20261021/guards.json'),JSON.stringify({result:'passed',checks,evidence:'Isolated model consistency checks, no external operations'},null,2));
 })().catch(e=>{console.error(e.stack);process.exitCode=1;});

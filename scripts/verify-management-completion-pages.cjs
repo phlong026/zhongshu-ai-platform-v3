@@ -14,10 +14,21 @@ const fs = require('node:fs');
   const control = async selector => { const result = await (await runtime.currentPage()).$(selector); assert(result, selector); return result; };
   open('/pages/admin/home/index');
   await (await control('.home-six-item')).tap();
-  assert.equal(page().data.view, 'metric');
+  assert.equal(page().data.view, 'stat');
   assert(page().data.rows.length);
   assert(page().data.rows.every(row => row.url));
   pass('首页统计实际点击进入精确指标原单列表');
+
+  const originalBook = wx.getStorageSync('zhongshu-management-v1');
+  const zeroBook = JSON.parse(JSON.stringify(originalBook));
+  zeroBook.receipts.push({ id:'merge-zero-receipt', customer:'零金额修订验证', name:'原收款更正', amount:120000, revisions:[{amount:0}], status:'已核算', date:W.snapshot().today });
+  wx.setStorageSync('zhongshu-management-v1', zeroBook);
+  open('/pages/admin/detail/index?view=metric&metric=income');
+  page().search({detail:{value:'零金额修订验证'}});
+  assert.equal(page().data.rows.length,1);
+  assert.equal(await (await control('.owner-amount')).text(),'0元', '旧入口也必须显示已修订为零的原单金额');
+  wx.setStorageSync('zhongshu-management-v1', originalBook);
+  pass('保留旧经营入口且零金额修订在页面真实可见');
 
   open('/pages/admin/performance/index');
   await (await control('[data-department="finance"][bindtap="departmentFilter"]')).tap();

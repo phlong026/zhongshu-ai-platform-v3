@@ -24,7 +24,7 @@ function fixture() {
   management.receipts = (management.receipts || []).filter(row => row.id !== 'qa-management-income');
   management.receipts.push({
     id:'qa-management-income', companyId:'quanzhou', projectId:'qa-management-project', customer:'QA验收客户', name:'QA验收工程到账',
-    amount:880000, status:'已核算', date:period + '-15', bankDate:period + '-15', registrarId:'wang-finance', version:1, revisions:[]
+    amount:880000, status:'已核算', date:period + '-15', bankDate:'', registrarId:'wang-finance', version:1, revisions:[]
   });
 
   business.customers = (business.customers || []).filter(row => row.id !== 'qa-management-customer');
@@ -45,6 +45,10 @@ function fixture() {
   const ownerGoals = byKey.get('zhongshu-owner-goals-v1') || { version:1, companies:{} };
   ownerGoals.companies = ownerGoals.companies || {};
   byKey.set('zhongshu-owner-goals-v1', ownerGoals);
+  const growth = byKey.get('zhongshu-growth-v1') || {version:1,contents:[],leads:[],events:[]};
+  growth.leads = (growth.leads || []).filter(row => row.id !== 'qa-management-lead');
+  growth.leads.push({id:'qa-management-lead',companyId:'quanzhou',ownerId:'zhang',name:'QA验收线索',status:'跟进中',source:'到店咨询',at:period + '-03T08:00:00.000Z'});
+  byKey.set('zhongshu-growth-v1',growth);
   return [...byKey.entries()];
 }
 
@@ -113,10 +117,14 @@ function fixture() {
       await runner.event({ selector:'.home-six-item', dataset:{ key:metric.key } }, 'go');
       await runner.until(async () => {
         const current = await runner.current();
-        return current.route === 'pages/admin/detail/index' && current.data.view === 'metric' && current.data.rows.length > 0;
+        return current.route === 'pages/admin/detail/index' && current.data.view === 'stat' && current.data.rows.length > 0;
       }, '指标原列表 ' + metric.metric, 16000);
       const detail = await runner.data();
       assert(detail.rows.every(row => row.key && row.name && row.status && row.url), metric.metric + ' 明细必须指向原记录');
+      if(metric.metric==='income') {
+        const historicalDate=detail.rows.find(row=>row.key==='income:qa-management-income');
+        assert(historicalDate&&historicalDate.status.includes(period+'-15')&&historicalDate.amount==='¥ 8,800','银行日期为空的实际收款仍按原收款日期展示金额和原单');
+      }
       await capture('metric-' + metric.metric);
       await open('/pages/admin/home/index', '.home-six');
     }

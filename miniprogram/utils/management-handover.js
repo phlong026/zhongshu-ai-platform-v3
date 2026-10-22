@@ -20,10 +20,15 @@ function sourceFor(work) {
   return (wx.getStorageSync('zhongshu-engineering-v1')?.projects || []).find(row => row.id === work.engineeringId && (row.projectId || row.id) === work.projectId);
 }
 
+function transferable(work) {
+  return !!work && (kinds.includes(work.kind) || !work.kind && (['内容任务','方案沟通'].includes(work.name) || String(work.name || '').includes('跟进')));
+}
+
 function validWork(s, work) {
-  if (!work || !kinds.includes(work.kind)) return false;
+  if (!transferable(work) || !(s.staff || []).some(person => person.id === work.owner)) return false;
+  if (!work.kind) return true;
   const source = sourceFor(work);
-  return !!source && (source.companyId || 'quanzhou') === s.companyId && (s.staff || []).some(person => person.id === work.owner);
+  return !!source && (source.companyId || 'quanzhou') === s.companyId;
 }
 
 function latestTransfer(s, work) {
@@ -85,7 +90,7 @@ function apply(s, action, workId, form = {}) {
   X.assert(actor.active && actor.companyId === s.companyId, '当前人员或组织未授权');
   X.assert(X.isBoss(actor), '仅本组织老板或门店负责人可以明确标记需交接责任');
   const work = workFor(s, workId);
-  X.assert(validWork(s, work), '仅能标记本组织有效客户或工程责任事项');
+  X.assert(validWork(s, work), '仅能标记本组织有效内部责任事项');
   const reason = String(form.reason || form.note || '').trim();
   X.assert(form.checked && reason, '请填写交接原因并完成核对');
 
@@ -106,4 +111,4 @@ function apply(s, action, workId, form = {}) {
   return { id:workId };
 }
 
-module.exports = { apply, load, overlay, pending, closeTransferred };
+module.exports = { apply, load, overlay, pending, closeTransferred, transferable };
