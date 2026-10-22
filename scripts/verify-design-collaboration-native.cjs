@@ -91,7 +91,7 @@ async function main() {
   fs.mkdirSync(out, { recursive: true });
   fs.mkdirSync(privateRoot, { recursive: true });
   const dataFile = path.join(privateRoot, 'state-' + Date.now() + '.json');
-  const server = await createSimulationServer({ dataFile, invites: { 'native-finance-test': 'hq-finance', 'native-admin-test': 'hq-design-admin' } });
+  const server = await createSimulationServer({ dataFile, invites: { 'native-finance-test': 'hq-finance-dual', 'native-admin-test': 'hq-design-admin' } });
   await server.listen();
   const address = server.address(), base = 'http://127.0.0.1:' + address.port;
   const phones = [], checks = [], pass = name => { checks.push(name); console.log('PASS ' + name); };
@@ -106,6 +106,10 @@ async function main() {
     const financialToken = await finance.call('fingerprint');
     const administrativeToken = await admin.mp.evaluate(key => wx.getStorageSync(key).token, KEY);
     assert.notEqual(financialToken, crypto.createHash('sha256').update(administrativeToken).digest('hex'));
+    const financeIdentity = (await finance.call('snapshot')).actor;
+    assert.equal(financeIdentity.staffId, 'hq-finance-dual');
+    assert.equal(financeIdentity.name, '罗财务');
+    assert.equal((await admin.data()).actor.staffId, 'hq-design-admin');
     assert.equal((await finance.call('snapshot')).tasks.length, 2);
     assert.equal((await admin.data()).tasks.length, 0);
     const [banner] = await admin.rects(['.simulation-note']);
@@ -139,7 +143,7 @@ async function main() {
     const openedCustomer = await admin.mp.evaluate(() => getCurrentPages().at(-1).options.customerId);
     assert.equal(openedCustomer, (await admin.data()).activeProject.id, '使用网关实际深链打开授权项目');
     await admin.sleep(1200);
-    await input(admin, 'input[data-key="recipient"]', '模拟经办业务', data => data.form.recipient === '模拟经办业务');
+    await input(admin, 'input[data-key="recipient"]', '李业务', data => data.form.recipient === '李业务');
     await input(admin, 'textarea[data-key="note"]', '示例正式施工图及交付清单已通过模拟渠道下发', data => data.form.note.includes('示例正式施工图'));
     await checked(admin);
     await admin.mp.pageScrollTo(10000);
@@ -158,7 +162,7 @@ async function main() {
     assert.deepEqual(await unchanged(admin), beforeAdmin, '行政端未修改原本地业务账簿');
     assert.equal(admin.errors.length, 0, JSON.stringify(admin.errors));
     pass('原本地数据保持不变，行政缓存不含财务敏感信息，原生无异常');
-    fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ result: 'passed', checks, sessionsIndependent: true, localDomainStorageUnchanged: true, exceptions: [], scope: 'One isolated native administrative simulator plus one separate finance client process using real HTTP and a mock WeChat gateway; no actual handset or WeChat delivery' }, null, 2));
+    fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ result: 'passed', checks, actors:{finance:'hq-finance-dual',designAdmin:'hq-design-admin',recipient:'sales-dual'}, sessionsIndependent: true, localDomainStorageUnchanged: true, exceptions: [], scope: 'One isolated native administrative simulator plus one separate finance client process using real HTTP and a mock WeChat gateway; no actual handset or WeChat delivery' }, null, 2));
   } catch (error) {
     for (const [index, r] of phones.entries()) {
       try { await capture(r, 'failure'); const data = await r.data(); fs.writeFileSync(path.join(out, 'failure-' + index + '.json'), JSON.stringify({ screen: data.screen, error: data.error, connected: data.connected, role: data.actor?.role, tasks: data.tasks?.length }, null, 2)); } catch (_) {}

@@ -29,7 +29,7 @@ async function start(options = {}) {
   };
   const server = await createSimulationServer({
     dataFile,
-    invites: { finance: 'hq-finance', finance2: 'hq-finance-2', admin: 'hq-design-admin', sales: 'sales-dual' },
+    invites: { finance: 'hq-finance', finance2: 'hq-finance-2', admin: 'hq-design-admin', sales: 'sales-dual', visibleFinance: 'hq-finance-dual' },
     gateway,
     persist: options.persist
   });
@@ -82,6 +82,10 @@ async function confirmAll(env, token, prefix) {
     const finance = await session(env, 'finance');
     const finance2 = await session(env, 'finance2');
     const admin = await session(env, 'admin');
+    const visibleFinance = await session(env, 'visibleFinance');
+    assert.equal(visibleFinance.actor.staffId, 'hq-finance-dual');
+    assert.equal(visibleFinance.actor.name, '罗财务');
+    assert.equal(visibleFinance.actor.role, 'finance');
     assert.equal(finance.mode, 'simulated-cross-device');
     assert.equal(finance.actor.role, 'finance');
     assert.equal(admin.actor.role, 'hq-design-admin');
