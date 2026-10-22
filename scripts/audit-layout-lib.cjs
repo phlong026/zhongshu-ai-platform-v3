@@ -29,9 +29,9 @@ function analyse(m) {
   const actionData = d => d && Object.keys(d).some(k => /^(view|url|id|role|action|index|key|tab|record|step|type|name|route)$/i.test(k));
   const tappable = vis.filter(e => actionData(e.dataset));
   const low = tappable.filter(e => e.height < 40);
-  if (low.length) issues.push({ rule: 'tap-target', severity: 'P0', detail: low.length + ' 个可点元素高度低于 40px（建议 ≥44px），最小 ' + Math.round(Math.min(...low.map(e => e.height))) + 'px，示例 ' + JSON.stringify(low[0].dataset).slice(0, 60) });
+  if (low.length) issues.push({ rule: 'tap-target', severity: 'P0', detail: low.length + ' 个可点元素高度低于 40px（建议 ≥44px），最小 ' + Math.round(Math.min(...low.map(e => e.height))) + 'px，示例 ' + JSON.stringify(low[0].dataset).slice(0, 60), classes: [...new Set(low.map(e => String(e.cls).trim().split(/\s+/)[0]).filter(Boolean))].slice(0, 8) });
   const mid = tappable.filter(e => e.height >= 40 && e.height < 44);
-  if (mid.length) issues.push({ rule: 'tap-target', severity: 'P1', detail: mid.length + ' 个可点元素高度 40~44px' });
+  if (mid.length) issues.push({ rule: 'tap-target', severity: 'P1', detail: mid.length + ' 个可点元素高度 40~44px', classes: [...new Set(mid.map(e => String(e.cls).trim().split(/\s+/)[0]).filter(Boolean))].slice(0, 8) });
   const narrow = tappable.filter(e => e.width < 44 && e.height >= 40);
   if (narrow.length) issues.push({ rule: 'tap-target-width', severity: 'P1', detail: narrow.length + ' 个可点元素宽度不足 44px' });
   if (!vis.length) issues.push({ rule: 'empty-page', severity: 'P0', detail: '页面没有可测量的元素（可能由组件渲染，需看截图）' });

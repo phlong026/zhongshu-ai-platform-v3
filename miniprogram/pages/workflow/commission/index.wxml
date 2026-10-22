@@ -8,8 +8,8 @@
    <view wx:if="{{!tasks.length}}" class="commission-card commission-muted">当前没有待办理的委托。首款足额确认后，设计任务会在这里出现。</view>
   </block>
   <block wx:else>
-   <view wx:if="{{customer}}" class="commission-card"><text class="commission-heading">{{customer.name}}</text><text class="commission-muted">{{customer.city}} · {{isComplete?'业务移交完成':'按当前事项继续办理'}}</text></view>
-   <view wx:if="{{rows.length}}" class="commission-card"><view wx:for="{{rows}}" wx:key="index" class="commission-row"><text class="commission-muted">{{item.label}}</text><button wx:if="{{item.file}}" class="commission-file" data-index="{{index}}" bindtap="preview">{{item.value}}</button><text wx:else class="commission-value">{{item.value}}</text></view></view>
+   <view wx:if="{{customer}}" class="commission-card commission-summary"><view class="commission-summary-top"><text class="commission-heading">{{customer.name}}</text><text class="commission-chip {{isComplete?'done':''}}">{{rows[0].value||(isComplete?'业务移交完成':'办理中')}}</text></view><text class="commission-muted">{{customer.city}}<text wx:if="{{rows[1].value}}"> · 当前办理：{{rows[1].value}}</text></text></view>
+   <view wx:if="{{rows.length}}" class="commission-card"><view wx:for="{{rows}}" wx:key="index" wx:if="{{index>1}}" class="commission-row"><text class="commission-muted commission-key">{{item.label}}</text><button wx:if="{{item.file}}" class="commission-file" data-index="{{index}}" bindtap="preview">{{item.value}}</button><text wx:else class="commission-value">{{item.value}}</text></view></view>
    <view wx:if="{{fields.length}}" class="commission-card">
     <view wx:for="{{fields}}" wx:key="key" class="commission-field">
      <text wx:if="{{item.kind!=='check'}}" class="commission-label">{{item.label}}</text>

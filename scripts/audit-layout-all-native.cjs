@@ -1,61 +1,53 @@
-// Full-coverage layout audit: every route and every view in the route matrix.
-// For each target it tries roles in priority order until the page renders (not access / missing),
-// measures class-based geometry, scrolls to the bottom, and takes a screenshot. Read-only; the
-// shared runtime restores the original simulator storage.
+// Full-coverage layout audit on the commission protocol: every route, every view.
+// For each target it tries identities in priority order until the page renders (not access /
+// missing), measures class-based geometry, scrolls to the bottom and takes a screenshot.
+// Read-only: the shared runtime restores the original simulator storage.
+//   LAYOUT_AUDIT_MATCH=regex   only targets whose label matches
+//   LAYOUT_AUDIT_RESUME=1      keep rendered / permanently denied targets from results.json
+//   LAYOUT_AUDIT_LIMIT=n       process at most n targets per run (use with a driver that restarts the IDE)
 const fs = require('fs'), path = require('path');
 process.env.FRANCHISE_WS = process.env.FRANCHISE_WS || 'ws://127.0.0.1:9450';
-const out = path.resolve(process.env.LAYOUT_AUDIT_OUT || 'qa/layout-audit-all-20261021');
+const out = path.resolve(process.env.LAYOUT_AUDIT_OUT || 'qa/layout-audit-all');
 process.env.FRANCHISE_NATIVE_OUT = out;
 fs.mkdirSync(path.join(out, 'shots'), { recursive: true });
 const { classesOf, measure, analyse } = require('./audit-layout-lib.cjs');
-const trace = require('./business-flow-fixtures.cjs')(process.env.BUSINESS_FLOW_TRACE || 'qa/business-flow-priority-20261021/final-trace.json').steps;
 const matrix = require(path.resolve('qa/business-flow-priority-20261021/route-matrix.json')).groups;
 const app = require(path.resolve('miniprogram/app.json'));
-const copy = x => JSON.parse(JSON.stringify(x));
 const only = process.env.LAYOUT_AUDIT_MATCH ? new RegExp(process.env.LAYOUT_AUDIT_MATCH) : null;
-const ACCOUNT = 'zhongshu-account-v1';
-const roleOf = rows => rows.find(r => r[0] === ACCOUNT)?.[1]?.session?.role || 'guest';
 
-// Full data state: the end of the traced main chain, with the account swapped per role.
-const finalRows = copy(trace[trace.length - 1].after);
-const accountByRole = new Map();
-for (const s of trace) {
-  const a = s.before.find(r => r[0] === ACCOUNT), role = roleOf(s.before);
-  if (a && !accountByRole.has(role)) accountByRole.set(role, copy(a[1]));
-}
-const rowsFor = role => {
-  if (role === 'guest') return [];
-  const rows = copy(finalRows), i = rows.findIndex(r => r[0] === ACCOUNT);
-  if (i >= 0) rows[i][1] = copy(accountByRole.get(role)); else rows.push([ACCOUNT, copy(accountByRole.get(role))]);
-  return rows;
-};
-const wf = trace.find(s => s.area === 'workflow');
-const customerId = new URL(wf.url, 'http://local').searchParams.get('id');
-const ids = [customerId, 'biz-' + customerId, 'project-from-lead-' + customerId.split('lead-')[1], 'business-design:' + customerId + ':1:first'];
 const ROLES = {
-  workflow: ['sales-lead', 'boss', 'hq-design-lead', 'hq-designer', 'project-manager', 'finance-lead'],
+  workflow: ['sales-lead', 'boss', 'project-manager', 'hq-design-admin', 'finance-lead'],
+  commission: ['sales-lead', 'hq-design-admin', 'project-manager', 'boss', 'finance-lead'],
   build: ['project-manager', 'boss', 'sales-lead', 'finance-lead'],
-  admin: ['boss', 'finance-lead', 'sales-lead', 'hq-designer'],
-  account: ['sales-lead', 'boss', 'finance-lead', 'project-manager'],
+  admin: ['boss', 'finance-lead', 'sales-lead', 'hq-finance', 'hq-boss'],
+  account: ['sales-lead', 'boss', 'finance-lead', 'project-manager', 'hq-design-admin'],
   studio: ['sales-lead', 'boss'],
-  other: ['sales-lead', 'boss', 'finance-lead', 'project-manager', 'hq-designer']
+  other: ['sales-lead', 'boss', 'finance-lead', 'project-manager', 'hq-design-admin', 'hq-finance']
 };
-const guestAlso = new Set(['pages/home/index', 'pages/profile/index', 'pages/business/index', 'pages/engineering/index', 'pages/management/index', 'pages/customers/index', 'pages/account/index', 'pages/demo/index']);
-
-const targets = [];
-const addT = (route, view, area) => { if (!targets.some(t => t.route === route && t.view === view)) targets.push({ route, view, area, label: route + (view ? '?view=' + view : '') }); };
-const multi = { 'pages/workflow/index': 'workflow', 'pages/build/index': 'build', 'pages/admin/index': 'admin', 'pages/account/index': 'account', 'pages/studio/index': 'studio' };
-const standalone = [...app.pages, ...app.subPackages.flatMap(s => s.pages.map(p => s.root + '/' + p))];
-for (const route of standalone) {
-  if (multi[route]) for (const v of matrix[multi[route]]) addT(route, v, multi[route]);
-  else addT(route, null, 'other');
-}
-addT('pages/growth/index', 'capture', 'other');
-addT('pages/workflow/explore/index', 'budget', 'workflow');
-addT('pages/workflow/explore/index', 'budget-result', 'workflow');
-const urlFor = (t, id) => '/' + t.route + (t.view || id ? '?' + [t.view ? 'view=' + t.view : '', id ? 'id=' + encodeURIComponent(id) : ''].filter(Boolean).join('&') : '');
+const guestAlso = new Set(['pages/home/index', 'pages/profile/index', 'pages/business/index', 'pages/engineering/index', 'pages/management/index', 'pages/customers/index', 'pages/account/index']);
+// views of the multi-view pages that still exist after the legacy chain was removed
+const WORKFLOW_VIEWS = ['customers', 'customer', 'arrival', 'progress', 'inspiration', 'search', 'case', 'case-plan', 'ai-config', 'ai-results', 'result', 'budget', 'budget-result', 'history', 'preview', 'ai-facade', 'transfer', 'facade-config', 'facade-candidates', 'facade-result', 'money-review', 'task-access'];
+const COMMISSION_VIEWS = ['submit', 'progress', 'feedback', 'handover', 'receive', 'admin'];
 
 (async () => {
+  const fx = await require('./audit-fixtures.cjs')();
+  const targets = [];
+  const addT = (route, view, area) => { if (!targets.some(t => t.route === route && t.view === view)) targets.push({ route, view, area, label: route + (view ? '?view=' + view : '') }); };
+  const standalone = [...app.pages, ...app.subPackages.flatMap(s => s.pages.map(p => s.root + '/' + p))];
+  for (const route of standalone) {
+    if (route === 'pages/workflow/index') for (const v of WORKFLOW_VIEWS) addT(route, v, 'workflow');
+    else if (route === 'pages/workflow/commission/index') for (const v of COMMISSION_VIEWS) addT(route, v, 'commission');
+    else if (route === 'pages/build/index') for (const v of matrix.build) addT(route, v, 'build');
+    else if (route === 'pages/admin/index') for (const v of matrix.admin) addT(route, v, 'admin');
+    else if (route === 'pages/account/index') for (const v of matrix.account) addT(route, v, 'account');
+    else if (route === 'pages/studio/index') for (const v of matrix.studio) addT(route, v, 'studio');
+    else addT(route, null, 'other');
+  }
+  addT('pages/growth/index', 'capture', 'other');
+  addT('pages/workflow/explore/index', 'budget', 'workflow');
+  addT('pages/workflow/explore/index', 'budget-result', 'workflow');
+  const urlFor = (t, id) => '/' + t.route + (t.view || id ? '?' + [t.view ? 'view=' + t.view : '', id ? 'id=' + encodeURIComponent(id) : ''].filter(Boolean).join('&') : '');
+
   const r = await require('./franchise-native-runtime.cjs').connect('layout-audit-all', { directory: out });
   const prevFile = path.join(out, 'results.json');
   const resume = process.env.LAYOUT_AUDIT_RESUME === '1' && fs.existsSync(prevFile) ? JSON.parse(fs.readFileSync(prevFile, 'utf8')).results : [];
@@ -64,7 +56,7 @@ const urlFor = (t, id) => '/' + t.route + (t.view || id ? '?' + [t.view ? 'view=
   const results = [...kept.values()];
   const limit = Number(process.env.LAYOUT_AUDIT_LIMIT || 0);
   let processed = 0;
-  const save = result => fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ result, count: results.length, total: targets.length, results, exceptions: r.errors }, null, 2));
+  const save = result => fs.writeFileSync(prevFile, JSON.stringify({ result, count: results.length, total: targets.length, results, exceptions: r.errors }, null, 2));
   const acceptable = d => d && !d.missing && d.view !== 'access' && !d.error;
   try {
     let index = 0;
@@ -76,13 +68,13 @@ const urlFor = (t, id) => '/' + t.route + (t.view || id ? '?' + [t.view ? 'view=
       let accepted = null;
       const roles = [...(ROLES[t.area] || ROLES.other)];
       if (guestAlso.has(t.route)) roles.push('guest');
-      const idList = t.area !== 'other' && t.area !== 'studio' && t.view ? ids : [null, ...ids.slice(0, 2)];
+      const idList = ['workflow', 'commission', 'build', 'admin'].includes(t.area) && t.view ? fx.ids : [null, ...fx.ids.slice(0, 2)];
       try {
         outer: for (const role of roles) for (const id of idList) {
           const url = urlFor(t, id);
           try {
             await r.open('/pages/account/index?view=policy', '.account');
-            await r.replace(rowsFor(role));
+            await r.replace(fx.rowsByRole[role]);
             await r.open(url);
             await r.sleep(400);
             const d = await r.data();
@@ -91,8 +83,8 @@ const urlFor = (t, id) => '/' + t.route + (t.view || id ? '?' + [t.view ? 'view=
           } catch (e) { attempts.push({ role, id: id ? id.slice(0, 24) : null, ok: false, note: String(e.message || e).slice(0, 80) }); }
         }
         if (!accepted) {
-          results.push({ n: index, label: t.label, route: t.route, view: t.view, status: 'not-renderable', attempts: attempts.slice(0, 8), issues: [{ rule: 'not-renderable', severity: 'P1', detail: '所有岗位均无法渲染（无权限或记录缺失）' }], stats: {} });
-          console.log(name + ' ' + t.label + ' ✗ 所有岗位均无法渲染');
+          results.push({ n: index, label: t.label, route: t.route, view: t.view, status: 'not-renderable', attempts: attempts.slice(0, 8), issues: [{ rule: 'not-renderable', severity: 'P1', detail: '所有身份均无法渲染（无权限或记录缺失）' }], stats: {} });
+          console.log(name + ' ' + t.label + ' x not renderable');
           save('running');
           continue;
         }
@@ -115,14 +107,14 @@ const urlFor = (t, id) => '/' + t.route + (t.view || id ? '?' + [t.view ? 'view=
         const shot = 'shots/' + name + '.png';
         await r.mp.screenshot({ path: path.join(out, shot) });
         results.push({ n: index, label: t.label, route: t.route, view: t.view, role: accepted.role, url: accepted.url, shot, bottom, status: 'rendered', attempts: attempts.length, ...a });
-        console.log(name + ' ' + t.label + ' [' + accepted.role + '] → ' + a.issues.length + ' 项 ' + a.issues.map(i => i.severity + ':' + i.rule).join(' '));
+        console.log(name + ' ' + t.label + ' [' + accepted.role + '] -> ' + a.issues.length + ' ' + a.issues.map(i => i.severity + ':' + i.rule).join(' '));
       } catch (e) {
         results.push({ n: index, label: t.label, status: 'error', error: String(e.message || e).slice(0, 300), issues: [{ rule: 'open-failed', severity: 'P0', detail: String(e.message || e).slice(0, 200) }], stats: {} });
-        console.log(name + ' ' + t.label + ' ✗ ' + String(e.message || e).slice(0, 120));
+        console.log(name + ' ' + t.label + ' x ' + String(e.message || e).slice(0, 120));
       }
       save('running');
     }
-    const left = targets.filter(t => !kept.has(t.label) && !results.some(x => x.label === t.label && keep(x))).length;
+    const left = targets.filter(t => !results.some(x => x.label === t.label && keep(x))).length;
     console.log('REMAINING ' + left);
     save(left ? 'partial' : 'done');
   } finally {

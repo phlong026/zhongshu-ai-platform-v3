@@ -33,7 +33,7 @@ Page({
    if(this.view==='dispatch'&&can){add('recipient','实际成果接收人');add('note','实际交付清单、渠道及说明','textarea');add('checked','本次正式成果已经实际下发','check');}
    if(this.view==='handover'&&can){add('resultFile','正式设计成果','file');add('drawingFile','本版施工图','file');add('drawingVersion','本次施工图版本');add('reviewFile','对应版本的线下专业审核依据','file');add('confirmationFile','客户对本版成果的确认凭据','file');add('confirmationDate','客户确认日期','date');add('note','现场重点与电子交底','textarea');add('managerId','项目工程人员','manager');add('received','正式文件已收齐且可读取','check');add('confirmed','客户已确认本次采用的成果版本','check');}
    if(this.view==='receive'&&can){add('note','退回原因（退回时必填）','textarea');add('checked','本版图纸、客户确认、审核依据及交底已核对','check');}
-   const rows=[{label:'当前进度',value:n.state},{label:'当前办理',value:n.owner},{label:'委托编号',value:c.request?.commissionId||'提交后生成'},{label:'交付范围',value:c.request?.scope||'随委托确认'}];
+   const rows=[{label:'当前进度',value:n.state},{label:'当前办理',value:n.owner},{label:'交付范围',value:c.request?.scope||'随委托确认'}];
    if(c.request)rows.push({label:'设计需求',value:c.request.text});const order=c.serviceOrders?.at(-1);if(order){rows.push({label:'设计服务总额',value:'￥'+B.money(order.total)});for(const stage of ['first','tail']){const pay=require('../../../utils/intercompany').condition(c,stage);rows.push({label:stage==='first'?'首款':'尾款',value:'应付 ￥'+B.money(order[stage])+' · '+pay.text});}}
    if(c.businessFlow?.completed)rows.push({label:'设计完成',value:c.businessFlow.completed.date+' · '+c.businessFlow.completed.by});
    if(c.businessFlow?.dispatch)rows.push({label:'交付记录',value:c.businessFlow.dispatch.date+' · '+c.businessFlow.dispatch.note});
