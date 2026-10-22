@@ -20,7 +20,7 @@ module.exports = function(kind) {
         let rows = W.rowsFor(view, desk, this.options?.person || '');
         if (keyword) rows = rows.filter(r => (r.name + ' ' + r.status).includes(keyword));
         const projects = desk.projectRows.filter(p => !keyword || (p.name + ' ' + p.customer).includes(keyword));
-        const form = view === 'targets' ? this.dirty ? this.data.form : { sales:desk.goals.sales || '', customers:desk.goals.customers || '', nodes:desk.goals.nodes || '', staff:Object.fromEntries(desk.team.map(p => [p.id, desk.goals.staff?.[p.id] || ''])) } : this.data.form;
+        const form = view === 'targets' ? this.dirty ? this.data.form : { sales:desk.goals.sales || '', customers:desk.goals.customers || '', nodes:desk.goals.nodes || '', collections:desk.goals.collections || '', effective:desk.goals.effective || '', staff:Object.fromEntries(desk.team.map(p => [p.id, desk.goals.staff?.[p.id] || ''])) } : this.data.form;
         const money=n=>n===null?'待完善':'¥ '+require('./model').money(n);const operating=desk.operating;const operatingDisplay={receivable:money(operating.receivable),payable:money(operating.payable),overdue:money(operating.overdue),cash:money(operating.cash),profit:money(operating.profit),unplanned:operating.unplanned,incompleteCost:operating.incompleteCost,overhead:money(operating.overhead),payableDue:money(operating.payableDue),payableUndated:operating.payableUndated};const display = { ...desk, operating:operatingDisplay, goals:{sales:desk.goals.sales,customers:desk.goals.customers,nodes:desk.goals.nodes,staff:desk.goals.staff || {}} };
         for (const key of ['state','customers','contracts','newCustomers','projects','nodes','completed']) delete display[key];
         this.setData({ ready:true, desk:display, rows, projects, form, view, error:'' });
@@ -42,6 +42,7 @@ module.exports = function(kind) {
       const actions = {
         payroll:'/pages/admin/operations/index?view=payroll',receivables:'/pages/admin/operations/index?view=receivables',costs:'/pages/admin/operations/index?view=costs',funds:'/pages/admin/operations/index?view=funds',operating:'/pages/admin/operations/index',business:W.detail('business'), engineering:W.detail('engineering'), approvals:W.detail('approvals'), reports:W.admin('finance'),
         goals:W.detail('targets'), team:W.detail('team'), reviews:W.detail('reviews'), activity:W.detail('activity'),
+        identity:'/pages/account/index?view=identity', orders:'/pages/account/index?view=orders', procurement:'/pages/account/index?view=selection', course:'/pages/account/index?view=course',
         receipts:W.admin('finance') + '&tab=' + encodeURIComponent('收款'), payments:W.admin('finance') + '&tab=' + encodeURIComponent('付款'),
         financeProgress:W.detail('finance-progress'), staff:W.admin('staff'), settings:W.detail('settings'), handover:W.detail('handover'), company:W.detail('company'),
         profile:'/pages/account/index?view=profile', messages:'/pages/account/index?view=messages', learning:'/pages/account/index?view=learning', services:'/pages/account/index?view=services', help:'/pages/account/index?view=help', privacy:'/pages/account/index?view=privacy', rules:W.admin('rules'), engineeringTeam:W.admin('engineering-team'), businessTeam:W.admin('business-team'), financeTeam:W.admin('finance-team'), designTeam:W.admin('design-team')

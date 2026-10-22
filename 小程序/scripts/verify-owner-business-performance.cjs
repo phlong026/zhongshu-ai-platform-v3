@@ -1,4 +1,4 @@
-// 老板端经营页：金额、分组和入口都必须来自原记录，缺数据时写“待登记/待设置”。
+// 老板端经营页与绩效/我的页：金额、分组和入口都必须来自原记录，缺数据时写“待登记/待设置”。
 const assert=require('assert/strict'),{render}=require('./role-page-runtime.cjs');
 const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]),text=n=>(n.text||'')+(n.children||[]).map(text).join('');
 const pageText=p=>render(p.file,p.data).map(text).join('');
@@ -45,6 +45,42 @@ async function main(){
  p=open('/pages/admin/finance/index');b=p.data.desk.business;assert.equal(b.balance.value,'61.8');assert(b.balance.note.includes('王财务'));
  pass('财务登记期初余额后，账户余额按登记后的有效收付推算');
 
+ // 第三批：绩效页
+ p=open('/pages/admin/performance/index');let perf=p.data.desk.performance;assert(perf,'绩效页缺少绩效视图');
+ assert.deepEqual(perf.targets.map(x=>x.label),['签约金额','回款金额','有效客户','工程节点']);
+ assert.deepEqual([perf.targets[0].value,perf.targets[0].target,perf.targets[0].percent],['86','120',71.7]);
+ assert.equal(perf.targets[1].value,'28.6');assert.equal(perf.targets[1].percent,null);assert.equal(perf.targets[1].target,'');
+ t=pageText(p);assert(!t.includes('绩效金额结算与发放'));assert(t.includes('公司目标'));assert(t.includes('待设置'));
+ pass('公司目标四项，回款目标未设置时显示待设置，绩效页不再放结算');
+ const order=['运营','业务','设计','工程','财务'];assert(perf.groups.length);assert.deepEqual(perf.groups.map(g=>g.label),order.filter(x=>perf.groups.some(g=>g.label===x)));
+ const group=label=>perf.groups.find(g=>g.label===label),ids=label=>group(label).rows.map(r=>r.id);
+ assert(ids('业务').includes('zhang')&&ids('业务').includes('liu'));assert(ids('工程').includes('li'));assert(ids('财务').includes('wang-finance'));
+ const all=perf.groups.flatMap(g=>g.rows);assert(!all.some(r=>r.id==='chen-inactive'));assert(!all.some(r=>r.id===ctx.X.context().staffId));
+ const zhang=all.find(r=>r.id==='zhang');assert.equal(zhang.percent,83.3);assert.equal(zhang.initial,'张');assert(zhang.role);assert(zhang.result.includes('签约'));
+ assert(t.includes('张业务'));
+ pass('团队按运营、业务、设计、工程、财务分组，每人一行写核心结果和完成度');
+ p=tap(p,'张业务');assert.equal(p.route,'pages/admin/detail/index');assert.equal(p.data.view,'team');assert(p.data.rows.some(r=>r.name.includes('陈先生')));
+ p=open('/pages/admin/performance/index');p=tap(p,'去设置');assert.equal(p.route,'pages/admin/detail/index');assert.equal(p.data.view,'targets');
+ pass('点人进入原记录，去设置进入绩效设置');
+
+ // 回款与有效客户目标
+ const before=JSON.stringify(wx.getStorageSync(W.KEY));assert.throws(()=>W.saveGoals(month,{sales:'1200000',collections:'abc'}),/正数/);assert.equal(JSON.stringify(wx.getStorageSync(W.KEY)),before);
+ p=open('/pages/admin/detail/index?view=targets');assert('collections'in p.data.form);assert(pageText(p).includes('回款目标'));
+ p.input({currentTarget:{dataset:{field:'collections'}},detail:{value:'500000'}});p.input({currentTarget:{dataset:{field:'effective'}},detail:{value:'20'}});p.save();assert(!p.data.error,p.data.error);
+ const saved=wx.getStorageSync(W.KEY).companies[ctx.X.context().companyId].periods[month];assert.equal(saved.collections,500000);assert.equal(saved.effective,20);assert.equal(saved.sales,1200000);
+ p=open('/pages/admin/performance/index');perf=p.data.desk.performance;assert.deepEqual([perf.targets[1].target,perf.targets[1].percent],['50',57.2]);assert.equal(perf.targets[2].target,'20');
+ pass('回款目标与有效客户目标随月度目标保存并校验');
+ p=open('/pages/admin/detail/index?view=targets');assert(pageText(p).includes('绩效金额结算与发放'));p=tap(p,'绩效金额结算与发放');assert.equal(p.route,'pages/admin/operations/index');assert.equal(p.data.view||p.options?.view,'payroll');
+ pass('结算与发放保留在绩效设置中');
+
+ // 第三批：我的页
+ p=open('/pages/admin/profile/index');t=pageText(p);
+ const labels=['个人资料','消息','绩效设置','组织与工作身份','我的团队','门店管理','成员与权限','审批设置','项目经理交接','门店资料','学习培训','加盟商服务','展陈设计','众墅甄选','我的订单','帮助与反馈','账号与隐私','退出登录'];
+ let at=-1;for(const l of labels){const i=t.indexOf(l,at+1);assert(i>at,'我的页顺序不符：'+l);at=i;}assert(!t.includes('最近操作'));
+ pass('我的页沿用统一结构：个人卡、消息|绩效设置、身份与团队、门店管理、学习、加盟商服务、服务行、退出');
+ const routes=[['绩效设置','pages/admin/detail/index','targets'],['成员与权限','pages/admin/index','staff'],['审批设置','pages/admin/detail/index','settings'],['项目经理交接','pages/admin/detail/index','handover'],['门店资料','pages/admin/detail/index','company'],['我的团队','pages/admin/detail/index','team'],['组织与工作身份','pages/account/index','identity'],['我的订单','pages/account/index','orders'],['众墅甄选','pages/account/index','selection'],['全部课程','pages/account/index','learning']];
+ for(const [label,route,view] of routes){p=open('/pages/admin/profile/index');p=tap(p,label);assert.equal(p.route,route,label);assert.equal(p.data.view||p.options?.view,view,label);}
+ pass('我的页各入口进入对应原页面');
  console.log(JSON.stringify({result:'passed',checks:checks.length}));
 }
 main().catch(e=>{console.error(e.stack);process.exitCode=1;});
