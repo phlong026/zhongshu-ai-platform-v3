@@ -29,7 +29,10 @@ function company(s){return s.companies.find(c=>c.id===s.session.companyId)||null
 const roles=X.roles;
 function staffActive(s){return X.context(s).active;}
 function permitted(s,area){const c=X.context(s);return c.active&&(area!=='admin'||['owner','boss','sales-lead','project-manager','finance','finance-lead'].includes(c.role));}
-function scoped(s,items){if(!permitted(s,'account'))return [];return items.filter(x=>x.companyId===s.session.companyId&&x.userId===s.session.userId);}
+function storedScoped(s,items){if(!permitted(s,'account'))return [];return items.filter(x=>x.companyId===s.session.companyId&&x.userId===s.session.userId);}
+function scoped(s,items){const rows=storedScoped(s,items);if(items!==s.messages)return rows;const derived=require('./design-notifications').list(s);return [...new Map(rows.concat(derived).map(row=>[row.id,row])).values()];}
+function markMessageRead(s,id){const stored=storedScoped(s,s.messages).find(message=>message.id===id);if(stored){stored.read=true;return stored;}return require('./design-notifications').markRead(s,id);}
+function markAllMessagesRead(s){storedScoped(s,s.messages).forEach(message=>{message.read=true;});require('./design-notifications').markAllRead(s);}
 function provider(s,o){const a=X.context(s);return a.active&&false&&o.providerOrganizationId===a.companyId&&(o.providerAssignees||[]).includes(a.staffId);}
 function serviceDispatcher(s,o){const a=X.context(s);return a.active&&false&&o.providerOrganizationId===a.companyId&&a.managedTeamIds.includes(o.providerTeamId||'design');}
 function visibleOrders(s){if(!permitted(s,'account'))return [];return s.orders.filter(x=>provider(s,x)||serviceDispatcher(s,x)||x.companyId===s.session.companyId&&(x.userId===s.session.userId||['owner','boss'].includes(s.session.role)));}
@@ -62,4 +65,4 @@ o.events.push({text:{'demo-plan':'方案已提交','confirm-plan':'当前版本�
 }
 const services=[{id:'store',name:'店招形象设计',image:'/pages/account/assets/service-store.jpg',desc:'按需求报价'},{id:'showroom',name:'展厅空间设计',image:'/pages/account/assets/service-showroom.jpg',desc:'按需求报价'},{id:'brand',name:'品牌宣传册设计',image:'/pages/account/assets/service-brand.jpg',desc:'宣传册 · 名片 · 海报'},{id:'card',name:'名片设计',image:'/pages/account/assets/service-card.jpg',desc:'按需求报价'}];
 services.forEach(s=>{s.items=s.id==='store'?['店招视觉方案','尺寸与配色建议','定稿设计文件']:s.id==='showroom'?['展厅空间方案','布局与材料建议','定稿设计文件']:s.id==='brand'?['宣传册视觉方案','页数与版式建议','印刷设计文件']:['名片视觉方案','信息与版式核对','印刷设计文件'];s.photoLabel=s.id==='store'?'门头全景':s.id==='showroom'?'空间现场':'参考资料';});
-module.exports={courseChapters,demoUsers:Demo.people,demoLoginUsers:Demo.loginPeople,loginDemo,logout,provider,serviceDispatcher,visible,access:X,KEY,localDate,displayTime,displayOrder,clone,seed,load,save,mutate,company,roles,permitted,scoped,visibleOrders,order,draftKey,progress,chapters,courseImage,planImage,completeChapter,switchIdentity,submitRequest,transition,services};
+module.exports={courseChapters,demoUsers:Demo.people,demoLoginUsers:Demo.loginPeople,loginDemo,logout,provider,serviceDispatcher,visible,access:X,KEY,localDate,displayTime,displayOrder,clone,seed,load,save,mutate,company,roles,permitted,scoped,markMessageRead,markAllMessagesRead,visibleOrders,order,draftKey,progress,chapters,courseImage,planImage,completeChapter,switchIdentity,submitRequest,transition,services};

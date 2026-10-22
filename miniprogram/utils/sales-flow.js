@@ -62,6 +62,7 @@ function nextRecord(c){
  if(require('./commercial-approval').latest(c,'service')?.status==='returned')return r('委托费用待修改','经办业务','submit',true);
  if(!feeApproved(c))return r('费用待老板审批','加盟商老板','progress');
  if(!f.completed||f.feedbacks?.at(-1)?.status==='pending')return r(f.feedbacks?.at(-1)?.status==='pending'?'线下修改中':'线下设计中','设计行政','complete',true);
+ if(!f.dispatch&&!require('./design-receipts').release(c).ready)return r('待财务确认到账','总部收款财务','progress');
  if(!f.dispatch)return r('待正式成果下发','设计行政','dispatch',true);
  return r('待收图并移交','经办业务','handover',true);
 }
@@ -96,8 +97,9 @@ function transition(b,action,input,at=new Date().toISOString()){
   }
   if(action==='design-dispatch'){
    X.assert(flow.completed&&!flow.dispatch&&flow.feedbacks?.at(-1)?.status!=='pending','请先完成设计；已下发的记录不能重复登记');X.assert(feeApproved(b),'请等待设计费用授权');
+   const receipt=require('./design-receipts').release(b);X.assert(receipt.ready,'请等待总部财务确认本版首尾款足额到账');
    X.assert(String(f.recipient||'').trim()&&String(f.note||'').trim()&&f.checked,'请填写实际接收人、交付清单或渠道，并确认已经下发');
-   flow.dispatch={version:(flow.dispatchHistory?.length||0)+1,requestVersion:b.request.version,at,date:date(),recipient:f.recipient.trim(),note:f.note.trim(),actorId:a.staffId,personId:a.personId};
+   flow.dispatch={version:(flow.dispatchHistory?.length||0)+1,requestVersion:b.request.version,at,date:date(),recipient:f.recipient.trim(),note:f.note.trim(),actorId:a.staffId,personId:a.personId,financeConfirmation:{serviceVersion:last(b).version,requestVersion:b.request.version,confirmationVersion:receipt.confirmationVersion,confirmedAt:receipt.confirmedAt}};
   }
   if(action==='packet-submit'){
    X.assert(flow.dispatch&&!b.acceptance&&(!b.handover||b.handover.status==='returned'),'请等待正式成果下发；待接收或已接收资料不能覆盖');

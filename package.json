@@ -36,6 +36,8 @@
     "check:layout:footer:hit": "node scripts/verify-footer-hit-native.cjs",
     "check:design-admin": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-design-admin-workbench.cjs && npm run check",
     "check:design-admin:native": "node scripts/verify-design-admin-native.cjs",
+    "check:design-receipts": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-design-receipts.cjs && node scripts/verify-design-notifications.cjs && node scripts/verify-finance-receipt-views.cjs && npm run check",
+    "check:design-receipts:native": "node scripts/verify-design-receipts-native.cjs",
     "check:workbenches": "node scripts/verify-role-workbenches-complete.cjs",
     "check:franchise:pages": "node scripts/verify-franchise-role-pages.cjs",
     "check:franchise": "npm run check:franchise:pages && npm run check",

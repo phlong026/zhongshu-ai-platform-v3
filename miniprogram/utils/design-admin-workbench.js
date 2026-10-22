@@ -1,5 +1,5 @@
-const FILTERS = ['全部', '设计中', '修改中', '待财务通知', '待下发', '已下发'];
-const STATUS_ORDER = { 修改中: 0, 设计中: 1, 待财务通知: 2, 待下发: 3, 已下发: 4 };
+const FILTERS = ['全部', '设计中', '修改中', '待到账确认', '待下发', '已下发'];
+const STATUS_ORDER = { 修改中: 0, 设计中: 1, 待到账确认: 2, 待下发: 3, 已下发: 4 };
 
 function assertActor(actor) {
   if (!actor?.active || actor.role !== 'hq-design-admin' || actor.orgType !== 'headquarters') throw Error('当前岗位无设计行政权限');
@@ -11,7 +11,7 @@ function statusOf(customer, next) {
   if (flow.feedbacks?.at(-1)?.status === 'pending') return '修改中';
   if (!flow.completed) return '设计中';
   if (next.view === 'dispatch') return '待下发';
-  return '待财务通知';
+  return '待到账确认';
 }
 
 function latestActorEvent(customer, staffId) {
@@ -55,13 +55,13 @@ function build(customers, actor, options = {}) {
         company,
         owner: customer.owner || '未登记',
         status,
-        tone: status === '已下发' || status === '待下发' ? 'done' : status === '待财务通知' ? 'waiting' : '',
+        tone: status === '已下发' || status === '待下发' ? 'done' : status === '待到账确认' ? 'waiting' : '',
         state: next.state,
         scope: customer.request?.scope || '随委托确认',
-        detail: status === '修改中' ? '客户新增修改意见 · 待继续设计' : status === '设计中' ? '新委托 · 核对需求与资料' : status === '待财务通知' ? '设计已完成 · 等待财务放行' : status === '待下发' ? '设计已完成 · 核对财务通知后登记下发' : '正式成果已登记下发',
+        detail: status === '修改中' ? '客户新增修改意见 · 待继续设计' : status === '设计中' ? '新委托 · 核对需求与资料' : status === '待到账确认' ? '设计已完成 · 待总部财务确认到账' : status === '待下发' ? '总部已确认到账 · 登记正式成果下发' : '正式成果已登记下发',
         url: salesFlow.url(customer.id, 'progress'),
         actionUrl: salesFlow.url(customer.id, actionView),
-        action: status === '修改中' ? '处理修改' : status === '设计中' ? '查看委托' : status === '待财务通知' ? '查看进度' : status === '待下发' ? '登记下发' : '查看记录',
+        action: status === '修改中' ? '处理修改' : status === '设计中' ? '查看委托' : status === '待到账确认' ? '查看进度' : status === '待下发' ? '登记下发' : '查看记录',
         actionable: !!(next.actionable && ['complete', 'dispatch'].includes(next.view)),
         actorId: event?.actorId || '',
         recentAt: event?.at || '',
@@ -76,7 +76,7 @@ function build(customers, actor, options = {}) {
   const recent = rows.filter(row => row.recentAt).sort((a, b) => b.recentAt.localeCompare(a.recentAt)).slice(0, 5);
   const metrics = [
     { label: '设计与修改', value: counts['设计中'] + counts['修改中'], filter: '设计与修改', icon: '/assets/home-design-icon.png' },
-    { label: '待财务通知', value: counts['待财务通知'], filter: '待财务通知', icon: '/assets/money.png' },
+    { label: '待到账确认', value: counts['待到账确认'], filter: '待到账确认', icon: '/assets/money.png' },
     { label: '待下发', value: counts['待下发'], filter: '待下发', icon: '/assets/contract.png' }
   ];
   return { rows, counts, todos, taskCount: actionable.length, recent, metrics, filters: FILTERS.map(label => ({ label, count: counts[label] })) };

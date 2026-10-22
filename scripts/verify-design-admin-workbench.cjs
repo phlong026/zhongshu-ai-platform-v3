@@ -31,7 +31,7 @@ const commission = (id, state, extra = {}) => ({
 const rows = [
   commission('陈先生', '线下设计中', { events: [{ action: 'design-complete', actorId: 'other-admin', at: '2026-10-21T09:00:00.000Z' }] }),
   commission('王先生', '线下修改中', { city: '黄冈市', feedbacks: [{ status: 'pending' }] }),
-  commission('赵先生', '待财务通知', { completed: { actorId: 'admin-a' }, events: [{ action: 'design-complete', actorId: 'admin-a', at: '2026-10-22T01:40:00.000Z' }] }),
+  commission('赵先生', '待到账确认', { completed: { actorId: 'admin-a' }, events: [{ action: 'design-complete', actorId: 'admin-a', at: '2026-10-22T01:40:00.000Z' }] }),
   commission('李女士', '待正式成果下发', { owner: '陈业务', completed: { actorId: 'admin-a' } }),
   commission('周先生', '待收图并移交', { dispatch: { actorId: 'admin-a', date: '2026-10-20' }, events: [{ action: 'design-dispatch', actorId: 'admin-a', at: '2026-10-20T09:00:00.000Z' }] }),
   commission('孙先生', '业务移交完成', { dispatch: { actorId: 'admin-a', date: '2026-10-19' }, acceptance: { date: '2026-10-21' } }),
@@ -46,9 +46,9 @@ const nextFor = c => ({
 });
 const projected = W.build(rows, actor, { nextFor, feeApproved: c => c.__feeApproved, companyNameFor: id => id === 'store-a' ? '武汉江夏店' : id });
 
-assert.deepEqual(projected.counts, { 全部: 6, 设计中: 1, 修改中: 1, 待财务通知: 1, 待下发: 1, 已下发: 2 });
+assert.deepEqual(projected.counts, { 全部: 6, 设计中: 1, 修改中: 1, 待到账确认: 1, 待下发: 1, 已下发: 2 });
 assert.equal(projected.rows.length, 6, '费用未授权和其他设计组织的委托不得进入工作台');
-assert.equal(projected.rows.find(r => r.id === '赵先生').status, '待财务通知');
+assert.equal(projected.rows.find(r => r.id === '赵先生').status, '待到账确认');
 assert.equal(projected.rows.find(r => r.id === '李女士').status, '待下发');
 assert.equal(projected.rows.find(r => r.id === '孙先生').status, '已下发');
 assert.equal(W.filter(projected.rows, '武汉江夏', '全部').length, 6, '支持加盟商搜索');
@@ -58,17 +58,17 @@ assert.equal(W.filter(projected.rows, '', '已下发').length, 2, '已完成和�
 assert.equal(W.filter(projected.rows, '', '设计与修改').length, 2, '设计与修改指标进入组合筛选，不遗漏设计中项目');
 assert.equal(projected.recent.length, 2, '最近办理只取当前人员实际动作');
 assert(projected.recent.every(r => r.actorId === actor.staffId));
-assert.deepEqual(projected.metrics.map(r => r.label), ['设计与修改', '待财务通知', '待下发']);
+assert.deepEqual(projected.metrics.map(r => r.label), ['设计与修改', '待到账确认', '待下发']);
 assert(projected.todos[0].primary, '第一条待办使用主操作，其余为轻操作');
 assert(projected.todos.slice(1).every(r => !r.primary));
 assert(projected.todos.every(r => r.customerId === r.id), '首页待办保留 customerId 主链契约');
 assert(projected.todos.every(r => r.url === r.actionUrl), '首页待办 url 指向当前可办理动作');
-assert(!projected.todos.some(r => r.status === '待财务通知'), '等待财务通知不是行政今日可办动作');
+assert(!projected.todos.some(r => r.status === '待到账确认'), '等待到账确认不是行政今日可办动作');
 const crowded = W.build(rows.concat(commission('何先生', '线下设计中')), actor, { nextFor, feeApproved: c => c.__feeApproved, companyNameFor: id => id });
 assert.equal(crowded.taskCount, 4, '首页标题显示全部本人可办数');
 assert.equal(crowded.todos.length, 3, '首页今日待办只预览三条');
 assert.equal(projected.metrics[0].filter, '设计与修改');
-assert.equal(projected.rows.find(r => r.status === '待下发').detail, '设计已完成 · 核对财务通知后登记下发');
+assert.equal(projected.rows.find(r => r.status === '待下发').detail, '总部已确认到账 · 登记正式成果下发');
 assert.throws(() => W.build(rows, { ...actor, role: 'finance' }, { nextFor, feeApproved: () => true }), /设计行政权限/);
 
 const manyRows = Array.from({ length: 105 }, (_, index) => ({ ...projected.rows[index % projected.rows.length], id: `bulk-${index}`, name: `批量项目${String(index).padStart(3, '0')}`, projectId: `project-bulk-${index}` }));
