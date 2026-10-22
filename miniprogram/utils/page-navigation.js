@@ -17,7 +17,7 @@ function parent(page=current()){
  }
  if(route==='pages/workflow/explore/index')return '/pages/design/index';
  if(route==='pages/admin/finance-desk/index'){const D=require('./finance-desk');return ['statement','partner'].includes(v)?D.url(require('./access').context().orgType==='headquarters'?'partners':'projects'):v==='project'?D.url('projects'):homeUrl();}
- if(route==='pages/workflow/quote-export/index')return target('/pages/workflow/index',page.kind==='quote'||o.kind==='quote'?'quote':'budget-result',id);
+ if(route==='pages/workflow/quote-export/index')return target('/pages/workflow/index','budget-result',id);
  if(route==='pages/build/index')return v==='projects'?homeUrl():target('/pages/build/index',v==='overview'?'projects':'overview',id);
  if(route==='pages/account/index'){
   const map={course:'learning',resource:'learning',service:'services',request:'service',product:'selection',procure:'product',purchase:'purchases',order:'orders',plan:'order',delivery:'order',cancel:'order',feedback:'help',binding:'privacy',devices:'privacy',permissions:'privacy',policy:'privacy',agreement:'privacy'};

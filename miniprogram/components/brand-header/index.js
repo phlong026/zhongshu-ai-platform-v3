@@ -6,7 +6,7 @@ lifetimes: {
 attached() {
 const info = getApp().globalData.windowInfo || wx.getSystemInfoSync();
 const route=getCurrentPages().slice(-1)[0]?.route||'';
-const roots=['home','business','engineering','management','profile','customers','design','creation'].map(v=>'pages/'+v+'/index').concat(['pages/account/sales/index','pages/build/home/index','pages/build/projects/index','pages/build/materials/index','pages/workflow/design-desk/index']);
+const roots=['home','business','engineering','management','profile','customers','design','creation'].map(v=>'pages/'+v+'/index').concat(['pages/account/sales/index','pages/build/home/index','pages/build/projects/index','pages/build/materials/index']);
 this.setData({ statusHeight: info.statusBarHeight || 20,showNavigation:this.data.back||(!this.data.branded&&!roots.includes(route)) });
 }
 },

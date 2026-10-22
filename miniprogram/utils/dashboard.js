@@ -13,18 +13,18 @@ if (typeof this.getTabBar === 'function' && this.getTabBar()) {this.getTabBar().
 },
 goAdmin(e){const d=e.currentTarget.dataset;wx.navigateTo({url:'/pages/'+(d.area==='workflow'?'workflow':'admin')+'/index?view='+d.view+'&id='+encodeURIComponent(d.id)+(d.record?'&record='+encodeURIComponent(d.record):'')});},
 openAction(e) {
-const key = e.currentTarget.dataset.action;if(key==='engineeringReview')return wx.navigateTo({url:'/pages/build/index?view=review&id='+encodeURIComponent(e.currentTarget.dataset.customer)});
-const businessRoutes = { customer: 'customers&modal=register', customers: 'customers', follow: 'customer&modal=follow', customerDetail: 'customer', autonomous: 'ai-config', plan: 'ai-config', planSearch: 'search', facade: 'ai-facade', quote: 'quote', contract: 'contract', delivery: 'delivery', inspiration: 'inspiration', budget: 'budget', transfer: 'transfer', businessHub: 'hub' };
-const businessView = index === 1 ? businessRoutes[key] : index === 2 && key === 'projects' ? 'customers&destination=hub' : index === 2 && key === 'siteConfirm' ? 'customers&destination=start-check' : index === 3 && key === 'receipts' ? 'customers&destination=funds' : index === 3 && key === 'approval' ? 'hub' : '';
+const key = e.currentTarget.dataset.action;
+const businessRoutes = { customer: 'customers&modal=register', customers: 'customers', customerDetail: 'customer', autonomous: 'ai-config', plan: 'ai-config', planSearch: 'search', facade: 'ai-facade', budget: 'budget' };
+const businessView = index === 1 ? businessRoutes[key] : index === 2 && key === 'projects' ? 'customers&destination=hub' : '';
 if (businessView) {
 const business = require('./business');if(!business.scope().active){wx.navigateTo({url:'/pages/account/index?view=login'});return;}let contextId = '';
 const todo = this.data.customers && this.data.customers.find(item => String(item.id) === String(e.currentTarget.dataset.customer));
 if(todo)contextId=todo.id;
-const chooseCustomer = index === 1 && !contextId && ['inspiration','search','ai-config','ai-facade','quote','contract','delivery','budget'].includes(businessView);
+const chooseCustomer = index === 1 && !contextId && ['search','ai-config','ai-facade','budget'].includes(businessView);
 const destination=contextId&&key==='customerDetail'?(todo.view||require('./workbench').next(business.customer(contextId))):chooseCustomer?'customers&destination='+businessView:businessView;
 wx.navigateTo({ url: '/pages/workflow/index?view=' + destination + (contextId ? '&id=' + encodeURIComponent(contextId) : '') }); return;
 }
-if(key==='growth'){wx.navigateTo({url:'/pages/growth/index'});return;}if(key==='login'){wx.navigateTo({url:'/pages/account/index?view=login'});return;}const creationRoutes = { serviceOrders:'/pages/account/index?view=orders', remix: '/pages/creation/index', digital: '/pages/studio/index?view=digital', video: '/pages/ai-video/index', works: '/pages/studio/index?view=works' };
+if(key==='growth'){wx.navigateTo({url:'/pages/growth/index'});return;}if(key==='login'){wx.navigateTo({url:'/pages/account/index?view=login'});return;}const creationRoutes = { serviceOrders:'/pages/account/index?view=services', remix: '/pages/creation/index', digital: '/pages/studio/index?view=digital', video: '/pages/ai-video/index', works: '/pages/studio/index?view=works' };
 if (creationRoutes[key]) { wx.navigateTo({ url: creationRoutes[key] }); return; }
 const panel = panels[key];
 if (panel) {
@@ -57,7 +57,7 @@ if (panel.key === 'customer' && this.data.customers) {
 const customers = this.data.customers.concat({ id: Date.now(), name: values.name, desc: values.village || '新客户 · 待跟进', avatar: '/assets/avatar-wang.jpg', button: '查看', action: 'customers' });
 this.setData({ customers, filteredCustomers: customers });
 }
-wx.showToast({ title: '已保存到本地', icon: 'success' });
+wx.showToast({ title: '已保存', icon: 'success' });
 } else if (panel.key === 'continueCourse') {
 this.setData({ learned: Math.min(6, (this.data.learned || 2) + 1) });
 wx.showToast({ title: '学习进度已更新', icon: 'success' });

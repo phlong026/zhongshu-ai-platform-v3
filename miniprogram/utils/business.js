@@ -10,9 +10,9 @@ function loadAll() { const state = wx.getStorageSync(KEY); if(!state||state.vers
 function scope(){return Access.context();}
 function normalize(c){const n=clone(c);n.companyId=n.companyId||'quanzhou';if(!n.ownerId)n.ownerId=Access.ownerId(n);n.drafts=n.drafts||{};for(const key of ['receipts','serviceOrders','reviews','changes','agreements','supplements','startChecks','designReceipts','designFeedbacks'])n[key]=n[key]||[];return n;}
 function projectCustomer(c){const n=normalize(c),a=scope(),C=require('./task-access');if(n.businessFlow)delete n.businessFlow.lastCommand;n.projectBasis=require('./project-records').basis(c);n.projectContractArchived=!!c.contract&&!!(c.contract.file||c.signedFile);if(a.orgType==='headquarters'){if(n.businessFlow)delete n.businessFlow.packet;n.paymentConditions=Object.fromEntries(['first','tail'].map(stage=>{const r=require('./intercompany').condition(c,stage);return [stage,{ready:r.ready,text:r.text}];}));n.designPayments=[];n.designHistory=(n.designHistory||[]).map(r=>({release:r.release?{version:r.release.version,date:r.release.date}:null}));for(const h of [n.handover,...(n.handoverHistory||[])]){if(h?.files)h.files.signed=null;if(h?.documents)h.documents=h.documents.filter(d=>!['quote','signed','confirmation'].includes(d.key));}if(n.confirmationEvidence)n.confirmationEvidence={version:n.confirmationEvidence.version,status:n.confirmationEvidence.status,date:n.confirmationEvidence.date};n.agreements=(n.agreements||[]).map(r=>({version:r.version,total:r.total,number:r.number,date:r.date}));n.moneyApprovals=(n.moneyApprovals||[]).filter(r=>String(r.kind).startsWith('change-'));n.receipts=[];n.budgets=[];n.quotes=[];n.serviceOrders=[];n.phone='';n.wechat='';n.signedFile=null;if(n.contract)n.contract={version:n.contract.version,date:n.contract.date,total:n.contract.total};for(const key of ['firstPayment','tailPayment'])if(n[key])n[key]={confirmed:true,date:n[key].date};}
-if(Job.has(a.role,'hq-designer')&&(a.role!=='hq-design-lead'||!Access.designTeam(c,a))){n.collaborations=(n.collaborations||[]).filter(g=>g.staffId===a.staffId&&Job.has(a.role,g.role));if(c.assignment?.designerId!==a.staffId){n.designParts=(n.designParts||[]).filter(p=>p.authorId===a.staffId);if(!C.allows(c,'design','deliverable',a)&&!C.allows(c,'design','release',a)){n.deliverables=[];n.deliverableFile=null;n.designHistory=[];n.drawings=[];n.drawingFile=null;if(n.release)n.release={version:n.release.version,date:n.release.date};}}}if(Job.has(a.role,'engineer')&&Access.managerId(c)!==a.staffId&&(a.role!=='project-manager'||!Access.engineeringTeam(c,a))){n.receipts=[];n.designPayments=[];n.designHistory=(n.designHistory||[]).map(h=>({release:h.release?{version:h.release.version,date:h.release.date}:null}));n.serviceOrders=[];n.budgets=[];n.quotes=[];n.contract=n.contract?{version:n.contract.version,date:n.contract.date}:null;n.signedFile=null;n.phone='';n.wechat='';for(const k of ['firstPayment','tailPayment'])if(n[k])n[k]={confirmed:true};for(const h of [n.handover,...(n.handoverHistory||[])])if(h?.files)h.files.signed=null;}
+if(Job.has(a.role,'engineer')&&Access.managerId(c)!==a.staffId&&(a.role!=='project-manager'||!Access.engineeringTeam(c,a))){n.receipts=[];n.designPayments=[];n.designHistory=(n.designHistory||[]).map(h=>({release:h.release?{version:h.release.version,date:h.release.date}:null}));n.serviceOrders=[];n.budgets=[];n.quotes=[];n.contract=n.contract?{version:n.contract.version,date:n.contract.date}:null;n.signedFile=null;n.phone='';n.wechat='';for(const k of ['firstPayment','tailPayment'])if(n[k])n[k]={confirmed:true};for(const h of [n.handover,...(n.handoverHistory||[])])if(h?.files)h.files.signed=null;}
 if(Job.has(a.role,'sales')&&Access.ownerId(c)!==a.staffId&&(a.role!=='sales-lead'||!Access.teamAccess(c,a))){const grants=C.grants(c,'business',a),acts=new Set(grants.flatMap(g=>g.actions));n.paymentConditions=Object.fromEntries(['first','tail'].map(stage=>{const r=require('./intercompany').condition(c,stage);return [stage,{ready:r.ready,text:r.text}];}));n.designFeeState=!c.serviceOrders?.length?'missing':require('./commercial-approval').approved(c,'service')?'approved':'pending';n.designPayments=[];n.designHistory=(n.designHistory||[]).map(h=>({release:h.release?{version:h.release.version,date:h.release.date}:null}));n.receipts=[];n.serviceOrders=[];n.budgets=[];n.contract=n.contract?{version:n.contract.version,date:n.contract.date}:null;n.signedFile=null;n.firstPayment=n.firstPayment?{confirmed:true}:null;n.tailPayment=n.tailPayment?{confirmed:true}:null;if(!acts.has('measurement')&&!acts.has('quote')){n.quotes=[];n.measurements=[];n.measurementFile=null;}if(!acts.has('documents')){n.drawings=[];n.drawingFile=null;}if(!acts.has('confirmation')){n.confirmationEvidence=null;n.changes=[];}if(!acts.size){n.phone='';n.wechat='';n.summary='原参与关系仅供只读，办理请由负责人分配具体任务';}}
-if(!n.release&&!Job.has(a.role,'hq-designer')){n.deliverables=(n.deliverables||[]).map(r=>({version:r.version,date:r.date,note:r.note}));n.deliverableFile=null;}
+if(!n.release){n.deliverables=(n.deliverables||[]).map(r=>({version:r.version,date:r.date,note:r.note}));n.deliverableFile=null;}
 const financial=a.orgType!=='headquarters'&&(Access.isBoss(a)||Job.has(a.role,'sales')&&(Access.ownerId(c)===a.staffId||a.role==='sales-lead'&&Access.teamAccess(c,a))||Job.has(a.role,'engineer')&&(Access.managerId(c)===a.staffId||a.role==='project-manager'&&Access.engineeringTeam(c,a)));if(!financial)for(const h of [n.handover,...(n.handoverHistory||[])])if(h?.documents)h.documents=h.documents.filter(r=>!['quote','signed','confirmation'].includes(r.key));
 const key=scope().staffId+':'+scope().role+':';n.drafts=Object.fromEntries(Object.entries(n.drafts||{}).filter(([k])=>k.startsWith(key)));return n;}
 function load(){const s=loadAll();s.customers=s.customers.map(normalize).filter(c=>Access.customer(c)).map(projectCustomer);return s;}
@@ -38,6 +38,23 @@ function dimension(value) { return /^\d{1,2}(\.\d)?$/.test(String(value)) && Num
 function money(value) { return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
 function date() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function engineeringStatus(c) { const state=wx.getStorageSync('zhongshu-engineering-v1')||{};const p=(state.projects||[]).find(p=>p.sourceCustomerId===c.id);if(!p)return '';if(p.delivery?.status==='已核验'||p.archived)return '已交付';if(p.delivery)return '交付待独立核验';if(p.actualStart)return p.plan&&p.plan.nodes.length&&p.plan.nodes.every(n=>n.status==='已完成')?'待交付':'施工中';return ''; }
+// Customer journey shown on the project-progress tab; returns the index of the current stage (STAGES.length once delivered).
+const STAGES=['客户跟进','需求沟通','设计与预算','设计协同','设计完成','施工阶段','交付'];
+function stageIndex(c){
+const engineering=engineeringStatus(c);if(engineering==='已交付')return STAGES.length;if(engineering==='待交付'||engineering==='交付待独立核验')return 6;if(engineering||c.acceptance)return 5;
+const SF=require('./sales-flow');if(SF.is(c))return c.businessFlow?.completed&&c.businessFlow.feedbacks?.at(-1)?.status!=='pending'?4:3;
+if(c.request||c.contract)return 3;if((c.plans||[]).length||(c.facades||[]).length||(c.budgets||[]).length||c.salesIntent?.ready)return 2;
+return (c.follows||[]).some(f=>!String(f.note||'').startsWith('登记客资'))?1:0;
+}
+// Plain-language summary for the project-progress tab: what is happening now, who owns it, and the latest record.
+function progressSummary(c){
+const p=((wx.getStorageSync('zhongshu-engineering-v1')||{}).projects||[]).find(p=>p.sourceCustomerId===c.id),index=stageIndex(c);
+const follow=(c.follows||[]).filter(f=>!String(f.note||'').startsWith('登记客资')).at(-1),followLatest=follow?{date:follow.date,by:follow.method?follow.method+'沟通':'',text:follow.content||follow.note||'已记录跟进'}:null;
+if(p&&p.actualStart){const node=(p.plan?.nodes||[]).find(n=>n.status!=='已完成'),r=(p.siteRecords||[]).at(-1),f=r?.file||{},src=f.path||f.url||f.fileID||'',delivered=index>=STAGES.length;
+return {title:delivered?'工程已交付':node?node.name+'施工中':'主体施工已完成',owner:p.assignedEngineerName||p.manager||'',next:delivered?'':node?node.name+'验收':'工程交付',latest:r?{date:r.date,by:r.by||'',text:r.note,image:/\.(jpe?g|png|webp)$/i.test(src)||f.fileID?src:''}:followLatest};}
+if(index>=3){const n=require('./design-coordination').next(c);return {title:n.state,owner:n.owner,next:'',latest:followLatest};}
+return {title:['待首次沟通','需求沟通中','方案预算已出'][index],owner:c.owner||'',next:index<2?'出方案与预算':'发起设计委托',latest:followLatest};
+}
 function stage(c) {
 if(require('./sales-flow').is(c))return require('./sales-flow').next(c).state;
 const engineering=engineeringStatus(c);
@@ -51,39 +68,10 @@ if(c.quotes.length)return '正式报价'; if(c.budgets.length)return '方案沟�
 }
 function blockingStep(view,c){
 const block=(message,target)=>({message,target,label:'去补齐前置资料'});
-const plan=latest(c.plans),facade=latest(c.facades||[]),drawing=latest(c.drawings);
-if(['intake','assign'].includes(view)&&!require('./intercompany').condition(c,'first').ready)return block('等待本期门店付款与总部到账分别完成独立核对。','formal-progress');if(view==='result'&&!plan)return block('尚未选用并保存平面方案。','ai-config');
+const plan=latest(c.plans),facade=latest(c.facades||[]);
+if(view==='result'&&!plan)return block('尚未选用并保存平面方案。','ai-config');
 if(view==='facade-result'&&!facade)return block('尚未选用并保存立面方案。','facade-config');
 if(view==='budget-result'&&!c.budgets.length)return block('尚未完成参考预算测算。','budget');
-if(view==='quote'&&!c.quotes.length&&!require('./design-coordination').confirmed(c))return block('请先完成设计委托、正式设计下发及客户签认，再生成建造报价。','delivery');
-if(view==='contract'&&!c.contract)return block(c.quotes.length?'合同尚未登记双方签署。':'请先生成本版正式报价并经老板审批。',c.quotes.length?'contract-prepare':'quote');
-if(view==='contract-prepare'&&c.contract)return block('已签合同已归档，变更请通过补充协议办理。','contract');
-if(view==='contract-prepare'&&!require('./design-coordination').confirmed(c))return block('请先完成设计成果下发、收图及客户签认，再签建造合同。','delivery');
-if(view==='contract-prepare'&&require('./design-coordination').first(c)&&!require('./design-coordination').quoteCurrent(c))return block('请按已确认的设计成果重新生成建造报价。','quote');
-if(view==='contract-prepare'&&!c.quotes.length)return block('合同需要关联正式报价。','quote');
-if(view==='request'&&!c.request&&!require('./design-coordination').basis(c))return block('请先保存有效参考预算，再发起设计委托。','budget');
-if(view==='payment-first'&&!c.request)return block('尚未提交电子设计需求和首款事项。','request');
-if((view==='intake'||view==='assign')&&(!c.request||!c.firstPayment))return block('受理前需提交电子需求并办理设计首款。',c.request?'payment-first':'request');
-
-if(view==='deliverable'&&!c.assignment)return block('请先受理资料并安排设计师。','intake');
-if(view==='formal-progress'&&!c.request)return block('尚未提交正式设计需求。','request');
-if(view==='tail-apply'&&!c.deliverables.length)return block('正式成果完成后才能申请设计尾款。','formal-progress');
-if(view==='tail-apply'&&!c.tailApplication){const d=latest(c.deliverables),r=(c.deliverableReviews||[]).find(r=>r.version===d?.version);if(r?.status!=='passed')return block('本版成果经总部专业审核通过后，业务再申请尾款。','formal-progress');if(!require('./intercompany').condition(c,'first').ready)return block('请先完成本服务单首款核对。','payment-first');}
-if(view==='payment-tail'&&!c.tailApplication&&!c.tailPayment)return block('请先由业务员申请设计尾款。','tail-apply');
-if(view==='release'&&!c.deliverables.length)return block('设计师尚未提交正式成果。','deliverable');
-if(view==='release'&&(!c.firstPayment||!c.tailPayment))return block('首尾款办理完成后才能下发。',c.firstPayment?'payment-tail':'payment-first');
-if(['design-receipt','design-feedback'].includes(view)&&!c.release)return block('等待总部正式下发本版设计成果。','formal-progress');
-if(view==='design-feedback'&&c.confirmation)return block('本版已签认，不能覆盖原确认记录。','confirmation');
-if(view==='confirmation'&&c.release&&require('./design-coordination').first(c)&&!require('./design-coordination').receipt(c))return block('请先核查并确认收到本版正式图纸。','design-receipt');
-if(view==='confirmation'&&!c.release)return block('正式下发后才能登记客户确认。','release');
-if(view==='documents'&&require('./design-coordination').first(c)&&!c.release)return block('正式下发后可补传本项目施工图。','formal-progress');
-if(view==='documents'&&!require('./design-coordination').first(c)&&!c.contract)return block('签署合同后可补传项目资料。','contract');
-if(view==='handover'&&!c.contract)return block('设计确认后需签署建造合同，才能办理工程移交。','contract');
-if(view==='copies'&&!drawing)return block('请先补传施工图。','documents');
-if(view==='handover'&&(!c.release||!c.confirmation||c.release.version!==c.confirmation.version))return block('请先正式下发并登记本版成果的客户确认。',c.release?'confirmation':'release');
-if(view==='handover'&&(!drawing||!c.copies.some(x=>x.version===drawing.version)))return block('请补传施工图并保留本版抄送记录。',drawing?'copies':'documents');
-if(view==='receive'&&!c.handover)return block('尚未提交工程移交。','handover');
-if(view==='accepted'&&!c.acceptance)return block('工程师尚未确认接收。','receive');
 return null;
 }
-module.exports={ KEY,Access,draftKey,scope,clone,sample,initial,load,persist,customer,reassign,write,add,authorize,fromLead,latest,referenceUsed,validDate,positive,dimension,money,date,stage,engineeringStatus,blockingStep };
+module.exports={ KEY,Access,draftKey,scope,clone,sample,initial,load,persist,customer,reassign,write,add,authorize,fromLead,latest,referenceUsed,validDate,positive,dimension,money,date,stage,STAGES,stageIndex,progressSummary,engineeringStatus,blockingStep };

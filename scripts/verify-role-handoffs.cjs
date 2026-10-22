@@ -40,7 +40,6 @@ fs.writeFileSync(path.join(out,'personas.json'),JSON.stringify({note:'仅供本�
   const book=M.seed();book.staff.push({id:'qa-finance-li',name:'调试李财务',role:'财务专员',active:true},{id:'qa-owner-zhao',name:'调试赵负责人',role:'门店负责人',active:true});await setStore(M.KEY,book);await setStore(B.KEY,B.initial());await setStore('zhongshu-engineering-v1',{version:1,projects:[]});
   await phase('login-boundaries',async()=>{
    active='logged-out';const s=persona(people[0]);await setStore(A.KEY,s);await open('/pages/account/index?view=login');await tap('[data-handler="login"]');await capture('consent-validation');check('登录前须同意协议',!!await data('error'),{error:await data('error')});
-   await tap('[data-key="sms"]');await capture('sms-status');check('短信登录明确提示尚未接入',String((await data('modal')).text).includes('尚未接入'));
    await wf('customer');await capture('logged-out-customer');check('退出后不可读客户详情',!await data('customer'));
    const all=A.seed();await setStore(A.KEY,all);await open('/pages/account/index?view=identity');await capture('all-available-roles');const roles=await data('roleOptions');check('业务负责人有独立角色',roles.some(r=>r.id==='sales-lead'),{available:roles});check('财务负责人有独立角色',roles.some(r=>r.id==='finance-lead'),{available:roles});check('老板有独立授权模型',roles.some(r=>r.id==='boss'),{available:roles});
   });

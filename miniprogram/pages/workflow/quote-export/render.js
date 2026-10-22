@@ -38,7 +38,7 @@ function render(ctx,doc){
  cell(c[0],y,74,30,'管理费用',14,true);cell(c[1],y,256,30,doc.management===null?'':S.money(doc.management),13,true);cell(x+330,y,w-330,30,doc.management===null?'未单列，未另加收3%管理费':'按原报价约定计取',12);y+=30;
  cell(c[0],y,74,32,'总计价款',14,true);cell(c[1],y,w-74,32,'人民币 ¥ '+S.money(doc.total)+' 元',17,true);y+=32;
  line(x,start,x+w,start,true);line(x,y,x+w,y,true);line(x,start,x,y,true);line(x+w,start,x+w,y,true);
- text(doc.basis+'  |  '+(doc.date||'日期未记录')+'  |  '+(doc.demo?'模拟计价，非正式对外报价':doc.kind==='quote'?(doc.approved?'本版报价已批准':'本版报价待老板审批'):''),x,y+10,w,25,11,false,'#555','left');
+ text(doc.basis+'  |  '+(doc.date||'日期未记录')+'  |  '+(doc.demo?'模拟计价，非正式对外报价':''),x,y+10,w,25,11,false,'#555','left');
  text('空白项表示尚未录入或未单独报价；汇总项目按原计价范围执行，各项合计与原记录一致。',x,y+35,w,25,10,false,'#555','left');
  text('项目：'+doc.projectId,x,y+60,w,22,9,false,'#777','left');
  return {width:WIDTH,height:HEIGHT,bottom:y};

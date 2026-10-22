@@ -1,1 +1,2 @@
 @import "../owner.wxss";
+.owner-empty-hint{display:block;margin-top:18rpx;padding-top:16rpx;border-top:1rpx solid #eee8df;font-size:24rpx;line-height:38rpx}

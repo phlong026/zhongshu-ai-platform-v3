@@ -29,7 +29,7 @@ return Object.assign({}, parameter, { value: Math.max(0, parameter.options.index
 this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', references: draft.references || [], parameters });
 }
 },
-onShow(){require('../../utils/demo-session').apply(this);if(!studio.guard())return;if(this.actorScope!==studio.scope())wx.redirectTo({url:"/pages/ai-video/index"});},
+onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope())wx.redirectTo({url:"/pages/ai-video/index"});},
 onHide() { this.saveDraft(); },
 onUnload() { this.saveDraft(); },
 saveDraft() {
@@ -98,14 +98,14 @@ closeLibrary() { this.setData({ libraryOpen: false }); },
 help() { wx.showModal({ title: '参考素材', content: '图片最多8张、视频最多3个、音频最多3个，合计最多12个。素材在本地选择，生成前仍可移除。', showCancel: false, confirmColor: '#824019' }); },
 optimize() {
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
-this.setData({description:require('../../utils/creation-demo').optimize(this.data.description,this.data.mode)});this.saveDraft();wx.showToast({title:'模拟提示词已优化',icon:'none'});
+this.setData({description:require('../../utils/creation-demo').optimize(this.data.description,this.data.mode)});this.saveDraft();wx.showToast({title:'提示词已优化',icon:'none'});
 },
 generate() {
 if (this.data.invalidMessage) return;
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToast({ title: '请先添加参考素材', icon: 'none' }); return; }
 this.saveDraft();
-wx.showModal({ title: '体验视频创作流程', content: '当前为本地演示，未接入视频生成与计费服务。可创建演示任务体验后续保存和发布流程，不会扣费。', confirmText: '体验流程', confirmColor: '#824019', success: ({ confirm }) => {
+wx.showModal({ title: '体验视频创作流程', content: '视频生成服务暂未开通，可先创建任务并保存草稿。', confirmText: '体验流程', confirmColor: '#824019', success: ({ confirm }) => {
 if (confirm) {
 const configuration = { mode: this.data.mode, parameters: this.data.parameters.map(item => ({ key: item.key, value: item.options[item.value] })), firstFrame: this.data.firstFrame, lastFrame: this.data.lastFrame, references: this.data.references };
 try {

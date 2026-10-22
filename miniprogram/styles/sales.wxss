@@ -22,8 +22,14 @@ page{--sales-brand:var(--business-brand);--sales-paper:var(--business-paper);--s
 .sales-page .sales-search>image{width:32rpx;height:32rpx;flex-shrink:0}
 .sales-page .sales-search>input{flex:1;min-width:0;height:48rpx;font-size:28rpx;line-height:42rpx}
 .sales-page .sales-note{display:block;padding:4rpx 8rpx 22rpx;color:var(--sales-muted);font-size:23rpx;line-height:36rpx}
-.sales-page .sales-icon{width:44rpx;height:44rpx;flex-shrink:0}
+
 .sales-page .sales-footer-link{display:flex;align-items:center;justify-content:center;gap:14rpx;min-height:76rpx;width:100%;font-size:26rpx;color:var(--sales-brand)}
 .sales-page .sales-empty{padding:34rpx 12rpx;text-align:center;font-size:28rpx;line-height:44rpx;color:var(--sales-muted)}
 .sales-page .sales-badge{font-size:22rpx;line-height:32rpx;font-weight:400;color:var(--sales-brand);background:#faf1e5;padding:2rpx 12rpx;border-radius:8rpx}
 @media(max-width:360px){.sales-page.sales-page .content{padding-left:24rpx;padding-right:24rpx}.sales-page.sales-page .section{padding:20rpx}.sales-page.sales-page .section-title{font-size:30rpx}}
+/* Filter buttons shared by the customer list and the home to-do board */
+.customer-work-filters{display:flex;gap:16rpx;margin:20rpx 0}
+.customer-day-button{flex:1;display:flex;align-items:center;justify-content:space-between;gap:12rpx;padding:16rpx;border-radius:12rpx;background:#f7f3ed;border:1rpx solid #eee8df;color:#74695c;font-size:24rpx;line-height:36rpx;min-height:72rpx}
+/* Overdue dot shared by the home follow-up metric and the customer-list tab */
+.sales-stat-dot{width:14rpx;height:14rpx;border-radius:50%;background:#c0392b;margin:0 10rpx 0 auto}
+.customer-day-button.active{background:#f7ebdc;border-color:#89512a;color:#89512a}

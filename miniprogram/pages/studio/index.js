@@ -52,7 +52,7 @@ this.setData({demoPublishedUrl,publishedUrlInput:state.publicationLinkDrafts?.[t
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
-onShow() {require('../../utils/demo-session').apply(this); if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
+onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
 onHide() { this.persistEditor(); },
 onUnload() { this.persistEditor(); },
 persistEditor() {
@@ -133,7 +133,7 @@ studio.write(state);
 const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);
 if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});
 this.setData({script:state.script,scriptShort:state.script.split('\n').slice(0,2).join('\n'),scriptLength:state.script.length,estimatedSeconds:Math.ceil(state.script.replace(/\s/g,'').length/4),rewriteVersion:state.rewriteHistory[state.rewriteHistory.length-1].version});
-wx.showToast({title:'模拟二创已生成',icon:'none'});
+wx.showToast({title:'二创已生成',icon:'none'});
 });
 } finally {
 this.setData({rewriting:false});
@@ -156,7 +156,7 @@ selectVoice() { this.setData({ voice: '李顾问原声', sheet: '' }); },
 audition() { wx.showModal({ title: '声音试听', content: '当前仅提供声音选择界面，尚未配置试听音频。', showCancel: false, confirmColor: '#824019' }); },
 generateDigital() {
 if (!this.data.script.trim()) { wx.showToast({ title: '请先填写口播文案', icon: 'none' }); return; }
-wx.showModal({ title: '体验口播创作流程', content: '当前为本地演示，未接入数字人生成服务。继续将创建演示任务，不会扣费。', confirmText: '体验流程', confirmColor: '#824019', success: ({ confirm }) => {
+wx.showModal({ title: '体验口播创作流程', content: '数字人生成服务暂未开通，当前将创建预览任务。', confirmText: '体验流程', confirmColor: '#824019', success: ({ confirm }) => {
 if (confirm) { const task = studio.createDemoTask('digital', '', { actor: this.data.actor, voice: this.data.voice }); this.go('tasks', '&task=' + task.id); }
 } });
 },
@@ -167,13 +167,13 @@ const id = e.currentTarget.dataset.id;
 const task = studio.read().tasks.find(task => task.id === id);
 if (!task) { wx.showToast({ title: '任务不存在或已清理', icon: 'none' }); this.refreshData(); return; }
 if (task.status === 'generating') {
-wx.showModal({ title: '演示任务进度', content: '当前进度 ' + task.progress + '%。可将此演示任务推进到完成状态，体验后续流程。', confirmText: '演示完成', confirmColor: '#824019', success: ({ confirm }) => { if (confirm) { studio.completeTask(id); this.refreshData(); } } });
+wx.showModal({ title: '任务进度', content: '当前进度 ' + task.progress + '%。可将此任务推进到完成状态。', confirmText: '演示完成', confirmColor: '#824019', success: ({ confirm }) => { if (confirm) { studio.completeTask(id); this.refreshData(); } } });
 } else if (task.status === 'save-failed') {
-this.attempt(() => { studio.saveWork(id); this.refreshData(); wx.showToast({ title: '演示作品已保存' }); });
+this.attempt(() => { studio.saveWork(id); this.refreshData(); wx.showToast({ title: '作品已保存' }); });
 } else this.go('result', '&task=' + id);
 },
-refreshTasks() { this.refreshData(); wx.showToast({ title: '演示状态已刷新', icon: 'none' }); },
-playVideo() { wx.showModal({ title: '视频播放说明', content: '当前为本地演示，仅提供封面预览，尚未接入视频生成与播放。', showCancel: false, confirmColor: '#824019' }); },
+refreshTasks() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
+playVideo() { wx.showModal({ title: '视频播放说明', content: '视频播放暂未开通，当前仅提供封面预览。', showCancel: false, confirmColor: '#824019' }); },
 attempt(action) { try { this.setData({operationError:''});return action(); } catch (error) { const message=error.message||'操作未完成，请重试';this.setData({operationError:message});wx.showToast({ title: message, icon: 'none' }); return null; } },
 saveResult() { this.attempt(() => { const work = studio.saveWork(this.data.taskId); this.setData({ workId: work.id, saved: true }); wx.showToast({ title: '已保存到我的作品' }); }); },
 publishResult() {
@@ -217,7 +217,7 @@ this.persistEditor();this.go(result.record.status==='published'&&result.record.p
 });
 },
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
-refreshRecords() { this.refreshData(); wx.showToast({ title: '演示状态已刷新', icon: 'none' }); },
+refreshRecords() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
 registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.contentId)wx.navigateTo({url:'/pages/growth/index?view=capture&contentId='+encodeURIComponent(record.contentId)});},
 inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:'',receiptSaved:false});},
 savePublicationLink(){
@@ -244,7 +244,7 @@ const state = studio.read(); const record = state.records.find(record => record.
 if (record && ['publishing', 'verify', 'scheduled','published'].includes(record.status)) {
 this.go('receipt','&record='+encodeURIComponent(record.id));
 } else if (record && record.status === 'failed') {
-wx.showModal({ title: '账号授权已失效', content: '真实账号授权尚未接入。可返回发布设置更换示例账号，体验重试流程。', confirmText: '更换账号', confirmColor: '#824019', success: ({ confirm }) => {
+wx.showModal({ title: '账号授权已失效', content: '平台账号授权暂未开通，可返回发布设置更换账号后重试。', confirmText: '更换账号', confirmColor: '#824019', success: ({ confirm }) => {
 if (confirm) this.attempt(() => {
 const work = state.works.find(item => item.id === record.workId) || (record.taskId ? studio.saveWork(record.taskId) : null);
 if (!work) { wx.showToast({ title: '关联作品已失效，请重新选择', icon: 'none' }); this.go('works'); return; }

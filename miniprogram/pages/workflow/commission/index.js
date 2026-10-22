@@ -28,12 +28,12 @@ Page({
    const can=!!(action&&SF.allowed(action,c)&&((this.view==='submit'&&(!existing||n.view==='submit'))||this.view==='feedback'&&existing&&c.businessFlow.dispatch&&!c.handover&&!c.acceptance||n.view===this.view&&n.actionable));
    const fields=[];const add=(key,label,kind='input')=>fields.push({key,label,kind});
    if(this.view==='submit'&&can){add('text','客户设计需求','textarea');add('scope','本次交付范围','textarea');add('total','设计服务总额（元）','money');add('first','首款金额（元，余款为尾款）','money');add('recipient','总部实际收款方');add('attachment','需求附件（选填）','file');add('checked','已核对需求、尺寸来源、范围及首尾款约定','check');}
-   if(this.view==='complete'&&can){add('note','线下完成说明（选填）','textarea');add('checked','本次线下设计及内部专业审核已完成','check');}
+   if(this.view==='complete'&&can){add('note','线下完成说明（选填）','textarea');add('checked','已收到财务线下通知，本次设计及内部专业审核已完成','check');}
    if(this.view==='feedback'&&can){add('note','需线下沟通的修改意见','textarea');add('attachment','客户修改意见附件（选填）','file');}
-   if(this.view==='dispatch'&&can){add('recipient','实际成果接收人');add('note','实际交付清单、渠道及说明','textarea');add('checked','本次正式成果已经实际下发','check');}
+   if(this.view==='dispatch'&&can){add('recipient','实际成果接收人');add('note','实际交付清单、渠道及说明','textarea');add('checked','已收到财务线下通知，本次正式成果已经实际下发','check');}
    if(this.view==='handover'&&can){add('resultFile','正式设计成果','file');add('drawingFile','本版施工图','file');add('drawingVersion','本次施工图版本');add('reviewFile','对应版本的线下专业审核依据','file');add('confirmationFile','客户对本版成果的确认凭据','file');add('confirmationDate','客户确认日期','date');add('note','现场重点与电子交底','textarea');add('managerId','项目工程人员','manager');add('received','正式文件已收齐且可读取','check');add('confirmed','客户已确认本次采用的成果版本','check');}
    if(this.view==='receive'&&can){add('note','退回原因（退回时必填）','textarea');add('checked','本版图纸、客户确认、审核依据及交底已核对','check');}
-   const rows=[{label:'当前进度',value:n.state},{label:'当前办理',value:n.owner},{label:'委托编号',value:c.request?.commissionId||'提交后生成'},{label:'交付范围',value:c.request?.scope||'随委托确认'}];
+   const rows=[{label:'当前进度',value:n.state},{label:'当前办理',value:n.owner},{label:'交付范围',value:c.request?.scope||'随委托确认'}];
    if(c.request)rows.push({label:'设计需求',value:c.request.text});const order=c.serviceOrders?.at(-1);if(order){rows.push({label:'设计服务总额',value:'￥'+B.money(order.total)});for(const stage of ['first','tail']){const pay=require('../../../utils/intercompany').condition(c,stage);rows.push({label:stage==='first'?'首款':'尾款',value:'应付 ￥'+B.money(order[stage])+' · '+pay.text});}}
    if(c.businessFlow?.completed)rows.push({label:'设计完成',value:c.businessFlow.completed.date+' · '+c.businessFlow.completed.by});
    if(c.businessFlow?.dispatch)rows.push({label:'交付记录',value:c.businessFlow.dispatch.date+' · '+c.businessFlow.dispatch.note});
@@ -51,7 +51,7 @@ Page({
  check(e){this.setData({['form.'+e.currentTarget.dataset.key]:e.detail.value.length>0,error:''});},
  chooseManager(e){const p=this.data.managerOptions[Number(e.detail.value)];if(p)this.setData({'form.managerId':p.id,selectedManager:p.name});},
  chooseFile(e){const key=e.currentTarget.dataset.key;wx.chooseMessageFile({count:1,type:'file',success:async r=>{try{const f=r.tempFiles[0],saved=await require('../../../utils/creation').persistMedia(f.path);this.setData({['form.'+key]:{name:f.name,path:saved,size:f.size},error:''});}catch(err){this.setData({error:err.message});}},fail:err=>{if(!/cancel/i.test(err.errMsg||''))this.setData({error:'文件选择失败，请重新选择'});}});},
- preview(e){const f=this.data.form[e.currentTarget.dataset.key]||this.data.rows[Number(e.currentTarget.dataset.index)]?.file;if(!f)return;if(f.text||f.sample)return this.setData({preview:{name:f.name,text:f.text||'这是隔离测试附件。实际办理请上传真实文件。'}});if(f.path)wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.setData({error:'此格式无法直接预览，请核对原文件后继续'})});},
+ preview(e){const f=this.data.form[e.currentTarget.dataset.key]||this.data.rows[Number(e.currentTarget.dataset.index)]?.file;if(!f)return;if(f.text||f.sample)return this.setData({preview:{name:f.name,text:f.text||'该文件暂无预览内容。'}});if(f.path)wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.setData({error:'此格式无法直接预览，请核对原文件后继续'})});},
  closePreview(){this.setData({preview:null});},
  openTask(e){Nav.open(e.currentTarget.dataset.url);},
  openFeedback(){Nav.open(SF.url(this.id,'feedback'));},

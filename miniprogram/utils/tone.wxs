@@ -1,0 +1,22 @@
+// Status text -> tone class, shared by every status chip so the same state always gets the same colour.
+var DANGER = ['退回', '整改', '逾期', '异常', '驳回', '失败', '超期'];
+var SUCCESS = ['已完成', '已批准', '审核通过', '已通过', '已核实', '已归档', '已交付', '已到账', '已确认', '已接收', '移交完成', '已备案'];
+var WARNING = ['待', '审批中', '办理中', '部分'];
+
+function has(text, words) {
+  for (var i = 0; i < words.length; i++) {
+    if (text.indexOf(words[i]) >= 0) return true;
+  }
+  return false;
+}
+
+function tone(value) {
+  if (!value) return '';
+  var text = '' + value;
+  if (has(text, DANGER)) return 'tone-danger';
+  if (has(text, SUCCESS)) return 'tone-success';
+  if (has(text, WARNING)) return 'tone-warning';
+  return '';
+}
+
+module.exports = { tone: tone };

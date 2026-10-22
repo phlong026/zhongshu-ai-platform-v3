@@ -1,5 +1,5 @@
 <admin-header id="subpage-header" title="{{title}}"/>
-<view class="admin view-{{view}}" style="padding-top:calc({{statusHeight}}px + 96rpx)"><demo-guide id="demo-guide"/>
+<view class="admin view-{{view}}" style="padding-top:calc({{statusHeight}}px + 96rpx)">
 <view wx:if="{{missing}}" class="card empty"><text>记录不存在或当前无权访问</text><view class="page-actions"><button class="solid" data-handler="home" bindtap="home">返回管理工作台</button></view></view>
 <block wx:else>
 <view wx:if="{{tabs}}" class="tabs {{view==='data'?'seg':''}}"><button wx:for="{{tabs}}" wx:key="*this" class="{{(view==='data'?form.dataTab:form.tab||tabs[0])===item?'active':''}}" data-value="{{item}}" data-handler="tab" bindtap="tab">{{item}}</button></view>

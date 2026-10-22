@@ -8,15 +8,8 @@ function basis(c){
  if(![width,depth,floors,area].every(n=>Number.isFinite(n)&&n>0))return null;
  return {kind:'budget',version:b.version,width,depth,floors,area};
 }
-function request(c,f,date){
- const source=basis(c),flow=c.request?.flow||(c.contract?'legacy':'design-first');
- if(!source||!String(f.requestText||'').trim())throw Error('请先保存有效参考预算，并填写设计需求。');
- if(flow==='design-first'&&(!String(f.requestScope||'').trim()||!f.designBasisChecked))throw Error('请填写本次设计交付范围，并核对需求、尺寸及资料来源。');
- return {version:(c.request?.version||0)+1,commissionId:c.request?.commissionId||'design:'+c.projectId,flow,text:f.requestText.trim(),scope:String(f.requestScope||c.request?.scope||'按本次需求及设计服务约定交付').trim(),date,basis:source,basisChecked:!!f.designBasisChecked,budgetVersion:last(c.budgets)?.version||null,planVersion:last(c.plans)?.version||null,facadeVersion:last(c.facades)?.version||null,contractVersion:c.contract?.version||null,attachment:f.requestAttachment?copy(f.requestAttachment):null};
-}
 function receipt(c){return (c.designReceipts||[]).find(r=>r.version===c.release?.version&&r.signature===c.release?.signature)||null;}
 function confirmed(c){return !!(c.release&&c.confirmation&&c.confirmation.version===c.release.version&&(!first(c)||receipt(c)));}
-function quoteCurrent(c){const q=last(c.quotes);return !!(q&&(!first(c)||q.designVersion===c.release?.version&&q.designSignature===c.release?.signature));}
 function next(c){
  if(require('./sales-flow').is(c)){const s=require('./sales-flow').next(c);return {...s,view:'delivery',actionable:false};}
  const result=(state,owner,view,label,actionable=false)=>({state,owner,view,label,actionable});
@@ -48,19 +41,4 @@ function next(c){
  if(review?.status!=='passed')return result('施工图待审核','设计负责人','drawing-review','查看施工图审核进度');
  return result('待工程移交','业务人员','handover','准备工程移交',true);
 }
-function receive(c,f,date){
- if(!c.release)throw Error('正式下发后才能确认收图。');
- if(receipt(c))return;
- if(!f.designReceiveChecked)throw Error('请先核对本版正式下发文件完整且可读取。');
- const a=require('./access').context();
- (c.designReceipts||(c.designReceipts=[])).push({version:c.release.version,signature:c.release.signature,requestVersion:c.request?.version,date,checked:true,files:copy(c.release.files),note:String(f.designReceiveNote||'').trim(),receivedById:a.staffId,receivedByPersonId:a.personId,companyId:a.companyId});
-}
-function feedback(c,f,date){
- if(!c.release||c.confirmation||c.handover)throw Error('仅当前已下发且尚未签认的成果可提交修改意见。');
- if(!String(f.designFeedbackNote||'').trim())throw Error('请填写本版需要修改的具体内容。');
- const a=require('./access').context(),row={id:'design-feedback-'+Date.now()+'-'+(c.designFeedbacks||[]).length,version:c.release.version,requestVersion:c.request.version,note:f.designFeedbackNote.trim(),file:f.designFeedbackFile?copy(f.designFeedbackFile):null,date,authorId:a.staffId,authorPersonId:a.personId};
- (c.designFeedbacks||(c.designFeedbacks=[])).push(row);
- (c.designHistory||(c.designHistory=[])).push({release:copy(c.release),receipt:receipt(c)?copy(receipt(c)):null,feedbackId:row.id});
- c.release=null;
-}
-module.exports={first,basis,request,receipt,confirmed,quoteCurrent,next,receive,feedback};
+module.exports={first,basis,receipt,confirmed,next};

@@ -20,8 +20,7 @@ if (options.section === 'works') wx.redirectTo({ url: '/pages/studio/index?view=
 if (options.section === 'digital') wx.redirectTo({ url: '/pages/studio/index?view=digital' });
 if (options.editor === '1') this.openEditor();
 },
-onShow() {require('../../utils/demo-session').apply(this);
-if(!studio.guard())return;if(this.actorScope!==studio.scope()){this.actorScope=studio.scope();this.setData({link:"",sheet:"",editorText:""});}
+onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){this.actorScope=studio.scope();this.setData({link:"",sheet:"",editorText:""});}
 const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || null;
 const recent = studio.recentItems(studio.read()).slice(0, 2).map(item=>({...item,updatedText:item.updatedAt?studio.formatTime(item.updatedAt):''}));
 this.setData({ draft, recent });
@@ -42,7 +41,7 @@ wx.showToast({ title: '请先粘贴有效的视频分享链接', icon: 'none' })
 }
 const sample=Demo.match(this.data.link),run=id=>{const state=studio.read();Demo.extract(state,this.data.link,id);studio.write(state);wx.navigateTo({url:'/pages/studio/index?view=remix'});};
 if(sample)return run(sample.id);
-wx.showModal({ title: '改用模拟文案', content: '真实视频解析尚未接入。继续将使用“'+Demo.samples.find(s=>s.id===this.data.sampleId).title+'”的模拟原文，不会读取此真实链接；手动草稿保留。', confirmText:'使用示例',confirmColor:'#824019',success:({confirm})=>{if(confirm)run(this.data.sampleId);} });
+wx.showModal({ title: '使用示例文案', content: '视频链接解析暂未开通。继续将使用“'+Demo.samples.find(s=>s.id===this.data.sampleId).title+'”的示例文案，不会读取此链接；手动草稿保留。', confirmText:'使用示例',confirmColor:'#824019',success:({confirm})=>{if(confirm)run(this.data.sampleId);} });
 },
 openEditor() {
 const draft = this.data.draft;

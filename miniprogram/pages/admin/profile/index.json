@@ -1,1 +1,1 @@
-{"usingComponents":{"owner-header":"../owner-header/index","owner-nav":"../owner-nav/index"}}
+{"navigationBarTitleText":"我的","usingComponents":{"owner-nav":"../owner-nav/index"}}

@@ -1,2 +1,1 @@
-@import "../../../styles/profile-session.wxss";
-@import "../owner.wxss";
+@import "../../../styles/profile.wxss";
