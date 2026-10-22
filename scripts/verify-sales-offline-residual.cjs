@@ -6,6 +6,14 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict');
  async function check(name,fn){try{await fn();checks.push({name,result:'passed'});console.log('PASS '+name);}catch(e){checks.push({name,result:'failed',error:e.message});console.log('FAIL '+name+' '+e.message.slice(0,150));}}
  const first=scenes[0],delivered=scenes.find(s=>s.action==='packet-submit');
  await check('新客户方案进度不显示正式报价入口',async()=>{install(first.before);open('progress',first.id);assert(!await(await runtime.currentPage()).$('button[data-view="quote"]'));});
+ await check('工作区合并设计阶段，预算、设计中、完成及工程接收保持正确位置',()=>{
+  const designing=scenes.find(s=>s.action==='design-complete'),completed=JSON.parse(fs.readFileSync(path.join(out,'../completed-fixture.json')));
+  for(const [rows,id,label]of [[first.before,first.id,'设计协同'],[designing.before,designing.id,'设计协同'],[delivered.before,delivered.id,'设计完成'],[completed,first.id,'施工阶段']]){
+   install(rows);login('sales-dual');open('progress',id);
+   assert.deepEqual(p().data.stages,['客户跟进','需求沟通','设计协同','设计完成','施工阶段','交付']);
+   assert.equal(p().data.stages[p().data.stageIndex],label);
+  }
+ });
  await check('新委托旧别名统一进入精简页面',()=>{for(const view of [...new Set([...SF.legacyActions,'delivery','hub','formal-progress','drawing-review','accepted','service-order','payment-first','payment-tail','funds','history'])]){install(delivered.before);open(view,delivered.id);assert.equal(p().route,'pages/workflow/commission/index',view+' retained an old page');}install(delivered.before);open('progress',delivered.id);assert.equal(p().route,'pages/workflow/index','项目进度留在客户工作区');assert.equal(p().data.view,'progress');assert(p().data.stageIndex>=3,'已委托客户处于设计协同之后');});
  await check('新委托模型拒绝旧动作及旧动作草稿',()=>{install(delivered.before);const c=B.customer(delivered.id);for(const action of SF.legacyActions){assert(!X.workflow(action,c,true),action+' still authorized');assert(!X.workflow('draft:'+action,c,true),'draft:'+action+' still authorized');assert.throws(()=>B.write(c.id,n=>{n.drafts.probe=true;},'旧动作残留探针',action));}});
  await check('新客户不能从旧模型发起委托或报价',()=>{install(first.before);const c=B.customer(first.id);for(const action of ['request','service-prepare','quote','contract-prepare'])assert(!X.workflow(action,c,true),action+' still authorized before the new marker');});

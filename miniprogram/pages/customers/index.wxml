@@ -17,7 +17,6 @@
       <button wx:if="{{hasMore}}" class="sales-footer-link" bindtap="more">查看更多客户<view class="chevron" /></button>
       <text wx:elif="{{tab==='due'&&filteredCustomers.length&&!keyword}}" class="sales-note customer-list-end">今天的跟进就这 {{filteredCustomers.length}} 位</text>
     </view>
-    <text class="sales-note">{{isLead?'按已授权团队查看客户，客资由经办人登记后直接跟进。':'登记后由本人持续跟进，客户资料与方案在同一记录中留档。'}}</text>
   </view>
 </view>
 <workspace-nav id="customers-workspace-nav" active-index="{{7}}" nested />
