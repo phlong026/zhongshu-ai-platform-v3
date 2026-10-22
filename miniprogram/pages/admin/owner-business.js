@@ -130,7 +130,8 @@ function forView(view, snapshot) {
   return {};
 }
 
-function rows(view, snapshot) {
+function rows(view, snapshot, metric) {
+  if (view === 'stat') return require('./owner-home').statRows(snapshot, metric);
   if (view === 'receivables') return receivable(snapshot).rows;
   if (view === 'payables') return payable(snapshot).rows;
   const model = forView(view, snapshot);

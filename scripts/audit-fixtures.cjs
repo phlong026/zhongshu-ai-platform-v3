@@ -20,6 +20,23 @@ module.exports = async function build() {
   const A = require('../miniprogram/utils/account'), Demo = require('../miniprogram/utils/demo-users');
   const scenes = JSON.parse(fs.readFileSync(path.resolve('qa/engineering-records-20261021/page-scenes.json'), 'utf8'));
   const base = copy(scenes[scenes.length - 1].after || scenes[scenes.length - 1].before);
+  const business = base.find(([key]) => key === 'zhongshu-business-v3')?.[1];
+  const initialBudget = require('../miniprogram/pages/workflow/design-session').initial().forms.budget;
+  const estimate = require('../miniprogram/pages/workflow/design-adapter').budget;
+  const auditCustomer = business?.customers.find(customer => customer.businessFlow?.type === 'sales-offline-v1') || business?.customers[0];
+  if (auditCustomer) {
+    auditCustomer.budgets = (auditCustomer.budgets || []).map(budget => {
+      if (budget.bodyRows?.length) return budget;
+      const parameters = {
+        ...copy(initialBudget),
+        ...copy(budget.parameters || {}),
+        area: String(budget.area || budget.parameters?.area || initialBudget.area)
+      };
+      parameters.footprint = String(budget.parameters?.footprint || Number(parameters.width) * Number(parameters.depth));
+      parameters.roofArea = String(budget.parameters?.roofArea || Math.round(Number(parameters.footprint) * 110) / 100);
+      return { ...budget, parameters, ...estimate(parameters), area: Number(parameters.area), sample: true };
+    });
+  }
   const install = rows => {
     wx.getStorageInfoSync().keys.forEach(k => wx.removeStorageSync(k));
     for (const [k, v] of copy(rows)) wx.setStorageSync(k, v);
