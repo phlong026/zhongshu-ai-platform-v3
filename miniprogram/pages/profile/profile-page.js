@@ -30,7 +30,8 @@ function entries(a) {
     ].concat(a.orgType === 'store' ? [{ text: '标准设计费用与授权', url: '/pages/workflow/commission/index?view=policy' }] : []);
   }
   const team = TEAM[a.role];
-  return team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }] : [];
+  // the business lead also hands customers over between salespeople (single or batch) from here
+  return team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }].concat(a.role === 'sales-lead' ? [{ text: '责任转交', url: '/pages/workflow/index?view=transfer' }] : []) : [];
 }
 
 module.exports = function (tabIndex) {
