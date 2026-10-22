@@ -149,13 +149,13 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   const before = desk('finance-wang', 'finance');
   assert(!before.tasks.some(t => t.view === 'pay' && t.id === payableId(lines[0])), '老板批准前财务不应有该笔付款待办');
   login('boss');
-  const approvals = open('/pages/admin/home/index').data.desk.approvals;
+  const approvals = open('/pages/admin/home/index').ownerSnapshot.approvals;
   const approval = approvals.find(t => t.url.includes(encodeURIComponent(payableId(lines[0]))));
   assert(approval, '老板首页应有材料采购付款审批');
   const approvePage = open(approval.url);
   assert.equal(approvePage.data.view, 'pay-approval');
   await submit({ checked: true, note: '核对实际金额和原凭据' });
-  assert(!open('/pages/admin/home/index').data.desk.approvals.some(t => t.url.includes(encodeURIComponent(payableId(lines[0])))), '批准后老板待办关闭');
+  assert(!open('/pages/admin/home/index').ownerSnapshot.approvals.some(t => t.url.includes(encodeURIComponent(payableId(lines[0])))), '批准后老板待办关闭');
   pass('B2 老板首页出现材料付款审批 → 批准 → 审批待办关闭');
 
   const q = money().payables.find(q => q.id === payableId(lines[0])) || M.load().payables.find(q => q.id === payableId(lines[0]));

@@ -90,7 +90,9 @@
     "check:chain:walk": "node scripts/verify-engineering-records.cjs && node scripts/walk-main-chain.cjs",
     "check:navigation:crawl": "node scripts/crawl-navigation.cjs",
     "check:finance:acceptance": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-finance-desk-acceptance.cjs",
-    "check:franchise:showcase": "node scripts/verify-franchise-showcase.cjs"
+    "check:franchise:showcase": "node scripts/verify-franchise-showcase.cjs",
+    "check:owner:workbench": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-owner-signing.cjs && node scripts/verify-owner-port-core.cjs && node scripts/verify-owner-workbench.cjs && node scripts/verify-owner-business-performance.cjs && node scripts/verify-owner-profile-port.cjs && npm run check",
+    "check:owner:workbench:native": "npm run check:owner:workbench && node scripts/verify-owner-workbench-port-native.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0"
