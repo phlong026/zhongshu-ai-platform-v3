@@ -5,10 +5,10 @@ const assert = require('assert/strict');
 const accounts = [
   { id: 'sales-dual', label: '李业务', name: '李业务', greeting: '.sales-greeting', roles: ['sales', 'sales-lead'], companyId: 'quanzhou', home: 'pages/business/index' },
   { id: 'engineering-dual', label: '张工程', name: '张工程', greeting: '.eng-hello', roles: ['engineer', 'project-manager'], companyId: 'quanzhou', home: 'pages/build/home/index' },
-  { id: 'finance-dual', label: '王财务', name: '王财务', greeting: '.fin-home .fin-heading .fin-title', roles: ['finance', 'finance-lead'], companyId: 'quanzhou', home: 'pages/management/index' },
+  { id: 'finance-dual', label: '王财务', name: '王财务', greeting: '.fin-home-greeting', roles: ['finance', 'finance-lead'], companyId: 'quanzhou', home: 'pages/management/index' },
   { id: 'boss', label: '张老板', name: '张老板', greeting: '.owner-hello', roles: ['boss', 'owner'], companyId: 'quanzhou', home: 'pages/admin/home/index' },
   { id: 'hq-design-admin', label: '林设计（总部设计）', name: '林设计', greeting: '.admin-greeting', roles: ['hq-design-admin'], companyId: 'headquarters', home: 'pages/workflow/commission/index', view: 'admin' },
-  { id: 'hq-finance-dual', label: '罗财务（总部财务）', name: '罗财务', greeting: '.fin-home .fin-heading .fin-title', roles: ['finance', 'finance-lead'], companyId: 'headquarters', home: 'pages/management/index' }
+  { id: 'hq-finance-dual', label: '罗财务（总部财务）', name: '罗财务', greeting: '.fin-home-greeting', roles: ['finance', 'finance-lead'], companyId: 'headquarters', home: 'pages/management/index' }
 ];
 
 process.env.FRANCHISE_WS = process.env.FRANCHISE_WS || 'ws://127.0.0.1:9890';
