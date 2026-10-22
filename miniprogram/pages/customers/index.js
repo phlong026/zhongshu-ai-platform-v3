@@ -15,5 +15,4 @@ Page({
  open(e){const id=e.currentTarget.dataset.id;if(!this.data.customers.some(c=>c.id===id)||!Access.customer(B.customer(id)))return;wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});},
  act(e){const row=this.data.customers.find(c=>c.id===e.currentTarget.dataset.id);if(row&&B.customer(row.id))wx.navigateTo({url:row.url});},
  call(e){const phone=B.customer(e.currentTarget.dataset.id)?.phone||'';if(!/^1\d{10}$/.test(phone))return wx.showToast({title:'该号码不可拨打',icon:'none'});wx.makePhoneCall({phoneNumber:phone,fail(){}});},
- manage(e){if(!Access.context().active||Access.context().role!=='sales-lead')return;const view=e.currentTarget.dataset.view;if(view==='business-team')return wx.navigateTo({url:'/pages/admin/index?view=business-team'});if(view==='transfer')wx.navigateTo({url:'/pages/workflow/index?view='+view});},
 });
