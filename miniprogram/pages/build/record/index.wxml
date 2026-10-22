@@ -41,7 +41,6 @@
    <view wx:if="{{view==='warranty'}}" class="eng-section"><view wx:for="{{warranties}}" wx:key="id" class="eng-row"><view class="eng-grow"><text>{{item.date}} · {{item.status}}</text><text class="eng-muted">{{item.note}}</text></view><button wx:if="{{own}}" class="eng-outline" data-id="{{item.id}}" bindtap="editWarranty">补充原记录</button></view></view>
    <view wx:if="{{view==='overview'||view==='project'||view==='archive'}}" class="eng-section"><view class="eng-heading"><text>项目记录</text></view><view wx:for="{{events}}" wx:key="id" class="record-field"><text>{{item.title}}</text><text class="eng-muted">{{item.time}} · {{item.by}}</text></view></view>
   </block>
+  <view wx:if="{{actions.length}}" class="page-actions record-actions"><button wx:for="{{actions}}" wx:key="action" class="{{index===0?'eng-primary':'eng-outline'}} primary-action" data-action="{{item.action}}" bindtap="perform" loading="{{busy}}" disabled="{{busy}}">{{item.label}}</button></view>
  </view>
 </view>
-
-<view wx:if="{{actions.length}}" class="page-actions record-actions"><button wx:for="{{actions}}" wx:key="action" class="{{index===0?'eng-primary':'eng-outline'}} primary-action" data-action="{{item.action}}" bindtap="perform" loading="{{busy}}" disabled="{{busy}}">{{item.label}}</button></view>

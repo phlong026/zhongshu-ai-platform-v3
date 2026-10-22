@@ -32,6 +32,7 @@
     "check:roles:model": "node scripts/verify-role-remediation.cjs && node scripts/verify-role-remediation-extra.cjs",
     "report:roles": "node scripts/build-role-remediation-report.cjs",
     "report:roles:complete": "node scripts/build-role-complete-report.cjs",
+    "check:layout:footer": "node scripts/verify-footer-layout.cjs",
     "check:layout:footer:hit": "node scripts/verify-footer-hit-native.cjs",
     "check:workbenches": "node scripts/verify-role-workbenches-complete.cjs",
     "check:franchise:pages": "node scripts/verify-franchise-role-pages.cjs",
