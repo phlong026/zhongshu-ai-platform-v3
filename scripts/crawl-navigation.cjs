@@ -29,6 +29,9 @@ const STARTS = {
   wx.navigateBack = () => { calls.push({ method: 'navigateBack', url: '' }); };
   const state = p => ({ route: p.route, view: p.data.view || '', error: p.data.error || '', missing: !!p.data.missing, access: p.data.view === 'access' });
   const healthy = s => !s.error && !s.missing && !s.access;
+  // The page that opened must be the one the link asked for; a different route or view means a redirect or a silent fallback.
+  const asked = u => { try { const x = new URL(u, 'http://l'); return { route: x.pathname.slice(1), view: x.searchParams.get('view') || '' }; } catch (e) { return { route: '', view: '' }; } };
+  const drift = (u, s) => { const a = asked(u); if (!a.route || a.route === 'pages/account/index') return ''; if (a.route !== s.route) return 'route ' + a.route + ' → ' + s.route + (s.view ? '?view=' + s.view : ''); if (a.view && s.view && a.view !== s.view) return 'view ' + a.view + ' → ' + s.view; return ''; };
   const normalise = u => { try { const x = new URL(u, 'http://l'); const q = [...x.searchParams.entries()].filter(([k]) => ['view', 'id', 'tab', 'record', 'checkIndex'].includes(k)).map(([k, v]) => k + '=' + v).join('&'); return x.pathname.replace(/^\//, '') + (q ? '?' + q : ''); } catch (e) { return u; } };
   const report = {};
   fs.mkdirSync(out, { recursive: true });
@@ -65,6 +68,8 @@ const STARTS = {
           if (!nav) continue;
           const after = state(getCurrentPages().at(-1));
           const target = nav.url;
+          const moved = drift(target, after);
+          if (moved && healthy(after)) issues.push({ type: 'DRIFT', from: key, control: c.handler + ' "' + c.label + '"', url: target, landed: after.route + (after.view ? '?view=' + after.view : ''), detail: moved });
           edges.push({ from: key, control: c.handler + ':' + c.label, to: normalise(target), landed: after.route + (after.view ? '?view=' + after.view : '') });
           if (!healthy(after)) issues.push({ type: after.access ? 'DENIED' : after.missing ? 'MISSING' : 'ERROR', from: key, control: c.handler + ' "' + c.label + '"', url: target, landed: after.route + (after.view ? '?view=' + after.view : ''), detail: after.error });
           queue.push({ url: target, depth: depth + 1, via: key + ' > ' + c.label });
