@@ -78,7 +78,8 @@
     "check:owner:signing": "node scripts/verify-owner-signing.cjs",
     "check:chain:walk": "node scripts/verify-engineering-records.cjs && node scripts/walk-main-chain.cjs",
     "check:navigation:crawl": "node scripts/crawl-navigation.cjs",
-    "check:finance:acceptance": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-finance-desk-acceptance.cjs"
+    "check:finance:acceptance": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-finance-desk-acceptance.cjs",
+    "check:franchise:showcase": "node scripts/verify-franchise-showcase.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0"

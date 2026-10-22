@@ -24,7 +24,7 @@ const chooseCustomer = index === 1 && !contextId && ['inspiration','search','ai-
 const destination=contextId&&key==='customerDetail'?(todo.view||require('./workbench').next(business.customer(contextId))):chooseCustomer?'customers&destination='+businessView:businessView;
 wx.navigateTo({ url: '/pages/workflow/index?view=' + destination + (contextId ? '&id=' + encodeURIComponent(contextId) : '') }); return;
 }
-if(key==='growth'){wx.navigateTo({url:'/pages/growth/index'});return;}if(key==='login'){wx.navigateTo({url:'/pages/account/index?view=login'});return;}const creationRoutes = { serviceOrders:'/pages/account/index?view=orders', remix: '/pages/creation/index', digital: '/pages/studio/index?view=digital', video: '/pages/ai-video/index', works: '/pages/studio/index?view=works' };
+if(key==='growth'){wx.navigateTo({url:'/pages/growth/index'});return;}if(key==='login'){wx.navigateTo({url:'/pages/account/index?view=login'});return;}const creationRoutes = { serviceOrders:'/pages/account/index?view=services', remix: '/pages/creation/index', digital: '/pages/studio/index?view=digital', video: '/pages/ai-video/index', works: '/pages/studio/index?view=works' };
 if (creationRoutes[key]) { wx.navigateTo({ url: creationRoutes[key] }); return; }
 const panel = panels[key];
 if (panel) {
