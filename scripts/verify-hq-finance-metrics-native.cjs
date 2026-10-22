@@ -49,6 +49,8 @@ async function main() {
         assert.equal(D.number(data.rows.reduce((sum, row) => sum + row.amount, 0)), expected.metrics[index].value);
         assert.equal(data.stats[0].value, expected.metrics[index].value);
       }
+      await r.until(async () => !!(await r.rects(['.fin-heading']))[0], '财务明细可见内容');
+      await r.sleep(350);
       await r.capture(['month-receipts', 'receivables', 'all-receipts'][index]);
     }
     report.checks.push('三项卡片均真实点击成功，收款与待收明细合计分别等于首页指标');
