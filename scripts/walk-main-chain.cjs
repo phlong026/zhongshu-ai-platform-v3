@@ -8,7 +8,7 @@
 const fs = require('fs'), path = require('path');
 const arg = n => (process.argv.find(a => a.startsWith('--' + n + '=')) || '').split('=')[1];
 const depthMax = Number(arg('depth') || 3), out = path.resolve(arg('out') || 'qa/walk-main-chain');
-const LOGIN = { li: 'manager-li' };
+const LOGIN = { li: 'manager-li', 'wang-finance':'finance-wang' };
 // who looks at the chain after every step: [login id, role, home]
 const WATCH = [
   ['engineering-dual', 'project-manager', '/pages/build/home/index'],
