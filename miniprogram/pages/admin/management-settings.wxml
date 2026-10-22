@@ -1,0 +1,18 @@
+<template name="owner-company-settings">
+<view class="owner-card management-company"><view class="owner-heading"><text>门店资料</text></view>
+<view class="owner-readonly-row"><text class="owner-muted">组织编号</text><text>{{managementSettings.company.companyId}}</text></view>
+<block wx:if="{{managementSettings.canEdit}}">
+<view class="owner-form-row"><text>门店名称</text><input class="management-input" value="{{companyForm.displayName}}" data-field="displayName" bindinput="companyInput" maxlength="50"/></view>
+<view class="owner-form-row"><text>联系人</text><input class="management-input" value="{{companyForm.contact}}" data-field="contact" bindinput="companyInput" maxlength="30"/></view>
+<view class="owner-form-row"><text>联系电话</text><input class="management-input" value="{{companyForm.phone}}" data-field="phone" bindinput="companyInput" maxlength="13"/></view>
+<view class="owner-form-row"><text>门店地址</text><input class="management-input" value="{{companyForm.address}}" data-field="address" bindinput="companyInput" maxlength="120"/></view>
+<button class="owner-primary owner-save" loading="{{saving}}" disabled="{{saving}}" bindtap="saveCompany">保存门店资料</button>
+</block>
+<block wx:else><view class="owner-readonly-row"><text>门店名称</text><text>{{managementSettings.company.displayName}}</text></view><view class="owner-readonly-row"><text>联系人</text><text>{{managementSettings.company.contact||'待登记'}}</text></view><view class="owner-readonly-row"><text>联系电话</text><text>{{managementSettings.company.phone||'待登记'}}</text></view><view class="owner-readonly-row"><text>门店地址</text><text>{{managementSettings.company.address||'待登记'}}</text></view><text class="owner-note">请由本组织老板维护资料。</text></block>
+
+</view>
+</template>
+<template name="owner-assignment-settings">
+<view class="owner-card"><view class="owner-heading"><text>审批规则</text></view><view wx:for="{{managementSettings.fixedRules}}" wx:key="id" class="owner-readonly-row"><text class="owner-muted">{{item.label}}</text><text>{{item.value}}</text></view></view>
+<view class="owner-card"><view class="owner-heading"><text>当前职责分工</text></view><view wx:for="{{managementSettings.assignmentFields}}" wx:key="id" class="owner-form-row"><text>{{item.label}}</text><picker wx:if="{{managementSettings.canEdit&&item.options.length}}" range="{{item.options}}" range-key="name" data-field="{{item.id}}" bindchange="assignmentChange"><view class="owner-link">{{item.selectedName}}<image class="owner-arrow" src="/assets/creation-chevron.png"/></view></picker><text wx:else class="owner-muted">{{item.options.length?item.selectedName:'暂无在岗人员'}}</text></view><button wx:if="{{managementSettings.canEdit}}" class="owner-primary owner-save" loading="{{saving}}" disabled="{{saving}}" bindtap="saveAssignments">保存职责分工</button><text class="owner-note">新事项优先选择以上经办人。</text></view>
+</template>

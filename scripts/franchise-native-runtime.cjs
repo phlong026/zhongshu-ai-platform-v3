@@ -23,7 +23,7 @@ async function connect(label,options={}){const directory=path.resolve(options.di
    mp.pageMap?.clear();const page=await mp.currentPage(),elements=await page.$$(spec.selector);let element;
    for(const candidate of elements){let matches=true;for(const [key,value]of Object.entries(spec.dataset||{})){const attribute='data-'+key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase()),actual=await candidate.attribute(attribute);if(String(actual??'')!==String(value??'')){matches=false;break;}}if(matches){element=candidate;break;}}
    assert(element,'SDK rendered control with matching dataset '+spec.selector+' '+JSON.stringify(spec.dataset||{}));
-   const action=['input','search'].includes(method)?'input':['pick','date','pickDate','change','selectDemoUser'].includes(method)?'change':'tap';
+   const action=['input','search','goalFieldInput','companyInput','commissionInput'].includes(method)?'input':['pick','date','pickDate','change','selectDemoUser'].includes(method)?'change':'tap';
    if(action==='input')await element.input(String(detail.value??''));else if(action==='change')await element.trigger('change',detail);else await element.tap();
    interactions.push({route:page.path,selector:spec.selector,dataset:rect.dataset||{},expectedHandler:method,via:action==='tap'?'Element.tap':action==='input'?'Element.input':'Element.trigger(change)'});fs.writeFileSync(path.join(directory,label+'-interactions.json'),JSON.stringify(interactions,null,2));
   }else await mp.evaluate(({method,detail,dataset})=>{const p=getCurrentPages().at(-1);if(typeof p[method]!=='function')throw Error('Native Page handler not found: '+method);setTimeout(()=>p[method]({currentTarget:{dataset},target:{dataset},detail}),120);return true;},{method,detail,dataset:rect.dataset||{}});await sleep(350);}

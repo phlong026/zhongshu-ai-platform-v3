@@ -22,4 +22,10 @@ const inherited={'sales-lead':'sales','project-manager':'engineer','finance-lead
 const has=(role,wanted)=>role===wanted||inherited[role]===wanted;
 const staffHas=(p,wanted)=>(p?.roles||[p?.roleId]).some(r=>has(r,wanted));
 const defaultRole=(grants,preferred)=>{const first=grants.includes(preferred)?preferred:grants[0];return Object.keys(inherited).find(r=>inherited[r]===first&&grants.includes(r))||first;};
-module.exports={defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation};
+// Defaults only prefill new forms; the original record remains authoritative.
+function defaultAssignee(book, department) {
+ const role={sales:'sales',engineering:'engineer',finance:'finance',design:'hq-design-admin',operations:'hq-operations'}[department];
+ const id=book?.managementSettings?.assignments?.[department];
+ return role&&id&&(book.staff||[]).some(person=>person.id===id&&person.active!==false&&staffHas(person,role))?id:'';
+}
+module.exports={defaultAssignee,defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation};

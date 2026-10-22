@@ -13,9 +13,10 @@ if not args.check_only and (not args.font or not args.font.is_file()):
  parser.error('请用 --font 指定现有 NotoSansSC 可变字体文件')
 target=root/'miniprogram/pages/admin/font-sources.js'
 faces=json.loads(target.read_text(encoding='utf8').split('=',1)[1].strip().rstrip(';'))
-paths=[root/'miniprogram/pages/admin'/name for name in ['owner-model.js','owner-page.js','owner-home.js','owner-business.js']]
-for directory in ['home','finance','performance','profile','detail','owner-header','owner-nav']:
+paths=[root/'miniprogram/pages/admin'/name for name in ['owner-model.js','owner-page.js','owner-home.js','owner-business.js','owner-performance.js','owner-settings.js','management-settings.wxml','collection-commission.wxml']]
+for directory in ['home','finance','performance','profile','detail','owner-header','owner-nav','commission','simulation']:
  paths+=list((root/'miniprogram/pages/admin'/directory).glob('*.wxml'))
+paths += [root/'miniprogram/utils'/name for name in ['operating-report.js','collection-commission.js','management-handover.js']]
 text=''.join(p.read_text(encoding='utf8') for p in paths if p.exists())+'0123456789.,%/¥万项位年月日周一二三四五六截至未设置在岗成员权限审批交接记录湖北武汉黄陂蔡甸江夏张刘陈林王李赵老板经理业务财务负责人开工款封顶款'
 needed={ord(c) for c in text if '\u4e00'<=c<='\u9fff' or c in '0123456789.,%/¥万'}
 audit=[]

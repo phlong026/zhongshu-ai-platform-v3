@@ -27,7 +27,7 @@ function managementEntries(a) {
     const admin = view => '/pages/admin/index?view=' + view, detail = view => '/pages/admin/detail/index?view=' + view;
     return [
       { text: '成员与权限', url: admin('staff') }, { text: '审批设置', url: detail('settings') },
-      { text: '项目经理交接', url: detail('handover') }, { text: '门店资料', url: detail('company') }, { text: '操作记录', url: detail('activity') }
+      { text: '项目经理交接', url: detail('handover') }, { text: '项目回款提成', url: '/pages/admin/commission/index' }, { text: '门店资料', url: detail('company') }, { text: '操作记录', url: detail('activity') }
     ].concat(a.role === 'boss' && a.orgType === 'store' ? [{ text: '标准设计费用与授权', url: '/pages/workflow/commission/index?view=policy' }] : []);
   }
   return [];
@@ -37,6 +37,7 @@ function entries(a) {
   if (!a.active) return [];
   if (require('../../utils/access').isBoss(a)) return [{ text: '我的团队', url: '/pages/admin/detail/index?view=team' }];
   const team = TEAM[a.role];
+  if (['finance','finance-lead'].includes(a.role)) return (team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }] : []).concat([{ text: '项目回款提成', url: '/pages/admin/commission/index' }, { text: '公司费用与推广登记', url: '/pages/admin/operations/index?view=expenses&id=' + encodeURIComponent('company:' + a.companyId) + '&purpose=' + encodeURIComponent('推广获客') }]);
   // the business lead also hands customers over between salespeople (single or batch) from here
   return team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }].concat(a.role === 'sales-lead' ? [{ text: '责任转交', url: '/pages/workflow/index?view=transfer' }] : []) : [];
 }
@@ -53,9 +54,9 @@ module.exports = function (tabIndex) {
         engineeringProfile, courseId: engineeringProfile ? 'engineering' : 'ai-video', courseTitle: engineeringProfile ? '乡墅开工与现场交底' : 'AI短视频获客实战',
         courseImage: engineeringProfile ? '/pages/account/assets/course-engineering.jpg' : A.courseImage,
         loggedIn: s.session.loggedIn, showStoreServices: !s.session.loggedIn || a.orgType === 'store',
-        entries: entries(a).concat(a.active && a.demo ? [{ text: '跨设备联调', url: '/pages/collaboration/index' }] : []),
+        entries: entries(a).concat(a.active && a.demo ? [{ text: '跨设备联调', url: '/pages/collaboration/index' }].concat(ownerProfile ? [{ text: '管理模拟联调', url: '/pages/admin/simulation/index' }] : []) : []),
         ownerProfile, managementEntries: managementEntries(a),
-        name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? c.name : '未选择公司',
+        name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
         unread: A.scoped(s, s.messages).filter(x => !x.read).length, progress: A.progress(s, engineeringProfile ? 'engineering' : 'ai-video')
       });
       const bar = this.getTabBar && this.getTabBar();

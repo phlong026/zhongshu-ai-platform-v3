@@ -78,10 +78,10 @@ function transition(b,action,input,at=new Date().toISOString()){
   if(b.request)(n.requestHistory||(n.requestHistory=[])).push(copy(b.request));
   n.request={version,flow:'design-first',commissionId:b.request?.commissionId||'design:'+b.projectId,text:f.text.trim(),scope:f.scope.trim(),basis,basisChecked:true,budgetVersion:b.budgets.at(-1).version,planVersion:b.plans?.at(-1)?.version||null,facadeVersion:b.facades?.at(-1)?.version||null,attachment:f.attachment||null,date:date()};
   n.designOrganizationId='headquarters';n.designTeamId='design';
-  const order={id:'service-'+serviceVersion,version:serviceVersion,total:total/100,first:first/100,tail:(total-first)/100,recipient,basis:f.scope.trim(),verifier:a.name,date:date(),requestVersion:version,file:{name:'设计委托费用约定 V'+serviceVersion,text:'本次范围：'+f.scope+'；总额 '+total/100+' 元，首款 '+first/100+' 元，尾款 '+(total-first)/100+' 元；实际收款方：'+recipient}};
+  const order={id:'service-'+serviceVersion,version:serviceVersion,responsibleId:X.ownerId(b),submittedById:a.staffId,submittedAt:at,total:total/100,first:first/100,tail:(total-first)/100,recipient,basis:f.scope.trim(),verifier:a.name,date:date(),requestVersion:version,file:{name:'设计委托费用约定 V'+serviceVersion,text:'本次范围：'+f.scope+'；总额 '+total/100+' 元，首款 '+first/100+' 元，尾款 '+(total-first)/100+' 元；实际收款方：'+recipient}};
   (n.serviceOrders||(n.serviceOrders=[])).push(order);
   const match=p?.active&&same([order.total,order.first,order.tail,recipient,order.basis],[p.total,p.first,p.tail,p.recipient,p.scope]);
-  flow=n.businessFlow={type:TYPE,requestVersion:version,submittedAt:at,authorization:match?{kind:'standard',policyId:p.id,policyVersion:p.version,serviceVersion}:{kind:'exception',serviceVersion},events:flow?.events||[]};
+  flow=n.businessFlow={type:TYPE,requestVersion:version,submittedAt:at,responsibleId:X.ownerId(b),submittedById:a.staffId,authorization:match?{kind:'standard',policyId:p.id,policyVersion:p.version,serviceVersion}:{kind:'exception',serviceVersion},events:flow?.events||[]};
  }else{
   X.assert(is(b),'当前委托仍使用历史流程');
   if(action==='commission-feedback'){

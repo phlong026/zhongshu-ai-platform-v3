@@ -1,0 +1,33 @@
+<template name="owner-performance-settings">
+  <view class="owner-card">
+    <view class="owner-heading"><text>公司月度目标</text></view>
+    <view wx:for="{{performanceSettings.companyFields}}" wx:key="id" class="owner-form-row">
+      <text class="owner-label">{{item.label}}</text>
+      <view class="owner-input-wrap"><input class="owner-goal-input" value="{{item.value}}" type="digit" data-scope="company" data-field="{{item.id}}" bindinput="goalFieldInput" placeholder="待设置"/><text class="owner-muted">{{item.unit}}</text></view>
+    </view>
+  </view>
+  <view class="owner-card">
+    <view class="owner-heading"><text>部门目标</text></view>
+    <view wx:for="{{performanceSettings.departments}}" wx:for-item="department" wx:key="id" class="owner-form-section">
+      <text class="owner-name">{{department.label}}</text>
+      <view wx:for="{{department.metrics}}" wx:for-item="metric" wx:key="id" class="owner-form-row">
+        <text class="owner-label">{{metric.label}}</text>
+        <view class="owner-input-wrap"><input class="owner-goal-input" value="{{metric.value}}" type="digit" data-scope="department" data-department="{{department.id}}" data-metric="{{metric.id}}" bindinput="goalFieldInput" placeholder="待设置"/><text class="owner-muted">{{metric.unit}}</text></view>
+      </view>
+    </view>
+  </view>
+  <view class="owner-card">
+    <view class="owner-heading"><text>个人目标</text></view>
+    <view wx:for="{{performanceSettings.staff}}" wx:for-item="person" wx:key="id" class="owner-form-section">
+      <text class="owner-name">{{person.name}}</text>
+      <view wx:for="{{person.departments}}" wx:for-item="department" wx:key="id" class="owner-form-subsection">
+        <text class="owner-muted">{{department.label}}</text>
+        <view wx:for="{{department.metrics}}" wx:for-item="metric" wx:key="metric" class="owner-form-row">
+          <text class="owner-label">{{metric.label}}</text>
+          <view class="owner-input-wrap"><input class="owner-goal-input" value="{{metric.value}}" type="digit" data-scope="staff" data-person="{{person.id}}" data-department="{{department.id}}" data-metric="{{metric.metric}}" bindinput="goalFieldInput" placeholder="待设置"/><text class="owner-muted">{{metric.unit}}</text></view>
+        </view>
+      </view>
+    </view>
+  </view>
+  <button class="owner-save" loading="{{saving}}" disabled="{{saving}}" bindtap="savePerformanceGoals">保存月度目标</button>
+</template>

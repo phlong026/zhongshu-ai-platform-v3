@@ -58,7 +58,9 @@
         "profile/index",
         "detail/index",
         "finance-desk/index",
-        "operations/index"
+        "operations/index",
+        "commission/index",
+        "simulation/index"
       ],
       "root": "pages/admin",
       "name": "management-workflow"

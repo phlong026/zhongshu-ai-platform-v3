@@ -1,0 +1,68 @@
+<view class="page">
+  <view class="notice">
+    <text class="notice-title">{{modeLabel}}</text>
+    <text class="notice-text">仅连接本机模拟服务，用两个测试会话验证同一份管理数据，不连接真实收付款或微信服务。</text>
+  </view>
+
+  <view wx:if="{{!connected}}" class="card">
+    <text class="title">连接信息</text>
+    <text class="label">服务地址</text>
+    <input class="input" value="{{baseUrl}}" data-field="baseUrl" bindinput="input" placeholder="http://127.0.0.1:8788" />
+    <text class="label">私有测试接入码</text>
+    <input class="input" value="{{inviteCode}}" data-field="inviteCode" bindinput="input" password placeholder="从 connection.json 复制" />
+    <button class="primary" loading="{{busy}}" disabled="{{busy}}" bindtap="connect">接入模拟服务</button>
+  </view>
+
+  <block wx:else>
+    <view class="card status">
+      <view><text class="dot"></text><text class="title">已连接模拟服务</text></view>
+      <text class="meta">服务端版本 {{revision}} · {{actor.name}} · {{actor.role}}</text>
+      <text class="meta">{{baseUrl}}</text>
+      <view class="actions"><button size="mini" bindtap="refresh" loading="{{busy}}">刷新</button><button size="mini" bindtap="retry" loading="{{busy}}">重试待核实操作</button><button size="mini" bindtap="disconnect">退出</button></view>
+    </view>
+
+    <view wx:if="{{management}}" class="card">
+      <text class="title">{{management.period}} 管理目标</text>
+      <view class="grid">
+        <label><text class="label">设计委托额</text><input class="input" value="{{goalForm.sales}}" data-field="sales" bindinput="goalInput" type="digit" /></label>
+        <label><text class="label">回款额</text><input class="input" value="{{goalForm.collections}}" data-field="collections" bindinput="goalInput" type="digit" /></label>
+        <label><text class="label">有效客户</text><input class="input" value="{{goalForm.effective}}" data-field="effective" bindinput="goalInput" type="number" /></label>
+        <label><text class="label">新增客户</text><input class="input" value="{{goalForm.customers}}" data-field="customers" bindinput="goalInput" type="number" /></label>
+        <label><text class="label">工程节点</text><input class="input" value="{{goalForm.nodes}}" data-field="nodes" bindinput="goalInput" type="number" /></label>
+      </view>
+      <button class="primary" bindtap="saveGoals" loading="{{busy}}" disabled="{{busy}}">保存到共享测试账簿</button>
+    </view>
+
+    <view wx:if="{{management}}" class="card">
+      <text class="title">门店资料</text>
+      <text class="label">门店名称</text><input class="input" value="{{companyForm.displayName}}" data-field="displayName" bindinput="companyInput" />
+      <text class="label">联系人</text><input class="input" value="{{companyForm.contact}}" data-field="contact" bindinput="companyInput" />
+      <text class="label">联系电话</text><input class="input" value="{{companyForm.phone}}" data-field="phone" bindinput="companyInput" />
+      <text class="label">地址</text><input class="input" value="{{companyForm.address}}" data-field="address" bindinput="companyInput" />
+      <button class="primary" bindtap="saveCompany" loading="{{busy}}" disabled="{{busy || !management.settings.canEdit}}">保存门店资料</button>
+    </view>
+
+    <view wx:if="{{management && commission.canEdit}}" class="card">
+      <text class="title">项目回款提成规则</text>
+      <text class="meta">仅保存模拟规则。固定总额在开工款、封顶款净实收分别足额后各解锁一半。</text>
+      <picker range="{{commission.projects}}" range-key="name" value="{{commissionProjectIndex}}" bindchange="commissionProject"><view class="select">项目：{{commission.projects[commissionProjectIndex].name || '暂无真实工程项目'}}</view></picker>
+      <picker range="{{commission.staff}}" range-key="name" value="{{commissionStaffIndex}}" bindchange="commissionStaff"><view class="select">归属人：{{commission.staff[commissionStaffIndex].name || '暂无在岗人员'}}</view></picker>
+      <text class="label">固定提成总额（元）</text><input class="input" value="{{commissionForm.amount}}" data-field="amount" bindinput="commissionInput" type="digit" />
+      <text class="label">模拟确认说明</text><textarea class="input note" value="{{commissionForm.note}}" data-field="note" bindinput="commissionInput" />
+      <button class="check" bindtap="commissionToggle">{{commissionForm.checked ? '☑' : '☐'}} 已核对项目、金额、归属人与模拟依据</button>
+      <button class="primary" bindtap="saveCommission" loading="{{busy}}" disabled="{{busy || !commission.projects.length || !commission.staff.length}}">保存共享模拟提成规则</button>
+    </view>
+
+    <view wx:if="{{management}}" class="card">
+      <text class="title">已确认提成规则</text>
+      <view wx:for="{{commission.rows}}" wx:key="id" class="policy">
+        <text class="policy-name">{{item.project}} · {{item.totalText}}</text>
+        <text class="meta">归属 {{item.assignee}} · 规则 V{{item.version}}</text>
+        <text wx:for="{{item.stages}}" wx:for-item="stage" wx:key="stage" class="meta">{{stage.label}}：{{stage.status}} · 阶段应收 {{stage.requiredText}} · 净实收 {{stage.receivedText}} · 提成 {{stage.amountText}}</text>
+      </view>
+      <text wx:if="{{!commission.rows.length}}" class="meta">当前没有已确认的模拟提成规则。</text>
+    </view>
+  </block>
+
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+</view>

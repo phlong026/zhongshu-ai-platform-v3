@@ -4,6 +4,7 @@ const X = require('../../utils/access');
 const N = require('../../utils/organization');
 const F = require('../../utils/finance-source');
 const P = require('../../utils/performance');
+const R = require('../../utils/operating-report');
 const W = require('./owner-model');
 
 const DAY = 86400000;
@@ -31,13 +32,17 @@ function change(current, previous, previousLabel) {
 }
 
 function receivable(snapshot) {
-  const place = id => snapshot.customers.find(customer => customer.projectId === id)?.city || '';
-  const rows = snapshot.operating.rows.filter(row => !row.operatingOnly && row.remaining > 0).flatMap(row => {
-    const meta = text => [place(row.id), text].filter(Boolean).join(' · ');
-    if (!row.plan) return [{ key: 'ar:' + row.id, sourceId: row.id, amountCents: row.remaining, url: W.detail('receivable', { id: row.id }), name: row.name + ' · 未收款', meta: meta('收款计划待确认'), amount: wan(row.remaining), tag: '计划待确认', tone: 'later', due: '', overdue: false }];
-    return row.installments.filter(item => item.remaining > 0).map(item => ({ key: 'ar:' + row.id + ':' + item.id, sourceId: row.id + ':' + item.id, amountCents: item.remaining, url: W.detail('receivable', { id: row.id + ':' + item.id }), name: row.name + ' · ' + item.name, meta: meta('约定 ' + md(item.due)), amount: wan(item.remaining), tag: item.overdue ? '逾期 ' + daysBetween(item.due, snapshot.today) + ' 天' : '未到期', tone: item.overdue ? 'overdue' : tone(item.due, snapshot.today), due: item.due, overdue: item.overdue }));
-  }).sort((a, b) => Number(b.overdue) - Number(a.overdue) || (a.due || '9999').localeCompare(b.due || '9999'));
-  return { total: wan(snapshot.operating.receivable), overdue: wan(snapshot.operating.overdue), count: rows.length, rows };
+  const report = R.analytics(snapshot.state, snapshot.period, snapshot.today);
+  const rows = report.receivableRows.map(row => {
+    const customer = snapshot.customers.find(customer => customer.projectId === row.projectId);
+    const overdue = !!row.due && row.due < snapshot.today;
+    return { key:'ar:' + row.id, sourceId:row.id, amountCents:row.amountCents, url:W.detail('receivable', {id:row.id}),
+      name:(customer?.name || row.projectId) + ' · ' + row.installment,
+      meta:[customer?.city, row.due ? '约定 ' + md(row.due) : '收款计划待确认'].filter(Boolean).join(' · '),
+      amount:wan(row.amountCents), tag:overdue ? '逾期 ' + daysBetween(row.due, snapshot.today) + ' 天' : row.due ? '未到期' : '计划待确认',
+      tone:tone(row.due, snapshot.today), due:row.due, overdue };
+  }).sort((a,b)=>Number(b.overdue)-Number(a.overdue)||(a.due||'9999').localeCompare(b.due||'9999'));
+  return { total:wan(report.receivableAging.totalCents), overdue:wan(rows.filter(row=>row.overdue).reduce((sum,row)=>sum+row.amountCents,0)), count:rows.length, rows };
 }
 
 function payable(snapshot) {
@@ -50,22 +55,63 @@ function payable(snapshot) {
   return { total: wan(open.reduce((sum, item) => sum + item.remaining, 0)), dueSoon: wan(open.filter(item => item.payable.due && item.payable.due >= snapshot.today && item.payable.due <= soon).reduce((sum, item) => sum + item.remaining, 0)), count: rows.length, rows };
 }
 
+function analyticRows(rows, total) {
+  return rows.map(row => ({ ...row, value: wan(row.amountCents), percent: total ? Math.round(row.amountCents * 100 / total) : 0 }));
+}
+
+function analyticsView(report, factsAvailable) {
+  const maximum = Math.max(1, ...report.trend.flatMap(row => [row.incomeCents, row.paidCents]));
+  const percent = basisPoints => basisPoints === null ? null : (basisPoints / 100).toLocaleString('en-US', { maximumFractionDigits: 1 }) + '%';
+  return {
+    trend: report.trend.map(row => ({ ...row, label: Number(row.period.slice(5)) + '月', income: wan(row.incomeCents), paid: wan(row.paidCents), incomeWidth: Math.round(row.incomeCents * 100 / maximum), paidWidth: Math.round(row.paidCents * 100 / maximum) })),
+    incomeComposition: analyticRows(report.incomeComposition.rows, report.incomeComposition.totalCents),
+    paidComposition: analyticRows(report.paidComposition.rows, report.paidComposition.totalCents),
+    receivableAging: factsAvailable ? analyticRows(report.receivableAging.buckets, report.receivableAging.totalCents) : [],
+    payableAging: factsAvailable ? analyticRows(report.payableAging.buckets, report.payableAging.totalCents) : [],
+    collectionRate: factsAvailable && report.collectionRate.available ? { value: percent(report.collectionRate.basisPoints), received: wan(report.collectionRate.numeratorCents), due: wan(report.collectionRate.denominatorCents), available: true } : { value: null, note: factsAvailable ? '待确认本月到期收款计划' : '该月未归档', available: false },
+    coverage: factsAvailable && report.coverage.available ? { value: (report.coverage.milli / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '倍', cash: wan(report.coverage.cashCents), payable: wan(report.coverage.payableCents), available: true } : { value: null, note: factsAvailable && report.coverage.cashCents === null ? '待财务核对账户余额' : factsAvailable ? '暂无已批准未付应付' : '该月未归档', available: false },
+    profit: factsAvailable && report.profit.available ? { value: wan(report.profit.profitCents), margin: percent(report.profit.marginBasisPoints), available: true } : { value: null, note: factsAvailable ? '成本待完善' : '该月未归档', available: false },
+    acquisition: factsAvailable && report.acquisition.available ? { value: (report.acquisition.costCents / 100).toLocaleString('en-US', { maximumFractionDigits: 2 }), promotion: wan(report.acquisition.promotionCents), customers: report.acquisition.effectiveCustomers, available: true } : { value: null, note: factsAvailable && !report.acquisition.promotionCents ? '推广费待登记' : factsAvailable ? '暂无有效客户' : '该月未归档', available: false }
+  };
+}
+
+function frozenReceivable(snapshot, report) {
+  const name = id => snapshot.customers.find(customer => customer.projectId === id)?.name || id;
+  const rows = report.receivableRows.map(row => ({ key: 'ar:' + row.id, sourceId: row.id, amountCents: row.amountCents, url: W.detail('receivable', { id: row.id }), name: name(row.projectId) + ' · ' + row.installment, meta: row.due ? '约定 ' + md(row.due) : '收款计划待确认', amount: wan(row.amountCents), tag: row.due && row.due < report.asOf ? '月末逾期' : row.due ? '月末未到期' : '计划待确认', tone: row.due && row.due < report.asOf ? 'overdue' : 'later', due: row.due, overdue: !!row.due && row.due < report.asOf }));
+  return { total: wan(report.receivableAging.totalCents), overdue: wan(report.receivableAging.buckets.filter(row => row.key.startsWith('overdue')).reduce((total, row) => total + row.amountCents, 0)), count: rows.length, rows };
+}
+
+function frozenPayable(report) {
+  const rows = report.payableRows.map(row => ({ key: 'ap:' + row.id, sourceId: row.id, amountCents: row.amountCents, url: W.detail('payable', { id: row.id }), name: (row.source.customer || '公司') + ' · ' + (row.source.stage || row.source.name), due: row.due ? '到期 ' + md(row.due) : '到期日待登记', amount: wan(row.amountCents), tag: '月末未付', tone: row.due && row.due < report.asOf ? 'overdue' : 'later' }));
+  return { total: wan(report.payableAging.totalCents), dueSoon: '0', count: rows.length, rows };
+}
+
 function business(snapshot) {
   const previous = previousPeriod(snapshot.period);
   const previousLabel = Number(previous.slice(5)) + '月';
-  const currentSummary = F.summary(snapshot.state);
-  const previousSummary = F.summary({ ...snapshot.state, period: previous });
+  const recalculatedSummary = F.summary(snapshot.state);
+  const recalculatedPrevious = F.summary({ ...snapshot.state, period: previous });
   const fund = (snapshot.state.operations?.funds || []).slice(-1)[0];
   const historical = snapshot.period !== snapshot.today.slice(0, 7);
-  const currentReceivable = historical ? { total: '0', overdue: '0', count: 0, rows: [] } : receivable(snapshot);
-  const currentPayable = historical ? { total: '0', dueSoon: '0', count: 0, rows: [] } : payable(snapshot);
+  const archived = R.currentSnapshot(snapshot.state, snapshot.period);
+  const liveReport = R.analytics(snapshot.state, snapshot.period, snapshot.today);
+  const report = archived?.report || liveReport;
+  const archivedFlow = archived && report.trend.find(row => row.period === snapshot.period);
+  const archivedPrevious = archived && report.trend.find(row => row.period === previous);
+  const currentSummary = archivedFlow ? { income: archivedFlow.incomeCents, paid: archivedFlow.paidCents, net: archivedFlow.netCents } : recalculatedSummary;
+  const previousSummary = archivedPrevious ? { income: archivedPrevious.incomeCents, paid: archivedPrevious.paidCents, net: archivedPrevious.netCents } : recalculatedPrevious;
+  const currentReceivable = historical ? archived ? frozenReceivable(snapshot, report) : { total: '0', overdue: '0', count: 0, rows: [] } : receivable(snapshot);
+  const currentPayable = historical ? archived ? frozenPayable(report) : { total: '0', dueSoon: '0', count: 0, rows: [] } : payable(snapshot);
+  const sourceChanged = !!archived && archived.sourceSignature !== R.sourceSignature(snapshot.state, snapshot.period);
   return {
     historical,
     summary: { income: wan(currentSummary.income), paid: wan(currentSummary.paid), net: wan(currentSummary.net), incomeChange: change(currentSummary.income, previousSummary.income, previousLabel), paidChange: change(currentSummary.paid, previousSummary.paid, previousLabel) },
-    balance: historical ? { value: null, label: '历史月不混入当前余额', note: '' } : snapshot.operating.cash === null || !fund ? { value: null, label: '待财务登记', note: '' } : { value: wan(snapshot.operating.cash), label: '', note: (fund.by || '财务') + ' ' + md(fund.date) + '核对' },
+    balance: historical ? archived && report.coverage.cashCents !== null ? { value: wan(report.coverage.cashCents), label: '', note: '月末已结账' } : { value: null, label: '本月尚未结账', note: '' } : snapshot.operating.cash === null || !fund ? { value: null, label: '待财务登记', note: '' } : { value: wan(snapshot.operating.cash), label: '', note: (fund.by || '财务') + ' ' + md(fund.date) + '核对' },
     receivable: { ...currentReceivable, rows: currentReceivable.rows.slice(0, PREVIEW_ROWS) },
     payable: { ...currentPayable, rows: currentPayable.rows.slice(0, PREVIEW_ROWS) },
-    pending: historical ? { reconcile: 0, review: 0 } : { reconcile: snapshot.reconcileCount, review: snapshot.reviewCount }
+    pending: historical ? { reconcile: 0, review: 0 } : { reconcile: snapshot.reconcileCount, review: snapshot.reviewCount },
+    analytics: analyticsView(report, !historical || !!archived),
+    snapshotInfo: { available: !!archived, version: archived?.version || 0, sourceChanged, canArchive: historical, note: archived ? sourceChanged ? '账目有调整，请重新核对' : '本月已结账' : historical ? '结账后可查看月末余额及未结款项' : '' }
   };
 }
 
@@ -131,8 +177,12 @@ function forView(view, snapshot) {
 }
 
 function rows(view, snapshot) {
-  if (view === 'receivables') return receivable(snapshot).rows;
-  if (view === 'payables') return payable(snapshot).rows;
+  if (view === 'receivables' || view === 'payables') {
+    const historical = snapshot.period !== snapshot.today.slice(0, 7);
+    const archived = historical && R.currentSnapshot(snapshot.state, snapshot.period);
+    if (historical) return archived ? (view === 'receivables' ? frozenReceivable(snapshot, archived.report) : frozenPayable(archived.report)).rows : [];
+    return view === 'receivables' ? receivable(snapshot).rows : payable(snapshot).rows;
+  }
   const model = forView(view, snapshot);
   if (model.business) return [...model.business.receivable.rows, ...model.business.payable.rows];
   if (model.performance) return model.performance.groups.flatMap(group => group.rows);
@@ -140,18 +190,33 @@ function rows(view, snapshot) {
 }
 
 function recordFor(view, snapshot, id) {
+  const historical = snapshot.period !== snapshot.today.slice(0, 7);
+  const archived = historical && R.currentSnapshot(snapshot.state, snapshot.period);
+  if (historical && !archived) return null;
   if (view === 'payable') {
+    const frozen = archived?.report?.payableRows?.find(row => row.id === id);
+    if (frozen) return { id: frozen.id, name: (frozen.source.customer || '公司') + ' · ' + (frozen.source.stage || frozen.source.name), amount: frozen.amountCents, total: frozen.totalCents, paid: frozen.paidCents, status: '月末未付', due: frozen.due || '未约定', source: frozen.source.recipient || frozen.source.name || '原付款事项' };
+    if (historical) return null;
     const payable = snapshot.state.payables.find(row => row.id === id);
     if (!payable) return null;
     const paid = F.paid(snapshot.state, payable.id);
     return { id: payable.id, name: (payable.customer || '公司') + ' · ' + (payable.stage || payable.name), amount: Math.max(0, payable.total - paid), total: payable.total, paid, status: payable.status, due: payable.due || '未约定', source: payable.recipient || payable.name || '原付款事项' };
   }
   if (view === 'receivable') {
-    const match = snapshot.operating.rows.flatMap(project => (project.installments || []).map(installment => ({ project, installment, id: project.id + ':' + installment.id }))).find(row => row.id === id);
-    const project = match?.project || snapshot.operating.rows.find(row => row.id === id);
-    if (!project) return null;
-    const installment = match?.installment || null;
-    return { id, name: project.name + (installment ? ' · ' + installment.name : ' · 合同未收'), amount: installment ? installment.remaining : project.remaining, total: installment ? installment.amount : project.total, paid: installment ? installment.paid : project.received, status: installment?.overdue ? '已逾期' : project.unplanned ? '收款计划待确认' : '待收款', due: installment?.due || '未约定', source: '建造合同收款约定' };
+    const frozen = archived?.report?.receivableRows?.find(row => row.id === id);
+    if (frozen) {
+      const name = snapshot.customers.find(customer => customer.projectId === frozen.projectId)?.name || frozen.projectId;
+      const reminder = { ready: false, text: '', file: null, reason: '请切换到当前月份后催款' };
+      return { id, name: name + ' · ' + frozen.installment, amount: frozen.amountCents, total: frozen.totalCents, paid: frozen.paidCents, status: frozen.due && frozen.due < archived.asOf ? '月末已逾期' : '月末待收款', due: frozen.due || '未约定', source: '月度结账 · 建造合同收款约定', reminder };
+    }
+    if (historical) return null;
+    const row = R.analytics(snapshot.state, snapshot.period, snapshot.today).receivableRows.find(row=>row.id===id);
+    if (!row) return null;
+    const customer = snapshot.customers.find(customer=>customer.projectId===row.projectId);
+    const name = customer?.name || row.projectId;
+    const reminder = R.reminder({projectId:row.projectId, customer:name, installment:row.installment, remainingCents:row.amountCents, due:row.due}, snapshot.today);
+    return { id, name:name + ' · ' + row.installment, amount:row.amountCents, total:row.totalCents, paid:row.paidCents,
+      status:row.due && row.due<snapshot.today ? '已逾期' : row.due ? '待收款' : '收款计划待确认', due:row.due || '未约定', source:'建造合同收款约定', reminder };
   }
   return null;
 }

@@ -13,6 +13,7 @@ const files = [
   'miniprogram/pages/workflow/quote-export/render.js',
   'miniprogram/pages/admin/performance-views.js',
   'miniprogram/pages/collaboration/client.js',
+  'miniprogram/utils/cross-device-client.js',
   'miniprogram/pages/collaboration/index.js',
   'miniprogram/pages/collaboration/index.wxml',
   'miniprogram/pages/profile/profile-page.js',

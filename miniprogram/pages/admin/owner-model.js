@@ -13,7 +13,7 @@ const detail = (view, extra = {}) => '/pages/admin/detail/index?view=' + view + 
 const admin = (view, id = '') => '/pages/admin/index?view=' + view + (id ? '&id=' + encodeURIComponent(id) : '');
 const yuan = value => M.money(Math.round(Number(value || 0) * 100));
 const wan = cents => (Number(cents || 0) / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 });
-const dateOf = value => String(value || '').slice(0,10);
+const dateOf = value => String(value || '').includes('T') ? A.localDate(value) : String(value || '').slice(0,10);
 const inMonth = (value, period) => dateOf(value).slice(0,7) === period;
 function registered(c) {
   const value = c.createdAt || c.registeredAt || c.created || c.date;
@@ -53,7 +53,7 @@ function snapshot() {
   const projectRows = M.projects(state).filter(p => linkedProjects.has(p.id)).map(p => { const total = F.summary(state, p.id); const waiting = state.payables.filter(q => q.projectId === p.id && ['待审批','费用待老板审批'].includes(q.status)).length; return { ...p, key: 'ledger:' + p.id, image: projects.find(e => (e.projectId || e.id) === p.id)?.image || cover, income: wan(total.income), paid: wan(total.paid), waiting, pending: state.receipts.filter(r => r.projectId === p.id && ['待登记','待核算','需补充'].includes(r.status)).length, url: admin('finance', p.id) }; });
   const team = staff.filter(p => O.staffHas(p, 'sales') || O.staffHas(p, 'engineer') || O.staffHas(p, 'hq-design-admin') || O.staffHas(p, 'hq-operations') || O.staffHas(p,'finance')).map(p => {
     const business = O.staffHas(p, 'sales');
-    const rows = business ? commissions.filter(c => X.ownerId(c) === p.id) : completed.filter(({p:project,n}) => require('../../utils/performance').nodeOwner(project,n) === p.id);
+    const rows = business ? commissions.filter(c => require('../../utils/commission-attribution').owner(c) === p.id) : completed.filter(({p:project,n}) => require('../../utils/performance').nodeOwner(project,n) === p.id);
     const facts=state.sources.filter(r=>r.person===p.id&&!r.excluded),engineering=O.staffHas(p,'engineer'),design=O.staffHas(p,'hq-design-admin'),operations=O.staffHas(p,'hq-operations'),totals=require('../../utils/performance').totals(facts);const actual=business?rows.reduce((n,c)=>n+Number(c.serviceOrders.at(-1).total||0),0):engineering?totals.nodes:design?totals.design:operations?totals.publications+totals.leads:totals.finance+totals.financeReview;
     const department = business ? 'sales' : engineering ? 'engineering' : design ? 'design' : operations ? 'operations' : 'finance';
     const target = goals.staff?.[p.id] || null, percent = ratio(actual, target);
@@ -65,16 +65,14 @@ function snapshot() {
   const focus = active.map(p => { const ns = p.plan?.nodes || [], done = ns.filter(n => n.status === '已完成').length, inspection = (p.inspections || []).at(-1), rectification = (p.rectifications || []).filter(r => r.inspectionId === inspection?.id).at(-1); const risk = inspection?.result === '需整改' && !(rectification?.result === '通过' && rectification?.reviewStatus === 'passed'); return { key:p.id, name:p.name || p.customer, image:p.image || cover, stage:ns.find(n => n.status !== '已完成')?.name || '施工收尾', progress:ns.length ? Math.round(done / ns.length * 100) : 0, risk, status:risk ? '整改待复验' : '按当前施工节点推进', url:'/pages/build/index?view=overview&id=' + encodeURIComponent(p.id) }; }).sort((a,b) => Number(b.risk) - Number(a.risk));
   const operating=require('../../utils/operations').overview(state);const company = A.company(account), settingsEvents = goalsStore().companies[actor.companyId]?.events || [];
   const events = [...(state.events || []), ...settingsEvents].map((e,i) => ({ key:'event:' + i, name:e.text || ({'approve-pay':'审批付款申请','set-roles':'调整成员岗位','transfer':'办理工作交接','goals':'更新月度目标'}[e.action] || e.action || '业务操作'), status:(e.by || e.actorId || '历史经办人') + ' · ' + A.displayTime(e.at || e.effectiveAt || '').slice(0,16), at:e.at || e.effectiveAt || '', url:e.action === 'goals' ? detail('targets') : admin('transfer-history') })).sort((a,b) => b.at.localeCompare(a.at));
-  return { operating, actor, state, period, periodLabel:period.replace('-','年') + '月', name:account.profile.name || actor.name, company:company?.store || company?.name || '', role:O.roles[actor.role], avatar:account.profile.avatar || '/assets/account-avatar.jpg', date:today.slice(5,7) + '月' + today.slice(8) + '日 周' + '日一二三四五六'[d.getDay()], today, sample:!!account.session.demo, income:wan(sum.income), paid:wan(sum.paid), balance:wan(sum.net), sales:wan(sales * 100), activeCount:active.length, approvals, approvalCount:approvals.length, queue, reconcileCount:state.receipts.filter(r => ['待登记','待核算'].includes(r.status)).length, reviewCount:state.payments.filter(r => r.status === '待复核').length, projectRows, metrics, team, reviews, reviewTotal:reviews.length, focus:focus.slice(0,2), customers, commissions, newCustomers, projects, nodes, completed, goals, staff, events, recentEvents:events.slice(0,2), unread:A.scoped(account, account.messages).filter(m => !m.read).length };
+  return { operating, actor, state, period, periodLabel:period.replace('-','年') + '月', name:account.profile.name || actor.name, company:state.managementSettings?.company?.displayName || company?.store || company?.name || '', role:O.roles[actor.role], avatar:account.profile.avatar || '/assets/account-avatar.jpg', date:today.slice(5,7) + '月' + today.slice(8) + '日 周' + '日一二三四五六'[d.getDay()], today, sample:!!account.session.demo, income:wan(sum.income), paid:wan(sum.paid), balance:wan(sum.net), sales:wan(sales * 100), activeCount:active.length, approvals, approvalCount:approvals.length, queue, reconcileCount:state.receipts.filter(r => ['待登记','待核算'].includes(r.status)).length, reviewCount:state.payments.filter(r => r.status === '待复核').length, projectRows, metrics, team, reviews, reviewTotal:reviews.length, focus:focus.slice(0,2), customers, commissions, newCustomers, projects, nodes, completed, goals, staff, events, recentEvents:events.slice(0,2), unread:A.scoped(account, account.messages).filter(m => !m.read).length };
 }
 function saveGoals(period, form) {
   X.assert(allowed(), '仅本组织老板或门店负责人可以设置月度目标');
   X.assert(/^\d{4}-(0[1-9]|1[0-2])$/.test(period), '请选择有效月份');
   const s = snapshot();
   X.assert(!(s.state.archives || []).some(r => (r.id === period || r.period===period) && r.status === '已归档'), '本周期已归档，请保留原目标版本');
-  const parse = (value, money = false) => { if (value === '' || value === null || value === undefined) return null; X.assert((money ? /^\d+(\.\d{1,2})?$/ : /^\d+$/).test(String(value)) && Number(value) > 0 && Number(value) <= (money ? 100000000 : 100000), '目标须为正数；人数、节点数须为整数'); return Number(value); };
-  const data = { sales:parse(form.sales,true), collections:parse(form.collections,true), effective:parse(form.effective), customers:parse(form.customers), nodes:parse(form.nodes), staff:{} };
-  for (const p of s.team) { const value = parse(form.staff?.[p.id], p.business); if (value !== null) data.staff[p.id] = value; }
+  const data = require('./owner-performance').validateGoals({ ...s, period, goals:goal(period) }, form);
   const store = goalsStore(), c = store.companies[s.actor.companyId] || { periods:{}, events:[] };
   const previous = c.periods[period];
   c.periods[period] = { ...data, version:(previous?.version || 0) + 1, history:[...(previous?.history || []), ...(previous ? [{ ...previous, history:undefined }] : [])], ...X.actor() };
@@ -83,12 +81,9 @@ function saveGoals(period, form) {
   wx.setStorageSync(KEY, store);
 }
 function rowsFor(view, s, person, department, todoTab = 'all') {
-  if (view === 'handover') return (s.state.work || []).filter(w => w.kind === 'project-responsibility').map(w => ({ key:'handover:' + w.id, name:w.customer + ' · ' + w.name, status:(s.staff.find(p => p.id === w.owner)?.name || w.owner || '待配置负责人') + ' · ' + w.stage, url:admin('transfer',w.id) }));
+  if (view === 'handover') return (s.state.work || []).filter(w => ['project-responsibility','customer-responsibility'].includes(w.kind)).map(w => ({ workId:w.id, marked:require('../../utils/management-handover').pending(s.state,w), key:'handover:' + w.id, name:w.customer + ' · ' + w.name, status:(s.staff.find(p => p.id === w.owner)?.name || w.owner || '待配置负责人') + ' · ' + w.stage, url:admin('transfer',w.id) }));
   if (view === 'approvals') return s.approvals;
-  if (view === 'todos') {
-    const rows = [...s.approvals.map(row => ({ ...row, group:'money' })), ...s.reviews.map(row => ({ ...row, group:'review' }))];
-    return rows.filter(row => todoTab === 'all' || row.group === todoTab);
-  }
+  if (view === 'todos') return require('./owner-home').todoRows(s, todoTab).map(row => ({ ...row, status:row.status || row.detail }));
   if (view === 'finance-progress') return s.queue;
   if (view === 'reviews') return s.reviews;
   if (view === 'activity') return s.events;
@@ -98,7 +93,7 @@ function rowsFor(view, s, person, department, todoTab = 'all') {
   if (view === 'team') {
     const member = s.team.find(p => p.id === person); if (!member) return [];
     const selected = department || member.department;
-    const matches = r => selected === 'sales' ? r.id.startsWith('perf-commission:') : selected === 'engineering' ? r.kind === 'node' : selected === 'design' ? r.kind === 'design' : selected === 'operations' ? ['publication','lead'].includes(r.kind) : selected === 'finance' && ['finance','finance-review'].includes(r.kind);
+    const matches = r => selected === 'business' ? r.id.startsWith('perf-commission:') || ['publication','lead','design'].includes(r.kind) : selected === 'sales' ? r.id.startsWith('perf-commission:') : selected === 'engineering' ? r.kind === 'node' : selected === 'design' ? r.kind === 'design' : selected === 'operations' ? ['publication','lead'].includes(r.kind) : selected === 'finance' && ['finance','finance-review'].includes(r.kind);
     return s.state.sources.filter(r=>r.person===member.id&&!r.excluded&&matches(r)).map(r=>({key:r.id,name:(r.customer||'')+' · '+r.name,status:(r.scheduled?'原计划 '+r.scheduled+' · '+(r.completed?'已完成':'待完成'):String(r.date||'')),url:r.url}));
   }
   return [];

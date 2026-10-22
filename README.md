@@ -412,3 +412,11 @@ npm run report:roles:complete
 复测使用 `npm run check:engineering:closed-loop`；原生按协调独占的隔离项目运行 `npm run check:engineering:closed-loop:native`，同项目接续另用 `npm run check:engineering:continue-business:native`。旧入口专项为 `npm run check:engineering:legacy-document:native`，报告为 `npm run report:engineering:closed-loop`。默认自动化端口9795，可用FRANCHISE_WS指定已协调实例；长轮截图若触发工具临时存储限额，应恢复数据后重启自己的隔离项目再续验，不清空业务文件。
 
 完整逐步流程、修复清单、行业建议、截图、原单关联及版本证明见 [工程业务到财务闭环完整验收报告](qa/engineering-finance-audit-20261021/工程业务到财务闭环完整验收报告.html)。本轮证明本地模拟闭环；多人手机共享账簿、服务端权限与事务、真实附件和银行结果仍需正式后端接入与真实环境验收，未进行发布或真实收付款。
+
+## 管理模块与财务页面（2026-10-23）
+
+管理端补齐指标明细、经营分析、月度结账、催款复制、目标与门店资料、责任交接提醒和分阶段提成。绩效统一为业务、工程、财务三类；原运营、设计和业务的目标及记录合入业务。财务首页沿现有工程和业务风格，顺序为欢迎语、数据卡片、待办事项、常用快捷办理、正在办理。
+
+本地检查使用 `npm run check:management:complete`、`npm run check:business:simplified`。原生管理页面使用 `node scripts/verify-management-completion-native.cjs`，财务布局使用 `FRANCHISE_WS=<已协调的隔离调试地址> node scripts/verify-finance-layout-native.cjs`。原生脚本串行执行并恢复验收前存储。
+
+按已确认范围，同步采用本机模拟服务：运行 `npm run demo:management`，连接资料保存在命令返回的私有文件中；用两个独立测试会话打开“我的 → 管理模拟联调”验证共享目标、门店资料与提成规则。默认只监听本机。具体设计、验证与回滚见 [管理模块补齐设计与验收](docs/管理模块补齐设计与验收_20261023.md)。

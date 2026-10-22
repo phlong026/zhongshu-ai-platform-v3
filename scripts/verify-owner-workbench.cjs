@@ -6,7 +6,7 @@ const output = path.resolve('qa/owner-workbench-port-20261023');
 const clone = value => JSON.parse(JSON.stringify(value));
 
 async function fixture() {
-  await require('./role-page-runtime.cjs').connect();
+  const runtime = await require('./role-page-runtime.cjs').connect();
   const scenes = JSON.parse(fs.readFileSync('qa/engineering-records-20261021/page-scenes.json', 'utf8'));
   const storage = scenes.find(scene => scene.action === 'material-terms')?.after;
   assert(storage, '材料金额已登记、原应收未收齐的连续流程夹具');
@@ -19,7 +19,7 @@ async function fixture() {
   A.mutate(state => A.loginDemo(state, 'boss'));
   const period = A.localDate().slice(0, 7);
   M.mutate(state => { state.period = period; });
-  return { A, M, W, X, N, period };
+  return { A, M, W, X, N, period, runtime };
 }
 
 async function main() {
@@ -56,7 +56,7 @@ async function main() {
   assert.equal(page.data.desk.period, '2026-01');
   assert.equal(page.data.desk.performance.targets[0].value, '0');
   page.month({ detail: { value: period } });
-  assert.equal(page.data.desk.metrics[0].value, snapshot.metrics[0].value);
+  assert.equal(page.data.desk.performance.targets[0].value, snapshot.metrics[0].value);
   pass('月份切换重新按所选月份汇总，不混入当前月数据');
 
   W.saveGoals(period, { sales: '100000', collections: '80000', effective: '6', customers: '8', nodes: '5', staff: Object.fromEntries(snapshot.team.map(member => [member.id, member.business ? '50000' : '5'])) });

@@ -135,7 +135,10 @@ async function main() {
   pass('经营页“全部”入口同时保留应收与已批准应付原单入口');
 
   const detailSource = fs.readFileSync('miniprogram/pages/admin/detail/index.wxml', 'utf8');
-  assert(detailSource.includes("view==='todos'"));
+  const todosPage = open('/pages/admin/detail/index?view=todos');
+  assert(detailSource.includes('bindinput="search"'));
+  todosPage.search({detail:{value:'无匹配的专项检索'}});
+  assert.equal(todosPage.data.rows.length, 0);
   pass('全部待办页提供关键词搜索且首页模型不携带完整集合');
 
   const output = path.resolve('qa/owner-workbench-port-20261023/business-performance-results.json');

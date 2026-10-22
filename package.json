@@ -92,7 +92,9 @@
     "check:finance:acceptance": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-finance-desk-acceptance.cjs",
     "check:franchise:showcase": "node scripts/verify-franchise-showcase.cjs",
     "check:owner:workbench": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-owner-signing.cjs && node scripts/verify-owner-port-core.cjs && node scripts/verify-owner-workbench.cjs && node scripts/verify-owner-business-performance.cjs && node scripts/verify-owner-profile-port.cjs && npm run check",
-    "check:owner:workbench:native": "npm run check:owner:workbench && node scripts/verify-owner-workbench-port-native.cjs"
+    "check:owner:workbench:native": "npm run check:owner:workbench && node scripts/verify-owner-workbench-port-native.cjs",
+    "demo:management": "node server/management/start.cjs",
+    "check:management:complete": "npm run check:owner:workbench && node scripts/verify-management-home.cjs && node scripts/verify-management-finance.cjs && node scripts/verify-management-performance.cjs && node scripts/verify-management-performance-unified.cjs && node scripts/verify-management-attribution.cjs && node scripts/verify-management-current-design.cjs && node scripts/verify-management-handover.cjs && node scripts/verify-management-commission.cjs && node scripts/verify-management-commission-page.cjs && node scripts/verify-management-completion-pages.cjs && node scripts/verify-management-simulation.cjs && node scripts/verify-management-simulation-client.cjs && npm run check:design-collaboration && python3 scripts/extend-owner-fonts.py --check-only && npm run check"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0"
