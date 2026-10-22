@@ -7,10 +7,10 @@ from fontTools import subset
 from fontTools.varLib.instancer import instantiateVariableFont
 target=root/'miniprogram/pages/admin/font-sources.js'
 faces=json.loads(target.read_text(encoding='utf8').split('=',1)[1].strip().rstrip(';'))
-paths=[root/'miniprogram/pages/admin/owner-model.js',root/'miniprogram/pages/admin/owner-page.js']
+paths=[root/'miniprogram/pages/admin/owner-model.js',root/'miniprogram/pages/admin/owner-page.js',root/'miniprogram/pages/admin/owner-home.js']
 for directory in ['home','finance','performance','profile','detail','owner-header','owner-nav']:
  paths+=list((root/'miniprogram/pages/admin'/directory).glob('*.wxml'))
-text=''.join(p.read_text(encoding='utf8') for p in paths)+'0123456789.,%/¥万项位年月日周一二三四五六截至未设置在岗成员权限审批交接记录湖北武汉黄陂蔡甸江夏张刘陈林王李赵老板经理业务财务负责人'
+text=''.join(p.read_text(encoding='utf8') for p in paths)+'0123456789.,%/¥万项位年月日周一二三四五六截至未设置在岗成员权限审批交接记录湖北武汉黄陂蔡甸江夏张刘陈林王李赵老板经理业务财务负责人开工款封顶款'
 needed=set(map(ord,text))
 audit=[]
 for face in faces:

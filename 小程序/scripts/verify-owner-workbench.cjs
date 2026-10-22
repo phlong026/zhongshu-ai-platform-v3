@@ -28,8 +28,26 @@ async function main(){
  fs.mkdirSync(out,{recursive:true});const ctx=await fixture(),{A,B,M,W,N,X,month}=ctx,checks=[];
  const pass=name=>{checks.push({name,result:'passed'});console.log('PASS '+name);};
  const open=url=>{wx.reLaunch({url});const p=getCurrentPages().at(-1);assert(!p.data.error,p.data.error);return p;};
- let s=W.snapshot();assert.deepEqual(N.navigation(X.context()).tabs.map(t=>t.text),['首页','财务','绩效','我的']);
+ let s=W.snapshot();assert.deepEqual(N.navigation(X.context()).tabs.map(t=>t.text),['首页','经营','绩效','我的']);
  let p=open('/pages/management/index');assert.equal(p.route,'pages/admin/home/index');assert(p.data.ready);p=open('/pages/profile/index');assert.equal(p.route,'pages/admin/profile/index');pass('老板登录默认首页与我的跳转到四栏目模块');
+ {const ago=n=>A.localDate(Date.now()-n*86400000),inPeriod=d=>d.slice(0,7)===month,day=A.localDate();
+  const book=wx.getStorageSync(B.KEY);book.customers.forEach((c,i)=>{c.follows=i<5?[{method:i<2?'到店':'电话',result:i<2?'已到店':'有意向',content:'沟通需求',date:day}]:i===5?[{method:'电话',result:'有意向',content:'首次沟通',date:ago(10)}]:[];if(i===5)c.createdAt=ago(10);});wx.setStorageSync(B.KEY,book);
+  const eng=wx.getStorageSync('zhongshu-engineering-v1');eng.projects[0].plan.nodes[6].end=ago(1);wx.setStorageSync('zhongshu-engineering-v1',eng);
+  const old=inPeriod(ago(10));p=open('/pages/admin/home/index');const h=p.data.desk.home;
+  assert.deepEqual(h.six.map(x=>x.label),['签约金额','回款金额','签约单数','新增线索','有效客户','到店客户']);
+  assert.deepEqual(h.six.map(x=>x.value),['86','28.6','2',String(old?24:23),String(old?6:5),'2']);assert.equal(h.six[0].sub,'目标完成 71.7%');assert.equal(h.six[2].sub,'报价中 1 单');
+  pass('首页本月经营只保留 6 个数，有效客户与到店按本月真实跟进统计');
+  const reviews=p.data.desk.reviewTotal;assert.deepEqual(h.groups.map(g=>[g.key,g.count]),[['all',3+reviews],['money',3],['review',reviews]]);assert(p.data.homeTodos.length<=4&&p.data.homeTodos.length);
+  if(reviews){p.todoTab({currentTarget:{dataset:{tab:'review'}}});assert(p.data.homeTodos.every(t=>t.group==='review'));}
+  p.todoTab({currentTarget:{dataset:{tab:'money'}}});assert(p.data.homeTodos.every(t=>t.group==='money'));const todo=p.data.homeTodos[0];p.go({currentTarget:{dataset:{key:todo.key}}});assert.equal(getCurrentPages().at(-1).route,'pages/workflow/index');
+  pass('待我办理只放老板审批与复核事项，分组切换后仍进入原单办理');
+  p=open('/pages/admin/home/index');const b=p.data.desk.home.business,e=p.data.desk.home.engineering;
+  assert.deepEqual(b.stages.map(x=>x.label),['跟进中','方案中','报价中','已签约']);assert.equal(b.stages[3].value,2);assert.equal(b.stages[2].value,1);assert.equal(b.stages.reduce((n,x)=>n+x.value,0),24);assert.equal(b.stale,1);
+  assert.deepEqual(e.counts.map(x=>[x.label,x.value]),[['在建',1],['待开工',0],['本月交付',0],['延期',1]]);const site=e.sites[0];assert(site.late);assert.equal(site.nodes.length,8);assert.equal(site.nodes.filter(n=>n==='done').length,6);assert(site.pays.length);
+  p.go({currentTarget:{dataset:{key:site.key}}});assert.equal(getCurrentPages().at(-1).route,'pages/build/index');
+  pass('首页业务与工程卡片按原客户与工程节点统计，工地进入原项目');
+  p=open('/pages/admin/finance/index');assert.equal(p.data.title,'经营');pass('原财务栏目改名为经营，原链接保持可用');
+ }
  assert.equal(s.income,'28.6');assert.equal(s.paid,'16.8');assert.equal(s.balance,'11.8');assert.equal(s.reconcileCount,2);assert.equal(s.reviewCount,1);assert.equal(s.approvalCount,3);pass('有效收支统一口径，待核算与待复核不提前计入');
  assert.equal(s.metrics[0].value,'86');assert.equal(s.metrics[0].percent,71.7);assert.equal(s.metrics[1].value,24);assert.equal(s.metrics[2].value,6);assert.equal(s.metrics[2].percent,75);assert.equal(s.team.find(p=>p.id==='zhang').percent,83.3);pass('签约、客资、工程节点和人员目标按原记录及月份计算');
  p=open('/pages/admin/home/index');const task=p.data.desk.approvals.find(t=>t.record==='quote');p.go({currentTarget:{dataset:{key:task.key}}});p=getCurrentPages().at(-1);assert.equal(p.route,'pages/workflow/index');assert.equal(p.data.view,'money-review');assert.equal(p.id||p.data.id,task.id);p.setData({form:{...p.data.form,moneyDecision:'批准',moneyChecked:true,moneyNote:'核对当前正式报价与依据，批准本版'}});p.submit();assert(!p.data.error,p.data.error);assert(!W.snapshot().approvals.some(t=>t.key===task.key));pass('首页审批携带原客户和当前版本，批准后待办回写消失');

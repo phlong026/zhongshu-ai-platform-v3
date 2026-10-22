@@ -10,7 +10,7 @@ function navigation(c){
  let tabs;
  if(guest)tabs=base;
  else if(!c.active)tabs=[base[4]];
- else if(boss)tabs=[['home','首页','home'],['finance','财务','management'],['performance','绩效','management'],['profile','我的','profile']].map((t,i)=>({key:'owner-'+t[0],text:t[1],icon:t[2],index:10+i,url:'/pages/admin/'+t[0]+'/index',native:false}));
+ else if(boss)tabs=[['home','首页','home'],['finance','经营','management'],['performance','绩效','management'],['profile','我的','profile']].map((t,i)=>({key:'owner-'+t[0],text:t[1],icon:t[2],index:10+i,url:'/pages/admin/'+t[0]+'/index',native:false}));
  else if(['sales','sales-lead'].includes(c.role))tabs=[{key:'business',text:'首页',index:1,icon:'home'},{key:'creation',text:'创作',index:5,icon:'business',native:false},{key:'design',text:'方案',index:6,customIcon:'/assets/home-design-icon.png',native:false},{key:'customers',text:'客户',index:7,customIcon:'/assets/team.png',native:false},base[4]];
  else if(['engineer','project-manager'].includes(c.role))tabs=[{key:'engineering',text:'首页',index:2,icon:'home',url:'/pages/build/home/index',native:false},{key:'projects',text:'项目',index:8,customIcon:'/pages/engineering/assets/folder.png',url:'/pages/build/projects/index',native:false},{key:'materials',text:'材料',index:9,customIcon:'/assets/box.png',url:'/pages/build/materials/index',native:false},base[4]];
  else if(c.role==='hq-design-admin')tabs=[{key:'business',text:'首页',index:19,icon:'home',native:false,url:'/pages/workflow/commission/index?view=admin'},base[4]];

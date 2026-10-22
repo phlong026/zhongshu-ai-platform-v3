@@ -1,11 +1,12 @@
 const W = require('./owner-model');
+const H = require('./owner-home');
 const X = require('../../utils/access');
 const A = require('../../utils/account');
 require('../../utils/load-local-fonts')(require('./font-sources'), 'admin');
-const titles = { home:'首页', finance:'财务', performance:'绩效', profile:'我的', approvals:'待我审批', 'finance-progress':'财务办理进度', business:'业务概览', engineering:'工程概览', targets:'月度目标设置', team:'团队绩效', reviews:'结果复核', activity:'操作记录', settings:'审批与分工', company:'门店资料', handover:'项目经理交接' };
+const titles = { home:'首页', finance:'经营', performance:'绩效', profile:'我的', approvals:'待我审批', 'finance-progress':'财务办理进度', business:'业务概览', engineering:'工程概览', targets:'月度目标设置', team:'团队绩效', reviews:'结果复核', activity:'操作记录', settings:'审批与分工', company:'门店资料', handover:'项目经理交接' };
 module.exports = function(kind) {
   return {
-    data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', financeTab:'projects', rows:[], error:'', form:{}, saving:false },
+    data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', financeTab:'projects', todoTab:'all', homeTodos:[], rows:[], error:'', form:{}, saving:false },
     openDesignPolicy(){require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=policy');},
     logout(){return require('../../utils/session-actions').logout();},
     onLoad(options = {}) { this.options = options; this.kind = kind === 'detail' ? titles[options.view] ? options.view : 'business' : kind; this.setData({ title:titles[this.kind] }); },
@@ -20,13 +21,16 @@ module.exports = function(kind) {
         const projects = desk.projectRows.filter(p => !keyword || (p.name + ' ' + p.customer).includes(keyword));
         const form = view === 'targets' ? this.dirty ? this.data.form : { sales:desk.goals.sales || '', customers:desk.goals.customers || '', nodes:desk.goals.nodes || '', staff:Object.fromEntries(desk.team.map(p => [p.id, desk.goals.staff?.[p.id] || ''])) } : this.data.form;
         const money=n=>n===null?'待完善':'¥ '+require('./model').money(n);const operating=desk.operating;const operatingDisplay={receivable:money(operating.receivable),payable:money(operating.payable),overdue:money(operating.overdue),cash:money(operating.cash),profit:money(operating.profit),unplanned:operating.unplanned,incompleteCost:operating.incompleteCost,overhead:money(operating.overhead),payableDue:money(operating.payableDue),payableUndated:operating.payableUndated};const display = { ...desk, operating:operatingDisplay, goals:{sales:desk.goals.sales,customers:desk.goals.customers,nodes:desk.goals.nodes,staff:desk.goals.staff || {}} };
+        const home = view === 'home' ? H.home(desk) : null;
+        if (home) display.home = home;
         for (const key of ['state','customers','contracts','newCustomers','projects','nodes','completed']) delete display[key];
-        this.setData({ ready:true, desk:display, rows, projects, form, view, error:'' });
+        this.setData({ ready:true, desk:display, rows, projects, form, view, error:'', homeTodos:home ? H.visibleTodos(home, this.data.todoTab) : [] });
       } catch(e) { this.setData({error:e.message,ready:false,desk:null,rows:[]}); }
     },
     search(e) { this.setData({keyword:e.detail.value}); this.refresh(); },
     clear() { this.setData({keyword:''}); this.refresh(); },
     tab(e) { this.setData({financeTab:e.currentTarget.dataset.tab}); },
+    todoTab(e) { const todoTab = e.currentTarget.dataset.tab, home = this.data.desk?.home; if (home) this.setData({ todoTab, homeTodos:H.visibleTodos(home, todoTab) }); },
     month(e) {
       if (!W.allowed()) return;
       const period = e.detail.value;
@@ -45,7 +49,8 @@ module.exports = function(kind) {
         profile:'/pages/account/index?view=profile', messages:'/pages/account/index?view=messages', learning:'/pages/account/index?view=learning', services:'/pages/account/index?view=services', help:'/pages/account/index?view=help', privacy:'/pages/account/index?view=privacy', rules:W.admin('rules'), engineeringTeam:W.admin('engineering-team'), businessTeam:W.admin('business-team'), financeTeam:W.admin('finance-team'), designTeam:W.admin('design-team')
       };
       let url = actions[d.action];
-      if (d.key) url = [...s.approvals, ...s.queue, ...s.focus, ...s.projectRows, ...s.team, ...s.events, ...W.rowsFor(this.kind,s,this.options?.person || '')].find(r => r.key === d.key)?.url;
+      const homeRows = this.kind === 'home' ? (h => [...h.todos, ...h.sites])(H.home(s)) : [];
+      if (d.key) url = [...s.approvals, ...s.queue, ...s.focus, ...s.projectRows, ...s.team, ...s.events, ...homeRows, ...W.rowsFor(this.kind,s,this.options?.person || '')].find(r => r.key === d.key)?.url;
       if (url) { if (getCurrentPages().length >= 8) wx.redirectTo({url}); else wx.navigateTo({url}); }
     },
     input(e) { this.dirty = true; const d = e.currentTarget.dataset; const form = A.clone(this.data.form); if (d.person) form.staff[d.person] = e.detail.value; else form[d.field] = e.detail.value; this.setData({form,error:''}); },
