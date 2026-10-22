@@ -9,17 +9,19 @@ module.exports = function(kind) {
     data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', financeTab:'projects', todoTab:'all', homeTodos:[], rows:[], error:'', form:{}, saving:false },
     openDesignPolicy(){require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=policy');},
     logout(){return require('../../utils/session-actions').logout();},
+    openRow(e) { if (!W.allowed()) return this.onShow(); const url = require('./owner-business').rows(this.kind, W.snapshot()).find(r => r.key === e.currentTarget.dataset.key)?.url; if (url) { if (getCurrentPages().length >= 8) wx.redirectTo({url}); else wx.navigateTo({url}); } },
     onLoad(options = {}) { this.options = options; this.kind = kind === 'detail' ? titles[options.view] ? options.view : 'business' : kind; this.setData({ title:titles[this.kind] }); },
     onShow() { if (!W.allowed()) { this.setData({ready:false,desk:null,rows:[]}); wx.switchTab({url:'/pages/profile/index'}); return; } this.refresh(); },
     refresh() {
       try {
         const desk = W.snapshot(), view = this.kind;
+        Object.assign(desk, require('./owner-business').forView(view, desk));
         desk.previewApprovals = desk.approvals.slice(0,2); desk.previewQueue = desk.queue.slice(0,2); desk.previewTeam = desk.team.slice(0,5); desk.secondaryMetrics = desk.metrics.slice(1); desk.dateShort = desk.date.split(' ')[0]; desk.salesTargetLabel = desk.metrics[0].target ? '/' + desk.metrics[0].target + '万' : '目标待设置';
         const keyword = this.data.keyword.trim();
         let rows = W.rowsFor(view, desk, this.options?.person || '');
         if (keyword) rows = rows.filter(r => (r.name + ' ' + r.status).includes(keyword));
         const projects = desk.projectRows.filter(p => !keyword || (p.name + ' ' + p.customer).includes(keyword));
-        const form = view === 'targets' ? this.dirty ? this.data.form : { sales:desk.goals.sales || '', customers:desk.goals.customers || '', nodes:desk.goals.nodes || '', staff:Object.fromEntries(desk.team.map(p => [p.id, desk.goals.staff?.[p.id] || ''])) } : this.data.form;
+        const form = view === 'targets' ? this.dirty ? this.data.form : { sales:desk.goals.sales || '', customers:desk.goals.customers || '', nodes:desk.goals.nodes || '', collections:desk.goals.collections || '', effective:desk.goals.effective || '', staff:Object.fromEntries(desk.team.map(p => [p.id, desk.goals.staff?.[p.id] || ''])) } : this.data.form;
         const money=n=>n===null?'待完善':'¥ '+require('./model').money(n);const operating=desk.operating;const operatingDisplay={receivable:money(operating.receivable),payable:money(operating.payable),overdue:money(operating.overdue),cash:money(operating.cash),profit:money(operating.profit),unplanned:operating.unplanned,incompleteCost:operating.incompleteCost,overhead:money(operating.overhead),payableDue:money(operating.payableDue),payableUndated:operating.payableUndated};const display = { ...desk, operating:operatingDisplay, goals:{sales:desk.goals.sales,customers:desk.goals.customers,nodes:desk.goals.nodes,staff:desk.goals.staff || {}} };
         const home = view === 'home' ? H.home(desk) : null;
         if (home) display.home = home;
@@ -44,6 +46,7 @@ module.exports = function(kind) {
       const actions = {
         payroll:'/pages/admin/operations/index?view=payroll',receivables:'/pages/admin/operations/index?view=receivables',costs:'/pages/admin/operations/index?view=costs',funds:'/pages/admin/operations/index?view=funds',operating:'/pages/admin/operations/index',business:W.detail('business'), engineering:W.detail('engineering'), approvals:W.detail('approvals'), reports:W.admin('finance'),
         goals:W.detail('targets'), team:W.detail('team'), reviews:W.detail('reviews'), activity:W.detail('activity'),
+        identity:'/pages/account/index?view=identity', orders:'/pages/account/index?view=orders', procurement:'/pages/account/index?view=selection', course:'/pages/account/index?view=course',
         receipts:W.admin('finance') + '&tab=' + encodeURIComponent('收款'), payments:W.admin('finance') + '&tab=' + encodeURIComponent('付款'),
         financeProgress:W.detail('finance-progress'), staff:W.admin('staff'), settings:W.detail('settings'), handover:W.detail('handover'), company:W.detail('company'),
         profile:'/pages/account/index?view=profile', messages:'/pages/account/index?view=messages', learning:'/pages/account/index?view=learning', services:'/pages/account/index?view=services', help:'/pages/account/index?view=help', privacy:'/pages/account/index?view=privacy', rules:W.admin('rules'), engineeringTeam:W.admin('engineering-team'), businessTeam:W.admin('business-team'), financeTeam:W.admin('finance-team'), designTeam:W.admin('design-team')

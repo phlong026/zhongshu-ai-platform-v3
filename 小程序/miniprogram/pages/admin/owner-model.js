@@ -25,7 +25,7 @@ function registered(c) {
 }
 const ratio = (value, target) => target > 0 ? Math.round(value / target * 1000) / 10 : null;
 const goalsStore = () => { const raw = wx.getStorageSync(KEY); return raw?.version === 1 && raw.companies ? clone(raw) : { version: 1, companies: {} }; };
-function goal(period) { return goalsStore().companies[X.context().companyId]?.periods?.[period] || { sales: null, customers: null, nodes: null, staff: {} }; }
+function goal(period) { return goalsStore().companies[X.context().companyId]?.periods?.[period] || { sales: null, customers: null, nodes: null, collections: null, effective: null, staff: {} }; }
 function taskUrl(t) { if(t.url)return t.url;return '/pages/' + (t.area === 'workflow' ? 'workflow' : 'admin') + '/index?view=' + t.view + '&id=' + encodeURIComponent(t.id) + (t.record ? '&record=' + encodeURIComponent(t.record) : ''); }
 function snapshot() {
   X.assert(allowed(), '请使用本人已授权的老板或门店负责人身份');
@@ -71,7 +71,7 @@ function saveGoals(period, form) {
   const s = snapshot();
   X.assert(!(s.state.archives || []).some(r => (r.id === period || r.period===period) && r.status === '已归档'), '本周期已归档，请保留原目标版本');
   const parse = (value, money = false) => { if (value === '' || value === null || value === undefined) return null; X.assert((money ? /^\d+(\.\d{1,2})?$/ : /^\d+$/).test(String(value)) && Number(value) > 0 && Number(value) <= (money ? 100000000 : 100000), '目标须为正数；人数、节点数须为整数'); return Number(value); };
-  const data = { sales:parse(form.sales,true), customers:parse(form.customers), nodes:parse(form.nodes), staff:{} };
+  const data = { sales:parse(form.sales,true), customers:parse(form.customers), nodes:parse(form.nodes), collections:parse(form.collections,true), effective:parse(form.effective), staff:{} };
   for (const p of s.team) { const value = parse(form.staff?.[p.id], p.business); if (value !== null) data.staff[p.id] = value; }
   const store = goalsStore(), c = store.companies[s.actor.companyId] || { periods:{}, events:[] };
   const previous = c.periods[period];
