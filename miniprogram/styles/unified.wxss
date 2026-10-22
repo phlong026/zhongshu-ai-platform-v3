@@ -44,3 +44,11 @@ button.link.link{min-height:88rpx!important}
 .upload-row.upload-row button{min-height:88rpx!important}
 .workflow button.outline.outline,.upload-small.upload-small{min-height:88rpx!important}
 .account input[data-key]{min-height:88rpx!important}
+
+/* Tab strips, buttons and rows of the engineering, admin and owner pages follow the same minimum. */
+.admin .tabs.tabs button,.build .tabs.tabs>button,.owner-tabs.owner-tabs button{min-height:88rpx!important}
+.build .btn.btn,.build .plan-actions.plan-actions>button,.build .material-actions.material-actions>button,.build .more-links.more-links button,.build .add-node.add-node{min-height:88rpx!important}
+.build .material-actions.material-actions{min-height:88rpx!important}
+.build .filters.filters>button{min-height:88rpx!important;line-height:86rpx}
+.admin .row.row,.admin .radio.radio,.account .row.row{min-height:88rpx!important}
+.owner-search.owner-search,.owner-period.owner-period picker,.owner-form-row.owner-form-row input{min-height:88rpx!important}
