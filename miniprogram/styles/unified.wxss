@@ -5,7 +5,7 @@
 .workflow-nav.workflow-nav{min-height:88rpx!important}
 .project-utilities.project-utilities button{display:flex;align-items:center;min-height:88rpx!important;padding:0 8rpx;font-size:26rpx}
 .commission-file.commission-file,.sales-profile-learning-action.sales-profile-learning-action{display:flex;align-items:center;min-height:88rpx!important}
-.check-row.check-row,.workflow.workflow .check-row,.workflow .checklist .link,.workflow .steps .link{min-height:88rpx!important}
+.check-row.check-row,.workflow.workflow .check-row,.workflow .steps .link{min-height:88rpx!important}
 .return-home.return-home{font-size:24rpx}
 .input-row.input-row{min-height:88rpx!important}
 .input-row .input.input,.input-row.input-row input,.input-row.input-row picker{min-height:80rpx}

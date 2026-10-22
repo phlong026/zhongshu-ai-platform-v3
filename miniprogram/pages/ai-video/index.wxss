@@ -21,7 +21,7 @@
 .parameter-select { display: flex; align-items: center; justify-content: space-between; padding: 12rpx 16rpx; min-height: 44px; border: 1rpx solid var(--creation-border); border-radius: 16rpx; background: var(--creation-bg); font-size: 28rpx; gap: 8rpx; }
 .parameter-select image { width: 24rpx; height: 20rpx; flex-shrink: 0; }
 .generate-button { margin-top: 24rpx; }
-.generation-note { display: block; text-align: center; font-size: 24rpx; line-height: 36rpx; margin-top: 16rpx; }
+
 .reference-upload { margin-top: 16rpx; min-height: 248rpx; padding: 24rpx 8rpx; border: 1rpx dashed #c5b8a8; border-radius: 16rpx; background: var(--creation-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
 .library-button { border: 1rpx solid var(--creation-brand); border-radius: 16rpx; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 16rpx; font-size: 28rpx; margin-top: 16rpx; padding: 12rpx; width: 100%; }
 .library-button image { width: 36rpx; height: 36rpx; }

@@ -22,7 +22,7 @@ page{--sales-brand:var(--business-brand);--sales-paper:var(--business-paper);--s
 .sales-page .sales-search>image{width:32rpx;height:32rpx;flex-shrink:0}
 .sales-page .sales-search>input{flex:1;min-width:0;height:48rpx;font-size:28rpx;line-height:42rpx}
 .sales-page .sales-note{display:block;padding:4rpx 8rpx 22rpx;color:var(--sales-muted);font-size:23rpx;line-height:36rpx}
-.sales-page .sales-icon{width:44rpx;height:44rpx;flex-shrink:0}
+
 .sales-page .sales-footer-link{display:flex;align-items:center;justify-content:center;gap:14rpx;min-height:76rpx;width:100%;font-size:26rpx;color:var(--sales-brand)}
 .sales-page .sales-empty{padding:34rpx 12rpx;text-align:center;font-size:28rpx;line-height:44rpx;color:var(--sales-muted)}
 .sales-page .sales-badge{font-size:22rpx;line-height:32rpx;font-weight:400;color:var(--sales-brand);background:#faf1e5;padding:2rpx 12rpx;border-radius:8rpx}

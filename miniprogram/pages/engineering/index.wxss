@@ -1,15 +1,15 @@
 @import "../../styles/workbench.wxss";
-.new-project-row { display: flex; justify-content: flex-end; height: 80rpx; padding-top: 4rpx; }
-.new-project-row .primary { height: 52rpx; border-radius: 15rpx; padding: 12rpx 24rpx; }
+
+
 .project-stats { display: flex; height: 149rpx; align-items: center; border-radius: 23rpx; background: white; margin-bottom: 23rpx; }
 .project-stats button { flex: 1; position: relative; display: flex; align-items: center; flex-direction: column; }
 .project-stats button + button::before { content: ""; position: absolute; left: 0; top: 18rpx; width: 1rpx; height: 77rpx; background: #e9e7e3; }
 .stat-value { color: #7b481e; font-size: 62rpx; font-weight: 600; line-height: 77rpx; }
 .stat-label { font-size: 26rpx; line-height: 40rpx; color: #777979; }
-.tools-section { padding: 16rpx 18rpx 19rpx; margin-bottom: 22rpx; }
-.tools-section .section-heading { margin-bottom: 9rpx; }
+
+
 .section-title { font-size: 31rpx; }
-.tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14rpx; }
+
 .tool { height: 157rpx; padding: 29rpx 40rpx; }
 .tool .icon { width: 58rpx; height: 58rpx; margin-bottom: 11rpx; }
 .tool text { font-size: 29rpx; line-height: 40rpx; }
@@ -17,18 +17,18 @@
 .todo-section { padding: 14rpx 18rpx 18rpx; margin-bottom: 20rpx; }
 .todo-section .section-heading { margin-bottom: 9rpx; }
 .project-todo { display: flex; align-items: center; gap: 18rpx; border: 1rpx solid #ece9e5; border-radius: 17rpx; padding: 12rpx; height: 123rpx; }
-.site-image { width: 181rpx; height: 98rpx; border-radius: 9rpx; }
+
 .project-todo > text { flex: 1; font-size: 26rpx; white-space: nowrap; }
-.confirm-site { display: flex; align-items: center; gap: 13rpx; padding: 16rpx 22rpx; border-radius: 16rpx; font-size: 24rpx; }
-.white-chevron { width: 10rpx; height: 10rpx; border-top: 2rpx solid #fff8ec; border-right: 2rpx solid #fff8ec; transform: rotate(45deg); }
+
+
 .materials-banner { width: 100%; display: block; border-radius: 18rpx; overflow: hidden; }
 .materials-banner image { width: 100%; display: block; }
 
-.project-todo>text{min-width:0;white-space:normal;font-size:24rpx;line-height:34rpx}.confirm-site{flex-shrink:0}
+.project-todo>text{min-width:0;white-space:normal;font-size:24rpx;line-height:34rpx}
 
 
 
-.guest-caption{display:block;padding:22rpx 0 26rpx;font-size:24rpx;line-height:36rpx}.guest-project-todo{width:100%;height:auto;min-height:140rpx;margin-bottom:14rpx;text-align:left}.guest-project-todo:last-child{margin-bottom:0}.guest-todo-info{flex:1;min-width:0}.guest-todo-info>text{display:block;font-size:26rpx;line-height:38rpx}.guest-todo-info>text+text{font-size:22rpx;line-height:34rpx;color:#858991}.guest-todo-link{display:flex;align-items:center;gap:12rpx;padding:14rpx 18rpx;flex-shrink:0}.guest-login-button{width:100%;margin:24rpx 0;min-height:88rpx;line-height:44rpx;padding:18rpx 24rpx;font-size:28rpx;border-radius:20rpx}
+.guest-login-button{width:100%;margin:24rpx 0;min-height:88rpx;line-height:44rpx;padding:18rpx 24rpx;font-size:28rpx;border-radius:20rpx}
 
 /* Guest layout follows the selected mock; controls inherit the shared workbench system. */
 .engineering-page.workbench-page .guest-content{padding-top:16rpx}
@@ -97,4 +97,4 @@
 .guest-shortcut-grid image{width:48rpx;height:48rpx;flex-shrink:0;margin-bottom:10rpx}
 .guest-shortcut-title{font-size:24rpx;font-weight:500;line-height:36rpx;white-space:nowrap}
 .guest-shortcut-note{font-size:20rpx;line-height:30rpx;color:#858991;white-space:nowrap}
-.guest-preview-caption{display:block;text-align:center;font-size:22rpx;line-height:34rpx;color:#858991;padding:0 10rpx 14rpx}
+

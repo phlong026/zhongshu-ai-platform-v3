@@ -11,8 +11,8 @@
 .studio-tabs button { flex: 1; font-size: 26rpx; line-height: 40rpx; color: var(--creation-muted); display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 12rpx 8rpx; }
 .studio-tabs .active { background: var(--creation-soft); color: var(--creation-brand); font-weight: 600; }
 .filter-tabs { margin-bottom: 24rpx; }
-.soft-icon-button, .soft-text-button { margin-left: auto; min-width: 44px; min-height: 44px; border-radius: 16rpx; background: var(--creation-soft); display: flex; align-items: center; justify-content: center; gap: 8rpx; padding: 8rpx 12rpx; flex-shrink: 0; color: var(--creation-brand); font-size: 26rpx; font-weight: 400; }
-.soft-icon-button image, .soft-text-button image { width: 32rpx; height: 32rpx; }
+.soft-text-button{ margin-left: auto; min-width: 44px; min-height: 44px; border-radius: 16rpx; background: var(--creation-soft); display: flex; align-items: center; justify-content: center; gap: 8rpx; padding: 8rpx 12rpx; flex-shrink: 0; color: var(--creation-brand); font-size: 26rpx; font-weight: 400; }
+.soft-text-button image{ width: 32rpx; height: 32rpx; }
 .studio-text-link { display: flex; align-items: center; gap: 8rpx; color: var(--creation-brand); font-size: 26rpx; font-weight: 400; margin-left: auto; min-height: 44px; }
 .studio-footer-note { display: block; text-align: center; margin-top: 16rpx; font-size: 24rpx; line-height: 36rpx; }
 .warm { color: var(--creation-brand); background: var(--creation-soft); }

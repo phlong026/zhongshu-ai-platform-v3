@@ -1,6 +1,6 @@
 const Job=require('./organization');
 const copy=x=>JSON.parse(JSON.stringify(x));
-const actions={sales:['follow','quote','documents','confirmation','design-receipt','design-feedback'],engineer:['site','receive','reship','reship-receive']};
+const actions={sales:['follow'],engineer:['site','receive','reship','reship-receive']};
 const permitted=role=>actions[role]||actions[{'sales-lead':'sales','project-manager':'engineer'}[role]]||[];
 const fields={follow:['follows','status'],quote:['quotes'],documents:['drawings','drawingFile','copies','handover'],'design-part':['designParts'],deliverable:['designStarted','deliverables','deliverableFile','designHistory','tailApplication','release','confirmation'],release:['release'],confirmation:['confirmation','confirmationEvidence','confirmationHistory'],'design-receipt':['designReceipts'],'design-feedback':['designFeedbacks','designHistory','release']};
 function scope(module,p){return module==='design'?p.designOrganizationId:(p.companyId||'quanzhou');}

@@ -11,13 +11,7 @@ function basis(c){
  return {area:positive(signed.area)||positive(quote?.area)||positive(r.area)||positive(budget?.area)||positive(legacy?.area),width:positive(signed.width)||positive(r.width)||positive(p.width)||positive(legacy?.width),depth:positive(signed.depth)||positive(r.depth)||positive(p.depth)||positive(legacy?.depth),floors:positive(signed.floors)||positive(r.floors)||positive(p.floors)||positive(c.floors),budgetVersion:quote?.budgetVersion||c.request?.budgetVersion||budget?.version||null,designVersion:c.contract?.designVersion||c.confirmation?.version||null};
 }
 function quoteBudget(c){return c.request?.flow==='design-first'?(c.budgets||[]).find(b=>b.version===c.request.budgetVersion):last(c.budgets);}
-function quoteDefaults(c){
- const q=last(c.quotes),b=quoteBudget(c),returned=q&&require('./commercial-approval').latest(c,'quote')?.status==='returned';
- const source=returned?q:b||{};
- return {quoteMain:String(source.main??''),quoteExterior:String(source.exterior??''),quoteOther:String(returned?source.other||0:0),quoteReason:returned?source.reason||'':'',quoteScope:source.scope||'主体工程及已选外装项目，不含室内装修',__quoteBasis:JSON.stringify([b?.version,q?.version,c.release?.signature])};
-}
 function cents(v){if(!/^\d+(\.\d{1,2})?$/.test(String(v))||Number(v)>100000000)throw Error('请填写有效金额，最多两位小数且不超过一亿元。');return Math.round(Number(v)*100);}
-function quoteTotal(f){return ['quoteMain','quoteExterior','quoteOther'].reduce((n,key)=>n+cents(f[key]),0)/100;}
 function quotation(c,f,date){
  const b=quoteBudget(c);if(!b||!positive(b.area))throw Error('请先保存并核对本次设计委托关联的有效参考预算。');
  if(!require('./design-coordination').confirmed(c))throw Error('请先完成正式设计下发、收图及客户签认。');
@@ -44,5 +38,4 @@ function packageRows(c){
  ];
 }
 function handoverReady(c){const rows=packageRows(c);return rows.length>0&&rows.every(r=>r.ready);}
-function handoverSnapshot(c,note){return {basis:basis(c),documents:packageRows(c).map(r=>copy(r)),brief:{name:'电子交底记录',text:note},designVersion:c.release?.version,drawingVersion:last(c.drawings)?.version,reviewId:drawingReview(c)?.id};}
-module.exports={basis,quoteBudget,quoteDefaults,quoteTotal,quotation,leaders,drawingReview,packageRows,handoverReady,handoverSnapshot};
+module.exports={basis,quoteBudget,quotation,leaders,drawingReview,packageRows,handoverReady};

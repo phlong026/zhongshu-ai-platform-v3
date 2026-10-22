@@ -7,14 +7,14 @@
 .page.workbench-page .section-heading{height:64rpx;padding-left:20rpx;margin:0 0 12rpx;display:flex;align-items:center;justify-content:space-between}
 .page.workbench-page .section-heading::before{width:6rpx;height:30rpx;top:17rpx;background:#89512a;border-radius:4rpx}
 .page.workbench-page .section-title{font-family:inherit;font-size:30rpx;font-weight:700;line-height:42rpx;letter-spacing:0}
-.page.workbench-page .customer-name,.page.workbench-page .todo .grow>text:first-child,.page.workbench-page .finance-todo .grow>text:first-child,.page.workbench-page .guest-todo-heading,.page.workbench-page .guest-project-heading,.page.workbench-page .guest-todo-info>text:first-child{font-size:26rpx;font-weight:500;line-height:38rpx;letter-spacing:0}
-.page.workbench-page .customer-desc,.page.workbench-page .hint,.page.workbench-page .guest-footnote,.page.workbench-page .guest-todo-info>text+text,.page.workbench-page .guest-period,.page.workbench-page .guest-status,.page.workbench-page .guest-stat-label,.page.workbench-page .stat-label{font-size:22rpx;font-weight:400;line-height:34rpx;color:#858991;letter-spacing:0}
-.page.workbench-page .guest-caption{display:block;font-size:22rpx;font-weight:400;line-height:34rpx;color:#858991;padding:20rpx 0 24rpx;text-align:center}
-.page.workbench-page .guest-badge,.page.workbench-page .snapshot{font-size:22rpx;font-weight:400;line-height:34rpx}
+.page.workbench-page .customer-name,.page.workbench-page .todo .grow>text:first-child,.page.workbench-page .finance-todo .grow>text:first-child,.page.workbench-page .guest-todo-heading,.page.workbench-page .guest-project-heading{font-size:26rpx;font-weight:500;line-height:38rpx;letter-spacing:0}
+.page.workbench-page .customer-desc,.page.workbench-page .hint,.page.workbench-page .guest-footnote,.page.workbench-page .guest-period,.page.workbench-page .guest-status,.page.workbench-page .guest-stat-label,.page.workbench-page .stat-label{font-size:22rpx;font-weight:400;line-height:34rpx;color:#858991;letter-spacing:0}
+
+.page.workbench-page .snapshot{font-size:22rpx;font-weight:400;line-height:34rpx}
 .page.workbench-page .snapshot,.page.workbench-page .empty,.page.workbench-page .search-placeholder{color:#858991}
-.page.workbench-page .amount,.page.workbench-page .guest-stat-value,.page.workbench-page .guest-todo-amount,.page.workbench-page .stat-value,.page.workbench-page .finance-totals .brown{font-size:40rpx;font-weight:700;line-height:52rpx;color:#89512a}
+.page.workbench-page .amount,.page.workbench-page .guest-stat-value,.page.workbench-page .guest-todo-amount,.page.workbench-page .stat-value{font-size:40rpx;font-weight:700;line-height:52rpx;color:#89512a}
 .page.workbench-page .guest-stat-value>text{font-size:22rpx;font-weight:400;line-height:34rpx}
-.page.workbench-page .summary-unit{font-size:22rpx;font-weight:400;line-height:34rpx}
+
 .page.workbench-page .guest-counts>text{font-size:22rpx;font-weight:400;color:#858991}
 .page.workbench-page .guest-counts>text>text{font-size:26rpx;font-weight:700;color:#89512a}
 .page.workbench-page .primary,.page.workbench-page .outline,.page.workbench-page .mini-solid{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;height:64rpx;min-height:64rpx;padding:0 22rpx;border-radius:12rpx;font-size:24rpx;font-weight:500;line-height:36rpx;letter-spacing:0;white-space:nowrap;flex-shrink:0;box-sizing:border-box}
@@ -30,13 +30,12 @@
 .page.workbench-page .chevron{border-color:#89512a}
 .page.workbench-page .search-box input{font-size:26rpx;font-weight:400;line-height:40rpx}
 .page.workbench-page .customer-row{min-height:120rpx;height:auto;padding:16rpx 0;gap:20rpx}
-.page.workbench-page .new-project-row{height:84rpx;padding-top:0}
+
 .page.workbench-page .project-todo{height:auto;min-height:140rpx}
 .page.workbench-page .project-todo>text{font-size:26rpx;font-weight:400;line-height:40rpx}
 .page.workbench-page .guest-login-button{display:flex;width:100%;height:88rpx;min-height:88rpx;padding:0 24rpx;margin:24rpx 0;border-radius:12rpx;font-size:28rpx;font-weight:500;line-height:40rpx}
 .page.workbench-page .workbench-denied>.primary{display:flex;height:88rpx;min-height:88rpx;border-radius:12rpx;font-size:28rpx;line-height:40rpx}
-.page.workbench-page .finance-totals{font-size:26rpx;line-height:40rpx}
-.page.workbench-page .finance-totals>text:last-child.brown{font-size:24rpx;font-weight:500;line-height:36rpx}
+
 .page.workbench-page .guest-modal-heading{font-size:30rpx;font-weight:700;line-height:42rpx}
 .page.workbench-page .guest-modal-copy{font-size:26rpx;font-weight:400;line-height:40rpx}
 .page.workbench-page .guest-modal-actions>button{display:flex;align-items:center;justify-content:center;height:88rpx;min-height:88rpx;padding:0 24rpx;border-radius:12rpx;font-size:28rpx;font-weight:500;line-height:40rpx}
