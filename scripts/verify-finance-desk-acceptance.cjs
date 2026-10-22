@@ -48,7 +48,7 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
     await submit(form, selector);
     assert(!cur().data.error, cur().data.error);
     const after = desk(who, role);
-    assert(!after.tasks.some(t => t.key === task.key), who + ' 办完后待办 ' + view + ' 应关闭');
+    const remaining=after.tasks.find(t=>t.key===task.key);if(remaining){assert.equal(view,'pay');const q=M.load().payables.find(q=>q.id===task.id);assert(q&&F.paid(M.load(),q.id)<q.total,'仅部分付款可保留原待办');}
     return task;
   }
   const has = (who, role, view, test) => !!find(desk(who, role), view, test);
@@ -64,43 +64,53 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   const money = () => M.load();
   const raw = () => wx.getStorageSync(B.KEY).customers.find(c => c.id === cid);
 
-  assert(!has('hq-finance', 'finance', 'incoming-register', mine), '门店未付款时总部不应有到账登记待办');
-  assert(has('finance-wang', 'finance', 'pay', mine), '门店财务专员应收到首款付款待办');
-  assert(has('finance-dual', 'finance-lead', 'pay', mine) || has('finance-lead', 'finance-lead', 'pay', mine), '门店财务负责人也应能办理首款');
-  pass('A1 委托提交后：门店财务首页出现首款付款待办，总部尚无到账待办');
+  assert(has('finance-wang', 'finance', 'pay', mine));
+  login('hq-finance', 'finance');
+  const D = require('../miniprogram/utils/finance-desk'), copies = D.services(M.load()).filter(r => r.customerId === cid);
+  assert.equal(copies.length, 2, '费用授权后首尾款都抄送总部，不等待加盟商付款');
+  for (const stage of ['first','tail']) { const row = D.statement(M.load(),cid,stage); assert.equal(row.primary,null); assert(row.approved); }
+  assert(desk('hq-finance','finance').tasks.every(t => t.view === 'pay'));
+  pass('A1 老板费用授权后首尾款自动抄送总部；总部仅有付款登记类待办');
 
-  const payTask = await act('finance-wang', 'finance', 'pay', mine, { amount: '5000', date, transaction: 'ACC-STORE-1', file: file('门店付款'), checked: true });
-  const payment = money().payments.find(p => p.transaction === 'ACC-STORE-1');
-  assert(payment && payment.status === '待复核', '专员登记的付款应等待独立复核：' + (payment && payment.status));
-  assert(!T.condition(raw(), 'first').ready, '付款登记未复核前不应开放设计');
-  assert(has('finance-lead', 'finance-lead', 'payment-review', t => t.id === payment.id), '财务负责人应收到独立复核待办');
-  assert(!has('finance-wang', 'finance', 'payment-review', t => t.id === payment.id), '登记人本人不应收到自己付款的复核待办');
-  pass('A2 门店专员登记付款 → 财务负责人出现独立复核待办，登记人看不到自己的复核');
-
-  await act('finance-lead', 'finance-lead', 'payment-review', t => t.id === payment.id, { checked: true, file: file('付款复核'), note: '核对实际付款' });
-  assert(has('hq-finance', 'finance', 'incoming-register', mine), '门店付款核实后总部专员应收到到账登记待办');
-  assert(!has('finance-wang', 'finance', 'payment-review', t => t.id === payment.id) && !has('finance-lead', 'finance-lead', 'payment-review', t => t.id === payment.id));
-  pass('A3 门店负责人复核完成 → 总部专员出现到账登记待办，门店待办全部关闭');
-
-  const receipt = await act('hq-finance', 'finance', 'incoming-register', mine, { amount: '5000', date, transaction: 'ACC-HQ-1', file: file('总部到账'), checked: true, note: '核实总部银行实际到账' });
-  assert(has('hq-finance-lead', 'finance-lead', 'reconcile', mine), '总部负责人应收到独立核算待办');
-  assert(!has('hq-finance', 'finance', 'reconcile', mine), '登记人本人不应核算自己登记的到账');
-  pass('A4 总部专员登记到账 → 总部负责人出现独立核算待办，登记人不能自核');
-
-  await act('hq-finance-lead', 'finance-lead', 'reconcile', mine, { checked: true });
-  assert(!has('hq-finance-lead', 'finance-lead', 'reconcile', mine) && !has('hq-finance', 'finance', 'incoming-register', mine));
-  assert(T.condition(raw(), 'first').ready, '双方独立复核后首款应足额开放设计');
   login('hq-design-admin');
-  const adminPage = open('/pages/business/index');
-  assert((adminPage.data.tasks || []).some(t => t.customerId === cid), '首款核实后设计行政应收到设计完成待办');
-  pass('A5 总部负责人核算完成 → 首款足额，设计行政出现设计完成待办');
+  assert(open('/pages/business/index').data.tasks.some(t => t.customerId === cid));
+  pass('A2 设计行政按线下财务通知办理，线上不增加总部核收关卡');
+
+  await act('finance-wang','finance','pay',mine,{amount:'2000',date,transaction:'ACC-STORE-1',file:file('付款1'),checked:true});
+  let payment=money().payments.find(p=>p.transaction==='ACC-STORE-1');
+  assert.equal(payment.status,'已核实');assert.equal(payment.registrationMode,'record-only-v1');assert(!payment.reviewerId);
+  assert.equal(T.condition(raw(),'first').paid,200000);assert(!T.condition(raw(),'first').ready);
+  assert(has('finance-wang','finance','pay',mine),'部分登记后剩余款项仍可登记');
+  assert(!has('finance-lead','finance-lead','payment-review',mine));
+  pass('A3 普通财务付款登记直接计入已付，分笔保留余款待办，不产生复核');
+
+  login('finance-wang','finance');
+  let firstPayable=money().payables.find(q=>q.source?.id===cid&&q.source.stage==='first');
+  const beforeRejected=JSON.stringify(wx.getStorageSync(M.KEY));
+  assert.throws(()=>M.mutate(s=>M.apply(s,'pay',firstPayable.id,{amount:'3001',date,transaction:'ACC-OVER',file:file('超额'),checked:true})),/超过/);
+  assert.throws(()=>M.mutate(s=>M.apply(s,'pay',firstPayable.id,{amount:'100',date,transaction:'ACC-STORE-1',file:file('重复'),checked:true})),/重复/);
+  assert.equal(JSON.stringify(wx.getStorageSync(M.KEY)),beforeRejected);
+  pass('A4 超额付款及重复流水被拒绝，不改写账簿或原业务');
+
+  await act('finance-wang','finance','pay',mine,{amount:'3000',date,transaction:'ACC-STORE-2',file:file('付款2'),checked:true});
+  assert(T.condition(raw(),'first').ready);assert(!has('finance-lead','finance-lead','payment-review',mine));
+  login('hq-finance','finance');assert.equal(D.statement(M.load(),cid,'first').paid,500000);
+  assert(!money().receipts.some(r=>r.source?.customerId===cid),'抄送不伪造总部到账事实');
+  pass('A5 足额登记关闭首款待办，总部抄送同步付款进度且不生成总部收款');
+
+  login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-complete',{checked:true});
+  assert(has('finance-wang','finance','pay',t=>mine(t)&&t.id.endsWith(':tail')));
+  await act('finance-wang','finance','pay',t=>mine(t)&&t.id.endsWith(':tail'),{amount:'5000',date,transaction:'ACC-TAIL',file:file('尾款'),checked:true});
+  login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-dispatch',{checked:true,recipient:'业务',note:'收到线下财务通知后已下发'});
+  login('sales-dual','sales-lead');assert(require('../miniprogram/utils/sales-flow').tasks().some(t=>t.customerId===cid&&t.action==='收图并移交'));
+  pass('A6 尾款登记后线下通知行政，行政下发接续业务移交');
 
   // ---- B. boss approval of a payable, then payment (engineering material purchase) ----
   const terms = engScenes.filter(s => s.action === 'material-terms')[0];
   install(terms.before);
   const eng = wx.getStorageSync(E.KEY).projects.find(p => p.recordFlow), eid = eng.id, pid = eng.projectId, planId = new URL(terms.url, 'http://l').searchParams.get('planId');
   assert(planId, 'material-terms scene carries its plan');
-  const termsTask = (d) => find(d, 'engineering-material', t => t.id === 'material-terms:' + planId);
+  const termsTask = (d) => find(d, 'pay', t => t.id === 'material-terms:' + planId);
   assert(termsTask(desk('finance-wang', 'finance')), '到货后财务专员应收到“记录采购金额”待办');
   assert(termsTask(desk('finance-lead', 'finance-lead')), '财务负责人同样可见');
   assert(!termsTask(desk('hq-finance', 'finance')), '总部财务看不到加盟商工程材料待办');
@@ -133,54 +143,33 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   assert(q, 'payable exists');
   await act('finance-wang', 'finance', 'pay', t => t.id === q.id, { amount: String(q.total / 100), date, transaction: 'ACC-PAY-1', file: file('供应商付款'), checked: true });
   const supplierPayment = money().payments.find(p => p.transaction === 'ACC-PAY-1');
-  assert(supplierPayment && supplierPayment.status === '待复核', '专员登记的供应商付款应待独立复核');
-  assert.equal(F.paid(M.load(), q.id), 0, '未复核前不计入已付');
+  assert(supplierPayment&&supplierPayment.status==='已核实'&&supplierPayment.registrationMode==='record-only-v1');
+  assert.equal(F.paid(M.load(),q.id),q.total,'登记完成直接计入已付');
   assert(!has('finance-wang', 'finance', 'pay', t => t.id === q.id) || F.paid(M.load(), q.id) < q.total);
-  await act('finance-lead', 'finance-lead', 'payment-review', t => t.id === supplierPayment.id, { checked: true, file: file('付款复核'), note: '核对供应商实际收款' });
+  assert(!has('finance-lead','finance-lead','payment-review',t=>t.id===supplierPayment.id));
   assert.equal(F.paid(M.load(), q.id), q.total, '复核后已付金额等于应付');
   assert(!has('finance-wang', 'finance', 'pay', t => t.id === q.id) && !has('finance-lead', 'finance-lead', 'pay', t => t.id === q.id), '付清后付款待办关闭');
-  pass('B3 批准后财务出现付款待办 → 专员登记付款 → 负责人独立复核 → 已付金额等于应付，待办全部关闭');
+  pass('B3 材料付款登记直接回写原计划，已付足额后待办关闭');
 
-  // ---- C. delivered project: cost check, then financial closing (store finance lead) ----
-  const done = engScenes.at(-1).after;
-  install(done);
-  const eng2 = wx.getStorageSync(E.KEY).projects.find(p => p.recordFlow), pid2 = eng2.projectId;
-  const closing = (view) => has('finance-lead', 'finance-lead', view, t => t.id === pid2);
-  assert(closing('cost-confirm'), '归档后财务负责人应有“核对项目成本”待办');
-  assert(!closing('project-close'));
-  assert(!has('finance-wang', 'finance', 'cost-confirm', t => t.id === pid2), '专员不承担成本核对');
-  const costs = Ops.categories.reduce((m, k) => ({ ...m, [k]: '0' }), {});
-  login('finance-lead', 'finance-lead');
-  const costTask = find(desk('finance-lead', 'finance-lead'), 'cost-confirm', t => t.id === pid2);
-  listed('finance-lead', 'finance-lead', costTask);
-  const costPage = open(costTask.url);
-  assert.equal(costPage.data.view, 'costs');
-  costPage.setData({ form: { ...costPage.data.form, checked: true, file: file('成本核对'), remaining: costs } });
-  await click('[data-action="cost-confirm"]');
-  assert(!closing('cost-confirm') && closing('project-close'), '成本核对后应转为“确认财务结清”待办');
-  pass('C1 工程归档 → 财务负责人出现核对成本待办（专员没有）→ 核对后转为确认结清待办');
+  // ---- C. construction income is registered by franchise finance, with no manual closing ----
+  const collect=engScenes.find(s=>s.action==='collect');install(collect.before);
+  const rp=wx.getStorageSync(E.KEY).projects.find(p=>p.recordFlow),stage=collect.extra.stage;
+  login('manager-li','engineer');assert.throws(()=>R.run(rp.id,'collect',collect.form),/财务/);
+  const receiptTask=find(desk('finance-wang','finance'),'engineering-collection',t=>t.id===rp.id+':collection:'+stage);assert(receiptTask);listed('finance-wang','finance',receiptTask);
+  let p=open(receiptTask.url);p.setData({form:{...p.data.form,...collect.form}});await click('[data-action="collect"]');
+  const entry=M.load().receipts.find(r=>r.transaction===collect.form.transaction);assert(entry&&entry.status==='已核算'&&!entry.reviewerId);
+  assert.equal(Ops.receivable(M.load(),rp.projectId).received,Number(collect.form.amount)*100);
+  assert(desk('finance-lead','finance-lead').tasks.every(t=>['pay','incoming-register','engineering-collection'].includes(t.view)));
+  pass('C1 工程只读收款进度，加盟商财务从首页直接登记，立即更新合同实收');
 
-  const closeTask = find(desk('finance-lead', 'finance-lead'), 'project-close', t => t.id === pid2);
-  listed('finance-lead', 'finance-lead', closeTask);
-  const closePage = open(closeTask.url);
-  assert.equal(closePage.data.view, 'settlement');
-  closePage.setData({ form: { ...closePage.data.form, checked: true, file: file('结清依据'), note: '收付款、成本和往来核对完毕' } });
-  await click('[data-action="project-close"]');
-  assert(Ops.settlement(M.load(), pid2).closed, '项目应已财务结清');
-  assert(!closing('project-close') && !closing('cost-confirm'), '结清后收尾待办应关闭');
-  pass('C2 确认结清 → 项目财务结清，收尾待办关闭');
-
-  // a new expense after closing re-opens the closing steps instead of leaving a stale "closed"
-  login('finance-wang', 'finance');
-  const reopen = open('/pages/admin/operations/index?view=expenses&id=' + encodeURIComponent(pid2));
-  for (const [k, v] of Object.entries({ name: '结清后新增费用', amount: '100', recipient: '施工班组', reference: 'ACC-LATE-1', note: '结清后补记' })) reopen.setData({ form: { ...reopen.data.form, [k]: v } });
-  reopen.setData({ form: { ...reopen.data.form, due: date, file: file('费用凭据'), checked: true } });
-  await click('[data-action="expense-submit"]');
-  assert(!Ops.settlement(M.load(), pid2).closed, '结清后新费用应使结清失效');
-  const blockers = Ops.settlement(M.load(), pid2).blockers.map(b => b.key);
-  assert(blockers.includes('cost') && closing('cost-confirm'), '新增费用后成本待重新核对，财务负责人应重新收到核对成本待办');
-  assert(!closing('project-close'), '失效后不应仍提示确认结清');
-  pass('C3 结清后新增费用 → 结清失效，退回为“核对项目成本”待办');
+  install(engScenes.at(-1).after);login('finance-lead','finance-lead');
+  assert(desk('finance-lead','finance-lead').tasks.every(t=>['pay','incoming-register','engineering-collection'].includes(t.view)));
+  const recordProject=wx.getStorageSync(E.KEY).projects.find(p=>p.recordFlow);
+  const snapshot=JSON.stringify(wx.getStorageSync(M.KEY));
+  for(const action of ['reconcile','payment-review','refund','refund-request','correct','correction-request','appeal','cost-confirm','project-close'])assert.throws(()=>M.mutate(s=>M.apply(s,action,recordProject.projectId,{checked:true,file:file('不能操作')})),/线下办理/);
+  assert.equal(JSON.stringify(wx.getStorageSync(M.KEY)),snapshot);
+  assert(!D.project(M.load(),recordProject.projectId).settlement);
+  pass('C2 归档不生成成本核对和结清待办，退款更正及复核操作被阻止，原记录保留');
 
   fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ result: 'passed', scope: 'Node Page/WXML real handlers; not native tap evidence', checks }, null, 2));
   console.log(JSON.stringify({ result: 'passed', checks: checks.length }));
