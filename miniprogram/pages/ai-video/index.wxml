@@ -1,6 +1,6 @@
 <view class="creation-page video-page {{mode === 'reference' ? 'reference-mode' : ''}}">
   <creation-header id="creation-page-header" title="AI 视频" />
-  <view class="creation-body video-body"><view wx:if="{{invalidMessage}}" class="creation-card creation-empty"><text>{{invalidMessage}}</text><view class="page-actions"><button class="studio-outline" bindtap="returnToTasks">返回任务中心</button></view></view><block wx:else><text class="creation-notice">{{editingTaskId ? '正在编辑历史任务副本，当前草稿会保留。' : '本地演示 · 每次创建1个演示结果，不会扣费'}}</text>
+  <view class="creation-body video-body"><view wx:if="{{invalidMessage}}" class="creation-card creation-empty"><text>{{invalidMessage}}</text><view class="page-actions"><button class="studio-outline" bindtap="returnToTasks">返回任务中心</button></view></view><block wx:else><text wx:if="{{editingTaskId}}" class="creation-notice">正在编辑历史任务副本，当前草稿会保留。</text>
     <view class="video-tabs"><button class="video-tab {{mode === 'frames' ? 'active' : ''}}" data-mode="frames" bindtap="switchMode">文/图生视频</button><button class="video-tab {{mode === 'reference' ? 'active' : ''}}" data-mode="reference" bindtap="switchMode">参考生视频</button></view>
     <view class="creation-card media-card">
       <view class="creation-heading"><image class="creation-mark" src="/assets/creation-section-mark.png" /><text class="creation-heading-title">{{mode === 'frames' ? '首尾帧' : '参考素材'}}</text></view>
@@ -24,8 +24,8 @@
       <view class="creation-heading"><image class="creation-mark" src="/assets/creation-section-mark.png" /><text class="creation-heading-title">生成参数</text></view>
       <view class="parameter-grid"><view wx:for="{{parameters}}" wx:key="key" class="parameter"><text class="parameter-label">{{item.label}}</text><picker range="{{item.options}}" value="{{item.value}}" data-index="{{index}}" bindchange="changeParameter" aria-label="{{item.label}}"><view class="parameter-select"><text>{{item.options[item.value]}}</text><image src="/assets/creation-down.png" /></view></picker></view></view>
     </view>
-    <view class="page-actions"><button class="creation-primary generate-button" bindtap="generate" hover-class="pressed"><text class="button-label">创建演示任务</text></button></view>
-    <text class="generation-note creation-muted">仅体验本地流程，不生成真实视频、不扣费。</text></block>
+    <view class="page-actions"><button class="creation-primary generate-button" bindtap="generate" hover-class="pressed"><text class="button-label">创建任务</text></button></view>
+    </block>
   </view>
 </view>
 <view wx:if="{{libraryOpen}}" class="creation-sheet-overlay" bindtap="closeLibrary" catchtouchmove="noop"><view class="creation-sheet" catchtap="noop"><view class="creation-sheet-header"><text>从素材库选择</text><button class="creation-sheet-close" bindtap="closeLibrary">关闭</button></view><button wx:for="{{assets}}" wx:key="id" class="creation-sheet-row" data-id="{{item.id}}" bindtap="selectAsset"><image src="{{item.path}}" class="creation-sheet-thumb" mode="aspectFill" /><text class="creation-sheet-row-title">{{item.name}}</text></button></view></view>

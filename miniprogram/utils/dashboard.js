@@ -57,7 +57,7 @@ if (panel.key === 'customer' && this.data.customers) {
 const customers = this.data.customers.concat({ id: Date.now(), name: values.name, desc: values.village || '新客户 · 待跟进', avatar: '/assets/avatar-wang.jpg', button: '查看', action: 'customers' });
 this.setData({ customers, filteredCustomers: customers });
 }
-wx.showToast({ title: '已保存到本地', icon: 'success' });
+wx.showToast({ title: '已保存', icon: 'success' });
 } else if (panel.key === 'continueCourse') {
 this.setData({ learned: Math.min(6, (this.data.learned || 2) + 1) });
 wx.showToast({ title: '学习进度已更新', icon: 'success' });

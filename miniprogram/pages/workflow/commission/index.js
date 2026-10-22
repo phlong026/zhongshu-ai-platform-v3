@@ -51,7 +51,7 @@ Page({
  check(e){this.setData({['form.'+e.currentTarget.dataset.key]:e.detail.value.length>0,error:''});},
  chooseManager(e){const p=this.data.managerOptions[Number(e.detail.value)];if(p)this.setData({'form.managerId':p.id,selectedManager:p.name});},
  chooseFile(e){const key=e.currentTarget.dataset.key;wx.chooseMessageFile({count:1,type:'file',success:async r=>{try{const f=r.tempFiles[0],saved=await require('../../../utils/creation').persistMedia(f.path);this.setData({['form.'+key]:{name:f.name,path:saved,size:f.size},error:''});}catch(err){this.setData({error:err.message});}},fail:err=>{if(!/cancel/i.test(err.errMsg||''))this.setData({error:'文件选择失败，请重新选择'});}});},
- preview(e){const f=this.data.form[e.currentTarget.dataset.key]||this.data.rows[Number(e.currentTarget.dataset.index)]?.file;if(!f)return;if(f.text||f.sample)return this.setData({preview:{name:f.name,text:f.text||'这是隔离测试附件。实际办理请上传真实文件。'}});if(f.path)wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.setData({error:'此格式无法直接预览，请核对原文件后继续'})});},
+ preview(e){const f=this.data.form[e.currentTarget.dataset.key]||this.data.rows[Number(e.currentTarget.dataset.index)]?.file;if(!f)return;if(f.text||f.sample)return this.setData({preview:{name:f.name,text:f.text||'该文件暂无预览内容。'}});if(f.path)wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.setData({error:'此格式无法直接预览，请核对原文件后继续'})});},
  closePreview(){this.setData({preview:null});},
  openTask(e){Nav.open(e.currentTarget.dataset.url);},
  openFeedback(){Nav.open(SF.url(this.id,'feedback'));},

@@ -4,7 +4,7 @@ const assets = [
 { id: 'villa', name: '山间别墅', type: 'image', path: '/assets/creation-ai-cover.jpg' }
 ];
 function unavailable(title) {
-wx.showModal({ title, content: '服务暂未接入，当前可编辑内容、选择素材并保存本地草稿。', showCancel: false, confirmColor: '#824019' });
+wx.showModal({ title, content: '生成服务暂未开通，当前可编辑内容、选择素材并保存草稿。', showCancel: false, confirmColor: '#824019' });
 }
 function back() {
 return require('./page-navigation').back();
