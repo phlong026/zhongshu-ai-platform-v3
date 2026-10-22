@@ -5,7 +5,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict');
  for(const [index,id]of ['zhang','sales-lead'].entries()){
   A.mutate(a=>A.loginDemo(a,id));assert(D.ensure());const before=W.customerRows().length;assert(!D.ensure());assert.equal(W.customerRows().length,before);pass(id+'：一次性模拟客户、草稿和作品，不重复注入');
   await open('/pages/business/index');assert(p().data.isSalesHome);assert.equal(p().data.salesCounts.all,before);assert(p().data.flowPending.length);assert(p().data.recentCreation);pass(id+'：首页统计与可见记录一致，待办与最近创作非空');
-  assert.deepEqual(p().data.salesShortcuts.map(x=>x.title),['内容创作','方案设计','参考预算','登记客户']);
+  assert.deepEqual(p().data.salesShortcuts.map(x=>x.title),['登记客户','内容创作','AI设计','快速预算']);
   await open('/pages/business/index');await(await(await r.currentPage()).$('.sales-stat[data-focus="commission"]')).tap();assert.equal(p().route,'pages/account/index');assert.equal(p().data.view,'personal-performance');await open('/pages/business/index');
   for(const[focus,count]of [['due',p().data.todayCount],['appointments',p().data.appointmentCount]]){await open('/pages/business/index');await(await(await r.currentPage()).$('.sales-stat[data-focus="'+focus+'"]')).tap();assert.equal(p().route,'pages/customers/index');assert.equal(p().data.filteredCustomers.length,count);assert.equal(p().data.focus,focus==='all'?'':focus);if(focus!=='all'){p().clearFocus();assert.equal(p().data.filteredCustomers.length,before);}}
   pass(id+'：首页三项数字跳转对应客户集合，数量一致且可清除筛选');await open('/pages/business/index');

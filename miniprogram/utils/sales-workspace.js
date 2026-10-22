@@ -36,7 +36,7 @@ function home(){
  const overdue=rows.filter(r=>r.canFollow&&r.appointment&&r.appointment.slice(0,10)<day).length;
  return {isSalesHome:true,salesName:require('./account').load().profile.name||actor.name||'',overdueCount:overdue,commission:monthCommission(),salesDate:Number(day.slice(5,7))+'月'+Number(day.slice(8,10))+'日 '+week,customerLabel:actor.role==='sales-lead'?'可见客户':'我的客户',salesCounts:counts(rows),todayCount:due.length,appointmentCount:upcoming.length,
   ...(()=>{const t=require('./sales-todos').list();return {flowPending:t.pending,flowWaiting:t.waiting};})(),
-  salesShortcuts:[{title:'内容创作',icon:'video-filled',action:'remix'},{title:'方案设计',icon:'home-design-icon',action:'salesDesign'},{title:'参考预算',icon:'contract',action:'budget'},{title:'登记客户',icon:'person-filled',action:'customer'}],
+  salesShortcuts:[{title:'登记客户',icon:'person-filled',action:'customer'},{title:'内容创作',icon:'video-filled',action:'remix'},{title:'AI设计',icon:'home-design-icon',action:'aiDesign',url:'/pages/workflow/explore/index?view=ai-config'},{title:'快速预算',icon:'contract',action:'quickBudget',url:'/pages/workflow/explore/index?view=budget'}],
   recentCustomer:project||null,recentCreation:draft||work||null,isDemo:!!wx.getStorageSync('zhongshu-account-v1')?.session?.demo};
 }
 module.exports={customerRows,counts,category,maskPhone,focusRows,home,todoBoard,monthCommission};
