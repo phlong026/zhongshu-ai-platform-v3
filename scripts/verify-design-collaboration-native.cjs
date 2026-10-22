@@ -162,7 +162,15 @@ async function main() {
     assert.deepEqual(await unchanged(admin), beforeAdmin, '行政端未修改原本地业务账簿');
     assert.equal(admin.errors.length, 0, JSON.stringify(admin.errors));
     pass('原本地数据保持不变，行政缓存不含财务敏感信息，原生无异常');
-    fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ result: 'passed', checks, actors:{finance:'hq-finance-dual',designAdmin:'hq-design-admin',recipient:'sales-dual'}, sessionsIndependent: true, localDomainStorageUnchanged: true, exceptions: [], scope: 'One isolated native administrative simulator plus one separate finance client process using real HTTP and a mock WeChat gateway; no actual handset or WeChat delivery' }, null, 2));
+    const scenarioCustomer = durable.storage['zhongshu-business-v3'].customers.find(row => row.id === dispatchedId);
+    const budget = scenarioCustomer.budgets.at(-1);
+    assert.equal(budget.area, Number(budget.parameters.width)*Number(budget.parameters.depth)*Number(budget.parameters.floors));
+    assert.equal(budget.bodyRows.reduce((sum,row)=>sum+row.value,0), budget.main);
+    assert.equal(budget.exteriorRows.reduce((sum,row)=>sum+row.value,0), budget.exterior);
+    assert(scenarioCustomer.designPayments.every(row=>row.registrarId==='finance-dual'));
+    assert.equal(scenarioCustomer.businessFlow.dispatch.recipient,'李业务');
+    fs.writeFileSync(path.join(out, 'scenario-storage.json'), JSON.stringify(Object.entries(durable.storage), null, 2));
+    fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ result: 'passed', customerId:dispatchedId, projectId:scenarioCustomer.projectId, fixture:'scenario-storage.json', checks, actors:{finance:'hq-finance-dual',designAdmin:'hq-design-admin',recipient:'sales-dual'}, sessionsIndependent: true, localDomainStorageUnchanged: true, exceptions: [], scope: 'One isolated native administrative simulator plus one separate finance client process using real HTTP and a mock WeChat gateway; no actual handset or WeChat delivery' }, null, 2));
   } catch (error) {
     for (const [index, r] of phones.entries()) {
       try { await capture(r, 'failure'); const data = await r.data(); fs.writeFileSync(path.join(out, 'failure-' + index + '.json'), JSON.stringify({ screen: data.screen, error: data.error, connected: data.connected, role: data.actor?.role, tasks: data.tasks?.length }, null, 2)); } catch (_) {}
