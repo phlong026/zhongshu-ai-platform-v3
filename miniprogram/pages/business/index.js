@@ -17,7 +17,7 @@ definition.refreshTodos=function(tab=this.data.todoTab,expanded=!!this.data.todo
 definition.selectTodoTab=function(e){this.refreshTodos(e.currentTarget.dataset.tab,false);};
 definition.toggleTodos=function(){this.refreshTodos(this.data.todoTab,!this.data.todoExpanded);};
 definition.filterCustomers=function(){const keyword=this.data.keyword||'';this.setData({filteredCustomers:(this.data.customers||[]).filter(c=>(c.name+c.desc).includes(keyword))});};
-// AI design and quick budget start in the explore page, like the 方案 tab; a customer is chosen when saving.
+// AI design opens the 方案 tab; quick budget starts in the explore page. A customer is chosen when saving.
 definition.openSalesShortcut=function(e){const url=e.currentTarget.dataset.url;if(url)return require('../../utils/page-navigation').open(url);this.openAction(e);};
 definition.openSalesMetric=function(e){const focus=e.currentTarget.dataset.focus;if(focus==='commission')return require('../../utils/page-navigation').open('/pages/account/index?view=personal-performance');if(['all','due','appointments'].includes(focus))require('../../utils/page-navigation').open('/pages/customers/index'+(focus==='all'?'':'?focus='+focus));};
 definition.continueSalesCustomer=function(){if(this.data.recentCustomer)require('../../utils/page-navigation').open(this.data.recentCustomer.hasDesign?require('../../utils/sales-flow').url(this.data.recentCustomer.id):'/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.recentCustomer.id));};
