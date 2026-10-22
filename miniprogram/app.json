@@ -9,6 +9,11 @@
   ],
   "subPackages": [
     {
+      "root": "pages/collaboration",
+      "name": "collaboration-simulation",
+      "pages": ["index"]
+    },
+    {
       "root": "pages/design",
       "name": "design-workflow",
       "pages": [
