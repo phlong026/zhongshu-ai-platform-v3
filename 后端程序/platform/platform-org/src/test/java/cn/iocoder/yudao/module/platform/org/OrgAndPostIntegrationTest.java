@@ -233,6 +233,19 @@ class OrgAndPostIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
+    void orgsEverHeldIncludeRevokedPosts() {
+        long a = orgService.createOrg("t-store", "A店", null);
+        long b = orgService.createOrg("t-hq", "总部", null);
+        long user = newUser();
+        long inA = staffPostService.assignPost(user, a, "t-sales", null, 99L);
+        staffPostService.assignPost(user, b, "t-finance", null, 99L);
+        staffPostService.revokePost(inA, 98L);
+
+        assertThat(staffPostService.listOrgIdsEverHeld(user)).containsExactly(Math.min(a, b), Math.max(a, b));
+        assertThat(staffPostService.listOrgIdsEverHeld(newUser())).isEmpty();
+    }
+
+    @Test
     void leadInheritsTheSpecialistRole() {
         assertThat(staffPostService.roleHas("t-sales-lead", "t-sales")).isTrue();
         assertThat(staffPostService.roleHas("t-sales", "t-sales")).isTrue();

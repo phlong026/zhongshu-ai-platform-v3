@@ -110,6 +110,11 @@ public class StaffPostServiceImpl implements StaffPostService {
     }
 
     @Override
+    public List<Long> listOrgIdsEverHeld(long userId) {
+        return staffPostMapper.selectOrgIdsEverHeld(userId);
+    }
+
+    @Override
     public boolean roleHas(String roleCode, String wanted) {
         if (Objects.equals(roleCode, wanted)) {
             return true;

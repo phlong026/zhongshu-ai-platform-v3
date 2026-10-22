@@ -21,10 +21,13 @@
    - 只依赖平台能力层模块、框架 starter 和其他域的 `-api`；不依赖其他域的实现模块。
 4. 数据访问一律用 MyBatis Mapper（`BaseMapperX`），**不用 `JdbcTemplate` 手写 SQL**，否则组织范围的数据权限拦截器不生效。
 5. 每张业务表必须有 `company_id`（归属组织），按团队隔离的再加 `team_id`。
+   - **新增数据的归属组织一律从 `CurrentPost.require().orgId()` 取，不信任请求体里的 `company_id`。** 组织范围规则只约束查询、更新、删除，不约束插入。
+   - 表要登记到组织范围规则：提供 `OrgScopeCustomizer` Bean，`rule.register("<表>", "company_id"[, 额外可见组织列...])`。
+   - 控制器权限一律用 `@PreAuthorize("@post.has('<域>:<资源>:<动作>')")`，不用 `@ss.hasPermission`（后者按全部岗位并集）。
 6. 迁移脚本放 `src/main/resources/db/migration/<域>/`，回滚脚本放 `db/migration-undo/<域>/`，并把 `classpath:db/migration/<域>` 加到 `yudao-server` 的 `application-pg.yaml` 的 `flyway.locations`。
-7. 接口路径：Web 端 `/admin-api/<域>/...`，小程序端 `/app-api/<域>/...`。
+7. 接口路径：员工无论在 Web 还是小程序都走 `/admin-api/<域>/...`（yudao 按路径区分后台/会员令牌，员工是后台用户）；`/app-api/<域>/...` 只留给面向业主、访客的 C 端接口。小程序所有请求都要带 `tenant-id` 与 `X-Post-Id` 请求头。
 8. 权限码：`<域>:<资源>:<动作>`，由本域迁移脚本写入菜单、按钮和本域岗位模板（角色）。
-9. 按需实现平台扩展接口：待办 `TodoProvider`、审批 `ApprovalProvider`、对象授权 `ObjectAccessPolicy`（M1 起由平台层提供）。
+9. 使用平台能力：待办实现 `TodoProvider`；金额等审批调 `ApprovalService`；命令留痕用 `CommandLog` + `Revisions`；对象规则用 `Access` 组合判断；当前工作身份用 `CurrentPost`。
 10. 在 `yudao-server/pom.xml` 引入本域模块即启用；不引入则菜单、接口都不存在。
 
 ## 3. 管理后台

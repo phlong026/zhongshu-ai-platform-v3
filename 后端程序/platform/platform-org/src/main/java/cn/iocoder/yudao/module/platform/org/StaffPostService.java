@@ -24,6 +24,9 @@ public interface StaffPostService {
 
     List<StaffPostDO> listActivePostsInOrg(long orgId, String roleCode);
 
+    /** 用户任职过的全部组织（含已撤销的任职），按编号升序 */
+    List<Long> listOrgIdsEverHeld(long userId);
+
     /** 岗位是否具备 wanted 岗位的身份：相同，或负责人继承了该专员岗位 */
     boolean roleHas(String roleCode, String wanted);
 
