@@ -1,7 +1,8 @@
 const fs=require('fs'),assert=require('assert/strict');
 (async()=>{
  await require('./role-page-runtime.cjs').connect();
- const fixture=require('../qa/finance-implementation-20261021/fixtures.json');for(const[k,v]of fixture.fixtures['store-staff'])wx.setStorageSync(k,v);
+ const A=require('../miniprogram/utils/account');A.mutate(s=>A.loginDemo(s,'finance-dual'));
+ fs.mkdirSync('qa/finance-implementation-20261021',{recursive:true});
  const D=require('../miniprogram/utils/finance-desk'),N=require('../miniprogram/utils/page-navigation');
  wx.reLaunch({url:D.url('flows','',{tab:'payables'})});let page=getCurrentPages().at(-1);
  const target=page.data.rows.find(r=>r.available>0);assert(target);page.setData({keyword:target.name.split(' · ')[0],statusFilter:target.status,category:target.category,sort:'金额优先',due:''});page.refresh();

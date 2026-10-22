@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>管理工作台 · 首页</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.site{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.site:last-child{border:0;padding-bottom:0}
+.site img{width:52px;height:52px;border-radius:8px;object-fit:cover}
+.pays{display:flex;gap:5px;margin-top:5px}
+.sub-h{font-size:12px;color:var(--muted);margin:12px 0 0;display:flex;justify-content:space-between}
+.watch{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.watch:last-child{border:0;padding-bottom:0}
+.watch .grow b{font-weight:600}
+
+.six{display:grid;grid-template-columns:repeat(3,1fr);background:#faf6f0;border-radius:10px;padding:4px 0}
+.six>div{padding:11px 10px 10px;position:relative}
+.six>div:nth-child(3n+2),.six>div:nth-child(3n+3){border-left:1px solid #eee4d7}
+.six>div:nth-child(n+4){border-top:1px solid #eee4d7}
+.six .l{font-size:12px;color:#74695c;line-height:17px}
+.six .v{font-size:21px;line-height:29px;font-weight:700;color:#74431f;margin-top:3px}
+.six .v small{font-size:11px;color:#978b7d;font-weight:400;margin-left:2px}
+.six .s{font-size:11px;color:var(--muted);line-height:16px}
+</style></head>
+<body>
+<div class="status"><span>9:41</span><span class="sys">
+<svg width="17" height="11" viewBox="0 0 17 11"><g fill="#111"><rect x="0" y="7" width="3" height="4" rx=".7"/><rect x="4.5" y="5" width="3" height="6" rx=".7"/><rect x="9" y="2.5" width="3" height="8.5" rx=".7"/><rect x="13.5" y="0" width="3" height="11" rx=".7"/></g></svg>
+<svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3" fill="none" stroke="#111" opacity=".4"/><rect x="2" y="2" width="18" height="8" rx="1.6" fill="#111"/><rect x="22.5" y="4" width="1.6" height="4" rx=".8" fill="#111" opacity=".4"/></svg></span></div>
+<div class="nav"><img class="brand" src="../../miniprogram/assets/brand.png"><span class="divider"></span><span class="title">管理工作台</span><span class="capsule"><i></i><b></b></span></div>
+<div class="content">
+
+<div class="hello"><h2>你好，赵老板</h2><div class="muted">湖北店 · 10月22日 周四</div></div>
+
+<div class="card">
+  <div class="heading"><h3>本月经营</h3><span class="more">2026年10月 ▾</span></div>
+  <div class="six"><div><div class="l">签约金额</div><div class="v">96.8<small>万</small></div><div class="s">目标完成 65%</div></div><div><div class="l">回款金额</div><div class="v">52.6<small>万</small></div><div class="s">目标完成 75%</div></div><div><div class="l">签约单数</div><div class="v">2<small>单</small></div><div class="s">报价中 4 单</div></div><div><div class="l">新增线索</div><div class="v">38<small>条</small></div><div class="s">短视频 21 条</div></div><div><div class="l">有效客户</div><div class="v">14<small>个</small></div><div class="s">目标完成 70%</div></div><div><div class="l">到店看工地</div><div class="v">9<small>人</small></div><div class="s">本周预约 2 人</div></div></div>
+</div>
+
+<div class="card">
+  <div class="heading"><h3>待我办理 6</h3></div>
+  <div class="chips"><span class="on">全部<b>6</b></span><span>金额审批<b>3</b></span><span>结果复核<b>2</b></span><span>交接<b>1</b></span></div>
+  <div class="todo"><div class="grow"><div class="name">张先生 · 黄冈团风<span class="tag">正式报价</span></div><div class="muted">¥468,000 · 毛利 19.6% · 张业务</div></div><span class="btn">去审批</span></div>
+  <div class="todo"><div class="grow"><div class="name">陈先生 · 麻城宋埠<span class="tag">付款申请</span></div><div class="muted">钢筋第 3 批 ¥62,400 · 到货已确认</div></div><span class="link">去审批 ›</span></div>
+  <div class="todo"><div class="grow"><div class="name">李女士 · 罗田<span class="tag">设计服务费</span></div><div class="muted">¥8,000 · 刘业务提交 · 今天</div></div><span class="link">去审批 ›</span></div>
+  <div class="todo"><div class="grow"><div class="name">刘业务<span class="tag amber">绩效复核</span></div><div class="muted">9月签约归属有异议，申请复核</div></div><span class="link">去复核 ›</span></div>
+  <div class="all">查看全部 ›</div>
+</div>
+
+<div class="card">
+  <div class="heading"><h3>业务</h3><span class="more">业务概览 ›</span></div>
+  <div class="mini"><div><b>23<small>人</small></b><span>跟进中</span></div><div><b>6<small>单</small></b><span>方案设计</span></div><div><b>4<small>单</small></b><span>报价中</span></div><div><b>2<small>单</small></b><span>待签约</span></div></div>
+  <div class="sub-h"><span>需要关注</span></div>
+  <div class="watch"><i class="lv red"></i><span class="grow"><b>3 个客户</b>超 7 天未跟进 · 刘业务 2 · 张业务 1</span><span class="chev">›</span></div>
+  <div class="watch"><i class="lv"></i><span class="grow">今日待跟进 <b>6 人</b> · 周六预约看样板房 <b>2 人</b></span><span class="chev">›</span></div>
+  <div class="watch"><i class="lv green"></i><span class="grow">本月发布短视频 <b>18 条</b> · 带来咨询 <b>21 条</b></span><span class="chev">›</span></div>
+</div>
+
+<div class="card">
+  <div class="heading"><h3>工程</h3><span class="more">工程概览 ›</span></div>
+  <div class="mini"><div><b>6<small>个</small></b><span>在建</span></div><div><b>1<small>个</small></b><span>待开工</span></div><div><b>1<small>个</small></b><span>本月交付</span></div><div><b>1<small>个</small></b><span>延期</span></div></div>
+  <div class="site" style="margin-top:4px"><img src="../../miniprogram/pages/build/assets/house-lin.jpg"><div class="grow"><div class="row"><span class="name grow">林女士 · 武穴梅川</span><span class="muted">屋面工程</span></div><div class="nodes"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i class=""></i></div><div class="pays"><span class="tag green">开工款已收</span><span class="tag red">封顶款逾期 2 天</span></div></div></div>
+  <div class="site"><img src="../../miniprogram/pages/engineering/assets/project-chen.jpg"><div class="grow"><div class="row"><span class="name grow">陈先生 · 麻城宋埠</span><span class="muted">二层主体</span></div><div class="nodes"><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i class=""></i><i class=""></i><i class=""></i></div><div class="pays"><span class="tag green">开工款已收</span><span class="tag gray">封顶款 11月初</span></div></div></div>
+  <div class="site"><img src="../../miniprogram/pages/build/assets/house.jpg"><div class="grow"><div class="row"><span class="name grow">王先生 · 麻城白果</span><span class="muted">基础工程</span></div><div class="nodes"><i class="done"></i><i class="late"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i></div><div class="pays"><span class="tag green">开工款已收</span><span class="tag amber">延期 3 天 · 连续下雨</span></div></div></div>
+</div>
+
+</div>
+<nav class="tabbar"><a class="on"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1h-5v-6h-5v6h-5a1 1 0 0 1-1-1z"/></svg>首页</a><a class=""><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>经营</a><a class=""><svg viewBox="0 0 24 24"><path d="M12 3.5l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.4 6.9 19.1l1-5.6-4.1-4 5.7-.8z"/></svg>绩效</a><a class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20.5c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>我的</a></nav>
+<div class="home-bar"><i></i></div>
+</body></html>
