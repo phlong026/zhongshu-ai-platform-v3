@@ -2,7 +2,7 @@
 const KEY='zhongshu-sales-demo-v1';
 function ensure(){
  const A=require('./account'),B=require('./business'),S=require('./studio'),X=require('./access'),a=X.context(),session=wx.getStorageSync(A.KEY)?.session;
- if(!a.active||!session?.demo||!require('./organization').has(a.role,'sales')||wx.getStorageSync('zhongshu-live-demo-v1')||wx.getStorageSync('zhongshu-demo-session-v1'))return false;
+ if(!a.active||!session?.demo||!require('./organization').has(a.role,'sales'))return false;
  const marker=wx.getStorageSync(KEY)||{version:1,owners:{}},scope=a.companyId+':'+a.staffId;if(marker.owners[scope]?.seedVersion===2)return false;
  const keys=[B.KEY,'zhongshu-management-v1',S.scope(),S.scopedKey('zhongshu-creation-draft'),S.scopedKey('zhongshu-video-draft'),KEY],backup=keys.map(k=>[k,wx.getStorageSync(k)]),day=A.localDate(),tomorrow=A.localDate(Date.now()+86400000),salt=Array.from(a.staffId).reduce((sum,c)=>sum+c.charCodeAt(0),0)%800;
  try{

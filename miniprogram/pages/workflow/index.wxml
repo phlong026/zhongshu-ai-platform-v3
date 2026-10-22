@@ -1,7 +1,7 @@
 <import src="./budget-result.wxml"/>
 <wxs src="./format.wxs" module="fmt"></wxs>
 <view class="workflow {{designFlow?'design-flow':''}} view-{{view}} {{caseTab?'has-plan':''}} {{extended?'extended':''}}">
- <business-header id="workflow-header" title="{{title}}" design-flow="{{designFlow}}"/><demo-guide id="demo-guide"/>
+ <business-header id="workflow-header" title="{{title}}" design-flow="{{designFlow}}"/>
  <view wx:if="{{!customer&&view!=='customers'}}" class="body"><view class="card empty">{{error}}<view class="page-actions"><button class="btn workflow-nav" data-view="customers" bindtap="go">返回客户列表</button></view></view></view>
  <view wx:else class="body">
   <view wx:if="{{blocked}}" class="card empty"><text>{{blocked.message}}</text><view class="page-actions"><button class="btn workflow-nav" data-view="{{blocked.target}}" bindtap="go">{{blocked.label}}</button></view></view><block wx:else>

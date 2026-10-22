@@ -52,7 +52,7 @@ this.setData({demoPublishedUrl,publishedUrlInput:state.publicationLinkDrafts?.[t
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
-onShow() {require('../../utils/demo-session').apply(this); if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
+onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
 onHide() { this.persistEditor(); },
 onUnload() { this.persistEditor(); },
 persistEditor() {

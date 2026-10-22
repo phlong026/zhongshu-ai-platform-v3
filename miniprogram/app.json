@@ -20,7 +20,6 @@
       "name": "business-workflow",
       "pages": [
         "commission/index",
-        "design-desk/index",
         "quote-export/index",
         "explore/index",
         "index"
@@ -64,14 +63,6 @@
       "name": "growth-workflow",
       "pages": [
         "index"
-      ]
-    },
-    {
-      "root": "pages/demo",
-      "name": "demo-workflow",
-      "pages": [
-        "index",
-        "live"
       ]
     },
     {
@@ -133,8 +124,7 @@
   },
   "usingComponents": {
     "brand-header": "/components/brand-header/index",
-    "action-panel": "/components/action-panel/index",
-    "demo-guide": "/components/demo-guide/index"
+    "action-panel": "/components/action-panel/index"
   },
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"

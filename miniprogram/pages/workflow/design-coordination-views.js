@@ -1,7 +1,7 @@
 const D=require('../../utils/design-coordination'),X=require('../../utils/access'),T=require('../../utils/intercompany');
 const section=(title,items)=>({title,items}),kv=(label,value)=>({type:'kv',label,value:value||'—'}),notice=value=>({type:'notice',value}),links=values=>({type:'links',values}),file=(name,value)=>({type:'file',name:value?.name||name,file:value}),area=key=>({type:'textarea',key}),check=(label,key)=>({type:'check',label,key}),upload=(label,key)=>({type:'upload',label,key});
 function decorate(view,c,f,out){
- const a=X.context(),sales=a.orgType!=='headquarters'&&!require('../../utils/organization').has(a.role,'hq-designer'),r=c.request,b=r?.basis||D.basis(c),n=D.next(c),received=D.receipt(c);
+ const a=X.context(),sales=a.orgType!=='headquarters'&&!false,r=c.request,b=r?.basis||D.basis(c),n=D.next(c),received=D.receipt(c);
  if(view==='request'){
   const submitted=r&&r.status!=='returned';out.title='需求书与设计委托';out.badge=submitted?'委托已提交':'待提交设计委托';
   out.sections=[section('委托关联',[kv('客户',c.name),kv('项目',c.projectId),kv('设计委托',r?.commissionId||'提交后生成'),kv('参考预算',r?.budgetVersion?'V'+r.budgetVersion:c.budgets?.length?'V'+c.budgets[c.budgets.length-1].version:'未关联预算')]),section('设计依据',[kv('资料来源','预算参数／客户提供，现场条件仍需核实'),kv('面宽／进深',b?b.width+'m × '+b.depth+'m':'待完善'),kv('层数／建筑面积',b?b.floors+'层 · '+b.area+'㎡':'待完善')]),section('设计需求',submitted?[notice(r.text),kv('交付范围',r.scope||'按原服务约定')]:[area('requestText'),{type:'input',label:'设计交付范围',key:'requestScope',placeholder:'填写平面、效果图、施工图等本次约定范围'},upload('补充现场及需求资料','requestAttachment'),check('已核对需求、尺寸、资料来源及本次交付范围','designBasisChecked')]),section('后续办理',[notice('提交后由业务负责人核定设计服务费，老板审批金额，财务办理付款；总部核对首款后受理和派单。')])];

@@ -8,7 +8,7 @@ const check=(label,key)=>({type:'check',label,key});
 const notice=(value)=>({type:'notice',value});
 const stats=(values)=>({type:'stats',values});
 const section=(title,items,extra)=>Object.assign({title,items},extra||{});
-const titles={customers:'我的客户',customer:'客户工作区',arrival:'客户工作区',progress:'客户工作区',inspiration:'方案参考',search:'户型检索',case:'案例详情','case-plan':'户型详情','ai-config':'平面方案','ai-results':'平面方案候选',result:'平面方案结果',budget:'报价测算','budget-result':'报价测算结果',quote:'正式报价',contract:'合同与资金','contract-prepare':'合同与资金',funds:'合同与资金',request:'电子设计需求','payment-first':'总部设计首款',intake:'总部设计受理',assign:'总部设计受理',deliverable:'提交设计成果','payment-tail':'设计尾款办理',release:'正式成果下发',documents:'项目资料',copies:'补图抄送记录',handover:'工程移交',receive:'工程接收',confirmation:'正式成果确认',accepted:'工程移交回执',delivery:'设计协同',hub:'项目办理',history:'历史版本',preview:'附件预览','ai-facade':'立面方案'};
+const titles={customers:'我的客户',customer:'客户工作区',arrival:'客户工作区',progress:'客户工作区',inspiration:'方案参考',search:'户型检索',case:'案例详情','case-plan':'户型详情','ai-config':'平面方案','ai-results':'平面方案候选',result:'平面方案结果',budget:'报价测算','budget-result':'报价测算结果',history:'历史版本',preview:'附件预览','ai-facade':'立面方案'};
 const defaults={name:'',phone:'',wechat:'',source:'视频号咨询',province:'湖北省',city:'武汉市',summary:'',method:'电话',followResult:'已联系',followContent:'',next:'到店沟通',appointment:'',width:'12.5',depth:'16',floors:'2',orientation:'南',courtyard:'前院',drawingType:'彩色平面',notes:'一层安排老人房，客餐厅通透；二层保留家庭起居区。',resolution:'2K',aspect:'横图',count:'2',footprint:'200',area:'400',roofArea:'220',foundation:'独立基础',structure:'框架结构',roof:'坡屋顶',quotePrice:'1050',otherPrice:'160000',extraPrice:'100000',signedDate:'',requestText:'现代简约立面；一层老人房、客餐厅与厨房；二层三间卧室，保留南向采光。',amount:'',paymentDate:'',transaction:'',verified:false,intakeChecked:false,designer:'林设计师',dueDate:'',deliverableNote:'按电子需求 v1 完成平面、立面及配套设计，详见本次成果文件。',drawingVersion:'v1',manager:'李经理',handoverNote:'按补传施工图 v1 交底；核对宅基地南侧高差及一楼老人房门洞位置。',receiveContract:false,receiveDrawing:false,receiveBrief:false,confirmationChecked:false,returnReason:'',receiveDate:'',budgetChecked:true};
 function config(view,c,form) {
  const q=B.latest(c.quotes),p=B.latest(c.plans),budget=B.latest(c.budgets),drawing=B.latest(c.drawings),delivery=B.latest(c.deliverables);
@@ -61,7 +61,7 @@ function config(view,c,form) {
  if(c.returns.length){const pending=c.returns.filter(r=>r.status==='pending');if(pending.length&&['request','handover','delivery'].includes(view))out.sections.unshift(section('待补充事项',pending.map(r=>notice(r.reason))));}
  return out;
 }
-Object.assign(titles,{'design-receipt':'门店收图确认','design-feedback':'设计修改意见','deliverable-review':'设计成果审核',transfer:'责任转交','facade-config':'立面方案','facade-candidates':'立面方案候选','facade-result':'立面方案结果','formal-progress':'正式设计','tail-apply':'正式设计'});
+Object.assign(titles,{transfer:'责任转交','facade-config':'立面方案','facade-candidates':'立面方案候选','facade-result':'立面方案结果'});
 Object.assign(defaults,{requestScope:'',designBasisChecked:false,designReceiveChecked:false,designReceiveNote:'',designFeedbackNote:'',designFeedbackFile:null,style:'现代简约',palette:'米白 + 深灰',facadeNotes:'白墙灰瓦、入口简洁大气，适当增加木色细节。',newOwner:'刘业务',transferReason:'人员调岗，客户资料及待跟进事项一并转交。',tailApplyNote:'正式成果 v1 已完成，请按原设计服务单办理尾款。',receiptPurpose:'客户定金',receiptReceiver:'王财务',receiptTransaction:'',facadeArea:'400'});
 defaults.exterior={window:true,paint:true,stone:true,light:true,waterproof:true,lightning:true,insurance:true};
 defaults.sitePhotos=['/pages/workflow/assets/biz-site.jpg','/pages/workflow/assets/biz-measure.jpg'];

@@ -3,9 +3,9 @@ const X=require('./access'),O=require('./organization');
 const deferred=view=>/^(refund|correction)(-|$)/.test(view)||['verify','correct','request-cancel'].includes(view);
 const moneyBoss=(a=X.context())=>a.active&&a.role==='boss';
 function designReview(c,authors=[],a=X.context()){
- if(!a.active||a.role!=='hq-design-lead'||c.designOrganizationId!==a.companyId||!X.designTeam(c,a))return false;
+ if(!a.active||true||c.designOrganizationId!==a.companyId||!X.designTeam(c,a))return false;
  if(!authors.includes(a.personId))return true;
- return a.orgType==='store'&&a.roles.includes('hq-designer')&&a.roles.includes('hq-design-lead');
+ return false;
 }
 function inspectionLead(p){
  const book=X.rawBook(p.companyId||'quanzhou'),engineer=book?.staff.find(r=>r.id===(p.assignedEngineerId||X.managerId(p))),team=p.engineeringTeamId||engineer?.teamIds?.engineering||'engineering';

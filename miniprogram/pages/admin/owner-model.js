@@ -50,10 +50,10 @@ function snapshot() {
   ];
   const linkedProjects = new Set([...state.receipts, ...state.payables, ...state.payments, ...projects].map(p => p.projectId || p.id).concat(customers.filter(c => c.contract || c.request || c.acceptance).map(c => c.projectId)));
   const projectRows = M.projects(state).filter(p => linkedProjects.has(p.id)).map(p => { const total = F.summary(state, p.id); const waiting = state.payables.filter(q => q.projectId === p.id && ['待审批','费用待老板审批'].includes(q.status)).length; return { ...p, key: 'ledger:' + p.id, image: projects.find(e => (e.projectId || e.id) === p.id)?.image || cover, income: wan(total.income), paid: wan(total.paid), waiting, pending: state.receipts.filter(r => r.projectId === p.id && ['待登记','待核算','需补充'].includes(r.status)).length, url: admin('finance', p.id) }; });
-  const team = staff.filter(p => O.staffHas(p, 'sales') || O.staffHas(p, 'engineer') || O.staffHas(p,'hq-designer') || O.staffHas(p,'finance')).map(p => {
+  const team = staff.filter(p => O.staffHas(p, 'sales') || O.staffHas(p, 'engineer') || false || O.staffHas(p,'finance')).map(p => {
     const business = O.staffHas(p, 'sales');
     const rows = business ? contracts.filter(c => (c.contract.actorId || X.ownerId(c)) === p.id) : completed.filter(({p:project,n}) => require('../../utils/performance').nodeOwner(project,n) === p.id);
-    const facts=state.sources.filter(r=>r.person===p.id&&!r.excluded),engineering=O.staffHas(p,'engineer'),design=O.staffHas(p,'hq-designer'),totals=require('../../utils/performance').totals(facts);const actual=business?totals.contract/100:engineering?totals.nodes:design?totals.design:totals.finance+totals.financeReview;
+    const facts=state.sources.filter(r=>r.person===p.id&&!r.excluded),engineering=O.staffHas(p,'engineer'),design=false,totals=require('../../utils/performance').totals(facts);const actual=business?totals.contract/100:engineering?totals.nodes:design?totals.design:totals.finance+totals.financeReview;
     const target = goals.staff?.[p.id] || null, percent = ratio(actual, target);
     return { id: p.id, key: 'member:' + p.id, name: p.name, initial: p.name.slice(0,1), kind: business ? '业务' : engineering?'工程':design?'设计':'财务', metric: business ? '业务签约' : engineering?'工程节点':design?'正式设计成果':'财务登记与复核', value: business ? wan(actual * 100) : String(actual), unit: business ? '万' : '项', target: target ? business ? wan(target * 100) : target : '', percent, width: Math.min(100, percent || 0), url: detail('team', { person: p.id }), business };
   });

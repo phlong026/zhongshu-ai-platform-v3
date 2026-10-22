@@ -1,4 +1,4 @@
-<view class="page growth-page"><business-header id="subpage-header" title="{{title}}"/><demo-guide id="demo-guide"/><view class="content">
+<view class="page growth-page"><business-header id="subpage-header" title="{{title}}"/><view class="content">
 <view class="section"><text class="hint">本机模拟流程 · 内容发布不发送到外部平台，客资为测试登记。</text></view>
 <view wx:if="{{missing}}" class="section"><text>此记录不存在、已交接或当前岗位无权查看。</text><button bindtap="home">返回业务工作台</button></view>
 <block wx:elif="{{view==='home'}}">

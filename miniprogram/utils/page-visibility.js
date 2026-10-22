@@ -6,7 +6,7 @@ function engineering(p,action,a=X.context()){
  if(!p||!a.active)return false;
  if(action==='delivery-review')return false;
  if(action==='inspection-review')return a.role==='project-manager'&&X.sameCompany(p,a)&&X.engineeringTeam(p,a)&&p.inspections.concat(p.rectifications).some(r=>r.reviewStatus==='pending'&&r.reviewerId===a.staffId&&r.submittedByPersonId!==a.personId);
- if(action==='review')return a.role==='hq-design-lead'&&p.reviewerId===a.staffId&&p.review?.status==='pending'&&!X.isSelf(p.review.requestedById,p.companyId,p.review.personId);
+ if(action==='review')return false&&p.reviewerId===a.staffId&&p.review?.status==='pending'&&!X.isSelf(p.review.requestedById,p.companyId,p.review.personId);
  if(!Job.has(a.role,'engineer'))return false;
  if(a.role==='project-manager'&&X.sameCompany(p,a)&&X.engineeringTeam(p,a))return true;
  if(X.engineeringExecutor(p,a))return true;

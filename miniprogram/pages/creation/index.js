@@ -20,8 +20,7 @@ if (options.section === 'works') wx.redirectTo({ url: '/pages/studio/index?view=
 if (options.section === 'digital') wx.redirectTo({ url: '/pages/studio/index?view=digital' });
 if (options.editor === '1') this.openEditor();
 },
-onShow() {require('../../utils/demo-session').apply(this);
-if(!studio.guard())return;if(this.actorScope!==studio.scope()){this.actorScope=studio.scope();this.setData({link:"",sheet:"",editorText:""});}
+onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){this.actorScope=studio.scope();this.setData({link:"",sheet:"",editorText:""});}
 const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || null;
 const recent = studio.recentItems(studio.read()).slice(0, 2).map(item=>({...item,updatedText:item.updatedAt?studio.formatTime(item.updatedAt):''}));
 this.setData({ draft, recent });

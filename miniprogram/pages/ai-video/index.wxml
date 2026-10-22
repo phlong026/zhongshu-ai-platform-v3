@@ -1,5 +1,5 @@
 <view class="creation-page video-page {{mode === 'reference' ? 'reference-mode' : ''}}">
-  <creation-header id="creation-page-header" title="AI 视频" /><demo-guide id="demo-guide"/>
+  <creation-header id="creation-page-header" title="AI 视频" />
   <view class="creation-body video-body"><view wx:if="{{invalidMessage}}" class="creation-card creation-empty"><text>{{invalidMessage}}</text><view class="page-actions"><button class="studio-outline" bindtap="returnToTasks">返回任务中心</button></view></view><block wx:else><text class="creation-notice">{{editingTaskId ? '正在编辑历史任务副本，当前草稿会保留。' : '本地演示 · 每次创建1个演示结果，不会扣费'}}</text>
     <view class="video-tabs"><button class="video-tab {{mode === 'frames' ? 'active' : ''}}" data-mode="frames" bindtap="switchMode">文/图生视频</button><button class="video-tab {{mode === 'reference' ? 'active' : ''}}" data-mode="reference" bindtap="switchMode">参考生视频</button></view>
     <view class="creation-card media-card">

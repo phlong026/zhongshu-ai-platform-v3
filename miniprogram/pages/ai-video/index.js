@@ -29,7 +29,7 @@ return Object.assign({}, parameter, { value: Math.max(0, parameter.options.index
 this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', references: draft.references || [], parameters });
 }
 },
-onShow(){require('../../utils/demo-session').apply(this);if(!studio.guard())return;if(this.actorScope!==studio.scope())wx.redirectTo({url:"/pages/ai-video/index"});},
+onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope())wx.redirectTo({url:"/pages/ai-video/index"});},
 onHide() { this.saveDraft(); },
 onUnload() { this.saveDraft(); },
 saveDraft() {
