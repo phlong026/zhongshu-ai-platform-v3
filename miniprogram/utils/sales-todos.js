@@ -14,8 +14,8 @@ function list(){
  }
  for(const c of B.load().customers){
   if(!X.workflow('follow',c,true))continue;
-  const f=(c.follows||[]).filter(f=>!String(f.note||'').startsWith('登记客资')).at(-1),due=f?.appointment&&f.appointment.slice(0,10)<=today;
-  if(!c.acceptance&&(!c.request&&!c.budgets?.length&&!c.salesIntent?.ready||due))add({id:'follow:'+c.id,name:c.name,state:due?'约定回访已到期':f?'待完善客户需求':'待首次沟通',action:'跟进客户',actionable:true,url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(c.id)});
+  const f=(c.follows||[]).filter(f=>!String(f.note||'').startsWith('登记客资')).at(-1),day=f?.appointment?f.appointment.slice(0,10):'',due=!!day&&day<=today,visit=/到店/.test(f?.next||''),urgency=!due?4:day<today?1:visit?0:2;
+  if(!c.acceptance&&(!c.request&&!c.budgets?.length&&!c.salesIntent?.ready||due))add({id:'follow:'+c.id,name:c.name,state:due?'约定回访已到期':f?'待完善客户需求':'待首次沟通',action:'跟进客户',actionable:true,urgency,tag:['今日到店','已逾期','今日回访'][urgency]||'',url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(c.id)});
   else if(!c.request&&!c.budgets?.length&&c.salesIntent?.ready)add({id:'budget:'+c.id,name:c.name,state:'需求已明确，待方案预算',action:'方案与预算',actionable:true,url:'/pages/workflow/index?view=budget&id='+encodeURIComponent(c.id)});
   else if(!c.acceptance&&f?.appointment&&f.appointment.slice(0,10)>today)add({id:'appointment:'+c.id,name:c.name,state:'预约 '+f.appointment,owner:a.name,action:'查看预约',actionable:false,url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(c.id)});
   if(c.request&&!SF.is(c)&&!c.acceptance){const n=require('./design-coordination').next(c);add({id:'legacy:'+c.id,customerId:c.id,name:c.name,state:'历史委托 · '+n.state,owner:n.owner,action:n.actionable?n.label:'查看进度',actionable:n.actionable,url:'/pages/workflow/index?view='+n.view+'&id='+encodeURIComponent(c.id)});}
@@ -23,6 +23,7 @@ function list(){
  for(const t of SF.tasks())add(t);
  // Published contents remain available for consultation registration; they do not create fictional clients.
  for(const c of G.contents||[])if(c.publishedUrl)add({id:'content:'+c.id,name:c.pack.title,state:'已发布，可登记真实咨询',owner:a.name,action:'内容跟踪',actionable:false,url:'/pages/growth/index?view=content&id='+encodeURIComponent(c.id)});
- const unique=[...new Map(rows.map(r=>[r.id,r])).values()];return {pending:unique.filter(r=>r.actionable),waiting:unique.filter(r=>!r.actionable)};
+ const group=r=>/^(generation|work|publish|content):/.test(r.id)?'creation':r.kind==='commission'||/^legacy:/.test(r.id)?'commission':'customer';
+ const unique=[...new Map(rows.map(r=>[r.id,r])).values()].map(r=>({...r,group:group(r),urgency:r.urgency??(!r.actionable?8:group(r)==='creation'?5:3)})).sort((x,y)=>x.urgency-y.urgency);return {pending:unique.filter(r=>r.actionable),waiting:unique.filter(r=>!r.actionable)};
 }
 module.exports={list};
