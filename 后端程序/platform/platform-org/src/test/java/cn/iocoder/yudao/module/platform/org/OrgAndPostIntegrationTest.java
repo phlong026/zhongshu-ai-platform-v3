@@ -74,6 +74,17 @@ class OrgAndPostIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
+    void listsActiveOrgsOfAType() {
+        jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('t-only','test','单测类型') ON CONFLICT DO NOTHING");
+        long first = orgService.createOrg("t-only", "甲", null);
+        long second = orgService.createOrg("t-only", "乙", null);
+        long disabled = orgService.createOrg("t-only", "丙", null);
+        orgService.setOrgActive(disabled, false);
+
+        assertThat(orgService.listActiveOrgsByType("t-only")).extracting(OrgUnitDO::getDeptId).containsExactly(first, second);
+    }
+
+    @Test
     void rejectsUnregisteredOrgType() {
         assertError(() -> orgService.createOrg("t-unknown", "某组织", null), ORG_TYPE_NOT_REGISTERED);
     }

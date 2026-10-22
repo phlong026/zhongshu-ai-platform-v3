@@ -96,7 +96,7 @@ class ZhongshuPgProfileConfigContractTest {
         Map<String, Object> flyway = (Map<String, Object>) spring.get("flyway");
         String locations = (String) flyway.get("locations");
         assertThat(locations).isNotBlank();
-        for (String module : List.of("platform", "identity", "design", "commerce", "ai-orchestration", "pf")) {
+        for (String module : List.of("platform", "identity", "design", "commerce", "ai-orchestration", "pf", "franchise")) {
             assertThat(locations).as("迁移 locations 必须包含 " + module).contains("classpath:db/migration/" + module);
         }
     }

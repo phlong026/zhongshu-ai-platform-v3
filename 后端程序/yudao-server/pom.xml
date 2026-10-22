@@ -85,6 +85,13 @@
             <version>${revision}</version>
         </dependency>
 
+        <!-- 赋能平台 · 加盟协同域 -->
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-domain-franchise-org</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- spring boot 配置所需依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

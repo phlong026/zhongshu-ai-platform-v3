@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.platform.org;
 
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.platform.org.dal.OrgTypeMapper;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes.*;
@@ -63,6 +65,15 @@ public class OrgServiceImpl implements OrgService {
     @Override
     public OrgUnitDO getUnit(long deptId) {
         return orgUnitMapper.selectById(deptId);
+    }
+
+    @Override
+    public List<OrgUnitDO> listActiveOrgsByType(String orgType) {
+        return orgUnitMapper.selectList(new LambdaQueryWrapperX<OrgUnitDO>()
+                .eq(OrgUnitDO::getKind, OrgUnitDO.KIND_ORG)
+                .eq(OrgUnitDO::getOrgType, orgType)
+                .eq(OrgUnitDO::getStatus, OrgUnitDO.STATUS_ACTIVE)
+                .orderByAsc(OrgUnitDO::getDeptId));
     }
 
     private OrgUnitDO requireOrg(long orgId) {

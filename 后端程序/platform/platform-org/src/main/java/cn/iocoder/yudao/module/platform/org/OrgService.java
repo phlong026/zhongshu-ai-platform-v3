@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.platform.org;
 
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 
+import java.util.List;
+
 /**
  * 组织与团队。组织、团队都是 yudao 部门，本服务负责标注与校验。
  * 调用方需自行完成权限校验（谁能开通组织、建团队），本服务只保证数据规则。
@@ -19,5 +21,8 @@ public interface OrgService {
 
     /** 部门对应的组织单元；未标注返回 null */
     OrgUnitDO getUnit(long deptId);
+
+    /** 某类型的全部启用组织，按编号升序 */
+    List<OrgUnitDO> listActiveOrgsByType(String orgType);
 
 }
