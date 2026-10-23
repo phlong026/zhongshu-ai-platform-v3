@@ -1,0 +1,25 @@
+{
+  "result": "development-uploaded",
+  "recordedAt": "2026-10-23T12:41:24.281497+08:00",
+  "version": "1.0.20261023.8",
+  "appid": "wxe584f6fad7b54487",
+  "sourceCommit": "a2b11b98f465b06f84d34cc00db53de6f1aeab26",
+  "remoteCommitVerifiedAtUpload": "a2b11b98f465b06f84d34cc00db53de6f1aeab26",
+  "remoteMethod": "GitHub official Git objects API",
+  "forced": false,
+  "sourceFingerprint": {
+    "files": 650,
+    "sha256": "77875aae0b5f24dff95de6ce75a3c22eddc92587d2f63469621a14f02b26f64e"
+  },
+  "matchesNativeAcceptance": true,
+  "officialCLI": {
+    "exitCode": 0,
+    "successMarker": "✔ upload",
+    "logSha256": "9711bf26d139c46108323233e8e64269798ff6cb8ca99cb43a17c18e7f1a0d38",
+    "totalBytes": 7399055,
+    "mainBytes": 2055286
+  },
+  "experienceActivated": false,
+  "experienceStatus": "此前微信后台体验版激活被工具安全策略拒绝，本次未重试或绕过",
+  "deviceAcceptance": "隔离微信开发者工具47次真实操作，未替代用户手机更新后的验收"
+}
