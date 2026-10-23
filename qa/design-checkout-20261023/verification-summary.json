@@ -1,0 +1,22 @@
+{
+  "result": "passed",
+  "sourceFingerprint": {
+    "files": 651,
+    "sha256": "b362f247671800c324bafe881ac978d54b99fd889bad707c71400dd60ca6f5bb"
+  },
+  "pageChecks": 13,
+  "pageActions": 8,
+  "nativeGroups": 7,
+  "nativeControls": 84,
+  "nativeScreenshots": 11,
+  "nativeExceptions": 0,
+  "restored": true,
+  "historicalRegressionScripts": 22,
+  "financeHistoricalChecks": 11,
+  "payments": "体验模拟，无真实扣款",
+  "remaining": [
+    "体验版激活此前被工具安全策略拒绝，本轮不重试或绕过",
+    "未连接真实支付商户，未做用户手机实测",
+    "既有开发工具依赖11项漏洞，生产依赖0项，本轮依赖未变"
+  ]
+}

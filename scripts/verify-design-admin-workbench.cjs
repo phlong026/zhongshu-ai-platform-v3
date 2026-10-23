@@ -50,7 +50,7 @@ const nextFor = c => ({
 });
 const projected = W.build(rows, actor, { nextFor, feeApproved: c => c.__feeApproved, companyNameFor: id => id === 'store-a' ? '武汉江夏店' : id });
 
-assert.deepEqual(projected.counts, { 全部: 7, 待首款登记: 1, 设计中: 1, 修改中: 1, 待到账确认: 1, 待下发: 1, 已下发: 2 });
+assert.deepEqual(projected.counts, { 全部: 7, 待业务支付: 0, 待首款登记: 1, 设计中: 1, 修改中: 1, 待到账确认: 1, 待下发: 1, 已下发: 2 });
 assert.equal(projected.rows.length, 7, '费用未授权和其他设计组织的委托不得进入工作台');
 assert.equal(projected.rows.find(r => r.id === '待首款客户').status, '待首款登记');
 assert(!projected.todos.some(r => r.id === '待首款客户'), '首款未登记只能查看进度，不能生成设计完成待办');
@@ -64,7 +64,7 @@ assert.equal(W.filter(projected.rows, '', '已下发').length, 2, '已完成和�
 assert.equal(W.filter(projected.rows, '', '设计与修改').length, 2, '设计与修改指标进入组合筛选，不遗漏设计中项目');
 assert.equal(projected.recent.length, 2, '最近办理只取当前人员实际动作');
 assert(projected.recent.every(r => r.actorId === actor.staffId));
-assert.deepEqual(projected.metrics.map(r => r.label), ['设计与修改', '待到账确认', '待下发']);
+assert.deepEqual(projected.metrics.map(r => r.label), ['设计与修改', '待业务支付', '待下发']);
 assert(projected.todos[0].primary, '第一条待办使用主操作，其余为轻操作');
 assert(projected.todos.slice(1).every(r => !r.primary));
 assert(projected.todos.every(r => r.customerId === r.id), '首页待办保留 customerId 主链契约');

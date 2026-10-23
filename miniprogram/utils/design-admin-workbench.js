@@ -1,5 +1,6 @@
-const FILTERS = ['全部', '待首款登记', '设计中', '修改中', '待到账确认', '待下发', '已下发'];
-const STATUS_ORDER = { 修改中: 0, 设计中: 1, 待首款登记: 2, 待到账确认: 3, 待下发: 4, 已下发: 5 };
+const Checkout = require('./design-checkout');
+const FILTERS = ['全部', '待业务支付', '待首款登记', '设计中', '修改中', '待到账确认', '待下发', '已下发'];
+const STATUS_ORDER = { 修改中: 0, 设计中: 1, 待业务支付: 2, 待首款登记: 3, 待到账确认: 4, 待下发: 5, 已下发: 6 };
 
 function assertActor(actor) {
   if (!actor?.active || actor.role !== 'hq-design-admin' || actor.orgType !== 'headquarters') throw Error('当前岗位无设计行政权限');
@@ -8,6 +9,7 @@ function assertActor(actor) {
 function statusOf(customer, next) {
   const flow = customer.businessFlow || {};
   if (flow.dispatch || customer.acceptance) return '已下发';
+  if (Checkout.is(customer) && !Checkout.paid(customer)) return '待业务支付';
   if (next.waitingFirst) return '待首款登记';
   if (flow.feedbacks?.at(-1)?.status === 'pending') return '修改中';
   if (!flow.completed) return '设计中';
@@ -59,11 +61,11 @@ function build(customers, actor, options = {}) {
         tone: status === '已下发' || status === '待下发' ? 'done' : status === '待到账确认' ? 'waiting' : '',
         state: next.state,
         scope: customer.request?.scope || '随委托确认',
-        detail: status === '修改中' ? '客户新增修改意见 · 待继续设计' : status === '设计中' ? '新委托 · 核对需求与资料' : ['待首款登记', '待到账确认'].includes(status) ? (next.detail || next.state) + ' · 下一位：' + next.owner : status === '待下发' ? '总部已确认到账 · 登记正式成果下发' : '正式成果已登记下发',
+        detail: status === '修改中' ? '客户新增修改意见 · 待继续设计' : status === '设计中' ? (Checkout.is(customer) ? '已一次性支付 · 核对需求与资料' : '设计首款已登记 · 核对需求与资料') : status === '待业务支付' ? '一次性订单待业务模拟支付' : ['待首款登记', '待到账确认'].includes(status) ? (next.detail || next.state) + ' · 下一位：' + next.owner : status === '待下发' ? (Checkout.is(customer) ? '设计完成 · 上传并下发正式成果' : '总部已确认到账 · 登记正式成果下发') : '正式成果已登记下发',
         nextOwner: next.owner || '',
         url: salesFlow.url(customer.id, 'progress'),
         actionUrl: salesFlow.url(customer.id, actionView),
-        action: status === '修改中' ? '处理修改' : status === '设计中' ? '查看委托' : ['待首款登记', '待到账确认'].includes(status) ? '查看进度' : status === '待下发' ? '登记下发' : '查看记录',
+        action: status === '修改中' ? '处理修改' : status === '设计中' ? '查看委托' : ['待业务支付', '待首款登记', '待到账确认'].includes(status) ? '查看进度' : status === '待下发' ? '上传并下发' : '查看记录',
         actionable: !!(next.actionable && ['complete', 'dispatch'].includes(next.view)),
         actorId: event?.actorId || '',
         recentAt: event?.at || '',
@@ -78,7 +80,7 @@ function build(customers, actor, options = {}) {
   const recent = rows.filter(row => row.recentAt).sort((a, b) => b.recentAt.localeCompare(a.recentAt)).slice(0, 5);
   const metrics = [
     { label: '设计与修改', value: counts['设计中'] + counts['修改中'], filter: '设计与修改', icon: '/assets/home-design-icon.png' },
-    { label: '待到账确认', value: counts['待到账确认'], filter: '待到账确认', icon: '/assets/money.png' },
+    { label: '待业务支付', value: counts['待业务支付'], filter: '待业务支付', icon: '/assets/money.png' },
     { label: '待下发', value: counts['待下发'], filter: '待下发', icon: '/assets/contract.png' }
   ];
   return { rows, counts, todos, taskCount: actionable.length, recent, metrics, filters: FILTERS.map(label => ({ label, count: counts[label] })) };
