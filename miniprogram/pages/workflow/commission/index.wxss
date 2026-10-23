@@ -12,3 +12,4 @@ page{background:#faf7f2;color:#35271f}.commission-page{min-height:100vh;padding-
 .admin-combined-filter{display:inline-flex;align-items:center;min-height:54rpx;padding:0 18rpx;margin:0 0 14rpx;border-radius:999rpx;background:#f7ebdc;color:#89512a;font-size:23rpx}
 .admin-load-more{display:flex;align-items:center;justify-content:center;width:100%;min-height:76rpx;margin:14rpx 0 0;color:#824019;font-size:24rpx}
 .commission-file-actions{display:grid;grid-template-columns:1fr 1fr;gap:14rpx}.commission-file-actions button{margin:0;min-height:76rpx;padding:14rpx 16rpx}.commission-sample-mark{display:inline-block;margin-top:12rpx;padding:4rpx 12rpx;border-radius:999rpx;background:#fff1db;color:#9a582b;font-size:22rpx}
+.commission-budget-action{margin-top:18rpx}

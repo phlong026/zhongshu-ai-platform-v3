@@ -29,6 +29,7 @@ const commission = (id, state, extra = {}) => ({
 });
 
 const rows = [
+  commission('待首款客户', '首款待门店付款'),
   commission('陈先生', '线下设计中', { events: [{ action: 'design-complete', actorId: 'other-admin', at: '2026-10-21T09:00:00.000Z' }] }),
   commission('王先生', '线下修改中', { city: '黄冈市', feedbacks: [{ status: 'pending' }] }),
   commission('赵先生', '待到账确认', { completed: { actorId: 'admin-a' }, events: [{ action: 'design-complete', actorId: 'admin-a', at: '2026-10-22T01:40:00.000Z' }] }),
@@ -42,16 +43,21 @@ const rows = [
 const nextFor = c => ({
   state: c.__state,
   view: c.__state === '线下设计中' || c.__state === '线下修改中' ? 'complete' : c.__state === '待正式成果下发' ? 'dispatch' : 'progress',
-  actionable: ['线下设计中', '线下修改中', '待正式成果下发'].includes(c.__state)
+  actionable: ['线下设计中', '线下修改中', '待正式成果下发'].includes(c.__state),
+  waitingFirst: c.__state === '首款待门店付款',
+  owner: c.__state === '首款待门店付款' ? '门店财务' : '',
+  detail: c.__state === '首款待门店付款' ? '首款尚未登记，设计行政等待财务办理' : ''
 });
 const projected = W.build(rows, actor, { nextFor, feeApproved: c => c.__feeApproved, companyNameFor: id => id === 'store-a' ? '武汉江夏店' : id });
 
-assert.deepEqual(projected.counts, { 全部: 6, 设计中: 1, 修改中: 1, 待到账确认: 1, 待下发: 1, 已下发: 2 });
-assert.equal(projected.rows.length, 6, '费用未授权和其他设计组织的委托不得进入工作台');
+assert.deepEqual(projected.counts, { 全部: 7, 待首款登记: 1, 设计中: 1, 修改中: 1, 待到账确认: 1, 待下发: 1, 已下发: 2 });
+assert.equal(projected.rows.length, 7, '费用未授权和其他设计组织的委托不得进入工作台');
+assert.equal(projected.rows.find(r => r.id === '待首款客户').status, '待首款登记');
+assert(!projected.todos.some(r => r.id === '待首款客户'), '首款未登记只能查看进度，不能生成设计完成待办');
 assert.equal(projected.rows.find(r => r.id === '赵先生').status, '待到账确认');
 assert.equal(projected.rows.find(r => r.id === '李女士').status, '待下发');
 assert.equal(projected.rows.find(r => r.id === '孙先生').status, '已下发');
-assert.equal(W.filter(projected.rows, '武汉江夏', '全部').length, 6, '支持加盟商搜索');
+assert.equal(W.filter(projected.rows, '武汉江夏', '全部').length, 7, '支持加盟商搜索');
 assert.equal(W.filter(projected.rows, 'project-李女士', '全部').length, 1, '支持项目编号搜索');
 assert.equal(W.filter(projected.rows, '陈业务', '全部').length, 1, '支持经办业务搜索');
 assert.equal(W.filter(projected.rows, '', '已下发').length, 2, '已完成和已接收历史仍可查询');

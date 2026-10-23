@@ -69,13 +69,16 @@ const fs = require('fs');
   assert(current().data.preview.text.includes('正式设计成果'));
 
   current().closePreview();
-  await (await (await runtime.currentPage()).$('button[bindtap="saveDraft"]')).tap();
+  assert(!await (await runtime.currentPage()).$('button[bindtap="saveDraft"]'), '移交页已取消暂存入口');
+  current().setData({ form: { ...current().data.form, note: handoverScene.input.note, received: true, confirmed: true } });
+  await (await (await runtime.currentPage()).$('.commission-actions button[bindtap="submit"]')).tap();
+  assert(!current().data.error, current().data.error);
   const stored = wx.getStorageSync(Business.KEY).customers.find(customer => customer.id === handoverScene.id);
-  const draft = stored.drafts[Business.draftKey('offline:handover')];
-  assert(draft.resultFile.text.includes(drawingVersion), '暂存后应保留模拟文件正文');
-  assert.equal(draft.confirmationFile.meta.projectId, current().data.customer.projectId);
+  const packet = stored.businessFlow.packet;
+  assert(packet.resultFile.text.includes(drawingVersion), '移交后应保留模拟文件正文');
+  assert.equal(packet.confirmationFile.meta.projectId, current().data.customer.projectId);
   open(handoverScene, 'handover');
-  assert(current().data.form.reviewFile.text.includes('线下专业审核依据'), '重新打开应恢复模拟文件正文');
+  assert(current().data.form.reviewFile.text.includes('线下专业审核依据'), '重新打开应恢复已移交模拟文件正文');
 
   const prepareScene = engineeringScenes.find(scene => scene.action === 'prepare');
   install(prepareScene.before, 'engineering-dual', 'engineer');

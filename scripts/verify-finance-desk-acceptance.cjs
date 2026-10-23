@@ -73,8 +73,9 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   pass('A1 老板费用授权后首尾款自动抄送总部；加盟商尚未付款时不伪造到账待办');
 
   login('hq-design-admin');
-  assert(open('/pages/business/index').data.tasks.some(t => t.customerId === cid));
-  pass('A2 老板费用授权后行政可开始设计，不新增首款启动关卡');
+  assert(!open('/pages/business/index').data.tasks.some(t => t.customerId === cid));
+  assert.equal(require('../miniprogram/utils/sales-flow').next(raw()).waitingFirst,true);
+  pass('A2 老板费用授权后仍需门店足额登记首款，行政不提前开始设计');
 
   async function receive(stage, amount, transaction) {
     login('hq-finance','finance');
@@ -94,7 +95,8 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   assert(has('hq-finance','finance','incoming-register',mine),'加盟商付款后总部应出现到账确认待办');
   await receive('first',2000,'ACC-HQ-FIRST-1');
   assert.equal(T.condition(raw(),'first').received,200000);assert(!T.condition(raw(),'first').ready);
-  pass('A3 普通财务付款登记直接计入已付，总部确认部分实收后仍等待剩余款项');
+  login('hq-design-admin');assert(!open('/pages/business/index').data.tasks.some(t=>t.customerId===cid));
+  pass('A3 普通财务部分登记直接计入已付，总部确认部分实收后仍等待剩余首款且不开放设计');
 
   login('finance-wang','finance');
   let firstPayable=money().payables.find(q=>q.source?.id===cid&&q.source.stage==='first');
@@ -106,11 +108,12 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
 
   await act('finance-wang','finance','pay',mine,{amount:'3000',date,transaction:'ACC-STORE-2',file:file('付款2'),checked:true});
   assert(!T.condition(raw(),'first').ready);assert(!has('finance-lead','finance-lead','payment-review',mine));
+  login('hq-design-admin');assert(open('/pages/business/index').data.tasks.some(t=>t.customerId===cid));
   login('hq-finance','finance');assert.equal(D.statement(M.load(),cid,'first').paid,500000);
   assert(has('hq-finance','finance','incoming-register',mine));
   await receive('first',3000,'ACC-HQ-FIRST-2');
   assert.equal(T.condition(raw(),'first').received,500000);assert(T.condition(raw(),'first').ready);
-  pass('A5 门店足额付款后仍等待总部核收；总部足额确认后首款条件成立');
+  pass('A5 门店足额登记首款即开放设计；总部足额确认后首款到账条件成立');
 
   login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-complete',{checked:true});
   assert(has('finance-wang','finance','pay',t=>mine(t)&&t.id.endsWith(':tail')));

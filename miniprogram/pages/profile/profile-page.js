@@ -54,7 +54,7 @@ module.exports = function (tabIndex) {
         engineeringProfile, courseId: engineeringProfile ? 'engineering' : 'ai-video', courseTitle: engineeringProfile ? '乡墅开工与现场交底' : 'AI短视频获客实战',
         courseImage: engineeringProfile ? '/pages/account/assets/course-engineering.jpg' : A.courseImage,
         loggedIn: s.session.loggedIn, showStoreServices: !s.session.loggedIn || a.orgType === 'store',
-        entries: entries(a).concat(a.active && a.demo ? [{ text: '跨设备联调', url: '/pages/collaboration/index' }].concat(ownerProfile ? [{ text: '管理模拟联调', url: '/pages/admin/simulation/index' }] : []) : []),
+        entries: entries(a).concat(a.active && a.demo && ownerProfile ? [{ text: '管理模拟联调', url: '/pages/admin/simulation/index' }] : []),
         ownerProfile, managementEntries: managementEntries(a),
         name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
         unread: A.scoped(s, s.messages).filter(x => !x.read).length, progress: A.progress(s, engineeringProfile ? 'engineering' : 'ai-video')

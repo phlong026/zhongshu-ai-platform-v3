@@ -25,20 +25,23 @@
   <block wx:else>
    <view wx:if="{{customer}}" class="commission-card commission-summary"><view class="commission-summary-top"><text class="commission-heading">{{customer.name}}</text><text class="commission-chip {{st.tone(rows[0].value)}}">{{rows[0].value||(isComplete?'业务移交完成':'办理中')}}</text></view><text class="commission-muted">{{customer.city}}<text wx:if="{{rows[1].value}}"> · 当前办理：{{rows[1].value}}</text></text></view>
    <view wx:if="{{rows.length}}" class="commission-card"><view wx:for="{{rows}}" wx:key="index" wx:if="{{index>1}}" class="commission-row"><text class="commission-muted commission-key">{{item.label}}</text><button wx:if="{{item.file}}" class="commission-file" data-index="{{index}}" bindtap="preview">{{item.value}}</button><text wx:else class="commission-value">{{item.value}}</text></view></view>
+   <view wx:if="{{view==='submit'&&canDraft}}" class="commission-card commission-budget">
+    <text class="commission-heading">本项目预算依据</text>
+    <text wx:if="{{budgetReady}}" class="commission-muted">参考预算 V{{budgetBasis.version}} · {{budgetBasis.width}}m × {{budgetBasis.depth}}m · {{budgetBasis.floors}}层 · {{budgetBasis.area}}㎡</text>
+    <block wx:else><text class="commission-muted">当前客户尚无有效参考预算，请先完成预算，再提交设计委托。填写的需求、费用和附件会为本客户保留。</text><button class="commission-secondary commission-budget-action" bindtap="completeBudget">保留资料并补齐预算</button></block>
+    <text wx:if="{{budgetNotice&&!form.checked}}" class="commission-muted">{{budgetNotice}}</text>
+   </view>
    <view wx:if="{{fields.length}}" class="commission-card">
     <view wx:for="{{fields}}" wx:key="key" class="commission-field">
      <text wx:if="{{item.kind!=='check'}}" class="commission-label">{{item.label}}</text>
      <textarea wx:if="{{item.kind==='textarea'}}" value="{{form[item.key]}}" data-key="{{item.key}}" bindinput="input" auto-height maxlength="3000" placeholder="请填写{{item.label}}"/>
      <view wx:elif="{{item.kind==='file'}}"><view class="commission-file-actions"><button class="commission-upload" data-key="{{item.key}}" bindtap="chooseFile">{{form[item.key]?'重新选择实际文件':'选择实际文件'}}</button><button wx:if="{{demo}}" class="commission-secondary commission-sample" data-key="{{item.key}}" data-sample-key="{{item.key}}" bindtap="useSampleFile">使用本项目模拟文件</button></view><text wx:if="{{form[item.key].sample}}" class="commission-sample-mark">体验模拟资料</text><button wx:if="{{form[item.key]}}" class="commission-file" data-key="{{item.key}}" bindtap="preview">{{form[item.key].name}} · 点击预览</button></view>
      <checkbox-group wx:elif="{{item.kind==='check'}}" data-key="{{item.key}}" bindchange="check"><label class="commission-check"><checkbox value="yes" checked="{{form[item.key]}}" color="#824019"/><text>{{item.label}}</text></label></checkbox-group>
-     <picker wx:elif="{{item.kind==='manager'}}" range="{{managerOptions}}" range-key="name" data-key="managerId" bindchange="chooseManager"><view class="commission-input">{{selectedManager||'请选择项目工程人员'}}</view></picker>
      <picker wx:elif="{{item.kind==='date'}}" mode="date" value="{{form[item.key]}}" data-key="{{item.key}}" bindchange="input"><view class="commission-input">{{form[item.key]||'请选择日期'}}</view></picker>
      <input wx:else value="{{form[item.key]}}" type="{{item.kind==='money'?'digit':'text'}}" data-key="{{item.key}}" bindinput="input" placeholder="请填写{{item.label}}"/>
     </view>
    </view>
    <view wx:if="{{primary||canDraft||canReturn}}" class="commission-action-panel"><view wx:if="{{error}}" class="commission-error" role="alert">{{error}}</view><view class="commission-actions"><button wx:if="{{canDraft}}" class="commission-secondary" bindtap="saveDraft">暂存资料</button><button wx:if="{{canReturn}}" class="commission-secondary" bindtap="returnPacket">退回补充</button><button wx:if="{{primary}}" class="commission-primary" loading="{{busy}}" disabled="{{busy}}" bindtap="submit">{{primary}}</button></view></view>
-   <view wx:if="{{view==='handover'}}" class="commission-muted commission-note">收图、客户确认和交底集中在本页。资料可暂存，齐备后一次提交。</view>
-   <button wx:if="{{canFeedback}}" class="commission-secondary" bindtap="openFeedback">客户需修改，登记意见</button>
   </block>
  </view>
  <view wx:if="{{preview}}" class="commission-mask" bindtap="closePreview"><view class="commission-card"><text class="commission-heading">{{preview.name}}</text><text class="commission-value">{{preview.text}}</text><button class="commission-primary" bindtap="closePreview">关闭预览</button></view></view>

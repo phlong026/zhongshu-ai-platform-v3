@@ -44,6 +44,7 @@ function allowed(action,c,a=X.context()){
  return false;
 }
 function feeApproved(c){return standardApproved(c)||require('./commercial-approval').latest(c,'service')?.status==='approved'&&require('./commercial-approval').latest(c,'service')?.approverRole==='boss';}
+function firstRegistered(c){const p=require('./intercompany').condition(c,'first');return p.expected>0&&p.paid>=p.expected;}
 function paymentAuthorization(c,signature){
  if(!is(c)||!feeApproved(c))return null;
  const f=c.businessFlow,a=standardApproved(c)?X.rawBook(c.companyId).businessDesignPolicies.find(p=>p.id===f.authorization.policyId):require('./commercial-approval').latest(c,'service');
@@ -53,10 +54,11 @@ function next(c){
  return nextRecord(raw(c));
 }
 function receiptWaiting(c){
- const release=require('./design-receipts').release(c),pair=!release.first.ready?['首款',release.first]:['尾款',release.tail],stage=pair[1];
+ // Completion opens the tail stage even when finance is still settling the first payment.
+ const release=require('./design-receipts').release(c),pair=!release.tail.ready?['尾款',release.tail]:['首款',release.first],stage=pair[1];
  const storePending=stage.paid<stage.expected,gap=Math.max(0,stage.expected-(storePending?stage.paid:stage.received));
  const money=value=>{const cents=Math.max(0,Math.round(Number(value)||0));return '¥'+Math.floor(cents/100).toLocaleString('zh-CN')+'.'+String(cents%100).padStart(2,'0');};
- return {ready:release.ready,state:'设计'+pair[0]+(storePending?'待门店付款':'待总部核收'),detail:'应收 '+money(stage.expected)+' · 门店已付 '+money(stage.paid)+' · 总部实收 '+money(stage.received)+' · 差额 '+money(gap),owner:storePending?'门店财务':'总部财务'};
+ return {ready:release.ready,state:(pair[0]==='首款'?'设计尾款已到账 · 首款':'设计尾款')+(storePending?'待门店付款':'待总部核收'),detail:'应收 '+money(stage.expected)+' · 门店已付 '+money(stage.paid)+' · 总部实收 '+money(stage.received)+' · 差额 '+money(gap)+(pair[0]==='尾款'&&!release.first.ready?'；首款已登记付款，待总部确认到账':''),owner:storePending?'门店财务':'总部财务'};
 }
 // Workbench batches already have current records; avoid reading all customers once per row.
 function nextRecord(c){
@@ -67,6 +69,7 @@ function nextRecord(c){
  if(c.handover)return r('资料待接收',c.handover.manager,'receive',true);
  if(require('./commercial-approval').latest(c,'service')?.status==='returned')return r('委托费用待修改','经办业务','submit',true);
  if(!feeApproved(c))return r('费用待老板审批','加盟商老板','progress');
+ if(!firstRegistered(c))return {...r(f.completed?'首款未登记 · 待补齐后办理尾款':'设计首款待门店登记','门店财务','progress',false,'请在线下支付设计首款后登记付款，登记足额后触发总部设计待办。'),waitingFirst:true};
  if(!f.completed||f.feedbacks?.at(-1)?.status==='pending')return r(f.feedbacks?.at(-1)?.status==='pending'?'线下修改中':'线下设计中','设计行政','complete',true);
  if(!f.dispatch){const waiting=receiptWaiting(c);if(!waiting.ready)return r(waiting.state,waiting.owner,'progress',false,waiting.detail);}
  if(!f.dispatch)return r('待正式成果下发','设计行政','dispatch',true);
@@ -78,7 +81,11 @@ function transition(b,action,input,at=new Date().toISOString()){
   const approved=require('./commercial-approval');
   X.assert(!b.request||is(b)&&approved.latest(b,'service')?.status==='returned','已有委托请沿原流程继续办理');
   const ledger=X.rawBook(b.companyId);X.assert(!b.firstPayment&&!b.tailPayment&&!(b.designPayments||[]).length&&!(ledger?.payments||[]).some(p=>p.source?.id===b.id&&!['确认未付款','已撤销'].includes(p.status)),'已有付款记录，费用约定不能覆盖');
-  const basis=require('./design-coordination').basis(b);X.assert(basis&&String(f.text||'').trim()&&String(f.scope||'').trim()&&f.checked,'请核对有效预算、需求、尺寸和交付范围');
+  const basis=require('./design-coordination').basis(b);X.assert(basis,'请先完成本项目参考预算，再提交设计委托');
+  X.assert(f.__budgetVersion===undefined||f.__budgetVersion===basis.version,'参考预算已更新，请重新核对本版尺寸、需求和交付范围');
+  X.assert(String(f.text||'').trim(),'请填写客户设计需求');
+  X.assert(String(f.scope||'').trim(),'请填写本次交付范围');
+  X.assert(f.checked,'请勾选确认已核对需求、尺寸来源、范围及首尾款约定');
   const total=cents(f.total),first=cents(f.first),recipient=String(f.recipient||'').trim();X.assert(first<total&&recipient,'请填写有效首尾款和实际总部收款方');
   const version=(b.request?.version||0)+1,serviceVersion=(b.serviceOrders?.at(-1)?.version||0)+1,p=policy(b.companyId);
   if(b.request)(n.requestHistory||(n.requestHistory=[])).push(copy(b.request));
@@ -97,7 +104,7 @@ function transition(b,action,input,at=new Date().toISOString()){
    (flow.dispatchHistory||(flow.dispatchHistory=[])).push(copy(flow.dispatch));delete flow.dispatch;
   }
   if(action==='design-complete'){
-   const feedback=flow.feedbacks?.at(-1);X.assert(!flow.dispatch&&(!flow.completed||feedback?.status==='pending'),'设计完成已登记，请查看原记录');X.assert(feeApproved(b),'请等待设计费用授权');
+   const feedback=flow.feedbacks?.at(-1);X.assert(!flow.dispatch&&(!flow.completed||feedback?.status==='pending'),'设计完成已登记，请查看原记录');X.assert(feeApproved(b),'请等待设计费用授权');X.assert(firstRegistered(b),'请先由门店财务登记本版设计首款足额付款，再开始设计');
    X.assert(f.checked,'请确认本次线下设计及内部审核已完成');if(flow.completed)(flow.completedHistory||(flow.completedHistory=[])).push(copy(flow.completed));flow.completed={date:date(),at,by:a.name,actorId:a.staffId,personId:a.personId,note:String(f.note||'').trim(),requestVersion:b.request.version,feedbackId:feedback?.id||null};
    if(feedback?.status==='pending'){feedback.status='completed';feedback.completedAt=at;}
   }
@@ -112,7 +119,7 @@ function transition(b,action,input,at=new Date().toISOString()){
    X.assert(f.dispatchVersion===flow.dispatch.version,'正式成果版本已更新，请重新收图并核对本版客户确认');
    X.assert(file(f.resultFile)&&file(f.drawingFile)&&file(f.reviewFile)&&file(f.confirmationFile),'请补齐正式成果、施工图、线下审核依据和客户确认凭据');
    X.assert(String(f.drawingVersion||'').trim()&&validDate(f.confirmationDate)&&f.received&&f.confirmed&&String(f.note||'').trim(),'请核对文件、图纸版本、客户确认日期及交底内容');
-   const manager=(X.rawBook(b.companyId)?.staff||[]).find(p=>p.active!==false&&p.id===f.managerId&&Job.staffHas(p,'engineer'));X.assert(manager,'请选择本组织在岗工程负责人');
+   const book=X.rawBook(b.companyId),engineers=(book?.staff||[]).filter(p=>p.active!==false&&Job.staffHas(p,'engineer')),manager=engineers.find(p=>p.id===b.handover?.managerId)||engineers.find(p=>p.id===Job.defaultAssignee(book,'engineering'));X.assert(manager,'请先完善本组织工程岗位分工，配置在岗工程负责人后再移交');
    const version=(b.handover?.version||0)+1;
    flow.packet={version,dispatchVersion:flow.dispatch.version,resultFile:f.resultFile,drawingFile:f.drawingFile,reviewFile:f.reviewFile,confirmationFile:f.confirmationFile,drawingVersion:f.drawingVersion.trim(),confirmationDate:f.confirmationDate,note:f.note.trim(),date:date(),actorId:a.staffId,personId:a.personId};
    n.handoverHistory=(n.handoverHistory||[]).concat(b.handover?[copy(b.handover)]:[]);
@@ -135,11 +142,11 @@ function tasks(a=X.context()){
  if(!a.active)return [];const rows=[];
  for(const c of (wx.getStorageSync(KEY)||{}).customers||[]){
   if(!is(c)){if(!legacy(c)&&c.budgets?.length&&allowed('commission-submit',c,a))rows.push({id:'commission:'+c.id,key:'commission:'+c.id,customerId:c.id,name:c.name,state:'方案预算已保存，待提交委托',action:'提交设计委托',actionable:true,url:url(c.id,'submit'),kind:'commission'});continue;}
-  if(!X.customer(c,a)||c.acceptance)continue;const n=next(c),action={submit:'commission-submit',complete:'design-complete',dispatch:'design-dispatch',handover:'packet-submit',receive:'packet-receive'}[n.view],tail=require('./intercompany').condition(c,'tail'),followTail=!!c.businessFlow.completed&&!c.businessFlow.dispatch&&tail.paid<tail.expected&&allowed('commission-submit',c,a),actionable=!!action&&allowed(action,c,a)||followTail;
+  if(!X.customer(c,a)||c.acceptance)continue;const n=next(c),action={submit:'commission-submit',complete:'design-complete',dispatch:'design-dispatch',handover:'packet-submit',receive:'packet-receive'}[n.view],tail=require('./intercompany').condition(c,'tail'),followTail=!!c.businessFlow.completed&&!c.businessFlow.dispatch&&!n.waitingFirst&&tail.paid<tail.expected&&allowed('commission-submit',c,a),actionable=!!action&&allowed(action,c,a)||followTail;
   if(a.role==='hq-design-admin'&&!['complete','dispatch'].includes(n.view))continue;
   if(a.role==='project-manager'&&n.view!=='receive')continue;
   const view=followTail?'progress':actionable?n.view:'progress';rows.push({id:'offline:'+c.id+':'+c.request.version,key:'offline:'+c.id+':'+c.request.version,customerId:c.id,name:c.name,state:followTail?'设计已完成 · 跟进尾款支付':n.state,owner:n.owner,action:followTail?'跟进尾款支付':actionable?n.label:'查看进度',actionable,url:url(c.id,view),kind:'commission'});
  }
  return rows;
 }
-module.exports={TYPE,is,legacy,legacyActions,entry,actions,url,policy,savePolicy,standardApproved,paymentAuthorization,allowed,feeApproved,next,nextRecord,transition,validate,run,packageRows,tasks,file,raw};
+module.exports={TYPE,is,legacy,legacyActions,entry,actions,url,policy,savePolicy,standardApproved,paymentAuthorization,allowed,feeApproved,firstRegistered,next,nextRecord,transition,validate,run,packageRows,tasks,file,raw};

@@ -288,24 +288,6 @@ async function main() {
       await check('checked'); await tap('.commission-actions .commission-primary');
       assert.equal((await customer()).businessFlow.dispatch.version, 1);
     });
-    await step('B08b', '客户修改沿原委托形成V2，原费用及付款不重复', '李业务 → 林设计', async () => {
-      const before = await customer();
-      await login('sales-dual', 'sales'); await salesTask(); await state('handover');
-      await tapText('客户需修改，登记意见'); await state('feedback');
-      await input('textarea[data-key="note"]', '陈建国确认二层露台排水调整，沿原项目修改，不新增原委托服务费。');
-      await tap('.commission-actions .commission-primary');
-      await login('hq-design-admin'); await designTask('complete');
-      await input('textarea[data-key="note"]', '陈建国家V2露台排水调整及本版专业审核完成。');
-      await check('checked'); await tap('.commission-actions .commission-primary');
-      await login('hq-design-admin'); await designTask('dispatch');
-      await input('input[data-key="recipient"]', '李业务');
-      await input('textarea[data-key="note"]', '陈建国家V2正式成果已下发，沿原委托费用及已足额到账记录。');
-      await check('checked'); await tap('.commission-actions .commission-primary');
-      const after = await customer();
-      assert.equal(after.businessFlow.dispatch.version, 2);
-      assert.deepEqual(after.serviceOrders, before.serviceOrders);
-      assert.deepEqual(after.designPayments, before.designPayments);
-    });
     await step('B09', '业务首页找到移交，选择四类本项目模拟资料并预览', '李业务', async () => {
       await login('sales-dual', 'sales'); await salesTask(); await state('handover');
       for (const key of ['resultFile', 'drawingFile', 'reviewFile', 'confirmationFile']) {
@@ -314,14 +296,14 @@ async function main() {
         assert((await data()).preview?.text.includes((await customer()).name));
         await tapText('关闭预览', '.commission-mask button');
       }
-      await input('input[data-key="drawingVersion"]', 'V2');
-      await input('textarea[data-key="note"]', '陈建国家V2道路、水电、首层老人房与二层露台交底已核对。');
-      await change('picker[data-key="managerId"]', (await data()).managerOptions.findIndex(person => person.id === 'engineering-dual'));
+      await input('input[data-key="drawingVersion"]', 'V1');
+      await input('textarea[data-key="note"]', '陈建国家V1道路、水电、首层老人房与二层露台交底已核对。');
       await check('received'); await check('confirmed'); await tap('.commission-actions .commission-primary'); await state('progress');
+      assert.equal((await customer()).handover.managerId, 'engineering-dual');
     });
     await step('E00', '工程从首页退回一项交底说明，回到原业务人员', '张工程', async () => {
       await login('engineering-dual', 'engineer'); await engineerTask(row => row.title.includes('移交')); await state('receive');
-      await input('textarea[data-key="note"]', '请补充入场道路宽度和本版材料堆放点，保留原V2成果。');
+      await input('textarea[data-key="note"]', '请补充入场道路宽度和本版材料堆放点，保留原V1成果。');
       await tapText('退回补充', '.commission-secondary');
       assert.equal((await customer()).handover.status, 'returned');
     });
@@ -331,8 +313,8 @@ async function main() {
         assert.equal((await data()).form[key].meta.projectId, initial.projectId);
         assert.equal((await data()).form[key].meta.customerId, customerId);
       }
-      assert.equal((await data()).form.drawingVersion, 'V2');
-      await input('textarea[data-key="note"]', '陈建国家V2补充：入场道路宽4.5米，西侧材料堆放点已交底，水电及露台排水按本版图纸。');
+      assert.equal((await data()).form.drawingVersion, 'V1');
+      await input('textarea[data-key="note"]', '陈建国家V1补充：入场道路宽4.5米，西侧材料堆放点已交底，水电及露台排水按本版图纸。');
       await check('received'); await check('confirmed'); await tap('.commission-actions .commission-primary');
     });
     await step('E01', '工程首页接收业务四类成果和本版交底', '张工程', async () => {
@@ -342,7 +324,7 @@ async function main() {
       for (const row of received) {
         assert.equal(row.file.meta.customerId, customerId);
         assert.equal(row.file.meta.projectId, initial.projectId);
-        assert.equal(row.file.meta.version, 'V2');
+        assert.equal(row.file.meta.version, 'V1');
       }
       const handoverNote = (await customer()).handover.note;
       assert((await data()).rows.some(row => row.label === '电子交底' && row.value === handoverNote));

@@ -26,10 +26,10 @@ const fs = require('fs');
   B.write(id, row => row.budgets.push({ version: 1, area: 360, total: 380000, parameters: { width: 12, depth: 15, floors: 2, area: 360 }, date }), '保存参考预算', 'budget');
   SF.run(id, 'commission-submit', { text: '两层住宅', scope: '全案设计', total: '100', first: '40', recipient: '众墅之家总部', checked: true });
   login('hq-design-admin');
-  assert.equal(SF.next(raw()).view, 'complete', '费用批准后仍可设计，不额外增加首款启动门禁');
-  SF.run(id, 'design-complete', { checked: true });
-  assert.throws(() => SF.run(id, 'design-dispatch', { checked: true, recipient: '业务', note: '不能提前下发' }), /到账|财务/);
-  pass('设计完成自动等待到账，未确认不能直接调用下发命令');
+  assert(!SF.tasks().some(task => task.customerId === id && task.action === '设计完成'));
+  assert.equal(SF.next(raw()).waitingFirst, true);
+  assert.throws(() => SF.run(id, 'design-complete', { checked: true }), /首款|付款/);
+  pass('费用批准后首款未登记时不生成设计待办且不能越级完成');
 
   const pay = (stage, amount, transaction) => {
     login('finance-wang', 'finance');
@@ -37,6 +37,15 @@ const fs = require('fs');
     return M.mutate(s => M.apply(s, 'pay', q.id, { amount, date, transaction, file, checked: true }));
   };
   pay('first', '40', 'STORE-FIRST');
+  assert.equal(T.condition(raw(), 'first').paid, 4000);
+  assert.equal(T.condition(raw(), 'first').ready, false, '总部尚未确认到账');
+  login('hq-design-admin');
+  assert.equal(SF.next(raw()).view, 'complete');
+  assert(SF.tasks().some(task => task.customerId === id && task.action === '设计完成'));
+  SF.run(id, 'design-complete', { checked: true });
+  assert.throws(() => SF.run(id, 'design-dispatch', { checked: true, recipient: '业务', note: '不能提前下发' }), /到账|财务/);
+  pass('门店实际登记首款后即可启动设计，无需等待总部确认到账');
+
   pay('tail', '60', 'STORE-TAIL');
   assert(!T.condition(raw(), 'tail').ready);
   login('hq-finance', 'finance');
