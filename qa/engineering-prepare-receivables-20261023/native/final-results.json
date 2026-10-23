@@ -1,0 +1,436 @@
+{
+  "result": "passed",
+  "scope": "隔离微信开发者工具，仅初始夹具写入存储；所有业务输入、模拟凭据和提交均通过真实 SDK Element.input/trigger/tap。",
+  "sourceFingerprint": {
+    "files": 650,
+    "sha256": "77875aae0b5f24dff95de6ce75a3c22eddc92587d2f63469621a14f02b26f64e"
+  },
+  "project": {
+    "engineeringId": "biz-customer-1792729799855-pq906",
+    "projectId": "project-customer-1792729799855-pq906",
+    "customer": "新流程测试客户"
+  },
+  "checks": [
+    {
+      "name": "开工款等于合同总额时精确提示且零写入",
+      "result": "passed"
+    },
+    {
+      "name": "工程人员保存有效开工准备并生成唯一两期计划",
+      "result": "passed",
+      "contractVersion": 1
+    },
+    {
+      "name": "老板在合同应收页一次确认总额与两期约定",
+      "result": "passed"
+    },
+    {
+      "name": "加盟商财务两笔登记足额开工款，单待办消失且封顶款未提前出现",
+      "result": "passed",
+      "records": 2,
+      "received": 6000000
+    },
+    {
+      "name": "开工款足额后自动续接工程岗实际开工待办及原项目",
+      "result": "passed"
+    }
+  ],
+  "screenshots": [
+    "01-invalid-equal-amounts.png",
+    "02-receivables-overview.png",
+    "03-receivables-one-approval.png",
+    "04-receivables-approved.png",
+    "05-finance-single-start-task.png",
+    "06-finance-partial-still-one-task.png",
+    "07-finance-start-paid-task-cleared.png",
+    "08-engineer-start-task.png",
+    "09-engineer-start-ready.png"
+  ],
+  "interactionCount": 47,
+  "interactions": [
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".identity-option",
+      "dataset": {
+        "role": "engineer"
+      },
+      "expectedHandler": "selectRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "switchRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "total"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "first"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "textarea",
+      "dataset": {
+        "key": "note"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "file"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "button",
+      "dataset": {
+        "action": "prepare"
+      },
+      "expectedHandler": "perform",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "first"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "button",
+      "dataset": {
+        "action": "prepare"
+      },
+      "expectedHandler": "perform",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/admin/operations/index",
+      "selector": "textarea",
+      "dataset": {
+        "key": "note"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/admin/operations/index",
+      "selector": ".ar-review-check",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/admin/operations/index",
+      "selector": "button",
+      "dataset": {
+        "action": "plan-approve"
+      },
+      "expectedHandler": "perform",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".identity-option",
+      "dataset": {
+        "role": "finance"
+      },
+      "expectedHandler": "selectRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "switchRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/management/index",
+      "selector": ".fin-task",
+      "dataset": {
+        "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=collection&stage=start"
+      },
+      "expectedHandler": "financeGo",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "amount"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "picker",
+      "dataset": {
+        "key": "date"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "receiver"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "transaction"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "file"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "button",
+      "dataset": {
+        "action": "collect"
+      },
+      "expectedHandler": "perform",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/management/index",
+      "selector": ".fin-task",
+      "dataset": {
+        "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=collection&stage=start"
+      },
+      "expectedHandler": "financeGo",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "amount"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "picker",
+      "dataset": {
+        "key": "date"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "receiver"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "input",
+      "dataset": {
+        "key": "transaction"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "file"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "button",
+      "dataset": {
+        "action": "collect"
+      },
+      "expectedHandler": "perform",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".identity-option",
+      "dataset": {
+        "role": "engineer"
+      },
+      "expectedHandler": "selectRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "switchRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/home/index",
+      "selector": ".eng-todo button",
+      "dataset": {
+        "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=start"
+      },
+      "expectedHandler": "openEngineering",
+      "via": "Element.tap"
+    }
+  ],
+  "exceptions": []
+}

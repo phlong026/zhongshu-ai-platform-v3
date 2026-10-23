@@ -1,0 +1,171 @@
+{
+  "result": "passed",
+  "relatedScripts": [
+    {
+      "batch": 1,
+      "script": "verify-sales-offline-flow.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-offline-flow.log"
+    },
+    {
+      "batch": 2,
+      "script": "verify-sales-offline-pages.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-offline-pages.log"
+    },
+    {
+      "batch": 2,
+      "script": "verify-design-admin-workbench.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-design-admin-workbench.log"
+    },
+    {
+      "batch": 2,
+      "script": "verify-design-receipts.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-design-receipts.log"
+    },
+    {
+      "batch": 2,
+      "script": "verify-design-notifications.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-design-notifications.log"
+    },
+    {
+      "batch": 2,
+      "script": "verify-finance-receipt-views.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-finance-receipt-views.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-sales-offline-exceptions.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-offline-exceptions.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-sales-todo-handoffs.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-todo-handoffs.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-sales-offline-residual.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-offline-residual.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-sales-customers.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-customers.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-sales-publication.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-publication.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-sales-creation-chain.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-creation-chain.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-sales-design.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-sales-design.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-business-four-flows.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-business-four-flows.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-guest-home-role-nav.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-guest-home-role-nav.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-finance-navigation-restore.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-finance-navigation-restore.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-owner-signing.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-owner-signing.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-closed-loop-remediation.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-closed-loop-remediation.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-engineering-records.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-engineering-records.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-finance-desk-acceptance.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-finance-desk-acceptance.log"
+    },
+    {
+      "batch": 3,
+      "script": "verify-franchise-showcase.cjs",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "verify-franchise-showcase.log"
+    }
+  ],
+  "prepareChecks": 3,
+  "receivablesChecks": 5,
+  "engineeringMainChain": 13,
+  "engineeringGuards": 12,
+  "receiveProjectChecks": 9,
+  "sampleFiles": "passed",
+  "static": "155 JS, 49 WXML, JSON, package resources, source syntax and whitespace passed",
+  "credentialPatternScan": {
+    "changedFiles": 8,
+    "hits": 0
+  },
+  "dependencies": "No changes. Prior fresh audit: 0 production findings, 11 existing development toolchain findings."
+}
