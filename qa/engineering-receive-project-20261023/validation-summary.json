@@ -1,0 +1,200 @@
+{
+  "businessRegression": {
+    "result": "passed",
+    "scope": "Isolated models and actual Page/WXML events; native rendering is recorded separately.",
+    "checks": [
+      {
+        "batch": 1,
+        "script": "verify-sales-offline-flow.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-offline-flow.log"
+      },
+      {
+        "batch": 2,
+        "script": "verify-sales-offline-pages.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-offline-pages.log"
+      },
+      {
+        "batch": 2,
+        "script": "verify-design-admin-workbench.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-design-admin-workbench.log"
+      },
+      {
+        "batch": 2,
+        "script": "verify-design-receipts.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-design-receipts.log"
+      },
+      {
+        "batch": 2,
+        "script": "verify-design-notifications.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-design-notifications.log"
+      },
+      {
+        "batch": 2,
+        "script": "verify-finance-receipt-views.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-finance-receipt-views.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-sales-offline-exceptions.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-offline-exceptions.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-sales-todo-handoffs.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-todo-handoffs.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-sales-offline-residual.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-offline-residual.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-sales-customers.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-customers.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-sales-publication.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-publication.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-sales-creation-chain.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-creation-chain.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-sales-design.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-sales-design.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-business-four-flows.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-business-four-flows.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-guest-home-role-nav.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-guest-home-role-nav.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-finance-navigation-restore.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-finance-navigation-restore.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-owner-signing.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-owner-signing.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-closed-loop-remediation.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-closed-loop-remediation.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-engineering-records.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-engineering-records.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-finance-desk-acceptance.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-finance-desk-acceptance.log"
+      },
+      {
+        "batch": 3,
+        "script": "verify-franchise-showcase.cjs",
+        "result": "passed",
+        "exitCode": 0,
+        "log": "verify-franchise-showcase.log"
+      }
+    ]
+  },
+  "engineeringGuards": {
+    "command": "node scripts/verify-engineering-records-guards.cjs",
+    "checks": 12,
+    "result": "passed"
+  },
+  "handover": {
+    "command": "node scripts/verify-commission-engineering-handover.cjs",
+    "result": "passed"
+  },
+  "productionAudit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "developmentAudit": {
+    "info": 0,
+    "low": 1,
+    "moderate": 6,
+    "high": 1,
+    "critical": 3,
+    "total": 11
+  },
+  "secretsScan": {
+    "changedCodeFiles": 5,
+    "credentialPatternHits": 0
+  },
+  "staticChecks": {
+    "command": "npm run check",
+    "result": "passed",
+    "jsChecked": 155,
+    "wxmlChecked": 49,
+    "packageBoundary": "passed",
+    "lineEndings": "existing CRLF retained in business.js; git core.whitespace=cr-at-eol check passed"
+  },
+  "rollback": "git apply --reverse --check on staged patch before commit"
+}

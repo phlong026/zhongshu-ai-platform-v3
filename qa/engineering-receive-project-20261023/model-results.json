@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "evidence": "Isolated real Page handlers and model regression; not native device acceptance",
+  "checks": [
+    {
+      "name": "点击接收后立即建档、带入五类资料并生成开工准备待办",
+      "passed": true
+    },
+    {
+      "name": "复现截图旧工程刷新错误，刷新不得覆盖工程负责人和施工事实",
+      "passed": true
+    },
+    {
+      "name": "同项目旧档复用原编号，保留付款收款和现场记录",
+      "passed": true
+    },
+    {
+      "name": "工程存储失败则回滚接收状态，原单可重新接收",
+      "passed": true
+    },
+    {
+      "name": "既有项目身份冲突不得另建重复项目，接收整体回滚",
+      "passed": true
+    },
+    {
+      "name": "历史已接收但未建工程可补建，重复刷新不重复建档",
+      "passed": true
+    },
+    {
+      "name": "首次进入尚无工程缓存时，建档失败不遗留接收记录或模拟项目",
+      "passed": true
+    },
+    {
+      "name": "客户来源与项目编号分别命中两个工程时不覆盖或新增",
+      "passed": true
+    },
+    {
+      "name": "工程内部合法改派后刷新保留新经办人，普通保存仍不能改派",
+      "passed": true
+    }
+  ]
+}

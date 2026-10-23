@@ -25,7 +25,13 @@ function write(id,change,event,action='edit',expectedRevision){
 const raw=loadAll().customers.find(c=>c.id===id);if(!raw||!Access.customer(raw))throw Error('客户不存在或未获授权');if(expectedRevision!==undefined&&expectedRevision!==(raw.revision||0))throw Error('原单已由其他人员更新，请刷新后重试');const before=normalize(raw),next=clone(before);change(next);Access.businessChanges(before,next,action);Access.relatedChanges(before,next,action);
 const a=scope(),actor=Access.actor();require('./business-stamps-v2')(before,next,action);
 if(event)(next.events||(next.events=[])).push({id:'event-'+Date.now()+'-'+next.events.length,title:event,time:actor.at,...actor,objectId:id,projectId:next.projectId});
-commitRows([next]);return projectCustomer(next);
+// 接收与工程建档一并完成，避免业务显示已接收而工程仍未建立。
+if(!before.acceptance&&next.acceptance){
+ const keys=[KEY,'zhongshu-engineering-v1','zhongshu-management-v1'],snapshot=keys.map(key=>{const value=wx.getStorageSync(key);return [key,value===undefined?undefined:clone(value)];});
+ try{commitRows([next]);require('./engineering-acceptance').receive(id);}
+ catch(error){for(const[key,value]of snapshot){if(value===undefined)wx.removeStorageSync(key);else wx.setStorageSync(key,value);}throw error;}
+}else commitRows([next]);
+return projectCustomer(next);
 }
 function add(input){const values=Object.fromEntries(Object.entries(input||{}).filter(([k])=>['name','phone','wechat','source','province','city','summary'].includes(k)));const a=scope();Access.assert(a.active&&Job.has(a.role,'sales'),'请由业务员或业务负责人登记客户');Access.assert(String(values.name||'').trim()&&/^1\d{10}$/.test(values.phone||'')&&String(values.source||'').trim(),'请填写客户称呼、11位手机号和真实获客来源');Access.assert(!loadAll().customers.some(c=>(c.companyId||'quanzhou')===a.companyId&&c.phone===values.phone),'本门店已有该手机号客户，请查原客户');const c=Object.assign(sample(),values,{customerUserId:'',id:'customer-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),companyId:a.companyId,ownerId:a.staffId,createdById:a.staffId,owner:a.name,ownership:'private',follows:[],events:[],status:'已登记'});c.projectId='project-'+c.id;c.acquisitionChannel=c.source;commitRows([c],{selected:c.id});return c;}
 function authorize(id,module,action,f,revision){const raw=loadAll().customers.find(c=>c.id===id),a=scope();Access.assert(raw&&Access.customer(raw),'原任务不存在或无权访问');Access.assert(revision===undefined||revision===(raw.revision||0),'任务已更新，请刷新');const n=normalize(raw);require('./task-access').apply(n,module,action,f,a);n.revision=(raw.revision||0)+1;n.events.push({title:action==='revoke'?'撤销任务动作授权':'分配任务协作动作',...Access.actor()});commitRows([n]);return projectCustomer(n);}
