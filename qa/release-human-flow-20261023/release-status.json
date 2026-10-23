@@ -1,0 +1,19 @@
+{
+  "version": "1.0.20261023.5",
+  "appid": "wxe584f6fad7b54487",
+  "snapshotCommit": "1f6b4e748e500432fdafb5544492571d8ce567e0",
+  "applicationCodeCommit": "e465e3f4d1fbf8f21b370d711ae2eba91ed8b88a",
+  "applicationFiles": 649,
+  "sourceTreeSha256": "4d90a0c0e9b0a1305a34f28b3d41dd079b202a23f6f6138853242365da9ba197",
+  "sourceMatchesAcceptedNative": true,
+  "developmentUpload": "passed",
+  "experienceActivation": "not_activated_policy_block",
+  "cliExitCode": 0,
+  "officialCliUploadMarker": true,
+  "uploadedAtUTC": "2026-10-23T00:54:18.889548+00:00",
+  "snapshotProject": ".tools/release-1.0.20261023.5-1f6b4e7/project",
+  "sourceUnchangedAfterUpload": true,
+  "packageSizeBytes": 7383162,
+  "mainPackageSizeBytes": 2049053,
+  "experienceActivationReason": "微信后台访问被工具安全策略阻断，未进行激活且未绕过限制"
+}
