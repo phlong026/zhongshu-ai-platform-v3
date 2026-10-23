@@ -1,0 +1,28 @@
+- initialize
+
+(node:56078) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `Electron --trace-deprecation ...` to show where the warning was created)
+✔ IDE server has started, listening on http://127.0.0.1:9420
+- preparing
+- Fetching AppID () permissions
+✔ Using AppID: wxe584f6fad7b54487
+- Upload
+
+┌───────────────────────┬────────────┬─────────────┐
+│ (index)               │ size       │ size (Byte) │
+├───────────────────────┼────────────┼─────────────┤
+│ TOTAL                 │ '7.1 MB'   │ 7422360     │
+│ main                  │ '2.0 MB'   │ 2068500     │
+│ /pages/account/       │ '1.2 MB'   │ 1263988     │
+│ /pages/admin/         │ '778.0 KB' │ 796692      │
+│ /pages/ai-video/      │ '16.1 KB'  │ 16527       │
+│ /pages/build/         │ '918.1 KB' │ 940097      │
+│ /pages/collaboration/ │ '23.2 KB'  │ 23806       │
+│ /pages/creation/      │ '12.8 KB'  │ 13101       │
+│ /pages/design/        │ '229.4 KB' │ 234948      │
+│ /pages/growth/        │ '11.6 KB'  │ 11916       │
+│ /pages/studio/        │ '322.2 KB' │ 329942      │
+│ /pages/workflow/      │ '1.6 MB'   │ 1722843     │
+└───────────────────────┴────────────┴─────────────┘
+
+✔ upload
