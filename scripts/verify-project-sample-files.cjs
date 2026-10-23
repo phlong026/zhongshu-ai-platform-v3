@@ -127,6 +127,10 @@ const fs = require('fs');
   await (await (await runtime.currentPage()).$('.upload-row button[bindtap="preview"]')).tap();
   assert(current().data.modal.text.includes('当前登记人：王财务'));
 
+  AdminModel.record = () => ({ ...payable, version: 9, source: { module: 'business', id: 'customer-finance-exact', kind: 'design', version: 1, stage: 'first' } });
+  try { current().useSampleFile({ currentTarget: { dataset: { sampleKey: 'file' } } }); } finally { AdminModel.record = originalRecord; }
+  assert.equal(current().data.form.file.meta.version, '设计服务V1', '门店设计应使用业务来源版本，不得使用财务记录修订号');
+
   install(termsScene.before, 'finance-dual', 'finance');
   const operationsProject = wx.getStorageSync('zhongshu-engineering-v1').projects.find(project => project.recordFlow);
   wx.reLaunch({ url: '/pages/admin/operations/index?view=expenses&id=' + encodeURIComponent(operationsProject.projectId) });
