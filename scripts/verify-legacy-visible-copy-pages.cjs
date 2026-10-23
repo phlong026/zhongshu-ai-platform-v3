@@ -63,7 +63,10 @@ const path = require('node:path');
   try {
     wx.showActionSheet = options => options.success({ tapIndex: 1 });
     await (await (await runtime.currentPage()).$('[data-key="file"]')).tap();
-    assert((await pageText('[data-key="file"]')).includes('工程记录参考凭据.pdf'));
+    const reference = current().data.form.file;
+    assert(reference.sample && reference.text.includes(project.customer));
+    assert.equal(reference.meta.projectId, project.projectId);
+    assert((await pageText('[data-key="file"]')).includes(reference.name));
     wx.showActionSheet = options => options.success({ tapIndex: 0 });
     wx.chooseMessageFile = options => options.success({ tempFiles: [{ name: '现场原图.pdf', path: '/temporary-proof.pdf' }] });
     wx.saveFile = options => options.success({ savedFilePath: '/saved-proof.pdf' });

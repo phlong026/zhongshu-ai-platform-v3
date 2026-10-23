@@ -231,7 +231,7 @@ async function main() {
         const adminScreenshot = await capture('R02-03-admin-no-dispatch-task');
         await commission('dispatch', sourceCustomer.id);
         const data = await pageData();
-        assert.equal(data.rows[0].value, '待财务确认到账');
+        assert.equal(data.rows[0].value, '设计尾款待门店付款');
         assert.equal(data.primary, '');
         assert.equal(await rendered('.commission-actions .commission-primary'), false);
         const detailScreenshot = await capture('R02-03-tail-shortage-no-button');

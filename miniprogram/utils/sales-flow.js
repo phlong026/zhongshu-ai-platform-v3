@@ -52,9 +52,15 @@ function paymentAuthorization(c,signature){
 function next(c){
  return nextRecord(raw(c));
 }
+function receiptWaiting(c){
+ const release=require('./design-receipts').release(c),pair=!release.first.ready?['首款',release.first]:['尾款',release.tail],stage=pair[1];
+ const storePending=stage.paid<stage.expected,gap=Math.max(0,stage.expected-(storePending?stage.paid:stage.received));
+ const money=value=>{const cents=Math.max(0,Math.round(Number(value)||0));return '¥'+Math.floor(cents/100).toLocaleString('zh-CN')+'.'+String(cents%100).padStart(2,'0');};
+ return {ready:release.ready,state:'设计'+pair[0]+(storePending?'待门店付款':'待总部核收'),detail:'应收 '+money(stage.expected)+' · 门店已付 '+money(stage.paid)+' · 总部实收 '+money(stage.received)+' · 差额 '+money(gap),owner:storePending?'门店财务':'总部财务'};
+}
 // Workbench batches already have current records; avoid reading all customers once per row.
 function nextRecord(c){
- const f=c.businessFlow||{},r=(state,owner,view,actionable=false)=>({state,owner,view,actionable,label:view==='submit'?'提交设计委托':view==='handover'?'收图并移交':view==='receive'?'核查接收':view==='complete'?'设计完成':view==='dispatch'?'成果已下发':'查看进度'});
+ const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='')=>({state,owner,view,actionable,label:view==='submit'?'提交设计委托':view==='handover'?'收图并移交':view==='receive'?'核查接收':view==='complete'?'设计完成':view==='dispatch'?'成果已下发':'查看进度',...(detail?{detail}:{})});
  if(!is(c))return r('待提交设计委托','经办业务','submit',true);
  if(c.acceptance)return r('业务移交完成','已完成','progress');
  if(c.handover?.status==='returned')return r('移交资料待补充','经办业务','handover',true);
@@ -62,7 +68,7 @@ function nextRecord(c){
  if(require('./commercial-approval').latest(c,'service')?.status==='returned')return r('委托费用待修改','经办业务','submit',true);
  if(!feeApproved(c))return r('费用待老板审批','加盟商老板','progress');
  if(!f.completed||f.feedbacks?.at(-1)?.status==='pending')return r(f.feedbacks?.at(-1)?.status==='pending'?'线下修改中':'线下设计中','设计行政','complete',true);
- if(!f.dispatch&&!require('./design-receipts').release(c).ready)return r('待财务确认到账','总部收款财务','progress');
+ if(!f.dispatch){const waiting=receiptWaiting(c);if(!waiting.ready)return r(waiting.state,waiting.owner,'progress',false,waiting.detail);}
  if(!f.dispatch)return r('待正式成果下发','设计行政','dispatch',true);
  return r('待收图并移交','经办业务','handover',true);
 }

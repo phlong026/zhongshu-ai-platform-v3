@@ -82,7 +82,7 @@ assert(sources.get('miniprogram/pages/workflow/index.wxml').includes('仅供方�
 assert(sources.get('miniprogram/pages/workflow/explore/index.wxml').includes('图像仅供沟通参考'));
 assert(sources.get('miniprogram/pages/collaboration/index.wxml').includes('测试网关'));
 assert(sources.get('miniprogram/pages/workflow/index.js').includes('sample:true'));
-assert(sources.get('miniprogram/pages/admin/index.js').includes('sample:true'));
+// Contextual finance sample markers are covered by verify-project-sample-files.cjs.
 assert(sources.get('miniprogram/utils/studio.js').includes('demo: true'));
 assert(sources.get('miniprogram/utils/procurement.js').includes('function quoteDemo'));
 assert(sources.get('miniprogram/utils/procurement.js').includes('demo:true'));
