@@ -1,0 +1,108 @@
+{
+  "recordedAt": "2026-10-24T16:07:59.680650+00:00",
+  "appId": "wxe584f6fad7b54487",
+  "version": "1.0.20261025.1",
+  "branch": "feat/full-flow-acceptance-20261023",
+  "sourceCommit": "6008d3bf50311dfb837110b1a0022b97e6f075ed",
+  "remoteSourceCommitVerified": "6008d3bf50311dfb837110b1a0022b97e6f075ed",
+  "repository": "https://github.com/phlong026/zhongshu-ai-platform-v3.git",
+  "sourceFingerprint": {
+    "files": 660,
+    "sha256": "69e8f48bd8d1d07b315b23b69af3a45302fd7cd525b92205df3a1bfc30a1fd96"
+  },
+  "archiveMatchesFinalNative": true,
+  "developmentUploaded": true,
+  "experienceActivated": false,
+  "productionReleased": false,
+  "realPaymentEnabled": false,
+  "realDeviceAccepted": false,
+  "cli": {
+    "project": ".tools/release-design-journey-20261025-6008d3b/project",
+    "versionArgument": "1.0.20261025.1",
+    "exitCode": 0,
+    "successMarker": "✔ upload",
+    "logSha256": "e2111b277b29dbdbb1958df056207f2fb31cb6346518180602ec4e77d61614e5",
+    "sizeResult": {
+      "size": {
+        "total": 7831963,
+        "packages": [
+          {
+            "name": "TOTAL",
+            "size": 7831963
+          },
+          {
+            "name": "main",
+            "size": 2069496
+          },
+          {
+            "name": "/pages/account/",
+            "size": 1329598
+          },
+          {
+            "name": "/pages/admin/",
+            "size": 796692
+          },
+          {
+            "name": "/pages/ai-video/",
+            "size": 16527
+          },
+          {
+            "name": "/pages/build/",
+            "size": 1175955
+          },
+          {
+            "name": "/pages/collaboration/",
+            "size": 23806
+          },
+          {
+            "name": "/pages/creation/",
+            "size": 13101
+          },
+          {
+            "name": "/pages/design/",
+            "size": 234948
+          },
+          {
+            "name": "/pages/growth/",
+            "size": 11916
+          },
+          {
+            "name": "/pages/studio/",
+            "size": 329942
+          },
+          {
+            "name": "/pages/workflow/",
+            "size": 1829982
+          }
+        ]
+      }
+    }
+  },
+  "verification": {
+    "date": "2026-10-25",
+    "result": "passed",
+    "pageChecks": 13,
+    "pageActions": 8,
+    "nativeChecks": 7,
+    "nativeInteractions": 90,
+    "nativeScreenshots": 21,
+    "nativeExceptions": [],
+    "nativeCacheRestored": true,
+    "relatedRegressionScripts": 22,
+    "static": {
+      "js": 157,
+      "wxml": 50,
+      "json": 49,
+      "mainBytes": 2081240
+    },
+    "sourceFingerprint": {
+      "files": 660,
+      "sha256": "69e8f48bd8d1d07b315b23b69af3a45302fd7cd525b92205df3a1bfc30a1fd96"
+    },
+    "scope": "five active roles; existing budget to engineering auto project; simulated payment; not real device UAT"
+  },
+  "rollback": {
+    "reversePatchCheckPassed": true,
+    "databaseMigration": false
+  }
+}
