@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 
-const outputDirectory = path.resolve('qa/design-checkout-20261023');
+const outputDirectory = path.resolve(process.env.DESIGN_CHECKOUT_QA_DIR || 'qa/design-journey-20261024');
 fs.mkdirSync(outputDirectory, { recursive: true });
 
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -18,7 +18,7 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
 
   const report = {
     result: 'running',
-    date: '2026-10-23',
+    date: '2026-10-24',
     scope: '真实 Page 处理器与 WXML 控件事件；仅注入测试账号和已保存的400㎡预算起点，不直接写入委托、支付、设计或移交状态。',
     evidence: 'Node Page/WXML integration runtime; not native WeChat rendering and not a real payment',
     actors: {
@@ -102,7 +102,7 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
     before.__fixture = snapshot();
     await input('textarea[data-key="text"]', '已有宅基地，两层乡墅，老人房与露台按本版预算尺寸设计。');
     assert.equal(page().data.form.scope, '全套方案设计、立面及施工图', '交付范围应由总部计价规则自动带入');
-    await tap('button[data-sample-key="attachment"]');
+    await tap('.journey-attachment');
     await change('checkbox-group[data-key="checked"]', ['yes']);
     await tap('.commission-primary');
     const after = customer(id), order = Checkout.order(after);
@@ -129,8 +129,11 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
     const before = clone(customer(id));
     before.__fixture = snapshot();
     await choosePaymentChannel(channel);
-    if (outcome === 'success') await tap('.commission-primary');
-    else await tap(`button[data-outcome="${outcome}"]`);
+    await tap('.journey-pay');
+    assert(page().data.cashier.open, '点击付款先打开收银台');
+    assert.equal(customer(id).businessFlow.paymentOrder.status, 'pending');
+    if (outcome === 'success') await tap('.cashier-confirm');
+    else await tap('.cashier-close');
     const after = customer(id);
     if (outcome !== 'success') {
       assert.equal(Checkout.order(after).status, 'pending');
@@ -155,6 +158,9 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
     assert.equal(page().data.view, 'messages');
     const message = page().data.messages.find(row => row.objectId === id && /8000|8,000/.test(row.description) && /模拟一次性支付/.test(row.description));
     assert(message, label + '的消息中应有当前项目的支付抄送');
+    await tap('button[data-customer="' + id + '"]');
+    assert.equal(page().data.paymentReceipt.customerName, customer(id).name);
+    await tap('.payment-receipt-close');
     await tap('button[data-handler="readAll"]');
     const account = Account.load();
     assert(Account.scoped(account, account.messages).find(row => row.id === message.id)?.read);
@@ -170,7 +176,11 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
     assert.equal(page().data.view, 'complete');
     let before = clone(customer(id));
     before.__fixture = snapshot();
-    await input('textarea[data-key="note"]', '总部设计与专业审核已完成');
+    await tap('.journey-generate');
+    assert(page().data.form.drawingFile.previewKind === 'drawing');
+    await tap('button[data-preview-key="drawingFile"]');
+    assert(page().data.documentPreview.image);
+    await tap('.document-close');
     await change('checkbox-group[data-key="checked"]', ['yes']);
     await tap('.commission-primary');
     let after = customer(id);
@@ -183,12 +193,8 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
     assert.equal(page().data.view, 'dispatch');
     before = clone(customer(id));
     before.__fixture = snapshot();
-    await input('input[data-key="recipient"]', '李业务');
-    await tap('button[data-sample-key="resultFile"]');
-    await tap('button[data-sample-key="drawingFile"]');
-    await input('input[data-key="drawingVersion"]', 'V1');
-    await tap('button[data-sample-key="reviewFile"]');
-    await input('textarea[data-key="note"]', '正式设计成果、V1施工图与对应专业审核依据同版下发。');
+    assert.equal(page().data.form.drawingVersion, 'V1');
+    assert(page().data.form.resultFile && page().data.form.drawingFile && page().data.form.reviewFile);
     await change('checkbox-group[data-key="checked"]', ['yes']);
     await tap('.commission-primary');
     after = customer(id);
@@ -220,10 +226,11 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
       assert(page().data.form[key], '总部下发的' + key + '应自动带入业务移交表单');
       assert.equal(page().data.form[key].meta.customerId, id);
     }
-    await tap('button[data-sample-key="confirmationFile"]');
+    await tap('.journey-client-confirm');
+    await tap('.client-confirm-primary');
     await input('textarea[data-key="note"]', '客户确认V1成果；现场放线以本版施工图为准，入场前再核对宅基地边界。');
     await change('checkbox-group[data-key="received"]', ['yes']);
-    await change('checkbox-group[data-key="confirmed"]', ['yes']);
+    assert(page().data.form.confirmed, '客户确认动作应生成凭据并标记本版确认');
     await tap('.commission-primary');
     const after = customer(id);
     assert(after.handover && after.handover.status === 'pending');
@@ -246,6 +253,7 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
     await tap('.commission-primary');
     const after = customer(id);
     const project = Engineering.load().projects.find(row => row.sourceCustomerId === id && row.recordFlow);
+    assert.equal(page().data.view, 'created');
     assert(after.acceptance);
     assert(project, '接收应自动建立工程项目');
     assert.equal(project.projectId, after.projectId);
@@ -270,7 +278,7 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
     await verifyFinanceCopy('hq-finance-dual', 'finance', wechatCustomer.id, '总部财务');
 
     const alipayOrder = await submitCommission(alipayCustomer.id);
-    await attemptPayment(alipayCustomer.id, 'alipay', 'failed');
+    await attemptPayment(alipayCustomer.id, 'alipay', 'cancelled');
     await attemptPayment(alipayCustomer.id, 'alipay', 'success');
     assert.notEqual(wechatOrder.id, alipayOrder.id);
     assert.notEqual(wechatCustomer.projectId, alipayCustomer.projectId);

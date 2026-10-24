@@ -1,0 +1,21 @@
+{
+  "assets": [
+    {
+      "file": "wechat-pay.png",
+      "source": "https://wx.gtimg.com/outwxgtimg/imgs/logo/wxpaylogo_xxxhdpi.png",
+      "sha256": "048345295da3308ed1d61860c611fbaa74762bdffec6412af6f3c78d023e7d99",
+      "bytes": 17926
+    },
+    {
+      "file": "alipay.png",
+      "source": "https://mdn.alipayobjects.com/rms/afts/file/A*7EyORZxdNDkAAAAAAAAAAAAAARQnAQ",
+      "sha256": "db1e0a9370aebf3b090495e6243a5479814e6a263f075da9bd09a30d6dc6a76f",
+      "bytes": 42694
+    }
+  ],
+  "references": [
+    "https://pay.wechatpay.cn/wiki/doc/wxfacepay/develop/sdk-logo.html",
+    "https://www.alipay.com/"
+  ],
+  "rendering": "使用官方原始文件，以图片视窗显示标识；未绘制替代品牌图标。体验收银台不调用支付SDK，不输入密码或银行卡信息。"
+}

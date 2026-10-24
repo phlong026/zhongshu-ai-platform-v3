@@ -104,7 +104,9 @@
     "check:flow:native": "node scripts/verify-full-flow-native.cjs",
     "demo:flow": "node scripts/open-flow-fixture.cjs",
     "check:design-checkout": "node scripts/verify-design-checkout.cjs && node scripts/verify-design-payment-finance-copy.cjs && node scripts/verify-design-checkout-pages.cjs && npm run check",
-    "check:design-checkout:native": "node scripts/verify-design-checkout-native.cjs"
+    "check:design-checkout:native": "node scripts/verify-design-checkout-native.cjs",
+    "check:design-journey": "node scripts/verify-design-checkout.cjs && node scripts/verify-design-journey.cjs && node scripts/verify-design-payment-finance-copy.cjs && node scripts/verify-design-checkout-pages.cjs && npm run check",
+    "check:design-journey:native": "node scripts/verify-design-journey-native.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0"

@@ -66,7 +66,10 @@ function pay(customer, input, at) {
   X.assert(!paid(customer), '本订单已完成模拟支付，请查看原记录');
   X.assert(['wechat', 'alipay'].includes(input.channel), '请选择微信或支付宝模拟支付');
   X.assert(input.outcome === 'success', input.outcome === 'cancelled' ? '已取消模拟支付，可沿原订单重试' : '模拟支付失败，请沿原订单重试');
-  return { ...copy(p), status: 'paid', channel: input.channel, paidAt: at, paidById: X.context().staffId, paidByPersonId: X.context().personId, transactionId: p.id + ':demo:' + input.channel };
+  const methods = input.channel === 'alipay' ? ['余额', '余额宝'] : ['零钱', '零钱通'];
+  const paymentMethod = input.paymentMethod || methods[0];
+  X.assert(methods.includes(paymentMethod), '请重新选择模拟付款方式');
+  return { ...copy(p), status: 'paid', paymentMethod, channel: input.channel, paidAt: at, paidById: X.context().staffId, paidByPersonId: X.context().personId, transactionId: p.id + ':demo:' + input.channel };
 }
 
 module.exports = { MODE, is, order, pricing, savePricing, quote, create, authorized, paid, pay };

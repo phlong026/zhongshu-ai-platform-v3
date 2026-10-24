@@ -65,7 +65,7 @@ function receiptWaiting(c){
 }
 // Workbench batches already have current records; avoid reading all customers once per row.
 function nextRecord(c){
- const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='')=>({state,owner,view,actionable,label:view==='pay'?'模拟支付设计费':view==='submit'?'提交设计委托':view==='handover'?'收图并移交':view==='receive'?'核查接收':view==='complete'?'设计完成':view==='dispatch'?'成果已下发':'查看进度',...(detail?{detail}:{})});
+ const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='')=>({state,owner,view,actionable,label:view==='pay'?'支付设计费':view==='submit'?'提交设计委托':view==='handover'?'收图并移交':view==='receive'?'核查接收':view==='complete'?'设计完成':view==='dispatch'?'成果已下发':'查看进度',...(detail?{detail}:{})});
  if(!is(c))return r('待提交设计委托','经办业务','submit',true);
  if(c.acceptance)return r('业务移交完成','已完成','progress');
  if(c.handover?.status==='returned')return r('移交资料待补充','经办业务','handover',true);
@@ -117,6 +117,7 @@ function transition(b,action,input,at=new Date().toISOString()){
   if(action==='design-complete'){
    const feedback=flow.feedbacks?.at(-1);X.assert(!flow.dispatch&&(!flow.completed||feedback?.status==='pending'),'设计完成已登记，请查看原记录');X.assert(feeApproved(b),'请等待设计费用授权');X.assert(firstRegistered(b),Checkout.is(b)?'请先完成本版设计费模拟支付，再开始设计':'请先由门店财务登记本版设计首款足额付款，再开始设计');
    X.assert(f.checked,'请确认本次线下设计及内部审核已完成');if(flow.completed)(flow.completedHistory||(flow.completedHistory=[])).push(copy(flow.completed));flow.completed={date:date(),at,by:a.name,actorId:a.staffId,personId:a.personId,note:String(f.note||'').trim(),requestVersion:b.request.version,feedbackId:feedback?.id||null};
+   if(Checkout.is(b)&&['resultFile','drawingFile','reviewFile'].some(key=>f[key])){X.assert(String(f.drawingVersion||'').trim()&&['resultFile','drawingFile','reviewFile'].every(key=>file(f[key])),'请补齐本版设计成果');for(const key of ['resultFile','drawingFile','reviewFile'])checkFileVersion(f[key],b,f.drawingVersion.trim());flow.completed.files={resultFile:f.resultFile,drawingFile:f.drawingFile,reviewFile:f.reviewFile,drawingVersion:f.drawingVersion.trim()};}
    if(feedback?.status==='pending'){feedback.status='completed';feedback.completedAt=at;}
   }
   if(action==='design-dispatch'){

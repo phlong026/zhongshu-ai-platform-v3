@@ -57,7 +57,8 @@ function paymentCopies(customers, actor, reads, checkout) {
       route: 'messages',
       objectId: customer.id,
       derived: true,
-      simulated: true
+      simulated: true,
+      payment: { amount: money(order.amountCents), channel: order.channel, channelName: channel, method: order.paymentMethod || (order.channel === 'alipay' ? '余额' : '零钱'), customerName: customer.name, area: order.area, rate: money(order.rateCents), recipient: order.recipient || '众墅之家总部', paidAt: localTime(order.paidAt), number: 'DS' + String(order.createdAt || '').replace(/\D/g, '').slice(0, 14) + customer.id.slice(-4).toUpperCase() }
     }];
   });
 }

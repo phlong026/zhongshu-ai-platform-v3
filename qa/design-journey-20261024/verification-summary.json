@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-25",
+  "result": "passed",
+  "pageChecks": 13,
+  "pageActions": 8,
+  "nativeChecks": 7,
+  "nativeInteractions": 90,
+  "nativeScreenshots": 21,
+  "nativeExceptions": [],
+  "nativeCacheRestored": true,
+  "relatedRegressionScripts": 22,
+  "static": {
+    "js": 157,
+    "wxml": 50,
+    "json": 49,
+    "mainBytes": 2081240
+  },
+  "sourceFingerprint": {
+    "files": 660,
+    "sha256": "69e8f48bd8d1d07b315b23b69af3a45302fd7cd525b92205df3a1bfc30a1fd96"
+  },
+  "scope": "five active roles; existing budget to engineering auto project; simulated payment; not real device UAT"
+}
