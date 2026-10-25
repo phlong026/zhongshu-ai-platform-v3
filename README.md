@@ -10,6 +10,8 @@
 
 ## 当前实现与验收记录
 
+2026年10月25日已在微信公众平台实时核实：当前体验版为 **1.0.20261025.1**，入口 `pages/home/index`，版本备注与本次委托到工程改版一致。页面已显示体验版标识，本轮无需重复切换。官方体验码和后台截图见 `qa/design-journey-20261024/experience/`；二维码11月1日前有效。手机测试顺序和本机模拟数据范围见 [手机体验说明](docs/委托到工程手机体验_20261025.md)。
+
 2026年10月24日委托到工程操作页改版：沿用现有预算、委托、订单、财务消息、设计待办和工程接收命令，新增微信/支付宝官方标识的模拟收银台、支付结果、成果预览、客户确认及建项成功入口。流程和责任人见 [可视操作改版](docs/委托到工程可视操作改版_20261024.md)。验证命令：`npm run check:design-journey`、`npm run check:business:simplified`；原生使用独立项目 `.tools/design-journey-20261024/native-project` 和自动化端口10039后执行 `npm run check:design-journey:native`。10月25日开发版 **1.0.20261025.1** 已通过官方CLI上传，源码提交 `6008d3b`；7组原生场景、90次控件操作及22组相关回归通过，回执见 `qa/design-journey-20261024/release-receipt.json`。
 
 2026年10月23日设计委托改为按预算建筑面积计费，在总部设计“我的”配置单价。新委托自动生成一次性体验模拟订单，微信/支付宝模拟成功后抄送双方财务并触发设计待办；总部上传同版成果，业务补客户确认及交底后移交工程。历史首尾款委托保留原流程。规则、责任与边界见 [面积计价与模拟支付](docs/设计委托面积计价与模拟支付_20261023.md)。`npm run check:design-checkout` 运行模型与页面回归。原生验证先生成 `qa/design-checkout-20261023/initial-state.json`，将当前源码复制到 `.tools/design-checkout-20261023/native-project`，使用微信 CLI `auto --project <隔离项目绝对路径> --auto-port 10037` 后执行 `npm run check:design-checkout:native`。原生脚本只在隔离测试缓存注入已保存预算起点，结束后恢复原缓存。 开发版 **1.0.20261023.9** 已由官方CLI上传，源码提交 `474a50e`，凭据见 `qa/design-checkout-20261023/release-receipt.json`；体验版激活此前被工具安全策略拒绝，本轮未重试。
