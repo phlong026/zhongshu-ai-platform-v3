@@ -75,6 +75,10 @@
       "result": "passed"
     },
     {
+      "name": "boss / owner：首页与角色导航一致",
+      "result": "passed"
+    },
+    {
       "name": "store-owner / owner：首页与角色导航一致",
       "result": "passed"
     },
