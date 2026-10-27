@@ -1,0 +1,261 @@
+package cn.iocoder.yudao.module.franchise.commission;
+
+import cn.iocoder.yudao.module.franchise.commission.CommissionService.CompleteCommand;
+import cn.iocoder.yudao.module.franchise.commission.CommissionService.DispatchCommand;
+import cn.iocoder.yudao.module.franchise.commission.CommissionService.FeeDecisionCommand;
+import cn.iocoder.yudao.module.franchise.commission.CommissionService.SubmitCommand;
+import cn.iocoder.yudao.module.franchise.commission.HandoverService.DecisionCommand;
+import cn.iocoder.yudao.module.franchise.commission.HandoverService.PacketCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeCommand;
+import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand;
+import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureOutcome;
+import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureResult;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.test.FranchiseFixture.Store;
+import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
+import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.workflow.ApprovalServiceImpl;
+import cn.iocoder.yudao.module.platform.workflow.TodoItem;
+import cn.iocoder.yudao.module.platform.workflow.TodoServiceImpl;
+import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Import({CommissionService.class, HandoverService.class, DesignPolicyService.class, CommissionAccess.class,
+        CommissionOrgScope.class, FranchiseCommands.class, CommandLogImpl.class, ApprovalServiceImpl.class,
+        FranchiseTodoProvider.class, TodoServiceImpl.class,
+        cn.iocoder.yudao.module.franchise.crm.CustomerService.class,
+        cn.iocoder.yudao.module.franchise.crm.LeadService.class, cn.iocoder.yudao.module.franchise.crm.CrmOrgScope.class})
+class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
+
+    private static final BigDecimal TOTAL = new BigDecimal("680000");
+    private static final BigDecimal FIRST = new BigDecimal("408000");
+
+    @Resource
+    private cn.iocoder.yudao.module.franchise.crm.LeadService leads;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.crm.CustomerService customers;
+    @Resource
+    private CommissionService commissions;
+    @Resource
+    private HandoverService handovers;
+    @Resource
+    private DesignPolicyService policies;
+    @Resource
+    private FranchiseTodoProvider todoProvider;
+    @Resource
+    private TodoServiceImpl todoService;
+
+    private Store store;
+    private PostSnapshot salesA1;
+    private PostSnapshot salesB;
+    private PostSnapshot boss;
+    private PostSnapshot engineer;
+    private PostSnapshot finance;
+    private PostSnapshot designAdmin;
+
+    @BeforeEach
+    void organization() {
+        store = fixture.store();
+        salesA1 = fixture.post(store.orgId(), SALES, store.salesTeamA());
+        salesB = fixture.post(store.orgId(), SALES, store.salesTeamB());
+        boss = fixture.post(store.orgId(), BOSS, null);
+        engineer = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
+        finance = fixture.post(store.orgId(), FINANCE, null);
+        designAdmin = fixture.post(fixture.headquarters(), DESIGN_ADMIN, null);
+    }
+
+    @Test
+    void salesSeesCustomerTodosUntilEachIsHandled() {
+        CaptureResult captured = capture(salesA1);
+        long customerId = captured.customerId();
+
+        assertThat(todos(salesA1)).extracting(TodoItem::key)
+                .contains("franchise:first-follow:" + customerId);
+
+        // 保存预算后出现「待提交设计委托」，提交后委托待办取代客户待办
+        as(salesA1, () -> customers.saveScheme(salesA1, customerId, budget(), null));
+        assertThat(todos(salesA1)).extracting(TodoItem::key)
+                .contains("franchise:submit-commission:" + customerId);
+
+        as(boss, () -> policies.save(boss,
+                new DesignPolicyService.PolicyCommand(TOTAL, FIRST, "方案、施工图与交底", "总部财务"), null));
+        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId, submit(), null));
+
+        // 标准费用路径直接进入设计；设计 §10：DESIGNING 对业务侧无待办（办理中）。
+        // 客户仍是 REGISTERED，首次跟进待办保留（跟进与委托互不阻塞）
+        assertThat(todos(salesA1)).extracting(TodoItem::key)
+                .contains("franchise:first-follow:" + customerId)
+                .doesNotContain("franchise:submit-commission:" + customerId,
+                        "franchise:fee-pending:" + detail.commission().getId());
+    }
+
+    @Test
+    void bossApprovesFeeWithAmountAndDesignAdminTakesOver() {
+        long customerId = customerWithBudget();
+        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId,
+                new SubmitCommand("两层乡墅", "方案", null, new BigDecimal("750000"),
+                        new BigDecimal("400000"), "总部财务", null, null, null, true), null));
+        long id = detail.commission().getId();
+
+        // 老板看到带金额的可办理审批；设计行政看不到费用审批
+        List<TodoItem> bossTodos = todos(boss);
+        assertThat(bossTodos).filteredOn(t -> t.key().equals("franchise:fee-approve:" + id))
+                .singleElement().satisfies(t -> {
+                    assertThat(t.actionable()).isTrue();
+                    assertThat(t.amountCents()).isEqualTo(75_000_000L);
+                });
+        assertThat(todos(designAdmin)).extracting(TodoItem::key).doesNotContain("franchise:fee-approve:" + id);
+
+        as(boss, () -> commissions.feeDecide(boss, id, new FeeDecisionCommand(true, "同意"), null));
+        as(finance, () -> commissions.markFirstReady(id, 1, finance));
+
+        // 设计行政：首款就绪 → 确认设计完成
+        assertThat(todos(designAdmin)).extracting(TodoItem::key).contains("franchise:design-complete:" + id + ":1");
+        as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), null));
+        as(finance, () -> commissions.markTailPaid(id, 1, finance));
+        as(finance, () -> commissions.markTailReady(id, 1, finance));
+
+        // 设计行政：尾款就绪 → 下发成果；业务侧同步出现跟进尾款/移交待办
+        assertThat(todos(designAdmin)).extracting(TodoItem::key).contains("franchise:design-dispatch:" + id + ":1");
+        as(designAdmin, () -> commissions.dispatch(designAdmin, id,
+                new DispatchCommand("成果交付", "总部设计行政", true), null));
+        assertThat(todos(salesA1)).extracting(TodoItem::key).contains("franchise:handover-prepare:" + id);
+    }
+
+    @Test
+    void handoverShowsReviewForManagerOnly() {
+        long id = commissionDispatched();
+        as(salesA1, () -> handovers.submit(salesA1, id, packet(engineer.userId()), null));
+
+        assertThat(todos(engineer)).extracting(TodoItem::key)
+                .contains("franchise:handover-review:" + id + ":1");
+        assertThat(todos(salesA1)).extracting(TodoItem::key)
+                .contains("franchise:handover-waiting:" + id + ":1");
+
+        var engineerTodos = todos(engineer);
+        assertThat(engineerTodos.stream().filter(t -> t.key().startsWith("franchise:handover-review"))
+                .allMatch(TodoItem::actionable)).isTrue();
+
+        as(engineer, () -> handovers.receive(engineer, id, new DecisionCommand(null, true), null));
+        assertThat(todos(engineer)).extracting(TodoItem::key)
+                .doesNotContain("franchise:handover-review:" + id + ":1");
+    }
+
+    @Test
+    void pendingLeadsShowAsActionableOnlyForManagersAndBoss() {
+        String phone = String.valueOf(15_800_000_000L + System.nanoTime() % 700_000_000L);
+        as(salesA1, () -> leads.capture(salesA1,
+                new CaptureCommand("陈先生", phone, "两层乡墅", "视频号"), null));
+        CaptureResult pending = as(salesB, () -> leads.capture(salesB,
+                new CaptureCommand("陈先生", phone, "再次咨询", "视频号"), null));
+        assertThat(pending.outcome()).isEqualTo(CaptureOutcome.LINK_REQUIRED);
+
+        // 登记人（业务二组）只能看到等待中；一组负责人与老板可办理
+        assertThat(todos(salesB)).filteredOn(t -> t.key().startsWith("franchise:lead-link"))
+                .singleElement().satisfies(t -> assertThat(t.actionable()).isFalse());
+        PostSnapshot leadWholeLine = fixture.post(store.orgId(), SALES_LEAD, null);
+        assertThat(todos(leadWholeLine)).filteredOn(t -> t.key().startsWith("franchise:lead-link"))
+                .singleElement().satisfies(TodoItem::actionable);
+        assertThat(todos(boss)).filteredOn(t -> t.key().startsWith("franchise:lead-link"))
+                .singleElement().satisfies(TodoItem::actionable);
+    }
+
+    @Test
+    void todoServiceSortsActionableFirstAndDeduplicates() {
+        long id = commissionDispatched();
+        as(salesA1, () -> handovers.submit(salesA1, id, packet(engineer.userId()), null));
+
+        var list = as(engineer, () -> todoService.list(engineer));
+        assertThat(list.items()).isNotEmpty();
+        assertThat(list.actionableCount()).isPositive();
+        // 可办理的排在不可办理的前面
+        boolean seenInactive = false;
+        for (TodoItem item : list.items()) {
+            if (!item.actionable()) {
+                seenInactive = true;
+            } else {
+                assertThat(seenInactive).as("actionable 待办应排在前面: " + item.key()).isFalse();
+            }
+        }
+        assertThat(list.failedDomains()).isEmpty();
+    }
+
+    // ===================== 工具 =====================
+
+    /** 走标准费用路径把委托推到已下发 */
+    private long commissionDispatched() {
+        long customerId = customerWithBudget();
+        as(boss, () -> policies.save(boss,
+                new DesignPolicyService.PolicyCommand(TOTAL, FIRST, "方案、施工图与交底", "总部财务"), null));
+        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId, submit(), null));
+        long id = detail.commission().getId();
+        as(finance, () -> commissions.markFirstReady(id, 1, finance));
+        as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), null));
+        as(finance, () -> commissions.markTailPaid(id, 1, finance));
+        as(finance, () -> commissions.markTailReady(id, 1, finance));
+        as(designAdmin, () -> commissions.dispatch(designAdmin, id,
+                new DispatchCommand("成果交付", "总部设计行政", true), null));
+        return id;
+    }
+
+    private long customerWithBudget() {
+        CaptureResult captured = capture(salesA1);
+        as(salesA1, () -> customers.saveScheme(salesA1, captured.customerId(), budget(), null));
+        return captured.customerId();
+    }
+
+    private CaptureResult capture(PostSnapshot post) {
+        String phone = String.valueOf(15_800_000_000L + System.nanoTime() % 700_000_000L);
+        return as(post, () -> leads.capture(post,
+                new CaptureCommand("陈先生", phone, "两层乡墅，按标准费用委托设计", "视频号咨询"), null));
+    }
+
+    private static SchemeCommand budget() {
+        return new SchemeCommand("BUDGET", "参考预算", "{}", new BigDecimal("13"), new BigDecimal("16"),
+                2, new BigDecimal("400"), 68_000_000L);
+    }
+
+    private static SubmitCommand submit() {
+        return new SubmitCommand("两层乡墅", "方案、施工图与交底", null, TOTAL, FIRST, "总部财务",
+                null, null, null, true);
+    }
+
+    private static PacketCommand packet(long managerUserId) {
+        return new PacketCommand(1, "{\"name\":\"成果文件\"}", "{\"name\":\"施工图\"}",
+                "{\"name\":\"审核依据\"}", "{\"name\":\"客户确认\"}", "S2-2026", LocalDate.now(),
+                "已向工程负责人现场交底", managerUserId, true);
+    }
+
+    private List<TodoItem> todos(PostSnapshot post) {
+        return as(post, () -> todoProvider.list(post));
+    }
+
+    private <T> T as(PostSnapshot post, java.util.function.Supplier<T> action) {
+        currentPost.use(post);
+        try {
+            return action.get();
+        } finally {
+            currentPost.clear();
+        }
+    }
+
+    private void as(PostSnapshot post, Runnable action) {
+        currentPost.use(post);
+        try {
+            action.run();
+        } finally {
+            currentPost.clear();
+        }
+    }
+
+}
