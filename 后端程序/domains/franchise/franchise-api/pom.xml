@@ -17,4 +17,12 @@
         加盟协同域对外接口：其他业务域只能通过本模块的接口与 DTO 访问加盟协同域，不得直接读写 fr_ 前缀的表。
     </description>
 
+    <dependencies>
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-platform-org</artifactId>
+            <version>${revision}</version>
+        </dependency>
+    </dependencies>
+
 </project>

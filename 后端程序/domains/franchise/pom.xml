@@ -24,6 +24,7 @@
         <module>franchise-test-support</module>
         <module>franchise-org</module>
         <module>franchise-crm</module>
+        <module>franchise-commission</module>
     </modules>
 
 </project>
