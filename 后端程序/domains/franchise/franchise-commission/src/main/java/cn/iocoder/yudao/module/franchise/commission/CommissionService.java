@@ -120,6 +120,12 @@ public class CommissionService implements DesignFeeProgressApi {
                 visibleCustomerIds(post), managedCommissionIds(post)), keyword);
     }
 
+    /** 当前岗位可见的全部委托（待办即时计算用） */
+    public java.util.List<CommissionDO> listVisible(PostSnapshot post) {
+        return commissionMapper.selectVisible(access.visibleTo(post,
+                visibleCustomerIds(post), managedCommissionIds(post)));
+    }
+
     public CommissionDO requireReadable(PostSnapshot post, long commissionId) {
         CommissionDO commission = commissionMapper.selectById(commissionId);
         boolean manager = commission != null && handoverMapper.selectByCommission(commissionId).stream()

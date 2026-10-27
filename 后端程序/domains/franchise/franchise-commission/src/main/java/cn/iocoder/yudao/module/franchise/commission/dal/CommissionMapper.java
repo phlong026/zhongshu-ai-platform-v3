@@ -7,6 +7,8 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 import java.util.function.Consumer;
 
 /** 查询均受组织范围规则约束（company_id + design_org_id） */
@@ -25,6 +27,12 @@ public interface CommissionMapper extends BaseMapperX<CommissionDO> {
             query.like(CommissionDO::getCustomerName, keyword.trim());
         }
         return selectPage(page, query.orderByDesc(CommissionDO::getUpdateTime).orderByDesc(CommissionDO::getId));
+    }
+
+    default List<CommissionDO> selectVisible(Consumer<LambdaQueryWrapperX<CommissionDO>> visibility) {
+        LambdaQueryWrapperX<CommissionDO> query = new LambdaQueryWrapperX<>();
+        visibility.accept(query);
+        return selectList(query);
     }
 
     /**

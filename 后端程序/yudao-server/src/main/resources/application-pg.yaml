@@ -16,8 +16,9 @@ spring:
     user: ${ZS_PG_USERNAME:zhongshu}
     password: ${ZS_PG_PASSWORD:zhongshu}
     # 各业务包拥有自己的迁移目录；platform 为平台/工程级（Outbox、审计、示例基线等）
-    # pf 为赋能平台的平台能力层（pf_ 前缀表，段号 7xx）；franchise 为加盟协同域（fr_ 前缀表，段号 8xx）
-    locations: classpath:db/migration/platform,classpath:db/migration/identity,classpath:db/migration/design,classpath:db/migration/commerce,classpath:db/migration/ai-orchestration,classpath:db/migration/pf,classpath:db/migration/franchise
+    # pf 为赋能平台的平台能力层（pf_ 前缀表，段号 7xx）；franchise 为加盟协同域业务表（fr_ 前缀，段号 8xx）；
+    # franchise-system 写 system_role/system_menu 岗位与权限种子（V85x），只有完整服务执行（测试库无 system 表）
+    locations: classpath:db/migration/platform,classpath:db/migration/identity,classpath:db/migration/design,classpath:db/migration/commerce,classpath:db/migration/ai-orchestration,classpath:db/migration/pf,classpath:db/migration/franchise,classpath:db/migration/franchise-system
     # 底座 system/infra 表由 sql/postgresql 基线 dump 先行建好（全新环境引导顺序：dump → Flyway），
     # schema 非空且无 Flyway 历史时必须允许建基线，否则首次启动直接被 non-empty schema 守卫拦截。
     # baseline-version 取 20260905.000（低于全部真实迁移），保证基线不吞掉任何业务迁移。
