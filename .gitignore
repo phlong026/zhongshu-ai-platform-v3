@@ -14,3 +14,4 @@ qa/
 *.xlsx
 小程序logo.jpeg
 账号归档.txt
+.DS_Store
