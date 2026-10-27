@@ -22,7 +22,7 @@ public interface OrgService {
     /** 部门对应的组织单元；未标注返回 null */
     OrgUnitDO getUnit(long deptId);
 
-    /** 某类型的全部启用组织，按编号升序 */
-    List<OrgUnitDO> listActiveOrgsByType(String orgType);
+    /** 某类型下全部启用的组织编号，按编号升序（如业务域查找唯一的总部组织） */
+    List<Long> listActiveOrgIds(String orgType);
 
 }

@@ -1,0 +1,302 @@
+package cn.iocoder.yudao.module.franchise.crm;
+
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.FollowCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.TransferCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.UpdateCommand;
+import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand;
+import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureOutcome;
+import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureResult;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerFollowDO;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeDO;
+import cn.iocoder.yudao.module.franchise.crm.dal.LeadDO;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.test.FranchiseFixture.Store;
+import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
+import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
+import static cn.iocoder.yudao.module.franchise.crm.enums.FranchiseCrmErrorCodes.*;
+import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
+import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Import({LeadService.class, CustomerService.class, CrmOrgScope.class, FranchiseCommands.class, CommandLogImpl.class})
+class CrmIntegrationTest extends FranchisePgIntegrationTest {
+
+    private static final AtomicLong PHONES = new AtomicLong(13_000_000_000L + System.nanoTime() % 900_000_000L);
+
+    @Resource
+    private LeadService leads;
+    @Resource
+    private CustomerService customers;
+
+    private Store store;
+    private PostSnapshot salesA1;
+    private PostSnapshot salesA2;
+    private PostSnapshot salesB;
+    private PostSnapshot leadA;
+    private PostSnapshot leadWholeLine;
+    private PostSnapshot boss;
+    private PostSnapshot engineer;
+    private PostSnapshot otherStoreSales;
+
+    @BeforeEach
+    void organization() {
+        store = fixture.store();
+        salesA1 = fixture.post(store.orgId(), SALES, store.salesTeamA());
+        salesA2 = fixture.post(store.orgId(), SALES, store.salesTeamA());
+        salesB = fixture.post(store.orgId(), SALES, store.salesTeamB());
+        leadA = fixture.post(store.orgId(), SALES_LEAD, store.salesTeamA());
+        leadWholeLine = fixture.post(store.orgId(), SALES_LEAD, null);
+        boss = fixture.post(store.orgId(), BOSS, null);
+        engineer = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
+        Store other = fixture.store();
+        otherStoreSales = fixture.post(other.orgId(), SALES, other.salesTeamA());
+    }
+
+    // ===================== 客资 =====================
+
+    @Test
+    void capturingANewPhoneCreatesACustomerOwnedByTheRegistrar() {
+        CaptureResult result = capture(salesA1, phone());
+
+        assertThat(result.outcome()).isEqualTo(CaptureOutcome.CREATED);
+        CustomerDO customer = as(salesA1, () -> customers.get(salesA1, result.customerId()).customer());
+        assertThat(customer.getOwnerUserId()).isEqualTo(salesA1.userId());
+        assertThat(customer.getTeamId()).isEqualTo(store.salesTeamA());
+        assertThat(customer.getStatus()).isEqualTo(CustomerDO.STATUS_REGISTERED);
+        assertThat(as(salesA1, () -> customers.listAwaitingFirstFollow(salesA1))).extracting(CustomerDO::getId).contains(customer.getId());
+    }
+
+    @Test
+    void sameTeamColleagueCapturingTheSamePhoneLinksTheOriginalCustomerAndKeepsItsOwner() {
+        String phone = phone();
+        CaptureResult first = capture(salesA1, phone);
+        CaptureResult second = capture(salesA2, phone);
+
+        assertThat(second.outcome()).isEqualTo(CaptureOutcome.LINKED);
+        assertThat(second.customerId()).isEqualTo(first.customerId());
+        assertThat(as(salesA1, () -> customers.get(salesA1, first.customerId()).customer().getOwnerUserId())).isEqualTo(salesA1.userId());
+    }
+
+    @Test
+    void otherTeamCapturingTheSamePhoneWaitsForAManagerToLink() {
+        String phone = phone();
+        CaptureResult original = capture(salesA1, phone);
+        CaptureResult pending = capture(salesB, phone);
+
+        assertThat(pending.outcome()).isEqualTo(CaptureOutcome.LINK_REQUIRED);
+        assertThat(pending.customerId()).isNull();
+        assertError(() -> capture(salesA2, phone), LEAD_DUPLICATE);
+
+        // 业务一组负责人管不到业务二组登记的客资；不分团队的负责人和老板可以
+        assertError(() -> as(leadA, () -> leads.link(leadA, pending.leadId(), 1, null)), LEAD_NOT_FOUND);
+        assertThat(as(leadWholeLine, () -> leads.listPending(leadWholeLine))).extracting(LeadDO::getId).contains(pending.leadId());
+        assertThat(as(salesB, () -> leads.listPending(salesB))).extracting(LeadDO::getId).containsExactly(pending.leadId());
+        LeadDO linked = as(boss, () -> leads.link(boss, pending.leadId(), 1, null));
+
+        assertThat(linked.getStatus()).isEqualTo(LeadDO.STATUS_CONVERTED);
+        assertThat(linked.getConversion()).isEqualTo(LeadDO.CONVERSION_LINKED);
+        assertThat(linked.getCustomerId()).isEqualTo(original.customerId());
+        assertError(() -> as(boss, () -> leads.link(boss, pending.leadId(), 2, null)), LEAD_NOT_PENDING);
+    }
+
+    @Test
+    void registrarCanInvalidateTheirPendingLead() {
+        String phone = phone();
+        capture(salesA1, phone);
+        CaptureResult pending = capture(salesB, phone);
+
+        assertError(() -> as(salesA2, () -> leads.invalidate(salesA2, pending.leadId(), "重复咨询", 1, null)), LEAD_NOT_FOUND);
+        LeadDO invalid = as(salesB, () -> leads.invalidate(salesB, pending.leadId(), "客户表示已在别处登记", 1, null));
+
+        assertThat(invalid.getStatus()).isEqualTo(LeadDO.STATUS_INVALID);
+        assertThat(capture(salesB, phone).outcome()).isEqualTo(CaptureOutcome.LINK_REQUIRED);
+    }
+
+    @Test
+    void onlyStoreSalesPostsCanCaptureAndInputIsValidated() {
+        assertError(() -> capture(boss, phone()), STORE_SALES_POST_REQUIRED);
+        assertError(() -> capture(engineer, phone()), STORE_SALES_POST_REQUIRED);
+        assertError(() -> capture(salesA1, "1234"), LEAD_INPUT_INVALID);
+        assertError(() -> as(salesA1, () -> leads.capture(salesA1, new CaptureCommand("陈先生", phone(), " ", "视频号"), null)),
+                LEAD_INPUT_INVALID);
+    }
+
+    @Test
+    void storesAreIsolatedEvenForTheSamePhone() {
+        String phone = phone();
+        CaptureResult mine = capture(salesA1, phone);
+        CaptureResult theirs = capture(otherStoreSales, phone);
+
+        assertThat(theirs.outcome()).isEqualTo(CaptureOutcome.CREATED);
+        assertThat(theirs.customerId()).isNotEqualTo(mine.customerId());
+        assertError(() -> as(otherStoreSales, () -> customers.get(otherStoreSales, mine.customerId())), CUSTOMER_NOT_FOUND);
+        assertError(() -> as(otherStoreSales, () -> customers.follow(otherStoreSales, mine.customerId(), follow("越权"), null)),
+                CUSTOMER_NOT_FOUND);
+    }
+
+    // ===================== 可见与可办理 =====================
+
+    @Test
+    void visibilityFollowsOwnerTeamAndBossRules() {
+        long id = capture(salesA1, phone()).customerId();
+
+        assertError(() -> as(salesB, () -> customers.get(salesB, id)), CUSTOMER_NOT_FOUND);
+        assertError(() -> as(salesA2, () -> customers.get(salesA2, id)), CUSTOMER_NOT_FOUND);
+        assertError(() -> as(engineer, () -> customers.get(engineer, id)), CUSTOMER_NOT_FOUND);
+        assertThat(as(leadA, () -> customers.get(leadA, id))).isNotNull();
+        assertThat(as(leadWholeLine, () -> customers.get(leadWholeLine, id))).isNotNull();
+        assertThat(as(boss, () -> customers.get(boss, id))).isNotNull();
+
+        // 老板只看不办；负责人可以替团队成员办理
+        assertError(() -> as(boss, () -> customers.follow(boss, id, follow("老板跟进"), null)), CUSTOMER_FORBIDDEN);
+        assertThat(as(leadA, () -> customers.follow(leadA, id, follow("负责人协助跟进"), null)).follows()).hasSize(1);
+
+        assertThat(as(salesA1, () -> customers.page(salesA1, page(), null)).getList()).extracting(CustomerDO::getId).contains(id);
+        assertThat(as(salesA2, () -> customers.page(salesA2, page(), null)).getList()).extracting(CustomerDO::getId).doesNotContain(id);
+        assertThat(as(leadA, () -> customers.page(leadA, page(), null)).getList()).extracting(CustomerDO::getId).contains(id);
+        assertThat(as(otherStoreSales, () -> customers.page(otherStoreSales, page(), null)).getList())
+                .extracting(CustomerDO::getId).doesNotContain(id);
+    }
+
+    // ===================== 跟进、编辑、方案 =====================
+
+    @Test
+    void followingMovesToFollowingAndSchedulesARevisit() {
+        long id = capture(salesA1, phone()).customerId();
+        LocalDate today = LocalDate.now();
+
+        assertError(() -> as(salesA1, () -> customers.follow(salesA1, id, new FollowCommand("约时间", today.minusDays(1)), null)),
+                VISIT_DATE_INVALID);
+        var detail = as(salesA1, () -> customers.follow(salesA1, id, new FollowCommand("客户想看两层方案", today), null));
+
+        assertThat(detail.customer().getStatus()).isEqualTo(CustomerDO.STATUS_FOLLOWING);
+        assertThat(detail.customer().getRevision()).isEqualTo(2L);
+        assertThat(detail.follows()).extracting(CustomerFollowDO::getNote).containsExactly("客户想看两层方案");
+        assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, today))).extracting(CustomerDO::getId).contains(id);
+        assertThat(as(salesA1, () -> customers.listAwaitingFirstFollow(salesA1))).extracting(CustomerDO::getId).doesNotContain(id);
+    }
+
+    @Test
+    void replayingTheSameIdempotencyKeyDoesNotFollowTwice() {
+        long id = capture(salesA1, phone()).customerId();
+
+        as(salesA1, () -> customers.follow(salesA1, id, follow("第一次沟通"), "follow-1"));
+        var replay = as(salesA1, () -> customers.follow(salesA1, id, follow("第一次沟通"), "follow-1"));
+
+        assertThat(replay.follows()).hasSize(1);
+        assertThat(replay.customer().getRevision()).isEqualTo(2L);
+    }
+
+    @Test
+    void editingWithAStaleRevisionIsRejected() {
+        long id = capture(salesA1, phone()).customerId();
+        UpdateCommand update = new UpdateCommand("陈先生", "chen-wx", "湖北省", "武汉市", "两层乡墅");
+
+        as(salesA1, () -> customers.update(salesA1, id, update, 1, null));
+
+        assertError(() -> as(salesA1, () -> customers.update(salesA1, id, update, 1, null)), STATE_VERSION_CONFLICT);
+        assertError(() -> as(salesA1, () -> customers.update(salesA1, id, new UpdateCommand(" ", null, null, null, null), 2, null)),
+                CUSTOMER_INPUT_INVALID);
+    }
+
+    @Test
+    void schemesAreVersionedPerKindAndBudgetsNeedValidDimensions() {
+        long id = capture(salesA1, phone()).customerId();
+
+        assertError(() -> as(salesA1, () -> customers.saveScheme(salesA1, id,
+                budget(BigDecimal.ZERO), null)), SCHEME_INVALID);
+        assertError(() -> as(salesA1, () -> customers.saveScheme(salesA1, id,
+                new SchemeCommand("QUOTE", "报价", null, null, null, null, null, null), null)), SCHEME_INVALID);
+        assertThat(as(salesA1, () -> customers.listWritableWithBudget(salesA1))).extracting(CustomerDO::getId).doesNotContain(id);
+
+        as(salesA1, () -> customers.saveScheme(salesA1, id, budget(new BigDecimal("12.5")), null));
+        CustomerSchemeDO second = as(salesA1, () -> customers.saveScheme(salesA1, id, budget(new BigDecimal("13")), null));
+        CustomerSchemeDO plan = as(salesA1, () -> customers.saveScheme(salesA1, id,
+                new SchemeCommand("PLAN", "AI 平面方案", "{\"image\":\"a.png\"}", null, null, null, null, null), null));
+
+        assertThat(second.getVersion()).isEqualTo(2);
+        assertThat(plan.getVersion()).isEqualTo(1);
+        assertThat(as(salesA1, () -> customers.latestScheme(id, CustomerSchemeDO.KIND_BUDGET)).getWidth()).isEqualByComparingTo("13");
+        assertThat(as(salesA1, () -> customers.listWritableWithBudget(salesA1))).extracting(CustomerDO::getId).contains(id);
+        assertThat(as(salesA2, () -> customers.listWritableWithBudget(salesA2))).extracting(CustomerDO::getId).doesNotContain(id);
+    }
+
+    // ===================== 责任转交 =====================
+
+    @Test
+    void transferMovesOwnershipWithinTheManagersTeams() {
+        long id = capture(salesA1, phone()).customerId();
+
+        assertError(() -> as(salesA1, () -> customers.transfer(salesA1, id, new TransferCommand(salesA2.userId(), "调岗"), 1, null)),
+                CUSTOMER_FORBIDDEN);
+        assertError(() -> as(leadA, () -> customers.transfer(leadA, id, new TransferCommand(salesB.userId(), "调岗"), 1, null)),
+                TRANSFER_TARGET_INVALID);
+        assertError(() -> as(leadA, () -> customers.transfer(leadA, id, new TransferCommand(engineer.userId(), "调岗"), 1, null)),
+                TRANSFER_TARGET_INVALID);
+
+        var moved = as(leadA, () -> customers.transfer(leadA, id, new TransferCommand(salesA2.userId(), "张业务离岗"), 1, null));
+
+        assertThat(moved.customer().getOwnerUserId()).isEqualTo(salesA2.userId());
+        assertError(() -> as(salesA1, () -> customers.get(salesA1, id)), CUSTOMER_NOT_FOUND);
+        assertThat(as(salesA2, () -> customers.get(salesA2, id))).isNotNull();
+
+        var crossTeam = as(boss, () -> customers.transfer(boss, id, new TransferCommand(salesB.userId(), "老板调整分工"), 2, null));
+        assertThat(crossTeam.customer().getTeamId()).isEqualTo(store.salesTeamB());
+    }
+
+    @Test
+    void crmEntitiesAreTenantIgnored() {
+        for (Class<?> entity : List.of(LeadDO.class, CustomerDO.class, CustomerFollowDO.class, CustomerSchemeDO.class)) {
+            assertThat(entity.isAnnotationPresent(TenantIgnore.class)).as(entity.getSimpleName()).isTrue();
+        }
+    }
+
+    // ===================== 工具 =====================
+
+    private CaptureResult capture(PostSnapshot post, String phone) {
+        return as(post, () -> leads.capture(post, new CaptureCommand("陈先生", phone, "两层乡墅，先了解方案和费用", "视频号咨询"), null));
+    }
+
+    private static FollowCommand follow(String note) {
+        return new FollowCommand(note, null);
+    }
+
+    private static SchemeCommand budget(BigDecimal width) {
+        return new SchemeCommand("BUDGET", "参考预算", "{}", width, new BigDecimal("16"), 2, new BigDecimal("400"), 68_000_000L);
+    }
+
+    private static PageParam page() {
+        return new PageParam().setPageNo(1).setPageSize(100);
+    }
+
+    private static String phone() {
+        return String.valueOf(PHONES.incrementAndGet());
+    }
+
+    /** 以某个工作身份执行：组织范围过滤按当前工作身份生效 */
+    private <T> T as(PostSnapshot post, java.util.function.Supplier<T> action) {
+        currentPost.use(post);
+        try {
+            return action.get();
+        } finally {
+            currentPost.clear();
+        }
+    }
+
+}

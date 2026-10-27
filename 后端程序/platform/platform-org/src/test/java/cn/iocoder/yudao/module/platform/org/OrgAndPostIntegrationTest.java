@@ -74,17 +74,6 @@ class OrgAndPostIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
-    void listsActiveOrgsOfAType() {
-        jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('t-only','test','单测类型') ON CONFLICT DO NOTHING");
-        long first = orgService.createOrg("t-only", "甲", null);
-        long second = orgService.createOrg("t-only", "乙", null);
-        long disabled = orgService.createOrg("t-only", "丙", null);
-        orgService.setOrgActive(disabled, false);
-
-        assertThat(orgService.listActiveOrgsByType("t-only")).extracting(OrgUnitDO::getDeptId).containsExactly(first, second);
-    }
-
-    @Test
     void rejectsUnregisteredOrgType() {
         assertError(() -> orgService.createOrg("t-unknown", "某组织", null), ORG_TYPE_NOT_REGISTERED);
     }
@@ -97,6 +86,18 @@ class OrgAndPostIntegrationTest extends PlatformPgIntegrationTest {
 
         assertError(() -> orgService.createTeam(orgA, teamOfB, "错挂团队", "sales"), TEAM_NOT_IN_ORG);
         assertError(() -> orgService.createTeam(teamOfB, null, "团队下当组织", "sales"), ORG_NOT_FOUND);
+    }
+
+    @Test
+    void listsActiveOrgsOfAType() {
+        jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('t-list-hq','test','只供本用例') ON CONFLICT DO NOTHING");
+        long hq = orgService.createOrg("t-list-hq", "总部", null);
+        long disabled = orgService.createOrg("t-list-hq", "停用的总部", null);
+        orgService.setOrgActive(disabled, false);
+        long team = orgService.createTeam(hq, null, "设计部", "design");
+
+        assertThat(orgService.listActiveOrgIds("t-list-hq")).containsExactly(hq).doesNotContain(team);
+        assertThat(orgService.listActiveOrgIds("t-none")).isEmpty();
     }
 
     // ===================== 任职 =====================

@@ -1,0 +1,192 @@
+package cn.iocoder.yudao.module.franchise.crm;
+
+import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerMapper;
+import cn.iocoder.yudao.module.franchise.crm.dal.LeadDO;
+import cn.iocoder.yudao.module.franchise.crm.dal.LeadMapper;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.platform.command.Revisions;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.regex.Pattern;
+
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.franchise.crm.enums.FranchiseCrmErrorCodes.*;
+import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
+
+/**
+ * 客资：登记即建客户或关联原客户（小程序 growth.js capture）；原客户登记人无权看到时等负责人关联（linkExisting）。
+ */
+@Service
+@Slf4j
+public class LeadService {
+
+    public static final String AGGREGATE = "lead";
+    private static final Pattern PHONE = Pattern.compile("^1\\d{10}$");
+
+    /** 登记结果：CREATED 新建客户；LINKED 关联到登记人可见的原客户；LINK_REQUIRED 等负责人关联 */
+    public enum CaptureOutcome { CREATED, LINKED, LINK_REQUIRED }
+
+    public record CaptureCommand(String name, String phone, String need, String source) {
+    }
+
+    public record CaptureResult(long leadId, Long customerId, CaptureOutcome outcome) {
+    }
+
+    private final LeadMapper leadMapper;
+    private final CustomerMapper customerMapper;
+    private final FranchiseCommands commands;
+
+    public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands) {
+        this.leadMapper = leadMapper;
+        this.customerMapper = customerMapper;
+        this.commands = commands;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public CaptureResult capture(PostSnapshot post, CaptureCommand command, String idempotencyKey) {
+        if (!atStore(post) || !has(post, SALES)) {
+            throw exception(STORE_SALES_POST_REQUIRED);
+        }
+        CaptureCommand input = normalize(command);
+        var replay = commands.replayed(post, idempotencyKey, input);
+        if (replay.isPresent()) {
+            return resultOf(requireLead(replay.get().getAggregateId()));
+        }
+        if (leadMapper.existsPending(input.phone())) {
+            throw exception(LEAD_DUPLICATE);
+        }
+        LeadDO lead = new LeadDO().setId(IdWorker.getId()).setCompanyId(post.orgId()).setTeamId(post.teamId())
+                .setName(input.name()).setPhone(input.phone()).setNeed(input.need()).setSource(input.source())
+                .setRegistrarUserId(post.userId()).setRegistrarPostId(post.postId()).setRevision(1L);
+        CustomerDO existing = customerMapper.selectByPhone(input.phone());
+        try {
+            if (existing == null) {
+                CustomerDO customer = newCustomer(post, input, lead.getId());
+                customerMapper.insert(customer);
+                commands.record(post, CustomerService.AGGREGATE, customer.getId(), 1, "customer-create", lead.getId(), null);
+                lead.setStatus(LeadDO.STATUS_CONVERTED).setConversion(LeadDO.CONVERSION_DIRECT).setCustomerId(customer.getId());
+            } else if (CustomerAccess.canAutoLink(post, existing)) {
+                lead.setStatus(LeadDO.STATUS_CONVERTED).setConversion(LeadDO.CONVERSION_EXISTING).setCustomerId(existing.getId());
+            } else {
+                lead.setStatus(LeadDO.STATUS_LINK_REQUIRED);
+            }
+            leadMapper.insert(lead);
+        } catch (DuplicateKeyException e) { // 同一手机号被并发登记
+            log.warn("[capture][company={} user={}] 同手机号客资并发登记", post.orgId(), post.userId());
+            throw exception(STATE_VERSION_CONFLICT);
+        }
+        commands.record(post, AGGREGATE, lead.getId(), 1, "lead-capture", input, idempotencyKey);
+        return resultOf(lead);
+    }
+
+    /** 待关联客资：老板看全部；负责人看管理范围；登记人看自己登记的 */
+    public List<LeadDO> listPending(PostSnapshot post) {
+        return leadMapper.selectPending(query -> {
+            if (isBoss(post)) {
+                return;
+            }
+            if (SALES_LEAD.equals(post.roleCode()) && post.teamId() == null) {
+                return;
+            }
+            if (SALES_LEAD.equals(post.roleCode())) {
+                query.and(q -> q.eq(LeadDO::getRegistrarUserId, post.userId()).or().in(LeadDO::getTeamId, post.managedTeamIds()));
+                return;
+            }
+            query.eq(LeadDO::getRegistrarUserId, post.userId());
+        });
+    }
+
+    /** 负责人或老板把待关联客资关联到同手机号原客户 */
+    @Transactional(rollbackFor = Exception.class)
+    public LeadDO link(PostSnapshot post, long leadId, long revision, String idempotencyKey) {
+        LeadDO lead = requireLead(leadId);
+        if (!CustomerAccess.canHandleLead(post, lead)) {
+            throw exception(LEAD_NOT_FOUND);
+        }
+        if (commands.replayed(post, idempotencyKey, revision).isPresent()) {
+            return lead;
+        }
+        requirePending(lead);
+        CustomerDO customer = customerMapper.selectByPhone(lead.getPhone());
+        if (customer == null || !CustomerAccess.canLinkTo(post, customer)) {
+            throw exception(LEAD_LINK_TARGET_FORBIDDEN);
+        }
+        Revisions.requireUpdated(leadMapper.updateByRevision(leadId, revision, u -> u
+                .set(LeadDO::getStatus, LeadDO.STATUS_CONVERTED)
+                .set(LeadDO::getConversion, LeadDO.CONVERSION_LINKED)
+                .set(LeadDO::getCustomerId, customer.getId())));
+        commands.record(post, AGGREGATE, leadId, revision + 1, "lead-link", revision, idempotencyKey);
+        return leadMapper.selectById(leadId);
+    }
+
+    /** 作废待关联客资：登记人本人或能关联它的人（新流程中登记人本身无权处理原客户，所以加上负责人与老板） */
+    @Transactional(rollbackFor = Exception.class)
+    public LeadDO invalidate(PostSnapshot post, long leadId, String note, long revision, String idempotencyKey) {
+        LeadDO lead = requireLead(leadId);
+        boolean registrar = lead.getRegistrarUserId() == post.userId();
+        if (!registrar && !CustomerAccess.canHandleLead(post, lead)) {
+            throw exception(LEAD_NOT_FOUND);
+        }
+        String reason = CrmInputs.note(note);
+        if (commands.replayed(post, idempotencyKey, reason).isPresent()) {
+            return lead;
+        }
+        requirePending(lead);
+        Revisions.requireUpdated(leadMapper.updateByRevision(leadId, revision, u -> u
+                .set(LeadDO::getStatus, LeadDO.STATUS_INVALID)
+                .set(LeadDO::getNote, reason)));
+        commands.record(post, AGGREGATE, leadId, revision + 1, "lead-invalid", reason, idempotencyKey);
+        return leadMapper.selectById(leadId);
+    }
+
+    private static CaptureCommand normalize(CaptureCommand c) {
+        String name = StrUtil.trim(c.name());
+        String phone = StrUtil.trim(c.phone());
+        String need = StrUtil.trim(c.need());
+        String source = StrUtil.trim(c.source());
+        if (StrUtil.isBlank(name) || name.length() > 64 || phone == null || !PHONE.matcher(phone).matches()
+                || StrUtil.isBlank(need) || need.length() > 500 || StrUtil.isBlank(source) || source.length() > 64) {
+            throw exception(LEAD_INPUT_INVALID);
+        }
+        return new CaptureCommand(name, phone, need, source);
+    }
+
+    private static CustomerDO newCustomer(PostSnapshot post, CaptureCommand input, long leadId) {
+        return new CustomerDO().setId(IdWorker.getId()).setCompanyId(post.orgId()).setTeamId(post.teamId())
+                .setOwnerUserId(post.userId()).setName(input.name()).setPhone(input.phone()).setSource(input.source())
+                .setSummary(input.need()).setStatus(CustomerDO.STATUS_REGISTERED).setOriginLeadId(leadId).setRevision(1L);
+    }
+
+    private LeadDO requireLead(long leadId) {
+        LeadDO lead = leadMapper.selectById(leadId);
+        if (lead == null) {
+            throw exception(LEAD_NOT_FOUND);
+        }
+        return lead;
+    }
+
+    private static void requirePending(LeadDO lead) {
+        if (!LeadDO.STATUS_LINK_REQUIRED.equals(lead.getStatus())) {
+            throw exception(LEAD_NOT_PENDING);
+        }
+    }
+
+    private static CaptureResult resultOf(LeadDO lead) {
+        CaptureOutcome outcome = switch (lead.getStatus()) {
+            case LeadDO.STATUS_LINK_REQUIRED -> CaptureOutcome.LINK_REQUIRED;
+            default -> LeadDO.CONVERSION_DIRECT.equals(lead.getConversion()) ? CaptureOutcome.CREATED : CaptureOutcome.LINKED;
+        };
+        return new CaptureResult(lead.getId(), lead.getCustomerId(), outcome);
+    }
+
+}

@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.platform.org;
 
-import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.platform.org.dal.OrgTypeMapper;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper;
@@ -68,12 +67,8 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
-    public List<OrgUnitDO> listActiveOrgsByType(String orgType) {
-        return orgUnitMapper.selectList(new LambdaQueryWrapperX<OrgUnitDO>()
-                .eq(OrgUnitDO::getKind, OrgUnitDO.KIND_ORG)
-                .eq(OrgUnitDO::getOrgType, orgType)
-                .eq(OrgUnitDO::getStatus, OrgUnitDO.STATUS_ACTIVE)
-                .orderByAsc(OrgUnitDO::getDeptId));
+    public List<Long> listActiveOrgIds(String orgType) {
+        return orgUnitMapper.selectActiveOrgIds(orgType);
     }
 
     private OrgUnitDO requireOrg(long orgId) {

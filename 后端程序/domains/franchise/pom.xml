@@ -21,11 +21,8 @@
 
     <modules>
         <module>franchise-api</module>
-        <!-- 组织类型、岗位模板、权限菜单 -->
-        <module>franchise-org</module>
-        <!-- 本域集成测试支撑（只以 test 范围被引用） -->
         <module>franchise-test-support</module>
-        <!-- 客资、客户、跟进 -->
+        <module>franchise-org</module>
         <module>franchise-crm</module>
     </modules>
 

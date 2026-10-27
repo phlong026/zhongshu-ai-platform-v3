@@ -14,19 +14,14 @@
 
     <name>${project.artifactId}</name>
     <description>
-        加盟协同域集成测试支撑：真实 PostgreSQL + 平台与本域迁移 + 组织范围过滤 + 可切换的当前工作身份。只以 test 范围引入。
+        加盟协同域集成测试支撑（仅以 test 范围被依赖）：真实 PostgreSQL 上的平台表 + 本域表，
+        内存版 yudao 系统目录，以及快速搭建「总部 / 门店 / 团队 / 任职」的测试夹具。
     </description>
 
     <dependencies>
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-test</artifactId>
-            <!-- 依赖管理里默认是 test 范围；本模块本身就是测试支撑，需要在 main 中使用 -->
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-platform-test-support</artifactId>
+            <artifactId>yudao-platform-org</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
@@ -36,13 +31,14 @@
         </dependency>
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-platform-command</artifactId>
+            <artifactId>yudao-platform-test-support</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-domain-franchise-org</artifactId>
-            <version>${revision}</version>
+            <artifactId>yudao-spring-boot-starter-test</artifactId>
+            <!-- 依赖管理里默认是 test 范围；本模块本身就是测试支撑，需要在 main 中使用 -->
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 

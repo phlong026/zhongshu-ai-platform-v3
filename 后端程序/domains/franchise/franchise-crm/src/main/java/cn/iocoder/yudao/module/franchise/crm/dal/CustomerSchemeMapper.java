@@ -1,0 +1,40 @@
+package cn.iocoder.yudao.module.franchise.crm.dal;
+
+import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import org.apache.ibatis.annotations.Mapper;
+
+import java.util.Collection;
+import java.util.List;
+
+@Mapper
+public interface CustomerSchemeMapper extends BaseMapperX<CustomerSchemeDO> {
+
+    default List<CustomerSchemeDO> selectByCustomer(Long customerId) {
+        return selectList(new LambdaQueryWrapperX<CustomerSchemeDO>()
+                .eq(CustomerSchemeDO::getCustomerId, customerId)
+                .orderByAsc(CustomerSchemeDO::getKind).orderByAsc(CustomerSchemeDO::getVersion));
+    }
+
+    default CustomerSchemeDO selectLatest(Long customerId, String kind) {
+        List<CustomerSchemeDO> rows = selectList(new LambdaQueryWrapperX<CustomerSchemeDO>()
+                .eq(CustomerSchemeDO::getCustomerId, customerId)
+                .eq(CustomerSchemeDO::getKind, kind)
+                .orderByDesc(CustomerSchemeDO::getVersion)
+                .last("LIMIT 1"));
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** 这些客户中已保存过预算的客户编号 */
+    default List<Long> selectCustomerIdsWithBudget(Collection<Long> customerIds) {
+        if (customerIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<CustomerSchemeDO>()
+                .in(CustomerSchemeDO::getCustomerId, customerIds)
+                .eq(CustomerSchemeDO::getKind, CustomerSchemeDO.KIND_BUDGET)
+                .select(CustomerSchemeDO::getCustomerId))
+                .stream().map(CustomerSchemeDO::getCustomerId).distinct().toList();
+    }
+
+}

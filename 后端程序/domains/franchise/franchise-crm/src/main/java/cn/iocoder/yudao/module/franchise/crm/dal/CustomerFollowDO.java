@@ -10,21 +10,21 @@ import lombok.experimental.Accessors;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
-/** 客户跟进记录 */
-@TableName("fr_follow_up")
+/** 跟进记录，只追加 */
+@TableName("fr_customer_follow")
 @TenantIgnore
 @Data
 @Accessors(chain = true)
-public class FollowUpDO {
+public class CustomerFollowDO {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private Long companyId;
     private Long customerId;
-    private Long authorUserId;
-    private Long authorPostId;
     private String note;
     private LocalDate nextVisitDate;
+    private Long authorUserId;
+    private Long authorPostId;
     private OffsetDateTime createTime;
 
 }
