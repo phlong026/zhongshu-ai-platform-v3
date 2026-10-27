@@ -6,6 +6,8 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.franchise.commission.CommissionService;
 import cn.iocoder.yudao.module.franchise.commission.CommissionService.CompleteCommand;
 import cn.iocoder.yudao.module.franchise.commission.CommissionService.Detail;
+import cn.iocoder.yudao.module.franchise.commission.controller.admin.vo.CommissionRespVos.Commission;
+import cn.iocoder.yudao.module.franchise.commission.controller.admin.vo.CommissionRespVos.CommissionDetail;
 import cn.iocoder.yudao.module.franchise.commission.CommissionService.DispatchCommand;
 import cn.iocoder.yudao.module.franchise.commission.CommissionService.FeeDecisionCommand;
 import cn.iocoder.yudao.module.franchise.commission.CommissionService.FeedbackCommand;
@@ -13,7 +15,6 @@ import cn.iocoder.yudao.module.franchise.commission.CommissionService.SubmitComm
 import cn.iocoder.yudao.module.franchise.commission.HandoverService;
 import cn.iocoder.yudao.module.franchise.commission.HandoverService.DecisionCommand;
 import cn.iocoder.yudao.module.franchise.commission.HandoverService.PacketCommand;
-import cn.iocoder.yudao.module.franchise.commission.dal.CommissionDO;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -83,42 +84,43 @@ public class CommissionController {
     @PostMapping("/customers/{customerId}/commission")
     @Operation(summary = "提交 / 重提设计委托：费用与当前有效标准一致直接进入设计，否则发起老板审批")
     @PreAuthorize("@post.has('franchise:commission:submit')")
-    public CommonResult<Detail> submit(@PathVariable long customerId, @Valid @RequestBody SubmitReq req,
+    public CommonResult<CommissionDetail> submit(@PathVariable long customerId, @Valid @RequestBody SubmitReq req,
                                        @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(commissionService.submit(currentPost.require(), customerId, new SubmitCommand(
-                req.text(), req.scope(), req.attachment(), req.total(), req.first(), req.recipient(),
-                req.budgetVersion(), req.planVersion(), req.facadeVersion(), req.confirmed()), key));
+        return success(CommissionDetail.of(commissionService.submit(currentPost.require(), customerId,
+                new SubmitCommand(req.text(), req.scope(), req.attachment(), req.total(), req.first(), req.recipient(),
+                        req.budgetVersion(), req.planVersion(), req.facadeVersion(), req.confirmed()), key)));
     }
 
     @GetMapping("/commissions")
     @Operation(summary = "委托列表：业务按客户经办范围，老板全店，总部设计行政按设计组织，接收人含本人")
     @PreAuthorize("@post.has('franchise:commission:query')")
-    public CommonResult<PageResult<CommissionDO>> page(@Valid PageParam page,
+    public CommonResult<PageResult<Commission>> page(@Valid PageParam page,
                                                        @RequestParam(required = false) String keyword) {
-        return success(commissionService.page(currentPost.require(), page, keyword));
+        return success(cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(
+                commissionService.page(currentPost.require(), page, keyword), Commission.class));
     }
 
     @GetMapping("/commissions/{id}")
     @Operation(summary = "委托详情（含提交版本、设计记录、移交版本、费用审批、allowedActions 与显示状态）")
     @PreAuthorize("@post.has('franchise:commission:query')")
-    public CommonResult<Detail> get(@PathVariable long id) {
-        return success(commissionService.get(currentPost.require(), id));
+    public CommonResult<CommissionDetail> get(@PathVariable long id) {
+        return success(CommissionDetail.of(commissionService.get(currentPost.require(), id)));
     }
 
     @PostMapping("/commissions/{id}/fee-decision")
     @Operation(summary = "老板审批委托费用（批准进入设计，退回待修改重提）")
     @PreAuthorize("@post.has('franchise:commission:fee-decide')")
-    public CommonResult<Detail> feeDecide(@PathVariable long id, @Valid @RequestBody FeeDecisionReq req,
+    public CommonResult<CommissionDetail> feeDecide(@PathVariable long id, @Valid @RequestBody FeeDecisionReq req,
                                           @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(commissionService.feeDecide(currentPost.require(), id,
-                new FeeDecisionCommand(req.approve(), req.note()), key));
+        return success(CommissionDetail.of(commissionService.feeDecide(currentPost.require(), id,
+                new FeeDecisionCommand(req.approve(), req.note()), key)));
     }
 
     @PostMapping("/commissions/{id}/commands/{action}")
     @Operation(summary = "委托命令：design-complete / design-dispatch / commission-feedback / packet-submit / packet-return / packet-receive")
     @PreAuthorize("@post.has('franchise:commission:submit') or @post.has('franchise:commission:design') "
             + "or @post.has('franchise:commission:receive')")
-    public CommonResult<Detail> command(@PathVariable long id, @PathVariable String action,
+    public CommonResult<CommissionDetail> command(@PathVariable long id, @PathVariable String action,
                                         @RequestBody java.util.Map<String, Object> body,
                                         @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
         var post = currentPost.require();
@@ -135,7 +137,7 @@ public class CommissionController {
                     new DecisionCommand(null, bool(body, "confirmed")), key);
             default -> throw exception(COMMISSION_STATE_INVALID);
         };
-        return success(result);
+        return success(CommissionDetail.of(result));
     }
 
     private static String text(java.util.Map<String, Object> body) {

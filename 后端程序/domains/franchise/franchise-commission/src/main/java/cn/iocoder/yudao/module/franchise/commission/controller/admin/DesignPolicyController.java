@@ -3,7 +3,7 @@ package cn.iocoder.yudao.module.franchise.commission.controller.admin;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.franchise.commission.DesignPolicyService;
 import cn.iocoder.yudao.module.franchise.commission.DesignPolicyService.PolicyCommand;
-import cn.iocoder.yudao.module.franchise.commission.dal.DesignPolicyDO;
+import cn.iocoder.yudao.module.franchise.commission.controller.admin.vo.CommissionRespVos.Policy;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,17 +42,17 @@ public class DesignPolicyController {
     @GetMapping("/current")
     @Operation(summary = "本门店当前有效的标准设计费用")
     @PreAuthorize("@post.has('franchise:design-policy:manage')")
-    public CommonResult<DesignPolicyDO> current() {
-        return success(policyService.getCurrent(currentPost.require()));
+    public CommonResult<Policy> current() {
+        return success(Policy.of(policyService.getCurrent(currentPost.require())));
     }
 
     @PostMapping
     @Operation(summary = "保存标准设计费用（每次保存一个新版本并作为当前有效标准）")
     @PreAuthorize("@post.has('franchise:design-policy:manage')")
-    public CommonResult<DesignPolicyDO> save(@Valid @RequestBody PolicyReq req,
-                                             @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(policyService.save(currentPost.require(),
-                new PolicyCommand(req.total(), req.first(), req.scope(), req.recipient()), key));
+    public CommonResult<Policy> save(@Valid @RequestBody PolicyReq req,
+                                 @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
+        return success(Policy.of(policyService.save(currentPost.require(),
+                new PolicyCommand(req.total(), req.first(), req.scope(), req.recipient()), key)));
     }
 
 }

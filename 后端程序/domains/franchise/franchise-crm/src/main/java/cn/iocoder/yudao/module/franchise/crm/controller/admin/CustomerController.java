@@ -5,12 +5,13 @@ import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.Detail;
+import cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.CrmRespVos.Customer;
+import cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.CrmRespVos.CustomerDetail;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.FollowCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.TransferCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.UpdateCommand;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
-import cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeDO;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,49 +48,51 @@ public class CustomerController {
     @GetMapping
     @Operation(summary = "客户列表：业务员看本人经办，负责人看管理团队，老板看全部")
     @PreAuthorize("@post.has('franchise:customer:query')")
-    public CommonResult<PageResult<CustomerDO>> page(@Valid PageParam page, @RequestParam(required = false) String keyword) {
-        return success(customerService.page(currentPost.require(), page, keyword));
+    public CommonResult<PageResult<Customer>> page(@Valid PageParam page, @RequestParam(required = false) String keyword) {
+        return success(cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(
+                customerService.page(currentPost.require(), page, keyword), Customer.class));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "客户详情（含跟进记录、方案与预算版本）")
     @PreAuthorize("@post.has('franchise:customer:query')")
-    public CommonResult<Detail> get(@PathVariable long id) {
-        return success(customerService.get(currentPost.require(), id));
+    public CommonResult<CustomerDetail> get(@PathVariable long id) {
+        return success(CustomerDetail.of(customerService.get(currentPost.require(), id)));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "编辑客户基本信息（手机号不可改）")
     @PreAuthorize("@post.has('franchise:customer:write')")
-    public CommonResult<Detail> update(@PathVariable long id, @RequestBody UpdateReq req,
+    public CommonResult<CustomerDetail> update(@PathVariable long id, @RequestBody UpdateReq req,
                                        @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
         UpdateCommand command = new UpdateCommand(req.name(), req.wechat(), req.province(), req.city(), req.summary());
-        return success(customerService.update(currentPost.require(), id, command, req.revision(), key));
+        return success(CustomerDetail.of(customerService.update(currentPost.require(), id, command, req.revision(), key)));
     }
 
     @PostMapping("/{id}/follows")
     @Operation(summary = "登记跟进，可预约回访日期")
     @PreAuthorize("@post.has('franchise:customer:write')")
-    public CommonResult<Detail> follow(@PathVariable long id, @RequestBody FollowCommand req,
-                                       @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(customerService.follow(currentPost.require(), id, req, key));
+    public CommonResult<CustomerDetail> follow(@PathVariable long id, @RequestBody FollowCommand req,
+                                            @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
+        return success(CustomerDetail.of(customerService.follow(currentPost.require(), id, req, key)));
     }
 
     @PostMapping("/{id}/schemes")
     @Operation(summary = "保存参考方案或预算版本（BUDGET / PLAN / FACADE）")
     @PreAuthorize("@post.has('franchise:customer:write')")
-    public CommonResult<CustomerSchemeDO> saveScheme(@PathVariable long id, @RequestBody SchemeCommand req,
+    public CommonResult<cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.CrmRespVos.Scheme> saveScheme(@PathVariable long id, @RequestBody SchemeCommand req,
                                                      @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(customerService.saveScheme(currentPost.require(), id, req, key));
+        return success(cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.CrmRespVos.Scheme.of(
+                customerService.saveScheme(currentPost.require(), id, req, key)));
     }
 
     @PostMapping("/{id}/transfer")
     @Operation(summary = "责任转交（人员变动时由老板或业务负责人办理）")
     @PreAuthorize("@post.has('franchise:customer:transfer')")
-    public CommonResult<Detail> transfer(@PathVariable long id, @RequestBody TransferReq req,
+    public CommonResult<CustomerDetail> transfer(@PathVariable long id, @RequestBody TransferReq req,
                                          @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(customerService.transfer(currentPost.require(), id,
-                new TransferCommand(req.targetUserId(), req.reason()), req.revision(), key));
+        return success(CustomerDetail.of(customerService.transfer(currentPost.require(), id,
+                new TransferCommand(req.targetUserId(), req.reason()), req.revision(), key)));
     }
 
 }

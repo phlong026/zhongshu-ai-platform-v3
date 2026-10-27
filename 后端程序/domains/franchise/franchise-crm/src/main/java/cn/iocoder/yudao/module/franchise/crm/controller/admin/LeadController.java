@@ -3,8 +3,8 @@ package cn.iocoder.yudao.module.franchise.crm.controller.admin;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.franchise.crm.LeadService;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand;
-import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureResult;
-import cn.iocoder.yudao.module.franchise.crm.dal.LeadDO;
+import cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.CrmRespVos.Capture;
+import cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.CrmRespVos.Lead;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,32 +42,32 @@ public class LeadController {
     @PostMapping
     @Operation(summary = "登记客资：新手机号直接建客户；同手机号原客户本人有权查看则关联，否则等负责人关联")
     @PreAuthorize("@post.has('franchise:lead:capture')")
-    public CommonResult<CaptureResult> capture(@RequestBody CaptureCommand req,
-                                               @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(leadService.capture(currentPost.require(), req, key));
+    public CommonResult<Capture> capture(@RequestBody CaptureCommand req,
+                                          @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
+        return success(Capture.of(leadService.capture(currentPost.require(), req, key)));
     }
 
     @GetMapping("/pending")
     @Operation(summary = "待关联客资：老板看全部，负责人看管理范围，登记人看自己的")
     @PreAuthorize("@post.has('franchise:lead:handle')")
-    public CommonResult<List<LeadDO>> pending() {
-        return success(leadService.listPending(currentPost.require()));
+    public CommonResult<List<Lead>> pending() {
+        return success(leadService.listPending(currentPost.require()).stream().map(Lead::of).toList());
     }
 
     @PostMapping("/{id}/link")
     @Operation(summary = "关联同手机号原客户")
     @PreAuthorize("@post.has('franchise:lead:handle')")
-    public CommonResult<LeadDO> link(@PathVariable long id, @RequestBody RevisionReq req,
-                                     @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(leadService.link(currentPost.require(), id, req.revision(), key));
+    public CommonResult<Lead> link(@PathVariable long id, @RequestBody RevisionReq req,
+                                  @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
+        return success(Lead.of(leadService.link(currentPost.require(), id, req.revision(), key)));
     }
 
     @PostMapping("/{id}/invalid")
     @Operation(summary = "作废待关联客资")
     @PreAuthorize("@post.has('franchise:lead:handle')")
-    public CommonResult<LeadDO> invalidate(@PathVariable long id, @RequestBody InvalidReq req,
-                                           @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        return success(leadService.invalidate(currentPost.require(), id, req.note(), req.revision(), key));
+    public CommonResult<Lead> invalidate(@PathVariable long id, @RequestBody InvalidReq req,
+                                          @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
+        return success(Lead.of(leadService.invalidate(currentPost.require(), id, req.note(), req.revision(), key)));
     }
 
 }
