@@ -1,4 +1,8 @@
-<view class="fin-page"><brand-header branded divider account-font title="{{title}}"/>
+<import src="./finance-home.wxml"/>
+<view class="fin-page">
+ <block wx:if="{{view==='desk'&&ready}}"><template is="financeHome" data="{{desk:deskHome}}"/></block>
+ <block wx:else>
+ <brand-header branded divider account-font title="{{title}}"/>
  <view class="fin-content">
  <block wx:if="{{ready}}">
   <view wx:if="{{view==='flows'||view==='projects'||view==='partners'||view==='tasks'}}" class="fin-desk-tools">
@@ -54,4 +58,5 @@
  </block>
  <view wx:else class="fin-card"><text class="fin-error">{{error||'正在读取本组织财务数据'}}</text><button class="fin-primary" bindtap="home">返回本人工作台</button></view>
  </view><workspace-nav id="finance-desk-nav" active-index="{{view==='tasks'?3:view==='flows'?17:18}}" nested/>
+ </block>
 </view>
