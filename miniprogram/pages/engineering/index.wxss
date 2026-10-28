@@ -27,9 +27,6 @@
 .project-todo>text{min-width:0;white-space:normal;font-size:24rpx;line-height:34rpx}
 
 
-
-.guest-login-button{width:100%;margin:24rpx 0;min-height:88rpx;line-height:44rpx;padding:18rpx 24rpx;font-size:28rpx;border-radius:20rpx}
-
 /* Guest layout follows the selected mock; controls inherit the shared workbench system. */
 .engineering-page.workbench-page .guest-content{padding-top:16rpx}
 .guest-search-row{display:flex;align-items:center;gap:12rpx;margin-bottom:20rpx}
@@ -39,8 +36,6 @@
 .guest-search-placeholder{color:#858991}
 .guest-search-clear{display:flex;align-items:center;justify-content:center;height:60rpx;width:44rpx;flex-shrink:0}
 .guest-search-clear image{width:30rpx;height:30rpx}
-.engineering-page .guest-new{height:74rpx;min-height:74rpx;padding:0 20rpx;font-size:26rpx}
-.guest-new image{width:30rpx;height:30rpx}
 .guest-stats{display:flex;align-items:center;height:126rpx;border-radius:20rpx;background:#fff;margin-bottom:20rpx}
 .guest-stats>button{display:flex;align-items:center;justify-content:center;gap:20rpx;flex:1;min-width:0;text-align:left;border-right:1rpx solid #ddc9b7}
 .guest-stats>button:last-child{border:0}
