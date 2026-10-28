@@ -4,9 +4,9 @@ const money=n=>n===null||n===undefined?'待完善':'¥ '+M.money(n),url=(view,id
 function receivableView(p,plan,state,actor,tasks){
  if(!p)return null;
  const source=Ops.project(p.id,state),engineering=source.engineering,isEngineering=!!engineering?.recordFlow;
- const current=!!plan&&plan.signature===Ops.contract(source).signature,approved=current&&plan.status==='approved',approvalPending=current&&plan.status==='pending';
- const status=approved?'已确认收款约定':approvalPending?'待老板确认':current&&plan.status==='returned'?'已退回补充':plan?'合同已更新':'待提交收款约定';
- const pendingParts=current&&plan.status!=='approved';
+ const current=!!plan&&plan.signature===Ops.contract(source).signature,approved=current&&['approved','pending'].includes(plan.status);
+ const status=approved?'已确认收款约定':current&&plan.status==='returned'?'已退回补充':plan?'合同已更新':'待登记收款约定';
+ const pendingParts=current&&plan.status==='returned';
  const parts=pendingParts?plan.installments.map(r=>({...r,paid:0,remaining:r.amount})):p.installments;
  const rows=parts.map((row,index)=>{
   const blocked=row.stage==='topping'&&isEngineering&&!engineering.recordFlow.topping;
@@ -16,7 +16,7 @@ function receivableView(p,plan,state,actor,tasks){
   return {...row,id:row.id||'part-'+index,stageLabel,amountText:money(row.amount),paidText:approved?money(row.paid):'待确认',remainingText:approved?money(row.remaining):'待确认',status:stateText,statusTone:row.remaining===0&&approved?'success':blocked?'muted':'warning',actionUrl:task?.url||'',actionLabel:'登记'+row.name};
  });
  const contractFile=engineering?.recordFlow?.contract?.file||source.customer?.contract?.file||plan?.file;
- return {status,statusTone:approved?'success':'warning',caption:approvalPending?'已提交合同与收款约定，待老板确认后交财务登记。':approved?'财务登记实际收款，开工款收齐后接续实际开工。':current&&plan.status==='returned'&&isEngineering?'请项目工程人员回开工准备补充后重新提交。':isEngineering?'请项目工程人员先保存开工准备及已签合同。':'请业务按已签合同提交收款约定。',owner:p.owner,totalText:money(p.total),receivedText:money(p.received),remainingText:money(p.remaining),rows,contractFile:contractFile||null,contractFileName:contractFile?.name||'',planVersion:plan?.version||1,approvalPending,canReview:approvalPending&&actor.role==='boss',isEngineering,canEdit:!isEngineering&&plan?.status!=='pending'&&(X.isBoss(actor)||O.has(actor.role,'sales')),emptyText:'尚无本版收款计划，请先完善已签合同与开工准备。'};
+ return {status,statusTone:approved?'success':'warning',caption:approved?'两期收款随已签合同生效，财务登记实际收款；开工款收齐后接续实际开工。':current&&plan.status==='returned'&&isEngineering?'请项目工程人员回开工准备补充后重新保存。':isEngineering?'请项目工程人员先保存开工准备及已签合同。':'请按已签合同登记收款约定。',owner:p.owner,totalText:money(p.total),receivedText:money(p.received),remainingText:money(p.remaining),rows,contractFile:contractFile||null,contractFileName:contractFile?.name||'',planVersion:plan?.version||1,isEngineering,canEdit:!isEngineering&&(X.isBoss(actor)||O.has(actor.role,'sales')||O.has(actor.role,'engineer')),emptyText:'尚无本版收款计划，请先完善已签合同与开工准备。'};
 }
 Page({
  data:{view:'desk',title:'财务办理',error:'',busy:false,form:{},installments:[],categories:Ops.categories,purposes:Ops.purposes,stageNames:['正式设计','实际开工','主体封顶','竣工交付'],stages:['design','start','topping','delivery'],rows:[],tasks:[],selected:null,samplePreview:null,sampleEnabled:false},
@@ -37,7 +37,7 @@ Page({
  previewFile(e){const file=Files.displayFile(e?.currentTarget?.dataset?.file||this.data.form.file);if(!file)return;if(file.path){if(/\.(png|jpe?g|webp|gif)$/i.test(file.name||''))return wx.previewImage({urls:[file.path],fail:()=>this.fail('合同图片暂时无法打开，请重新选择凭据')});return wx.openDocument({filePath:file.path,showMenu:true,fail:()=>this.fail('合同文件暂时无法打开，请重新选择凭据')});}this.setData({samplePreview:file});},
  closeSamplePreview(){this.setData({samplePreview:null});},
  editExpense(e){const row=this.data.expenses.find(r=>r.id===e.currentTarget.dataset.id);if(row){const form={...this.data.form,...row,amount:String(row.amount/100),checked:false,note:''};this.setData({editingExpense:row.id,form,fileNames:Files.displayNames(form)});}},
- perform(e){if(this.data.busy)return;let action=e.currentTarget.dataset.action;if(action==='expense-submit'&&this.data.editingExpense)action='expense-resubmit';const id=(action==='expense-resubmit'?this.data.editingExpense:'')||e.currentTarget.dataset.id||this.id;let returnHome=false;const form={...this.data.form,installments:this.data.installments};if(action==='expense-submit')form.token=this.token||(this.token='expense-'+Date.now());try{this.setData({busy:true,error:''});M.mutate(s=>M.apply(s,action,id,form));this.dirty=false;this.token=null;this.setData({editingExpense:null});this.refresh();wx.showToast({title:action==='plan-submit'||action==='expense-submit'?'已提交老板处理':'办理成功',icon:'none'});returnHome=this.data.view==='receivables'&&['plan-submit','plan-approve'].includes(action);}catch(e){this.fail(e.message);}finally{this.setData({busy:false});}if(returnHome)require('../../../utils/page-navigation').home();},
+ perform(e){if(this.data.busy)return;let action=e.currentTarget.dataset.action;if(action==='expense-submit'&&this.data.editingExpense)action='expense-resubmit';const id=(action==='expense-resubmit'?this.data.editingExpense:'')||e.currentTarget.dataset.id||this.id;let returnHome=false;const form={...this.data.form,installments:this.data.installments};if(action==='expense-submit')form.token=this.token||(this.token='expense-'+Date.now());try{this.setData({busy:true,error:''});M.mutate(s=>M.apply(s,action,id,form));this.dirty=false;this.token=null;this.setData({editingExpense:null});this.refresh();wx.showToast({title:action==='plan-submit'?'收款约定已保存生效':action==='expense-submit'?'已提交老板处理':'办理成功',icon:'none'});returnHome=this.data.view==='receivables'&&action==='plan-submit';}catch(e){this.fail(e.message);}finally{this.setData({busy:false});}if(returnHome)require('../../../utils/page-navigation').home();},
  back(){return require('../../../utils/page-navigation').back();},
  fail(error){this.setData({error});wx.pageScrollTo?.({scrollTop:0,duration:150});wx.showToast({title:error,icon:'none'});},
  month(e){try{if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.detail.value))throw Error('请选择有效月份');M.mutate(s=>{s.period=e.detail.value;});this.refresh();}catch(e){this.fail(e.message);}}
