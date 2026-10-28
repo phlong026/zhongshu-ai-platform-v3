@@ -109,6 +109,7 @@
     "check:design-journey:native": "node scripts/verify-design-journey-native.cjs"
   },
   "devDependencies": {
-    "miniprogram-automator": "^0.13.0"
+    "miniprogram-automator": "^0.13.0",
+    "xlsx": "^0.18.5"
   }
 }
