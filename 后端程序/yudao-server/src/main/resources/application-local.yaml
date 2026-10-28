@@ -238,6 +238,9 @@ yudao:
     enable: false # 本地环境，暂时关闭图片验证码，方便登录等接口的测试；
   security:
     mock-enable: true
+    # 本地联调：加盟域端到端搭建发生在员工登录之前，必须匿名放行（prod 不激活 local，不会带上）
+    permit-all_urls:
+      - /admin-api/platform/dev-setup/**
   pay:
     order-notify-url: https://yutou.mynatapp.cc/admin-api/pay/notify/order # 支付渠道的【支付】回调地址
     refund-notify-url: https://yutou.mynatapp.cc/admin-api/pay/notify/refund # 支付渠道的【退款】回调地址
