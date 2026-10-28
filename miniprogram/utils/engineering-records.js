@@ -17,6 +17,8 @@ function nodes(floors){const names=['基础工程',...Array.from({length:Math.ma
 function init(p){if(is(p))return false;p.recordFlow={version:1,materialPlans:[],warranties:[]};p.assignedEngineerId=X.managerId(p);p.assignedEngineerName=p.manager;if(!p.actualStart&&!p.planSaved)p.plan={version:1,nodes:nodes(p.floors)};return true;}
 function ledger(p){return require('./finance-source').merge(X.rawBook(p.companyId)||{companyId:p.companyId,receipts:[],payments:[],payables:[]});}
 function funds(p){const s=ledger(p),Ops=require('./operations');Ops.init(s);return {...Ops.receivable(s,p.projectId||p.id),plan:Ops.plan(s,p.projectId||p.id)};}
+// 进度偏差：已完成节点对照计划结束日显示提前/超期，未完成节点对照今天显示剩余/逾期；交付或归档后逾期不再提示
+function progress(p){const t=today(),span=(a,b)=>date(a)&&date(b)?Math.round((new Date(a+'T00:00:00')-new Date(b+'T00:00:00'))/86400000):null;const open=p.delivery||p.archived;const rows=p.plan.nodes.map(n=>{if(n.status==='已完成'){const diff=span(n.completedAt,n.end);return {id:n.id,status:n.status,text:diff==null||open?'已完成':diff>0?'超期'+diff+'天完成':diff<0?'提前'+(-diff)+'天完成':'按期完成'};}const daysLeft=open?null:span(n.end,t);return {id:n.id,status:n.status,text:daysLeft==null?'':daysLeft<0?'已逾期'+(-daysLeft)+'天':daysLeft<=7?'剩'+daysLeft+'天':''};});const undone=rows.filter(r=>r.status!=='已完成');return {rows,overdue:undone.filter(r=>r.text.startsWith('已逾期')).length,dueSoon:undone.filter(r=>/^剩[0-7]天$/.test(r.text)).length};}
 function good(p,materialId){return p.receipts.filter(r=>p.supplies.some(s=>s.id===r.supplyId&&s.materialId===materialId)&&(r.quality==='合格'||r.qualityResolution?.result==='更换后合格')).reduce((n,r)=>n+Number(r.actual||0),0);}
 function materialReady(p,nodeId){return p.materials.filter(m=>!nodeId||m.nodeId===nodeId).every(m=>m.submitted&&good(p,m.id)+0.0001>=m.quantity&&!p.receipts.some(r=>p.supplies.some(s=>s.id===r.supplyId&&s.materialId===m.id)&&r.quality!=='合格'&&r.qualityResolution?.result!=='更换后合格'));}
 // 该材料已有财务付款（含办理中的），数量和金额只能由财务在原付款事项处理
@@ -90,4 +92,4 @@ function tasks(p){if(!is(p)||!owner(p))return {pending:[],waiting:[]};const pend
  for(const plan of plans(p)){if(!['已验收齐全','已取消'].includes(plan.arrival)&&!p.delivery)add('arrival-'+plan.id,'材料'+plan.arrival,'material',{planId:plan.id});if(!['已付清','已取消'].includes(plan.payment))add('payment-'+plan.id,'材料'+plan.payment,'material',{planId:plan.id},true);}
  return {pending,waiting};
 }
-module.exports={is,init,nodes,get,owner,allowed,run,link,funds,nodeFunds,plans,good,materialReady,tasks,financialTasks,date,money,evidence,reopenBlock,isCompletionRecord};
+module.exports={is,init,nodes,get,owner,allowed,run,link,funds,progress,nodeFunds,plans,good,materialReady,tasks,financialTasks,date,money,evidence,reopenBlock,isCompletionRecord};
