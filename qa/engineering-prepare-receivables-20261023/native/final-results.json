@@ -6,8 +6,8 @@
     "sha256": "77875aae0b5f24dff95de6ce75a3c22eddc92587d2f63469621a14f02b26f64e"
   },
   "project": {
-    "engineeringId": "biz-customer-1792729799855-pq906",
-    "projectId": "project-customer-1792729799855-pq906",
+    "engineeringId": "biz-customer-1792857685342-5u7td",
+    "projectId": "project-customer-1792857685342-5u7td",
     "customer": "新流程测试客户"
   },
   "checks": [
@@ -256,7 +256,7 @@
       "route": "pages/management/index",
       "selector": ".fin-task",
       "dataset": {
-        "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=collection&stage=start"
+        "url": "/pages/build/record/index?id=biz-customer-1792857685342-5u7td&view=collection&stage=start"
       },
       "expectedHandler": "financeGo",
       "via": "Element.tap"
@@ -319,7 +319,7 @@
       "route": "pages/management/index",
       "selector": ".fin-task",
       "dataset": {
-        "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=collection&stage=start"
+        "url": "/pages/build/record/index?id=biz-customer-1792857685342-5u7td&view=collection&stage=start"
       },
       "expectedHandler": "financeGo",
       "via": "Element.tap"
@@ -426,7 +426,7 @@
       "route": "pages/build/home/index",
       "selector": ".eng-todo button",
       "dataset": {
-        "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=start"
+        "url": "/pages/build/record/index?id=biz-customer-1792857685342-5u7td&view=start"
       },
       "expectedHandler": "openEngineering",
       "via": "Element.tap"
