@@ -1,1 +1,1 @@
-{"usingComponents":{"custom-tab-bar":"/custom-tab-bar/index"}}
+{"usingComponents": {"custom-tab-bar": "/custom-tab-bar/index", "stat-grid": "../../../components/stat-grid/index"}}
