@@ -1,9 +1,10 @@
-const routeValue=require('../../utils/view-container').routeValue;
+const {routeValue,makeFormHandlers}=require('../../utils/view-container');
 const X=require('../../utils/access');
 const A=require('../../utils/account'),M=require('./model'),V=require('./views');
 const Files=require('../../utils/sample-files');
 const defaults={receipt:'receipt-design-5000',reconcile:'receipt-pending-100000','receipt-supplement':'receipt-pending-100000',pay:'payable-chen-design','pay-supplement':'payable-chen-design',verify:'payment-lin-unknown',project:'project-chen',person:'zhang',transfer:'work-huang',departure:'chen-inactive',disabled:'chen-inactive',review:'2026-09',appeal:'node-zhang',refund:'receipt-engineering-80000',change:'change-zhang-wall-v2',correction:'receipt-design-5000','partial-payment':'payment-chen-partial','refund-result':'refund-chen-001',sources:'node-zhang'};
 Page({
+ ...makeFormHandlers(),
  data:{view:'data',title:'经营数据',form:{},sections:[],error:'',modal:null,keyword:'',busy:false},
  onLoad(options){this.options=options||{};const view=V.titles[options.view]?options.view:'data';this.id=routeValue(options.id)||defaults[view]||'';this.setData({view,statusHeight:(getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight||20,form:{period:/^\d{4}-\d{2}$/.test(options.period||'')?options.period:'',taskType:require('../../utils/finance-workbench').titles[options.taskType]?options.taskType:'',date:A.localDate(),amount:'',tab:decodeURIComponent(options.tab||''),dataTab:decodeURIComponent(options.tab||'业务'),person:options.person||'wang-manager',result:view==='refund-review'?'原笔已退款':'原笔已付款'}});this.refresh(true);},
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},

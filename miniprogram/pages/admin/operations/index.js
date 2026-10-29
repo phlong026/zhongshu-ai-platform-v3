@@ -1,6 +1,7 @@
 const M=require('../model'),Ops=require('../../../utils/operations'),X=require('../../../utils/access'),O=require('../../../utils/organization'),A=require('../../../utils/account'),F=require('../../../utils/finance-source'),Files=require('../../../utils/sample-files');
 const labels={settlement:'项目财务结清',desk:'财务办理',payables:'供应与费用应付',receivables:'合同应收',expenses:'项目费用',costs:'成本与毛利',funds:'资金核对',credit:'收款条件与放行',direct:'业主直付核对',intercompany:'总部门店材料往来',payroll:'绩效结算'};
 const money=require('../../../utils/money').money,url=(view,id)=>'/pages/admin/operations/index?view='+view+(id?'&id='+encodeURIComponent(id):'');
+const {makeFormHandlers}=require('../../../utils/view-container');
 function receivableView(p,plan,state,actor,tasks){
  if(!p)return null;
  const source=Ops.project(p.id,state),engineering=source.engineering,isEngineering=!!engineering?.recordFlow;
@@ -19,6 +20,7 @@ function receivableView(p,plan,state,actor,tasks){
  return {status,statusTone:approved?'success':'warning',caption:approved?'两期收款随已签合同生效，财务登记实际收款；开工款收齐后接续实际开工。':current&&plan.status==='returned'&&isEngineering?'请项目工程人员回开工准备补充后重新保存。':isEngineering?'请项目工程人员先保存开工准备及已签合同。':'请按已签合同登记收款约定。',owner:p.owner,totalText:money(p.total),receivedText:money(p.received),remainingText:money(p.remaining),rows,contractFile:contractFile||null,contractFileName:contractFile?.name||'',planVersion:plan?.version||1,isEngineering,canEdit:!isEngineering&&(X.isBoss(actor)||O.has(actor.role,'sales')||O.has(actor.role,'engineer')),emptyText:'尚无本版收款计划，请先完善已签合同与开工准备。'};
 }
 Page({
+ ...makeFormHandlers(),
  data:{view:'desk',title:'财务办理',error:'',busy:false,form:{},installments:[],categories:Ops.categories,purposes:Ops.purposes,stageNames:['正式设计','实际开工','主体封顶','竣工交付'],stages:['design','start','topping','delivery'],rows:[],tasks:[],selected:null,samplePreview:null,sampleEnabled:false},
  onLoad(o){this.options=o||{};try{this.id=decodeURIComponent(o.id||'');}catch(_){this.id=o.id||'';}const view=labels[o.view]?o.view:'desk',engineering=Ops.project(this.id,M.load()).engineering,expenseNodes=engineering?.recordFlow?engineering.plan.nodes:[];let purpose='';try{purpose=decodeURIComponent(o.purpose||'');}catch(_){purpose=o.purpose||'';}this.setData({view,title:labels[view],expenseNodes,form:{nodeId:o.nodeId||(expenseNodes.find(n=>n.status!=='已完成')||expenseNodes.at(-1))?.id||'',date:A.localDate(),due:'',until:'',category:Ops.categories[0],purpose:Ops.purposes.includes(purpose)?purpose:'',stage:'design',remaining:{}}});},
  onShow(){this.refresh();},

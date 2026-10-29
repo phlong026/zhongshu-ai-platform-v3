@@ -1,6 +1,7 @@
 const B=require('../../../utils/business'),X=require('../../../utils/access'),SF=require('../../../utils/sales-flow'),Nav=require('../../../utils/page-navigation'),Admin=require('../../../utils/design-admin-workbench'),Files=require('../../../utils/sample-files'),Coord=require('../../../utils/design-coordination'),Checkout=require('../../../utils/design-checkout');
 const copy=B.clone,Presentation=require('./presentation');
-Page({
+const {makeFormHandlers}=require('../../../utils/view-container');
+Page({...makeFormHandlers(),
  data:{title:'设计委托',view:'progress',customer:null,fields:[],form:{},rows:[],tasks:[],taskCount:0,metrics:[],recent:[],projectRows:[],projectFilters:[],projectCounts:{},projectTotal:0,projectHasMore:false,keyword:'',projectFilter:'全部',error:'',busy:false,primary:'',canDraft:false,canReturn:false,canFeedback:false,canPay:false,mockOnly:false,preview:null,budgetReady:false,budgetBasis:null,budgetNotice:'',pricingQuote:null,paymentOrder:null,journeyActive:false,journey:null,cashier:{open:false},documentPreview:null,clientConfirmationOpen:false,generating:false},
  onLoad(options){this.disposed=false;this.options=options||{};this.id=options.id||'';this.view=options.view||'progress';if(!['admin','projects'].includes(this.view))this.refresh(true);},
  onShow(){this.refresh(false);},

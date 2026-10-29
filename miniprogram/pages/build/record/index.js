@@ -1,9 +1,11 @@
 const R=require('../../../utils/engineering-records'),X=require('../../../utils/access'),O=require('../../../utils/organization'),Files=require('../../../utils/sample-files'),SI=require('../schedule-import');
 const Nav=require('../../../utils/page-navigation');
 const money=require('../../../utils/money').money;
+const {makeFormHandlers}=require('../../../utils/view-container');
 const titles={overview:'工程项目',prepare:'开工准备',start:'实际开工记录',collection:'工程收款',project:'项目与施工计划',materials:'材料计划',material:'材料计划详情',node:'施工节点记录',funding:'节点资金计划',payments:'项目款项',documents:'项目资料',delivery:'工程交付',settlement:'项目结算',archive:'交付档案'};
 const field=(key,label,type='text')=>({key,label,type});
 Page({
+ ...makeFormHandlers(),
  data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,samplePreview:null},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.nodeId=o.nodeId||'';this.stage=o.stage==='topping'?'topping':'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
  onShow(){if(this.id)this.refresh();},

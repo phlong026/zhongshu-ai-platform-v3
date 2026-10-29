@@ -3,7 +3,7 @@
 // 各容器逐步接入（接入一个删一份本地实现），titles 注册与视图 DSL 的合并随后续批次。
 const routeValue = v => { try { return decodeURIComponent(v || ''); } catch (_) { return String(v || ''); } };
 
-// 生成通用表单处理器：input/lineInput/pick/toggle，绑定到 this.setData({['form.'+key]:value,error:''})
+// 生成逐字同构的表单处理器；数组行、映射 picker、toggle 及保存副作用仍由页面负责。
 function makeFormHandlers(lineKey = 'form') {
   return {
     input(e) {
@@ -22,6 +22,7 @@ function makeFormHandlers(lineKey = 'form') {
 function fail(message) {
   this.setData({ error: message, busy: false });
   wx.showToast({ title: message, icon: 'none' });
+  return false;
 }
 
 module.exports = { routeValue, makeFormHandlers, fail };

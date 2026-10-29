@@ -1,5 +1,5 @@
 const Job=require('../../utils/organization');
-const routeValue=require('../../utils/view-container').routeValue;
+const {routeValue,fail}=require('../../utils/view-container');
 // Shared business records remain in the main package; this page and its imagery load on demand.
 const B=require('../../utils/business'),Access=require('../../utils/access'),SF=require('../../utils/sales-flow');
 const V=require('./views'),Coord=require('../../utils/design-coordination');
@@ -56,7 +56,7 @@ Page({
  requirement(e){const value=e.currentTarget.dataset.value;const requirements=this.data.requirements.filter(x=>x!==value);this.setData({requirements,'form.requirements':requirements});this.saveDraft();},
  addRequirement(){wx.showModal({title:'添加家庭需求',editable:true,placeholderText:'例如：独立书房',success:r=>{if(r.confirm&&r.content.trim()){const requirements=this.data.requirements.concat(r.content.trim());this.setData({requirements,'form.requirements':requirements});this.saveDraft();}}});},
  validateDimensions(){const f=this.data.form;if(!B.dimension(f.width)||!B.dimension(f.depth))return this.fail('面宽和进深须为3–40米，最多一位小数。');if(!Number.isInteger(Number(f.floors))||Number(f.floors)<1||Number(f.floors)>6)return this.fail('建筑层数须为1–6层整数。');return true;},
- fail(message){this.setData({error:message,busy:false});wx.showToast({title:message,icon:'none'});return false;},
+ fail,
  update(change,event,next){try{B.write(this.id,x=>{change(x);},event,this.data.view,this.data.customer.revision||0);this.setData({error:'',busy:false});if(next)this.openView(next,true);else this.refresh(false);return true;}catch(e){return this.fail(e.message||'保存失败，请保留当前页面后重试。');}},
  upload(e){const key=e.currentTarget.dataset.key;wx.showActionSheet({itemList:require('../../utils/sample-files').items(['选择本机文件','使用参考附件']),success:r=>{if(r.tapIndex===1){this.setFile(key,{name:key==='drawingFile'?'施工图_'+this.data.form.drawingVersion+'.pdf':key==='signedFile'?'建造合同_双方已签.pdf':'参考附件.pdf',sample:true});}else wx.chooseMessageFile({count:1,type:'file',success:res=>{const f=res.tempFiles[0];wx.saveFile({tempFilePath:f.path,success:s=>this.setFile(key,{name:f.name,path:s.savedFilePath,sample:false}),fail:()=>this.fail('文件未能持久保存，请重新选择。')});},fail:()=>this.fail('未选择文件，可重试或使用参考附件。')});}});},
  setFile(key,file){this.setData({['form.'+key]:file,['fileNames.'+key]:Files.displayFile(file).name,error:''});if(key==='drawingFile')this.setData({'form.uploadDate':B.date()});this.saveDraft();},

@@ -5,7 +5,7 @@ const P = require('./owner-performance');
 const Settings = require('./owner-settings');
 const A = require('../../utils/account');
 const M = require('./model');
-const routeValue = value => { try { return decodeURIComponent(value || ''); } catch (_) { return String(value || ''); } };
+const { routeValue } = require('../../utils/view-container');
 const titles = { home:'首页', finance:'经营', performance:'绩效', profile:'我的', stat:'经营原单明细', metric:'经营指标明细', appointments:'预约到店', acquisition:'内容获客', todos:'全部待办', approvals:'待我审批', 'finance-progress':'财务办理进度', receivables:'应收账款', payables:'应付账款', receivable:'应收原单', payable:'应付原单', business:'业务概览', engineering:'工程概览', targets:'月度目标设置', team:'团队绩效', reviews:'结果复核', activity:'操作记录', settings:'审批与分工', rules:'我的规矩', company:'门店资料', handover:'工程负责人交接' };
 
 module.exports = function(kind) {

@@ -1,6 +1,6 @@
 const navigate=options=>require('../../utils/page-navigation').open(options.url);
 const Job=require('../../utils/organization');
-const routeValue=require('../../utils/view-container').routeValue;
+const {routeValue,fail}=require('../../utils/view-container');
 const X=require('../../utils/access');
 const E=require('./model');
 const V=require('./views');
@@ -53,7 +53,7 @@ Page({
  pick(e){const d=e.currentTarget.dataset,values=d.values||[];this.setData({['form.'+d.key]:values.length?values[Number(e.detail.value)]:e.detail.value,error:''});this.saveDraft(false);this.refresh();},
  toggle(e){const k=e.currentTarget.dataset.key;this.setData({['form.'+k]:!this.data.form[k],error:''});this.saveDraft(false);this.refresh();},
  materialFilter(e){const d=e.currentTarget.dataset;const opts=d.key==='nodeFilter'?['全部节点'].concat(this.data.nodeOptions):['全部状态','待提交','待收货'];this.setData({[d.key]:opts[Number(e.detail.value)]});this.refresh();},
- fail(message){this.setData({error:message,busy:false});wx.showToast({title:message,icon:'none'});return false;},
+ fail,
  saveDraft(toast=true){try{const form=E.clone(this.data.form);if(this.data.view==='new')wx.setStorageSync(E.draftStorageKey(),form);else E.write(this.id,p=>{p.drafts[this.draftKey()]=form;});if(toast)wx.showToast({title:'已保存草稿',icon:'success'});return true;}catch(e){return this.fail('暂存失败，当前输入仍保留在页面，请重试。');}},
  setFile(key,file){this.setData({['form.'+key]:file,error:''});this.saveDraft(false);this.refresh();},
  upload(e){const key=e.currentTarget.dataset.key;wx.showActionSheet({itemList:require('../../utils/sample-files').items(['选择本机文件','使用参考附件']),success:r=>{if(r.tapIndex===1){this.setFile(key,E.sampleFile(key==='briefFile'?'电子交底记录.pdf':'参考附件.pdf'));return;}wx.chooseMessageFile({count:1,type:'file',success:res=>{const f=res.tempFiles[0];wx.saveFile({tempFilePath:f.path,success:s=>this.setFile(key,{name:f.name,path:s.savedFilePath,sample:false}),fail:()=>this.fail('附件未能持久保存，请重新选择。')});},fail:()=>this.fail('未选择文件，可重试。')});}});},
