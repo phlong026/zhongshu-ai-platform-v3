@@ -1,7 +1,7 @@
 // Explicit handover flags live beside the management ledger because project work is rebuilt on every load.
 const X = require('./access');
 
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('./clone');
 const kinds = ['customer-responsibility', 'project-responsibility'];
 
 function flags(s) {

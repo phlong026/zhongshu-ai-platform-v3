@@ -1,5 +1,5 @@
 // Native stack first; retain the displaced page when a deep flow must redirect.
-const copy=v=>v===undefined?undefined:JSON.parse(JSON.stringify(v));
+const copy=require('./clone');
 const current=()=>getCurrentPages().slice(-1)[0];
 const tabs=['home','business','engineering','management','profile'].map(v=>'/pages/'+v+'/index');
 const stateKeys=["form","keyword","filter","versionFilter","flowTab","statusFilter","sort","due","nodeFilter","materialFilter","nodeId","mode","destination","category","tab","orderTab","messageTab","financeTab","dataTab","activeCustomerTab","caseTab","floor","selectedPlan","searchWidth","searchDepth","pickingRef","caseItem","filteredCases","taskFilter","recordFilter","editingText","optimizeRequirement","expanded","courseTab"];

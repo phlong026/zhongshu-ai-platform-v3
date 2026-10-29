@@ -1,7 +1,7 @@
 const { createClient } = require('./client');
 
 const client = createClient();
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('../../../utils/clone');
 const emptyGoals = () => ({ sales: '', collections: '', effective: '', customers: '', nodes: '', staff: {}, departmentGoals: {}, staffDepartmentGoals: {}, expectedVersion: 0 });
 const emptyCommission = () => ({ amount: '', assignee: '', note: '', checked: false, file: { name: '模拟跨端提成确认依据.pdf', sample: true }, expectedVersion: 0 });
 const money = require('../../../utils/money').money;

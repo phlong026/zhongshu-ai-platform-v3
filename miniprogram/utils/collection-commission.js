@@ -4,7 +4,7 @@ const O = require('./organization');
 const Ops = require('./operations');
 const F = require('./finance-source');
 
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('./clone');
 const assert = X.assert;
 const STAGES = ['start', 'topping'];
 const labels = { start:'开工款', topping:'封顶款' };

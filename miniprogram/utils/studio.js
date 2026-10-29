@@ -4,7 +4,7 @@ const Access=require('./access');
 const KEY = 'zhongshu-studio',AUTH=Symbol('studio-command');
 const accounts = [{ id: 'douyin-adviser', platform: 'douyin', name: '众墅之家 · 建房顾问' }, { id: 'channels-design', platform: 'channels', name: '众墅之家 · 乡墅设计' }];
 let sequence = 0;
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('./clone');
 const uid = prefix => prefix + '-' + Date.now() + '-' + (++sequence);
 function imageFor(item) { return item.image || (item.kind === 'ai' ? '/assets/creation-house.jpg' : '/assets/studio-portrait-wide.jpg'); }
 function kindLabel(kind) { return kind === 'ai' ? 'AI视频' : kind === 'digital' ? '数字人口播' : '参考作品'; }

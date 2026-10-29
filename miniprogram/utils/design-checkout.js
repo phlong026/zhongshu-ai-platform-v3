@@ -4,7 +4,7 @@ const MODE = 'area-full-demo-v1';
 const is = customer => customer?.businessFlow?.paymentMode === MODE;
 const order = customer => customer?.businessFlow?.paymentOrder || null;
 const pricing = () => X.rawBook('headquarters')?.designAreaPrices?.at(-1) || null;
-const copy = value => JSON.parse(JSON.stringify(value));
+const copy = require('./clone');
 
 function assertDemo() {
   X.assert(X.context().demo && !require('./sample-files').release(), '请使用体验账号进行模拟支付，正式版不支持此操作');

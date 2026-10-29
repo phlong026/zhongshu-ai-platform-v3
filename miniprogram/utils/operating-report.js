@@ -2,7 +2,7 @@
 const A = require('./account');
 const F = require('./finance-source');
 
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('./clone');
 const value = row => row.revisions?.length ? row.revisions.at(-1).amount : row.amount;
 const cashDate = row => F.cashDate(row);
 const followDate = follow => {

@@ -4,7 +4,7 @@ const F = require('../../utils/finance-source');
 const N = require('../../utils/organization');
 const X = require('../../utils/access');
 
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('../../utils/clone');
 const DEPARTMENTS = [
   { id: 'business', label: '业务', roles: ['sales', 'sales-lead', 'hq-operations', 'hq-operations-lead', 'hq-design-admin'], primary: 'commissionAmount', metrics: [
     ['commissionAmount', '设计委托金额', '元'], ['collectionsAmount', '项目实际回款', '元'], ['effectiveCustomers', '有效跟进客户', '个'],

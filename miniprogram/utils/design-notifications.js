@@ -1,6 +1,6 @@
 const Access = require('./access');
 
-const copy = value => JSON.parse(JSON.stringify(value));
+const copy = require('./clone');
 const localTime = value => {
   const time = Date.parse(value || '');
   if (Number.isNaN(time)) return '';

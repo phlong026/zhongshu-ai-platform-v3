@@ -1,6 +1,6 @@
 // Shared, version-bound project data. Missing values remain missing.
 const last=rows=>rows?.[rows.length-1]||null;
-const copy=x=>JSON.parse(JSON.stringify(x));
+const copy=require('./clone');
 const positive=v=>Number.isFinite(Number(v))&&Number(v)>0?Number(v):null;
 function basis(c){
  if(c.projectBasis)return copy(c.projectBasis);

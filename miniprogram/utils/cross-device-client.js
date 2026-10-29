@@ -1,6 +1,6 @@
 const KEY = 'zhongshu-collaboration-client-v1';
 const COMMAND_PATTERN = /^\/(receipts\/[^/]+\/confirm|commissions\/[^/]+\/(complete|dispatch)|messages\/[^/]+\/read|subscriptions)$/;
-const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+const clone = require('./clone');
 
 function normalizeBaseUrl(value) {
   const base = String(value || '').trim().replace(/\/+$/, '');

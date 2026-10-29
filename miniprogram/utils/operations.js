@@ -1,7 +1,7 @@
 // Operating ledger: contract receivables, incurred costs and credit conditions.
 // Amounts are cents. Bank facts and commercial approvals stay in their source flows.
 const X=require('./access'),O=require('./organization'),Money=require('./supply-money');
-const clone=v=>JSON.parse(JSON.stringify(v)),assert=X.assert;
+const clone=require('./clone'),assert=X.assert;
 const categories=['材料','人工','分包','机械运输','设计','现场其他'];
 const purposes=['推广获客','门店运营','人员费用','其他'];
 const actions=['plan-submit','credit-exception','expense-submit','expense-resubmit','expense-cancel','expense-transfer','expense-approve','expense-return','funds-confirm','operating-snapshot'];

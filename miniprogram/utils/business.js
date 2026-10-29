@@ -1,7 +1,7 @@
 const Job=require('./organization');
 const D=require('./demo-catalog'),Access=require('./access');
 const KEY = 'zhongshu-business-v3';
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('./clone');
 function sample() {
 return { id: 'customer-chen', customerUserId:'client-chen', projectId:D.projects.chen.id, acquisitionChannel:'视频号咨询', name: '陈先生', phone: '138****0628', wechat: '', source: '视频号咨询', province: '湖北省', city: '武汉市', summary: '已有宅基地，计划建两层乡墅，想先了解方案与费用。', status: '已登记', width: '12.5', depth: '16', floors: '2', follows: [], plans: [], budgets: [], measurements: [], quotes: [], contract: null, request: null, firstPayment: null, intake: null, assignment: null, deliverables: [], tailPayment: null, release: null, confirmation: null, drawings: [], copies: [], handover: null, acceptance: null, returns: [], events: [], drafts: {} };
 }

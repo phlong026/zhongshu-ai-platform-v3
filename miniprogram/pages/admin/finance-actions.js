@@ -1,6 +1,6 @@
 // Record actual money once. Commercial authorization remains on the original payable.
 const O=require('../../utils/organization'),X=require('../../utils/access'),F=require('../../utils/finance-source');
-const copy=x=>JSON.parse(JSON.stringify(x));let sequence=0;
+const copy=require('../../utils/clone');let sequence=0;
 function amount(v){X.assert(/^\d+(\.\d{1,2})?$/.test(String(v))&&Number(v)>0&&Number(v)<=100000000,'金额须大于0且最多两位小数');return Math.round(Number(v)*100);}
 function date(v){return /^\d{4}-\d{2}-\d{2}$/.test(v||'')&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;}
 function apply(s,action,id,f={}){

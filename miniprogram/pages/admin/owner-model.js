@@ -7,7 +7,7 @@ const F = require('../../utils/finance-source');
 const M = require('./model');
 const KEY = 'zhongshu-owner-goals-v1';
 const cover = '/pages/build/assets/house.jpg';
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('../../utils/clone');
 const allowed = () => { const a = X.context(); return a.active && X.isBoss(a); };
 const detail = (view, extra = {}) => '/pages/admin/detail/index?view=' + view + Object.entries(extra).filter(([,v]) => v !== '' && v !== undefined).map(([k,v]) => '&' + k + '=' + encodeURIComponent(v)).join('');
 const admin = (view, id = '') => '/pages/admin/index?view=' + view + (id ? '&id=' + encodeURIComponent(id) : '');

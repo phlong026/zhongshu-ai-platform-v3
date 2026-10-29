@@ -5,7 +5,7 @@ const O = require('../../../utils/organization');
 const N = require('../../../utils/page-navigation');
 const Files = require('../../../utils/sample-files');
 
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('../../../utils/clone');
 const money = require('../../../utils/money').money;
 const blankForm = () => ({ amount:'', assignee:'', note:'', file:null, checked:false, expectedVersion:0 });
 const clean = () => ({ ready:false, error:'', busy:false, actor:{}, canEditPolicy:false, commissionRows:[], commissionProjects:[], commissionProjectIndex:0, commissionStaff:[], commissionStaffIndex:0, commissionForm:blankForm() });

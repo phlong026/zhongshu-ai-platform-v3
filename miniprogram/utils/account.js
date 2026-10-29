@@ -1,6 +1,6 @@
 const X=require('./access'),Demo=require('./demo-users');
 const KEY = 'zhongshu-account-v1';
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('./clone');
 const stamp = () => new Date().toISOString();
 const localDate=(value=Date.now())=>new Date(new Date(value).getTime()+8*3600000).toISOString().slice(0,10);
 const displayTime=value=>typeof value==='string'?value.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g,x=>new Date(Date.parse(x)+8*3600000).toISOString().slice(0,16).replace('T',' ')):value;

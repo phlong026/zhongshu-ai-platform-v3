@@ -1,4 +1,4 @@
-const copy=x=>JSON.parse(JSON.stringify(x));
+const copy=require('./clone');
 // Follow-up custody changes; original applicants, receivers and evidence stay.
 function transfer(book,module,source,t,to){
  const assign=row=>{row.transferHistory=(row.transferHistory||[]).concat(copy(t));row.custodianId=to.id;row.custodianPersonId=to.personId||to.id;};

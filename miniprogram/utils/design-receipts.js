@@ -2,7 +2,7 @@
 const X = require('./access');
 const O = require('./organization');
 const PROTOCOL = 'sales-offline-v1';
-const copy = value => JSON.parse(JSON.stringify(value));
+const copy = require('./clone');
 const isSource = source => source?.module === 'intercompany' && source.kind === 'design' && source.protocol === PROTOCOL;
 
 function sourceKey(source) {

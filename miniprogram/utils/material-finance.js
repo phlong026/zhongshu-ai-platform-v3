@@ -1,6 +1,6 @@
 // External material payment confirmations are non-cash facts for the store.
 const X=require('./access'),O=require('./organization'),Money=require('./supply-money');
-const clone=v=>JSON.parse(JSON.stringify(v)),assert=X.assert;
+const clone=require('./clone'),assert=X.assert;
 function signature(p,t){return JSON.stringify([p.id,t.id,t.quantity,t.unitPrice,t.freight||0,t.payer,t.basis]);}
 function projects(){return wx.getStorageSync('zhongshu-engineering-v1')?.projects||[];}
 function direct(s){const out=[];for(const p of projects().filter(p=>(p.companyId||'quanzhou')===s.companyId))for(const t of p.supplies||[])if(t.payer==='业主直接支付'&&t.basis&&t.unitPrice){const sig=signature(p,t),records=(s.operations?.direct||[]).filter(r=>r.engineeringId===p.id&&r.supplyId===t.id),approval=(s.operations?.directApprovals||[]).filter(r=>r.signature===sig).slice(-1)[0];out.push({id:p.id+':'+t.id,projectId:p.projectId||p.id,engineeringId:p.id,supplyId:t.id,name:p.customer+' · '+t.supplier,total:Money.total(t),paid:records.filter(r=>r.status==='已核实').reduce((n,r)=>n+r.amount,0),reserved:records.filter(r=>r.status!=='已退回').reduce((n,r)=>n+r.amount,0),signature:sig,applicantId:t.applicantId||X.managerId(p),applicantPersonId:t.applicantPersonId||X.personIdFor(t.applicantId||X.managerId(p),s.companyId),approval,records});}return out;}

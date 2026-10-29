@@ -1,6 +1,6 @@
 const Ledger = require('./finance-ledger');
 
-const copy = value => JSON.parse(JSON.stringify(value));
+const copy = require('./clone');
 const businessCustomers = () => ((wx.getStorageSync('zhongshu-business-v3') || {}).customers || []);
 const paidDate = value => {
   const time = Date.parse(value || '');
