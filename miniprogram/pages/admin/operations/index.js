@@ -1,5 +1,5 @@
 const M=require('../model'),Ops=require('../../../utils/operations'),X=require('../../../utils/access'),O=require('../../../utils/organization'),A=require('../../../utils/account'),F=require('../../../utils/finance-source'),Files=require('../../../utils/sample-files');
-const labels={settlement:'项目财务结清',desk:'财务办理',payables:'供应与费用应付',receivables:'合同应收',expenses:'项目费用',costs:'成本与毛利',funds:'资金核对',credit:'收款条件与放行',direct:'业主直付核对',intercompany:'总部门店材料往来',payroll:'绩效结算'};
+const labels={settlement:'项目财务结清',desk:'财务办理',payables:'供应与费用应付',receivables:'合同应收',expenses:'项目费用',costs:'成本与毛利',funds:'资金核对',credit:'收款条件与放行',direct:'业主直付核对',intercompany:'总部门店材料往来',payroll:'历史薪酬档案'};
 const money=require('../../../utils/money').money,url=(view,id)=>'/pages/admin/operations/index?view='+view+(id?'&id='+encodeURIComponent(id):'');
 const {makeFormHandlers}=require('../../../utils/view-container');
 function receivableView(p,plan,state,actor,tasks){
