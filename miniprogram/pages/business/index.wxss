@@ -47,7 +47,7 @@
 .sales-todo-tabs{margin:4rpx 0 6rpx}
 .sales-todo-row .sales-task-name{font-size:var(--zs-font-emphasis);font-weight:600;line-height:42rpx}
 .sales-todo-row .sales-badge{margin-left:12rpx}
-.sales-todo-primary{flex-shrink:0;padding:0 24rpx;line-height:64rpx;border-radius:12rpx;background:var(--sales-brand);color:var(--zs-card);font-size:var(--zs-font-body);white-space:nowrap}
+.sales-todo-primary{display:flex;align-items:center;justify-content:center;min-height:var(--zs-control-height);flex-shrink:0;padding:12rpx 24rpx;line-height:42rpx;border-radius:12rpx;background:var(--sales-brand);color:var(--zs-card);font-size:var(--zs-font-body);white-space:nowrap}
 .sales-todo-waiting .sales-task-name{color:var(--sales-muted)}
 .sales-todo-more{display:flex;align-items:center;justify-content:center;gap:8rpx;width:100%;padding-top:14rpx}
 .boss-biz-content{padding-bottom:40rpx}

@@ -1,8 +1,8 @@
-.account,.sheet{font-family:sans-serif;font-size:var(--zs-font-emphasis);font-weight:400;line-height:40rpx;letter-spacing:0}
-.account button,.account input,.account textarea,.sheet button{font-family:inherit}
-.account .heading,.account .large,.account .chapter-card .number{font-family:sans-serif;font-weight:700}
-.account .heading{font-size:var(--zs-font-title);line-height:42rpx}
-.account .strong{font-family:sans-serif;font-weight:500}
+.account,.sheet{font-family:var(--zs-font-family);font-size:var(--zs-font-emphasis);font-weight:400;line-height:40rpx;letter-spacing:0}
+.account button,.account input,.account textarea,.sheet button{font-family:var(--zs-font-family)}
+.account .heading,.account .large,.account .chapter-card .number{font-family:var(--zs-font-family);font-weight:600}
+.account .heading{font-size:var(--zs-font-title);line-height:46rpx}
+.account .strong{font-family:var(--zs-font-family);font-weight:500}
 .account .hint{font-size:var(--zs-font-meta);line-height:36rpx}
 .account .label{font-size:var(--zs-font-body);line-height:38rpx}
 .account .row input,.account .input,.account .textarea{font-size:var(--zs-font-emphasis);line-height:40rpx}

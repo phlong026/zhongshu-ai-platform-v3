@@ -1,5 +1,7 @@
 # 众墅之家 · 原生微信小程序
 
+2026年10月30日全页排版统一：已盘点34个路由及多状态子页面，复用现有品牌色和共享样式，统一系统字体、32rpx标题、28rpx正文、页面/卡片间距；长按钮随文案增高，登录协议确认排在主操作之前。分析、逐页问题及视觉覆盖范围见 [布局审计与整改报告](docs/小程序逐页布局审计_20261030.md)。验证命令为 `npm run check:layout:system`；原生对照截图使用 `LAYOUT_AUDIT_WS=ws://127.0.0.1:9898 npm run capture:layout -- after`，须连接独立测试项目，使用本地演示数据并恢复原缓存。
+
 ## 代码仓库与本次归档
 
 私有远程仓库：[phlong026/zhongshu-ai-platform-v3](https://github.com/phlong026/zhongshu-ai-platform-v3)。`main` 保存本次归档版本，`feature/process-refactor-20261020` 保留开发分支，`master` 保留此前基线，已有提交历史完整保留。

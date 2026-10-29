@@ -8,7 +8,7 @@
     <view class="guest-search-row"><search-box variant="engineering" icon="/pages/engineering/assets/search.png" value="{{deskKeyword}}" placeholder="搜索项目、客户或地址" aria-label="搜索本人可见项目、客户或地址" bind:input="searchDesk" bind:clear="clearDeskSearch"/></view>
     <view class="eng-shortcuts"><button wx:for="{{deskStats}}" wx:key="label" data-action="{{item.action}}" bindtap="openAction" hover-class="pressed"><image src="/pages/engineering/assets/{{item.icon}}.png" mode="aspectFit"/><view><text class="eng-shortcut-label">{{item.label}}</text><view class="eng-shortcut-number">{{item.value}}<text>{{item.unit}}</text></view></view></button></view>
     <block wx:if="{{isBossEng}}">
-      <view class="section"><view class="section-heading"><text class="section-title">工程款闸门</text><text class="hint">钱没到，交付自动暂停</text></view>
+      <view class="section"><view class="section-heading"><text class="section-title">工程款闸门</text><text class="hint">未到账时自动暂停交付</text></view>
         <view class="boss-eng-card"><view class="boss-eng-money"><text>开工款待收</text><text class="boss-eng-num">{{bossEng.startTotal}}</text></view><view class="boss-eng-money"><text>封顶款待收</text><text class="boss-eng-num">{{bossEng.topTotal}}</text></view><view wx:for="{{bossEng.overdue}}" wx:key="*this" class="boss-eng-overdue">{{item}}</view></view>
       </view>
       <view class="section"><view class="section-heading"><text class="section-title">项目进度</text><button class="guest-section-link" data-action="projects" bindtap="openAction">全部项目<image src="/pages/engineering/assets/arrow.png" mode="aspectFit"/></button></view>

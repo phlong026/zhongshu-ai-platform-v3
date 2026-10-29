@@ -11,8 +11,6 @@
 .header-home .nav-row { height: 76rpx; }
 .header-home .brand { left: 36rpx; top: 4rpx; width: 241rpx; height: 62rpx; }
 
-.account-font{font-family:sans-serif}.account-font .title{font-weight:700;letter-spacing:0}.account-font .subtitle{font-weight:400}
+.account-font{font-family:var(--zs-font-family)}.account-font .title{letter-spacing:0}.account-font .subtitle{font-weight:400}
 
 .header-subpage{position:fixed;top:0;left:0;right:0;z-index:100}
-
-.account-font{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}.account-font .title{font-weight:600}
