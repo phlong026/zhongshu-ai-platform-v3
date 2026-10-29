@@ -5,6 +5,7 @@ const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const directory = path.join(root, '.tools/full-flow-acceptance-20261023/checks');
 fs.mkdirSync(directory, { recursive: true });
+const preflightCommand = ['node', 'scripts/prepare-full-flow-fixtures.cjs'];
 const checks = [
   ['留档批次与绩效任务回归', ['npm', 'run', 'check:retained-batches']],
   ['业务与跨模块回归', ['npm', 'run', 'check:business:simplified']],
@@ -32,7 +33,20 @@ const previous = from > 1 ? JSON.parse(fs.readFileSync(path.join(directory, 'res
 if (previous && previous.checks.slice(0, from - 1).some(check => check.result !== 'passed')) throw new Error('前序检查未通过，不能续跑');
 const report = previous ? { ...previous, result: 'running', resumedAt: new Date().toISOString(), checks: previous.checks.slice(0, from - 1) } : { result: 'running', startedAt: new Date().toISOString(), checks: [] };
 const persist = () => fs.writeFileSync(path.join(directory, 'results.json'), JSON.stringify(report, null, 2));
+const preflightLog = '00-fixtures.log';
+const preflightFd = fs.openSync(path.join(directory, preflightLog), 'w');
+const preflightStarted = Date.now();
+console.log('START 前置夹具生成');
+const preflight = spawnSync(preflightCommand[0], preflightCommand.slice(1), { cwd: root, stdio: ['ignore', preflightFd, preflightFd], timeout: 300000 });
+fs.closeSync(preflightFd);
+report.preflight = { command: preflightCommand.join(' '), result: preflight.status === 0 ? 'passed' : 'failed', elapsedMs: Date.now() - preflightStarted, log: preflightLog, error: preflight.error?.message };
 persist();
+if (preflight.status !== 0) {
+  report.result = 'failed'; persist();
+  console.error(fs.readFileSync(path.join(directory, preflightLog), 'utf8').slice(-7000));
+  process.exit(1);
+}
+console.log('PASS 前置夹具生成');
 for (const [index, [name, command]] of checks.entries()) {
   if (index < from - 1) continue;
   const log = String(index + 1).padStart(2, '0') + '.log';

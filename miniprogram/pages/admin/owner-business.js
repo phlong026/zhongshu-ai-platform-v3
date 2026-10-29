@@ -5,6 +5,7 @@ const N = require('../../utils/organization');
 const F = require('../../utils/finance-source');
 const P = require('../../utils/performance');
 const R = require('../../utils/operating-report');
+const Engineering = require('../../utils/engineering-records');
 const W = require('./owner-model');
 
 const DAY = 86400000;
@@ -281,8 +282,23 @@ function recordFor(view, snapshot, id) {
     const customer = snapshot.customers.find(customer=>customer.projectId===row.projectId);
     const name = customer?.name || row.projectId;
     const reminder = R.reminder({projectId:row.projectId, customer:name, installment:row.installment, remainingCents:row.amountCents, due:row.due}, snapshot.today);
+    const engineering = (snapshot.projects || []).find(project => (project.projectId || project.id) === row.projectId);
+    const suffix = row.id.split(':').at(-1);
+    const stage = ['start','topping'].includes(suffix) ? suffix : row.installment === '封顶款' ? 'topping' : row.installment === '开工款' ? 'start' : '';
+    let dunning = null;
+    if (engineering && stage) {
+      const records = (engineering.recordFlow?.dunning || []).filter(item => item.stage === stage);
+      const last = records.at(-1);
+      const managerId = X.managerId(engineering);
+      const manager = (snapshot.staff || []).find(person => person.id === managerId)?.name || engineering.manager || '负责工程人员';
+      dunning = {
+        url: Engineering.link(engineering, 'collection', { stage }), manager, count: records.length,
+        status: last ? last.promiseDate ? '已催收，业主承诺 ' + last.promiseDate + ' 付款' : '已催收，等待业主付款' : row.due && row.due < snapshot.today ? '已逾期，待负责工程登记催收' : '尚未登记催收',
+        note: '老板可查看原记录；催收结果由' + manager + '登记，财务仍只登记实际收款。'
+      };
+    }
     return { id, name:name + ' · ' + row.installment, amount:row.amountCents, total:row.totalCents, paid:row.paidCents,
-      status:row.due && row.due<snapshot.today ? '已逾期' : row.due ? '待收款' : '收款计划待确认', due:row.due || '未约定', source:'建造合同收款约定', reminder };
+      status:row.due && row.due<snapshot.today ? '已逾期' : row.due ? '待收款' : '收款计划待确认', due:row.due || '未约定', source:'建造合同收款约定', reminder, dunning };
   }
   return null;
 }

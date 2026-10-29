@@ -75,7 +75,7 @@ for (const actor of Object.values(actors)) {
   assert.match(messages[0].title, /模拟支付已完成/);
   assert.match(messages[0].description, /¥ 8,000/);
   assert.match(messages[0].description, /微信支付/);
-  assert.match(messages[0].description, /400㎡ × ¥ 20\/㎡/);
+  assert.match(messages[0].description, /400㎡ × ¥ 20\.00\/㎡/);
   assert.doesNotMatch(JSON.stringify(messages[0]), /DEMO-WECHAT-001/);
 }
 

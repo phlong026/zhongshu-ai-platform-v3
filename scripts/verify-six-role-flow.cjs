@@ -177,6 +177,8 @@ async function main() {
     await tap('.commission-actions .commission-primary');
     assert.equal((await rawCustomer()).businessFlow.dispatch.version, version);
   }
+  let flowError = null;
+  let nativeModalInstalled = false;
   try {
     if (native) {
       await runtime.open('/pages/account/index?view=policy');
@@ -187,7 +189,15 @@ async function main() {
         assert(c, '续跑保留已建主链客户');
         customerId = c.id; projectId = c.projectId; workId = c.acquisitionSnapshot.workId; publicationId = c.originPublicationId;
       }
-      await mp.mockWxMethod('showModal', { confirm: true, cancel: false });
+      await mp.evaluate(() => {
+        globalThis.__sixRoleShowModal = { value: wx.showModal };
+        wx.showModal = options => {
+          const result = { confirm: true, cancel: false };
+          options?.success?.(result);
+          options?.complete?.(result);
+        };
+      });
+      nativeModalInstalled = true;
     } else wx.showModal = options => options.success?.({ confirm: true, cancel: false });
     await step('B01', '李业务创作、保存并登记同一作品发布链接', async () => {
       await login('sales-dual', 'sales');
@@ -313,8 +323,11 @@ async function main() {
       await tap('.commission-actions .commission-primary');
       await until(async () => (await rawCustomer()).handover?.status === 'pending', '移交待接收');
       await login('engineering-dual', 'engineer');
-      const SF = require('../miniprogram/utils/sales-flow');
-      SF.run(customerId, 'packet-return', { note: '请李业务补充道路交底，保留周建国家V2资料' });
+      await commission('receive');
+      await until(async () => (await data()).view === 'receive', '工程核对移交资料');
+      await input('textarea[data-key="note"]', '请李业务补充道路交底，保留周建国家V2资料');
+      await tap('button[bindtap="returnPacket"]');
+      await until(async () => (await rawCustomer()).handover?.status === 'returned', '工程页面退回补充');
       await login('sales-dual', 'sales'); await commission('handover');
       await until(async () => (await data()).view === 'handover', '补充后重新移交');
       await input('textarea[data-key="note"]', '李业务补充：道路交底详见附图，水电表位已现场核对');
@@ -336,13 +349,33 @@ async function main() {
     if (native) assert.equal(runtime.errors.length, 0, JSON.stringify(runtime.errors));
     persist();
   } catch (error) {
+    flowError = error;
     report.result = 'failed'; report.error = error.stack;
-    report.failedPage = await current();
-    save('failure-state.json', await snapshot()); persist();
+    try { report.failedPage = await current(); } catch (evidenceError) { report.evidenceError = evidenceError.message; }
+    try { save('failure-state.json', await snapshot()); } catch (evidenceError) { report.evidenceError = report.evidenceError || evidenceError.message; }
+    persist();
     if (native) await runtime.capture('failure').catch(captureError => { report.captureError = captureError.message; persist(); });
     throw error;
   } finally {
-    if (native) { await mp.restoreWxMethod('showModal'); await runtime.restore(); }
+    if (native) {
+      let cleanupError = null;
+      if (nativeModalInstalled) {
+        try {
+          await mp.evaluate(() => {
+            const saved = globalThis.__sixRoleShowModal;
+            if (typeof saved?.value === 'function') wx.showModal = saved.value;
+            else delete wx.showModal;
+            delete globalThis.__sixRoleShowModal;
+          });
+        } catch (error) { cleanupError = error; }
+      }
+      try { await runtime.restore(); } catch (error) { cleanupError = cleanupError || error; }
+      if (cleanupError) {
+        report.cleanupError = cleanupError.stack || cleanupError.message;
+        persist();
+        if (!flowError) throw cleanupError;
+      }
+    }
   }
 }
 

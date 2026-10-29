@@ -7,6 +7,29 @@ const { createSimulationServer } = require('../server/design-collaboration/serve
 const TODAY = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const sensitiveLeakPaths = (value, path = '$') => {
+  const leaks = [];
+  const visit = (item, current) => {
+    if (Array.isArray(item)) return item.forEach((entry, index) => visit(entry, `${current}[${index}]`));
+    if (item && typeof item === 'object') return Object.entries(item).forEach(([key, entry]) => {
+      const next = `${current}.${key}`;
+      if (/amount|bank|transaction|proof|phone|openid|unionid|wechatid/i.test(key)) leaks.push(next + ':field');
+      visit(entry, next);
+    });
+    if (typeof item !== 'string') return;
+    if (/(?:^|\D)1[3-9]\d{9}(?:\D|$)/.test(item)) leaks.push(current + ':mobile');
+    if (/SIM-|mock-bank-receipt|wxid_/i.test(item)) leaks.push(current + ':value');
+  };
+  visit(value, path);
+  return leaks;
+};
+
+const falsePositiveExample = { revision:1390, customerId:'customer-1793295331541-1390x' };
+assert(/139\d/.test(JSON.stringify(falsePositiveExample)), '复现旧断言对普通数值和标识的误报');
+assert.deepEqual(sensitiveLeakPaths(falsePositiveExample), [],
+  '修订号或 customerId 随机后缀中的1390不能误判为手机号');
+assert.deepEqual(sensitiveLeakPaths({ phone:'13900007666', note:'SIM-TAIL' }), ['$.phone:field', '$.phone:mobile', '$.note:value'],
+  '安全断言必须同时识别敏感字段、完整手机号和模拟流水值');
 const request = async (base, route, { token, method = 'GET', body, key } = {}) => {
   const headers = {};
   if (token) headers.authorization = `Bearer ${token}`;
@@ -147,8 +170,8 @@ async function confirmAll(env, token, prefix) {
     assert.equal(adminView.messages.length, 1);
     assert.equal(adminView.wechat.deliveries.length, 0, '未授权时不能标记模拟微信送达');
     assert.equal(adminView.wechat.jobs.length, 1);
-    const adminText = JSON.stringify(adminView);
-    assert(!/amount|bank|transaction|proof|phone|139\d|SIM-/.test(adminText), '行政快照不得泄露金额、银行、电话微信或流水');
+    const adminLeaks = sensitiveLeakPaths(adminView);
+    assert.deepEqual(adminLeaks, [], '行政快照不得泄露金额、银行、电话微信或流水；命中路径：' + adminLeaks.join('、'));
 
     const forbidden = await command(env, admin.accessToken, `/sim/v1/receipts/${encodeURIComponent(tail.id)}/confirm`, adminView.revision, concurrentBody, 'admin-forbidden');
     assert.equal(forbidden.status, 403);

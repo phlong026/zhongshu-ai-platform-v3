@@ -47,13 +47,11 @@ function capture(f){
   try{wx.setStorageSync(require('./storage-keys').business,business);commit(s,'lead-capture',r.id);}catch(error){if(before)wx.setStorageSync(require('./storage-keys').business,before);throw error;}
   return {lead:copy(r),customer:{id:c.id,linked:true,name:c.name,ownerId:X.ownerId(c)}};
  }
+ const beforeGrowth=wx.getStorageSync(KEY),keys=require('./storage-keys'),businessKey=keys.business,managementKey=keys.management,beforeBusiness=wx.getStorageSync(businessKey),beforeManagement=wx.getStorageSync(managementKey);
  s.leads.push(r);
- commit(s,'lead-capture',r.id);
- const c=require('./business').fromLead(r.id,{});
- const s2=all(),r2=s2.leads.find(x=>x.id===r.id);
- r2.customerId=c.id;r2.status='已转客户';r2.conversionKind='direct-capture';r2.revision++;
- commit(s2,'lead-capture',r.id);
- return {lead:copy(r2),customer:c};
+ let c;
+ try{commit(s,'lead-capture',r.id);c=require('./business').fromLead(r.id,{});const s2=all(),r2=s2.leads.find(x=>x.id===r.id);r2.customerId=c.id;r2.status='已转客户';r2.conversionKind='direct-capture';r2.revision++;commit(s2,'lead-capture',r.id);return {lead:copy(r2),customer:c};}
+ catch(error){if(beforeGrowth)wx.setStorageSync(KEY,beforeGrowth);else wx.removeStorageSync(KEY);if(beforeBusiness)wx.setStorageSync(businessKey,beforeBusiness);else wx.removeStorageSync(businessKey);if(beforeManagement)wx.setStorageSync(managementKey,beforeManagement);else wx.removeStorageSync(managementKey);throw error;}
 }
 function change(id,action,f,expected){const a=actor(),s=all(),r=s.leads.find(r=>r.id===id);X.assert(r&&canLead(r,a),'线索不存在或无权访问');X.assert(expected===r.revision,'线索已更新，请刷新');X.assert(r.status!=='已转客户','已转客户的线索不能重新跟进');X.assert(Job.has(a.role,'sales')&&r.ownerId===a.staffId,'请由当前业务经办人办理');if(action==='request-link'){X.assert(['跟进中','待负责人关联'].includes(r.status),'请先跟进再请求关联');r.status='待负责人关联';r.linkRequest={note:f.note||'同手机号原客户需要负责人关联',...X.actor()};}else if(action==='follow'){X.assert(r.status==='跟进中'&&String(f.note||'').trim(),'请填写跟进内容');r.follows.push({note:f.note,...X.actor()});}else if(action==='invalid'){X.assert(String(f.note||'').trim(),'请说明无效原因');r.status='无效';}else throw Error('未知线索动作');r.revision++;commit(s,action,id);return copy(r);}
 function convert(id,f,expected){const a=actor(),s=all(),r=s.leads.find(r=>r.id===id);X.assert(Job.has(a.role,'sales')&&r&&r.companyId===a.companyId&&r.ownerId===a.staffId,'请由线索当前业务员转客户');if(r.status==='已转客户')return require('./business').customer(r.customerId);X.assert(r.revision===expected&&r.status==='跟进中'&&r.follows.length,'请先跟进线索，刷新后转客户');const c=require('./business').fromLead(id,f);r.customerId=c.id;r.status='已转客户';r.revision++;commit(s,'lead-convert',id);return c;}
