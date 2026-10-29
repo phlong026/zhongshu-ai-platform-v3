@@ -429,9 +429,10 @@ function initializePrevious(state, input, factsProvider) {
 }
 
 function previousActual(state, input, factsProvider) {
-  actorFor(state);
+  const actor = actorFor(state);
   const previous = previousPeriod(String(input.period || state.period));
   const assignee = staffFor(state, input.assigneeId);
+  X.assert(X.isBoss(actor) || (assignee.personId || assignee.id) === actor.personId, '只有老板可读取其他人员的上月参考，本人仅可查看自己的记录');
   const task = { type: input.type, assigneeId: input.assigneeId, assigneePersonId: assignee.personId || assignee.id, period: previous };
   return { period: previous, value: automaticValue(state, previous, task, factsProvider), unit: typeById[input.type]?.unit || '' };
 }

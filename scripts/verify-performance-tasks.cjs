@@ -145,6 +145,7 @@ assert.equal(ownManual.status, '已完成');
 assert.deepEqual(ownManual.manualDone.photos, [], '手动完成照片按规格可选填');
 login('sales-a', 'sales');
 assert.throws(() => Tasks.completeManual(state, manual.id, { note: '现场协调完成', photos: [], idempotencyKey: 'manual:done' }), /本人/, '幂等命中前仍必须校验当前操作人');
+assert.throws(() => Tasks.previousActual(state, { period:'2026-11', assigneeId:'engineer-a', type:'auto:completedNodes' }), /本人|老板/, '员工不能读取其他人员的上月业绩参考');
 const managementWithReplacement = clone(store[keys.management]);
 managementWithReplacement.staff.find(person => person.id === 'sales-a').personId = 'replacement-person';
 store[keys.management] = managementWithReplacement;
