@@ -207,8 +207,10 @@ console.log('PASS 一次性设计费模拟支付：双方财务抄送、旧首�
     const store = M.load();
     const storePayment = store.payments.find(row => row.source?.orderId === paymentOrder.id);
     assert(storePayment?.simulated && storePayment.readOnly, '门店财务应看到只读模拟付款流水');
-    assert(!store.payables.some(row => row.source?.id === created.id), '新模式不得再生成首款或尾款付款单');
-    assert(!Finance.tasks(store).some(row => String(row.id).includes(created.id)), '门店财务不得出现旧付款办理待办');
+    assert(!store.payables.some(row => row.source?.id === created.id && row.source?.kind === 'design'), '新模式不得再生成首款或尾款付款单');
+    assert(store.payables.some(row => row.id === 'business-reimburse:' + created.id + ':' + paymentOrder.serviceVersion && row.stage === '业务报销' && row.status === '待办理'), '模拟支付后应自动生成业务报销应付（免审待办理）');
+    assert(!Finance.tasks(store).some(row => row.id.startsWith('business-design:' + created.id)), '门店财务不得出现旧首尾款付款办理待办');
+    assert(Finance.tasks(store).some(row => row.id === 'business-reimburse:' + created.id + ':' + paymentOrder.serviceVersion && row.view === 'pay'), '报销应付应进入财务付款待办');
     const storeServices = Desk.services(store).filter(row => row.customerId === created.id);
     assert.equal(storeServices.length, 1, '门店财务项目账只显示一条一次性设计费');
     assert(storeServices[0].simulated && storeServices[0].readOnly);
