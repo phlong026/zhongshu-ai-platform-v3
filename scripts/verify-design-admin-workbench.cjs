@@ -4,6 +4,7 @@ const path = require('path');
 
 const W = require('../miniprogram/utils/design-admin-workbench');
 const O = require('../miniprogram/utils/organization');
+const Status = require('../miniprogram/utils/status-labels').commission;
 
 const actor = { active: true, role: 'hq-design-admin', orgType: 'headquarters', companyId: 'headquarters', staffId: 'admin-a', name: '设计行政' };
 const commission = (id, state, extra = {}) => ({
@@ -29,30 +30,32 @@ const commission = (id, state, extra = {}) => ({
 });
 
 const rows = [
-  commission('待首款客户', '首款待门店付款'),
-  commission('陈先生', '线下设计中', { events: [{ action: 'design-complete', actorId: 'other-admin', at: '2026-10-21T09:00:00.000Z' }] }),
-  commission('王先生', '线下修改中', { city: '黄冈市', feedbacks: [{ status: 'pending' }] }),
-  commission('赵先生', '待到账确认', { completed: { actorId: 'admin-a' }, events: [{ action: 'design-complete', actorId: 'admin-a', at: '2026-10-22T01:40:00.000Z' }] }),
-  commission('李女士', '待正式成果下发', { owner: '陈业务', completed: { actorId: 'admin-a' } }),
-  commission('周先生', '待移交给工程', { dispatch: { actorId: 'admin-a', date: '2026-10-20' }, events: [{ action: 'design-dispatch', actorId: 'admin-a', at: '2026-10-20T09:00:00.000Z' }] }),
+  commission('待首款客户', Status.pay),
+  commission('陈先生', Status.designing, { events: [{ action: 'design-complete', actorId: 'other-admin', at: '2026-10-21T09:00:00.000Z' }] }),
+  commission('王先生', Status.modifying, { city: '黄冈市', feedbacks: [{ status: 'pending' }] }),
+  commission('赵先生', Status.receiptWaiting, { completed: { actorId: 'admin-a' }, events: [{ action: 'design-complete', actorId: 'admin-a', at: '2026-10-22T01:40:00.000Z' }] }),
+  commission('李女士', Status.dispatch, { owner: '陈业务', completed: { actorId: 'admin-a' } }),
+  commission('周先生', Status.handover, { dispatch: { actorId: 'admin-a', date: '2026-10-20' }, events: [{ action: 'design-dispatch', actorId: 'admin-a', at: '2026-10-20T09:00:00.000Z' }] }),
   commission('孙先生', '业务移交完成', { dispatch: { actorId: 'admin-a', date: '2026-10-19' }, acceptance: { date: '2026-10-21' } }),
   commission('未授权费用', '费用待老板审批', { feeApproved: false }),
-  commission('其他总部', '线下设计中', { designOrganizationId: 'other-headquarters' })
+  commission('其他总部', Status.designing, { designOrganizationId: 'other-headquarters' })
 ];
 
 const nextFor = c => ({
   state: c.__state,
-  view: c.__state === '线下设计中' || c.__state === '线下修改中' ? 'complete' : c.__state === '待正式成果下发' ? 'dispatch' : 'progress',
-  actionable: ['线下设计中', '线下修改中', '待正式成果下发'].includes(c.__state),
-  waitingFirst: c.__state === '首款待门店付款',
-  owner: c.__state === '首款待门店付款' ? '门店财务' : '',
-  detail: c.__state === '首款待门店付款' ? '首款尚未登记，设计行政等待财务办理' : ''
+  view: [Status.designing, Status.modifying].includes(c.__state) ? 'complete' : c.__state === Status.dispatch ? 'dispatch' : 'progress',
+  actionable: [Status.designing, Status.modifying, Status.dispatch].includes(c.__state),
+  waitingFirst: c.id === '待首款客户',
+  paymentStage: c.id === '待首款客户' ? '首款' : '',
+  roleState: c.id === '待首款客户' ? '设计首款待门店登记' : '',
+  owner: c.id === '待首款客户' ? '门店财务' : '',
+  detail: c.id === '待首款客户' ? '首款尚未登记，设计行政等待财务办理' : ''
 });
 const projected = W.build(rows, actor, { nextFor, feeApproved: c => c.__feeApproved, companyNameFor: id => id === 'store-a' ? '武汉江夏店' : id });
 
-assert.deepEqual(projected.counts, { 全部: 7, 待业务支付: 0, 待首款登记: 1, 设计中: 1, 修改中: 1, 待到账确认: 1, 待下发: 1, 已下发: 2 });
+assert.deepEqual(projected.counts, { 全部:7, 待支付:1, 设计中:1, 修改中:1, 待到账确认:1, 待下发:1, 待移交:1, 待接收:0, 已下发:1 });
 assert.equal(projected.rows.length, 7, '费用未授权和其他设计组织的委托不得进入工作台');
-assert.equal(projected.rows.find(r => r.id === '待首款客户').status, '待首款登记');
+assert.equal(projected.rows.find(r => r.id === '待首款客户').status, Status.pay);
 assert(!projected.todos.some(r => r.id === '待首款客户'), '首款未登记只能查看进度，不能生成设计完成待办');
 assert.equal(projected.rows.find(r => r.id === '赵先生').status, '待到账确认');
 assert.equal(projected.rows.find(r => r.id === '李女士').status, '待下发');
@@ -60,17 +63,18 @@ assert.equal(projected.rows.find(r => r.id === '孙先生').status, '已下发')
 assert.equal(W.filter(projected.rows, '武汉江夏', '全部').length, 7, '支持加盟商搜索');
 assert.equal(W.filter(projected.rows, 'project-李女士', '全部').length, 1, '支持项目编号搜索');
 assert.equal(W.filter(projected.rows, '陈业务', '全部').length, 1, '支持经办业务搜索');
-assert.equal(W.filter(projected.rows, '', '已下发').length, 2, '已完成和已接收历史仍可查询');
+assert.equal(W.filter(projected.rows, '', Status.handover).length, 1, '已下发但待移交不得并入终态历史');
+assert.equal(W.filter(projected.rows, '', Status.dispatched).length, 1, '已接收的历史记录仍可查询');
 assert.equal(W.filter(projected.rows, '', '设计与修改').length, 2, '设计与修改指标进入组合筛选，不遗漏设计中项目');
 assert.equal(projected.recent.length, 2, '最近办理只取当前人员实际动作');
 assert(projected.recent.every(r => r.actorId === actor.staffId));
-assert.deepEqual(projected.metrics.map(r => r.label), ['设计与修改', '待业务支付', '待下发']);
+assert.deepEqual(projected.metrics.map(r => r.label), ['设计与修改', Status.pay, Status.dispatch]);
 assert(projected.todos[0].primary, '第一条待办使用主操作，其余为轻操作');
 assert(projected.todos.slice(1).every(r => !r.primary));
 assert(projected.todos.every(r => r.customerId === r.id), '首页待办保留 customerId 主链契约');
 assert(projected.todos.every(r => r.url === r.actionUrl), '首页待办 url 指向当前可办理动作');
 assert(!projected.todos.some(r => r.status === '待到账确认'), '等待到账确认不是行政今日可办动作');
-const crowded = W.build(rows.concat(commission('何先生', '线下设计中')), actor, { nextFor, feeApproved: c => c.__feeApproved, companyNameFor: id => id });
+const crowded = W.build(rows.concat(commission('何先生', Status.designing)), actor, { nextFor, feeApproved: c => c.__feeApproved, companyNameFor: id => id });
 assert.equal(crowded.taskCount, 4, '首页标题显示全部本人可办数');
 assert.equal(crowded.todos.length, 3, '首页今日待办只预览三条');
 assert.equal(projected.metrics[0].filter, '设计与修改');

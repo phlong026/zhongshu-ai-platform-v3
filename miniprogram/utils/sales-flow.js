@@ -1,5 +1,5 @@
 // Business-only commission protocol. Existing commissions retain their original rules.
-const X=require('./access'),Job=require('./organization'),Checkout=require('./design-checkout');
+const X=require('./access'),Job=require('./organization'),Checkout=require('./design-checkout'),Status=require('./status-labels').commission;
 const TYPE='sales-offline-v1',KEY=require('./storage-keys').business,copy=v=>JSON.parse(JSON.stringify(v)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const is=c=>c?.businessFlow?.type===TYPE;
 // Old records remain operable; new customers can only start the simplified protocol.
@@ -56,28 +56,29 @@ function next(c){
  return nextRecord(raw(c));
 }
 function receiptWaiting(c){
- if(Checkout.is(c))return {ready:Checkout.paid(c),state:'待一次性模拟支付',owner:'经办业务'};
+ if(Checkout.is(c))return {ready:Checkout.paid(c),state:Status.pay,roleState:'设计费待一次性支付',paymentStage:'一次性',owner:'经办业务'};
  // Completion opens the tail stage even when finance is still settling the first payment.
  const release=require('./design-receipts').release(c),pair=!release.tail.ready?['尾款',release.tail]:['首款',release.first],stage=pair[1];
  const storePending=stage.paid<stage.expected,gap=Math.max(0,stage.expected-(storePending?stage.paid:stage.received));
  const M=require('./money'),money=v=>M.money(Math.max(0,Math.round(Number(v)||0)));
- return {ready:release.ready,state:(pair[0]==='首款'?'设计尾款已到账 · 首款':'设计尾款')+(storePending?'待门店付款':'待总部核收'),detail:'应收 '+money(stage.expected)+' · 门店已付 '+money(stage.paid)+' · 总部实收 '+money(stage.received)+' · 差额 '+money(gap)+(pair[0]==='尾款'&&!release.first.ready?'；首款已登记付款，待总部确认到账':''),owner:storePending?'门店财务':'总部财务'};
+ const roleState=(pair[0]==='首款'?'设计尾款已到账 · 首款':'设计尾款')+(storePending?'待门店付款':'待总部核收');
+ return {ready:release.ready,state:storePending?Status.pay:Status.receiptWaiting,roleState,paymentStage:pair[0],detail:'应收 '+money(stage.expected)+' · 门店已付 '+money(stage.paid)+' · 总部实收 '+money(stage.received)+' · 差额 '+money(gap)+(pair[0]==='尾款'&&!release.first.ready?'；首款已登记付款，待总部确认到账':''),owner:storePending?'门店财务':'总部财务'};
 }
 // Workbench batches already have current records; avoid reading all customers once per row.
 function nextRecord(c){
- const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='')=>({state,owner,view,actionable,label:view==='pay'?'去支付':view==='submit'?'提交设计委托':view==='handover'?'移交给工程':view==='receive'?'核对接收':view==='complete'?'登记设计完成':view==='dispatch'?'下发设计成果':'查看进度',...(detail?{detail}:{})});
- if(!is(c))return r('待提交设计委托','经办业务','submit',true);
+ const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='',meta={})=>({state,owner,view,actionable,label:view==='pay'?'去支付':view==='submit'?'提交设计委托':view==='handover'?'移交给工程':view==='receive'?'核对接收':view==='complete'?'登记设计完成':view==='dispatch'?'下发设计成果':'查看进度',...(detail?{detail}:{}),...meta});
+ if(!is(c))return r(Status.submit,'经办业务','submit',true);
  if(c.acceptance)return r('业务移交完成','已完成','progress');
- if(c.handover?.status==='returned')return r('移交资料待补充','经办业务','handover',true);
- if(c.handover)return r('资料待接收',c.handover.manager,'receive',true);
+ if(c.handover?.status==='returned')return r(Status.handover,'经办业务','handover',true,'',{roleState:'移交资料待补充'});
+ if(c.handover)return r(Status.receive,c.handover.manager,'receive',true,'',{roleState:'资料待接收'});
  if(require('./commercial-approval').latest(c,'service')?.status==='returned')return r('委托费用待修改','经办业务','submit',true);
  if(!feeApproved(c))return r('费用待老板审批','加盟商老板','progress');
- if(Checkout.is(c)&&!Checkout.paid(c))return r('设计费待一次性支付','经办业务','pay',true,'体验模拟订单，不产生真实扣款；成功后自动抄送双方财务并通知总部设计。');
- if(!firstRegistered(c))return {...r(f.completed?'首款未登记 · 待补齐后办理尾款':'设计首款待门店登记','门店财务','progress',false,'请在线下支付设计首款后登记付款，登记足额后触发总部设计待办。'),waitingFirst:true};
- if(!f.completed||f.feedbacks?.at(-1)?.status==='pending')return r(f.feedbacks?.at(-1)?.status==='pending'?'线下修改中':Checkout.is(c)?'设计中':'线下设计中','设计行政','complete',true);
- if(!f.dispatch){const waiting=receiptWaiting(c);if(!waiting.ready)return r(waiting.state,waiting.owner,'progress',false,waiting.detail);}
- if(!f.dispatch)return r('待正式成果下发','设计行政','dispatch',true);
- return r('待收图并移交','经办业务','handover',true);
+ if(Checkout.is(c)&&!Checkout.paid(c))return r(Status.pay,'经办业务','pay',true,'体验模拟订单，不产生真实扣款；成功后自动抄送双方财务并通知总部设计。',{roleState:'设计费待一次性支付',paymentStage:'一次性'});
+ if(!firstRegistered(c)){const roleState=f.completed?'首款未登记 · 待补齐后办理尾款':'设计首款待门店登记';return {...r(Status.pay,'门店财务','progress',false,'请在线下支付设计首款后登记付款，登记足额后触发总部设计待办。',{roleState,paymentStage:'首款'}),waitingFirst:true};}
+ if(!f.completed||f.feedbacks?.at(-1)?.status==='pending'){const modifying=f.feedbacks?.at(-1)?.status==='pending';return r(modifying?Status.modifying:Status.designing,'设计行政','complete',true,'',{roleState:modifying?'线下修改中':Checkout.is(c)?Status.designing:'线下设计中'});}
+ if(!f.dispatch){const waiting=receiptWaiting(c);if(!waiting.ready)return r(waiting.state,waiting.owner,'progress',false,waiting.detail,{roleState:waiting.roleState,paymentStage:waiting.paymentStage});}
+ if(!f.dispatch)return r(Status.dispatch,'设计行政','dispatch',true,'',{roleState:'待正式成果下发'});
+ return r(Status.handover,'经办业务','handover',true,'',{roleState:'已下发 · 待收图并移交'});
 }
 function transition(b,action,input,at=new Date().toISOString()){
  X.assert(allowed(action,b),'当前身份无本委托的办理权限');const a=X.context(),n=copy(b),f=copy(input||{});let flow=n.businessFlow;

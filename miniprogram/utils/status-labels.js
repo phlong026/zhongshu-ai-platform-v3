@@ -3,9 +3,9 @@
 // 委托状态以设计台七态为基准词，销售视角可加角色前缀但核心词一致。
 const commission = {
   submit: '待提交设计委托',
-  pay: '待支付',            // 设计台「待业务支付」/销售「设计费待一次性支付」核心词统一为待支付展示于此
-  payStore: '待业务支付',
-  firstPending: '待首款登记',
+  pay: '待支付',
+  payStore: '待支付',       // 兼容旧调用；首款/尾款/一次性作为独立阶段字段展示
+  firstPending: '待支付',
   designing: '设计中',
   modifying: '修改中',
   receiptWaiting: '待到账确认',
