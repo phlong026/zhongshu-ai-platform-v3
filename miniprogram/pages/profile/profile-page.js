@@ -26,7 +26,7 @@ function managementEntries(a) {
     const admin = view => '/pages/admin/index?view=' + view, detail = view => '/pages/admin/detail/index?view=' + view;
     return [
       { text: '成员与权限', url: admin('staff') }, { text: '审批设置', url: detail('settings') }, { text: '我的规矩', url: detail('rules') },
-      { text: '项目经理交接', url: detail('handover') }, { text: '项目回款提成', url: '/pages/admin/commission/index' }, { text: '门店资料', url: detail('company') }, { text: '操作记录', url: detail('activity') }
+      { text: '工程负责人交接', url: detail('handover') }, { text: '项目回款提成', url: '/pages/admin/commission/index' }, { text: '门店资料', url: detail('company') }, { text: '操作记录', url: detail('activity') }
     ].concat(a.role === 'boss' && a.orgType === 'store' ? [{ text: '历史委托费用授权', url: '/pages/workflow/commission/index?view=policy' }] : []);
   }
   return [];
