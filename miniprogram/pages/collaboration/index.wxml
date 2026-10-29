@@ -38,7 +38,7 @@
       <view class="metrics {{finance?'two':''}}"><view wx:for="{{metrics}}" wx:key="label" class="metric"><text class="muted block">{{item.label}}</text><text class="metric-value">{{item.value}}<text class="unit">{{item.unit}}</text></text></view></view>
       <view class="card"><view class="heading-row"><text class="heading">今日待办 {{tasks.length}}</text><button class="link" data-tab="projects" bindtap="tab">查看全部 ›</button></view>
         <view wx:for="{{tasks}}" wx:key="id" class="task"><view class="grow"><text class="strong block">{{item.name}}</text><text class="muted block">{{finance?item.amountText:'本项目已满足办理条件'}}</text></view><button class="solid small task-action" data-id="{{item.id}}" bindtap="openTask">{{item.actionLabel}}</button></view>
-        <text wx:if="{{!tasks.length}}" class="empty block">暂无可办理事项，后续进度将自动同步</text>
+        <text wx:if="{{!tasks.length}}" class="empty block">今日暂无待办，后续进度将自动同步</text>
       </view>
       <view class="card"><text class="heading">最近办理</text><button wx:for="{{recent}}" wx:key="customerId" class="project-row" data-id="{{item.customerId}}" bindtap="openProject"><view class="grow"><text class="strong block">{{item.name}}</text><text class="muted block">{{item.action}} · {{item.atText}}</text></view><text class="link">查看记录 ›</text></button><text wx:if="{{!recent.length}}" class="empty block">暂无本人的办理记录</text></view>
     </block>
