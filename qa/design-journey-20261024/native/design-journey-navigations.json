@@ -1,0 +1,188 @@
+[
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1755
+  },
+  {
+    "url": "/pages/profile/index",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1382
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=pricing",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 10189
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1428
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=submit&id=customer-1792857687844-8om2g",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1497
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=pay&id=customer-1792857687844-8om2g",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1528
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1521
+  },
+  {
+    "url": "/pages/account/index?view=identity",
+    "method": "redirectTo",
+    "callback": "success",
+    "elapsedMs": 1426
+  },
+  {
+    "url": "/pages/profile/index",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1393
+  },
+  {
+    "url": "/pages/admin/finance-desk/index?view=project&id=project-customer-1792857687844-8om2g",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1473
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1575
+  },
+  {
+    "url": "/pages/account/index?view=identity",
+    "method": "redirectTo",
+    "callback": "success",
+    "elapsedMs": 1428
+  },
+  {
+    "url": "/pages/profile/index",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1405
+  },
+  {
+    "url": "/pages/admin/finance-desk/index?view=partner&id=quanzhou",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1533
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1437
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=submit&id=customer-1792857687854-achts",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1419
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=pay&id=customer-1792857687854-achts",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1438
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1455
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=admin",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1729
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=complete&id=customer-1792857687844-8om2g",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 10287
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=admin",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1415
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=dispatch&id=customer-1792857687844-8om2g",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 10286
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1433
+  },
+  {
+    "url": "/pages/business/index",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1487
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=handover&id=customer-1792857687844-8om2g",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 10293
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1513
+  },
+  {
+    "url": "/pages/build/home/index",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1415
+  },
+  {
+    "url": "/pages/workflow/commission/index?view=receive&id=customer-1792857687844-8om2g",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1438
+  },
+  {
+    "url": "/pages/build/record/index?view=documents&id=biz-customer-1792857687844-8om2g",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 10241
+  },
+  {
+    "url": "/pages/build/home/index",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1450
+  },
+  {
+    "url": "/pages/account/index?view=policy",
+    "method": "redirectTo",
+    "callback": "success",
+    "elapsedMs": 1440
+  }
+]

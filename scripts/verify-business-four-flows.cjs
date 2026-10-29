@@ -1,7 +1,7 @@
 const fs=require('fs'),assert=require('assert/strict'),path=require('path');
 (async()=>{
- const r=await require('./role-page-runtime.cjs').connect(),A=require('../miniprogram/utils/account'),B=require('../miniprogram/utils/business'),checks=[];
- A.mutate(s=>A.loginDemo(s,'zhang'));const state=B.initial();state.customers=state.customers.filter(c=>c.id==='customer-chen');wx.setStorageSync(B.KEY,state);const id='customer-chen';
+ const r=await require('./role-page-runtime.cjs').connect(),A=require('../miniprogram/utils/account'),B=require('../miniprogram/utils/business'),Checkout=require('../miniprogram/utils/design-checkout'),checks=[];
+ A.mutate(s=>A.loginDemo(s,'hq-design-admin'));Checkout.savePricing({rate:'20',scope:'全案设计与施工图',recipient:'众墅之家总部',active:true});A.mutate(s=>A.loginDemo(s,'sales-dual'));const state=B.initial();state.customers=state.customers.filter(c=>c.id==='customer-chen');wx.setStorageSync(B.KEY,state);const id='customer-chen';
  const p=()=>getCurrentPages().at(-1),open=view=>wx.reLaunch({url:'/pages/workflow/index?view='+view+'&id='+id}),tap=async selector=>{const el=await(await r.currentPage()).$(selector);assert(el,selector);await el.tap();},input=async(key,value)=>{await(await(await r.currentPage()).$('input[data-key='+JSON.stringify(key)+']')).input(value);},pass=name=>{checks.push({name,result:'passed'});console.log('PASS '+name);};
  for(const [view,title]of [['inspiration','灵感库'],['ai-config','AI平面'],['ai-facade','AI立面'],['budget','快速预算']]){wx.reLaunch({url:'/pages/design/index'});await tap('button[data-view='+JSON.stringify(view)+']');assert.equal(p().route,'pages/workflow/explore/index');assert.equal(p().data.view,view);assert.equal(p().data.title,title);assert(!p().data.customer);pass(view+' 新设计页入口直接进入功能，不预选客户');}
 

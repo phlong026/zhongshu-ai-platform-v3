@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>管理工作台 · 经营</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.hero{background:linear-gradient(135deg,#8f5830,#6f4020);border-radius:13px;padding:14px;color:#fffaf3;margin-bottom:11px}
+.hero .three{display:flex}
+.hero .three>div{flex:1}
+.hero .three>div+div{padding-left:12px;border-left:1px solid rgba(255,250,243,.25)}
+.hero .three>div:not(:first-child){padding-left:12px}
+.hero span{font-size:12px;opacity:.82;display:block}
+.hero b{font-size:22px;line-height:30px;font-weight:700}
+.hero b small{font-size:12px;font-weight:500;margin-left:1px}
+.hero em{font-style:normal;font-size:11px;color:#ffe2b8}
+.hero .acct{margin-top:11px;background:rgba(255,250,243,.12);border-radius:9px;padding:8px 10px;display:flex;align-items:center;font-size:12.5px}
+.hero .acct b{font-size:15px;margin:0 6px}
+.chart{display:flex;align-items:flex-end;gap:12px;height:118px;padding:0 4px;border-bottom:1px solid var(--line)}
+.chart .m{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:3px;height:100%}
+.chart .m i{width:11px;border-radius:3px 3px 0 0;background:var(--brown)}
+.chart .m i.out{background:#dcc3a6}
+.chart .m.cur i{background:#6f4020}
+.chart .m.cur i.out{background:#c99a6e}
+.months{display:flex;gap:12px;padding:5px 4px 0}
+.months span{flex:1;text-align:center;font-size:11px;color:var(--muted)}
+.legend{display:flex;gap:12px;font-size:11.5px;color:var(--muted)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--brown);margin-right:4px;vertical-align:0}
+.legend i.out{background:#dcc3a6}
+.mix .r{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px}
+.mix .r .l{width:70px;color:#4b4741}
+.mix .r .b{flex:1;height:7px;border-radius:4px;background:#f1ece5;overflow:hidden}
+.mix .r .b i{display:block;height:100%;background:var(--brown);border-radius:4px}
+.mix .r .b i.out{background:#c99a6e}
+.mix .r .v{width:76px;text-align:right;color:var(--ink);font-weight:500;white-space:nowrap}
+.mix .r .v small{color:var(--muted);font-weight:400;font-size:11px;margin-left:3px}
+.mix h4{font-size:13px;font-weight:600;margin:4px 0 4px;display:flex;justify-content:space-between}
+.mix h4 span{font-weight:400;color:var(--muted);font-size:12px}
+.aging{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:9px 0 6px}
+.aging i{display:block;height:100%}
+.ag-legend{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+.ag-legend b{display:block;font-size:14px;color:var(--ink);font-weight:600}
+.tbl{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.tbl th{font-weight:400;color:var(--muted);font-size:11.5px;text-align:left;padding:0 0 6px;border-bottom:1px solid var(--line)}
+.tbl td{padding:9px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border:0;padding-bottom:0}
+.tbl .r{text-align:right}
+.tbl .n{font-weight:500}
+.kv{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.kv>div{background:#faf6f0;border-radius:9px;padding:9px 10px}
+.kv span{font-size:11.5px;color:var(--muted);display:block}
+.kv b{font-size:17px;line-height:24px;color:var(--brown-d)}
+.kv b small{font-size:11px;color:var(--muted);font-weight:400;margin-left:1px}
+.kv em{font-style:normal;font-size:11px;color:var(--green)}
+.kv em.red{color:var(--red)}
+
+.sum{display:flex;align-items:baseline;gap:8px;margin:-2px 0 4px}
+.sum b{font-size:20px;color:var(--brown-d)}
+.sum span{font-size:12px;color:var(--muted)}
+.money .line .amount{text-align:right}
+</style></head>
+<body>
+<div class="status"><span>9:41</span><span class="sys">
+<svg width="17" height="11" viewBox="0 0 17 11"><g fill="#111"><rect x="0" y="7" width="3" height="4" rx=".7"/><rect x="4.5" y="5" width="3" height="6" rx=".7"/><rect x="9" y="2.5" width="3" height="8.5" rx=".7"/><rect x="13.5" y="0" width="3" height="11" rx=".7"/></g></svg>
+<svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3" fill="none" stroke="#111" opacity=".4"/><rect x="2" y="2" width="18" height="8" rx="1.6" fill="#111"/><rect x="22.5" y="4" width="1.6" height="4" rx=".8" fill="#111" opacity=".4"/></svg></span></div>
+<div class="nav"><img class="brand" src="../../miniprogram/assets/brand.png"><span class="divider"></span><span class="title">经营</span><span class="capsule"><i></i><b></b></span></div>
+<div class="content">
+
+<div class="period"><span class="muted">湖北店 · 按有效核算统计</span><b>2026年10月 ▾</b></div>
+
+<div class="hero">
+  <div class="three">
+    <div><span>收入</span><b>52.6<small>万</small></b><br><em>较9月 +12.2%</em></div>
+    <div><span>支出</span><b>31.2<small>万</small></b><br><em>较9月 −12.6%</em></div>
+    <div><span>结余</span><b>21.4<small>万</small></b><br><em>结余不等于利润</em></div>
+  </div>
+  <div class="acct">账户余额<b>63.2万</b><span class="grow" style="opacity:.8">王财务 10月20日核对</span>›</div>
+</div>
+
+<div class="card money">
+  <div class="heading"><h3>应收账款</h3><span class="more">全部 ›</span></div>
+  <div class="sum"><b>61.2万</b><span>共 4 笔 · 其中逾期 <span style="color:var(--red)">18.6万</span></span></div>
+  <div class="line"><i class="lv red"></i><div class="grow"><div class="name" style="font-size:14px">林女士 · 封顶款</div><div class="muted">武穴梅川 · 约定 10月20日</div></div><div style="text-align:right"><div class="amount">18.6万</div><span class="tag red">逾期 2 天</span></div></div>
+  <div class="line"><i class="lv "></i><div class="grow"><div class="name" style="font-size:14px">何先生 · 开工款</div><div class="muted">麻城龟山 · 约定 10月28日</div></div><div style="text-align:right"><div class="amount">15.8万</div><span class="tag gray">未到期</span></div></div>
+  <div class="line"><i class="lv green"></i><div class="grow"><div class="name" style="font-size:14px">陈先生 · 封顶款</div><div class="muted">麻城宋埠 · 预计 11月5日</div></div><div style="text-align:right"><div class="amount">14.4万</div><span class="tag gray">未到期</span></div></div>
+  <div class="line"><i class="lv green"></i><div class="grow"><div class="name" style="font-size:14px">赵先生 · 封顶款</div><div class="muted">浠水洗马 · 预计 11月20日</div></div><div style="text-align:right"><div class="amount">12.4万</div><span class="tag gray">未到期</span></div></div>
+</div>
+
+<div class="card money">
+  <div class="heading"><h3>应付账款</h3><span class="more">全部 ›</span></div>
+  <div class="sum"><b>24.5万</b><span>共 5 笔 · 7 天内到期 8.4万</span></div>
+  <div class="line"><i class="lv "></i><div class="grow"><div class="name" style="font-size:14px">陈先生 · 钢筋第 3 批</div><div class="muted">到期 10月24日</div></div><div style="text-align:right"><div class="amount">6.24万</div><span class="tag amber">待审批</span></div></div>
+  <div class="line"><i class="lv "></i><div class="grow"><div class="name" style="font-size:14px">王先生 · 水泥</div><div class="muted">到期 10月25日</div></div><div style="text-align:right"><div class="amount">2.16万</div><span class="tag ">待付款</span></div></div>
+  <div class="line"><i class="lv green"></i><div class="grow"><div class="name" style="font-size:14px">林女士 · 屋面班组</div><div class="muted">到期 11月5日</div></div><div style="text-align:right"><div class="amount">5.80万</div><span class="tag gray">未到期</span></div></div>
+</div>
+
+<div class="card"><div class="row"><span class="name grow" style="font-size:14px">财务待处理</span><span class="muted">待核算 2 笔 · 待付款复核 1 笔</span><span class="chev" style="margin-left:6px">›</span></div></div>
+
+</div>
+<nav class="tabbar"><a class=""><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1h-5v-6h-5v6h-5a1 1 0 0 1-1-1z"/></svg>首页</a><a class="on"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>经营</a><a class=""><svg viewBox="0 0 24 24"><path d="M12 3.5l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.4 6.9 19.1l1-5.6-4.1-4 5.7-.8z"/></svg>绩效</a><a class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20.5c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>我的</a></nav>
+<div class="home-bar"><i></i></div>
+</body></html>

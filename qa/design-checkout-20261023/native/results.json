@@ -1,0 +1,716 @@
+{
+  "result": "passed",
+  "scope": "隔离微信开发者工具原生渲染；真实登录、Element.tap/input/trigger(change)；只注入预算起点，无真实扣款",
+  "sourceFingerprint": {
+    "files": 651,
+    "sha256": "b362f247671800c324bafe881ac978d54b99fd889bad707c71400dd60ca6f5bb"
+  },
+  "checks": [
+    {
+      "name": "总部设计我的页面配置并保存计价",
+      "result": "passed"
+    },
+    {
+      "name": "400㎡自动计费8000元、取消保留订单、微信一次性模拟支付成功",
+      "result": "passed"
+    },
+    {
+      "name": "门店和总部财务经消息入口查看同一支付抄送并标记已读",
+      "result": "passed"
+    },
+    {
+      "name": "支付宝失败重试成功，两个客户项目订单相互隔离",
+      "result": "passed"
+    },
+    {
+      "name": "总部设计首页连续接续完成与下发待办，三份模拟文件可预览且版本一致",
+      "result": "passed"
+    },
+    {
+      "name": "业务本人待办带入总部三文件，补客户确认及交底后移交五项资料",
+      "result": "passed"
+    },
+    {
+      "name": "工程本人待办接收自动创建唯一同源项目，带入五资料，返回工作台正常",
+      "result": "passed"
+    }
+  ],
+  "screenshots": [
+    "01-hq-design-pricing.png",
+    "02-area-quote.png",
+    "03-wechat-simulated-checkout.png",
+    "04-store-finance-copy.png",
+    "04-store-finance-project.png",
+    "04-hq-finance-home.png",
+    "04-hq-finance-copy.png",
+    "04-hq-finance-project.png",
+    "05-design-files-ready.png",
+    "06-sales-packet-ready.png",
+    "07-engineering-created.png"
+  ],
+  "interactions": [
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/profile/index",
+      "selector": "button",
+      "dataset": {
+        "url": "/pages/workflow/commission/index?view=pricing"
+      },
+      "expectedHandler": "open",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "input",
+      "dataset": {
+        "key": "rate"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "textarea",
+      "dataset": {
+        "key": "scope"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "input",
+      "dataset": {
+        "key": "recipient"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "textarea",
+      "dataset": {
+        "key": "text"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "attachment"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "checkbox-group",
+      "dataset": {
+        "key": "checked"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "outcome": "cancelled"
+      },
+      "expectedHandler": "simulatePaymentOutcome",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "channel": "wechat"
+      },
+      "expectedHandler": "selectPaymentChannel",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".identity-option",
+      "dataset": {
+        "role": "finance"
+      },
+      "expectedHandler": "selectRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "switchRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/profile/index",
+      "selector": "button",
+      "dataset": {
+        "action": "messages"
+      },
+      "expectedHandler": "open",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": "button.read-all",
+      "dataset": {},
+      "expectedHandler": "readAll",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".identity-option",
+      "dataset": {
+        "role": "finance"
+      },
+      "expectedHandler": "selectRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "switchRole",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/profile/index",
+      "selector": "button",
+      "dataset": {
+        "action": "messages"
+      },
+      "expectedHandler": "open",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": "button.read-all",
+      "dataset": {},
+      "expectedHandler": "readAll",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "attachment"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "checkbox-group",
+      "dataset": {
+        "key": "checked"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "channel": "alipay"
+      },
+      "expectedHandler": "selectPaymentChannel",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "outcome": "failed"
+      },
+      "expectedHandler": "simulatePaymentOutcome",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "url": "/pages/workflow/commission/index?view=complete&id=customer-1792748037739-lvh21"
+      },
+      "expectedHandler": "openTask",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "textarea",
+      "dataset": {
+        "key": "note"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "checkbox-group",
+      "dataset": {
+        "key": "checked"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "url": "/pages/workflow/commission/index?view=dispatch&id=customer-1792748037739-lvh21"
+      },
+      "expectedHandler": "openTask",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "input",
+      "dataset": {
+        "key": "recipient"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "input",
+      "dataset": {
+        "key": "drawingVersion"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "resultFile"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "drawingFile"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "reviewFile"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button.commission-file",
+      "dataset": {
+        "key": "drawingFile"
+      },
+      "expectedHandler": "preview",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-mask .commission-primary",
+      "dataset": {},
+      "expectedHandler": "closePreview",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "textarea",
+      "dataset": {
+        "key": "note"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "checkbox-group",
+      "dataset": {
+        "key": "checked"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/business/index",
+      "selector": "button",
+      "dataset": {
+        "id": "offline:customer-1792748037739-lvh21:1"
+      },
+      "expectedHandler": "openFlowTask",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "button",
+      "dataset": {
+        "sampleKey": "confirmationFile"
+      },
+      "expectedHandler": "useSampleFile",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "textarea",
+      "dataset": {
+        "key": "note"
+      },
+      "expectedHandler": "input",
+      "via": "Element.input"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "checkbox-group",
+      "dataset": {
+        "key": "received"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "checkbox-group",
+      "dataset": {
+        "key": "confirmed"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/home/index",
+      "selector": "button",
+      "dataset": {
+        "action": "todos"
+      },
+      "expectedHandler": "openEngineering",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/projects/index",
+      "selector": "button",
+      "dataset": {
+        "url": "/pages/workflow/index?view=receive&id=customer-1792748037739-lvh21"
+      },
+      "expectedHandler": "open",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": "checkbox-group",
+      "dataset": {
+        "key": "checked"
+      },
+      "expectedHandler": "change",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "selector": ".commission-action-panel .commission-primary",
+      "dataset": {},
+      "expectedHandler": "submit",
+      "via": "Element.tap"
+    }
+  ],
+  "exceptions": []
+}

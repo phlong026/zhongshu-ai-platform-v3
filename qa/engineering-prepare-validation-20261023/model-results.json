@@ -1,0 +1,11 @@
+{
+  "result": "passed",
+  "checks": [
+    "金额关系、合同凭据和现场记录逐项提示，失败时三端数据均不写入",
+    "页面真实输入和参考合同可保存一次两期约定，项目、客户与合同版本一致且不重复待办",
+    "开工准备、实际开工和工程收款参考凭据均使用工程合同版本"
+  ],
+  "clicks": 8,
+  "projectId": "project-customer-1792729799855-pq906",
+  "evidence": "Real Page input and visible WXML controls in isolated Node runtime; invalid submissions preserve business, engineering and management storage."
+}

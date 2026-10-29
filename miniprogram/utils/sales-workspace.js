@@ -36,7 +36,7 @@ function focusRows(rows,focus){const day=today();if(focus==='due')return rows.fi
 // Same figure as the boss home "本月签约": design commissions submitted this month (latest service order total, yuan), over the customers this person can see.
 function monthCommission(){const period=today().slice(0,7);const total=B.load().customers.filter(c=>c.businessFlow?.type==='sales-offline-v1'&&c.serviceOrders?.length&&String(c.businessFlow.submittedAt||'').slice(0,7)===period).reduce((n,c)=>n+Number(c.serviceOrders.at(-1).total||0),0);return total>=10000?{value:String(Math.round(total/100)/100),unit:'万元'}:{value:total.toLocaleString('en-US'),unit:'元'};}
 // Home to-do board: one list (actionable, in progress, staff approvals) filtered by tab; only the first rows show until expanded.
-const TODO_TABS=[['all','全部'],['customer','客户'],['creation','创作'],['commission','委托款项']],TODO_LIMIT=3;
+const TODO_TABS=[['all','全部'],['customer','客户'],['creation','创作'],['commission','款项']],TODO_LIMIT=3;
 function todoBoard(pending=[],waiting=[],staff=[],tab='all',expanded=false){
  const rows=[...pending,...staff.map(t=>({id:'staff:'+t.key,staffKey:t.key,name:t.name,state:t.status,action:'去办理',actionable:true,group:'commission',urgency:3,staff:true,view:t.view,targetId:t.id,area:t.area,record:t.record})),...waiting].sort((x,y)=>(x.urgency??8)-(y.urgency??8));
  const inGroup=key=>rows.filter(r=>key==='all'||r.group===key),count=key=>inGroup(key).filter(r=>r.actionable).length;

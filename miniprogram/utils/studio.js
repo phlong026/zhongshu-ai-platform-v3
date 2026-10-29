@@ -7,7 +7,7 @@ let sequence = 0;
 const clone = value => JSON.parse(JSON.stringify(value));
 const uid = prefix => prefix + '-' + Date.now() + '-' + (++sequence);
 function imageFor(item) { return item.image || (item.kind === 'ai' ? '/assets/creation-house.jpg' : '/assets/studio-portrait-wide.jpg'); }
-function kindLabel(kind) { return kind === 'ai' ? 'AI视频' : kind === 'digital' ? '数字人口播' : '示例作品'; }
+function kindLabel(kind) { return kind === 'ai' ? 'AI视频' : kind === 'digital' ? '数字人口播' : '参考作品'; }
 function formatTime(value) {
 if (!value) return '时间未记录';
 const date = new Date(value);
@@ -67,7 +67,7 @@ function createDemoTask(kind, description, configuration) {
 const state = read();
 const config = clone(configuration || {});if(!['ai','digital'].includes(kind)||!String(kind==='ai'?description:state.script).trim())throw Error('请填写生成内容');
 const count = (config.parameters || []).find(item => item.key === 'count');
-if (count && count.value !== '1 个') throw new Error('演示模式每次生成1个结果');
+if (count && count.value !== '1 个') throw new Error('当前流程每次生成1个结果');
 const task = { id: uid('demo'), title: kind === 'ai' ? description.trim().slice(0, 28) : state.title, script: kind === 'ai' ? description : state.script, configuration: config, kind, status: 'generating', saved: false, progress: 0, demo: true, createdAt: Date.now() };
 task.contentSource=clone({extraction:state.extraction||null,rewrite:state.rewriteHistory?.at(-1)||null,optimization:state.copyOptimizations?.at(-1)||null});
 task.image = imageFor(task);

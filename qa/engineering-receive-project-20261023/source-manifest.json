@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "5c238d31a9d3e0880ff1b7c74b13e2540e820b04",
+  "version": "1.0.20261023.7",
+  "fingerprint": {
+    "files": 650,
+    "sha256": "d747e152051e3a7f158d041d6d66e7e31c50798cb98c376e99193a70a6f4be47"
+  },
+  "matchesNativeAcceptance": true,
+  "archive": "git archive committed miniprogram and project.config.json"
+}

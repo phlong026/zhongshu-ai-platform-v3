@@ -10,11 +10,11 @@ function navigation(c){
  let tabs;
  if(guest)tabs=base;
  else if(!c.active)tabs=[base[4]];
- else if(boss)tabs=[['home','首页','home'],['finance','财务','management'],['performance','绩效','management'],['profile','我的','profile']].map((t,i)=>({key:'owner-'+t[0],text:t[1],icon:t[2],index:10+i,url:'/pages/admin/'+t[0]+'/index',native:false}));
+ else if(boss)tabs=[['home','首页','home'],['finance','经营','management'],['performance','绩效','management'],['profile','我的','profile']].map((t,i)=>({key:'owner-'+t[0],text:t[1],icon:t[2],index:10+i,url:'/pages/admin/'+t[0]+'/index',native:false}));
  else if(['sales','sales-lead'].includes(c.role))tabs=[{key:'business',text:'首页',index:1,icon:'home'},{key:'creation',text:'创作',index:5,icon:'business',native:false},{key:'design',text:'方案',index:6,customIcon:'/assets/home-design-icon.png',native:false},{key:'customers',text:'客户',index:7,customIcon:'/assets/team.png',native:false},base[4]];
  else if(['engineer','project-manager'].includes(c.role))tabs=[{key:'engineering',text:'首页',index:2,icon:'home',url:'/pages/build/home/index',native:false},{key:'projects',text:'项目',index:8,customIcon:'/pages/engineering/assets/folder.png',url:'/pages/build/projects/index',native:false},{key:'materials',text:'材料',index:9,customIcon:'/assets/box.png',url:'/pages/build/materials/index',native:false},base[4]];
- else if(c.role==='hq-design-admin')tabs=[{key:'business',text:'首页',index:19,icon:'home',native:false,url:'/pages/workflow/commission/index?view=admin'},base[4]];
- else if(['finance','finance-lead'].includes(c.role))tabs=[{...base[3],text:'首页',icon:'home'},{key:'finance-flows',text:'收支',index:17,icon:'management',native:false,url:'/pages/admin/finance-desk/index?view=flows'},{key:'finance-books',text:c.orgType==='headquarters'?'加盟商':'项目',index:18,customIcon:c.orgType==='headquarters'?'/assets/account-shop.jpg':'/assets/folder.png',native:false,url:'/pages/admin/finance-desk/index?view='+(c.orgType==='headquarters'?'partners':'projects')},base[4]];
+ else if(c.role==='hq-design-admin')tabs=[{key:'business',text:'首页',index:19,icon:'home',native:false,url:'/pages/workflow/commission/index?view=admin'},{key:'design-admin-projects',text:'项目',index:20,customIcon:'/assets/folder.png',native:false,url:'/pages/workflow/commission/index?view=projects'},base[4]];
+ else if(['finance','finance-lead'].includes(c.role))tabs=[{key:'finance-home',text:'首页',index:16,icon:'home',native:false,url:'/pages/admin/finance-desk/index'},{key:'finance-flows',text:'收支',index:17,icon:'management',native:false,url:'/pages/admin/finance-desk/index?view=flows'},{key:'finance-books',text:c.orgType==='headquarters'?'加盟商':'项目',index:18,customIcon:c.orgType==='headquarters'?'/assets/account-shop.jpg':'/assets/folder.png',native:false,url:'/pages/admin/finance-desk/index?view='+(c.orgType==='headquarters'?'partners':'projects')},base[4]];
  else{const primary=base.find(t=>t.key===homeTab)||base[4];tabs=[{...primary,text:'首页',icon:'home'},...base.filter(t=>t.key!==homeTab&&t.index!==0&&(t.index===4||[false,canBusiness,canEngineering,canManagement][t.index]))];}
  return {guest,canBusiness,canEngineering,canManagement,homeTab,homeTitle,tabs:tabs.map(t=>({...t,url:t.url||'/pages/'+t.key+'/index',native:t.native!==false}))};
 }
@@ -22,4 +22,10 @@ const inherited={'sales-lead':'sales','project-manager':'engineer','finance-lead
 const has=(role,wanted)=>role===wanted||inherited[role]===wanted;
 const staffHas=(p,wanted)=>(p?.roles||[p?.roleId]).some(r=>has(r,wanted));
 const defaultRole=(grants,preferred)=>{const first=grants.includes(preferred)?preferred:grants[0];return Object.keys(inherited).find(r=>inherited[r]===first&&grants.includes(r))||first;};
-module.exports={defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation};
+// Defaults only prefill new forms; the original record remains authoritative.
+function defaultAssignee(book, department) {
+ const role={sales:'sales',engineering:'engineer',finance:'finance',design:'hq-design-admin',operations:'hq-operations'}[department];
+ const id=book?.managementSettings?.assignments?.[department];
+ return role&&id&&(book.staff||[]).some(person=>person.id===id&&person.active!==false&&staffHas(person,role))?id:'';
+}
+module.exports={defaultAssignee,defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation};

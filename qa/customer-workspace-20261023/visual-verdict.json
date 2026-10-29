@@ -1,0 +1,18 @@
+{
+  "method": "人工检查真实微信原生截图与可见控件坐标",
+  "result": "passed",
+  "checks": [
+    {
+      "image": "overview-first-follow.png",
+      "result": "无跟进时按钮文案正确，位于可见页面底部"
+    },
+    {
+      "image": "follow-empty-top.png",
+      "result": "客户资料、沟通记录、业务办理顺序正确，暖色样式一致"
+    },
+    {
+      "image": "follow-long-bottom.png",
+      "result": "十二条原记录追加保留，业务办理与记录按钮可见无重叠"
+    }
+  ]
+}

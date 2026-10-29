@@ -1,35 +1,135 @@
-const fs=require('fs'),path=require('path'),assert=require('assert/strict'),auto=require('miniprogram-automator');
-global.wx={getStorageSync:()=>undefined};
-const A=require('../miniprogram/utils/account'),B=require('../miniprogram/utils/business'),E=require('../miniprogram/pages/build/model'),M=require('../miniprogram/pages/admin/model'),F=require('../miniprogram/utils/finance-source');
-const out=path.resolve('qa/role-complete-20261018/footer'),sleep=ms=>new Promise(r=>setTimeout(r,ms));fs.mkdirSync(out,{recursive:true});
-const scenes=[
- ...['login','profile','course','help','privacy','identity','access','product','procure','service','request','resource','personal-performance','missing'].map(v=>({area:'account',view:v==='missing'?'order':v,id:v==='missing'?'missing-id':v==='resource'?'brief':v==='product'||v==='procure'?'tile-gray':'',who:'zhang'})),
- ...['order','plan','delivery','cancel'].map(v=>({area:'account',view:v,id:'service-store-v2',who:'boss',variant:v})),
- {area:'account',view:'order',id:'service-store-v2',who:'hq-intake',variant:'provider'},
- {area:'account',view:'cancel',id:'service-store-v2',who:'hq-intake',variant:'cancel'},
- ...['customer','progress','ai-config','budget','allocation','transfer','facade-config','missing'].map(v=>({area:'workflow',view:v==='missing'?'customer':v,id:v==='missing'?'missing-id':v==='allocation'?'lead-chen':'customer-chen',who:['allocation','transfer'].includes(v)?'sales-lead':'zhang'})),
- ...['projects','new','prepare','collection','missing'].map(v=>({area:'build',view:v==='missing'?'project':v,id:v==='missing'?'missing-id':'',who:'manager-li'})),
- ...[['reconcile','receipt-pending-100000','finance-lead'],['pay','payable-chen-design','finance-wang'],['refund','receipt-engineering-80000','finance-wang'],['verify','payment-lin-unknown','finance-lead'],['person','zhang','boss'],['transfer','work-chen','boss'],['receipt','missing-id','finance-wang']].map(([view,id,who])=>({area:'admin',view,id,who})),
- {area:'ai-video',who:'zhang'},{area:'studio',view:'tasks',who:'zhang'},{area:'studio',view:'works',who:'zhang'},{area:'studio',view:'result',who:'zhang',id:'missing-id'}, {area:'account',view:'permissions',who:'zhang'}, {area:'account',view:'delivery',id:'service-store-v2',who:'boss',variant:'delivery-issue'}
-];
-(async()=>{const previous=process.env.RESUME_FOOTER==='1'&&fs.existsSync(path.join(out,'failed-results.json'))?JSON.parse(fs.readFileSync(path.join(out,'failed-results.json'),'utf8')):null;const mp=await auto.connect({wsEndpoint:process.env.ROLE_WS||'ws://127.0.0.1:9720'}),checks=previous?.checks||[],captures=previous?.captures||checks.map((c,i)=>({name:c.area+' / '+(c.view||'index')+' / '+c.who,file:String(i+1).padStart(2,'0')+'-'+c.area+'-'+(c.view||'index')+'-'+c.who+'.png'})),errors=[];mp.on('exception',e=>errors.push(e));
- const snapshot=()=>mp.evaluate(()=>wx.getStorageInfoSync().keys.filter(k=>k.startsWith('zhongshu-')).map(k=>[k,wx.getStorageSync(k)]));
- const restore=rows=>mp.evaluate(rows=>{wx.getStorageInfoSync().keys.filter(k=>k.startsWith('zhongshu-')).forEach(k=>wx.removeStorageSync(k));for(const[k,v]of rows)wx.setStorageSync(k,v);},rows);
- const original=await snapshot();fs.writeFileSync(path.join(out,'before-run.json'),JSON.stringify(original,null,2));
- async function open(url){await mp.callWxMethod('reLaunch',{url});await sleep(750);}
- async function rects(){return mp.evaluate(()=>new Promise(resolve=>{const q=wx.createSelectorQuery();q.selectAll('.page-actions').boundingClientRect();for(const c of ['solid','outline','btn','creation-primary','studio-primary','studio-outline'])q.selectAll('.page-actions .'+c).boundingClientRect();q.exec(rows=>{const unique=new Map();for(const r of rows.slice(1).flat())unique.set([r.left,r.top,r.width,r.height].join(','),r);resolve([rows[0],[...unique.values()]]);});}));}
- try{const a=A.seed(),b=B.initial(),e=E.initial(),m=M.seed(),pid=e.projects[0].id;const payable=m.payables.find(q=>q.id==='payable-chen-design');payable.approval={id:'layout-mock-approval',status:'approved',signature:F.signature(payable),actorId:'zhao-boss'};
-  for(let i=checks.length;i<scenes.length;i++){const scene=scenes[i];console.log('FOOTER '+(i+1)+'/'+scenes.length+' '+JSON.stringify(scene));
-   const state=JSON.parse(JSON.stringify(a));const o=state.orders.find(o=>o.id==='service-store-v2');
-   if(['delivery','delivery-issue','cancel'].includes(scene.variant)){o.status=scene.variant==='delivery'?'待接收':scene.variant==='delivery-issue'?'交付待修正':'取消处理中';o.confirmation={version:2,by:'赵总'};o.delivery={version:2,files:[{name:'示例交付.pdf',sample:true}],received:false};if(scene.variant==='cancel')o.cancel={reason:'布局回归模拟取消',status:'待核实',paymentStatus:'款项待核实',refundStatus:'待核实'};}
-   await restore([[A.KEY,state],[B.KEY,b],[E.KEY,e],[M.KEY,m]]);
-   await open('/pages/account/index?view=login');await mp.evaluate(id=>{const p=getCurrentPages().at(-1);p.setData({selectedDemoUser:id});p.loginDemo();},scene.who);await sleep(700);
-   const id=scene.area==='build'?(scene.id||pid):scene.id;const url='/pages/'+scene.area+'/index'+(scene.view?'?view='+scene.view:'')+(id?(scene.view?'&':'?')+'id='+encodeURIComponent(id):'');await open(url);
-   const p=await mp.currentPage();let before;for(let n=0;n<20;n++){before=await rects();if(before?.[0]?.length)break;await sleep(150);}assert(before?.[0]?.length,'Missing action bar '+url);assert.equal(before[0].length,1,'Only one visible action bar '+url);assert(before[1].length>=1&&before[1].length<=2,'One or two actions '+url);
-   const system=await mp.systemInfo(),bar=before[0][0],buttons=before[1];assert(Math.abs(bar.bottom-system.windowHeight)<2,'Bar touches viewport bottom '+url);for(const btn of buttons){assert(Math.abs(btn.height-system.windowWidth*88/750)<2,'Uniform button height '+url);assert(Math.abs(btn.bottom-(system.safeArea.bottom-system.windowWidth*20/750))<2,'Uniform safe-area baseline '+url);assert(btn.width>100,'Readable button width '+url);}
-   const actualArea=p.path.split('/')[1],displayView=await p.data('view');assert(p.path==='pages/'+scene.area+'/index'||scene.id==='missing-id'&&p.path==='pages/account/index'&&displayView==='access','Expected route or explicit missing-record access denial');const root=await p.$('.'+(['creation','ai-video','studio'].includes(actualArea)?'creation-page':actualArea));assert(root,'Rendered page root '+p.path);assert(parseFloat(await root.style('padding-bottom'))>=bar.height+10,'Content reserves action area '+url);
-   await mp.callWxMethod('pageScrollTo',{scrollTop:99999,duration:0});await sleep(180);const after=await rects();assert(Math.abs(after[1][0].bottom-buttons[0].bottom)<1,'Scrolling preserves button position '+url);
-   const filename=String(i+1).padStart(2,'0')+'-'+scene.area+'-'+(scene.view||'index')+'-'+scene.who+'.png';await mp.screenshot({path:path.join(out,filename)});captures.push({name:scene.area+' / '+(scene.view||'index')+' / '+scene.who,file:filename});checks.push({...scene,url,actualRoute:p.path,displayView,result:'passed',before,after,buttonBaseline:buttons[0].bottom,windowHeight:system.windowHeight});
-  }assert.equal(errors.length,0,JSON.stringify(errors));fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({result:'passed',checks,captures,errors,system:await mp.systemInfo()},null,2));console.log('ALL FOOTER LAYOUT CHECKS PASSED '+checks.length);
- }catch(e){await mp.screenshot({path:path.join(out,'failed.png')});fs.writeFileSync(path.join(out,'failed-results.json'),JSON.stringify({message:e.message,stack:e.stack,checks,captures,errors},null,2));throw e;}finally{await restore(original);const norm=rows=>JSON.stringify(rows.sort((a,b)=>a[0].localeCompare(b[0])));fs.writeFileSync(path.join(out,'restored.json'),JSON.stringify({restored:norm(original)===norm(await snapshot())}));await mp.callWxMethod('reLaunch',{url:'/pages/home/index'});await mp.disconnect();}
-})().catch(e=>{console.error(e);process.exitCode=1;});
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert/strict');
+const { execFileSync } = require('child_process');
+
+const root = path.resolve(__dirname, '..');
+const phase = process.env.FOOTER_PHASE || 'after';
+const directory = path.join(root, 'qa/page-actions-flow-20261022', phase);
+const project = path.join(root, '.tools/page-actions-flow-20261022/native-project');
+const endpoint = process.env.FRANCHISE_WS || 'ws://127.0.0.1:9898';
+const clone = value => JSON.parse(JSON.stringify(value));
+
+async function scenes() {
+  // Build fixtures through the existing business tests, including permissions and payment gates.
+  for (const script of ['verify-sales-offline-flow.cjs', 'verify-engineering-records.cjs']) {
+    execFileSync(process.execPath, [path.join(__dirname, script)], { cwd: root, stdio: 'pipe' });
+  }
+  const commission = require('../qa/business-module-simplification-20261021/page-scenes.json');
+  const engineering = require('../qa/engineering-records-20261021/page-scenes.json');
+  const fixtures = await require('./audit-fixtures.cjs')();
+  const views = { 'commission-submit': 'submit', 'design-complete': 'complete', 'design-dispatch': 'dispatch', 'packet-submit': 'handover', 'packet-return': 'receive', 'packet-receive': 'receive' };
+  const rows = commission.map((scene, index) => ({
+    name: 'commission-' + index + '-' + views[scene.action], rows: scene.before,
+    url: '/pages/workflow/commission/index?view=' + views[scene.action] + '&id=' + scene.id,
+    bar: '.commission-action-panel', content: '.commission-field'
+  }));
+  for (const [index, scene] of engineering.filter(scene => ['prepare', 'start', 'materials', 'delivery'].includes(scene.view)).entries()) {
+    rows.push({ name: 'record-' + index + '-' + scene.view, rows: scene.before, url: scene.url, bar: '.page-actions' });
+  }
+  const sales = fixtures.rowsByRole['sales-lead'];
+  rows.push(
+    { name: 'customer', rows: sales, url: '/pages/workflow/index?view=customer&id=' + fixtures.customerId, bar: '.page-actions' },
+    { name: 'account-login', rows: [], url: '/pages/account/index?view=login', bar: '.page-actions' },
+    { name: 'account-help', rows: sales, url: '/pages/account/index?view=help', bar: '.page-actions' },
+    { name: 'build-new', rows: fixtures.rowsByRole['project-manager'], url: '/pages/build/index?view=new', bar: '.page-actions', content: '.body' },
+    { name: 'studio-remix', rows: sales, url: '/pages/studio/index?view=remix', bar: '.page-actions' },
+    { name: 'ai-video', rows: sales, url: '/pages/ai-video/index', bar: '.page-actions' },
+    { name: 'growth-capture', rows: sales, url: '/pages/growth/index?view=capture', bar: '.page-actions', content: '.content' }
+  );
+  wx.getStorageInfoSync().keys.forEach(key => wx.removeStorageSync(key));
+  for (const [key, value] of clone(sales)) wx.setStorageSync(key, value);
+  require('../miniprogram/pages/workflow/design-session').estimate();
+  rows.push({ name: 'budget-result', rows: wx.getStorageInfoSync().keys.map(key => [key, wx.getStorageSync(key)]), url: '/pages/workflow/explore/index?view=budget-result', bar: '.budget-action-bar', content: '.budget-result-surface .card' });
+  wx.getStorageInfoSync().keys.forEach(key => wx.removeStorageSync(key));
+  for (const [key, value] of clone(commission[0].before)) wx.setStorageSync(key, value);
+  require('../miniprogram/utils/sales-flow').run(commission[0].id, commission[0].action, commission[0].input);
+  const account = require('../miniprogram/utils/account');
+  const state = account.load();
+  require('../miniprogram/utils/demo-users').login(state, 'finance-dual');
+  wx.setStorageSync(account.KEY, state);
+  const payable = require('../miniprogram/pages/admin/model').load().payables.find(item => item.source?.id === commission[0].id);
+  assert(payable, 'Fixture has a payable for the submitted commission');
+  rows.push({ name: 'finance-pay', rows: wx.getStorageInfoSync().keys.map(key => [key, wx.getStorageSync(key)]), url: '/pages/admin/index?view=pay&id=' + payable.id, bar: '.page-actions' });
+  return rows;
+}
+
+// Fixed or sticky bars either overlap preceding content or fail to move by the scroll distance.
+function measure({ bar, content }) {
+  return new Promise(resolve => {
+    const q = wx.createSelectorQuery();
+    q.selectAll(bar).boundingClientRect();
+    const buttons = ['btn', 'solid', 'outline', 'primary', 'studio-primary', 'studio-outline', 'creation-primary', 'eng-primary', 'eng-outline', 'commission-primary', 'commission-secondary'];
+    q.selectAll(buttons.map(name => bar + ' .' + name).join(',')).boundingClientRect();
+    q.selectAll(content || '.no-footer-content-anchor').boundingClientRect();
+    q.selectViewport().scrollOffset();
+    q.exec(([bars, buttons, contents, viewport]) => resolve(JSON.stringify({ bars, buttons, contents, scrollTop: viewport.scrollTop, window: wx.getWindowInfo() })));
+  });
+}
+
+async function main() {
+  const targets = await scenes();
+  fs.mkdirSync(directory, { recursive: true });
+  if (!process.env.FRANCHISE_WS) {
+    fs.mkdirSync(project, { recursive: true });
+    fs.cpSync(path.join(root, 'miniprogram'), path.join(project, 'miniprogram'), {
+      recursive: true,
+      // Avoid triggering recompilation for every unchanged asset in an already-open project.
+      filter: (source, target) => fs.statSync(source).isDirectory() || !fs.existsSync(target) || !fs.readFileSync(source).equals(fs.readFileSync(target))
+    });
+    const config = JSON.parse(fs.readFileSync(path.join(root, 'project.config.json'), 'utf8'));
+    config.projectname = 'page-actions-flow-qa';
+    fs.writeFileSync(path.join(project, 'project.config.json'), JSON.stringify(config, null, 2));
+    execFileSync(process.env.WECHAT_CLI || '/Applications/wechatwebdevtools.app/Contents/MacOS/cli', ['auto', '--project', project, '--auto-port', '9898'], { timeout: 45000, stdio: 'pipe' });
+  }
+  const runtime = require('./franchise-native-runtime.cjs');
+  let r;
+  for (let attempt = 0; !r; attempt++) {
+    try { r = await runtime.connect('footer-flow', { directory, wsEndpoint: endpoint }); }
+    catch (error) {
+      if (attempt === 9) throw error;
+      await runtime.sleep(500);
+    }
+  }
+  const checks = [];
+  try {
+    await r.sleep(2500);
+    for (const target of targets) {
+      console.log('OPEN ' + target.name);
+      await r.open('/pages/account/index?view=policy');
+      await r.replace(target.rows);
+      await r.open(target.url, target.bar);
+      const page = await r.mp.currentPage();
+      const position = await (await page.$(target.bar)).style('position');
+      const before = JSON.parse(await r.mp.evaluate(measure, { bar: target.bar, content: target.content }));
+      await r.capture(target.name + '-top');
+      assert.equal(before.bars.length, 1, target.name + ': one action area');
+      const bar = before.bars[0];
+      assert(!['fixed', 'sticky', 'absolute'].includes(position), target.name + ': actions must follow page content, actual position=' + position);
+      if (before.contents.length) assert(bar.top >= before.contents.at(-1).bottom - 1, target.name + ': actions must not overlap the last form field');
+      await r.mp.evaluate(() => new Promise(resolve => wx.pageScrollTo({ scrollTop: 99999, duration: 0, complete: () => setTimeout(resolve, 200) })));
+      const after = JSON.parse(await r.mp.evaluate(measure, { bar: target.bar, content: target.content }));
+      const moved = after.scrollTop - before.scrollTop;
+      assert(Math.abs(bar.top - after.bars[0].top - moved) < 2, target.name + ': actions scroll with content');
+      assert(after.bars[0].bottom <= after.window.safeArea.bottom + 1, target.name + ': actions clear the home indicator');
+      assert(after.bars[0].top >= 0, target.name + ': actions can be scrolled into view');
+      assert(after.buttons.length > 0, target.name + ': visible actions');
+      for (const button of after.buttons) {
+        assert(button.width >= 44 && button.height >= after.window.windowWidth * 88 / 750 - 2, target.name + ': usable button size');
+        assert(button.left >= 12 && button.right <= after.window.windowWidth - 12, target.name + ': horizontal inset');
+      }
+      await r.capture(target.name + '-bottom');
+      checks.push({ name: target.name, url: target.url, position, before, after });
+      console.log('PASS ' + target.name + ': scroll=' + moved + 'px');
+    }
+    assert.equal(r.errors.length, 0, JSON.stringify(r.errors));
+    fs.writeFileSync(path.join(directory, 'results.json'), JSON.stringify({ result: 'passed', project, checks, exceptions: r.errors }, null, 2));
+  } catch (error) {
+    fs.writeFileSync(path.join(directory, 'results.json'), JSON.stringify({ result: 'failed', project, checks, error: error.message, exceptions: r.errors }, null, 2));
+    throw error;
+  } finally {
+    await r.restore();
+  }
+}
+
+main().catch(error => { console.error(error.stack); process.exitCode = 1; });

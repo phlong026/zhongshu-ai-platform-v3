@@ -1,1 +1,3 @@
 @import "../owner.wxss";
+@import "../performance/settings.wxss";
+.management-company .owner-form-row input{max-width:65%;text-align:right}.management-company .owner-note{display:block;white-space:normal;overflow-wrap:anywhere}

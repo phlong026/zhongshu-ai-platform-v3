@@ -143,7 +143,7 @@ this.scrollToCopy();
 scrollToCopy(){if(!wx.createSelectorQuery)return;const scroll=()=>{try{const q=wx.createSelectorQuery();if(!q.selectViewport)return;q.select('.rewritten-card').boundingClientRect();q.selectViewport().scrollOffset();q.exec(rows=>{if(rows&&rows[0]&&rows[1])wx.pageScrollTo({scrollTop:Math.max(0,rows[0].top+rows[1].scrollTop-((getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight+56)),duration:250});});}catch(_){/* Scrolling must never block a successfully generated script. */}};if(wx.nextTick)wx.nextTick(scroll);else scroll();},
 openOptimization(){if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});this.setData({sheet:'optimize',sheetTitle:'AI优化',optimizeRequirement:'口语自然'});},
 inputOptimization(e){this.setData({optimizeRequirement:e.currentTarget.dataset.value});},
-optimizeScript(){this.attempt(()=>{const state=studio.read();Demo.optimizeCopy(state,this.data.optimizeRequirement);studio.write(state);const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.setData({sheet:''});this.refreshData();wx.showToast({title:'模拟优化已完成',icon:'none'});});},
+optimizeScript(){this.attempt(()=>{const state=studio.read();Demo.optimizeCopy(state,this.data.optimizeRequirement);studio.write(state);const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.setData({sheet:''});this.refreshData();wx.showToast({title:'文案优化已完成',icon:'none'});});},
 makeDigital() {
 if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});
 const state = studio.read(); state.script = this.data.script; state.title = this.data.title; studio.write(state);
@@ -156,7 +156,7 @@ selectVoice() { this.setData({ voice: '李顾问原声', sheet: '' }); },
 audition() { wx.showModal({ title: '声音试听', content: '当前仅提供声音选择界面，尚未配置试听音频。', showCancel: false, confirmColor: '#824019' }); },
 generateDigital() {
 if (!this.data.script.trim()) { wx.showToast({ title: '请先填写口播文案', icon: 'none' }); return; }
-wx.showModal({ title: '体验口播创作流程', content: '数字人生成服务暂未开通，当前将创建预览任务。', confirmText: '体验流程', confirmColor: '#824019', success: ({ confirm }) => {
+wx.showModal({ title: '创建口播预览', content: '数字人生成服务暂未开通，当前将创建预览任务。', confirmText: '创建预览', confirmColor: '#824019', success: ({ confirm }) => {
 if (confirm) { const task = studio.createDemoTask('digital', '', { actor: this.data.actor, voice: this.data.voice }); this.go('tasks', '&task=' + task.id); }
 } });
 },
@@ -167,7 +167,7 @@ const id = e.currentTarget.dataset.id;
 const task = studio.read().tasks.find(task => task.id === id);
 if (!task) { wx.showToast({ title: '任务不存在或已清理', icon: 'none' }); this.refreshData(); return; }
 if (task.status === 'generating') {
-wx.showModal({ title: '任务进度', content: '当前进度 ' + task.progress + '%。可将此任务推进到完成状态。', confirmText: '演示完成', confirmColor: '#824019', success: ({ confirm }) => { if (confirm) { studio.completeTask(id); this.refreshData(); } } });
+wx.showModal({ title: '任务进度', content: '当前进度 ' + task.progress + '%。可将此任务推进到完成状态。', confirmText: '标记完成', confirmColor: '#824019', success: ({ confirm }) => { if (confirm) { studio.completeTask(id); this.refreshData(); } } });
 } else if (task.status === 'save-failed') {
 this.attempt(() => { studio.saveWork(id); this.refreshData(); wx.showToast({ title: '作品已保存' }); });
 } else this.go('result', '&task=' + id);

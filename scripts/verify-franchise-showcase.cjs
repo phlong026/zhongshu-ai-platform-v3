@@ -15,7 +15,7 @@ const fs = require('fs'), path = require('path'), assert = require('assert/stric
   const pass = name => { checks.push(name); console.log('PASS ' + name); };
   const cur = () => getCurrentPages().at(-1);
   const open = url => { wx.reLaunch({ url }); assert(!cur().data.error, url + ' ' + cur().data.error); return cur(); };
-  const people = A.demoLoginUsers.filter(p => p.companyId !== 'headquarters');
+  const people = A.demoUsers.filter(p => p.companyId !== 'headquarters');
   assert(people.length >= 8, 'franchise demo identities');
   const forbidden = /提交需求|提交采购需求|我的订单|我的服务订单|我的采购单|服务流程|关联项目/;
   let seen = 0;

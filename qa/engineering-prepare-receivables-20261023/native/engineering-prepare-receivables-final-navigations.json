@@ -1,0 +1,80 @@
+[
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1718
+  },
+  {
+    "url": "/pages/account/index?view=identity",
+    "method": "redirectTo",
+    "callback": "success",
+    "elapsedMs": 1429
+  },
+  {
+    "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=prepare",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1506
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1463
+  },
+  {
+    "url": "/pages/admin/operations/index?view=receivables&id=project-customer-1792729799855-pq906",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 10126
+  },
+  {
+    "url": "/pages/admin/operations/index?view=receivables&id=project-customer-1792729799855-pq906",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1455
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1481
+  },
+  {
+    "url": "/pages/account/index?view=identity",
+    "method": "redirectTo",
+    "callback": "success",
+    "elapsedMs": 1434
+  },
+  {
+    "url": "/pages/management/index",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1511
+  },
+  {
+    "url": "/pages/management/index",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1497
+  },
+  {
+    "url": "/pages/account/index?view=login",
+    "method": "reLaunch",
+    "callback": "success",
+    "elapsedMs": 1443
+  },
+  {
+    "url": "/pages/account/index?view=identity",
+    "method": "redirectTo",
+    "callback": "success",
+    "elapsedMs": 1440
+  },
+  {
+    "url": "/pages/account/index?view=policy",
+    "method": "redirectTo",
+    "callback": "success",
+    "elapsedMs": 1468
+  }
+]

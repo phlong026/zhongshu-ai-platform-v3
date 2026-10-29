@@ -84,5 +84,6 @@ const STARTS = {
     fs.writeFileSync(path.join(out, role + '.json'), JSON.stringify({ role, pages: [...seen.entries()], edges, issues }, null, 1));
   }
   fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(Object.fromEntries(Object.entries(report).map(([k, v]) => [k, { pages: v.pages, taps: v.taps, edges: v.edges, issues: v.issues.length }])), null, 2));
-  process.exit(0);
+  const issues = Object.values(report).reduce((total, role) => total + role.issues.length, 0);
+  process.exit(process.argv.includes('--strict') && issues ? 1 : 0);
 })().catch(e => { console.error(e.stack); process.exit(2); });

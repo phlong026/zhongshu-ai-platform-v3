@@ -1,0 +1,952 @@
+{
+  "result": "passed",
+  "evidence": "Official WeChat native Element.tap/input/trigger(change); saved-budget-only setup; subsequent facts produced by visible controls",
+  "applicationCodeCommit": "e465e3f4d1fbf8f21b370d711ae2eba91ed8b88a",
+  "customer": {
+    "id": "customer-1792713737360-ej9wu",
+    "name": "陈建国家（连续验收）",
+    "ownerId": "sales-dual"
+  },
+  "project": {
+    "id": "project-customer-1792713737360-ej9wu",
+    "engineeringId": "biz-customer-1792713737360-ej9wu",
+    "sourceCustomerId": "customer-1792713737360-ej9wu",
+    "drawingVersion": "V2",
+    "archived": true,
+    "delivery": {
+      "date": "2026-10-23",
+      "recipient": "陈建国（业主本人）"
+    },
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "基础工程",
+        "status": "已完成"
+      },
+      {
+        "id": "n2",
+        "name": "1层主体",
+        "status": "已完成"
+      },
+      {
+        "id": "n3",
+        "name": "2层主体",
+        "status": "已完成"
+      },
+      {
+        "id": "n4",
+        "name": "主体封顶",
+        "status": "已完成"
+      },
+      {
+        "id": "n5",
+        "name": "后续合同工程",
+        "status": "已完成"
+      }
+    ],
+    "warranties": [
+      {
+        "note": "业主入住回访：露台排水检查已完成并由陈建国确认。",
+        "status": "已完成"
+      }
+    ]
+  },
+  "amountsYuan": {
+    "referenceBudget": 548800,
+    "constructionContract": 548800,
+    "constructionStart": 329280,
+    "constructionTopping": 219520,
+    "designService": 12000
+  },
+  "collectionsCents": [
+    {
+      "stage": "start",
+      "amount": 16464000,
+      "transaction": "HUMAN-START-1"
+    },
+    {
+      "stage": "start",
+      "amount": 16464000,
+      "transaction": "HUMAN-START-2"
+    },
+    {
+      "stage": "topping",
+      "amount": 21952000,
+      "transaction": "HUMAN-TOPPING"
+    }
+  ],
+  "paymentsCents": [
+    {
+      "payableId": "business-design:customer-1792713737360-ej9wu:1:first",
+      "amount": 600000,
+      "transaction": "HUMAN-STORE-FIRST",
+      "registrarId": "finance-dual",
+      "status": "已核实"
+    },
+    {
+      "payableId": "business-design:customer-1792713737360-ej9wu:1:tail",
+      "amount": 200000,
+      "transaction": "HUMAN-STORE-TAIL-1",
+      "registrarId": "finance-dual",
+      "status": "已核实"
+    },
+    {
+      "payableId": "business-design:customer-1792713737360-ej9wu:1:tail",
+      "amount": 400000,
+      "transaction": "HUMAN-STORE-TAIL-2",
+      "registrarId": "finance-dual",
+      "status": "已核实"
+    },
+    {
+      "payableId": "engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-jwnjq28",
+      "amount": 30000,
+      "transaction": "HUMAN-MATERIAL-0",
+      "registrarId": "finance-dual",
+      "status": "已核实"
+    },
+    {
+      "payableId": "engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-3k8hoz8",
+      "amount": 20000,
+      "transaction": "HUMAN-MATERIAL-1",
+      "registrarId": "finance-dual",
+      "status": "已核实"
+    },
+    {
+      "payableId": "expense-payable:expense-1792715999926-0",
+      "amount": 100000,
+      "transaction": "HUMAN-LABOR-PAID",
+      "registrarId": "finance-dual",
+      "status": "已核实"
+    }
+  ],
+  "paymentTotalYuan": 13500.0,
+  "costCompleteness": "仅设计、材料和人工样例，不能作为完整成本、预测毛利或财务结清依据",
+  "steps": [
+    {
+      "id": "B01",
+      "title": "预算结果进入设计委托并提交",
+      "responsibility": "李业务",
+      "result": "passed",
+      "screenshot": "B01.png"
+    },
+    {
+      "id": "B02",
+      "title": "从老板首页批准本项目设计费用",
+      "responsibility": "张老板",
+      "result": "passed",
+      "screenshot": "B02.png"
+    },
+    {
+      "id": "B03",
+      "title": "门店登记设计首款实际付款",
+      "responsibility": "王财务",
+      "result": "passed",
+      "screenshot": "B03.png"
+    },
+    {
+      "id": "B04",
+      "title": "总部核实首款实际到账",
+      "responsibility": "罗财务",
+      "result": "passed",
+      "screenshot": "B04.png"
+    },
+    {
+      "id": "B05",
+      "title": "总部设计登记线下设计与审核完成",
+      "responsibility": "林设计",
+      "result": "passed",
+      "screenshot": "B05.png"
+    },
+    {
+      "id": "B06",
+      "title": "门店尾款先付2000元，总部核收后仍待补足",
+      "responsibility": "王财务 → 罗财务 → 林设计",
+      "result": "passed",
+      "screenshot": "B06.png"
+    },
+    {
+      "id": "B07",
+      "title": "尾款补足4000元并核收，出现成果下发待办",
+      "responsibility": "王财务 → 罗财务",
+      "result": "passed",
+      "screenshot": "B07.png"
+    },
+    {
+      "id": "B08",
+      "title": "总部按原项目下发V1正式成果",
+      "responsibility": "林设计",
+      "result": "passed",
+      "screenshot": "B08.png"
+    },
+    {
+      "id": "B08b",
+      "title": "客户修改沿原委托形成V2，原费用及付款不重复",
+      "responsibility": "李业务 → 林设计",
+      "result": "passed",
+      "screenshot": "B08b.png"
+    },
+    {
+      "id": "B09",
+      "title": "业务首页找到移交，选择四类本项目模拟资料并预览",
+      "responsibility": "李业务",
+      "result": "passed",
+      "screenshot": "B09.png"
+    },
+    {
+      "id": "E00",
+      "title": "工程从首页退回一项交底说明，回到原业务人员",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E00.png"
+    },
+    {
+      "id": "E00b",
+      "title": "业务从退回待办补说明并重交，原四文件与版本保留",
+      "responsibility": "李业务",
+      "result": "passed",
+      "screenshot": "E00b.png"
+    },
+    {
+      "id": "E01",
+      "title": "工程首页接收业务四类成果和本版交底",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E01.png"
+    },
+    {
+      "id": "E02",
+      "title": "工程首页进入开工准备，登记已签合同及两期收款",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E02.png"
+    },
+    {
+      "id": "E03",
+      "title": "老板从首页确认与预算对应的合同和两期收款",
+      "responsibility": "张老板",
+      "result": "passed",
+      "screenshot": "E03.png"
+    },
+    {
+      "id": "E04",
+      "title": "门店财务分两笔登记开工款",
+      "responsibility": "王财务",
+      "result": "passed",
+      "screenshot": "E04.png"
+    },
+    {
+      "id": "E05",
+      "title": "工程首页记录实际开工",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E05.png"
+    },
+    {
+      "id": "E06",
+      "title": "从当前节点进入资金计划并保存",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E06.png"
+    },
+    {
+      "id": "E07",
+      "title": "从节点提交水泥与砂两项材料需求",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E07.png"
+    },
+    {
+      "id": "E08",
+      "title": "原材料计划分两批到货并留存凭据",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E08.png"
+    },
+    {
+      "id": "E09",
+      "title": "财务待办补齐供应方和采购金额",
+      "responsibility": "王财务",
+      "result": "passed",
+      "screenshot": "E09.png"
+    },
+    {
+      "id": "E10-0",
+      "title": "老板审批材料款，财务按原单付款",
+      "responsibility": "张老板 → 王财务",
+      "result": "passed",
+      "screenshot": "E10-0.png"
+    },
+    {
+      "id": "E10-1",
+      "title": "老板审批材料款，财务按原单付款",
+      "responsibility": "张老板 → 王财务",
+      "result": "passed",
+      "screenshot": "E10-1.png"
+    },
+    {
+      "id": "E11",
+      "title": "按每个施工节点登记现场与验收，封顶后收尾款",
+      "responsibility": "张工程 → 王财务",
+      "result": "passed",
+      "screenshot": "E11.png"
+    },
+    {
+      "id": "E11b",
+      "title": "从原施工节点提交人工费用，老板审批后财务付款",
+      "responsibility": "张工程 → 张老板 → 王财务",
+      "result": "passed",
+      "screenshot": "E11b.png"
+    },
+    {
+      "id": "E12",
+      "title": "工程首页完成业主签收交付与施工资料归档",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E12.png"
+    },
+    {
+      "id": "E13",
+      "title": "从交付档案登记原项目保修回访",
+      "responsibility": "张工程",
+      "result": "passed",
+      "screenshot": "E13.png"
+    },
+    {
+      "id": "F01",
+      "title": "财务从项目账核对原项目累计收付款与交付",
+      "responsibility": "王财务",
+      "result": "passed",
+      "screenshot": "F01.png"
+    }
+  ],
+  "handoffCaptureCount": 42,
+  "uniqueActorTaskCount": 28,
+  "handoffs": [
+    {
+      "step": "B03",
+      "responsibility": {
+        "user": "finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "pay:business-design:customer-1792713737360-ej9wu:1:first:",
+      "taskName": "陈建国家（连续验收） · 设计首款",
+      "taskAction": "登记付款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=pay&id=business-design%3Acustomer-1792713737360-ej9wu%3A1%3Afirst\"]",
+      "visible": true,
+      "screenshot": "handoff-1.png"
+    },
+    {
+      "step": "B04",
+      "responsibility": {
+        "user": "hq-finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "incoming-register:incoming:design:quanzhou:customer-1792713737360-ej9wu:1:first:payment-1792714506371-1:1:",
+      "taskName": "陈建国家（连续验收） · 设计首款实际到账",
+      "taskAction": "登记收款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=incoming-register&id=incoming%3Adesign%3Aquanzhou%3Acustomer-1792713737360-ej9wu%3A1%3Afirst%3Apayment-1792714506371-1%3A1\"]",
+      "visible": true,
+      "screenshot": "handoff-2.png"
+    },
+    {
+      "step": "B08b",
+      "responsibility": {
+        "user": "hq-design-admin",
+        "role": "hq-design-admin"
+      },
+      "area": "总部设计首页待我办理",
+      "taskId": "customer-1792713737360-ej9wu",
+      "taskName": "陈建国家（连续验收）",
+      "taskAction": "登记下发",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/workflow/commission/index?view=dispatch&id=customer-1792713737360-ej9wu\"]",
+      "visible": true,
+      "screenshot": "handoff-13.png"
+    },
+    {
+      "step": "B07",
+      "responsibility": {
+        "user": "finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "pay:business-design:customer-1792713737360-ej9wu:1:tail:",
+      "taskName": "陈建国家（连续验收） · 设计尾款",
+      "taskAction": "登记付款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=pay&id=business-design%3Acustomer-1792713737360-ej9wu%3A1%3Atail\"]",
+      "visible": true,
+      "screenshot": "handoff-8.png"
+    },
+    {
+      "step": "B06",
+      "responsibility": {
+        "user": "hq-finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "incoming-register:incoming:design:quanzhou:customer-1792713737360-ej9wu:1:tail:payment-1792714581383-2:1:",
+      "taskName": "陈建国家（连续验收） · 设计尾款实际到账",
+      "taskAction": "登记收款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=incoming-register&id=incoming%3Adesign%3Aquanzhou%3Acustomer-1792713737360-ej9wu%3A1%3Atail%3Apayment-1792714581383-2%3A1\"]",
+      "visible": true,
+      "screenshot": "handoff-5.png"
+    },
+    {
+      "step": "B06",
+      "responsibility": {
+        "user": "hq-finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "incoming-register:incoming:design:quanzhou:customer-1792713737360-ej9wu:1:tail:payment-1792714723264-3:1:",
+      "taskName": "陈建国家（连续验收） · 设计尾款实际到账",
+      "taskAction": "登记收款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=incoming-register&id=incoming%3Adesign%3Aquanzhou%3Acustomer-1792713737360-ej9wu%3A1%3Atail%3Apayment-1792714723264-3%3A1\"]",
+      "visible": true,
+      "screenshot": "handoff-7.png"
+    },
+    {
+      "step": "B07",
+      "responsibility": {
+        "user": "hq-finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "incoming-register:incoming:design:quanzhou:customer-1792713737360-ej9wu:1:tail:payment-1792714794009-4:1:",
+      "taskName": "陈建国家（连续验收） · 设计尾款实际到账",
+      "taskAction": "登记收款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=incoming-register&id=incoming%3Adesign%3Aquanzhou%3Acustomer-1792713737360-ej9wu%3A1%3Atail%3Apayment-1792714794009-4%3A1\"]",
+      "visible": true,
+      "screenshot": "handoff-9.png"
+    },
+    {
+      "step": "E00b",
+      "responsibility": {
+        "user": "sales-dual",
+        "role": "sales"
+      },
+      "area": "业务首页待我办理",
+      "taskId": "offline:customer-1792713737360-ej9wu:1",
+      "taskName": "陈建国家（连续验收）",
+      "taskAction": "收图并移交",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": ".sales-todo-row[data-id=\"offline:customer-1792713737360-ej9wu:1\"]",
+      "visible": true,
+      "screenshot": "handoff-16.png"
+    },
+    {
+      "step": "E01",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "handover:customer-1792713737360-ej9wu",
+      "taskName": "陈建国家（连续验收） · 黄冈市乡墅",
+      "taskAction": "核对接收",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/workflow/index?view=receive&id=customer-1792713737360-ej9wu\"]",
+      "visible": true,
+      "screenshot": "handoff-20.png",
+      "destination": {
+        "route": "pages/workflow/commission/index",
+        "id": "customer-1792713737360-ej9wu",
+        "view": "receive",
+        "customerId": "customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E02",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:prepare",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=prepare\"]",
+      "visible": true,
+      "screenshot": "handoff-21.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "prepare",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E03",
+      "responsibility": {
+        "user": "boss",
+        "role": "boss"
+      },
+      "area": "老板首页或全部待办",
+      "taskId": "plan-approval:project-customer-1792713737360-ej9wu:",
+      "taskName": "陈建国家（连续验收） · 合同分期约定",
+      "taskAction": "去审批",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-key=\"plan-approval:project-customer-1792713737360-ej9wu:\"]",
+      "visible": true,
+      "screenshot": "handoff-22.png",
+      "destination": {
+        "route": "pages/admin/operations/index",
+        "id": "project-customer-1792713737360-ej9wu",
+        "view": "receivables",
+        "error": ""
+      }
+    },
+    {
+      "step": "E04",
+      "responsibility": {
+        "user": "finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "engineering-collection:biz-customer-1792713737360-ej9wu:collection:start:",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅 · 开工款",
+      "taskAction": "登记收款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=collection&stage=start\"]",
+      "visible": true,
+      "screenshot": "handoff-24.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "collection",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E05",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:start",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=start\"]",
+      "visible": true,
+      "screenshot": "handoff-25.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "start",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E11",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:node-n1",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=node&nodeId=n1\"]",
+      "visible": true,
+      "screenshot": "handoff-33.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "node",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E09",
+      "responsibility": {
+        "user": "finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "pay:material-terms:material-plan-1792715437019-myysy1t:",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅 · 材料付款资料待记录",
+      "taskAction": "登记付款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=material&planId=material-plan-1792715437019-myysy1t\"]",
+      "visible": true,
+      "screenshot": "handoff-27.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "material",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E10-0",
+      "responsibility": {
+        "user": "boss",
+        "role": "boss"
+      },
+      "area": "老板首页或全部待办",
+      "taskId": "pay-approval:engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-jwnjq28:",
+      "taskName": "陈建国家（连续验收） · 材料采购",
+      "taskAction": "去审批",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-key=\"pay-approval:engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-jwnjq28:\"]",
+      "visible": true,
+      "screenshot": "handoff-29.png",
+      "destination": {
+        "route": "pages/admin/index",
+        "id": "engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-jwnjq28",
+        "view": "pay-approval",
+        "error": ""
+      }
+    },
+    {
+      "step": "E10-0",
+      "responsibility": {
+        "user": "finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "pay:engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-jwnjq28:",
+      "taskName": "陈建国家（连续验收） · 材料采购",
+      "taskAction": "登记付款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=pay&id=engineering-payable%3Abiz-customer-1792713737360-ej9wu%3Asupply-1792715437019-jwnjq28\"]",
+      "visible": true,
+      "screenshot": "handoff-30.png",
+      "destination": {
+        "route": "pages/admin/index",
+        "id": "engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-jwnjq28",
+        "view": "pay",
+        "error": ""
+      }
+    },
+    {
+      "step": "E10-1",
+      "responsibility": {
+        "user": "boss",
+        "role": "boss"
+      },
+      "area": "老板首页或全部待办",
+      "taskId": "pay-approval:engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-3k8hoz8:",
+      "taskName": "陈建国家（连续验收） · 材料采购",
+      "taskAction": "去审批",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-key=\"pay-approval:engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-3k8hoz8:\"]",
+      "visible": true,
+      "screenshot": "handoff-31.png",
+      "destination": {
+        "route": "pages/admin/index",
+        "id": "engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-3k8hoz8",
+        "view": "pay-approval",
+        "error": ""
+      }
+    },
+    {
+      "step": "E10-1",
+      "responsibility": {
+        "user": "finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "pay:engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-3k8hoz8:",
+      "taskName": "陈建国家（连续验收） · 材料采购",
+      "taskAction": "登记付款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=pay&id=engineering-payable%3Abiz-customer-1792713737360-ej9wu%3Asupply-1792715437019-3k8hoz8\"]",
+      "visible": true,
+      "screenshot": "handoff-32.png",
+      "destination": {
+        "route": "pages/admin/index",
+        "id": "engineering-payable:biz-customer-1792713737360-ej9wu:supply-1792715437019-3k8hoz8",
+        "view": "pay",
+        "error": ""
+      }
+    },
+    {
+      "step": "E11",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:node-n2",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=node&nodeId=n2\"]",
+      "visible": true,
+      "screenshot": "handoff-34.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "node",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E11",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:node-n3",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=node&nodeId=n3\"]",
+      "visible": true,
+      "screenshot": "handoff-35.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "node",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E11",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:node-n4",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=node&nodeId=n4\"]",
+      "visible": true,
+      "screenshot": "handoff-36.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "node",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E11",
+      "responsibility": {
+        "user": "finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "engineering-collection:biz-customer-1792713737360-ej9wu:collection:topping:",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅 · 封顶款",
+      "taskAction": "登记收款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=collection&stage=topping\"]",
+      "visible": true,
+      "screenshot": "handoff-37.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "collection",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E11",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:node-n5",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=node&nodeId=n5\"]",
+      "visible": true,
+      "screenshot": "handoff-38.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "node",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E11b",
+      "responsibility": {
+        "user": "boss",
+        "role": "boss"
+      },
+      "area": "老板首页或全部待办",
+      "taskId": "expense-approval:project-customer-1792713737360-ej9wu:expense-1792715999926-0",
+      "taskName": "陈建国家（连续验收） · 陈建国家收尾人工费用",
+      "taskAction": "去审批",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-key=\"expense-approval:project-customer-1792713737360-ej9wu:expense-1792715999926-0\"]",
+      "visible": true,
+      "screenshot": "handoff-39.png",
+      "destination": {
+        "route": "pages/admin/operations/index",
+        "id": "project-customer-1792713737360-ej9wu",
+        "view": "expenses",
+        "error": ""
+      }
+    },
+    {
+      "step": "E11b",
+      "responsibility": {
+        "user": "finance-dual",
+        "role": "finance"
+      },
+      "area": "财务首页或全部待办",
+      "taskId": "pay:expense-payable:expense-1792715999926-0:",
+      "taskName": "陈建国家（连续验收） · 人工费用",
+      "taskAction": "登记付款",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/admin/index?view=pay&id=expense-payable%3Aexpense-1792715999926-0\"]",
+      "visible": true,
+      "screenshot": "handoff-40.png",
+      "destination": {
+        "route": "pages/admin/index",
+        "id": "expense-payable:expense-1792715999926-0",
+        "view": "pay",
+        "error": ""
+      }
+    },
+    {
+      "step": "E12",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:delivery",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=delivery\"]",
+      "visible": true,
+      "screenshot": "handoff-41.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "delivery",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    },
+    {
+      "step": "E12",
+      "responsibility": {
+        "user": "engineering-dual",
+        "role": "engineer"
+      },
+      "area": "工程首页或全部待办",
+      "taskId": "biz-customer-1792713737360-ej9wu:record:archive",
+      "taskName": "陈建国家（连续验收） · 黄冈乡墅",
+      "taskAction": "去记录",
+      "customerId": "customer-1792713737360-ej9wu",
+      "projectId": "project-customer-1792713737360-ej9wu",
+      "selector": "button[data-url=\"/pages/build/record/index?id=biz-customer-1792713737360-ej9wu&view=archive\"]",
+      "visible": true,
+      "screenshot": "handoff-42.png",
+      "destination": {
+        "route": "pages/build/record/index",
+        "id": "biz-customer-1792713737360-ej9wu",
+        "view": "archive",
+        "projectId": "project-customer-1792713737360-ej9wu",
+        "error": ""
+      }
+    }
+  ],
+  "exceptionCount": 0,
+  "storageRestored": true,
+  "finalFinanceSampleRetest": {
+    "result": "passed",
+    "scope": [
+      "B03",
+      "B04"
+    ],
+    "sourceDirectory": "qa/human-finance-final-20261023",
+    "version": "设计服务V1",
+    "files": [
+      {
+        "name": "付款登记 · file参考凭据.pdf",
+        "meta": {
+          "scope": "project",
+          "companyId": "",
+          "customerId": "customer-1792713737360-ej9wu",
+          "projectId": "project-customer-1792713737360-ej9wu",
+          "version": "设计服务V1",
+          "actorId": "finance-dual",
+          "purpose": "付款登记 · file",
+          "sourceParty": "众墅之家总部",
+          "confirmationParty": ""
+        },
+        "text": "体验版模拟文件\n客户：陈建国家（连续验收）（customer-1792713737360-ej9wu）\n项目：陈建国家（连续验收）\n项目ID：project-customer-1792713737360-ej9wu\n版本：设计服务V1\n来源责任人：众墅之家总部\n当前登记人：王财务（finance-dual）\n用途：付款登记 · file\n财务事项：总部设计服务\n本次金额：6000元\n交易流水：HUMAN-STORE-FIRST\n实际日期：2026-10-23\n收款方：众墅之家总部\n说明：本文件仅用于体验版流程联调，可在页面内直接预览。"
+      },
+      {
+        "name": "确认设计款到账 · file参考凭据.pdf",
+        "meta": {
+          "scope": "project",
+          "companyId": "",
+          "customerId": "customer-1792713737360-ej9wu",
+          "projectId": "project-customer-1792713737360-ej9wu",
+          "version": "设计服务V1",
+          "actorId": "hq-finance-dual",
+          "purpose": "确认设计款到账 · file",
+          "sourceParty": "陈建国家（连续验收）",
+          "confirmationParty": ""
+        },
+        "text": "体验版模拟文件\n客户：陈建国家（连续验收）（customer-1792713737360-ej9wu）\n项目：陈建国家（连续验收）\n项目ID：project-customer-1792713737360-ej9wu\n版本：设计服务V1\n来源责任人：陈建国家（连续验收）\n当前登记人：罗财务（hq-finance-dual）\n用途：确认设计款到账 · file\n财务事项：设计首款实际到账\n需求版本：V1\n本次金额：6000元\n交易流水：HUMAN-HQ-FIRST\n实际日期：2026-10-23\n说明：本文件仅用于体验版流程联调，可在页面内直接预览。"
+      }
+    ],
+    "storageRestored": true
+  },
+  "scopeBoundary": "原生模拟器本地同一项目六角色；未验真实跨设备通知、真机、真实文件或银行流水；财务结清线下办理"
+}

@@ -1,0 +1,55 @@
+{
+  "result": "passed",
+  "scope": "d94bdc3 改版前隔离源码；真实登录老板岗位并只读查看合同应收，未执行审批或业务修改。",
+  "sourceCommit": "d94bdc30f06c4795e88c951f2d3bbb87dc4fa66e",
+  "sourceFingerprint": {
+    "files": 650,
+    "sha256": "d747e152051e3a7f158d041d6d66e7e31c50798cb98c376e99193a70a6f4be47"
+  },
+  "checks": [
+    {
+      "name": "改版前合同应收首屏与一次审批区只读基线",
+      "result": "passed",
+      "projectId": "project-customer-1792729130993-rhuun",
+      "planVersion": 1,
+      "planStatus": "pending",
+      "installmentCount": 2,
+      "approvalControl": "plan-approve"
+    }
+  ],
+  "screenshots": [
+    "before-receivables-first-screen.png",
+    "before-receivables-approval.png"
+  ],
+  "interactions": [
+    {
+      "route": "pages/account/index",
+      "selector": ".demo-user-picker",
+      "dataset": {},
+      "expectedHandler": "selectDemoUser",
+      "via": "Element.trigger(change)"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "dataset": {},
+      "expectedHandler": "toggle",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".page-actions .solid",
+      "dataset": {},
+      "expectedHandler": "login",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet .solid",
+      "dataset": {},
+      "expectedHandler": "confirmModal",
+      "via": "Element.tap"
+    }
+  ],
+  "exceptions": []
+}

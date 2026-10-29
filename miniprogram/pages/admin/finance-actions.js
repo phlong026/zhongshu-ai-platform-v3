@@ -8,11 +8,14 @@ function apply(s,action,id,f={}){
  const a=X.context(),actor=X.actor();X.assert(a.active&&s.companyId===a.companyId,'当前公司或人员没有授权');let result=id;
  const q=s.payables.find(r=>r.id===id),r=s.receipts.find(r=>r.id===id);
  if(action==='incoming-register'){
+  if(require('../../utils/design-receipts').isSource(r?.source))result=require('../../utils/design-receipts').register(s,id,f);
+  else{
   X.assert(a.orgType==='store'&&O.has(a.role,'finance'),'仅加盟商财务办理收款登记');
   X.assert(r&&X.rowAccess(r)&&r.source?.module!=='intercompany'&&r.status==='待核算'&&!r.financialRegistrarId,'请从原收款事项登记，已登记的收款不能重复办理');
   X.assert(amount(f.amount)===r.amount&&date(f.date)&&f.date<=require('../../utils/account').localDate()&&f.file&&f.checked&&String(f.transaction||'').trim(),'请核对原收款金额并补齐实际日期、流水和凭据');
   X.assert(!s.receipts.some(t=>t.id!==id&&(t.bankTransaction||t.transaction)===f.transaction.trim()),'银行到账流水已登记');
   Object.assign(r,{financialRegistrarId:a.staffId,financialRegistrarPersonId:a.personId,custodianId:a.staffId,bankFile:copy(f.file),bankTransaction:f.transaction.trim(),bankDate:f.date,bankNote:String(f.note||'').trim(),status:'已核算',registrationMode:'record-only-v1',registeredAt:actor.at,version:(r.version||1)+1});
+  }
  }else{
   X.assert(q&&X.rowAccess(q),'付款来源不存在或无权访问');
   if(action==='approve-pay'||action==='approval-return'){

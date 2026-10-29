@@ -53,7 +53,7 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   }
   const has = (who, role, view, test) => !!find(desk(who, role), view, test);
 
-  // ---- A. design fee on the commission protocol: store pays, headquarters registers receipt, separate people review ----
+  // ---- A. design fee on the commission protocol: store records payment, headquarters confirms actual receipt ----
   const submitScene = bizScenes.find(s => s.action === 'commission-submit');
   install(submitScene.before);
   login('sales-dual', 'sales-lead');
@@ -69,12 +69,22 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   const D = require('../miniprogram/utils/finance-desk'), copies = D.services(M.load()).filter(r => r.customerId === cid);
   assert.equal(copies.length, 2, '费用授权后首尾款都抄送总部，不等待加盟商付款');
   for (const stage of ['first','tail']) { const row = D.statement(M.load(),cid,stage); assert.equal(row.primary,null); assert(row.approved); }
-  assert(desk('hq-finance','finance').tasks.every(t => t.view === 'pay'));
-  pass('A1 老板费用授权后首尾款自动抄送总部；总部仅有付款登记类待办');
+  assert(!desk('hq-finance','finance').tasks.some(t => t.view === 'incoming-register' && mine(t)));
+  pass('A1 老板费用授权后首尾款自动抄送总部；加盟商尚未付款时不伪造到账待办');
 
   login('hq-design-admin');
-  assert(open('/pages/business/index').data.tasks.some(t => t.customerId === cid));
-  pass('A2 设计行政按线下财务通知办理，线上不增加总部核收关卡');
+  assert(!open('/pages/business/index').data.tasks.some(t => t.customerId === cid));
+  assert.equal(require('../miniprogram/utils/sales-flow').next(raw()).waitingFirst,true);
+  pass('A2 老板费用授权后仍需门店足额登记首款，行政不提前开始设计');
+
+  async function receive(stage, amount, transaction) {
+    login('hq-finance','finance');
+    const state=M.load(),receipt=state.receipts.find(r=>r.status==='待登记'&&r.source?.module==='intercompany'&&r.source.protocol==='sales-offline-v1'&&r.source.customerId===cid&&r.source.stage===stage);
+    assert(receipt,'总部应收到'+(stage==='first'?'首款':'尾款')+'实际到账登记待办');
+    await act('hq-finance','finance','incoming-register',t=>t.id===receipt.id,{amount:String(amount),date,transaction,file:file(transaction),checked:true,note:'核对总部银行实际到账',expectedSource:JSON.stringify(receipt.source),expectedAmount:String(receipt.amount)});
+    const saved=M.load().receipts.find(r=>r.id===receipt.id);assert(saved&&saved.status==='已核算'&&saved.registrationMode==='record-only-v1'&&!saved.reviewerId);
+    return saved;
+  }
 
   await act('finance-wang','finance','pay',mine,{amount:'2000',date,transaction:'ACC-STORE-1',file:file('付款1'),checked:true});
   let payment=money().payments.find(p=>p.transaction==='ACC-STORE-1');
@@ -82,7 +92,11 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   assert.equal(T.condition(raw(),'first').paid,200000);assert(!T.condition(raw(),'first').ready);
   assert(has('finance-wang','finance','pay',mine),'部分登记后剩余款项仍可登记');
   assert(!has('finance-lead','finance-lead','payment-review',mine));
-  pass('A3 普通财务付款登记直接计入已付，分笔保留余款待办，不产生复核');
+  assert(has('hq-finance','finance','incoming-register',mine),'加盟商付款后总部应出现到账确认待办');
+  await receive('first',2000,'ACC-HQ-FIRST-1');
+  assert.equal(T.condition(raw(),'first').received,200000);assert(!T.condition(raw(),'first').ready);
+  login('hq-design-admin');assert(!open('/pages/business/index').data.tasks.some(t=>t.customerId===cid));
+  pass('A3 普通财务部分登记直接计入已付，总部确认部分实收后仍等待剩余首款且不开放设计');
 
   login('finance-wang','finance');
   let firstPayable=money().payables.find(q=>q.source?.id===cid&&q.source.stage==='first');
@@ -93,17 +107,26 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   pass('A4 超额付款及重复流水被拒绝，不改写账簿或原业务');
 
   await act('finance-wang','finance','pay',mine,{amount:'3000',date,transaction:'ACC-STORE-2',file:file('付款2'),checked:true});
-  assert(T.condition(raw(),'first').ready);assert(!has('finance-lead','finance-lead','payment-review',mine));
+  assert(!T.condition(raw(),'first').ready);assert(!has('finance-lead','finance-lead','payment-review',mine));
+  login('hq-design-admin');assert(open('/pages/business/index').data.tasks.some(t=>t.customerId===cid));
   login('hq-finance','finance');assert.equal(D.statement(M.load(),cid,'first').paid,500000);
-  assert(!money().receipts.some(r=>r.source?.customerId===cid),'抄送不伪造总部到账事实');
-  pass('A5 足额登记关闭首款待办，总部抄送同步付款进度且不生成总部收款');
+  assert(has('hq-finance','finance','incoming-register',mine));
+  await receive('first',3000,'ACC-HQ-FIRST-2');
+  assert.equal(T.condition(raw(),'first').received,500000);assert(T.condition(raw(),'first').ready);
+  pass('A5 门店足额登记首款即开放设计；总部足额确认后首款到账条件成立');
 
   login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-complete',{checked:true});
   assert(has('finance-wang','finance','pay',t=>mine(t)&&t.id.endsWith(':tail')));
+  login('hq-design-admin');
+  const tailWaiting=require('../miniprogram/utils/sales-flow').next(raw());
+  assert.equal(tailWaiting.state,'设计尾款待门店付款');assert.equal(tailWaiting.owner,'门店财务');assert.match(tailWaiting.detail,/差额 ¥5,000\.00/);
+  assert.throws(()=>require('../miniprogram/utils/sales-flow').run(cid,'design-dispatch',{checked:true,recipient:'业务',note:'尾款未付'}),/到账|财务/);
   await act('finance-wang','finance','pay',t=>mine(t)&&t.id.endsWith(':tail'),{amount:'5000',date,transaction:'ACC-TAIL',file:file('尾款'),checked:true});
-  login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-dispatch',{checked:true,recipient:'业务',note:'收到线下财务通知后已下发'});
+  assert(!T.condition(raw(),'tail').ready);assert.throws(()=>{login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-dispatch',{checked:true,recipient:'业务',note:'仅门店登记尾款'});},/到账|财务/);
+  await receive('tail',5000,'ACC-HQ-TAIL');assert(T.condition(raw(),'tail').ready);
+  login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-dispatch',{checked:true,recipient:'业务',note:'总部确认尾款足额到账后已下发'});
   login('sales-dual','sales-lead');assert(require('../miniprogram/utils/sales-flow').tasks().some(t=>t.customerId===cid&&t.action==='收图并移交'));
-  pass('A6 尾款登记后线下通知行政，行政下发接续业务移交');
+  pass('A6 未付款或仅门店登记时禁止下发；总部足额到账确认后行政下发接续业务移交');
 
   // ---- B. boss approval of a payable, then payment (engineering material purchase) ----
   const terms = engScenes.filter(s => s.action === 'material-terms')[0];
@@ -130,13 +153,13 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   const before = desk('finance-wang', 'finance');
   assert(!before.tasks.some(t => t.view === 'pay' && t.id === payableId(lines[0])), '老板批准前财务不应有该笔付款待办');
   login('boss');
-  const approvals = open('/pages/admin/home/index').data.desk.approvals;
+  const approvals = open('/pages/admin/home/index').ownerSnapshot.approvals;
   const approval = approvals.find(t => t.url.includes(encodeURIComponent(payableId(lines[0]))));
   assert(approval, '老板首页应有材料采购付款审批');
   const approvePage = open(approval.url);
   assert.equal(approvePage.data.view, 'pay-approval');
   await submit({ checked: true, note: '核对实际金额和原凭据' });
-  assert(!open('/pages/admin/home/index').data.desk.approvals.some(t => t.url.includes(encodeURIComponent(payableId(lines[0])))), '批准后老板待办关闭');
+  assert(!open('/pages/admin/home/index').ownerSnapshot.approvals.some(t => t.url.includes(encodeURIComponent(payableId(lines[0])))), '批准后老板待办关闭');
   pass('B2 老板首页出现材料付款审批 → 批准 → 审批待办关闭');
 
   const q = money().payables.find(q => q.id === payableId(lines[0])) || M.load().payables.find(q => q.id === payableId(lines[0]));

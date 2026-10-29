@@ -1,0 +1,18 @@
+{
+  "result": "passed",
+  "reviewer": "主代理目视检查",
+  "files": [
+    "native/02-area-quote.png",
+    "native/03-wechat-simulated-checkout.png",
+    "native/04-hq-finance-home.png",
+    "native/04-store-finance-project.png",
+    "native/06-sales-packet-ready.png"
+  ],
+  "findings": [
+    "面积、单价和一次性总额清楚可读",
+    "支付渠道和无真实扣款标识清楚，底部确认可操作",
+    "总部仅保留本月实收、待收、总收款三指标且无付款快捷入口",
+    "财务项目账为单笔模拟设计费，明确排除正式实收实付",
+    "业务资料只读继承总部同版文件，客户确认由业务补齐"
+  ]
+}

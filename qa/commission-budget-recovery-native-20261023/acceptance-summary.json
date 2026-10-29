@@ -1,0 +1,213 @@
+{
+  "result": "passed",
+  "evidence": "微信开发者工具原生渲染，通过 Element.tap/input/trigger(change) 执行",
+  "setup": "仅注入一个已分配业务、零预算、零委托的新客户起点",
+  "customerId": "customer-1792724940265-w1yie",
+  "projectId": "project-customer-1792724940265-w1yie",
+  "checks": [
+    {
+      "name": "零预算委托页明确展示补预算入口",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "预算测算返回后保留全部委托输入与附件，并撤销旧勾选",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "委托按预算 V1 提交，设计费总额、首款和尾款一次形成",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "老板一次审批总额及首尾款，完成后不重复生成审批",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "老板审批后但门店首款未登记时，总部设计尚不可开始办理",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "门店财务从待办登记同项目首款4000元",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "总部设计在门店首款登记后完成设计，此时总部尚未确认首款",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "总部财务从同项目待办确认首款实际到账4000元",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "设计完成及首款到账后仍无第二条老板费用审批",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "设计完成后门店财务直接登记尾款6000元，无第二次老板审批",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "总部财务确认尾款实际到账6000元",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "总部设计在首尾款全部到账后下发V1正式成果",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "业务用四份同项目V1模拟文件直接移交默认工程负责人",
+      "detail": "",
+      "result": "passed"
+    },
+    {
+      "name": "工程负责人从首页接收四份V1资料，并形成同项目工程验收记录",
+      "detail": "",
+      "result": "passed"
+    }
+  ],
+  "final": {
+    "customerId": "customer-1792724940265-w1yie",
+    "projectId": "project-customer-1792724940265-w1yie",
+    "budgetVersions": [
+      1
+    ],
+    "requestBudgetVersion": 1,
+    "serviceOrder": {
+      "id": "service-1",
+      "version": 1,
+      "total": 10000,
+      "first": 4000,
+      "tail": 6000,
+      "recipient": "总部"
+    },
+    "approval": {
+      "id": "money-service-1",
+      "version": 1,
+      "total": 10000,
+      "status": "approved"
+    },
+    "dispatchVersion": 1,
+    "drawingVersion": "V1",
+    "acceptance": {
+      "managerId": "engineering-dual",
+      "manager": "张工程",
+      "date": "2026-10-23",
+      "at": "2026-10-23T03:13:14.073Z",
+      "handoverVersion": 1,
+      "drawingVersion": "V1",
+      "actorId": "engineering-dual",
+      "personId": "engineering-dual",
+      "userId": "demo-engineering-dual",
+      "companyId": "quanzhou",
+      "role": "project-manager",
+      "by": "张工程"
+    },
+    "engineeringProject": {
+      "id": "biz-customer-1792724940265-w1yie",
+      "projectId": "project-customer-1792724940265-w1yie",
+      "sourceCustomerId": "customer-1792724940265-w1yie"
+    }
+  },
+  "interactionCount": 129,
+  "handoffCount": 9,
+  "handoffs": [
+    {
+      "role": "加盟商老板",
+      "taskId": "money-review:customer-1792724940265-w1yie:service",
+      "taskName": "陈先生·原生补预算验收 · 设计服务费",
+      "taskAction": "去审批",
+      "url": "/pages/workflow/index?view=money-review&id=customer-1792724940265-w1yie&record=service",
+      "selector": "button[data-key=\"money-review:customer-1792724940265-w1yie:service\"]",
+      "text": "去审批"
+    },
+    {
+      "role": "门店财务",
+      "taskId": "pay:business-design:customer-1792724940265-w1yie:1:first:",
+      "taskName": "陈先生·原生补预算验收 · 设计首款",
+      "taskAction": "登记付款",
+      "url": "/pages/admin/index?view=pay&id=business-design%3Acustomer-1792724940265-w1yie%3A1%3Afirst",
+      "selector": "button[data-url=\"/pages/admin/index?view=pay&id=business-design%3Acustomer-1792724940265-w1yie%3A1%3Afirst\"]",
+      "text": "陈先生·原生补预算验收 · 设计首款¥ 4,000待办理登记付款"
+    },
+    {
+      "role": "总部设计",
+      "taskId": "customer-1792724940265-w1yie",
+      "taskName": "陈先生·原生补预算验收",
+      "taskAction": "查看委托",
+      "url": "/pages/workflow/commission/index?view=complete&id=customer-1792724940265-w1yie",
+      "selector": "button[data-url=\"/pages/workflow/commission/index?view=complete&id=customer-1792724940265-w1yie\"]",
+      "text": "陈先生·原生补预算验收湖北加盟店 · 新委托 · 核对需求与资料查看委托"
+    },
+    {
+      "role": "总部财务",
+      "taskId": "incoming-register:incoming:design:quanzhou:customer-1792724940265-w1yie:1:first:payment-1792725020001-3:1:",
+      "taskName": "陈先生·原生补预算验收 · 设计首款实际到账",
+      "taskAction": "登记收款",
+      "url": "/pages/admin/index?view=incoming-register&id=incoming%3Adesign%3Aquanzhou%3Acustomer-1792724940265-w1yie%3A1%3Afirst%3Apayment-1792725020001-3%3A1",
+      "selector": "button[data-url=\"/pages/admin/index?view=incoming-register&id=incoming%3Adesign%3Aquanzhou%3Acustomer-1792724940265-w1yie%3A1%3Afirst%3Apayment-1792725020001-3%3A1\"]",
+      "text": "湖北加盟店 · 陈先生·原生补预算验收 · 设计首款实际到账¥ 4,000实际到账待登记登记收款"
+    },
+    {
+      "role": "门店财务",
+      "taskId": "pay:business-design:customer-1792724940265-w1yie:1:tail:",
+      "taskName": "陈先生·原生补预算验收 · 设计尾款",
+      "taskAction": "登记付款",
+      "url": "/pages/admin/index?view=pay&id=business-design%3Acustomer-1792724940265-w1yie%3A1%3Atail",
+      "selector": "button[data-url=\"/pages/admin/index?view=pay&id=business-design%3Acustomer-1792724940265-w1yie%3A1%3Atail\"]",
+      "text": "陈先生·原生补预算验收 · 设计尾款¥ 6,000待办理登记付款"
+    },
+    {
+      "role": "总部财务",
+      "taskId": "incoming-register:incoming:design:quanzhou:customer-1792724940265-w1yie:1:tail:payment-1792725115227-4:1:",
+      "taskName": "陈先生·原生补预算验收 · 设计尾款实际到账",
+      "taskAction": "登记收款",
+      "url": "/pages/admin/index?view=incoming-register&id=incoming%3Adesign%3Aquanzhou%3Acustomer-1792724940265-w1yie%3A1%3Atail%3Apayment-1792725115227-4%3A1",
+      "selector": "button[data-url=\"/pages/admin/index?view=incoming-register&id=incoming%3Adesign%3Aquanzhou%3Acustomer-1792724940265-w1yie%3A1%3Atail%3Apayment-1792725115227-4%3A1\"]",
+      "text": "湖北加盟店 · 陈先生·原生补预算验收 · 设计尾款实际到账¥ 6,000实际到账待登记登记收款"
+    },
+    {
+      "role": "总部设计",
+      "taskId": "customer-1792724940265-w1yie",
+      "taskName": "陈先生·原生补预算验收",
+      "taskAction": "登记下发",
+      "url": "/pages/workflow/commission/index?view=dispatch&id=customer-1792724940265-w1yie",
+      "selector": "button[data-url=\"/pages/workflow/commission/index?view=dispatch&id=customer-1792724940265-w1yie\"]",
+      "text": "陈先生·原生补预算验收湖北加盟店 · 总部已确认到账 · 登记正式成果下发登记下发"
+    },
+    {
+      "role": "业务",
+      "taskId": "offline:customer-1792724940265-w1yie:1",
+      "taskName": "陈先生·原生补预算验收",
+      "taskAction": "收图并移交",
+      "url": "/pages/workflow/commission/index?view=handover&id=customer-1792724940265-w1yie",
+      "selector": ".sales-todo-row[data-id=\"offline:customer-1792724940265-w1yie:1\"]",
+      "text": "陈先生·原生补预算验收待收图并移交收图并移交"
+    },
+    {
+      "role": "工程负责人",
+      "taskId": "handover:customer-1792724940265-w1yie",
+      "taskName": "陈先生·原生补预算验收 · 武汉市乡墅",
+      "taskAction": "核对接收",
+      "url": "/pages/workflow/index?view=receive&id=customer-1792724940265-w1yie",
+      "selector": "button[data-url=\"/pages/workflow/index?view=receive&id=customer-1792724940265-w1yie\"]",
+      "text": "核对接收"
+    }
+  ],
+  "publishedScreenshots": [
+    "01-missing-budget-recovery.png",
+    "04-boss-single-approval-todo.png",
+    "13-engineering-receive-todo.png"
+  ],
+  "restored": true
+}

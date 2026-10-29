@@ -1,0 +1,1278 @@
+[
+  [
+    "zhongshu-account-v1",
+    {
+      "version": 1,
+      "session": {
+        "loggedIn": true,
+        "userId": "demo-sales-dual",
+        "staffId": "sales-dual",
+        "companyId": "quanzhou",
+        "role": "sales-lead",
+        "demo": true,
+        "roleSchemaVersion": 5
+      },
+      "profile": {
+        "name": "李业务",
+        "phone": "",
+        "avatar": "/assets/account-avatar.jpg"
+      },
+      "companies": [
+        {
+          "id": "quanzhou",
+          "type": "store",
+          "name": "湖北加盟商",
+          "store": "湖北店",
+          "roles": [
+            "sales",
+            "sales-lead"
+          ]
+        }
+      ],
+      "learning": {},
+      "messages": [
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "id": "msg-follow",
+          "type": "业务",
+          "title": "客户跟进提醒",
+          "description": "林女士的回访即将到期",
+          "date": "2026-10-18 09:20",
+          "read": false,
+          "route": "customer",
+          "objectId": "customer-lin"
+        },
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "id": "msg-course",
+          "type": "学习",
+          "title": "学习提醒",
+          "description": "AI短视频获客实战：继续学习第4节",
+          "date": "2026-10-18 08:30",
+          "read": false,
+          "route": "course",
+          "objectId": "ai-video"
+        },
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "id": "msg-result",
+          "type": "业务",
+          "title": "绩效结果已发布",
+          "description": "2026年9月个人绩效结果可查看",
+          "date": "2026-10-18 08:00",
+          "read": false,
+          "route": "personal-performance",
+          "objectId": "2026-09"
+        },
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "id": "msg-plan",
+          "type": "业务",
+          "title": "设计方案已更新",
+          "description": "陈先生项目有新的方案版本",
+          "date": "2026-10-17 16:40",
+          "read": true,
+          "route": "customer",
+          "objectId": "customer-chen"
+        },
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "id": "msg-bind",
+          "type": "系统",
+          "title": "账号绑定成功",
+          "description": "微信已绑定当前账号",
+          "date": "2026-10-17 10:10",
+          "read": true,
+          "route": "privacy"
+        }
+      ],
+      "feedback": [],
+      "favorites": [],
+      "drafts": {},
+      "orders": [
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "providerOrganizationId": "headquarters",
+          "providerAssignees": [],
+          "id": "service-store-v2",
+          "service": "store",
+          "store": "湖北店",
+          "name": "店招形象设计",
+          "status": "待确认",
+          "submitted": "2026-10-18",
+          "applicant": "张业务",
+          "plan": {
+            "version": 2,
+            "image": "/pages/account/assets/service-plan.jpg",
+            "name": "店招设计方案 V2",
+            "date": "2026-10-18",
+            "file": {
+              "name": "店招设计定稿_V2.pdf",
+              "sample": true
+            }
+          },
+          "events": [
+            {
+              "text": "需求已受理",
+              "at": "2026-10-18 09:00"
+            },
+            {
+              "text": "方案 V2 已提交",
+              "at": "2026-10-18 14:00"
+            }
+          ]
+        },
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "providerOrganizationId": "headquarters",
+          "providerAssignees": [],
+          "id": "service-brand",
+          "service": "brand",
+          "store": "湖北店",
+          "name": "品牌宣传册设计",
+          "status": "待沟通",
+          "submitted": "2026-10-17",
+          "applicant": "张业务",
+          "events": [
+            {
+              "text": "需求已提交",
+              "at": "2026-10-17 10:00"
+            }
+          ]
+        },
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "providerOrganizationId": "headquarters",
+          "providerAssignees": [],
+          "id": "service-showroom",
+          "service": "showroom",
+          "store": "湖北店",
+          "name": "展厅空间设计",
+          "status": "进行中",
+          "submitted": "2026-10-12",
+          "applicant": "张业务",
+          "events": [
+            {
+              "text": "方案设计中",
+              "at": "2026-10-18 10:00"
+            }
+          ]
+        },
+        {
+          "companyId": "quanzhou",
+          "userId": "demo-zhang",
+          "providerOrganizationId": "headquarters",
+          "providerAssignees": [],
+          "id": "service-card",
+          "service": "card",
+          "store": "湖北店",
+          "name": "名片设计",
+          "status": "已完成",
+          "submitted": "2026-10-08",
+          "applicant": "张业务",
+          "plan": {
+            "version": 1,
+            "image": "/pages/account/assets/service-card.jpg",
+            "name": "名片定稿 V1",
+            "file": {
+              "name": "名片定稿.pdf",
+              "sample": true
+            }
+          },
+          "delivery": {
+            "version": 1,
+            "files": [
+              {
+                "name": "名片定稿.pdf",
+                "sample": true
+              }
+            ],
+            "received": true
+          },
+          "events": [
+            {
+              "text": "交付文件已接收",
+              "at": "2026-10-12 10:00"
+            }
+          ]
+        }
+      ],
+      "personal": {
+        "headquarters:hq-design-admin": {
+          "learning": {},
+          "favorites": [],
+          "profile": {
+            "name": "林设计",
+            "phone": "",
+            "avatar": "/assets/account-avatar.jpg"
+          }
+        }
+      }
+    }
+  ],
+  [
+    "zhongshu-business-v3",
+    {
+      "version": 1,
+      "selected": "customer-1792857687854-achts",
+      "customers": [
+        {
+          "id": "customer-chen",
+          "customerUserId": "client-chen",
+          "projectId": "project-chen",
+          "acquisitionChannel": "视频号咨询",
+          "name": "陈先生",
+          "phone": "138****0628",
+          "wechat": "",
+          "source": "视频号咨询",
+          "province": "湖北省",
+          "city": "武汉市",
+          "summary": "已有宅基地，计划建两层乡墅，想先了解方案与费用。",
+          "status": "已登记",
+          "width": "12.5",
+          "depth": "16",
+          "floors": "2",
+          "follows": [],
+          "plans": [],
+          "budgets": [],
+          "measurements": [],
+          "quotes": [],
+          "contract": null,
+          "request": null,
+          "firstPayment": null,
+          "intake": null,
+          "assignment": null,
+          "deliverables": [],
+          "tailPayment": null,
+          "release": null,
+          "confirmation": null,
+          "drawings": [],
+          "copies": [],
+          "handover": null,
+          "acceptance": null,
+          "returns": [],
+          "events": [],
+          "drafts": {},
+          "ownerId": "sales-dual",
+          "owner": "李业务",
+          "ownership": "private"
+        },
+        {
+          "id": "customer-li",
+          "customerUserId": "",
+          "projectId": "project-li",
+          "acquisitionChannel": "门店自然到访",
+          "name": "李女士",
+          "phone": "139****0386",
+          "wechat": "",
+          "source": "门店自然到访",
+          "province": "湖北省",
+          "city": "武汉市",
+          "summary": "已有宅基地，计划建两层乡墅，想先了解方案与费用。",
+          "status": "跟进中",
+          "width": "12.5",
+          "depth": "16",
+          "floors": "2",
+          "follows": [],
+          "plans": [],
+          "budgets": [],
+          "measurements": [],
+          "quotes": [],
+          "contract": null,
+          "request": null,
+          "firstPayment": null,
+          "intake": null,
+          "assignment": null,
+          "deliverables": [],
+          "tailPayment": null,
+          "release": null,
+          "confirmation": null,
+          "drawings": [],
+          "copies": [],
+          "handover": null,
+          "acceptance": null,
+          "returns": [],
+          "events": [],
+          "drafts": {},
+          "owner": "刘业务",
+          "ownership": "private"
+        },
+        {
+          "id": "customer-lin",
+          "customerUserId": "",
+          "projectId": "project-lin",
+          "acquisitionChannel": "朋友介绍",
+          "name": "林女士",
+          "phone": "139****0820",
+          "wechat": "",
+          "source": "朋友介绍",
+          "province": "湖北省",
+          "city": "武穴市",
+          "summary": "已有宅基地，计划建两层乡墅，想先了解方案与费用。",
+          "status": "跟进中",
+          "width": "12.5",
+          "depth": "16",
+          "floors": "2",
+          "follows": [],
+          "plans": [],
+          "budgets": [],
+          "measurements": [],
+          "quotes": [],
+          "contract": null,
+          "request": null,
+          "firstPayment": null,
+          "intake": null,
+          "assignment": null,
+          "deliverables": [],
+          "tailPayment": null,
+          "release": null,
+          "confirmation": null,
+          "drawings": [],
+          "copies": [],
+          "handover": null,
+          "acceptance": null,
+          "returns": [],
+          "events": [],
+          "drafts": {},
+          "owner": "张业务",
+          "ownership": "private"
+        },
+        {
+          "id": "customer-1792857687844-8om2g",
+          "customerUserId": "",
+          "projectId": "project-customer-1792857687844-8om2g",
+          "acquisitionChannel": "门店到访",
+          "name": "陈先生（微信支付闭环）",
+          "phone": "13900008931",
+          "wechat": "",
+          "source": "门店到访",
+          "province": "湖北省",
+          "city": "武汉市",
+          "summary": "两层乡墅，建筑面积400㎡，委托总部完成全套设计及施工图。",
+          "status": "已登记",
+          "width": "12.5",
+          "depth": "16",
+          "floors": "2",
+          "follows": [],
+          "plans": [],
+          "budgets": [
+            {
+              "version": 1,
+              "area": 400,
+              "total": 600000,
+              "date": "2026-10-25",
+              "parameters": {
+                "width": 12.5,
+                "depth": 16,
+                "floors": 2,
+                "area": 400
+              }
+            }
+          ],
+          "measurements": [],
+          "quotes": [],
+          "contract": null,
+          "request": null,
+          "firstPayment": null,
+          "intake": null,
+          "assignment": null,
+          "deliverables": [],
+          "tailPayment": null,
+          "release": null,
+          "confirmation": null,
+          "drawings": [],
+          "copies": [],
+          "handover": null,
+          "acceptance": null,
+          "returns": [],
+          "events": [
+            {
+              "id": "event-1792857687850-0",
+              "title": "保存400㎡参考预算",
+              "time": "2026-10-24T16:01:27.848Z",
+              "actorId": "sales-dual",
+              "personId": "sales-dual",
+              "userId": "demo-sales-dual",
+              "companyId": "quanzhou",
+              "role": "sales-lead",
+              "by": "李业务",
+              "at": "2026-10-24T16:01:27.848Z",
+              "objectId": "customer-1792857687844-8om2g",
+              "projectId": "project-customer-1792857687844-8om2g"
+            }
+          ],
+          "drafts": {},
+          "companyId": "quanzhou",
+          "ownerId": "sales-dual",
+          "createdById": "sales-dual",
+          "owner": "李业务",
+          "ownership": "private",
+          "receipts": [],
+          "serviceOrders": [],
+          "reviews": [],
+          "changes": [],
+          "agreements": [],
+          "supplements": [],
+          "startChecks": [],
+          "designReceipts": [],
+          "designFeedbacks": [],
+          "revision": 1
+        },
+        {
+          "id": "customer-1792857687854-achts",
+          "customerUserId": "",
+          "projectId": "project-customer-1792857687854-achts",
+          "acquisitionChannel": "门店到访",
+          "name": "林女士（支付宝隔离项目）",
+          "phone": "13900008932",
+          "wechat": "",
+          "source": "门店到访",
+          "province": "湖北省",
+          "city": "黄冈市",
+          "summary": "两层乡墅，建筑面积400㎡，委托总部完成全套设计及施工图。",
+          "status": "已登记",
+          "width": "12.5",
+          "depth": "16",
+          "floors": "2",
+          "follows": [],
+          "plans": [],
+          "budgets": [
+            {
+              "version": 1,
+              "area": 400,
+              "total": 600000,
+              "date": "2026-10-25",
+              "parameters": {
+                "width": 12.5,
+                "depth": 16,
+                "floors": 2,
+                "area": 400
+              }
+            }
+          ],
+          "measurements": [],
+          "quotes": [],
+          "contract": null,
+          "request": null,
+          "firstPayment": null,
+          "intake": null,
+          "assignment": null,
+          "deliverables": [],
+          "tailPayment": null,
+          "release": null,
+          "confirmation": null,
+          "drawings": [],
+          "copies": [],
+          "handover": null,
+          "acceptance": null,
+          "returns": [],
+          "events": [
+            {
+              "id": "event-1792857687856-0",
+              "title": "保存400㎡参考预算",
+              "time": "2026-10-24T16:01:27.856Z",
+              "actorId": "sales-dual",
+              "personId": "sales-dual",
+              "userId": "demo-sales-dual",
+              "companyId": "quanzhou",
+              "role": "sales-lead",
+              "by": "李业务",
+              "at": "2026-10-24T16:01:27.856Z",
+              "objectId": "customer-1792857687854-achts",
+              "projectId": "project-customer-1792857687854-achts"
+            }
+          ],
+          "drafts": {},
+          "companyId": "quanzhou",
+          "ownerId": "sales-dual",
+          "createdById": "sales-dual",
+          "owner": "李业务",
+          "ownership": "private",
+          "receipts": [],
+          "serviceOrders": [],
+          "reviews": [],
+          "changes": [],
+          "agreements": [],
+          "supplements": [],
+          "startChecks": [],
+          "designReceipts": [],
+          "designFeedbacks": [],
+          "revision": 1
+        }
+      ]
+    }
+  ],
+  [
+    "zhongshu-management-v1",
+    {
+      "version": 1,
+      "companyId": "quanzhou",
+      "snapshot": "2026-10-18 17:00",
+      "receipts": [
+        {
+          "id": "receipt-engineering-80000",
+          "projectId": "snapshot-finance-chen",
+          "customer": "陈先生（财务阶段样例）",
+          "name": "工程预收款",
+          "amount": 8000000,
+          "status": "已核算",
+          "date": "2026-10-18",
+          "receivedAt": "2026-10-18 10:00",
+          "registeredAt": "2026-10-18 10:05",
+          "registrar": "张业务",
+          "receiver": "王店长",
+          "method": "银行转账",
+          "file": {
+            "name": "工程收款凭据.jpg",
+            "sample": true
+          },
+          "transaction": "SK-20261018-001",
+          "revisions": []
+        },
+        {
+          "id": "receipt-design-5000",
+          "projectId": "snapshot-finance-chen",
+          "customer": "陈先生（财务阶段样例）",
+          "name": "独立设计费",
+          "amount": 550000,
+          "status": "已备案",
+          "date": "2026-10-18",
+          "receivedAt": "2026-10-18 10:15:27",
+          "registeredAt": "2026-10-18 10:20",
+          "registrar": "张业务",
+          "receiver": "王店长",
+          "method": "银行转账",
+          "file": {
+            "name": "独立设计费收款凭据.jpg",
+            "sample": true
+          },
+          "transaction": "SK-20261018-002",
+          "revisions": [
+            {
+              "id": "correction-design-001",
+              "originalAmount": 550000,
+              "amount": 500000,
+              "note": "原登记录入金额有误，以收款凭证为准。",
+              "by": "李财务",
+              "at": "2026-10-18 10:40",
+              "file": {
+                "name": "独立设计费收款凭据.jpg",
+                "sample": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "receipt-pending-100000",
+          "projectId": "snapshot-finance-chen",
+          "customer": "陈先生（财务阶段样例）",
+          "name": "工程一期预收款",
+          "amount": 10000000,
+          "status": "待核算",
+          "date": "2026-10-18",
+          "receivedAt": "2026-10-18 14:00",
+          "registeredAt": "2026-10-18 14:10",
+          "registrar": "李经理",
+          "receiver": "王店长",
+          "method": "银行转账",
+          "file": {
+            "name": "银行收款凭据_待核算.jpg",
+            "sample": true
+          },
+          "transaction": "SK-20261018-003",
+          "revisions": []
+        }
+      ],
+      "payables": [
+        {
+          "id": "payable-chen-design",
+          "projectId": "snapshot-finance-chen",
+          "customer": "陈先生（财务阶段样例）",
+          "name": "总部设计服务",
+          "stage": "设计首款",
+          "total": 600000,
+          "recipient": "总部设计服务中心",
+          "status": "部分已付",
+          "agreement": {
+            "name": "设计服务约定.pdf",
+            "sample": true
+          }
+        },
+        {
+          "id": "payable-lin-verify",
+          "projectId": "project-lin",
+          "customer": "林女士",
+          "name": "设计服务",
+          "stage": "设计首款",
+          "total": 600000,
+          "recipient": "总部设计服务中心",
+          "status": "结果待核实",
+          "agreement": {
+            "name": "设计服务约定_林.pdf",
+            "sample": true
+          }
+        }
+      ],
+      "payments": [
+        {
+          "id": "payment-wang-design",
+          "projectId": "project-wang",
+          "customer": "王先生",
+          "name": "总部设计服务",
+          "amount": 600000,
+          "status": "已核实",
+          "date": "2026-10-17",
+          "transaction": "FK-20261017-001",
+          "file": {
+            "name": "付款凭据.pdf",
+            "sample": true
+          }
+        },
+        {
+          "id": "payment-zhang-labor",
+          "projectId": "project-zhang",
+          "customer": "张先生",
+          "name": "劳务结算",
+          "amount": 1200000,
+          "status": "已核实",
+          "date": "2026-10-16",
+          "transaction": "FK-20261016-001",
+          "file": {
+            "name": "劳务凭据.pdf",
+            "sample": true
+          }
+        },
+        {
+          "id": "payment-zhao-freight",
+          "projectId": "project-zhao",
+          "customer": "赵女士",
+          "name": "运输费",
+          "amount": 180000,
+          "status": "已核实",
+          "date": "2026-10-15",
+          "transaction": "FK-20261015-001",
+          "file": {
+            "name": "运费凭据.pdf",
+            "sample": true
+          }
+        },
+        {
+          "id": "payment-chen-partial",
+          "payableId": "payable-chen-design",
+          "projectId": "snapshot-finance-chen",
+          "customer": "陈先生（财务阶段样例）",
+          "name": "总部设计服务",
+          "amount": 200000,
+          "status": "已核实",
+          "date": "2026-10-18",
+          "verifiedAt": "2026-10-18 16:10",
+          "transaction": "FK-20261018-001",
+          "file": {
+            "name": "部分付款凭据.jpg",
+            "sample": true
+          }
+        },
+        {
+          "id": "payment-lin-unknown",
+          "payableId": "payable-lin-verify",
+          "projectId": "project-lin",
+          "customer": "林女士",
+          "name": "设计服务",
+          "amount": 600000,
+          "status": "待核实",
+          "date": "2026-10-17",
+          "transaction": "FK-20261017-002",
+          "file": {
+            "name": "原付款凭据.jpg",
+            "sample": true
+          }
+        }
+      ],
+      "refunds": [
+        {
+          "id": "refund-chen-001",
+          "receiptId": "receipt-engineering-80000",
+          "projectId": "snapshot-finance-chen",
+          "amount": 500000,
+          "status": "已核实",
+          "date": "2026-10-18",
+          "transaction": "TK-20261018-001",
+          "reason": "双方协商退还部分款项",
+          "file": {
+            "name": "退款凭据.jpg",
+            "sample": true
+          }
+        }
+      ],
+      "staff": [
+        {
+          "id": "zhang",
+          "name": "张业务",
+          "role": "业务员",
+          "active": true,
+          "roleId": "sales",
+          "roles": [
+            "sales"
+          ],
+          "personId": "zhang",
+          "teamIds": {
+            "sales": "sales"
+          }
+        },
+        {
+          "id": "liu",
+          "name": "刘业务",
+          "role": "业务员",
+          "active": true,
+          "roleId": "sales",
+          "roles": [
+            "sales"
+          ],
+          "personId": "liu",
+          "teamIds": {
+            "sales": "sales"
+          }
+        },
+        {
+          "id": "li",
+          "name": "李工程师",
+          "role": "工程人员",
+          "active": true,
+          "roleId": "engineer",
+          "roles": [
+            "engineer"
+          ],
+          "personId": "li",
+          "teamIds": {
+            "engineering": "engineering"
+          }
+        },
+        {
+          "id": "wang-manager",
+          "name": "王工程师",
+          "role": "工程人员",
+          "active": true,
+          "roleId": "engineer",
+          "roles": [
+            "engineer"
+          ],
+          "personId": "wang-manager",
+          "teamIds": {
+            "engineering": "engineering"
+          }
+        },
+        {
+          "id": "wang-finance",
+          "name": "王财务",
+          "role": "财务专员",
+          "active": true,
+          "roleId": "finance",
+          "roles": [
+            "finance"
+          ],
+          "personId": "wang-finance",
+          "teamIds": {
+            "finance": "finance"
+          }
+        },
+        {
+          "id": "chen-inactive",
+          "name": "陈业务",
+          "role": "业务员",
+          "active": false,
+          "disabledAt": "2026-10-18 09:00",
+          "disabledBy": "赵老板",
+          "reason": "人员离岗",
+          "roles": []
+        },
+        {
+          "id": "zhao-sales-lead",
+          "name": "业务负责人",
+          "role": "业务负责人",
+          "roleId": "sales-lead",
+          "roles": [
+            "sales-lead"
+          ],
+          "personId": "zhao-sales-lead",
+          "teamId": "sales",
+          "active": true,
+          "teamIds": {
+            "sales": "sales"
+          }
+        },
+        {
+          "id": "sales-dual",
+          "name": "李业务",
+          "role": "业务员",
+          "roleId": "sales",
+          "roles": [
+            "sales",
+            "sales-lead"
+          ],
+          "personId": "sales-dual",
+          "teamId": "sales",
+          "active": true,
+          "teamIds": {
+            "sales": "sales"
+          }
+        },
+        {
+          "id": "engineering-lead",
+          "name": "项目经理",
+          "role": "工程负责人",
+          "roleId": "project-manager",
+          "roles": [
+            "project-manager"
+          ],
+          "personId": "engineering-lead",
+          "teamId": "engineering",
+          "active": true,
+          "teamIds": {
+            "engineering": "engineering"
+          }
+        },
+        {
+          "id": "engineering-dual",
+          "name": "张工程",
+          "role": "工程人员",
+          "roleId": "engineer",
+          "roles": [
+            "engineer",
+            "project-manager"
+          ],
+          "personId": "engineering-dual",
+          "teamId": "engineering",
+          "active": true,
+          "teamIds": {
+            "engineering": "engineering"
+          }
+        },
+        {
+          "id": "li-finance",
+          "name": "李财务",
+          "role": "财务专员",
+          "roleId": "finance",
+          "roles": [
+            "finance"
+          ],
+          "personId": "li-finance",
+          "teamId": "finance",
+          "active": true,
+          "teamIds": {
+            "finance": "finance"
+          }
+        },
+        {
+          "id": "chen-finance-lead",
+          "name": "门店财务负责人",
+          "role": "财务负责人",
+          "roleId": "finance-lead",
+          "roles": [
+            "finance-lead"
+          ],
+          "personId": "chen-finance-lead",
+          "teamId": "finance",
+          "active": true,
+          "teamIds": {
+            "finance": "finance"
+          }
+        },
+        {
+          "id": "finance-dual",
+          "name": "王财务",
+          "role": "财务专员",
+          "roleId": "finance",
+          "roles": [
+            "finance",
+            "finance-lead"
+          ],
+          "personId": "finance-dual",
+          "teamId": "finance",
+          "active": true,
+          "teamIds": {
+            "finance": "finance"
+          }
+        },
+        {
+          "id": "zhao-boss",
+          "name": "张老板",
+          "role": "老板",
+          "roleId": "boss",
+          "roles": [
+            "boss",
+            "owner"
+          ],
+          "personId": "zhao-boss",
+          "teamId": "management",
+          "active": true,
+          "teamIds": {
+            "management": "management"
+          }
+        },
+        {
+          "id": "store-owner",
+          "name": "门店负责人",
+          "role": "门店负责人",
+          "roleId": "owner",
+          "roles": [
+            "owner"
+          ],
+          "personId": "store-owner",
+          "teamId": "management",
+          "active": true,
+          "teamIds": {
+            "management": "management"
+          }
+        }
+      ],
+      "work": [
+        {
+          "id": "work-huang",
+          "customer": "黄先生",
+          "name": "客户跟进",
+          "stage": "需求沟通",
+          "owner": "zhang",
+          "author": "zhang"
+        },
+        {
+          "id": "work-chen",
+          "customer": "陈先生",
+          "name": "方案沟通",
+          "owner": "sales-dual",
+          "author": "sales-dual",
+          "customerId": "customer-chen",
+          "projectId": "project-chen",
+          "kind": "customer-responsibility"
+        },
+        {
+          "id": "work-lin",
+          "customer": "林女士",
+          "name": "预约跟进",
+          "owner": "zhang",
+          "author": "zhang",
+          "customerId": "customer-lin",
+          "projectId": "project-lin",
+          "kind": "customer-responsibility"
+        },
+        {
+          "id": "work-sun",
+          "customer": "孙先生",
+          "name": "客户跟进",
+          "owner": "chen-inactive",
+          "author": "chen-inactive"
+        },
+        {
+          "id": "work-content",
+          "customer": "秋季建房口播",
+          "name": "内容任务",
+          "owner": "chen-inactive",
+          "author": "chen-inactive"
+        },
+        {
+          "id": "work:customer-1792857687844-8om2g",
+          "customerId": "customer-1792857687844-8om2g",
+          "projectId": "project-customer-1792857687844-8om2g",
+          "kind": "customer-responsibility",
+          "customer": "陈先生（微信支付闭环）",
+          "name": "客户跟进",
+          "author": "sales-dual",
+          "owner": "sales-dual"
+        },
+        {
+          "id": "work:customer-1792857687854-achts",
+          "customerId": "customer-1792857687854-achts",
+          "projectId": "project-customer-1792857687854-achts",
+          "kind": "customer-responsibility",
+          "customer": "林女士（支付宝隔离项目）",
+          "name": "客户跟进",
+          "author": "sales-dual",
+          "owner": "sales-dual"
+        }
+      ],
+      "transfers": [],
+      "drafts": {},
+      "rules": {
+        "version": 2,
+        "period": "2026-10",
+        "locked": true,
+        "targets": [
+          {
+            "name": "节点按期验收率",
+            "target": 90,
+            "weight": 60
+          },
+          {
+            "name": "一次验收通过率",
+            "target": 95,
+            "weight": 40
+          }
+        ]
+      },
+      "sources": [
+        {
+          "id": "node-zhou",
+          "customer": "周先生",
+          "name": "主体验收",
+          "scheduled": "2026-10-12",
+          "accepted": "2026-10-12",
+          "onTime": true,
+          "first": true
+        },
+        {
+          "id": "node-wu",
+          "customer": "吴女士",
+          "name": "基础验收",
+          "scheduled": "2026-10-15",
+          "accepted": "2026-10-14",
+          "onTime": true,
+          "first": true
+        },
+        {
+          "id": "node-zhang",
+          "customer": "张先生",
+          "name": "主体验收",
+          "scheduled": "2026-10-16",
+          "accepted": null,
+          "onTime": false,
+          "first": false
+        },
+        {
+          "id": "node-li",
+          "customer": "李先生",
+          "name": "基础验收",
+          "scheduled": "2026-10-10",
+          "accepted": "2026-10-10",
+          "onTime": true,
+          "first": true
+        },
+        {
+          "id": "node-zhao",
+          "customer": "赵女士",
+          "name": "基础验收",
+          "scheduled": "2026-10-11",
+          "accepted": "2026-10-11",
+          "onTime": true,
+          "first": true
+        }
+      ],
+      "appeals": [],
+      "archives": [
+        {
+          "id": "2026-09",
+          "person": "wang-manager",
+          "ruleVersion": 1,
+          "status": "待复核",
+          "results": [
+            90,
+            100
+          ],
+          "date": null
+        },
+        {
+          "id": "2026-08",
+          "person": "wang-manager",
+          "ruleVersion": 1,
+          "status": "已归档",
+          "results": [
+            90,
+            100
+          ],
+          "date": "2026-09-03"
+        },
+        {
+          "id": "2026-07",
+          "person": "wang-manager",
+          "ruleVersion": 1,
+          "status": "已归档",
+          "results": [
+            90,
+            100
+          ],
+          "date": "2026-08-03"
+        }
+      ],
+      "events": [],
+      "change": {
+        "id": "change-zhang-wall-v2",
+        "projectId": "project-zhang",
+        "customer": "张先生",
+        "project": "张先生 · 红安乡墅",
+        "manager": "王经理",
+        "original": 80000000,
+        "delta": 3000000,
+        "days": 3,
+        "ownerAgreed": true,
+        "confirmed": false,
+        "file": {
+          "name": "业主同意变更凭据.pdf",
+          "sample": true
+        }
+      },
+      "books": {
+        "headquarters": {
+          "version": 1,
+          "companyId": "headquarters",
+          "staff": [
+            {
+              "id": "hq-design-admin",
+              "name": "林设计",
+              "roles": [
+                "hq-design-admin"
+              ],
+              "roleId": "hq-design-admin",
+              "role": "设计行政",
+              "active": true,
+              "personId": "hq-design-admin",
+              "teamIds": {
+                "design": "design"
+              }
+            },
+            {
+              "id": "hq-finance",
+              "name": "总部财务",
+              "roles": [
+                "finance"
+              ],
+              "roleId": "finance",
+              "role": "财务专员",
+              "active": true,
+              "personId": "hq-finance",
+              "teamIds": {
+                "finance": "finance"
+              }
+            },
+            {
+              "id": "hq-finance-2",
+              "name": "总部第二财务",
+              "roles": [
+                "finance"
+              ],
+              "roleId": "finance",
+              "role": "财务专员",
+              "active": true,
+              "personId": "hq-finance-2",
+              "teamIds": {
+                "finance": "finance"
+              }
+            },
+            {
+              "id": "hq-finance-lead",
+              "name": "总部财务负责人",
+              "roles": [
+                "finance-lead"
+              ],
+              "roleId": "finance-lead",
+              "role": "财务负责人",
+              "active": true,
+              "personId": "hq-finance-lead",
+              "teamIds": {
+                "finance": "finance"
+              }
+            },
+            {
+              "id": "hq-finance-lead-2",
+              "name": "总部第二财务负责人",
+              "roles": [
+                "finance-lead"
+              ],
+              "roleId": "finance-lead",
+              "role": "财务负责人",
+              "active": true,
+              "personId": "hq-finance-lead-2",
+              "teamIds": {
+                "finance": "finance"
+              }
+            },
+            {
+              "id": "hq-finance-dual",
+              "name": "罗财务",
+              "roles": [
+                "finance",
+                "finance-lead"
+              ],
+              "roleId": "finance",
+              "role": "财务专员",
+              "active": true,
+              "personId": "hq-finance-dual",
+              "teamIds": {
+                "finance": "finance"
+              }
+            },
+            {
+              "id": "hq-boss",
+              "name": "总部老板",
+              "roles": [
+                "boss"
+              ],
+              "roleId": "boss",
+              "role": "老板",
+              "active": true,
+              "personId": "hq-boss",
+              "teamIds": {
+                "management": "management"
+              }
+            }
+          ],
+          "receipts": [],
+          "payments": [],
+          "payables": [],
+          "refunds": [],
+          "work": [],
+          "sources": [],
+          "archives": [],
+          "appeals": [],
+          "events": [],
+          "drafts": {},
+          "transfers": [],
+          "rules": {
+            "period": "2026-10",
+            "targets": []
+          },
+          "change": {
+            "confirmed": true
+          },
+          "schemaVersion": 8,
+          "designServicePolicy": {
+            "active": true,
+            "demo": true,
+            "limitCents": 100000000,
+            "scope": "design-service",
+            "source": "本地模拟总部老板初始授权政策，非逐笔审批结果"
+          },
+          "designAreaPrices": [
+            {
+              "version": 1,
+              "rateCents": 2000,
+              "scope": "全套方案设计、立面及施工图",
+              "recipient": "众墅之家总部",
+              "active": true,
+              "companyId": "headquarters",
+              "actorId": "hq-design-admin",
+              "personId": "hq-design-admin",
+              "at": "2026-10-24T16:01:27.838Z"
+            }
+          ]
+        }
+      },
+      "schemaVersion": 8,
+      "managementSettings": {
+        "version": 0,
+        "company": {},
+        "assignments": {
+          "engineering": "engineering-dual"
+        },
+        "history": [],
+        "events": []
+      },
+      "revision": 2
+    }
+  ]
+]

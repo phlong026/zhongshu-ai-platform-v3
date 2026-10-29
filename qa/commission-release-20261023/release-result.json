@@ -1,0 +1,17 @@
+{
+  "result": "development-uploaded",
+  "version": "1.0.20261023.6",
+  "sourceCommit": "d287b30e8024669d42d1135a884074d3bb441e40",
+  "sourceFingerprint": {
+    "files": 649,
+    "sha256": "18c62b914c25dd74131e00bddc1235e1f460693e2ed3677dc718cb8e2cbfdb1f"
+  },
+  "officialCliExitCode": 0,
+  "officialCliCompletion": "✔ upload",
+  "officialReceipt": "upload-result.json",
+  "mainPackageBytes": 2051124,
+  "totalBytes": 7386454,
+  "experienceActivated": false,
+  "experienceStatus": "此前体验版激活被工具安全策略阻止，本轮未重试或绕过",
+  "recordedAt": "2026-10-23T03:26:40.989529+00:00"
+}

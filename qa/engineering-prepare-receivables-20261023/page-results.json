@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "scope": "Isolated real Page/WXML controls, not native rendering",
+  "checks": [
+    {
+      "name": "老板只核对工程已提交的两期约定，审批与意见集中且没有重复表单",
+      "passed": true
+    },
+    {
+      "name": "工程人员与财务待确认时只读同一计划，不出现跨岗审批或费用表单",
+      "passed": true
+    },
+    {
+      "name": "已有旧批准约定时，老板看到的金额必须是本次待确认版本",
+      "passed": true
+    },
+    {
+      "name": "真实合同PDF与图片使用原生预览，参考合同仍可页内查看",
+      "passed": true
+    },
+    {
+      "name": "一次确认接续一项开工款，足额登记后关闭待办，封顶前不开放封顶款",
+      "passed": true
+    }
+  ]
+}
