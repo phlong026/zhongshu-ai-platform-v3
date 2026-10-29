@@ -1,6 +1,6 @@
 /**
  * 后端 HTTP 访问层（M2.7 新增）：wx.request 的 Promise 封装。
- * 与本地演示模式并存——本文件不改动任何现有 utils，页面按模块逐步改调。
+ * 与离线模式并存——本文件不改动任何现有 utils，页面按模块逐步改调。
  * 认证：Authorization Bearer token；当前岗位：X-Post-Id 请求头。
  */
 const TOKEN_KEY = 'zs-api-token-v1';

@@ -182,7 +182,6 @@ function six(snapshot) {
 function moneyKind(task) {
   if (task.record === 'quote') return '正式报价';
   if (task.record === 'service') return '设计服务费';
-  if (task.view === 'pay-approval') return '付款申请';
   return '金额审批';
 }
 
