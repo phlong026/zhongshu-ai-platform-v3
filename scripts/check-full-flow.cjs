@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const directory = path.join(root, '.tools/full-flow-acceptance-20261023/checks');
 fs.mkdirSync(directory, { recursive: true });
 const checks = [
+  ['留档批次与绩效任务回归', ['npm', 'run', 'check:retained-batches']],
   ['业务与跨模块回归', ['npm', 'run', 'check:business:simplified']],
   ['管理四页回归', ['npm', 'run', 'check:owner:workbench']],
   ['管理P0缺口', ['node', 'scripts/verify-owner-p0-completion.cjs']],

@@ -16,11 +16,11 @@ const path = require('node:path');
   A.mutate(state => A.loginDemo(state, 'boss'));
   await open();
   const settings = await control('.quick-card [data-action="performance"]');
-  assert((await settings.text()).includes('绩效设置'));
+  assert((await settings.text()).includes('绩效任务'));
   await settings.tap();
-  assert.equal(getCurrentPages().at(-1).route, 'pages/admin/detail/index');
-  assert.equal(getCurrentPages().at(-1).data.view, 'targets');
-  pass('老板复用统一我的模板，绩效设置进入月度目标原页面');
+  assert.equal(getCurrentPages().at(-1).route, 'pages/admin/tasks/index');
+  assert.equal(getCurrentPages().at(-1).data.view, 'team');
+  pass('老板复用统一我的模板，绩效任务进入新周期任务单');
 
   await open();
   const team = await control('[data-url="/pages/admin/detail/index?view=team"]');
@@ -60,12 +60,13 @@ const path = require('node:path');
     A.mutate(state => A.loginDemo(state, id));
     await runtime.callWxMethod('reLaunch', { url: '/pages/profile/index' });
     const button = await control('.quick-card [data-action="performance"]');
-    assert((await button.text()).includes('我的绩效'));
+    assert((await button.text()).includes('我的任务'));
     assert.equal(await (await runtime.currentPage()).$('.owner-management'), null);
     await button.tap();
-    assert.equal(getCurrentPages().at(-1).data.view, 'personal-performance');
+    assert.equal(getCurrentPages().at(-1).route, 'pages/admin/tasks/index');
+    assert.equal(getCurrentPages().at(-1).data.view, 'mine');
   }
-  pass('其他五类人员保留个人绩效入口且不显示老板门店管理');
+  pass('其他五类人员统一进入我的任务且不显示老板门店管理');
 
   const out = path.resolve('qa/owner-workbench-port-20261023');
   fs.mkdirSync(out, { recursive: true });

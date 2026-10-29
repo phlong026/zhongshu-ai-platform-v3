@@ -47,7 +47,7 @@ async function main() {
   assert.equal(require('../miniprogram/pages/admin/owner-business').rows('finance', snapshot).length, page.data.desk.business.receivable.rows.length + page.data.desk.business.payable.rows.length);
   pass('经营页仅汇总已批准未付应付，全部原记录保留可达 URL');
 
-  page = open('/pages/admin/performance/index');
+  page = open('/pages/admin/performance/index?history=1');
   assert.deepEqual(page.data.desk.performance.targets.map(row => row.label), ['设计委托金额', '回款金额', '有效客户', '工程节点']);
   assert(page.data.desk.performance.groups.flatMap(group => group.rows).every(row => row.url));
   pass('绩效公司目标与每位成员原记录入口完整');

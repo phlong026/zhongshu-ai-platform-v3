@@ -185,17 +185,13 @@ function completeFixture(rows) {
     }
 
     if (checks.length < 6) {
-    await r.open('/pages/admin/performance/index', '.perf-targets', { relaunch:true });
-    await r.event({ selector:'button', dataset:{ action:'goals' } }, 'go');
-    await r.until(async () => (await data()).view === 'targets', '目标设置');
-    await r.until(async()=>!!(await r.rects(['.owner-form-row']))[0], '目标表单渲染完成');
-    await r.event('input[data-field="collections"]', 'input', { value:'25000' });
-    await r.event('input[data-field="effective"]', 'input', { value:'12' });
-    await r.event('.owner-save', 'save');
+    await r.open('/pages/admin/performance/index?history=1', '.perf-targets', { relaunch:true });
     await r.open('/pages/admin/detail/index?view=targets', '.owner-form-row');
-    assert.equal(String((await data()).form.collections), '25000');
-    assert.equal(String((await data()).form.effective), '12');
-    await pass('月度目标保存后重开保持同一周期和数值');
+    await r.until(async()=>!!(await r.rects(['.owner-form-row']))[0], '目标表单渲染完成');
+    assert(!(await r.rects(['.owner-goal-input']))[0]);
+    await r.event('.owner-page', 'save');
+    assert.match((await data()).error, /只读|绩效任务/);
+    await pass('旧月度目标只读保留历史数值且不能保存');
     }
 
 

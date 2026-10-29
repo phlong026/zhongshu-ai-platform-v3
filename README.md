@@ -434,3 +434,10 @@ npm run report:roles:complete
 本地检查使用 `npm run check:management:complete`、`npm run check:business:simplified`。原生管理页面使用 `node scripts/verify-management-completion-native.cjs`，财务布局使用 `FRANCHISE_WS=<已协调的隔离调试地址> node scripts/verify-finance-layout-native.cjs`。原生脚本串行执行并恢复验收前存储。
 
 按已确认范围，同步采用本机模拟服务：运行 `npm run demo:management`，连接资料保存在命令返回的私有文件中；用两个独立测试会话打开“我的 → 管理模拟联调”验证共享目标、门店资料与提成规则。默认只监听本机。具体设计、验证与回滚见 [管理模块补齐设计与验收](docs/管理模块补齐设计与验收_20261023.md)。
+
+
+## 2026-10-29 留档批次续作
+
+公共容器、存储键、组件和设计令牌的回归使用 `npm run check:retained-batches`，并已纳入 `npm run check:flow:all`。绩效主入口进入任务单，旧指标通过历史只读入口保留；任务归档奖金按真实人员形成应付，财务沿原付款页登记。实施范围与真实设备/后端边界见 [绩效任务化实施](docs/绩效任务化实施_20261029.md) 和 [留档续作计划](docs/留档批次续作计划_20261029.md)。
+
+颜色及字阶定义在 `miniprogram/styles/tokens.wxss`，组件主题文件 `component-tokens.wxss` 使用相同声明，选择器为 `.zs-theme`；更新令牌时同步两份样式，`verify-design-tokens` 会检查差异，避免组件隔离导致导航样式失效。

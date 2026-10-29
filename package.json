@@ -106,7 +106,8 @@
     "check:design-checkout": "node scripts/verify-design-checkout.cjs && node scripts/verify-design-payment-finance-copy.cjs && node scripts/verify-design-checkout-pages.cjs && npm run check",
     "check:design-checkout:native": "node scripts/verify-design-checkout-native.cjs",
     "check:design-journey": "node scripts/verify-design-checkout.cjs && node scripts/verify-design-journey.cjs && node scripts/verify-design-payment-finance-copy.cjs && node scripts/verify-design-checkout-pages.cjs && npm run check",
-    "check:design-journey:native": "node scripts/verify-design-journey-native.cjs"
+    "check:design-journey:native": "node scripts/verify-design-journey-native.cjs",
+    "check:retained-batches": "node scripts/verify-view-container-reuse.cjs && node scripts/verify-commission-status-labels.cjs && node scripts/verify-storage-key-reuse.cjs && node scripts/verify-shared-components.cjs && node scripts/verify-shared-shell-components.cjs && node scripts/verify-design-tokens.cjs && node scripts/verify-control-styles.cjs && node scripts/verify-engineering-payment-entry.cjs && node scripts/verify-owner-three-level.cjs && node scripts/verify-performance-tasks.cjs && node scripts/verify-task-bonus-payables.cjs && node scripts/verify-performance-task-ui.cjs && node scripts/verify-wxss-comments-test.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0",

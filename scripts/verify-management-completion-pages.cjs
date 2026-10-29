@@ -30,7 +30,7 @@ const fs = require('node:fs');
   wx.setStorageSync('zhongshu-management-v1', originalBook);
   pass('保留旧经营入口且零金额修订在页面真实可见');
 
-  open('/pages/admin/performance/index');
+  open('/pages/admin/performance/index?history=1');
   await (await control('[data-department="finance"][bindtap="departmentFilter"]')).tap();
   assert.equal(page().data.desk.performance.selectedDepartment, 'finance');
   assert(page().data.desk.performance.groups.every(group => group.key === 'finance'));
@@ -40,12 +40,10 @@ const fs = require('node:fs');
   pass('部门筛选与成员原记录展开通过真实控件接通');
 
   open('/pages/admin/detail/index?view=targets');
-  const input = await control('[data-scope="department"][data-department="business"][data-metric="commissionAmount"]');
-  await input.input('56000');
-  await (await control('[bindtap="savePerformanceGoals"]')).tap();
-  assert.equal(page().data.error, '');
-  assert.equal(W.snapshot().goals.departmentGoals.business.commissionAmount, 56000);
-  pass('部门目标表单保存后读取同月原目标版本');
+  assert.equal(await (await runtime.currentPage()).$('[bindtap="savePerformanceGoals"]'), null);
+  page().savePerformanceGoals();
+  assert.match(page().data.error, /只读|绩效任务/);
+  pass('旧部门目标页保留历史值且不再允许保存');
 
   open('/pages/admin/detail/index?view=company');
   for (const [field, value] of Object.entries({ displayName: '管理验证门店', contact: '测试联系人', phone: '13900007802', address: '武汉市管理验证地址' })) {

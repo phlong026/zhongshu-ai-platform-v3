@@ -130,7 +130,7 @@ function fixture() {
     }
     pass('六项经营指标通过原生控件逐项进入可追溯原列表', { metrics:metrics.map(row => row.metric) });
 
-    data = await open('/pages/admin/performance/index', '.perf-filters');
+    data = await open('/pages/admin/performance/index?history=1', '.perf-filters');
     assert(data.desk.performance.filterOptions.some(row => row.id === 'business'));
     await runner.event({ selector:'.perf-filter', dataset:{ department:'business' } }, 'departmentFilter');
     await runner.until(async () => (await runner.data()).desk.performance.selectedDepartment === 'business', '业务部门筛选');
@@ -143,14 +143,12 @@ function fixture() {
     await capture('performance-business-member');
     pass('绩效部门筛选与成员原记录展开均由真实控件触发', { member:member.id });
 
-    data = await open('/pages/admin/detail/index?view=targets', '.owner-goal-input');
-    const targetBefore = data.form.departmentGoals.business.commissionAmount;
-    await runner.event({ selector:'.owner-goal-input', dataset:{ scope:'department', department:'business', metric:'commissionAmount' } }, 'goalFieldInput', { value:'54321.25' });
-    await runner.event('.owner-save', 'savePerformanceGoals');
-    await runner.until(async () => !(await runner.data()).saving && String((await runner.data()).form.departmentGoals.business.commissionAmount) === '54321.25', '业务部设计委托目标保存');
-    mutations.push({ kind:'department-goal', before:targetBefore, after:'54321.25' });
-    await capture('department-goal-saved');
-    pass('部门目标通过原生输入与保存按钮持久化', { department:'business', metric:'commissionAmount', value:'54321.25' });
+    data = await open('/pages/admin/detail/index?view=targets', '.owner-form-row');
+    assert(!(await runner.rects(['.owner-goal-input']))[0], '旧目标页不得保留可编辑输入');
+    await runner.event('.owner-page', 'savePerformanceGoals');
+    assert.match((await runner.data()).error, /只读|绩效任务/);
+    await capture('department-goal-readonly');
+    pass('旧部门目标只读展示且直接调用不能绕过');
 
     data = await open('/pages/admin/detail/index?view=company', '.management-company');
     const companyBefore = clone(data.companyForm);

@@ -7,7 +7,7 @@ const TEAM = { 'sales-lead': ['业务团队', 'business-team'], 'project-manager
 const account = (view, extra = '') => '/pages/account/index?view=' + view + extra;
 const ACTIONS = {
   login: () => account('login'), profile: () => account('profile'), messages: () => account('messages'),
-  performance: (eng, id, owner) => owner ? '/pages/admin/detail/index?view=targets' : account('personal-performance'),
+  performance: (engineering, id, owner) => '/pages/admin/tasks/index?view=' + (owner ? 'team' : 'mine'),
   identity: () => account('identity'), help: () => account('help'), privacy: () => account('privacy'), policy: () => account('policy'), agreement: () => account('agreement'),
   services: () => account('services'), selection: () => account('selection'),
   learning: eng => account('learning', eng ? '&category=' + encodeURIComponent('工程') : ''),
