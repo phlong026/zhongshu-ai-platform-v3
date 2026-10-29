@@ -1,6 +1,6 @@
 // Business-only commission protocol. Existing commissions retain their original rules.
 const X=require('./access'),Job=require('./organization'),Checkout=require('./design-checkout'),Status=require('./status-labels').commission;
-const TYPE='sales-offline-v1',KEY=require('./storage-keys').business,copy=v=>JSON.parse(JSON.stringify(v)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const TYPE='sales-offline-v1',KEY=require('./storage-keys').business,copy=require('./clone'),isIsoDate=require('./iso-date'),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const is=c=>c?.businessFlow?.type===TYPE;
 // Old records remain operable; new customers can only start the simplified protocol.
 const legacy=c=>!!c&&!is(c)&&!!(c.workflowVersion==='legacy-v1'||c.request||c.contract||c.quotes?.length||c.serviceOrders?.length||c.firstPayment||c.tailPayment||c.handover||c.acceptance);
@@ -19,7 +19,7 @@ const url=(id,view='progress')=>'/pages/workflow/commission/index?view='+view+'&
 const date=()=>require('./account').localDate();
 const last=c=>c.serviceOrders?.at(-1);
 function cents(value){X.assert(/^\d+(\.\d{1,2})?$/.test(String(value))&&Number(value)>0&&Number(value)<=100000000,'请填写有效金额，最多两位小数');return require('./money').parseCents(value);}
-function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v||'')&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v&&v<=date();}
+function validDate(v){return isIsoDate(v)&&v<=date();}
 function file(f){return !!(f&&String(f.name||'').trim()&&(f.path||f.tempFilePath||f.fileID||f.url||f.text||f.sample&&X.context().demo));}
 function checkFileVersion(f,c,version){X.assert(f?.sample&&f.text&&f.meta?.customerId===c.id&&f.meta.projectId===c.projectId&&f.meta.version===version,'模拟文件须属于本客户、本项目及本版图纸，请重新生成');}
 function raw(c){return ((wx.getStorageSync(KEY)||{}).customers||[]).find(r=>r.id===c.id&&(r.companyId||'quanzhou')===(c.companyId||'quanzhou'))||c;}

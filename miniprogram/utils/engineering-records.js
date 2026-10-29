@@ -1,11 +1,10 @@
 // Single-person construction records. Money facts use the existing finance ledger.
 const X=require('./access'),O=require('./organization');
 const KEY=require('./storage-keys').engineering,BOOK=require('./storage-keys').management,BUSINESS=require('./storage-keys').business;
-const copy=require('./clone'),today=()=>require('./account').localDate();
+const copy=require('./clone'),date=require('./iso-date'),today=()=>require('./account').localDate();
 const is=p=>p?.recordFlow?.version===1;
 const uid=prefix=>prefix+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,9);
 const assert=X.assert;
-function date(v){return /^\d{4}-\d{2}-\d{2}$/.test(v||'')&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;}
 const parseCents=require('./money').parseCents;
 function quantity(v){assert(/^\d+(\.\d{1,3})?$/.test(String(v))&&Number(v)>0,'请填写有效材料数量');return Number(v);}
 function evidence(f){return !!(f&&f.name&&(f.path||f.fileID||f.url||f.text||f.sample&&X.context().demo));}

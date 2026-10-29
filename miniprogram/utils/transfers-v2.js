@@ -1,5 +1,5 @@
 const Job=require('./organization');
-const X=require('./access'),P=require('./finance-participation'),copy=x=>JSON.parse(JSON.stringify(x));
+const X=require('./access'),P=require('./finance-participation'),copy=require('./clone');
 const value=r=>r.revisions?.length?r.revisions.at(-1).amount:r.amount;
 function stagePayments(c,stage){const rows=(c.designPayments||[]).filter(r=>r.stage===stage);if(rows.length)return rows;const p=c[stage+'Payment'];return p?.reviewerId?[{...p,id:p.managementId||p.id,amount:Math.round(Number(p.amount)*100),stage,serviceVersion:p.serviceVersion}]:[];}
 function transfers(companyId){const out=require('./design-receipts').transfers(companyId);for(const c of (wx.getStorageSync(require('./storage-keys').business)||{}).customers||[]){const from=c.companyId||'quanzhou',to=c.designOrganizationId;if(to!==companyId||to===from||c.businessFlow?.type==='sales-offline-v1')continue;for(const stage of ['first','tail'])for(const p of stagePayments(c,stage)){if(!p.reviewerId||!p.id)continue;out.push({link:'design:'+from+':'+p.id,kind:'design',fromCompanyId:from,toCompanyId:to,fromStaffId:p.custodianId||p.registrarId,originPaymentId:p.id,customerId:c.id,projectId:c.projectId,customer:c.name,name:stage==='first'?'设计首款实际到账':'设计尾款实际到账',stage,serviceVersion:p.serviceVersion,expected:p.amount,expectedTransaction:p.transaction});}}

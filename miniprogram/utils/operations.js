@@ -1,14 +1,13 @@
 // Operating ledger: contract receivables, incurred costs and credit conditions.
 // Amounts are cents. Bank facts and commercial approvals stay in their source flows.
 const X=require('./access'),O=require('./organization'),Money=require('./supply-money'),parseCents=require('./money').parseCents;
-const clone=require('./clone'),assert=X.assert;
+const clone=require('./clone'),date=require('./iso-date'),assert=X.assert;
 const categories=['材料','人工','分包','机械运输','设计','现场其他'];
 const purposes=['推广获客','门店运营','人员费用','其他'];
 const actions=['plan-submit','credit-exception','expense-submit','expense-resubmit','expense-cancel','expense-transfer','expense-approve','expense-return','funds-confirm','operating-snapshot','month-reconcile'];
 function init(s){s.operations=s.operations||{};for(const k of ['projectClosures','plans','expenses','costChecks','exceptions','funds','events','direct','directApprovals','payrollPolicies','payrollSettlements','periodSnapshots','reconciliations'])s.operations[k]=s.operations[k]||[];// 历史待批分期：审批下线后自动生效
 for(const p of s.operations.plans)if(p.status==='pending')p.status='approved';return s.operations;}
 function cents(v,zero=false){assert(/^-?\d+(\.\d{1,2})?$/.test(String(v))&&Number(v)>=(zero?0:0.01)&&Number(v)<=100000000,'金额须有效、非负且最多两位小数');return Object.is(Number(v),-0)?-0:parseCents(v,{zero});}
-function date(v){return /^\d{4}-\d{2}-\d{2}$/.test(v||'')&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;}
 function raw(company){return {customers:(wx.getStorageSync(require('./storage-keys').business)?.customers||[]).filter(c=>(c.companyId||'quanzhou')===company),projects:(wx.getStorageSync(require('./storage-keys').engineering)?.projects||[]).filter(p=>(p.companyId||'quanzhou')===company)};}
 function project(id,s){const data=raw(s.companyId),customer=data.customers.find(c=>c.projectId===id),engineering=data.projects.find(p=>(p.projectId||p.id)===id);return {customer,engineering,id,name:id==='company:'+s.companyId?'公司日常费用':customer?.name||engineering?.name||id};}
 function canRead(id,s,a=X.context()){if(!a.active||a.companyId!==s.companyId)return false;const p=project(id,s);if(id!=='company:'+s.companyId&&!p.customer&&!p.engineering&&![...(s.payables||[]),...(s.receipts||[])].some(r=>r.projectId===id&&(!r.companyId||r.companyId===s.companyId)))return false;if(X.isBoss(a)||O.has(a.role,'finance'))return true;if(id==='company:'+s.companyId)return false;return !!(p.customer&&X.sameCompany(p.customer,a)&&(a.role==='sales'&&X.ownerId(p.customer)===a.staffId||a.role==='sales-lead'&&X.teamAccess(p.customer,a))||p.engineering&&X.sameCompany(p.engineering,a)&&(a.role==='engineer'&&X.engineeringExecutor(p.engineering,a)||a.role==='project-manager'&&X.engineeringTeam(p.engineering,a)));}

@@ -3,6 +3,7 @@ const B = require('../../utils/business');
 const Access=require('../../utils/access');
 const KEY = require('../../utils/storage-keys').engineering;const AUTH=Symbol('validated-engineering-command');
 const clone = B.clone, today = B.date;const roundQ=n=>Math.round(n*1000)/1000;
+const date = require('../../utils/iso-date');
 const Seed=require('../../utils/engineering-seed'),{asset,sampleFile,project}=Seed,initial=Seed;
 const Accepted=require('../../utils/engineering-acceptance');
 const loadAll=Accepted.load;
@@ -18,7 +19,6 @@ function write(id,change,title,token,action=''){const state=load(),i=state.proje
 function authorize(id,action,f,revision){const state=load(),p=state.projects.find(p=>p.id===id);assert(p,'原工程不存在');assert(revision===undefined||revision===(p.revision||0),'原工程已更新');require('../../utils/task-access').apply(p,'engineering',action,f,Access.context());p.revision=(p.revision||0)+1;p.events.push({title:'工程任务动作授权变更',...Access.actor()});save(state,AUTH);return get(id);}
 function uid(prefix){return prefix+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);}
 function assert(ok,message){if(!ok)throw new Error(message);}
-function date(value){return /^\d{4}-\d{2}-\d{2}$/.test(value||'')&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;}
 function cents(value){assert(/^\d+(\.\d{1,2})?$/.test(String(value))&&Number(value)>0&&Number(value)<=100000000,'金额须大于0，最多两位小数且不超过一亿元。');return require('../../utils/money').parseCents(value);}
 function quantity(value){assert(/^\d+(\.\d{1,3})?$/.test(String(value))&&Number(value)>0&&Number(value)<=10000000,'数量须大于0，最多三位小数。');return Number(value);}
 function required(f,keys){keys.forEach(k=>assert(f[k]!==undefined&&f[k]!==null&&String(f[k]).trim(), '请补齐必填资料。'));}

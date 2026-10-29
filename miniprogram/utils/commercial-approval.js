@@ -1,4 +1,4 @@
-const X=require('./access'),P=require('./approval-policy'),copy=x=>JSON.parse(JSON.stringify(x));
+const X=require('./access'),P=require('./approval-policy'),copy=require('./clone');
 function sources(c){return [c.quotes?.at(-1)&&{kind:'quote',name:'正式报价及合同金额',row:c.quotes.at(-1)},c.serviceOrders?.at(-1)&&{kind:'service',name:'设计服务费',row:c.serviceOrders.at(-1)}].filter(Boolean);}
 function source(c,kind){return sources(c).find(s=>s.kind===kind);}
 function signature(s){const r=s.row;return JSON.stringify([s.kind,r.version,r.total,r.delta,r.measurementVersion,r.requestVersion,r.file||null,r.basis||null,r.first,r.tail,r.recipient]);}

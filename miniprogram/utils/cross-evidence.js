@@ -1,5 +1,5 @@
 const Job=require('./organization');
-const X=require('./access'),copy=x=>JSON.parse(JSON.stringify(x)),uid=t=>t+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+const X=require('./access'),copy=require('./clone'),uid=t=>t+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
 function books(){const raw=wx.getStorageSync(require('./storage-keys').management);return raw?[raw,...Object.values(raw.books||{})]:[];}
 function reply(q){return X.rawBook(q.toCompanyId)?.crossReplies?.filter(r=>r.queryId===q.id&&r.requestVersion===q.requestVersion).at(-1);}
 function target(q){const b=X.rawBook(q.toCompanyId),assignment=b?.crossAssignments?.filter(r=>r.queryId===q.id).at(-1);if(assignment)return assignment.assignee;const c=(wx.getStorageSync(require('./storage-keys').business)||{}).customers?.find(c=>c.id===q.customerId),p=q.originPaymentId&&['first','tail'].flatMap(stage=>require('./intercompany').stagePayments(c||{},stage)).find(p=>p.id===q.originPaymentId),refund=q.originRefundId&&b?.refunds?.find(r=>r.id===q.originRefundId);return p?.custodianId||p?.registrarId||refund?.custodianId||refund?.registrarId||q.toStaffId;}

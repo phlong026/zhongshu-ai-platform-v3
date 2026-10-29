@@ -1,5 +1,5 @@
 // Closing a construction file and closing its financial account are separate facts.
-const X=require('./access');
+const X=require('./access'),clone=require('./clone');
 function snapshot(s,id){
  const Ops=require('./operations'),F=require('./finance-source'),p=Ops.project(id,s),ar=Ops.receivable(s,id),cost=Ops.cost(s,id),material=require('./material-finance'),blockers=[];
  const url=view=>'/pages/admin/operations/index?view='+view+'&id='+encodeURIComponent(id);
@@ -21,5 +21,5 @@ function snapshot(s,id){
  const history=(s.operations?.projectClosures||[]).filter(r=>r.projectId===id),record=history.at(-1),closed=!!record&&!blockers.length&&record.signature===signature,ready=!blockers.length;
  return {projectId:id,status:closed?'closed':ready?'ready':'pending',label:closed?'财务已结清':ready?'待确认财务结清':'财务待收尾',ready,closed,needsReclose:!!record&&!closed,blockers,record:closed?record:null,history,signature,url:url('settlement')};
 }
-function close(s,id,f){const a=X.context();X.assert(a.active&&a.companyId===s.companyId&&['finance-lead','boss'].includes(a.role),'请由本组织财务负责人核对项目结清');X.assert(require('./operations').canRead(id,s),'当前岗位无权关闭本项目账');const row=snapshot(s,id);X.assert(row.ready,row.blockers.map(b=>b.text).join('；'));X.assert(!row.closed,'本项目当前账目已确认结清');X.assert(f.checked&&f.file&&String(f.note||'').trim(),'请核对收付款、成本和往来，并保存结清说明及依据');const record={id:'project-close-'+Date.now(),projectId:id,signature:row.signature,note:String(f.note).trim(),file:JSON.parse(JSON.stringify(f.file)),...X.actor()};s.operations.projectClosures.push(record);return {id};}
+function close(s,id,f){const a=X.context();X.assert(a.active&&a.companyId===s.companyId&&['finance-lead','boss'].includes(a.role),'请由本组织财务负责人核对项目结清');X.assert(require('./operations').canRead(id,s),'当前岗位无权关闭本项目账');const row=snapshot(s,id);X.assert(row.ready,row.blockers.map(b=>b.text).join('；'));X.assert(!row.closed,'本项目当前账目已确认结清');X.assert(f.checked&&f.file&&String(f.note||'').trim(),'请核对收付款、成本和往来，并保存结清说明及依据');const record={id:'project-close-'+Date.now(),projectId:id,signature:row.signature,note:String(f.note).trim(),file:clone(f.file),...X.actor()};s.operations.projectClosures.push(record);return {id};}
 module.exports={snapshot,close};

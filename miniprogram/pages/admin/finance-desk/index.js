@@ -1,10 +1,10 @@
 const D=require('../../../utils/finance-desk'),M=require('../model'),F=require('../../../utils/finance-source'),X=require('../../../utils/access'),N=require('../../../utils/page-navigation');
 const views={desk:'财务工作台',flows:'收支',projects:'项目',partners:'加盟商往来',project:'项目账目',partner:'加盟商往来',statement:'设计款到账进度',tasks:'财务办理'};
 const clean=()=>({rows:[],detail:null,partner:null,statement:null,tasks:[],filters:[],stats:[],ready:false,error:''});
-const decode=v=>{try{return decodeURIComponent(v||'');}catch(_){return String(v||'');}};
+const {routeValue}=require('../../../utils/view-container');
 Page({
  data:{...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
- onLoad(o={}){this.options={...o};this.id=decode(o.id);this.setData({view:views[o.view]?o.view:(['finance','finance-lead'].includes(X.context().role)?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:X.context().orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:decode(o.filter)||'all',category:decode(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
+ onLoad(o={}){this.options={...o};this.id=routeValue(o.id);this.setData({view:views[o.view]?o.view:(['finance','finance-lead'].includes(X.context().role)?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:X.context().orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
  onShow(){this.refresh();},
  restoreNavigationState(){this.refresh();},
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
