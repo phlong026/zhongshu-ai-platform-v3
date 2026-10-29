@@ -60,7 +60,7 @@ function receiptWaiting(c){
  // Completion opens the tail stage even when finance is still settling the first payment.
  const release=require('./design-receipts').release(c),pair=!release.tail.ready?['尾款',release.tail]:['首款',release.first],stage=pair[1];
  const storePending=stage.paid<stage.expected,gap=Math.max(0,stage.expected-(storePending?stage.paid:stage.received));
- const money=value=>{const cents=Math.max(0,Math.round(Number(value)||0));return '¥'+Math.floor(cents/100).toLocaleString('zh-CN')+'.'+String(cents%100).padStart(2,'0');};
+ const M=require('./money'),money=v=>M.money(Math.max(0,Math.round(Number(v)||0)));
  return {ready:release.ready,state:(pair[0]==='首款'?'设计尾款已到账 · 首款':'设计尾款')+(storePending?'待门店付款':'待总部核收'),detail:'应收 '+money(stage.expected)+' · 门店已付 '+money(stage.paid)+' · 总部实收 '+money(stage.received)+' · 差额 '+money(gap)+(pair[0]==='尾款'&&!release.first.ready?'；首款已登记付款，待总部确认到账':''),owner:storePending?'门店财务':'总部财务'};
 }
 // Workbench batches already have current records; avoid reading all customers once per row.

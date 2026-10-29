@@ -2,7 +2,7 @@
 const X=require('./access'),O=require('./organization'),A=require('./account'),Checkout=require('./design-checkout');
 const F=require('./finance-source'),Ops=require('./operations'),T=require('./intercompany');
 const ROOT='/pages/admin/finance-desk/index';
-const money=n=>n===null||n===undefined?'待完善':'¥ '+(Number(n)/100).toLocaleString('en-US',{maximumFractionDigits:2});
+const money=require('./money').money;
 const number=n=>Math.abs(n)>=1000000?(n/1000000).toFixed(1).replace(/\.0$/,'')+'万':money(n);
 const sum=(rows,key)=>rows.reduce((n,r)=>n+(Number(typeof key==='function'?key(r):r[key])||0),0);
 const cents=n=>Math.round(Number(n||0)*100),value=r=>r.revisions?.at(-1)?.amount??r.amount??0;

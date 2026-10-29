@@ -2,7 +2,7 @@ const Job=require('../../utils/organization');
 const X=require('../../utils/access'),F=require('../../utils/finance-source'),D=require('../../utils/demo-users');
 const titles={'incoming-register':'收款登记','pay-supplement':'补充原付款事项'};
 const row=(label,value)=>({type:'row',label,value:value||'—'}),notice=value=>({type:'notice',value}),area=(key,placeholder)=>({type:'textarea',key,placeholder}),check=label=>({type:'check',label,key:'checked'}),upload=label=>({type:'upload',label,key:'file'}),link=(label,view,id,subtitle='')=>({type:'link',label,view,id,subtitle}),section=(title,rows)=>({title,rows}),input=(label,key,kind='text')=>({type:'input',label,key,inputType:kind,placeholder:'请填写'+label});
-const money=n=>'¥ '+(Number(n||0)/100).toLocaleString('en-US'),person=id=>D.people.find(p=>p.staffId===id)?.name||id||'历史经办人',picture=file=>({type:'picture',file,src:'/pages/admin/assets/receipt.jpg'});
+const money=require('../../utils/money').money,person=id=>D.people.find(p=>p.staffId===id)?.name||id||'历史经办人',picture=file=>({type:'picture',file,src:'/pages/admin/assets/receipt.jpg'});
 function config(view,s,form,id){const q=s.payables.find(q=>q.id===id),p=s.payments.find(p=>p.id===id),r=s.receipts.find(r=>r.id===id),refund=s.refunds.find(r=>r.id===id),out={title:titles[view]||'',sections:[],primary:'',secondary:'',hero:null};
  if(view==='incoming-register'){
   if(!r)return {...out,missing:true};

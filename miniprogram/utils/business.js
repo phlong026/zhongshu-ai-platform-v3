@@ -41,7 +41,7 @@ function referenceUsed(direction,value,except={}){const a=scope(),ref=String(val
 function validDate(d){return /^\d{4}-\d{2}-\d{2}$/.test(d||'')&&!Number.isNaN(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;}
 function positive(value) { return Number.isFinite(Number(value)) && Number(value) > 0; }
 function dimension(value) { return /^\d{1,2}(\.\d)?$/.test(String(value)) && Number(value) >= 3 && Number(value) <= 40; }
-function money(value) { return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+const money = require('./money').yuan;
 function date() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function engineeringStatus(c) { const state=wx.getStorageSync('zhongshu-engineering-v1')||{};const p=(state.projects||[]).find(p=>p.sourceCustomerId===c.id);if(!p)return '';if(p.delivery||p.archived)return '已交付';if(p.delivery)return '交付待独立核验';if(p.actualStart)return p.plan&&p.plan.nodes.length&&p.plan.nodes.every(n=>n.status==='已完成')?'待交付':'施工中';return ''; }
 // Customer journey shown on the project-progress tab; returns the index of the current stage (STAGES.length once delivered).

@@ -4,7 +4,7 @@ const client = createClient();
 const clone = value => JSON.parse(JSON.stringify(value));
 const emptyGoals = () => ({ sales: '', collections: '', effective: '', customers: '', nodes: '', staff: {}, departmentGoals: {}, staffDepartmentGoals: {}, expectedVersion: 0 });
 const emptyCommission = () => ({ amount: '', assignee: '', note: '', checked: false, file: { name: '模拟跨端提成确认依据.pdf', sample: true }, expectedVersion: 0 });
-const money = cents => '¥ ' + (Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = require('../../../utils/money').money;
 
 function commissionState(commission, selectedProjectId) {
   const projects = commission?.projects || [], staff = commission?.staff || [];

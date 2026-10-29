@@ -26,7 +26,7 @@ const detail = metric => '/pages/admin/detail/index?view=stat&id=' + encodeURICo
 const oldDetail = (view, extra = {}) => '/pages/admin/detail/index?view=' + view + Object.entries(extra).map(([key, value]) => '&' + key + '=' + encodeURIComponent(value)).join('');
 const customerUrl = id => '/pages/workflow/index?view=customer&id=' + encodeURIComponent(id);
 const commissionUrl = id => '/pages/workflow/commission/index?view=progress&id=' + encodeURIComponent(id);
-const money = cents => '¥ ' + (Number(cents || 0) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const money = require('../../utils/money').money;
 const staffName = (snapshot, id) => (snapshot.state.staff || snapshot.staff || []).find(person => person.id === id)?.name || id || '待配置负责人';
 const yuan = value => '¥ ' + Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 

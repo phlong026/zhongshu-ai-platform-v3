@@ -29,9 +29,7 @@ function paymentNotificationId(customer, order) {
   return ['design-payment-copy', customer.id, order.id, order.paidAt || '', order.status].join(':');
 }
 
-function money(cents) {
-  return `¥${(Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-}
+const money = require('./money').money;
 
 function paymentCopies(customers, actor, reads, checkout) {
   if (!['finance', 'finance-lead'].includes(actor.role)) return [];

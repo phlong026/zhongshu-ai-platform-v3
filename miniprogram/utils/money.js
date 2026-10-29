@@ -5,6 +5,7 @@ const NA = '待完善';
 
 // 分 → '¥ 1,234.00'；null/undefined → 占位
 function money(cents, opts = {}) {
+  if (cents === null || cents === undefined || cents === '') return opts.na === undefined ? NA : opts.na;
   const n = Number(cents);
   if (!Number.isFinite(n)) return opts.na === undefined ? NA : opts.na;
   const yuan = (n / 100).toLocaleString('en-US', {
@@ -29,4 +30,13 @@ function wan(cents) {
   return money(n);
 }
 
-module.exports = { money, parseCents, wan, NA };
+// 元数字（业务设计费按元存储的场景）→ 千分位串（无符号）
+function yuan(value, { cases = true } = {}) {
+  const n = Number(value || 0);
+  return n.toLocaleString('en-US', {
+    minimumFractionDigits: cases ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+module.exports = { money, parseCents, wan, yuan, NA };

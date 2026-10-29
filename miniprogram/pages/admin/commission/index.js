@@ -6,7 +6,7 @@ const N = require('../../../utils/page-navigation');
 const Files = require('../../../utils/sample-files');
 
 const clone = value => JSON.parse(JSON.stringify(value));
-const money = cents => '¥ ' + (Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const money = require('../../../utils/money').money;
 const blankForm = () => ({ amount:'', assignee:'', note:'', file:null, checked:false, expectedVersion:0 });
 const clean = () => ({ ready:false, error:'', busy:false, actor:{}, canEditPolicy:false, commissionRows:[], commissionProjects:[], commissionProjectIndex:0, commissionStaff:[], commissionStaffIndex:0, commissionForm:blankForm() });
 

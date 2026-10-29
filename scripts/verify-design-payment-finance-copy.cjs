@@ -73,9 +73,9 @@ for (const actor of Object.values(actors)) {
   assert.equal(messages[0].route, 'messages');
   assert.equal(messages[0].objectId, customer.id);
   assert.match(messages[0].title, /模拟支付已完成/);
-  assert.match(messages[0].description, /¥8,000/);
+  assert.match(messages[0].description, /¥ 8,000/);
   assert.match(messages[0].description, /微信支付/);
-  assert.match(messages[0].description, /400㎡ × ¥20\/㎡/);
+  assert.match(messages[0].description, /400㎡ × ¥ 20\/㎡/);
   assert.doesNotMatch(JSON.stringify(messages[0]), /DEMO-WECHAT-001/);
 }
 

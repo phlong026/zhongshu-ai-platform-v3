@@ -2,7 +2,7 @@ const Files = require('../../../utils/sample-files');
 const Checkout = require('../../../utils/design-checkout');
 const Access = require('../../../utils/access');
 const imageRoot = '/pages/workflow/assets/';
-const money = value => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = require('../../../utils/money').yuan;
 const specs = [
   { key: 'resultFile', label: '设计成果', name: '正式设计成果.pdf', kind: 'result', image: imageRoot + 'biz-plan-result.jpg' },
   { key: 'drawingFile', label: '施工图纸', name: '施工图纸.pdf', kind: 'drawing', image: imageRoot + 'biz-plan-1.jpg' },

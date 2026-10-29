@@ -36,8 +36,8 @@
    <view wx:if="{{view==='submit'&&pricingQuote}}" class="commission-card commission-pricing-quote">
     <view class="commission-section-title"><text class="commission-heading">自动计算设计费</text><text class="commission-sample-mark">体验版一次性支付</text></view>
     <view class="commission-row"><text class="commission-muted commission-key">预算建筑面积</text><text class="commission-value">{{pricingQuote.area}}㎡</text></view>
-    <view class="commission-row"><text class="commission-muted commission-key">总部设计单价</text><text class="commission-value">￥{{pricingQuote.rateText}}/㎡</text></view>
-    <view class="commission-row"><text class="commission-muted commission-key">一次性设计费</text><text class="commission-value commission-amount">￥{{pricingQuote.amountText}}</text></view>
+    <view class="commission-row"><text class="commission-muted commission-key">总部设计单价</text><text class="commission-value">¥ {{pricingQuote.rateText}}/㎡</text></view>
+    <view class="commission-row"><text class="commission-muted commission-key">一次性设计费</text><text class="commission-value commission-amount">¥ {{pricingQuote.amountText}}</text></view>
     <view class="commission-row"><text class="commission-muted commission-key">交付范围</text><text class="commission-value">{{pricingQuote.scope}}</text></view>
     <view class="commission-row"><text class="commission-muted commission-key">收款主体</text><text class="commission-value">{{pricingQuote.recipient}}</text></view>
    </view>

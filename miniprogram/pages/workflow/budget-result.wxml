@@ -2,11 +2,11 @@
  <view class="budget-result-surface">
   <view class="card section budget-summary">
    <view class="heading"><text>建造参考预算</text><text class="badge">{{budget.version?'已保存 V'+budget.version:'待关联客户'}}</text></view>
-   <view class="budget-total">￥{{budget.total}}</view><text class="muted centered">主体 + 外装 · 前期沟通参考</text>
+   <view class="budget-total">¥ {{budget.total}}</view><text class="muted centered">主体 + 外装 · 前期沟通参考</text>
    <view class="stats"><view><text class="muted">建筑面积</text><text>{{budget.area}}㎡</text></view><view><text class="muted">建筑层数</text><text>{{budget.floors?budget.floors+'层':'待补齐'}}</text></view></view>
   </view>
-  <view class="card section"><view class="heading"><text>主体工程</text><text class="amount">￥{{budget.main}}</text></view><view wx:for="{{budget.bodyRows}}" wx:key="label" class="budget-cost"><view><text>{{item.label}}</text><text wx:if="{{item.formula}}" class="muted">{{item.formula}}</text></view><text>￥{{item.money}}</text></view></view>
-  <view class="card section"><view class="heading"><text>外装工程</text><text class="amount">￥{{budget.exterior}}</text></view><view wx:for="{{budget.exteriorRows}}" wx:key="label" class="budget-cost"><view><text>{{item.label}}</text><text wx:if="{{item.formula}}" class="muted">{{item.formula}}</text></view><text>￥{{item.money}}</text></view></view>
+  <view class="card section"><view class="heading"><text>主体工程</text><text class="amount">¥ {{budget.main}}</text></view><view wx:for="{{budget.bodyRows}}" wx:key="label" class="budget-cost"><view><text>{{item.label}}</text><text wx:if="{{item.formula}}" class="muted">{{item.formula}}</text></view><text>¥ {{item.money}}</text></view></view>
+  <view class="card section"><view class="heading"><text>外装工程</text><text class="amount">¥ {{budget.exterior}}</text></view><view wx:for="{{budget.exteriorRows}}" wx:key="label" class="budget-cost"><view><text>{{item.label}}</text><text wx:if="{{item.formula}}" class="muted">{{item.formula}}</text></view><text>¥ {{item.money}}</text></view></view>
   <view class="card section"><view class="heading">计价范围与后续办理</view><text class="muted">按本版面积、配置与价格测算，不含室内装修。价格版本 {{budget.priceVersion}}。</text><view wx:if="{{linked}}" class="budget-linked"><text>已保存至 {{customerName}}</text><button wx:if="{{canChoose}}" class="link" bindtap="save">更换客户</button></view><button wx:if="{{linked}}" class="outline btn quote-export-entry" data-kind="budget" bindtap="exportQuote">导出参考预算图片 / PDF</button></view>
   <view class="budget-action-bar"><button class="outline btn" bindtap="{{adjustHandler}}">调整参数</button><button wx:if="{{linked}}" class="btn primary-action budget-next explore-formal" bindtap="{{continueHandler}}">{{continueLabel}}</button><button wx:else class="btn primary-action save-explore" bindtap="save">选择客户并保存</button></view>
  </view>
