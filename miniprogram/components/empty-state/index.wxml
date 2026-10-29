@@ -1,0 +1,1 @@
+<view class="empty-state custom-class zs-theme"><image wx:if="{{image}}" src="{{image}}" mode="aspectFit"/><text>{{message}}</text><text wx:if="{{detail}}" class="empty-detail">{{detail}}</text></view>

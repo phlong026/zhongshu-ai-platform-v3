@@ -8,6 +8,7 @@ button::after { border: 0; }
 .hero { width: 100%; border-radius: 18rpx; margin-bottom: 22rpx; }
 .summary { font-size:var(--zs-font-title); font-weight: 600; padding: 8rpx 0 18rpx; }
 .description { display: block; color: #827c74; font-size:var(--zs-font-body); line-height: 1.8; white-space: pre-wrap; margin-bottom: 22rpx; }
+.panel-error{display:block;margin-bottom:18rpx;color:var(--zs-danger);font-size:var(--zs-font-meta);line-height:36rpx;white-space:pre-wrap}
 .field { margin-bottom: 24rpx; }
 .label { display: block; font-size:var(--zs-font-body); margin-bottom: 14rpx; }
 .input, .textarea { width: 100%; background: #f5f2ed; border-radius: 14rpx; font-size:var(--zs-font-body); padding: 20rpx; box-sizing: border-box; }

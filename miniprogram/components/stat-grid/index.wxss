@@ -1,9 +1,12 @@
 @import "../../styles/component-tokens.wxss";
 /* 以 eng-statistics 基线（styles/engineering.wxss）为准 */
 .stat-grid{display:flex}
-.stat-grid>button{flex:1;text-align:center;border-right:1rpx solid var(--zs-line);padding:8rpx 0;background:transparent;line-height:inherit}
+.stat-grid>button,.stat-item{flex:1;text-align:center;border-right:1rpx solid var(--zs-line);padding:8rpx 0;background:transparent;line-height:inherit}
 .stat-grid>button::after{border:0}
-.stat-grid>button:last-child{border:0}
+.stat-grid>button:last-child,.stat-item:last-child{border:0}
 .stat-value{display:block;font-size:var(--zs-font-metric);line-height:60rpx;color:var(--zs-brand);font-weight:600;font-variant-numeric:tabular-nums}
 .stat-unit{font-size:var(--zs-font-caption);font-weight:400;margin-left:6rpx;color:var(--zs-text-3)}
 .stat-label{display:block;font-size:var(--zs-font-meta);line-height:36rpx;color:var(--zs-text-2)}
+.summary{margin:12rpx 0 14rpx;padding:18rpx 0;background:#fcf9f4;border-radius:12rpx}
+.summary .stat-label{font-size:var(--zs-font-meta);color:var(--zs-text-2)}
+.summary .stat-value{font-size:var(--zs-font-heading);line-height:56rpx}

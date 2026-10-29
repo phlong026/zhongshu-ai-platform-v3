@@ -1,0 +1,5 @@
+<view class="todo-row {{last?'last':''}} zs-theme">
+  <view class="todo-icon"><image src="{{icon}}" mode="aspectFit"/></view>
+  <view class="todo-copy"><text class="todo-title">{{title}}</text><view class="todo-note"><image src="{{noteIcon}}" mode="aspectFit"/><text>{{note}}</text></view></view>
+  <button class="{{outline?'outline':'primary'}}" bindtap="activate" hover-class="pressed">{{actionLabel}}</button>
+</view>

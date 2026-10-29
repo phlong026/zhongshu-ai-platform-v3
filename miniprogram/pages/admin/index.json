@@ -1,1 +1,1 @@
-{"usingComponents":{"admin-header":"./header/index"}}
+{"usingComponents":{"admin-header":"./header/index","action-panel":"../../components/action-panel/index"}}

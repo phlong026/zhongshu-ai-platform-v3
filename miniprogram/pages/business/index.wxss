@@ -2,10 +2,6 @@
 @import "../../styles/sales.wxss";
 .business-page .content { padding: 0 24rpx; }
 .business-page button { font-family: inherit; }
-.search-box { height: 74rpx; display: flex; align-items: center; border: 4rpx solid white; border-radius: 40rpx; padding: 0 28rpx; margin: 7rpx 0 17rpx; }
-.search-icon { width: 34rpx; height: 34rpx; margin-right: 20rpx; }
-.search-box input { flex: 1; font-size:var(--zs-font-body); height: 54rpx; }
-.search-placeholder { color: #8a8d92; }
 .todo-section { padding: 16rpx; margin-bottom: 16rpx; }
 .todo-section .section-heading { margin: 0 2rpx 7rpx; }
 .todo-section .primary { min-width: 129rpx; }

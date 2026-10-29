@@ -1,0 +1,9 @@
+{
+  "usingComponents": {
+    "search-box": "../../miniprogram/components/search-box/index",
+    "todo-row": "../../miniprogram/components/todo-row/index",
+    "stat-grid": "../../miniprogram/components/stat-grid/index",
+    "list-row": "../../miniprogram/components/list-row/index",
+    "action-panel": "../../miniprogram/components/action-panel/index"
+  }
+}

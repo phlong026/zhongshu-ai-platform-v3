@@ -8,7 +8,7 @@
      <view wx:if="{{todoRows.length}}" class="customer-work-filters sales-todo-tabs"><button wx:for="{{todoTabs}}" wx:key="key" class="customer-day-button {{todoTab===item.key?'active':''}}" data-tab="{{item.key}}" bindtap="selectTodoTab"><text>{{item.label}}</text><text>{{item.count}}</text></button></view>
      <view wx:for="{{todoRows}}" wx:key="id" hidden="{{!item.show}}"><button wx:if="{{item.staff}}" class="sales-recent-row sales-todo-row" data-view="{{item.view}}" data-id="{{item.targetId}}" data-area="{{item.area}}" data-record="{{item.record}}" bindtap="goAdmin"><view class="sales-recent-copy"><text class="sales-task-name">{{item.name}}</text><text class="hint">{{item.state}}</text></view><text class="{{item.primary?'sales-todo-primary':'sales-recent-action'}}">{{item.action}}</text><view wx:if="{{!item.primary}}" class="chevron" /></button><button wx:else class="sales-recent-row sales-todo-row {{item.actionable?'':'sales-todo-waiting'}}" data-id="{{item.id}}" bindtap="openFlowTask"><view class="sales-recent-copy"><text class="sales-task-name">{{item.name}}<text wx:if="{{item.tag}}" class="sales-badge {{item.tone}}">{{item.tag}}</text></text><text class="hint">{{(item.actionable?'':'办理中 · ')+item.state+(item.owner&&!item.actionable?' · '+item.owner:'')}}</text></view><text class="{{item.primary?'sales-todo-primary':'sales-recent-action'}}">{{item.action}}</text><view wx:if="{{!item.primary}}" class="chevron" /></button></view>
      <button wx:if="{{todoMore}}" class="text-link sales-todo-more" bindtap="toggleTodos">{{todoExpanded?'收起':'查看全部'}}<view class="chevron" /></button>
-     <view wx:if="{{!todoRows.length}}" class="sales-empty">今日暂无待办，登记客户或开始创作后可在这里继续办理。</view></view>
+     <empty-state wx:if="{{!todoRows.length}}" custom-class="sales-empty" message="今日暂无待办，登记客户或开始创作后可在这里继续办理。"/></view>
     <view class="section sales-recent"><view class="section-heading"><text class="section-title">最近办理</text></view><button wx:if="{{recentCustomer}}" class="sales-recent-row" bindtap="continueSalesCustomer"><view class="sales-person-initial">{{recentCustomer.initial}}</view><view class="sales-recent-copy"><text>{{recentCustomer.name}}</text><text class="hint">{{recentCustomer.stage}}</text></view><text class="sales-recent-action">继续办理</text><view class="chevron" /></button><button wx:if="{{recentCreation}}" class="sales-recent-row" bindtap="continueSalesCreation"><image src="{{recentCreation.image}}" mode="aspectFill"/><view class="sales-recent-copy"><text>{{recentCreation.title}}</text><text class="hint">{{recentCreation.badge}}</text></view><text class="sales-recent-action">继续创作</text><view class="chevron" /></button><view wx:if="{{!recentCustomer&&!recentCreation}}" class="sales-empty">登记客户或开始创作后，可在这里继续办理。</view></view>
   </view>
   <view wx:elif="{{isBossBiz}}" class="content boss-biz-content">
@@ -35,7 +35,7 @@
     <button class="boss-biz-entry" data-url="/pages/customers/index" bindtap="openBossLink">客户列表与跟进<view class="chevron"/></button>
   </view>
   <view wx:else class="content"><login-guide wx:if="{{guest}}" title="业务工作台" description="客户跟进、方案设计、视频创作与工程移交按岗位分工办理，登录后查看本人工作台。" /><workbench-denied wx:elif="{{!canBusiness}}" title="{{active?'当前身份无业务办理权限':'登录后查看业务工作台'}}" lines="{{['客户跟进、设计和移交按岗位分工办理。请使用本人已授权的工作台。']}}" home-title="{{homeTitle}}" active="{{active}}" bind:home="goTab" bind:identity="openAction"/><block wx:else>
-    <view class="search-box"><image src="/assets/search.png" class="search-icon" /><input placeholder="搜索客户、项目或方案" placeholder-class="search-placeholder" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
+    <search-box variant="business" clearable="{{false}}" value="{{keyword}}" placeholder="搜索客户、项目或方案" aria-label="搜索客户、项目或方案" bind:input="search"/>
     <view class="section todo-section">
       <view class="section-heading"><text class="section-title">客户跟进</text><button wx:if="{{canSalesWrite}}" class="primary" data-action="customer" bindtap="openAction" hover-class="pressed"><text class="plus">＋</text>客户</button></view>
       <view class="customer-card">
@@ -44,7 +44,7 @@
           <view class="customer-info"><text class="customer-name">{{item.name}}</text><text class="customer-desc">{{item.desc}}</text></view>
           <button class="outline" data-action="{{item.action}}" data-customer="{{item.id}}" bindtap="openAction" hover-class="pressed">{{item.button}}</button>
         </view>
-        <view wx:if="{{!filteredCustomers.length}}" class="empty">当前暂无符合条件的客户</view>
+        <empty-state wx:if="{{!filteredCustomers.length}}" custom-class="empty" message="当前暂无符合条件的客户"/>
         <button wx:if="{{canBrowseCustomers}}" class="customer-footer" data-action="customers" bindtap="openAction">{{isDesign?'设计任务列表':'客户与预约'}}<view class="chevron" /></button>
       </view>
     </view>

@@ -1,0 +1,9 @@
+<view>
+  <search-box value="{{keyword}}" placeholder="搜索待办" bind:input="search"/>
+  <todo-row title="待复核" action="review" data-action="review" bind:activate="activate"/>
+  <stat-grid items="{{stats}}" bind:stattap="openStat"/>
+  <stat-grid interactive="{{false}}" items="{{stats}}"/>
+  <list-row custom-class="ops-link" data-url="/pages/admin/index?view=todos" bind:activate="go"><text slot="title">{{rowTitle}}</text><text slot="detail">{{rowMeta}}</text></list-row>
+  <list-row interactive="{{false}}" custom-class="ops-link"><text slot="title">只读原单</text></list-row>
+  <action-panel panel="{{panel}}" bind:close="closePanel" bind:submit="submitPanel"/>
+</view>
