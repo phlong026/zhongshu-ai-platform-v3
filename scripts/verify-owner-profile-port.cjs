@@ -32,7 +32,7 @@ const path = require('node:path');
   const targets = [
     ['/pages/admin/index?view=staff', '成员与权限'],
     ['/pages/admin/detail/index?view=settings', '审批设置'],
-    ['/pages/admin/detail/index?view=handover', '项目经理交接'],
+    ['/pages/admin/detail/index?view=handover', '工程负责人交接'],
     ['/pages/admin/detail/index?view=company', '门店资料']
   ];
   for (const [url, label] of targets) {

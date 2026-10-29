@@ -21,7 +21,7 @@ async function main() {
   assert(homeTemplate.indexOf('fin-home-summary') < homeTemplate.indexOf('staff-todos'));
   assert(homeTemplate.indexOf('staff-todos') < homeTemplate.indexOf('fin-home-shortcuts'), '财务首页顺序应为指标、待办、常用功能、项目进度');
   assert(homeTemplate.indexOf('fin-home-shortcuts') < homeTemplate.indexOf('fin-home-progress'));
-  for (const title of ['待办事项', '常用快捷办理', '正在办理']) assert(homeTemplate.includes('>' + title + '<'));
+  for (const title of ['今日待办', '常用快捷办理', '正在办理']) assert(homeTemplate.includes('>' + title + '<'));
   assert(!homeTemplate.includes('fin-identity'), '首页第五区后不应追加身份或说明板块');
   assert(homeTemplate.includes('wx:if="{{!desk.previewTasks.length}}"'));
   assert(homeTemplate.includes('wx:if="{{!desk.focus.length}}"'));
