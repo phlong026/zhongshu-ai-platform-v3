@@ -43,7 +43,7 @@ function positive(value) { return Number.isFinite(Number(value)) && Number(value
 function dimension(value) { return /^\d{1,2}(\.\d)?$/.test(String(value)) && Number(value) >= 3 && Number(value) <= 40; }
 function money(value) { return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
 function date() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function engineeringStatus(c) { const state=wx.getStorageSync('zhongshu-engineering-v1')||{};const p=(state.projects||[]).find(p=>p.sourceCustomerId===c.id);if(!p)return '';if(p.delivery?.status==='已核验'||p.archived)return '已交付';if(p.delivery)return '交付待独立核验';if(p.actualStart)return p.plan&&p.plan.nodes.length&&p.plan.nodes.every(n=>n.status==='已完成')?'待交付':'施工中';return ''; }
+function engineeringStatus(c) { const state=wx.getStorageSync('zhongshu-engineering-v1')||{};const p=(state.projects||[]).find(p=>p.sourceCustomerId===c.id);if(!p)return '';if(p.delivery||p.archived)return '已交付';if(p.delivery)return '交付待独立核验';if(p.actualStart)return p.plan&&p.plan.nodes.length&&p.plan.nodes.every(n=>n.status==='已完成')?'待交付':'施工中';return ''; }
 // Customer journey shown on the project-progress tab; returns the index of the current stage (STAGES.length once delivered).
 const STAGES=['客户跟进','需求沟通','设计与预算','设计协同','设计完成','施工阶段','交付'];
 function stageIndex(c){
