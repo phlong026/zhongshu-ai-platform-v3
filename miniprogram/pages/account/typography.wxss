@@ -17,7 +17,7 @@
 .account .continue-row image{width:244rpx;height:174rpx}
 .account .continue-row .progress-track{max-width:267rpx;margin-top:50rpx}
 .account .continue-row .pill{right:6rpx;margin-top:40rpx}
-.account .course-percent{position:absolute;right:10rpx;bottom:14rpx;font-size:22rpx;line-height:30rpx;color:#8990a0}
+.account .course-percent{position:absolute;right:10rpx;bottom:14rpx;font-size:22rpx;line-height:30rpx;color:#9a9187}
 .account .service-grid .strong{font-size:27rpx;line-height:40rpx}
 .account .service-grid .hint{font-size:23rpx;line-height:34rpx}
 .account .order-row .hint,.account .order-scope .hint{font-size:23rpx;line-height:34rpx}
