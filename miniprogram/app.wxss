@@ -35,3 +35,24 @@ button[disabled] { color: #aaa; }
 .sheet-save,.sheet>.solid,.creation-sheet-button,.sheet-confirm{position:sticky;bottom:0;z-index:2;min-height:88rpx;flex-shrink:0}
 
 .workbench-denied{padding:32rpx 24rpx}.workbench-denied>text{display:block;margin-bottom:24rpx;line-height:44rpx}.workbench-denied>text+text{font-size:26rpx;color:#778092}.workbench-denied>button{width:100%;margin:24rpx 0 0;min-height:88rpx;line-height:88rpx}
+
+/* E1全局设计令牌（2026-10-29定稿）：以 fin-*/eng-* 基准收敛，全站映射随批次E推进 */
+page {
+  --zs-brand: #89512a;        /* 主色（品牌棕，全站唯一） */
+  --zs-brand-press: #75451f;   /* 主色按压态 */
+  --zs-bg: #faf8f4;            /* 页面米白底 */
+  --zs-card: #ffffff;          /* 卡片 */
+  --zs-line: #eee8df;          /* 分隔线 */
+  --zs-text: #30291f;          /* 主文本 */
+  --zs-text-2: #6f665a;       /* 次文本 */
+  --zs-text-3: #9a9187;       /* 弱文本（对比度≥4.5:1档） */
+  --zs-success: #2e7d52;       /* 成功 */
+  --zs-success-bg: #e8f4ec;
+  --zs-warning: #8a5a12;       /* 待办/警示 */
+  --zs-warning-bg: #fbf0dc;
+  --zs-danger: #b3402a;        /* 逾期/危险 */
+  --zs-danger-bg: #fdecea;
+  --zs-radius: 22rpx;          /* 卡片圆角（两档之一） */
+  --zs-radius-lg: 24rpx;
+  --zs-shadow: 0 6rpx 18rpx rgba(48, 41, 31, 0.06);
+}
