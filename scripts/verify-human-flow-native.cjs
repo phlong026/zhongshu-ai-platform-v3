@@ -284,7 +284,7 @@ async function main() {
     await step('B08', '总部按原项目下发V1正式成果', '林设计', async () => {
       await login('hq-design-admin'); await designTask('dispatch');
       await input('input[data-key="recipient"]', '李业务');
-      await input('textarea[data-key="note"]', '陈建国家V1正式成果已下发，关联同版施工图和线下审核依据。');
+      await input('textarea[data-key="note"]', '陈建国家V1正式下发设计成果，关联同版施工图和线下审核依据。');
       await check('checked'); await tap('.commission-actions .commission-primary');
       assert.equal((await customer()).businessFlow.dispatch.version, 1);
     });

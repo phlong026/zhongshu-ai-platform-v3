@@ -65,7 +65,7 @@ function receiptWaiting(c){
 }
 // Workbench batches already have current records; avoid reading all customers once per row.
 function nextRecord(c){
- const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='')=>({state,owner,view,actionable,label:view==='pay'?'支付设计费':view==='submit'?'提交设计委托':view==='handover'?'收图并移交':view==='receive'?'核查接收':view==='complete'?'设计完成':view==='dispatch'?'成果已下发':'查看进度',...(detail?{detail}:{})});
+ const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='')=>({state,owner,view,actionable,label:view==='pay'?'去支付':view==='submit'?'提交设计委托':view==='handover'?'移交给工程':view==='receive'?'核对接收':view==='complete'?'登记设计完成':view==='dispatch'?'下发设计成果':'查看进度',...(detail?{detail}:{})});
  if(!is(c))return r('待提交设计委托','经办业务','submit',true);
  if(c.acceptance)return r('业务移交完成','已完成','progress');
  if(c.handover?.status==='returned')return r('移交资料待补充','经办业务','handover',true);

@@ -125,7 +125,7 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   assert(!T.condition(raw(),'tail').ready);assert.throws(()=>{login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-dispatch',{checked:true,recipient:'业务',note:'仅门店登记尾款'});},/到账|财务/);
   await receive('tail',5000,'ACC-HQ-TAIL');assert(T.condition(raw(),'tail').ready);
   login('hq-design-admin');require('../miniprogram/utils/sales-flow').run(cid,'design-dispatch',{checked:true,recipient:'业务',note:'总部确认尾款足额到账后已下发'});
-  login('sales-dual','sales-lead');assert(require('../miniprogram/utils/sales-flow').tasks().some(t=>t.customerId===cid&&t.action==='收图并移交'));
+  login('sales-dual','sales-lead');assert(require('../miniprogram/utils/sales-flow').tasks().some(t=>t.customerId===cid&&t.action==='移交给工程'));
   pass('A6 未付款或仅门店登记时禁止下发；总部足额到账确认后行政下发接续业务移交');
 
   // ---- B. boss approval of a payable, then payment (engineering material purchase) ----

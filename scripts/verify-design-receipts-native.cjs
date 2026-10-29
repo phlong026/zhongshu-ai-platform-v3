@@ -137,7 +137,7 @@ async function main() {
     await r.until(async () => (await r.data()).view === 'progress' && !(await r.data()).error, 'dispatch registered');
     await r.login('sales-dual', 'sales-lead');
     await r.open('/pages/business/index');
-    assert((await r.data()).flowPending.some(task => task.customerId === source.id && task.action === '收图并移交'));
+    assert((await r.data()).flowPending.some(task => task.customerId === source.id && task.action === '移交给工程'));
     await capture('sales-handover');
     pass('行政实际下发后，业务收图移交待办自动接续');
 

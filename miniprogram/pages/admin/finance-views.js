@@ -16,7 +16,7 @@ function config(view,s,form,id){const q=s.payables.find(q=>q.id===id),p=s.paymen
   out.sections=[section(design?'付款来源':intercompany?'双方原单关联':'客户收款来源',sourceRows),section('实际到账登记',[
    ...(design?[row('本次最多可确认',money(r.amount))]:[]),input('本次实际到账金额','amount','digit'),input('实际到账日期','date','date'),input('到账原渠道流水','transaction'),upload('实际到账凭证'),area('note',design?'说明原订单匹配及差额情况（选填）':'说明原订单匹配及差额情况'),check('已查验实际到账并匹配当前原订单'),notice(design?'保存后自动更新到账进度；只有设计完成且当前首尾款均足额到账，才会生成设计行政正式图纸下发待办。':'此操作仅登记本组织实际到账，不发起收款。')
   ])];
-  if(r.status==='待登记'||r.status==='待核算'&&!r.financialRegistrarId&&r.source?.module!=='intercompany'){out.primary=design?'确认到账并更新进度':'登记实际到账';out.action='incoming-register';}
+  if(r.status==='待登记'||r.status==='待核算'&&!r.financialRegistrarId&&r.source?.module!=='intercompany'){out.primary=design?'确认到账':'登记实际到账';out.action='incoming-register';}
   return out;
  }
 

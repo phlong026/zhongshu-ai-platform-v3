@@ -151,7 +151,7 @@ const assert = require('assert/strict');
 
   login('hq-design-admin');
   check('首款未登记时设计行政没有设计完成待办', () => {
-    assert(!SF.tasks().some(task => task.customerId === id && task.action === '设计完成'));
+    assert(!SF.tasks().some(task => task.customerId === id && task.action === '登记设计完成'));
   });
   check('首款未登记时模型拒绝越级登记设计完成', () => {
     assert.throws(
@@ -164,13 +164,13 @@ const assert = require('assert/strict');
   login('hq-design-admin');
   check('首款只登记一部分时仍不能开始设计', () => {
     assert.equal(T.condition(raw(), 'first').paid, 200000);
-    assert(!SF.tasks().some(task => task.customerId === id && task.action === '设计完成'));
+    assert(!SF.tasks().some(task => task.customerId === id && task.action === '登记设计完成'));
     assert.throws(() => SF.transition(raw(), 'design-complete', { checked: true }), /首款|付款/);
   });
   pay('first', 2000, 'FEE-STAGE-FIRST-STORE-2');
   login('hq-design-admin');
   check('门店足额登记首款后立即开放设计且总部收到首款到账待办', () => {
-    assert(SF.tasks().some(task => task.customerId === id && task.action === '设计完成'));
+    assert(SF.tasks().some(task => task.customerId === id && task.action === '登记设计完成'));
     assert.equal(T.condition(raw(), 'first').paid, 400000);
     assert(!T.condition(raw(), 'first').ready, '总部尚未确认前不应记为双方到账完成');
     login('hq-finance', 'finance');

@@ -34,7 +34,7 @@ const rows = [
   commission('王先生', '线下修改中', { city: '黄冈市', feedbacks: [{ status: 'pending' }] }),
   commission('赵先生', '待到账确认', { completed: { actorId: 'admin-a' }, events: [{ action: 'design-complete', actorId: 'admin-a', at: '2026-10-22T01:40:00.000Z' }] }),
   commission('李女士', '待正式成果下发', { owner: '陈业务', completed: { actorId: 'admin-a' } }),
-  commission('周先生', '待收图并移交', { dispatch: { actorId: 'admin-a', date: '2026-10-20' }, events: [{ action: 'design-dispatch', actorId: 'admin-a', at: '2026-10-20T09:00:00.000Z' }] }),
+  commission('周先生', '待移交给工程', { dispatch: { actorId: 'admin-a', date: '2026-10-20' }, events: [{ action: 'design-dispatch', actorId: 'admin-a', at: '2026-10-20T09:00:00.000Z' }] }),
   commission('孙先生', '业务移交完成', { dispatch: { actorId: 'admin-a', date: '2026-10-19' }, acceptance: { date: '2026-10-21' } }),
   commission('未授权费用', '费用待老板审批', { feeApproved: false }),
   commission('其他总部', '线下设计中', { designOrganizationId: 'other-headquarters' })

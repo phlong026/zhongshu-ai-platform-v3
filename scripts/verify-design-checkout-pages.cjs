@@ -139,7 +139,7 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
       assert.equal(Checkout.order(after).status, 'pending');
       assert.equal(SalesFlow.next(after).view, 'pay');
       login('hq-design-admin');
-      assert(!SalesFlow.tasks().some(task => task.customerId === id && task.action === '设计完成'));
+      assert(!SalesFlow.tasks().some(task => task.customerId === id && task.action === '登记设计完成'));
       check(after.name + (outcome === 'failed' ? '模拟失败' : '取消') + '支付不创建总部设计待办', { customerId: id, channel, outcome });
       return;
     }
@@ -213,7 +213,7 @@ const save = (name, value) => fs.writeFileSync(path.join(outputDirectory, name),
     login('sales-dual', 'sales-lead');
     open('/pages/business/index');
     const task = page().data.flowPending.find(row => row.customerId === id && row.actionable);
-    assert(task, '设计下发后业务工作台应出现收图并移交待办');
+    assert(task, '设计下发后业务工作台应出现移交给工程待办');
     if (!page().data.todoRows.some(row => row.id === task.id && row.show)) {
       const more = await currentElement('.sales-todo-more');
       if (more) await more.tap();
