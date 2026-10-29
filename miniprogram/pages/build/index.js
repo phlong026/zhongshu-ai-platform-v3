@@ -1,6 +1,6 @@
 const navigate=options=>require('../../utils/page-navigation').open(options.url);
 const Job=require('../../utils/organization');
-const routeValue=v=>{try{return decodeURIComponent(v||'');}catch(_){return String(v||'');}};
+const routeValue=require('../../utils/view-container').routeValue;
 const X=require('../../utils/access');
 const E=require('./model');
 const V=require('./views');

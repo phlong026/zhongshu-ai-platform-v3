@@ -1,4 +1,4 @@
-const routeValue=v=>{try{return decodeURIComponent(v||'');}catch(_){return String(v||'');}};
+const routeValue=require('../../utils/view-container').routeValue;
 const Files=require('../../utils/sample-files');
 const displayPurchase=p=>p?{...p,quote:p.quote?{...p.quote,file:Files.displayFile(p.quote.file)}:p.quote}:p;
 const Q=require('./procurement');

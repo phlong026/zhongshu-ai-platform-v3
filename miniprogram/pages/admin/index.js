@@ -1,4 +1,4 @@
-const routeValue=v=>{try{return decodeURIComponent(v||'');}catch(_){return String(v||'');}};
+const routeValue=require('../../utils/view-container').routeValue;
 const X=require('../../utils/access');
 const A=require('../../utils/account'),M=require('./model'),V=require('./views');
 const Files=require('../../utils/sample-files');

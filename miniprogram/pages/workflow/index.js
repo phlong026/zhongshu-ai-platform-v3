@@ -1,5 +1,5 @@
 const Job=require('../../utils/organization');
-const routeValue=v=>{try{return decodeURIComponent(v||'');}catch(_){return String(v||'');}};
+const routeValue=require('../../utils/view-container').routeValue;
 // Shared business records remain in the main package; this page and its imagery load on demand.
 const B=require('../../utils/business'),Access=require('../../utils/access'),SF=require('../../utils/sales-flow');
 const V=require('./views'),Coord=require('../../utils/design-coordination');
