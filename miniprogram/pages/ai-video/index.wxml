@@ -16,7 +16,7 @@
       </block>
     </view>
     <view class="creation-card description-card">
-      <view class="description-heading"><view class="creation-heading"><image class="creation-mark" src="/assets/creation-section-mark.png" /><text class="creation-heading-title">画面描述</text></view><button class="optimize-button creation-brown" bindtap="optimize" hover-class="pressed"><image src="/assets/creation-sparkle.png" /><text>{{mode === 'frames' ? 'AI 优化' : '生成标准提示词'}}</text></button></view>
+      <view class="description-heading"><view class="creation-heading"><image class="creation-mark" src="/assets/creation-section-mark.png" /><text class="creation-heading-title">画面描述</text></view><button class="optimize-button creation-brown" bindtap="optimize" hover-class="pressed"><image src="/assets/creation-sparkle.png" /><text>{{mode === 'frames' ? 'AI 优化' : '优化提示词'}}</text></button></view>
       <view class="description-input"><textarea cursor-spacing="24" class="description-textarea" value="{{description}}" bindinput="inputDescription" placeholder="描述画面、动作与镜头" placeholder-class="creation-muted" maxlength="7000" aria-label="画面描述" /></view>
       <text class="description-counter creation-muted">{{description.length}}/7000</text>
     </view>

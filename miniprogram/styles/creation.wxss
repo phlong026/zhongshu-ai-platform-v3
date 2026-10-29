@@ -8,13 +8,13 @@ page {
   --creation-border: #e5dfd7;
   background: var(--creation-bg);
   color: var(--creation-text);
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family:var(--zs-font-family);
   font-size:var(--zs-font-emphasis);
   line-height: 1.6;
 }
 .creation-page { min-height: 100vh; padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
 .creation-page button { min-width: 44px; min-height: 44px; }
-.creation-body { padding: 24rpx 28rpx 0; }
+.creation-body { padding: 24rpx var(--zs-space-page) 0; }
 .creation-card { background: var(--zs-card); border-radius: 22rpx; }
 .creation-heading { min-height: 48rpx; display: flex; align-items: center; gap: 16rpx; }
 .creation-heading-title { font-size:var(--zs-font-title); font-weight: 600; line-height: 46rpx; }
@@ -23,8 +23,8 @@ page {
 .creation-brown, .studio-brown { color: var(--creation-brand); }
 .creation-muted, .studio-muted { color: var(--creation-muted); }
 .creation-primary, .studio-primary, .studio-outline {
-  position: relative; min-height: 44px; height: 88rpx; padding: 12rpx 24rpx;
-  border-radius: 14rpx; font-size:var(--zs-font-emphasis); font-weight: 500; line-height: 42rpx;
+  position: relative; min-height: var(--zs-control-height); height: auto; padding: 12rpx 24rpx;
+  border-radius: var(--zs-control-radius); white-space: normal; overflow-wrap: anywhere; text-align: center; font-size:var(--zs-font-emphasis); font-weight: 500; line-height: 42rpx;
   display: flex; align-items: center; justify-content: center; gap: 12rpx;
 }
 .creation-primary, .studio-primary { background: var(--creation-brand); color: #fffaf4; overflow: hidden; }

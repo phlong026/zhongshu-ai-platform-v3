@@ -38,7 +38,7 @@
 .eng-shortcut-number{font-size:var(--zs-font-heading);font-weight:700;line-height:52rpx;color:var(--zs-brand)}
 .eng-shortcut-number>text{font-size:var(--zs-font-caption);font-weight:400;margin-left:8rpx;color:var(--zs-text-3)}
 .engineering-page.workbench-page .section{padding:20rpx;margin-bottom:20rpx;border-radius:20rpx}
-.engineering-page.workbench-page .section-heading{height:58rpx;margin-bottom:14rpx;padding-left:20rpx}
+.engineering-page.workbench-page .section-heading{min-height:58rpx;margin-bottom:14rpx;padding-left:20rpx}
 .engineering-page.workbench-page .section-heading::before{top:14rpx}
 .guest-section-link{display:flex;align-items:center;gap:9rpx;font-size:var(--zs-font-meta);font-weight:500;line-height:36rpx;color:var(--zs-brand);min-height:58rpx}
 .guest-section-link image{width:15rpx;height:22rpx}

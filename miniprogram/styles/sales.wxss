@@ -1,13 +1,13 @@
 @import "./business-tokens.wxss";
 /* Shared sales surface: entry pages and their existing business flows. */
-page{--sales-brand:var(--business-brand);--sales-paper:var(--business-paper);--sales-soft:#f7f3ed;--sales-ink:var(--zs-ink);--sales-muted:var(--business-muted);--sales-line:var(--zs-line);--sales-font:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
-.sales-page.sales-page{background:var(--sales-paper);color:var(--sales-ink);font-family:var(--sales-font);font-size:var(--zs-font-emphasis);font-weight:400;line-height:42rpx;letter-spacing:0;min-height:100vh;padding-bottom:calc(140rpx + env(safe-area-inset-bottom))}
-.sales-page.sales-page button,.sales-page.sales-page input,.sales-page.sales-page textarea{font-family:inherit;letter-spacing:0}
-.sales-page.sales-page .content{padding:20rpx 28rpx 0}
-.sales-page.sales-page .section{background:var(--zs-card);border:0;border-radius:22rpx;padding:22rpx;margin:0 0 24rpx;box-shadow:none}
+page{--sales-brand:var(--business-brand);--sales-paper:var(--business-paper);--sales-soft:#f7f3ed;--sales-ink:var(--zs-ink);--sales-muted:var(--business-muted);--sales-line:var(--zs-line);--sales-font:var(--zs-font-family)}
+.sales-page.sales-page{background:var(--sales-paper);color:var(--sales-ink);font-family:var(--zs-font-family);font-size:var(--zs-font-emphasis);font-weight:400;line-height:42rpx;letter-spacing:0;min-height:100vh;padding-bottom:calc(140rpx + env(safe-area-inset-bottom))}
+.sales-page.sales-page button,.sales-page.sales-page input,.sales-page.sales-page textarea{font-family:var(--zs-font-family);letter-spacing:0}
+.sales-page.sales-page .content{padding:20rpx var(--zs-space-page) 0}
+.sales-page.sales-page .section{background:var(--zs-card);border:0;border-radius:var(--zs-radius);padding:var(--zs-space-card);margin:0 0 var(--zs-space-section);box-shadow:none}
 .sales-page.sales-page .section-heading{min-height:52rpx;height:auto;padding:0 0 0 18rpx;margin:0 0 18rpx;display:flex;align-items:center;justify-content:space-between;gap:16rpx}
 .sales-page.sales-page .section-heading::before{left:0;top:10rpx;width:6rpx;height:30rpx;border-radius:4rpx;background:var(--sales-brand)}
-.sales-page.sales-page .section-title{font-family:inherit;font-size:var(--zs-font-title);font-weight:600;line-height:46rpx;letter-spacing:0}
+.sales-page.sales-page .section-title{font-family:var(--zs-font-family);font-size:var(--zs-font-title);font-weight:600;line-height:46rpx;letter-spacing:0}
 .sales-page.sales-page .hint,.sales-page.sales-page .muted{font-size:var(--zs-font-meta);font-weight:400;line-height:36rpx;color:var(--sales-muted)}
 .sales-page.sales-page .outline{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;min-height:72rpx;height:auto;line-height:36rpx;padding:12rpx 22rpx;border:1rpx solid var(--sales-brand);border-radius:14rpx;font-size:var(--zs-font-body);font-weight:500;flex-shrink:0;background:var(--zs-card);color:var(--sales-brand)}
 .sales-page.sales-page .text-link{display:inline-flex;align-items:center;gap:10rpx;min-height:60rpx;font-size:var(--zs-font-meta);font-weight:400;line-height:36rpx;color:var(--sales-brand);padding:0}

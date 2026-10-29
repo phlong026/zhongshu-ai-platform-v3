@@ -1,5 +1,11 @@
 /* 颜色、正文七级字阶和大数字/装饰三档，页面与组件从这里继承。 */
 .zs-theme {
+  --zs-font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --zs-space-page: 28rpx;
+  --zs-space-card: 24rpx;
+  --zs-space-section: 24rpx;
+  --zs-control-height: 88rpx;
+  --zs-control-radius: 14rpx;
   --zs-brand: #89512a;
   --zs-brand-press: #75451f;
   --zs-bg: #faf8f4;
@@ -20,7 +26,7 @@
   --zs-shadow: 0 6rpx 18rpx rgba(48, 41, 31, 0.06);
   --zs-font-caption: 22rpx;
   --zs-font-meta: 24rpx;
-  --zs-font-body: 26rpx;
+  --zs-font-body: 28rpx;
   --zs-font-emphasis: 28rpx;
   --zs-font-title: 32rpx;
   --zs-font-heading: 40rpx;

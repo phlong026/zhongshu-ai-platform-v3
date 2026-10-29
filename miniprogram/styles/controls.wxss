@@ -6,7 +6,7 @@
 .admin button.solid.solid,
 .sheet button.solid.solid,
 .engineering-desk button.eng-primary.eng-primary,
-button.commission-primary.commission-primary{display:flex;align-items:center;justify-content:center;min-height:88rpx;padding:18rpx 22rpx;border:1rpx solid var(--zs-brand);border-radius:14rpx;background:var(--zs-brand);color:var(--zs-card);font-size:var(--zs-font-emphasis);font-weight:500;line-height:42rpx;text-align:center}
+button.commission-primary.commission-primary{display:flex;align-items:center;justify-content:center;min-height:var(--zs-control-height);height:auto;padding:20rpx 22rpx;border:1rpx solid var(--zs-brand);border-radius:var(--zs-control-radius);background:var(--zs-brand);color:var(--zs-card);font-size:var(--zs-font-emphasis);font-weight:500;line-height:42rpx;text-align:center;white-space:normal;overflow-wrap:anywhere;gap:10rpx}
 
 .page button.primary.primary:active,
 .sales-page button.primary.primary:active,

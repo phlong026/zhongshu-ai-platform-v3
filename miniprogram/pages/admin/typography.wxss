@@ -1,8 +1,8 @@
-.admin,.sheet{font-family:sans-serif;font-size:var(--zs-font-emphasis);font-weight:400;line-height:40rpx;letter-spacing:0}
-.admin button,.admin input,.admin textarea,.sheet button{font-family:inherit}
-.admin .heading,.admin .hero-money,.admin .stat-value,.admin .large,.admin .value.money-value{font-family:sans-serif;font-weight:700}
-.admin .heading{font-size:var(--zs-font-title);line-height:42rpx}
-.admin .hero-title,.admin .strong,.admin .item-title{font-family:sans-serif;font-weight:500}
+.admin,.sheet{font-family:var(--zs-font-family);font-size:var(--zs-font-emphasis);font-weight:400;line-height:40rpx;letter-spacing:0}
+.admin button,.admin input,.admin textarea,.sheet button{font-family:var(--zs-font-family)}
+.admin .heading,.admin .hero-money,.admin .stat-value,.admin .large,.admin .value.money-value{font-family:var(--zs-font-family);font-weight:600}
+.admin .heading{font-size:var(--zs-font-title);line-height:46rpx}
+.admin .hero-title,.admin .strong,.admin .item-title{font-family:var(--zs-font-family);font-weight:500}
 .admin .hero-title{font-size:var(--zs-font-emphasis);line-height:42rpx}
 .admin .hint{font-size:var(--zs-font-meta);line-height:36rpx}
 .admin .label{font-size:var(--zs-font-body);line-height:38rpx}
@@ -23,7 +23,7 @@
 
 .admin.view-reconcile .notice{padding:0;line-height:32rpx}.admin.view-reconcile .card{margin-bottom:21rpx}
 
-.admin .finance-grid{display:grid;grid-template-columns:1fr 1fr;gap:12rpx;padding:14rpx}.fund-card{display:flex;gap:12rpx;align-items:center;text-align:left;background:#fbf9f5;min-height:136rpx;padding:14rpx;border-radius:10rpx}.fund-card>image{width:48rpx;height:54rpx;flex-shrink:0}.fund-status{display:block;font-size:var(--zs-font-caption);line-height:32rpx}.fund-amount{display:block;font-size:var(--zs-font-title);line-height:42rpx;font-weight:700;color:var(--zs-brand)}
+.admin .finance-grid{display:grid;grid-template-columns:1fr 1fr;gap:12rpx;padding:14rpx}.fund-card{display:flex;gap:12rpx;align-items:center;text-align:left;background:#fbf9f5;min-height:136rpx;padding:14rpx;border-radius:10rpx}.fund-card>image{width:48rpx;height:54rpx;flex-shrink:0}.fund-status{display:block;font-size:var(--zs-font-caption);line-height:32rpx}.fund-amount{display:block;font-size:var(--zs-font-title);line-height:46rpx;font-weight:700;color:var(--zs-brand)}
 
 .month-picker{margin-left:auto;font-size:var(--zs-font-caption);font-weight:400;line-height:34rpx;color:#8992a4}
 

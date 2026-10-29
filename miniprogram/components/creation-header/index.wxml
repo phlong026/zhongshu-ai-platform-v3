@@ -1,5 +1,5 @@
 <view class="creation-header-spacer subpage-spacer zs-theme" style="height: {{statusHeight + navHeight}}px;" />
-<view class="creation-header subpage-shell" style="padding-top: {{statusHeight}}px;">
+<view class="creation-header zs-theme subpage-shell" style="padding-top: {{statusHeight}}px;">
   <view class="creation-nav subpage-nav">
     <button class="back subpage-back" bindtap="back" aria-label="返回" hover-class="pressed"><image src="/assets/creation-back.png" mode="aspectFit" /></button><button class="return-home" bindtap="workbench" aria-label="返回工作台">工作台</button>
     <text class="nav-title subpage-title">{{title}}</text>

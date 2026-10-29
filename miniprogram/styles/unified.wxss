@@ -1,7 +1,6 @@
 /* Unified interaction sizing and shared control states, imported by app.wxss.
-   Every tappable control reaches the 88rpx (44px) minimum. Text links keep their layout position
-   through compensating margins; list rows simply grow. Minimum heights use !important because several page stylesheets pin control heights. */
-.text-link.text-link{min-height:88rpx!important;margin-top:-17rpx;margin-bottom:-17rpx;padding-top:0;padding-bottom:0;font-size:var(--zs-font-body);line-height:40rpx}
+   Every tappable control reaches the 88rpx (44px) minimum. Text links and list rows grow with their touch targets so adjacent content never overlaps. Minimum heights use !important because several page stylesheets pin control heights. */
+.text-link.text-link{min-height:88rpx!important;padding-top:0;padding-bottom:0;font-size:var(--zs-font-body);line-height:40rpx}
 .workflow-nav.workflow-nav{min-height:88rpx!important}
 .project-utilities.project-utilities button{display:flex;align-items:center;min-height:88rpx!important;padding:0 8rpx;font-size:var(--zs-font-body)}
 .commission-file.commission-file,.sales-profile-learning-action.sales-profile-learning-action{display:flex;align-items:center;min-height:88rpx!important}
@@ -21,7 +20,7 @@ button.link.link{min-height:88rpx!important}
 .card .soft .kv:last-child{border-bottom:0}
 
 /* Inline link buttons, option chips and outline buttons reach the 88rpx minimum. */
-.account button.brown.brown{display:inline-flex;align-items:center;min-height:88rpx!important;margin-top:-22rpx;margin-bottom:-22rpx}
+.account button.brown.brown{display:inline-flex;align-items:center;min-height:88rpx!important}
 .account .outline.outline,.admin .outline.outline{min-height:88rpx!important}
 .workflow .options button{min-height:88rpx!important}
 

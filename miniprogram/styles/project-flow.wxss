@@ -3,8 +3,8 @@
 .commission-page,.engineering-desk,.owner-page,.admin,.overlay .sheet{font-family:var(--business-font);font-size:var(--zs-font-emphasis);line-height:42rpx;letter-spacing:0;color:var(--business-ink)}
 .commission-page,.engineering-desk,.owner-page{background:var(--business-paper)}
 .commission-page button,.engineering-desk button,.owner-page button,.admin button,.admin input,.admin textarea,.admin .heading,.admin .hero-title,.admin .hero-money,.admin .strong,.admin .item-title,.overlay .sheet button{font-family:inherit;letter-spacing:0}
-.commission-body,.eng-content,.owner-content{padding:20rpx 28rpx}
-.commission-card,.eng-section,.owner-card{border:1rpx solid var(--business-line);border-radius:22rpx;padding:22rpx;margin-bottom:24rpx}
+.commission-body,.eng-content,.owner-content{padding:20rpx var(--zs-space-page)}
+.commission-card,.eng-section,.owner-card{border:1rpx solid var(--business-line);border-radius:var(--zs-radius);padding:var(--zs-space-card);margin-bottom:var(--zs-space-section)}
 .commission-heading,.eng-heading>text:first-child,.owner-heading>text:first-child,.admin .heading{font-size:var(--zs-font-title);line-height:46rpx;font-weight:600}
 .eng-name,.owner-name,.admin .hero-title,.admin .item-title,.admin .value,.admin .row input,.admin .row picker,.admin .textarea{font-size:var(--zs-font-emphasis);line-height:42rpx}
 .commission-muted,.eng-muted,.owner-muted,.owner-note,.admin .hint{font-size:var(--zs-font-meta);line-height:36rpx;color:var(--business-muted)}
@@ -12,7 +12,7 @@
 .owner-page .owner-primary{background:var(--business-brand);color:#fffaf3}
 .commission-secondary,.commission-upload,.engineering-desk .eng-outline,.owner-page .owner-outline{background:var(--zs-card);color:var(--business-brand)}
 .owner-page .owner-primary[disabled]{background:#f1eee8;color:var(--business-muted);border-color:var(--business-line)!important}
-.eng-link,.owner-page .owner-link{font-size:var(--zs-font-meta)!important;line-height:36rpx!important;min-height:64rpx}
+.eng-link,.owner-page .owner-link{font-size:var(--zs-font-meta)!important;line-height:36rpx!important;min-height:var(--zs-control-height)}
 .commission-field input,.commission-field textarea,.commission-input,.ops-field{font-family:var(--business-font);font-size:var(--zs-font-emphasis);line-height:42rpx;background:var(--zs-bg);border-color:var(--business-line);border-radius:12rpx}
 .commission-actions,.commission-action-panel{background:var(--business-paper)}
 .admin .card{border:1rpx solid var(--business-line);border-radius:22rpx}
