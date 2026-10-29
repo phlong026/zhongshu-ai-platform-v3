@@ -164,4 +164,4 @@ function tasks(a=X.context()){
  }
  return rows;
 }
-module.exports={TYPE,is,legacy,legacyActions,entry,actions,url,policy,savePolicy,standardApproved,paymentAuthorization,allowed,feeApproved,firstRegistered,next,nextRecord,transition,validate,run,packageRows,tasks,file,raw};
+module.exports={is,legacy,legacyActions,entry,actions,url,policy,savePolicy,standardApproved,paymentAuthorization,allowed,feeApproved,firstRegistered,next,nextRecord,transition,validate,run,packageRows,tasks,file,raw};

@@ -12,7 +12,6 @@ function commit(s,type,id){s.events.push({type,id,...X.actor()});wx.setStorageSy
 function policy(a){return X.rawBook(a.companyId)?.contentPolicy||{accounts:[{id:'douyin-adviser',operators:['zhang','liu','sales-dual']},{id:'channels-design',operators:['zhang','liu','sales-dual']}]};}
 function accountAllowed(accountId,a){const p=X.rawBook(a.companyId)?.staff.find(p=>p.id===a.staffId),q=policy(a).accounts.find(q=>q.id===accountId);return Job.has(a.role,'sales')&&q&&(p?.publishAccountIds?p.publishAccountIds.includes(accountId):q.operators.includes(a.staffId));}
 function signature(pack){return JSON.stringify(pack);}
-function automatic(r,a){const auto=require('./same-person-routing').audit('sales',r,a,r.signature);if(!auto)return false;r.review={result:'通过',note:auto.label,version:r.versions.length,signature:r.signature,autoReview:auto,...X.actor(),personId:auto.leadPersonId,actorId:auto.leadId};r.status='审核通过';r.versions.at(-1).review=copy(r.review);return true;}
 function prepare(workId,f,account){
  const a=actor();X.assert(accountAllowed(account.id,a),'当前业务员未获该组织账号发布授权');
  const work=require('./studio').read().works.find(w=>w.id===workId);X.assert(work,'只能发布本人实际保存的作品');
@@ -25,7 +24,6 @@ function prepare(workId,f,account){
  if(r.review)r.reviewHistory=(r.reviewHistory||[]).concat(copy(r.review));r.versions.push({version:r.versions.length+1,pack,sig,...X.actor()});
  Object.assign(r,{pack,signature:sig,status:'待发布',review:null,publicationFlow:'direct-v1',revision:r.revision+1});commit(s,'content-direct-publish',r.id);return copy(r);
 }
-function review(id,result,note,expected){const a=actor(),s=all(),r=s.contents.find(r=>r.id===id);X.assert(r&&manages(r,a)&&['sales-lead','boss','owner'].includes(a.role),'请由本团队有权负责人审核');X.assert(r.revision===expected&&r.status==='待审核','内容已变化或已处理，请刷新');X.assert(r.authorPersonId!==a.personId,'本人参与的必审作品不能自审');X.assert(['通过','退回修改'].includes(result)&&String(note||'').trim(),'请填写审核结果与意见');r.review={result,note,version:r.versions.length,signature:r.signature,...X.actor()};r.versions.at(-1).review=copy(r.review);r.status=result==='通过'?'审核通过':'退回修改';r.revision++;commit(s,'content-review',id);return copy(r);}
 function assertPublish(r,a){X.assert(r&&r.companyId===a.companyId&&r.authorId===a.staffId&&accountAllowed(r.pack.accountId,a),'原作品或发布账号授权已失效');X.assert(r.signature===signature(r.pack),'发布内容已变化，请重新打开原作品');if(r.publicationFlow==='direct-v1'){X.assert(r.versions.at(-1)?.sig===r.signature&&['待发布','发布中','演示已发布'].includes(r.status),'发布内容版本已变化，请重新打开');return;}X.assert(r.review?.result==='通过'&&r.review.signature===r.signature,'历史发布记录未完成原流程，请从发布设置重新提交');}
 function publishing(id,recordId){const a=actor(),s=all(),r=s.contents.find(r=>r.id===id);assertPublish(r,a);r.publicationId=recordId;r.status='发布中';r.revision++;commit(s,'publication-submit',id);}
 function published(recordId){const a=actor(),s=all(),r=s.contents.find(r=>r.publicationId===recordId),actual=require('./studio').read().records.find(r=>r.id===recordId);X.assert(actual?.status==='published'&&actual.contentId===r?.id&&actual.contentSignature===r?.signature,'须先取得原作品的发布结果');assertPublish(r,a);const url=require('./studio').normalizePublishedUrl(actual.publishedUrl);X.assert(!s.contents.some(c=>c.companyId===a.companyId&&c.id!==r.id&&c.publishedUrl===url),'此发布链接已登记到其他作品，请核对后填写');if(r.status==='演示已发布'&&r.publishedUrl===url)return;Object.assign(r,{status:'演示已发布',publishedAt:actual.publishedAt,publishedUrl:url,collection:copy(actual.collection),linkRecordedAt:actual.linkRecordedAt,revision:r.revision+1});commit(s,'publication-link-recorded',r.id);}
@@ -74,4 +72,4 @@ function linkExisting(id,expected){
  try{wx.setStorageSync('zhongshu-business-v3',business);commit(s,'lead-link-existing',id);}catch(error){if(before)wx.setStorageSync('zhongshu-business-v3',before);throw error;}
  return {id:c.id,ownerId:X.ownerId(c)};
 }
-module.exports={KEY,load,prepare,review,publishing,published,capture,change,convert,currentLead,existingCustomer,linkExisting,accountAllowed,assertPublish,signature};
+module.exports={KEY,load,prepare,publishing,published,capture,change,convert,currentLead,existingCustomer,linkExisting,accountAllowed,assertPublish,signature};
