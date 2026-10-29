@@ -26,3 +26,5 @@
 .home-ledger-none{padding:18rpx 0 4rpx;font-size:24rpx;line-height:36rpx;color:var(--boss-muted)}
 .home-ledger-trust{margin-top:14rpx;background:#ecf5ee;color:#3f7d4e;border-radius:12rpx;padding:12rpx 16rpx;font-size:22rpx;line-height:34rpx}
 .home-ledger-month{display:flex;align-items:center;justify-content:space-between;gap:12rpx;margin-top:14rpx;font-size:24rpx;line-height:36rpx;color:#74695c}
+
+.home-ledger-links{display:flex;gap:24rpx;align-items:center}
