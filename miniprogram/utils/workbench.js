@@ -16,7 +16,7 @@ if(active&&['boss','owner'].includes(a.role)){
   const sourceText=Object.entries(sources).sort((x,y)=>y[1]-x[1]).slice(0,2).map(([k,v])=>k+' '+v).join(' · ');
   const following=crow.filter(r=>r.status==='跟进中').length,visited=crow.filter(r=>r.status==='已到店').length;
   const funnel=[['新增线索',leads.length,sourceText],['真实跟进',following,''],['到店沟通',visited,''],['设计委托',commissions.length,'']].map(([label,value,src])=>({label,value,source:src,width:leads.length?Math.max(6,Math.round(value/leads.length*100)):0,strong:label==='设计委托'}));
-  const lastFollow=c=>(c.follows||[]).filter(f=>!String(f.note||f.content||'').startsWith('登记客资')).at(-1);
+  const lastFollow=c=>(c.follows||[]).filter(f=>f.kind!=='capture'&&!String(f.note||f.content||'').startsWith('登记客资')).at(-1);
   const stale=all.filter(c=>{if(B.stageIndex(c)>=B.STAGES.length-1)return false;const l=lastFollow(c),d=String(l?.date||l?.at||'').slice(0,10)||String(c.createdAt||'').slice(0,10);return d&&d<A2.localDate(new Date(day+'T12:00:00').getTime()-7*86400000);});
   const attribution=require('./commission-attribution'),staffRows=(X.rawBook(a.companyId)?.staff||[]).filter(p2=>p2.active!==false&&Job.staffHas(p2,'sales'));
   const rank=staffRows.map(p2=>{const mine=commissions.filter(c=>attribution.owner(c)===p2.id);return {key:'bizrank:'+p2.id,name:p2.name,initial:p2.name.slice(0,1),count:mine.length,total:mine.reduce((n,c)=>n+Number(c.serviceOrders.at(-1).total||0),0)};}).filter(r2=>r2.total>0).sort((x,y)=>y.total-x.total).map(r2=>({key:r2.key,name:r2.name,initial:r2.initial,meta:'委托 '+r2.count+' 单',value:r2.total>=10000?'¥'+Math.round(r2.total/100)/100+'万':'¥'+Math.round(r2.total/100)+'元'}));
