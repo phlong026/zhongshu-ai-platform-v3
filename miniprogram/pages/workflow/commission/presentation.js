@@ -18,7 +18,8 @@ function bundle(customer, version) {
 }
 function cards(customer, form) {
   const source = { ...customer.businessFlow?.completed?.files, ...customer.businessFlow?.dispatch, ...customer.businessFlow?.packet, ...form };
-  return specs.map(spec => ({ ...spec, version: source.drawingVersion || 'V' + (customer.request?.version || 1), file: source[spec.key] || null, ready: !!source[spec.key] }));
+  const currentVersion = source.drawingVersion || 'V' + (customer.request?.version || 1);
+  return specs.map(spec => ({ ...spec, version: currentVersion, file: source[spec.key] || null, ready: !!source[spec.key] && (!source[spec.key].text || String(source[spec.key].text).includes('版本：' + currentVersion)) }));
 }
 function preview(file, customer, key) {
   const kind = file.previewKind || specs.find(row => row.key === key)?.kind || (key === 'confirmationFile' ? 'confirmation' : 'brief');

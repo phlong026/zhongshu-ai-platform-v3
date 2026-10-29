@@ -43,6 +43,7 @@
     <view class="journey-actions commission-actions"><text wx:if="{{error}}" class="journey-error">{{error}}</text><button class="journey-primary commission-primary {{view==='handover'?'journey-handover':'journey-receive'}}" bindtap="submit" loading="{{busy}}" disabled="{{busy}}">{{view==='handover'?'移交工程':'接收并创建项目'}}</button></view>
    </block>
    <block wx:else>
+    <view wx:if="{{view==='feedback'}}" class="journey-card"><text class="journey-card-title">修改意见</text><textarea class="journey-demand" value="{{form.note}}" data-key="note" bindinput="input" maxlength="3000" auto-height placeholder="填写客户对本次成果的修改意见"/></view>
     <view class="journey-card journey-progress-card"><view class="journey-progress-art"><view class="journey-state-icon">{{journey.paid?'设':'付'}}</view><text>{{journey.state}}</text></view><text class="journey-subtle">{{journey.subtitle}}</text><view class="journey-row"><text>当前办理</text><text>{{journey.nextOwner}}</text></view><view class="journey-row"><text>设计服务费</text><text>¥{{journey.amount}} · {{journey.paid?'已支付':'待支付'}}</text></view></view>
     <view wx:if="{{journey.documentCount}}" class="journey-card"><view class="journey-card-heading"><text class="journey-card-title">设计成果</text><text class="journey-subtle">{{journey.version}}</text></view><template is="journey-files" data="{{journey}}"/></view>
     <view class="journey-card"><text class="journey-card-title">设计需求</text><text class="journey-demand-summary">{{journey.demand}}</text><view class="journey-row"><text>交付范围</text><text>{{journey.scope}}</text></view></view>
