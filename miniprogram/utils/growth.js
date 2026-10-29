@@ -1,6 +1,6 @@
 const Job=require('./organization');
 const X=require('./access');
-const KEY='zhongshu-growth-v1',copy=x=>JSON.parse(JSON.stringify(x)),uid=t=>t+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+const KEY=require('./storage-keys').growth,copy=x=>JSON.parse(JSON.stringify(x)),uid=t=>t+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
 function all(){const s=wx.getStorageSync(KEY);return s&&s.version===1?copy(s):{version:1,contents:[],leads:[],events:[]};}
 function actor(){const a=X.context();X.assert(a.active&&a.orgType==='store','本轮获客办理仅向加盟商授权岗位开放');return a;}
 function team(id,a){return X.rawBook(a.companyId)?.staff.find(p=>p.id===id)?.teamIds?.sales||'sales';}

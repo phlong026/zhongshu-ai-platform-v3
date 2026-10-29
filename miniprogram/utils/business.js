@@ -1,6 +1,6 @@
 const Job=require('./organization');
 const D=require('./demo-catalog'),Access=require('./access');
-const KEY = 'zhongshu-business-v3';
+const KEY = require('./storage-keys').business;
 const clone = require('./clone');
 function sample() {
 return { id: 'customer-chen', customerUserId:'client-chen', projectId:D.projects.chen.id, acquisitionChannel:'视频号咨询', name: '陈先生', phone: '138****0628', wechat: '', source: '视频号咨询', province: '湖北省', city: '武汉市', summary: '已有宅基地，计划建两层乡墅，想先了解方案与费用。', status: '已登记', width: '12.5', depth: '16', floors: '2', follows: [], plans: [], budgets: [], measurements: [], quotes: [], contract: null, request: null, firstPayment: null, intake: null, assignment: null, deliverables: [], tailPayment: null, release: null, confirmation: null, drawings: [], copies: [], handover: null, acceptance: null, returns: [], events: [], drafts: {} };
@@ -42,7 +42,7 @@ function validDate(d){return /^\d{4}-\d{2}-\d{2}$/.test(d||'')&&!Number.isNaN(Da
 function positive(value) { return Number.isFinite(Number(value)) && Number(value) > 0; }
 function dimension(value) { return /^\d{1,2}(\.\d)?$/.test(String(value)) && Number(value) >= 3 && Number(value) <= 40; }
 const money = require('./money').yuan;
-function date() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+const date = () => require('./account').localDate();
 function engineeringStatus(c) { const state=wx.getStorageSync('zhongshu-engineering-v1')||{};const p=(state.projects||[]).find(p=>p.sourceCustomerId===c.id);if(!p)return '';if(p.delivery||p.archived)return '已交付';if(p.delivery)return '交付待独立核验';if(p.actualStart)return p.plan&&p.plan.nodes.length&&p.plan.nodes.every(n=>n.status==='已完成')?'待交付':'施工中';return ''; }
 // Customer journey shown on the project-progress tab; returns the index of the current stage (STAGES.length once delivered).
 const STAGES=['客户跟进','需求沟通','设计与预算','设计协同','设计完成','施工阶段','交付'];

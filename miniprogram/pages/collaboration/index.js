@@ -1,6 +1,6 @@
 const { createClient } = require('./client');
 const copy = require('../../utils/clone');
-const localDate = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+const localDate = () => require('../../utils/account').localDate();
 const money = amount => '¥ ' + (amount / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
 const dateTime = value => {
   const date = new Date(value);

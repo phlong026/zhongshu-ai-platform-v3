@@ -1,7 +1,7 @@
 const Job=require('../../utils/organization');
 const A=require('../../utils/account'),D=require('../../utils/demo-catalog'),F=require('../../utils/finance-source');
 const X=require('../../utils/access'),Financial=require('./finance-actions');
-const KEY='zhongshu-management-v1',clone=A.clone,now=()=>new Date().toISOString(),file=name=>({name,sample:true});
+const KEY=require('../../utils/storage-keys').management,clone=A.clone,now=()=>new Date().toISOString(),file=name=>({name,sample:true});
 const AUTH=Symbol('validated-command');let saving=false;
 let sequence=0;const uid=prefix=>prefix+'-'+Date.now()+'-'+(++sequence);
 const seed=require('../../utils/management-seed');

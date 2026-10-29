@@ -1,5 +1,5 @@
 const X=require('./access'),Demo=require('./demo-users');
-const KEY = 'zhongshu-account-v1';
+const KEY = require('./storage-keys').account;
 const clone = require('./clone');
 const stamp = () => new Date().toISOString();
 const localDate=(value=Date.now())=>new Date(new Date(value).getTime()+8*3600000).toISOString().slice(0,10);

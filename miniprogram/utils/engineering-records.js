@@ -1,6 +1,6 @@
 // Single-person construction records. Money facts use the existing finance ledger.
 const X=require('./access'),O=require('./organization');
-const KEY='zhongshu-engineering-v1',BOOK='zhongshu-management-v1',BUSINESS='zhongshu-business-v3';
+const KEY=require('./storage-keys').engineering,BOOK=require('./storage-keys').management,BUSINESS=require('./storage-keys').business;
 const copy=require('./clone'),today=()=>require('./account').localDate();
 const is=p=>p?.recordFlow?.version===1;
 const uid=prefix=>prefix+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,9);
