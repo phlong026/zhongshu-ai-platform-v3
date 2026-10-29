@@ -221,11 +221,10 @@ async function main() {
 
   A.mutate(account => A.loginDemo(account, 'finance-wang'));
   const expenseId = M.mutate(book => M.apply(book, 'expense-submit', 'company:' + companyId, { category: '现场其他', purpose: '推广获客', name: '经营专项推广', amount: '300', date: A.localDate(), due: A.localDate(), recipient: '模拟推广平台', reference: 'PROMOTION-MANAGEMENT-001', file, token: 'promotion-management-001' }));
-  A.mutate(account => A.loginDemo(account, 'boss'));
-  M.mutate(book => M.apply(book, 'expense-approve', expenseId, { checked: true, note: '核对推广原费用' }));
   let chained = M.load();
   const payableId = 'expense-payable:' + expenseId;
   assert.equal(chained.operations.expenses.filter(row => row.id === expenseId).length, 1);
+  assert.equal(chained.operations.expenses.find(row => row.id === expenseId).status, 'approved', '线内费用提交即自动批准');
   assert.equal(chained.payables.filter(row => row.id === payableId).length, 1);
   A.mutate(account => A.loginDemo(account, 'finance-wang'));
   M.mutate(book => M.apply(book, 'pay', payableId, { amount: '100', date: A.localDate(), transaction: 'PROMOTION-PAY-001', file, checked: true }));

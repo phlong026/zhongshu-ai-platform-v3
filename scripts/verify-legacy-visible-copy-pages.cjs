@@ -51,27 +51,30 @@ const path = require('node:path');
   storedProject.supplies.find(item => item.planId === materialPlan.id).basis = { name: '模拟供应方报价.pdf', sample: true };
   wx.setStorageSync(E.KEY, withMaterials);
   const materialBefore = wx.getStorageSync(E.KEY);
+  login('finance-dual');
   await open(R.link(R.get(project.id), 'material', { planId: materialPlan.id }));
   assert((await pageText('[data-key="termsFile"]')).includes('参考供应方报价.pdf'));
   assert.deepEqual(wx.getStorageSync(E.KEY), materialBefore);
   console.log('PASS 材料付款凭据按钮使用新展示名，旧供应报价缓存保持不变');
 
+  login('engineering-dual');
   await open(R.link(R.get(project.id), 'start'));
   const originalSheet = wx.showActionSheet;
   const originalChoose = wx.chooseMessageFile;
   const originalSave = wx.saveFile;
   try {
-    wx.showActionSheet = options => options.success({ tapIndex: 1 });
+    wx.showActionSheet = options => options.success({ tapIndex: 2 });
     await (await (await runtime.currentPage()).$('[data-key="file"]')).tap();
     const reference = current().data.form.file;
     assert(reference.sample && reference.text.includes(project.customer));
     assert.equal(reference.meta.projectId, project.projectId);
     assert((await pageText('[data-key="file"]')).includes(reference.name));
     wx.showActionSheet = options => options.success({ tapIndex: 0 });
+    wx.chooseMedia = options => options.success({ tempFiles: [{ tempFilePath: '/temporary-proof.pdf' }] });
     wx.chooseMessageFile = options => options.success({ tempFiles: [{ name: '现场原图.pdf', path: '/temporary-proof.pdf' }] });
     wx.saveFile = options => options.success({ savedFilePath: '/saved-proof.pdf' });
     await (await (await runtime.currentPage()).$('[data-key="file"]')).tap();
-    assert((await pageText('[data-key="file"]')).includes('现场原图.pdf'));
+    assert((await pageText('[data-key="file"]')).includes('现场照片-1.jpg'));assert.equal(current().data.form.file.name,'现场照片-1.jpg');
     assert.equal(current().data.form.file.path, '/saved-proof.pdf');
     assert.deepEqual(wx.getStorageSync(E.KEY), materialBefore, '选择表单文件不提交工程记录');
   } finally {

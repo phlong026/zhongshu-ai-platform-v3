@@ -33,7 +33,7 @@ async function main() {
   assert.equal(Home.visibleTodos(reviewOnly, 'review').length, 4);
   assert.equal(W.rowsFor('todos', reviewOnly, '', '', 'review').length, 5);
   const mixedTodos = W.rowsFor('todos', { ...snapshot, approvals: snapshot.approvals.slice(0, 2), reviews }, '', '', 'all');
-  assert.equal(mixedTodos.length, 9);
+  assert.equal(mixedTodos.length, 7);
   assert(mixedTodos.some(row => row.key === 'handover:work-content'), '全部待办保留离岗人员的历史内部内容任务');
   const actualHomePage = open('/pages/admin/home/index');
   for (const key of ['approvals', 'reviews', 'projectRows', 'queue', 'staff', 'team', 'focus', 'events', 'recentEvents']) assert.equal(actualHomePage.data.desk[key], undefined, '首页仍传入完整集合 ' + key);

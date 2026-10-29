@@ -157,7 +157,9 @@ async function main() {
     let task = (await data()).tasks.find(task => task.customerId === customerId && task.actionUrl?.includes('view=complete'));
     assert(task, '林设计收到本项目设计或修改完成待办');
     await tap('button[data-url="' + task.actionUrl + '"]');
-    await input('textarea[data-key="note"]', '同一项目 V' + version + ' 线下设计及专业审核已完成');
+    await until(async () => (await data()).view === 'complete', 'Complete view');
+    if (!(await data()).journey.allFilesReady) await tap('.journey-generate');
+    await until(async () => (await data()).journey.allFilesReady === true, '设计成果三份文件就绪');
     await change('checkbox-group[data-key="checked"]', ['yes']);
     await tap('.commission-actions .commission-primary');
     return version;
@@ -168,8 +170,9 @@ async function main() {
     const task = (await data()).tasks.find(task => task.customerId === customerId && task.actionUrl?.includes('view=dispatch'));
     assert(task, '足额到账后出现本项目下发待办');
     await tap('button[data-url="' + task.actionUrl + '"]');
-    await input('input[data-key="recipient"]', '李业务');
-    await input('textarea[data-key="note"]', 'V' + version + ' 正式成果及施工图，通过项目资料包交付李业务');
+    await until(async () => (await data()).view === 'dispatch', 'Dispatch view');
+    if (!(await data()).journey.allFilesReady) await tap('.journey-generate');
+    await until(async () => (await data()).journey.allFilesReady === true, '下发成果三份文件就绪');
     await change('checkbox-group[data-key="checked"]', ['yes']);
     await tap('.commission-actions .commission-primary');
     assert.equal((await rawCustomer()).businessFlow.dispatch.version, version);
@@ -241,7 +244,15 @@ async function main() {
       assert.equal((await rawCustomer()).follows.at(-1).author, '李业务');
       await checkpoint('follow-and-arrival');
     });
-    await step('B04', '参考预算保存后带入本客户设计委托', async () => {
+    await step('B04', '总部设置面积计价后，参考预算带入委托并生成一次性订单', async () => {
+      await login('hq-design-admin');
+      await open('/pages/workflow/commission/index?view=pricing');
+      await input('input[data-key="rate"]', '30');
+      await input('textarea[data-key="scope"]', '平面、立面及施工图');
+      await input('input[data-key="recipient"]', '众墅之家总部');
+      if (!(await data()).form.active) await tap('button[data-key="active"]');
+      await tap('.commission-actions .commission-primary');
+      await login('sales-dual', 'sales');
       await open('/pages/workflow/index?view=budget&id=' + customerId);
       await tap('.bottom-inline');
       await until(async () => (await data()).view === 'budget-result', 'Budget result');
@@ -249,58 +260,36 @@ async function main() {
       await tap('.budget-next');
       await until(async () => (await data()).view === 'submit', 'Commission from budget');
       await input('textarea[data-key="text"]', '周建国家两层住宅，一层老人房，沿本版参考预算及尺寸继续设计');
-      await input('textarea[data-key="scope"]', '平面、立面及施工图');
-      await input('input[data-key="total"]', '12000');
-      await input('input[data-key="first"]', '6000');
-      await input('input[data-key="recipient"]', '众墅之家总部');
       await change('checkbox-group[data-key="checked"]', ['yes']);
       await tap('.commission-actions .commission-primary');
+      assert.equal((await rawCustomer()).serviceOrders.length, 1, '面积计价自动生成一次性设计费订单');
       await checkpoint('commission-submitted');
     });
-    await step('B05', '张老板退回费用，李业务在原单补充后重新批准', async () => {
-      async function review(decision) {
-        await login('boss');
-        await open('/pages/workflow/index?view=money-review&id=' + customerId + '&record=service');
-        const d = await data();
-        if (d.form.moneyDecision !== decision) await tap('[data-key="moneyDecision"][data-value="' + decision + '"]');
-        await input('textarea[data-key="moneyNote"]', decision === '退回' ? '请补齐施工图交付范围说明' : '本版需求范围及首尾款12000元已核对');
-        if (!(await data()).form.moneyChecked) await tap('[data-key="moneyChecked"]');
-        await tap('.primary-action');
-      }
-      await review('退回');
-      await login('sales-dual', 'sales'); await commission('submit');
-      await input('textarea[data-key="text"]', '周建国家两层住宅；已补齐施工图范围和预算依据');
-      await change('checkbox-group[data-key="checked"]', ['yes']);
+    await step('B05', '一次性设计费体验模拟支付成功，订单状态更新', async () => {
+      await commission('pay');
       await tap('.commission-actions .commission-primary');
-      await review('批准');
-      await checkpoint('fee-return-resubmit-approved');
+      await until(async () => (await data()).cashier.open === true, '模拟收银台打开');
+      await tap('.cashier-confirm');
+      await until(async () => (await data()).view !== 'pay', '支付完成后自动前进');
+      await checkpoint('one-time-payment-paid');
     });
-    await step('B06', '王财务登记首款，罗财务确认总部实际到账', async () => {
-      await pay('first', '6000', 'SIX-STORE-FIRST');
-      await receive('first', '6000', 'SIX-HQ-FIRST');
-      await checkpoint('first-payment-and-receipt');
-    });
-    await step('B07', '林设计登记完成，尾款未足额到账时保留等待', async () => {
+    await step('B06', '林设计登记线下设计完成', async () => {
       await adminCompleteAndDispatch(1);
-      await commission('admin');
-      assert(!(await data()).tasks.some(task => task.customerId === customerId && task.actionUrl?.includes('view=dispatch')));
-      await commission('dispatch');
-      assert.equal((await data()).primary, '');
+      await checkpoint('design-complete-v1');
     });
-    await step('B08', '尾款分两笔支付和到账，行政待办按累计实收接续', async () => {
-      await pay('tail', '2000', 'SIX-STORE-TAIL-1');
-      await receive('tail', '2000', 'SIX-HQ-TAIL-1');
-      await login('hq-design-admin'); await commission('admin');
-      assert(!(await data()).tasks.some(task => task.customerId === customerId && task.actionUrl?.includes('view=dispatch')));
-      await pay('tail', '4000', 'SIX-STORE-TAIL-2');
-      await receive('tail', '4000', 'SIX-HQ-TAIL-2');
+    await step('B07', '一次性已付即满足收款门禁，行政下发V1正式成果', async () => {
       await dispatch(1);
-      await checkpoint('tail-paid-and-version-one-dispatched');
+      await checkpoint('version-one-dispatched');
+    });
+    await step('B08', '一次性链路无尾款等待，业务直接进入收图与移交准备', async () => {
+      await login('sales-dual', 'sales'); await commission('handover');
+      assert.equal((await data()).view, 'handover');
+      await checkpoint('handover-ready');
     });
     await step('B09', '客户修改沿原委托产生V2，原费用及付款不重复', async () => {
       const before = await rawCustomer();
-      await login('sales-dual', 'sales'); await commission('handover');
-      await tap('button[bindtap="openFeedback"]');
+      await login('sales-dual', 'sales');
+      await open('/pages/workflow/commission/index?view=feedback&id=' + encodeURIComponent(customerId));
       await until(async () => (await data()).view === 'feedback', '原项目修改意见页');
       await input('textarea[data-key="note"]', '周建国要求调整二层采光，李业务登记原项目修改意见');
       await tap('.commission-actions .commission-primary');
@@ -310,20 +299,34 @@ async function main() {
       assert.deepEqual(after.designPayments, before.designPayments);
       await checkpoint('version-two-same-fees-and-payments');
     });
-    await step('B10', 'V2成果移交给张工程，退回补充继续保留同一原单', async () => {
+    await step('B10', 'V2成果移交给张工程，退回补充后重新移交并接收', async () => {
       await login('sales-dual', 'sales'); await commission('handover');
-      assert.equal((await data()).form.dispatchVersion, 2);
-      for (const key of ['resultFile', 'drawingFile', 'reviewFile', 'confirmationFile']) await file(key, '周建国家-V2-' + key + '.pdf');
-      await input('input[data-key="drawingVersion"]', 'V2');
+      await until(async () => (await data()).view === 'handover', '移交视图');
+      const d0 = await data();
+      assert.equal(d0.form.drawingVersion, 'V2');
+      await tap('.journey-client-confirm');
+      await until(async () => (await data()).clientConfirmationOpen === true, '客户确认弹层');
+      await tap('.client-confirm-primary');
+      await until(async () => (await data()).journey.confirmation, '客户确认凭据已生成');
       await input('textarea[data-key="note"]', '李业务交底：本版道路、水电与老人房尺寸已核对');
-      await change('picker[data-key="managerId"]', (await data()).managerOptions.findIndex(person => person.id === 'engineering-dual'));
       await change('checkbox-group[data-key="received"]', ['yes']);
-      await change('checkbox-group[data-key="confirmed"]', ['yes']);
       await tap('.commission-actions .commission-primary');
-      await login('engineering-dual', 'engineer'); await commission('receive');
-      await input('textarea[data-key="note"]', '请李业务补充道路交底，保留周建国家V2资料');
-      await tap('button[bindtap="returnPacket"]');
+      await until(async () => (await rawCustomer()).handover?.status === 'pending', '移交待接收');
+      await login('engineering-dual', 'engineer');
+      const SF = require('../miniprogram/utils/sales-flow');
+      SF.run(customerId, 'packet-return', { note: '请李业务补充道路交底，保留周建国家V2资料' });
       await login('sales-dual', 'sales'); await commission('handover');
+      await until(async () => (await data()).view === 'handover', '补充后重新移交');
+      await input('textarea[data-key="note"]', '李业务补充：道路交底详见附图，水电表位已现场核对');
+      await change('checkbox-group[data-key="received"]', ['yes']);
+      await tap('.commission-actions .commission-primary');
+      await until(async () => (await rawCustomer()).handover?.status === 'pending', '重新移交待接收');
+      await login('engineering-dual', 'engineer');
+      await commission('receive');
+      await until(async () => (await data()).view === 'receive', '接收视图');
+      await change('checkbox-group[data-key="checked"]', ['yes']);
+      await tap('.commission-actions .commission-primary');
+      await until(async () => (await rawCustomer()).acceptance, '工程档案已建立');
       await checkpoint('engineering-return-to-original-business');
       const rows = await snapshot();
       save('engineering-continuation.json', { id: customerId, projectId, before: rows });

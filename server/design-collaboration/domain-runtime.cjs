@@ -89,17 +89,18 @@ function bootstrapStorage() {
     text: '两层住宅设计联调', scope: '全案设计', total: '100', first: '40',
     recipient: '众墅之家总部', checked: true
   });
-  runtime.login('hq-design-admin');
-  SF.run(customer.id, 'design-complete', { checked: true, note: '模拟设计及内部审核完成' });
-
   const file = { name: '模拟门店付款凭据.pdf', sample: true };
-  for (const [stage, amount, transaction] of [['first', '40', 'MOCK-STORE-FIRST'], ['tail', '60', 'MOCK-STORE-TAIL']]) {
+  const payStage = (stage, amount, transaction) => {
     runtime.login('finance-dual', 'finance');
     const payable = M.load().payables.find(row => row.source?.id === customer.id && row.source.stage === stage);
     M.mutate(state => M.apply(state, 'pay', payable.id, {
       amount, date: A.localDate(), transaction, file, checked: true
     }));
-  }
+  };
+  payStage('first', '40', 'MOCK-STORE-FIRST');
+  runtime.login('hq-design-admin');
+  SF.run(customer.id, 'design-complete', { checked: true, note: '模拟设计及内部审核完成' });
+  payStage('tail', '60', 'MOCK-STORE-TAIL');
   return { storage, customerId: customer.id };
 }
 

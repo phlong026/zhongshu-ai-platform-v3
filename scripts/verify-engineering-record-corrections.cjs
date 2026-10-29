@@ -153,7 +153,7 @@ const fs=require('fs'),assert=require('assert/strict');
  pass('节点完成记录可更正日期、说明和凭据；最近一次完成且下一节点未开始记录时可撤回');
 
  // 封顶撤回：未登记封顶款可撤回并取消封顶款待办，已登记则不能撤回
- install(scene('node',3).after);
+ install(scene('node',6).after);
  p=raw();const top=p.plan.nodes.find(n=>n.milestone==='topping');
  assert.equal(top.status,'已完成');assert(p.recordFlow.topping);
  run('node-reopen',{nodeId:top.id,reason:'封顶尚未浇筑完成'});
@@ -161,7 +161,7 @@ const fs=require('fs'),assert=require('assert/strict');
  assert(!p.recordFlow.topping);assert.equal(p.plan.nodes.find(n=>n.id===top.id).status,'施工中');
  assert(!R.tasks(p).pending.concat(R.tasks(p).waiting).some(t=>/封顶款/.test(t.title)));
  // 封顶款由加盟商财务登记，登记后仍以项目工程人员身份尝试撤回
- const toppingEngineer=scene('node',3).after.find(([k])=>k===A.KEY);
+ const toppingEngineer=scene('node',6).after.find(([k])=>k===A.KEY);
  install(scene('collect',2).after.map(row=>row[0]===A.KEY?toppingEngineer:row));
  fails('node-reopen',{nodeId:raw().plan.nodes.find(n=>n.milestone==='topping').id,reason:'误点'},/封顶款/);
  // 封顶款已登记后，封顶完成日期不能更正到收款日之后
@@ -223,7 +223,9 @@ const fs=require('fs'),assert=require('assert/strict');
  install(scene('material-terms',1).after.map(row=>row[0]===A.KEY?engineerSession:row));
  plan=R.plans(raw()).at(-1);
  const steelLine=plan.lines[0];
+ A.mutate(s=>A.loginDemo(s,'finance-dual'));A.mutate(s=>A.switchIdentity(s,s.session.companyId,'finance'));
  run('material-terms',{planId:plan.id,file,lines:[{id:steelLine.id,supplier:'钢材厂',unitPrice:'4000',freight:'50'}]});
+ wx.setStorageSync(A.KEY,engineerSession[1]);
  run('material-adjust',{planId:plan.id,reason:'暂不采购',lines:[{id:steelLine.id,adjust:'0'}]});
  page=open(R.link(raw(),'material',{planId:plan.id}));
  assert(page.data.canAdjust,'整份计划取消后仍可恢复数量');

@@ -30,7 +30,7 @@ async function main() {
   const open = url => { wx.reLaunch({ url }); const page = getCurrentPages().at(-1); assert(!page.data.error, page.data.error); return page; };
 
   let snapshot = W.snapshot();
-  assert.deepEqual(N.navigation(X.context()).tabs.map(tab => tab.text), ['首页', '经营', '绩效', '我的']);
+  assert.deepEqual(N.navigation(X.context()).tabs.map(tab => tab.text), ['工作台', '业务', '工程', '我的']);
   assert(snapshot.commissions.length > 0);
   assert.equal(snapshot.metrics[0].value, snapshot.sales);
   pass('四栏目导航与设计委托金额使用同一事实口径');
