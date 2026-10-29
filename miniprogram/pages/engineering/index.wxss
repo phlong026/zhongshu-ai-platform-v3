@@ -36,13 +36,13 @@
 .guest-search-placeholder{color:#858991}
 .guest-search-clear{display:flex;align-items:center;justify-content:center;height:60rpx;width:44rpx;flex-shrink:0}
 .guest-search-clear image{width:30rpx;height:30rpx}
-.guest-stats{display:flex;align-items:center;height:126rpx;border-radius:20rpx;background:#fff;margin-bottom:20rpx}
-.guest-stats>button{display:flex;align-items:center;justify-content:center;gap:20rpx;flex:1;min-width:0;text-align:left;border-right:1rpx solid #ddc9b7}
-.guest-stats>button:last-child{border:0}
-.guest-stats>button>image{width:60rpx;height:60rpx;flex-shrink:0}
-.guest-stat-label{display:block;font-size:22rpx;line-height:34rpx;color:#858991}
-.guest-stat-number{font-size:40rpx;font-weight:700;line-height:52rpx;color:#89512a}
-.guest-stat-number>text{font-size:22rpx;font-weight:400;margin-left:8rpx;color:#858991}
+.eng-shortcuts{display:flex;align-items:center;height:126rpx;border-radius:20rpx;background:#fff;margin-bottom:20rpx}
+.eng-shortcuts>button{display:flex;align-items:center;justify-content:center;gap:20rpx;flex:1;min-width:0;text-align:left;border-right:1rpx solid #ddc9b7}
+.eng-shortcuts>button:last-child{border:0}
+.eng-shortcuts>button>image{width:60rpx;height:60rpx;flex-shrink:0}
+.eng-shortcut-label{display:block;font-size:22rpx;line-height:34rpx;color:#858991}
+.eng-shortcut-number{font-size:40rpx;font-weight:700;line-height:52rpx;color:#89512a}
+.eng-shortcut-number>text{font-size:22rpx;font-weight:400;margin-left:8rpx;color:#858991}
 .engineering-page.workbench-page .section{padding:20rpx;margin-bottom:20rpx;border-radius:20rpx}
 .engineering-page.workbench-page .section-heading{height:58rpx;margin-bottom:14rpx;padding-left:20rpx}
 .engineering-page.workbench-page .section-heading::before{top:14rpx}
