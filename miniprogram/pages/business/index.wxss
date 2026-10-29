@@ -65,14 +65,14 @@
 .boss-biz-quad-item{flex:1;text-align:center;border-right:1rpx solid #f1e9de;min-width:0}
 .boss-biz-quad-item:last-child{border-right:0}
 .boss-biz-n{display:block;font-size:32rpx;font-weight:700;color:#30291f}
-.boss-biz-l{display:block;font-size:21rpx;color:#9a948c;margin-top:2rpx}
+.boss-biz-l{display:block;font-size:22rpx;color:#9a948c;margin-top:2rpx}
 .boss-biz-frow{display:flex;align-items:center;gap:12rpx;padding:10rpx 0}
 .boss-biz-fk{width:110rpx;font-size:23rpx;color:#5c554d;flex-shrink:0}
 .boss-biz-bar{flex:1;height:16rpx;border-radius:8rpx;background:#f4eee5;overflow:hidden}
 .boss-biz-fill{height:100%;border-radius:8rpx;background:#d9b98f}
 .boss-biz-fill.strong{background:#75451f}
 .boss-biz-fv{width:52rpx;text-align:right;font-size:24rpx;color:#30291f;flex-shrink:0}
-.boss-biz-fc{font-size:20rpx;color:#9a948c;flex-shrink:0;max-width:200rpx;text-align:right;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.boss-biz-fc{font-size:22rpx;color:#9a948c;flex-shrink:0;max-width:200rpx;text-align:right;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .boss-biz-alert{display:flex;align-items:flex-start;gap:14rpx;padding:14rpx 0;border-bottom:1rpx solid #f6f0e7;font-size:25rpx;line-height:38rpx;color:#4a443c}
 .boss-biz-alert:first-child{padding-top:4rpx}
 .boss-biz-alert:last-child{border-bottom:0;padding-bottom:4rpx}

@@ -91,7 +91,7 @@
 .guest-shortcut-grid>button{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-width:0;background:#faf8f4;border-radius:12rpx;min-height:146rpx;padding:16rpx 2rpx}
 .guest-shortcut-grid image{width:48rpx;height:48rpx;flex-shrink:0;margin-bottom:10rpx}
 .guest-shortcut-title{font-size:24rpx;font-weight:500;line-height:36rpx;white-space:nowrap}
-.guest-shortcut-note{font-size:20rpx;line-height:30rpx;color:#9a9187;white-space:nowrap}
+.guest-shortcut-note{font-size:22rpx;line-height:30rpx;color:#9a9187;white-space:nowrap}
 
 .boss-eng-card{background:#fff;border-radius:20rpx;padding:22rpx;margin-bottom:20rpx}
 .boss-eng-money{display:flex;justify-content:space-between;align-items:center;padding:14rpx 0;border-bottom:1rpx solid #f6f0e7;font-size:26rpx;color:#4a443c}

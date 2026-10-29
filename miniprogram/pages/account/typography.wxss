@@ -21,7 +21,7 @@
 .account .service-grid .strong{font-size:27rpx;line-height:40rpx}
 .account .service-grid .hint{font-size:23rpx;line-height:34rpx}
 .account .order-row .hint,.account .order-scope .hint{font-size:23rpx;line-height:34rpx}
-.account .order-row .pill{font-size:21rpx;line-height:30rpx}
+.account .order-row .pill{font-size:22rpx;line-height:30rpx}
 .account .chapter-status{font-size:23rpx;line-height:34rpx}
 .account .chapter-card .row{font-size:27rpx;line-height:40rpx}
 .account .course-summary .large{font-weight:700;line-height:52rpx}
