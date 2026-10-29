@@ -26,7 +26,7 @@ fs.mkdirSync(out,{recursive:true});
   let p=await route('/pages/home/index','pages/home/index');
   assert.equal(await(await p.$('.home-brand-title')).text(),'众墅之家');assert.equal(await(await p.$('.home-platform-title')).text(),'AI赋能平台');
   assert.equal((await p.$$('.home-role')).length,4);assert.equal((await p.$$('.ai-card')).length,2);
-  assert.deepEqual((await nav()).tabs.map(x=>x.text),['首页','业务','工程','管理','我的']);
+  assert.deepEqual((await nav()).tabs.map(x=>x.text),['首页','登录']);
   const layout=await mp.evaluate(()=>new Promise(resolve=>{const q=wx.createSelectorQuery();q.select('.home-page').boundingClientRect();q.select('.home-header').boundingClientRect();q.select('.home-hero').boundingClientRect();q.select('.home-roles').boundingClientRect();q.select('.ai-section').boundingClientRect();q.select('.home-flow').boundingClientRect();q.select('.home-login-banner').boundingClientRect();q.selectViewport().scrollOffset();q.exec(resolve);}));
   const bar=await mp.evaluate(()=>new Promise(resolve=>getCurrentPages().at(-1).getTabBar().createSelectorQuery().select('.tabbar').boundingClientRect(resolve).exec()));
   fs.writeFileSync(path.join(out,'home-layout.json'),JSON.stringify({layout,bar},null,2));assert(layout[6].bottom<=bar.top+1,'登录栏完整位于底部导航上方');assert(layout.slice(2,7).every(r=>r.height>0),'全部首页模块可见');
@@ -35,8 +35,9 @@ fs.mkdirSync(out,{recursive:true});
   pass('固定一屏首页：四岗位、两项AI能力、协同流程与登录栏全部可见，导航不遮挡且不能滚动');
   console.log('STEP homepage login handler');await mp.evaluate(()=>getCurrentPages().at(-1).login());console.log('STEP homepage login route');await until(async()=>(await currentPath())==='pages/account/index','homepage login');assert.equal(await data('view'),'login');console.log('STEP homepage login verified');
   await route('/pages/home/index','pages/home/index');await mp.mockWxMethod('showModal',function(options){getApp().globalData.homeIntroAudit={title:options.title,content:options.content};return{confirm:true,cancel:false,errMsg:'showModal:ok'};});await mp.evaluate(()=>getCurrentPages().at(-1).learnPlatform());assert.equal((await mp.evaluate(()=>getApp().globalData.homeIntroAudit)).title,'众墅之家AI赋能平台');await mp.restoreWxMethod('showModal');pass('首页了解平台弹窗与立即登录按钮可用');
-  for(const[index,area]of [[1,'business'],[2,'engineering'],[3,'management'],[4,'profile']]){p=await tab(index,'pages/'+area+'/index');if(area!=='profile')assert.equal(await data('guest'),true);await capture('guest-'+area);}
-  pass('原有业务、工程、管理及我的游客页面保留并可切换');
+  for(const area of ['business','engineering','management']){p=await route('/pages/'+area+'/index','pages/'+area+'/index');assert.equal(await data('guest'),true);assert(await p.$('.login-guide'));await capture('guest-'+area);}
+  p=await route('/pages/profile/index','pages/profile/index');await capture('guest-profile');
+  pass('业务、工程、管理游客直达时显示登录引导，我的页游客态保留');
   await login('zhang','pages/business/index');assert.deepEqual((await nav()).tabs.map(x=>x.text),['首页','创作','设计','客户','我的']);assert.equal((await nav()).selected,1);await capture('03-sales-home');
   p=await tab(5,'pages/creation/index');assert.equal((await nav()).selected,5);await capture('04-sales-creation');
   p=await tab(6,'pages/design/index');assert.equal((await nav()).selected,6);assert.equal((await p.$$('.design-entry')).length,4);await capture('05-sales-design');

@@ -2,7 +2,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),vm=r
 (async()=>{
  const runtime=await require('./role-page-runtime.cjs').connect(),A=require('../miniprogram/utils/account'),O=require('../miniprogram/utils/organization'),D=require('../miniprogram/utils/demo-users');
  const checks=[],record=name=>checks.push({name,result:'passed'});
- let nav=O.navigation(A.access.context());assert.deepEqual(nav.tabs.map(x=>x.text),['首页','业务','工程','管理','我的']);assert(nav.tabs.every(t=>t.native));record('游客保留原有五项原生导航');
+ let nav=O.navigation(A.access.context());assert.deepEqual(nav.tabs.map(x=>x.text),['首页','登录']);assert(nav.tabs[0].native);assert(!nav.tabs[1].native);assert.equal(nav.tabs[1].url,'/pages/account/index?view=login');record('游客仅保留首页与登录入口');
  for(const person of D.people){for(const role of person.roles){if(!O.enabled(person.companyId==='headquarters'?'headquarters':'store',role))continue;A.mutate(s=>A.loginDemo(s,person.id));A.mutate(s=>A.switchIdentity(s,person.companyId,role));const actor=A.access.context();nav=O.navigation(actor);assert(actor.active);assert.equal(nav.tabs[0].text,'首页');assert.equal(nav.tabs[0].key,['boss','owner'].includes(role)?'owner-home':O.home(actor));assert(!nav.tabs.some(t=>t.key==='home'));assert.equal(new Set(nav.tabs.map(t=>t.index)).size,nav.tabs.length);assert(nav.tabs.length<=5);if(O.has(role,'sales'))assert.deepEqual(nav.tabs.map(t=>t.text),['首页','创作','方案','客户','我的']);else assert(!nav.tabs.some(t=>['creation','customers'].includes(t.key)));record(person.id+' / '+role+'：首页与角色导航一致');}}
  A.mutate(s=>A.loginDemo(s,'zhang'));
  let definition,route='pages/business/index',calls=[];

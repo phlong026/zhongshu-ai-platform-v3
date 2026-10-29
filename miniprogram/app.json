@@ -131,7 +131,8 @@
   },
   "usingComponents": {
     "brand-header": "/components/brand-header/index",
-    "action-panel": "/components/action-panel/index"
+    "action-panel": "/components/action-panel/index",
+    "login-guide": "/components/login-guide/index"
   },
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
