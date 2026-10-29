@@ -1,6 +1,5 @@
 const A = require('./account');
 const X = require('./access');
-const O = require('./organization');
 const P = require('./performance');
 const clone = require('./clone');
 
@@ -46,11 +45,11 @@ function companyOf(value, companyId) {
 }
 
 function cycleOf(company, period) {
-  return company.periods[period] || (company.periods[period] = { tasks: [], archives: [], payoutLinks: [], commands: {} });
+  return company.periods[period] || (company.periods[period] = { tasks: [], archives: [], commands: {} });
 }
 
 function readCycle(companyId, period) {
-  return store().companies[companyId]?.periods?.[period] || { tasks: [], archives: [], payoutLinks: [], commands: {} };
+  return store().companies[companyId]?.periods?.[period] || { tasks: [], archives: [], commands: {} };
 }
 
 function payloadOf(input) {
@@ -88,12 +87,6 @@ function parseTarget(type, value) {
   return Number(value);
 }
 
-function parseBonus(value) {
-  if (value === '' || value === null || value === undefined) return 0;
-  X.assert(/^\d+(\.\d{1,2})?$/.test(String(value || '')) && Number(value) >= 0 && Number(value) <= 1000000, '奖金须为非负数，最多两位小数');
-  return Math.round(Number(value) * 100);
-}
-
 function periodSources(state, period) {
   return P.sourceRows({ ...state, period });
 }
@@ -118,48 +111,74 @@ function sourceMatchesTask(source, task) {
   const personId = task.assigneePersonId || task.assigneeId;
   if (source.personId) return source.personId === personId;
   if (source.person === personId) return true;
-  const assignment = assignmentEvidence(task);
-  return !!assignment && assignment.personId === personId && assignment.staffIds.has(source.person);
+  return false;
 }
 const sourceLink = source => ({ id: source.id, name: [source.customer, source.name].filter(Boolean).join(' · '), date: source.date || source.accepted || '', url: source.url || '' });
 
+function sourceMatchesType(source, type) {
+  if (type === 'auto:contract') return source.id?.startsWith('perf-contract:');
+  if (type === 'auto:completedNodes') return source.kind === 'node' && source.completed;
+  if (type === 'auto:onTimeNodes') return source.kind === 'node' && source.completed && source.onTime;
+  if (type === 'auto:publications') return source.kind === 'publication';
+  if (type === 'auto:effectiveLeads') return source.kind === 'lead';
+  if (type === 'auto:qualifiedDeliveries') return source.kind === 'material';
+  return false;
+}
+
+function collectionOwner(customer) {
+  const C = require('./commission-attribution'), order = customer.serviceOrders?.at(-1), staffId = C.owner(customer);
+  const submitted = Date.parse(customer.businessFlow?.submittedAt || '');
+  const transfer = (customer.responsibilityHistory || []).filter(row => row.from === staffId && row.fromPersonId
+    && Number.isFinite(submitted) && Date.parse(row.effectiveAt || row.at || '') >= submitted)
+    .sort((left, right) => Date.parse(left.effectiveAt || left.at) - Date.parse(right.effectiveAt || right.at))[0];
+  return { person:staffId, personId:order?.responsiblePersonId || customer.businessFlow?.responsiblePersonId || transfer?.fromPersonId || '' };
+}
+
 function collectionSources(state, period, task, snapshot) {
-  const F = require('./finance-source'), C = require('./commission-attribution');
-  const owners = new Map((snapshot.customers || []).filter(customer => customer.projectId).map(customer => [customer.projectId, C.owner(customer)]));
-  const samePerson = staffId => sourceMatchesTask({ person:staffId }, task);
+  const F = require('./finance-source');
+  const owners = new Map((snapshot.customers || []).filter(customer => customer.projectId).map(customer => [customer.projectId, collectionOwner(customer)]));
+  const assignment = assignmentEvidence(task), unresolved = owner => !!owner?.person && !owner.personId
+    && owner.person !== (task.assigneePersonId || task.assigneeId) && assignment?.staffIds.has(owner.person);
   const inMonth = value => (String(value || '').includes('T') ? A.localDate(value) : String(value || '')).slice(0, 7) === period;
   const receiptAmount = receipt => receipt.revisions?.length ? receipt.revisions.at(-1).amount : receipt.amount;
-  const receipts = (state.receipts || []).filter(receipt => ['已核算', '已备案'].includes(receipt.status) && inMonth(F.cashDate(receipt)) && samePerson(owners.get(receipt.projectId))).map(receipt => {
+  const eligibleReceipts = (state.receipts || []).filter(receipt => ['已核算', '已备案'].includes(receipt.status) && inMonth(F.cashDate(receipt)));
+  const receipts = eligibleReceipts.filter(receipt => sourceMatchesTask(owners.get(receipt.projectId) || {}, task)).map(receipt => {
     const amount = Number(receiptAmount(receipt) || 0) / 100;
     return { id: receipt.id, name: (receipt.customer || '项目') + ' · 实际回款', date: F.cashDate(receipt), amount, amountText: amount + '元', url: '/pages/admin/index?view=receipt&id=' + encodeURIComponent(receipt.id) };
   });
   const receiptById = new Map((state.receipts || []).map(receipt => [receipt.id, receipt]));
-  const refunds = (state.refunds || []).filter(refund => refund.status === '已核实' && inMonth(F.cashDate(refund))).filter(refund => {
+  const eligibleRefunds = (state.refunds || []).filter(refund => refund.status === '已核实' && inMonth(F.cashDate(refund)));
+  const refunds = eligibleRefunds.filter(refund => {
     const receipt = receiptById.get(refund.receiptId);
-    return samePerson(owners.get(receipt?.projectId || refund.projectId));
+    return sourceMatchesTask(owners.get(receipt?.projectId || refund.projectId) || {}, task);
   }).map(refund => {
     const amount = -Number(refund.amount || 0) / 100;
     return { id: refund.id, name: (refund.customer || '项目') + ' · 已核实退款', date: F.cashDate(refund), amount, amountText: amount + '元', url: '/pages/admin/index?view=refund-result&id=' + encodeURIComponent(refund.id) };
   });
-  return receipts.concat(refunds);
+  const unresolvedSources = eligibleReceipts.filter(receipt => unresolved(owners.get(receipt.projectId))).map(receipt => ({
+    id:receipt.id, name:(receipt.customer || '项目') + ' · 回款责任人待核对', date:F.cashDate(receipt), url:'/pages/admin/index?view=receipt&id=' + encodeURIComponent(receipt.id)
+  })).concat(eligibleRefunds.filter(refund => {
+    const receipt = receiptById.get(refund.receiptId);
+    return unresolved(owners.get(receipt?.projectId || refund.projectId));
+  }).map(refund => ({ id:refund.id, name:(refund.customer || '项目') + ' · 退款责任人待核对', date:F.cashDate(refund), url:'/pages/admin/index?view=refund-result&id=' + encodeURIComponent(refund.id) })));
+  return { sources:receipts.concat(refunds), unresolvedSources };
 }
 
 function automaticEvidence(state, period, task, factsProvider) {
-  if (task.type === 'manual') return { value: 0, sources: [] };
+  if (task.type === 'manual') return { value: 0, sources: [], unresolvedSources: [] };
   const sources = periodSources(state, period);
-  const own = sources.filter(source => sourceMatchesTask(source, task) && !source.excluded);
-  let matched = [];
-  if (task.type === 'auto:contract') matched = own.filter(source => source.id?.startsWith('perf-contract:'));
-  if (task.type === 'auto:completedNodes') matched = own.filter(source => source.kind === 'node' && source.completed);
-  if (task.type === 'auto:onTimeNodes') matched = own.filter(source => source.kind === 'node' && source.completed && source.onTime);
-  if (task.type === 'auto:publications') matched = own.filter(source => source.kind === 'publication');
-  if (task.type === 'auto:effectiveLeads') matched = own.filter(source => source.kind === 'lead');
-  if (task.type === 'auto:qualifiedDeliveries') matched = own.filter(source => source.kind === 'material');
+  const relevant = sources.filter(source => sourceMatchesType(source, task.type) && !source.excluded);
+  const own = relevant.filter(source => sourceMatchesTask(source, task));
+  const assignment = assignmentEvidence(task);
+  const unresolvedSources = relevant.filter(source => !source.personId && source.person !== (task.assigneePersonId || task.assigneeId)
+    && assignment?.staffIds.has(source.person));
+  const matched = own;
   if (task.type === 'auto:collectionsAmount') {
     X.assert(typeof factsProvider === 'function', '绩效事实提供器未注入');
     const snapshot = factSnapshot(state, period, sources), facts = factsProvider(snapshot);
-    const value = Object.entries(facts).filter(([staffId]) => sourceMatchesTask({ person:staffId }, task)).reduce((sum, [, departments]) => sum + Number(departments.business?.collectionsAmount || 0), 0);
-    return { value, sources: collectionSources(state, period, task, snapshot) };
+    X.assert(facts && typeof facts === 'object', '绩效事实提供器返回无效');
+    const evidence = collectionSources(state, period, task, snapshot);
+    return { value:evidence.sources.reduce((sum, source) => sum + source.amount, 0), ...evidence };
   }
   const links = matched.map(source => {
     const link = sourceLink(source);
@@ -167,7 +186,7 @@ function automaticEvidence(state, period, task, factsProvider) {
     const amount = Number(source.amount || 0) / 100;
     return { ...link, amount, amountText: amount + '元' };
   });
-  return { value: task.type === 'auto:contract' ? links.reduce((sum, source) => sum + source.amount, 0) : links.length, sources: links };
+  return { value: task.type === 'auto:contract' ? links.reduce((sum, source) => sum + source.amount, 0) : links.length, sources: links, unresolvedSources: unresolvedSources.map(sourceLink) };
 }
 
 const automaticValue = (state, period, task, factsProvider) => automaticEvidence(state, period, task, factsProvider).value;
@@ -175,15 +194,18 @@ const automaticValue = (state, period, task, factsProvider) => automaticEvidence
 function resolved(state, task, factsProvider) {
   const evidence = automaticEvidence(state, task.period, task, factsProvider), collected = evidence.value;
   const completed = task.type === 'manual' ? !!task.manualDone : collected >= task.target;
-  return { ...clone(task), collected, sourceIds: evidence.sources.map(source => source.id), sources: evidence.sources, status: completed ? '已完成' : '进行中', bonusAwarded: completed ? task.bonus : 0 };
+  const attributionPending = !completed && evidence.unresolvedSources.length > 0;
+  return { ...clone(task), collected, sourceIds: evidence.sources.map(source => source.id), sources: evidence.sources, attributionPending, attributionSources:evidence.unresolvedSources, status: completed ? '已完成' : attributionPending ? '归属待核对' : '进行中' };
 }
 
 function sourceSignature(state, period, tasks, factsProvider) {
   const sources = periodSources(state, period);
-  const receipts = (state.receipts || []).map(row => [row.id, row.projectId, row.status, row.amount, row.bankDate || row.date, row.revisions?.at(-1)?.amount || '']).sort();
-  const refunds = (state.refunds || []).map(row => [row.id, row.receiptId, row.projectId, row.status, row.amount, row.bankDate || row.date]).sort();
+  const F = require('./finance-source'), inPeriod = row => String(F.cashDate(row) || '').slice(0, 7) === period;
+  const receipts = (state.receipts || []).filter(inPeriod).map(row => [row.id, row.projectId, row.status, row.amount, row.bankDate || row.date, row.revisions?.at(-1)?.amount || '']).sort();
+  const refunds = (state.refunds || []).filter(inPeriod).map(row => [row.id, row.receiptId, row.projectId, row.status, row.amount, row.bankDate || row.date]).sort();
   const values = tasks.map(task => [task.id, automaticValue(state, period, task, factsProvider)]).sort();
-  return JSON.stringify([P.signature(sources), receipts, refunds, values]);
+  const sourcePeople = sources.map(source => [source.id, source.person, source.personId || '']).sort((left, right) => left[0].localeCompare(right[0]));
+  return JSON.stringify([P.signature(sources), sourcePeople, receipts, refunds, values]);
 }
 
 function latestArchive(cycle) {
@@ -201,13 +223,15 @@ function create(state, input) {
   X.assert(title && title.length <= 60, '任务标题为必填且最多 60 字');
   X.assert(validDay(input.due) && input.due.slice(0, 7) === period, '截止日期须在任务月份内');
   const assignee = staffFor(state, input.assigneeId);
-  const target = parseTarget(type, input.target), bonus = parseBonus(input.bonus);
+  const target = parseTarget(type, input.target);
   return transact(state, period, input, 'create', actor, () => {}, cycle => {
     X.assert(!latestArchive(cycle), '本月任务已归档，不能再新增');
+    if (!type.manual) X.assert(!cycle.tasks.some(task => task.type === type.id && taskPersonId(state, task) === (assignee.personId || assignee.id)
+      && task.title === title && task.target === target && task.due === input.due), '相同自动任务已存在，请勿重复派发');
     const at = now(), id = 'performance-task:' + state.companyId + ':' + period + ':' + Date.now() + ':' + (++sequence);
     const assigneePersonId = assignee.personId || assignee.id;
     const task = {
-      id, period, title, assigneeId: assignee.id, assigneePersonId, assigneeStaffIds:(state.staff || []).filter(person => (person.personId || person.id) === assigneePersonId).map(person => person.id), assigneeName: assignee.name, due: input.due, type: type.id, target, bonus,
+      id, period, title, assigneeId: assignee.id, assigneePersonId, assigneeStaffIds:(state.staff || []).filter(person => (person.personId || person.id) === assigneePersonId).map(person => person.id), assigneeName: assignee.name, due: input.due, type: type.id, target,
       manualDone: null,
       history: [{ action: 'create', to: assignee.id, toPersonId: assignee.personId || assignee.id, note: String(input.note || '').trim(), ...X.actor(), at }],
       createdAt: at, createdBy: actor.staffId
@@ -279,7 +303,7 @@ function archiveRecord(state, period, cycle, note, revision, supersedes, factsPr
   const id = 'performance-task-archive:' + state.companyId + ':' + period + ':r' + revision;
   return {
     id, companyId: state.companyId, period, revision, supersedes, status: '已归档',
-    tasks, sourceSignature: source, bonusTotal: tasks.reduce((sum, task) => sum + task.bonusAwarded, 0),
+    tasks, sourceSignature: source,
     note: String(note || '').trim(), ...X.actor()
   };
 }
@@ -311,63 +335,12 @@ function reviseArchive(state, period, input = {}, factsProvider) {
   });
 }
 
-function canSeeBonus(actor) {
-  return X.isBoss(actor) || O.has(actor.role, 'finance');
-}
-
-function bonusSummary(state, period, factsProvider) {
+function archiveSummary(state, period, factsProvider) {
   const actor = actorFor(state);
-  X.assert(canSeeBonus(actor), '奖金归档仅限本组织老板和财务查看');
+  X.assert(X.isBoss(actor), '只有本组织老板可查看任务归档');
   const cycle = readCycle(state.companyId, period), latest = latestArchive(cycle);
   const needsRevision = !!latest && sourceSignature(state, period, latest.tasks, factsProvider) !== latest.sourceSignature;
-  return { period, latest: clone(latest), archives: clone(cycle.archives || []), payoutLinks: clone(cycle.payoutLinks || []), needsRevision };
-}
-
-function findArchive(state, id) {
-  const periods = store().companies[state.companyId]?.periods || {};
-  for (const [period, cycle] of Object.entries(periods)) {
-    const archive = (cycle.archives || []).find(row => row.id === id);
-    if (archive) return { period, cycle, archive };
-  }
-  return null;
-}
-
-function payoutDraft(state, archiveId, factsProvider) {
-  const actor = actorFor(state);
-  X.assert(canSeeBonus(actor), '奖金应付草案仅限本组织老板和财务查看');
-  const found = findArchive(state, archiveId);
-  X.assert(found, '绩效归档不存在');
-  const { archive } = found;
-  X.assert(latestArchive(found.cycle)?.id === archive.id, '请使用最新归档修订版生成奖金应付草案');
-  X.assert(sourceSignature(state, archive.period, archive.tasks, factsProvider) === archive.sourceSignature, '原业务事实已变化，请先修订归档');
-  return {
-    idempotencyKey: 'performance-task-bonus:' + archive.id,
-    sourceType: 'performance-task-bonus-v1', companyId: state.companyId, period: archive.period, archiveId: archive.id,
-    total: archive.bonusTotal,
-    lines: archive.tasks.filter(task => task.bonusAwarded > 0).map(task => ({ taskId: task.id, assigneeId: task.assigneeId, assigneePersonId: task.assigneePersonId, title: task.title, amount: task.bonusAwarded }))
-  };
-}
-
-function linkPayout(state, archiveId, input, factsProvider) {
-  const actor = actorFor(state);
-  X.assert(canSeeBonus(actor), '奖金衔接仅限本组织老板和财务办理');
-  const found = findArchive(state, archiveId);
-  X.assert(found, '绩效归档不存在');
-  X.assert(latestArchive(found.cycle)?.id === archiveId, '请关联最新归档修订版');
-  X.assert(sourceSignature(state, found.archive.period, found.archive.tasks, factsProvider) === found.archive.sourceSignature, '原业务事实已变化，请先修订归档');
-  const referenceId = String(input.referenceId || '').trim(), expectedKey = 'performance-task-bonus:' + archiveId;
-  X.assert(referenceId, '请提供已创建的外部应付引用');
-  X.assert(input.idempotencyKey === expectedKey, '奖金衔接键与归档版本不匹配');
-  const value = store(), cycle = value.companies[state.companyId].periods[found.period];
-  const existing = (cycle.payoutLinks || []).find(row => row.archiveId === archiveId || row.idempotencyKey === expectedKey);
-  if (existing) {
-    X.assert(existing.referenceId === referenceId, '该归档奖金已关联其他应付记录');
-    return clone(existing);
-  }
-  const link = { archiveId, idempotencyKey: expectedKey, referenceId, ...X.actor() };
-  cycle.payoutLinks = (cycle.payoutLinks || []).concat(link);
-  save(value);
-  return clone(link);
+  return { period, latest: clone(latest), archives: clone(cycle.archives || []), needsRevision };
 }
 
 const previousPeriod = period => {
@@ -416,7 +389,7 @@ function initializePrevious(state, input, factsProvider) {
       const task = {
         id:['performance-task', state.companyId, period, 'suggested', person.personId, type.id].join(':'),
         period, title:type.label + '·上月实绩建议', assigneeId:person.assignee.id, assigneePersonId:person.personId, assigneeStaffIds:clone(person.staffIds), assigneeName:person.assignee.name,
-        due, type:type.id, target:evidence.value, bonus:0, manualDone:null,
+        due, type:type.id, target:evidence.value, manualDone:null,
         suggestion:{ period:sourcePeriod, value:evidence.value, unit:type.unit, sourceIds:evidence.sources.map(source => source.id), sources:clone(evidence.sources) },
         history:[{ action:'create', to:person.assignee.id, toPersonId:person.personId, note:'按 ' + sourcePeriod + ' 真实实绩 ' + evidence.value + type.unit + ' 生成建议', ...X.actor(), at }],
         createdAt:at, createdBy:actor.staffId
@@ -444,9 +417,7 @@ function withFacts(factsProvider) {
     list: (state, options) => list(state, options, factsProvider),
     archive: (state, period, input) => archive(state, period, input, factsProvider),
     reviseArchive: (state, period, input) => reviseArchive(state, period, input, factsProvider),
-    bonusSummary: (state, period) => bonusSummary(state, period, factsProvider),
-    payoutDraft: (state, archiveId) => payoutDraft(state, archiveId, factsProvider),
-    linkPayout: (state, archiveId, input) => linkPayout(state, archiveId, input, factsProvider),
+    archiveSummary: (state, period) => archiveSummary(state, period, factsProvider),
     initializePrevious: (state, input) => initializePrevious(state, input, factsProvider),
     previousActual: (state, input) => previousActual(state, input, factsProvider)
   };

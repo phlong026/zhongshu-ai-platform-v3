@@ -1,4 +1,4 @@
-const X=require('./access'),clone=x=>JSON.parse(JSON.stringify(x)),keys={business:require('./storage-keys').business,engineering:require('./storage-keys').engineering,management:require('./storage-keys').management},Checkout=require('./design-checkout');
+const X=require('./access'),clone=require('./clone'),keys={business:require('./storage-keys').business,engineering:require('./storage-keys').engineering,management:require('./storage-keys').management},Checkout=require('./design-checkout');
 function book(companyId){return X.rawBook(companyId);}
 function period(s){return s.period||(/^\d{4}-\d{2}/.test(s.snapshot||'')?s.snapshot.slice(0,7):new Date().toISOString().slice(0,7));}
 function cashDate(r){return r.bankDate||r.date||'';}
@@ -34,7 +34,7 @@ return s;
 }
 function tasks(s){const a=X.context(),rows=[],money=n=>'¥ '+(n/100).toLocaleString('en-US'),add=(r,view,name,status,amount)=>{if(!require('./approval-policy').deferred(view)&&X.admin(view,r))rows.push({id:r.id,view,name,status,amount:money(amount),label:'去办理',icon:'management-receipt'});};
 for(const r of s.receipts){if(r.status==='待登记'&&r.source?.module==='intercompany')add(r,'incoming-register',r.customer+' · '+r.name,'实际到账待登记',r.amount);if(r.status==='待核算'&&r.source&&r.source.module!=='intercompany'&&!r.financialRegistrarId)add(r,'incoming-register',r.customer+' · 财务实际到账登记','待财务查实',r.amount);if(r.status==='待核算'&&a.role==='finance')add(r,'receipt',r.customer+' · 凭据预查',r.status,r.amount);}
-for(const q of s.payables){if(['待办理','部分已付'].includes(q.status))add(q,'pay',q.customer+' · '+q.stage,q.status,q.total-reserved(s,q.id));if(q.needsSupplement&&X.supplement(q))add(q,'pay-supplement',q.customer+' · 原付款事项补充',q.status,q.total);}
+for(const q of s.payables){if(require('./payroll').isPayable(q))continue;if(['待办理','部分已付'].includes(q.status))add(q,'pay',q.customer+' · '+q.stage,q.status,q.total-reserved(s,q.id));if(q.needsSupplement&&X.supplement(q))add(q,'pay-supplement',q.customer+' · 原付款事项补充',q.status,q.total);}
 
 if(require('./approval-policy').moneyBoss(a))for(const c of (wx.getStorageSync(keys.business)||{}).customers||[])if(X.sameCompany(c,a))rows.push(...require('./commercial-approval').tasks(c));rows.push(...require('./operations').pending(s));rows.push(...require('./engineering-records').financialTasks(s));return rows.filter(t=>!require('./organization').has(a.role,'finance')||(t.view==='pay'||t.view==='incoming-register'||a.orgType==='store'&&t.view==='engineering-collection')).map(t=>({...t,key:[t.view,t.id,t.record||''].join(':')}));
 }

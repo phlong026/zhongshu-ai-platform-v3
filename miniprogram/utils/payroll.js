@@ -1,5 +1,7 @@
-// Legacy payroll is read-only. New bonus payables come from archived performance tasks.
-const metrics={materials:'足量合格供货批次',nodes:'完成工程节点',publications:'已登记发布',leads:'有效咨询承接',design:'审核通过成果',finance:'有效财务登记',financeReview:'有效财务复核',contract:'有效签约金额'};
-function rows(s){const op=s.operations,period=require('./finance-source').period(s);return s.archives.filter(c=>c.dynamic&&c.period===period&&c.status==='已归档'&&!s.archives.some(n=>n.supersedes===c.id)).map(c=>{const policy=op.payrollPolicies.filter(p=>p.person===c.person&&p.period===period).slice(-1)[0],facts=c.snapshot?.actuals||c.submission?.actuals||c.actuals,quantity=policy?Number(facts?.[policy.metric]||0):0,variable=policy?policy.metric==='contract'?Math.round(quantity*policy.rate/100):Math.round(quantity*policy.rate):0,amount=policy?policy.base+variable:null,settlement=op.payrollSettlements.find(r=>r.cycleId===c.id)||op.payrollSettlements.find(r=>!r.cycleId&&r.person===c.person&&r.period===period&&r.status!=='returned'),payableId=settlement&&'payroll-payable:'+settlement.id;return {id:c.id,person:c.person,name:s.staff.find(p=>p.id===c.person)?.name||c.person,period,policy,quantity,amount,metric:policy?metrics[policy.metric]:'历史规则未找到',settlement,payableId};}).filter(row=>row.settlement&&s.payables.some(q=>q.id===row.payableId));}
-function apply(s,action){if(!['payroll-policy','payroll-submit'].includes(action))return null;throw Error('旧薪酬规则与逐人结算已停用，请在绩效任务中归档并生成奖金应付');}
-module.exports={metrics,rows,apply};
+// 仅识别并封存历史薪酬数据，任务管理不承担薪酬与奖金。
+const isPayable = row => !!(row?.payrollId || row?.performanceArchive?.kind === 'performance-task-bonus-v1');
+function apply(state, action) {
+  if (['payroll-policy', 'payroll-submit', 'performance-bonus-register'].includes(action)) throw Error('薪酬与奖金在线下办理，小程序不提供结算');
+  return null;
+}
+module.exports = { isPayable, apply };

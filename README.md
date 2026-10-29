@@ -438,6 +438,6 @@ npm run report:roles:complete
 
 ## 2026-10-29 留档批次续作
 
-公共容器、存储键、组件和设计令牌的回归使用 `npm run check:retained-batches`，并已纳入 `npm run check:flow:all`。绩效主入口进入任务单，旧指标通过历史只读入口保留；任务归档奖金按真实人员形成应付，财务沿原付款页登记。实施范围与真实设备/后端边界见 [绩效任务化实施](docs/绩效任务化实施_20261029.md) 和 [留档续作计划](docs/留档批次续作计划_20261029.md)。
+公共容器、存储键、组件和设计令牌的回归使用 `npm run check:retained-batches`，并已纳入 `npm run check:flow:all`。绩效主入口进入任务单，旧指标通过历史只读入口保留；任务仅覆盖派发、本人完成、实绩采集与任务归档；薪酬与奖金在线下办理，不生成相关应付或付款。实施范围与真实设备/后端边界见 [绩效任务化实施](docs/绩效任务化实施_20261029.md) 和 [留档续作计划](docs/留档批次续作计划_20261029.md)。
 
 颜色及字阶定义在 `miniprogram/styles/tokens.wxss`，组件主题文件 `component-tokens.wxss` 使用相同声明，选择器为 `.zs-theme`；更新令牌时同步两份样式，`verify-design-tokens` 会检查差异，避免组件隔离导致导航样式失效。
