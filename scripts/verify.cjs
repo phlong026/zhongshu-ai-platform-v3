@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const root = path.resolve(__dirname, '..');
+require('./verify-wxss-comments.cjs').verifyDirectory(path.join(root, 'miniprogram'));
 const wechatProject = require('./verify-wechat-project.cjs')(root);
 const packageResources = require('./verify-package-resources.cjs')(root);
 const mini = path.join(root, 'miniprogram');
