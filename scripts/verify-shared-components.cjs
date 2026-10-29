@@ -47,9 +47,7 @@ assert.match(statStyle, /\.summary \.stat-value\{font-size:var\(--zs-font-headin
 const migrations = [
   ['miniprogram/pages/business/index.wxml', /<search-box[^>]+bind:input="search"/],
   ['miniprogram/pages/engineering/index.wxml', /<search-box[^>]+bind:input="searchDesk"[^>]+bind:clear="clearDeskSearch"/],
-  ['miniprogram/pages/management/index.wxml', /<search-box[^>]+bind:input="searchStaff"[^>]+bind:clear="clearStaffSearch"/],
   ['miniprogram/pages/engineering/index.wxml', /<todo-row[^>]+data-action="\{\{item.action\}\}"[^>]+bind:activate="openAction"/],
-  ['miniprogram/pages/management/index.wxml', /<stat-grid[^>]+interactive="\{\{false\}\}"/],
   ['miniprogram/pages/admin/home/index.wxml', /<empty-state[^>]+message="今日暂无审批、复核或交接待办"/],
   ['miniprogram/pages/admin/performance/index.wxml', /<empty-state[^>]+message="当前筛选暂无在岗成员"/],
 ];
@@ -58,7 +56,6 @@ for (const [file, pattern] of migrations) assert.match(read(file), pattern, file
 const componentRefs = [
   ['miniprogram/pages/business/index.json', ['search-box', 'empty-state']],
   ['miniprogram/pages/engineering/index.json', ['search-box', 'todo-row', 'empty-state']],
-  ['miniprogram/pages/management/index.json', ['search-box', 'empty-state', 'stat-grid']],
   ['miniprogram/pages/admin/home/index.json', ['empty-state']],
   ['miniprogram/pages/admin/performance/index.json', ['empty-state']],
 ];

@@ -84,6 +84,7 @@
     "check:business:simplified:residual": "node scripts/verify-sales-offline-residual.cjs",
     "check:business:todos": "node scripts/verify-sales-todo-handoffs.cjs",
     "check:engineering:records": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-engineering-records-guards.cjs && node scripts/verify.cjs",
+    "check:engineering:corrections": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-engineering-record-corrections.cjs",
     "check:engineering:record-flow:native": "node scripts/verify-engineering-records-native.cjs continuous",
     "prepare:engineering:record-flow:native": "node scripts/prepare-engineering-records-native.cjs",
     "check:owner:signing": "node scripts/verify-owner-signing.cjs",
@@ -95,7 +96,6 @@
     "check:owner:workbench:native": "npm run check:owner:workbench && node scripts/verify-owner-workbench-port-native.cjs",
     "demo:management": "node server/management/start.cjs",
     "check:management:complete": "npm run check:owner:workbench && node scripts/verify-management-home.cjs && node scripts/verify-management-merge.cjs && node scripts/verify-management-finance.cjs && node scripts/verify-management-performance.cjs && node scripts/verify-management-performance-unified.cjs && node scripts/verify-management-attribution.cjs && node scripts/verify-management-current-design.cjs && node scripts/verify-management-handover.cjs && node scripts/verify-management-commission.cjs && node scripts/verify-management-commission-page.cjs && node scripts/verify-management-completion-pages.cjs && node scripts/verify-management-simulation.cjs && node scripts/verify-management-simulation-client.cjs && node scripts/verify-finance-layout.cjs && npm run check:design-collaboration && npm run check",
-    "check:engineering:corrections": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-engineering-records.cjs && node scripts/verify-engineering-record-corrections.cjs",
     "check:engineering:corrections:native": "node scripts/verify-engineering-corrections-native.cjs",
     "check:owner:p0": "node scripts/verify-owner-p0-completion.cjs",
     "check:owner:p0:native": "node scripts/verify-owner-p0-native.cjs",
@@ -107,7 +107,8 @@
     "check:design-checkout:native": "node scripts/verify-design-checkout-native.cjs",
     "check:design-journey": "node scripts/verify-design-checkout.cjs && node scripts/verify-design-journey.cjs && node scripts/verify-design-payment-finance-copy.cjs && node scripts/verify-design-checkout-pages.cjs && npm run check",
     "check:design-journey:native": "node scripts/verify-design-journey-native.cjs",
-    "check:retained-batches": "node scripts/verify-view-container-reuse.cjs && node scripts/verify-commission-status-labels.cjs && node scripts/verify-storage-key-reuse.cjs && node scripts/verify-shared-components.cjs && node scripts/verify-shared-shell-components.cjs && node scripts/verify-design-tokens.cjs && node scripts/verify-control-styles.cjs && node scripts/verify-engineering-payment-entry.cjs && node scripts/verify-owner-three-level.cjs && node scripts/verify-performance-tasks.cjs && node scripts/verify-task-bonus-payables.cjs && node scripts/verify-performance-task-ui.cjs && node scripts/verify-legacy-payroll-retirement.cjs && node scripts/verify-wxss-comments-test.cjs"
+    "check:mgmt-batch-a": "node scripts/verify-management-tab-direct.cjs && node scripts/verify-terms-auto-effective.cjs && node scripts/verify-engineering-dunning.cjs",
+    "check:retained-batches": "node scripts/verify-view-container-reuse.cjs && node scripts/verify-commission-status-labels.cjs && node scripts/verify-storage-key-reuse.cjs && node scripts/verify-shared-components.cjs && node scripts/verify-shared-shell-components.cjs && node scripts/verify-design-tokens.cjs && node scripts/verify-control-styles.cjs && node scripts/verify-engineering-payment-entry.cjs && node scripts/verify-owner-three-level.cjs && node scripts/verify-performance-tasks.cjs && node scripts/verify-task-bonus-payables.cjs && node scripts/verify-performance-task-ui.cjs && node scripts/verify-legacy-payroll-retirement.cjs && node scripts/verify-wxss-comments-test.cjs && npm run check:mgmt-batch-a && node scripts/verify-mgmt-batch-bcd.cjs && node scripts/verify-finance-desk-shell.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0",

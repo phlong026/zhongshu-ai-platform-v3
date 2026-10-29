@@ -1,14 +1,20 @@
-// Role-specific queues use the same source IDs and authorization as their detail pages.
-const A=require('../../utils/account'),X=require('../../utils/access'),F=require('../../utils/finance-source');
-const staffSearch=require('./staff-search');
-Page({data:{allowed:false,loggedIn:false,role:'',mode:'finance',financeTodos:[],financeCounts:{reconcile:0,pay:0,verify:0},summary:{income:0,paid:0},menu:[],companyId:'',receivable:'待配置',plannedPay:'待配置'},
-onShow(){if(X.context().active&&X.isBoss())return wx.redirectTo({url:'/pages/admin/home/index'});const state=require('../../utils/workbench').management(),D=require('../../utils/finance-desk');let financeDesk=null,financeError='';if(D.allowed()){try{financeDesk=D.home(D.load());}catch(e){financeError=e.message;}}this.setData({...state,...staffSearch(state,this.data.staffKeyword||''),financeDesk,financeError});if(this.getTabBar()){this.getTabBar().refresh?.();this.getTabBar().setData({selected:3,hidden:false});}},
-financeGo(e){if(require('../../utils/finance-desk').allowed()&&e.currentTarget.dataset.url)require('../../utils/page-navigation').open(e.currentTarget.dataset.url);},
-financeMonth(e){try{require('../../utils/finance-desk').setPeriod(e.detail.value);this.onShow();}catch(error){wx.showToast({title:error.message,icon:'none'});}},
-financeMetric(e){const D=require('../../utils/finance-desk'),d=this.data.financeDesk,i=Number(e.currentTarget.dataset.index);if(!d||!D.allowed())return;if(d.metrics[i]?.url)return require('../../utils/page-navigation').open(d.metrics[i].url);const targets=d.hq?(d.lead?[D.url('partners','',{filter:'debt'}),D.url('partners','',{filter:'advance'}),D.url('partners','',{filter:'overdue'}),d.reviewTasksUrl]:[D.url('flows','',{tab:'ledger'}),D.url('flows'),D.url('partners','',{filter:'advance'}),D.url('partners','',{filter:'pending'})]):d.lead?[D.url('flows'),D.url('flows','',{tab:'payables',due:'week'}),D.url('flows','',{filter:'overdue'}),d.reviewTasksUrl]:[D.url('flows','',{tab:'ledger',category:'实收'}),D.url('flows','',{tab:'ledger',category:'实付'}),D.url('flows'),D.url('flows','',{tab:'payables',due:'week'})];require('../../utils/page-navigation').open(targets[i]);},
-searchStaff(e){if(this.data.allowed)this.setData(staffSearch(this.data,e.detail.value));},
-clearStaffSearch(){if(this.data.allowed)this.setData(staffSearch(this.data));},
-go(e){const d=e.currentTarget.dataset;if(!this.data.allowed)return this.identity();if(d.url)return wx.navigateTo({url:d.url});if(d.area==='operations')return wx.navigateTo({url:'/pages/admin/operations/index?view='+(d.view==='plan-approval'?'receivables':'expenses')+'&id='+encodeURIComponent(d.id)});wx.navigateTo({url:'/pages/'+(d.area==='workflow'?'workflow':'admin')+'/index?view='+d.view+(d.id?'&id='+encodeURIComponent(d.id):'')+(d.taskType?'&taskType='+encodeURIComponent(d.taskType):'')+(d.record?'&record='+encodeURIComponent(d.record):'')});},
-goHome(){wx.switchTab({url:'/pages/'+X.home()+'/index'});},
-identity(){wx.navigateTo({url:'/pages/account/index?view='+(this.data.loggedIn?'identity':'login')});}
+// The management tab is a role router. Authorized roles enter their dedicated
+// workbench; guests and unrelated roles never receive sample management data.
+const X = require('../../utils/access');
+
+Page({
+  data: { allowed: false, loggedIn: false, role: '', guest: false, active: false, homeTitle: '', deskTitle: '管理工作台' },
+  onShow() {
+    const actor = X.context();
+    if (actor.active && X.isBoss(actor)) return wx.redirectTo({ url: '/pages/admin/home/index' });
+    if (actor.active && ['finance', 'finance-lead'].includes(actor.role)) return wx.redirectTo({ url: '/pages/admin/finance-desk/index' });
+    this.setData(require('../../utils/workbench').management());
+    const bar = this.getTabBar();
+    if (bar) {
+      bar.refresh?.();
+      bar.setData({ selected: 3, hidden: false });
+    }
+  },
+  goHome() { wx.switchTab({ url: '/pages/' + X.home() + '/index' }); },
+  identity() { wx.navigateTo({ url: '/pages/account/index?view=' + (this.data.loggedIn ? 'identity' : 'login') }); }
 });

@@ -7,8 +7,7 @@ const read = file => fs.readFileSync(path.resolve(file), 'utf8');
 async function main() {
   const { A } = await require('./verify-owner-workbench.cjs').fixture();
   const D = require('../miniprogram/utils/finance-desk');
-  const homeTemplate = read('miniprogram/pages/management/finance-home.wxml');
-  const homeStyles = read('miniprogram/pages/management/index.wxss');
+  const homeTemplate = read('miniprogram/pages/admin/finance-desk/finance-home.wxml');
   const deskTemplate = read('miniprogram/pages/admin/finance-desk/index.wxml');
   const deskStyles = read('miniprogram/pages/admin/finance-desk/index.wxss');
   const deskController = read('miniprogram/pages/admin/finance-desk/index.js');
@@ -17,17 +16,22 @@ async function main() {
 
   assert(homeTemplate.includes('class="fin-home-intro"'));
   assert(homeTemplate.includes('bindchange="financeMonth"'));
-  assert(homeTemplate.includes('bindtap="financeMetric"'));
-  assert(homeTemplate.indexOf('fin-home-summary') < homeTemplate.indexOf('staff-todos'));
-  assert(homeTemplate.indexOf('staff-todos') < homeTemplate.indexOf('fin-home-shortcuts'), '财务首页顺序应为指标、待办、常用功能、项目进度');
+  assert(homeTemplate.includes('class="fin-home-metric {{item.tone}}"'));
+  assert(homeTemplate.includes('data-url="{{item.url}}" bindtap="go"'));
+  assert(homeTemplate.indexOf('fin-home-summary') < homeTemplate.indexOf('fin-home-list'));
+  assert(homeTemplate.indexOf('fin-home-list') < homeTemplate.indexOf('fin-home-shortcuts'), '财务首页顺序应为指标、待办、常用功能、项目进度');
   assert(homeTemplate.indexOf('fin-home-shortcuts') < homeTemplate.indexOf('fin-home-progress'));
-  for (const title of ['今日待办', '常用快捷办理', '正在办理']) assert(homeTemplate.includes('>' + title + '<'));
+  for (const title of ['待办事项', '常用快捷办理', '正在办理']) assert(homeTemplate.includes('>' + title + '<'));
   assert(!homeTemplate.includes('fin-identity'), '首页第五区后不应追加身份或说明板块');
   assert(homeTemplate.includes('wx:if="{{!desk.previewTasks.length}}"'));
   assert(homeTemplate.includes('wx:if="{{!desk.focus.length}}"'));
-  assert(!/linear-gradient|#164f3b|#0d392d/.test(homeStyles));
+  assert(deskTemplate.includes('<import src="./finance-home.wxml"/>'));
+  assert(deskTemplate.includes('<template is="financeHome" data="{{desk:deskHome}}"/>'));
+  assert(!fs.existsSync(path.resolve('miniprogram/pages/management/finance-home.wxml')), '旧管理页财务模板应已删除');
+  assert(!/linear-gradient|#164f3b|#0d392d/.test(deskStyles));
   assert(!/常用原流程|真实记录|视图|派生|口径|事实/.test(homeTemplate));
-  pass('财务首页对齐工程暖色紧凑布局，保留月份和指标交互');
+  assert(deskController.includes('financeMonth(e){this.month(e);}'), '独立财务桌面必须代理首页月份交互');
+  pass('独立财务桌面承载首页布局，保留月份、指标和待办交互');
 
   assert(deskTemplate.includes('class="fin-desk-tools"'));
   assert(deskTemplate.includes('bindinput="search"'));

@@ -123,11 +123,11 @@ async function main() {
   }
   async function pay(stage, amount, transaction) {
     await login('finance-dual', 'finance');
-    await open('/pages/management/index');
-    const tasks = (await data()).financeDesk.tasks;
+    await open('/pages/admin/finance-desk/index');
+    const tasks = (await data()).deskHome.tasks;
     const task = tasks.find(task => task.id.includes(customerId + ':') && task.id.endsWith(':' + stage) && task.view === 'pay');
     assert(task, 'Derived payable task for the original project ' + customerId + '/' + stage);
-    if (!(await data()).financeDesk.previewTasks.some(row => row.key === task.key)) await tap('button[data-url="' + (await data()).financeDesk.tasksUrl + '"]');
+    if (!(await data()).deskHome.previewTasks.some(row => row.key === task.key)) await tap('button[data-url="' + (await data()).deskHome.tasksUrl + '"]');
     await tap('button[data-url="' + task.url + '"]');
     await until(async () => (await data()).action === 'pay', 'Original payable');
     await input('input[data-key="amount"]', amount);
@@ -138,11 +138,11 @@ async function main() {
   }
   async function receive(stage, amount, transaction) {
     await login('hq-finance-dual', 'finance');
-    await open('/pages/management/index');
-    const tasks = (await data()).financeDesk.tasks;
+    await open('/pages/admin/finance-desk/index');
+    const tasks = (await data()).deskHome.tasks;
     const task = tasks.find(task => task.id.includes(customerId) && task.id.includes(':' + stage) && task.view === 'incoming-register');
     assert(task, 'Actual headquarters receipt task for the original design payment');
-    if (!(await data()).financeDesk.previewTasks.some(row => row.key === task.key)) await tap('button[data-url="' + (await data()).financeDesk.tasksUrl + '"]');
+    if (!(await data()).deskHome.previewTasks.some(row => row.key === task.key)) await tap('button[data-url="' + (await data()).deskHome.tasksUrl + '"]');
     await tap('button[data-url="' + task.url + '"]');
     await until(async () => (await data()).action === 'incoming-register', 'Headquarters receipt form');
     await input('input[data-key="amount"]', amount);

@@ -80,7 +80,9 @@ function checkoutRecords(state, options = {}) {
 }
 
 function merge(base, options) {
-  return checkoutRecords(Ledger.merge(base), options);
+  const state = Ledger.merge(base);
+  require('./operations').init(state); // 合并即完成一次性迁移（历史待批分期自动生效）
+  return checkoutRecords(state, options);
 }
 
 module.exports = { ...Ledger, merge, checkoutRecords };

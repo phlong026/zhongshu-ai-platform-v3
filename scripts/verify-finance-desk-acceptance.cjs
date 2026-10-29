@@ -28,20 +28,20 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
     if (cur().data.modal?.type === 'confirm' || cur().data.modal?.action) await click(cur().data.modal?.action ? '[data-handler="confirm"]' : '.sheet .solid');
   };
   // finance home of a person: the preview, the full list behind "全部待办" and whether the page actually opens
-  const desk = (who, role) => { login(who, role); const p = open('/pages/management/index'); const d = p.data.financeDesk; assert(d, who + ' has a finance workbench'); return d; };
+  const desk = (who, role) => { login(who, role); const p = open('/pages/admin/finance-desk/index'); const d = p.data.deskHome; assert(d, who + ' has a finance workbench'); return d; };
   const find = (d, view, test) => d.tasks.find(t => t.view === view && test(t));
   // every task of the person must be listed on the full-list page, and the home count must equal the list
-  const listed = (who, role, task) => {
+  const listed = async (who, role, task) => {
     const d = desk(who, role);
     assert.equal(d.taskCount, d.tasks.length, who + ' 首页待办数与全部待办不一致');
-    const p = open(d.tasksUrl);
+    const p = await click('button[bindtap="go"][data-url="' + d.tasksUrl + '"]');
     assert(p.data.rows.some(t => t.key === task.key), who + ' 全部待办缺少 ' + task.view + ' ' + task.name);
   };
   // act on a task from the person's home: returns the page that opened
   async function act(who, role, view, test, form, selector) {
     const d = desk(who, role), task = find(d, view, test);
     assert(task, who + ' 首页没有待办 ' + view);
-    listed(who, role, task);
+    await listed(who, role, task);
     const p = open(task.url);
     assert.equal(p.route, task.url.slice(1).split('?')[0], '待办链接应直接打开办理页');
     assert(!p.data.error && p.data.view !== 'access', who + ' 打开 ' + view + ' 被拒绝');
@@ -173,7 +173,7 @@ const out = path.resolve('qa/finance-desk-acceptance-20261022');
   const collect=engScenes.find(s=>s.action==='collect');install(collect.before);
   const rp=wx.getStorageSync(E.KEY).projects.find(p=>p.recordFlow),stage=collect.extra.stage;
   login('manager-li','engineer');assert.throws(()=>R.run(rp.id,'collect',collect.form),/财务/);
-  const receiptTask=find(desk('finance-wang','finance'),'engineering-collection',t=>t.id===rp.id+':collection:'+stage);assert(receiptTask);listed('finance-wang','finance',receiptTask);
+  const receiptTask=find(desk('finance-wang','finance'),'engineering-collection',t=>t.id===rp.id+':collection:'+stage);assert(receiptTask);await listed('finance-wang','finance',receiptTask);
   let p=open(receiptTask.url);p.setData({form:{...p.data.form,...collect.form}});await click('[data-action="collect"]');
   const entry=M.load().receipts.find(r=>r.transaction===collect.form.transaction);assert(entry&&entry.status==='已核算'&&!entry.reviewerId);
   assert.equal(Ops.receivable(M.load(),rp.projectId).received,Number(collect.form.amount)*100);
