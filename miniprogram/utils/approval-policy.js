@@ -1,7 +1,7 @@
 // Confirmed business policy. Identity is an actual person, never a switched role.
 const X=require('./access'),O=require('./organization');
 const deferred=view=>/^(refund|correction)(-|$)/.test(view)||['verify','correct','request-cancel','reconcile','payment-review','payment-return','receipt-return','receipt-supplement','payment-supplement','cross-evidence','cross-query','cross-reply','cross-attach','finance-transfer','appeal','appeal-detail','performance-appeal-resolve','cost-confirm','project-close'].includes(view);
-const moneyBoss=(a=X.context())=>a.active&&a.role==='boss';
+const moneyBoss=(a=X.context())=>a.active&&X.isBoss(a);
 function inspectionLead(p){
  const book=X.rawBook(p.companyId||'quanzhou'),engineer=book?.staff.find(r=>r.id===(p.assignedEngineerId||X.managerId(p))),team=p.engineeringTeamId||engineer?.teamIds?.engineering||'engineering';
  const leads=(book?.staff||[]).filter(r=>r.active!==false&&(r.roles||[]).includes('project-manager')&&(r.managedTeams?.engineering||r.managedTeamIds||['engineering']).includes(team));
