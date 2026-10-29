@@ -42,7 +42,7 @@
     "check:design-receipts": "node scripts/verify-sales-offline-flow.cjs && node scripts/verify-design-receipts.cjs && node scripts/verify-design-notifications.cjs && node scripts/verify-finance-receipt-views.cjs && npm run check",
     "check:design-receipts:native": "node scripts/verify-design-receipts-native.cjs",
     "demo:design-collaboration": "node server/design-collaboration/start.cjs",
-    "check:design-collaboration": "node scripts/verify-design-collaboration-server.cjs && node scripts/verify-design-collaboration-client.cjs && node scripts/verify-design-collaboration-page.cjs && npm run check",
+    "check:design-collaboration": "node scripts/verify-design-task-contract.cjs && node scripts/verify-design-collaboration-server.cjs && node scripts/verify-design-collaboration-client.cjs && node scripts/verify-design-collaboration-page.cjs && npm run check",
     "check:design-collaboration:native": "node scripts/verify-design-collaboration-native.cjs",
     "check:workbenches": "node scripts/verify-role-workbenches-complete.cjs",
     "check:franchise:pages": "node scripts/verify-franchise-role-pages.cjs",

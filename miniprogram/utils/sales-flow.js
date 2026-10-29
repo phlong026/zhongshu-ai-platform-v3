@@ -156,11 +156,11 @@ function packageRows(c){const p=c.businessFlow?.packet;if(!p)return [];return [[
 function tasks(a=X.context()){
  if(!a.active)return [];const rows=[];
  for(const c of (wx.getStorageSync(KEY)||{}).customers||[]){
-  if(!is(c)){if(!legacy(c)&&c.budgets?.length&&allowed('commission-submit',c,a))rows.push({id:'commission:'+c.id,key:'commission:'+c.id,customerId:c.id,name:c.name,state:'方案预算已保存，待提交委托',action:'提交设计委托',actionable:true,url:url(c.id,'submit'),kind:'commission'});continue;}
+  if(!is(c)){if(!legacy(c)&&c.budgets?.length&&allowed('commission-submit',c,a))rows.push({id:'commission:'+c.id,key:'commission:'+c.id,customerId:c.id,name:c.name,state:'方案预算已保存，待提交委托',action:'提交设计委托',command:'commission-submit',actionable:true,url:url(c.id,'submit'),kind:'commission'});continue;}
   if(!X.customer(c,a)||c.acceptance)continue;const n=next(c),action={pay:'commission-pay',submit:'commission-submit',complete:'design-complete',dispatch:'design-dispatch',handover:'packet-submit',receive:'packet-receive'}[n.view],tail=require('./intercompany').condition(c,'tail'),followTail=!Checkout.is(c)&&!!c.businessFlow.completed&&!c.businessFlow.dispatch&&!n.waitingFirst&&tail.paid<tail.expected&&allowed('commission-submit',c,a),actionable=!!action&&allowed(action,c,a)||followTail;
   if(a.role==='hq-design-admin'&&!['complete','dispatch'].includes(n.view))continue;
   if(a.role==='project-manager'&&n.view!=='receive')continue;
-  const view=followTail?'progress':actionable?n.view:'progress';rows.push({id:'offline:'+c.id+':'+c.request.version,key:'offline:'+c.id+':'+c.request.version,customerId:c.id,name:c.name,state:followTail?'设计已完成 · 跟进尾款支付':n.state,owner:n.owner,action:followTail?'跟进尾款支付':actionable?n.label:'查看进度',actionable,url:url(c.id,view),kind:'commission'});
+  const view=followTail?'progress':actionable?n.view:'progress';rows.push({id:'offline:'+c.id+':'+c.request.version,key:'offline:'+c.id+':'+c.request.version,customerId:c.id,name:c.name,state:followTail?'设计已完成 · 跟进尾款支付':n.state,owner:n.owner,action:followTail?'跟进尾款支付':actionable?n.label:'查看进度',command:actionable&&!followTail?action:'',actionable,url:url(c.id,view),kind:'commission'});
  }
  return rows;
 }

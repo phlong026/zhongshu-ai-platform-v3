@@ -107,10 +107,10 @@ function customerRows(runtime) {
 
 function adminTasks(runtime) {
   return runtime.requireMini('utils/sales-flow.js').tasks()
-    .filter(task => task.actionable && ['设计完成', '成果已下发'].includes(task.action))
+    .filter(task => task.actionable && ['design-complete', 'design-dispatch'].includes(task.command))
     .map(task => ({
       id: task.id, kind: 'design', customerId: task.customerId, name: task.name,
-      action: task.action === '设计完成' ? 'complete' : 'dispatch'
+      action: task.command === 'design-complete' ? 'complete' : 'dispatch'
     }));
 }
 
