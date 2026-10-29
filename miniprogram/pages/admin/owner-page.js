@@ -45,7 +45,7 @@ module.exports = function(kind) {
         const assignmentForm = view === 'settings' ? this.assignmentsDirty ? this.data.assignmentForm : { assignments:Object.fromEntries(settings.assignmentFields.filter(field=>field.value).map(field=>[field.id,field.value])), expectedVersion:settings.version } : {};
         const display = { name:desk.name, company:desk.company, date:desk.date, sample:desk.sample, period:desk.period, periodLabel:desk.periodLabel, actor:{ role:desk.actor.role, companyId:desk.actor.companyId } };
         if (view === 'company') display.staff = desk.staff.map(person=>({id:person.id}));
-        if (view === 'home') display.home = desk.home;
+        if (view === 'home') { display.home = desk.home; display.ledger = desk.ledger; display.approvalCount = desk.approvalCount; display.income = desk.income; display.paid = desk.paid; }
         if (view === 'finance') display.business = desk.business;
         if (view === 'performance') display.performance = desk.performance;
         const homeTodos = view === 'home' ? H.visibleTodos(desk, this.data.todoTab) : [];
