@@ -1,4 +1,4 @@
-const X=require('./access'),clone=x=>JSON.parse(JSON.stringify(x)),keys={business:'zhongshu-business-v3',engineering:'zhongshu-engineering-v1',management:'zhongshu-management-v1'};
+const X=require('./access'),clone=x=>JSON.parse(JSON.stringify(x)),keys={business:'zhongshu-business-v3',engineering:'zhongshu-engineering-v1',management:'zhongshu-management-v1'},Checkout=require('./design-checkout');
 function book(companyId){return X.rawBook(companyId);}
 function period(s){return s.period||(/^\d{4}-\d{2}/.test(s.snapshot||'')?s.snapshot.slice(0,7):new Date().toISOString().slice(0,7));}
 function cashDate(r){return r.bankDate||r.date||'';}
@@ -16,6 +16,8 @@ for(const stage of ['first','tail']){const payment=c[stage+'Payment'],applicatio
 add('payables',{...common,id,source,serviceApprovalValid,stageReady:stage==='first'||!require('./sales-flow').is(c)||!!c.businessFlow.completed&&require('./sales-flow').firstRegistered(c),commissionAuthorized:require('./sales-flow').is(c)&&serviceApprovalValid,name:c.designOrganizationId===s.companyId?'本店设计服务':'总部设计服务',stage:stage==='first'?'设计首款':'设计尾款',total:cents(order[stage]),agreement:order.file,recipient:order.recipient||'总部设计服务中心',applicantId:application?.applicantId||X.ownerId(c),custodianId:state.custodianId,custodianPersonId:state.custodianPersonId,transferHistory:state.transferHistory||[],returnReason:state.reason,needsSupplement:state.status==='需补充'});
 for(const actual of require('./intercompany').stagePayments(c,stage).filter(r=>r.serviceVersion===order.version))add('payments',{...common,...clone(actual),id:actual.id,payableId:id,source,name:'总部设计服务',amount:actual.amount,status:'已核实'});
 }
+// 业务垫付一次性设计费：模拟/线上支付完成后自动生成"业务报销"应付，财务凭报销单登记报销（免审）。
+if(Checkout.is(c)&&Checkout.paid(c)){const po=Checkout.order(c),payer=(s.staff||[]).find(p=>p.id===po.paidById);add('payables',{...common,id:'business-reimburse:'+c.id+':'+po.serviceVersion,source:{module:'business',id:c.id,kind:'reimbursement',version:po.serviceVersion},name:'业务垫付设计费报销',stage:'业务报销',total:po.amountCents,agreement:null,recipient:payer?.name||'垫付业务员',applicantId:po.paidById,applicantPersonId:po.paidByPersonId,transferHistory:[],needsSupplement:false});}
 }
 for(const p of (wx.getStorageSync(keys.engineering)||{}).projects||[]){const origin=p.companyId||'quanzhou',local=origin===s.companyId,common={companyId:s.companyId,projectId:p.projectId||p.id,customer:p.customer};
 if(local)for(const r of p.collections||[])add('receipts',{...common,...clone(r),id:'engineering-receipt:'+p.id+':'+r.id,name:r.purpose,amount:r.cents,status:r.status==='退回补充'?'需补充':r.status==='待财务核算'?'待核算':r.status,registrar:r.registrar||r.receiver,registrarId:r.registrarId||X.managerId(p),version:r.version||1,revisions:r.revisions||[],source:{module:'engineering',id:p.id,kind:'receipt',recordId:r.id,version:r.version||1}});
