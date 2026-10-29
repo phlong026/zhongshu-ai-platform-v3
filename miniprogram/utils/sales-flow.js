@@ -94,15 +94,15 @@ function transition(b,action,input,at=new Date().toISOString()){
   const full=f.paymentMode===Checkout.MODE;
   const checkout=full?Checkout.create(b,f,(b.request?.version||0)+1,(last(b)?.version||0)+1,at):null;
   const total=full?checkout.amountCents:cents(f.total),first=full?0:cents(f.first),recipient=full?checkout.recipient:String(f.recipient||'').trim();X.assert(first<total&&recipient,'请填写有效首尾款和实际总部收款方');
-  const version=(b.request?.version||0)+1,serviceVersion=(b.serviceOrders?.at(-1)?.version||0)+1,p=policy(b.companyId);
+  const version=(b.request?.version||0)+1,serviceVersion=(b.serviceOrders?.at(-1)?.version||0)+1,p=policy(b.companyId),responsibleId=X.ownerId(b),responsiblePersonId=X.personIdFor(responsibleId,b.companyId);
   if(full&&f.attachment)checkFileVersion(f.attachment,b,'V'+version);
   if(b.request)(n.requestHistory||(n.requestHistory=[])).push(copy(b.request));
   n.request={version,flow:'design-first',commissionId:b.request?.commissionId||'design:'+b.projectId,text:f.text.trim(),scope:f.scope.trim(),basis,basisChecked:true,budgetVersion:b.budgets.at(-1).version,planVersion:b.plans?.at(-1)?.version||null,facadeVersion:b.facades?.at(-1)?.version||null,attachment:f.attachment||null,date:date()};
   n.designOrganizationId='headquarters';n.designTeamId='design';
-  const order={id:'service-'+serviceVersion,version:serviceVersion,responsibleId:X.ownerId(b),submittedById:a.staffId,submittedAt:at,total:total/100,first:first/100,tail:full?0:(total-first)/100,recipient,basis:f.scope.trim(),verifier:a.name,date:date(),requestVersion:version,file:{name:'设计委托费用约定 V'+serviceVersion,text:full?'体验模拟一次性支付；面积 '+checkout.area+'㎡ × '+checkout.rateCents/100+'元/㎡，总额 '+total/100+' 元；收款方：'+recipient:'本次范围：'+f.scope+'；总额 '+total/100+' 元，首款 '+first/100+' 元，尾款 '+(total-first)/100+' 元；实际收款方：'+recipient}};
+  const order={id:'service-'+serviceVersion,version:serviceVersion,responsibleId,responsiblePersonId,submittedById:a.staffId,submittedAt:at,total:total/100,first:first/100,tail:full?0:(total-first)/100,recipient,basis:f.scope.trim(),verifier:a.name,date:date(),requestVersion:version,file:{name:'设计委托费用约定 V'+serviceVersion,text:full?'体验模拟一次性支付；面积 '+checkout.area+'㎡ × '+checkout.rateCents/100+'元/㎡，总额 '+total/100+' 元；收款方：'+recipient:'本次范围：'+f.scope+'；总额 '+total/100+' 元，首款 '+first/100+' 元，尾款 '+(total-first)/100+' 元；实际收款方：'+recipient}};
   (n.serviceOrders||(n.serviceOrders=[])).push(order);
   const match=p?.active&&same([order.total,order.first,order.tail,recipient,order.basis],[p.total,p.first,p.tail,p.recipient,p.scope]);
-  flow=n.businessFlow={type:TYPE,...(full?{paymentMode:Checkout.MODE,paymentOrder:checkout}:{}),requestVersion:version,submittedAt:at,responsibleId:X.ownerId(b),submittedById:a.staffId,authorization:full?{kind:'area-pricing',pricingVersion:checkout.pricingVersion,serviceVersion}:match?{kind:'standard',policyId:p.id,policyVersion:p.version,serviceVersion}:{kind:'exception',serviceVersion},events:flow?.events||[]};
+  flow=n.businessFlow={type:TYPE,...(full?{paymentMode:Checkout.MODE,paymentOrder:checkout}:{}),requestVersion:version,submittedAt:at,responsibleId,responsiblePersonId,submittedById:a.staffId,authorization:full?{kind:'area-pricing',pricingVersion:checkout.pricingVersion,serviceVersion}:match?{kind:'standard',policyId:p.id,policyVersion:p.version,serviceVersion}:{kind:'exception',serviceVersion},events:flow?.events||[]};
  }else{
   X.assert(is(b),'当前委托仍使用历史流程');
   if(action==='commission-pay'){
