@@ -1,4 +1,4 @@
-<view class="creation-header-spacer" style="height: {{statusHeight + navHeight}}px;" />
+<view class="creation-header-spacer zs-theme" style="height: {{statusHeight + navHeight}}px;" />
 <view class="creation-header" style="padding-top: {{statusHeight}}px;">
   <view class="creation-nav">
     <button class="back" bindtap="back" aria-label="返回" hover-class="pressed"><image src="/assets/creation-back.png" mode="aspectFit" /></button><button class="return-home" bindtap="workbench" aria-label="返回工作台">工作台</button>

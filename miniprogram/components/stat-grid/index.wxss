@@ -1,8 +1,9 @@
+@import "../../styles/component-tokens.wxss";
 /* 以 eng-statistics 基线（styles/engineering.wxss）为准 */
 .stat-grid{display:flex}
-.stat-grid>button{flex:1;text-align:center;border-right:1rpx solid #eee8df;padding:8rpx 0;background:transparent;line-height:inherit}
+.stat-grid>button{flex:1;text-align:center;border-right:1rpx solid var(--zs-line);padding:8rpx 0;background:transparent;line-height:inherit}
 .stat-grid>button::after{border:0}
 .stat-grid>button:last-child{border:0}
-.stat-value{display:block;font-size:46rpx;line-height:60rpx;color:var(--zs-brand,#89512a);font-weight:600;font-variant-numeric:tabular-nums}
-.stat-unit{font-size:22rpx;font-weight:400;margin-left:6rpx;color:var(--zs-text-3,#9a9187)}
-.stat-label{display:block;font-size:24rpx;line-height:36rpx;color:var(--zs-text-2,#6f665a)}
+.stat-value{display:block;font-size:var(--zs-font-metric);line-height:60rpx;color:var(--zs-brand);font-weight:600;font-variant-numeric:tabular-nums}
+.stat-unit{font-size:var(--zs-font-caption);font-weight:400;margin-left:6rpx;color:var(--zs-text-3)}
+.stat-label{display:block;font-size:var(--zs-font-meta);line-height:36rpx;color:var(--zs-text-2)}

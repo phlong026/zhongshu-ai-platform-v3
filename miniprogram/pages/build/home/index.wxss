@@ -1,4 +1,4 @@
 @import "../../../styles/engineering.wxss";
-.engineering-home .eng-name{display:block;font-size:27rpx;line-height:40rpx}.engineering-home .eng-todo .eng-thumb{width:140rpx;height:126rpx}.engineering-home .eng-todo{gap:14rpx}.engineering-home .eng-todo .eng-primary,.engineering-home .eng-todo .eng-outline{font-size:24rpx;padding:10rpx 14rpx;min-height:64rpx}
+.engineering-home .eng-name{display:block;font-size:var(--zs-font-emphasis);line-height:40rpx}.engineering-home .eng-todo .eng-thumb{width:140rpx;height:126rpx}.engineering-home .eng-todo{gap:14rpx}.engineering-home .eng-todo .eng-primary,.engineering-home .eng-todo .eng-outline{font-size:var(--zs-font-meta);padding:10rpx 14rpx;min-height:64rpx}
 
-.engineering-home .eng-name{font-size:28rpx;line-height:42rpx}.engineering-home .eng-todo{flex-wrap:wrap}.engineering-home .eng-todo .eng-grow{min-width:160rpx}.engineering-home .eng-todo>button{margin-left:auto}
+.engineering-home .eng-name{font-size:var(--zs-font-emphasis);line-height:42rpx}.engineering-home .eng-todo{flex-wrap:wrap}.engineering-home .eng-todo .eng-grow{min-width:160rpx}.engineering-home .eng-todo>button{margin-left:auto}
