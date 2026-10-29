@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "工程工作台" }
+{"navigationBarTitleText": "工程工作台", "usingComponents": {"workbench-denied": "../../components/workbench-denied/index"}}

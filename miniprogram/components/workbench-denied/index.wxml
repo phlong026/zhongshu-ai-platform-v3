@@ -1,0 +1,1 @@
+<view class="denied"><text class="denied-title">{{title}}</text><text wx:for="{{lines}}" wx:key="*this" class="denied-line">{{item}}</text><button wx:if="{{active}}" class="denied-btn" bindtap="home">返回{{homeTitle}}</button><button wx:else class="denied-btn" bindtap="identity">{{loginLabel}}</button></view>
