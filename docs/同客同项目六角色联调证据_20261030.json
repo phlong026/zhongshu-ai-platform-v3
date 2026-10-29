@@ -471,8 +471,15 @@
         }
       ]
     },
-    "experienceActivation": "not-confirmed",
-    "reason": "浏览器工具自动安全检查拒绝访问当前浏览器URL，未操作后台设为体验版"
+    "experienceActivation": "confirmed-by-user",
+    "reason": "用户确认已在微信后台将该版本设为体验版；此前浏览器工具访问限制未绕过",
+    "activationConfirmation": {
+      "date": "2026-10-30",
+      "source": "current-thread-user-response",
+      "version": "1.0.20261030.2",
+      "answer": "已设为该版本",
+      "independentlyVerifiedInBrowser": false
+    }
   },
   "limits": [
     "本机存储联调，非六部实体手机共享生产数据",
