@@ -14,7 +14,7 @@
 .avatar { width: 74rpx; height: 74rpx; border-radius: 50%; flex-shrink: 0; }
 .customer-info { flex: 1; min-width: 0; }
 .customer-name { display: block; font-size: 28rpx; font-weight: 500; line-height: 38rpx; }
-.customer-desc { display: block; font-size: 22rpx; color: #858991; line-height: 32rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .4rpx; }
+.customer-desc { display: block; font-size: 22rpx; color: #9a9187; line-height: 32rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .4rpx; }
 .outline { width: 128rpx; height: 54rpx; border: 1.4rpx solid #ad875f; border-radius: 30rpx; color: #75451f; font-size: 23rpx; line-height: 52rpx; flex-shrink: 0; }
 .customer-footer { height: 60rpx; display: flex; align-items: center; gap: 18rpx; color: #818486; font-size: 23rpx; }
 .customer-footer .chevron { width: 11rpx; height: 11rpx; }
