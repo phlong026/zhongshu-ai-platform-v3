@@ -19,7 +19,7 @@ Page({
       const actor = X.context();
       if (!actor.active || !['boss','owner','finance','finance-lead'].includes(actor.role)) throw Error('当前身份无本组织提成查看权限');
       const state = M.load();
-      const projects = (wx.getStorageSync('zhongshu-engineering-v1')?.projects || []).filter(row => (row.companyId || 'quanzhou') === actor.companyId && row.recordFlow).map(row => ({ id:row.projectId || row.id, name:row.name || row.customer || row.projectId || row.id }));
+      const projects = (wx.getStorageSync(require('../../../utils/storage-keys').engineering)?.projects || []).filter(row => (row.companyId || 'quanzhou') === actor.companyId && row.recordFlow).map(row => ({ id:row.projectId || row.id, name:row.name || row.customer || row.projectId || row.id }));
       const staff = (state.staff || []).filter(row => row.active !== false && row.personId).map(row => ({ id:row.id, name:row.name }));
       if (!projects.some(row => row.id === this.selectedProjectId)) this.selectedProjectId = projects[0]?.id || '';
       const selectedPolicy = C.policyFor(state, this.selectedProjectId);

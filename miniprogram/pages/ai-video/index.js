@@ -12,7 +12,7 @@ parameters: [
 },
 onLoad(options) {
 if(!studio.guard())return;this.actorScope=studio.scope();
-let draft = wx.getStorageSync(studio.scopedKey('zhongshu-video-draft'));
+let draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').videoDraft));
 if (options && options.task) {
 const state = studio.read();
 const task = state.tasks.find(item => item.id === options.task && item.kind === 'ai');
@@ -39,7 +39,7 @@ const { mode, description, firstFrame, lastFrame, references, parameters } = thi
 const draft = { mode, description, firstFrame, lastFrame, references, parameters, updatedAt: Date.now() };
 if (this.data.editingTaskId) {
 const state = studio.read(); state.videoTaskDrafts = state.videoTaskDrafts || {}; state.videoTaskDrafts[this.data.editingTaskId] = draft; studio.write(state);
-} else wx.setStorageSync(studio.scopedKey('zhongshu-video-draft'), draft);
+} else wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').videoDraft), draft);
 },
 switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode }); },
 inputDescription(e) { this.setData({ description: e.detail.value }); },

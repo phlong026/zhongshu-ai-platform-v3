@@ -31,7 +31,7 @@ const staffName = (snapshot, id) => (snapshot.state.staff || snapshot.staff || [
 const yuan = value => '¥ ' + Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 function growthFacts(snapshot) {
-  const growth = wx.getStorageSync('zhongshu-growth-v1') || {};
+  const growth = wx.getStorageSync(require('../../utils/storage-keys').growth) || {};
   const companyId = snapshot.actor?.companyId || snapshot.state.companyId;
   const sameCompany = row => !companyId || row.companyId === companyId;
   const contents = (growth.contents || []).filter(row => sameCompany(row) && row.status === '演示已发布' && inMonth(row.publishedAt || row.linkRecordedAt, snapshot.period));

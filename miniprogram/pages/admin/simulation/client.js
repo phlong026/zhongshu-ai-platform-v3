@@ -1,6 +1,6 @@
 const Base = require('../../../utils/cross-device-client');
 
-const STORAGE_KEY = 'zhongshu-management-simulation-client-v1';
+const STORAGE_KEY = require('../../../utils/storage-keys').managementSimulationClient;
 const COMMAND_PATTERN = /^\/commands$/;
 
 function createClient(options = {}) {

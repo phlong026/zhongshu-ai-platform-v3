@@ -1,4 +1,4 @@
-const KEY = 'zhongshu-collaboration-client-v1';
+const KEY = require('./storage-keys').collaborationClient;
 const COMMAND_PATTERN = /^\/(receipts\/[^/]+\/confirm|commissions\/[^/]+\/(complete|dispatch)|messages\/[^/]+\/read|subscriptions)$/;
 const clone = require('./clone');
 

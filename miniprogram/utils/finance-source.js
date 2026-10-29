@@ -1,7 +1,7 @@
 const Ledger = require('./finance-ledger');
 
 const copy = require('./clone');
-const businessCustomers = () => ((wx.getStorageSync('zhongshu-business-v3') || {}).customers || []);
+const businessCustomers = () => ((wx.getStorageSync(require('./storage-keys').business) || {}).customers || []);
 const paidDate = value => {
   const time = Date.parse(value || '');
   return Number.isNaN(time) ? '' : new Date(time + 8 * 3600000).toISOString().slice(0, 10);

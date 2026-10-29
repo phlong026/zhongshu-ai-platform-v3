@@ -15,13 +15,13 @@ recent: []
 },
 onLoad(options) {
 if(!studio.guard())return;this.actorScope=studio.scope();
-this.setData({ draft: wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || null });
+this.setData({ draft: wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || null });
 if (options.section === 'works') wx.redirectTo({ url: '/pages/studio/index?view=works' });
 if (options.section === 'digital') wx.redirectTo({ url: '/pages/studio/index?view=digital' });
 if (options.editor === '1') this.openEditor();
 },
 onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){this.actorScope=studio.scope();this.setData({link:"",sheet:"",editorText:""});}
-const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || null;
+const draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || null;
 const recent = studio.recentItems(studio.read()).slice(0, 2).map(item=>({...item,updatedText:item.updatedAt?studio.formatTime(item.updatedAt):''}));
 this.setData({ draft, recent });
 },
@@ -45,7 +45,7 @@ wx.showModal({ title: '使用内置文案', content: '视频链接解析暂未�
 },
 openEditor() {
 const draft = this.data.draft;
-const stored = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || draft;
+const stored = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || draft;
 this.setData({ sheet: 'editor', sheetTitle: '手动写文案', editorText: stored ? (typeof stored.workingText === 'string' ? stored.workingText : stored.text || '') : '' });
 },
 editRecent(e) {
@@ -58,15 +58,15 @@ else wx.navigateTo({ url: '/pages/studio/index?view=result&task=' + encodeURICom
 },
 inputEditor(e) {
 this.setData({ editorText: e.detail.value });
-const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || {};
-wx.setStorageSync(studio.scopedKey('zhongshu-creation-draft'), Object.assign({}, draft, { workingText: e.detail.value, updatedAt: Date.now() }));
+const draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || {};
+wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft), Object.assign({}, draft, { workingText: e.detail.value, updatedAt: Date.now() }));
 },
 saveDraft() {
 const text = this.data.editorText.trim();
 if (!text) { wx.showToast({ title: '请先填写文案', icon: 'none' }); return; }
-const previous = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || {};
+const previous = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || {};
 const draft = { text, rewrittenText: previous.text === text ? previous.rewrittenText || '' : '', updatedAt: Date.now() };
-wx.setStorageSync(studio.scopedKey('zhongshu-creation-draft'), draft);
+wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft), draft);
 this.setData({ draft, sheet: '' });
 const state = studio.read(); delete state.editorBuffer;
 state.original = text; state.script = draft.rewrittenText; state.title = text.split('\n')[0].slice(0, 28); delete state.extraction;state.rewriteHistory=[];studio.write(state);

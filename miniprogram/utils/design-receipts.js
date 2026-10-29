@@ -34,7 +34,7 @@ function current(customer) {
 }
 
 function transfers(companyId) {
-  return ((wx.getStorageSync('zhongshu-business-v3') || {}).customers || [])
+  return ((wx.getStorageSync(require('./storage-keys').business) || {}).customers || [])
     .filter(customer => customer.designOrganizationId === companyId && (customer.companyId || 'quanzhou') !== companyId && current(customer) && !require('./design-checkout').is(customer))
     .flatMap(customer => ['first', 'tail'].flatMap(stage => sources(customer, stage, customer.serviceOrders.at(-1))));
 }

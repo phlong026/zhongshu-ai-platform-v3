@@ -3,6 +3,7 @@ const X = require('./access');
 const O = require('./organization');
 const Ops = require('./operations');
 const F = require('./finance-source');
+const parseCents = require('./money').parseCents;
 
 const clone = require('./clone');
 const assert = X.assert;
@@ -19,7 +20,7 @@ function init(s) {
 
 function cents(value) {
   assert(/^\d+(\.\d{1,2})?$/.test(String(value)) && Number(value) > 0 && Number(value) <= 100000000, '提成总额须大于0、最多两位小数且不超过一亿元');
-  return Math.round(Number(value) * 100);
+  return parseCents(value);
 }
 
 function originalProject(s, id) {

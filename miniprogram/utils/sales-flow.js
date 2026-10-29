@@ -1,6 +1,6 @@
 // Business-only commission protocol. Existing commissions retain their original rules.
 const X=require('./access'),Job=require('./organization'),Checkout=require('./design-checkout');
-const TYPE='sales-offline-v1',KEY='zhongshu-business-v3',copy=v=>JSON.parse(JSON.stringify(v)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const TYPE='sales-offline-v1',KEY=require('./storage-keys').business,copy=v=>JSON.parse(JSON.stringify(v)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const is=c=>c?.businessFlow?.type===TYPE;
 // Old records remain operable; new customers can only start the simplified protocol.
 const legacy=c=>!!c&&!is(c)&&!!(c.workflowVersion==='legacy-v1'||c.request||c.contract||c.quotes?.length||c.serviceOrders?.length||c.firstPayment||c.tailPayment||c.handover||c.acceptance);
@@ -18,7 +18,7 @@ const actions=['commission-pay','commission-submit','commission-feedback','desig
 const url=(id,view='progress')=>'/pages/workflow/commission/index?view='+view+'&id='+encodeURIComponent(id);
 const date=()=>require('./account').localDate();
 const last=c=>c.serviceOrders?.at(-1);
-function cents(value){X.assert(/^\d+(\.\d{1,2})?$/.test(String(value))&&Number(value)>0&&Number(value)<=100000000,'请填写有效金额，最多两位小数');return Math.round(Number(value)*100);}
+function cents(value){X.assert(/^\d+(\.\d{1,2})?$/.test(String(value))&&Number(value)>0&&Number(value)<=100000000,'请填写有效金额，最多两位小数');return require('./money').parseCents(value);}
 function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v||'')&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v&&v<=date();}
 function file(f){return !!(f&&String(f.name||'').trim()&&(f.path||f.tempFilePath||f.fileID||f.url||f.text||f.sample&&X.context().demo));}
 function checkFileVersion(f,c,version){X.assert(f?.sample&&f.text&&f.meta?.customerId===c.id&&f.meta.projectId===c.projectId&&f.meta.version===version,'模拟文件须属于本客户、本项目及本版图纸，请重新生成');}
@@ -27,8 +27,8 @@ function policy(companyId){return X.rawBook(companyId)?.businessDesignPolicies?.
 function savePolicy(f){
  const a=X.context();X.assert(a.active&&a.role==='boss'&&a.orgType==='store','请由加盟商老板配置标准设计费用');
  const total=cents(f.total),first=cents(f.first);X.assert(first<total&&String(f.recipient||'').trim()&&String(f.scope||'').trim(),'请填写交付范围、总部实际收款方，首款须小于总额');
- const root=copy(wx.getStorageSync('zhongshu-management-v1'));X.assert(root,'组织账簿未初始化');const b=root.companyId===a.companyId?root:root.books?.[a.companyId];X.assert(b,'当前组织账簿不存在');
- const rows=b.businessDesignPolicies||(b.businessDesignPolicies=[]),row={id:'design-policy:'+a.companyId+':'+(rows.length+1),version:rows.length+1,active:f.active!==false,total:total/100,first:first/100,tail:(total-first)/100,scope:f.scope.trim(),recipient:f.recipient.trim(),approvedAt:new Date().toISOString(),approvedById:a.staffId,approvedPersonId:a.personId,companyId:a.companyId};rows.push(row);wx.setStorageSync('zhongshu-management-v1',root);return copy(row);
+ const root=copy(wx.getStorageSync(require('./storage-keys').management));X.assert(root,'组织账簿未初始化');const b=root.companyId===a.companyId?root:root.books?.[a.companyId];X.assert(b,'当前组织账簿不存在');
+ const rows=b.businessDesignPolicies||(b.businessDesignPolicies=[]),row={id:'design-policy:'+a.companyId+':'+(rows.length+1),version:rows.length+1,active:f.active!==false,total:total/100,first:first/100,tail:(total-first)/100,scope:f.scope.trim(),recipient:f.recipient.trim(),approvedAt:new Date().toISOString(),approvedById:a.staffId,approvedPersonId:a.personId,companyId:a.companyId};rows.push(row);wx.setStorageSync(require('./storage-keys').management,root);return copy(row);
 }
 function standardApproved(c){
  if(Checkout.is(c))return Checkout.authorized(c);

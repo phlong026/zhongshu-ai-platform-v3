@@ -16,13 +16,13 @@ function savePricing(form) {
   const rate = String(form.rate || '');
   X.assert(/^\d+(\.\d{1,2})?$/.test(rate) && Number(rate) > 0 && Number(rate) <= 100000, '请填写有效设计费单价，最多两位小数');
   X.assert(String(form.scope || '').trim() && String(form.recipient || '').trim(), '请填写计价交付范围和总部收款方');
-  const root = copy(wx.getStorageSync('zhongshu-management-v1'));
+  const root = copy(wx.getStorageSync(require('./storage-keys').management));
   const book = root?.companyId === actor.companyId ? root : root?.books?.[actor.companyId];
   X.assert(book, '总部组织账簿尚未初始化');
   const rows = book.designAreaPrices || (book.designAreaPrices = []);
   const row = { version: rows.length + 1, rateCents: Math.round(Number(rate) * 100), scope: form.scope.trim(), recipient: form.recipient.trim(), active: form.active !== false, companyId: actor.companyId, actorId: actor.staffId, personId: actor.personId, at: new Date().toISOString() };
   rows.push(row);
-  wx.setStorageSync('zhongshu-management-v1', root);
+  wx.setStorageSync(require('./storage-keys').management, root);
   return copy(row);
 }
 

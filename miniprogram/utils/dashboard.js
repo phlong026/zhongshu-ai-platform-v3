@@ -50,9 +50,9 @@ if (values.phone && !/^1\d{10}$/.test(values.phone)) {
 wx.showToast({ title: '请输入正确的手机号', icon: 'none' });
 return;
 }
-const records = wx.getStorageSync('zhongshu-local-records') || [];
+const records = wx.getStorageSync(require('./storage-keys').localRecords) || [];
 records.push({ action: panel.key, values, createdAt: Date.now() });
-wx.setStorageSync('zhongshu-local-records', records);
+wx.setStorageSync(require('./storage-keys').localRecords, records);
 if (panel.key === 'customer' && this.data.customers) {
 const customers = this.data.customers.concat({ id: Date.now(), name: values.name, desc: values.village || '新客户 · 待跟进', avatar: '/assets/avatar-wang.jpg', button: '查看', action: 'customers' });
 this.setData({ customers, filteredCustomers: customers });
@@ -62,7 +62,7 @@ wx.showToast({ title: '已保存', icon: 'success' });
 this.setData({ learned: Math.min(6, (this.data.learned || 2) + 1) });
 wx.showToast({ title: '学习进度已更新', icon: 'success' });
 } else if (panel.key === 'facade') {
-wx.setStorageSync('zhongshu-saved-design', '/assets/facade.jpg');
+wx.setStorageSync(require('./storage-keys').savedDesign, '/assets/facade.jpg');
 wx.showToast({ title: '方案已保存', icon: 'success' });
 }
 this.closePanel();

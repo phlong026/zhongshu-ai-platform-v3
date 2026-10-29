@@ -1,7 +1,7 @@
 // 接收建档与工程分包共享原项目资料映射，主包不依赖工程页面。
 const X=require('./access'),Job=require('./organization'),B=require('./business'),D=require('./demo-catalog');
 const Seed=require('./engineering-seed'),{project}=Seed,clone=B.clone,assert=X.assert;
-const KEY='zhongshu-engineering-v1',latest=rows=>rows?.at(-1);
+const KEY=require('./storage-keys').engineering,latest=rows=>rows?.at(-1);
 function load(){
  const stored=wx.getStorageSync(KEY);
  if(!stored||stored.version!==1||!Array.isArray(stored.projects))return Seed();

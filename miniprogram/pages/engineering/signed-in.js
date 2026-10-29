@@ -1,7 +1,7 @@
 const X=require('../../utils/access');
 module.exports=function(state,keyword=''){
  if(!state.canWork)return {deskKeyword:'',deskProjects:[],deskTodos:[],deskStats:[],deskShortcuts:[]};
- const raw=wx.getStorageSync('zhongshu-engineering-v1'),source=Array.isArray(raw?.projects)?raw:require('../../utils/engineering-seed')();
+ const raw=wx.getStorageSync(require('../../utils/storage-keys').engineering),source=Array.isArray(raw?.projects)?raw:require('../../utils/engineering-seed')();
  const projects=source.projects.filter(p=>X.project(p)),active=projects.filter(p=>p.actualStart&&!p.delivery&&!p.archived),query=keyword.trim().toLowerCase();
  const deskProjects=active.map((p,index)=>{
   const nodes=p.plan?.nodes||[],complete=nodes.filter(n=>n.status==='已完成').length,current=nodes.findIndex(n=>n.status!=='已完成'),next=nodes[current];

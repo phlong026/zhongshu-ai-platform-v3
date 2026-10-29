@@ -32,7 +32,7 @@ function build(customer, view, form, quote, next, actor) {
   const step = !customer.request ? 0 : !paid ? 1 : !flow.dispatch ? 2 : !customer.acceptance ? 3 : 4;
   const files = cards(customer, form), documentCount = files.filter(row => row.ready).length;
   let engineering = null;
-  if (customer.acceptance && ['engineer', 'project-manager'].includes(actor.role)) engineering = (wx.getStorageSync('zhongshu-engineering-v1')?.projects || []).find(row => row.sourceCustomerId === customer.id && Access.project(row, actor));
+  if (customer.acceptance && ['engineer', 'project-manager'].includes(actor.role)) engineering = (wx.getStorageSync(require('../../../utils/storage-keys').engineering)?.projects || []).find(row => row.sourceCustomerId === customer.id && Access.project(row, actor));
   const state = customer.acceptance ? ['项目已创建', '工程已接收本版资料', '工程负责人'] : customer.handover ? ['工程待接收', '完整资料包已提交', customer.handover.manager] : flow.dispatch ? ['设计成果已下发', '待确认成果并移交工程', customer.owner] : flow.completed ? ['设计已完成', '待下发本版成果', '总部设计'] : paid ? ['设计进行中', '总部设计已收到任务', '总部设计'] : ['订单待支付', '支付后开始设计', customer.owner];
   return {
     step, steps: ['设计委托', '支付费用', '设计成果', '移交工程'].map((label, index) => ({ label, index: index + 1, done: index < step, active: index === Math.min(step, 3) })),

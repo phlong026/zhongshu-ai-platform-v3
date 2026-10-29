@@ -1,7 +1,7 @@
 require('./runtime-compat');
 const Job=require('./organization');
 const Access=require('./access');
-const KEY = 'zhongshu-studio',AUTH=Symbol('studio-command');
+const KEY = require('./storage-keys').studio,AUTH=Symbol('studio-command');
 const accounts = [{ id: 'douyin-adviser', platform: 'douyin', name: '众墅之家 · 建房顾问' }, { id: 'channels-design', platform: 'channels', name: '众墅之家 · 乡墅设计' }];
 let sequence = 0;
 const clone = require('./clone');
@@ -36,7 +36,7 @@ records: [
 works: [], publishDrafts: {}
 };
 }
-function storageKey(){const a=wx.getStorageSync('zhongshu-account-v1'),s=a&&a.session;if(!s)return KEY+':guest';const raw=wx.getStorageSync('zhongshu-management-v1'),book=raw&&(raw.companyId===s.companyId?raw:(raw.books||{})[s.companyId]),person=book&&(book.staff||[]).find(p=>p.id===(s.staffId||String(s.userId||'').replace(/^demo-/,'')));if(!Access.context().active||!Job.has(Access.context().role,'sales')||person&&person.active===false)return KEY+':disabled:'+s.companyId+':'+s.userId;return s.loggedIn&&s.userId==='demo-zhang'&&s.companyId==='quanzhou'?KEY:KEY+':'+(s.loggedIn?s.companyId+':'+s.userId:'guest');}
+function storageKey(){const a=wx.getStorageSync(require('./storage-keys').account),s=a&&a.session;if(!s)return KEY+':guest';const raw=wx.getStorageSync(require('./storage-keys').management),book=raw&&(raw.companyId===s.companyId?raw:(raw.books||{})[s.companyId]),person=book&&(book.staff||[]).find(p=>p.id===(s.staffId||String(s.userId||'').replace(/^demo-/,'')));if(!Access.context().active||!Job.has(Access.context().role,'sales')||person&&person.active===false)return KEY+':disabled:'+s.companyId+':'+s.userId;return s.loggedIn&&s.userId==='demo-zhang'&&s.companyId==='quanzhou'?KEY:KEY+':'+(s.loggedIn?s.companyId+':'+s.userId:'guest');}
 function scopedKey(base){return base+storageKey().slice(KEY.length);}
 function read() {
 const raw = wx.getStorageSync(storageKey());
@@ -132,9 +132,9 @@ function confirmDemoPublication(id,publishedUrl){
 }
 function recentItems(state) {
 const list = [];
-const draft = wx.getStorageSync(scopedKey('zhongshu-creation-draft'));
+const draft = wx.getStorageSync(scopedKey(require('./storage-keys').creationDraft));
 if (draft && (draft.workingText || draft.text)) list.push({ id: 'draft', title: draft.title||(draft.workingText || draft.text).split('\n')[0].slice(0, 28), badge: '文案草稿', image: '/assets/creation-house.jpg', action: '继续编辑', updatedAt: draft.updatedAt || 0 });
-const video = wx.getStorageSync(scopedKey('zhongshu-video-draft'));
+const video = wx.getStorageSync(scopedKey(require('./storage-keys').videoDraft));
 if (video && video.description) list.push({ id: 'video-draft', title: video.description.slice(0, 28), badge: 'AI视频草稿', image: video.firstFrame || '/assets/creation-house.jpg', action: '继续编辑', updatedAt: video.updatedAt || 0 });
 Object.keys(state.videoTaskDrafts || {}).forEach(taskId => {
 const draft = state.videoTaskDrafts[taskId];
@@ -149,7 +149,7 @@ if (example) list.push({ id: 'example-result', taskId: example.id, title: exampl
 return list;
 }
 function restoreManualDraft() {
-const draft = wx.getStorageSync(scopedKey('zhongshu-creation-draft'));
+const draft = wx.getStorageSync(scopedKey(require('./storage-keys').creationDraft));
 if (!draft || !draft.text || (typeof draft.workingText === 'string' && draft.workingText !== draft.text)) return false;
 const state = read(); delete state.extraction;state.rewriteHistory=[];state.original = draft.text; state.script = draft.rewrittenText && draft.rewrittenText !== draft.text ? draft.rewrittenText : ''; state.title = draft.text.split('\n')[0].slice(0, 28); delete state.editorBuffer; write(state); return true;
 }

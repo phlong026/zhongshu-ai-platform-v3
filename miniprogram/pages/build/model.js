@@ -1,7 +1,7 @@
 const Job=require('../../utils/organization');
 const B = require('../../utils/business');
 const Access=require('../../utils/access');
-const KEY = 'zhongshu-engineering-v1';const AUTH=Symbol('validated-engineering-command');
+const KEY = require('../../utils/storage-keys').engineering;const AUTH=Symbol('validated-engineering-command');
 const clone = B.clone, today = B.date;const roundQ=n=>Math.round(n*1000)/1000;
 const Seed=require('../../utils/engineering-seed'),{asset,sampleFile,project}=Seed,initial=Seed;
 const Accepted=require('../../utils/engineering-acceptance');
@@ -19,7 +19,7 @@ function authorize(id,action,f,revision){const state=load(),p=state.projects.fin
 function uid(prefix){return prefix+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);}
 function assert(ok,message){if(!ok)throw new Error(message);}
 function date(value){return /^\d{4}-\d{2}-\d{2}$/.test(value||'')&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;}
-function cents(value){assert(/^\d+(\.\d{1,2})?$/.test(String(value))&&Number(value)>0&&Number(value)<=100000000,'金额须大于0，最多两位小数且不超过一亿元。');return Math.round(Number(value)*100);}
+function cents(value){assert(/^\d+(\.\d{1,2})?$/.test(String(value))&&Number(value)>0&&Number(value)<=100000000,'金额须大于0，最多两位小数且不超过一亿元。');return require('../../utils/money').parseCents(value);}
 function quantity(value){assert(/^\d+(\.\d{1,3})?$/.test(String(value))&&Number(value)>0&&Number(value)<=10000000,'数量须大于0，最多三位小数。');return Number(value);}
 function required(f,keys){keys.forEach(k=>assert(f[k]!==undefined&&f[k]!==null&&String(f[k]).trim(), '请补齐必填资料。'));}
 function latest(a){return a&&a[a.length-1];}
@@ -80,6 +80,6 @@ function apply(id,action,f={},ctx={}){if(get(id)?.recordFlow)throw Error('请从
  else if(action==='archive'){assert(p.delivery,'请先完成工程交付');p.archived=true;next='archive';}
  else throw new Error('操作尚未定义。');
  },({prepare:'保存开工准备核查',review:'登记专业审核',start:'登记实际开工',plan:'保存施工计划',send:'记录计划发送',reschedule:'确认改期影响',demand:'提交材料需求',pay:'登记线下供应付款',collect:'登记工程收款',deliver:'确认竣工交付',archive:'归档施工资料'})[action]||'保存'+action,AUTH,action);return {project:p,next};}
-function draftStorageKey(){const s=B.scope();return 'zhongshu-engineering-new-draft'+(s.active&&s.companyId==='quanzhou'&&s.userId==='demo-zhang'?'':':'+s.companyId+':'+s.userId);}
+function draftStorageKey(){const s=B.scope();return require('../../utils/storage-keys').engineeringDraft+(s.active&&s.companyId==='quanzhou'&&s.userId==='demo-zhang'?'':':'+s.companyId+':'+s.userId);}
 module.exports={funding,KEY,draftStorageKey,clone,today,date,asset,sampleFile,project,initial,load,save,get,write,authorize,sync,add,apply,ready,reviewed,signature,status,materialStats,payable,inspectPassed,latest};
 

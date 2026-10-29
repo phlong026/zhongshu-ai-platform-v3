@@ -65,7 +65,7 @@ function list(state, options = {}) {
   const actor = options.actor || Access.context(state);
   if (!actor.active) return [];
 
-  const customers = options.customers || ((wx.getStorageSync('zhongshu-business-v3') || {}).customers || []);
+  const customers = options.customers || ((wx.getStorageSync(require('./storage-keys').business) || {}).customers || []);
   const releaseFor = options.releaseFor || require('./design-receipts').release;
   const canView = options.canView || ((customer, current) => Access.customer(customer, current));
   const checkout = options.checkout || require('./design-checkout');

@@ -111,7 +111,7 @@ function load(actor = require('./access').context()) {
   assertActor(actor);
   const SalesFlow = require('./sales-flow');
   const projected = require('./business').load().customers;
-  const rawRows = ((wx.getStorageSync('zhongshu-business-v3') || {}).customers || []);
+  const rawRows = ((wx.getStorageSync(require('./storage-keys').business) || {}).customers || []);
   const rawById = new Map(rawRows.map(customer => [`${customer.companyId || 'quanzhou'}:${customer.id}`, customer]));
   const companyNames = new Map([...new Set(projected.map(customer => customer.companyId || 'quanzhou'))].map(id => [id, companyName(id)]));
   const rawFor = customer => rawById.get(`${customer.companyId || 'quanzhou'}:${customer.id}`) || customer;

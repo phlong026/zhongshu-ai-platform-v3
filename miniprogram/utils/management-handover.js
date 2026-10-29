@@ -15,9 +15,9 @@ function workFor(s, workId) {
 
 function sourceFor(work) {
   if (work.kind === 'customer-responsibility') {
-    return (wx.getStorageSync('zhongshu-business-v3')?.customers || []).find(row => row.id === work.customerId && row.projectId === work.projectId);
+    return (wx.getStorageSync(require('./storage-keys').business)?.customers || []).find(row => row.id === work.customerId && row.projectId === work.projectId);
   }
-  return (wx.getStorageSync('zhongshu-engineering-v1')?.projects || []).find(row => row.id === work.engineeringId && (row.projectId || row.id) === work.projectId);
+  return (wx.getStorageSync(require('./storage-keys').engineering)?.projects || []).find(row => row.id === work.engineeringId && (row.projectId || row.id) === work.projectId);
 }
 
 function transferable(work) {

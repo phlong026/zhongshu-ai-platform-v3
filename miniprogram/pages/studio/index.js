@@ -116,8 +116,8 @@ inputEdit(e) { this.setData({ editingText: e.detail.value }); const state = stud
 saveScript() {
 if (!this.data.editingText.trim()) { wx.showToast({ title: '请填写口播文案', icon: 'none' }); return; }
 const state = studio.read(); state.script = this.data.editingText.trim(); state.scriptEdited=true; delete state.editorBuffer; studio.write(state);
-const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft'));
-if (draft && draft.text === state.original) wx.setStorageSync(studio.scopedKey('zhongshu-creation-draft'), Object.assign({}, draft, { rewrittenText: state.script, updatedAt: Date.now() }));
+const draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft));
+if (draft && draft.text === state.original) wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft), Object.assign({}, draft, { rewrittenText: state.script, updatedAt: Date.now() }));
 this.setData({ script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), sheet: '' }); this.refreshData();
 },
 regenerate() {
@@ -130,7 +130,7 @@ state.original=String(this.data.original||'').trim();
 Demo.rewrite(state,{rewriteMode:this.data.rewriteMode,customIp:this.data.customIp,ip:this.data.ipOptions[this.data.ipIndex],requirement:this.data.requirement});
 state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,requirement:this.data.requirement};
 studio.write(state);
-const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);
+const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);
 if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});
 this.setData({script:state.script,scriptShort:state.script.split('\n').slice(0,2).join('\n'),scriptLength:state.script.length,estimatedSeconds:Math.ceil(state.script.replace(/\s/g,'').length/4),rewriteVersion:state.rewriteHistory[state.rewriteHistory.length-1].version});
 wx.showToast({title:'二创已生成',icon:'none'});
@@ -143,7 +143,7 @@ this.scrollToCopy();
 scrollToCopy(){if(!wx.createSelectorQuery)return;const scroll=()=>{try{const q=wx.createSelectorQuery();if(!q.selectViewport)return;q.select('.rewritten-card').boundingClientRect();q.selectViewport().scrollOffset();q.exec(rows=>{if(rows&&rows[0]&&rows[1])wx.pageScrollTo({scrollTop:Math.max(0,rows[0].top+rows[1].scrollTop-((getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight+56)),duration:250});});}catch(_){/* Scrolling must never block a successfully generated script. */}};if(wx.nextTick)wx.nextTick(scroll);else scroll();},
 openOptimization(){if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});this.setData({sheet:'optimize',sheetTitle:'AI优化',optimizeRequirement:'口语自然'});},
 inputOptimization(e){this.setData({optimizeRequirement:e.currentTarget.dataset.value});},
-optimizeScript(){this.attempt(()=>{const state=studio.read();Demo.optimizeCopy(state,this.data.optimizeRequirement);studio.write(state);const key=studio.scopedKey('zhongshu-creation-draft'),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.setData({sheet:''});this.refreshData();wx.showToast({title:'文案优化已完成',icon:'none'});});},
+optimizeScript(){this.attempt(()=>{const state=studio.read();Demo.optimizeCopy(state,this.data.optimizeRequirement);studio.write(state);const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.setData({sheet:''});this.refreshData();wx.showToast({title:'文案优化已完成',icon:'none'});});},
 makeDigital() {
 if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});
 const state = studio.read(); state.script = this.data.script; state.title = this.data.title; studio.write(state);

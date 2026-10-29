@@ -57,6 +57,6 @@ function home(){
  return {isSalesHome:true,salesName:require('./account').load().profile.name||actor.name||'',overdueCount:overdue,commission:monthCommission(),salesDate:Number(day.slice(5,7))+'月'+Number(day.slice(8,10))+'日 '+week,customerLabel:actor.role==='sales-lead'?'可见客户':'我的客户',salesCounts:counts(rows),todayCount:due.length,appointmentCount:upcoming.length,
   ...(()=>{const t=require('./sales-todos').list();return {flowPending:t.pending,flowWaiting:t.waiting};})(),
   salesShortcuts:[{title:'登记客户',icon:'person-filled',action:'customer'},{title:'内容创作',icon:'video-filled',action:'remix'},{title:'AI设计',icon:'home-design-icon',action:'aiDesign',url:'/pages/design/index'},{title:'快速预算',icon:'contract',action:'quickBudget',url:'/pages/workflow/explore/index?view=budget'}],
-  recentCustomer:project||null,recentCreation:draft||work||null,isDemo:!!wx.getStorageSync('zhongshu-account-v1')?.session?.demo};
+  recentCustomer:project||null,recentCreation:draft||work||null,isDemo:!!wx.getStorageSync(require('./storage-keys').account)?.session?.demo};
 }
 module.exports={customerRows,sortRows,counts,category,maskPhone,focusRows,home,todoBoard,monthCommission};

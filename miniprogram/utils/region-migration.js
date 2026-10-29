@@ -1,5 +1,5 @@
 // Preserve organization IDs and attachment paths while updating existing local text.
-const KEY='zhongshu-region-hubei-v1';
+const KEY=require('./storage-keys').regionMigration;
 const replacements=[['泉州市','武汉市'],['福建省','湖北省'],['福建','湖北'],['晋江市','麻城市'],['晋江','麻城'],['惠安县','红安县'],['惠安','红安'],['南安市','武穴市'],['南安','武穴'],['厦门市','宜昌市'],['福州市','襄阳市'],['泉州','湖北']];
 function convert(value,key=''){
  if(typeof value==='string'){
