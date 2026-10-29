@@ -9,8 +9,7 @@ page{--sales-brand:var(--business-brand);--sales-paper:var(--business-paper);--s
 .sales-page.sales-page .section-heading::before{left:0;top:10rpx;width:6rpx;height:30rpx;border-radius:4rpx;background:var(--sales-brand)}
 .sales-page.sales-page .section-title{font-family:inherit;font-size:var(--zs-font-title);font-weight:600;line-height:46rpx;letter-spacing:0}
 .sales-page.sales-page .hint,.sales-page.sales-page .muted{font-size:var(--zs-font-meta);font-weight:400;line-height:36rpx;color:var(--sales-muted)}
-.sales-page.sales-page .primary,.sales-page.sales-page .outline{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;min-height:72rpx;height:auto;line-height:36rpx;padding:12rpx 22rpx;border:1rpx solid var(--sales-brand);border-radius:14rpx;font-size:var(--zs-font-body);font-weight:500;flex-shrink:0;background:var(--sales-brand);color:#fffaf3}
-.sales-page.sales-page .outline{background:var(--zs-card);color:var(--sales-brand)}
+.sales-page.sales-page .outline{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;min-height:72rpx;height:auto;line-height:36rpx;padding:12rpx 22rpx;border:1rpx solid var(--sales-brand);border-radius:14rpx;font-size:var(--zs-font-body);font-weight:500;flex-shrink:0;background:var(--zs-card);color:var(--sales-brand)}
 .sales-page.sales-page .text-link{display:inline-flex;align-items:center;gap:10rpx;min-height:60rpx;font-size:var(--zs-font-meta);font-weight:400;line-height:36rpx;color:var(--sales-brand);padding:0}
 .sales-page.sales-page .chevron{border-color:var(--sales-brand)}
 .sales-page .sales-stats{display:flex;padding:22rpx 0 10rpx}

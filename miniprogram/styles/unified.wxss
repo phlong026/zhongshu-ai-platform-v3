@@ -25,14 +25,11 @@ button.link.link{min-height:88rpx!important}
 .account .outline.outline,.admin .outline.outline{min-height:88rpx!important}
 .workflow .options button{min-height:88rpx!important}
 
-/* One primary colour: account/admin primary buttons follow the brand brown instead of the old orange gradient. */
-.account .solid:not(.is-disabled),.admin .solid:not(.is-disabled),.sheet .solid:not(.is-disabled){background:var(--zs-brand)!important;color:#fffaf3!important}
 .account .pill.pill{display:inline-flex;align-items:center;justify-content:center;min-height:88rpx!important}
 .account .inset.row{min-height:88rpx!important}
 
 /* One minimum size per control type, shared by every page (no page-specific classes):
    segmented tabs, option chips, pickers, text areas, list rows and compact action buttons. */
-.tabs.tabs>button,.tabs.tabs>view>button{display:flex;align-items:center;justify-content:center;min-height:88rpx!important}
 .chips.chips>button,.options.options>button,.settings-row.settings-row button{min-height:88rpx!important}
 .dimension-row .input.input,.explore-picker.explore-picker{min-height:88rpx!important}
 .textarea.textarea{min-height:160rpx!important}
@@ -46,9 +43,7 @@ button.link.link{min-height:88rpx!important}
 .account input[data-key]{min-height:88rpx!important}
 
 /* Tab strips, buttons and rows of the engineering, admin and owner pages follow the same minimum. */
-.admin .tabs.tabs button,.build .tabs.tabs>button,.owner-tabs.owner-tabs button{min-height:88rpx!important}
 .build .btn.btn,.build .plan-actions.plan-actions>button,.build .material-actions.material-actions>button,.build .more-links.more-links button,.build .add-node.add-node{min-height:88rpx!important}
 .build .material-actions.material-actions{min-height:88rpx!important}
-.build .filters.filters>button{min-height:88rpx!important;line-height:86rpx}
 .admin .row.row,.admin .radio.radio,.account .row.row{min-height:88rpx!important}
 .owner-search.owner-search,.owner-period.owner-period picker,.owner-form-row.owner-form-row input{min-height:88rpx!important}

@@ -17,8 +17,8 @@
 
 .page.workbench-page .guest-counts>text{font-size:var(--zs-font-caption);font-weight:400;color:var(--zs-text-3)}
 .page.workbench-page .guest-counts>text>text{font-size:var(--zs-font-body);font-weight:700;color:var(--zs-brand)}
-.page.workbench-page .primary,.page.workbench-page .outline,.page.workbench-page .mini-solid{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;height:64rpx;min-height:64rpx;padding:0 22rpx;border-radius:12rpx;font-size:var(--zs-font-meta);font-weight:500;line-height:36rpx;letter-spacing:0;white-space:nowrap;flex-shrink:0;box-sizing:border-box}
-.page.workbench-page .primary,.page.workbench-page .mini-solid{background:var(--zs-brand);color:#fffaf3;border:1rpx solid var(--zs-brand)}
+.page.workbench-page .outline,.page.workbench-page .mini-solid{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;height:64rpx;min-height:64rpx;padding:0 22rpx;border-radius:12rpx;font-size:var(--zs-font-meta);font-weight:500;line-height:36rpx;letter-spacing:0;white-space:nowrap;flex-shrink:0;box-sizing:border-box}
+.page.workbench-page .mini-solid{background:var(--zs-brand);color:var(--zs-card);border:1rpx solid var(--zs-brand)}
 .page.workbench-page .outline{width:auto;min-width:128rpx;color:var(--zs-brand);background:var(--zs-card);border:1rpx solid var(--zs-brand)}
 .page.workbench-page .plus{font-size:var(--zs-font-emphasis);font-weight:400;line-height:36rpx;margin-right:0;vertical-align:0}
 .page.workbench-page .text-link,.page.workbench-page .customer-footer,.page.workbench-page .guest-section-link{display:inline-flex;align-items:center;min-height:64rpx;padding:0;font-size:var(--zs-font-meta);font-weight:500;line-height:36rpx;color:var(--zs-brand)}
@@ -34,7 +34,6 @@
 .page.workbench-page .project-todo{height:auto;min-height:140rpx}
 .page.workbench-page .project-todo>text{font-size:var(--zs-font-body);font-weight:400;line-height:40rpx}
 .page.workbench-page .guest-login-button{display:flex;width:100%;height:88rpx;min-height:88rpx;padding:0 24rpx;margin:24rpx 0;border-radius:12rpx;font-size:var(--zs-font-emphasis);font-weight:500;line-height:40rpx}
-.page.workbench-page .workbench-denied>.primary{display:flex;height:88rpx;min-height:88rpx;border-radius:12rpx;font-size:var(--zs-font-emphasis);line-height:40rpx}
 
 .page.workbench-page .guest-modal-heading{font-size:var(--zs-font-title);font-weight:700;line-height:42rpx}
 .page.workbench-page .guest-modal-copy{font-size:var(--zs-font-body);font-weight:400;line-height:40rpx}
