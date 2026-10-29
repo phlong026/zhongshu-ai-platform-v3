@@ -88,6 +88,12 @@ function facts(snapshot) {
     if (!['已核算', '已备案'].includes(receipt.status) || !inMonth(F.cashDate(receipt), period)) continue;
     add(owners.get(receipt.projectId), 'business', 'collectionsAmount', Number(receiptAmount(receipt) || 0) / 100);
   }
+  const receipts = new Map((snapshot.state.receipts || []).map(receipt => [receipt.id, receipt]));
+  for (const refund of snapshot.state.refunds || []) {
+    if (refund.status !== '已核实' || !inMonth(F.cashDate(refund), period)) continue;
+    const receipt = receipts.get(refund.receiptId);
+    add(owners.get(receipt?.projectId || refund.projectId), 'business', 'collectionsAmount', -Number(refund.amount || 0) / 100);
+  }
   for (const customer of snapshot.customers || []) {
     if (realFollows(customer).some(follow => inMonth(follow.date || follow.at, period))) add(C.owner(customer), 'business', 'effectiveCustomers');
   }
@@ -314,4 +320,4 @@ function validateGoals(snapshot, form) {
   return goals;
 }
 
-module.exports = { DEPARTMENTS, build, formFor, settingsFor, validateGoals, departmentsFor };
+module.exports = { DEPARTMENTS, build, facts, formFor, settingsFor, validateGoals, departmentsFor };
