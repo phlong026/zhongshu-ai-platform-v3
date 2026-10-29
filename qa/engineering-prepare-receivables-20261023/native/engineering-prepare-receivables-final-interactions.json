@@ -207,7 +207,7 @@
     "route": "pages/management/index",
     "selector": ".fin-task",
     "dataset": {
-      "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=collection&stage=start"
+      "url": "/pages/build/record/index?id=biz-customer-1792857685342-5u7td&view=collection&stage=start"
     },
     "expectedHandler": "financeGo",
     "via": "Element.tap"
@@ -270,7 +270,7 @@
     "route": "pages/management/index",
     "selector": ".fin-task",
     "dataset": {
-      "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=collection&stage=start"
+      "url": "/pages/build/record/index?id=biz-customer-1792857685342-5u7td&view=collection&stage=start"
     },
     "expectedHandler": "financeGo",
     "via": "Element.tap"
@@ -377,7 +377,7 @@
     "route": "pages/build/home/index",
     "selector": ".eng-todo button",
     "dataset": {
-      "url": "/pages/build/record/index?id=biz-customer-1792729799855-pq906&view=start"
+      "url": "/pages/build/record/index?id=biz-customer-1792857685342-5u7td&view=start"
     },
     "expectedHandler": "openEngineering",
     "via": "Element.tap"

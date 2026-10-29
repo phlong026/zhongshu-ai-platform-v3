@@ -9,7 +9,7 @@ onShow() {
 const nav=require('./workbench-nav')();this.setData({...nav,panel:null});
 if(index===0)this.setData({tools:[{title:'业务工作台',tab:'business',icon:'home-video-icon'},{title:'工程工作台',tab:'engineering',icon:'home-engineer-icon'},{title:'管理工作台',tab:'management',icon:'home-chart-icon'}]});
 if(index===1)this.setData(require('./workbench').business());
-if (typeof this.getTabBar === 'function' && this.getTabBar()) {this.getTabBar().refresh?.();this.getTabBar().setData({ selected: index, hidden: !!this.data.panel });}
+if (typeof this.getTabBar === 'function' && this.getTabBar()) {this.getTabBar().refresh?.();this.getTabBar().setData({ hidden: !!this.data.panel });}
 },
 goAdmin(e){const d=e.currentTarget.dataset;wx.navigateTo({url:'/pages/'+(d.area==='workflow'?'workflow':'admin')+'/index?view='+d.view+'&id='+encodeURIComponent(d.id)+(d.record?'&record='+encodeURIComponent(d.record):'')});},
 openAction(e) {

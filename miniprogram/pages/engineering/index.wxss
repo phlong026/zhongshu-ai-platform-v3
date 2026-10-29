@@ -98,3 +98,20 @@
 .guest-shortcut-title{font-size:24rpx;font-weight:500;line-height:36rpx;white-space:nowrap}
 .guest-shortcut-note{font-size:20rpx;line-height:30rpx;color:#858991;white-space:nowrap}
 
+.boss-eng-card{background:#fff;border-radius:20rpx;padding:22rpx;margin-bottom:20rpx}
+.boss-eng-money{display:flex;justify-content:space-between;align-items:center;padding:14rpx 0;border-bottom:1rpx solid #f6f0e7;font-size:26rpx;color:#4a443c}
+.boss-eng-money:first-child{padding-top:4rpx}
+.boss-eng-money:last-child{border-bottom:0;padding-bottom:4rpx}
+.boss-eng-num{font-weight:700;color:#b7791f}
+.boss-eng-overdue{font-size:23rpx;line-height:36rpx;color:#c2410c;padding-top:8rpx}
+.boss-eng-proj{padding:16rpx 0;border-bottom:1rpx solid #f6f0e7}
+.boss-eng-proj:first-child{padding-top:4rpx}
+.boss-eng-proj:last-child{border-bottom:0;padding-bottom:4rpx}
+.boss-eng-r1{display:flex;justify-content:space-between;align-items:center}
+.boss-eng-name{font-size:27rpx;font-weight:500;color:#30291f}
+.boss-eng-name.late{color:#c2410c}
+.boss-eng-pct{font-size:27rpx;font-weight:700;color:#89512a}
+.boss-eng-r2{display:block;font-size:22rpx;color:#9a948c;margin-top:4rpx}
+.boss-eng-track{height:12rpx;border-radius:8rpx;background:#f1ece4;margin-top:10rpx;overflow:hidden}
+.boss-eng-fill{height:100%;border-radius:8rpx;background:#89512a}
+.boss-eng-fill.late{background:#c2410c}

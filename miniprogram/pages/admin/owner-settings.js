@@ -3,7 +3,7 @@ const N = require('../../utils/organization');
 const X = require('../../utils/access');
 
 const clone = value => JSON.parse(JSON.stringify(value));
-const ACTIONS = ['management-company', 'management-assignments'];
+const ACTIONS = ['management-company', 'management-assignments', 'approval-settings'];
 const ASSIGNMENTS = [
   { id: 'sales', label: '业务默认经办人', role: 'sales', orgTypes: ['store'] },
   { id: 'engineering', label: '工程默认经办人', role: 'engineer', orgTypes: ['store'] },
@@ -53,6 +53,7 @@ function load(input) {
     canEdit: actor.role === 'boss',
     company: companyDefaults(company, settings, state.companyId),
     assignmentFields: assignmentFields(state, actor, settings),
+    approvals: { expenseLine: settings.approvals?.expenseLine ?? 5000 },
     fixedRules: FIXED_RULES,
     lastUpdated: settings.at ? A.displayTime(settings.at) : ''
   };
@@ -84,6 +85,12 @@ function validateAssignments(state, actor, form, previous) {
   return values;
 }
 
+function validateApprovals(form) {
+  const line = Math.round(Number(form.expenseLine));
+  X.assert(Number.isFinite(line) && line >= 0 && line <= 100000000, '请填写有效的费用线金额（元），0 表示全部费用需老板确认');
+  return { expenseLine: line };
+}
+
 function apply(state, action, id, form = {}) {
   if (!ACTIONS.includes(action)) return null;
   const actor = X.context();
@@ -96,11 +103,13 @@ function apply(state, action, id, form = {}) {
     version: (current.version || 0) + 1,
     company: clone(current.company || {}),
     assignments: clone(current.assignments || {}),
+    approvals: clone(current.approvals || {}),
     history: [...(current.history || []), ...(previous ? [previous] : [])],
     events: clone(current.events || []),
     ...X.actor(actor)
   };
   if (action === 'management-company') next.company = validateCompany(form);
+  else if (action === 'approval-settings') next.approvals = validateApprovals(form);
   else next.assignments = validateAssignments(state, actor, form, current.assignments);
   next.events.push({ action, version: next.version, ...X.actor(actor) });
   state.managementSettings = next;

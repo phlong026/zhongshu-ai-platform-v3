@@ -1,5 +1,5 @@
 // 进度计划 Excel 导入：只认约定格式的 xlsx，A列节点名称、B列开始日期、C列结束日期，
-// 最多20行；解析为可逐项调整的节点清单。缺主体封顶节点时自动补在最后并提示，
+// 最多20行；解析为可逐项调整的节点清单。缺封顶验收（主体封顶）节点时自动补在最后并提示，
 // 因为开工准备保存必须有封顶里程碑。
 const XLSX=require('./vendor/xlsx.mini.min');
 const MAX=20,pad=n=>(n<10?'0':'')+n,addDay=(base,n)=>{const x=new Date(base+'T12:00:00');x.setDate(x.getDate()+n);return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10);};
@@ -22,7 +22,7 @@ function importNodes(buffer){
  if(!list.length)throw Error('没有找到数据行，首行请填表头或直接从节点名称开始');
  if(list.length>MAX)throw Error('数据最多'+MAX+'行，当前'+list.length+'行，请精简后重新导入');
  const nodes=[];for(const[i,row]of list.entries()){const rowNo=firstRow+i,name=String(row[0]==null?'':row[0]).trim();if(!name)throw Error('第'+rowNo+'行缺少节点名称');const start=asDate(row[1],rowNo,'开始日期'),end=asDate(row[2],rowNo,'结束日期');if(end<start)throw Error('第'+rowNo+'行“'+name+'”结束日期早于开始日期');nodes.push({id:'n'+(i+1),name,start,end,status:'待开工',milestone:name.includes('封顶')?'topping':''});}
- let notice='';if(!nodes.some(n=>n.milestone==='topping')){const last=nodes[nodes.length-1];nodes.push({id:'n'+(nodes.length+1),name:'主体封顶',start:addDay(last.end,1),end:addDay(last.end,1),status:'待开工',milestone:'topping'});notice='已自动补充主体封顶节点，请核对其日期';}
+ let notice='';if(!nodes.some(n=>n.milestone==='topping')){const last=nodes[nodes.length-1];nodes.push({id:'n'+(nodes.length+1),name:'封顶验收',start:addDay(last.end,1),end:addDay(last.end,1),status:'待开工',milestone:'topping'});notice='已自动补充封顶验收节点，请核对其日期';}
  return {nodes,notice};
 }
 module.exports={importNodes,MAX};

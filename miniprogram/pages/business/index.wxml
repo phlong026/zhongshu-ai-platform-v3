@@ -11,6 +11,29 @@
      <view wx:if="{{!todoRows.length}}" class="sales-empty">当前没有需要本人办理的事项。</view></view>
     <view class="section sales-recent"><view class="section-heading"><text class="section-title">最近办理</text></view><button wx:if="{{recentCustomer}}" class="sales-recent-row" bindtap="continueSalesCustomer"><view class="sales-person-initial">{{recentCustomer.initial}}</view><view class="sales-recent-copy"><text>{{recentCustomer.name}}</text><text class="hint">{{recentCustomer.stage}}</text></view><text class="sales-recent-action">继续办理</text><view class="chevron" /></button><button wx:if="{{recentCreation}}" class="sales-recent-row" bindtap="continueSalesCreation"><image src="{{recentCreation.image}}" mode="aspectFill"/><view class="sales-recent-copy"><text>{{recentCreation.title}}</text><text class="hint">{{recentCreation.badge}}</text></view><text class="sales-recent-action">继续创作</text><view class="chevron" /></button><view wx:if="{{!recentCustomer&&!recentCreation}}" class="sales-empty">登记客户或开始创作后，可在这里继续办理。</view></view>
   </view>
+  <view wx:elif="{{isBossBiz}}" class="content boss-biz-content">
+    <view class="sales-greeting"><text>业务情况</text><text class="hint">{{bizDate}}</text></view>
+    <view class="boss-biz-card boss-biz-hero"><text class="boss-biz-k">本月设计委托</text><view class="boss-biz-hero-row"><view class="boss-biz-v">{{bossBiz.commission.value}}<text class="boss-biz-unit">{{bossBiz.commission.unit}}</text></view><text class="boss-biz-count">{{bossBiz.commissionCount}} 单</text></view>
+      <view class="boss-biz-quad"><view class="boss-biz-quad-item"><text class="boss-biz-n">{{bossBiz.leads}}</text><text class="boss-biz-l">新增线索</text></view><view class="boss-biz-quad-item"><text class="boss-biz-n">{{bossBiz.following}}</text><text class="boss-biz-l">跟进中</text></view><view class="boss-biz-quad-item"><text class="boss-biz-n">{{bossBiz.visited}}</text><text class="boss-biz-l">到店</text></view><view class="boss-biz-quad-item"><text class="boss-biz-n">{{bossBiz.conversion===null?'—':bossBiz.conversion+'%'}}</text><text class="boss-biz-l">线索→委托</text></view></view>
+    </view>
+    <view class="section"><view class="section-heading"><text class="section-title">客户从哪来到哪去</text></view>
+      <view class="boss-biz-card"><view wx:for="{{bossBiz.funnel}}" wx:key="label" class="boss-biz-frow"><text class="boss-biz-fk">{{item.label}}</text><view class="boss-biz-bar"><view class="boss-biz-fill {{item.strong?'strong':''}}" style="width:{{item.width}}%"/></view><text class="boss-biz-fv">{{item.value}}</text><text wx:if="{{item.source}}" class="boss-biz-fc">{{item.source}}</text></view></view>
+    </view>
+    <view class="section"><view class="section-heading"><text class="section-title">今天要留意</text></view>
+      <view class="boss-biz-card">
+        <view class="boss-biz-alert"><view class="boss-biz-dot {{bossBiz.staleCount?'red':'green'}}"/><text>{{bossBiz.staleCount?bossBiz.staleCount+' 个客户超 7 天没跟进'+(bossBiz.staleNames?' · '+bossBiz.staleNames:''):'没有超 7 天未跟进的客户'}}</text></view>
+        <view class="boss-biz-alert"><view class="boss-biz-dot amber"/><text>今日待跟进 {{bossBiz.due}} 人 · 预约到店 {{bossBiz.appointments}} 人</text></view>
+        <view class="boss-biz-alert"><view class="boss-biz-dot green"/><text>价目表内报价自动通过，政策外才需要你确认</text></view>
+      </view>
+    </view>
+    <view class="section"><view class="section-heading"><text class="section-title">业务员本月</text><button class="text-link" data-url="/pages/admin/detail/index?view=team" bindtap="openBossLink">团队绩效<view class="chevron"/></button></view>
+      <view class="boss-biz-card">
+        <view wx:for="{{bossBiz.rank}}" wx:key="key" class="boss-biz-rank"><view class="boss-biz-ava">{{item.initial}}</view><view class="boss-biz-rank-copy"><text class="boss-biz-rank-name">{{item.name}}</text><text class="boss-biz-rank-meta">{{item.meta}}</text></view><text class="boss-biz-rank-value">{{item.value}}</text></view>
+        <view wx:if="{{!bossBiz.rank.length}}" class="hint">本月暂无设计委托数据</view>
+      </view>
+    </view>
+    <button class="boss-biz-entry" data-url="/pages/customers/index" bindtap="openBossLink">客户列表与跟进<view class="chevron"/></button>
+  </view>
   <view wx:else class="content"><view wx:if="{{!canBusiness}}" class="section workbench-denied"><text class="section-title">{{active?'当前身份无业务办理权限':'登录后查看业务工作台'}}</text><text>客户跟进、设计和移交按岗位分工办理。请使用本人已授权的工作台。</text><button wx:if="{{active}}" class="primary return-workbench" data-tab="{{homeTab}}" bindtap="goTab">返回{{homeTitle}}</button><button wx:else class="primary" data-action="login" bindtap="openAction">登录后继续</button></view><block wx:else>
     <view class="search-box"><image src="/assets/search.png" class="search-icon" /><input placeholder="搜索客户、项目或方案" placeholder-class="search-placeholder" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
     <view class="section todo-section">

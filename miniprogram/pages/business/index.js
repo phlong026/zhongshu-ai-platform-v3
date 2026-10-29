@@ -22,5 +22,6 @@ definition.openSalesShortcut=function(e){const url=e.currentTarget.dataset.url;i
 definition.openSalesMetric=function(e){const focus=e.currentTarget.dataset.focus;if(focus==='commission')return require('../../utils/page-navigation').open('/pages/account/index?view=personal-performance');if(['all','due','appointments'].includes(focus))require('../../utils/page-navigation').open('/pages/customers/index'+(focus==='all'?'':'?focus='+focus));};
 definition.continueSalesCustomer=function(){if(this.data.recentCustomer)require('../../utils/page-navigation').open(this.data.recentCustomer.hasDesign?require('../../utils/sales-flow').url(this.data.recentCustomer.id):'/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.recentCustomer.id));};
 definition.continueSalesCreation=function(){require('../../utils/page-navigation').open('/pages/creation/index');};
+definition.openBossLink=function(e){const url=e.currentTarget.dataset.url;if(url)require('../../utils/page-navigation').open(url);};
 definition.openFlowTask=function(e){const t=[...(this.data.flowPending||[]),...(this.data.flowWaiting||[])].find(t=>t.id===e.currentTarget.dataset.id);if(t)require('../../utils/page-navigation').open(t.url);};
 Page(definition);

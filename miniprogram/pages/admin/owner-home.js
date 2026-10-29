@@ -212,7 +212,7 @@ function todos(snapshot) {
   const reviews = snapshot.reviews.map(task => ({ key: task.key, url: task.url, name: task.name, tag: '结果复核', detail: task.status, action: '去复核', group: 'review' }));
   const handover = handovers(snapshot);
   const all = [...money, ...reviews, ...handover];
-  return { all, groups: [{ key: 'all', label: '全部', count: all.length }, { key: 'money', label: '金额审批', count: money.length }, { key: 'review', label: '结果复核', count: reviews.length }, { key: 'handover', label: '责任交接', count: handover.length }] };
+  return { all, groups: [{ key: 'all', label: '全部', count: all.length }, { key: 'money', label: '例外审批', count: money.length }, { key: 'review', label: '结果复核', count: reviews.length }, { key: 'handover', label: '责任交接', count: handover.length }] };
 }
 
 function business(snapshot) {

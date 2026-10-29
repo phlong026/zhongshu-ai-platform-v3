@@ -1,0 +1,91 @@
+{
+  "result": "passed",
+  "checks": [
+    "开工准备页渲染模板选择与Excel导入入口",
+    "模板一键生成5个节点日期，与所选开工日对齐",
+    "施工节点页数据携带当前节点已逾期1天",
+    "项目进度页渲染逾期红色标签并汇总 0/5 节点完成",
+    "工程首页统计卡显示逾期节点1",
+    "项目列表卡片显示当前节点已逾期1天",
+    "开工款过期2天进入待办：已过约定收款日2天，请催收登记",
+    "临期3天在办理中区提示约定收款日临近",
+    "施工节点页渲染现场凭据上传入口"
+  ],
+  "screens": [
+    "1-prepare-template-generated.png",
+    "2-overdue-tag-and-summary.png",
+    "3-home-overdue-stat.png",
+    "4-projects-card-pace.png",
+    "5-home-collection-overdue.png",
+    "6-node-photo-entrance.png"
+  ],
+  "events": [
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": "[data-handler=\"login\"]",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet [data-handler=\"confirmModal\"]",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/build/record/index",
+      "selector": "[data-action=\"apply-template\"]",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": "[data-handler=\"login\"]",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet [data-handler=\"confirmModal\"]",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": "[data-handler=\"login\"]",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet [data-handler=\"confirmModal\"]",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".agreement-row .check-row",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": "[data-handler=\"login\"]",
+      "via": "Element.tap"
+    },
+    {
+      "route": "pages/account/index",
+      "selector": ".sheet [data-handler=\"confirmModal\"]",
+      "via": "Element.tap"
+    }
+  ],
+  "errors": [],
+  "restored": true
+}

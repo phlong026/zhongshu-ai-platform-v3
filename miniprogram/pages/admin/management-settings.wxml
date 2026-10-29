@@ -16,3 +16,27 @@
 <view class="owner-card"><view class="owner-heading"><text>审批规则</text></view><view wx:for="{{managementSettings.fixedRules}}" wx:key="id" class="owner-readonly-row"><text class="owner-muted">{{item.label}}</text><text>{{item.value}}</text></view></view>
 <view class="owner-card"><view class="owner-heading"><text>当前职责分工</text></view><view wx:for="{{managementSettings.assignmentFields}}" wx:key="id" class="owner-form-row"><text>{{item.label}}</text><picker wx:if="{{managementSettings.canEdit&&item.options.length}}" range="{{item.options}}" range-key="name" data-field="{{item.id}}" bindchange="assignmentChange"><view class="owner-link">{{item.selectedName}}<image class="owner-arrow" src="/assets/creation-chevron.png"/></view></picker><text wx:else class="owner-muted">{{item.options.length?item.selectedName:'暂无在岗人员'}}</text></view><button wx:if="{{managementSettings.canEdit}}" class="owner-primary owner-save" loading="{{saving}}" disabled="{{saving}}" bindtap="saveAssignments">保存职责分工</button><text class="owner-note">新事项优先选择以上经办人。</text></view>
 </template>
+
+<template name="owner-rules-settings">
+<view class="owner-card"><view class="owner-heading"><text>费用线</text></view>
+<block wx:if="{{managementSettings.canEdit}}">
+<view class="owner-form-row"><text>单笔费用超过（元）</text><input class="management-input" type="digit" value="{{rulesForm.expenseLine}}" data-field="expenseLine" bindinput="rulesInput" placeholder="例如 5000"/></view>
+<button class="owner-primary owner-save" loading="{{saving}}" disabled="{{saving}}" bindtap="saveRules">保存费用线</button>
+<text class="owner-note">线内费用提交即生效并直接生成应付；超过线的才需要老板确认，对所有项目生效。填 0 表示全部费用都需老板确认。</text>
+</block>
+<block wx:else>
+<view class="owner-readonly-row"><text class="owner-muted">单笔费用超过（元）</text><text>{{rulesForm.expenseLine}}</text></view>
+<text class="owner-note">请由本组织老板维护。</text>
+</block>
+</view>
+<view class="owner-card"><view class="owner-heading"><text>报价规矩</text></view>
+<view class="owner-readonly-row"><text class="owner-muted">价目表内报价</text><text>自动通过，无需逐单审批</text></view>
+<view class="owner-readonly-row"><text class="owner-muted">价目表外报价</text><text>需老板确认</text></view>
+<button class="owner-link" bindtap="openDesignPolicy">查看并维护标准设计费用<image class="owner-arrow" src="/assets/creation-chevron.png"/></button>
+</view>
+<view class="owner-card"><view class="owner-heading"><text>资金闸门</text></view>
+<view class="owner-readonly-row"><text class="owner-muted">钱没到不开工</text><text>开启：开工款收齐才可登记开工</text></view>
+<view class="owner-readonly-row"><text class="owner-muted">封顶款与交付</text><text>开启：按约定收齐才可交付，例外由老板限期批准</text></view>
+<text class="owner-note">闸门是工程资金安全底线，不提供关闭入口；赶工期请在「合同应收与催收」办理例外放行。</text>
+</view>
+</template>

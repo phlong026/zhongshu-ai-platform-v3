@@ -30,12 +30,12 @@ function apply(s,action,id,f={}){
    X.assert(q.needsSupplement&&X.supplement(q),'请由原事项经办人补齐付款依据');X.assert(f.file&&String(f.note||'').trim(),'请补充依据及说明');
    q.supplements=(q.supplements||[]).concat({file:copy(f.file),note:f.note,...actor});q.agreementHistory=(q.agreementHistory||[]).concat({file:copy(q.agreement),...actor});q.agreement=copy(f.file);q.needsSupplement=false;q.approval=null;q.approvalValid=false;q.status='待审批';
   }else{
-   X.assert(O.has(a.role,'finance'),'请由财务登记实际付款');X.assert(q.approvalValid&&q.approval.signature===F.signature(q),'请先确认当前版本的费用约定');
-   X.assert(!f.expectedSignature||f.expectedSignature===F.signature(q),'原付款依据已变化，请刷新');X.assert(['待办理','部分已付'].includes(q.status),'原事项暂不能新增付款登记');
+   X.assert(O.has(a.role,'finance'),'请由财务登记实际付款');X.assert(!q.needsSupplement,'请先补齐原付款依据');
+   X.assert(!f.expectedSignature||f.expectedSignature===F.signature(q),'原付款依据已变化，请刷新');X.assert(['待办理','部分已付','待审批'].includes(q.status),'原事项暂不能新增付款登记');
    const n=amount(f.amount);X.assert(n<=q.total-F.reserved(s,q.id),'付款金额超过剩余可登记金额');
    X.assert(date(f.date)&&f.date<=require('../../utils/account').localDate()&&f.file&&f.checked&&String(f.transaction||'').trim(),'请补齐实际日期、流水、凭据并核对');
    const transaction=f.transaction.trim();X.assert(![...s.payments,...s.refunds].some(p=>p.transaction===transaction),'付款流水号重复');
-   result='payment-'+Date.now()+'-'+(++sequence);s.payments.push({id:result,payableId:q.id,projectId:q.projectId,customer:q.customer,name:q.name,amount:n,date:f.date,file:copy(f.file),transaction,status:'已核实',registrationMode:'record-only-v1',registeredAt:actor.at,registrarId:a.staffId,registrarPersonId:a.personId,registrar:a.name,approvalId:q.approval.id,sourceSignature:F.signature(q),...actor});
+   result='payment-'+Date.now()+'-'+(++sequence);s.payments.push({id:result,payableId:q.id,projectId:q.projectId,customer:q.customer,name:q.name,amount:n,date:f.date,file:copy(f.file),transaction,status:'已核实',registrationMode:'record-only-v1',registeredAt:actor.at,registrarId:a.staffId,registrarPersonId:a.personId,registrar:a.name,approvalId:q.approval?.id||'',sourceSignature:F.signature(q),...actor});
    q.status=F.paid(s,q.id)>=q.total?'已付清':'部分已付';
   }
  }
