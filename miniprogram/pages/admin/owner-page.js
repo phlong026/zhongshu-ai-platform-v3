@@ -7,7 +7,7 @@ const A = require('../../utils/account');
 const M = require('./model');
 const routeValue = value => { try { return decodeURIComponent(value || ''); } catch (_) { return String(value || ''); } };
 require('../../utils/load-local-fonts')(require('./font-sources'), 'admin');
-const titles = { home:'首页', finance:'经营', performance:'绩效', profile:'我的', stat:'经营原单明细', metric:'经营指标明细', appointments:'预约到店', acquisition:'内容获客', todos:'全部待办', approvals:'待我审批', 'finance-progress':'财务办理进度', receivables:'应收账款', payables:'应付账款', receivable:'应收原单', payable:'应付原单', business:'业务概览', engineering:'工程概览', targets:'月度目标设置', team:'团队绩效', reviews:'结果复核', activity:'操作记录', settings:'审批与分工', company:'门店资料', handover:'项目经理交接' };
+const titles = { home:'首页', finance:'经营', performance:'绩效', profile:'我的', stat:'经营原单明细', metric:'经营指标明细', appointments:'预约到店', acquisition:'内容获客', todos:'全部待办', approvals:'待我审批', 'finance-progress':'财务办理进度', receivables:'应收账款', payables:'应付账款', receivable:'应收原单', payable:'应付原单', business:'业务概览', engineering:'工程概览', targets:'月度目标设置', team:'团队绩效', reviews:'结果复核', activity:'操作记录', settings:'审批与分工', rules:'我的规矩', company:'门店资料', handover:'项目经理交接' };
 
 module.exports = function(kind) {
   return {
@@ -39,17 +39,18 @@ module.exports = function(kind) {
         rows = rows.slice(0, this.data.pageLimit);
         const form = view === 'targets' ? this.dirty ? this.data.form : P.formFor(desk) : this.data.form;
         const performanceSettings = view === 'targets' ? P.settingsFor({ ...desk, goals:{ ...desk.goals, ...form, version:form.expectedVersion } }) : null;
-        const settings = ['company','settings'].includes(view) ? Settings.load(desk.state) : null;
+        const settings = ['company','settings','rules'].includes(view) ? Settings.load(desk.state) : null;
         if (settings) settings.assignmentFields = settings.assignmentFields.map(field=>({ ...field, selectedName:field.options.find(option=>option.id===(this.assignmentsDirty?this.data.assignmentForm.assignments[field.id]:field.value))?.name || '请选择' }));
         const companyForm = view === 'company' ? this.companyDirty ? this.data.companyForm : { ...settings.company, expectedVersion:settings.version } : {};
         const assignmentForm = view === 'settings' ? this.assignmentsDirty ? this.data.assignmentForm : { assignments:Object.fromEntries(settings.assignmentFields.filter(field=>field.value).map(field=>[field.id,field.value])), expectedVersion:settings.version } : {};
+        const rulesForm = view === 'rules' ? (this.rulesDirty ? this.data.rulesForm : { expenseLine: String(settings.approvals.expenseLine) }) : {};
         const display = { name:desk.name, company:desk.company, date:desk.date, sample:desk.sample, period:desk.period, periodLabel:desk.periodLabel, actor:{ role:desk.actor.role, companyId:desk.actor.companyId } };
         if (view === 'company') display.staff = desk.staff.map(person=>({id:person.id}));
         if (view === 'home') { display.home = desk.home; display.ledger = desk.ledger; display.approvalCount = desk.approvalCount; display.income = desk.income; display.paid = desk.paid; }
         if (view === 'finance') display.business = desk.business;
         if (view === 'performance') display.performance = desk.performance;
         const homeTodos = view === 'home' ? H.visibleTodos(desk, this.data.todoTab) : [];
-        this.setData({ ready:true, desk:display, rows, total, projects:[], form, performanceSettings, managementSettings:settings, companyForm, assignmentForm, view, record:B.recordFor(view,desk,this.options.id), error:'', homeTodos, homeTodoTotal:view==='home'?H.todoRows(desk,this.data.todoTab).length:0 });
+        this.setData({ ready:true, desk:display, rows, total, projects:[], form, performanceSettings, managementSettings:settings, companyForm, assignmentForm, rulesForm, view, record:B.recordFor(view,desk,this.options.id), error:'', homeTodos, homeTodoTotal:view==='home'?H.todoRows(desk,this.data.todoTab).length:0 });
       } catch(error) { this.setData({error:error.message,ready:false,desk:null,rows:[]}); }
     },
     search(e) { this.setData({keyword:e.detail.value,pageLimit:20}); this.refresh(); },
@@ -118,6 +119,13 @@ module.exports = function(kind) {
     },
     saveCompany(){ this.saveConfiguration('management-company',this.data.companyForm); },
     saveAssignments(){ this.saveConfiguration('management-assignments',this.data.assignmentForm); },
+    rulesInput(e) { this.rulesDirty=true; this.setData({['rulesForm.'+e.currentTarget.dataset.field]:e.detail.value,error:''}); },
+    saveRules() {
+      if(this.data.saving) return;
+      try { this.setData({saving:true}); M.mutate(state=>M.apply(state,'approval-settings',state.companyId,{expenseLine:this.data.rulesForm.expenseLine,expectedVersion:this.data.managementSettings.version})); this.rulesDirty=false; this.refresh(); wx.showToast({title:'规矩已保存',icon:'success'}); }
+      catch(error) { this.fail(error.message); }
+      finally { this.setData({saving:false}); }
+    },
     saveConfiguration(action,form) {
       if(this.data.saving) return;
       try { this.setData({saving:true}); M.mutate(state=>M.apply(state,action,state.companyId,form)); this.companyDirty=false; this.assignmentsDirty=false; this.refresh(); wx.showToast({title:'配置已保存',icon:'success'}); }
