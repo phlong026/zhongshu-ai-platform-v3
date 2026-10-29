@@ -1,4 +1,3 @@
-require('../../utils/load-local-fonts')(require('../../utils/dashboard-font-sources'),'dashboard');
 const { createDashboard } = require('../../utils/dashboard');
 const customers = [];
 const definition=createDashboard(1, {

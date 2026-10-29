@@ -2,7 +2,6 @@
 // bottom navigation component they mount; content, handlers and styles all come from here and profile.wxml.
 const A = require('../../utils/account');
 const O = require('../../utils/organization');
-require('../../utils/load-local-fonts')(require('../../utils/dashboard-font-sources'), 'dashboard');
 
 const TEAM = { 'sales-lead': ['业务团队', 'business-team'], 'project-manager': ['工程团队', 'engineering-team'], 'finance-lead': ['财务管理', 'finance-team'], owner: ['门店团队与交接', 'staff'] };
 const account = (view, extra = '') => '/pages/account/index?view=' + view + extra;

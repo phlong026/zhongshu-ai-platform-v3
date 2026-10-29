@@ -1,7 +1,6 @@
 const navigate=options=>require('../../../utils/page-navigation').open(options.url);
 const W=require('../workbench');
 const R=require('../../../utils/engineering-records');
-require('../../../utils/load-local-fonts')(require('../../../utils/dashboard-font-sources'),'dashboard');
 Page({
  data:{filter:'全部',keyword:'',destination:'',mode:'',cards:[],incoming:[],tasks:[],error:'',filters:['全部','在建','待交付'],creating:false,createForm:{name:'',customer:'',city:'',phone:'',floors:'2',area:'',parentIndex:0},parentOptions:[],busy:false},
  onLoad(o){this.setData({filter:o.filter||(o.destination==='prepare'?'待开工':'全部'),destination:['prepare','schedule','documents','payments','site','inspection','materials'].includes(o.destination)?o.destination:'',mode:o.mode==='tasks'?'tasks':''});},

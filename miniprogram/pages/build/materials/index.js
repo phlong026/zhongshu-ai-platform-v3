@@ -1,6 +1,5 @@
 const navigate=options=>require('../../../utils/page-navigation').open(options.url);
 const W=require('../workbench'),E=require('../model'),V=require('../../../utils/page-visibility'),X=require('../../../utils/access');
-require('../../../utils/load-local-fonts')(require('../../../utils/dashboard-font-sources'),'dashboard');
 Page({
  data:{filter:'全部',overview:false,groups:[],filters:[],projects:[],projectIndex:0,nodeId:'',nodes:[],materials:[],pendingCount:0,error:'',allowed:false,canEdit:false},
  onLoad(o){this.id=o.id||'';this.requestedId=o.id||'';this.requestedNode=o.nodeId||'';},restoreNavigationState(){this.refresh();},onShow(){this.refresh();},

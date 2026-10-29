@@ -1,5 +1,4 @@
 const D=require('../../../utils/finance-desk'),M=require('../model'),F=require('../../../utils/finance-source'),X=require('../../../utils/access'),N=require('../../../utils/page-navigation');
-require('../../../utils/load-local-fonts')(require('../../../utils/dashboard-font-sources'),'dashboard');
 const views={flows:'收支',projects:'项目',partners:'加盟商往来',project:'项目账目',partner:'加盟商往来',statement:'设计款到账进度',tasks:'财务办理'};
 const clean=()=>({rows:[],detail:null,partner:null,statement:null,tasks:[],filters:[],stats:[],ready:false,error:''});
 const decode=v=>{try{return decodeURIComponent(v||'');}catch(_){return String(v||'');}};

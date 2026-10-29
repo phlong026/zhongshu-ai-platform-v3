@@ -1,6 +1,6 @@
 /* Self-contained: component styles do not inherit app.wxss. Tokens follow app.wxss (#81522e primary, #75451f accent). */
 .login-guide { display: flex; flex-direction: column; gap: 20rpx; padding: 32rpx 24rpx; }
-.login-guide-title { font-family: "ZhongshuSong", "Songti SC", "STSong", "SimSun", serif; font-weight: 700; font-size: 30rpx; line-height: 44rpx; letter-spacing: 1rpx; }
+.login-guide-title { font-family:"Songti SC", "STSong", "SimSun", serif; font-weight: 700; font-size: 30rpx; line-height: 44rpx; letter-spacing: 1rpx; }
 .login-guide-desc { font-size: 26rpx; line-height: 44rpx; color: #778092; }
 .login-guide-primary { width: 100%; margin: 8rpx 0 0; min-height: 88rpx; line-height: 88rpx; background: #81522e; color: #fffaf3; border-radius: 20rpx; font-size: 26rpx; }
 .login-guide-home { width: 100%; min-height: 88rpx; line-height: 88rpx; background: transparent; color: #75451f; border: 1rpx solid #d8cdb8; border-radius: 20rpx; font-size: 26rpx; }

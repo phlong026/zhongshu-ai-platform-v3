@@ -1,5 +1,4 @@
 const B=require('../../utils/business'),Access=require('../../utils/access'),Job=require('../../utils/organization'),Workspace=require('../../utils/sales-workspace');
-require('../../utils/load-local-fonts')(require('../../utils/dashboard-font-sources'),'dashboard');
 const TABS=[['due','今日待跟进'],['appointments','预约到店'],['all','全部'],['visited','已到店']];
 const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约到店的客户',visited:'暂无已到店的客户',all:'当前没有可见客户，可先登记客户。'};
 const tabRows=(rows,tab)=>tab==='visited'?rows.filter(r=>r.status==='已到店'):Workspace.focusRows(rows,tab==='all'?'':tab);

@@ -11,16 +11,16 @@
 .material-mode{display:flex;gap:18rpx;margin:6rpx 0 12rpx}.material-mode button{flex:1;min-height:60rpx;border:1rpx solid #ebe4db;border-radius:8rpx;font-size:24rpx}.material-mode .selected{color:var(--copper);border-color:var(--copper);background:#fff7ee}.material-sheet .field,.material-sheet .kv{min-height:67rpx}.material-sheet .control{height:49rpx;min-height:49rpx;line-height:47rpx}.material-sheet .field .label{width:155rpx}.material-sheet .sheet-body{max-height:66vh}
 
 /* Engineering typography: static Noto Sans SC faces keep glyphs and weight consistent. */
-.build{font-family:'ZSEngineeringRegular','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:400;font-size:26rpx;line-height:1.5}
+.build{font-family:'Regular','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:400;font-size:26rpx;line-height:1.5}
 .build button,.build input,.build picker{font-family:inherit;font-weight:inherit;letter-spacing:0}
-.build .heading,.build .name,.build .row-name,.build .strong,.build .num,.build .money,.build .sheet-title{font-family:'ZSEngineeringBold','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:400}
+.build .heading,.build .name,.build .row-name,.build .strong,.build .num,.build .money,.build .sheet-title{font-family:'','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:400}
 .build .heading{font-size:34rpx;line-height:48rpx;letter-spacing:0}
 .build .name{font-size:34rpx;line-height:48rpx}
 .build .row-name{font-size:29rpx;line-height:43rpx}
 .build .muted,.build .meta{font-size:25rpx;line-height:38rpx;font-weight:400}
-.build .badge,.build .link,.build .row-button,.build .btn{font-family:'ZSEngineeringMedium','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:400}
-.build .label,.build .value,.build .control{font-family:'ZSEngineeringRegular','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-size:26rpx;line-height:39rpx}
-.build .caption{font-size:22rpx;line-height:32rpx;font-family:'ZSEngineeringRegular','Noto Sans SC',sans-serif}
+.build .badge,.build .link,.build .row-button,.build .btn{font-family:'Medium','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:400}
+.build .label,.build .value,.build .control{font-family:'Regular','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-size:26rpx;line-height:39rpx}
+.build .caption{font-size:22rpx;line-height:32rpx;font-family:'Regular','Noto Sans SC',sans-serif}
 .build .notice{font-size:23rpx;line-height:35rpx}
 .build .footer .btn{font-size:30rpx;line-height:42rpx}
 .build .banner-info .name,.build .project-content .name{font-size:32rpx;line-height:46rpx}
@@ -36,7 +36,7 @@
 .view-node .row-name{font-size:26rpx}
 .build .sheet-title{font-size:34rpx;line-height:50rpx}
 .build .material-sheet .label,.build .material-sheet .control{font-size:24rpx;line-height:36rpx}
-.build .material-mode .selected{font-family:'ZSEngineeringMedium','Noto Sans SC',sans-serif}
+.build .material-mode .selected{font-family:'Medium','Noto Sans SC',sans-serif}
 .build .summary-sheet .row-name{font-size:30rpx;line-height:44rpx}
 .build .summary-sheet .muted{font-size:25rpx;line-height:37rpx}
 .view-rectify .field .label,.view-rectify .control{font-size:24rpx;line-height:36rpx}
@@ -44,7 +44,7 @@
 /* Measured against normalized reference images; compact archive and boss use smaller rows. */
 .build .heading{font-size:32rpx;line-height:46rpx}
 .build .name{font-size:32rpx;line-height:46rpx}
-.build .row-name{font-family:'ZSEngineeringMedium','Noto Sans SC',sans-serif;font-size:28rpx;line-height:42rpx}
+.build .row-name{font-family:'Medium','Noto Sans SC',sans-serif;font-size:28rpx;line-height:42rpx}
 .build .muted,.build .meta{font-size:24rpx;line-height:36rpx}
 .build .label,.build .value,.build .control{font-size:25rpx;line-height:38rpx}
 .view-archive .heading,.view-boss .heading{font-size:30rpx;line-height:44rpx}

@@ -1,4 +1,3 @@
-require('../../utils/load-local-fonts')(require('../../utils/dashboard-font-sources'),'dashboard');
 const { createDashboard } = require('../../utils/dashboard');
 const signedIn=require('./signed-in');
 Page(createDashboard(2, {

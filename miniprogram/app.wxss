@@ -9,7 +9,7 @@ button[disabled] { color: #aaa; }
 .section { background: rgba(255,255,255,.9); border-radius: 25rpx; padding: 18rpx; margin-bottom: 16rpx; }
 .section-heading { height: 54rpx; display: flex; align-items: center; justify-content: space-between; padding-left: 25rpx; position: relative; }
 .section-heading::before { content: ""; width: 6rpx; height: 34rpx; border-radius: 4rpx; background: #76471e; position: absolute; left: 0; top: 10rpx; }
-.section-title { font-family: "ZhongshuSong", "Songti SC", "STSong", "SimSun", serif; font-weight: 700; font-size: 36rpx; line-height: 1.2; letter-spacing: 1rpx; }
+.section-title { font-family:"Songti SC", "STSong", "SimSun", serif; font-weight: 700; font-size: 36rpx; line-height: 1.2; letter-spacing: 1rpx; }
 .section-heading.compact .section-title { font-size: 29rpx; }
 .primary { background: #81522e; color: #fffaf3; border-radius: 20rpx; padding: 10rpx 24rpx; line-height: 28rpx; font-size: 23rpx; font-weight: 400; }
 .plus { font-size: 32rpx; font-weight: 300; margin-right: 7rpx; vertical-align: -1rpx; }

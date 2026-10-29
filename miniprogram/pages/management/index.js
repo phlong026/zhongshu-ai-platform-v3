@@ -1,7 +1,6 @@
 // Role-specific queues use the same source IDs and authorization as their detail pages.
 const A=require('../../utils/account'),X=require('../../utils/access'),F=require('../../utils/finance-source');
 const staffSearch=require('./staff-search');
-require('../../utils/load-local-fonts')(require('../../utils/dashboard-font-sources'),'dashboard');
 Page({data:{allowed:false,loggedIn:false,role:'',mode:'finance',financeTodos:[],financeCounts:{reconcile:0,pay:0,verify:0},summary:{income:0,paid:0},menu:[],companyId:'',receivable:'待配置',plannedPay:'待配置'},
 onShow(){if(X.context().active&&X.isBoss())return wx.redirectTo({url:'/pages/admin/home/index'});const state=require('../../utils/workbench').management(),D=require('../../utils/finance-desk');let financeDesk=null,financeError='';if(D.allowed()){try{financeDesk=D.home(D.load());}catch(e){financeError=e.message;}}this.setData({...state,...staffSearch(state,this.data.staffKeyword||''),financeDesk,financeError});if(this.getTabBar()){this.getTabBar().refresh?.();this.getTabBar().setData({selected:3,hidden:false});}},
 financeGo(e){if(require('../../utils/finance-desk').allowed()&&e.currentTarget.dataset.url)require('../../utils/page-navigation').open(e.currentTarget.dataset.url);},
