@@ -76,9 +76,9 @@
 .boss-biz-alert{display:flex;align-items:flex-start;gap:14rpx;padding:14rpx 0;border-bottom:1rpx solid #f6f0e7;font-size:25rpx;line-height:38rpx;color:#4a443c}
 .boss-biz-alert:first-child{padding-top:4rpx}
 .boss-biz-alert:last-child{border-bottom:0;padding-bottom:4rpx}
-.boss-biz-dot{width:14rpx;height:14rpx;border-radius:50%;margin-top:12rpx;flex-shrink:0;background:#3f7d4e}
-.boss-biz-dot.red{background:#c2410c}
-.boss-biz-dot.amber{background:#b7791f}
+.boss-biz-dot{width:14rpx;height:14rpx;border-radius:50%;margin-top:12rpx;flex-shrink:0;background:#2e7d52}
+.boss-biz-dot.red{background:#b3402a}
+.boss-biz-dot.amber{background:#8a5a12}
 .boss-biz-rank{display:flex;align-items:center;gap:16rpx;padding:16rpx 0;border-bottom:1rpx solid #f6f0e7}
 .boss-biz-rank:first-child{padding-top:4rpx}
 .boss-biz-rank:last-child{border-bottom:0;padding-bottom:4rpx}

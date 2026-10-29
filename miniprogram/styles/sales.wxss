@@ -31,5 +31,5 @@ page{--sales-brand:var(--business-brand);--sales-paper:var(--business-paper);--s
 .customer-work-filters{display:flex;gap:16rpx;margin:20rpx 0}
 .customer-day-button{flex:1;display:flex;align-items:center;justify-content:space-between;gap:12rpx;padding:16rpx;border-radius:12rpx;background:#f7f3ed;border:1rpx solid #eee8df;color:#74695c;font-size:24rpx;line-height:36rpx;min-height:72rpx}
 /* Overdue dot shared by the home follow-up metric and the customer-list tab */
-.sales-stat-dot{width:14rpx;height:14rpx;border-radius:50%;background:#c0392b;margin:0 10rpx 0 auto}
+.sales-stat-dot{width:14rpx;height:14rpx;border-radius:50%;background:#b3402a;margin:0 10rpx 0 auto}
 .customer-day-button.active{background:#f7ebdc;border-color:#89512a;color:#89512a}
