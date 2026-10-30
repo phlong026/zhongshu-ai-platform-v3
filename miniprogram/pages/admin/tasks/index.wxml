@@ -1,5 +1,5 @@
 <view class="task-page">
-  <owner-header title="绩效任务" back="{{true}}"/>
+  <owner-header title="{{view==='mine'?'我的绩效':'绩效任务'}}" back="{{true}}"/>
   <view class="task-content">
     <text wx:if="{{error}}" class="error">{{error}}</text>
     <view class="period-row">
@@ -7,6 +7,23 @@
       <picker mode="date" fields="month" value="{{period}}" bindchange="month"><view class="period-picker">{{period}}</view></picker>
     </view>
     <view class="tabs"><button wx:for="{{tabs}}" wx:key="id" class="{{view===item.id?'active':''}}" data-view="{{item.id}}" bindtap="tab">{{item.label}}</button></view>
+
+    <view wx:if="{{view==='mine'&&goalRows.length}}" class="card performance-goals">
+      <view class="heading">{{myName}}的绩效目标</view>
+      <text class="hint">{{period}} · 老板下发</text>
+      <view class="goal-grid">
+        <view wx:for="{{goalRows}}" wx:key="id" class="goal-summary">
+          <view class="goal-ring" aria-label="{{item.title+'，完成进度'+item.percent+'%'}}">
+            <view class="goal-half goal-half-right"><view class="goal-arc goal-arc-right" style="transform:rotate({{item.progressRight}}deg)"/></view>
+            <view class="goal-half goal-half-left"><view class="goal-arc goal-arc-left" style="transform:rotate({{item.progressLeft}}deg)"/></view>
+            <view class="goal-ring-center"><text class="goal-percent">{{item.percent}}%</text><text class="goal-caption">完成进度</text></view>
+          </view>
+          <text class="goal-title">{{item.title}}</text>
+          <text class="goal-target">目标 {{item.targetText}}</text>
+          <text class="goal-collected">{{item.type==='manual'?'状态':'已完成'}} {{item.collectedText}}</text>
+        </view>
+      </view>
+    </view>
 
     <block wx:if="{{view==='team'}}">
       <view class="card">
@@ -28,7 +45,7 @@
       </form>
     </block>
 
-    <view wx:if="{{view!=='archive'}}" class="list-head"><text>{{view==='team'?'组织任务':'我的任务'}}</text><text>{{rows.length}} 项</text></view>
+    <view wx:if="{{view!=='archive'}}" class="list-head"><text>{{view==='team'?'组织任务':'绩效进展详情'}}</text><text>{{rows.length}} 项</text></view>
     <view wx:if="{{view!=='archive' && !rows.length}}" class="card"><empty-state message="本月暂无绩效任务"/></view>
     <view wx:if="{{view!=='archive'}}" wx:for="{{rows}}" wx:key="id" class="card task-card">
       <view class="task-top"><view><text class="task-title">{{item.title}}</text><text class="meta">{{item.assigneeName}} · {{item.typeLabel}} · 截止 {{item.due}}</text></view><text class="status {{item.status==='已完成'?'done':''}}">{{item.status}}</text></view>
