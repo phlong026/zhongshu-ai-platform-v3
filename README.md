@@ -1,14 +1,13 @@
 # 众墅之家 AI 赋能平台
 
-总部与加盟门店协同的赋能平台。一个仓库管三端：小程序、Web 管理后台、后端。
+总部与加盟门店协同的赋能平台。一个仓库管两端：Web 管理后台、后端。微信小程序在独立仓库 `zhongshu-ai-platform-v3` 开发，本仓库原归档的小程序快照已删除（历史提交中仍可追溯）。
 
 ## 目录
 
 | 目录 | 内容 |
 |---|---|
-| `小程序/` | 微信原生小程序（AppID `wxe584f6fad7b54487`）。业务、权限、流程目前都在本地实现，数据存在手机本地；说明见 `小程序/README.md`，业务规则见 `小程序/docs/` |
-| `管理后台/` | Vue3 + Element Plus Web 管理后台（复制自众墅设计小程序，待改造） |
-| `后端程序/` | yudao（Spring Boot）后端，分三层，见下 |
+| `平台程序/` | yudao（Spring Boot）后端 + Vue3 管理后台，分三层，见下 |
+| `平台程序/admin-ui/` | Vue3 + Element Plus Web 管理后台（基于 yudao-ui-admin-vue3 底座改造） |
 | `项目文档/平台/` | 平台层方案与约定，含 [后台改造方案](项目文档/平台/后台改造方案-2026-10-21.md) |
 | `项目文档/加盟协同域/` | 加盟协同域的方案、接口约定与验收记录 |
 
@@ -32,26 +31,26 @@
 后端需要 JDK 17（`JAVA_HOME` 指向 JDK 17；Homebrew 安装的路径如下）：
 
 ```bash
-cd 后端程序
+cd 平台程序
 JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home mvn -DskipTests package
 ```
 
 后端测试需要 Docker（Testcontainers 启动 PostgreSQL）。本机如开启了系统 SOCKS 代理，JVM 会继承它导致连不上测试数据库，需要显式关掉：
 
 ```bash
-cd 后端程序
+cd 平台程序
 mvn test -DargLine="-DsocksProxyHost= -DsocksNonProxyHosts=localhost|127.*|[::1]"
 ```
 
 管理后台：
 
 ```bash
-cd 管理后台
+cd 平台程序/admin-ui
 pnpm install
 pnpm dev
 ```
 
-小程序：用微信开发者工具导入 `小程序/` 目录。
+小程序：在独立仓库 `zhongshu-ai-platform-v3` 用微信开发者工具导入。
 
 ## 约定
 
