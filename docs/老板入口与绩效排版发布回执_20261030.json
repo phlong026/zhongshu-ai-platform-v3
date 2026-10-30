@@ -66,8 +66,12 @@
   "remoteCodeCommitVerified": true,
   "snapshotFilesVerified": 697,
   "experience": {
-    "status": "待设置或确认",
-    "reason": "浏览器会话访问后台被拦截；官方CLI仅能上传开发版本"
+    "status": "已启用",
+    "version": "1.0.20261030.4",
+    "evidence": "用户在本会话明确确认：已设为 1.0.20261030.4",
+    "confirmedDate": "2026-10-30",
+    "verification": "用户后台操作确认，未另行通过浏览器独立验证",
+    "priorBlock": "此前浏览器会话访问后台被拦截；官方CLI仅能上传开发版本"
   },
   "validation": {
     "fullFlowGroupsPassed": 20,
