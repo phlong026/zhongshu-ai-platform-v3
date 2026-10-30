@@ -36,12 +36,12 @@ function focusRows(rows,focus){const day=today();if(focus==='due')return rows.fi
 // Same figure as the boss home "本月签约": design commissions submitted this month (latest service order total, yuan), over the customers this person can see.
 function monthCommission(){const period=today().slice(0,7);const total=B.load().customers.filter(c=>c.businessFlow?.type==='sales-offline-v1'&&c.serviceOrders?.length&&String(c.businessFlow.submittedAt||'').slice(0,7)===period).reduce((n,c)=>n+Number(c.serviceOrders.at(-1).total||0),0);return total>=10000?{value:String(Math.round(total/100)/100),unit:'万元'}:{value:total.toLocaleString('en-US'),unit:'元'};}
 // Home to-do board: one list (actionable, in progress, staff approvals) filtered by tab; only the first rows show until expanded.
-const TODO_TABS=[['all','全部'],['customer','客户'],['creation','创作'],['commission','款项']],TODO_LIMIT=3;
+const TODO_TABS=[['all','全部'],['customer','客户'],['creation','创作'],['commission','款项'],['performance','绩效']],TODO_LIMIT=3;
 function todoBoard(pending=[],waiting=[],staff=[],tab='all',expanded=false){
  const Order=require('./task-order');
  const rows=Order.newest([...pending,...staff.map(t=>({id:'staff:'+t.key,staffKey:t.key,triggeredAt:t.triggeredAt,name:t.name,state:t.status,action:'去办理',actionable:true,group:'commission',urgency:3,staff:true,view:t.view,targetId:t.id,area:t.area,record:t.record}))]).concat(Order.newest(waiting));
  const inGroup=key=>rows.filter(r=>key==='all'||r.group===key),count=key=>inGroup(key).filter(r=>r.actionable).length;
- const tabs=TODO_TABS.filter(([key])=>key!=='commission'||inGroup(key).length).map(([key,label])=>({key,label,count:count(key)}));
+ const tabs=TODO_TABS.filter(([key])=>!['commission','performance'].includes(key)||inGroup(key).length).map(([key,label])=>({key,label,count:count(key)}));
  if(!tabs.some(t=>t.key===tab))tab='all';
  const inTab=rows.filter(r=>tab==='all'||r.group===tab),first=inTab.find(r=>r.actionable);
  const shown=new Set(inTab.slice(0,expanded?inTab.length:TODO_LIMIT).map(r=>r.id));

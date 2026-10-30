@@ -33,13 +33,15 @@ function taskRows(rows, staff) {
 
 Page({
   data: {
-    ready: false, error: '', view: 'mine', title: '绩效任务', myName: '', period: '', periodEnd: '', tabs: [], rows: [], goalRows: [], staff: [], types: Tasks.TYPES,
+    ready: false, error: '', view: 'mine', title: '绩效任务', myName: '', memberStaffId:'', period: '', periodEnd: '', tabs: [], rows: [], goalRows: [], staff: [], types: Tasks.TYPES,
     form: {}, assigneeIndex: 0, typeIndex: 0, previous: null, reassignTask: null, evidenceTask: null,
     evidence: { note: '', photos: [] }, archive: null,
     canInitialize: false, initializationHint: ''
   },
   onLoad(options) {
     this.requestedView = options.view || '';
+    this.initialMemberStaffId = options.view === 'member' ? String(options.person || '') : '';
+    this.requestedMemberStaffId = this.initialMemberStaffId;
     this.initialPeriod = validPeriod(options.period) ? options.period : '';
     this.requestedPeriod = this.initialPeriod;
     this.resetTaskForm();
@@ -56,7 +58,7 @@ Page({
   clearDerived(error = '', ready = false) {
     this.state = null;
     this.setData({
-      ready, error, view:'mine', title:'绩效任务', myName:'', period:'', periodEnd:'', tabs:[], rows:[], goalRows:[], staff:[], archive:null,
+      ready, error, view:'mine', title:'绩效任务', myName:'', memberStaffId:'', period:'', periodEnd:'', tabs:[], rows:[], goalRows:[], staff:[], archive:null,
       canArchive:false, canInitialize:false, initializationHint:'', previous:null, reassignTask:null, evidenceTask:null, evidence:{ note:'', photos:[] }
     });
     wx.setNavigationBarTitle({ title:'绩效任务' });
@@ -65,11 +67,13 @@ Page({
     let actor;
     try {
       actor = X.context();
-      const actorKey = [actor.loggedIn, actor.active, actor.companyId, actor.personId].join(':');
+      const actorKey = [actor.loggedIn, actor.active, actor.companyId, actor.personId, actor.staffId, actor.role].join(':');
       if (this.actorKey && this.actorKey !== actorKey) {
         this.initialPeriod = '';
         this.requestedPeriod = '';
         this.requestedView = '';
+        this.initialMemberStaffId = '';
+        this.requestedMemberStaffId = '';
         this.clearDerived();
         this.resetTaskForm();
       }
@@ -86,17 +90,19 @@ Page({
       ];
       const allowed = new Set(tabs.map(tab => tab.id));
       const requested = this.requestedView || this.data.view;
-      const view = allowed.has(requested) ? requested : boss ? 'team' : 'mine';
-      const raw = view === 'team' ? Tasks.list(state, { scope: 'company', period }) : view === 'mine' ? Tasks.list(state, { scope: 'mine', period }) : [];
-      const staff = (state.staff || []).filter(person => person.active !== false).map(person => ({ id: person.id, name: person.name }));
+      const view = requested === 'member' ? 'member' : allowed.has(requested) ? requested : boss ? 'team' : 'mine';
+      const activeStaff = (state.staff || []).filter(person => person.active !== false);
+      const member = view === 'member' ? activeStaff.find(person => person.id === this.requestedMemberStaffId) : null;
+      const raw = view === 'team' ? Tasks.list(state, { scope: 'company', period }) : view === 'member' ? Tasks.list(state, { scope:'member', staff:this.requestedMemberStaffId, period }) : view === 'mine' ? Tasks.list(state, { scope: 'mine', period }) : [];
+      const staff = activeStaff.map(person => ({ id: person.id, name: person.name }));
       const archive = view === 'archive' ? Tasks.archiveSummary(state, period) : null;
-      const rows = taskRows(raw, staff), myName = actor.name || A.load().profile.name || '当前成员';
-      const title = view === 'mine' ? myName + ' · 我的绩效' : view === 'archive' ? '绩效任务归档' : '团队绩效任务';
+      const rows = taskRows(raw, staff), myName = member?.name || actor.name || A.load().profile.name || '当前成员';
+      const title = view === 'mine' ? myName + ' · 我的绩效' : view === 'member' ? myName + ' · 绩效目标' : view === 'archive' ? '绩效任务归档' : '团队绩效任务';
       this.requestedView = '';
       this.setData({
-        ready: true, error: '', view, title, myName, period, periodEnd: monthEnd(period), tabs, rows, goalRows:view === 'mine' ? rows : [], canArchive: view === 'team' && raw.length > 0 && !raw[0].frozen,
+        ready: true, error: '', view, title, myName, memberStaffId:member?.id || '', period, periodEnd: monthEnd(period), tabs:view === 'member' ? [] : tabs, rows, goalRows:['mine','member'].includes(view) ? rows : [], canArchive: view === 'team' && raw.length > 0 && !raw[0].frozen,
         canInitialize: boss && view === 'team' && !raw.some(task => task.frozen),
-        staff: boss ? staff : [], archive: archive ? this.displayArchive(archive, staff) : null
+        staff: boss && view !== 'member' ? staff : [], archive: archive ? this.displayArchive(archive, staff) : null
       });
       wx.setNavigationBarTitle({ title });
       if (!this.data.form.assigneeId && boss && staff.length) this.selectAssignee({ detail: { value: 0 } });
@@ -106,10 +112,13 @@ Page({
         this.requestedPeriod = '';
         this.requestedView = '';
       }
+      this.initialMemberStaffId = '';
+      this.requestedMemberStaffId = '';
       this.clearDerived(error.message || '绩效任务加载失败', true);
       this.resetTaskForm();
     }
   },
+  writable() { if (this.data.view === 'member') { this.fail('成员绩效仅供查看'); return false; } return true; },
   displayArchive(summary, staff) {
     const names = Object.fromEntries(staff.map(person => [person.id, person.name]));
     const latest = summary.latest && {
@@ -133,6 +142,7 @@ Page({
     this.refresh();
   },
   initializePrevious() {
+    if (!this.writable()) return;
     try {
       const result = Tasks.initializePrevious(this.state, {
         period:this.data.period,
@@ -163,6 +173,7 @@ Page({
     catch (_) { this.setData({ previous: null }); }
   },
   submitTask(event) {
+    if (!this.writable()) return;
     try {
       Tasks.create(this.state, { ...this.data.form, ...event.detail.value, period: this.data.period });
       this.resetTaskForm();
@@ -171,11 +182,13 @@ Page({
     } catch (error) { this.fail(error.message); }
   },
   beginReassign(event) {
+    if (!this.writable()) return;
     const task = this.data.rows.find(row => row.id === event.currentTarget.dataset.id);
     this.setData({ reassignTask: task, reassignIndex: Math.max(0, this.data.staff.findIndex(person => person.id === task.assigneeId)) });
   },
   cancelReassign() { this.setData({ reassignTask: null }); },
   submitReassign(event) {
+    if (!this.writable()) return;
     try {
       const person = this.data.staff[Number(event.detail.value.assigneeIndex)];
       Tasks.reassign(this.state, this.data.reassignTask.id, {
@@ -188,12 +201,14 @@ Page({
     } catch (error) { this.fail(error.message); }
   },
   beginManual(event) {
+    if (!this.writable()) return;
     const task = this.data.rows.find(row => row.id === event.currentTarget.dataset.id);
     this.setData({ evidenceTask: task, evidence: { note: task.manualDone?.note || '', photos: task.manualDone?.photos || [] } });
   },
   cancelManual() { this.setData({ evidenceTask: null, evidence: { note: '', photos: [] } }); },
   evidenceNote(event) { this.setData({ 'evidence.note': event.detail.value, error: '' }); },
   choosePhotos() {
+    if (!this.writable()) return;
     const current = this.data.evidence.photos || [];
     if (current.length >= 6) return this.fail('最多上传 6 张照片');
     wx.chooseMedia({
@@ -215,6 +230,7 @@ Page({
     if (url) wx.navigateTo({ url, fail: () => this.fail('原单暂无法打开，请稍后重试') });
   },
   completeManual(event) {
+    if (!this.writable()) return;
     try {
       Tasks.completeManual(this.state, this.data.evidenceTask.id, {
         note: event.detail.value.note, photos: this.data.evidence.photos,
@@ -226,6 +242,7 @@ Page({
     } catch (error) { this.fail(error.message); }
   },
   archive() {
+    if (!this.writable()) return;
     try {
       Tasks.archive(this.state, this.data.period, { note: '月度绩效任务归档', idempotencyKey: 'performance-task-archive:' + this.state.companyId + ':' + this.data.period });
       this.requestedView = 'archive';
@@ -234,6 +251,7 @@ Page({
     } catch (error) { this.fail(error.message); }
   },
   revise() {
+    if (!this.writable()) return;
     try {
       const revision = (this.data.archive?.latest?.revision || 1) + 1;
       Tasks.reviseArchive(this.state, this.data.period, { note: '原业务事实变化后重新冻结', idempotencyKey: 'performance-task-archive:' + this.state.companyId + ':' + this.data.period + ':r' + revision });

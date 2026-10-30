@@ -43,9 +43,10 @@ function list(){
   if(c.request&&!SF.is(c)&&!c.acceptance){const n=require('./design-coordination').next(c);add({id:'legacy:'+c.id,triggeredAt:legacyTime(c,n.view),customerId:c.id,name:c.name,state:'历史委托 · '+n.state,owner:n.owner,action:n.actionable?n.label:'查看进度',actionable:n.actionable,url:'/pages/workflow/index?view='+n.view+'&id='+encodeURIComponent(c.id)});}
  }
  for(const t of SF.tasks())add(t);
+ for(const t of require('./performance-notifications').todos())add(t);
  // Published contents remain available for consultation registration; they do not create fictional clients.
  for(const c of G.contents||[])if(c.publishedUrl)add({id:'content:'+c.id,name:c.pack.title,state:'已发布，可登记真实咨询',owner:a.name,action:'内容跟踪',actionable:false,url:'/pages/growth/index?view=content&id='+encodeURIComponent(c.id)});
- const group=r=>/^(generation|work|publish|content):/.test(r.id)?'creation':r.kind==='commission'||/^legacy:/.test(r.id)?'commission':'customer';
+ const group=r=>r.group||(/^(generation|work|publish|content):/.test(r.id)?'creation':r.kind==='commission'||/^legacy:/.test(r.id)?'commission':'customer');
  const customers=new Map(customerRows.map(c=>[c.id,c]));
  const unique=[...new Map(rows.map(r=>[r.id,r])).values()].map(r=>{
   const c=customers.get(r.id.slice(r.id.indexOf(':')+1));

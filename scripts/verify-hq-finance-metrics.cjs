@@ -222,7 +222,7 @@ const copy = value => JSON.parse(JSON.stringify(value));
   assert(cumulativePage.switchWorkspaceTab({ key: 'finance-flows' }));
   assert.equal(cumulativePage.data.flowScope, 'period', '新组织 Tab 往返不得恢复旧组织累计范围');
   const storeDesk = Desk.home(Desk.load());
-  assert.deepEqual(storeDesk.metrics.map(row => row.label), ['本月已登记收款', '本月已登记付款', '合同待收', '待登记事项']);
+  assert.deepEqual(storeDesk.metrics.map(row => row.label), ['本月已登记收款', '本月已登记付款', '合同待收', '待办事项']);
   assert.equal(Desk.advances(Desk.load())[0].received, 100000, '门店往来明细应读取总部扣除已核实退款后的净到账');
 
   const template = fs.readFileSync('miniprogram/pages/management/finance-home.wxml', 'utf8');

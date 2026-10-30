@@ -1,5 +1,6 @@
 const A = require('./account');
 const X = require('./access');
+const O = require('./organization');
 const P = require('./performance');
 const clone = require('./clone');
 
@@ -12,7 +13,10 @@ const TYPES = [
   { id: 'auto:onTimeNodes', label: '按期节点', unit: '个' },
   { id: 'auto:publications', label: '内容发布', unit: '条' },
   { id: 'auto:effectiveLeads', label: '有效线索', unit: '条' },
-  { id: 'auto:qualifiedDeliveries', label: '到货合格批次', unit: '批' }
+  { id: 'auto:qualifiedDeliveries', label: '到货合格批次', unit: '批' },
+  { id: 'auto:approvedDeliverables', label: '审核通过设计成果', unit: '套' },
+  { id: 'auto:financeRegistrations', label: '实际收付登记', unit: '笔' },
+  { id: 'auto:financeReviews', label: '独立财务复核', unit: '笔' }
 ];
 const typeById = Object.fromEntries(TYPES.map(type => [type.id, type]));
 let sequence = 0;
@@ -122,6 +126,9 @@ function sourceMatchesType(source, type) {
   if (type === 'auto:publications') return source.kind === 'publication';
   if (type === 'auto:effectiveLeads') return source.kind === 'lead';
   if (type === 'auto:qualifiedDeliveries') return source.kind === 'material';
+  if (type === 'auto:approvedDeliverables') return source.kind === 'design';
+  if (type === 'auto:financeRegistrations') return source.kind === 'finance';
+  if (type === 'auto:financeReviews') return source.kind === 'finance-review';
   return false;
 }
 
@@ -290,9 +297,22 @@ function list(state, options = {}, factsProvider) {
   const actor = actorFor(state), period = String(options.period || state.period || '');
   X.assert(validPeriod(period), '请选择有效月份');
   const cycle = readCycle(state.companyId, period), archive = latestArchive(cycle);
-  let rows = archive ? clone(archive.tasks).map(task => ({ ...task, frozen: true })) : (cycle.tasks || []).map(task => resolved(state, task, factsProvider));
+  let tasks = archive ? archive.tasks || [] : cycle.tasks || [];
   if (options.scope === 'company') X.assert(X.isBoss(actor), '只有本组织老板可查看组织任务');
-  else rows = rows.filter(task => taskPersonId(state, task) === actor.personId);
+  else if (options.scope === 'member') {
+    const member = (state.staff || []).find(person => person.id === options.staff);
+    X.assert(member && member.active !== false, '请选择本组织在岗成员');
+    const personId = member.personId || member.id, self = personId === actor.personId;
+    const employeeRole = actor.role === 'sales-lead' ? 'sales' : actor.role === 'project-manager' ? 'engineer' : '';
+    const team = employeeRole && (member.teamIds?.[O.teamForRole(employeeRole)] || member.teamId || O.teamForRole(employeeRole));
+    const managed = employeeRole && O.staffHas(member, employeeRole) && actor.managedTeamIds.includes(team);
+    X.assert(self || X.isBoss(actor) || managed, '当前身份无权查看该成员管理团队绩效');
+    tasks = tasks.filter(task => taskPersonId(state, task) === personId);
+  } else {
+    X.assert(!options.scope || options.scope === 'mine', '不支持的绩效任务查看范围');
+    tasks = tasks.filter(task => taskPersonId(state, task) === actor.personId);
+  }
+  const rows = archive ? clone(tasks).map(task => ({ ...task, frozen: true })) : tasks.map(task => resolved(state, task, factsProvider));
   return rows.sort((left, right) => left.due.localeCompare(right.due));
 }
 

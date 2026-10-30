@@ -80,8 +80,9 @@ function build(customers, actor, options = {}) {
     })
     .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name, 'zh-CN'));
   const counts = Object.fromEntries(FILTERS.map(label => [label, label === '全部' ? rows.length : rows.filter(row => row.status === label).length]));
-  const actionable = TaskOrder.newest(rows.filter(row => row.actionable));
-  const todos = actionable.slice(0, 3).map((row, index) => ({ ...row, customerId: row.id, url: row.actionUrl, primary: index === 0 }));
+  const performance = require('./performance-notifications').todos(null, { actor });
+  const actionable = TaskOrder.newest(rows.filter(row => row.actionable).concat(performance));
+  const todos = actionable.slice(0, 3).map((row, index) => ({ ...row, ...(row.group === 'performance' ? {} : { customerId:row.id }), url:row.actionUrl || row.url, primary:index === 0 }));
   const recent = rows.filter(row => row.recentAt).sort((a, b) => b.recentAt.localeCompare(a.recentAt)).slice(0, 5);
   const metrics = [
     { label: '设计与修改', value: counts[Status.designing] + counts[Status.modifying], filter: '设计与修改', icon: '/assets/home-design-icon.png' },

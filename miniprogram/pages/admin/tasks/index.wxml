@@ -1,5 +1,5 @@
 <view class="task-page">
-  <owner-header title="{{view==='mine'?'我的绩效':'绩效任务'}}" back="{{true}}"/>
+  <owner-header title="{{view==='member'?'成员绩效':view==='mine'?'我的绩效':'绩效任务'}}" back="{{true}}"/>
   <view class="task-content">
     <text wx:if="{{error}}" class="error">{{error}}</text>
     <view class="period-row">
@@ -8,9 +8,9 @@
     </view>
     <view class="tabs"><button wx:for="{{tabs}}" wx:key="id" class="{{view===item.id?'active':''}}" data-view="{{item.id}}" bindtap="tab">{{item.label}}</button></view>
 
-    <view wx:if="{{view==='mine'&&goalRows.length}}" class="card performance-goals">
+    <view wx:if="{{(view==='mine'||view==='member')&&goalRows.length}}" class="card performance-goals">
       <view class="heading">{{myName}}的绩效目标</view>
-      <text class="hint">{{period}} · 老板下发</text>
+      <text class="hint">{{period}} · {{view==='member'?'负责人只读查看':'老板下发'}}</text>
       <view class="goal-grid">
         <view wx:for="{{goalRows}}" wx:key="id" class="goal-summary">
           <view class="goal-ring" aria-label="{{item.title+'，完成进度'+item.percent+'%'}}">

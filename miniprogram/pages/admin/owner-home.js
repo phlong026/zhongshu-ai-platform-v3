@@ -212,8 +212,9 @@ function todos(snapshot) {
   const money = snapshot.approvals.map(task => ({ key: task.key, url: task.url, name: task.name, tag: moneyKind(task), detail: [task.amount, task.status].filter(Boolean).join(' · '), action: '去审批', group: 'money', triggeredAt:task.triggeredAt }));
   const reviews = snapshot.reviews.map(task => ({ key: task.key, url: task.url, name: task.name, tag: '结果复核', detail: task.status, action: '去复核', group: 'review', triggeredAt:task.triggeredAt }));
   const handover = handovers(snapshot);
-  const all = Order.newest([...money, ...reviews, ...handover]);
-  return { all, groups: [{ key: 'all', label: '全部', count: all.length }, { key: 'money', label: '例外审批', count: money.length }, { key: 'review', label: '结果复核', count: reviews.length }, { key: 'handover', label: '责任交接', count: handover.length }] };
+  const performance = require('../../utils/performance-notifications').todos(null, { actor:snapshot.actor });
+  const all = Order.newest([...money, ...reviews, ...handover, ...performance]);
+  return { all, groups: [{ key: 'all', label: '全部', count: all.length }, { key: 'money', label: '例外审批', count: money.length }, { key: 'review', label: '结果复核', count: reviews.length }, { key: 'handover', label: '责任交接', count: handover.length }, { key:'performance', label:'绩效任务', count:performance.length }] };
 }
 
 function business(snapshot) {

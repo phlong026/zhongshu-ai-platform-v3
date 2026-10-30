@@ -78,18 +78,18 @@ login('sales-a', 'sales');
 assert.throws(() => Tasks.initializePrevious(state, { period:'2026-11', idempotencyKey:'initialize:staff' }), /老板/, '员工不得批量生成组织任务');
 login('boss-a', 'boss');
 const initialized = Tasks.initializePrevious(state, { period:'2026-11', idempotencyKey:'initialize:2026-11' });
-assert.equal(initialized.created.length, 7, '仅按上月七类正数真实业绩生成建议任务');
+assert.equal(initialized.created.length, 8, '仅按上月八类正数真实业绩生成建议任务');
 assert(initialized.created.every(task => task.type.startsWith('auto:') && task.target > 0 && task.due === '2026-11-30'));
 assert(initialized.created.every(task => !Object.hasOwn(task, 'bonus')), '建议任务不应生成奖金字段');
 assert(initialized.created.every(task => task.suggestion?.period === '2026-10' && task.suggestion.sources.length > 0 && task.suggestion.sources.every(source => source.url.startsWith('/pages/'))), '建议任务须保留上月原单依据');
 assert.deepEqual(Object.fromEntries(initialized.created.map(task => [task.type, task.target])), {
   'auto:collectionsAmount':2500, 'auto:contract':1000, 'auto:completedNodes':1, 'auto:onTimeNodes':1,
-  'auto:publications':1, 'auto:effectiveLeads':1, 'auto:qualifiedDeliveries':1
-}, '建议目标应与上月七类实际完成值一致');
+  'auto:publications':1, 'auto:effectiveLeads':1, 'auto:qualifiedDeliveries':1, 'auto:financeRegistrations':1
+}, '建议目标应与上月八类实际完成值一致');
 assert.equal(new Set(initialized.created.map(task => task.assigneePersonId + ':' + task.type)).size, initialized.created.length, '同一真实 person/type 仅生成一项');
 assert.deepEqual(Tasks.initializePrevious(state, { period:'2026-11', idempotencyKey:'initialize:2026-11' }).created.map(task => task.id), initialized.created.map(task => task.id), '同一命令键重放返回原批次');
 assert.equal(Tasks.initializePrevious(state, { period:'2026-11', idempotencyKey:'initialize:retry' }).created.length, 0, '不同命令键重试也不重复生成');
-assert.equal(Tasks.list(state, { scope:'company', period:'2026-11' }).length, 7);
+assert.equal(Tasks.list(state, { scope:'company', period:'2026-11' }).length, 8);
 Tasks.archive(state, '2026-11', { note:'十一月归档', idempotencyKey:'archive:2026-11' });
 assert.throws(() => Tasks.initializePrevious(state, { period:'2026-11', idempotencyKey:'initialize:archived' }), /已归档/);
 const emptyInitialization = Tasks.initializePrevious(state, { period:'2026-12', idempotencyKey:'initialize:2026-12' });

@@ -77,7 +77,7 @@ async function main() {
     // Reuse the same customer/project records when checking the store role.
     await r.login('finance-dual', 'finance');
     const store = (await r.data()).financeDesk;
-    assert.deepEqual(store.metrics.map(row => row.label), ['本月已登记收款', '本月已登记付款', '合同待收', '待登记事项']);
+    assert.deepEqual(store.metrics.map(row => row.label), ['本月已登记收款', '本月已登记付款', '合同待收', '待办事项']);
     await r.capture('store-home');
     report.checks.push('王财务门店四项指标保持原收付款职责');
     assert.equal(r.errors.length, 0);
