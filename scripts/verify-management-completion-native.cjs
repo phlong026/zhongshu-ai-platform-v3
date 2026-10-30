@@ -178,15 +178,10 @@ function fixture() {
     pass('项目经理交接列表的标记按钮写入独立交接标记', { workId:'qa-management-work', systemDialog:'showModal返回确认及明确原因' });
 
     data = await open('/pages/admin/profile/index', '.owner-management');
-    const bossCommission = data.managementEntries.find(row => row.text === '项目回款提成');
-    assert(bossCommission);
-    await runner.event({ selector:'.owner-management .service-row', dataset:{ url:bossCommission.url } }, 'open');
-    await route('pages/admin/commission/index');
-    data = await runner.data();
-    assert.equal(data.canEditPolicy, true);
-    assert((await runner.rects(['.commission-save']))[0], '老板提成规则控件须渲染');
-    await capture('commission-boss');
-    pass('老板从我的管理入口进入项目回款提成页', { role:'boss' });
+    assert(!data.managementEntries.some(row => ['项目回款提成', '工程负责人交接', '历史委托费用授权', '绩效任务'].includes(row.text)));
+    assert(!data.entries.some(row => row.text === '管理模拟联调'));
+    await capture('owner-profile-clean-entries');
+    pass('老板我的移除重复任务与指定管理快捷入口', { role:'boss' });
 
     await runner.login('finance-dual', 'finance');
     data = await open('/pages/profile/index', '.profile-card');
