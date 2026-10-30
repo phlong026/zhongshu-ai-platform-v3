@@ -3,41 +3,41 @@
   <view class="task-content">
     <text wx:if="{{error}}" class="error">{{error}}</text>
     <view class="period-row">
-      <text>绩效任务按月派发与冻结</text>
-      <picker mode="date" fields="month" value="{{period}}" bindchange="month"><view class="period-picker">{{period}}</view></picker>
+      <text>任务月份</text>
+      <picker mode="date" fields="month" value="{{period}}" bindchange="month"><view class="period-picker"><text>{{period}}</text><image src="/assets/creation-chevron.png" mode="aspectFit"/></view></picker>
     </view>
-    <view class="tabs"><button wx:for="{{tabs}}" wx:key="id" class="{{view===item.id?'active':''}}" data-view="{{item.id}}" bindtap="tab">{{item.label}}</button></view>
+    <view wx:if="{{tabs.length>1}}" class="tabs"><button wx:for="{{tabs}}" wx:key="id" class="{{view===item.id?'active':''}}" data-view="{{item.id}}" bindtap="tab">{{item.label}}</button></view>
 
     <block wx:if="{{view==='team'}}">
       <view class="card">
         <view class="heading">上月实绩建议</view>
         <text class="hint">按上月工作记录生成本月建议任务。</text>
-        <button wx:if="{{canInitialize}}" class="primary initialize-previous" bindtap="initializePrevious">按上月实绩生成建议任务</button>
+        <button wx:if="{{canInitialize}}" class="secondary initialize-previous" bindtap="initializePrevious">生成本月建议任务</button>
         <text wx:else class="hint">本月任务已归档，不可重新初始化。</text>
         <text wx:if="{{initializationHint}}" class="hint">{{initializationHint}}</text>
       </view>
-      <form class="card task-form" bindsubmit="submitTask">
+      <view class="card task-form"><form class="task-form-body" bindsubmit="submitTask">
         <view class="heading">派发月度任务</view>
-        <label><text>任务标题</text><input name="title" value="{{form.title}}" data-key="title" bindinput="field" placeholder="例：完成基础节点验收" maxlength="60"/></label>
-        <label><text>责任人</text><picker range="{{staff}}" range-key="name" value="{{assigneeIndex}}" bindchange="selectAssignee"><view class="picker">{{staff[assigneeIndex].name||'请选择'}}</view></picker></label>
-        <label><text>类型</text><picker range="{{types}}" range-key="label" value="{{typeIndex}}" bindchange="selectType"><view class="picker">{{types[typeIndex].label}}</view></picker></label>
-        <label><text>截止日期</text><picker mode="date" value="{{form.due}}" start="{{period}}-01" end="{{periodEnd}}" bindchange="field" data-key="due"><view class="picker">{{form.due}}</view></picker></label>
-        <label wx:if="{{form.type!=='manual'}}"><text>目标值</text><input name="target" value="{{form.target}}" data-key="target" bindinput="field" type="digit" placeholder="请输入自动目标"/></label>
+        <label class="task-field"><text class="task-label">任务标题</text><input class="task-input" name="title" value="{{form.title}}" data-key="title" bindinput="field" placeholder="例：完成基础节点验收" maxlength="60"/></label>
+        <label class="task-field"><text class="task-label">责任人</text><picker class="task-select" range="{{staff}}" range-key="name" value="{{assigneeIndex}}" bindchange="selectAssignee"><view class="picker">{{form.assigneeId?staff[assigneeIndex].name:'请选择责任人'}}</view></picker></label>
+        <label class="task-field"><text class="task-label">类型</text><picker class="task-select" range="{{types}}" range-key="label" value="{{typeIndex}}" bindchange="selectType"><view class="picker">{{types[typeIndex].label}}</view></picker></label>
+        <label class="task-field"><text class="task-label">截止日期</text><picker class="task-select" mode="date" value="{{form.due}}" start="{{period}}-01" end="{{periodEnd}}" bindchange="field" data-key="due"><view class="picker">{{form.due}}</view></picker></label>
+        <label class="task-field" wx:if="{{form.type!=='manual'}}"><text class="task-label">目标值</text><input class="task-input" name="target" value="{{form.target}}" data-key="target" bindinput="field" type="digit" placeholder="请输入自动目标"/></label>
         <view wx:if="{{previous}}" class="hint">上月同类事实：{{previous.value}}{{previous.unit}}（{{previous.period}}）</view>
         <button class="primary" form-type="submit">派发任务</button>
-      </form>
+      </form></view>
     </block>
 
     <view wx:if="{{view!=='archive'}}" class="list-head"><text>{{view==='team'?'组织任务':'我的任务'}}</text><text>{{rows.length}} 项</text></view>
     <view wx:if="{{view!=='archive' && !rows.length}}" class="card"><empty-state message="本月暂无绩效任务"/></view>
     <view wx:if="{{view!=='archive'}}" wx:for="{{rows}}" wx:key="id" class="card task-card">
-      <view class="task-top"><view><text class="task-title">{{item.title}}</text><text class="meta">{{item.assigneeName}} · {{item.typeLabel}} · 截止 {{item.due}}</text></view><text class="status {{item.status==='已完成'?'done':''}}">{{item.status}}</text></view>
+      <view class="task-top"><view class="task-copy"><text class="task-title">{{item.title}}</text><text class="meta">{{item.assigneeName}} · {{item.typeLabel}} · 截止 {{item.due}}</text></view><text class="status {{item.status==='已完成'?'done':''}}">{{item.status}}</text></view>
       <view class="facts"><view><text>目标</text><text>{{item.targetText}}</text></view><view><text>已完成</text><text>{{item.collectedText}}</text></view></view>
-      <view wx:if="{{item.sources.length}}" class="sources"><button wx:for="{{item.sources}}" wx:key="id" data-url="{{item.url}}" bindtap="openSource"><view><text>{{item.name}}</text><text>{{item.date}}{{item.amountText?' · '+item.amountText:''}}</text></view><text>查看原单</text></button></view>
+      <view wx:if="{{item.sources.length}}" class="sources"><button wx:for="{{item.sources}}" wx:key="id" data-url="{{item.url}}" bindtap="openSource"><view class="source-copy"><text>{{item.name}}</text><text>{{item.date}}{{item.amountText?' · '+item.amountText:''}}</text></view><text>查看原单</text></button></view>
       <text wx:if="{{item.suggestionText}}" class="history suggestion-basis">{{item.suggestionText}}</text>
-      <view wx:if="{{item.suggestionSources.length}}" class="sources suggestion-sources"><button wx:for="{{item.suggestionSources}}" wx:key="id" data-url="{{item.url}}" bindtap="openSource"><view><text>{{item.name}}</text><text>{{item.date}}{{item.amountText?' · '+item.amountText:''}}</text></view><text>查看上月原单</text></button></view>
+      <view wx:if="{{item.suggestionSources.length}}" class="sources suggestion-sources"><button wx:for="{{item.suggestionSources}}" wx:key="id" data-url="{{item.url}}" bindtap="openSource"><view class="source-copy"><text>{{item.name}}</text><text>{{item.date}}{{item.amountText?' · '+item.amountText:''}}</text></view><text>查看上月原单</text></button></view>
       <text wx:if="{{item.historyText}}" class="history">{{item.historyText}}</text>
-      <view class="task-actions">
+      <view wx:if="{{!item.frozen&&(view==='team'||(view==='mine'&&item.type==='manual'))}}" class="task-actions">
         <button wx:if="{{view==='team' && !item.frozen}}" data-id="{{item.id}}" bindtap="beginReassign">改派</button>
         <button wx:if="{{view==='mine' && item.type==='manual' && !item.frozen}}" data-id="{{item.id}}" bindtap="beginManual">{{item.manualDone?'更新凭证':'提交完成凭证'}}</button>
       </view>
@@ -49,12 +49,12 @@
       <view wx:if="{{archive.latest}}" class="card archive-card">
         <view class="heading">任务归档 R{{archive.latest.revision}}</view>
         <view class="archive-total"><text>已完成 {{archive.latest.completedCount}} 项</text><text>共 {{archive.latest.lines.length}} 项</text></view>
-        <view wx:for="{{archive.latest.lines}}" wx:key="id" class="archive-line"><view><text>{{item.name}}</text><text>{{item.title}}</text></view><text>{{item.status}}</text></view>
+        <view wx:for="{{archive.latest.lines}}" wx:key="id" class="archive-line"><view class="archive-copy"><text>{{item.name}}</text><text>{{item.title}}</text></view><text class="archive-status">{{item.status}}</text></view>
         <view wx:if="{{archive.needsRevision}}" class="warning">归档后原业务事实已变化，请创建修订版，原版保留不变。<button bindtap="revise">生成修订版</button></view>
       </view>
     </block>
   </view>
 
-  <view wx:if="{{reassignTask}}" class="overlay"><form class="sheet" bindsubmit="submitReassign"><view class="sheet-head"><text>改派：{{reassignTask.title}}</text><button bindtap="cancelReassign">×</button></view><picker name="assigneeIndex" range="{{staff}}" range-key="name" value="{{reassignIndex}}"><view class="picker">{{staff[reassignIndex].name}}</view></picker><textarea name="note" placeholder="填写改派原因" maxlength="300"/><button class="primary" form-type="submit">确认改派并留痕</button></form></view>
-  <view wx:if="{{evidenceTask}}" class="overlay"><form class="sheet" bindsubmit="completeManual"><view class="sheet-head"><text>完成凭证：{{evidenceTask.title}}</text><button bindtap="cancelManual">×</button></view><textarea name="note" value="{{evidence.note}}" bindinput="evidenceNote" placeholder="说明完成情况" maxlength="500"/><view class="photos"><button wx:for="{{evidence.photos}}" wx:key="*this" data-index="{{index}}" bindtap="removePhoto"><image src="{{item}}" mode="aspectFill"/><text>删除</text></button><button wx:if="{{evidence.photos.length<6}}" bindtap="choosePhotos">+添加照片</button></view><button class="primary" form-type="submit">保存完成凭证</button></form></view>
+  <view wx:if="{{reassignTask}}" class="overlay"><view class="sheet"><form class="task-sheet-form" bindsubmit="submitReassign"><view class="sheet-head"><text class="sheet-title">改派：{{reassignTask.title}}</text><button class="sheet-close" bindtap="cancelReassign" aria-label="关闭改派弹层">×</button></view><picker class="task-select" name="assigneeIndex" range="{{staff}}" range-key="name" value="{{reassignIndex}}"><view class="picker">{{staff[reassignIndex].name}}</view></picker><textarea class="task-textarea" name="note" placeholder="填写改派原因" maxlength="300"/><button class="primary" form-type="submit">确认改派并留痕</button></form></view></view>
+  <view wx:if="{{evidenceTask}}" class="overlay"><view class="sheet"><form class="task-sheet-form" bindsubmit="completeManual"><view class="sheet-head"><text class="sheet-title">完成凭证：{{evidenceTask.title}}</text><button class="sheet-close" bindtap="cancelManual" aria-label="关闭完成凭证弹层">×</button></view><textarea class="task-textarea" name="note" value="{{evidence.note}}" bindinput="evidenceNote" placeholder="说明完成情况" maxlength="500"/><view class="photos"><button wx:for="{{evidence.photos}}" wx:key="*this" data-index="{{index}}" bindtap="removePhoto"><image src="{{item}}" mode="aspectFill"/><text>删除</text></button><button wx:if="{{evidence.photos.length<6}}" bindtap="choosePhotos">添加照片</button></view><button class="primary" form-type="submit">保存完成凭证</button></form></view></view>
 </view>

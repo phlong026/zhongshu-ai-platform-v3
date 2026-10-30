@@ -30,6 +30,7 @@ const assert = require('node:assert/strict');
   assert.equal(page.data.error, '');
   assert.match(page.data.period, /^\d{4}-\d{2}$/);
   assert.equal(page.data.view, 'team');
+  assert(await (await runtime.currentPage()).$('view.task-form form'), '原生表单必须由块级卡片承载，避免框体只占文字行');
   assert.deepEqual(page.data.tabs.map(tab => tab.label), ['团队任务', '我的任务', '任务归档']);
   assert.equal(await (await runtime.currentPage()).$('[data-key="bonus"]'), null, '任务派发不得录入奖金');
   const taskPageText = await (await runtime.currentPage()).$('.task-content');
