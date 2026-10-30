@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-30",
+  "appid": "wxe584f6fad7b54487",
+  "branch": "fix/owner-layout-reuse-20261030",
+  "codeCommit": "b9f140c6d462f144f9d3d74529b734a1292c221f",
+  "productTree": "0dcab6720bc04d8f49041183eb79b6fc9e9ad6a1",
+  "version": "1.0.20261030.4",
+  "upload": {
+    "result": "passed",
+    "tool": "微信开发者工具官方CLI",
+    "exitCode": 0,
+    "size": {
+      "total": 6801284,
+      "packages": [
+        {
+          "name": "TOTAL",
+          "size": 6801284
+        },
+        {
+          "name": "main",
+          "size": 1734662
+        },
+        {
+          "name": "/pages/account/",
+          "size": 1000119
+        },
+        {
+          "name": "/pages/admin/",
+          "size": 482930
+        },
+        {
+          "name": "/pages/ai-video/",
+          "size": 16757
+        },
+        {
+          "name": "/pages/build/",
+          "size": 1115609
+        },
+        {
+          "name": "/pages/collaboration/",
+          "size": 24564
+        },
+        {
+          "name": "/pages/creation/",
+          "size": 13468
+        },
+        {
+          "name": "/pages/design/",
+          "size": 234992
+        },
+        {
+          "name": "/pages/growth/",
+          "size": 11866
+        },
+        {
+          "name": "/pages/studio/",
+          "size": 330592
+        },
+        {
+          "name": "/pages/workflow/",
+          "size": 1835725
+        }
+      ]
+    }
+  },
+  "remoteCodeCommitVerified": true,
+  "snapshotFilesVerified": 697,
+  "experience": {
+    "status": "待设置或确认",
+    "reason": "浏览器会话访问后台被拦截；官方CLI仅能上传开发版本"
+  },
+  "validation": {
+    "fullFlowGroupsPassed": 20,
+    "nativeStatesPassed": 14,
+    "nativeExceptions": 0,
+    "productionDependencyVulnerabilities": 0,
+    "existingDevelopmentDependencyVulnerabilities": 12,
+    "realDevice": "未验收",
+    "realRoleAndOnlineData": "未验收"
+  }
+}
