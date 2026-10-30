@@ -11,9 +11,8 @@
   },
   "archiveMatchesFinalNative": true,
   "developmentUploaded": true,
-  "experienceActivated": null,
-  "experienceActivationStatus": "awaiting-user-confirmation",
-  "experienceBlocker": "Computer Use site policy blocked WeChat backend browser access; no activation attempted through another route",
+  "experienceActivated": true,
+  "experienceActivationStatus": "user-confirmed",
   "productionReleased": false,
   "realPaymentEnabled": false,
   "realDeviceAccepted": false,
@@ -112,5 +111,13 @@
       "bounded HTTP1.1 push exceeded 45 seconds"
     ],
     "localSourceCommit": "8f5e6fb3c42fe926f7a1880c0bdffe4ce1d07bf1"
-  }
+  },
+  "experienceVersion": "1.0.20261030.3",
+  "experienceConfirmation": {
+    "source": "direct-user-message",
+    "text": "已设为体验版 1.0.20261030.3",
+    "recordedAt": "2026-10-30T01:04:41.272504+00:00",
+    "independentBrowserVerification": false
+  },
+  "experienceAutomationRestriction": "Computer Use site policy blocked WeChat backend browser access; no activation attempted through another route"
 }
