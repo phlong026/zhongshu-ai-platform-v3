@@ -1,2 +1,0 @@
-const a=require('miniprogram-automator');
-(async()=>{const m=await a.connect({wsEndpoint:'ws://127.0.0.1:9420'});m.on('exception',console.error);const p=await m.reLaunch('/pages/workflow/index?view=ai-config');await p.waitFor(300);await (await p.$('.bottom-inline')).tap();await p.waitFor(300);await m.screenshot({path:'qa/business-20261018/generation-modal.png'});await m.native().confirmModal();await p.waitFor(500);console.log(await (await m.currentPage()).data('view'));await m.disconnect();})().catch(e=>{console.error(e);process.exit(1)});

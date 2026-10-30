@@ -1,8 +1,0 @@
-function money(n) {
- var a = (n || 0).toFixed(0).split('');
- var b = [];
- while (a.length > 3) { b.unshift(a.splice(a.length - 3, 3).join('')); }
- b.unshift(a.join(''));
- return b.join(',');
-}
-module.exports = { money: money };

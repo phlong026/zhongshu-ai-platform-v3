@@ -1,2 +1,0 @@
-const a=require('miniprogram-automator');
-(async()=>{const m=await a.connect({wsEndpoint:'ws://127.0.0.1:9420'});m.on('exception',e=>console.log('EXCEPTION',e));m.on('console',e=>console.log('CONSOLE',e));const p=await m.reLaunch('/pages/workflow/index?view=customer');await p.waitFor(1800);console.log('overlays',(await p.$$('.overlay')).length);console.log('customer',await p.data('customer'));await m.screenshot({path:'qa/business-20261018/probe.png'});await m.disconnect();})().catch(console.error);

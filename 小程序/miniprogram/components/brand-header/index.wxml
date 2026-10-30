@@ -1,8 +1,0 @@
-<view wx:if="{{showNavigation}}" style="height:calc({{statusHeight}}px + 87rpx)"/><view class="header {{home ? 'header-home' : ''}} {{accountFont?'account-font':''}} {{showNavigation?'header-subpage':''}}" style="padding-top: {{statusHeight}}px;">
-  <view class="nav-row">
-    <block wx:if="{{showNavigation}}"><button class="subpage-back" bindtap="back" aria-label="返回上一页"><image class="back-icon" src="/assets/creation-back.png" mode="aspectFit"/></button><button class="return-home" bindtap="workbench" aria-label="返回工作台">工作台</button></block>
-    <image wx:else class="brand" src="/assets/brand.png" mode="aspectFit" />
-    <view wx:if="{{!showNavigation&&divider&&title}}" class="brand-divider"/>
-    <view wx:if="{{title}}" class="heading"><text class="title">{{title}}</text><text wx:if="{{subtitle}}" class="subtitle">{{subtitle}}</text></view>
-  </view>
-</view>

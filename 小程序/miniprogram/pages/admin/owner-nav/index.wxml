@@ -1,1 +1,0 @@
-<view class="boss-nav"><button wx:for="{{tabs}}" wx:key="key" class="boss-nav-item {{active===item.page?'active':''}}" data-page="{{item.page}}" bindtap="go" aria-label="{{item.text}}"><image class="{{active!==item.page?'muted':''}}" src="{{item.image}}" mode="aspectFit"/><text>{{item.text}}</text></button></view>

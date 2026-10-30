@@ -1,1 +1,0 @@
-{ "desc": "工作台演示页面", "rules": [{ "action": "allow", "page": "*" }] }

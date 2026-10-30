@@ -1,2 +1,0 @@
-/* Existing Zhongshu mini-program palette and typography. */
-page{--business-brand:#89512a;--business-paper:#faf8f4;--business-soft:#f7f3ed;--business-ink:#141312;--business-muted:#6e737c;--business-line:#eee8df;--business-font:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;--business-radius:22rpx;--business-space:24rpx}
