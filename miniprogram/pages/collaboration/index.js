@@ -56,7 +56,7 @@ Page({
   },
   apply(snapshot) {
     const finance = ['finance', 'finance-lead'].includes(snapshot.actor.role);
-    const projects = snapshot.projects || [], tasks = snapshot.tasks || [], messages = snapshot.messages || [];
+    const projects = snapshot.projects || [], tasks = require('../../utils/task-order').newest(snapshot.tasks || []), messages = snapshot.messages || [];
     const metrics = finance ? [
       { label: '待确认到账', value: tasks.length, unit: '笔' },
       { label: '待确认金额', value: money(tasks.reduce((sum, row) => sum + (row.amount || 0), 0)), unit: '' }

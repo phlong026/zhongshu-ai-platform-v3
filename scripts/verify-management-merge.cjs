@@ -89,7 +89,7 @@ assert.equal(home.business.appointments.value, 2, '普通电话预约不能算�
 assert(home.business.notes.every(row => row.key && row.url.includes('view=stat')));
 
 assert.deepEqual(Home.todoRows(snapshot, 'handover').map(row => row.key), [
-  'handover:work-left', 'handover:work-marked', 'handover:work-legacy-content', 'handover:work-legacy-follow'
+  'handover:work-marked', 'handover:work-left', 'handover:work-legacy-content', 'handover:work-legacy-follow'
 ]);
 assert(!Home.todoRows(snapshot, 'handover').some(row => row.key.includes('engineering-work')), '业务转工程不能制造责任交接审批');
 assert(!Home.todoRows(snapshot, 'handover').some(row => row.key.includes('legacy-engineering')), '无类型的工程移交也不能制造责任交接审批');

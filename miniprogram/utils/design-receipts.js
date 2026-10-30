@@ -24,7 +24,8 @@ function sources(customer, stage, order) {
     originPaymentId: payment.id, customerId: customer.id, projectId: customer.projectId,
     customer: customer.name, name: stage === 'first' ? '设计首款实际到账' : '设计尾款实际到账',
     stage, serviceVersion: order.version, requestVersion: order.requestVersion || customer.request?.version,
-    expected: payment.amount, expectedTransaction: payment.transaction
+    expected: payment.amount, expectedTransaction: payment.transaction,
+    triggeredAt: require('./task-order').latest(payment.triggeredAt, payment.reviewedAt, payment.registeredAt, payment.at, payment.date)
   }));
 }
 
@@ -62,7 +63,8 @@ function incoming(book) {
       id: 'incoming:' + source.link + ':' + (history.length + 1), companyId: book.companyId,
       projectId: source.projectId, customer: source.customer, name: source.name,
       amount: remaining, expectedAmount: source.expected, expectedTransaction: source.expectedTransaction,
-      status: '待登记', date: '', file: null, transaction: '', revisions: [], version: 1, source
+      status: '待登记', date: '', file: null, transaction: '', revisions: [], version: 1,
+      triggeredAt: source.triggeredAt, source
     });
   }
   return stored.concat(pending);

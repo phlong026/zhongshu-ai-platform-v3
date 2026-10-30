@@ -1,5 +1,6 @@
 const Checkout = require('./design-checkout');
 const Status = require('./status-labels').commission;
+const TaskOrder = require('./task-order');
 const FILTERS = ['全部', Status.pay, Status.designing, Status.modifying, Status.receiptWaiting, Status.dispatch, Status.handover, Status.receive, Status.dispatched];
 const STATUS_ORDER = { [Status.modifying]:0, [Status.designing]:1, [Status.pay]:2, [Status.receiptWaiting]:3, [Status.dispatch]:4, [Status.handover]:5, [Status.receive]:6, [Status.dispatched]:7 };
 
@@ -70,6 +71,7 @@ function build(customers, actor, options = {}) {
         actionUrl: salesFlow.url(customer.id, actionView),
         action: status === Status.modifying ? '处理修改' : status === Status.designing ? '查看委托' : [Status.pay, Status.receiptWaiting, Status.handover, Status.receive].includes(status) ? '查看进度' : status === Status.dispatch ? '上传并下发' : '查看记录',
         actionable: !!(next.actionable && ['complete', 'dispatch'].includes(next.view)),
+        triggeredAt: (options.triggeredAtFor || salesFlow.triggeredAt)(customer, next.view),
         actorId: event?.actorId || '',
         recentAt: event?.at || '',
         recentWhen: event?.at ? eventTime(event.at) : '',
@@ -78,7 +80,7 @@ function build(customers, actor, options = {}) {
     })
     .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name, 'zh-CN'));
   const counts = Object.fromEntries(FILTERS.map(label => [label, label === '全部' ? rows.length : rows.filter(row => row.status === label).length]));
-  const actionable = rows.filter(row => row.actionable);
+  const actionable = TaskOrder.newest(rows.filter(row => row.actionable));
   const todos = actionable.slice(0, 3).map((row, index) => ({ ...row, customerId: row.id, url: row.actionUrl, primary: index === 0 }));
   const recent = rows.filter(row => row.recentAt).sort((a, b) => b.recentAt.localeCompare(a.recentAt)).slice(0, 5);
   const metrics = [
@@ -118,7 +120,7 @@ function load(actor = require('./access').context()) {
   const rawById = new Map(rawRows.map(customer => [`${customer.companyId || 'quanzhou'}:${customer.id}`, customer]));
   const companyNames = new Map([...new Set(projected.map(customer => customer.companyId || 'quanzhou'))].map(id => [id, companyName(id)]));
   const rawFor = customer => rawById.get(`${customer.companyId || 'quanzhou'}:${customer.id}`) || customer;
-  return { ...build(projected, actor, { nextFor: customer => SalesFlow.nextRecord(rawFor(customer)), feeApproved: customer => SalesFlow.feeApproved(rawFor(customer)), companyNameFor: id => companyNames.get(id || 'quanzhou') || '加盟商名称待完善' }), actor, date: dateLabel() };
+  return { ...build(projected, actor, { nextFor: customer => SalesFlow.nextRecord(rawFor(customer)), triggeredAtFor: (customer, view) => SalesFlow.triggeredAt(rawFor(customer), view), feeApproved: customer => SalesFlow.feeApproved(rawFor(customer)), companyNameFor: id => companyNames.get(id || 'quanzhou') || '加盟商名称待完善' }), actor, date: dateLabel() };
 }
 
 module.exports = { FILTERS, statusOf, build, filter, paginate, dateLabel, load };

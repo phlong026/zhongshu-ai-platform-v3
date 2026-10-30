@@ -8,6 +8,7 @@ const M = require('./model');
 const KEY = require('../../utils/storage-keys').ownerGoals;
 const cover = '/pages/build/assets/house.jpg';
 const clone = require('../../utils/clone');
+const Order = require('../../utils/task-order');
 const allowed = () => { const a = X.context(); return a.active && X.isBoss(a); };
 const detail = (view, extra = {}) => '/pages/admin/detail/index?view=' + view + Object.entries(extra).filter(([,v]) => v !== '' && v !== undefined).map(([k,v]) => '&' + k + '=' + encodeURIComponent(v)).join('');
 const admin = (view, id = '') => '/pages/admin/index?view=' + view + (id ? '&id=' + encodeURIComponent(id) : '');
@@ -34,8 +35,7 @@ function snapshot() {
   const customers = (wx.getStorageSync(require('../../utils/storage-keys').business)?.customers || []).filter(c => X.sameCompany(c, actor) && X.customer(c));
   const projects = (wx.getStorageSync(require('../../utils/storage-keys').engineering)?.projects || []).filter(p => X.sameCompany(p, actor) && X.project(p));
   const tasks = F.tasks(state).map(t => ({ ...t, name:t.record === 'quote' ? t.name.replace('正式报价及合同金额','正式报价审批') : t.name, url: taskUrl(t), image: cover }));
-  const priority = t => t.record === 'quote' ? 0 : 1;
-  const approvals = tasks.filter(t => t.view === 'money-review' || t.area==='operations').sort((a,b) => priority(a) - priority(b));
+  const approvals = Order.newest(tasks.filter(t => t.view === 'money-review' || t.area==='operations'));
   const sum = F.summary(state), goals = goal(period), staff = (state.staff || []).filter(p => p.active !== false);
   // Signing = design commissions submitted in the month (latest design service order total, yuan).
   const commissions = customers.filter(c => c.businessFlow?.type === 'sales-offline-v1' && c.serviceOrders?.length && inMonth(c.businessFlow.submittedAt, period));
@@ -61,7 +61,7 @@ function snapshot() {
   });
   const metric = (label,value,target,unit) => { const percent = ratio(value,target); return { label, value: unit === '万' ? wan(value * 100) : value, target: target ? unit === '万' ? wan(target * 100) : target : '', unit, percent, width: Math.min(100, percent || 0) }; };
   const metrics = [metric('设计委托', sales, goals.sales, '万'), metric('新增客户', newCustomers.length, goals.customers, '位'), metric('工程计划节点', completed.length, goals.nodes, '项')];
-  const reviews = (state.archives || []).filter(r => r.status === '待复核').map(r => ({ key: 'review:' + r.id, name: (staff.find(p => p.id === r.person)?.name || r.person || '历史人员') + ' · 周期复核', status: r.id + ' · 待复核', url: admin('review',r.id) }));
+  const reviews = (state.archives || []).filter(r => r.dynamic && r.status === '待复核').map(r => ({ key: 'review:' + r.id, name: (staff.find(p => p.id === r.person)?.name || r.person || '历史人员') + ' · 周期复核', status: r.id + ' · 待复核', url: admin('review',r.id), triggeredAt:Order.latest(r.submission?.at,r.submittedAt,r.at) }));
   const focus = active.map(p => { const ns = p.plan?.nodes || [], done = ns.filter(n => n.status === '已完成').length, inspection = (p.inspections || []).at(-1), rectification = (p.rectifications || []).filter(r => r.inspectionId === inspection?.id).at(-1); const risk = inspection?.result === '需整改' && !(rectification?.result === '通过' && rectification?.reviewStatus === 'passed'); return { key:p.id, name:p.name || p.customer, image:p.image || cover, stage:ns.find(n => n.status !== '已完成')?.name || '施工收尾', progress:ns.length ? Math.round(done / ns.length * 100) : 0, risk, status:risk ? '整改待复验' : '按当前施工节点推进', url:'/pages/build/index?view=overview&id=' + encodeURIComponent(p.id) }; }).sort((a,b) => Number(b.risk) - Number(a.risk));
   const operating=require('../../utils/operations').overview(state);const company = A.company(account), settingsEvents = goalsStore().companies[actor.companyId]?.events || [];
   const events = [...(state.events || []), ...settingsEvents].map((e,i) => ({ key:'event:' + i, name:e.text || ({'approve-pay':'审批付款申请','set-roles':'调整成员岗位','transfer':'办理工作交接','goals':'更新月度目标'}[e.action] || e.action || '业务操作'), status:(e.by || e.actorId || '历史经办人') + ' · ' + A.displayTime(e.at || e.effectiveAt || '').slice(0,16), at:e.at || e.effectiveAt || '', url:e.action === 'goals' ? detail('targets') : admin('transfer-history') })).sort((a,b) => b.at.localeCompare(a.at));

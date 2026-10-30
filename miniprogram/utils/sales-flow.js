@@ -154,15 +154,37 @@ function transition(b,action,input,at=new Date().toISOString()){
 function validate(b,n,action){const cmd=n.businessFlow?.lastCommand;X.assert(cmd?.action===action&&cmd.actorId===X.context().staffId,'业务事件来源不一致');const expected=transition(b,action,cmd.input,cmd.at);X.assert(same(expected,n),'该动作不能改写其他业务字段或历史记录');}
 function run(id,action,input,revision){return require('./business').write(id,n=>Object.assign(n,transition(n,action,input)),({ 'commission-pay':'体验设计费模拟支付成功','commission-submit':'提交设计委托','commission-feedback':'登记线下修改意见','design-complete':'线下设计完成','design-dispatch':'正式成果已下发','packet-submit':'提交成果与移交','packet-return':'移交资料退回','packet-receive':'业务资料接收完成'})[action],action,revision);}
 function packageRows(c){const p=c.businessFlow?.packet;if(!p)return [];return [['design','正式设计成果',p.resultFile],['drawing','正式施工图',p.drawingFile],['review','线下专业审核依据',p.reviewFile],['confirmation','客户确认凭据',p.confirmationFile],['brief','电子交底',{name:'电子交底记录',text:p.note}]].map(([key,label,f])=>({key,label,version:p.drawingVersion,ready:file(f),file:copy(f),summary:key==='confirmation'?p.confirmationDate:'',view:''}));}
+// Each next step inherits the event that made it actionable, not the customer's creation order.
+function triggeredAt(c, view) {
+ const Order=require('./task-order'),flow=c.businessFlow||{};
+ const event=action=>Order.latest(...(flow.events||[]).filter(row=>row.action===action).map(row=>row.at));
+ const stamp=row=>row?.at||row?.registeredAt||row?.date||'';
+ const submitted=flow.submittedAt||stamp(c.serviceOrders?.at(-1))||stamp(c.budgets?.at(-1))||c.createdAt||'';
+ let at=submitted;
+ if(view==='submit')at=require('./commercial-approval').latest(c,'service')?.reviewedAt||stamp(c.budgets?.at(-1))||submitted;
+ else if(view==='pay')at=Order.latest(submitted,require('./commercial-approval').latest(c,'service')?.reviewedAt);
+ else if(view==='complete'){
+  const feedback=flow.feedbacks?.at(-1);
+  if(feedback?.status==='pending')at=feedback.at||feedback.date;
+  else if(Checkout.is(c))at=flow.paymentOrder?.paidAt||submitted;
+  else if(c.serviceOrders?.at(-1)?.first>0)at=Order.latest(submitted,...require('./intercompany').stagePayments(c,'first').map(stamp));
+ }else if(view==='dispatch'){
+  const confirmed=!Checkout.is(c)&&c.serviceOrders?.at(-1)?.total>0?require('./design-receipts').release(c).confirmedAt:'';
+  at=Order.latest(flow.completed?.at,confirmed)||submitted;
+ }else if(view==='handover')at=c.handover?.status==='returned'?Order.latest(event('packet-return'),...(c.returns||[]).filter(row=>row.view==='receive'&&row.status==='pending').map(stamp)):flow.dispatch?.at;
+ else if(view==='receive')at=event('packet-submit')||stamp(c.handover);
+ else at=flow.completed?.at||submitted;
+ return Order.latest(at,...(c.responsibilityHistory||[]).map(stamp));
+}
 function tasks(a=X.context()){
  if(!a.active)return [];const rows=[];
  for(const c of (wx.getStorageSync(KEY)||{}).customers||[]){
-  if(!is(c)){if(!legacy(c)&&c.budgets?.length&&allowed('commission-submit',c,a))rows.push({id:'commission:'+c.id,key:'commission:'+c.id,customerId:c.id,name:c.name,state:'方案预算已保存，待提交委托',action:'提交设计委托',command:'commission-submit',actionable:true,url:url(c.id,'submit'),kind:'commission'});continue;}
+  if(!is(c)){if(!legacy(c)&&c.budgets?.length&&allowed('commission-submit',c,a))rows.push({id:'commission:'+c.id,key:'commission:'+c.id,customerId:c.id,name:c.name,state:'方案预算已保存，待提交委托',action:'提交设计委托',command:'commission-submit',triggeredAt:triggeredAt(c,'submit'),actionable:true,url:url(c.id,'submit'),kind:'commission'});continue;}
   if(!X.customer(c,a)||c.acceptance)continue;const n=next(c),action={pay:'commission-pay',submit:'commission-submit',complete:'design-complete',dispatch:'design-dispatch',handover:'packet-submit',receive:'packet-receive'}[n.view],tail=require('./intercompany').condition(c,'tail'),followTail=!Checkout.is(c)&&!!c.businessFlow.completed&&!c.businessFlow.dispatch&&!n.waitingFirst&&tail.paid<tail.expected&&allowed('commission-submit',c,a),actionable=!!action&&allowed(action,c,a)||followTail;
   if(a.role==='hq-design-admin'&&!['complete','dispatch'].includes(n.view))continue;
   if(a.role==='project-manager'&&n.view!=='receive')continue;
-  const view=followTail?'progress':actionable?n.view:'progress';rows.push({id:'offline:'+c.id+':'+c.request.version,key:'offline:'+c.id+':'+c.request.version,customerId:c.id,name:c.name,state:followTail?'设计已完成 · 跟进尾款支付':n.state,owner:n.owner,action:followTail?'跟进尾款支付':actionable?n.label:'查看进度',command:actionable&&!followTail?action:'',actionable,url:url(c.id,view),kind:'commission'});
+  const view=followTail?'progress':actionable?n.view:'progress';rows.push({id:'offline:'+c.id+':'+c.request.version,key:'offline:'+c.id+':'+c.request.version,customerId:c.id,name:c.name,state:followTail?'设计已完成 · 跟进尾款支付':n.state,owner:n.owner,action:followTail?'跟进尾款支付':actionable?n.label:'查看进度',command:actionable&&!followTail?action:'',triggeredAt:triggeredAt(c,view),actionable,url:url(c.id,view),kind:'commission'});
  }
- return rows;
+ return require('./task-order').newest(rows);
 }
-module.exports={is,legacy,legacyActions,entry,actions,url,policy,savePolicy,standardApproved,paymentAuthorization,allowed,feeApproved,firstRegistered,next,nextRecord,transition,validate,run,packageRows,tasks,file,raw};
+module.exports={is,legacy,legacyActions,entry,actions,url,policy,savePolicy,standardApproved,paymentAuthorization,allowed,feeApproved,firstRegistered,next,nextRecord,transition,validate,run,packageRows,tasks,triggeredAt,file,raw};

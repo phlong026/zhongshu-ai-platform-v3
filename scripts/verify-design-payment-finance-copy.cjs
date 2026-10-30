@@ -250,6 +250,25 @@ console.log('PASS 一次性设计费模拟支付：双方财务抄送、旧首�
     assert(template.includes('detail.simulatedDesign') && template.includes('partner.simulatedDesign'), '项目账和总部往来页须对体验模拟文案做显式分支');
     assert(template.includes('体验模拟支付记录不计入正式实收实付'), '页面应明确体验数据的账务边界');
     assert(template.includes('首尾款足额到账且设计完成后') && template.includes('总部实际到账'), '历史设计费页面文案须继续保留');
+    const businessState = wx.getStorageSync(B.KEY);
+    const latestCustomer = businessState.customers.find(row => row.id === created.id);
+    const historical = Array.from({ length: 6 }, (_, index) => {
+      const row = JSON.parse(JSON.stringify(latestCustomer));
+      row.id = 'older-copy-' + index;
+      row.projectId = 'project-' + row.id;
+      row.name = '历史设计费' + index;
+      row.businessFlow.paymentOrder.id = 'order-' + row.id;
+      row.businessFlow.paymentOrder.transactionId = row.businessFlow.paymentOrder.id + ':demo:' + row.businessFlow.paymentOrder.channel;
+      row.businessFlow.paymentOrder.customerId = row.id;
+      row.businessFlow.paymentOrder.projectId = row.projectId;
+      row.businessFlow.paymentOrder.paidAt = '2020-01-01T00:00:00Z';
+      return row;
+    });
+    wx.setStorageSync(B.KEY, { ...businessState, customers: historical.concat(latestCustomer) });
+    const crowded = Desk.home(M.load());
+    assert.equal(crowded.focus.length, 5);
+    assert(crowded.focus[0].id.startsWith(created.id + ':'), '六条旧费用不得把最新付款挤出总部首页');
+    console.log('PASS 总部首页先按实际支付时间排序，再截取五条费用');
   } finally {
     await runtime.disconnect();
   }

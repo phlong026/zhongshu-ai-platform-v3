@@ -112,7 +112,8 @@
     "check:layout:system": "node scripts/verify-layout-system.cjs && node scripts/verify-layout-copy.cjs && node scripts/verify-design-tokens.cjs && node scripts/verify-control-styles.cjs && node scripts/verify-shared-shell-components.cjs",
     "capture:layout": "node scripts/capture-layout-audit-native.cjs",
     "check:single-project": "node scripts/verify-single-project-journey.cjs",
-    "check:project-linkage": "node scripts/verify-content-customer-atomicity.cjs && node scripts/verify-engineering-material-followup.cjs && node scripts/verify-finance-owner-linkage-20261030.cjs && node scripts/verify-owner-dunning-linkage-20261030.cjs"
+    "check:project-linkage": "node scripts/verify-content-customer-atomicity.cjs && node scripts/verify-engineering-material-followup.cjs && node scripts/verify-finance-owner-linkage-20261030.cjs && node scripts/verify-owner-dunning-linkage-20261030.cjs",
+    "check:task-order": "node scripts/verify-task-order.cjs && node scripts/verify-sales-todo-order.cjs && node scripts/verify-design-todo-order.cjs && node scripts/verify-engineering-todo-order.cjs && node scripts/verify-finance-todo-order.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0",
