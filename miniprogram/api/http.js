@@ -91,5 +91,6 @@ module.exports = {
   onUnauthorized,
   get: (path, params) => request('GET', path, params),
   post: (path, data, extraHeader) => request('POST', path, data, extraHeader),
-  put: (path, data, extraHeader) => request('PUT', path, data, extraHeader)
+  put: (path, data, extraHeader) => request('PUT', path, data, extraHeader),
+  del: (path, data, extraHeader) => request('DELETE', path, data, extraHeader)
 };
