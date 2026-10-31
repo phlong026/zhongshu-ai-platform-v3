@@ -117,6 +117,9 @@ platform:
       apps:
         - appid: ${PF_WX_STAFF_APPID:}
           secret: ${PF_WX_STAFF_APPSECRET:}
+    # 员工手机号验证码登录的短信通道：当前仅 stub（真实短信凭据到位后切 real，real 实现类就绪前 prod 启动即失败）。
+    sms:
+      provider: ${PF_SMS_PROVIDER:stub}
 
 # T13-02：管理端不得回显密钥——将 Actuator env/configprops 端点的值回显显式设为安全默认值 NEVER。
 # Spring Boot 3.5 默认即 never（值以 ****** 呈现），此处在生产安全基线显式声明，令「不回显密钥」不依赖框架默认。
