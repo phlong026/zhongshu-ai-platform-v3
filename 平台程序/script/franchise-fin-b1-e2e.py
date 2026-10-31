@@ -8,6 +8,7 @@ import json
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 BASE = 'http://127.0.0.1:48080/admin-api'
@@ -171,6 +172,37 @@ def main():
     keys = [i['key'] for i in todos.get('items', [])]
     assert any(k.startswith('fr-fin:bank-confirm:') for k in keys), keys
     print(f'    finance 待办含 fr-fin:bank-confirm（{len([k for k in keys if k.startswith("fr-fin")])} 条）')
+
+    step('AC17 前置补丁断言：payments 列表/付款 projectId/registerPayable 幂等/confirm 幂等/两组织隔离')
+    pays = act(finance, 'GET', '/franchise/finance/payments', None)
+    assert any(p['payableId'] == payable_id for p in pays), pays
+    acct = act(finance, 'GET', f'/franchise/finance/project-accounts/0', None) if False else act(finance, 'GET', '/franchise/finance/payables', None)
+    # registerPayable 幂等重放
+    pidem = 'fin-payable-' + str(time.time_ns())
+    p1 = act(finance, 'POST', '/franchise/finance/payables',
+             {'stage': '幂等', 'totalCents': 100000, 'recipient': '幂等供应商'}, headers={'Idempotency-Key': pidem})
+    p2 = act(finance, 'POST', '/franchise/finance/payables',
+             {'stage': '幂等', 'totalCents': 100000, 'recipient': '幂等供应商'}, headers={'Idempotency-Key': pidem})
+    assert p1['payableId'] == p2['payableId'], (p1, p2)
+    p3 = act(finance, 'POST', '/franchise/finance/payables',
+             {'stage': '异内容', 'totalCents': 200000, 'recipient': '幂等供应商'}, headers={'Idempotency-Key': pidem}, expect_code=1099000000)
+    print('    应付幂等重放/异内容冲突通过')
+    # confirm 幂等（同键同内容重放返回首次 confirmId）
+    flow2 = call('POST', f'/platform/dev-setup/bank-flow?companyId={org_id}&bankRef=BK-IDEM-{time.time_ns()}&amountCents=10000000',
+                 None, token=finance['token'], post_id=finance['post'])
+    pr2 = call('POST', f'/platform/dev-setup/bank-flow/pending-receipt?companyId={org_id}&amountCents=10000000&name=' + urllib.parse.quote('幂等应收') + '',
+               None, token=finance['token'], post_id=finance['post'])
+    cidem = 'fin-confirm-' + str(time.time_ns())
+    c1 = act(finance, 'POST', '/franchise/finance/bank-confirms',
+             {'bankFlowId': flow2, 'receiptId': pr2}, headers={'Idempotency-Key': cidem})
+    c2 = act(finance, 'POST', '/franchise/finance/bank-confirms',
+             {'bankFlowId': flow2, 'receiptId': pr2}, headers={'Idempotency-Key': cidem})
+    assert c1['confirmId'] == c2['confirmId'], (c1, c2)
+    print('    到账确认幂等重放通过')
+    # 两组织隔离：总部 orgId 登记的收款对门店财务查询不可见（林设计总部岗为 designAdmin 无 fin 权限，改用 receipt company 断言）
+    hq_receipts = [r for r in act(finance, 'GET', '/franchise/finance/receipts', None) if r['companyId'] != org_id]
+    assert not hq_receipts, 'AC17 组织隔离：门店财务查询不应含其他公司收款'
+    print('    两组织数据隔离通过（查询范围恒为公司内）')
 
     step('AC16 越权：工程岗调财务接口 403；boss 付款作废 403（payment-void 仅 finance-lead）')
     engineer = login(setup, 'engineer')

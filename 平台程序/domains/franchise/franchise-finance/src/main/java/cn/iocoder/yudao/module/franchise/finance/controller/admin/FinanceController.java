@@ -167,8 +167,9 @@ public class FinanceController {
     @PostMapping("/payables")
     @Operation(summary = "登记应付")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
-    public CommonResult<Map<String, Object>> registerPayable(@Valid @RequestBody PaymentServicePayableCommand cmd) {
-        long id = paymentService.registerPayable(currentPost.require(), new FinPaymentService.PayableCommand(
+    public CommonResult<Map<String, Object>> registerPayable(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+                                                             @Valid @RequestBody PaymentServicePayableCommand cmd) {
+        long id = paymentService.registerPayable(currentPost.require(), idempotencyKey, new FinPaymentService.PayableCommand(
                 currentPost.require().orgId(), cmd.projectId(), cmd.stage(),
                 cmd.totalCents() == null ? 0 : cmd.totalCents(), cmd.recipient(), cmd.agreementRef()));
         return success(Map.of("payableId", id));
@@ -176,6 +177,13 @@ public class FinanceController {
 
     public record PaymentServicePayableCommand(Long projectId, String stage, Long totalCents,
                                                String recipient, String agreementRef) {
+    }
+
+    @GetMapping("/payments")
+    @Operation(summary = "付款列表（本公司；status 可选）")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<List<FinPaymentDO>> payments(@RequestParam(value = "status", required = false) String status) {
+        return success(paymentMapper.selectByCompany(currentPost.require().orgId(), status));
     }
 
     @PostMapping("/payments")
@@ -250,12 +258,13 @@ public class FinanceController {
     @PostMapping("/bank-confirms")
     @Operation(summary = "确认到账（唯一入账；金额一致门禁；失败尝试独立留痕）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
-    public CommonResult<Map<String, Object>> confirmBank(@Valid @RequestBody BankConfirmCommand cmd) {
-        long id = bankService.confirm(currentPost.require(), cmd.bankFlowId(), cmd.receiptId());
+    public CommonResult<Map<String, Object>> confirmBank(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+                                                         @Valid @RequestBody BankConfirmCommand cmd) {
+        long id = bankService.confirm(currentPost.require(), idempotencyKey != null ? idempotencyKey : cmd.idempotencyKey(), cmd.bankFlowId(), cmd.receiptId());
         return success(Map.of("confirmId", id));
     }
 
-    public record BankConfirmCommand(Long bankFlowId, Long receiptId) {
+    public record BankConfirmCommand(String idempotencyKey, Long bankFlowId, Long receiptId) {
     }
 
     // ===== 项目账与设计费净额 =====

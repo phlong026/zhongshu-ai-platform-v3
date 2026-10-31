@@ -21,7 +21,7 @@ import java.util.List;
 public class FinanceTodoProvider implements TodoProvider {
 
     public static final String DOMAIN = "fr-fin";
-    private static final String COMMISSION_PAGE = "/pages/collaboration/index";
+    private static final String FLOWS_PAGE = "/pages/admin/finance-desk/index?view=flows";
 
     @Resource
     private FinBankFlowMapper flowMapper;
@@ -45,7 +45,7 @@ public class FinanceTodoProvider implements TodoProvider {
                                 .eq(FinBankConfirmDO::getBankFlowId, flow.getId())) == 0)
                 .map(flow -> new TodoItem(DOMAIN, DOMAIN + ":bank-confirm:" + flow.getId(),
                         "跨端到账待确认 · " + flow.getBankRef(), "待匹配",
-                        flow.getAmountCents(), true, null, COMMISSION_PAGE, flow.getCreateTime()))
+                        flow.getAmountCents(), true, null, FLOWS_PAGE, flow.getCreateTime()))
                 .toList();
     }
 

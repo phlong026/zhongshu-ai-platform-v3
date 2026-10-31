@@ -42,12 +42,17 @@ public class FinPaymentService {
     }
 
     @Transactional
-    public long registerPayable(PostSnapshot post, PayableCommand cmd) {
+    public long registerPayable(PostSnapshot post, String idempotencyKey, PayableCommand cmd) {
+        var replayed = commands.replayed(post, idempotencyKey, cmd);
+        if (replayed.isPresent()) {
+            return replayed.get().getAggregateId();
+        }
         FinPayableDO payable = new FinPayableDO()
                 .setCompanyId(post.orgId()).setProjectId(cmd.projectId()).setStage(cmd.stage())
                 .setTotalCents(cmd.totalCents()).setRecipient(cmd.recipient())
                 .setStatus("进行中").setAgreementRef(cmd.agreementRef());
         payableMapper.insert(payable);
+        commands.record(post, "fin-payable", payable.getId(), 1, "fin-payable-register", cmd, idempotencyKey);
         return payable.getId();
     }
 
@@ -71,7 +76,7 @@ public class FinPaymentService {
             throw exception(PAYMENT_EXCEED_PAYABLE);
         }
         FinPaymentDO payment = new FinPaymentDO()
-                .setPayableId(cmd.payableId()).setCompanyId(post.orgId())
+                .setPayableId(cmd.payableId()).setProjectId(payable.getProjectId()).setCompanyId(post.orgId())
                 .setAmountCents(cmd.amountCents()).setStatus("已核实")
                 .setPayDate(cmd.payDate()).setOperatorUserId(post.userId())
                 .setTransactionNo(FinReceiptService.normalize(cmd.transactionNo()))

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.finance.dal.FinBankFlowMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptMapper;
 import cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorCodes;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -27,12 +28,21 @@ import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorC
 @Slf4j
 public class FinBankService {
 
+    public record ConfirmInput(long flowId, long receiptId) {
+        public static ConfirmInput of(long flowId, long receiptId) {
+            return new ConfirmInput(flowId, receiptId);
+        }
+    }
+
+
     @Resource
     private FinBankFlowMapper flowMapper;
     @Resource
     private FinBankConfirmMapper confirmMapper;
     @Resource
     private FinAttemptRecorder attemptRecorder;
+    @Resource
+    private FranchiseCommands commands;
     @Resource
     private FinReceiptMapper receiptMapper;
 
@@ -53,7 +63,11 @@ public class FinBankService {
 
     /** 确认到账：金额必须一致；receipt 必须待登记且同公司；双 UNIQUE 保证唯一入账 */
     @Transactional
-    public long confirm(PostSnapshot post, long flowId, long receiptId) {
+    public long confirm(PostSnapshot post, String idempotencyKey, long flowId, long receiptId) {
+        var replayed = commands.replayed(post, idempotencyKey, cn.iocoder.yudao.module.franchise.finance.FinBankService.ConfirmInput.of(flowId, receiptId));
+        if (replayed.isPresent()) {
+            return replayed.get().getAggregateId();
+        }
         FinBankFlowDO flow = flowMapper.selectById(flowId);
         if (flow == null || !"待匹配".equals(flow.getStatus())) {
             throw exception(BANK_FLOW_NOT_FOUND);
@@ -69,7 +83,7 @@ public class FinBankService {
             attemptRecorder.record(flowId, receiptId, "应收不处于待登记状态");
             throw exception(BANK_RECEIPT_NOT_PENDING);
         }
-        if (flow.getAmountCents() != receipt.getAmountCents()) {
+        if (flow.getAmountCents().longValue() != receipt.getAmountCents().longValue()) {
             attemptRecorder.record(flowId, receiptId, "流水金额与应收金额不一致");
             throw exception(BANK_CONFIRM_AMOUNT_MISMATCH);
         }
@@ -86,8 +100,22 @@ public class FinBankService {
             throw exception(BANK_FLOW_TAKEN);
         }
         flowMapper.updateById(new FinBankFlowDO().setId(flowId).setStatus("已认领"));
+        commands.record(post, "fin-bank-confirm", confirm.getId(), 1, "fin-bank-confirm", cn.iocoder.yudao.module.franchise.finance.FinBankService.ConfirmInput.of(flowId, receiptId), idempotencyKey);
         log.info("[confirm][companyId={} flow={} receipt={}]", post.orgId(), flowId, receiptId);
         return confirm.getId();
     }
 
-}
+
+    /** dev 注入待登记应收（P-6 测试基建；真实生产链随 B2/B3 intercompany 联动） */
+    @Transactional
+    public long injectPendingReceipt(long companyId, long amountCents, String name) {
+        FinReceiptDO receipt = new FinReceiptDO()
+                .setCompanyId(companyId).setSourceType("intercompany").setSourceRef("dev:" + System.nanoTime())
+                .setName(name).setAmountCents(amountCents).setStatus(FinReceiptService.STATUS_PENDING)
+                .setRegisteredAt(OffsetDateTime.now()).setRegistrarUserId(0L).setMethod("bank")
+                .setRevisionVersion(1);
+        receiptMapper.insert(receipt);
+        return receipt.getId();
+    }
+ }
+

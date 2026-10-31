@@ -38,4 +38,12 @@ public class BankFlowDevController {
                 bankDate == null ? LocalDate.now() : bankDate, "dev"));
     }
 
+    @PostMapping("/pending-receipt")
+    @Operation(summary = "注入一笔待登记应收（仅 local；到账核对闭环验收用测试基建）")
+    public CommonResult<Long> injectPendingReceipt(@RequestParam("companyId") long companyId,
+                                                   @RequestParam("amountCents") long amountCents,
+                                                   @RequestParam(value = "name", defaultValue = "跨端预期应收") String name) {
+        return success(bankService.injectPendingReceipt(companyId, amountCents, name));
+    }
+
 }
