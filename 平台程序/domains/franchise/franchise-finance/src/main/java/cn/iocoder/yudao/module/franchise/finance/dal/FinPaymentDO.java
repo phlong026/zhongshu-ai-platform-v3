@@ -1,0 +1,36 @@
+package cn.iocoder.yudao.module.franchise.finance.dal;
+
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+import lombok.experimental.Accessors;
+
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+
+/** 付款：登记即已核实；作废释放额度并留痕 */
+@TableName("fr_fin_payment")
+@TenantIgnore
+@Data
+@Accessors(chain = true)
+public class FinPaymentDO {
+
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long id;
+    private Long payableId;
+    private Long projectId;
+    private Long companyId;
+    private Long amountCents;
+    private String status;
+    private LocalDate payDate;
+    private Long operatorUserId;
+    private String transactionNo;
+    private Long voucherFileId;
+    private Long voidByUserId;
+    private String voidReason;
+    private OffsetDateTime voidedAt;
+    private Long tenantId;
+    private OffsetDateTime createTime;
+}

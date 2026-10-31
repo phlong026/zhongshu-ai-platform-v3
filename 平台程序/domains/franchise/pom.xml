@@ -25,6 +25,7 @@
         <module>franchise-org</module>
         <module>franchise-crm</module>
         <module>franchise-commission</module>
+        <module>franchise-finance</module>
     </modules>
 
 </project>
