@@ -17,6 +17,11 @@ class FakeSystemDirectory implements SystemDirectory {
     final Set<Long> users = new HashSet<>();
     final Map<Long, Set<Long>> userRoles = new HashMap<>();
     final Map<String, Set<String>> rolePermissions = new HashMap<>();
+    final Map<Long, String> userNames = new HashMap<>();
+    final Map<Long, String> userMobiles = new HashMap<>();
+    final Map<Long, Boolean> userActive = new HashMap<>();
+    final Map<Long, String> deptNames = new HashMap<>();
+    long nextUserId = 9000;
 
     @Override
     public long createDept(Long parentDeptId, String name) {
@@ -66,4 +71,41 @@ class FakeSystemDirectory implements SystemDirectory {
         return rolePermissions.getOrDefault(roleCode, Set.of()).contains(permission);
     }
 
+
+    @Override
+    public Long userIdByMobile(String mobile) {
+        return userMobiles.entrySet().stream().filter(e -> e.getValue().equals(mobile))
+                .map(Map.Entry::getKey).findFirst().orElse(null);
+    }
+
+    @Override
+    public long createUser(String name, String mobile, Long deptId) {
+        long id = ++nextUserId;
+        userNames.put(id, name);
+        userMobiles.put(id, mobile);
+        userActive.put(id, true);
+        return id;
+    }
+
+    @Override
+    public java.util.List<UserBrief> usersByIds(java.util.Collection<Long> userIds) {
+        java.util.List<UserBrief> result = new java.util.ArrayList<>();
+        for (Long id : userIds) {
+            if (userNames.containsKey(id)) {
+                result.add(new UserBrief(id, userNames.get(id), userMobiles.get(id),
+                        userActive.getOrDefault(id, true)));
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public void setUserActive(long userId, boolean active) {
+        userActive.put(userId, active);
+    }
+
+    @Override
+    public String deptName(Long deptId) {
+        return deptId == null ? "" : deptNames.getOrDefault(deptId, "");
+    }
 }

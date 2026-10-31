@@ -30,4 +30,10 @@ public interface StaffPostService {
     /** 岗位是否具备 wanted 岗位的身份：相同，或负责人继承了该专员岗位 */
     boolean roleHas(String roleCode, String wanted);
 
+    /** 按编号取仍有效的任职；已撤销或不存在为空 */
+    Optional<cn.iocoder.yudao.module.platform.org.dal.StaffPostDO> getPost(long postId);
+
+    /** 组织内全部有效任职（成员管理列表用，含各部门与岗位） */
+    List<cn.iocoder.yudao.module.platform.org.dal.StaffPostDO> listOrgPosts(long orgId);
+
 }

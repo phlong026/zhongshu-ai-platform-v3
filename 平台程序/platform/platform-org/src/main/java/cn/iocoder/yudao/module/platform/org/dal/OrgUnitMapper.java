@@ -9,6 +9,14 @@ import java.util.List;
 @Mapper
 public interface OrgUnitMapper extends BaseMapperX<OrgUnitDO> {
 
+    default List<OrgUnitDO> selectActiveTeamsByOrg(long orgId) {
+        return selectList(new LambdaQueryWrapperX<OrgUnitDO>()
+                .eq(OrgUnitDO::getKind, OrgUnitDO.KIND_TEAM)
+                .eq(OrgUnitDO::getOrgId, orgId)
+                .eq(OrgUnitDO::getStatus, OrgUnitDO.STATUS_ACTIVE)
+                .orderByAsc(OrgUnitDO::getDeptId));
+    }
+
     default List<Long> selectActiveOrgIds(String orgType) {
         return selectList(new LambdaQueryWrapperX<OrgUnitDO>()
                 .eq(OrgUnitDO::getKind, OrgUnitDO.KIND_ORG)

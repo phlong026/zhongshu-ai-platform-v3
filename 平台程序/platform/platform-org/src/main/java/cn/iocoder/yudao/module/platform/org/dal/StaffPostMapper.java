@@ -16,6 +16,13 @@ public interface StaffPostMapper extends BaseMapperX<StaffPostDO> {
                 .orderByAsc(StaffPostDO::getCreateTime));
     }
 
+    default List<StaffPostDO> selectActiveByOrg(Long orgId) {
+        return selectList(new LambdaQueryWrapperX<StaffPostDO>()
+                .eq(StaffPostDO::getOrgId, orgId)
+                .eq(StaffPostDO::getStatus, StaffPostDO.STATUS_ACTIVE)
+                .orderByAsc(StaffPostDO::getCreateTime));
+    }
+
     default List<StaffPostDO> selectActiveByOrgAndRole(Long orgId, String roleCode) {
         return selectList(new LambdaQueryWrapperX<StaffPostDO>()
                 .eq(StaffPostDO::getOrgId, orgId)

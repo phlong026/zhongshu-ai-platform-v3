@@ -67,6 +67,11 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
+    public List<OrgUnitDO> listTeams(long orgId) {
+        return orgUnitMapper.selectActiveTeamsByOrg(orgId);
+    }
+
+    @Override
     public List<Long> listActiveOrgIds(String orgType) {
         return orgUnitMapper.selectActiveOrgIds(orgType);
     }

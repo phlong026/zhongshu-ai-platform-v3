@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.platform.org;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqVO;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
@@ -12,10 +14,12 @@ import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.ArrayList;
 
 /**
  * 基于 yudao system 模块 Service 的 {@link SystemDirectory} 实现。
@@ -90,6 +94,55 @@ public class YudaoSystemDirectory implements SystemDirectory {
     @Override
     public void replaceUserRoles(long userId, Set<Long> roleIds) {
         permissionService.assignUserRole(userId, roleIds);
+    }
+
+    @Override
+    public Long userIdByMobile(String mobile) {
+        AdminUserDO user = adminUserService.getUserByMobile(mobile);
+        return user == null ? null : user.getId();
+    }
+
+    @Override
+    public long createUser(String name, String mobile, Long deptId) {
+        UserSaveReqVO req = new UserSaveReqVO();
+        req.setUsername(mobile); // username 即手机号；员工经微信/短信登录，不使用密码
+        req.setMobile(mobile);
+        req.setNickname(name);
+        req.setDeptId(deptId);
+        // 底座要求密码必填：给一次性随机值，任何人都不知道；员工经微信/短信登录，密码通道不启用
+        req.setPassword(java.util.UUID.randomUUID() + "-Zs" + new java.security.SecureRandom().nextInt(9));
+        return adminUserService.createUser(req);
+    }
+
+    @Override
+    public List<UserBrief> usersByIds(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        List<UserBrief> result = new ArrayList<>();
+        for (Long id : userIds) {
+            AdminUserDO user = adminUserService.getUser(id);
+            if (user != null) {
+                result.add(new UserBrief(user.getId(), user.getNickname(), user.getMobile(),
+                        CommonStatusEnum.ENABLE.getStatus().equals(user.getStatus())));
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public void setUserActive(long userId, boolean active) {
+        adminUserService.updateUserStatus(userId,
+                active ? CommonStatusEnum.ENABLE.getStatus() : CommonStatusEnum.DISABLE.getStatus());
+    }
+
+    @Override
+    public String deptName(Long deptId) {
+        if (deptId == null) {
+            return "";
+        }
+        DeptDO dept = deptService.getDept(deptId);
+        return dept == null ? "" : dept.getName();
     }
 
 }

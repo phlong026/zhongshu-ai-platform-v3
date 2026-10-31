@@ -25,4 +25,7 @@ public interface OrgService {
     /** 某类型下全部启用的组织编号，按编号升序（如业务域查找唯一的总部组织） */
     List<Long> listActiveOrgIds(String orgType);
 
+    /** 组织内全部启用团队（成员管理展示部门用） */
+    List<OrgUnitDO> listTeams(long orgId);
+
 }

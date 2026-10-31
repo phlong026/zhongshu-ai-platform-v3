@@ -105,6 +105,17 @@ public class StaffPostServiceImpl implements StaffPostService {
     }
 
     @Override
+    public Optional<StaffPostDO> getPost(long postId) {
+        StaffPostDO post = staffPostMapper.selectById(postId);
+        return post != null && StaffPostDO.STATUS_ACTIVE.equals(post.getStatus()) ? Optional.of(post) : Optional.empty();
+    }
+
+    @Override
+    public List<StaffPostDO> listOrgPosts(long orgId) {
+        return staffPostMapper.selectActiveByOrg(orgId);
+    }
+
+    @Override
     public List<StaffPostDO> listActivePostsInOrg(long orgId, String roleCode) {
         return staffPostMapper.selectActiveByOrgAndRole(orgId, roleCode);
     }

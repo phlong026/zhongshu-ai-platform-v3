@@ -17,5 +17,6 @@ public interface PlatformOrgErrorCodes {
     ErrorCode POST_NOT_FOUND = new ErrorCode(1_101_000_007, "任职不存在或已撤销");
     ErrorCode USER_NOT_FOUND = new ErrorCode(1_101_000_008, "员工账号不存在");
     ErrorCode ROLE_NOT_CONFIGURED = new ErrorCode(1_101_000_009, "岗位尚未配置对应角色");
+    ErrorCode USER_NOT_IN_ORG = new ErrorCode(1_101_000_010, "该员工不属于本组织");
 
 }

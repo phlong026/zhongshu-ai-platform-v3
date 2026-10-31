@@ -11,5 +11,6 @@ public interface PlatformAuthzErrorCodes {
     ErrorCode POST_SELECTION_REQUIRED = new ErrorCode(1_103_000_001, "请选择工作身份");
     ErrorCode POST_NOT_USABLE = new ErrorCode(1_103_000_002, "工作身份无效或已被撤销，请重新选择");
     ErrorCode POST_HEADER_INVALID = new ErrorCode(1_103_000_003, "工作身份参数格式错误");
+    ErrorCode ORG_SCOPE_FORBIDDEN = new ErrorCode(1_103_000_004, "只能管理本组织的成员与部门");
 
 }

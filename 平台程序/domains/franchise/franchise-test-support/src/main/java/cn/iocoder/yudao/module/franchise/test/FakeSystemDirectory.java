@@ -20,6 +20,10 @@ public final class FakeSystemDirectory implements SystemDirectory {
     private final Map<String, Long> roleIds = new ConcurrentHashMap<>();
     private final Set<Long> users = ConcurrentHashMap.newKeySet();
     private final Map<Long, Set<Long>> userRoles = new ConcurrentHashMap<>();
+    private final Map<Long, String> userNames = new ConcurrentHashMap<>();
+    private final Map<Long, String> userMobiles = new ConcurrentHashMap<>();
+    private final Map<Long, Boolean> userActive = new ConcurrentHashMap<>();
+    private final Map<Long, String> deptNames = new ConcurrentHashMap<>();
 
     private FakeSystemDirectory() {
     }
@@ -78,4 +82,40 @@ public final class FakeSystemDirectory implements SystemDirectory {
         return true; // 功能权限由 @post.has 在接口层校验，服务层测试只关心对象规则
     }
 
+
+
+    @Override
+    public Long userIdByMobile(String mobile) {
+        return userMobiles.entrySet().stream().filter(e -> e.getValue().equals(mobile))
+                .map(Map.Entry::getKey).findFirst().orElse(null);
+    }
+
+    @Override
+    public long createUser(String name, String mobile, Long deptId) {
+        long id = newUser();
+        userNames.put(id, name);
+        userMobiles.put(id, mobile);
+        return id;
+    }
+
+    @Override
+    public java.util.List<UserBrief> usersByIds(java.util.Collection<Long> userIds) {
+        java.util.List<UserBrief> result = new java.util.ArrayList<>();
+        for (Long id : userIds) {
+            if (users.contains(id)) {
+                result.add(new UserBrief(id, userNames.get(id), userMobiles.get(id), userActive.getOrDefault(id, true)));
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public void setUserActive(long userId, boolean active) {
+        userActive.put(userId, active);
+    }
+
+    @Override
+    public String deptName(Long deptId) {
+        return deptId == null ? "" : deptNames.getOrDefault(deptId, "");
+    }
 }
