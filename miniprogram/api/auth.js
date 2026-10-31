@@ -4,6 +4,8 @@
  */
 const http = require('./http');
 
+const POSTS_KEY = 'zs-api-posts-v1';
+
 /** 微信登录：wx.login 拿 code；后端需要手机号授权时返回 needPhone，再带 phoneCode 重试 */
 function login(options) {
   const opts = options || {};
@@ -63,6 +65,24 @@ function smsLogin(mobile, captcha) {
   return http.post('/platform/auth/sms/login', { mobile, captcha });
 }
 
+/** 保存本人任职列表（导航接管与身份切换的数据源） */
+function savePosts(posts) {
+  wx.setStorageSync(POSTS_KEY, posts || []);
+}
+
+/** 已缓存的本人任职列表 */
+function apiPosts() {
+  return wx.getStorageSync(POSTS_KEY) || [];
+}
+
+/** 当前生效岗位：对齐 X-Post-Id；未指定时取首个（与 saveLogin 一致） */
+function currentApiPost() {
+  const list = apiPosts();
+  if (!list.length) return null;
+  const current = http.currentPostId();
+  return list.find(p => String(p.postId) === String(current)) || list[0];
+}
+
 /** 切换当前岗位 */
 function switchPost(postId) {
   http.saveSession({ postId });
@@ -70,6 +90,7 @@ function switchPost(postId) {
 
 function logout() {
   http.clearSession();
+  wx.removeStorageSync(POSTS_KEY);
 }
 
-module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, switchPost, logout };
+module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout };

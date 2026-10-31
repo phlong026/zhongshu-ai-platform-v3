@@ -83,7 +83,7 @@ async function main() {
     assert(index >= 0, 'Only the six visible users may operate: ' + id);
     await change('.demo-user-picker', index);
     if (!(await data()).checked) await tap('.agreement-row .check-row');
-    await tap('.page-actions .solid');
+    await tap('[data-handler="login"]');
     await until(async () => !!(await data()).modal, 'Login confirmation');
     await tap('.sheet .solid');
     await until(async () => !(await current()).route.startsWith('pages/account/'), 'Login home');

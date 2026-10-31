@@ -28,4 +28,7 @@ function defaultAssignee(book, department) {
  const id=book?.managementSettings?.assignments?.[department];
  return role&&id&&(book.staff||[]).some(person=>person.id===id&&person.active!==false&&staffHas(person,role))?id:'';
 }
-module.exports={defaultAssignee,defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation};
+// 后端任职（/platform/posts/mine 的 StaffPost：roleCode 与本文件角色 key 同名）→ 导航上下文。
+// 仅接管导航与落地页；业务数据可见性仍走 demo 上下文（业务数据后端化逐页接入后再收口）。
+const apiContext=p=>p?{loggedIn:true,active:true,role:p.roleCode,orgType:p.orgType,api:true,postId:p.postId,teamId:p.teamId||null,lead:!!p.lead}:null;
+module.exports={defaultAssignee,defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation,apiContext};

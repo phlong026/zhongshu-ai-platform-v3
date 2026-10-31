@@ -48,7 +48,7 @@ const accounts = [
     assert.equal(page().data.demoUserLabel, account.label);
     assert((await (await control('.demo-user-picker')).text()).includes(account.label));
     await (await control('.agreement-row .check-row')).tap();
-    await (await control('.page-actions .solid')).tap();
+    await (await control('[data-handler="login"]')).tap();
     assert.equal(page().data.modal.type, 'login-demo');
     await (await control('.sheet .solid')).tap();
     const state = A.load();

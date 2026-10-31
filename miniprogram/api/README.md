@@ -15,7 +15,7 @@
 
 ## 接入顺序（M2 设计 §12 M2.7）
 
-1. **账号与组织先行**：登录页双通道（`auth.smsLogin` 手机号验证码 / `auth.login` 微信一键）→ `auth.myPosts` 列岗位 → `auth.switchPost`；✅ 登录页已接入（2026-10-31，演示入口保留）；
+1. **账号与组织先行**：登录页双通道（`auth.smsLogin` 手机号验证码 / `auth.login` 微信一键）→ `auth.myPosts` 列岗位 → `auth.switchPost`；✅ 已接入（2026-10-31）：登录页双通道 + 真实登录后按后端岗位接管全站 Tab 导航与落地页（`utils/workbench-nav.js` api 优先，回退 demo），身份页可切换后端岗位/退出后端账号；业务数据可见性仍走 demo 上下文，待业务接口逐页接入后收口；
 2. 待办中心接 `todos.list`；
 3. 业务主链按 crm（客资→客户→跟进→预算）→ commission（委托→审批→首尾款→移交→接收）逐页替换。
 
