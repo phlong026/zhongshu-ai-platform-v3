@@ -27,4 +27,12 @@
 .home-ledger-trust{margin-top:14rpx;background:var(--zs-success-bg);color:var(--zs-success);border-radius:12rpx;padding:12rpx 16rpx;font-size:var(--zs-font-caption);line-height:34rpx}
 .home-ledger-month{display:flex;align-items:center;justify-content:space-between;gap:12rpx;margin-top:14rpx;font-size:var(--zs-font-meta);line-height:36rpx;color:#74695c}
 
-.home-ledger-links{display:flex;gap:24rpx;align-items:center}
+/* 平台待办区块 */
+.pt-warning{display:block;color:#b0563f;font-size:var(--zs-font-caption);padding-bottom:10rpx}
+.pt-retry{margin-top:10rpx;background:#f4ede3;color:#9b7b5e;font-size:var(--zs-font-caption);line-height:56rpx;min-height:56rpx;padding:0 24rpx;border-radius:10rpx}
+.pt-row{display:flex;align-items:center;gap:14rpx;width:100%;text-align:left;background:transparent;padding:16rpx 0;border-bottom:1rpx solid #f0e9df}
+.pt-row-disabled{opacity:.55}
+.pt-copy{display:flex;flex-direction:column;gap:4rpx;flex:1;min-width:0}
+.pt-title{font-size:var(--zs-font-body);color:#322c26}
+.pt-meta{font-size:var(--zs-font-meta);color:#9c8e80}
+.pt-amount{flex-shrink:0;font-size:var(--zs-font-body);font-weight:600;color:#9b7b5e}

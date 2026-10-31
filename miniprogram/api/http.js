@@ -9,6 +9,7 @@ const TENANT_KEY = 'zs-api-tenant-v1';
 const DEFAULT_BASE = 'http://127.0.0.1:48080/admin-api';
 const TIMEOUT = 15000;
 let unauthorizedHandler = null;
+let sessionGen = 0; // 会话代次：saveSession/clearSession 时 +1；401 处理前校验，防旧请求 401 清掉新会话
 
 function base() {
   return (wx.getStorageSync('zs-api-base') || DEFAULT_BASE).replace(/\/$/, '');
@@ -30,11 +31,18 @@ function saveSession(next) {
   if (next.token) wx.setStorageSync(TOKEN_KEY, next.token);
   if (next.postId !== undefined) wx.setStorageSync(POST_KEY, next.postId);
   if (next.tenantId !== undefined) wx.setStorageSync(TENANT_KEY, String(next.tenantId));
+  sessionGen += 1;
 }
 
 function clearSession() {
   wx.removeStorageSync(TOKEN_KEY);
   wx.removeStorageSync(POST_KEY);
+  sessionGen += 1;
+}
+
+/** 当前会话代次（页面加载请求据此做有效性校验） */
+function sessionGeneration() {
+  return sessionGen;
 }
 
 /** 401 时的回调（登录页注册，用于引导重新登录）；不设置则只报错 */
@@ -43,6 +51,7 @@ function onUnauthorized(handler) {
 }
 
 function request(method, path, data, extraHeader) {
+  const requestSessionGen = sessionGen;
   return new Promise((resolve, reject) => {
     wx.request({
       url: base() + path,
@@ -57,9 +66,14 @@ function request(method, path, data, extraHeader) {
       ),
       success(res) {
         if (res.statusCode === 401) {
-          clearSession();
-          if (unauthorizedHandler) unauthorizedHandler();
-          reject({ code: 401, message: '登录已过期，请重新登录' });
+          // 仅当请求所属会话仍是当前会话时才清会话并通知；旧会话的 401 静默丢弃
+          if (requestSessionGen === sessionGen) {
+            clearSession();
+            if (unauthorizedHandler) unauthorizedHandler();
+            reject({ code: 401, message: '登录已过期，请重新登录' });
+          } else {
+            reject({ code: 401, silent: true, message: '旧会话请求已忽略' });
+          }
           return;
         }
         const body = res.data;
@@ -86,6 +100,7 @@ module.exports = {
   token,
   currentPostId,
   tenantId,
+  sessionGeneration,
   saveSession,
   clearSession,
   onUnauthorized,

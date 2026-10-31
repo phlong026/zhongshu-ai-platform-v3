@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "domain": "franchise",
+      "key": "franchise:fee-approve:2116473850479403009",
+      "title": "「平先生」委托费用待审批",
+      "status": "FEE_PENDING",
+      "amountCents": 88000000,
+      "actionable": true,
+      "webUrl": null,
+      "appPath": "/pages/workflow/commission/index",
+      "since": 1793441662774
+    }
+  ],
+  "actionableCount": 1,
+  "failedDomains": []
+}

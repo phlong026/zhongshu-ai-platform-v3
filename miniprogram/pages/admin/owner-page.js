@@ -10,14 +10,17 @@ const titles = { home:'首页', finance:'经营', performance:'绩效', profile:
 
 module.exports = function(kind) {
   return {
-    data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', todoTab:'all', homeTodos:[], homeTodoTotal:0, rows:[], total:0, pageLimit:20, record:null, error:'', form:{}, saving:false, selectedDepartment:'all', expandedPerson:'', companyForm:{}, assignmentForm:{}, managementSettings:null, performanceSettings:null },
+    data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', platformTodos:null, todoTab:'all', homeTodos:[], homeTodoTotal:0, rows:[], total:0, pageLimit:20, record:null, error:'', form:{}, saving:false, selectedDepartment:'all', expandedPerson:'', companyForm:{}, assignmentForm:{}, managementSettings:null, performanceSettings:null },
     openDesignPolicy(){ require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=policy'); },
     logout(){ return require('../../utils/session-actions').logout(); },
+    retryPlatformTodos(){ require('../../utils/platform-todos-page').retry(this); },
+    openPlatformTodo(e){ require('../../utils/platform-todos-page').open(this, e); },
     onLoad(options = {}) {
       this.options = { ...options };
       for (const key of ['id','person','department','tab','metric']) this.options[key] = routeValue(options[key]);
       this.kind = kind === 'detail' ? titles[options.view] ? options.view : 'business' : kind;
       this.setData({ title:titles[this.kind] });
+      require('../../utils/platform-todos-page').init(this);
     },
     onShow() {
       if (!W.allowed()) { this.setData({ready:false,desk:null,rows:[]}); wx.switchTab({url:'/pages/profile/index'}); return; }
@@ -50,6 +53,7 @@ module.exports = function(kind) {
         if (view === 'performance') display.performance = desk.performance;
         const homeTodos = view === 'home' ? H.visibleTodos(desk, this.data.todoTab) : [];
         this.setData({ ready:true, desk:display, rows, total, projects:[], form, performanceSettings, managementSettings:settings, companyForm, assignmentForm, rulesForm, view, record:B.recordFor(view,desk,this.options.id), error:'', homeTodos, homeTodoTotal:view==='home'?H.todoRows(desk,this.data.todoTab).length:0 });
+        if (view === 'home') require('../../utils/platform-todos-page').refresh(this, false);
       } catch(error) { this.setData({error:error.message,ready:false,desk:null,rows:[]}); }
     },
     search(e) { this.setData({keyword:e.detail.value,pageLimit:20}); this.refresh(); },
