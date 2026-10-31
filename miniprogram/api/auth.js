@@ -44,6 +44,25 @@ function myPosts() {
   return http.get('/platform/posts/mine');
 }
 
+/** 当前小程序 AppID（登录请求需带回给后端做接入白名单校验） */
+function appId() {
+  try {
+    return wx.getAccountInfoSync().miniProgram.appId;
+  } catch (e) {
+    return '';
+  }
+}
+
+/** 发送登录短信验证码（后端内置限流：60s 一条、每日上限） */
+function sendSmsCode(mobile) {
+  return http.post('/platform/auth/sms/send', { mobile });
+}
+
+/** 手机号 + 验证码登录；返回 {userId, accessToken, refreshToken, expiresTime} */
+function smsLogin(mobile, captcha) {
+  return http.post('/platform/auth/sms/login', { mobile, captcha });
+}
+
 /** 切换当前岗位 */
 function switchPost(postId) {
   http.saveSession({ postId });
@@ -53,4 +72,4 @@ function logout() {
   http.clearSession();
 }
 
-module.exports = { login, saveLogin, myPosts, switchPost, logout };
+module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, switchPost, logout };

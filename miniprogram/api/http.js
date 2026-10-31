@@ -1,10 +1,11 @@
 /**
  * 后端 HTTP 访问层（M2.7 新增）：wx.request 的 Promise 封装。
  * 与离线模式并存——本文件不改动任何现有 utils，页面按模块逐步改调。
- * 认证：Authorization Bearer token；当前岗位：X-Post-Id 请求头。
+ * 认证：Authorization Bearer token；当前岗位：X-Post-Id 请求头；多租户：tenant-id 请求头（默认 1）。
  */
 const TOKEN_KEY = 'zs-api-token-v1';
 const POST_KEY = 'zs-api-post-v1';
+const TENANT_KEY = 'zs-api-tenant-v1';
 const DEFAULT_BASE = 'http://127.0.0.1:48080/admin-api';
 const TIMEOUT = 15000;
 let unauthorizedHandler = null;
@@ -21,9 +22,14 @@ function currentPostId() {
   return wx.getStorageSync(POST_KEY) || '';
 }
 
+function tenantId() {
+  return wx.getStorageSync(TENANT_KEY) || '1';
+}
+
 function saveSession(next) {
   if (next.token) wx.setStorageSync(TOKEN_KEY, next.token);
   if (next.postId !== undefined) wx.setStorageSync(POST_KEY, next.postId);
+  if (next.tenantId !== undefined) wx.setStorageSync(TENANT_KEY, String(next.tenantId));
 }
 
 function clearSession() {
@@ -44,7 +50,7 @@ function request(method, path, data, extraHeader) {
       data,
       timeout: TIMEOUT,
       header: Object.assign(
-        { 'content-type': 'application/json' },
+        { 'content-type': 'application/json', 'tenant-id': tenantId() },
         token() ? { Authorization: 'Bearer ' + token() } : {},
         currentPostId() ? { 'X-Post-Id': currentPostId() } : {},
         extraHeader || {}
@@ -79,6 +85,7 @@ module.exports = {
   base,
   token,
   currentPostId,
+  tenantId,
   saveSession,
   clearSession,
   onUnauthorized,
