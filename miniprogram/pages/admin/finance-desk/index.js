@@ -1,11 +1,16 @@
 const D=require('../../../utils/finance-desk'),M=require('../model'),F=require('../../../utils/finance-source'),X=require('../../../utils/access'),N=require('../../../utils/page-navigation');
+const auth=require('../../../api/auth');
+const financeApi=require('../../../api/finance');
+const PF=require('../../../utils/platform-finance');
 const views={desk:'财务工作台',flows:'收支',projects:'项目',partners:'加盟商往来',project:'项目账目',partner:'加盟商往来',statement:'设计款到账进度',tasks:'财务办理'};
 const clean=()=>({rows:[],detail:null,partner:null,statement:null,tasks:[],filters:[],stats:[],ready:false,error:''});
 const {routeValue}=require('../../../utils/view-container');
 Page({
  data:{...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
  onLoad(o={}){this.options={...o};this.id=routeValue(o.id);this.setData({view:views[o.view]?o.view:(['finance','finance-lead'].includes(X.context().role)?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:X.context().orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
- onShow(){this.refresh();},
+ onShow(){this.refresh();this.loadPlatformFinance();},
+ loadPlatformFinance(){const post=auth.currentApiPost();if(!post||!['finance','finance-lead'].includes(post.roleCode)){this.setData({platformFinance:null});return;}const month=(new Date().getFullYear())+'-'+('0'+(new Date().getMonth()+1)).slice(-2);this.setData({platformFinance:{status:'loading',month,metrics:{received:'',paid:'',refunded:''},ledger:{rows:[],allCount:0}}});Promise.all([financeApi.receipts(),financeApi.payments(),financeApi.refunds()]).then(([receipts,payments,refunds])=>{const m=PF.metrics(receipts,payments,refunds,month);const led=PF.ledgerRows(receipts,payments,refunds,'');this.setData({platformFinance:{status:'ready',month,metrics:m,ledger:led}});}).catch(e=>{this.setData({platformFinance:{status:'degraded',message:PF.errorMessage?PF.errorMessage(e):(e.message||'账簿暂时无法加载')}});});},
+ retryPlatformFinance(){this.loadPlatformFinance();},
  restoreNavigationState(){this.refresh();},
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
  refresh(){try{if(!D.allowed())throw Error('当前身份无本组织财务权限');const a=X.context(),scope=[a.companyId,a.staffId,a.role].join(':'),s=D.selected(M.visible(M.load())),view=this.data.view;if(this.scope&&this.scope!==scope){this.tabStates={};this.setData({...clean(),keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',flowScope:'period'});}this.scope=scope;this.state=s;let rows=[],filters=[],detail=null,partner=null,statement=null,tasks=[],stats=[];const desk=D.home(s),allTasks=D.taskRows(s);
