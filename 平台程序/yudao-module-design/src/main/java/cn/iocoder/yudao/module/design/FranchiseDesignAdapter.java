@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.design.asset.ModerationUnavailableException;
 import cn.iocoder.yudao.module.design.budget.BudgetService;
 import cn.iocoder.yudao.module.design.catalog.CaseCatalogService;
 import cn.iocoder.yudao.module.design.project.DesignProjectService;
+import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
 import cn.iocoder.yudao.module.infra.zhongshu.api.AiJobPort;
 import cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions;
@@ -46,7 +47,7 @@ import static cn.iocoder.yudao.module.franchise.api.FranchiseDesignErrorCodes.SC
  */
 @Slf4j
 @Component
-public class FranchiseDesignAdapter implements DesignServicePort {
+public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPort {
 
     private static final List<String> ALLOWED_ACTIONS_WHITELIST = List.of(
             "VIEW", "CREATE_FLAT_JOB", "SELECT_FLAT", "CREATE_ELEVATION_JOB", "SELECT_ELEVATION",
@@ -352,13 +353,27 @@ public class FranchiseDesignAdapter implements DesignServicePort {
     @Override
     public void validateAsset(long serviceAccountId, long assetId) {
         // 板块 B 合同文件引用校验：存在+ACCEPTED+owner=本组织服务账号（无客户绑定概念，Codex R2）
-        var rows = jdbcTemplate.queryForList(
-                "SELECT owner_user_id, upload_status FROM asset WHERE id=? AND deleted=FALSE", assetId);
-        if (rows.isEmpty()
-                || ((Number) rows.get(0).get("owner_user_id")).longValue() != serviceAccountId
-                || !"ACCEPTED".equals(rows.get(0).get("upload_status"))) {
+        if (!assetReferenceValid(jdbcTemplate.queryForList(
+                "SELECT owner_user_id, upload_status FROM asset WHERE id=? AND deleted=FALSE", assetId),
+                serviceAccountId)) {
             throw exception(RESOURCE_FORBIDDEN);
         }
+    }
+
+    @Override
+    public boolean validateReference(long serviceAccountId, long assetId) {
+        // 基-1 AssetAccessPort：与 validateAsset 同一校验实现，失败返回 false 不抛异常（14 文档 D-基1-7）
+        return assetReferenceValid(jdbcTemplate.queryForList(
+                "SELECT owner_user_id, upload_status FROM asset WHERE id=? AND deleted=FALSE", assetId),
+                serviceAccountId);
+    }
+
+    /** 引用有效性（两 Port 共享）：存在 + ACCEPTED + 属主=服务账号；包级静态便于纯单测三分支（14 文档 AC11） */
+    static boolean assetReferenceValid(java.util.List<java.util.Map<String, Object>> rows,
+                                       long serviceAccountId) {
+        return !rows.isEmpty()
+                && ((Number) rows.get(0).get("owner_user_id")).longValue() == serviceAccountId
+                && "ACCEPTED".equals(rows.get(0).get("upload_status"));
     }
 
     // ========== 灵感库 ==========
@@ -545,6 +560,15 @@ public class FranchiseDesignAdapter implements DesignServicePort {
         var ticket = assetService.requestDownloadTicket(serviceAccountId, assetId);
         var download = assetService.resolveDownloadTicketDetailed(serviceAccountId, assetId, ticket.getToken());
         return new DownloadUrlView(download.url(), download.expiresAtEpochSecond());
+    }
+
+    @Override
+    public DesignServicePort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
+                                                                 String mimeType, long sizeBytes, String sha256) {
+        // 基-1 B 端专用签发（14 文档 D-基1-4a）：仅接受 B_END 类型；completeUpload/createDownloadUrl
+        // 与 DesignServicePort 同签名，由既有方法同时充当两接口实现
+        var ticket = assetService.createServiceTicket(serviceAccountId, assetType, mimeType, sizeBytes, sha256);
+        return new DesignServicePort.UploadTicketView(ticket.assetId(), ticket.uploadUrl());
     }
 
     private static void putIfPresent(Map<String, Object> config, String key, String value) {

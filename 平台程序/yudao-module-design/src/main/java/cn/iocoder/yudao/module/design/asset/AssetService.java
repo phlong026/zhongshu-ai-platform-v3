@@ -98,20 +98,36 @@ public class AssetService {
         return assetType.startsWith("USER_") || "DESIGN_REFERENCE".equals(assetType);
     }
 
-    /** 申请上传凭证：服务端按类型策略强制 MIME/大小，object key 由服务端生成（客户端不可指定） */
+    /** 申请上传凭证（C 端业主入口）：仅接受 C_END 类型，B 端业务类型走 {@link #createServiceTicket}（14 文档 D-基1-4a） */
     public UploadTicket createUploadTicket(long userId, String assetType, String mimeType,
                                            long sizeBytes, String sha256Hex) {
+        return createTicket(userId, assetType, mimeType, sizeBytes, sha256Hex, AssetTypePolicy.Audience.C_END);
+    }
+
+    /** 申请上传凭证（B 端服务账号入口，franchise-asset/Port 专用）：仅接受 B_END 类型，免内容审核（14 文档 D-基1-4b） */
+    public UploadTicket createServiceTicket(long userId, String assetType, String mimeType,
+                                            long sizeBytes, String sha256Hex) {
+        return createTicket(userId, assetType, mimeType, sizeBytes, sha256Hex, AssetTypePolicy.Audience.B_END);
+    }
+
+    /** 服务端按类型策略强制 MIME/大小，object key 由服务端生成（客户端不可指定）；audience 双向隔离 */
+    private UploadTicket createTicket(long userId, String assetType, String mimeType,
+                                      long sizeBytes, String sha256Hex, AssetTypePolicy.Audience expectedAudience) {
         AssetTypePolicy policy;
         try {
             policy = AssetTypePolicy.valueOf(assetType);
         } catch (IllegalArgumentException e) {
             throw exception(ASSET_VALIDATION_FAILED);
         }
+        if (policy.audience() != expectedAudience) {
+            // 入口隔离：C 端入口不得传 B 端业务类型（防借道免审），反之亦然
+            throw exception(ASSET_VALIDATION_FAILED);
+        }
         if (!policy.mimeAllowed(mimeType)) {
             throw new ServiceException(1_071_000_001,
                     "资产校验未通过：类型 " + assetType + " 不允许 " + mimeType);
         }
-        if (!contentModerationPort.supportsUpload(assetType)) {
+        if (policy.moderationRequired() && !contentModerationPort.supportsUpload(assetType)) {
             throw new ServiceException(1_071_000_001,"当前审核服务不支持此文件类型，请上传 JPG 或 PNG 图片");
         }
         if (sizeBytes <= 0 || sizeBytes > policy.maxBytes()) {
@@ -224,7 +240,10 @@ public class AssetService {
                 rejectReason = "SHA_MISMATCH: 实际内容与声明 SHA-256 不一致";
             }
         }
-        if (rejectReason == null) {
+        // B 端免审类型（moderationRequired=false，14 文档 D-基1-4b）：跳过内容安全扫描与内容审核；
+        // 对象存在性/大小/SHA 校验已执行，字节原样入库（不重编码，下载 sha256 与上传一致）。退避路径不可达。
+        final boolean skipModeration = !AssetTypePolicy.valueOf(asset.assetType()).moderationRequired();
+        if (rejectReason == null && !skipModeration) {
             report = scanner.scan(asset.declaredMime(), content);
             if (!report.passed()) {
                 rejectReason = String.join("; ", report.failures());
@@ -232,7 +251,7 @@ public class AssetService {
         }
         ContentModerationPort.Decision moderation = null;
         try {
-            if (rejectReason == null) moderation = contentModerationPort.review(asset.assetType(), report.sanitizedContent());
+            if (rejectReason == null && !skipModeration) moderation = contentModerationPort.review(asset.assetType(), report.sanitizedContent());
         } catch (ModerationUnavailableException e) {
             txTemplate.executeWithoutResult(status -> {
                 int updated = jdbcTemplate.update("UPDATE asset SET upload_status=CASE WHEN moderation_attempts >= 7 THEN 'REJECTED' ELSE 'PENDING' END, "
@@ -250,7 +269,7 @@ public class AssetService {
         final boolean finalModerationFailed = moderationFailed;
         final AssetContentScanner.ScanReport finalReport = report;
         final ContentModerationPort.Decision finalModeration = moderation;
-        final byte[] sanitized = report == null ? null : report.sanitizedContent();
+        final byte[] sanitized = skipModeration ? content : (report == null ? null : report.sanitizedContent());
         // The original PUT URL must never address the approved object. Every attempt writes
         // a unique server-only key outside the DB transaction; CAS chooses the winning version.
         final String acceptedKey = "accepted/" + assetId + "/" + asset.validationToken()
@@ -265,7 +284,8 @@ public class AssetService {
                 };
         if (rejectReason == null && !moderationFailed) storage.putObject(acceptedKey, sanitized);
         // 列表/详情不再下发原图：上传通过即生成缩略图与预览图。失败不阻断上传，首次读取时按需补生成。
-        final StoredRenditions renditions = rejectReason == null && !moderationFailed
+        // B 端免审类型（凭证/图纸/合同）无图片渲染语义，不生成。
+        final StoredRenditions renditions = rejectReason == null && !moderationFailed && !skipModeration
                 ? storeRenditions(acceptedKey, asset.declaredMime(), sanitized)
                 : new StoredRenditions(null, null);
         return txTemplate.execute(status -> {
@@ -298,6 +318,21 @@ public class AssetService {
                         assetId, asset.validationToken());
                 if (updated != 1) throw exception(ASSET_VALIDATION_FAILED);
                 return "REJECTED";
+            }
+            if (skipModeration) {
+                // B 端免审固化（14 文档 D-基1-4b）：状态列置 PASSED（列 CHECK 枚举无 SKIPPED，零迁移）；
+                // scanner 产出列（stored_*/width/height/page_count/thumb/preview）保持 NULL，字节原样入库
+                updated = jdbcTemplate.update(
+                        "UPDATE asset SET upload_status = 'ACCEPTED', security_scan_status = 'PASSED', "
+                                + "moderation_status = 'PASSED', object_key = ?, size_bytes = ?, update_time = now() "
+                                + "WHERE id = ? AND upload_status = 'VALIDATING' AND validation_token = ?",
+                        acceptedKey, (long) sanitized.length, assetId, asset.validationToken());
+                if (updated == 1) {
+                    log.info("[completeUpload][asset={} ACCEPTED(免审) size={} type={}]",
+                            assetId, sanitized.length, asset.assetType());
+                    return "ACCEPTED";
+                }
+                throw exception(ASSET_VALIDATION_FAILED);
             }
             if (finalReport.exifDetected()) {
                 // EXIF 剥离不是拒绝：检测留痕审计，元数据已随重编码消失
