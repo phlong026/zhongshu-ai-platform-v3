@@ -93,6 +93,14 @@
       "pages": [
         "index"
       ]
+    },
+    {
+      "root": "pages/wallet",
+      "name": "wallet-workflow",
+      "pages": [
+        "recharge/index",
+        "records/index"
+      ]
     }
   ],
   "window": {
@@ -133,7 +141,8 @@
   "usingComponents": {
     "brand-header": "/components/brand-header/index",
     "action-panel": "/components/action-panel/index",
-    "login-guide": "/components/login-guide/index"
+    "login-guide": "/components/login-guide/index",
+    "point-asset-card": "/components/point-asset-card/index"
   },
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"

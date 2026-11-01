@@ -50,7 +50,7 @@ function onUnauthorized(handler) {
   unauthorizedHandler = handler;
 }
 
-function request(method, path, data, extraHeader) {
+function request(method, path, data, extraHeader, opts) {
   const requestSessionGen = sessionGen;
   return new Promise((resolve, reject) => {
     wx.request({
@@ -66,6 +66,11 @@ function request(method, path, data, extraHeader) {
       ),
       success(res) {
         if (res.statusCode === 401) {
+          // 独立会话（如钱包 token）的 401 只报错，绝不动平台会话
+          if (opts && opts.skipSessionGuard) {
+            reject({ code: 401, message: (res.data && res.data.msg) || '会话无效或已过期' });
+            return;
+          }
           // 仅当请求所属会话仍是当前会话时才清会话并通知；旧会话的 401 静默丢弃
           if (requestSessionGen === sessionGen) {
             clearSession();
@@ -104,6 +109,7 @@ module.exports = {
   saveSession,
   clearSession,
   onUnauthorized,
+  request,
   get: (path, params) => request('GET', path, params),
   post: (path, data, extraHeader) => request('POST', path, data, extraHeader),
   put: (path, data, extraHeader) => request('PUT', path, data, extraHeader),

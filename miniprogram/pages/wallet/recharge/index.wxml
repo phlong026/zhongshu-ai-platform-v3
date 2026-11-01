@@ -1,0 +1,95 @@
+<view class="wallet-page">
+  <brand-header title="设计点充值" back="{{true}}"/>
+
+  <view wx:if="{{loadState === 'loading'}}" class="wallet-loading">加载中…</view>
+
+  <view wx:elif="{{loadState === 'unavailable'}}" class="wallet-empty">
+    <text class="wallet-empty-title">钱包功能尚未开通</text>
+    <text class="wallet-empty-sub">管理员开通后将在此展示充值套餐</text>
+  </view>
+
+  <block wx:else>
+    <view class="content">
+      <!-- 余额卡 -->
+      <view class="balance-card">
+        <view class="balance-top">
+          <text>当前设计点</text>
+          <button class="balance-link" bindtap="goToRecords">充值记录</button>
+        </view>
+        <view class="balance-num">{{balanceText}}<text class="balance-unit">设计点</text></view>
+        <view class="balance-rate">1 元 = 10 设计点 · 支付成功即时到账</view>
+      </view>
+
+      <!-- 促销横幅（取后台推荐套餐，无推荐则不显示） -->
+      <view wx:if="{{promoText}}" class="promo-row">{{promoText}}</view>
+
+      <view class="section-title">选择充值套餐</view>
+      <view class="plans-grid">
+        <button
+          wx:for="{{plans}}"
+          wx:key="planId"
+          class="plan {{selectedIdx === index ? 'plan-on' : ''}}"
+          data-idx="{{index}}"
+          bindtap="tapPlan"
+        >
+          <view wx:if="{{item.ribbon}}" class="ribbon {{item.ribbon === '最划算' ? 'ribbon-hot' : ''}}">{{item.ribbon}}</view>
+          <view class="plan-check"><block wx:if="{{selectedIdx === index}}">✓</block></view>
+          <view class="plan-price">{{item.priceText}}</view>
+          <view class="plan-pts">到账 <text class="plan-pts-num">{{item.pointsText}}</text> 设计点</view>
+          <view wx:if="{{item.bonus}}" class="plan-bonus">{{item.bonus.label}} · {{item.bonus.percent}}%</view>
+          <view wx:else class="plan-bonus plan-bonus-none">无赠送</view>
+        </button>
+      </view>
+
+      <view class="section-title">支付方式</view>
+      <view class="payway">
+        <view class="payway-logo">微</view>
+        <text>微信支付</text>
+        <text class="payway-tag">（虚拟支付通道）</text>
+        <text class="payway-sel">✓</text>
+      </view>
+
+      <view class="agree" bindtap="toggleAgreement">
+        <view class="agree-box {{agreement ? 'agree-on' : ''}}">{{agreement ? '✓' : ''}}</view>
+        <text>已阅读并同意《充值协议》与《退款规则》</text>
+      </view>
+
+      <view class="notes">
+        <text>· 设计点用于 AI 方案生成、预算估算等增值能力，按次计价扣减</text>
+        <text>· 虚拟商品一经售出，除系统故障外不支持退款</text>
+        <text>· 余额与流水可在「充值记录」中随时查询</text>
+      </view>
+    </view>
+
+    <!-- 底部支付栏 -->
+    <view class="paybar">
+      <view class="paybar-left">
+        <view class="paybar-amount">待支付 <text class="paybar-num">{{payAmountText}}</text></view>
+        <view class="paybar-points">到账 <text class="paybar-points-num">{{payPointsText}}</text> 设计点</view>
+      </view>
+      <button class="paybar-btn {{paying ? 'paybar-btn-paying' : ''}}" bindtap="confirmPay">
+        {{paying ? '正在创建订单…' : '确认支付'}}
+      </button>
+    </view>
+
+    <!-- 支付结果浮层（成功以服务端到账状态为准） -->
+    <view wx:if="{{resultState}}" class="result-mask" bindtap="dismissResult">
+      <view class="result-card" catchtap="noop">
+        <view class="result-icon result-icon-{{resultState}}">
+          {{resultState === 'done' ? '✓' : (resultState === 'processing' ? '…' : '!')}}
+        </view>
+        <view class="result-title">
+          {{resultState === 'done' ? '支付成功' : (resultState === 'processing' ? '确认到账中' : '支付未完成')}}
+        </view>
+        <view class="result-text">{{resultText}}</view>
+        <view class="result-actions">
+          <button wx:if="{{canContinuePay}}" class="result-btn result-btn-main" catchtap="continuePay">继续支付</button>
+          <button class="result-btn" catchtap="dismissResult">
+            {{resultState === 'done' ? '完成' : (resultState === 'processing' ? '我知道了' : '关闭')}}
+          </button>
+          <button wx:if="{{resultState === 'done'}}" class="result-btn" catchtap="goToRecords">查看明细</button>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>
