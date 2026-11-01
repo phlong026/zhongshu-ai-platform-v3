@@ -12,12 +12,16 @@ function initialState() {
 
 /**
  * 触发决策：
- * - actorKey 空 → {action:'reset'}（未就绪/已登出，调用方清态）；
+ * - actorKey 空 → {action:'reset', state}（调用方以返回 state 清态；**loadGen 保留递增**——
+ *   若归零，同代次内「发起→清态恢复→再发起」的两批请求共享 loadGen，迟到旧响应会击穿守卫覆盖新结果）；
  * - 同 actorKey + 同会话代次 + loading 中 + 非 manual → {action:'skip'}（合并重复触发）；
  * - 其余 → {action:'load', loadGen, actorKey, sessionGen}（发起请求，携带三重上下文快照）。
  */
 function planLoad(state, actorKey, ctx) {
-  if (!actorKey) return { action: 'reset' };
+  if (!actorKey) {
+    return { action: 'reset', state: { status: 'idle', rows: [], loadGen: state.loadGen + 1,
+      actorKey: '', sessionGen: state.sessionGen, message: '' } };
+  }
   const sessionGen = ctx.sessionGen;
   const merged = ctx.manual !== true && state.status === 'loading'
     && state.actorKey === actorKey && state.sessionGen === sessionGen;
@@ -32,7 +36,8 @@ function valid(ctx, now) {
 
 /**
  * 请求成功：守卫命中才应用 ctx.transform(rows)（调用方注入的行映射；缺省恒等）并置 ready；
- * 响应形状非法（非对象/非数组）→ degrade；守卫未命中 → 原样返回（changed:false）。
+ * 响应形状非法（非对象/非数组）或 transform 返回非数组（漏 return/误 async）→ degrade，禁入 ready；
+ * 守卫未命中 → 原样返回（changed:false）。
  */
 function applyResponse(state, res, ctx, now) {
   if (!valid(ctx, now)) return { state, changed: false };
@@ -41,9 +46,18 @@ function applyResponse(state, res, ctx, now) {
     return { state: degrade(state, '数据暂时无法加载，请稍后刷新'), changed: true };
   }
   const transform = typeof ctx.transform === 'function' ? ctx.transform : (rows => rows);
+  let mapped;
+  try {
+    mapped = transform(rows);
+  } catch (e) {
+    return { state: degrade(state, '数据加载失败，请稍后刷新'), changed: true };
+  }
+  if (!Array.isArray(mapped)) {
+    return { state: degrade(state, '数据加载失败，请稍后刷新'), changed: true };
+  }
   return {
     changed: true,
-    state: { status: 'ready', rows: transform(rows), loadGen: ctx.loadGen, actorKey: ctx.actorKey,
+    state: { status: 'ready', rows: mapped, loadGen: ctx.loadGen, actorKey: ctx.actorKey,
       sessionGen: ctx.sessionGen, message: '' }
   };
 }
