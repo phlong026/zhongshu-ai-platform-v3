@@ -114,6 +114,7 @@ ok('轮询状态机（终态集含 PARTIALLY_SUCCEEDED/90s 超时）');
   await runtime.callWxMethod('reLaunch', { url: '/pages/workflow/explore/index?view=inspiration' });
   await flush();
   await runtime.evaluate(()=>getCurrentPages().at(-1).platLoadCases(true));
+  await flush(); await flush();
   await flush();
   d = await data();
   d = await data();

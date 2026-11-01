@@ -13,7 +13,7 @@ Page({
  loadPlatform(){
   const http=require('../../../api/http');
   http.get('/franchise/sales/quotes/'+this.quoteId+'/export-sheet').then(data=>{
-   const money=S.money,lines=(rows)=>(rows||[]).map(r=>({label:r.label||'',name:r.label||'',quantity:r.qtyText!=null?String(r.qtyText):(r.quantity!=null?String(r.quantity):''),unitPrice:r.unitText!=null?String(r.unitText):(r.unitPriceCents!=null?money(r.unitPriceCents):''),cents:r.valueCents==null?null:r.valueCents,note:''}));
+   const money=S.money,lines=(rows)=>(rows||[]).map(r=>({label:r.label||'',name:r.label||'',quantity:r.qtyText!=null?String(r.qtyText):(r.quantity!=null?String(r.quantity):'1'),unitPrice:r.unitText!=null?String(r.unitText):(r.unitPriceCents!=null?money(r.unitPriceCents):''),cents:r.valueCents==null?null:r.valueCents,note:''}));
    const main=lines(data.main),decor=lines(data.decor);
    const sum=rows=>rows.reduce((n,r)=>n+(r.cents||0),0);
    const mainTotal=sum(main),decorTotal=sum(decor),insurance=(data.insurance||0)===0?null:data.insurance,management=(data.management||0)===0?null:data.management;

@@ -86,7 +86,9 @@ module.exports = function attach(page, deps) {
     if (reset) { this.setData({ platCursor: '', platCases: [], platLoading: true }); this.platLoadStyles(); }
     else this.setData({ platLoading: true });
     api.cases.page(params).then(res => {
-      // GET 幂等读：最后派发者胜（连续加载的旧响应覆盖无害）；写命令仍走 platStale 严格守卫
+      // 守卫仅限追页（reset 是用户最新意图，且 reset 分支的 platLoadStyles 代次恒新于 cases——
+      // 对 reset 生效会让每次进入/筛选的首屏响应被误丢）；追页迟到响应丢弃防旧页拼进新结果
+      if (!reset && this.platStale(gen, sg)) return;
       const rows = (res && res.list || []).map(PF.caseRow);
       this.setData({
         platCases: reset ? rows : (this.data.platCases || []).concat(rows),
@@ -113,7 +115,7 @@ module.exports = function attach(page, deps) {
     const id = e.currentTarget.dataset.id;
     const c = (this.data.platCases || []).find(x => String(x.id) === String(id));
     if (!c) return;
-    this.setData({ platCase: c, platCaseImages: [], caseTab: 0 });
+    this.setData({ platCase: c, platCaseImages: [], caseTab: 0, platCaseFav: false });// 收藏回显初始化（防沿用上一案例收藏态）
     this.platShow('case');
     // 详情图现取：cover + elevation（floorPlanAssetIds 需 R3 详情——列表行只有 cover）
     const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
@@ -139,6 +141,9 @@ module.exports = function attach(page, deps) {
   };
 
   // ---- AI 生成链（R9 → R12/R13 → R14 轮询 → R11 → R15/R16）----
+  page.platProjectFingerprint = function (f) {
+    return [f.width, f.depth, f.floors, f.style || '', f.note || ''].join('|');
+  };
   page.platGenerate = function (kind) {
     if (this.data.busy) return;
     const f = this.data.form || {};
@@ -147,6 +152,15 @@ module.exports = function attach(page, deps) {
     if (!['1', '2', '4'].includes(String(f.count))) return this.platFail('请核对候选数量');
     if (!['2K', '4K'].includes(f.resolution)) return this.platFail('请核对清晰度');
     if (kind === 'facade' && !String(f.palette || '').trim()) return this.platFail('请填写外观主色调');
+    if (kind === 'facade' && !PF.roofCode(f.roof)) return this.platFail('请选择屋顶形式');
+    // 需求参数变化 → 旧项目（旧 requirementInputs/幂等键）作废：重置项目/候选/预算状态，防 409 与错参数生成
+    const fp = this.platProjectFingerprint(f);
+    if (this.__platProjectFp && this.__platProjectFp !== fp) {
+      this.__platProjectId = ''; this.platDropKey('proj-budget');
+      this.setData({ platResultVersionId: '' });
+      this.__platEstimateId = '';
+    }
+    this.__platProjectFp = fp;
     const line = kind === 'plan' ? 'FLAT' : 'ELEVATION';
     const orientation = f.orientation; // PORTRAIT/LANDSCAPE 或空（走后端默认）
     const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
@@ -300,7 +314,10 @@ module.exports = function attach(page, deps) {
 
   // ---- 快速预算（R9 确保项目 → R19 → R20）----
   page.platEnsureProject = function (f) {
-    if (this.__platProjectId) return Promise.resolve(this.__platProjectId);
+    // 预算的参数指纹独立比对：宽深层数变化 → 旧项目作废（旧 requirementInputs 的 R19 结果不可信）
+    const fp = this.platProjectFingerprint({ width: f.width, depth: f.depth, floors: f.floors, style: f.style });
+    if (this.__platProjectId && this.__platProjectFp === fp) return Promise.resolve(this.__platProjectId);
+    this.__platProjectFp = fp; this.__platProjectId = '';
     const inputs = PF.requirementInputs({ width: f.width, depth: f.depth, floors: f.floors, style: f.style || '现代简约', note: '' });
     if (inputs.error) return Promise.reject({ code: 0, message: inputs.error });
     const key = this.platKey('proj-budget');
@@ -333,7 +350,7 @@ module.exports = function attach(page, deps) {
         this.platDropKey('budget');
         const view = PF.estimateView(res);
         this.__platEstimateId = view.estimateId;
-        this.setData({ busy: false, platBudget: view, view: 'budget-result' });
+        this.setData({ busy: false, platBudget: view, view: 'budget-result', kind: 'budget' });// kind 随数据源切换（防保存 kind 残留为 plan）
       });
     }).catch(err => {
       if (this.platStale(gen, sg)) return;
@@ -365,9 +382,9 @@ module.exports = function attach(page, deps) {
   };
   page.platSaveCustomer = function (e) {
     const kindMap = { plan: 'PLAN', facade: 'FACADE', budget: 'BUDGET' };
+    // kind 取当前视图语义（platShow/platCalculate 链路维护；budget-result 由 platCalculate 置 budget）
     const currentKind = this.data.kind || 'plan';
     const kind = kindMap[currentKind] || 'PLAN';
-    if(typeof console.log==='function')console.log('[DBG saveCustomer] __platSaveKind=',this.__platSaveKind,'kind=',kind);
     const customerId = e.currentTarget.dataset.id;
     const f = this.data.form || {};
     const body = { customerId, kind: kind.toUpperCase() };

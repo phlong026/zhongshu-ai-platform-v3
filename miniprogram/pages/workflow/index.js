@@ -279,7 +279,7 @@ Page({
   const PFc=this.__pf;
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   this.platformTradeFrame();
-  this.setData({view:'contract',title:'签订合同',salesContracts:null,contractsError:'',salesQuotes:null,quotesError:'',canRegister:false,canFollow:false});// contractForm 保留（S1-21 表单保留协议）
+  this.setData({view:'contract',title:'签订合同',salesContracts:null,contractsError:'',salesQuotes:null,quotesError:'',canRegister:false,canFollow:false,canCollect:PF.can(this.__post,'collect')});// contractForm 保留（S1-21 表单保留协议）
   const api=this.platformSalesApi();
   api.contracts.list(this.id).then(rows=>{
    if(this.stale(gen,sessionGen,postKey))return;
@@ -374,6 +374,37 @@ Page({
     this.setData({contractError:PF.errorMessageSales(err)});
    });
   }});
+ },
+ // S1-14 回款办理（R11 collect）：PENDING 期款弹层表单，业务岗（collect={sales,sales-lead,boss}）办理，写通 B1 账簿
+ platCollect(e){
+  if(!this.data.canCollect)return this.fail('当前岗位不能办理回款');
+  const stageId=e.currentTarget.dataset.stageId;
+  if(!stageId)return this.fail('期款标识缺失，请刷新后重试');
+  return this.setData({modal:'collect',error:'',collectStageId:stageId,collectForm:{method:'bank',transactionNo:'',receivedDate:PF.today()}});
+ },
+ platCollectInput(e){const key=e.currentTarget.dataset.key;this.setData({['collectForm.'+key]:e.detail.value,error:''});},
+ platCollectPick(e){const values=['bank','cash'];this.setData({['collectForm.method']:values[Number(e.detail.value)]||'bank',error:''});},
+ platCollectSubmit(){
+  if(this.data.busy)return;
+  const form=this.data.collectForm||{},stageId=this.data.collectStageId;
+  const fail=msg=>this.setData({error:msg});
+  const err=PF.collectError(form);
+  if(err)return fail(err);
+  const key=this.platformCommandFor('collect',stageId);
+  const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
+  this.setData({busy:true,error:''});
+  this.platformSalesApi().stages.collect(stageId,{method:form.method,transactionNo:(form.transactionNo||'').trim()||undefined,receivedDate:form.receivedDate||undefined},key).then(()=>{
+   if(this.stale(gen,sessionGen,postKey))return;
+   this.platformDropCommandFor('collect',stageId);this.setData({busy:false,modal:'',error:''});
+   wx.showToast({title:'已办理回款',icon:'none'});
+   this.loadPlatformContract();
+  }).catch(err2=>{
+   if(this.stale(gen,sessionGen,postKey))return;
+   if(this.handle401(err2,sessionGen))return;
+   this.setData({busy:false});
+   if((err2&&err2.code)!==-1)this.platformDropCommandFor('collect',stageId);
+   fail(PF.errorMessageSales(err2));
+  });
  },
  loadPlatformDelivery(){
   const PFc=this.__pf;

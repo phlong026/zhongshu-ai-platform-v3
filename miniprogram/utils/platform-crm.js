@@ -22,7 +22,19 @@ function can(post, ability) {
   if (ability === 'capture' || ability === 'write') return role === 'sales' || role === 'sales-lead';
   if (ability === 'transfer') return role === 'sales-lead' || isBoss;
   if (ability === 'saleWrite') return role === 'sales' || role === 'sales-lead' || role === 'boss';
+  // 854 种子：collect={sales,sales-lead,boss}（S1-14 回款办理入口；owner/finance 系无）
+  if (ability === 'collect') return role === 'sales' || role === 'sales-lead' || role === 'boss';
   return false;
+}
+
+/** 回款办理表单校验（S1-14）：method 必填；银行方式须流水号；receivedDate 合法或空（后端为最终裁决）。返回错误文案或 '' */
+function collectError(form) {
+  const f = form || {};
+  const method = String(f.method || '').trim();
+  if (!method) return '请选择收款方式';
+  if (method === 'bank' && !String(f.transactionNo || '').trim()) return '银行收款须填流水号';
+  if (f.receivedDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(f.receivedDate))) return '到账日期格式不正确';
+  return '';
 }
 
 /** 日期统一口径（Asia/Shanghai 墙钟）：数组/毫秒/字符串 → 'YYYY-MM-DD'；空 → '' */
@@ -367,7 +379,7 @@ function errorMessage(err, action) {
 }
 
 module.exports = {
-  CRM_ROLES, pageMode, can, toDate, dateToArray, today, maskPhone, statusText,
+  CRM_ROLES, pageMode, can, collectError, toDate, dateToArray, today, maskPhone, statusText,
   customerRow, sortRows, tabFilter, latestSchemeSize, detailView,
   commandKey, capturePayload, updatePayload, followPayload, transferPayload,
   validPhone, within, errorMessage,
