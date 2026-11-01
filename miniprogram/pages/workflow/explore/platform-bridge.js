@@ -153,13 +153,15 @@ module.exports = function attach(page, deps) {
     this.setData({ busy: true, platformErr: '', platResult: null, platPolling: true, platPollTip: '已提交，AI 生成中…' });
     const body = { sourceType: 'SELF_UPLOAD', line, requirementInputs: inputs.inputs };
     if (kind === 'facade' && f.referenceCaseId) { body.sourceType = 'CASE_REFERENCE'; body.refCaseId = f.referenceCaseId; }
-    const createKey = this.platKey('proj-' + kind);
+    const projAction = 'proj-' + kind;
+    const createKey = this.platKey(projAction);
     api.projects.create(body, createKey).then(proj => {
-      this.platDropKey('proj-' + kind);
+      this.platDropKey(projAction);
       if (this.platStale(gen, sg)) return;
       const projectId = String(proj.projectId);
       this.__platProjectId = projectId;
-      const jobKey = this.platKey(kind === 'plan' ? 'flat' : 'elev');
+      const jobAction = kind === 'plan' ? 'flat' : 'elev';
+      const jobKey = this.platKey(jobAction);
       const jobBody = { count: Number(f.count), resolution: f.resolution };
       if (orientation === 'LANDSCAPE' || orientation === 'PORTRAIT') jobBody.orientation = orientation;// 后端值域=画面方向；非法值不传走后端默认（平面竖图/立面横图）
       if (kind === 'facade') {
@@ -171,16 +173,17 @@ module.exports = function attach(page, deps) {
       }
       const createJob = kind === 'plan' ? api.projects.createFlatJob : api.projects.createElevationJob;
       return createJob(projectId, jobBody, jobKey).then(job => {
-        this.platDropKey(kind === 'plan' ? 'flat' : 'elev');
+        this.platDropKey(jobAction);
         if (this.platStale(gen, sg)) return;
         this.__platJobId = String(job.jobId);
+        this.__platKind = kind;
         this.platPoll(jobId => String(job.jobId) === String(this.__platJobId) ? this.__platJobId : this.__platJobId, gen, sg, kind, projectId);
       });
     }).catch(err => {
       if (this.platStale(gen, sg)) return;
       if (this.platHandle401(err, sg)) return;
       this.setData({ busy: false, platPolling: false });
-      if ((err && err.code) !== -1) this.platDropKey(createKey);
+      if ((err && err.code) !== -1) { this.platDropKey(projAction); this.platDropKey(kind === 'plan' ? 'flat' : 'elev'); }
       this.platFail(PF.errorMessageDesign(err));
     });
   };
@@ -302,7 +305,7 @@ module.exports = function attach(page, deps) {
     if (inputs.error) return Promise.reject({ code: 0, message: inputs.error });
     const key = this.platKey('proj-budget');
     return api.projects.create({ sourceType: 'SELF_UPLOAD', line: 'FLAT', requirementInputs: inputs.inputs }, key)
-      .then(proj => { this.__platProjectId = String(proj.projectId); return this.__platProjectId; });
+      .then(proj => { this.platDropKey('proj-budget'); this.__platProjectId = String(proj.projectId); return this.__platProjectId; });
   };
   page.platLoadRule = function () {
     const f = this.data.form || {};
