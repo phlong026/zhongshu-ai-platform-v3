@@ -1,8 +1,8 @@
 <view class="page customers-page workbench-page sales-page">
-  <view class="workbench-header"><brand-header divider="{{true}}" title="客户" /></view>
+  <view class="workbench-header"><brand-header wx:if="{{isBossView}}" back="{{true}}" divider="{{true}}" title="客户" /><brand-header wx:else divider="{{true}}" title="客户" /></view>
   <view class="content">
     <view class="section customer-overview">
-      <view class="section-heading"><text class="section-title">{{isLead?'客户管理':'我的客户'}}</text><button class="primary" bindtap="register">＋ 登记客户</button></view>
+      <view class="section-heading"><text class="section-title">{{isBossView?'本店客户':isLead?'客户管理':'我的客户'}}</text><button wx:if="{{canRegister}}" class="primary" bindtap="register">＋ 登记客户</button></view>
       <view class="sales-search customer-search"><image src="/assets/search.png" mode="aspectFit" /><input placeholder="搜索姓名、手机号或地区" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
       <view class="customer-work-filters customer-tabs"><button wx:for="{{tabs}}" wx:key="key" class="customer-day-button {{tab===item.key?'active':''}}" data-tab="{{item.key}}" bindtap="selectTab"><text>{{item.label}}</text><text>{{item.count}}</text><view wx:if="{{item.dot}}" class="sales-stat-dot" aria-label="有逾期回访"/></button></view>
       <view wx:for="{{visibleCustomers}}" wx:key="id" class="customer-list-row" data-id="{{item.id}}" bindtap="open">
@@ -19,4 +19,4 @@
     </view>
   </view>
 </view>
-<workspace-nav id="customers-workspace-nav" active-index="{{7}}" nested />
+<workspace-nav id="customers-workspace-nav" active-index="{{navigationIndex}}" nested />

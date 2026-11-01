@@ -1,5 +1,5 @@
 <wxs src="../../../utils/tone.wxs" module="st"/>
-<view class="page engineering-desk materials-page"><brand-header title="材料" divider="{{true}}"/><view class="eng-content">
+<view class="page engineering-desk materials-page"><brand-header wx:if="{{readOnly}}" title="材料" back="{{true}}" divider="{{true}}"/><brand-header wx:else title="材料" divider="{{true}}"/><view class="eng-content">
  <text wx:if="{{error}}" class="eng-error">{{error}}</text><view wx:if="{{!allowed}}" class="eng-empty"><text>当前身份无施工材料访问权限</text><button class="eng-outline" bindtap="home">返回工作台</button></view>
  <block wx:elif="{{overview}}"><view class="eng-section"><scroll-view class="eng-node-scroll" scroll-x="{{true}}"><button wx:for="{{filters}}" wx:key="*this" class="{{filter===item?'selected':''}}" data-value="{{item}}" bindtap="setFilter">{{item}}</button></scroll-view></view>
  <view wx:for="{{groups}}" wx:key="id" class="eng-section"><view class="eng-heading"><text>{{item.name}}</text></view><text class="eng-muted">工程人员　{{item.engineer}}</text>
@@ -13,4 +13,4 @@
  <view wx:if="{{!materials.length}}" class="eng-empty"><text>本节点暂无材料计划</text><text class="eng-muted">按现场实际需用量建立清单后提交</text></view>
  <button wx:if="{{canEdit}}" class="eng-primary eng-submit" disabled="{{!pendingCount||busy}}" loading="{{busy}}" bindtap="submit">提交待办需求（{{pendingCount}}项）</button><text class="eng-hint">提交需求不等于下单，供应安排与实际收货分别记录。</text><view class="eng-material-footer"><button class="eng-link" bindtap="project">返回关联工程项目</button></view></block>
  <view wx:else class="eng-empty"><text>暂无可查看的工程项目</text><text class="eng-muted">请先在项目页接收业务移交或核对项目授权</text><button class="eng-outline" bindtap="home">返回工程首页</button></view>
-</view></view><custom-tab-bar active-index="{{9}}" nested="{{true}}"/>
+</view></view><custom-tab-bar active-index="{{navigationIndex}}" nested="{{true}}"/>
