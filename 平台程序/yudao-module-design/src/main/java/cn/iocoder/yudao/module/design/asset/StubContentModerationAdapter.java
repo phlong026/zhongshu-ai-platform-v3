@@ -16,8 +16,18 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "zhongshu.design.asset.moderation", name = "provider", havingValue = "stub")
 public class StubContentModerationAdapter implements ContentModerationPort {
 
+    /**
+     * 审核故障夹具（B2 板块 A / P-7⑤，仅 local dev 控制器切换）：
+     * 置位后 review 抛 ModerationUnavailableException，用于验收退避期 PENDING 语义；生产装配不存在此类。
+     */
+    public static final java.util.concurrent.atomic.AtomicBoolean FAULT_MODE =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
     @Override
     public boolean pass(String assetType, byte[] content) {
+        if (FAULT_MODE.get()) {
+            throw new ModerationUnavailableException();
+        }
         // P0 直通；内容审核决策与版权授权互不影响
         return true;
     }

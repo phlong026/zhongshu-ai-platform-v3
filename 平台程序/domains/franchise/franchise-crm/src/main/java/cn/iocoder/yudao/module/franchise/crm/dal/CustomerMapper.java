@@ -30,6 +30,11 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
         return selectPage(page, query.orderByDesc(CustomerDO::getUpdateTime).orderByDesc(CustomerDO::getId));
     }
 
+    /** 行锁读取（B2 板块 A / P-9：AI 回写的并发版本分配要求锁内重读客户） */
+    default CustomerDO lockById(Long id) {
+        return selectOne(new LambdaQueryWrapperX<CustomerDO>().eq(CustomerDO::getId, id).last("FOR UPDATE"));
+    }
+
     /** 预约回访到期（含今天）的客户 */
     default List<CustomerDO> selectDueVisits(Consumer<LambdaQueryWrapperX<CustomerDO>> visibility, LocalDate today) {
         LambdaQueryWrapperX<CustomerDO> query = new LambdaQueryWrapperX<>();

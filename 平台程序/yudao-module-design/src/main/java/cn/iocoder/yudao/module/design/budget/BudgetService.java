@@ -107,6 +107,43 @@ public class BudgetService {
         });
     }
 
+    /** 预算测算原子收据（B2 板块 A / P-10④）：重放判定=budget_legacy_request 收据（收据锁事务内） */
+    public record EstimateReceipt(long estimateId, long totalLowCents, long totalHighCents,
+                                  long ruleVersionId, boolean replayed) {
+    }
+
+    public EstimateReceipt createEstimateReceipt(long userId, long projectId, String regionCode,
+                                                 String structureType, String materialGrade, int buildingArea,
+                                                 Long resultVersionId,
+                                                 cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
+                                                 String key) {
+        if (key == null || key.isBlank() || key.length() > 128) throw new ServiceException(400, "请提供有效 Idempotency-Key");
+        if (transactionTemplate == null) throw new IllegalStateException("BUDGET_TRANSACTION_NOT_WIRED");
+        return transactionTemplate.execute(status -> {
+            var prior = jdbcTemplate.queryForList(
+                    "SELECT estimate_id, request_hash FROM budget_legacy_request WHERE user_id=? AND request_key=? FOR UPDATE",
+                    userId, key);
+            if (!prior.isEmpty() && prior.get(0).get("estimate_id") != null) {
+                var estimate = getEstimate(userId, ((Number) prior.get(0).get("estimate_id")).longValue())
+                        .orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
+                return new EstimateReceipt(estimate.estimateId(), estimate.totalLowCents(), estimate.totalHighCents(),
+                        estimateRuleVersionId(estimate), true);
+            }
+            var estimate = createEstimate(userId, projectId, regionCode, structureType, materialGrade,
+                    buildingArea, resultVersionId, confirmation, key);
+            return new EstimateReceipt(estimate.estimateId(), estimate.totalLowCents(), estimate.totalHighCents(),
+                    estimateRuleVersionId(estimate), false);
+        });
+    }
+
+    /** 从 estimate 行读规则版本（收据回放需要 ruleVersionId；input_snapshot 不含，按表直查） */
+    private long estimateRuleVersionId(Estimate estimate) {
+        Long ruleId = jdbcTemplate.queryForObject(
+                "SELECT rule_version_id FROM budget_estimate WHERE id=? AND deleted=FALSE",
+                Long.class, estimate.estimateId());
+        return ruleId == null ? -1L : ruleId;
+    }
+
     private Estimate createEstimateInside(long userId, long projectId, String regionCode,
                                    String structureType, String materialGrade, int buildingArea,
                                    Long resultVersionId,

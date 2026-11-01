@@ -23,6 +23,7 @@ import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConst
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.DESIGN_PROJECT_DELETE_CONFLICT;
 import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.DESIGN_PROJECT_NAME_INVALID;
+import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.DESIGN_JOB_NOT_TERMINAL;
 import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.DESIGN_STAGE_CONFLICT;
 import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.GENERATION_REFERENCE_NOT_AUTHORIZED;
 
@@ -195,7 +196,23 @@ public class DesignProjectService {
 
     public long createProjectWithKey(long userId, String source, Long caseId, Long sketchId,
                                      Map<String,Object> inputs, String key, String line, Long selectedCaseVersionId) {
-        if (key == null || key.isBlank()) return createProject(userId, source, caseId, sketchId, inputs, line, selectedCaseVersionId);
+        return createProjectReceipt(userId, source, caseId, sketchId, inputs, key, line, selectedCaseVersionId).projectId();
+    }
+
+    /** 项目创建原子收据（P-10④）：重放判定=design_project_request 收据（收据锁事务内） */
+    public record ProjectCreatedReceipt(long projectId, boolean replayed) {
+    }
+
+    public ProjectCreatedReceipt createProjectReceipt(long userId, String source, Long caseId, Long sketchId,
+                                                      Map<String,Object> inputs, String key, String line) {
+        return createProjectReceipt(userId, source, caseId, sketchId, inputs, key, line, null);
+    }
+
+    public ProjectCreatedReceipt createProjectReceipt(long userId, String source, Long caseId, Long sketchId,
+                                                      Map<String,Object> inputs, String key, String line, Long selectedCaseVersionId) {
+        if (key == null || key.isBlank()) {
+            return new ProjectCreatedReceipt(createProject(userId, source, caseId, sketchId, inputs, line, selectedCaseVersionId), false);
+        }
         if (key.length() > 128) throw new IllegalArgumentException("Request key too long");
         return txTemplate.execute(status -> {
             if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
@@ -211,10 +228,12 @@ public class DesignProjectService {
             jdbcTemplate.update("INSERT INTO design_project_request(user_id,request_key,request_hash) VALUES(?,?,?) ON CONFLICT DO NOTHING",userId,key,fingerprint);
             var receipt = jdbcTemplate.queryForMap("SELECT request_hash,project_id FROM design_project_request WHERE user_id=? AND request_key=? FOR UPDATE",userId,key);
             if (!fingerprint.equals(receipt.get("request_hash"))) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409,"同一请求号不能用于不同项目输入");
-            if (receipt.get("project_id") != null) return ((Number)receipt.get("project_id")).longValue();
+            if (receipt.get("project_id") != null) {
+                return new ProjectCreatedReceipt(((Number)receipt.get("project_id")).longValue(), true);
+            }
             long projectId = createProject(userId,source,caseId,sketchId,inputs,line,selectedCaseVersionId);
             jdbcTemplate.update("UPDATE design_project_request SET project_id=? WHERE user_id=? AND request_key=?",projectId,userId,key);
-            return projectId;
+            return new ProjectCreatedReceipt(projectId, false);
         });
     }
 
@@ -366,18 +385,21 @@ public class DesignProjectService {
         if (project.userId() != userId) {
             throw exception(RESOURCE_FORBIDDEN);
         }
-        if (!"FLAT".equals(project.stage())) {
-            throw exception(DESIGN_STAGE_CONFLICT);
-        }
+        // P-10①/②：属主校验后、全部可变前置检查（阶段/快照/报价）之前处理旧键收据——
+        // 项目转 ELEVATION 后旧平面键重放仍返回原任务；首个平面任务以调用方传入键落库（不再替换为项目创建键）。
         String operationKey = idempotencyKey;
         if (idempotencyKey!=null && !idempotencyKey.isBlank()) {
-            var references=jdbcTemplate.queryForList("SELECT project_ref,phase FROM ai_job WHERE user_id=? AND idempotency_key=?",userId,idempotencyKey);
-            if (!references.isEmpty() && (!String.valueOf(projectId).equals(references.get(0).get("project_ref")) || !"FLAT".equals(references.get(0).get("phase"))))
-                throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+            Long replayed = flatReplayReceipt(userId, projectId, idempotencyKey, count, options.resolution());
+            if (replayed != null) return new FlatJobCreated(replayed, false);
+        } else {
+            // C 端「无显式键首次生成」兼容：保持 initialGenerationKey 语义不变
+            if (aiJobPort.latestJob(userId, projectId, "FLAT").isEmpty()) {
+                String creationKey = initialGenerationKey(projectId, userId);
+                if (creationKey != null) operationKey = creationKey;
+            }
         }
-        if (aiJobPort.latestJob(userId, projectId, "FLAT").isEmpty()) {
-            String creationKey = initialGenerationKey(projectId, userId);
-            if (creationKey != null) operationKey = creationKey;
+        if (!"FLAT".equals(project.stage())) {
+            throw exception(DESIGN_STAGE_CONFLICT);
         }
         Map<String,Object> frozenInput = existingFlatReplayInput(userId, projectId, operationKey);
         // 平面生成已改为纯文生图：新任务不再校验或刷新案例生成参考授权；
@@ -389,6 +411,50 @@ public class DesignProjectService {
                 "UPDATE design_project SET update_time = now() WHERE id = ?", projectId);
         return new FlatJobCreated(jobId, created);
         });
+    }
+
+    /**
+     * 平面任务旧键重放收据（P-10②）：命中且参数一致返回 jobId；不一致=键重用拒绝。
+     * request_resolution 为 NULL 的存量任务跳过该比较（历史默认 2K）。
+     */
+    private Long flatReplayReceipt(long userId, long projectId, String key, int count, String resolution) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT id, requested_count, request_resolution, project_ref, phase FROM ai_job "
+                        + "WHERE user_id=? AND idempotency_key=? AND deleted=FALSE", userId, key);
+        if (rows.isEmpty()) return null;
+        var row = rows.get(0);
+        Object storedResolution = row.get("request_resolution");
+        if (!String.valueOf(projectId).equals(row.get("project_ref")) || !"FLAT".equals(row.get("phase"))
+                || count != ((Number) row.get("requested_count")).intValue()
+                || storedResolution != null && !java.util.Objects.equals(resolution, storedResolution)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+        return ((Number) row.get("id")).longValue();
+    }
+
+    /**
+     * 立面任务旧键重放收据（P-10②）：与调整请求共享键空间（唯一索引=user+key），
+     * 该键已被调整请求占用=跨操作冲突（R13↔R18 同键拒绝）。
+     */
+    private Long elevationReplayReceipt(long userId, long projectId, String key, int count, String resolution) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT id, requested_count, request_resolution, project_ref, phase FROM ai_job "
+                        + "WHERE user_id=? AND idempotency_key=? AND deleted=FALSE", userId, key);
+        if (rows.isEmpty()) return null;
+        var row = rows.get(0);
+        Object storedResolution = row.get("request_resolution");
+        if (!"ELEVATION".equals(row.get("phase")) || !String.valueOf(projectId).equals(row.get("project_ref"))
+                || count != ((Number) row.get("requested_count")).intValue()
+                || storedResolution != null && !java.util.Objects.equals(resolution, storedResolution)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+        long jobId = ((Number) row.get("id")).longValue();
+        Integer revisionOwned = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM design_revision_request WHERE new_job_id=? AND deleted=FALSE", Integer.class, jobId);
+        if (revisionOwned != null && revisionOwned > 0) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+        return jobId;
     }
 
     /** Called under the owned project row lock. The job port still validates key/count/resolution before replay. */
@@ -471,7 +537,7 @@ public class DesignProjectService {
         }
         String status = job.status();
         if (!isTerminal(status)) {
-            throw new IllegalStateException("任务未终态: " + status);
+            throw exception(DESIGN_JOB_NOT_TERMINAL);
         }
         promoteAcceptedResults(userId, projectId, jobId);
         return listCandidates(projectId).stream().filter(candidate -> candidate.jobId()==jobId).toList();
@@ -578,20 +644,41 @@ public class DesignProjectService {
     }
 
     /** 用户正式确认平面；旧选择不自动迁移，重复确认在项目锁内返回同一版本。
-     *  立面线路的历史平面选择仍走原选择语义，不创建新的平面交付。 */
+     *  立面线路的历史平面选择仍走原选择语义，不创建新的平面交付。（旧接口兼容：映射收据） */
     public ResultVersionCreated confirmFlatCandidate(long userId, long projectId, long candidateId) {
+        SelectionReceipt receipt = confirmFlatCandidateReceipt(userId, projectId, candidateId);
+        return receipt.versionId() == null ? null : new ResultVersionCreated(receipt.versionId(), receipt.version());
+    }
+
+    /** 选定收据（P-10④）：重放判定=当前活动候选（项目锁内）；ELEVATION 阶段 selectionSaved=true 且无版本 */
+    public record SelectionReceipt(long selectionId, Long versionId, Long version,
+                                   boolean selectionSaved, boolean replayed) {
+    }
+
+    public SelectionReceipt confirmFlatCandidateReceipt(long userId, long projectId, long candidateId) {
         return txTemplate.execute(status -> {
             lockOwnedProject(userId, projectId);
+            Long active = jdbcSelectActive(projectId, "FLAT");
+            boolean sameCandidate = false;
+            if (active != null) {
+                Long activeCandidate = jdbcTemplate.queryForObject(
+                        "SELECT candidate_id FROM design_selection WHERE id = ?", Long.class, active);
+                sameCandidate = activeCandidate != null && activeCandidate == candidateId;
+            }
             long selectionId = selectFlatCandidate(userId, projectId, candidateId);
             var project = getProject(projectId).orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
-            if (!"FLAT".equals(project.stage())) return null;
+            if (!"FLAT".equals(project.stage())) {
+                return new SelectionReceipt(selectionId, null, null, true, sameCandidate);
+            }
             var existing = jdbcTemplate.queryForList(
                     "SELECT id, version FROM design_result_version WHERE project_id=? "
                             + "AND flat_selection_id=? AND result_line='FLAT' AND deleted=FALSE",
                     projectId, selectionId);
-            if (!existing.isEmpty()) return new ResultVersionCreated(
-                    ((Number) existing.get(0).get("id")).longValue(),
-                    ((Number) existing.get(0).get("version")).longValue());
+            if (!existing.isEmpty()) {
+                return new SelectionReceipt(selectionId,
+                        ((Number) existing.get(0).get("id")).longValue(),
+                        ((Number) existing.get(0).get("version")).longValue(), true, sameCandidate);
+            }
             long jobId = validateSelectionCandidate(userId, projectId, candidateId, "FLAT");
             Long maximum = jdbcTemplate.queryForObject(
                     "SELECT COALESCE(MAX(version),0) FROM design_result_version WHERE project_id=?",
@@ -604,7 +691,7 @@ public class DesignProjectService {
                     versionConfig(jobInput(jobId), jobId));
             jdbcTemplate.update("UPDATE design_result_version SET superseded=TRUE,update_time=now() "
                     + "WHERE project_id=? AND version<? AND deleted=FALSE", projectId, version);
-            return new ResultVersionCreated(versionId, version);
+            return new SelectionReceipt(selectionId, versionId, version, true, sameCandidate);
         });
     }
 
@@ -641,6 +728,11 @@ public class DesignProjectService {
                 .orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
         if (project.userId() != userId) {
             throw exception(RESOURCE_FORBIDDEN);
+        }
+        // P-10②：重放先于全部可变前置检查（平面选择读取/引用资产校验/快照重建/报价）
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Long replayed = elevationReplayReceipt(userId, projectId, idempotencyKey, count, options.resolution());
+            if (replayed != null) return new FlatJobCreated(replayed, false);
         }
         // 需求①拆分：立面不再以「已选平面」为前置——平面选择可选；有选定时仍校验其链路（调整链沿版本快照），
         // 纯立面项目（ELEVATION 线路）无平面参考，走零参考文生图（案例授权立面图可作风格参考，见 runtimeInput）。
@@ -693,6 +785,11 @@ public class DesignProjectService {
     }
 
     public ResultVersionCreated selectElevationCandidate(long userId, long projectId, long candidateId) {
+        SelectionReceipt receipt = selectElevationCandidateReceipt(userId, projectId, candidateId);
+        return receipt.versionId() == null ? null : new ResultVersionCreated(receipt.versionId(), receipt.version());
+    }
+
+    public SelectionReceipt selectElevationCandidateReceipt(long userId, long projectId, long candidateId) {
         ProjectSnapshot project = getProject(projectId)
                 .orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
         if (project.userId() != userId) {
@@ -713,7 +810,7 @@ public class DesignProjectService {
                     long v = versionId == null ? -1L : versionId;
                     long ver = v < 0 ? -1 : jdbcTemplate.queryForObject(
                             "SELECT version FROM design_result_version WHERE id = ?", Long.class, v);
-                    return new ResultVersionCreated(v, ver);
+                    return new SelectionReceipt(activeSelection, v < 0 ? null : v, ver < 0 ? null : ver, true, true);
                 }
                 jdbcTemplate.update(
                         "UPDATE design_selection SET active = FALSE, update_time = now() WHERE id = ?",
@@ -756,8 +853,8 @@ public class DesignProjectService {
                                 + "update_time = now() WHERE project_id = ? AND status = 'PENDING'",
                         versionId, projectId);
             }
-            log.info("[selectElevationCandidate][project={} v{}]", projectId, version);
-            return new ResultVersionCreated(versionId, version);
+            log.info("[selectElevationCandidateReceipt][project={} v{} replayed=false]", projectId, version);
+            return new SelectionReceipt(selectionId, versionId, version, true, false);
         });
     }
 
@@ -811,6 +908,20 @@ public class DesignProjectService {
                                                  String idempotencyKey,
                                                  cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
                                                  String resolution, String orientation) {
+        RevisionReceipt receipt = createRevisionRequestReceipt(userId, projectId, reason, configUpdates, count,
+                idempotencyKey, confirmation, resolution, orientation);
+        return new RevisionCreated(receipt.requestId(), receipt.newJobId());
+    }
+
+    /** 调整请求收据（P-10②④）：重放先于全部可变前置检查（最新版本读取/继承配置重建/报价） */
+    public record RevisionReceipt(long requestId, long newJobId, boolean replayed) {
+    }
+
+    public RevisionReceipt createRevisionRequestReceipt(long userId, long projectId, String reason,
+                                                        Map<String, Object> configUpdates, int count,
+                                                        String idempotencyKey,
+                                                        cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
+                                                        String resolution, String orientation) {
         return txTemplate.execute(transaction -> {
         if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
         jdbcTemplate.queryForMap("SELECT id FROM design_project WHERE id=? FOR UPDATE",projectId);
@@ -819,6 +930,9 @@ public class DesignProjectService {
         if (project.userId() != userId) {
             throw exception(RESOURCE_FORBIDDEN);
         }
+        // P-10②：属主校验后立即查旧键收据——最新版本演进不影响重放（省略的 resolution/orientation 按首次解析规格冻结）
+        RevisionReceipt replayed = revisionReplayReceipt(userId, projectId, idempotencyKey, reason, configUpdates, count, resolution);
+        if (replayed != null) return replayed;
         List<Long> versionRows = jdbcTemplate.query(
                 "SELECT id FROM design_result_version WHERE project_id = ? AND deleted = FALSE "
                         + "AND result_line IS DISTINCT FROM 'FLAT' ORDER BY version DESC LIMIT 1",
@@ -849,7 +963,7 @@ public class DesignProjectService {
                 if (!java.util.Objects.equals(reason,old.get(0).get("reason")) || !java.util.Objects.equals(existing==null?null:mapper.readTree(existing.toString()),expected==null?null:mapper.readTree(expected)))
                     throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
             } catch (java.io.IOException error) { throw new IllegalStateException("INVALID_REVISION_CONFIG",error); }
-            return new RevisionCreated(((Number)old.get(0).get("id")).longValue(),job.jobId());
+            return new RevisionReceipt(((Number)old.get(0).get("id")).longValue(),job.jobId(),true);
         }
         long requestId = IdWorker.getId();
         jdbcTemplate.update(
@@ -857,8 +971,53 @@ public class DesignProjectService {
                         + "config_updates, new_job_id) VALUES (?, ?, ?, ?, CAST(? AS jsonb), ?)",
                 requestId, projectId, latestVersionId, reason,
                 configUpdates == null ? null : toStringJson(configUpdates), job.jobId());
-        return new RevisionCreated(requestId, job.jobId());
+        return new RevisionReceipt(requestId, job.jobId(), false);
         });
+    }
+
+    /**
+     * 调整请求旧键重放收据（P-10②）：收据比较=完整规范化请求（reason/configUpdates/count，
+     * resolution 显式给定且存量非空时才比较——省略值不重新继承最新版本）；
+     * 同键被普通立面任务占用=跨操作冲突（R13↔R18 共享键空间）。
+     */
+    private RevisionReceipt revisionReplayReceipt(long userId, long projectId, String key, String reason,
+                                                  Map<String,Object> configUpdates, int count, String resolution) {
+        if (key == null || key.isBlank()) return null;
+        var rows = jdbcTemplate.queryForList(
+                "SELECT j.id AS job_id, j.requested_count, j.request_resolution, j.project_ref, j.phase, "
+                        + "r.id AS request_id, r.reason, r.config_updates::text AS config_updates "
+                        + "FROM ai_job j JOIN design_revision_request r ON r.new_job_id = j.id AND r.deleted=FALSE "
+                        + "WHERE j.user_id=? AND j.idempotency_key=? AND j.deleted=FALSE", userId, key);
+        if (rows.isEmpty()) {
+            var plain = jdbcTemplate.queryForList(
+                    "SELECT id FROM ai_job WHERE user_id=? AND idempotency_key=? AND deleted=FALSE", userId, key);
+            if (!plain.isEmpty()) {
+                // 键已被普通立面任务占用（R13）：R18 用同键=跨操作冲突
+                throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+            }
+            return null;
+        }
+        var row = rows.get(0);
+        Object storedResolution = row.get("request_resolution");
+        if (!"ELEVATION".equals(row.get("phase")) || !String.valueOf(projectId).equals(row.get("project_ref"))
+                || count != ((Number) row.get("requested_count")).intValue()
+                || !java.util.Objects.equals(reason, row.get("reason"))
+                || resolution != null && storedResolution != null && !java.util.Objects.equals(resolution, storedResolution)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+        String expected = configUpdates == null ? null : toStringJson(configUpdates);
+        try {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Object existing = row.get("config_updates");
+            if (!java.util.Objects.equals(existing == null ? null : mapper.readTree(existing.toString()),
+                    expected == null ? null : mapper.readTree(expected))) {
+                throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+            }
+        } catch (java.io.IOException error) {
+            throw new IllegalStateException("INVALID_REVISION_CONFIG", error);
+        }
+        return new RevisionReceipt(((Number) row.get("request_id")).longValue(),
+                ((Number) row.get("job_id")).longValue(), true);
     }
 
     private Map<String,Object> runtimeInput(ProjectSnapshot project, String phase, Map<String,Object> overrides,
@@ -1011,7 +1170,7 @@ public class DesignProjectService {
         if (job.userId()!=userId || !String.valueOf(projectId).equals(job.projectRef())
                 || !("FLAT".equals(job.phase()) || "ELEVATION".equals(job.phase()))
                 || phase!=null && !phase.equals(job.phase())) throw exception(RESOURCE_FORBIDDEN);
-        if (!isTerminal(job.status())) throw new IllegalStateException("任务未终态，不可选择或晋升");
+        if (!isTerminal(job.status())) throw exception(DESIGN_JOB_NOT_TERMINAL);
         return job;
     }
 

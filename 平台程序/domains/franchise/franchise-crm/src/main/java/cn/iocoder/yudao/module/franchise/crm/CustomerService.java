@@ -53,6 +53,11 @@ public class CustomerService {
                                 Integer floors, BigDecimal area, Long totalCents) {
     }
 
+    /** 内部方案命令（B2 板块 A / P-9 DTO 分离）：携带 designProjectId 与按 kind 保留的显式尺寸；旧 HTTP 接口的 SchemeCommand 不含关联列 */
+    public record SchemeSaveCommand(String kind, String title, String payload, BigDecimal width, BigDecimal depth,
+                                    Integer floors, BigDecimal area, Long totalCents, Long designProjectId) {
+    }
+
     public record TransferCommand(long targetUserId, String reason) {
     }
 
@@ -184,6 +189,71 @@ public class CustomerService {
         commands.record(post, AGGREGATE, customerId, revision + 1, "customer-scheme",
                 Map.of("kind", input.kind(), "version", scheme.getVersion()), idempotencyKey);
         return scheme;
+    }
+
+    /**
+     * B 端 AI 结果回写（B2 板块 A / P-3+P-9，franchise-design 经 CustomerSchemePort 调用）：
+     * 客户行锁内重读完整客户（含 revision）并复核权限 → 锁内读取 latest 分配版本 →
+     * 以锁内 revision 完成方案插入+客户推进+命令事件（防不同键并发同版本号撞唯一约束/持旧 revision 回滚）。
+     * 幂等由调用方（advisory lock + replay/record）承担，本方法不走 FranchiseCommands 幂等分支
+     * （saveScheme 的重放按全量命令校验却只记录 {kind,version}，同键重试哈希不匹配——Codex R1 认定的缺陷）。
+     * 显式尺寸按 kind 保留（PLAN/FACADE 允许携带，旧 normalize 会清空）；范围校验与 BUDGET 同规。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public CustomerSchemeDO saveSchemeInternal(PostSnapshot post, long customerId, SchemeSaveCommand command) {
+        CustomerDO customer = customerMapper.lockById(customerId);
+        if (customer == null || !CustomerAccess.canRead(post, customer) && !CustomerAccess.canWrite(post, customer)) {
+            throw exception(CUSTOMER_NOT_FOUND);
+        }
+        if (!CustomerAccess.canWrite(post, customer)) {
+            throw exception(CUSTOMER_FORBIDDEN);
+        }
+        SchemeSaveCommand input = normalizeInternal(command);
+        CustomerSchemeDO latest = schemeMapper.selectLatest(customerId, input.kind());
+        CustomerSchemeDO scheme = new CustomerSchemeDO().setCompanyId(post.orgId()).setCustomerId(customerId)
+                .setKind(input.kind()).setVersion(latest == null ? 1 : latest.getVersion() + 1)
+                .setTitle(input.title()).setPayload(input.payload())
+                .setWidth(input.width()).setDepth(input.depth()).setFloors(input.floors()).setArea(input.area())
+                .setTotalCents(input.totalCents()).setAuthorUserId(post.userId())
+                .setDesignProjectId(input.designProjectId());
+        schemeMapper.insert(scheme);
+        long revision = customer.getRevision();
+        Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> {
+        }));
+        var eventPayload = new java.util.LinkedHashMap<String, Object>();
+        eventPayload.put("kind", input.kind());
+        eventPayload.put("version", scheme.getVersion());
+        if (input.designProjectId() != null) {
+            eventPayload.put("designProjectId", input.designProjectId());
+        }
+        commands.record(post, AGGREGATE, customerId, revision + 1, "customer-scheme-ai", eventPayload, null);
+        return scheme;
+    }
+
+    private static SchemeSaveCommand normalizeInternal(SchemeSaveCommand c) {
+        String kind = StrUtil.trim(c.kind());
+        String title = StrUtil.trim(c.title());
+        if (kind == null || !SCHEME_KINDS.contains(kind) || StrUtil.isBlank(title) || title.length() > 128
+                || tooLong(c.payload(), PAYLOAD_MAX) || c.totalCents() != null && c.totalCents() < 0) {
+            throw exception(SCHEME_INVALID);
+        }
+        // PLAN/FACADE：显式尺寸按 kind 保留，但给定时必须合法（与 BUDGET 同规，防脏数据绕过 CHECK）
+        if (!CustomerSchemeDO.KIND_BUDGET.equals(kind)) {
+            if ((c.width() != null && !positive(c.width(), "999.99"))
+                    || (c.depth() != null && !positive(c.depth(), "999.99"))
+                    || (c.area() != null && !positive(c.area(), "99999.99"))
+                    || c.floors() != null && (c.floors() < 1 || c.floors() > 20)) {
+                throw exception(SCHEME_INVALID);
+            }
+            return new SchemeSaveCommand(kind, title, c.payload(), c.width(), c.depth(), c.floors(), c.area(),
+                    c.totalCents(), c.designProjectId());
+        }
+        if (!positive(c.width(), "999.99") || !positive(c.depth(), "999.99") || !positive(c.area(), "99999.99")
+                || c.floors() == null || c.floors() < 1 || c.floors() > 20) {
+            throw exception(SCHEME_INVALID);
+        }
+        return new SchemeSaveCommand(kind, title, c.payload(), c.width(), c.depth(), c.floors(), c.area(),
+                c.totalCents(), c.designProjectId());
     }
 
     /** 责任转交（人员变动时由老板或业务负责人办理）；客户团队随接手人改变 */

@@ -18,6 +18,7 @@ public interface ErrorCodeConstants {
     ErrorCode DESIGN_PROJECT_DELETE_CONFLICT = new ErrorCode(1_071_000_006, "方案有生成任务进行中，暂不能删除");
     ErrorCode DESIGN_PROJECT_NAME_INVALID = new ErrorCode(1_071_000_007, "方案名称须为 1~60 字符");
     ErrorCode FLAT_REFERENCE_DISABLED = new ErrorCode(1_071_000_008, "平面生成已改为纯文本设计，请更新小程序后重试");
+    ErrorCode DESIGN_JOB_NOT_TERMINAL = new ErrorCode(1_071_000_009, "任务尚未完成，请稍后刷新再操作");
 
     ErrorCode BUDGET_INPUT_INVALID = new ErrorCode(1_071_000_100, "预算输入不符合字段、单位或精度要求");
     ErrorCode BUDGET_INCOMPLETE = new ErrorCode(1_071_000_101, "预算存在待补或待复核项，不能形成完整报价");

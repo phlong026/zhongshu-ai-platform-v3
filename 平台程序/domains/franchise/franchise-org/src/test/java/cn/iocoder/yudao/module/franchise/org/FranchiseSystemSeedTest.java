@@ -37,7 +37,8 @@ class FranchiseSystemSeedTest extends FranchisePgIntegrationTest {
             "sales franchise:commission:submit", "sales-lead franchise:commission:submit",
             "boss franchise:commission:fee-decide",
             "hq-design-admin franchise:commission:design",
-            "engineer franchise:commission:receive", "project-manager franchise:commission:receive");
+            "engineer franchise:commission:receive", "project-manager franchise:commission:receive",
+            "sales franchise:design:use", "sales-lead franchise:design:use", "hq-design-admin franchise:design:use");
 
     @Resource
     private JdbcTemplate jdbc;

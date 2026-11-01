@@ -25,6 +25,15 @@ public interface CustomerSchemeMapper extends BaseMapperX<CustomerSchemeDO> {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /** 客户已回写关联的 AI 设计项目（去重，B2 板块 A / A7 桥接查询） */
+    default List<Long> selectDesignProjectIds(Long customerId) {
+        return selectList(new LambdaQueryWrapperX<CustomerSchemeDO>()
+                .eq(CustomerSchemeDO::getCustomerId, customerId)
+                .isNotNull(CustomerSchemeDO::getDesignProjectId)
+                .select(CustomerSchemeDO::getDesignProjectId))
+                .stream().map(CustomerSchemeDO::getDesignProjectId).distinct().toList();
+    }
+
     /** 这些客户中已保存过预算的客户编号 */
     default List<Long> selectCustomerIdsWithBudget(Collection<Long> customerIds) {
         if (customerIds.isEmpty()) {

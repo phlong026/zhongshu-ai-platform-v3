@@ -35,6 +35,8 @@ public class CustomerSchemeDO {
     private BigDecimal area;
     private Long totalCents;
     private Long authorUserId;
+    /** AI 设计项目桥接（B2 板块 A / A7）：经内部命令写入，旧 HTTP 接口不可指定 */
+    private Long designProjectId;
     private OffsetDateTime createTime;
 
 }

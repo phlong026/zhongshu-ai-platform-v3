@@ -323,6 +323,54 @@ public class AiJobOrchestrationService {
         });
     }
 
+    /**
+     * 定向 AI 结果模拟（B2 板块 A / P-7④，仅 local dev 控制器调用）：
+     * 不走全局 claim 队列（防抢占其他组织队首任务），原子限定 jobId+expectedUserId 并复用既有校验链——
+     * 结果写隔离前缀（accepted/ 对象由校验器生成）→ ai_job_result 落 OUTPUT_QUARANTINED →
+     * runtime_completed_at 置位 → 交 ZhongshuJobDriver validate/settle/promote，禁止直改终态。
+     */
+    public int simulateCompletion(long jobId, long expectedUserId, int acceptedCount) {
+        return txTemplate.execute(status -> {
+            var job = jdbcTemplate.queryForMap(
+                    "SELECT user_id, status, requested_count, output_prefix FROM ai_job WHERE id=? AND deleted=FALSE FOR UPDATE", jobId);
+            if (((Number) job.get("user_id")).longValue() != expectedUserId) {
+                throw new cn.iocoder.yudao.framework.common.exception.ServiceException(403, "任务不属于该账号");
+            }
+            String current = (String) job.get("status");
+            if (!"QUEUED".equals(current) && !"RUNNING".equals(current)) {
+                throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409, "任务状态不允许模拟: " + current);
+            }
+            int requested = ((Number) job.get("requested_count")).intValue();
+            if (acceptedCount < 0 || acceptedCount > requested) {
+                throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "acceptedCount 超出请求数");
+            }
+            String outputPrefix = (String) job.get("output_prefix");
+            jdbcTemplate.update(
+                    "UPDATE ai_job SET status='VALIDATING', runtime_completed_at=now(), update_time=now() WHERE id=?", jobId);
+            int written = 0;
+            for (int slot = 1; slot <= acceptedCount; slot++) {
+                // 槽位内容互异（ACCEPTED 结果按 job+sha 去重，且扫描重编码会抹掉尾缀——用两种颜色的 1x1 PNG）
+                byte[] png = slot % 2 == 1 ? DEV_PNG_A : DEV_PNG_B;
+                String objectKey = outputPrefix + "/dev-slot-" + slot + ".png";
+                quarantineObjectPort.putObject(objectKey, png);
+                jdbcTemplate.update(
+                        "INSERT INTO ai_job_result (id, job_id, attempt_no, provider_code, candidate_slot_no, "
+                                + "content_sha256, object_key, mime_type, size_bytes, validation_state, validation_due_at) "
+                                + "VALUES (?, ?, 1, 'dev-simulator', ?, ?, ?, 'image/png', ?, 'OUTPUT_QUARANTINED', now())",
+                        com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(), jobId, slot,
+                        sha256Hex(png), objectKey, (long) png.length);
+                written++;
+            }
+            return written;
+        });
+    }
+
+    /** 1x1 PNG ×2（红/蓝，测试夹具：内容互异以过 ACCEPTED 内容去重；校验链按真实对象/SHA/前缀执行） */
+    private static final byte[] DEV_PNG_A = java.util.HexFormat.of().parseHex(
+            "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c49444154789c63f8cfc0000003010100c9fe92ef0000000049454e44ae426082");
+    private static final byte[] DEV_PNG_B = java.util.HexFormat.of().parseHex(
+            "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c49444154789c636060f80f00010301000889c2ec0000000049454e44ae426082");
+
     public int validateQuarantinedResults(long jobId) {
         List<Map<String, Object>> quarantined = jdbcTemplate.queryForList(
                 "SELECT id, candidate_slot_no, content_sha256, object_key, mime_type, size_bytes "

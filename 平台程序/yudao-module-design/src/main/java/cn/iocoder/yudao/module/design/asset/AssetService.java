@@ -321,6 +321,48 @@ public class AssetService {
         });
     }
 
+    /** 下载签名结果（B2 板块 A / P-2⑦）：调用方直接获得 URL 与到期时刻，不自行推算 TTL */
+    public record SignedDownload(String url, long expiresAtEpochSecond) {
+    }
+
+    /** 票据换短期签名 URL 并附带到期时刻（票据一次性消费在能力方内完成，对调用方透明） */
+    public SignedDownload resolveDownloadTicketDetailed(long userId, long assetId, String ticketToken) {
+        String url = resolveDownloadTicket(userId, assetId, ticketToken);
+        return new SignedDownload(url, java.time.Instant.now().getEpochSecond() + DOWNLOAD_URL_TTL_SECONDS);
+    }
+
+    /**
+     * 测试基建（B2 板块 A / P-7②，仅 local dev 控制器调用）：服务端代落原始字节（不 complete，R7 首次触发审核）。
+     * 属主校验 + 仅 PENDING 可写。
+     */
+    public void devPutBytes(long userId, long assetId, byte[] content) {
+        AssetRow asset = load(assetId);
+        if (asset.ownerUserId() != userId) {
+            throw exception(RESOURCE_FORBIDDEN);
+        }
+        if (!"PENDING".equals(asset.uploadStatus())) {
+            throw exception(ASSET_VALIDATION_FAILED);
+        }
+        storage.putObject(asset.objectKey(), content);
+        log.info("[devPutBytes][asset={} bytes={}]", assetId, content.length);
+    }
+
+    /** 测试基建（B2 板块 A / P-7③，仅 local dev 控制器调用）：员工身份读取已接受对象字节（属主校验） */
+    public byte[] devGetBytes(long userId, long assetId) {
+        AssetRow asset = load(assetId);
+        if (asset.ownerUserId() != userId) {
+            throw exception(RESOURCE_FORBIDDEN);
+        }
+        if (!"ACCEPTED".equals(asset.uploadStatus())) {
+            throw exception(ASSET_VALIDATION_FAILED);
+        }
+        try (InputStream in = storage.getObject(asset.objectKey())) {
+            return in.readAllBytes();
+        } catch (IOException e) {
+            throw new ServiceException(1_071_000_001, "对象读取失败");
+        }
+    }
+
     /** 申请一次性下载票据：对象级权限 + 扫描门禁 */
     public IssuedTicket requestDownloadTicket(long userId, long assetId) {
         AssetRow asset = load(assetId);

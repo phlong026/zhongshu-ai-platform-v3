@@ -25,6 +25,12 @@
             <artifactId>yudao-module-infra</artifactId>
             <version>${revision}</version>
         </dependency>
+        <!-- B2 板块 A / P-2：实现 franchise-api 的 DesignServicePort（架构例外已登记，S8 依赖边界检查） -->
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-domain-franchise-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
 
         <!-- B2 T13-11：真实腾讯云 COS 私有桶对象存储适配器（CosObjectStorageAdapter）直接用 AWS S3 SDK v2。
              复用 yudao-dependencies BOM 已锁定的 software.amazon.awssdk:s3（infra 的 S3FileClient 同一依赖），
