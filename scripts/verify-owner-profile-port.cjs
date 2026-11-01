@@ -32,7 +32,8 @@ const path = require('node:path');
   const targets = [
     ['/pages/admin/index?view=staff', '成员与权限'],
     ['/pages/admin/detail/index?view=settings', '审批设置'],
-    ['/pages/admin/detail/index?view=handover', '工程负责人交接'],
+    ['/pages/admin/detail/index?view=rules', '我的规矩'],
+    ['/pages/admin/detail/index?view=activity', '操作记录'],
     ['/pages/admin/detail/index?view=company', '门店资料']
   ];
   for (const [url, label] of targets) {
@@ -49,12 +50,12 @@ const path = require('node:path');
       assert(!text.includes('分人独立复核'));
     }
   }
-  pass('门店管理四项入口使用现有组织权限及原页面');
+  pass('门店管理五项独立入口使用现有组织权限及原页面');
 
   A.mutate(state => A.switchIdentity(state, state.session.companyId, 'owner'));
   await open();
   assert.equal(await (await runtime.currentPage()).$('[data-url="/pages/workflow/commission/index?view=policy"]'), null);
-  pass('门店负责人保留管理入口，标准设计费用授权仅向老板显示');
+  pass('门店负责人保留管理入口，费用授权统一从我的规矩进入');
 
   for (const id of ['sales-dual', 'engineering-dual', 'finance-dual', 'hq-design-admin', 'hq-finance-dual']) {
     A.mutate(state => A.loginDemo(state, id));

@@ -17,7 +17,7 @@ const ACTIONS = {
 // actions that need a signed-in account
 const LOGIN_ONLY = ['profile', 'messages', 'performance'];
 
-// Keep existing company settings, including fee authorization, reachable from the shared profile.
+// Keep one entry per company setting; task access stays in the profile quick card.
 function managementEntries(a) {
   if (!a.active) return [];
   const X = require('../../utils/access');
@@ -25,9 +25,9 @@ function managementEntries(a) {
     // Same urls the owner pages build; the admin pages live in a subpackage, so they are spelled out here.
     const admin = view => '/pages/admin/index?view=' + view, detail = view => '/pages/admin/detail/index?view=' + view;
     return [
-      { text: '绩效任务', url: '/pages/admin/performance/index' }, { text: '成员与权限', url: admin('staff') }, { text: '审批设置', url: detail('settings') }, { text: '我的规矩', url: detail('rules') },
-      { text: '工程负责人交接', url: detail('handover') }, { text: '项目回款提成', url: '/pages/admin/commission/index' }, { text: '门店资料', url: detail('company') }, { text: '操作记录', url: detail('activity') }
-    ].concat(a.role === 'boss' && a.orgType === 'store' ? [{ text: '历史委托费用授权', url: '/pages/workflow/commission/index?view=policy' }] : []);
+      { text: '成员与权限', url: admin('staff') }, { text: '审批设置', url: detail('settings') }, { text: '我的规矩', url: detail('rules') },
+      { text: '门店资料', url: detail('company') }, { text: '操作记录', url: detail('activity') }
+    ];
   }
   return [];
 }
@@ -54,7 +54,7 @@ module.exports = function (tabIndex) {
         engineeringProfile, courseId: engineeringProfile ? 'engineering' : 'ai-video', courseTitle: engineeringProfile ? '乡墅开工与现场交底' : 'AI短视频获客实战',
         courseImage: engineeringProfile ? '/pages/account/assets/course-engineering.jpg' : A.courseImage,
         loggedIn: s.session.loggedIn, showStoreServices: !s.session.loggedIn || a.orgType === 'store',
-        entries: entries(a).concat(a.active && a.demo && ownerProfile ? [{ text: '管理模拟联调', url: '/pages/admin/simulation/index' }] : []),
+        entries: entries(a),
         ownerProfile, managementEntries: managementEntries(a),
         name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
         unread: A.scoped(s, s.messages).filter(x => !x.read).length, progress: A.progress(s, engineeringProfile ? 'engineering' : 'ai-video')
