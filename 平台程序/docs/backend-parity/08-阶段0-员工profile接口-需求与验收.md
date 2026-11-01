@@ -132,7 +132,7 @@
 | `platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/profile/StaffProfileStore.java` | 新增（接口：findByUserId/updateProfile） |
 | `platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/profile/YudaoStaffProfileStore.java` | 新增（实现：调 AdminUserService，白名单构造更新参数） |
 | `platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/enums/PlatformOrgErrorCodes.java` | +2 码 |
-| `platform/platform-org/src/test/java/cn/iocoder/yudao/module/platform/org/StaffProfileServiceTest.java` | 新增（**纯 Fake store 单测**；PlatformPgIntegrationTest 仅作平台迁移骨架，system_users 真实写入由 e2e 验证） |
+| `platform/platform-org/src/test/java/cn/iocoder/yudao/module/platform/org/StaffProfileServiceTest.java` | 新增（**无 Spring 纯 Fake JUnit**：new Service + ReflectionTestUtils 注入 Fake store，不依赖 PlatformPgIntegrationTest——本机 Testcontainers 集成测试环境不可用（07 §六/记忆已登记），system_users 真实写入由 e2e 验证） |
 | `script/platform-profile-e2e.py` | 新增（仿 franchise-design-e2e 骨架） |
 | `docs/backend-parity/08-阶段0-员工profile接口-需求与验收.md` | 本文件 |
 
