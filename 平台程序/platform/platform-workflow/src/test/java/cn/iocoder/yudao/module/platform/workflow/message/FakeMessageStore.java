@@ -19,6 +19,8 @@ class FakeMessageStore implements MessageStore {
     long sequence = 1000;
     /** 并发撞键模拟：置 true 后 insert 已存在幂等键抛 DuplicateKeyException（真实唯一索引行为） */
     boolean throwDuplicateOnConflict = true;
+    /** 插入委托（可空）：并发时序模拟用——对手在唯一索引窗口内提交（delegate 内落 winner 行）后抛冲突 */
+    java.util.function.Consumer<MessageDO> insertDelegate;
     // 参数记录（断言透传用）
     Long lastFindPageUserId;
     Long lastFindPageBeforeId;
@@ -35,6 +37,10 @@ class FakeMessageStore implements MessageStore {
 
     @Override
     public void insert(MessageDO message) {
+        if (insertDelegate != null) {
+            insertDelegate.accept(message);
+            return;
+        }
         if (findByDedupe(message.getSenderDomain(), message.getDedupeKey()) != null) {
             if (throwDuplicateOnConflict) {
                 throw new DuplicateKeyException("uk_pf_message_dedupe");

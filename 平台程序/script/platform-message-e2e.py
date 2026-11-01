@@ -205,12 +205,12 @@ def main():
     # ================= AC10 真 PG 并发 =================
     step('AC10 并发 seed 同 dedupeKey：均成功同一 id、库恰 1 行；并发 read 同一消息：均成功、read_time 单值')
     concurrent_key = f'e2e:concurrent:{SEED_TS}'
-    seed_results, read_errors = [], []
+    seed_results = []
 
     def seed_worker():
         try:
             seed_results.append(seed(msg_body(sales['userId'], org_id, 99, dedupe=concurrent_key)))
-        except AssertionError as e:  # noqa: 保留断言信息
+        except Exception as e:  # noqa: 异常传播至主线程断言（URLError 等网络层失败也算）
             seed_results.append(e)
 
     threads = [threading.Thread(target=seed_worker) for _ in range(2)]
@@ -218,7 +218,7 @@ def main():
         t.start()
     for t in threads:
         t.join()
-    assert all(not isinstance(r, AssertionError) for r in seed_results), seed_results
+    assert len(seed_results) == 2 and all(not isinstance(r, Exception) for r in seed_results), seed_results
     assert seed_results[0]['message']['id'] == seed_results[1]['message']['id'], seed_results
     assert psql(f"SELECT count(*) FROM pf_message WHERE sender_domain='e2e' AND dedupe_key='{concurrent_key}'") == '1'
 
@@ -229,7 +229,7 @@ def main():
     def read_worker():
         try:
             read_results.append(call('POST', f'/platform/messages/{unread_id}/read', {}, token=sales_token))
-        except AssertionError as e:  # noqa
+        except Exception as e:  # noqa: 异常传播至主线程断言（URLError 等网络层失败也算）
             read_results.append(e)
 
     threads = [threading.Thread(target=read_worker) for _ in range(2)]
@@ -237,7 +237,7 @@ def main():
         t.start()
     for t in threads:
         t.join()
-    assert all(not isinstance(r, AssertionError) for r in read_results), read_results
+    assert len(read_results) == 2 and all(not isinstance(r, Exception) for r in read_results), read_results
     assert all(r['read'] is True for r in read_results), read_results
     assert psql(f"SELECT count(*) FROM pf_message WHERE id={unread_id} AND read AND read_time IS NOT NULL") == '1'
 

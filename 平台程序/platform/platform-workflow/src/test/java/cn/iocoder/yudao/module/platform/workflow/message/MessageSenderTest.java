@@ -51,19 +51,23 @@ class MessageSenderTest {
 
     @Test
     void concurrentInsertConflictRecoversExistingRow() {
-        sender.send(request("key-1"));
-
-        // 模拟并发：绕过前置查重直接向 Fake 塞入同键行，再发同键请求撞唯一索引
+        // 真实时序模拟：前置 findByDedupe 为空（对手尚未提交）→ INSERT 撞唯一索引（delegate 落对手行后抛冲突）
+        // → catch 内重查命中既有行。前置查重即命中的路径由 sameDedupeKeyReturnsExistingRowWithoutUpdate 覆盖。
+        FakeMessageStore racing = new FakeMessageStore();
         MessageDO winner = new MessageDO().setUserId(7L).setOrgId(8L).setSenderDomain("e2e")
                 .setType("BUSINESS").setRoute("customer").setTitle("并发先到").setDescription("x")
-                .setDedupeKey("key-2").setRead(false);
+                .setDedupeKey("key-1").setRead(false);
         winner.setId(500L);
-        store.rows.put(500L, winner);
+        racing.insertDelegate = m -> {
+            racing.rows.put(500L, winner);
+            throw new DuplicateKeyException("uk_pf_message_dedupe");
+        };
 
-        MessageDO result = sender.send(request("key-2"));
+        MessageDO result = new MessageSender(racing).send(request("key-1"));
 
         assertThat(result.getId()).isEqualTo(500L);
         assertThat(result.getTitle()).isEqualTo("并发先到");
+        assertThat(racing.rows).hasSize(1);
     }
 
     @Test
