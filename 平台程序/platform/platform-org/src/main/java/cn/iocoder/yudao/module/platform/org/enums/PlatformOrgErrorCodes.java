@@ -19,4 +19,8 @@ public interface PlatformOrgErrorCodes {
     ErrorCode ROLE_NOT_CONFIGURED = new ErrorCode(1_101_000_009, "岗位尚未配置对应角色");
     ErrorCode USER_NOT_IN_ORG = new ErrorCode(1_101_000_010, "该员工不属于本组织");
 
+    // ===== 员工本人资料（/platform/profile，08 文档基-3）=====
+    ErrorCode PROFILE_NICKNAME_INVALID = new ErrorCode(1_101_000_011, "姓名须为 1-20 个字");
+    ErrorCode PROFILE_AVATAR_INVALID = new ErrorCode(1_101_000_012, "头像地址格式不正确");
+
 }
