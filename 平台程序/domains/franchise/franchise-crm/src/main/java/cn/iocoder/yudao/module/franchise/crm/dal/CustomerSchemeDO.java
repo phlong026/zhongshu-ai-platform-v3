@@ -37,6 +37,8 @@ public class CustomerSchemeDO {
     private Long authorUserId;
     /** AI 设计项目桥接（B2 板块 A / A7）：经内部命令写入，旧 HTTP 接口不可指定 */
     private Long designProjectId;
+    /** 方案升级（B2 板块 B / 809）：reference（AI/参考默认）→ formal（业务员单向升级） */
+    private String stage;
     private OffsetDateTime createTime;
 
 }

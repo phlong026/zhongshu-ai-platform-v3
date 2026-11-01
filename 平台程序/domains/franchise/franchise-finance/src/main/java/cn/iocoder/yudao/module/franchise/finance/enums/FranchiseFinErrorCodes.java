@@ -31,5 +31,7 @@ public interface FranchiseFinErrorCodes {
     ErrorCode COMMISSION_STAGE_INVALID = new ErrorCode(1_102_000_020, "期款与委托费用方案不符");
     ErrorCode DESIGN_SOURCE_INVALID = new ErrorCode(1_102_000_021, "设计收款来源信息不完整");
     ErrorCode FIN_SOURCE_FORBIDDEN = new ErrorCode(1_102_000_022, "该来源类型不允许手工登记");
+    ErrorCode BUSINESS_RECEIPT_IMMUTABLE = new ErrorCode(1_102_000_023, "业务回款由交易流管理，不能直接修订");
+    ErrorCode REFERENCE_INVALID_FIN = new ErrorCode(1_102_000_024, "业务回款来源不存在");
 
 }

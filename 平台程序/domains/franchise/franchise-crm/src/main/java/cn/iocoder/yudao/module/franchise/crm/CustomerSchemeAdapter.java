@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.crm;
 
 import cn.iocoder.yudao.module.franchise.api.CustomerSchemePort;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeMapper;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +45,47 @@ public class CustomerSchemeAdapter implements CustomerSchemePort {
     @Override
     public void requireWritable(PostSnapshot post, long customerId) {
         customerService.requireWritable(post, customerId);
+    }
+
+    @Override
+    public void requireAccessible(PostSnapshot post, long customerId) {
+        // 交易流对象校验（板块 B）：存在+同组织，不收窄岗位（boss/finance 均过——SalesAccess 契约）
+        CustomerDO customer = customerService.requireAccessible(post, customerId);
+        log.info("[requireAccessible][customer={} org={}]", customer.getId(), post.orgId());
+    }
+
+    @Override
+    public CustomerSchemePort.CustomerBrief getCustomerBrief(PostSnapshot post, long customerId) {
+        CustomerDO customer = customerService.requireAccessible(post, customerId);
+        return new CustomerSchemePort.CustomerBrief(customer.getId(), customer.getName(), customer.getPhone());
+    }
+
+    @Override
+    public CustomerSchemePort.SchemeSnapshot getSchemeSnapshot(PostSnapshot post, long schemeId) {
+        var scheme = schemeMapper.selectById(schemeId);
+        if (scheme == null) {
+            return null;
+        }
+        requireSameOrg(post, scheme);
+        return toSnapshot(scheme);
+    }
+
+    @Override
+    public CustomerSchemePort.SchemeSnapshot promoteToFormal(PostSnapshot post, long schemeId, String idempotencyKey) {
+        return toSnapshot(customerService.promoteSchemeToFormal(post, schemeId, idempotencyKey));
+    }
+
+    private void requireSameOrg(PostSnapshot post, cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeDO scheme) {
+        // 组织一致性复核（交易流授权=调用方已过 sales 门）
+        if (scheme.getCompanyId() != post.orgId()) {
+            throw exception(CUSTOMER_NOT_FOUND);
+        }
+    }
+
+    private CustomerSchemePort.SchemeSnapshot toSnapshot(cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeDO scheme) {
+        return new CustomerSchemePort.SchemeSnapshot(scheme.getId(), scheme.getCompanyId(),
+                scheme.getCustomerId(), scheme.getKind(), scheme.getVersion(),
+                scheme.getStage() == null ? "reference" : scheme.getStage());
     }
 
     @Override

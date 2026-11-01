@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.franchise.finance;
 
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.franchise.api.CommissionQueryPort;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptMapper;
@@ -9,8 +10,12 @@ import cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoMapper;
 import cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorCodes;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
+import cn.iocoder.yudao.module.franchise.api.BusinessReceiptPort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+
+import java.util.Map;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -128,6 +133,9 @@ public class FinReceiptService {
         if (receipt == null || !"已登记".equals(receipt.getStatus())) {
             throw exception(RECEIPT_STATUS_CONFLICT);
         }
+        if ("business".equals(receipt.getSourceType())) {
+            throw exception(BUSINESS_RECEIPT_IMMUTABLE); // 业务回款由交易流管理，不能直接修订（Codex R1）
+        }
         if (receipt.getCompanyId() != post.orgId()) {
             throw exception(ORG_MISMATCH);
         }
@@ -148,6 +156,76 @@ public class FinReceiptService {
                 .setNote(note).setOperatorUserId(post.userId()));
         log.info("[revision][receipt={} {}->{} by={}]", receiptId, receipt.getAmountCents(), newAmountCents, post.userId());
         return baseRevisionVersion + 1;
+    }
+
+    /**
+     * 业务回款登记（B2 板块 B / P-2，BusinessReceiptPort 内部专用入口，手工 REST 不放宽）：
+     * 复用 B1 既有登记链（fr_fin_txn_no 永久流水身份）；幂等键=biz-receipt:{sourceRef}（独立命名空间）；
+     * source_ref 查重（唯一索引兜底并发，ON CONFLICT 目标限定 business 索引）+ 命中比对完整资金内容（不含 date）；
+     * business 来源收据禁止直接修订（BUSINESS_RECEIPT_IMMUTABLE）。
+     */
+    @Transactional
+    public BusinessReceiptPort.BusinessReceiptSaved registerBusinessReceipt(PostSnapshot post,
+                                                                            String idempotencyKey,
+                                                                            BusinessReceiptPort.BusinessReceipt cmd) {
+        String idemKey = "biz-receipt:" + cmd.sourceRef();
+        var replayed = commands.replayed(post, idemKey,
+                Map.of("sourceRef", cmd.sourceRef(), "amountCents", cmd.amountCents(), "name", cmd.name(),
+                        "method", cmd.method() == null ? "bank" : cmd.method(),
+                        "transactionNo", cmd.transactionNo() == null ? "" : cmd.transactionNo(),
+                        "customerId", cmd.customerId()));
+        if (replayed.isPresent()) {
+            return new BusinessReceiptPort.BusinessReceiptSaved(replayed.get().getAggregateId(), true);
+        }
+        // source_ref 查重（唯一索引兜底并发；同事务 SELECT，禁异常后重查）
+        var existing = receiptMapper.selectList(new LambdaQueryWrapperX<FinReceiptDO>()
+                .eq(FinReceiptDO::getSourceType, "business")
+                .eq(FinReceiptDO::getSourceRef, cmd.sourceRef()));
+        if (!existing.isEmpty()) {
+            FinReceiptDO prior = existing.get(0);
+            boolean same = prior.getAmountCents() == cmd.amountCents()
+                    && java.util.Objects.equals(prior.getName(), cmd.name())
+                    && java.util.Objects.equals(prior.getMethod(), cmd.method() == null ? "bank" : cmd.method())
+                    && java.util.Objects.equals(prior.getTransactionNo(), normalize(cmd.transactionNo()))
+                    && java.util.Objects.equals(prior.getCustomerId(), cmd.customerId());
+            if (!same) {
+                throw exception(IDEMPOTENCY_KEY_REUSED);
+            }
+            return new BusinessReceiptPort.BusinessReceiptSaved(prior.getId(), true);
+        }
+        requireTxnNoFree(post.orgId(), cmd.transactionNo(), null);
+        FinReceiptDO receipt = new FinReceiptDO()
+                .setCompanyId(post.orgId()).setCustomerId(cmd.customerId())
+                .setSourceType("business").setSourceRef(cmd.sourceRef()).setName(cmd.name())
+                .setAmountCents(cmd.amountCents()).setStatus(STATUS_REGISTERED)
+                .setReceivedDate(cmd.receivedDate()).setRegisteredAt(OffsetDateTime.now())
+                .setRegistrarUserId(post.userId())
+                .setMethod(cmd.method() == null ? "bank" : cmd.method())
+                .setTransactionNo(normalize(cmd.transactionNo()))
+                .setRevisionVersion(1);
+        receiptMapper.insert(receipt);
+        if (cmd.transactionNo() != null && !cmd.transactionNo().isBlank()) {
+            txnNoMapper.insert(new FinTxnNoDO().setCompanyId(post.orgId())
+                    .setTxnNo(normalize(cmd.transactionNo())).setOwnerType("receipt").setOwnerId(receipt.getId())
+                    .setClosed(false).setCreateTime(OffsetDateTime.now()));
+        }
+        commands.record(post, "fin-receipt", receipt.getId(), 1, "fin-receipt-register-business",
+                Map.of("sourceRef", cmd.sourceRef(), "amountCents", cmd.amountCents(), "customerId", cmd.customerId()),
+                idemKey);
+        log.info("[registerBusinessReceipt][companyId={} receipt={} sourceRef={}]",
+                post.orgId(), receipt.getId(), cmd.sourceRef());
+        return new BusinessReceiptPort.BusinessReceiptSaved(receipt.getId(), false);
+    }
+
+    /** PAID 重放专用：按 sourceRef 查既有 business 收据（内容比对在调用方——collect 的指纹已先行） */
+    public BusinessReceiptPort.BusinessReceiptSaved replayBySourceRef(PostSnapshot post, String sourceRef) {
+        var existing = receiptMapper.selectList(new LambdaQueryWrapperX<FinReceiptDO>()
+                .eq(FinReceiptDO::getSourceType, "business")
+                .eq(FinReceiptDO::getSourceRef, sourceRef));
+        if (existing.isEmpty()) {
+            throw exception(REFERENCE_INVALID_FIN);
+        }
+        return new BusinessReceiptPort.BusinessReceiptSaved(existing.get(0).getId(), true);
     }
 
     /** 撤销跨端预期应收（仅待登记；财务负责人，controller 层挂 payment-void 之外的校验） */

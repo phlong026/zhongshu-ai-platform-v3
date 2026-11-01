@@ -27,6 +27,7 @@
         <module>franchise-commission</module>
         <module>franchise-finance</module>
         <module>franchise-design</module>
+        <module>franchise-sales</module>
     </modules>
 
 </project>

@@ -349,6 +349,18 @@ public class FranchiseDesignAdapter implements DesignServicePort {
         throw exception(RESOURCE_FORBIDDEN);
     }
 
+    @Override
+    public void validateAsset(long serviceAccountId, long assetId) {
+        // 板块 B 合同文件引用校验：存在+ACCEPTED+owner=本组织服务账号（无客户绑定概念，Codex R2）
+        var rows = jdbcTemplate.queryForList(
+                "SELECT owner_user_id, upload_status FROM asset WHERE id=? AND deleted=FALSE", assetId);
+        if (rows.isEmpty()
+                || ((Number) rows.get(0).get("owner_user_id")).longValue() != serviceAccountId
+                || !"ACCEPTED".equals(rows.get(0).get("upload_status"))) {
+            throw exception(RESOURCE_FORBIDDEN);
+        }
+    }
+
     // ========== 灵感库 ==========
 
     @Override

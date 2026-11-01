@@ -256,6 +256,41 @@ public class CustomerService {
                 c.totalCents(), c.designProjectId());
     }
 
+    /** 交易流对象校验（板块 B SalesAccess 契约）：存在+同组织，不收窄岗位 */
+    public CustomerDO requireAccessible(PostSnapshot post, long customerId) {
+        CustomerDO customer = customerMapper.selectById(customerId);
+        if (customer == null || customer.getCompanyId() != post.orgId()) {
+            throw exception(CUSTOMER_NOT_FOUND);
+        }
+        return customer;
+    }
+
+    /**
+     * 方案升级 reference→formal（B2 板块 B / R3，幂等责任方=crm）：
+     * 指纹={schemeId, targetStage:'formal'} 稳定（不依赖当前状态）；已 formal 幂等返回；
+     * 授权=调用方已过 sales write 门+此处组织校验（boss 正向可用）。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public CustomerSchemeDO promoteSchemeToFormal(PostSnapshot post, long schemeId, String idempotencyKey) {
+        CustomerSchemeDO scheme = schemeMapper.selectById(schemeId);
+        if (scheme == null || scheme.getCompanyId() != post.orgId()) {
+            throw exception(CUSTOMER_NOT_FOUND);
+        }
+        var input = Map.of("schemeId", schemeId, "targetStage", "formal");
+        var replay = commands.replayed(post, idempotencyKey, input);
+        if (replay.isPresent()) {
+            return schemeMapper.selectById(schemeId);
+        }
+        if (!"formal".equals(scheme.getStage())) {
+            schemeMapper.updateById(new CustomerSchemeDO().setId(schemeId).setStage("formal"));
+            scheme.setStage("formal");
+        }
+        // revision 用雪花（审计惯例）：promote 与 save-to-customer 同聚合同 version，(聚合,revision) 唯一约束会撞
+        commands.record(post, "fr_customer_scheme", schemeId, com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),
+                "scheme-promote-formal", input, idempotencyKey);
+        return scheme;
+    }
+
     /** 责任转交（人员变动时由老板或业务负责人办理）；客户团队随接手人改变 */
     @Transactional(rollbackFor = Exception.class)
     public Detail transfer(PostSnapshot post, long customerId, TransferCommand command, long revision, String idempotencyKey) {

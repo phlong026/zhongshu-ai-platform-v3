@@ -114,6 +114,9 @@ public interface DesignServicePort {
                      Long estimateId, Long totalLowCents, Long totalHighCents, Integer estimateArea) {
     }
 
+    /** 资产校验（板块 B 合同文件引用）：存在+ACCEPTED+owner=serviceAccountId，否则 RESOURCE_FORBIDDEN */
+    void validateAsset(long serviceAccountId, long assetId);
+
     // ========== 灵感库（A1） ==========
 
     CasePage listCases(CaseQuery query);

@@ -29,6 +29,24 @@ public interface CustomerSchemePort {
     /** 桥接查询（R10 带customerId）：先执行 CRM 可读校验（canRead），再返回去重后的关联项目集合 */
     java.util.List<Long> listDesignProjectIds(PostSnapshot post, long customerId);
 
+    /** 交易流对象校验（板块 B SalesAccess）：客户存在且 company_id==post.orgId()（不收窄岗位，boss/finance 均过） */
+    void requireAccessible(PostSnapshot post, long customerId);
+
+    /** 报价抬头快照（板块 B）：客户名/电话当时值（创建时冻结用） */
+    CustomerBrief getCustomerBrief(PostSnapshot post, long customerId);
+
+    /** 方案只读快照（板块 B 报价引用）：不存在返回 null；组织/客户一致性由调用方复核 */
+    SchemeSnapshot getSchemeSnapshot(PostSnapshot post, long schemeId);
+
+    /** 方案升级 reference→formal（板块 B R3）：crm 侧幂等（指纹={schemeId,targetStage:'formal'}）；授权=sales write 门+组织校验 */
+    SchemeSnapshot promoteToFormal(PostSnapshot post, long schemeId, String idempotencyKey);
+
+    record SchemeSnapshot(long schemeId, long companyId, long customerId, String kind, int version, String stage) {
+    }
+
+    record CustomerBrief(long customerId, String name, String phone) {
+    }
+
     record SchemeSave(String kind, String title, String payload,
                       BigDecimal width, BigDecimal depth, Integer floors, BigDecimal area,
                       Long totalCents, Long designProjectId) {
