@@ -17,7 +17,10 @@ module.exports = function attach(page, deps) {
   page.platFormPick = function (e) {
     const { key, list } = e.currentTarget.dataset;
     const values = list ? this.data[list] : null;
-    this.setData({ ['form.' + key]: values ? values[Number(e.detail.value)].code !== undefined ? values[Number(e.detail.value)].code : values[Number(e.detail.value)] : e.detail.value, error: '' });
+    if (!values) { this.setData({ ['form.' + key]: e.detail.value, error: '' }); return; }
+    const sel = values[Number(e.detail.value)];
+    const val = Array.isArray(sel) ? sel[0] : (sel && typeof sel === 'object' && sel.code !== undefined ? sel.code : sel);
+    this.setData({ ['form.' + key]: val, error: '' });
   };
   page.platUseCase = function (e) { // 灵感库→立面参考（facade 保留；plan D20 隐藏入口）
     const id = e.currentTarget.dataset.id;
@@ -358,11 +361,12 @@ module.exports = function attach(page, deps) {
     });
   };
   page.platSaveCustomer = function (e) {
-    const kind = this.__platKind || (this.data.platBudget ? 'budget' : 'plan');
+    const kindMap = { plan: 'PLAN', facade: 'FACADE', budget: 'BUDGET' };
+    const kind = kindMap[this.__platSaveKind || 'plan'] || 'PLAN';
     const customerId = e.currentTarget.dataset.id;
     const f = this.data.form || {};
     const body = { customerId, kind: kind.toUpperCase() };
-    if (kind === 'budget') {
+    if (kind === 'BUDGET') {
       body.estimateId = this.__platEstimateId;
       body.width = f.width; body.depth = f.depth; body.floors = Number(f.floors);
       if (!body.width || !body.depth || !body.floors) return this.platFail('预算回写须有宽深层数，请核对预算表单');

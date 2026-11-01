@@ -7,6 +7,12 @@ Page({
   const post=(()=>{try{const auth=require('../../api/auth');const http=require('../../api/http');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
   if(post&&['sales','sales-lead','hq-design-admin'].includes(post.roleCode))return;// design:use 三岗 API 态直达
   const actor=Access.context();if(!actor.loggedIn)return wx.redirectTo({url:'/pages/account/index?view=login'});if(!actor.active||!Job.has(actor.role,'sales'))return wx.switchTab({url:'/pages/'+Access.home()+'/index'});},
- open(e){const actor=Access.context();if(!actor.active||!Job.has(actor.role,'sales'))return;const view=e.currentTarget.dataset.view;if(!this.data.entries.some(x=>x.view===view))return;wx.navigateTo({url:'/pages/workflow/explore/index?view='+view});},
- openCase(e){const actor=Access.context(),id=e.currentTarget.dataset.id;if(!actor.active||!Job.has(actor.role,'sales')||!cases.some(c=>c.id===id))return;wx.navigateTo({url:'/pages/workflow/explore/index?view=case&case='+encodeURIComponent(id)});}
+ open(e){
+  const post=(()=>{try{const auth=require('../../api/auth');const http=require('../../api/http');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
+  if(post&&['sales','sales-lead','hq-design-admin'].includes(post.roleCode)){const view=e.currentTarget.dataset.view;if(!this.data.entries.some(x=>x.view===view))return;return wx.navigateTo({url:'/pages/workflow/explore/index?view='+view});}
+  const actor=Access.context();if(!actor.active||!Job.has(actor.role,'sales'))return;const view=e.currentTarget.dataset.view;if(!this.data.entries.some(x=>x.view===view))return;wx.navigateTo({url:'/pages/workflow/explore/index?view='+view});},
+ openCase(e){
+  const post=(()=>{try{const auth=require('../../api/auth');const http=require('../../api/http');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
+  if(post&&['sales','sales-lead','hq-design-admin'].includes(post.roleCode)){const id=e.currentTarget.dataset.id;return wx.navigateTo({url:'/pages/workflow/explore/index?view=case&case='+encodeURIComponent(id)});}
+  const actor=Access.context(),id=e.currentTarget.dataset.id;if(!actor.active||!Job.has(actor.role,'sales')||!cases.some(c=>c.id===id))return;wx.navigateTo({url:'/pages/workflow/explore/index?view=case&case='+encodeURIComponent(id)});}
 });
