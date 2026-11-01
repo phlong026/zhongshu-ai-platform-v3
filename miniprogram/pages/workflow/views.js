@@ -15,7 +15,7 @@ function config(view,c,form) {
  if(view==='history')Object.assign(out,{title:'方案与预算历史',sections:[section('方案与预算版本',c.plans.map(x=>kv('平面方案','V'+x.version)).concat(c.budgets.map(x=>kv('参考预算 V'+x.version,'¥ '+B.money(x.total)))))],primary:'返回客户工作区',primaryView:'customer'});
  return out;
 }
-Object.assign(titles,{transfer:'责任转交','facade-config':'立面方案','facade-candidates':'立面方案候选','facade-result':'立面方案结果'});
+Object.assign(titles,{transfer:'责任转交','facade-config':'立面方案','facade-candidates':'立面方案候选','facade-result':'立面方案结果',requirement:'登记需求',contract:'签订合同',delivery:'交付验收'});
 Object.assign(defaults,{requestScope:'',designBasisChecked:false,designReceiveChecked:false,designReceiveNote:'',designFeedbackNote:'',designFeedbackFile:null,style:'现代简约',palette:'米白 + 深灰',facadeNotes:'白墙灰瓦、入口简洁大气，适当增加木色细节。',newOwner:'刘业务',transferReason:'人员调岗，客户资料及待跟进事项一并转交。',tailApplyNote:'正式成果 v1 已完成，请按原设计服务单办理尾款。',receiptPurpose:'客户定金',receiptReceiver:'王财务',receiptTransaction:'',facadeArea:'400'});
 defaults.exterior={window:true,paint:true,stone:true,light:true,waterproof:true,lightning:true,insurance:true};
 defaults.sitePhotos=['/pages/workflow/assets/biz-site.jpg','/pages/workflow/assets/biz-measure.jpg'];

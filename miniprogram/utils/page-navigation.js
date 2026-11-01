@@ -12,7 +12,7 @@ function target(route,view,id,extra={}){return route+'?view='+view+(id?'&id='+en
 function parent(page=current()){
  const route=page?.route||'',d=page?.data||{},o=page?.options||{},v=d.view||o.view,id=page?.id||o.id||d.id||'';
  if(route==='pages/workflow/index'&&apiSession()){// API 态父级：仅本批视图；demo map 不动
-  const map={customers:'',customer:'customers',arrival:'customers',transfer:'customer'};
+  const map={customers:'',customer:'customers',arrival:'customers',transfer:'customer',requirement:'customer',budget:'customer','budget-result':'budget',contract:'customer',delivery:'customer',progress:'customer'};
   const next=Object.prototype.hasOwnProperty.call(map,v)?map[v]:'';
   return next?target('/pages/workflow/index',next,id):homeUrl();
  }
