@@ -22,6 +22,13 @@ public interface AssetAccessPort {
     DesignServicePort.DownloadUrlView createDownloadUrl(long serviceAccountId, long assetId);
 
     /**
+     * 资产类型读取（属主校验后返回 assetType；不存在或非本组织服务账号属主返回 null）。
+     * 编排层用它做 B_END 通道限制（franchise-asset 通道权限宽于设计通道，只放行 B_END 资产——
+     * 防止绕过 franchise:design:use 读取同组织私有人草图，Codex 补审 P1）与 complete 审计取类型。
+     */
+    String assetTypeOf(long serviceAccountId, long assetId);
+
+    /**
      * 引用校验：存在 + ACCEPTED + owner==本组织服务账号。
      * 与 {@link DesignServicePort#validateAsset(long, long)} 共享同一校验实现，仅失败语义不同
      * （本方法返回 false 不抛异常；validateAsset 抛 RESOURCE_FORBIDDEN）。消费域引用 assetId 前调用。

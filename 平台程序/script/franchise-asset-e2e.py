@@ -40,13 +40,17 @@ def call(method, path, body=None, token=None, post_id=None, expect_code=0, heade
         data = json.dumps(body).encode() if body is not None else None
     try:
         with urllib.request.urlopen(req, data=data, timeout=60) as resp:
+            http_status = resp.status
             payload = json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
+        http_status = e.code
         payload = json.loads(e.read().decode())
     if isinstance(expect_code, int):
         expect_code = [expect_code]
     if expect_code == [-1]:
         return payload
+    # 二元组断言（07 §三.4）：HTTP 状态与 body.code 同时断言（防 HTTP 403 + body.code=401 误判通过）
+    assert http_status == 200, f'{method} {path} -> HTTP {http_status} (body={payload})'
     if payload.get('code') not in expect_code:
         raise AssertionError(f'{method} {path} -> code={payload.get("code")} msg={payload.get("msg")}')
     return payload.get('data')
@@ -176,7 +180,7 @@ def main():
             expect_code=1_071_000_001)
 
     # ================= AC6 C_END 回归（USER_SKETCH 审核路径不变） =================
-    step('AC6 USER_SKETCH 走审核路径行为不变：complete ACCEPTED 且有扫描留痕（与 B_END 免审对照）')
+    step('AC6 USER_SKETCH 走审核路径：正常 ACCEPTED 有留痕；审核故障→PENDING 退避；恢复后重试 ACCEPTED')
     ticket = act(sales_a, 'POST', '/franchise/design/assets/upload-tickets',
                  {'assetType': 'USER_SKETCH', 'mimeType': 'image/png',
                   'sizeBytes': len(PNG_1X1), 'sha256': hashlib.sha256(PNG_1X1).hexdigest()})
@@ -186,6 +190,18 @@ def main():
     assert completed['uploadStatus'] == 'ACCEPTED', completed
     scan_rows = psql(f"SELECT count(*) FROM asset_scan_result WHERE asset_id={ticket['assetId']}")
     assert int(scan_rows) >= 1, 'C_END 类型须保留扫描/审核留痕（免审改动不得波及）'
+
+    ticket2 = act(sales_a, 'POST', '/franchise/design/assets/upload-tickets',
+                  {'assetType': 'USER_SKETCH', 'mimeType': 'image/png',
+                   'sizeBytes': len(PNG_1X1), 'sha256': hashlib.sha256(PNG_1X1).hexdigest()})
+    act(sales_a, 'POST', f"/platform/dev/design/assets/{ticket2['assetId']}/bytes",
+        {'contentBase64': base64.b64encode(PNG_1X1).decode()})
+    act(sales_a, 'POST', '/platform/dev/design/assets/moderation-fault', {'enabled': True})
+    try:
+        pending = act(sales_a, 'POST', f"/franchise/design/assets/{ticket2['assetId']}/complete")
+        assert pending['uploadStatus'] == 'PENDING', pending  # 审核不可用退避（板块 A 同口径；moderation_retry_at 5 分钟门内重试仍 PENDING，恢复语义由退避门保证）
+    finally:
+        act(sales_a, 'POST', '/platform/dev/design/assets/moderation-fault', {'enabled': False})
 
     # ================= AC7 属主隔离 =================
     step('AC7 跨组织：B 组织对 A 组织资产 complete/download → 1_099_000_002')
@@ -206,7 +222,7 @@ def main():
     assert int(ok_b['assetId']) > 0  # 雪花 id 序列化为字符串（NumberSerializer）
 
     # ================= AC9 真 PG 并发 =================
-    step('AC9 并发 complete 同一 assetId 均 ACCEPTED；并发签发不同类型各自成功')
+    step('AC9 并发 complete 同一 assetId 一方 ACCEPTED 无伪 REJECTED；并发签发不同类型各自成功')
     sales_b = login_wechat(b['sales'])
     sha = hashlib.sha256(PDF_BYTES).hexdigest()
     target = act(finance_b, 'POST', '/franchise/assets/upload-tickets',
@@ -218,7 +234,7 @@ def main():
     def worker():
         try:
             results.append(act(finance_b, 'POST', f"/franchise/assets/{target['assetId']}/complete", {}))
-        except AssertionError as e:  # noqa: 保留断言信息
+        except Exception as e:  # noqa: 异常传播至主线程断言（URLError 等网络层失败也算）
             results.append(e)
 
     threads = [threading.Thread(target=worker) for _ in range(2)]
@@ -226,17 +242,27 @@ def main():
         t.start()
     for t in threads:
         t.join()
-    assert all(not isinstance(r, AssertionError) for r in results), results
+    assert len(results) == 2 and all(not isinstance(r, Exception) for r in results), results
     # 并发语义（板块 A AC5 同口径）：一方 ACCEPTED，另一方按实际状态映射（ACCEPTED/PENDING），无伪 REJECTED
     statuses = [r['uploadStatus'] for r in results]
     assert statuses.count('ACCEPTED') >= 1 and 'REJECTED' not in statuses, results
 
-    types = [('FIN_VOUCHER', 'application/pdf'), ('ENG_DRAWING', 'application/pdf')]
-    pair = []
-    for asset_type, mime in types:
-        pair.append(act(finance_b, 'POST', '/franchise/assets/upload-tickets',
-                        {'assetType': asset_type, 'mimeType': mime,
-                         'sizeBytes': 100, 'sha256': hashlib.sha256(PDF_BYTES).hexdigest()})['assetId'])
+    pair, pair_types = [], [('FIN_VOUCHER', 'application/pdf'), ('ENG_DRAWING', 'application/pdf')]
+
+    def issue(asset_type, mime):
+        try:
+            pair.append(act(finance_b, 'POST', '/franchise/assets/upload-tickets',
+                            {'assetType': asset_type, 'mimeType': mime,
+                             'sizeBytes': 100, 'sha256': hashlib.sha256(PDF_BYTES).hexdigest()})['assetId'])
+        except Exception as e:  # noqa
+            pair.append(e)
+
+    threads = [threading.Thread(target=issue, args=t) for t in pair_types]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(pair) == 2 and all(not isinstance(x, Exception) for x in pair), pair
     assert pair[0] != pair[1]
 
     # ================= AC10 finance 既有通道回归 =================

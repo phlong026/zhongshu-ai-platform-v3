@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.asset;
 
 import cn.hutool.core.util.IdUtil;
+import cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
 import cn.iocoder.yudao.module.franchise.api.FranchiseDesignErrorCodes;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
@@ -28,6 +30,10 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Service
 @Slf4j
 public class AssetAccessService {
+
+    /** 本通道可操作的资产类型白名单（与 design AssetTypePolicy 的 B_END 同源；新增先登记 14 文档 §五.2） */
+    private static final Set<String> B_END_TYPES =
+            Set.of("FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT");
 
     private final AssetAccessPort assets;
     private final StoreServiceAccountPort serviceAccounts;
@@ -65,13 +71,29 @@ public class AssetAccessService {
 
     public DesignServicePort.AssetCompleted completeUpload(PostSnapshot post, long assetId) {
         long accountId = serviceAccount(post);
+        String assetType = requireBEndAsset(accountId, assetId);
         DesignServicePort.AssetCompleted completed = assets.completeUpload(accountId, assetId);
-        audit(post, "complete", assetId, null);
+        audit(post, "complete", assetId, assetType);
         return completed;
     }
 
     public DesignServicePort.DownloadUrlView createDownloadUrl(PostSnapshot post, long assetId) {
-        return assets.createDownloadUrl(serviceAccount(post), assetId);
+        long accountId = serviceAccount(post);
+        requireBEndAsset(accountId, assetId);
+        return assets.createDownloadUrl(accountId, assetId);
+    }
+
+    /**
+     * 通道类型限制：franchise-asset 权限宽于设计通道（D-基1-6 登录+任职），只放行 B_END 资产——
+     * 堵「无 franchise:design:use 的员工经本通道读同组织私有人草图」的权限旁路（Codex 补审 P1）。
+     * 不存在/非属主/非 B_END 一律 RESOURCE_FORBIDDEN（同码，不泄露区分）。
+     */
+    private String requireBEndAsset(long accountId, long assetId) {
+        String assetType = assets.assetTypeOf(accountId, assetId);
+        if (assetType == null || !B_END_TYPES.contains(assetType)) {
+            throw exception(ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
+        }
+        return assetType;
     }
 
     /** 代理层审计（14 文档 §四）：独立短事务（无外层事务包裹），仅写操作调用 */

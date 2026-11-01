@@ -110,19 +110,24 @@ public class AssetService {
         return createTicket(userId, assetType, mimeType, sizeBytes, sha256Hex, AssetTypePolicy.Audience.B_END);
     }
 
-    /** 服务端按类型策略强制 MIME/大小，object key 由服务端生成（客户端不可指定）；audience 双向隔离 */
-    private UploadTicket createTicket(long userId, String assetType, String mimeType,
-                                      long sizeBytes, String sha256Hex, AssetTypePolicy.Audience expectedAudience) {
+    /** 入口判定（纯函数，包级可见便于单测三分支）：未知类型/B_END 进 C 门/C_END 进 B 门均拒（14 文档 D-基1-4a） */
+    static AssetTypePolicy resolvePolicyForEntrance(String assetType, AssetTypePolicy.Audience expectedAudience) {
         AssetTypePolicy policy;
         try {
             policy = AssetTypePolicy.valueOf(assetType);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             throw exception(ASSET_VALIDATION_FAILED);
         }
         if (policy.audience() != expectedAudience) {
-            // 入口隔离：C 端入口不得传 B 端业务类型（防借道免审），反之亦然
             throw exception(ASSET_VALIDATION_FAILED);
         }
+        return policy;
+    }
+
+    /** 服务端按类型策略强制 MIME/大小，object key 由服务端生成（客户端不可指定）；audience 双向隔离 */
+    private UploadTicket createTicket(long userId, String assetType, String mimeType,
+                                      long sizeBytes, String sha256Hex, AssetTypePolicy.Audience expectedAudience) {
+        AssetTypePolicy policy = resolvePolicyForEntrance(assetType, expectedAudience);
         if (!policy.mimeAllowed(mimeType)) {
             throw new ServiceException(1_071_000_001,
                     "资产校验未通过：类型 " + assetType + " 不允许 " + mimeType);
@@ -461,14 +466,16 @@ public class AssetService {
         }
     }
 
-    /** 运维回填：为历史资产批量生成衍生图，单次最多 50 条，返回本次成功条数。 */
+    /** 运维回填：为历史资产批量生成衍生图，单次最多 50 条，返回本次成功条数。B_END 免审类型排除（未经像素守卫，见 ensureRenditions）。 */
     public int backfillRenditions(int limit) {
         int size = Math.max(1, Math.min(limit, 50));
         List<AssetRow> rows = jdbcTemplate.query(
                 "SELECT id, owner_user_id, asset_type, object_key, declared_mime, size_bytes, sha256, "
                         + "upload_status, validation_token, thumb_key, preview_key FROM asset "
                         + "WHERE upload_status = 'ACCEPTED' AND deleted = FALSE AND thumb_key IS NULL "
-                        + "AND declared_mime LIKE 'image/%' ORDER BY id LIMIT ?",
+                        + "AND declared_mime LIKE 'image/%' "
+                        + "AND asset_type NOT IN ('FIN_VOUCHER', 'ENG_DRAWING', 'ENG_SITE_PHOTO', 'CONTRACT_ATTACHMENT') "
+                        + "ORDER BY id LIMIT ?",
                 (rs, i) -> mapRow(rs), size);
         int generated = 0;
         for (AssetRow row : rows) {
@@ -506,6 +513,10 @@ public class AssetService {
     }
 
     private boolean ensureRenditions(AssetRow asset) {
+        // B_END 免审类型未经 scanner 像素守卫，禁止走渲染解码（防畸形/解压炸弹图片 OOM；14 文档 D-基1-4b）
+        if (AssetTypePolicy.valueOf(asset.assetType()).bEnd()) {
+            return false;
+        }
         if (!AssetRenditionGenerator.supports(asset.declaredMime())) {
             return false;
         }

@@ -27,8 +27,13 @@ class AssetAccessServiceTest {
     private static final PostSnapshot POST =
             new PostSnapshot(11L, 22L, 33L, "store", "finance", null, false, Set.of());
 
-    /** Fake Port：记录调用参数 */
-    private record RecordingPort(long expectedAccount, List<String> calls) implements AssetAccessPort {
+    /** Fake Port：记录调用参数；assetTypeOf 可配置（类型限制路径测试） */
+    private record RecordingPort(long expectedAccount, List<String> calls,
+                                 String assetTypeToReturn) implements AssetAccessPort {
+
+        RecordingPort(long expectedAccount, List<String> calls) {
+            this(expectedAccount, calls, "FIN_VOUCHER");
+        }
 
         @Override
         public DesignServicePort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
@@ -54,6 +59,12 @@ class AssetAccessServiceTest {
         public boolean validateReference(long serviceAccountId, long assetId) {
             calls.add("validate:" + serviceAccountId + ":" + assetId);
             return true;
+        }
+
+        @Override
+        public String assetTypeOf(long serviceAccountId, long assetId) {
+            calls.add("typeOf:" + serviceAccountId + ":" + assetId);
+            return assetTypeToReturn;
         }
     }
 
@@ -104,8 +115,48 @@ class AssetAccessServiceTest {
 
         assertThat(completed.uploadStatus()).isEqualTo("ACCEPTED");
         assertThat(download.downloadUrl()).contains("local://");
-        assertThat(calls).containsExactly("complete:777:501", "download:777:501");
+        assertThat(calls).containsExactly("typeOf:777:501", "complete:777:501",
+                "typeOf:777:501", "download:777:501"); // complete/download 前均做 B_END 类型校验
         assertThat(aggregates).containsExactly("fr-asset-complete"); // download 不记审计（14 文档 §四）
+    }
+
+    @Test
+    void completeAuditCarriesAssetTypeFromTrustedRecord() {
+        List<String> aggregates = new ArrayList<>();
+        // 用 Port 返回的类型入审计（B_END 白名单校验与审计同源，Codex 补审 P2）
+        List<cn.iocoder.yudao.module.platform.command.dal.CommandEventDO> events = new ArrayList<>();
+        CommandLog log = (CommandLog) java.lang.reflect.Proxy.newProxyInstance(
+                CommandLog.class.getClassLoader(), new Class[]{CommandLog.class},
+                (proxy, method, args) -> {
+                    if ("append".equals(method.getName()) && args[0] != null) {
+                        events.add((cn.iocoder.yudao.module.platform.command.dal.CommandEventDO) args[0]);
+                    }
+                    return null;
+                });
+        AssetAccessService service = service(new RecordingPort(777L, new ArrayList<>()),
+                new FranchiseCommands(log));
+
+        service.completeUpload(POST, 501L);
+
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).getPayload()).contains("FIN_VOUCHER"); // payload 含 assetType
+    }
+
+    @Test
+    void nonBEndOrMissingAssetIsForbiddenOnCompleteAndDownload() {
+        // 类型限制（Codex 补审 P1）：C_END 类型/不存在/非属主一律 RESOURCE_FORBIDDEN，不透传能力调用
+        for (String type : new String[]{"USER_SKETCH", null}) {
+            List<String> calls = new ArrayList<>();
+            AssetAccessService service = service(new RecordingPort(777L, calls, type),
+                    new FranchiseCommands(recordingCommandLog(new ArrayList<>())));
+            assertThatThrownBy(() -> service.completeUpload(POST, 501L))
+                    .isInstanceOfSatisfying(ServiceException.class,
+                            e -> assertThat(e.getCode()).isEqualTo(1_099_000_002));
+            assertThatThrownBy(() -> service.createDownloadUrl(POST, 501L))
+                    .isInstanceOfSatisfying(ServiceException.class,
+                            e -> assertThat(e.getCode()).isEqualTo(1_099_000_002));
+            assertThat(calls).containsExactly("typeOf:777:501", "typeOf:777:501"); // 未透传 complete/download
+        }
     }
 
     @Test

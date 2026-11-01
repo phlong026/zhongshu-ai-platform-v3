@@ -368,6 +368,16 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
                 serviceAccountId);
     }
 
+    @Override
+    public String assetTypeOf(long serviceAccountId, long assetId) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT owner_user_id, asset_type FROM asset WHERE id=? AND deleted=FALSE", assetId);
+        if (rows.isEmpty() || ((Number) rows.get(0).get("owner_user_id")).longValue() != serviceAccountId) {
+            return null;
+        }
+        return String.valueOf(rows.get(0).get("asset_type"));
+    }
+
     /** 引用有效性（两 Port 共享）：存在 + ACCEPTED + 属主=服务账号；包级静态便于纯单测三分支（14 文档 AC11） */
     static boolean assetReferenceValid(java.util.List<java.util.Map<String, Object>> rows,
                                        long serviceAccountId) {
