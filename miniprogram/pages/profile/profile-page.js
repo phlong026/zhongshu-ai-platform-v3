@@ -2,6 +2,8 @@
 // bottom navigation component they mount; content, handlers and styles all come from here and profile.wxml.
 const A = require('../../utils/account');
 const O = require('../../utils/organization');
+const M = require('../../utils/platform-messages');
+const http = require('../../api/http');
 
 const TEAM = { 'sales-lead': ['业务团队', 'business-team'], 'project-manager': ['工程团队', 'engineering-team'], 'finance-lead': ['财务管理', 'finance-team'], owner: ['门店团队与交接', 'staff'] };
 const account = (view, extra = '') => '/pages/account/index?view=' + view + extra;
@@ -57,8 +59,16 @@ module.exports = function (tabIndex) {
         entries: entries(a),
         ownerProfile, managementEntries: managementEntries(a),
         name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
-        unread: A.scoped(s, s.messages).filter(x => !x.read).length, progress: A.progress(s, engineeringProfile ? 'engineering' : 'ai-video')
+        unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: A.progress(s, engineeringProfile ? 'engineering' : 'ai-video')
       });
+      // API 未读数（基-2）：有会话才拉，回来合计刷新（11 文档 §十）
+      if (http.token()) {
+        http.get('/platform/messages/unread-count').then(r => {
+          this.apiUnread = (r && r.count) || 0;
+          const fresh = A.load();
+          this.setData({ unread: M.totalUnread(A.scoped(fresh, fresh.messages).filter(x => !x.read).length, this.apiUnread) });
+        }).catch(() => {});
+      }
       const bar = this.getTabBar && this.getTabBar();
       if (bar) { bar.refresh && bar.refresh(); bar.setData({ selected: tabIndex, hidden: false }); }
     },
