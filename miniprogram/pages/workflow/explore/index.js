@@ -21,6 +21,7 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
   if(['inspiration','search'].includes(v))this.platLoadCases(true);
   if(v==='budget')this.platLoadRule();
  },
+ onUnload(){if(this.platOnUnload)this.platOnUnload();},
  onShow(){if(this.platformMode){const post=(()=>{try{const auth=require('../../../api/auth');const http=require('../../../api/http');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();if(!post||String(post.postId)!==String(this.__postKey||'')){this.platTeardown();return;}return;}
   if(!this.scope)return;try{if(S.key()!==this.scope)throw Error('身份已切换');}catch(_){this.setData({result:null,sheet:false,form:{},filteredCases:[]});wx.redirectTo({url:'/pages/account/index?view=login'});}},
  run(fn){if(this.platformMode){this.setData({error:''});try{return fn();}catch(e){this.setData({error:e.message});return null;}}try{if(S.key()!==this.scope)throw Error('身份已切换，请重新进入');this.setData({error:''});return fn();}catch(e){this.setData({error:e.message});return null;}},

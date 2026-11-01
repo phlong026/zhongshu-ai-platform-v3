@@ -152,13 +152,13 @@ module.exports = function attach(page, deps) {
     if (kind === 'facade' && f.referenceCaseId) { body.sourceType = 'CASE_REFERENCE'; body.refCaseId = f.referenceCaseId; }
     const createKey = this.platKey('proj-' + kind);
     api.projects.create(body, createKey).then(proj => {
+      this.platDropKey('proj-' + kind);
       if (this.platStale(gen, sg)) return;
       const projectId = String(proj.projectId);
       this.__platProjectId = projectId;
       const jobKey = this.platKey(kind === 'plan' ? 'flat' : 'elev');
       const jobBody = { count: Number(f.count), resolution: f.resolution };
-      if (orientation === 'LANDSCAPE' || orientation === 'PORTRAIT') jobBody.orientation = orientation;// 后端值域=画面方向；非法值不传走后端默认（平面竖图/立面横图）
-      if (kind === 'facade') {
+      if (orientation === 'LANDSCAPE' || orientation === 'PORTRAIT') jobBody.orientation = orientation;// 后端值域=画面方向；非法值不传走后端默认（平面竖图/立面横图）      if (kind === 'facade') {
         jobBody.styleCode = PF.styleCode(f.style);
         jobBody.roofType = PF.roofCode(f.roof);
         jobBody.material = f.material; jobBody.color = f.color;
@@ -167,6 +167,7 @@ module.exports = function attach(page, deps) {
       }
       const createJob = kind === 'plan' ? api.projects.createFlatJob : api.projects.createElevationJob;
       return createJob(projectId, jobBody, jobKey).then(job => {
+        this.platDropKey(kind === 'plan' ? 'flat' : 'elev');
         if (this.platStale(gen, sg)) return;
         this.__platJobId = String(job.jobId);
         this.platPoll(jobId => String(job.jobId) === String(this.__platJobId) ? this.__platJobId : this.__platJobId, gen, sg, kind, projectId);
