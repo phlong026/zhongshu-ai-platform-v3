@@ -11,7 +11,7 @@
     "minified": true,
     "minifyWXSS": true,
     "enhance": true,
-    "urlCheck": true,
+    "urlCheck": false,
     "packNpmManually": false,
     "compileWorklet": false,
     "uglifyFileName": false,

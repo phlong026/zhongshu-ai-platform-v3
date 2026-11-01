@@ -3,13 +3,19 @@ const copy=require('./clone');
 const current=()=>getCurrentPages().slice(-1)[0];
 const tabs=['home','business','engineering','management','profile'].map(v=>'/pages/'+v+'/index');
 const stateKeys=["form","keyword","filter","versionFilter","flowTab","statusFilter","sort","due","nodeFilter","materialFilter","nodeId","mode","destination","category","tab","orderTab","messageTab","financeTab","dataTab","activeCustomerTab","caseTab","floor","selectedPlan","searchWidth","searchDepth","pickingRef","caseItem","filteredCases","taskFilter","recordFilter","editingText","optimizeRequirement","expanded","courseTab"];
-function scope(){const a=require('./access').context();return [a.companyId,a.staffId,a.role,a.active].join(':');}
+function apiSession(){try{const auth=require('../api/auth'),http=require('../api/http');const token=http.token();const post=token?auth.currentApiPost():null;return post?{post,gen:http.sessionGeneration()}:null;}catch(e){return null;}}
+function scope(){const api=apiSession();if(api){const p=api.post;return ['api',p.tenantId||'',p.orgId||'',p.postId||'',api.gen].join(':');}const a=require('./access').context();return [a.companyId,a.staffId,a.role,a.active].join(':');}
 function url(page){const opts={...(page.options||{})};if(page.data?.view)opts.view=page.data.view;if(page.id)opts.id=page.id;return '/'+page.route+Object.keys(opts).filter(k=>opts[k]!==undefined&&opts[k]!=='').map((k,i)=>(i?'&':'?')+encodeURIComponent(k)+'='+encodeURIComponent(opts[k])).join('');}
 function homeUrl(){return '/pages/'+(require('./access').home()||'home')+'/index';}
-function home(){current()?.persistEditor?.();return wx.switchTab({url:homeUrl()});}
+function home(){current()?.persistEditor?.();const api=apiSession();if(api){const O=require('./organization');return wx.switchTab({url:'/pages/'+(O.home(O.apiContext(api.post))||'home')+'/index'});}return wx.switchTab({url:homeUrl()});}
 function target(route,view,id,extra={}){return route+'?view='+view+(id?'&id='+encodeURIComponent(id):'')+Object.keys(extra).filter(k=>extra[k]).map(k=>'&'+k+'='+encodeURIComponent(extra[k])).join('');}
 function parent(page=current()){
  const route=page?.route||'',d=page?.data||{},o=page?.options||{},v=d.view||o.view,id=page?.id||o.id||d.id||'';
+ if(route==='pages/workflow/index'&&apiSession()){// API 态父级：仅本批视图；demo map 不动
+  const map={customers:'',customer:'customers',arrival:'customers',transfer:'customer'};
+  const next=Object.prototype.hasOwnProperty.call(map,v)?map[v]:'';
+  return next?target('/pages/workflow/index',next,id):homeUrl();
+ }
  if(route==='pages/workflow/index'){
   const map={'budget-result':'budget',budget:'customer',customers:'',customer:'customers',arrival:'customer',progress:'customer',history:'customer',delivery:'customer',hub:'customer','case-plan':'search',case:'inspiration','ai-results':'ai-config',result:'ai-config','facade-result':'facade-config','facade-candidates':'facade-config'};
   const next=Object.prototype.hasOwnProperty.call(map,v)?map[v]:'delivery',c=d.customer;
@@ -58,4 +64,4 @@ function back({fallback,skipLocal=false}={}){
  if(getCurrentPages().length>1&&wx.navigateBack)return wx.navigateBack({delta:1,fail:()=>open(fallback||parent(p),{replace:true})});
  const dest=fallback||parent(p);return dest===url(p)?home():open(dest,{replace:true});
 }
-module.exports={back,home,open,parent,url,homeUrl};
+module.exports={back,home,open,parent,url,homeUrl,scope};
