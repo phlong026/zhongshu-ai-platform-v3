@@ -365,7 +365,9 @@ module.exports = function attach(page, deps) {
   };
   page.platSaveCustomer = function (e) {
     const kindMap = { plan: 'PLAN', facade: 'FACADE', budget: 'BUDGET' };
-    const kind = kindMap[this.__platSaveKind || 'plan'] || 'PLAN';
+    const currentKind = this.data.kind || 'plan';
+    const kind = kindMap[currentKind] || 'PLAN';
+    if(typeof console.log==='function')console.log('[DBG saveCustomer] __platSaveKind=',this.__platSaveKind,'kind=',kind);
     const customerId = e.currentTarget.dataset.id;
     const f = this.data.form || {};
     const body = { customerId, kind: kind.toUpperCase() };

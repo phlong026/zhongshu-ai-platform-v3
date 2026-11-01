@@ -279,6 +279,8 @@ ok('轮询状态机（终态集含 PARTIALLY_SUCCEEDED/90s 超时）');
   assert.ok((d.saveCustomers || []).length >= 1, '客户弹层列表（CRM 可读集合）');
   await call('platSaveCustomer', { currentTarget: { dataset: { id: '8007199254740001' } } });
   await flush();
+  d = await data();
+  console.error('DBG7 pErr=', d.platformErr, 'err=', d.error, 'busy=', d.busy, 'saveKind=', d.saveKind);
   const saveReq = sent.filter(o => String(o.url).includes('/save-to-customer')).pop();
   assert.ok(saveReq, 'R21 实发');
   assert.equal(saveReq.data.kind, 'BUDGET');
