@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.command.Revisions;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
+import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import cn.iocoder.yudao.module.platform.org.dal.StaffPostDO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,14 +66,16 @@ public class CustomerService {
     private final CustomerFollowMapper followMapper;
     private final CustomerSchemeMapper schemeMapper;
     private final StaffPostService staffPostService;
+    private final SystemDirectory systemDirectory;
     private final FranchiseCommands commands;
 
     public CustomerService(CustomerMapper customerMapper, CustomerFollowMapper followMapper, CustomerSchemeMapper schemeMapper,
-                           StaffPostService staffPostService, FranchiseCommands commands) {
+                           StaffPostService staffPostService, SystemDirectory systemDirectory, FranchiseCommands commands) {
         this.customerMapper = customerMapper;
         this.followMapper = followMapper;
         this.schemeMapper = schemeMapper;
         this.staffPostService = staffPostService;
+        this.systemDirectory = systemDirectory;
         this.commands = commands;
     }
 
@@ -309,18 +312,21 @@ public class CustomerService {
             Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> u
                     .set(CustomerDO::getOwnerUserId, target.getUserId())
                     .set(CustomerDO::getTeamId, target.getTeamId())));
-            commands.record(post, AGGREGATE, customerId, revision + 1, "customer-transfer",
-                    Map.of("fromUserId", customer.getOwnerUserId(), "toUserId", target.getUserId(), "reason", reason),
-                    idempotencyKey);
+            // 指纹与 replayed 的 input 同构（S1-11b：原 Map{fromUserId,toUserId,reason} 与 TransferCommand
+            // 序列化不一致，同键同内容重放误报 IDEMPOTENCY_KEY_REUSED；payload=请求为域惯例，fromUserId
+            // 可由转交前 revision 的 customer 行追溯）
+            commands.record(post, AGGREGATE, customerId, revision + 1, "customer-transfer", input, idempotencyKey);
         }
         return get(post, customerId);
     }
 
-    /** 接手人在本组织的有效业务岗位（业务员优先） */
+    /** 接手人在本组织的有效业务岗位（业务员优先）；S1-11c：任职有效≠账号有效，停用账号不得被设为接手人 */
     private StaffPostDO salesPostOf(PostSnapshot post, long userId) {
         return staffPostService.listActivePosts(userId).stream()
                 .filter(p -> p.getOrgId() == post.orgId())
                 .filter(p -> SALES.equals(p.getRoleCode()) || SALES_LEAD.equals(p.getRoleCode()))
+                .filter(p -> systemDirectory.usersByIds(java.util.List.of(p.getUserId())).stream()
+                        .findFirst().map(SystemDirectory.UserBrief::active).orElse(false))
                 .min((a, b) -> Boolean.compare(SALES_LEAD.equals(a.getRoleCode()), SALES_LEAD.equals(b.getRoleCode())))
                 .orElse(null);
     }

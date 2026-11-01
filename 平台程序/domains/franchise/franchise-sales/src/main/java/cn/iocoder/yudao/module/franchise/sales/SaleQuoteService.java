@@ -55,7 +55,8 @@ public class SaleQuoteService {
                 throw exception(REFERENCE_INVALID);
             }
         }
-        // 服务端计算（覆盖客户端伪造值）
+        // 服务端计算（覆盖客户端伪造值）。items 为显式透传契约（S1-20b）：行内展示字段（qtyText/unitText
+        // 等 v3 附加键）原样落库/回显/export-sheet 返回，服务端只覆盖 own 计算字段——P4 导出依赖展示列。
         Map<String, Object> items = new LinkedHashMap<>(cmd.items() == null ? Map.of() : cmd.items());
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> main = (List<Map<String, Object>>) (List<?>) items.getOrDefault("main", List.of());
@@ -124,6 +125,7 @@ public class SaleQuoteService {
         sheet.put("floors", quote.getFloors());
         @SuppressWarnings("unchecked")
         Map<String, Object> items = JsonUtils.parseObject(quote.getItems(), Map.class);
+        // 行 Map 原样返回（含 qtyText/unitText 展示字段——S1-20b 显式透传契约，勿改为显式建模）
         sheet.put("main", items.get("main"));
         sheet.put("decor", items.get("decor"));
         sheet.put("mainTotal", sumGroup(items, "main"));

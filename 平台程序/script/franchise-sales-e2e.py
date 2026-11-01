@@ -192,8 +192,10 @@ def main():
     step('AC5 报价：服务端计算/伪造值覆盖/边界拒绝/scheme 关联')
     quote = act(sales, 'POST', '/franchise/sales/quotes',
                 {'customerId': customer_id, 'schemeId': scheme_id,
-                 'items': {'main': [{'label': '主体', 'quantity': 100, 'unitPriceCents': 85000, 'valueCents': 1}],
-                           'decor': [{'label': '门窗', 'quantity': 20, 'unitPriceCents': 12000, 'valueCents': 1}],
+                 'items': {'main': [{'label': '主体', 'quantity': 100, 'unitPriceCents': 85000, 'valueCents': 1,
+                                     'qtyText': '100', 'unitText': '850.00'}],
+                           'decor': [{'label': '门窗', 'quantity': 20, 'unitPriceCents': 12000, 'valueCents': 1,
+                                      'qtyText': '20', 'unitText': '120.00'}],
                            'insuranceCents': 100000, 'managementCents': 500000},
                  'priceVersion': 'demo-20261019-v1', 'address': '湖北武汉某村',
                  'width': 12, 'depth': 15, 'floors': 2, 'area': 360},
@@ -224,6 +226,9 @@ def main():
     sheet = act(sales, 'GET', f'/franchise/sales/quotes/{quote["quoteId"]}/export-sheet')
     assert sheet['name'] == '交易客户甲' and sheet['total'] == 9_340_000, sheet
     assert sheet['priceVersion'] == 'demo-20261019-v1'
+    # S1-20b 显式契约：items 行内展示字段（qtyText/unitText）原样透传（落库/回显/export-sheet 均不丢）
+    assert sheet['main'][0]['qtyText'] == '100' and sheet['main'][0]['unitText'] == '850.00', sheet['main'][0]
+    assert sheet['decor'][0]['qtyText'] == '20' and sheet['decor'][0]['unitText'] == '120.00'
     act(sales, 'POST', '/franchise/sales/requirements',
         {'customerId': customer_id, 'width': 20, 'depth': 20, 'floors': 5, 'style': '改需求'},
         headers={'Idempotency-Key': f'e2e-req-003-{ts}'})

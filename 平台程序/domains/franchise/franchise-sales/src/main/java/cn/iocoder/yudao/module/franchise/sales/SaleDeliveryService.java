@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.franchise.sales;
 import cn.iocoder.yudao.module.franchise.sales.dal.*;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.DELIVERY_DUPLICATE;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.DELIVERY_NODE_ORDER;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.REFERENCE_INVALID;
 
@@ -20,6 +23,7 @@ import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorC
  * 节点登记后不可被不同幂等键覆盖（同节点重复调用返回既有时间戳）。
  */
 @Service
+@Slf4j
 public class SaleDeliveryService {
 
     public static final List<String> NODES = List.of(
@@ -56,7 +60,13 @@ public class SaleDeliveryService {
                 .setCompanyId(post.orgId()).setCustomerId(contract.getCustomerId())
                 .setContractId(cmd.contractId()).setRequirementId(cmd.requirementId())
                 .setAuthorUserId(post.userId());
-        deliveries.insert(delivery);
+        try {
+            deliveries.insert(delivery);
+        } catch (DuplicateKeyException e) {
+            // 一合同一交付唯一索引兜底（S1-22）：直发请求绕过前端 R14 探测时在此拦截
+            log.warn("[create][contract={}] 交付重复创建被唯一索引拦下", cmd.contractId());
+            throw exception(DELIVERY_DUPLICATE);
+        }
         commands.record(post, "fr-sale-delivery", delivery.getId(), 1, "sale-delivery-create", input, idempotencyKey);
         return delivery;
     }

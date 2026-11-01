@@ -103,14 +103,16 @@ public class SaleContractService {
         }
         requirements.requireOfCustomer(cmd.customerId(), cmd.requirementId());
         validateAsset(post, cmd.assetId());
-        var existing = contracts.selectActiveByCustomer(cmd.customerId());
-        if (existing != null) {
-            throw exception(CONTRACT_DUPLICATE);
-        }
         var input = baseInput("contract-create", cmd.customerId(), cmd);
+        // 幂等重放先于有效合同检查（S1-21：原顺序「先查 006 再查重放」使响应丢失后的原键重试
+        // 恒撞 CONTRACT_DUPLICATE，永远到不了重放分支）
         var replayed = commands.replayed(post, idempotencyKey, input);
         if (replayed.isPresent()) {
             return contracts.selectById(replayed.get().getAggregateId());
+        }
+        var existing = contracts.selectActiveByCustomer(cmd.customerId());
+        if (existing != null) {
+            throw exception(CONTRACT_DUPLICATE);
         }
         SaleContractDO contract = new SaleContractDO()
                 .setCompanyId(post.orgId()).setCustomerId(cmd.customerId())
@@ -150,7 +152,8 @@ public class SaleContractService {
     @Transactional(rollbackFor = Exception.class)
     public SaleContractDO sign(PostSnapshot post, long contractId, SignCommand cmd, Long revision, String idempotencyKey) {
         SaleContractDO contract = lockContract(post, contractId);
-        var input = baseInput("contract-sign", contract.getCustomerId(), cmd);
+        // 指纹含 contractId+revision（S1-23：作废重签场景下同客户异合同的 sign/void 命令不得共享指纹）
+        var input = baseInput("contract-sign", contract.getCustomerId(), cmd, contractId, revision);
         var replayed = commands.replayed(post, idempotencyKey, input);
         if (replayed.isPresent()) {
             return contracts.selectById(replayed.get().getAggregateId());
@@ -179,7 +182,8 @@ public class SaleContractService {
     @Transactional(rollbackFor = Exception.class)
     public SaleContractDO void_(PostSnapshot post, long contractId, String reason, Long revision, String idempotencyKey) {
         SaleContractDO contract = lockContract(post, contractId);
-        var input = baseInput("contract-void", contract.getCustomerId(), Map.of("reason", reason == null ? "" : reason));
+        var input = baseInput("contract-void", contract.getCustomerId(),
+                Map.of("reason", reason == null ? "" : reason), contractId, revision);
         var replayed = commands.replayed(post, idempotencyKey, input);
         if (replayed.isPresent()) {
             return contracts.selectById(replayed.get().getAggregateId());
@@ -325,6 +329,15 @@ public class SaleContractService {
         input.put("operation", operation);
         input.put("customerId", customerId);
         input.put("cmd", cmd);
+        return input;
+    }
+
+    /** sign/void 专用：指纹含 contractId 与 revision（S1-23——同客户异合同/同合同异版本的命令不得共享指纹） */
+    private LinkedHashMap<String, Object> baseInput(String operation, long customerId, Object cmd,
+                                                    long contractId, Long revision) {
+        var input = baseInput(operation, customerId, cmd);
+        input.put("contractId", contractId);
+        input.put("revision", revision);
         return input;
     }
 

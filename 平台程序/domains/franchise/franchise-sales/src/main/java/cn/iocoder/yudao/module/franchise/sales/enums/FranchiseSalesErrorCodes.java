@@ -13,5 +13,6 @@ public interface FranchiseSalesErrorCodes {
     ErrorCode REFERENCE_INVALID = new ErrorCode(1_113_000_004, "引用对象不存在或不属于本组织/该客户");
     ErrorCode CONTRACT_NOT_SIGNED = new ErrorCode(1_113_000_005, "合同尚未签订，不能办理回款");
     ErrorCode CONTRACT_DUPLICATE = new ErrorCode(1_113_000_006, "该客户已有一份有效主合同（作废后方可重签）");
+    ErrorCode DELIVERY_DUPLICATE = new ErrorCode(1_113_000_007, "该合同已存在交付记录，请在原交付上继续办理");
 
 }
