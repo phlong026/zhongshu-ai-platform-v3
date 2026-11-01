@@ -8,15 +8,89 @@
   <view wx:if="{{view==='flows'||view==='projects'||view==='partners'||view==='tasks'}}" class="fin-desk-tools">
    <view class="fin-search"><image src="/assets/search.png" mode="aspectFit"/><input class="fin-search-input" value="{{keyword}}" bindinput="search" placeholder="{{view==='partners'?'搜索加盟商或项目':view==='projects'?'搜索客户、项目或进度':'搜索客户、项目或原单'}}" confirm-type="search" maxlength="80" aria-label="搜索财务原单"/><button wx:if="{{keyword}}" class="fin-clear" bindtap="clear">清空</button></view>
    <view class="fin-desk-context"><text>{{company}}</text><text wx:if="{{flowScope==='all'}}" class="fin-desk-period">全部月份</text><picker wx:else mode="date" fields="month" value="{{period}}" bindchange="month"><view class="fin-desk-period">{{periodText}}⌄</view></picker></view>
-   <view wx:if="{{view==='flows'||view==='projects'||view==='partners'}}" class="fin-segments"><button class="fin-segment {{view==='flows'&&flowTab==='ledger'?'selected':''}}" data-tab="ledger" bindtap="segment">流水</button><button class="fin-segment {{view==='flows'&&flowTab==='receivables'?'selected':''}}" data-tab="receivables" bindtap="segment">应收</button><button class="fin-segment {{view==='flows'&&flowTab==='payables'?'selected':''}}" data-tab="payables" bindtap="segment">应付</button><button class="fin-segment {{view==='flows'&&flowTab==='reconcile'?'selected':''}}" data-tab="reconcile" bindtap="segment">月末对账</button><button class="fin-segment {{view!=='flows'?'selected':''}}" data-tab="books" bindtap="segment">{{hq?'加盟商':'项目账'}}</button></view>
+   <view wx:if="{{view==='flows'||view==='projects'||view==='partners'}}" class="fin-segments"><button class="fin-segment {{view==='flows'&&flowTab==='ledger'?'selected':''}}" data-tab="ledger" bindtap="segment">流水</button><button class="fin-segment {{view==='flows'&&flowTab==='receivables'?'selected':''}}" data-tab="receivables" bindtap="segment">应收</button><button class="fin-segment {{view==='flows'&&flowTab==='payables'?'selected':''}}" data-tab="payables" bindtap="segment">应付</button><button wx:if="{{!platformApiMode}}" class="fin-segment {{view==='flows'&&flowTab==='reconcile'?'selected':''}}" data-tab="reconcile" bindtap="segment">月末对账</button><button class="fin-segment {{view!=='flows'?'selected':''}}" data-tab="books" bindtap="segment">{{hq?'加盟商':'项目账'}}</button></view>
   </view>
-  <view wx:if="{{stats.length}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{view==='partners'?'总部往来':flowTab==='reconcile'?'月末对账汇总':flowScope==='all'?'累计有效收款':flowScope==='current'?'本月有效收款':flowTab==='payables'?'付款与占用':flowTab==='ledger'?'本月实际收付':'收款与应收'}}</text></view><view class="fin-three"><view wx:for="{{stats}}" wx:key="label"><text class="fin-muted">{{item.label}}</text><text class="fin-value">{{item.value}}</text></view></view></view>
+  <view wx:if="{{stats.length&&!(platformApiMode&&flowTab==='ledger')}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{view==='partners'?'总部往来':flowTab==='reconcile'?'月末对账汇总':flowScope==='all'?'累计有效收款':flowScope==='current'?'本月有效收款':flowTab==='payables'?'付款与占用':flowTab==='ledger'?'本月实际收付':'收款与应收'}}</text></view><view class="fin-three"><view wx:for="{{stats}}" wx:key="label"><text class="fin-muted">{{item.label}}</text><text class="fin-value">{{item.value}}</text></view></view></view>
 
   <block wx:if="{{view==='flows'}}">
-   <view wx:if="{{flowTab==='reconcile'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">月末对账</text><text wx:if="{{reconcile.done}}" class="fin-muted">已于{{reconcile.at}}由{{reconcile.by}}核对</text></view><text class="fin-note">核对本月登记台账与实收实付汇总：单人登记即生效，无需逐笔复核；差异线下处理后再更新留痕。</text><button class="fin-primary" bindtap="reconcileBook" loading="{{busy}}">{{reconcile.done?'更新本月对账留痕':'完成本月对账'}}</button></view>
+   <block wx:if="{{platformApiMode&&flowTab==='ledger'&&(platformFinance.status==='ready'||platformFinance.status==='loading'||platformFinance.status==='degraded')}}">
+   <view wx:if="{{platformFinance.status==='loading'}}" class="fin-card"><text class="fin-muted">平台台账加载中…</text></view>
+   <view wx:elif="{{platformFinance.status==='degraded'}}" class="fin-card"><text class="fin-muted">{{platformFinance.message||'平台台账暂时无法加载'}}</text><button class="fin-text" bindtap="retryPlatformFinance">重新加载</button></view>
+   <block wx:else>
+    <view class="fin-card"><view class="fin-heading"><text class="fin-title">平台台账（收/付/退）</text><text class="fin-muted">{{platformLedger.length}}笔</text></view>
+     <view wx:for="{{platformLedger}}" wx:key="id" class="fin-flow-row"><view class="fin-row-top"><view class="fin-grow"><text class="fin-name">{{item.name}}</text><view class="fin-row-heading"><text class="fin-amount {{item.tone}}">{{item.amountText}}</text><text class="fin-status">{{item.category}}</text></view><text class="fin-muted">{{item.dateText}} · {{item.statusText}}</text></view></view></view>
+     <view wx:if="{{!platformLedger.length}}" class="fin-list-empty fin-empty"><text>平台台账暂无记录</text></view>
+    </view>
+    <view class="fin-card"><view class="fin-heading"><text class="fin-title">登记</text></view><view class="fin-shortcuts"><button class="fin-shortcut" data-type="receipt" bindtap="openRegister">收款登记</button><button class="fin-shortcut" data-type="payment" bindtap="openRegister">付款登记</button><button class="fin-shortcut" data-type="refund" bindtap="openRegister">退款登记</button><button class="fin-shortcut" data-type="payable" bindtap="openRegister">应付登记</button></view></view>
+    <view wx:if="{{registerType}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{registerType==='receipt'?'收款登记':registerType==='payment'?'付款登记':registerType==='refund'?'退款登记':'应付登记'}}</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
+     <view class="fin-form-row"><text class="fin-muted">金额（元）</text><input class="fin-input" type="digit" data-field="amount" bindinput="registerInput" value="{{registerForm.amount}}"/></view>
+     <block wx:if="{{registerType==='receipt'}}">
+      <view class="fin-form-row"><text class="fin-muted">款项名称</text><input class="fin-input" data-field="name" bindinput="registerInput" value="{{registerForm.name}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">方式</text><picker range="{{['bank','cash','other']}}" data-field="method" bindchange="registerInput"><view class="fin-input">{{registerForm.method||'bank'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">流水号（bank 必填）</text><input class="fin-input" data-field="transactionNo" bindinput="registerInput" value="{{registerForm.transactionNo}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">收款日期</text><picker mode="date" data-field="receivedDate" bindchange="registerInput"><view class="fin-input">{{registerForm.receivedDate||'默认今日'}}</view></picker></view>
+     </block>
+     <block wx:if="{{registerType==='payment'}}">
+      <view class="fin-form-row"><text class="fin-muted">关联应付</text><picker range="{{platformRegister.payables}}" range-key="label" data-field="payableId" bindchange="registerPick"><view class="fin-input">{{registerForm.payableIdLabel||'请选择'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">付款日期</text><picker mode="date" data-field="payDate" bindchange="registerInput"><view class="fin-input">{{registerForm.payDate||'默认今日'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">流水号</text><input class="fin-input" data-field="transactionNo" bindinput="registerInput" value="{{registerForm.transactionNo}}"/></view>
+     </block>
+     <block wx:if="{{registerType==='refund'}}">
+      <view class="fin-form-row"><text class="fin-muted">关联收款</text><picker range="{{platformRegister.refundable}}" range-key="label" data-field="receiptId" bindchange="registerPick"><view class="fin-input">{{registerForm.receiptIdLabel||'请选择'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">退款原因</text><input class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">退款日期</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'默认今日'}}</view></picker></view>
+     </block>
+     <block wx:if="{{registerType==='payable'}}">
+      <view class="fin-form-row"><text class="fin-muted">收款方</text><input class="fin-input" data-field="recipient" bindinput="registerInput" value="{{registerForm.recipient}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">阶段</text><input class="fin-input" data-field="stage" bindinput="registerInput" value="{{registerForm.stage}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">协议号</text><input class="fin-input" data-field="agreementRef" bindinput="registerInput" value="{{registerForm.agreementRef}}"/></view>
+     </block>
+     <text wx:if="{{registerError}}" class="fin-muted">{{registerError}}</text>
+     <button class="fin-primary" bindtap="submitRegister" loading="{{registerBusy}}">提交登记</button>
+    </view>
+   </block>
+  </block>
+  <block wx:if="{{platformApiMode&&flowTab==='ledger'}}">
+   <view wx:if="{{platformFinance.status==='loading'}}" class="fin-card"><text class="fin-muted">平台台账加载中…</text></view>
+   <view wx:elif="{{platformFinance.status==='degraded'}}" class="fin-card"><text class="fin-muted">{{platformFinance.message||'平台台账暂时无法加载'}}</text><button class="fin-text" bindtap="retryPlatformFinance">重新加载</button></view>
+   <block wx:else>
+    <view class="fin-card"><view class="fin-heading"><text class="fin-title">平台台账（收/付/退）</text><text class="fin-muted">{{platformLedger.length}}笔</text></view>
+     <view wx:for="{{platformLedger}}" wx:key="id" class="fin-flow-row"><view class="fin-row-top"><view class="fin-grow"><text class="fin-name">{{item.name}}</text><view class="fin-row-heading"><text class="fin-amount {{item.tone}}">{{item.amountText}}</text><text class="fin-status">{{item.category}}</text></view><text class="fin-muted">{{item.dateText}} · {{item.status}}</text></view></view></view>
+     <view wx:if="{{!platformLedger.length}}" class="fin-list-empty fin-empty"><text>平台台账暂无记录</text></view>
+    </view>
+    <view class="fin-card"><view class="fin-heading"><text class="fin-title">登记</text></view><view class="fin-shortcuts"><button class="fin-shortcut" data-type="receipt" bindtap="openRegister">收款登记</button><button class="fin-shortcut" data-type="payment" bindtap="openRegister">付款登记</button><button class="fin-shortcut" data-type="refund" bindtap="openRegister">退款登记</button><button class="fin-shortcut" data-type="payable" bindtap="openRegister">应付登记</button></view></view>
+    <view wx:if="{{registerType}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{registerType==='receipt'?'收款登记':registerType==='payment'?'付款登记':registerType==='refund'?'退款登记':'应付登记'}}</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
+     <view class="fin-form-row"><text class="fin-muted">金额（元）</text><input class="fin-input" type="digit" data-field="amount" bindinput="registerInput" value="{{registerForm.amount}}"/></view>
+     <block wx:if="{{registerType==='receipt'}}">
+      <view class="fin-form-row"><text class="fin-muted">款项名称</text><input class="fin-input" data-field="name" bindinput="registerInput" value="{{registerForm.name}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">方式</text><picker range="{{['bank','cash','other']}}" data-field="method" bindchange="registerInput"><view class="fin-input">{{registerForm.method||'bank'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">流水号（bank 必填）</text><input class="fin-input" data-field="transactionNo" bindinput="registerInput" value="{{registerForm.transactionNo}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">收款日期</text><picker mode="date" data-field="receivedDate" bindchange="registerInput"><view class="fin-input">{{registerForm.receivedDate||'默认今日'}}</view></picker></view>
+     </block>
+     <block wx:if="{{registerType==='payment'}}">
+      <view class="fin-form-row"><text class="fin-muted">关联应付</text><picker range="{{platformRegister.payables}}" range-key="label" data-field="payableId" bindchange="registerPick"><view class="fin-input">{{registerForm.payableIdLabel||'请选择'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">付款日期</text><picker mode="date" data-field="payDate" bindchange="registerInput"><view class="fin-input">{{registerForm.payDate||'默认今日'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">流水号</text><input class="fin-input" data-field="transactionNo" bindinput="registerInput" value="{{registerForm.transactionNo}}"/></view>
+     </block>
+     <block wx:if="{{registerType==='refund'}}">
+      <view class="fin-form-row"><text class="fin-muted">关联收款</text><picker range="{{platformRegister.refundable}}" range-key="label" data-field="receiptId" bindchange="registerPick"><view class="fin-input">{{registerForm.receiptIdLabel||'请选择'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">退款原因</text><input class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">退款日期</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'默认今日'}}</view></picker></view>
+     </block>
+     <block wx:if="{{registerType==='payable'}}">
+      <view class="fin-form-row"><text class="fin-muted">收款方</text><input class="fin-input" data-field="recipient" bindinput="registerInput" value="{{registerForm.recipient}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">阶段</text><input class="fin-input" data-field="stage" bindinput="registerInput" value="{{registerForm.stage}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">协议号</text><input class="fin-input" data-field="agreementRef" bindinput="registerInput" value="{{registerForm.agreementRef}}"/></view>
+     </block>
+     <text wx:if="{{registerError}}" class="fin-muted">{{registerError}}</text>
+     <button class="fin-primary" bindtap="submitRegister" loading="{{registerBusy}}">提交登记</button>
+    </view>
+   </block>
+  </block>
+  <view wx:if="{{flowTab==='reconcile'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">月末对账</text><text wx:if="{{reconcile.done}}" class="fin-muted">已于{{reconcile.at}}由{{reconcile.by}}核对</text></view><text class="fin-note">核对本月登记台账与实收实付汇总：单人登记即生效，无需逐笔复核；差异线下处理后再更新留痕。</text><button class="fin-primary" bindtap="reconcileBook" loading="{{busy}}">{{reconcile.done?'更新本月对账留痕':'完成本月对账'}}</button></view>
    <view class="fin-filter-row"><picker data-type="status" range="{{statusOptions}}" bindchange="pick"><view class="fin-filter-label">{{statusFilter}}⌄</view></picker><text wx:if="{{flowScope==='all'||flowScope==='current'}}" class="fin-filter-label">{{flowScope==='all'?'累计实收':'本月实收'}}</text><picker wx:else data-type="category" range="{{categoryOptions}}" bindchange="pick"><view class="fin-filter-label">{{category}}⌄</view></picker><picker data-type="sort" range="{{['到期优先','金额优先','最新优先']}}" bindchange="pick"><view class="fin-filter-label">{{sort}}⌄</view></picker></view>
    <view wx:if="{{due||filter==='overdue'}}" class="fin-period"><text>{{due?'仅看未来7天约定到期':'仅看已逾期款项'}}</text><button class="fin-text" bindtap="clear">显示全部</button></view>
-   <view class="fin-card"><view class="fin-heading"><text class="fin-title">{{flowScope==='all'?'累计有效收款':flowScope==='current'?'本月有效收款':flowTab==='payables'?'应付事项':flowTab==='ledger'?'实际收付流水':flowTab==='reconcile'?'对账留痕':'应收事项'}}</text><text class="fin-muted">{{rows.length}}笔</text></view>
+   <view class="fin-card" wx:if="{{!(platformApiMode&&flowTab==='ledger')}}"><view class="fin-heading"><text class="fin-title">{{flowScope==='all'?'累计有效收款':flowScope==='current'?'本月有效收款':flowTab==='payables'?'应付事项':flowTab==='ledger'?'实际收付流水':flowTab==='reconcile'?'对账留痕':'应收事项'}}</text><text class="fin-muted">{{rows.length}}笔</text></view>
     <view wx:for="{{rows}}" wx:key="id" class="fin-flow-row"><view class="fin-row-top"><view class="fin-grow"><text class="fin-name">{{item.name}}</text><view class="fin-row-heading"><text class="fin-amount">{{item.amountText}}</text><text class="fin-status {{item.tone}}">{{item.status}}</text></view><text class="fin-muted">{{item.subtitle}}</text></view></view><view class="fin-flow-detail"><view class="fin-grow"><text class="fin-muted">{{item.dateText}}</text><text class="fin-muted">{{item.detail}}</text></view><button wx:if="{{item.url}}" class="fin-outline" data-url="{{item.url}}" bindtap="go">{{item.action}}</button><text wx:else class="fin-muted">历史只读</text></view></view>
     <view wx:if="{{!rows.length}}" class="fin-list-empty fin-no-match"><image src="/assets/management-schedule.jpg" mode="aspectFit"/><text>暂无符合条件的{{flowTab==='ledger'?'有效流水':'原单事项'}}</text><text class="fin-muted">可调整搜索、状态或类别筛选。</text><button class="fin-text" bindtap="clear">重置筛选</button></view>
    </view>
