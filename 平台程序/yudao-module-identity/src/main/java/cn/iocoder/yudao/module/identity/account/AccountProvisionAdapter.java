@@ -26,6 +26,9 @@ public class AccountProvisionAdapter implements AccountProvisionPort {
         this.txTemplate = new TransactionTemplate(transactionManager);
     }
 
+    /** fr-service: 外键前缀——组织服务账号（09 钱包会话桥接）：技术型 grant 的授予对象 */
+    private static final String FR_SERVICE_PREFIX = "fr-service:";
+
     @Override
     public EnsuredAccount ensureActiveAccount(String externalKey, String nickname) {
         if (externalKey == null || externalKey.isBlank() || externalKey.length() > 64) {
@@ -33,15 +36,37 @@ public class AccountProvisionAdapter implements AccountProvisionPort {
         }
         return txTemplate.execute(status -> {
             var existing = selectByKey(externalKey);
-            if (existing != null) return existing;
+            if (existing != null) {
+                ensureTechnicalGrant(externalKey, existing);
+                return existing;
+            }
             jdbcTemplate.update(
                     "INSERT INTO account (id, status, nickname, external_key, tenant_id) "
                             + "VALUES (?, 'ACTIVE', ?, ?, 0) ON CONFLICT (external_key) DO NOTHING",
                     IdWorker.getId(), nickname, externalKey);
             EnsuredAccount created = selectByKey(externalKey);
             if (created == null) throw new IllegalStateException("ACCOUNT_PROVISION_CONFLICT");
+            ensureTechnicalGrant(externalKey, created);
             return created;
         });
+    }
+
+    /**
+     * 技术型 grant 幂等补挂（09 钱包会话桥接）：服务账号的会话受限状态由 design_access_grant
+     * 实时重算（validateAccessToken），无 ACTIVE grant 的会话连只读都被拒。仅对 fr-service:
+     * 且账号 ACTIVE 时补挂；以 ACTIVE 为前提——停用账号（disableAccount 已撤 grant）不复活。
+     * 管理侧要断钱包 = 停用账号；通用撤销入口对技术型 grant 有守卫（AccessGrantService）。
+     */
+    private void ensureTechnicalGrant(String externalKey, EnsuredAccount ensured) {
+        if (!externalKey.startsWith(FR_SERVICE_PREFIX) || !ensured.active()) {
+            return;
+        }
+        jdbcTemplate.update(
+                "INSERT INTO design_access_grant (id, account_id, status, tenant_id) "
+                        + "SELECT ?, ?, 'ACTIVE', 0 WHERE NOT EXISTS ("
+                        + "SELECT 1 FROM design_access_grant "
+                        + "WHERE account_id = ? AND status = 'ACTIVE' AND deleted = FALSE)",
+                IdWorker.getId(), ensured.accountId(), ensured.accountId());
     }
 
     private EnsuredAccount selectByKey(String externalKey) {

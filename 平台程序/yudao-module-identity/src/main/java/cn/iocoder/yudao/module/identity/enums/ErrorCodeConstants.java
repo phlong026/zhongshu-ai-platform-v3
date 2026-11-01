@@ -18,4 +18,7 @@ public interface ErrorCodeConstants {
     ErrorCode ACCESS_CODE_SECRET_ALREADY_EXPOSED = new ErrorCode(1_070_000_004, "授权码完整明文已交付，不能再次交付");
     ErrorCode WECHAT_IDENTITY_ALREADY_BOUND = new ErrorCode(1_070_000_005, "微信身份已绑定其他账号");
 
+    // ========== 技术型授权（09 钱包会话桥接）==========
+    ErrorCode ACCESS_GRANT_TECHNICAL = new ErrorCode(1_070_000_006, "该授权为系统技术授权，不可在此解绑；如需断开请停用对应账号");
+
 }

@@ -49,6 +49,12 @@ public class UserSessionService {
     }
 
     public IssuedTokens issue(long accountId, String appid, String openid, boolean restricted, String deviceDigest) {
+        return issue(accountId, appid, openid, restricted, deviceDigest, ACCESS_TOKEN_TTL_SECONDS);
+    }
+
+    /** 指定 access token TTL 的铸造（钱包桥接用 30 分钟收敛暴露面；refresh 维持标准期，不经端口对外） */
+    public IssuedTokens issue(long accountId, String appid, String openid, boolean restricted, String deviceDigest,
+                              long accessTokenTtlSeconds) {
         String accessToken = randomToken();
         String refreshToken = randomToken();
         Long sessionId = txTemplate.execute(status -> {
@@ -62,11 +68,11 @@ public class UserSessionService {
                             + "now() + (? * interval '1 second'))",
                     id, accountId, appid, openid,
                     sha256Hex(accessToken), sha256Hex(refreshToken), deviceDigest, restricted,
-                    ACCESS_TOKEN_TTL_SECONDS, REFRESH_TOKEN_TTL_SECONDS);
+                    accessTokenTtlSeconds, REFRESH_TOKEN_TTL_SECONDS);
             return id;
         });
         return new IssuedTokens(sessionId, accessToken, refreshToken,
-                Instant.now().plusSeconds(ACCESS_TOKEN_TTL_SECONDS), restricted);
+                Instant.now().plusSeconds(accessTokenTtlSeconds), restricted);
     }
 
     /** 校验 access token：未过期、未吊销、账号 ACTIVE；restricted 按当前授权实时判定 */

@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.platform.org.dal.OrgTypeMapper;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,9 @@ public class OrgServiceImpl implements OrgService {
     private OrgUnitMapper orgUnitMapper;
     @Resource
     private SystemDirectory systemDirectory;
+    /** 钱包会话撤权回调（franchise-org 实现；组装裁剪时静默跳过） */
+    @Resource
+    private ObjectProvider<WalletSessionRevocation> walletSessionRevocation;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -54,11 +58,17 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void setOrgActive(long orgId, boolean active) {
+        // 09 钱包会话桥接撤权协议：组织行排他锁（发卡/岗位新增的组织共享锁互斥），状态修改与钱包会话吊销同事务
+        orgUnitMapper.lockOrgForUpdate(orgId);
         requireOrg(orgId);
         orgUnitMapper.updateById(new OrgUnitDO().setDeptId(orgId)
                 .setStatus(active ? OrgUnitDO.STATUS_ACTIVE : OrgUnitDO.STATUS_DISABLED)
                 .setUpdateTime(OffsetDateTime.now()));
+        if (!active) {
+            walletSessionRevocation.ifAvailable(cb -> cb.revokeForOrg(orgId));
+        }
     }
 
     @Override

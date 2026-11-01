@@ -12,7 +12,9 @@ import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -37,6 +39,11 @@ public class YudaoSystemDirectory implements SystemDirectory {
     private AdminUserService adminUserService;
     @Resource
     private MenuService menuService;
+    @Resource
+    private cn.iocoder.yudao.module.platform.org.dal.StaffPostMapper staffPostMapper;
+    /** 钱包会话撤权回调（franchise-org 实现；组装裁剪时静默跳过） */
+    @Resource
+    private ObjectProvider<WalletSessionRevocation> walletSessionRevocation;
 
     @Override
     public long createDept(Long parentDeptId, String name) {
@@ -131,9 +138,19 @@ public class YudaoSystemDirectory implements SystemDirectory {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void setUserActive(long userId, boolean active) {
+        // 09 钱包会话桥接撤权协议：成员停用先取用户全部岗位行排他锁（覆盖其全部组织，堵跨组织窗口），
+        // 状态修改与钱包会话吊销同事务提交/回滚
+        staffPostMapper.lockUserPostsForUpdate(userId);
         adminUserService.updateUserStatus(userId,
                 active ? CommonStatusEnum.ENABLE.getStatus() : CommonStatusEnum.DISABLE.getStatus());
+        if (!active) {
+            List<Long> orgIds = staffPostMapper.selectOrgIdsEverHeld(userId);
+            if (!orgIds.isEmpty()) {
+                walletSessionRevocation.ifAvailable(cb -> cb.revokeForUserOrgs(userId, orgIds));
+            }
+        }
     }
 
     @Override

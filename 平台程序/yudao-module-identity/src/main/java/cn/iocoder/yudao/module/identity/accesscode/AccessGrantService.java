@@ -8,6 +8,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import static cn.iocoder.yudao.module.identity.enums.ErrorCodeConstants.ACCESS_GRANT_TECHNICAL;
+
 /**
  * 访问授权（design_access_grant）：查询与后台解绑
  *
@@ -51,8 +53,21 @@ public class AccessGrantService {
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
-    /** 解绑：仅 ACTIVE 可撤销；返回 false 表示不存在有效授权 */
+    /**
+     * 解绑：仅 ACTIVE 可撤销；返回 false 表示不存在有效授权。
+     * 技术型 grant 守卫（09 钱包会话桥接）：fr-service: 占位账号的授权无业务语义，
+     * 禁止经通用入口撤销——撤销会在下次账号供给时被幂等补挂（逆转撤权）。
+     * 管理侧要断钱包 = 停用账号（disableAccount 撤 grant 并拒绝登录）。
+     */
     public boolean revoke(long grantId, String revokedBy) {
+        var keys = jdbcTemplate.queryForList(
+                "SELECT a.external_key FROM design_access_grant g "
+                        + "JOIN account a ON a.id = g.account_id AND a.deleted = FALSE "
+                        + "WHERE g.id = ?", String.class, grantId);
+        if (!keys.isEmpty() && keys.get(0) != null && keys.get(0).startsWith("fr-service:")) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil
+                    .exception(ACCESS_GRANT_TECHNICAL);
+        }
         return jdbcTemplate.update(
                 "UPDATE design_access_grant SET status = 'REVOKED', revoked_at = now(), revoked_by = ?, "
                         + "update_time = now() WHERE id = ? AND status = 'ACTIVE'",

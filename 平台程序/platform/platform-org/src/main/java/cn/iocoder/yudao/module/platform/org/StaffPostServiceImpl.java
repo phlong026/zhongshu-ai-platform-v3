@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.platform.org;
 
 import cn.iocoder.yudao.module.platform.org.dal.*;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,9 @@ public class StaffPostServiceImpl implements StaffPostService {
     private OrgUnitMapper orgUnitMapper;
     @Resource
     private SystemDirectory systemDirectory;
+    /** 钱包会话撤权回调（franchise-org 实现；组装裁剪时静默跳过） */
+    @Resource
+    private ObjectProvider<WalletSessionRevocation> walletSessionRevocation;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -32,6 +36,9 @@ public class StaffPostServiceImpl implements StaffPostService {
         if (template == null) {
             throw exception(POST_TEMPLATE_NOT_FOUND);
         }
+        // 09 钱包会话桥接撤权协议：锁序=用户→组织（岗位新增/发卡与成员停用/组织停用经行锁互斥）
+        staffPostMapper.lockUserPostsForShare(userId);
+        orgUnitMapper.lockOrgForShare(orgId);
         OrgUnitDO org = orgUnitMapper.selectById(orgId);
         if (org == null || !org.isOrg()) {
             throw exception(ORG_NOT_FOUND);
@@ -71,6 +78,8 @@ public class StaffPostServiceImpl implements StaffPostService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void revokePost(long postId, long operatorUserId) {
+        // 撤权协议：岗位行排他锁后再改状态；状态修改与钱包会话吊销同事务提交/回滚
+        staffPostMapper.lockPostForUpdate(postId);
         StaffPostDO post = staffPostMapper.selectById(postId);
         if (post == null || !StaffPostDO.STATUS_ACTIVE.equals(post.getStatus())) {
             throw exception(POST_NOT_FOUND);
@@ -78,6 +87,7 @@ public class StaffPostServiceImpl implements StaffPostService {
         staffPostMapper.updateById(new StaffPostDO().setId(postId).setStatus(StaffPostDO.STATUS_REVOKED)
                 .setRevokedAt(OffsetDateTime.now()).setRevokedBy(operatorUserId));
         syncUserRoles(post.getUserId());
+        walletSessionRevocation.ifAvailable(cb -> cb.revokeForUserOrgs(post.getUserId(), List.of(post.getOrgId())));
     }
 
     @Override
