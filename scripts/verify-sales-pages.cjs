@@ -161,7 +161,7 @@ ok('AC7 错误映射（纯函数部分）');
   assert.ok(reqReq.header['Idempotency-Key'], 'requirement 幂等键头');
   assert.ok(toasts.includes('需求已登记 V2'), '响应 version 回显 toast');
   d = await data();
-  // assert.equal(d.view, 'customer', '登记成功回工作区'); [Node runtime 页面栈限制，native 验收覆盖]
+  assert.equal(d.view, 'customer', '登记成功回工作区');
   assert.equal(demoOps.length, 0, 'requirement 链零 demo 读写');
   ok('AC4 需求登记实发与版本');
 
@@ -170,7 +170,7 @@ ok('AC7 错误映射（纯函数部分）');
   responder = () => reqBody(0);
   await flush();
   d = await data();
-  // assert.equal(d.view, 'budget'); [Node runtime 页面栈限制，native 验收覆盖]
+  assert.equal(d.view, 'budget');
   // 手填尺寸（R2 空场景）
   await call('input', { currentTarget: { dataset: { key: 'width' } }, detail: { value: '12.5' } });
   await call('input', { currentTarget: { dataset: { key: 'depth' } }, detail: { value: '16' } });
@@ -198,7 +198,7 @@ ok('AC7 错误映射（纯函数部分）');
   assert.ok(quoteReq.header['Idempotency-Key'], 'quote 幂等键头（键前缀由页面命令快照生成）');
   assert.equal(quoteReq.data.items.insuranceCents, 0, '管理费/保险恒发');
   d = await data();
-  // assert.equal(d.view, 'budget-result', '同 Page 切结果'); [Node runtime 页面栈限制，native 验收覆盖]
+  assert.equal(d.view, 'budget-result', '同 Page 切结果');
   assert.equal(d.budgetResult.totalText, '9999995.00', '响应回显金额（伪造覆盖）');
   assert.ok(d.budgetResult.quoteId, 'quoteId 入导出入口');
   assert.equal(demoOps.length, 0, '报价链零 demo 读写');

@@ -228,7 +228,7 @@ ok('AC7 错误码映射与输入约束（纯函数部分）');
   responder = o => String(o.url).includes('/customers/' + BIG) ? detailBody(BIG) : listBody();
   await flush();
   d = await data();
-  // assert.equal(d.view, 'customer'); [Node runtime 页面栈限制，native 验收覆盖]
+  assert.equal(d.view, 'customer');
   assert.equal(d.customer.name, '陈先生');
   assert.equal(d.customerTabs.join(','), '概况,跟进', 'API 态两 tab');
   assert.equal(d.showSizeBlock, false);
@@ -364,7 +364,7 @@ ok('AC7 错误码映射与输入约束（纯函数部分）');
   await call('saveModal');
   await flush();
   d = await data();
-  // assert.equal(d.view, 'customer', 'LINKED 可读→打开原客户'); [Node runtime 页面栈限制，native 验收覆盖]
+  assert.equal(d.view, 'customer', 'LINKED 可读→打开原客户');
   // LINKED 不可读（同事客户）
   await runtime.callWxMethod('navigateTo', { url: '/pages/workflow/index?view=customers&modal=register' });
   responder = () => listBody();
@@ -376,7 +376,7 @@ ok('AC7 错误码映射与输入约束（纯函数部分）');
   await call('saveModal');
   await flush();
   d = await data();
-  // assert.equal(d.view, 'customers', 'LINKED 不可读→留在列表'); [Node runtime 页面栈限制，native 验收覆盖]
+  assert.equal(d.view, 'customers', 'LINKED 不可读→留在列表');
   assert.equal(d.error, '该客户由同事负责，已关联到其名下，请联系负责人查看', 'LINKED 不可读提示');
   assert.equal(demoOps.length, 0, '登记链零 demo 读写');
 
