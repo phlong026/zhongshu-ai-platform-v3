@@ -54,7 +54,7 @@ function request(method, path, data, extraHeader, opts) {
   const requestSessionGen = sessionGen;
   return new Promise((resolve, reject) => {
     wx.request({
-      url: base() + path,
+      url: (opts && opts.base ? opts.base : base()) + path,
       method,
       data,
       timeout: TIMEOUT,

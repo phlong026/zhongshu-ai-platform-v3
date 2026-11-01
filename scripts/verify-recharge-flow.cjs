@@ -21,6 +21,7 @@ global.wx = {
   removeStorageSync(k) { delete store[k]; },
   showToast() {},
   navigateTo() {},
+  login(opts) { opts.success && opts.success({ code: 'shim-login-code' }); },
   request(opts) {
     const u = new URL(opts.url);
     const req = nodeHttp.request({
@@ -53,7 +54,7 @@ function devSettle(orderId) {
     const req = nodeHttp.request({
       hostname: '127.0.0.1',
       port: addr.port,
-      path: '/admin-api/design/v1/dev/settle',
+      path: '/app-api/design/v1/dev/settle',
       method: 'POST',
       headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + server.WALLET_TOKEN }
     }, (res) => {
@@ -138,6 +139,22 @@ async function main() {
 
   // 11. 钱包 401 不清平台会话（skipSessionGuard）
   ok(wx.getStorageSync(http.TOKEN_KEY) === 'platform-demo-token', '平台会话未被钱包 401 误清');
+
+  // 11b. 桥接缺 X-WX-Login-Code → 1_104_000_001（09 文档 §三）
+  let missingCode = null;
+  await http.request('POST', '/platform/wallet/session', null, null, { skipSessionGuard: true })
+    .catch((err) => { missingCode = err.code; });
+  ok(missingCode === 1_104_000_001, '桥接缺一次性 code → 1_104_000_001');
+
+  // 11c. 缓存条目带指纹 {fp, token}：切岗（postId 变化）后旧缓存失效、自动重铸
+  const rawCache = JSON.parse(wx.getStorageSync(wallet.SESSION_KEY));
+  ok(typeof rawCache.fp === 'string' && rawCache.fp.indexOf(':') > 0 && rawCache.token === server.WALLET_TOKEN,
+      '缓存条目：{fp, token}（fp=会话代次+岗位）');
+  wx.setStorageSync(http.POST_KEY, '999'); // 模拟切岗
+  ok(wallet.walletToken() === '', '切岗后旧组织缓存即失效');
+  const reTok = await wallet.ensureSession();
+  ok(reTok === server.WALLET_TOKEN, '切岗后 ensureSession 自动重铸');
+  wx.setStorageSync(http.POST_KEY, ''); // 复位
 
   // 12. 桥接端点未部署（404）→ ensureSession 返回 null（页面据此降级，不报错打扰）
   const dead = nodeHttp.createServer((req2, res2) => { res2.writeHead(404, { 'Content-Type': 'application/json' }); res2.end('{"code":404,"msg":"not found"}'); });

@@ -161,21 +161,23 @@ function route(req, res, url) {
 
   // 平台→钱包会话桥接（演示实现：持有任意平台 Bearer 即可换取钱包会话）
   if (req.method === 'POST' && path === '/admin-api/platform/wallet/session') {
-    if (!bearerOf(req)) return fail(res, 401, 401, '缺少平台会话');
-    return ok(res, { token: WALLET_TOKEN, expiresIn: 3600 });
+    if (!bearerOf(req)) return fail(res, 200, 401, '平台会话无效');
+    const code = req.headers['x-wx-login-code'] || '';
+    if (!code) return fail(res, 200, 1_104_000_001, '微信登录凭证已失效，请重新进入小程序');
+    return ok(res, { token: WALLET_TOKEN, expiresIn: 1800 });
   }
 
-  if (!path.startsWith('/admin-api/design/v1/')) return fail(res, 404, 404, '接口不存在');
+  if (!path.startsWith('/app-api/design/v1/')) return fail(res, 404, 404, '接口不存在');
 
   // ---- 用户域端点：需要钱包会话 ----
   if (bearerOf(req) !== WALLET_TOKEN) return fail(res, 401, 401, '会话无效或已过期');
   const USER_ID = 8601;
 
-  if (req.method === 'GET' && path === '/admin-api/design/v1/recharge-plans') {
+  if (req.method === 'GET' && path === '/app-api/design/v1/recharge-plans') {
     return ok(res, PLANS.filter((p) => p.sort > 0));
   }
 
-  if (req.method === 'POST' && path === '/admin-api/design/v1/recharge-orders') {
+  if (req.method === 'POST' && path === '/app-api/design/v1/recharge-orders') {
     if (!RECHARGE_ENABLED) return fail(res, 503, 503, '充值功能暂未开放');
     const plan = planById(url.searchParams.get('planId'));
     if (!plan) return fail(res, 404, 404, '套餐不存在');
@@ -183,7 +185,7 @@ function route(req, res, url) {
     return ok(res, orderVo(order));
   }
 
-  let m = path.match(/^\/admin-api\/design\/v1\/recharge-orders\/(\d+)\/pay-params$/);
+  let m = path.match(/^\/app-api\/design\/v1\/recharge-orders\/(\d+)\/pay-params$/);
   if (req.method === 'GET' && m) {
     if (!RECHARGE_ENABLED) return fail(res, 503, 503, '充值功能暂未开放');
     const order = state.orders.find((o) => o.orderId === m[1] && o.userId === USER_ID);
@@ -195,14 +197,14 @@ function route(req, res, url) {
     return ok(res, code ? demoPayParams(order) : { state: 'SESSION_CODE_REQUIRED' });
   }
 
-  m = path.match(/^\/admin-api\/design\/v1\/recharge-orders\/(\d+)$/);
+  m = path.match(/^\/app-api\/design\/v1\/recharge-orders\/(\d+)$/);
   if (req.method === 'GET' && m) {
     const order = state.orders.find((o) => o.orderId === m[1] && o.userId === USER_ID);
     if (!order) return fail(res, 403, 403, '订单不存在或无权访问');
     return ok(res, orderVo(order));
   }
 
-  if (req.method === 'GET' && path === '/admin-api/design/v1/recharge-orders') {
+  if (req.method === 'GET' && path === '/app-api/design/v1/recharge-orders') {
     const mine = state.orders.filter((o) => o.userId === USER_ID);
     const pageNo = Number(url.searchParams.get('pageNo')) || 1;
     const pageSize = Number(url.searchParams.get('pageSize')) || 20;
@@ -212,7 +214,7 @@ function route(req, res, url) {
     });
   }
 
-  if (req.method === 'GET' && path === '/admin-api/design/v1/point-account') {
+  if (req.method === 'GET' && path === '/app-api/design/v1/point-account') {
     return ok(res, {
       availablePoints: state.account.availablePoints,
       reservedPoints: state.account.reservedPoints,
@@ -220,7 +222,7 @@ function route(req, res, url) {
     });
   }
 
-  if (req.method === 'GET' && path === '/admin-api/design/v1/point-ledger') {
+  if (req.method === 'GET' && path === '/app-api/design/v1/point-ledger') {
     const pageNo = Number(url.searchParams.get('pageNo')) || 1;
     const pageSize = Number(url.searchParams.get('pageSize')) || 20;
     return ok(res, {
@@ -229,7 +231,7 @@ function route(req, res, url) {
     });
   }
 
-  if (req.method === 'POST' && path === '/admin-api/design/v1/dev/settle') {
+  if (req.method === 'POST' && path === '/app-api/design/v1/dev/settle') {
     return readBody(req).then((body) => {
       const order = settle(body.orderId);
       if (!order) return fail(res, 404, 404, '订单不存在');
