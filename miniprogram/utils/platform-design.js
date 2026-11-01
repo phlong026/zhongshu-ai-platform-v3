@@ -1,0 +1,139 @@
+/**
+ * 平台设计赋能视图模型（阶段 1 · P3）：灵感库/AI 平面/AI 立面/快速预算。
+ * 纯函数，零 wx/Storage 依赖。契约=docs/backend-parity/13-阶段1-P3设计赋能接入-需求与验收.md（V3，子代理 R3 PASS）。
+ * 序列化事实：Long 超界字符串/OffsetDateTime 毫秒；错误原码透传（design 与 1_112 段）；@post.has 拒绝=body.code=403。
+ */
+const DESIGN_ROLES = ['sales', 'sales-lead', 'hq-design-admin'];
+
+/** 五态归并：design:use 三岗 → api；其余 → demo（继承 P1 pageMode 语义：token 必须有效） */
+function pageMode(token, post) {
+  return token && post && DESIGN_ROLES.includes(post.roleCode) ? 'api' : 'demo';
+}
+
+/** 稳定编码映射（08 §三 P3 + 13 §二） */
+const STYLE_CODE = { 新中式: 'NEW_CHINESE', 现代简约: 'MODERN' };
+const ROOF_CODE = { 坡屋顶: 'GABLE_ROOF', 平屋顶: 'FLAT_ROOF' };
+const MATERIAL_OPTIONS = [['WHITE_STUCCO', '白墙涂料'], ['GREY_STONE', '灰石'], ['WHITE_COAT', '白色涂层']];
+const COLOR_OPTIONS = [['DEEP_WOOD', '深木'], ['WARM_GREY', '暖灰'], ['BLACK', '黑']];
+const ORIENTATION_OPTIONS = [['PORTRAIT', '竖图'], ['LANDSCAPE', '横图']]; // 平面缺省 PORTRAIT、立面缺省 LANDSCAPE（不传走后端默认）
+const STRUCTURE_OPTIONS = [['BRICK', '砖混'], ['FRAME', '框架'], ['STEEL', '钢结构']];
+const GRADE_OPTIONS = [['A', 'A 档'], ['B', 'B 档'], ['C', 'C 档']];
+
+function styleCode(style) { return STYLE_CODE[style] || null; }
+function roofCode(roof) { return ROOF_CODE[roof] || null; }
+
+/** AI 轮询状态机（S1-2：间隔 3s、上限 90s；终态含 PARTIALLY_SUCCEEDED） */
+const POLL_INTERVAL_MS = 3000;
+const POLL_MAX_MS = 90000;
+function pollDecision(status, elapsedMs) {
+  if (status === 'SUCCEEDED' || (status === 'PARTIALLY_SUCCEEDED')) return { action: 'candidates' };
+  if (status === 'FAILED') return { action: 'failed', message: '生成失败，请重试或调整参数' };
+  if (elapsedMs >= POLL_MAX_MS) return { action: 'timeout', message: '生成仍在进行，可稍后手动刷新' };
+  return { action: 'continue' };
+}
+/** 手动刷新命中未终态（R11/R14 P-10 业务码）→ 仍在生成文案 */
+const STILL_RUNNING_MESSAGE = '仍在生成，请稍后再试';
+
+/** R4 案例 → 列表/详情渲染（coverAssetId 经 R8 现取） */
+function caseRow(c) {
+  return {
+    id: String(c.caseId != null ? c.caseId : c.id),
+    title: c.title || '', styleCode: c.styleCode || '', styleLabel: c.styleLabel || '',
+    floorCount: c.floorCount, buildingArea: c.buildingArea, faceWidth: c.faceWidth, depth: c.depth,
+    coverAssetId: c.coverAssetId || null, description: c.description || ''
+  };
+}
+
+/** R19 → 预算区间单价展示（元/㎡） */
+function ruleInfoView(data) {
+  if (!data) return { available: false, lowText: '', highText: '', ruleVersionId: '' };
+  return {
+    available: true,
+    lowText: (data.lowCentsPerSqm / 100).toFixed(2),
+    highText: (data.highCentsPerSqm / 100).toFixed(2),
+    ruleVersionId: data.ruleVersionId != null ? String(data.ruleVersionId) : ''
+  };
+}
+
+/** R20 → 预算结果渲染（区间 + disclaimer） */
+function estimateView(data) {
+  return {
+    estimateId: String(data.estimateId),
+    lowText: (data.totalLowCents / 100).toFixed(2),
+    highText: (data.totalHighCents / 100).toFixed(2),
+    ruleVersionId: data.ruleVersionId != null ? String(data.ruleVersionId) : '',
+    disclaimer: data.disclaimer || ''
+  };
+}
+
+/** AI 候选 → 渲染模型（图 assetId 经 R8 现取） */
+function candidateRows(candidates) {
+  return (candidates || []).map((c, i) => ({
+    index: i,
+    candidateId: String(c.candidateId != null ? c.candidateId : (c.id != null ? c.id : i)),
+    assetId: c.assetId || null
+  }));
+}
+
+/** R17 结果版本 → 恢复渲染（按 kind 取资产字段） */
+function resultVersionRow(v) {
+  return {
+    versionId: String(v.versionId != null ? v.versionId : ''),
+    version: v.version,
+    superseded: !!v.superseded,
+    assetId: v.selectedFlatAssetId || v.selectedElevationAssetId || null,
+    createTime: v.createTime || null
+  };
+}
+
+/** 快速预算表单 → R20 body（footprint/roofArea/roof 不传；buildingArea 整数 1-10000） */
+function estimateBody(f) {
+  const area = String(f.area == null ? '' : f.area).trim();
+  if (!/^\d+$/.test(area) || Number(area) < 1 || Number(area) > 10000) {
+    return { error: '建筑面积须为 1–10000 的整数' };
+  }
+  if (!f.regionCode || !String(f.regionCode).trim()) return { error: '请填写区域代码' };
+  if (!['BRICK', 'FRAME', 'STEEL'].includes(f.structureType)) return { error: '请选择结构类型' };
+  if (!['A', 'B', 'C'].includes(f.materialGrade)) return { error: '请选择材质档位' };
+  return { body: { regionCode: String(f.regionCode).trim(), structureType: f.structureType, materialGrade: f.materialGrade, buildingArea: Number(area) } };
+}
+
+/** 表单 → R9 requirementInputs（键白名单：faceWidthM/depthM/floorCount/styleCode/note；floors≤4、note≤200） */
+function requirementInputs(f) {
+  const w = Number(f.width), d = Number(f.depth), floors = Number(f.floors);
+  if (!w || w < 3 || w > 40 || !/^\d{1,2}(\.\d)?$/.test(String(f.width || ''))) return { error: '面宽须为3–40米，最多一位小数' };
+  if (!d || d < 3 || d > 40 || !/^\d{1,2}(\.\d)?$/.test(String(f.depth || ''))) return { error: '进深须为3–40米，最多一位小数' };
+  if (!Number.isInteger(floors) || floors < 1 || floors > 4) return { error: '建筑层数须为1–4层整数' };
+  const sc = styleCode(f.style);
+  if (!sc) return { error: '请选择有效风格' };
+  const note = String(f.note || '').trim();
+  if (note.length > 200) return { error: '需求说明不超过200字' };
+  const inputs = { faceWidthM: f.width, depthM: f.depth, floorCount: floors, styleCode: sc };
+  if (note) inputs.note = note;
+  return { inputs };
+}
+
+/** 错误映射：design/1_112 原码 + 平台共享段 */
+function errorMessageDesign(err) {
+  const code = err && err.code;
+  const map = {
+    '1112000001': '方案尺寸不合法，请核对宽深层数与面积',
+    '1112000002': '客户不存在或无权访问',
+    '1112000003': '方案类型与结果不匹配',
+    '1112000004': '服务账号不可用，请联系总部'
+  };
+  if (code != null && map[String(code)]) return map[String(code)];
+  if (code != null && (code === 403)) return '没有该操作权限';
+  if (code != null && String(code).indexOf('1071000009') === 0) return STILL_RUNNING_MESSAGE;
+  if (code === -1) return '网络异常，请刷新确认';
+  return (err && err.message) || '操作失败，请重试';
+}
+
+module.exports = {
+  DESIGN_ROLES, pageMode,
+  STYLE_CODE, ROOF_CODE, MATERIAL_OPTIONS, COLOR_OPTIONS, ORIENTATION_OPTIONS, STRUCTURE_OPTIONS, GRADE_OPTIONS,
+  styleCode, roofCode,
+  POLL_INTERVAL_MS, POLL_MAX_MS, pollDecision, STILL_RUNNING_MESSAGE,
+  caseRow, ruleInfoView, estimateView, candidateRows, resultVersionRow,
+  estimateBody, requirementInputs, errorMessageDesign
+};

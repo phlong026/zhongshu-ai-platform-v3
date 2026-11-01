@@ -1,10 +1,10 @@
 // Independent design exploration; customer business records change only after explicit save.
 const B=require('../../utils/business'),X=require('../../utils/access'),Job=require('../../utils/organization'),D=require('./design-adapter'),cases=require('../../utils/design-cases');
 const clone=B.clone,uid=()=> 'explore-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
-function guard(){const a=X.context();if(!a.active||!Job.has(a.role,'sales'))throw Error('请使用已授权业务身份');return a;}
+function guard(){const a=X.context();const designUse=a.active&&(Job.has(a.role,'sales')||['hq-design-admin'].includes(a.role));if(!designUse)throw Error('请使用已授权业务身份');return a;}// design:use 三岗放行（hq-design-admin 经 roleCode 直判，853 种子）
 function key(){const a=guard();return require('../../utils/storage-keys').designExplorePrefix+a.companyId+':'+(a.personId||a.staffId);}
 const base=()=>({width:'12',depth:'15',floors:'2',count:'2',resolution:'2K',orientation:'南',style:'新中式',note:'一层老人房，客厅朝南，餐厨动线顺畅。',referenceCaseId:''});
-function initial(){return {version:1,forms:{plan:base(),facade:{...base(),palette:'米白墙面、深灰屋顶'},budget:{...base(),area:'360',footprint:'180',roofArea:'198',foundation:'独立基础',structure:'框架结构',roof:'坡屋顶',exterior:{window:true,paint:true,stone:true,light:true,waterproof:true,lightning:true,insurance:true}}},plan:null,facade:null,budget:null};}
+function initial(){return {version:1,forms:{plan:base(),facade:{...base(),palette:'米白墙面、深灰屋顶',material:'WHITE_STUCCO',color:'WARM_GREY'},budget:{...base(),area:'360',footprint:'180',roofArea:'198',foundation:'独立基础',structure:'框架结构',roof:'坡屋顶',regionCode:'Hubei-01',structureType:'FRAME',materialGrade:'B',exterior:{window:true,paint:true,stone:true,light:true,waterproof:true,lightning:true,insurance:true}}},plan:null,facade:null,budget:null};}
 function read(){const s=wx.getStorageSync(key());return clone(s?.version===1?s:initial());}
 function write(s){wx.setStorageSync(key(),clone(s));return s;}
 function form(kind,patch){if(!['plan','facade','budget'].includes(kind))throw Error('未知设计线路');const s=read(),allowed=new Set(Object.keys(initial().forms[kind]));for(const k of Object.keys(patch))if(!allowed.has(k))throw Error('未知设计参数');Object.assign(s.forms[kind],clone(patch));write(s);return s.forms[kind];}
