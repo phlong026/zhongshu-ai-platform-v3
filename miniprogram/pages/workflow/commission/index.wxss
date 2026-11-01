@@ -16,3 +16,7 @@ page{background:var(--zs-bg);color:var(--zs-ink)}.commission-page{min-height:100
 .commission-section-title{display:flex;align-items:flex-start;justify-content:space-between;gap:20rpx}.commission-section-title .commission-heading{margin-bottom:12rpx}.commission-pricing-quote .commission-amount{color:var(--zs-brand);font-size:var(--zs-font-title);font-weight:600}.commission-payment-channels{display:grid;grid-template-columns:1fr 1fr;gap:14rpx;margin-top:24rpx}.commission-payment-channels button{margin:0;min-height:84rpx;padding:16rpx;border:1rpx solid #d9c7b7;border-radius:14rpx;background:var(--zs-card);color:#68452d;font-size:var(--zs-font-body)}.commission-payment-channels button.active{border-color:var(--zs-brand);background:#fff5e9;color:var(--zs-brand);font-weight:600}.commission-payment-attempts{display:flex;gap:14rpx;margin-top:16rpx}.commission-payment-attempts button{flex:1;margin:0;min-height:72rpx;padding:12rpx;font-size:var(--zs-font-meta)}.commission-locked{color:#6f6258;background:#f4f0eb!important}
 
 @import "./journey.wxss";
+
+/* Keep native input text inside its box instead of padding the intrinsic input height. */
+.commission-field input{height:88rpx;min-height:44px;padding:0 20rpx;line-height:42rpx}
+.commission-field textarea{height:176rpx;min-height:88px;padding:18rpx 20rpx;line-height:42rpx}
