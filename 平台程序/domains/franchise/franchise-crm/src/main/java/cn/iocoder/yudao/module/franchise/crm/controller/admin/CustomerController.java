@@ -49,8 +49,9 @@ public class CustomerController {
     @Operation(summary = "客户列表：业务员看本人经办，负责人看管理团队，老板看全部")
     @PreAuthorize("@post.has('franchise:customer:query')")
     public CommonResult<PageResult<Customer>> page(@Valid PageParam page, @RequestParam(required = false) String keyword) {
-        return success(cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(
-                customerService.page(currentPost.require(), page, keyword), Customer.class));
+        // record 转换必须走显式工厂：BeanUtils(hutool) 对 record 反射拷贝产出全默认值（P1 客户接入前置补丁 S1-11d）
+        PageResult<CustomerDO> result = customerService.page(currentPost.require(), page, keyword);
+        return success(new PageResult<>(result.getList().stream().map(Customer::of).toList(), result.getTotal()));
     }
 
     @GetMapping("/{id}")
