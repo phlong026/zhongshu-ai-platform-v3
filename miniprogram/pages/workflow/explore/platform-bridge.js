@@ -158,7 +158,8 @@ module.exports = function attach(page, deps) {
       this.__platProjectId = projectId;
       const jobKey = this.platKey(kind === 'plan' ? 'flat' : 'elev');
       const jobBody = { count: Number(f.count), resolution: f.resolution };
-      if (orientation === 'LANDSCAPE' || orientation === 'PORTRAIT') jobBody.orientation = orientation;// 后端值域=画面方向；非法值不传走后端默认（平面竖图/立面横图）      if (kind === 'facade') {
+      if (orientation === 'LANDSCAPE' || orientation === 'PORTRAIT') jobBody.orientation = orientation;// 后端值域=画面方向；非法值不传走后端默认（平面竖图/立面横图）
+      if (kind === 'facade') {
         jobBody.styleCode = PF.styleCode(f.style);
         jobBody.roofType = PF.roofCode(f.roof);
         jobBody.material = f.material; jobBody.color = f.color;
