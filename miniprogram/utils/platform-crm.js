@@ -13,7 +13,7 @@ function pageMode(token, post) {
   return token && post && CRM_ROLES.includes(post.roleCode) ? 'api' : 'demo';
 }
 
-/** 能力判定（后端权限种子 V20261022.851：query×4 / capture,write=sales,lead / transfer=lead,boss,owner） */
+/** 能力判定（后端权限种子 V20261022.851：query×4 / capture,write=sales,lead / transfer=lead,boss,owner；854：saleWrite=sales,lead,boss） */
 function can(post, ability) {
   if (!post) return false;
   const role = post.roleCode;
@@ -21,6 +21,7 @@ function can(post, ability) {
   if (ability === 'query') return CRM_ROLES.includes(role);
   if (ability === 'capture' || ability === 'write') return role === 'sales' || role === 'sales-lead';
   if (ability === 'transfer') return role === 'sales-lead' || isBoss;
+  if (ability === 'saleWrite') return role === 'sales' || role === 'sales-lead' || role === 'boss';
   return false;
 }
 
@@ -157,6 +158,12 @@ function detailView(detail, ctx) {
       owner: '', revision: c.revision, api: true,
       follows
     },
+    schemesList: (detail.schemes || []).map(sc => ({
+      id: String(sc.id), kind: sc.kind || '', version: sc.version,
+      title: sc.title || '', kindText: sc.kind === 'PLAN' ? '平面方案' : sc.kind === 'FACADE' ? '立面方案' : sc.kind === 'BUDGET' ? '参考预算' : (sc.kind || ''),
+      date: toDate(sc.createTime),
+      totalText: sc.totalCents != null ? (sc.totalCents / 100).toFixed(2) : ''
+    })),
     showSizeBlock: !!size,
     canEditCustomer: canW, canFollow: canW,
     sizeScheme: size ? size.scheme : null
@@ -211,6 +218,125 @@ function transferPayload(targetUserId, form, revision) {
 function validPhone(v) { return /^1\d{10}$/.test(String(v || '')); }
 function within(v, max) { return String(v || '').length <= max; }
 
+/* ---- P2 交易流：报价编译与渲染模型（契约=docs/backend-parity/12 §四/§五） ---- */
+
+const BUDGET_UNIT = { foundation: { 独立基础: 180, 条形基础: 220, 桩基础: 320 }, structure: { 框架结构: 850, 砖混结构: 680 }, roof: { 坡屋顶: 240, 平屋顶: 180 } };
+const DECOR_UNIT = [['门窗', 'window', 120], ['墙漆', 'paint', 55], ['文化石', 'stone', 45], ['灯光', 'light', 20], ['防水', 'waterproof', 25], ['防雷', 'lightning', 10]];
+const MAX_ROW_CENTS = 1_000_000_000; // 10^9 分=行金额上限 1000 万元（SaleQuoteMath）
+
+/** 元（数字/字符串）→ 分（整数）；非法 → null（复用严格口径，逗号/两位小数以上/科学计数法拒绝） */
+function toCents(input) {
+  const str = String(input == null ? '' : input).trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(str)) return null;
+  const cents = Math.round(parseFloat(str) * 100);
+  if (!Number.isSafeInteger(cents) || cents < 0) return null;
+  return cents;
+}
+
+/**
+ * budget 表单 → R4 items（确定性编译，§四）：
+ * 行金额=demo 公式 quantity×unitPrice 乘积，quantity=1、unitPriceCents=round(行金额×100)，
+ * 行内 qtyText/unitText 展示字段（后端 items 透传，导出渲染原始工程量/单价）。
+ * 返回 {items, error}——error 非空=越界（零请求）。
+ */
+function compileQuoteItems(f) {
+  const area = Number(f.area), footprint = Number(f.footprint);
+  const roofArea = f.roofArea != null && f.roofArea !== '' ? Number(f.roofArea) : Math.round(footprint * 1.1);
+  const fUnit = BUDGET_UNIT.foundation[f.foundation], sUnit = BUDGET_UNIT.structure[f.structure], rUnit = BUDGET_UNIT.roof[f.roof];
+  if (!fUnit || !sUnit || !rUnit) return { error: '请选择已定义的基础、结构及屋顶配置' };
+  const line = (label, qty, unitPrice) => {
+    const value = Math.round(qty * unitPrice * 100) / 100; // 与 demo round 同口径
+    const unitPriceCents = Math.round(value * 100);
+    return { label, quantity: 1, unitPriceCents, qtyText: String(qty), unitText: unitPrice.toFixed(2), valueCents: unitPriceCents };
+  };
+  const main = [
+    line('基础 · ' + f.foundation, footprint, fUnit),
+    line('结构 · ' + f.structure, area, sUnit),
+    line('屋顶 · ' + f.roof, roofArea, rUnit)
+  ];
+  const exterior = (f.exterior || {});
+  const decor = DECOR_UNIT.filter(([, key]) => exterior[key]).map(([label, , unitPrice]) => line(label, area, unitPrice));
+  const insuranceLine = exterior.insurance ? line('保险', area, 25) : null;
+  const items = { main, decor, insuranceCents: insuranceLine ? insuranceLine.unitPriceCents : 0, managementCents: 0 };
+  for (const row of main.concat(decor)) {
+    if (!within(row.label, 32) || row.unitPriceCents < 0 || row.unitPriceCents > MAX_ROW_CENTS) {
+      return { error: '单项金额超过上限，请核对面积与配置' };
+    }
+  }
+  const total = main.concat(decor).reduce((n, r) => n + r.unitPriceCents, 0) + items.insuranceCents;
+  if (total <= 0 || total > 1_000_000_000_000) return { error: '单项金额超过上限，请核对面积与配置' };
+  return { items };
+}
+
+/** 需求 DO → 资料区行 */
+function requirementRow(r) {
+  return { id: String(r.id), version: r.version, style: r.style || '', sizeText: [r.width, r.depth].filter(v => v != null).join('×') + (r.floors ? ' · ' + r.floors + '层' : ''), note: r.note || r.prompt || '', date: toDate(r.createTime) };
+}
+
+/** 报价 DO → 历史行（items 为 JSON 字符串） */
+function quoteRow(q) {
+  let items = null;
+  try { items = typeof q.items === 'string' ? JSON.parse(q.items) : q.items; } catch (e) { items = null; }
+  return { id: String(q.id), priceVersion: q.priceVersion || '表单口径', totalText: q.totalCents != null ? (q.totalCents / 100).toFixed(2) : '', date: toDate(q.createTime), customerName: q.customerName || '', itemsParsed: items };
+}
+
+const SALE_STATUS_TEXT = { WAIT_SIGN: '待签订', SIGNED: '已签订', VOIDED: '已作废' };
+const STAGE_TEXT = { first: '首款', tail: '尾款' };
+const STAGE_STATUS_TEXT = { PENDING: '待回款', PAID: '已回款' };
+
+/** R8 行 {contract,stages} → 合同卡模型（stages 过滤 deleted） */
+function contractRow(row) {
+  const c = row.contract || {};
+  return {
+    id: String(c.id), status: c.status, statusText: SALE_STATUS_TEXT[c.status] || c.status || '',
+    totalText: c.totalCents != null ? (c.totalCents / 100).toFixed(2) : '',
+    firstText: c.firstCents != null ? (c.firstCents / 100).toFixed(2) : '',
+    tailCents: c.totalCents != null && c.firstCents != null ? c.totalCents - c.firstCents : null,
+    tailText: c.totalCents != null && c.firstCents != null ? ((c.totalCents - c.firstCents) / 100).toFixed(2) : '',
+    signedDate: toDate(c.signedDate), revision: c.revision,
+    stages: (row.stages || []).filter(s => !s.deleted).map(s => ({
+      id: String(s.id), stage: s.stage, stageText: STAGE_TEXT[s.stage] || s.stage,
+      amountText: s.amountCents != null ? (s.amountCents / 100).toFixed(2) : '',
+      status: s.status, statusText: STAGE_STATUS_TEXT[s.status] || s.status || '',
+      paidDate: s.paidAt ? toDate(s.paidAt) : ''
+    }))
+  };
+}
+
+const DELIVERY_NODES = [
+  ['design-delivered', '方案交付', 'designDeliveredAt'],
+  ['design-confirmed', '方案确认', 'designConfirmedAt'],
+  ['construction-delivered', '施工交付', 'constructionDeliveredAt'],
+  ['construction-accepted', '施工验收', 'constructionAcceptedAt']
+];
+
+/** R14 DO 或 R13 响应 → 四节点模型（nextIndex=首个未完成节点序） */
+function deliveryView(source) {
+  const src = source || {};
+  const nodes = DELIVERY_NODES.map(([key, label, field]) => ({
+    key, label, at: src[field] || null,
+    atText: src[field] ? new Date(src[field] + 8 * 3600e3).toISOString().slice(5, 16).replace('T', ' ') : ''
+  }));
+  let nextIndex = nodes.findIndex(n => !n.at);
+  if (nextIndex < 0) nextIndex = nodes.length;
+  return { nodes: nodes.map(n => ({ ...n, done: !!n.at })), nextIndex, allDone: nodes.every(n => !!n.at) };
+}
+
+/** 交易流错误码映射（action 仅影响语境；复用 P1 平台段） */
+function errorMessageSales(err) {
+  const code = err && err.code;
+  const map = {
+    '1113000001': '报价明细不合法，请核对金额与行数（单项不超过一千万元）',
+    '1113000002': '该期回款已办理且内容不一致，请刷新后核对',
+    '1113000003': '交付节点须按顺序登记',
+    '1113000004': '引用对象不存在或不属于本客户',
+    '1113000005': '合同尚未签订，不能办理回款',
+    '1113000006': '该客户已有一份有效主合同，作废后方可重签'
+  };
+  if (code != null && map[String(code)]) return map[String(code)];
+  return errorMessage(err);
+}
+
 /**
  * 错误码映射（§六；action 仅影响 1_110_000_008 语境）。
  * 403=业务码（CommonResult body）；code:-1=网络异常。
@@ -244,5 +370,7 @@ module.exports = {
   CRM_ROLES, pageMode, can, toDate, dateToArray, today, maskPhone, statusText,
   customerRow, sortRows, tabFilter, latestSchemeSize, detailView,
   commandKey, capturePayload, updatePayload, followPayload, transferPayload,
-  validPhone, within, errorMessage
+  validPhone, within, errorMessage,
+  // P2 交易流（契约=docs/backend-parity/12）
+  toCents, compileQuoteItems, requirementRow, quoteRow, contractRow, deliveryView, DELIVERY_NODES, errorMessageSales
 };

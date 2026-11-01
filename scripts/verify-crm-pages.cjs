@@ -234,8 +234,8 @@ ok('AC7 错误码映射与输入约束（纯函数部分）');
   assert.equal(d.showSizeBlock, false);
   assert.equal(demoOps.length, 0, '详情链零 demo 读写');
 
-  // 未接入视图深链拦截
-  await runtime.callWxMethod('navigateTo', { url: '/pages/workflow/index?view=budget&id=' + BIG });
+  // 未接入视图深链拦截（budget 已随 P2 接入——换仍未接入的 legacy 视图）
+  await runtime.callWxMethod('navigateTo', { url: '/pages/workflow/index?view=intake&id=' + BIG });
   await flush();
   d = await data();
   assert.ok(d.blocked && d.blocked.message.includes('阶段 2/3'), '深链拦截为占位卡');
