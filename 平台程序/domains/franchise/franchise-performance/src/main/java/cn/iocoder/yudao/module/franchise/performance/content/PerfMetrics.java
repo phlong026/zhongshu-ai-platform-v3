@@ -69,7 +69,7 @@ public class PerfMetrics {
 
         // ① auto:collectionsAmount（P1-6：receipt 记原始收款不减退款——退款独立负值行按发生日落月，
         // 每笔退款只扣一次，跨月退款污染历史月问题随之消除）
-        jdbc.query("SELECT r.id, r.amount_cents, r.received_date, r.source_ref, r.source_type "
+        jdbc.query("SELECT r.id, r.amount_cents, r.received_date, r.source_ref, r.source_type, r.registrar_user_id "
                         + "FROM fr_fin_receipt r WHERE r.company_id = ? AND r.status = '已登记' "
                         + "AND r.received_date >= ?::date AND r.received_date < ?::date",
                 (RowCallbackHandler) rs -> {
@@ -79,9 +79,9 @@ public class PerfMetrics {
                     String businessId = "fin-receipt:" + id;
                     rows.add(new SourceRow(businessId, "auto:collectionsAmount",
                             rs.getLong("amount_cents"), owner, rs.getDate("received_date").toLocalDate(), businessId));
+                    // R2-2：登记实绩归收款登记人（SELECT 显式带列——上轮回归点）
                     rows.add(new SourceRow("fin-reg-receipt:" + id, "auto:financeRegistrations",
-                            100L, getLong(rs, "registrar_user_id") == null ? owner
-                            : queryRegistrar(org, id), rs.getDate("received_date").toLocalDate(), businessId));
+                            100L, getLong(rs, "registrar_user_id"), rs.getDate("received_date").toLocalDate(), businessId));
                 }, org, from, to);
         jdbc.query("SELECT f.id, f.amount_cents, f.date, f.receipt_id, r.source_ref, r.registrar_user_id "
                         + "FROM fr_fin_refund f LEFT JOIN fr_fin_receipt r ON r.id = f.receipt_id "
@@ -91,12 +91,10 @@ public class PerfMetrics {
                     long receiptId = rs.getLong("receipt_id");
                     long refundId = rs.getLong("id");
                     Long owner = receiptId > 0 ? receiptOwnerCached(org, rs.getString("source_ref"), receiptId) : null;
-                    String businessId = "fin-receipt:" + receiptId;
+                    // R2-3：退款只扣回款金额，不计 financeRegistrations（任务书口径=receipt+payment 登记）
                     rows.add(new SourceRow("fin-refund:" + refundId, "auto:collectionsAmount",
-                            -rs.getLong("amount_cents"), owner, rs.getDate("date").toLocalDate(), businessId));
-                    rows.add(new SourceRow("fin-reg-refund:" + refundId, "auto:financeRegistrations",
-                            100L, getLong(rs, "registrar_user_id"), rs.getDate("date").toLocalDate(),
-                            "fin-refund:" + refundId));
+                            -rs.getLong("amount_cents"), owner, rs.getDate("date").toLocalDate(),
+                            "fin-receipt:" + receiptId));
                 }, org, from, to);
 
         // ② auto:contract 签约金额
@@ -226,14 +224,6 @@ public class PerfMetrics {
         List<Long> rows = jdbc.queryForList(
                 "SELECT manager_user_id FROM fr_eng_project WHERE company_id = ? AND id = ?",
                 Long.class, org, projectId);
-        return rows.isEmpty() ? null : rows.get(0);
-    }
-
-    /** 收款登记人（financeRegistrations 归属；P2-16 显式组织条件） */
-    private Long queryRegistrar(long org, long receiptId) {
-        List<Long> rows = jdbc.queryForList(
-                "SELECT registrar_user_id FROM fr_fin_receipt WHERE company_id = ? AND id = ?",
-                Long.class, org, receiptId);
         return rows.isEmpty() ? null : rows.get(0);
     }
 

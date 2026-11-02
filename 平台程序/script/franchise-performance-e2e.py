@@ -297,16 +297,19 @@ def main():
     init1 = act(boss, 'POST', '/franchise/performance/tasks/initialize-previous',
                 {'period': PERIOD}, idem='pe-init1-' + run)
     # suggested 幂等键=(period,user,type)：dev-setup 手机号跨轮复用 → 历史轮已建的不再重建（去重正确语义）
-    suggested_total = psql(f"SELECT count(*) FROM fr_perf_task WHERE suggested=TRUE AND period='{PERIOD}'")
+    suggested_total = psql(f"SELECT count(*) FROM fr_perf_task WHERE suggested=TRUE AND period='{PERIOD}' "
+                           f"AND company_id={env['storeOrgId']}")
     assert init1['replayed'] is False and int(suggested_total) >= 1, (init1, suggested_total)
     init2 = act(boss, 'POST', '/franchise/performance/tasks/initialize-previous',
                 {'period': PERIOD}, idem='pe-init2-' + run)
     assert init2['created'] == 0 and init2['replayed'] is False, '重复初始化幂等跳过'
     print(f"    ✅ 建议任务存量 {suggested_total} 条（本轮新建 {init1['created']}）+ 重复幂等")
 
-    # owner 目标补录（AC9 复核本人 000 需要 owner 自身有目标且可提交）——须在 AC7 归档锁前
+    # owner/engineer_a 目标补录（AC9 复核本人 000 与有实绩人复核回归均需各自有目标）——须在 AC7 归档锁前
     act(boss, 'PUT', '/franchise/performance/goals',
-        {'period': PERIOD, 'legacyStaff': {str(owner['userId']): 100000}}, idem='pe-goal-o-' + run)
+        {'period': PERIOD,
+         'legacyStaff': {str(owner['userId']): 100000, str(engineer_a['userId']): 200000}},
+        idem='pe-goal-o-' + run)
 
     step('AC7：归档链（锁定 → 补源 revise）')
     arch = act(boss, 'POST', '/franchise/performance/tasks/archive',
@@ -352,6 +355,15 @@ def main():
     # 幂等重放返回既有（同键）
     again = act(finance, 'POST', '/franchise/performance/commission/release',
                 {'projectId': pid, 'stage': 'START'}, idem='pe-rel1-' + run)
+    # R2：同键重放返回同一 payableId（幂等比较实体）
+    start_payable2 = psql(f"SELECT payable_id FROM fr_perf_commission_release "
+                          f"WHERE project_id={pid} AND stage='START'")
+    assert start_payable2 == start_payable, (start_payable, start_payable2)
+    # R2：无 release 时 policy 可升版（version+1）；release 后硬锁（004 已验）
+    pol_v2 = act(boss, 'POST', '/franchise/performance/commission/policy',
+                 {'projectId': pid, 'totalCents': 20000, 'assigneeUserId': engineer_a['userId'],
+                  'assigneeName': '张工程', 'evidenceRef': 'x2', 'note': '升版测试'},
+                 expect_code=1116000004, idem='pe-pol-v2-' + run)  # START 已 release → 硬锁
     rows = act(boss, 'GET', '/franchise/performance/commission/rows')
     row = next(r for r in rows if r.get('projectId') == str(pid))
     s_view = {s['stage']: s for s in row['stages']}
@@ -389,6 +401,14 @@ def main():
     cyc = act(engineer_b, 'POST', '/franchise/performance/cycles/submit',
               {'period': PERIOD, 'note': '本人周期提交'}, idem='pe-cy1-' + run)
     assert cyc['status'] == 'PENDING_REVIEW', cyc
+    # R2 Long 回归回归测试：有实绩人（engineer_a）复核不误退回
+    cyc_a = act(engineer_a, 'POST', '/franchise/performance/cycles/submit',
+                {'period': PERIOD, 'note': '工程经理周期提交'}, idem='pe-cy-a-' + run)
+    assert cyc_a['status'] == 'PENDING_REVIEW', cyc_a
+    cyc_a_reviewed = act(boss, 'POST', '/franchise/performance/cycles/review',
+                         {'period': PERIOD, 'userId': engineer_a['userId'], 'approve': True, 'note': '通过'},
+                         idem='pe-cy-ar-' + run)
+    assert cyc_a_reviewed['status'] == 'REVIEWED', cyc_a_reviewed
     # P1-10：复核本人 000（owner 已在 AC7 前补目标，可提交本人周期）
     act(owner, 'POST', '/franchise/performance/cycles/submit',
         {'period': PERIOD, 'note': '负责人周期提交'}, idem='pe-cy-o-' + run)
@@ -423,6 +443,10 @@ def main():
     direct_income = psql(f"SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_receipt WHERE company_id={env['storeOrgId']} "
                          f"AND status='已登记' AND received_date >= '{PERIOD}-01' AND received_date < '{date_next()}'")
     assert rec['incomeCents'] == int(direct_income), (rec, direct_income)
+    # R2：paid 与 fr_fin 直查一致（已核实付款+退款）
+    direct_paid = psql(f"SELECT (SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_payment WHERE company_id={env['storeOrgId']} AND status='已核实' AND pay_date >= '{PERIOD}-01' AND pay_date < '{date_next()}') + (SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_refund WHERE company_id={env['storeOrgId']} AND status='已核实' AND replaced_by_id IS NULL AND date >= '{PERIOD}-01' AND date < '{date_next()}')")
+    assert rec['paidCents'] == int(direct_paid), (rec['paidCents'], direct_paid)
+    assert rec['netCents'] == int(direct_income) - int(direct_paid)
     # 快照：当月拒 008；上月成功；签名未变 002；补变化 version+1
     act(boss, 'POST', '/franchise/performance/operating/snapshot',
         {'period': PERIOD}, expect_code=1116000008, idem='pe-snap0-' + run)

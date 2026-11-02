@@ -225,9 +225,11 @@ public class PerfTaskService {
                 if (userId == null) {
                     throw exception(PERF_INPUT_INVALID, "member 范围须带 userId");
                 }
-                // P1-3：普通员工仅可查本人；查他人须 manage
-                if (userId != post.userId()) {
-                    PerfSupport.requireManage(post);
+                // P1-3/R2 P2-5：普通员工仅本人；组长（sales-lead/project-manager）可查本组成员（F6 蓝本语义，
+                // 团队维度收紧随阶段 3 待决）；boss/owner 全量
+                if (userId != post.userId() && !manage
+                        && !List.of("sales-lead", "project-manager").contains(post.roleCode())) {
+                    throw exception(PERFORMANCE_FORBIDDEN);
                 }
                 targetUser = userId;
             }

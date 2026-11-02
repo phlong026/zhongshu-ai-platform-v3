@@ -77,20 +77,21 @@ public class PerfCommissionService {
             throw exception(PERF_INPUT_INVALID, "请填写提成总额、在岗归属人、凭据与说明");
         }
         FrPerfCommissionPolicyDO current = policies.selectByProject(post.orgId(), projectId);
-        if (current != null && !releases.selectByPolicy(post.orgId(), current.getId()).isEmpty()) {
-            throw exception(COMMISSION_POLICY_LOCKED); // 硬锁（蓝本 :77）
-        }
-        // P2-17：policy 行锁（修改与 release 竞争窗口互斥——防授权快照失配）
+        // R2 P2-17：policy 行锁前置（硬锁检查与 release 竞争窗口互斥——先锁再查 release）
         if (current != null) {
             jdbc.queryForMap("SELECT id FROM fr_perf_commission_policy WHERE id = ? FOR UPDATE", current.getId());
+            current = policies.selectById(current.getId()); // 锁内重读
+            if (!releases.selectByPolicy(post.orgId(), current.getId()).isEmpty()) {
+                throw exception(COMMISSION_POLICY_LOCKED); // 硬锁（蓝本 :77）
+            }
         }
         // P1-5：归属人须本组织在岗（职务真源+姓名服务端快照——客户端名不进 finance recipient）
         var member = requireActiveMember(post, assigneeUserId);
         // P1-5：项目须归属当前组织
-        Long projectOrg = jdbc.queryForObject(
+        java.util.List<Long> projectOrgs = jdbc.queryForList(
                 "SELECT company_id FROM fr_eng_project WHERE id = ?", Long.class, projectId);
-        if (projectOrg == null || projectOrg != post.orgId()) {
-            throw exception(PERF_INPUT_INVALID, "工程不存在或不属于当前组织");
+        if (projectOrgs.isEmpty() || projectOrgs.get(0) == null || projectOrgs.get(0) != post.orgId()) {
+            throw exception(PERF_INPUT_INVALID, "工程不存在或不属于当前组织"); // R2 P2-7：零行稳定返回 001
         }
         long start = totalCents / 2;
         long topping = totalCents - start;
@@ -185,14 +186,16 @@ public class PerfCommissionService {
         if (!"boss".equals(post.roleCode())) {
             throw exception(PERFORMANCE_FORBIDDEN);
         }
-        String stageKey = "TOPPING".equals(stage) ? FrPerfCommissionReleaseDO.STAGE_TOPPING
-                : FrPerfCommissionReleaseDO.STAGE_START;
+        String stageKey = requireStage(stage); // R2 P2-19：reconcile 同样严格校验
         var replayed = commands.replayed(post, idempotencyKey, Map.of("projectId", projectId, "stage", stageKey,
                 "evidenceRef", StrUtil.nullToEmpty(evidenceRef), "note", StrUtil.nullToEmpty(note)));
         if (replayed.isPresent()) {
             return row(post, projectId);
         }
         requirePolicy(post, projectId);
+        // R2 P2-17：release 行锁——并发核对在锁内重读，JSON 数组追加不丢失
+        jdbc.queryForMap("SELECT id FROM fr_perf_commission_release WHERE project_id = ? AND stage = ? "
+                + "AND company_id = ? FOR UPDATE", projectId, stageKey, post.orgId());
         FrPerfCommissionReleaseDO rel = releases.selectByProjectAndStage(post.orgId(), projectId, stageKey);
         if (rel == null) {
             throw exception(COMMISSION_RELEASE_INVALID);

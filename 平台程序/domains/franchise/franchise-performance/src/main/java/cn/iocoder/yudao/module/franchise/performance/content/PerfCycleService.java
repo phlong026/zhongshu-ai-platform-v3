@@ -133,7 +133,7 @@ public class PerfCycleService {
         }
         // P1-10 伴生修复：submit 冻结的是被考核人过滤签名——review 校验须同基准
         List<PerfMetrics.SourceRow> reviewerRows = metrics.sources(post, period, adjustmentsOf(post, period)).stream()
-                .filter(r -> r.userId() != null && r.userId() == cycle.getUserId()).toList();
+                .filter(r -> r.userId() != null && r.userId().longValue() == cycle.getUserId().longValue()).toList();
         String currentSignature = PerfMetrics.sourceSignature(reviewerRows);
         boolean changed = !currentSignature.equals(cycle.getSourceSignature());
         boolean effectiveApprove = approve && !changed; // 签名变化必须退回重提（F10）
