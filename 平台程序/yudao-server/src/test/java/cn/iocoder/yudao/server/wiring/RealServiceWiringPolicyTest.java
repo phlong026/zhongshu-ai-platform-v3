@@ -26,6 +26,7 @@ class RealServiceWiringPolicyTest {
         p.put("zhongshu.commerce.payment.provider", "stub");
         p.put("zhongshu.design.asset.storage.provider", "local");
         p.put("zhongshu.design.asset.moderation.provider", "stub");
+        p.put("zhongshu.content.provider", "fake");
         return p;
     }
 
@@ -47,6 +48,8 @@ class RealServiceWiringPolicyTest {
         p.put("zhongshu.commerce.payment.provider", "real");
         p.put("zhongshu.design.asset.storage.provider", "cos");
         p.put("zhongshu.design.asset.moderation.provider", "real");
+        // 阶段 1.5：内容创作获客——real 下五 provider 密钥独立可缺（未配置调用期报 1_114_000_006），故不要求密钥
+        p.put("zhongshu.content.provider", "real");
         // T13-02/T13-04：真实实现所需的已消费机密、appid 与 appsecret（值仅测试用虚构凭据，非真实密钥）
         p.put("zhongshu.identity.access-code-pepper", PEPPER_VALUE);
         p.put("zhongshu.identity.access-code-artifact-key", "test-artifact-key-base64-32bytes!!!!!!");

@@ -29,6 +29,7 @@
         <module>franchise-design</module>
         <module>franchise-sales</module>
         <module>franchise-asset</module>
+        <module>franchise-content</module>
     </modules>
 
 </project>

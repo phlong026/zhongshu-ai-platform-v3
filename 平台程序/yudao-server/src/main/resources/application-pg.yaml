@@ -107,6 +107,29 @@ zhongshu:
           secret-key: ${ZS_COS_SECRET_KEY:}
           path-style-access: ${ZS_COS_PATH_STYLE_ACCESS:false}
           api-call-timeout-ms: ${ZS_COS_API_CALL_TIMEOUT_MS:20000}
+  # 阶段 1.5 内容创作获客五 provider（豆一豆/DashScope/DeepSeek/HiFly/Metaso）：密钥只经环境变量注入，不写入任何文件。
+  # provider=real 默认；fake 仅开发（prod 下 RealServiceWiringPolicy 拒启）。real 下各密钥独立可缺——
+  # 部署可只开通部分能力，未配置的 provider 调用期报 1_114_000_006（中性文案）。
+  content:
+    provider: ${ZS_CONTENT_PROVIDER:real}
+    quota:
+      link_resolution: ${ZS_CONTENT_QUOTA_LINK:200}
+      copy: ${ZS_CONTENT_QUOTA_COPY:500}
+      asr: ${ZS_CONTENT_QUOTA_ASR:200}
+      digital: ${ZS_CONTENT_QUOTA_DIGITAL:3600}
+      ai_video_768p: ${ZS_CONTENT_QUOTA_VIDEO_768P:3600}
+      ai_video_2k: ${ZS_CONTENT_QUOTA_VIDEO_2K:1800}
+    diadi:
+      app-id: ${ZS_DIADI_APP_ID:}
+      app-secret: ${ZS_DIADI_APP_SECRET:}
+    dashscope:
+      api-key: ${ZS_DASHSCOPE_API_KEY:}
+    deepseek:
+      api-key: ${ZS_DEEPSEEK_API_KEY:}
+    hifly:
+      api-key: ${ZS_HIFLY_API_KEY:}
+    metaso:
+      api-key: ${ZS_METASO_API_KEY:}
 
 # 赋能平台 · 员工登录：接入员工微信登录的小程序（AI 赋能平台小程序）。secret 只经环境变量注入，不写入任何文件。
 # provider=real 直连微信（默认）；stub 为本地联调替身，prod 配置下拒绝启动。

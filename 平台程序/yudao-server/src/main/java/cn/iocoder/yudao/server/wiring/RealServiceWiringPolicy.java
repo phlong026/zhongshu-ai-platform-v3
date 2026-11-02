@@ -47,7 +47,12 @@ public final class RealServiceWiringPolicy {
             new PortProvider("zhongshu.design.asset.storage.provider",
                     List.of("local", "cos"), List.of("local"), "B2"),
             new PortProvider("zhongshu.design.asset.moderation.provider",
-                    List.of("stub", "real"), List.of("stub"), "后续审核批次"));
+                    List.of("stub", "real"), List.of("stub"), "后续审核批次"),
+            // 阶段 1.5：内容创作获客五 provider（豆一豆/DashScope/DeepSeek/HiFly/Metaso）共用通道键。
+            // fake=确定性假通道（e2e 零付费，生产硬禁）；real 下各 provider 密钥独立可缺——
+            // 刻意不在 REAL_MODE_REQUIREMENTS 登记五个密钥键：部署可只开通部分能力，未配置的调用期报 1_114_000_006。
+            new PortProvider("zhongshu.content.provider",
+                    List.of("fake", "real"), List.of("fake"), "阶段 1.5"));
 
     /** 生产禁止启用的开发便利 profile：携带公开占位密钥、种子数据与开发端点（对应 T12 B05「生产不得启用 zsdev」）。 */
     private static final List<String> PRODUCTION_FORBIDDEN_PROFILES = List.of("zsdev", "local", "dev");

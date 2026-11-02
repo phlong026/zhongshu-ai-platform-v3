@@ -102,3 +102,10 @@ zhongshu:
       # 本地存储的 local:// URL 无法被小程序 image 组件加载，开发期凭一次性票据流式输出字节；
       # 切 COS 后关闭，由 COS 签名 URL 取代
       dev-content-endpoint: ${ZS_DEV_CONTENT_ENDPOINT:true}
+  # 阶段 1.5 内容创作获客：开发/联调全走 fake 通道（零付费外呼，e2e 同款）；
+  # 真实联调时切 real 并注入 ZS_* 密钥环境变量（密钥绝不写入本文件）。
+  content:
+    provider: fake
+    fake:
+      outcome: ${ZS_CONTENT_FAKE_OUTCOME:ok}
+      result-url: ${ZS_CONTENT_FAKE_RESULT_URL:https://fixture.local/content/result.mp4}
