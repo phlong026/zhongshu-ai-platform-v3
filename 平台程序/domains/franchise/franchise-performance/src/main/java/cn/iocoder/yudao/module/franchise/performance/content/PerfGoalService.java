@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfTaskArchiveDO;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfTaskArchiveMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +31,14 @@ public class PerfGoalService {
     private final FrPerfGoalMapper goals;
     private final FrPerfTaskArchiveMapper archives;
     private final FranchiseCommands commands;
+    private final JdbcTemplate jdbcTemplate;
 
-    public PerfGoalService(FrPerfGoalMapper goals, FrPerfTaskArchiveMapper archives, FranchiseCommands commands) {
+    public PerfGoalService(FrPerfGoalMapper goals, FrPerfTaskArchiveMapper archives,
+                           FranchiseCommands commands, JdbcTemplate jdbcTemplate) {
         this.goals = goals;
         this.archives = archives;
         this.commands = commands;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public record GoalCommand(String period, Long salesCents, Long collectionsCents, Integer effectiveCount,
@@ -72,27 +76,31 @@ public class PerfGoalService {
             throw exception(GOAL_OR_SNAPSHOT_LOCKED); // 归档期拒改（锁=task_archive 存在）
         }
         FrPerfGoalDO goal = goals.selectByPeriod(post.orgId(), cmd.period());
+        int nextVersion = goal == null ? 1 : goal.getVersion() + 1;
+        // 红线：JSONB 列（department_goals/staff_department_goals/legacy_staff/history）一律 JdbcTemplate CAST
         if (goal == null) {
             goals.insert(new FrPerfGoalDO().setCompanyId(post.orgId()).setPeriod(cmd.period())
                     .setSalesCents(cmd.salesCents()).setCollectionsCents(cmd.collectionsCents())
                     .setEffectiveCount(cmd.effectiveCount()).setCustomersCount(cmd.customersCount())
                     .setNodesCount(cmd.nodesCount())
-                    .setDepartmentGoals(json(cmd.departmentGoals())).setStaffDepartmentGoals(json(cmd.staffDepartmentGoals()))
-                    .setLegacyStaff(json(cmd.legacyStaff()))
-                    .setVersion(1).setAuthorUserId(post.userId()));
+                    .setVersion(nextVersion).setAuthorUserId(post.userId()));
+            goal = goals.selectByPeriod(post.orgId(), cmd.period());
         } else {
-            String history = JsonUtil.append(goal.getHistory(), Map.of(
-                    "version", goal.getVersion(), "at", String.valueOf(java.time.OffsetDateTime.now()),
-                    "actorUserId", post.userId()));
             goals.updateById(new FrPerfGoalDO().setId(goal.getId())
                     .setSalesCents(cmd.salesCents()).setCollectionsCents(cmd.collectionsCents())
                     .setEffectiveCount(cmd.effectiveCount()).setCustomersCount(cmd.customersCount())
                     .setNodesCount(cmd.nodesCount())
-                    .setDepartmentGoals(json(cmd.departmentGoals())).setStaffDepartmentGoals(json(cmd.staffDepartmentGoals()))
-                    .setLegacyStaff(json(cmd.legacyStaff()))
-                    .setVersion(goal.getVersion() + 1).setHistory(history));
+                    .setVersion(nextVersion));
         }
-        commands.record(post, AGGREGATE, goals.selectByPeriod(post.orgId(), cmd.period()).getId(), 1,
+        jdbcTemplate.update("UPDATE fr_perf_goal SET department_goals = CAST(? AS jsonb), "
+                        + "staff_department_goals = CAST(? AS jsonb), legacy_staff = CAST(? AS jsonb), "
+                        + "history = CAST(? AS jsonb), update_time = now() WHERE id = ? AND company_id = ?",
+                json(cmd.departmentGoals()), json(cmd.staffDepartmentGoals()), json(cmd.legacyStaff()),
+                JsonUtil.append(goal.getHistory(), Map.of("version", goal.getVersion(),
+                        "at", String.valueOf(java.time.OffsetDateTime.now()), "actorUserId", post.userId())),
+                goal.getId(), post.orgId());
+        // command_event 按 (聚合, revision) 防重——revision 用目标 version（每次保存递增，阶段 2 同款教训）
+        commands.record(post, AGGREGATE, goal.getId(), nextVersion,
                 "perf-goal-save", payload(cmd), idempotencyKey);
         return get(post, cmd.period());
     }

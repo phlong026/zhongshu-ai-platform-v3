@@ -50,7 +50,7 @@ public class FranchiseE2ESetupController {
     /** 搭建结果：各角色手机号，供 stub 登录（loginCode 任意、phoneCode=手机号）换取令牌 */
     public record SetupResult(long headquartersOrgId, long storeOrgId,
                               Staff designAdmin, Staff sales, Staff boss, Staff finance, Staff engineer,
-                              Staff engineerB,
+                              Staff engineerB, Staff owner,
                               long salesTeamId, long engineeringTeamId) {
 
         public record Staff(long userId, long postId, String name, String mobile) {
@@ -82,6 +82,8 @@ public class FranchiseE2ESetupController {
                 staff(prefix + "5", "张工程", store, "project-manager", engineeringTeam),
                 // 阶段 2 工程域 e2e：同组织第二工程岗（engineer 角色，供 owner 校验 000 断言）
                 staff(prefix + "6", "李工程", store, "engineer", engineeringTeam),
+                // 阶段 3 绩效域 e2e：门店负责人 owner（提成可看不可改/管理动作对照）
+                staff(prefix + "7", "周负责人", store, "owner", null),
                 salesTeam, engineeringTeam));
     }
 

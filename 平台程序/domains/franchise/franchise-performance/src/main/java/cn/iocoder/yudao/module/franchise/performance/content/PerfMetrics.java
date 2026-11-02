@@ -68,7 +68,7 @@ public class PerfMetrics {
                         + "COALESCE((SELECT SUM(f.amount_cents) FROM fr_fin_refund f WHERE f.receipt_id = r.id "
                         + "AND f.status = '已核实' AND f.replaced_by_id IS NULL), 0) AS refunded "
                         + "FROM fr_fin_receipt r WHERE r.company_id = ? AND r.status = '已登记' "
-                        + "AND r.received_date >= ? AND r.received_date < ?",
+                        + "AND r.received_date >= ?::date AND r.received_date < ?::date",
                 (RowCallbackHandler) rs -> {
                     long id = rs.getLong("id");
                     String sourceRef = rs.getString("source_ref");
@@ -81,7 +81,7 @@ public class PerfMetrics {
         jdbc.query("SELECT f.id, f.amount_cents, f.date, f.receipt_id, r.source_ref "
                         + "FROM fr_fin_refund f LEFT JOIN fr_fin_receipt r ON r.id = f.receipt_id "
                         + "WHERE f.company_id = ? AND f.status = '已核实' AND f.replaced_by_id IS NULL "
-                        + "AND f.date >= ? AND f.date < ?",
+                        + "AND f.date >= ?::date AND f.date < ?::date",
                 (RowCallbackHandler) rs -> {
                     long receiptId = rs.getLong("receipt_id");
                     Long owner = receiptId > 0 ? receiptOwnerCached(org, rs.getString("source_ref"), receiptId) : null;
@@ -91,7 +91,7 @@ public class PerfMetrics {
 
         // ② auto:contract 签约金额
         jdbc.query("SELECT id, total_cents, signed_date, author_user_id FROM fr_sale_contract "
-                        + "WHERE company_id = ? AND status = 'SIGNED' AND signed_date >= ? AND signed_date < ?",
+                        + "WHERE company_id = ? AND status = 'SIGNED' AND signed_date >= ?::date AND signed_date < ?::date",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("sale-contract:" + rs.getLong("id"), "auto:contract",
                         rs.getLong("total_cents"), getLong(rs, "author_user_id"),
                         rs.getDate("signed_date").toLocalDate())), org, from, to);
@@ -100,7 +100,7 @@ public class PerfMetrics {
         jdbc.query("SELECT id, completed_at, end_date, responsible_user_id, "
                         + "(completed_at IS NOT NULL AND end_date IS NOT NULL AND completed_at <= end_date) AS on_time "
                         + "FROM fr_eng_plan_node WHERE company_id = ? AND status = 'DONE' "
-                        + "AND end_date >= ? AND end_date < ?",
+                        + "AND end_date >= ?::date AND end_date < ?::date",
                 (RowCallbackHandler) rs -> {
                     long id = rs.getLong("id");
                     Long owner = getLong(rs, "responsible_user_id");
@@ -113,7 +113,7 @@ public class PerfMetrics {
 
         // ⑤ auto:publications
         jdbc.query("SELECT id, published_at, author_user_id FROM fr_content_publication "
-                        + "WHERE company_id = ? AND status = 'published' AND published_at >= ? AND published_at < ?",
+                        + "WHERE company_id = ? AND status = 'published' AND published_at >= ?::timestamptz AND published_at < ?::timestamptz",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("perf-publication:" + rs.getLong("id"), "auto:publications",
                         1, getLong(rs, "author_user_id"),
                         rs.getDate("published_at").toLocalDate())), org, from, to);
@@ -129,8 +129,8 @@ public class PerfMetrics {
         // ⑦ auto:qualifiedDeliveries（§九：按合格收货行计数、归属=收货登记人）
         jdbc.query("SELECT id, occurred_at, author_user_id FROM fr_eng_supply_receipt "
                         + "WHERE company_id = ? AND kind = 'RECEIPT' AND actual_quantity IS NOT NULL "
-                        + "AND (quality = 'OK' OR quality_resolution LIKE '%\"更换后合格\"%') "
-                        + "AND occurred_at >= ? AND occurred_at < ?",
+                        + "AND (quality = 'OK' OR CAST(quality_resolution AS text) LIKE '%更换后合格%') "
+                        + "AND occurred_at >= ?::date AND occurred_at < ?::date",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("perf-material:" + rs.getLong("id"), "auto:qualifiedDeliveries",
                         1, getLong(rs, "author_user_id"), rs.getDate("occurred_at").toLocalDate())), org, from, to);
 
@@ -155,11 +155,11 @@ public class PerfMetrics {
 
         // ⑨ auto:financeRegistrations（收/付登记笔数）
         jdbc.query("SELECT id, registrar_user_id, received_date FROM fr_fin_receipt "
-                        + "WHERE company_id = ? AND received_date >= ? AND received_date < ?",
+                        + "WHERE company_id = ? AND received_date >= ?::date AND received_date < ?::date",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("fin-reg-receipt:" + rs.getLong("id"), "auto:financeRegistrations",
                         1, getLong(rs, "registrar_user_id"), rs.getDate("received_date").toLocalDate())), org, from, to);
         jdbc.query("SELECT id, operator_user_id, pay_date FROM fr_fin_payment "
-                        + "WHERE company_id = ? AND status = '已核实' AND pay_date >= ? AND pay_date < ?",
+                        + "WHERE company_id = ? AND status = '已核实' AND pay_date >= ?::date AND pay_date < ?::date",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("fin-reg-payment:" + rs.getLong("id"), "auto:financeRegistrations",
                         1, getLong(rs, "operator_user_id"), rs.getDate("pay_date").toLocalDate())), org, from, to);
 

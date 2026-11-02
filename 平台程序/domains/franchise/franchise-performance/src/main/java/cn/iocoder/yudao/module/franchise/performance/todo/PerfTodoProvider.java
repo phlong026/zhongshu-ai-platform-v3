@@ -31,19 +31,25 @@ public class PerfTodoProvider implements TodoProvider {
 
     @Override
     public List<TodoItem> list(PostSnapshot post) {
-        String period = String.format("%04d-%02d", LocalDate.now().getYear(), LocalDate.now().getMonthValue());
-        if (!archives.selectByPeriod(post.orgId(), period).isEmpty()) {
-            return List.of(); // 归档后待办消失
-        }
+        // 扫近两月未归档周期（跨月首日上月任务仍在办理期）
+        LocalDate now = LocalDate.now();
+        List<String> periods = List.of(
+                String.format("%04d-%02d", now.getYear(), now.getMonthValue()),
+                String.format("%04d-%02d", now.minusMonths(1).getYear(), now.minusMonths(1).getMonthValue()));
         List<TodoItem> todos = new ArrayList<>();
-        for (FrPerfTaskDO task : tasks.selectByPeriodAndAssignee(post.orgId(), period, post.userId())) {
-            if (!FrPerfTaskDO.TYPE_MANUAL.equals(task.getType()) || task.getManualDone() != null) {
-                continue;
+        for (String period : periods) {
+            if (!archives.selectByPeriod(post.orgId(), period).isEmpty()) {
+                continue; // 归档后待办消失（锁定语义）
             }
-            todos.add(new TodoItem(domain(), "perf-manual:" + task.getId(),
-                    "绩效任务待提交凭证 · " + task.getTitle(), "pending", null,
-                    true, null, "/pages/admin/tasks/index?view=mine&period=" + period,
-                    task.getCreateTime()));
+            for (FrPerfTaskDO task : tasks.selectByPeriodAndAssignee(post.orgId(), period, post.userId())) {
+                if (!FrPerfTaskDO.TYPE_MANUAL.equals(task.getType()) || task.getManualDone() != null) {
+                    continue;
+                }
+                todos.add(new TodoItem(domain(), "perf-manual:" + task.getId(),
+                        "绩效任务待提交凭证 · " + task.getTitle(), "pending", null,
+                        true, null, "/pages/admin/tasks/index?view=mine&period=" + period,
+                        task.getCreateTime()));
+            }
         }
         return todos;
     }

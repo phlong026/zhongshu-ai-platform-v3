@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfGoalDO;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfGoalMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,14 +34,34 @@ public class PerfCycleService {
     private final PerfMetrics metrics;
     private final PerfGoalService goalService;
     private final FranchiseCommands commands;
+    private final JdbcTemplate jdbcTemplate;
 
     public PerfCycleService(FrPerfCycleMapper cycles, FrPerfGoalMapper goals, PerfMetrics metrics,
-                            PerfGoalService goalService, FranchiseCommands commands) {
+                            PerfGoalService goalService, FranchiseCommands commands, JdbcTemplate jdbcTemplate) {
         this.cycles = cycles;
         this.goals = goals;
         this.metrics = metrics;
         this.goalService = goalService;
         this.commands = commands;
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    /** upsert 并返回行 id（jdbc 写后不走 MP 回读——同事务可见性） */
+    private long upsertCycleJsonb(PostSnapshot post, FrPerfCycleDO cycle, long userId, String period,
+                                  String status, String sourceSignature, String submissionJson) {
+        if (cycle == null) {
+            long id = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+            jdbcTemplate.update("INSERT INTO fr_perf_cycle (id, company_id, period, user_id, status, "
+                            + "source_signature, submission, revision, create_time, update_time) "
+                            + "VALUES (?,?,?,?,?,?,CAST(? AS jsonb),1,now(),now())",
+                    id, post.orgId(), period, userId, status, sourceSignature, submissionJson);
+            return id;
+        }
+        jdbcTemplate.update("UPDATE fr_perf_cycle SET status = ?, source_signature = ?, "
+                        + "submission = CAST(? AS jsonb), revision = revision + 1, update_time = now() "
+                        + "WHERE id = ? AND company_id = ?",
+                status, sourceSignature, submissionJson, cycle.getId(), post.orgId());
+        return cycle.getId();
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -81,21 +102,11 @@ public class PerfCycleService {
         submission.put("at", String.valueOf(java.time.OffsetDateTime.now()));
         submission.put("userId", target);
         String targetMissingFlag = targetMissing ? "1" : "0";
-        if (cycle == null) {
-            cycles.insert(new FrPerfCycleDO().setCompanyId(post.orgId()).setPeriod(period).setUserId(target)
-                    .setStatus(FrPerfCycleDO.STATUS_PENDING_REVIEW)
-                    .setSourceSignature((String) submission.get("sourceSignature"))
-                    .setSubmission(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(submission))
-                    .setRevision(1L));
-        } else {
-            cycles.updateById(new FrPerfCycleDO().setId(cycle.getId())
-                    .setStatus(FrPerfCycleDO.STATUS_PENDING_REVIEW)
-                    .setSourceSignature((String) submission.get("sourceSignature"))
-                    .setSubmission(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(submission))
-                    .setRevision(cycle.getRevision() + 1));
-        }
-        commands.record(post, AGGREGATE, cycles.selectByPeriodAndUser(post.orgId(), period, target).getId(),
-                1, "perf-cycle-submit", Map.of("period", period, "userId", target,
+        long cycleId = upsertCycleJsonb(post, cycle, target, period, FrPerfCycleDO.STATUS_PENDING_REVIEW,
+                (String) submission.get("sourceSignature"),
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(submission));
+        commands.record(post, AGGREGATE, cycleId,
+                rowRevision(cycleId), "perf-cycle-submit", Map.of("period", period, "userId", target,
                         "targetMissing", targetMissingFlag), idempotencyKey);
         return view(post, period, target);
     }
@@ -124,11 +135,13 @@ public class PerfCycleService {
         review.put("reason", changed ? "提交后来源签名已变化，请退回重提" : StrUtil.nullToEmpty(note));
         review.put("reviewerUserId", post.userId());
         review.put("at", String.valueOf(java.time.OffsetDateTime.now()));
-        cycles.updateById(new FrPerfCycleDO().setId(cycle.getId())
-                .setStatus(effectiveApprove ? FrPerfCycleDO.STATUS_REVIEWED : FrPerfCycleDO.STATUS_RETURNED)
-                .setReview(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(review))
-                .setRevision(cycle.getRevision() + 1));
-        commands.record(post, AGGREGATE, cycle.getId(), cycle.getRevision() + 1, "perf-cycle-review",
+        JsonUtil.updateJsonb(jdbcTemplate, "fr_perf_cycle", Map.of("review",
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(review)),
+                cycle.getId(), post.orgId());
+        jdbcTemplate.update("UPDATE fr_perf_cycle SET status = ?, revision = revision + 1 WHERE id = ? AND company_id = ?",
+                effectiveApprove ? FrPerfCycleDO.STATUS_REVIEWED : FrPerfCycleDO.STATUS_RETURNED,
+                cycle.getId(), post.orgId());
+        commands.record(post, AGGREGATE, cycle.getId(), rowRevision(cycle.getId()), "perf-cycle-review",
                 Map.of("period", period, "userId", userId, "result", review.get("result")), idempotencyKey);
         return view(post, period, userId);
     }
@@ -158,11 +171,12 @@ public class PerfCycleService {
             adjustment.put("appealNote", StrUtil.trim(note));
             adjustment.put("appealByUserId", post.userId());
             adjustment.put("at", String.valueOf(java.time.OffsetDateTime.now()));
-            String adjustments = JsonUtil.append(cycle.getAdjustments(), adjustment);
-            cycles.updateById(new FrPerfCycleDO().setId(cycle.getId())
-                    .setAdjustments(adjustments).setRevision(cycle.getRevision() + 1));
+            JsonUtil.updateJsonb(jdbcTemplate, "fr_perf_cycle", Map.of("adjustments",
+                    JsonUtil.append(cycle.getAdjustments(), adjustment)), cycle.getId(), post.orgId());
+            jdbcTemplate.update("UPDATE fr_perf_cycle SET revision = revision + 1 WHERE id = ? AND company_id = ?",
+                    cycle.getId(), post.orgId());
         }
-        commands.record(post, AGGREGATE, cycle.getId(), cycle.getRevision() + 1, "perf-cycle-appeal-resolve",
+        commands.record(post, AGGREGATE, cycle.getId(), rowRevision(cycle.getId()), "perf-cycle-appeal-resolve",
                 Map.of("period", period, "userId", userId, "adopt", adopt), idempotencyKey);
         return view(post, period, userId);
     }
@@ -200,6 +214,13 @@ public class PerfCycleService {
             }
         }
         return all;
+    }
+
+    /** 该行当前 revision（jdbc 直读——command_event 防重须与行 revision 同步递增） */
+    private long rowRevision(long cycleId) {
+        Long rev = jdbcTemplate.queryForObject(
+                "SELECT revision FROM fr_perf_cycle WHERE id = ?", Long.class, cycleId);
+        return rev == null ? 1 : rev;
     }
 
     private FrPerfCycleDO requireCycle(PostSnapshot post, String period, long userId) {

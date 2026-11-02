@@ -135,15 +135,17 @@ public class PerfOperatingService {
             throw exception(GOAL_OR_SNAPSHOT_LOCKED); // 签名未变化（002 幂等拒绝）
         }
         LocalDate asOf = LocalDate.parse(previousPeriod(period) + "-01").plusMonths(1).minusDays(1);
-        FrPerfOperatingSnapshotDO snap = new FrPerfOperatingSnapshotDO()
-                .setCompanyId(post.orgId()).setPeriod(period)
-                .setVersion(existing.isEmpty() ? 1 : existing.get(0).getVersion() + 1)
-                .setSupersedes(existing.isEmpty() ? null : existing.get(0).getId())
-                .setReport(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(report))
-                .setAsOf(asOf).setNote(StrUtil.nullToEmpty(note)).setAuthorUserId(post.userId());
-        snapshots.insert(snap);
-        commands.record(post, AGGREGATE, snap.getId(), snap.getVersion(), "perf-operating-snapshot",
-                Map.of("period", period, "version", snap.getVersion()), idempotencyKey);
+        long snapId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        int snapVersion = existing.isEmpty() ? 1 : existing.get(0).getVersion() + 1;
+        jdbc.update("INSERT INTO fr_perf_operating_snapshot (id, company_id, period, version, supersedes, "
+                        + "report, as_of, note, status, author_user_id, create_time) "
+                        + "VALUES (?,?,?,?,?,CAST(? AS jsonb),?,?,'FINAL',?,now())",
+                snapId, post.orgId(), period, snapVersion,
+                existing.isEmpty() ? null : existing.get(0).getId(),
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(report),
+                asOf, StrUtil.nullToEmpty(note), post.userId());
+        commands.record(post, AGGREGATE, snapId, snapVersion, "perf-operating-snapshot",
+                Map.of("period", period, "version", snapVersion), idempotencyKey);
         return snapshotView(post, period);
     }
 

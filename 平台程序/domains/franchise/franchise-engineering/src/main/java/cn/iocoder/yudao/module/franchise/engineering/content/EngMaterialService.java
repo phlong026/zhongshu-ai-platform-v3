@@ -387,7 +387,7 @@ public class EngMaterialService {
         BigDecimal received = EngGuard.goodQuantity(supplyReceipts.selectBySupply(post.orgId(), supply.getId()));
         BigDecimal expected = cmd.expected() != null ? cmd.expected()
                 : material.getQuantity().subtract(received).max(BigDecimal.ZERO);
-        if (received.add(actual).add(new BigDecimal("0.0001")).compareTo(material.getQuantity()) > 0) {
+        if (received.add(actual).compareTo(material.getQuantity().add(new BigDecimal("0.0001"))) > 0) {
             throw exception(MATERIAL_INVALID, "累计到货超过计划数量，请核对原记录");
         }
         requireTxnFree(post, cmd.transactionNo());

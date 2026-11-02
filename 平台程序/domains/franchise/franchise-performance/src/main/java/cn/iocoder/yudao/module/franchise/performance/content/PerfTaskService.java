@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfTaskMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,16 +44,30 @@ public class PerfTaskService {
     private final PerfGoalService goalService;
     private final PerfMetrics metrics;
     private final FranchiseCommands commands;
+    private final JdbcTemplate jdbcTemplate;
 
     public PerfTaskService(FrPerfTaskMapper tasks, FrPerfTaskArchiveMapper archives,
                            FrPerfCycleMapper cycles, PerfGoalService goalService,
-                           PerfMetrics metrics, FranchiseCommands commands) {
+                           PerfMetrics metrics, FranchiseCommands commands, JdbcTemplate jdbcTemplate) {
         this.tasks = tasks;
         this.archives = archives;
         this.cycles = cycles;
         this.goalService = goalService;
         this.metrics = metrics;
         this.commands = commands;
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    /** 任务落库（history JSONB 走 CAST——MP insert 禁写 jsonb 列） */
+    private long insertTask(PostSnapshot post, FrPerfTaskDO t, Map<String, Object> historyRow) {
+        long id = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        jdbcTemplate.update("INSERT INTO fr_perf_task (id, company_id, period, title, assignee_user_id, "
+                        + "assignee_name, assignee_dept, type, target_cents, due, history, suggested, revision, "
+                        + "create_time, update_time) VALUES (?,?,?,?,?,?,?,?,?,?,CAST(? AS jsonb),?,1,now(),now())",
+                id, post.orgId(), t.getPeriod(), t.getTitle(), t.getAssigneeUserId(), t.getAssigneeName(),
+                t.getAssigneeDept(), t.getType(), t.getTargetCents(), t.getDue(),
+                JsonUtil.append(null, historyRow), t.getSuggested() != null && t.getSuggested());
+        return id;
     }
 
     public record TaskCommand(String period, String title, long assigneeUserId, String assigneeName,
@@ -90,17 +105,16 @@ public class PerfTaskService {
         if (manual && cmd.targetCents() != 0) {
             throw exception(PERF_INPUT_INVALID, "手动任务无目标值");
         }
-        FrPerfTaskDO task = new FrPerfTaskDO().setCompanyId(post.orgId()).setPeriod(cmd.period())
+        FrPerfTaskDO task = new FrPerfTaskDO().setPeriod(cmd.period())
                 .setTitle(StrUtil.trim(cmd.title())).setAssigneeUserId(cmd.assigneeUserId())
                 .setAssigneeName(StrUtil.blankToDefault(cmd.assigneeName(), ""))
                 .setAssigneeDept(cmd.assigneeDept()).setType(cmd.type())
                 .setTargetCents(cmd.targetCents()).setDue(cmd.due())
-                .setHistory(JsonUtil.append(null, Map.of("action", "create", "actorUserId", post.userId(),
-                        "at", String.valueOf(java.time.OffsetDateTime.now()))))
-                .setSuggested(cmd.suggestion() != null).setRevision(1L);
-        tasks.insert(task);
-        commands.record(post, AGGREGATE, task.getId(), 1, "perf-task-create", payload, idempotencyKey);
-        return detail(post, String.valueOf(task.getId()), null);
+                .setSuggested(cmd.suggestion() != null);
+        long taskId = insertTask(post, task, Map.of("action", "create", "actorUserId", post.userId(),
+                "at", String.valueOf(java.time.OffsetDateTime.now())));
+        commands.record(post, AGGREGATE, taskId, 1, "perf-task-create", payload, idempotencyKey);
+        return detail(post, String.valueOf(taskId), null);
     }
 
     /** 改派（蓝本：manualDone 清空+history 留痕；归档后禁改） */
@@ -121,9 +135,10 @@ public class PerfTaskService {
                 "actorUserId", post.userId(), "at", String.valueOf(java.time.OffsetDateTime.now())));
         tasks.updateByRevision(taskId, task.getRevision(), u -> u
                 .set(FrPerfTaskDO::getAssigneeUserId, toUserId)
-                .set(FrPerfTaskDO::getAssigneeName, StrUtil.blankToDefault(toName, ""))
-                .set(FrPerfTaskDO::getManualDone, null) // 蓝本 ：269 改派清空
-                .set(FrPerfTaskDO::getHistory, history));
+                .set(FrPerfTaskDO::getAssigneeName, StrUtil.blankToDefault(toName, "")));
+        jdbcTemplate.update("UPDATE fr_perf_task SET manual_done = NULL WHERE id = ? AND company_id = ?",
+                taskId, post.orgId()); // 蓝本 ：269 改派清空
+        JsonUtil.updateJsonb(jdbcTemplate, "fr_perf_task", Map.of("history", history), taskId, post.orgId());
         commands.record(post, AGGREGATE, taskId, task.getRevision() + 1, "perf-task-reassign",
                 Map.of("taskId", taskId, "toUserId", toUserId), idempotencyKey);
         return detail(post, String.valueOf(taskId), null);
@@ -160,9 +175,11 @@ public class PerfTaskService {
         String history = JsonUtil.append(task.getHistory(), Map.of(
                 "action", "manual-complete", "previous", task.getManualDone() == null ? "" : task.getManualDone(),
                 "actorUserId", post.userId(), "at", String.valueOf(java.time.OffsetDateTime.now())));
-        tasks.updateByRevision(taskId, task.getRevision(), u -> u
-                .set(FrPerfTaskDO::getManualDone, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(manualDone))
-                .set(FrPerfTaskDO::getHistory, history));
+        tasks.updateByRevision(taskId, task.getRevision(), u -> {
+        });
+        JsonUtil.updateJsonb(jdbcTemplate, "fr_perf_task", new java.util.HashMap<>(Map.of(
+                "manual_done", cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(manualDone),
+                "history", history)), taskId, post.orgId());
         commands.record(post, AGGREGATE, taskId, task.getRevision() + 1, "perf-task-manual-complete",
                 Map.of("taskId", taskId), idempotencyKey);
         return detail(post, String.valueOf(taskId), null);
@@ -211,7 +228,7 @@ public class PerfTaskService {
         }
         List<Map<String, Object>> views = new ArrayList<>();
         for (FrPerfTaskDO task : tasks.selectByPeriod(post.orgId(), period)) {
-            if (targetUser != null && task.getAssigneeUserId() != targetUser) {
+            if (targetUser != null && !task.getAssigneeUserId().equals(targetUser)) {
                 continue;
             }
             if (targetDept != null && !targetDept.equals(task.getAssigneeDept())) {
@@ -303,17 +320,21 @@ public class PerfTaskService {
                 }
                 Map<String, Object> suggestion = Map.of("period", previous, "value", value,
                         "unit", valueUnit(type));
-                tasks.insert(new FrPerfTaskDO().setCompanyId(post.orgId()).setPeriod(period)
+                insertTask(post, new FrPerfTaskDO().setPeriod(period)
                         .setTitle(suggestTitle(type, previous)).setAssigneeUserId(userId)
                         .setAssigneeName("").setAssigneeDept(dept).setType(type)
                         .setTargetCents(target).setDue(LocalDate.parse(period + "-28"))
-                        .setHistory(JsonUtil.append(null, Map.of("action", "create",
-                                "suggestion", suggestion, "actorUserId", post.userId())))
-                        .setSuggested(true).setRevision(1L));
+                        .setSuggested(true),
+                        Map.of("action", "create", "suggestion", suggestion, "actorUserId", post.userId()));
                 created++;
             }
         }
-        commands.record(post, AGGREGATE, post.orgId(), 1, "perf-task-initialize-previous",
+        // org 级聚合无行可 CAS——revision 取该聚合事件最大值+1（防 command_event 唯一键冲突）
+        Long maxRev = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(MAX(revision),0) FROM pf_command_event WHERE aggregate_type = ? AND aggregate_id = ?",
+                Long.class, AGGREGATE, post.orgId());
+        commands.record(post, AGGREGATE, post.orgId(), (maxRev == null ? 0 : maxRev) + 1,
+                "perf-task-initialize-previous",
                 Map.of("period", period, "created", created), idempotencyKey);
         return Map.of("created", created, "replayed", false);
     }
@@ -360,10 +381,16 @@ public class PerfTaskService {
         FrPerfTaskArchiveDO archive = new FrPerfTaskArchiveDO()
                 .setCompanyId(post.orgId()).setPeriod(period).setArchiveNo(nextNo)
                 .setSupersedes(existing.isEmpty() ? null : existing.get(0).getId())
-                .setTasks(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(taskViews))
                 .setSourceSignature(signature).setNote(StrUtil.nullToEmpty(note))
                 .setAuthorUserId(post.userId());
-        archives.insert(archive);
+        long archiveId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        jdbcTemplate.update("INSERT INTO fr_perf_task_archive (id, company_id, period, archive_no, supersedes, "
+                        + "tasks, source_signature, status, note, author_user_id, create_time) "
+                        + "VALUES (?,?,?,?,?,CAST(? AS jsonb),?,?,?,?,now())",
+                archiveId, post.orgId(), period, nextNo, archive.getSupersedes(),
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(taskViews),
+                signature, "ARCHIVED", archive.getNote(), post.userId());
+        archive.setId(archiveId);
         commands.record(post, AGGREGATE, archive.getId(), nextNo,
                 revise ? "perf-task-archive-revise" : "perf-task-archive",
                 Map.of("period", period, "archiveNo", nextNo), idempotencyKey);

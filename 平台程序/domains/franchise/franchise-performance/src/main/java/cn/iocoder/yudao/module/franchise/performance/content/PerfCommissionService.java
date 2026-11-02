@@ -76,13 +76,16 @@ public class PerfCommissionService {
         }
         long start = totalCents / 2;
         long topping = totalCents - start;
+        long policyRowId;
         if (current == null) {
-            policies.insert(new FrPerfCommissionPolicyDO().setCompanyId(post.orgId())
-                    .setProjectId(projectId).setTotalCents(totalCents)
-                    .setAssigneeUserId(assigneeUserId).setAssigneeName(StrUtil.blankToDefault(assigneeName, ""))
-                    .setStartCents(start).setToppingCents(topping)
-                    .setVersion(1).setEvidenceRef(StrUtil.trim(evidenceRef)).setNote(StrUtil.trim(note))
-                    .setAuthorUserId(post.userId()));
+            policyRowId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+            jdbc.update("INSERT INTO fr_perf_commission_policy (id, company_id, project_id, total_cents, "
+                    + "assignee_user_id, assignee_name, start_cents, topping_cents, version, "
+                    + "evidence_ref, note, author_user_id, create_time, update_time) "
+                    + "VALUES (?,?,?,?,?,?,?,?,1,?,?,?,now(),now())",
+                    policyRowId, post.orgId(), projectId, totalCents, assigneeUserId,
+                    StrUtil.blankToDefault(assigneeName, ""), start, topping,
+                    StrUtil.trim(evidenceRef), StrUtil.trim(note), post.userId());
         } else {
             String history = JsonUtil.append(current.getHistory(), Map.of(
                     "version", current.getVersion(), "totalCents", current.getTotalCents(),
@@ -92,10 +95,13 @@ public class PerfCommissionService {
                     .setTotalCents(totalCents).setAssigneeUserId(assigneeUserId)
                     .setAssigneeName(StrUtil.blankToDefault(assigneeName, ""))
                     .setStartCents(start).setToppingCents(topping)
-                    .setVersion(current.getVersion() + 1).setHistory(history)
+                    .setVersion(current.getVersion() + 1)
                     .setEvidenceRef(StrUtil.trim(evidenceRef)).setNote(StrUtil.trim(note)));
+            JsonUtil.updateJsonb(jdbc, "fr_perf_commission_policy", Map.of("history", history),
+                    current.getId(), post.orgId());
+            policyRowId = current.getId();
         }
-        commands.record(post, AGGREGATE, policies.selectByProject(post.orgId(), projectId).getId(),
+        commands.record(post, AGGREGATE, policyRowId,
                 1, "perf-commission-policy", payload, idempotencyKey);
         return row(post, projectId);
     }
@@ -132,14 +138,14 @@ public class PerfCommissionService {
                 projectId, sourceRef, policy.getAssigneeName(), amountCents,
                 "perf-commission:" + policy.getId() + ":v" + policy.getVersion(),
                 ("START".equals(stageKey) ? "开工款" : "封顶款") + "足额到账后提成"));
-        FrPerfCommissionReleaseDO rel = new FrPerfCommissionReleaseDO()
-                .setCompanyId(post.orgId()).setPolicyId(policy.getId()).setProjectId(projectId)
-                .setStage(stageKey).setPayableId(payableId).setPolicyVersion(policy.getVersion())
-                .setReceiptSignature(facts.signature)
-                .setReceiptIds(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(facts.receiptIds))
-                .setReleaseUserId(post.userId()).setReleaseAt(java.time.OffsetDateTime.now());
-        releases.insert(rel);
-        commands.record(post, AGGREGATE, rel.getId(), 1, "perf-commission-release", payload, idempotencyKey);
+        long relId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        jdbc.update("INSERT INTO fr_perf_commission_release (id, company_id, policy_id, project_id, stage, "
+                        + "payable_id, policy_version, receipt_signature, receipt_ids, release_user_id, "
+                        + "release_at, create_time, update_time) VALUES (?,?,?,?,?,?,?,?,CAST(? AS jsonb),?,?,now(),now())",
+                relId, post.orgId(), policy.getId(), projectId, stageKey, payableId, policy.getVersion(),
+                facts.signature, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(facts.receiptIds),
+                post.userId(), java.time.OffsetDateTime.now());
+        commands.record(post, AGGREGATE, relId, 1, "perf-commission-release", payload, idempotencyKey);
         return row(post, projectId);
     }
 
@@ -177,11 +183,12 @@ public class PerfCommissionService {
         record.put("note", StrUtil.trim(note));
         record.put("actorUserId", post.userId());
         record.put("at", String.valueOf(java.time.OffsetDateTime.now()));
-        String reconciliations = JsonUtil.append(rel.getReconciliations(), record);
-        releases.updateById(new FrPerfCommissionReleaseDO().setId(rel.getId())
-                .setReceiptSignature(facts.signature)
-                .setReceiptIds(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(facts.receiptIds))
-                .setReconciliations(reconciliations));
+        JsonUtil.updateJsonb(jdbc, "fr_perf_commission_release", Map.of(
+                "receipt_ids", cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(facts.receiptIds),
+                "reconciliations", JsonUtil.append(rel.getReconciliations(), record)),
+                rel.getId(), post.orgId());
+        jdbc.update("UPDATE fr_perf_commission_release SET receipt_signature = ? WHERE id = ? AND company_id = ?",
+                facts.signature, rel.getId(), post.orgId());
         commands.record(post, AGGREGATE, rel.getId(), 1, "perf-commission-reconcile",
                 Map.of("projectId", projectId, "stage", stageKey), idempotencyKey);
         return row(post, projectId);
