@@ -130,17 +130,19 @@ ok('tasks 页六动作分流', ['create', 'reassign', 'manual', 'initialize', 'a
   .every(a => tasksSrc.includes("P.perform('" + a + "'")));
 ok('tasks 页 busy 门禁（六动作 this.busy）', (tasksSrc.match(/this\.busy = true/g) || []).length >= 5
   && (tasksSrc.match(/finally \{ this\.busy = false; \}/g) || []).length >= 5);
-ok('tasks 页幂等键贯穿（idem: 传参）', tasksSrc.includes('idem: form.idempotencyKey')
-  && tasksSrc.includes("'performance-task-reassign:'") && tasksSrc.includes("'performance-task-archive:'"));
+ok('tasks 页幂等键贯穿（idem: 传参+R3 上下文绑定）', tasksSrc.includes('idem: form.idempotencyKey')
+  && tasksSrc.includes("'performance-task-reassign:'") && tasksSrc.includes('this.archiveKeyCtx')
+  && tasksSrc.includes('this.reviseKeyCtx') && tasksSrc.includes('this.manualKeyCtx'));
 ok('tasks 页成员真源（loadMembers）', tasksSrc.includes('P.loadMembers()') && tasksSrc.includes('orgApi'));
 ok('tasks 页 API 态类型表切换（P.TYPES）', tasksSrc.includes('types: P.TYPES'));
 const commissionSrc = read('miniprogram/pages/admin/commission/index.js');
 ok('commission 页 API 身份（apiPost.roleCode——Codex P1-2）', commissionSrc.includes('P.apiPost()')
   && commissionSrc.includes('post.roleCode'));
 ok('commission 页 loadCommission（零规则项目在列——Codex P1-5）', commissionSrc.includes('P.loadCommission()'));
-ok('commission 页幂等键贯穿（R2 P2-5 键保存模式：失败保留/成功废弃）',
-  commissionSrc.includes('this.policyKey') && commissionSrc.includes('this.reconcileKey')
-    && commissionSrc.includes("idem: 'perf-release:") && commissionSrc.includes('this.policyKey = null'));
+ok('commission 页幂等键贯穿（R2 P2-5 键保存+R3 上下文绑定：切项目/阶段换键）',
+  commissionSrc.includes('this.policyKey') && commissionSrc.includes('this.policyKeyCtx')
+    && commissionSrc.includes('this.reconcileKeyCtx') && commissionSrc.includes("idem: 'perf-release:")
+    && commissionSrc.includes('this.policyKey = null'));
 const ownerSrc = read('miniprogram/pages/admin/owner-page.js');
 ok('owner-page platSummary 缓存绑定 period+postId（Codex P2-14）',
   ownerSrc.includes('platSummaryKey') && ownerSrc.includes('cacheKey'));

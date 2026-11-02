@@ -290,7 +290,8 @@ Page({
   beginManual(event) {
     if (!this.writable()) return;
     const task = this.data.rows.find(row => row.id === event.currentTarget.dataset.id);
-    this.manualKey = 'performance-task-manual:' + task.id + ':' + Date.now(); // R2 P2-5：本次操作键，失败保留
+    // R3：键绑定任务 id 上下文（换任务换键）
+    this.manualKey = 'performance-task-manual:' + task.id + ':' + Date.now(); // 本次操作键，失败保留
     this.setData({ evidenceTask: task, evidence: { note: (task.manualDone && task.manualDone.note) || '', photos: (task.manualDone && task.manualDone.photos) || [] } });
   },
   cancelManual() { this.setData({ evidenceTask: null, evidence: { note: '', photos: [] } }); },
@@ -322,9 +323,14 @@ Page({
     if (P.online()) {
       this.busy = true;
       try {
+        const manualCtxOk = this.manualKeyCtx === String(this.data.evidenceTask.id);
+        if (!this.manualKey || !manualCtxOk) {
+          this.manualKey = 'performance-task-manual:' + this.data.evidenceTask.id + ':' + Date.now();
+          this.manualKeyCtx = String(this.data.evidenceTask.id);
+        }
         await P.perform('manual', { id: this.data.evidenceTask.id, note: event.detail.value.note,
           photos: this.data.evidence.photos, idem: this.manualKey });
-        this.manualKey = null; // 成功废弃
+        this.manualKey = null; this.manualKeyCtx = null; // 成功废弃
         this.cancelManual();
         this.refresh();
         wx.showToast({ title: '完成凭证已保存', icon: 'success' });
@@ -347,11 +353,15 @@ Page({
     if (P.online()) {
       this.busy = true;
       try {
-        if (!this.archiveKey) this.archiveKey = 'performance-task-archive:' + this.data.period;
+        // R3：键绑定命令上下文（period 变化换键——防跨月旧键死锁）
+        if (!this.archiveKey || this.archiveKeyCtx !== this.data.period) {
+          this.archiveKey = 'performance-task-archive:' + this.data.period + ':' + Date.now();
+          this.archiveKeyCtx = this.data.period;
+        }
         await P.perform('archive', { period: this.data.period, idem: this.archiveKey });
         this.requestedView = 'archive';
         this.refresh();
-        this.archiveKey = null; // 成功废弃
+        this.archiveKey = null; this.archiveKeyCtx = null; // 成功废弃
         wx.showToast({ title: '本月任务已归档', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
       finally { this.busy = false; }
@@ -369,10 +379,13 @@ Page({
     if (P.online()) {
       this.busy = true;
       try {
-        if (!this.reviseKey) this.reviseKey = 'performance-task-archive:' + this.data.period + ':r' + Date.now();
+        if (!this.reviseKey || this.reviseKeyCtx !== this.data.period) {
+          this.reviseKey = 'performance-task-archive:' + this.data.period + ':r' + Date.now();
+          this.reviseKeyCtx = this.data.period;
+        }
         await P.perform('revise', { period: this.data.period, idem: this.reviseKey });
         this.refresh();
-        this.reviseKey = null; // 成功废弃
+        this.reviseKey = null; this.reviseKeyCtx = null; // 成功废弃
         wx.showToast({ title: '修订版已归档', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
       finally { this.busy = false; }
