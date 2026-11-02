@@ -2,6 +2,7 @@
 // 用法：node scripts/verify-design-pages.cjs
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const fs = require('node:fs');
 const root = path.join(__dirname, '..');
 const ok = name => { passed += 1; console.log('PASS ' + name); };
 let passed = 0;
@@ -27,6 +28,15 @@ assert.equal(inp.inputs.floorCount, 2);
 assert.ok(PF.requirementInputs({ width: '12.5', depth: '16', floors: 5, style: '新中式' }).error, '5 层拦截（DESIGN_FLOOR_MAX=4）');
 assert.ok(PF.requirementInputs({ width: '12.5', depth: '16', floors: 2, style: '新中式', note: 'x'.repeat(201) }).error, 'note>200 拦截');
 ok('AC2 编码映射与 requirementInputs 白名单边界');
+
+/* C2 lock：屋顶控件 label 链路（b3a2e63 立面屋顶控件回归防护） */
+const exploreJs = fs.readFileSync(path.join(root, 'miniprogram/pages/workflow/explore/index.js'), 'utf8');
+assert.ok(exploreJs.includes("roofPlatOptions:['坡屋顶','平屋顶']"), 'roofPlatOptions 应为 label 串数组');
+const exploreWxml = fs.readFileSync(path.join(root, 'miniprogram/pages/workflow/explore/index.wxml'), 'utf8');
+assert.ok(exploreWxml.includes('data-list="roofPlatOptions" bindchange="pick"'), '屋顶 picker 应走统一 pick');
+assert.ok(!exploreWxml.includes('roofLabel'), 'roofLabel 残留（form.roofLabel 无写入源）');
+assert.ok(exploreWxml.includes("{{form.roof||'请选择屋顶'}}"), '屋顶显示应直用 form.roof');
+ok('AC2b 屋顶 label 链路（roofCode(label)→code）');
 
 /* AC6 纯函数：estimateBody */
 assert.deepEqual(PF.estimateBody({ area: '400', regionCode: 'Hubei-01', structureType: 'FRAME', materialGrade: 'B' }).body, { regionCode: 'Hubei-01', structureType: 'FRAME', materialGrade: 'B', buildingArea: 400 });
@@ -211,7 +221,7 @@ ok('轮询状态机（终态集含 PARTIALLY_SUCCEEDED/90s 超时）');
   await call('input', { currentTarget: { dataset: { key: 'width' } }, detail: { value: '12.5' } });
   await call('input', { currentTarget: { dataset: { key: 'depth' } }, detail: { value: '16' } });
   await call('input', { currentTarget: { dataset: { key: 'floors' } }, detail: { value: '2' } });
-  await call('pick', { currentTarget: { dataset: { key: 'roof', list: 'roofs' } }, detail: { value: '0' } });
+  await call('pick', { currentTarget: { dataset: { key: 'roof', list: 'roofPlatOptions' } }, detail: { value: '0' } }); // C2 lock：与 wxml 绑定同构（label 串数组走统一 pick）
   await call('generate');
   await flush();
   console.error('DBG5 sentTail=', JSON.stringify(sent.slice(-5).map(o=>({u:o.url.slice(-40),m:o.method,d:JSON.stringify(o.data||{}).slice(0,80)}))));
@@ -219,6 +229,7 @@ ok('轮询状态机（终态集含 PARTIALLY_SUCCEEDED/90s 超时）');
   assert.ok(elevReq, 'R13 实发');
   assert.equal(elevReq.data.styleCode, 'NEW_CHINESE', 'styleCode 编码');
   assert.ok(elevReq.data.material && elevReq.data.color, 'material/color 编码');
+  assert.equal(elevReq.data.roofType, 'GABLE_ROOF', 'roofCode(label)→code（C2 屋顶 label 链路）');
   for (let i = 0; i < 5; i++) { global.tickPoll(); await flush(); }
   d = await data();
   assert.equal(d.view, 'facade-result', '立面候选就绪');

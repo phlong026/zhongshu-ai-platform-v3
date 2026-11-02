@@ -22,8 +22,8 @@ function can(post, ability) {
   if (ability === 'capture' || ability === 'write') return role === 'sales' || role === 'sales-lead';
   if (ability === 'transfer') return role === 'sales-lead' || isBoss;
   if (ability === 'saleWrite') return role === 'sales' || role === 'sales-lead' || role === 'boss';
-  // 854 种子：collect={sales,sales-lead,boss}（S1-14 回款办理入口；owner/finance 系无）
-  if (ability === 'collect') return role === 'sales' || role === 'sales-lead' || role === 'boss';
+  // 854 种子：collect={sales,sales-lead,boss,finance,finance-lead}（S1-14 回款办理入口；finance 系可收款）
+  if (ability === 'collect') return role === 'sales' || role === 'sales-lead' || role === 'boss' || role === 'finance' || role === 'finance-lead';
   return false;
 }
 

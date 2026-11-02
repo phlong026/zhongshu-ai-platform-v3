@@ -164,8 +164,35 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   respond({ id: 't3', status: 'SUBMISSION_UNCERTAIN' });
   assert.equal(P.taskView((await uncertainPromise).status), 'uncertain');
 
-  // 请求层错误透传 reject
-  const rejected = P.pollTask('t4', { intervalMs: 1 }).then(() => { throw Error('应 reject'); }, error => assert.equal(error.message, '网络异常，请稍后重试'));
+  // 连续网络错容忍：连续 2 次失败不终止（重试复用间隔），第 3 次失败整体 reject
+  const tolerant = P.pollTask('t6', { intervalMs: 1 }).then(task => {
+    assert.equal(task.status, 'SUCCEEDED', '连续 2 次失败后恢复仍收敛');
+  });
+  respond({ id: 't6', status: 'RUNNING' });
+  await wait(5);
+  for (let i = 0; i < 2; i++) { queue.shift().success({ statusCode: 500, data: { code: 500, msg: '网络异常，请稍后重试' } }); await wait(5); }
+  respond({ id: 't6', status: 'SUCCEEDED', result: { text: 'x' } });
+  await tolerant;
+  const exhausted = P.pollTask('t7', { intervalMs: 1 }).then(() => { throw Error('应 reject'); }, error => assert.equal(error.message, '网络异常，请稍后重试'));
+  respond({ id: 't7', status: 'RUNNING' });
+  await wait(5);
+  for (let i = 0; i < 3; i++) { queue.shift().success({ statusCode: 500, data: { code: 500, msg: '网络异常，请稍后重试' } }); await wait(5); }
+  await exhausted;
+
+  // 取消钩子：cancel() 终止轮询并以 {cancelled:true} reject（页面 onUnload 调用）
+  const cancellable = P.pollTask('t8', { intervalMs: 1 });
+  assert.equal(typeof cancellable.cancel, 'function', 'pollTask 应挂 cancel 取消钩子');
+  respond({ id: 't8', status: 'RUNNING' });
+  await wait(5);
+  const outcome = await cancellable.cancel().then(() => 'resolved', error => (error && error.cancelled) ? 'cancelled' : 'rejected');
+  assert.equal(outcome, 'cancelled', 'cancel 后 promise 以 cancelled reject');
+  const queuedAfterCancel = queue.length;
+  await wait(5);
+  assert.equal(queue.length, queuedAfterCancel, '取消后不再排队新请求');
+  queue.length = 0; // 丢弃取消时在途的桩请求，防污染后续用例（真实场景该请求响应后被 cancelled 守卫吞掉）
+
+  // 请求层错误透传 reject（超容忍上限）
+  const rejected = P.pollTask('t4', { intervalMs: 1, maxConsecutiveErrors: 0 }).then(() => { throw Error('应 reject'); }, error => assert.equal(error.message, '网络异常，请稍后重试'));
   const options = queue.shift(); assert.ok(options, 't4 请求已入队');
   options.success({ statusCode: 500, data: { code: 500, msg: '网络异常，请稍后重试' } });
   await rejected;
@@ -176,6 +203,33 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   await timedOut;
 
   delete global.wx;
+
+  // ===== B2/B1 防回归：写命令幂等键 + showLoading 缩短 + 轮询取消接线（静态扫描） =====
+  const apiSource = fs.readFileSync(path.join(root, 'miniprogram/api/franchise/content.js'), 'utf8');
+  for (const [name, action] of [['saveWork', 'save-work'], ['updateStatus', 'work-status'], ['completeChapter', 'chapter'], ['verify', 'pub-verify'], ['link', 'pub-link'], ['fail', 'pub-fail']]) {
+    assert.match(apiSource, new RegExp(name + ':\\s*\\([^)]*key\\)[\\s\\S]{0,160}?idem\\(key,\\s*\'' + action + '\''), 'content.' + name + ' 未带 Idempotency-Key');
+  }
+  const studioSrc = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
+  assert.match(studioSrc, /contentKey\(/, 'studio 页缺内容域幂等键 helper');
+  assert.match(studioSrc, /tasks\.create\([^)]*contentKey\('task'\)/, 'studio 任务创建未带幂等键');
+  assert.match(studioSrc, /saveWork\(taskId,title,this\.contentKey\('save-work:'/, 'studio 生成链 saveWork 未带幂等键');
+  assert.match(studioSrc, /saveWork\(this\.data\.taskId, '', this\.contentKey\('save-work:'/, 'studio 结果页 saveWork 未带幂等键');
+  assert.match(studioSrc, /publications\.verify\(recordId,this\.contentKey\('verify:/, 'studio verify 未带幂等键');
+  assert.match(studioSrc, /publications\.link\(recordId,url,this\.contentKey\('link:/, 'studio link 未带幂等键');
+  assert.doesNotMatch(studioSrc, /showLoading\(\{title:'生成口播中'/, 'studio showLoading 不得覆盖全程轮询');
+  assert.match(studioSrc, /showLoading\(\{title:'提交生成任务'/, 'studio showLoading 应缩短为提交阶段');
+  assert.match(studioSrc, /onUnload\(\)[\s\S]{0,200}__digitalPoll[\s\S]{0,80}\.cancel\(\)/, 'studio onUnload 未终止任务轮询');
+  assert.match(studioSrc, /patchTaskProgress/, 'studio 缺任务中心轮询进度回填');
+  const creationSrc2 = fs.readFileSync(path.join(root, 'miniprogram/pages/creation/index.js'), 'utf8');
+  assert.doesNotMatch(creationSrc2, /showLoading\(\{title:'解析链接中'/, 'creation showLoading 不得覆盖全程轮询');
+  assert.match(creationSrc2, /showLoading\(\{title:'提交解析任务'/, 'creation showLoading 应缩短为提交阶段');
+  assert.match(creationSrc2, /onUnload\(\)[\s\S]{0,120}__parsePoll[\s\S]{0,80}\.cancel\(\)/, 'creation onUnload 未终止解析轮询');
+  assert.match(creationSrc2, /extracting: true|extracting:true/, 'creation 缺轮询按钮态');
+  const growthSrc2 = fs.readFileSync(path.join(root, 'miniprogram/pages/growth/index.js'), 'utf8');
+  assert.match(growthSrc2, /__captureKey/, 'growth 客资登记缺一次性幂等键');
+  assert.match(growthSrc2, /leads\.capture\(\{name,phone,need,source\},this\.__captureKey\)/, 'growth capture 未传幂等键');
+  const creationWxml = fs.readFileSync(path.join(root, 'miniprogram/pages/creation/index.wxml'), 'utf8');
+  assert.match(creationWxml, /disabled="\{\{extracting\}\}"/, 'creation 提取按钮缺轮询禁用态');
 
   // ===== 四页接线静态扫描：require platform-content 或 content api =====
   const PAGES = ['creation', 'studio', 'ai-video', 'growth'];

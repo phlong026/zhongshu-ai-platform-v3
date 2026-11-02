@@ -5,11 +5,25 @@
  */
 const api = require('../api/franchise/engineering');
 const http = require('../api/http');
+const epochMsOf = require('./epoch-ms').epochMsOf;
+
+/**
+ * 凭据类动作集合（字节上传通道随 COS 批开放，阶段 1.5 同款遗留口径）：
+ * API 态在 perform 入口统一前置拦截，不让用户填完表单才失败。
+ * COS 批开放后：uploadVoucher 换真传实现，再从本集合摘除对应动作即恢复在线办理。
+ */
+const VOUCHER_ACTIONS = ['prepare', 'start', 'node', 'site', 'node-correct', 'site-correct', 'collect', 'arrival', 'deliver', 'material-terms'];
 
 /** LocalDate 双形状归一：'2026-11-20' | [2026,11,20] → '2026-11-20'（null 透传） */
 function dateOf(v) {
   if (Array.isArray(v) && v.length >= 3) return v[0] + '-' + String(v[1]).padStart(2, '0') + '-' + String(v[2]).padStart(2, '0');
   return v == null ? null : String(v).slice(0, 10);
+}
+
+/** createTime（毫秒时间戳主形态，TimestampLocalDateTimeSerializer）→ 'YYYY-MM-DD'（北京时间；非法回 ''） */
+function timestampDate(v) {
+  const ms = epochMsOf(v);
+  return Number.isFinite(ms) ? new Date(ms + 8 * 3600000).toISOString().slice(0, 10) : '';
 }
 
 /** 分→元展示文本（1_150_000_000 段金额一律 cents；null→'—'） */
@@ -43,17 +57,22 @@ function nodeRows(nodes) {
   }));
 }
 
-/** 两期收款汇总视图（蓝本 installments 形状：stage/name/expected/confirmed/remaining/due） */
-function stagesView(stages) {
-  return (stages || []).map(s => ({
-    stage: s.stage === 'TOPPING' ? 'topping' : 'start',
-    name: s.stage === 'TOPPING' ? '封顶款' : '开工款',
-    expected: s.expectedCents || 0, confirmed: s.confirmedCents || 0,
-    remaining: s.remainingCents || 0, due: dateOf(s.due),
-    expectedText: centsText(s.expectedCents), confirmedText: centsText(s.confirmedCents),
-    remainingText: centsText(s.remainingCents),
-    settled: (s.confirmedCents || 0) >= (s.expectedCents || 0) && (s.expectedCents || 0) > 0
-  }));
+/** 两期收款汇总视图（蓝本 installments 形状：stage/name/expected/confirmed/remaining/due/status/url）。
+ * expected/confirmed/remaining 照离线分支口径输出分→元文本（wxml 直接渲染），Text 系键同源不另造实现；
+ * url 经可选 urlOf(stage) 注入（settle 汇总复用本函数时不传）。 */
+function stagesView(stages, urlOf) {
+  return (stages || []).map(s => {
+    const expected = centsText(s.expectedCents), confirmed = centsText(s.confirmedCents), remaining = centsText(s.remainingCents);
+    return {
+      stage: s.stage === 'TOPPING' ? 'topping' : 'start',
+      name: s.stage === 'TOPPING' ? '封顶款' : '开工款',
+      expected, confirmed, remaining, due: dateOf(s.due),
+      expectedText: expected, confirmedText: confirmed, remainingText: remaining,
+      settled: (s.confirmedCents || 0) >= (s.expectedCents || 0) && (s.expectedCents || 0) > 0,
+      status: (s.expectedCents || 0) > 0 && (s.remainingCents || 0) <= 0 ? '已收齐' : '待财务登记收款',
+      url: urlOf ? urlOf(s.stage === 'TOPPING' ? 'topping' : 'start') : ''
+    };
+  });
 }
 
 /** 材料计划单汇总视图（到货/付款派生态 → 蓝本中文） */
@@ -69,7 +88,8 @@ function plansView(summary) {
     lines: (planRow.lines || []).map(l => ({
       id: String(l.materialId), name: l.name, spec: l.spec || '', unit: l.unit,
       quantity: l.quantity, received: l.received, remaining: l.remaining,
-      cancelled: !!l.cancelled, supplyId: l.supplyId ? String(l.supplyId) : '',
+      requiredDate: dateOf(l.requiredDate), cancelled: !!l.cancelled,
+      supplyId: l.supplyId ? String(l.supplyId) : '',
       supplier: l.supplier || '', paymentStatus: l.paymentStatus || ''
     }))
   }));
@@ -111,7 +131,7 @@ function errorText(err) {
     1115000010: '负责人不在岗，请重新选择'
   };
   if (map[code]) return map[code];
-  return (err && err.msg) || '操作失败，请稍后重试';
+  return (err && (err.msg || err.message)) || '操作失败，请稍后重试'; // api/http reject 形状 {code,message}（platform-crm 同款兜底）
 }
 
 /** API 态可用性：已登录平台身份（阶段 1.5 同款 http.token() 分流；无 token 走本地演示态） */
@@ -149,9 +169,9 @@ function projectView(detail) {
 }
 
 module.exports = {
-  api, online, dateOf, centsText, statusView, statusMatches, nodeRows, nodeStatusView,
+  api, online, dateOf, timestampDate, centsText, statusView, statusMatches, nodeRows, nodeStatusView,
   stagesView, plansView, settleView, errorText, projectView,
-  uploadVoucher, loadProject, pageData, perform, listCards
+  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS
 };
 
 // ===================== 在线编排（record/projects/home 页 API 态；wx 依赖仅限上传 helper） =====================
@@ -182,18 +202,21 @@ function pageData(bundle) {
   p.collections = (c.records || []).map(r => ({
     id: String(r.id), receiptStage: (r.stage || 'START').toLowerCase(),
     purpose: r.purpose || '', cents: r.amountCents || 0, date: dateOf(r.occurredAt),
-    transaction: r.transactionNo || '', registrar: ''
+    transaction: r.transactionNo || '', registrar: '',
+    amountText: centsText(r.amountCents), status: '', url: '' // wxml 行消费键（后端登记记录无中文状态流/原记录页跳转）
   }));
   return {
     p, installments,
     plans: plansView(bundle.materials),
-    settle: settleView(bundle.settle),
+    settle: settleView(bundle.settle || {}),
     dunning: (bundle.followups || []).filter(f => f.kind === 'COLLECTION').map(f => ({
-      stage: (f.stage || 'START').toLowerCase(), date: dateOf((f.createTime || '').slice(0, 10)) || '',
+      id: String(f.id == null ? '' : f.id), stage: (f.stage || 'START').toLowerCase(),
+      date: timestampDate(f.createTime), // createTime 毫秒数字主形态（数字调 slice 曾整页崩）
       promiseDate: dateOf(f.promiseDate), note: f.note || ''
     })).reverse(),
     materialFollowups: (bundle.followups || []).filter(f => f.kind === 'MATERIAL').map(f => ({
-      planId: String(f.materialPlanId || ''), date: '', promiseDate: dateOf(f.promiseDate), note: f.note || ''
+      id: String(f.id == null ? '' : f.id), planId: String(f.materialPlanId || ''), date: timestampDate(f.createTime),
+      promiseDate: dateOf(f.promiseDate), note: f.note || ''
     })).reverse()
   };
 }
@@ -208,10 +231,11 @@ function yuan(form, key, label) {
 
 /**
  * 在线动作映射（record 页 perform 的 API 态；form 沿用页面现有字段名）。
- * 返回 Promise；错误抛 {code,msg} 由页面 errorText 展示。
+ * key 为调用方一次性 Idempotency-Key（重试同一动作复用）；返回 Promise；错误抛 {code,msg} 由页面 errorText 展示。
  */
-async function perform(action, id, form, node) {
+async function perform(action, id, form, node, key) {
   const f = form || {};
+  if (VOUCHER_ACTIONS.includes(action)) throw { code: 0, msg: '在线凭据上传通道随 COS 批开放，本操作暂请在本地演示态办理' };
   const dateStr = f.date || null;
   switch (action) {
     case 'prepare':
@@ -219,99 +243,230 @@ async function perform(action, id, form, node) {
         total: yuan(f, 'total', '合同总额'), first: yuan(f, 'first', '开工款'),
         contractAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING'),
         note: f.note, workers: f.workers || ''
-      });
+      }, key);
     case 'start':
       return api.plan.start(id, { date: dateStr, note: f.note || '',
-        fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING') });
+        fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING') }, key);
     case 'node': {
       const files = f.files && f.files.length ? f.files : f.file ? [f.file] : [];
       const assetIds = [];
       for (const file of files.slice(0, 1)) assetIds.push(await uploadVoucher(file.path, 'ENG_SITE_PHOTO'));
       return api.plan.complete(id, node.id, {
         date: dateStr, note: f.note, fileAssetId: assetIds[0], noMaterials: !!f.noMaterials
-      });
+      }, key);
     }
     case 'node-reopen':
-      return api.plan.reopen(id, node.id, f.nodeReason || f.reason);
+      return api.plan.reopen(id, node.id, f.nodeReason || f.reason, key);
     case 'node-correct':
       return api.plan.correct(id, node.id, {
         completedAt: f.nodeDate || dateStr, note: f.nodeNote || f.note,
         fileAssetId: await uploadVoucher((f.nodeFile || f.file) && (f.nodeFile || f.file).path, 'ENG_SITE_PHOTO'),
         reason: f.nodeReason || f.reason
-      });
+      }, key);
     case 'site': {
       const files = f.files && f.files.length ? f.files : f.file ? [f.file] : [];
       const assetIds = [];
       for (const file of files) assetIds.push(await uploadVoucher(file.path, 'ENG_SITE_PHOTO'));
-      return api.site.create(id, node.id, f.note, assetIds, dateStr);
+      return api.site.create(id, node.id, f.note, assetIds, dateStr, key);
     }
     case 'site-correct':
       return api.site.correct(f.siteId || f.recordId, f.siteNote || f.note,
         f.siteFile ? [await uploadVoucher(f.siteFile.path, 'ENG_SITE_PHOTO')] : [],
-        f.siteReason || f.reason);
+        f.siteReason || f.reason, key);
     case 'collect':
       return api.collections.register(id, {
         stage: f.stage === 'topping' ? 'TOPPING' : 'START', amount: yuan(f, 'amount', '收款金额'),
         transactionNo: String(f.transaction || '').trim(), occurredAt: dateStr,
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING')
-      });
+      }, key);
     case 'dunning':
       return api.collections.dunning(id, f.stage === 'topping' ? 'TOPPING' : 'START',
-        f.promiseDate || null, String(f.note || '').trim());
+        f.promiseDate || null, String(f.note || '').trim(), key);
     case 'material-plan': {
       const lines = (f.lines || []).filter(l => String(l.name || '').trim());
       return api.materials.submit(id, {
         nodeId: node && node.id, due: f.due,
         lines: lines.map(l => ({ name: l.name, spec: l.spec || '', unit: l.unit, quantity: Number(l.quantity) }))
-      });
+      }, key);
     }
     case 'material-terms':
       return api.materials.terms(f.supplyId, {
         supplier: f.supplier, unitPrice: yuan(f, 'unitPrice', '单价'), freight: Number(f.freight || 0),
-        basis: JSON.stringify(f.file || { name: '采购凭据' })
-      });
+        basis: (f.file && f.file.name) || '采购凭据' // 展示文本口径：只送文件名字符串，不送 JSON 串
+      }, key);
     case 'arrival':
       return api.materials.arrival(f.supplyId, {
         actual: Number(f.actual), quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
         transactionNo: f.transaction, occurredAt: dateStr,
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_SITE_PHOTO'), note: f.note || ''
-      });
-    case 'material-adjust':
-      return api.materials.adjust(f.materialId, Number(f.adjust), f.adjustReason || f.reason);
+      }, key);
+    case 'material-adjust': {
+      // 后端为单材料维度（PUT /materials/{id}）；页面表单按计划单逐行填调整量，此处逐行提交
+      const rows = (f.lines || []).filter(l => String(l.adjust == null ? '' : l.adjust).trim() !== '');
+      if (!rows.length) throw { code: 0, msg: '请填写要调整的需用数量' };
+      for (const l of rows) await api.materials.adjust(l.id, Number(String(l.adjust).trim()), f.adjustReason || f.reason, key);
+      return { adjusted: rows.length };
+    }
     case 'arrival-correct':
-      return api.materials.arrivalCorrection(f.receiptId, Number(f.correctActual), f.correctReason);
+      return api.materials.arrivalCorrection(f.receiptId, Number(f.correctActual), f.correctReason, key);
     case 'material-followup':
-      return api.materials.followup(id, f.planId, f.promiseDate || null, String(f.note || '').trim());
+      return api.materials.followup(id, f.planId, f.promiseDate || null, String(f.note || '').trim(), key);
     case 'deliver':
       return api.closure.deliver(id, {
         date: dateStr, recipient: f.recipient,
         ownerAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING'),
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING'), note: f.note || ''
-      });
+      }, key);
     case 'settle':
-      return api.closure.settle(id, { date: dateStr, note: f.note });
+      return api.closure.settle(id, { date: dateStr, note: f.note }, key);
     case 'archive':
-      return api.closure.archive(id);
+      return api.closure.archive(id, key);
     case 'project':
-      return api.projects.changeManager(id, Number(f.engineerId), f.note || '');
+      return api.projects.changeManager(id, Number(f.engineerId), f.note || '', key);
     case 'plan': {
       const nodes = (f.nodes || []).map(n => ({
         nodeIndex: Number(n.nodeIndex || n.index || 0), name: n.name,
         startDate: dateOf(n.start), endDate: dateOf(n.end)
       }));
-      return api.plan.save(id, nodes);
+      return api.plan.save(id, nodes, key);
     }
     default:
       throw { code: 0, msg: '该操作暂未开通在线办理，请在本地演示态查看' };
   }
 }
 
-/** projects 页列表视图（卡片形状适配现有 wxml：W.card 兼容字段） */
+/** projects 页列表视图（卡片形状适配现有 wxml：W.card 兼容字段）。
+ * 列表行无节点数据：进度按状态粗粒度派生（在建/待交付未知 → null，wxml 护栏隐藏进度条），
+ * next/pace 按离线卡片（workbench.card）同分支口径降级。 */
 function listCards(rows) {
-  return (rows || []).map(r => ({
-    id: String(r.id), name: r.name, city: r.city || '', customer: r.customer || '',
-    status: statusView(r.status), stage: statusView(r.status),
-    title: statusView(r.status), engineer: '', actualStart: dateOf(r.actualStartAt),
-    contractTotal: r.contractTotalCents != null ? r.contractTotalCents / 100 : null
+  return (rows || []).map(r => {
+    const status = statusView(r.status);
+    const done = status === '已交付' || status === '已归档';
+    const started = !!r.actualStartAt;
+    return {
+      id: String(r.id), name: r.name, city: r.city || '', customer: r.customer || '',
+      status, stage: status, title: status, engineer: '', actualStart: dateOf(r.actualStartAt),
+      contractTotal: r.contractTotalCents != null ? r.contractTotalCents / 100 : null,
+      image: '/pages/build/assets/house.jpg', area: r.area == null ? '' : r.area, floors: r.floors == null ? '' : r.floors,
+      date: '', pace: '',
+      progress: done ? 100 : (status === '待开工' ? 0 : -1), // -1=列表行无节点数据不可知（wxml 护栏隐藏进度条）
+      next: !started ? '核查开工条件' : done ? '交付资料与款项收尾' : '现场检查与节点验收',
+      canFunds: false
+    };
+  });
+}
+
+/** 页面 field 构造（record 页同款形状，纯函数内联） */
+const viewField = (key, label, type) => ({ key, label, type });
+
+/**
+ * record 页全量视图构造（A1：在线数据源按离线 wxml 同构出 fields/actions/form 与各区块键）。
+ * 输入：loadProject 聚合 + 页面上下文（view/stage/planId/nodeId/现 form/是否已初始化/今天/是否可写身份）。
+ * 输出：setData 增量（纯函数不触 wx）。凭据类动作不进 fields/actions（COS 批开放前在线仅读，防填完表单才失败）；
+ * 可写身份=engineer/project-manager（856 write 口径，后端另校验负责人/指定工程师本人）。
+ */
+function recordView(bundle, ctx) {
+  const opts = ctx || {};
+  const data = pageData(bundle);
+  const d = bundle.detail;
+  const view = opts.view || 'overview';
+  const stage = opts.stage === 'topping' ? 'topping' : 'start';
+  const today = opts.today || '';
+  const base = '/pages/build/record/index?id=' + encodeURIComponent(String(d.id)) + '&view=';
+  const p = data.p;
+  const nodes = p.plan.nodes;
+  const node = (opts.nodeId && nodes.find(n => n.id === String(opts.nodeId)))
+    || nodes.find(n => n.status !== '已完成') || nodes[nodes.length - 1] || null;
+  const own = !!opts.writeRole;
+  const delivery = p.delivery, settlement = p.settlement, archived = p.archived;
+  const toppingReached = nodes.some(n => n.milestone === 'topping' && n.status === '已完成');
+  const part = data.installments.find(i => i.stage === stage);
+
+  // 计划单行补 url/due（后端汇总行无计划级 due，取首行需用日期派生）
+  const plans = data.plans.map(r => ({
+    ...r,
+    due: r.due || (r.lines && r.lines[0] && r.lines[0].requiredDate) || '',
+    url: base + 'material&planId=' + encodeURIComponent(r.id)
   }));
+  const plan = plans.find(r => r.id === opts.planId) || null;
+
+  // 表单沿用页面字段名；未初始化时给全量缺省（file 类键在线不可上传，占位 null）
+  let form = { ...(opts.form || {}) };
+  if (!opts.initialized || !form.nodes) {
+    form = {
+      ...form,
+      date: form.date || today, note: '', file: null, files: [],
+      nodeId: node && node.id, nodes: nodes.map(n => ({ ...n })),
+      lines: [{ name: '', spec: '', quantity: '', unit: '包' }], due: form.due || today,
+      stage, transaction: '', amount: '', total: '', first: '', receiver: '', recipient: '',
+      noMaterials: false, adjustReason: '', correctId: '', correctActual: '', correctReason: '',
+      siteId: '', siteNote: '', siteFile: null, siteReason: '',
+      nodeDate: (node && node.completedAt) || today, nodeNote: '', nodeFile: null, nodeReason: '',
+      promiseDate: ''
+    };
+  }
+
+  let fields = [], actions = [];
+  if (view === 'collection') {
+    if (own && part && part.status !== '已收齐' && (stage === 'start' || toppingReached)) {
+      fields = [viewField('promiseDate', '业主承诺付款日（选填）', 'date'), viewField('note', '催收情况说明（选填）', 'textarea')];
+      actions = [{ action: 'dunning', label: '登记已催收' }];
+    }
+  } else if (view === 'project') {
+    if (own && !archived) actions = [{ action: 'plan', label: '保存施工计划' }];
+  } else if (view === 'materials') {
+    if (own && !delivery && (!opts.nodeId || (node && node.status !== '已完成'))) {
+      fields = [viewField('due', '需到场日期', 'date'), viewField('note', '材料说明（选填）', 'textarea')];
+      actions = [{ action: 'material-plan', label: '提交材料计划' }];
+    }
+  } else if (view === 'material' && plan) {
+    form.planId = plan.id;
+    form.lines = plan.lines.map(l => ({ id: l.id, name: l.name, spec: l.spec || '', unit: l.unit,
+      quantity: l.quantity, received: l.received, remaining: l.remaining, cancelled: !!l.cancelled,
+      supplier: l.supplier || '', actual: '', adjust: '' }));
+    if (own && !delivery && plan.arrival !== '已验收齐全' && plan.arrival !== '已取消') {
+      fields = [viewField('promiseDate', '供应商承诺到货日（催办时选填）', 'date'), viewField('note', '本次催到货联系说明（催办必填）', 'textarea')];
+      actions = [{ action: 'material-followup', label: '登记今日已催到货' }];
+    } else fields = [];
+  } else if (view === 'settlement') {
+    if (own && delivery && !settlement) {
+      fields = [viewField('date', '结算确认日期', 'date'), viewField('note', '结算说明（收付款与成本核对情况）', 'textarea')];
+      actions = [{ action: 'settle', label: '确认项目结算' }];
+    }
+  } else if (view === 'archive') {
+    if (own && delivery && settlement && !archived) actions = [{ action: 'archive', label: '归档项目资料' }];
+  }
+
+  const current = nodes.find(n => n.status !== '已完成');
+  const links = [['项目记录与计划', 'project'], ['项目资料', 'documents'], ['材料计划', 'materials'], ['项目收付款', 'payments'],
+    ['交付与归档', delivery ? 'archive' : 'delivery'], ...(delivery ? [['项目结算', 'settlement']] : [])]
+    .map(([label, v]) => ({ label, url: base + v }));
+  const next = !delivery && current ? { title: current.name + '待记录', url: base + 'node&nodeId=' + encodeURIComponent(current.id) }
+    : delivery && !settlement ? { title: '确认项目结算', url: base + 'settlement' }
+    : settlement && !archived ? { title: '归档项目资料', url: base + 'archive' } : null;
+  return {
+    p, form, fields, actions, fileNames: {},
+    installments: data.installments, plans, settle: data.settle,
+    dunning: data.dunning, materialFollowups: data.materialFollowups, collections: p.collections,
+    docs: p.documents, events: [],
+    nodeRows: nodes.map(n => ({ ...n, pace: '', url: base + 'node&nodeId=' + encodeURIComponent(n.id) })),
+    nodePlans: [], nodeMoney: null, inspections: [], arrivals: [], siteRecords: [],
+    pending: [], waiting: [], engineers: [], engineerIndex: 0, templates: [], templateIndex: 0,
+    links, next,
+    node: node || null, plan: plan || null,
+    nodeIndex: Math.max(0, nodes.findIndex(n => n.id === (form.nodeId || (node && node.id)))),
+    nodeMaterialUrl: node ? base + 'materials&nodeId=' + encodeURIComponent(node.id) : '',
+    nodeFundingUrl: node ? base + 'funding&nodeId=' + encodeURIComponent(node.id) : '',
+    nodeRecordUrl: node ? base + 'node&nodeId=' + encodeURIComponent(node.id) : '',
+    nodeUrl: current ? base + 'node&nodeId=' + encodeURIComponent(current.id) : base + (delivery ? 'archive' : 'delivery'),
+    settlementUrl: base + 'settlement',
+    paceDone: nodes.filter(n => n.status === '已完成').length, paceTotal: nodes.length,
+    paceOverdue: nodes.filter(n => n.status !== '已完成' && n.end && today && n.end < today).length,
+    stage, stageText: p.stageText, partLabel: stage === 'start' ? '开工款' : '封顶款',
+    own, canPay: false, finance: false, // 收款登记/采购金额为凭据类动作，随 COS 批开放
+    canAdjust: own && !delivery && !!plan, canTerms: false,
+    termsLocked: !!(plan && plan.payment === '已付清'),
+    canCorrectNode: false, canReopen: false,
+    demo: false
+  };
 }

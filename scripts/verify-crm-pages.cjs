@@ -3,6 +3,7 @@
 // 用法：node scripts/verify-crm-pages.cjs
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const fs = require('node:fs');
 const root = path.join(__dirname, '..');
 
 const EDGE = '9007199254740991';      // NumberSerializer 边界（本身输出字符串）
@@ -26,6 +27,27 @@ assert.equal(PF.can({ roleCode: 'boss' }, 'capture'), false, 'boss 不可登记'
 assert.equal(PF.can({ roleCode: 'sales-lead' }, 'transfer'), true);
 assert.equal(PF.can({ roleCode: 'sales' }, 'transfer'), false, 'sales 不可转交');
 ok('AC1 五态判定与能力矩阵');
+
+/* ---------- C4 lock：collect 能力对齐 854 种子（finance 系可收款） ---------- */
+assert.equal(PF.can({ roleCode: 'sales' }, 'collect'), true);
+assert.equal(PF.can({ roleCode: 'sales-lead' }, 'collect'), true);
+assert.equal(PF.can({ roleCode: 'boss' }, 'collect'), true);
+assert.equal(PF.can({ roleCode: 'finance' }, 'collect'), true, '854 种子 finance 可收款');
+assert.equal(PF.can({ roleCode: 'finance-lead' }, 'collect'), true, '854 种子 finance-lead 可收款');
+assert.equal(PF.can({ roleCode: 'owner' }, 'collect'), false, 'owner 不在 854 collect 白名单');
+ok('AC1b collect 能力矩阵（854 种子含 finance 系）');
+
+/* ---------- C3 lock：workflow collect 覆盖层不在 preview 块内（结构扫描） ---------- */
+{
+  const wxml = fs.readFileSync(path.join(root, 'miniprogram/pages/workflow/index.wxml'), 'utf8');
+  const iCollect = wxml.indexOf("wx:if=\"{{modal==='collect'}}\"");
+  const iPreview = wxml.indexOf('wx:if="{{preview}}"');
+  assert.ok(iCollect > -1 && iPreview > -1, 'collect/preview 覆盖层标签缺失');
+  assert.ok(iCollect < iPreview, 'collect 覆盖层须独立于 preview 覆盖层（之前嵌套致表单永不渲染）');
+  assert.ok(!wxml.slice(iPreview).includes("modal==='collect'"), 'preview 覆盖层内不得残留 collect 块');
+  assert.ok(wxml.includes("wx:if=\"{{modal&&modal!=='collect'}}\""), '通用 modal 覆盖层须排除 collect（防误渲染 exterior 块）');
+  ok('AC1c workflow collect 覆盖层结构（独立于 preview）');
+}
 
 /* ---------- AC2 列表行映射 ---------- */
 const base = { phone: '13800000628', wechat: '', source: '视频号咨询', province: '湖北省', city: '武汉市', summary: '两层', status: 'REGISTERED', ownerUserId: 3, revision: 5 };

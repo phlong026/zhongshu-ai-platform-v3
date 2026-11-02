@@ -32,8 +32,8 @@ const tasks = {
   page: (status) => http.get('/franchise/content/tasks', status ? { status } : undefined),
   /** 任务详情（轮询）：{id,kind,status,provider,providerTaskId,engine,model,resultUrl,failedReason,result} */
   get: (id) => http.get('/franchise/content/tasks/' + id),
-  /** 任务→作品（一任务一件，重复返既有）→ {workId,kind,status} */
-  saveWork: (id, title) => http.post('/franchise/content/tasks/' + id + '/save-work', title ? { title } : {}),
+  /** 任务→作品（一任务一件，重复返既有）→ {workId,kind,status}；幂等键由调用方生成存 this（重试复用） */
+  saveWork: (id, title, key) => http.post('/franchise/content/tasks/' + id + '/save-work', title ? { title } : {}, idem(key, 'save-work')),
   /** 成片直链 HEAD 过期探测 → {expired,message}（expired=true 时展示失效文案） */
   resultUrlStatus: (id) => http.get('/franchise/content/tasks/' + id + '/result-url-status')
 };
@@ -41,15 +41,15 @@ const tasks = {
 const drafts = {
   /** 我的作品列表 */
   works: () => http.get('/franchise/content/drafts'),
-  /** 作品状态 draft|saved */
-  updateStatus: (workId, status) => http.put('/franchise/content/drafts/' + workId + '/status', { status }),
+  /** 作品状态 draft|saved；幂等键由调用方生成存 this（重试复用） */
+  updateStatus: (workId, status, key) => http.put('/franchise/content/drafts/' + workId + '/status', { status }, idem(key, 'work-status')),
   /** 视频草稿（一人一份；无则 {exists:false}） */
   videoDraft: () => http.get('/franchise/content/video-draft'),
   /** 保存视频草稿（upsert）{mode,description?,firstFrameAssetId?,lastFrameAssetId?,parameters?,references?} */
   saveVideoDraft: (data) => http.put('/franchise/content/video-draft', data),
-  /** 课程章节完成（幂等） */
-  completeChapter: (courseId, chapterIndex) =>
-    http.post('/franchise/content/course-progress', { courseId, chapterIndex }),
+  /** 课程章节完成（幂等）；幂等键由调用方生成存 this（重试复用） */
+  completeChapter: (courseId, chapterIndex, key) =>
+    http.post('/franchise/content/course-progress', { courseId, chapterIndex }, idem(key, 'chapter')),
   /** 课程进度列表 */
   courseProgress: (courseId) =>
     http.get('/franchise/content/course-progress', courseId ? { courseId } : undefined)
@@ -77,12 +77,12 @@ const publications = {
   create: (data, key) => http.post('/franchise/content/publications', data, idem(key, 'pub')),
   /** 发布列表（?status= publishing|published|verify|failed|scheduled） */
   page: (status) => http.get('/franchise/content/publications', status ? { status } : undefined),
-  /** 演示已发布 → 待回执核验 */
-  verify: (id) => http.post('/franchise/content/publications/' + id + '/verify'),
-  /** 回执发布链接（全局唯一，重复登记 1_114_000_003） */
-  link: (id, publishedUrl) => http.post('/franchise/content/publications/' + id + '/link', { publishedUrl }),
-  /** 标记发布失败 */
-  fail: (id, reason) => http.post('/franchise/content/publications/' + id + '/fail', reason ? { reason } : {})
+  /** 演示已发布 → 待回执核验；幂等键由调用方生成存 this（重试复用） */
+  verify: (id, key) => http.post('/franchise/content/publications/' + id + '/verify', {}, idem(key, 'pub-verify')),
+  /** 回执发布链接（全局唯一，重复登记 1_114_000_003）；幂等键由调用方生成存 this（重试复用） */
+  link: (id, publishedUrl, key) => http.post('/franchise/content/publications/' + id + '/link', { publishedUrl }, idem(key, 'pub-link')),
+  /** 标记发布失败；幂等键由调用方生成存 this（重试复用） */
+  fail: (id, reason, key) => http.post('/franchise/content/publications/' + id + '/fail', reason ? { reason } : {}, idem(key, 'pub-fail'))
 };
 
 const growth = {

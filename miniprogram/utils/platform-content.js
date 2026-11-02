@@ -107,21 +107,39 @@ function rowsOf(rows) {
   return [];
 }
 
-/** 任务轮询（页面通用）：intervalMs 间隔拉取直至终态或超时；onTick 每次回调 */
-function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick } = {}) {
-  return new Promise((resolve, reject) => {
+/** 任务轮询（页面通用）：intervalMs 间隔拉取直至终态或超时；onTick 每次回调。
+ * 连续网络错容忍 maxConsecutiveErrors 次（默认 2，第 3 次整体 reject），错误路径同样受 timeoutMs 约束；
+ * 返回 promise 挂 cancel() 取消钩子（页面 onUnload 终止轮询，防 UI 长时间占锁）——
+ * 取消以 {cancelled:true} reject，调用方 catch 按 error.cancelled 静默。既有调用（只传 taskId/选项对象）兼容。 */
+function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxConsecutiveErrors = 2 } = {}) {
+  let cancelled = false, rejectRef = null;
+  const promise = new Promise((resolve, reject) => {
+    rejectRef = reject;
     const startedAt = Date.now();
+    let consecutiveErrors = 0;
+    const stop = () => reject({ code: 0, cancelled: true, message: '轮询已取消' });
     const tick = () => {
+      if (cancelled) return stop();
       api.tasks.get(taskId).then(task => {
+        if (cancelled) return stop();
+        consecutiveErrors = 0;
         if (onTick) onTick(task);
         const view = taskView(task.status);
         if (view === 'completed' || view === 'failed' || view === 'uncertain') return resolve(task);
         if (Date.now() - startedAt >= timeoutMs) return reject(Error('任务处理时间较长，请稍后在任务中心查看'));
         setTimeout(tick, intervalMs);
-      }).catch(reject);
+      }).catch(error => {
+        if (cancelled) return stop();
+        if (Date.now() - startedAt >= timeoutMs) return reject(Error('任务处理时间较长，请稍后在任务中心查看'));
+        if (++consecutiveErrors > maxConsecutiveErrors) return reject(error);
+        setTimeout(tick, intervalMs); // 网络抖动容忍：不终止，按既有间隔重试
+      });
     };
     tick();
   });
+  // 立即落定（含在途请求场景，防止调用方 await 挂起）；重复 cancel/已落定后为 no-op
+  promise.cancel = () => { cancelled = true; rejectRef({ code: 0, cancelled: true, message: '轮询已取消' }); return promise; };
+  return promise;
 }
 
 module.exports = {

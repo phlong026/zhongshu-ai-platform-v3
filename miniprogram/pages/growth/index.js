@@ -36,7 +36,9 @@ if(!/^1\d{10}$/.test(phone))return this.fail('请填写称呼、有效手机号�
 if(!need)return this.fail('请填写称呼、有效手机号及咨询需求');
 const selected=(this.data.published||[]).find(row=>row.id===f.contentId);
 const source=selected&&selected.publicationId?'内容发布:'+selected.publicationId:(String(f.source||'').trim()||'直接来访');
-crm.leads.capture({name,phone,need,source}).then(res=>{
+if(!this.__captureKey)this.__captureKey='crm-capture-'+Date.now()+'-'+Math.floor(Math.random()*1e8); // 幂等键失败保留重试复用
+crm.leads.capture({name,phone,need,source},this.__captureKey).then(res=>{
+this.__captureKey='';
 const result=res&&res.result;
 wx.showToast({title:result==='LINKED'?'已关联原客户，来源已保留':result==='LINK_REQUIRED'?'已登记，待负责人关联原客户':'客资已登记',icon:'none'});
 this.setData({view:'home',form:{source:'直接来访'}});

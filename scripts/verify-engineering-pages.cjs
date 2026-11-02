@@ -89,5 +89,82 @@ ok('凭据上传通道随 COS 批降级（1.5 同款遗留口径）', pf.include
 ok('Long 字符串不透明（不参与算术）', pf.includes("String(r.id)"));
 ok('perform 动作映射覆盖核心链', ['prepare','start','node','collect','material-plan','material-terms','arrival','deliver','settle','archive','dunning','node-reopen','node-correct','site','plan'].every(a => pf.includes("case '" + a + "'")));
 
+console.log('[5] 行为级防回归（13 轮评审 A/C 项锁定）');
+ok('stagesView 文本化（元转换非裸 cents）+ status/url', (() => {
+  const v = P.stagesView([{ stage: 'START', expectedCents: 40000000, confirmedCents: 1000000, remainingCents: 39000000 }], s => 'u-' + s);
+  return v[0].expected === '¥ 400,000' && v[0].confirmed === '¥ 10,000' && v[0].remaining === '¥ 390,000'
+    && v[0].status === '待财务登记收款' && v[0].url === 'u-start';
+})());
+ok('stagesView 收齐态', P.stagesView([{ stage: 'TOPPING', expectedCents: 1, confirmedCents: 1, remainingCents: 0 }])[0].status === '已收齐');
+ok('createTime 归一函数存在且毫秒数字输入不抛错', (() => {
+  if (typeof P.timestampDate !== 'function') return false;
+  const ms = Date.parse('2026-11-03T10:00:00+08:00');
+  return P.timestampDate(ms) === '2026-11-03' && P.timestampDate(String(ms)) === '2026-11-03'
+    && P.timestampDate('2026-11-03T02:00:00Z') === '2026-11-03' && P.timestampDate(null) === '' && P.timestampDate('乱串') === '';
+})());
+ok('pageData 数字 createTime 直通（催收日期不再调 slice 崩页）', (() => {
+  const out = P.pageData({ detail: { id: 1, name: 'x', status: 'IN_PROGRESS', nodes: [] }, followups: [{ id: 7, kind: 'COLLECTION', stage: 'START', createTime: Date.parse('2026-11-03T10:00:00+08:00'), note: 'n' }] });
+  return out.dunning[0].date === '2026-11-03' && out.dunning[0].id === '7';
+})());
+ok('recordView 两态同构（fields/actions/form/各区块键全量输出）', (() => {
+  const bundle = { detail: { id: 5, name: 'x', status: 'IN_PROGRESS', nodes: [{ id: 9, nodeIndex: 1, name: 'n1', status: 'PENDING' }], documents: [] },
+    collections: { stages: [{ stage: 'START', expectedCents: 100, confirmedCents: 0, remainingCents: 100 }], records: [] },
+    materials: { plans: [{ materialPlanId: 3, arrival: '部分到货', totalCents: 100, paidCents: 0, remainingCents: 100,
+      lines: [{ materialId: 8, name: '钢筋', quantity: 10, received: 4, remaining: 6, unit: '吨', requiredDate: '2026-11-05' }] }] },
+    settle: {}, followups: [] };
+  const rv = P.recordView(bundle, { view: 'overview', stage: 'start', planId: '', nodeId: '', form: {}, initialized: false, today: '2026-11-03', writeRole: true });
+  const keys = ['p','form','fields','actions','installments','plans','settle','dunning','materialFollowups','collections','docs','events','nodeRows','nodePlans','nodeMoney','inspections','arrivals','siteRecords','pending','waiting','engineers','templates','links','next','node','plan','nodeIndex','nodeMaterialUrl','nodeFundingUrl','nodeRecordUrl','nodeUrl','settlementUrl','paceDone','paceTotal','paceOverdue','stage','stageText','partLabel','own','canPay','finance','canAdjust','canTerms','termsLocked','canCorrectNode','canReopen','demo','fileNames'];
+  if (!keys.every(k => k in rv)) return false;
+  const rm = P.recordView(bundle, { ...{ view: 'material', planId: '3', writeRole: true }, stage: 'start', nodeId: '', form: {}, initialized: false, today: '2026-11-03' });
+  return rm.plan && rm.plan.url === '/pages/build/record/index?id=5&view=material&planId=3' && rm.plan.due === '2026-11-05'
+    && rm.actions[0].action === 'material-followup' && rm.canAdjust === true;
+})());
+ok('recordView 只读身份不出动作（finance 线查看不误显可写表单）', (() => {
+  const bundle = { detail: { id: 5, name: 'x', status: 'IN_PROGRESS', nodes: [] }, collections: { stages: [{ stage: 'START', expectedCents: 100, confirmedCents: 0, remainingCents: 100 }], records: [] }, materials: { plans: [] }, settle: {}, followups: [] };
+  const rv = P.recordView(bundle, { view: 'collection', stage: 'start', writeRole: false });
+  return rv.own === false && rv.actions.length === 0 && rv.fields.length === 0;
+})());
+ok('凭据类动作 perform 前置拦截（不让用户填完表单才失败）', (() => {
+  const gated = ['prepare','start','node','site','node-correct','site-correct','collect','arrival','deliver','material-terms'];
+  if (!Array.isArray(P.VOUCHER_ACTIONS) || gated.some(a => !P.VOUCHER_ACTIONS.includes(a))) return false;
+  return P.perform('collect', '5', { stage: 'start', amount: '1', transaction: 'x', file: null }, null, 'k')
+    .then(() => false, e => String(e.msg).includes('COS'));
+})());
+ok('material-terms basis 只送文件名字符串（不再 JSON.stringify）', (() => {
+  const terms = pf.slice(pf.indexOf("case 'material-terms'"));
+  return /basis: \(f\.file && f\.file\.name\) \|\| '采购凭据'/.test(terms) && !terms.includes('JSON.stringify(f.file');
+})());
+ok('listCards 含 progress/next/pace（wxml 消费键补齐）', (() => {
+  const cards = P.listCards([{ id: 1, name: 'a', status: 'PENDING_START' }, { id: 2, name: 'b', status: 'IN_PROGRESS', actualStartAt: '2026-10-01' }, { id: 3, name: 'c', status: 'DELIVERED', actualStartAt: '2026-10-01' }]);
+  return cards.every(c => 'progress' in c && 'next' in c && 'pace' in c && 'image' in c)
+    && cards[0].progress === 0 && cards[0].next === '核查开工条件'
+    && cards[1].progress === -1 && cards[1].next === '现场检查与节点验收'
+    && cards[2].progress === 100 && cards[2].next === '交付资料与款项收尾';
+})());
+ok('errorText 兼容 {code,message}（api/http reject 形状）', P.errorText({ code: -1, message: '网络异常，请稍后重试' }) === '网络异常，请稍后重试');
+ok('performOnline busy 防重（双击不再双笔）', (() => {
+  const m = record.match(/async performOnline\(action,f,node\)\{[\s\S]{0,120}if\(this\.data\.busy\)return/);
+  return !!m && /finally\{this\.setData\(\{busy:false\}\);?\}/.test(record);
+})());
+ok('performOnline 一次性幂等键（__idemKeys 成功释放/失败复用）', record.includes('__idemKeys') && record.includes('delete this.__idemKeys[action]') && record.includes('this.__idemKeys[action]'));
+ok('refreshOnline 设 canCreate（projects，856 write+isBoss 口径）', (() => {
+  const m = projects.match(/async refreshOnline\(\)\{[\s\S]*?canCreate:[\s\S]*?Access\.isBoss\(a\)[\s\S]*?Job\.has\(a\.role,'engineer'\)[\s\S]*?Job\.has\(a\.role,'project-manager'\)/);
+  return !!m;
+})());
+ok('projects refreshOnline 失败回退离线（__platDown+refresh+toast）', projects.includes('this.__platDown=true') && /refreshOnline\(\)\{[\s\S]*?this\.refresh\(\)/.test(projects));
+ok('record refreshOnline 失败回退离线（__platDown+refresh+toast）', record.includes('this.__platDown=true') && /refreshOnline\(reset\)\{[\s\S]*?this\.refresh\(reset\)/.test(record));
+ok('API 态隐藏「待验收」筛选（API 恒空）', projects.includes("concat(P.online()&&!this.__platDown?[]:['待验收'])"));
+ok('openCreate 父项目选项走在线数据（__platRows）', projects.includes('P.listCards(this.__platRows)'));
+ok('record wxml 模板/导入按钮 API 态隐藏（本地演示态功能）', read('miniprogram/pages/build/record/index.wxml').includes("view==='prepare'&&own&&!platEng"));
+ok('projects wxml 进度护栏（progress<0 不渲染百分比）', read('miniprogram/pages/build/projects/index.wxml').includes("item.progress>=0"));
+ok('lock：engineering-records settle 待办不挂已归档', (() => {
+  const rec = read('miniprogram/utils/engineering-records.js');
+  return rec.includes("else if(!p.settlement&&!p.archived)add('settle'");
+})());
+ok('lock：operations plan-submit 角色=engineer/project-manager（856 种子）', (() => {
+  const ops = read('miniprogram/utils/operations.js');
+  return ops.includes("action==='plan-submit'){assert(X.isBoss(a)||O.has(a.role,'engineer')||O.has(a.role,'project-manager')");
+})());
+
 console.log('\n结果：' + pass + ' 通过，' + fail + ' 失败');
 process.exit(fail ? 1 : 0);

@@ -59,7 +59,7 @@ if(!this.data.detail&&http.token()){this.receiptApi=true;this.loadApiReceipt(thi
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
 onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
 onHide() { this.persistEditor(); },
-onUnload() { this.persistEditor(); },
+onUnload() { this.persistEditor(); if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); }, // 终止任务轮询（防 UI 长时间占锁）
 persistEditor() {
 if(!studio.allowed()||this.actorScope!==studio.scope())return;
 if(this.data.view==='receipt'&&!this.data.receiptSaved&&this.data.detail){const state=studio.read();state.publicationLinkDrafts=state.publicationLinkDrafts||{};state.publicationLinkDrafts[this.data.recordId]=this.data.publishedUrlInput;studio.write(state);}
@@ -135,6 +135,19 @@ configuration: {}, image: studio.imageFor({ kind }), kindLabel: studio.kindLabel
 go(view, query) {
 const options = { url: '/pages/studio/index?view=' + view + (query || '') };
 require('../../utils/page-navigation').open(options.url);
+},
+/** 内容域写命令一次性幂等键（重试同一动作复用，成功后释放；工程域 idem() 先例） */
+contentKey(action) {
+if (!this.__contentKeys) this.__contentKeys = {};
+if (!this.__contentKeys[action]) this.__contentKeys[action] = 'content-' + action + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e8);
+return this.__contentKeys[action];
+},
+contentDropKey(action) { if (this.__contentKeys) delete this.__contentKeys[action]; },
+/** 任务中心列表行轮询进度回填（onTick；行不在当前列表或已离开任务中心时忽略） */
+patchTaskProgress(taskId, status) {
+if (this.data.view !== 'tasks') return;
+const index = (this.data.tasks || []).findIndex(t => t.id === taskId);
+if (index >= 0) this.setData({ ['tasks[' + index + '].progress']: P.progressOf(status), ['tasks[' + index + '].status']: P.taskView(status) });
 },
 switchRewrite(e) { this.setData({ rewriteMode: Number(e.currentTarget.dataset.index) }); },
 changeIp(e) { this.setData({ ipIndex: Number(e.detail.value) }); },
@@ -274,28 +287,41 @@ wx.showModal({ title: '创建口播预览', content: '数字人生成服务暂�
 if (confirm) { const task = studio.createDemoTask('digital', '', { actor: this.data.actor, voice: this.data.voice }); this.go('tasks', '&task=' + task.id); }
 } });
 },
-/** 在线数字人口播：tasks.create(digital) → pollTask → SUCCEEDED 后 saveWork（一任务一件幂等） */
+/** 在线数字人口播：tasks.create(digital) → 任务中心态展示轮询进度 → SUCCEEDED 后 saveWork（一任务一件幂等）。
+ * showLoading 只覆盖提交阶段；轮询进度经任务中心列表回填展示，onUnload 终止。 */
 generateDigitalOnline() {
+if(this.__generating)return; // 提交防重（loading 只护提交阶段）
 const text=this.data.script.trim();
 const title=String(this.data.title||'').trim()||text.split('\n')[0].slice(0,28);
 const state=studio.read();state.script=text;state.title=title;studio.write(state); // 本地留痕（script/title 非守卫键）
-wx.showLoading({title:'生成口播中',mask:true});
-contentApi.tasks.create({kind:'digital',voice:this.data.voice,text,avatar:this.data.actor,title}).then(res=>{
+this.__generating=true;
+wx.showLoading({title:'提交生成任务',mask:true});
+contentApi.tasks.create({kind:'digital',voice:this.data.voice,text,avatar:this.data.actor,title},this.contentKey('task')).then(res=>{
+wx.hideLoading();
 const taskId=res&&res.taskId?String(res.taskId):'';
 if(!taskId)throw Error('任务创建失败，请稍后重试');
-return P.pollTask(taskId).then(task=>{
-if(P.taskView(task.status)==='completed')return contentApi.tasks.saveWork(taskId,title).then(()=>task);
-return task; // failed/uncertain → 任务中心查看
-});
-}).then(task=>{
-wx.hideLoading();
+this.contentDropKey('task'); // 提交成功释放；失败保留，重试复用同键
+this.go('tasks'); // 轮询进度在任务中心态展示
+const poll=this.__digitalPoll=P.pollTask(taskId,{onTick:task=>this.patchTaskProgress(String(task.id||taskId),task.status)});
+return poll.then(task=>{
+if(this.__digitalPoll!==poll)return null; // 已取消/新一轮提交
+this.__digitalPoll=null;this.__generating=false;
 const view=P.taskView(task.status);
-if(view==='completed'){wx.showToast({title:'已生成并保存到我的作品'});this.go('tasks');return;}
-if(view==='failed'){wx.showModal({title:'生成失败',content:task.failedReason||'请稍后重试或调整文案。',showCancel:false,confirmColor:'#824019'});return;}
+if(view==='completed')return contentApi.tasks.saveWork(taskId,title,this.contentKey('save-work:'+taskId)).then(()=>{
+this.contentDropKey('save-work:'+taskId);
+wx.showToast({title:'已生成并保存到我的作品'});
+if(this.data.view==='tasks')this.refreshData();
+});
+if(view==='failed'){wx.showModal({title:'生成失败',content:task.failedReason||'请稍后重试或调整文案。',showCancel:false,confirmColor:'#824019'});return null;}
 wx.showToast({title:'提交结果确认中，已可在任务中心查看',icon:'none'});
-this.go('tasks');
+return null;
 }).catch(error=>{
-wx.hideLoading();
+if(this.__digitalPoll===poll){this.__digitalPoll=null;this.__generating=false;}
+if(error&&error.cancelled)return null; // 页面卸载取消：静默
+wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 任务已在任务中心，轮询失败仅提示
+});
+}).catch(error=>{
+wx.hideLoading();this.__generating=false;
 wx.showToast({title:P.degradeMessage(error),icon:'none'});
 this.fallbackDigital(); // 接口失败回落演示兜底
 });
@@ -329,9 +355,10 @@ wx.showModal({ title: '视频播放说明', content: '视频播放暂未开通�
 attempt(action) { try { this.setData({operationError:''});return action(); } catch (error) { const message=error.message||'操作未完成，请重试';this.setData({operationError:message});wx.showToast({ title: message, icon: 'none' }); return null; } },
 saveResult() { if (this.data.activeTask && this.data.activeTask.apiTask) return this.saveApiResult(false); this.attempt(() => { const work = studio.saveWork(this.data.taskId); this.setData({ workId: work.id, saved: true }); wx.showToast({ title: '已保存到我的作品' }); }); },
 publishResult() { if (this.data.activeTask && this.data.activeTask.apiTask) return this.saveApiResult(true); this.attempt(() => { const work = studio.saveWork(this.data.taskId); this.setData({ workId: work.id, saved: true }); this.go('publish', '&work=' + encodeURIComponent(work.id)); }); },
-/** 在线任务→作品：save-work 幂等（重复返既有），成功后可去发布 */
+/** 在线任务→作品：save-work 幂等（重复返既有），成功后可去发布；幂等键重试复用 */
 saveApiResult(publish) {
-contentApi.tasks.saveWork(this.data.taskId).then(res => {
+contentApi.tasks.saveWork(this.data.taskId, '', this.contentKey('save-work:' + this.data.taskId)).then(res => {
+this.contentDropKey('save-work:' + this.data.taskId);
 const workId=String((res&&res.workId)||this.data.taskId);
 this.setData({ workId, saved: true, 'activeTask.saved': true });
 wx.showToast({ title: '已保存到我的作品' });
@@ -471,9 +498,10 @@ const invalid=P.validatePublishedUrl(this.data.publishedUrlInput);
 if(invalid)return this.setData({receiptError:invalid});
 const url=this.data.publishedUrlInput.trim(),recordId=this.data.recordId;
 this.setData({receiptSaving:true,receiptError:''});
-// 演示已发布（published）需先转待回执核验；其余状态直接登记
-const prepare=(this.data.detail&&this.data.detail.status==='published')?contentApi.publications.verify(recordId).catch(()=>{}):Promise.resolve();
-prepare.then(()=>contentApi.publications.link(recordId,url)).then(()=>{
+// 演示已发布（published）需先转待回执核验；其余状态直接登记；幂等键按记录维度生成，失败保留重试复用
+const prepare=(this.data.detail&&this.data.detail.status==='published')?contentApi.publications.verify(recordId,this.contentKey('verify:'+recordId)).catch(()=>{}):Promise.resolve();
+prepare.then(()=>contentApi.publications.link(recordId,url,this.contentKey('link:'+recordId))).then(()=>{
+this.contentDropKey('verify:'+recordId);this.contentDropKey('link:'+recordId);
 this.setData({receiptSaved:true});
 wx.reLaunch({
 url:'/pages/business/index',

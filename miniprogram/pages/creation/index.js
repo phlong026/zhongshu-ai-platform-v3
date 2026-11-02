@@ -6,6 +6,7 @@ const http=require('../../api/http');
 Page({
 data: {
 link: Demo.samples[0].url, sheet: '', editorText: '', draft: null, assets, demoSamples:Demo.samples, sampleId:'daylight',sampleIndex:0,
+extracting: false, parseProgress: 0,
 modes:[{id:'remix',title:'爆款二创',subtitle:'参考视频改写',icon:'video-filled'},{id:'digital',title:'数字人口播',subtitle:'文案生成口播',icon:'person-filled'},{id:'ai',title:'AI视频',subtitle:'文字图片成片',icon:'home-video-icon'}],
 shortcuts: [
 { key: 'library', title: '素材库', icon: 'folder' },
@@ -27,6 +28,7 @@ const draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-ke
 const recent = studio.recentItems(studio.read()).slice(0, 2).map(item=>({...item,updatedText:item.updatedAt?studio.formatTime(item.updatedAt):''}));
 this.setData({ draft, recent });
 },
+onUnload() { if (this.__parsePoll && this.__parsePoll.cancel) this.__parsePoll.cancel(); }, // 终止解析轮询（防 UI 长时间占锁）
 inputLink(e) { this.setData({ link: e.detail.value }); },
 chooseDemo(e){const sample=Demo.samples.find(s=>s.id===e.currentTarget.dataset.id);if(sample)this.setData({link:sample.url,sampleId:sample.id,sampleIndex:Demo.samples.indexOf(sample)});},
 pickDemo(e){const sample=Demo.samples[Number(e.detail.value)];if(sample)this.chooseDemo({currentTarget:{dataset:{id:sample.id}}});},
@@ -45,21 +47,25 @@ if(sample)return run(sample.id); // 演示样品链接仍走本地流程
 if(http.token())return this.extractOnline(); // 在线：后端链接解析（任务化轮询）
 this.fallbackExtract();
 },
-/** 在线提取：links.parse → pollTask → 有文案（result.text）直接进二创流；无文案/失败提示后走演示兜底 */
+/** 在线提取：links.parse → pollTask → 有文案（result.text）直接进二创流；无文案/失败提示后走演示兜底。
+ * showLoading 只覆盖提交阶段；轮询进度在本页按钮态展示（creation 无任务中心态），onUnload 取消轮询。 */
 extractOnline() {
 const url=String(this.data.link).trim(),scope=this.actorScope;
-wx.showLoading({title:'解析链接中',mask:true});
+wx.showLoading({title:'提交解析任务',mask:true});
 P.api.links.parse(url).then(res=>{
+wx.hideLoading();
 const taskId=res&&res.taskId?String(res.taskId):'';
 if(!taskId)throw Error('解析任务创建失败，请稍后重试');
-return P.pollTask(taskId);
-}).then(task=>{
-wx.hideLoading();
-if(scope!==studio.scope())return; // 工作身份已变化，丢弃迟到结果
+this.setData({extracting:true,parseProgress:P.progressOf('QUEUED')});
+const poll=this.__parsePoll=P.pollTask(taskId,{onTick:task=>{if(this.__parsePoll===poll)this.setData({parseProgress:P.progressOf(task.status)});}});
+return poll.then(task=>{
+if(this.__parsePoll!==poll)return null; // 已取消/新一轮
+this.__parsePoll=null;this.setData({extracting:false});
+if(scope!==studio.scope())return null; // 工作身份已变化，丢弃迟到结果
 const view=P.taskView(task.status);
-if(view!=='completed'){wx.showToast({title:view==='failed'?'文案解析失败：'+(task.failedReason||'请稍后重试'):'解析结果暂不确定，请稍后重试',icon:'none'});return;}
+if(view!=='completed'){wx.showToast({title:view==='failed'?'文案解析失败：'+(task.failedReason||'请稍后重试'):'解析结果暂不确定，请稍后重试',icon:'none'});return null;}
 const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
-if(!text){wx.showToast({title:'未解析到口播文案，可手动填写或使用演示样品',icon:'none'});return;}
+if(!text){wx.showToast({title:'未解析到口播文案，可手动填写或使用演示样品',icon:'none'});return null;}
 const state=studio.read();
 state.title=text.split('\n')[0].slice(0,28);
 state.original=text;state.script='';state.rewriteHistory=[];state.copyOptimizations=[];
@@ -67,6 +73,13 @@ state.extraction={online:true,taskId:String(task.id||''),sourceTitle:String((tas
 delete state.editorBuffer;
 studio.write(state);
 wx.navigateTo({url:'/pages/studio/index?view=remix'});
+return null;
+}).catch(error=>{
+if(this.__parsePoll===poll){this.__parsePoll=null;this.setData({extracting:false});}
+if(error&&error.cancelled)return null; // 页面卸载取消：静默
+wx.showToast({title:P.degradeMessage(error),icon:'none'});
+this.fallbackExtract(); // 接口失败回落演示兜底
+});
 }).catch(error=>{
 wx.hideLoading();
 wx.showToast({title:P.degradeMessage(error),icon:'none'});

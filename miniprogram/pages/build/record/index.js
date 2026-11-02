@@ -10,7 +10,7 @@ Page({
  data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,samplePreview:null},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.nodeId=o.nodeId||'';this.stage=o.stage==='topping'?'topping':'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
  onShow(){if(this.id)this.refresh();},
- refresh(reset=false){if(P.online())return this.refreshOnline(reset);try{
+ refresh(reset=false){if(P.online()&&!this.__platDown)return this.refreshOnline(reset);try{
   const p=R.get(this.id);if(!p)throw Error('项目不存在或当前身份无权查看');const a=X.context(),own=R.owner(p),canPay=O.has(a.role,'finance'),finance=canPay||X.isBoss(a),view=this.data.view,ar=R.funds(p),tasks=R.tasks(p),plans=R.plans(p).map(r=>({...r,totalText:r.known?money(r.total):'待记录',paidText:money(r.paid),remainingText:r.known?money(r.remaining):'待记录',url:R.link(p,'material',{planId:r.id}),lines:r.lines.map(l=>({...l,totalText:money(l.total),paidText:money(l.paid)}))})),plan=plans.find(r=>r.id===this.planId),node=p.plan.nodes.find(n=>n.id===(plan?.nodeId||this.nodeId))||p.plan.nodes.find(n=>n.status!=='已完成')||p.plan.nodes.at(-1),engineers=(X.rawBook(p.companyId)?.staff||[]).filter(s=>s.active!==false&&O.staffHas(s,'engineer')).map(s=>({id:s.id,name:s.name}));
   const part=ar.installments.find(r=>r.stage===this.stage),contract=p.recordFlow.contract;let fields=[],actions=[],form=this.data.form;
   if(reset||!this.initialized){form={date:require('../../../utils/account').localDate(),note:'',file:null,files:[],nodeId:node?.id,engineerId:X.managerId(p),nodes:p.plan.nodes.map(n=>({...n})),lines:[{name:'',spec:'',quantity:'',unit:'包'}],due:require('../../../utils/account').localDate(),stage:this.stage,receiver:'本公司',transaction:'',amount:part?String(part.remaining/100):'',total:contract?String(contract.total/100):'',first:contract?String(contract.first/100):'',recipient:'',noMaterials:false,adjustReason:'',correctId:'',correctActual:'',correctReason:'',siteId:'',siteNote:'',siteFile:null,siteReason:'',nodeDate:node?.completedAt||require('../../../utils/account').localDate(),nodeNote:'',nodeFile:null,nodeReason:''};if(view==='node'&&node?.status==='已完成'){const done=p.siteRecords.filter(r=>r.nodeId===node.id&&r.completion).at(-1),check=p.inspections.filter(r=>r.nodeId===node.id).at(-1);Object.assign(form,{nodeNote:done?.note||'',nodeFile:check?.file||done?.file||null});}if(view==='prepare')Object.assign(form,{note:p.recordFlow.prepared?.note||'',file:contract?.file||null});if(view==='material'&&plan)Object.assign(form,{planId:plan.id,supplier:'',termsFile:p.supplies.find(s=>s.planId===plan.id)?.basis||null,lines:plan.lines.map(l=>({id:l.id,name:l.name,quantity:l.quantity,unit:l.unit,supplier:l.supplier,unitPrice:l.unitPrice?String(l.unitPrice):'',freight:String(l.freight||0),actual:'',adjust:'',received:l.received,cancelled:l.cancelled,locked:l.locked}))});this.initialized=true;}
@@ -50,30 +50,40 @@ Page({
  preview(e){const f=Files.displayFile(e.currentTarget.dataset.file);if(!f)return;if(f.path){if(/\.(png|jpe?g|webp|gif)$/i.test(f.name||''))return wx.previewImage({urls:[f.path]});wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.fail('文件暂时无法打开')});}else this.setData({samplePreview:f.previewKind?{...f,previewImage:({result:'/pages/build/assets/commission-result.jpg',drawing:'/pages/build/assets/commission-plan.jpg'})[f.previewKind]||'',projectName:this.data.p?.name||'',projectId:this.data.p?.projectId||''}:f});},
  zoomSampleImage(){const image=this.data.samplePreview?.previewImage;if(image)wx.previewImage({current:image,urls:[image]});},
  closeSamplePreview(){this.setData({samplePreview:null});},
-  async refreshOnline(reset){ // API 态：详情聚合+两期+材料+结算+催办在线渲染；失败降级本地演示
+  async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败降级本地演示
    try{
-    const bundle=await P.loadProject(this.id),data=P.pageData(bundle),d=bundle.detail;
-    const view=this.data.view,form=this.data.form;
-    if(reset||!this.initialized){form.date=form.date||require('../../../utils/account').localDate();}
-    const current=data.p.plan.nodes.find(n=>n.status!=='已完成');
+    const bundle=await P.loadProject(this.id);
+    const data=P.recordView(bundle,{view:this.data.view,stage:this.stage,planId:this.planId,nodeId:this.nodeId,
+      form:this.data.form,initialized:this.initialized&&!reset,
+      today:require('../../../utils/account').localDate(),
+      writeRole:['engineer','project-manager'].includes(X.context().role)}); // 856 write 口径（后端另校验负责人本人）
     this.initialized=true;
-    this.setData({...data,view,error:'',platEng:true,own:true,canPay:false,finance:true,
-      stageText:P.statusView(d.status),stage:d.stage||'start',
-      paceDone:d.nodes?d.nodes.filter(n=>n.status==='DONE').length:0,
-      paceTotal:d.nodes?d.nodes.length:0,node:data.p.plan.nodes.find(n=>n.id===(this.nodeId||current?.id))||current||null,
-      busy:false});
-   }catch(e){this.setData({error:P.errorText(e.data||e),busy:false});}
+    this.setData({...data,view:this.data.view,title:titles[this.data.view],nodeId:this.nodeId,
+      error:'',platEng:true,busy:false});
+   }catch(e){ // 失败降级：回退离线本地渲染（不白屏），平台错误以 toast/横幅保留
+    const msg=P.errorText(e&&e.data?e.data:e);
+    this.__platDown=true;
+    this.refresh(reset);
+    if(!this.data.p)this.setData({error:msg}); // 本地无演示数据可降级时，横幅保留平台错误文案
+    wx.showToast({title:msg,icon:'none'});
+   }
   },
-  async performOnline(action,f,node){ // API 态动作映射（凭据类随 COS 批降级；其余全在线）
+  async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
+   if(this.data.busy)return;
+   this.setData({busy:true,error:''});
+   if(!this.__idemKeys)this.__idemKeys={};
+   if(!this.__idemKeys[action])this.__idemKeys[action]='eng-'+action+'-'+Date.now()+'-'+Math.floor(Math.random()*1e8);
    try{
-    await P.perform(action,String(this.id),f||this.data.form,node||this.data.node);
+    await P.perform(action,String(this.id),f||this.data.form,node||this.data.node,this.__idemKeys[action]);
+    delete this.__idemKeys[action]; // 成功后释放；失败保留，重试同一动作复用同键
     wx.showToast({title:'已在线保存',icon:'success'});
     await this.refreshOnline(true);
    }catch(e){const msg=P.errorText(e&&e.data?e.data.data||e.data:e);
     this.setData({error:msg});wx.showToast({title:msg,icon:'none'});}
+   finally{this.setData({busy:false});}
   },
   perform(e){if(this.data.busy)return;
-  if(P.online()){const action=e.currentTarget.dataset.action,f={...this.data.form};
+  if(P.online()&&!this.__platDown){const action=e.currentTarget.dataset.action,f={...this.data.form};
    if(['node','site','node-correct','node-reopen'].includes(action))f.nodeId=this.data.node&&this.data.node.id;
    if(action==='material-terms')f.file=f.termsFile;
    if(action==='material-adjust')Object.assign(f,{reason:f.adjustReason,date:undefined});

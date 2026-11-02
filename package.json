@@ -13,6 +13,7 @@
     "check:appid": "node scripts/verify-wechat-project.cjs",
     "check:wallet": "node scripts/verify-recharge-flow-native.cjs && node scripts/verify-recharge-flow.cjs",
     "check:account-api": "node scripts/verify-message-api.cjs && node scripts/verify-profile-api.cjs",
+    "check:verify-orphan": "node scripts/check-verify-orphan.cjs",
     "check:simulator": "node scripts/verify-dashboard-simulator.cjs",
     "check:creation": "node scripts/verify-creation.cjs",
     "check:creation:extra": "node scripts/verify-creation-extra.cjs",
