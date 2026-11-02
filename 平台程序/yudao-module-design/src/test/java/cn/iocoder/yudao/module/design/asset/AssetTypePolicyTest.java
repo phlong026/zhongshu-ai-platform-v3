@@ -26,13 +26,22 @@ class AssetTypePolicyTest {
 
         assertThat(AssetTypePolicy.CONTRACT_ATTACHMENT.mimeAllowed("application/pdf")).isTrue();
         assertThat(AssetTypePolicy.CONTRACT_ATTACHMENT.keyPrefix()).isEqualTo("contract-attachments");
+
+        // 内容创作素材（阶段 1.5 / 16 文档 D-1.5-9）：jpeg/png/mp3/mp4 ≤50MB
+        assertThat(AssetTypePolicy.CONTENT_ASSET.maxBytes()).isEqualTo(50L * 1024 * 1024);
+        assertThat(AssetTypePolicy.CONTENT_ASSET.mimeAllowed("image/jpeg")).isTrue();
+        assertThat(AssetTypePolicy.CONTENT_ASSET.mimeAllowed("audio/mpeg")).isTrue();
+        assertThat(AssetTypePolicy.CONTENT_ASSET.mimeAllowed("video/mp4")).isTrue();
+        assertThat(AssetTypePolicy.CONTENT_ASSET.mimeAllowed("application/pdf")).isFalse();
+        assertThat(AssetTypePolicy.CONTENT_ASSET.keyPrefix()).isEqualTo("content-assets");
     }
 
     @Test
     void audienceAndModerationMatrix() {
-        // B 端四类：B_END + 免审
+        // B 端五类：B_END + 免审（CONTENT_ASSET 随阶段 1.5 加入）
         for (AssetTypePolicy type : new AssetTypePolicy[]{AssetTypePolicy.FIN_VOUCHER,
-                AssetTypePolicy.ENG_DRAWING, AssetTypePolicy.ENG_SITE_PHOTO, AssetTypePolicy.CONTRACT_ATTACHMENT}) {
+                AssetTypePolicy.ENG_DRAWING, AssetTypePolicy.ENG_SITE_PHOTO, AssetTypePolicy.CONTRACT_ATTACHMENT,
+                AssetTypePolicy.CONTENT_ASSET}) {
             assertThat(type.audience()).as(type.name()).isEqualTo(AssetTypePolicy.Audience.B_END);
             assertThat(type.moderationRequired()).as(type.name()).isFalse();
             assertThat(type.bEnd()).as(type.name()).isTrue();

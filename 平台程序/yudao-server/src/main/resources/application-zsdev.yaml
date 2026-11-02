@@ -109,3 +109,5 @@ zhongshu:
     fake:
       outcome: ${ZS_CONTENT_FAKE_OUTCOME:ok}
       result-url: ${ZS_CONTENT_FAKE_RESULT_URL:https://fixture.local/content/result.mp4}
+    task-sweep-enabled: true
+    task-sweep-interval-ms: ${ZS_CONTENT_SWEEP_INTERVAL_MS:1000}

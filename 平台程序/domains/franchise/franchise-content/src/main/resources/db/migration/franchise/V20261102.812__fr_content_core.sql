@@ -5,6 +5,7 @@
 
 CREATE TABLE fr_content_script (
     id BIGINT NOT NULL, company_id BIGINT NOT NULL, author_user_id BIGINT NOT NULL,
+    task_id BIGINT NULL,
     source_type VARCHAR(16) NOT NULL, source_url VARCHAR(1024) NULL, platform VARCHAR(32) NULL,
     raw_text TEXT NOT NULL, optimized_text TEXT NULL, requirement VARCHAR(2000) NULL,
     persona_id BIGINT NULL, persona_snapshot JSONB NULL,
@@ -16,6 +17,7 @@ CREATE TABLE fr_content_script (
     CONSTRAINT ck_fr_content_script_engine CHECK (engine IS NULL OR engine IN ('deepseek','rules'))
 );
 CREATE INDEX idx_fr_content_script_org ON fr_content_script (company_id, author_user_id, create_time);
+CREATE INDEX idx_fr_content_script_task ON fr_content_script (company_id, task_id);
 
 CREATE TABLE fr_content_task (
     id BIGINT NOT NULL, company_id BIGINT NOT NULL, author_user_id BIGINT NOT NULL,

@@ -24,8 +24,8 @@ public class DeepSeekChatClient implements ScriptRewritePort {
     private static final Logger log = LoggerFactory.getLogger(DeepSeekChatClient.class);
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    /** 对标 SCRIPT_REWRITE_SYSTEM_PROMPT（script_rewrite.py:59-73），词句保持同款 */
-    static final String SYSTEM_PROMPT = "你是乡墅行业短视频口播稿编辑。根据来源原文、可选人物档案与本次要求生成二创稿。\n"
+    /** 对标 SCRIPT_REWRITE_SYSTEM_PROMPT（script_rewrite.py:59-73），词句保持同款；prompt 快照落库的单一来源 */
+    public static final String SYSTEM_PROMPT = "你是乡墅行业短视频口播稿编辑。根据来源原文、可选人物档案与本次要求生成二创稿。\n"
             + "1. 先在内部核对主题、事实、数字和观点；保留核心信息，不能把预测或未经证实的说法改成确定事实。\n"
             + "2. 重组开头与信息顺序，使用自然短句；开头一至两句突出主题与观看价值，避免逐句换词。\n"
             + "3. 有长度要求时优先满足本次目标；未设置时尽量保持原文长度。专业词汇、地名和数据保持准确。\n"

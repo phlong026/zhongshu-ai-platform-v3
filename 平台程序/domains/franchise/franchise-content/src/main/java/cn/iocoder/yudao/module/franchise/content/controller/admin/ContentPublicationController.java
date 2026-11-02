@@ -1,0 +1,112 @@
+package cn.iocoder.yudao.module.franchise.content.controller.admin;
+
+import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
+import cn.iocoder.yudao.module.franchise.content.content.ContentGrowthService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationService;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationDO;
+import cn.iocoder.yudao.module.platform.authz.CurrentPost;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.annotation.Resource;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+
+/** 发布记录 direct-v1 + 客资聚合（D-1.5-11；growth 面四岗共用 query 权限）。 */
+@Tag(name = "加盟 - 内容创作（发布/获客）")
+@RestController
+@RequestMapping("/franchise/content")
+@Validated
+public class ContentPublicationController {
+
+    @Resource
+    private CurrentPost currentPost;
+    @Resource
+    private ContentPublicationService publications;
+    @Resource
+    private ContentGrowthService growth;
+
+    private PostSnapshot post() {
+        return currentPost.require();
+    }
+
+    @PostMapping("/publications")
+    @Operation(summary = "创建发布记录（幂等 duplicate；五态 direct-v1）")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Map<String, Object>> create(@RequestBody Map<String, Object> body,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
+        PostSnapshot post = post();
+        String key = ContentScriptController.requireIdem(idem);
+        return success(view(publications.createFromPost(post, body, key)));
+    }
+
+    @GetMapping("/publications")
+    @Operation(summary = "发布列表（?status=）")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<List<Map<String, Object>>> list(@RequestParam(required = false) String status) {
+        PostSnapshot post = post();
+        return success(publications.list(post.orgId(), null, status).stream()
+                .map(ContentPublicationController::view).toList());
+    }
+
+    @PostMapping("/publications/{id}/verify")
+    @Operation(summary = "演示已发布→待回执核验")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Map<String, Object>> verify(@PathVariable("id") Long id) {
+        PostSnapshot post = post();
+        return success(view(publications.verify(post.orgId(), post.userId(), id)));
+    }
+
+    @PostMapping("/publications/{id}/link")
+    @Operation(summary = "回执发布链接（全局唯一 1_114_000_003）")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Map<String, Object>> link(@PathVariable("id") Long id,
+                                                  @RequestBody Map<String, Object> body) {
+        PostSnapshot post = post();
+        return success(view(publications.link(post.orgId(), post.userId(), id,
+                body.get("publishedUrl") == null ? null : String.valueOf(body.get("publishedUrl")))));
+    }
+
+    @PostMapping("/publications/{id}/fail")
+    @Operation(summary = "标记发布失败")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Map<String, Object>> fail(@PathVariable("id") Long id,
+                                                  @RequestBody(required = false) Map<String, Object> body) {
+        PostSnapshot post = post();
+        String reason = body == null || body.get("reason") == null ? "发布失败" : String.valueOf(body.get("reason"));
+        return success(view(publications.fail(post.orgId(), post.userId(), id, reason)));
+    }
+
+    @GetMapping("/growth/summary")
+    @Operation(summary = "获客聚合（来源×内容×转化；客资登记复用 /franchise/leads）")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<Map<String, Object>> growthSummary() {
+        PostSnapshot post = post();
+        return success(growth.summary(post.orgId()));
+    }
+
+    static Map<String, Object> view(FrContentPublicationDO row) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("id", row.getId());
+        view.put("workId", row.getWorkId());
+        view.put("title", row.getTitle());
+        view.put("accountId", row.getAccountId());
+        view.put("platform", row.getPlatform());
+        view.put("status", row.getStatus());
+        view.put("scheduledAt", row.getScheduledAt() == null ? "" : row.getScheduledAt().toString());
+        view.put("publishedUrl", row.getPublishedUrl() == null ? "" : row.getPublishedUrl());
+        view.put("publishedAt", row.getPublishedAt() == null ? "" : row.getPublishedAt().toString());
+        view.put("failureReason", row.getFailureReason() == null ? "" : row.getFailureReason());
+        view.put("signature", row.getSignature() == null ? "" : row.getSignature());
+        return view;
+    }
+
+}

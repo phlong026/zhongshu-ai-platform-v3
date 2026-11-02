@@ -130,6 +130,9 @@ zhongshu:
       api-key: ${ZS_HIFLY_API_KEY:}
     metaso:
       api-key: ${ZS_METASO_API_KEY:}
+    # 任务扫写（提交/轮询/超窗/收尾）：基线默认关，生产必须显式开启（RealServiceWiringPolicy 同 design worker 惯例）
+    task-sweep-enabled: ${ZS_CONTENT_TASK_SWEEP_ENABLED:false}
+    task-sweep-interval-ms: ${ZS_CONTENT_SWEEP_INTERVAL_MS:3000}
 
 # 赋能平台 · 员工登录：接入员工微信登录的小程序（AI 赋能平台小程序）。secret 只经环境变量注入，不写入任何文件。
 # provider=real 直连微信（默认）；stub 为本地联调替身，prod 配置下拒绝启动。

@@ -33,7 +33,7 @@ public class AssetAccessService {
 
     /** 本通道可操作的资产类型白名单（与 design AssetTypePolicy 的 B_END 同源；新增先登记 14 文档 §五.2） */
     private static final Set<String> B_END_TYPES =
-            Set.of("FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT");
+            Set.of("FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT", "CONTENT_ASSET");
 
     private final AssetAccessPort assets;
     private final StoreServiceAccountPort serviceAccounts;

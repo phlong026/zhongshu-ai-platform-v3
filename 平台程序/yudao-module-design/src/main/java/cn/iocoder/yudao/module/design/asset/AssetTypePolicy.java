@@ -24,7 +24,9 @@ public enum AssetTypePolicy {
     FIN_VOUCHER(20L * 1024 * 1024, Set.of("image/jpeg", "image/png", "application/pdf"), Audience.B_END, false),
     ENG_DRAWING(30L * 1024 * 1024, Set.of("application/pdf", "image/jpeg", "image/png"), Audience.B_END, false),
     ENG_SITE_PHOTO(10L * 1024 * 1024, Set.of("image/jpeg", "image/png"), Audience.B_END, false),
-    CONTRACT_ATTACHMENT(20L * 1024 * 1024, Set.of("application/pdf", "image/jpeg", "image/png"), Audience.B_END, false);
+    CONTRACT_ATTACHMENT(20L * 1024 * 1024, Set.of("application/pdf", "image/jpeg", "image/png"), Audience.B_END, false),
+    /** 内容创作素材（阶段 1.5 / 16 文档 D-1.5-9）：jpeg/png/mp3/mp4 ≤50MB，B_END 免审 */
+    CONTENT_ASSET(50L * 1024 * 1024, Set.of("image/jpeg", "image/png", "audio/mpeg", "video/mp4"), Audience.B_END, false);
 
     /** 类型受众：C_END=C 端业主入口可传；B_END=仅 B 端服务账号入口（franchise-asset/Port）可传 */
     public enum Audience {
@@ -87,6 +89,7 @@ public enum AssetTypePolicy {
             case ENG_DRAWING -> "eng-drawings";
             case ENG_SITE_PHOTO -> "eng-site-photos";
             case CONTRACT_ATTACHMENT -> "contract-attachments";
+            case CONTENT_ASSET -> "content-assets";
         };
     }
 

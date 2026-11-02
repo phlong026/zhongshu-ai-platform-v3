@@ -20,6 +20,7 @@ public class FrContentScriptDO {
     private Long id;
     private Long companyId;
     private Long authorUserId;
+    private Long taskId;
     private String sourceType;
     private String sourceUrl;
     private String platform;

@@ -1,0 +1,116 @@
+package cn.iocoder.yudao.module.franchise.content.controller.admin;
+
+import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
+import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentCourseProgressDO;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentVideoDraftDO;
+import cn.iocoder.yudao.module.platform.authz.CurrentPost;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.annotation.Resource;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+
+@Tag(name = "加盟 - 内容创作（草稿/课程）")
+@RestController
+@RequestMapping("/franchise/content")
+@Validated
+public class ContentDraftController {
+
+    @Resource
+    private CurrentPost currentPost;
+    @Resource
+    private ContentDraftService drafts;
+
+    private PostSnapshot post() {
+        return currentPost.require();
+    }
+
+    @GetMapping("/drafts")
+    @Operation(summary = "我的作品列表")
+    @org.springframework.security.access.prepost.PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<List<Map<String, Object>>> drafts() {
+        PostSnapshot post = post();
+        return success(drafts.listWorks(post.orgId(), post.userId()).stream()
+                .map(row -> Map.<String, Object>of(
+                        "id", row.getId(),
+                        "taskId", row.getTaskId() == null ? 0L : row.getTaskId(),
+                        "kind", row.getKind(),
+                        "title", row.getTitle(),
+                        "status", row.getStatus()))
+                .toList());
+    }
+
+    @PutMapping("/drafts/{id}/status")
+    @Operation(summary = "作品状态（draft|saved）")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Map<String, Object>> updateDraftStatus(@PathVariable("id") Long id,
+                                                               @RequestBody Map<String, Object> body) {
+        PostSnapshot post = post();
+        FrContentDraftDO row = drafts.updateWorkStatus(post.orgId(), id, String.valueOf(body.get("status")));
+        return success(Map.of("id", row.getId(), "status", row.getStatus()));
+    }
+
+    @GetMapping("/video-draft")
+    @Operation(summary = "视频草稿（一人一份）")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<Map<String, Object>> videoDraft() {
+        PostSnapshot post = post();
+        FrContentVideoDraftDO row = drafts.videoDraft(post.orgId(), post.userId());
+        if (row == null) {
+            return success(Map.of("exists", false));
+        }
+        return success(Map.of(
+                "exists", true,
+                "mode", row.getMode(),
+                "description", row.getDescription() == null ? "" : row.getDescription(),
+                "firstFrameAssetId", row.getFirstFrameAssetId() == null ? 0L : row.getFirstFrameAssetId(),
+                "lastFrameAssetId", row.getLastFrameAssetId() == null ? 0L : row.getLastFrameAssetId(),
+                "parameters", row.getParameters() == null ? Map.of()
+                        : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(row.getParameters(), Map.class),
+                "references", row.getReferences() == null ? Map.of()
+                        : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(row.getReferences(), Map.class)));
+    }
+
+    @PutMapping("/video-draft")
+    @Operation(summary = "保存视频草稿（upsert）")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Map<String, Object>> saveVideoDraft(@RequestBody Map<String, Object> body) {
+        PostSnapshot post = post();
+        FrContentVideoDraftDO row = drafts.saveVideoDraft(post.orgId(), post.userId(), body);
+        return success(Map.of("id", row.getId(), "mode", row.getMode()));
+    }
+
+    @PostMapping("/course-progress")
+    @Operation(summary = "课程章节完成（幂等）")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<Map<String, Object>> completeChapter(@RequestBody Map<String, Object> body) {
+        PostSnapshot post = post();
+        drafts.completeChapter(post.orgId(), post.userId(),
+                String.valueOf(body.get("courseId")),
+                Integer.parseInt(String.valueOf(body.get("chapterIndex"))));
+        return success(Map.of("ok", true));
+    }
+
+    @GetMapping("/course-progress")
+    @Operation(summary = "课程进度")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<List<Map<String, Object>>> courseProgress(@RequestParam(required = false) String courseId) {
+        PostSnapshot post = post();
+        List<FrContentCourseProgressDO> rows = drafts.courseProgress(post.orgId(), post.userId(), courseId);
+        return success(rows.stream().map(row -> Map.<String, Object>of(
+                "courseId", row.getCourseId(),
+                "chapterIndex", row.getChapterIndex(),
+                "completedAt", row.getCompletedAt() == null ? "" : row.getCompletedAt().toString())).toList());
+    }
+
+}

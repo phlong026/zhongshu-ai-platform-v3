@@ -161,7 +161,8 @@ public final class RealServiceWiringPolicy {
         // (2) 生产禁止开发便利 profile：zsdev 携带公开占位密钥/种子数据/开发端点，生产启用即等于用公开值冒充正式配置。
         if (production) {
             for(String key:List.of("zhongshu.design.driver-enabled","zhongshu.design.refund-recovery-enabled","zhongshu.design.export-worker-enabled",
-                    "zhongshu.design.asset.validation-worker-enabled","zhongshu.privacy.export-worker-enabled")) {
+                    "zhongshu.design.asset.validation-worker-enabled","zhongshu.privacy.export-worker-enabled",
+                    "zhongshu.content.task-sweep-enabled")) {
                 if(!"true".equalsIgnoreCase(propertyResolver.apply(key))) violations.add("生产环境必须显式启用 "+key);
             }
             for (String key : List.of("yudao.security.mock-enable", "zhongshu.design.seed-dev-data",
