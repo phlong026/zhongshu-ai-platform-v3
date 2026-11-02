@@ -79,9 +79,11 @@ public class EngCollectionService {
                     .mapToLong(FrEngCollectionDO::getAmountCents).sum();
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("stage", stage);
-            row.put("expectedCents", expected);
-            row.put("confirmedCents", confirmed);
-            row.put("remainingCents", Math.max(0, expected - confirmed));
+            if (full) {
+                row.put("expectedCents", expected);
+                row.put("confirmedCents", confirmed);
+                row.put("remainingCents", Math.max(0, expected - confirmed));
+            }
             row.put("due", FrEngCollectionTermDO.STAGE_START.equals(stage) ? startDue : toppingDue);
             row.put("purpose", FrEngCollectionTermDO.STAGE_START.equals(stage)
                     ? FrEngCollectionDO.PURPOSE_START : FrEngCollectionDO.PURPOSE_TOPPING);
@@ -150,6 +152,8 @@ public class EngCollectionService {
             throw exception(ENGINEERING_INPUT_INVALID, "收款日期不能晚于今天");
         }
         long amount = EngGuard.requirePositiveCents(cmd.amount());
+        // 行锁串行化「读-判-写」：并发登记不得越过应收上限 006（评审十三 P2-1）
+        projectService.projects().lockById(projectId);
         long confirmed = collections.selectByProject(post.orgId(), projectId).stream()
                 .filter(c -> stage.equals(c.getStage())).mapToLong(FrEngCollectionDO::getAmountCents).sum();
         if (confirmed + amount > expected) {

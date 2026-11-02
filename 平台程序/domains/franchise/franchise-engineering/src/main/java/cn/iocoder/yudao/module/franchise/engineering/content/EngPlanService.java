@@ -179,7 +179,9 @@ public class EngPlanService {
     public Map<String, Object> start(PostSnapshot post, long projectId,
                                      NodeRecordCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "start");
-        var replayed = commands.replayed(post, idempotencyKey, Map.of("date", String.valueOf(cmd.date())));
+        // 重放输入=落账输入（评审十三 P1-3）：统一 cmd 原始日期形状，杜绝 now() 归一后的哈希错位
+        Map<String, Object> payload = Map.of("date", cmd.date() == null ? "" : cmd.date().toString());
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return projectService.detail(post, projectId);
         }
@@ -204,7 +206,7 @@ public class EngPlanService {
                 .setStatus(FrEngPlanNodeDO.STATUS_IN_PROGRESS));
         projectService.recalcStatus(post, project); // 唯一真相：actualStart 已回内存，派生 IN_PROGRESS 落库
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
-                "eng-start", Map.of("date", startDate.toString()), idempotencyKey);
+                "eng-start", payload, idempotencyKey);
         return projectService.detail(post, projectId);
     }
 
@@ -392,7 +394,10 @@ public class EngPlanService {
     public Map<String, Object> completeNode(PostSnapshot post, long projectId, long nodeId,
                                             NodeRecordCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "node");
-        var replayed = commands.replayed(post, idempotencyKey, Map.of("nodeId", nodeId));
+        // 重放输入=落账输入（评审十三 P1-3）：nodeId+原始日期两处同形
+        Map<String, Object> payload = Map.of("nodeId", nodeId,
+                "date", cmd.date() == null ? "" : cmd.date().toString());
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return projectService.detail(post, projectId);
         }
@@ -433,7 +438,7 @@ public class EngPlanService {
         }
         projectService.recalcStatus(post, project);
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
-                "eng-node-complete", Map.of("nodeId", nodeId, "date", date.toString()), idempotencyKey);
+                "eng-node-complete", payload, idempotencyKey);
         return projectService.detail(post, projectId);
     }
 
@@ -468,7 +473,9 @@ public class EngPlanService {
     public Map<String, Object> reopenNode(PostSnapshot post, long projectId, long nodeId,
                                           String reason, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "node");
-        var replayed = commands.replayed(post, idempotencyKey, Map.of("nodeId", nodeId));
+        // 重放输入=落账输入（评审十三 P1-3）：nodeId+reason 两处同形
+        Map<String, Object> payload = Map.of("nodeId", nodeId, "reason", StrUtil.nullToEmpty(reason));
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return projectService.detail(post, projectId);
         }
@@ -506,7 +513,7 @@ public class EngPlanService {
         }
         projectService.recalcStatus(post, project);
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
-                "eng-node-reopen", Map.of("nodeId", nodeId, "reason", reason), idempotencyKey);
+                "eng-node-reopen", payload, idempotencyKey);
         return projectService.detail(post, projectId);
     }
 
@@ -543,7 +550,10 @@ public class EngPlanService {
     public Map<String, Object> correctNode(PostSnapshot post, long projectId, long nodeId,
                                            NodeCorrectCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "node");
-        var replayed = commands.replayed(post, idempotencyKey, Map.of("nodeId", nodeId));
+        // 重放输入=落账输入（评审十三 P1-3）：nodeId+completedAt 两处同形
+        Map<String, Object> payload = Map.of("nodeId", nodeId,
+                "completedAt", cmd.completedAt() == null ? "" : cmd.completedAt().toString());
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return projectService.detail(post, projectId);
         }
@@ -599,7 +609,7 @@ public class EngPlanService {
             }
         }
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
-                "eng-node-correct", Map.of("nodeId", nodeId, "completedAt", d.toString()), idempotencyKey);
+                "eng-node-correct", payload, idempotencyKey);
         return projectService.detail(post, projectId);
     }
 

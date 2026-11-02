@@ -90,7 +90,19 @@ public class ContentScriptService {
         }
         FrContentTaskDO cached = mediaSha256 == null ? null
                 : taskMapper.selectSucceededBySha(companyId, "asr", mediaSha256);
-        return tasks.createAsr(companyId, userId, assetId, sourceUrl, mediaSha256, durationSec, cached);
+        FrContentTaskDO task = tasks.createAsr(companyId, userId, assetId, sourceUrl, mediaSha256, durationSec, cached);
+        if ("SUCCEEDED".equals(task.getStatus()) && "cache".equals(task.getEngine())) {
+            // 缓存命中任务即时终态、不进 sweep——当场落脚本行，否则 scripts 详情查询 TASK_NOT_FOUND（评审十三 P2-3）
+            Map<String, Object> result = task.getResultSnapshot() == null ? Map.of()
+                    : JsonUtils.parseObject(task.getResultSnapshot(), Map.class);
+            String text = result.get("text") == null ? "" : String.valueOf(result.get("text"));
+            if (!text.isBlank()) {
+                recordExtractedScript(task, "upload", null, null, text,
+                        result.get("durationSec") == null ? null
+                                : (int) Double.parseDouble(String.valueOf(result.get("durationSec"))));
+            }
+        }
+        return task;
     }
 
     /** POST /content/scripts/optimize：原文+requirement+personaId → 改写任务（rules 兜底在任务机内）。 */
@@ -154,13 +166,15 @@ public class ContentScriptService {
     private void insertScript(long taskId, long companyId, long userId, String sourceType, String sourceUrl,
                               String platform, String rawText, String requirement, Long personaId,
                               String personaSnapshotJson, String promptSnapshotJson) {
+        // WHERE NOT EXISTS：同一 task_id 只落一行（双实例 sweep 并发收尾不双写——评审十三 P3-2）
         jdbcTemplate.update(
                 "INSERT INTO fr_content_script (id, company_id, author_user_id, task_id, source_type, source_url, "
                         + "platform, raw_text, requirement, persona_id, persona_snapshot, prompt_snapshot) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb))",
+                        + "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb) "
+                        + "WHERE NOT EXISTS (SELECT 1 FROM fr_content_script WHERE task_id = ?)",
                 IdWorker.getId(), companyId, userId, taskId,
                 sourceType == null ? "manual" : sourceType, sourceUrl, platform,
-                rawText, requirement, personaId, personaSnapshotJson, promptSnapshotJson);
+                rawText, requirement, personaId, personaSnapshotJson, promptSnapshotJson, taskId);
     }
 
     /** prompt 快照（D-1.5-2 产物可审计）：system 提示词 + persona 段 + 本次要求。 */

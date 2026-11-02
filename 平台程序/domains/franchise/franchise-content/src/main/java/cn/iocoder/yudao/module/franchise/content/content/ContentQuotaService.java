@@ -37,7 +37,8 @@ public class ContentQuotaService {
         return used == null ? 0 : used;
     }
 
-    /** 预扣 units：超限抛 1_114_000_002；返回预扣后当日用量。付费外呼前调用（事务外）。 */
+    /** 预扣 units：超限抛 1_114_000_002；返回预扣后当日用量。付费外呼前调用（事务外）。
+     *  首插与冲突更新同受 limit 约束（评审十三 P2-2）：首笔 units>limit 直接插入会穿透上限并锁死当日科目。 */
     public int reserve(long orgId, String subjectKey, int units) {
         if (units <= 0) {
             units = 1;
@@ -46,11 +47,11 @@ public class ContentQuotaService {
         int limit = limitOf(subject);
         var updated = jdbcTemplate.queryForList(
                 "INSERT INTO fr_content_ai_usage (id, org_id, service, day, count) "
-                        + "VALUES (?, ?, ?, CURRENT_DATE, ?) "
+                        + "SELECT ?, ?, ?, CURRENT_DATE, ? WHERE ? <= ? "
                         + "ON CONFLICT (org_id, service, day) DO UPDATE SET count = fr_content_ai_usage.count + EXCLUDED.count "
                         + "WHERE fr_content_ai_usage.count + EXCLUDED.count <= ? "
                         + "RETURNING count",
-                Long.class, IdWorker.getId(), orgId, subjectKey, units, limit);
+                Long.class, IdWorker.getId(), orgId, subjectKey, units, units, limit, limit);
         if (updated.isEmpty()) {
             throw exception(AI_QUOTA_EXCEEDED);
         }

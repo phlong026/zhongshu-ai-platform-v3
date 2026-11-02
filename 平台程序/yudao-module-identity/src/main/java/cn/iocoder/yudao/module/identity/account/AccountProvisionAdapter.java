@@ -61,12 +61,16 @@ public class AccountProvisionAdapter implements AccountProvisionPort {
         if (!externalKey.startsWith(FR_SERVICE_PREFIX) || !ensured.active()) {
             return;
         }
-        jdbcTemplate.update(
-                "INSERT INTO design_access_grant (id, account_id, status, tenant_id) "
-                        + "SELECT ?, ?, 'ACTIVE', 0 WHERE NOT EXISTS ("
-                        + "SELECT 1 FROM design_access_grant "
-                        + "WHERE account_id = ? AND status = 'ACTIVE' AND deleted = FALSE)",
-                IdWorker.getId(), ensured.accountId(), ensured.accountId());
+        try {
+            jdbcTemplate.update(
+                    "INSERT INTO design_access_grant (id, account_id, status, tenant_id) "
+                            + "SELECT ?, ?, 'ACTIVE', 0 WHERE NOT EXISTS ("
+                            + "SELECT 1 FROM design_access_grant "
+                            + "WHERE account_id = ? AND status = 'ACTIVE' AND deleted = FALSE)",
+                    IdWorker.getId(), ensured.accountId(), ensured.accountId());
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 并发补挂撞 uk_design_access_grant_active：既有 ACTIVE grant 即目标态，视为幂等成功（评审基线强制清单 #8）
+        }
     }
 
     private EnsuredAccount selectByKey(String externalKey) {

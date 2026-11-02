@@ -103,6 +103,22 @@ class DashScopeAsrClientTest {
     }
 
     @Test
+    void resumePollIgnoresMissingAudioUrl() {
+        // 恢复轮询只凭 provider_task_id（audioUrl 为 null）——不得被新提交的输入校验误杀（评审十三 P1-1）
+        ContentProviderTransport.Scripted transport = new ContentProviderTransport.Scripted(
+                ContentProviderTransport.json(200, "{\"output\":{\"task_status\":\"SUCCEEDED\",\"results\":"
+                        + "[{\"subtask_status\":\"SUCCEEDED\",\"transcription_url\":\"https://oss.example/r.json\"}]}}", 5),
+                ContentProviderTransport.json(200, "{\"transcripts\":[{\"text\":\"恢复结果\"}]}", 10));
+        DashScopeAsrClient client = new DashScopeAsrClient(config(), transport, null);
+
+        AsrPort.Transcript transcript = client.transcribe(new AsrPort.AsrCall(
+                null, null, "asr-task-9", null, ProviderCallAudit.NONE));
+
+        assertThat(transcript.text()).isEqualTo("恢复结果");
+        assertThat(transport.calls.get(0).url()).isEqualTo("https://dashscope.aliyuncs.com/api/v1/tasks/asr-task-9");
+    }
+
+    @Test
     void submit5xxOrMissingTaskIdIsUncertain() {
         DashScopeAsrClient fiveHundred = new DashScopeAsrClient(config(),
                 new ContentProviderTransport.Scripted(ContentProviderTransport.json(503, "busy", 5)), null);

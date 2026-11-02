@@ -29,6 +29,7 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @RestController
 @RequestMapping("/admin-api/platform/dev-setup/franchise-e2e")
 @PermitAll
+@Profile("local") // 与 StubWechatStaffClient/DesignDevController 同口径（评审基线强制清单 #1，连续 6 轮零修复）
 public class FranchiseE2ESetupController {
 
     @Resource

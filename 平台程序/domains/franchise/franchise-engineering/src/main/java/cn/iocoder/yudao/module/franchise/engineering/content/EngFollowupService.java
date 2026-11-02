@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -94,7 +95,7 @@ public class EngFollowupService {
         // 同日同内容幂等（蓝本 material-followup 同款：命中返回现状不重写）
         boolean duplicate = followups.selectByProject(post.orgId(), projectId).stream().anyMatch(f ->
                 FrEngFollowupDO.KIND_COLLECTION.equals(f.getKind()) && stage.equals(f.getStage())
-                        && f.getCreateTime() != null && f.getCreateTime().toLocalDate().equals(today)
+                        && f.getCreateTime() != null && localDay(f.getCreateTime()).equals(today)
                         && promise.equals(f.getPromiseDate() == null ? "" : f.getPromiseDate().toString())
                         && note.equals(StrUtil.nullToEmpty(f.getNote())));
         if (!duplicate) {
@@ -142,7 +143,7 @@ public class EngFollowupService {
         boolean duplicate = followups.selectByProject(post.orgId(), projectId).stream().anyMatch(f ->
                 FrEngFollowupDO.KIND_MATERIAL.equals(f.getKind())
                         && f.getMaterialPlanId() != null && f.getMaterialPlanId() == cmd.materialPlanId()
-                        && f.getCreateTime() != null && f.getCreateTime().toLocalDate().equals(today)
+                        && f.getCreateTime() != null && localDay(f.getCreateTime()).equals(today)
                         && promise.equals(f.getPromiseDate() == null ? "" : f.getPromiseDate().toString())
                         && note.equals(StrUtil.nullToEmpty(f.getNote())));
         if (!duplicate) {
@@ -154,6 +155,12 @@ public class EngFollowupService {
                 projectService.bumpRevision(post, project),
                 "eng-material-followup", payload, idempotencyKey);
         return list(post, projectId);
+    }
+
+    /** create_time 经 JDBC 读回为 UTC 偏移，与 JVM 当日（+08）比较前须归一——
+     *  直接 toLocalDate 在 +08 的 0-8 点时段会把当日误判为前一日，同日幂等失效（e2e AC9 深夜跑暴露）。 */
+    private static LocalDate localDay(OffsetDateTime t) {
+        return t.atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDate();
     }
 
     private static Map<String, Object> dunningPayload(DunningCommand cmd) {

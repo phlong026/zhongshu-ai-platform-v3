@@ -170,7 +170,10 @@ public class HandoverService {
         String city = customer != null ? customer.getCity() : null;
         String phone = customer != null ? customer.getPhone() : null;
         String drawingVersion = handover.getDrawingVersion();
-        String briefFile = "{\"name\":\"电子交底记录\",\"text\":" + JsonUtils.toJsonString(handover.getNote()) + "}";
+        // file_ref 列上限 1024：note 合法上限 1000 字，拼接后可越界致移交建档 SQL 异常——超长截断（评审十三 P3-4）
+        String briefNote = handover.getNote() == null ? ""
+                : handover.getNote().length() <= 900 ? handover.getNote() : handover.getNote().substring(0, 900) + "…";
+        String briefFile = "{\"name\":\"电子交底记录\",\"text\":" + JsonUtils.toJsonString(briefNote) + "}";
         return new EngineeringPort.HandoverProject(commission.getId(), commission.getCustomerId(), customerName,
                 city, phone, budget != null ? budget.getArea() : null, budget != null ? budget.getFloors() : null,
                 handover.getManagerUserId(), drawingVersion, handover.getDrawingFile(),

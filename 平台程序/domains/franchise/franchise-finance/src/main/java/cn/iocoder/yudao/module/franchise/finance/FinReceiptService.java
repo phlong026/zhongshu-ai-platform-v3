@@ -139,7 +139,7 @@ public class FinReceiptService {
         if (receipt.getCompanyId() != post.orgId()) {
             throw exception(ORG_MISMATCH);
         }
-        if (baseRevisionVersion == null || receipt.getRevisionVersion() != baseRevisionVersion) {
+        if (baseRevisionVersion == null || !baseRevisionVersion.equals(receipt.getRevisionVersion())) { // Integer 引用比较越界即恒真（同评审基线 #12 类）
             throw exception(RECEIPT_REVISION_STALE);
         }
         long refunded = refundMapper.selectActiveByReceipt(receiptId).stream()

@@ -31,8 +31,9 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Slf4j
 public class AssetAccessService {
 
-    /** 本通道可操作的资产类型白名单（与 design AssetTypePolicy 的 B_END 同源；新增先登记 14 文档 §五.2） */
-    private static final Set<String> B_END_TYPES =
+    /** 本通道可操作的资产类型白名单（与 design AssetTypePolicy 的 B_END 同源；新增先登记 14 文档 §五.2）。
+     *  包级可见供快照锁测试比对（跨域经 Port 禁直依赖 design 模块——评审基线强制清单 #13）。 */
+    static final Set<String> B_END_TYPES =
             Set.of("FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT", "CONTENT_ASSET");
 
     private final AssetAccessPort assets;

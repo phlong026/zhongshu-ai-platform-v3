@@ -270,14 +270,10 @@ public class EngMaterialService {
         return supplyView(post, supplies.selectById(supplyId));
     }
 
-    private static Map<String, Object> arrivalPayload(long supplyId, ArrivalCommand cmd) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("supplyId", supplyId);
-        m.put("parentReceiptId", cmd.parentReceiptId());
-        m.put("actual", cmd.actual() == null ? null : cmd.actual().toPlainString());
-        m.put("quality", StrUtil.nullToEmpty(cmd.quality()));
-        m.put("transactionNo", StrUtil.nullToEmpty(cmd.transactionNo()));
-        return m;
+    /** qualityResolution 内嵌 receiptId 解析（与 requireReceipt 同口径，供 payload 归一先行使用）。 */
+    private static long receiptIdOf(Map<String, Object> resolution) {
+        Object raw = resolution.get("receiptId");
+        return raw instanceof Number n ? n.longValue() : Long.parseLong(String.valueOf(raw));
     }
 
     private static Map<String, Object> termsPayload(long supplyId, TermsCommand cmd) {
@@ -300,7 +296,24 @@ public class EngMaterialService {
         FrEngProjectDO project = projects.selectById(supply.getProjectId());
         EngGuard.requireActionAllowed(projectService.closureOf(post, supply.getProjectId()), "materials");
         projectService.requireOwned(post, supply.getProjectId(), "materials");
-        var replayed = commands.replayed(post, idempotencyKey, arrivalPayload(supplyId, cmd));
+        // 分支判定+payload 归一先于重放：重放输入=落账输入，三形态同形（评审十三 P1-3）
+        // 形态③：质检处置（对既有 REJECTED 行补「更换后合格」；顶层凭据/流水不适用）
+        String command;
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (cmd.qualityResolution() != null && cmd.parentReceiptId() == null && cmd.actual() == null) {
+            command = "eng-supply-quality";
+            payload.put("receiptId", receiptIdOf(cmd.qualityResolution()));
+        } else if (cmd.parentReceiptId() != null) {
+            command = "eng-reship-receive";
+            payload.put("receiptId", cmd.parentReceiptId());
+            payload.put("actual", EngGuard.requireQuantity(cmd.actual()).toPlainString());
+        } else {
+            command = "eng-supply-arrival";
+            payload.put("supplyId", supplyId);
+            payload.put("actual", EngGuard.requireQuantity(cmd.actual()).toPlainString());
+            payload.put("quality", StrUtil.blankToDefault(cmd.quality(), FrEngSupplyReceiptDO.QUALITY_OK));
+        }
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return supplyView(post, supply);
         }
@@ -308,14 +321,12 @@ public class EngMaterialService {
         if (occurredAt.isAfter(LocalDate.now())) {
             throw exception(ENGINEERING_INPUT_INVALID, "收货日期不能晚于今天");
         }
-        // 形态③：质检处置（对既有 REJECTED 行补「更换后合格」；顶层凭据/流水不适用）
         if (cmd.qualityResolution() != null && cmd.parentReceiptId() == null && cmd.actual() == null) {
             FrEngSupplyReceiptDO receipt = requireReceipt(post, cmd.qualityResolution());
             resolveQuality(post, receipt, cmd.qualityResolution());
             commands.record(post, AGGREGATE, supply.getProjectId(),
                 projectService.bumpRevision(post, projectService.requireProject(post, supply.getProjectId())),
-                "eng-supply-quality",
-                    Map.of("receiptId", receipt.getId()), idempotencyKey);
+                "eng-supply-quality", payload, idempotencyKey);
             return supplyView(post, supply);
         }
         if (cmd.fileAssetId() == null || StrUtil.isBlank(cmd.transactionNo())) {
@@ -330,6 +341,13 @@ public class EngMaterialService {
                 throw exception(ENGINEERING_INPUT_INVALID, "补发记录不存在或已登记实收");
             }
             BigDecimal actual = EngGuard.requireQuantity(cmd.actual());
+            // 补发回填同样受计划量累计上限约束（评审十三 P3-3：此前经「更正+补发」链路可超计划）。
+            // scale-3 定点数精确比较，不加容差——补发恰可补齐计划缺口（received+actual == quantity）必须放行
+            FrEngMaterialDO reshipMaterial = materials.selectById(supply.getMaterialId());
+            if (reshipMaterial != null && EngGuard.goodQuantity(supplyReceipts.selectBySupply(post.orgId(), supply.getId()))
+                    .add(actual).compareTo(reshipMaterial.getQuantity()) > 0) {
+                throw exception(MATERIAL_INVALID, "补发回填后累计到货超过计划数量，请先更正原记录");
+            }
             requireTxnFree(post, cmd.transactionNo());
             supplyReceipts.updateById(new FrEngSupplyReceiptDO().setId(reship.getId())
                     .setActualQuantity(actual)
@@ -338,17 +356,15 @@ public class EngMaterialService {
                     .setFileAssetId(cmd.fileAssetId()).setNote(StrUtil.nullToEmpty(cmd.note())));
             commands.record(post, AGGREGATE, supply.getProjectId(),
                 projectService.bumpRevision(post, projectService.requireProject(post, supply.getProjectId())),
-                "eng-reship-receive",
-                    Map.of("receiptId", reship.getId(), "actual", actual.toPlainString()), idempotencyKey);
+                "eng-reship-receive", payload, idempotencyKey);
             return supplyView(post, supply);
         }
         // 形态①：新收货（RECEIPT 行 + 差异自动 RESHIP）
-        return newReceipt(post, supply, cmd, occurredAt, idempotencyKey);
+        return newReceipt(post, supply, cmd, occurredAt, idempotencyKey, command, payload);
     }
 
     private FrEngSupplyReceiptDO requireReceipt(PostSnapshot post, Map<String, Object> resolution) {
-        Object raw = resolution.get("receiptId");
-        long receiptId = raw instanceof Number n ? n.longValue() : Long.parseLong(String.valueOf(raw));
+        long receiptId = receiptIdOf(resolution);
         FrEngSupplyReceiptDO receipt = supplyReceipts.selectById(receiptId);
         if (receipt == null || receipt.getCompanyId() != post.orgId()
                 || !FrEngSupplyReceiptDO.QUALITY_REJECTED.equals(receipt.getQuality())) {
@@ -374,7 +390,8 @@ public class EngMaterialService {
     }
 
     private Map<String, Object> newReceipt(PostSnapshot post, FrEngSupplyDO supply, ArrivalCommand cmd,
-                                           LocalDate occurredAt, String idempotencyKey) {
+                                           LocalDate occurredAt, String idempotencyKey,
+                                           String command, Map<String, Object> payload) {
         FrEngMaterialDO material = materials.selectById(supply.getMaterialId());
         if (material == null || FrEngMaterialDO.STATUS_CANCELLED.equals(material.getStatus())) {
             throw exception(ENGINEERING_INPUT_INVALID, "材料已取消，不能确认到货");
@@ -384,6 +401,8 @@ public class EngMaterialService {
         if (!FrEngSupplyReceiptDO.QUALITY_OK.equals(quality) && !FrEngSupplyReceiptDO.QUALITY_REJECTED.equals(quality)) {
             throw exception(ENGINEERING_INPUT_INVALID, "请选择有效质量结论");
         }
+        // 行锁（FOR UPDATE）串行化累计上限读-判-写（评审十三 P2-1：并发到货可越过计划量）
+        projects.lockById(supply.getProjectId());
         BigDecimal received = EngGuard.goodQuantity(supplyReceipts.selectBySupply(post.orgId(), supply.getId()));
         BigDecimal expected = cmd.expected() != null ? cmd.expected()
                 : material.getQuantity().subtract(received).max(BigDecimal.ZERO);
@@ -422,9 +441,7 @@ public class EngMaterialService {
         }
         commands.record(post, AGGREGATE, supply.getProjectId(),
                 projectService.bumpRevision(post, projectService.requireProject(post, supply.getProjectId())),
-                "eng-supply-arrival",
-                Map.of("supplyId", supply.getId(), "actual", actual.toPlainString(), "quality", quality),
-                idempotencyKey);
+                command, payload, idempotencyKey);
         return supplyView(post, supply);
     }
 
@@ -451,8 +468,11 @@ public class EngMaterialService {
         FrEngSupplyDO supply = supplies.selectById(receipt.getSupplyId());
         FrEngMaterialDO material = materials.selectById(supply.getMaterialId());
         projectService.requireOwned(post, supply.getProjectId(), "materials");
-        var replayed = commands.replayed(post, idempotencyKey,
-                Map.of("receiptId", receiptId, "actual", cmd.actual() == null ? null : cmd.actual().toPlainString()));
+        // 重放输入=落账输入（评审十三 P1-3）：统一 {"receiptId","to"} 形状
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("receiptId", receiptId);
+        payload.put("to", cmd.actual() == null ? null : cmd.actual().toPlainString());
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return supplyView(post, supply);
         }
@@ -484,8 +504,7 @@ public class EngMaterialService {
                 q, q, corrections, receiptId, post.orgId());
         commands.record(post, AGGREGATE, supply.getProjectId(),
                 projectService.bumpRevision(post, projectService.requireProject(post, supply.getProjectId())),
-                "eng-arrival-correct",
-                Map.of("receiptId", receiptId, "to", q.toPlainString()), idempotencyKey);
+                "eng-arrival-correct", payload, idempotencyKey);
         return supplyView(post, supply);
     }
 
@@ -494,9 +513,13 @@ public class EngMaterialService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> movement(PostSnapshot post, long projectId, MovementCommand cmd, String idempotencyKey) {
         projectService.requireOwned(post, projectId, "materials");
-        var replayed = commands.replayed(post, idempotencyKey,
-                Map.of("materialId", cmd.materialId(), "kind", cmd.kind(),
-                        "quantity", cmd.quantity() == null ? null : cmd.quantity().toPlainString()));
+        // 数量先归一再统一 payload（重放输入=落账输入——评审十三 P1-3）
+        BigDecimal q = EngGuard.requireQuantity(cmd.quantity());
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("materialId", cmd.materialId());
+        payload.put("kind", cmd.kind());
+        payload.put("quantity", q.toPlainString());
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return summary(post, projectId, null);
         }
@@ -510,7 +533,8 @@ public class EngMaterialService {
                 .contains(cmd.kind()) || StrUtil.isBlank(cmd.note())) {
             throw exception(ENGINEERING_INPUT_INVALID, "请选择材料去向并说明用途或原因");
         }
-        BigDecimal q = EngGuard.requireQuantity(cmd.quantity());
+        // 行锁串行化可分配量读-判-写（评审十三 P2-1）
+        FrEngProjectDO project = projects.lockById(projectId);
         FrEngSupplyDO supply = supplies.selectByMaterial(post.orgId(), material.getId());
         BigDecimal good = EngGuard.goodQuantity(supplyReceipts.selectBySupply(post.orgId(), supply.getId()));
         BigDecimal used = movements.selectByProject(post.orgId(), projectId).stream()
@@ -525,9 +549,9 @@ public class EngMaterialService {
                         ? "PENDING_SETTLE" : "REGISTERED")
                 .setReceiverUserId(cmd.receiverUserId())
                 .setNote(StrUtil.trim(cmd.note())).setAuthorUserId(post.userId()));
-        commands.record(post, AGGREGATE, projectId, 0, "eng-material-movement",
-                Map.of("materialId", material.getId(), "kind", cmd.kind(), "quantity", q.toPlainString()),
-                idempotencyKey);
+        // revision 走 bumpRevision：固定 0 会撞 pf_command_event 唯一约束，第二次登记必炸（评审十三 P1-2）
+        commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
+                "eng-material-movement", payload, idempotencyKey);
         return summary(post, projectId, null);
     }
 

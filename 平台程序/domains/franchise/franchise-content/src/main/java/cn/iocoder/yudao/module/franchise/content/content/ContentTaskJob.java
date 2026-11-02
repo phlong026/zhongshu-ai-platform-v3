@@ -76,9 +76,12 @@ public class ContentTaskJob {
 
     private void timeoutOverdue() {
         for (FrContentTaskDO task : store.findPollTimedOut(ContentTaskService.POLL_WINDOW_HOURS, 20)) {
-            store.markUncertain(task.getId(), task.getCompanyId(),
-                    "轮询超窗（" + ContentTaskService.POLL_WINDOW_HOURS + " 小时），已转人工核查；供应商任务号保留可对账");
-            log.warn("content task {} poll window exceeded, parked SUBMISSION_UNCERTAIN", task.getId());
+            boolean submitted = task.getProviderTaskId() != null && !task.getProviderTaskId().isBlank();
+            store.markUncertain(task.getId(), task.getCompanyId(), submitted
+                    ? "轮询超窗（" + ContentTaskService.POLL_WINDOW_HOURS + " 小时），已转人工核查；供应商任务号保留可对账"
+                    : "提交中断滞留超窗，已转人工核查；未取得供应商任务号，不可自动重投");
+            log.warn("content task {} poll window exceeded ({}), parked SUBMISSION_UNCERTAIN",
+                    task.getId(), task.getStatus());
         }
     }
 

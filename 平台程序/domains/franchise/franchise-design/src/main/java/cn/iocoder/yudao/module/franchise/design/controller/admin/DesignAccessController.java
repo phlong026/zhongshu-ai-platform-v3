@@ -150,7 +150,11 @@ public class DesignAccessController {
             return success(access.listProjectsForCustomer(post, customerId, cursor, limit));
         }
         var page = access.listProjects(post, cursor, limit);
-        return success(Map.of("list", page.list(), "nextCursor", page.nextCursor()));
+        // nextCursor 末页为 null——Map.of 不允许 null 值，翻到末页必 NPE（评审基线强制清单 #3）
+        Map<String, Object> view = new java.util.LinkedHashMap<>();
+        view.put("list", page.list());
+        view.put("nextCursor", page.nextCursor());
+        return success(view);
     }
 
     @GetMapping("/projects/{projectId}")

@@ -530,7 +530,7 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
             // 退避期（R7/AC5）：PENDING，可稍后重试
             return new AssetCompleted(assetId, "PENDING", "内容审核服务暂时不可用，请稍后重试");
         } catch (ServiceException e) {
-            if (e.getCode() == ASSET_VALIDATION_FAILED.getCode()) {
+            if (ASSET_VALIDATION_FAILED.getCode().equals(e.getCode())) { // Integer 引用比较越界即恒假，重读分支不可达（评审基线强制清单 #7）
                 // ASSET_VALIDATION_FAILED ≠ 终态 REJECTED（并发 VALIDATING/令牌竞争也抛）——重读实际状态
                 return readAssetState(assetId, null);
             }

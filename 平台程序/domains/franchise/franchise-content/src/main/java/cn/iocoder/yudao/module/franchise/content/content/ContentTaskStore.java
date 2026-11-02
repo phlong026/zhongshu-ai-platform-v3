@@ -145,10 +145,11 @@ public class ContentTaskStore {
                 ROW, limit);
     }
 
-    /** 总轮询窗（2h）超窗的 RUNNING 任务：转 UNCERTAIN 冻结待人工（A2.6）。 */
+    /** 总轮询窗（2h）超窗的 RUNNING/SUBMITTING 任务：转 UNCERTAIN 冻结待人工（A2.6）。
+     *  SUBMITTING 必须纳入：claim 后进程中断的任务此前无任何扫描会拾取（评审十三 P1-2 滞留死区）。 */
     public List<FrContentTaskDO> findPollTimedOut(int hours, int limit) {
         return jdbcTemplate.query(
-                "SELECT * FROM fr_content_task WHERE status = 'RUNNING' "
+                "SELECT * FROM fr_content_task WHERE status IN ('RUNNING','SUBMITTING') "
                         + "AND create_time < now() - (? || ' hours')::interval ORDER BY create_time, id LIMIT ?",
                 ROW, String.valueOf(hours), limit);
     }

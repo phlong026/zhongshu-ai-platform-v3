@@ -76,8 +76,11 @@ public class EngClosureService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> deliver(PostSnapshot post, long projectId, DeliverCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "deliver");
-        var replayed = commands.replayed(post, idempotencyKey,
-                Map.of("date", cmd.date() == null ? "" : cmd.date().toString(), "recipient", StrUtil.nullToEmpty(cmd.recipient())));
+        // 重放输入=落账输入（评审十三 P1-3）：统一用 cmd 原始值的确定性归一形状
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("date", cmd.date() == null ? "" : cmd.date().toString());
+        payload.put("recipient", StrUtil.nullToEmpty(cmd.recipient()));
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return projectService.detail(post, projectId);
         }
@@ -107,7 +110,7 @@ public class EngClosureService {
         projectService.recalcStatus(post, project);
         commands.record(post, AGGREGATE, projectId,
                 projectService.bumpRevision(post, project),
-                "eng-deliver", Map.of("date", date.toString(), "recipient", StrUtil.trim(cmd.recipient())), idempotencyKey);
+                "eng-deliver", payload, idempotencyKey);
         return projectService.detail(post, projectId);
     }
 
@@ -116,8 +119,11 @@ public class EngClosureService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> settle(PostSnapshot post, long projectId, SettleCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "settle");
-        var replayed = commands.replayed(post, idempotencyKey,
-                Map.of("date", cmd.date() == null ? "" : cmd.date().toString(), "note", StrUtil.nullToEmpty(cmd.note())));
+        // 重放输入=落账输入（评审十三 P1-3）：note 一并纳入两处，杜绝重放哈希错位
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("date", cmd.date() == null ? "" : cmd.date().toString());
+        payload.put("note", StrUtil.nullToEmpty(cmd.note()));
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return settleSummary(post, projectId);
         }
@@ -137,7 +143,7 @@ public class EngClosureService {
                 .setSettleAssetId(cmd.assetId()).setSettledBy(post.userId()));
         commands.record(post, AGGREGATE, projectId,
                 projectService.bumpRevision(post, project),
-                "eng-settle", Map.of("date", date.toString()), idempotencyKey);
+                "eng-settle", payload, idempotencyKey);
         return settleSummary(post, projectId);
     }
 
@@ -170,6 +176,11 @@ public class EngClosureService {
 
     public Map<String, Object> settleSummary(PostSnapshot post, long projectId) {
         FrEngProjectDO project = projectService.requireProject(post, projectId);
+        // 金额脱敏（AC12/D-13）：工程岗非负责人不得读取收付款金额（评审十三 P1-1）
+        boolean full = EngProjectService.isFinanceOrAbove(post)
+                || post.userId() == project.getManagerUserId()
+                || (project.getAssignedEngineerUserId() != null
+                        && post.userId() == project.getAssignedEngineerUserId());
         Map<Long, Long> paidByPayable = ledger.paidCentsByPayableIds(post,
                 supplies.selectByProject(post.orgId(), projectId).stream()
                         .map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull).toList());
@@ -198,23 +209,29 @@ public class EngClosureService {
             receivedTotal += confirmed;
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("stage", stage);
-            row.put("expectedCents", expected);
-            row.put("confirmedCents", confirmed);
-            row.put("remainingCents", Math.max(0, expected - confirmed));
+            if (full) {
+                row.put("expectedCents", expected);
+                row.put("confirmedCents", confirmed);
+                row.put("remainingCents", Math.max(0, expected - confirmed));
+            }
             stages.add(row);
         }
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("projectId", projectId);
-        view.put("materialsTotalCents", materialsTotal);
-        view.put("materialsPaidCents", materialsPaid);
-        view.put("materialsRemainingCents", Math.max(0, materialsTotal - materialsPaid));
-        // 项目费用：首批 0 占位（平台 finance 域无经营账簿同构实体，待决②；LedgerQueryPort 预留接口位）
-        view.put("expensesTotalCents", 0L);
-        view.put("expensesPaidCents", 0L);
-        view.put("expensesRemainingCents", 0L);
-        view.put("expensesNote", "项目费用汇总待阶段 3 接入");
-        view.put("collectionStages", stages);
-        view.put("collectionTotalCents", receivedTotal);
+        if (full) {
+            view.put("materialsTotalCents", materialsTotal);
+            view.put("materialsPaidCents", materialsPaid);
+            view.put("materialsRemainingCents", Math.max(0, materialsTotal - materialsPaid));
+            // 项目费用：首批 0 占位（平台 finance 域无经营账簿同构实体，待决②；LedgerQueryPort 预留接口位）
+            view.put("expensesTotalCents", 0L);
+            view.put("expensesPaidCents", 0L);
+            view.put("expensesRemainingCents", 0L);
+            view.put("expensesNote", "项目费用汇总待阶段 3 接入");
+            view.put("collectionStages", stages);
+            view.put("collectionTotalCents", receivedTotal);
+        } else {
+            view.put("collectionStages", stages);
+        }
         return view;
     }
 }
