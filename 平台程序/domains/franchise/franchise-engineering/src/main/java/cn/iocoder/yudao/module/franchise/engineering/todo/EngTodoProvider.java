@@ -1,0 +1,99 @@
+package cn.iocoder.yudao.module.franchise.engineering.todo;
+
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionDO;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionMapper;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionTermDO;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionTermMapper;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngFollowupDO;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngFollowupMapper;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngPlanNodeDO;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngPlanNodeMapper;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectMapper;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.workflow.TodoItem;
+import cn.iocoder.yudao.module.platform.workflow.TodoProvider;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 工程催收回访待办（D-10）：两期未收齐 → 待办（逾期/承诺过期回归分级同蓝本 tasks() 派生口径）。
+ * 仅负责人/指定工程师可见（owner 语义）。
+ */
+@Component
+public class EngTodoProvider implements TodoProvider {
+
+    private final FrEngProjectMapper projects;
+    private final FrEngCollectionTermMapper collectionTerms;
+    private final FrEngCollectionMapper collections;
+    private final FrEngPlanNodeMapper planNodes;
+    private final FrEngFollowupMapper followups;
+
+    public EngTodoProvider(FrEngProjectMapper projects, FrEngCollectionTermMapper collectionTerms,
+                           FrEngCollectionMapper collections, FrEngPlanNodeMapper planNodes,
+                           FrEngFollowupMapper followups) {
+        this.projects = projects;
+        this.collectionTerms = collectionTerms;
+        this.collections = collections;
+        this.planNodes = planNodes;
+        this.followups = followups;
+    }
+
+    @Override
+    public String domain() {
+        return "fr-eng";
+    }
+
+    @Override
+    public List<TodoItem> list(PostSnapshot post) {
+        List<TodoItem> todos = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        for (FrEngProjectDO project : projects.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<FrEngProjectDO>()
+                        .eq(FrEngProjectDO::getCompanyId, post.orgId())
+                        .ne(FrEngProjectDO::getStatus, FrEngProjectDO.STATUS_ARCHIVED))) {
+            boolean own = post.userId() == project.getManagerUserId()
+                    || (project.getAssignedEngineerUserId() != null
+                    && post.userId() == project.getAssignedEngineerUserId());
+            if (!own) {
+                continue;
+            }
+            List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), project.getId());
+            boolean toppingDone = nodes.stream().anyMatch(n ->
+                    FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone())
+                            && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()));
+            LocalDate startDue = nodes.isEmpty() ? null : nodes.get(0).getStartDate();
+            LocalDate toppingDue = nodes.stream()
+                    .filter(n -> FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()))
+                    .findFirst().map(FrEngPlanNodeDO::getEndDate).orElse(null);
+            for (FrEngCollectionTermDO term : collectionTerms.selectByProject(post.orgId(), project.getId())) {
+                if (FrEngCollectionTermDO.STAGE_TOPPING.equals(term.getStage()) && !toppingDone) {
+                    continue; // 封顶款待封顶完成后进入待办（收款侧前置的同向派生）
+                }
+                long confirmed = collections.selectByProject(post.orgId(), project.getId()).stream()
+                        .filter(c -> term.getStage().equals(c.getStage()))
+                        .mapToLong(FrEngCollectionDO::getAmountCents).sum();
+                long remaining = term.getAmountCents() - confirmed;
+                if (remaining <= 0) {
+                    continue;
+                }
+                LocalDate due = FrEngCollectionTermDO.STAGE_START.equals(term.getStage()) ? startDue : toppingDue;
+                boolean overdue = due != null && due.isBefore(today);
+                FrEngFollowupDO last = followups.selectByProject(post.orgId(), project.getId()).stream()
+                        .filter(f -> FrEngFollowupDO.KIND_COLLECTION.equals(f.getKind())
+                                && term.getStage().equals(f.getStage()))
+                        .findFirst().orElse(null);
+                String title = (FrEngCollectionTermDO.STAGE_START.equals(term.getStage()) ? "开工款" : "封顶款")
+                        + (overdue ? "已逾期待催收" : "待登记收款") + " · " + project.getName();
+                todos.add(new TodoItem(domain(), "eng-collect:" + project.getId() + ":" + term.getStage(),
+                        title, overdue ? "overdue" : "pending", remaining,
+                        false, null, "/pages/build/record/index?id=" + project.getId() + "&view=collection",
+                        last != null ? last.getCreateTime() : null));
+            }
+        }
+        return todos;
+    }
+}
