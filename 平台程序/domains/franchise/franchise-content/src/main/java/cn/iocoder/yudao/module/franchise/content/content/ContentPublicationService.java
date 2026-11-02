@@ -31,12 +31,15 @@ public class ContentPublicationService {
     private final FrContentPublicationMapper publications;
     private final ContentDraftService drafts;
     private final cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public ContentPublicationService(FrContentPublicationMapper publications, ContentDraftService drafts,
-                                     cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands) {
+                                     cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands,
+                                     org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.publications = publications;
         this.drafts = drafts;
         this.commands = commands;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /** 幂等入口：duplicate 重放返回既有（POST /content/publications）。 */
@@ -83,8 +86,16 @@ public class ContentPublicationService {
                 .setStatus(status)
                 .setVersions(versionsJson(1, status));
         row.setSignature(signatureOf(row));
+        // JSONB 列（versions）经 JdbcTemplate CAST 写入（MyBatis String 直写 jsonb 会 42804）
         try {
-            publications.insert(row);
+            jdbcTemplate.update(
+                    "INSERT INTO fr_content_publication (id, company_id, author_user_id, work_id, title, "
+                            + "publish_text, tags, cover_asset_id, account_id, platform, scheduled_at, status, "
+                            + "versions, signature) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?)",
+                    row.getId(), companyId, userId, workId, row.getTitle(), row.getPublishText(), row.getTags(),
+                    row.getCoverAssetId(), accountId, platform, scheduledAt, status,
+                    row.getVersions(), row.getSignature());
         } catch (DuplicateKeyException e) {
             throw exception(INPUT_INVALID, "该作品在此账号已有进行中的发布记录");
         }
@@ -102,13 +113,11 @@ public class ContentPublicationService {
         }
         int updated;
         try {
-            updated = publications.update(new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<FrContentPublicationDO>()
-                    .eq(FrContentPublicationDO::getId, publicationId)
-                    .eq(FrContentPublicationDO::getStatus, "verify")
-                    .set(FrContentPublicationDO::getStatus, "published")
-                    .set(FrContentPublicationDO::getPublishedUrl, publishedUrl.trim())
-                    .set(FrContentPublicationDO::getPublishedAt, OffsetDateTime.now())
-                    .set(FrContentPublicationDO::getVersions, bumpVersions(row, "published")));
+            updated = jdbcTemplate.update(
+                    "UPDATE fr_content_publication SET status = 'published', published_url = ?, published_at = now(), "
+                            + "versions = CAST(? AS jsonb), update_time = now() "
+                            + "WHERE id = ? AND status = 'verify'",
+                    publishedUrl.trim(), bumpVersions(row, "published"), publicationId);
         } catch (DuplicateKeyException e) {
             throw exception(PUBLICATION_URL_TAKEN);
         }
@@ -126,12 +135,11 @@ public class ContentPublicationService {
 
     public FrContentPublicationDO fail(long companyId, long userId, long publicationId, String reason) {
         FrContentPublicationDO row = requireOwned(companyId, userId, publicationId);
-        publications.update(new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<FrContentPublicationDO>()
-                .eq(FrContentPublicationDO::getId, publicationId)
-                .eq(FrContentPublicationDO::getStatus, "publishing")
-                .set(FrContentPublicationDO::getStatus, "failed")
-                .set(FrContentPublicationDO::getFailureReason, clip(reason, 500))
-                .set(FrContentPublicationDO::getVersions, bumpVersions(row, "failed")));
+        jdbcTemplate.update(
+                "UPDATE fr_content_publication SET status = 'failed', failure_reason = ?, "
+                        + "versions = CAST(? AS jsonb), update_time = now() "
+                        + "WHERE id = ? AND status = 'publishing'",
+                clip(reason, 500), bumpVersions(row, "failed"), publicationId);
         return requireOwned(companyId, userId, publicationId);
     }
 
@@ -153,11 +161,10 @@ public class ContentPublicationService {
 
     private void transition(long companyId, long userId, long publicationId, String from, String to) {
         FrContentPublicationDO row = requireOwned(companyId, userId, publicationId);
-        publications.update(new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<FrContentPublicationDO>()
-                .eq(FrContentPublicationDO::getId, publicationId)
-                .eq(FrContentPublicationDO::getStatus, from)
-                .set(FrContentPublicationDO::getStatus, to)
-                .set(FrContentPublicationDO::getVersions, bumpVersions(row, to)));
+        jdbcTemplate.update(
+                "UPDATE fr_content_publication SET status = ?, versions = CAST(? AS jsonb), update_time = now() "
+                        + "WHERE id = ? AND status = ?",
+                to, bumpVersions(row, to), publicationId, from);
     }
 
     /** 签名防篡改（direct-v1）：内容指纹冻结于创建时（work/account/title/text/platform/scheduledAt）。 */

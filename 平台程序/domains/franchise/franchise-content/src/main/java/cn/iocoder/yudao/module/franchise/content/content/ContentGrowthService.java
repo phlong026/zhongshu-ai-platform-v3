@@ -43,15 +43,14 @@ public class ContentGrowthService {
 
         // 转化：source 命中前缀且已关联客户（fr_customer.created_by_lead 或 status=LINKED 语义按 crm 表实构）
         Integer converted = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM fr_lead l JOIN fr_customer c ON c.company_id = l.company_id "
-                        + "AND c.phone = l.phone WHERE l.company_id = ? AND l.source LIKE ? "
-                        + "AND l.status = 'LINKED'",
+                "SELECT COUNT(*) FROM fr_lead WHERE company_id = ? AND source LIKE ? "
+                        + "AND status IN ('LINKED','CONVERTED')",
                 Integer.class, companyId, SOURCE_PREFIX + "%");
 
         // 按发布记录维度：每条 published 的客资数
         List<Map<String, Object>> perPublication = jdbcTemplate.queryForList(
                 "SELECT p.id, p.title, p.published_url, COUNT(l.id) AS leads, "
-                        + "SUM(CASE WHEN l.status = 'LINKED' THEN 1 ELSE 0 END) AS converted "
+                        + "SUM(CASE WHEN l.status IN ('LINKED','CONVERTED') THEN 1 ELSE 0 END) AS converted "
                         + "FROM fr_content_publication p "
                         + "LEFT JOIN fr_lead l ON l.company_id = p.company_id "
                         + "AND l.source = ? || p.id "

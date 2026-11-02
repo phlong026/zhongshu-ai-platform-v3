@@ -77,8 +77,8 @@ public class ContentDraftController {
                 "lastFrameAssetId", row.getLastFrameAssetId() == null ? 0L : row.getLastFrameAssetId(),
                 "parameters", row.getParameters() == null ? Map.of()
                         : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(row.getParameters(), Map.class),
-                "references", row.getReferences() == null ? Map.of()
-                        : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(row.getReferences(), Map.class)));
+                "references", row.getReferenceMedia() == null ? Map.of()
+                        : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(row.getReferenceMedia(), Map.class)));
     }
 
     @PutMapping("/video-draft")

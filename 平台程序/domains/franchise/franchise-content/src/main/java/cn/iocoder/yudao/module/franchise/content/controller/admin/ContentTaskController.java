@@ -38,6 +38,8 @@ public class ContentTaskController {
     private ContentDraftService drafts;
     @Resource
     private FrContentTaskMapper taskMapper;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.content.provider.VideoGenerationPort video;
 
     private PostSnapshot post() {
         return currentPost.require();
@@ -85,6 +87,24 @@ public class ContentTaskController {
         String title = body == null || body.get("title") == null ? null : String.valueOf(body.get("title"));
         FrContentDraftDO work = drafts.saveWork(post.orgId(), post.userId(), id, title);
         return success(Map.of("workId", work.getId(), "kind", work.getKind(), "status", work.getStatus()));
+    }
+
+    @GetMapping("{id}/result-url-status")
+    @Operation(summary = "成片直链 HEAD 过期探测（A2.3：403/404/410=已失效；网络=unknown 不误报）")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<Map<String, Object>> resultUrlStatus(@PathVariable("id") Long id) {
+        PostSnapshot post = post();
+        FrContentTaskDO task = tasks.requireOwned(post.orgId(), id);
+        if (task.getResultUrl() == null || task.getResultUrl().isBlank()) {
+            return success(Map.of("expired", false, "message", ""));
+        }
+        Boolean expired = video.probeUrlExpired(task.getResultUrl(),
+                new cn.iocoder.yudao.module.franchise.content.provider.ProviderCallAudit(post.orgId(), task.getId()));
+        if (Boolean.TRUE.equals(expired)) {
+            return success(Map.of("expired", true, "message",
+                    "成片文件已失效：生成服务提供的下载链接已过期，无法再预览、下载或保存。如需帮助，请联系客服并提供任务编号。"));
+        }
+        return success(Map.of("expired", false, "message", ""));
     }
 
     static Map<String, Object> viewOf(FrContentTaskDO task) {

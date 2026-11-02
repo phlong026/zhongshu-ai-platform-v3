@@ -51,7 +51,10 @@ public class ContentScriptService {
     /** POST /content/links/parse：分享链接解析任务。 */
     @Transactional(rollbackFor = Exception.class)
     public FrContentTaskDO parseLink(PostSnapshot post, String url, String idempotencyKey) {
-        Map<String, Object> input = Map.of("command", "link-parse", "url", url == null ? "" : url.trim());
+        // LinkedHashMap 固定插入序：Map.of 跨 JVM 迭代顺序随机（SALT），同键重放哈希会漂移
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("command", "link-parse");
+        input.put("url", url == null ? "" : url.trim());
         var replay = commands.replayed(post, idempotencyKey, input);
         if (replay.isPresent()) {
             return tasks.requireOwned(post.orgId(), replay.get().getAggregateId());
@@ -152,10 +155,10 @@ public class ContentScriptService {
                               String platform, String rawText, String requirement, Long personaId,
                               String personaSnapshotJson, String promptSnapshotJson) {
         jdbcTemplate.update(
-                "INSERT INTO fr_content_script (id, company_id, author_user_id, source_type, source_url, platform, "
-                        + "raw_text, requirement, persona_id, persona_snapshot, prompt_snapshot) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb))",
-                IdWorker.getId(), companyId, userId,
+                "INSERT INTO fr_content_script (id, company_id, author_user_id, task_id, source_type, source_url, "
+                        + "platform, raw_text, requirement, persona_id, persona_snapshot, prompt_snapshot) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb))",
+                IdWorker.getId(), companyId, userId, taskId,
                 sourceType == null ? "manual" : sourceType, sourceUrl, platform,
                 rawText, requirement, personaId, personaSnapshotJson, promptSnapshotJson);
     }

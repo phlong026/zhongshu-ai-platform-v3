@@ -79,7 +79,7 @@ public class ContentTaskStore {
     public boolean persistProviderTask(long id, long companyId, String provider, String providerTaskId) {
         return jdbcTemplate.update(
                 "UPDATE fr_content_task SET status = 'RUNNING', provider = ?, provider_task_id = ?, "
-                        + "failed_reason = NULL, update_time = now() "
+                        + "failed_reason = NULL "
                         + "WHERE id = ? AND company_id = ? AND status IN ('QUEUED','SUBMITTING') "
                         + "AND provider_task_id IS NULL",
                 provider, providerTaskId, id, companyId) > 0;
@@ -90,7 +90,7 @@ public class ContentTaskStore {
                                String resultUrl, String resultJson) {
         return jdbcTemplate.update(
                 "UPDATE fr_content_task SET status = 'SUCCEEDED', provider = ?, engine = ?, model = ?, "
-                        + "result_url = ?, result_snapshot = CAST(? AS jsonb), complete_time = now(), update_time = now() "
+                        + "result_url = ?, result_snapshot = CAST(? AS jsonb), complete_time = now() "
                         + "WHERE id = ? AND company_id = ? AND status IN ('QUEUED','SUBMITTING','RUNNING')",
                 provider, engine, model, resultUrl, resultJson, id, companyId) > 0;
     }
@@ -100,7 +100,7 @@ public class ContentTaskStore {
         return jdbcTemplate.update(
                 "UPDATE fr_content_task SET status = 'SUCCEEDED', result_url = ?, "
                         + "result_snapshot = COALESCE(CAST(? AS jsonb), result_snapshot), "
-                        + "complete_time = now(), update_time = now() "
+                        + "complete_time = now() "
                         + "WHERE id = ? AND company_id = ? AND status IN ('RUNNING','SUBMISSION_UNCERTAIN')",
                 resultUrl, resultJson, id, companyId) > 0;
     }
@@ -108,7 +108,7 @@ public class ContentTaskStore {
     /** 终态失败（明确拒绝/供应商明确失败）。 */
     public boolean fail(long id, long companyId, String reason) {
         return jdbcTemplate.update(
-                "UPDATE fr_content_task SET status = 'FAILED', failed_reason = ?, complete_time = now(), update_time = now() "
+                "UPDATE fr_content_task SET status = 'FAILED', failed_reason = ?, complete_time = now() "
                         + "WHERE id = ? AND company_id = ? AND status <> 'SUCCEEDED'",
                 clip(reason), id, companyId) > 0;
     }
@@ -116,7 +116,7 @@ public class ContentTaskStore {
     /** 提交不确定：冻结计费、绝不自动重投，出路=人工核验或对账轮询（A2.2）。 */
     public boolean markUncertain(long id, long companyId, String reason) {
         return jdbcTemplate.update(
-                "UPDATE fr_content_task SET status = 'SUBMISSION_UNCERTAIN', failed_reason = ?, update_time = now() "
+                "UPDATE fr_content_task SET status = 'SUBMISSION_UNCERTAIN', failed_reason = ? "
                         + "WHERE id = ? AND company_id = ? AND status <> 'SUCCEEDED'",
                 clip(reason), id, companyId) > 0;
     }
@@ -124,7 +124,7 @@ public class ContentTaskStore {
     /** 引擎元数据补充（copy 任务：deepseek/rules 标注；D-1.5-2）。 */
     public boolean noteEngine(long id, long companyId, String engine, String model) {
         return jdbcTemplate.update(
-                "UPDATE fr_content_task SET engine = ?, model = ?, update_time = now() "
+                "UPDATE fr_content_task SET engine = ?, model = ? "
                         + "WHERE id = ? AND company_id = ?",
                 engine, model, id, companyId) > 0;
     }

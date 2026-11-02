@@ -25,7 +25,8 @@ public class FrContentVideoDraftDO {
     private Long firstFrameAssetId;
     private Long lastFrameAssetId;
     private String parameters;
-    private String references;
+    /** 参考素材（JSONB；任务书 §四 名为 references——PG 保留字，列名定为 reference_media） */
+    private String referenceMedia;
     private OffsetDateTime createTime;
     private OffsetDateTime updateTime;
 

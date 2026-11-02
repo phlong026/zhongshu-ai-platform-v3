@@ -55,6 +55,7 @@ public class ContentTaskJob {
         for (FrContentTaskDO task : queued) {
             try {
                 tasks.submitOne(task);
+                settleIfSucceeded(task); // 同步任务（link_parse/Flash ASR/copy）提交相即终态，当场收尾
             } catch (RuntimeException e) {
                 log.warn("content task {} submit crashed: {}", task.getId(), e.getMessage());
             }

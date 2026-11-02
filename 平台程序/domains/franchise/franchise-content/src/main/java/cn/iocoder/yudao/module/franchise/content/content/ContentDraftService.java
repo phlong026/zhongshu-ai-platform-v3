@@ -123,19 +123,19 @@ public class ContentDraftService {
         FrContentVideoDraftDO existing = videoDraft(companyId, userId);
         long id = existing == null ? IdWorker.getId() : existing.getId();
         String parameters = body.get("parameters") == null ? null : JsonUtils.toJsonString(body.get("parameters"));
-        String references = body.get("references") == null ? null : JsonUtils.toJsonString(body.get("references"));
+        String referenceMedia = body.get("references") == null ? null : JsonUtils.toJsonString(body.get("references"));
         jdbcTemplate.update(
                 "INSERT INTO fr_content_video_draft (id, company_id, author_user_id, mode, description, "
-                        + "first_frame_asset_id, last_frame_asset_id, parameters, references) "
+                        + "first_frame_asset_id, last_frame_asset_id, parameters, reference_media) "
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb)) "
                         + "ON CONFLICT (author_user_id) DO UPDATE SET mode = EXCLUDED.mode, "
                         + "description = EXCLUDED.description, first_frame_asset_id = EXCLUDED.first_frame_asset_id, "
                         + "last_frame_asset_id = EXCLUDED.last_frame_asset_id, parameters = EXCLUDED.parameters, "
-                        + "references = EXCLUDED.references, update_time = now()",
+                        + "reference_media = EXCLUDED.reference_media, update_time = now()",
                 id, companyId, userId, mode,
                 body.get("description") == null ? null : String.valueOf(body.get("description")),
                 longOrNull(body.get("firstFrameAssetId")), longOrNull(body.get("lastFrameAssetId")),
-                parameters, references);
+                parameters, referenceMedia);
         return videoDraft(companyId, userId);
     }
 

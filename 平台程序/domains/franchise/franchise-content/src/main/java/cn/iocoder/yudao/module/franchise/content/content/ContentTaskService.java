@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.franchise.content.content.ContentRulesRewrite.Rewritten;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.franchise.content.provider.AsrPort;
+import cn.iocoder.yudao.module.franchise.content.provider.ContentProviderProperties;
 import cn.iocoder.yudao.module.franchise.content.provider.ContentProviderException;
 import cn.iocoder.yudao.module.franchise.content.provider.LinkParsePort;
 import cn.iocoder.yudao.module.franchise.content.provider.OralVideoPort;
@@ -54,12 +55,13 @@ public class ContentTaskService {
     private final AssetAccessPort assets;
     private final StoreServiceAccountPort accounts;
     private final FranchiseCommands commands;
+    private final ContentProviderProperties providerProperties;
 
     public ContentTaskService(ContentTaskStore store, ContentQuotaService quota,
                               LinkParsePort linkParse, AsrPort asr, ScriptRewritePort rewrite,
                               OralVideoPort oral, VideoGenerationPort video,
                               AssetAccessPort assets, StoreServiceAccountPort accounts,
-                              FranchiseCommands commands) {
+                              FranchiseCommands commands, ContentProviderProperties providerProperties) {
         this.store = store;
         this.quota = quota;
         this.linkParse = linkParse;
@@ -70,6 +72,13 @@ public class ContentTaskService {
         this.assets = assets;
         this.accounts = accounts;
         this.commands = commands;
+        this.providerProperties = providerProperties;
+    }
+
+    /** 任务行 provider 列记实际服务通道：fake 模式统一记 fake（§四 provider 枚举含 fake）。 */
+    private String channel(String realProvider) {
+        return providerProperties.getProvider() == ContentProviderProperties.ProviderMode.FAKE
+                ? "fake" : realProvider;
     }
 
     // ---------------- 幂等入口（POST /content/tasks，控制器直连） ----------------
@@ -256,7 +265,7 @@ public class ContentTaskService {
         result.put("author", link.author());
         result.put("platform", link.platform());
         result.put("durationMs", link.durationMs());
-        store.succeedSync(task.getId(), task.getCompanyId(), "diadi", null, null, null,
+        store.succeedSync(task.getId(), task.getCompanyId(), channel("diadi"), null, null, null,
                 JsonUtils.toJsonString(result));
     }
 
@@ -266,13 +275,13 @@ public class ContentTaskService {
         Double durationSec = input.get("durationSec") == null ? null
                 : Double.parseDouble(String.valueOf(input.get("durationSec")));
         Consumer<String> onSubmitted = providerTaskId ->
-                store.persistProviderTask(task.getId(), task.getCompanyId(), "dashscope", providerTaskId);
+                store.persistProviderTask(task.getId(), task.getCompanyId(), channel("dashscope"), providerTaskId);
         AsrPort.Transcript transcript = asr.transcribe(new AsrPort.AsrCall(
                 audioUrl, durationSec, null, onSubmitted, audit));
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("text", transcript.text());
         result.put("durationSec", transcript.durationSec());
-        store.succeedSync(task.getId(), task.getCompanyId(), "dashscope", null, null, null,
+        store.succeedSync(task.getId(), task.getCompanyId(), channel("dashscope"), null, null, null,
                 JsonUtils.toJsonString(result));
     }
 
@@ -316,7 +325,7 @@ public class ContentTaskService {
                 input.get("title") == null ? null : String.valueOf(input.get("title")),
                 subtitle,
                 providerTaskId -> store.persistProviderTask(task.getId(), task.getCompanyId(),
-                        "hifly", providerTaskId),
+                        channel("hifly"), providerTaskId),
                 audit));
     }
 
@@ -340,7 +349,7 @@ public class ContentTaskService {
                         Integer.parseInt(String.valueOf(input.get("duration"))),
                         input.get("ratio") == null ? "16:9" : String.valueOf(input.get("ratio"))),
                 providerTaskId -> store.persistProviderTask(task.getId(), task.getCompanyId(),
-                        "metaso", providerTaskId),
+                        channel("metaso"), providerTaskId),
                 audit);
     }
 

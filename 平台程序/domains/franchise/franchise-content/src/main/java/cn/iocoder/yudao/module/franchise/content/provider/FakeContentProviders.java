@@ -19,13 +19,30 @@ public class FakeContentProviders {
     private final ContentProviderProperties properties;
     private final ContentProviderCallRecorder recorder;
 
+    /** e2e 运行时切换结局/探测结果（仅 dev 端点写入；生产无此 Bean 与端点）。 */
+    private static final java.util.concurrent.atomic.AtomicReference<String> OUTCOME_OVERRIDE =
+            new java.util.concurrent.atomic.AtomicReference<>();
+    private static final java.util.concurrent.atomic.AtomicReference<Boolean> PROBE_EXPIRED_OVERRIDE =
+            new java.util.concurrent.atomic.AtomicReference<>();
+
     public FakeContentProviders(ContentProviderProperties properties, ContentProviderCallRecorder recorder) {
         this.properties = properties;
         this.recorder = recorder;
     }
 
     public String outcome() {
-        return properties.getFake().getOutcome();
+        String override = OUTCOME_OVERRIDE.get();
+        return override != null ? override : properties.getFake().getOutcome();
+    }
+
+    /** e2e 钩子：设置结局覆盖（ok|failed|uncertain）与直链探测覆盖（true=已失效）。 */
+    public static void override(String outcome, Boolean probeExpired) {
+        OUTCOME_OVERRIDE.set(outcome);
+        PROBE_EXPIRED_OVERRIDE.set(probeExpired);
+    }
+
+    static Boolean probeOverride() {
+        return PROBE_EXPIRED_OVERRIDE.get();
     }
 
     private void guardOutcomeFailed() {
@@ -37,15 +54,15 @@ public class FakeContentProviders {
         }
     }
 
-    private void record(String provider, String endpoint, String resultCode, Integer units) {
-        recorder.record(null, null, provider, endpoint, 0, resultCode, units);
+    private void record(ProviderCallAudit audit, String provider, String endpoint, String resultCode, Integer units) {
+        recorder.record(audit.companyId(), audit.taskId(), provider, endpoint, 0, resultCode, units);
     }
 
     // ---------------- 五端口实现 ----------------
 
     public LinkParsePort linkParsePort() {
         return (shareUrl, audit) -> {
-            record("fake", "api/parse", "OK", 1);
+            record(audit, "fake", "api/parse", "OK", 1);
             guardOutcomeFailed();
             return new LinkParsePort.ParsedLink("douyin",
                     properties.getFake().getResultUrl(),
@@ -56,7 +73,7 @@ public class FakeContentProviders {
 
     public AsrPort asrPort() {
         return call -> {
-            record("fake", "asr/transcribe", "OK", 1);
+            record(call.audit(), "fake", "asr/transcribe", "OK", 1);
             guardOutcomeFailed();
             return new AsrPort.Transcript("fake 转写文案：这是语音转写通道返回的原文。", call.durationSec());
         };
@@ -64,7 +81,7 @@ public class FakeContentProviders {
 
     public ScriptRewritePort scriptRewritePort() {
         return call -> {
-            record("fake", "chat/completions", "OK", 1);
+            record(call.audit(), "fake", "chat/completions", "OK", 1);
             guardOutcomeFailed();
             return new ScriptRewritePort.Result(
                     "fake 改写稿：" + call.sourceText(), "fake-chat");
@@ -76,7 +93,7 @@ public class FakeContentProviders {
             @Override
             public String createByTts(TtsRequest request) {
                 int seconds = Math.max(1, (request.text().length() + 1) / 2); // 口播秒数=字数÷2 向上取整
-                record("fake", "video/create_by_tts", "SUBMITTED", seconds);
+                record(request.audit(), "fake", "video/create_by_tts", "SUBMITTED", seconds);
                 guardOutcomeFailed();
                 String taskId = "fake-hifly-" + UUID.randomUUID();
                 if (request.onCreated() != null) {
@@ -87,7 +104,7 @@ public class FakeContentProviders {
 
             @Override
             public Snapshot poll(String providerTaskId, ProviderCallAudit audit) {
-                record("fake", "video/task", "DONE", null);
+                record(audit, "fake", "video/task", "DONE", null);
                 guardOutcomeFailed();
                 return new Snapshot("DONE", properties.getFake().getResultUrl(), 62);
             }
@@ -99,7 +116,7 @@ public class FakeContentProviders {
             @Override
             public String submit(H3Request request, java.util.function.Consumer<String> onCreated,
                                  ProviderCallAudit audit) {
-                record("fake", "video_generation", "SUBMITTED", request.durationSeconds());
+                record(audit, "fake", "video_generation", "SUBMITTED", request.durationSeconds());
                 guardOutcomeFailed();
                 String taskId = "fake-h3-" + UUID.randomUUID();
                 if (onCreated != null) {
@@ -110,7 +127,7 @@ public class FakeContentProviders {
 
             @Override
             public H3Snapshot poll(String providerTaskId, ProviderCallAudit audit) {
-                record("fake", "query/video_generation", "SUCCEEDED", null);
+                record(audit, "fake", "query/video_generation", "SUCCEEDED", null);
                 guardOutcomeFailed();
                 return new H3Snapshot("SUCCEEDED", properties.getFake().getResultUrl(),
                         8.0, null);
@@ -118,9 +135,10 @@ public class FakeContentProviders {
 
             @Override
             public Boolean probeUrlExpired(String url, ProviderCallAudit audit) {
-                record("fake", "result-head", "OK", null);
+                record(audit, "fake", "result-head", "OK", null);
                 guardOutcomeFailed();
-                return false;
+                Boolean override = probeOverride();
+                return override != null ? override : false;
             }
         };
     }
