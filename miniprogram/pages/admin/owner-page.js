@@ -1,4 +1,5 @@
 const W = require('./owner-model');
+const PP = require('../../utils/platform-performance'); // 阶段 3 API 态（绩效 Tab 平台汇总）
 const H = require('./owner-home');
 const B = require('./owner-business');
 const P = require('./owner-performance');
@@ -25,6 +26,14 @@ module.exports = function(kind) {
     onShow() {
       if (!W.allowed()) { this.setData({ready:false,desk:null,rows:[]}); wx.switchTab({url:'/pages/profile/index'}); return; }
       this.refresh();
+      this.refreshPlatSummary();
+    },
+    refreshPlatSummary() { // API 态：三组指标+目标对照（绩效 Tab 平台真源；失败静默降级本地演示）
+      if (!PP.online()) return;
+      const period = PP.currentPeriod();
+      Promise.all([PP.api.tasks.summary(period), PP.api.goals.get(period)])
+        .then(([summary, goals]) => { this.platSummary = { summary, goals }; if (this.kind === 'performance') this.refresh(); })
+        .catch(() => {});
     },
     refresh() {
       try {
@@ -32,7 +41,7 @@ module.exports = function(kind) {
         this.ownerSnapshot = desk;
         desk.home = H.home(desk);
         Object.assign(desk, B.forView(view, desk));
-        if (view === 'performance') desk.performance = P.build(desk, this.data.selectedDepartment, this.data.expandedPerson);
+        if (view === 'performance') desk.performance = PP.online() ? PP.platGroups(this.platSummary) : P.build(desk, this.data.selectedDepartment, this.data.expandedPerson);
         const keyword = this.data.keyword.trim();
         const homeRows = H.rows(view, desk, this.options);
         let rows = homeRows !== null ? homeRows : view === 'todos' ? H.todoRows(desk, this.options.tab || 'all') : ['receivables','payables','stat'].includes(view) ? B.rows(view, desk, this.options.id) : W.rowsFor(view, desk, this.options.person, this.options.department, this.options.tab || 'all');

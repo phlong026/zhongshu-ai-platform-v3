@@ -4,6 +4,7 @@ const X = require('../../../utils/access');
 const O = require('../../../utils/organization');
 const N = require('../../../utils/page-navigation');
 const Files = require('../../../utils/sample-files');
+const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（提成在线；失败降级本地演示）
 
 const clone = require('../../../utils/clone');
 const money = require('../../../utils/money').money;
@@ -15,6 +16,7 @@ Page({
   onLoad(options = {}) { this.options = options; this.selectedProjectId = options.id || ''; },
   onShow() { this.refresh(); },
   refresh() {
+    if (P.online()) return this.refreshOnline();
     try {
       const actor = X.context();
       if (!actor.active || !['boss','owner','finance','finance-lead'].includes(actor.role)) throw Error('当前身份无本组织提成查看权限');
@@ -43,6 +45,32 @@ Page({
       this.setData({ ...clean(), error:error.message });
     }
   },
+  async refreshOnline() { // API 态：对账行在线（选人从行派生+本地 staff 兜底）
+    const actor = X.context();
+    try {
+      const rows = await P.api.commission.rows();
+      const view = (rows || []).map(row => P.commissionRowView(row, actor.role));
+      const projects = view.map(row => ({ id: row.projectId, name: row.project }));
+      if (!projects.some(row => row.id === this.selectedProjectId)) this.selectedProjectId = projects[0]?.id || '';
+      const selected = view.find(row => row.projectId === this.selectedProjectId);
+      const staff = P.memberOptionsFromRows(view.flatMap(row => [{ assigneeUserId: row.assignee, assigneeName: row.assignee }]))
+        .concat((M.load().staff || []).filter(x => x.active !== false).map(x => ({ id: x.id, name: x.name })));
+      const staffIndex = Math.max(0, staff.findIndex(x => x.id === selected?.assignee));
+      const finance = ['finance', 'finance-lead'].includes(actor.role), actualBoss = actor.role === 'boss';
+      this.setData({
+        ready: true, error: '', actor: { role: actor.role, companyId: actor.companyId, demo: actor.demo },
+        canEditPolicy: actualBoss, commissionRows: view, commissionProjects: projects,
+        commissionProjectIndex: Math.max(0, projects.findIndex(x => x.id === this.selectedProjectId)),
+        commissionStaff: staff, commissionStaffIndex: staffIndex,
+        commissionForm: { ...blankForm(), amount: selected ? String((selected.totalText || '¥ 0').replace(/[¥,]/g, '')) : '' },
+        platPerf: true
+      });
+    } catch (error) {
+      const msg = P.errorText(error);
+      this.setData({ ...clean(), error: msg, ready: true });
+      wx.showToast({ title: msg, icon: 'none' });
+    }
+  },
   commissionProject(event) {
     const index = Number(event.detail.value), project = this.data.commissionProjects[index];
     if (!project) return;
@@ -64,13 +92,31 @@ Page({
       wx.chooseMessageFile({ count:1, type:'file', success:result => { const file=result.tempFiles[0]; wx.saveFile({ tempFilePath:file.path, success:saved => this.setData({ 'commissionForm.file':{ name:file.name, path:saved.savedFilePath }, error:'' }), fail:() => this.fail('凭据未保存，请重新上传') }); } });
     } });
   },
-  commissionAction(event) {
+  async commissionAction(event) {
     if (this.data.busy) return;
     const data = event.currentTarget.dataset, action = data.action;
     const id = data.id || this.selectedProjectId;
     const form = clone(this.data.commissionForm);
     if (data.stage) form.stage = data.stage;
     if (data.version !== undefined) form.expectedVersion = Number(data.version);
+    if (P.online() && ['commission-policy', 'commission-release', 'commission-reconcile'].includes(action)) {
+      try {
+        this.setData({ busy: true, error: '' });
+        const person = this.data.commissionStaff[this.data.commissionStaffIndex] || {};
+        if (action === 'commission-policy') {
+          await P.perform('policy', { projectId: id, amount: form.amount, assigneeUserId: person.id,
+            assigneeName: person.name, evidenceRef: form.file, note: form.note });
+        } else if (action === 'commission-release') {
+          await P.perform('release', { projectId: id, stage: form.stage });
+        } else {
+          await P.perform('reconcile', { projectId: id, stage: form.stage, evidenceRef: form.file, note: form.note });
+        }
+        this.refresh();
+        wx.showToast({ title: action === 'commission-policy' ? '提成规则已保存' : action === 'commission-release' ? '提成应付已生成' : '人工核对已记录', icon: 'none' });
+      } catch (error) { this.fail(P.errorText(error)); }
+      finally { this.setData({ busy: false }); }
+      return;
+    }
     try {
       this.setData({ busy:true, error:'' });
       M.mutate(state => M.apply(state, action, id, form));
