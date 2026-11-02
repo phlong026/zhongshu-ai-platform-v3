@@ -68,6 +68,7 @@ public class PerfGoalService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> save(PostSnapshot post, GoalCommand cmd, String idempotencyKey) {
         requirePeriod(cmd.period());
+        PerfSupport.requireManage(post); // P1-4
         var replayed = commands.replayed(post, idempotencyKey, payload(cmd));
         if (replayed.isPresent()) {
             return get(post, cmd.period());
@@ -92,31 +93,51 @@ public class PerfGoalService {
                     .setNodesCount(cmd.nodesCount())
                     .setVersion(nextVersion));
         }
-        jdbcTemplate.update("UPDATE fr_perf_goal SET department_goals = CAST(? AS jsonb), "
-                        + "staff_department_goals = CAST(? AS jsonb), legacy_staff = CAST(? AS jsonb), "
-                        + "history = CAST(? AS jsonb), update_time = now() WHERE id = ? AND company_id = ?",
-                json(cmd.departmentGoals()), json(cmd.staffDepartmentGoals()), json(cmd.legacyStaff()),
-                JsonUtil.append(goal.getHistory(), Map.of("version", goal.getVersion(),
-                        "at", String.valueOf(java.time.OffsetDateTime.now()), "actorUserId", post.userId())),
-                goal.getId(), post.orgId());
+        // JSONB 字段 merge 语义：未传（null）不覆盖既有值（部分更新不清空三级目标——Codex R1 修复发现的覆盖丢失）
+        java.util.Map<String, String> jsonbCols = new java.util.HashMap<>();
+        if (json(cmd.departmentGoals()) != null) {
+            jsonbCols.put("department_goals", json(cmd.departmentGoals()));
+        }
+        if (json(cmd.staffDepartmentGoals()) != null) {
+            jsonbCols.put("staff_department_goals", json(cmd.staffDepartmentGoals()));
+        }
+        if (json(cmd.legacyStaff()) != null) {
+            jsonbCols.put("legacy_staff", json(cmd.legacyStaff()));
+        }
+        jsonbCols.put("history", JsonUtil.append(goal.getHistory(), Map.of("version", goal.getVersion(),
+                "at", String.valueOf(java.time.OffsetDateTime.now()), "actorUserId", post.userId())));
+        JsonUtil.updateJsonb(jdbcTemplate, "fr_perf_goal", jsonbCols, goal.getId(), post.orgId());
         // command_event 按 (聚合, revision) 防重——revision 用目标 version（每次保存递增，阶段 2 同款教训）
         commands.record(post, AGGREGATE, goal.getId(), nextVersion,
                 "perf-goal-save", payload(cmd), idempotencyKey);
         return get(post, cmd.period());
     }
 
-    /** cycle submit 的 target 来源（P3-13）：本人部门级→旧标量回退 */
+    /** cycle submit 的 target 来源（P3-13/P1-10）：本人部门级任意指标非空即视为已设目标 → 旧标量回退 */
     Long targetForUser(FrPerfGoalDO goal, Long userId, String dept) {
         if (goal == null) {
             return null;
         }
         Map<String, Object> staff = JsonUtil.parseMap(goal.getStaffDepartmentGoals());
-        if (staff != null && userId != null && dept != null) {
+        if (staff != null && userId != null) {
             Object row = staff.get(String.valueOf(userId));
-            if (row instanceof Map<?, ?> byDept && byDept.get(dept) instanceof Map<?, ?> metrics) {
-                Object target = metrics.get("collectionsAmount");
-                if (target instanceof Number n) {
-                    return n.longValue();
+            if (row instanceof Map<?, ?> byDept) {
+                Map<?, ?> metrics = dept != null && byDept.get(dept) instanceof Map<?, ?> m ? m : null;
+                if (metrics == null) {
+                    // 未指定部门时取该用户任意部门的首个非空指标
+                    for (Object value : byDept.values()) {
+                        if (value instanceof Map<?, ?> m && !m.isEmpty()) {
+                            metrics = m;
+                            break;
+                        }
+                    }
+                }
+                if (metrics != null) {
+                    for (Object target : metrics.values()) {
+                        if (target instanceof Number n && n.longValue() > 0) {
+                            return n.longValue();
+                        }
+                    }
                 }
             }
         }

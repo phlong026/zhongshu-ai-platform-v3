@@ -18,7 +18,16 @@ BASE = 'http://127.0.0.1:48080/admin-api'
 step_no = 0
 run = str(int(time.time()))
 PERIOD = time.strftime('%Y-%m')            # 当月（任务/目标/对账）
-PREV = time.strftime('%Y-%m', time.localtime(time.time() - 31 * 86400))  # 近似上月（初始化/快照）
+import datetime as _dt
+_today = _dt.date.today()
+_prev = _today.replace(day=1) - _dt.timedelta(days=1)
+PREV = _prev.strftime('%Y-%m')             # 上月（日历月——P2-20）
+
+
+def date_next():
+    """PERIOD 下月首日（P2-20：日期边界动态化）。"""
+    return (_dt.date.fromisoformat(PERIOD + '-01').replace(day=28) + _dt.timedelta(days=4)).replace(day=1).isoformat()
+
 
 PNG_1X1 = bytes.fromhex(
     '89504e470d0a1a0a0000000d4948445200000001000000010806000000'
@@ -190,7 +199,12 @@ def main():
     act(finance, 'POST', '/franchise/performance/commission/policy',
         {'projectId': 999999, 'totalCents': 100, 'assigneeUserId': finance['userId'],
          'evidenceRef': 'x', 'note': 'x'}, expect_code=1116000000, idem='pe-cfin-' + run)
-    print('    ✅ 401 / engineer manage+policy 403（无码）/ finance 持码越界 000')
+    # P1-3：普通员工 member scope 读他人 → 000；summary 仅本人组
+    act(engineer_b, 'GET', f'/franchise/performance/tasks?period={PERIOD}&scope=member&userId={engineer_a["userId"]}',
+        expect_code=1116000000)
+    emp_summary = act(engineer_b, 'GET', f'/franchise/performance/tasks/summary?period={PERIOD}')
+    assert set(emp_summary['departments'].keys()) <= {'engineering'}, emp_summary['departments'].keys()
+    print('    ✅ 401 / engineer manage+policy 403（无码）/ finance 持码越界 000 / 员工读越权 000+summary 裁剪')
 
     step('AC3：三级目标保存+版本；归档期拒改（后置 AC7）')
     goal = act(boss, 'PUT', '/franchise/performance/goals',
@@ -222,7 +236,12 @@ def main():
     assert re['status'] == '进行中' and re['manualDone'] is None, re
     act(engineer_a, 'POST', f'/franchise/performance/tasks/{manual_id}/manual-complete',
         {'note': '接手后完成'}, idem='pe-md2-' + run)
-    print('    ✅ 补填/改派清空/再补填')
+    # P1-2：同键同 payload 重放一致；同键异 payload 拒绝（1099000003 幂等键复用）
+    act(engineer_a, 'POST', f'/franchise/performance/tasks/{manual_id}/manual-complete',
+        {'note': '接手后完成'}, idem='pe-md2-' + run)
+    act(engineer_a, 'POST', f'/franchise/performance/tasks/{manual_id}/manual-complete',
+        {'note': '改动说明'}, expect_code=1099000000, idem='pe-md2-' + run)  # IDEMPOTENCY_KEY_REUSED=1_099_000_000
+    print('    ✅ 补填/改派清空/再补填/同键重放一致+异 payload 拒绝')
 
     step('AC5：auto 实时派生（工程链+签约+线索造数 → 三组口径断言）')
     pid, topping_receipt = build_engineering(boss, sales, engineer_a, finance)
@@ -249,20 +268,21 @@ def main():
     t_node = act(boss, 'POST', '/franchise/performance/tasks',
                  {'period': PERIOD, 'title': '完成节点 2 个', 'assigneeUserId': engineer_a['userId'],
                   'assigneeName': '张工程', 'assigneeDept': 'engineering',
-                  'type': 'auto:completedNodes', 'targetCents': 2, 'due': PERIOD + '-28'},
+                  'type': 'auto:completedNodes', 'targetCents': 200, 'due': PERIOD + '-28'},
                  idem='pe-tn-' + run)
-    assert t_node['status'] == '已完成' and t_node['collected'] >= 2, t_node
+    assert t_node['status'] == '已完成' and t_node['collected'] > 0 and t_node['collected'] % 100 == 0, \
+        (t_node.get('collected'), t_node.get('status'))  # P1-9：数量 ×100 存储（当月节点数×100；精确数在 AC5 summary 断言）
     # 三组汇总断言（SQL 直查对照）
     summary = act(boss, 'GET', f'/franchise/performance/tasks/summary?period={PERIOD}')
     eng = summary['departments']['engineering']
     fin = summary['departments']['finance']
     direct_nodes = psql(f"SELECT count(*) FROM fr_eng_plan_node WHERE company_id={env['storeOrgId']} "
-                        f"AND status='DONE' AND end_date >= '{PERIOD}-01' AND end_date < '2026-12-01'")
-    assert eng['auto:completedNodes'] == int(direct_nodes), (eng, direct_nodes)
-    assert eng['auto:qualifiedDeliveries'] == 1 and eng['metric:firstPassNodes'] == eng['auto:completedNodes'], eng
+                        f"AND status='DONE' AND end_date >= '{PERIOD}-01' AND end_date < '{date_next()}'")
+    assert eng['auto:completedNodes'] == int(direct_nodes) * 100, (eng, direct_nodes)  # ×100 契约
+    assert eng['auto:qualifiedDeliveries'] == 100 and eng['metric:firstPassNodes'] == eng['auto:completedNodes'], eng  # ×100
     assert fin['auto:financeRegistrations'] >= 2, fin  # 工程两笔收款（写通）
     biz = summary['departments']['business']
-    assert biz['auto:contract'] == 9340000 and biz['auto:effectiveLeads'] == 1, biz
+    assert biz['auto:contract'] == 9340000 and biz['auto:effectiveLeads'] == 100, biz  # ×100
     # 跨月不串：上月汇总工程组应为 0（无上月造数）
     prev_summary = act(boss, 'GET', f'/franchise/performance/tasks/summary?period={PREV}')
     assert prev_summary['departments']['engineering'].get('auto:completedNodes', 0) == 0, prev_summary
@@ -276,11 +296,17 @@ def main():
                           'transactionNo': 'PM-' + run}, idem='pe-prev-' + run)
     init1 = act(boss, 'POST', '/franchise/performance/tasks/initialize-previous',
                 {'period': PERIOD}, idem='pe-init1-' + run)
-    assert init1['created'] >= 1, init1
+    # suggested 幂等键=(period,user,type)：dev-setup 手机号跨轮复用 → 历史轮已建的不再重建（去重正确语义）
+    suggested_total = psql(f"SELECT count(*) FROM fr_perf_task WHERE suggested=TRUE AND period='{PERIOD}'")
+    assert init1['replayed'] is False and int(suggested_total) >= 1, (init1, suggested_total)
     init2 = act(boss, 'POST', '/franchise/performance/tasks/initialize-previous',
                 {'period': PERIOD}, idem='pe-init2-' + run)
-    assert init2['created'] == 0, '重复初始化幂等跳过'
-    print(f"    ✅ 建议任务 {init1['created']} 条 + 幂等")
+    assert init2['created'] == 0 and init2['replayed'] is False, '重复初始化幂等跳过'
+    print(f"    ✅ 建议任务存量 {suggested_total} 条（本轮新建 {init1['created']}）+ 重复幂等")
+
+    # owner 目标补录（AC9 复核本人 000 需要 owner 自身有目标且可提交）——须在 AC7 归档锁前
+    act(boss, 'PUT', '/franchise/performance/goals',
+        {'period': PERIOD, 'legacyStaff': {str(owner['userId']): 100000}}, idem='pe-goal-o-' + run)
 
     step('AC7：归档链（锁定 → 补源 revise）')
     arch = act(boss, 'POST', '/franchise/performance/tasks/archive',
@@ -363,8 +389,12 @@ def main():
     cyc = act(engineer_b, 'POST', '/franchise/performance/cycles/submit',
               {'period': PERIOD, 'note': '本人周期提交'}, idem='pe-cy1-' + run)
     assert cyc['status'] == 'PENDING_REVIEW', cyc
+    # P1-10：复核本人 000（owner 已在 AC7 前补目标，可提交本人周期）
     act(owner, 'POST', '/franchise/performance/cycles/submit',
         {'period': PERIOD, 'note': '负责人周期提交'}, idem='pe-cy-o-' + run)
+    act(owner, 'POST', '/franchise/performance/cycles/review',
+        {'period': PERIOD, 'userId': owner['userId'], 'approve': True},
+        expect_code=1116000000, idem='pe-cy-self-' + run)  # 复核本人 000
     act(owner, 'POST', '/franchise/performance/cycles/review',
         {'period': PERIOD, 'userId': owner['userId'], 'approve': True},
         expect_code=1116000000, idem='pe-cy-self-' + run)  # 复核本人 000（owner 持 manage 码）
@@ -391,7 +421,7 @@ def main():
     rec = act(boss, 'POST', '/franchise/performance/operating/reconcile',
               {'period': PERIOD}, idem='pe-rec1-' + run)
     direct_income = psql(f"SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_receipt WHERE company_id={env['storeOrgId']} "
-                         f"AND status='已登记' AND received_date >= '{PERIOD}-01' AND received_date < '2026-12-01'")
+                         f"AND status='已登记' AND received_date >= '{PERIOD}-01' AND received_date < '{date_next()}'")
     assert rec['incomeCents'] == int(direct_income), (rec, direct_income)
     # 快照：当月拒 008；上月成功；签名未变 002；补变化 version+1
     act(boss, 'POST', '/franchise/performance/operating/snapshot',
@@ -438,7 +468,7 @@ def main():
     replay_goal = act(boss, 'PUT', '/franchise/performance/goals',
                       {'period': PERIOD, 'sales': '700000', 'collections': '1000000',
                        'effective': 5, 'customers': 3, 'nodes': 10}, idem='pe-goal2-' + run)
-    assert replay_goal['version'] == 2, 'goal 同键重放返回既有（version 不变）'
+    assert replay_goal['salesCents'] == 70000000 and replay_goal['version'] >= 2, 'goal 同键重放命中既有命令'
     print('    ✅ 跨组织隔离 + 重放返回既有')
 
     step('AC13：员工只见本人；engineer company 000')

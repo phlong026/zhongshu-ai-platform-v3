@@ -85,28 +85,32 @@ public class PerfCycleService {
         if (cycle != null && FrPerfCycleDO.STATUS_REVIEWED.equals(cycle.getStatus())) {
             throw exception(CYCLE_ACTION_INVALID, "本周期已复核通过");
         }
-        List<PerfMetrics.SourceRow> sourceRows = metrics.sources(post, period, adjustmentsOf(post, period));
-        Map<String, Map<String, Long>> dept = PerfMetrics.departmentMetrics(sourceRows);
-        // 目标未设拒（P3-13：target=staff_department_goals→legacy_staff 回退）
-        boolean targetMissing = goal == null || goalService.targetForUser(goal, target, null) == null
-                && goalService.targetForUser(goal, target, "business") == null
+        List<PerfMetrics.SourceRow> allRows = metrics.sources(post, period, adjustmentsOf(post, period));
+        // P1-10：actuals 按被考核人过滤（原实现冻结了全公司汇总）
+        List<PerfMetrics.SourceRow> myRows = allRows.stream()
+                .filter(r -> r.userId() != null && r.userId() == target).toList();
+        Map<String, Map<String, Long>> dept = PerfMetrics.departmentMetrics(myRows);
+        // P1-10：目标未设 → 001 拒绝（原实现只写事件标记不拦截）
+        if (goal == null || goalService.targetForUser(goal, target, "business") == null
                 && goalService.targetForUser(goal, target, "engineering") == null
-                && goalService.targetForUser(goal, target, "finance") == null;
+                && goalService.targetForUser(goal, target, "finance") == null) {
+            throw exception(PERF_INPUT_INVALID, "请先由老板设置本月目标后再提交复核");
+        }
         if (StrUtil.isBlank(note)) {
             throw exception(PERF_INPUT_INVALID, "请填写提交说明");
         }
         Map<String, Object> submission = new LinkedHashMap<>();
         submission.put("actuals", dept);
-        submission.put("sourceSignature", PerfMetrics.sourceSignature(sourceRows));
+        submission.put("userId", target);
+        submission.put("sourceSignature", PerfMetrics.sourceSignature(myRows));
         submission.put("note", StrUtil.trim(note));
         submission.put("at", String.valueOf(java.time.OffsetDateTime.now()));
-        submission.put("userId", target);
-        String targetMissingFlag = targetMissing ? "1" : "0";
+        String targetMissingFlag = "0";
         long cycleId = upsertCycleJsonb(post, cycle, target, period, FrPerfCycleDO.STATUS_PENDING_REVIEW,
                 (String) submission.get("sourceSignature"),
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(submission));
         commands.record(post, AGGREGATE, cycleId,
-                rowRevision(cycleId), "perf-cycle-submit", Map.of("period", period, "userId", target,
+                rowRevision(cycleId, post.orgId()), "perf-cycle-submit", Map.of("period", period, "userId", target,
                         "targetMissing", targetMissingFlag), idempotencyKey);
         return view(post, period, target);
     }
@@ -114,9 +118,10 @@ public class PerfCycleService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> review(PostSnapshot post, String period, long userId, boolean approve,
                                       String note, String idempotencyKey) {
+        PerfSupport.requireManage(post); // P1-4
         FrPerfCycleDO cycle = requireCycle(post, period, userId);
         var replayed = commands.replayed(post, idempotencyKey,
-                Map.of("period", period, "userId", userId, "approve", approve));
+                Map.of("period", period, "userId", userId, "approve", approve, "note", StrUtil.nullToEmpty(note)));
         if (replayed.isPresent()) {
             return view(post, period, userId);
         }
@@ -126,8 +131,10 @@ public class PerfCycleService {
         if (!FrPerfCycleDO.STATUS_PENDING_REVIEW.equals(cycle.getStatus())) {
             throw exception(CYCLE_ACTION_INVALID, "周期不在待复核状态");
         }
-        String currentSignature = PerfMetrics.sourceSignature(
-                metrics.sources(post, period, adjustmentsOf(post, period)));
+        // P1-10 伴生修复：submit 冻结的是被考核人过滤签名——review 校验须同基准
+        List<PerfMetrics.SourceRow> reviewerRows = metrics.sources(post, period, adjustmentsOf(post, period)).stream()
+                .filter(r -> r.userId() != null && r.userId() == cycle.getUserId()).toList();
+        String currentSignature = PerfMetrics.sourceSignature(reviewerRows);
         boolean changed = !currentSignature.equals(cycle.getSourceSignature());
         boolean effectiveApprove = approve && !changed; // 签名变化必须退回重提（F10）
         Map<String, Object> review = new LinkedHashMap<>();
@@ -141,8 +148,9 @@ public class PerfCycleService {
         jdbcTemplate.update("UPDATE fr_perf_cycle SET status = ?, revision = revision + 1 WHERE id = ? AND company_id = ?",
                 effectiveApprove ? FrPerfCycleDO.STATUS_REVIEWED : FrPerfCycleDO.STATUS_RETURNED,
                 cycle.getId(), post.orgId());
-        commands.record(post, AGGREGATE, cycle.getId(), rowRevision(cycle.getId()), "perf-cycle-review",
-                Map.of("period", period, "userId", userId, "result", review.get("result")), idempotencyKey);
+        commands.record(post, AGGREGATE, cycle.getId(), rowRevision(cycle.getId(), post.orgId()), "perf-cycle-review",
+                Map.of("period", period, "userId", userId, "approve", approve, "note", StrUtil.nullToEmpty(note)),
+                idempotencyKey);
         return view(post, period, userId);
     }
 
@@ -152,8 +160,9 @@ public class PerfCycleService {
                                              String sourceKey, Long personUserId, boolean excluded,
                                              String note, String idempotencyKey) {
         FrPerfCycleDO cycle = requireCycle(post, period, userId);
-        var replayed = commands.replayed(post, idempotencyKey,
-                Map.of("period", period, "userId", userId, "adopt", adopt, "sourceKey", StrUtil.nullToEmpty(sourceKey)));
+        Map<String, Object> appealPayload = Map.of("period", period, "userId", userId, "adopt", adopt,
+                "sourceKey", StrUtil.nullToEmpty(sourceKey), "excluded", excluded, "note", StrUtil.nullToEmpty(note));
+        var replayed = commands.replayed(post, idempotencyKey, appealPayload);
         if (replayed.isPresent()) {
             return view(post, period, userId);
         }
@@ -173,11 +182,12 @@ public class PerfCycleService {
             adjustment.put("at", String.valueOf(java.time.OffsetDateTime.now()));
             JsonUtil.updateJsonb(jdbcTemplate, "fr_perf_cycle", Map.of("adjustments",
                     JsonUtil.append(cycle.getAdjustments(), adjustment)), cycle.getId(), post.orgId());
-            jdbcTemplate.update("UPDATE fr_perf_cycle SET revision = revision + 1 WHERE id = ? AND company_id = ?",
-                    cycle.getId(), post.orgId());
         }
-        commands.record(post, AGGREGATE, cycle.getId(), rowRevision(cycle.getId()), "perf-cycle-appeal-resolve",
-                Map.of("period", period, "userId", userId, "adopt", adopt), idempotencyKey);
+        // P1-1：采纳与否都 bump（不采纳重放也须走 command_event revision 递增）
+        jdbcTemplate.update("UPDATE fr_perf_cycle SET revision = revision + 1, update_time = now() "
+                + "WHERE id = ? AND company_id = ?", cycle.getId(), post.orgId());
+        commands.record(post, AGGREGATE, cycle.getId(), rowRevision(cycle.getId(), post.orgId()), "perf-cycle-appeal-resolve",
+                appealPayload, idempotencyKey);
         return view(post, period, userId);
     }
 
@@ -217,11 +227,14 @@ public class PerfCycleService {
     }
 
     /** 该行当前 revision（jdbc 直读——command_event 防重须与行 revision 同步递增） */
-    private long rowRevision(long cycleId) {
+    private long rowRevision(long cycleId, long orgId) {
         Long rev = jdbcTemplate.queryForObject(
-                "SELECT revision FROM fr_perf_cycle WHERE id = ?", Long.class, cycleId);
+                "SELECT revision FROM fr_perf_cycle WHERE id = ? AND company_id = ?",
+                Long.class, cycleId, orgId);
         return rev == null ? 1 : rev;
     }
+
+
 
     private FrPerfCycleDO requireCycle(PostSnapshot post, String period, long userId) {
         FrPerfCycleDO cycle = cycles.selectByPeriodAndUser(post.orgId(), period, userId);

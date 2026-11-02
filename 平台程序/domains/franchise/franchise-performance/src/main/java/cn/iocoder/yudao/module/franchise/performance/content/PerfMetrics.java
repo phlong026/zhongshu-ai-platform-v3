@@ -40,8 +40,12 @@ public class PerfMetrics {
         this.jdbc = jdbc;
     }
 
-    /** 单条源事实（金额类 value=分；数量类 value=1） */
-    public record SourceRow(String key, String type, long value, Long userId, LocalDate date) {
+    /**
+     * 单条源事实（金额类 value=分；数量类 value=100/个——P1-9 单位定稿 ×100 存储）。
+     * businessId=业务事实 id（如 fin-receipt:123 的 123）：adjustments 按 businessId 命中可一次
+     * 裁决覆盖同一事实的全部关联派生行（回款金额+登记笔数——P1-8 契约）。
+     */
+    public record SourceRow(String key, String type, long value, Long userId, LocalDate date, String businessId) {
     }
 
     /** 申诉裁决行（fr_perf_cycle.adjustments JSONB 元素） */
@@ -63,30 +67,36 @@ public class PerfMetrics {
         long org = post.orgId();
         String from = monthStart(period), to = monthEndExclusive(period);
 
-        // ① auto:collectionsAmount 回款净额（已登记回款−已核实退款；归属按来源分流）
-        jdbc.query("SELECT r.id, r.amount_cents, r.received_date, r.source_ref, r.source_type, "
-                        + "COALESCE((SELECT SUM(f.amount_cents) FROM fr_fin_refund f WHERE f.receipt_id = r.id "
-                        + "AND f.status = '已核实' AND f.replaced_by_id IS NULL), 0) AS refunded "
+        // ① auto:collectionsAmount（P1-6：receipt 记原始收款不减退款——退款独立负值行按发生日落月，
+        // 每笔退款只扣一次，跨月退款污染历史月问题随之消除）
+        jdbc.query("SELECT r.id, r.amount_cents, r.received_date, r.source_ref, r.source_type "
                         + "FROM fr_fin_receipt r WHERE r.company_id = ? AND r.status = '已登记' "
                         + "AND r.received_date >= ?::date AND r.received_date < ?::date",
                 (RowCallbackHandler) rs -> {
                     long id = rs.getLong("id");
                     String sourceRef = rs.getString("source_ref");
-                    long net = rs.getLong("amount_cents") - rs.getLong("refunded");
                     Long owner = ownerOfReceipt(org, sourceRef, rs.getString("source_type"), id);
-                    rows.add(new SourceRow("fin-receipt:" + id, "auto:collectionsAmount",
-                            Math.max(0, net), owner, rs.getDate("received_date").toLocalDate()));
+                    String businessId = "fin-receipt:" + id;
+                    rows.add(new SourceRow(businessId, "auto:collectionsAmount",
+                            rs.getLong("amount_cents"), owner, rs.getDate("received_date").toLocalDate(), businessId));
+                    rows.add(new SourceRow("fin-reg-receipt:" + id, "auto:financeRegistrations",
+                            100L, getLong(rs, "registrar_user_id") == null ? owner
+                            : queryRegistrar(org, id), rs.getDate("received_date").toLocalDate(), businessId));
                 }, org, from, to);
-        // 退款本身按发生日落月计负值源行（归属=对应收款的归属；蓝本 refunds 计负数）
-        jdbc.query("SELECT f.id, f.amount_cents, f.date, f.receipt_id, r.source_ref "
+        jdbc.query("SELECT f.id, f.amount_cents, f.date, f.receipt_id, r.source_ref, r.registrar_user_id "
                         + "FROM fr_fin_refund f LEFT JOIN fr_fin_receipt r ON r.id = f.receipt_id "
                         + "WHERE f.company_id = ? AND f.status = '已核实' AND f.replaced_by_id IS NULL "
                         + "AND f.date >= ?::date AND f.date < ?::date",
                 (RowCallbackHandler) rs -> {
                     long receiptId = rs.getLong("receipt_id");
+                    long refundId = rs.getLong("id");
                     Long owner = receiptId > 0 ? receiptOwnerCached(org, rs.getString("source_ref"), receiptId) : null;
-                    rows.add(new SourceRow("fin-refund:" + rs.getLong("id"), "auto:collectionsAmount",
-                            -rs.getLong("amount_cents"), owner, rs.getDate("date").toLocalDate()));
+                    String businessId = "fin-receipt:" + receiptId;
+                    rows.add(new SourceRow("fin-refund:" + refundId, "auto:collectionsAmount",
+                            -rs.getLong("amount_cents"), owner, rs.getDate("date").toLocalDate(), businessId));
+                    rows.add(new SourceRow("fin-reg-refund:" + refundId, "auto:financeRegistrations",
+                            100L, getLong(rs, "registrar_user_id"), rs.getDate("date").toLocalDate(),
+                            "fin-refund:" + refundId));
                 }, org, from, to);
 
         // ② auto:contract 签约金额
@@ -94,7 +104,7 @@ public class PerfMetrics {
                         + "WHERE company_id = ? AND status = 'SIGNED' AND signed_date >= ?::date AND signed_date < ?::date",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("sale-contract:" + rs.getLong("id"), "auto:contract",
                         rs.getLong("total_cents"), getLong(rs, "author_user_id"),
-                        rs.getDate("signed_date").toLocalDate())), org, from, to);
+                        rs.getDate("signed_date").toLocalDate(), "sale-contract:" + rs.getLong("id"))), org, from, to);
 
         // ③④ auto:completedNodes/onTimeNodes（V2.1：end_date 落月；按期=completed_at<=end_date）
         jdbc.query("SELECT id, completed_at, end_date, responsible_user_id, "
@@ -105,9 +115,9 @@ public class PerfMetrics {
                     long id = rs.getLong("id");
                     Long owner = getLong(rs, "responsible_user_id");
                     LocalDate end = rs.getDate("end_date").toLocalDate();
-                    rows.add(new SourceRow("perf-node:" + id, "auto:completedNodes", 1, owner, end));
+                    rows.add(new SourceRow("perf-node:" + id, "auto:completedNodes", 100L, owner, end, "perf-node:" + id));
                     if (rs.getBoolean("on_time")) {
-                        rows.add(new SourceRow("perf-node-ontime:" + id, "auto:onTimeNodes", 1, owner, end));
+                        rows.add(new SourceRow("perf-node-ontime:" + id, "auto:onTimeNodes", 100L, owner, end, "perf-node:" + id));
                     }
                 }, org, from, to);
 
@@ -115,16 +125,17 @@ public class PerfMetrics {
         jdbc.query("SELECT id, published_at, author_user_id FROM fr_content_publication "
                         + "WHERE company_id = ? AND status = 'published' AND published_at >= ?::timestamptz AND published_at < ?::timestamptz",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("perf-publication:" + rs.getLong("id"), "auto:publications",
-                        1, getLong(rs, "author_user_id"),
-                        rs.getDate("published_at").toLocalDate())), org, from, to);
+                        100L, getLong(rs, "author_user_id"),
+                        rs.getDate("published_at").toLocalDate(),
+                        "perf-publication:" + rs.getLong("id"))), org, from, to);
 
         // ⑥ auto:effectiveLeads（待决①：转化时间=update_time，归属=registrar_user_id）
         jdbc.query("SELECT id, registrar_user_id, update_time FROM fr_lead "
                         + "WHERE company_id = ? AND status = 'CONVERTED' "
                         + "AND update_time >= ?::date AND update_time < ?::date",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("perf-lead:" + rs.getLong("id"), "auto:effectiveLeads",
-                        1, getLong(rs, "registrar_user_id"),
-                        rs.getDate("update_time").toLocalDate())), org, from, to);
+                        100L, getLong(rs, "registrar_user_id"),
+                        rs.getDate("update_time").toLocalDate(), "perf-lead:" + rs.getLong("id"))), org, from, to);
 
         // ⑦ auto:qualifiedDeliveries（§九：按合格收货行计数、归属=收货登记人）
         jdbc.query("SELECT id, occurred_at, author_user_id FROM fr_eng_supply_receipt "
@@ -132,11 +143,12 @@ public class PerfMetrics {
                         + "AND (quality = 'OK' OR CAST(quality_resolution AS text) LIKE '%更换后合格%') "
                         + "AND occurred_at >= ?::date AND occurred_at < ?::date",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("perf-material:" + rs.getLong("id"), "auto:qualifiedDeliveries",
-                        1, getLong(rs, "author_user_id"), rs.getDate("occurred_at").toLocalDate())), org, from, to);
+                        100L, getLong(rs, "author_user_id"), rs.getDate("occurred_at").toLocalDate(),
+                        "perf-material:" + rs.getLong("id"))), org, from, to);
 
-        // ⑧ auto:approvedDeliverables + 业务组 commissionAmount（委托提交当月费用总额；最新提交版）
-        jdbc.query("SELECT c.id, s.total_cents, s.submitted_by_user_id, s.create_time, "
-                        + "(c.status IN ('DESIGN_COMPLETED','DISPATCHED','HANDOVER_SUBMITTED','HANDOVER_RETURNED','ACCEPTED')) AS approved "
+        // ⑧ 业务组 commissionAmount（委托金额=最新提交版，提交当月）+ auto:approvedDeliverables
+        // （P1-7：完成事件 fr_commission_progress(kind='COMPLETE') 落月——提交月≠完成月不再错计）
+        jdbc.query("SELECT c.id, s.total_cents, s.submitted_by_user_id, s.create_time "
                         + "FROM fr_commission c JOIN LATERAL ("
                         + "  SELECT total_cents, submitted_by_user_id, create_time FROM fr_commission_submission s "
                         + "  WHERE s.commission_id = c.id ORDER BY s.version DESC LIMIT 1) s ON TRUE "
@@ -146,22 +158,30 @@ public class PerfMetrics {
                     Long owner = getLong(rs, "submitted_by_user_id");
                     LocalDate date = rs.getDate("create_time").toLocalDate();
                     rows.add(new SourceRow("perf-commission:" + id, "metric:commissionAmount",
-                            rs.getLong("total_cents"), owner, date));
-                    if (rs.getBoolean("approved")) {
-                        rows.add(new SourceRow("perf-commission-approved:" + id, "auto:approvedDeliverables",
-                                1, owner, date));
-                    }
+                            rs.getLong("total_cents"), owner, date, "perf-commission:" + id));
+                }, org, from + " 00:00:00", to + " 00:00:00");
+        jdbc.query("SELECT p.id, p.commission_id, p.actor_user_id, p.create_time, s.submitted_by_user_id "
+                        + "FROM fr_commission_progress p JOIN fr_commission c ON c.id = p.commission_id "
+                        + "JOIN LATERAL (SELECT submitted_by_user_id FROM fr_commission_submission s "
+                        + "  WHERE s.commission_id = c.id ORDER BY s.version DESC LIMIT 1) s ON TRUE "
+                        + "WHERE p.company_id = ? AND p.kind = 'COMPLETE' "
+                        + "AND p.create_time >= ?::timestamptz AND p.create_time < ?::timestamptz",
+                (RowCallbackHandler) rs -> {
+                    long id = rs.getLong("id");
+                    Long owner = getLong(rs, "submitted_by_user_id");
+                    Long fallback = getLong(rs, "actor_user_id");
+                    rows.add(new SourceRow("perf-commission-approved:" + id, "auto:approvedDeliverables",
+                            100L, owner != null ? owner : fallback,
+                            rs.getDate("create_time").toLocalDate(),
+                            "perf-commission:" + rs.getLong("commission_id")));
                 }, org, from + " 00:00:00", to + " 00:00:00");
 
-        // ⑨ auto:financeRegistrations（收/付登记笔数）
-        jdbc.query("SELECT id, registrar_user_id, received_date FROM fr_fin_receipt "
-                        + "WHERE company_id = ? AND received_date >= ?::date AND received_date < ?::date",
-                (RowCallbackHandler) rs -> rows.add(new SourceRow("fin-reg-receipt:" + rs.getLong("id"), "auto:financeRegistrations",
-                        1, getLong(rs, "registrar_user_id"), rs.getDate("received_date").toLocalDate())), org, from, to);
+        // ⑨ auto:financeRegistrations 付款侧（收款侧已并入 ① businessId 行）
         jdbc.query("SELECT id, operator_user_id, pay_date FROM fr_fin_payment "
                         + "WHERE company_id = ? AND status = '已核实' AND pay_date >= ?::date AND pay_date < ?::date",
-                (RowCallbackHandler) rs -> rows.add(new SourceRow("fin-reg-payment:" + rs.getLong("id"), "auto:financeRegistrations",
-                        1, getLong(rs, "operator_user_id"), rs.getDate("pay_date").toLocalDate())), org, from, to);
+                (RowCallbackHandler) rs -> rows.add(new SourceRow("fin-reg-payment:" + rs.getLong("id"),
+                        "auto:financeRegistrations", 100L, getLong(rs, "operator_user_id"),
+                        rs.getDate("pay_date").toLocalDate(), "fin-payment:" + rs.getLong("id"))), org, from, to);
 
         // 三组补充口径：effectiveCustomers（当月有跟进客户去重；归属=客户 owner）
         jdbc.query("SELECT DISTINCT f.customer_id, c.owner_user_id, MIN(f.create_time) AS first_at "
@@ -169,8 +189,9 @@ public class PerfMetrics {
                         + "WHERE f.company_id = ? AND f.create_time >= ?::timestamptz AND f.create_time < ?::timestamptz "
                         + "GROUP BY f.customer_id, c.owner_user_id",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("perf-follow-customer:" + rs.getLong("customer_id"),
-                        "metric:effectiveCustomers", 1, getLong(rs, "owner_user_id"),
-                        rs.getDate("first_at").toLocalDate())), org, from + " 00:00:00", to + " 00:00:00");
+                        "metric:effectiveCustomers", 100L, getLong(rs, "owner_user_id"),
+                        rs.getDate("first_at").toLocalDate(),
+                        "perf-follow-customer:" + rs.getLong("customer_id"))), org, from + " 00:00:00", to + " 00:00:00");
 
         return applyAdjustments(rows, adjustments);
     }
@@ -205,6 +226,14 @@ public class PerfMetrics {
         List<Long> rows = jdbc.queryForList(
                 "SELECT manager_user_id FROM fr_eng_project WHERE company_id = ? AND id = ?",
                 Long.class, org, projectId);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** 收款登记人（financeRegistrations 归属；P2-16 显式组织条件） */
+    private Long queryRegistrar(long org, long receiptId) {
+        List<Long> rows = jdbc.queryForList(
+                "SELECT registrar_user_id FROM fr_fin_receipt WHERE company_id = ? AND id = ?",
+                Long.class, org, receiptId);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -245,11 +274,12 @@ public class PerfMetrics {
         }
         List<SourceRow> out = new ArrayList<>(rows.size());
         for (SourceRow row : rows) {
-            Adjustment hit = byKey.get(row.key());
+            Adjustment hit = row.businessId() == null ? null : byKey.get(row.businessId());
             if (hit == null) {
                 out.add(row);
             } else if (!hit.excluded() && hit.personUserId() != null) {
-                out.add(new SourceRow(row.key(), row.type(), row.value(), hit.personUserId(), row.date()));
+                out.add(new SourceRow(row.key(), row.type(), row.value(), hit.personUserId(), row.date(),
+                        row.businessId()));
             }
         }
         return out;
@@ -299,17 +329,17 @@ public class PerfMetrics {
         };
     }
 
-    /** 归档签名（源行 key+值+归属 排序；检测归档后原业务变化） */
+    /** 归档签名（P1-12：明细 SHA-256 摘要——固定 64 字符不撑 VARCHAR(2048)） */
     public static String sourceSignature(List<SourceRow> rows) {
-        StringBuilder sb = new StringBuilder("[");
+        StringBuilder sb = new StringBuilder();
         rows.stream().sorted(java.util.Comparator.comparing(SourceRow::key)).forEach(row -> {
-            if (sb.length() > 1) {
-                sb.append(',');
+            if (sb.length() > 0) {
+                sb.append('|');
             }
-            sb.append('[').append(row.key()).append(',').append(row.value()).append(',')
-                    .append(row.userId() == null ? "" : row.userId()).append(']');
+            sb.append(row.key()).append(',').append(row.value()).append(',')
+                    .append(row.userId() == null ? "" : row.userId());
         });
-        return sb.append(']').toString();
+        return cn.hutool.crypto.digest.DigestUtil.sha256Hex(sb.toString());
     }
 
     /** period 合法性（'YYYY-MM'） */

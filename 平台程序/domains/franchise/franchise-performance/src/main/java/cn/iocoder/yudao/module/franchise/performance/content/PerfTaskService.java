@@ -45,10 +45,12 @@ public class PerfTaskService {
     private final PerfMetrics metrics;
     private final FranchiseCommands commands;
     private final JdbcTemplate jdbcTemplate;
+    private final cn.iocoder.yudao.module.platform.org.SystemDirectory systemDirectory;
 
     public PerfTaskService(FrPerfTaskMapper tasks, FrPerfTaskArchiveMapper archives,
                            FrPerfCycleMapper cycles, PerfGoalService goalService,
-                           PerfMetrics metrics, FranchiseCommands commands, JdbcTemplate jdbcTemplate) {
+                           PerfMetrics metrics, FranchiseCommands commands, JdbcTemplate jdbcTemplate,
+                           cn.iocoder.yudao.module.platform.org.SystemDirectory systemDirectory) {
         this.tasks = tasks;
         this.archives = archives;
         this.cycles = cycles;
@@ -56,6 +58,7 @@ public class PerfTaskService {
         this.metrics = metrics;
         this.commands = commands;
         this.jdbcTemplate = jdbcTemplate;
+        this.systemDirectory = systemDirectory;
     }
 
     /** 任务落库（history JSONB 走 CAST——MP insert 禁写 jsonb 列） */
@@ -83,6 +86,7 @@ public class PerfTaskService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> create(PostSnapshot post, TaskCommand cmd, String idempotencyKey) {
         requirePeriod(cmd.period());
+        PerfSupport.requireManage(post); // P1-4：服务层 manage 校验（不依赖控制器菜单码）
         Map<String, Object> payload = payload(cmd);
         var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
@@ -102,12 +106,15 @@ public class PerfTaskService {
         if (StrUtil.isBlank(cmd.assigneeDept()) || !DEPT_ROLES.containsKey(cmd.assigneeDept())) {
             throw exception(PERF_INPUT_INVALID, "分组须为 business/engineering/finance");
         }
+        requireNotArchived(post, cmd.period()); // P1-11：归档期禁止新增任务
         if (manual && cmd.targetCents() != 0) {
             throw exception(PERF_INPUT_INVALID, "手动任务无目标值");
         }
+        // P1-5：归属人须本组织在岗（职务真源），姓名快照服务端生成（客户端名不落库）
+        var member = requireActiveMember(post, cmd.assigneeUserId());
         FrPerfTaskDO task = new FrPerfTaskDO().setPeriod(cmd.period())
                 .setTitle(StrUtil.trim(cmd.title())).setAssigneeUserId(cmd.assigneeUserId())
-                .setAssigneeName(StrUtil.blankToDefault(cmd.assigneeName(), ""))
+                .setAssigneeName(member.name())
                 .setAssigneeDept(cmd.assigneeDept()).setType(cmd.type())
                 .setTargetCents(cmd.targetCents()).setDue(cmd.due())
                 .setSuggested(cmd.suggestion() != null);
@@ -123,19 +130,22 @@ public class PerfTaskService {
                                         String idempotencyKey) {
         FrPerfTaskDO task = requireTask(post, taskId);
         requireNotArchived(post, task.getPeriod());
+        PerfSupport.requireManage(post); // P1-4
         var replayed = commands.replayed(post, idempotencyKey, Map.of("taskId", taskId, "toUserId", toUserId));
         if (replayed.isPresent()) {
             return detail(post, String.valueOf(taskId), null);
         }
-        if (toUserId <= 0) {
-            throw exception(PERF_INPUT_INVALID, "请选择在岗责任人");
-        }
+        // P1-5：改派目标须在岗，姓名服务端快照
+        var member = requireActiveMember(post, toUserId);
         String history = JsonUtil.append(task.getHistory(), Map.of(
                 "action", "reassign", "fromUserId", task.getAssigneeUserId(), "toUserId", toUserId,
                 "actorUserId", post.userId(), "at", String.valueOf(java.time.OffsetDateTime.now())));
-        tasks.updateByRevision(taskId, task.getRevision(), u -> u
+        boolean updated = tasks.updateByRevision(taskId, task.getRevision(), u -> u
                 .set(FrPerfTaskDO::getAssigneeUserId, toUserId)
-                .set(FrPerfTaskDO::getAssigneeName, StrUtil.blankToDefault(toName, "")));
+                .set(FrPerfTaskDO::getAssigneeName, member.name())) == 1;
+        if (!updated) {
+            throw exception(PERF_TASK_INVALID, "任务已被他人更新，请刷新后重试"); // P2-17 CAS 返回值
+        }
         jdbcTemplate.update("UPDATE fr_perf_task SET manual_done = NULL WHERE id = ? AND company_id = ?",
                 taskId, post.orgId()); // 蓝本 ：269 改派清空
         JsonUtil.updateJsonb(jdbcTemplate, "fr_perf_task", Map.of("history", history), taskId, post.orgId());
@@ -181,7 +191,7 @@ public class PerfTaskService {
                 "manual_done", cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(manualDone),
                 "history", history)), taskId, post.orgId());
         commands.record(post, AGGREGATE, taskId, task.getRevision() + 1, "perf-task-manual-complete",
-                Map.of("taskId", taskId), idempotencyKey);
+                Map.of("taskId", taskId, "note", StrUtil.nullToEmpty(cmd.note())), idempotencyKey); // P1-2 与重放 payload 一致
         return detail(post, String.valueOf(taskId), null);
     }
 
@@ -214,6 +224,10 @@ public class PerfTaskService {
             case "member" -> {
                 if (userId == null) {
                     throw exception(PERF_INPUT_INVALID, "member 范围须带 userId");
+                }
+                // P1-3：普通员工仅可查本人；查他人须 manage
+                if (userId != post.userId()) {
+                    PerfSupport.requireManage(post);
                 }
                 targetUser = userId;
             }
@@ -265,11 +279,19 @@ public class PerfTaskService {
         return view;
     }
 
-    /** 三组汇总（summary；含目标对照——待决④映射） */
+    /** 三组汇总（summary；P1-3：非 manage 仅返回本人所在组；含目标对照——待决④映射） */
     public Map<String, Object> summary(PostSnapshot post, String period) {
         requirePeriod(period);
-        List<PerfMetrics.SourceRow> sourceRows = metrics.sources(post, period, adjustments(post, period));
-        Map<String, Map<String, Long>> byDept = PerfMetrics.departmentMetrics(sourceRows);
+        boolean manage = List.of("boss", "owner").contains(post.roleCode());
+        List<PerfMetrics.SourceRow> allRows = metrics.sources(post, period, adjustments(post, period));
+        String myDept = DEPT_ROLE_OF.getOrDefault(post.roleCode(), null);
+        Map<String, Map<String, Long>> byDept = PerfMetrics.departmentMetrics(
+                manage || myDept == null ? allRows
+                        : allRows.stream().filter(r -> deptOfSourceType(r.type()) == null
+                                || deptOfSourceType(r.type()).equals(myDept)).toList());
+        if (!manage && myDept != null) {
+            byDept = Map.of(myDept, byDept.getOrDefault(myDept, Map.of()));
+        }
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("period", period);
         view.put("departments", byDept);
@@ -277,7 +299,7 @@ public class PerfTaskService {
         view.put("taskStats", Map.of(
                 "total", all.size(),
                 "completed", all.stream()
-                        .filter(t -> taskView(t, sourceRows).get("status").equals("已完成")).count()));
+                        .filter(t -> taskView(t, allRows).get("status").equals("已完成")).count()));
         return view;
     }
 
@@ -287,6 +309,8 @@ public class PerfTaskService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> initializePrevious(PostSnapshot post, String period, String idempotencyKey) {
         requirePeriod(period);
+        PerfSupport.requireManage(post); // P1-4
+        requireNotArchived(post, period); // P1-11：归档期禁止初始化建议任务
         var replayed = commands.replayed(post, idempotencyKey, Map.of("period", period));
         if (replayed.isPresent()) {
             return Map.of("created", 0, "replayed", true);
@@ -344,6 +368,7 @@ public class PerfTaskService {
     public Map<String, Object> archive(PostSnapshot post, String period, String note, boolean revise,
                                        String idempotencyKey) {
         requirePeriod(period);
+        PerfSupport.requireManage(post); // P1-4
         var replayed = commands.replayed(post, idempotencyKey,
                 Map.of("period", period, "revise", revise));
         if (replayed.isPresent()) {
@@ -364,8 +389,7 @@ public class PerfTaskService {
         if (!revise && pendingAppeal) {
             throw exception(CYCLE_ACTION_INVALID, "存在待复核申诉，阻断归档");
         }
-        List<PerfMetrics.SourceRow> sourceRows = metrics.sources(post, period, adjustments(post, period));
-        String signature = PerfMetrics.sourceSignature(sourceRows);
+        String signature = currentSignature(post, period);
         if (revise) {
             List<FrPerfTaskArchiveDO> existing = archives.selectByPeriod(post.orgId(), period);
             if (existing.isEmpty() || signature.equals(existing.get(0).getSourceSignature())) {
@@ -374,7 +398,7 @@ public class PerfTaskService {
         }
         List<Map<String, Object>> taskViews = new ArrayList<>();
         for (FrPerfTaskDO task : tasks.selectByPeriod(post.orgId(), period)) {
-            taskViews.add(taskView(task, sourceRows));
+            taskViews.add(taskView(task, metrics.sources(post, period, adjustments(post, period))));
         }
         List<FrPerfTaskArchiveDO> existing = archives.selectByPeriod(post.orgId(), period);
         int nextNo = existing.isEmpty() ? 1 : existing.get(0).getArchiveNo() + 1;
@@ -397,6 +421,17 @@ public class PerfTaskService {
         return archiveView(post, period);
     }
 
+    /** 归档签名统一基准（P1-11）：业务源行 + 任务定义集——归档/修订/needsRevision 同源可比 */
+    private String currentSignature(PostSnapshot post, String period) {
+        List<PerfMetrics.SourceRow> sourceRows = metrics.sources(post, period, adjustments(post, period));
+        List<String> taskParts = tasks.selectByPeriod(post.orgId(), period).stream()
+                .sorted(java.util.Comparator.comparing(FrPerfTaskDO::getId))
+                .map(t -> "task:" + t.getId() + ":" + t.getType() + ":" + t.getTargetCents()
+                        + ":" + t.getAssigneeUserId()).toList();
+        return PerfSupport.signature(java.util.stream.Stream.concat(
+                java.util.stream.Stream.of(PerfMetrics.sourceSignature(sourceRows)), taskParts.stream()).toList());
+    }
+
     public Map<String, Object> archiveView(PostSnapshot post, String period) {
         List<FrPerfTaskArchiveDO> rows0 = archives.selectByPeriod(post.orgId(), period);
         Map<String, Object> view = new LinkedHashMap<>();
@@ -413,8 +448,7 @@ public class PerfTaskService {
             return row;
         }).toList());
         view.put("needsRevision", !rows0.isEmpty()
-                && !PerfMetrics.sourceSignature(metrics.sources(post, period, adjustments(post, period)))
-                .equals(rows0.get(0).getSourceSignature()));
+                && !currentSignature(post, period).equals(rows0.get(0).getSourceSignature()));
         return view;
     }
 
@@ -452,6 +486,34 @@ public class PerfTaskService {
         if (!archives.selectByPeriod(post.orgId(), period).isEmpty()) {
             throw exception(PERF_TASK_INVALID, "周期已归档，任务锁定");
         }
+    }
+
+    /** P1-5：本组织在岗成员（SystemDirectory 真源），姓名服务端快照 */
+    private cn.iocoder.yudao.module.platform.org.SystemDirectory.UserBrief requireActiveMember(
+            PostSnapshot post, long userId) {
+        var briefs = systemDirectory.usersByIds(java.util.List.of(userId));
+        var brief = briefs == null || briefs.isEmpty() ? null : briefs.get(0);
+        if (brief == null || !brief.active()) {
+            throw exception(PERF_INPUT_INVALID, "责任人不存在或已停用，请重新选择");
+        }
+        return brief;
+    }
+
+    /** 角色→组（summary 裁剪用） */
+    private static final Map<String, String> DEPT_ROLE_OF = Map.of(
+            "sales", "business", "sales-lead", "business", "hq-operations", "business",
+            "hq-operations-lead", "business", "hq-design-admin", "business",
+            "engineer", "engineering", "project-manager", "engineering",
+            "finance", "finance", "finance-lead", "finance");
+
+    private static String deptOfSourceType(String type) {
+        return switch (type) {
+            case "auto:collectionsAmount", "auto:contract", "auto:publications", "auto:effectiveLeads",
+                 "metric:commissionAmount", "metric:effectiveCustomers", "auto:approvedDeliverables" -> "business";
+            case "auto:completedNodes", "auto:onTimeNodes", "auto:qualifiedDeliveries" -> "engineering";
+            case "auto:financeRegistrations" -> "finance";
+            default -> null;
+        };
     }
 
     private static void requirePeriod(String period) {

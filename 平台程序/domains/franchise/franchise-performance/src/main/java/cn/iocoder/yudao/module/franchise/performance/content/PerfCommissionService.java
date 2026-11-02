@@ -37,16 +37,19 @@ public class PerfCommissionService {
     private final PerformancePayablePort payables;
     private final FranchiseCommands commands;
     private final JdbcTemplate jdbc;
+    private final cn.iocoder.yudao.module.platform.org.SystemDirectory systemDirectory;
 
     public PerfCommissionService(FrPerfCommissionPolicyMapper policies,
                                  FrPerfCommissionReleaseMapper releases,
                                  PerformancePayablePort payables, FranchiseCommands commands,
-                                 JdbcTemplate jdbc) {
+                                 JdbcTemplate jdbc,
+                                 cn.iocoder.yudao.module.platform.org.SystemDirectory systemDirectory) {
         this.policies = policies;
         this.releases = releases;
         this.payables = payables;
         this.commands = commands;
         this.jdbc = jdbc;
+        this.systemDirectory = systemDirectory;
     }
 
     // ===================== 策略（严格 boss） =====================
@@ -62,6 +65,9 @@ public class PerfCommissionService {
         payload.put("projectId", projectId);
         payload.put("totalCents", totalCents);
         payload.put("assigneeUserId", assigneeUserId);
+        payload.put("assigneeName", StrUtil.nullToEmpty(assigneeName));
+        payload.put("evidenceRef", StrUtil.nullToEmpty(evidenceRef));
+        payload.put("note", StrUtil.nullToEmpty(note));
         var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return row(post, projectId);
@@ -74,6 +80,18 @@ public class PerfCommissionService {
         if (current != null && !releases.selectByPolicy(post.orgId(), current.getId()).isEmpty()) {
             throw exception(COMMISSION_POLICY_LOCKED); // 硬锁（蓝本 :77）
         }
+        // P2-17：policy 行锁（修改与 release 竞争窗口互斥——防授权快照失配）
+        if (current != null) {
+            jdbc.queryForMap("SELECT id FROM fr_perf_commission_policy WHERE id = ? FOR UPDATE", current.getId());
+        }
+        // P1-5：归属人须本组织在岗（职务真源+姓名服务端快照——客户端名不进 finance recipient）
+        var member = requireActiveMember(post, assigneeUserId);
+        // P1-5：项目须归属当前组织
+        Long projectOrg = jdbc.queryForObject(
+                "SELECT company_id FROM fr_eng_project WHERE id = ?", Long.class, projectId);
+        if (projectOrg == null || projectOrg != post.orgId()) {
+            throw exception(PERF_INPUT_INVALID, "工程不存在或不属于当前组织");
+        }
         long start = totalCents / 2;
         long topping = totalCents - start;
         long policyRowId;
@@ -84,7 +102,7 @@ public class PerfCommissionService {
                     + "evidence_ref, note, author_user_id, create_time, update_time) "
                     + "VALUES (?,?,?,?,?,?,?,?,1,?,?,?,now(),now())",
                     policyRowId, post.orgId(), projectId, totalCents, assigneeUserId,
-                    StrUtil.blankToDefault(assigneeName, ""), start, topping,
+                    member.name(), start, topping,
                     StrUtil.trim(evidenceRef), StrUtil.trim(note), post.userId());
         } else {
             String history = JsonUtil.append(current.getHistory(), Map.of(
@@ -93,7 +111,7 @@ public class PerfCommissionService {
                     "at", String.valueOf(java.time.OffsetDateTime.now())));
             policies.updateById(new FrPerfCommissionPolicyDO().setId(current.getId())
                     .setTotalCents(totalCents).setAssigneeUserId(assigneeUserId)
-                    .setAssigneeName(StrUtil.blankToDefault(assigneeName, ""))
+                    .setAssigneeName(member.name())
                     .setStartCents(start).setToppingCents(topping)
                     .setVersion(current.getVersion() + 1)
                     .setEvidenceRef(StrUtil.trim(evidenceRef)).setNote(StrUtil.trim(note)));
@@ -101,20 +119,29 @@ public class PerfCommissionService {
                     current.getId(), post.orgId());
             policyRowId = current.getId();
         }
+        // P1-1：record revision=实际落库版本（新建=1、升版=version+1，与重放路径同源）
+        FrPerfCommissionPolicyDO saved = policies.selectByProject(post.orgId(), projectId);
         commands.record(post, AGGREGATE, policyRowId,
-                1, "perf-commission-policy", payload, idempotencyKey);
+                saved == null ? 1 : saved.getVersion(), "perf-commission-policy", payload, idempotencyKey);
         return row(post, projectId);
     }
 
     // ===================== 生成应付（finance 族） =====================
 
+    private static String requireStage(String stage) {
+        if ("TOPPING".equals(stage)) {
+            return FrPerfCommissionReleaseDO.STAGE_TOPPING;
+        }
+        if ("START".equals(stage)) {
+            return FrPerfCommissionReleaseDO.STAGE_START;
+        }
+        throw exception(PERF_INPUT_INVALID, "stage 须为 START 或 TOPPING"); // P2-19：非法阶段不再静默解释为 START
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> release(PostSnapshot post, long projectId, String stage, String idempotencyKey) {
-        if (!List.of("finance", "finance-lead").contains(post.roleCode())) {
-            throw exception(PERFORMANCE_FORBIDDEN); // release=finance 族
-        }
-        String stageKey = "TOPPING".equals(stage) ? FrPerfCommissionReleaseDO.STAGE_TOPPING
-                : FrPerfCommissionReleaseDO.STAGE_START;
+        PerfSupport.requireFinance(post); // P1-4：服务层 finance 族校验
+        String stageKey = requireStage(stage);
         Map<String, Object> payload = Map.of("projectId", projectId, "stage", stageKey);
         var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
@@ -145,7 +172,8 @@ public class PerfCommissionService {
                 relId, post.orgId(), policy.getId(), projectId, stageKey, payableId, policy.getVersion(),
                 facts.signature, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(facts.receiptIds),
                 post.userId(), java.time.OffsetDateTime.now());
-        commands.record(post, AGGREGATE, relId, 1, "perf-commission-release", payload, idempotencyKey);
+        commands.record(post, AGGREGATE, relId,
+                PerfSupport.nextAggregateRevision(jdbc, AGGREGATE, relId), "perf-commission-release", payload, idempotencyKey);
         return row(post, projectId);
     }
 
@@ -159,7 +187,8 @@ public class PerfCommissionService {
         }
         String stageKey = "TOPPING".equals(stage) ? FrPerfCommissionReleaseDO.STAGE_TOPPING
                 : FrPerfCommissionReleaseDO.STAGE_START;
-        var replayed = commands.replayed(post, idempotencyKey, Map.of("projectId", projectId, "stage", stageKey));
+        var replayed = commands.replayed(post, idempotencyKey, Map.of("projectId", projectId, "stage", stageKey,
+                "evidenceRef", StrUtil.nullToEmpty(evidenceRef), "note", StrUtil.nullToEmpty(note)));
         if (replayed.isPresent()) {
             return row(post, projectId);
         }
@@ -189,8 +218,11 @@ public class PerfCommissionService {
                 rel.getId(), post.orgId());
         jdbc.update("UPDATE fr_perf_commission_release SET receipt_signature = ? WHERE id = ? AND company_id = ?",
                 facts.signature, rel.getId(), post.orgId());
-        commands.record(post, AGGREGATE, rel.getId(), 1, "perf-commission-reconcile",
-                Map.of("projectId", projectId, "stage", stageKey), idempotencyKey);
+        commands.record(post, AGGREGATE, rel.getId(),
+                PerfSupport.nextAggregateRevision(jdbc, AGGREGATE, rel.getId()), "perf-commission-reconcile",
+                Map.of("projectId", projectId, "stage", stageKey,
+                        "evidenceRef", StrUtil.nullToEmpty(evidenceRef), "note", StrUtil.nullToEmpty(note)),
+                idempotencyKey);
         return row(post, projectId);
     }
 
@@ -271,7 +303,7 @@ public class PerfCommissionService {
             }
             boolean reviewDue = rel != null && (!facts.eligible
                     || !facts.signature.equals(rel.getReceiptSignature())
-                    || rel.getPolicyVersion() != policy.getVersion());
+                    || !java.util.Objects.equals(rel.getPolicyVersion(), policy.getVersion()));
             String status;
             if (reviewDue) {
                 status = "待人工核对";
@@ -301,6 +333,17 @@ public class PerfCommissionService {
         }
         view.put("stages", stages);
         return view;
+    }
+
+    /** P1-5：归属人本组织在岗校验（SystemDirectory 真源） */
+    private cn.iocoder.yudao.module.platform.org.SystemDirectory.UserBrief requireActiveMember(
+            PostSnapshot post, long userId) {
+        var briefs = systemDirectory.usersByIds(java.util.List.of(userId));
+        var brief = briefs == null || briefs.isEmpty() ? null : briefs.get(0);
+        if (brief == null || !brief.active()) {
+            throw exception(PERF_INPUT_INVALID, "提成归属人不存在或已停用，请重新选择");
+        }
+        return brief;
     }
 
     private FrPerfCommissionPolicyDO requirePolicy(PostSnapshot post, long projectId) {

@@ -85,8 +85,10 @@ public class PerfOperatingService {
                     .setIncomeCents(income).setPaidCents(paid).setNetCents(income - paid)
                     .setReceiptCount(receiptCount).setPaymentCount(paymentCount).setByUserId(post.userId()));
         }
-        commands.record(post, AGGREGATE, reconciliations.selectByPeriod(post.orgId(), period).getId(),
-                1, "perf-month-reconcile", Map.of("period", period), idempotencyKey);
+        long recId = reconciliations.selectByPeriod(post.orgId(), period).getId();
+        commands.record(post, AGGREGATE, recId,
+                PerfSupport.nextAggregateRevision(jdbc, AGGREGATE, recId), "perf-month-reconcile",
+                Map.of("period", period), idempotencyKey);
         return reconciliationView(post, period);
     }
 
@@ -134,7 +136,7 @@ public class PerfOperatingService {
                         : String.valueOf(JsonUtil.parseMap(existing.get(0).getReport()).get("sourceSignature")))) {
             throw exception(GOAL_OR_SNAPSHOT_LOCKED); // 签名未变化（002 幂等拒绝）
         }
-        LocalDate asOf = LocalDate.parse(previousPeriod(period) + "-01").plusMonths(1).minusDays(1);
+        LocalDate asOf = LocalDate.parse(nextMonth(period)).minusDays(1); // P1-13：period 月末（原式早一月）
         long snapId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
         int snapVersion = existing.isEmpty() ? 1 : existing.get(0).getVersion() + 1;
         jdbc.update("INSERT INTO fr_perf_operating_snapshot (id, company_id, period, version, supersedes, "
@@ -222,22 +224,70 @@ public class PerfOperatingService {
         totals.put("net6MonthsCents", net6);
         totals.put("coverage", payableOutstanding == 0 ? null : (double) net6 / payableOutstanding);
         report.put("totals", totals);
+        // P1-14：应收/应付账龄六桶（未到期/逾期1-30/31-60/61-90/90+/未约定——约定日期=收款 occurred_at 应期）
+        LocalDate today = LocalDate.now();
+        java.util.function.Supplier<Map<String, Long>> emptyBuckets = () -> {
+            Map<String, Long> m0 = new LinkedHashMap<>();
+            for (String b : java.util.List.of("notDue", "d1_30", "d31_60", "d61_90", "d90Plus", "undated")) {
+                m0.put(b, 0L);
+            }
+            return m0;
+        };
+        Map<String, Long> receivableAging = emptyBuckets.get();
+        jdbc.query("SELECT t.stage, t.amount_cents - COALESCE((SELECT SUM(c.amount_cents) FROM fr_eng_collection c "
+                        + "WHERE c.company_id = t.company_id AND c.project_id = t.project_id AND c.stage = t.stage), 0) AS due, "
+                        + "t.project_id FROM fr_eng_collection_term t WHERE t.company_id = ?",
+                rs -> {
+                    long due = rs.getLong("due");
+                    if (due <= 0) return;
+                    LocalDate ref = jdbc.queryForObject(
+                            "SELECT COALESCE(MAX(occurred_at), DATE '1900-01-01') FROM fr_eng_collection "
+                                    + "WHERE company_id = ? AND project_id = ? AND stage = ?",
+                            LocalDate.class, org, rs.getLong("project_id"), rs.getString("stage"));
+                    bucketize(receivableAging, due, ref, today);
+                }, org);
+        Map<String, Long> payableAging = emptyBuckets.get();
+        jdbc.query("SELECT q.id, q.total_cents - COALESCE((SELECT SUM(p.amount_cents) FROM fr_fin_payment p "
+                        + "WHERE p.payable_id = q.id AND p.status = '已核实'), 0) AS due, "
+                        + "COALESCE(MAX(pay.pay_date), DATE '1900-01-01') AS last_pay FROM fr_fin_payable q "
+                        + "LEFT JOIN fr_fin_payment pay ON pay.payable_id = q.id AND pay.status = '已核实' "
+                        + "WHERE q.company_id = ? GROUP BY q.id, q.total_cents",
+                rs -> {
+                    long due = rs.getLong("due");
+                    if (due <= 0) return;
+                    bucketize(payableAging, due, rs.getDate("last_pay") == null ? null
+                            : rs.getDate("last_pay").toLocalDate(), today);
+                }, org);
+        report.put("receivableAging", receivableAging);
+        report.put("payableAging", payableAging);
         receivable = 0; // suppress unused
-        // 签名（快照幂等依据——覆盖收付行指纹）
-        String signature = jdbc.queryForObject(
-                "SELECT CONCAT('r:', COALESCE(SUM(amount_cents),0), ':', COUNT(*)) FROM fr_fin_receipt WHERE company_id=?",
-                String.class, org)
-                + "|" + jdbc.queryForObject(
-                "SELECT CONCAT('p:', COALESCE(SUM(amount_cents),0), ':', COUNT(*)) FROM fr_fin_payment WHERE company_id=?",
-                String.class, org)
-                + "|" + jdbc.queryForObject(
-                "SELECT CONCAT('f:', COALESCE(SUM(amount_cents),0), ':', COUNT(*)) FROM fr_fin_refund WHERE company_id=?",
-                String.class, org)
-                + "|" + jdbc.queryForObject(
-                "SELECT CONCAT('e:', COALESCE(SUM(amount_cents),0), ':', COUNT(*)) FROM fr_eng_collection WHERE company_id=?",
-                String.class, org);
-        report.put("sourceSignature", signature);
+        // 签名（P1-13：按月分桶指纹——总额不变但跨月挪动/状态变化可检出）+ SHA 摘要定长
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        for (int i = 11; i >= 0; i--) {
+            String p = shift(period, -i);
+            parts.add(p + ":r" + monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_receipt "
+                    + "WHERE company_id=? AND status='已登记' AND received_date >= ?::date AND received_date < ?::date", p)
+                    + ":p" + monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_payment "
+                    + "WHERE company_id=? AND status='已核实' AND pay_date >= ?::date AND pay_date < ?::date", p)
+                    + ":f" + monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
+                    + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND date >= ?::date AND date < ?::date", p));
+        }
+        parts.add("terms:" + totalTerms + ":collected:" + collected + ":payable:" + payableOutstanding);
+        report.put("sourceSignature", PerfSupport.signature(parts));
         return report;
+    }
+
+    /** 账龄入桶（基准日=该笔款项最近一次收付日；无日期=未约定桶） */
+    private static void bucketize(Map<String, Long> buckets, long due, LocalDate ref, LocalDate today) {
+        String bucket;
+        if (ref == null || ref.getYear() < 1900) {
+            bucket = "undated";
+        } else {
+            long days = java.time.temporal.ChronoUnit.DAYS.between(ref, today);
+            bucket = days <= 0 ? "notDue" : days <= 30 ? "d1_30" : days <= 60 ? "d31_60"
+                    : days <= 90 ? "d61_90" : "d90Plus";
+        }
+        buckets.merge(bucket, due, Long::sum);
     }
 
     private long monthSum(long org, String sql, String period) {
