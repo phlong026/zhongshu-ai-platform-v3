@@ -22,4 +22,10 @@ function mergeProfile(local, remote) {
   return next;
 }
 
-module.exports = { normalizeNickname, mergeProfile };
+/** 手机号打码：前3后4（138****2688）；空/短串（<7 位）原样返回（20 号任务书 AC4，syncApiProfile 回填展示用） */
+function maskPhone(phone) {
+  const s = String(phone == null ? '' : phone);
+  return s.length >= 7 ? s.slice(0, 3) + '****' + s.slice(-4) : s;
+}
+
+module.exports = { normalizeNickname, mergeProfile, maskPhone };

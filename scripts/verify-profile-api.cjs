@@ -30,4 +30,28 @@ assert.equal(kept.name, '旧名');
 assert.equal(kept.phone, '13800002688');
 assert.deepEqual(P.mergeProfile(local, null), local, 'remote null 安全');
 
+// ===== maskPhone：前3后4打码（20 号任务书 AC4，syncApiProfile 回填展示用）=====
+assert.equal(P.maskPhone('13800002688'), '138****2688', '11 位手机号前3后4');
+assert.equal(P.maskPhone('13711112222'), '137****2222');
+assert.equal(P.maskPhone(''), '', '空串原样');
+assert.equal(P.maskPhone(null), '', 'null 安全');
+assert.equal(P.maskPhone(undefined), '', 'undefined 安全');
+assert.equal(P.maskPhone('12345'), '12345', '短串（<7 位）原样不打码');
+// mergeProfile → maskPhone 联动：后端 mobile 回填后打码展示
+assert.equal(P.maskPhone(P.mergeProfile(local, { id: 9, nickname: '李运营', mobile: '13711112222' }).phone), '137****2222', '回填联动打码');
+
+// ===== account/index.js GET 读侧接线静态扫描（20 号任务书 AC3/D-2 硬约束）=====
+const fs = require('node:fs');
+const path = require('node:path');
+const pageSrc = fs.readFileSync(path.join(__dirname, '../miniprogram/pages/account/index.js'), 'utf8');
+const seg = pageSrc.slice(pageSrc.indexOf('syncApiProfile(){'));
+assert.ok(seg.length > 0, 'syncApiProfile 方法存在');
+assert.ok(seg.includes("http.get('/platform/profile/mine')"), 'GET /platform/profile/mine 接线');
+assert.ok(seg.includes('mergeProfile'), '回填走 mergeProfile');
+assert.ok(/if\(!http\.token\(\)\)return;/.test(seg), '无 token 直接返回不拉取');
+assert.ok(seg.includes('A.mutate') && seg.includes('this.setData({profile'), 'A.mutate 与 setData 均在 syncApiProfile 段内');
+assert.ok(seg.indexOf('A.mutate') < seg.indexOf('this.setData({profile'), '先 A.mutate 落 storage 再 setData（D-2 硬约束：navigateBack 复用旧实例靠 storage 重读兜底）');
+assert.ok(seg.includes('.catch(()=>{})'), '失败静默降级不白屏');
+assert.ok(pageSrc.includes("if(v==='profile'&&reset)this.syncApiProfile();"), 'refresh 末尾仅 profile 视图 onLoad（reset）触发');
+
 console.log('verify-profile-api ✔  全部断言通过');

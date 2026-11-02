@@ -7,10 +7,14 @@
  */
 const TYPE_LABELS = { BUSINESS: '业务', LEARNING: '学习', SYSTEM: '系统' };
 
-/** createTime（ISO，含时区）→ 蓝本展示 date（'YYYY-MM-DD HH:mm' 北京时间；同 account.js displayTime 口径） */
+/** createTime → 蓝本展示 date（'YYYY-MM-DD HH:mm' 北京时间；同 account.js displayTime 口径）。
+ * 三输入归一（20 号任务书 D-1）：毫秒数字（主形态——OffsetDateTime 落 epoch 毫秒）/ ISO 字符串 /
+ * 12 位以上纯数字串（防御）；秒级数字不在支持面。 */
 function formatTime(value) {
-  if (typeof value !== 'string' || !value) return '';
-  const ms = Date.parse(value);
+  let ms;
+  if (typeof value === 'number') ms = value;
+  else if (typeof value === 'string' && value) ms = /^\d{12,}$/.test(value) ? Number(value) : Date.parse(value);
+  else return '';
   if (!Number.isFinite(ms)) return '';
   return new Date(ms + 8 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
 }

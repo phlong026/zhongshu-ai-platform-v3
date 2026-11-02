@@ -12,6 +12,15 @@ assert.equal(M.formatTime('2026-11-01T01:20:00Z'), '2026-11-01 09:20', 'UTC 归�
 assert.equal(M.formatTime(''), '', '空串安全');
 assert.equal(M.formatTime('not-a-date'), '', '非法日期安全');
 assert.equal(M.formatTime(null), '', 'null 安全');
+assert.equal(M.formatTime(undefined), '', 'undefined 安全');
+
+// ===== formatTime：毫秒数字主形态（20 号任务书 D-1/F3：OffsetDateTime 落 epoch 毫秒数字）=====
+assert.equal(M.formatTime(1793496000000), '2026-11-01 09:20', '毫秒数字归一（与上行 ISO 同时刻双形态互证）');
+assert.equal(M.formatTime('1793496000000'), '2026-11-01 09:20', '12 位以上纯数字串按毫秒（防御形态）');
+assert.equal(M.formatTime(NaN), '', 'NaN 安全');
+assert.equal(M.formatTime(Infinity), '', 'Infinity 安全');
+assert.equal(M.formatTime(-Infinity), '', '-Infinity 安全');
+assert.equal(M.formatTime(0), '1970-01-01 08:00', '毫秒 0 按 epoch 一致渲染（不做秒/毫秒猜测）');
 
 // ===== toLocalMessage：MessageView → 蓝本形态 =====
 const row = {
@@ -34,6 +43,16 @@ for (const bad of [null, undefined, {}, { id: 'msg-x' }, { id: 12.5 }, { id: '' 
 }
 // id 数字型输入（后端偶尔落安全整数区间）同样归一为字符串
 assert.equal(M.toLocalMessage({ ...row, id: 987654 }).id, '987654');
+
+// ===== createTime 毫秒数字形态：date 渲染非空、排序不沉底（20 号任务书 AC1/AC2）=====
+const msRow = M.toLocalMessage({ ...row, createTime: 1793496000000 });
+assert.equal(msRow.date, '2026-11-01 09:20', '毫秒 createTime 渲染 date 非空（修复前落空串）');
+const msMsg = M.toLocalMessage({ ...row, id: '200', createTime: 1793496000000 }); // 2026-11-01 最新
+const msMerged = M.mergeSources(
+  [{ id: 'msg-follow', type: '业务', title: '本地', date: '2026-10-18 09:20', read: false }],
+  [], [msMsg]
+);
+assert.equal(msMerged[0].id, '200', '毫秒形态 API 消息参与倒序不沉底');
 
 // ===== isApiMessage：纯数字雪花串 vs 本地/派生 id =====
 assert.equal(M.isApiMessage(local), true);
