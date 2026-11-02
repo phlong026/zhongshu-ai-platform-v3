@@ -1,6 +1,8 @@
 const { assets, unavailable } = require('../../utils/creation');
 const studio = require('../../utils/studio');
 const Demo=require('../../utils/creation-demo');
+const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5）
+const http=require('../../api/http');
 Page({
 data: {
 link: Demo.samples[0].url, sheet: '', editorText: '', draft: null, assets, demoSamples:Demo.samples, sampleId:'daylight',sampleIndex:0,
@@ -36,11 +38,44 @@ fail: () => wx.showToast({ title: '未能读取剪贴板，请手动粘贴', ico
 });
 },
 extract() {
-if (!/https?:\/\/[^\s]+/i.test(this.data.link)) {
-wx.showToast({ title: '请先粘贴有效的视频分享链接', icon: 'none' }); return;
-}
+const invalid=P.validateShareLink(this.data.link);
+if(invalid){wx.showToast({title:invalid,icon:'none'});return;}
 const sample=Demo.match(this.data.link),run=id=>{const state=studio.read();Demo.extract(state,this.data.link,id);studio.write(state);wx.navigateTo({url:'/pages/studio/index?view=remix'});};
-if(sample)return run(sample.id);
+if(sample)return run(sample.id); // 演示样品链接仍走本地流程
+if(http.token())return this.extractOnline(); // 在线：后端链接解析（任务化轮询）
+this.fallbackExtract();
+},
+/** 在线提取：links.parse → pollTask → 有文案（result.text）直接进二创流；无文案/失败提示后走演示兜底 */
+extractOnline() {
+const url=String(this.data.link).trim(),scope=this.actorScope;
+wx.showLoading({title:'解析链接中',mask:true});
+P.api.links.parse(url).then(res=>{
+const taskId=res&&res.taskId?String(res.taskId):'';
+if(!taskId)throw Error('解析任务创建失败，请稍后重试');
+return P.pollTask(taskId);
+}).then(task=>{
+wx.hideLoading();
+if(scope!==studio.scope())return; // 工作身份已变化，丢弃迟到结果
+const view=P.taskView(task.status);
+if(view!=='completed'){wx.showToast({title:view==='failed'?'文案解析失败：'+(task.failedReason||'请稍后重试'):'解析结果暂不确定，请稍后重试',icon:'none'});return;}
+const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
+if(!text){wx.showToast({title:'未解析到口播文案，可手动填写或使用演示样品',icon:'none'});return;}
+const state=studio.read();
+state.title=text.split('\n')[0].slice(0,28);
+state.original=text;state.script='';state.rewriteHistory=[];state.copyOptimizations=[];
+state.extraction={online:true,taskId:String(task.id||''),sourceTitle:String((task.result&&task.result.title)||url),sourceUrl:url,extractedAt:Date.now()};
+delete state.editorBuffer;
+studio.write(state);
+wx.navigateTo({url:'/pages/studio/index?view=remix'});
+}).catch(error=>{
+wx.hideLoading();
+wx.showToast({title:P.degradeMessage(error),icon:'none'});
+this.fallbackExtract(); // 接口失败回落演示兜底
+});
+},
+/** 演示兜底（离线或接口失败时维持原体验） */
+fallbackExtract() {
+const run=id=>{const state=studio.read();Demo.extract(state,this.data.link,id);studio.write(state);wx.navigateTo({url:'/pages/studio/index?view=remix'});};
 wx.showModal({ title: '使用内置文案', content: '视频链接解析暂未开通。继续将使用“'+Demo.samples.find(s=>s.id===this.data.sampleId).title+'”的内置文案，不会读取此链接；手动草稿保留。', confirmText:'使用内置文案',confirmColor:'#824019',success:({confirm})=>{if(confirm)run(this.data.sampleId);} });
 },
 openEditor() {

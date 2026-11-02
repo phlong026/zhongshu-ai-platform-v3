@@ -2,7 +2,7 @@
  * 员工消息中心视图模型（纯函数，零 wx/Storage 依赖——verify 依赖此约束）。
  * 契约：monorepo docs/backend-parity/11-阶段0-基2员工消息中心-需求与验收.md（GET /platform/messages）。
  * 后端 MessageView：id 为雪花 id（超 JS 安全整数，序列化为字符串）、type=BUSINESS/LEARNING/SYSTEM、
- * route/objectId 指向后端域对象（与本地演示数据字符串 id 不同域，跳转口径见 11 §十）。
+ * route/objectId 指向后端域对象（与本机离线蓝本字符串 id 不同域，跳转口径见 11 §十）。
  * 本地派生通知照旧（D-基2-j），三源在前端合入，摘除随对应域后端化批次。
  */
 const TYPE_LABELS = { BUSINESS: '业务', LEARNING: '学习', SYSTEM: '系统' };

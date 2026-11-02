@@ -1,5 +1,8 @@
 const { assets, unavailable, persistMedia } = require('../../utils/creation');
 const studio = require('../../utils/studio');
+const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：F11 参数映射/降级文案）
+const contentApi=require('../../api/franchise/content');
+const http=require('../../api/http');
 Page({
 data: {
 mode: 'frames', description: '', firstFrame: '', lastFrame: '', references: [], assets, libraryOpen: false, libraryTarget: '', editingTaskId: '', invalidMessage: '',
@@ -27,20 +30,41 @@ const value = saved ? (typeof saved.value === 'number' ? (saved.options || param
 return Object.assign({}, parameter, { value: Math.max(0, parameter.options.indexOf(value)) });
 });
 this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', references: draft.references || [], parameters });
-}
+} else if (http.token()) this.restoreRemoteDraft(); // 在线：无本地草稿时回读云端视频草稿（best-effort）
+},
+/** 云端视频草稿回读：仅恢复可展示字段（描述/模式/H3 参数→v3 选项）；素材引用缺字节路径不复原 */
+restoreRemoteDraft() {
+contentApi.drafts.videoDraft().then(remote => {
+if (this.data.invalidMessage || !remote || !remote.exists || this.data.description) return;
+const remoteParams = remote.parameters;
+const pick = key => {
+if (remoteParams && typeof remoteParams === 'object' && !Array.isArray(remoteParams)) return remoteParams[key];
+const hit = (Array.isArray(remoteParams) ? remoteParams : []).find(item => item && item.key === key);
+return hit ? hit.value : '';
+};
+const parameters = this.data.parameters.map(parameter => Object.assign({}, parameter, { value: Math.max(0, parameter.options.indexOf(pick(parameter.key) || parameter.options[0])) }));
+this.setData({ mode: remote.mode === 'reference' ? 'reference' : 'frames', description: String(remote.description || ''), parameters });
+}).catch(() => {}); // 失败静默：沿用本地空草稿
 },
 onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope())wx.redirectTo({url:"/pages/ai-video/index"});},
 onHide() { this.saveDraft(); },
 onUnload() { this.saveDraft(); },
 saveDraft() {
-if(!studio.allowed()||this.actorScope!==studio.scope())return;
-if (this.data.invalidMessage) return;
-const { mode, description, firstFrame, lastFrame, references, parameters } = this.data;
-const draft = { mode, description, firstFrame, lastFrame, references, parameters, updatedAt: Date.now() };
-if (this.data.editingTaskId) {
-const state = studio.read(); state.videoTaskDrafts = state.videoTaskDrafts || {}; state.videoTaskDrafts[this.data.editingTaskId] = draft; studio.write(state);
-} else wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').videoDraft), draft);
-},
+	if(!studio.allowed()||this.actorScope!==studio.scope())return;
+	if (this.data.invalidMessage) return;
+	const { mode, description, firstFrame, lastFrame, references, parameters } = this.data;
+	const draft = { mode, description, firstFrame, lastFrame, references, parameters, updatedAt: Date.now() };
+	if (this.data.editingTaskId) {
+	const state = studio.read(); state.videoTaskDrafts = state.videoTaskDrafts || {}; state.videoTaskDrafts[this.data.editingTaskId] = draft; studio.write(state);
+	} else wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').videoDraft), draft);
+	// 在线：草稿同步云端（best-effort，失败静默降级本地；首尾帧本批无上传通道，不同步媒体）
+	if (http.token()) {
+	const mapped = P.mapVideoParameters(parameters);
+	const payload = { mode, description, parameters: mapped };
+	if (mode === 'reference' && references.length) payload.references = P.mapReferences(references);
+	contentApi.drafts.saveVideoDraft(payload).catch(() => {});
+	}
+	},
 switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode }); },
 inputDescription(e) { this.setData({ description: e.detail.value }); },
 changeParameter(e) {
@@ -105,6 +129,7 @@ if (this.data.invalidMessage) return;
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToast({ title: '请先添加参考素材', icon: 'none' }); return; }
 this.saveDraft();
+if (http.token()) return this.generateOnline(); // 在线：直连后端创建 ai_video 任务（不再弹「服务暂未开通」）
 wx.showModal({ title: '体验视频创作流程', content: '视频生成服务暂未开通，可先创建任务并保存草稿。', confirmText: '体验流程', confirmColor: '#824019', success: ({ confirm }) => {
 if (confirm) {
 const configuration = { mode: this.data.mode, parameters: this.data.parameters.map(item => ({ key: item.key, value: item.options[item.value] })), firstFrame: this.data.firstFrame, lastFrame: this.data.lastFrame, references: this.data.references };
@@ -115,6 +140,20 @@ if (getCurrentPages().length >= 9) wx.redirectTo(nav); else wx.navigateTo(nav);
 } catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
 }
 } });
+},
+/** 在线生成：F11 参数映射（1080P→2K、720P→768P、'8 秒'→8、比例透传）+ references 角色映射；数量恒 1 不上送。
+ * 本批素材字节上传通道未开（local 环境无法真传 COS）：首尾帧沿用本地路径仅展示，提交无媒体 T2V/文字任务。 */
+generateOnline() {
+const mapped = P.mapVideoParameters(this.data.parameters);
+const payload = { kind: 'ai_video', description: this.data.description.trim(), resolution: mapped.resolution, duration: mapped.duration, ratio: mapped.ratio };
+if (this.data.mode === 'reference' && this.data.references.length) payload.references = P.mapReferences(this.data.references);
+contentApi.tasks.create(payload).then(res => {
+const taskId = res && res.taskId ? String(res.taskId) : '';
+if (!taskId) throw Error('任务创建失败，请稍后重试');
+wx.showToast({ title: '任务已提交，可在任务中心查看进度', icon: 'none' });
+const nav = { url: '/pages/studio/index?view=tasks' };
+if (getCurrentPages().length >= 9) wx.redirectTo(nav); else wx.navigateTo(nav);
+}).catch(error => { wx.showToast({ title: P.degradeMessage(error), icon: 'none' }); });
 },
 returnToTasks() { wx.redirectTo({ url: '/pages/studio/index?view=tasks' }); },
 noop() {}
