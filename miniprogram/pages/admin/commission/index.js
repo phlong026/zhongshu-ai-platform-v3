@@ -19,7 +19,7 @@ Page({
     if (P.online()) return this.refreshOnline();
     try {
       const actor = X.context();
-      if (!actor.active || !['boss','owner','finance','finance-lead'].includes(actor.role)) throw Error('当前身份无本组织提成查看权限');
+      if (!actor.active || !['boss','owner','finance','finance-lead'].includes(actor.role)) throw Error('当前身份无本组织提成查看权限');// API 态准入在 refreshOnline（apiPost.roleCode 矩阵）
       const state = M.load();
       const projects = (wx.getStorageSync(require('../../../utils/storage-keys').engineering)?.projects || []).filter(row => (row.companyId || 'quanzhou') === actor.companyId && row.recordFlow).map(row => ({ id:row.projectId || row.id, name:row.name || row.customer || row.projectId || row.id }));
       const staff = (state.staff || []).filter(row => row.active !== false && row.personId).map(row => ({ id:row.id, name:row.name }));
@@ -45,24 +45,30 @@ Page({
       this.setData({ ...clean(), error:error.message });
     }
   },
-  async refreshOnline() { // API 态：对账行在线（选人从行派生+本地 staff 兜底）
-    const actor = X.context();
+  async refreshOnline() { // API 态：身份=API 岗位（Codex P1-2）；项目=工程域∪已有规则（P1-5）；选人=org 真源（P1-3）
+    const post = P.apiPost();
+    if (!post) return this.setData({ ...clean(), error: '请先登录后端账号', ready: true });
     try {
-      const rows = await P.api.commission.rows();
-      const view = (rows || []).map(row => P.commissionRowView(row, actor.role));
+      const [view, members] = await Promise.all([
+        P.loadCommission(),
+        P.loadMembers().then(ms => ms.filter(m => ['boss', 'owner'].includes(m.roleCode)
+          || ['finance', 'finance-lead', 'sales', 'sales-lead', 'engineer', 'project-manager'].includes(m.roleCode)))
+          .catch(() => [])
+      ]);
       const projects = view.map(row => ({ id: row.projectId, name: row.project }));
       if (!projects.some(row => row.id === this.selectedProjectId)) this.selectedProjectId = projects[0]?.id || '';
       const selected = view.find(row => row.projectId === this.selectedProjectId);
-      const staff = P.memberOptionsFromRows(view.flatMap(row => [{ assigneeUserId: row.assignee, assigneeName: row.assignee }]))
-        .concat((M.load().staff || []).filter(x => x.active !== false).map(x => ({ id: x.id, name: x.name })));
-      const staffIndex = Math.max(0, staff.findIndex(x => x.id === selected?.assignee));
-      const finance = ['finance', 'finance-lead'].includes(actor.role), actualBoss = actor.role === 'boss';
+      const staff = members.length ? members : [];
+      const staffIndex = Math.max(0, staff.findIndex(x => x.id === selected?.assigneeUserId));
+      const finance = ['finance', 'finance-lead'].includes(post.roleCode), actualBoss = post.roleCode === 'boss';
       this.setData({
-        ready: true, error: '', actor: { role: actor.role, companyId: actor.companyId, demo: actor.demo },
+        ready: true, error: '', actor: { role: post.roleCode, companyId: post.orgId, demo: false },
         canEditPolicy: actualBoss, commissionRows: view, commissionProjects: projects,
         commissionProjectIndex: Math.max(0, projects.findIndex(x => x.id === this.selectedProjectId)),
         commissionStaff: staff, commissionStaffIndex: staffIndex,
-        commissionForm: { ...blankForm(), amount: selected ? String((selected.totalText || '¥ 0').replace(/[¥,]/g, '')) : '' },
+        commissionForm: { ...blankForm(), amount: selected && selected.totalText !== '—'
+          ? selected.totalText.replace(/[¥,]/g, '') : '',
+          assignee: selected ? selected.assigneeUserId : (staff[staffIndex] ? staff[staffIndex].id : '') },
         platPerf: true
       });
     } catch (error) {
@@ -105,11 +111,14 @@ Page({
         const person = this.data.commissionStaff[this.data.commissionStaffIndex] || {};
         if (action === 'commission-policy') {
           await P.perform('policy', { projectId: id, amount: form.amount, assigneeUserId: person.id,
-            assigneeName: person.name, evidenceRef: form.file, note: form.note });
+            assigneeName: person.name, evidenceRef: form.file, note: form.note,
+            idem: 'perf-policy:' + id + ':' + Date.now() });
         } else if (action === 'commission-release') {
-          await P.perform('release', { projectId: id, stage: form.stage });
+          await P.perform('release', { projectId: id, stage: form.stage,
+            idem: 'perf-release:' + id + ':' + form.stage });
         } else {
-          await P.perform('reconcile', { projectId: id, stage: form.stage, evidenceRef: form.file, note: form.note });
+          await P.perform('reconcile', { projectId: id, stage: form.stage, evidenceRef: form.file, note: form.note,
+            idem: 'perf-reconcile:' + id + ':' + form.stage + ':' + Date.now() });
         }
         this.refresh();
         wx.showToast({ title: action === 'commission-policy' ? '提成规则已保存' : action === 'commission-release' ? '提成应付已生成' : '人工核对已记录', icon: 'none' });

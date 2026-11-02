@@ -1,11 +1,20 @@
 /**
- * 绩效提成经营纯函数层（阶段 3）：后端英文态/字段 → 页面展示态适配、period 工具、
- * 金额/计数双单位任务视图、提成对账行适配、1_116 错误码文案、在线编排。
+ * 绩效提成经营纯函数层（阶段 3 / Codex R1 修复版）：后端英文字段 → 页面展示态适配、
+ * period 工具、金额/计数双单位任务视图、提成对账行适配、1_116 错误码文案、在线编排。
  * 后端契约见 api/franchise/performance.js；离线/失败一律降级本地演示（utils/performance-tasks.js 等）不白屏。
- * 单位事实（D-10）：money 类任务/指标 = 分；计数类 = 个原值（后端 target_cents 字段对计数类存个数）。
+ *
+ * 红线（Codex v3 评审 R1 全修）：
+ * - Long id 全程十进制字符串（禁 Number()——雪花 id 超 2^53 精度丢失）；金额/计数单独转换
+ * - API 身份源=auth.currentApiPost()（roleCode/orgId）；demo 身份（X.context()）只用于演示分支
+ * - 幂等键贯穿：payload.idem 显式传 api 层（form 键失败重试复用，成功后由页面换键）
+ * - 单位口径（后端 R1-9 修后定稿）：money 类=cents；计数类=个×100 存储（与任务书 D-10 一致），
+ *   适配层对外统一换算为「元 / 个」展示值
+ * - 成员选人=org 真源（/platform/org/staff），部门由 roleCode 映射；选人缺失降级任务行派生
  */
 const api = require('../api/franchise/performance');
 const http = require('../api/http');
+const auth = require('../api/auth');
+const orgApi = require('../api/org');
 
 // ===================== 常量与工具 =====================
 
@@ -24,7 +33,7 @@ const TYPES = [
 ];
 const typeMeta = id => TYPES.find(t => t.id === id) || { id, label: id, unit: '', manual: false };
 const isMoneyType = id => !!typeMeta(id).money;
-/** 三组指标键 → 展示名（summary.departments 的键形如 metric:commissionAmount / auto:completedAmount 等） */
+/** 三组指标键 → 展示名（summary.departments 键形如 metric:commissionAmount） */
 const METRIC_LABEL = {
   'metric:commissionAmount': '设计委托金额', 'auto:collectionsAmount': '项目实际回款',
   'metric:effectiveCustomers': '有效跟进客户', 'metric:activityTotal': '发布与有效线索',
@@ -33,7 +42,15 @@ const METRIC_LABEL = {
   'auto:onTimeNodes': '按期节点', 'metric:firstPassNodes': '首验通过节点',
   'auto:qualifiedDeliveries': '合格供货批次', 'auto:financeRegistrations': '实际收付登记'
 };
+const METRIC_MONEY = new Set(['metric:commissionAmount', 'auto:collectionsAmount']);
 const DEPT_LABEL = { business: '业务组', engineering: '工程组', finance: '财务组' };
+/** 岗位角色 → 绩效分组（蓝本 DEPARTMENTS roles 映射） */
+const ROLE_DEPT = {
+  sales: 'business', 'sales-lead': 'business', 'hq-operations': 'business',
+  'hq-operations-lead': 'business', 'hq-design-admin': 'business',
+  engineer: 'engineering', 'project-manager': 'engineering',
+  finance: 'finance', 'finance-lead': 'finance'
+};
 
 const validPeriod = period => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(period || ''));
 const currentPeriod = () => {
@@ -45,16 +62,38 @@ const previousPeriod = period => {
   const d = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)) - 2, 1));
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
 };
-/** 分→元文本（money 类任务/指标） */
+/** 分→元文本 */
 const centsText = cents => cents == null ? '—' : '¥ ' + (cents / 100).toLocaleString('en-US');
-/** 目标/实绩展示值（money 类分→元数字文本；计数类原值） */
-const valueText = (type, value) => typeMeta(type).money ? String((value || 0) / 100) : String(value || 0);
-/** 表单元输入 → 后端 targetCents（money 类元→分；计数类原值） */
-const toTargetCents = (type, raw) => {
+/** 表单元输入 → 后端 target（money 类元→分；计数类个→×100 存储对齐 D-10/后端 R1-9） */
+const toTargetRaw = (type, raw) => {
   const v = Number(String(raw == null ? '' : raw).trim());
   if (!Number.isFinite(v) || v <= 0) return null;
-  return typeMeta(type).money ? Math.round(v * 100) : Math.round(v);
+  return Math.round(typeMeta(type).money ? v * 100 : v * 100);
 };
+/** 后端存储值 → 展示值（money 类分→元；计数类 /100 回个） */
+const displayValue = (type, stored) => typeMeta(type).money
+  ? (stored || 0) / 100
+  : Math.round((stored || 0) / 100 * 1000) / 1000;
+/** 后端 JSONB 字符串安全解析 */
+function safeParse(value, fallback) {
+  if (value == null) return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed == null ? fallback : parsed;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+/** API 岗位身份（null=未登录后端；演示分支用 demo 身份 X.context()） */
+function apiPost() {
+  try {
+    return online() ? auth.currentApiPost() : null;
+  } catch (_) {
+    return null;
+  }
+}
 
 /** API 态可用性（阶段 1.5/2 同款 http.token() 分流） */
 const online = () => !!http.token();
@@ -79,76 +118,109 @@ const errorText = err => {
 
 // ===================== 任务视图适配 =====================
 
-/** 后端任务行 → tasks 页 row 形状（含 progress 圆环/文本标签；API 态 history 简化显示） */
+/** 后端任务行 → tasks 页 row 形状（progress 圆环/文本标签；manualDone/history 安全解析） */
 function taskView(row) {
   const meta = typeMeta(row.type);
   const manual = row.type === 'manual';
   const completed = row.status === '已完成';
+  const target = displayValue(row.type, row.targetCents);
+  const collected = displayValue(row.type, row.collected);
   const raw = manual ? (completed ? 100 : 0)
-    : Number(row.targetCents) > 0 ? Number(row.collected || 0) / Number(row.targetCents) * 100 : 0;
+    : target > 0 ? collected / target * 100 : 0;
   const percent = Math.round(raw * 10) / 10;
   const degrees = Math.max(0, Math.min(100, percent)) * 3.6;
-  const historyRows = row.history || [];
+  const historyRows = safeParse(row.history, []);
   const lastHistory = historyRows[historyRows.length - 1] || {};
   const suggestionRow = historyRows.find(h => h.action === 'create' && h.suggestion);
+  const manualDone = safeParse(row.manualDone, null);
+  if (manualDone && manualDone.photos && !Array.isArray(manualDone.photos)) {
+    manualDone.photos = [];
+  }
   return {
     ...row,
     id: String(row.id),
-    assigneeId: row.assigneeUserId,
-    target: meta.money ? (row.targetCents || 0) / 100 : (row.targetCents || 0),
-    collected: meta.money ? (row.collected || 0) / 100 : (row.collected || 0),
+    assigneeId: String(row.assigneeUserId == null ? '' : row.assigneeUserId),
+    assigneeUserId: String(row.assigneeUserId == null ? '' : row.assigneeUserId),
+    target, collected,
     status: completed ? '已完成' : '进行中',
-    manualDone: row.manualDone || null,
+    manualDone,
     suggestion: suggestionRow ? suggestionRow.suggestion : null,
     history: historyRows.map(h => ({ ...h, from: h.fromUserId, to: h.toUserId })),
     percent, progressRight: Math.min(180, degrees), progressLeft: Math.max(0, degrees - 180),
     typeLabel: meta.label, unit: meta.unit,
-    targetText: manual ? '提交说明（照片选填）' : valueText(row.type, row.targetCents) + meta.unit,
-    collectedText: manual ? (completed ? '已提交凭证' : '待提交凭证') : valueText(row.type, row.collected) + meta.unit,
+    targetText: manual ? '提交说明（照片选填）' : String(target) + meta.unit,
+    collectedText: manual ? (completed ? '已提交凭证' : '待提交凭证') : String(collected) + meta.unit,
     suggestionText: suggestionRow ? '依据 ' + suggestionRow.suggestion.period + ' 真实实绩 '
-      + valueText(row.type, suggestionRow.suggestion.value) + (suggestionRow.suggestion.unit || '') : '',
+      + displayValue(row.type, suggestionRow.suggestion.value) + (suggestionRow.suggestion.unit || '') : '',
     suggestionSources: [],
     historyText: lastHistory.action === 'reassign' ? '任务已改派'
       : lastHistory.action === 'manual-complete' ? '已提交手动完成凭证' : '已派发'
   };
 }
 
-/** 归档快照 → tasks 页 archive 形状 */
+/** 归档快照 → tasks 页 archive 形状（needsRevision 透传——修订按钮依赖，Codex P1-9） */
 function archiveView(data) {
-  const list = data && data.archives || [];
+  const list = (data && data.archives) || [];
   const latest = list[0];
-  if (!latest) return { latest: null, archives: [] };
-  let tasks = [];
-  try { tasks = JSON.parse(latest.tasks || '[]'); } catch (_) { tasks = []; }
+  if (!latest) return { latest: null, archives: [], needsRevision: !!data && !!data.needsRevision };
+  const tasks0 = safeParse(latest.tasks, []);
   return {
     latest: {
       ...latest,
+      id: String(latest.id),
       revision: latest.archiveNo,
-      completedCount: tasks.filter(t => t.status === '已完成').length,
-      tasks: tasks.map(t => ({ ...t, id: String(t.id), assigneeId: t.assigneeUserId }))
+      completedCount: tasks0.filter(t => t.status === '已完成').length,
+      tasks: tasks0.map(t => ({ ...t, id: String(t.id), assigneeId: String(t.assigneeUserId == null ? '' : t.assigneeUserId) }))
     },
-    archives: list
+    archives: list.map(a => ({ ...a, id: String(a.id) })),
+    needsRevision: !!data.needsRevision
   };
+}
+
+// ===================== 成员（org 真源，Codex P1-3/4） =====================
+
+/** org staff 行 → 选人视图：[{id:userId 字符串, name, roleCode, dept, postId}] */
+function memberView(rows) {
+  return (rows || []).filter(r => r.active !== false).map(r => ({
+    id: String(r.userId != null ? r.userId : r.postId),
+    postId: String(r.postId),
+    name: r.name || '成员',
+    roleCode: r.roleCode || '',
+    dept: ROLE_DEPT[r.roleCode] || 'business',
+    deptLabel: DEPT_LABEL[ROLE_DEPT[r.roleCode] || 'business']
+  }));
+}
+
+/** 组织成员装载（API 真源；失败抛错由调用方降级任务行派生） */
+async function loadMembers() {
+  const post = apiPost();
+  if (!post) return [];
+  const rows = await orgApi.orgStaff(post.orgId);
+  return memberView(rows);
 }
 
 // ===================== 提成视图适配 =====================
 
-/** 后端对账行 → commission 页 row 形状（五态+按钮矩阵+reason 文案） */
-function commissionRowView(row, role) {
-  const finance = role === 'finance' || role === 'finance-lead';
-  const actualBoss = role === 'boss';
+/**
+ * 提成对账行视图（assigneeUserId 字符串保留——Codex P1-6；API 态 canPay=false——
+ * 付款走财务工作台在线流程 M5 接管，不跳本地付款页 Codex P1-8）。
+ */
+function commissionRowView(row, roleCode, projectName) {
+  const finance = roleCode === 'finance' || roleCode === 'finance-lead';
+  const actualBoss = roleCode === 'boss';
   return {
     id: 'policy:' + row.policyId,
-    projectId: row.projectId,
-    project: '项目 ' + String(row.projectId).slice(-6),
+    projectId: String(row.projectId),
+    project: projectName || ('项目 ' + String(row.projectId).slice(-6)),
     totalText: centsText(row.totalCents),
+    assigneeUserId: String(row.assigneeUserId == null ? '' : row.assigneeUserId),
     assignee: row.assigneeName,
     version: row.version,
     stages: (row.stages || []).map(stage => ({
       stage: stage.stage === 'TOPPING' ? 'topping' : 'start',
       label: stage.label,
       status: stage.status,
-      payableId: stage.payableId,
+      payableId: stage.payableId == null ? '' : String(stage.payableId),
       reviewDue: stage.reviewDue,
       requiredText: centsText(stage.requiredCents),
       receivedText: centsText(stage.receivedCents),
@@ -156,12 +228,106 @@ function commissionRowView(row, role) {
       paidText: centsText(stage.paidCents),
       outstandingText: centsText(stage.outstandingCents),
       canRelease: finance && stage.eligible && !stage.payableId,
-      canPay: finance && !!stage.payableId && !stage.reviewDue && stage.outstandingCents > 0,
+      canPay: false,
       canReconcile: actualBoss && stage.reviewDue && stage.eligible,
       reason: stage.reviewDue ? '原收款已变化，未付部分暂停；已付差额只待人工核对，不代表已追回。'
         : !stage.eligible ? '阶段款尚未收齐，暂不能发放。'
-        : stage.payableId ? '应付已生成，可登记付款。' : '阶段款已足额，可由财务生成本期应付。'
+        : stage.payableId ? '应付已生成，请到财务工作台办理付款。' : '阶段款已足额，可由财务生成本期应付。'
     }))
+  };
+}
+
+/**
+ * 提成面装载（Codex P1-5）：对账行 + 工程项目列表关联——
+ * 零规则项目也在列（可建首条规则）；项目名取工程域真源。
+ */
+async function loadCommission() {
+  const post = apiPost();
+  if (!post) throw { code: 0, msg: '请先登录后端账号' };
+  const [rows, projects] = await Promise.all([
+    api.commission.rows(),
+    require('../api/franchise/engineering').projects.page()
+  ]);
+  const nameByProject = {};
+  (projects || []).forEach(p => {
+    nameByProject[String(p.id)] = p.name || p.customer || ('项目 ' + String(p.id).slice(-6));
+  });
+  const policyByProject = {};
+  (rows || []).forEach(row => {
+    policyByProject[String(row.projectId)] = row;
+  });
+  const ids = Array.from(new Set(Object.keys(nameByProject).concat(Object.keys(policyByProject)))).sort();
+  return ids.map(pid => {
+    const row = policyByProject[pid];
+    if (row) return commissionRowView(row, post.roleCode, nameByProject[pid]);
+    return {
+      id: '', projectId: pid, project: nameByProject[pid], totalText: '—', assigneeUserId: '',
+      assignee: '', version: 0, noPolicy: true,
+      stages: ['start', 'topping'].map(stage => ({
+        stage, label: stage === 'topping' ? '封顶款' : '开工款', status: '待足额到账',
+        payableId: '', reviewDue: false, requiredText: '—', receivedText: '—', amountText: '—',
+        paidText: '—', outstandingText: '—', canRelease: false, canPay: false, canReconcile: false,
+        reason: '请先由老板确认本项目提成规则。'
+      }))
+    };
+  });
+}
+
+// ===================== owner-page 绩效 Tab 平台视图（形状对齐 wxml） =====================
+
+/** 组级指标键顺序（departmentCards 渲染顺序） */
+const PLAT_GROUP_METRICS = {
+  business: ['metric:commissionAmount', 'auto:collectionsAmount', 'metric:effectiveCustomers',
+    'metric:activityTotal', 'auto:approvedDeliverables'],
+  engineering: ['auto:completedNodes', 'auto:onTimeNodes', 'metric:firstPassNodes', 'auto:qualifiedDeliveries'],
+  finance: ['auto:financeRegistrations']
+};
+
+/**
+ * 平台绩效视图（Codex P1-1 修复：对齐 performance/index.wxml 全部绑定）——
+ * departmentCards[].metrics[].{label,display,displayUnit,targetDisplay,width} +
+ * targets/filterOptions/selectedDepartment/headcount/cutoff + groups（空=明细引导任务页）。
+ */
+function platPerformance(bundle, period, selectedDepartment) {
+  const summary = bundle && bundle.summary;
+  const goals = bundle && bundle.goals;
+  const byDept = (summary && summary.departments) || {};
+  const deptGoals = safeParse(goals && goals.departmentGoals, {});
+  const fmt = money => '¥ ' + Number(money).toLocaleString('en-US');
+  const departmentCards = Object.keys(PLAT_GROUP_METRICS).map(dept => {
+    const actuals = byDept[dept] || {};
+    const metrics = PLAT_GROUP_METRICS[dept].map(key => {
+      const money = METRIC_MONEY.has(key);
+      const unit = money ? '元' : (key === 'metric:effectiveCustomers' || key === 'metric:activityTotal' ? '条' : '个');
+      const actual = money ? (actuals[key] || 0) / 100 : Math.round((actuals[key] || 0) / 100 * 100) / 100;
+      const targetRaw = (deptGoals[dept] || {})[key];
+      const target = targetRaw == null ? 0 : (money ? targetRaw / 100 : Math.round(targetRaw / 100 * 100) / 100);
+      const percent = target > 0 ? Math.round(actual / target * 1000) / 10 : null;
+      return {
+        id: key, label: METRIC_LABEL[key] || key,
+        display: money ? fmt(actual) : String(actual),
+        displayUnit: money ? '元' : unit,
+        targetDisplay: targetRaw == null ? '' : (money ? fmt(target) : String(target)),
+        percent, width: Math.max(0, Math.min(100, percent || 0))
+      };
+    });
+    return { key: dept, label: DEPT_LABEL[dept], metrics };
+  });
+  const cards = selectedDepartment && selectedDepartment !== 'all'
+    ? departmentCards.filter(card => card.key === selectedDepartment) : departmentCards;
+  return {
+    platSummary: true,
+    departmentCards: cards,
+    filterOptions: [{ id: 'all', label: '全部' },
+      { id: 'business', label: DEPT_LABEL.business },
+      { id: 'engineering', label: DEPT_LABEL.engineering },
+      { id: 'finance', label: DEPT_LABEL.finance }],
+    selectedDepartment: selectedDepartment || 'all',
+    headcount: 0,
+    cutoff: period + ' · 平台实时汇总',
+    targets: [],
+    groups: [],
+    summaryNote: '成员明细与任务办理请前往「绩效任务 · 团队任务」（平台在线数据）'
   };
 }
 
@@ -174,108 +340,54 @@ async function loadTasks(period, view, memberUserId) {
   return (data || []).map(taskView);
 }
 
-/** tasks 页写动作在线编排（错误抛 1_116 映射文案由页面 errorText 展示） */
+/**
+ * 写动作在线编排（payload.idem 显式幂等键贯穿——Codex P1-10）。
+ * 全部 id 保持字符串（禁 Number()——Codex P1-7）；错误抛原始对象由页面 errorText 展示。
+ */
 async function perform(action, payload) {
   const p = payload || {};
+  const key = p.idem;
   switch (action) {
     case 'create':
       return api.tasks.create({
-        period: p.period, title: p.title, assigneeUserId: Number(p.assigneeId),
+        period: p.period, title: p.title, assigneeUserId: String(p.assigneeId),
         assigneeName: p.assigneeName || '', assigneeDept: p.assigneeDept || 'business',
-        type: p.type, targetCents: toTargetCents(p.type, p.target), due: p.due
-      });
+        type: p.type, targetCents: toTargetRaw(p.type, p.target), due: p.due
+      }, key);
     case 'reassign':
-      return api.tasks.reassign(p.id, Number(p.assigneeUserId), p.assigneeName);
+      return api.tasks.reassign(String(p.id), String(p.assigneeUserId), p.assigneeName, key);
     case 'manual':
-      return api.tasks.completeManual(p.id, p.note, (p.photos || []).filter(x => typeof x === 'string' && x.indexOf('http') !== 0));
+      return api.tasks.completeManual(String(p.id), p.note,
+        (p.photos || []).filter(x => typeof x === 'string' && x.indexOf('wxfile') !== 0 && x.indexOf('http') !== 0), key);
     case 'initialize':
-      return api.tasks.initializePrevious(p.period);
+      return api.tasks.initializePrevious(p.period, key);
     case 'archive':
-      return api.tasks.archive(p.period, p.note || '月度绩效任务归档');
+      return api.tasks.archive(p.period, p.note || '月度绩效任务归档', key);
     case 'revise':
-      return api.tasks.revise(p.period, p.note || '原业务事实变化后重新冻结');
-    case 'goal-save':
-      return api.goals.save(p.data);
+      return api.tasks.revise(p.period, p.note || '原业务事实变化后重新冻结', key);
     case 'policy':
-      return api.commission.policy(Number(p.projectId), toTargetCents('auto:collectionsAmount', p.amount),
-        Number(p.assigneeUserId), p.assigneeName, JSON.stringify(p.evidenceRef || { name: '提成确认凭据' }), p.note);
+      return api.commission.policy(String(p.projectId), toTargetRaw('auto:collectionsAmount', p.amount),
+        String(p.assigneeUserId), p.assigneeName,
+        typeof p.evidenceRef === 'string' ? p.evidenceRef : JSON.stringify(p.evidenceRef || { name: '提成确认凭据' }),
+        p.note, key);
     case 'release':
-      return api.commission.release(Number(p.projectId), p.stage === 'topping' ? 'TOPPING' : 'START');
+      return api.commission.release(String(p.projectId), p.stage === 'topping' ? 'TOPPING' : 'START', key);
     case 'reconcile':
-      return api.commission.reconcile(Number(p.projectId), p.stage === 'topping' ? 'TOPPING' : 'START',
-        JSON.stringify(p.evidenceRef || { name: '人工核对凭据' }), p.note);
+      return api.commission.reconcile(String(p.projectId), p.stage === 'topping' ? 'TOPPING' : 'START',
+        typeof p.evidenceRef === 'string' ? p.evidenceRef : JSON.stringify(p.evidenceRef || { name: '人工核对凭据' }),
+        p.note, key);
     case 'month-reconcile':
-      return api.operating.reconcile(p.period);
+      return api.operating.reconcile(p.period, key);
     default:
       throw { code: 0, msg: '该操作暂未开通在线办理' };
   }
 }
 
-/** API 态成员清单（派发/改派选人；从任务行+三组汇总无法取全——留待 org 接口，首批由页面传本地 staff） */
-function memberOptionsFromRows(rows) {
-  const seen = new Map();
-  (rows || []).forEach(row => {
-    if (row.assigneeUserId && !seen.has(String(row.assigneeUserId))) {
-      seen.set(String(row.assigneeUserId), { id: String(row.assigneeUserId), name: row.assigneeName || '成员' });
-    }
-  });
-  return Array.from(seen.values());
-}
-
 module.exports = {
-  TYPES, typeMeta, isMoneyType, METRIC_LABEL, DEPT_LABEL, platGroups,
-  validPeriod, currentPeriod, previousPeriod, monthEnd, centsText, valueText, toTargetCents,
-  online, errorText, taskView, archiveView, commissionRowView,
-  api, loadTasks, perform, memberOptionsFromRows
+  TYPES, typeMeta, isMoneyType, METRIC_LABEL, METRIC_MONEY, DEPT_LABEL, ROLE_DEPT,
+  validPeriod, currentPeriod, previousPeriod, monthEnd, centsText, valueText: displayValue,
+  toTargetCents: toTargetRaw, safeParse,
+  online, apiPost, errorText, taskView, archiveView, memberView, loadMembers,
+  commissionRowView, loadCommission, platPerformance,
+  api, loadTasks, perform
 };
-
-// ===================== owner-page 绩效 Tab 平台视图（API 态合成；wxml 不动） =====================
-
-/** 三组指标键顺序（组卡渲染顺序） */
-const PLAT_GROUP_METRICS = {
-  business: ['metric:commissionAmount', 'auto:collectionsAmount', 'metric:effectiveCustomers',
-    'metric:activityTotal', 'auto:approvedDeliverables'],
-  engineering: ['auto:completedNodes', 'auto:onTimeNodes', 'metric:firstPassNodes', 'auto:qualifiedDeliveries'],
-  finance: ['auto:financeRegistrations']
-};
-/** 指标金额类键（分→元展示） */
-const MONEY_METRICS = new Set(['metric:commissionAmount', 'auto:collectionsAmount']);
-
-/**
- * 平台三组视图（API 态 performance Tab）：groups 形状与 P.build 对齐（rows 留空——
- * 成员明细走绩效任务页 team 视图；metrics 数值=平台真源，目标对照=fr_perf_goal）。
- */
-function platGroups(bundle) {
-  const summary = bundle && bundle.summary;
-  const goals = bundle && bundle.goals;
-  const byDept = (summary && summary.departments) || {};
-  const groups = [];
-  Object.keys(PLAT_GROUP_METRICS).forEach(dept => {
-    const actuals = byDept[dept] || {};
-    const goalDept = (goals && goals.departmentGoals && safeParse(goals.departmentGoals)) || {};
-    const metrics = PLAT_GROUP_METRICS[dept].map(key => {
-      const money = MONEY_METRICS.has(key);
-      const actual = money ? (actuals[key] || 0) / 100 : (actuals[key] || 0);
-      const targetRaw = (goalDept[dept] || {})[key];
-      const target = targetRaw == null ? '' : (money ? targetRaw / 100 : targetRaw);
-      const percent = target ? Math.round(actual / target * 1000) / 10 : null;
-      return {
-        id: key, label: METRIC_LABEL[key] || key,
-        actual, target,
-        actualText: money ? '¥ ' + Number(actual).toLocaleString('en-US') : String(actual),
-        targetText: target === '' ? '' : (money ? '¥ ' + Number(target).toLocaleString('en-US') : String(target)),
-        percent, width: Math.max(0, Math.min(100, percent || 0))
-      };
-    });
-    groups.push({
-      key: dept, label: DEPT_LABEL[dept],
-      metric: dept === 'business' ? '运营、设计、销售统一考核' : '',
-      metrics, rows: []
-    });
-  });
-  return { platSummary: true, groups, summaryNote: '成员明细请前往「绩效任务 · 团队任务」查看在线数据' };
-}
-
-function safeParse(json) {
-  try { return JSON.parse(json || '{}'); } catch (_) { return {}; }
-}

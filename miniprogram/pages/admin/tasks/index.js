@@ -4,6 +4,7 @@ const Model = require('../model');
 const Facts = require('../owner-performance').facts;
 const Tasks = require('../../../utils/performance-tasks').withFacts(Facts);
 const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（任务机在线；失败降级本地演示）
+const orgApi = require('../../../api/org');
 
 const monthEnd = period => new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).toISOString().slice(0, 10);
 const validPeriod = period => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(period || ''));
@@ -132,14 +133,17 @@ Page({
     };
     return { ...summary, latest };
   },
-  async refreshOnline() { // API 态：范围列表/归档在线渲染；失败降级提示
+  async refreshOnline() { // API 态：范围列表/归档在线渲染；成员=org 真源（Codex P1-3）
     const period = this.requestedPeriod || this.data.period || A.localDate().slice(0, 7);
     const requested = this.requestedView || this.data.view;
-    const boss = P.api && wx.getStorageSync('zs-api-post-v1');
     try {
       const view = requested === 'archive' ? 'archive' : requested === 'team' ? 'team' : requested === 'member' ? 'member' : 'mine';
-      const raw = await P.loadTasks(period, view, this.requestedMemberStaffId || undefined);
-      const staff = P.memberOptionsFromRows(raw);
+      const [raw, members] = await Promise.all([
+        P.loadTasks(period, view, this.requestedMemberStaffId || undefined),
+        P.loadMembers().catch(() => P.memberView([]))
+      ]);
+      const staff = members.length ? members : raw.map(r => ({ id: r.assigneeUserId, name: r.assigneeName, dept: r.assigneeDept }));
+      this.apiStaff = staff;
       const archive = view === 'archive' ? P.archiveView(await P.api.tasks.archives(period)) : null;
       const rows = taskRows(raw, staff);
       const myName = this.data.myName || '当前成员';
@@ -154,6 +158,7 @@ Page({
       this.setData({
         ready: true, error: '', view, title, myName, memberStaffId: this.requestedMemberStaffId || '',
         period, periodEnd: monthEnd(period), tabs: view === 'member' ? [] : tabs, rows,
+        types: P.TYPES,
         goalRows: ['mine', 'member'].includes(view) ? rows : [],
         canArchive: view === 'team' && raw.length > 0,
         canInitialize: view === 'team', staff, archive: archive ? this.displayArchive(archive, staff) : null,
@@ -178,15 +183,18 @@ Page({
     this.refresh();
   },
   async initializePrevious() {
-    if (!this.writable()) return;
+    if (!this.writable() || this.busy) return;
     if (P.online()) {
+      this.busy = true;
       try {
-        const result = await P.perform('initialize', { period: this.data.period });
+        const result = await P.perform('initialize', { period: this.data.period,
+          idem: 'performance-task-initialize:' + this.data.period });
         this.refresh();
         const message = result.created ? '已按上月真实实绩生成 ' + result.created + ' 项建议任务' : '上月暂无可用真实业绩，未生成 0 目标任务';
         this.setData({ initializationHint: message });
         wx.showToast({ title: result.created ? '建议任务已生成' : '上月暂无业绩', icon: 'none' });
       } catch (error) { this.fail(P.errorText(error)); }
+      finally { this.busy = false; }
       return;
     }
     try {
@@ -219,16 +227,19 @@ Page({
     catch (_) { this.setData({ previous: null }); }
   },
   async submitTask(event) {
-    if (!this.writable()) return;
+    if (!this.writable() || this.busy) return;
     if (P.online()) {
+      this.busy = true;
       try {
         const form = { ...this.data.form, ...event.detail.value, period: this.data.period };
         const person = this.data.staff.find(x => x.id === form.assigneeId);
-        await P.perform('create', { ...form, assigneeName: person ? person.name : '', assigneeDept: form.assigneeDept || 'business' });
+        await P.perform('create', { ...form, assigneeName: person ? person.name : '',
+          assigneeDept: (person && person.dept) || 'business', idem: form.idempotencyKey });
         this.resetTaskForm();
         this.refresh();
         wx.showToast({ title: '任务已派发', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
+      finally { this.busy = false; }
       return;
     }
     try {
@@ -245,15 +256,18 @@ Page({
   },
   cancelReassign() { this.setData({ reassignTask: null }); },
   async submitReassign(event) {
-    if (!this.writable()) return;
+    if (!this.writable() || this.busy) return;
     if (P.online()) {
+      this.busy = true;
       try {
         const person = this.data.staff[Number(event.detail.value.assigneeIndex)];
-        await P.perform('reassign', { id: this.data.reassignTask.id, assigneeUserId: person.id, assigneeName: person.name });
+        await P.perform('reassign', { id: this.data.reassignTask.id, assigneeUserId: person.id,
+          assigneeName: person.name, idem: 'performance-task-reassign:' + this.data.reassignTask.id + ':' + person.id });
         this.setData({ reassignTask: null });
         this.refresh();
         wx.showToast({ title: '改派已留痕', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
+      finally { this.busy = false; }
       return;
     }
     try {
@@ -297,14 +311,18 @@ Page({
     if (url) wx.navigateTo({ url, fail: () => this.fail('原单暂无法打开，请稍后重试') });
   },
   async completeManual(event) {
-    if (!this.writable()) return;
+    if (!this.writable() || this.busy) return;
     if (P.online()) {
+      this.busy = true;
       try {
-        await P.perform('manual', { id: this.data.evidenceTask.id, note: event.detail.value.note, photos: this.data.evidence.photos });
+        await P.perform('manual', { id: this.data.evidenceTask.id, note: event.detail.value.note,
+          photos: this.data.evidence.photos,
+          idem: 'performance-task-manual:' + this.data.evidenceTask.id + ':' + Date.now() });
         this.cancelManual();
         this.refresh();
         wx.showToast({ title: '完成凭证已保存', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
+      finally { this.busy = false; }
       return;
     }
     try {
@@ -318,14 +336,17 @@ Page({
     } catch (error) { this.fail(error.message); }
   },
   async archive() {
-    if (!this.writable()) return;
+    if (!this.writable() || this.busy) return;
     if (P.online()) {
+      this.busy = true;
       try {
-        await P.perform('archive', { period: this.data.period });
+        await P.perform('archive', { period: this.data.period,
+          idem: 'performance-task-archive:' + this.data.period });
         this.requestedView = 'archive';
         this.refresh();
         wx.showToast({ title: '本月任务已归档', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
+      finally { this.busy = false; }
       return;
     }
     try {
@@ -336,13 +357,16 @@ Page({
     } catch (error) { this.fail(error.message); }
   },
   async revise() {
-    if (!this.writable()) return;
+    if (!this.writable() || this.busy) return;
     if (P.online()) {
+      this.busy = true;
       try {
-        await P.perform('revise', { period: this.data.period });
+        await P.perform('revise', { period: this.data.period,
+          idem: 'performance-task-archive:' + this.data.period + ':r' + Date.now() });
         this.refresh();
         wx.showToast({ title: '修订版已归档', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
+      finally { this.busy = false; }
       return;
     }
     try {

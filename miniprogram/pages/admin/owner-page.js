@@ -28,12 +28,18 @@ module.exports = function(kind) {
       this.refresh();
       this.refreshPlatSummary();
     },
-    refreshPlatSummary() { // API 态：三组指标+目标对照（绩效 Tab 平台真源；失败静默降级本地演示）
+    refreshPlatSummary() { // API 态：三组指标+目标对照（平台真源；缓存绑定 period+岗位——P2-14）
       if (!PP.online()) return;
+      const post = PP.apiPost();
       const period = PP.currentPeriod();
+      const cacheKey = period + ':' + (post ? post.postId : '');
       Promise.all([PP.api.tasks.summary(period), PP.api.goals.get(period)])
-        .then(([summary, goals]) => { this.platSummary = { summary, goals }; if (this.kind === 'performance') this.refresh(); })
-        .catch(() => {});
+        .then(([summary, goals]) => {
+          this.platSummary = { summary, goals };
+          this.platSummaryKey = cacheKey;
+          if (this.kind === 'performance') this.refresh();
+        })
+        .catch(() => { this.platSummary = null; this.platSummaryKey = ''; }); // 失败清缓存→降级本地演示
     },
     refresh() {
       try {
@@ -41,7 +47,10 @@ module.exports = function(kind) {
         this.ownerSnapshot = desk;
         desk.home = H.home(desk);
         Object.assign(desk, B.forView(view, desk));
-        if (view === 'performance') desk.performance = PP.online() ? PP.platGroups(this.platSummary) : P.build(desk, this.data.selectedDepartment, this.data.expandedPerson);
+        if (view === 'performance') desk.performance = PP.online() && this.platSummary
+          && this.platSummaryKey === (PP.currentPeriod() + ':' + (() => { try { return String(require('../../api/auth').currentApiPost().postId); } catch (e) { return ''; } })())
+          ? PP.platPerformance(this.platSummary, desk.period || PP.currentPeriod(), this.data.selectedDepartment)
+          : P.build(desk, this.data.selectedDepartment, this.data.expandedPerson);
         const keyword = this.data.keyword.trim();
         const homeRows = H.rows(view, desk, this.options);
         let rows = homeRows !== null ? homeRows : view === 'todos' ? H.todoRows(desk, this.options.tab || 'all') : ['receivables','payables','stat'].includes(view) ? B.rows(view, desk, this.options.id) : W.rowsFor(view, desk, this.options.person, this.options.department, this.options.tab || 'all');
