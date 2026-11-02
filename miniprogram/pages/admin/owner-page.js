@@ -24,32 +24,62 @@ module.exports = function(kind) {
       require('../../utils/platform-todos-page').init(this);
     },
     onShow() {
+      // R2 P1-2：performance 视图在线态全分流——不进 W.snapshot（本地账簿加载会写 demo Storage）
+      if (PP.online() && this.kind === 'performance') {
+        if (!this.platPeriod) this.platPeriod = PP.currentPeriod();
+        this.refreshPlatView();
+        this.refreshPlatSummary();
+        return;
+      }
       if (!W.allowed()) { this.setData({ready:false,desk:null,rows:[]}); wx.switchTab({url:'/pages/profile/index'}); return; }
       this.refresh();
       this.refreshPlatSummary();
     },
-    refreshPlatSummary() { // API 态：三组指标+目标对照（平台真源；缓存绑定 period+岗位——P2-14）
+    refreshPlatView() { // 平台绩效视图（在线独占；零 demo 读写）
+      const view = this.kind;
+      this.setData({
+        ready: true, view, title: titles[view] || '', rows: [], total: 0, error: this.platDegraded
+          ? '平台绩效数据加载失败，以下为本地演示数据（只读预览）' : '',
+        platDegraded: !!this.platDegraded,
+        desk: {
+          name: '', company: '', date: '', sample: false,
+          period: this.platPeriod, periodLabel: this.platPeriod,
+          performance: PP.platPerformance(this.platSummary, this.platPeriod, this.data.selectedDepartment),
+          actor: { role: (PP.apiPost() || {}).roleCode || '', companyId: (PP.apiPost() || {}).orgId || '' }
+        },
+        form: {}, performanceSettings: null, managementSettings: null, companyForm: {}, assignmentForm: {}, rulesForm: {}
+      });
+    },
+    refreshPlatSummary() { // API 态：三组指标+目标对照（平台真源；缓存绑定 月份+岗位+请求代次——R2 P2-6/P1-3）
       if (!PP.online()) return;
       const post = PP.apiPost();
-      const period = PP.currentPeriod();
+      const period = this.platPeriod || PP.currentPeriod();
       const cacheKey = period + ':' + (post ? post.postId : '');
+      const requestGen = (this.platReqGen = (this.platReqGen || 0) + 1);
       Promise.all([PP.api.tasks.summary(period), PP.api.goals.get(period)])
         .then(([summary, goals]) => {
+          if (requestGen !== this.platReqGen) return; // 迟到响应丢弃
           this.platSummary = { summary, goals };
           this.platSummaryKey = cacheKey;
-          if (this.kind === 'performance') this.refresh();
+          this.platDegraded = false;
+          if (this.kind === 'performance') this.refreshPlatView();
         })
-        .catch(() => { this.platSummary = null; this.platSummaryKey = ''; }); // 失败清缓存→降级本地演示
+        .catch(() => {
+          if (requestGen !== this.platReqGen) return;
+          this.platSummary = null; this.platSummaryKey = ''; this.platDegraded = true;
+          if (this.kind === 'performance') this.refreshPlatView(); // R2 P2-6：失败同步可见状态
+        });
     },
     refresh() {
+      if (PP.online() && this.kind === 'performance') { this.refreshPlatView(); return; } // R2 P1-2
       try {
         const desk = W.snapshot(), view = this.kind;
         this.ownerSnapshot = desk;
         desk.home = H.home(desk);
         Object.assign(desk, B.forView(view, desk));
         if (view === 'performance') desk.performance = PP.online() && this.platSummary
-          && this.platSummaryKey === (PP.currentPeriod() + ':' + (() => { try { return String(require('../../api/auth').currentApiPost().postId); } catch (e) { return ''; } })())
-          ? PP.platPerformance(this.platSummary, desk.period || PP.currentPeriod(), this.data.selectedDepartment)
+          && this.platSummaryKey === (this.platPeriod || PP.currentPeriod()) + ':' + (() => { try { return String(require('../../api/auth').currentApiPost().postId); } catch (e) { return ''; } })()
+          ? PP.platPerformance(this.platSummary, this.platPeriod || desk.period || PP.currentPeriod(), this.data.selectedDepartment)
           : P.build(desk, this.data.selectedDepartment, this.data.expandedPerson);
         const keyword = this.data.keyword.trim();
         const homeRows = H.rows(view, desk, this.options);
@@ -81,7 +111,9 @@ module.exports = function(kind) {
       const todoTab=e.currentTarget.dataset.tab, snapshot=this.ownerSnapshot;
       if(snapshot) this.setData({todoTab,homeTodos:H.visibleTodos(snapshot,todoTab),homeTodoTotal:H.todoRows(snapshot,todoTab).length});
     },
-    departmentFilter(e) { this.setData({selectedDepartment:e.currentTarget.dataset.department,expandedPerson:''}); this.refresh(); },
+    departmentFilter(e) { this.setData({selectedDepartment:e.currentTarget.dataset.department,expandedPerson:''});
+      if (PP.online() && this.kind === 'performance') return this.refreshPlatView(); // R2 P1-2
+      this.refresh(); },
     togglePerson(e) { const id=e.currentTarget.dataset.person; this.setData({expandedPerson:this.data.expandedPerson===id?'':id}); this.refresh(); },
     openSource(e) {
       const url=e.currentTarget.dataset.url;
@@ -90,9 +122,16 @@ module.exports = function(kind) {
     },
     openRow(e) { this.go(e); },
     month(e) {
-      if (!W.allowed()) return;
       const period=e.detail.value;
       if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) return;
+      // R2 P1-3：performance 在线态换月独立 platPeriod（查询/缓存键/展示统一），不写本地账簿
+      if (PP.online() && this.kind === 'performance') {
+        this.platPeriod = period;
+        this.refreshPlatView();
+        this.refreshPlatSummary();
+        return;
+      }
+      if (!W.allowed()) return;
       M.mutate(state=>{state.period=period;});
       this.dirty=false; this.setData({pageLimit:20}); this.refresh();
     },

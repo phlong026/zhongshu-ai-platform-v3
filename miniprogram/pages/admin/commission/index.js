@@ -110,15 +110,18 @@ Page({
         this.setData({ busy: true, error: '' });
         const person = this.data.commissionStaff[this.data.commissionStaffIndex] || {};
         if (action === 'commission-policy') {
+          if (!this.policyKey) this.policyKey = 'perf-policy:' + id + ':' + Date.now(); // R2 P2-5：失败保留重试
           await P.perform('policy', { projectId: id, amount: form.amount, assigneeUserId: person.id,
-            assigneeName: person.name, evidenceRef: form.file, note: form.note,
-            idem: 'perf-policy:' + id + ':' + Date.now() });
+            assigneeName: person.name, evidenceRef: form.file, note: form.note, idem: this.policyKey });
+          this.policyKey = null; // 成功废弃
         } else if (action === 'commission-release') {
           await P.perform('release', { projectId: id, stage: form.stage,
             idem: 'perf-release:' + id + ':' + form.stage });
         } else {
+          if (!this.reconcileKey) this.reconcileKey = 'perf-reconcile:' + id + ':' + form.stage + ':' + Date.now();
           await P.perform('reconcile', { projectId: id, stage: form.stage, evidenceRef: form.file, note: form.note,
-            idem: 'perf-reconcile:' + id + ':' + form.stage + ':' + Date.now() });
+            idem: this.reconcileKey });
+          this.reconcileKey = null; // 成功废弃
         }
         this.refresh();
         wx.showToast({ title: action === 'commission-policy' ? '提成规则已保存' : action === 'commission-release' ? '提成应付已生成' : '人工核对已记录', icon: 'none' });

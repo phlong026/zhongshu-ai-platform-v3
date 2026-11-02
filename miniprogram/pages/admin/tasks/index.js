@@ -261,8 +261,14 @@ Page({
       this.busy = true;
       try {
         const person = this.data.staff[Number(event.detail.value.assigneeIndex)];
+        // R2 P1-4：每次独立改派生成新键（任务ID:人员:时间戳——B→A→B 不误判重放）；失败保留本键重试
+        if (!this.reassignKey || this.reassignKeyFor !== this.data.reassignTask.id + ':' + person.id) {
+          this.reassignKey = 'performance-task-reassign:' + this.data.reassignTask.id + ':' + person.id + ':' + Date.now();
+          this.reassignKeyFor = this.data.reassignTask.id + ':' + person.id;
+        }
         await P.perform('reassign', { id: this.data.reassignTask.id, assigneeUserId: person.id,
-          assigneeName: person.name, idem: 'performance-task-reassign:' + this.data.reassignTask.id + ':' + person.id });
+          assigneeName: person.name, idem: this.reassignKey });
+        this.reassignKey = null; this.reassignKeyFor = null; // 成功废弃
         this.setData({ reassignTask: null });
         this.refresh();
         wx.showToast({ title: '改派已留痕', icon: 'success' });
@@ -284,7 +290,8 @@ Page({
   beginManual(event) {
     if (!this.writable()) return;
     const task = this.data.rows.find(row => row.id === event.currentTarget.dataset.id);
-    this.setData({ evidenceTask: task, evidence: { note: task.manualDone?.note || '', photos: task.manualDone?.photos || [] } });
+    this.manualKey = 'performance-task-manual:' + task.id + ':' + Date.now(); // R2 P2-5：本次操作键，失败保留
+    this.setData({ evidenceTask: task, evidence: { note: (task.manualDone && task.manualDone.note) || '', photos: (task.manualDone && task.manualDone.photos) || [] } });
   },
   cancelManual() { this.setData({ evidenceTask: null, evidence: { note: '', photos: [] } }); },
   evidenceNote(event) { this.setData({ 'evidence.note': event.detail.value, error: '' }); },
@@ -316,8 +323,8 @@ Page({
       this.busy = true;
       try {
         await P.perform('manual', { id: this.data.evidenceTask.id, note: event.detail.value.note,
-          photos: this.data.evidence.photos,
-          idem: 'performance-task-manual:' + this.data.evidenceTask.id + ':' + Date.now() });
+          photos: this.data.evidence.photos, idem: this.manualKey });
+        this.manualKey = null; // 成功废弃
         this.cancelManual();
         this.refresh();
         wx.showToast({ title: '完成凭证已保存', icon: 'success' });
@@ -340,10 +347,11 @@ Page({
     if (P.online()) {
       this.busy = true;
       try {
-        await P.perform('archive', { period: this.data.period,
-          idem: 'performance-task-archive:' + this.data.period });
+        if (!this.archiveKey) this.archiveKey = 'performance-task-archive:' + this.data.period;
+        await P.perform('archive', { period: this.data.period, idem: this.archiveKey });
         this.requestedView = 'archive';
         this.refresh();
+        this.archiveKey = null; // 成功废弃
         wx.showToast({ title: '本月任务已归档', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
       finally { this.busy = false; }
@@ -361,9 +369,10 @@ Page({
     if (P.online()) {
       this.busy = true;
       try {
-        await P.perform('revise', { period: this.data.period,
-          idem: 'performance-task-archive:' + this.data.period + ':r' + Date.now() });
+        if (!this.reviseKey) this.reviseKey = 'performance-task-archive:' + this.data.period + ':r' + Date.now();
+        await P.perform('revise', { period: this.data.period, idem: this.reviseKey });
         this.refresh();
+        this.reviseKey = null; // 成功废弃
         wx.showToast({ title: '修订版已归档', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
       finally { this.busy = false; }

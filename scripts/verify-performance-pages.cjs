@@ -74,7 +74,8 @@ const fiveStates = [
   { name: 'reviewDue→待人工核对', stage: { status: 'x', reviewDue: true, eligible: true, payableId: 1 }, expect: { canRelease: false, canPay: false, canReconcile: true, reasonContains: '人工核对' } },
   { name: '未足额→不可发放', stage: { status: 'x', reviewDue: false, eligible: false, payableId: null }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '尚未收齐' } },
   { name: '可生成应付', stage: { status: 'x', reviewDue: false, eligible: true, payableId: null }, expect: { canRelease: true, canPay: false, canReconcile: false, reasonContains: '本期应付' } },
-  { name: '待付款（应付已生成）', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9 }, expect: { canRelease: false, canPay: false, reasonContains: '财务工作台' } }
+  { name: '待付款（应付已生成）', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9 }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '财务工作台' } },
+  { name: '已付清', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9, paidCents: 10000, amountCents: 10000, outstandingCents: 0 }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '财务工作台' } }
 ];
 let matrixOk = true;
 for (const state of fiveStates) {
@@ -89,9 +90,10 @@ for (const state of fiveStates) {
       canPay: false, // API 态恒 false（Codex P1-8：付款走财务工作台）
       canReconcile: !!(state.expect.canReconcile && boss)
     };
-    if (st.canRelease !== want.canRelease || st.canPay !== want.canPay || st.canReconcile !== want.canReconcile) {
+    if (st.canRelease !== want.canRelease || st.canPay !== want.canPay || st.canReconcile !== want.canReconcile
+      || !st.reason.includes(state.expect.reasonContains)) {
       matrixOk = false;
-      console.log('    偏差：', state.name, role, JSON.stringify({ got: { canRelease: st.canRelease, canPay: st.canPay, canReconcile: st.canReconcile }, want }));
+      console.log('    偏差：', state.name, role, JSON.stringify({ got: { canRelease: st.canRelease, canPay: st.canPay, canReconcile: st.canReconcile, reason: st.reason }, want }));
     }
   }
 }
@@ -104,14 +106,15 @@ ok('commissionRowView：assigneeUserId 字符串保留（Codex P1-6）', (() => 
 })());
 
 ok('platPerformance：departmentCards 形状对齐 wxml（display/displayUnit/targetDisplay——Codex P1-1）', (() => {
+  // 后端目标 JSONB 键=裸键原单位（completedNodes:6=6 个）；summary 实绩键=auto: 前缀 ×100
   const v = P.platPerformance({
     summary: { departments: { engineering: { 'auto:completedNodes': 200 } } },
-    goals: { departmentGoals: JSON.stringify({ engineering: { 'auto:completedNodes': 300 } }) }
+    goals: { departmentGoals: JSON.stringify({ engineering: { completedNodes: 6 } }) }
   }, '2026-11', 'all');
   const eng = v.departmentCards.find(c => c.key === 'engineering');
   const m = eng.metrics.find(x => x.id === 'auto:completedNodes');
-  return v.departmentCards.length === 3 && m.display === '2' && m.targetDisplay === '3'
-    && m.displayUnit === '个' && typeof m.width === 'number'
+  return v.departmentCards.length === 3 && m.display === '2' && m.targetDisplay === '6'
+    && m.displayUnit === '个' && m.percent === 33.3 && typeof m.width === 'number'
     && Array.isArray(v.filterOptions) && v.groups.length === 0;
 })());
 ok('platPerformance：money 指标 display 带 ¥', (() => {
@@ -135,8 +138,9 @@ const commissionSrc = read('miniprogram/pages/admin/commission/index.js');
 ok('commission 页 API 身份（apiPost.roleCode——Codex P1-2）', commissionSrc.includes('P.apiPost()')
   && commissionSrc.includes('post.roleCode'));
 ok('commission 页 loadCommission（零规则项目在列——Codex P1-5）', commissionSrc.includes('P.loadCommission()'));
-ok('commission 页幂等键贯穿', commissionSrc.includes("idem: 'perf-policy:")
-  && commissionSrc.includes("idem: 'perf-release:") && commissionSrc.includes("idem: 'perf-reconcile:"));
+ok('commission 页幂等键贯穿（R2 P2-5 键保存模式：失败保留/成功废弃）',
+  commissionSrc.includes('this.policyKey') && commissionSrc.includes('this.reconcileKey')
+    && commissionSrc.includes("idem: 'perf-release:") && commissionSrc.includes('this.policyKey = null'));
 const ownerSrc = read('miniprogram/pages/admin/owner-page.js');
 ok('owner-page platSummary 缓存绑定 period+postId（Codex P2-14）',
   ownerSrc.includes('platSummaryKey') && ownerSrc.includes('cacheKey'));
@@ -145,8 +149,8 @@ ok('owner-page 降级本地（P.build 保留）', ownerSrc.includes('P.build(des
 console.log('[4] 红线扫描');
 const pfSrc = read('miniprogram/utils/platform-performance.js');
 ok('platform-performance 无 Number( 转 id（仅金额/计数转换）', (() => {
-  const idConversions = (pfSrc.match(/Number\((?:String\(p?\.\w*id|p\.id\b)/g) || []).length;
-  return idConversions === 0;
+  const patterns = [/Number\(String\(p\.\w*[Ii]d\)\)/g, /Number\(p\.\w*[Ii]d\b/g, /Number\((?:row|record)\.id\b/g];
+  return patterns.every(re => (pfSrc.match(re) || []).length === 0);
 })(), '发现 id 经 Number() 转换');
 ok('perform 全 case 传 key（幂等贯穿）', (() => {
   return (pfSrc.match(/, key\)/g) || []).length >= 9 && pfSrc.includes('const key = p.idem');

@@ -1,7 +1,7 @@
 /**
  * 加盟协同域 · 绩效提成经营接入层（阶段 3，对应后端 /franchise/performance/**）。
  * 序列化事实：taskId/policyId/payableId 为 Long 字符串（不透明值）；
- * 金额一律分（money 类任务 target/collected 与三组指标金额键）；计数类任务 target/collected 为个数原值；
+ * 金额一律分（money 类任务 target/collected 与三组指标金额键）；计数类任务/指标按个 ×100 存储（D-10 定稿——后端源行 value=100/个，展示层 /100 回个）；
  * period='YYYY-MM'；写命令一律带 Idempotency-Key；错误码 1_116 段由 utils/platform-performance.js 映射文案。
  */
 const http = require('../http');

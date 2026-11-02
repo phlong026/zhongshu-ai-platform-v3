@@ -300,8 +300,10 @@ function platPerformance(bundle, period, selectedDepartment) {
       const money = METRIC_MONEY.has(key);
       const unit = money ? '元' : (key === 'metric:effectiveCustomers' || key === 'metric:activityTotal' ? '条' : '个');
       const actual = money ? (actuals[key] || 0) / 100 : Math.round((actuals[key] || 0) / 100 * 100) / 100;
-      const targetRaw = (deptGoals[dept] || {})[key];
-      const target = targetRaw == null ? 0 : (money ? targetRaw / 100 : Math.round(targetRaw / 100 * 100) / 100);
+      // R2 P1-1：目标 JSONB 键=指标裸键（completedNodes 等，原单位存储）——summary 键去前缀映射
+      const goalKey = key.replace(/^metric:/, '').replace(/^auto:/, '');
+      const targetRaw = (deptGoals[dept] || {})[goalKey];
+      const target = targetRaw == null ? 0 : targetRaw;
       const percent = target > 0 ? Math.round(actual / target * 1000) / 10 : null;
       return {
         id: key, label: METRIC_LABEL[key] || key,
