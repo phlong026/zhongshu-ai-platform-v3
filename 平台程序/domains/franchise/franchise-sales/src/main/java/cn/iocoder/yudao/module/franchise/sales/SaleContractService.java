@@ -164,7 +164,7 @@ public class SaleContractService {
                     "sale-contract-sign", input, idempotencyKey);
             return contract;
         }
-        if (revision == null || contract.getRevision() != revision) {
+        if (revision == null || !java.util.Objects.equals(revision, contract.getRevision())) { // Long 引用比较越界即恒真（评审基线强制清单 #12）
             throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
         }
         if (cmd.signedDate() != null) contract.setSignedDate(cmd.signedDate());
@@ -193,7 +193,7 @@ public class SaleContractService {
                     "sale-contract-void", input, idempotencyKey);
             return contract;
         }
-        if (revision == null || contract.getRevision() != revision) {
+        if (revision == null || !java.util.Objects.equals(revision, contract.getRevision())) { // Long 引用比较越界即恒真（评审基线强制清单 #12）
             throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
         }
         contract.setStatus(STATUS_VOIDED);
@@ -228,13 +228,21 @@ public class SaleContractService {
                 CommandEventDO event = existing.get();
                 return Map.of("receiptId", event.getAggregateId(), "stageStatus", STATUS_PAID, "replayed", true);
             }
-            // ②合同锁 → ③stage 锁
-            SalePaymentStageDO stage = stages.lockById(stageId);
-            if (stage == null || Boolean.TRUE.equals(stage.getDeleted())
-                    || stage.getCompanyId() != post.orgId()) {
+            // ②合同锁 → ③stage 锁（锁序对齐 06 文档/类注释——评审基线强制清单 #2：
+            // 逆序 stage→contract 与 void_ 的「合同锁→PENDING 行更新」构成死锁窗口；
+            // 先 peek stage 取 contractId，锁序到位后以锁内重读为准）
+            SalePaymentStageDO stagePeek = stages.selectById(stageId);
+            if (stagePeek == null || Boolean.TRUE.equals(stagePeek.getDeleted())
+                    || stagePeek.getCompanyId() != post.orgId()) {
                 throw exception(STAGE_ALREADY_PAID); // 引用不可见统一句柄——AC13 断言跨组织在 access 层先行拒绝
             }
-            SaleContractDO contract = contracts.lockById(stage.getContractId());
+            SaleContractDO contract = contracts.lockById(stagePeek.getContractId());
+            SalePaymentStageDO stage = stages.lockById(stageId);
+            if (stage == null || Boolean.TRUE.equals(stage.getDeleted())
+                    || stage.getCompanyId() != post.orgId()
+                    || stage.getContractId() != contract.getId()) {
+                throw exception(STAGE_ALREADY_PAID); // 锁间隙 stage 归属变化——保守拒绝
+            }
             // ④PAID 重放优先：比对持久化指纹（禁止用本次请求重建首次内容）
             if (STATUS_PAID.equals(stage.getStatus())) {
                 String requestFp = payFingerprint(stage, cmd);

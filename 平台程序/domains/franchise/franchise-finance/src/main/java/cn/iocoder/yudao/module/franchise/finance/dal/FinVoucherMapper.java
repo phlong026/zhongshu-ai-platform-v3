@@ -8,6 +8,11 @@ import java.util.List;
 
 @Mapper
 public interface FinVoucherMapper extends BaseMapperX<FinFileDO> {
+    default boolean existsByIdAndCompany(Long id, Long companyId) {
+        FinFileDO row = selectById(id);
+        return row != null && row.getCompanyId() != null && row.getCompanyId().equals(companyId);
+    }
+
     default List<FinFileDO> selectByCompany(Long companyId) {
         return selectList(new LambdaQueryWrapperX<FinFileDO>()
                 .eq(FinFileDO::getCompanyId, companyId).orderByDesc(FinFileDO::getCreateTime));

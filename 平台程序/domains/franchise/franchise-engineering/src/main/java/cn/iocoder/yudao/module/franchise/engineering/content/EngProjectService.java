@@ -122,8 +122,10 @@ public class EngProjectService {
         if (parent != null) {
             // 增项带入原项目图纸与客户/城市（蓝本 create()）
             project.setCustomerName(StrUtil.blankToDefault(parent.getCustomerName(), customer));
+            project.setDrawingVersion(parent.getDrawingVersion());
             projects.updateById(new FrEngProjectDO().setId(project.getId())
-                    .setCustomerName(project.getCustomerName()));
+                    .setCustomerName(project.getCustomerName())
+                    .setDrawingVersion(project.getDrawingVersion()));
             for (FrEngDocumentDO doc : documents.selectByProject(post.orgId(), parent.getId())) {
                 if (FrEngDocumentDO.KIND_DRAWING.equals(doc.getKind())) {
                     documents.insert(new FrEngDocumentDO().setCompanyId(post.orgId())
@@ -131,7 +133,6 @@ public class EngProjectService {
                             .setFileRef(doc.getFileRef()).setKind(doc.getKind()).setVersion(doc.getVersion()));
                 }
             }
-            project.setDrawingVersion(parent.getDrawingVersion());
         }
         initTemplatePlan(post, project);
         commands.record(post, AGGREGATE, project.getId(), 1,
@@ -234,11 +235,20 @@ public class EngProjectService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> changeManager(PostSnapshot post, long projectId, ManagerCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projects.lockById(projectId);
-        requireOwned(post, projectId, "project");
-        var replayed = commands.replayed(post, idempotencyKey, Map.of("engineerUserId", cmd.engineerUserId()));
+        if (project == null) {
+            // 组织过滤后不可见（跨组织/不存在）——走 requireOwned 统一句柄抛业务异常而非 NPE（e2e AC13）
+            requireOwned(post, projectId, "project");
+        }
+        // 重放检查先于 requireOwned：换负责人成功后旧负责人重试同键应得既有结果而非 000（评审十三 P1-3）
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("fromUserId", project.getManagerUserId());
+        payload.put("toUserId", cmd.engineerUserId());
+        payload.put("note", StrUtil.nullToEmpty(cmd.note()));
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return detail(post, projectId);
         }
+        requireOwned(post, projectId, "project");
         // 在岗工程线（engineer / project-manager——HandoverService.requireManager 同款口径，F1 继承）
         List<StaffPostDO> engineers = staffPosts.listActivePostsInOrg(post.orgId(), FranchiseRoles.ENGINEER);
         List<StaffPostDO> managers = staffPosts.listActivePostsInOrg(post.orgId(), FranchiseRoles.PROJECT_MANAGER);
@@ -252,8 +262,7 @@ public class EngProjectService {
                 .set(FrEngProjectDO::getManagerUserId, cmd.engineerUserId())
                 .set(FrEngProjectDO::getAssignedEngineerUserId, cmd.engineerUserId())));
         commands.record(post, AGGREGATE, projectId, revision + 1, "eng-project-manager",
-                Map.of("fromUserId", project.getManagerUserId(), "toUserId", cmd.engineerUserId(),
-                        "note", StrUtil.nullToEmpty(cmd.note())), idempotencyKey);
+                payload, idempotencyKey);
         return detail(post, projectId);
     }
 

@@ -408,7 +408,10 @@ public class ContentTaskService {
             case "DONE" -> store.succeedPolled(task.getId(), task.getCompanyId(), snapshot.videoUrl(),
                     JsonUtils.toJsonString(Map.of("videoUrl", snapshot.videoUrl() == null ? "" : snapshot.videoUrl(),
                             "durationSec", snapshot.durationSec() == null ? 0 : snapshot.durationSec())));
-            case "FAILED" -> store.fail(task.getId(), task.getCompanyId(), "数字人口播生成失败，请调整内容后重试");
+            case "FAILED" -> {
+                store.fail(task.getId(), task.getCompanyId(), "数字人口播生成失败，请调整内容后重试");
+                releaseReserved(task); // 供应商明确失败回退预扣配额，与 ai_video 同口径（评审十三 P2-1）
+            }
             default -> log.debug("digital task {} still {}", task.getId(), snapshot.status());
         }
     }

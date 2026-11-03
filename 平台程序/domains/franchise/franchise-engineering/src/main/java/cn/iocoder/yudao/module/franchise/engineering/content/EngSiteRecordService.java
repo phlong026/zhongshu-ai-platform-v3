@@ -54,8 +54,9 @@ public class EngSiteRecordService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> create(PostSnapshot post, long projectId, SiteRecordCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "site");
-        var replayed = commands.replayed(post, idempotencyKey,
-                Map.of("nodeId", cmd.nodeId(), "note", StrUtil.nullToEmpty(cmd.note())));
+        // 重放输入=落账输入（评审十三 P1-3）：nodeId+note 两处同形
+        Map<String, Object> payload = Map.of("nodeId", cmd.nodeId(), "note", StrUtil.nullToEmpty(cmd.note()));
+        var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return Map.of("records", list(post, projectId));
         }
@@ -80,8 +81,7 @@ public class EngSiteRecordService {
                 EngPlanService.JsonList.of(cmd.fileAssetIds().toArray()), post.userId());
         commands.record(post, AGGREGATE, projectId,
                 projectService.bumpRevision(post, projectService.requireProject(post, projectId)),
-                "eng-site-record",
-                Map.of("nodeId", cmd.nodeId(), "date", date.toString()), idempotencyKey);
+                "eng-site-record", payload, idempotencyKey);
         return Map.of("records", list(post, projectId));
     }
 

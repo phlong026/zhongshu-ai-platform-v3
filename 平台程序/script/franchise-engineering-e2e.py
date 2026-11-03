@@ -261,7 +261,7 @@ def main():
         {'fileAssetId': contract_asset, 'note': '开工'}, expect_code=1115000007,
         idem='e2e-start-gate-' + run)
     # START 首笔收款（写通断言在 AC8；此处供开工门禁放行）
-    collect_asset = upload_asset(finance, sales)
+    collect_asset = upload_asset(engineer_a, sales)  # M5 分派：ENG_DRAWING 归工程线（finance 只在收款登记引用 assetId）
     col_key = 'e2e-col-' + run
     collected = act(finance, 'POST', f'/franchise/engineering/{project_id}/collections',
                     {'stage': 'START', 'amount': '400000', 'transactionNo': 'C1-' + run,
@@ -474,7 +474,7 @@ def main():
     assert before['collectionStages'][0]['confirmedCents'] == 40000000
     assert before['expensesNote'] == '项目费用汇总待阶段 3 接入'
     # 交付：顺序错（未收款时已过）→ 直接收款后交付成功
-    deliver_asset = upload_asset(engineer_a, sales)
+    deliver_asset = upload_asset(engineer_a, sales)  # ✓ engineer
     delivered = act(engineer_a, 'POST', f'/franchise/engineering/{project_id}/deliver',
                     {'recipient': '王先生', 'fileAssetId': deliver_asset,
                      'ownerAssetId': deliver_asset, 'note': '交付完成'}, idem='e2e-deliver-' + run)

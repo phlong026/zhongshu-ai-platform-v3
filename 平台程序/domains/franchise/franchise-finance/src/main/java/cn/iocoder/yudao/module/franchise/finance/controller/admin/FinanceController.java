@@ -149,9 +149,16 @@ public class FinanceController {
     }
 
     @GetMapping("/revisions")
-    @Operation(summary = "修订历史（审计留痕查询）")
+    @Operation(summary = "修订历史（审计留痕查询；限本组织收款，跨组织 ORG_MISMATCH）")
     @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
     public CommonResult<List<FinReceiptRevisionDO>> revisions(@RequestParam("receiptId") long receiptId) {
+        PostSnapshot post = currentPost.require();
+        FinReceiptDO receipt = receiptMapper.selectById(receiptId);
+        // 跨组织修订历史不可读（评审基线强制清单 #4：原实现无 company 过滤）
+        if (receipt == null || receipt.getCompanyId() != post.orgId()) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorCodes.ORG_MISMATCH);
+        }
         return success(revisionMapper.selectByReceipt(receiptId));
     }
 

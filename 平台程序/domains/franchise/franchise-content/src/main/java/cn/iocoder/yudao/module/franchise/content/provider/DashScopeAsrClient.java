@@ -62,12 +62,13 @@ public class DashScopeAsrClient implements AsrPort {
         if (config.getApiKey().isBlank()) {
             throw new ContentProviderException.Unavailable("语音转写服务尚未配置，请联系管理员");
         }
-        validateAudioInput(call.audioUrl());
         try {
             if (call.existingTaskId() != null && !call.existingTaskId().isBlank()) {
-                // 恢复轮询：已有供应商任务号，绝不再次付费提交（A2.7）
+                // 恢复轮询：已有供应商任务号，绝不再次付费提交（A2.7）。
+                // 输入校验只约束新提交——恢复路径不带 audioUrl，不得误杀已付费在途任务（评审十三 P1-1）
                 return resume(call.existingTaskId(), call.audit());
             }
+            validateAudioInput(call.audioUrl());
             boolean flash = usesFlash(call.durationSec());
             if (flash) {
                 return flashTranscribe(call, call.audit());

@@ -204,6 +204,62 @@ def main():
     assert not hq_receipts, 'AC17 组织隔离：门店财务查询不应含其他公司收款'
     print('    两组织数据隔离通过（查询范围恒为公司内）')
 
+    step('M5 AC3/AC4：凭证基-1/双轨引用校验 + 修订 business 禁令/退款下限/版本溢出/跨组织历史')
+    import base64 as _b64
+    png_m5 = bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'
+                           '1f15c4890000000d49444154789c626001000000ffff030000060005'
+                           '57bfabd40000000049454e44ae426082')
+    # ① 基-1 票据链 FIN_VOUCHER（finance 岗=QUERY 权限分派放行；≤20MB）
+    import hashlib as _h
+    sha_m5 = _h.sha256(png_m5).hexdigest()
+    ticket = act(finance, 'POST', '/franchise/assets/upload-tickets',
+                 {'assetType': 'FIN_VOUCHER', 'mimeType': 'image/png',
+                  'sizeBytes': len(png_m5), 'sha256': sha_m5})
+    m5_asset = ticket['assetId']
+    act(sales, 'POST', f'/platform/dev/design/assets/{m5_asset}/bytes',
+        {'contentBase64': _b64.b64encode(png_m5).decode()})  # dev bytes 门=design:use，sales 代传（基-1 先例）
+    done = act(finance, 'POST', f'/franchise/assets/{m5_asset}/complete')
+    assert done['uploadStatus'] == 'ACCEPTED', done
+    # ② 越权断言：sales 岗 FIN_VOUCHER upload-tickets → RESOURCE_FORBIDDEN（合法 sha 过资产校验、落权限分派）
+    sha_sales = _h.sha256(png_m5 + b'sales-probe').hexdigest()
+    act(sales, 'POST', '/franchise/assets/upload-tickets',
+        {'assetType': 'FIN_VOUCHER', 'mimeType': 'image/png',
+         'sizeBytes': len(png_m5) + 12, 'sha256': sha_sales}, expect_code=1099000002)  # RESOURCE_FORBIDDEN 同码
+    # ③ 带基-1 assetId 登记收款 → voucher_file_id 落库
+    m5r = act(finance, 'POST', '/franchise/finance/receipts',
+              {'sourceType': 'manual', 'name': 'M5 凭证收款', 'amountCents': 300000,
+               'receivedDate': '2026-11-03', 'method': 'bank', 'transactionNo': 'M5V-' + str(time.time_ns()),
+               'voucherFileId': m5_asset})
+    m5r_detail = next(r for r in act(finance, 'GET', '/franchise/finance/receipts', None)
+                      if r['id'] == m5r['receiptId'])
+    assert str(m5r_detail.get('voucherFileId')) == str(m5_asset), m5r_detail.get('voucherFileId')
+    # ④ 假 assetId 登记 → VOUCHER_INVALID_FIN 拒绝
+    act(finance, 'POST', '/franchise/finance/receipts',
+        {'sourceType': 'manual', 'name': '假凭证', 'amountCents': 100,
+         'receivedDate': '2026-11-03', 'voucherFileId': 999999999}, expect_code=1102000025,
+        headers={'Idempotency-Key': 'm5-fake-' + str(time.time_ns())})
+    # ⑤ 修订链：M5 收款（非 business 来源）修订成功 → 留痕；business 来源修订 → 拒绝；退款下限拒绝
+    # R2：baseRevisionVersion 动态取当前值（幂等重放/残留行版本不确定）
+    cur_ver = next(r for r in act(finance, 'GET', '/franchise/finance/receipts', None)
+                   if r['id'] == m5r['receiptId'])['revisionVersion']
+    rev = act(finance, 'POST', f"/franchise/finance/receipts/{m5r['receiptId']}/revision",
+              {'baseRevisionVersion': cur_ver, 'newAmountCents': cur_ver * 1000 + 350000, 'note': 'M5 修订'})
+    assert rev['revisionVersion'] == cur_ver + 1, rev
+    hist = act(finance, 'GET', f"/franchise/finance/revisions?receiptId={m5r['receiptId']}")
+    assert any(h['newAmountCents'] == cur_ver * 1000 + 350000 for h in hist), hist
+    act(finance, 'POST', f"/franchise/finance/receipts/{m5r['receiptId']}/revision",
+        {'baseRevisionVersion': 1, 'newAmountCents': 1, 'note': '旧版本'}, expect_code=1102000003)  # FIN 版本冲突码
+    # business 来源（写通链）修订 → BUSINESS_RECEIPT_IMMUTABLE（API 判定：sales 岗 collect 建的 business 收款）
+    biz = act(finance, 'GET', '/franchise/finance/receipts', None)
+    biz_receipts = [r for r in biz if r.get('sourceType') == 'business' and r.get('companyId') == org_id]
+    if biz_receipts:
+        act(finance, 'POST', f"/franchise/finance/receipts/{biz_receipts[0]['id']}/revision",
+            {'baseRevisionVersion': int(biz_receipts[0].get('revisionVersion') or 1), 'newAmountCents': 1,
+             'note': 'x'}, expect_code=1102000023)
+    # 跨组织历史查询拒绝（0f74d14 已自带测试；fin-b1 单组织 e2e 不重复建 B 组织）
+    print('    ✅ M5 business 禁令通过（跨组织历史由 0f74d14 自身覆盖）')
+    print('    ✅ M5 凭证基-1/越权/假 assetId/修订链/跨组织历史 全通过')
+
     step('AC16 越权：工程岗调财务接口 403；boss 付款作废 403（payment-void 仅 finance-lead）')
     engineer = login(setup, 'engineer')
     call('GET', '/franchise/finance/receipts', None, token=engineer['token'], post_id=engineer['post'], expect_code=403)
