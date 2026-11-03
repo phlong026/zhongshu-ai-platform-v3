@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.service.oauth2;
 
 import cn.hutool.core.date.LocalDateTimeUtil;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
@@ -138,6 +139,8 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
         // mock 数据（访问令牌）
         OAuth2RefreshTokenDO refreshTokenDO = randomPojo(OAuth2RefreshTokenDO.class)
                 .setRefreshToken(refreshToken).setClientId(clientId)
+                // M02-T01 用户校验仅作用 ADMIN 类型：固定 MEMBER 避免随机 userType 抽到 ADMIN 时未 mock getUser 提前抛「登录已失效」
+                .setUserType(UserTypeEnum.MEMBER.getValue())
                 .setExpiresTime(LocalDateTime.now().minusDays(1));
         oauth2RefreshTokenMapper.insert(refreshTokenDO);
 
@@ -169,8 +172,9 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
                 .setUserType(refreshTokenDO.getUserType());
         oauth2AccessTokenMapper.insert(accessTokenDO);
         oauth2AccessTokenRedisDAO.set(accessTokenDO);
-        // mock 数据（用户）
-        AdminUserDO user = randomPojo(AdminUserDO.class);
+        // mock 数据（用户）——M02-T01 起刷新前校验用户可用性，须为启用态
+        AdminUserDO user = randomPojo(AdminUserDO.class)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setSex(1);
         when(adminUserService.getUser(refreshTokenDO.getUserId())).thenReturn(user);
 
         // 调用
@@ -189,6 +193,53 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
         OAuth2AccessTokenDO redisAccessTokenDO = oauth2AccessTokenRedisDAO.get(newAccessTokenDO.getAccessToken());
         // TODO @芋艿：expiresTime 被屏蔽，仅 win11 会复现，建议后续修复。
         assertPojoEquals(newAccessTokenDO, redisAccessTokenDO, "expiresTime", "createTime", "updateTime", "deleted");
+    }
+
+    @Test
+    public void testRefreshAccessToken_rejectedWhenUserDisabled() {
+        // M02-T01：孤立刷新令牌防线——停用用户的刷新令牌不得签发新访问令牌，且孤立刷新令牌被清除
+        TenantContextHolder.setTenantId(0L);
+        String refreshToken = randomString();
+        String clientId = randomString();
+        OAuth2ClientDO clientDO = randomPojo(OAuth2ClientDO.class).setClientId(clientId)
+                .setAccessTokenValiditySeconds(30);
+        when(oauth2ClientService.validOAuthClientFromCache(eq(clientId))).thenReturn(clientDO);
+        OAuth2RefreshTokenDO refreshTokenDO = randomPojo(OAuth2RefreshTokenDO.class, o ->
+                o.setRefreshToken(refreshToken).setClientId(clientId)
+                        .setExpiresTime(LocalDateTime.now().plusDays(1))
+                        .setUserType(UserTypeEnum.ADMIN.getValue())
+                        .setTenantId(TenantContextHolder.getTenantId()));
+        oauth2RefreshTokenMapper.insert(refreshTokenDO);
+        when(adminUserService.getUser(refreshTokenDO.getUserId())).thenReturn(
+                randomPojo(AdminUserDO.class).setStatus(CommonStatusEnum.DISABLE.getStatus()).setSex(1));
+
+        assertServiceException(() -> oauth2TokenService.refreshAccessToken(refreshToken, clientId),
+                new ErrorCode(401, "登录已失效，请重新登录"));
+        assertNull(oauth2RefreshTokenMapper.selectByRefreshToken(refreshToken), "孤立刷新令牌应被清除");
+        assertEquals(0, oauth2AccessTokenMapper.selectCount());
+    }
+
+    @Test
+    public void testRefreshAccessToken_rejectedWhenUserDeleted() {
+        // M02-T01：已删除用户（getUser 返回 null）同样拒绝并清除孤立刷新令牌
+        TenantContextHolder.setTenantId(0L);
+        String refreshToken = randomString();
+        String clientId = randomString();
+        OAuth2ClientDO clientDO = randomPojo(OAuth2ClientDO.class).setClientId(clientId)
+                .setAccessTokenValiditySeconds(30);
+        when(oauth2ClientService.validOAuthClientFromCache(eq(clientId))).thenReturn(clientDO);
+        OAuth2RefreshTokenDO refreshTokenDO = randomPojo(OAuth2RefreshTokenDO.class, o ->
+                o.setRefreshToken(refreshToken).setClientId(clientId)
+                        .setExpiresTime(LocalDateTime.now().plusDays(1))
+                        .setUserType(UserTypeEnum.ADMIN.getValue())
+                        .setTenantId(TenantContextHolder.getTenantId()));
+        oauth2RefreshTokenMapper.insert(refreshTokenDO);
+        when(adminUserService.getUser(refreshTokenDO.getUserId())).thenReturn(null);
+
+        assertServiceException(() -> oauth2TokenService.refreshAccessToken(refreshToken, clientId),
+                new ErrorCode(401, "登录已失效，请重新登录"));
+        assertNull(oauth2RefreshTokenMapper.selectByRefreshToken(refreshToken));
+        assertEquals(0, oauth2AccessTokenMapper.selectCount());
     }
 
     @Test

@@ -5,6 +5,7 @@ import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants;
@@ -81,6 +82,16 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
         OAuth2ClientDO clientDO = oauth2ClientService.validOAuthClientFromCache(clientId);
         if (ObjectUtil.notEqual(clientId, refreshTokenDO.getClientId())) {
             throw exception0(GlobalErrorCodeConstants.BAD_REQUEST.getCode(), "刷新令牌的客户端编号不正确");
+        }
+
+        // M02-T01（M01-T01 移交收口）：孤立刷新令牌防线——ADMIN 用户已删除/停用后，无配对访问令牌的
+        // 刷新令牌仍可经本方法签发新访问令牌绕过停用。校验用户可用性，不通过则清除孤立刷新令牌并拒绝。
+        if (UserTypeEnum.ADMIN.getValue().equals(refreshTokenDO.getUserType())) {
+            AdminUserDO user = adminUserService.getUser(refreshTokenDO.getUserId());
+            if (user == null || !CommonStatusEnum.ENABLE.getStatus().equals(user.getStatus())) {
+                oauth2RefreshTokenMapper.deleteById(refreshTokenDO.getId());
+                throw exception0(GlobalErrorCodeConstants.UNAUTHORIZED.getCode(), "登录已失效，请重新登录");
+            }
         }
 
         // 移除相关的访问令牌
