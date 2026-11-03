@@ -69,6 +69,13 @@ public abstract class PlatformPgIntegrationTest {
                 CREATE TABLE IF NOT EXISTS system_role_menu (
                     id int8 PRIMARY KEY, role_id int8, menu_id int8,
                     creator varchar(64), updater varchar(64), tenant_id int8)
+                """,
+                // M01-T06：组织名称落 system_dept（幂等查重与断言联表）；迁移亦引用
+                """
+                CREATE TABLE IF NOT EXISTS system_dept (
+                    id int8 PRIMARY KEY, name varchar(64), parent_id int8 DEFAULT 0,
+                    sort int4 DEFAULT 0, status int4 DEFAULT 0, deleted int2 DEFAULT 0,
+                    creator varchar(64), updater varchar(64), tenant_id int8 DEFAULT 0)
                 """
         };
         try (var conn = java.sql.DriverManager.getConnection(PG.getJdbcUrl(), PG.getUsername(), PG.getPassword());

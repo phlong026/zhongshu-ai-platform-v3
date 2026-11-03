@@ -61,4 +61,7 @@ public interface SystemDirectory {
     /** 部门名称；不存在返回空串 */
     String deptName(Long deptId);
 
+    /** 按名称查根层级部门编号（M01-T06 组织开通幂等查重用）；无匹配返回空列表 */
+    java.util.List<Long> findRootDeptIdsByName(String name);
+
 }

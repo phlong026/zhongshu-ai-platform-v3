@@ -168,4 +168,17 @@ public class YudaoSystemDirectory implements SystemDirectory {
         return dept == null ? "" : dept.getName();
     }
 
+    @Override
+    public java.util.List<Long> findRootDeptIdsByName(String name) {
+        if (name == null || name.isBlank()) {
+            return java.util.List.of();
+        }
+        // 根层级（parent=ROOT）且同名：组织开通幂等查重只认顶层组织部门（按名查后过滤根层级）
+        return deptService.getDeptList(new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO()
+                        .setName(name)).stream()
+                .filter(d -> d != null && name.equals(d.getName()) && java.util.Objects.equals(DeptDO.PARENT_ID_ROOT, d.getParentId()))
+                .map(DeptDO::getId)
+                .toList();
+    }
+
 }

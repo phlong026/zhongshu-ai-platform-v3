@@ -24,6 +24,7 @@ public interface PlatformOrgErrorCodes {
     ErrorCode STAFF_GLOBAL_RESUME_FORBIDDEN = new ErrorCode(1_101_000_013, "该账号已被平台管理员停用，组织管理员无法启用，请联系平台管理员");
     ErrorCode STAFF_RESUME_NEED_ASSIGN = new ErrorCode(1_101_000_014, "该员工在本组织的任职已撤销，如需恢复请重新指派岗位");
     ErrorCode POST_TEAM_CONFLICT = new ErrorCode(1_101_000_015, "该员工已有此岗位但归属其他部门，如需调整请先撤销原任职");
+    ErrorCode ORG_NAME_TAKEN = new ErrorCode(1_101_000_016, "该组织名称已开通为其他类型的组织，请更换名称");
     ErrorCode PROFILE_AVATAR_INVALID = new ErrorCode(1_101_000_012, "头像地址格式不正确");
 
 }

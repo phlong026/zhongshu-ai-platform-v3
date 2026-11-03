@@ -114,4 +114,13 @@ class FakeSystemDirectory implements SystemDirectory {
     public String deptName(Long deptId) {
         return deptId == null ? "" : deptNames.getOrDefault(deptId, "");
     }
+
+    @Override
+    public java.util.List<Long> findRootDeptIdsByName(String name) {
+        return deptParent.entrySet().stream()
+                .filter(e -> e.getValue() != null && e.getValue() == 0L)
+                .map(java.util.Map.Entry::getKey)
+                .filter(id -> name != null && name.equals(deptNames.get(id)))
+                .toList();
+    }
 }

@@ -118,4 +118,9 @@ public final class FakeSystemDirectory implements SystemDirectory {
     public String deptName(Long deptId) {
         return deptId == null ? "" : deptNames.getOrDefault(deptId, "");
     }
+
+    @Override
+    public java.util.List<Long> findRootDeptIdsByName(String name) {
+        return java.util.List.of(); // franchise 测试支撑不使用按名查重
+    }
 }

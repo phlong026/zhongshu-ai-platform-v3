@@ -115,7 +115,7 @@ class StaffPostAssignContractIntegrationTest extends PlatformPgIntegrationTest {
             start1.countDown();
             Object r1 = f1.get(), r2 = f2.get();
             assertThat(r1).isEqualTo(r2);
-            // 并发首指派异 team：一胜一 POST_TEAM_CONFLICT（而非 006）
+            // 并发首指派异 team：恰好一胜一 POST_TEAM_CONFLICT（而非 006）；胜者随机（Codex R2 无此假设——竞态对称断言）
             long user2 = newUserId();
             java.util.concurrent.CountDownLatch start2 = new java.util.concurrent.CountDownLatch(1);
             java.util.concurrent.Callable<Object> ca = () -> { start2.await(); return staffPostService.assignPostInOrg(user2, store, "t-sales", teamA, 99L); };
@@ -123,12 +123,15 @@ class StaffPostAssignContractIntegrationTest extends PlatformPgIntegrationTest {
             var f3 = pool.submit(ca);
             var f4 = pool.submit(cb);
             start2.countDown();
-            long winner = (Long) f3.get();
-            assertThatThrownBy(() -> f4.get())
-                    .hasCauseInstanceOf(ServiceException.class)
-                    .extracting(t -> ((ServiceException) t.getCause()).getCode())
-                    .isEqualTo(POST_TEAM_CONFLICT.getCode());
-            assertThat(winner).isPositive();
+            Object ra, rb;
+            try { ra = f3.get(); } catch (java.util.concurrent.ExecutionException e) { ra = e.getCause(); }
+            try { rb = f4.get(); } catch (java.util.concurrent.ExecutionException e) { rb = e.getCause(); }
+            // 恰好一胜（Long）一败（ServiceException 015）
+            ServiceException loser = ra instanceof Long ? (ServiceException) rb : (ServiceException) ra;
+            Object winner = ra instanceof Long ? ra : rb;
+            assertThat(ra instanceof Long ^ rb instanceof Long).isTrue();
+            assertThat(loser.getCode()).isEqualTo(POST_TEAM_CONFLICT.getCode());
+            assertThat((Long) winner).isPositive();
         } finally {
             pool.shutdownNow();
         }

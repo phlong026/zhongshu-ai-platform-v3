@@ -38,4 +38,10 @@ public interface OrgUnitMapper extends BaseMapperX<OrgUnitDO> {
                 .stream().map(OrgUnitDO::getDeptId).toList();
     }
 
+
+    /** M01-T06（Codex R1 P1-1）：开通业务键（orgType:orgName）事务 advisory 锁——并发开通串行化，
+     * 锁后二次查重命中复用，杜绝重复建组织。键空间与 StaffPostMapper 的 userId 键空间不重叠
+     * （本键经 hashtext 派生，风险自评接受；如需严格隔离可扩 int 键空间段）。 */
+    @org.apache.ibatis.annotations.Select("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtext(#{key}))) t")
+    Integer lockOrgKeyForOnboard(@org.apache.ibatis.annotations.Param("key") String key);
 }
