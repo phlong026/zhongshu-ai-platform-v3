@@ -33,12 +33,12 @@ function login(options) {
   });
 }
 
-/** 登录成功后保存令牌与首个岗位（有多个岗位时由用户在身份页切换） */
+/** 登录成功后保存令牌与首个岗位（有多个岗位时由用户在身份页切换）。
+ * M02-T02/I03：token 落地瞬间先清上一账号的岗位上下文（postId 与缓存任职列表）——
+ * 新 token 绝不搭配旧岗位缓存；任职列表由 afterRealLogin 拉取后重建。 */
 function saveLogin(result) {
-  http.saveSession({ token: result.accessToken });
-  if (result.posts && result.posts.length) {
-    http.saveSession({ postId: result.posts[0].postId });
-  }
+  http.saveSession({ token: result.accessToken, postId: '' });
+  wx.removeStorageSync(POSTS_KEY);
 }
 
 /** 本人全部有效任职；postId 用于 X-Post-Id 切换当前岗位 */
@@ -94,6 +94,14 @@ function logout() {
 }
 
 /**
+ * 登录后任职加载守卫（M02-T02）：afterRealLogin 发起 myPosts 前调用，返回是否仍同会话——
+ * 重复登录/换账号/退出使代次前移后，迟到的任职结果不得更新缓存或触发跳页。
+ */
+function postLoadGuard() {
+  return http.sessionGuard();
+}
+
+/**
  * 岗位失效恢复（M02-T01/I05）：业务请求返回 1_103_000_002（岗位被撤/组织停用而 token 仍有效）后，
  * 拉取服务端最新有效任职并切换到与失效岗不同的首个有效岗位——服务端真源覆盖缓存，禁止循环切回已撤岗位；
  * 无替代（仅剩失效岗/全部撤销/组织停用唯一岗）或刷新失败则登出并复用 401 登录引导链。成功与失败两路都复位 http 去抖标志。
@@ -132,7 +140,7 @@ function recoverPostInvalid(invalidPostId) {
     );
 }
 
-module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid };
+module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid, postLoadGuard };
 
 // M02-T01/I02：账号失效统一引导——清会话后跳转登录页（account 页 onShow 因会话清空展示登录态；
 // 该注册是全仓唯一生产入口，此前 401 仅清会话不引导）。测试环境覆盖此注册时须复刻导航行为。

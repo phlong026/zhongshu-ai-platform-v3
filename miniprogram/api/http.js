@@ -50,6 +50,30 @@ function sessionGeneration() {
   return sessionGen;
 }
 
+/** 会话代次守卫（M02-T02/M11-T02 页面异步链通用）：发起时捕获，返回是否仍同会话的判定函数 */
+function sessionGuard() {
+  const gen = sessionGen;
+  return () => gen === sessionGen;
+}
+
+const requestSeqs = {};
+/** 请求序号守卫（Codex R1 P2：同会话内重叠刷新——后发起的请求链胜出，旧响应丢弃；
+ * 分域避免消息/资料等不同域刷新互相使对方过期）。每次调用序号+1，返回 alive() 判定。 */
+function sequenceGuard(domain) {
+  const key = domain || 'default';
+  const seq = (requestSeqs[key] = (requestSeqs[key] || 0) + 1);
+  return () => seq === requestSeqs[key];
+}
+
+/** 组合守卫（Codex R2 P2：序号须与会话代次同时校验——换会话/退出后同域未发起新请求时，
+ * 序号不变而旧响应仍有效；此守卫捕获双值，任一失配即丢弃）。页面异步链统一使用。 */
+function requestGuard(domain) {
+  const key = domain || 'default';
+  const gen = sessionGen;
+  const seq = (requestSeqs[key] = (requestSeqs[key] || 0) + 1);
+  return () => gen === sessionGen && seq === requestSeqs[key];
+}
+
 /** 401 时的回调（登录页注册，用于引导重新登录）；不设置则只报错 */
 function onUnauthorized(handler) {
   unauthorizedHandler = handler;
@@ -150,6 +174,9 @@ module.exports = {
   currentPostId,
   tenantId,
   sessionGeneration,
+  sessionGuard,
+  sequenceGuard,
+  requestGuard,
   saveSession,
   clearSession,
   onUnauthorized,

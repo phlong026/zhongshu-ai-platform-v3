@@ -21,6 +21,7 @@ global.wx = {
   getAccountInfoSync: () => ({ miniProgram: { appId: 'wx-test' } }),
   login: o => o.fail && o.fail({ errMsg: 'test-no-login' }),
   reLaunch: o => { reLaunchCalls++; },
+  showModal: o => { if (o && o.success) o.success({ confirm: true }); },
   request(options) {
     requests.push(options);
     const plan = requestPlans.shift();
@@ -245,6 +246,54 @@ const POST_INVALID_CODE = 1103000002; // PlatformAuthzErrorCodes.POST_NOT_USABLE
   })();
   ok(storage.get(TOKEN_KEY) === 't-B' && storage.get(POST_KEY) === '77', 'K3 恢复失败不登出期间登录的新会话');
   ok(unauthorizedCalls === 0 && reLaunchCalls === 0, 'K3 不对新账号触发登录引导');
+
+  console.log('[auth-contract] 批次#5：saveLogin 岗位上下文隔离（M02-T02/I03）');
+  // L1: A 登录态 → B saveLogin → 旧岗位缓存全清
+  reset(); reLaunchCalls = 0; unauthorizedCalls = 0; postInvalidCalls = [];
+  storage.set(TOKEN_KEY, 't-A'); storage.set(POST_KEY, '11');
+  auth.savePosts([{ postId: 11, roleCode: 'finance' }]);
+  auth.saveLogin({ accessToken: 't-B', posts: [] }); // B 登录且响应无 posts
+  ok(storage.get(TOKEN_KEY) === 't-B', 'L1 新 token 已保存');
+  ok(!storage.get(POST_KEY) && !(auth.apiPosts() || []).length, 'L1 旧岗位 postId 与列表缓存全部隔离');
+  ok(auth.currentApiPost() === null, 'L2 新 token 不搭旧岗位缓存（currentApiPost 为空）');
+  // L3: B 的 posts 到达后重建（正常链路）
+  auth.savePosts([{ postId: 55, roleCode: 'sales' }]);
+  http.saveSession({ postId: 55 });
+  ok(String(auth.currentApiPost().postId) === '55', 'L3 B 任职列表到达后重建岗位上下文');
+
+  // L4: postLoadGuard 守卫语义
+  reset();
+  const g1 = auth.postLoadGuard();
+  http.saveSession({ token: 'x' });
+  ok(g1() === false, 'L4 会话变化后守卫返回 false（迟到任职结果应丢弃）');
+  const g2 = auth.postLoadGuard();
+  ok(g2() === true, 'L4 同会话内守卫返回 true');
+
+  console.log('[auth-contract] 批次#5：统一退出清理范围（M02-T03/I04）');
+  // M1: 纯 API 登录（本地无演示会话）→ 通用退出清 API token
+  reset(); reLaunchCalls = 0;
+  storage.set(TOKEN_KEY, 't-api'); storage.set(POST_KEY, '31');
+  const SA = require('../miniprogram/utils/session-actions');
+  SA.logout(); // showModal mock 直接 confirm
+  await wait(10);
+  ok(!storage.has(TOKEN_KEY) && !storage.has(POST_KEY), 'M1 纯 API 账号：通用退出清 API 令牌与岗位');
+  ok(reLaunchCalls === 1, 'M1 退出后回个人页');
+  // M2: 演示+API 共存 → 两条链都清，本地业务记录保留
+  reset(); reLaunchCalls = 0;
+  storage.set(TOKEN_KEY, 't-both');
+  const A2 = require('../miniprogram/utils/account');
+  A2.mutate(st => A2.loginDemo(st, 'sales-dual'));
+  const customersBefore = JSON.stringify(A2.load().customers || []);
+  SA.logout();
+  await wait(10);
+  ok(!storage.has(TOKEN_KEY), 'M2 共存账号：API 令牌被清');
+  ok(!A2.load().session.loggedIn, 'M2 共存账号：演示会话被退出');
+  ok(JSON.stringify(A2.load().customers || []) === customersBefore, 'M2 本地业务记录（客户列表）保留');
+  // M3: 本地未登录且无 API token → 退出仍安全（不再直接 return）
+  reset(); reLaunchCalls = 0;
+  SA.logout();
+  await wait(10);
+  ok(reLaunchCalls === 1, 'M3 纯净状态退出仍正常走完流程');
 
   console.log(`\n通过 ${pass}，失败 ${fail}`);  process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('脚本异常:', e); process.exit(1); });
