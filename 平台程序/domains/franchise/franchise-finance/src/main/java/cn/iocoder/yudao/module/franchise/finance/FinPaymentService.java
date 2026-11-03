@@ -73,6 +73,7 @@ public class FinPaymentService {
         if (cmd.payableId() <= 0) {
             throw exception(PAYMENT_PAYABLE_REQUIRED);
         }
+        BusinessDateGuard.requireValid(cmd.payDate()); // M08-T05/R04
         if (cmd.voucherFileId() != null && cmd.voucherFileId() > 0) {
             // M5 R2 P1-2+R3 兼容口径：基-1 资产或 fr_fin_file 同组织存在（双轨兼容期，切基-1 随 COS 批）
             long accountId = serviceAccounts.requireServiceAccount(post.orgId());

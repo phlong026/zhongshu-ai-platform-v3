@@ -90,6 +90,7 @@ public class FinReceiptService {
         } else {
             companyId = post.orgId();
         }
+        BusinessDateGuard.requireValid(cmd.receivedDate()); // M08-T05/R04：日期必填拒未来
         requireVoucherAsset(post, cmd.voucherFileId()); // M5 R2 P1-2：基-1 引用校验（21 号 V3）
         requireTxnNoFree(companyId, cmd.transactionNo(), null);
         FinReceiptDO receipt = new FinReceiptDO()

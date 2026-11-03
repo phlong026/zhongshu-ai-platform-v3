@@ -51,6 +51,7 @@ public class FinRefundService {
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
         }
+        BusinessDateGuard.requireValid(cmd.date()); // M08-T05/R04
         FinReceiptDO receipt = receiptMapper.lockById(cmd.receiptId());
         if (receipt == null) {
             throw exception(RECEIPT_NOT_FOUND);

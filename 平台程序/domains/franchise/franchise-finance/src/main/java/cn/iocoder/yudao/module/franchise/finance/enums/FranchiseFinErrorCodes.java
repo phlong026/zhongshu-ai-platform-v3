@@ -34,5 +34,8 @@ public interface FranchiseFinErrorCodes {
     ErrorCode BUSINESS_RECEIPT_IMMUTABLE = new ErrorCode(1_102_000_023, "业务回款由交易流管理，不能直接修订");
     ErrorCode REFERENCE_INVALID_FIN = new ErrorCode(1_102_000_024, "业务回款来源不存在");
     ErrorCode VOUCHER_INVALID_FIN = new ErrorCode(1_102_000_025, "凭证文件不存在、未完成或不属于当前组织");
+    // M08-T05 / R04：业务发生日期与录入时间分别保存——正常归单归月日期必填拒空，未来日期拒绝（计划另记）
+    ErrorCode BUSINESS_DATE_REQUIRED = new ErrorCode(1_102_000_026, "业务发生日期必填，不能用创建时间代填");
+    ErrorCode BUSINESS_DATE_FUTURE = new ErrorCode(1_102_000_027, "业务发生日期不能是未来日期");
 
 }
