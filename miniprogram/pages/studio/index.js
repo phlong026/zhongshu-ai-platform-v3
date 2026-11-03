@@ -13,7 +13,7 @@ failed: { label: '失败', icon: 'error', tone: 'red', action: '查看原因', n
 scheduled: { label: '待发布', icon: 'clock', tone: 'warm', action: '查看进度' }
 };
 Page({
-data: {
+data: { showDemoBadge:false,
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
 ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
@@ -57,7 +57,9 @@ if(!this.data.detail&&http.token()){this.receiptApi=true;this.loadApiReceipt(thi
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
-onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); },
+onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); 
+  this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) });
+  },
 onHide() { this.persistEditor(); },
 onUnload() { this.persistEditor(); if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); }, // 终止任务轮询（防 UI 长时间占锁）
 persistEditor() {

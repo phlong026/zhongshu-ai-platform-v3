@@ -7,4 +7,11 @@ page.onLoad = function(options = {}) {
   loadHistory.call(this, options);
 };
 page.onShow = function() { if (this.historyMode) showHistory.call(this); };
+const DemoBadge = require('../../utils/demo-badge');
+const __origOnShow = page.onShow;
+page.onShow = function() {
+  __origOnShow.call(this);
+  // R3 P1-A：自动判定（refreshPlatView 的 platDegraded=local / 平台健康=api），不硬编码 mixed
+  this.setData && this.setData({ showDemoBadge: DemoBadge.isDemoMode(this) });
+};
 Page(page);

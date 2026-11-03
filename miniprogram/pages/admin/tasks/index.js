@@ -34,7 +34,7 @@ function taskRows(rows, staff) {
 }
 
 Page({
-  data: {
+  data: { showDemoBadge:false,
     ready: false, error: '', view: 'mine', title: '绩效任务', myName: '', memberStaffId:'', period: '', periodEnd: '', tabs: [], rows: [], goalRows: [], staff: [], types: Tasks.TYPES,
     form: {}, assigneeIndex: 0, typeIndex: 0, previous: null, reassignTask: null, evidenceTask: null,
     evidence: { note: '', photos: [] }, archive: null,
@@ -49,7 +49,9 @@ Page({
     this.resetTaskForm();
     this.refresh();
   },
-  onShow() { if (this.data.ready) this.refresh(); },
+  onShow() { if (this.data.ready) this.refresh(); 
+  this.setData && this.setData({ showDemoBadge: require('../../utils/demo-badge').isDemoMode(this) });
+  },
   resetTaskForm() {
     const period = this.requestedPeriod || this.data.period || A.localDate().slice(0, 7);
     this.setData({

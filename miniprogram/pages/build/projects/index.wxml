@@ -1,5 +1,6 @@
 <wxs src="../../../utils/tone.wxs" module="st"/>
-<view class="page engineering-desk projects-page"><brand-header wx:if="{{readOnly}}" title="项目" back="{{true}}" divider="{{true}}"/><brand-header wx:else title="项目" divider="{{true}}"/><view class="eng-content">
+<view class="page engineering-desk projects-page">
+<view wx:if="{{showDemoBadge}}" style="background:#fff7e6;color:#ad6800;padding:8rpx 24rpx;font-size:24rpx;text-align:center">演示数据 · 本地保存，登录后切换平台数据</view><brand-header wx:if="{{readOnly}}" title="项目" back="{{true}}" divider="{{true}}"/><brand-header wx:else title="项目" divider="{{true}}"/><view class="eng-content">
  <view wx:if="{{!allowed}}" class="eng-empty"><text>当前身份无工程项目访问权限</text><button class="eng-outline" bindtap="home">返回工作台</button></view>
  <block wx:else><view class="eng-search"><image src="/pages/engineering/assets/search.png"/><input class="eng-search-input" placeholder="搜索项目名称、客户姓名或地址" value="{{keyword}}" bindinput="search" aria-label="搜索授权项目"/><button class="eng-search-clear" wx:if="{{keyword}}" bindtap="clear">清空</button></view>
  <text wx:if="{{error}}" class="eng-error">{{error}}</text>

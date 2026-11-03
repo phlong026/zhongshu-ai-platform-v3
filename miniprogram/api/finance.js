@@ -184,7 +184,7 @@ function guessMime(filePath) {
 /** 收款修订（财务直接改+全留痕；baseRevisionVersion 乐观锁；business 来源/低于退款下限后端拒绝） */
 function reviseReceipt(receiptId, baseRevisionVersion, newAmountCents, note, idemKey) {
   return http.post('/franchise/finance/receipts/' + receiptId + '/revision',
-    { baseRevisionVersion, newAmountCents, note }, { 'Idempotency-Key': idemKey || idemKey('revision') });
+    { baseRevisionVersion, newAmountCents, note }, { 'Idempotency-Key': idemKey || ('fin-revision-' + receiptId + '-' + Date.now()) });
 }
 
 /** 修订历史（审计留痕） */

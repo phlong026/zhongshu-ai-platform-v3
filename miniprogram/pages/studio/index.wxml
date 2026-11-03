@@ -1,4 +1,5 @@
 <view class="creation-page studio-page view-{{view}}">
+<view wx:if="{{showDemoBadge}}" style="background:#fff7e6;color:#ad6800;padding:8rpx 24rpx;font-size:24rpx;text-align:center">演示数据 · 本地保存，登录后切换平台数据</view>
   <creation-header id="creation-page-header" title="{{pageTitle}}" />
   <view class="creation-body studio-body"><text wx:if="{{operationError && view !== 'remix'}}" class="operation-error" role="alert">{{operationError}}</text>
     <block wx:if="{{invalidMessage}}"><view class="creation-card creation-empty"><text>{{invalidMessage}}</text><view class="page-actions"><button class="studio-outline" bindtap="returnToList">返回列表</button></view></view></block><block wx:elif="{{view === 'remix'}}">

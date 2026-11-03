@@ -14,7 +14,9 @@ const clean = () => ({ ready:false, error:'', busy:false, actor:{}, canEditPolic
 Page({
   data:clean(),
   onLoad(options = {}) { this.options = options; this.selectedProjectId = options.id || ''; },
-  onShow() { this.refresh(); },
+  onShow() { this.refresh(); 
+  this.setData && this.setData({ showDemoBadge: require('../../utils/demo-badge').isDemoMode(this) });
+  },
   refresh() {
     if (P.online()) return this.refreshOnline();
     try {

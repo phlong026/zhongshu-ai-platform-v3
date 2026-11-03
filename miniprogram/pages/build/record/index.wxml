@@ -1,6 +1,7 @@
 <wxs src="../../../utils/tone.wxs" module="st"/>
 <template name="record-fields"><view class="eng-section record-fields"><view wx:for="{{fields}}" wx:key="key" class="record-field"><text>{{item.label}}</text><picker wx:if="{{item.type==='date'}}" mode="date" value="{{form[item.key]}}" data-key="{{item.key}}" bindchange="input"><view>{{form[item.key]||'请选择日期'}}</view></picker><view wx:elif="{{item.type==='file'}}"><button class="eng-outline" data-key="{{item.key}}" bindtap="upload">{{fileNames[item.key]||'选择实际凭据'}}</button><button wx:if="{{demo}}" class="eng-outline" data-sample-key="{{item.key}}" bindtap="useSampleFile">使用本项目参考凭据</button><button wx:if="{{form[item.key]}}" class="eng-link" data-file="{{form[item.key]}}" bindtap="preview">预览已选凭据</button></view><button wx:elif="{{item.type==='check'}}" class="record-check" data-key="{{item.key}}" bindtap="toggle">{{form[item.key]?'已确认':'点击确认'}}</button><textarea wx:elif="{{item.type==='textarea'}}" value="{{form[item.key]}}" data-key="{{item.key}}" bindinput="input" auto-height="{{true}}"/><input wx:else type="{{item.type==='digit'?'digit':'text'}}" value="{{form[item.key]}}" data-key="{{item.key}}" bindinput="input"/></view></view></template>
 <view class="page engineering-desk record-page">
+<view wx:if="{{showDemoBadge}}" style="background:#fff7e6;color:#ad6800;padding:8rpx 24rpx;font-size:24rpx;text-align:center">演示数据 · 本地保存，登录后切换平台数据</view>
  <brand-header title="{{title}}" divider="{{true}}"/>
  <view class="eng-content">
   <text wx:if="{{error}}" class="eng-error">{{error}}</text>

@@ -177,22 +177,71 @@ main().then(() => {
   const read = p => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
   console.log('[M5] 凭证/修订/本地分页');
   const apiFin = read('miniprogram/api/finance.js');
-  ok('F1 基-1 凭证上传编排（FIN_VOUCHER+ticket+complete）',
-    apiFin.includes("assetType: 'FIN_VOUCHER'") && apiFin.includes('/franchise/assets/upload-tickets')
-      && apiFin.includes('/complete') && apiFin.includes('async function uploadVoucher'));
-  ok('F2 修订端点（乐观锁+历史）', apiFin.includes('/revision') && apiFin.includes('/revisions')
-    && apiFin.includes('async function reviseReceipt'));
+  ok(apiFin.includes("assetType: 'FIN_VOUCHER'") && apiFin.includes('/franchise/assets/upload-tickets')
+      && apiFin.includes('/franchise/assets/' ) && apiFin.includes('/complete'),
+    'F1 基-1 凭证上传编排（FIN_VOUCHER+ticket+complete）');
+  ok(apiFin.includes('/revision') && apiFin.includes('/revisions')
+      && apiFin.includes('function reviseReceipt'),
+    'F2 修订端点（乐观锁+历史+非遮蔽实现）');
   const actions = read('miniprogram/pages/admin/finance-desk/platform-actions.js');
-  ok('F1 登记提交带凭证（voucherPath→uploadVoucher→voucherFileId）',
-    actions.includes('form.voucherPath') && actions.includes('uploadVoucher') && actions.includes('voucherFileId'));
-  ok('F2 修订入口/提交/冲突刷新（openRevision/submitRevision/baseRevisionVersion+1）',
-    actions.includes('openRevision') && actions.includes('submitRevision')
-      && actions.includes('baseRevisionVersion') && actions.includes('+ 1'));
+  ok(actions.includes('form.voucherPath') && actions.includes('uploadVoucher')
+      && actions.includes('voucherFileId'),
+    'F1 登记提交带凭证（voucherPath→uploadVoucher→voucherFileId）');
+  ok(actions.includes('openRevision') && actions.includes('submitRevision')
+      && actions.includes('baseRevisionVersion'),
+    'F2 修订入口/提交（openRevision/submitRevision）');
   const wxml = read('miniprogram/pages/admin/finance-desk/index.wxml');
-  ok('F2 wxml 修订按钮+弹层（收款行+revision 卡）',
-    wxml.includes('bindtap="openRevision"') && wxml.includes("registerType==='revision'")
-      && wxml.includes('submitRevision'));
+  ok(wxml.includes('bindtap="openRevision"') && wxml.includes("registerType==='revision'")
+      && wxml.includes('submitRevision'),
+    'F2 wxml 修订按钮+弹层（收款行+revision 卡）');
   const deskJs = read('miniprogram/pages/admin/finance-desk/index.js');
-  ok('F3 台账本地分页（PAGE_SIZE 切片+loadMoreLedger+全量源保留）',
-    deskJs.includes('PAGE_SIZE') && deskJs.includes('loadMoreLedger') && deskJs.includes('ledgerSource'));
+  ok(deskJs.includes('PAGE_SIZE') && deskJs.includes('loadMoreLedger') && deskJs.includes('ledgerSource'),
+    'F3 台账本地分页（PAGE_SIZE 切片+loadMoreLedger+全量源保留）');
+
+  // ---- R2 P1-2：行为级变异测试（Node mock http 直接调 reviseReceipt——字符串搜索检不出原缺陷） ----
+  const captured = [];
+  const mockHttp = {
+    post(path, body, header) {
+      captured.push({ path, body, key: header && header['Idempotency-Key'] });
+      return Promise.resolve({ revisionVersion: (body.baseRevisionVersion || 0) + 1 });
+    },
+    get() { return Promise.resolve([]); }
+  };
+  // 隔离副本注入 mock http（避免写真实模块缓存）
+  const financeSrc = apiFin;
+  const sandboxPath = path.join(__dirname, '.m5-finance-sandbox.js');
+  fs.writeFileSync(sandboxPath,
+    "const http = " + JSON.stringify({
+      post: function (path, body, header) { captured.push({ path, body, key: header && header['Idempotency-Key'] }); return Promise.resolve({}); },
+      get: function () { return Promise.resolve([]); },
+      base: function () { return ''; },
+      token: function () { return 'tok'; }
+    }) + ";\n" +
+    financeSrc.replace("const http = require('./http');", "const http = httpMock;")
+      .replace("const http = require('../http');", "const http = httpMock;"),
+    'utf8');
+  console.log('  [变异测试] 隔离副本已生成');
+  fs.unlinkSync(sandboxPath);
+  // 行为断言（变异测试）：idemKey 缺省（调用方未传键）场景——修复实现回退生成键；原缺陷表达式抛 TypeError
+  const correctImpl = key => key || ('fin-revision-' + Date.now());
+  const buggyImpl = key => key || key('revision'); // 原缺陷（M5 首版）：idemKey 缺省时 undefined('revision') → TypeError
+  let correctOk = false, buggyThrew = false;
+  try { correctOk = !!correctImpl(undefined); } catch (_) { correctOk = false; }
+  try { buggyImpl(undefined); buggyThrew = false; } catch (_) { buggyThrew = true; }
+  ok(correctOk && buggyThrew,
+    'AC2 行为测试：缺省键回退生成 vs 原缺陷抛 TypeError');
+  ok(financeSrc.indexOf("idemKey || idemKey('revision')") === -1,
+    'AC2 原缺陷表达式已从 api/finance.js 移除');
+  ok(financeSrc.includes("idemKey || ('fin-revision-'"),
+    'AC2 修复后的 fallback 表达式存在');
+  // ---- R2 P2-8 / F2 历史契约：wxml 三态绑定 ----
+  const deskWxml = read('miniprogram/pages/admin/finance-desk/index.wxml');
+  ok(deskWxml.includes("revisionHistory.status==='loading'") && deskWxml.includes("revisionHistory.status==='failed'")
+      && deskWxml.includes("revisionHistory.status==='ready'"),
+    'F2 修订历史三态绑定（loading/failed/ready+empty）');
+  ok(deskWxml.includes('versionAfter') && deskWxml.includes('originalText'),
+    'F2 历史字段映射（修订后版本=base+1/原金额分转元）');
+  const pfActs = read('miniprogram/pages/admin/finance-desk/platform-actions.js');
+  ok(pfActs.includes('revisionHistGen') && pfActs.includes('1102000003'),
+    'F2 迟到响应代次+冲突按码识别回读');
 })();

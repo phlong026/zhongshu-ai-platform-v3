@@ -1,5 +1,6 @@
 <import src="./finance-home.wxml"/>
 <view class="fin-page">
+<view wx:if="{{showDemoBadge}}" style="background:#fff7e6;color:#ad6800;padding:8rpx 24rpx;font-size:24rpx;text-align:center">演示数据 · 本地保存，登录后切换平台数据</view>
  <block wx:if="{{view==='desk'&&ready}}"><template is="financeHome" data="{{desk:deskHome}}"/></block>
  <block wx:else>
  <brand-header branded divider account-font title="{{title}}"/>
@@ -28,6 +29,14 @@
      <view class="fin-form-row"><text class="fin-muted">新金额</text><input class="fin-input" data-field="amount" bindinput="revisionInput" value="{{revisionForm.amount}}"/></view>
      <view class="fin-form-row"><text class="fin-muted">修订说明（留痕）</text><input class="fin-input" data-field="note" bindinput="revisionInput" value="{{revisionForm.note}}"/></view>
      <button class="fin-primary" bindtap="submitRevision" disabled="{{revisionBusy}}">提交修订</button>
+     <view wx:if="{{revisionHistory}}" class="fin-form-row" style="margin-top:12rpx"><text class="fin-muted">修订历史</text>
+      <text wx:if="{{revisionHistory.status==='loading'}}" class="fin-muted">加载中…</text>
+      <text wx:elif="{{revisionHistory.status==='failed'}}" class="fin-muted">历史加载失败（不影响提交）</text>
+      <text wx:elif="{{revisionHistory.status==='ready'&&!revisionHistory.rows.length}}" class="fin-muted">暂无修订记录</text>
+      <block wx:elif="{{revisionHistory.status==='ready'}}">
+       <view wx:for="{{revisionHistory.rows}}" wx:key="versionAfter" style="width:100%"><text>_v{{item.versionAfter}}：{{item.originalText}} → {{item.newText}} · {{item.note}}（{{item.dateText}}）</text></view>
+      </block>
+     </view>
     </view>
     <view wx:if="{{registerType&&registerType!=='revision'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{registerType==='receipt'?'收款登记':registerType==='payment'?'付款登记':registerType==='refund'?'退款登记':'应付登记'}}</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
      <view class="fin-form-row"><text class="fin-muted">金额（元）</text><input class="fin-input" type="digit" data-field="amount" bindinput="registerInput" value="{{registerForm.amount}}"/></view>
@@ -73,6 +82,14 @@
      <view class="fin-form-row"><text class="fin-muted">新金额</text><input class="fin-input" data-field="amount" bindinput="revisionInput" value="{{revisionForm.amount}}"/></view>
      <view class="fin-form-row"><text class="fin-muted">修订说明（留痕）</text><input class="fin-input" data-field="note" bindinput="revisionInput" value="{{revisionForm.note}}"/></view>
      <button class="fin-primary" bindtap="submitRevision" disabled="{{revisionBusy}}">提交修订</button>
+     <view wx:if="{{revisionHistory}}" class="fin-form-row" style="margin-top:12rpx"><text class="fin-muted">修订历史</text>
+      <text wx:if="{{revisionHistory.status==='loading'}}" class="fin-muted">加载中…</text>
+      <text wx:elif="{{revisionHistory.status==='failed'}}" class="fin-muted">历史加载失败（不影响提交）</text>
+      <text wx:elif="{{revisionHistory.status==='ready'&&!revisionHistory.rows.length}}" class="fin-muted">暂无修订记录</text>
+      <block wx:elif="{{revisionHistory.status==='ready'}}">
+       <view wx:for="{{revisionHistory.rows}}" wx:key="versionAfter" style="width:100%"><text>_v{{item.versionAfter}}：{{item.originalText}} → {{item.newText}} · {{item.note}}（{{item.dateText}}）</text></view>
+      </block>
+     </view>
     </view>
     <view wx:if="{{registerType&&registerType!=='revision'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{registerType==='receipt'?'收款登记':registerType==='payment'?'付款登记':registerType==='refund'?'退款登记':'应付登记'}}</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
      <view class="fin-form-row"><text class="fin-muted">金额（元）</text><input class="fin-input" type="digit" data-field="amount" bindinput="registerInput" value="{{registerForm.amount}}"/></view>

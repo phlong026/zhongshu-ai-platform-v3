@@ -4,10 +4,12 @@ const R=require('../../../utils/engineering-records');
 const P=require('../../../utils/platform-engineering'); // 阶段 2 API 态（列表/新建在线；失败降级本地）
 const Access=require('../../../utils/access'),Job=require('../../../utils/organization');
 Page({
- data:{filter:'全部',keyword:'',destination:'',mode:'',cards:[],incoming:[],tasks:[],error:'',filters:['全部','在建','待交付'],creating:false,createForm:{name:'',customer:'',city:'',phone:'',floors:'2',area:'',parentIndex:0},parentOptions:[],busy:false},
+ data:{ showDemoBadge:false,filter:'全部',keyword:'',destination:'',mode:'',cards:[],incoming:[],tasks:[],error:'',filters:['全部','在建','待交付'],creating:false,createForm:{name:'',customer:'',city:'',phone:'',floors:'2',area:'',parentIndex:0},parentOptions:[],busy:false},
  onLoad(o){this.setData({filter:o.filter||(o.destination==='prepare'?'待开工':'全部'),destination:['prepare','schedule','documents','payments','site','inspection','materials'].includes(o.destination)?o.destination:'',mode:o.mode==='tasks'?'tasks':''});},
  restoreNavigationState(){this.refresh();},
- onShow(){this.refresh();},
+ onShow(){this.refresh();
+  this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) });
+  },
  refresh(){if(P.online()&&!this.__platDown)return this.refreshOnline();if(!W.allowed()){this.setData({allowed:false,cards:[],incoming:[],tasks:[]});return;}try{const actor=Access.context(),readOnly=Access.isBoss(actor),navigationIndex=Job.navigation(actor).tabs.find(tab=>tab.key===(readOnly?'owner-engineering':'projects'))?.index??8,s=W.snapshot(),kw=this.data.keyword.trim().toLowerCase(),match=p=>(p.name+p.city+(p.stage||'')+(p.title||'')).toLowerCase().includes(kw),related=new Set(s.tasks.filter(t=>/验收|复验|整改/.test(t.title)).map(t=>t.projectId));let cards=s.projects.map(W.card).filter(match);const f=this.data.filter;if(f==='待接收')cards=[];else if(f==='待验收')cards=cards.filter(p=>related.has(p.id));else if(f!=='全部')cards=cards.filter(p=>p.status===f);this.setData({allowed:true,readOnly,navigationIndex,canCreate:Job.has(actor.role,'engineer'),moreSelected:!this.data.filters.includes(this.data.filter),cards,incoming:s.incoming.filter(match),tasks:s.tasks.filter(match),allCount:s.projects.length+s.incoming.length,taskCount:s.tasks.length,error:'',selectedLabel:this.data.destination?{prepare:'开工准备',schedule:'施工计划',documents:'图纸资料',payments:'节点款项',site:'现场记录',inspection:'节点验收',materials:'施工材料'}[this.data.destination]:''});}catch(e){this.setData({error:e.message,cards:[],tasks:[]});}},
  search(e){this.setData({keyword:e.detail.value});this.refresh();},clear(){this.setData({keyword:''});this.refresh();},
  filter(e){this.setData({filter:e.currentTarget.dataset.value,mode:''});this.refresh();},

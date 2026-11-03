@@ -9,7 +9,9 @@ Page({
  ...makeFormHandlers(),
  data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,samplePreview:null},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.nodeId=o.nodeId||'';this.stage=o.stage==='topping'?'topping':'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
- onShow(){if(this.id)this.refresh();},
+ onShow(){if(this.id)this.refresh();
+  this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) });
+  },
  refresh(reset=false){if(P.online()&&!this.__platDown)return this.refreshOnline(reset);try{
   const p=R.get(this.id);if(!p)throw Error('项目不存在或当前身份无权查看');const a=X.context(),own=R.owner(p),canPay=O.has(a.role,'finance'),finance=canPay||X.isBoss(a),view=this.data.view,ar=R.funds(p),tasks=R.tasks(p),plans=R.plans(p).map(r=>({...r,totalText:r.known?money(r.total):'待记录',paidText:money(r.paid),remainingText:r.known?money(r.remaining):'待记录',url:R.link(p,'material',{planId:r.id}),lines:r.lines.map(l=>({...l,totalText:money(l.total),paidText:money(l.paid)}))})),plan=plans.find(r=>r.id===this.planId),node=p.plan.nodes.find(n=>n.id===(plan?.nodeId||this.nodeId))||p.plan.nodes.find(n=>n.status!=='已完成')||p.plan.nodes.at(-1),engineers=(X.rawBook(p.companyId)?.staff||[]).filter(s=>s.active!==false&&O.staffHas(s,'engineer')).map(s=>({id:s.id,name:s.name}));
   const part=ar.installments.find(r=>r.stage===this.stage),contract=p.recordFlow.contract;let fields=[],actions=[],form=this.data.form;

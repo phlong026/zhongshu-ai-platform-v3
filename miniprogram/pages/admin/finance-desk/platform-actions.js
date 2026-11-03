@@ -111,7 +111,25 @@ module.exports = function attach(page, financeApi, PF) {
       || (this.ledgerSource || []).find(r => String(r.id) === String(e.currentTarget.dataset.id));
     if (!rawId || !row || row.category !== '收款') return this.setData({ registerError: '仅收款可修订' });
     this.setData({ registerType: 'revision', revisionForm: { receiptId: rawId, baseRevisionVersion: row.revisionVersion || 1,
-      originAmount: row.amountText || '', amount: '', note: '' }, registerError: '' });
+      originAmount: row.amountText || '', amount: '', note: '' }, registerError: '',
+      revisionHistory: { status: 'loading', rows: [] } }); // R2 P2-8：打开即拉取/清空上次
+    // R2 P2-8：请求代次防迟到（切单/关闭后旧响应丢弃）
+    this.revisionHistGen = (this.revisionHistGen || 0) + 1;
+    const gen = this.revisionHistGen;
+    financeApi.revisions(rawId).then(rows => {
+      if (gen !== this.revisionHistGen || this.data.registerType !== 'revision') return;
+      const list = (rows || []).map(h => ({
+        versionAfter: (h.baseRevisionVersion || 0) + 1, // 修订后版本=base+1（R2 纠正：历史行存 base）
+        originalText: PF.yuan(h.originalAmountCents),
+        newText: PF.yuan(h.newAmountCents),
+        note: h.note || '',
+        dateText: String(h.createTime || '').slice(0, 16).replace('T', ' ')
+      }));
+      this.setData({ 'revisionHistory.status': list.length ? 'ready' : 'empty', 'revisionHistory.rows': list });
+    }).catch(() => {
+      if (gen !== this.revisionHistGen || this.data.registerType !== 'revision') return;
+      this.setData({ 'revisionHistory.status': 'failed' }); // 失败不禁用提交（D-3）
+    });
   };
   page.revisionInput = function (e) {
     this.setData({ ['revisionForm.' + e.currentTarget.dataset.field]: e.detail.value });
@@ -126,12 +144,30 @@ module.exports = function attach(page, financeApi, PF) {
     financeApi.reviseReceipt(form.receiptId, form.baseRevisionVersion, amountCents, form.note)
       .then(() => { this.setData({ registerType: '', revisionForm: null, revisionKey: null }); this.loadPlatformFinance(); wx.showToast({ title: '已修订留痕' }); })
       .catch(err => {
-        const msg = PF.errorMessage(err);
-        if (msg.indexOf('版本') >= 0 && form.baseRevisionVersion != null) {
-          // 冲突后刷新版本重填（D-3 UX）
-          this.setData({ registerError: msg + '（已刷新版本，请重试）',
-            'revisionForm.baseRevisionVersion': Number(form.baseRevisionVersion) + 1 });
-        } else this.setData({ registerError: msg });
+        const raw = err && (err.data || err);
+        // R2 P1-4：按错误码 1102000003 识别冲突（弃文案 indexOf）→ 回读当前收款+历史刷新基准与原金额（保留用户输入）
+        if (raw && raw.code === 1102000003) {
+          financeApi.receipts().then(receipts => {
+            const cur = (receipts || []).find(r => String(r.id) === String(form.receiptId));
+            if (!cur) return this.setData({ registerError: PF.errorMessage(err) });
+            this.setData({
+              registerError: '收款已被他人修订，已刷新最新版本与金额，请确认后重试',
+              'revisionForm.baseRevisionVersion': cur.revisionVersion,
+              'revisionForm.originAmount': PF.yuan(cur.amountCents)
+            });
+            this.revisionHistGen = (this.revisionHistGen || 0) + 1;
+            const gen = this.revisionHistGen;
+            financeApi.revisions(form.receiptId).then(rows => {
+              if (gen !== this.revisionHistGen) return;
+              const list = (rows || []).map(h => ({
+                versionAfter: (h.baseRevisionVersion || 0) + 1,
+                originalText: PF.yuan(h.originalAmountCents), newText: PF.yuan(h.newAmountCents),
+                note: h.note || '', dateText: String(h.createTime || '').slice(0, 16).replace('T', ' ')
+              }));
+              this.setData({ 'revisionHistory.status': 'ready', 'revisionHistory.rows': list });
+            }).catch(() => {});
+          }).catch(e2 => this.setData({ registerError: PF.errorMessage(e2) }));
+        } else this.setData({ registerError: PF.errorMessage(err) });
       })
       .finally(() => this.setData({ revisionBusy: false }));
   };
