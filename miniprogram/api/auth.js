@@ -65,9 +65,9 @@ function smsLogin(mobile, captcha) {
   return http.post('/platform/auth/sms/login', { mobile, captcha });
 }
 
-/** 保存本人任职列表（导航接管与身份切换的数据源） */
+/** 保存本人任职列表（导航接管与身份切换的数据源）；过滤 posts/mine 对组织停用任职返回的 null 元素 */
 function savePosts(posts) {
-  wx.setStorageSync(POSTS_KEY, posts || []);
+  wx.setStorageSync(POSTS_KEY, (posts || []).filter(Boolean));
 }
 
 /** 已缓存的本人任职列表 */
@@ -93,4 +93,50 @@ function logout() {
   wx.removeStorageSync(POSTS_KEY);
 }
 
-module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout };
+/**
+ * 岗位失效恢复（M02-T01/I05）：业务请求返回 1_103_000_002（岗位被撤/组织停用而 token 仍有效）后，
+ * 拉取服务端最新有效任职并切换到与失效岗不同的首个有效岗位——服务端真源覆盖缓存，禁止循环切回已撤岗位；
+ * 无替代（仅剩失效岗/全部撤销/组织停用唯一岗）或刷新失败则登出并复用 401 登录引导链。成功与失败两路都复位 http 去抖标志。
+ * 会话代次护栏（Codex R1 P1）：恢复发起时捕获代次，写缓存/切岗/登出前校验——恢复期间的手动切岗、
+ * 401 清场、换号登录都会使代次前移，迟到的恢复结果一律不触碰新会话。
+ * @param invalidPostId 刚失效的 postId（http.onPostInvalid 回调传入）
+ * @returns Promise<{status:'switched'|'none'|'stale', post?}>
+ */
+function recoverPostInvalid(invalidPostId) {
+  const gen = http.sessionGeneration();
+  return myPosts()
+    .then(posts => {
+      if (http.sessionGeneration() !== gen) return { status: 'stale' };
+      const list = (posts || []).filter(Boolean);
+      savePosts(list);
+      const next = list.find(p => String(p.postId) !== String(invalidPostId));
+      if (next) {
+        http.saveSession({ postId: next.postId });
+        return { status: 'switched', post: next };
+      }
+      logout();
+      http.notifySessionExpired(); // 无替代岗位：复用 401 登录引导链（Codex R1 P2）
+      return { status: 'none' };
+    })
+    .then(
+      result => { http.endPostInvalidRecovery(); return result; },
+      err => {
+        http.endPostInvalidRecovery();
+        if (http.sessionGeneration() !== gen) {
+          return { status: 'stale' }; // 会话已被换走（如期间登录了新账号）：新会话自行处理，不登出、不按约定抛错
+        }
+        logout();
+        http.notifySessionExpired();
+        throw err;
+      }
+    );
+}
+
+module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid };
+
+// M02-T01/I02：账号失效统一引导——清会话后跳转登录页（account 页 onShow 因会话清空展示登录态；
+// 该注册是全仓唯一生产入口，此前 401 仅清会话不引导）。测试环境覆盖此注册时须复刻导航行为。
+http.onUnauthorized(() => { wx.reLaunch({ url: '/pages/account/index' }); });
+
+// M02-T01/I05：岗位失效恢复流注册（模块级单例；恢复期间并发失效由 http 层去抖）
+http.onPostInvalid(postId => { recoverPostInvalid(postId).catch(() => {}); });
