@@ -15,7 +15,7 @@ Page({
   data:clean(),
   onLoad(options = {}) { this.options = options; this.selectedProjectId = options.id || ''; },
   onShow() { this.refresh(); 
-  this.setData && this.setData({ showDemoBadge: require('../../utils/demo-badge').isDemoMode(this) });
+  this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) }); // M11-T01：pages/admin/commission 深度三级，原少退一级 MODULE_NOT_FOUND
   },
   refresh() {
     if (P.online()) return this.refreshOnline();

@@ -4,13 +4,21 @@ const assert = require('node:assert/strict');
   const runtime = await require('./role-page-runtime.cjs').connect();
   const clone = value => JSON.parse(JSON.stringify(value));
   const keys = require('../miniprogram/utils/storage-keys');
+  const Account = require('../miniprogram/utils/account');
+  // 相对月份种子（修复日期脆弱：原硬编码上月=2026-09、空月=2026-12，跨月后「一键初始化」建议失配）
+  const periodOf = offset => {
+    const [y, m] = Account.localDate().slice(0, 7).split('-').map(Number);
+    const shifted = y * 12 + (m - 1) + offset;
+    return Math.floor(shifted / 12) + '-' + String(shifted % 12 + 1).padStart(2, '0');
+  };
+  const prevPeriod = periodOf(-1);
+  const emptyPeriod = periodOf(1); // 空月=下月：其「上月」=当前月，此刻尚无任何事实
   wx.setStorageSync(keys.management, require('../miniprogram/utils/management-seed')());
   wx.setStorageSync(keys.business, { version:1, customers:[] });
   wx.setStorageSync(keys.engineering, { version:1, projects:[] });
-  wx.setStorageSync(keys.growth, { version:1, contents:[{ id:'ui-initialize-source', companyId:'quanzhou', status:'演示已发布', authorId:'finance-dual', publishedAt:'2026-09-20', pack:{title:'九月真实发布'} }], leads:[], events:[] });
+  wx.setStorageSync(keys.growth, { version:1, contents:[{ id:'ui-initialize-source', companyId:'quanzhou', status:'演示已发布', authorId:'finance-dual', publishedAt: prevPeriod + '-20', pack:{title:'上月真实发布'} }], leads:[], events:[] });
   wx.removeStorageSync(keys.performanceTasks);
 
-  const Account = require('../miniprogram/utils/account');
   const Model = require('../miniprogram/pages/admin/model');
   const Tasks = require('../miniprogram/utils/performance-tasks').withFacts(require('../miniprogram/pages/admin/owner-performance').facts);
   const login = (id, role) => Account.mutate(account => {
@@ -36,10 +44,10 @@ const assert = require('node:assert/strict');
   const taskPageText = await (await runtime.currentPage()).$('.task-content');
   assert.doesNotMatch(await taskPageText.text(), /奖金|应付|办理付款/, '绩效任务页不得出现薪酬、奖金或付款办理');
   assert(await (await runtime.currentPage()).$('.initialize-previous'), '老板首次进入月份可一键按上月实绩初始化');
-  page.month({ detail:{ value:'2026-12' } });
+  page.month({ detail:{ value: emptyPeriod } });
   await (await control('.initialize-previous')).tap();
   assert.match(page.data.initializationHint, /上月暂无/);
-  assert.equal(Tasks.list(Model.load(), { scope:'company', period:'2026-12' }).length, 0, '无事实空态不创建 0 目标任务');
+  assert.equal(Tasks.list(Model.load(), { scope:'company', period: emptyPeriod }).length, 0, '无事实空态不创建 0 目标任务');
   page.month({ detail:{ value:Account.localDate().slice(0, 7) } });
   const period = page.data.period, due = page.data.periodEnd;
   await (await control('.initialize-previous')).tap();

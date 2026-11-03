@@ -50,7 +50,7 @@ Page({
     this.refresh();
   },
   onShow() { if (this.data.ready) this.refresh(); 
-  this.setData && this.setData({ showDemoBadge: require('../../utils/demo-badge').isDemoMode(this) });
+  this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) }); // M11-T01：pages/admin/tasks 深度三级，原少退一级 MODULE_NOT_FOUND
   },
   resetTaskForm() {
     const period = this.requestedPeriod || this.data.period || A.localDate().slice(0, 7);

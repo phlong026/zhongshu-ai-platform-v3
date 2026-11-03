@@ -7,7 +7,7 @@ page.onLoad = function(options = {}) {
   loadHistory.call(this, options);
 };
 page.onShow = function() { if (this.historyMode) showHistory.call(this); };
-const DemoBadge = require('../../utils/demo-badge');
+const DemoBadge = require('../../../utils/demo-badge'); // M11-T01：pages/admin/performance 深度三级，原少退一级顶层 require 阻断注册
 const __origOnShow = page.onShow;
 page.onShow = function() {
   __origOnShow.call(this);

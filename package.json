@@ -120,7 +120,8 @@
     "check:customer-progress": "node scripts/verify-customer-project-progress.cjs && node scripts/verify-customer-workspace.cjs",
     "check:personal-performance": "node scripts/verify-personal-performance.cjs && node scripts/verify-performance-task-ui.cjs && node scripts/verify-performance-tasks.cjs",
     "check:all-role-performance": "node scripts/verify-all-role-performance.cjs && node scripts/verify-performance-member-view.cjs && node scripts/verify-performance-notifications.cjs && npm run check:personal-performance",
-    "check:all-role-performance:native": "node scripts/verify-all-role-performance-native.cjs"
+    "check:all-role-performance:native": "node scripts/verify-all-role-performance-native.cjs",
+    "check:demo-badge": "node scripts/verify-demo-badge.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0",

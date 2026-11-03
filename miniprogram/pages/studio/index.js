@@ -58,7 +58,7 @@ if(!this.data.detail&&http.token()){this.receiptApi=true;this.loadApiReceipt(thi
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
 onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); 
-  this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) });
+  this.setData && this.setData({ showDemoBadge: require('../../utils/demo-badge').isDemoMode(this) }); // M11-T01：pages/studio 深度二级，原多退一级 MODULE_NOT_FOUND
   },
 onHide() { this.persistEditor(); },
 onUnload() { this.persistEditor(); if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); }, // 终止任务轮询（防 UI 长时间占锁）
