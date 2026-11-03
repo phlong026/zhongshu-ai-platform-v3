@@ -59,7 +59,7 @@ function ledgerRows(receipts, payments, refunds, month) {
 /** 指标三卡（本月口径；作废不参与）。M08-T05/R04：空业务日期不回退 createTime——
  * 单列待归月，不进已核实月度净额（与 ledgerRows 的 monthOf 语义一致）。 */
 function metrics(receipts, payments, refunds, month) {
-  const inMonth = (r, field) => String(r[field] || '').slice(0, 7) === month;
+  const inMonth = (r, field) => !!month && String(r[field] || '').slice(0, 7) === month; // month 空串护栏（Codex R1 边界）
   const received = (receipts || []).filter(r => r.status === '已登记' && inMonth(r, 'receivedDate'))
     .reduce((a, r) => a + (r.amountCents || 0), 0);
   const paid = (payments || []).filter(p => p.status === '已核实' && inMonth(p, 'payDate'))

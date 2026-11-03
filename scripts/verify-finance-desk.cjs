@@ -45,22 +45,27 @@ const refunds = [
   { id: 2, companyId: 247, receiptId: 1, amountCents: 100000, status: '已作废', date: '2026-10-23', createTime: '2026-10-23T10:00:00+08:00' }
 ];
 
-// AC2 台账合并与月度过滤（空业务日期按 create_time 回退 2026-09）
+// AC2 台账合并与月度过滤（M08-T05/R04：空业务日期单列「待归月」，不回退 create_time）
 const ledOct = PF.ledgerRows(receipts, payments, refunds, '2026-10');
-assert.equal(ledOct.rows.length, 3, '10月台账 3 行');
+assert.equal(ledOct.rows.length, 3, '10月台账 3 行（收1+付1+退1；空业务日期行不归入任何月）');
 assert.deepEqual(ledOct.rows.map(r => r.sign), ['+', '−', '−']);
 const ledSep = PF.ledgerRows(receipts, payments, refunds, '2026-09');
-assert.equal(ledSep.rows.length, 1, '空业务日期按 create_time 回退 9 月');
+assert.equal(ledSep.rows.length, 0, '空业务日期不按 create_time 归 9 月（R04 禁止虚填）');
 const ledAll = PF.ledgerRows(receipts, payments, refunds, '');
-assert.equal(ledAll.rows.length, 4, '全部台账 4 行（作废不计）');
-ok('AC2 台账合并与月度过滤');
+assert.equal(ledAll.rows.length, 4, '全部台账 4 行（作废不计；含待归月 1 行）');
+const pendingRow = ledAll.rows.find(r => r.pendingDate);
+assert.ok(pendingRow, '空业务日期行带待归月标识');
+assert.equal(pendingRow.date, '待归月', '待归月行展示标记（单列可见）');
+ok('AC2 台账合并与月度过滤（待归月单列）');
 
-// AC3 指标聚合（作废不计入；空业务日期回退 create_time 月）
+// AC3 指标聚合（作废不计入；空业务日期不进已核实净额——待归月单列，M08-T05/R04）
 const m = PF.metrics(receipts, payments, refunds, '2026-10');
-assert.equal(m.received, '750000.00', '本月已登记收款');
+assert.equal(m.received, '750000.00', '本月已登记收款（空日期 30 万不虚填 9 月）');
 assert.equal(m.paid, '200000.00', '本月已登记付款（作废 500 万不计）');
 assert.equal(m.refunded, '250000.00', '本月退款净额（作废不计）');
-ok('AC3 指标聚合');
+const mSep = PF.metrics(receipts, payments, refunds, '2026-09');
+assert.equal(mSep.received, '', '空业务日期不进任何月净额（不按 createTime 归月；yuan(0) 零值展示为空串惯例）');
+ok('AC3 指标聚合（待归月排除）');
 
 // AC4 金额换算
 assert.equal(PF.toCents('0.29'), 29);
