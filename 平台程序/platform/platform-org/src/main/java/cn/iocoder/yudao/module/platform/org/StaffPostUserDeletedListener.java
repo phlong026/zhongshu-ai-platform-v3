@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.platform.org;
 
 import cn.iocoder.yudao.module.system.event.AdminUserDeletedEvent;
+import cn.iocoder.yudao.module.system.event.AdminUserDisabledEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,4 +74,14 @@ public class StaffPostUserDeletedListener {
             staffPostService.revokeAllForDeletedUser(userId);
         }
     }
+
+    /**
+     * 全局账号停用（M01-T02 / R01：仅平台管理员经 Web 底座触发）：作用范围=全部组织，
+     * 回收契约与删除一致（撤销全部任职+钱包会话）。AFTER_COMMIT+REQUIRES_NEW 结构与删除路径相同。
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onUserDisabled(AdminUserDisabledEvent event) {
+        onUserDeleted(new AdminUserDeletedEvent(event.userIds(), event.tokenCacheKeys()));
+    }
 }
+

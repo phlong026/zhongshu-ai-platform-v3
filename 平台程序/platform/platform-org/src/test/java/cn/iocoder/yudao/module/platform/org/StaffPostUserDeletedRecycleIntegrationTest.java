@@ -169,6 +169,28 @@ class StaffPostUserDeletedRecycleIntegrationTest extends PlatformPgIntegrationTe
     }
 
     @Test
+    void orgScopedSuspensionKeepsOtherOrgPostsUsable() {
+        long storeA = orgService.createOrg("t-store", "A店", null);
+        long hq = orgService.createOrg("t-hq", "总部", null);
+        long user = newUser();
+        long inA = staffPostService.assignPost(user, storeA, "t-sales", null, 99L);
+        long inHq = staffPostService.assignPost(user, hq, "t-finance", null, 99L);
+
+        // M01-T02：组织管理员在 A 店停职——只撤 A 店任职（操作者=管理员 77），B 组织不受影响
+        staffPostService.revokeAllInOrg(user, storeA, 77L);
+
+        assertThat(staffPostService.findActivePost(user, inA)).isEmpty();
+        assertThat(staffPostService.findActivePost(user, inHq)).isPresent();
+        assertThat(staffPostService.listActivePosts(user)).extracting(StaffPostDO::getId).containsExactly(inHq);
+        assertThat(wallet.users).containsExactly(user);
+        assertThat(wallet.orgs.get(wallet.orgs.size() - 1)).containsExactly(storeA); // 只吊销 A 店钱包
+        // 幂等：重复停职不再触发钱包
+        int callsBefore = wallet.users.size();
+        staffPostService.revokeAllInOrg(user, storeA, 77L);
+        assertThat(wallet.users).hasSize(callsBefore);
+    }
+
+    @Test
     void findActivePostRejectedWhenUserUnusable() {
         long store = orgService.createOrg("t-store", "门店", null);
         long deleted = newUser();

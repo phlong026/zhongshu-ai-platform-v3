@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.event.AdminUserDeletedEvent;
+import cn.iocoder.yudao.module.system.event.AdminUserDisabledEvent;
 import cn.iocoder.yudao.module.system.mq.producer.user.AdminUserProducer;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.dept.PostService;
@@ -255,6 +256,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class) // M01-T02（Codex R1 P1）：状态+令牌+事件须同事务，否则 AFTER_COMMIT 监听不触发
     public void updateUserStatus(Long id, Integer status) {
         // 校验用户存在
         validateUserExists(id);
@@ -264,9 +266,11 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateObj.setStatus(status);
         userMapper.updateById(updateObj);
 
-        // 如果是禁用用户，则删除其 Token 信息
+        // 如果是禁用用户，则删除其 Token 信息，并发布全局停用事件（M01-T02：平台侧回收全部任职与钱包会话）
         if (CommonStatusEnum.isDisable(status)) {
+            List<OAuth2AccessTokenDO> tokens = oauth2TokenService.listAccessTokenByUser(id, UserTypeEnum.ADMIN.getValue());
             oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
+            eventPublisher.publishEvent(new AdminUserDisabledEvent(List.of(id), cacheKeys(tokens)));
         }
     }
 

@@ -6,6 +6,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import jakarta.annotation.Resource;
+import java.util.Collection;
 
 /**
  * M01-T01：用户删除提交后的令牌缓存二次失效（Codex R1 P1-2 收口）。
@@ -22,8 +23,18 @@ public class AdminUserDeletedTokenCleaner {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onUserDeleted(AdminUserDeletedEvent event) {
+        cleanKeys(event.tokenCacheKeys());
+    }
+
+    /** 全局停用（M01-T02）：与删除同键级清理 */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onUserDisabled(AdminUserDisabledEvent event) {
+        cleanKeys(event.tokenCacheKeys());
+    }
+
+    private void cleanKeys(Collection<String> keys) {
         // 直删缓存键（Codex R2 P1：提交后按 userId/String 查库均为空集——removeAccessToken 两变体
-        // 都先查库早退，按键清理必须绕开库查询）；键为删除前捕获的 access 与配对 refresh 串，重复删幂等
-        event.tokenCacheKeys().forEach(oauth2AccessTokenRedisDAO::delete);
+        // 都先查库早退，按键清理必须绕开库查询）；键为删除/停用前捕获的 access 与配对 refresh 串，重复删幂等
+        keys.forEach(oauth2AccessTokenRedisDAO::delete);
     }
 }

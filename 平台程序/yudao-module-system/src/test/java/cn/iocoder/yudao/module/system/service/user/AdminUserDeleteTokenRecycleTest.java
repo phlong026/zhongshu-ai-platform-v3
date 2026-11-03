@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.system.service.user;
 
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -92,6 +93,8 @@ public class AdminUserDeleteTokenRecycleTest extends BaseDbUnitTest {
     /** 有状态缓存副本：模拟真实 Redis 的迟到回填与键级删除（mock 的 set/get 无记忆，测不出 R2 P1） */
     public static class FakeTokenRedis extends OAuth2AccessTokenRedisDAO {
         final Map<String, OAuth2AccessTokenDO> store = new ConcurrentHashMap<>();
+        /** 非空时：该键被 delete 后立即回写（模拟并发校验在删库删缓存后、提交前的迟到回填——只有提交后键级清理能拔除） */
+        volatile OAuth2AccessTokenDO latePoisonAfterDelete;
 
         @Override
         public OAuth2AccessTokenDO get(String accessToken) {
@@ -106,6 +109,11 @@ public class AdminUserDeleteTokenRecycleTest extends BaseDbUnitTest {
         @Override
         public void delete(String accessToken) {
             store.remove(accessToken);
+            OAuth2AccessTokenDO poison = latePoisonAfterDelete;
+            if (poison != null && poison.getAccessToken().equals(accessToken)) {
+                store.put(accessToken, poison); // 迟到回填（一次性：模拟单个竞态读-写者，仅提交后键级清理能拔除）
+                latePoisonAfterDelete = null;
+            }
         }
 
         @Override
@@ -120,6 +128,31 @@ public class AdminUserDeleteTokenRecycleTest extends BaseDbUnitTest {
         FakeTokenRedis fakeTokenRedis() {
             return new FakeTokenRedis();
         }
+    }
+
+    @Test
+    public void testDisableUserInvalidatesTokensViaAfterCommitCleaner() {
+        // M01-T02（Codex R1 P1 收口）：updateUserStatus 须有事务使 AFTER_COMMIT 键级清理真实执行——
+        // 真实令牌服务签发→全局停用→缓存键被提交后监听拔除→重放拒绝（mock redis 测不出缺事务）
+        TenantContextHolder.setTenantId(0L);
+        AdminUserDO user = randomPojo(AdminUserDO.class).setSex(1).setStatus(0);
+        userMapper.insert(user);
+        String clientId = "m01t02-client";
+        OAuth2ClientDO client = randomPojo(OAuth2ClientDO.class).setClientId(clientId)
+                .setAccessTokenValiditySeconds(1800).setRefreshTokenValiditySeconds(3600);
+        when(oauth2ClientService.validOAuthClientFromCache(eq(clientId))).thenReturn(client);
+        OAuth2AccessTokenDO accessTokenDO = oauth2TokenService.createAccessToken(
+                user.getId(), UserTypeEnum.ADMIN.getValue(), clientId, List.of("read"));
+        fakeTokenRedis.set(accessTokenDO);
+        // 提交前迟到回填（Codex R2 P2）：删除缓存后立即毒化——仅 AFTER_COMMIT 键级清理能拔除；
+        // 缺 @Transactional 时监听不触发、毒化残留、本断言红，测试具备判别力
+        fakeTokenRedis.latePoisonAfterDelete = accessTokenDO;
+
+        userService.updateUserStatus(user.getId(), CommonStatusEnum.DISABLE.getStatus());
+
+        assertNull(oauth2AccessTokenMapper.selectByAccessToken(accessTokenDO.getAccessToken()));
+        assertNull(fakeTokenRedis.get(accessTokenDO.getAccessToken()), "停用提交后键级清理须已拔除迟到回填的缓存");
+        assertThrows(ServiceException.class, () -> oauth2TokenService.checkAccessToken(accessTokenDO.getAccessToken()));
     }
 
     @Test

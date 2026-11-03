@@ -24,6 +24,13 @@ public interface StaffPostService {
     void revokeAllForDeletedUser(long userId);
 
     /**
+     * 组织级停职（M01-T02 / R01：组织管理员仅管理本组织）：撤销该用户在指定组织的全部有效任职
+     * （撤销人=操作者），回收平台角色并吊销该组织的钱包会话；其他组织任职不受影响。
+     * 无有效任职幂等返回。须与停职操作同事务。
+     */
+    void revokeAllInOrg(long userId, long orgId, long operatorUserId);
+
+    /**
      * 钱包发卡前的岗位复验（M01-T01）：外呼（微信换码）暂停期间岗位可能被撤/停用/账号删除。
      * 锁定用户全部岗位行至调用方事务提交（与发卡同事务），确认快照仍有效；失效抛 POST_NOT_FOUND。
      * 并发删除的回收须等本事务提交后才获锁——会话要么未发出、要么发出即被随后回收覆盖。

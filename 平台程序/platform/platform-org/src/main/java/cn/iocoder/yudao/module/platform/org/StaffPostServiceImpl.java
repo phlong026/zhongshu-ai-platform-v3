@@ -118,6 +118,26 @@ public class StaffPostServiceImpl implements StaffPostService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void revokeAllInOrg(long userId, long orgId, long operatorUserId) {
+        // 09 撤权协议锁序：advisory 用户锁 → 岗位行排他锁（M01-T01 同款，串行化与首次分配/删除回收的交错）
+        staffPostMapper.lockUserAdvisoryForWrite(userId);
+        staffPostMapper.lockUserPostsForUpdate(userId);
+        List<StaffPostDO> actives = staffPostMapper.selectActiveByUser(userId).stream()
+                .filter(p -> p.getOrgId() == orgId)
+                .toList();
+        if (actives.isEmpty()) {
+            return; // 本组织无有效任职：幂等返回
+        }
+        for (StaffPostDO post : actives) {
+            staffPostMapper.updateById(new StaffPostDO().setId(post.getId()).setStatus(StaffPostDO.STATUS_REVOKED)
+                    .setRevokedAt(OffsetDateTime.now()).setRevokedBy(operatorUserId));
+        }
+        syncUserRoles(userId);
+        walletSessionRevocation.ifAvailable(cb -> cb.revokeForUserOrgs(userId, List.of(orgId)));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void revalidateActivePost(long userId, long postId) {
         // M01-T01：锁用户全部岗位行至调用方（发卡）事务提交，堵外呼暂停窗口（Codex R1 P1-3）
         staffPostMapper.lockUserPostsForUpdate(userId);

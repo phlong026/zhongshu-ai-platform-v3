@@ -5,7 +5,9 @@ import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.OrgService;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.platform.org.dal.StaffPostDO;
+import cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +55,75 @@ class StaffOrgAdminControllerTest {
         ReflectionTestUtils.setField(controller, "staffPostService", staffPostService);
         ReflectionTestUtils.setField(controller, "orgService", orgService);
         ReflectionTestUtils.setField(controller, "systemDirectory", systemDirectory);
+    }
+
+    @Test
+    void suspendRevokesOnlyCurrentOrgPosts() {
+        loginAsBossAt(STORE_ORG);
+        when(staffPostService.listActivePosts(5L)).thenReturn(List.of(
+                post(21L, 5L, STORE_ORG, "sales"), post(22L, 5L, 999L, "finance")));
+
+        controller.setStatus(new StaffOrgAdminController.StaffStatusReqVO(5L, false));
+
+        org.mockito.Mockito.verify(staffPostService).revokeAllInOrg(5L, STORE_ORG, BOSS_USER);
+        org.mockito.Mockito.verify(systemDirectory, org.mockito.Mockito.never()).setUserActive(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void resumeRejectsGloballyDisabledAccount() {
+        loginAsBossAt(STORE_ORG);
+        when(systemDirectory.userExists(5L)).thenReturn(true);
+        when(systemDirectory.userUsable(5L)).thenReturn(false);
+
+        assertThatThrownBy(() -> controller.setStatus(new StaffOrgAdminController.StaffStatusReqVO(5L, true)))
+                .isInstanceOf(ServiceException.class)
+                .extracting(e -> ((ServiceException) e).getCode())
+                .isEqualTo(PlatformOrgErrorCodes.STAFF_GLOBAL_RESUME_FORBIDDEN.getCode());
+    }
+
+    @Test
+    void resumeRejectsOrgSuspendedAccountWithAssignHint() {
+        loginAsBossAt(STORE_ORG);
+        when(staffPostService.listActivePosts(5L)).thenReturn(List.of()); // 本组织已无任职（曾停职）
+        when(staffPostService.listOrgIdsEverHeld(5L)).thenReturn(List.of(STORE_ORG, 999L));
+        when(systemDirectory.userExists(5L)).thenReturn(true);
+        when(systemDirectory.userUsable(5L)).thenReturn(true);
+
+        assertThatThrownBy(() -> controller.setStatus(new StaffOrgAdminController.StaffStatusReqVO(5L, true)))
+                .isInstanceOf(ServiceException.class)
+                .extracting(e -> ((ServiceException) e).getCode())
+                .isEqualTo(PlatformOrgErrorCodes.STAFF_RESUME_NEED_ASSIGN.getCode());
+    }
+
+    @Test
+    void resumeActiveUserIsIdempotentSuccess() {
+        loginAsBossAt(STORE_ORG);
+        when(staffPostService.listActivePosts(5L)).thenReturn(List.of(
+                post(21L, 5L, STORE_ORG, "sales"), post(22L, 5L, 999L, "finance")));
+        when(systemDirectory.userExists(5L)).thenReturn(true);
+        when(systemDirectory.userUsable(5L)).thenReturn(true);
+
+        assertThat(controller.setStatus(new StaffOrgAdminController.StaffStatusReqVO(5L, true)).getData()).isTrue();
+        org.mockito.Mockito.verify(systemDirectory, org.mockito.Mockito.never()).setUserActive(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void resumeRejectsUserNeverInOrg() {
+        loginAsBossAt(STORE_ORG);
+        when(staffPostService.listActivePosts(5L)).thenReturn(List.of());
+        when(staffPostService.listOrgIdsEverHeld(5L)).thenReturn(List.of(999L)); // 从未属于本组织
+        when(systemDirectory.userExists(5L)).thenReturn(true);
+        when(systemDirectory.userUsable(5L)).thenReturn(true);
+
+        assertThatThrownBy(() -> controller.setStatus(new StaffOrgAdminController.StaffStatusReqVO(5L, true)))
+                .isInstanceOf(ServiceException.class)
+                .extracting(e -> ((ServiceException) e).getCode())
+                .isEqualTo(PlatformOrgErrorCodes.USER_NOT_IN_ORG.getCode());
+    }
+
+    private static StaffPostDO post(long id, long userId, long orgId, String role) {
+        return new StaffPostDO().setId(id).setUserId(userId).setOrgId(orgId).setRoleCode(role)
+                .setStatus(StaffPostDO.STATUS_ACTIVE);
     }
 
     private void loginAsBossAt(long orgId) {

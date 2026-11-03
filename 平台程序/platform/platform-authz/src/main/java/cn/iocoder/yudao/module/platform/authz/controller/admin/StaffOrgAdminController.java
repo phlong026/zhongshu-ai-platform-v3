@@ -165,17 +165,38 @@ public class StaffOrgAdminController {
     }
 
     @PostMapping("/staff-status")
-    @Operation(summary = "启用或停用员工（停用后登录被拒、令牌失效；仅可操作本组织成员）")
+    @Operation(summary = "停用员工（本组织任职撤销：M01-T02——其他组织任职不受影响；全局账号停用仅平台管理员经 Web 底座执行）")
     @PreAuthorize("@post.has('platform:org:manage')")
     public CommonResult<Boolean> setStatus(@Valid @RequestBody StaffStatusReqVO req) {
         PostSnapshotView post = scope();
-        boolean belongs = staffPostService.listActivePosts(req.userId()).stream()
-                .anyMatch(p -> p.getOrgId() == post.orgId());
-        if (!belongs) {
-            throw exception(PlatformOrgErrorCodes.USER_NOT_IN_ORG);
+        if (!req.active()) {
+            // R01：组织管理员「停用」= 撤销本组织全部任职（org 级），不是全局停用
+            boolean belongs = staffPostService.listActivePosts(req.userId()).stream()
+                    .anyMatch(p -> p.getOrgId() == post.orgId());
+            if (!belongs) {
+                throw exception(PlatformOrgErrorCodes.USER_NOT_IN_ORG);
+            }
+            staffPostService.revokeAllInOrg(req.userId(), post.orgId(),
+                    currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
+            return success(true);
         }
-        systemDirectory.setUserActive(req.userId(), req.active());
-        return success(true);
+        // M01-T02：active=true 不再执行全局启用。全局停用账号仅平台管理员可启用；
+        // 本组织停职（任职已撤）的恢复路径=重新指派岗位（assign 端点）。
+        if (!systemDirectory.userExists(req.userId())) {
+            throw exception(PlatformOrgErrorCodes.USER_NOT_FOUND);
+        }
+        if (!systemDirectory.userUsable(req.userId())) {
+            throw exception(PlatformOrgErrorCodes.STAFF_GLOBAL_RESUME_FORBIDDEN);
+        }
+        if (staffPostService.listActivePosts(req.userId()).stream()
+                .anyMatch(p -> p.getOrgId() == post.orgId())) {
+            return success(true); // 本就在本组织任职：幂等成功
+        }
+        if (staffPostService.listOrgIdsEverHeld(req.userId()).stream().anyMatch(o -> o == post.orgId())) {
+            // 曾任职本组织、现已撤销（组织级停职）：恢复须重新指派岗位，不能翻转全局账号状态
+            throw exception(PlatformOrgErrorCodes.STAFF_RESUME_NEED_ASSIGN);
+        }
+        throw exception(PlatformOrgErrorCodes.USER_NOT_IN_ORG);
     }
 
     // ===== 范围与组装 =====

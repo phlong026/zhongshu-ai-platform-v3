@@ -9,6 +9,7 @@ import cn.iocoder.yudao.framework.common.util.collection.ArrayUtils;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.system.event.AdminUserDeletedEvent;
+import cn.iocoder.yudao.module.system.event.AdminUserDisabledEvent;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
 import cn.iocoder.yudao.module.infra.api.file.FileApi;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
@@ -294,6 +295,18 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         AdminUserDO user = userMapper.selectById(userId);
         assertEquals(status, user.getStatus());
         verify(oauth2TokenService).removeAccessToken(userId, UserTypeEnum.ADMIN.getValue());
+        // M01-T02：全局停用须发布事件供平台侧回收全部任职与钱包（组织级停职走 org/staff-status，不经此路径）
+        assertThat(events.stream(AdminUserDisabledEvent.class)
+                .map(AdminUserDisabledEvent::userIds).flatMap(Collection::stream))
+                .containsExactly(userId);
+    }
+
+    @Test
+    public void testUpdateUserStatusEnableDoesNotPublishDisabledEvent() {
+        AdminUserDO dbUser = randomAdminUserDO();
+        userMapper.insert(dbUser);
+        userService.updateUserStatus(dbUser.getId(), CommonStatusEnum.ENABLE.getStatus());
+        assertThat(events.stream(AdminUserDisabledEvent.class)).isEmpty();
     }
 
     @Test
