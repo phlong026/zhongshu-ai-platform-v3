@@ -26,33 +26,40 @@ function toCents(input) {
   return cents;
 }
 
-/** 台账行合并（收款+/付款−/退款−），月度过滤：业务日期为空回退 create_time 月 */
+/** 台账行合并（收款+/付款−/退款−），月度过滤。
+ * M08-T05/R04：业务发生日期为空 = 日期待核 → date 标记「待归月」单列展示，
+ * 不回退 create_time（R04 禁止以录入时间冒充发生日期），且 monthOf 永不匹配任何月——
+ * 不进入月度过滤与指标净额；核实补正后经修订链填入真实日期即回归月度。 */
 function ledgerRows(receipts, payments, refunds, month) {
-  const monthOf = r => String(r.receivedDate || r.payDate || r.date || r.createTime || '').slice(0, 7);
+  const monthOf = r => String(r.receivedDate || r.payDate || r.date || '').slice(0, 7);
   const rows = [];
   for (const r of receipts || []) {
     if (r.status !== '已登记') continue;
+    const date = r.receivedDate || '待归月';
     rows.push({ key: 'r-' + r.id, type: '收款', sign: '+', name: r.name, amountCents: r.amountCents,
-      date: r.receivedDate || String(r.createTime || '').slice(0, 10), status: r.status, id: r.id,
+      date, pendingDate: !r.receivedDate, status: r.status, id: r.id,
       revisionVersion: r.revisionVersion });
   }
   for (const p of payments || []) {
     if (p.status !== '已核实') continue;
+    const date = p.payDate || '待归月';
     rows.push({ key: 'p-' + p.id, type: '付款', sign: '−', name: '付款', amountCents: p.amountCents,
-      date: p.payDate || String(p.createTime || '').slice(0, 10), status: p.status, id: p.id });
+      date, pendingDate: !p.payDate, status: p.status, id: p.id });
   }
   for (const rf of refunds || []) {
     if (rf.status !== '已核实') continue;
+    const date = rf.date || '待归月';
     rows.push({ key: 'f-' + rf.id, type: '退款', sign: '−', name: '客户退款', amountCents: rf.amountCents,
-      date: rf.date || String(rf.createTime || '').slice(0, 10), status: rf.status, id: rf.id });
+      date, pendingDate: !rf.date, status: rf.status, id: rf.id });
   }
   const filtered = month ? rows.filter(r => monthOf(r) === month) : rows;
   return { rows: filtered, allCount: rows.length };
 }
 
-/** 指标三卡（本月口径；作废不参与；空业务日期回退 create_time 月） */
+/** 指标三卡（本月口径；作废不参与）。M08-T05/R04：空业务日期不回退 createTime——
+ * 单列待归月，不进已核实月度净额（与 ledgerRows 的 monthOf 语义一致）。 */
 function metrics(receipts, payments, refunds, month) {
-  const inMonth = (r, field) => String(r[field] || r.createTime || '').slice(0, 7) === month;
+  const inMonth = (r, field) => String(r[field] || '').slice(0, 7) === month;
   const received = (receipts || []).filter(r => r.status === '已登记' && inMonth(r, 'receivedDate'))
     .reduce((a, r) => a + (r.amountCents || 0), 0);
   const paid = (payments || []).filter(p => p.status === '已核实' && inMonth(p, 'payDate'))
