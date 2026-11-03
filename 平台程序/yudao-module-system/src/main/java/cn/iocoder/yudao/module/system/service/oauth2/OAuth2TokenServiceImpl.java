@@ -156,6 +156,11 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
     }
 
     @Override
+    public List<OAuth2AccessTokenDO> listAccessTokenByUser(Long userId, Integer userType) {
+        return oauth2AccessTokenMapper.selectListByUserIdAndUserType(userId, userType);
+    }
+
+    @Override
     public void removeAccessToken(Long userId, Integer userType) {
         List<OAuth2AccessTokenDO> accessTokens = oauth2AccessTokenMapper.selectListByUserIdAndUserType(userId, userType);
         if (CollUtil.isEmpty(accessTokens)) {

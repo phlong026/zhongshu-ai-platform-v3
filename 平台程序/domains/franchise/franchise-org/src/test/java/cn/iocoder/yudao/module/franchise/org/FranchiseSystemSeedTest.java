@@ -76,6 +76,11 @@ class FranchiseSystemSeedTest extends FranchisePgIntegrationTest {
             }
             ScriptUtils.executeSqlScript(connection, new ClassPathResource(
                     "db/migration/franchise-system/V20261022.851__fr_system_roles_menus.sql"));
+            // V853（B2 设计赋能）的 3 条 design:use 授予在 EXPECTED 矩阵内，但脚本清单漏挂——
+            // 此前被 Testcontainers 环境故障掩盖（M01-T01 shim 解禁后暴露）。852/854-857 的授予
+            // 尚未纳入 EXPECTED 锁定矩阵，属各业务域测试债（fin/content/engineering/performance 域任务补齐）。
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource(
+                    "db/migration/franchise-system/V20261102.853__design_permissions.sql"));
         }
     }
 

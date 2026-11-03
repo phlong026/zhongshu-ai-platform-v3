@@ -8,6 +8,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.ArrayUtils;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.system.event.AdminUserDeletedEvent;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
 import cn.iocoder.yudao.module.infra.api.file.FileApi;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
@@ -37,6 +38,8 @@ import org.mockito.stubbing.Answer;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 
 import java.util.Collection;
 import java.util.List;
@@ -55,12 +58,14 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 import static cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl.USER_INIT_PASSWORD_KEY;
 import static java.util.Collections.singleton;
 import static java.util.Collections.singletonList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.util.Lists.newArrayList;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @Import(AdminUserServiceImpl.class)
+@RecordApplicationEvents // M01-T01：捕获删除事件（每用例自动清空）
 public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
     @Resource
@@ -70,6 +75,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     private AdminUserMapper userMapper;
     @Resource
     private UserPostMapper userPostMapper;
+    @Resource
+    private ApplicationEvents events; // M01-T01：捕获删除事件（@RecordApplicationEvents 逐用例记录）
 
     @MockitoBean
     private DeptService deptService;
@@ -303,6 +310,33 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         assertNull(userMapper.selectById(userId));
         // 校验调用次数
         verify(permissionService, times(1)).processUserDeleted(eq(userId));
+        // M01-T01 授权回收契约：删除须移除旧令牌（含配对刷新令牌），并发布删除事件供平台侧回收任职/钱包
+        verify(oauth2TokenService, times(1)).removeAccessToken(eq(userId), eq(UserTypeEnum.ADMIN.getValue()));
+        assertThat(events.stream(AdminUserDeletedEvent.class)
+                .map(AdminUserDeletedEvent::userIds).flatMap(Collection::stream))
+                .containsExactly(userId);
+    }
+
+    @Test
+    public void testDeleteUserList_success(){
+        // mock 数据
+        AdminUserDO dbUser1 = randomAdminUserDO();
+        AdminUserDO dbUser2 = randomAdminUserDO();
+        userMapper.insert(dbUser1);
+        userMapper.insert(dbUser2);
+        // 准备参数
+        List<Long> userIds = List.of(dbUser1.getId(), dbUser2.getId());
+
+        // 调用数据
+        userService.deleteUserList(userIds);
+        // 校验结果：批量删除后均不存在，令牌逐一移除，删除事件携带全部编号
+        assertNull(userMapper.selectById(dbUser1.getId()));
+        assertNull(userMapper.selectById(dbUser2.getId()));
+        verify(oauth2TokenService, times(1)).removeAccessToken(eq(dbUser1.getId()), eq(UserTypeEnum.ADMIN.getValue()));
+        verify(oauth2TokenService, times(1)).removeAccessToken(eq(dbUser2.getId()), eq(UserTypeEnum.ADMIN.getValue()));
+        assertThat(events.stream(AdminUserDeletedEvent.class)
+                .map(AdminUserDeletedEvent::userIds).flatMap(Collection::stream))
+                .containsExactlyInAnyOrderElementsOf(userIds);
     }
 
     @Test

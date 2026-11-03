@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.franchise.api.FranchiseDesignErrorCodes;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.infra.zhongshu.api.IdentitySessionIssuePort;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import cn.hutool.crypto.digest.DigestUtil;
@@ -37,6 +38,8 @@ public class WalletSessionService {
     @Resource
     private CurrentPost currentPost;
     @Resource
+    private StaffPostService staffPostService;
+    @Resource
     private StoreServiceAccountPort storeServiceAccountPort;
     @Resource
     private IdentitySessionIssuePort identitySessionIssuePort;
@@ -66,6 +69,9 @@ public class WalletSessionService {
                     ? WalletErrorCodes.WECHAT_CODE_INVALID
                     : WalletErrorCodes.WECHAT_SERVICE_UNAVAILABLE);
         }
+        // M01-T01：外呼（换码）暂停期间岗位可能被撤/停用/账号删除——发卡前锁岗位行复验，
+        // 锁保持至本事务提交；并发删除回收排队在后，会话要么未发出、要么发出即被回收覆盖
+        staffPostService.revalidateActivePost(post.userId(), post.postId());
         var issued = identitySessionIssuePort.issueWalletSession(
                 accountId, wechatAppId, payer.openid(), DEVICE_DIGEST, TTL_SECONDS);
         // 审计与发卡同事务：只记 openid 摘要（前 8 位），绝不记 code/session_key/openid 明文

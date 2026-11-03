@@ -21,10 +21,12 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportRe
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2AccessTokenDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.UserPostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
+import cn.iocoder.yudao.module.system.event.AdminUserDeletedEvent;
 import cn.iocoder.yudao.module.system.mq.producer.user.AdminUserProducer;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.dept.PostService;
@@ -39,6 +41,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -91,6 +94,9 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Resource
     private AdminUserProducer adminUserProducer;
+
+    @Resource
+    private ApplicationEventPublisher eventPublisher; // M01-T01：用户删除事件（平台侧回收任职/钱包）
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -278,6 +284,11 @@ public class AdminUserServiceImpl implements AdminUserService {
         permissionService.processUserDeleted(id);
         // 2.2 删除用户岗位
         userPostMapper.deleteByUserId(id);
+        // 2.3 M01-T01 授权回收契约：移除旧令牌（含配对刷新令牌），旧 token 重放即拒绝
+        List<OAuth2AccessTokenDO> tokens = oauth2TokenService.listAccessTokenByUser(id, UserTypeEnum.ADMIN.getValue());
+        oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
+        // 2.4 发布删除事件（同事务）：平台侧监听回收业务任职与钱包会话；携带精确缓存键（access+refresh）供提交后直删
+        eventPublisher.publishEvent(new AdminUserDeletedEvent(List.of(id), cacheKeys(tokens)));
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable("user", user);
@@ -294,6 +305,22 @@ public class AdminUserServiceImpl implements AdminUserService {
             permissionService.processUserDeleted(id);
             userPostMapper.deleteByUserId(id);
         });
+
+        // 3. M01-T01 授权回收契约：逐一移除旧令牌并发布一次删除事件（携带全部编号与精确令牌键）
+        List<String> tokenKeys = new ArrayList<>();
+        ids.forEach(id -> {
+            tokenKeys.addAll(cacheKeys(oauth2TokenService.listAccessTokenByUser(id, UserTypeEnum.ADMIN.getValue())));
+            oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
+        });
+        eventPublisher.publishEvent(new AdminUserDeletedEvent(ids, tokenKeys));
+    }
+
+    /** 令牌行 → Redis 缓存键集合（access 键与其配对 refresh 键，与 removeAccessToken 的清理范围一致） */
+    private static List<String> cacheKeys(List<OAuth2AccessTokenDO> tokens) {
+        return tokens.stream()
+                .flatMap(t -> java.util.stream.Stream.of(t.getAccessToken(), t.getRefreshToken()))
+                .distinct()
+                .toList();
     }
 
     @Override

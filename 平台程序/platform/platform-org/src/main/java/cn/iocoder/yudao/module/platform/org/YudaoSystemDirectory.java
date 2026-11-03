@@ -94,6 +94,12 @@ public class YudaoSystemDirectory implements SystemDirectory {
     }
 
     @Override
+    public boolean userUsable(long userId) {
+        AdminUserDO user = adminUserService.getUser(userId);
+        return user != null && CommonStatusEnum.ENABLE.getStatus().equals(user.getStatus());
+    }
+
+    @Override
     public Set<Long> userRoleIds(long userId) {
         return new HashSet<>(permissionService.getUserRoleIdListByUserId(userId));
     }

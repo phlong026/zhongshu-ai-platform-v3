@@ -55,6 +55,14 @@ public interface StaffPostMapper extends BaseMapperX<StaffPostDO> {
     @Select("SELECT id FROM pf_staff_post WHERE user_id = #{userId} FOR SHARE")
     List<Long> lockUserPostsForShare(@Param("userId") Long userId);
 
+    /**
+     * 用户级事务 advisory 锁（M01-T01）：岗位行锁在「零历史岗位」用户上锁不到任何对象，
+     * 首次分配与删除回收并发时留下 ACTIVE 残余。分配/删除回收两侧先取本锁再操作，串行化交错。
+     * 单 bigint 键（userId 本身；pf-org 模块约定独占此 advisory 键空间），事务结束自动释放。
+     */
+    @Select("SELECT 1 FROM (SELECT pg_advisory_xact_lock(#{userId})) t")
+    Integer lockUserAdvisoryForWrite(@Param("userId") Long userId);
+
     /** 用户级排他锁：成员停用改状态前取锁（覆盖其全部组织，堵跨组织「新增岗位×发卡」窗口） */
     @Select("SELECT id FROM pf_staff_post WHERE user_id = #{userId} FOR UPDATE")
     List<Long> lockUserPostsForUpdate(@Param("userId") Long userId);

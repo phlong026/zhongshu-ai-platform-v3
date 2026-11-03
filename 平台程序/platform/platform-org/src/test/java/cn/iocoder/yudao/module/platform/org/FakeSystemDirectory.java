@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 class FakeSystemDirectory implements SystemDirectory {
 
-    private final AtomicLong deptIds = new AtomicLong(900_000);
+    static final AtomicLong DEPT_IDS = new AtomicLong(System.nanoTime() % 1_000_000_000L); // 容器跨测试类共享且不清库：static 共享保证全 JVM 唯一（Codex R1 P3：实例字段跨类重启段）
     final Map<Long, Long> deptParent = new HashMap<>();
     final Map<String, Long> roleIdsByCode = new HashMap<>();
     final Set<Long> users = new HashSet<>();
@@ -25,7 +25,7 @@ class FakeSystemDirectory implements SystemDirectory {
 
     @Override
     public long createDept(Long parentDeptId, String name) {
-        long id = deptIds.incrementAndGet();
+        long id = DEPT_IDS.incrementAndGet();
         deptParent.put(id, parentDeptId == null ? 0L : parentDeptId);
         return id;
     }
@@ -54,6 +54,11 @@ class FakeSystemDirectory implements SystemDirectory {
     @Override
     public boolean userExists(long userId) {
         return users.contains(userId);
+    }
+
+    @Override
+    public boolean userUsable(long userId) {
+        return users.contains(userId) && userActive.getOrDefault(userId, true);
     }
 
     @Override

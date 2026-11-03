@@ -17,6 +17,19 @@ public interface StaffPostService {
     /** 撤销任职；已撤销或不存在抛 POST_NOT_FOUND */
     void revokePost(long postId, long operatorUserId);
 
+    /**
+     * 用户删除后的授权回收（M01-T01）：撤销其跨组织全部有效任职（撤销人=系统 0），
+     * 回收平台角色并按曾任职组织吊销钱包会话。无任职幂等返回。
+     */
+    void revokeAllForDeletedUser(long userId);
+
+    /**
+     * 钱包发卡前的岗位复验（M01-T01）：外呼（微信换码）暂停期间岗位可能被撤/停用/账号删除。
+     * 锁定用户全部岗位行至调用方事务提交（与发卡同事务），确认快照仍有效；失效抛 POST_NOT_FOUND。
+     * 并发删除的回收须等本事务提交后才获锁——会话要么未发出、要么发出即被随后回收覆盖。
+     */
+    void revalidateActivePost(long userId, long postId);
+
     List<StaffPostDO> listActivePosts(long userId);
 
     /** 任职属于该用户、仍有效且所在组织启用时返回快照，否则为空 */

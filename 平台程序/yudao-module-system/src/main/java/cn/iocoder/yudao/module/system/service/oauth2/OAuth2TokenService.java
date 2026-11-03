@@ -70,6 +70,11 @@ public interface OAuth2TokenService {
     OAuth2AccessTokenDO removeAccessToken(String accessToken);
 
     /**
+     * 用户当前全部访问令牌（M01-T01：删除前捕获精确缓存键用，含已过期的在库行）。
+     */
+    List<OAuth2AccessTokenDO> listAccessTokenByUser(Long userId, Integer userType);
+
+    /**
      * 移除访问令牌
      * 注意：该流程中，会移除相关的刷新令牌
      *

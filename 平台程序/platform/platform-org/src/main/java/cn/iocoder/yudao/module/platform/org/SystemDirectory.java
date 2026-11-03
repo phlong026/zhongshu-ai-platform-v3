@@ -21,6 +21,14 @@ public interface SystemDirectory {
 
     boolean userExists(long userId);
 
+    /**
+     * 用户存在且启用（M01-T01 任职校验纵深：删除/停用账号的残留任职不得形成有效快照）。
+     * 默认按存在性判定；生产实现须同时校验启用状态。
+     */
+    default boolean userUsable(long userId) {
+        return userExists(userId);
+    }
+
     Set<Long> userRoleIds(long userId);
 
     /** 用给定集合整体替换用户的角色 */

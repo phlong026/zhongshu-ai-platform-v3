@@ -41,6 +41,44 @@ public abstract class PlatformPgIntegrationTest {
 
     static {
         PG.start();
+        createSystemSchemaShim();
+    }
+
+    /**
+     * system_* 骨架表 shim（仅测试库）：pf/业务域迁移按「只在完整库执行」约定挂 system_menu /
+     * system_role_menu 权限种子（如 V20261031.703、V20261101.706），纯 pf 测试库无这些表会令
+     * Flyway 失败。此处按迁移实际引用列建最小骨架，使种子语句可执行（JOIN system_role 无匹配
+     * 行即零写入）。正式库不经过本基类，迁移历史不受影响。
+     */
+    private static void createSystemSchemaShim() {
+        var sqls = new String[] {
+                """
+                CREATE TABLE IF NOT EXISTS system_menu (
+                    id int8 PRIMARY KEY, name varchar(64), permission varchar(128), type int4, sort int4,
+                    parent_id int8, path varchar(256), icon varchar(128), component varchar(256),
+                    component_name varchar(128), status int4, visible bool, keep_alive bool, always_show bool,
+                    creator varchar(64), updater varchar(64))
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS system_role (
+                    id int8 PRIMARY KEY, name varchar(64), code varchar(64), sort int4, data_scope int4,
+                    data_scope_dept_ids varchar(256), status int4, type int4, remark varchar(256),
+                    creator varchar(64), updater varchar(64), tenant_id int8)
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS system_role_menu (
+                    id int8 PRIMARY KEY, role_id int8, menu_id int8,
+                    creator varchar(64), updater varchar(64), tenant_id int8)
+                """
+        };
+        try (var conn = java.sql.DriverManager.getConnection(PG.getJdbcUrl(), PG.getUsername(), PG.getPassword());
+             var stmt = conn.createStatement()) {
+            for (var sql : sqls) {
+                stmt.execute(sql);
+            }
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException("system 骨架表 shim 建表失败（测试库初始化）", e);
+        }
     }
 
     @DynamicPropertySource
@@ -50,6 +88,8 @@ public abstract class PlatformPgIntegrationTest {
         registry.add("spring.datasource.password", PG::getPassword);
         // 业务域测试用 @TestPropertySource 设置 platform.test.extra-flyway-locations（以逗号开头）追加本域迁移目录
         registry.add("spring.flyway.locations", () -> "classpath:db/migration/pf${platform.test.extra-flyway-locations:}");
+        // system_* 骨架 shim 使 schema 非空；baseline 后照常应用 pf 迁移（shim 表与迁移建表无交集）
+        registry.add("spring.flyway.baseline-on-migrate", () -> "true");
     }
 
     @Import({
