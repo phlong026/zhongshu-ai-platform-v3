@@ -9,7 +9,8 @@ module.exports = function attach(page, financeApi, PF) {
     this.setData({ registerType: type, registerForm: {}, registerError: '' });
   };
   page.cancelRegister = function () {
-    this.setData({ registerType: '', registerError: '' });
+    this.setData({ registerType: '', registerError: '', revisionForm: null,
+      policyKey: null, policyKeyCtx: null, reconcileKey: null, reconcileKeyCtx: null });
   };
   page.registerInput = function (e) {
     const field = e.currentTarget.dataset.field;
@@ -23,6 +24,17 @@ module.exports = function attach(page, financeApi, PF) {
     const choice = options[idx];
     if (!choice) return;
     this.setData({ ['registerForm.' + field]: choice.id, ['registerForm.' + field + 'Label']: choice.label });
+  };
+  page.registerUpload = function () {
+    wx.chooseMessageFile({ count: 1, type: 'file', extension: ['pdf', 'png', 'jpg', 'jpeg'],
+      success: result => {
+        const f = result.tempFiles[0];
+        if (f.size > 20 * 1024 * 1024) return this.setData({ registerError: '凭证超过 20MB' });
+        wx.saveFile({ tempFilePath: f.path,
+          success: saved => this.setData({ 'registerForm.voucherPath': saved.savedFilePath,
+            'registerForm.voucherName': f.name, registerError: '' }),
+          fail: () => this.setData({ registerError: '凭证保存失败，请重试' }) });
+      } });
   };
   page.bankPick = function (e) {
     const flowId = e.currentTarget.dataset.flowId;
@@ -82,9 +94,45 @@ module.exports = function attach(page, financeApi, PF) {
     }
     this.setData({ registerBusy: true });
     const idem = financeApi.idemKey(type);
-    call(body, idem)
+    const withVoucher = (form.voucherPath
+      ? financeApi.uploadVoucher(form.voucherPath).then(assetId => { body.voucherFileId = assetId; })
+      : Promise.resolve());
+    withVoucher
+      .then(() => call(body, idem))
       .then(() => { wx.showToast({ title: '已登记' }); this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance(); })
       .catch(err => { this.setData({ registerError: PF.errorMessage(err) }); })
       .finally(() => this.setData({ registerBusy: false }));
+  };
+
+  // ===================== M5 F2：收款修订（business 来源后端拒绝/退款下限后端拒绝；失败保留输入） =====================
+  page.openRevision = function (e) {
+    const rawId = String(e.currentTarget.dataset.id || '').replace(/^r-/, ''); // ledger 行 id=key（r-123）→ receiptId
+    const row = (this.data.platformLedger || []).find(r => String(r.id) === String(e.currentTarget.dataset.id))
+      || (this.ledgerSource || []).find(r => String(r.id) === String(e.currentTarget.dataset.id));
+    if (!rawId || !row || row.category !== '收款') return this.setData({ registerError: '仅收款可修订' });
+    this.setData({ registerType: 'revision', revisionForm: { receiptId: rawId, baseRevisionVersion: row.revisionVersion || 1,
+      originAmount: row.amountText || '', amount: '', note: '' }, registerError: '' });
+  };
+  page.revisionInput = function (e) {
+    this.setData({ ['revisionForm.' + e.currentTarget.dataset.field]: e.detail.value });
+  };
+  page.submitRevision = function () {
+    if (this.data.revisionBusy) return;
+    const form = this.data.revisionForm || {};
+    const amountCents = PF.toCents(form.amount);
+    if (!amountCents) return this.setData({ registerError: '请输入正确的新金额' });
+    if (!String(form.note || '').trim()) return this.setData({ registerError: '请填写修订说明（留痕）' });
+    this.setData({ revisionBusy: true });
+    financeApi.reviseReceipt(form.receiptId, form.baseRevisionVersion, amountCents, form.note)
+      .then(() => { this.setData({ registerType: '', revisionForm: null, revisionKey: null }); this.loadPlatformFinance(); wx.showToast({ title: '已修订留痕' }); })
+      .catch(err => {
+        const msg = PF.errorMessage(err);
+        if (msg.indexOf('版本') >= 0 && form.baseRevisionVersion != null) {
+          // 冲突后刷新版本重填（D-3 UX）
+          this.setData({ registerError: msg + '（已刷新版本，请重试）',
+            'revisionForm.baseRevisionVersion': Number(form.baseRevisionVersion) + 1 });
+        } else this.setData({ registerError: msg });
+      })
+      .finally(() => this.setData({ revisionBusy: false }));
   };
 };

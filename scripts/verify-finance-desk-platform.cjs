@@ -169,3 +169,30 @@ main().then(() => {
   console.log('\n通过 ' + passed + '，失败 ' + failed);
   process.exit(failed ? 1 : 0);
 });
+
+// ===================== M5 收口（21 号）：凭证/修订/本地分页 =====================
+(function m5Checks() {
+  const fs = require('fs');
+  const path = require('path');
+  const read = p => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+  console.log('[M5] 凭证/修订/本地分页');
+  const apiFin = read('miniprogram/api/finance.js');
+  ok('F1 基-1 凭证上传编排（FIN_VOUCHER+ticket+complete）',
+    apiFin.includes("assetType: 'FIN_VOUCHER'") && apiFin.includes('/franchise/assets/upload-tickets')
+      && apiFin.includes('/complete') && apiFin.includes('async function uploadVoucher'));
+  ok('F2 修订端点（乐观锁+历史）', apiFin.includes('/revision') && apiFin.includes('/revisions')
+    && apiFin.includes('async function reviseReceipt'));
+  const actions = read('miniprogram/pages/admin/finance-desk/platform-actions.js');
+  ok('F1 登记提交带凭证（voucherPath→uploadVoucher→voucherFileId）',
+    actions.includes('form.voucherPath') && actions.includes('uploadVoucher') && actions.includes('voucherFileId'));
+  ok('F2 修订入口/提交/冲突刷新（openRevision/submitRevision/baseRevisionVersion+1）',
+    actions.includes('openRevision') && actions.includes('submitRevision')
+      && actions.includes('baseRevisionVersion') && actions.includes('+ 1'));
+  const wxml = read('miniprogram/pages/admin/finance-desk/index.wxml');
+  ok('F2 wxml 修订按钮+弹层（收款行+revision 卡）',
+    wxml.includes('bindtap="openRevision"') && wxml.includes("registerType==='revision'")
+      && wxml.includes('submitRevision'));
+  const deskJs = read('miniprogram/pages/admin/finance-desk/index.js');
+  ok('F3 台账本地分页（PAGE_SIZE 切片+loadMoreLedger+全量源保留）',
+    deskJs.includes('PAGE_SIZE') && deskJs.includes('loadMoreLedger') && deskJs.includes('ledgerSource'));
+})();

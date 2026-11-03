@@ -33,7 +33,8 @@ function ledgerRows(receipts, payments, refunds, month) {
   for (const r of receipts || []) {
     if (r.status !== '已登记') continue;
     rows.push({ key: 'r-' + r.id, type: '收款', sign: '+', name: r.name, amountCents: r.amountCents,
-      date: r.receivedDate || String(r.createTime || '').slice(0, 10), status: r.status, id: r.id });
+      date: r.receivedDate || String(r.createTime || '').slice(0, 10), status: r.status, id: r.id,
+      revisionVersion: r.revisionVersion });
   }
   for (const p of payments || []) {
     if (p.status !== '已核实') continue;
