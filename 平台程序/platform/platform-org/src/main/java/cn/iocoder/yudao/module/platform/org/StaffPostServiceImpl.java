@@ -118,6 +118,41 @@ public class StaffPostServiceImpl implements StaffPostService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public long createStaffInOrg(long orgId, String name, String mobile, String roleCode, Long teamId, long operatorUserId) {
+        Long existing = systemDirectory.userIdByMobile(mobile);
+        long userId = existing != null ? existing : systemDirectory.createUser(name, mobile, orgId);
+        // 同一事务：新账号指派失败整体回滚（不留孤立账号）；已有账号原资料不在本事务内、自然保留
+        return findOrAssignValidated(userId, orgId, roleCode, teamId, operatorUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public long assignPostInOrg(long userId, long orgId, String roleCode, Long teamId, long operatorUserId) {
+        return findOrAssignValidated(userId, orgId, roleCode, teamId, operatorUserId);
+    }
+
+    /** M01-T03：同组织同岗位幂等语义 + teamId 冲突校验（一致幂等返回，不一致显式拒绝，不静默改部门）。
+     * Codex R1 P2-1：advisory+行锁先于查询——并发首指派时后进请求在锁后必命中已插入行，
+     * 同 team 幂等返回原 postId、异 team 得到 015，而非 assignPost 的 006。 */
+    private long findOrAssignValidated(long userId, long orgId, String roleCode, Long teamId, long operatorUserId) {
+        staffPostMapper.lockUserAdvisoryForWrite(userId);
+        staffPostMapper.lockUserPostsForUpdate(userId);
+        List<StaffPostDO> actives = staffPostMapper.selectActiveByUser(userId);
+        java.util.Optional<StaffPostDO> existing = actives.stream()
+                .filter(p -> p.getOrgId() == orgId && roleCode.equals(p.getRoleCode()))
+                .findFirst();
+        if (existing.isPresent()) {
+            StaffPostDO post = existing.get();
+            if (!java.util.Objects.equals(post.getTeamId(), teamId)) {
+                throw exception(POST_TEAM_CONFLICT);
+            }
+            return post.getId();
+        }
+        return assignPost(userId, orgId, roleCode, teamId, operatorUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void revokeAllInOrg(long userId, long orgId, long operatorUserId) {
         // 09 撤权协议锁序：advisory 用户锁 → 岗位行排他锁（M01-T01 同款，串行化与首次分配/删除回收的交错）
         staffPostMapper.lockUserAdvisoryForWrite(userId);

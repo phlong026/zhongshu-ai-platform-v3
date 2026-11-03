@@ -136,11 +136,12 @@ public class StaffOrgAdminController {
     @PreAuthorize("@post.has('platform:org:manage')")
     public CommonResult<StaffRow> createStaff(@Valid @RequestBody CreateStaffReqVO req) {
         requireScope(req.orgId());
-        Long existing = systemDirectory.userIdByMobile(req.mobile());
-        long userId = existing != null ? existing : systemDirectory.createUser(req.name(), req.mobile(), req.orgId());
-        long postId = findOrAssign(userId, req.orgId(), req.roleCode(), req.teamId());
-        return success(row(staffPostService.getPost(postId).orElseThrow(() -> exception(PlatformOrgErrorCodes.POST_NOT_FOUND)),
-                systemDirectory.usersByIds(List.of(userId)).stream().findFirst().orElse(null)));
+        // M01-T05：编排下沉 service（建号+指派同一事务）；M01-T03：teamId 冲突由 service 显式拒绝
+        long postId = staffPostService.createStaffInOrg(req.orgId(), req.name(), req.mobile(), req.roleCode(), req.teamId(),
+                currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
+        // Codex R1 P2-3：以任职行 userId 取资料（提交后按可变手机号二次定位可能错配他人或查空）
+        StaffPostDO post = staffPostService.getPost(postId).orElseThrow(() -> exception(PlatformOrgErrorCodes.POST_NOT_FOUND));
+        return success(row(post, systemDirectory.usersByIds(List.of(post.getUserId())).stream().findFirst().orElse(null)));
     }
 
     @PostMapping("/posts")
@@ -148,7 +149,8 @@ public class StaffOrgAdminController {
     @PreAuthorize("@post.has('platform:org:manage')")
     public CommonResult<StaffRow> assignPost(@Valid @RequestBody AssignPostReqVO req) {
         requireScope(req.orgId());
-        long postId = findOrAssign(req.userId(), req.orgId(), req.roleCode(), req.teamId());
+        long postId = staffPostService.assignPostInOrg(req.userId(), req.orgId(), req.roleCode(), req.teamId(),
+                currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
         return success(row(staffPostService.getPost(postId).orElseThrow(() -> exception(PlatformOrgErrorCodes.POST_NOT_FOUND)),
                 systemDirectory.usersByIds(List.of(req.userId())).stream().findFirst().orElse(null)));
     }
@@ -216,14 +218,6 @@ public class StaffOrgAdminController {
         if (post.orgId() != orgId) {
             throw exception(PlatformAuthzErrorCodes.ORG_SCOPE_FORBIDDEN);
         }
-    }
-
-    private long findOrAssign(long userId, long orgId, String roleCode, Long teamId) {
-        Optional<Long> existing = staffPostService.listActivePosts(userId).stream()
-                .filter(p -> p.getOrgId() == orgId && roleCode.equals(p.getRoleCode()))
-                .map(StaffPostDO::getId).findFirst();
-        return existing.orElseGet(() -> staffPostService.assignPost(userId, orgId, roleCode, teamId,
-                currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId()));
     }
 
     private Map<Long, SystemDirectory.UserBrief> usersByPosts(List<StaffPostDO> posts) {

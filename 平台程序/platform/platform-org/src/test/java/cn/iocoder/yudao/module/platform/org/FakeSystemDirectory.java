@@ -86,6 +86,7 @@ class FakeSystemDirectory implements SystemDirectory {
     @Override
     public long createUser(String name, String mobile, Long deptId) {
         long id = ++nextUserId;
+        users.add(id); // M01-T05：与真实 YudaoSystemDirectory 语义对齐——建号后 userExists/userUsable 为真
         userNames.put(id, name);
         userMobiles.put(id, mobile);
         userActive.put(id, true);

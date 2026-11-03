@@ -31,6 +31,19 @@ public interface StaffPostService {
     void revokeAllInOrg(long userId, long orgId, long operatorUserId);
 
     /**
+     * 建员并指派编排（M01-T05：原子化事务）：手机号已存在复用账号，否则新建；
+     * 指派失败时新账号随同一事务回滚、已有账号原资料与其他组织任职保留。
+     * 同组织同岗位已存在时按 M01-T03 校验 teamId：一致幂等返回，不一致抛 POST_TEAM_CONFLICT。
+     */
+    long createStaffInOrg(long orgId, String name, String mobile, String roleCode, Long teamId, long operatorUserId);
+
+    /**
+     * 给已有员工追加岗位（M01-T03 命令语义）：同组织同岗位已存在时 teamId 一致幂等返回，
+     * 不一致抛 POST_TEAM_CONFLICT（不静默忽略部门变更）；不存在则按模板校验新建。
+     */
+    long assignPostInOrg(long userId, long orgId, String roleCode, Long teamId, long operatorUserId);
+
+    /**
      * 钱包发卡前的岗位复验（M01-T01）：外呼（微信换码）暂停期间岗位可能被撤/停用/账号删除。
      * 锁定用户全部岗位行至调用方事务提交（与发卡同事务），确认快照仍有效；失效抛 POST_NOT_FOUND。
      * 并发删除的回收须等本事务提交后才获锁——会话要么未发出、要么发出即被随后回收覆盖。
