@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinPayableDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinPayableMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentMapper;
+import cn.iocoder.yudao.module.franchise.finance.dal.FinVoucherMapper;
 import cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorCodes;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -32,6 +33,12 @@ public class FinPaymentService {
     private FinPayableMapper payableMapper;
     @Resource
     private FranchiseCommands commands;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets;
+    @Resource
+    private FinVoucherMapper voucherFiles;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
 
     public record PayableCommand(long companyId, Long projectId, String stage, long totalCents,
                                  String recipient, String agreementRef) {
@@ -65,6 +72,14 @@ public class FinPaymentService {
         }
         if (cmd.payableId() <= 0) {
             throw exception(PAYMENT_PAYABLE_REQUIRED);
+        }
+        if (cmd.voucherFileId() != null && cmd.voucherFileId() > 0) {
+            // M5 R2 P1-2+R3 兼容口径：基-1 资产或 fr_fin_file 同组织存在（双轨兼容期，切基-1 随 COS 批）
+            long accountId = serviceAccounts.requireServiceAccount(post.orgId());
+            if (!assets.validateReference(accountId, cmd.voucherFileId())
+                    && !voucherFiles.existsByIdAndCompany(cmd.voucherFileId(), post.orgId())) {
+                throw exception(VOUCHER_INVALID_FIN);
+            }
         }
         FinPayableDO payable = payableMapper.lockById(cmd.payableId());
         if (payable == null || payable.getCompanyId() != post.orgId()) {

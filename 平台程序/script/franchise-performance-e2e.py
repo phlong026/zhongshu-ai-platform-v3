@@ -131,7 +131,7 @@ def build_engineering(boss, sales, engineer, finance):
                     'note': '绩效链开工准备', 'workers': '班组'}, idem='pe-prep-' + run)
     nodes = node_dates(prepared)
     act(engineer, 'PUT', f'/franchise/engineering/{pid}/plan', {'nodes': nodes}, idem='pe-plan-' + run)
-    collect_asset = upload_asset(finance, sales)
+    collect_asset = upload_asset(engineer, sales)  # M5 分派：ENG 归工程线
     act(finance, 'POST', f'/franchise/engineering/{pid}/collections',
         {'stage': 'START', 'amount': '400000', 'transactionNo': 'PC1-' + run,
          'fileAssetId': collect_asset}, idem='pe-col1-' + run)
@@ -395,7 +395,11 @@ def main():
                    'payDate': time.strftime('%Y-%m-%d'), 'transactionNo': 'PGAP-' + run},
                   idem='pe-gap-' + run)
     assert gap_pay['paymentId'], gap_pay
-    print('    ✅ policy/对半/硬锁 004/release 幂等/五态/退款 reviewDue/缺口记账')
+    # M5 AC5 补强：finance payables 含 stage=performance 应付（agreementRef 前缀 perf-commission）
+    fin_payables = act(finance, 'GET', '/franchise/finance/payables', None)
+    perf_payables = [q for q in fin_payables if str(q.get('agreementRef', '')).startswith('perf-commission:')]
+    assert len(perf_payables) >= 2, len(perf_payables)
+    print('    ✅ policy/对半/硬锁 004/release 幂等/五态/退款 reviewDue/缺口记账/performance 应付可见')
 
     step('AC9：周期复核（submit→review；申诉采纳→adjustments 生效）')
     cyc = act(engineer_b, 'POST', '/franchise/performance/cycles/submit',
@@ -465,7 +469,13 @@ def main():
     assert len(snap3['snapshots']) == 2 and latest['version'] == 2, snap3
     analytics = act(boss, 'GET', f'/franchise/performance/operating/analytics?period={PERIOD}')
     assert len(analytics['trend']) == 6 and 'sourceSignature' in analytics, analytics['totals']
-    print('    ✅ 对账直查一致/快照 008→002→v2/analytics 6 月趋势')
+    # M5 AC5 补强：付款后 rows paidCents 精确增量与 outstanding 归零（START 已付清 10000；TOPPING 付款 100 后 outstanding=9900）
+    rows_final = act(boss, 'GET', '/franchise/performance/commission/rows')
+    row_final = next(r for r in rows_final if r.get('projectId') == str(pid))
+    s_final = {x['stage']: x for x in row_final['stages']}
+    assert s_final['START']['paidCents'] == 10000 and s_final['START']['outstandingCents'] == 0, s_final['START']
+    assert s_final['TOPPING']['paidCents'] == 100 and s_final['TOPPING']['outstandingCents'] == 9900, s_final['TOPPING']
+    print('    ✅ 对账直查一致/快照 008→002→v2/analytics 6 月趋势/提成 paidCents 增量与 outstanding')
 
     step('AC11：TodoProvider manual 待办（fr-perf 域；当期已归档→用未归档上月周期断言）')
     todos_locked = act(engineer_a, 'GET', '/platform/todos')

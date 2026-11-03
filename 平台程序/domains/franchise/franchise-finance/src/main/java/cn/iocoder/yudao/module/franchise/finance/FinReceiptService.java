@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptRevisionDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptRevisionMapper;
+import cn.iocoder.yudao.module.franchise.finance.dal.FinVoucherMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoMapper;
@@ -52,6 +53,12 @@ public class FinReceiptService {
     @Resource
     private CommissionQueryPort commissions;
     @Resource
+    private cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets;
+    @Resource
+    private FinVoucherMapper voucherFileMapper;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
+    @Resource
     private FranchiseCommands commands;
 
     public record RegisterCommand(String sourceType, String sourceRef, String name, long amountCents,
@@ -83,6 +90,7 @@ public class FinReceiptService {
         } else {
             companyId = post.orgId();
         }
+        requireVoucherAsset(post, cmd.voucherFileId()); // M5 R2 P1-2：基-1 引用校验（21 号 V3）
         requireTxnNoFree(companyId, cmd.transactionNo(), null);
         FinReceiptDO receipt = new FinReceiptDO()
                 .setCompanyId(companyId).setProjectId(cmd.projectId()).setCustomerId(cmd.customerId())
@@ -101,6 +109,27 @@ public class FinReceiptService {
         commands.record(post, "fin-receipt", receipt.getId(), 1, "fin-receipt-register", cmd, idempotencyKey);
         log.info("[register][companyId={} receipt={} amount={} source={}]", companyId, receipt.getId(), amountCents, sourceType);
         return receipt.getId();
+    }
+
+    /**
+     * M5 R2 P1-2：凭证引用校验（21 号 V3；R3 兼容口径微调）——
+     * ①基-1 资产：validateReference（存在+ACCEPTED+本组织属主）；
+     * ②双轨兼容期：fr_fin_file 同组织存在（旧 files 通道）亦接受——新上传暂走 files multipart（QUERY 权限），
+     *   基-1 切换随 COS 批字节通道（14 文档 D-基1-2 完整执行延后登记）；两者皆 miss → VOUCHER_INVALID_FIN。
+     */
+    private void requireVoucherAsset(PostSnapshot post, Long voucherFileId) {
+        if (voucherFileId == null || voucherFileId <= 0) {
+            return;
+        }
+        long accountId = serviceAccounts.requireServiceAccount(post.orgId());
+        if (assets.validateReference(accountId, voucherFileId)) {
+            return;
+        }
+        Long fileOrg = voucherFileMapper.selectById(voucherFileId) == null ? null
+                : voucherFileMapper.selectById(voucherFileId).getCompanyId();
+        if (fileOrg == null || fileOrg != post.orgId()) {
+            throw exception(VOUCHER_INVALID_FIN);
+        }
     }
 
     /** design 来源五项门禁（需求文档 §五） */

@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -64,6 +66,7 @@ public class AssetAccessService {
 
     public DesignServicePort.UploadTicketView uploadTicket(PostSnapshot post, String assetType,
                                                            String mimeType, long sizeBytes, String sha256) {
+        requireChannelPermission(post, assetType); // M5 分派（R2 P1-1）
         long accountId = serviceAccount(post);
         DesignServicePort.UploadTicketView view = assets.createUploadTicket(accountId, assetType, mimeType, sizeBytes, sha256);
         audit(post, "upload-ticket", view.assetId(), assetType);
@@ -71,6 +74,7 @@ public class AssetAccessService {
     }
 
     public DesignServicePort.AssetCompleted completeUpload(PostSnapshot post, long assetId) {
+        requireChannelPermission(post, channelTypeOf(post, assetId)); // M5 分派
         long accountId = serviceAccount(post);
         String assetType = requireBEndAsset(accountId, assetId);
         DesignServicePort.AssetCompleted completed = assets.completeUpload(accountId, assetId);
@@ -79,6 +83,7 @@ public class AssetAccessService {
     }
 
     public DesignServicePort.DownloadUrlView createDownloadUrl(PostSnapshot post, long assetId) {
+        requireChannelPermission(post, channelTypeOf(post, assetId)); // M5 分派
         long accountId = serviceAccount(post);
         requireBEndAsset(accountId, assetId);
         return assets.createDownloadUrl(accountId, assetId);
@@ -89,6 +94,12 @@ public class AssetAccessService {
      * 堵「无 franchise:design:use 的员工经本通道读同组织私有人草图」的权限旁路（Codex 补审 P1）。
      * 不存在/非属主/非 B_END 一律 RESOURCE_FORBIDDEN（同码，不泄露区分）。
      */
+    /** 通道分派前置查类型（不存在→null→分派拒绝；不泄露区分） */
+    public String channelTypeOf(PostSnapshot post, long assetId) {
+        long accountId = serviceAccount(post);
+        return assets.assetTypeOf(accountId, assetId);
+    }
+
     private String requireBEndAsset(long accountId, long assetId) {
         String assetType = assets.assetTypeOf(accountId, assetId);
         if (assetType == null || !B_END_TYPES.contains(assetType)) {
@@ -96,6 +107,29 @@ public class AssetAccessService {
         }
         return assetType;
     }
+
+    /**
+     * 通道消费域权限分派（M5 / 21 号 V3 新 P1-1，落实 14 文档 D-基1-6 凭证批消费域权限）：
+     * 按 assetType 映射消费域岗位集（对齐各域 8xx 权限种子的 query 矩阵）；
+     * 越权 RESOURCE_FORBIDDEN（同码不泄露）。upload 从入参、complete/download 由调用方查得类型后调用。
+     */
+    public void requireChannelPermission(PostSnapshot post, String assetType) {
+        var roles = assetType == null ? null : CHANNEL_ROLES.get(assetType);
+        if (roles == null) {
+            return; // 未知类型放行给后续资产校验（保持 1_071_000_001 原语义）
+        }
+        if (!roles.contains(post.roleCode())) {
+            throw exception(ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
+        }
+    }
+
+    // 严格对齐各域 8xx 种子 query 矩阵（R3：ENG 归工程岗、CONTRACT 归业务岗——不跨域放宽）
+    private static final Map<String, List<String>> CHANNEL_ROLES = Map.of(
+            "FIN_VOUCHER", List.of("finance", "finance-lead", "boss", "owner"),
+            "ENG_DRAWING", List.of("engineer", "project-manager", "boss", "owner"),
+            "ENG_SITE_PHOTO", List.of("engineer", "project-manager", "boss", "owner"),
+            "CONTRACT_ATTACHMENT", List.of("sales", "sales-lead", "boss", "owner"),
+            "CONTENT_ASSET", List.of("sales", "sales-lead", "boss", "owner"));
 
     /** 代理层审计（14 文档 §四）：独立短事务（无外层事务包裹），仅写操作调用 */
     private void audit(PostSnapshot post, String action, long assetId, String assetType) {

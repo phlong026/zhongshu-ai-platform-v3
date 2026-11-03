@@ -157,10 +157,12 @@ def main():
 
     # ================= AC3 四类 B_END 全链 =================
     step('AC3 四类类型全链：签发→dev 落字节→complete ACCEPTED（免审）→accepted/ 换键→字节核验一致')
+    # M5 通道权限分派（21 号 V3）：FIN=财务线、ENG=工程线、CONTRACT=业务线——各归其岗
+    engineer_a = login_wechat(a['engineer']) if 'engineer' in a else login_wechat(a['finance'])
     full_chain(finance_a, sales_a, 'FIN_VOUCHER', 'application/pdf', PDF_BYTES, 'fin-vouchers')
-    drawing_id = full_chain(sales_a, sales_a, 'ENG_DRAWING', 'application/pdf', PDF_BYTES + b'drawing', 'eng-drawings')
-    full_chain(finance_a, sales_a, 'ENG_SITE_PHOTO', 'image/png', PNG_1X1, 'eng-site-photos')
-    full_chain(finance_a, sales_a, 'CONTRACT_ATTACHMENT', 'application/pdf', PDF_BYTES + b'contract', 'contract-attachments')
+    drawing_id = full_chain(engineer_a, sales_a, 'ENG_DRAWING', 'application/pdf', PDF_BYTES + b'drawing', 'eng-drawings')
+    full_chain(engineer_a, sales_a, 'ENG_SITE_PHOTO', 'image/png', PNG_1X1, 'eng-site-photos')
+    full_chain(sales_a, sales_a, 'CONTRACT_ATTACHMENT', 'application/pdf', PDF_BYTES + b'contract', 'contract-attachments')
 
     # ================= AC4 策略边界（签发层） =================
     step('AC4 策略边界：20MB/30MB 边界成功、21MB/MIME 不符/未知类型/坏 sha256 拒')
@@ -168,16 +170,22 @@ def main():
     act(finance_a, 'POST', '/franchise/assets/upload-tickets',
         {'assetType': 'FIN_VOUCHER', 'mimeType': 'application/pdf',
          'sizeBytes': 20 * 1024 * 1024, 'sha256': sha})
-    act(finance_a, 'POST', '/franchise/assets/upload-tickets',
+    act(engineer_a, 'POST', '/franchise/assets/upload-tickets',
         {'assetType': 'ENG_DRAWING', 'mimeType': 'application/pdf',
-         'sizeBytes': 30 * 1024 * 1024, 'sha256': sha})
+         'sizeBytes': 30 * 1024 * 1024, 'sha256': sha})  # M5 分派：ENG 归工程线
     for bad in [('FIN_VOUCHER', 'application/pdf', 21 * 1024 * 1024, sha),
-                ('ENG_SITE_PHOTO', 'application/pdf', 100, sha),
                 ('NOT_A_TYPE', 'application/pdf', 100, sha),
                 ('FIN_VOUCHER', 'application/pdf', 100, 'zz')]:
         act(finance_a, 'POST', '/franchise/assets/upload-tickets',
             {'assetType': bad[0], 'mimeType': bad[1], 'sizeBytes': bad[2], 'sha256': bad[3]},
             expect_code=1_071_000_001)
+    # M5 分派：ENG_SITE_PHOTO MIME 错（工程线角色）→ 1_071_000_001；FIN 越权角色 → 1099000002 先于资产校验
+    act(engineer_a, 'POST', '/franchise/assets/upload-tickets',
+        {'assetType': 'ENG_SITE_PHOTO', 'mimeType': 'application/pdf', 'sizeBytes': 100, 'sha256': sha},
+        expect_code=1_071_000_001)
+    act(sales_a, 'POST', '/franchise/assets/upload-tickets',
+        {'assetType': 'FIN_VOUCHER', 'mimeType': 'application/pdf', 'sizeBytes': 100, 'sha256': sha},
+        expect_code=1_099_000_002)
 
     # ================= AC6 C_END 回归（USER_SKETCH 审核路径不变） =================
     step('AC6 USER_SKETCH 走审核路径：正常 ACCEPTED 有留痕；审核故障→PENDING 退避；恢复后重试 ACCEPTED')
@@ -214,6 +222,7 @@ def main():
     body = {'assetType': 'FIN_VOUCHER', 'mimeType': 'application/pdf',
             'sizeBytes': 100, 'sha256': hashlib.sha256(PDF_BYTES).hexdigest()}
     act(finance_a, 'POST', '/franchise/assets/upload-tickets', body, expect_code=1_112_000_004)
+    # M5 分派后 finance 无 ENG 通道权限；A 服务账号已停用 → 1_112_000_004 先于分派（channelTypeOf 内 serviceAccount）
     act(finance_a, 'POST', f'/franchise/assets/{drawing_id}/complete', {}, expect_code=1_112_000_004)
     act(finance_a, 'POST', f'/franchise/assets/{drawing_id}/download-tickets', {}, expect_code=1_112_000_004)
     ok_b = act(finance_b, 'POST', '/franchise/assets/upload-tickets',
@@ -248,10 +257,12 @@ def main():
     assert statuses.count('ACCEPTED') >= 1 and 'REJECTED' not in statuses, results
 
     pair, pair_types = [], [('FIN_VOUCHER', 'application/pdf'), ('ENG_DRAWING', 'application/pdf')]
+    engineer_b = login_wechat(b['engineer']) if 'engineer' in b else login_wechat(b['finance'])
 
     def issue(asset_type, mime):
+        user = finance_b if asset_type == 'FIN_VOUCHER' else engineer_b  # M5 分派：ENG 归工程线
         try:
-            pair.append(act(finance_b, 'POST', '/franchise/assets/upload-tickets',
+            pair.append(act(user, 'POST', '/franchise/assets/upload-tickets',
                             {'assetType': asset_type, 'mimeType': mime,
                              'sizeBytes': 100, 'sha256': hashlib.sha256(PDF_BYTES).hexdigest()})['assetId'])
         except Exception as e:  # noqa

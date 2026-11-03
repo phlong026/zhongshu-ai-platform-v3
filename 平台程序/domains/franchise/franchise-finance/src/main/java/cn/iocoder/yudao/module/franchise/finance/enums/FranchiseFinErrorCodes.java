@@ -33,5 +33,6 @@ public interface FranchiseFinErrorCodes {
     ErrorCode FIN_SOURCE_FORBIDDEN = new ErrorCode(1_102_000_022, "该来源类型不允许手工登记");
     ErrorCode BUSINESS_RECEIPT_IMMUTABLE = new ErrorCode(1_102_000_023, "业务回款由交易流管理，不能直接修订");
     ErrorCode REFERENCE_INVALID_FIN = new ErrorCode(1_102_000_024, "业务回款来源不存在");
+    ErrorCode VOUCHER_INVALID_FIN = new ErrorCode(1_102_000_025, "凭证文件不存在、未完成或不属于当前组织");
 
 }
