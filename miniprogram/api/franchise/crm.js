@@ -10,9 +10,9 @@ const leads = {
   /** 待关联客资（老板看全部，负责人看管理范围，登记人看自己的） */
   pending: () => http.get('/franchise/leads/pending'),
   /** 关联同手机号原客户（带 revision） */
-  link: (id, revision) => http.post('/franchise/leads/' + id + '/link', { revision }),
+  link: (id, revision, idempotencyKey) => http.post('/franchise/leads/' + id + '/link', { revision }, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),
   /** 作废待关联客资（带原因与 revision） */
-  invalidate: (id, note, revision) => http.post('/franchise/leads/' + id + '/invalid', { note, revision })
+  invalidate: (id, note, revision, idempotencyKey) => http.post('/franchise/leads/' + id + '/invalid', { note, revision }, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined)
 };
 
 const customers = {

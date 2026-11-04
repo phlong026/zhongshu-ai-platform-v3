@@ -50,22 +50,22 @@ this.refresh();
 },
 editContent(){const c=this.data.content;if(c)wx.navigateTo({url:'/pages/studio/index?view=publish&work='+encodeURIComponent(c.workId)+'&content='+encodeURIComponent(c.id)});},
 goCustomer(){if(this.data.lead?.customerId)wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.lead.customerId)});},
-onlineLinkLead(e){ // M04-T03：负责人在线关联原客户（幂等）
+onlineLinkLead(e){ // M04-T03：负责人在线关联原客户——幂等键失败保留重试复用（Codex R1 P2-1）
   const idx=Number(e.currentTarget.dataset.idx);
   const item=(this.data.pendingLeads||[])[idx];
   if(!item)return this.fail('请选择待关联客资');
-  const key='crm-lead-link-'+item.leadId+'-'+Date.now();
-  crm.leads.link(item.leadId,item.revision,key).then(()=>{
+  if(!item.__linkKey)item.__linkKey='crm-link-'+item.leadId+'-'+Date.now();
+  crm.leads.link(item.leadId,item.revision,item.__linkKey).then(()=>{
     wx.showToast({title:'已关联原客户',icon:'none'});
     this.loadPendingLeads(); // 回读状态
   }).catch(err=>this.fail(P.degradeMessage(err)));
 },
-onlineInvalidateLead(e){ // M04-T03：负责人在线作废
+onlineInvalidateLead(e){ // M04-T03：负责人在线作废——幂等键同上
   const idx=Number(e.currentTarget.dataset.idx);
   const item=(this.data.pendingLeads||[])[idx];
   if(!item)return this.fail('请选择待作废客资');
-  const key='crm-lead-invalid-'+item.leadId+'-'+Date.now();
-  crm.leads.invalidate(item.leadId,'负责人作废',item.revision,key).then(()=>{
+  if(!item.__invKey)item.__invKey='crm-inv-'+item.leadId+'-'+Date.now();
+  crm.leads.invalidate(item.leadId,'负责人作废',item.revision,item.__invKey).then(()=>{
     wx.showToast({title:'已作废',icon:'none'});
     this.loadPendingLeads(); // 回读状态
   }).catch(err=>this.fail(P.degradeMessage(err)));
