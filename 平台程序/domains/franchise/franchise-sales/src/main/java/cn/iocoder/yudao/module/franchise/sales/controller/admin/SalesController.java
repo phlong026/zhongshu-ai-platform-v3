@@ -133,8 +133,10 @@ public class SalesController {
 
     // ========== 合同（R7-R10，write） ==========
 
-    public record ContractReq(Long customerId, Long totalCents, Long firstCents, LocalDate signedDate,
-                              Long assetId, Long requirementId) {
+    /** M06-T04：三期金额（签约后必填>0；基础完成后/封顶后≥0 可 0=未约定；Σ=totalCents） */
+    public record ContractReq(Long customerId, Long totalCents, Long signAfterCents,
+                              Long baseDoneCents, Long capDoneCents,
+                              LocalDate signedDate, Long assetId, Long requirementId) {
     }
 
     @PostMapping("/contracts")
@@ -143,14 +145,16 @@ public class SalesController {
     public CommonResult<Map<String, Object>> createContract(@RequestBody ContractReq req,
             @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         requireIdem(idem);
-        if (req.totalCents() == null || req.firstCents() == null || req.customerId() == null) {
-            throw exception(new cn.iocoder.yudao.framework.common.exception.ErrorCode(400, "customerId/totalCents/firstCents 必填"));
+        if (req.totalCents() == null || req.signAfterCents() == null || req.customerId() == null
+                || req.baseDoneCents() == null || req.capDoneCents() == null) {
+            throw exception(new cn.iocoder.yudao.framework.common.exception.ErrorCode(400,
+                    "customerId/totalCents/三期金额 必填（签约后>0，其余期≥0，Σ=totalCents）"));
         }
         var created = contracts.create(post(), new SaleContractService.ContractCommand(
-                req.customerId(), req.totalCents(), req.firstCents(), req.signedDate(),
-                req.assetId(), req.requirementId()), idem);
+                req.customerId(), req.totalCents(), req.signAfterCents(), req.baseDoneCents(), req.capDoneCents(),
+                req.signedDate(), req.assetId(), req.requirementId()), idem);
         return success(Map.of("contractId", created.getId(), "status", created.getStatus(),
-                "stages", stages.selectByContract(created.getId())));
+                "stages", contracts.stageSummary(post(), created.getId())));
     }
 
     @GetMapping("/contracts")
@@ -198,7 +202,8 @@ public class SalesController {
 
     // ========== 回款（R11，collect） ==========
 
-    public record CollectReq(String method, String transactionNo, LocalDate receivedDate) {
+    /** M06-T04：分笔核销（amountCents 必填>0，≤期剩余可收额） */
+    public record CollectReq(Long amountCents, String method, String transactionNo, LocalDate receivedDate) {
     }
 
     @PostMapping("/stages/{stageId}/collect")
@@ -208,8 +213,18 @@ public class SalesController {
             @RequestBody CollectReq req,
             @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         requireIdem(idem);
+        if (req.amountCents() == null || req.amountCents() <= 0) {
+            throw exception(new cn.iocoder.yudao.framework.common.exception.ErrorCode(400, "amountCents 必填且大于 0"));
+        }
         return success(contracts.collect(post(), stageId, new SaleContractService.CollectCommand(
-                req.method(), req.transactionNo(), req.receivedDate()), idem));
+                req.amountCents(), req.method(), req.transactionNo(), req.receivedDate()), idem));
+    }
+
+    @GetMapping("/contracts/{contractId}/stage-summary")
+    @Operation(summary = "三期收付统一视图（M06-T04 契约冻结：各期约定额/累计分笔/余额）")
+    @PreAuthorize("@post.has('franchise:sale:query')")
+    public CommonResult<List<Map<String, Object>>> stageSummary(@PathVariable("contractId") long contractId) {
+        return success(contracts.stageSummary(post(), contractId));
     }
 
     // ========== 方案升级（R3，write） ==========

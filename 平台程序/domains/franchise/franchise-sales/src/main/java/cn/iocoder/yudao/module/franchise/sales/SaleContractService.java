@@ -32,6 +32,10 @@ import static cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageDO.STA
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.CONTRACT_DUPLICATE;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.CONTRACT_NOT_SIGNED;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.STAGE_ALREADY_PAID;
+import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.STAGE_AMOUNT_EXCEED;
+import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.STAGE_AMOUNT_INVALID;
+import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.STAGE_BUSINESS_DATE_FUTURE;
+import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.STAGE_BUSINESS_DATE_REQUIRED;
 
 /**
  * 合同签约/回款（B5/B6/B7 任务，Codex 八轮评审定稿）：
@@ -43,18 +47,27 @@ import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorC
 @Service
 public class SaleContractService {
 
-    public record ContractCommand(long customerId, long totalCents, long firstCents, LocalDate signedDate,
-                                  Long assetId, Long requirementId) {
+    /**
+     * M06-T04 三期合同命令：三期金额由合同约定（不设固定比例），Σ三期=totalCents；
+     * baseDoneCents/capDoneCents 允许 0=未约定（期行照建，余额自然为 0）。
+     */
+    public record ContractCommand(long customerId, long totalCents, long signAfterCents,
+                                  long baseDoneCents, long capDoneCents,
+                                  LocalDate signedDate, Long assetId, Long requirementId) {
     }
 
     public record SignCommand(LocalDate signedDate, Long assetId) {
     }
 
-    public record CollectCommand(String method, String transactionNo, LocalDate receivedDate) {
+    /**
+     * M06-T04 分笔核销命令：amountCents 为本笔金额（可小于期约定额；Σ分笔 ≤ 期额）。
+     */
+    public record CollectCommand(long amountCents, String method, String transactionNo, LocalDate receivedDate) {
     }
 
     private final SaleContractMapper contracts;
     private final SalePaymentStageMapper stages;
+    private final SaleStageReceiptMapper stageReceipts;
     private final SaleRequirementService requirements;
     private final BusinessReceiptPort businessReceipts;
     private final DesignServicePort designService;
@@ -65,12 +78,14 @@ public class SaleContractService {
     private final JdbcTemplate jdbcTemplate;
 
     public SaleContractService(SaleContractMapper contracts, SalePaymentStageMapper stages,
+                               SaleStageReceiptMapper stageReceipts,
                                SaleRequirementService requirements, BusinessReceiptPort businessReceipts,
                                DesignServicePort designService, StoreServiceAccountPort serviceAccounts,
                                FranchiseCommands commands, SalesAccess access,
                                PlatformTransactionManager transactionManager, DataSource dataSource) {
         this.contracts = contracts;
         this.stages = stages;
+        this.stageReceipts = stageReceipts;
         this.requirements = requirements;
         this.businessReceipts = businessReceipts;
         this.designService = designService;
@@ -97,7 +112,10 @@ public class SaleContractService {
     @Transactional(rollbackFor = Exception.class)
     public SaleContractDO create(PostSnapshot post, ContractCommand cmd, String idempotencyKey) {
         access.requireOrgCustomer(post, cmd.customerId());
-        if (cmd.totalCents() <= 0 || cmd.firstCents() <= 0 || cmd.firstCents() > cmd.totalCents()
+        // M06-T04：三期金额校验——Σ三期=合同总额；签订后必须>0，其余期≥0（0=未约定，不发明固定比例）
+        if (cmd.totalCents() <= 0 || cmd.signAfterCents() <= 0
+                || cmd.baseDoneCents() < 0 || cmd.capDoneCents() < 0
+                || cmd.signAfterCents() + cmd.baseDoneCents() + cmd.capDoneCents() != cmd.totalCents()
                 || cmd.totalCents() > SaleQuoteMath.MAX_AMOUNT) {
             throw exception(CONTRACT_DUPLICATE); // 金额非法复用合同码段——由 AC 断言区分（金额校验独立见下）
         }
@@ -116,22 +134,21 @@ public class SaleContractService {
         }
         SaleContractDO contract = new SaleContractDO()
                 .setCompanyId(post.orgId()).setCustomerId(cmd.customerId())
-                .setTotalCents(cmd.totalCents()).setFirstCents(cmd.firstCents())
+                .setTotalCents(cmd.totalCents()).setFirstCents(cmd.signAfterCents()) // 存量兼容列=签订后期
                 .setSignedDate(cmd.signedDate()).setAssetId(cmd.assetId())
                 .setStatus(STATUS_WAIT_SIGN).setRequirementId(cmd.requirementId())
                 .setAuthorUserId(post.userId());
         contracts.insert(contract);
-        createStages(post, contract);
+        createStages(post, contract, cmd);
         commands.record(post, "fr-sale-contract", contract.getId(), 1, "sale-contract-create", input, idempotencyKey);
         return contract;
     }
 
-    private void createStages(PostSnapshot post, SaleContractDO contract) {
-        insertStage(contract, "first", contract.getFirstCents());
-        long tail = contract.getTotalCents() - contract.getFirstCents();
-        if (tail > 0) { // 零尾款免收：不生成 tail stage
-            insertStage(contract, "tail", tail);
-        }
+    /** M06-T04：三期期行全建（0=未约定），期额唯一事实；Σ期=合同总额由 create 校验保证 */
+    private void createStages(PostSnapshot post, SaleContractDO contract, ContractCommand cmd) {
+        insertStage(contract, SalePaymentStageDO.STAGE_SIGN_AFTER, cmd.signAfterCents());
+        insertStage(contract, SalePaymentStageDO.STAGE_BASE_DONE, cmd.baseDoneCents());
+        insertStage(contract, SalePaymentStageDO.STAGE_CAP_DONE, cmd.capDoneCents());
     }
 
     private void insertStage(SaleContractDO contract, String stage, long amountCents) {
@@ -214,23 +231,35 @@ public class SaleContractService {
      * 合同锁 → stage 锁 → PAID 重放优先（pay_fingerprint 比对，不要求 SIGNED）→
      * PENDING 首次核销：SIGNED 校验 → finance 登记（REQUIRED 同事务，来源重放优先）→ 核销 CAS → record。
      */
+    /**
+     * M06-T04 分笔核销：amountCents 为本笔金额（≤期剩余可收额——正常归单限额），资金唯一事实=
+     * fr_fin_receipt（经 BusinessReceiptPort），期↔笔关联落 fr_sale_stage_receipt。
+     * 幂等骨架与两期版一致（advisory 锁→token replay→合同锁→期锁）；PAID 指纹重放段移除——
+     * 存量整期核销经迁移落为 SETTLED+首笔关联行，由「收满拒绝」兜底。
+     */
     public Map<String, Object> collect(PostSnapshot post, long stageId, CollectCommand cmd, String idempotencyKey) {
         String clientKey = FranchiseCommandKeys.normalize(idempotencyKey);
         String token = "sale-collect:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(clientKey);
         var scope = new FranchiseCommandKeys.PostKeyScope("franchise", post.userId());
-        long fingerprint = fingerprintOf(cmd);
+        // R1 P1：replay 与 record 必须共用同一份规范化输入（含金额），否则同键同内容重试摘要不匹配被误判键复用；
+        // R2：LinkedHashMap 固定键序——Map.of 无序，跨 JVM 序列化字段顺序漂移同样会破坏摘要
+        var canonical = new java.util.LinkedHashMap<String, Object>();
+        canonical.put("stageId", stageId);
+        canonical.put("amountCents", cmd.amountCents());
+        canonical.put("method", nullSafe(cmd.method()));
+        canonical.put("txn", nullSafe(cmd.transactionNo()));
+        canonical.put("date", cmd.receivedDate() == null ? "" : cmd.receivedDate().toString());
+        long fingerprint = canonical.hashCode();
         return txTemplate.execute(status -> {
             jdbcTemplate.queryForMap("SELECT pg_advisory_xact_lock(?)",
                     FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise", post.userId()), token));
             // ①客户端键 replay（token 作键；请求内容作指纹——跨合同共键异内容在此拒绝）
-            var existing = commands.replayed(post, token, Map.of("stageId", stageId, "fp", fingerprint));
+            var existing = commands.replayed(post, token, canonical);
             if (existing.isPresent()) {
                 CommandEventDO event = existing.get();
-                return Map.of("receiptId", event.getAggregateId(), "stageStatus", STATUS_PAID, "replayed", true);
+                return Map.of("receiptId", event.getAggregateId(), "replayed", true);
             }
-            // ②合同锁 → ③stage 锁（锁序对齐 06 文档/类注释——评审基线强制清单 #2：
-            // 逆序 stage→contract 与 void_ 的「合同锁→PENDING 行更新」构成死锁窗口；
-            // 先 peek stage 取 contractId，锁序到位后以锁内重读为准）
+            // ②合同锁 → ③期锁（锁序对齐 void_ 的「合同锁→行更新」，防死锁窗口）
             SalePaymentStageDO stagePeek = stages.selectById(stageId);
             if (stagePeek == null || Boolean.TRUE.equals(stagePeek.getDeleted())
                     || stagePeek.getCompanyId() != post.orgId()) {
@@ -240,54 +269,100 @@ public class SaleContractService {
             SalePaymentStageDO stage = stages.lockById(stageId);
             if (stage == null || Boolean.TRUE.equals(stage.getDeleted())
                     || stage.getCompanyId() != post.orgId()
-                    || stage.getContractId() != contract.getId()) {
-                throw exception(STAGE_ALREADY_PAID); // 锁间隙 stage 归属变化——保守拒绝
+                    // M06-T04/R1：Long 与 Long 比较须拆值（雪花 id 超出缓存区间，引用比较恒不等——
+                    // 既有 bug，两期版测试未覆盖 collect 故未暴露）
+                    || stage.getContractId().longValue() != contract.getId().longValue()) {
+                throw exception(STAGE_ALREADY_PAID); // 锁间隙期归属变化——保守拒绝
             }
-            // ④PAID 重放优先：比对持久化指纹（禁止用本次请求重建首次内容）
-            if (STATUS_PAID.equals(stage.getStatus())) {
-                String requestFp = payFingerprint(stage, cmd);
-                if (!requestFp.equals(stage.getPayFingerprint())) {
-                    throw exception(STAGE_ALREADY_PAID);
-                }
-                var saved = businessReceipts.replayBySourceRef(post, sourceRefOf(contract, stage));
-                commands.record(post, "fr-sale-stage", saved.receiptId(), IdWorker.getId(),
-                        "sale-stage-collect", Map.of("stageId", stageId, "fp", fingerprint), token);
-                return Map.of("receiptId", saved.receiptId(), "stageStatus", STATUS_PAID, "replayed", true);
-            }
-            // ⑤PENDING 首次核销：合同必须 SIGNED 且未 VOIDED
-            requireSIGNED(contract);
-            // ⑥finance 登记（内部专用入口；同事务 REQUIRED）
-            // 缺省日期首次固化当日（V8：finance 侧日期以首次收据为准；指纹中缺省日期不参与）
-            LocalDate effectiveDate = cmd.receivedDate() != null ? cmd.receivedDate() : LocalDate.now();
-            var cmd2 = new BusinessReceiptPort.BusinessReceipt(
-                    contract.getCustomerId(), sourceRefOf(contract, stage),
-                    customerName(contract) + "·" + ("first".equals(stage.getStage()) ? "首款" : "尾款") + "回款",
-                    stage.getAmountCents(), cmd.method(), cmd.transactionNo(), effectiveDate);
-            var saved = businessReceipts.registerBusinessReceipt(post, cmd2);
-            // ⑦核销 CAS（DB CHECK 保证 PAID 与 receipt/paid_at/fingerprint 同置）
-            int updated = jdbcTemplate.update(
-                    "UPDATE fr_sale_payment_stage SET status='PAID', paid_receipt_id=?, paid_at=now(), "
-                            + "pay_fingerprint=? WHERE id=? AND status='PENDING'",
-                    saved.receiptId(), payFingerprint(stage, cmd), stageId);
-            if (updated != 1) {
+            // ④收满拒绝：SETTLED 或分笔累计已达期额（存量 SETTLED 有迁移映射分笔行）
+            long collected = stageReceipts.selectByStage(stageId).stream()
+                    .mapToLong(SaleStageReceiptDO::getAmountCents).sum();
+            if (SalePaymentStageDO.STATUS_SETTLED.equals(stage.getStatus()) || collected >= stage.getAmountCents()) {
                 throw exception(STAGE_ALREADY_PAID);
             }
-            // ⑧键绑定+审计（aggregateId=receiptId——同键重放经事件读回首收据；stageId 在 payload 留痕）
+            // ⑤分笔金额校验：>0 且不超期剩余（正常归单限额；退多收不伪造新欠款由退款契约保证）
+            if (cmd.amountCents() <= 0) {
+                throw exception(STAGE_AMOUNT_INVALID);
+            }
+            if (collected + cmd.amountCents() > stage.getAmountCents()) {
+                throw exception(STAGE_AMOUNT_EXCEED);
+            }
+            // ⑥合同必须 SIGNED 且未 VOIDED
+            requireSIGNED(contract);
+            // ⑦finance 登记（receipt 级 sourceRef；同号防重由 fr_fin_txn_no 保证）
+            // R1 P1：与 M08-T05/R04 BusinessDateGuard 同契约——正常归单日期必填拒空、拒未来
+            //（未来收付由计划表达；真实日期未知走 M08-T08 异常登记），「今天」按 Asia/Shanghai 判定
+            if (cmd.receivedDate() == null) {
+                throw exception(STAGE_BUSINESS_DATE_REQUIRED);
+            }
+            if (cmd.receivedDate().isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")))) {
+                throw exception(STAGE_BUSINESS_DATE_FUTURE);
+            }
+            LocalDate effectiveDate = cmd.receivedDate();
+            var cmd2 = new BusinessReceiptPort.BusinessReceipt(
+                    contract.getCustomerId(),
+                    "sale:" + contract.getId() + ":" + stage.getStage() + ":" + IdWorker.getId(),
+                    customerName(contract) + "·" + stageLabel(stage.getStage()) + "回款",
+                    cmd.amountCents(), cmd.method(), cmd.transactionNo(), effectiveDate);
+            var saved = businessReceipts.registerBusinessReceipt(post, cmd2);
+            // ⑧分笔关联 + 期状态推进（PENDING→OPEN 首笔；累计=期额 → SETTLED）
+            stageReceipts.insert(new SaleStageReceiptDO()
+                    .setCompanyId(stage.getCompanyId()).setContractId(contract.getId())
+                    .setStageId(stageId).setReceiptId(saved.receiptId())
+                    .setAmountCents(cmd.amountCents()));
+            long after = collected + cmd.amountCents();
+            String nextStatus = after >= stage.getAmountCents()
+                    ? SalePaymentStageDO.STATUS_SETTLED : SalePaymentStageDO.STATUS_OPEN;
+            jdbcTemplate.update(
+                    "UPDATE fr_sale_payment_stage SET status=? WHERE id=? AND status IN ('PENDING','OPEN')",
+                    nextStatus, stageId);
+            // ⑨键绑定+审计（aggregateId=receiptId；stageId 在 payload 留痕）
             commands.record(post, "fr-sale-stage", saved.receiptId(), IdWorker.getId(),
-                    "sale-stage-collect", Map.of("stageId", stageId, "fp", fingerprint), token);
-            log.info("[collect][stage={} contract={} receipt={}]", stageId, contract.getId(), saved.receiptId());
-            return Map.of("receiptId", saved.receiptId(), "stageStatus", STATUS_PAID, "replayed", false);
+                    "sale-stage-collect", canonical, token);
+            log.info("[collect][stage={} contract={} receipt={} amount={} status={}]", stageId,
+                    contract.getId(), saved.receiptId(), cmd.amountCents(), nextStatus);
+            return Map.of("receiptId", saved.receiptId(), "stageStatus", nextStatus,
+                    "collectedCents", after, "replayed", false);
         });
     }
 
-    private String sourceRefOf(SaleContractDO contract, SalePaymentStageDO stage) {
-        return "sale:" + contract.getId() + ":" + stage.getStage();
+    /**
+     * M06-T04 统一视图契约（M06-T02 双端/M10 统计引用冻结）：各期约定额/累计分笔/余额/状态。
+     * refundedCents 预留退款净额（关联随 M08 退款契约接入，当前恒 0——退款只改净实收不改期约定额）。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public java.util.List<Map<String, Object>> stageSummary(PostSnapshot post, long contractId) {
+        // R1 P2：合同行锁（FOR UPDATE）持有至事务结束——读取期次与分笔之间到达的 collect 会等待本锁，
+        // 消除「旧状态配新累计」的撕裂读
+        lockContract(post, contractId);
+        java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        for (SalePaymentStageDO stage : stages.selectByContract(contractId)) {
+            long collected = stageReceipts.selectByStage(stage.getId()).stream()
+                    .mapToLong(SaleStageReceiptDO::getAmountCents).sum();
+            Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
+            row.put("stageId", stage.getId());
+            row.put("stage", stage.getStage());
+            row.put("label", stageLabel(stage.getStage()));
+            row.put("amountCents", stage.getAmountCents());
+            row.put("collectedCents", collected);
+            row.put("refundedCents", 0L); // M08 退款关联契约接入前恒 0
+            row.put("balanceCents", Math.max(0, stage.getAmountCents() - collected));
+            row.put("status", stage.getStatus());
+            rows.add(row);
+        }
+        return rows;
     }
 
-    private String payFingerprint(SalePaymentStageDO stage, CollectCommand cmd) {
-        String canonical = stage.getAmountCents() + "|" + nullSafe(cmd.method() == null ? "bank" : cmd.method())
-                + "|" + nullSafe(cmd.transactionNo()) + "|" + (cmd.receivedDate() == null ? "" : cmd.receivedDate().toString());
-        return cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical);
+    /** 三期显示文案（存量两期值保留兼容文案） */
+    private static String stageLabel(String stage) {
+        return switch (stage) {
+            case SalePaymentStageDO.STAGE_SIGN_AFTER -> "签约后";
+            case SalePaymentStageDO.STAGE_BASE_DONE -> "基础完成后";
+            case SalePaymentStageDO.STAGE_CAP_DONE -> "封顶后";
+            case SalePaymentStageDO.STAGE_FIRST -> "首款";
+            case SalePaymentStageDO.STAGE_TAIL -> "尾款";
+            default -> stage;
+        };
     }
 
     private long fingerprintOf(CollectCommand cmd) {

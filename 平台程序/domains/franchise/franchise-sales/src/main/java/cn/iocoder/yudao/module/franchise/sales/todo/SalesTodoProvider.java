@@ -54,7 +54,7 @@ public class SalesTodoProvider implements TodoProvider {
         if (isCollectPost) {
             boolean financePost = FranchiseRoles.FINANCE.equals(post.roleCode())
                     || FranchiseRoles.FINANCE_LEAD.equals(post.roleCode());
-            stages.selectPendingByOrg(post.orgId()).stream()
+            stages.selectOwingByOrg(post.orgId()).stream()
                     .filter(s -> contracts.selectById(s.getContractId()) != null
                             && cn.iocoder.yudao.module.franchise.sales.dal.SaleContractDO.STATUS_SIGNED
                                     .equals(contracts.selectById(s.getContractId()).getStatus()))
@@ -63,11 +63,23 @@ public class SalesTodoProvider implements TodoProvider {
                                 ? FLOWS_PAGE
                                 : "/pages/workflow/index?view=contract&id=" + s.getCustomerId();
                         items.add(new TodoItem(DOMAIN, DOMAIN + ":stage-pending:" + s.getId(),
-                                "回款待收 · " + ("first".equals(s.getStage()) ? "首款" : "尾款")
+                                "回款待收 · " + stageLabel(s.getStage())
                                         + " · 客户#" + s.getCustomerId(),
                                 "待收款", s.getAmountCents(), true, null, appPath, s.getCreateTime()));
                     });
         }
         return items;
     }
+    /** M06-T04 三期显示文案 */
+    private static String stageLabel(String stage) {
+        return switch (stage) {
+            case "SIGN_AFTER" -> "签约后";
+            case "BASE_DONE" -> "基础完成后";
+            case "CAP_DONE" -> "封顶后";
+            case "first" -> "首款";
+            case "tail" -> "尾款";
+            default -> stage;
+        };
+    }
+
 }
