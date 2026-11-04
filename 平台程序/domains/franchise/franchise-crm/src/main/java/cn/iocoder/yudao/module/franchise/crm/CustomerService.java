@@ -372,20 +372,43 @@ public class CustomerService {
 
     /**
      * M01-T04：批量离职交接——将 fromUserId 在 orgId 内的全部在途客户转移给 toUserId。
-     * 仅转移非终态客户；历史经办记录不变。
+     * fr_customer 无终态（CHECK 约束仅允许 REGISTERED/FOLLOWING，均为在途），全员可转；
+     * 显式 set（Codex R1 P2-3：接收岗位无团队时 team_id 须写 NULL，实体 NOT_NULL 策略会跳列），
+     * 逐行推进 revision（Codex R1 P2-2：堵旧版本并发写绕过）；历史跟进流水与经办记录不变。
      * @return 转移的客户数
      */
     @Transactional(rollbackFor = Exception.class)
     public int bulkTransferByOwner(long fromUserId, long toUserId, long orgId, long operatorUserId) {
-        var targetPost = staffPostService.listActivePosts(toUserId).stream()
-                .filter(p2 -> p2.getOrgId() == orgId)
-                .findFirst().orElse(null);
-        if (targetPost == null) return 0;
-        var updateEntity = new CustomerDO().setOwnerUserId(toUserId).setTeamId(targetPost.getTeamId());
-        return customerMapper.update(updateEntity, new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<CustomerDO>()
+        var receiverPost = findReceiverPost(toUserId, orgId);
+        if (receiverPost == null) return 0;
+        return customerMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<CustomerDO>()
                 .eq(CustomerDO::getOwnerUserId, fromUserId)
                 .eq(CustomerDO::getCompanyId, orgId)
-                .ne(CustomerDO::getStatus, "ARCHIVED"));
+                .set(CustomerDO::getOwnerUserId, toUserId)
+                .set(CustomerDO::getTeamId, receiverPost.getTeamId())
+                .setSql("revision = revision + 1")
+                .set(CustomerDO::getUpdateTime, OffsetDateTime.now()));
+    }
+
+    /**
+     * M01-T04：域级接收资格（Codex R1 P1-1）——接收人在本组织须有可承接客户的岗位
+     * （sales / sales-lead 继承线；boss/engineer/finance 无 canWrite 资格）。
+     * @return 合格岗位（转移客户随其团队），无合格岗位返回 null
+     */
+    public StaffPostDO findReceiverPost(long toUserId, long orgId) {
+        return staffPostService.listActivePosts(toUserId).stream()
+                .filter(p2 -> p2.getOrgId() == orgId)
+                .filter(p2 -> SALES.equals(p2.getRoleCode()) || SALES_LEAD.equals(p2.getRoleCode()))
+                .findFirst().orElse(null);
+    }
+
+    /**
+     * M01-T04：离职交接在途扫描——该负责人在本组织名下客户数（只读；无终态过滤，见 bulkTransferByOwner）。
+     */
+    public long countInFlightByOwner(long ownerUserId, long orgId) {
+        return customerMapper.selectCount(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<CustomerDO>()
+                .eq(CustomerDO::getOwnerUserId, ownerUserId)
+                .eq(CustomerDO::getCompanyId, orgId));
     }
 
 

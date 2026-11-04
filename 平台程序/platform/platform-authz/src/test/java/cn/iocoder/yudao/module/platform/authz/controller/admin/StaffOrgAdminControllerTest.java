@@ -45,6 +45,8 @@ class StaffOrgAdminControllerTest {
     private OrgService orgService;
     @Mock
     private SystemDirectory systemDirectory;
+    @Mock
+    private cn.iocoder.yudao.module.platform.org.DepartureHandoverService handoverService;
 
     private StaffOrgAdminController controller;
 
@@ -55,6 +57,7 @@ class StaffOrgAdminControllerTest {
         ReflectionTestUtils.setField(controller, "staffPostService", staffPostService);
         ReflectionTestUtils.setField(controller, "orgService", orgService);
         ReflectionTestUtils.setField(controller, "systemDirectory", systemDirectory);
+        ReflectionTestUtils.setField(controller, "handoverService", handoverService);
     }
 
     @Test
@@ -124,6 +127,53 @@ class StaffOrgAdminControllerTest {
     private static StaffPostDO post(long id, long userId, long orgId, String role) {
         return new StaffPostDO().setId(id).setUserId(userId).setOrgId(orgId).setRoleCode(role)
                 .setStatus(StaffPostDO.STATUS_ACTIVE);
+    }
+
+    // ===== M01-T04 离职交接端点（Codex R1 P2-5）=====
+
+    @Test
+    void handoverDelegatesToServiceWithOperatorContext() {
+        loginAsBossAt(STORE_ORG);
+        when(handoverService.handover(STORE_ORG, 5L, 6L, BOSS_USER)).thenReturn(
+                new cn.iocoder.yudao.module.platform.org.DepartureHandoverService.HandoverResult(
+                        "NORMAL", STORE_ORG, 5L, 6L, List.of(), List.of()));
+
+        var result = controller.handover(new StaffOrgAdminController.StaffHandoverReqVO(STORE_ORG, 5L, 6L));
+
+        assertThat(result.getData().toUserId()).isEqualTo(6L);
+        org.mockito.Mockito.verify(handoverService).handover(STORE_ORG, 5L, 6L, BOSS_USER);
+    }
+
+    @Test
+    void handoverRejectsOutOfScopeOrg() {
+        loginAsBossAt(STORE_ORG); // 操作者在本店，请求交接别家组织（越权在 service 调用前即拒）
+
+        assertThatThrownBy(() -> controller.handover(new StaffOrgAdminController.StaffHandoverReqVO(999L, 5L, 6L)))
+                .isInstanceOf(ServiceException.class)
+                .extracting(e -> ((ServiceException) e).getCode())
+                .isEqualTo(ORG_SCOPE_FORBIDDEN.getCode());
+        org.mockito.Mockito.verify(handoverService, org.mockito.Mockito.never())
+                .handover(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void emergencyRevokeRejectsOperatorWithoutPost() {
+        when(currentPost.find()).thenReturn(Optional.empty()); // 无岗位上下文：POST_REQUIRED
+
+        assertThatThrownBy(() -> controller.emergencyRevoke(new StaffOrgAdminController.StaffEmergencyRevokeReqVO(STORE_ORG, 5L)))
+                .isInstanceOf(ServiceException.class)
+                .extracting(e -> ((ServiceException) e).getCode())
+                .isEqualTo(POST_REQUIRED.getCode());
+    }
+
+    @Test
+    void handoverPendingDelegatesWithScopeCheck() {
+        loginAsBossAt(STORE_ORG);
+        when(handoverService.listPending(STORE_ORG)).thenReturn(List.of());
+
+        assertThat(controller.handoverPending(STORE_ORG).getData()).isEmpty();
+        org.mockito.Mockito.verify(handoverService).listPending(STORE_ORG);
     }
 
     private void loginAsBossAt(long orgId) {

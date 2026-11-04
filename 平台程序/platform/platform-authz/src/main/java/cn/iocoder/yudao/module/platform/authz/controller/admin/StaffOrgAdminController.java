@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.platform.authz.controller.admin;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.authz.enums.PlatformAuthzErrorCodes;
+import cn.iocoder.yudao.module.platform.org.DepartureHandoverService;
 import cn.iocoder.yudao.module.platform.org.OrgService;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
@@ -62,6 +63,8 @@ public class StaffOrgAdminController {
     private OrgService orgService;
     @Resource
     private SystemDirectory systemDirectory;
+    @Resource
+    private DepartureHandoverService handoverService;
 
     public record Team(long deptId, long orgId, String name, String line) {
     }
@@ -90,6 +93,15 @@ public class StaffOrgAdminController {
 
     public record StaffStatusReqVO(@NotNull(message = "员工不能为空") Long userId,
                                    boolean active) {
+    }
+
+    public record StaffHandoverReqVO(@NotNull(message = "组织不能为空") Long orgId,
+                                     @NotNull(message = "被交接人不能为空") Long fromUserId,
+                                     @NotNull(message = "接收人不能为空") Long toUserId) {
+    }
+
+    public record StaffEmergencyRevokeReqVO(@NotNull(message = "组织不能为空") Long orgId,
+                                            @NotNull(message = "被撤权人不能为空") Long userId) {
     }
 
     @GetMapping("/teams")
@@ -199,6 +211,32 @@ public class StaffOrgAdminController {
             throw exception(PlatformOrgErrorCodes.STAFF_RESUME_NEED_ASSIGN);
         }
         throw exception(PlatformOrgErrorCodes.USER_NOT_IN_ORG);
+    }
+
+    @PostMapping("/staff-handover")
+    @Operation(summary = "正常离职交接（M01-T04：先校验接收人，逐域批量转移在途对象，再撤本组织任职与钱包会话；返回交接清单；失败整体回滚可重试）")
+    @PreAuthorize("@post.has('platform:org:manage')")
+    public CommonResult<DepartureHandoverService.HandoverResult> handover(@Valid @RequestBody StaffHandoverReqVO req) {
+        requireScope(req.orgId());
+        return success(handoverService.handover(req.orgId(), req.fromUserId(), req.toUserId(),
+                currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId()));
+    }
+
+    @PostMapping("/staff-emergency-revoke")
+    @Operation(summary = "紧急撤权（M01-T04：立即撤本组织任职与钱包会话，不等待交接；在途对象逐域转入待分配并返回清单）")
+    @PreAuthorize("@post.has('platform:org:manage')")
+    public CommonResult<DepartureHandoverService.HandoverResult> emergencyRevoke(@Valid @RequestBody StaffEmergencyRevokeReqVO req) {
+        requireScope(req.orgId());
+        return success(handoverService.emergencyRevoke(req.orgId(), req.userId(),
+                currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId()));
+    }
+
+    @GetMapping("/handover-pending")
+    @Operation(summary = "待分配清单（M01-T04：紧急撤权后在途事项，可对其发起补交接）")
+    @PreAuthorize("@post.has('platform:org:query')")
+    public CommonResult<List<DepartureHandoverService.PendingRow>> handoverPending(@RequestParam("orgId") long orgId) {
+        requireScope(orgId);
+        return success(handoverService.listPending(orgId));
     }
 
     // ===== 范围与组装 =====

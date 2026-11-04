@@ -67,6 +67,12 @@ public final class FakeSystemDirectory implements SystemDirectory {
         return users.contains(userId);
     }
 
+    /** M01-T04：与平台侧桩语义对齐——setUserActive(false) 后 userUsable 为假（默认实现只看存在性，测不出停用拦截） */
+    @Override
+    public boolean userUsable(long userId) {
+        return userExists(userId) && userActive.getOrDefault(userId, true);
+    }
+
     @Override
     public Set<Long> userRoleIds(long userId) {
         return Set.copyOf(userRoles.getOrDefault(userId, Set.of()));

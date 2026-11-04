@@ -27,4 +27,12 @@ public interface PlatformOrgErrorCodes {
     ErrorCode ORG_NAME_TAKEN = new ErrorCode(1_101_000_016, "该组织名称已开通为其他类型的组织，请更换名称");
     ErrorCode PROFILE_AVATAR_INVALID = new ErrorCode(1_101_000_012, "头像地址格式不正确");
 
+    // ===== M01-T04 离职交接 =====
+    ErrorCode HANDOVER_TARGET_NOT_IN_ORG = new ErrorCode(1_101_000_017, "接收人在该组织没有有效岗位，无法交接");
+    ErrorCode HANDOVER_TARGET_DISABLED = new ErrorCode(1_101_000_018, "接收人账号已停用或不存在，无法交接");
+    ErrorCode HANDOVER_SOURCE_NO_POST = new ErrorCode(1_101_000_019, "该员工在本组织已无有效任职，且没有待交接的在途事项，无法发起交接");
+    ErrorCode HANDOVER_TARGET_SELF = new ErrorCode(1_101_000_020, "不能将工作交接给本人");
+    ErrorCode HANDOVER_TARGET_ROLE_MISMATCH = new ErrorCode(1_101_000_021, "接收人在该组织没有可承接该类业务的岗位，无法交接");
+    ErrorCode HANDOVER_TRANSFER_INCOMPLETE = new ErrorCode(1_101_000_022, "部分在途对象未能转移，本次交接已整体回滚，请重试");
+
 }

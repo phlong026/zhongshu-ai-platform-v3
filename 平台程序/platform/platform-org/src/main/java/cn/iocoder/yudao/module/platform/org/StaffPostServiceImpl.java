@@ -83,9 +83,19 @@ public class StaffPostServiceImpl implements StaffPostService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void revokePost(long postId, long operatorUserId) {
-        // 撤权协议：岗位行排他锁后再改状态；状态修改与钱包会话吊销同事务提交/回滚
+        StaffPostDO probe = staffPostMapper.selectById(postId);
+        if (probe == null) {
+            throw exception(POST_NOT_FOUND);
+        }
+        // M01-T04/R2 撤权协议对齐：advisory 用户锁先行（与交接/首次分配/删除回收同协议，
+        // 串行化「接收人唯一岗位在交接锁内被并发单撤」的交错），再岗位行排他锁。
+        // R3 P2：锁后复查走不同 statement（selectOne wrapper），绕开同一 SqlSession 对
+        // selectById 的一级缓存——否则可能读到加锁前的旧 ACTIVE 行，覆盖他人撤销痕迹
+        staffPostMapper.lockUserAdvisoryForWrite(probe.getUserId());
         staffPostMapper.lockPostForUpdate(postId);
-        StaffPostDO post = staffPostMapper.selectById(postId);
+        StaffPostDO post = staffPostMapper.selectOne(
+                new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<StaffPostDO>()
+                        .eq(StaffPostDO::getId, postId));
         if (post == null || !StaffPostDO.STATUS_ACTIVE.equals(post.getStatus())) {
             throw exception(POST_NOT_FOUND);
         }
