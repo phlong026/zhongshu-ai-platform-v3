@@ -215,6 +215,9 @@ class EngLaborExpenseIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(((Number) summary1.get("expensesRemainingCents")).longValue()).isEqualTo(2_000_000L);
 
         // 4. 退回关联：finance 作废第二笔付款（已核实剔除 → 已付自动减至 200 万）
+        // R1 P2-4 口径登记：桩 PAID 模拟「已核实累计-作废」净口径，与真实
+        // EngineeringLedgerQueryAdapter（selectActiveByPayable status='已核实'，作废自动剔除）一致；
+        // 真实 FinPaymentService 跨域用例按 M08 财务测试模块边界留 finance 侧（批次#26 登记沿用）
         Config.PAID.get(payableId).addAndGet(-1_000_000L);
         var summary2 = as(engineer, () -> closures.settleSummary(engineer, projectId));
         assertThat(((Number) summary2.get("expensesPaidCents")).longValue()).isEqualTo(2_000_000L);

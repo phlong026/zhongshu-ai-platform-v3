@@ -196,17 +196,27 @@ public class EngExpenseService {
         return row;
     }
 
-    /** 项目费用清单 */
+    /**
+     * 项目费用清单（R1 P1-2：D-13 金额脱敏——非负责人/非财务不含 amountCents/payableId，
+     * 与结算屏 full 判定同口径：finance/负责人/受派工程师可见金额）。
+     */
     public List<Map<String, Object>> listByProject(PostSnapshot post, long projectId) {
+        FrEngProjectDO project = projectService.requireProject(post, projectId);
+        boolean full = EngProjectService.isFinanceOrAbove(post)
+                || post.userId() == project.getManagerUserId()
+                || (project.getAssignedEngineerUserId() != null
+                        && post.userId() == project.getAssignedEngineerUserId());
         return expenses.selectByProject(post.orgId(), projectId).stream()
                 .map(e -> {
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("expenseId", String.valueOf(e.getId()));
                     row.put("name", e.getName());
                     row.put("purpose", e.getPurpose());
-                    row.put("amountCents", e.getAmountCents());
                     row.put("status", e.getStatus());
-                    row.put("payableId", e.getPayableId() == null ? "" : String.valueOf(e.getPayableId()));
+                    if (full) {
+                        row.put("amountCents", e.getAmountCents());
+                        row.put("payableId", e.getPayableId() == null ? "" : String.valueOf(e.getPayableId()));
+                    }
                     return row;
                 }).toList();
     }
