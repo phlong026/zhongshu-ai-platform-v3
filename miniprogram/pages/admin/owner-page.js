@@ -35,7 +35,7 @@ module.exports = function(kind) {
       this.refresh();
       this.refreshPlatSummary();
     },
-    archivePlatSnapshot() { // M10-T03：快照写服务端（operating.snapshot）
+    archivePlatSnapshot() { // M10-T03：快照写服务端（operating.snapshot；period=选中月——历史月归档提交选中月）
       if (!PP.online()) return;
       const period = this.platPeriod || PP.currentPeriod();
       const requestGen = (this.platReqGen = (this.platReqGen || 0) + 1);
@@ -53,14 +53,22 @@ module.exports = function(kind) {
         });
     },
     refreshPlatView() { // 平台绩效视图（在线独占；零 demo 读写）
+      // M10-T03/R2 P1-7：渲染前核对缓存归属岗位——换岗后旧岗位汇总不进首屏（串台防护）
+      const currentPost = PP.apiPost();
+      if (this.platSummary && this.platSummaryPost
+          && currentPost && String(this.platSummaryPost) !== String(currentPost.postId)) {
+        this.platSummary = null; this.platSummaryKey = '';
+      }
       const view = this.kind;
       this.setData({
         ready: true, view, title: titles[view] || '', rows: [], total: 0, error: this.platDegraded
           ? '平台绩效数据加载失败，以下为本地演示数据（只读预览）' : '',
         platDegraded: !!this.platDegraded,
+        operatingDegraded: !!this.platOperatingDegraded, // R2 P2-9：经营接口独立降级可见
         desk: {
           name: '', company: '', date: '', sample: false,
           period: this.platPeriod, periodLabel: this.platPeriod,
+          operating: this.platSummary && this.platSummary.operating || null,
           performance: PP.platPerformance(this.platSummary, this.platPeriod, this.data.selectedDepartment),
           actor: { role: (PP.apiPost() || {}).roleCode || '', companyId: (PP.apiPost() || {}).orgId || '' }
         },
