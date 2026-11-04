@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 3. 工程凭据资产域侧校验：假 ID/跨组织/未 ACCEPTED 拒绝（validateReference），类型不符拒绝（assetTypeOf）。
  */
 @Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class, EngCollectionService.class,
+        EngClosureService.class,
         EngExpenseService.class,
         FranchiseCommands.class, CommandLogImpl.class,
         EngMaterialAndPlanGuardIntegrationTest.Config.class})
@@ -111,8 +112,13 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         }
 
         /** M07-T06：统一实收账桩——STATIC_COLLECTED 控制门禁读数；collectStage 记录并返回成功 */
-        static volatile long STAGE_COLLECTED = 0L;
+        static final String SIGN_AFTER = "SIGN_AFTER";
+        static final String BASE_DONE = "BASE_DONE";
+        static final String CAP_DONE = "CAP_DONE";
         static final java.util.List<String> COLLECT_CALLS = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+        /** R2 P2-5：按期次返回（SIGN_AFTER 全额/BASE_DONE+CAP_DONE=0）——三期累计=声明总额而非三倍 */
+        static volatile java.util.Map<String, Long> STAGE_COLLECTED_MAP = new java.util.concurrent.ConcurrentHashMap<>();
 
         @Bean
         cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStageAccountPort() {
@@ -124,7 +130,8 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
 
                 @Override
                 public long stageCollectedCents(PostSnapshot post, long contractId, String stage) {
-                    return STAGE_COLLECTED;
+                    Long v = STAGE_COLLECTED_MAP.get(stage);
+                    return v == null ? 0 : v;
                 }
 
                 @Override
@@ -173,6 +180,8 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     @Resource
     private EngCollectionService collectionsService;
     @Resource
+    private EngClosureService closuresService;
+    @Resource
     private cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContractsPort;
     @Resource
     private JdbcTemplate jdbc;
@@ -190,7 +199,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 + "asset_type VARCHAR(64) NOT NULL, accepted BOOLEAN NOT NULL, org_id BIGINT NOT NULL)");
         jdbc.update("DELETE FROM eng_test_asset WHERE org_id <> -1"); // 跨用例清理（R1 P3）
         Config.CONTRACT_STAGES = null; // 静态桩重置
-        Config.STAGE_COLLECTED = 0L;
+        Config.STAGE_COLLECTED_MAP.clear();
         Config.COLLECT_CALLS.clear();
         store = fixture.store();
         engineer = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
@@ -244,9 +253,9 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         // start 前置：节点日期齐备 + SIGN_AFTER 门禁（统一账读侧桩置累计 40800000=签约后期已收齐）
         jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
                 + "WHERE project_id = ?", projectId);
-        Config.STAGE_COLLECTED = 40800000L;
+        Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         // R1 P1-1：SIGN_AFTER 门禁读统一账——桩置累计 40800000（签约后期已收齐）
-        Config.STAGE_COLLECTED = 40800000L;
+        Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         as(engineer, () -> planService.start(engineer, projectId,
                 new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "实际开工", validAsset, true), idem()));
         // 基础完成节点留痕（非封顶节点 DONE）——completeNode 前置：材料合格到齐
@@ -323,7 +332,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         // start 前置：节点计划日期齐备；SIGN_AFTER 门禁读统一账——桩置累计 40800000（R1 P1-1 读侧）
         jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
                 + "WHERE project_id = ?", projectId);
-        Config.STAGE_COLLECTED = 40800000L;
+        Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         long fakeId = IDS.incrementAndGet();
         org.assertj.core.api.ThrowableAssert.ThrowingCallable startWithFake = () ->
                 as(engineer, () -> planService.start(engineer, projectId,
@@ -410,6 +419,80 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void deliverRejectsInvalidEvidenceAssets() {
+        // M09-T01/I01：交付凭据域侧校验——前置链到交付门口（节点全 DONE+材料到齐+全累计收款）
+        jdbc.update("UPDATE fr_eng_project SET customer_id = ? WHERE id = ?",
+                IDS.incrementAndGet(), projectId); // 交付全累计收款门禁走统一账读侧
+        long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+                + "WHERE project_id = ?", projectId);
+        long total = 40800000L + 18000000L + 9200000L;
+        jdbc.update("UPDATE fr_eng_collection_term SET amount_cents = 40800000 WHERE project_id = ? AND stage = 'SIGN_AFTER'", projectId);
+        jdbc.update("UPDATE fr_eng_collection_term SET amount_cents = 18000000 WHERE project_id = ? AND stage = 'BASE_DONE'", projectId);
+        jdbc.update("UPDATE fr_eng_collection_term SET amount_cents = 9200000 WHERE project_id = ? AND stage = 'CAP_DONE'", projectId);
+        Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
+        Config.STAGE_COLLECTED_MAP.put(Config.BASE_DONE, 18000000L);
+        Config.STAGE_COLLECTED_MAP.put(Config.CAP_DONE, 9200000L); // 交付全累计收款门禁（统一账读侧）
+        as(engineer, () -> planService.start(engineer, projectId,
+                new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "实际开工", validAsset, true), idem()));
+        jdbc.update("UPDATE fr_eng_material SET quantity = 15.000 WHERE id = ?", materialId);
+        jdbc.update("UPDATE fr_eng_supply SET quantity = 15.000 WHERE id = ?", supplyId);
+        long arrivalAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        jdbc.update("INSERT INTO fr_eng_supply_receipt (id, company_id, project_id, supply_id, kind, "
+                        + "transaction_no, occurred_at, file_asset_id, quality, actual_quantity, "
+                        + "author_user_id, create_time) "
+                        + "VALUES (?, ?, ?, ?, 'RECEIPT', 'TXN-DLV', CURRENT_DATE, ?, 'OK', 15.000, ?, now())",
+                IDS.incrementAndGet(), store.orgId(), projectId, supplyId, arrivalAsset, engineer.userId());
+        jdbc.update("UPDATE fr_eng_plan_node SET status = 'DONE' WHERE project_id = ?", projectId);
+
+        // 假 ID 交付凭据：拒绝（M09-T01 核心）
+        long fakeId = IDS.incrementAndGet();
+        assertThatThrownBy(() -> asVoid(engineer, () -> closuresService.deliver(engineer, projectId,
+                new EngClosureService.DeliverCommand(java.time.LocalDate.now(), "业主-陈先生", null, fakeId, "交付"), idem())))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("凭据资产不存在、未验收或不属于本组织");
+        // 未 ACCEPTED：拒绝
+        long unaccepted = insertAsset("ENG_SITE_PHOTO", false, store.orgId());
+        assertThatThrownBy(() -> asVoid(engineer, () -> closuresService.deliver(engineer, projectId,
+                new EngClosureService.DeliverCommand(java.time.LocalDate.now(), "业主-陈先生", null, unaccepted, "交付"), idem())))
+                .isInstanceOf(ServiceException.class);
+        // 合法凭据（交付+业主签收）：交付成功落列
+        long validEvidence = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        long ownerEvidence = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        // 固定成功交付的键——后续同键换资产用其重放（R3 P2：指纹含两资产 ID）
+        String deliverKey = idem();
+        java.util.Map<String, Object> delivered = as(engineer, () -> closuresService.deliver(engineer, projectId,
+                new EngClosureService.DeliverCommand(java.time.LocalDate.now(), "业主-陈先生", ownerEvidence, validEvidence, "交付"), deliverKey));
+        assertThat(delivered).isNotNull();
+        assertThat(jdbc.queryForObject(
+                "SELECT file_asset_id FROM fr_eng_closure WHERE project_id = ?", Long.class, projectId))
+                .isEqualTo(validEvidence);
+
+        // 同键换资产（fileAssetId 假资产）：IDEMPOTENCY_KEY_REUSED——指纹含资产 ID（R3 P2）
+        long fakeSwap = IDS.incrementAndGet();
+        assertThatThrownBy(() -> asVoid(engineer, () -> closuresService.deliver(engineer, projectId,
+                new EngClosureService.DeliverCommand(java.time.LocalDate.now(), "业主-陈先生", ownerEvidence, fakeSwap, "交付"), deliverKey)))
+                .isInstanceOf(ServiceException.class)
+                .extracting(e -> ((ServiceException) e).getCode())
+                .isEqualTo(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode());
+        // 同键换资产（ownerAssetId 假资产）：同样拒绝
+        long fakeSwapOwner = IDS.incrementAndGet();
+        assertThatThrownBy(() -> asVoid(engineer, () -> closuresService.deliver(engineer, projectId,
+                new EngClosureService.DeliverCommand(java.time.LocalDate.now(), "业主-陈先生", fakeSwapOwner, validEvidence, "交付"), deliverKey)))
+                .isInstanceOf(ServiceException.class)
+                .extracting(e -> ((ServiceException) e).getCode())
+                .isEqualTo(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode());
+        // 库内交付行仍是原凭据（未被换资产覆盖）
+        assertThat(jdbc.queryForObject(
+                "SELECT file_asset_id FROM fr_eng_closure WHERE project_id = ?", Long.class, projectId))
+                .isEqualTo(validEvidence);
+        assertThat(jdbc.queryForObject(
+                "SELECT owner_asset_id FROM fr_eng_closure WHERE project_id = ?", Long.class, projectId))
+                .isEqualTo(ownerEvidence); // R4 P2：双凭据保留断言闭环
+    }
+
+    @Test
     void validAcceptedAssetOfAllowedTypePasses() {
         long contractAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId,
@@ -480,6 +563,15 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     private BigDecimal quantityOf(long materialId) {
         return jdbc.queryForObject("SELECT quantity FROM fr_eng_material WHERE id = ?",
                 BigDecimal.class, materialId);
+    }
+
+    private void asVoid(PostSnapshot post, Runnable action) {
+        currentPost.use(post);
+        try {
+            action.run();
+        } finally {
+            currentPost.clear();
+        }
     }
 
     private <T> T as(PostSnapshot post, java.util.function.Supplier<T> action) {

@@ -767,7 +767,8 @@ public class EngPlanService {
      * M07-T03/I04：工程凭据资产引用校验——存在+ACCEPTED+本组织属主（validateReference）+类型白名单。
      * 假 ID/跨组织/未验收/错误类型全部拒绝；不再只判 assetId 非空。
      */
-    private void requireValidAsset(PostSnapshot post, Long assetId, java.util.Set<String> allowedTypes, String usage) {
+    // M09-T01：package-visible——EngClosureService.deliver 交付凭据复用同一校验（同包）
+    void requireValidAsset(PostSnapshot post, Long assetId, java.util.Set<String> allowedTypes, String usage) {
         if (assetId == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "请上传有效的" + usage + "凭据");
         }

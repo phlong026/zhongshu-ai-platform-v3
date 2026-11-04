@@ -50,6 +50,7 @@ public class EngClosureService {
     private final FranchiseCommands commands;
     private final cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages;
     private final EngineeringLedgerQueryPort ledger;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public EngClosureService(EngProjectService projectService, EngPlanService planService,
                              FrEngClosureMapper closures, cn.iocoder.yudao.module.franchise.engineering.dal.FrEngExpenseMapper expenses,
@@ -57,6 +58,7 @@ public class EngClosureService {
                              FrEngCollectionTermMapper collectionTerms, FrEngCollectionMapper collections,
                              FrEngSupplyMapper supplies, FrEngMaterialMapper materials,
                              FranchiseCommands commands, EngineeringLedgerQueryPort ledger,
+                             org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
                              cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages) {
         this.projectService = projectService;
         this.planService = planService;
@@ -70,6 +72,7 @@ public class EngClosureService {
         this.commands = commands;
         this.unifiedStages = unifiedStages;
         this.ledger = ledger;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public record DeliverCommand(LocalDate date, String recipient, Long ownerAssetId, Long fileAssetId, String note) {
@@ -82,15 +85,19 @@ public class EngClosureService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> deliver(PostSnapshot post, long projectId, DeliverCommand cmd, String idempotencyKey) {
-        FrEngProjectDO project = projectService.requireOwned(post, projectId, "deliver");
-        // 重放输入=落账输入（评审十三 P1-3）：统一用 cmd 原始值的确定性归一形状
+        // R3 P2：重放检查提到动作域白名单之前——已交付项目同键换资产重放必须命中既有记录
+        //（否则白名单拒绝 FORBIDDEN 掩盖了「换资产提交」的真实语义）；指纹含两资产 ID
         Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("projectId", projectId);
         payload.put("date", cmd.date() == null ? "" : cmd.date().toString());
         payload.put("recipient", StrUtil.nullToEmpty(cmd.recipient()));
+        payload.put("ownerAssetId", cmd.ownerAssetId() == null ? "" : String.valueOf(cmd.ownerAssetId()));
+        payload.put("fileAssetId", cmd.fileAssetId() == null ? "" : String.valueOf(cmd.fileAssetId()));
         var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return projectService.detail(post, projectId);
         }
+        FrEngProjectDO project = projectService.requireOwned(post, projectId, "deliver");
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
         if (project.getActualStartAt() == null
                 || nodes.stream().anyMatch(n -> !FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()))) {
@@ -101,14 +108,39 @@ public class EngClosureService {
         }
         long expectedTotal = collectionTerms.selectByProject(post.orgId(), projectId).stream()
                 .mapToLong(FrEngCollectionTermDO::getAmountCents).sum();
-        long received = collections.selectByProject(post.orgId(), projectId).stream()
-                .mapToLong(FrEngCollectionDO::getAmountCents).sum();
+        // M09-T03/R2 P1-1：全累计收款门禁走统一账净口径（有统一合同经 UnifiedStageAccountPort——
+        // 已核实净实收；无合同回退工程留痕行）。「资金不足不抹去已施工事实」——门禁仅拦交付动作
+        // R1 P1-3：以工程档案冻结合同为准（sale_contract_id 复用 M06-T03 列）——作废重签后
+        // B 合同收款不得放行 A 合同的工程交付；未冻结回退当前活跃（存量兼容）
+        Long uContractId;
+        try {
+            uContractId = jdbcTemplate.queryForObject(
+                    "SELECT sale_contract_id FROM fr_eng_project WHERE id = ?", Long.class, projectId);
+        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+            uContractId = null;
+        }
+        if (uContractId == null) {
+            uContractId = project.getCustomerId() == null ? null
+                    : unifiedStages.activeContractId(post, project.getCustomerId());
+        }
+        long received = uContractId != null
+                ? unifiedStages.stageCollectedCents(post, uContractId, "SIGN_AFTER")
+                        + unifiedStages.stageCollectedCents(post, uContractId, "BASE_DONE")
+                        + unifiedStages.stageCollectedCents(post, uContractId, "CAP_DONE")
+                : collections.selectByProject(post.orgId(), projectId).stream()
+                        .mapToLong(FrEngCollectionDO::getAmountCents).sum();
         if (received < expectedTotal) {
             throw exception(GATE_NOT_MET); // 全累计收款门禁（operations.js rank：delivery 前全收齐）
         }
         LocalDate date = cmd.date() == null ? LocalDate.now() : cmd.date();
         if (StrUtil.isBlank(cmd.recipient()) || cmd.fileAssetId() == null || date.isAfter(LocalDate.now())) {
             throw exception(ENGINEERING_INPUT_INVALID, "请留存业主签收人及交付凭据");
+        }
+        // M09-T01/I01：交付凭据资产域侧校验（复用 EngPlanService 同款——假 ID/跨组织/未 ACCEPTED/类型不符全拒）
+        java.util.Set<String> deliverTypes = java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING");
+        planService.requireValidAsset(post, cmd.fileAssetId(), deliverTypes, "交付");
+        if (cmd.ownerAssetId() != null) { // 业主签收凭据（可空字段，填了就校验）
+            planService.requireValidAsset(post, cmd.ownerAssetId(), deliverTypes, "业主签收");
         }
         closures.updateById(new FrEngClosureDO().setId(closures.selectByProject(post.orgId(), projectId).getId())
                 .setDeliveredAt(date).setRecipient(StrUtil.trim(cmd.recipient()))

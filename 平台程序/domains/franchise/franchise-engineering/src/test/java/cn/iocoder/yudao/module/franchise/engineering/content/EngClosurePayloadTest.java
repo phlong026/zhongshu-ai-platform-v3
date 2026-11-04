@@ -50,6 +50,7 @@ class EngClosurePayloadTest {
                 mock(FrEngPlanNodeMapper.class), collectionTerms,
                 collections, supplies,
                 mock(FrEngMaterialMapper.class), commands, ledger,
+                mock(org.springframework.jdbc.core.JdbcTemplate.class),
                 mock(cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.class));
 
         PostSnapshot post = new PostSnapshot(11L, 7L, 100L, "shop", "project-manager",

@@ -318,6 +318,65 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
                 "SELECT COUNT(*) FROM fr_sale_stage_receipt WHERE stage_id = ?", Long.class, signStageId)).isEqualTo(1);
     }
 
+    @Test
+    void refundReducesNetAndReopensStageForBackfill() {
+        // M09-T03/R2：退款后净额 < 期额 → SETTLED 期恢复补收（SETTLED 保持，不违反 CHECK）；
+        // stageSummary 四列对账（gross/refunded/net/remaining）
+        long customerId = newCustomer();
+        SaleContractDO created = as(salesA1, () -> contracts.create(salesA1, contract(
+                customerId, 30_000_000L, 30_000_000L, 0L, 0L), idem()));
+        as(salesA1, () -> contracts.sign(salesA1, created.getId(),
+                new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
+                revisionOf(created.getId()), idem()));
+        long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
+        as(salesA1, () -> contracts.collect(salesA1, signStageId,
+                new SaleContractService.CollectCommand(30_000_000L, "bank", txn(), java.time.LocalDate.now()), idem()));
+        assertThat(stageStatus(created.getId(), "SIGN_AFTER")).isEqualTo("SETTLED");
+
+        // 退款 1000 万（fr_fin_refund 行预置，关联该分笔 receipt；status=已核实）
+        Long receiptId = jdbc.queryForObject(
+                "SELECT receipt_id FROM fr_sale_stage_receipt WHERE stage_id = ? LIMIT 1", Long.class, signStageId);
+        jdbc.update("INSERT INTO fr_fin_refund (id, receipt_id, company_id, amount_cents, status, reason, "
+                        + "operator_user_id, create_time) VALUES (?, ?, ?, 10000000, '已核实', '金额误录', 99, now())",
+                PHONES.incrementAndGet(), receiptId, store.orgId());
+
+        // 净口径：stageCollected = 3000 万 - 1000 万 = 2000 万 < 期额 3000 万 → SETTLED 恢复可补收
+        // R3 P2：分两笔补收——首笔后断言仍 SETTLED 且 paid_* 保持原值（检出 wasSettled 删除故障：
+        // 若删，首笔后转 OPEN 违反 paid_* 非空 CHECK 直接报错，测试即红）
+        long firstBackfill = 5_000_000L;
+        var backfill1 = as(salesA1, () -> contracts.collect(salesA1, signStageId,
+                new SaleContractService.CollectCommand(firstBackfill, "bank", txn(), java.time.LocalDate.now()), idem()));
+        assertThat(backfill1.get("stageStatus")).isEqualTo("SETTLED"); // 首笔补收后仍 SETTLED（wasSettled 路径）
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_sale_payment_stage WHERE id = ?",
+                String.class, signStageId)).isEqualTo("SETTLED");
+        // 分笔态 SETTLED 行 paid_* 恒 NULL（存量整期核销行才冻结保留 paid_*——分笔协议不写，误写即检）
+        assertThat(jdbc.queryForObject(
+                "SELECT paid_receipt_id IS NULL FROM fr_sale_payment_stage WHERE id = ?", Boolean.class, signStageId))
+                .isTrue();
+
+        // 第二笔补收后净累计=期额（补收完成）
+        long secondBackfill = 5_000_000L;
+        var backfill2 = as(salesA1, () -> contracts.collect(salesA1, signStageId,
+                new SaleContractService.CollectCommand(secondBackfill, "bank", txn(), java.time.LocalDate.now()), idem()));
+        assertThat(backfill2.get("stageStatus")).isEqualTo("SETTLED");
+        // 净累计核对：3000 万（净）+500 万+500 万 = 4000 万？——净口径=毛额-退款：毛 4000 万-退款 1000 万=3000 万=期额
+        Long net = jdbc.queryForObject(
+                "SELECT COALESCE(SUM(r.amount_cents),0) - COALESCE((SELECT SUM(g.amount_cents) FROM fr_fin_refund g "
+                        + "JOIN fr_sale_stage_receipt r2 ON r2.receipt_id = g.receipt_id WHERE r2.stage_id = ? "
+                        + "AND g.status = '已核实' AND g.replaced_by_id IS NULL),0) "
+                        + "FROM fr_sale_stage_receipt r WHERE r.stage_id = ?", Long.class, signStageId, signStageId);
+        assertThat(net).isEqualTo(30_000_000L);
+
+        // 四列对账：gross=4000 万/refunded=1000 万/net=3000 万/remaining=0
+        var summary = as(salesA1, () -> contracts.stageSummary(salesA1, created.getId()));
+        var signRow = summary.stream().filter(r -> "SIGN_AFTER".equals(r.get("stage"))).findFirst().orElseThrow();
+        System.out.println("[DBG-keys] " + signRow.keySet());
+        assertThat(((Number) signRow.get("grossCents")).longValue()).isEqualTo(40_000_000L);
+        assertThat(((Number) signRow.get("refundedCents")).longValue()).isEqualTo(10_000_000L);
+        assertThat(((Number) signRow.get("collectedCents")).longValue()).isEqualTo(30_000_000L);
+        assertThat(((Number) signRow.get("balanceCents")).longValue()).isZero();
+    }
+
     // ========== 统一视图契约 ==========
 
     @Test

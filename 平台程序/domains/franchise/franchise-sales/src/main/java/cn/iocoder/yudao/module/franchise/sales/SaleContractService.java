@@ -274,10 +274,10 @@ public class SaleContractService {
                     || stage.getContractId().longValue() != contract.getId().longValue()) {
                 throw exception(STAGE_ALREADY_PAID); // 锁间隙期归属变化——保守拒绝
             }
-            // ④收满拒绝：SETTLED 或分笔累计已达期额（存量 SETTLED 有迁移映射分笔行）
-            long collected = stageReceipts.selectByStage(stageId).stream()
-                    .mapToLong(SaleStageReceiptDO::getAmountCents).sum();
-            if (SalePaymentStageDO.STATUS_SETTLED.equals(stage.getStatus()) || collected >= stage.getAmountCents()) {
+            // ④收满拒绝（M09-T03/R1 净口径）：退款后净额 < 期额 → 期次回到可收（SETTLED 状态恢复补收——
+            // 「资金门槛按已核实净实收」；补收后仍 SETTLED）
+            long collected = stageCollectedInTx(stageId);
+            if (collected >= stage.getAmountCents()) {
                 throw exception(STAGE_ALREADY_PAID);
             }
             // ⑤分笔金额校验：>0 且不超期剩余（正常归单限额；退多收不伪造新欠款由退款契约保证）
@@ -305,16 +305,19 @@ public class SaleContractService {
                     customerName(contract) + "·" + stageLabel(stage.getStage()) + "回款",
                     cmd.amountCents(), cmd.method(), cmd.transactionNo(), effectiveDate);
             var saved = businessReceipts.registerBusinessReceipt(post, cmd2);
-            // ⑧分笔关联 + 期状态推进（PENDING→OPEN 首笔；累计=期额 → SETTLED）
+            // ⑧分笔关联 + 期状态推进（R2 P1：SETTLED 补收保持 SETTLED——存量行 paid_* 非空，
+            // 转 OPEN 违反 CHECK；仅 PENDING/OPEN 流转状态）
             stageReceipts.insert(new SaleStageReceiptDO()
                     .setCompanyId(stage.getCompanyId()).setContractId(contract.getId())
                     .setStageId(stageId).setReceiptId(saved.receiptId())
                     .setAmountCents(cmd.amountCents()));
             long after = collected + cmd.amountCents();
-            String nextStatus = after >= stage.getAmountCents()
-                    ? SalePaymentStageDO.STATUS_SETTLED : SalePaymentStageDO.STATUS_OPEN;
+            boolean wasSettled = SalePaymentStageDO.STATUS_SETTLED.equals(stage.getStatus());
+            String nextStatus = wasSettled ? SalePaymentStageDO.STATUS_SETTLED
+                    : (after >= stage.getAmountCents()
+                            ? SalePaymentStageDO.STATUS_SETTLED : SalePaymentStageDO.STATUS_OPEN);
             jdbcTemplate.update(
-                    "UPDATE fr_sale_payment_stage SET status=? WHERE id=? AND status IN ('PENDING','OPEN')",
+                    "UPDATE fr_sale_payment_stage SET status=? WHERE id=? AND status IN ('PENDING','OPEN','SETTLED')",
                     nextStatus, stageId);
             // ⑨键绑定+审计（aggregateId=receiptId；stageId 在 payload 留痕）
             commands.record(post, "fr-sale-stage", saved.receiptId(), IdWorker.getId(),
@@ -330,11 +333,34 @@ public class SaleContractService {
      * M06-T04 统一视图契约（M06-T02 双端/M10 统计引用冻结）：各期约定额/累计分笔/余额/状态。
      * refundedCents 预留退款净额（关联随 M08 退款契约接入，当前恒 0——退款只改净实收不改期约定额）。
      */
-    /** M07-T06：期累计实收（Σ分笔，统一账读侧——Adapter 经此汇总；只读无事务要求） */
+    /**
+     * M07-T06/M09-T03：期累计实收净口径（统一账读侧——Adapter 经此汇总）。
+     * 净额 = Σ有效分笔 - Σ已核实退款（fr_fin_refund，替代链 closed 行不计——replaced_by_id IS NULL）。
+     * 「退回减已付现金、不因退款自动减合同额；资金门槛按已核实净实收」。
+     */
     public long stageCollected(PostSnapshot post, long stageId) {
-        return stageReceipts.selectByStage(stageId).stream()
-                .mapToLong(cn.iocoder.yudao.module.franchise.sales.dal.SaleStageReceiptDO::getAmountCents)
-                .sum();
+        Long net = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(r.amount_cents), 0) - COALESCE((SELECT SUM(g.amount_cents) "
+                        + "FROM fr_fin_refund g JOIN fr_sale_stage_receipt r2 ON r2.receipt_id = g.receipt_id "
+                        + "WHERE r2.stage_id = ? AND g.status = '已核实' "
+                        + "AND g.replaced_by_id IS NULL), 0) "
+                        + "FROM fr_sale_stage_receipt r "
+                        + "WHERE r.stage_id = ?",
+                Long.class, stageId, stageId);
+        return net;
+    }
+
+    /** collect 事务内净口径（同 stageCollected SQL——Σ分笔-Σ已核实退款） */
+    private long stageCollectedInTx(long stageId) {
+        Long net = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(r.amount_cents), 0) - COALESCE((SELECT SUM(g.amount_cents) "
+                        + "FROM fr_fin_refund g JOIN fr_sale_stage_receipt r2 ON r2.receipt_id = g.receipt_id "
+                        + "WHERE r2.stage_id = ? AND g.status = '已核实' "
+                        + "AND g.replaced_by_id IS NULL), 0) "
+                        + "FROM fr_sale_stage_receipt r "
+                        + "WHERE r.stage_id = ?",
+                Long.class, stageId, stageId);
+        return net;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -344,15 +370,26 @@ public class SaleContractService {
         lockContract(post, contractId);
         java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
         for (SalePaymentStageDO stage : stages.selectByContract(contractId)) {
-            long collected = stageReceipts.selectByStage(stage.getId()).stream()
-                    .mapToLong(SaleStageReceiptDO::getAmountCents).sum();
+            // R2 P2-4：四列对账——gross 毛额（Σ全部分笔）/ refunded 退款（已核实）/ net 净额 / 剩余按净额
+            Long grossQ = jdbcTemplate.queryForObject(
+                    "SELECT COALESCE(SUM(r.amount_cents), 0) FROM fr_sale_stage_receipt r WHERE r.stage_id = ?",
+                    Long.class, stage.getId());
+            Long refundedQ = jdbcTemplate.queryForObject(
+                    "SELECT COALESCE((SELECT SUM(g.amount_cents) FROM fr_fin_refund g "
+                            + "JOIN fr_sale_stage_receipt r2 ON r2.receipt_id = g.receipt_id "
+                            + "WHERE r2.stage_id = ? AND g.status = '已核实' AND g.replaced_by_id IS NULL), 0)",
+                    Long.class, stage.getId());
+            long gross = grossQ == null ? 0 : grossQ;
+            long refunded = refundedQ == null ? 0 : refundedQ;
+            long collected = stageCollected(post, stage.getId()); // 净口径（gross-refunded）
             Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
             row.put("stageId", stage.getId());
             row.put("stage", stage.getStage());
             row.put("label", stageLabel(stage.getStage()));
             row.put("amountCents", stage.getAmountCents());
             row.put("collectedCents", collected);
-            row.put("refundedCents", 0L); // M08 退款关联契约接入前恒 0
+            row.put("grossCents", gross);
+            row.put("refundedCents", refunded); // M09-T03：真实退款（已核实）——毛额/退款/净额可对账
             row.put("balanceCents", Math.max(0, stage.getAmountCents() - collected));
             row.put("status", stage.getStatus());
             rows.add(row);
