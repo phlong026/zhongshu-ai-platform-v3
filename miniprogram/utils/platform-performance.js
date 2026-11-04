@@ -217,7 +217,9 @@ function commissionRowView(row, roleCode, projectName) {
     assignee: row.assigneeName,
     version: row.version,
     stages: (row.stages || []).map(stage => ({
-      stage: stage.stage === 'TOPPING' ? 'topping' : 'start',
+      // M10-T05：三期映射（SIGN_AFTER→start/BASE_DONE→base/CAP_DONE→topping；存量 START/TOPPING 兼容）
+      stage: stage.stage === 'SIGN_AFTER' || stage.stage === 'START' ? 'start'
+        : stage.stage === 'BASE_DONE' ? 'base' : 'topping',
       label: stage.label,
       status: stage.status,
       payableId: stage.payableId == null ? '' : String(stage.payableId),
@@ -229,7 +231,8 @@ function commissionRowView(row, roleCode, projectName) {
       outstandingText: centsText(stage.outstandingCents),
       canRelease: finance && stage.eligible && !stage.payableId,
       canPay: false,
-      canReconcile: actualBoss && stage.reviewDue && stage.eligible,
+      // M10-T05/R2 P2：已付差额核对入口（paid>0 即使净额不足也可核对——后端已付留痕路径）
+      canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.paidCents || 0) > 0),
       reason: stage.reviewDue ? '原收款已变化，未付部分暂停；已付差额只待人工核对，不代表已追回。'
         : !stage.eligible ? '阶段款尚未收齐，暂不能发放。'
         : stage.payableId ? '应付已生成，请到财务工作台办理付款。' : '阶段款已足额，可由财务生成本期应付。'
@@ -373,9 +376,14 @@ async function perform(action, payload) {
         typeof p.evidenceRef === 'string' ? p.evidenceRef : JSON.stringify(p.evidenceRef || { name: '提成确认凭据' }),
         p.note, key);
     case 'release':
-      return api.commission.release(String(p.projectId), p.stage === 'topping' ? 'TOPPING' : 'START', key);
+      // M10-T05：三期期次映射（BASE_DONE→BASE_DONE；CAP_DONE→CAP_DONE；存量 start→SIGN_AFTER）
+      const releaseStage = p.stage === 'topping' ? 'CAP_DONE'
+        : p.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER';
+      return api.commission.release(String(p.projectId), releaseStage, key);
     case 'reconcile':
-      return api.commission.reconcile(String(p.projectId), p.stage === 'topping' ? 'TOPPING' : 'START',
+      const reconcileStage = p.stage === 'topping' ? 'CAP_DONE'
+        : p.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER';
+      return api.commission.reconcile(String(p.projectId), reconcileStage,
         typeof p.evidenceRef === 'string' ? p.evidenceRef : JSON.stringify(p.evidenceRef || { name: '人工核对凭据' }),
         p.note, key);
     case 'month-reconcile':

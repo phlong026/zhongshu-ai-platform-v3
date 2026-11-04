@@ -35,6 +35,23 @@ module.exports = function(kind) {
       this.refresh();
       this.refreshPlatSummary();
     },
+    archivePlatSnapshot() { // M10-T03：快照写服务端（operating.snapshot）
+      if (!PP.online()) return;
+      const period = this.platPeriod || PP.currentPeriod();
+      const requestGen = (this.platReqGen = (this.platReqGen || 0) + 1);
+      PP.api.operating.snapshot(period, '老板端月度归档', 'snap-' + period + '-' + requestGen)
+        .then(() => {
+          if (requestGen !== this.platReqGen) return;
+          wx.showToast({ title: '快照已归档', icon: 'success' });
+          this.refreshPlatSummary();
+        })
+        .catch((e) => {
+          if (requestGen !== this.platReqGen) return;
+          // R2 P2：002 签名未变化=数据无修订（提示非错误）；HTTP 层字段为 message
+          const msg = (e && (e.message || e.msg)) || '归档失败';
+          wx.showToast({ title: msg.indexOf('002') >= 0 || msg.indexOf('锁定') >= 0 ? '数据无修订，已有快照' : msg, icon: 'none' });
+        });
+    },
     refreshPlatView() { // 平台绩效视图（在线独占；零 demo 读写）
       const view = this.kind;
       this.setData({
@@ -56,17 +73,33 @@ module.exports = function(kind) {
       const period = this.platPeriod || PP.currentPeriod();
       const cacheKey = period + ':' + (post ? post.postId : '');
       const requestGen = (this.platReqGen = (this.platReqGen || 0) + 1);
-      Promise.all([PP.api.tasks.summary(period), PP.api.goals.get(period)])
-        .then(([summary, goals]) => {
-          if (requestGen !== this.platReqGen) return; // 迟到响应丢弃
-          this.platSummary = { summary, goals };
+      // M10-T03：在线余额三源并行——任务/目标/经营 analytics（与财务一致；迟到响应丢弃防串台）
+      Promise.all([PP.api.tasks.summary(period), PP.api.goals.get(period),
+        PP.api.operating.analytics(period).catch(() => null)])
+        .then(([summary, goals, operating]) => {
+          if (requestGen !== this.platReqGen) return; // 迟到响应丢弃（退出/换岗不串台）
+          this.platSummary = { summary, goals, operating };
           this.platSummaryKey = cacheKey;
+          this.platSummaryPost = post.postId; // M10-T03：缓存归属岗位（换岗不串台）
           this.platDegraded = false;
+          this.platOperatingDegraded = operating == null; // R2 P2：经营接口失败独立降级标记
           if (this.kind === 'performance') this.refreshPlatView();
+          // M10-T03 P1：home/finance 视图在线余额转页面（operating 真源——不再读本地账）
+          if ((this.kind === 'home' || this.kind === 'finance') && operating) {
+            this.setData({ operating: {
+              incomeText: ((operating.trend || []).slice(-1).pop() || {}).incomeCents,
+              paidText: ((operating.trend || []).slice(-1).pop() || {}).paidCents,
+              netText: ((operating.trend || []).slice(-1).pop() || {}).netCents,
+              receivableCents: (operating.totals || {}).receivableOutstandingCents,
+              payableOutstandingCents: (operating.totals || {}).payableOutstandingCents,
+              period
+            }});
+          }
         })
         .catch(() => {
           if (requestGen !== this.platReqGen) return;
           this.platSummary = null; this.platSummaryKey = ''; this.platDegraded = true;
+          this.platOperatingDegraded = false;
           if (this.kind === 'performance') this.refreshPlatView(); // R2 P2-6：失败同步可见状态
         });
     },
@@ -203,6 +236,8 @@ module.exports = function(kind) {
       }});
     },
     archiveOperating() {
+      // M10-T03 P1：在线态分流到服务端快照（operating.snapshot 快照写服务端）；本地 demo 保持 M.mutate
+      if (PP.online()) return this.archivePlatSnapshot();
       const snapshot=this.ownerSnapshot, info=this.data.desk.business.snapshotInfo;
       if(!info.canArchive) return;
       const expectedSignature=require('../../utils/operating-report').sourceSignature(snapshot.state,snapshot.period);
