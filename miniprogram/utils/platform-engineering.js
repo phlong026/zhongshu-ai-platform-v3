@@ -61,16 +61,20 @@ function nodeRows(nodes) {
  * expected/confirmed/remaining 照离线分支口径输出分→元文本（wxml 直接渲染），Text 系键同源不另造实现；
  * url 经可选 urlOf(stage) 注入（settle 汇总复用本函数时不传）。 */
 function stagesView(stages, urlOf) {
+  // M07-T02：三期映射（SIGN_AFTER 签约后/BASE_DONE 基础完成后/CAP_DONE 封顶后；存量 START/TOPPING 兼容）
+  const STAGE_NAME = { SIGN_AFTER: '签约后期款', BASE_DONE: '基础完成后期款', CAP_DONE: '封顶后期款',
+    START: '开工款', TOPPING: '封顶款' };
+  const STAGE_URL = { SIGN_AFTER: 'start', BASE_DONE: 'base', CAP_DONE: 'topping', START: 'start', TOPPING: 'topping' };
   return (stages || []).map(s => {
     const expected = centsText(s.expectedCents), confirmed = centsText(s.confirmedCents), remaining = centsText(s.remainingCents);
     return {
-      stage: s.stage === 'TOPPING' ? 'topping' : 'start',
-      name: s.stage === 'TOPPING' ? '封顶款' : '开工款',
+      stage: STAGE_URL[s.stage] || 'start',
+      name: STAGE_NAME[s.stage] || s.stage,
       expected, confirmed, remaining, due: dateOf(s.due),
       expectedText: expected, confirmedText: confirmed, remainingText: remaining,
       settled: (s.confirmedCents || 0) >= (s.expectedCents || 0) && (s.expectedCents || 0) > 0,
       status: (s.expectedCents || 0) > 0 && (s.remainingCents || 0) <= 0 ? '已收齐' : '待财务登记收款',
-      url: urlOf ? urlOf(s.stage === 'TOPPING' ? 'topping' : 'start') : ''
+      url: urlOf ? urlOf(STAGE_URL[s.stage] || 'start') : ''
     };
   });
 }
@@ -238,12 +242,25 @@ async function perform(action, id, form, node, key) {
   if (VOUCHER_ACTIONS.includes(action)) throw { code: 0, msg: '在线凭据上传通道随 COS 批开放，本操作暂请在本地演示态办理' };
   const dateStr = f.date || null;
   switch (action) {
-    case 'prepare':
+    case 'prepare': {
+      // M07-T02：三期约定（签约后>0；基础完成后/封顶后≥0 允许 0=未约定，未填默认 0；
+      // Σ须=总额，后端并与统一合同对齐校验）——R1 P2-8：0 值不被 yuan() 的 >0 校验拒绝
+      const stageAmount = (label) => {
+        const raw = String(f[label] == null ? '' : f[label]).trim();
+        if (!raw) return 0;
+        const v = Number(raw);
+        if (!Number.isFinite(v) || v < 0) throw { code: 0, msg: label + '金额须为不小于 0 的数字' };
+        return v;
+      };
       return api.plan.prepare(id, {
-        total: yuan(f, 'total', '合同总额'), first: yuan(f, 'first', '开工款'),
+        total: yuan(f, 'total', '合同总额'),
+        signAfter: yuan(f, 'signAfter', '签约后'),
+        baseDone: stageAmount('baseDone'),
+        capDone: stageAmount('capDone'),
         contractAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING'),
         note: f.note, workers: f.workers || ''
       }, key);
+    }
     case 'start':
       return api.plan.start(id, { date: dateStr, note: f.note || '',
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING') }, key);
@@ -462,7 +479,8 @@ function recordView(bundle, ctx) {
     settlementUrl: base + 'settlement',
     paceDone: nodes.filter(n => n.status === '已完成').length, paceTotal: nodes.length,
     paceOverdue: nodes.filter(n => n.status !== '已完成' && n.end && today && n.end < today).length,
-    stage, stageText: p.stageText, partLabel: stage === 'start' ? '开工款' : '封顶款',
+    stage, stageText: p.stageText, partLabel: stage === 'base' ? '基础完成后期款'
+      : stage === 'topping' ? '封顶后期款' : '签约后期款',
     own, canPay: false, finance: false, // 收款登记/采购金额为凭据类动作，随 COS 批开放
     canAdjust: own && !delivery && !!plan, canTerms: false,
     termsLocked: !!(plan && plan.payment === '已付清'),
