@@ -11,7 +11,7 @@ module.exports = function attach(page, financeApi, PF) {
   };
   page.cancelRegister = function () {
     this.registerIdem = null; // M08-T04：放弃表单换新键
-    this.setData({ registerType: '', registerError: '', revisionForm: null,
+    this.setData({ registerType: '', registerError: '', registerBusy: false, revisionForm: null, // busy 一并解除：挂起请求放弃后不阻塞下次提交
       policyKey: null, policyKeyCtx: null, reconcileKey: null, reconcileKeyCtx: null });
   };
   page.registerInput = function (e) {

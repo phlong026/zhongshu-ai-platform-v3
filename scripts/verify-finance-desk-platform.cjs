@@ -234,20 +234,26 @@ console.log('[AC] M08-T04：响应丢失同键重试（register 粘性键）+ �
   deferred.resolve(1);
   await new Promise(r => setImmediate(r));
   ok(stickyKey() === null, '成功路径清空粘性键（下一笔新周期）');
-  // ③ cancel：重新生成键后 cancel 清空
+  // ③ cancel：建立非空键前提（挂起请求在途）→ cancel 清空（Codex R2 P2：空键起点断言必假绿）
+  page.setData({ registerType: 'payment', registerForm: { amount: '1', payableId: '1', recipient: '供应商' } });
   page.submitRegister();
   await new Promise(r => setImmediate(r));
   const key3 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
+  ok(stickyKey() === key3 && stickyKey() !== null, 'cancel 前粘性键非空（前提成立才可验证清键）');
   page.cancelRegister();
   ok(page.registerIdem === null, 'cancel 路径清空粘性键');
-  ok(key3 !== null, 'cancel 前键存在');
-  // ④ open：新开表单清空（提交即生成新键）
+  ok(page.data.registerBusy === false, 'cancel 解除 busy 占位（关表单即解锁，不阻塞下次提交）');
+  // ④ open：open 后提交生成新周期键（独立于 cancel 起点）
   page.openRegister({ currentTarget: { dataset: { type: 'payment' } } });
   page.setData({ registerForm: { amount: '1', payableId: '1', recipient: '供应商' } });
   page.submitRegister();
   await new Promise(r => setImmediate(r));
   const key4 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
+  console.log('  [DBG] key3=', key3, 'key4=', key4);
   ok(key4 !== key3, 'open 后新周期新键');
+  // 挂起响应释放（避免悬挂 promise）
+  deferred.resolve(1);
+  await new Promise(r => setImmediate(r));
 }
 
 console.log('[AC] M08-T01/T03：缺省键 5 函数真实调用（隔离沙箱）+ sha256 标准向量');
