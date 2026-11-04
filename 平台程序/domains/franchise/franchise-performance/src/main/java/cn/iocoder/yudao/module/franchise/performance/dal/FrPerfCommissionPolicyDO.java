@@ -24,6 +24,8 @@ public class FrPerfCommissionPolicyDO {
     private Long assigneeUserId;
     private String assigneeName;
     private Long startCents;
+    /** M10-T07：基础完成后期提成约定（三期化；0=未约定） */
+    private Long baseDoneCents;
     private Long toppingCents;
     private Integer version;
     private String history;

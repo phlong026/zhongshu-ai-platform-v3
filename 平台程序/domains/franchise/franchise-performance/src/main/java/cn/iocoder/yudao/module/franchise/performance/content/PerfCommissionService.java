@@ -55,7 +55,8 @@ public class PerfCommissionService {
     // ===================== 策略（严格 boss） =====================
 
     @Transactional(rollbackFor = Exception.class)
-    public Map<String, Object> policy(PostSnapshot post, long projectId, long totalCents, long assigneeUserId,
+    public Map<String, Object> policy(PostSnapshot post, long projectId, long totalCents, long baseDoneCents,
+                                      long assigneeUserId,
                                       String assigneeName, String evidenceRef, String note,
                                       String idempotencyKey) {
         if (!"boss".equals(post.roleCode())) {
@@ -64,6 +65,7 @@ public class PerfCommissionService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("projectId", projectId);
         payload.put("totalCents", totalCents);
+        payload.put("baseDoneCents", baseDoneCents);
         payload.put("assigneeUserId", assigneeUserId);
         payload.put("assigneeName", StrUtil.nullToEmpty(assigneeName));
         payload.put("evidenceRef", StrUtil.nullToEmpty(evidenceRef));
@@ -93,8 +95,21 @@ public class PerfCommissionService {
         if (projectOrgs.isEmpty() || projectOrgs.get(0) == null || projectOrgs.get(0) != post.orgId()) {
             throw exception(PERF_INPUT_INVALID, "工程不存在或不属于当前组织"); // R2 P2-7：零行稳定返回 001
         }
-        long start = totalCents / 2;
-        long topping = totalCents - start;
+        // M10-T07：三期拆分（签约后/基础完成后/封顶后；baseDone≥0，Σ三期=total；不发明固定比例）
+        if (baseDoneCents < 0 || baseDoneCents > totalCents) {
+            throw exception(PERF_INPUT_INVALID, "基础完成后期提成金额须为不小于 0 且不超过总额的数字");
+        }
+        long start = 0;
+        long topping = 0;
+        long baseDone = baseDoneCents;
+        // 调用方未指定签约后/封顶后拆分时：总额-基础完成后在签约后/封顶后间保持原二分（存量兼容）；
+        // baseDone=0 时行为与存量一致
+        long rest = totalCents - baseDone;
+        start = rest / 2;
+        topping = rest - start;
+        if (start + baseDone + topping != totalCents) {
+            throw exception(PERF_INPUT_INVALID, "三期提成之和必须等于提成总额");
+        }
         long policyRowId;
         if (current == null) {
             policyRowId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
@@ -129,14 +144,16 @@ public class PerfCommissionService {
 
     // ===================== 生成应付（finance 族） =====================
 
+    /** M10-T07：三期归一（SIGN_AFTER/BASE_DONE/CAP_DONE 精确匹配；存量 START/TOPPING 显式映射；未知拒绝） */
     private static String requireStage(String stage) {
-        if ("TOPPING".equals(stage)) {
-            return FrPerfCommissionReleaseDO.STAGE_TOPPING;
-        }
-        if ("START".equals(stage)) {
-            return FrPerfCommissionReleaseDO.STAGE_START;
-        }
-        throw exception(PERF_INPUT_INVALID, "stage 须为 START 或 TOPPING"); // P2-19：非法阶段不再静默解释为 START
+        return switch (stage == null ? "" : stage) {
+            case FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER -> FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER;
+            case FrPerfCommissionReleaseDO.STAGE_BASE_DONE -> FrPerfCommissionReleaseDO.STAGE_BASE_DONE;
+            case FrPerfCommissionReleaseDO.STAGE_CAP_DONE -> FrPerfCommissionReleaseDO.STAGE_CAP_DONE;
+            case FrPerfCommissionReleaseDO.STAGE_START -> FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER; // 存量显式映射
+            case FrPerfCommissionReleaseDO.STAGE_TOPPING -> FrPerfCommissionReleaseDO.STAGE_CAP_DONE; // 存量显式映射
+            default -> throw exception(PERF_INPUT_INVALID, "stage 须为 签约后/基础完成后/封顶后（或存量 START/TOPPING）");
+        };
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -156,16 +173,23 @@ public class PerfCommissionService {
         StageFacts facts = stageFacts(post, projectId, stageKey);
         if (!facts.eligible) {
             throw exception(COMMISSION_NOT_ELIGIBLE,
-                    ("START".equals(stageKey) ? "开工款" : "封顶款"));
+                    stageLabel(stageKey));
         }
-        long amountCents = FrPerfCommissionReleaseDO.STAGE_START.equals(stageKey)
-                ? policy.getStartCents() : policy.getToppingCents();
+        // M10-T07：三期提成金额按 release stage 取对应期约定（BASE_DONE=新增期；其余沿用存量两列）
+        long amountCents = FrPerfCommissionReleaseDO.STAGE_BASE_DONE.equals(stageKey)
+                ? policy.getBaseDoneCents()
+                : (FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER.equals(stageKey)
+                        || FrPerfCommissionReleaseDO.STAGE_START.equals(stageKey)
+                        ? policy.getStartCents() : policy.getToppingCents());
+        if (amountCents <= 0) {
+            throw exception(COMMISSION_NOT_ELIGIBLE, "该期提成未约定（0=未约定），不能生成应付");
+        }
         String sourceRef = projectId + ":" + stageKey.toLowerCase();
         // P2-7 兜底标识：财务侧可识别提成应付+规则版本
         long payableId = payables.registerPayable(post, new PerformancePayablePort.PayableCommand(
                 projectId, sourceRef, policy.getAssigneeName(), amountCents,
                 "perf-commission:" + policy.getId() + ":v" + policy.getVersion(),
-                ("START".equals(stageKey) ? "开工款" : "封顶款") + "足额到账后提成"));
+                stageLabel(stageKey) + "足额到账后提成"));
         long relId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
         jdbc.update("INSERT INTO fr_perf_commission_release (id, company_id, policy_id, project_id, stage, "
                         + "payable_id, policy_version, receipt_signature, receipt_ids, release_user_id, "
@@ -237,7 +261,13 @@ public class PerfCommissionService {
 
     /** F14：required=约定；received=fr_eng_collection 该期合计−关联已核实退款 */
     StageFacts stageFacts(PostSnapshot post, long projectId, String stage) {
-        String engStage = FrPerfCommissionReleaseDO.STAGE_START.equals(stage) ? "START" : "TOPPING";
+        // M10-T07：三期直通（stageKey 已归一为三枚举；存量 START/TOPPING 在 requireStage 已映射）；
+        // 工程域迁移 818 已将 fr_eng_collection_term.stage 映射为同枚举
+        String engStage = switch (stage) {
+            case FrPerfCommissionReleaseDO.STAGE_BASE_DONE -> "BASE_DONE";
+            case FrPerfCommissionReleaseDO.STAGE_CAP_DONE -> "CAP_DONE";
+            default -> "SIGN_AFTER";
+        };
         List<Long> termRows = jdbc.queryForList(
                 "SELECT amount_cents FROM fr_eng_collection_term WHERE company_id = ? AND project_id = ? AND stage = ?",
                 Long.class, post.orgId(), projectId, engStage);
@@ -293,11 +323,14 @@ public class PerfCommissionService {
         view.put("assigneeName", policy.getAssigneeName());
         view.put("version", policy.getVersion());
         List<Map<String, Object>> stages = new ArrayList<>();
-        for (String stage : List.of(FrPerfCommissionReleaseDO.STAGE_START, FrPerfCommissionReleaseDO.STAGE_TOPPING)) {
+        for (String stage : List.of(FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER, FrPerfCommissionReleaseDO.STAGE_BASE_DONE,
+                FrPerfCommissionReleaseDO.STAGE_CAP_DONE)) {
             StageFacts facts = stageFacts(post, projectId, stage);
             FrPerfCommissionReleaseDO rel = releases.selectByProjectAndStage(post.orgId(), projectId, stage);
-            long amount = FrPerfCommissionReleaseDO.STAGE_START.equals(stage)
-                    ? policy.getStartCents() : policy.getToppingCents();
+            long amount = FrPerfCommissionReleaseDO.STAGE_BASE_DONE.equals(stage)
+                    ? policy.getBaseDoneCents()
+                    : (FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER.equals(stage)
+                            ? policy.getStartCents() : policy.getToppingCents());
             long paid = 0;
             if (rel != null && rel.getPayableId() != null) {
                 paid = jdbc.queryForObject(
@@ -321,7 +354,7 @@ public class PerfCommissionService {
             }
             Map<String, Object> stageView = new LinkedHashMap<>();
             stageView.put("stage", stage);
-            stageView.put("label", FrPerfCommissionReleaseDO.STAGE_START.equals(stage) ? "开工款" : "封顶款");
+            stageView.put("label", stageLabel(stage));
             stageView.put("amountCents", amount);
             stageView.put("requiredCents", facts.required);
             stageView.put("receivedCents", facts.received);
@@ -356,4 +389,16 @@ public class PerfCommissionService {
         }
         return policy;
     }
+    /** M10-T07 三期显示文案 */
+    static String stageLabel(String stage) {
+        return switch (stage) {
+            case FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER -> "签约后期提成";
+            case FrPerfCommissionReleaseDO.STAGE_BASE_DONE -> "基础完成后期提成";
+            case FrPerfCommissionReleaseDO.STAGE_CAP_DONE -> "封顶后期提成";
+            case FrPerfCommissionReleaseDO.STAGE_START -> "开工款";
+            case FrPerfCommissionReleaseDO.STAGE_TOPPING -> "封顶款";
+            default -> stage;
+        };
+    }
+
 }

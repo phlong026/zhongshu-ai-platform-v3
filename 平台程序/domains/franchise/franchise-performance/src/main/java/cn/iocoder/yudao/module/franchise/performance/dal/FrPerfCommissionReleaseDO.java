@@ -16,8 +16,13 @@ import java.time.OffsetDateTime;
 @Accessors(chain = true)
 public class FrPerfCommissionReleaseDO {
 
+    /** 存量两期值（迁移 825 映射前），仅供兼容引用 */
     public static final String STAGE_START = "START";
     public static final String STAGE_TOPPING = "TOPPING";
+    /** M10-T07 三期（与工程域 818/销售域 M06-T04 枚举对齐） */
+    public static final String STAGE_SIGN_AFTER = "SIGN_AFTER";
+    public static final String STAGE_BASE_DONE = "BASE_DONE";
+    public static final String STAGE_CAP_DONE = "CAP_DONE";
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;

@@ -193,14 +193,18 @@ public class PerfOperatingService {
         }
         report.put("trend", trend);
         // 收/支构成（按来源类型）
+        // M10-T04：构成/截面补 period 月末截止（11 月收付不污染 10 月快照）
+        String asOfDate = java.time.LocalDate.parse(nextMonth(period)).minusDays(1).toString();
         report.put("incomeComposition", jdbc.queryForList(
                 "SELECT source_type AS kind, COALESCE(SUM(amount_cents),0) AS cents FROM fr_fin_receipt "
-                        + "WHERE company_id=? AND status='已登记' GROUP BY source_type ORDER BY cents DESC", org));
+                        + "WHERE company_id=? AND status='已登记' AND received_date <= ?::date "
+                        + "GROUP BY source_type ORDER BY cents DESC", org, asOfDate));
         report.put("paidComposition", jdbc.queryForList(
                 "SELECT 'payment' AS kind, COALESCE(SUM(amount_cents),0) AS cents FROM fr_fin_payment "
-                        + "WHERE company_id=? AND status='已核实' UNION ALL "
+                        + "WHERE company_id=? AND status='已核实' AND pay_date <= ?::date UNION ALL "
                         + "SELECT 'refund', COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
-                        + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL", org, org));
+                        + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND date <= ?::date",
+                org, asOfDate, org, asOfDate));
         // 应收=工程两期未收合计；应付=finance 未付合计
         long receivable = jdbc.queryForObject(
                 "SELECT COALESCE(SUM((SELECT COALESCE(SUM(c.amount_cents),0) FROM fr_eng_collection c "
@@ -209,8 +213,10 @@ public class PerfOperatingService {
         long totalTerms = jdbc.queryForObject(
                 "SELECT COALESCE(SUM(amount_cents),0) FROM fr_eng_collection_term WHERE company_id=?",
                 Long.class, org);
+        // M10-T04：collected 按 as_of 截止（工程收款留痕 received 无日期列——用 create_time::date）
         long collected = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(amount_cents),0) FROM fr_eng_collection WHERE company_id=?", Long.class, org);
+                "SELECT COALESCE(SUM(amount_cents),0) FROM fr_eng_collection WHERE company_id=? "
+                        + "AND create_time::date <= ?::date", Long.class, org, asOfDate);
         long payableOutstanding = jdbc.queryForObject(
                 "SELECT COALESCE(SUM(total_cents - COALESCE((SELECT SUM(p.amount_cents) FROM fr_fin_payment p "
                         + "WHERE p.payable_id = q.id AND p.status='已核实'),0)),0) FROM fr_fin_payable q WHERE q.company_id=?",

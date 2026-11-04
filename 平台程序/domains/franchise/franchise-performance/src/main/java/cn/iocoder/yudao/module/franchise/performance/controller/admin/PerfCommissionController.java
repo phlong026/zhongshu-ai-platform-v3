@@ -42,13 +42,14 @@ public class PerfCommissionController {
     }
 
     @PostMapping("/commission/policy")
-    @Operation(summary = "提成规则（幂等；服务层严格 boss——owner 持码越界 000；对半下取整；已有 release 硬锁 004）")
+    @Operation(summary = "提成规则（幂等；M10-T07 三期：baseDoneCents 基础完成后≥0 默认 0；Σ三期=total 由服务校验；已有 release 硬锁 004）")
     @PreAuthorize("@post.has('" + PerformancePermissions.COMMISSION + "')")
     public CommonResult<Map<String, Object>> policy(@RequestBody Map<String, Object> body,
                                                     @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         return success(commissions.policy(post(),
                 longOrNull(body.get("projectId")) == null ? 0 : longOrNull(body.get("projectId")),
                 longOrNull(body.get("totalCents")) == null ? 0 : longOrNull(body.get("totalCents")),
+                longOrNull(body.get("baseDoneCents")) == null ? 0 : longOrNull(body.get("baseDoneCents")),
                 longOrNull(body.get("assigneeUserId")) == null ? 0 : longOrNull(body.get("assigneeUserId")),
                 str(body.get("assigneeName")), str(body.get("evidenceRef")), str(body.get("note")),
                 requireIdem(idem)));
