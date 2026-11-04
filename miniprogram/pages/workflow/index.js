@@ -79,7 +79,7 @@ Page({
     projectSummary:model.customer.summary||'',city:(model.customer.city||'').replace(/市$/,''),
     registered:model.customer.status==='已登记',hasDesign:false,simpleBusiness:false});// 成功不清 error：版本冲突等提示保留至用户下次操作
   }).catch(err=>{
-   if(this.handle401(err,sessionGen))return;// 401 四组合先判（内部自带迟到判别）
+   if(this.handle401(err,sessionGen))return;
    if(this.stale(gen,sessionGen,postKey))return;
    this.setData({platformStatus:'degraded',error:PFc.errorMessage(err)});
   });
@@ -88,11 +88,16 @@ Page({
   const PFc=this.__pf,post=this.__post;
   const gen=this.__candGen=(this.__candGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   require('../../api/org').orgStaff(post.orgId).then(rows=>{
-   if(this.stale(gen,sessionGen,postKey))return;
+   if(this.__unloaded||gen!==this.__candGen||sessionGen!==this.__http.sessionGeneration()||postKey!==this.__postKey)return;
    const targets=(rows||[]).filter(r=>['sales','sales-lead'].includes(r.roleCode)&&r.active===true);
-   const map={};targets.forEach(r=>{map[r.name]=r.userId;});
-   this.__transferTargets=map;
-   this.setData({ownerOptions:targets.map(r=>r.name)});
+   // M04-I04：同名员工都保留（按 userId 区分），展示名加部门后缀去歧义；映射按 picker 序→userId
+   const seen={};
+   const candidates=targets.map(r=>{
+    const dup=seen[r.name];seen[r.name]=true;
+    return {userId:r.userId,label:dup||targets.some(o=>o!==r&&o.name===r.name&&o.userId!==r.userId)?r.name+'（'+(r.teamName||r.roleCode)+'）':r.name};
+   });
+   this.__transferCandidates=candidates;
+   this.setData({ownerOptions:candidates.map(c=>c.label)});
   }).catch(err=>{
    if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGenAtRequest))return;
@@ -188,7 +193,10 @@ Page({
  },
  platformSubmitTransfer(){
   const f=this.data.form,c=this.data.customer,fail=msg=>this.setData({error:msg,busy:false});
-  const targetUserId=this.__transferTargets?this.__transferTargets[f.newOwner]:null;
+  // M04-I04：picker 存的是候选 label（同名已加部门后缀去歧义）——按 label 反查唯一 userId
+  const cands=this.__transferCandidates||[];
+  const chosen=cands.find(c => c.label === f.newOwner);
+  const targetUserId=chosen?chosen.userId:(this.__transferTargets?this.__transferTargets[f.newOwner]:null);
   if(!targetUserId)return fail('请选择接手人');
   const reason=String(f.transferReason||'').trim();
   if(!reason||reason.length>200)return fail('请填写转交原因（200字以内）');

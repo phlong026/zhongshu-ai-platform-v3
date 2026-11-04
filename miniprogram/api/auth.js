@@ -142,9 +142,17 @@ function recoverPostInvalid(invalidPostId) {
 
 module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid, postLoadGuard };
 
-// M02-T01/I02：账号失效统一引导——清会话后跳转登录页（account 页 onShow 因会话清空展示登录态；
-// 该注册是全仓唯一生产入口，此前 401 仅清会话不引导）。测试环境覆盖此注册时须复刻导航行为。
-http.onUnauthorized(() => { wx.reLaunch({ url: '/pages/account/index' }); });
+// M02-T01/I02：账号失效统一引导——清会话后跳转登录页（account 页 onShow 因会话清空展示登录态）。
+// 自带 handle401 四组合处理的页面（customers/workflow 等，09 阶段1 契约：401→回 guest 渲染）豁免全局跳转，
+// 由页面自身的失效处理接管（M04 批回归：verify-crm-pages AC9）。
+http.onUnauthorized(() => {
+  try {
+    const pages = getCurrentPages();
+    const top = pages[pages.length - 1];
+    if (top && typeof top.handle401 === 'function') return; // 页面自理，不全局跳转
+  } catch (e) { /* getCurrentPages 不可用时按全局跳转处理 */ }
+  wx.reLaunch({ url: '/pages/account/index' });
+});
 
 // M02-T01/I05：岗位失效恢复流注册（模块级单例；恢复期间并发失效由 http 层去抖）
 http.onPostInvalid(postId => { recoverPostInvalid(postId).catch(() => {}); });

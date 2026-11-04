@@ -2,6 +2,7 @@ const B=require('../../utils/business'),Access=require('../../utils/access'),Job
 const PF=require('../../utils/platform-crm'),http=require('../../api/http');
 const TABS=[['due','今日待跟进'],['appointments','预约到店'],['all','全部'],['visited','已到店']];
 const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约到店的客户',visited:'暂无已到店的客户',all:'当前没有可见客户，可先登记客户。'};
+const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约到店的客户（到店状态以客户「已到店」标记为准，需先在跟进中登记预约并确认到店）',visited:'暂无已到店的客户（到店状态由跟进记录确认到店后自动标记）',all:'当前没有可见客户，可先登记客户。'}; // M04-T05：API 态到店口径入口说明
 const tabRows=(rows,tab,readOnly=false)=>{if(tab==='visited')return rows.filter(r=>r.status==='已到店');if(tab==='due'&&readOnly){const ids=new Set(Workspace.focusRows(rows.map(row=>({...row,canFollow:true})),'due').map(row=>row.id));return rows.filter(row=>ids.has(row.id));}return Workspace.focusRows(rows,tab==='all'?'':tab);};
 Page({
  data:{keyword:'',tab:'all',tabs:[],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10,platformMode:false,platformStatus:'',platformError:''},
@@ -43,14 +44,15 @@ Page({
   const PF=this.__pf,post=this.__post;
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   const pageNo=append?(this.__pageNo||0)+1:1;
+  const keyword=(this.data.keyword||'').trim(); // M04-T05：未加载页可检索——服务端按关键词取页
   if(!append)this.setData({platformStatus:'loading',platformError:''});
-  this.__crmApi.customers.page(pageNo,50).then(res=>{
+  this.__crmApi.customers.page(pageNo,50,keyword||undefined).then(res=>{
    if(this.stale(gen,sessionGen,postKey))return;
    const rows=(res&&res.list||[]).map(c=>PF.customerRow(c,{today:PF.today(),canWrite:PF.can(post,'write')}));
    const merged=append?this.data.customers.concat(rows):rows;
    const total=typeof (res&&res.total)==='number'?res.total:merged.length;
-   this.__pageNo=pageNo;
-   this.setData({platformStatus:'ready',customers:merged,hasMore:merged.length<total&&rows.length>0,pageSize:10});
+   this.__pageNo=pageNo;this.__serverHasMore=merged.length<total&&rows.length>0;
+   this.setData({platformStatus:'ready',customers:merged,hasMore:this.__serverHasMore||merged.length>this.data.pageSize});
    this.refreshPlatformTabs();this.filterCustomers();
   }).catch(err=>{
    if(this.handle401(err,sessionGen))return;// 401 四组合先判（内部自带迟到判别）
@@ -62,11 +64,19 @@ Page({
  refreshPlatformTabs(){const PF=this.__pf,ctx={today:PF.today()};const tabs=TABS.map(([key,label])=>{const rows=PF.tabFilter(this.data.customers,key,ctx);return {key,label,count:rows.length,dot:key==='due'&&rows.some(r=>r.rank===0)};});this.setData({tabs});},
  filterCustomers(){const keyword=this.data.keyword.trim();
   if(this.data.platformMode){const PF=this.__pf,rows=PF.sortRows(PF.tabFilter(this.data.customers,this.data.tab,{today:PF.today()}).filter(c=>c.searchText.includes(keyword)));
-   this.setData({filteredCustomers:rows,visibleCustomers:rows.slice(0,this.data.pageSize),emptyText:keyword?'暂无符合条件的客户':this.data.isBossView&&this.data.tab==='all'?'当前没有本店客户':EMPTY[this.data.tab]});return;}
+   this.setData({filteredCustomers:rows,visibleCustomers:rows.slice(0,this.data.pageSize),
+    hasMore:rows.length>this.data.pageSize||!!this.__serverHasMore, // M04-T01：隐藏行或服务端更多都亮按钮
+    emptyText:keyword?(this.__serverHasMore?'本地已显示匹配客户，点「查看更多客户」取服务端结果':'暂无符合条件的客户'):this.data.isBossView&&this.data.tab==='all'?'当前没有本店客户':(EMPTY_API[this.data.tab]||EMPTY[this.data.tab])});return;} // M04-T05：API 态到店空态带口径说明
   const rows=Workspace.sortRows(tabRows(this.data.customers,this.data.tab,this.data.isBossView).filter(c=>c.searchText.includes(keyword)));this.setData({filteredCustomers:rows,visibleCustomers:rows.slice(0,this.data.pageSize),hasMore:rows.length>this.data.pageSize,emptyText:keyword?'暂无符合条件的客户':this.data.isBossView&&this.data.tab==='all'?'当前没有本店客户':EMPTY[this.data.tab]});},
  selectTab(e){const tab=e.currentTarget.dataset.tab;if(!TABS.some(([key])=>key===tab)||tab===this.data.tab)return;if(this.data.platformMode){this.setData({tab,keyword:'',pageSize:10});this.refreshPlatformTabs();this.filterCustomers();return;}this.setData({tab,keyword:'',pageSize:10});this.filterCustomers();},
  search(e){this.setData({keyword:e.detail.value});this.filterCustomers();},
- more(){if(this.data.platformMode)return this.loadPlatformList(true);this.setData({pageSize:this.data.pageSize+10});this.filterCustomers();},
+ more(){if(this.data.platformMode){
+   if(this.data.filteredCustomers.length>this.data.pageSize){ // 已加载行未展示完：本地扩页（M04-T01 展示翻页与服务端取页一致）
+    this.setData({pageSize:this.data.pageSize+10});this.filterCustomers();return;
+   }
+   return this.loadPlatformList(true);
+  }
+  this.setData({pageSize:this.data.pageSize+10});this.filterCustomers();},
  register(){if(this.data.platformMode){if(this.data.canRegister)wx.navigateTo({url:'/pages/workflow/index?view=customers&modal=register'});return;}if(this.data.canRegister&&Access.context().active&&Job.has(Access.context().role,'sales'))wx.navigateTo({url:'/pages/workflow/index?view=customers&modal=register'});},
  open(e){const id=e.currentTarget.dataset.id;
   if(this.data.platformMode){if(this.data.customers.some(c=>String(c.id)===String(id)))wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});return;}
