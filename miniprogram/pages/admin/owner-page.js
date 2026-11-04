@@ -70,7 +70,7 @@ module.exports = function(kind) {
           period: this.platPeriod, periodLabel: this.platPeriod,
           // M10-T03/R4 P1：finance 在线视图 desk.operating 直供模板（business.historical 等本地键不动）
           operating: this.platSummary && this.platSummary.operating || null,
-          business: Object.assign({}, desk.business || {}, {
+          business: Object.assign({}, (this.data.desk && this.data.desk.business) || {}, {
             // R5 P1：historical=选中月早于当前月（历史快照态）；保留模板消费的 headline/levels/analytics 等本地字段
             historical: this.platPeriod && this.platPeriod < PP.currentPeriod(),
             snapshotInfo: { available: false, note: '在线快照经「归档月度快照」写服务端' },
