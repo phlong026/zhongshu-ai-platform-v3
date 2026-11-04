@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionPolicyM
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionReleaseDO;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionReleaseMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -75,18 +76,26 @@ public class PerfCommissionService {
         payload.put("assigneeName", StrUtil.nullToEmpty(assigneeName));
         payload.put("evidenceRef", StrUtil.nullToEmpty(evidenceRef));
         payload.put("note", StrUtil.nullToEmpty(note));
-        // R1 P2-11：跨升级重放兼容——先按旧形状（无三期字段）比对存量重放；命中即返回既有；
-        // 未命中再按新形状（canonical）比对
-        var legacyPayload = new LinkedHashMap<String, Object>(payload);
-        legacyPayload.remove("signAfterCents");
-        legacyPayload.remove("baseDoneCents");
-        legacyPayload.remove("capDoneCents");
-        var replayed = commands.replayed(post, idempotencyKey, legacyPayload);
-        if (!replayed.isPresent()) {
-            replayed = commands.replayed(post, idempotencyKey, payload);
-        }
-        if (replayed.isPresent()) {
+        // R2 P1-11：跨升级重放兼容——replayed 对哈希不符会抛错，不能两形状串行比对。
+        // 改为直接探测该键已有事件（同键即存量重放/新首次判定依据）：事件存在=重放返回既有；
+        // 不存在=新请求走 canonical 比对。同键异内容拒绝语义由 canonical 哈希保留。
+        // R5 P1：重放检查改 commandLog 裸查 + 载荷哈希自比对——跨升级旧形状/新形状事件统一按
+        // 「键存在且载荷哈希一致→重放返回既有；键存在但哈希不一致→抛 IDEMPOTENCY_KEY_REUSED
+        // （同键异内容拒绝语义保留）；键不存在→新请求继续 canonical 流程」。
+        // 裸查键=scopedKey 同款格式（franchise:{userId}:{maxLength(80)}）。
+        try {
+            var prior = jdbc.queryForMap(
+                    "SELECT aggregate_id, payload_hash FROM pf_command_event "
+                            + "WHERE domain = ? AND idempotency_key = ? LIMIT 1",
+                    FranchiseRoles.DOMAIN, scopedProbeKey(post, idempotencyKey));
+            String incomingHash = cn.hutool.crypto.digest.DigestUtil.sha256Hex(
+                    cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(payload));
+            if (!incomingHash.equals(String.valueOf(prior.get("payload_hash")))) {
+                throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+            }
             return row(post, projectId);
+        } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {
+            // 无存量事件：新请求继续 canonical 流程
         }
         if (totalCents <= 0 || totalCents > 10_000_000_000L || assigneeUserId <= 0
                 || StrUtil.isBlank(evidenceRef) || StrUtil.isBlank(note)) {
@@ -364,7 +373,9 @@ public class PerfCommissionService {
                     || !facts.signature.equals(rel.getReceiptSignature())
                     || !java.util.Objects.equals(rel.getPolicyVersion(), policy.getVersion()));
             String status;
-            if (reviewDue) {
+            if (amount <= 0) {
+                status = "未约定"; // R2 P2-9：0=未约定期优先显示（无 release、金额及已付均为零时不显示已付清）
+            } else if (reviewDue) {
                 status = "待人工核对";
             } else if (paid >= amount) {
                 status = "已付清";
@@ -412,6 +423,12 @@ public class PerfCommissionService {
         }
         return policy;
     }
+    /** R3 P1-11：存量重放探测键（与 FranchiseCommands.scopedKey 同款格式：domain:{userId}:{maxLength(80)}） */
+    private static String scopedProbeKey(PostSnapshot post, String idempotencyKey) {
+        String key = idempotencyKey == null ? "" : idempotencyKey.trim();
+        return "franchise:" + post.userId() + ":" + cn.hutool.core.util.StrUtil.maxLength(key, 80);
+    }
+
     /** M10-T07 三期显示文案 */
     static String stageLabel(String stage) {
         return switch (stage) {

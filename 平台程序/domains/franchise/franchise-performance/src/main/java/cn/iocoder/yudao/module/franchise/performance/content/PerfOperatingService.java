@@ -253,7 +253,8 @@ public class PerfOperatingService {
                     if (due <= 0) return;
                     LocalDate ref = jdbc.queryForObject(
                             "SELECT COALESCE(MAX(occurred_at), DATE '1900-01-01') FROM fr_eng_collection "
-                                    + "WHERE company_id = ? AND project_id = ? AND stage = ?",
+                                    + "WHERE company_id = ? AND project_id = ? AND stage = ? AND occurred_at <= DATE '"
+                                    + asOfDate + "'",
                             LocalDate.class, org, rs.getLong("project_id"), rs.getString("stage"));
                     bucketize(receivableAging, due, ref, today);
                 }, org);
