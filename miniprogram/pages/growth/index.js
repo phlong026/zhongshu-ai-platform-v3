@@ -6,10 +6,10 @@ const crm=require('../../api/franchise/crm');
 const http=require('../../api/http');
 const {makeFormHandlers}=require('../../utils/view-container');
 const displayContent=content=>content?{...content,status:content.status==='演示已发布'?'已登记发布':content.status}:content;
-Page({...makeFormHandlers(),data:{view:'home',title:'内容与客资',contents:[],leads:[],form:{source:'直接来访'},error:'',primary:'',id:'',staff:[],published:[]},
+Page({...makeFormHandlers(),data:{view:'home',title:'内容与客资',contents:[],leads:[],form:{source:'直接来访'},error:'',primary:'',id:'',staff:[],published:[],pendingLeads:[]},
 onLoad(o){this.id=o.id||'';this.setData({view:['content','capture','lead'].includes(o.view)?o.view:'home'});this.refresh();if(this.data.view==='capture'&&o.contentId){const index=this.data.published.findIndex(c=>c.id===o.contentId);if(index>=0)this.setData({'form.contentId':o.contentId,publishedIndex:index+1});}},onShow(){this.refresh();},
 refresh(){const a=X.context();if(!a.active||a.orgType!=='store'||!['sales','sales-lead','boss','owner'].includes(a.role))return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('加盟商内容与线索')});const s=G.load(),v=this.data.view,c=s.contents.find(c=>c.id===this.id),l=s.leads.find(l=>l.id===this.id);let primary='',action='';if(v==='content'&&c){if(Job.has(a.role,'sales')&&c.authorId===a.staffId&&c.status!=='演示已发布'){primary='前往发布设置';action='publish';}}if(v==='capture'){if(!Job.has(a.role,'sales'))return wx.redirectTo({url:'/pages/account/index?view=access'});primary='登记客资';action='capture';}if(v==='lead'&&l){if(l.status==='跟进中'&&l.ownerId===a.staffId){primary='保存跟进';action='follow';}}
-const existing=l&&G.existingCustomer(l);this.setData({existingCustomer:existing?{id:existing.id,name:existing.name,owner:existing.owner}:null,title:v==='content'?'内容与发布':v==='capture'?'登记客资':v==='lead'?'客资跟进':'内容与客资',actorRole:a.role,canHandleLead:!!l&&Job.has(a.role,'sales')&&l.ownerId===a.staffId,canEditContent:!!c&&Job.has(a.role,'sales')&&c.authorId===a.staffId,canCapture:Job.has(a.role,'sales'),canManage:['sales-lead','boss','owner'].includes(a.role),contents:s.contents.map(displayContent),leads:s.leads,content:displayContent(c),lead:l||null,missing:['content','lead'].includes(v)&&!(c||l),published:s.contents.filter(c=>c.status==='演示已发布'),publishedNames:['直接来访／转介绍',...s.contents.filter(c=>c.status==='演示已发布').map(c=>c.pack.title)],primary,action});if(http.token())this.syncGrowth();},
+const existing=l&&G.existingCustomer(l);this.setData({existingCustomer:existing?{id:existing.id,name:existing.name,owner:existing.owner}:null,title:v==='content'?'内容与发布':v==='capture'?'登记客资':v==='lead'?'客资跟进':'内容与客资',actorRole:a.role,canHandleLead:!!l&&Job.has(a.role,'sales')&&l.ownerId===a.staffId,canEditContent:!!c&&Job.has(a.role,'sales')&&c.authorId===a.staffId,canCapture:Job.has(a.role,'sales'),canManage:['sales-lead','boss','owner'].includes(a.role),contents:s.contents.map(displayContent),leads:s.leads,content:displayContent(c),lead:l||null,missing:['content','lead'].includes(v)&&!(c||l),published:s.contents.filter(c=>c.status==='演示已发布'),publishedNames:['直接来访／转介绍',...s.contents.filter(c=>c.status==='演示已发布').map(c=>c.pack.title)],primary,action});if(http.token()){this.syncGrowth();if(this.data.canManage)this.loadPendingLeads();}}, // M04-T03：负责人在线加载 pending leads
 /** 在线获客总览：growth.summary 出 {publications,leads,converted,perPublication}；失败静默保留本地展示 */
 syncGrowth(){
 contentApi.growth.summary().then(summary=>{
@@ -40,12 +40,45 @@ if(!this.__captureKey)this.__captureKey='crm-capture-'+Date.now()+'-'+Math.floor
 crm.leads.capture({name,phone,need,source},this.__captureKey).then(res=>{
 this.__captureKey='';
 const result=res&&res.result;
+if(result==='LINK_REQUIRED'){ // M04-T03：待负责人关联原客户——保存 leadId 供负责人在线处置
+  this.setData({pendingLead:{leadId:res.leadId||res.id||'',name:name,phone:phone,revision:res.revision||1}});
+}
 wx.showToast({title:result==='LINKED'?'已关联原客户，来源已保留':result==='LINK_REQUIRED'?'已登记，待负责人关联原客户':'客资已登记',icon:'none'});
 this.setData({view:'home',form:{source:'直接来访'}});
 this.refresh();
 }).catch(error=>{this.fail(P.degradeMessage(error));});
 },
 editContent(){const c=this.data.content;if(c)wx.navigateTo({url:'/pages/studio/index?view=publish&work='+encodeURIComponent(c.workId)+'&content='+encodeURIComponent(c.id)});},
-goCustomer(){if(this.data.lead?.customerId)wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.lead.customerId)});},home(){wx.switchTab({url:'/pages/business/index'});},fail(error){this.setData({error});wx.showToast({title:error,icon:'none'});}
+goCustomer(){if(this.data.lead?.customerId)wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.lead.customerId)});},
+onlineLinkLead(e){ // M04-T03：负责人在线关联原客户（幂等）
+  const idx=Number(e.currentTarget.dataset.idx);
+  const item=(this.data.pendingLeads||[])[idx];
+  if(!item)return this.fail('请选择待关联客资');
+  const key='crm-lead-link-'+item.leadId+'-'+Date.now();
+  crm.leads.link(item.leadId,item.revision,key).then(()=>{
+    wx.showToast({title:'已关联原客户',icon:'none'});
+    this.loadPendingLeads(); // 回读状态
+  }).catch(err=>this.fail(P.degradeMessage(err)));
+},
+onlineInvalidateLead(e){ // M04-T03：负责人在线作废
+  const idx=Number(e.currentTarget.dataset.idx);
+  const item=(this.data.pendingLeads||[])[idx];
+  if(!item)return this.fail('请选择待作废客资');
+  const key='crm-lead-invalid-'+item.leadId+'-'+Date.now();
+  crm.leads.invalidate(item.leadId,'负责人作废',item.revision,key).then(()=>{
+    wx.showToast({title:'已作废',icon:'none'});
+    this.loadPendingLeads(); // 回读状态
+  }).catch(err=>this.fail(P.degradeMessage(err)));
+},
+loadPendingLeads(){ // M04-T03：负责人查 pending
+  if(!http.token())return;
+  crm.leads.pending().then(rows=>{
+    const items=(rows||[]).filter(r=>r.status==='LINK_REQUIRED').map(r=>({
+      leadId:r.id,name:r.name,phone:r.phone,revision:r.revision||1,source:r.source||''
+    }));
+    this.setData({pendingLeads:items});
+  }).catch(()=>{});
+},
+home(){wx.switchTab({url:'/pages/business/index'});},fail(error){this.setData({error});wx.showToast({title:error,icon:'none'});}
 });
 
