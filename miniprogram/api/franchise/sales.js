@@ -28,7 +28,7 @@ const quotes = {
 };
 
 const contracts = {
-  /** 创建合同（WAIT_SIGN，创建即生成两期回款计划；零尾款不生成 tail）→ {contractId, status, stages} */
+  /** M06-T02：创建合同（WAIT_SIGN，三期计划签约后/基础完成后/封顶后，0=未约定，Σ三期=total）→ {contractId, status, stages} */
   create: (data, key) => http.post('/franchise/sales/contracts', data, idem(key, 'contract')),
   /** 合同列表（响应附 stages 回款计划） */
   list: (customerId) => http.get('/franchise/sales/contracts', { customerId }),
@@ -39,8 +39,10 @@ const contracts = {
 };
 
 const stages = {
-  /** 办理回款（写通 B1 账簿）{method, transactionNo?, receivedDate?} → {receiptId, stageStatus, replayed} */
-  collect: (stageId, data, key) => http.post('/franchise/sales/stages/' + stageId + '/collect', data, idem(key, 'collect'))
+  /** M06-T02：分笔办理回款（写通 B1 账簿）{amountCents, method, transactionNo?, receivedDate?} → {receiptId, stageStatus, collectedCents, replayed} */
+  collect: (stageId, data, key) => http.post('/franchise/sales/stages/' + stageId + '/collect', data, idem(key, 'collect')),
+  /** M06-T02：三期收付统一视图（各期约定额/累计分笔/余额/状态）→ [{stageId, stage, label, amountCents, collectedCents, balanceCents, status}] */
+  summary: (contractId) => http.get('/franchise/sales/contracts/' + contractId + '/stage-summary')
 };
 
 const deliveries = {

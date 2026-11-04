@@ -307,15 +307,18 @@ Page({
    this.setData({latestRequirementId:latest?latest.id:''});
   });
  },
- openContractForm(){const q=(this.data.salesQuotes||[])[0];this.setData({contractForm:{total:(q&&q.totalText)||'',first:'',signedDate:''},contractError:''});},
+ openContractForm(){const q=(this.data.salesQuotes||[])[0];this.setData({contractForm:{total:(q&&q.totalText)||'',signAfter:(q&&q.totalText)||'',baseDone:'0',capDone:'0',signedDate:''},contractError:''});},
  contractInput(e){this.setData({['contractForm.'+e.currentTarget.dataset.key]:e.detail.value,contractError:''});this.saveDraft();},
  contractDate(e){this.setData({'contractForm.signedDate':e.detail.value,contractError:''});this.saveDraft();},
  platformSubmitContract(){
   const fm=this.data.contractForm,fail=msg=>this.setData({contractError:msg,busy:false});
-  const total=PF.toCents(fm.total),first=PF.toCents(fm.first);
-  if(!total||!first)return fail('请填写合同总额与首款（最多两位小数）');
-  if(first>total)return fail('首款不能大于合同总额');
-  const body={customerId:this.id,totalCents:total,firstCents:first};
+  // M06-T02 三期：Σ三期=总额；签约后>0；基础完成后/封顶后≥0（0=未约定）
+  const total=PF.toCents(fm.total),signAfter=PF.toCents(fm.signAfter),baseDone=PF.toCents(fm.baseDone||'0'),capDone=PF.toCents(fm.capDone||'0');
+  if(!total)return fail('请填写合同总额（最多两位小数）');
+  if(!signAfter)return fail('签约后期金额必填且大于 0');
+  if(baseDone==null||capDone==null)return fail('基础完成后/封顶后金额须为不小于 0 的数字（未约定填 0）');
+  if(signAfter+baseDone+capDone!==total)return fail('三期金额之和必须等于合同总额');
+  const body={customerId:this.id,totalCents:total,signAfterCents:signAfter,baseDoneCents:baseDone,capDoneCents:capDone};
   const sd=PF.dateToArray(fm.signedDate);if(sd)body.signedDate=sd;
   if(this.data.latestRequirementId)body.requirementId=this.data.latestRequirementId;
   const key=this.platformCommand('contract');
@@ -385,7 +388,13 @@ Page({
   if(!this.data.canCollect)return this.fail('当前岗位不能办理回款');
   const stageId=e.currentTarget.dataset.stageId;
   if(!stageId)return this.fail('期款标识缺失，请刷新后重试');
-  return this.setData({modal:'collect',error:'',collectStageId:stageId,collectForm:{method:'bank',transactionNo:'',receivedDate:PF.today()}});
+  // M06-T02：带期上下文（期名+剩余可收额），分笔金额默认预填剩余额。
+  // R1：合同页渲染源=salesContracts（progressContracts 是另一视图）——两处都查，取首个命中
+  const ctx=(this.data.salesContracts||[]).concat(this.data.progressContracts||[])
+   .flatMap(c=>c.stages||[]).find(st=>String(st.id)===String(stageId))||{};
+  return this.setData({modal:'collect',error:'',collectStageId:stageId,
+   collectStageText:(ctx.stageText||'期款')+' · 剩余可收 ¥'+(ctx.balanceText||ctx.amountText||'0'),
+   collectForm:{method:'bank',transactionNo:'',receivedDate:PF.today(),amount:(ctx.balanceText||ctx.amountText||'')}});
  },
  platCollectInput(e){const key=e.currentTarget.dataset.key;this.setData({['collectForm.'+key]:e.detail.value,error:''});},
  platCollectPick(e){const values=['bank','cash'];this.setData({['collectForm.method']:values[Number(e.detail.value)]||'bank',error:''});},
@@ -398,7 +407,8 @@ Page({
   const key=this.platformCommandFor('collect',stageId);
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   this.setData({busy:true,error:''});
-  this.platformSalesApi().stages.collect(stageId,{method:form.method,transactionNo:(form.transactionNo||'').trim()||undefined,receivedDate:form.receivedDate||undefined},key).then(()=>{
+  // M06-T02 分笔：amountCents=本次回款金额（≤期剩余可收额，后端限额裁决）
+  this.platformSalesApi().stages.collect(stageId,{amountCents:PF.toCents(form.amount),method:form.method,transactionNo:(form.transactionNo||'').trim()||undefined,receivedDate:form.receivedDate||undefined},key).then(()=>{
    if(this.stale(gen,sessionGen,postKey))return;
    this.platformDropCommandFor('collect',stageId);this.setData({busy:false,modal:'',error:''});
    wx.showToast({title:'已办理回款',icon:'none'});

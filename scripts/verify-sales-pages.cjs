@@ -55,11 +55,17 @@ assert.equal(rr.version, 2); assert.equal(rr.date, '2026-10-30'); assert.ok(rr.s
 const qr = PF.quoteRow({ id: EDGE, items: '{"main":[{"label":"主体","quantity":1,"unitPriceCents":100,"valueCents":100}]}', totalCents: 100, priceVersion: null, createTime: MS('2026-10-30T10:00:00+08:00') });
 assert.equal(qr.priceVersion, '表单口径');
 assert.equal(qr.itemsParsed.main[0].label, '主体', 'items JSON 字符串解析');
-const cr = PF.contractRow({ contract: { id: EDGE, totalCents: 100000, firstCents: 40000, signedDate: [2026, 11, 1], status: 'SIGNED', revision: 3 }, stages: [{ id: 1, stage: 'first', amountCents: 40000, status: 'PAID', deleted: false, paidAt: MS('2026-11-01T10:00:00+08:00') }, { id: 2, stage: 'tail', amountCents: 60000, status: 'PENDING', deleted: true }] });
+// M06-T02 三期契约：stages=stageSummary 统一视图行（stageId/label/collectedCents/balanceCents；无 deleted 概念）
+const cr = PF.contractRow({ contract: { id: EDGE, totalCents: 100000, signedDate: [2026, 11, 1], status: 'SIGNED', revision: 3 }, stages: [
+  { stageId: 1, stage: 'SIGN_AFTER', label: '签约后', amountCents: 40000, collectedCents: 40000, balanceCents: 0, status: 'SETTLED' },
+  { stageId: 2, stage: 'BASE_DONE', label: '基础完成后', amountCents: 60000, collectedCents: 0, balanceCents: 60000, status: 'PENDING' }
+] });
 assert.equal(cr.statusText, '已签订');
-assert.equal(cr.stages.length, 1, 'deleted stage 过滤');
-assert.equal(cr.stages[0].statusText, '已回款');
-assert.equal(cr.tailText, '600.00', '尾款=total−first');
+assert.equal(cr.stages.length, 2, '三期行全量渲染');
+assert.equal(cr.stages[0].statusText, '已收满');
+assert.equal(cr.stages[0].owing, false, '收满期不可再收');
+assert.equal(cr.stages[1].owing, true, '欠款期可再收');
+assert.equal(cr.stages[1].balanceText, '600.00', '余额=约定额−累计');
 const dv = PF.deliveryView({ designDeliveredAt: MS('2026-11-01T09:30:00+08:00') });
 assert.equal(dv.nextIndex, 1, 'nextIndex=首个未完成节点');
 assert.equal(dv.nodes[0].done, true);
@@ -111,7 +117,12 @@ ok('AC7 错误映射（纯函数部分）');
   const savePost = (postId, roleCode) => { http.saveSession({ token: 'tk-' + postId }); auth.savePosts([{ postId, roleCode, orgId: 9, orgType: 'store', lead: roleCode === 'sales-lead' }]); http.saveSession({ postId }); };
   const reqBody = n => ({ statusCode: 200, data: { code: 0, data: [{ id: '8107199254741001', version: 1, width: 12.5, depth: 16, floors: 2, style: '新中式', prompt: '', note: '两层', authorUserId: 3, createTime: MS('2026-10-30T10:00:00+08:00') }].slice(0, n === undefined ? 1 : n) } });
   const quotesBody = n => ({ statusCode: 200, data: { code: 0, data: (n === 0 ? [] : [{ id: '8207199254741002', customerId: CID, items: JSON.stringify({ main: [{ label: '主体工程', quantity: 1, unitPriceCents: 34000000, valueCents: 34000000 }], decor: [], insuranceCents: 0, managementCents: 0 }), totalCents: 34000000, priceVersion: 'sales-v1-表单口径', customerName: '陈先生N', createTime: MS('2026-10-31T10:00:00+08:00') }]) } });
-  const contractsBody = status => ({ statusCode: 200, data: { code: 0, data: status === 'none' ? [] : [{ contract: { id: '8307199254741003', customerId: CID, totalCents: 34000000, firstCents: 14000000, signedDate: status === 'SIGNED' ? [2026, 11, 1] : null, status, revision: 4, createTime: MS('2026-10-31T11:00:00+08:00') }, stages: [{ id: 900, contractId: '8307199254741003', stage: 'first', amountCents: 14000000, status: 'PENDING', deleted: status === 'VOIDED', paidAt: null }] }] } });
+  // M06-T02：stages=stageSummary 统一视图行（stageId/label/collectedCents/balanceCents）
+  const contractsBody = status => ({ statusCode: 200, data: { code: 0, data: status === 'none' ? [] : [{ contract: { id: '8307199254741003', customerId: CID, totalCents: 34000000, signedDate: status === 'SIGNED' ? [2026, 11, 1] : null, status, revision: 4, createTime: MS('2026-10-31T11:00:00+08:00') }, stages: [
+    { stageId: 900, stage: 'SIGN_AFTER', label: '签约后', amountCents: 14000000, collectedCents: 0, balanceCents: 14000000, status: 'PENDING' },
+    { stageId: 901, stage: 'BASE_DONE', label: '基础完成后', amountCents: 10000000, collectedCents: 0, balanceCents: 10000000, status: 'PENDING' },
+    { stageId: 902, stage: 'CAP_DONE', label: '封顶后', amountCents: 10000000, collectedCents: 0, balanceCents: 10000000, status: 'PENDING' }
+  ] }] } });
   const deliveryNone = () => ({ statusCode: 200, data: { code: 1113000004, msg: '引用对象不存在' } });
   const deliveryBody = () => ({ statusCode: 200, data: { code: 0, data: { id: '8407199254741004', contractId: '8307199254741003', designDeliveredAt: null, designConfirmedAt: null, constructionDeliveredAt: null, constructionAcceptedAt: null, revision: 1 } } });
 
@@ -220,14 +231,16 @@ ok('AC7 错误映射（纯函数部分）');
   await call('openContractForm');
   d = await data();
   assert.equal(d.contractForm.total, '340000.00', '从最新报价预填总额');
-  await call('contractInput', { currentTarget: { dataset: { key: 'first' } }, detail: { value: '140000' } });
-  // first>total 拦截
-  await call('contractInput', { currentTarget: { dataset: { key: 'first' } }, detail: { value: '999999' } });
+  // M06-T02 三期流：Σ≠总额拦截
+  await call('contractInput', { currentTarget: { dataset: { key: 'signAfter' } }, detail: { value: '340000' } });
+  await call('contractInput', { currentTarget: { dataset: { key: 'baseDone' } }, detail: { value: '100000' } });
+  await call('contractInput', { currentTarget: { dataset: { key: 'capDone' } }, detail: { value: '100000' } });
   bb = sent.length;
   await call('submit');
-  assert.equal(sent.length, bb, 'first>total 拦截零请求');
-  // 正常创建（requirementId 携带断言）
-  await call('contractInput', { currentTarget: { dataset: { key: 'first' } }, detail: { value: '140000' } });
+  assert.equal(sent.length, bb, '三期之和≠总额拦截零请求');
+  // 正常创建（Σ=总额；requirementId 携带断言）
+  await call('contractInput', { currentTarget: { dataset: { key: 'baseDone' } }, detail: { value: '0' } });
+  await call('contractInput', { currentTarget: { dataset: { key: 'capDone' } }, detail: { value: '0' } });
   responder = o => {
     const u = String(o.url);
     if (o.method === 'POST' && u.endsWith('/franchise/sales/contracts')) return { statusCode: 200, data: { code: 0, data: { contractId: '8307199254741003', status: 'WAIT_SIGN', stages: [] } } };
@@ -241,9 +254,13 @@ ok('AC7 错误映射（纯函数部分）');
   assert.ok(contractReq, 'R7 实发');
   assert.equal(contractReq.data.requirementId, '8107199254741001', 'requirementId=R2 最新需求');
   assert.equal(contractReq.data.totalCents, 34000000, '元→分');
+  assert.equal(contractReq.data.signAfterCents, 34000000, '签约后=总额');
+  assert.equal(contractReq.data.baseDoneCents, 0, '基础完成后 0=未约定');
+  assert.equal(contractReq.data.capDoneCents, 0, '封顶后 0=未约定');
+  assert.ok(!('firstCents' in contractReq.data), '无 firstCents 残留');
   d = await data();
   assert.equal(d.salesContracts[0].status, 'WAIT_SIGN');
-  assert.equal(d.salesContracts[0].stages.length, 1, 'stages 过滤 deleted 后展示');
+  assert.equal(d.salesContracts[0].stages.length, 3, '三期行渲染');
   // sign 带 revision
   responder = o => {
     const u = String(o.url);
@@ -270,9 +287,10 @@ ok('AC7 错误映射（纯函数部分）');
   await flush();
   d = await data();
   assert.equal(d.salesContracts[0].status, 'VOIDED');
-  assert.equal(d.salesContracts[0].stages.length, 0, 'PENDING 软删行不显示');
+  // M06-T02：作废后 summary 行仍展示（作废不抹已收资金事实；期行无 deleted 概念）
+  assert.equal(d.salesContracts[0].stages.length, 3, '作废合同三期行保留');
   assert.equal(demoOps.length, 0, '合同链零 demo 读写');
-  ok('AC5 合同链（创建/sign/void/作废重签/revision/deleted 过滤）');
+  ok('AC5 合同链（创建三期/sign/void/作废重签/revision/期行保留）');
 
   // AC6：交付链
   await runtime.callWxMethod('reLaunch', { url: '/pages/workflow/index?view=delivery&id=' + CID });

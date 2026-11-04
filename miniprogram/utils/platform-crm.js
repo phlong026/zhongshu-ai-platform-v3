@@ -27,13 +27,17 @@ function can(post, ability) {
   return false;
 }
 
-/** 回款办理表单校验（S1-14）：method 必填；银行方式须流水号；receivedDate 合法或空（后端为最终裁决）。返回错误文案或 '' */
+/** 回款办理表单校验（S1-14/M06-T02 分笔）：method 必填；金额>0；银行方式须流水号；receivedDate 必填且不晚于今天（后端为最终裁决）。返回错误文案或 '' */
 function collectError(form) {
   const f = form || {};
   const method = String(f.method || '').trim();
   if (!method) return '请选择收款方式';
+  // R1：与提交转换统一用 toCents（Number 会放行 0.001/1.234 等超过两位小数金额——toCents 判 null）
+  const amountCents = toCents(f.amount);
+  if (!amountCents) return '请填写本次回款金额（大于 0，最多两位小数）';
   if (method === 'bank' && !String(f.transactionNo || '').trim()) return '银行收款须填流水号';
-  if (f.receivedDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(f.receivedDate))) return '到账日期格式不正确';
+  if (!f.receivedDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(f.receivedDate))) return '请填写到账日期（YYYY-MM-DD，不晚于今天）';
+  else if (String(f.receivedDate) > toDate(Date.now())) return '到账日期不能晚于今天';
   return '';
 }
 
@@ -293,23 +297,27 @@ function quoteRow(q) {
 }
 
 const SALE_STATUS_TEXT = { WAIT_SIGN: '待签订', SIGNED: '已签订', VOIDED: '已作废' };
-const STAGE_TEXT = { first: '首款', tail: '尾款' };
-const STAGE_STATUS_TEXT = { PENDING: '待回款', PAID: '已回款' };
+/** M06-T02：三期=签约后/基础完成后/封顶后（first/tail 为存量两期兼容文案） */
+const STAGE_TEXT = { SIGN_AFTER: '签约后', BASE_DONE: '基础完成后', CAP_DONE: '封顶后', first: '首款', tail: '尾款' };
+const STAGE_STATUS_TEXT = { PENDING: '待回款', OPEN: '部分已收', SETTLED: '已收满', PAID: '已回款' };
 
-/** R8 行 {contract,stages} → 合同卡模型（stages 过滤 deleted） */
+/** R8 行 {contract,stages} → 合同卡模型（M06-T02：stages=stageSummary 统一视图行，含分笔累计/余额） */
 function contractRow(row) {
   const c = row.contract || {};
   return {
     id: String(c.id), status: c.status, statusText: SALE_STATUS_TEXT[c.status] || c.status || '',
     totalText: c.totalCents != null ? (c.totalCents / 100).toFixed(2) : '',
-    firstText: c.firstCents != null ? (c.firstCents / 100).toFixed(2) : '',
-    tailCents: c.totalCents != null && c.firstCents != null ? c.totalCents - c.firstCents : null,
-    tailText: c.totalCents != null && c.firstCents != null ? ((c.totalCents - c.firstCents) / 100).toFixed(2) : '',
     signedDate: toDate(c.signedDate), revision: c.revision,
-    stages: (row.stages || []).filter(s => !s.deleted).map(s => ({
-      id: String(s.id), stage: s.stage, stageText: STAGE_TEXT[s.stage] || s.stage,
+    stages: (row.stages || []).map(s => ({
+      id: String(s.stageId != null ? s.stageId : s.id), stage: s.stage,
+      stageText: s.label || STAGE_TEXT[s.stage] || s.stage,
       amountText: s.amountCents != null ? (s.amountCents / 100).toFixed(2) : '',
+      collectedText: s.collectedCents != null ? (s.collectedCents / 100).toFixed(2) : '',
+      balanceText: s.balanceCents != null ? (s.balanceCents / 100).toFixed(2) : '',
       status: s.status, statusText: STAGE_STATUS_TEXT[s.status] || s.status || '',
+      // M06-T02 契约冻结（R1）：owing 只信 stageSummary 的 balanceCents（后端 list 已换 summary；
+      // 缺字段=旧结构/部署不同步，保守不可收——前后端须同版本发布，登记 18 号）
+      owing: s.balanceCents != null && s.balanceCents > 0,
       paidDate: s.paidAt ? toDate(s.paidAt) : ''
     }))
   };
