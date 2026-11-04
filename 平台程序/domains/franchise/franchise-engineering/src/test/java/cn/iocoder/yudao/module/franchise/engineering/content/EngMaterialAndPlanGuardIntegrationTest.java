@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 2. 同键改输入拒绝；仅一条变更记录；
  * 3. 工程凭据资产域侧校验：假 ID/跨组织/未 ACCEPTED 拒绝（validateReference），类型不符拒绝（assetTypeOf）。
  */
-@Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class,
+@Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class, EngCollectionService.class,
         FranchiseCommands.class, CommandLogImpl.class,
         EngMaterialAndPlanGuardIntegrationTest.Config.class})
 class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest {
@@ -81,6 +81,62 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
             return orgId -> orgId; // R1 P2 约定：服务账号 id==组织 id，属主维度=组织
         }
 
+        /** M07-T06：统一合同三期桩——CONTRACT_STAGES 非空返回约定（测试静态直控），null=无活跃合同 */
+        static volatile cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.StageAmounts CONTRACT_STAGES;
+
+        static final AtomicLong ACTIVE_CONTRACT_ID = new AtomicLong(900L);
+
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContractQueryPort() {
+            return new cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort() {
+                @Override
+                public Long findActiveSignedId(PostSnapshot post, long customerId) {
+                    // R3：合同存在性与三期金额是两个独立维度——默认 900（fixture 固定合同），
+                    // ACTIVE_CONTRACT_ID 可变（重签拒绝用例）；不随 CONTRACT_STAGES 重置而消失
+                    return ACTIVE_CONTRACT_ID.get();
+                }
+
+                @Override
+                public cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.StageAmounts findStageAmounts(
+                        PostSnapshot post, long customerId) {
+                    return CONTRACT_STAGES;
+                }
+            };
+        }
+
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.BusinessReceiptPort businessReceiptPort(JdbcTemplate jdbc) {
+            return new cn.iocoder.yudao.module.franchise.test.BusinessReceiptPortTestStub(jdbc);
+        }
+
+        /** M07-T06：统一实收账桩——STATIC_COLLECTED 控制门禁读数；collectStage 记录并返回成功 */
+        static volatile long STAGE_COLLECTED = 0L;
+        static final java.util.List<String> COLLECT_CALLS = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStageAccountPort() {
+            return new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort() {
+                @Override
+                public Long activeContractId(PostSnapshot post, long customerId) {
+                    return ACTIVE_CONTRACT_ID.get(); // 与 SaleContractQueryPort 桩同源（重签用例可变）
+                }
+
+                @Override
+                public long stageCollectedCents(PostSnapshot post, long contractId, String stage) {
+                    return STAGE_COLLECTED;
+                }
+
+                @Override
+                public cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageCollectResult collectStage(
+                        PostSnapshot post, long contractId, String stage,
+                        cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.CollectInput input) {
+                    COLLECT_CALLS.add(stage + ":" + input.amountCents() + ":" + input.transactionNo());
+                    return new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageCollectResult(
+                            8001L, input.amountCents(), "OPEN", false);
+                }
+            };
+        }
+
         @Bean
         cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort engineeringPayablePort() {
             return new cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort() {
@@ -114,6 +170,10 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     @Resource
     private EngPlanService planService;
     @Resource
+    private EngCollectionService collectionsService;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContractsPort;
+    @Resource
     private JdbcTemplate jdbc;
 
     private Store store;
@@ -128,9 +188,15 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         jdbc.execute("CREATE TABLE IF NOT EXISTS eng_test_asset (id BIGINT PRIMARY KEY, "
                 + "asset_type VARCHAR(64) NOT NULL, accepted BOOLEAN NOT NULL, org_id BIGINT NOT NULL)");
         jdbc.update("DELETE FROM eng_test_asset WHERE org_id <> -1"); // 跨用例清理（R1 P3）
+        Config.CONTRACT_STAGES = null; // 静态桩重置
+        Config.STAGE_COLLECTED = 0L;
+        Config.COLLECT_CALLS.clear();
         store = fixture.store();
         engineer = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
         projectId = insertProject();
+        // 统一账关联前提：工程档案挂客户（customer_id NULL 时统一门禁读数恒 0）
+        jdbc.update("UPDATE fr_eng_project SET customer_id = ? WHERE id = ?",
+                IDS.incrementAndGet(), projectId);
         nodeId = insertNode();
         materialId = insertMaterial();
         supplyId = jdbc.queryForObject(
@@ -138,6 +204,87 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     // ========== M07-T01：材料幂等 ==========
+
+    @Test
+    void threeStagePrepareAlignsWithUnifiedContract() {
+        // 有活跃统一合同：三期金额与合同一致 → 通过并固化三期 term 行（SIGN_AFTER/BASE_DONE/CAP_DONE）
+        Config.CONTRACT_STAGES = new cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.StageAmounts(
+                40800000L, 18000000L, 9200000L);
+        // 对齐校验前提：工程档案挂客户（customerId NULL 时跳过合同对齐）
+        long customerId = IDS.incrementAndGet();
+        jdbc.update("UPDATE fr_eng_project SET customer_id = ? WHERE id = ?", customerId, projectId);
+        long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
+        assertThat(jdbc.queryForObject(
+                "SELECT amount_cents FROM fr_eng_collection_term WHERE project_id = ? AND stage = 'SIGN_AFTER'",
+                Long.class, projectId)).isEqualTo(40800000L);
+        assertThat(jdbc.queryForObject(
+                "SELECT amount_cents FROM fr_eng_collection_term WHERE project_id = ? AND stage = 'BASE_DONE'",
+                Long.class, projectId)).isEqualTo(18000000L);
+        assertThat(jdbc.queryForObject(
+                "SELECT amount_cents FROM fr_eng_collection_term WHERE project_id = ? AND stage = 'CAP_DONE'",
+                Long.class, projectId)).isEqualTo(9200000L);
+
+        // 与合同不一致 → 拒绝（不发明固定比例/不得自行拆分）
+        assertThatThrownBy(() -> as(engineer, () -> planService.prepare(engineer, projectId,
+                startCmd(validAsset, 40000000L, 20000000L, 8000000L), idem())))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("三期金额须与统一建房合同约定一致");
+    }
+
+    @Test
+    void baseDoneStageRequiresFoundationNodeDoneBeforeCollect() {
+        // M07-T06：「基础/封顶完成先留痕再触发应收」——BASE_DONE 期收款须有非封顶节点已完成留痕
+        Config.CONTRACT_STAGES = null; // 无活跃合同：表单三期即约定（存量兼容）
+        long customerId = IDS.incrementAndGet();
+        jdbc.update("UPDATE fr_eng_project SET customer_id = ? WHERE id = ?", customerId, projectId);
+        long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
+        // start 前置：节点日期齐备 + SIGN_AFTER 门禁（统一账读侧桩置累计 40800000=签约后期已收齐）
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+                + "WHERE project_id = ?", projectId);
+        Config.STAGE_COLLECTED = 40800000L;
+        // R1 P1-1：SIGN_AFTER 门禁读统一账——桩置累计 40800000（签约后期已收齐）
+        Config.STAGE_COLLECTED = 40800000L;
+        as(engineer, () -> planService.start(engineer, projectId,
+                new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "实际开工", validAsset, true), idem()));
+        // 基础完成节点留痕（非封顶节点 DONE）——completeNode 前置：材料合格到齐
+        jdbc.update("UPDATE fr_eng_material SET quantity = 10.000 WHERE id = ?", materialId);
+        jdbc.update("UPDATE fr_eng_supply SET quantity = 10.000 WHERE id = ?", supplyId);
+        long baseArrivalAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        jdbc.update("INSERT INTO fr_eng_supply_receipt (id, company_id, project_id, supply_id, kind, "
+                        + "transaction_no, occurred_at, file_asset_id, quality, actual_quantity, "
+                        + "author_user_id, create_time) "
+                        + "VALUES (?, ?, ?, ?, 'RECEIPT', 'TXN-BASE-ARRIVAL', CURRENT_DATE, ?, 'OK', 10.000, ?, now())",
+                IDS.incrementAndGet(), store.orgId(), projectId, supplyId, baseArrivalAsset, engineer.userId());
+        as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "基础施工完成", validAsset, true), idem()));
+        // BASE_DONE 收款通过（留痕在前）
+        var view = as(engineer, () -> collectionsService.register(engineer, projectId,
+                new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("150000"), "TXN-BASE",
+                        java.time.LocalDate.now(), validAsset), idem()));
+        assertThat(view.get("collectionId")).isNotNull();
+        // R2 P2-8：统一链调用断言——Port.collectStage 收到 BASE_DONE 期分笔；工程留痕行引用统一 receiptId
+        assertThat(Config.COLLECT_CALLS).anyMatch(c -> c.startsWith("BASE_DONE:15000000:TXN-BASE"));
+        assertThat(jdbc.queryForObject(
+                "SELECT receipt_id FROM fr_eng_collection WHERE project_id = ? AND stage = 'BASE_DONE'",
+                Long.class, projectId)).isEqualTo(8001L);
+
+        // 作废重签拒绝（R2 P1-2）：冻结合同 900 ≠ 当前活跃 901 → 收款拒绝
+        Config.ACTIVE_CONTRACT_ID.set(901L);
+        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+                new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("100000"), "TXN-BASE2",
+                        java.time.LocalDate.now(), validAsset), idem())))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("统一建房合同已变更");
+        Config.ACTIVE_CONTRACT_ID.set(900L);
+        // 封顶期收款在封顶节点完成前拒绝（既有 toppingDone 门禁）
+        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+                new EngCollectionService.CollectCommand("CAP_DONE", new BigDecimal("100000"), "TXN-CAP",
+                        java.time.LocalDate.now(), validAsset), idem())))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("请先完成主体封顶");
+    }
 
     @Test
     void sameKeySameInputReplayReturnsSameResultWithoutDuplication() {
@@ -172,19 +319,10 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         // start 凭据校验：假 ID 拒绝（开工须先 prepare——先合法 prepare 再 start）
         long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
-        // start 前置：节点计划日期齐备 + START 门禁（开工款到账 ≥ 约定额）——补齐后才能到达资产门
+        // start 前置：节点计划日期齐备；SIGN_AFTER 门禁读统一账——桩置累计 40800000（R1 P1-1 读侧）
         jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
                 + "WHERE project_id = ?", projectId);
-        // prepare 已建 START 约定行：确保金额=开工款 40800000（uk (company_id, project_id, stage) 幂等）
-        jdbc.update("INSERT INTO fr_eng_collection_term (id, company_id, project_id, stage, amount_cents, create_time) "
-                + "VALUES (?, ?, ?, 'START', 40800000, now()) ON CONFLICT DO NOTHING",
-                IDS.incrementAndGet(), store.orgId(), projectId);
-        jdbc.update("UPDATE fr_eng_collection_term SET amount_cents = 40800000 WHERE project_id = ? AND stage = 'START'", projectId);
-        long gateAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
-        jdbc.update("INSERT INTO fr_eng_collection (id, company_id, project_id, stage, amount_cents, transaction_no, "
-                        + "occurred_at, file_asset_id, purpose, registrar_user_id, create_time) "
-                        + "VALUES (?, ?, ?, 'START', 40800000, 'TXN-START-GATE', CURRENT_DATE, ?, '工程预收款', ?, now())",
-                IDS.incrementAndGet(), store.orgId(), projectId, gateAsset, engineer.userId());
+        Config.STAGE_COLLECTED = 40800000L;
         long fakeId = IDS.incrementAndGet();
         org.assertj.core.api.ThrowableAssert.ThrowingCallable startWithFake = () ->
                 as(engineer, () -> planService.start(engineer, projectId,
@@ -209,11 +347,14 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 .hasMessageContaining("凭据资产不存在、未验收或不属于本组织");
         // 合法 completeNode：节点 DONE + 凭据文档落库（前置：材料合格到齐——到货行 quantity>=需用）
         long gateReceiptAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
-        // 合格到货行（quality=OK + actual_quantity>=需用 10 吨 → materialReadyForNode 通过）
+        // 合格到货行（quality=OK + actual_quantity=15 ≥ 需用——共享库中幂等用例已把需用改到 15，
+        // 到货须 ≥ 现需用才能过 materialReadyForNode）
+        jdbc.update("UPDATE fr_eng_material SET quantity = 15.000 WHERE id = ?", materialId);
+        jdbc.update("UPDATE fr_eng_supply SET quantity = 15.000 WHERE id = ?", supplyId);
         jdbc.update("INSERT INTO fr_eng_supply_receipt (id, company_id, project_id, supply_id, kind, "
                         + "transaction_no, occurred_at, file_asset_id, quality, actual_quantity, "
                         + "author_user_id, create_time) "
-                        + "VALUES (?, ?, ?, ?, 'RECEIPT', 'TXN-ARRIVAL', CURRENT_DATE, ?, 'OK', 10.000, ?, now())",
+                        + "VALUES (?, ?, ?, ?, 'RECEIPT', 'TXN-ARRIVAL', CURRENT_DATE, ?, 'OK', 15.000, ?, now())",
                 IDS.incrementAndGet(), store.orgId(), projectId, supplyId, gateReceiptAsset, engineer.userId());
         long validNodeAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
@@ -324,7 +465,14 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     private EngPlanService.PrepareCommand startCmd(long assetId) {
-        return new EngPlanService.PrepareCommand(new BigDecimal("680000"), new BigDecimal("408000"),
+        return startCmd(assetId, 40800000L, 18000000L, 9200000L);
+    }
+
+    /** 三期（分）：签约后/基础完成后/封顶后——默认 Σ=680000 元 与 fixture 总额一致 */
+    private EngPlanService.PrepareCommand startCmd(long assetId, long signAfter, long baseDone, long capDone) {
+        return new EngPlanService.PrepareCommand(new BigDecimal("680000"),
+                new BigDecimal(signAfter).movePointLeft(2), new BigDecimal(baseDone).movePointLeft(2),
+                new BigDecimal(capDone).movePointLeft(2),
                 assetId, "开工准备：场地与合同就绪", null, null);
     }
 

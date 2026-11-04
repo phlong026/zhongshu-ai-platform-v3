@@ -17,10 +17,16 @@ import java.time.OffsetDateTime;
 @Accessors(chain = true)
 public class FrEngCollectionDO {
 
+    /** 存量两期值（迁移 818 映射前），仅供兼容引用 */
     public static final String STAGE_START = "START";
     public static final String STAGE_TOPPING = "TOPPING";
+    /** M07-T06 三期（与销售域对齐） */
+    public static final String STAGE_SIGN_AFTER = "SIGN_AFTER";
+    public static final String STAGE_BASE_DONE = "BASE_DONE";
+    public static final String STAGE_CAP_DONE = "CAP_DONE";
     public static final String PURPOSE_START = "工程预收款";
     public static final String PURPOSE_TOPPING = "工程尾款";
+    public static final String PURPOSE_BASE_DONE = "基础完成款";
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;

@@ -46,13 +46,15 @@ public class EngClosureService {
     private final FrEngSupplyMapper supplies;
     private final FrEngMaterialMapper materials;
     private final FranchiseCommands commands;
+    private final cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages;
     private final EngineeringLedgerQueryPort ledger;
 
     public EngClosureService(EngProjectService projectService, EngPlanService planService,
                              FrEngClosureMapper closures, FrEngPlanNodeMapper planNodes,
                              FrEngCollectionTermMapper collectionTerms, FrEngCollectionMapper collections,
                              FrEngSupplyMapper supplies, FrEngMaterialMapper materials,
-                             FranchiseCommands commands, EngineeringLedgerQueryPort ledger) {
+                             FranchiseCommands commands, EngineeringLedgerQueryPort ledger,
+                             cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages) {
         this.projectService = projectService;
         this.planService = planService;
         this.closures = closures;
@@ -62,6 +64,7 @@ public class EngClosureService {
         this.supplies = supplies;
         this.materials = materials;
         this.commands = commands;
+        this.unifiedStages = unifiedStages;
         this.ledger = ledger;
     }
 
@@ -200,12 +203,22 @@ public class EngClosureService {
         }
         List<Map<String, Object>> stages = new java.util.ArrayList<>();
         long receivedTotal = 0;
-        for (String stage : List.of(FrEngCollectionTermDO.STAGE_START, FrEngCollectionTermDO.STAGE_TOPPING)) {
+        for (String stage : List.of(FrEngCollectionTermDO.STAGE_SIGN_AFTER, FrEngCollectionTermDO.STAGE_BASE_DONE,
+                FrEngCollectionTermDO.STAGE_CAP_DONE)) {
             long expected = collectionTerms.selectByProject(post.orgId(), projectId).stream()
                     .filter(t -> stage.equals(t.getStage())).mapToLong(FrEngCollectionTermDO::getAmountCents)
                     .findFirst().orElse(0L);
-            long confirmed = collections.selectByProject(post.orgId(), projectId).stream()
-                    .filter(c -> stage.equals(c.getStage())).mapToLong(FrEngCollectionDO::getAmountCents).sum();
+            long confirmed;
+            // M07-T06/R2 P1-1：统一余额贯穿读侧——有统一合同时期累计经统一端口；无合同回退工程留痕行
+            Long uContractId = project.getCustomerId() == null ? null
+                    : unifiedStages.activeContractId(post, project.getCustomerId());
+            if (uContractId != null) {
+                confirmed = unifiedStages.stageCollectedCents(post, uContractId, stage);
+            } else {
+                confirmed = collections.selectByProject(post.orgId(), projectId).stream()
+                        .filter(c -> stage.equals(c.getStage()))
+                        .mapToLong(FrEngCollectionDO::getAmountCents).sum();
+            }
             receivedTotal += confirmed;
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("stage", stage);

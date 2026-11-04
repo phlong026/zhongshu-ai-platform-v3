@@ -14,9 +14,12 @@ import org.springframework.stereotype.Component;
 public class SaleContractQueryAdapter implements SaleContractQueryPort {
 
     private final SaleContractMapper contracts;
+    private final cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageMapper stages;
 
-    public SaleContractQueryAdapter(SaleContractMapper contracts) {
+    public SaleContractQueryAdapter(SaleContractMapper contracts,
+                                    cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageMapper stages) {
         this.contracts = contracts;
+        this.stages = stages;
     }
 
     @Override
@@ -27,5 +30,26 @@ public class SaleContractQueryAdapter implements SaleContractQueryPort {
             return null;
         }
         return active.getId();
+    }
+
+    /** M07-T06：从统一合同 stage 行读三期约定（0=未约定；无合同返回 null） */
+    @Override
+    public StageAmounts findStageAmounts(PostSnapshot post, long customerId) {
+        SaleContractDO active = contracts.selectActiveByCustomer(customerId);
+        if (active == null || active.getCompanyId() != post.orgId()
+                || !SaleContractDO.STATUS_SIGNED.equals(active.getStatus())) {
+            return null;
+        }
+        long signAfter = 0, baseDone = 0, capDone = 0;
+        for (var stage : stages.selectByContract(active.getId())) {
+            long amount = stage.getAmountCents() == null ? 0 : stage.getAmountCents();
+            switch (stage.getStage()) {
+                case "SIGN_AFTER" -> signAfter = amount;
+                case "BASE_DONE" -> baseDone = amount;
+                case "CAP_DONE" -> capDone = amount;
+                default -> { }
+            }
+        }
+        return new StageAmounts(signAfter, baseDone, capDone);
     }
 }

@@ -41,17 +41,26 @@ public class EngCollectionService {
     private final FrEngCollectionTermMapper collectionTerms;
     private final FrEngCollectionMapper collections;
     private final FranchiseCommands commands;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private final cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages;
+    private final cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContracts;
     private final BusinessReceiptPort businessReceipts;
 
     public EngCollectionService(EngProjectService projectService, FrEngPlanNodeMapper planNodes,
                                 FrEngCollectionTermMapper collectionTerms, FrEngCollectionMapper collections,
-                                FranchiseCommands commands, BusinessReceiptPort businessReceipts) {
+                                FranchiseCommands commands, BusinessReceiptPort businessReceipts,
+                                org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+                                cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages,
+                                cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContracts) {
         this.projectService = projectService;
         this.planNodes = planNodes;
         this.collectionTerms = collectionTerms;
         this.collections = collections;
         this.commands = commands;
         this.businessReceipts = businessReceipts;
+        this.jdbcTemplate = jdbcTemplate;
+        this.unifiedStages = unifiedStages;
+        this.saleContracts = saleContracts;
     }
 
     public record CollectCommand(String stage, BigDecimal amount, String transactionNo,
@@ -72,11 +81,19 @@ public class EngCollectionService {
         boolean full = EngProjectService.isFinanceOrAbove(post)
                 || post.userId() == project.getManagerUserId();
         List<Map<String, Object>> stages = new ArrayList<>();
-        for (String stage : List.of(FrEngCollectionTermDO.STAGE_START, FrEngCollectionTermDO.STAGE_TOPPING)) {
+        // M07-T06：三期遍历（存量两期值经迁移已映射；RUN 期旧值兼容保留遍历不删）
+        // M07-T06/R2 P1-1：统一余额贯穿读侧——有统一合同时期累计经统一端口（fr_sale_stage_receipt 净口径）；
+        // 无合同（存量）回退工程留痕行累计
+        Long unifiedContractId = project.getCustomerId() == null ? null
+                : unifiedStages.activeContractId(post, project.getCustomerId());
+        for (String stage : List.of(FrEngCollectionTermDO.STAGE_SIGN_AFTER, FrEngCollectionTermDO.STAGE_BASE_DONE,
+                FrEngCollectionTermDO.STAGE_CAP_DONE)) {
             long expected = terms.stream().filter(t -> stage.equals(t.getStage()))
                     .mapToLong(FrEngCollectionTermDO::getAmountCents).findFirst().orElse(0L);
-            long confirmed = rows.stream().filter(c -> stage.equals(c.getStage()))
-                    .mapToLong(FrEngCollectionDO::getAmountCents).sum();
+            long confirmed = unifiedContractId != null
+                    ? unifiedStages.stageCollectedCents(post, unifiedContractId, stage)
+                    : rows.stream().filter(c -> stage.equals(c.getStage()))
+                            .mapToLong(FrEngCollectionDO::getAmountCents).sum();
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("stage", stage);
             if (full) {
@@ -84,9 +101,21 @@ public class EngCollectionService {
                 row.put("confirmedCents", confirmed);
                 row.put("remainingCents", Math.max(0, expected - confirmed));
             }
-            row.put("due", FrEngCollectionTermDO.STAGE_START.equals(stage) ? startDue : toppingDue);
-            row.put("purpose", FrEngCollectionTermDO.STAGE_START.equals(stage)
-                    ? FrEngCollectionDO.PURPOSE_START : FrEngCollectionDO.PURPOSE_TOPPING);
+            // R3 P2：三期 due 映射——SIGN_AFTER=首个节点开始日；BASE_DONE=非封顶 DONE 节点完成日
+            //（无则 null，未约定日期不显示逾期）；CAP_DONE=封顶节点日
+            LocalDate due;
+            if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(stage)) {
+                due = toppingDue;
+            } else if (FrEngCollectionTermDO.STAGE_BASE_DONE.equals(stage)) {
+                due = nodes.stream()
+                        .filter(n -> !FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone())
+                                && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()))
+                        .map(FrEngPlanNodeDO::getEndDate).findFirst().orElse(null);
+            } else {
+                due = startDue;
+            }
+            row.put("due", due);
+            row.put("purpose", purposeOf(stage));
             stages.add(row);
         }
         return stages;
@@ -132,17 +161,29 @@ public class EngCollectionService {
             return Map.of("collectionId", prior.getId(),
                     "receiptId", prior.getReceiptId() == null ? 0 : prior.getReceiptId(), "replayed", true);
         }
-        String stage = FrEngCollectionTermDO.STAGE_TOPPING.equals(cmd.stage())
-                ? FrEngCollectionTermDO.STAGE_TOPPING : FrEngCollectionTermDO.STAGE_START;
-        long expected = collectionTerms.selectByProject(post.orgId(), projectId).stream()
-                .filter(t -> stage.equals(t.getStage())).mapToLong(FrEngCollectionTermDO::getAmountCents)
-                .findFirst().orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "请等待合同及两期收款约定确认"));
-        // 收款侧前置：TOPPING 期收款须封顶节点已完成（蓝本 :60——方向勘正于 V2）
-        if (FrEngCollectionTermDO.STAGE_TOPPING.equals(stage)) {
-            boolean topped = EngGuard.toppingDone(planNodes.selectByProject(post.orgId(), projectId));
-            if (!topped) {
-                throw exception(ENGINEERING_INPUT_INVALID, "请先完成主体封顶");
-            }
+        // M07-T06/I05（R1 P1-1）：统一实收账——工程收款写通销售统一合同期次（资金事实唯一在
+        // fr_fin_receipt + fr_sale_stage_receipt），本域 fr_eng_collection 行仅作留痕引用统一 receiptId，
+        // 不参与余额累计（读侧 requireStartGate/stageConfirmed 亦经统一端口）。
+        // 期次归一：三枚举精确匹配；存量旧值 TOPPING 显式映射 CAP_DONE（v3 接线随 M07-T02）；
+        // 其它未知值显式拒绝（不得静默错期入账——R1 P2-8）。
+        String stageRaw = cmd.stage() == null ? "" : cmd.stage().trim();
+        String stage;
+        if (FrEngCollectionTermDO.STAGE_TOPPING.equals(stageRaw)) {
+            stage = FrEngCollectionTermDO.STAGE_CAP_DONE; // 存量 v3 旧枚举显式映射（登记 18 号）
+        } else if (FrEngCollectionTermDO.STAGE_SIGN_AFTER.equals(stageRaw)
+                || FrEngCollectionTermDO.STAGE_BASE_DONE.equals(stageRaw)
+                || FrEngCollectionTermDO.STAGE_CAP_DONE.equals(stageRaw)) {
+            stage = stageRaw;
+        } else {
+            throw exception(ENGINEERING_INPUT_INVALID, "收款期次不合法（须 签约后/基础完成后/封顶后）");
+        }
+        // 门禁（R2 P1-3 与销售域对齐）：仅 CAP_DONE 保留封顶节点门禁（与 CAP_DONE 触发语义精确对应）；
+        // BASE_DONE 不设节点门禁——「任意非封顶 DONE 即可触发」被 R1 判过松，而项目无基础里程碑，
+        // 与销售域 BASE_DONE 收款语义保持一致（无节点门禁）；「基础完成留痕」由 M07-T04 现场记录链
+        // 承接并登记执行记录。SIGN_AFTER 无节点门禁。
+        if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(stage)
+                && !EngGuard.toppingDone(planNodesForGate(post, projectId))) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请先完成主体封顶");
         }
         if (StrUtil.isBlank(cmd.transactionNo()) || cmd.fileAssetId() == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写收款流水并留存凭据");
@@ -152,36 +193,69 @@ public class EngCollectionService {
             throw exception(ENGINEERING_INPUT_INVALID, "收款日期不能晚于今天");
         }
         long amount = EngGuard.requirePositiveCents(cmd.amount());
-        // 行锁串行化「读-判-写」：并发登记不得越过应收上限 006（评审十三 P2-1）
+        // 行锁串行化并发登记（评审十三 P2-1 保留）
         projectService.projects().lockById(projectId);
-        long confirmed = collections.selectByProject(post.orgId(), projectId).stream()
-                .filter(c -> stage.equals(c.getStage())).mapToLong(FrEngCollectionDO::getAmountCents).sum();
-        if (confirmed + amount > expected) {
-            throw exception(COLLECTION_EXCEEDED);
+        // M07-T06/I05（R1 P1-1）：统一链收款——资金事实唯一在 fr_fin_receipt + fr_sale_stage_receipt
+        //（限额/幂等/审计/财务登记全在 sales 统一侧，本域不再自建财务收据镜像）；
+        // 无活跃统一合同 → 拒绝（I05 规则从严：同一甲方建房必须有统一合同才能收款）
+        // R2 P1-2：以工程档案冻结的合同身份为准（prepare 已冻结；未冻结回退当前活跃）——
+        // 冻结 A、当前活跃 B（客户作废重签）时拒绝收款并提示重新对账，防止款项错期入账
+        Long frozenContractId = jdbcTemplate.queryForObject(
+                "SELECT sale_contract_id FROM fr_eng_project WHERE id = ?", Long.class, projectId);
+        Long activeContractId = project.getCustomerId() == null ? null
+                : unifiedStages.activeContractId(post, project.getCustomerId());
+        Long contractId = frozenContractId != null ? frozenContractId : activeContractId;
+        if (contractId == null) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请先签订统一建房合同（统一实收账收款前提）");
         }
+        if (frozenContractId != null && activeContractId != null
+                && frozenContractId.longValue() != activeContractId.longValue()) {
+            throw exception(ENGINEERING_INPUT_INVALID,
+                    "统一建房合同已变更（作废重签），请先重新核对开工准备三期约定");
+        }
+        var unified = unifiedStages.collectStage(post, contractId, stage,
+                new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.CollectInput(
+                        amount, "bank", StrUtil.trim(cmd.transactionNo()), date, cmd.fileAssetId()));
+        // 工程留痕行：引用统一 receiptId（不参与余额累计——读侧经统一端口）
         FrEngCollectionDO collection = new FrEngCollectionDO().setCompanyId(post.orgId())
                 .setProjectId(projectId).setStage(stage).setAmountCents(amount)
                 .setTransactionNo(StrUtil.trim(cmd.transactionNo())).setOccurredAt(date)
                 .setFileAssetId(cmd.fileAssetId())
-                .setPurpose(FrEngCollectionTermDO.STAGE_START.equals(stage)
-                        ? FrEngCollectionDO.PURPOSE_START : FrEngCollectionDO.PURPOSE_TOPPING)
+                .setPurpose(purposeOf(stage))
                 .setRegistrarUserId(post.userId());
         collections.insert(collection);
-        // 写通 finance（sourceRef 含本域行 id——多笔累计制唯一成分；幂等=Port 内 source_ref 查重+键命名空间）
-        String sourceRef = "engineering:" + projectId + ":" + stage.toLowerCase() + ":" + collection.getId();
-        var saved = businessReceipts.registerBusinessReceipt(post, new BusinessReceiptPort.BusinessReceipt(
-                project.getCustomerId() == null ? 0 : project.getCustomerId(), sourceRef,
-                StrUtil.nullToEmpty(project.getCustomerName()) + "·"
-                        + (FrEngCollectionTermDO.STAGE_START.equals(stage) ? "开工款" : "封顶款") + "回款",
-                amount, "bank", StrUtil.trim(cmd.transactionNo()), date));
-        collections.updateById(new FrEngCollectionDO().setId(collection.getId()).setReceiptId(saved.receiptId()));
+        collections.updateById(new FrEngCollectionDO().setId(collection.getId()).setReceiptId(unified.receiptId()));
         commands.record(post, AGGREGATE, collection.getId(),
                 projectService.bumpRevision(post, project),
                 "eng-collect", payload, idempotencyKey);
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("collectionId", collection.getId());
-        view.put("receiptId", saved.receiptId());
-        view.put("replayed", saved.replayed());
+        view.put("receiptId", unified.receiptId());
+        view.put("replayed", unified.replayed());
         return view;
     }
+    /** M07-T06 三期门禁用节点读取 */
+    private List<FrEngPlanNodeDO> planNodesForGate(PostSnapshot post, long projectId) {
+        return planNodes.selectByProject(post.orgId(), projectId);
+    }
+
+    private static String purposeOf(String stage) {
+        return switch (stage) {
+            case FrEngCollectionTermDO.STAGE_BASE_DONE -> FrEngCollectionDO.PURPOSE_BASE_DONE;
+            case FrEngCollectionTermDO.STAGE_CAP_DONE -> FrEngCollectionDO.PURPOSE_TOPPING;
+            default -> FrEngCollectionDO.PURPOSE_START;
+        };
+    }
+
+    private static String stageLabel(String stage) {
+        return switch (stage) {
+            case FrEngCollectionTermDO.STAGE_SIGN_AFTER -> "签约后";
+            case FrEngCollectionTermDO.STAGE_BASE_DONE -> "基础完成后";
+            case FrEngCollectionTermDO.STAGE_CAP_DONE -> "封顶后";
+            case FrEngCollectionTermDO.STAGE_START -> "开工款";
+            case FrEngCollectionTermDO.STAGE_TOPPING -> "封顶款";
+            default -> stage;
+        };
+    }
+
 }

@@ -48,7 +48,8 @@ class EngClosurePayloadTest {
         EngClosureService service = new EngClosureService(projectService, planService, closures,
                 mock(FrEngPlanNodeMapper.class), collectionTerms,
                 collections, supplies,
-                mock(FrEngMaterialMapper.class), commands, ledger);
+                mock(FrEngMaterialMapper.class), commands, ledger,
+                mock(cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.class));
 
         PostSnapshot post = new PostSnapshot(11L, 7L, 100L, "shop", "project-manager",
                 null, false, Set.of());

@@ -35,12 +35,13 @@ public class EngPlanController {
     }
 
     @PostMapping("/{id}/prepare")
-    @Operation(summary = "开工准备：合同+凭据+说明+人员+两期约定固化（无门禁，D-8）")
+    @Operation(summary = "开工准备：合同+凭据+说明+人员+三期约定固化（M07-T06：签约后/基础完成后/封顶后，与统一合同对齐）")
     @PreAuthorize("@post.has('" + EngineeringPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> prepare(@PathVariable long id, @RequestBody Map<String, Object> body,
                                                      @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         return success(plans.prepare(post(), id, new EngPlanService.PrepareCommand(
-                decimal(body.get("total")), decimal(body.get("first")), longOrNull(body.get("contractAssetId")),
+                decimal(body.get("total")), decimal(body.get("signAfter")), decimal(body.get("baseDone")),
+                decimal(body.get("capDone")), longOrNull(body.get("contractAssetId")),
                 str(body.get("note")), str(body.get("workers")), nodeInputs(body.get("nodes"))), requireIdem(idem)));
     }
 

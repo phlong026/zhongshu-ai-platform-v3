@@ -72,12 +72,16 @@ public class EngFollowupService {
         if (replayed.isPresent()) {
             return list(post, projectId);
         }
-        String stage = FrEngCollectionTermDO.STAGE_TOPPING.equals(cmd.stage())
-                ? FrEngCollectionTermDO.STAGE_TOPPING : FrEngCollectionTermDO.STAGE_START;
-        if (FrEngCollectionTermDO.STAGE_TOPPING.equals(stage)
+        String stage = switch (cmd.stage() == null ? "" : cmd.stage()) {
+            case FrEngCollectionTermDO.STAGE_BASE_DONE -> FrEngCollectionTermDO.STAGE_BASE_DONE;
+            case FrEngCollectionTermDO.STAGE_CAP_DONE -> FrEngCollectionTermDO.STAGE_CAP_DONE;
+            default -> FrEngCollectionTermDO.STAGE_SIGN_AFTER;
+        };
+        if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(stage)
                 && !EngGuard.toppingDone(planNodes.selectByProject(post.orgId(), projectId))) {
             throw exception(ENGINEERING_INPUT_INVALID, "请先登记实际主体封顶");
         }
+        // M07-T06/R2 P1-3：BASE_DONE 催收与销售域对齐不设节点门禁（基础完成留痕随 M07-T04 承接）
         long expected = collectionTerms.selectByProject(post.orgId(), projectId).stream()
                 .filter(t -> stage.equals(t.getStage())).mapToLong(FrEngCollectionTermDO::getAmountCents)
                 .findFirst().orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "请等待合同及两期收款约定确认"));

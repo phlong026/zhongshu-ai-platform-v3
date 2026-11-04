@@ -70,7 +70,8 @@ public class EngTodoProvider implements TodoProvider {
                     .filter(n -> FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()))
                     .findFirst().map(FrEngPlanNodeDO::getEndDate).orElse(null);
             for (FrEngCollectionTermDO term : collectionTerms.selectByProject(post.orgId(), project.getId())) {
-                if (FrEngCollectionTermDO.STAGE_TOPPING.equals(term.getStage()) && !toppingDone) {
+                // M07-T06：CAP_DONE 期须封顶完成；BASE_DONE 期须基础节点完成留痕（与收款门禁同规则）
+                if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(term.getStage()) && !toppingDone) {
                     continue; // 封顶款待封顶完成后进入待办（收款侧前置的同向派生）
                 }
                 long confirmed = collections.selectByProject(post.orgId(), project.getId()).stream()
@@ -80,13 +81,24 @@ public class EngTodoProvider implements TodoProvider {
                 if (remaining <= 0) {
                     continue;
                 }
-                LocalDate due = FrEngCollectionTermDO.STAGE_START.equals(term.getStage()) ? startDue : toppingDue;
+                // R2 P2-6：BASE_DONE 到期=基础节点完成日（无则 null——未约定日期不显示逾期压力）
+                LocalDate due;
+                if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(term.getStage())) {
+                    due = toppingDue;
+                } else if (FrEngCollectionTermDO.STAGE_BASE_DONE.equals(term.getStage())) {
+                    due = nodes.stream()
+                            .filter(n -> !FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone())
+                                    && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()))
+                            .map(FrEngPlanNodeDO::getEndDate).findFirst().orElse(null);
+                } else {
+                    due = startDue;
+                }
                 boolean overdue = due != null && due.isBefore(today);
                 FrEngFollowupDO last = followups.selectByProject(post.orgId(), project.getId()).stream()
                         .filter(f -> FrEngFollowupDO.KIND_COLLECTION.equals(f.getKind())
                                 && term.getStage().equals(f.getStage()))
                         .findFirst().orElse(null);
-                String title = (FrEngCollectionTermDO.STAGE_START.equals(term.getStage()) ? "开工款" : "封顶款")
+                String title = stageTitle(term.getStage())
                         + (overdue ? "已逾期待催收" : "待登记收款") + " · " + project.getName();
                 todos.add(new TodoItem(domain(), "eng-collect:" + project.getId() + ":" + term.getStage(),
                         title, overdue ? "overdue" : "pending", remaining,
@@ -96,4 +108,16 @@ public class EngTodoProvider implements TodoProvider {
         }
         return todos;
     }
+    /** M07-T06 三期待办标题 */
+    private static String stageTitle(String stage) {
+        return switch (stage) {
+            case "SIGN_AFTER" -> "签约后期款";
+            case "BASE_DONE" -> "基础完成期款";
+            case "CAP_DONE" -> "封顶后期款";
+            case "START" -> "开工款";
+            case "TOPPING" -> "封顶款";
+            default -> stage;
+        };
+    }
+
 }

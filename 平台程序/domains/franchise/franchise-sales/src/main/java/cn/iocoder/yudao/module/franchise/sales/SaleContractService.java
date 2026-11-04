@@ -330,6 +330,13 @@ public class SaleContractService {
      * M06-T04 统一视图契约（M06-T02 双端/M10 统计引用冻结）：各期约定额/累计分笔/余额/状态。
      * refundedCents 预留退款净额（关联随 M08 退款契约接入，当前恒 0——退款只改净实收不改期约定额）。
      */
+    /** M07-T06：期累计实收（Σ分笔，统一账读侧——Adapter 经此汇总；只读无事务要求） */
+    public long stageCollected(PostSnapshot post, long stageId) {
+        return stageReceipts.selectByStage(stageId).stream()
+                .mapToLong(cn.iocoder.yudao.module.franchise.sales.dal.SaleStageReceiptDO::getAmountCents)
+                .sum();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public java.util.List<Map<String, Object>> stageSummary(PostSnapshot post, long contractId) {
         // R1 P2：合同行锁（FOR UPDATE）持有至事务结束——读取期次与分笔之间到达的 collect 会等待本锁，
