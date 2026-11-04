@@ -48,7 +48,9 @@ public class EngineeringLedgerQueryAdapter implements EngineeringLedgerQueryPort
             List<FinPaymentDO> rows = paymentMapper.selectList(new LambdaQueryWrapper<FinPaymentDO>()
                     .in(FinPaymentDO::getPayableId, ids.subList(i, Math.min(i + 100, ids.size())))
                     .eq(FinPaymentDO::getStatus, "已核实"));
-            rows.forEach(p -> result.merge(p.getPayableId(), FinPaymentService.amount(p), Long::sum));
+            // R3 P2：有效账口径=Σ(amount-pending_link_cents)——PENDING_LINK 超额不冲减其他应付
+            rows.forEach(p -> result.merge(p.getPayableId(), FinPaymentService.amount(p)
+                    - (p.getPendingLinkCents() == null ? 0 : p.getPendingLinkCents()), Long::sum));
         }
         // 应付本身不存在的入参以 0 出现（调用方区分「无应付」用 payableId==null 判断）
         ids.forEach(id -> result.putIfAbsent(id, 0L));
