@@ -66,7 +66,15 @@ const materials = {
     http.post('/franchise/engineering/' + id + '/material-followups', { materialPlanId, promiseDate, note }, idem(key, 'mfollow')),
   /** 计划级汇总（到货+付款派生态；?materialPlanId=） */
   summary: (id, materialPlanId) => http.get('/franchise/engineering/' + id + '/materials/summary',
-    materialPlanId ? { materialPlanId } : undefined)
+    materialPlanId ? { materialPlanId } : undefined),
+  /** M07-T07：登记直接项目费用（purpose=LABOR 劳务/TRAVEL 差旅/OTHER 其它）{name,purpose,amount,note} */
+  expenseRegister: (id, data, key) => http.post('/franchise/engineering/' + id + '/expenses', data, idem(key, 'expense')),
+  /** M07-T07：费用挂 finance 应付 {supplier,basis}（付款沿 payable_id 经 finance 资金侧） */
+  expenseTerms: (expenseId, data, key) => http.post('/franchise/engineering/expenses/' + expenseId + '/terms', data, idem(key, 'expense-terms')),
+  /** M09-T04：确认费用变更（金额修订——退多付款不减正确费用）{newAmount,note} */
+  expenseRevise: (expenseId, data, key) => http.post('/franchise/engineering/expenses/' + expenseId + '/revise', data, idem(key, 'expense-revise')),
+  /** 费用清单 */
+  expenseList: (id) => http.get('/franchise/engineering/' + id + '/expenses'),
 };
 
 const site = {
