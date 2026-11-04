@@ -23,6 +23,10 @@ public class FinPaymentDO {
     private Long projectId;
     private Long companyId;
     private Long amountCents;
+    /** M10-T05/R1：待关联现金金额（超出应付剩余额度的已核实部分；reconcile 后转正） */
+    private Long pendingLinkCents;
+    /** LINKED=已入有效账；PENDING_LINK=已核待关联现金（异常留痕） */
+    private String linkStatus;
     private String status;
     private LocalDate payDate;
     private Long operatorUserId;

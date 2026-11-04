@@ -244,7 +244,16 @@ public class PerfCommissionService {
             throw exception(COMMISSION_RELEASE_INVALID);
         }
         StageFacts facts = stageFacts(post, projectId, stageKey);
-        if (!facts.eligible) {
+        // M10-T05：已付留痕核对路径——已付>0 时即使净额不足（退款/冲正后）也可独立异常留痕核对
+        //（「实际已付即使 reviewDue/超正常余额也可独立异常留痕，不绕有效账上限；无自动扣薪/追回」）；
+        // 未释放/已释放未付且净额不足 → 仍拒绝（待足额后核对）
+        long paidForStage = 0;
+        if (rel.getPayableId() != null) {
+            paidForStage = jdbc.queryForObject(
+                    "SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_payment "
+                            + "WHERE payable_id = ? AND status = '已核实'", Long.class, rel.getPayableId());
+        }
+        if (!facts.eligible && paidForStage <= 0) {
             throw exception(COMMISSION_NOT_ELIGIBLE,
                     "退款、冲正或更正后净实收仍未足额，" + ("START".equals(stageKey) ? "开工款" : "封顶款"));
         }
@@ -258,6 +267,14 @@ public class PerfCommissionService {
         record.put("note", StrUtil.trim(note));
         record.put("actorUserId", post.userId());
         record.put("at", String.valueOf(java.time.OffsetDateTime.now()));
+        // M10-T05：已付留痕核对记录差额（正=少付待补、负=超付异常；无自动扣薪——仅立账展示）
+        // R2 P1-1 修正：差额口径=提成义务两侧（paidForStage=提成已付 vs amount=提成应付）——
+        // 此前混用 facts.received（客户阶段净收款，8 万级）与提成已付（千元级）导致差额 -79000 误记；
+        // 阶段净收款作为到账事实单列，不进差额
+        record.put("paidCents", paidForStage);
+        record.put("commissionAmountCents", policyAmountOf(rel));
+        record.put("diffCents", paidForStage - policyAmountOf(rel));
+        record.put("stageNetCollectedCents", facts.received);
         JsonUtil.updateJsonb(jdbc, "fr_perf_commission_release", Map.of(
                 "receipt_ids", cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(facts.receiptIds),
                 "reconciliations", JsonUtil.append(rel.getReconciliations(), record)),
@@ -386,7 +403,23 @@ public class PerfCommissionService {
             } else {
                 status = "待足额到账";
             }
+            // M10-T05：退款后提成分状态三桶派生（权威 16：无自动扣薪/追回——三分状态仅展示与核对入口）
+            // ①未释放：rel==null，签名变化即重算 eligible（stageFacts 实时计算已承载）
+            // ②已释放未付：rel!=null && paid<amount && reviewDue → 待人工核对（含差额）
+            // ③已付：paid>0 → 已付留付款并核差额（差额=amount-paid，负值=超付，独立异常留痕走 reconcile）
+            String refundImpact;
+            if (rel == null) {
+                refundImpact = "NOT_RELEASED_RECALC"; // 未释放重算：eligible 由 stageFacts 实时净口径派生
+            } else if (paid > 0) {
+                long paidDiff = amount - paid; // 正=少付差额，负=超付差额
+                refundImpact = paidDiff == 0 ? "PAID_MATCHED" : "PAID_DIFF_PENDING"; // 已付留痕+核差额
+            } else {
+                refundImpact = "RELEASED_UNPAID_REVIEW"; // 已释放未付待核对
+            }
+            long paidDiffCents = paid - amount; // 负=少付、正=超付（M10-T05 差额核对立账展示）
             Map<String, Object> stageView = new LinkedHashMap<>();
+            stageView.put("refundImpact", refundImpact); // M10-T05：退款后分状态（NOT_RELEASED_RECALC/RELEASED_UNPAID_REVIEW/PAID_MATCHED/PAID_DIFF_PENDING）
+            stageView.put("paidDiffCents", paidDiffCents); // 已付-应收差额（正=超付，负=少付）
             stageView.put("stage", stage);
             stageView.put("label", stageLabel(stage));
             stageView.put("amountCents", amount);
@@ -427,6 +460,18 @@ public class PerfCommissionService {
     private static String scopedProbeKey(PostSnapshot post, String idempotencyKey) {
         String key = idempotencyKey == null ? "" : idempotencyKey.trim();
         return "franchise:" + post.userId() + ":" + cn.hutool.core.util.StrUtil.maxLength(key, 80);
+    }
+
+    /** R2 P1-1：按 release 行取提成应付约定额（同义务差额比较用） */
+    private long policyAmountOf(FrPerfCommissionReleaseDO rel) {
+        FrPerfCommissionPolicyDO policy = policies.selectById(rel.getPolicyId());
+        if (policy == null) return 0;
+        return switch (rel.getStage()) {
+            case FrPerfCommissionReleaseDO.STAGE_BASE_DONE -> policy.getBaseDoneCents() == null ? 0 : policy.getBaseDoneCents();
+            case FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER, FrPerfCommissionReleaseDO.STAGE_START ->
+                    policy.getStartCents() == null ? 0 : policy.getStartCents();
+            default -> policy.getToppingCents() == null ? 0 : policy.getToppingCents();
+        };
     }
 
     /** M10-T07 三期显示文案 */

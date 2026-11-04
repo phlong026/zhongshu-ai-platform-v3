@@ -88,12 +88,15 @@ public class FinPaymentService {
         }
         long paid = paymentMapper.selectActiveByPayable(cmd.payableId()).stream()
                 .mapToLong(FinPaymentService::amount).sum();
-        if (paid + cmd.amountCents() > payable.getTotalCents()) {
-            throw exception(PAYMENT_EXCEED_PAYABLE);
-        }
+        // M10-T05/R1 P1-4：超余额部分转「已核待关联现金」独立异常留痕（不拒绝——真实资金留痕优先，
+        // 不绕有效账上限：有效账只计额度内部分；reconcile 后可转正）
+        long overCents = Math.max(0, paid + cmd.amountCents() - payable.getTotalCents());
+        long linkedCents = cmd.amountCents() - overCents;
         FinPaymentDO payment = new FinPaymentDO()
                 .setPayableId(cmd.payableId()).setProjectId(payable.getProjectId()).setCompanyId(post.orgId())
                 .setAmountCents(cmd.amountCents()).setStatus("已核实")
+                .setPendingLinkCents(overCents)
+                .setLinkStatus(overCents > 0 ? "PENDING_LINK" : "LINKED")
                 .setPayDate(cmd.payDate()).setOperatorUserId(post.userId())
                 .setTransactionNo(FinReceiptService.normalize(cmd.transactionNo()))
                 .setVoucherFileId(cmd.voucherFileId());
