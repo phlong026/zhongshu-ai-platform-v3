@@ -1490,7 +1490,7 @@
       "scope": "I01/M05-I01及版本冻结规则",
       "dependency": "M06-T04统一合同引用契约冻结；M05-T03正式确认下发准备、M05-T04冻结契约；M07既有接收端口，不等全链验收",
       "acceptance": "最新正式确认下发版→移交→指定工程接收只建一档并冻结；关联统一contractId；退回补件/后续变更留版本，未确认新版本不能替换",
-      "status": "待实施／待验证",
+      "status": "后端已实施（批次#23，10ac631，R9 PASS）：contractId 关联链+移交包版本冻结+下发冻结提交版本引用+存量核对两步法；余 packet UI 随 M05-T04 前端版本展示",
       "module": "M06",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
       "line": 110,
