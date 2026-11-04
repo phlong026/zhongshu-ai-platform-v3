@@ -163,11 +163,12 @@ public class SalesController {
     public CommonResult<List<Map<String, Object>>> contractsList(@RequestParam("customerId") long customerId) {
         PostSnapshot post = post();
         access.requireOrgCustomer(post, customerId);
+        // M06-T02：响应附三期统一视图（各期约定额/累计分笔/余额/状态），与 create/stage-summary 同契约
         List<Map<String, Object>> rows = contracts.listByCustomer(post, customerId).stream()
                 .map(c -> {
                     Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
                     row.put("contract", c);
-                    row.put("stages", stages.selectByContract(c.getId()));
+                    row.put("stages", contracts.stageSummary(post, c.getId()));
                     return row;
                 })
                 .toList();

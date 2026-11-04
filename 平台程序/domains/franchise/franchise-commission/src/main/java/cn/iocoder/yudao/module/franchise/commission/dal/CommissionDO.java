@@ -39,6 +39,8 @@ public class CommissionDO {
     /** 当前有效下发版本；登记修改意见后清空 */
     private Integer dispatchSeq;
     private String dispatchedSchemeVersion; // M05-T04：确认下发时冻结的设计方案版本快照
+    /** M06-T03/R2：确认下发时实际使用的提交版本（下发次数≠提交次数——费用退回重提后 seq 与 version 错位） */
+    private Integer dispatchedSubmissionVersion;
     private Integer handoverVersion;
     /** 首款：门店已付足且总部已核实到账（franchise-api DesignFeeProgressApi 写入） */
     private OffsetDateTime firstReadyAt;

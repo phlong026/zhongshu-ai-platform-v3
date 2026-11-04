@@ -31,6 +31,9 @@ import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Import({CommissionService.class, HandoverService.class, DesignPolicyService.class, CommissionAccess.class,
+        cn.iocoder.yudao.module.franchise.engineering.content.EngineeringPortImpl.class,
+        cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.class,
+        cn.iocoder.yudao.module.franchise.sales.SaleContractQueryAdapter.class,
         CommissionOrgScope.class, FranchiseCommands.class, CommandLogImpl.class, ApprovalServiceImpl.class,
         FranchiseTodoProvider.class, TodoServiceImpl.class,
         cn.iocoder.yudao.module.franchise.crm.CustomerService.class,

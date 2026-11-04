@@ -39,6 +39,8 @@ public class FrEngProjectDO {
     private String customerName;
     private String phone;
     private Long sourceCommissionId;
+    /** M06-T03：关联统一建房合同（客户无活跃合同时 NULL 兼容；合同变更不回写） */
+    private Long saleContractId;
     private String sourceType;
     private Long parentProjectId;
     /** 负责人（移交带入/换负责人动作维护；记录流办理=本人，D-14 owner） */

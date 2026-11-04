@@ -36,6 +36,8 @@ public class CommissionHandoverDO {
     private LocalDate confirmationDate;
     /** 交底说明 */
     private String note;
+    /** M06-T03：提交时冻结的当时有效下发方案版本（后续变更留版本不覆盖） */
+    private String frozenSchemeVersion;
     private Long managerUserId;
     private String status;
     private String decisionNote;

@@ -42,6 +42,9 @@ import static cn.iocoder.yudao.module.platform.workflow.enums.PlatformWorkflowEr
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Import({CommissionService.class, HandoverService.class, DesignPolicyService.class, CommissionAccess.class,
+        cn.iocoder.yudao.module.franchise.engineering.content.EngineeringPortImpl.class,
+        cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.class,
+        cn.iocoder.yudao.module.franchise.sales.SaleContractQueryAdapter.class,
         CommissionOrgScope.class, FranchiseCommands.class, CommandLogImpl.class, ApprovalServiceImpl.class,
         CustomerService.class, LeadService.class, cn.iocoder.yudao.module.franchise.crm.CrmOrgScope.class})
 class CommissionIntegrationTest extends FranchisePgIntegrationTest {

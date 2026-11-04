@@ -312,7 +312,10 @@ public class CommissionService implements DesignFeeProgressApi {
             Revisions.requireUpdated(commissionMapper.updateByRevision(commissionId, revision, u -> {
                 u.set(CommissionDO::getStatus, CommissionDO.STATUS_DISPATCHED)
                  .set(CommissionDO::getDispatchSeq, seq)
-                 .set(CommissionDO::getDispatchedSchemeVersion, schemeVer);
+                 .set(CommissionDO::getDispatchedSchemeVersion, schemeVer)
+                 // M06-T03/R2：冻结下发实际使用的提交版本（移交包按此取参数，不按 seq 猜）
+                 .set(CommissionDO::getDispatchedSubmissionVersion,
+                         latestSubmission == null ? null : latestSubmission.getVersion());
             }));
             commands.record(post, AGGREGATE, commissionId, revision + 1, "design-dispatch", command, idempotencyKey);
         }
@@ -338,9 +341,12 @@ public class CommissionService implements DesignFeeProgressApi {
                     .setActorUserId(post.userId()).setActorPostId(post.postId());
             progressMapper.insert(record);
             long revision = commission.getRevision();
+            // 修改意见清空当前有效下发（R2 一并清 schemeVersion 遗留缺口——「当前有效下发清空」语义覆盖两列）
             Revisions.requireUpdated(commissionMapper.updateByRevision(commissionId, revision, u -> u
                     .set(CommissionDO::getStatus, CommissionDO.STATUS_DESIGNING)
-                    .set(CommissionDO::getDispatchSeq, null)));
+                    .set(CommissionDO::getDispatchSeq, null)
+                    .set(CommissionDO::getDispatchedSchemeVersion, null)
+                    .set(CommissionDO::getDispatchedSubmissionVersion, null)));
             commands.record(post, AGGREGATE, commissionId, revision + 1, "commission-feedback", command, idempotencyKey);
         }
         return get(post, commissionId);

@@ -5,6 +5,8 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.EngineeringPort;
 import cn.iocoder.yudao.module.franchise.commission.dal.CommissionDO;
 import cn.iocoder.yudao.module.franchise.commission.dal.CommissionHandoverDO;
+import cn.iocoder.yudao.module.franchise.commission.dal.CommissionSubmissionDO;
+import cn.iocoder.yudao.module.franchise.commission.dal.CommissionSubmissionMapper;
 import cn.iocoder.yudao.module.franchise.commission.dal.CommissionHandoverMapper;
 import cn.iocoder.yudao.module.franchise.commission.dal.CommissionMapper;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
@@ -49,12 +51,16 @@ public class HandoverService {
     private final CommissionService commissionService;
     private final CustomerMapper customerMapper;
     private final CustomerService customerService;
+    private final CommissionSubmissionMapper submissionMapper;
     private final EngineeringPort engineering;
+    private final cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContracts;
 
     public HandoverService(CommissionMapper commissionMapper, CommissionHandoverMapper handoverMapper,
                            StaffPostService staffPostService, FranchiseCommands commands, CommissionAccess access,
                            CommissionService commissionService, CustomerMapper customerMapper,
-                           CustomerService customerService, EngineeringPort engineering) {
+                           CustomerService customerService, CommissionSubmissionMapper submissionMapper,
+                           EngineeringPort engineering,
+                           cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContracts) {
         this.commissionMapper = commissionMapper;
         this.handoverMapper = handoverMapper;
         this.staffPostService = staffPostService;
@@ -63,7 +69,9 @@ public class HandoverService {
         this.commissionService = commissionService;
         this.customerMapper = customerMapper;
         this.customerService = customerService;
+        this.submissionMapper = submissionMapper;
         this.engineering = engineering;
+        this.saleContracts = saleContracts;
     }
 
     /** 提交移交（首次与退回后重提同一命令）：请求的 dispatchSeq 必须等于当前有效下发 */
@@ -93,6 +101,8 @@ public class HandoverService {
                 .setDrawingVersion(input.drawingVersion()).setConfirmationDate(input.confirmationDate())
                 .setNote(input.note()).setManagerUserId(manager.getUserId())
                 .setStatus(CommissionHandoverDO.STATUS_PENDING)
+                // M06-T03：提交时冻结当时有效下发方案版本（后续变更留版本不覆盖）
+                .setFrozenSchemeVersion(commission.getDispatchedSchemeVersion())
                 .setSubmittedByUserId(post.userId());
         handoverMapper.insert(handover);
         long revision = commission.getRevision();
@@ -156,15 +166,22 @@ public class HandoverService {
                         : CommissionDO.STATUS_HANDOVER_RETURNED)));
         if (accept) {
             // 阶段 2（D-4）：接收成功同事务建档工程档案（内部 Port，幂等由 (company, source_commission_id) 兜底）
-            engineering.receiveFromHandover(post, handoverCommand(commission, handover));
+            engineering.receiveFromHandover(post, handoverCommand(post, commission, handover));
         }
         commands.record(post, CommissionService.AGGREGATE, commissionId, revision + 1, commandName, command, idempotencyKey);
     }
 
     /** 组装建档数据：客户称呼/城市/电话随客户行，面积/层数取最新预算方案（v3 蓝本 basis 口径） */
-    private EngineeringPort.HandoverProject handoverCommand(CommissionDO commission, CommissionHandoverDO handover) {
+    private EngineeringPort.HandoverProject handoverCommand(PostSnapshot post, CommissionDO commission, CommissionHandoverDO handover) {
         CustomerDO customer = customerMapper.selectById(commission.getCustomerId());
-        CustomerSchemeDO budget = customer == null ? null
+        // R1 P1/R2：面积/层数按「下发冻结的实际提交版本」取参数（dispatch_seq=下发次数≠提交次数；
+        // V1 下发后保存未确认 V2 预算不得进档案）；无对应提交（存量/异常）时 fallback 最新预算
+        Integer frozenSubmissionVersion = commission.getDispatchedSubmissionVersion();
+        CommissionSubmissionDO frozenSubmission = frozenSubmissionVersion == null ? null
+                : submissionMapper.selectByCommission(commission.getId()).stream()
+                        .filter(sub -> frozenSubmissionVersion.intValue() == sub.getVersion().intValue())
+                        .findFirst().orElse(null);
+        CustomerSchemeDO budget = frozenSubmission != null || customer == null ? null
                 : customerService.latestScheme(customer.getId(), CustomerSchemeDO.KIND_BUDGET);
         String customerName = customer != null ? customer.getName() : commission.getCustomerName();
         String city = customer != null ? customer.getCity() : null;
@@ -174,15 +191,19 @@ public class HandoverService {
         String briefNote = handover.getNote() == null ? ""
                 : handover.getNote().length() <= 900 ? handover.getNote() : handover.getNote().substring(0, 900) + "…";
         String briefFile = "{\"name\":\"电子交底记录\",\"text\":" + JsonUtils.toJsonString(briefNote) + "}";
+        // M06-T03：解析统一建房合同（活跃 SIGNED；无则 null 兼容）——工程档案关联统一 contractId
+        Long saleContractId = saleContracts.findActiveSignedId(post, commission.getCustomerId());
         return new EngineeringPort.HandoverProject(commission.getId(), commission.getCustomerId(), customerName,
-                city, phone, budget != null ? budget.getArea() : null, budget != null ? budget.getFloors() : null,
+                city, phone,
+                frozenSubmission != null ? frozenSubmission.getArea() : (budget != null ? budget.getArea() : null),
+                frozenSubmission != null ? frozenSubmission.getFloors() : (budget != null ? budget.getFloors() : null),
                 handover.getManagerUserId(), drawingVersion, handover.getDrawingFile(),
                 List.of(new EngineeringPort.HandoverDocument("正式设计成果", handover.getResultFile(), "DOCUMENT", drawingVersion),
                         new EngineeringPort.HandoverDocument("正式施工图", handover.getDrawingFile(), "DRAWING", drawingVersion),
                         new EngineeringPort.HandoverDocument("线下专业审核依据", handover.getReviewFile(), "DOCUMENT", drawingVersion),
                         new EngineeringPort.HandoverDocument("客户确认凭据", handover.getConfirmationFile(), "DOCUMENT", drawingVersion),
                         new EngineeringPort.HandoverDocument("电子交底", briefFile, "DOCUMENT", drawingVersion)),
-                handover.getNote());
+                handover.getNote(), saleContractId, handover.getFrozenSchemeVersion());
     }
 
     /** 接收人：同组织有效工程线任职（engineer / project-manager，sales-flow.js:106），且不是提交人本人 */

@@ -31,8 +31,10 @@ public class EngineeringPortImpl implements EngineeringPort {
                     "kind", doc.kind() == null ? "DOCUMENT" : doc.kind(),
                     "version", doc.version() == null ? "" : doc.version()));
         }
+        // M06-T03：统一合同关联与冻结方案版本透传至工程档案
         return projects.receiveFromHandover(post, command.commissionId(), command.customerId(),
                 command.customerName(), command.city(), command.phone(), command.area(), command.floors(),
-                command.managerUserId(), command.drawingVersion(), command.drawingFile(), documentRows);
+                command.managerUserId(), command.drawingVersion(), command.drawingFile(), documentRows,
+                command.saleContractId(), command.frozenSchemeVersion());
     }
 }

@@ -158,15 +158,28 @@ public class EngProjectService {
     public long receiveFromHandover(PostSnapshot post, long commissionId, Long customerId, String customerName,
                                     String city, String phone, BigDecimal area, Integer floors,
                                     long managerUserId, String drawingVersion, String drawingFile,
-                                    List<Map<String, String>> documentRows) {
+                                    List<Map<String, String>> documentRows,
+                                    Long saleContractId, String frozenSchemeVersion) {
         List<FrEngProjectDO> existing = projects.selectByCommission(post.orgId(), commissionId);
         if (!existing.isEmpty()) {
-            // 重复回调：刷新交底资料（不动合同/负责人/现场记录——蓝本「工程经办人、已签施工合同和现场记录由工程维护」）
+            // 重复回调：刷新交底资料（不动负责人/现场记录——蓝本「工程经办人、已签施工合同和现场记录由工程维护」）；
+            // R1 P2：合同关联只补全不为改写（原 NULL 本次有值才补）；冻结版本变更留刷新事件供追溯
             FrEngProjectDO project = existing.get(0);
-            projects.updateById(new FrEngProjectDO().setId(project.getId())
-                    .setCity(city).setPhone(phone).setArea(area).setFloors(floors)
-                    .setDrawingVersion(drawingVersion).setUpdateTime(java.time.OffsetDateTime.now()));
+            // R2：合同补全用 NULL 条件原子更新（先读后写实体更新在并发回调下后写覆盖先写，违反「只补全不改写」）
+            boolean contractBackfill = project.getSaleContractId() == null && saleContractId != null;
+            jdbcTemplate.update(
+                    "UPDATE fr_eng_project SET city = ?, phone = ?, area = ?, floors = ?, drawing_version = ?, "
+                            + "sale_contract_id = COALESCE(sale_contract_id, ?), update_time = now() "
+                            + "WHERE id = ? AND company_id = ?",
+                    city, phone, area, floors, drawingVersion, saleContractId, project.getId(), post.orgId());
             refreshDocuments(post, project.getId(), documentRows);
+            // revision 取新雪花 id：refresh 与首建不同命令链，不走 aggregate 版本递增（避免与首建 revision=1 冲突）
+            commands.record(post, AGGREGATE, project.getId(), com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),
+                    "eng-project-handover-refresh",
+                    Map.of("commissionId", commissionId,
+                            "drawingVersion", StrUtil.nullToEmpty(drawingVersion),
+                            "frozenSchemeVersion", StrUtil.nullToEmpty(frozenSchemeVersion),
+                            "contractBackfill", contractBackfill), null);
             return project.getId();
         }
         String cityPart = StrUtil.isBlank(city) ? "" : StrUtil.trim(city).replaceFirst("市$", "");
@@ -179,13 +192,17 @@ public class EngProjectService {
                 .setCity(city).setArea(area).setFloors(floors).setName(name)
                 .setStatus(FrEngProjectDO.STATUS_PENDING_START)
                 .setDrawingVersion(drawingVersion)
+                // M06-T03：统一合同关联（NULL 兼容）+接收冻结包快照留档
+                .setSaleContractId(saleContractId)
                 .setRevision(1L).setAuthorUserId(managerUserId);
         projects.insert(project);
         refreshDocuments(post, project.getId(), documentRows);
         initTemplatePlan(post, project);
         commands.record(post, AGGREGATE, project.getId(), 1, "eng-project-from-handover",
                 Map.of("commissionId", commissionId, "managerUserId", managerUserId,
-                        "drawingVersion", StrUtil.nullToEmpty(drawingVersion)), null);
+                        "drawingVersion", StrUtil.nullToEmpty(drawingVersion),
+                        "frozenSchemeVersion", StrUtil.nullToEmpty(frozenSchemeVersion),
+                        "saleContractId", saleContractId == null ? "" : String.valueOf(saleContractId)), null);
         return project.getId();
     }
 
