@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.franchise.finance;
 
+import cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentDO;
+import cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinRefundDO;
@@ -40,9 +42,16 @@ public class FinRefundService {
     private FinTxnNoMapper txnNoMapper;
     @Resource
     private FranchiseCommands commands;
+    @Resource
+    private FinPaymentMapper paymentMapper;
 
     public record RegisterCommand(long receiptId, long amountCents, String reason, LocalDate date,
                                   String transactionNo, Long voucherFileId, Long replacesId) {
+    }
+
+    /** M08-T08：支出退回命令（供应商/劳务方退回材料/劳务款，冲减已付现金） */
+    public record ExpenseRefundCommand(long paymentId, long amountCents, String reason, LocalDate date,
+                                       String transactionNo, Long voucherFileId) {
     }
 
     @Transactional
@@ -107,6 +116,32 @@ public class FinRefundService {
         commands.record(post, "fin-refund", refund.getId(), 1, "fin-refund-register", cmd, idempotencyKey);
         log.info("[register][companyId={} refund={} receipt={} amount={} replaces={}]",
                 post.orgId(), refund.getId(), cmd.receiptId(), cmd.amountCents(), cmd.replacesId());
+        return refund.getId();
+    }
+
+    /** M08-T08：支出退回——供应商/劳务方退回材料/劳务款，冲减已付现金（方向=expense） */
+    @Transactional
+    public long registerExpense(PostSnapshot post, String idempotencyKey, ExpenseRefundCommand cmd) {
+        var replayed = commands.replayed(post, idempotencyKey, cmd);
+        if (replayed.isPresent()) return replayed.get().getAggregateId();
+        BusinessDateGuard.requireValid(cmd.date());
+        FinPaymentDO payment = paymentMapper.selectById(cmd.paymentId());
+        if (payment == null) throw exception(PAYMENT_NOT_FOUND_EXPENSE);
+        if (payment.getCompanyId() != post.orgId()) throw exception(ORG_MISMATCH);
+        long paidTotal = paymentMapper.selectList(null).stream()
+                .filter(p2 -> p2.getPayableId() == payment.getPayableId() && "已核实".equals(p2.getStatus()))
+                .mapToLong(FinPaymentDO::getAmountCents).sum();
+        if (cmd.amountCents() > paidTotal) throw exception(EXPENSE_REFUND_EXCEED);
+        var txn = FinReceiptService.normalize(cmd.transactionNo());
+        FinRefundDO refund = new FinRefundDO()
+                .setPaymentId(cmd.paymentId()).setCompanyId(post.orgId())
+                .setAmountCents(cmd.amountCents()).setStatus("已核实")
+                .setReason(cmd.reason()).setOperatorUserId(post.userId())
+                .setDate(cmd.date()).setTransactionNo(txn)
+                .setVoucherFileId(cmd.voucherFileId())
+                .setRefundDirection("expense");
+        refundMapper.insert(refund);
+        commands.record(post, "fin-expense-refund", refund.getId(), 1, "fin-expense-refund", cmd, idempotencyKey);
         return refund.getId();
     }
 

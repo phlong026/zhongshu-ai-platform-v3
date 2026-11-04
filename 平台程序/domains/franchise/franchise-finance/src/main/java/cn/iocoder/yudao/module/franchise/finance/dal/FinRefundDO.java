@@ -20,6 +20,8 @@ public class FinRefundDO {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private Long receiptId;
+    private String refundDirection; // M08-T08: client/expense
+    private Long paymentId; // M08-T08: expense 退回关联原付款单
     private Long companyId;
     private Long amountCents;
     private String status;

@@ -21,6 +21,8 @@ public interface FranchiseFinErrorCodes {
     ErrorCode PAYMENT_EXCEED_PAYABLE = new ErrorCode(1_102_000_010, "累计付款超出应付金额");
     ErrorCode PAYMENT_PAYABLE_REQUIRED = new ErrorCode(1_102_000_011, "付款必须关联应付记录");
     ErrorCode PAYMENT_NOT_FOUND = new ErrorCode(1_102_000_012, "付款记录不存在");
+    ErrorCode PAYMENT_NOT_FOUND_EXPENSE = new ErrorCode(1_102_000_030, "支出退回关联付款单不存在");
+    ErrorCode EXPENSE_REFUND_EXCEED = new ErrorCode(1_102_000_031, "支出退回金额超过已付现金余额");
     ErrorCode PAYABLE_NOT_FOUND = new ErrorCode(1_102_000_013, "应付记录不存在");
     ErrorCode BANK_FLOW_NOT_FOUND = new ErrorCode(1_102_000_014, "银行流水不存在");
     ErrorCode BANK_FLOW_TAKEN = new ErrorCode(1_102_000_015, "该银行流水已被确认入账");
