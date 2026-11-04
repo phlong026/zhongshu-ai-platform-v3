@@ -1713,7 +1713,7 @@
       "scope": "I06；对外劳务费用与应付前后端",
       "dependency": "M08支出方向契约冻结，M09直接成本契约冻结",
       "acceptance": "劳务原单→费用确认→应付→多笔付款→退回关联；退多付只减已付现金不减正确费用，确认劳务减项后才改成本",
-      "status": "规则已定，待实施／验证",
+      "status": "已实施（批次#27，cf5bb35/6b7c0ee，R2 PASS）：LABOR 全链（确认/挂付/付款/退回/revise）+端点 5 个+v3 四端点接线；页面入口随 M07-T02",
       "module": "M07",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
       "line": 132,
