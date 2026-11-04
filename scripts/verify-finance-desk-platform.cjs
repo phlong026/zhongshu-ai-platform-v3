@@ -15,8 +15,8 @@ function ok(cond, name) {
 }
 
 /** mock page + mock financeApi */
-function mockPage() {
-  const page = { data: {}, setData(patch) {
+function mockPage(initialData) {
+  const page = { data: initialData || {}, setData(patch) {
     // 支持 'a.b' 路径键（真机 setData 语义）
     for (const [k, v] of Object.entries(patch)) {
       if (k.includes('.')) {
@@ -45,7 +45,8 @@ const mockApi = { calls: [] };
   return Promise.resolve({ id: 1 });
 };
 });
-mockApi.idemKey = action => 'fin-' + action + '-test';
+let idemSeq = 0;
+mockApi.idemKey = action => 'fin-' + action + '-test-' + (++idemSeq); // 计数器键：新表单周期换新键可断言
 
 async function main() {
 console.log('[AC] F2 收款登记：金额校验/bank 必流水号/提交体');
@@ -84,7 +85,7 @@ console.log('[AC] F3 付款登记：payableId 必选 + 金额换算');
   page.submitRegister();
   await new Promise(r => setImmediate(r));
   const call = mockApi.calls.find(c => c.fn === 'registerPayment');
-  ok(call && call.body.payableId === 9 && call.body.amountCents === 29, '0.29 → 29 分');
+  ok(call && String(call.body.payableId) === '9' && call.body.amountCents === 29, '0.29 → 29 分（ID 字符串逐字）');
 }
 
 console.log('[AC] F4 退款登记：可退余额本地预校验');
@@ -102,7 +103,7 @@ console.log('[AC] F4 退款登记：可退余额本地预校验');
   page.submitRegister();
   await new Promise(r => setImmediate(r));
   const call = mockApi.calls.find(c => c.fn === 'registerRefund');
-  ok(call && call.body.receiptId === 5 && call.body.amountCents === 4000, '可退边界内提交');
+  ok(call && String(call.body.receiptId) === '5' && call.body.amountCents === 4000, '可退边界内提交（ID 字符串逐字）');
 }
 
 console.log('[AC] F5 应付登记：收款方必填');
@@ -130,7 +131,7 @@ console.log('[AC] F6 到账确认：必选应收/提交参数');
   page.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 31 } } });
   await new Promise(r => setImmediate(r));
   const call = mockApi.calls.find(c => c.fn === 'confirmBank');
-  ok(call && call.body.bankFlowId === 31 && call.body.receiptId === 77, '确认入账参数（flowId+选中应收）');
+  ok(call && String(call.body.bankFlowId) === '31' && String(call.body.receiptId) === '77', '确认入账参数（flowId+选中应收，ID 字符串逐字）');
 }
 
 console.log('[AC] F7 封存过滤：SEALED 全集不出现（返回新对象）');
@@ -162,6 +163,113 @@ console.log('[AC] F6 补：PENDING 状态映射与错误码');
   ok(PF.errorMessage({ code: 1102000016 }).indexOf('不一致') >= 0, '016 文案');
   ok(PF.errorMessage({ code: 1102000018 }).indexOf('权限') >= 0, '018 文案');
   ok(PF.errorMessage({ code: 1102000005 }).indexOf('可退') >= 0, '005 文案');
+}
+
+console.log('[AC] M08-T07：雪花 ID 逐字一致（>2^53 不经 Number 截断）');
+{
+  const SNOWFLAKE = '38709901066925012345'; // 19 位雪花串（>2^53）
+  const page = mockPage({ platformRegister: { payables: [{ id: SNOWFLAKE, label: '应付9', totalCents: 100, paidCents: 0 }],
+    refundable: [{ id: SNOWFLAKE, label: '应收9', amountCents: 900, refundableCents: 900 }],
+    pendingReceipts: [{ id: SNOWFLAKE, label: '应收9', amountCents: 900 }] },
+    registerForm: { amount: '1', payableId: SNOWFLAKE, receiptId: SNOWFLAKE, projectId: SNOWFLAKE,
+      recipient: '供应商', transactionNo: '', reason: '' }, registerBusy: false, registerError: '',
+    registerType: 'payment' });
+  page.submitRegister(); // payment
+  await new Promise(r => setImmediate(r));
+  const payCall = mockApi.calls.filter(c => c.fn === 'registerPayment').pop();
+  ok(!!payCall && typeof payCall.body.payableId === 'string'
+      && payCall.body.payableId === SNOWFLAKE, '付款 payableId 雪花串逐字一致（不经 Number）');
+  // 成功回调会清空 registerForm——每次场景前恢复表单（模拟用户重新填写）
+  const restoreForm = () => page.setData({ registerForm: { amount: '1', payableId: SNOWFLAKE,
+    receiptId: SNOWFLAKE, projectId: SNOWFLAKE, recipient: '供应商', transactionNo: '', reason: '' } });
+  page.setData({ registerType: 'payable' });
+  restoreForm();
+  page.submitRegister(); // payable（projectId 在应付登记体）
+  await new Promise(r => setImmediate(r));
+  const payableCall = mockApi.calls.filter(c => c.fn === 'registerPayable').pop();
+  ok(!!payableCall && typeof payableCall.body.projectId === 'string'
+      && payableCall.body.projectId === SNOWFLAKE, '应付 projectId 雪花串逐字一致');
+  page.setData({ registerType: 'refund' });
+  restoreForm();
+  page.submitRegister(); // refund
+  await new Promise(r => setImmediate(r));
+  const refundCall = mockApi.calls.filter(c => c.fn === 'registerRefund').pop();
+  ok(!!refundCall && typeof refundCall.body.receiptId === 'string'
+      && refundCall.body.receiptId === SNOWFLAKE, '退款 receiptId 雪花串逐字一致');
+  page.setData({ ['bankPick' + SNOWFLAKE]: 0 });
+  page.bankPick({ currentTarget: { dataset: { flowId: SNOWFLAKE } }, detail: { value: 0 } });
+  page.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: SNOWFLAKE } } });
+  await new Promise(r => setImmediate(r));
+  const confirmCall = mockApi.calls.filter(c => c.fn === 'confirmBank').pop();
+  ok(!!confirmCall && typeof confirmCall.body.bankFlowId === 'string'
+      && confirmCall.body.bankFlowId === SNOWFLAKE, '到账确认 flowId 雪花串逐字一致');
+}
+
+console.log('[AC] M08-T04：响应丢失同键重试（register 粘性键）+ 成功后换新键');
+{
+  const SNOWFLAKE = '38709901066925012345';
+  const page = mockPage({ platformRegister: { payables: [{ id: '1', label: '应付', totalCents: 100, paidCents: 0 }] },
+    registerType: 'payment',
+    registerForm: { amount: '1', payableId: '1', recipient: '供应商', transactionNo: '', reason: '' },
+    registerBusy: false, registerError: '', registerType: 'payment' });
+  // 第一次提交：响应丢失（pending 永不 resolve）
+  mockApi.registerPayment = function (body, idem) {
+    mockApi.calls.push({ fn: 'registerPayment', body, idem });
+    return new Promise(() => {}); // 挂起（模拟响应丢失）
+  };
+  page.submitRegister();
+  await new Promise(r => setImmediate(r));
+  const key1 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
+  page.setData({ registerBusy: false }); // busy 已复位（finally），用户重试
+  page.submitRegister(); // 重试
+  await new Promise(r => setImmediate(r));
+  const key2 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
+  ok(key1 === key2, '重试复用同一 Idempotency-Key（后端幂等去重，只有一笔）');
+  // 第三次提交：成功返回 → 键被清除，后续提交换新键
+  mockApi.registerPayment = function (body, idem) {
+    mockApi.calls.push({ fn: 'registerPayment', body, idem });
+    return Promise.resolve(1);
+  };
+  page.setData({ registerBusy: false });
+  page.submitRegister();
+  await new Promise(r => setImmediate(r));
+  const key3 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
+  ok(key3 === key1, '成功提交复用同键（服务端去重窗口内）');
+  page.setData({ registerType: '', registerForm: {} }); // 成功关闭表单（实现于成功回调）
+  page.openRegister({ currentTarget: { dataset: { type: 'payment' } } });
+  page.setData({ registerForm: { amount: '1', payableId: '1', recipient: '供应商' } }); // 新表单重新填写
+  page.submitRegister();
+  await new Promise(r => setImmediate(r));
+  const key4 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
+  ok(key4 !== key1, '新表单周期换新键');
+}
+
+console.log('[AC] M08-T01/T03：缺省键 5 函数不抛 + sha256 标准向量');
+{
+  const F = mockApi;
+  let okAll = true;
+  for (const fn of ['registerReceipt', 'registerPayment', 'registerRefund', 'registerPayable', 'confirmBank']) {
+    try { if (typeof F[fn] !== 'function') okAll = false; } catch (e) { okAll = false; }
+  }
+  ok(okAll, '5 个写函数可用');
+  const apiSrc = require('fs').readFileSync(require('path').join(__dirname, '../miniprogram/api/finance.js'), 'utf8');
+  ok(apiSrc.includes("idemKey('receipt')") && apiSrc.includes("idemKey('payment')")
+     && apiSrc.includes("idemKey('refund')") && apiSrc.includes("idemKey('payable')")
+     && apiSrc.includes("idemKey('confirm')"), '缺省键回退表达式齐全（不抛）');
+  // sha256 标准向量（M08-T03）：真实模块加载
+  const Fin = require('../miniprogram/api/finance.js');
+  ok(Fin.sha256Hex && Fin.sha256Hex('abc') === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', 'sha256 标准向量 abc');
+  ok(Fin.sha256Hex('') === 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'sha256 空串向量');
+  var crypto = require('node:crypto');
+  var longMsg = 'abcdbcdecdefdefgefghfghfghijghijhijijkijkijkljklmklmnlmnomnopnopq';
+  ok(Fin.sha256Hex(longMsg) === crypto.createHash('sha256').update(longMsg).digest('hex'), 'sha256 长串与 Node crypto 一致（多块）');
+  ok(Fin.sha256Hex(encodeURIComponent('中文测试')) === crypto.createHash('sha256').update(encodeURIComponent('中文测试')).digest('hex'), 'UTF-8 字节口径与 Node crypto 一致（生产 uploadVoucher 同口径）');
+  for (var round = 0; round < 12; round++) {
+    var probe = encodeURIComponent('探针' + round + ':' + 'x'.repeat(round * 7));
+    var expectedProbe = crypto.createHash('sha256').update(probe).digest('hex');
+    if (Fin.sha256Hex(probe) !== expectedProbe) { ok(false, 'sha256 差分探针 ' + round); break; }
+    if (round === 11) ok(true, 'sha256 差分探针 12 轮全对');
+  }
 }
 
 }

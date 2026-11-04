@@ -6,9 +6,11 @@ module.exports = function attach(page, financeApi, PF) {
   page.openRegister = function (e) {
     const type = e.currentTarget.dataset.type;
     if (!['receipt', 'payment', 'refund', 'payable'].includes(type)) return;
+    this.registerIdem = null; // M08-T04：新开表单换新键
     this.setData({ registerType: type, registerForm: {}, registerError: '' });
   };
   page.cancelRegister = function () {
+    this.registerIdem = null; // M08-T04：放弃表单换新键
     this.setData({ registerType: '', registerError: '', revisionForm: null,
       policyKey: null, policyKeyCtx: null, reconcileKey: null, reconcileKeyCtx: null });
   };
@@ -52,7 +54,7 @@ module.exports = function attach(page, financeApi, PF) {
       return;
     }
     this.setData({ busy: true });
-    financeApi.confirmBank(Number(flowId), receipt.id)
+    financeApi.confirmBank(String(flowId), receipt.id) // M08-T07
       .then(() => { wx.showToast({ title: '已确认入账' }); this.loadPlatformFinance(); })
       .catch(err => { wx.showToast({ title: PF.errorMessage(err), icon: 'none' }); })
       .finally(() => this.setData({ busy: false }));
@@ -74,7 +76,7 @@ module.exports = function attach(page, financeApi, PF) {
       call = financeApi.registerReceipt;
     } else if (type === 'payment') {
       if (!form.payableId) return fail('请选择关联应付');
-      body = { payableId: Number(form.payableId), amountCents: amount,
+      body = { payableId: String(form.payableId), amountCents: amount, // M08-T07：雪花串逐字一致（Number 截断 >2^53）
         payDate: form.payDate || undefined, transactionNo: (form.transactionNo || '').trim() || undefined };
       call = financeApi.registerPayment;
     } else if (type === 'refund') {
@@ -82,24 +84,27 @@ module.exports = function attach(page, financeApi, PF) {
       const reg = this.data.platformRegister || {};
       const src = (reg.refundable || []).find(r => String(r.id) === String(form.receiptId));
       if (src && amount > src.refundableCents) return fail('超过剩余可退金额，请刷新余额');
-      body = { receiptId: Number(form.receiptId), amountCents: amount, reason: (form.reason || '').trim(),
+      body = { receiptId: String(form.receiptId), amountCents: amount, reason: (form.reason || '').trim(),
         date: form.date || undefined, transactionNo: (form.transactionNo || '').trim() || undefined };
       call = financeApi.registerRefund;
     } else {
       if (!(form.recipient || '').trim()) return fail('请输入收款方');
       body = { stage: (form.stage || '').trim() || undefined, totalCents: amount,
-        recipient: form.recipient.trim(), projectId: form.projectId ? Number(form.projectId) : undefined,
+        recipient: form.recipient.trim(), projectId: form.projectId ? String(form.projectId) : undefined, // M08-T07
         agreementRef: (form.agreementRef || '').trim() || undefined };
       call = financeApi.registerPayable;
     }
     this.setData({ registerBusy: true });
-    const idem = financeApi.idemKey(type);
+    // M08-T04/I04：粘性幂等键——响应丢失（busy 复位但表单未关）后重试复用同键，后端去重只登记一笔；
+    // 成功（表单关闭）/cancelRegister/openRegister 换新键
+    if (!this.registerIdem) this.registerIdem = financeApi.idemKey(type);
+    const idem = this.registerIdem;
     const withVoucher = (form.voucherPath
       ? financeApi.uploadVoucher(form.voucherPath).then(assetId => { body.voucherFileId = assetId; })
       : Promise.resolve());
     withVoucher
       .then(() => call(body, idem))
-      .then(() => { wx.showToast({ title: '已登记' }); this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance(); })
+      .then(() => { wx.showToast({ title: '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance(); })
       .catch(err => { this.setData({ registerError: PF.errorMessage(err) }); })
       .finally(() => this.setData({ registerBusy: false }));
   };
