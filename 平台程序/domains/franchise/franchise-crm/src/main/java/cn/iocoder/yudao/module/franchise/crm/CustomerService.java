@@ -369,4 +369,24 @@ public class CustomerService {
         return value != null && value.length() > max;
     }
 
+
+    /**
+     * M01-T04：批量离职交接——将 fromUserId 在 orgId 内的全部在途客户转移给 toUserId。
+     * 仅转移非终态客户；历史经办记录不变。
+     * @return 转移的客户数
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public int bulkTransferByOwner(long fromUserId, long toUserId, long orgId, long operatorUserId) {
+        var targetPost = staffPostService.listActivePosts(toUserId).stream()
+                .filter(p2 -> p2.getOrgId() == orgId)
+                .findFirst().orElse(null);
+        if (targetPost == null) return 0;
+        var updateEntity = new CustomerDO().setOwnerUserId(toUserId).setTeamId(targetPost.getTeamId());
+        return customerMapper.update(updateEntity, new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<CustomerDO>()
+                .eq(CustomerDO::getOwnerUserId, fromUserId)
+                .eq(CustomerDO::getCompanyId, orgId)
+                .ne(CustomerDO::getStatus, "ARCHIVED"));
+    }
+
+
 }
