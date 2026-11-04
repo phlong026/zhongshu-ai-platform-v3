@@ -553,8 +553,8 @@ ok('AC7 错误码映射与输入约束（纯函数部分）');
     : detailBody(BIG);
   await flush();
   d = await data();
-  assert.deepEqual(d.ownerOptions, ['张业务'], '候选只含在岗业务岗（停用/财务排除）');
-  await call('setData', { form: { newOwner: '张业务', transferReason: '人员调岗' } });
+  assert.deepEqual(d.ownerOptions, ['张业务 · 业务部'], '候选只含在岗业务岗且 label 带 team 后缀去歧义（M04-I04，停用/财务排除）');
+  await call('setData', { form: { newOwner: '张业务 · 业务部', transferReason: '人员调岗' } });
   responder = o => String(o.url).includes('/transfer')
     ? { statusCode: 200, data: { code: 0, data: detailBody(BIG).data.data } }
     : detailBody(BIG);

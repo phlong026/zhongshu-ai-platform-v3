@@ -91,12 +91,9 @@ Page({
    if(this.__unloaded||gen!==this.__candGen||sessionGen!==this.__http.sessionGeneration()||postKey!==this.__postKey)return;
    const targets=(rows||[]).filter(r=>['sales','sales-lead'].includes(r.roleCode)&&r.active===true);
    // M04-I04：同名员工都保留（按 userId 区分），展示名加部门后缀去歧义；映射按 picker 序→userId
-   const seen={};
-   const candidates=targets.map(r=>{
-    const dup=seen[r.name];seen[r.name]=true;
-    return {userId:r.userId,label:dup||targets.some(o=>o!==r&&o.name===r.name&&o.userId!==r.userId)?r.name+'（'+(r.teamName||r.roleCode)+'）':r.name};
-   });
+   const candidates=targets.map(r=>({userId:r.userId,label:r.name+' · '+(r.teamName||r.roleCode||'')})); // M04-I04：label 恒含 team 后缀——同名/同部门/缺 teamName 均不产生相同 label（Codex R1 P1-1）
    this.__transferCandidates=candidates;
+   this.__transferTargets=candidates.reduce((m,c2)=>{m[c2.label]=c2.userId;return m;},{});
    this.setData({ownerOptions:candidates.map(c=>c.label)});
   }).catch(err=>{
    if(this.stale(gen,sessionGen,postKey))return;
