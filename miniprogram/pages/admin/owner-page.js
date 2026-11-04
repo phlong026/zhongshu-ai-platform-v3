@@ -70,8 +70,11 @@ module.exports = function(kind) {
           period: this.platPeriod, periodLabel: this.platPeriod,
           // M10-T03/R4 P1：finance 在线视图 desk.operating 直供模板（business.historical 等本地键不动）
           operating: this.platSummary && this.platSummary.operating || null,
-          business: { historical: !!this.platOperatingDegraded ? false : (this.platSummary && this.platSummary.operating ? true : false),
-                      snapshotInfo: { available: false, note: '在线快照经「归档月度快照」写服务端' } },
+          business: Object.assign({}, desk.business || {}, {
+            // R5 P1：historical=选中月早于当前月（历史快照态）；保留模板消费的 headline/levels/analytics 等本地字段
+            historical: this.platPeriod && this.platPeriod < PP.currentPeriod(),
+            snapshotInfo: { available: false, note: '在线快照经「归档月度快照」写服务端' },
+            operating: this.platSummary && this.platSummary.operating || null }),
           performance: PP.platPerformance(this.platSummary, this.platPeriod, this.data.selectedDepartment),
           actor: { role: (PP.apiPost() || {}).roleCode || '', companyId: (PP.apiPost() || {}).orgId || '' }
         },
@@ -94,7 +97,7 @@ module.exports = function(kind) {
           this.platSummaryPost = post.postId; // M10-T03：缓存归属岗位（换岗不串台）
           this.platDegraded = false;
           this.platOperatingDegraded = operating == null; // R2 P2：经营接口失败独立降级标记
-          if (this.kind === 'performance') this.refreshPlatView();
+          if (this.kind === 'performance' || this.kind === 'finance') this.refreshPlatView(); // R5 P1：finance 响应后刷新（desk.operating 同步选中月）
           // M10-T03 P1：home/finance 视图在线余额转页面（operating 真源——不再读本地账）
           if ((this.kind === 'home' || this.kind === 'finance') && operating) {
             this.setData({ operating: {
