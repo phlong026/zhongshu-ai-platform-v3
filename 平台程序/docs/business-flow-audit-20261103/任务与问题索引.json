@@ -1389,7 +1389,7 @@
       "scope": "I02，统一合同/三期/资金方向规则已定",
       "dependency": "权威16规则；M07/M08共同冻结引用契约，不等待T02/T03验收",
       "acceptance": "先固定同C唯一建房contractId、三期金额及分笔receiptId；旧两期单核实映射、重复候选核对留痕；门店设计/材料/劳务付款分开，正常退款限额与异常待关联分开",
-      "status": "规则已定，待实施／验证",
+      "status": "后端契约冻结已实施（批次#21，ad60ec0，R3 PASS）／v3 接线随 M06-T02、付款分类退款关联随 M08",
       "module": "M06",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
       "line": 108,
