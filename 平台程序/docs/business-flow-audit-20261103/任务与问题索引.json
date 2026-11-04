@@ -1509,7 +1509,7 @@
       "scope": "I05；工程/合同/收款前后端",
       "dependency": "权威16三期规则与M06合同事实契约；M08登记契约",
       "acceptance": "三期金额合计等于有效合同额，每期可多笔；基础/封顶完成先留痕再触发应收；销售工程汇总不重复；旧两期迁移可核对",
-      "status": "规则已定，待实施／验证",
+      "status": "后端已实施（批次#25，faa2d7f，R4 PASS）：三期化+统一实收账 Port+冻结合同+存量映射；余 v3 工程页接线随 M07-T02",
       "module": "M07",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
       "line": 131,
