@@ -86,8 +86,10 @@ public class FinPaymentService {
         if (payable == null || payable.getCompanyId() != post.orgId()) {
             throw exception(PAYABLE_NOT_FOUND);
         }
+        // R2 P1-4：paid 有效账口径=Σ(amount-pending_link_cents)——PENDING_LINK 超额部分不计入
+        // 有效余额（不冲减其他应付；reconcile 转正后计入）
         long paid = paymentMapper.selectActiveByPayable(cmd.payableId()).stream()
-                .mapToLong(FinPaymentService::amount).sum();
+                .mapToLong(p -> amount(p) - (p.getPendingLinkCents() == null ? 0 : p.getPendingLinkCents())).sum();
         // M10-T05/R1 P1-4：超余额部分转「已核待关联现金」独立异常留痕（不拒绝——真实资金留痕优先，
         // 不绕有效账上限：有效账只计额度内部分；reconcile 后可转正）
         long overCents = Math.max(0, paid + cmd.amountCents() - payable.getTotalCents());

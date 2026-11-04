@@ -32,7 +32,9 @@ public class EngineeringLedgerQueryAdapter implements EngineeringLedgerQueryPort
     @Override
     public long paidCents(PostSnapshot post, long payableId) {
         return paymentMapper.selectActiveByPayable(payableId).stream()
-                .mapToLong(FinPaymentService::amount).sum();
+                // R2 P1-4：有效账口径=Σ(amount-pending_link_cents)——PENDING_LINK 超额不计入
+                .mapToLong(p -> FinPaymentService.amount(p)
+                        - (p.getPendingLinkCents() == null ? 0 : p.getPendingLinkCents())).sum();
     }
 
     @Override

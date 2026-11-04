@@ -219,8 +219,10 @@ public class PerfOperatingService {
                 "SELECT COALESCE(SUM(amount_cents),0) FROM fr_eng_collection WHERE company_id=? "
                         + "AND occurred_at <= ?::date", Long.class, org, asOfDate);
         // M10-T04/R1 P1-7：应付余额按 as_of 截止（11 月付款不减少 10 月余额）
+        // M10-T05/R2 P1-4：有效付款口径=Σ(amount-pending_link_cents)——PENDING_LINK 超额不冲减应付
         long payableOutstanding = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(total_cents - COALESCE((SELECT SUM(p.amount_cents) FROM fr_fin_payment p "
+                "SELECT COALESCE(SUM(total_cents - COALESCE((SELECT SUM(p.amount_cents - COALESCE(p.pending_link_cents,0)) "
+                        + "FROM fr_fin_payment p "
                         + "WHERE p.payable_id = q.id AND p.status='已核实' AND p.pay_date <= DATE '" + asOfDate + "'),0)),0) "
                         + "FROM fr_fin_payable q WHERE q.company_id=?",
                 Long.class, org);
@@ -259,7 +261,8 @@ public class PerfOperatingService {
                     bucketize(receivableAging, due, ref, today);
                 }, org);
         Map<String, Long> payableAging = emptyBuckets.get();
-        jdbc.query("SELECT q.id, q.total_cents - COALESCE((SELECT SUM(p.amount_cents) FROM fr_fin_payment p "
+        jdbc.query("SELECT q.id, q.total_cents - COALESCE((SELECT SUM(p.amount_cents - COALESCE(p.pending_link_cents,0)) "
+                        + "FROM fr_fin_payment p "
                         + "WHERE p.payable_id = q.id AND p.status = '已核实' AND p.pay_date <= DATE '" + asOfDate + "'), 0) AS due, "
                         + "COALESCE(MAX(CASE WHEN pay.pay_date <= DATE '" + asOfDate + "' THEN pay.pay_date END), DATE '1900-01-01') AS last_pay "
                         + "FROM fr_fin_payable q "
