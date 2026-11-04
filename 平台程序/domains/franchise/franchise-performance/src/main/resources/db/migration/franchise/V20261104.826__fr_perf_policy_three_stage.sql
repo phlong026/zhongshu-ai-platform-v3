@@ -3,8 +3,8 @@
 -- 修正语义：start_cents=签约后、topping_cents=封顶后（列名沿用存量避免破坏读侧），base_done_cents 新增。
 ALTER TABLE fr_perf_commission_policy
     ADD COLUMN IF NOT EXISTS base_done_cents BIGINT NOT NULL DEFAULT 0;
-ALTER TABLE fr_perf_commission_policy DROP CONSTRAINT ck_fr_perf_commission_policy_amount;
-ALTER TABLE fr_perf_commission_policy ADD CONSTRAINT ck_fr_perf_commission_policy_amount
+ALTER TABLE fr_perf_commission_policy DROP CONSTRAINT ck_fr_perf_commission_policy_amounts;
+ALTER TABLE fr_perf_commission_policy ADD CONSTRAINT ck_fr_perf_commission_policy_amounts
     CHECK (total_cents > 0 AND total_cents <= 10000000000
         AND start_cents >= 0 AND topping_cents >= 0 AND base_done_cents >= 0
         AND start_cents + topping_cents + base_done_cents = total_cents);

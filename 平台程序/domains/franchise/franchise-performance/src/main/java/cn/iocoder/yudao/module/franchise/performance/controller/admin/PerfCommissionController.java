@@ -49,7 +49,9 @@ public class PerfCommissionController {
         return success(commissions.policy(post(),
                 longOrNull(body.get("projectId")) == null ? 0 : longOrNull(body.get("projectId")),
                 longOrNull(body.get("totalCents")) == null ? 0 : longOrNull(body.get("totalCents")),
+                longOrNull(body.get("signAfterCents")) == null ? 0 : longOrNull(body.get("signAfterCents")),
                 longOrNull(body.get("baseDoneCents")) == null ? 0 : longOrNull(body.get("baseDoneCents")),
+                longOrNull(body.get("capDoneCents")) == null ? 0 : longOrNull(body.get("capDoneCents")),
                 longOrNull(body.get("assigneeUserId")) == null ? 0 : longOrNull(body.get("assigneeUserId")),
                 str(body.get("assigneeName")), str(body.get("evidenceRef")), str(body.get("note")),
                 requireIdem(idem)));

@@ -213,13 +213,16 @@ public class PerfOperatingService {
         long totalTerms = jdbc.queryForObject(
                 "SELECT COALESCE(SUM(amount_cents),0) FROM fr_eng_collection_term WHERE company_id=?",
                 Long.class, org);
-        // M10-T04：collected 按 as_of 截止（工程收款留痕 received 无日期列——用 create_time::date）
+        // M10-T04/R1 P1-6：collected 按业务日期 occurred_at 截止（历史补录进正确月份——
+        // 与 trend 的 received_date 口径一致）；fr_eng_collection.occurred_at DATE NOT NULL
         long collected = jdbc.queryForObject(
                 "SELECT COALESCE(SUM(amount_cents),0) FROM fr_eng_collection WHERE company_id=? "
-                        + "AND create_time::date <= ?::date", Long.class, org, asOfDate);
+                        + "AND occurred_at <= ?::date", Long.class, org, asOfDate);
+        // M10-T04/R1 P1-7：应付余额按 as_of 截止（11 月付款不减少 10 月余额）
         long payableOutstanding = jdbc.queryForObject(
                 "SELECT COALESCE(SUM(total_cents - COALESCE((SELECT SUM(p.amount_cents) FROM fr_fin_payment p "
-                        + "WHERE p.payable_id = q.id AND p.status='已核实'),0)),0) FROM fr_fin_payable q WHERE q.company_id=?",
+                        + "WHERE p.payable_id = q.id AND p.status='已核实' AND p.pay_date <= DATE '" + asOfDate + "'),0)),0) "
+                        + "FROM fr_fin_payable q WHERE q.company_id=?",
                 Long.class, org);
         Map<String, Object> totals = new LinkedHashMap<>();
         totals.put("receivableCents", Math.max(0, totalTerms - collected));
@@ -231,7 +234,8 @@ public class PerfOperatingService {
         totals.put("coverage", payableOutstanding == 0 ? null : (double) net6 / payableOutstanding);
         report.put("totals", totals);
         // P1-14：应收/应付账龄六桶（未到期/逾期1-30/31-60/61-90/90+/未约定——约定日期=收款 occurred_at 应期）
-        LocalDate today = LocalDate.now();
+        // M10-T04/R1 P1-7：账龄基准截止 as_of（period 月末）——晚一个月重算不改变历史快照桶位
+        LocalDate today = java.time.LocalDate.parse(nextMonth(period)).minusDays(1);
         java.util.function.Supplier<Map<String, Long>> emptyBuckets = () -> {
             Map<String, Long> m0 = new LinkedHashMap<>();
             for (String b : java.util.List.of("notDue", "d1_30", "d31_60", "d61_90", "d90Plus", "undated")) {
@@ -241,7 +245,8 @@ public class PerfOperatingService {
         };
         Map<String, Long> receivableAging = emptyBuckets.get();
         jdbc.query("SELECT t.stage, t.amount_cents - COALESCE((SELECT SUM(c.amount_cents) FROM fr_eng_collection c "
-                        + "WHERE c.company_id = t.company_id AND c.project_id = t.project_id AND c.stage = t.stage), 0) AS due, "
+                        + "WHERE c.company_id = t.company_id AND c.project_id = t.project_id AND c.stage = t.stage "
+                        + "AND c.occurred_at <= DATE '" + asOfDate + "'), 0) AS due, "
                         + "t.project_id FROM fr_eng_collection_term t WHERE t.company_id = ?",
                 rs -> {
                     long due = rs.getLong("due");
@@ -254,8 +259,9 @@ public class PerfOperatingService {
                 }, org);
         Map<String, Long> payableAging = emptyBuckets.get();
         jdbc.query("SELECT q.id, q.total_cents - COALESCE((SELECT SUM(p.amount_cents) FROM fr_fin_payment p "
-                        + "WHERE p.payable_id = q.id AND p.status = '已核实'), 0) AS due, "
-                        + "COALESCE(MAX(pay.pay_date), DATE '1900-01-01') AS last_pay FROM fr_fin_payable q "
+                        + "WHERE p.payable_id = q.id AND p.status = '已核实' AND p.pay_date <= DATE '" + asOfDate + "'), 0) AS due, "
+                        + "COALESCE(MAX(CASE WHEN pay.pay_date <= DATE '" + asOfDate + "' THEN pay.pay_date END), DATE '1900-01-01') AS last_pay "
+                        + "FROM fr_fin_payable q "
                         + "LEFT JOIN fr_fin_payment pay ON pay.payable_id = q.id AND pay.status = '已核实' "
                         + "WHERE q.company_id = ? GROUP BY q.id, q.total_cents",
                 rs -> {
@@ -267,19 +273,10 @@ public class PerfOperatingService {
         report.put("receivableAging", receivableAging);
         report.put("payableAging", payableAging);
         receivable = 0; // suppress unused
-        // 签名（P1-13：按月分桶指纹——总额不变但跨月挪动/状态变化可检出）+ SHA 摘要定长
-        java.util.List<String> parts = new java.util.ArrayList<>();
-        for (int i = 11; i >= 0; i--) {
-            String p = shift(period, -i);
-            parts.add(p + ":r" + monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_receipt "
-                    + "WHERE company_id=? AND status='已登记' AND received_date >= ?::date AND received_date < ?::date", p)
-                    + ":p" + monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_payment "
-                    + "WHERE company_id=? AND status='已核实' AND pay_date >= ?::date AND pay_date < ?::date", p)
-                    + ":f" + monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
-                    + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND date >= ?::date AND date < ?::date", p));
-        }
-        parts.add("terms:" + totalTerms + ":collected:" + collected + ":payable:" + payableOutstanding);
-        report.put("sourceSignature", PerfSupport.signature(parts));
+        // M10-T04/R1 P1-8：签名=完整 report JSON 的 SHA 摘要——覆盖全部报表依赖（构成/账龄/截面），
+        // 历史修订改变任一维度都会生成新版本（旧按月分桶签名漏构成/账龄变更）
+        report.put("sourceSignature", PerfSupport.signature(
+                java.util.List.of(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(report))));
         return report;
     }
 

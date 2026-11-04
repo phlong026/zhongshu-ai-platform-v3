@@ -36,6 +36,7 @@ public class PerfCommissionService {
     private final FrPerfCommissionReleaseMapper releases;
     private final PerformancePayablePort payables;
     private final FranchiseCommands commands;
+    private final cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages;
     private final JdbcTemplate jdbc;
     private final cn.iocoder.yudao.module.platform.org.SystemDirectory systemDirectory;
 
@@ -43,11 +44,13 @@ public class PerfCommissionService {
                                  FrPerfCommissionReleaseMapper releases,
                                  PerformancePayablePort payables, FranchiseCommands commands,
                                  JdbcTemplate jdbc,
-                                 cn.iocoder.yudao.module.platform.org.SystemDirectory systemDirectory) {
+                                 cn.iocoder.yudao.module.platform.org.SystemDirectory systemDirectory,
+            cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages) {
         this.policies = policies;
         this.releases = releases;
         this.payables = payables;
         this.commands = commands;
+        this.unifiedStages = unifiedStages;
         this.jdbc = jdbc;
         this.systemDirectory = systemDirectory;
     }
@@ -55,8 +58,8 @@ public class PerfCommissionService {
     // ===================== 策略（严格 boss） =====================
 
     @Transactional(rollbackFor = Exception.class)
-    public Map<String, Object> policy(PostSnapshot post, long projectId, long totalCents, long baseDoneCents,
-                                      long assigneeUserId,
+    public Map<String, Object> policy(PostSnapshot post, long projectId, long totalCents, long signAfterCents,
+                                      long baseDoneCents, long capDoneCents, long assigneeUserId,
                                       String assigneeName, String evidenceRef, String note,
                                       String idempotencyKey) {
         if (!"boss".equals(post.roleCode())) {
@@ -65,12 +68,23 @@ public class PerfCommissionService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("projectId", projectId);
         payload.put("totalCents", totalCents);
+        payload.put("signAfterCents", signAfterCents);
         payload.put("baseDoneCents", baseDoneCents);
+        payload.put("capDoneCents", capDoneCents);
         payload.put("assigneeUserId", assigneeUserId);
         payload.put("assigneeName", StrUtil.nullToEmpty(assigneeName));
         payload.put("evidenceRef", StrUtil.nullToEmpty(evidenceRef));
         payload.put("note", StrUtil.nullToEmpty(note));
-        var replayed = commands.replayed(post, idempotencyKey, payload);
+        // R1 P2-11：跨升级重放兼容——先按旧形状（无三期字段）比对存量重放；命中即返回既有；
+        // 未命中再按新形状（canonical）比对
+        var legacyPayload = new LinkedHashMap<String, Object>(payload);
+        legacyPayload.remove("signAfterCents");
+        legacyPayload.remove("baseDoneCents");
+        legacyPayload.remove("capDoneCents");
+        var replayed = commands.replayed(post, idempotencyKey, legacyPayload);
+        if (!replayed.isPresent()) {
+            replayed = commands.replayed(post, idempotencyKey, payload);
+        }
         if (replayed.isPresent()) {
             return row(post, projectId);
         }
@@ -95,30 +109,26 @@ public class PerfCommissionService {
         if (projectOrgs.isEmpty() || projectOrgs.get(0) == null || projectOrgs.get(0) != post.orgId()) {
             throw exception(PERF_INPUT_INVALID, "工程不存在或不属于当前组织"); // R2 P2-7：零行稳定返回 001
         }
-        // M10-T07：三期拆分（签约后/基础完成后/封顶后；baseDone≥0，Σ三期=total；不发明固定比例）
-        if (baseDoneCents < 0 || baseDoneCents > totalCents) {
-            throw exception(PERF_INPUT_INVALID, "基础完成后期提成金额须为不小于 0 且不超过总额的数字");
-        }
-        long start = 0;
-        long topping = 0;
+        // M10-T07/R1 P1-3：显式三期（签约后/基础完成后/封顶后，Σ=total，各期≥0）——
+        // 不自动二分（违反「不自动改比例/发放次数」；baseDone 兼容默认 0 时由调用方传 signAfter=total）
+        long signAfter = signAfterCents;
         long baseDone = baseDoneCents;
-        // 调用方未指定签约后/封顶后拆分时：总额-基础完成后在签约后/封顶后间保持原二分（存量兼容）；
-        // baseDone=0 时行为与存量一致
-        long rest = totalCents - baseDone;
-        start = rest / 2;
-        topping = rest - start;
-        if (start + baseDone + topping != totalCents) {
+        long topping = capDoneCents;
+        if (signAfter < 0 || baseDone < 0 || topping < 0) {
+            throw exception(PERF_INPUT_INVALID, "三期提成金额须为不小于 0 的数字");
+        }
+        if (signAfter + baseDone + topping != totalCents) {
             throw exception(PERF_INPUT_INVALID, "三期提成之和必须等于提成总额");
         }
         long policyRowId;
         if (current == null) {
             policyRowId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
             jdbc.update("INSERT INTO fr_perf_commission_policy (id, company_id, project_id, total_cents, "
-                    + "assignee_user_id, assignee_name, start_cents, topping_cents, version, "
+                    + "assignee_user_id, assignee_name, start_cents, topping_cents, base_done_cents, version, "
                     + "evidence_ref, note, author_user_id, create_time, update_time) "
-                    + "VALUES (?,?,?,?,?,?,?,?,1,?,?,?,now(),now())",
+                    + "VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,now(),now())",
                     policyRowId, post.orgId(), projectId, totalCents, assigneeUserId,
-                    member.name(), start, topping,
+                    member.name(), signAfter, topping, baseDone,
                     StrUtil.trim(evidenceRef), StrUtil.trim(note), post.userId());
         } else {
             String history = JsonUtil.append(current.getHistory(), Map.of(
@@ -128,7 +138,7 @@ public class PerfCommissionService {
             policies.updateById(new FrPerfCommissionPolicyDO().setId(current.getId())
                     .setTotalCents(totalCents).setAssigneeUserId(assigneeUserId)
                     .setAssigneeName(member.name())
-                    .setStartCents(start).setToppingCents(topping)
+                    .setStartCents(signAfter).setToppingCents(topping).setBaseDoneCents(baseDone)
                     .setVersion(current.getVersion() + 1)
                     .setEvidenceRef(StrUtil.trim(evidenceRef)).setNote(StrUtil.trim(note)));
             JsonUtil.updateJsonb(jdbc, "fr_perf_commission_policy", Map.of("history", history),
@@ -260,9 +270,12 @@ public class PerfCommissionService {
     }
 
     /** F14：required=约定；received=fr_eng_collection 该期合计−关联已核实退款 */
+    /**
+     * M10-T07/R1 P1-4：提成资格走统一实收账读侧——有统一合同时期累计经 UnifiedStageAccountPort
+     * （销售端统一收款计入，净口径）；无合同回退工程留痕行（存量兼容）。
+     * 「销售工程共享收款只算一次」的结构保证=统一账单源（工程留痕行不参与资格累计）。
+     */
     StageFacts stageFacts(PostSnapshot post, long projectId, String stage) {
-        // M10-T07：三期直通（stageKey 已归一为三枚举；存量 START/TOPPING 在 requireStage 已映射）；
-        // 工程域迁移 818 已将 fr_eng_collection_term.stage 映射为同枚举
         String engStage = switch (stage) {
             case FrPerfCommissionReleaseDO.STAGE_BASE_DONE -> "BASE_DONE";
             case FrPerfCommissionReleaseDO.STAGE_CAP_DONE -> "CAP_DONE";
@@ -272,28 +285,38 @@ public class PerfCommissionService {
                 "SELECT amount_cents FROM fr_eng_collection_term WHERE company_id = ? AND project_id = ? AND stage = ?",
                 Long.class, post.orgId(), projectId, engStage);
         long required = termRows.isEmpty() ? 0 : termRows.get(0);
-        List<Map<String, Object>> collectionRows = jdbc.queryForList(
-                "SELECT id, amount_cents, receipt_id FROM fr_eng_collection "
-                        + "WHERE company_id = ? AND project_id = ? AND stage = ?", post.orgId(), projectId, engStage);
-        long received = 0;
+        Long customerId = jdbc.queryForObject(
+                "SELECT customer_id FROM fr_eng_project WHERE id = ?", Long.class, projectId);
+        Long contractId = customerId == null ? null
+                : unifiedStages.activeContractId(post, customerId);
+        long received;
         List<Long> receiptIds = new ArrayList<>();
         List<String> signatureParts = new ArrayList<>();
         signatureParts.add("required:" + required);
-        for (Map<String, Object> row : collectionRows) {
-            long amount = ((Number) row.get("amount_cents")).longValue();
-            long receiptId = row.get("receipt_id") == null ? 0 : ((Number) row.get("receipt_id")).longValue();
-            long refunded = 0;
-            if (receiptId > 0) {
-                refunded = jdbc.queryForObject(
-                        "SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_refund "
-                                + "WHERE receipt_id = ? AND status = '已核实' AND replaced_by_id IS NULL",
-                        Long.class, receiptId);
+        if (contractId != null) {
+            received = unifiedStages.stageCollectedCents(post, contractId, engStage);
+            signatureParts.add("unified:" + contractId + ":" + engStage + ":" + received);
+        } else {
+            List<Map<String, Object>> collectionRows = jdbc.queryForList(
+                    "SELECT id, amount_cents, receipt_id FROM fr_eng_collection "
+                            + "WHERE company_id = ? AND project_id = ? AND stage = ?", post.orgId(), projectId, engStage);
+            received = 0;
+            for (Map<String, Object> row : collectionRows) {
+                long amount = ((Number) row.get("amount_cents")).longValue();
+                long receiptId = row.get("receipt_id") == null ? 0 : ((Number) row.get("receipt_id")).longValue();
+                long refunded = 0;
+                if (receiptId > 0) {
+                    refunded = jdbc.queryForObject(
+                            "SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_refund "
+                                    + "WHERE receipt_id = ? AND status = '已核实' AND replaced_by_id IS NULL",
+                            Long.class, receiptId);
+                }
+                received += Math.max(0, amount - refunded);
+                if (receiptId > 0) {
+                    receiptIds.add(receiptId);
+                }
+                signatureParts.add("c:" + row.get("id") + ":" + amount + ":" + refunded);
             }
-            received += Math.max(0, amount - refunded);
-            if (receiptId > 0) {
-                receiptIds.add(receiptId);
-            }
-            signatureParts.add("c:" + row.get("id") + ":" + amount + ":" + refunded);
         }
         boolean eligible = required > 0 && received >= required;
         return new StageFacts(stage, required, received, eligible,
