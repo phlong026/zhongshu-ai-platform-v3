@@ -10,6 +10,13 @@ import java.util.List;
 @Mapper
 public interface CommissionSubmissionMapper extends BaseMapperX<CommissionSubmissionDO> {
 
+    default CommissionSubmissionDO selectLatestByCommissionId(long commissionId) {
+        return selectOne(new LambdaQueryWrapperX<CommissionSubmissionDO>()
+                .eq(CommissionSubmissionDO::getCommissionId, commissionId)
+                .orderByDesc(CommissionSubmissionDO::getVersion)
+                .last("LIMIT 1"));
+    }
+
     default Integer selectMaxVersion(long commissionId) {
         CommissionSubmissionDO latest = selectOne(new LambdaQueryWrapperX<CommissionSubmissionDO>()
                 .eq(CommissionSubmissionDO::getCommissionId, commissionId)

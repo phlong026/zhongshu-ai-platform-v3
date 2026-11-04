@@ -304,9 +304,16 @@ public class CommissionService implements DesignFeeProgressApi {
         if (commands.replayed(post, idempotencyKey, command).isEmpty()) {
             int seq = appendProgress(commission, CommissionProgressDO.KIND_DISPATCH, note, recipient, null, post);
             long revision = commission.getRevision();
-            Revisions.requireUpdated(commissionMapper.updateByRevision(commissionId, revision, u -> u
-                    .set(CommissionDO::getStatus, CommissionDO.STATUS_DISPATCHED)
-                    .set(CommissionDO::getDispatchSeq, seq)));
+            // M05-T04：确认下发时冻结最新提交的设计方案版本快照
+            var latestSubmission = submissionMapper.selectLatestByCommissionId(commissionId);
+            String schemeVer = latestSubmission != null
+                    ? "P" + latestSubmission.getPlanVersion() + "/B" + latestSubmission.getBudgetVersion() + "/F" + latestSubmission.getFacadeVersion()
+                    : null;
+            Revisions.requireUpdated(commissionMapper.updateByRevision(commissionId, revision, u -> {
+                u.set(CommissionDO::getStatus, CommissionDO.STATUS_DISPATCHED)
+                 .set(CommissionDO::getDispatchSeq, seq)
+                 .set(CommissionDO::getDispatchedSchemeVersion, schemeVer);
+            }));
             commands.record(post, AGGREGATE, commissionId, revision + 1, "design-dispatch", command, idempotencyKey);
         }
         return get(post, commissionId);
