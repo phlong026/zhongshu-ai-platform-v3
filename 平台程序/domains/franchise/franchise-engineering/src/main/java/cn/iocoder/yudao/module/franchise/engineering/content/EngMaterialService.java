@@ -162,8 +162,14 @@ public class EngMaterialService {
             throw exception(ENGINEERING_INPUT_INVALID, "材料不存在");
         }
         FrEngProjectDO project = projectService.requireOwned(post, material.getProjectId(), "materials");
-        var replayed = commands.replayed(post, idempotencyKey,
-                Map.of("materialId", materialId, "quantity", cmd.quantity() == null ? null : cmd.quantity().toPlainString()));
+        // M07-T01/I02：replay 与 record 必须共用同一份规范化输入（此前 replay 用 {materialId,quantity}、
+        // record 用 {materialId,from,to,reason}——字段集不同摘要不匹配，同键同输入重试被误判键复用）；
+        // LinkedHashMap 固定键序防跨 JVM 序列化漂移（批次#21 同款教训）
+        var canonical = new java.util.LinkedHashMap<String, Object>();
+        canonical.put("materialId", materialId);
+        canonical.put("quantity", cmd.quantity() == null ? null : cmd.quantity().toPlainString());
+        canonical.put("reason", cmd.reason() == null ? "" : cmd.reason().trim());
+        var replayed = commands.replayed(post, idempotencyKey, canonical);
         if (replayed.isPresent()) {
             return summary(post, material.getProjectId(), material.getMaterialPlanId());
         }
@@ -200,11 +206,11 @@ public class EngMaterialService {
         supplies.updateById(new FrEngSupplyDO().setId(supply.getId()).setQuantity(target)
                 .setStatus(target.compareTo(BigDecimal.ZERO) == 0
                         ? FrEngSupplyDO.STATUS_CANCELLED : supply.getStatus()));
+        // record 与 replay 严格同一 canonical（from/to 若入 payload，重试时 from=现值≠首次 from 仍摘要不匹配——
+        // 变更前后值由 material.quantity 现值承载，审计粒度让步给幂等正确性，登记执行记录）
         commands.record(post, AGGREGATE, material.getProjectId(),
                 projectService.bumpRevision(post, project),
-                "eng-material-adjust", Map.of("materialId", materialId,
-                        "from", material.getQuantity().toPlainString(), "to", target.toPlainString(),
-                        "reason", cmd.reason()), idempotencyKey);
+                "eng-material-adjust", canonical, idempotencyKey);
         return summary(post, material.getProjectId(), material.getMaterialPlanId());
     }
 

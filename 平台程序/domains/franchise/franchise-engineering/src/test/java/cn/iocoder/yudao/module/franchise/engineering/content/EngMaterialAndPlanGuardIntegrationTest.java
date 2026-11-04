@@ -1,0 +1,348 @@
+package cn.iocoder.yudao.module.franchise.engineering.content;
+
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.test.FranchiseFixture.Store;
+import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
+import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.math.BigDecimal;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * M07-T01 材料幂等（I02）+ M07-T03 资产端口引用校验（I04）：
+ * 1. 同键同输入两次返回同结果（重试命中合法重放，不再误判键复用——replay/record canonical 统一）；
+ * 2. 同键改输入拒绝；仅一条变更记录；
+ * 3. 工程凭据资产域侧校验：假 ID/跨组织/未 ACCEPTED 拒绝（validateReference），类型不符拒绝（assetTypeOf）。
+ */
+@Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class,
+        FranchiseCommands.class, CommandLogImpl.class,
+        EngMaterialAndPlanGuardIntegrationTest.Config.class})
+class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest {
+
+    @TestConfiguration
+    static class Config {
+
+        /** 资产端口桩：白名单资产=ACCEPTED 本组织；类型可控 */
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.AssetAccessPort assetAccessPort(JdbcTemplate jdbc) {
+            return new cn.iocoder.yudao.module.franchise.api.AssetAccessPort() {
+                // R1 P2：属主维度=服务账号（测试约定 serviceAccountId==orgId）——跨组织资产拒之门外
+                private boolean existsAccepted(long serviceAccountId, long assetId) {
+                    Integer n = jdbc.queryForObject(
+                            "SELECT COUNT(*) FROM eng_test_asset WHERE id = ? AND accepted = TRUE AND org_id = ?",
+                            Integer.class, assetId, serviceAccountId);
+                    return n != null && n > 0;
+                }
+
+                @Override
+                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
+                                                                             String mimeType, long sizeBytes, String sha256) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.AssetCompleted completeUpload(long serviceAccountId, long assetId) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.DownloadUrlView createDownloadUrl(long serviceAccountId, long assetId) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public String assetTypeOf(long serviceAccountId, long assetId) {
+                    return jdbc.queryForObject(
+                            "SELECT asset_type FROM eng_test_asset WHERE id = ? AND org_id = ?",
+                            String.class, assetId, serviceAccountId);
+                }
+
+                @Override
+                public boolean validateReference(long serviceAccountId, long assetId) {
+                    return existsAccepted(serviceAccountId, assetId);
+                }
+            };
+        }
+
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort storeServiceAccountPort() {
+            return orgId -> orgId; // R1 P2 约定：服务账号 id==组织 id，属主维度=组织
+        }
+
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort engineeringPayablePort() {
+            return new cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort() {
+                @Override
+                public long registerPayable(PostSnapshot post, PayableCommand command) {
+                    return 999001L;
+                }
+            };
+        }
+
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort engineeringLedgerQueryPort() {
+            return new cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort() {
+                @Override
+                public long paidCents(PostSnapshot post, long payableId) {
+                    return 0L;
+                }
+
+                @Override
+                public java.util.Map<Long, Long> paidCentsByPayableIds(PostSnapshot post, java.util.Collection<Long> payableIds) {
+                    return java.util.Map.of();
+                }
+            };
+        }
+    }
+
+    private static final AtomicLong IDS = new AtomicLong(950_000_000_000L + System.nanoTime() % 100_000_000L);
+
+    @Resource
+    private EngMaterialService materialsService;
+    @Resource
+    private EngPlanService planService;
+    @Resource
+    private JdbcTemplate jdbc;
+
+    private Store store;
+    private PostSnapshot engineer;
+    private long projectId;
+    private long materialId;
+    private long supplyId;
+    private long nodeId;
+
+    @BeforeEach
+    void setUpProjectAndMaterial() {
+        jdbc.execute("CREATE TABLE IF NOT EXISTS eng_test_asset (id BIGINT PRIMARY KEY, "
+                + "asset_type VARCHAR(64) NOT NULL, accepted BOOLEAN NOT NULL, org_id BIGINT NOT NULL)");
+        jdbc.update("DELETE FROM eng_test_asset WHERE org_id <> -1"); // 跨用例清理（R1 P3）
+        store = fixture.store();
+        engineer = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        projectId = insertProject();
+        nodeId = insertNode();
+        materialId = insertMaterial();
+        supplyId = jdbc.queryForObject(
+                "SELECT id FROM fr_eng_supply WHERE material_id = ?", Long.class, materialId);
+    }
+
+    // ========== M07-T01：材料幂等 ==========
+
+    @Test
+    void sameKeySameInputReplayReturnsSameResultWithoutDuplication() {
+        var cmd = new EngMaterialService.AdjustCommand(new BigDecimal("15.000"), "采购追加用量");
+        String key = "idem-adj-1";
+
+        var first = as(engineer, () -> materialsService.adjust(engineer, materialId, cmd, key));
+        // 响应丢失后同键同表单重试：命中合法重放（此前 replay/record 字段集不同被误判键复用）
+        var retry = as(engineer, () -> materialsService.adjust(engineer, materialId, cmd, key));
+
+        assertThat(retry).isEqualTo(first);
+        // 仅一条变更记录（不重复创建业务）
+        Integer events = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pf_command_event WHERE command = 'eng-material-adjust' "
+                        + "AND payload LIKE ?", Integer.class, "%\"materialId\":" + materialId + "%");
+        assertThat(events).isEqualTo(1);
+        assertThat(quantityOf(materialId)).isEqualByComparingTo(new BigDecimal("15.000"));
+    }
+
+    @Test
+    void sameKeySameQuantityDifferentReasonIsRejected() {
+        // R1 建议：reason 属调整意图，实质不同须拒绝复用键
+        as(engineer, () -> materialsService.adjust(engineer, materialId,
+                new EngMaterialService.AdjustCommand(new BigDecimal("15.000"), "采购追加用量"), "idem-adj-r"));
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.adjust(engineer, materialId,
+                new EngMaterialService.AdjustCommand(new BigDecimal("15.000"), "换了个说法"), "idem-adj-r")))
+                .isInstanceOf(ServiceException.class);
+    }
+
+    @Test
+    void startAndNodeCompleteAssetGuardsRejectInvalidAssets() {
+        // start 凭据校验：假 ID 拒绝（开工须先 prepare——先合法 prepare 再 start）
+        long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
+        // start 前置：节点计划日期齐备 + START 门禁（开工款到账 ≥ 约定额）——补齐后才能到达资产门
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+                + "WHERE project_id = ?", projectId);
+        // prepare 已建 START 约定行：确保金额=开工款 40800000（uk (company_id, project_id, stage) 幂等）
+        jdbc.update("INSERT INTO fr_eng_collection_term (id, company_id, project_id, stage, amount_cents, create_time) "
+                + "VALUES (?, ?, ?, 'START', 40800000, now()) ON CONFLICT DO NOTHING",
+                IDS.incrementAndGet(), store.orgId(), projectId);
+        jdbc.update("UPDATE fr_eng_collection_term SET amount_cents = 40800000 WHERE project_id = ? AND stage = 'START'", projectId);
+        long gateAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        jdbc.update("INSERT INTO fr_eng_collection (id, company_id, project_id, stage, amount_cents, transaction_no, "
+                        + "occurred_at, file_asset_id, purpose, registrar_user_id, create_time) "
+                        + "VALUES (?, ?, ?, 'START', 40800000, 'TXN-START-GATE', CURRENT_DATE, ?, '工程预收款', ?, now())",
+                IDS.incrementAndGet(), store.orgId(), projectId, gateAsset, engineer.userId());
+        long fakeId = IDS.incrementAndGet();
+        org.assertj.core.api.ThrowableAssert.ThrowingCallable startWithFake = () ->
+                as(engineer, () -> planService.start(engineer, projectId,
+                        new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "实际开工", fakeId, true), idem()));
+        org.assertj.core.api.Assertions.assertThatThrownBy(startWithFake).isInstanceOf(ServiceException.class);
+        // completeNode 凭据校验：假 ID 拒绝（M07-T03 旁路封堵回归）
+        // 合法凭据通过 start（承接 prepare 状态）
+        long validStartAsset = insertAsset("ENG_DRAWING", true, store.orgId());
+        as(engineer, () -> planService.start(engineer, projectId,
+                new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "实际开工", validStartAsset, true), idem()));
+        assertThat(jdbc.queryForObject(
+                "SELECT actual_start_at FROM fr_eng_project WHERE id = ?", java.sql.Date.class, projectId))
+                .isNotNull();
+
+        // R2：completeNode 负测在合法 start 之后（actualStartAt 已置，前置门通过）——
+        // 假 ID 到达资产校验层，断言资产校验的具体文案（区别于前置门错误，防假阳性）
+        long fakeForNode = IDS.incrementAndGet();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
+                        new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "主体完成", fakeForNode, true), idem())))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("凭据资产不存在、未验收或不属于本组织");
+        // 合法 completeNode：节点 DONE + 凭据文档落库（前置：材料合格到齐——到货行 quantity>=需用）
+        long gateReceiptAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        // 合格到货行（quality=OK + actual_quantity>=需用 10 吨 → materialReadyForNode 通过）
+        jdbc.update("INSERT INTO fr_eng_supply_receipt (id, company_id, project_id, supply_id, kind, "
+                        + "transaction_no, occurred_at, file_asset_id, quality, actual_quantity, "
+                        + "author_user_id, create_time) "
+                        + "VALUES (?, ?, ?, ?, 'RECEIPT', 'TXN-ARRIVAL', CURRENT_DATE, ?, 'OK', 10.000, ?, now())",
+                IDS.incrementAndGet(), store.orgId(), projectId, supplyId, gateReceiptAsset, engineer.userId());
+        long validNodeAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "主体完成", validNodeAsset, true), idem()));
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_eng_plan_node WHERE id = ?",
+                String.class, nodeId)).isEqualTo("DONE");
+        // 凭据落 fr_eng_site_record（file_asset_ids JSON 含凭据资产）
+        Integer siteRecords = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM fr_eng_site_record WHERE project_id = ? AND node_id = ? "
+                        + "AND file_asset_ids::text LIKE ?", Integer.class, projectId, nodeId, "%" + validNodeAsset + "%");
+        assertThat(siteRecords).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void sameKeyDifferentInputIsRejected() {
+        as(engineer, () -> materialsService.adjust(engineer, materialId,
+                new EngMaterialService.AdjustCommand(new BigDecimal("15.000"), "采购追加用量"), "idem-adj-2"));
+
+        // 同键改输入（数量与原因都不同）：键复用拒绝
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.adjust(engineer, materialId,
+                new EngMaterialService.AdjustCommand(new BigDecimal("18.000"), "改口径"), "idem-adj-2")))
+                .isInstanceOf(ServiceException.class);
+        // 数量保持首次值
+        assertThat(quantityOf(materialId)).isEqualByComparingTo(new BigDecimal("15.000"));
+    }
+
+    // ========== M07-T03：资产端口引用校验 ==========
+
+    @Test
+    void fakeOrForeignOrUnacceptedAssetIsRejectedOnStartPreparation() {
+        long fakeId = IDS.incrementAndGet();
+        long otherOrg = IDS.incrementAndGet();
+        // 假 ID（不存在）
+        assertThatThrownBy(() -> as(engineer, () -> planService.prepare(engineer, projectId,
+                startCmd(fakeId), idem()))).isInstanceOf(ServiceException.class);
+        // 未 ACCEPTED
+        long unaccepted = insertAsset("ENG_SITE_PHOTO", false, store.orgId());
+        assertThatThrownBy(() -> as(engineer, () -> planService.prepare(engineer, projectId,
+                startCmd(unaccepted), idem()))).isInstanceOf(ServiceException.class);
+        // 类型不符（DOC 类不在合同凭据允许集合）
+        long wrongType = insertAsset("DOC_OTHER", true, store.orgId());
+        assertThatThrownBy(() -> as(engineer, () -> planService.prepare(engineer, projectId,
+                startCmd(wrongType), idem()))).isInstanceOf(ServiceException.class);
+        // 跨组织（他组织属主的已验收资产）：validateReference 属主过滤拒绝（R1 P2）
+        long foreign = insertAsset("ENG_SITE_PHOTO", true, otherOrg);
+        assertThatThrownBy(() -> as(engineer, () -> planService.prepare(engineer, projectId,
+                startCmd(foreign), idem()))).isInstanceOf(ServiceException.class);
+        // 零落痕：仅 setUp 预置的 plan_version 行（insertMaterial 建行），无 prepare 新增
+        Integer preps = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM fr_eng_plan_version WHERE project_id = ?", Integer.class, projectId);
+        assertThat(preps).isEqualTo(1);
+    }
+
+    @Test
+    void validAcceptedAssetOfAllowedTypePasses() {
+        long contractAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> planService.prepare(engineer, projectId,
+                startCmd(contractAsset), idem()));
+        assertThat(jdbc.queryForObject(
+                "SELECT contract_asset_id FROM fr_eng_project WHERE id = ?", Long.class, projectId))
+                .isEqualTo(contractAsset);
+    }
+
+    // ========== 辅助 ==========
+
+    private long insertProject() {
+        long id = IDS.incrementAndGet();
+        jdbc.update("INSERT INTO fr_eng_project (id, company_id, customer_id, customer_name, name, status, "
+                        + "manager_user_id, assigned_engineer_user_id, source_commission_id, source_type, "
+                        + "revision, author_user_id, create_time, update_time) "
+                        + "VALUES (?, ?, NULL, '陈先生', '陈先生 · 乡墅', 'PENDING_START', ?, ?, ?, 'HANDOVER', "
+                        + "1, ?, now(), now())",
+                id, store.orgId(), engineer.userId(), engineer.userId(), IDS.incrementAndGet(), engineer.userId());
+        // closure（requireActionAllowed/requireOwned 依赖）
+        jdbc.update("INSERT INTO fr_eng_closure (id, company_id, project_id, create_time) "
+                        + "VALUES (?, ?, ?, now())", IDS.incrementAndGet(), store.orgId(), id);
+        return id;
+    }
+
+    private long insertNode() {
+        long id = IDS.incrementAndGet();
+        jdbc.update("INSERT INTO fr_eng_plan_node (id, company_id, project_id, node_index, name, status, create_time) "
+                + "VALUES (?, ?, ?, 1, '主体施工', 'PENDING', now())", id, store.orgId(), projectId);
+        return id;
+    }
+
+    private long insertMaterial() {
+        long materialId = IDS.incrementAndGet();
+        long planId = IDS.incrementAndGet();
+        jdbc.update("INSERT INTO fr_eng_plan_version (id, company_id, project_id, version, nodes, source, author_user_id, create_time) "
+                + "VALUES (?, ?, ?, 1, '{}', 'MANUAL', ?, now())", planId, store.orgId(), projectId, engineer.userId());
+        jdbc.update("INSERT INTO fr_eng_material (id, company_id, project_id, material_plan_id, node_id, "
+                        + "name, unit, quantity, status, create_time) "
+                        + "VALUES (?, ?, ?, ?, ?, '螺纹钢', '吨', 10.000, 'SUBMITTED', now())",
+                materialId, store.orgId(), projectId, planId, nodeId);
+        jdbc.update("INSERT INTO fr_eng_supply (id, company_id, project_id, material_id, quantity, payer, create_time) "
+                        + "VALUES (?, ?, ?, ?, 10.000, 'STORE', now())",
+                IDS.incrementAndGet(), store.orgId(), projectId, materialId);
+        return materialId;
+    }
+
+    /** orgId=属主组织（测试约定=服务账号 id）；跨组织资产传他组织 id 即被拒 */
+    private long insertAsset(String type, boolean accepted, long orgId) {
+        long id = IDS.incrementAndGet();
+        jdbc.update("INSERT INTO eng_test_asset (id, asset_type, accepted, org_id) VALUES (?, ?, ?, ?)",
+                id, type, accepted, orgId);
+        return id;
+    }
+
+    private EngPlanService.PrepareCommand startCmd(long assetId) {
+        return new EngPlanService.PrepareCommand(new BigDecimal("680000"), new BigDecimal("408000"),
+                assetId, "开工准备：场地与合同就绪", null, null);
+    }
+
+    private BigDecimal quantityOf(long materialId) {
+        return jdbc.queryForObject("SELECT quantity FROM fr_eng_material WHERE id = ?",
+                BigDecimal.class, materialId);
+    }
+
+    private <T> T as(PostSnapshot post, java.util.function.Supplier<T> action) {
+        currentPost.use(post);
+        try {
+            return action.get();
+        } finally {
+            currentPost.clear();
+        }
+    }
+
+    private static String idem() {
+        return "idem-" + IDS.incrementAndGet();
+    }
+}

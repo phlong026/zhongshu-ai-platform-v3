@@ -54,6 +54,8 @@ public class EngPlanService {
     private final FrEngCollectionTermMapper collectionTerms;
     private final FrEngCollectionMapper collections;
     private final FranchiseCommands commands;
+    private final cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets;
+    private final cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public EngPlanService(EngProjectService projectService, FrEngPlanVersionMapper planVersions,
@@ -61,6 +63,8 @@ public class EngPlanService {
                           FrEngMaterialMapper materials, FrEngSupplyMapper supplies,
                           FrEngSupplyReceiptMapper supplyReceipts, FrEngCollectionTermMapper collectionTerms,
                           FrEngCollectionMapper collections, FranchiseCommands commands,
+                          cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets,
+                          cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts,
                           org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.projectService = projectService;
         this.jdbcTemplate = jdbcTemplate;
@@ -73,6 +77,8 @@ public class EngPlanService {
         this.collectionTerms = collectionTerms;
         this.collections = collections;
         this.commands = commands;
+        this.assets = assets;
+        this.serviceAccounts = serviceAccounts;
     }
 
     public record PrepareCommand(BigDecimal total, BigDecimal first, Long contractAssetId, String note,
@@ -108,20 +114,25 @@ public class EngPlanService {
         if (first >= total) {
             throw exception(ENGINEERING_INPUT_INVALID, "开工款必须小于合同总额，余款作为封顶款");
         }
-        if (cmd.contractAssetId() == null || StrUtil.isBlank(cmd.note()) || cmd.note().length() > 1000) {
-            throw exception(ENGINEERING_INPUT_INVALID, "请上传有效的双方已签合同凭据并填写开工准备记录");
+        if (StrUtil.isBlank(cmd.note()) || cmd.note().length() > 1000) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请填写开工准备记录");
         }
+        // M07-T03/I04：合同凭据资产域侧校验（本组织+ACCEPTED+工程/合同类型）
+        requireValidAsset(post, cmd.contractAssetId(),
+                java.util.Set.of("ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT"), "开工合同");
         // 已有实际收款：沿用原合同金额和凭据（蓝本 :56）
         List<FrEngCollectionDO> received = collections.selectByProject(post.orgId(), projectId);
         if (!received.isEmpty() && (project.getContractTotalCents() != null && project.getContractTotalCents() > 0)) {
             if (project.getContractTotalCents() != total || project.getFirstCents() != first
-                    || project.getContractAssetId() == null || project.getContractAssetId() != cmd.contractAssetId()) {
+                    // R1 P1：Long 与 Long 比较须 Objects.equals（雪花资产 ID 超缓存区间，引用比较恒不等——
+                    // 已有收款分支会把合法保存误拒为「沿用原凭据」）
+                    || !java.util.Objects.equals(project.getContractAssetId(), cmd.contractAssetId())) {
                 throw exception(ENGINEERING_INPUT_INVALID, "已有实际收款，沿用原合同金额和凭据");
             }
         }
         boolean changed = project.getContractTotalCents() == null || project.getContractTotalCents() == 0
                 || project.getContractTotalCents() != total || project.getFirstCents() != first
-                || project.getContractAssetId() == null || project.getContractAssetId() != cmd.contractAssetId();
+                || !java.util.Objects.equals(project.getContractAssetId(), cmd.contractAssetId());
         int nextVersion = (project.getContractVersion() == null ? 0 : project.getContractVersion()) + (changed ? 1 : 0);
         projectService.projects().updateById(new FrEngProjectDO().setId(projectId)
                 .setContractTotalCents(total).setFirstCents(first)
@@ -191,9 +202,9 @@ public class EngPlanService {
             throw exception(ENGINEERING_INPUT_INVALID, "请先完成开工准备并填写全部节点计划日期");
         }
         requireStartGate(post, projectId);
-        if (cmd.fileAssetId() == null) {
-            throw exception(ENGINEERING_INPUT_INVALID, "请留存有效开工凭据");
-        }
+        // M07-T03/I04：开工凭据资产域侧校验
+        requireValidAsset(post, cmd.fileAssetId(),
+                java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "开工");
         LocalDate startDate = cmd.date() == null ? LocalDate.now() : cmd.date();
         if (startDate.isAfter(LocalDate.now())) {
             throw exception(ENGINEERING_INPUT_INVALID, "开工日期不能晚于今天");
@@ -412,9 +423,12 @@ public class EngPlanService {
         if (date.isAfter(LocalDate.now())) {
             throw exception(ENGINEERING_INPUT_INVALID, "记录日期不能晚于今天");
         }
-        if (StrUtil.isBlank(cmd.note()) || cmd.fileAssetId() == null) {
-            throw exception(ENGINEERING_INPUT_INVALID, "请记录现场情况及验收凭据");
+        if (StrUtil.isBlank(cmd.note())) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请记录现场情况");
         }
+        // M07-T03/I04：现场/验收凭据资产域侧校验
+        requireValidAsset(post, cmd.fileAssetId(),
+                java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "现场验收");
         if (!materialReadyForNode(post, projectId, nodeId)) {
             throw exception(GATE_NOT_MET); // 本节点材料尚未合格到齐
         }
@@ -564,6 +578,9 @@ public class EngPlanService {
                 || StrUtil.isBlank(cmd.reason()) || StrUtil.isBlank(cmd.note()) || cmd.fileAssetId() == null) {
             throw exception(NODE_ACTION_INVALID);
         }
+        // M07-T03/I04（R1 P1 旁路封堵）：节点更正凭据同样过域侧校验——存量遗漏处
+        requireValidAsset(post, cmd.fileAssetId(),
+                java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "节点更正");
         LocalDate d = cmd.completedAt();
         int index = nodes.indexOf(node);
         if (project.getActualStartAt() != null && d.isBefore(project.getActualStartAt())) {
@@ -682,4 +699,22 @@ public class EngPlanService {
             return cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(rows);
         }
     }
+    /**
+     * M07-T03/I04：工程凭据资产引用校验——存在+ACCEPTED+本组织属主（validateReference）+类型白名单。
+     * 假 ID/跨组织/未验收/错误类型全部拒绝；不再只判 assetId 非空。
+     */
+    private void requireValidAsset(PostSnapshot post, Long assetId, java.util.Set<String> allowedTypes, String usage) {
+        if (assetId == null) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请上传有效的" + usage + "凭据");
+        }
+        long serviceAccount = serviceAccounts.requireServiceAccount(post.orgId());
+        if (!assets.validateReference(serviceAccount, assetId)) {
+            throw exception(ENGINEERING_INPUT_INVALID, usage + "凭据资产不存在、未验收或不属于本组织");
+        }
+        String type = assets.assetTypeOf(serviceAccount, assetId);
+        if (type == null || !allowedTypes.contains(type)) {
+            throw exception(ENGINEERING_INPUT_INVALID, usage + "凭据资产类型不符（须 " + String.join("/", allowedTypes) + "）");
+        }
+    }
+
 }
