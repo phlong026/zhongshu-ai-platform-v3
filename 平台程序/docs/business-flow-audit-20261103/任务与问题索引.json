@@ -1530,7 +1530,7 @@
       "scope": "离职接续及同客同合同规则",
       "dependency": "T02；M01组织及M02撤权契约；M06统一合同契约先冻结，不等其全链验收",
       "acceptance": "正常离职生效/紧急停用立即撤权；未交接客户及待办转负责人；新责任人接续同contractId/projectId，历史经办与收款不变",
-      "status": "待实施／待验证",
+      "status": "部分交付（批次#20，0cd0b96，R2 PASS）：接续/历史/跨岗矩阵已固化；余合同项目端到端随 M06-T04",
       "module": "M04",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
       "line": 114,
