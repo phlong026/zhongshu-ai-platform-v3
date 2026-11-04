@@ -15,6 +15,9 @@ function randomHex() {
 function idemKey(action) {
   return 'fin-' + action + '-' + randomHex();
 }
+// M08-T01：模块级生成器别名——register* 的参数名 idemKey 会遮蔽同名模块函数（缺省键调用即 TypeError），
+// 函数体回退统一走 genIdemKey。
+const genIdemKey = idemKey;
 
 /** 实收列表（本公司；status 可选："已登记" 等） */
 function receipts(status) {
@@ -38,28 +41,28 @@ function refunds() {
 
 /** 登记实收（manual 来源；sourceType/designCommissionId/designStage 走 design 门禁） */
 function registerReceipt(body, idemKey) {
-  return http.post('/franchise/finance/receipts', body, { 'Idempotency-Key': idemKey || idemKey('receipt') });
+  return http.post('/franchise/finance/receipts', body, { 'Idempotency-Key': idemKey || genIdemKey('receipt') });
 }
 
 /** 登记付款（payableId 必填） */
 function registerPayment(body, idemKey) {
-  return http.post('/franchise/finance/payments', body, { 'Idempotency-Key': idemKey || idemKey('payment') });
+  return http.post('/franchise/finance/payments', body, { 'Idempotency-Key': idemKey || genIdemKey('payment') });
 }
 
 /** 登记退款（线下事实登记制：登记即已核实） */
 function registerRefund(body, idemKey) {
-  return http.post('/franchise/finance/refunds', body, { 'Idempotency-Key': idemKey || idemKey('refund') });
+  return http.post('/franchise/finance/refunds', body, { 'Idempotency-Key': idemKey || genIdemKey('refund') });
 }
 
 /** 登记应付 */
 function registerPayable(body, idemKey) {
-  return http.post('/franchise/finance/payables', body, { 'Idempotency-Key': idemKey || idemKey('payable') });
+  return http.post('/franchise/finance/payables', body, { 'Idempotency-Key': idemKey || genIdemKey('payable') });
 }
 
 /** 到账确认（唯一入账；幂等重放返回首次 confirmId） */
 function confirmBank(bankFlowId, receiptId, idemKey) {
   return http.post('/franchise/finance/bank-confirms', { bankFlowId, receiptId },
-    { 'Idempotency-Key': idemKey || idemKey('confirm') });
+    { 'Idempotency-Key': idemKey || genIdemKey('confirm') });
 }
 
 /** 银行流水列表（待匹配在前） */

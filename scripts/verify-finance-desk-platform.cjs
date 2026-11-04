@@ -167,7 +167,7 @@ console.log('[AC] F6 补：PENDING 状态映射与错误码');
 
 console.log('[AC] M08-T07：雪花 ID 逐字一致（>2^53 不经 Number 截断）');
 {
-  const SNOWFLAKE = '38709901066925012345'; // 19 位雪花串（>2^53）
+  const SNOWFLAKE = '3870990106692501234'; // 19 位雪花串（>2^53 截断区、< Long.MAX 可后端反序列化）
   const page = mockPage({ platformRegister: { payables: [{ id: SNOWFLAKE, label: '应付9', totalCents: 100, paidCents: 0 }],
     refundable: [{ id: SNOWFLAKE, label: '应收9', amountCents: 900, refundableCents: 900 }],
     pendingReceipts: [{ id: SNOWFLAKE, label: '应收9', amountCents: 900 }] },
@@ -207,57 +207,75 @@ console.log('[AC] M08-T07：雪花 ID 逐字一致（>2^53 不经 Number 截断�
 
 console.log('[AC] M08-T04：响应丢失同键重试（register 粘性键）+ 成功后换新键');
 {
-  const SNOWFLAKE = '38709901066925012345';
+  const SNOWFLAKE = '3870990106692501234';
   const page = mockPage({ platformRegister: { payables: [{ id: '1', label: '应付', totalCents: 100, paidCents: 0 }] },
     registerType: 'payment',
     registerForm: { amount: '1', payableId: '1', recipient: '供应商', transactionNo: '', reason: '' },
     registerBusy: false, registerError: '', registerType: 'payment' });
-  // 第一次提交：响应丢失（pending 永不 resolve）
+  // 可控型 mock：deferred 模式（Codex R1 P2-4——键状态四路直断）
+  let deferred = null;
   mockApi.registerPayment = function (body, idem) {
     mockApi.calls.push({ fn: 'registerPayment', body, idem });
-    return new Promise(() => {}); // 挂起（模拟响应丢失）
+    return new Promise((resolve, reject) => { deferred = { resolve, reject, idem }; });
   };
+  const stickyKey = () => page.registerIdem;
+  // ① 失败路径：reject → .catch 保留键（失败保留键=同键重试的前提）
   page.submitRegister();
   await new Promise(r => setImmediate(r));
   const key1 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
-  page.setData({ registerBusy: false }); // busy 已复位（finally），用户重试
-  page.submitRegister(); // 重试
+  deferred.reject({ message: '网络异常' });
+  await new Promise(r => setImmediate(r));
+  ok(stickyKey() === key1, '失败路径保留粘性键（同键重试前提）');
+  // ② 同键重试成功：resolve → 成功回调清键
+  page.submitRegister();
   await new Promise(r => setImmediate(r));
   const key2 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
-  ok(key1 === key2, '重试复用同一 Idempotency-Key（后端幂等去重，只有一笔）');
-  // 第三次提交：成功返回 → 键被清除，后续提交换新键
-  mockApi.registerPayment = function (body, idem) {
-    mockApi.calls.push({ fn: 'registerPayment', body, idem });
-    return Promise.resolve(1);
-  };
-  page.setData({ registerBusy: false });
+  ok(key2 === key1, '重试复用同一键（后端去重，只有一笔）');
+  deferred.resolve(1);
+  await new Promise(r => setImmediate(r));
+  ok(stickyKey() === null, '成功路径清空粘性键（下一笔新周期）');
+  // ③ cancel：重新生成键后 cancel 清空
   page.submitRegister();
   await new Promise(r => setImmediate(r));
   const key3 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
-  ok(key3 === key1, '成功提交复用同键（服务端去重窗口内）');
-  page.setData({ registerType: '', registerForm: {} }); // 成功关闭表单（实现于成功回调）
+  page.cancelRegister();
+  ok(page.registerIdem === null, 'cancel 路径清空粘性键');
+  ok(key3 !== null, 'cancel 前键存在');
+  // ④ open：新开表单清空（提交即生成新键）
   page.openRegister({ currentTarget: { dataset: { type: 'payment' } } });
-  page.setData({ registerForm: { amount: '1', payableId: '1', recipient: '供应商' } }); // 新表单重新填写
+  page.setData({ registerForm: { amount: '1', payableId: '1', recipient: '供应商' } });
   page.submitRegister();
   await new Promise(r => setImmediate(r));
   const key4 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
-  ok(key4 !== key1, '新表单周期换新键');
+  ok(key4 !== key3, 'open 后新周期新键');
 }
 
-console.log('[AC] M08-T01/T03：缺省键 5 函数不抛 + sha256 标准向量');
+console.log('[AC] M08-T01/T03：缺省键 5 函数真实调用（隔离沙箱）+ sha256 标准向量');
 {
-  const F = mockApi;
-  let okAll = true;
-  for (const fn of ['registerReceipt', 'registerPayment', 'registerRefund', 'registerPayable', 'confirmBank']) {
-    try { if (typeof F[fn] !== 'function') okAll = false; } catch (e) { okAll = false; }
-  }
-  ok(okAll, '5 个写函数可用');
-  const apiSrc = require('fs').readFileSync(require('path').join(__dirname, '../miniprogram/api/finance.js'), 'utf8');
-  ok(apiSrc.includes("idemKey('receipt')") && apiSrc.includes("idemKey('payment')")
-     && apiSrc.includes("idemKey('refund')") && apiSrc.includes("idemKey('payable')")
-     && apiSrc.includes("idemKey('confirm')"), '缺省键回退表达式齐全（不抛）');
+  // Codex R1 P2-3：mock+includes 检不出参数遮蔽缺陷（M5 首版 idemKey||idemKey(...) TypeError）——
+  // 注入 mock http 后真实调用 5 函数缺省键，断言请求发出且键回退生成
+  const fs = require('fs');
+  const apiSrc = fs.readFileSync(require('path').join(__dirname, '../miniprogram/api/finance.js'), 'utf8');
+  const sandboxPath = require('path').join(__dirname, '.m08t01-sandbox.js');
+  const capturedKeys = [];
+  const httpMockSrc = 'var capturedKeys = [];\nconst http = { post: function (path, body, header) { capturedKeys.push({ path, key: header && header["Idempotency-Key"] }); return Promise.resolve({ id: 1 }); },\n' +
+    '  get: function () { return Promise.resolve([]); },\n' +
+    '  base: function () { return ""; },\n' +
+    '  token: function () { return "tok"; } };\n';
+  fs.writeFileSync(sandboxPath, httpMockSrc
+    + apiSrc.replace(/const http = require\(['"]\.\/http['"]\);/, "")
+    + '\nmodule.exports = { idemKey, registerReceipt, registerPayment, registerRefund, registerPayable, confirmBank, sha256Hex, __captured: capturedKeys };');
+  const Sandbox = require(sandboxPath);
+  const callsBefore = Sandbox.__captured.length;
+  let threw = false;
+  try {
+    Sandbox.registerReceipt({}); Sandbox.registerPayment({}); Sandbox.registerRefund({});
+    Sandbox.registerPayable({}); Sandbox.confirmBank(1, 2);
+  } catch (e) { threw = true; }
+  ok(!threw && Sandbox.__captured.length >= callsBefore + 5, '5 函数缺省键真实调用不抛且键回退生成');
+  ok(Sandbox.__captured.every(c => typeof c.key === 'string' && c.key.startsWith('fin-')), '回退键带 fin- 前缀');
   // sha256 标准向量（M08-T03）：真实模块加载
-  const Fin = require('../miniprogram/api/finance.js');
+  const Fin = Sandbox;
   ok(Fin.sha256Hex && Fin.sha256Hex('abc') === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', 'sha256 标准向量 abc');
   ok(Fin.sha256Hex('') === 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'sha256 空串向量');
   var crypto = require('node:crypto');
