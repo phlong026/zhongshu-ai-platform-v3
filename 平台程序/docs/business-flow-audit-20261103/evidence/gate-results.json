@@ -1,0 +1,30 @@
+[
+  {
+    "script": "verify.cjs",
+    "exitCode": 1,
+    "tail": [
+      "  code: 'ERR_ASSERTION',",
+      "  actual: 5,",
+      "  expected: 0,",
+      "  operator: 'strictEqual',",
+      "  diff: 'simple'",
+      "}",
+      "",
+      "Node.js v24.14.1"
+    ]
+  },
+  {
+    "script": "verify-demo-badge.cjs",
+    "exitCode": 0,
+    "tail": [
+      "  ok - true",
+      "  ok - true",
+      "  ok - true",
+      "  ok - true",
+      "  ok - true",
+      "  ok - true",
+      "",
+      "通过 26，失败 0"
+    ]
+  }
+]

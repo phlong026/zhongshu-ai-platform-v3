@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-03",
+  "sourcePath": "/Users/honor.pei/Documents/企业FDE项目/zhongshu-ai-platform-v3/miniprogram/pages/admin/finance-desk/platform-actions.js",
+  "expected": "Identifiers preserve their decimal digits",
+  "mode": "pure VM with synthetic data; no HTTP or database",
+  "result": "reproduced",
+  "cases": [
+    {
+      "kind": "payment",
+      "field": "payableId",
+      "inputId": "1980000000000000001",
+      "wireId": "1980000000000000000",
+      "valueType": "number",
+      "precisionLost": true
+    },
+    {
+      "kind": "refund",
+      "field": "receiptId",
+      "inputId": "1980000000000000001",
+      "wireId": "1980000000000000000",
+      "valueType": "number",
+      "precisionLost": true
+    },
+    {
+      "kind": "payable",
+      "field": "projectId",
+      "inputId": "1980000000000000001",
+      "wireId": "1980000000000000000",
+      "valueType": "number",
+      "precisionLost": true
+    },
+    {
+      "kind": "bank",
+      "field": "bankFlowId",
+      "inputId": "1980000000000000001",
+      "wireId": "1980000000000000000",
+      "valueType": "number",
+      "precisionLost": true
+    }
+  ]
+}

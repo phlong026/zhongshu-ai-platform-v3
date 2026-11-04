@@ -1,0 +1,42 @@
+{
+  "scope": "E2, real source with synthetic wx; no real network, DB or filesystem mutation",
+  "cases": [
+    {
+      "id": "M02-I02",
+      "errorCode": 401,
+      "tokenRetained": true,
+      "unauthorizedCallbacks": 0,
+      "defectObserved": true
+    },
+    {
+      "id": "M02-I03",
+      "scenario": "B token saved before posts/mine succeeds",
+      "currentPost": {
+        "postId": "11",
+        "orgId": "org-A",
+        "roleCode": "finance"
+      },
+      "headerPostId": "11",
+      "defectObserved": true
+    },
+    {
+      "id": "M08-I01",
+      "syncError": "idemKey is not a function",
+      "defectObserved": true
+    },
+    {
+      "id": "M08-I02",
+      "rawByteSha256": "fa7fa198f50f901a9501911f53fe3ad0acf8e3e08f269aa4115a72034d01b8a2",
+      "claimedSha256": "6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab00000000",
+      "usedDevEndpoint": true,
+      "defectObserved": true
+    },
+    {
+      "id": "M12-I01",
+      "mutationCount": 16,
+      "exitCode": 0,
+      "summary": "\n通过 26，失败 0",
+      "defectObserved": true
+    }
+  ]
+}
