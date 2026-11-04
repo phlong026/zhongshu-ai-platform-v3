@@ -21,6 +21,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.BOSS;
+import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.ENGINEER;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.FINANCE;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.SALES;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -194,6 +195,21 @@ class DepartureHandoverIntegrationTest extends FranchisePgIntegrationTest {
         // 客户原封不动（未发生任何转移）、任职未被撤
         assertThat(ownerOf(c1)).isEqualTo(salesA1.userId());
         assertThat(postStatus(salesA1.postId())).isEqualTo(StaffPostDO.STATUS_ACTIVE);
+    }
+
+    @Test
+    void crossRoleStaffSeeNoCustomerListWhileReceiverSeesTransferredOnes() {
+        long c1 = capture(salesA1, phone());
+        cn.iocoder.yudao.framework.common.pojo.PageParam page = new cn.iocoder.yudao.framework.common.pojo.PageParam();
+        // 跨岗矩阵（M04-T04）：同店财务/工程岗客户列表为空（visibleTo 恒假）；接手人可见转移后客户
+        PostSnapshot financePost = fixture.post(store.orgId(), FINANCE, null);
+        PostSnapshot engineerPost = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
+        assertThat(as(financePost, () -> customers.page(financePost, page, null).getList())).isEmpty();
+        assertThat(as(engineerPost, () -> customers.page(engineerPost, page, null).getList())).isEmpty();
+        as(boss, () -> handoverService.handover(store.orgId(), salesA1.userId(), salesB.userId(), boss.userId()));
+        assertThat(as(salesB, () -> customers.page(salesB, page, null).getList()))
+                .extracting(cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO::getId)
+                .containsExactly(c1);
     }
 
     // ===== 查询与辅助 =====
