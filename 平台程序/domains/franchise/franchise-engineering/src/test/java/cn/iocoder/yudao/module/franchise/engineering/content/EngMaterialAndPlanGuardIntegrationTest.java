@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 3. 工程凭据资产域侧校验：假 ID/跨组织/未 ACCEPTED 拒绝（validateReference），类型不符拒绝（assetTypeOf）。
  */
 @Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class, EngCollectionService.class,
+        EngExpenseService.class,
         FranchiseCommands.class, CommandLogImpl.class,
         EngMaterialAndPlanGuardIntegrationTest.Config.class})
 class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest {

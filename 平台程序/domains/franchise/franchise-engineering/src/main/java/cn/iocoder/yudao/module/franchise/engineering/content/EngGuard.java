@@ -21,8 +21,8 @@ public final class EngGuard {
 
     /** 交付后可办白名单（蓝本 :52：settle/archive/material-terms/project/collect/dunning） */
     private static final Set<String> AFTER_DELIVER = Set.of(
-            "settle", "archive", "material-terms", "project", "collect", "dunning");
-    /** 归档后可办白名单（蓝本 :52：material-terms/collect/dunning） */
+            "settle", "archive", "material-terms", "project", "collect", "dunning", "expenses");
+    /** 归档后可办白名单（蓝本 :52：material-terms/collect/dunning）；M09-T04 费用登记/挂付不在归档后（与材料一致，冻结） */
     private static final Set<String> AFTER_ARCHIVE = Set.of("material-terms", "collect", "dunning");
 
     private EngGuard() {

@@ -46,6 +46,7 @@ class EngClosurePayloadTest {
         FrEngCollectionTermMapper collectionTerms = mock(FrEngCollectionTermMapper.class);
         FrEngCollectionMapper collections = mock(FrEngCollectionMapper.class);
         EngClosureService service = new EngClosureService(projectService, planService, closures,
+                mock(cn.iocoder.yudao.module.franchise.engineering.dal.FrEngExpenseMapper.class),
                 mock(FrEngPlanNodeMapper.class), collectionTerms,
                 collections, supplies,
                 mock(FrEngMaterialMapper.class), commands, ledger,

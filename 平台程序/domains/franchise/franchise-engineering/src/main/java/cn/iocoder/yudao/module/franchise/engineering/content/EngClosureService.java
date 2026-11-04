@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.engineering.content;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngClosureDO;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngExpenseDO;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngClosureMapper;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionDO;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionMapper;
@@ -30,7 +31,7 @@ import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngin
 
 /**
  * 尾段三段（D-11）：deliver（开工+全节点完成+材料齐全+全累计收款门禁）→ settle（返回结算屏汇总）→
- * archive；三动作 CAS 前置链 009。结算屏=材料聚合（自域）+项目费用（首批 0 占位，待决②）+两期收款聚合。
+ * archive；三动作 CAS 前置链 009。结算屏=材料聚合（自域）+直接费用汇总（M09-T04 真实数据源）+三期收款聚合。
  */
 @Service
 public class EngClosureService {
@@ -40,6 +41,7 @@ public class EngClosureService {
     private final EngProjectService projectService;
     private final EngPlanService planService;
     private final FrEngClosureMapper closures;
+    private final cn.iocoder.yudao.module.franchise.engineering.dal.FrEngExpenseMapper expenses;
     private final FrEngPlanNodeMapper planNodes;
     private final FrEngCollectionTermMapper collectionTerms;
     private final FrEngCollectionMapper collections;
@@ -50,7 +52,8 @@ public class EngClosureService {
     private final EngineeringLedgerQueryPort ledger;
 
     public EngClosureService(EngProjectService projectService, EngPlanService planService,
-                             FrEngClosureMapper closures, FrEngPlanNodeMapper planNodes,
+                             FrEngClosureMapper closures, cn.iocoder.yudao.module.franchise.engineering.dal.FrEngExpenseMapper expenses,
+                             FrEngPlanNodeMapper planNodes,
                              FrEngCollectionTermMapper collectionTerms, FrEngCollectionMapper collections,
                              FrEngSupplyMapper supplies, FrEngMaterialMapper materials,
                              FranchiseCommands commands, EngineeringLedgerQueryPort ledger,
@@ -58,6 +61,7 @@ public class EngClosureService {
         this.projectService = projectService;
         this.planService = planService;
         this.closures = closures;
+        this.expenses = expenses;
         this.planNodes = planNodes;
         this.collectionTerms = collectionTerms;
         this.collections = collections;
@@ -235,11 +239,19 @@ public class EngClosureService {
             view.put("materialsTotalCents", materialsTotal);
             view.put("materialsPaidCents", materialsPaid);
             view.put("materialsRemainingCents", Math.max(0, materialsTotal - materialsPaid));
-            // 项目费用：首批 0 占位（平台 finance 域无经营账簿同构实体，待决②；LedgerQueryPort 预留接口位）
-            view.put("expensesTotalCents", 0L);
-            view.put("expensesPaidCents", 0L);
-            view.put("expensesRemainingCents", 0L);
-            view.put("expensesNote", "项目费用汇总待阶段 3 接入");
+            // M09-T04：直接费用真实汇总——Σ已确认费用（成本口径）；已付=经应付清偿的现金（付款不重计成本）；
+            // 退回减已付现金不改已确认费用；无公共费用分摊
+            var expenseRows = expenses.selectByProject(post.orgId(), projectId).stream()
+                    .filter(e -> FrEngExpenseDO.STATUS_REGISTERED.equals(e.getStatus())).toList();
+            long expensesTotal = expenseRows.stream()
+                    .mapToLong(FrEngExpenseDO::getAmountCents).sum();
+            long expensesPaid = ledger.paidCentsByPayableIds(post,
+                    expenseRows.stream().map(FrEngExpenseDO::getPayableId)
+                            .filter(java.util.Objects::nonNull).toList()).values().stream()
+                    .mapToLong(Long::longValue).sum();
+            view.put("expensesTotalCents", expensesTotal);
+            view.put("expensesPaidCents", expensesPaid);
+            view.put("expensesRemainingCents", Math.max(0, expensesTotal - expensesPaid));
             view.put("collectionStages", stages);
             view.put("collectionTotalCents", receivedTotal);
         } else {
