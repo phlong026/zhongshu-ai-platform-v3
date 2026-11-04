@@ -68,7 +68,10 @@ module.exports = function(kind) {
         desk: {
           name: '', company: '', date: '', sample: false,
           period: this.platPeriod, periodLabel: this.platPeriod,
+          // M10-T03/R4 P1：finance 在线视图 desk.operating 直供模板（business.historical 等本地键不动）
           operating: this.platSummary && this.platSummary.operating || null,
+          business: { historical: !!this.platOperatingDegraded ? false : (this.platSummary && this.platSummary.operating ? true : false),
+                      snapshotInfo: { available: false, note: '在线快照经「归档月度快照」写服务端' } },
           performance: PP.platPerformance(this.platSummary, this.platPeriod, this.data.selectedDepartment),
           actor: { role: (PP.apiPost() || {}).roleCode || '', companyId: (PP.apiPost() || {}).orgId || '' }
         },
@@ -137,8 +140,30 @@ module.exports = function(kind) {
         const rulesForm = view === 'rules' ? (this.rulesDirty ? this.data.rulesForm : { expenseLine: String(settings.approvals.expenseLine) }) : {};
         const display = { name:desk.name, company:desk.company, date:desk.date, sample:desk.sample, period:desk.period, periodLabel:desk.periodLabel, actor:{ role:desk.actor.role, companyId:desk.actor.companyId } };
         if (view === 'company') display.staff = desk.staff.map(person=>({id:person.id}));
-        if (view === 'home') { display.home = desk.home; display.ledger = desk.ledger; display.approvalCount = desk.approvalCount; display.income = desk.income; display.paid = desk.paid; }
-        if (view === 'finance') display.business = desk.business;
+        if (view === 'home') {
+          display.home = desk.home; display.ledger = desk.ledger; display.approvalCount = desk.approvalCount;
+          display.income = desk.income; display.paid = desk.paid;
+          // M10-T03/R3 P1：在线态 operating 真源覆盖（与财务一致——不再读本地账）
+          if (PP.online() && this.platSummary && this.platSummary.operating) {
+            const op = this.platSummary.operating;
+            const last = (op.trend || []).slice(-1).pop() || {};
+            // R4 P1：保持 owner-model wan() 字符串形状（分→万文本；模板直接显示）
+            const wanStr = cents => (Number(cents || 0) / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 });
+            display.income = wanStr(last.incomeCents || 0);
+            display.paid = wanStr(last.paidCents || 0);
+          }
+        }
+        if (view === 'finance') {
+          display.business = desk.business;
+          // M10-T03/R3 P1：在线态经营截面覆盖；失败降级可见（R2 P2-9）
+          if (PP.online()) {
+            if (this.platSummary && this.platSummary.operating) {
+              display.operating = this.platSummary.operating;
+            } else {
+              display.operatingDegraded = true;
+            }
+          }
+        }
         if (view === 'performance') display.performance = desk.performance;
         const homeTodos = view === 'home' ? H.visibleTodos(desk, this.data.todoTab) : [];
         this.setData({ ready:true, desk:display, rows, total, projects:[], form, performanceSettings, managementSettings:settings, companyForm, assignmentForm, rulesForm, view, record:B.recordFor(view,desk,this.options.id), error:'', homeTodos, homeTodoTotal:view==='home'?H.todoRows(desk,this.data.todoTab).length:0 });
@@ -170,6 +195,13 @@ module.exports = function(kind) {
         this.platPeriod = period;
         this.refreshPlatView();
         this.refreshPlatSummary();
+        return;
+      }
+      // M10-T03/R3 P1：finance 在线态换月同步 platPeriod 并刷新（historical/结账按钮随选中月更新）
+      if (PP.online() && this.kind === 'finance') {
+        this.platPeriod = period;
+        this.refreshPlatSummary();
+        this.refreshPlatView();
         return;
       }
       if (!W.allowed()) return;
