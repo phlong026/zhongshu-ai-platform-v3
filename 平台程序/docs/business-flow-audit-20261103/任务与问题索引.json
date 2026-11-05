@@ -1611,7 +1611,7 @@
       "scope": "I03；本期正式交付，工程上传与页面前端",
       "dependency": "M11资产契约冻结＋本模块T03",
       "acceptance": "ticket→上传→complete→办理→授权查看全链；取消/超时不落业务记录",
-      "status": "规则已定，待实施／验证",
+      "status": "✅ 规则部分已交付（批次#36：后端 R6 PASS/v3 R6 PASS）；真实 COS 渠道 E4 随 #40",
       "module": "M07",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
       "line": 130,
@@ -1624,7 +1624,8 @@
         "R07"
       ],
       "rule_status": "最终规则已定稿",
-      "execution_order": 44
+      "execution_order": 44,
+      "implementation_note": "批次#36 64f2bd6+f209b06：十动作资产链全覆盖（collect FIN_VOUCHER/site 逐张/arrival+质检旁路封堵）+858 窄码 asset:bytes（PUT 双通路/GET 仅 design:use）+site INSERT 错位修复+v3 票据真传（SHA 原始字节/REJECTED/重试缓存/生产 PUT 分支）+显式选行+授权查看链"
     },
     {
       "id": "M09-T01",
