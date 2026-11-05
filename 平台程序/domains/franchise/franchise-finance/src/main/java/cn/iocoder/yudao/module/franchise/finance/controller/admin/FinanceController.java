@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.franchise.finance.FinPermissions;
 import cn.iocoder.yudao.module.franchise.finance.FinProjectAccountService;
 import cn.iocoder.yudao.module.franchise.finance.FinReceiptService;
 import cn.iocoder.yudao.module.franchise.finance.FinAbnormalFundService;
+import cn.iocoder.yudao.module.franchise.finance.FinReconciliationService;
 import cn.iocoder.yudao.module.franchise.finance.FinRefundService;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinBankConfirmDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinBankFlowDO;
@@ -96,6 +97,8 @@ public class FinanceController {
     private FinAbnormalFundService abnormalFundService;
     @Resource
     private FinAbnormalFundMapper abnormalFundMapper;
+    @Resource
+    private FinReconciliationService reconciliationService;
 
     // ===== 实收 =====
 
@@ -329,6 +332,16 @@ public class FinanceController {
     public CommonResult<Boolean> voidAbnormalFund(@PathVariable("id") long id, @Valid @RequestBody VoidCommand cmd) {
         abnormalFundService.void_(currentPost.require(), id, cmd.reason());
         return success(true);
+    }
+
+    // ===== 对账视图（M08-T08 批次#34：毛额/退款/净额/异常四口径） =====
+
+    @GetMapping("/reconciliation")
+    @Operation(summary = "对账视图（按月四口径：毛额/退款/净额/异常资金含待归月单列）")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<FinReconciliationService.MonthReconciliation> reconciliation(
+            @RequestParam("month") String month) {
+        return success(reconciliationService.monthReconciliation(currentPost.require().orgId(), month));
     }
 
     // ===== 到账核对 =====
