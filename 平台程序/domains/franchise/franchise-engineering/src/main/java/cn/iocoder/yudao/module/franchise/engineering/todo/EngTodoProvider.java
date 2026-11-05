@@ -31,15 +31,18 @@ public class EngTodoProvider implements TodoProvider {
     private final FrEngCollectionMapper collections;
     private final FrEngPlanNodeMapper planNodes;
     private final FrEngFollowupMapper followups;
+    private final cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages;
 
     public EngTodoProvider(FrEngProjectMapper projects, FrEngCollectionTermMapper collectionTerms,
                            FrEngCollectionMapper collections, FrEngPlanNodeMapper planNodes,
-                           FrEngFollowupMapper followups) {
+                           FrEngFollowupMapper followups,
+                           cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages) {
         this.projects = projects;
         this.collectionTerms = collectionTerms;
         this.collections = collections;
         this.planNodes = planNodes;
         this.followups = followups;
+        this.unifiedStages = unifiedStages;
     }
 
     @Override
@@ -66,10 +69,38 @@ public class EngTodoProvider implements TodoProvider {
                     FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone())
                             && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()));
             LocalDate startDue = nodes.isEmpty() ? null : nodes.get(0).getStartDate();
+            // M09-T03/R05（批次#35）：开工资金门槛不足待补收——统一实收账净口径
+            // （Σ分笔−Σ已核实退款）。退款回缺不被既有催收投影捕捉（其 confirmed 读工程
+            // 留痕行，退款不删留痕行）；本待办与 requireStartGate 同源读数，补收足额即消失。
+            // 仅提示补收，不撤任何施工/交付事实（门禁只拦动作）。
+            // R1 P3：期款行整表读取一次，投影段与催收段共用（未开工项目量级有限，登记边界）
+            java.util.List<FrEngCollectionTermDO> terms = collectionTerms.selectByProject(post.orgId(), project.getId());
+            if (project.getActualStartAt() == null) {
+                FrEngCollectionTermDO signTerm = terms.stream()
+                        .filter(t -> FrEngCollectionTermDO.STAGE_SIGN_AFTER.equals(t.getStage()))
+                        .filter(t -> t.getAmountCents() != null && t.getAmountCents() > 0)
+                        .findFirst().orElse(null);
+                if (signTerm != null) {
+                    Long contractId = project.getSaleContractId() != null
+                            ? project.getSaleContractId()
+                            : (project.getCustomerId() == null ? null
+                            : unifiedStages.activeContractId(post, project.getCustomerId()));
+                    long confirmed = contractId == null ? 0
+                            : unifiedStages.stageCollectedCents(post, contractId, FrEngCollectionTermDO.STAGE_SIGN_AFTER);
+                    long shortfall = signTerm.getAmountCents() - confirmed;
+                    if (shortfall > 0) {
+                        todos.add(new TodoItem(domain(), "fr-eng:gate-shortfall:" + project.getId(),
+                                "开工资金门槛不足待补收 · " + project.getName(),
+                                "shortfall", shortfall, true, null,
+                                "/pages/build/record/index?id=" + project.getId() + "&view=collection",
+                                project.getCreateTime()));
+                    }
+                }
+            }
             LocalDate toppingDue = nodes.stream()
                     .filter(n -> FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()))
                     .findFirst().map(FrEngPlanNodeDO::getEndDate).orElse(null);
-            for (FrEngCollectionTermDO term : collectionTerms.selectByProject(post.orgId(), project.getId())) {
+            for (FrEngCollectionTermDO term : terms) {
                 // M07-T06：CAP_DONE 期须封顶完成；BASE_DONE 期须基础节点完成留痕（与收款门禁同规则）
                 if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(term.getStage()) && !toppingDone) {
                     continue; // 封顶款待封顶完成后进入待办（收款侧前置的同向派生）

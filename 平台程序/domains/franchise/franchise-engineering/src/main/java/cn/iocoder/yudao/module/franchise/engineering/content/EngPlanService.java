@@ -274,10 +274,6 @@ public class EngPlanService {
         long confirmed = contractId == null ? 0
                 : unifiedStages.stageCollectedCents(post, contractId, FrEngCollectionTermDO.STAGE_SIGN_AFTER);
         if (confirmed < expected) {
-            Long dbgC = resolveContractId(post, projectId);
-            System.out.println("[DBG-gate] projectId=" + projectId + " expected=" + expected
-                    + " confirmed=" + confirmed + " contractId=" + dbgC);
-
             throw exception(GATE_NOT_MET);
         }
     }
