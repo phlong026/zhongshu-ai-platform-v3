@@ -17,7 +17,9 @@ const LABELS = {
   'handover-prepare': '成果收图移交',
   'handover-returned': '移交退回',
   'handover-review': '移交核查',
-  'handover-waiting': '移交核查中'
+  'handover-waiting': '移交核查中',
+  'abnormal-link': '异常资金待关联',
+  'bank-confirm': '到账待确认'
 };
 const MAX_SAFE_CENTS = 9007199254740991; // Number.MAX_SAFE_INTEGER
 

@@ -184,7 +184,7 @@ async function main() {
   assert.ok(wxml.includes("registerType==='expense-refund'?'支出退回'"), '表单标题含支出退回');
   assert.ok(wxml.includes('range="{{platformRegister.expenseRefundable}}"'), '付款单选择器绑定 expenseRefundable');
   assert.ok(wxml.includes('data-field="paymentId" bindchange="registerPick"'), 'picker 走 paymentId 字段');
-  assert.equal(wxml.split("registerForm.date||'请选择日期'").length - 1, 2, '退回日期占位为必填提示（不再冒充默认今日）');
+  assert.equal(wxml.split("registerForm.date||'请选择日期'").length - 1, 4, '退款/支出退回日期占位四处统一（批次#34 扩 client 退款）');
 
   console.log('verify-finance-expense-refund: 行为层 A 14 断言 + 行为层 B 14 断言 + 静态层 14 断言 全部 PASS');
 }

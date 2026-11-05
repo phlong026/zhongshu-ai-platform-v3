@@ -15,6 +15,7 @@
 
   <block wx:if="{{view==='flows'}}">
    <block wx:if="{{platformApiMode&&flowTab==='ledger'&&(platformFinance.status==='ready'||platformFinance.status==='loading'||platformFinance.status==='degraded')}}">
+       <view wx:if="{{reconciliation&&reconciliation.status!=='loading'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">对账视图（{{reconciliation.month||'本月'}}）</text></view><block wx:if="{{reconciliation.status==='ready'}}"><view class="fin-three"><view><text class="fin-muted">毛额·已登记收款</text><text class="fin-value">¥{{reconciliation.grossText}}</text></view><view><text class="fin-muted">退款·对客</text><text class="fin-value">¥{{reconciliation.refundsText}}</text></view><view><text class="fin-muted">净实收</text><text class="fin-value">¥{{reconciliation.netText}}</text></view></view><text wx:if="{{reconciliation.abnormalCount}}" class="fin-muted">异常资金待关联 {{reconciliation.abnormalCount}} 笔 ¥{{reconciliation.abnormalText}}；其中日期待核 {{reconciliation.datePendingCount}} 笔 ¥{{reconciliation.datePendingText}}（待归月单列，不计入净额）</text><text wx:else class="fin-muted">无待关联异常资金</text></block><text wx:else class="fin-muted">{{reconciliation.message||'对账数据暂时无法加载'}}</text></view>
    <view wx:if="{{platformFinance.status==='loading'}}" class="fin-card"><text class="fin-muted">平台台账加载中…</text></view>
    <view wx:elif="{{platformFinance.status==='degraded'}}" class="fin-card"><text class="fin-muted">{{platformFinance.message||'平台台账暂时无法加载'}}</text><button class="fin-text" bindtap="retryPlatformFinance">重新加载</button></view>
    <block wx:else>
@@ -56,7 +57,7 @@
      <block wx:if="{{registerType==='refund'}}">
       <view class="fin-form-row"><text class="fin-muted">关联收款</text><picker range="{{platformRegister.refundable}}" range-key="label" data-field="receiptId" bindchange="registerPick"><view class="fin-input">{{registerForm.receiptIdLabel||'请选择'}}</view></picker></view>
       <view class="fin-form-row"><text class="fin-muted">退款原因</text><input class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
-      <view class="fin-form-row"><text class="fin-muted">退款日期</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'默认今日'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">退款日期（默认今日，可改）</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'请选择日期'}}</view></picker></view>
      </block>
      <block wx:if="{{registerType==='expense-refund'}}">
       <view class="fin-form-row"><text class="fin-muted">关联付款单</text><picker range="{{platformRegister.expenseRefundable}}" range-key="label" data-field="paymentId" bindchange="registerPick"><view class="fin-input">{{registerForm.paymentIdLabel||'请选择'}}</view></picker></view>
@@ -79,7 +80,7 @@
    <view wx:elif="{{platformFinance.status==='degraded'}}" class="fin-card"><text class="fin-muted">{{platformFinance.message||'平台台账暂时无法加载'}}</text><button class="fin-text" bindtap="retryPlatformFinance">重新加载</button></view>
    <block wx:else>
     <view class="fin-card"><view class="fin-heading"><text class="fin-title">平台台账（收/付/退）</text><text class="fin-muted">{{platformLedger.length}}笔</text></view>
-     <view wx:for="{{platformLedger}}" wx:key="id" class="fin-flow-row"><view class="fin-row-top"><view class="fin-grow"><text class="fin-name">{{item.name}}</text><view class="fin-row-heading"><text class="fin-amount {{item.tone}}">{{item.amountText}}</text><text class="fin-status">{{item.category}}</text></view><text class="fin-muted">{{item.dateText}} · {{item.status}}</text></view></view></view>
+     <view wx:for="{{platformLedger}}" wx:key="id" class="fin-flow-row"><view class="fin-row-top"><view class="fin-grow"><text class="fin-name">{{item.name}}</text><view class="fin-row-heading"><text class="fin-amount {{item.tone}}">{{item.amountText}}</text><text class="fin-status">{{item.category}}</text></view><text class="fin-muted">{{item.dateText}} · {{item.status}}</text><button wx:if="{{refundVoidable&&item.sourceKind==='refund'&&item.status==='已核实'}}" class="fin-text" data-id="{{item.id}}" bindtap="openCorrection">作废重登</button></view></view></view>
      <view wx:if="{{!platformLedger.length}}" class="fin-list-empty fin-empty"><text>平台台账暂无记录</text></view>
     </view>
     <view class="fin-card"><view class="fin-heading"><text class="fin-title">登记</text></view><view class="fin-shortcuts"><button class="fin-shortcut" data-type="receipt" bindtap="openRegister">收款登记</button><button class="fin-shortcut" data-type="payment" bindtap="openRegister">付款登记</button><button class="fin-shortcut" data-type="refund" bindtap="openRegister">退款登记</button><button class="fin-shortcut" data-type="expense-refund" bindtap="openRegister">支出退回</button><button class="fin-shortcut" data-type="payable" bindtap="openRegister">应付登记</button></view></view>
@@ -115,7 +116,7 @@
      <block wx:if="{{registerType==='refund'}}">
       <view class="fin-form-row"><text class="fin-muted">关联收款</text><picker range="{{platformRegister.refundable}}" range-key="label" data-field="receiptId" bindchange="registerPick"><view class="fin-input">{{registerForm.receiptIdLabel||'请选择'}}</view></picker></view>
       <view class="fin-form-row"><text class="fin-muted">退款原因</text><input class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
-      <view class="fin-form-row"><text class="fin-muted">退款日期</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'默认今日'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">退款日期（默认今日，可改）</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'请选择日期'}}</view></picker></view>
      </block>
      <block wx:if="{{registerType==='expense-refund'}}">
       <view class="fin-form-row"><text class="fin-muted">关联付款单</text><picker range="{{platformRegister.expenseRefundable}}" range-key="label" data-field="paymentId" bindchange="registerPick"><view class="fin-input">{{registerForm.paymentIdLabel||'请选择'}}</view></picker></view>

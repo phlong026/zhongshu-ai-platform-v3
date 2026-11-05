@@ -8,12 +8,14 @@ module.exports = function attach(page, financeApi, PF) {
     if (!['receipt', 'payment', 'refund', 'expense-refund', 'payable'].includes(type)) return;
     this.registerIdem = null; // M08-T04：新开表单换新键
     const form = {};
-    // M08-T08/R2 P1：支出退回默认真实今日（R04 日期必填——picker 显示实际值，用户可改；不冒充已填）
-    if (type === 'expense-refund') form.date = require('../../../utils/account').localDate();
+    // M08-T05/R04：退款/支出退回均预填真实今日（日期必填——picker 显示实际值，用户可改；不冒充已填）
+    if (type === 'expense-refund' || type === 'refund') form.date = require('../../../utils/account').localDate();
     this.setData({ registerType: type, registerForm: form, registerError: '' });
   };
   page.cancelRegister = function () {
     this.registerIdem = null; // M08-T04：放弃表单换新键
+    this._registerSeq = (this._registerSeq || 0) + 1; // R3 P2-1：取消使挂起中的旧登记回调过期（不清新表单/不复位新操作）
+    this._correctionCtx = null; // M08-T08 批次#34：放弃更正即清上下文
     this.setData({ registerType: '', registerError: '', registerBusy: false, revisionForm: null, // busy 一并解除：挂起请求放弃后不阻塞下次提交
       policyKey: null, policyKeyCtx: null, reconcileKey: null, reconcileKeyCtx: null });
   };
@@ -65,7 +67,8 @@ module.exports = function attach(page, financeApi, PF) {
       .finally(() => this.setData({ busy: false }));
   };
   page.submitRegister = function () {
-    if (this.data.registerBusy) return;
+    // R1 P2-1：更正作废挂起中（busy）同样不许发起新登记——双向互斥防表单互相覆盖
+    if (this.data.registerBusy || this.data.busy) return;
     const type = this.data.registerType;
     const form = this.data.registerForm || {};
     const fail = msg => this.setData({ registerError: msg });
@@ -89,8 +92,10 @@ module.exports = function attach(page, financeApi, PF) {
       const reg = this.data.platformRegister || {};
       const src = (reg.refundable || []).find(r => String(r.id) === String(form.receiptId));
       if (src && amount > src.refundableCents) return fail('超过剩余可退金额，请刷新余额');
+      // M08-T08 批次#34：更正链重登携 replacesId（CAS 替代原记录；雪花串传输）
       body = { receiptId: String(form.receiptId), amountCents: amount, reason: (form.reason || '').trim(),
-        date: form.date || undefined, transactionNo: (form.transactionNo || '').trim() || undefined };
+        date: form.date || undefined, transactionNo: (form.transactionNo || '').trim() || undefined,
+        replacesId: form.replacesId ? String(form.replacesId) : undefined };
       call = financeApi.registerRefund;
     } else if (type === 'expense-refund') {
       // M08-T08：支出退回——供应商/劳务退回，冲减已付现金（上限=该付款单剩余可退回额度，后端行锁内复核）
@@ -98,10 +103,11 @@ module.exports = function attach(page, financeApi, PF) {
       const reg = this.data.platformRegister || {};
       const src = (reg.expenseRefundable || []).find(r => String(r.id) === String(form.paymentId));
       if (src && amount > src.refundableCents) return fail('超过该付款单剩余可退回金额，请刷新余额');
-      // R2 P1：日期兜底真实今日（picker 预填后仍防清空提交）
+      // R2 P1：日期兜底真实今日（picker 预填后仍防清空提交）；更正链携 replacesId
       body = { paymentId: String(form.paymentId), amountCents: amount, reason: (form.reason || '').trim(),
         date: form.date || require('../../../utils/account').localDate(),
-        transactionNo: (form.transactionNo || '').trim() || undefined };
+        transactionNo: (form.transactionNo || '').trim() || undefined,
+        replacesId: form.replacesId ? String(form.replacesId) : undefined };
       call = financeApi.registerExpenseRefund;
     } else {
       if (!(form.recipient || '').trim()) return fail('请输入收款方');
@@ -115,14 +121,55 @@ module.exports = function attach(page, financeApi, PF) {
     // 成功（表单关闭）/cancelRegister/openRegister 换新键
     if (!this.registerIdem) this.registerIdem = financeApi.idemKey(type);
     const idem = this.registerIdem;
+    const seq = this._registerSeq = (this._registerSeq || 0) + 1; // R1 P2-1：代次戳——旧登记回调不得覆盖后续更正表单
     const withVoucher = (form.voucherPath
       ? financeApi.uploadVoucher(form.voucherPath).then(assetId => { body.voucherFileId = assetId; })
       : Promise.resolve());
     withVoucher
       .then(() => call(body, idem))
-      .then(() => { wx.showToast({ title: '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance(); })
-      .catch(err => { this.setData({ registerError: PF.errorMessage(err) }); })
-      .finally(() => this.setData({ registerBusy: false }));
+      .then(() => {
+        if (seq !== this._registerSeq) return; // 代次过期：更正/新表单已接管，旧成功回调不清场
+        wx.showToast({ title: '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();
+      })
+      .catch(err => { if (seq === this._registerSeq) this.setData({ registerError: PF.errorMessage(err) }); })
+      .finally(() => { if (seq === this._registerSeq) this.setData({ registerBusy: false }); });
+  };
+
+  // ===================== M08-T08 批次#34：更正链双端（作废→重登携 replacesId 走 CAS 替代） =====================
+  page.openCorrection = function (e) {
+    // R1 P2-1：与挂起中的登记互斥——旧登记成功回调会清表单，若放行更正将出现「已作废但更正中断」
+    if (this.data.busy || this.data.registerBusy) return;
+    const refundId = String(e.currentTarget.dataset.id || '').replace(/^f-/, '');
+    if (!refundId) return;
+    const row = (this._refundRows || []).find(r => String(r.id) === refundId);
+    if (!row || row.status !== '已核实') return this.setData({ registerError: '仅已核实的退款可更正重登' });
+    const isExpense = row.refundDirection === 'expense';
+    const type = isExpense ? 'expense-refund' : 'refund';
+    const yuanText = row.amountCents ? (row.amountCents / 100).toFixed(2) : '';
+    wx.showModal({
+      title: isExpense ? '作废并重登支出退回' : '作废并重登退款',
+      content: '原记录 ¥' + yuanText + ' 将作废留痕（撤销仅纠正误录），随后打开更正表单，提交后经替代关系锁定更正链。',
+      success: res => {
+        if (!res.confirm) return;
+        this.setData({ busy: true });
+        financeApi.voidRefund(refundId, '更正重登', financeApi.idemKey('refund-void'))
+          .then(() => {
+            this.registerIdem = null; // 新表单换新键
+            this._registerSeq = (this._registerSeq || 0) + 1; // R3 P2-1：更正接管使挂起旧登记回调过期
+            const today = require('../../../utils/account').localDate();
+            const form = isExpense
+              ? { paymentId: row.paymentId, paymentIdLabel: '原付款单 #' + row.paymentId,
+                  amount: yuanText, reason: row.reason || '', date: row.date || today,
+                  transactionNo: row.transactionNo || '', replacesId: row.id }
+              : { receiptId: row.receiptId, receiptIdLabel: '原收款 #' + row.receiptId,
+                  amount: yuanText, reason: row.reason || '', date: row.date || today,
+                  transactionNo: row.transactionNo || '', replacesId: row.id };
+            this.setData({ busy: false, registerType: type, registerForm: form, registerError: '' });
+            this.loadPlatformFinance();
+          })
+          .catch(err => this.setData({ busy: false, registerError: PF.errorMessage(err) }));
+      }
+    });
   };
 
   // ===================== M5 F2：收款修订（business 来源后端拒绝/退款下限后端拒绝；失败保留输入） =====================

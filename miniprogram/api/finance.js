@@ -64,6 +64,17 @@ function registerPayable(body, idemKey) {
   return http.post('/franchise/finance/payables', body, { 'Idempotency-Key': idemKey || genIdemKey('payable') });
 }
 
+/** 作废退款（M08-T08 更正链第一步；finance-lead/boss/owner；void_reason 必填留痕；重复作废幂等） */
+function voidRefund(id, reason, idemKey) {
+  return http.del('/franchise/finance/refunds/' + id, { reason },
+    { 'Idempotency-Key': idemKey || genIdemKey('refund-void') });
+}
+
+/** 对账视图（批次#34：月度四口径 毛额/退款/净额/异常资金含待归月单列） */
+function reconciliation(month) {
+  return http.get('/franchise/finance/reconciliation', { month });
+}
+
 /** 到账确认（唯一入账；幂等重放返回首次 confirmId） */
 function confirmBank(bankFlowId, receiptId, idemKey) {
   return http.post('/franchise/finance/bank-confirms', { bankFlowId, receiptId },
@@ -216,6 +227,7 @@ function revisions(receiptId) {
 module.exports = {
   idemKey, receipts, payments, payables, refunds,
   registerReceipt, registerPayment, registerRefund, registerExpenseRefund, registerPayable,
+  voidRefund, reconciliation,
   confirmBank, bankFlows, projectAccount,
   uploadVoucher, reviseReceipt, revisions, sha256Hex
 };
