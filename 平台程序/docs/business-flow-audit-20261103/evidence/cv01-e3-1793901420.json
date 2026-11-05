@@ -1,0 +1,176 @@
+{
+ "run": "1793901420",
+ "steps": [
+  {
+   "no": 1,
+   "title": "S1 双门店搭建与登录——隔离对照基线（13 号：同一测试总部+两门店）",
+   "records": [
+    {
+     "roles": [
+      "sales",
+      "boss",
+      "finance",
+      "engineer(pm)",
+      "engineerB",
+      "designAdmin"
+     ],
+     "orgA": 1388,
+     "orgB": 1391
+    }
+   ]
+  },
+  {
+   "no": 2,
+   "title": "S2 M06-T05a 需求登记+报价+导出冻结（改需求后导出不变——记录报价单号/快照）",
+   "records": [
+    {
+     "quoteId": "2118402214740021249",
+     "customerId": "2118402214513528834",
+     "exportFrozen": true
+    }
+   ]
+  },
+  {
+   "no": 3,
+   "title": "S3 M06-T05b 统一合同三期创建+签订+交付四节点推进（M06-T05 交付断言）",
+   "records": [
+    {
+     "contractId": "2118402214983290882",
+     "stages": [
+      "SIGN_AFTER",
+      "BASE_DONE",
+      "CAP_DONE"
+     ],
+     "signedDate": "2026-11-02",
+     "deliveryId": "2118402215222366209",
+     "deliveryAdvanced": 3
+    }
+   ]
+  },
+  {
+   "no": 4,
+   "title": "S4 M06 委托+移交包冻结+packet-receive 建档（M07-T05 起点——工程档案同事务落库）",
+   "records": [
+    {
+     "commissionId": "2118402215641796610",
+     "packetDrawingVersion": "CV01-1793901420",
+     "projectId": 2118402216270942210
+    }
+   ]
+  },
+  {
+   "no": 5,
+   "title": "S5 M07-T05a 开工准备（三期约定固化）+ START 收款 + 开工（凭据链——M07-T05 凭据断言）",
+   "records": [
+    {
+     "prepareTerms": "BASE_DONE:18000000,CAP_DONE:10000000,SIGN_AFTER:40000000",
+     "startCollected": 400000,
+     "voucher": "2118402216589709313",
+     "date": "2026-11-06",
+     "status": "IN_PROGRESS"
+    }
+   ]
+  },
+  {
+   "no": 6,
+   "title": "S6 M07-T05b 材料计划+terms+到货（凭据）+节点完成（凭据）+封顶完成——M07-T05 节点/材料/凭据断言",
+   "records": [
+    {
+     "materialSupplyId": "2118402217663451138",
+     "arrivalAsset": "2118402217848000513",
+     "nodesCompleted": 13,
+     "nodeDate": "2026-11-06"
+    }
+   ]
+  },
+  {
+   "no": 7,
+   "title": "S7 M08-T06a 三期收款齐——BASE_DONE+CAP_DONE（TOPPING 前置已过——M08 三期收款断言）",
+   "records": [
+    {
+     "stagesSettled": [
+      "SIGN_AFTER",
+      "BASE_DONE",
+      "CAP_DONE"
+     ],
+     "amountsCents": [
+      40000000,
+      18000000,
+      10000000
+     ],
+     "txns": [
+      "CV-TXN-S5",
+      "CV-TXN-S7A",
+      "CV-TXN-S7B"
+     ]
+    }
+   ]
+  },
+  {
+   "no": 8,
+   "title": "S8 M08-T06b 退款回缺+异常资金登记（不凑平——M08 财务断言：退款净额/异常留痕）",
+   "records": [
+    {
+     "refundId": "2118402222650478594",
+     "refundCents": 100000,
+     "netAfter": 39900000,
+     "abnormalFundId": "2118402222797279234",
+     "abnormalCents": 888000,
+     "datePending": true
+    }
+   ]
+  },
+  {
+   "no": 9,
+   "title": "S9 M08-T06c 更正链——作废+同号重登（CAS 替代——M08 误录更正断言）",
+   "records": [
+    {
+     "voided": "2118402222650478594",
+     "correctedId": "2118402222990217218",
+     "correctedCents": 80000,
+     "date": "2026-11-06"
+    },
+    {
+     "backfillCents": 80000,
+     "netRestored": 40000000
+    }
+   ]
+  },
+  {
+   "no": 10,
+   "title": "S10 M09-T05 交付（净口径门禁）+签收+结算+归档——M09 冻结/签收/归档修订断言",
+   "records": [
+    {
+     "deliverAsset": "2118402223405453314",
+     "ownerAssetSame": true,
+     "deliveredAt": "2026-11-06",
+     "settledAt": "2026-11-06",
+     "archived": true
+    }
+   ]
+  },
+  {
+   "no": 11,
+   "title": "S11 M10-T06a 提成 policy+release（资格走统一实收账）+operating reconcile（M10 提成/月末断言）",
+   "records": [
+    {
+     "policyId": "2118402224068153344",
+     "released": true,
+     "period": "2026-11"
+    }
+   ]
+  },
+  {
+   "no": 12,
+   "title": "S12 负测收口——重复登记幂等/同键改输入/跨组织隔离/待办投影（M12 矩阵渠道）",
+   "records": [
+    {
+     "replayOk": true,
+     "crossOrgRejected": true,
+     "abnormalTodos": 1
+    }
+   ]
+  }
+ ],
+ "verdict": "PASS"
+}

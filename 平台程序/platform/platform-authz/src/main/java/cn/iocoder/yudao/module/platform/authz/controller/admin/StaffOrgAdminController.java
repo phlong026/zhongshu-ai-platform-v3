@@ -63,7 +63,10 @@ public class StaffOrgAdminController {
     private OrgService orgService;
     @Resource
     private SystemDirectory systemDirectory;
-    @Resource
+    // CV01 联验修复（批次#38）：@Resource 按字段名注入撞 bean 名第四课——commission.HandoverService
+    // 同简单名已注册（fatjar 全量装配），字段名 handoverService 按名命中错 bean。
+    // 字段名与 bean 名严格一致改用 name 显式指定 + 命名带域前缀。
+    @Resource(name = "departureHandoverService")
     private DepartureHandoverService handoverService;
 
     public record Team(long deptId, long orgId, String name, String line) {

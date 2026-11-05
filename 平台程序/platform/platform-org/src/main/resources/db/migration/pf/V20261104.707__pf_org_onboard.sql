@@ -9,7 +9,9 @@ INSERT INTO system_menu (id, name, permission, type, sort, parent_id, path, icon
 VALUES (710105, '组织开通', '', 2, 1, 710100, 'onboard', 'ep:plus', 'zs/platform-org/index', 'PlatformOrgOnboard', 0, TRUE, TRUE, TRUE, '1', '1'),
        (710104, '组织开通提交', 'platform:org:onboard', 3, 1, 710105, '', '', NULL, NULL, 0, TRUE, TRUE, TRUE, '1', '1');
 
+-- CV01 联验期修复（批次#38）：712000 段已被 852 财务矩阵占用（库内 712001-712010 实行）——
+-- 707 从未成功执行可改段；改用 714500 段（858 用 714400，错开防撞——franchise 域 id 段全局唯一纪律）。
 INSERT INTO system_role_menu (id, role_id, menu_id, creator, updater, tenant_id)
-SELECT 712000 + row_number() OVER (ORDER BY m.id), r.id, m.id, '1', '1', 1
+SELECT 714500 + row_number() OVER (ORDER BY m.id), r.id, m.id, '1', '1', 1
 FROM system_role r JOIN system_menu m ON m.id IN (710104, 710105)
 WHERE r.id = 1;
