@@ -227,6 +227,14 @@ async function main() {
   const beColl2 = fs.readFileSync('/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/content/EngCollectionService.java', 'utf8');
   assert.ok(beColl2.includes('"FIN_VOUCHER"), "收款"'), 'C9 后端 collect 白名单含 FIN_VOUCHER');
 
+  // C10（批次#37/M09-T02）：签收凭据真实可读——delivery 透出双 assetId+查看链
+  const rvDelivered2 = P.recordView(mkBundle({ closure: { deliveredAt: '2026-11-05', recipient: '陈先生',
+    fileAssetId: 88001, ownerAssetId: 88001 } }), ctx('delivery'));
+  assert.ok(rvDelivered2.p.delivery && rvDelivered2.p.delivery.fileAssetId === 88001, 'C10 交付凭据 assetId 透出');
+  assert.equal(rvDelivered2.p.delivery.ownerAssetId, 88001, 'C10 业主签收 assetId 透出');
+  const wxml2 = read('miniprogram/pages/build/record/index.wxml');
+  assert.ok(wxml2.includes("p.delivery.fileAssetId") && wxml2.includes('查看业主签收凭据'), 'C10 签收凭据查看按钮');
+
   // ===== D 段：静态 =====
   const apiSrc = read('miniprogram/api/franchise/engineering.js');
   assert.ok(apiSrc.includes("'/download-tickets'"), 'D1 downloadTicket 端点');
@@ -270,7 +278,7 @@ async function main() {
   assert.ok(apiSrc.includes('/platform/dev/design/assets/'), 'D6 local dev bytes 分支保留');
   assert.ok(wxml.includes('wx:for="{{item.files}}"'), 'D7 多图逐张查看（R3 P2-5）');
 
-  console.log('verify-engineering-voucher-chain: A 真实现 5 + B 编排 6 + C 视图 17 + D 静态 23 = 57 断言 全部 PASS');
+  console.log('verify-engineering-voucher-chain: A 真实现 5 + B 编排 6 + C 视图 17 + D 静态 23 = 60 断言 全部 PASS');
 }
 
 main().catch(e => { console.error(e && (e.msg || e.message) || e); process.exit(1); });

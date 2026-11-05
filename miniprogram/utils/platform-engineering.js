@@ -154,7 +154,9 @@ function projectView(detail) {
     sourceType: detail.sourceType, drawingVersion: detail.drawingVersion || '',
     managerId: detail.managerUserId, manager: '',
     archived: !!closure.archivedAt, delivery: closure.deliveredAt ? {
-      date: dateOf(closure.deliveredAt), recipient: closure.recipient || '', note: closure.deliverNote || ''
+      date: dateOf(closure.deliveredAt), recipient: closure.recipient || '', note: closure.deliverNote || '',
+      // M09-T02 批次#37：签收凭据真实可读——交付/业主签收 assetId（授权查看数据源）
+      fileAssetId: closure.fileAssetId || null, ownerAssetId: closure.ownerAssetId || null
     } : null,
     settlement: closure.settledAt ? { date: dateOf(closure.settledAt), note: closure.settleNote || '' } : null,
     contractTotal: detail.contractTotalCents != null ? detail.contractTotalCents / 100 : 0,
