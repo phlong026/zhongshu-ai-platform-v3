@@ -26,10 +26,11 @@ function toCents(input) {
   return cents;
 }
 
-/** 台账行合并（收款+/付款−/退款−），月度过滤。
+/** 台账行合并（收款+/付款−/客户退款−/支出退回+），月度过滤。
  * M08-T05/R04：业务发生日期为空 = 日期待核 → date 标记「待归月」单列展示，
  * 不回退 create_time（R04 禁止以录入时间冒充发生日期），且 monthOf 永不匹配任何月——
- * 不进入月度过滤与指标净额；核实补正后经修订链填入真实日期即回归月度。 */
+ * 不进入月度过滤与指标净额；核实补正后经修订链填入真实日期即回归月度。
+ * M08-T08：退款按方向分流——client=客户退款（流出−）；expense=支出退回（供应商/劳务回流+）。 */
 function ledgerRows(receipts, payments, refunds, month) {
   const monthOf = r => String(r.receivedDate || r.payDate || r.date || '').slice(0, 7);
   const rows = [];
@@ -48,8 +49,10 @@ function ledgerRows(receipts, payments, refunds, month) {
   }
   for (const rf of refunds || []) {
     if (rf.status !== '已核实') continue;
+    const expense = rf.refundDirection === 'expense';
     const date = rf.date || '待归月';
-    rows.push({ key: 'f-' + rf.id, type: '退款', sign: '−', name: '客户退款', amountCents: rf.amountCents,
+    rows.push({ key: 'f-' + rf.id, type: expense ? '支出退回' : '退款', sign: expense ? '+' : '−',
+      name: expense ? '支出退回' : '客户退款', amountCents: rf.amountCents,
       date, pendingDate: !rf.date, status: rf.status, id: rf.id });
   }
   const filtered = month ? rows.filter(r => monthOf(r) === month) : rows;
@@ -57,14 +60,15 @@ function ledgerRows(receipts, payments, refunds, month) {
 }
 
 /** 指标三卡（本月口径；作废不参与）。M08-T05/R04：空业务日期不回退 createTime——
- * 单列待归月，不进已核实月度净额（与 ledgerRows 的 monthOf 语义一致）。 */
+ * 单列待归月，不进已核实月度净额（与 ledgerRows 的 monthOf 语义一致）。
+ * M08-T08：refunded 只计 client 方向——expense 支出退回是付款回流，不属于对客退款统计。 */
 function metrics(receipts, payments, refunds, month) {
   const inMonth = (r, field) => !!month && String(r[field] || '').slice(0, 7) === month; // month 空串护栏（Codex R1 边界）
   const received = (receipts || []).filter(r => r.status === '已登记' && inMonth(r, 'receivedDate'))
     .reduce((a, r) => a + (r.amountCents || 0), 0);
   const paid = (payments || []).filter(p => p.status === '已核实' && inMonth(p, 'payDate'))
     .reduce((a, p) => a + (p.amountCents || 0), 0);
-  const refunded = (refunds || []).filter(r => r.status === '已核实' && inMonth(r, 'date'))
+  const refunded = (refunds || []).filter(r => r.status === '已核实' && r.refundDirection !== 'expense' && inMonth(r, 'date'))
     .reduce((a, r) => a + (r.amountCents || 0), 0);
   return { received: yuan(received), paid: yuan(paid), refunded: yuan(refunded) };
 }
@@ -93,7 +97,10 @@ function errorMessage(err) {
     1102000003: '数据已变化，请刷新后重试',
     1102000016: '流水金额与应收金额不一致',
     1102000017: '应收状态已变化，请刷新后重试',
-    1102000018: '没有该操作权限'
+    1102000018: '没有该操作权限',
+    1102000030: '支出退回关联付款单不存在，请刷新选择',
+    1102000031: '支出退回金额超过该笔付款的剩余可退回金额，请刷新余额',
+    1102000032: '仅已核实的付款可以登记支出退回'
   };
   if (code && map[code]) return map[code];
   if (code === 403) return '没有该操作权限';

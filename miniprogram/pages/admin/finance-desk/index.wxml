@@ -23,7 +23,7 @@
      <view wx:if="{{!platformLedger.length}}" class="fin-list-empty fin-empty"><text>平台台账暂无记录</text></view>
      <view wx:if="{{ledgerAllCount>platformLedger.length}}" class="fin-list-empty"><button class="fin-text" bindtap="loadMoreLedger">加载更多（{{ledgerAllCount-platformLedger.length}} 笔）</button></view>
     </view>
-    <view class="fin-card"><view class="fin-heading"><text class="fin-title">登记</text></view><view class="fin-shortcuts"><button class="fin-shortcut" data-type="receipt" bindtap="openRegister">收款登记</button><button class="fin-shortcut" data-type="payment" bindtap="openRegister">付款登记</button><button class="fin-shortcut" data-type="refund" bindtap="openRegister">退款登记</button><button class="fin-shortcut" data-type="payable" bindtap="openRegister">应付登记</button></view></view>
+    <view class="fin-card"><view class="fin-heading"><text class="fin-title">登记</text></view><view class="fin-shortcuts"><button class="fin-shortcut" data-type="receipt" bindtap="openRegister">收款登记</button><button class="fin-shortcut" data-type="payment" bindtap="openRegister">付款登记</button><button class="fin-shortcut" data-type="refund" bindtap="openRegister">退款登记</button><button class="fin-shortcut" data-type="expense-refund" bindtap="openRegister">支出退回</button><button class="fin-shortcut" data-type="payable" bindtap="openRegister">应付登记</button></view></view>
     <view wx:if="{{registerType==='revision'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">修订收款金额（全留痕）</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
      <view class="fin-form-row"><text class="fin-muted">原金额</text><text class="fin-input">{{revisionForm.originAmount}}</text></view>
      <view class="fin-form-row"><text class="fin-muted">新金额</text><input class="fin-input" data-field="amount" bindinput="revisionInput" value="{{revisionForm.amount}}"/></view>
@@ -38,7 +38,7 @@
       </block>
      </view>
     </view>
-    <view wx:if="{{registerType&&registerType!=='revision'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{registerType==='receipt'?'收款登记':registerType==='payment'?'付款登记':registerType==='refund'?'退款登记':'应付登记'}}</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
+    <view wx:if="{{registerType&&registerType!=='revision'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{registerType==='receipt'?'收款登记':registerType==='payment'?'付款登记':registerType==='refund'?'退款登记':registerType==='expense-refund'?'支出退回':'应付登记'}}</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
      <view class="fin-form-row"><text class="fin-muted">金额（元）</text><input class="fin-input" type="digit" data-field="amount" bindinput="registerInput" value="{{registerForm.amount}}"/></view>
      <block wx:if="{{registerType==='receipt'}}">
       <view class="fin-form-row"><text class="fin-muted">款项名称</text><input class="fin-input" data-field="name" bindinput="registerInput" value="{{registerForm.name}}"/></view>
@@ -57,6 +57,12 @@
       <view class="fin-form-row"><text class="fin-muted">关联收款</text><picker range="{{platformRegister.refundable}}" range-key="label" data-field="receiptId" bindchange="registerPick"><view class="fin-input">{{registerForm.receiptIdLabel||'请选择'}}</view></picker></view>
       <view class="fin-form-row"><text class="fin-muted">退款原因</text><input class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
       <view class="fin-form-row"><text class="fin-muted">退款日期</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'默认今日'}}</view></picker></view>
+     </block>
+     <block wx:if="{{registerType==='expense-refund'}}">
+      <view class="fin-form-row"><text class="fin-muted">关联付款单</text><picker range="{{platformRegister.expenseRefundable}}" range-key="label" data-field="paymentId" bindchange="registerPick"><view class="fin-input">{{registerForm.paymentIdLabel||'请选择'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">退回原因</text><input class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">退回日期（默认今日，可改）</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'请选择日期'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">流水号</text><input class="fin-input" data-field="transactionNo" bindinput="registerInput" value="{{registerForm.transactionNo}}"/></view>
      </block>
      <block wx:if="{{registerType==='payable'}}">
       <view class="fin-form-row"><text class="fin-muted">收款方</text><input class="fin-input" data-field="recipient" bindinput="registerInput" value="{{registerForm.recipient}}"/></view>
@@ -76,7 +82,7 @@
      <view wx:for="{{platformLedger}}" wx:key="id" class="fin-flow-row"><view class="fin-row-top"><view class="fin-grow"><text class="fin-name">{{item.name}}</text><view class="fin-row-heading"><text class="fin-amount {{item.tone}}">{{item.amountText}}</text><text class="fin-status">{{item.category}}</text></view><text class="fin-muted">{{item.dateText}} · {{item.status}}</text></view></view></view>
      <view wx:if="{{!platformLedger.length}}" class="fin-list-empty fin-empty"><text>平台台账暂无记录</text></view>
     </view>
-    <view class="fin-card"><view class="fin-heading"><text class="fin-title">登记</text></view><view class="fin-shortcuts"><button class="fin-shortcut" data-type="receipt" bindtap="openRegister">收款登记</button><button class="fin-shortcut" data-type="payment" bindtap="openRegister">付款登记</button><button class="fin-shortcut" data-type="refund" bindtap="openRegister">退款登记</button><button class="fin-shortcut" data-type="payable" bindtap="openRegister">应付登记</button></view></view>
+    <view class="fin-card"><view class="fin-heading"><text class="fin-title">登记</text></view><view class="fin-shortcuts"><button class="fin-shortcut" data-type="receipt" bindtap="openRegister">收款登记</button><button class="fin-shortcut" data-type="payment" bindtap="openRegister">付款登记</button><button class="fin-shortcut" data-type="refund" bindtap="openRegister">退款登记</button><button class="fin-shortcut" data-type="expense-refund" bindtap="openRegister">支出退回</button><button class="fin-shortcut" data-type="payable" bindtap="openRegister">应付登记</button></view></view>
     <view wx:if="{{registerType==='revision'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">修订收款金额（全留痕）</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
      <view class="fin-form-row"><text class="fin-muted">原金额</text><text class="fin-input">{{revisionForm.originAmount}}</text></view>
      <view class="fin-form-row"><text class="fin-muted">新金额</text><input class="fin-input" data-field="amount" bindinput="revisionInput" value="{{revisionForm.amount}}"/></view>
@@ -91,7 +97,7 @@
       </block>
      </view>
     </view>
-    <view wx:if="{{registerType&&registerType!=='revision'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{registerType==='receipt'?'收款登记':registerType==='payment'?'付款登记':registerType==='refund'?'退款登记':'应付登记'}}</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
+    <view wx:if="{{registerType&&registerType!=='revision'}}" class="fin-card"><view class="fin-heading"><text class="fin-title">{{registerType==='receipt'?'收款登记':registerType==='payment'?'付款登记':registerType==='refund'?'退款登记':registerType==='expense-refund'?'支出退回':'应付登记'}}</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
      <view class="fin-form-row"><text class="fin-muted">金额（元）</text><input class="fin-input" type="digit" data-field="amount" bindinput="registerInput" value="{{registerForm.amount}}"/></view>
      <block wx:if="{{registerType==='receipt'}}">
       <view class="fin-form-row"><text class="fin-muted">款项名称</text><input class="fin-input" data-field="name" bindinput="registerInput" value="{{registerForm.name}}"/></view>
@@ -110,6 +116,12 @@
       <view class="fin-form-row"><text class="fin-muted">关联收款</text><picker range="{{platformRegister.refundable}}" range-key="label" data-field="receiptId" bindchange="registerPick"><view class="fin-input">{{registerForm.receiptIdLabel||'请选择'}}</view></picker></view>
       <view class="fin-form-row"><text class="fin-muted">退款原因</text><input class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
       <view class="fin-form-row"><text class="fin-muted">退款日期</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'默认今日'}}</view></picker></view>
+     </block>
+     <block wx:if="{{registerType==='expense-refund'}}">
+      <view class="fin-form-row"><text class="fin-muted">关联付款单</text><picker range="{{platformRegister.expenseRefundable}}" range-key="label" data-field="paymentId" bindchange="registerPick"><view class="fin-input">{{registerForm.paymentIdLabel||'请选择'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">退回原因</text><input class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
+      <view class="fin-form-row"><text class="fin-muted">退回日期（默认今日，可改）</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'请选择日期'}}</view></picker></view>
+      <view class="fin-form-row"><text class="fin-muted">流水号</text><input class="fin-input" data-field="transactionNo" bindinput="registerInput" value="{{registerForm.transactionNo}}"/></view>
      </block>
      <block wx:if="{{registerType==='payable'}}">
       <view class="fin-form-row"><text class="fin-muted">收款方</text><input class="fin-input" data-field="recipient" bindinput="registerInput" value="{{registerForm.recipient}}"/></view>

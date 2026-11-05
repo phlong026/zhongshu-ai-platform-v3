@@ -5,9 +5,12 @@
 module.exports = function attach(page, financeApi, PF) {
   page.openRegister = function (e) {
     const type = e.currentTarget.dataset.type;
-    if (!['receipt', 'payment', 'refund', 'payable'].includes(type)) return;
+    if (!['receipt', 'payment', 'refund', 'expense-refund', 'payable'].includes(type)) return;
     this.registerIdem = null; // M08-T04：新开表单换新键
-    this.setData({ registerType: type, registerForm: {}, registerError: '' });
+    const form = {};
+    // M08-T08/R2 P1：支出退回默认真实今日（R04 日期必填——picker 显示实际值，用户可改；不冒充已填）
+    if (type === 'expense-refund') form.date = require('../../../utils/account').localDate();
+    this.setData({ registerType: type, registerForm: form, registerError: '' });
   };
   page.cancelRegister = function () {
     this.registerIdem = null; // M08-T04：放弃表单换新键
@@ -22,7 +25,9 @@ module.exports = function attach(page, financeApi, PF) {
     const field = e.currentTarget.dataset.field;
     const idx = Number(e.detail.value);
     const reg = this.data.platformRegister || {};
-    const options = field === 'payableId' ? (reg.payables || []) : (reg.refundable || []);
+    const options = field === 'payableId' ? (reg.payables || [])
+      : field === 'paymentId' ? (reg.expenseRefundable || [])
+      : (reg.refundable || []);
     const choice = options[idx];
     if (!choice) return;
     this.setData({ ['registerForm.' + field]: choice.id, ['registerForm.' + field + 'Label']: choice.label });
@@ -87,6 +92,17 @@ module.exports = function attach(page, financeApi, PF) {
       body = { receiptId: String(form.receiptId), amountCents: amount, reason: (form.reason || '').trim(),
         date: form.date || undefined, transactionNo: (form.transactionNo || '').trim() || undefined };
       call = financeApi.registerRefund;
+    } else if (type === 'expense-refund') {
+      // M08-T08：支出退回——供应商/劳务退回，冲减已付现金（上限=该付款单剩余可退回额度，后端行锁内复核）
+      if (!form.paymentId) return fail('请选择关联付款单');
+      const reg = this.data.platformRegister || {};
+      const src = (reg.expenseRefundable || []).find(r => String(r.id) === String(form.paymentId));
+      if (src && amount > src.refundableCents) return fail('超过该付款单剩余可退回金额，请刷新余额');
+      // R2 P1：日期兜底真实今日（picker 预填后仍防清空提交）
+      body = { paymentId: String(form.paymentId), amountCents: amount, reason: (form.reason || '').trim(),
+        date: form.date || require('../../../utils/account').localDate(),
+        transactionNo: (form.transactionNo || '').trim() || undefined };
+      call = financeApi.registerExpenseRefund;
     } else {
       if (!(form.recipient || '').trim()) return fail('请输入收款方');
       body = { stage: (form.stage || '').trim() || undefined, totalCents: amount,

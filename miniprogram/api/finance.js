@@ -54,6 +54,11 @@ function registerRefund(body, idemKey) {
   return http.post('/franchise/finance/refunds', body, { 'Idempotency-Key': idemKey || genIdemKey('refund') });
 }
 
+/** 登记支出退回（M08-T08：供应商/劳务退回，冲减已付现金；paymentId 关联原付款单） */
+function registerExpenseRefund(body, idemKey) {
+  return http.post('/franchise/finance/expense-refunds', body, { 'Idempotency-Key': idemKey || genIdemKey('expense-refund') });
+}
+
 /** 登记应付 */
 function registerPayable(body, idemKey) {
   return http.post('/franchise/finance/payables', body, { 'Idempotency-Key': idemKey || genIdemKey('payable') });
@@ -210,7 +215,7 @@ function revisions(receiptId) {
 
 module.exports = {
   idemKey, receipts, payments, payables, refunds,
-  registerReceipt, registerPayment, registerRefund, registerPayable,
+  registerReceipt, registerPayment, registerRefund, registerExpenseRefund, registerPayable,
   confirmBank, bankFlows, projectAccount,
   uploadVoucher, reviseReceipt, revisions, sha256Hex
 };
