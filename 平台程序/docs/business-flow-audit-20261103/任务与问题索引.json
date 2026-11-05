@@ -1653,7 +1653,7 @@
       "scope": "I04；本期正式交付，platform-engineering前端",
       "dependency": "M07-T04＋本模块T01",
       "acceptance": "负责人真机上传签收凭证→交付成功→刷新仍有同一证据",
-      "status": "规则已定，待实施／验证",
+      "status": "✅ 已交付（批次#37：closure 双 assetId 透出+v3 查看链）；全链联验随 #38",
       "module": "M09",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
       "line": 109,
@@ -1665,7 +1665,8 @@
         "R07"
       ],
       "rule_status": "最终规则已定稿",
-      "execution_order": 46
+      "execution_order": 46,
+      "implementation_note": "批次#37：EngProjectService.detail closure fileAssetId/ownerAssetId 透出+v3 delivery 视图查看按钮（downloadTicket 授权查看——#36 链承接）"
     },
     {
       "id": "M08-T08",
