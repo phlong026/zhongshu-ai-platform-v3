@@ -374,6 +374,9 @@ public class EngProjectService {
             c.put("deliveredAt", closure.getDeliveredAt());
             c.put("recipient", closure.getRecipient());
             c.put("deliverNote", closure.getDeliverNote());
+            // M09-T02 批次#37：签收凭据真实可读——交付/业主签收 assetId 透出（downloadTicket 授权查看链）
+            c.put("fileAssetId", closure.getFileAssetId());
+            c.put("ownerAssetId", closure.getOwnerAssetId());
             c.put("settledAt", closure.getSettledAt());
             c.put("settleNote", closure.getSettleNote());
             c.put("archivedAt", closure.getArchivedAt());
