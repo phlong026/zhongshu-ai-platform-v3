@@ -1734,7 +1734,7 @@
       "scope": "I02；工程汇总/提成/财务",
       "dependency": "权威16规则已定，M07-T06三期契约/M08-T08退款方向",
       "acceptance": "毛额/退款/净额/异常可对账，资金门槛按有效合同三期；不撤销已施工/交付，不因退款自动减合同额",
-      "status": "已实施（批次#28，e1282e4，R5 PASS）：净口径三处贯穿+SETTLED 恢复补收+四列对账+交付门禁净口径",
+      "status": "已实施（批次#28，e1282e4，R5 PASS）：净口径三处贯穿+SETTLED 恢复补收+四列对账+交付门禁净口径（#35 余项闭环）",
       "module": "M09",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
       "line": 110,
@@ -1746,7 +1746,8 @@
         "R07"
       ],
       "rule_status": "最终规则已定稿",
-      "execution_order": 50
+      "execution_order": 50,
+      "implementation_note": "批次#35 补余项（5114d33，R2 PASS）：start 门槛净实收真实链断言+gate-shortfall 待办投影"
     },
     {
       "id": "M10-T07",
