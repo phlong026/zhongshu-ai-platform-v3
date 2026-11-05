@@ -3,12 +3,15 @@ const P=require('../../../utils/platform-engineering'); // 工程域纯函数+�
 const Nav=require('../../../utils/page-navigation');
 const money=require('../../../utils/money').money;
 const {makeFormHandlers}=require('../../../utils/view-container');
+const baseHandlers=makeFormHandlers();
 const titles={overview:'工程项目',prepare:'开工准备',start:'实际开工记录',collection:'工程收款',project:'项目与施工计划',materials:'材料计划',material:'材料计划详情',node:'施工节点记录',funding:'节点资金计划',payments:'项目款项',documents:'项目资料',delivery:'工程交付',settlement:'项目结算',archive:'交付档案'};
 const field=(key,label,type='text')=>({key,label,type});
 Page({
- ...makeFormHandlers(),
+ ...baseHandlers,
+ // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
+ input(e){baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
  data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,samplePreview:null},
- onLoad(o){this.id=o.id;this.planId=o.planId||'';this.nodeId=o.nodeId||'';this.stage=o.stage==='topping'?'topping':'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
+ onLoad(o){this.id=o.id;this.planId=o.planId||'';this.nodeId=o.nodeId||'';this.stage=o.stage==='topping'?'topping':o.stage==='base'?'base':'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
  onShow(){if(this.id)this.refresh();
   this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) });
   },

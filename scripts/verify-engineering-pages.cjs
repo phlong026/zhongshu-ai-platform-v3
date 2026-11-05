@@ -166,5 +166,57 @@ ok('lock：operations plan-submit 角色=engineer/project-manager（856 种子�
   return ops.includes("action==='plan-submit'){assert(X.isBoss(a)||O.has(a.role,'engineer')||O.has(a.role,'project-manager')");
 })());
 
+console.log('[6] M07-T02 三期接线核对（在线 prepare 三期表单 + BASE_DONE 收款入口 + 三期文案）');
+const emptyBundle = { detail: { id: 5, name: 'x', status: 'PENDING_START', nodes: [] },
+  collections: { stages: [], records: [] }, materials: { plans: [] }, settle: {}, followups: [] };
+ok('recordView prepare 在线三期表单（六字段+≥0 标签；R1 P1：在线不出保存按钮，提交随 COS 批恢复）', (() => {
+  const rv = P.recordView(emptyBundle, { view: 'prepare', stage: 'start', nodeId: '', planId: '', form: {}, initialized: false, today: '2026-11-05', writeRole: true });
+  const keys = rv.fields.map(f => f.key);
+  return String(keys) === String(['total', 'signAfter', 'baseDone', 'capDone', 'file', 'note'])
+    && rv.fields[2].label.indexOf('≥0') >= 0 && rv.actions.length === 0;
+})());
+ok('prepare 在线提示行（wxml platEng 填写前告知渠道限制）', read('miniprogram/pages/build/record/index.wxml').includes('在线保存随凭据通道开放后可用'));
+ok('prepare Σ 前端校验纯函数（字符串精确转分：Σ=总额放行/差 1 元报差额/三位小数拒绝）', (() => {
+  if (typeof P.threeStageSumError !== 'function') return false;
+  const good = P.threeStageSumError({ total: '10', signAfter: '6', baseDone: '2', capDone: '2' });
+  const bad = P.threeStageSumError({ total: '10', signAfter: '6', baseDone: '2', capDone: '1' });
+  const threeDp = P.threeStageSumError({ total: '1.01', signAfter: '1.005', baseDone: '', capDone: '' });
+  const threeDp2 = P.threeStageSumError({ total: '10', signAfter: '6', baseDone: '2.001', capDone: '2' });
+  return good === null && !!bad && String(bad.msg).indexOf('1.00 元') >= 0
+    && !!threeDp && !!threeDp2
+    && P.threeStageSumError({ total: '10', signAfter: '6', baseDone: '0', capDone: '4' }) === null;
+})());
+ok('perform prepare 在 VOUCHER 门禁前调 Σ 校验（Σ 错先报差额，Σ 对才报 COS）', (() => {
+  const head = pf.slice(0, pf.indexOf('switch (action)'));
+  return /if \(action === 'prepare'\)\s*\{\s*const sumErr = threeStageSumError/.test(head);
+})());
+ok('prepare 输入即校验（R2 P2：四项金额齐后 Σ≠总额 input 即报差额，无保存入口也可达）', (() => {
+  const recordJs = read('miniprogram/pages/build/record/index.js');
+  return /input\(e\)\{baseHandlers\.input\.call\(this,e\);if\(this\.data\.view==='prepare'&&this\.data\.platEng&&\['total','signAfter','baseDone','capDone'\]\.every/.test(recordJs)
+    && recordJs.includes('const err=P.threeStageSumError(this.data.form)');
+})());
+ok('perform collect/dunning 三期规范枚举（start→SIGN_AFTER/base→BASE_DONE/topping→CAP_DONE）', (() => {
+  const collect = pf.slice(pf.indexOf("case 'collect'"), pf.indexOf("case 'dunning'"));
+  const dunning = pf.slice(pf.indexOf("case 'dunning'"));
+  const map = /f\.stage === 'topping' \? 'CAP_DONE' : f\.stage === 'base' \? 'BASE_DONE' : 'SIGN_AFTER'/;
+  return map.test(collect) && map.test(dunning);
+})());
+ok('record 页 base 期 onLoad 归一（start/base/topping 三期）', /this\.stage=o\.stage==='topping'\?'topping':o\.stage==='base'\?'base':'start'/.test(record));
+ok('recordView BASE_DONE 收款入口（collection 放开 base 期出催收+installments 补期次 url）', (() => {
+  const baseBundle = { ...emptyBundle, collections: { stages: [{ stage: 'BASE_DONE', expectedCents: 100, confirmedCents: 0, remainingCents: 100 }], records: [] } };
+  const rv = P.recordView(baseBundle, { view: 'collection', stage: 'base', nodeId: '', planId: '', form: {}, initialized: true, today: '2026-11-05', writeRole: true });
+  const ov = P.recordView(baseBundle, { view: 'overview', stage: 'start', nodeId: '', planId: '', form: {}, initialized: true, today: '2026-11-05', writeRole: true });
+  return rv.actions.length === 1 && rv.actions[0].action === 'dunning' && rv.fields.length === 2
+    && ov.installments.length === 1 && String(ov.installments[0].url).indexOf('collection&stage=base') > 0;
+})());
+ok('stagesView 三期 URL 映射（BASE_DONE→base 收款入口可达）', (() => {
+  const v = P.stagesView([{ stage: 'BASE_DONE', expectedCents: 100, confirmedCents: 0, remainingCents: 100 }], s => 'u-' + s);
+  return v[0].stage === 'base' && v[0].name === '基础完成后期款' && v[0].url === 'u-base';
+})());
+ok('收款期次三期中性文案（wxml 去两期硬编码）', (() => {
+  const wxml = read('miniprogram/pages/build/record/index.wxml');
+  return wxml.includes('工程收款期次') && !wxml.includes('两次工程收款') && !wxml.includes('两期收款约定');
+})());
+
 console.log('\n结果：' + pass + ' 通过，' + fail + ' 失败');
 process.exit(fail ? 1 : 0);

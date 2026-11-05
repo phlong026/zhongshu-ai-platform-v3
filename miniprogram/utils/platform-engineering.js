@@ -175,7 +175,7 @@ function projectView(detail) {
 module.exports = {
   api, online, dateOf, timestampDate, centsText, statusView, statusMatches, nodeRows, nodeStatusView,
   stagesView, plansView, settleView, errorText, projectView,
-  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS
+  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS, threeStageSumError
 };
 
 // ===================== 在线编排（record/projects/home 页 API 态；wx 依赖仅限上传 helper） =====================
@@ -233,12 +233,38 @@ function yuan(form, key, label) {
   return v;
 }
 
+/** prepare 三期 Σ 前端校验（签约后>0；基础完成后/封顶后≥0；Σ=总额）——纯函数可测；null=通过。
+ * 金额口径与后端对齐：字符串精确转分（最多两位小数，拒 1.005/2.001 类值——后端 longValueExact 会拒，
+ * Math.round(v*100) 浮点口径会误放），不走 Number 浮点乘法。 */
+function threeStageSumError(f) {
+  const stageCents = (key, allowEmpty) => {
+    const raw = String(f[key] == null ? '' : f[key]).trim();
+    if (!raw) return allowEmpty ? 0 : NaN;
+    if (!/^\d+(\.\d{1,2})?$/.test(raw)) return NaN;
+    const [yuan, frac = ''] = raw.split('.');
+    return Number(yuan) * 100 + Number(((frac + '00').slice(0, 2)) || '0');
+  };
+  const totalCents = stageCents('total', false), signAfterCents = stageCents('signAfter', false);
+  const baseDoneCents = stageCents('baseDone', true), capDoneCents = stageCents('capDone', true);
+  if (!Number.isFinite(totalCents) || totalCents <= 0) return { code: 0, msg: '合同总额须为大于 0 的有效金额（最多两位小数）' };
+  if (!Number.isFinite(signAfterCents) || signAfterCents <= 0) return { code: 0, msg: '签约后金额须为大于 0 的有效金额（最多两位小数）' };
+  if (!Number.isFinite(baseDoneCents) || !Number.isFinite(capDoneCents)) return { code: 0, msg: '基础完成后/封顶后金额须为不小于 0 的数字（未约定填 0，最多两位小数）' };
+  const sum = signAfterCents + baseDoneCents + capDoneCents;
+  if (sum !== totalCents) {
+    const gap = (Math.abs(totalCents - sum) / 100).toFixed(2);
+    return { code: 0, msg: '三期金额之和须等于合同总额（当前差 ' + gap + ' 元）' };
+  }
+  return null;
+}
+
 /**
  * 在线动作映射（record 页 perform 的 API 态；form 沿用页面现有字段名）。
  * key 为调用方一次性 Idempotency-Key（重试同一动作复用）；返回 Promise；错误抛 {code,msg} 由页面 errorText 展示。
  */
 async function perform(action, id, form, node, key) {
   const f = form || {};
+  // M07-T02：prepare 三期 Σ 校验在凭据门禁之前——金额填错即时报差额，Σ 对齐后才提示 COS 通道未开
+  if (action === 'prepare') { const sumErr = threeStageSumError(f); if (sumErr) throw sumErr; }
   if (VOUCHER_ACTIONS.includes(action)) throw { code: 0, msg: '在线凭据上传通道随 COS 批开放，本操作暂请在本地演示态办理' };
   const dateStr = f.date || null;
   switch (action) {
@@ -292,12 +318,13 @@ async function perform(action, id, form, node, key) {
         f.siteReason || f.reason, key);
     case 'collect':
       return api.collections.register(id, {
-        stage: f.stage === 'topping' ? 'TOPPING' : 'START', amount: yuan(f, 'amount', '收款金额'),
+        stage: f.stage === 'topping' ? 'CAP_DONE' : f.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER',
+        amount: yuan(f, 'amount', '收款金额'),
         transactionNo: String(f.transaction || '').trim(), occurredAt: dateStr,
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING')
       }, key);
     case 'dunning':
-      return api.collections.dunning(id, f.stage === 'topping' ? 'TOPPING' : 'START',
+      return api.collections.dunning(id, f.stage === 'topping' ? 'CAP_DONE' : f.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER',
         f.promiseDate || null, String(f.note || '').trim(), key);
     case 'material-plan': {
       const lines = (f.lines || []).filter(l => String(l.name || '').trim());
@@ -379,15 +406,17 @@ const viewField = (key, label, type) => ({ key, label, type });
 /**
  * record 页全量视图构造（A1：在线数据源按离线 wxml 同构出 fields/actions/form 与各区块键）。
  * 输入：loadProject 聚合 + 页面上下文（view/stage/planId/nodeId/现 form/是否已初始化/今天/是否可写身份）。
- * 输出：setData 增量（纯函数不触 wx）。凭据类动作不进 fields/actions（COS 批开放前在线仅读，防填完表单才失败）；
- * 可写身份=engineer/project-manager（856 write 口径，后端另校验负责人/指定工程师本人）。
+ * 输出：setData 增量（纯函数不触 wx）。凭据类动作默认不进 fields/actions（COS 批开放前在线仅读，防填完表单才失败）；
+ * **M07-T02 例外=prepare**：三期表单可见可填（Σ 前端校验即时报差额），但提交入口同样随 COS 批（#36）恢复——
+ * 在线当前不出保存按钮（R1 P1：不设必失败入口）；可写身份=engineer/project-manager（856 write 口径，后端另校验负责人/指定工程师本人）。
  */
 function recordView(bundle, ctx) {
   const opts = ctx || {};
   const data = pageData(bundle);
   const d = bundle.detail;
   const view = opts.view || 'overview';
-  const stage = opts.stage === 'topping' ? 'topping' : 'start';
+  // M07-T02 三期：base（基础完成后期款）随 BASE_DONE 收款入口进入
+  const stage = opts.stage === 'topping' ? 'topping' : opts.stage === 'base' ? 'base' : 'start';
   const today = opts.today || '';
   const base = '/pages/build/record/index?id=' + encodeURIComponent(String(d.id)) + '&view=';
   const p = data.p;
@@ -425,10 +454,24 @@ function recordView(bundle, ctx) {
 
   let fields = [], actions = [];
   if (view === 'collection') {
-    if (own && part && part.status !== '已收齐' && (stage === 'start' || toppingReached)) {
+    // M07-T02 三期：签约后/基础完成后随期次开放（封顶后仍须封顶节点完成）；封顶门禁后端裁决
+    if (own && part && part.status !== '已收齐' && (stage !== 'topping' || toppingReached)) {
       fields = [viewField('promiseDate', '业主承诺付款日（选填）', 'date'), viewField('note', '催收情况说明（选填）', 'textarea')];
       actions = [{ action: 'dunning', label: '登记已催收' }];
     }
+  } else if (view === 'prepare') {
+    // M07-T02：在线三期 prepare 表单（签约后/基础完成后/封顶后，Σ=总额；Σ 前端校验即时报差额）。
+    // R1 P1：提交入口随凭据通道开放——当前 COS 门禁未摘（VOUCHER_ACTIONS），在线不出保存按钮，
+    // 避免「填完表单必失败」；#36 摘除门禁恢复 actions 时须带状态门禁 own && !archived && !p.actualStart
+    //（与本地分支一致——后端拒绝开工后修改）+ uploadVoucher 实装。
+    fields = [
+      viewField('total', '已签工程合同总额（元）', 'digit'),
+      viewField('signAfter', '签约后（元，大于 0）', 'digit'),
+      viewField('baseDone', '基础完成后（元，≥0，未约定填 0）', 'digit'),
+      viewField('capDone', '封顶后（元，≥0，未约定填 0）', 'digit'),
+      viewField('file', '双方已签合同', 'file'),
+      viewField('note', '现场、班组和开工准备记录', 'textarea')
+    ];
   } else if (view === 'project') {
     if (own && !archived) actions = [{ action: 'plan', label: '保存施工计划' }];
   } else if (view === 'materials') {
@@ -463,7 +506,9 @@ function recordView(bundle, ctx) {
     : settlement && !archived ? { title: '归档项目资料', url: base + 'archive' } : null;
   return {
     p, form, fields, actions, fileNames: {},
-    installments: data.installments, plans, settle: data.settle,
+    // M07-T02：期次行补 collection 跳转（BASE_DONE 收款入口；stage 已是 STAGE_URL 归一值 start/base/topping）
+    installments: data.installments.map(i => ({ ...i, url: base + 'collection&stage=' + i.stage })),
+    plans, settle: data.settle,
     dunning: data.dunning, materialFollowups: data.materialFollowups, collections: p.collections,
     docs: p.documents, events: [],
     nodeRows: nodes.map(n => ({ ...n, pace: '', url: base + 'node&nodeId=' + encodeURIComponent(n.id) })),

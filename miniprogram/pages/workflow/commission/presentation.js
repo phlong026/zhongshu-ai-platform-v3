@@ -28,6 +28,8 @@ function preview(file, customer, key) {
 }
 function build(customer, view, form, quote, next, actor) {
   const flow = customer.businessFlow || {}, payment = Checkout.order(customer), paid = Checkout.paid(customer);
+  // M05-T04/M06-T03：冻结版本链（下发序号+冻结需求版本/移交包版本+退回补件重提链）
+  const dispatch = flow.dispatch || null, packet = customer.businessFlow?.packet || null;
   const basis = customer.request?.basis || require('../../../utils/design-coordination').basis(customer) || quote || {};
   const step = !customer.request ? 0 : !paid ? 1 : !flow.dispatch ? 2 : !customer.acceptance ? 3 : 4;
   const files = cards(customer, form), documentCount = files.filter(row => row.ready).length;
@@ -44,6 +46,12 @@ function build(customer, view, form, quote, next, actor) {
     orderNumber: payment ? 'DS' + String(payment.createdAt || '').replace(/\D/g, '').slice(0, 14) + customer.id.slice(-4).toUpperCase() : '',
     paymentMethod: payment?.paymentMethod || (payment?.channel==='alipay'?'余额':'零钱'), brief: customer.handover?.note || flow.packet?.note || form.note || '', channel: payment?.channel || form.channel || 'wechat', channelName: payment?.channel === 'alipay' ? '支付宝' : '微信支付', paid, paidAt: payment?.paidAt ? require('../../../utils/account').displayTime(payment.paidAt) : '',
     files, documentCount, allFilesReady: documentCount === 3, state: state[0], subtitle: state[1], nextOwner: state[2],
+    dispatchedVersionText: dispatch ? '第 ' + dispatch.version + ' 次下发 · ' + (dispatch.drawingVersion || '线下成果') + '（冻结需求 V' + dispatch.requestVersion + '）' : '',
+    pendingVersionNotice: dispatch && customer.request && customer.request.version > dispatch.requestVersion
+      ? '客户需求已更新至 V' + customer.request.version + '，未经正式确认不能替换已下发的 ' + (dispatch.drawingVersion || '线下成果') : '',
+    dispatchHistory: (flow.dispatchHistory || []).map(h => '第 ' + h.version + ' 次 · ' + (h.drawingVersion || '线下成果') + ' · 因修改意见关闭'),
+    packetVersionText: packet ? '第 ' + packet.version + ' 包 · 冻结第 ' + packet.dispatchVersion + ' 次下发 · ' + packet.drawingVersion : '',
+    packetHistory: (customer.handoverHistory || []).map(h => '第 ' + h.version + ' 包 · ' + (h.drawingVersion || '') + ' · 已退回补件'),
     resultImage: imageRoot + 'biz-plan-result.jpg', attachment: form.attachment || customer.request?.attachment || null,
     confirmation: form.confirmationFile || flow.packet?.confirmationFile || null,
     engineeringId: engineering?.id || '', nextView: next.view, readOnly: !['submit', 'pay', 'complete', 'dispatch', 'handover', 'receive'].includes(view)
