@@ -83,9 +83,11 @@ public class PerfMetrics {
                     rows.add(new SourceRow("fin-reg-receipt:" + id, "auto:financeRegistrations",
                             100L, getLong(rs, "registrar_user_id"), rs.getDate("received_date").toLocalDate(), businessId));
                 }, org, from, to);
+        // M08-T08/R1 P1：仅 client 方向退款冲减回款金额——expense 退回是付款回流，不属于回款扣减
         jdbc.query("SELECT f.id, f.amount_cents, f.date, f.receipt_id, r.source_ref, r.registrar_user_id "
                         + "FROM fr_fin_refund f LEFT JOIN fr_fin_receipt r ON r.id = f.receipt_id "
                         + "WHERE f.company_id = ? AND f.status = '已核实' AND f.replaced_by_id IS NULL "
+                        + "AND f.refund_direction = 'client' "
                         + "AND f.date >= ?::date AND f.date < ?::date",
                 (RowCallbackHandler) rs -> {
                     long receiptId = rs.getLong("receipt_id");

@@ -19,4 +19,7 @@ public interface FinPaymentMapper extends BaseMapperX<FinPaymentDO> {
         return selectList(new LambdaQueryWrapperX<FinPaymentDO>()
                 .eq(FinPaymentDO::getPayableId, payableId).eq(FinPaymentDO::getStatus, "已核实"));
     }
+
+    /** 行锁读取：支出退回登记与付款作废/并发退回互斥（M08-T08/R1 P2） */
+    default FinPaymentDO lockById(Long id) { return selectOne(new LambdaQueryWrapperX<FinPaymentDO>().eq(FinPaymentDO::getId, id).last("FOR UPDATE")); }
 }

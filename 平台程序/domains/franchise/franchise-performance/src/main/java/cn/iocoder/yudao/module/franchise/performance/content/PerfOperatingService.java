@@ -57,22 +57,31 @@ public class PerfOperatingService {
                 "SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_receipt WHERE company_id = ? "
                         + "AND status = '已登记' AND received_date >= ?::date AND received_date < ?::date",
                 Long.class, post.orgId(), period + "-01", nextMonth(period));
+        // M08-T08/R1 P1：退款按方向分层——client=对客退款（资金流出，计入支出）；
+        // expense=供应商/劳务退回（资金回流，冲减支出）——expense 行不得再计入流出统计
         long paid = jdbc.queryForObject(
                 "SELECT (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_payment WHERE company_id = ? "
                         + "AND status = '已核实' AND pay_date >= ?::date AND pay_date < ?::date) "
                         + "+ (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_refund WHERE company_id = ? "
-                        + "AND status = '已核实' AND replaced_by_id IS NULL AND date >= ?::date AND date < ?::date)",
+                        + "AND status = '已核实' AND replaced_by_id IS NULL AND refund_direction = 'client' "
+                        + "AND date >= ?::date AND date < ?::date) "
+                        + "- (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_refund WHERE company_id = ? "
+                        + "AND status = '已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' "
+                        + "AND date >= ?::date AND date < ?::date)",
                 Long.class, post.orgId(), period + "-01", nextMonth(period),
+                post.orgId(), period + "-01", nextMonth(period),
                 post.orgId(), period + "-01", nextMonth(period));
         int receiptCount = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM fr_fin_receipt WHERE company_id = ? AND status = '已登记' "
                         + "AND received_date >= ?::date AND received_date < ?::date",
                 Integer.class, post.orgId(), period + "-01", nextMonth(period));
+        // 笔数只计流出记录：对客退款是流出；支出退回是对既有付款的回流，不算一笔支出
         int paymentCount = jdbc.queryForObject(
                 "SELECT (SELECT COUNT(*) FROM fr_fin_payment WHERE company_id = ? AND status = '已核实' "
                         + "AND pay_date >= ?::date AND pay_date < ?::date) "
                         + "+ (SELECT COUNT(*) FROM fr_fin_refund WHERE company_id = ? AND status = '已核实' "
-                        + "AND replaced_by_id IS NULL AND date >= ?::date AND date < ?::date)",
+                        + "AND replaced_by_id IS NULL AND refund_direction = 'client' "
+                        + "AND date >= ?::date AND date < ?::date)",
                 Integer.class, post.orgId(), period + "-01", nextMonth(period),
                 post.orgId(), period + "-01", nextMonth(period));
         FrPerfReconciliationDO existing = reconciliations.selectByPeriod(post.orgId(), period);
@@ -180,10 +189,15 @@ public class PerfOperatingService {
             String p = shift(period, -i);
             long income = monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_receipt "
                     + "WHERE company_id=? AND status='已登记' AND received_date >= ?::date AND received_date < ?::date", p);
+            // M08-T08/R1 P1：趋势支出同 reconcile 口径——client 退款流出计入，expense 退回回流冲减
             long paid = monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_payment "
                     + "WHERE company_id=? AND status='已核实' AND pay_date >= ?::date AND pay_date < ?::date", p)
                     + monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
-                    + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND date >= ?::date AND date < ?::date", p);
+                    + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'client' "
+                    + "AND date >= ?::date AND date < ?::date", p)
+                    - monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
+                    + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' "
+                    + "AND date >= ?::date AND date < ?::date", p);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("period", p);
             row.put("incomeCents", income);
@@ -203,8 +217,13 @@ public class PerfOperatingService {
                 "SELECT 'payment' AS kind, COALESCE(SUM(amount_cents),0) AS cents FROM fr_fin_payment "
                         + "WHERE company_id=? AND status='已核实' AND pay_date <= ?::date UNION ALL "
                         + "SELECT 'refund', COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
-                        + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND date <= ?::date",
-                org, asOfDate, org, asOfDate));
+                        + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'client' "
+                        + "AND date <= ?::date UNION ALL "
+                        // R3 P2：expense 回流按减项语义返回负值——构成项合计=净支出（与 trend/reconcile 同口径）
+                        + "SELECT 'expense-refund', -COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
+                        + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' "
+                        + "AND date <= ?::date",
+                org, asOfDate, org, asOfDate, org, asOfDate));
         // 应收=工程两期未收合计；应付=finance 未付合计
         long receivable = jdbc.queryForObject(
                 "SELECT COALESCE(SUM((SELECT COALESCE(SUM(c.amount_cents),0) FROM fr_eng_collection c "

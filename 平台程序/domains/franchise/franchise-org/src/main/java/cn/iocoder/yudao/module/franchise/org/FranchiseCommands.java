@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
 /**
@@ -40,15 +41,22 @@ public class FranchiseCommands {
         });
     }
 
-    /** 追加命令事件；revision 为聚合执行后的版本号 */
+    /** 追加命令事件；revision 为聚合执行后的版本号。
+     * M08-T08/R1 P1（同键并发重复落单）：append 对「幂等键命中且 payload 相同」静默返回原事件——
+     * 并发请求 B 在 A 提交后读键，若不校验聚合归属，B 的业务行会随静默通过而提交（重复落单）。
+     * 这里按聚合一致性拒绝：返回事件不属于本命令聚合即抛 STATE_VERSION_CONFLICT 整笔回滚，重放由 replayed 承接。 */
     public void record(PostSnapshot post, String aggregateType, long aggregateId, long revision, String command,
                        Object input, String idempotencyKey) {
-        commandLog.append(new CommandEventDO()
+        CommandEventDO event = commandLog.append(new CommandEventDO()
                 .setDomain(FranchiseRoles.DOMAIN).setAggregateType(aggregateType).setAggregateId(aggregateId)
                 .setRevision(revision).setCommand(command).setOrgId(post.orgId())
                 .setActorUserId(post.userId()).setActorPostId(post.postId()).setActorRoleCode(post.roleCode())
                 .setPayload(JsonUtils.toJsonString(input))
                 .setIdempotencyKey(StrUtil.isBlank(idempotencyKey) ? null : scopedKey(post, idempotencyKey)));
+        if (event.getIdempotencyKey() != null && (event.getAggregateId() != aggregateId
+                || !event.getAggregateType().equals(aggregateType))) {
+            throw exception(STATE_VERSION_CONFLICT);
+        }
     }
 
     private static String scopedKey(PostSnapshot post, String key) {

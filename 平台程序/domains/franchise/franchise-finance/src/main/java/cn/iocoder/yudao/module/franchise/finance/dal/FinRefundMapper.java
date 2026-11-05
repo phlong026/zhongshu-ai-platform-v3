@@ -13,6 +13,12 @@ public interface FinRefundMapper extends BaseMapperX<FinRefundDO> {
                 .eq(FinRefundDO::getReceiptId, receiptId).eq(FinRefundDO::getStatus, "已核实"));
     }
 
+    /** M08-T08：支出退回余额口径——该付款单下已核实且未被更正替代的退回（行锁内调用） */
+    default List<FinRefundDO> selectActiveByPayment(Long paymentId) {
+        return selectList(new LambdaQueryWrapperX<FinRefundDO>()
+                .eq(FinRefundDO::getPaymentId, paymentId).eq(FinRefundDO::getStatus, "已核实"));
+    }
+
     default List<FinRefundDO> selectByCompany(Long companyId) {
         return selectList(new LambdaQueryWrapperX<FinRefundDO>()
                 .eq(FinRefundDO::getCompanyId, companyId)

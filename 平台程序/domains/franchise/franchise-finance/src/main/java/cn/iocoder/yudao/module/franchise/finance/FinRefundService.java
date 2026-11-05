@@ -49,9 +49,9 @@ public class FinRefundService {
                                   String transactionNo, Long voucherFileId, Long replacesId) {
     }
 
-    /** M08-T08：支出退回命令（供应商/劳务方退回材料/劳务款，冲减已付现金） */
+    /** M08-T08：支出退回命令（供应商/劳务方退回材料/劳务款，冲减已付现金）；replacesId 走更正链（R2 P1-3） */
     public record ExpenseRefundCommand(long paymentId, long amountCents, String reason, LocalDate date,
-                                       String transactionNo, Long voucherFileId) {
+                                       String transactionNo, Long voucherFileId, Long replacesId) {
     }
 
     @Transactional
@@ -119,29 +119,71 @@ public class FinRefundService {
         return refund.getId();
     }
 
-    /** M08-T08：支出退回——供应商/劳务方退回材料/劳务款，冲减已付现金（方向=expense） */
+    /** M08-T08：支出退回——供应商/劳务方退回材料/劳务款，冲减已付现金（方向=expense）。
+     * 不变量（行锁内，R1 P2）：仅"已核实"付款可退回（作废/并发退回由 lockById 互斥+状态复核挡住）；
+     * Σ该付款单已核实支出退回 + 本次 ≤ 该付款单金额——超上限拒绝（退多付不减正确费用，不形成新欠款）；
+     * 流水号同进 fr_fin_txn_no 防重表；更正链（R2 P1-3）：作废旧退回→重登携 replacesId（须同付款单）
+     * CAS 争抢替代权，同号更正原子切换 identity owner——不释放流水号供任意复用。 */
     @Transactional
     public long registerExpense(PostSnapshot post, String idempotencyKey, ExpenseRefundCommand cmd) {
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) return replayed.get().getAggregateId();
         BusinessDateGuard.requireValid(cmd.date());
-        FinPaymentDO payment = paymentMapper.selectById(cmd.paymentId());
+        FinPaymentDO payment = paymentMapper.lockById(cmd.paymentId());
         if (payment == null) throw exception(PAYMENT_NOT_FOUND_EXPENSE);
         if (payment.getCompanyId() != post.orgId()) throw exception(ORG_MISMATCH);
-        long paidTotal = paymentMapper.selectList(null).stream()
-                .filter(p2 -> p2.getPayableId() == payment.getPayableId() && "已核实".equals(p2.getStatus()))
-                .mapToLong(FinPaymentDO::getAmountCents).sum();
-        if (cmd.amountCents() > paidTotal) throw exception(EXPENSE_REFUND_EXCEED);
-        var txn = FinReceiptService.normalize(cmd.transactionNo());
+        if (!"已核实".equals(payment.getStatus())) throw exception(EXPENSE_REFUND_SOURCE_INVALID);
+        long refunded = refundMapper.selectActiveByPayment(cmd.paymentId()).stream()
+                .mapToLong(FinRefundDO::getAmountCents).sum();
+        if (payment.getAmountCents() == null || cmd.amountCents() > payment.getAmountCents() - refunded) {
+            throw exception(EXPENSE_REFUND_EXCEED);
+        }
+        String txn = FinReceiptService.normalize(cmd.transactionNo());
+        FinTxnNoDO identity = txn == null ? null : txnNoMapper.find(post.orgId(), txn);
+        if (identity != null && cmd.replacesId() == null) {
+            throw exception(TXN_NO_OCCUPIED);
+        }
         FinRefundDO refund = new FinRefundDO()
                 .setPaymentId(cmd.paymentId()).setCompanyId(post.orgId())
                 .setAmountCents(cmd.amountCents()).setStatus("已核实")
                 .setReason(cmd.reason()).setOperatorUserId(post.userId())
                 .setDate(cmd.date()).setTransactionNo(txn)
                 .setVoucherFileId(cmd.voucherFileId())
+                .setReplacesId(cmd.replacesId())
                 .setRefundDirection("expense");
-        refundMapper.insert(refund);
+        refundMapper.insert(refund); // 先插新记录（replaced_by_id 为空）
+        if (cmd.replacesId() != null) {
+            FinRefundDO replaced = refundMapper.selectById(cmd.replacesId());
+            if (replaced == null || !"已作废".equals(replaced.getStatus())
+                    || replaced.getCompanyId() != post.orgId()
+                    || replaced.getPaymentId() == null || replaced.getPaymentId() != cmd.paymentId()
+                    || !"expense".equals(replaced.getRefundDirection())) {
+                throw exception(REFUND_NOT_FOUND); // 更正上下文不合法（须同付款单的已作废支出退回）
+            }
+            // CAS 争抢替代权：同一被作废记录至多一个有效替代
+            int claimed = refundMapper.update(new FinRefundDO().setReplacedById(refund.getId()),
+                    new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<FinRefundDO>()
+                            .eq(FinRefundDO::getId, cmd.replacesId())
+                            .isNull(FinRefundDO::getReplacedById));
+            if (claimed != 1) {
+                throw exception(REFUND_ALREADY_REPLACED); // 并发更正败者整笔回滚
+            }
+        }
+        if (txn != null && identity == null) {
+            txnNoMapper.insert(new FinTxnNoDO().setCompanyId(post.orgId()).setTxnNo(txn)
+                    .setOwnerType("expense-refund").setOwnerId(refund.getId()).setClosed(false)
+                    .setCreateTime(OffsetDateTime.now()));
+        } else if (txn != null && cmd.replacesId() != null) {
+            // 同号更正：身份行必须原属被替代记录，owner 原子切换到新记录（不释放流水号供任意复用）
+            if (!cmd.replacesId().equals(identity.getOwnerId())) {
+                throw exception(TXN_NO_OCCUPIED);
+            }
+            identity.setOwnerType("expense-refund").setOwnerId(refund.getId());
+            txnNoMapper.updateById(identity);
+        }
         commands.record(post, "fin-expense-refund", refund.getId(), 1, "fin-expense-refund", cmd, idempotencyKey);
+        log.info("[registerExpense][companyId={} refund={} payment={} amount={} replaces={}]",
+                post.orgId(), refund.getId(), cmd.paymentId(), cmd.amountCents(), cmd.replacesId());
         return refund.getId();
     }
 

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.finance.FinPaymentService;
 import cn.iocoder.yudao.module.franchise.finance.FinPermissions;
 import cn.iocoder.yudao.module.franchise.finance.FinProjectAccountService;
 import cn.iocoder.yudao.module.franchise.finance.FinReceiptService;
+import cn.iocoder.yudao.module.franchise.finance.FinAbnormalFundService;
 import cn.iocoder.yudao.module.franchise.finance.FinRefundService;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinBankConfirmDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinBankFlowDO;
@@ -22,6 +23,8 @@ import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptRevisionDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptRevisionMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinRefundDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper;
+import cn.iocoder.yudao.module.franchise.finance.dal.FinAbnormalFundDO;
+import cn.iocoder.yudao.module.franchise.finance.dal.FinAbnormalFundMapper;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import io.swagger.v3.oas.annotations.Operation;
@@ -89,6 +92,10 @@ public class FinanceController {
     private FinRefundMapper refundMapper;
     @Resource
     private FinBankFlowMapper flowMapper;
+    @Resource
+    private FinAbnormalFundService abnormalFundService;
+    @Resource
+    private FinAbnormalFundMapper abnormalFundMapper;
 
     // ===== 实收 =====
 
@@ -250,6 +257,77 @@ public class FinanceController {
     @PreAuthorize("@post.has('" + FinPermissions.REFUND_VOID + "')")
     public CommonResult<Boolean> voidRefund(@PathVariable("id") long id, @Valid @RequestBody VoidCommand cmd) {
         refundService.void_(currentPost.require(), id, cmd.reason());
+        return success(true);
+    }
+
+    // ===== 支出退回（M08-T08：供应商/劳务退回，冲减已付现金） =====
+
+    @PostMapping("/expense-refunds")
+    @Operation(summary = "登记支出退回（关联原付款单；金额≤该付款单剩余可退回额度）")
+    @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
+    public CommonResult<Map<String, Object>> registerExpenseRefund(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody ExpenseRefundCommand cmd) {
+        long id = refundService.registerExpense(currentPost.require(), idempotencyKey,
+                new FinRefundService.ExpenseRefundCommand(cmd.paymentId(),
+                        cmd.amountCents() == null ? 0 : cmd.amountCents(), cmd.reason(), cmd.date(),
+                        cmd.transactionNo(), cmd.voucherFileId(), cmd.replacesId()));
+        return success(Map.of("refundId", id));
+    }
+
+    public record ExpenseRefundCommand(@NotNull Long paymentId, @NotNull Long amountCents, String reason, LocalDate date,
+                                       String transactionNo, Long voucherFileId, Long replacesId) {
+    }
+
+    // ===== 异常资金登记（M08-T08/R05：独立留痕不凑平，不进有效账；日期待核单列待归月） =====
+
+    @GetMapping("/abnormal-funds")
+    @Operation(summary = "异常资金列表（本公司；datePendingOnly=true 单列日期待核/待归月）")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<List<FinAbnormalFundDO>> abnormalFunds(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "datePendingOnly", required = false, defaultValue = "false") boolean datePendingOnly) {
+        return success(abnormalFundMapper.selectByCompany(currentPost.require().orgId(), status, datePendingOnly));
+    }
+
+    public record AbnormalFundCommand(@NotBlank String fundDirection, @NotNull Long amountCents, String counterparty,
+                                      Long relatedProjectId, Long relatedCommissionId, String stageOrCategory,
+                                      LocalDate businessDate, String method, String transactionNo,
+                                      String reason, Long voucherFileId) {
+    }
+
+    @PostMapping("/abnormal-funds")
+    @Operation(summary = "登记异常资金（原单缺失/超上限/日期凭据待核的真实资金事实，留痕不凑平）")
+    @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
+    public CommonResult<Map<String, Object>> registerAbnormalFund(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody AbnormalFundCommand cmd) {
+        long id = abnormalFundService.register(currentPost.require(), idempotencyKey,
+                new FinAbnormalFundService.RegisterCommand(cmd.fundDirection(),
+                        cmd.amountCents() == null ? 0 : cmd.amountCents(), cmd.counterparty(),
+                        cmd.relatedProjectId(), cmd.relatedCommissionId(), cmd.stageOrCategory(),
+                        cmd.businessDate(), cmd.method(), cmd.transactionNo(), cmd.reason(), cmd.voucherFileId()));
+        return success(Map.of("fundId", id));
+    }
+
+    public record AbnormalLinkCommand(@NotBlank String linkedType, @NotNull Long linkedId) {
+    }
+
+    @PostMapping("/abnormal-funds/{id}/link")
+    @Operation(summary = "异常资金转正关联（仅标注不改有效账；CAS 防并发双关联）")
+    @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
+    public CommonResult<Boolean> linkAbnormalFund(@PathVariable("id") long id,
+                                                  @Valid @RequestBody AbnormalLinkCommand cmd) {
+        abnormalFundService.link(currentPost.require(), id, cmd.linkedType(),
+                cmd.linkedId() == null ? 0 : cmd.linkedId());
+        return success(true);
+    }
+
+    @DeleteMapping("/abnormal-funds/{id}")
+    @Operation(summary = "作废异常资金（误录撤销留痕；幂等）")
+    @PreAuthorize("@post.has('" + FinPermissions.REFUND_VOID + "')")
+    public CommonResult<Boolean> voidAbnormalFund(@PathVariable("id") long id, @Valid @RequestBody VoidCommand cmd) {
+        abnormalFundService.void_(currentPost.require(), id, cmd.reason());
         return success(true);
     }
 

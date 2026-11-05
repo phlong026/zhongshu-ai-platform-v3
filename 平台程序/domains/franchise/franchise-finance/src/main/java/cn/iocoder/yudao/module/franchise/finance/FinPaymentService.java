@@ -39,6 +39,8 @@ public class FinPaymentService {
     private FinVoucherMapper voucherFiles;
     @Resource
     private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper refundMapper;
 
     public record PayableCommand(long companyId, Long projectId, String stage, long totalCents,
                                  String recipient, String agreementRef) {
@@ -108,10 +110,12 @@ public class FinPaymentService {
         return payment.getId();
     }
 
-    /** 作废（仅 finance-lead，权限码 franchise:fin:payment-void）；释放额度并留痕；重复作废幂等 */
+    /** 作废（仅 finance-lead，权限码 franchise:fin:payment-void）；释放额度并留痕；重复作废幂等。
+     * M08-T08/R2 P1：与支出退回共用付款行锁并在锁内拒绝作废存在有效退回的付款——
+     * 封闭「退回持锁提交→作废无条件覆盖」与「作废先提交→退回状态复核拒绝」的双向交错。 */
     @Transactional
     public void void_(PostSnapshot post, long paymentId, String reason) {
-        FinPaymentDO payment = paymentMapper.selectById(paymentId);
+        FinPaymentDO payment = paymentMapper.lockById(paymentId);
         if (payment == null) {
             throw exception(PAYMENT_NOT_FOUND);
         }
@@ -120,6 +124,9 @@ public class FinPaymentService {
         }
         if ("已作废".equals(payment.getStatus())) {
             return; // 幂等
+        }
+        if (!refundMapper.selectActiveByPayment(paymentId).isEmpty()) {
+            throw exception(PAYMENT_HAS_ACTIVE_REFUND); // 先作废退回记录，再作废付款
         }
         paymentMapper.updateById(new FinPaymentDO().setId(paymentId).setStatus("已作废")
                 .setVoidByUserId(post.userId()).setVoidReason(reason).setVoidedAt(OffsetDateTime.now()));
