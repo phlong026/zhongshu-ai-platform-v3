@@ -110,25 +110,24 @@ ok('recordView 两态同构（fields/actions/form/各区块键全量输出）', 
   const bundle = { detail: { id: 5, name: 'x', status: 'IN_PROGRESS', nodes: [{ id: 9, nodeIndex: 1, name: 'n1', status: 'PENDING' }], documents: [] },
     collections: { stages: [{ stage: 'START', expectedCents: 100, confirmedCents: 0, remainingCents: 100 }], records: [] },
     materials: { plans: [{ materialPlanId: 3, arrival: '部分到货', totalCents: 100, paidCents: 0, remainingCents: 100,
-      lines: [{ materialId: 8, name: '钢筋', quantity: 10, received: 4, remaining: 6, unit: '吨', requiredDate: '2026-11-05' }] }] },
+      lines: [{ materialId: 8, name: '钢筋', quantity: 10, received: 4, remaining: 6, unit: '吨', requiredDate: '2026-11-05', supplyId: 770 }] }] },
     settle: {}, followups: [] };
   const rv = P.recordView(bundle, { view: 'overview', stage: 'start', planId: '', nodeId: '', form: {}, initialized: false, today: '2026-11-03', writeRole: true });
   const keys = ['p','form','fields','actions','installments','plans','settle','dunning','materialFollowups','collections','docs','events','nodeRows','nodePlans','nodeMoney','inspections','arrivals','siteRecords','pending','waiting','engineers','templates','links','next','node','plan','nodeIndex','nodeMaterialUrl','nodeFundingUrl','nodeRecordUrl','nodeUrl','settlementUrl','paceDone','paceTotal','paceOverdue','stage','stageText','partLabel','own','canPay','finance','canAdjust','canTerms','termsLocked','canCorrectNode','canReopen','demo','fileNames'];
   if (!keys.every(k => k in rv)) return false;
   const rm = P.recordView(bundle, { ...{ view: 'material', planId: '3', writeRole: true }, stage: 'start', nodeId: '', form: {}, initialized: false, today: '2026-11-03' });
   return rm.plan && rm.plan.url === '/pages/build/record/index?id=5&view=material&planId=3' && rm.plan.due === '2026-11-05'
-    && rm.actions[0].action === 'material-followup' && rm.canAdjust === true;
+    && rm.actions[0].action === 'arrival' && rm.canAdjust === true; // 批次#36：到货确认恢复后优先于催办（R1 P1-4）
 })());
 ok('recordView 只读身份不出动作（finance 线查看不误显可写表单）', (() => {
   const bundle = { detail: { id: 5, name: 'x', status: 'IN_PROGRESS', nodes: [] }, collections: { stages: [{ stage: 'START', expectedCents: 100, confirmedCents: 0, remainingCents: 100 }], records: [] }, materials: { plans: [] }, settle: {}, followups: [] };
   const rv = P.recordView(bundle, { view: 'collection', stage: 'start', writeRole: false });
   return rv.own === false && rv.actions.length === 0 && rv.fields.length === 0;
 })());
-ok('凭据类动作 perform 前置拦截（不让用户填完表单才失败）', (() => {
+ok('凭据动作 perform 无 COS 前置拦截（批次#36 已摘；上传真传在 switch 内——R4 P2-3 同步断言）', (() => {
   const gated = ['prepare','start','node','site','node-correct','site-correct','collect','arrival','deliver','material-terms'];
   if (!Array.isArray(P.VOUCHER_ACTIONS) || gated.some(a => !P.VOUCHER_ACTIONS.includes(a))) return false;
-  return P.perform('collect', '5', { stage: 'start', amount: '1', transaction: 'x', file: null }, null, 'k')
-    .then(() => false, e => String(e.msg).includes('COS'));
+  return !pf.includes('VOUCHER_ACTIONS.includes(action)');
 })());
 ok('material-terms basis 只送文件名字符串（不再 JSON.stringify）', (() => {
   const terms = pf.slice(pf.indexOf("case 'material-terms'"));
@@ -169,13 +168,16 @@ ok('lock：operations plan-submit 角色=engineer/project-manager（856 种子�
 console.log('[6] M07-T02 三期接线核对（在线 prepare 三期表单 + BASE_DONE 收款入口 + 三期文案）');
 const emptyBundle = { detail: { id: 5, name: 'x', status: 'PENDING_START', nodes: [] },
   collections: { stages: [], records: [] }, materials: { plans: [] }, settle: {}, followups: [] };
-ok('recordView prepare 在线三期表单（六字段+≥0 标签；R1 P1：在线不出保存按钮，提交随 COS 批恢复）', (() => {
+ok('recordView prepare 在线三期表单（六字段+≥0 标签；批次#36：凭据门禁已摘——writeRole 恢复提交入口，非 writeRole 无按钮）', (() => {
   const rv = P.recordView(emptyBundle, { view: 'prepare', stage: 'start', nodeId: '', planId: '', form: {}, initialized: false, today: '2026-11-05', writeRole: true });
   const keys = rv.fields.map(f => f.key);
+  const ro = P.recordView(emptyBundle, { view: 'prepare', stage: 'start', nodeId: '', planId: '', form: {}, initialized: false, today: '2026-11-05', writeRole: false });
   return String(keys) === String(['total', 'signAfter', 'baseDone', 'capDone', 'file', 'note'])
-    && rv.fields[2].label.indexOf('≥0') >= 0 && rv.actions.length === 0;
+    && rv.fields[2].label.indexOf('≥0') >= 0
+    && rv.actions.length === 1 && rv.actions[0].action === 'prepare'
+    && ro.actions.length === 0;
 })());
-ok('prepare 在线提示行（wxml platEng 填写前告知渠道限制）', read('miniprogram/pages/build/record/index.wxml').includes('在线保存随凭据通道开放后可用'));
+ok('prepare 在线提示行（批次#36：wxml 告知在线保存已开放+Σ 核对）', read('miniprogram/pages/build/record/index.wxml').includes('在线保存已开放（凭据走平台资产通道上传）'));
 ok('prepare Σ 前端校验纯函数（字符串精确转分：Σ=总额放行/差 1 元报差额/三位小数拒绝）', (() => {
   if (typeof P.threeStageSumError !== 'function') return false;
   const good = P.threeStageSumError({ total: '10', signAfter: '6', baseDone: '2', capDone: '2' });
@@ -186,9 +188,10 @@ ok('prepare Σ 前端校验纯函数（字符串精确转分：Σ=总额放行/�
     && !!threeDp && !!threeDp2
     && P.threeStageSumError({ total: '10', signAfter: '6', baseDone: '0', capDone: '4' }) === null;
 })());
-ok('perform prepare 在 VOUCHER 门禁前调 Σ 校验（Σ 错先报差额，Σ 对才报 COS）', (() => {
+ok('perform prepare Σ 校验先于凭据上传（Σ 错先报差额；批次#36 门禁已摘，上传在 switch 内）', (() => {
   const head = pf.slice(0, pf.indexOf('switch (action)'));
-  return /if \(action === 'prepare'\)\s*\{\s*const sumErr = threeStageSumError/.test(head);
+  return /if \(action === 'prepare'\)\s*\{\s*const sumErr = threeStageSumError/.test(head)
+    && !pf.includes('VOUCHER_ACTIONS.includes(action)');
 })());
 ok('prepare 输入即校验（R2 P2：四项金额齐后 Σ≠总额 input 即报差额，无保存入口也可达）', (() => {
   const recordJs = read('miniprogram/pages/build/record/index.js');

@@ -54,6 +54,16 @@ Page({
  setPhotos(key,files,multi){if(!files.length)return;this.setData({['form.'+key]:files[0],...(multi?{['form.files']:files}:{}),['fileNames.'+key]:files.length>1?'已选'+files.length+'张照片':Files.displayFile(files[0]).name});},
  preview(e){const f=Files.displayFile(e.currentTarget.dataset.file);if(!f)return;if(f.path){if(/\.(png|jpe?g|webp|gif)$/i.test(f.name||''))return wx.previewImage({urls:[f.path]});wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.fail('文件暂时无法打开')});}else this.setData({samplePreview:f.previewKind?{...f,previewImage:({result:'/pages/build/assets/commission-result.jpg',drawing:'/pages/build/assets/commission-plan.jpg'})[f.previewKind]||'',projectName:this.data.p?.name||'',projectId:this.data.p?.projectId||''}:f});},
  zoomSampleImage(){const image=this.data.samplePreview?.previewImage;if(image)wx.previewImage({current:image,urls:[image]});},
+ previewAsset(e){ // M07-T04 批次#36/R1 P1-5：在线凭据授权查看——downloadTicket 票据→图片预览或文档打开
+  const id=e.currentTarget.dataset.assetId;if(!id)return;
+  const engApi=require('../../../api/franchise/engineering');
+  engApi.assets.downloadTicket(id).then(t=>{
+    const url=t&&t.downloadUrl||'';
+    if(!url||url.indexOf('local://')===0)return wx.showToast({title:'本地通道无在线预览，随 COS 批开放',icon:'none'});
+    if(/\.(png|jpe?g|webp|gif)$/i.test(url.split('?')[0]))return wx.previewImage({urls:[url]}); // R2 P1-7：按 pathname 分流（COS 签名参数不破坏扩展名判断）
+    wx.downloadFile({url,success:r=>wx.openDocument({filePath:r.tempFilePath,fail:()=>this.fail('文档打开失败')}),fail:()=>this.fail('下载失败，请重试')});
+  }).catch(err=>this.fail((err&&err.msg)||'授权查看失败，请重试'));
+ },
  closeSamplePreview(){this.setData({samplePreview:null});},
   async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败降级本地演示
    try{
@@ -61,7 +71,8 @@ Page({
     const data=P.recordView(bundle,{view:this.data.view,stage:this.stage,planId:this.planId,nodeId:this.nodeId,
       form:this.data.form,initialized:this.initialized&&!reset,
       today:require('../../../utils/account').localDate(),
-      writeRole:['engineer','project-manager'].includes(X.context().role)}); // 856 write 口径（后端另校验负责人本人）
+      writeRole:['engineer','project-manager'].includes(X.context().role),
+      financeRole:O.has(X.context().role,'finance')}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
     this.initialized=true;
     this.setData({...data,view:this.data.view,title:titles[this.data.view],nodeId:this.nodeId,
       error:'',platEng:true,busy:false});
@@ -98,6 +109,10 @@ Page({
    if(action==='node-reopen')Object.assign(f,{reason:f.nodeReason,date:undefined});
    return this.performOnline(action,f,this.data.node);}const action=e.currentTarget.dataset.action;this.setData({busy:true,error:''});try{const f={...this.data.form};if(['node','site','funding-plan','node-correct','node-reopen'].includes(action))f.nodeId=this.data.node.id;if(action==='material-terms')f.file=f.termsFile;if(action==='material-adjust')Object.assign(f,{reason:f.adjustReason,date:undefined});if(action==='arrival-correct')Object.assign(f,{receiptId:f.correctId,actual:f.correctActual,reason:f.correctReason,date:undefined});if(action==='site-correct')Object.assign(f,{recordId:f.siteId,note:f.siteNote,file:f.siteFile,reason:f.siteReason,date:undefined});if(action==='node-correct')Object.assign(f,{date:f.nodeDate,note:f.nodeNote,file:f.nodeFile,reason:f.nodeReason});if(action==='node-reopen')Object.assign(f,{reason:f.nodeReason,date:undefined});const p=R.run(this.id,action,f,this.data.p.revision||0);if(!p){Nav.open('/pages/build/projects/index',{replace:true});return;}if(action==='material-plan'){this.planId=p.recordFlow.materialPlans.at(-1).id;this.setData({view:'material'});}else if(action==='collect'){this.setData({view:'payments'});}else if(!['arrival','material-terms','material-followup','settle','site','material-adjust','arrival-correct','site-correct','node-correct','node-reopen','dunning'].includes(action))this.setData({view:action==='deliver'?'settlement':action==='settle'?'archive':action==='funding-plan'?'funding':'overview'});this.fundingInitialized=false;this.refresh(true);wx.showToast({title:'记录已保存',icon:'success'});}catch(e){this.fail(e.message);}finally{this.setData({busy:false});}},
  pickArrival(e){const r=this.data.arrivals.find(r=>r.id===e.currentTarget.dataset.id);if(r)this.setData({'form.correctId':r.id,'form.correctActual':String(r.actual),'form.correctReason':''});},
+ supplyPick(e){ // R4 P1-2/R5：到货供应事项显式选定（picker index→id+label 预计算——WXML 只读字段）
+  const idx=Number(e.detail.value),opts=(this.data.form&&this.data.form.supplyOptions)||[];
+  if(opts[idx])this.setData({'form.supplyId':opts[idx].id,'form.supplyLabel':opts[idx].label});
+ },
  pickSite(e){const r=this.data.siteRecords.find(r=>r.id===e.currentTarget.dataset.id);if(r)this.setData({'form.siteId':r.id,'form.siteNote':r.note,'form.siteFile':r.file||null,'form.siteReason':''});},
  cancelCorrection(){this.setData({'form.correctId':'','form.siteId':''});},
  go(e){const d=e.currentTarget.dataset;if(d.url)Nav.open(d.url);},

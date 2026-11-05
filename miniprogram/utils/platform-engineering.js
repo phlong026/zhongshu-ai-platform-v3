@@ -8,9 +8,8 @@ const http = require('../api/http');
 const epochMsOf = require('./epoch-ms').epochMsOf;
 
 /**
- * 凭据类动作集合（字节上传通道随 COS 批开放，阶段 1.5 同款遗留口径）：
- * API 态在 perform 入口统一前置拦截，不让用户填完表单才失败。
- * COS 批开放后：uploadVoucher 换真传实现，再从本集合摘除对应动作即恢复在线办理。
+ * 凭据类动作集合（M07-T04 批次#36：uploadVoucher 已接基-1 票据真传——ticket→bytes→complete），
+ * 保留集合作为「哪些动作带凭据」的口径清单；真实 COS 渠道验收随批次 #40（E4）。
  */
 const VOUCHER_ACTIONS = ['prepare', 'start', 'node', 'site', 'node-correct', 'site-correct', 'collect', 'arrival', 'deliver', 'material-terms'];
 
@@ -83,6 +82,8 @@ function stagesView(stages, urlOf) {
 function plansView(summary) {
   return (summary && summary.plans || []).map(planRow => ({
     id: String(planRow.materialPlanId), nodeId: '', due: '',
+    // R2 P1-3：供应事项 id（行级 lines[].supplyId 聚合——arrival 提交路径 /supplies/{supplyId}/arrival）
+    supplyId: (planRow.lines || []).map(l => l.supplyId).filter(Boolean)[0] || null,
     arrival: planRow.arrival, payment: paymentText(planRow),
     known: true, complete: planRow.arrival === '已验收齐全',
     total: planRow.totalCents || 0, paid: planRow.paidCents || 0,
@@ -91,6 +92,7 @@ function plansView(summary) {
     remainingText: centsText(planRow.remainingCents),
     lines: (planRow.lines || []).map(l => ({
       id: String(l.materialId), name: l.name, spec: l.spec || '', unit: l.unit,
+      supplyId: l.supplyId || null, remainingQty: l.remaining, // R3 P1-4：行级供应事项与余量（arrival 选行依据）
       quantity: l.quantity, received: l.received, remaining: l.remaining,
       requiredDate: dateOf(l.requiredDate), cancelled: !!l.cancelled,
       supplyId: l.supplyId ? String(l.supplyId) : '',
@@ -182,11 +184,11 @@ module.exports = {
 
 /**
  * 凭据上传（基-1 票据链：ticket→字节→complete）。
- * 字节通道随 COS 凭据批开放（阶段 1.5 同款遗留）——当前统一降级提示，
- * 需凭据的写动作在 API 态提示后仍可走本地演示态办理；无凭据动作不受影响。
+ * M07-T04 批次#36：委托 api.uploadVoucher（基-1 票据真传——sha 幂等可重试；
+ * 未 complete 的票据不产生有效资产引用，取消/超时不落业务记录）。
  */
-function uploadVoucher() {
-  return Promise.reject({ code: 0, msg: '在线凭据上传通道随 COS 批开放，本操作暂请在本地演示态办理' });
+function uploadVoucher(filePath, assetType) {
+  return api.uploadVoucher(filePath, assetType);
 }
 
 /** 汇总装载：detail+两期收款+材料汇总+结算屏+催办（record 页一次拉齐） */
@@ -207,6 +209,7 @@ function pageData(bundle) {
     id: String(r.id), receiptStage: (r.stage || 'START').toLowerCase(),
     purpose: r.purpose || '', cents: r.amountCents || 0, date: dateOf(r.occurredAt),
     transaction: r.transactionNo || '', registrar: '',
+    fileAssetId: r.fileAssetId || null, // R1 P1-5：授权查看数据源（downloadTicket→预览）
     amountText: centsText(r.amountCents), status: '', url: '' // wxml 行消费键（后端登记记录无中文状态流/原记录页跳转）
   }));
   return {
@@ -263,9 +266,8 @@ function threeStageSumError(f) {
  */
 async function perform(action, id, form, node, key) {
   const f = form || {};
-  // M07-T02：prepare 三期 Σ 校验在凭据门禁之前——金额填错即时报差额，Σ 对齐后才提示 COS 通道未开
+  // M07-T02：prepare 三期 Σ 校验（金额填错即时报差额）——批次#36 凭据门禁已摘（真传通道开放）
   if (action === 'prepare') { const sumErr = threeStageSumError(f); if (sumErr) throw sumErr; }
-  if (VOUCHER_ACTIONS.includes(action)) throw { code: 0, msg: '在线凭据上传通道随 COS 批开放，本操作暂请在本地演示态办理' };
   const dateStr = f.date || null;
   switch (action) {
     case 'prepare': {
@@ -321,7 +323,8 @@ async function perform(action, id, form, node, key) {
         stage: f.stage === 'topping' ? 'CAP_DONE' : f.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER',
         amount: yuan(f, 'amount', '收款金额'),
         transactionNo: String(f.transaction || '').trim(), occurredAt: dateStr,
-        fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING')
+        // R2 P1-2：收款凭据走 FIN_VOUCHER 通道（finance 岗在 FIN 白名单内；ENG 类通道签票即 403）
+        fileAssetId: await uploadVoucher(f.file && f.file.path, 'FIN_VOUCHER')
       }, key);
     case 'dunning':
       return api.collections.dunning(id, f.stage === 'topping' ? 'CAP_DONE' : f.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER',
@@ -339,6 +342,7 @@ async function perform(action, id, form, node, key) {
         basis: (f.file && f.file.name) || '采购凭据' // 展示文本口径：只送文件名字符串，不送 JSON 串
       }, key);
     case 'arrival':
+      if (!f.supplyId) return Promise.reject({ code: 0, msg: '请选择确认到货的供应事项' }); // R4 P1-2 显式选定
       return api.materials.arrival(f.supplyId, {
         actual: Number(f.actual), quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
         transactionNo: f.transaction, occurredAt: dateStr,
@@ -355,12 +359,15 @@ async function perform(action, id, form, node, key) {
       return api.materials.arrivalCorrection(f.receiptId, Number(f.correctActual), f.correctReason, key);
     case 'material-followup':
       return api.materials.followup(id, f.planId, f.promiseDate || null, String(f.note || '').trim(), key);
-    case 'deliver':
+    case 'deliver': {
+      // M07-T04 批次#36：同一凭据文件上传一次，交付/业主签收两引用同 assetId（省一次上传）
+      const deliverAssetId = await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING');
       return api.closure.deliver(id, {
         date: dateStr, recipient: f.recipient,
-        ownerAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING'),
-        fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING'), note: f.note || ''
+        ownerAssetId: deliverAssetId,
+        fileAssetId: deliverAssetId, note: f.note || ''
       }, key);
+    }
     case 'settle':
       return api.closure.settle(id, { date: dateStr, note: f.note }, key);
     case 'archive':
@@ -424,6 +431,7 @@ function recordView(bundle, ctx) {
   const node = (opts.nodeId && nodes.find(n => n.id === String(opts.nodeId)))
     || nodes.find(n => n.status !== '已完成') || nodes[nodes.length - 1] || null;
   const own = !!opts.writeRole;
+  const financeRole = !!opts.financeRole; // M07-T04 批次#36：在线收款登记（856 collect 码=finance 系）
   const delivery = p.delivery, settlement = p.settlement, archived = p.archived;
   const toppingReached = nodes.some(n => n.milestone === 'topping' && n.status === '已完成');
   const part = data.installments.find(i => i.stage === stage);
@@ -441,6 +449,10 @@ function recordView(bundle, ctx) {
   if (!opts.initialized || !form.nodes) {
     form = {
       ...form,
+      // R4 P1-2/R5：到货供应事项显式选定（多行待到货不再自动错指；选项=余量>0 行）
+      supplyOptions: (plan ? (plan.lines || []) : []).filter(l => l.supplyId && Number(l.remainingQty) > 0)
+        .map(l => ({ id: String(l.supplyId), label: l.name + ' · 余 ' + l.remainingQty + l.unit })),
+      supplyId: null, supplyLabel: '', // R5 P1-1：WXML 禁方法调用——label 预计算（wcc find() 编译失败教训）
       date: form.date || today, note: '', file: null, files: [],
       nodeId: node && node.id, nodes: nodes.map(n => ({ ...n })),
       lines: [{ name: '', spec: '', quantity: '', unit: '包' }], due: form.due || today,
@@ -454,8 +466,12 @@ function recordView(bundle, ctx) {
 
   let fields = [], actions = [];
   if (view === 'collection') {
-    // M07-T02 三期：签约后/基础完成后随期次开放（封顶后仍须封顶节点完成）；封顶门禁后端裁决
-    if (own && part && part.status !== '已收齐' && (stage !== 'topping' || toppingReached)) {
+    // M07-T04 批次#36/R1 P1-4：在线收款登记恢复（finance 系岗——856 collect 码；封顶门禁后端裁决）
+    if (financeRole && part && !part.settled && (stage !== 'topping' || toppingReached)) {
+      fields = [viewField('amount', '本次收款金额（元）', 'digit'), viewField('date', '收款日期', 'date'),
+        viewField('transaction', '收款流水或凭据编号'), viewField('file', '收款凭据（jpg/png/pdf）', 'file')];
+      actions = [{ action: 'collect', label: '登记实际收款' }];
+    } else if (own && part && part.status !== '已收齐' && (stage !== 'topping' || toppingReached)) {
       fields = [viewField('promiseDate', '业主承诺付款日（选填）', 'date'), viewField('note', '催收情况说明（选填）', 'textarea')];
       actions = [{ action: 'dunning', label: '登记已催收' }];
     }
@@ -472,6 +488,34 @@ function recordView(bundle, ctx) {
       viewField('file', '双方已签合同', 'file'),
       viewField('note', '现场、班组和开工准备记录', 'textarea')
     ];
+    // M07-T04 批次#36：凭据门禁已摘——恢复在线提交入口（状态门禁与本地分支一致：own+未归档+未开工；后端拒绝开工后修改）
+    if (own && !archived && !p.actualStart) actions = [{ action: 'prepare', label: '提交开工准备' }]; // R1 P2-7：适配字段名（projectView 映射为 actualStart 对象）
+  } else if (view === 'start') {
+    // R1 P1-4：实际开工记录恢复（own；开工后后端拒绝修改）
+    if (own && !archived && !p.actualStart) {
+      fields = [viewField('date', '实际开工日期', 'date'), viewField('note', '现场情况', 'textarea'),
+        viewField('file', '开工凭据（jpg/png/pdf）', 'file')];
+      actions = [{ action: 'start', label: '记录实际开工' }];
+    }
+  } else if (view === 'node' && node) {
+    // R1 P1-4：节点完成/更正/重开恢复（own；完成态切换表单）
+    if (own && !archived && !delivery && node.status !== '已完成') {
+      fields = [viewField('date', '节点完成日期', 'date'), viewField('note', '节点完成情况', 'textarea'),
+        viewField('file', '节点完成凭据（jpg/png/pdf）', 'file'), viewField('noMaterials', '本节点材料无需到场', 'check')];
+      // R2 P1-4：现场记录创建恢复（多张照片，perform site→api.site.create）
+      actions = [{ action: 'node', label: '标记节点完成' }, { action: 'site', label: '留存现场照片' }];
+    } else if (own && !archived && !delivery && node.status === '已完成') {
+      fields = [viewField('nodeDate', '正确完成日期', 'date'), viewField('nodeNote', '正确节点情况', 'textarea'),
+        viewField('nodeFile', '正确凭据（jpg/png/pdf）', 'file'), viewField('nodeReason', '更正原因', 'textarea')];
+      actions = [{ action: 'node-correct', label: '更正节点记录' }];
+    }
+  } else if (view === 'delivery') {
+    // R1 P1-4：工程交付恢复（own；门禁=全节点+材料齐+全累计收款，后端裁决）
+    if (own && !archived && !p.delivery) {
+      fields = [viewField('date', '交付日期', 'date'), viewField('recipient', '交付接收人'),
+        viewField('file', '交付凭据（jpg/png/pdf，业主签收同文件）', 'file'), viewField('note', '交付说明（选填）', 'textarea')];
+      actions = [{ action: 'deliver', label: '登记工程交付' }];
+    }
   } else if (view === 'project') {
     if (own && !archived) actions = [{ action: 'plan', label: '保存施工计划' }];
   } else if (view === 'materials') {
@@ -485,8 +529,22 @@ function recordView(bundle, ctx) {
       quantity: l.quantity, received: l.received, remaining: l.remaining, cancelled: !!l.cancelled,
       supplier: l.supplier || '', actual: '', adjust: '' }));
     if (own && !delivery && plan.arrival !== '已验收齐全' && plan.arrival !== '已取消') {
-      fields = [viewField('promiseDate', '供应商承诺到货日（催办时选填）', 'date'), viewField('note', '本次催到货联系说明（催办必填）', 'textarea')];
-      actions = [{ action: 'material-followup', label: '登记今日已催到货' }];
+      // R1 P1-4/R4 P1-2/R5 P1-2：确认到货恢复——供应事项显式选定（选项每次刷新；
+      // 用户已选仍有效则保留，余量归零行落选后回落首项——刷新不再指回首行）
+      // R5 P1-2：选项每次刷新（最新余量——落选行退出；用户已选仍有效则保留）
+      form.supplyOptions = (plan.lines || []).filter(l => l.supplyId && Number(l.remainingQty) > 0)
+        .map(l => ({ id: String(l.supplyId), label: l.name + ' · 余 ' + l.remainingQty + l.unit }));
+      if (form.supplyOptions.length) {
+        const stillValid = form.supplyOptions.find(o => o.id === form.supplyId);
+        form.supplyId = (stillValid && form.supplyId) || form.supplyOptions[0].id;
+        // R6 P2：label 从最新选项同步（选中行余量变化时显示不再过期）
+        form.supplyLabel = stillValid ? stillValid.label : form.supplyOptions[0].label;
+        fields = [viewField('supplyId', '确认到货的供应事项', 'supply'),
+          viewField('actual', '实际到货数量', 'digit'), viewField('date', '到货日期', 'date'),
+          viewField('transaction', '收货流水号'), viewField('file', '到货凭据（jpg/png/pdf）', 'file'),
+          viewField('note', '到货说明（选填）', 'textarea')];
+        actions = [{ action: 'arrival', label: '确认本次到货' }];
+      } else fields = [];
     } else fields = [];
   } else if (view === 'settlement') {
     if (own && delivery && !settlement) {
@@ -509,10 +567,20 @@ function recordView(bundle, ctx) {
     // M07-T02：期次行补 collection 跳转（BASE_DONE 收款入口；stage 已是 STAGE_URL 归一值 start/base/topping）
     installments: data.installments.map(i => ({ ...i, url: base + 'collection&stage=' + i.stage })),
     plans, settle: data.settle,
+    // R2 P1-4：现场记录透出（后端 detail.siteRecords——JSONB 文本解析；site-correct 更正入口数据源）
+    siteRecords: (d.siteRecords || []).filter(r => String(r.node_id) === String((node && node.id) || '')).map(r => {
+      let files = [];
+      try { files = JSON.parse(r.file_asset_ids || '[]').map(a => ({ assetId: a })); } catch (e) { files = []; }
+      let corrections = [];
+      try { corrections = JSON.parse(r.corrections || '[]'); } catch (e2) { corrections = []; }
+      return { id: String(r.id), nodeId: String(r.node_id), note: r.note || '',
+        date: timestampDate(r.occurred_at), completion: !!r.completion,
+        files, corrections, canCorrect: own && !delivery && !r.completion };
+    }),
     dunning: data.dunning, materialFollowups: data.materialFollowups, collections: p.collections,
     docs: p.documents, events: [],
     nodeRows: nodes.map(n => ({ ...n, pace: '', url: base + 'node&nodeId=' + encodeURIComponent(n.id) })),
-    nodePlans: [], nodeMoney: null, inspections: [], arrivals: [], siteRecords: [],
+    nodePlans: [], nodeMoney: null, inspections: [], arrivals: [],
     pending: [], waiting: [], engineers: [], engineerIndex: 0, templates: [], templateIndex: 0,
     links, next,
     node: node || null, plan: plan || null,

@@ -229,5 +229,5 @@ module.exports = {
   registerReceipt, registerPayment, registerRefund, registerExpenseRefund, registerPayable,
   voidRefund, reconciliation,
   confirmBank, bankFlows, projectAccount,
-  uploadVoucher, reviseReceipt, revisions, sha256Hex
+  uploadVoucher, reviseReceipt, revisions, sha256Hex, readFileBase64, guessMime
 };

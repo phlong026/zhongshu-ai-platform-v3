@@ -5,6 +5,7 @@
  * 金额一律分（cents）；写命令一律带 Idempotency-Key（后端三层幂等）。
  */
 const http = require('../http');
+const X = require('../../utils/access'); // R2 P2-8：缓存组织维度
 
 const idem = (key, action) => (key
   ? { 'Idempotency-Key': key }
@@ -114,7 +115,79 @@ const closure = {
 const assets = {
   uploadTicket: (assetType, mimeType, sizeBytes, sha256) =>
     http.post('/franchise/assets/upload-tickets', { assetType, mimeType, sizeBytes, sha256 }),
-  complete: (assetId) => http.post('/franchise/assets/' + assetId + '/complete')
+  complete: (assetId) => http.post('/franchise/assets/' + assetId + '/complete'),
+  /** M07-T04 批次#36：授权查看——下载票据（COS=签名 URL+到期；local=local:// 占位） */
+  downloadTicket: (assetId) => http.post('/franchise/assets/' + assetId + '/download-tickets', {})
 };
 
-module.exports = { projects, plan, materials, site, collections, closure, assets };
+/** base64 → 二进制字符串（每字符一字节，供 sha256Hex 按原始字节摘要——R1 P1-1：
+ * 后端 complete 对存储字节算 SHA-256 与票据声明比对，对 base64 文本算 UTF-8 哈希必 SHA_MISMATCH） */
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function base64ToBinary(b64) {
+  const clean = String(b64).replace(/[^A-Za-z0-9+/]/g, '');
+  const rem = clean.length % 4; // 尾部未满 4 字符的余位（无 '=' 补齐的流式 base64）
+  const body = rem ? clean.slice(0, clean.length - rem) : clean;
+  const tail = rem ? clean.slice(clean.length - rem) : '';
+  let out = '';
+  for (let i = 0; i < body.length; i += 4) {
+    const n = (BASE64_CHARS.indexOf(body[i]) << 18) | (BASE64_CHARS.indexOf(body[i + 1]) << 12)
+      | ((BASE64_CHARS.indexOf(body[i + 2]) & 63) << 6) | (BASE64_CHARS.indexOf(body[i + 3]) & 63);
+    out += String.fromCharCode((n >> 16) & 255, (n >> 8) & 255, n & 255);
+  }
+  if (tail.length >= 2) {
+    const n = (BASE64_CHARS.indexOf(tail[0]) << 18) | (BASE64_CHARS.indexOf(tail[1]) << 12)
+      | (tail.length >= 3 ? (BASE64_CHARS.indexOf(tail[2]) & 63) << 6 : 0);
+    out += String.fromCharCode((n >> 16) & 255);
+    if (tail.length >= 3) out += String.fromCharCode((n >> 8) & 255);
+  }
+  return out;
+}
+
+/**
+ * M07-T04 批次#36：工程凭据上传（基-1 票据链）。
+ * R1 P1-6 响应丢失重试：同路径文件缓存 {sha, assetId}——重试复用已完成资产，
+ * 业务幂等键（deliver 指纹含资产 ID）重放合法，不会「同键不同资产」。
+ * R1 P1-2：字节通道走统一 http 封装（自动 Authorization/X-Post-Id/租户头+业务错误解包）。
+ * R1 P1-3：complete 响应检查 uploadStatus——REJECTED（SHA_MISMATCH 等）抛 rejectedReason，
+ * 拒绝资产不返回 assetId、不进业务调用。取消/超时（未 complete）无有效资产引用，不落业务记录。
+ */
+// R2 P2-8：缓存键含组织+资产类型（同路径同内容不同类型须重签票；切组织隔离）
+const voucherCache = new Map(); // 'orgId|assetType|filePath' -> { sha, assetId }
+async function uploadVoucher(filePath, assetType) {
+  if (!filePath) throw { code: 0, msg: '请选择凭据文件' };
+  const financeApi = require('../finance');
+  const fsData = await financeApi.readFileBase64(filePath);
+  const binary = base64ToBinary(fsData);
+  const sha = financeApi.sha256Hex(binary); // 原始字节摘要
+  const cacheKey = (X && X.context().companyId || 'na') + '|' + assetType + '|' + filePath;
+  const cached = voucherCache.get(cacheKey);
+  if (cached && cached.sha === sha) return cached.assetId; // 重试复用（响应丢失场景）
+  const stat = wx.getFileSystemManager().statSync(filePath);
+  const sizeBytes = stat.size || binary.length;
+  const ticket = await assets.uploadTicket(assetType, financeApi.guessMime(filePath), sizeBytes, sha);
+  const assetId = ticket.assetId;
+  if (ticket.uploadUrl && !/^local:\/\//.test(ticket.uploadUrl) && ticket.uploadUrl.indexOf('/platform/dev/') < 0) {
+    // R3 P1-3/20 号契约 §2：生产 COS 签名 URL 原始字节 PUT（dev bytes 仅 local/zsdev profile 存在）
+    await new Promise((resolve, reject) => {
+      wx.request({
+        url: ticket.uploadUrl, method: 'PUT',
+        header: { 'content-type': financeApi.guessMime(filePath) },
+        data: wx.base64ToArrayBuffer(fsData), // 原始字节（complete 校验 SHA 与申报一致）
+        success: r => (r.statusCode >= 200 && r.statusCode < 300 ? resolve()
+          : reject({ code: 0, msg: '凭据上传失败（' + r.statusCode + '），请重试' })),
+        fail: () => reject({ code: 0, msg: '凭据上传网络失败，请重试' })
+      });
+    });
+  } else {
+    await http.post('/platform/dev/design/assets/' + assetId + '/bytes', { contentBase64: fsData });
+  }
+  const completed = await assets.complete(assetId);
+  if (!completed || completed.uploadStatus !== 'ACCEPTED') {
+    const reason = (completed && completed.rejectedReason) || '校验未通过';
+    throw { code: 0, msg: '凭据校验未通过：' + reason + '，请更换文件后重试' };
+  }
+  voucherCache.set(cacheKey, { sha, assetId });
+  return assetId;
+}
+
+module.exports = { projects, plan, materials, site, collections, closure, assets, uploadVoucher, base64ToBinary };
