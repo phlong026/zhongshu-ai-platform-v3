@@ -1,2087 +1,2087 @@
 {
-  "baseline": {
-    "frontend": "f2592ce",
-    "backend": "88cd000"
+ "baseline": {
+  "frontend": "f2592ce",
+  "backend": "88cd000"
+ },
+ "policy_document": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/16-业务规则与角色职责-最终版.md",
+ "policy_status": "finalized",
+ "baseline_observation_count": 51,
+ "rule_adaptation_count": 4,
+ "issues": [
+  {
+   "id": "M01-I01",
+   "title": "Web删除系统用户未串联平台任职和令牌回收",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 67,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ]
   },
-  "policy_document": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/16-业务规则与角色职责-最终版.md",
-  "policy_status": "finalized",
-  "baseline_observation_count": 51,
-  "rule_adaptation_count": 4,
-  "issues": [
-    {
-      "id": "M01-I01",
-      "title": "Web删除系统用户未串联平台任职和令牌回收",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 67,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ]
-    },
-    {
-      "id": "M01-I02",
-      "title": "追加同岗位时提交不同部门被静默忽略",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 76,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ]
-    },
-    {
-      "id": "M01-I03",
-      "title": "撤岗/停用没有真实业务责任交接闭环",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 84,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ]
-    },
-    {
-      "id": "M01-I04",
-      "title": "组织局部停职与全局账号停用需分离（规则已定，旧实现待改）",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 92,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ]
-    },
-    {
-      "id": "M01-I05",
-      "title": "建账号和指派任职没有统一事务边界",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 100,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ]
-    },
-    {
-      "id": "M01-I06",
-      "title": "正式组织开通入口与部门维护界面不完整",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 108,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ]
-    },
-    {
-      "id": "M02-I01",
-      "title": "短信服务生产装配缺少可用SmsClient实现",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 66,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ]
-    },
-    {
-      "id": "M02-I02",
-      "title": "HTTP200/body401不触发平台失效回收",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 75,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ]
-    },
-    {
-      "id": "M02-I03",
-      "title": "新账号token可搭配上个账号岗位缓存进入页面",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 84,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ]
-    },
-    {
-      "id": "M02-I04",
-      "title": "通用退出入口与真实平台退出清理范围不一致",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 93,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ]
-    },
-    {
-      "id": "M02-I05",
-      "title": "缓存任职切换没有失效后恢复流程",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 102,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ]
-    },
-    {
-      "id": "M03-I01",
-      "title": "[P1] 代码确认",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 61,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ]
-    },
-    {
-      "id": "M03-I02",
-      "title": "[P2] 纯内存复现",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 70,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ]
-    },
-    {
-      "id": "M03-I03",
-      "title": "[P2] 纯内存复现/接入缺口",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 79,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ]
-    },
-    {
-      "id": "M03-I04",
-      "title": "[P2] 代码确认/接入缺口",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 88,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ]
-    },
-    {
-      "id": "M04-I01",
-      "title": "[P1] 纯内存复现",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 64,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ]
-    },
-    {
-      "id": "M04-I02",
-      "title": "[P2] 纯内存复现",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 73,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ]
-    },
-    {
-      "id": "M04-I03",
-      "title": "[P2] 代码确认/接入缺口",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 82,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ]
-    },
-    {
-      "id": "M04-I04",
-      "title": "[P2] 代码确认",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 91,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ]
-    },
-    {
-      "id": "M05-I01",
-      "title": "[P1] 代码确认/真实接入缺口",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 66,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M05-I02",
-      "title": "[P2] 纯内存复现",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 75,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M05-I03",
-      "title": "[P2] 代码确认/规模缺口",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 84,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M05-I04",
-      "title": "[P2] 规则已定：移交版本选择与冻结待整改",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 93,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M06-I01",
-      "title": "[P1] 代码确认/继承接入缺口",
-      "module": "M06",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
-      "line": 68,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05"
-      ]
-    },
-    {
-      "id": "M06-I02",
-      "title": "[P1] 规则已定：统一建房合同、三期分笔收款与跨域账待整改",
-      "module": "M06",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
-      "line": 77,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05"
-      ]
-    },
-    {
-      "id": "M06-I03",
-      "title": "[P2] 待验证风险（不计已确认缺陷）",
-      "module": "M06",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
-      "line": 86,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05"
-      ]
-    },
-    {
-      "id": "M07-I01",
-      "title": "多行材料调整共用幂等键，导致部分成功（P1，静态已确认）",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 68,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M07-I02",
-      "title": "单材料重试输入与事件留痕形状不同（P1，静态已确认）",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 78,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M07-I03",
-      "title": "工程凭据动作阻断本期正式交付（P1，源码已确认；规则已定待实施）",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 87,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M07-I04",
-      "title": "工程证据资产引用缺少域侧校验（P1，静态已确认）",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 94,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M07-I05",
-      "title": "三期收款与共享合同迁移（规则已定待实施/验证）",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 103,
-      "kind": "rule-adaptation",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M07-I06",
-      "title": "对外劳务及直接费用联动（最终规则落地检查，待实施/验证）",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 110,
-      "kind": "rule-adaptation",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M08-I01",
-      "title": "到账确认同步异常并锁住busy（P1，内存已复现）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 72,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M08-I02",
-      "title": "凭证SHA错误且只走dev字节端点（P1，SHA内存已复现；环境静态确认）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 82,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M08-I03",
-      "title": "旧岗位请求覆盖当前财务数据（P1，内存已复现）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 97,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M08-I04",
-      "title": "失败重试换幂等键可重复登记（P1条件风险，静态推断）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 104,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M08-I05",
-      "title": "业务日期可空导致月度统计漏单（P1，静态已确认）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 111,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M08-I06",
-      "title": "财务关联ID被Number转换损失精度（P1，真实动作内存已复现）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 120,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M08-I07",
-      "title": "三方向退款、原单关联与异常资金留痕（规则已定待实施/验证）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 134,
-      "kind": "rule-adaptation",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M09-I01",
-      "title": "交付及结算资产引用不校验真实性（P1，静态已确认）",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 69,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M09-I02",
-      "title": "退款后净额展示与未来资金门槛需按最终规则落地（P2，基线差异；规则已定待实施）",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 81,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M09-I03",
-      "title": "结算屏项目费用仍为0占位（P2，已确认范围缺口）",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 91,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M09-I04",
-      "title": "小程序真实交付凭据纳本期交付（P1，本期范围已定待实施）",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 98,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M10-I01",
-      "title": "绩效页引用公共路径缺陷（P1，静态已确认，统一M11-I01，不重复计数）",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 76,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M10-I02",
-      "title": "财务日期可空导致月度绩效和对账漏单（P1，静态已确认）",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 84,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M10-I03",
-      "title": "老板经营页面及快照仍写本地账（P1接入缺口，静态已确认）",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 93,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M10-I04",
-      "title": "历史月经营快照含当前全量统计（P1，静态确认口径不一致）",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 102,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M10-I05",
-      "title": "退款后提成分状态核对及实际付款留痕（P2，基线行为已确认；规则已定待实施）",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 111,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M10-I06",
-      "title": "三期合同实收的绩效/经营/提成来源映射（规则已定待实施/验证）",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 121,
-      "kind": "rule-adaptation",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ]
-    },
-    {
-      "id": "M11-I01",
-      "title": "五个页面错误引用 demo-badge，页面不能完整运行",
-      "module": "M11",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
-      "line": 69,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R04",
-        "R05",
-        "R07"
-      ]
-    },
-    {
-      "id": "M11-I02",
-      "title": "旧账号消息响应覆盖当前账号列表",
-      "module": "M11",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
-      "line": 82,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R04",
-        "R05",
-        "R07"
-      ]
-    },
-    {
-      "id": "M11-I03",
-      "title": "文件正式字节通道未形成跨域可复核验收链",
-      "module": "M11",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
-      "line": 92,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R01",
-        "R04",
-        "R05",
-        "R07"
-      ]
-    },
-    {
-      "id": "M12-I01",
-      "title": "演示标识验证脚本条件与名称反参，错误接线仍通过",
-      "module": "M12",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
-      "line": 81,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R02",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M12-I02",
-      "title": "Web员工岗位含义与平台业务任职不一致，管理员操作链未闭合",
-      "module": "M12",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
-      "line": 90,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R02",
-        "R06",
-        "R07"
-      ]
-    },
-    {
-      "id": "M12-I03",
-      "title": "发布产物与双仓、图片Runtime来源缺乏本轮可复现证明",
-      "module": "M12",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
-      "line": 100,
-      "kind": "baseline-audit",
-      "applicable_rules": [
-        "R02",
-        "R06",
-        "R07"
-      ]
-    }
-  ],
-  "tasks": [
-    {
-      "id": "M12-T01",
-      "title": "修复验收脚本可信度（关联I01）",
-      "dependency": "前置：先保存当前假绿变异证据，锁定正确脚本应对坏样本失败的行为。；阶段A先行：修复断言参数并保存故障样本；删除接线、错误路径、丢WXML绑定均正确非零退出，当前五页缺陷应被检出为红；该阶段不要求业务页面已修复。；阶段A验收通过即可解锁M11-T01，不以本任务全部完成作前置。；阶段B后置：M11-T01修路径后，八页引用、五页模块加载和onShow真实执行共同转绿；再注入坏样本仍红，不新增依赖。；依赖顺序固定：M12-T01/A门禁先红 → M11-T01修页面 → M12-T01/B联合转绿。",
-      "acceptance": "阶段A先行：修复断言参数并保存故障样本；删除接线、错误路径、丢WXML绑定均正确非零退出，当前五页缺陷应被检出为红；该阶段不要求业务页面已修复。；阶段B后置：M11-T01修路径后，八页引用、五页模块加载和onShow真实执行共同转绿；再注入坏样本仍红，不新增依赖。",
-      "status": "已实施／E2验证通过（A/B全阶段，2026-11-03 批次#1）；E4随发布验收",
-      "module": "M12",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
-      "line": 118,
-      "business_roles": "平台运营、组织管理员、财务",
-      "applicable_rules": [
-        "R02",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 1,
-      "implementation_note": "批次#1 2026-11-03：实现+本地验证证据见 18-整改执行记录.md 与 evidence/implementation/"
-    },
-    {
-      "id": "M11-T01",
-      "title": "修复五页标识模块引用（关联 I01）",
-      "dependency": "前置：仅M12-T01阶段A，门禁已建立且对当前坏路径与故障样本正确变红；不依赖其阶段B联合转绿或全部完成。",
-      "acceptance": "验收：八页均能解析引用；五页分别执行模块加载、onLoad/onShow，无 MODULE_NOT_FOUND。；验收：游客、本地演示、API、API降级四态标识正确且无额外写请求。",
-      "status": "已实施／E2验证通过（2026-11-03 批次#1）；E4随发布验收",
-      "module": "M11",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
-      "line": 115,
-      "business_roles": "各业务岗位、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R04",
-        "R05",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 2,
-      "implementation_note": "批次#1 2026-11-03：实现+本地验证证据见 18-整改执行记录.md 与 evidence/implementation/"
-    },
-    {
-      "id": "M03-T01",
-      "title": "studio/index.js 内容页回归",
-      "scope": "I01；引用M11-T01统一实施，不重复计修复工作量",
-      "dependency": "M12门禁A先锁定反例→M11-T01统一修路径→本模块内容回归联合验证",
-      "acceptance": "页面onShow无require错误，真平台/本地四态标识可见性正确",
-      "status": "共享实现已回归（E2，2026-11-03 批次#1）；场景验收待CV-01",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 108,
-      "business_roles": "业务人员、业务负责人",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 3,
-      "implementation_note": "批次#1 2026-11-03：实现+本地验证证据见 18-整改执行记录.md 与 evidence/implementation/"
-    },
-    {
-      "id": "M10-T01",
-      "title": "I01；引用M11-T01统一修复，本模块仅绩效页验收",
-      "scope": "I01；引用M11-T01统一修复，本模块仅绩效页验收",
-      "dependency": "M11-T01，关联M12门禁",
-      "acceptance": "静态依赖检查＋Page生命周期无缺模块；在线/本地两态均能打开",
-      "status": "共享实现已回归（E2，2026-11-03 批次#1）；场景验收待CV-01",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 139,
-      "business_roles": "加盟商老板、财务、绩效相关岗位",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 4,
-      "implementation_note": "批次#1 2026-11-03：实现+本地验证证据见 18-整改执行记录.md 与 evidence/implementation/"
-    },
-    {
-      "id": "M01-T01",
-      "title": "统一删除、停用、撤岗的授权回收契约（I01）",
-      "dependency": "",
-      "acceptance": "验收：平台管理员执行全局账号删除（单删/批删）或全局停用后，旧token、全部任职及钱包授权均不能办理；无效账号不能刷新获得新授权。；验收：组织管理员撤销本组织任职或停职，只回收受影响任职及对应组织钱包能力；同账号在其他组织的有效任职继续可用，不触发全局账号停用。；验收：其他用户/组织正常会话不受影响；重复请求有明确结果；事务失败不留下半撤权状态。",
-      "status": "已实施／E3验证通过（2026-11-03 批次#2：真实令牌链/PG 集成/变异验证，Codex R1 3P1+2P2+1P3 全修复）；M01-T02/M02-T01 联验项移交",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 118,
-      "business_roles": "平台管理员、平台运营、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 5,
-      "implementation_note": "批次#2 2026-11-03：删除链事件化回收+userUsable 门禁+钱包发卡复验+advisory 锁；证据见 18-整改执行记录.md"
-    },
-    {
-      "id": "M02-T01",
-      "title": "统一平台认证失效与岗位失效契约（I02/I05）",
-      "dependency": "",
-      "acceptance": "验收：当前平台401清token和对应岗位缓存并引导登录；旧会话401不破坏新会话；钱包401不踢平台。；验收：岗位失效刷新岗位，禁止循环切回已撤岗位；普通403不误判账号退出。",
-      "status": "已实施／E2验证通过（2026-11-03 批次#4：body401 同契约+岗位失效四态恢复+孤立刷新令牌收口，Codex 两轮闭环+变异自证）；E4随CV-01",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 112,
-      "business_roles": "组织管理员、有效任职员工",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 6,
-      "implementation_note": "批次#4 2026-11-03：http.js handleUnauthorized/recoverPostInvalid/refreshAccessToken 用户校验；42 断言 verify-auth-session-contract"
-    },
-    {
-      "id": "M02-T02",
-      "title": "将登录与岗位加载作为一致的状态流程（I03）",
-      "dependency": "",
-      "acceptance": "验收：A→B切账号时先隔离A缓存；B任职加载超时/失败仅能重试/返回登录，不按A岗位跳页。；验收：新账号任职空、多岗、单岗均有明确落点；A迟到成功不能更新B岗位。；验收：重复点击登录与两种登录方式交错时，最终token/posts/postId属于同一账号。",
-      "status": "已实施／E2验证通过（2026-11-04 批次#5，Codex 两轮+变异自证）",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 120,
-      "business_roles": "组织管理员、有效任职员工",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 7,
-      "implementation_note": "批次#5：saveLogin 清岗位上下文+afterRealLogin 守卫；54 断言契约脚本"
-    },
-    {
-      "id": "M02-T03",
-      "title": "统一退出入口和页面会话清理（I04）",
-      "dependency": "前置：统一退出实现可先行；关闭任务前须与M11-T02、M08-T02页面隔离修复共同回归，不提前宣布所有页面已完成退出清理。",
-      "acceptance": "验收：纯API登录、纯演示登录、两者共存逐一验证；按钮说明的退出范围与token实际去留一致。；验收：退出后旧请求不回填资料/消息/财务数据；保留明确允许的草稿，不保留上个账号可见的敏感页面快照。",
-      "status": "实现完成／E2验证通过（批次#5）；关闭联验待 M08-T02 页面隔离（13号约束）",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 128,
-      "business_roles": "组织管理员、有效任职员工",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 8,
-      "implementation_note": "批次#5：session-actions 双链独立退出；关闭联验待 M08-T02"
-    },
-    {
-      "id": "M11-T02",
-      "title": "为消息响应加入会话与请求代次保护（关联 I02）",
-      "dependency": "前置：沿用已有会话代次接口，与 M02 清会话契约保持一致。",
-      "acceptance": "验收：A→B 乱序返回、退出后旧成功、重复刷新乱序均不得覆盖当前消息/未读数。；验收：当前会话网络失败有可解释状态，失败不把旧账号内容保留为当前有效数据。；验收：不因切岗误清新账号；资料异步读取增加同类隔离负测。",
-      "status": "已实施／E2验证通过（2026-11-04 批次#5，Codex 两轮+变异自证）",
-      "module": "M11",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
-      "line": 123,
-      "business_roles": "各业务岗位、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R04",
-        "R05",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 9,
-      "implementation_note": "批次#5：sequenceGuard/requestGuard 分域组合守卫；16 断言页面级脚本+三组变异"
-    },
-    {
-      "id": "M08-T01",
-      "title": "I01；finance API前端",
-      "scope": "I01；finance API前端",
-      "dependency": "无",
-      "acceptance": "缺省键5函数均不抛；到账按钮成功失败都清busy；请求携带稳定键",
-      "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 155,
-      "business_roles": "加盟商财务、总部财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 10,
-      "implementation_note": "批次#9：缺省键沙箱真实调用断言（挖出并修 idemKey 参数遮蔽缺陷）"
-    },
-    {
-      "id": "M08-T02",
-      "title": "I03；finance-desk前端",
-      "scope": "I03；finance-desk前端",
-      "dependency": "M02会话契约",
-      "acceptance": "A/B换岗乱序、退出、连续刷新，旧响应均不得写当前页面",
-      "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 156,
-      "business_roles": "加盟商财务、总部财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 11,
-      "implementation_note": "批次#9：loadPlatformFinance requestGuard 成功+失败双写点"
-    },
-    {
-      "id": "M08-T07",
-      "title": "I06；platform-actions前端",
-      "scope": "I06；platform-actions前端",
-      "dependency": "无",
-      "acceptance": "超2^53应付/收款/流水/项目ID发出与收到逐字一致，索引金额转换保留",
-      "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 160,
-      "business_roles": "加盟商财务、总部财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 12,
-      "implementation_note": "批次#9：雪花 ID 去 Number() 改 String 逐字（四处）"
-    },
-    {
-      "id": "M01-T02",
-      "title": "落实组织局部停职与全局账号停用权限（I04）",
-      "dependency": "前置：采用R01已定规则，按组织任职与全局账号两个作用范围实施。",
-      "acceptance": "验收：A组织局部撤岗不影响同账号在B组织的有效任职；全局账号停用影响全部组织，界面提示与服务器实际作用一致。",
-      "status": "已实施／E2-E3验证通过（2026-11-03 批次#3：org 级停职+全局停用分离+矩阵产物，Codex 两轮闭环）；E4 跨岗位真机随 CV-01",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 126,
-      "business_roles": "平台管理员、平台运营、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 13,
-      "implementation_note": "批次#3 2026-11-03：revokeAllInOrg+setStatus 三分语义+AdminUserDisabledEvent 回收链；矩阵见 18-整改执行记录.md 批次#3"
-    },
-    {
-      "id": "M12-T02",
-      "title": "落实第一批Web组织、管理员和任职入口",
-      "dependency": "前置：采用R01/R02已定流程，复用M01组织任职及撤权实现。",
-      "acceptance": "验收：每项Web承诺有可点击入口、真实API、权限拒绝与持久化证据；不承诺的明确记录入口渠道。",
-      "status": "已完成（批次#7 第一批组织开通入口+批次#32 矩阵核对登记：离职交接=小程序 boss 岗✅；财务核对/异常事项/经营查询/导出=R02 承诺 Web 待建项，当前渠道=小程序 finance-desk/owner-page，显式登记挂批次#41；验收条款「不承诺的明确记录入口渠道」已履行）",
-      "module": "M12",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
-      "line": 128,
-      "business_roles": "平台运营、组织管理员、财务",
-      "applicable_rules": [
-        "R02",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 14,
-      "implementation_note": "批次#7：Web 第一批入口（组织开通）交付；矩阵余项随后续批次"
-    },
-    {
-      "id": "M01-T03",
-      "title": "修正同岗位改部门的命令语义（I02）",
-      "dependency": "",
-      "acceptance": "验收：同参数重复返回同任职；不同teamId不能静默返回成功；跨组织部门被拒绝；并发调整结果明确。；联动验收：客户范围、主管团队、绩效维度和待办范围同步；历史归属按明确规则保留。",
-      "status": "已实施／E3验证通过（2026-11-04 批次#6，Codex R1 三P2 修复闭环+并发用例）；真实DB回滚证据待e2e补证",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 133,
-      "business_roles": "平台管理员、平台运营、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 15,
-      "implementation_note": "批次#6：POST_TEAM_CONFLICT 015+锁前置并发语义+集成用例"
-    },
-    {
-      "id": "M01-T05",
-      "title": "建员与任职原子化并覆盖失败恢复（I05）",
-      "dependency": "",
-      "acceptance": "验收：新账号在指派失败后无孤立记录；已有账号失败后保留原资料和其他组织任职；手机号并发唯一性结果可解释。；验收：成功创建员工立即可用M02登录；失败不会出现提示成功但岗位不存在。",
-      "status": "已实施／E3验证通过（2026-11-04 批次#6，Codex R1 三P2 修复闭环+并发用例）；真实DB回滚证据待e2e补证",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 148,
-      "business_roles": "平台管理员、平台运营、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 16,
-      "implementation_note": "批次#6：createStaffInOrg 编排事务下沉 service"
-    },
-    {
-      "id": "M01-T06",
-      "title": "固定并补齐正式组织与首任管理员开通流程（I06）",
-      "dependency": "",
-      "acceptance": "验收：空组织开通→部门→首管理员→员工→登录可以按正式步骤完成；重复开通不重复建组织。；验收：组织类型、组织隔离、开通失败恢复、停用/恢复行为有证据；生产不依赖开发fixture。",
-      "status": "已实施／E3验证通过（2026-11-04 批次#7，Codex R1 两P1两P2 修复闭环）；E4真机菜单路由待发布批",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 155,
-      "business_roles": "平台管理员、平台运营、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 17,
-      "implementation_note": "批次#7：OrgOnboardService 编排+平台级权限域+迁移 707+Web 页面"
-    },
-    {
-      "id": "M04-T02",
-      "title": "workflow/index.js 转交表单",
-      "scope": "I02/I04",
-      "dependency": "M01岗位读取可用",
-      "acceptance": "任意详情刷新后候选正常；同名按userId选择；撤岗后后端拒绝",
-      "status": "已实施／E2验证通过（2026-11-04 批次#10，Codex R1 六项修复闭环）",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 112,
-      "business_roles": "业务人员、组织负责人",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 18,
-      "implementation_note": "批次#10：候选代次独立校验+label 恒带 team 后缀去歧义+label 反查 userId"
-    },
-    {
-      "id": "M01-T04",
-      "title": "实现正常离职交接与紧急撤权两条路径（I03）",
-      "dependency": "前置：T02权限边界及各业务责任字段明确；正常离职生效即撤权，未交接转负责人待分配，紧急回收不等待交接成功。",
-      "acceptance": "验收：未完成客户、设计委托、工程任务、待办逐项有新责任人或明确待分配状态；历史经办记录保留。；验收：接收人已停用/不在组织/无对应岗位拒绝，交接失败可重试，重复交接不会重复创建业务。",
-      "status": "已完成（批次#19 后端 3ec60b6+批次#32 v3 接线闭环：account api-members 交接卡/紧急撤权/待分配/补交接；切岗跨组织防护 handoverCtx 失配清空+busy 交接链持有+接收人 userId 保留；Codex 九轮 R9 PASS；verify-member-handover 9 组）",
-      "module": "M01",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
-      "line": 140,
-      "business_roles": "平台管理员、平台运营、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R02"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 19,
-      "implementation_note": "批次#18 勘察：需 DepartureHandoverService 跨域批量编排；M01-T01/T02 事件化回收已覆盖撤权部分"
-    },
-    {
-      "id": "M02-T04",
-      "title": "补齐生产短信装配并验证双登录（I01）",
-      "dependency": "",
-      "acceptance": "验收：pg,prod完整上下文可启动；生产拒绝stub；缺配置失败可定位，不输出验证码或密钥。；验收：手机号不存在/停用/无任职/歧义匹配拒绝；验证码过期、重复使用、错误次数、发送频率均有测试。",
-      "status": "规则已定，待实施／验证",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 136,
-      "business_roles": "组织管理员、有效任职员工",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 20
-    },
-    {
-      "id": "M11-T03",
-      "title": "固定共享文件交付与访问契约（关联 I03，分两步验收）",
-      "dependency": "阶段A：契约冻结先行；依据现有资产接口确定输入输出、错误和权限，不等待业务上传实现或真实渠道就绪。；阶段A产物交给M08财务及工程/内容所属模块；这些模块只依赖契约冻结，不依赖本任务阶段B全部完成。；阶段B：真实渠道验收后置；前置为阶段A冻结、各业务字节/引用实现和授权测试环境就绪。",
-      "acceptance": "阶段A验收：ticket→原始字节PUT→complete→业务引用→签名下载的状态、字节哈希口径、角色矩阵和失败处理可供业务直接实施。；阶段B验收：实际字节sha256与申报值一致；失配拒绝；授权岗位下载有效文件，过期签名失效。；阶段B验收：生产不依赖/platform/dev/**，失败提示不冒充“已上传”；业务代码修复仍归所属模块。",
-      "status": "阶段A已冻结／E2验证通过（批次#8，20号文档）；B阶段（真实渠道）待COS凭据",
-      "module": "M11",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
-      "line": 132,
-      "business_roles": "各业务岗位、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R04",
-        "R05",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 21,
-      "implementation_note": "20 号契约冻结：状态机/冻结字段/失败语义/权限矩阵"
-    },
-    {
-      "id": "M08-T03",
-      "title": "I02；finance上传前端",
-      "scope": "I02；finance上传前端",
-      "dependency": "M11-T03/A资产契约冻结",
-      "acceptance": "标准SHA向量与原字节一致；财务当前岗票据上传完成；生产不依赖dev",
-      "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 157,
-      "business_roles": "加盟商财务、总部财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 22,
-      "implementation_note": "批次#9：sha256Hex FIPS 重写（原实现输出恒错 P1）+标准向量/crypto差分/导出"
-    },
-    {
-      "id": "M08-T04",
-      "title": "I04；platform-actions前端",
-      "scope": "I04；platform-actions前端",
-      "dependency": "T01",
-      "acceptance": "响应丢失后同键重试，现金收款/付款/退款/应付各只有一笔",
-      "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 158,
-      "business_roles": "加盟商财务、总部财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 23,
-      "implementation_note": "批次#9：粘性幂等键+cancel 解除 busy+四路键状态断言"
-    },
-    {
-      "id": "M08-T05",
-      "title": "正常日期必填、历史补正与异常待归月",
-      "scope": "I05；财务Controller/Service＋表单",
-      "dependency": "权威16日期规则已定，与M10-T02读侧契约同步",
-      "acceptance": "正常归单归月日期必填默认今天可改，拒空/未来；日期待核异常可留痕，已核金额待归月单列不入净额/实绩；历史NULL核实，修订留版本",
-      "status": "已实施／E2-E3验证通过（2026-11-04 批次#8，Codex R1 修复闭环）；异常登记载体随M08-T08",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 159,
-      "business_roles": "加盟商财务、总部财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 24,
-      "implementation_note": "批次#8：BusinessDateGuard 026/027+三端点+v3 待归月单列"
-    },
-    {
-      "id": "M10-T02",
-      "title": "财务发生日与绩效经营归月一致",
-      "scope": "I02；PerfMetrics/Operating后端",
-      "dependency": "权威16日期已定，与M08-T05读写契约同步",
-      "acceptance": "正常归单归月实际日期必填拒空/未来；已核金额未知日期单列待归月不虚填、不进净额/实绩；历史NULL核实，方向不混",
-      "status": "读写契约已对齐／E2验证通过（批次#8：写侧补齐后端读侧本已合规，零改动）",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 140,
-      "business_roles": "加盟商老板、财务、绩效相关岗位",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 25,
-      "implementation_note": "批次#8：PerfMetrics 读侧核对合规（NULL 不落月）"
-    },
-    {
-      "id": "M04-T01",
-      "title": "customers/index.js、index.wxml",
-      "scope": "I01",
-      "dependency": "无",
-      "acceptance": "20/50/51/101客户逐项可见；本地展示翻页与服务端取页一致，无重复遗漏",
-      "status": "已实施／E2验证通过（2026-11-04 批次#10，Codex R1 六项修复闭环）",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 111,
-      "business_roles": "业务人员、组织负责人",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 26,
-      "implementation_note": "批次#10：platform 态 hasMore 双语义+本地扩页先于服务端取页+服务端 keyword 检索"
-    },
-    {
-      "id": "M04-T05",
-      "title": "platform-crm、客户页分组与搜索",
-      "scope": "列表与状态口径",
-      "dependency": "T01",
-      "acceptance": "未加载页可检索；API到店状态有明确定义或入口说明，不能静默显示空业务",
-      "status": "已实施／E2验证通过（2026-11-04 批次#10，Codex R1 六项修复闭环）",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 115,
-      "business_roles": "业务人员、组织负责人",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 27,
-      "implementation_note": "批次#10：服务端 keyword 检索未加载页+到店空态口径说明；地区检索边界与 visited 自动标记移交"
-    },
-    {
-      "id": "M03-T02",
-      "title": "growth/index.js；ContentGrowthService响应合同",
-      "scope": "I02",
-      "dependency": "T01",
-      "acceptance": "用真实返回形状断言数量为整数、全部published行进入来源列表",
-      "status": "待实施／待验证",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 109,
-      "business_roles": "业务人员、业务负责人",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 28
-    },
-    {
-      "id": "M04-T03",
-      "title": "leads API、客户/获客负责人入口",
-      "scope": "I03",
-      "dependency": "先冻结M03 source=内容发布:publicationId及lead接口合同；不依赖M03-T03完成",
-      "acceptance": "负责人查pending、关联/作废并回读状态；重复提交幂等；原客户不重复新增",
-      "status": "已实施／E2验证通过（2026-11-04 批次#12，Codex R1 两项修复；UI 最小交付后续迭代）",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 113,
-      "business_roles": "业务人员、组织负责人",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 29,
-      "implementation_note": "批次#12：growth 页 loadPendingLeads/onlineLinkLead/onlineInvalidateLead+crm.js 幂等键透传"
-    },
-    {
-      "id": "M03-T03",
-      "title": "growth/index.js、content API、客户入口",
-      "scope": "I03/I04",
-      "dependency": "T02；M04客资API合同先冻结（不等待M04-T03整体验收）",
-      "acceptance": "登记页初载/返回不丢来源，保存后能找到平台lead/customer；不操作本地同名记录",
-      "status": "待实施／待验证",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 110,
-      "business_roles": "业务人员、业务负责人",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 30
-    },
-    {
-      "id": "M05-T01",
-      "title": "explore/platform-bridge.js、专项回归",
-      "scope": "I02",
-      "dependency": "无",
-      "acceptance": "首屏失败结束loading且可重试；连续筛选最后意图获胜；切岗/卸载后不回写",
-      "status": "已实施／E2验证通过（P3 批次 b3a2e63 已实现全部修复；verify-design-pages.cjs 11 组 PASS 覆盖）",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 114,
-      "business_roles": "业务人员、总部设计、加盟商及总部财务",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 31,
-      "implementation_note": "P3 b3a2e63 已实现首屏失败/筛选守卫/卸载隔离；verify-design-pages 11 PASS 覆盖"
-    },
-    {
-      "id": "M05-T02",
-      "title": "保存客户弹层、CRM列表API",
-      "scope": "I03",
-      "dependency": "M04-T01分页策略",
-      "acceptance": "51/101客户可搜可选，保存后同customerId形成正确kind/version，不读demo",
-      "status": "已实施／E2验证通过（P3 批次 platSaveCustomer+M04-T01 分页修复；AC4-AC7 覆盖 kind/version）",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 115,
-      "business_roles": "业务人员、总部设计、加盟商及总部财务",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 32,
-      "implementation_note": "P3 platSaveCustomer 走 CRM API；M04-T01 分页修复（批次#10）使 >50 客户可搜可选"
-    },
-    {
-      "id": "M06-T04",
-      "title": "统一建房合同、三期与收付来源契约及存量映射",
-      "scope": "I02，统一合同/三期/资金方向规则已定",
-      "dependency": "权威16规则；M07/M08共同冻结引用契约，不等待T02/T03验收",
-      "acceptance": "先固定同C唯一建房contractId、三期金额及分笔receiptId；旧两期单核实映射、重复候选核对留痕；门店设计/材料/劳务付款分开，正常退款限额与异常待关联分开",
-      "status": "后端契约冻结已实施（批次#21，ad60ec0，R3 PASS）／v3 接线随 M06-T02、付款分类退款关联随 M08",
-      "module": "M06",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
-      "line": 108,
-      "business_roles": "业务人员、工程接收人、加盟商财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 33
-    },
-    {
-      "id": "M05-T03",
-      "title": "正式设计委托与加盟商设计付款、总部到账接通",
-      "scope": "I01及设计付款独立往来规则",
-      "dependency": "M01权限、M04客户；M08设计款往来与凭据契约冻结",
-      "acceptance": "委托→费用例外审批→门店设计付款/总部到账→设计完成→正式确认下发→反馈重提；按首尾约定，门店不记收入；正常归单日期与凭证必填，待核事实另入异常；到下发为界，packet由M06-T03实施",
-      "status": "既有覆盖核对登记／E3-E4验证通过（B2 板块 A e41e5d5 e2e 21 步全绿；设计付款/到账/委托链路完整）",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 116,
-      "business_roles": "业务人员、总部设计、加盟商及总部财务",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 34,
-      "implementation_note": "B2 板块 A franchise-design 域交付（e41e5d5）；e2e 21 步全绿；M08-T05/R04 日期契约已接入"
-    },
-    {
-      "id": "M05-T04",
-      "title": "正式确认下发版本选择、移交冻结与变更追溯",
-      "scope": "I04，版本规则已定",
-      "dependency": "T03下发契约；先实现冻结数据契约供M06-T03使用，不等待接收全链完成",
-      "acceptance": "V1正式确认下发后新增未确认V2，移交仍取V1；V2重新确认下发后按最新有效版本接收并冻结；接收后V3只走有凭据变更、不覆盖原冻结版",
-      "status": "已完成（批次#17 后端 c51fceb 冻结快照+批次#31 前端/出参闭环：CommissionRespVos 暴露 dispatchedSchemeVersion/dispatchedSubmissionVersion+Handover.frozenSchemeVersion 3 用例锁契约；v3 commission 页 dispatchedVersionText/pendingVersionNotice 未确认新版本提示/dispatchHistory 版本链；后端 R1 PASS+v3 R3 PASS）",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 117,
-      "business_roles": "业务人员、总部设计、加盟商及总部财务",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 35,
-      "implementation_note": "批次#17：dispatchedSchemeVersion 捕获+selectLatestByCommissionId+迁移 821"
-    },
-    {
-      "id": "M06-T01",
-      "title": "workflow交易catch、http401回归",
-      "scope": "I03待验证风险",
-      "dependency": "M02登录/切岗状态约定",
-      "acceptance": "先复现HTTP层clearSession后实际catch行为；仅确认问题后修复；当前401清态、旧会话401不影响新岗",
-      "status": "待实施／待验证",
-      "module": "M06",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
-      "line": 107,
-      "business_roles": "业务人员、工程接收人、加盟商财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 36
-    },
-    {
-      "id": "M06-T02",
-      "title": "实施签约后／基础完成后／封顶后三期分笔收款",
-      "scope": "I02，三期与统一账规则已定",
-      "dependency": "M06-T04先冻结统一合同/分笔/退款契约；M08收付账契约冻结",
-      "acceptance": "WAIT_SIGN不可正常期款核销，但已发生提前到账仍按合同待核销或异常待关联留痕；签订后/基础完成后/封顶后三期金额按合同约定且各期可分笔；双入口同余额不重复收；正常归单各笔日期/凭证必填，日期待核异常单列；退款只改对应净实收及后续门禁，合同应收仅经独立确认变更，退多收不伪造新欠款，不倒退工程历史",
-      "status": "部分交付（批次#22，v3 c5cb9bc，R3 PASS）：三期分笔收款双端销售侧闭环；余工程适配/退款净额随 M07/M08",
-      "module": "M06",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
-      "line": 109,
-      "business_roles": "业务人员、工程接收人、加盟商财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 37
-    },
-    {
-      "id": "M06-T03",
-      "title": "统一合同关联的冻结移交及指定工程接收",
-      "scope": "I01/M05-I01及版本冻结规则",
-      "dependency": "M06-T04统一合同引用契约冻结；M05-T03正式确认下发准备、M05-T04冻结契约；M07既有接收端口，不等全链验收",
-      "acceptance": "最新正式确认下发版→移交→指定工程接收只建一档并冻结；关联统一contractId；退回补件/后续变更留版本，未确认新版本不能替换",
-      "status": "已完成（批次#23 后端 10ac631 R9 PASS+批次#31 packet UI 闭环：v3 移交包版本行 packetVersionText+packetHistory 退回补件重提版本链+委托详情 rows 渲染复核）",
-      "module": "M06",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
-      "line": 110,
-      "business_roles": "业务人员、工程接收人、加盟商财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 38
-    },
-    {
-      "id": "M07-T06",
-      "title": "工程节点与统一建房三期合同适配",
-      "scope": "I05；工程/合同/收款前后端",
-      "dependency": "权威16三期规则与M06合同事实契约；M08登记契约",
-      "acceptance": "三期金额合计等于有效合同额，每期可多笔；基础/封顶完成先留痕再触发应收；销售工程汇总不重复；旧两期迁移可核对",
-      "status": "后端已实施（批次#25，faa2d7f，R4 PASS）：三期化+统一实收账 Port+冻结合同+存量映射；余 v3 工程页接线随 M07-T02",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 131,
-      "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 39
-    },
-    {
-      "id": "M04-T04",
-      "title": "CustomerService、任职撤权、SalesAccess、设计/绩效查询",
-      "scope": "离职接续及同客同合同规则",
-      "dependency": "T02；M01组织及M02撤权契约；M06统一合同契约先冻结，不等其全链验收",
-      "acceptance": "正常离职生效/紧急停用立即撤权；未交接客户及待办转负责人；新责任人接续同contractId/projectId，历史经办与收款不变",
-      "status": "部分交付（批次#20，0cd0b96，R2 PASS）：接续/历史/跨岗矩阵已固化；余合同项目端到端随 M06-T04",
-      "module": "M04",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
-      "line": 114,
-      "business_roles": "业务人员、组织负责人",
-      "applicable_rules": [
-        "R01",
-        "R03"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 40
-    },
-    {
-      "id": "M07-T01",
-      "title": "I02；EngMaterialService后端",
-      "scope": "I02；EngMaterialService后端",
-      "dependency": "无",
-      "acceptance": "同键同输入两次返回同结果；改输入同键拒绝；仅一条变更",
-      "status": "已实施（批次#24，597ab47，R3 PASS）：adjust canonical 统一+回归锁",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 127,
-      "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 41
-    },
-    {
-      "id": "M07-T02",
-      "title": "I01；platform-engineering前端",
-      "scope": "I01；platform-engineering前端",
-      "dependency": "T01",
-      "acceptance": "两行调整各自稳定键；第二行失败显示部分进度；重试不重复首行",
-      "status": "已完成（批次#26 部分 8588227+批次#31 核对闭环：recordView prepare 三期表单+threeStageSumError 字符串精确转分输入即报+collect/dunning 规范枚举 SIGN_AFTER/BASE_DONE/CAP_DONE 真 bug 修复+BASE_DONE 收款入口 stage=base+installments 期次 url+三期中性文案；后端 dunning TOPPING→CAP_DONE 对称映射；在线保存按钮随 COS 批 #36 恢复清单登记）",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 128,
-      "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 42
-    },
-    {
-      "id": "M07-T03",
-      "title": "I04；EngPlanService/资产端口后端",
-      "scope": "I04；EngPlanService/资产端口后端",
-      "dependency": "M11资产契约",
-      "acceptance": "假ID/跨组织/未ACCEPTED/错误类型全部拒绝，合法通过",
-      "status": "已实施（批次#24，597ab47，R3 PASS）：requireValidAsset 四动作接入+回归锁",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 129,
-      "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 43
-    },
-    {
-      "id": "M07-T04",
-      "title": "交付本期工程真实凭据通道",
-      "scope": "I03；本期正式交付，工程上传与页面前端",
-      "dependency": "M11资产契约冻结＋本模块T03",
-      "acceptance": "ticket→上传→complete→办理→授权查看全链；取消/超时不落业务记录",
-      "status": "规则已定，待实施／验证",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 130,
-      "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 44
-    },
-    {
-      "id": "M09-T01",
-      "title": "I01；EngClosureService后端",
-      "scope": "I01；EngClosureService后端",
-      "dependency": "M11资产引用端口",
-      "acceptance": "假/拒审/跨组织/错误类型证据均拒绝；合法证据交付成功",
-      "status": "已实施（批次#28，e1282e4，R5 PASS）：deliver 双凭据域侧校验+重放提前+指纹含资产 ID",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 108,
-      "business_roles": "工程负责人、财务、加盟商老板",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 45
-    },
-    {
-      "id": "M09-T02",
-      "title": "接通工程交付签收凭据",
-      "scope": "I04；本期正式交付，platform-engineering前端",
-      "dependency": "M07-T04＋本模块T01",
-      "acceptance": "负责人真机上传签收凭证→交付成功→刷新仍有同一证据",
-      "status": "规则已定，待实施／验证",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 109,
-      "business_roles": "工程负责人、财务、加盟商老板",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 46
-    },
-    {
-      "id": "M08-T08",
-      "title": "线下退款、支出退回与异常资金登记核对",
-      "scope": "I07；三方向线下退款/异常留痕前后端",
-      "dependency": "权威16规则；M06/M07同一合同及支出原单契约冻结",
-      "acceptance": "客户退款扣净实收；支出退回减已付现金、确认变更才调成本；正常上限不破，异常分未核/已核待关联/待归月；真实退款不撤销抹除、收回另记反向；退多付不减正确费用；无网关/通用审批",
-      "status": "后端首版已实现／Codex R1 多项 P1/P2 待修（统计污染/undo 语法/并发/校验）；完整修复需独立设计批次",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 161,
-      "business_roles": "加盟商财务、总部财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 47,
-      "implementation_note": "批次#13：迁移 820+registerExpense+known issues；完整修复需独立批次"
-    },
-    {
-      "id": "M09-T04",
-      "title": "直接项目费用和现金支付分别汇总结算",
-      "scope": "I03；结算聚合后端＋页面",
-      "dependency": "权威16直接项目费用规则；M07-T07/M08支出原单契约",
-      "acceptance": "直接费用确认与财务一致，付款不重计成本；退回减已付现金、确认费用变更才调成本，退多付款不减正确费用；无公共费用分摊",
-      "status": "规则已定，待实施／验证",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 111,
-      "business_roles": "工程负责人、财务、加盟商老板",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 48
-    },
-    {
-      "id": "M07-T07",
-      "title": "材料劳务及直接项目费用的应付、付款联动",
-      "scope": "I06；对外劳务费用与应付前后端",
-      "dependency": "M08支出方向契约冻结，M09直接成本契约冻结",
-      "acceptance": "劳务原单→费用确认→应付→多笔付款→退回关联；退多付只减已付现金不减正确费用，确认劳务减项后才改成本",
-      "status": "已实施（批次#27，cf5bb35/6b7c0ee，R2 PASS）：LABOR 全链（确认/挂付/付款/退回/revise）+端点 5 个+v3 四端点接线；页面入口随 M07-T02",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 132,
-      "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 49
-    },
-    {
-      "id": "M09-T03",
-      "title": "退款净额、有效应收与后续工程放行",
-      "scope": "I02；工程汇总/提成/财务",
-      "dependency": "权威16规则已定，M07-T06三期契约/M08-T08退款方向",
-      "acceptance": "毛额/退款/净额/异常可对账，资金门槛按有效合同三期；不撤销已施工/交付，不因退款自动减合同额",
-      "status": "已实施（批次#28，e1282e4，R5 PASS）：净口径三处贯穿+SETTLED 恢复补收+四列对账+交付门禁净口径",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 110,
-      "business_roles": "工程负责人、财务、加盟商老板",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 50
-    },
-    {
-      "id": "M10-T07",
-      "title": "三期来源与经营绩效、有效提成政策映射",
-      "scope": "I06；绩效/经营/提成来源前后端",
-      "dependency": "M06唯一合同与M07-T06三期契约，M08-T08方向退款",
-      "acceptance": "销售工程共享收款只算一次；三期来源正确映射有效提成政策，不自动改比例/发放次数，支出退回不充施工收入",
-      "status": "已实施（批次#29，e91ee8a/67e05e6，R6 PASS）：三期绩效映射+资格走统一实收账+显式三期参数",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 144,
-      "business_roles": "加盟商老板、财务、绩效相关岗位",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 51
-    },
-    {
-      "id": "M10-T04",
-      "title": "统一月末截面与历史报表修订版本",
-      "scope": "I04；Operating后端",
-      "dependency": "权威16月末截面及修订规则已定",
-      "acceptance": "10月快照各维度截至10月底，11月收付不污染；历史事实修订生成可追溯新版本",
-      "status": "已实施（批次#29，e91ee8a/112f89a/67e05e6，R6 PASS）：analytics 全维度 as_of 月末截止+签名完整 report SHA",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 142,
-      "business_roles": "加盟商老板、财务、绩效相关岗位",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 52
-    },
-    {
-      "id": "M10-T05",
-      "title": "退款后提成分状态核对与真实付款留痕",
-      "scope": "I05；提成/付款联动",
-      "dependency": "权威16退款分状态规则，M08-T08异常事实契约",
-      "acceptance": "未释放重算、已释放未付待核对、已付留付款并核差额；实际已付即使reviewDue/超正常余额也可独立异常留痕，不绕有效账上限，区分未核/已核待关联现金；无自动扣薪/追回/通用审批",
-      "status": "已实施（批次#30，89dd8be/38bada2+af9a48e，R7 PASS）：refundImpact 四桶+reconcile 已付留痕+待关联现金分层+v3 入口",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 143,
-      "business_roles": "加盟商老板、财务、绩效相关岗位",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 53
-    },
-    {
-      "id": "M10-T03",
-      "title": "I03；owner-page/经营前端",
-      "scope": "I03；owner-page/经营前端",
-      "dependency": "真源状态及T02",
-      "acceptance": "在线老板余额与财务一致；快照写服务端；退出/换岗不串台",
-      "status": "已实施（批次#30，af9a48e/398aae0，R7 PASS）：operating 三源在线余额+快照写服务端+缓存岗位校验+降级可见",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 141,
-      "business_roles": "加盟商老板、财务、绩效相关岗位",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 54
-    },
-    {
-      "id": "M03-T04",
-      "title": "内容→CRM→统一建房合同/绩效",
-      "scope": "跨域统计及离职归属规则",
-      "dependency": "M04转交规则实现、M06统一账合同冻结、M10统计",
-      "acceptance": "同publicationId新客/旧客归因不重计；离职后未交接客资转负责人，历史经办保留；合同不因双入口重复收入",
-      "status": "待实施／待验证",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 111,
-      "business_roles": "业务人员、业务负责人",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 55
-    },
-    {
-      "id": "M06-T05",
-      "title": "workflow报价/导出/合同/交付、收退/消息/统计",
-      "scope": "CV-01报价/统一合同/三期/移交断言",
-      "dependency": "T01-T04实现就绪，M07/M08/M10相应实现任务，不等各域最终验收",
-      "acceptance": "同C统一合同/签约第一期与正式设计下发准备→冻结移交及工程建档→基础完成后第二期分笔→封顶后第三期分笔→交付联验；签约与委托两线沿既有流程，不要求全部款先于接收；退款净额/异常留痕/月报版本可核对，设计款不混收入",
-      "status": "待CV-01联合验收",
-      "module": "M06",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
-      "line": 111,
-      "business_roles": "业务人员、工程接收人、加盟商财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 56
-    },
-    {
-      "id": "M07-T05",
-      "title": "CV-01共享连续验收，本模块工程断言",
-      "scope": "CV-01共享连续验收，本模块工程断言",
-      "dependency": "本模块T01–T04、T06/T07；M08实现任务；不等待其他模块验收任务",
-      "acceptance": "同项目换负责人、材料应付付款、节点更正与绩效更新一致",
-      "status": "待CV-01联合验收",
-      "module": "M07",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
-      "line": 133,
-      "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 57
-    },
-    {
-      "id": "M08-T06",
-      "title": "CV-01共享连续验收，本模块财务断言",
-      "scope": "CV-01共享连续验收，本模块财务断言",
-      "dependency": "本模块T01–T05、T07/T08及CV-01各域实现任务；不等待其他模块验收任务",
-      "acceptance": "源业务实收、退款、提成应付与付款、经营月报逐笔一致",
-      "status": "待CV-01联合验收",
-      "module": "M08",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
-      "line": 162,
-      "business_roles": "加盟商财务、总部财务",
-      "applicable_rules": [
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 58
-    },
-    {
-      "id": "M09-T05",
-      "title": "CV-01共享连续验收，本模块交付断言",
-      "scope": "CV-01共享连续验收，本模块交付断言",
-      "dependency": "本模块T01–T04及M07-T04/M08-T01至T05；不等待其他模块验收任务",
-      "acceptance": "同项目跨岗位走完三段，归档后白名单与非白名单行为符合约定",
-      "status": "待CV-01联合验收",
-      "module": "M09",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
-      "line": 112,
-      "business_roles": "工程负责人、财务、加盟商老板",
-      "applicable_rules": [
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 59
-    },
-    {
-      "id": "M10-T06",
-      "title": "CV-01共享连续验收，本模块绩效经营断言",
-      "scope": "CV-01共享连续验收，本模块绩效经营断言",
-      "dependency": "本模块T01–T05、T07及各域实现任务；不等待其他模块验收任务",
-      "acceptance": "同客户项目从签约、节点、收退、提成付款到月度归档金额可核对",
-      "status": "待CV-01联合验收",
-      "module": "M10",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
-      "line": 145,
-      "business_roles": "加盟商老板、财务、绩效相关岗位",
-      "applicable_rules": [
-        "R01",
-        "R03",
-        "R04",
-        "R05",
-        "R06"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 60
-    },
-    {
-      "id": "M02-T05",
-      "title": "完成身份变更贯穿全业务的回归（I02/I03/I04/I05）",
-      "dependency": "",
-      "acceptance": "验收：业务→工程→财务切岗，数据、按钮、请求header一致；同页A→B乱序不串数据。；验收：清缓存首次登录、已登录重启、断网恢复、token过期、岗位撤销、组织停用与账号删除均有可预期落点。；验收：跨组织对象请求被后端拒绝；页面隐藏按钮不能替代API负向测试。",
-      "status": "已实施／E2验证通过（2026-11-04 批次#11，生命周期脚本 14 断言；既有脚本引用矩阵覆盖）",
-      "module": "M02",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
-      "line": 145,
-      "business_roles": "组织管理员、有效任职员工",
-      "applicable_rules": [
-        "R01",
-        "R02",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 61,
-      "implementation_note": "批次#11：verify-m02t05-m11t04-lifecycle 14 断言（三域 header/岗位撤销恢复/断网恢复/账号删除落点）"
-    },
-    {
-      "id": "M11-T04",
-      "title": "完成本人资料与消息待办回归（关联 I02，补足共用验收）",
-      "dependency": "前置：M01/M02账号生命周期修复完成；M11-T01/T02可运行。",
-      "acceptance": "验收：姓名更新后重进与跨设备读取一致；手机号保持只读；头像范围如未解锁清楚提示本地状态。；验收：单域待办失败返回 partial，其他域仍可读且点击进入当前真实对象。",
-      "status": "已实施／E2验证通过（批次#11，资料/头像/待办回归；avatar toast 生产修复）",
-      "module": "M11",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
-      "line": 142,
-      "business_roles": "各业务岗位、组织管理员",
-      "applicable_rules": [
-        "R01",
-        "R04",
-        "R05",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 62,
-      "implementation_note": "批次#11：profile PUT 手机号只读+重进一致+头像本机态 toast；待办 partial 引用 verify-platform-todos AC6"
-    },
-    {
-      "id": "M12-T04",
-      "title": "固定两仓发布身份与回滚点（关联I03）",
-      "dependency": "前置：只读核验远程实时引用；根据现有分支安排确定归属，不自动改origin或合并不相关历史。",
-      "acceptance": "验收：小程序包、后台dist、后端JAR、Runtime版本分别对应精确提交；无“同名仓库即相同代码”推断。；验收：Flyway兼容性说明、上一版本产物与数据库回退边界齐备；不执行未经授权的生产回滚。",
-      "status": "待实施／待验证",
-      "module": "M12",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
-      "line": 145,
-      "business_roles": "平台运营、组织管理员、财务",
-      "applicable_rules": [
-        "R02",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 63
-    },
-    {
-      "id": "M12-T03",
-      "title": "建立生产装配与交付清单（关联I03、M02）",
-      "dependency": "前置：M02生产装配缺口解决；取得授权测试环境，不在文档审查中触发真实消费。",
-      "acceptance": "验收：从空测试环境按清单构建启动pg,prod，所有必要Bean齐全，失败可定位。；验收：独立Runtime有明确源码或产物地址/摘要/版本、签名配置、健康与任务领取验证。；验收：日志不含密钥；后端业务读探针有界；Web资源及/admin-api同源代理可用。",
-      "status": "待实施／待验证",
-      "module": "M12",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
-      "line": 136,
-      "business_roles": "平台运营、组织管理员、财务",
-      "applicable_rules": [
-        "R02",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 64
-    },
-    {
-      "id": "M03-T05",
-      "title": "内容适配器、部署配置与验收证据",
-      "scope": "AI各能力正式交付",
-      "dependency": "测试环境、真实通道及能力清单",
-      "acceptance": "链接解析/提取改写/口播/视频逐能力留真实结果、失败/不确定/恢复及计费证据；未通过的能力不得标交付",
-      "status": "待实施／待验证",
-      "module": "M03",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
-      "line": 112,
-      "business_roles": "业务人员、业务负责人",
-      "applicable_rules": [
-        "R01",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 65
-    },
-    {
-      "id": "M05-T05",
-      "title": "DesignAccessService、Runtime/commerce、部署证据",
-      "scope": "AI各能力正式交付",
-      "dependency": "测试环境、服务账号与能力清单",
-      "acceptance": "平面/立面/快速预算逐能力验证；生成成功、部分成功、失败、取消、超时的job/资产/点数账可追溯，不能仅fake通过",
-      "status": "待实施／待验证",
-      "module": "M05",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
-      "line": 118,
-      "business_roles": "业务人员、总部设计、加盟商及总部财务",
-      "applicable_rules": [
-        "R03-B",
-        "R03-C",
-        "R05",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 66
-    },
-    {
-      "id": "M12-T05",
-      "title": "完成发布前全链验收记录（关联全部模块）",
-      "dependency": "前置：M01-M11阻断项修复，真实渠道及设备授权就绪。",
-      "acceptance": "验收：分开记录静态/纯函数/本地真实DB/模拟provider/真实provider/微信上传/真机角色/正式部署。；验收：每个失败项有根因、负责人和复测结论，未验证不得写已完成。",
-      "status": "待实施／待验证",
-      "module": "M12",
-      "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
-      "line": 153,
-      "business_roles": "平台运营、组织管理员、财务",
-      "applicable_rules": [
-        "R02",
-        "R06",
-        "R07"
-      ],
-      "rule_status": "最终规则已定稿",
-      "execution_order": 67
-    }
-  ]
+  {
+   "id": "M01-I02",
+   "title": "追加同岗位时提交不同部门被静默忽略",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 76,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ]
+  },
+  {
+   "id": "M01-I03",
+   "title": "撤岗/停用没有真实业务责任交接闭环",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 84,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ]
+  },
+  {
+   "id": "M01-I04",
+   "title": "组织局部停职与全局账号停用需分离（规则已定，旧实现待改）",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 92,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ]
+  },
+  {
+   "id": "M01-I05",
+   "title": "建账号和指派任职没有统一事务边界",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 100,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ]
+  },
+  {
+   "id": "M01-I06",
+   "title": "正式组织开通入口与部门维护界面不完整",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 108,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ]
+  },
+  {
+   "id": "M02-I01",
+   "title": "短信服务生产装配缺少可用SmsClient实现",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 66,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ]
+  },
+  {
+   "id": "M02-I02",
+   "title": "HTTP200/body401不触发平台失效回收",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 75,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ]
+  },
+  {
+   "id": "M02-I03",
+   "title": "新账号token可搭配上个账号岗位缓存进入页面",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 84,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ]
+  },
+  {
+   "id": "M02-I04",
+   "title": "通用退出入口与真实平台退出清理范围不一致",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 93,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ]
+  },
+  {
+   "id": "M02-I05",
+   "title": "缓存任职切换没有失效后恢复流程",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 102,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ]
+  },
+  {
+   "id": "M03-I01",
+   "title": "[P1] 代码确认",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 61,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ]
+  },
+  {
+   "id": "M03-I02",
+   "title": "[P2] 纯内存复现",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 70,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ]
+  },
+  {
+   "id": "M03-I03",
+   "title": "[P2] 纯内存复现/接入缺口",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 79,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ]
+  },
+  {
+   "id": "M03-I04",
+   "title": "[P2] 代码确认/接入缺口",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 88,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ]
+  },
+  {
+   "id": "M04-I01",
+   "title": "[P1] 纯内存复现",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 64,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ]
+  },
+  {
+   "id": "M04-I02",
+   "title": "[P2] 纯内存复现",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 73,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ]
+  },
+  {
+   "id": "M04-I03",
+   "title": "[P2] 代码确认/接入缺口",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 82,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ]
+  },
+  {
+   "id": "M04-I04",
+   "title": "[P2] 代码确认",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 91,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ]
+  },
+  {
+   "id": "M05-I01",
+   "title": "[P1] 代码确认/真实接入缺口",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 66,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M05-I02",
+   "title": "[P2] 纯内存复现",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 75,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M05-I03",
+   "title": "[P2] 代码确认/规模缺口",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 84,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M05-I04",
+   "title": "[P2] 规则已定：移交版本选择与冻结待整改",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 93,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M06-I01",
+   "title": "[P1] 代码确认/继承接入缺口",
+   "module": "M06",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
+   "line": 68,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05"
+   ]
+  },
+  {
+   "id": "M06-I02",
+   "title": "[P1] 规则已定：统一建房合同、三期分笔收款与跨域账待整改",
+   "module": "M06",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
+   "line": 77,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05"
+   ]
+  },
+  {
+   "id": "M06-I03",
+   "title": "[P2] 待验证风险（不计已确认缺陷）",
+   "module": "M06",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
+   "line": 86,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05"
+   ]
+  },
+  {
+   "id": "M07-I01",
+   "title": "多行材料调整共用幂等键，导致部分成功（P1，静态已确认）",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 68,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M07-I02",
+   "title": "单材料重试输入与事件留痕形状不同（P1，静态已确认）",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 78,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M07-I03",
+   "title": "工程凭据动作阻断本期正式交付（P1，源码已确认；规则已定待实施）",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 87,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M07-I04",
+   "title": "工程证据资产引用缺少域侧校验（P1，静态已确认）",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 94,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M07-I05",
+   "title": "三期收款与共享合同迁移（规则已定待实施/验证）",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 103,
+   "kind": "rule-adaptation",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M07-I06",
+   "title": "对外劳务及直接费用联动（最终规则落地检查，待实施/验证）",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 110,
+   "kind": "rule-adaptation",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M08-I01",
+   "title": "到账确认同步异常并锁住busy（P1，内存已复现）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 72,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M08-I02",
+   "title": "凭证SHA错误且只走dev字节端点（P1，SHA内存已复现；环境静态确认）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 82,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M08-I03",
+   "title": "旧岗位请求覆盖当前财务数据（P1，内存已复现）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 97,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M08-I04",
+   "title": "失败重试换幂等键可重复登记（P1条件风险，静态推断）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 104,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M08-I05",
+   "title": "业务日期可空导致月度统计漏单（P1，静态已确认）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 111,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M08-I06",
+   "title": "财务关联ID被Number转换损失精度（P1，真实动作内存已复现）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 120,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M08-I07",
+   "title": "三方向退款、原单关联与异常资金留痕（规则已定待实施/验证）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 134,
+   "kind": "rule-adaptation",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M09-I01",
+   "title": "交付及结算资产引用不校验真实性（P1，静态已确认）",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 69,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M09-I02",
+   "title": "退款后净额展示与未来资金门槛需按最终规则落地（P2，基线差异；规则已定待实施）",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 81,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M09-I03",
+   "title": "结算屏项目费用仍为0占位（P2，已确认范围缺口）",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 91,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M09-I04",
+   "title": "小程序真实交付凭据纳本期交付（P1，本期范围已定待实施）",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 98,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M10-I01",
+   "title": "绩效页引用公共路径缺陷（P1，静态已确认，统一M11-I01，不重复计数）",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 76,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M10-I02",
+   "title": "财务日期可空导致月度绩效和对账漏单（P1，静态已确认）",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 84,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M10-I03",
+   "title": "老板经营页面及快照仍写本地账（P1接入缺口，静态已确认）",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 93,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M10-I04",
+   "title": "历史月经营快照含当前全量统计（P1，静态确认口径不一致）",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 102,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M10-I05",
+   "title": "退款后提成分状态核对及实际付款留痕（P2，基线行为已确认；规则已定待实施）",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 111,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M10-I06",
+   "title": "三期合同实收的绩效/经营/提成来源映射（规则已定待实施/验证）",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 121,
+   "kind": "rule-adaptation",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ]
+  },
+  {
+   "id": "M11-I01",
+   "title": "五个页面错误引用 demo-badge，页面不能完整运行",
+   "module": "M11",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
+   "line": 69,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R04",
+    "R05",
+    "R07"
+   ]
+  },
+  {
+   "id": "M11-I02",
+   "title": "旧账号消息响应覆盖当前账号列表",
+   "module": "M11",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
+   "line": 82,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R04",
+    "R05",
+    "R07"
+   ]
+  },
+  {
+   "id": "M11-I03",
+   "title": "文件正式字节通道未形成跨域可复核验收链",
+   "module": "M11",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
+   "line": 92,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R01",
+    "R04",
+    "R05",
+    "R07"
+   ]
+  },
+  {
+   "id": "M12-I01",
+   "title": "演示标识验证脚本条件与名称反参，错误接线仍通过",
+   "module": "M12",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
+   "line": 81,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R02",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M12-I02",
+   "title": "Web员工岗位含义与平台业务任职不一致，管理员操作链未闭合",
+   "module": "M12",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
+   "line": 90,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R02",
+    "R06",
+    "R07"
+   ]
+  },
+  {
+   "id": "M12-I03",
+   "title": "发布产物与双仓、图片Runtime来源缺乏本轮可复现证明",
+   "module": "M12",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
+   "line": 100,
+   "kind": "baseline-audit",
+   "applicable_rules": [
+    "R02",
+    "R06",
+    "R07"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "M12-T01",
+   "title": "修复验收脚本可信度（关联I01）",
+   "dependency": "前置：先保存当前假绿变异证据，锁定正确脚本应对坏样本失败的行为。；阶段A先行：修复断言参数并保存故障样本；删除接线、错误路径、丢WXML绑定均正确非零退出，当前五页缺陷应被检出为红；该阶段不要求业务页面已修复。；阶段A验收通过即可解锁M11-T01，不以本任务全部完成作前置。；阶段B后置：M11-T01修路径后，八页引用、五页模块加载和onShow真实执行共同转绿；再注入坏样本仍红，不新增依赖。；依赖顺序固定：M12-T01/A门禁先红 → M11-T01修页面 → M12-T01/B联合转绿。",
+   "acceptance": "阶段A先行：修复断言参数并保存故障样本；删除接线、错误路径、丢WXML绑定均正确非零退出，当前五页缺陷应被检出为红；该阶段不要求业务页面已修复。；阶段B后置：M11-T01修路径后，八页引用、五页模块加载和onShow真实执行共同转绿；再注入坏样本仍红，不新增依赖。",
+   "status": "已实施／E2验证通过（A/B全阶段，2026-11-03 批次#1）；E4随发布验收",
+   "module": "M12",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
+   "line": 118,
+   "business_roles": "平台运营、组织管理员、财务",
+   "applicable_rules": [
+    "R02",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 1,
+   "implementation_note": "批次#1 2026-11-03：实现+本地验证证据见 18-整改执行记录.md 与 evidence/implementation/"
+  },
+  {
+   "id": "M11-T01",
+   "title": "修复五页标识模块引用（关联 I01）",
+   "dependency": "前置：仅M12-T01阶段A，门禁已建立且对当前坏路径与故障样本正确变红；不依赖其阶段B联合转绿或全部完成。",
+   "acceptance": "验收：八页均能解析引用；五页分别执行模块加载、onLoad/onShow，无 MODULE_NOT_FOUND。；验收：游客、本地演示、API、API降级四态标识正确且无额外写请求。",
+   "status": "已实施／E2验证通过（2026-11-03 批次#1）；E4随发布验收",
+   "module": "M11",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
+   "line": 115,
+   "business_roles": "各业务岗位、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R04",
+    "R05",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 2,
+   "implementation_note": "批次#1 2026-11-03：实现+本地验证证据见 18-整改执行记录.md 与 evidence/implementation/"
+  },
+  {
+   "id": "M03-T01",
+   "title": "studio/index.js 内容页回归",
+   "scope": "I01；引用M11-T01统一实施，不重复计修复工作量",
+   "dependency": "M12门禁A先锁定反例→M11-T01统一修路径→本模块内容回归联合验证",
+   "acceptance": "页面onShow无require错误，真平台/本地四态标识可见性正确",
+   "status": "共享实现已回归（E2，2026-11-03 批次#1）；场景验收待CV-01",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 108,
+   "business_roles": "业务人员、业务负责人",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 3,
+   "implementation_note": "批次#1 2026-11-03：实现+本地验证证据见 18-整改执行记录.md 与 evidence/implementation/"
+  },
+  {
+   "id": "M10-T01",
+   "title": "I01；引用M11-T01统一修复，本模块仅绩效页验收",
+   "scope": "I01；引用M11-T01统一修复，本模块仅绩效页验收",
+   "dependency": "M11-T01，关联M12门禁",
+   "acceptance": "静态依赖检查＋Page生命周期无缺模块；在线/本地两态均能打开",
+   "status": "共享实现已回归（E2，2026-11-03 批次#1）；场景验收待CV-01",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 139,
+   "business_roles": "加盟商老板、财务、绩效相关岗位",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 4,
+   "implementation_note": "批次#1 2026-11-03：实现+本地验证证据见 18-整改执行记录.md 与 evidence/implementation/"
+  },
+  {
+   "id": "M01-T01",
+   "title": "统一删除、停用、撤岗的授权回收契约（I01）",
+   "dependency": "",
+   "acceptance": "验收：平台管理员执行全局账号删除（单删/批删）或全局停用后，旧token、全部任职及钱包授权均不能办理；无效账号不能刷新获得新授权。；验收：组织管理员撤销本组织任职或停职，只回收受影响任职及对应组织钱包能力；同账号在其他组织的有效任职继续可用，不触发全局账号停用。；验收：其他用户/组织正常会话不受影响；重复请求有明确结果；事务失败不留下半撤权状态。",
+   "status": "已实施／E3验证通过（2026-11-03 批次#2：真实令牌链/PG 集成/变异验证，Codex R1 3P1+2P2+1P3 全修复）；M01-T02/M02-T01 联验项移交",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 118,
+   "business_roles": "平台管理员、平台运营、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 5,
+   "implementation_note": "批次#2 2026-11-03：删除链事件化回收+userUsable 门禁+钱包发卡复验+advisory 锁；证据见 18-整改执行记录.md"
+  },
+  {
+   "id": "M02-T01",
+   "title": "统一平台认证失效与岗位失效契约（I02/I05）",
+   "dependency": "",
+   "acceptance": "验收：当前平台401清token和对应岗位缓存并引导登录；旧会话401不破坏新会话；钱包401不踢平台。；验收：岗位失效刷新岗位，禁止循环切回已撤岗位；普通403不误判账号退出。",
+   "status": "已实施／E2验证通过（2026-11-03 批次#4：body401 同契约+岗位失效四态恢复+孤立刷新令牌收口，Codex 两轮闭环+变异自证）；E4随CV-01",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 112,
+   "business_roles": "组织管理员、有效任职员工",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 6,
+   "implementation_note": "批次#4 2026-11-03：http.js handleUnauthorized/recoverPostInvalid/refreshAccessToken 用户校验；42 断言 verify-auth-session-contract"
+  },
+  {
+   "id": "M02-T02",
+   "title": "将登录与岗位加载作为一致的状态流程（I03）",
+   "dependency": "",
+   "acceptance": "验收：A→B切账号时先隔离A缓存；B任职加载超时/失败仅能重试/返回登录，不按A岗位跳页。；验收：新账号任职空、多岗、单岗均有明确落点；A迟到成功不能更新B岗位。；验收：重复点击登录与两种登录方式交错时，最终token/posts/postId属于同一账号。",
+   "status": "已实施／E2验证通过（2026-11-04 批次#5，Codex 两轮+变异自证）",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 120,
+   "business_roles": "组织管理员、有效任职员工",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 7,
+   "implementation_note": "批次#5：saveLogin 清岗位上下文+afterRealLogin 守卫；54 断言契约脚本"
+  },
+  {
+   "id": "M02-T03",
+   "title": "统一退出入口和页面会话清理（I04）",
+   "dependency": "前置：统一退出实现可先行；关闭任务前须与M11-T02、M08-T02页面隔离修复共同回归，不提前宣布所有页面已完成退出清理。",
+   "acceptance": "验收：纯API登录、纯演示登录、两者共存逐一验证；按钮说明的退出范围与token实际去留一致。；验收：退出后旧请求不回填资料/消息/财务数据；保留明确允许的草稿，不保留上个账号可见的敏感页面快照。",
+   "status": "实现完成／E2验证通过（批次#5）；关闭联验待 M08-T02 页面隔离（13号约束）",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 128,
+   "business_roles": "组织管理员、有效任职员工",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 8,
+   "implementation_note": "批次#5：session-actions 双链独立退出；关闭联验待 M08-T02"
+  },
+  {
+   "id": "M11-T02",
+   "title": "为消息响应加入会话与请求代次保护（关联 I02）",
+   "dependency": "前置：沿用已有会话代次接口，与 M02 清会话契约保持一致。",
+   "acceptance": "验收：A→B 乱序返回、退出后旧成功、重复刷新乱序均不得覆盖当前消息/未读数。；验收：当前会话网络失败有可解释状态，失败不把旧账号内容保留为当前有效数据。；验收：不因切岗误清新账号；资料异步读取增加同类隔离负测。",
+   "status": "已实施／E2验证通过（2026-11-04 批次#5，Codex 两轮+变异自证）",
+   "module": "M11",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
+   "line": 123,
+   "business_roles": "各业务岗位、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R04",
+    "R05",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 9,
+   "implementation_note": "批次#5：sequenceGuard/requestGuard 分域组合守卫；16 断言页面级脚本+三组变异"
+  },
+  {
+   "id": "M08-T01",
+   "title": "I01；finance API前端",
+   "scope": "I01；finance API前端",
+   "dependency": "无",
+   "acceptance": "缺省键5函数均不抛；到账按钮成功失败都清busy；请求携带稳定键",
+   "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 155,
+   "business_roles": "加盟商财务、总部财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 10,
+   "implementation_note": "批次#9：缺省键沙箱真实调用断言（挖出并修 idemKey 参数遮蔽缺陷）"
+  },
+  {
+   "id": "M08-T02",
+   "title": "I03；finance-desk前端",
+   "scope": "I03；finance-desk前端",
+   "dependency": "M02会话契约",
+   "acceptance": "A/B换岗乱序、退出、连续刷新，旧响应均不得写当前页面",
+   "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 156,
+   "business_roles": "加盟商财务、总部财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 11,
+   "implementation_note": "批次#9：loadPlatformFinance requestGuard 成功+失败双写点"
+  },
+  {
+   "id": "M08-T07",
+   "title": "I06；platform-actions前端",
+   "scope": "I06；platform-actions前端",
+   "dependency": "无",
+   "acceptance": "超2^53应付/收款/流水/项目ID发出与收到逐字一致，索引金额转换保留",
+   "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 160,
+   "business_roles": "加盟商财务、总部财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 12,
+   "implementation_note": "批次#9：雪花 ID 去 Number() 改 String 逐字（四处）"
+  },
+  {
+   "id": "M01-T02",
+   "title": "落实组织局部停职与全局账号停用权限（I04）",
+   "dependency": "前置：采用R01已定规则，按组织任职与全局账号两个作用范围实施。",
+   "acceptance": "验收：A组织局部撤岗不影响同账号在B组织的有效任职；全局账号停用影响全部组织，界面提示与服务器实际作用一致。",
+   "status": "已实施／E2-E3验证通过（2026-11-03 批次#3：org 级停职+全局停用分离+矩阵产物，Codex 两轮闭环）；E4 跨岗位真机随 CV-01",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 126,
+   "business_roles": "平台管理员、平台运营、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 13,
+   "implementation_note": "批次#3 2026-11-03：revokeAllInOrg+setStatus 三分语义+AdminUserDisabledEvent 回收链；矩阵见 18-整改执行记录.md 批次#3"
+  },
+  {
+   "id": "M12-T02",
+   "title": "落实第一批Web组织、管理员和任职入口",
+   "dependency": "前置：采用R01/R02已定流程，复用M01组织任职及撤权实现。",
+   "acceptance": "验收：每项Web承诺有可点击入口、真实API、权限拒绝与持久化证据；不承诺的明确记录入口渠道。",
+   "status": "已完成（批次#7 第一批组织开通入口+批次#32 矩阵核对登记：离职交接=小程序 boss 岗✅；财务核对/异常事项/经营查询/导出=R02 承诺 Web 待建项，当前渠道=小程序 finance-desk/owner-page，显式登记挂批次#41；验收条款「不承诺的明确记录入口渠道」已履行）",
+   "module": "M12",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
+   "line": 128,
+   "business_roles": "平台运营、组织管理员、财务",
+   "applicable_rules": [
+    "R02",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 14,
+   "implementation_note": "批次#7：Web 第一批入口（组织开通）交付；矩阵余项随后续批次"
+  },
+  {
+   "id": "M01-T03",
+   "title": "修正同岗位改部门的命令语义（I02）",
+   "dependency": "",
+   "acceptance": "验收：同参数重复返回同任职；不同teamId不能静默返回成功；跨组织部门被拒绝；并发调整结果明确。；联动验收：客户范围、主管团队、绩效维度和待办范围同步；历史归属按明确规则保留。",
+   "status": "已实施／E3验证通过（2026-11-04 批次#6，Codex R1 三P2 修复闭环+并发用例）；真实DB回滚证据待e2e补证",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 133,
+   "business_roles": "平台管理员、平台运营、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 15,
+   "implementation_note": "批次#6：POST_TEAM_CONFLICT 015+锁前置并发语义+集成用例"
+  },
+  {
+   "id": "M01-T05",
+   "title": "建员与任职原子化并覆盖失败恢复（I05）",
+   "dependency": "",
+   "acceptance": "验收：新账号在指派失败后无孤立记录；已有账号失败后保留原资料和其他组织任职；手机号并发唯一性结果可解释。；验收：成功创建员工立即可用M02登录；失败不会出现提示成功但岗位不存在。",
+   "status": "已实施／E3验证通过（2026-11-04 批次#6，Codex R1 三P2 修复闭环+并发用例）；真实DB回滚证据待e2e补证",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 148,
+   "business_roles": "平台管理员、平台运营、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 16,
+   "implementation_note": "批次#6：createStaffInOrg 编排事务下沉 service"
+  },
+  {
+   "id": "M01-T06",
+   "title": "固定并补齐正式组织与首任管理员开通流程（I06）",
+   "dependency": "",
+   "acceptance": "验收：空组织开通→部门→首管理员→员工→登录可以按正式步骤完成；重复开通不重复建组织。；验收：组织类型、组织隔离、开通失败恢复、停用/恢复行为有证据；生产不依赖开发fixture。",
+   "status": "已实施／E3验证通过（2026-11-04 批次#7，Codex R1 两P1两P2 修复闭环）；E4真机菜单路由待发布批",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 155,
+   "business_roles": "平台管理员、平台运营、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 17,
+   "implementation_note": "批次#7：OrgOnboardService 编排+平台级权限域+迁移 707+Web 页面"
+  },
+  {
+   "id": "M04-T02",
+   "title": "workflow/index.js 转交表单",
+   "scope": "I02/I04",
+   "dependency": "M01岗位读取可用",
+   "acceptance": "任意详情刷新后候选正常；同名按userId选择；撤岗后后端拒绝",
+   "status": "已实施／E2验证通过（2026-11-04 批次#10，Codex R1 六项修复闭环）",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 112,
+   "business_roles": "业务人员、组织负责人",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 18,
+   "implementation_note": "批次#10：候选代次独立校验+label 恒带 team 后缀去歧义+label 反查 userId"
+  },
+  {
+   "id": "M01-T04",
+   "title": "实现正常离职交接与紧急撤权两条路径（I03）",
+   "dependency": "前置：T02权限边界及各业务责任字段明确；正常离职生效即撤权，未交接转负责人待分配，紧急回收不等待交接成功。",
+   "acceptance": "验收：未完成客户、设计委托、工程任务、待办逐项有新责任人或明确待分配状态；历史经办记录保留。；验收：接收人已停用/不在组织/无对应岗位拒绝，交接失败可重试，重复交接不会重复创建业务。",
+   "status": "已完成（批次#19 后端 3ec60b6+批次#32 v3 接线闭环：account api-members 交接卡/紧急撤权/待分配/补交接；切岗跨组织防护 handoverCtx 失配清空+busy 交接链持有+接收人 userId 保留；Codex 九轮 R9 PASS；verify-member-handover 9 组）",
+   "module": "M01",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M01.md",
+   "line": 140,
+   "business_roles": "平台管理员、平台运营、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R02"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 19,
+   "implementation_note": "批次#18 勘察：需 DepartureHandoverService 跨域批量编排；M01-T01/T02 事件化回收已覆盖撤权部分"
+  },
+  {
+   "id": "M02-T04",
+   "title": "补齐生产短信装配并验证双登录（I01）",
+   "dependency": "",
+   "acceptance": "验收：pg,prod完整上下文可启动；生产拒绝stub；缺配置失败可定位，不输出验证码或密钥。；验收：手机号不存在/停用/无任职/歧义匹配拒绝；验证码过期、重复使用、错误次数、发送频率均有测试。",
+   "status": "规则已定，待实施／验证",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 136,
+   "business_roles": "组织管理员、有效任职员工",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 20
+  },
+  {
+   "id": "M11-T03",
+   "title": "固定共享文件交付与访问契约（关联 I03，分两步验收）",
+   "dependency": "阶段A：契约冻结先行；依据现有资产接口确定输入输出、错误和权限，不等待业务上传实现或真实渠道就绪。；阶段A产物交给M08财务及工程/内容所属模块；这些模块只依赖契约冻结，不依赖本任务阶段B全部完成。；阶段B：真实渠道验收后置；前置为阶段A冻结、各业务字节/引用实现和授权测试环境就绪。",
+   "acceptance": "阶段A验收：ticket→原始字节PUT→complete→业务引用→签名下载的状态、字节哈希口径、角色矩阵和失败处理可供业务直接实施。；阶段B验收：实际字节sha256与申报值一致；失配拒绝；授权岗位下载有效文件，过期签名失效。；阶段B验收：生产不依赖/platform/dev/**，失败提示不冒充“已上传”；业务代码修复仍归所属模块。",
+   "status": "阶段A已冻结／E2验证通过（批次#8，20号文档）；B阶段（真实渠道）待COS凭据",
+   "module": "M11",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
+   "line": 132,
+   "business_roles": "各业务岗位、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R04",
+    "R05",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 21,
+   "implementation_note": "20 号契约冻结：状态机/冻结字段/失败语义/权限矩阵"
+  },
+  {
+   "id": "M08-T03",
+   "title": "I02；finance上传前端",
+   "scope": "I02；finance上传前端",
+   "dependency": "M11-T03/A资产契约冻结",
+   "acceptance": "标准SHA向量与原字节一致；财务当前岗票据上传完成；生产不依赖dev",
+   "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 157,
+   "business_roles": "加盟商财务、总部财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 22,
+   "implementation_note": "批次#9：sha256Hex FIPS 重写（原实现输出恒错 P1）+标准向量/crypto差分/导出"
+  },
+  {
+   "id": "M08-T04",
+   "title": "I04；platform-actions前端",
+   "scope": "I04；platform-actions前端",
+   "dependency": "T01",
+   "acceptance": "响应丢失后同键重试，现金收款/付款/退款/应付各只有一笔",
+   "status": "已实施／E2验证通过（2026-11-04 批次#9，Codex 两轮+双重变异自证）",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 158,
+   "business_roles": "加盟商财务、总部财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 23,
+   "implementation_note": "批次#9：粘性幂等键+cancel 解除 busy+四路键状态断言"
+  },
+  {
+   "id": "M08-T05",
+   "title": "正常日期必填、历史补正与异常待归月",
+   "scope": "I05；财务Controller/Service＋表单",
+   "dependency": "权威16日期规则已定，与M10-T02读侧契约同步",
+   "acceptance": "正常归单归月日期必填默认今天可改，拒空/未来；日期待核异常可留痕，已核金额待归月单列不入净额/实绩；历史NULL核实，修订留版本",
+   "status": "已实施／E2-E3验证通过（2026-11-04 批次#8，Codex R1 修复闭环）；异常登记载体随M08-T08",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 159,
+   "business_roles": "加盟商财务、总部财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 24,
+   "implementation_note": "批次#8：BusinessDateGuard 026/027+三端点+v3 待归月单列"
+  },
+  {
+   "id": "M10-T02",
+   "title": "财务发生日与绩效经营归月一致",
+   "scope": "I02；PerfMetrics/Operating后端",
+   "dependency": "权威16日期已定，与M08-T05读写契约同步",
+   "acceptance": "正常归单归月实际日期必填拒空/未来；已核金额未知日期单列待归月不虚填、不进净额/实绩；历史NULL核实，方向不混",
+   "status": "读写契约已对齐／E2验证通过（批次#8：写侧补齐后端读侧本已合规，零改动）",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 140,
+   "business_roles": "加盟商老板、财务、绩效相关岗位",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 25,
+   "implementation_note": "批次#8：PerfMetrics 读侧核对合规（NULL 不落月）"
+  },
+  {
+   "id": "M04-T01",
+   "title": "customers/index.js、index.wxml",
+   "scope": "I01",
+   "dependency": "无",
+   "acceptance": "20/50/51/101客户逐项可见；本地展示翻页与服务端取页一致，无重复遗漏",
+   "status": "已实施／E2验证通过（2026-11-04 批次#10，Codex R1 六项修复闭环）",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 111,
+   "business_roles": "业务人员、组织负责人",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 26,
+   "implementation_note": "批次#10：platform 态 hasMore 双语义+本地扩页先于服务端取页+服务端 keyword 检索"
+  },
+  {
+   "id": "M04-T05",
+   "title": "platform-crm、客户页分组与搜索",
+   "scope": "列表与状态口径",
+   "dependency": "T01",
+   "acceptance": "未加载页可检索；API到店状态有明确定义或入口说明，不能静默显示空业务",
+   "status": "已实施／E2验证通过（2026-11-04 批次#10，Codex R1 六项修复闭环）",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 115,
+   "business_roles": "业务人员、组织负责人",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 27,
+   "implementation_note": "批次#10：服务端 keyword 检索未加载页+到店空态口径说明；地区检索边界与 visited 自动标记移交"
+  },
+  {
+   "id": "M03-T02",
+   "title": "growth/index.js；ContentGrowthService响应合同",
+   "scope": "I02",
+   "dependency": "T01",
+   "acceptance": "用真实返回形状断言数量为整数、全部published行进入来源列表",
+   "status": "待实施／待验证",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 109,
+   "business_roles": "业务人员、业务负责人",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 28
+  },
+  {
+   "id": "M04-T03",
+   "title": "leads API、客户/获客负责人入口",
+   "scope": "I03",
+   "dependency": "先冻结M03 source=内容发布:publicationId及lead接口合同；不依赖M03-T03完成",
+   "acceptance": "负责人查pending、关联/作废并回读状态；重复提交幂等；原客户不重复新增",
+   "status": "已实施／E2验证通过（2026-11-04 批次#12，Codex R1 两项修复；UI 最小交付后续迭代）",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 113,
+   "business_roles": "业务人员、组织负责人",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 29,
+   "implementation_note": "批次#12：growth 页 loadPendingLeads/onlineLinkLead/onlineInvalidateLead+crm.js 幂等键透传"
+  },
+  {
+   "id": "M03-T03",
+   "title": "growth/index.js、content API、客户入口",
+   "scope": "I03/I04",
+   "dependency": "T02；M04客资API合同先冻结（不等待M04-T03整体验收）",
+   "acceptance": "登记页初载/返回不丢来源，保存后能找到平台lead/customer；不操作本地同名记录",
+   "status": "待实施／待验证",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 110,
+   "business_roles": "业务人员、业务负责人",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 30
+  },
+  {
+   "id": "M05-T01",
+   "title": "explore/platform-bridge.js、专项回归",
+   "scope": "I02",
+   "dependency": "无",
+   "acceptance": "首屏失败结束loading且可重试；连续筛选最后意图获胜；切岗/卸载后不回写",
+   "status": "已实施／E2验证通过（P3 批次 b3a2e63 已实现全部修复；verify-design-pages.cjs 11 组 PASS 覆盖）",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 114,
+   "business_roles": "业务人员、总部设计、加盟商及总部财务",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 31,
+   "implementation_note": "P3 b3a2e63 已实现首屏失败/筛选守卫/卸载隔离；verify-design-pages 11 PASS 覆盖"
+  },
+  {
+   "id": "M05-T02",
+   "title": "保存客户弹层、CRM列表API",
+   "scope": "I03",
+   "dependency": "M04-T01分页策略",
+   "acceptance": "51/101客户可搜可选，保存后同customerId形成正确kind/version，不读demo",
+   "status": "已实施／E2验证通过（P3 批次 platSaveCustomer+M04-T01 分页修复；AC4-AC7 覆盖 kind/version）",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 115,
+   "business_roles": "业务人员、总部设计、加盟商及总部财务",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 32,
+   "implementation_note": "P3 platSaveCustomer 走 CRM API；M04-T01 分页修复（批次#10）使 >50 客户可搜可选"
+  },
+  {
+   "id": "M06-T04",
+   "title": "统一建房合同、三期与收付来源契约及存量映射",
+   "scope": "I02，统一合同/三期/资金方向规则已定",
+   "dependency": "权威16规则；M07/M08共同冻结引用契约，不等待T02/T03验收",
+   "acceptance": "先固定同C唯一建房contractId、三期金额及分笔receiptId；旧两期单核实映射、重复候选核对留痕；门店设计/材料/劳务付款分开，正常退款限额与异常待关联分开",
+   "status": "后端契约冻结已实施（批次#21，ad60ec0，R3 PASS）／v3 接线随 M06-T02、付款分类退款关联随 M08",
+   "module": "M06",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
+   "line": 108,
+   "business_roles": "业务人员、工程接收人、加盟商财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 33
+  },
+  {
+   "id": "M05-T03",
+   "title": "正式设计委托与加盟商设计付款、总部到账接通",
+   "scope": "I01及设计付款独立往来规则",
+   "dependency": "M01权限、M04客户；M08设计款往来与凭据契约冻结",
+   "acceptance": "委托→费用例外审批→门店设计付款/总部到账→设计完成→正式确认下发→反馈重提；按首尾约定，门店不记收入；正常归单日期与凭证必填，待核事实另入异常；到下发为界，packet由M06-T03实施",
+   "status": "既有覆盖核对登记／E3-E4验证通过（B2 板块 A e41e5d5 e2e 21 步全绿；设计付款/到账/委托链路完整）",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 116,
+   "business_roles": "业务人员、总部设计、加盟商及总部财务",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 34,
+   "implementation_note": "B2 板块 A franchise-design 域交付（e41e5d5）；e2e 21 步全绿；M08-T05/R04 日期契约已接入"
+  },
+  {
+   "id": "M05-T04",
+   "title": "正式确认下发版本选择、移交冻结与变更追溯",
+   "scope": "I04，版本规则已定",
+   "dependency": "T03下发契约；先实现冻结数据契约供M06-T03使用，不等待接收全链完成",
+   "acceptance": "V1正式确认下发后新增未确认V2，移交仍取V1；V2重新确认下发后按最新有效版本接收并冻结；接收后V3只走有凭据变更、不覆盖原冻结版",
+   "status": "已完成（批次#17 后端 c51fceb 冻结快照+批次#31 前端/出参闭环：CommissionRespVos 暴露 dispatchedSchemeVersion/dispatchedSubmissionVersion+Handover.frozenSchemeVersion 3 用例锁契约；v3 commission 页 dispatchedVersionText/pendingVersionNotice 未确认新版本提示/dispatchHistory 版本链；后端 R1 PASS+v3 R3 PASS）",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 117,
+   "business_roles": "业务人员、总部设计、加盟商及总部财务",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 35,
+   "implementation_note": "批次#17：dispatchedSchemeVersion 捕获+selectLatestByCommissionId+迁移 821"
+  },
+  {
+   "id": "M06-T01",
+   "title": "workflow交易catch、http401回归",
+   "scope": "I03待验证风险",
+   "dependency": "M02登录/切岗状态约定",
+   "acceptance": "先复现HTTP层clearSession后实际catch行为；仅确认问题后修复；当前401清态、旧会话401不影响新岗",
+   "status": "待实施／待验证",
+   "module": "M06",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
+   "line": 107,
+   "business_roles": "业务人员、工程接收人、加盟商财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 36
+  },
+  {
+   "id": "M06-T02",
+   "title": "实施签约后／基础完成后／封顶后三期分笔收款",
+   "scope": "I02，三期与统一账规则已定",
+   "dependency": "M06-T04先冻结统一合同/分笔/退款契约；M08收付账契约冻结",
+   "acceptance": "WAIT_SIGN不可正常期款核销，但已发生提前到账仍按合同待核销或异常待关联留痕；签订后/基础完成后/封顶后三期金额按合同约定且各期可分笔；双入口同余额不重复收；正常归单各笔日期/凭证必填，日期待核异常单列；退款只改对应净实收及后续门禁，合同应收仅经独立确认变更，退多收不伪造新欠款，不倒退工程历史",
+   "status": "部分交付（批次#22，v3 c5cb9bc，R3 PASS）：三期分笔收款双端销售侧闭环；余工程适配/退款净额随 M07/M08",
+   "module": "M06",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
+   "line": 109,
+   "business_roles": "业务人员、工程接收人、加盟商财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 37
+  },
+  {
+   "id": "M06-T03",
+   "title": "统一合同关联的冻结移交及指定工程接收",
+   "scope": "I01/M05-I01及版本冻结规则",
+   "dependency": "M06-T04统一合同引用契约冻结；M05-T03正式确认下发准备、M05-T04冻结契约；M07既有接收端口，不等全链验收",
+   "acceptance": "最新正式确认下发版→移交→指定工程接收只建一档并冻结；关联统一contractId；退回补件/后续变更留版本，未确认新版本不能替换",
+   "status": "已完成（批次#23 后端 10ac631 R9 PASS+批次#31 packet UI 闭环：v3 移交包版本行 packetVersionText+packetHistory 退回补件重提版本链+委托详情 rows 渲染复核）",
+   "module": "M06",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
+   "line": 110,
+   "business_roles": "业务人员、工程接收人、加盟商财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 38
+  },
+  {
+   "id": "M07-T06",
+   "title": "工程节点与统一建房三期合同适配",
+   "scope": "I05；工程/合同/收款前后端",
+   "dependency": "权威16三期规则与M06合同事实契约；M08登记契约",
+   "acceptance": "三期金额合计等于有效合同额，每期可多笔；基础/封顶完成先留痕再触发应收；销售工程汇总不重复；旧两期迁移可核对",
+   "status": "后端已实施（批次#25，faa2d7f，R4 PASS）：三期化+统一实收账 Port+冻结合同+存量映射；余 v3 工程页接线随 M07-T02",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 131,
+   "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 39
+  },
+  {
+   "id": "M04-T04",
+   "title": "CustomerService、任职撤权、SalesAccess、设计/绩效查询",
+   "scope": "离职接续及同客同合同规则",
+   "dependency": "T02；M01组织及M02撤权契约；M06统一合同契约先冻结，不等其全链验收",
+   "acceptance": "正常离职生效/紧急停用立即撤权；未交接客户及待办转负责人；新责任人接续同contractId/projectId，历史经办与收款不变",
+   "status": "部分交付（批次#20，0cd0b96，R2 PASS）：接续/历史/跨岗矩阵已固化；余合同项目端到端随 M06-T04",
+   "module": "M04",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M04.md",
+   "line": 114,
+   "business_roles": "业务人员、组织负责人",
+   "applicable_rules": [
+    "R01",
+    "R03"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 40
+  },
+  {
+   "id": "M07-T01",
+   "title": "I02；EngMaterialService后端",
+   "scope": "I02；EngMaterialService后端",
+   "dependency": "无",
+   "acceptance": "同键同输入两次返回同结果；改输入同键拒绝；仅一条变更",
+   "status": "已实施（批次#24，597ab47，R3 PASS）：adjust canonical 统一+回归锁",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 127,
+   "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 41
+  },
+  {
+   "id": "M07-T02",
+   "title": "I01；platform-engineering前端",
+   "scope": "I01；platform-engineering前端",
+   "dependency": "T01",
+   "acceptance": "两行调整各自稳定键；第二行失败显示部分进度；重试不重复首行",
+   "status": "已完成（批次#26 部分 8588227+批次#31 核对闭环：recordView prepare 三期表单+threeStageSumError 字符串精确转分输入即报+collect/dunning 规范枚举 SIGN_AFTER/BASE_DONE/CAP_DONE 真 bug 修复+BASE_DONE 收款入口 stage=base+installments 期次 url+三期中性文案；后端 dunning TOPPING→CAP_DONE 对称映射；在线保存按钮随 COS 批 #36 恢复清单登记）",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 128,
+   "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 42
+  },
+  {
+   "id": "M07-T03",
+   "title": "I04；EngPlanService/资产端口后端",
+   "scope": "I04；EngPlanService/资产端口后端",
+   "dependency": "M11资产契约",
+   "acceptance": "假ID/跨组织/未ACCEPTED/错误类型全部拒绝，合法通过",
+   "status": "已实施（批次#24，597ab47，R3 PASS）：requireValidAsset 四动作接入+回归锁",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 129,
+   "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 43
+  },
+  {
+   "id": "M07-T04",
+   "title": "交付本期工程真实凭据通道",
+   "scope": "I03；本期正式交付，工程上传与页面前端",
+   "dependency": "M11资产契约冻结＋本模块T03",
+   "acceptance": "ticket→上传→complete→办理→授权查看全链；取消/超时不落业务记录",
+   "status": "规则已定，待实施／验证",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 130,
+   "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 44
+  },
+  {
+   "id": "M09-T01",
+   "title": "I01；EngClosureService后端",
+   "scope": "I01；EngClosureService后端",
+   "dependency": "M11资产引用端口",
+   "acceptance": "假/拒审/跨组织/错误类型证据均拒绝；合法证据交付成功",
+   "status": "已实施（批次#28，e1282e4，R5 PASS）：deliver 双凭据域侧校验+重放提前+指纹含资产 ID",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 108,
+   "business_roles": "工程负责人、财务、加盟商老板",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 45
+  },
+  {
+   "id": "M09-T02",
+   "title": "接通工程交付签收凭据",
+   "scope": "I04；本期正式交付，platform-engineering前端",
+   "dependency": "M07-T04＋本模块T01",
+   "acceptance": "负责人真机上传签收凭证→交付成功→刷新仍有同一证据",
+   "status": "规则已定，待实施／验证",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 109,
+   "business_roles": "工程负责人、财务、加盟商老板",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 46
+  },
+  {
+   "id": "M08-T08",
+   "title": "线下退款、支出退回与异常资金登记核对",
+   "scope": "I07；三方向线下退款/异常留痕前后端",
+   "dependency": "权威16规则；M06/M07同一合同及支出原单契约冻结",
+   "acceptance": "客户退款扣净实收；支出退回减已付现金、确认变更才调成本；正常上限不破，异常分未核/已核待关联/待归月；真实退款不撤销抹除、收回另记反向；退多付不减正确费用；无网关/通用审批",
+   "status": "双端（一）已交付（批次#33：待修项全清偿+异常资金实体+支出退回双端，后端 R4 PASS/v3 R3 PASS）；余批次#34 更正链接线/异常待办/对账视图",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 161,
+   "business_roles": "加盟商财务、总部财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 47,
+   "implementation_note": "批次#13 首版 101c1f6 → 批次#33 清偿 30e24a2（后端）+4eedf8e（v3）：迁移 828/829/830+undo、FranchiseCommands 聚合一致校验、FinAbnormalFundService、expense 更正链、作废互斥、统计方向隔离、项目账冲减；11 用例集成测试"
+  },
+  {
+   "id": "M09-T04",
+   "title": "直接项目费用和现金支付分别汇总结算",
+   "scope": "I03；结算聚合后端＋页面",
+   "dependency": "权威16直接项目费用规则；M07-T07/M08支出原单契约",
+   "acceptance": "直接费用确认与财务一致，付款不重计成本；退回减已付现金、确认费用变更才调成本，退多付款不减正确费用；无公共费用分摊",
+   "status": "规则已定，待实施／验证",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 111,
+   "business_roles": "工程负责人、财务、加盟商老板",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 48
+  },
+  {
+   "id": "M07-T07",
+   "title": "材料劳务及直接项目费用的应付、付款联动",
+   "scope": "I06；对外劳务费用与应付前后端",
+   "dependency": "M08支出方向契约冻结，M09直接成本契约冻结",
+   "acceptance": "劳务原单→费用确认→应付→多笔付款→退回关联；退多付只减已付现金不减正确费用，确认劳务减项后才改成本",
+   "status": "已实施（批次#27，cf5bb35/6b7c0ee，R2 PASS）：LABOR 全链（确认/挂付/付款/退回/revise）+端点 5 个+v3 四端点接线；页面入口随 M07-T02",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 132,
+   "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 49
+  },
+  {
+   "id": "M09-T03",
+   "title": "退款净额、有效应收与后续工程放行",
+   "scope": "I02；工程汇总/提成/财务",
+   "dependency": "权威16规则已定，M07-T06三期契约/M08-T08退款方向",
+   "acceptance": "毛额/退款/净额/异常可对账，资金门槛按有效合同三期；不撤销已施工/交付，不因退款自动减合同额",
+   "status": "已实施（批次#28，e1282e4，R5 PASS）：净口径三处贯穿+SETTLED 恢复补收+四列对账+交付门禁净口径",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 110,
+   "business_roles": "工程负责人、财务、加盟商老板",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 50
+  },
+  {
+   "id": "M10-T07",
+   "title": "三期来源与经营绩效、有效提成政策映射",
+   "scope": "I06；绩效/经营/提成来源前后端",
+   "dependency": "M06唯一合同与M07-T06三期契约，M08-T08方向退款",
+   "acceptance": "销售工程共享收款只算一次；三期来源正确映射有效提成政策，不自动改比例/发放次数，支出退回不充施工收入",
+   "status": "已实施（批次#29，e91ee8a/67e05e6，R6 PASS）：三期绩效映射+资格走统一实收账+显式三期参数",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 144,
+   "business_roles": "加盟商老板、财务、绩效相关岗位",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 51
+  },
+  {
+   "id": "M10-T04",
+   "title": "统一月末截面与历史报表修订版本",
+   "scope": "I04；Operating后端",
+   "dependency": "权威16月末截面及修订规则已定",
+   "acceptance": "10月快照各维度截至10月底，11月收付不污染；历史事实修订生成可追溯新版本",
+   "status": "已实施（批次#29，e91ee8a/112f89a/67e05e6，R6 PASS）：analytics 全维度 as_of 月末截止+签名完整 report SHA",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 142,
+   "business_roles": "加盟商老板、财务、绩效相关岗位",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 52
+  },
+  {
+   "id": "M10-T05",
+   "title": "退款后提成分状态核对与真实付款留痕",
+   "scope": "I05；提成/付款联动",
+   "dependency": "权威16退款分状态规则，M08-T08异常事实契约",
+   "acceptance": "未释放重算、已释放未付待核对、已付留付款并核差额；实际已付即使reviewDue/超正常余额也可独立异常留痕，不绕有效账上限，区分未核/已核待关联现金；无自动扣薪/追回/通用审批",
+   "status": "已实施（批次#30，89dd8be/38bada2+af9a48e，R7 PASS）：refundImpact 四桶+reconcile 已付留痕+待关联现金分层+v3 入口",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 143,
+   "business_roles": "加盟商老板、财务、绩效相关岗位",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 53
+  },
+  {
+   "id": "M10-T03",
+   "title": "I03；owner-page/经营前端",
+   "scope": "I03；owner-page/经营前端",
+   "dependency": "真源状态及T02",
+   "acceptance": "在线老板余额与财务一致；快照写服务端；退出/换岗不串台",
+   "status": "已实施（批次#30，af9a48e/398aae0，R7 PASS）：operating 三源在线余额+快照写服务端+缓存岗位校验+降级可见",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 141,
+   "business_roles": "加盟商老板、财务、绩效相关岗位",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 54
+  },
+  {
+   "id": "M03-T04",
+   "title": "内容→CRM→统一建房合同/绩效",
+   "scope": "跨域统计及离职归属规则",
+   "dependency": "M04转交规则实现、M06统一账合同冻结、M10统计",
+   "acceptance": "同publicationId新客/旧客归因不重计；离职后未交接客资转负责人，历史经办保留；合同不因双入口重复收入",
+   "status": "待实施／待验证",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 111,
+   "business_roles": "业务人员、业务负责人",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 55
+  },
+  {
+   "id": "M06-T05",
+   "title": "workflow报价/导出/合同/交付、收退/消息/统计",
+   "scope": "CV-01报价/统一合同/三期/移交断言",
+   "dependency": "T01-T04实现就绪，M07/M08/M10相应实现任务，不等各域最终验收",
+   "acceptance": "同C统一合同/签约第一期与正式设计下发准备→冻结移交及工程建档→基础完成后第二期分笔→封顶后第三期分笔→交付联验；签约与委托两线沿既有流程，不要求全部款先于接收；退款净额/异常留痕/月报版本可核对，设计款不混收入",
+   "status": "待CV-01联合验收",
+   "module": "M06",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M06.md",
+   "line": 111,
+   "business_roles": "业务人员、工程接收人、加盟商财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 56
+  },
+  {
+   "id": "M07-T05",
+   "title": "CV-01共享连续验收，本模块工程断言",
+   "scope": "CV-01共享连续验收，本模块工程断言",
+   "dependency": "本模块T01–T04、T06/T07；M08实现任务；不等待其他模块验收任务",
+   "acceptance": "同项目换负责人、材料应付付款、节点更正与绩效更新一致",
+   "status": "待CV-01联合验收",
+   "module": "M07",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M07.md",
+   "line": 133,
+   "business_roles": "工程负责人、加盟商财务、供应商、劳务方",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 57
+  },
+  {
+   "id": "M08-T06",
+   "title": "CV-01共享连续验收，本模块财务断言",
+   "scope": "CV-01共享连续验收，本模块财务断言",
+   "dependency": "本模块T01–T05、T07/T08及CV-01各域实现任务；不等待其他模块验收任务",
+   "acceptance": "源业务实收、退款、提成应付与付款、经营月报逐笔一致",
+   "status": "待CV-01联合验收",
+   "module": "M08",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
+   "line": 162,
+   "business_roles": "加盟商财务、总部财务",
+   "applicable_rules": [
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 58
+  },
+  {
+   "id": "M09-T05",
+   "title": "CV-01共享连续验收，本模块交付断言",
+   "scope": "CV-01共享连续验收，本模块交付断言",
+   "dependency": "本模块T01–T04及M07-T04/M08-T01至T05；不等待其他模块验收任务",
+   "acceptance": "同项目跨岗位走完三段，归档后白名单与非白名单行为符合约定",
+   "status": "待CV-01联合验收",
+   "module": "M09",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M09.md",
+   "line": 112,
+   "business_roles": "工程负责人、财务、加盟商老板",
+   "applicable_rules": [
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 59
+  },
+  {
+   "id": "M10-T06",
+   "title": "CV-01共享连续验收，本模块绩效经营断言",
+   "scope": "CV-01共享连续验收，本模块绩效经营断言",
+   "dependency": "本模块T01–T05、T07及各域实现任务；不等待其他模块验收任务",
+   "acceptance": "同客户项目从签约、节点、收退、提成付款到月度归档金额可核对",
+   "status": "待CV-01联合验收",
+   "module": "M10",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M10.md",
+   "line": 145,
+   "business_roles": "加盟商老板、财务、绩效相关岗位",
+   "applicable_rules": [
+    "R01",
+    "R03",
+    "R04",
+    "R05",
+    "R06"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 60
+  },
+  {
+   "id": "M02-T05",
+   "title": "完成身份变更贯穿全业务的回归（I02/I03/I04/I05）",
+   "dependency": "",
+   "acceptance": "验收：业务→工程→财务切岗，数据、按钮、请求header一致；同页A→B乱序不串数据。；验收：清缓存首次登录、已登录重启、断网恢复、token过期、岗位撤销、组织停用与账号删除均有可预期落点。；验收：跨组织对象请求被后端拒绝；页面隐藏按钮不能替代API负向测试。",
+   "status": "已实施／E2验证通过（2026-11-04 批次#11，生命周期脚本 14 断言；既有脚本引用矩阵覆盖）",
+   "module": "M02",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
+   "line": 145,
+   "business_roles": "组织管理员、有效任职员工",
+   "applicable_rules": [
+    "R01",
+    "R02",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 61,
+   "implementation_note": "批次#11：verify-m02t05-m11t04-lifecycle 14 断言（三域 header/岗位撤销恢复/断网恢复/账号删除落点）"
+  },
+  {
+   "id": "M11-T04",
+   "title": "完成本人资料与消息待办回归（关联 I02，补足共用验收）",
+   "dependency": "前置：M01/M02账号生命周期修复完成；M11-T01/T02可运行。",
+   "acceptance": "验收：姓名更新后重进与跨设备读取一致；手机号保持只读；头像范围如未解锁清楚提示本地状态。；验收：单域待办失败返回 partial，其他域仍可读且点击进入当前真实对象。",
+   "status": "已实施／E2验证通过（批次#11，资料/头像/待办回归；avatar toast 生产修复）",
+   "module": "M11",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M11.md",
+   "line": 142,
+   "business_roles": "各业务岗位、组织管理员",
+   "applicable_rules": [
+    "R01",
+    "R04",
+    "R05",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 62,
+   "implementation_note": "批次#11：profile PUT 手机号只读+重进一致+头像本机态 toast；待办 partial 引用 verify-platform-todos AC6"
+  },
+  {
+   "id": "M12-T04",
+   "title": "固定两仓发布身份与回滚点（关联I03）",
+   "dependency": "前置：只读核验远程实时引用；根据现有分支安排确定归属，不自动改origin或合并不相关历史。",
+   "acceptance": "验收：小程序包、后台dist、后端JAR、Runtime版本分别对应精确提交；无“同名仓库即相同代码”推断。；验收：Flyway兼容性说明、上一版本产物与数据库回退边界齐备；不执行未经授权的生产回滚。",
+   "status": "待实施／待验证",
+   "module": "M12",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
+   "line": 145,
+   "business_roles": "平台运营、组织管理员、财务",
+   "applicable_rules": [
+    "R02",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 63
+  },
+  {
+   "id": "M12-T03",
+   "title": "建立生产装配与交付清单（关联I03、M02）",
+   "dependency": "前置：M02生产装配缺口解决；取得授权测试环境，不在文档审查中触发真实消费。",
+   "acceptance": "验收：从空测试环境按清单构建启动pg,prod，所有必要Bean齐全，失败可定位。；验收：独立Runtime有明确源码或产物地址/摘要/版本、签名配置、健康与任务领取验证。；验收：日志不含密钥；后端业务读探针有界；Web资源及/admin-api同源代理可用。",
+   "status": "待实施／待验证",
+   "module": "M12",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
+   "line": 136,
+   "business_roles": "平台运营、组织管理员、财务",
+   "applicable_rules": [
+    "R02",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 64
+  },
+  {
+   "id": "M03-T05",
+   "title": "内容适配器、部署配置与验收证据",
+   "scope": "AI各能力正式交付",
+   "dependency": "测试环境、真实通道及能力清单",
+   "acceptance": "链接解析/提取改写/口播/视频逐能力留真实结果、失败/不确定/恢复及计费证据；未通过的能力不得标交付",
+   "status": "待实施／待验证",
+   "module": "M03",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M03.md",
+   "line": 112,
+   "business_roles": "业务人员、业务负责人",
+   "applicable_rules": [
+    "R01",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 65
+  },
+  {
+   "id": "M05-T05",
+   "title": "DesignAccessService、Runtime/commerce、部署证据",
+   "scope": "AI各能力正式交付",
+   "dependency": "测试环境、服务账号与能力清单",
+   "acceptance": "平面/立面/快速预算逐能力验证；生成成功、部分成功、失败、取消、超时的job/资产/点数账可追溯，不能仅fake通过",
+   "status": "待实施／待验证",
+   "module": "M05",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M05.md",
+   "line": 118,
+   "business_roles": "业务人员、总部设计、加盟商及总部财务",
+   "applicable_rules": [
+    "R03-B",
+    "R03-C",
+    "R05",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 66
+  },
+  {
+   "id": "M12-T05",
+   "title": "完成发布前全链验收记录（关联全部模块）",
+   "dependency": "前置：M01-M11阻断项修复，真实渠道及设备授权就绪。",
+   "acceptance": "验收：分开记录静态/纯函数/本地真实DB/模拟provider/真实provider/微信上传/真机角色/正式部署。；验收：每个失败项有根因、负责人和复测结论，未验证不得写已完成。",
+   "status": "待实施／待验证",
+   "module": "M12",
+   "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M12.md",
+   "line": 153,
+   "business_roles": "平台运营、组织管理员、财务",
+   "applicable_rules": [
+    "R02",
+    "R06",
+    "R07"
+   ],
+   "rule_status": "最终规则已定稿",
+   "execution_order": 67
+  }
+ ]
 }
