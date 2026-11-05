@@ -27,12 +27,14 @@ public interface CommissionRespVos {
     }
 
     record Commission(long id, long customerId, String customerName, String status, int submissionVersion,
-                      Integer dispatchSeq, Integer handoverVersion, OffsetDateTime firstReadyAt,
+                      Integer dispatchSeq, String dispatchedSchemeVersion, Integer dispatchedSubmissionVersion,
+                      Integer handoverVersion, OffsetDateTime firstReadyAt,
                       OffsetDateTime tailPaidAt, OffsetDateTime tailReadyAt, long revision,
                       OffsetDateTime createTime, OffsetDateTime updateTime) {
         public static Commission of(CommissionDO c) {
             return new Commission(c.getId(), c.getCustomerId(), c.getCustomerName(), c.getStatus(),
-                    c.getSubmissionVersion(), c.getDispatchSeq(), c.getHandoverVersion(), c.getFirstReadyAt(),
+                    c.getSubmissionVersion(), c.getDispatchSeq(), c.getDispatchedSchemeVersion(),
+                    c.getDispatchedSubmissionVersion(), c.getHandoverVersion(), c.getFirstReadyAt(),
                     c.getTailPaidAt(), c.getTailReadyAt(), c.getRevision(), c.getCreateTime(), c.getUpdateTime());
         }
     }
@@ -63,15 +65,16 @@ public interface CommissionRespVos {
 
     record Handover(long id, long commissionId, int version, int dispatchSeq, String resultFile,
                     String drawingFile, String reviewFile, String confirmationFile, String drawingVersion,
+                    String frozenSchemeVersion,
                     LocalDate confirmationDate, String note, long managerUserId, String status,
                     String decisionNote, Long decidedByUserId, OffsetDateTime decidedAt,
                     long submittedByUserId, OffsetDateTime createTime) {
         public static Handover of(CommissionHandoverDO h) {
             return new Handover(h.getId(), h.getCommissionId(), h.getVersion(), h.getDispatchSeq(),
                     h.getResultFile(), h.getDrawingFile(), h.getReviewFile(), h.getConfirmationFile(),
-                    h.getDrawingVersion(), h.getConfirmationDate(), h.getNote(), h.getManagerUserId(),
-                    h.getStatus(), h.getDecisionNote(), h.getDecidedByUserId(), h.getDecidedAt(),
-                    h.getSubmittedByUserId(), h.getCreateTime());
+                    h.getDrawingVersion(), h.getFrozenSchemeVersion(), h.getConfirmationDate(), h.getNote(),
+                    h.getManagerUserId(), h.getStatus(), h.getDecisionNote(), h.getDecidedByUserId(),
+                    h.getDecidedAt(), h.getSubmittedByUserId(), h.getCreateTime());
         }
     }
 

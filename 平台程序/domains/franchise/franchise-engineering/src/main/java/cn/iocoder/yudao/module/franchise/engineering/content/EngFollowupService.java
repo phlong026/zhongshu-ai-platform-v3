@@ -72,9 +72,11 @@ public class EngFollowupService {
         if (replayed.isPresent()) {
             return list(post, projectId);
         }
+        // 期次归一与 collect 同构：三枚举精确匹配；存量旧值 TOPPING 显式映射 CAP_DONE（M07-T02 v3 接线对称）；
+        // 其它未知值（含旧 START）按签约后处理（催收为留痕动作，不写资金账）
         String stage = switch (cmd.stage() == null ? "" : cmd.stage()) {
             case FrEngCollectionTermDO.STAGE_BASE_DONE -> FrEngCollectionTermDO.STAGE_BASE_DONE;
-            case FrEngCollectionTermDO.STAGE_CAP_DONE -> FrEngCollectionTermDO.STAGE_CAP_DONE;
+            case FrEngCollectionTermDO.STAGE_CAP_DONE, FrEngCollectionTermDO.STAGE_TOPPING -> FrEngCollectionTermDO.STAGE_CAP_DONE;
             default -> FrEngCollectionTermDO.STAGE_SIGN_AFTER;
         };
         if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(stage)
@@ -84,7 +86,7 @@ public class EngFollowupService {
         // M07-T06/R2 P1-3：BASE_DONE 催收与销售域对齐不设节点门禁（基础完成留痕随 M07-T04 承接）
         long expected = collectionTerms.selectByProject(post.orgId(), projectId).stream()
                 .filter(t -> stage.equals(t.getStage())).mapToLong(FrEngCollectionTermDO::getAmountCents)
-                .findFirst().orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "请等待合同及两期收款约定确认"));
+                .findFirst().orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "请等待合同及收款期次约定确认"));
         long confirmed = collections.selectByProject(post.orgId(), projectId).stream()
                 .filter(c -> stage.equals(c.getStage())).mapToLong(FrEngCollectionDO::getAmountCents).sum();
         if (expected - confirmed <= 0) {
