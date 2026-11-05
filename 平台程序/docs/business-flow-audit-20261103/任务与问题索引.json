@@ -1672,7 +1672,7 @@
       "scope": "I07；三方向线下退款/异常留痕前后端",
       "dependency": "权威16规则；M06/M07同一合同及支出原单契约冻结",
       "acceptance": "客户退款扣净实收；支出退回减已付现金、确认变更才调成本；正常上限不破，异常分未核/已核待关联/待归月；真实退款不撤销抹除、收回另记反向；退多付不减正确费用；无网关/通用审批",
-      "status": "双端（一）已交付（批次#33：待修项全清偿+异常资金实体+支出退回双端，后端 R4 PASS/v3 R3 PASS）；余批次#34 更正链接线/异常待办/对账视图",
+      "status": "✅ 双端全交付（批次#33 一+批次#34 二：后端 R4/R1 PASS、v3 R3/R3 PASS）；载体/更正链/待办/对账视图全闭环",
       "module": "M08",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M08.md",
       "line": 161,
@@ -1685,7 +1685,7 @@
       ],
       "rule_status": "最终规则已定稿",
       "execution_order": 47,
-      "implementation_note": "批次#13 首版 101c1f6 → 批次#33 清偿 30e24a2（后端）+4eedf8e（v3）：迁移 828/829/830+undo、FranchiseCommands 聚合一致校验、FinAbnormalFundService、expense 更正链、作废互斥、统计方向隔离、项目账冲减；11 用例集成测试"
+      "implementation_note": "批次#13 首版 101c1f6 → #33 清偿 30e24a2+4eedf8e → #34 闭环 c4d11cc+3f3c492：对账四口径端点+对账卡、TodoProvider 异常待办、更正链双端（双向互斥+代次卫生）；存量 wxml 双 ledger block 重叠登记随 finance-desk 收口批"
     },
     {
       "id": "M09-T04",
