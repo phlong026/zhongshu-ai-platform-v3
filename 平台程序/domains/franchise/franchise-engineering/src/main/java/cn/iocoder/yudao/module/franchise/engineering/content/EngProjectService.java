@@ -362,6 +362,13 @@ public class EngProjectService {
             return row;
         }).toList());
         view.put("nodes", nodes.stream().map(EngProjectService::nodeView).toList());
+        // R2 P1-4：现场记录透出（批次#36 在线 site/site-correct 链数据源；corrections/file_asset_ids 原样 JSONB 文本）
+        view.put("siteRecords", jdbcTemplate.queryForList(
+                "SELECT id, node_id, occurred_at, note, completion, "
+                        + "file_asset_ids::text AS file_asset_ids, corrections::text AS corrections "
+                        + "FROM fr_eng_site_record WHERE company_id = ? AND project_id = ? "
+                        + "ORDER BY occurred_at DESC, id DESC",
+                post.orgId(), projectId));
         if (closure != null) {
             Map<String, Object> c = new LinkedHashMap<>();
             c.put("deliveredAt", closure.getDeliveredAt());

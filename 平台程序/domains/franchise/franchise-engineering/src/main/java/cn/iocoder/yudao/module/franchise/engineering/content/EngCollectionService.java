@@ -44,6 +44,7 @@ public class EngCollectionService {
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages;
     private final cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContracts;
+    private final EngPlanService planService; // M07-T04 批次#36：收款凭据域侧校验复用（同包 package-visible）
     private final BusinessReceiptPort businessReceipts;
 
     public EngCollectionService(EngProjectService projectService, FrEngPlanNodeMapper planNodes,
@@ -51,7 +52,8 @@ public class EngCollectionService {
                                 FranchiseCommands commands, BusinessReceiptPort businessReceipts,
                                 org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
                                 cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages,
-                                cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContracts) {
+                                cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContracts,
+                                EngPlanService planService) {
         this.projectService = projectService;
         this.planNodes = planNodes;
         this.collectionTerms = collectionTerms;
@@ -61,6 +63,7 @@ public class EngCollectionService {
         this.jdbcTemplate = jdbcTemplate;
         this.unifiedStages = unifiedStages;
         this.saleContracts = saleContracts;
+        this.planService = planService;
     }
 
     public record CollectCommand(String stage, BigDecimal amount, String transactionNo,
@@ -160,6 +163,14 @@ public class EngCollectionService {
             FrEngCollectionDO prior = collections.selectById(replayed.get().getAggregateId());
             return Map.of("collectionId", prior.getId(),
                     "receiptId", prior.getReceiptId() == null ? 0 : prior.getReceiptId(), "replayed", true);
+        }
+        // M07-T04 批次#36：收款凭据资产域侧校验（填了即验——假 ID/跨组织/未 ACCEPTED/类型不符全拒；
+        // 与 prepare/start/deliver 同款 requireValidAsset，十动作资产链收口）
+        if (cmd.fileAssetId() != null) {
+            // R2 P1-2：收款凭据允许 FIN_VOUCHER（finance 岗在 FIN_VOUCHER 通道白名单内——ENG 类通道
+            // 角色矩阵排除 finance，签票阶段即 403；v3 侧 collect 同步改传 FIN_VOUCHER）
+            planService.requireValidAsset(post, cmd.fileAssetId(),
+                    java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING", "FIN_VOUCHER"), "收款");
         }
         // M07-T06/I05（R1 P1-1）：统一实收账——工程收款写通销售统一合同期次（资金事实唯一在
         // fr_fin_receipt + fr_sale_stage_receipt），本域 fr_eng_collection 行仅作留痕引用统一 receiptId，

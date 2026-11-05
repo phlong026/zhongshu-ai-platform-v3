@@ -51,13 +51,15 @@ public class EngMaterialService {
     private final EngineeringPayablePort payables;
     private final EngineeringLedgerQueryPort ledger;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private final EngPlanService planService; // M07-T04 批次#36：到货凭据域侧校验复用（同包）
 
     public EngMaterialService(EngProjectService projectService, FrEngProjectMapper projects,
                               FrEngPlanNodeMapper planNodes, FrEngMaterialMapper materials,
                               FrEngSupplyMapper supplies, FrEngSupplyReceiptMapper supplyReceipts,
                               FrEngMaterialMovementMapper movements, FranchiseCommands commands,
                               EngineeringPayablePort payables, EngineeringLedgerQueryPort ledger,
-                              org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
+                              org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+                              EngPlanService planService) {
         this.projectService = projectService;
         this.jdbcTemplate = jdbcTemplate;
         this.projects = projects;
@@ -69,6 +71,7 @@ public class EngMaterialService {
         this.commands = commands;
         this.payables = payables;
         this.ledger = ledger;
+        this.planService = planService;
     }
 
     public record PlanLine(String name, String spec, String unit, BigDecimal quantity) {
@@ -328,6 +331,17 @@ public class EngMaterialService {
             throw exception(ENGINEERING_INPUT_INVALID, "收货日期不能晚于今天");
         }
         if (cmd.qualityResolution() != null && cmd.parentReceiptId() == null && cmd.actual() == null) {
+            // R3 P1-5：质检处置凭据无条件过域侧校验（Number/String 双形状解析——假 ID/跨组织/未 ACCEPTED/类型不符全拒）
+            Object resolutionAsset = cmd.qualityResolution().get("fileAssetId");
+            long resolutionAssetId = -1;
+            if (resolutionAsset instanceof Number) {
+                resolutionAssetId = ((Number) resolutionAsset).longValue();
+            } else if (resolutionAsset != null) {
+                try { resolutionAssetId = Long.parseLong(String.valueOf(resolutionAsset).trim()); }
+                catch (NumberFormatException e) { resolutionAssetId = -1; }
+            }
+            planService.requireValidAsset(post, resolutionAssetId,
+                    java.util.Set.of("ENG_SITE_PHOTO"), "质检处置"); // -1 必拒（validateReference 不存在）
             FrEngSupplyReceiptDO receipt = requireReceipt(post, cmd.qualityResolution());
             resolveQuality(post, receipt, cmd.qualityResolution());
             commands.record(post, AGGREGATE, supply.getProjectId(),
@@ -338,6 +352,9 @@ public class EngMaterialService {
         if (cmd.fileAssetId() == null || StrUtil.isBlank(cmd.transactionNo())) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写收货流水并留存到货凭据");
         }
+        // M07-T04 批次#36：到货凭据资产域侧校验（假 ID/跨组织/未 ACCEPTED/类型不符全拒）
+        planService.requireValidAsset(post, cmd.fileAssetId(),
+                java.util.Set.of("ENG_SITE_PHOTO"), "到货");
         // 形态②：补发到货（parentReceiptId=RESHIP 行）
         if (cmd.parentReceiptId() != null) {
             FrEngSupplyReceiptDO reship = supplyReceipts.selectById(cmd.parentReceiptId());

@@ -34,15 +34,18 @@ public class EngSiteRecordService {
     private final FrEngSiteRecordMapper siteRecords;
     private final FranchiseCommands commands;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private final EngPlanService planService; // M07-T04 批次#36：现场凭据域侧校验复用（同包）
 
     public EngSiteRecordService(EngProjectService projectService, FrEngPlanNodeMapper planNodes,
                                 FrEngSiteRecordMapper siteRecords, FranchiseCommands commands,
-                                org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
+                                org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+                                EngPlanService planService) {
         this.projectService = projectService;
         this.planNodes = planNodes;
         this.siteRecords = siteRecords;
         this.commands = commands;
         this.jdbcTemplate = jdbcTemplate;
+        this.planService = planService;
     }
 
     public record SiteRecordCommand(long nodeId, LocalDate occurredAt, String note, List<Long> fileAssetIds) {
@@ -64,6 +67,11 @@ public class EngSiteRecordService {
                 || cmd.fileAssetIds() == null || cmd.fileAssetIds().isEmpty()) {
             throw exception(ENGINEERING_INPUT_INVALID, "请在原施工节点填写现场记录并留存照片");
         }
+        // M07-T04 批次#36：现场照片逐张域侧校验（假 ID/跨组织/未 ACCEPTED/类型不符全拒）
+        for (Long assetId : cmd.fileAssetIds()) {
+            planService.requireValidAsset(post, assetId,
+                    java.util.Set.of("ENG_SITE_PHOTO"), "现场");
+        }
         LocalDate date = cmd.occurredAt() == null ? LocalDate.now() : cmd.occurredAt();
         if (date.isAfter(LocalDate.now())) {
             throw exception(ENGINEERING_INPUT_INVALID, "现场记录日期不能晚于今天");
@@ -73,9 +81,10 @@ public class EngSiteRecordService {
         if (!nodeExists) {
             throw exception(ENGINEERING_INPUT_INVALID, "请选择本项目的施工节点");
         }
+        // R2 P1-6：10 列对 10 值表达式（HEAD 既有错位——FALSE 落 note 位、绑定数不符必执行失败）
         jdbcTemplate.update("INSERT INTO fr_eng_site_record (id, company_id, project_id, node_id, "
                         + "occurred_at, note, completion, file_asset_ids, author_user_id, create_time) "
-                        + "VALUES (?,?,?,?,?,FALSE,CAST(? AS jsonb),?,now())",
+                        + "VALUES (?,?,?,?,?,?,FALSE,CAST(? AS jsonb),?,now())",
                 cn.hutool.core.util.IdUtil.getSnowflakeNextId(), post.orgId(), projectId, cmd.nodeId(),
                 date, StrUtil.trim(cmd.note()),
                 EngPlanService.JsonList.of(cmd.fileAssetIds().toArray()), post.userId());
@@ -105,7 +114,12 @@ public class EngSiteRecordService {
         String corrections = EngPlanService.JsonList.append(record.getCorrections(), Map.of(
                 "note", StrUtil.nullToEmpty(record.getNote()), "reason", cmd.reason(),
                 "date", LocalDate.now().toString(), "actorUserId", post.userId()));
+        // M07-T04 批次#36：更正补传照片同样逐张域侧校验（旁路封堵——与 node-correct 同口径）
         if (cmd.fileAssetIds() != null && !cmd.fileAssetIds().isEmpty()) {
+            for (Long assetId : cmd.fileAssetIds()) {
+                planService.requireValidAsset(post, assetId,
+                        java.util.Set.of("ENG_SITE_PHOTO"), "现场更正");
+            }
             jdbcTemplate.update("UPDATE fr_eng_site_record SET note = ?, corrections = CAST(? AS jsonb), "
                             + "file_asset_ids = CAST(? AS jsonb) WHERE id = ? AND company_id = ?",
                     StrUtil.trim(cmd.note()), corrections,

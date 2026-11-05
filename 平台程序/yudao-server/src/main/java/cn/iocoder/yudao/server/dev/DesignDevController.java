@@ -123,6 +123,9 @@ public class DesignDevController {
 
     @PostMapping("/assets/{assetId}/bytes")
     @Operation(summary = "local 模式上传字节（仅落对象，不 complete——R7 首次触发审核；属主=服务账号）")
+    // R3 P1-2：双通路——853 三岗（sales/sales-lead/hq-design-admin）保持 design:use 原通路，
+    // 858 四岗（工程/PM/财务两岗）走窄码 asset:bytes（AI 接口 DesignAccessController 门控不变）
+    @PreAuthorize("@post.has('franchise:design:use') or @post.has('franchise:asset:bytes')")
     public CommonResult<Boolean> putBytes(@PathVariable("assetId") long assetId, @RequestBody BytesBody body) {
         long accountId = serviceAccount();
         byte[] content = Base64.getDecoder().decode(body.contentBase64());
@@ -130,8 +133,11 @@ public class DesignDevController {
         return success(true);
     }
 
+    // R4 P1-1：GET 读取通路仅 design:use（asset:bytes 四岗不上 GET——组织共享服务账号仅属主校验，
+    // 放开将绕过类型×岗位矩阵横向读取 FIN_VOUCHER 等跨类资产）；业务读取走 download-tickets 类型矩阵
     @GetMapping("/assets/{assetId}/bytes")
-    @Operation(summary = "local 模式读取已接受对象字节（属主校验）")
+    @Operation(summary = "local 模式读取已接受对象字节（属主校验+design:use 岗位门）")
+    @PreAuthorize("@post.has('franchise:design:use')")
     public CommonResult<Map<String, Object>> getBytes(@PathVariable("assetId") long assetId) {
         long accountId = serviceAccount();
         byte[] content = assetService.devGetBytes(accountId, assetId);

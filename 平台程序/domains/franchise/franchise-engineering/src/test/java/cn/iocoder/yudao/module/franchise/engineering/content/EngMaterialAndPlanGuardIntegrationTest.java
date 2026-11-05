@@ -297,6 +297,32 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void collectVoucherAssetVerifiedWhenPresent() {
+        // M07-T04 批次#36：收款凭据资产域侧校验——填了即验（假 ID/未验收/类型不符全拒）；
+        // null 放行（既有可空行为，不收紧）——与 prepare/start 的必填语义区分
+        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+                new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("1000"), "TXN-VC1",
+                        java.time.LocalDate.now(), 9_999_999L), idem())))
+                .isInstanceOf(ServiceException.class); // 假 ID
+        long unaccepted = insertAsset("ENG_SITE_PHOTO", false, store.orgId());
+        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+                new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("1000"), "TXN-VC2",
+                        java.time.LocalDate.now(), unaccepted), idem())))
+                .isInstanceOf(ServiceException.class); // 未验收
+        long wrongType = insertAsset("DOC_OTHER", true, store.orgId());
+        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+                new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("1000"), "TXN-VC3",
+                        java.time.LocalDate.now(), wrongType), idem())))
+                .isInstanceOf(ServiceException.class); // 类型不符（非 ENG 类）
+        // 凭据缺失：既有必填校验（收款流水并留存凭据）先于域侧校验——语义锁定
+        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+                new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("500"), "TXN-VC4",
+                        java.time.LocalDate.now(), null), idem())))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("留存凭据");
+    }
+
+    @Test
     void sameKeySameInputReplayReturnsSameResultWithoutDuplication() {
         var cmd = new EngMaterialService.AdjustCommand(new BigDecimal("15.000"), "采购追加用量");
         String key = "idem-adj-1";
