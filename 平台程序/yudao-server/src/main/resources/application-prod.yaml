@@ -31,6 +31,10 @@ spring:
 yudao:
   security:
     mock-enable: false
+  sms-code:
+    # 覆盖底座全局默认 begin/end-code=9999（application.yaml 为测试便利所设），生产必须随机区间。
+    begin-code: ${ZS_SMS_CODE_BEGIN:100000}
+    end-code: ${ZS_SMS_CODE_END:999999}
   web:
     cors:
       # 生产跨域白名单（逗号分隔的 origin pattern）。留空 = 不放开任何跨域来源。
@@ -99,6 +103,9 @@ zhongshu:
         region: ${ZS_MODERATION_REGION:ap-guangzhou}
         biz-type: ${ZS_MODERATION_BIZ_TYPE}
         daily-limit: ${ZS_MODERATION_DAILY_LIMIT}
+  content:
+    # 内容创作任务的过期清扫调度：pg 基线默认 false，守卫要求生产显式开启（缺失即拒启）。
+    task-sweep-enabled: ${ZS_CONTENT_TASK_SWEEP_ENABLED:true}
 management:
   endpoints:
     web:
