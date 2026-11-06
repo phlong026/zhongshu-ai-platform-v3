@@ -146,6 +146,15 @@ platform:
     # 员工手机号验证码登录的短信通道：当前仅 stub（真实短信凭据到位后切 real，real 实现类就绪前 prod 启动即失败）。
     sms:
       provider: ${PF_SMS_PROVIDER:stub}
+      # M02-T04 批次#39：real 通道（腾讯云短信）——G0 门禁：五配置缺一启动失败
+      #（TencentSmsClient 构造期校验+RealServiceWiringPolicy REAL_MODE_REQUIREMENTS 登记）。
+      # secret-id/secret-key 属机密，只经部署环境带外注入；可与 COS 同账号同值（CAM 凭据账号级通用）。
+      sdk-app-id: ${PF_SMS_SDK_APP_ID:}
+      sign-name: ${PF_SMS_SIGN_NAME:}
+      template-id: ${PF_SMS_TEMPLATE_ID:}
+      secret-id: ${PF_SMS_SECRET_ID:}
+      secret-key: ${PF_SMS_SECRET_KEY:}
+      region: ${PF_SMS_REGION:ap-guangzhou}
 
 # T13-02：管理端不得回显密钥——将 Actuator env/configprops 端点的值回显显式设为安全默认值 NEVER。
 # Spring Boot 3.5 默认即 never（值以 ****** 呈现），此处在生产安全基线显式声明，令「不回显密钥」不依赖框架默认。

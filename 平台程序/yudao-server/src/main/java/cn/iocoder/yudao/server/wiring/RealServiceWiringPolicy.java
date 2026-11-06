@@ -52,7 +52,12 @@ public final class RealServiceWiringPolicy {
             // fake=确定性假通道（e2e 零付费，生产硬禁）；real 下各 provider 密钥独立可缺——
             // 刻意不在 REAL_MODE_REQUIREMENTS 登记五个密钥键：部署可只开通部分能力，未配置的调用期报 1_114_000_006。
             new PortProvider("zhongshu.content.provider",
-                    List.of("fake", "real"), List.of("fake"), "阶段 1.5"));
+                    List.of("fake", "real"), List.of("fake"), "阶段 1.5"),
+            // M02-T04 批次#39：员工手机号验证码短信（腾讯云）——stub=本地替身（仅 local），
+            // real=TencentSmsClient（六配置齐备：构造期校验+REAL_MODE_REQUIREMENTS 双守卫）。
+            // 键名沿用 platform.identity.sms.provider（StaffSmsLoginServiceImpl 链既有口径）。
+            new PortProvider("platform.identity.sms.provider",
+                    List.of("stub", "real"), List.of("stub"), "M02-T04"));
 
     /** 生产禁止启用的开发便利 profile：携带公开占位密钥、种子数据与开发端点（对应 T12 B05「生产不得启用 zsdev」）。 */
     private static final List<String> PRODUCTION_FORBIDDEN_PROFILES = List.of("zsdev", "local", "dev");
@@ -124,7 +129,21 @@ public final class RealServiceWiringPolicy {
             new RealModeRequirement("zhongshu.commerce.payment.provider", "virtual",
                     "zhongshu.identity.wechat-appid", "stub-appid", "T-XPAY"),
             new RealModeRequirement("zhongshu.commerce.payment.provider", "virtual",
-                    "zhongshu.identity.wechat-appsecret", null, "T-XPAY"));
+                    "zhongshu.identity.wechat-appsecret", null, "T-XPAY"),
+            // M02-T04 批次#39：短信 real 六配置（TencentSmsClient 构造期校验消费）——均无开发占位值；
+            // region 有安全默认（ap-guangzhou），登记占位值比对即跳过。
+            new RealModeRequirement("platform.identity.sms.provider", "real",
+                    "platform.identity.sms.sdk-app-id", null, "M02-T04"),
+            new RealModeRequirement("platform.identity.sms.provider", "real",
+                    "platform.identity.sms.sign-name", null, "M02-T04"),
+            new RealModeRequirement("platform.identity.sms.provider", "real",
+                    "platform.identity.sms.template-id", null, "M02-T04"),
+            new RealModeRequirement("platform.identity.sms.provider", "real",
+                    "platform.identity.sms.secret-id", null, "M02-T04"),
+            new RealModeRequirement("platform.identity.sms.provider", "real",
+                    "platform.identity.sms.secret-key", null, "M02-T04"),
+            new RealModeRequirement("platform.identity.sms.provider", "real",
+                    "platform.identity.sms.region", "ap-guangzhou", "M02-T04"));
 
     private RealServiceWiringPolicy() {
     }

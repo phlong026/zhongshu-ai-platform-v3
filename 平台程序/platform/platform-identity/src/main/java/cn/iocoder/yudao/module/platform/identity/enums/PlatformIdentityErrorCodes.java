@@ -16,5 +16,9 @@ public interface PlatformIdentityErrorCodes {
     ErrorCode SMS_DAILY_LIMIT = new ErrorCode(1_104_000_006, "今日验证码发送次数已达上限，请明日再试");
     ErrorCode SMS_CAPTCHA_WRONG = new ErrorCode(1_104_000_007, "验证码不正确，请重新输入");
     ErrorCode SMS_CAPTCHA_EXPIRED = new ErrorCode(1_104_000_008, "验证码已失效，请重新获取");
+    // M02-T04 批次#39：real 通道发送失败（腾讯云非 Ok——Message 摘要参数化）
+    ErrorCode SMS_SEND_FAILED = new ErrorCode(1_104_000_009, "短信发送失败：{}");
+    // M02-T04 批次#39：real 通道 SDK 异常（网络/凭据错误——不回显凭据，提示重试）
+    ErrorCode SMS_SERVICE_UNAVAILABLE = new ErrorCode(1_104_000_010, "短信服务暂不可用，请稍后重试");
 
 }

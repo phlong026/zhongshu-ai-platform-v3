@@ -687,6 +687,13 @@
                 <version>${awssdk.version}</version>
             </dependency>
 
+            <!-- 腾讯云短信（M02-T04 员工手机号验证码 real 通道；仅 SMS 模块非全家桶） -->
+            <dependency>
+                <groupId>com.tencentcloudapi</groupId>
+                <artifactId>tencentcloud-sdk-java-sms</artifactId>
+                <version>3.1.1280</version>
+            </dependency>
+
             <dependency>
                 <groupId>me.zhyd.oauth</groupId>
                 <artifactId>JustAuth</artifactId> <!-- 社交登陆（例如说，个人微信、企业微信等等） -->
