@@ -2,7 +2,7 @@ require('./utils/runtime-compat');
 App({
 globalData: { windowInfo: null },
 onLaunch() {
-try { require('./utils/region-migration').run(); } catch(error) { console.error('地域信息更新失败', error); }
+try { require('./utils/legacy-storage-cleanup').run(); } catch(error) { console.error('本地残留数据清理失败', error); }
 this.globalData.windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
 }
 });

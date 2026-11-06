@@ -9,11 +9,6 @@
   ],
   "subPackages": [
     {
-      "root": "pages/collaboration",
-      "name": "collaboration-simulation",
-      "pages": ["index"]
-    },
-    {
       "root": "pages/design",
       "name": "design-workflow",
       "pages": [
@@ -60,8 +55,7 @@
         "detail/index",
         "finance-desk/index",
         "operations/index",
-        "commission/index",
-        "simulation/index"
+        "commission/index"
       ],
       "root": "pages/admin",
       "name": "management-workflow"
