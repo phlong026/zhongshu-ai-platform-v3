@@ -6,7 +6,9 @@
 const TOKEN_KEY = 'zs-api-token-v1';
 const POST_KEY = 'zs-api-post-v1';
 const TENANT_KEY = 'zs-api-tenant-v1';
-const DEFAULT_BASE = 'http://127.0.0.1:48080/admin-api';
+// 基址单源 config/env.js（生产域名）；storage `zs-api-base` 仅作本地联调覆写。
+// 未配置任何基址时显式失败，绝不静默回落 127.0.0.1 之类的本地地址。
+const DEFAULT_BASE = require('../config/env').API_BASE;
 const TIMEOUT = 15000;
 // M02-T01/I05：岗位失效错误码（后端 PlatformAuthzErrorCodes.POST_NOT_USABLE 1_103_000_002）
 // ——token 仍有效而当前岗位被撤/组织停用，与账号失效（401）分属不同恢复路径
@@ -113,9 +115,13 @@ function handleUnauthorized(requestSessionGen, opts, reject) {
 
 function request(method, path, data, extraHeader, opts) {
   const requestSessionGen = sessionGen;
+  const baseUrl = (opts && opts.base ? opts.base : base());
+  if (!baseUrl) {
+    return Promise.reject({ code: -1, message: 'API 基址未配置：请在 config/env.js 填入生产域名，或经 storage zs-api-base 覆写联调地址' });
+  }
   return new Promise((resolve, reject) => {
     wx.request({
-      url: (opts && opts.base ? opts.base : base()) + path,
+      url: baseUrl + path,
       method,
       data,
       timeout: TIMEOUT,
