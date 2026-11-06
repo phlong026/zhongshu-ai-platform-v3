@@ -11,7 +11,6 @@ const keys = {
   videoDraft: 'zhongshu-video-draft',
   financeView: 'zhongshu-finance-view-v1',
   ownerGoals: 'zhongshu-owner-goals-v1',
-  salesDemo: 'zhongshu-sales-demo-v1',
   localRecords: 'zhongshu-local-records',
   savedDesign: 'zhongshu-saved-design',
   engineeringDraft: 'zhongshu-engineering-new-draft',
