@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.design.asset.StubContentModerationAdapter;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,6 +62,25 @@ public class DesignDevController {
         this.orchestration = orchestration;
         this.settlement = settlement;
         this.jdbcTemplate = new JdbcTemplate(dataSource);
+    }
+
+    /**
+     * R6 余债（横向读取批）：dev 字节通道类型×岗位矩阵——
+     * AssetAccessService.CHANNEL_ROLES 同源静态判定（FIN_VOUCHER=财务族/ENG_*=工程族/CONTRACT&CONTENT=销售族）。
+     * 封闭「同组织跨岗覆盖他人 PENDING 对象」与「design:use 三岗读跨类资产字节」的横向面。
+     * 未知类型保持放行（AssetAccessService 同语义）；资产不存在由 devPutBytes/devGetBytes 兜底。
+     */
+    private void requireAssetChannel(long assetId) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT asset_type FROM asset WHERE id = ? AND deleted = FALSE", assetId);
+        if (rows.isEmpty()) {
+            return;
+        }
+        String assetType = String.valueOf(rows.get(0).get("asset_type"));
+        String roleCode = currentPost.require().roleCode();
+        if (!cn.iocoder.yudao.module.franchise.asset.AssetAccessService.channelAllowed(assetType, roleCode)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN); // 1_099_000_002 同码（不泄露区分）
+        }
     }
 
     private long serviceAccount() {
@@ -128,6 +148,9 @@ public class DesignDevController {
     @PreAuthorize("@post.has('franchise:design:use') or @post.has('franchise:asset:bytes')")
     public CommonResult<Boolean> putBytes(@PathVariable("assetId") long assetId, @RequestBody BytesBody body) {
         long accountId = serviceAccount();
+        // R6 余债（横向读取批）：PUT 写面补类型×岗位矩阵——共享服务账号仅属主校验，
+        // 无此校验同组织跨岗可覆盖他人 PENDING 对象（干扰上传/SHA 校验失败）
+        requireAssetChannel(assetId);
         byte[] content = Base64.getDecoder().decode(body.contentBase64());
         assetService.devPutBytes(accountId, assetId, content);
         return success(true);
@@ -140,6 +163,8 @@ public class DesignDevController {
     @PreAuthorize("@post.has('franchise:design:use')")
     public CommonResult<Map<String, Object>> getBytes(@PathVariable("assetId") long assetId) {
         long accountId = serviceAccount();
+        // R6 余债（横向读取批）：GET 读面同矩阵——design:use 三岗（sales 等）也不得读跨类资产字节
+        requireAssetChannel(assetId);
         byte[] content = assetService.devGetBytes(accountId, assetId);
         return success(Map.of("sizeBytes", content.length,
                 "sha256", cn.hutool.crypto.digest.DigestUtil.sha256Hex(content),
