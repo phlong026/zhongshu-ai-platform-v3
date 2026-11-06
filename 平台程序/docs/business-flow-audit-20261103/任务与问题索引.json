@@ -1128,7 +1128,7 @@
       "title": "补齐生产短信装配并验证双登录（I01）",
       "dependency": "",
       "acceptance": "验收：pg,prod完整上下文可启动；生产拒绝stub；缺配置失败可定位，不输出验证码或密钥。；验收：手机号不存在/停用/无任职/歧义匹配拒绝；验证码过期、重复使用、错误次数、发送频率均有测试。",
-      "status": "规则已定，待实施／验证；E4 真实渠道验收阻塞登记（凭据随 #39/#40——规则/脚本先行交付）",
+      "status": "✅ real 通道已实现（批次#39：TencentSmsClient 腾讯渠道+cv-e4-sms.py）；真实送达验收待凭据（签名/模板审批）",
       "module": "M02",
       "file": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/docs/business-flow-audit-20261103/M02.md",
       "line": 136,
@@ -1139,7 +1139,8 @@
         "R07"
       ],
       "rule_status": "最终规则已定稿",
-      "execution_order": 20
+      "execution_order": 20,
+      "implementation_note": "批次#39 5d007f9：TencentSmsClient（G0 门禁六配置构造期校验+wiring 双登记）+cv-e4-sms 两段式验收脚本；教训=未定义常量单点错级联杀 lombok 处理轮（排错先看首错）"
     },
     {
       "id": "M11-T03",
