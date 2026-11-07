@@ -161,6 +161,14 @@ public class DesignAccessService {
         return designService.getAiJob(serviceAccount(post), jobId);
     }
 
+    public DesignServicePort.AiJobView cancelAiJob(PostSnapshot post, long jobId) {
+        return designService.cancelAiJob(serviceAccount(post), jobId);
+    }
+
+    public String notePolish(PostSnapshot post, String note, String line) {
+        return designService.notePolish(serviceAccount(post), note, line);
+    }
+
     public List<DesignServicePort.ResultVersionView> listResultVersions(PostSnapshot post, long projectId) {
         return designService.listResultVersions(serviceAccount(post), projectId);
     }

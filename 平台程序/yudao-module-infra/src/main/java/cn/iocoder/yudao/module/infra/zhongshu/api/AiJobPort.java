@@ -35,6 +35,9 @@ public interface AiJobPort {
 
     Optional<JobView> getJob(long jobId);
 
+    /** 请求取消（QUEUED/RUNNING/VALIDATING → CANCEL_REQUESTED，cancel_seq 单调裁决；终态抛错）。属主校验由实现方负责。 */
+    void requestCancellation(long userId, long jobId);
+
     /** Must share the creation transaction, so a worker never observes a job without its immutable input. */
     default boolean freezeInput(long jobId, java.util.Map<String,Object> snapshot) { throw new UnsupportedOperationException("AI_INPUT_NOT_WIRED"); }
 

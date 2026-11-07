@@ -596,6 +596,8 @@ public class CaseCatalogService {
         labels.put("SONG", "宋式");
         labels.put("COUNTRYSIDE", "田园");
         labels.put("MODERN", "现代");
+        labels.put("HUI_PAI", "徽派");
+        labels.put("SU_SHI", "苏式");
         STYLE_PRESET_LABELS = Collections.unmodifiableMap(labels);
     }
 

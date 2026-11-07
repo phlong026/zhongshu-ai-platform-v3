@@ -202,6 +202,25 @@ public class DesignAccessController {
         return success(access.getAiJob(access.post(), jobId));
     }
 
+    @PostMapping("/ai-jobs/{jobId}/cancellation-requests")
+    @Operation(summary = "请求取消生成任务（QUEUED/RUNNING/VALIDATING 可取消；退点随结算）")
+    public CommonResult<DesignServicePort.AiJobView> cancelAiJob(@PathVariable("jobId") long jobId) {
+        return success(access.cancelAiJob(access.post(), jobId));
+    }
+
+    public record NotePolishReq(String note, String line) {
+    }
+
+    @PostMapping("/note-polish")
+    @Operation(summary = "补充需求 AI 润色（保留原意与数字，限流在服务内）")
+    public CommonResult<Map<String, Object>> notePolish(@RequestBody NotePolishReq req) {
+        if (req.note() == null || req.note().isBlank()) {
+            throw exception(new cn.iocoder.yudao.framework.common.exception.ErrorCode(400, "请先填写需求说明"));
+        }
+        String polished = access.notePolish(access.post(), req.note(), req.line() == null ? "FLAT" : req.line());
+        return success(Map.of("polished", polished));
+    }
+
     public record SelectionReq(Long jobId, long candidateId) {
     }
 

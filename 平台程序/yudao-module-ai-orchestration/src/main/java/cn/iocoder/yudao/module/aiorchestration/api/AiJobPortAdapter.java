@@ -35,6 +35,11 @@ public class AiJobPortAdapter implements AiJobPort {
     }
 
     @Override
+    public void requestCancellation(long userId, long jobId) {
+        orchestrationService.requestCancellationForUser(jobId, userId);
+    }
+
+    @Override
     public Optional<JobView> getJob(long jobId) {
         return orchestrationService.getJob(jobId).map(job -> new JobView(
                 job.jobId(), job.userId(), job.status(), job.requestedCount(),

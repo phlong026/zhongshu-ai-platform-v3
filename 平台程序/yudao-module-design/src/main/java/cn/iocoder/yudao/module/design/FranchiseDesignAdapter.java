@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.design;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.design.ai.NotePolishService;
 import cn.iocoder.yudao.module.design.asset.AssetService;
 import cn.iocoder.yudao.module.design.asset.ModerationUnavailableException;
 import cn.iocoder.yudao.module.design.budget.BudgetService;
@@ -58,6 +59,7 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
     private final AssetService assetService;
     private final BudgetService budgetService;
     private final AiJobPort aiJobPort;
+    private final NotePolishService notePolishService;
     private final PricingPort pricingPort;
     private final UsagePricingPort usagePricingPort;
     private final TransactionTemplate txTemplate;
@@ -68,6 +70,7 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
                                   AssetService assetService,
                                   BudgetService budgetService,
                                   AiJobPort aiJobPort,
+                                  NotePolishService notePolishService,
                                   PricingPort pricingPort,
                                   org.springframework.beans.factory.ObjectProvider<UsagePricingPort> usagePricingPort,
                                   org.springframework.transaction.PlatformTransactionManager transactionManager,
@@ -77,6 +80,7 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
         this.assetService = assetService;
         this.budgetService = budgetService;
         this.aiJobPort = aiJobPort;
+        this.notePolishService = notePolishService;
         this.pricingPort = pricingPort;
         this.usagePricingPort = usagePricingPort.getIfAvailable();
         this.txTemplate = new TransactionTemplate(transactionManager);
@@ -158,6 +162,17 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
         }
         return new AiJobView(job.jobId(), job.status(), job.requestedCount(), job.acceptedCount(),
                 job.progress(), job.phase(), List.of("VIEW", "POLL_JOB"));
+    }
+
+    @Override
+    public AiJobView cancelAiJob(long serviceAccountId, long jobId) {
+        aiJobPort.requestCancellation(serviceAccountId, jobId);
+        return getAiJob(serviceAccountId, jobId);
+    }
+
+    @Override
+    public String notePolish(long serviceAccountId, String note, String line) {
+        return notePolishService.polish(serviceAccountId, note, line);
     }
 
     @Override

@@ -37,6 +37,12 @@ public interface DesignServicePort {
     /** AI 任务轮询；属主校验=适配器比对 job.userId==serviceAccountId */
     AiJobView getAiJob(long serviceAccountId, long jobId);
 
+    /** 请求取消生成任务（QUEUED/RUNNING/VALIDATING → CANCEL_REQUESTED；终态拒绝）。 */
+    AiJobView cancelAiJob(long serviceAccountId, long jobId);
+
+    /** 补充需求 AI 润色（按线路语境改写；限流与截断在服务内）→ polished 文本。 */
+    String notePolish(long serviceAccountId, String note, String line);
+
     List<ResultVersionView> listResultVersions(long serviceAccountId, long projectId);
 
     JobSubmitted createFlatJob(long serviceAccountId, long projectId, FlatJobCreate cmd, Actor actor);
