@@ -3,13 +3,13 @@ const P=require('../../../utils/platform-engineering'); // 工程域纯函数+�
 const Nav=require('../../../utils/page-navigation');
 const {makeFormHandlers}=require('../../../utils/view-container');
 const baseHandlers=makeFormHandlers();
-const titles={overview:'工程项目',prepare:'开工准备',start:'实际开工记录',collection:'工程收款',project:'项目与施工计划',materials:'材料计划',material:'材料计划详情',node:'施工节点记录',funding:'节点资金计划',payments:'项目款项',documents:'项目资料',delivery:'工程交付',settlement:'项目结算',archive:'交付档案'};
+const titles={overview:'工程项目',prepare:'开工准备',start:'实际开工记录',collection:'工程收款',project:'项目与施工计划',materials:'材料计划',material:'材料计划详情',node:'施工节点记录',funding:'节点资金计划',payments:'项目款项',expenses:'项目费用',documents:'项目资料',delivery:'工程交付',settlement:'项目结算',archive:'交付档案'};
 const field=(key,label,type='text')=>({key,label,type});
 Page({
  ...baseHandlers,
  // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
  input(e){baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
- data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,samplePreview:null},
+ data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,samplePreview:null,expenseMode:'register'},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.nodeId=o.nodeId||'';this.stage=o.stage==='topping'?'topping':o.stage==='base'?'base':'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
  onShow(){if(this.id)this.refresh();
   },
@@ -44,12 +44,18 @@ Page({
  closeSamplePreview(){this.setData({samplePreview:null});},
   async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败降级本地演示
    try{
+    // 费用视图并行预拉清单（失败不阻断详情渲染，清单区显示空）
+    const expensePull=this.data.view==='expenses'
+      ? require('../../../api/franchise/engineering').materials.expenseList(this.id).catch(()=>null)
+      : null;
     const bundle=await P.loadProject(this.id);
+    const expenses=expensePull?await expensePull:null;
     const data=P.recordView(bundle,{view:this.data.view,stage:this.stage,planId:this.planId,nodeId:this.nodeId,
       form:this.data.form,initialized:this.initialized&&!reset,
       today:require('../../../utils/account').localDate(),
       writeRole:['engineer','project-manager'].includes(X.context().role),
-      financeRole:O.has(X.context().role,'finance')}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
+      financeRole:O.has(X.context().role,'finance'),
+      expenses:expenses||undefined,expenseMode:this.data.expenseMode||'register'}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
     this.initialized=true;
     // 收款登记承接：原收款记录行统一指财务台收支页（finance-desk 承接收款登记）
     data.collections=(data.collections||[]).map(r=>({...r,url:'/pages/admin/finance-desk/index?view=flows&tab=receivables'}));
@@ -89,6 +95,16 @@ Page({
  supplyPick(e){ // R4 P1-2/R5：到货供应事项显式选定（picker index→id+label 预计算——WXML 只读字段）
   const idx=Number(e.detail.value),opts=(this.data.form&&this.data.form.supplyOptions)||[];
   if(opts[idx])this.setData({'form.supplyId':opts[idx].id,'form.supplyLabel':opts[idx].label});
+ },
+ pickPurpose(e){ // 费用用途枚举 picker（LABOR/TRAVEL/OTHER——label 预计算随 recordView 重建）
+  const i=Number(e.detail.value),p=(this.data.purposes||[])[i];
+  if(p)this.setData({'form.purposeCode':p.code});
+ },
+ expenseMode(e){ // 费用四模式切换（register 默认/terms 挂应付/revise 修订/cancel 取消——行内选定目标后重建 fields）
+  const d=e.currentTarget.dataset,mode=d.mode||'register',row=(this.data.expenseRows||[]).find(r=>r.id===d.id);
+  this.setData({expenseMode:mode,error:'','form.expenseId':row?row.id:'','form.expenseName':row?row.name:'',
+   'form.supplier':'','form.basis':'','form.newAmount':'','form.note':'','form.cancelReason':''});
+  this.refreshOnline(false); // 不重置 form（保留目标 expenseId），仅按新 mode 重建 fields/actions
  },
  pickSite(e){const r=this.data.siteRecords.find(r=>r.id===e.currentTarget.dataset.id);if(r)this.setData({'form.siteId':r.id,'form.siteNote':r.note,'form.siteFile':r.file||null,'form.siteReason':''});},
  cancelCorrection(){this.setData({'form.correctId':'','form.siteId':''});},

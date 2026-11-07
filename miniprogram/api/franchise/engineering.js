@@ -74,6 +74,9 @@ const materials = {
   expenseTerms: (expenseId, data, key) => http.post('/franchise/engineering/expenses/' + expenseId + '/terms', data, idem(key, 'expense-terms')),
   /** M09-T04：确认费用变更（金额修订——退多付款不减正确费用）{newAmount,note} */
   expenseRevise: (expenseId, data, key) => http.post('/franchise/engineering/expenses/' + expenseId + '/revise', data, idem(key, 'expense-revise')),
+  /** 取消费用（已挂应付拒绝——应付须财务侧原子关闭）{reason} */
+  expenseCancel: (expenseId, reason, key) =>
+    http.post('/franchise/engineering/expenses/' + expenseId + '/cancel', { reason }, idem(key, 'expense-cancel')),
   /** 费用清单 */
   expenseList: (id) => http.get('/franchise/engineering/' + id + '/expenses'),
 };

@@ -59,7 +59,7 @@ module.exports = function (tabIndex) {
         entries: entries(a),
         ownerProfile, managementEntries: managementEntries(a),
         name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
-        unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: A.progress(s, engineeringProfile ? 'engineering' : 'ai-video')
+        unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total: (A.courseChapters[engineeringProfile ? 'engineering' : 'ai-video'] || A.chapters).length, percent: 0 }
       });
       // API 未读数（基-2）：有会话才拉，回来合计刷新（11 文档 §十）
       if (http.token()) {
@@ -67,6 +67,13 @@ module.exports = function (tabIndex) {
           this.apiUnread = (r && r.count) || 0;
           const fresh = A.load();
           this.setData({ unread: M.totalUnread(A.scoped(fresh, fresh.messages).filter(x => !x.read).length, this.apiUnread) });
+        }).catch(() => {});
+        // 课程进度 API 真源（/franchise/content/course-progress 全量拉取，不读本地 learning 存储）
+        require('../../api/franchise/content').drafts.courseProgress().then(rows => {
+          const map = {}; (rows || []).forEach(r => { (map[r.courseId] = map[r.courseId] || []).push(Number(r.chapterIndex)); });
+          const cid = this.data.courseId, total = (A.courseChapters[cid] || A.chapters).length;
+          const done = (map[cid] || []).filter(i => Number.isInteger(i) && i >= 0 && i < total);
+          this.setData({ progress: { completed: done.length, total, percent: total ? done.length / total * 100 : 0 } });
         }).catch(() => {});
       }
       const bar = this.getTabBar && this.getTabBar();

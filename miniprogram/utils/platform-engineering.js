@@ -361,6 +361,22 @@ async function perform(action, id, form, node, key) {
       return api.materials.arrivalCorrection(f.receiptId, Number(f.correctActual), f.correctReason, key);
     case 'material-followup':
       return api.materials.followup(id, f.planId, f.promiseDate || null, String(f.note || '').trim(), key);
+    // 直接项目费用四动作（M07-T07/M09-T04 + 批次#38 收尾：cancel 前端接线——此前四 API 函数无消费方）
+    case 'expense-register':
+      return api.materials.expenseRegister(id, {
+        name: String(f.expenseName || '').trim(), purpose: f.purposeCode,
+        amount: yuan(f, 'expenseAmount', '费用金额'), note: f.note
+      }, key);
+    case 'expense-terms':
+      return api.materials.expenseTerms(f.expenseId, {
+        supplier: String(f.supplier || '').trim(), basis: String(f.basis || '').trim() || '费用凭据'
+      }, key);
+    case 'expense-revise':
+      return api.materials.expenseRevise(f.expenseId, {
+        newAmount: yuan(f, 'newAmount', '正确费用金额'), note: f.note
+      }, key);
+    case 'expense-cancel':
+      return api.materials.expenseCancel(f.expenseId, String(f.cancelReason || '').trim(), key);
     case 'deliver': {
       // M07-T04 批次#36：同一凭据文件上传一次，交付/业主签收两引用同 assetId（省一次上传）
       const deliverAssetId = await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING');
@@ -555,6 +571,26 @@ function recordView(bundle, ctx) {
     }
   } else if (view === 'archive') {
     if (own && delivery && settlement && !archived) actions = [{ action: 'archive', label: '归档项目资料' }];
+  } else if (view === 'expenses') {
+    // 直接项目费用四动作（登记即计成本/挂应付/修订/取消）——费用清单由 record 页预拉（opts.expenses）
+    form.purposeCode = form.purposeCode || 'LABOR';
+    const mode = opts.expenseMode || 'register';
+    if (own && !archived) {
+      if (mode === 'terms') {
+        fields = [viewField('supplier', '收款方（供应商）'), viewField('basis', '费用凭据（名称或编号）')];
+        actions = [{ action: 'expense-terms', label: '挂接应付' }];
+      } else if (mode === 'revise') {
+        fields = [viewField('newAmount', '正确费用金额（元）', 'digit'), viewField('note', '变更说明', 'textarea')];
+        actions = [{ action: 'expense-revise', label: '确认费用变更' }];
+      } else if (mode === 'cancel') {
+        fields = [viewField('cancelReason', '取消原因', 'textarea')];
+        actions = [{ action: 'expense-cancel', label: '取消费用' }];
+      } else {
+        fields = [viewField('expenseName', '费用名称'), viewField('purposeCode', '费用用途', 'purpose'),
+          viewField('expenseAmount', '费用金额（元）', 'digit'), viewField('note', '费用说明（选填）', 'textarea')];
+        actions = [{ action: 'expense-register', label: '登记费用（确认即计成本）' }];
+      }
+    }
   }
 
   const current = nodes.find(n => n.status !== '已完成');
@@ -580,6 +616,20 @@ function recordView(bundle, ctx) {
         files, corrections, canCorrect: own && !delivery && !r.completion };
     }),
     dunning: data.dunning, materialFollowups: data.materialFollowups, collections: p.collections,
+    // 直接项目费用清单（行内 label/操作位预计算——WXML 禁方法调用）
+    expenseRows: (opts.expenses || []).map(e => ({
+      id: String(e.expenseId), name: e.name || '',
+      purposeText: ({ LABOR: '劳务', TRAVEL: '差旅', OTHER: '其它' })[e.purpose] || e.purpose || '',
+      amountText: e.amountCents == null ? '—' : (e.amountCents / 100).toFixed(2),
+      statusText: e.status === 'CANCELLED' ? '已取消' : (e.payableId ? '已挂应付' : '已登记'),
+      canTerms: own && !archived && e.status !== 'CANCELLED' && !e.payableId,
+      canRevise: own && !archived && e.status !== 'CANCELLED',
+      canCancel: own && !archived && e.status !== 'CANCELLED' && !e.payableId
+    })),
+    expenseMode: opts.expenseMode || 'register',
+    expenseTarget: form.expenseName || '',
+    purposes: [{ code: 'LABOR', label: '劳务' }, { code: 'TRAVEL', label: '差旅' }, { code: 'OTHER', label: '其它' }],
+    purposeLabel: ({ LABOR: '劳务', TRAVEL: '差旅', OTHER: '其它' })[form.purposeCode] || '劳务',
     docs: p.documents, events: [],
     nodeRows: nodes.map(n => ({ ...n, pace: '', url: base + 'node&nodeId=' + encodeURIComponent(n.id) })),
     nodePlans: [], nodeMoney: null, inspections: [], arrivals: [],

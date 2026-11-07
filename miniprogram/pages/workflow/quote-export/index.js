@@ -1,15 +1,13 @@
-const B=require('../../../utils/business'),X=require('../../../utils/access'),S=require('./sheet'),R=require('./render'),PDF=require('./pdf');
+const S=require('./sheet'),R=require('./render'),PDF=require('./pdf');
 const call=(fn,options)=>new Promise((resolve,reject)=>fn({...options,success:resolve,fail:reject}));
 Page({
- data:{title:'报价单导出',form:{},fields:S.fields.map(([key,label])=>({key,label})),choices:S.choices,options:S.options.map(([key,label])=>({key,label})),image:'',busy:false,dirty:false,error:'',allowed:false,canEdit:false,total:'',label:'',platformMode:false},
- onLoad(o){this.id=o.id;this.kind=o.kind;this.version=o.version;this.actor=JSON.stringify(X.context());
-  if(o['quote-id']){// P4 API 态：exportSheet 冻结快照数据源
-   this.platformMode=true;this.quoteId=o['quote-id'];this.setData({platformMode:true,canEdit:false});this.loadPlatform();return;}
-  this.load();},
+ data:{title:'报价单导出',form:{},image:'',busy:false,error:'',allowed:false,total:'',label:''},
+ onLoad(o){ // 纯 API 态：exportSheet 冻结快照数据源（本地报价分支已随切生产剔除下线——无 quote-id 即错误态）
+  this.quoteId=o['quote-id'];
+  if(!this.quoteId){this.setData({error:'请从报价记录进入导出（报价单由平台快照生成）',allowed:false});return;}
+  this.loadPlatform();},
  onReady(){this.ready=true;if(this.doc)this.generate();},
- onShow(){if(this.platformMode)return;if(this.actor&&this.actor!==JSON.stringify(X.context())){this.doc=null;this.setData({image:'',form:{},allowed:false,error:'身份已切换，请返回客户重新进入'});}},
- current(){if(this.actor!==JSON.stringify(X.context()))throw Error('身份已切换，请返回客户重新进入');const c=B.customer(this.id);if(!c||!X.workflow('budget-result',c,false))throw Error('无权访问本客户报价');const r=S.record(c,this.kind,this.version);if(B.latest(c.budgets).version!==r.version)throw Error('报价版本已更新，请从客户档案重新进入');return {c,r};},
- /** P4：exportSheet → sheet doc 映射（12 文档 §五） */
+ /** exportSheet → sheet doc 映射（12 文档 §五） */
  loadPlatform(){
   const http=require('../../../api/http');
   http.get('/franchise/sales/quotes/'+this.quoteId+'/export-sheet').then(data=>{
@@ -28,28 +26,14 @@ Page({
    this.setData({error:(err&&err.message)||'导出数据加载失败，请重试',allowed:false});
   });
  },
- permission(){return '';},
- load(){try{const {c,r}=this.current(),view='budget',basis=Object.fromEntries(Object.entries(S.defaults(c,this.kind,r)).filter(([,v])=>v));this.draftView=view;this.key=B.draftKey('quote-sheet:'+this.kind+':'+this.version);const form=S.clean({...c.drafts[this.key],...basis});this.doc=S.build(c,this.kind,this.version,form);const blocked=this.permission(c);this.setData({form,choices:S.choices.map(p=>({...p,locked:!!basis[p.key]})),canEdit:X.workflow(view,c,true),label:this.doc.title+' V'+this.version,total:S.money(this.doc.total),allowed:!blocked,error:blocked});}catch(e){this.setData({error:e.message,allowed:false});}},
- input(e){if(!this.data.canEdit)return;this.setData({['form.'+e.currentTarget.dataset.key]:e.detail.value,dirty:true});},
- pick(e){if(!this.data.canEdit)return;const item=this.data.choices.find(p=>p.key===e.currentTarget.dataset.key);if(!item||item.locked)return;this.setData({['form.'+item.key]:item.values[Number(e.detail.value)],dirty:true});},
- toggle(e){if(!this.data.canEdit)return;const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:!this.data.form[key],dirty:true});},
- async generate(){if(this.data.busy||!this.ready)return;this.setData({busy:true,pdfFile:'',imageFile:''});try{
-   if(this.platformMode){// API 态：doc 已由 exportSheet 构造；无表单编辑（canEdit=false）
-    const canvas=await new Promise((resolve,reject)=>wx.createSelectorQuery().in(this).select('#quote-canvas').fields({node:true,size:true}).exec(rows=>rows[0]?.node?resolve(rows[0].node):reject(Error('报价单画布未就绪，请重试'))));
-    canvas.width=R.WIDTH*R.SCALE;canvas.height=R.HEIGHT*R.SCALE;const ctx=canvas.getContext('2d');ctx.scale(R.SCALE,R.SCALE);R.render(ctx,this.doc);
-    const image=await call(wx.canvasToTempFilePath,{canvas,fileType:'png',x:0,y:0,width:canvas.width,height:canvas.height,destWidth:canvas.width,destHeight:canvas.height});
-    const jpeg=await call(wx.canvasToTempFilePath,{canvas,fileType:'jpg',quality:0.98,x:0,y:0,width:canvas.width,height:canvas.height,destWidth:canvas.width,destHeight:canvas.height});
-    this.jpeg=jpeg.tempFilePath;this.setData({image:image.tempFilePath,allowed:true,error:''});return;
-   }
-   const {c}=this.current(),blocked=this.permission(c);this.doc=S.build(c,this.kind,this.version,this.data.form);const form=this.doc.form;this.doc.approved=!blocked;this.doc.demo=this.doc.demo||X.context().demo;
-   if(this.data.dirty){if(!X.workflow(this.draftView,c,true))throw Error('当前人员无权补充报价单信息');B.write(this.id,n=>{n.drafts[this.key]=form;},'','draft:'+this.draftView,c.revision);}
+ async generate(){if(this.data.busy||!this.ready||!this.doc)return;this.setData({busy:true,pdfFile:'',imageFile:''});try{
    const canvas=await new Promise((resolve,reject)=>wx.createSelectorQuery().in(this).select('#quote-canvas').fields({node:true,size:true}).exec(rows=>rows[0]?.node?resolve(rows[0].node):reject(Error('报价单画布未就绪，请重试'))));
    canvas.width=R.WIDTH*R.SCALE;canvas.height=R.HEIGHT*R.SCALE;const ctx=canvas.getContext('2d');ctx.scale(R.SCALE,R.SCALE);R.render(ctx,this.doc);
    const image=await call(wx.canvasToTempFilePath,{canvas,fileType:'png',x:0,y:0,width:canvas.width,height:canvas.height,destWidth:canvas.width,destHeight:canvas.height});
    const jpeg=await call(wx.canvasToTempFilePath,{canvas,fileType:'jpg',quality:0.98,x:0,y:0,width:canvas.width,height:canvas.height,destWidth:canvas.width,destHeight:canvas.height});
-   this.current();this.jpeg=jpeg.tempFilePath;this.setData({form,image:image.tempFilePath,dirty:false,allowed:!blocked,error:blocked});
+   this.jpeg=jpeg.tempFilePath;this.setData({image:image.tempFilePath,allowed:true,error:''});
   }catch(e){this.doc=null;this.jpeg='';this.setData({image:'',allowed:false,error:e.message||e.errMsg||'生成失败，请重试'});}finally{this.setData({busy:false});}},
- async ensure(){if(this.platformMode){if(!this.doc||!this.data.image)await this.generate();if(!this.doc||!this.data.image)throw Error(this.data.error||'请先生成报价单');return;}if(this.data.dirty||!this.data.image)await this.generate();if(!this.doc||!this.data.image)throw Error(this.data.error||'请先生成报价单');const {c}=this.current(),blocked=this.permission(c);if(blocked)throw Error(blocked);},
+ async ensure(){if(!this.doc||!this.data.image)await this.generate();if(!this.doc||!this.data.image)throw Error(this.data.error||'请先生成报价单');},
  async preview(){try{await this.ensure();wx.previewImage({current:this.data.image,urls:[this.data.image]});}catch(e){this.setData({error:e.message});}},
  async exportImage(){if(this.data.busy)return;try{await this.ensure();const fs=wx.getFileSystemManager(),filePath=wx.env.USER_DATA_PATH+'/'+S.filename(this.doc,'png');await call(fs.copyFile.bind(fs),{srcPath:this.data.image,destPath:filePath});this.imageFile=filePath;this.setData({imageFile:filePath,error:''});wx.showActionSheet({itemList:['保存图片到相册','发送图片文件'],success:async r=>{try{if(r.tapIndex===0){await call(wx.saveImageToPhotosAlbum,{filePath});wx.showToast({title:'已保存到相册',icon:'success'});}else if(wx.shareFileMessage)await call(wx.shareFileMessage,{filePath,fileName:S.filename(this.doc,'png')});else wx.previewImage({current:filePath,urls:[filePath]});}catch(e){const denied=/auth deny|auth denied|authorize|permission/.test(e.errMsg||'');this.setData({error:denied?'保存相册需要授权，可在小程序设置中开启相册权限':e.errMsg||'保存失败，请重试',albumDenied:denied});}}});}catch(e){this.setData({error:e.message||e.errMsg});}},
  async exportPdf(){if(this.data.busy)return;try{await this.ensure();this.setData({busy:true});const fs=wx.getFileSystemManager(),jpeg=await call(fs.readFile.bind(fs),{filePath:this.jpeg}),filePath=wx.env.USER_DATA_PATH+'/'+S.filename(this.doc,'pdf');await call(fs.writeFile.bind(fs),{filePath,data:PDF.pdf(jpeg.data,R.WIDTH*R.SCALE,R.HEIGHT*R.SCALE)});this.setData({pdfFile:filePath,error:''});await call(wx.openDocument,{filePath,fileType:'pdf',showMenu:true});}catch(e){this.setData({error:e.message||e.errMsg||'PDF导出失败，请重试'});}finally{this.setData({busy:false});}},
