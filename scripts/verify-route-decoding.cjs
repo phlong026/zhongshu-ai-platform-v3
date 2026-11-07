@@ -14,7 +14,11 @@ const assert = require('node:assert/strict');
         assert.equal(page.data.category, 'AI应用');
       }],
       ['/pages/admin/index?view=todos', { view:'todos', tab:malformed }, page => assert(!!page.data)], // 切生产收尾批：admin/index 已改跳转壳（todos 容器移除）——保留畸形编码不崩溃契约，form 断言随容器下线
-      // 切生产收尾批：operations 旧 desk 容器已下线（页面改跳转壳）——该用例移除，解码容错契约由其余三个存活容器承载
+      // Codex R4 P2：admin 已是跳转壳（todos 分流 finance-desk）——畸形参数入 URL 断言最终落点，不再二次手调 onLoad
+      ['/pages/admin/index?view=todos&tab=' + malformed, null, page => {
+        assert.equal(page.route, 'pages/admin/finance-desk/index', 'todos 分流到财务台');
+        assert(!!page.data, '跳转壳畸形编码不能导致目标页崩溃');
+      }],
       ['/pages/admin/finance-desk/index?view=flows', { view:'flows', id:malformed, category:malformed }, page => {
         assert.equal(page.id, malformed);
         assert.equal(page.data.category, malformed);
@@ -22,7 +26,7 @@ const assert = require('node:assert/strict');
     ]) {
       wx.reLaunch({ url });
       const page = getCurrentPages().at(-1);
-      assert.doesNotThrow(() => page.onLoad(options), url + ' 畸形编码不能导致页面崩溃');
+      if (options) assert.doesNotThrow(() => page.onLoad(options), url + ' 畸形编码不能导致页面崩溃');
       verify(page);
     }
     console.log('PASS 四个容器的合法路由值与畸形编码均安全处理');

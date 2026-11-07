@@ -32,9 +32,11 @@ Page({
   // Codex R1 P2-2/R2 P2/R3 P2：代次守卫在 token 检查前递增（退出/换会话也失效旧响应）；
   // 缓存绑定 token 指纹——换账号即失效（退出后立即渲染零进度，换 B 拉取失败不残留 A 的进度）
   this.__courseGen=(this.__courseGen||0)+1;const gen=this.__courseGen;
-  const tk=http.token();
-  if(this.__courseToken!==tk){this.__courseToken=tk;this.apiCourseDone=null;}
-  const currentCourse=courses.find(x=>x.id===this.id)||courses[0];
+  const tk=http.token(),currentCourse=courses.find(x=>x.id===this.id)||courses[0];
+  if(this.__courseToken!==tk){ // Codex R4 P2：换账号立即清缓存并同步渲染零进度（防后续拉取失败时页面残留旧账号进度）
+    this.__courseToken=tk;this.apiCourseDone=null;
+    if(['learning','course'].includes(this.data.view))this.setData({progress:this.courseProgressView(this.data.view==='course'?currentCourse.id:'ai-video')});
+  }
   if(!tk){this.apiCourseDone=null;
     if(['learning','course'].includes(this.data.view))this.setData({progress:this.courseProgressView(this.data.view==='course'?currentCourse.id:'ai-video')});
     return Promise.resolve();}

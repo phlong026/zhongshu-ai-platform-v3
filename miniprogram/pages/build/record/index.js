@@ -70,19 +70,26 @@ Page({
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
    if(this.data.busy)return;
    this.setData({busy:true,error:''});
-   // 幂等键复合（Codex R1 P1-2/R2 P1/R3 P1）：按 action 显式选目标字段——节点系绑表单 nodeId、
-   // 期次系绑 stage、对象系绑各自 ID；未列动作（登记/交付/结算/归档等）一律项目级（this.id），
-   // 不再回落活动节点——响应丢失后 onShow 切换节点时费用登记等键不得漂移（防同笔重复提交）
+   // 幂等键复合（Codex R1 P1-2/R2 P1/R3 P1/R4 P1）：按 action 显式选目标字段——节点系（含 material-plan）
+   // 绑表单 nodeId、期次系绑 stage、对象系绑各自 ID；未列动作（交付/结算/归档等）一律项目级，不回落活动节点。
+   // 键复用判定加命令指纹（R4 P1-2）：同目标同内容=失败重试复用同键（后端幂等回放原命令）；
+   // 同目标改内容=新命令新键（响应丢失后改填新费用再提交不得复用旧键——防回放旧命令吞掉新登记）
    const IDEM={'expense-terms':'expenseId','expense-revise':'expenseId','expense-cancel':'expenseId',
     'arrival':'supplyId','material-terms':'supplyId','arrival-correct':'correctId','site-correct':'siteId',
-    'node':'nodeId','site':'nodeId','node-correct':'nodeId','node-reopen':'nodeId','collect':'stage','dunning':'stage'};
+    'node':'nodeId','site':'nodeId','node-correct':'nodeId','node-reopen':'nodeId','material-plan':'nodeId',
+    'collect':'stage','dunning':'stage'};
    const f0=f||this.data.form,tk=IDEM[action],tv=tk?String(f0[tk]||''):'';
    const idemId=action+(tv?'-'+tk+tv:'');
+   const fp=JSON.stringify(f0,(k,v)=>k==='supplyOptions'?undefined:v); // 命令指纹（排除渲染选项）
    if(!this.__idemKeys)this.__idemKeys={};
-   if(!this.__idemKeys[idemId])this.__idemKeys[idemId]='eng-'+idemId+'-'+Date.now()+'-'+Math.floor(Math.random()*1e8);
+   let cached=this.__idemKeys[idemId];
+   if(!cached||cached.fp!==fp){ // 无缓存或内容变了→新键；同目标同内容失败重试复用
+    cached={key:'eng-'+idemId+'-'+Date.now()+'-'+Math.floor(Math.random()*1e8),fp};
+    this.__idemKeys[idemId]=cached;
+   }
    try{
-    await P.perform(action,String(this.id),f0,node||this.data.node,this.__idemKeys[idemId]);
-    delete this.__idemKeys[idemId]; // 成功后释放；失败保留，同一目标重试复用同键
+    await P.perform(action,String(this.id),f0,node||this.data.node,cached.key);
+    delete this.__idemKeys[idemId]; // 成功后释放；失败保留，同目标同内容重试复用同键（指纹匹配时）
     wx.showToast({title:'已在线保存',icon:'success'});
     // Codex R1 P2-1：费用登记成功后清空表单（防旧名称/金额残留一键重复计成本）
     if(action==='expense-register')this.setData({'form.expenseName':'','form.expenseAmount':'','form.note':''});

@@ -78,8 +78,7 @@ assert.match(read('miniprogram/components/action-panel/index.wxml'), /panel\.err
   const accountFile = path.join(root, 'miniprogram/pages/account/index.wxml');
   const accountNotice = flat(roleRuntime.render(accountFile, { modal: { type: 'notice', title: '提示', text: '内容' }, error: '', form: {} }));
   assert(accountNotice.some(node => node.tag === 'button' && classes(node).includes('confirm')), 'account 通知未展开 action-panel');
-  const accountLogin = flat(roleRuntime.render(accountFile, { modal: { type: 'login-demo', title: '登录', text: '选择账号' }, error: '', form: {} }));
-  assert(accountLogin.some(node => node.attrs?.['data-handler'] === 'confirmModal'), '登录弹层原生验收入口被改变');
+  // 切生产收尾批：login-demo 弹层已随演示登录下线——该渲染断言摘除（通用 sheet 契约由 notice 断言覆盖）
 
   const runtime = await roleRuntime.connect();
   // 切生产收尾批：operations 本地待办链已下线（页改跳转壳）——运行时断言段摘除，组件行为由下方 fixture 段覆盖
