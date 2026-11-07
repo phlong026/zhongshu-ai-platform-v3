@@ -37,6 +37,12 @@ assert(wxml.includes('<text>微信一键登录</text>'), '按钮文案与 tab �
 assert(js.includes("return this.fail('已取消手机号授权，可改用验证码登录')"), '拒绝授权零网络请求早退并动态提示验证码退路');
 assert(wxss.includes('.login-brand{display:block;margin:0 auto 24rpx;width:440rpx;height:120rpx}'), '品牌字标横条样式存在');
 assert(wxss.includes('background:#07c160!important;color:#fff!important}'), '一键登录按钮官方绿以 !important 穿透（实测普通声明被品牌渐变压过）');
+assert(wxss.includes('.wechat-actions{margin-top:40rpx}'), '微信 tab seg 与按钮拉开呼吸间距（40rpx）');
+assert(wxss.includes('.login-agreement{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 16rpx)'), '协议行固定页面底部（safe-area 适配）');
+assert(wxss.includes('.login-agreement button{background:transparent;padding:0;margin:0;border:none;line-height:inherit}'), '协议行脱离卡片后 button 默认白底/边框/行高透明化');
+assert(wxml.includes('class="agreement-row login-agreement"'), '协议行移出登录卡片（两 tab 共用底部）');
+const layout = read('miniprogram/pages/account/layout.wxss');
+assert(!layout.includes('.login-card>.solid{margin:32rpx 0 15rpx}'), '按钮老结构死规则已清（page-actions 包裹后无目标）');
 
 // 3) 上传链：http.upload 契约 + 头像落库（PUT avatar URL，后端 08 文档 avatar 键语义）
 assert(http.includes("name: 'file'") && http.includes('formData'), 'http.upload 为 multipart file 字段封装');
