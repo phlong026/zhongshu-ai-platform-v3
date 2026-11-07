@@ -6,6 +6,6 @@
  * 本地/联调开发：经 storage key `zs-api-base` 覆写（见 api/http.js），不改本文件。
  */
 module.exports = {
-  // TODO(production): 填入正式生产域名后移除本注释。示例：'https://api.example.com/admin-api'
-  API_BASE: '',
+  // 生产域名（与服务器现有 API 域名一致——新后端部署于同一域名下）
+  API_BASE: 'https://api.zszhj.com/admin-api',
 };
