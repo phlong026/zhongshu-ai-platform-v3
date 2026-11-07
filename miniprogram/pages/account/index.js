@@ -30,7 +30,9 @@ Page({
  },
  syncCourseProgress(){ // 后端课程进度（/franchise/content/course-progress 全量拉取→当前课程视图重建）
   if(!http.token()){this.apiCourseDone=null;return Promise.resolve();}
+  this.__courseGen=(this.__courseGen||0)+1;const gen=this.__courseGen; // Codex R1 P2-2：请求代次守卫——旧响应迟到不回退新进度/不跨岗位串台
   return require('../../api/franchise/content').drafts.courseProgress().then(rows=>{
+    if(gen!==this.__courseGen)return;
     const map={};(rows||[]).forEach(r=>{(map[r.courseId]=map[r.courseId]||[]).push(Number(r.chapterIndex));});
     this.apiCourseDone=map;
     const currentCourse=courses.find(x=>x.id===this.id)||courses[0];

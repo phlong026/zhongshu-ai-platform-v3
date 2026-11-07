@@ -70,12 +70,16 @@ Page({
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
    if(this.data.busy)return;
    this.setData({busy:true,error:''});
+   // 幂等键复合（Codex R1 P1-2）：action+目标对象 ID——同一目标的失败重试复用同键，切换目标（不同费用/节点）不复用旧键
+   const f0=f||this.data.form,idemId=action+(f0.expenseId?'-e'+f0.expenseId:(f0.supplyId?'-s'+f0.supplyId:(f0.receiptId?'-r'+f0.receiptId:(f0.siteId?'-c'+f0.siteId:(node&&node.id?'-n'+node.id:'')))));
    if(!this.__idemKeys)this.__idemKeys={};
-   if(!this.__idemKeys[action])this.__idemKeys[action]='eng-'+action+'-'+Date.now()+'-'+Math.floor(Math.random()*1e8);
+   if(!this.__idemKeys[idemId])this.__idemKeys[idemId]='eng-'+idemId+'-'+Date.now()+'-'+Math.floor(Math.random()*1e8);
    try{
-    await P.perform(action,String(this.id),f||this.data.form,node||this.data.node,this.__idemKeys[action]);
-    delete this.__idemKeys[action]; // 成功后释放；失败保留，重试同一动作复用同键
+    await P.perform(action,String(this.id),f0,node||this.data.node,this.__idemKeys[idemId]);
+    delete this.__idemKeys[idemId]; // 成功后释放；失败保留，同一目标重试复用同键
     wx.showToast({title:'已在线保存',icon:'success'});
+    // Codex R1 P2-1：费用登记成功后清空表单（防旧名称/金额残留一键重复计成本）
+    if(action==='expense-register')this.setData({'form.expenseName':'','form.expenseAmount':'','form.note':''});
     await this.refreshOnline(true);
    }catch(e){const msg=P.errorText(e&&e.data?e.data.data||e.data:e);
     this.setData({error:msg});wx.showToast({title:msg,icon:'none'});}

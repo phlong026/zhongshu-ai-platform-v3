@@ -69,7 +69,9 @@ module.exports = function (tabIndex) {
           this.setData({ unread: M.totalUnread(A.scoped(fresh, fresh.messages).filter(x => !x.read).length, this.apiUnread) });
         }).catch(() => {});
         // 课程进度 API 真源（/franchise/content/course-progress 全量拉取，不读本地 learning 存储）
+        this.__courseGen = (this.__courseGen || 0) + 1; const courseGen = this.__courseGen; // Codex R1 P2-2：代次守卫防旧响应回退
         require('../../api/franchise/content').drafts.courseProgress().then(rows => {
+          if (courseGen !== this.__courseGen) return;
           const map = {}; (rows || []).forEach(r => { (map[r.courseId] = map[r.courseId] || []).push(Number(r.chapterIndex)); });
           const cid = this.data.courseId, total = (A.courseChapters[cid] || A.chapters).length;
           const done = (map[cid] || []).filter(i => Number.isInteger(i) && i >= 0 && i < total);
