@@ -1,7 +1,7 @@
 /**
  * 员工本人资料视图模型（纯函数，零 wx/Storage 依赖——verify 依赖此约束）。
  * 契约：monorepo docs/backend-parity/08-阶段0-员工profile接口-需求与验收.md（PUT /platform/profile/mine）。
- * 与后端同一口径：nickname 必填，trim 后 1–20 字；手机号只读；头像上传通道未就绪前不落 URL。
+ * 与后端同一口径：nickname 必填，trim 后 1–20 字；手机号只读；头像经基-1 上传通道（/infra/file/upload）落 URL。
  */
 
 /** 姓名校验 + trim 归一化：{ok:true,value} | {ok:false,error} */
@@ -13,12 +13,14 @@ function normalizeNickname(input) {
 
 /**
  * 后端 Profile（GET/PUT data：{id,nickname,mobile,avatar}）合入本地 profile。
- * 姓名/手机号以后端为真源；头像保留本地路径（wx.saveFile 路径不是 URL，不上传不覆盖——待基-1 上传通道）。
+ * 姓名/手机号以后端为真源；头像：后端 URL 非空即覆盖（上传通道就绪后后端为真源），
+ * 后端 null（未设置）保留本地——可能是 wx.saveFile 本机路径或已有 URL。
  */
 function mergeProfile(local, remote) {
   const next = Object.assign({}, local);
   if (remote && typeof remote.nickname === 'string' && remote.nickname) next.name = remote.nickname;
   if (remote && typeof remote.mobile === 'string' && remote.mobile) next.phone = remote.mobile;
+  if (remote && typeof remote.avatar === 'string' && remote.avatar) next.avatar = remote.avatar;
   return next;
 }
 

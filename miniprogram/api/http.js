@@ -172,6 +172,55 @@ function request(method, path, data, extraHeader, opts) {
   });
 }
 
+/**
+ * 文件上传（基-1 通道）：wx.uploadFile 的 Promise 封装，契约与 request 对齐。
+ * 后端：POST /infra/file/upload（multipart，字段 file；formData.directory 可选），data 返回 URL 字符串。
+ * 401/body401 与 request 同契约处理；响应体为 JSON 字符串须显式解析。
+ */
+function upload(path, filePath, formData) {
+  const requestSessionGen = sessionGen;
+  if (!base()) {
+    return Promise.reject({ code: -1, message: 'API 基址未配置：请在 config/env.js 填入生产域名，或经 storage zs-api-base 覆写联调地址' });
+  }
+  return new Promise((resolve, reject) => {
+    wx.uploadFile({
+      url: base() + path,
+      filePath,
+      name: 'file',
+      formData,
+      timeout: TIMEOUT,
+      header: Object.assign(
+        { 'tenant-id': tenantId() },
+        token() ? { Authorization: 'Bearer ' + token() } : {},
+        currentPostId() ? { 'X-Post-Id': currentPostId() } : {}
+      ),
+      success(res) {
+        if (res.statusCode === 401) {
+          handleUnauthorized(requestSessionGen, null, reject);
+          return;
+        }
+        let body = null;
+        try { body = typeof res.data === 'string' ? JSON.parse(res.data) : res.data; } catch (e) { body = null; }
+        if (body && body.code === 401) {
+          handleUnauthorized(requestSessionGen, null, reject);
+          return;
+        }
+        if (res.statusCode >= 200 && res.statusCode < 300 && body && body.code === 0) {
+          resolve(body.data);
+          return;
+        }
+        reject({
+          code: body && body.code !== undefined ? body.code : res.statusCode,
+          message: (body && body.msg) || ('上传失败（HTTP ' + res.statusCode + '）')
+        });
+      },
+      fail(err) {
+        reject({ code: -1, message: (err && err.errMsg) || '网络异常，请稍后重试' });
+      }
+    });
+  });
+}
+
 module.exports = {
   TOKEN_KEY,
   POST_KEY,
@@ -190,6 +239,7 @@ module.exports = {
   endPostInvalidRecovery,
   notifySessionExpired,
   request,
+  upload,
   get: (path, params) => request('GET', path, params),
   post: (path, data, extraHeader) => request('POST', path, data, extraHeader),
   put: (path, data, extraHeader) => request('PUT', path, data, extraHeader),
