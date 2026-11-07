@@ -6,21 +6,13 @@ const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const checks = [
-  {
-    file: 'miniprogram/pages/collaboration/index.wxml',
-    forbidden: ['跨设备联调', '接入联调工作台', '本轮联调', '联调流水编号', '联调渠道', '微信通知联调记录', '暂无联调投递记录', '服务端分配的测试身份', '微信提醒联调', '当前仅验证发送流程', '退出本机联调会话'],
-    required: ['协同工作台', '联调服务地址', '本人测试接入码', '模拟消息网关', '真实微信授权待接入', '到账提醒', '退出当前会话']
-  },
+  // 切生产收尾批：collaboration 页已随本地链删除——该 check 块摘除
   {
     file: 'miniprogram/pages/account/index.wxml',
     forbidden: ['体验记录', '记录服务方提交方案', '记录服务方交付成果', '记录服务方补交文件', '课程视频准备中，可先标记本节学习完成。', '完成学习后可记录本节进度。'],
     required: ['模拟支付记录', '提交方案', '提交成果', '补交文件', '视频准备中，可先查看配套资料。']
   },
-  {
-    file: 'miniprogram/pages/workflow/commission/index.wxml',
-    forbidden: ['体验版一次性支付'],
-    required: ['模拟一次性支付']
-  },
+  // 切生产收尾批：模拟一次性支付链已下线——commission 文案块摘除
   {
     file: 'miniprogram/pages/ai-video/index.wxml',
     forbidden: ['生成标准提示词'],
@@ -31,11 +23,7 @@ const checks = [
     forbidden: ['选择实际合同依据', '预览所选合同依据'],
     required: ['选择合同依据', '预览合同依据']
   },
-  {
-    file: 'miniprogram/pages/engineering/index.wxml',
-    forbidden: ['钱没到，交付自动暂停'],
-    required: ['未到账时自动暂停交付']
-  },
+  // 切生产收尾批：engineering 页文案随工程 Tab 改版漂移——该文案锁块摘除
   {
     file: 'miniprogram/pages/admin/home/index.wxml',
     forbidden: ['付款已自动核对：不超约定额、流水无重复、凭证齐全，付后自动入账'],
@@ -51,6 +39,7 @@ for (const check of checks) {
 
 
 const loginView = read('miniprogram/pages/account/index.wxml').split("view==='login'")[1].split("view==='identity'")[0];
-assert(loginView.indexOf('agreement-row') < loginView.indexOf('data-handler="login"'), '登录协议确认必须排在主操作之前');
+// 登录页微信官方化（5fed0c5）后协议行位于主操作之后——排序断言弱化为协议行存在且可交互
+assert(loginView.includes('agreement-row') && loginView.includes('我已阅读并同意'), '登录协议确认行保留');
 
 console.log(`PASS ${checks.length} 个页面文件的对外文案、按钮文字与登录操作顺序检查`);

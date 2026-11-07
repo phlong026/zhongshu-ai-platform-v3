@@ -70,12 +70,14 @@ Page({
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
    if(this.data.busy)return;
    this.setData({busy:true,error:''});
-   // 幂等键复合（Codex R1 P1-2/R2 P1）：按 action 显式选目标字段——通用优先链会在材料页串键
-   //（supplyId/receiptId 共存时 arrival-correct 取错维度）；同一目标的失败重试复用同键
+   // 幂等键复合（Codex R1 P1-2/R2 P1/R3 P1）：按 action 显式选目标字段——节点系绑表单 nodeId、
+   // 期次系绑 stage、对象系绑各自 ID；未列动作（登记/交付/结算/归档等）一律项目级（this.id），
+   // 不再回落活动节点——响应丢失后 onShow 切换节点时费用登记等键不得漂移（防同笔重复提交）
    const IDEM={'expense-terms':'expenseId','expense-revise':'expenseId','expense-cancel':'expenseId',
-    'arrival':'supplyId','material-terms':'supplyId','arrival-correct':'correctId','site-correct':'siteId'};
-   const f0=f||this.data.form,tk=IDEM[action],tv=tk?(f0[tk]||''):'';
-   const idemId=action+(tv?'-'+tk+tv:(node&&node.id?'-n'+node.id:''));
+    'arrival':'supplyId','material-terms':'supplyId','arrival-correct':'correctId','site-correct':'siteId',
+    'node':'nodeId','site':'nodeId','node-correct':'nodeId','node-reopen':'nodeId','collect':'stage','dunning':'stage'};
+   const f0=f||this.data.form,tk=IDEM[action],tv=tk?String(f0[tk]||''):'';
+   const idemId=action+(tv?'-'+tk+tv:'');
    if(!this.__idemKeys)this.__idemKeys={};
    if(!this.__idemKeys[idemId])this.__idemKeys[idemId]='eng-'+idemId+'-'+Date.now()+'-'+Math.floor(Math.random()*1e8);
    try{

@@ -29,14 +29,19 @@ Page({
   return {completed,total,current,percent:total?completed/total*100:0,chapter:rows[Math.min(current,Math.max(total-1,0))],done};
  },
  syncCourseProgress(){ // 后端课程进度（/franchise/content/course-progress 全量拉取→当前课程视图重建）
-  // Codex R1 P2-2/R2 P2：代次守卫在 token 检查前递增——退出/换会话（无新请求）也使旧挂起响应失效
+  // Codex R1 P2-2/R2 P2/R3 P2：代次守卫在 token 检查前递增（退出/换会话也失效旧响应）；
+  // 缓存绑定 token 指纹——换账号即失效（退出后立即渲染零进度，换 B 拉取失败不残留 A 的进度）
   this.__courseGen=(this.__courseGen||0)+1;const gen=this.__courseGen;
-  if(!http.token()){this.apiCourseDone=null;return Promise.resolve();}
+  const tk=http.token();
+  if(this.__courseToken!==tk){this.__courseToken=tk;this.apiCourseDone=null;}
+  const currentCourse=courses.find(x=>x.id===this.id)||courses[0];
+  if(!tk){this.apiCourseDone=null;
+    if(['learning','course'].includes(this.data.view))this.setData({progress:this.courseProgressView(this.data.view==='course'?currentCourse.id:'ai-video')});
+    return Promise.resolve();}
   return require('../../api/franchise/content').drafts.courseProgress().then(rows=>{
     if(gen!==this.__courseGen)return;
     const map={};(rows||[]).forEach(r=>{(map[r.courseId]=map[r.courseId]||[]).push(Number(r.chapterIndex));});
     this.apiCourseDone=map;
-    const currentCourse=courses.find(x=>x.id===this.id)||courses[0];
     if(['learning','course'].includes(this.data.view))this.setData({progress:this.courseProgressView(this.data.view==='course'?currentCourse.id:'ai-video')});
   }).catch(()=>{}); // 静默：进度区维持零进度，完成章节时再报错
  },
@@ -55,13 +60,16 @@ Page({
   const name=String(this.data.form.name||A.load().profile.name||'').trim();
   if(!name||name.length>20)return this.fail('请先填写1–20字的姓名，再保存头像');
   this.setData({busy:true});
+  const alive=http.requestGuard('avatar-upload'); // Codex R3 P1：会话守卫——上传期间退出/换账号则中止落库与回写（防 A 的昵称头像写进 B 账号）
   http.upload('/infra/file/upload',temp,{directory:'profile/avatar'}).then(url=>{
+   if(!alive())throw {message:'账号已切换，本次头像未保存，请在新账号下重新选择'};
    if(!/^https?:\/\//.test(String(url||'')))throw {message:'上传返回地址无效，请重试'};
    return http.put('/platform/profile/mine',{nickname:name,avatar:url}).then(()=>{
+    if(!alive())return; // PUT 响应期间切换：不再回写本地与页面
     try{A.mutate(s=>{s.profile.avatar=url;s.profile.name=name;});}catch(err){return this.fail('头像已保存，本机记录更新失败');}
     this.refresh();wx.showToast({title:'头像已保存'});
    }).catch(err=>{ // 头像已上传但落库失败：显式报错不静默，本地先记录便于排查
-    try{A.mutate(s=>{s.profile.avatar=url;});}catch(err2){}
+    if(alive()){try{A.mutate(s=>{s.profile.avatar=url;});}catch(err2){}}
     this.fail('头像已上传，保存到账号失败：'+((err&&err.message)||'请重试'));
    });
   }).catch(err=>this.fail((err&&err.message)||'头像上传失败，请重试')).finally(()=>this.setData({busy:false}));

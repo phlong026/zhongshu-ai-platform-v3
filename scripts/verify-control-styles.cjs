@@ -19,7 +19,7 @@ has(engineering, /class="eng-primary eng-submit"[^>]*disabled="\{\{!pendingCount
 
 const commission = read('miniprogram/pages/workflow/commission/index.wxml');
 has(commission, /class="commission-primary"[^>]*disabled="\{\{busy\}\}"[^>]*bindtap="submit"/, '委托提交保留点击与禁用语义');
-has(commission, /class="cashier-confirm"[^>]*bindtap="confirmCashier"[^>]*disabled="\{\{busy\}\}"/, '微信/支付宝收银台按钮保留独立品牌与禁用语义');
+// 切生产收尾批：收银台（模拟支付链）已随 design-checkout 死链网下线——该断言摘除
 
 const app = read('miniprogram/app.wxss');
 assert(app.includes('@import "./styles/controls.wxss";'), 'app.wxss 须全局引入控件规格');
