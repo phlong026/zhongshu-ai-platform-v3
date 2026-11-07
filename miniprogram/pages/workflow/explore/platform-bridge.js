@@ -30,12 +30,101 @@ module.exports = function attach(page, deps) {
     this.setData({ 'form.referenceCaseId': c.id, pickingRef: '' });
     this.platShow(kind === 'plan' ? 'ai-config' : 'ai-facade');
   };
+  page.platFormPickPicker = function (e) {
+    const { key, list } = e.currentTarget.dataset;
+    const values = list ? this.data[list] : null;
+    if (!values) return;
+    const sel = values[Number(e.detail.value)];
+    if (!sel) return;
+    const labelKey = key + 'Label';
+    this.setData({ ['form.' + key]: sel.code || '', [labelKey]: sel.label || '', error: '' });
+  };
   page.platShow = function (view) {
     const kind = view.startsWith('facade') || view === 'ai-facade' ? 'facade' : view.startsWith('budget') ? 'budget' : 'plan';
-    const titles = { 'ai-config': 'AI平面', 'ai-facade': 'AI立面', budget: '快速预算', 'plan-result': '平面方案', 'facade-result': '立面方案', 'budget-result': '预算结果', inspiration: '灵感库', search: '平面检索', case: '灵感详情' };
+    const titles = { 'ai-config': 'AI平面', 'ai-facade': 'AI立面', budget: '快速预算', 'plan-result': '平面方案', 'facade-result': '立面方案', 'budget-result': '预算结果', inspiration: '灵感库', search: '平面检索', case: '灵感详情', projects: '我的方案', project: '方案详情' };
     this.setData({ view, title: titles[view] || view, kind });
     if (view === 'inspiration' || view === 'search') { if (!(this.data.platCases || []).length) this.platLoadCases(true); }
     if (view === 'budget') this.platLoadRule();
+    if (view === 'projects') this.platLoadProjects(true);
+  };
+
+  // ---- 我的方案（对齐旧版 1.8：列表+resumeAction 恢复；D1 缺口）----
+  page.platLoadProjects = function (reset) {
+    const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
+    const params = { limit: 20 };
+    if (!reset && this.data.platProjCursor) params.cursor = this.data.platProjCursor;
+    if (reset) this.setData({ platProjCursor: '', platProjects: [], platProjLoading: true });
+    else this.setData({ platProjLoading: true });
+    api.projects.list(params).then(res => {
+      if (!reset && this.platStale(gen, sg)) return;
+      const rows = (res && res.list || []).map(PF.projectRow);
+      this.setData({ platProjects: reset ? rows : (this.data.platProjects || []).concat(rows),
+        platProjCursor: (res && res.nextCursor) || '', platProjLoading: false });
+    }).catch(err => {
+      if (this.platStale(gen, sg)) return;
+      if (this.platHandle401(err, sg)) return;
+      this.setData({ platProjLoading: false, platformErr: PF.errorMessageDesign(err) });
+    });
+  };
+  page.platLoadMoreProjects = function () { if (this.data.platProjCursor) this.platLoadProjects(false); };
+  page.platOpenProject = function (e) {
+    const id = e.currentTarget.dataset.id;
+    const p2 = (this.data.platProjects || []).find(x => String(x.projectId) === String(id));
+    if (!p2) return;
+    this.setData({ platProjectDetail: p2, platProjectCandidates: [], platProjectImages: [] });
+    this.platShow('project');
+    const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
+    // 带 jobId 恢复（最近任务触发拉式晋升）——列表行的 latestJobId 由 projectRow 预留
+    api.projects.detail(id, p2.latestJobId).then(detail => {
+      if (this.platStale(gen, sg)) return;
+      const resume = detail.resumeAction || '';
+      const candidates = PF.candidateRows(detail.candidates);
+      this.setData({ platProjectDetail: Object.assign({}, p2, { resumeAction: resume,
+        status: detail.latestJobStatus || p2.jobStatus, requirements: detail.requirements || null }) });
+      if (['SELECT_FLAT', 'SELECT_ELEVATION'].includes(resume) && candidates.length) {
+        return this.platFetchImages(candidates.map(c => c.assetId)).then(urls => {
+          if (this.platStale(gen, sg)) return;
+          candidates.forEach((c, i) => { c.imageUrl = urls[i] || ''; });
+          const kind = resume === 'SELECT_FLAT' ? 'plan' : 'facade';
+          this.__platProjectId = String(id); this.__platKind = kind;
+          if (detail.latestJobId) this.__platJobId = String(detail.latestJobId);
+          this.setData({ platProjectCandidates: candidates,
+            platResult: { kind, jobId: this.__platJobId, projectId: String(id), candidates, selected: 0 },
+            view: kind === 'plan' ? 'plan-result' : 'facade-result' });
+        });
+      }
+      if (resume === 'VIEW_RESULT') {
+        return api.projects.resultVersions(id).then(versions => {
+          if (this.platStale(gen, sg)) return;
+          const vs = (versions || []).map(PF.resultVersionRow);
+          const latest = vs.find(v => !v.superseded) || vs[0];
+          if (latest && latest.assetId) {
+            return this.platFetchImages([latest.assetId]).then(urls => {
+              if (this.platStale(gen, sg)) return;
+              this.setData({ platProjectResultImage: urls[0] || '', platProjectResultVersion: latest });
+            });
+          }
+        });
+      }
+    }).catch(err => {
+      if (this.platStale(gen, sg)) return;
+      if (this.platHandle401(err, sg)) return;
+      this.setData({ platformErr: PF.errorMessageDesign(err) });
+    });
+  };
+  page.platResumeAction = function () { // resumeAction 驱动续做（旧版 utils/project-resume 同语义）
+    const d = this.data.platProjectDetail; if (!d) return;
+    const act = d.resumeAction;
+    if (act === 'POLL_JOB' && this.__platJobId) {
+      this.setData({ platPolling: true, platStatusText: PF.STATUS_TEXT.RUNNING, platProgress: 5,
+        platEstimateText: PF.estimateText(1) });
+      this.platPoll(null, ++this.__platGen, this.__http.sessionGeneration(), this.__platKind || 'plan', d.projectId);
+      return;
+    }
+    if (act === 'CREATE_FLAT_JOB' || act === 'SELECT_FLAT') return this.platShow('ai-config');
+    if (act === 'CREATE_ELEVATION_JOB' || act === 'SELECT_ELEVATION') return this.platShow('ai-facade');
+    if (act === 'VIEW_RESULT' && this.data.platProjectResultImage) return wx.previewImage({ urls: [this.data.platProjectResultImage] });
+    this.platFail('该项目暂无可续做事项');
   };
 
   // ---- 基础：命令快照 / 乱序三元组 / 401 ----
@@ -164,7 +253,9 @@ module.exports = function attach(page, deps) {
     const line = kind === 'plan' ? 'FLAT' : 'ELEVATION';
     const orientation = f.orientation; // PORTRAIT/LANDSCAPE 或空（走后端默认）
     const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
-    this.setData({ busy: true, platformErr: '', platResult: null, platPolling: true, platPollTip: '已提交，AI 生成中…' });
+    this.setData({ busy: true, platformErr: '', platResult: null, platPolling: true, platPollTip: '已提交，AI 生成中…',
+      platProgress: 5, platStatusText: '排队等待中…', platAccepted: 0, platCancelResult: null,
+      platEstimateText: PF.estimateText(Number(f.count)) });
     const body = { sourceType: 'SELF_UPLOAD', line, requirementInputs: inputs.inputs };
     if (kind === 'facade' && f.referenceCaseId) { body.sourceType = 'CASE_REFERENCE'; body.refCaseId = f.referenceCaseId; }
     const projAction = 'proj-' + kind;
@@ -182,6 +273,8 @@ module.exports = function attach(page, deps) {
         jobBody.styleCode = PF.styleCode(f.style);
         jobBody.roofType = PF.roofCode(f.roof);
         jobBody.material = f.material; jobBody.color = f.color;
+        const refs = (this.data.form.referenceAssetIds || []).filter(Boolean);
+        if (refs.length) jobBody.requirementInputs = Object.assign({}, inputs.inputs, { referenceAssetIds: refs });
         if (!jobBody.styleCode || !jobBody.roofType) { this.setData({ busy: false, platPolling: false }); return this.platFail('请选择有效风格与屋顶'); }
         if (!jobBody.material || !jobBody.color) { this.setData({ busy: false, platPolling: false }); return this.platFail('请选择材质与主色'); }
       }
@@ -208,7 +301,13 @@ module.exports = function attach(page, deps) {
       api.projects.aiJob(this.__platJobId).then(job => {
         if (this.platStale(gen, sg)) return;
         const decision = PF.pollDecision(job.status, elapsed);
-        if (decision.action === 'continue') { this.__platTimers.push(setTimeout(tick, PF.POLL_INTERVAL_MS)); return; }
+        if (decision.action === 'continue') {
+          // 进度平滑（旧版公式）+ 状态文案 + 部分成功已到账提示（acceptedCount>0 即有可用候选）
+          this.setData({ platProgress: PF.smoothProgress(job.status, elapsed, job.progress),
+            platStatusText: PF.STATUS_TEXT[job.status] || this.data.platStatusText || 'AI 正在绘制方案…',
+            platAccepted: job.acceptedCount || 0 });
+          this.__platTimers.push(setTimeout(tick, PF.POLL_INTERVAL_MS)); return;
+        }
         this.setData({ platPolling: false, busy: false });
         if (decision.action === 'timeout') return this.platFail(decision.message);
         if (decision.action === 'failed') return this.platFail(decision.message);
@@ -221,7 +320,9 @@ module.exports = function attach(page, deps) {
             if (this.platStale(gen, sg)) return;
             candidates.forEach((c, i) => { c.imageUrl = urls[i] || ''; });
             this.__platKind = kind; this.__platProjectId = projectId;
-            this.setData({ platResult: { kind, jobId: this.__platJobId, projectId, candidates, selected: 0 }, view: kind === 'plan' ? 'plan-result' : 'facade-result' });
+            this.setData({ platResult: { kind, jobId: this.__platJobId, projectId, candidates, selected: 0,
+              refundedPointCost: job.refundedPointCost || 0, netPointCost: job.netPointCost || 0,
+              candidateTotal: job.requestedCount || candidates.length, status: job.status }, view: kind === 'plan' ? 'plan-result' : 'facade-result' });
           });
         }).catch(err => {
           if (this.platStale(gen, sg)) return;
@@ -257,6 +358,119 @@ module.exports = function attach(page, deps) {
       this.setData({ platPolling: false });
       this.platFail(PF.STILL_RUNNING_MESSAGE);
     });
+  };
+  // ---- 取消生成（对齐旧版 1.5：QUEUED/RUNNING/VALIDATING 均可取消，退点随结算）----
+  page.platCancelJob = function () {
+    const jobId = this.__platJobId; if (!jobId || !this.data.platPolling) return;
+    wx.showModal({ title: '取消本次生成', content: '已生成的候选会保留，未完成部分将自动退点。确定取消？', success: r => {
+      if (!r.confirm) return;
+      const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
+      api.projects.cancelJob(jobId).then(job => {
+        if (this.platStale(gen, sg)) return;
+        this.setData({ platPolling: true, platStatusText: PF.STATUS_TEXT.CANCEL_REQUESTED });
+        // 取消后继续短暂轮询等结算（CANCELLED/PARTIALLY_SUCCEEDED 终态）
+        const tick = () => {
+          if (this.platStale(gen, sg)) return;
+          api.projects.aiJob(jobId).then(j2 => {
+            if (this.platStale(gen, sg)) return;
+            if (['CANCELLED', 'PARTIALLY_SUCCEEDED', 'SUCCEEDED', 'FAILED'].includes(j2.status)) {
+              this.setData({ platPolling: false, busy: false, platCancelResult: { status: j2.status, refunded: j2.refundedPointCost || 0, net: j2.netPointCost || 0 } });
+              const msg = j2.status === 'PARTIALLY_SUCCEEDED' ? '已取消：部分方案已生成，退回 ' + (j2.refundedPointCost || 0) + ' 点'
+                : j2.status === 'CANCELLED' ? '已取消，扣除的 ' + (j2.refundedPointCost || 0) + ' 点已退回' : '任务已结束';
+              wx.showToast({ title: msg, icon: 'none', duration: 3000 });
+              if (j2.status === 'PARTIALLY_SUCCEEDED') this.platRefreshJob();
+              return;
+            }
+            this.__platTimers.push(setTimeout(tick, 3000));
+          }).catch(() => { if (!this.platStale(gen, sg)) this.setData({ platPolling: false, busy: false }); });
+        };
+        this.__platTimers.push(setTimeout(tick, 3000));
+      }).catch(err => {
+        if (this.platStale(gen, sg)) return;
+        wx.showToast({ title: PF.errorMessageDesign(err), icon: 'none' });
+      });
+    }});
+  };
+  // ---- note AI 润色（POST /note-polish；限流 10 次/分——429 提示繁忙）----
+  page.platNotePolish = function () {
+    const note = String((this.data.form || {}).note || '').trim();
+    if (!note) return this.platFail('请先填写需求说明再润色');
+    if (this.data.busy) return;
+    const line = this.data.kind === 'facade' ? 'ELEVATION' : 'FLAT';
+    const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
+    this.setData({ busy: true });
+    api.notePolish({ note, line }).then(res => {
+      if (this.platStale(gen, sg)) return;
+      this.setData({ busy: false, 'form.note': res.polished || note });
+      wx.showToast({ title: '已优化需求说明', icon: 'success' });
+    }).catch(err => {
+      if (this.platStale(gen, sg)) return;
+      this.setData({ busy: false });
+      this.platFail((err && err.code === 429) ? 'AI 优化繁忙，请稍后再试' : PF.errorMessageDesign(err));
+    });
+  };
+  // ---- 立面自传参考图（≤3 张；upload-tickets → local dev 字节通道/COS PUT → complete）----
+  page.platAddReference = function () {
+    const existing = (this.data.form.referenceAssetIds || []).filter(Boolean);
+    if (existing.length >= 3) return this.platFail('自传参考最多 3 张');
+    wx.chooseMedia({ count: 3 - existing.length, mediaType: ['image'], sourceType: ['album', 'camera'], sizeType: ['compressed'], success: r => {
+      const files = (r.tempFiles || []).slice(0, 3 - existing.length);
+      if (!files.length) return;
+      const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
+      this.setData({ busy: true });
+      const fs = wx.getFileSystemManager();
+      const uploadOne = f => new Promise((resolve, reject) => {
+        fs.readFile({ filePath: f.tempFilePath, success: rd => {
+          const bytes = rd.data;
+          // sha256：走 finance.js 的工具（与工程凭据链同一实现）
+          const sha = require('../../../api/finance').sha256Hex(bytes);
+          api.assets.uploadTicket({ assetType: 'DESIGN_REFERENCE', mimeType: 'image/jpeg', sizeBytes: bytes.byteLength || bytes.length, sha256: sha })
+            .then(t => {
+              const put = () => new Promise((res2, rej2) => {
+                fs.readFile({ filePath: f.tempFilePath, success: rd2 => {
+                  wx.request({ url: t.uploadUrl, method: 'PUT', data: rd2.data, header: { 'Content-Type': 'image/jpeg' },
+                    success: res2, fail: rej2 });
+                }, fail: rej2 });
+              });
+              // local 通道（uploadUrl=local:// 相对路径）走 dev content 直传
+              if (String(t.uploadUrl || '').indexOf('local://') === 0 || String(t.uploadUrl || '').indexOf('http') !== 0) {
+                return http.upload('/app-api/design/v1/assets/' + t.assetId + '/content', f.tempFilePath)
+                  .then(res2).catch(rej2);
+              }
+              return put();
+            })
+            .then(() => api.assets.complete(t.assetId))
+            .then(done => { if (done && done.uploadStatus === 'REJECTED') throw { message: '参考图未通过校验：' + (done.rejectedReason || '请更换图片') }; resolve(t.assetId); })
+            .catch(reject);
+        }, fail: () => reject({ message: '读取图片失败' }) });
+      });
+      Promise.all(files.map(uploadOne)).then(ids => {
+        if (this.platStale(gen, sg)) return;
+        const all = existing.concat(ids.map(String));
+        this.setData({ busy: false, 'form.referenceAssetIds': all, platRefCount: all.length });
+        wx.showToast({ title: '已添加 ' + ids.length + ' 张参考图', icon: 'success' });
+      }).catch(err => {
+        if (this.platStale(gen, sg)) return;
+        this.setData({ busy: false });
+        this.platFail((err && err.message) || '参考图上传失败，请重试');
+      });
+    }});
+  };
+  page.platRemoveReference = function (e) {
+    const idx = Number(e.currentTarget.dataset.index);
+    const all = (this.data.form.referenceAssetIds || []).filter(Boolean);
+    all.splice(idx, 1);
+    this.setData({ 'form.referenceAssetIds': all, platRefCount: all.length });
+  };
+  // ---- 结果图保存相册（旧版结果页能力）----
+  page.platSaveImage = function () {
+    const result = this.data.platResult; if (!result) return;
+    const url = (result.candidates[result.selected] || {}).imageUrl;
+    if (!url) return this.platFail('请先生成并选定方案');
+    wx.downloadFile({ url, success: r => wx.saveImageToPhotosAlbum({ filePath: r.tempFilePath,
+      success: () => wx.showToast({ title: '已保存到相册', icon: 'success' }),
+      fail: e2 => this.platFail(/auth/.test(e2.errMsg || '') ? '需要相册权限，请在设置中开启' : '保存失败，请重试') }),
+      fail: () => this.platFail('下载失败，请重试') });
   };
   page.platSelectCandidate = function (e) {
     const idx = Number(e.currentTarget.dataset.index);

@@ -16,6 +16,11 @@ const ROOF_CODE = { 坡屋顶: 'GABLE_ROOF', 平屋顶: 'FLAT_ROOF' };
 const MATERIAL_OPTIONS = [['WHITE_STUCCO', '白墙涂料'], ['GREY_STONE', '灰石'], ['WHITE_COAT', '白色涂层']];
 const COLOR_OPTIONS = [['DEEP_WOOD', '深木'], ['WARM_GREY', '暖灰'], ['BLACK', '黑']];
 const ORIENTATION_OPTIONS = [['PORTRAIT', '竖图'], ['LANDSCAPE', '横图']]; // 平面缺省 PORTRAIT、立面缺省 LANDSCAPE（不传走后端默认）
+// 对齐旧版基准（api.zszhj.com）平面表单四项输入（后端需求白名单键已在）
+const ENTRANCE_OPTIONS = [['SOUTH', '朝南'], ['NORTH', '朝北'], ['EAST', '朝东'], ['WEST', '朝西']];
+const FAMILY_OPTIONS = [['2室1厅1卫', '2室1厅1卫'], ['3室1厅1卫', '3室1厅1卫'], ['3室2厅2卫', '3室2厅2卫'], ['4室2厅2卫', '4室2厅2卫'], ['5室2厅3卫', '5室2厅3卫'], ['6室3厅3卫', '6室3厅3卫']];
+const COURTYARD_OPTIONS = [['', 'AI 智能安排'], ['SIHEYUAN', '四合院'], ['FRONT_BACK_YARD', '前后院'], ['FRONT_YARD_SCREEN', '前院影壁'], ['COMPACT', '紧凑布局']];
+const DRAWING_OPTIONS = [['TOP_VIEW', '俯视图'], ['COLOR_PLAN', '彩色平面'], ['CAD_LINE', 'CAD 线稿'], ['AXONOMETRIC', '轴测图'], ['BIRD_EYE', '鸟瞰图']];
 const STRUCTURE_OPTIONS = [['BRICK', '砖混'], ['FRAME', '框架'], ['STEEL', '钢结构']];
 const GRADE_OPTIONS = [['A', 'A 档'], ['B', 'B 档'], ['C', 'C 档']];
 
@@ -33,6 +38,17 @@ function pollDecision(status, elapsedMs) {
 }
 /** 手动刷新命中未终态（R11/R14 P-10 业务码）→ 仍在生成文案 */
 const STILL_RUNNING_MESSAGE = '仍在生成，请稍后再试';
+/** 取消状态文案（对齐旧版 1.5 轮询状态机） */
+const STATUS_TEXT = { QUEUED: '排队等待中…', RUNNING: 'AI 正在绘制方案…', VALIDATING: '正在校验生成结果…', CANCEL_REQUESTED: '正在取消任务…' };
+/** 渐近进度条（旧版公式：RUNNING 14+76*(1-e^(-t/45))、VALIDATING 90+8；只抬高不回落） */
+function smoothProgress(status, elapsedMs, serverProgress) {
+  const t = Math.max(0, elapsedMs) / 1000;
+  const est = status === 'VALIDATING' ? 90 + 8 : 14 + 76 * (1 - Math.exp(-t / 45));
+  const server = Number(serverProgress) || 0;
+  return Math.max(Math.min(99, Math.round(Math.max(est, server))), 5);
+}
+/** 预计时间文案：3~4 分钟/张 */
+function estimateText(count) { return '预计 ' + (count || 1) * 3 + '~' + (count || 1) * 4 + ' 分钟/张'; }
 
 /** R4 案例 → 列表/详情渲染（coverAssetId 经 R8 现取） */
 function caseRow(c) {
@@ -75,6 +91,22 @@ function candidateRows(candidates) {
   }));
 }
 
+/** 项目列表 → 渲染模型（D1 我的方案：封面/状态/恢复动作徽标） */
+const RESUME_TEXT = { VIEW_RESULT: '查看结果', POLL_JOB: '生成中·可恢复', SELECT_FLAT: '待选平面', SELECT_ELEVATION: '待选立面', CREATE_FLAT_JOB: '继续生成平面', CREATE_ELEVATION_JOB: '继续生成立面', CREATE_BUDGET: '可做预算', SUBMIT: '可投稿' };
+function projectRow(p) {
+  return {
+    projectId: String(p.projectId != null ? p.projectId : p.id),
+    name: p.name || '未命名方案',
+    jobStatus: p.jobStatus || '',
+    resumeAction: p.resumeAction || '',
+    resumeText: RESUME_TEXT[p.resumeAction] || '',
+    coverAssetId: p.coverAssetId || null,
+    pointsSpentText: p.pointsSpent != null ? String(p.pointsSpent) : '',
+    hasResult: !!p.hasResult, hasDualImages: !!p.hasDualImages,
+    createTime: p.createTime || ''
+  };
+}
+
 /** R17 结果版本 → 恢复渲染（按 kind 取资产字段） */
 function resultVersionRow(v) {
   return {
@@ -109,6 +141,14 @@ function requirementInputs(f) {
   const note = String(f.note || '').trim();
   if (note.length > 200) return { error: '需求说明不超过200字' };
   const inputs = { faceWidthM: f.width, depthM: f.depth, floorCount: floors, styleCode: sc };
+  if (f.entranceOrientation) inputs.entranceOrientation = f.entranceOrientation;
+  if (f.courtyardLayout) inputs.courtyardLayout = f.courtyardLayout;
+  if (f.drawingType) inputs.drawingType = f.drawingType;
+  if (f.family) {
+    const fm = String(f.family), m = fm.match(/(\d)室(\d)厅(\d)卫/);
+    if (m) inputs.rooms = { bedroom: Number(m[1]), living: Number(m[2]), bath: Number(m[3]) };
+    inputs.family = fm;
+  }
   if (note) inputs.note = note;
   return { inputs };
 }
@@ -132,8 +172,9 @@ function errorMessageDesign(err) {
 module.exports = {
   DESIGN_ROLES, pageMode,
   STYLE_CODE, ROOF_CODE, MATERIAL_OPTIONS, COLOR_OPTIONS, ORIENTATION_OPTIONS, STRUCTURE_OPTIONS, GRADE_OPTIONS,
+  ENTRANCE_OPTIONS, FAMILY_OPTIONS, COURTYARD_OPTIONS, DRAWING_OPTIONS,
   styleCode, roofCode,
-  POLL_INTERVAL_MS, POLL_MAX_MS, pollDecision, STILL_RUNNING_MESSAGE,
-  caseRow, ruleInfoView, estimateView, candidateRows, resultVersionRow,
+  POLL_INTERVAL_MS, POLL_MAX_MS, pollDecision, STILL_RUNNING_MESSAGE, STATUS_TEXT, smoothProgress, estimateText,
+  caseRow, projectRow, RESUME_TEXT, ruleInfoView, estimateView, candidateRows, resultVersionRow,
   estimateBody, requirementInputs, errorMessageDesign
 };

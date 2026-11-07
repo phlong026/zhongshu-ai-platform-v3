@@ -1,6 +1,6 @@
 // 设计工作流（灵感库/AI 平面/AI 立面/快速预算）：纯平台态（token+design:use 三岗），demo 分支已移除。
 const titles={inspiration:'灵感库',search:'平面检索',case:'灵感详情','ai-config':'AI平面','ai-facade':'AI立面',budget:'快速预算','plan-result':'平面方案','facade-result':'立面方案','budget-result':'预算结果'};
-Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',styles:['全部风格','新中式','现代简约'],filterStyle:'全部风格',floorFilters:['全部层数','一层','二层','三层'],floorFilter:'全部层数',caseTab:0,floor:0,styleOptions:['新中式','现代简约'],countOptions:['1','2','4'],resolutions:['2K','4K'],busy:false,error:'',sheet:false,pickingRef:'',platformMode:false,platformErr:'',platCases:[],platStyles:[],platFilter:{},platCursor:'',platLoading:false,platCase:null,platCaseImages:[],platCaseFav:false,platResult:null,platResultVersionId:'',platBudget:null,platRule:null,platPolling:false,platPollTip:'',saleDesign:false,materialOptions:[['WHITE_STUCCO','白墙涂料'],['GREY_STONE','灰石'],['WHITE_COAT','白色涂层']],colorOptions:[['DEEP_WOOD','深木'],['WARM_GREY','暖灰'],['BLACK','黑']],orientationPlatOptions:[['PORTRAIT','竖图'],['LANDSCAPE','横图']],structurePlatOptions:[['BRICK','砖混'],['FRAME','框架'],['STEEL','钢结构']],roofPlatOptions:['坡屋顶','平屋顶'],gradePlatOptions:[['A','A 档'],['B','B 档'],['C','C 档']],saveCustomers:[]},
+Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',styles:['全部风格','新中式','现代简约'],filterStyle:'全部风格',floorFilters:['全部层数','一层','二层','三层'],floorFilter:'全部层数',caseTab:0,floor:0,styleOptions:['新中式','现代简约'],countOptions:['1','2','4'],resolutions:['2K','4K'],busy:false,error:'',sheet:false,pickingRef:'',platformMode:false,platformErr:'',platCases:[],platStyles:[],platFilter:{},platCursor:'',platLoading:false,platCase:null,platCaseImages:[],platCaseFav:false,platResult:null,platResultVersionId:'',platBudget:null,platRule:null,platPolling:false,platPollTip:'',saleDesign:false,materialOptions:[['WHITE_STUCCO','白墙涂料'],['GREY_STONE','灰石'],['WHITE_COAT','白色涂层']],colorOptions:[['DEEP_WOOD','深木'],['WARM_GREY','暖灰'],['BLACK','黑']],orientationPlatOptions:[['PORTRAIT','竖图'],['LANDSCAPE','横图']],entranceOptions:[['SOUTH','朝南'],['NORTH','朝北'],['EAST','朝东'],['WEST','朝西']],familyOptions:['2室1厅1卫','3室1厅1卫','3室2厅2卫','4室2厅2卫','5室2厅3卫','6室3厅3卫'],courtyardOptions:[['','AI 智能安排'],['SIHEYUAN','四合院'],['FRONT_BACK_YARD','前后院'],['FRONT_YARD_SCREEN','前院影壁'],['COMPACT','紧凑布局']],drawingOptions:[['TOP_VIEW','俯视图'],['COLOR_PLAN','彩色平面'],['CAD_LINE','CAD 线稿'],['AXONOMETRIC','轴测图'],['BIRD_EYE','鸟瞰图']],platProgress:0,platStatusText:'',platAccepted:0,platRefCount:0,platCancelResult:null,platProjects:[],platProjCursor:'',platProjLoading:false,platProjectDetail:null,platProjectCandidates:[],platProjectResultImage:'',platProjectResultVersion:null,structurePlatOptions:[['BRICK','砖混'],['FRAME','框架'],['STEEL','钢结构']],roofPlatOptions:['坡屋顶','平屋顶'],gradePlatOptions:[['A','A 档'],['B','B 档'],['C','C 档']],saveCustomers:[]},
  onLoad(o){this.options=o||{};
   // 纯平台态门禁：token+design:use 三岗 → API 态；无会话回登录页（不进本地 demo）
   const http=(()=>{try{return require('../../../api/http');}catch(e){return null;}})();
@@ -39,6 +39,17 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
  chooseReference(){this.platShow('inspiration');this.setData({pickingRef:'facade'});},
  useCase(e){this.platUseCase(e);},
  generate(){this.run(()=>this.platGenerate(this.data.kind));},
+ cancelJob(){this.platCancelJob();},
+ notePolish(){this.run(()=>this.platNotePolish());},
+ addReference(){this.platAddReference();},
+ removeReference(e){this.platRemoveReference(e);},
+ saveImage(){this.platSaveImage();},
+ refreshJob(){this.platRefreshJob();},
+ platRevision(){this.platRevision();},
+ loadProjects(reset){this.platLoadProjects(reset!==false);},
+ loadMoreProjects(){this.platLoadProjects(false);},
+ openProject(e){this.platOpenProject(e);},
+ resumeAction(){this.platResumeAction();},
  selectCandidate(e){this.run(()=>this.platSelectCandidate(e));},
  selectFloor(e){this.setData({floor:Number(e.currentTarget.dataset.index)});},
  continueFacade(){this.run(()=>this.platShow('ai-facade'));},

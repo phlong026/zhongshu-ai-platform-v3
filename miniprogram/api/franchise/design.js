@@ -42,6 +42,10 @@ const projects = {
   createElevationJob: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/elevation-jobs', data, idem(key, 'elev')),
   /** AI 任务轮询（job.userId 属主校验）→ {jobId, status, acceptedCount, progress, phase, allowedActions} */
   aiJob: (jobId) => http.get('/franchise/design/ai-jobs/' + jobId),
+  /** 请求取消生成任务（QUEUED/RUNNING/VALIDATING → CANCEL_REQUESTED；退点随结算）→ AiJobView */
+  cancelJob: (jobId) => http.post('/franchise/design/ai-jobs/' + jobId + '/cancellation-requests', {}),
+  /** 补充需求 AI 润色 {note, line} → {polished}（限流：10 次/分·100 次/日） */
+  notePolish: (data) => http.post('/franchise/design/note-polish', data),
   /** 选定平面候选 {jobId, candidateId} → {resultVersionId?, version?, selectionSaved, replayed} */
   selectFlat: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/flat-selections', data),
   /** 选定立面候选 */
