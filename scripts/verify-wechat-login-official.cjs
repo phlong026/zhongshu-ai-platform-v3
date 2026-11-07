@@ -28,6 +28,15 @@ assert(wxml.includes('type="nickname"'), '姓名输入启用官方昵称快捷�
 assert(js.includes('onChooseAvatar(e)'), 'onChooseAvatar 处理函数已接线');
 assert(js.includes('e.detail&&e.detail.avatarUrl'), '从官方回调取头像临时路径');
 
+// 2.5) 登录页品牌化与文案精简（对标同行：logo+品牌名+按钮+协议，说明文字动态化）
+assert(wxml.includes('class="login-brand" src="/assets/brand.png"'), '登录页品牌区使用品牌字标 logo');
+assert(wxml.includes('<text class="large">众墅之家</text>'), '大标题为品牌名（导航栏「登录」不再重复）');
+assert(!wxml.includes('wechat-login-tip') && !wxml.includes('使用微信绑定的手机号一键登录'), '微信 tab 静态说明文字已精简删除');
+assert(!wxml.includes('无法授权手机号时'), '静态 fallback 提示已删（退路改为失败时动态提示）');
+assert(wxml.includes('<text>微信一键登录</text>'), '按钮文案与 tab 同名（精简）');
+assert(js.includes("return this.fail('已取消手机号授权，可改用验证码登录')"), '拒绝授权零网络请求早退并动态提示验证码退路');
+assert(wxss.includes('.login-brand{display:block;margin:0 auto 24rpx;width:440rpx;height:120rpx}'), '品牌字标横条样式存在');
+
 // 3) 上传链：http.upload 契约 + 头像落库（PUT avatar URL，后端 08 文档 avatar 键语义）
 assert(http.includes("name: 'file'") && http.includes('formData'), 'http.upload 为 multipart file 字段封装');
 assert(http.includes("function upload(path, filePath, formData)"), 'http.upload 已导出');
