@@ -352,9 +352,10 @@ async function perform(action, id, form, node, key) {
       }, key);
     case 'material-adjust': {
       // 后端为单材料维度（PUT /materials/{id}）；页面表单按计划单逐行填调整量，此处逐行提交
+      // Codex R2 遗留：每行派生独立幂等子键（同键=同命令去重，共用一键多行会被后端去重丢更新；部分成功后整单重试时已成功行同子键幂等返回原结果）
       const rows = (f.lines || []).filter(l => String(l.adjust == null ? '' : l.adjust).trim() !== '');
       if (!rows.length) throw { code: 0, msg: '请填写要调整的需用数量' };
-      for (const l of rows) await api.materials.adjust(l.id, Number(String(l.adjust).trim()), f.adjustReason || f.reason, key);
+      for (const l of rows) await api.materials.adjust(l.id, Number(String(l.adjust).trim()), f.adjustReason || f.reason, key + '-m' + l.id);
       return { adjusted: rows.length };
     }
     case 'arrival-correct':

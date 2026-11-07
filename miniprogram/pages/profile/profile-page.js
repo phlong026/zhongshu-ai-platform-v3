@@ -62,6 +62,8 @@ module.exports = function (tabIndex) {
         unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total: (A.courseChapters[engineeringProfile ? 'engineering' : 'ai-video'] || A.chapters).length, percent: 0 }
       });
       // API 未读数（基-2）：有会话才拉，回来合计刷新（11 文档 §十）
+      // 课程进度代次守卫（Codex R2 P2）：递增移到 token 检查外——退出/换会话（无新请求）也使旧挂起响应失效
+      this.__courseGen = (this.__courseGen || 0) + 1; const courseGen = this.__courseGen;
       if (http.token()) {
         http.get('/platform/messages/unread-count').then(r => {
           this.apiUnread = (r && r.count) || 0;
@@ -69,7 +71,6 @@ module.exports = function (tabIndex) {
           this.setData({ unread: M.totalUnread(A.scoped(fresh, fresh.messages).filter(x => !x.read).length, this.apiUnread) });
         }).catch(() => {});
         // 课程进度 API 真源（/franchise/content/course-progress 全量拉取，不读本地 learning 存储）
-        this.__courseGen = (this.__courseGen || 0) + 1; const courseGen = this.__courseGen; // Codex R1 P2-2：代次守卫防旧响应回退
         require('../../api/franchise/content').drafts.courseProgress().then(rows => {
           if (courseGen !== this.__courseGen) return;
           const map = {}; (rows || []).forEach(r => { (map[r.courseId] = map[r.courseId] || []).push(Number(r.chapterIndex)); });

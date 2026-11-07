@@ -70,8 +70,12 @@ Page({
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
    if(this.data.busy)return;
    this.setData({busy:true,error:''});
-   // 幂等键复合（Codex R1 P1-2）：action+目标对象 ID——同一目标的失败重试复用同键，切换目标（不同费用/节点）不复用旧键
-   const f0=f||this.data.form,idemId=action+(f0.expenseId?'-e'+f0.expenseId:(f0.supplyId?'-s'+f0.supplyId:(f0.receiptId?'-r'+f0.receiptId:(f0.siteId?'-c'+f0.siteId:(node&&node.id?'-n'+node.id:'')))));
+   // 幂等键复合（Codex R1 P1-2/R2 P1）：按 action 显式选目标字段——通用优先链会在材料页串键
+   //（supplyId/receiptId 共存时 arrival-correct 取错维度）；同一目标的失败重试复用同键
+   const IDEM={'expense-terms':'expenseId','expense-revise':'expenseId','expense-cancel':'expenseId',
+    'arrival':'supplyId','material-terms':'supplyId','arrival-correct':'correctId','site-correct':'siteId'};
+   const f0=f||this.data.form,tk=IDEM[action],tv=tk?(f0[tk]||''):'';
+   const idemId=action+(tv?'-'+tk+tv:(node&&node.id?'-n'+node.id:''));
    if(!this.__idemKeys)this.__idemKeys={};
    if(!this.__idemKeys[idemId])this.__idemKeys[idemId]='eng-'+idemId+'-'+Date.now()+'-'+Math.floor(Math.random()*1e8);
    try{
@@ -100,9 +104,9 @@ Page({
   const idx=Number(e.detail.value),opts=(this.data.form&&this.data.form.supplyOptions)||[];
   if(opts[idx])this.setData({'form.supplyId':opts[idx].id,'form.supplyLabel':opts[idx].label});
  },
- pickPurpose(e){ // 费用用途枚举 picker（LABOR/TRAVEL/OTHER——label 预计算随 recordView 重建）
+ pickPurpose(e){ // 费用用途枚举 picker（LABOR/TRAVEL/OTHER——Codex R2 P2：code 与显示 label 同步更新）
   const i=Number(e.detail.value),p=(this.data.purposes||[])[i];
-  if(p)this.setData({'form.purposeCode':p.code});
+  if(p)this.setData({'form.purposeCode':p.code,purposeLabel:p.label});
  },
  expenseMode(e){ // 费用四模式切换（register 默认/terms 挂应付/revise 修订/cancel 取消——行内选定目标后重建 fields）
   const d=e.currentTarget.dataset,mode=d.mode||'register',row=(this.data.expenseRows||[]).find(r=>r.id===d.id);

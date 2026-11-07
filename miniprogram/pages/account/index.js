@@ -29,8 +29,9 @@ Page({
   return {completed,total,current,percent:total?completed/total*100:0,chapter:rows[Math.min(current,Math.max(total-1,0))],done};
  },
  syncCourseProgress(){ // 后端课程进度（/franchise/content/course-progress 全量拉取→当前课程视图重建）
+  // Codex R1 P2-2/R2 P2：代次守卫在 token 检查前递增——退出/换会话（无新请求）也使旧挂起响应失效
+  this.__courseGen=(this.__courseGen||0)+1;const gen=this.__courseGen;
   if(!http.token()){this.apiCourseDone=null;return Promise.resolve();}
-  this.__courseGen=(this.__courseGen||0)+1;const gen=this.__courseGen; // Codex R1 P2-2：请求代次守卫——旧响应迟到不回退新进度/不跨岗位串台
   return require('../../api/franchise/content').drafts.courseProgress().then(rows=>{
     if(gen!==this.__courseGen)return;
     const map={};(rows||[]).forEach(r=>{(map[r.courseId]=map[r.courseId]||[]).push(Number(r.chapterIndex));});
