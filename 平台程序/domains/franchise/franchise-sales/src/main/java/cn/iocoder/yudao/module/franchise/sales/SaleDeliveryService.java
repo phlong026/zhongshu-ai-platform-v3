@@ -51,7 +51,8 @@ public class SaleDeliveryService {
     public SaleDeliveryDO create(PostSnapshot post, DeliveryCommand cmd, String idempotencyKey) {
         SaleContractDO contract = requireOrgContract(post, cmd.contractId());
         requirements.requireOfCustomer(contract.getCustomerId(), cmd.requirementId());
-        var input = Map.<String, Object>of("operation", "delivery-create", "contractId", cmd.contractId());
+        // S1-23：指纹含 requirementId。Map.of 拒绝 null，需求可空，故用 LinkedHashMap。
+        var input = createFingerprint(cmd);
         var replayed = commands.replayed(post, idempotencyKey, input);
         if (replayed.isPresent()) {
             return deliveries.selectById(replayed.get().getAggregateId());
@@ -111,6 +112,15 @@ public class SaleDeliveryService {
             throw exception(REFERENCE_INVALID);
         }
         return delivery;
+    }
+
+    /** 交付创建幂等指纹（与 record 共用）。同键换 requirementId 必须冲突。 */
+    static Map<String, Object> createFingerprint(DeliveryCommand cmd) {
+        var input = new LinkedHashMap<String, Object>();
+        input.put("operation", "delivery-create");
+        input.put("contractId", cmd.contractId());
+        input.put("requirementId", cmd.requirementId());
+        return input;
     }
 
     private SaleContractDO requireOrgContract(PostSnapshot post, long contractId) {
