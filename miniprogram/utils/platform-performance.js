@@ -1,7 +1,7 @@
 /**
  * 绩效提成经营纯函数层（阶段 3 / Codex R1 修复版）：后端英文字段 → 页面展示态适配、
  * period 工具、金额/计数双单位任务视图、提成对账行适配、1_116 错误码文案、在线编排。
- * 后端契约见 api/franchise/performance.js；离线/失败一律降级本地演示（utils/performance-tasks.js 等）不白屏。
+ * 后端契约见 api/franchise/performance.js；离线或失败由页面展示错误态，不回落本地账簿。
  *
  * 红线（Codex v3 评审 R1 全修）：
  * - Long id 全程十进制字符串（禁 Number()——雪花 id 超 2^53 精度丢失）；金额/计数单独转换

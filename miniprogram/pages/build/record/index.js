@@ -42,7 +42,7 @@ Page({
   }).catch(err=>this.fail((err&&err.msg)||'授权查看失败，请重试'));
  },
  closeSamplePreview(){this.setData({samplePreview:null});},
-  async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败降级本地演示
+  async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败只显示错误态
    try{
     // 费用视图并行预拉清单（失败不阻断详情渲染，清单区显示空）
     const expensePull=this.data.view==='expenses'

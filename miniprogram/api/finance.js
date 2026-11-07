@@ -110,30 +110,41 @@ function readFileBase64(filePath) {
  * dev bytes 端点门=franchise:design:use（sales 等岗位代传；基-1 先例）。
  */
 async function uploadVoucher(filePath, helperUser) {
-  const helper = require('./franchise/engineering'); // 仅复用 assets 端点（上传/完成）
+  const helper = require('./franchise/engineering'); // 解码与工程凭据同一套；complete 校验的是文件字节
   const fsData = await readFileBase64(filePath);
+  const binary = helper.base64ToBinary(fsData);
   const stat = wx.getFileSystemManager().statSync(filePath);
-  const sizeBytes = stat.size || fsData.length;
-  // sha256 由后端 dev bytes 通道之外另行校验，此处按基-1 惯例传内容哈希（简单 hash 不行——传 sha256）
-  // sha256 行内实现（后端按 sha 幂等去重票据；内容变化即新票据）
-  const sha = sha256Hex(unescape(encodeURIComponent(fsData)));
+  const sizeBytes = stat.size || binary.length;
+  const sha = sha256Hex(binary);
   const ticket = await http.post('/franchise/assets/upload-tickets',
     { assetType: 'FIN_VOUCHER', mimeType: guessMime(filePath), sizeBytes, sha256: sha });
   const assetId = ticket.assetId;
-  // 字节通道：dev 端点需 design:use——若有 helperUser 用其 token 代传，否则本身份尝试
-  const header = {
-    'tenant-id': '1', 'content-type': 'application/json',
-    Authorization: 'Bearer ' + (helperUser && helperUser.token ? helperUser.token : http.token())
-  };
-  if (helperUser && helperUser.post) header['X-Post-Id'] = String(helperUser.post);
-  await new Promise((resolve, reject) => {
-    wx.request({
-      url: http.base() + '/platform/dev/design/assets/' + assetId + '/bytes',
-      method: 'POST', data: { contentBase64: fsData }, header,
-      success: r => (r.statusCode === 200 ? resolve() : reject(new Error('字节通道失败'))),
-      fail: () => reject(new Error('字节通道网络失败'))
+  if (ticket.uploadUrl && !/^local:\/\//.test(ticket.uploadUrl) && String(ticket.uploadUrl).indexOf('/platform/dev/') < 0) {
+    await new Promise((resolve, reject) => {
+      wx.request({
+        url: ticket.uploadUrl, method: 'PUT',
+        header: { 'content-type': guessMime(filePath) },
+        data: wx.base64ToArrayBuffer(fsData),
+        success: r => (r.statusCode >= 200 && r.statusCode < 300 ? resolve() : reject(new Error('凭证上传失败'))),
+        fail: () => reject(new Error('凭证上传网络失败'))
+      });
     });
-  });
+  } else {
+    // 开发态 bytes：若有 helperUser 用其 token 代传，否则本身份尝试
+    const header = {
+      'tenant-id': '1', 'content-type': 'application/json',
+      Authorization: 'Bearer ' + (helperUser && helperUser.token ? helperUser.token : http.token())
+    };
+    if (helperUser && helperUser.post) header['X-Post-Id'] = String(helperUser.post);
+    await new Promise((resolve, reject) => {
+      wx.request({
+        url: http.base() + '/platform/dev/design/assets/' + assetId + '/bytes',
+        method: 'POST', data: { contentBase64: fsData }, header,
+        success: r => (r.statusCode === 200 ? resolve() : reject(new Error('字节通道失败'))),
+        fail: () => reject(new Error('字节通道网络失败'))
+      });
+    });
+  }
   const completed = await http.post('/franchise/assets/' + assetId + '/complete');
   if (completed.uploadStatus !== 'ACCEPTED') throw new Error('凭证未通过校验');
   return assetId;
