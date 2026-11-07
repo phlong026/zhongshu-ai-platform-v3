@@ -280,7 +280,9 @@ function idemFingerprint(action, form) {
     if (k === 'lines') {
       const project = FP_LINES[action];
       if (!project) return undefined; // 其余 action 的 lines 为服务端回流行（余量统计）——不入指纹
-      return { rows: (v || []).map(project).filter(r => r.name != null || r.id != null || r.adjust != null) };
+      // R7 P2：与提交端同一有效行过滤（material-plan 提交时丢弃空名称行）——提交后响应丢失、
+      // 用户补点空行未填再重试，请求正文不变，指纹须同样稳定
+      return { rows: (v || []).map(project).filter(r => (r.name != null && String(r.name).trim() !== '') || r.id != null || r.adjust != null) };
     }
     // 计划表仅 plan 动作入指纹（内部键改名 ns——避免 replacer 对返回值内同名键递归命中自身死循环）
     if (k === 'nodes') return action === 'plan' ? { ns: (v || []).map(FP_NODES) } : undefined;

@@ -41,7 +41,7 @@ const ok = (cond, name) => { assert.ok(cond, name); pass++; console.log('  ok - 
   const c = adjustForm('8'); c.lines.push({ id: 'm2', adjust: '2' });
   ok(idemFingerprint('material-adjust', a) !== idemFingerprint('material-adjust', c), 'R6：调整行集合变化（增行）⇒ 新命令');
 }
-// 3) 材料计划（R6）
+// 3) 材料计划（R6 + R7 空行过滤）
 {
   const a = planForm(), b = planForm();
   b.lines[0].remainingQty = 5; b.lines[0].received = 5; // 回流统计
@@ -50,6 +50,13 @@ const ok = (cond, name) => { assert.ok(cond, name); pass++; console.log('  ok - 
   ok(idemFingerprint('material-plan', a) !== idemFingerprint('material-plan', c), 'R6：材料计划数量改 ⇒ 新命令');
   const d = planForm(); d.lines[0].name = '粗砂';
   ok(idemFingerprint('material-plan', a) !== idemFingerprint('material-plan', d), 'R6：材料计划名称改 ⇒ 新命令');
+  // R7 P2：空名称行不入指纹（与提交端有效行过滤一致——响应丢失后补点空行未填再重试仍复用同键）
+  const e = planForm(), f = planForm(); f.lines.push({ name: '', spec: '', quantity: '', unit: '包' });
+  ok(idemFingerprint('material-plan', e) === idemFingerprint('material-plan', f), 'R7：补点空白材料行（未填）⇒ 指纹稳定（提交端本就过滤）');
+  // R7：空白字符名称行与不带该行等价（有效行过滤后指纹一致——重试复用同键）
+  const g = planForm(); g.lines.push({ name: '   ', spec: '', quantity: '', unit: '包' });
+  const h = planForm();
+  ok(idemFingerprint('material-plan', g) === idemFingerprint('material-plan', h), 'R7：空白字符名称行等价于不带该行（提交端本就过滤）');
 }
 // 4) 施工计划（R6：nodes 仅 plan 动作入指纹且保用户输入）
 {
