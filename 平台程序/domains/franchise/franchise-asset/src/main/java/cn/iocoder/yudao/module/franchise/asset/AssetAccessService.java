@@ -114,13 +114,19 @@ public class AssetAccessService {
      * 越权 RESOURCE_FORBIDDEN（同码不泄露）。upload 从入参、complete/download 由调用方查得类型后调用。
      */
     public void requireChannelPermission(PostSnapshot post, String assetType) {
-        var roles = assetType == null ? null : CHANNEL_ROLES.get(assetType);
-        if (roles == null) {
-            return; // 未知类型放行给后续资产校验（保持 1_071_000_001 原语义）
-        }
-        if (!roles.contains(post.roleCode())) {
+        if (!channelAllowed(assetType, post.roleCode())) {
             throw exception(ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
         }
+    }
+
+    /**
+     * R6 余债（横向读取批）：通道类型×岗位矩阵判定公开为静态——
+     * dev 字节通道（DesignDevController PUT/GET，组织共享服务账号仅属主校验）复用同一矩阵，
+     * 封闭「同组织跨岗覆盖/读取跨类资产」的横向面。未知类型保持放行（同上原语义）。
+     */
+    public static boolean channelAllowed(String assetType, String roleCode) {
+        var roles = assetType == null ? null : CHANNEL_ROLES.get(assetType);
+        return roles == null || roles.contains(roleCode);
     }
 
     // 严格对齐各域 8xx 种子 query 矩阵（R3：ENG 归工程岗、CONTRACT 归业务岗——不跨域放宽）
