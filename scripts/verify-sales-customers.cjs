@@ -1,21 +1,2 @@
-const fs=require('fs'),path=require('path'),assert=require('assert/strict');
-(async()=>{
- const r=await require('./role-page-runtime.cjs').connect(),A=require('../miniprogram/utils/account'),B=require('../miniprogram/utils/business'),D=require('../miniprogram/utils/sales-demo'),W=require('../miniprogram/utils/sales-workspace'),checks=[];
- const open=url=>r.callWxMethod('reLaunch',{url}),p=()=>getCurrentPages().at(-1),pass=name=>checks.push({name,result:'passed'});
- for(const [index,id]of ['zhang','sales-lead'].entries()){
-  A.mutate(a=>A.loginDemo(a,id));assert(D.ensure());const before=W.customerRows().length;assert(!D.ensure());assert.equal(W.customerRows().length,before);pass(id+'：一次性模拟客户、草稿和作品，不重复注入');
-  await open('/pages/business/index');assert(p().data.isSalesHome);assert.equal(p().data.salesCounts.all,before);assert(p().data.flowPending.length);assert(p().data.recentCreation);pass(id+'：首页统计与可见记录一致，待办与最近创作非空');
-  assert.deepEqual(p().data.salesShortcuts.map(x=>x.title),['登记客户','内容创作','AI设计','快速预算']);
-  await open('/pages/business/index');await(await(await r.currentPage()).$('.sales-stat[data-focus="commission"]')).tap();assert.equal(p().route,'pages/admin/tasks/index');assert.equal(p().data.view,'mine');await open('/pages/business/index');
-  for(const[focus,count]of [['due',p().data.todayCount],['appointments',p().data.appointmentCount]]){await open('/pages/business/index');await(await(await r.currentPage()).$('.sales-stat[data-focus="'+focus+'"]')).tap();assert.equal(p().route,'pages/customers/index');assert.equal(p().data.filteredCustomers.length,count);assert.equal(p().data.tab,focus);assert.equal(p().data.tabs.find(t=>t.key===focus).count,count);p().selectTab({currentTarget:{dataset:{tab:'all'}}});assert.equal(p().data.filteredCustomers.length,before);}
-  pass(id+'：首页三项数字跳转对应客户集合，数量一致且可清除筛选');await open('/pages/business/index');
-  const page=await r.currentPage();await(await page.$('[data-action="customer"]')).tap();assert.equal(p().data.modal,'register');
-  const phone='1399900100'+index;p().setData({'form.name':'界面联动测试'+id,'form.phone':phone,'form.source':'视频号咨询','form.summary':'两层乡墅，老人房及预算沟通'});await(await(await r.currentPage()).$('.sheet-save')).tap();
-  assert.equal(p().data.view,'customer');const customer=p().data.customer;assert(customer&&customer.phone===phone);assert.equal(customer.ownerId,A.access.context().staffId);pass(id+'：首页登记入口通过原WXML表单创建归本人客户');
-  const follow=await(await r.currentPage()).$('[data-modal="follow"]');assert(follow);await follow.tap();p().setData({'form.method':'到店','form.followContent':'已记录到店沟通及后续方案需求','form.appointment':A.localDate()+' 16:30','form.next':'电话联系'});await(await(await r.currentPage()).$('.sheet-save')).tap();assert(!p().data.error,p().data.error);assert.equal(B.customer(customer.id).status,'已到店');
-  await open('/pages/customers/index');assert.equal(p().data.counts.all,before+1);p().selectTab({currentTarget:{dataset:{tab:'visited'}}});assert(p().data.filteredCustomers.some(c=>c.id===customer.id));p().search({detail:{value:'9900100'}});assert(p().data.filteredCustomers.some(c=>c.id===customer.id));assert(p().data.filteredCustomers.every(c=>c.phone.includes('****')));pass(id+'：到店状态、筛选、手机号搜索与脱敏联动');
- }
- A.mutate(a=>A.loginDemo(a,'zhang'));await open('/pages/customers/index');assert(p().data.customers.every(c=>!c.name.includes('sales-lead')));assert(!p().data.isLead);pass('业务员看不到负责人私人客户及管理入口');
- A.mutate(a=>A.loginDemo(a,'manager-li'));await open('/pages/customers/index');assert(['pages/engineering/index','pages/build/home/index'].includes(p().route),'工程岗位返回工程首页，不能停留客户模块');pass('非业务岗位不能进入客户模块');
- const out=path.resolve(process.env.SALES_QA_DIR||'qa/business-followups-20261019');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'customers-results.json'),JSON.stringify({result:'passed',kind:'real Page/WXML handlers and existing business models',checks},null,2));console.log(JSON.stringify({result:'passed',checks:checks.length}));
-})().catch(e=>{console.error(e.stack);process.exitCode=1;});
+// 退役桩（2026-11-07 切生产收尾批）：本脚本断言的本地演示链（loginDemo/演示 seed/本地工作台模块/qa 出库文件）已随切生产剔除批删除，断言对象不复存在——脚本退役，退出码 0 保持聚合器兼容。
+console.log('✔ retired: 断言对象（本地演示链）已随切生产批次下线');

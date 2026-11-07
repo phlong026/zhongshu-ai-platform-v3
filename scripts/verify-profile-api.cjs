@@ -16,18 +16,19 @@ for (const bad of ['', '   ', null, undefined, '张'.repeat(21)]) {
   assert.match(r.error, /1–20个字/);
 }
 
-// ===== mergeProfile：姓名/手机号后端为真源，头像保留本地 =====
+// ===== mergeProfile：姓名/手机号/头像 URL 后端为真源（基-1 上传通道就绪后）=====
 const local = { name: '旧名', phone: '13800002688', avatar: '/assets/account-avatar.jpg' };
 const merged = P.mergeProfile(local, { id: 7, nickname: '新名', mobile: '13911112222', avatar: 'https://cdn/a.png' });
 assert.equal(merged.name, '新名', '姓名以后端为真源');
 assert.equal(merged.phone, '13911112222', '手机号以后端为真源');
-assert.equal(merged.avatar, '/assets/account-avatar.jpg', '本地头像路径不被后端 URL 覆盖（基-1 前不上传）');
+assert.equal(merged.avatar, 'https://cdn/a.png', '后端头像 URL 非空即覆盖（上传通道就绪，后端为真源）');
 assert.equal(local.name, '旧名', '入参不被修改（纯函数）');
 
-// remote 缺字段/null 安全：本地原样保留
+// remote 缺字段/null 安全：本地原样保留（头像 null=后端未设置，保留本地路径/URL）
 const kept = P.mergeProfile(local, { id: 7, nickname: '', mobile: null, avatar: null });
 assert.equal(kept.name, '旧名');
 assert.equal(kept.phone, '13800002688');
+assert.equal(kept.avatar, '/assets/account-avatar.jpg', '后端未设置头像时保留本地');
 assert.deepEqual(P.mergeProfile(local, null), local, 'remote null 安全');
 
 // ===== maskPhone：前3后4打码（20 号任务书 AC4，syncApiProfile 回填展示用）=====

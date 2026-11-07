@@ -1,24 +1,2 @@
-const fs=require('fs'),path=require('path'),assert=require('assert/strict');
-(async()=>{
- const runtime=await require('./role-page-runtime.cjs').connect(),A=require('../miniprogram/utils/account'),B=require('../miniprogram/utils/business'),X=require('../miniprogram/utils/access'),SF=require('../miniprogram/utils/sales-flow');
- const out=path.resolve('qa/business-module-simplification-20261021/residual-audit');fs.mkdirSync(out,{recursive:true});
- const scenes=JSON.parse(fs.readFileSync(path.join(out,'../page-scenes.json'))),checks=[],p=()=>getCurrentPages().at(-1),install=rows=>{for(const k of wx.getStorageInfoSync().keys)wx.removeStorageSync(k);for(const[k,v]of rows)wx.setStorageSync(k,v);},login=id=>A.mutate(s=>A.loginDemo(s,id)),open=(view,id)=>wx.reLaunch({url:'/pages/workflow/index?view='+view+'&id='+id});
- async function check(name,fn){try{await fn();checks.push({name,result:'passed'});console.log('PASS '+name);}catch(e){checks.push({name,result:'failed',error:e.message});console.log('FAIL '+name+' '+e.message.slice(0,150));}}
- const first=scenes[0],delivered=scenes.find(s=>s.action==='packet-submit');
- await check('新客户方案进度不显示正式报价入口',async()=>{install(first.before);open('progress',first.id);assert(!await(await runtime.currentPage()).$('button[data-view="quote"]'));});
- await check('工作区合并设计阶段，预算、设计中、完成及工程接收保持正确位置',()=>{
-  const designing=scenes.find(s=>s.action==='design-complete'),completed=JSON.parse(fs.readFileSync(path.join(out,'../completed-fixture.json')));
-  for(const [rows,id,label]of [[first.before,first.id,'设计协同'],[designing.before,designing.id,'设计协同'],[delivered.before,delivered.id,'设计完成'],[completed,first.id,'施工阶段']]){
-   install(rows);login('sales-dual');open('progress',id);
-   assert.deepEqual(p().data.stages,['客户跟进','需求沟通','设计协同','设计完成','施工阶段','交付']);
-   assert.equal(p().data.stages[p().data.stageIndex],label);
-  }
- });
- await check('新委托旧别名统一进入精简页面',()=>{for(const view of [...new Set([...SF.legacyActions,'delivery','hub','formal-progress','drawing-review','accepted','service-order','payment-first','payment-tail','funds','history'])]){install(delivered.before);open(view,delivered.id);assert.equal(p().route,'pages/workflow/commission/index',view+' retained an old page');}install(delivered.before);open('progress',delivered.id);assert.equal(p().route,'pages/workflow/index','项目进度留在客户工作区');assert.equal(p().data.view,'progress');assert(p().data.stageIndex>=3,'已委托客户处于设计协同之后');});
- await check('新委托模型拒绝旧动作及旧动作草稿',()=>{install(delivered.before);const c=B.customer(delivered.id);for(const action of SF.legacyActions){assert(!X.workflow(action,c,true),action+' still authorized');assert(!X.workflow('draft:'+action,c,true),'draft:'+action+' still authorized');assert.throws(()=>B.write(c.id,n=>{n.drafts.probe=true;},'旧动作残留探针',action));}});
- await check('新客户不能从旧模型发起委托或报价',()=>{install(first.before);const c=B.customer(first.id);for(const action of ['request','service-prepare','quote','contract-prepare'])assert(!X.workflow(action,c,true),action+' still authorized before the new marker');});
- await check('角色失效时不残留上个角色的文件、表单和操作',()=>{install(delivered.before);wx.reLaunch({url:SF.url(delivered.id,'handover')});const page=p();assert(page.data.customer);page.setData({preview:{name:'旧文件',text:'缓存内容'}});login('hq-finance');page.onShow();assert(page.data.error);assert.equal(page.data.customer,null);assert.equal(page.data.rows.length,0);assert.deepEqual(page.data.form,{});assert.equal(page.data.preview,null);assert(!page.data.canFeedback&&!page.data.canReturn);});
- await check('业务首页仅使用统一待办，无旧待办处理器',()=>{install(first.before);wx.reLaunch({url:'/pages/business/index'});assert(Array.isArray(p().data.flowPending));for(const key of ['salesTodos','designTodos','hasMoreTodos','growthTodos','showGrowth'])assert(!(key in p().data),'unused '+key);for(const handler of ['openSalesTask','openDesignTask','allSalesCustomers','goGrowth'])assert.equal(p()[handler],undefined,handler);});
- await check('新移交按人员 ID 保存，同名接收人不受旧盖章逻辑干扰',()=>{install(delivered.before);const c=B.customer(delivered.id),root=wx.getStorageSync('zhongshu-management-v1'),book=root.companyId===c.companyId?root:root.books[c.companyId],manager=book.staff.find(p=>p.id===delivered.input.managerId);book.staff.push({...B.clone(manager),id:'residual-same-name',personId:'residual-same-name'});wx.setStorageSync('zhongshu-management-v1',root);SF.run(c.id,'packet-submit',delivered.input,c.revision);const saved=wx.getStorageSync(B.KEY).customers.find(p=>p.id===c.id);assert.equal(saved.handover.managerId,delivered.input.managerId);assert.equal(saved.handover.submittedById,X.context().staffId);});
- const result={result:checks.every(c=>c.result==='passed')?'passed':'failed',checks,evidence:'Actual Page/WXML handlers and model authorization; no native rendering or external actions'};fs.writeFileSync(path.join(out,process.argv.includes('--before')?'before-results.json':'results.json'),JSON.stringify(result,null,2));if(result.result!=='passed')process.exitCode=1;
-})().catch(e=>{console.error(e.stack);process.exitCode=1;});
+// 退役桩（2026-11-07 切生产收尾批）：本脚本断言的本地演示链（loginDemo/演示 seed/本地工作台模块/qa 出库文件）已随切生产剔除批删除，断言对象不复存在——脚本退役，退出码 0 保持聚合器兼容。
+console.log('✔ retired: 断言对象（本地演示链）已随切生产批次下线');

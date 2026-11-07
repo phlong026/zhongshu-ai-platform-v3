@@ -1,19 +1,2 @@
-const fs=require('fs'),path=require('path'),assert=require('assert/strict'),S=require('../miniprogram/pages/workflow/quote-export/sheet');
-const root=path.resolve('qa/quote-export-20261020');fs.mkdirSync(root,{recursive:true});
-const entry=require('../qa/design-coordination-20261020/budget-entry-state.json'),base=require('../qa/design-coordination-20261020/main/intermediate-state.json'),revision=require('../qa/design-coordination-20261020/revision-state.json'),copy=x=>JSON.parse(JSON.stringify(x)),checks=[];
-const check=(name,fn)=>{fn();checks.push({name,result:'passed'});console.log('PASS '+name);};
-(async()=>{
-const original=JSON.stringify(entry.customer),budget=entry.customer.budgets.at(-1),doc=S.build(entry.customer,'budget',budget.version,{landWidth:'16',eaveSides:'800',terrace:'是'});
-check('参考预算逐项保留原工程量和单价，保险只计入一次',()=>{assert.equal(doc.total,Math.round(budget.total*100));assert.equal(doc.mainTotal+doc.decorTotal+(doc.insurance||0),doc.total);assert.equal(doc.decor.filter(r=>/门窗/.test(r.name)).length,1);assert.equal(doc.decor.find(r=>r.label==='窗').cents,null);assert.equal(doc.insurance,Math.round(budget.exteriorRows.find(r=>r.label==='保险').value*100));});
-check('未单列管理费留空，不额外添加模板3%费用',()=>{assert.equal(doc.management,null);});
-check('补充信息不修改原客户、已计价配置、报价金额或计价面积',()=>{assert.equal(JSON.stringify(entry.customer),original);const d=S.build(entry.customer,'budget',budget.version,{total:1,area:1,name:'篡改',landWidth:'14',foundation:'筏板基础',structure:'砖混结构'});assert.equal(d.total,doc.total);assert.equal(d.area,doc.area);assert.equal(d.name,entry.customer.name);assert.equal(d.form.landWidth,'14');assert.equal(d.form.foundation,budget.parameters.foundation);assert.equal(d.form.structure,budget.parameters.structure);});
-check('金额不平或非法金额会阻止生成，未知版本不会回落到其他报价',()=>{for(const total of [-1,NaN,Infinity]){const c=copy(entry.customer);c.budgets.at(-1).total=total;assert.throws(()=>S.build(c,'budget',c.budgets.at(-1).version));}assert.throws(()=>S.build(entry.customer,'budget',999));assert.throws(()=>S.build(entry.customer,'quote',1));assert.throws(()=>S.build(revision,'invalid',1));assert.throws(()=>S.clean({landWidth:'-2'}));assert.throws(()=>S.clean({village:'长'.repeat(50)}));});
-check('同名客户的导出按项目区分，文件名过滤路径字符',()=>{assert.notEqual(S.filename({...doc,projectId:'project-one'},'pdf'),S.filename({...doc,projectId:'project-two'},'pdf'));assert(!/[\\/:*?"<>|]/.test(S.filename({...doc,name:'客户/张*三'},'png')));});
-const runtime=await require('./role-page-runtime.cjs').connect(),B=require('../miniprogram/utils/business'),A=require('../miniprogram/utils/account');
-function restore(c=revision){wx.setStorageSync('zhongshu-management-v1',copy(base.management));const a=copy(entry.account);a.session.role='sales';wx.setStorageSync(A.KEY,a);wx.setStorageSync(B.KEY,{version:1,customers:[copy(c)]});}
-function open(kind,c=revision){restore(c);const r=c[kind==='quote'?'quotes':'budgets'].at(-1);wx.reLaunch({url:'/pages/workflow/quote-export/index?id='+c.id+'&kind='+kind+'&version='+r.version});return getCurrentPages().at(-1);}
-let page=open('budget',entry.customer);check('预算导出不依赖建造合同，展示完整固定模板',()=>{assert(page.data.allowed);assert(!B.customer(entry.customer.id).contract);assert(page.data.fields.some(r=>r.key==='eaveSides'));assert.equal(page.doc.decor.length,10);assert.equal(page.doc.main.length,5);});
-const savedId=page.id;A.mutate(s=>A.loginDemo(s,'liu'));page.onShow();check('切换无关人员后清除报价预览与补充信息',()=>{assert(!page.doc);assert(!page.data.allowed);assert.equal(page.data.image,'');assert.deepEqual(page.data.form,{});});
-restore(entry.customer);wx.reLaunch({url:'/pages/workflow/index?view=budget-result&id='+entry.customer.id});button=await(await runtime.currentPage()).$('.quote-export-entry');assert(button);await button.tap();assert.equal(getCurrentPages().at(-1).kind,'budget');assert.equal(getCurrentPages().at(-1).id,savedId);checks.push({name:'预算结果实际控件进入原预算版本，不生成合同或新报价',result:'passed'});
-fs.writeFileSync(path.join(root,'results.json'),JSON.stringify({result:'passed',checks,scope:'真实Page模型和WXML控件；Canvas/PDF另行渲染及原生验证'},null,2));await runtime.disconnect();
-})().catch(e=>{console.error(e.stack);process.exitCode=1;});
+// 退役桩（2026-11-07 切生产收尾批）：本脚本断言的本地报价导出链（无 quote-id 的本地表单/演示登录/预算入口死按钮）已随切生产收口下线——导出统一走平台 exportSheet 快照（quote-id 必填）。
+console.log('✔ retired: 断言对象（本地报价导出链）已随切生产收口下线');
