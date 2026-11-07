@@ -1,14 +1,16 @@
 // 接收建档与工程分包共享原项目资料映射，主包不依赖工程页面。
-const X=require('./access'),Job=require('./organization'),B=require('./business'),D=require('./demo-catalog');
-const Seed=require('./engineering-seed'),{project}=Seed,clone=B.clone,assert=X.assert;
-const KEY='zhongshu-engineering-v1',latest=rows=>rows?.at(-1);
+const X=require('./access'),Job=require('./organization'),B=require('./business');
+const clone=B.clone,assert=X.assert;
+// 工程档案空模板（演示 seed 已随生产剔除移除；plan 节点由空数组起步）
+function project(values={}){return Object.assign({id:'',name:'',customer:'',city:'',manager:'',phone:'',area:'',floors:'',accepted:'',sample:false,sourceCustomerId:'',image:'',checks:[null,null,null,null,null,null],drawingVersion:'',documents:[],drawing:null,review:null,actualStart:null,plan:{version:1,nodes:[]},planSaved:false,planHistory:[],sends:[],materials:[],supplies:[],receipts:[],reships:[],inspections:[],rectifications:[],siteRecords:[],collections:[],payments:[],delivery:null,archived:false,events:[],drafts:{}},values);}
+const KEY=require('./storage-keys').engineering,latest=rows=>rows?.at(-1);
 function load(){
  const stored=wx.getStorageSync(KEY);
- if(!stored||stored.version!==1||!Array.isArray(stored.projects))return Seed();
+ if(!stored||stored.version!==1||!Array.isArray(stored.projects))return {version:1,projects:[]};
  const state=clone(stored);
  for(const p of state.projects)if(!p.projectId){
-  const source=p.sourceCustomerId&&B.customer(p.sourceCustomerId),demo=p.sample&&Object.values(D.projects).find(x=>x.engineeringId===p.id);
-  p.projectId=source?.projectId||demo?.id||p.id;
+  const source=p.sourceCustomerId&&B.customer(p.sourceCustomerId);
+  p.projectId=source?.projectId||p.id;
  }
  return state;
 }
@@ -30,6 +32,7 @@ function merge(c,existing){
  Object.assign(p,{sourceCustomerId:c.id,name:c.name+' · '+c.city.replace(/市$/,'')+'乡墅',customer:c.name,city:c.city,phone:c.phone,area:basis.area,floors:basis.floors,accepted:p.accepted||c.acceptance.date});
  if(!p.recordFlow?.contract)p.contractTotal=c.agreements?.at(-1)?.total??c.contract?.total??p.contractTotal??0;
  const SF=require('./sales-flow'),offline=SF.is(c),packet=c.businessFlow?.packet;
+ p.acceptedAt=p.acceptedAt||c.acceptance.at||c.businessFlow?.events?.filter(e=>e.action==='packet-receive').at(-1)?.at||c.acceptance.date;
  if(offline)require('./engineering-records').init(p);
  const d=offline?{version:packet?.drawingVersion,file:packet?.drawingFile}:latest(c.drawings);
  p.documents=clone(offline?SF.packageRows(c).map(r=>({name:r.label,file:r.file,date:c.handover.date})):[{name:'签约资料',file:c.contract&&c.contract.file,date:c.contract&&c.contract.date},{name:'交底记录',file:c.handover&&{name:'电子交底记录',text:c.handover.note},date:c.handover&&c.handover.date}].filter(x=>x.file));

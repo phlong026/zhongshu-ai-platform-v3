@@ -1,0 +1,1 @@
+<button wx:if="{{interactive}}" class="list-row custom-class zs-theme" bindtap="activate"><view><slot name="title"/></view><view><slot name="detail"/></view><view><slot name="extra"/></view></button><view wx:else class="list-row custom-class"><view><slot name="title"/></view><view><slot name="detail"/></view><view><slot name="extra"/></view></view>

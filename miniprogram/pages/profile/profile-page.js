@@ -2,13 +2,14 @@
 // bottom navigation component they mount; content, handlers and styles all come from here and profile.wxml.
 const A = require('../../utils/account');
 const O = require('../../utils/organization');
-require('../../utils/load-local-fonts')(require('../../utils/dashboard-font-sources'), 'dashboard');
+const M = require('../../utils/platform-messages');
+const http = require('../../api/http');
 
 const TEAM = { 'sales-lead': ['业务团队', 'business-team'], 'project-manager': ['工程团队', 'engineering-team'], 'finance-lead': ['财务管理', 'finance-team'], owner: ['门店团队与交接', 'staff'] };
 const account = (view, extra = '') => '/pages/account/index?view=' + view + extra;
 const ACTIONS = {
   login: () => account('login'), profile: () => account('profile'), messages: () => account('messages'),
-  performance: (eng, id, owner) => owner ? '/pages/admin/detail/index?view=targets' : account('personal-performance'),
+  performance: (engineering, id, owner) => '/pages/admin/tasks/index?view=' + (owner ? 'team' : 'mine'),
   identity: () => account('identity'), help: () => account('help'), privacy: () => account('privacy'), policy: () => account('policy'), agreement: () => account('agreement'),
   services: () => account('services'), selection: () => account('selection'),
   learning: eng => account('learning', eng ? '&category=' + encodeURIComponent('工程') : ''),
@@ -18,7 +19,7 @@ const ACTIONS = {
 // actions that need a signed-in account
 const LOGIN_ONLY = ['profile', 'messages', 'performance'];
 
-// Keep existing company settings, including fee authorization, reachable from the shared profile.
+// Keep one entry per company setting; task access stays in the profile quick card.
 function managementEntries(a) {
   if (!a.active) return [];
   const X = require('../../utils/access');
@@ -26,9 +27,9 @@ function managementEntries(a) {
     // Same urls the owner pages build; the admin pages live in a subpackage, so they are spelled out here.
     const admin = view => '/pages/admin/index?view=' + view, detail = view => '/pages/admin/detail/index?view=' + view;
     return [
-      { text: '绩效与考核', url: '/pages/admin/performance/index' }, { text: '成员与权限', url: admin('staff') }, { text: '审批设置', url: detail('settings') }, { text: '我的规矩', url: detail('rules') },
-      { text: '项目经理交接', url: detail('handover') }, { text: '项目回款提成', url: '/pages/admin/commission/index' }, { text: '门店资料', url: detail('company') }, { text: '操作记录', url: detail('activity') }
-    ].concat(a.role === 'boss' && a.orgType === 'store' ? [{ text: '历史委托费用授权', url: '/pages/workflow/commission/index?view=policy' }] : []);
+      { text: '成员与权限', url: admin('staff') }, { text: '审批设置', url: detail('settings') }, { text: '我的规矩', url: detail('rules') },
+      { text: '门店资料', url: detail('company') }, { text: '操作记录', url: detail('activity') }
+    ];
   }
   return [];
 }
@@ -55,11 +56,29 @@ module.exports = function (tabIndex) {
         engineeringProfile, courseId: engineeringProfile ? 'engineering' : 'ai-video', courseTitle: engineeringProfile ? '乡墅开工与现场交底' : 'AI短视频获客实战',
         courseImage: engineeringProfile ? '/pages/account/assets/course-engineering.jpg' : A.courseImage,
         loggedIn: s.session.loggedIn, showStoreServices: !s.session.loggedIn || a.orgType === 'store',
-        entries: entries(a).concat(a.active && a.demo && ownerProfile ? [{ text: '管理模拟联调', url: '/pages/admin/simulation/index' }] : []),
+        entries: entries(a),
         ownerProfile, managementEntries: managementEntries(a),
         name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
-        unread: A.scoped(s, s.messages).filter(x => !x.read).length, progress: A.progress(s, engineeringProfile ? 'engineering' : 'ai-video')
+        unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total: (A.courseChapters[engineeringProfile ? 'engineering' : 'ai-video'] || A.chapters).length, percent: 0 }
       });
+      // API 未读数（基-2）：有会话才拉，回来合计刷新（11 文档 §十）
+      // 课程进度代次守卫（Codex R2 P2）：递增移到 token 检查外——退出/换会话（无新请求）也使旧挂起响应失效
+      this.__courseGen = (this.__courseGen || 0) + 1; const courseGen = this.__courseGen;
+      if (http.token()) {
+        http.get('/platform/messages/unread-count').then(r => {
+          this.apiUnread = (r && r.count) || 0;
+          const fresh = A.load();
+          this.setData({ unread: M.totalUnread(A.scoped(fresh, fresh.messages).filter(x => !x.read).length, this.apiUnread) });
+        }).catch(() => {});
+        // 课程进度 API 真源（/franchise/content/course-progress 全量拉取，不读本地 learning 存储）
+        require('../../api/franchise/content').drafts.courseProgress().then(rows => {
+          if (courseGen !== this.__courseGen) return;
+          const map = {}; (rows || []).forEach(r => { (map[r.courseId] = map[r.courseId] || []).push(Number(r.chapterIndex)); });
+          const cid = this.data.courseId, total = (A.courseChapters[cid] || A.chapters).length;
+          const done = (map[cid] || []).filter(i => Number.isInteger(i) && i >= 0 && i < total);
+          this.setData({ progress: { completed: done.length, total, percent: total ? done.length / total * 100 : 0 } });
+        }).catch(() => {});
+      }
       const bar = this.getTabBar && this.getTabBar();
       if (bar) { bar.refresh && bar.refresh(); bar.setData({ selected: tabIndex, hidden: false }); }
     },

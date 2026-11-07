@@ -91,7 +91,7 @@ function fingerprint(directory) {
     assert.notEqual((await raw(main.id)).businessFlow.paymentOrder.id, (await raw(second.id)).businessFlow.paymentOrder.id);
     check('支付宝失败重试成功，两个客户项目订单相互隔离');
     await r.login('hq-design-admin'); await todoClick(main.id, 'complete'); await input('note', '总部设计与专业审核已完成', 'textarea'); await checked('checked'); await primary();
-    await assertSaved(main.id, c => !!c.businessFlow.completed, '设计完成');
+    await assertSaved(main.id, c => !!c.businessFlow.completed, '登记设计完成');
     await todoClick(main.id, 'dispatch'); await input('recipient', '李业务'); await input('drawingVersion', 'V1');
     for (const key of ['resultFile', 'drawingFile', 'reviewFile']) await sample(key);
     await event('button.commission-file', 'preview', { key: 'drawingFile' }); assert((await r.data()).preview.text.includes(main.projectId)); await r.event('.commission-mask .commission-primary', 'closePreview');

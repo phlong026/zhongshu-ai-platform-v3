@@ -1,21 +1,20 @@
 @import "./business-tokens.wxss";
 /* One type scale and control size for business, engineering and financial records. */
-.commission-page,.engineering-desk,.owner-page,.admin,.overlay .sheet{font-family:var(--business-font);font-size:28rpx;line-height:42rpx;letter-spacing:0;color:var(--business-ink)}
+.commission-page,.engineering-desk,.owner-page,.admin,.overlay .sheet{font-family:var(--business-font);font-size:var(--zs-font-emphasis);line-height:42rpx;letter-spacing:0;color:var(--business-ink)}
 .commission-page,.engineering-desk,.owner-page{background:var(--business-paper)}
 .commission-page button,.engineering-desk button,.owner-page button,.admin button,.admin input,.admin textarea,.admin .heading,.admin .hero-title,.admin .hero-money,.admin .strong,.admin .item-title,.overlay .sheet button{font-family:inherit;letter-spacing:0}
-.commission-body,.eng-content,.owner-content{padding:20rpx 28rpx}
-.commission-card,.eng-section,.owner-card{border:1rpx solid var(--business-line);border-radius:22rpx;padding:22rpx;margin-bottom:24rpx}
-.commission-heading,.eng-heading>text:first-child,.owner-heading>text:first-child,.admin .heading{font-size:32rpx;line-height:46rpx;font-weight:600}
-.eng-name,.owner-name,.admin .hero-title,.admin .item-title,.admin .value,.admin .row input,.admin .row picker,.admin .textarea{font-size:28rpx;line-height:42rpx}
-.commission-muted,.eng-muted,.owner-muted,.owner-note,.admin .hint{font-size:24rpx;line-height:36rpx;color:var(--business-muted)}
-.commission-primary,.commission-secondary,.commission-upload,.engineering-desk .eng-primary,.engineering-desk .eng-outline,.owner-page .owner-primary,.owner-page .owner-outline{min-height:88rpx;padding:18rpx 22rpx;font-size:28rpx!important;line-height:42rpx!important;font-weight:500!important;border-radius:14rpx!important;border:1rpx solid var(--business-brand)!important;white-space:normal}
-.commission-primary,.engineering-desk .eng-primary,.owner-page .owner-primary{background:var(--business-brand);color:#fffaf3}
-.commission-secondary,.commission-upload,.engineering-desk .eng-outline,.owner-page .owner-outline{background:#fff;color:var(--business-brand)}
-.commission-primary[disabled],.engineering-desk .eng-primary[disabled],.owner-page .owner-primary[disabled]{background:#f1eee8;color:var(--business-muted);border-color:var(--business-line)!important}
-.eng-link,.owner-page .owner-link{font-size:24rpx!important;line-height:36rpx!important;min-height:64rpx}
-.commission-field input,.commission-field textarea,.commission-input,.ops-field{font-family:var(--business-font);font-size:28rpx;line-height:42rpx;background:#faf8f4;border-color:var(--business-line);border-radius:12rpx}
+.commission-body,.eng-content,.owner-content{padding:20rpx var(--zs-space-page)}
+.commission-card,.eng-section,.owner-card{border:1rpx solid var(--business-line);border-radius:var(--zs-radius);padding:var(--zs-space-card);margin-bottom:var(--zs-space-section)}
+.commission-heading,.eng-heading>text:first-child,.owner-heading>text:first-child,.admin .heading{font-size:var(--zs-font-title);line-height:46rpx;font-weight:600}
+.eng-name,.owner-name,.admin .hero-title,.admin .item-title,.admin .value,.admin .row input,.admin .row picker,.admin .textarea{font-size:var(--zs-font-emphasis);line-height:42rpx}
+.commission-muted,.eng-muted,.owner-muted,.owner-note,.admin .hint{font-size:var(--zs-font-meta);line-height:36rpx;color:var(--business-muted)}
+.commission-secondary,.commission-upload,.engineering-desk .eng-outline,.owner-page .owner-primary,.owner-page .owner-outline{min-height:88rpx;padding:18rpx 22rpx;font-size:var(--zs-font-emphasis)!important;line-height:42rpx!important;font-weight:500!important;border-radius:14rpx!important;border:1rpx solid var(--business-brand)!important;white-space:normal}
+.owner-page .owner-primary{background:var(--business-brand);color:#fffaf3}
+.commission-secondary,.commission-upload,.engineering-desk .eng-outline,.owner-page .owner-outline{background:var(--zs-card);color:var(--business-brand)}
+.owner-page .owner-primary[disabled]{background:#f1eee8;color:var(--business-muted);border-color:var(--business-line)!important}
+.eng-link,.owner-page .owner-link{font-size:var(--zs-font-meta)!important;line-height:36rpx!important;min-height:var(--zs-control-height)}
+.commission-field input,.commission-field textarea,.commission-input,.ops-field{font-family:var(--business-font);font-size:var(--zs-font-emphasis);line-height:42rpx;background:var(--zs-bg);border-color:var(--business-line);border-radius:12rpx}
 .commission-actions,.commission-action-panel{background:var(--business-paper)}
 .admin .card{border:1rpx solid var(--business-line);border-radius:22rpx}
 .admin .value.money-value,.admin .hero-money{font-family:inherit}
-.admin .solid,.admin .outline,.overlay .sheet .solid{font-size:28rpx;line-height:42rpx;font-family:var(--business-font);border-radius:14rpx;min-height:88rpx}
-.admin .solid,.overlay .sheet .solid{background:var(--business-brand)}
+.admin .outline{font-size:var(--zs-font-emphasis);line-height:42rpx;font-family:var(--business-font);border-radius:14rpx;min-height:88rpx}

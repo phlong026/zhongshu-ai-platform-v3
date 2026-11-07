@@ -1,0 +1,45 @@
+<view class="records-page">
+  <brand-header title="充值明细" back="{{true}}"/>
+
+  <view wx:if="{{loadState === 'loading'}}" class="records-loading">加载中…</view>
+  <view wx:elif="{{loadState === 'unavailable'}}" class="records-empty">钱包功能尚未开通</view>
+
+  <block wx:else>
+    <view class="tabs">
+      <button class="tab {{tab === 'orders' ? 'tab-on' : ''}}" data-tab="orders" bindtap="switchTab">充值订单</button>
+      <button class="tab {{tab === 'ledger' ? 'tab-on' : ''}}" data-tab="ledger" bindtap="switchTab">点数流水</button>
+    </view>
+
+    <!-- 订单 Tab -->
+    <view wx:if="{{tab === 'orders'}}" class="list">
+      <view wx:if="{{!orders.length}}" class="list-empty">
+        <text>暂无充值订单</text>
+        <button class="list-empty-btn" bindtap="goRecharge">去充值</button>
+      </view>
+      <view wx:for="{{orders}}" wx:key="orderId" class="cell">
+        <view class="cell-main">
+          <view class="cell-title">充值 {{item.pointsText}} 设计点 <text wx:if="{{item.bonusText}}" class="cell-bonus">{{item.bonusText}}</text></view>
+          <view class="cell-sub">{{item.timeText}} · 单号 {{item.orderId}}</view>
+        </view>
+        <view class="cell-side">
+          <view class="cell-amount">{{item.amountText}}</view>
+          <view class="cell-status {{item.credited ? 'cell-status-ok' : ''}}">{{item.statusText}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 流水 Tab -->
+    <view wx:if="{{tab === 'ledger'}}" class="list">
+      <view wx:if="{{!ledger.length}}" class="list-empty"><text>暂无点数流水</text></view>
+      <view wx:for="{{ledger}}" wx:key="index" class="cell">
+        <view class="cell-main">
+          <view class="cell-title">{{item.title}}</view>
+          <view class="cell-sub">{{item.timeText}} · 余额 {{item.balanceText}}</view>
+        </view>
+        <view class="cell-delta {{item.positive ? 'cell-delta-plus' : ''}}">{{item.deltaText}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{loadingMore}}" class="list-more">加载中…</view>
+  </block>
+</view>

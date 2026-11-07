@@ -8,7 +8,7 @@ for(const scenario of [
 ]){
   let page,redirect,refreshed=false;
   const state={title:'test',original:'test',script:'test',tasks:[scenario.task],works:[],records:[]};
-  vm.runInNewContext(source,{Page:p=>page=p,require:name=>name.endsWith('/studio')?{read:()=>state}:{unavailable(){},assets:[]},wx:{showToast(){},redirectTo:options=>redirect=options.url}});
+  vm.runInNewContext(source,{Page:p=>page=p,require:name=>name.endsWith('/studio')?{read:()=>state,guard:()=>true,scope:()=>'result-guard'}:{unavailable(){},assets:[],token:()=>''},wx:{showToast(){},redirectTo:options=>redirect=options.url}});
   const instance={data:{},setData(value){Object.assign(this.data,value)},refreshData(){refreshed=true}};
   page.onLoad.call(instance,{view:'result',task:'target'});
   assert.equal(instance.data.view,scenario.expected);

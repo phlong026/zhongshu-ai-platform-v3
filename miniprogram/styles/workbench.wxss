@@ -1,42 +1,41 @@
 /* Shared typography and control sizes for business, engineering and management. */
-.page.workbench-page{background:#faf8f4;color:#141312;font-family:ZSDashboard,sans-serif;font-size:26rpx;font-weight:400;line-height:40rpx;letter-spacing:0}
-.page.workbench-page button,.page.workbench-page input{font-family:inherit;letter-spacing:0}
-.page.workbench-page .workbench-header{position:sticky;top:0;z-index:60;background:#faf8f4}
-.page.workbench-page .content{padding:20rpx 26rpx 0}
-.page.workbench-page .section{background:#fff;border-radius:20rpx;padding:20rpx;margin-bottom:20rpx}
-.page.workbench-page .section-heading{height:64rpx;padding-left:20rpx;margin:0 0 12rpx;display:flex;align-items:center;justify-content:space-between}
-.page.workbench-page .section-heading::before{width:6rpx;height:30rpx;top:17rpx;background:#89512a;border-radius:4rpx}
-.page.workbench-page .section-title{font-family:inherit;font-size:30rpx;font-weight:700;line-height:42rpx;letter-spacing:0}
-.page.workbench-page .customer-name,.page.workbench-page .todo .grow>text:first-child,.page.workbench-page .finance-todo .grow>text:first-child,.page.workbench-page .guest-todo-heading,.page.workbench-page .guest-project-heading{font-size:26rpx;font-weight:500;line-height:38rpx;letter-spacing:0}
-.page.workbench-page .customer-desc,.page.workbench-page .hint,.page.workbench-page .guest-footnote,.page.workbench-page .guest-period,.page.workbench-page .guest-status,.page.workbench-page .guest-stat-label,.page.workbench-page .stat-label{font-size:22rpx;font-weight:400;line-height:34rpx;color:#858991;letter-spacing:0}
+.page.workbench-page{background:var(--zs-bg);color:var(--zs-ink);font-family:var(--zs-font-family);font-size:var(--zs-font-body);font-weight:400;line-height:40rpx;letter-spacing:0}
+.page.workbench-page button,.page.workbench-page input{font-family:var(--zs-font-family);letter-spacing:0}
+.page.workbench-page .workbench-header{position:sticky;top:0;z-index:60;background:var(--zs-bg)}
+.page.workbench-page .content{padding:20rpx var(--zs-space-page) 0}
+.page.workbench-page .section{background:var(--zs-card);border-radius:var(--zs-radius);padding:var(--zs-space-card);margin-bottom:var(--zs-space-section)}
+.page.workbench-page .section-heading{min-height:64rpx;padding-left:20rpx;margin:0 0 12rpx;display:flex;align-items:center;justify-content:space-between}
+.page.workbench-page .section-heading::before{width:6rpx;height:30rpx;top:17rpx;background:var(--zs-brand);border-radius:4rpx}
+.page.workbench-page .section-title{font-family:var(--zs-font-family);font-size:var(--zs-font-title);font-weight:600;line-height:46rpx;letter-spacing:0}
+.page.workbench-page .customer-name,.page.workbench-page .todo .grow>text:first-child,.page.workbench-page .finance-todo .grow>text:first-child,.page.workbench-page .guest-todo-heading,.page.workbench-page .guest-project-heading{font-size:var(--zs-font-body);font-weight:500;line-height:38rpx;letter-spacing:0}
+.page.workbench-page .customer-desc,.page.workbench-page .hint,.page.workbench-page .guest-footnote,.page.workbench-page .guest-period,.page.workbench-page .guest-status,.page.workbench-page .guest-stat-label,.page.workbench-page .stat-label{font-size:var(--zs-font-caption);font-weight:400;line-height:34rpx;color:var(--zs-text-3);letter-spacing:0}
 
-.page.workbench-page .snapshot{font-size:22rpx;font-weight:400;line-height:34rpx}
-.page.workbench-page .snapshot,.page.workbench-page .empty,.page.workbench-page .search-placeholder{color:#858991}
-.page.workbench-page .amount,.page.workbench-page .guest-stat-value,.page.workbench-page .guest-todo-amount,.page.workbench-page .stat-value{font-size:40rpx;font-weight:700;line-height:52rpx;color:#89512a}
-.page.workbench-page .guest-stat-value>text{font-size:22rpx;font-weight:400;line-height:34rpx}
+.page.workbench-page .snapshot{font-size:var(--zs-font-caption);font-weight:400;line-height:34rpx}
+.page.workbench-page .snapshot,.page.workbench-page .empty,.page.workbench-page .search-placeholder{color:var(--zs-text-3)}
+.page.workbench-page .amount,.page.workbench-page .guest-stat-value,.page.workbench-page .guest-todo-amount,.page.workbench-page .stat-value{font-size:var(--zs-font-heading);font-weight:700;line-height:52rpx;color:var(--zs-brand)}
+.page.workbench-page .guest-stat-value>text{font-size:var(--zs-font-caption);font-weight:400;line-height:34rpx}
 
-.page.workbench-page .guest-counts>text{font-size:22rpx;font-weight:400;color:#858991}
-.page.workbench-page .guest-counts>text>text{font-size:26rpx;font-weight:700;color:#89512a}
-.page.workbench-page .primary,.page.workbench-page .outline,.page.workbench-page .mini-solid{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;height:64rpx;min-height:64rpx;padding:0 22rpx;border-radius:12rpx;font-size:24rpx;font-weight:500;line-height:36rpx;letter-spacing:0;white-space:nowrap;flex-shrink:0;box-sizing:border-box}
-.page.workbench-page .primary,.page.workbench-page .mini-solid{background:#89512a;color:#fffaf3;border:1rpx solid #89512a}
-.page.workbench-page .outline{width:auto;min-width:128rpx;color:#89512a;background:#fff;border:1rpx solid #89512a}
-.page.workbench-page .plus{font-size:28rpx;font-weight:400;line-height:36rpx;margin-right:0;vertical-align:0}
-.page.workbench-page .text-link,.page.workbench-page .customer-footer,.page.workbench-page .guest-section-link{display:inline-flex;align-items:center;min-height:64rpx;padding:0;font-size:24rpx;font-weight:500;line-height:36rpx;color:#89512a}
+.page.workbench-page .guest-counts>text{font-size:var(--zs-font-caption);font-weight:400;color:var(--zs-text-3)}
+.page.workbench-page .guest-counts>text>text{font-size:var(--zs-font-body);font-weight:700;color:var(--zs-brand)}
+.page.workbench-page .outline,.page.workbench-page .mini-solid{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;height:64rpx;min-height:64rpx;padding:0 22rpx;border-radius:12rpx;font-size:var(--zs-font-meta);font-weight:500;line-height:36rpx;letter-spacing:0;white-space:nowrap;flex-shrink:0;box-sizing:border-box}
+.page.workbench-page .mini-solid{background:var(--zs-brand);color:var(--zs-card);border:1rpx solid var(--zs-brand)}
+.page.workbench-page .outline{width:auto;min-width:128rpx;color:var(--zs-brand);background:var(--zs-card);border:1rpx solid var(--zs-brand)}
+.page.workbench-page .plus{font-size:var(--zs-font-emphasis);font-weight:400;line-height:36rpx;margin-right:0;vertical-align:0}
+.page.workbench-page .text-link,.page.workbench-page .customer-footer,.page.workbench-page .guest-section-link{display:inline-flex;align-items:center;min-height:64rpx;padding:0;font-size:var(--zs-font-meta);font-weight:500;line-height:36rpx;color:var(--zs-brand)}
 .page.workbench-page .customer-footer{display:flex;width:100%;height:64rpx}
-.page.workbench-page .creation-action,.page.workbench-page .design-caption,.page.workbench-page .tool text,.page.workbench-page .menu-grid button{font-size:26rpx;font-weight:500;line-height:38rpx;letter-spacing:0}
-.page.workbench-page .creation-action,.page.workbench-page .tool,.page.workbench-page .menu-grid button{background:#faf8f4;border-radius:12rpx}
+.page.workbench-page .creation-action,.page.workbench-page .design-caption,.page.workbench-page .tool text,.page.workbench-page .menu-grid button{font-size:var(--zs-font-body);font-weight:500;line-height:38rpx;letter-spacing:0}
+.page.workbench-page .creation-action,.page.workbench-page .tool,.page.workbench-page .menu-grid button{background:var(--zs-bg);border-radius:12rpx}
 .page.workbench-page .menu-grid button{min-height:110rpx}
-.page.workbench-page .menu-grid button>text:last-child{font-size:26rpx;font-weight:400;color:#89512a}
-.page.workbench-page .chevron{border-color:#89512a}
-.page.workbench-page .search-box input{font-size:26rpx;font-weight:400;line-height:40rpx}
+.page.workbench-page .menu-grid button>text:last-child{font-size:var(--zs-font-body);font-weight:400;color:var(--zs-brand)}
+.page.workbench-page .chevron{border-color:var(--zs-brand)}
+.page.workbench-page .search-box input{font-size:var(--zs-font-body);font-weight:400;line-height:40rpx}
 .page.workbench-page .customer-row{min-height:120rpx;height:auto;padding:16rpx 0;gap:20rpx}
 
 .page.workbench-page .project-todo{height:auto;min-height:140rpx}
-.page.workbench-page .project-todo>text{font-size:26rpx;font-weight:400;line-height:40rpx}
-.page.workbench-page .guest-login-button{display:flex;width:100%;height:88rpx;min-height:88rpx;padding:0 24rpx;margin:24rpx 0;border-radius:12rpx;font-size:28rpx;font-weight:500;line-height:40rpx}
-.page.workbench-page .workbench-denied>.primary{display:flex;height:88rpx;min-height:88rpx;border-radius:12rpx;font-size:28rpx;line-height:40rpx}
+.page.workbench-page .project-todo>text{font-size:var(--zs-font-body);font-weight:400;line-height:40rpx}
+.page.workbench-page .guest-login-button{display:flex;width:100%;height:88rpx;min-height:88rpx;padding:0 24rpx;margin:24rpx 0;border-radius:12rpx;font-size:var(--zs-font-emphasis);font-weight:500;line-height:40rpx}
 
-.page.workbench-page .guest-modal-heading{font-size:30rpx;font-weight:700;line-height:42rpx}
-.page.workbench-page .guest-modal-copy{font-size:26rpx;font-weight:400;line-height:40rpx}
-.page.workbench-page .guest-modal-actions>button{display:flex;align-items:center;justify-content:center;height:88rpx;min-height:88rpx;padding:0 24rpx;border-radius:12rpx;font-size:28rpx;font-weight:500;line-height:40rpx}
-.page.workbench-page .guest-modal-back{background:#fff;color:#89512a;border:1rpx solid #89512a}
+.page.workbench-page .guest-modal-heading{font-size:var(--zs-font-title);font-weight:700;line-height:42rpx}
+.page.workbench-page .guest-modal-copy{font-size:var(--zs-font-body);font-weight:400;line-height:40rpx}
+.page.workbench-page .guest-modal-actions>button{display:flex;align-items:center;justify-content:center;height:88rpx;min-height:88rpx;padding:0 24rpx;border-radius:12rpx;font-size:var(--zs-font-emphasis);font-weight:500;line-height:40rpx}
+.page.workbench-page .guest-modal-back{background:var(--zs-card);color:var(--zs-brand);border:1rpx solid var(--zs-brand)}

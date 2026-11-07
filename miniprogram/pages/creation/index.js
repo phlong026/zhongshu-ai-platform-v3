@@ -1,9 +1,11 @@
 const { assets, unavailable } = require('../../utils/creation');
 const studio = require('../../utils/studio');
-const Demo=require('../../utils/creation-demo');
+const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5）
+const http=require('../../api/http');
 Page({
 data: {
-link: Demo.samples[0].url, sheet: '', editorText: '', draft: null, assets, demoSamples:Demo.samples, sampleId:'daylight',sampleIndex:0,
+link: '', sheet: '', editorText: '', draft: null, assets,
+extracting: false, parseProgress: 0,
 modes:[{id:'remix',title:'爆款二创',subtitle:'参考视频改写',icon:'video-filled'},{id:'digital',title:'数字人口播',subtitle:'文案生成口播',icon:'person-filled'},{id:'ai',title:'AI视频',subtitle:'文字图片成片',icon:'home-video-icon'}],
 shortcuts: [
 { key: 'library', title: '素材库', icon: 'folder' },
@@ -15,19 +17,18 @@ recent: []
 },
 onLoad(options) {
 if(!studio.guard())return;this.actorScope=studio.scope();
-this.setData({ draft: wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || null });
+this.setData({ draft: wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || null });
 if (options.section === 'works') wx.redirectTo({ url: '/pages/studio/index?view=works' });
 if (options.section === 'digital') wx.redirectTo({ url: '/pages/studio/index?view=digital' });
 if (options.editor === '1') this.openEditor();
 },
 onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){this.actorScope=studio.scope();this.setData({link:"",sheet:"",editorText:""});}
-const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || null;
+const draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || null;
 const recent = studio.recentItems(studio.read()).slice(0, 2).map(item=>({...item,updatedText:item.updatedAt?studio.formatTime(item.updatedAt):''}));
 this.setData({ draft, recent });
 },
+onUnload() { if (this.__parsePoll && this.__parsePoll.cancel) this.__parsePoll.cancel(); }, // 终止解析轮询（防 UI 长时间占锁）
 inputLink(e) { this.setData({ link: e.detail.value }); },
-chooseDemo(e){const sample=Demo.samples.find(s=>s.id===e.currentTarget.dataset.id);if(sample)this.setData({link:sample.url,sampleId:sample.id,sampleIndex:Demo.samples.indexOf(sample)});},
-pickDemo(e){const sample=Demo.samples[Number(e.detail.value)];if(sample)this.chooseDemo({currentTarget:{dataset:{id:sample.id}}});},
 chooseMode(e){const mode=e.currentTarget.dataset.mode;if(mode==='digital')wx.navigateTo({url:'/pages/studio/index?view=digital'});else if(mode==='ai')this.startVideo();},
 paste() {
 wx.getClipboardData({
@@ -36,16 +37,51 @@ fail: () => wx.showToast({ title: '未能读取剪贴板，请手动粘贴', ico
 });
 },
 extract() {
-if (!/https?:\/\/[^\s]+/i.test(this.data.link)) {
-wx.showToast({ title: '请先粘贴有效的视频分享链接', icon: 'none' }); return;
-}
-const sample=Demo.match(this.data.link),run=id=>{const state=studio.read();Demo.extract(state,this.data.link,id);studio.write(state);wx.navigateTo({url:'/pages/studio/index?view=remix'});};
-if(sample)return run(sample.id);
-wx.showModal({ title: '使用内置文案', content: '视频链接解析暂未开通。继续将使用“'+Demo.samples.find(s=>s.id===this.data.sampleId).title+'”的内置文案，不会读取此链接；手动草稿保留。', confirmText:'使用内置文案',confirmColor:'#824019',success:({confirm})=>{if(confirm)run(this.data.sampleId);} });
+const invalid=P.validateShareLink(this.data.link);
+if(invalid){wx.showToast({title:invalid,icon:'none'});return;}
+if(!http.token())return wx.showToast({title:'请先登录后再提取文案',icon:'none'}); // 无 token：提示登录，不回落内置文案
+return this.extractOnline(); // 在线：后端链接解析（任务化轮询）
+},
+/** 在线提取：links.parse → pollTask → 有文案（result.text）直接进二创流；无文案/失败提示后走演示兜底。
+ * showLoading 只覆盖提交阶段；轮询进度在本页按钮态展示（creation 无任务中心态），onUnload 取消轮询。 */
+extractOnline() {
+const url=String(this.data.link).trim(),scope=this.actorScope;
+wx.showLoading({title:'提交解析任务',mask:true});
+P.api.links.parse(url).then(res=>{
+wx.hideLoading();
+const taskId=res&&res.taskId?String(res.taskId):'';
+if(!taskId)throw Error('解析任务创建失败，请稍后重试');
+this.setData({extracting:true,parseProgress:P.progressOf('QUEUED')});
+const poll=this.__parsePoll=P.pollTask(taskId,{onTick:task=>{if(this.__parsePoll===poll)this.setData({parseProgress:P.progressOf(task.status)});}});
+return poll.then(task=>{
+if(this.__parsePoll!==poll)return null; // 已取消/新一轮
+this.__parsePoll=null;this.setData({extracting:false});
+if(scope!==studio.scope())return null; // 工作身份已变化，丢弃迟到结果
+const view=P.taskView(task.status);
+if(view!=='completed'){wx.showToast({title:view==='failed'?'文案解析失败：'+(task.failedReason||'请稍后重试'):'解析结果暂不确定，请稍后重试',icon:'none'});return null;}
+const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
+if(!text){wx.showToast({title:'未解析到口播文案，可手动填写',icon:'none'});return null;}
+const state=studio.read();
+state.title=text.split('\n')[0].slice(0,28);
+state.original=text;state.script='';state.rewriteHistory=[];state.copyOptimizations=[];
+state.extraction={online:true,taskId:String(task.id||''),sourceTitle:String((task.result&&task.result.title)||url),sourceUrl:url,extractedAt:Date.now()};
+delete state.editorBuffer;
+studio.write(state);
+wx.navigateTo({url:'/pages/studio/index?view=remix'});
+return null;
+}).catch(error=>{
+if(this.__parsePoll===poll){this.__parsePoll=null;this.setData({extracting:false});}
+if(error&&error.cancelled)return null; // 页面卸载取消：静默
+wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 轮询失败仅提示错误，不回落内置文案
+});
+}).catch(error=>{
+wx.hideLoading();
+wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 提交失败仅提示错误，不回落内置文案
+});
 },
 openEditor() {
 const draft = this.data.draft;
-const stored = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || draft;
+const stored = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || draft;
 this.setData({ sheet: 'editor', sheetTitle: '手动写文案', editorText: stored ? (typeof stored.workingText === 'string' ? stored.workingText : stored.text || '') : '' });
 },
 editRecent(e) {
@@ -58,15 +94,15 @@ else wx.navigateTo({ url: '/pages/studio/index?view=result&task=' + encodeURICom
 },
 inputEditor(e) {
 this.setData({ editorText: e.detail.value });
-const draft = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || {};
-wx.setStorageSync(studio.scopedKey('zhongshu-creation-draft'), Object.assign({}, draft, { workingText: e.detail.value, updatedAt: Date.now() }));
+const draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || {};
+wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft), Object.assign({}, draft, { workingText: e.detail.value, updatedAt: Date.now() }));
 },
 saveDraft() {
 const text = this.data.editorText.trim();
 if (!text) { wx.showToast({ title: '请先填写文案', icon: 'none' }); return; }
-const previous = wx.getStorageSync(studio.scopedKey('zhongshu-creation-draft')) || {};
+const previous = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft)) || {};
 const draft = { text, rewrittenText: previous.text === text ? previous.rewrittenText || '' : '', updatedAt: Date.now() };
-wx.setStorageSync(studio.scopedKey('zhongshu-creation-draft'), draft);
+wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').creationDraft), draft);
 this.setData({ draft, sheet: '' });
 const state = studio.read(); delete state.editorBuffer;
 state.original = text; state.script = draft.rewrittenText; state.title = text.split('\n')[0].slice(0, 28); delete state.extraction;state.rewriteHistory=[];studio.write(state);

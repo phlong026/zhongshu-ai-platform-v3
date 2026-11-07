@@ -5,9 +5,10 @@ const X = require('../../utils/access');
 const O = require('../../utils/organization');
 const F = require('../../utils/finance-source');
 const M = require('./model');
-const KEY = 'zhongshu-owner-goals-v1';
+const KEY = require('../../utils/storage-keys').ownerGoals;
 const cover = '/pages/build/assets/house.jpg';
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('../../utils/clone');
+const Order = require('../../utils/task-order');
 const allowed = () => { const a = X.context(); return a.active && X.isBoss(a); };
 const detail = (view, extra = {}) => '/pages/admin/detail/index?view=' + view + Object.entries(extra).filter(([,v]) => v !== '' && v !== undefined).map(([k,v]) => '&' + k + '=' + encodeURIComponent(v)).join('');
 const admin = (view, id = '') => '/pages/admin/index?view=' + view + (id ? '&id=' + encodeURIComponent(id) : '');
@@ -31,11 +32,10 @@ function snapshot() {
   X.assert(allowed(), '请使用本人已授权的老板或门店负责人身份');
   const actor = X.context(), account = A.load(), state = M.visible(M.load());
   const period = F.period(state), today = A.localDate(), d = new Date(today + 'T12:00:00');
-  const customers = (wx.getStorageSync('zhongshu-business-v3')?.customers || []).filter(c => X.sameCompany(c, actor) && X.customer(c));
-  const projects = (wx.getStorageSync('zhongshu-engineering-v1')?.projects || []).filter(p => X.sameCompany(p, actor) && X.project(p));
+  const customers = (wx.getStorageSync(require('../../utils/storage-keys').business)?.customers || []).filter(c => X.sameCompany(c, actor) && X.customer(c));
+  const projects = (wx.getStorageSync(require('../../utils/storage-keys').engineering)?.projects || []).filter(p => X.sameCompany(p, actor) && X.project(p));
   const tasks = F.tasks(state).map(t => ({ ...t, name:t.record === 'quote' ? t.name.replace('正式报价及合同金额','正式报价审批') : t.name, url: taskUrl(t), image: cover }));
-  const priority = t => t.record === 'quote' ? 0 : t.view === 'pay-approval' ? 1 : 2;
-  const approvals = tasks.filter(t => t.view === 'money-review' || t.view === 'pay-approval'||t.area==='operations').sort((a,b) => priority(a) - priority(b));
+  const approvals = Order.newest(tasks.filter(t => t.view === 'money-review' || t.area==='operations'));
   const sum = F.summary(state), goals = goal(period), staff = (state.staff || []).filter(p => p.active !== false);
   // Signing = design commissions submitted in the month (latest design service order total, yuan).
   const commissions = customers.filter(c => c.businessFlow?.type === 'sales-offline-v1' && c.serviceOrders?.length && inMonth(c.businessFlow.submittedAt, period));
@@ -50,7 +50,7 @@ function snapshot() {
     ...state.payments.filter(r => ['待复核','需补充'].includes(r.status)).map(r => ({ key: 'payment:' + r.id, name: r.customer + ' · ' + r.name, status: r.status, amount: '¥ ' + M.money(r.amount), url: admin('partial-payment', r.id), image: cover }))
   ];
   const linkedProjects = new Set([...state.receipts, ...state.payables, ...state.payments, ...projects].map(p => p.projectId || p.id).concat(customers.filter(c => c.contract || c.request || c.acceptance).map(c => c.projectId)));
-  const projectRows = M.projects(state).filter(p => linkedProjects.has(p.id)).map(p => { const total = F.summary(state, p.id); const waiting = state.payables.filter(q => q.projectId === p.id && ['待审批','费用待老板审批'].includes(q.status)).length; return { ...p, key: 'ledger:' + p.id, image: projects.find(e => (e.projectId || e.id) === p.id)?.image || cover, income: wan(total.income), paid: wan(total.paid), waiting, pending: state.receipts.filter(r => r.projectId === p.id && ['待登记','待核算','需补充'].includes(r.status)).length, url: admin('finance', p.id) }; });
+  const projectRows = M.projects(state).filter(p => linkedProjects.has(p.id)).map(p => { const total = F.summary(state, p.id); const waiting = state.payables.filter(q => q.projectId === p.id && q.status==='费用待老板审批').length; return { ...p, key: 'ledger:' + p.id, image: projects.find(e => (e.projectId || e.id) === p.id)?.image || cover, income: wan(total.income), paid: wan(total.paid), waiting, pending: state.receipts.filter(r => r.projectId === p.id && ['待登记','待核算','需补充'].includes(r.status)).length, url: admin('finance', p.id) }; });
   const team = staff.filter(p => O.staffHas(p, 'sales') || O.staffHas(p, 'engineer') || O.staffHas(p, 'hq-design-admin') || O.staffHas(p, 'hq-operations') || O.staffHas(p,'finance')).map(p => {
     const business = O.staffHas(p, 'sales');
     const rows = business ? commissions.filter(c => require('../../utils/commission-attribution').owner(c) === p.id) : completed.filter(({p:project,n}) => require('../../utils/performance').nodeOwner(project,n) === p.id);
@@ -61,19 +61,19 @@ function snapshot() {
   });
   const metric = (label,value,target,unit) => { const percent = ratio(value,target); return { label, value: unit === '万' ? wan(value * 100) : value, target: target ? unit === '万' ? wan(target * 100) : target : '', unit, percent, width: Math.min(100, percent || 0) }; };
   const metrics = [metric('设计委托', sales, goals.sales, '万'), metric('新增客户', newCustomers.length, goals.customers, '位'), metric('工程计划节点', completed.length, goals.nodes, '项')];
-  const reviews = (state.archives || []).filter(r => r.status === '待复核').map(r => ({ key: 'review:' + r.id, name: (staff.find(p => p.id === r.person)?.name || r.person || '历史人员') + ' · 周期复核', status: r.id + ' · 待复核', url: admin('review',r.id) }));
+  const reviews = (state.archives || []).filter(r => r.dynamic && r.status === '待复核').map(r => ({ key: 'review:' + r.id, name: (staff.find(p => p.id === r.person)?.name || r.person || '历史人员') + ' · 周期复核', status: r.id + ' · 待复核', url: admin('review',r.id), triggeredAt:Order.latest(r.submission?.at,r.submittedAt,r.at) }));
   const focus = active.map(p => { const ns = p.plan?.nodes || [], done = ns.filter(n => n.status === '已完成').length, inspection = (p.inspections || []).at(-1), rectification = (p.rectifications || []).filter(r => r.inspectionId === inspection?.id).at(-1); const risk = inspection?.result === '需整改' && !(rectification?.result === '通过' && rectification?.reviewStatus === 'passed'); return { key:p.id, name:p.name || p.customer, image:p.image || cover, stage:ns.find(n => n.status !== '已完成')?.name || '施工收尾', progress:ns.length ? Math.round(done / ns.length * 100) : 0, risk, status:risk ? '整改待复验' : '按当前施工节点推进', url:'/pages/build/index?view=overview&id=' + encodeURIComponent(p.id) }; }).sort((a,b) => Number(b.risk) - Number(a.risk));
   const operating=require('../../utils/operations').overview(state);const company = A.company(account), settingsEvents = goalsStore().companies[actor.companyId]?.events || [];
   const events = [...(state.events || []), ...settingsEvents].map((e,i) => ({ key:'event:' + i, name:e.text || ({'approve-pay':'审批付款申请','set-roles':'调整成员岗位','transfer':'办理工作交接','goals':'更新月度目标'}[e.action] || e.action || '业务操作'), status:(e.by || e.actorId || '历史经办人') + ' · ' + A.displayTime(e.at || e.effectiveAt || '').slice(0,16), at:e.at || e.effectiveAt || '', url:e.action === 'goals' ? detail('targets') : admin('transfer-history') })).sort((a,b) => b.at.localeCompare(a.at));
   const yesterday = A.localDate(new Date(today + 'T12:00:00').getTime() - 86400000);
   const remaining = q => Math.max(0, q.total - F.paid(state, q.id));
-  const duePayables = state.payables.filter(q => !q.needsSupplement && ['待办理','部分已付','待审批'].includes(q.status) && (!q.due || q.due <= today)).sort((a,b) => (a.due || '9999-99-99').localeCompare(b.due || '9999-99-99'));
+  const duePayables = state.payables.filter(q => !q.needsSupplement && ['待办理','部分已付'].includes(q.status) && (!q.due || q.due <= today)).sort((a,b) => (a.due || '9999-99-99').localeCompare(b.due || '9999-99-99'));
   const todayReceipts = state.receipts.filter(r => ['已核算','已备案'].includes(r.status) && dateOf(r.bankDate || r.date) === today);
   const yesterdayPaid = state.payments.filter(r => r.status === '已核实' && dateOf(r.date) === yesterday);
   const ledger = {
     inTotal: '¥ ' + M.money(todayReceipts.reduce((n,r) => n + M.amount(r), 0)), inCount: todayReceipts.length,
     payTotal: '¥ ' + M.money(duePayables.reduce((n,q) => n + remaining(q), 0)), payCount: duePayables.length,
-    payRows: duePayables.slice(0,2).map(q => ({ key:'ledger:' + q.id, name:q.customer ? q.customer + ' · ' + q.name : q.name, meta:(q.recipient || '收款方待登记') + (q.due ? (q.due < today ? ' · 逾期' + Math.round((Date.parse(today) - Date.parse(q.due)) / 86400000) + ' 天' : ' · 今日到期') : ''), amount:'¥ ' + M.money(remaining(q)), url:admin('payable', q.id) })),
+    payRows: duePayables.slice(0,2).map(q => ({ key:'ledger:' + q.id, name:q.customer ? q.customer + ' · ' + q.name : q.name, meta:(q.recipient || '收款方待登记') + (q.due ? (q.due < today ? ' · 逾期' + Math.round((Date.parse(today) - Date.parse(q.due)) / 86400000) + ' 天' : ' · 今日到期') : ''), amount:'¥ ' + M.money(remaining(q)), url:q.projectId&&!String(q.projectId).startsWith('company:')?admin('finance',q.projectId):admin('todos') })),
     yCount: yesterdayPaid.length, yTotal: '¥ ' + M.money(yesterdayPaid.reduce((n,r) => n + r.amount, 0))
   };
   return { operating, actor, state, period, periodLabel:period.replace('-','年') + '月', name:account.profile.name || actor.name, company:state.managementSettings?.company?.displayName || company?.store || company?.name || '', role:O.roles[actor.role], avatar:account.profile.avatar || '/assets/account-avatar.jpg', date:today.slice(5,7) + '月' + today.slice(8) + '日 周' + '日一二三四五六'[d.getDay()], today, sample:!!account.session.demo, income:wan(sum.income), paid:wan(sum.paid), balance:wan(sum.net), sales:wan(sales * 100), activeCount:active.length, approvals, approvalCount:approvals.length, queue, ledger, reconcileCount:state.receipts.filter(r => ['待登记','待核算'].includes(r.status)).length, reviewCount:state.payments.filter(r => r.status === '待复核').length, projectRows, metrics, team, reviews, reviewTotal:reviews.length, focus:focus.slice(0,2), customers, commissions, newCustomers, projects, nodes, completed, goals, staff, events, recentEvents:events.slice(0,2), unread:A.scoped(account, account.messages).filter(m => !m.read).length };

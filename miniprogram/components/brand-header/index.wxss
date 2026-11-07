@@ -1,17 +1,16 @@
+@import "../../styles/component-tokens.wxss";
 @import "../../styles/subpage-navigation.wxss";
-.header { width: 100%; background: #faf8f4; }
+.header { width: 100%; background: var(--zs-bg); }
 .nav-row { height: 87rpx; position: relative; display: flex; align-items: center; }
 .brand { position: absolute; left: 30rpx; top: 17rpx; width: 220rpx; height: 56rpx; }
 .brand-divider { position: absolute; left: 275rpx; top: 26rpx; width: 1rpx; height: 34rpx; background: #cbb098; }
 .heading { position: absolute; left: 260rpx; right: 260rpx; top: 21rpx; display: flex; align-items: center; flex-direction: column; white-space: nowrap; }
-.title { font-size: 30rpx; font-weight: 600; line-height: 40rpx; letter-spacing: .4rpx; }
-.subtitle { color: #858991; font-size: 21rpx; line-height: 26rpx; }
+.title { font-size:var(--zs-font-title); font-weight: 600; line-height: 40rpx; letter-spacing: .4rpx; }
+.subtitle { color: var(--zs-text-3); font-size:var(--zs-font-caption); line-height: 26rpx; }
 .header-subpage .heading{left:185rpx;right:185rpx;overflow:hidden;text-overflow:ellipsis}.subpage-back{position:absolute;left:0;top:0;width:88rpx;min-width:44px;height:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:0;margin:0;background:transparent}.subpage-back::after{border:0}.subpage-back .back-icon{width:23rpx;height:34rpx}
 .header-home .nav-row { height: 76rpx; }
 .header-home .brand { left: 36rpx; top: 4rpx; width: 241rpx; height: 62rpx; }
 
-.account-font{font-family:ZSDashboard,sans-serif}.account-font .title{font-weight:700;letter-spacing:0}.account-font .subtitle{font-weight:400}
+.account-font{font-family:var(--zs-font-family)}.account-font .title{letter-spacing:0}.account-font .subtitle{font-weight:400}
 
 .header-subpage{position:fixed;top:0;left:0;right:0;z-index:100}
-
-.account-font{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}.account-font .title{font-weight:600}

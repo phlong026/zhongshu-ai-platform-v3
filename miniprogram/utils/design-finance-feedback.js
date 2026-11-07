@@ -2,7 +2,7 @@ const X=require('./access'),T=require('./intercompany');
 function receipt(record){
  const source=record?.source,a=X.context();
  if(source?.module!=='intercompany'||source.kind!=='design'||!['finance','finance-lead'].includes(a.role))return null;
- const c=(wx.getStorageSync('zhongshu-business-v3')?.customers||[]).find(c=>c.id===source.customerId&&c.designOrganizationId===a.companyId);
+ const c=(wx.getStorageSync(require('./storage-keys').business)?.customers||[]).find(c=>c.id===source.customerId&&c.designOrganizationId===a.companyId);
  if(!c)return null;
  const ready=T.condition(c,source.stage).ready;
  if(require('./sales-flow').is(c)){

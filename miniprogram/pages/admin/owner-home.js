@@ -4,6 +4,7 @@ const B = require('../../utils/business');
 const Ops = require('../../utils/operations');
 const X = require('../../utils/access');
 const Handover = require('../../utils/management-handover');
+const Order = require('../../utils/task-order');
 
 const DAY = 86400000;
 const STALE_DAYS = 7;
@@ -26,12 +27,12 @@ const detail = metric => '/pages/admin/detail/index?view=stat&id=' + encodeURICo
 const oldDetail = (view, extra = {}) => '/pages/admin/detail/index?view=' + view + Object.entries(extra).map(([key, value]) => '&' + key + '=' + encodeURIComponent(value)).join('');
 const customerUrl = id => '/pages/workflow/index?view=customer&id=' + encodeURIComponent(id);
 const commissionUrl = id => '/pages/workflow/commission/index?view=progress&id=' + encodeURIComponent(id);
-const money = cents => '¥ ' + (Number(cents || 0) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const money = require('../../utils/money').money;
 const staffName = (snapshot, id) => (snapshot.state.staff || snapshot.staff || []).find(person => person.id === id)?.name || id || '待配置负责人';
 const yuan = value => '¥ ' + Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 function growthFacts(snapshot) {
-  const growth = wx.getStorageSync('zhongshu-growth-v1') || {};
+  const growth = wx.getStorageSync(require('../../utils/storage-keys').growth) || {};
   const companyId = snapshot.actor?.companyId || snapshot.state.companyId;
   const sameCompany = row => !companyId || row.companyId === companyId;
   const contents = (growth.contents || []).filter(row => sameCompany(row) && row.status === '演示已发布' && inMonth(row.publishedAt || row.linkRecordedAt, snapshot.period));
@@ -182,12 +183,11 @@ function six(snapshot) {
 function moneyKind(task) {
   if (task.record === 'quote') return '正式报价';
   if (task.record === 'service') return '设计服务费';
-  if (task.view === 'pay-approval') return '付款申请';
   return '金额审批';
 }
 
 function handovers(snapshot) {
-  const active = new Map((snapshot.state.staff || snapshot.staff || []).map(person => [person.id, person.active !== false]));
+  const staff = new Map((snapshot.state.staff || snapshot.staff || []).map(person => [person.id, person]));
   return (snapshot.state.work || []).filter(work => {
     if (!Handover.transferable(work)) return false;
     const finished = /已归档|已交付/.test(work.stage || '');
@@ -195,24 +195,26 @@ function handovers(snapshot) {
     const transfer = (snapshot.state.transfers || []).filter(row => row.workId === work.id && row.to === work.owner).sort((a, b) => String(a.effectiveAt || '').localeCompare(String(b.effectiveAt || ''))).at(-1);
     const markedAt = work.handoverRequiredAt || work.handoverMarkedAt || '';
     const explicit = Handover.pending(snapshot.state, work) || work.handoverRequired === true && (!transfer || markedAt && String(transfer.effectiveAt || '') < markedAt);
-    return explicit || active.get(work.owner) === false;
+    return explicit || staff.get(work.owner)?.active === false;
   }).map(work => ({
     key:'handover:' + work.id,
     url:'/pages/admin/index?view=transfer&id=' + encodeURIComponent(work.id),
     name:[work.customer, work.name].filter(Boolean).join(' · '),
     tag:'责任交接',
-    detail:((snapshot.state.staff || snapshot.staff || []).find(person => person.id === work.owner)?.name || work.owner || '原负责人待核对') + ' · ' + (work.stage || '待办理'),
+    detail:(staff.get(work.owner)?.name || work.owner || '原负责人待核对') + ' · ' + (work.stage || '待办理'),
     action:'去交接',
-    group:'handover'
+    group:'handover',
+    triggeredAt:Order.latest(work.handoverRequiredAt, work.handoverMarkedAt, staff.get(work.owner)?.active === false ? staff.get(work.owner).disabledAt : '')
   }));
 }
 
 function todos(snapshot) {
-  const money = snapshot.approvals.map(task => ({ key: task.key, url: task.url, name: task.name, tag: moneyKind(task), detail: [task.amount, task.status].filter(Boolean).join(' · '), action: '去审批', group: 'money' }));
-  const reviews = snapshot.reviews.map(task => ({ key: task.key, url: task.url, name: task.name, tag: '结果复核', detail: task.status, action: '去复核', group: 'review' }));
+  const money = snapshot.approvals.map(task => ({ key: task.key, url: task.url, name: task.name, tag: moneyKind(task), detail: [task.amount, task.status].filter(Boolean).join(' · '), action: '去审批', group: 'money', triggeredAt:task.triggeredAt }));
+  const reviews = snapshot.reviews.map(task => ({ key: task.key, url: task.url, name: task.name, tag: '结果复核', detail: task.status, action: '去复核', group: 'review', triggeredAt:task.triggeredAt }));
   const handover = handovers(snapshot);
-  const all = [...money, ...reviews, ...handover];
-  return { all, groups: [{ key: 'all', label: '全部', count: all.length }, { key: 'money', label: '例外审批', count: money.length }, { key: 'review', label: '结果复核', count: reviews.length }, { key: 'handover', label: '责任交接', count: handover.length }] };
+  const performance = require('../../utils/performance-notifications').todos(null, { actor:snapshot.actor });
+  const all = Order.newest([...money, ...reviews, ...handover, ...performance]);
+  return { all, groups: [{ key: 'all', label: '全部', count: all.length }, { key: 'money', label: '例外审批', count: money.length }, { key: 'review', label: '结果复核', count: reviews.length }, { key: 'handover', label: '责任交接', count: handover.length }, { key:'performance', label:'绩效任务', count:performance.length }] };
 }
 
 function business(snapshot) {

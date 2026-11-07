@@ -1,0 +1,9 @@
+<view wx:if="{{visible}}" class="asset-card">
+  <view class="asset-head"><text class="asset-label">设计点余额</text></view>
+  <view class="asset-num">{{balanceText}}<text class="asset-unit">设计点</text></view>
+  <view class="asset-sub">用于 AI 方案生成 · 支付成功即时到账</view>
+  <view class="asset-actions">
+    <button class="asset-go" bindtap="goToRecharge">去充值</button>
+    <button class="asset-records" bindtap="goToRecords">充值明细</button>
+  </view>
+</view>

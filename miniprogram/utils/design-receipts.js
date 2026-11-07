@@ -2,7 +2,7 @@
 const X = require('./access');
 const O = require('./organization');
 const PROTOCOL = 'sales-offline-v1';
-const copy = value => JSON.parse(JSON.stringify(value));
+const copy = require('./clone');
 const isSource = source => source?.module === 'intercompany' && source.kind === 'design' && source.protocol === PROTOCOL;
 
 function sourceKey(source) {
@@ -24,7 +24,8 @@ function sources(customer, stage, order) {
     originPaymentId: payment.id, customerId: customer.id, projectId: customer.projectId,
     customer: customer.name, name: stage === 'first' ? '设计首款实际到账' : '设计尾款实际到账',
     stage, serviceVersion: order.version, requestVersion: order.requestVersion || customer.request?.version,
-    expected: payment.amount, expectedTransaction: payment.transaction
+    expected: payment.amount, expectedTransaction: payment.transaction,
+    triggeredAt: require('./task-order').latest(payment.triggeredAt, payment.reviewedAt, payment.registeredAt, payment.at, payment.date)
   }));
 }
 
@@ -34,7 +35,7 @@ function current(customer) {
 }
 
 function transfers(companyId) {
-  return ((wx.getStorageSync('zhongshu-business-v3') || {}).customers || [])
+  return ((wx.getStorageSync(require('./storage-keys').business) || {}).customers || [])
     .filter(customer => customer.designOrganizationId === companyId && (customer.companyId || 'quanzhou') !== companyId && current(customer) && !require('./design-checkout').is(customer))
     .flatMap(customer => ['first', 'tail'].flatMap(stage => sources(customer, stage, customer.serviceOrders.at(-1))));
 }
@@ -62,7 +63,8 @@ function incoming(book) {
       id: 'incoming:' + source.link + ':' + (history.length + 1), companyId: book.companyId,
       projectId: source.projectId, customer: source.customer, name: source.name,
       amount: remaining, expectedAmount: source.expected, expectedTransaction: source.expectedTransaction,
-      status: '待登记', date: '', file: null, transaction: '', revisions: [], version: 1, source
+      status: '待登记', date: '', file: null, transaction: '', revisions: [], version: 1,
+      triggeredAt: source.triggeredAt, source
     });
   }
   return stored.concat(pending);

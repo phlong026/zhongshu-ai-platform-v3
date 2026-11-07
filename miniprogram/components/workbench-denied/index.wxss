@@ -1,0 +1,5 @@
+@import "../../styles/component-tokens.wxss";
+.denied{padding:32rpx 24rpx}
+.denied-title{display:block;margin-bottom:24rpx;line-height:44rpx;font-size:var(--zs-font-title);font-weight:700;color:var(--zs-text)}
+.denied-line{display:block;font-size:var(--zs-font-body);line-height:40rpx;color:var(--zs-text-2)}
+.denied-btn{width:100%;margin:24rpx 0 0;min-height:88rpx;line-height:88rpx;background:var(--zs-brand);color:var(--zs-card);border-radius:14rpx;font-size:var(--zs-font-emphasis)}

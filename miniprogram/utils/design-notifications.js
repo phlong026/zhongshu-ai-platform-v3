@@ -1,6 +1,6 @@
 const Access = require('./access');
 
-const copy = value => JSON.parse(JSON.stringify(value));
+const copy = require('./clone');
 const localTime = value => {
   const time = Date.parse(value || '');
   if (Number.isNaN(time)) return '';
@@ -29,9 +29,7 @@ function paymentNotificationId(customer, order) {
   return ['design-payment-copy', customer.id, order.id, order.paidAt || '', order.status].join(':');
 }
 
-function money(cents) {
-  return `¥${(Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-}
+const money = require('./money').money;
 
 function paymentCopies(customers, actor, reads, checkout) {
   if (!['finance', 'finance-lead'].includes(actor.role)) return [];
@@ -67,7 +65,7 @@ function list(state, options = {}) {
   const actor = options.actor || Access.context(state);
   if (!actor.active) return [];
 
-  const customers = options.customers || ((wx.getStorageSync('zhongshu-business-v3') || {}).customers || []);
+  const customers = options.customers || ((wx.getStorageSync(require('./storage-keys').business) || {}).customers || []);
   const releaseFor = options.releaseFor || require('./design-receipts').release;
   const canView = options.canView || ((customer, current) => Access.customer(customer, current));
   const checkout = options.checkout || require('./design-checkout');

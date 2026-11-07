@@ -1,0 +1,37 @@
+/* 颜色、正文七级字阶和大数字/装饰三档，页面与组件从这里继承。 */
+.zs-theme {
+  --zs-font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --zs-space-page: 28rpx;
+  --zs-space-card: 24rpx;
+  --zs-space-section: 24rpx;
+  --zs-control-height: 88rpx;
+  --zs-control-radius: 14rpx;
+  --zs-brand: #89512a;
+  --zs-brand-press: #75451f;
+  --zs-bg: #faf8f4;
+  --zs-card: #ffffff;
+  --zs-line: #eee8df;
+  --zs-ink: #141312;
+  --zs-text: #30291f;
+  --zs-text-2: #6f665a;
+  --zs-text-3: #776e64;
+  --zs-success: #2e7d52;
+  --zs-success-bg: #e8f4ec;
+  --zs-warning: #8a5a12;
+  --zs-warning-bg: #fbf0dc;
+  --zs-danger: #b3402a;
+  --zs-danger-bg: #fdecea;
+  --zs-radius: 22rpx;
+  --zs-radius-lg: 24rpx;
+  --zs-shadow: 0 6rpx 18rpx rgba(48, 41, 31, 0.06);
+  --zs-font-caption: 22rpx;
+  --zs-font-meta: 24rpx;
+  --zs-font-body: 28rpx;
+  --zs-font-emphasis: 28rpx;
+  --zs-font-title: 32rpx;
+  --zs-font-heading: 40rpx;
+  --zs-font-metric: 48rpx;
+  --zs-font-display: 64rpx;
+  --zs-font-icon: 80rpx;
+  --zs-font-hero: 112rpx;
+}

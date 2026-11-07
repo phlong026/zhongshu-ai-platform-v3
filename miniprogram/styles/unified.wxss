@@ -1,38 +1,34 @@
 /* Unified interaction sizing and shared control states, imported by app.wxss.
-   Every tappable control reaches the 88rpx (44px) minimum. Text links keep their layout position
-   through compensating margins; list rows simply grow. Minimum heights use !important because several page stylesheets pin control heights. */
-.text-link.text-link{min-height:88rpx!important;margin-top:-17rpx;margin-bottom:-17rpx;padding-top:0;padding-bottom:0;font-size:26rpx;line-height:40rpx}
+   Every tappable control reaches the 88rpx (44px) minimum. Text links and list rows grow with their touch targets so adjacent content never overlaps. Minimum heights use !important because several page stylesheets pin control heights. */
+.text-link.text-link{min-height:88rpx!important;padding-top:0;padding-bottom:0;font-size:var(--zs-font-body);line-height:40rpx}
 .workflow-nav.workflow-nav{min-height:88rpx!important}
-.project-utilities.project-utilities button{display:flex;align-items:center;min-height:88rpx!important;padding:0 8rpx;font-size:26rpx}
+.project-utilities.project-utilities button{display:flex;align-items:center;min-height:88rpx!important;padding:0 8rpx;font-size:var(--zs-font-body)}
 .commission-file.commission-file,.sales-profile-learning-action.sales-profile-learning-action{display:flex;align-items:center;min-height:88rpx!important}
 .check-row.check-row,.workflow.workflow .check-row,.workflow .steps .link{min-height:88rpx!important}
-.return-home.return-home{font-size:24rpx}
+.return-home.return-home{font-size:var(--zs-font-meta)}
 .input-row.input-row{min-height:88rpx!important}
 .input-row .input.input,.input-row.input-row input,.input-row.input-row picker{min-height:88rpx!important}
 button.link.link{min-height:88rpx!important}
 /* Status tones: the same state reads the same colour on every page. */
-.tone-success.tone-success{background:#e8f4ec!important;color:#2e7d52!important;border-color:#cfe6d7!important}
-.tone-warning.tone-warning{background:#fbf0dc!important;color:#8a5a12!important;border-color:#f1dcb4!important}
-.tone-danger.tone-danger{background:#fdecea!important;color:#b3402a!important;border-color:#f3cbc4!important}
+.tone-success.tone-success{background:var(--zs-success-bg)!important;color:var(--zs-success)!important;border-color:#cfe6d7!important}
+.tone-warning.tone-warning{background:var(--zs-warning-bg)!important;color:var(--zs-warning)!important;border-color:#f1dcb4!important}
+.tone-danger.tone-danger{background:var(--zs-danger-bg)!important;color:var(--zs-danger)!important;border-color:#f3cbc4!important}
 
 /* Blocks nested in a card are flat rows with hairlines, not a second card. */
 .card .soft.soft,.card .soft-kv.soft-kv,.inset.inset{background:transparent!important;border-radius:0!important;padding-left:0!important;padding-right:0!important}
-.card .soft .kv,.card .soft-kv.soft-kv{border-bottom:1rpx solid #eee8df}
+.card .soft .kv,.card .soft-kv.soft-kv{border-bottom:1rpx solid var(--zs-line)}
 .card .soft .kv:last-child{border-bottom:0}
 
 /* Inline link buttons, option chips and outline buttons reach the 88rpx minimum. */
-.account button.brown.brown{display:inline-flex;align-items:center;min-height:88rpx!important;margin-top:-22rpx;margin-bottom:-22rpx}
+.account button.brown.brown{display:inline-flex;align-items:center;min-height:88rpx!important}
 .account .outline.outline,.admin .outline.outline{min-height:88rpx!important}
 .workflow .options button{min-height:88rpx!important}
 
-/* One primary colour: account/admin primary buttons follow the brand brown instead of the old orange gradient. */
-.account .solid:not(.is-disabled),.admin .solid:not(.is-disabled),.sheet .solid:not(.is-disabled){background:#89512a!important;color:#fffaf3!important}
 .account .pill.pill{display:inline-flex;align-items:center;justify-content:center;min-height:88rpx!important}
 .account .inset.row{min-height:88rpx!important}
 
 /* One minimum size per control type, shared by every page (no page-specific classes):
    segmented tabs, option chips, pickers, text areas, list rows and compact action buttons. */
-.tabs.tabs>button,.tabs.tabs>view>button{display:flex;align-items:center;justify-content:center;min-height:88rpx!important}
 .chips.chips>button,.options.options>button,.settings-row.settings-row button{min-height:88rpx!important}
 .dimension-row .input.input,.explore-picker.explore-picker{min-height:88rpx!important}
 .textarea.textarea{min-height:160rpx!important}
@@ -46,9 +42,7 @@ button.link.link{min-height:88rpx!important}
 .account input[data-key]{min-height:88rpx!important}
 
 /* Tab strips, buttons and rows of the engineering, admin and owner pages follow the same minimum. */
-.admin .tabs.tabs button,.build .tabs.tabs>button,.owner-tabs.owner-tabs button{min-height:88rpx!important}
 .build .btn.btn,.build .plan-actions.plan-actions>button,.build .material-actions.material-actions>button,.build .more-links.more-links button,.build .add-node.add-node{min-height:88rpx!important}
 .build .material-actions.material-actions{min-height:88rpx!important}
-.build .filters.filters>button{min-height:88rpx!important;line-height:86rpx}
 .admin .row.row,.admin .radio.radio,.account .row.row{min-height:88rpx!important}
 .owner-search.owner-search,.owner-period.owner-period picker,.owner-form-row.owner-form-row input{min-height:88rpx!important}

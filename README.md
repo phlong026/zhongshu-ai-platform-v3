@@ -1,5 +1,13 @@
 # 众墅之家 · 原生微信小程序
 
+2026年10月30日版本 `1.0.20261030.3` 已通过官方 CLI 上传，用户已确认在微信后台设为体验版。全岗位绩效复查：12 个当前启用岗位组合共用本人月度目标和完成圆环；补齐设计、财务自动目标，派发/改派通知和手动任务待办，团队成员只读查看沿用同一份目标并校验团队权限。验证运行 `npm run check:all-role-performance`。源码、原生验证和体验版发布状态见 [全岗位绩效与发布记录](docs/全岗位绩效与体验版更新_20261030.md)。
+
+2026年10月30日流程展示修复：可办事项按实际触发时间最新置顶；客户工作区显示同项目的施工进展和全流程记录；我的绩效读取老板下发的本人月度目标，显示完成圆环与原单明细；补齐游客登录图标及总部财务三列快捷入口。专项验证运行 `npm run check:task-order`、`npm run check:customer-progress`、`npm run check:personal-performance`。详见 [修复与验收记录](docs/待办与项目绩效流程修复_20261030.md)。这些修复已包含在用户确认启用的体验版 `1.0.20261030.3` 中。
+
+2026年10月30日同客同项目六角色联调：从内容创作与获客接续原项目设计、工程、材料、收付款、交付结算归档。报告见 [联调分析与修正方案](docs/同客同项目六角色联调报告_20261030.md)。新增 `npm run check:single-project` 连续验收和 `npm run check:project-linkage` 断点专项；原生、上传与体验版启用状态以报告实际回执为准。
+
+2026年10月30日全页排版统一：已盘点34个路由及多状态子页面，复用现有品牌色和共享样式，统一系统字体、32rpx标题、28rpx正文、页面/卡片间距；长按钮随文案增高，登录协议确认排在主操作之前。分析、逐页问题及视觉覆盖范围见 [布局审计与整改报告](docs/小程序逐页布局审计_20261030.md)。验证命令为 `npm run check:layout:system`；原生对照截图使用 `LAYOUT_AUDIT_WS=ws://127.0.0.1:9898 npm run capture:layout -- after`，须连接独立测试项目，使用本地演示数据并恢复原缓存。
+
 ## 代码仓库与本次归档
 
 私有远程仓库：[phlong026/zhongshu-ai-platform-v3](https://github.com/phlong026/zhongshu-ai-platform-v3)。`main` 保存本次归档版本，`feature/process-refactor-20261020` 保留开发分支，`master` 保留此前基线，已有提交历史完整保留。
@@ -434,3 +442,10 @@ npm run report:roles:complete
 本地检查使用 `npm run check:management:complete`、`npm run check:business:simplified`。原生管理页面使用 `node scripts/verify-management-completion-native.cjs`，财务布局使用 `FRANCHISE_WS=<已协调的隔离调试地址> node scripts/verify-finance-layout-native.cjs`。原生脚本串行执行并恢复验收前存储。
 
 按已确认范围，同步采用本机模拟服务：运行 `npm run demo:management`，连接资料保存在命令返回的私有文件中；用两个独立测试会话打开“我的 → 管理模拟联调”验证共享目标、门店资料与提成规则。默认只监听本机。具体设计、验证与回滚见 [管理模块补齐设计与验收](docs/管理模块补齐设计与验收_20261023.md)。
+
+
+## 2026-10-29 留档批次续作
+
+公共容器、存储键、组件和设计令牌的回归使用 `npm run check:retained-batches`，并已纳入 `npm run check:flow:all`。绩效主入口进入任务单，旧指标通过历史只读入口保留；任务仅覆盖派发、本人完成、实绩采集与任务归档；薪酬与奖金在线下办理，不生成相关应付或付款。实施范围与真实设备/后端边界见 [绩效任务化实施](docs/绩效任务化实施_20261029.md) 和 [留档续作计划](docs/留档批次续作计划_20261029.md)。
+
+颜色及字阶定义在 `miniprogram/styles/tokens.wxss`，组件主题文件 `component-tokens.wxss` 使用相同声明，选择器为 `.zs-theme`；更新令牌时同步两份样式，`verify-design-tokens` 会检查差异，避免组件隔离导致导航样式失效。

@@ -1,0 +1,6 @@
+<view class="login-guide zs-theme" aria-role="alert" aria-label="{{title}}需登录使用">
+  <text class="login-guide-title">{{title}}</text>
+  <text class="login-guide-desc">{{description}}</text>
+  <button class="login-guide-primary" hover-class="login-guide-pressed" bindtap="login">登录后查看本人工作台</button>
+  <button class="login-guide-home" hover-class="login-guide-pressed" bindtap="goHome">返回平台首页</button>
+</view>

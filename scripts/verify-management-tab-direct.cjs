@@ -4,11 +4,10 @@ let store={},redirects=[];
 global.wx={getStorageSync:k=>store[k],setStorageSync:(k,v)=>{store[k]=JSON.parse(JSON.stringify(v));},removeStorageSync:k=>{delete store[k];},getStorageInfoSync:()=>({keys:Object.keys(store)}),redirectTo:o=>redirects.push(o.url),switchTab:o=>redirects.push(o.url),navigateTo:()=>{},showToast:()=>{},showModal:()=>{}};
 global.getApp=()=>({globalData:{}});
 global.getCurrentPages=()=>[{route:'pages/management/index',switchWorkspaceTab:()=>false}];
-require.cache[require.resolve('../miniprogram/utils/load-local-fonts')]={exports:()=>({})};
 const pages=[];global.Page=c=>{pages.push(c);return c;};
 const A=require('../miniprogram/utils/account'),X=require('../miniprogram/utils/access'),O=require('../miniprogram/utils/organization');
 const results=[],pass=n=>{results.push(n);console.log('PASS '+n);};
-A.mutate(s=>A.loginDemo(s,'finance-dual'));
+(function(role){const MKEY=require('../miniprogram/utils/storage-keys').management;A.mutate(s=>{Object.assign(s.session,{loggedIn:true,companyId:'quanzhou',staffId:role+'-x',userId:role+'-x',role:role});s.companies=[{id:'quanzhou',name:'门店',type:'store',roles:['sales','sales-lead','engineer','project-manager','finance','finance-lead','boss','owner']}];});wx.setStorageSync(MKEY,{version:1,companyId:'quanzhou',staff:[{id:role+'-x',personId:role+'-x',name:role,roles:[role],teamIds:{sales:'sales',engineering:'engineering',finance:'finance'}}]});})('finance')
 const nav=O.navigation(X.context());
 assert.equal(nav.tabs[0].url,'/pages/admin/finance-desk/index','财务首个Tab应直达财务工作台，实际 '+nav.tabs[0].url);
 assert.equal(nav.tabs[0].native,false);
@@ -23,11 +22,11 @@ redirects=[];pages[0].onShow.call(mgmt);
 assert.ok(redirects.includes('/pages/admin/finance-desk/index'),'财务进入管理Tab应直达财务工作台，实际 '+JSON.stringify(redirects));
 assert.equal(mgmt.data.financeDesk,undefined,'中转页不应再内嵌财务桌面数据');
 pass('财务访问管理Tab页面时直达财务工作台，不再原地渲染');
-A.mutate(s=>A.loginDemo(s,'boss'));
+(function(role){const MKEY=require('../miniprogram/utils/storage-keys').management;A.mutate(s=>{Object.assign(s.session,{loggedIn:true,companyId:'quanzhou',staffId:role+'-x',userId:role+'-x',role:role});s.companies=[{id:'quanzhou',name:'门店',type:'store',roles:['sales','sales-lead','engineer','project-manager','finance','finance-lead','boss','owner']}];});wx.setStorageSync(MKEY,{version:1,companyId:'quanzhou',staff:[{id:role+'-x',personId:role+'-x',name:role,roles:[role],teamIds:{sales:'sales',engineering:'engineering',finance:'finance'}}]});})('boss')
 redirects=[];pages[0].onShow.call(inst(pages[0]));
 assert.ok(redirects.includes('/pages/admin/home/index'),'老板应直达老板首页');
 pass('老板访问管理Tab仍直达老板首页');
-A.mutate(s=>A.loginDemo(s,'finance-dual'));
+(function(role){const MKEY=require('../miniprogram/utils/storage-keys').management;A.mutate(s=>{Object.assign(s.session,{loggedIn:true,companyId:'quanzhou',staffId:role+'-x',userId:role+'-x',role:role});s.companies=[{id:'quanzhou',name:'门店',type:'store',roles:['sales','sales-lead','engineer','project-manager','finance','finance-lead','boss','owner']}];});wx.setStorageSync(MKEY,{version:1,companyId:'quanzhou',staff:[{id:role+'-x',personId:role+'-x',name:role,roles:[role],teamIds:{sales:'sales',engineering:'engineering',finance:'finance'}}]});})('finance')
 const desk=inst(pages[1]);
 pages[1].onLoad.call(desk,{});
 assert.equal(desk.data.view,'desk','财务打开财务桌面默认应渲染工作台视图，实际 '+desk.data.view);

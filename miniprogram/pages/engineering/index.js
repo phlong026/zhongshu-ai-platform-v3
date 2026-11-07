@@ -1,13 +1,35 @@
-require('../../utils/load-local-fonts')(require('../../utils/dashboard-font-sources'),'dashboard');
 const { createDashboard } = require('../../utils/dashboard');
-const preview = require('./guest-preview');
-const signedIn=require('./signed-in');
+const PTPage = require('../../utils/platform-todos-page');
 Page(createDashboard(2, {
-data: { panel: null, tools: [{ title: '我的项目', icon: 'folder', action: 'projects' }, { title: '施工计划', icon: 'calendar', action: 'schedule' }, { title: '材料计划', icon: 'box', action: 'materials' }, { title: '节点款项', icon: 'money', action: 'payments' }], projectCount:0,activeCount:0,todoCount:0,guestKeyword:'',previewProjects:preview.projects,previewStats:preview.stats,previewTodos:preview.todos,previewShortcuts:preview.shortcuts,statusHeight:20 },
-onShow(){const a=require('../../utils/access').context();if(a.active&&require('../../utils/organization').has(a.role,'engineer')){wx.redirectTo({url:'/pages/build/home/index'});return;}const state=require('../../utils/workbench').engineering();const info=getApp().globalData.windowInfo||(wx.getWindowInfo?wx.getWindowInfo():wx.getSystemInfoSync());this.setData({...state,...signedIn(state,this.data.deskKeyword||''),statusHeight:info.statusBarHeight||20,previewProjects:preview.search(this.data.guestKeyword)});if(this.getTabBar()){this.getTabBar().refresh?.();this.getTabBar().setData({hidden:false});}},
-searchDesk(e){if(!this.data.guest&&this.data.canWork)this.setData(signedIn(this.data,e.detail.value));},
-clearDeskSearch(){if(!this.data.guest&&this.data.canWork)this.setData(signedIn(this.data));},
-searchGuest(e){const guestKeyword=e.detail.value;this.setData({guestKeyword,previewProjects:preview.search(guestKeyword)});},
-clearGuestSearch(){this.setData({guestKeyword:'',previewProjects:preview.projects});},
-openAction(e){const key=e.currentTarget.dataset.action;if(key==='login'){wx.navigateTo({url:'/pages/account/index?view=login'});return;}if(this.data.guest){wx.navigateTo({url:'/pages/account/index?view=login'});return;}if(!this.data.canWork||key==='newProject'&&!this.data.canEdit){wx.showToast({title:'当前岗位无工程办理权限',icon:'none'});return;}if(key==='projectDetail'){const id=e.currentTarget.dataset.id;if(!this.data.deskProjects?.some(p=>p.id===id))return;wx.navigateTo({url:'/pages/build/index?view=overview&id='+encodeURIComponent(id)});return;}if(key==='store'){this.setData({panel:{key:'store',title:'众墅甄选',kind:'detail',image:'/assets/materials-banner.jpg',description:'精选建材 · 工程采购\n线上选购服务暂未开通。',confirm:'知道了'}});if(this.getTabBar())this.getTabBar().setData({hidden:true});return;}if(key==='siteConfirm'){if(!this.data.todoId){wx.showToast({title:'当前暂无重点待办',icon:'none'});return;}wx.navigateTo({url:'/pages/'+this.data.todoArea+'/index?view='+this.data.todoView+'&id='+encodeURIComponent(this.data.todoId)});return;}const view=key==='newProject'?'new':key==='projects'?'projects'+(this.data.roleLabel==='专业审核人'?'&destination=review':''):'projects&destination='+key;wx.navigateTo({url:'/pages/build/index?view='+view});}
+data: { panel: null, deskTitle: '工程工作台', roleLabel: '', active: false, projectCount: 0, activeCount: 0, todoCount: 0, platformTodos: null, tools: [{ title: '我的项目', icon: 'folder', action: 'projects' }, { title: '施工计划', icon: 'calendar', action: 'schedule' }, { title: '材料计划', icon: 'material', action: 'materials' }, { title: '节点款项', icon: 'tasks', action: 'payments' }] },
+onLoad() { PTPage.init(this); },
+// 工程 tab：工程岗重定向到工程首页；其余岗位（老板等）走平台 API 态——项目计数 + 平台待办，无本地演示数据。
+onShow() {
+const http = require('../../api/http'), auth = require('../../api/auth');
+const post = (() => { try { return http.token() ? auth.currentApiPost() : null; } catch (e) { return null; } })();
+if (post && require('../../utils/organization').has(post.roleCode, 'engineer')) { wx.redirectTo({ url: '/pages/build/home/index' }); return; }
+const a = require('../../utils/access').context();
+const X = require('../../utils/access'), O = require('../../utils/organization');
+const nav = require('../../utils/workbench-nav')();
+this.setData({ ...nav, panel: null, canWork: nav.canEngineering, active: !nav.guest, deskTitle: '工程工作台', roleLabel: post ? (O.roles[post.roleCode] || post.roleCode) : (X.roles[a.role] || '访客'), projectCount: 0, activeCount: 0, todoCount: 0 });
+if (this.getTabBar()) { this.getTabBar().refresh?.(); this.getTabBar().setData({ selected: 2, hidden: false }); }
+PTPage.refresh(this, false);
+this.refreshProjectCounts();
+},
+refreshProjectCounts() {
+const P = require('../../utils/platform-engineering');
+if (!P.online()) return;
+P.api.projects.page().then(rows => {
+const count = rows.length, active = rows.filter(r => r.status === 'IN_PROGRESS' || r.status === 'READY_DELIVER').length;
+this.setData({ projectCount: count, activeCount: active, todoCount: count });
+}).catch(() => {});
+},
+openAction(e) {
+const key = e.currentTarget.dataset.action;
+if (key === 'login') { wx.navigateTo({ url: '/pages/account/index?view=login' }); return; }
+const routes = { projects: '/pages/build/projects/index', schedule: '/pages/build/projects/index?destination=schedule', materials: '/pages/build/materials/index', payments: '/pages/build/projects/index?destination=payments', todos: '/pages/build/projects/index?mode=tasks' };
+if (routes[key]) wx.navigateTo({ url: routes[key] });
+},
+retryPlatformTodos() { PTPage.retry(this); },
+openPlatformTodo(e) { PTPage.open(this, e); }
 }));

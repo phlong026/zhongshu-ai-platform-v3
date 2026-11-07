@@ -1,0 +1,490 @@
+{
+  "date": "2026-10-30",
+  "appId": "wxe584f6fad7b54487",
+  "repository": "https://github.com/phlong026/zhongshu-ai-platform-v3.git",
+  "branch": "feat/six-role-project-closure-20261030",
+  "sourceCommit": "ca0f84657af0f8d18fe1449c3e2adbab9404744a",
+  "priorLayoutCommit": "965ee3b",
+  "includedLayoutCommit": "ae51a90",
+  "source": {
+    "appId": "wxe584f6fad7b54487",
+    "miniprogramSourceSha256": "f1990073a2f89e93138f25242affdff3c8a4722f309fce9851fcf2bc873a3211",
+    "trackedSourceFiles": 698,
+    "scannedAt": "2026-10-29T17:54:32.503Z"
+  },
+  "nodeJourney": {
+    "result": "passed",
+    "evidence": "同一客户从创作到归档及业务垫付报销付清的Node Page/WXML事件；附件/生成/设计支付为模拟。耗时不代表手机性能。",
+    "customerId": "customer-from-lead-1793296488236-6bzopd",
+    "projectId": "project-from-lead-1793296488236-6bzopd",
+    "engineeringId": "biz-customer-from-lead-1793296488236-6bzopd",
+    "publicationId": "demo-record-1793296488192-5",
+    "workId": "work-1793296488179-4",
+    "drawingVersion": "V2",
+    "contractCents": 10000000,
+    "collectedCents": 10000000,
+    "reimbursement": {
+      "payableId": "business-reimburse:customer-from-lead-1793296488236-6bzopd:1",
+      "paymentId": "payment-1793296496204-1",
+      "projectId": "project-from-lead-1793296488236-6bzopd",
+      "customerId": "customer-from-lead-1793296488236-6bzopd",
+      "amount": 1200000,
+      "transaction": "REIMBURSE-customer-from-lead-1793296488236-6bzopd",
+      "status": "已付清"
+    },
+    "archived": true,
+    "settled": true,
+    "businessSteps": 10,
+    "engineeringChecks": 13,
+    "views": [
+      {
+        "person": "sales-dual",
+        "activeRole": "sales-lead",
+        "url": "/pages/business/index",
+        "route": "pages/business/index",
+        "evidence": {
+          "type": "customer",
+          "customerId": "customer-from-lead-1793296488236-6bzopd",
+          "projectId": "project-from-lead-1793296488236-6bzopd",
+          "publicationId": "demo-record-1793296488192-5",
+          "status": "业务移交完成"
+        },
+        "nodePageAndRenderMs": 79
+      },
+      {
+        "person": "engineering-dual",
+        "activeRole": "project-manager",
+        "url": "/pages/build/record/index?id=biz-customer-from-lead-1793296488236-6bzopd&view=overview",
+        "route": "pages/build/record/index",
+        "evidence": {
+          "type": "engineering-project",
+          "customerId": "customer-from-lead-1793296488236-6bzopd",
+          "projectId": "project-from-lead-1793296488236-6bzopd",
+          "engineeringId": "biz-customer-from-lead-1793296488236-6bzopd",
+          "drawingVersion": "V2",
+          "status": "已归档"
+        },
+        "nodePageAndRenderMs": 105
+      },
+      {
+        "person": "finance-dual",
+        "activeRole": "finance-lead",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger&scope=all",
+        "route": "pages/admin/finance-desk/index",
+        "evidence": {
+          "type": "store-reimbursement-payment",
+          "customerId": "customer-from-lead-1793296488236-6bzopd",
+          "projectId": "project-from-lead-1793296488236-6bzopd",
+          "payableId": "business-reimburse:customer-from-lead-1793296488236-6bzopd:1",
+          "paymentId": "payment-1793296496204-1",
+          "amount": 1200000,
+          "status": "已付清"
+        },
+        "nodePageAndRenderMs": 112
+      },
+      {
+        "person": "boss",
+        "activeRole": "boss",
+        "url": "/pages/admin/index?view=finance&id=project-from-lead-1793296488236-6bzopd",
+        "route": "pages/admin/index",
+        "evidence": {
+          "type": "owner-ledger",
+          "customerId": "customer-from-lead-1793296488236-6bzopd",
+          "projectId": "project-from-lead-1793296488236-6bzopd",
+          "recordId": "payment-1793296496204-1",
+          "status": "已核实只读查看"
+        },
+        "nodePageAndRenderMs": 30
+      },
+      {
+        "person": "hq-design-admin",
+        "activeRole": "hq-design-admin",
+        "url": "/pages/workflow/commission/index?view=admin",
+        "route": "pages/workflow/commission/index",
+        "evidence": {
+          "type": "design-project",
+          "customerId": "customer-from-lead-1793296488236-6bzopd",
+          "projectId": "project-from-lead-1793296488236-6bzopd",
+          "status": "已下发",
+          "result": "成果已下发"
+        },
+        "nodePageAndRenderMs": 16
+      },
+      {
+        "person": "hq-finance-dual",
+        "activeRole": "finance-lead",
+        "url": "/pages/management/index",
+        "route": "pages/admin/finance-desk/index",
+        "evidence": {
+          "type": "hq-design-receipt",
+          "customerId": "customer-from-lead-1793296488236-6bzopd",
+          "projectId": "project-from-lead-1793296488236-6bzopd",
+          "recordId": "design-demo-receipt:design-order:quanzhou:customer-from-lead-1793296488236-6bzopd:1:headquarters",
+          "status": "体验模拟"
+        },
+        "nodePageAndRenderMs": 30
+      }
+    ]
+  },
+  "native": {
+    "customerId": "customer-from-lead-1793294766601-qhq8r2",
+    "projectId": "project-from-lead-1793294766601-qhq8r2",
+    "business": {
+      "result": "passed",
+      "steps": 10,
+      "events": 136,
+      "exceptions": 0
+    },
+    "engineering": {
+      "result": "passed",
+      "steps": 17,
+      "events": 386,
+      "exceptions": 0,
+      "resumptions": 2,
+      "final": {
+        "engineeringId": "biz-customer-from-lead-1793294766601-qhq8r2",
+        "projectId": "project-from-lead-1793294766601-qhq8r2",
+        "archived": true,
+        "financialClosure": "线下办理；本轮核对实收实付与无剩余付款待办",
+        "nodes": 13,
+        "collections": 3,
+        "materialPlans": 2
+      }
+    },
+    "roles": {
+      "result": "passed",
+      "checks": [
+        {
+          "name": "连接窗口与指定原生连续终态完全一致，未注入或改写业务事实",
+          "result": "passed"
+        },
+        {
+          "name": "李业务看到同一内容来源客户及业务移交完成成果",
+          "result": "passed"
+        },
+        {
+          "name": "张工程看到同一项目V2成果、交付、结算和归档",
+          "result": "passed"
+        },
+        {
+          "name": "王财务看到同项目报销原单已付清、实付已核实且待办消失",
+          "result": "passed"
+        },
+        {
+          "name": "张老板只读看到同项目完整收支及已核实报销付款",
+          "result": "passed"
+        },
+        {
+          "name": "林设计看到同一客户同一项目成果已下发",
+          "result": "passed"
+        },
+        {
+          "name": "罗财务看到同项目设计费体验模拟抄送及只读边界",
+          "result": "passed"
+        }
+      ],
+      "screenshots": [
+        "01-sales-same-customer.png",
+        "02-engineering-v2-archive.png",
+        "03-store-finance-reimbursement-closed.png",
+        "03-store-finance-payment-ledger.png",
+        "04-owner-project-ledger.png",
+        "05-hq-design-dispatched.png",
+        "06-hq-finance-design-copy.png"
+      ],
+      "exceptions": 0,
+      "storageRestored": true
+    }
+  },
+  "fullRegression": {
+    "result": "passed",
+    "startedAt": "2026-10-29T17:45:51.649Z",
+    "checks": [
+      {
+        "name": "留档批次与绩效任务回归",
+        "command": "npm run check:retained-batches",
+        "result": "passed",
+        "elapsedMs": 2600,
+        "log": "01.log"
+      },
+      {
+        "name": "业务与跨模块回归",
+        "command": "npm run check:business:simplified",
+        "result": "passed",
+        "elapsedMs": 16741,
+        "log": "02.log"
+      },
+      {
+        "name": "管理四页回归",
+        "command": "npm run check:owner:workbench",
+        "result": "passed",
+        "elapsedMs": 6546,
+        "log": "03.log"
+      },
+      {
+        "name": "管理P0缺口",
+        "command": "node scripts/verify-owner-p0-completion.cjs",
+        "result": "passed",
+        "elapsedMs": 215,
+        "log": "04.log"
+      },
+      {
+        "name": "管理模块完整回归",
+        "command": "npm run check:management:complete",
+        "result": "passed",
+        "elapsedMs": 14363,
+        "log": "05.log"
+      },
+      {
+        "name": "财务页面布局",
+        "command": "node scripts/verify-finance-layout.cjs",
+        "result": "passed",
+        "elapsedMs": 146,
+        "log": "06.log"
+      },
+      {
+        "name": "工程纠错",
+        "command": "node scripts/verify-engineering-record-corrections.cjs",
+        "result": "passed",
+        "elapsedMs": 903,
+        "log": "07.log"
+      },
+      {
+        "name": "工程权限及状态约束",
+        "command": "node scripts/verify-engineering-records-guards.cjs",
+        "result": "passed",
+        "elapsedMs": 295,
+        "log": "08.log"
+      },
+      {
+        "name": "历史与六角色模拟数据",
+        "command": "npm run check:demo-data",
+        "result": "passed",
+        "elapsedMs": 234,
+        "log": "09.log"
+      },
+      {
+        "name": "六角色登录与迁移",
+        "command": "npm run check:demo-login",
+        "result": "passed",
+        "elapsedMs": 585,
+        "log": "10.log"
+      },
+      {
+        "name": "六角色连续业务与分支",
+        "command": "node scripts/verify-six-role-flow.cjs",
+        "result": "passed",
+        "elapsedMs": 3321,
+        "log": "11.log"
+      },
+      {
+        "name": "预算导出与历史只读导航",
+        "command": "node scripts/verify-navigation-current-policy.cjs",
+        "result": "passed",
+        "elapsedMs": 185,
+        "log": "12.log"
+      },
+      {
+        "name": "设计跨设备模拟服务",
+        "command": "npm run check:design-collaboration",
+        "result": "passed",
+        "elapsedMs": 4034,
+        "log": "13.log"
+      },
+      {
+        "name": "待办衔接",
+        "command": "npm run check:business:todos",
+        "result": "passed",
+        "elapsedMs": 1644,
+        "log": "14.log"
+      },
+      {
+        "name": "工程逐步入口连通",
+        "command": "node scripts/walk-main-chain.cjs --depth=4 --out=qa/full-flow-acceptance-20261023/engineering-navigation",
+        "result": "passed",
+        "elapsedMs": 117441,
+        "log": "15.log"
+      },
+      {
+        "name": "六角色入口遍历",
+        "command": "node scripts/crawl-navigation.cjs --strict --out=qa/full-flow-acceptance-20261023/role-navigation",
+        "result": "passed",
+        "elapsedMs": 135945,
+        "log": "16.log"
+      },
+      {
+        "name": "全角色工作台页面",
+        "command": "node scripts/verify-franchise-showcase.cjs",
+        "result": "passed",
+        "elapsedMs": 316,
+        "log": "17.log"
+      },
+      {
+        "name": "展示文案",
+        "command": "npm run check:visible-copy",
+        "result": "passed",
+        "elapsedMs": 728,
+        "log": "18.log"
+      },
+      {
+        "name": "项目静态与包检查",
+        "command": "npm run check",
+        "result": "passed",
+        "elapsedMs": 282,
+        "log": "19.log"
+      },
+      {
+        "name": "生产依赖漏洞",
+        "command": "npm audit --omit=dev --audit-level=high",
+        "result": "passed",
+        "elapsedMs": 278,
+        "log": "20.log"
+      }
+    ],
+    "preflight": {
+      "command": "node scripts/prepare-full-flow-fixtures.cjs",
+      "result": "passed",
+      "elapsedMs": 4934,
+      "log": "00-fixtures.log"
+    },
+    "finishedAt": "2026-10-29T17:51:03.392Z"
+  },
+  "navigation": {
+    "sales-lead": {
+      "pages": 106,
+      "taps": 368,
+      "edges": 172,
+      "issues": 0
+    },
+    "boss": {
+      "pages": 185,
+      "taps": 658,
+      "edges": 359,
+      "issues": 0
+    },
+    "finance-lead": {
+      "pages": 65,
+      "taps": 245,
+      "edges": 121,
+      "issues": 0
+    },
+    "project-manager": {
+      "pages": 49,
+      "taps": 198,
+      "edges": 103,
+      "issues": 0
+    },
+    "hq-design-admin": {
+      "pages": 24,
+      "taps": 96,
+      "edges": 32,
+      "issues": 0
+    },
+    "hq-finance": {
+      "pages": 35,
+      "taps": 154,
+      "edges": 67,
+      "issues": 0
+    },
+    "guest": {
+      "pages": 23,
+      "taps": 67,
+      "edges": 28,
+      "issues": 0
+    }
+  },
+  "financeSubmit": {
+    "result": "passed",
+    "scope": "Node Page/WXML财务表单与旧薪酬入口，独立于微信原生实点",
+    "checks": [
+      "工程实际到账登记自动生效且不重复复核",
+      "线内公司费用自动批准并完成实际支付",
+      "旧薪酬入口直接进入绩效任务且无结算动作"
+    ]
+  },
+  "security": {
+    "productionVulnerabilities": 0,
+    "developmentVulnerabilities": {
+      "info": 0,
+      "low": 1,
+      "moderate": 6,
+      "high": 2,
+      "critical": 3,
+      "total": 12
+    },
+    "changedFilesSecretFindings": 0
+  },
+  "release": {
+    "version": "1.0.20261030.2",
+    "upload": "passed",
+    "officialCliExitCode": 0,
+    "packageSize": {
+      "total": 6796269,
+      "packages": [
+        {
+          "name": "TOTAL",
+          "size": 6796269
+        },
+        {
+          "name": "main",
+          "size": 1734448
+        },
+        {
+          "name": "/pages/account/",
+          "size": 1000119
+        },
+        {
+          "name": "/pages/admin/",
+          "size": 479533
+        },
+        {
+          "name": "/pages/ai-video/",
+          "size": 16757
+        },
+        {
+          "name": "/pages/build/",
+          "size": 1114717
+        },
+        {
+          "name": "/pages/collaboration/",
+          "size": 24564
+        },
+        {
+          "name": "/pages/creation/",
+          "size": 13468
+        },
+        {
+          "name": "/pages/design/",
+          "size": 234992
+        },
+        {
+          "name": "/pages/growth/",
+          "size": 11866
+        },
+        {
+          "name": "/pages/studio/",
+          "size": 330592
+        },
+        {
+          "name": "/pages/workflow/",
+          "size": 1835213
+        }
+      ]
+    },
+    "experienceActivation": "confirmed-by-user",
+    "reason": "用户确认已在微信后台将该版本设为体验版；此前浏览器工具访问限制未绕过",
+    "activationConfirmation": {
+      "date": "2026-10-30",
+      "source": "current-thread-user-response",
+      "version": "1.0.20261030.2",
+      "answer": "已设为该版本",
+      "independentlyVerifiedInBrowser": false
+    }
+  },
+  "limits": [
+    "本机存储联调，非六部实体手机共享生产数据",
+    "生成、附件和设计支付为模拟或线下事实",
+    "原生主链在同项目检查点续跑；最后异常分支另做专项",
+    "真实外部服务与体验版真机验收未完成"
+  ]
+}

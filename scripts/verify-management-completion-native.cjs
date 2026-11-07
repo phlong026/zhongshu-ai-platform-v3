@@ -130,7 +130,7 @@ function fixture() {
     }
     pass('六项经营指标通过原生控件逐项进入可追溯原列表', { metrics:metrics.map(row => row.metric) });
 
-    data = await open('/pages/admin/performance/index', '.perf-filters');
+    data = await open('/pages/admin/performance/index?history=1', '.perf-filters');
     assert(data.desk.performance.filterOptions.some(row => row.id === 'business'));
     await runner.event({ selector:'.perf-filter', dataset:{ department:'business' } }, 'departmentFilter');
     await runner.until(async () => (await runner.data()).desk.performance.selectedDepartment === 'business', '业务部门筛选');
@@ -143,14 +143,12 @@ function fixture() {
     await capture('performance-business-member');
     pass('绩效部门筛选与成员原记录展开均由真实控件触发', { member:member.id });
 
-    data = await open('/pages/admin/detail/index?view=targets', '.owner-goal-input');
-    const targetBefore = data.form.departmentGoals.business.commissionAmount;
-    await runner.event({ selector:'.owner-goal-input', dataset:{ scope:'department', department:'business', metric:'commissionAmount' } }, 'goalFieldInput', { value:'54321.25' });
-    await runner.event('.owner-save', 'savePerformanceGoals');
-    await runner.until(async () => !(await runner.data()).saving && String((await runner.data()).form.departmentGoals.business.commissionAmount) === '54321.25', '业务部设计委托目标保存');
-    mutations.push({ kind:'department-goal', before:targetBefore, after:'54321.25' });
-    await capture('department-goal-saved');
-    pass('部门目标通过原生输入与保存按钮持久化', { department:'business', metric:'commissionAmount', value:'54321.25' });
+    data = await open('/pages/admin/detail/index?view=targets', '.owner-form-row');
+    assert(!(await runner.rects(['.owner-goal-input']))[0], '旧目标页不得保留可编辑输入');
+    await runner.event('.owner-page', 'savePerformanceGoals');
+    assert.match((await runner.data()).error, /只读|绩效任务/);
+    await capture('department-goal-readonly');
+    pass('旧部门目标只读展示且直接调用不能绕过');
 
     data = await open('/pages/admin/detail/index?view=company', '.management-company');
     const companyBefore = clone(data.companyForm);
@@ -180,15 +178,10 @@ function fixture() {
     pass('项目经理交接列表的标记按钮写入独立交接标记', { workId:'qa-management-work', systemDialog:'showModal返回确认及明确原因' });
 
     data = await open('/pages/admin/profile/index', '.owner-management');
-    const bossCommission = data.managementEntries.find(row => row.text === '项目回款提成');
-    assert(bossCommission);
-    await runner.event({ selector:'.owner-management .service-row', dataset:{ url:bossCommission.url } }, 'open');
-    await route('pages/admin/commission/index');
-    data = await runner.data();
-    assert.equal(data.canEditPolicy, true);
-    assert((await runner.rects(['.commission-save']))[0], '老板提成规则控件须渲染');
-    await capture('commission-boss');
-    pass('老板从我的管理入口进入项目回款提成页', { role:'boss' });
+    assert(!data.managementEntries.some(row => ['项目回款提成', '工程负责人交接', '历史委托费用授权', '绩效任务'].includes(row.text)));
+    assert(!data.entries.some(row => row.text === '管理模拟联调'));
+    await capture('owner-profile-clean-entries');
+    pass('老板我的移除重复任务与指定管理快捷入口', { role:'boss' });
 
     await runner.login('finance-dual', 'finance');
     data = await open('/pages/profile/index', '.profile-card');

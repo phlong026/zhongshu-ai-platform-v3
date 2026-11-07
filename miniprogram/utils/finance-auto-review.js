@@ -1,5 +1,5 @@
 const X=require('./access'),R=require('./same-person-routing'),P=require('./finance-participation'),F=require('./finance-source');
-const copy=x=>JSON.parse(JSON.stringify(x));
+const copy=require('./clone');
 function finish(s,row,kind){const a=X.context(),proof=R.audit('finance',row,a,R.binding(row));if(!proof)return false;
  X.assert(s.companyId===a.companyId&&(!row.companyId||row.companyId===a.companyId),'不能自动核对其他组织记录');
  const maker=row.custodianId||row.financialRegistrarId||row.registrarId;X.assert(maker===a.staffId,'仅当前实际登记或补证人可触发自动复核');

@@ -58,6 +58,7 @@ function release(first, tail) {
 
 function verify(label, receipt, expected) {
   const row = customer();
+  row.paymentConditions = { first: receipt.first, tail: receipt.tail };
   const before = JSON.stringify(row);
   Receipts.release = () => receipt;
   const next = SalesFlow.nextRecord(row);
@@ -66,6 +67,8 @@ function verify(label, receipt, expected) {
   assert.equal(next.owner, expected.owner);
   assert.equal(next.view, expected.view || 'progress');
   assert.equal(next.actionable, expected.actionable || false);
+  if (expected.paymentStage) assert.equal(next.paymentStage, expected.paymentStage, label + ' 应保留原首尾款阶段');
+  if (expected.roleState) assert.match(next.roleState, expected.roleState, label + ' 角色说明不应塞入核心状态');
   assert.equal(JSON.stringify(row), before, label + ' 的进度读取不能改写费用或原版本');
   assert.deepEqual(SalesFlow.nextRecord(row), next, label + ' 重复读取不能生成重复费用或新状态');
   return { row, next };
@@ -74,25 +77,25 @@ function verify(label, receipt, expected) {
 const firstReady = stage(600000, 600000, 600000);
 
 verify('门店尚未支付尾款', release(firstReady, stage(600000, 0, 0)), {
-  state: '设计尾款待门店付款',
-  detail: '应收 ¥6,000.00 · 门店已付 ¥0.00 · 总部实收 ¥0.00 · 差额 ¥6,000.00',
+  state: '待支付', paymentStage:'尾款', roleState:/尾款待门店付款/,
+  detail: '应收 ¥ 6,000.00 · 门店已付 ¥ 0.00 · 总部实收 ¥ 0.00 · 差额 ¥ 6,000.00',
   owner: '门店财务'
 });
 
 const partial = verify('门店部分支付且总部已核收', release(firstReady, stage(600000, 200000, 200000)), {
-  state: '设计尾款待门店付款',
-  detail: '应收 ¥6,000.00 · 门店已付 ¥2,000.00 · 总部实收 ¥2,000.00 · 差额 ¥4,000.00',
+  state: '待支付', paymentStage:'尾款', roleState:/尾款待门店付款/,
+  detail: '应收 ¥ 6,000.00 · 门店已付 ¥ 2,000.00 · 总部实收 ¥ 2,000.00 · 差额 ¥ 4,000.00',
   owner: '门店财务'
 });
 
 verify('门店足额支付但总部未核收', release(firstReady, stage(600000, 600000, 0)), {
-  state: '设计尾款待总部核收',
-  detail: '应收 ¥6,000.00 · 门店已付 ¥6,000.00 · 总部实收 ¥0.00 · 差额 ¥6,000.00',
+  state: '待到账确认', paymentStage:'尾款', roleState:/尾款待总部核收/,
+  detail: '应收 ¥ 6,000.00 · 门店已付 ¥ 6,000.00 · 总部实收 ¥ 0.00 · 差额 ¥ 6,000.00',
   owner: '总部财务'
 });
 
 verify('首尾款都足额核收', release(firstReady, stage(600000, 600000, 600000)), {
-  state: '待正式成果下发',
+  state: '待下发',
   owner: '设计行政',
   view: 'dispatch',
   actionable: true
@@ -103,10 +106,10 @@ const desk = DesignDesk.build([partial.row], actor, {
   feeApproved: () => true,
   companyNameFor: () => '泉州加盟店'
 });
-assert.equal(desk.counts['待到账确认'], 1, '稳定保留原有项目筛选语义');
+assert.equal(desk.counts['待支付'], 1, '部分尾款仍属于待支付，不得误报为待到账确认');
 assert.equal(
   desk.rows[0].detail,
-  '应收 ¥6,000.00 · 门店已付 ¥2,000.00 · 总部实收 ¥2,000.00 · 差额 ¥4,000.00 · 下一位：门店财务'
+  '应收 ¥ 6,000.00 · 门店已付 ¥ 2,000.00 · 总部实收 ¥ 2,000.00 · 差额 ¥ 4,000.00 · 下一位：门店财务'
 );
 assert.equal(desk.rows[0].nextOwner, '门店财务');
 assert.equal(desk.rows[0].actionable, false, '正常等待不得被误判为行政可下发');

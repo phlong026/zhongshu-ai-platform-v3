@@ -26,7 +26,8 @@ const ROLES = {
   studio: ['sales-lead', 'boss'],
   other: ['sales-lead', 'boss', 'finance-lead', 'project-manager', 'hq-design-admin', 'hq-finance']
 };
-const guestAlso = new Set(['pages/home/index', 'pages/profile/index', 'pages/business/index', 'pages/engineering/index', 'pages/management/index', 'pages/customers/index', 'pages/account/index']);
+// Workbench tab pages no longer render guest content (login guide only), so they are not audited as guest.
+const guestAlso = new Set(['pages/home/index', 'pages/profile/index', 'pages/customers/index', 'pages/account/index']);
 // views of the multi-view pages that still exist after the legacy chain was removed
 const WORKFLOW_VIEWS = ['customers', 'customer', 'arrival', 'progress', 'inspiration', 'search', 'case', 'case-plan', 'ai-config', 'ai-results', 'result', 'budget', 'budget-result', 'history', 'preview', 'ai-facade', 'transfer', 'facade-config', 'facade-candidates', 'facade-result', 'money-review', 'task-access'];
 const COMMISSION_VIEWS = ['submit', 'progress', 'feedback', 'handover', 'receive', 'admin'];

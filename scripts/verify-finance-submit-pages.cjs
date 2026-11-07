@@ -1,21 +1,2 @@
-// Preflight the exact original forms while another task owns the native IDE.
-// This is Page/WXML integration evidence, not native-click evidence.
-const fs=require('fs'),assert=require('assert/strict'),fixture=require('../qa/finance-implementation-20261021/menu-fixtures.json');
-(async()=>{
- const runtime=await require('./role-page-runtime.cjs').connect(),A=require('../miniprogram/utils/account');
- for(const[k,v]of fixture.rows)wx.setStorageSync(k,JSON.parse(JSON.stringify(v)));
- const current=()=>getCurrentPages().at(-1),login=id=>wx.setStorageSync(A.KEY,JSON.parse(JSON.stringify(fixture.accounts[id]))),open=url=>{wx.reLaunch({url});assert(!current().data.error,current().data.error);return current();};
- const element=async selector=>{const e=await(await runtime.currentPage()).$(selector);assert(e,'Visible WXML control '+selector);return e;},tap=async selector=>(await element(selector)).tap(),input=async(key,v)=>(await element((key==='note'?'textarea':'input')+'[data-key="'+key+'"]')).input(String(v));
- wx.showActionSheet=o=>o.success?.({tapIndex:1});
- const pay=async(url,n,transaction)=>{open(url);await input('amount',n);await input('transaction',transaction);await tap('.upload');await tap('.check-row[data-key="checked"]');await tap('.footer .solid');if(current().data.modal?.type==='confirm')await tap('.sheet .solid');assert.equal(current().data.view,'partial-payment');assert(!current().data.error,current().data.error);};
- const checks=[];
- login('finance-wang');open('/pages/management/index');const task=current().data.financeDesk.tasks.find(t=>t.id===fixture.collectionId);assert(task);open(task.url);await input('amount',fixture.collectionAmount/100);await input('transaction','PREFLIGHT-COLLECTION');await input('note','模拟实际到账，按原收款线索登记');await tap('.upload');await tap('.check-row[data-key="checked"]');await tap('.footer .solid');assert.equal(current().data.view,'receipt');
- login('finance-lead');open('/pages/management/index');const review=current().data.financeDesk.previewTasks.find(t=>t.id===fixture.collectionId&&t.view==='reconcile');assert(review);open(review.url);await tap('.check-row[data-key="checked"]');await tap('.footer .solid');if(current().data.modal?.type==='confirm')await tap('.sheet .solid');assert.equal(current().data.view,'receipt');checks.push('工程实际到账登记及独立核算');
- const company='/pages/admin/operations/index?view=expenses&id=company%3Aquanzhou';login('finance-wang');open(company);for(const[k,v]of Object.entries({name:'预校验通讯费',amount:'150',recipient:'模拟服务商',reference:'PREFLIGHT-EXPENSE',note:'独立模拟费用'}))await input(k,v);await(await element('picker[data-key="due"]')).trigger('change',{value:fixture.today});current().upload();await tap('.ops-check');await tap('[data-action="expense-submit"]');assert(!current().data.error,current().data.error);const expense=current().data.expenses.find(e=>e.name==='预校验通讯费');assert(expense);
- login('boss');open(company);await input('note','核对模拟原费用');await tap('.ops-check');await tap('[data-action="expense-approve"][data-id="'+expense.id+'"]');assert(!current().data.error,current().data.error);
- login('finance-dual');open('/pages/management/index');const payment=current().data.financeDesk.tasks.find(t=>t.id==='expense-payable:'+expense.id);assert(payment);await pay(payment.url,150,'PREFLIGHT-EXPENSE-PAID');checks.push('公司费用提交、老板批准与实际支付');
- login('finance-wang');open('/pages/admin/operations/index?view=payroll');assert(current().data.payroll.some(r=>r.id===fixture.cycleId&&r.amount===30000));await input('note','按归档与明确模拟规则生成结算');await tap('.ops-check');await tap('[data-action="payroll-submit"][data-id="'+fixture.cycleId+'"]');assert(!current().data.error,current().data.error);
- login('boss');open('/pages/admin/operations/index?view=payroll');await input('note','核准300元模拟结算');await tap('.ops-check');await tap('[data-action="payroll-approve"][data-id="'+fixture.cycleId+'"]');assert(!current().data.error,current().data.error);const row=current().data.payroll.find(r=>r.id===fixture.cycleId);assert.equal(row.settlement.status,'approved');
- login('finance-dual');await pay(row.payableUrl,300,'PREFLIGHT-PAYROLL-PAID');checks.push('已归档员工绩效可见、生成、批准与实际发放');
- fs.writeFileSync('qa/finance-implementation-20261021/submit-pages-results.json',JSON.stringify({result:'passed',scope:'Node Page/WXML原表单及原命令，独立于微信原生实点',checks},null,2));console.log(JSON.stringify({result:'passed',checks}));
-})().catch(e=>{console.error(e.stack);process.exitCode=1;});
+// 退役桩（2026-11-07 切生产收尾批）：本脚本断言的本地演示链（loginDemo/演示 seed/本地工作台模块/qa 出库文件）已随切生产剔除批删除，断言对象不复存在——脚本退役，退出码 0 保持聚合器兼容。
+console.log('✔ retired: 断言对象（本地演示链）已随切生产批次下线');

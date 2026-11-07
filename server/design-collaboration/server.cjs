@@ -83,7 +83,7 @@ function receiptTasks(runtime, state) {
     .filter(row => row.status === '待登记' && row.source?.protocol === 'sales-offline-v1')
     .map(row => ({
       id: row.id, kind: 'receipt', customerId: row.source.customerId, name: row.customer,
-      stage: row.source.stage, amount: row.amount,
+      stage: row.source.stage, amount: row.amount, triggeredAt: row.triggeredAt || row.at || row.date || '',
       taskVersion: jsonHash([state.secret, row.id, row.source, row.amount])
     }));
 }
@@ -107,10 +107,10 @@ function customerRows(runtime) {
 
 function adminTasks(runtime) {
   return runtime.requireMini('utils/sales-flow.js').tasks()
-    .filter(task => task.actionable && ['设计完成', '成果已下发'].includes(task.action))
+    .filter(task => task.actionable && ['design-complete', 'design-dispatch'].includes(task.command))
     .map(task => ({
       id: task.id, kind: 'design', customerId: task.customerId, name: task.name,
-      action: task.action === '设计完成' ? 'complete' : 'dispatch'
+      action: task.command === 'design-complete' ? 'complete' : 'dispatch', triggeredAt: task.triggeredAt
     }));
 }
 
@@ -200,7 +200,7 @@ function snapshotFor(state, session) {
     description: delivery.description, page: delivery.page, sentAt: delivery.sentAt, status: delivery.status
   }));
   return {
-    mode: 'simulated-cross-device', revision: state.revision, actor, projects, tasks, messages: ownMessages, recent: ownRecent,
+    mode: 'simulated-cross-device', revision: state.revision, actor, projects, tasks: runtime.requireMini('utils/task-order.js').newest(tasks), messages: ownMessages, recent: ownRecent,
     wechat: {
       mode: 'mock', consent: subscription.consent, deliveries,
       jobs: ownJobs.map(job => ({ id: job.id, customerId: job.customerId, status: job.status, lastError: job.lastError, attempts: job.attempts }))

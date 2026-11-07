@@ -2,7 +2,7 @@
 const A = require('./account');
 const F = require('./finance-source');
 
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('./clone');
 const value = row => row.revisions?.length ? row.revisions.at(-1).amount : row.amount;
 const cashDate = row => F.cashDate(row);
 const followDate = follow => {
@@ -64,8 +64,8 @@ function paidKind(state, row) {
 
 function raw(companyId) {
   return {
-    customers: (wx.getStorageSync('zhongshu-business-v3')?.customers || []).filter(row => (row.companyId || 'quanzhou') === companyId),
-    projects: (wx.getStorageSync('zhongshu-engineering-v1')?.projects || []).filter(row => (row.companyId || 'quanzhou') === companyId)
+    customers: (wx.getStorageSync(require('./storage-keys').business)?.customers || []).filter(row => (row.companyId || 'quanzhou') === companyId),
+    projects: (wx.getStorageSync(require('./storage-keys').engineering)?.projects || []).filter(row => (row.companyId || 'quanzhou') === companyId)
   };
 }
 

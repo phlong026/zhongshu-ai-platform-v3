@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "业务工作台", "disableScroll": false }
+{"navigationBarTitleText":"业务工作台","disableScroll":false,"usingComponents":{"workbench-denied":"../../components/workbench-denied/index","search-box":"../../components/search-box/index","empty-state":"../../components/empty-state/index"}}

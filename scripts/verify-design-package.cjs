@@ -32,37 +32,31 @@ const path = require('path');
     imageChecks.push({ label, count: images.length });
   }
   const A = require('../miniprogram/utils/account');
-  A.mutate(state => A.loginDemo(state, 'sales-dual'));
+  (function(role){const MKEY=require('../miniprogram/utils/storage-keys').management;A.mutate(s=>{Object.assign(s.session,{loggedIn:true,companyId:'quanzhou',staffId:role+'-x',userId:role+'-x',role:role});s.companies=[{id:'quanzhou',name:'门店',type:'store',roles:['sales','sales-lead','engineer','project-manager','finance','finance-lead','boss','owner']}];});wx.setStorageSync(MKEY,{version:1,companyId:'quanzhou',staff:[{id:role+'-x',personId:role+'-x',name:role,roles:[role],teamIds:{sales:'sales',engineering:'engineering',finance:'finance'}}]});})('sales'); // 切生产收尾批：loginDemo 下线，直接构造最小身份
   // Image rendering must not depend on wx.loadSubpackage or another package being downloaded.
   wx.loadSubpackage = () => { throw Error('Design entrance must use its own package images'); };
   await runtime.callWxMethod('reLaunch', { url: '/pages/design/index' });
   const page = getCurrentPages().at(-1);
   assert.equal(page.route, 'pages/design/index');
-  assert.equal(page.data.cases.length, 4);
+  // 切生产收尾批（Codex R2 P2）：cases/entries/explore/studio 段随演示 seed 与本地链下线摘除——
+  // 存活断言保留：分包归属（主包无 design 页）、loadSubpackage 禁依赖、入口渲染图分包归属
   checkImages('design entrance');
-  for (const item of page.data.cases) {
-    assert(item.image.startsWith('/pages/design/assets/'));
-    const local = fs.readFileSync(path.resolve('miniprogram', '.' + item.image));
-    const original = fs.readFileSync(path.resolve('miniprogram', '.' + item.image.replace('/design/', '/workflow/')));
-    assert(local.equals(original), 'Preserve the original full image');
+  // Codex R3 P2：四入口跳转断言复活——mock 平台会话（design:use 三岗）后逐入口跳转匹配目标 view
+  global.wx.request = o => o.fail && o.fail({ errMsg: 'request:fail no-handler' }); // explore 拉数走错误态（route/view 仍设置）
+  const auth = require('../miniprogram/api/auth'), httpApi = require('../miniprogram/api/http');
+  auth.saveLogin({ accessToken: 'design-t', posts: [] });
+  auth.savePosts([{ postId: 21, roleCode: 'sales', orgType: 'store' }]);
+  httpApi.saveSession({ postId: 21 });
+  await runtime.callWxMethod('reLaunch', { url: '/pages/design/index' });
+  const dpage = getCurrentPages().at(-1);
+  dpage.onShow();
+  assert.equal(dpage.data.entranceEnabled, true, 'sales 岗授权态入口可用');
+  for (const entry of dpage.data.entries) {
+    dpage.open({ currentTarget: { dataset: { view: entry.view } } });
+    const target = getCurrentPages().at(-1);
+    assert.equal(target.route, 'pages/workflow/explore/index', entry.view + ' 入口跳转目标');
+    assert.equal(target.data.view, entry.view, entry.view + ' 目标视图参数透传');
   }
-  for (const entry of page.data.entries) {
-    await runtime.callWxMethod('reLaunch', { url: '/pages/design/index' });
-    getCurrentPages().at(-1).open({ currentTarget: { dataset: { view: entry.view } } });
-    assert.equal(getCurrentPages().at(-1).route, 'pages/workflow/explore/index');
-    assert.equal(getCurrentPages().at(-1).data.view, entry.view);
-    if (entry.view === 'inspiration') checkImages('inspiration catalog');
-  }
-  await runtime.callWxMethod('reLaunch', { url: '/pages/workflow/explore/index?view=case&case=ZS001' });
-  checkImages('case facade');
-  getCurrentPages().at(-1).caseTab({ currentTarget: { dataset: { index: 1 } } });
-  checkImages('case floor plan');
-  require('../miniprogram/utils/sales-demo').ensure();
-  const state = require('../miniprogram/utils/studio').read();
-  const params = '&work=' + encodeURIComponent(state.works[0].id) + '&task=' + encodeURIComponent(state.tasks.find(task => task.status === 'completed').id) + '&record=' + encodeURIComponent(state.records[0].id);
-  for (const view of ['remix', 'digital', 'tasks', 'result', 'publish', 'records', 'detail', 'works', 'library', 'recent']) {
-    await runtime.callWxMethod('reLaunch', { url: '/pages/studio/index?view=' + view + params });
-    checkImages('studio ' + view);
-  }
-  console.log(JSON.stringify({ ...report, designImages: 4, entranceRoutes: 4, renderedImages: imageChecks }, null, 2));
+  assert(dpage.data.entries.length === 4, '四入口完整');
+  console.log(JSON.stringify({ ...report, renderedImages: imageChecks }, null, 2));
 })().catch(error => { console.error(error.stack); process.exitCode = 1; });

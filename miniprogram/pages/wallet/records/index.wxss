@@ -1,0 +1,118 @@
+/* 充值明细：订单/流水双 Tab 列表 */
+.records-page {
+  min-height: 100vh;
+  background: var(--zs-bg);
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+.records-loading,
+.records-empty,
+.list-empty,
+.list-more {
+  padding: 64rpx 48rpx;
+  text-align: center;
+  color: var(--zs-text-3);
+  font-size: var(--zs-font-body);
+}
+.records-empty {
+  padding: 200rpx 48rpx;
+}
+
+.tabs {
+  display: flex;
+  gap: 12rpx;
+  padding: var(--zs-space-section) var(--zs-space-page) 0;
+}
+.tab {
+  flex: 1;
+  min-height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid var(--zs-line);
+  border-radius: 14rpx;
+  background: var(--zs-bg);
+  color: var(--zs-text-2);
+  font-size: var(--zs-font-body);
+}
+.tab-on {
+  background: var(--zs-card);
+  border-color: var(--zs-brand);
+  color: var(--zs-brand);
+  font-weight: 600;
+  box-shadow: var(--zs-shadow);
+}
+
+.list {
+  padding: var(--zs-space-section) var(--zs-space-page) 0;
+}
+.list-empty-btn {
+  margin: 24rpx auto 0;
+  min-height: 72rpx;
+  padding: 0 48rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--zs-brand);
+  color: #fffaf3;
+  font-size: var(--zs-font-body);
+  font-weight: 600;
+}
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  background: var(--zs-card);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: var(--zs-space-section);
+}
+.cell-main {
+  flex: 1;
+  min-width: 0;
+}
+.cell-title {
+  font-size: var(--zs-font-body);
+  font-weight: 500;
+  line-height: 40rpx;
+}
+.cell-bonus {
+  margin-left: 8rpx;
+  font-size: var(--zs-font-caption);
+  font-weight: 400;
+  color: var(--zs-success);
+}
+.cell-sub {
+  margin-top: 6rpx;
+  font-size: var(--zs-font-caption);
+  color: var(--zs-text-3);
+  overflow-wrap: anywhere;
+}
+.cell-side {
+  text-align: right;
+  flex-shrink: 0;
+}
+.cell-amount {
+  font-size: var(--zs-font-body);
+  font-weight: 600;
+}
+.cell-status {
+  margin-top: 6rpx;
+  font-size: var(--zs-font-caption);
+  color: var(--zs-text-3);
+}
+.cell-status-ok {
+  color: var(--zs-success);
+}
+.cell-delta {
+  font-size: var(--zs-font-title);
+  font-weight: 600;
+  color: var(--zs-text-2);
+  flex-shrink: 0;
+}
+.cell-delta-plus {
+  color: var(--zs-success);
+}
+.list-more {
+  padding: 24rpx;
+}

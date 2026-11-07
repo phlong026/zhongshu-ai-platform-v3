@@ -1,4 +1,4 @@
-<view wx:if="{{!hidden}}" class="tabbar">
+<view wx:if="{{!hidden}}" class="tabbar zs-theme">
   <button wx:for="{{tabs}}" wx:key="key" class="tab {{selected === item.index ? 'active' : ''}}" data-index="{{item.index}}" bindtap="switchTab" hover-class="pressed" aria-label="{{item.text}}">
     <image class="tab-icon {{item.icon||item.key}} {{item.customIcon&&selected!==item.index?'muted-icon':''}}" src="{{item.customIcon||('/assets/tab-'+(item.icon||item.key)+(selected===item.index?'-active':'')+'.png')}}" mode="aspectFit" />
     <text>{{item.text}}</text>

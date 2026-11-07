@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const root = path.resolve(__dirname, '..');
+require('./verify-wxss-comments.cjs').verifyDirectory(path.join(root, 'miniprogram'));
 const wechatProject = require('./verify-wechat-project.cjs')(root);
 const packageResources = require('./verify-package-resources.cjs')(root);
 const mini = path.join(root, 'miniprogram');
@@ -19,7 +20,7 @@ function walk(dir) {
     if (file.endsWith('.json')) { JSON.parse(fs.readFileSync(file, 'utf8')); json++; }
     if(file.endsWith('.wxml')) for(const binding of fs.readFileSync(file,'utf8').matchAll(/\{\{[\s\S]*?\}\}/g)) if(/&(?:amp|lt|gt|quot);/.test(binding[0])) throw Error('WXML expression contains HTML entity rejected by WeChat compiler: '+file+' '+binding[0]);
     if (/\.(?:wxml|js)$/.test(file)) {
-      for (const match of fs.readFileSync(file, 'utf8').matchAll(/\/(?:pages\/(?:workflow|build|account|admin|engineering)\/)?assets\/[\w-]+\.(?:png|jpg|woff|ttf)/g)) {
+      for (const match of fs.readFileSync(file, 'utf8').matchAll(/\/(?:pages\/(?:workflow|build|account|admin|engineering|design)\/)?assets\/[\w-]+\.(?:png|jpg|woff|ttf)/g)) {
         if (!fs.existsSync(path.join(mini, match[0].slice(1)))) throw new Error('Missing asset: ' + match[0]);
       }
     }

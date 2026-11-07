@@ -1,0 +1,14 @@
+@import "../../styles/component-tokens.wxss";
+.search-box{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:74rpx;border-radius:40rpx}
+.search-icon{width:34rpx;height:34rpx;flex-shrink:0}
+input{flex:1;min-width:0;height:58rpx;font-size:var(--zs-font-body);line-height:40rpx}
+.search-placeholder{color:var(--zs-text-3)}
+.search-clear{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:52rpx;height:60rpx;margin:0;padding:0;background:transparent}
+.search-clear::after{border:0}
+.search-clear image{width:28rpx;height:28rpx}
+.business{gap:20rpx;padding:0 28rpx;margin:7rpx 0 17rpx;border:4rpx solid var(--zs-card)}
+.business input{height:54rpx;font-size:var(--zs-font-body)}
+.engineering{gap:18rpx;flex:1;padding:0 22rpx;background:var(--zs-card);border:1rpx solid #e7e5e1}
+.engineering .search-clear{width:44rpx}
+.engineering .search-clear image{width:30rpx;height:30rpx}
+.management{gap:16rpx;padding:0 22rpx;margin-bottom:20rpx;background:var(--zs-card);border:1rpx solid #e7e5e1}

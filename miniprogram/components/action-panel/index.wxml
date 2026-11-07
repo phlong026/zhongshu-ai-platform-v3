@@ -1,10 +1,11 @@
-<view wx:if="{{panel}}" class="overlay {{workbench?'workbench-panel':''}}" bindtap="close" catchtouchmove="noop">
+<view wx:if="{{panel}}" class="overlay {{workbench?'workbench-panel':''}} zs-theme" bindtap="close" catchtouchmove="noop">
   <view class="sheet" catchtap="noop">
     <view class="sheet-head"><text>{{panel.title}}</text><button class="close" bindtap="close" aria-label="关闭">关闭</button></view>
     <scroll-view scroll-y class="sheet-body">
-      <image wx:if="{{panel.image}}" class="hero" src="{{panel.image}}" mode="widthFix" />
+      <image wx:if="{{panel.image || panel.src}}" class="hero" src="{{panel.image || panel.src}}" mode="widthFix" />
       <view wx:if="{{panel.summary}}" class="summary">{{panel.summary}}</view>
-      <text wx:if="{{panel.description}}" class="description">{{panel.description}}</text>
+      <text wx:if="{{panel.description || panel.text}}" class="description">{{panel.description || panel.text}}</text>
+      <text wx:if="{{panel.error}}" class="panel-error" role="alert">{{panel.error}}</text>
       <view wx:for="{{panel.items}}" wx:key="title" class="list-item">
         <image wx:if="{{item.image}}" src="{{item.image}}" class="list-image" mode="aspectFill" />
         <view class="list-info"><text class="item-title">{{item.title}}</text><text class="item-desc">{{item.desc}}</text></view><text wx:if="{{item.badge}}" class="badge">{{item.badge}}</text>
@@ -15,6 +16,6 @@
         <input wx:else class="input" placeholder="{{item.placeholder}}" type="{{item.type || 'text'}}" data-key="{{item.key}}" bindinput="input" maxlength="100" />
       </view>
     </scroll-view>
-    <button class="confirm" bindtap="submit" hover-class="pressed">{{panel.confirm || '确定'}}</button>
+    <button class="confirm" bindtap="submit" hover-class="pressed">{{panel.confirm || (panel.type ? '确认' : '确定')}}</button>
   </view>
 </view>

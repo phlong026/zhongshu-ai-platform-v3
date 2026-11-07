@@ -1,0 +1,5 @@
+<view class="search-box {{variant}} zs-theme">
+  <image class="search-icon" src="{{icon}}" mode="aspectFit"/>
+  <input value="{{value}}" bindinput="input" placeholder="{{placeholder}}" placeholder-class="search-placeholder" confirm-type="search" maxlength="{{maxlength}}" aria-label="{{ariaLabel}}"/>
+  <button wx:if="{{clearable&&value}}" class="search-clear" bindtap="clear" aria-label="清空搜索"><image src="{{clearIcon}}" mode="aspectFit"/></button>
+</view>

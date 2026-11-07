@@ -2,7 +2,7 @@ const A = require('../../utils/account');
 const N = require('../../utils/organization');
 const X = require('../../utils/access');
 
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = require('../../utils/clone');
 const ACTIONS = ['management-company', 'management-assignments', 'approval-settings'];
 const ASSIGNMENTS = [
   { id: 'sales', label: '业务默认经办人', role: 'sales', orgTypes: ['store'] },

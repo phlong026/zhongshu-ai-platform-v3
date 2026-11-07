@@ -2,6 +2,7 @@ const assert = require('assert/strict');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const requirePage = require('node:module').createRequire(path.join(__dirname, '../miniprogram/pages/collaboration/index.js'));
 
 function page() {
   let definition, listener, navigated = '', pending = false, stops = 0;
@@ -11,7 +12,7 @@ function page() {
     command: async () => ({ synchronized: false, refreshError: '服务端已保存，正在重新同步' })
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../miniprogram/pages/collaboration/index.js'), 'utf8'), {
-    require: () => ({ createClient: () => client }), Page: value => { definition = value; },
+    require: name => name === './client' ? { createClient: () => client } : requirePage(name), Page: value => { definition = value; },
     getApp: () => ({ globalData: { windowInfo: { statusBarHeight: 20 } } }),
     wx: { navigateTo: options => { navigated = options.url; } }
   });
@@ -28,6 +29,11 @@ const snapshot = {
 (async () => {
   const valid = page();
   valid.value.onLoad({ customerId: 'allowed-project' });
+  valid.value.apply({ ...snapshot, tasks: [
+    { id: 'old', triggeredAt: '2026-10-29T00:00:00Z' },
+    { id: 'new', triggeredAt: '2026-10-30T00:00:00Z' }
+  ] });
+  assert.deepEqual(Array.from(valid.value.data.tasks, row => row.id), ['new', 'old']);
   valid.value.apply(snapshot);
   assert.equal(valid.value.data.screen, 'project', '通知深链须在服务端作用域快照就绪后打开项目');
   assert.equal(valid.value.data.activeProject.id, 'allowed-project');

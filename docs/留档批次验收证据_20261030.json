@@ -1,0 +1,287 @@
+{
+  "date": "2026-10-30",
+  "codeRevision": "663bf6baedef01bde52e60253e59282b1604688c",
+  "root": "/Users/honor.pei/Documents/企业FDE项目/zhongshu-ai-platform-v3",
+  "branch": "feat/flow-consistency-remediation-20261029",
+  "flow": {
+    "result": "passed",
+    "startedAt": "2026-10-29T16:30:57.125Z",
+    "checks": [
+      {
+        "name": "留档批次与绩效任务回归",
+        "command": "npm run check:retained-batches",
+        "result": "passed",
+        "elapsedMs": 2119,
+        "log": "01.log"
+      },
+      {
+        "name": "业务与跨模块回归",
+        "command": "npm run check:business:simplified",
+        "result": "passed",
+        "elapsedMs": 12926,
+        "log": "02.log"
+      },
+      {
+        "name": "管理四页回归",
+        "command": "npm run check:owner:workbench",
+        "result": "passed",
+        "elapsedMs": 5185,
+        "log": "03.log"
+      },
+      {
+        "name": "管理P0缺口",
+        "command": "node scripts/verify-owner-p0-completion.cjs",
+        "result": "passed",
+        "elapsedMs": 193,
+        "log": "04.log"
+      },
+      {
+        "name": "管理模块完整回归",
+        "command": "npm run check:management:complete",
+        "result": "passed",
+        "elapsedMs": 11860,
+        "log": "05.log"
+      },
+      {
+        "name": "财务页面布局",
+        "command": "node scripts/verify-finance-layout.cjs",
+        "result": "passed",
+        "elapsedMs": 134,
+        "log": "06.log"
+      },
+      {
+        "name": "工程纠错",
+        "command": "node scripts/verify-engineering-record-corrections.cjs",
+        "result": "passed",
+        "elapsedMs": 740,
+        "log": "07.log"
+      },
+      {
+        "name": "工程权限及状态约束",
+        "command": "node scripts/verify-engineering-records-guards.cjs",
+        "result": "passed",
+        "elapsedMs": 257,
+        "log": "08.log"
+      },
+      {
+        "name": "历史与六角色模拟数据",
+        "command": "npm run check:demo-data",
+        "result": "passed",
+        "elapsedMs": 220,
+        "log": "09.log"
+      },
+      {
+        "name": "六角色登录与迁移",
+        "command": "npm run check:demo-login",
+        "result": "passed",
+        "elapsedMs": 496,
+        "log": "10.log"
+      },
+      {
+        "name": "六角色连续业务与分支",
+        "command": "node scripts/verify-six-role-flow.cjs",
+        "result": "passed",
+        "elapsedMs": 3025,
+        "log": "11.log"
+      },
+      {
+        "name": "预算导出与历史只读导航",
+        "command": "node scripts/verify-navigation-current-policy.cjs",
+        "result": "passed",
+        "elapsedMs": 163,
+        "log": "12.log"
+      },
+      {
+        "name": "设计跨设备模拟服务",
+        "command": "npm run check:design-collaboration",
+        "result": "passed",
+        "elapsedMs": 5733,
+        "log": "13.log"
+      },
+      {
+        "name": "待办衔接",
+        "command": "npm run check:business:todos",
+        "result": "passed",
+        "elapsedMs": 2623,
+        "log": "14.log"
+      },
+      {
+        "name": "工程逐步入口连通",
+        "command": "node scripts/walk-main-chain.cjs --depth=4 --out=qa/full-flow-acceptance-20261023/engineering-navigation",
+        "result": "passed",
+        "elapsedMs": 96051,
+        "log": "15.log"
+      },
+      {
+        "name": "六角色入口遍历",
+        "command": "node scripts/crawl-navigation.cjs --strict --out=qa/full-flow-acceptance-20261023/role-navigation",
+        "result": "passed",
+        "elapsedMs": 116521,
+        "log": "16.log"
+      },
+      {
+        "name": "全角色工作台页面",
+        "command": "node scripts/verify-franchise-showcase.cjs",
+        "result": "passed",
+        "elapsedMs": 239,
+        "log": "17.log"
+      },
+      {
+        "name": "展示文案",
+        "command": "npm run check:visible-copy",
+        "result": "passed",
+        "elapsedMs": 653,
+        "log": "18.log"
+      },
+      {
+        "name": "项目静态与包检查",
+        "command": "npm run check",
+        "result": "passed",
+        "elapsedMs": 288,
+        "log": "19.log"
+      },
+      {
+        "name": "生产依赖漏洞",
+        "command": "npm audit --omit=dev --audit-level=high",
+        "result": "passed",
+        "elapsedMs": 294,
+        "log": "20.log"
+      }
+    ],
+    "finishedAt": "2026-10-29T16:35:16.856Z"
+  },
+  "static": {
+    "result": "passed",
+    "appid": "wxe584f6fad7b54487",
+    "wxmlChecked": 58,
+    "nativePages": 34,
+    "jsChecked": 169,
+    "jsonChecked": 56,
+    "assetsChecked": 161,
+    "packageBytes": 6833403,
+    "mainBytes": 1748735,
+    "ignoredFiles": [
+      "assets/manifest.json",
+      "assets/studio-record-cover.jpg",
+      "assets/studio-video-play.png",
+      "assets/avatar-profile.jpg",
+      "assets/studio-button-surface.jpg",
+      "assets/studio-channels.jpg",
+      "assets/studio-check-brown.png",
+      "assets/studio-check-empty.png",
+      "assets/studio-control-play.png",
+      "assets/studio-digital-presenter.jpg",
+      "assets/studio-douyin.jpg",
+      "assets/studio-edit.png",
+      "assets/studio-error.png",
+      "assets/studio-fullscreen.png",
+      "assets/studio-ip.png",
+      "assets/studio-play.png",
+      "assets/studio-portrait.jpg",
+      "assets/studio-refresh.png",
+      "assets/studio-save.png",
+      "assets/studio-section-mark.png",
+      "assets/studio-spinner.png",
+      "assets/studio-success-large.png",
+      "assets/studio-success.png",
+      "assets/studio-task-error.png",
+      "assets/studio-task-success.png",
+      "assets/studio-voice.png",
+      "assets/studio-volume.png",
+      "assets/studio-warning.png"
+    ],
+    "ignoredBytes": 262025,
+    "subPackages": {
+      "collaboration-simulation": 24058,
+      "design-workflow": 235217,
+      "business-workflow": 1822601,
+      "engineering-workflow": 1136277,
+      "account-workflow": 998208,
+      "management-workflow": 492998,
+      "growth-workflow": 11576,
+      "studio-workflow": 333502,
+      "creation-workflow": 13221,
+      "ai-video-workflow": 17010
+    }
+  },
+  "productionAudit": {
+    "result": "passed",
+    "vulnerabilities": 0
+  },
+  "developmentAudit": {
+    "info": 0,
+    "low": 1,
+    "moderate": 6,
+    "high": 2,
+    "critical": 3,
+    "total": 12
+  },
+  "native": {
+    "result": "passed",
+    "errors": [],
+    "sourceSynced": true,
+    "evidenceType": "微信开发者工具原生编译与隔离夹具渲染，不代替真实设备、真实后端或支付验收",
+    "screens": [
+      {
+        "name": "business.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/business.png",
+        "sha256": "66a1ba9263bf0e51d784d1e6817aba4a8359a857646557081e4dff6678bfd74e"
+      },
+      {
+        "name": "commission-budget.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/commission-budget.png",
+        "sha256": "d2906567803ed665aef0f343181be8cb595af3ce96747e6b527fa3178a34edda"
+      },
+      {
+        "name": "design.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/design.png",
+        "sha256": "c42bea4581de4004e0d214b0806aee94289378d5f00288535d26a4d1779d9888"
+      },
+      {
+        "name": "engineering.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/engineering.png",
+        "sha256": "6f6701b13ec61fded5eedc518e88a142b1f8546ff0756ac27c208dc70bcf164f"
+      },
+      {
+        "name": "finance-books.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/finance-books.png",
+        "sha256": "e14bbcc65c070e40a506ba151f084f4474b8466a05f6fe54bfc6f02b091661a0"
+      },
+      {
+        "name": "finance.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/finance.png",
+        "sha256": "56fe8d6df28ba9c288e134b9cb2efe90545b2c13d78b560a12679aa237be4aa6"
+      },
+      {
+        "name": "operations.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/operations.png",
+        "sha256": "61c1691b612bc1b545d749f21624a1c32ab125cab2443bbaccbea410fe392dac"
+      },
+      {
+        "name": "owner.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/owner.png",
+        "sha256": "2b9969a0234d3189f9a67a63d9a8dd0027933d670ccf1117d1fdb12114e47b2f"
+      },
+      {
+        "name": "tasks-archive.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/tasks-archive.png",
+        "sha256": "c8c6e8225e8a52579d417ae6d2acfbecf406ae56810e30b6a2c01f4c8d81d2eb"
+      },
+      {
+        "name": "tasks-boss.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/tasks-boss.png",
+        "sha256": "89a9c61a6941b57f1d7c13b95b8edc53eaa1dff98c7307d08b213577dde30681"
+      },
+      {
+        "name": "tasks-person.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/tasks-person.png",
+        "sha256": "abbb51e320bfb60f65425195775e62fd317d65318e7a2b0dc5c13404a831d534"
+      },
+      {
+        "name": "tasks-staff.png",
+        "path": ".tools/remediation-continuation-20261029/final-20261030/tasks-staff.png",
+        "sha256": "a97ee8801a309a5f58e1d154c00e9cd96d4b16e1559c794323440e059816636c"
+      }
+    ]
+  }
+}

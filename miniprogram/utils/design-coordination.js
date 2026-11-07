@@ -1,5 +1,5 @@
 // Design payment and delivery follow the original commission independently of contract display.
-const copy=x=>JSON.parse(JSON.stringify(x)),last=rows=>rows?.[rows.length-1]||null;
+const copy=require('./clone'),last=rows=>rows?.[rows.length-1]||null;
 const first=c=>c.request?.flow==='design-first';
 function basis(c){
  const b=last(c.budgets),p=b?.parameters;

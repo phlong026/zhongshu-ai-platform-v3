@@ -1,0 +1,8 @@
+@import "../../styles/component-tokens.wxss";
+/* Self-contained: component styles do not inherit app.wxss. Tokens follow app.wxss (var(--zs-brand) primary, var(--zs-brand-press) accent). */
+.login-guide { display: flex; flex-direction: column; gap: 20rpx; padding: 32rpx 24rpx; }
+.login-guide-title { font-family:"Songti SC", "STSong", "SimSun", serif; font-weight: 700; font-size:var(--zs-font-title); line-height: 44rpx; letter-spacing: 1rpx; }
+.login-guide-desc { font-size:var(--zs-font-body); line-height: 44rpx; color: var(--zs-text-3); }
+.login-guide-primary { width: 100%; margin: 8rpx 0 0; min-height: 88rpx; line-height: 88rpx; background: var(--zs-brand); color: #fffaf3; border-radius: 20rpx; font-size:var(--zs-font-body); }
+.login-guide-home { width: 100%; min-height: 88rpx; line-height: 88rpx; background: transparent; color: var(--zs-brand-press); border: 1rpx solid #d8cdb8; border-radius: 20rpx; font-size:var(--zs-font-body); }
+.login-guide-pressed { opacity: 0.8; }

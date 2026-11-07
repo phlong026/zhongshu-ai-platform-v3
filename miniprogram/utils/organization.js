@@ -8,7 +8,7 @@ function navigation(c){
  const guest=!c.loggedIn,boss=['boss','owner'].includes(c.role),canBusiness=c.active&&(boss||['sales','sales-lead','hq-design-admin'].includes(c.role)),canEngineering=c.active&&(boss||['engineer','project-manager'].includes(c.role)),canManagement=c.active&&(boss||['finance','finance-lead'].includes(c.role)),homeTab=home(c),homeTitle={business:c.orgType==='headquarters'?'设计工作台':'业务工作台',engineering:'工程工作台',management:['finance','finance-lead'].includes(c.role)?'财务工作台':'管理工作台',profile:'我的'}[homeTab];
  const base=[{key:'home',text:'首页',index:0},{key:'business',text:!guest&&c.orgType==='headquarters'&&!boss?'设计':'业务',index:1},{key:'engineering',text:'工程',index:2},{key:'management',text:!guest&&['finance','finance-lead'].includes(c.role)?'财务':'管理',index:3},{key:'profile',text:'我的',index:4}];
  let tabs;
- if(guest)tabs=base;
+ if(guest)tabs=[base[0],{key:'account',text:'登录',icon:'profile',index:4,url:'/pages/account/index?view=login',native:false}];
  else if(!c.active)tabs=[base[4]];
  else if(boss)tabs=[['home','工作台','home','/pages/admin/home/index',false],['business','业务','business','/pages/business/index',true],['engineering','工程','engineering','/pages/engineering/index',true],['profile','我的','profile','/pages/admin/profile/index',false]].map((t,i)=>({key:'owner-'+t[0],text:t[1],icon:t[2],index:10+i,url:t[3],native:t[4]}));
  else if(['sales','sales-lead'].includes(c.role))tabs=[{key:'business',text:'首页',index:1,icon:'home'},{key:'creation',text:'创作',index:5,icon:'business',native:false},{key:'design',text:'方案',index:6,customIcon:'/assets/home-design-icon.png',native:false},{key:'customers',text:'客户',index:7,customIcon:'/assets/team.png',native:false},base[4]];
@@ -28,4 +28,7 @@ function defaultAssignee(book, department) {
  const id=book?.managementSettings?.assignments?.[department];
  return role&&id&&(book.staff||[]).some(person=>person.id===id&&person.active!==false&&staffHas(person,role))?id:'';
 }
-module.exports={defaultAssignee,defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation};
+// 后端任职（/platform/posts/mine 的 StaffPost：roleCode 与本文件角色 key 同名）→ 导航上下文。
+// 仅接管导航与落地页；业务数据可见性仍走 demo 上下文（业务数据后端化逐页接入后再收口）。
+const apiContext=p=>p?{loggedIn:true,active:true,role:p.roleCode,orgType:p.orgType,api:true,postId:p.postId,teamId:p.teamId||null,lead:!!p.lead}:null;
+module.exports={defaultAssignee,defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation,apiContext};

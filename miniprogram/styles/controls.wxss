@@ -1,0 +1,69 @@
+/* Shared appearance only. Page styles keep layout and business-specific controls. */
+.page button.primary.primary,
+.sales-page button.primary.primary,
+.workflow button.primary.primary,
+.account button.solid.solid,
+.admin button.solid.solid,
+.sheet button.solid.solid,
+.engineering-desk button.eng-primary.eng-primary,
+button.commission-primary.commission-primary{display:flex;align-items:center;justify-content:center;min-height:var(--zs-control-height);height:auto;padding:20rpx 22rpx;border:1rpx solid var(--zs-brand);border-radius:var(--zs-control-radius);background:var(--zs-brand);color:var(--zs-card);font-size:var(--zs-font-emphasis);font-weight:500;line-height:42rpx;text-align:center;white-space:normal;overflow-wrap:anywhere;gap:10rpx}
+
+.page button.primary.primary:active,
+.sales-page button.primary.primary:active,
+.workflow button.primary.primary:active,
+.account button.solid.solid:active,
+.admin button.solid.solid:active,
+.sheet button.solid.solid:active,
+.engineering-desk button.eng-primary.eng-primary:active,
+button.commission-primary.commission-primary:active{background:var(--zs-brand-press);border-color:var(--zs-brand-press)}
+
+.page button.primary.primary[disabled],
+.sales-page button.primary.primary[disabled],
+.workflow button.primary.primary[disabled],
+.account button.solid.solid[disabled],
+.account button.solid.solid.is-disabled,
+.admin button.solid.solid[disabled],
+.admin button.solid.solid.is-disabled,
+.sheet button.solid.solid[disabled],
+.sheet button.solid.solid.is-disabled,
+.engineering-desk button.eng-primary.eng-primary[disabled],
+button.commission-primary.commission-primary[disabled]{background:var(--zs-line);border-color:var(--zs-line);color:var(--zs-text-3);opacity:1}
+
+/* Equal-width segmented tabs. */
+.account .seg.seg,
+.admin .tabs.tabs,
+.workflow .tabs.tabs,
+.build.build .tabs.tabs,
+.studio-page .studio-tabs.studio-tabs{display:flex;align-items:center;gap:6rpx;min-height:88rpx;padding:6rpx;border:1rpx solid var(--zs-line);border-radius:14rpx;background:var(--zs-bg);overflow:hidden}
+.account .seg.seg>button,
+.admin .tabs.tabs>button,
+.workflow .tabs.tabs>button,
+.build.build .tabs.tabs>button,
+.studio-page .studio-tabs.studio-tabs>button{display:flex;align-items:center;justify-content:center;flex:1;min-width:0;min-height:76rpx;padding:10rpx 12rpx;border:0;border-radius:10rpx;color:var(--zs-text-2);font-size:var(--zs-font-body);line-height:38rpx}
+.account .seg.seg>.active,
+.admin .tabs.tabs>.active,
+.workflow .tabs.tabs>.active,
+.build.build .tabs.tabs>.active,
+.studio-page .studio-tabs.studio-tabs>.active{background:var(--zs-card);color:var(--zs-brand);font-weight:600;box-shadow:var(--zs-shadow)}
+
+/* Horizontally scrollable filter pills. */
+.account .line-tabs.line-tabs,
+.workflow .line-tabs.line-tabs,
+.build.build .filters.filters,
+.engineering-desk .eng-filters.eng-filters,
+.sales-page .customer-work-filters.customer-work-filters,
+.commission-page .admin-filters.admin-filters{display:flex;gap:12rpx;overflow-x:auto;background:transparent;border:0}
+.account .line-tabs.line-tabs>button,
+.workflow .line-tabs.line-tabs>button,
+.build.build .filters.filters>button,
+.engineering-desk .eng-filters.eng-filters>button,
+.engineering-desk .eng-filters.eng-filters>picker,
+.sales-page .customer-work-filters.customer-work-filters>button,
+.commission-page .admin-filters.admin-filters>button{display:flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:64rpx;padding:10rpx 20rpx;border:1rpx solid var(--zs-line);border-radius:999rpx;background:var(--zs-bg);color:var(--zs-text-2);font-size:var(--zs-font-meta);line-height:36rpx;white-space:nowrap}
+.account .line-tabs.line-tabs>.active,
+.workflow .line-tabs.line-tabs>.active,
+.build.build .filters.filters>.active,
+.engineering-desk .eng-filters.eng-filters>.selected,
+.sales-page .customer-work-filters.customer-work-filters>.active,
+.sales-page .customer-work-filters.customer-work-filters>.selected,
+.commission-page .admin-filters.admin-filters>.active{background:var(--zs-brand);border-color:var(--zs-brand);color:var(--zs-card)}

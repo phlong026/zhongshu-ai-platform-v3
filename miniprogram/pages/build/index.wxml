@@ -29,7 +29,7 @@
  </view>
 </template>
 <view class="build view-{{view}} {{header}} {{modal?'modal-open':''}}">
- <business-header id="subpage-header" title="{{title}}" home="engineering"/>
+ <build-header id="subpage-header" title="{{title}}" home="engineering"/>
  <view class="body"><view wx:if="{{canManageTasks}}" class="build-utilities"><button class="build-utility" bindtap="taskAccess">协作授权<view class="chevron"/></button></view>
   <view wx:if="{{missing}}" class="card empty">{{error}}<view class="page-actions"><button class="btn" data-view="projects" bindtap="go">返回我的项目</button></view></view>
   <block wx:elif="{{view==='projects'}}">

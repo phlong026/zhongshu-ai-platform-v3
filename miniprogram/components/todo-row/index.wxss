@@ -1,0 +1,14 @@
+@import "../../styles/component-tokens.wxss";
+.todo-row{display:flex;align-items:center;gap:16rpx;padding:18rpx 0;min-height:112rpx;border-bottom:1rpx solid #ebe7e2}
+.todo-row.last{border:0;padding-bottom:4rpx}
+.todo-icon{width:74rpx;height:74rpx;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#faf6ef;border-radius:12rpx}
+.todo-icon>image{width:52rpx;height:52rpx}
+.todo-copy{flex:1;min-width:0}
+.todo-title{display:block;font-size:var(--zs-font-body);font-weight:500;line-height:38rpx}
+.todo-note{display:flex;align-items:center;gap:8rpx;margin-top:4rpx;font-size:var(--zs-font-caption);line-height:34rpx;color:var(--zs-text-3)}
+.todo-note image{width:22rpx;height:22rpx;flex-shrink:0}
+button{display:flex;align-items:center;justify-content:center;min-width:112rpx;min-height:68rpx;margin:0;padding:0 18rpx;border-radius:12rpx;font-size:var(--zs-font-meta);line-height:34rpx}
+button::after{border:0}
+.primary{background:var(--zs-brand);color:#fffaf3}
+.outline{border:1rpx solid var(--zs-brand);background:transparent;color:var(--zs-brand)}
+.pressed{opacity:.72}
