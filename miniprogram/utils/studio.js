@@ -15,26 +15,11 @@ if (!Number.isFinite(date.getTime())) return '时间未记录';
 const pad = n => String(n).padStart(2, '0');
 return (date.getMonth() + 1) + '月' + date.getDate() + '日 ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
 }
-const title = '二层乡墅，怎样住得舒适';
-const original = '盖一栋二层乡墅，先想清楚家人怎样生活。\n客厅的采光、厨房的位置，都影响日常。\n别只看外观，住起来舒服才重要。';
-const script = '想把二层乡墅住得舒适，先从家人的日常出发。\n客厅留足采光，餐厨动线顺畅，卧室兼顾安静通风。\n庭院大小适合打理，比一味求大更重要。\n把居住人数和生活习惯告诉我，一起梳理适合的建房思路。';
+const title = '';
+const original = '';
+const script = '';
 function initial() {
-const now = Date.parse('2026-10-17T10:45:00+08:00');
-return {
-version: 3, title, original, script: '',
-tasks: [
-{ id: 'task-progress', title: '乡墅厨房怎么布局', status: 'generating', saved: false, progress: 63 },
-{ id: 'task-complete', title, status: 'completed', saved: false, progress: 100 },
-{ id: 'task-retry', title: '庭院设计的三个细节', status: 'save-failed', saved: false, progress: 100 }
-].map((task, i) => Object.assign({ kind: 'digital', script, demo: true, example: true, createdAt: now - (i + 1) * 60000, configuration: { actor: '李顾问', voice: '李顾问原声' } }, task)),
-records: [
-{ id: 'record-progress', title, platform: 'channels', account: '众墅之家 · 乡墅设计', time: '2026-10-17 10:40', status: 'publishing' },
-{ id: 'record-success', title, platform: 'douyin', account: '众墅之家 · 建房顾问', time: '2026-10-17 10:32', status: 'published' },
-{ id: 'record-verify', title, platform: 'channels', account: '众墅之家 · 乡墅设计', time: '2026-10-16 16:20', status: 'verify' },
-{ id: 'record-error', title, platform: 'douyin', account: '众墅之家 · 建房顾问', time: '2026-10-16 15:10', status: 'failed' }
-].map((record, i) => Object.assign({}, record, { taskId: 'task-complete', kind: 'digital', cover: '/assets/studio-portrait-wide.jpg', publishText: script, tags: '#乡墅设计 #农村建房', demo: true, example: true, snapshotDate:'2026-10-17',createdAt:Date.parse(record.time.replace(' ','T')+':00+08:00')-60000, submittedAt:Date.parse(record.time.replace(' ','T')+':00+08:00')-60000, publishedAt:record.status==='published'?Date.parse(record.time.replace(' ','T')+':00+08:00'):null })),
-works: [], publishDrafts: {}
-};
+return { version: 3, title: '', original: '', script: '', tasks: [], records: [], works: [], publishDrafts: {} };
 }
 function storageKey(){const a=wx.getStorageSync(require('./storage-keys').account),s=a&&a.session;if(!s)return KEY+':guest';const raw=wx.getStorageSync(require('./storage-keys').management),book=raw&&(raw.companyId===s.companyId?raw:(raw.books||{})[s.companyId]),person=book&&(book.staff||[]).find(p=>p.id===(s.staffId||String(s.userId||'').replace(/^demo-/,'')));if(!Access.context().active||!Job.has(Access.context().role,'sales')||person&&person.active===false)return KEY+':disabled:'+s.companyId+':'+s.userId;return s.loggedIn&&s.userId==='demo-zhang'&&s.companyId==='quanzhou'?KEY:KEY+':'+(s.loggedIn?s.companyId+':'+s.userId:'guest');}
 function scopedKey(base){return base+storageKey().slice(KEY.length);}
@@ -53,26 +38,16 @@ state.publishDrafts = state.publishDrafts && typeof state.publishDrafts === 'obj
 if (state.publishDraft && state.publishDraft.workId && !state.publishDrafts[state.publishDraft.workId]) state.publishDrafts[state.publishDraft.workId] = clone(state.publishDraft);
 delete state.publishDraft;
 state.version = 3;state._scope=storageKey();
-state.tasks = state.tasks.map(task => Object.assign({}, task, { kind: task.kind || 'digital', script: typeof task.script === 'string' ? task.script : (['task-progress', 'task-complete', 'task-retry'].includes(task.id) ? script : ''), configuration: task.configuration || {}, demo: true }));
+state.tasks = state.tasks.map(task => Object.assign({}, task, { kind: task.kind || 'digital', script: typeof task.script === 'string' ? task.script : (['task-progress', 'task-complete', 'task-retry'].includes(task.id) ? script : ''), configuration: task.configuration || {} }));
 state.works = state.works.map(work => {
 const task = state.tasks.find(item => item.id === work.taskId);
-return Object.assign({}, work, { kind: work.kind || (task && task.kind) || '', image: work.image || imageFor(task || {}), demo: true });
+return Object.assign({}, work, { kind: work.kind || (task && task.kind) || '', image: work.image || imageFor(task || {}) });
 });
 return state;
 }
 function allowed(){return Access.context().active&&Job.has(Access.context().role,'sales');}
 function guard(){if(allowed())return true;wx.redirectTo({url:'/pages/account/index?view='+(Access.context().active?'access':'login')});return false;}
 function write(state,token) { const old=read();if(token!==AUTH&&['tasks','works','records'].some(k=>JSON.stringify(state[k])!==JSON.stringify(old[k])))throw Error('作品和发布状态只能通过对应办理动作更新'); if(!allowed())throw Error('当前人员未获创作授权');if(state._scope&&state._scope!==storageKey())throw Error('工作身份已变化，请重新打开本人创作');wx.setStorageSync(storageKey(), state); return state; }
-function createDemoTask(kind, description, configuration) {
-const state = read();
-const config = clone(configuration || {});if(!['ai','digital'].includes(kind)||!String(kind==='ai'?description:state.script).trim())throw Error('请填写生成内容');
-const count = (config.parameters || []).find(item => item.key === 'count');
-if (count && count.value !== '1 个') throw new Error('当前流程每次生成1个结果');
-const task = { id: uid('demo'), title: kind === 'ai' ? description.trim().slice(0, 28) : state.title, script: kind === 'ai' ? description : state.script, configuration: config, kind, status: 'generating', saved: false, progress: 0, demo: true, createdAt: Date.now() };
-task.contentSource=clone({extraction:state.extraction||null,rewrite:state.rewriteHistory?.at(-1)||null,optimization:state.copyOptimizations?.at(-1)||null});
-task.image = imageFor(task);
-state.tasks.unshift(task); write(state,AUTH); return task;
-}
 function completeTask(id) {
 const state = read(); const task = state.tasks.find(task => task.id === id);
 if (!task) throw new Error('任务不存在或已清理');
@@ -113,23 +88,7 @@ const a=Access.context();
 const record = { id: uid('demo-record'), workId, taskId: work.taskId, kind: work.kind, title: form.title.trim(), publishText: form.publishText.trim(), tags: String(form.tags || '').trim(), cover: form.cover || work.image, platform: account.platform, accountId: account.id, account: account.name, status: form.scheduled ? 'scheduled' : 'publishing', demo: true, scheduledAt: form.scheduled || '', createdAt: now, submittedAt: now, publishedAt: null, workSnapshot: clone(work),contentId:content.id,contentSignature:content.signature,publicationFlow:'direct-v1',companyId:a.companyId,teamId:a.teamId,authorId:a.staffId,authorPersonId:a.personId,authorName:a.name,publishedUrl:'',collection:{status:'awaiting-link',metrics:null} };
 state.records.unshift(record); write(state,AUTH);require('./growth').publishing(content.id,record.id);return { record, duplicate: false };
 }
-function demoPublicationUrl(id){
- const a=Access.context();if(!a.demo||!allowed())return '';
- const record=read().records.find(r=>r.id===id);
- if(!record?.demo||!['publishing','verify','scheduled','published'].includes(record.status))return '';
- return 'https://example.com/published/'+[a.companyId,a.staffId,record.id].map(encodeURIComponent).join('/');
-}
 function normalizePublishedUrl(value){const url=String(value||'').trim();if(!url)throw Error('请填写发布后的作品链接');if(url.length>2000||!/^(https?):\/\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d{1,5})?(?:[/?#][^\s<>]*)?$/i.test(url))throw Error('请输入有效的 http 或 https 作品链接');return url;}
-function confirmDemoPublication(id,publishedUrl){
- const before=read(),state=clone(before),r=state.records.find(r=>r.id===id),a=Access.context(),G=require('./growth');
- if(!r||!r.demo||!['publishing','verify','scheduled','published'].includes(r.status))throw Error('请选择本人有效的发布记录');
- const url=normalizePublishedUrl(publishedUrl);if(state.records.some(x=>x.id!==id&&x.publishedUrl===url))throw Error('此发布链接已登记到其他作品，请核对后填写');
- if(r.contentId){const c=G.load().contents.find(c=>c.id===r.contentId);G.assertPublish(c,a);if(c.signature!==r.contentSignature)throw Error('发布版本已变化，请重新打开原记录');}
- if(r.status==='published'&&r.publishedUrl===url)return r;
- const now=Date.now();r.linkHistory=(r.linkHistory||[]).concat({previousUrl:r.publishedUrl||'',publishedUrl:url,...Access.actor()});
- Object.assign(r,{status:'published',publishedAt:r.publishedAt||now,publishedUrl:url,linkRecordedAt:now,linkRecordedById:a.staffId,linkRecordedByName:a.name,companyId:r.companyId||a.companyId,authorId:r.authorId||a.staffId,authorName:r.authorName||a.name,collection:{status:'pending',sourceUrl:url,platform:r.platform,accountId:r.accountId,publicationId:r.id,contentId:r.contentId,workId:r.workId,publishedAt:r.publishedAt||now,registeredAt:now,metrics:null}});
- const growthBefore=wx.getStorageSync(G.KEY);try{write(state,AUTH);if(r.contentId)G.published(id);}catch(error){wx.setStorageSync(storageKey(),before);if(growthBefore)wx.setStorageSync(G.KEY,growthBefore);else wx.removeStorageSync(G.KEY);throw error;}return r;
-}
 function recentItems(state) {
 const list = [];
 const draft = wx.getStorageSync(scopedKey(require('./storage-keys').creationDraft));
@@ -153,4 +112,4 @@ const draft = wx.getStorageSync(scopedKey(require('./storage-keys').creationDraf
 if (!draft || !draft.text || (typeof draft.workingText === 'string' && draft.workingText !== draft.text)) return false;
 const state = read(); delete state.extraction;state.rewriteHistory=[];state.original = draft.text; state.script = draft.rewrittenText && draft.rewrittenText !== draft.text ? draft.rewrittenText : ''; state.title = draft.text.split('\n')[0].slice(0, 28); delete state.editorBuffer; write(state); return true;
 }
-module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, createDemoTask, completeTask, saveWork, createPublication, confirmDemoPublication, demoPublicationUrl, normalizePublishedUrl, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts };
+module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, completeTask, saveWork, createPublication,  normalizePublishedUrl, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts };

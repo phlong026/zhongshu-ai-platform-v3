@@ -1,14 +1,16 @@
 // 接收建档与工程分包共享原项目资料映射，主包不依赖工程页面。
-const X=require('./access'),Job=require('./organization'),B=require('./business'),D=require('./demo-catalog');
-const Seed=require('./engineering-seed'),{project}=Seed,clone=B.clone,assert=X.assert;
+const X=require('./access'),Job=require('./organization'),B=require('./business');
+const clone=B.clone,assert=X.assert;
+// 工程档案空模板（演示 seed 已随生产剔除移除；plan 节点由空数组起步）
+function project(values={}){return Object.assign({id:'',name:'',customer:'',city:'',manager:'',phone:'',area:'',floors:'',accepted:'',sample:false,sourceCustomerId:'',image:'',checks:[null,null,null,null,null,null],drawingVersion:'',documents:[],drawing:null,review:null,actualStart:null,plan:{version:1,nodes:[]},planSaved:false,planHistory:[],sends:[],materials:[],supplies:[],receipts:[],reships:[],inspections:[],rectifications:[],siteRecords:[],collections:[],payments:[],delivery:null,archived:false,events:[],drafts:{}},values);}
 const KEY=require('./storage-keys').engineering,latest=rows=>rows?.at(-1);
 function load(){
  const stored=wx.getStorageSync(KEY);
- if(!stored||stored.version!==1||!Array.isArray(stored.projects))return Seed();
+ if(!stored||stored.version!==1||!Array.isArray(stored.projects))return {version:1,projects:[]};
  const state=clone(stored);
  for(const p of state.projects)if(!p.projectId){
-  const source=p.sourceCustomerId&&B.customer(p.sourceCustomerId),demo=p.sample&&Object.values(D.projects).find(x=>x.engineeringId===p.id);
-  p.projectId=source?.projectId||demo?.id||p.id;
+  const source=p.sourceCustomerId&&B.customer(p.sourceCustomerId);
+  p.projectId=source?.projectId||p.id;
  }
  return state;
 }

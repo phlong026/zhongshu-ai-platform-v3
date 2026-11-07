@@ -1,4 +1,4 @@
-const X=require('./access'),Demo=require('./demo-users');
+const X=require('./access');
 const KEY = require('./storage-keys').account;
 const clone = require('./clone');
 const stamp = () => new Date().toISOString();
@@ -8,21 +8,8 @@ function displayOrder(o){if(!o)return null;const Files=require('./sample-files')
 const chapters = ['找准乡墅客户的关注点', '提取参考视频文案', '用AI改写获客文案', '把文案生成数字人口播', '添加封面与发布文案', '发布作品与记录线索', '复盘数据与优化内容', '完整实操与学习回顾'];
 const courseImage = '/assets/account-course.jpg';
 const planImage = '/pages/account/assets/service-plan.jpg';
-function seed() {
-return { version: 1, session: { loggedIn: false, staffId:'zhang', userId: 'demo-zhang', companyId: 'quanzhou', role: 'sales', demo: true }, profile: { name: '张业务', phone: '13800002688', avatar: '/assets/account-avatar.jpg' }, companies: [{ id: 'quanzhou', name: '湖北加盟商', store: '湖北店', roles: ['sales'] }], learning: { 'ai-video': { completed: [0,1,2], current: 3 } }, messages: [
-{ id: 'msg-follow', type: '业务', title: '客户跟进提醒', description: '林女士的回访即将到期', date: '2026-10-18 09:20', read: false, route: 'customer', objectId: 'customer-lin' },
-{ id: 'msg-course', type: '学习', title: '学习提醒', description: 'AI短视频获客实战：继续学习第4节', date: '2026-10-18 08:30', read: false, route: 'course', objectId: 'ai-video' },
-{ id: 'msg-result', type: '业务', title: '绩效结果已发布', description: '2026年9月个人绩效结果可查看', date: '2026-10-18 08:00', read: false, route: 'personal-performance', objectId: '2026-09' },
-{ id: 'msg-plan', type: '业务', title: '设计方案已更新', description: '陈先生项目有新的方案版本', date: '2026-10-17 16:40', read: true, route: 'customer', objectId: 'customer-chen' },
-{ id: 'msg-bind', type: '系统', title: '账号绑定成功', description: '微信已绑定当前账号', date: '2026-10-17 10:10', read: true, route: 'privacy' }
-].map(x=>Object.assign({companyId:'quanzhou',userId:'demo-zhang'},x)), feedback: [], favorites: [], drafts: {}, orders: [
-{ id:'service-store-v2',service:'store',store:'湖北店',name:'店招形象设计',status:'待确认',submitted:'2026-10-18',applicant:'张业务',plan:{version:2,image:planImage,name:'店招设计方案 V2',date:'2026-10-18',file:{name:'店招设计定稿_V2.pdf',sample:true}},events:[{text:'需求已受理',at:'2026-10-18 09:00'},{text:'方案 V2 已提交',at:'2026-10-18 14:00'}]},
-{id:'service-brand',service:'brand',store:'湖北店',name:'品牌宣传册设计',status:'待沟通',submitted:'2026-10-17',applicant:'张业务',events:[{text:'需求已提交',at:'2026-10-17 10:00'}]},
-{id:'service-showroom',service:'showroom',store:'湖北店',name:'展厅空间设计',status:'进行中',submitted:'2026-10-12',applicant:'张业务',events:[{text:'方案设计中',at:'2026-10-18 10:00'}]},
-{id:'service-card',service:'card',store:'湖北店',name:'名片设计',status:'已完成',submitted:'2026-10-08',applicant:'张业务',plan:{version:1,image:'/pages/account/assets/service-card.jpg',name:'名片定稿 V1',file:{name:'名片定稿.pdf',sample:true}},delivery:{version:1,files:[{name:'名片定稿.pdf',sample:true}],received:true},events:[{text:'交付文件已接收',at:'2026-10-12 10:00'}]}
-].map(x=>Object.assign({companyId:'quanzhou',userId:'demo-zhang',providerOrganizationId:'headquarters',providerAssignees:[]},x)) };
-}
-function load(){Demo.ensure();const value=wx.getStorageSync(KEY),s=value&&value.version===1?clone(value):seed();if(s.session.roleSchemaVersion!==5){s.session.role=({manager:'engineer','engineering-lead':'project-manager'})[s.session.role]||s.session.role;s.session.roleSchemaVersion=5;}if(s.session.loggedIn)for(const c of s.companies||[]){const person=X.rawBook(c.id)?.staff.find(p=>p.id===s.session.staffId);c.roles=person?.active===false?[]:(person?.roles||[]).filter(r=>require('./organization').enabled(c.type||(c.id==='headquarters'?'headquarters':'store'),r));}if(Demo.renameAccount(s)&&value)save(s);return s;}
+function emptyState(){return { version: 1, session: { loggedIn: false, staffId: '', userId: '', companyId: '', role: '', roleSchemaVersion: 5 }, profile: { name: '访客', phone: '', avatar: '/assets/account-avatar.jpg' }, companies: [], learning: {}, messages: [], feedback: [], favorites: [], drafts: {}, orders: [], procurements: [] };}
+function load(){const value=wx.getStorageSync(KEY),s=value&&value.version===1?clone(value):emptyState();if(s.session.roleSchemaVersion!==5){s.session.role=({manager:'engineer','engineering-lead':'project-manager'})[s.session.role]||s.session.role;s.session.roleSchemaVersion=5;}if(s.session.loggedIn)for(const c of s.companies||[]){const person=X.rawBook(c.id)?.staff.find(p=>p.id===s.session.staffId);c.roles=person?.active===false?[]:(person?.roles||[]).filter(r=>require('./organization').enabled(c.type||(c.id==='headquarters'?'headquarters':'store'),r));}return s;}
 function save(state){wx.setStorageSync(KEY,state);return state;}
 function mutate(fn){const s=clone(load());const result=fn(s);save(s);return result;}
 function company(s){return s.companies.find(c=>c.id===s.session.companyId)||null;}
@@ -62,4 +49,4 @@ o.events.push({text:{'demo-plan':'方案已提交','confirm-plan':'当前版本�
 }
 const services=[{id:'store',name:'店招形象设计',image:'/pages/account/assets/service-store.jpg',desc:'按需求报价'},{id:'showroom',name:'展厅空间设计',image:'/pages/account/assets/service-showroom.jpg',desc:'按需求报价'},{id:'brand',name:'品牌宣传册设计',image:'/pages/account/assets/service-brand.jpg',desc:'宣传册 · 名片 · 海报'},{id:'card',name:'名片设计',image:'/pages/account/assets/service-card.jpg',desc:'按需求报价'}];
 services.forEach(s=>{s.items=s.id==='store'?['店招视觉方案','尺寸与配色建议','定稿设计文件']:s.id==='showroom'?['展厅空间方案','布局与材料建议','定稿设计文件']:s.id==='brand'?['宣传册视觉方案','页数与版式建议','印刷设计文件']:['名片视觉方案','信息与版式核对','印刷设计文件'];s.photoLabel=s.id==='store'?'门头全景':s.id==='showroom'?'空间现场':'参考资料';});
-module.exports={courseChapters,logout,visible,access:X,KEY,localDate,displayTime,displayOrder,clone,seed,load,save,mutate,company,roles,permitted,scoped,markMessageRead,markAllMessagesRead,visibleOrders,order,draftKey,progress,chapters,courseImage,planImage,completeChapter,switchIdentity,submitRequest,transition,services};
+module.exports={courseChapters,logout,visible,access:X,KEY,localDate,displayTime,displayOrder,clone,load,save,mutate,company,roles,permitted,scoped,markMessageRead,markAllMessagesRead,visibleOrders,order,draftKey,progress,chapters,courseImage,planImage,completeChapter,switchIdentity,submitRequest,transition,services};

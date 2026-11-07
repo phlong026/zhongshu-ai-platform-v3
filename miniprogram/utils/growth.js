@@ -9,7 +9,7 @@ function canContent(r,a){return r.companyId===a.companyId&&(Job.has(a.role,'sale
 function canLead(r,a){return r.companyId===a.companyId&&(Job.has(a.role,'sales')&&r.ownerId===a.staffId||manages(r,a));}
 function load(){const a=X.context();if(!a.active||a.orgType!=='store'||!['sales','sales-lead','boss','owner'].includes(a.role))return {contents:[],leads:[]};const s=all();return {contents:s.contents.filter(r=>canContent(r,a)),leads:s.leads.filter(r=>canLead(r,a))};}
 function commit(s,type,id){s.events.push({type,id,...X.actor()});wx.setStorageSync(KEY,s);}
-function policy(a){return X.rawBook(a.companyId)?.contentPolicy||{accounts:[{id:'douyin-adviser',operators:['zhang','liu','sales-dual']},{id:'channels-design',operators:['zhang','liu','sales-dual']}]};}
+function policy(a){return X.rawBook(a.companyId)?.contentPolicy||{accounts:[]};}
 function accountAllowed(accountId,a){const p=X.rawBook(a.companyId)?.staff.find(p=>p.id===a.staffId),q=policy(a).accounts.find(q=>q.id===accountId);return Job.has(a.role,'sales')&&q&&(p?.publishAccountIds?p.publishAccountIds.includes(accountId):q.operators.includes(a.staffId));}
 function signature(pack){return JSON.stringify(pack);}
 function prepare(workId,f,account){
