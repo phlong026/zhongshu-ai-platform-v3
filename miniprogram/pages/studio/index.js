@@ -1,5 +1,4 @@
 const studio = require('../../utils/studio');
-const Demo=require('../../utils/creation-demo');
 const { unavailable, assets } = require('../../utils/creation');
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：七态映射/校验/降级）
 const contentApi=P.api;                                 // /franchise/content/** 契约层
@@ -13,11 +12,11 @@ failed: { label: '失败', icon: 'error', tone: 'red', action: '查看原因', n
 scheduled: { label: '待发布', icon: 'clock', tone: 'warm', action: '查看进度' }
 };
 Page({
-data: { showDemoBadge:false,
+data: { 
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
 ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
-tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,demoPublishedUrl:'',
+tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,tasksError:'',
 publishText: '想把二层乡墅住得舒适，先从家人的日常出发。\n采光、动线和通风，才是住得舒服的关键。',
 tags: '#乡墅设计  #农村建房', scheduled: '', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
 actor: '李顾问', voice: '李顾问原声', filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
@@ -29,36 +28,27 @@ this.options = options;
 const state = studio.read();
 this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: state.title, taskId: options.task || 'task-complete', recordId: options.record || 'record-success', workId: options.work || '' });
 if (view === 'result' && options.task) {
-const task = state.tasks.find(task => task.id === options.task);
-if (!task && http.token()) return this.loadApiResult(options.task); // 在线任务：本地无此任务时直取后端详情
-if (!task || task.status === 'generating') {
-const destination = task ? 'tasks' : 'works';
-this.setData({ view: destination, pageTitle: titles[destination] });
-wx.showToast({ title: task ? '任务尚未完成，请先查看进度' : '任务不存在或已清理', icon: 'none' });
-wx.redirectTo({ url: '/pages/studio/index?view=' + destination });
+if (http.token()) return this.loadApiResult(options.task); // 在线任务：直取后端详情（不回落本地演示任务）
+this.setData({ view: 'tasks', pageTitle: titles.tasks });
+wx.showToast({ title: '请先登录后查看任务', icon: 'none' });
+wx.redirectTo({ url: '/pages/studio/index?view=tasks' });
 return;
 }
-}
 if (view === 'publish') {
-const work = state.works.find(work => work.id === options.work);
-if (work) this.setData({ title: work.title, publishText: work.script || this.data.publishText });
-if (work) {
-this.setData({ cover: work.image });
-if (state.publishDrafts[work.id]) this.setData(state.publishDrafts[work.id]);
-} else if (options.work && http.token()) this.loadApiWork(options.work); // 在线作品：接口回读，缺失不拦截
+const draft = options.work && state.publishDrafts ? state.publishDrafts[options.work] : null; // 发布表单草稿（本地暂存，非演示集合）
+if (draft) this.setData(draft);
+if (options.work && http.token()) this.loadApiWork(options.work); // 在线作品：接口回读，缺失不拦截
 }
 if (view === 'remix' && state.rewriteSettings) this.setData(state.rewriteSettings);
 const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,scheduled:c.pack.scheduled,selectedAccount:studio.accounts.findIndex(a=>a.id===c.pack.accountId)});}
 this.refreshData();
 if(view==='receipt'){
-const demoPublishedUrl=studio.demoPublicationUrl(this.data.recordId);
-this.setData({demoPublishedUrl,publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||demoPublishedUrl});
-if(!this.data.detail&&http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} // 在线发布记录：回执页按后端数据渲染
+this.setData({publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||''});
+if(http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} // 在线发布记录：回执页按后端数据渲染
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
 onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); 
-  this.setData && this.setData({ showDemoBadge: require('../../utils/demo-badge').isDemoMode(this) }); // M11-T01：pages/studio 深度二级，原多退一级 MODULE_NOT_FOUND
   },
 onHide() { this.persistEditor(); },
 onUnload() { this.persistEditor(); if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); }, // 终止任务轮询（防 UI 长时间占锁）
@@ -77,38 +67,17 @@ state.publishDrafts[workId] = { title, publishText, tags, selectedAccount, sched
 }
 },
 refreshData() {
+if (http.token()) { // 仅在线路径：任务中心走后端列表；不装配本地演示 tasks/records/works
+if (['remix', 'digital'].includes(this.data.view)) { // 编辑器文案（草稿暂存键）仍回显
 const state = studio.read();
-if (['remix', 'digital'].includes(this.data.view)) this.setData({ title: state.title, original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), scriptLength: state.script.length, estimatedSeconds: Math.ceil(state.script.replace(/\s/g, '').length / 4) });
-const taskFilter = this.data.taskFilter, recordFilter = this.data.recordFilter;
-const tasks = state.tasks.filter(task => taskFilter === 0 || (taskFilter === 1 && task.status === 'generating') || (taskFilter === 2 && task.status === 'completed') || (taskFilter === 3 && task.status === 'save-failed')).map(task => Object.assign({}, task, { image: studio.imageFor(task), kindLabel: studio.kindLabel(task.kind) }));
-const decorateRecord = record => {
-const work = record.workSnapshot || state.works.find(item => item.id === record.workId);
-const task = state.tasks.find(item => item.id === record.taskId);
-const kind = record.kind || (work && work.kind) || (task && task.kind) || '';
-return Object.assign({}, record, statusInfo[record.status] || { label: '状态待确认', icon: 'warning', tone: 'yellow', action: '查看详情' }, { kindLabel: studio.kindLabel(kind), cover: record.cover || (work && work.image) || studio.imageFor(task || {}), time: (record.status === 'published' ? '发布 ' : '提交 ') + studio.formatTime(record.publishedAt || record.submittedAt || record.createdAt), timeLabel: record.scheduledAt ? '计划发布时间' : record.status === 'published' ? '发布时间' : '提交时间', displayTime: record.scheduledAt || studio.formatTime(record.publishedAt || record.submittedAt || record.createdAt), identifier: record.id });
-};
-const records = state.records.filter(record => recordFilter === 0 || (recordFilter === 1 && ['publishing', 'scheduled'].includes(record.status)) || (recordFilter === 2 && record.status === 'published') || (recordFilter === 3 && ['verify', 'failed'].includes(record.status))).map(decorateRecord);
-const activeTask = state.tasks.find(task => task.id === this.data.taskId) || (this.data.activeTask && this.data.activeTask.apiTask ? this.data.activeTask : null); // 在线任务结果页保留 API 回读的任务
-const detailRecord = state.records.find(record => record.id === this.data.recordId);
-const detail = detailRecord ? decorateRecord(detailRecord) : null;
-const work = state.works.find(item => item.id === this.data.workId);
-let invalidMessage = '';
-if (this.data.view === 'result' && !activeTask) invalidMessage = '任务不存在或已清理，请从任务中心重新选择。';
-if (['detail','receipt'].includes(this.data.view) && !detail && !(this.data.view === 'receipt' && this.receiptApi)) invalidMessage = '发布记录不存在或已清理，请返回发布记录。';
-if (this.data.view === 'publish' && !work && !this.data.publishOnline) invalidMessage = '作品不存在或已清理，请从我的作品重新选择。';
-const configuration = (activeTask && activeTask.configuration) || {};
-const params = configuration.parameters || [];
-const parameter = key => (params.find(item => item.key === key) || {}).value;
-const resultInfo = activeTask && activeTask.kind === 'ai'
-? [{ label: '分辨率', value: parameter('resolution') || '768P' }, { label: '画面比例', value: parameter('ratio') || '9:16' }]
-: [{ label: '人物', value: configuration.actor || '李顾问' }, { label: '声音', value: configuration.voice || '李顾问原声' }];
-const timeline = detailRecord ? [
-{ label: '作品已保存', time: studio.formatTime(detailRecord.workSnapshot && detailRecord.workSnapshot.savedAt) },
-{ label: '发布信息已保存', time: studio.formatTime(detailRecord.submittedAt || detailRecord.createdAt) },
-{ label: detailRecord.status === 'published' ? '发布链接已登记' : (statusInfo[detailRecord.status] || {}).label || '状态待确认', time: detailRecord.status === 'published' ? studio.formatTime(detailRecord.publishedAt) : '尚未完成' }
-] : [];
-this.setData({ extraction:state.extraction||null,rewriteVersion:(state.rewriteHistory[state.rewriteHistory.length-1]||{}).version||0,tasks, records, works: state.works, activeTask, saved: !!(activeTask && activeTask.saved), detail, resultInfo, invalidMessage, timeline, recent: studio.recentItems(state) });
-if (this.data.view === 'tasks' && http.token()) this.syncApiTasks(); // 在线：任务中心改后端任务列表（失败回退本地展示）
+this.setData({ title: state.title, original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), scriptLength: state.script.length, estimatedSeconds: Math.ceil(state.script.replace(/\s/g, '').length / 4), extraction: state.extraction || null, rewriteVersion: (state.rewriteHistory[state.rewriteHistory.length - 1] || {}).version || 0 });
+}
+if (this.data.view === 'tasks') this.syncApiTasks();
+return;
+}
+// 无 token：清空演示集合并提示登录（不回落本地数据）
+this.setData({ tasks: [], records: [], works: [], recent: [], activeTask: null, detail: null, tasksError: '', invalidMessage: '请先登录后使用创作中心' });
+return;
 },
 /** 在线任务列表：tasks.page 七态 → 页面四态（generating/completed/failed/uncertain），异常页签含 failed/uncertain */
 syncApiTasks() {
@@ -117,8 +86,8 @@ contentApi.tasks.page().then(rows => {
 if (this.data.view !== 'tasks') return;
 const mapped = P.rowsOf(rows).map(task => this.mapApiTask(task)).filter(Boolean);
 const tasks = mapped.filter(task => filter === 0 || (filter === 1 && task.status === 'generating') || (filter === 2 && task.status === 'completed') || (filter === 3 && task.status !== 'generating' && task.status !== 'completed'));
-this.setData({ tasks });
-}).catch(() => {}); // 拉取失败保留本地列表（demo 兜底不白屏）
+this.setData({ tasks, tasksError: '' });
+}).catch(() => { this.setData({ tasksError: '任务列表加载失败，请下拉重试', tasks: [] }); }); // 拉取失败：错误态 + 清空，不回落本地列表
 },
 /** 后端 TaskView → 本地任务形状（ID 一律不透明字符串；progress 用区间示意） */
 mapApiTask(task) {
@@ -167,25 +136,11 @@ this.setData({ script: state.script, scriptShort: state.script.split('\n').slice
 },
 regenerate() {
 if(this.data.rewriting)return;
-this.setData({rewriting:true,operationError:''});
 const onlineOriginal=String(this.data.original||'').trim();
-if(http.token()&&onlineOriginal)return this.regenerateOnline(onlineOriginal); // 在线：口播改写走后端（人设库匹配）
-try {
-this.attempt(()=>{
-const state=studio.read();
-state.original=String(this.data.original||'').trim();
-Demo.rewrite(state,{rewriteMode:this.data.rewriteMode,customIp:this.data.customIp,ip:this.data.ipOptions[this.data.ipIndex],requirement:this.data.requirement});
-state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,requirement:this.data.requirement};
-studio.write(state);
-const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);
-if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});
-this.setData({script:state.script,scriptShort:state.script.split('\n').slice(0,2).join('\n'),scriptLength:state.script.length,estimatedSeconds:Math.ceil(state.script.replace(/\s/g,'').length/4),rewriteVersion:state.rewriteHistory[state.rewriteHistory.length-1].version});
-wx.showToast({title:'二创已生成',icon:'none'});
-});
-} finally {
-this.setData({rewriting:false});
-this.scrollToCopy();
-}
+if(!http.token())return wx.showToast({title:'请先登录后再生成二创',icon:'none'}); // 无 token：提示登录，不回落本地改写
+if(!onlineOriginal)return wx.showToast({title:'请先粘贴链接或填写口播原文',icon:'none'});
+this.setData({rewriting:true,operationError:''});
+return this.regenerateOnline(onlineOriginal); // 在线：口播改写走后端（人设库匹配）
 },
 /** 在线二创改写：scripts.optimize {sourceText,requirement?,personaId?}；人设按名称匹配组织人设库，未匹配不传（后端按补充要求兜底） */
 regenerateOnline(original) {
@@ -245,8 +200,8 @@ inputOptimization(e){this.setData({optimizeRequirement:e.currentTarget.dataset.v
 optimizeScript(){
 const current=String(this.data.script||'');
 if(!current.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});
-if(http.token())return this.optimizeOnline(current); // 在线：AI 优化走后端 scripts.optimize
-this.attempt(()=>{const state=studio.read();Demo.optimizeCopy(state,this.data.optimizeRequirement);studio.write(state);const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);if(draft?.text===state.original)wx.setStorageSync(key,{...draft,rewrittenText:state.script,updatedAt:Date.now()});this.setData({sheet:''});this.refreshData();wx.showToast({title:'文案优化已完成',icon:'none'});});
+if(!http.token())return wx.showToast({title:'请先登录后再优化文案',icon:'none'}); // 无 token：提示登录，不回落本地优化
+return this.optimizeOnline(current); // 在线：AI 优化走后端 scripts.optimize
 },
 /** 在线 AI 优化：成功后写回本地文案与优化历史（不触碰 tasks/works/records 守卫键） */
 optimizeOnline(current) {
@@ -280,14 +235,8 @@ selectVoice() { this.setData({ voice: '李顾问原声', sheet: '' }); },
 audition() { wx.showModal({ title: '声音试听', content: '当前仅提供声音选择界面，尚未配置试听音频。', showCancel: false, confirmColor: '#824019' }); },
 generateDigital() {
 if (!this.data.script.trim()) { wx.showToast({ title: '请先填写口播文案', icon: 'none' }); return; }
-if (http.token()) return this.generateDigitalOnline(); // 在线：直连后端创建 digital 任务（不再弹「服务暂未开通」）
-this.fallbackDigital();
-},
-/** 离线/接口失败兜底：本地预览任务（原演示流程） */
-fallbackDigital() {
-wx.showModal({ title: '创建口播预览', content: '数字人生成服务暂未开通，当前将创建预览任务。', confirmText: '创建预览', confirmColor: '#824019', success: ({ confirm }) => {
-if (confirm) { const task = studio.createDemoTask('digital', '', { actor: this.data.actor, voice: this.data.voice }); this.go('tasks', '&task=' + task.id); }
-} });
+if (!http.token()) return wx.showToast({ title: '请先登录后再生成口播', icon: 'none' }); // 无 token：提示登录，不弹本地预览
+return this.generateDigitalOnline(); // 在线：直连后端创建 digital 任务
 },
 /** 在线数字人口播：tasks.create(digital) → 任务中心态展示轮询进度 → SUCCEEDED 后 saveWork（一任务一件幂等）。
  * showLoading 只覆盖提交阶段；轮询进度经任务中心列表回填展示，onUnload 终止。 */
@@ -324,8 +273,7 @@ wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 任务已在任务
 });
 }).catch(error=>{
 wx.hideLoading();this.__generating=false;
-wx.showToast({title:P.degradeMessage(error),icon:'none'});
-this.fallbackDigital(); // 接口失败回落演示兜底
+wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 接口失败仅提示错误，不回落演示兜底
 });
 },
 changeTaskFilter(e) { this.setData({ taskFilter: Number(e.currentTarget.dataset.index) }); this.refreshData(); },
@@ -333,20 +281,12 @@ changeRecordFilter(e) { this.setData({ recordFilter: Number(e.currentTarget.data
 taskAction(e) {
 const id = e.currentTarget.dataset.id;
 const shown = this.data.tasks.find(task => task.id === id);
-if (shown && shown.apiTask) { // 在线任务：云端执行，不做本地「标记完成」
+if (!shown) { wx.showToast({ title: '任务不存在或已清理', icon: 'none' }); return; }
+// 在线任务：云端执行，不做本地「标记完成」
 if (shown.status === 'generating') { wx.showModal({ title: '任务进度', content: '当前进度约 ' + shown.progress + '%，任务在云端执行，可稍后刷新查看。', showCancel: false, confirmColor: '#824019' }); return; }
 if (shown.status === 'failed') { wx.showModal({ title: '生成失败', content: shown.failedReason || '生成失败，请重新创建任务。', showCancel: false, confirmColor: '#824019' }); return; }
 if (shown.status === 'uncertain') { wx.showModal({ title: '结果确认中', content: '任务提交结果暂不确定，请稍后在任务中心刷新查看。', showCancel: false, confirmColor: '#824019' }); return; }
 this.go('result', '&task=' + encodeURIComponent(id));
-return;
-}
-const task = studio.read().tasks.find(task => task.id === id);
-if (!task) { wx.showToast({ title: '任务不存在或已清理', icon: 'none' }); this.refreshData(); return; }
-if (task.status === 'generating') {
-wx.showModal({ title: '任务进度', content: '当前进度 ' + task.progress + '%。可将此任务推进到完成状态。', confirmText: '标记完成', confirmColor: '#824019', success: ({ confirm }) => { if (confirm) { studio.completeTask(id); this.refreshData(); } } });
-} else if (task.status === 'save-failed') {
-this.attempt(() => { studio.saveWork(id); this.refreshData(); wx.showToast({ title: '作品已保存' }); });
-} else this.go('result', '&task=' + id);
 },
 refreshTasks() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
 playVideo() {
@@ -355,8 +295,8 @@ if(task&&task.apiTask&&task.resultUrl){wx.setClipboardData({data:task.resultUrl,
 wx.showModal({ title: '视频播放说明', content: '视频播放暂未开通，当前仅提供封面预览。', showCancel: false, confirmColor: '#824019' });
 },
 attempt(action) { try { this.setData({operationError:''});return action(); } catch (error) { const message=error.message||'操作未完成，请重试';this.setData({operationError:message});wx.showToast({ title: message, icon: 'none' }); return null; } },
-saveResult() { if (this.data.activeTask && this.data.activeTask.apiTask) return this.saveApiResult(false); this.attempt(() => { const work = studio.saveWork(this.data.taskId); this.setData({ workId: work.id, saved: true }); wx.showToast({ title: '已保存到我的作品' }); }); },
-publishResult() { if (this.data.activeTask && this.data.activeTask.apiTask) return this.saveApiResult(true); this.attempt(() => { const work = studio.saveWork(this.data.taskId); this.setData({ workId: work.id, saved: true }); this.go('publish', '&work=' + encodeURIComponent(work.id)); }); },
+saveResult() { return this.saveApiResult(false); }, // 任务全部在线：保存走 save-work 幂等通道
+publishResult() { return this.saveApiResult(true); },
 /** 在线任务→作品：save-work 幂等（重复返既有），成功后可去发布；幂等键重试复用 */
 saveApiResult(publish) {
 contentApi.tasks.saveWork(this.data.taskId, '', this.contentKey('save-work:' + this.data.taskId)).then(res => {
@@ -427,16 +367,8 @@ this.setData({ scheduled: time, sheet: '' });
 },
 moreSettings() { this.setData({ sheet: 'settings', sheetTitle: '更多设置' }); },
 submitPublish() {
-if (http.token() && this.data.publishOnline) return this.submitPublishOnline(); // 在线作品：发布链走后端
-if (!studio.read().works.some(work => work.id === this.data.workId)) { this.refreshData(); wx.showToast({ title: '请从我的作品重新选择', icon: 'none' }); return; }
-if (!this.data.title.trim() || !this.data.publishText.trim()) { wx.showToast({ title: '请填写标题和发布文案', icon: 'none' }); return; }
-const invalidSchedule = studio.scheduleError(this.data.scheduled);
-if (invalidSchedule) { wx.showToast({ title: invalidSchedule, icon: 'none' }); return; }
-this.attempt(() => {
-const result = studio.createPublication(this.data.workId, { title: this.data.title, publishText: this.data.publishText, tags: this.data.tags, cover: this.data.cover, account: this.data.selectedAccount, scheduled: this.data.scheduled });
-if (result.duplicate) wx.showToast({ title: '此账号已有发布记录，请勿重复提交', icon: 'none' });
-this.persistEditor();this.go(result.record.status==='published'&&result.record.publishedUrl?'detail':'receipt','&record='+encodeURIComponent(result.record.id));
-});
+if (!http.token()) return wx.showToast({ title: '请先登录后再发布', icon: 'none' }); // 无 token：提示登录，不落本地发布记录
+return this.submitPublishOnline(); // 发布链走后端
 },
 /** 在线发布链第一步：publications.create {workId,title,publishText,tags,accountId,platform,scheduledAt?} → 回执页登记链接 */
 submitPublishOnline() {
@@ -477,22 +409,8 @@ registerConsultation(){const record=this.data.detail;if(record?.status==='publis
 inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:'',receiptSaved:false});},
 savePublicationLink(){
 if(this.data.receiptSaving)return;
-if(this.receiptApi)return this.savePublicationLinkOnline(); // 在线发布记录：publications.verify（演示已发布时）→ link 登记链接
-this.setData({receiptSaving:true,receiptError:''});
-try{
- if(this.actorScope!==studio.scope())throw Error('工作身份已变化，请重新打开本人发布记录');
- if(!this.data.receiptSaved){
-  studio.confirmDemoPublication(this.data.recordId,this.data.publishedUrlInput);
-  const state=studio.read();if(state.publicationLinkDrafts)delete state.publicationLinkDrafts[this.data.recordId];studio.write(state);
-  this.setData({receiptSaved:true});
- }
-}catch(error){this.setData({receiptSaving:false,receiptError:error.message});wx.showToast({title:error.message,icon:'none'});return;}
-wx.reLaunch({
- url:'/pages/business/index',
- success:()=>wx.showToast({title:'发布链接已保存',icon:'success'}),
- fail:()=>this.setData({receiptError:'链接已保存，返回首页失败，请点击按钮重试。'}),
- complete:()=>this.setData({receiptSaving:false})
-});
+if(!http.token())return wx.showToast({title:'请先登录后再登记发布链接',icon:'none'}); // 无 token：提示登录，不落本地演示回执
+return this.savePublicationLinkOnline(); // 在线发布记录：publications.verify（已发布时）→ link 登记链接
 },
 /** 在线登记发布链接：重复链接后端报 1_114_000_003 → 对应文案；演示已发布态先 verify 再 link */
 savePublicationLinkOnline(){
@@ -520,18 +438,7 @@ wx.showToast({title:message,icon:'none'});
 },
 copyPublishedUrl(){if(this.data.detail?.publishedUrl)wx.setClipboardData({data:this.data.detail.publishedUrl});},
 advancePublication() {
-const state = studio.read(); const record = state.records.find(record => record.id === this.data.recordId);
-if (record && ['publishing', 'verify', 'scheduled','published'].includes(record.status)) {
-this.go('receipt','&record='+encodeURIComponent(record.id));
-} else if (record && record.status === 'failed') {
-wx.showModal({ title: '账号授权已失效', content: '平台账号授权暂未开通，可返回发布设置更换账号后重试。', confirmText: '更换账号', confirmColor: '#824019', success: ({ confirm }) => {
-if (confirm) this.attempt(() => {
-const work = state.works.find(item => item.id === record.workId) || (record.taskId ? studio.saveWork(record.taskId) : null);
-if (!work) { wx.showToast({ title: '关联作品已失效，请重新选择', icon: 'none' }); this.go('works'); return; }
-this.go('publish', '&work=' + encodeURIComponent(work.id));
-});
-} });
-} else unavailable('查看平台作品');
+unavailable('查看平台作品'); // 本地演示发布记录已移除；在线记录经回执页（receipt）办理
 },
 returnHome(){wx.reLaunch({url:'/pages/business/index'});},
 returnRecords() { wx.redirectTo({ url: '/pages/studio/index?view=records' }); },

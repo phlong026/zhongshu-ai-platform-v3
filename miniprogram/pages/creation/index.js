@@ -1,11 +1,10 @@
 const { assets, unavailable } = require('../../utils/creation');
 const studio = require('../../utils/studio');
-const Demo=require('../../utils/creation-demo');
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5）
 const http=require('../../api/http');
 Page({
 data: {
-link: Demo.samples[0].url, sheet: '', editorText: '', draft: null, assets, demoSamples:Demo.samples, sampleId:'daylight',sampleIndex:0,
+link: '', sheet: '', editorText: '', draft: null, assets,
 extracting: false, parseProgress: 0,
 modes:[{id:'remix',title:'爆款二创',subtitle:'参考视频改写',icon:'video-filled'},{id:'digital',title:'数字人口播',subtitle:'文案生成口播',icon:'person-filled'},{id:'ai',title:'AI视频',subtitle:'文字图片成片',icon:'home-video-icon'}],
 shortcuts: [
@@ -30,8 +29,6 @@ this.setData({ draft, recent });
 },
 onUnload() { if (this.__parsePoll && this.__parsePoll.cancel) this.__parsePoll.cancel(); }, // 终止解析轮询（防 UI 长时间占锁）
 inputLink(e) { this.setData({ link: e.detail.value }); },
-chooseDemo(e){const sample=Demo.samples.find(s=>s.id===e.currentTarget.dataset.id);if(sample)this.setData({link:sample.url,sampleId:sample.id,sampleIndex:Demo.samples.indexOf(sample)});},
-pickDemo(e){const sample=Demo.samples[Number(e.detail.value)];if(sample)this.chooseDemo({currentTarget:{dataset:{id:sample.id}}});},
 chooseMode(e){const mode=e.currentTarget.dataset.mode;if(mode==='digital')wx.navigateTo({url:'/pages/studio/index?view=digital'});else if(mode==='ai')this.startVideo();},
 paste() {
 wx.getClipboardData({
@@ -42,10 +39,8 @@ fail: () => wx.showToast({ title: '未能读取剪贴板，请手动粘贴', ico
 extract() {
 const invalid=P.validateShareLink(this.data.link);
 if(invalid){wx.showToast({title:invalid,icon:'none'});return;}
-const sample=Demo.match(this.data.link),run=id=>{const state=studio.read();Demo.extract(state,this.data.link,id);studio.write(state);wx.navigateTo({url:'/pages/studio/index?view=remix'});};
-if(sample)return run(sample.id); // 演示样品链接仍走本地流程
-if(http.token())return this.extractOnline(); // 在线：后端链接解析（任务化轮询）
-this.fallbackExtract();
+if(!http.token())return wx.showToast({title:'请先登录后再提取文案',icon:'none'}); // 无 token：提示登录，不回落内置文案
+return this.extractOnline(); // 在线：后端链接解析（任务化轮询）
 },
 /** 在线提取：links.parse → pollTask → 有文案（result.text）直接进二创流；无文案/失败提示后走演示兜底。
  * showLoading 只覆盖提交阶段；轮询进度在本页按钮态展示（creation 无任务中心态），onUnload 取消轮询。 */
@@ -65,7 +60,7 @@ if(scope!==studio.scope())return null; // 工作身份已变化，丢弃迟到�
 const view=P.taskView(task.status);
 if(view!=='completed'){wx.showToast({title:view==='failed'?'文案解析失败：'+(task.failedReason||'请稍后重试'):'解析结果暂不确定，请稍后重试',icon:'none'});return null;}
 const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
-if(!text){wx.showToast({title:'未解析到口播文案，可手动填写或使用演示样品',icon:'none'});return null;}
+if(!text){wx.showToast({title:'未解析到口播文案，可手动填写',icon:'none'});return null;}
 const state=studio.read();
 state.title=text.split('\n')[0].slice(0,28);
 state.original=text;state.script='';state.rewriteHistory=[];state.copyOptimizations=[];
@@ -77,19 +72,12 @@ return null;
 }).catch(error=>{
 if(this.__parsePoll===poll){this.__parsePoll=null;this.setData({extracting:false});}
 if(error&&error.cancelled)return null; // 页面卸载取消：静默
-wx.showToast({title:P.degradeMessage(error),icon:'none'});
-this.fallbackExtract(); // 接口失败回落演示兜底
+wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 轮询失败仅提示错误，不回落内置文案
 });
 }).catch(error=>{
 wx.hideLoading();
-wx.showToast({title:P.degradeMessage(error),icon:'none'});
-this.fallbackExtract(); // 接口失败回落演示兜底
+wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 提交失败仅提示错误，不回落内置文案
 });
-},
-/** 演示兜底（离线或接口失败时维持原体验） */
-fallbackExtract() {
-const run=id=>{const state=studio.read();Demo.extract(state,this.data.link,id);studio.write(state);wx.navigateTo({url:'/pages/studio/index?view=remix'});};
-wx.showModal({ title: '使用内置文案', content: '视频链接解析暂未开通。继续将使用“'+Demo.samples.find(s=>s.id===this.data.sampleId).title+'”的内置文案，不会读取此链接；手动草稿保留。', confirmText:'使用内置文案',confirmColor:'#824019',success:({confirm})=>{if(confirm)run(this.data.sampleId);} });
 },
 openEditor() {
 const draft = this.data.draft;

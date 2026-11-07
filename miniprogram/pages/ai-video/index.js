@@ -122,26 +122,18 @@ closeLibrary() { this.setData({ libraryOpen: false }); },
 help() { wx.showModal({ title: '参考素材', content: '图片最多8张、视频最多3个、音频最多3个，合计最多12个。素材在本地选择，生成前仍可移除。', showCancel: false, confirmColor: '#824019' }); },
 optimize() {
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
-this.setData({description:require('../../utils/creation-demo').optimize(this.data.description,this.data.mode)});this.saveDraft();wx.showToast({title:'提示词已优化',icon:'none'});
+if (!http.token()) return wx.showToast({ title: '请先登录后再优化提示词', icon: 'none' }); // 无 token：提示登录
+// 提示词优化暂无在线通道：不再回落本地演示改写，如实提示
+wx.showToast({ title: '提示词智能优化暂未开通，请手动调整画面描述', icon: 'none' });
 },
 generate() {
 if (this.data.invalidMessage) return;
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToast({ title: '请先添加参考素材', icon: 'none' }); return; }
 this.saveDraft();
-if (http.token()) return this.generateOnline(); // 在线：直连后端创建 ai_video 任务（不再弹「服务暂未开通」）
-wx.showModal({ title: '体验视频创作流程', content: '视频生成服务暂未开通，可先创建任务并保存草稿。', confirmText: '体验流程', confirmColor: '#824019', success: ({ confirm }) => {
-if (confirm) {
-const configuration = { mode: this.data.mode, parameters: this.data.parameters.map(item => ({ key: item.key, value: item.options[item.value] })), firstFrame: this.data.firstFrame, lastFrame: this.data.lastFrame, references: this.data.references };
-try {
-const task = studio.createDemoTask('ai', this.data.description, configuration);
-const nav = { url: '/pages/studio/index?view=tasks&task=' + task.id };
-if (getCurrentPages().length >= 9) wx.redirectTo(nav); else wx.navigateTo(nav);
-} catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
-}
-} });
-},
-/** 在线生成：F11 参数映射（1080P→2K、720P→768P、'8 秒'→8、比例透传）+ references 角色映射；数量恒 1 不上送。
+if (http.token()) return this.generateOnline(); // 在线：直连后端创建 ai_video 任务
+wx.showToast({ title: '请先登录后端账号后再生成视频', icon: 'none' });
+},/** 在线生成：F11 参数映射（1080P→2K、720P→768P、'8 秒'→8、比例透传）+ references 角色映射；数量恒 1 不上送。
  * 本批素材字节上传通道未开（local 环境无法真传 COS）：首尾帧沿用本地路径仅展示，提交无媒体 T2V/文字任务。 */
 generateOnline() {
 const mapped = P.mapVideoParameters(this.data.parameters);
