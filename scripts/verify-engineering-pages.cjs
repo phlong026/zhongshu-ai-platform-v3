@@ -153,6 +153,9 @@ ok('performOnline 幂等键目标隔离+指纹复用+成功释放', (() => {
   return idemTable && fingerprint && release;
 })());
 ok('material-adjust 逐行幂等子键（同键多行不被后端去重）', read('miniprogram/utils/platform-engineering.js').includes("key + '-m' + l.id"));
+// Codex R5 P1 回归锁：指纹必须排除服务端回流字段（lines 余量/supplyLabel 标签）——到货响应丢失后刷新重试不得误判新命令。
+// 行为级验证（挂起响应/刷新场景实跑）登记为已知限制，随 e2e 批补齐
+ok('幂等指纹排除服务端回流字段（lines/supplyLabel/nodes/supplyOptions）', (() => { const m=record.match(/FP_EXCLUDE=\[[^\]]*\]/); return !!m && ['lines','supplyLabel','nodes','supplyOptions'].every(x=>m[0].includes(String.fromCharCode(39)+x+String.fromCharCode(39))); })());
 ok('refreshOnline 设 canCreate（projects，856 write+isBoss 口径）', (() => {
   const m = projects.match(/async refreshOnline\(\)\{[\s\S]*?canCreate:[\s\S]*?Access\.isBoss\(a\)[\s\S]*?Job\.has\(a\.role,'engineer'\)[\s\S]*?Job\.has\(a\.role,'project-manager'\)/);
   return !!m;

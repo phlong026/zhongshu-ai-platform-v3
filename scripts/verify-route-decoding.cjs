@@ -13,8 +13,8 @@ const assert = require('node:assert/strict');
         assert.equal(page.data.tab, malformed);
         assert.equal(page.data.category, 'AI应用');
       }],
-      ['/pages/admin/index?view=todos', { view:'todos', tab:malformed }, page => assert(!!page.data)], // 切生产收尾批：admin/index 已改跳转壳（todos 容器移除）——保留畸形编码不崩溃契约，form 断言随容器下线
-      // Codex R4 P2：admin 已是跳转壳（todos 分流 finance-desk）——畸形参数入 URL 断言最终落点，不再二次手调 onLoad
+      // Codex R5 P2：旧 admin 手调用例移除（reLaunch 后壳已 redirectTo 替换栈，手调的是目标页非壳）——
+      // admin 场景由下方 URL 参数用例覆盖（畸形参数入 URL 断言最终落点，不二次手调 onLoad）
       ['/pages/admin/index?view=todos&tab=' + malformed, null, page => {
         assert.equal(page.route, 'pages/admin/finance-desk/index', 'todos 分流到财务台');
         assert(!!page.data, '跳转壳畸形编码不能导致目标页崩溃');

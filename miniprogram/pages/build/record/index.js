@@ -80,7 +80,11 @@ Page({
     'collect':'stage','dunning':'stage'};
    const f0=f||this.data.form,tk=IDEM[action],tv=tk?String(f0[tk]||''):'';
    const idemId=action+(tv?'-'+tk+tv:'');
-   const fp=JSON.stringify(f0,(k,v)=>k==='supplyOptions'?undefined:v); // 命令指纹（排除渲染选项）
+   // 命令指纹（Codex R5 P1）：排除服务端回流/渲染派生字段——lines（余量等行统计随刷新重建）、
+   // nodes（计划表）、supplyLabel/supplyOptions（展示标签与选项）。到货响应丢失后刷新余量变化、
+   // 同内容重试仍复用同键（请求正文相同）；用户实际输入字段（金额/名称/说明/日期/流水/凭据）全保留
+   const FP_EXCLUDE=['supplyOptions','supplyLabel','lines','nodes'];
+   const fp=JSON.stringify(f0,(k,v)=>FP_EXCLUDE.includes(k)?undefined:v);
    if(!this.__idemKeys)this.__idemKeys={};
    let cached=this.__idemKeys[idemId];
    if(!cached||cached.fp!==fp){ // 无缓存或内容变了→新键；同目标同内容失败重试复用
