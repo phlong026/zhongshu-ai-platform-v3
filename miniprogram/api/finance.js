@@ -107,7 +107,10 @@ function readFileBase64(filePath) {
 /**
  * 基-1 票据链凭证上传（21 号 F1 / 14 文档 D-基1-2 切换）：FIN_VOUCHER（jpg/png/pdf ≤20MB 免审）
  * → ticket → dev bytes → complete ACCEPTED → 返回 assetId（作 voucherFileId）。
- * dev bytes 端点门=franchise:design:use（sales 等岗位代传；基-1 先例）。
+ * 生产签名 URL 走原始字节 PUT。local/zsdev（local:// 或 /platform/dev/）与工程凭据对齐：
+ * 当前岗位走 http.post，自动带 Authorization / X-Post-Id / tenant-id，并要求 body.code===0。
+ * 仅当代传方自带 token 或岗位时才自组请求；缺岗位则回落当前 X-Post-Id。
+ * dev bytes 端点门=franchise:design:use 或 franchise:asset:bytes。
  */
 async function uploadVoucher(filePath, helperUser) {
   const helper = require('./franchise/engineering'); // 解码与工程凭据同一套；complete 校验的是文件字节
@@ -129,21 +132,28 @@ async function uploadVoucher(filePath, helperUser) {
         fail: () => reject(new Error('凭证上传网络失败'))
       });
     });
-  } else {
-    // 开发态 bytes：若有 helperUser 用其 token 代传，否则本身份尝试
+  } else if (helperUser && (helperUser.token || helperUser.post)) {
     const header = {
-      'tenant-id': '1', 'content-type': 'application/json',
-      Authorization: 'Bearer ' + (helperUser && helperUser.token ? helperUser.token : http.token())
+      'tenant-id': String(http.tenantId() || '1'),
+      'content-type': 'application/json',
+      Authorization: 'Bearer ' + (helperUser.token || http.token())
     };
-    if (helperUser && helperUser.post) header['X-Post-Id'] = String(helperUser.post);
+    const postId = helperUser.post != null && String(helperUser.post) !== '' ? helperUser.post : http.currentPostId();
+    if (postId) header['X-Post-Id'] = String(postId);
     await new Promise((resolve, reject) => {
       wx.request({
         url: http.base() + '/platform/dev/design/assets/' + assetId + '/bytes',
         method: 'POST', data: { contentBase64: fsData }, header,
-        success: r => (r.statusCode === 200 ? resolve() : reject(new Error('字节通道失败'))),
+        success: r => {
+          const body = r.data;
+          if (r.statusCode >= 200 && r.statusCode < 300 && body && body.code === 0) resolve();
+          else reject(new Error((body && body.msg) || '字节通道失败'));
+        },
         fail: () => reject(new Error('字节通道网络失败'))
       });
     });
+  } else {
+    await http.post('/platform/dev/design/assets/' + assetId + '/bytes', { contentBase64: fsData });
   }
   const completed = await http.post('/franchise/assets/' + assetId + '/complete');
   if (completed.uploadStatus !== 'ACCEPTED') throw new Error('凭证未通过校验');
