@@ -7,5 +7,5 @@
  */
 module.exports = {
   // 生产域名（与服务器现有 API 域名一致——新后端部署于同一域名下）
-  API_BASE: 'https://api.zszhj.com/admin-api',
+  API_BASE: 'https://api2.zszhj.com/admin-api',
 };
