@@ -1,9 +1,10 @@
 @import "./layout.wxss";
 @import "./typography.wxss";
 .captcha-btn{flex-shrink:0;margin-left:16rpx;padding:0 20rpx;line-height:56rpx;min-height:56rpx;font-size:var(--zs-font-caption);color:#9b7b5e;background:#f4ede3;border-radius:10rpx}.captcha-btn.is-disabled{color:#b9ac9e}
-/* 登录页品牌字标（横向 logo，替代旧盾牌图形）；微信官方一键登录样式：官方绿底 + 官方双气泡图标（特异性高于 .solid 品牌渐变） */
+/* 登录页品牌字标（横向 logo，替代旧盾牌图形）；微信官方一键登录样式：官方绿底 + 官方双气泡图标
+   （实测 .solid 品牌渐变在高特异性下仍压过普通声明，背景用 !important 保底穿透） */
 .login-brand{display:block;margin:0 auto 24rpx;width:440rpx;height:120rpx}
-.login-card .solid.wechat-login-btn{display:flex;align-items:center;justify-content:center;gap:12rpx;background:#07c160;color:#fff}
+.login-card .solid.wechat-login-btn{display:flex;align-items:center;justify-content:center;gap:12rpx;background:#07c160!important;color:#fff!important}
 .wechat-login-icon{width:44rpx;height:44rpx;flex-shrink:0}
 .profile-hero .hint{margin-top:8rpx}
 .demo-entry-row{display:flex;justify-content:center;padding-top:8rpx}

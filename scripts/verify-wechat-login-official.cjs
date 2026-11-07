@@ -19,7 +19,7 @@ const profile = read('miniprogram/utils/platform-profile.js');
 assert(wxml.includes('open-type="getPhoneNumber"') && wxml.includes('bindgetphonenumber="wechatLogin"'), '微信一键登录保留手机号快捷授权（员工账号匹配）');
 assert(wxml.includes('class="wechat-login-icon" src="/pages/account/assets/wechat-logo.png"'), '一键登录按钮使用微信官方双气泡图标');
 assert(fs.existsSync(path.join(root, 'miniprogram/pages/account/assets/wechat-logo.png')), '微信官方图标资产存在');
-assert(wxss.includes('.login-card .solid.wechat-login-btn{display:flex;align-items:center;justify-content:center;gap:12rpx;background:#07c160;color:#fff}'), '一键登录按钮为微信官方绿（特异性高于品牌渐变）');
+assert(wxss.includes('.login-card .solid.wechat-login-btn{display:flex;align-items:center;justify-content:center;gap:12rpx;background:#07c160!important;color:#fff!important}'), '一键登录按钮为微信官方绿（!important 穿透品牌渐变）');
 assert(wxss.includes('.wechat-login-icon{width:44rpx;height:44rpx;flex-shrink:0}'), '官方图标尺寸样式存在');
 
 // 2) 资料页：微信官方头像昵称填写能力（2022-10 后 getUserProfile 已废，官方唯一正道）
@@ -28,14 +28,15 @@ assert(wxml.includes('type="nickname"'), '姓名输入启用官方昵称快捷�
 assert(js.includes('onChooseAvatar(e)'), 'onChooseAvatar 处理函数已接线');
 assert(js.includes('e.detail&&e.detail.avatarUrl'), '从官方回调取头像临时路径');
 
-// 2.5) 登录页品牌化与文案精简（对标同行：logo+品牌名+按钮+协议，说明文字动态化）
+// 2.5) 登录页品牌化与文案精简（对标同行：logo 即标题+按钮+协议，说明文字动态化）
 assert(wxml.includes('class="login-brand" src="/assets/brand.png"'), '登录页品牌区使用品牌字标 logo');
-assert(wxml.includes('<text class="large">众墅之家</text>'), '大标题为品牌名（导航栏「登录」不再重复）');
+assert(!wxml.includes('<text class="large">众墅之家</text>'), '大标题已删（logo 自含品牌名，不再重复）');
 assert(!wxml.includes('wechat-login-tip') && !wxml.includes('使用微信绑定的手机号一键登录'), '微信 tab 静态说明文字已精简删除');
 assert(!wxml.includes('无法授权手机号时'), '静态 fallback 提示已删（退路改为失败时动态提示）');
 assert(wxml.includes('<text>微信一键登录</text>'), '按钮文案与 tab 同名（精简）');
 assert(js.includes("return this.fail('已取消手机号授权，可改用验证码登录')"), '拒绝授权零网络请求早退并动态提示验证码退路');
 assert(wxss.includes('.login-brand{display:block;margin:0 auto 24rpx;width:440rpx;height:120rpx}'), '品牌字标横条样式存在');
+assert(wxss.includes('background:#07c160!important;color:#fff!important}'), '一键登录按钮官方绿以 !important 穿透（实测普通声明被品牌渐变压过）');
 
 // 3) 上传链：http.upload 契约 + 头像落库（PUT avatar URL，后端 08 文档 avatar 键语义）
 assert(http.includes("name: 'file'") && http.includes('formData'), 'http.upload 为 multipart file 字段封装');
