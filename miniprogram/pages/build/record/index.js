@@ -80,11 +80,9 @@ Page({
     'collect':'stage','dunning':'stage'};
    const f0=f||this.data.form,tk=IDEM[action],tv=tk?String(f0[tk]||''):'';
    const idemId=action+(tv?'-'+tk+tv:'');
-   // 命令指纹（Codex R5 P1）：排除服务端回流/渲染派生字段——lines（余量等行统计随刷新重建）、
-   // nodes（计划表）、supplyLabel/supplyOptions（展示标签与选项）。到货响应丢失后刷新余量变化、
-   // 同内容重试仍复用同键（请求正文相同）；用户实际输入字段（金额/名称/说明/日期/流水/凭据）全保留
-   const FP_EXCLUDE=['supplyOptions','supplyLabel','lines','nodes'];
-   const fp=JSON.stringify(f0,(k,v)=>FP_EXCLUDE.includes(k)?undefined:v);
+   // 命令指纹（Codex R4-R6）：按 action 投影实际提交字段（platform-engineering.idemFingerprint 纯函数）——
+   // 排除服务端回流（余量行/展示标签），保留行内用户输入（adjust/材料行/节点输入）
+   const fp=P.idemFingerprint(action,f0);
    if(!this.__idemKeys)this.__idemKeys={};
    let cached=this.__idemKeys[idemId];
    if(!cached||cached.fp!==fp){ // 无缓存或内容变了→新键；同目标同内容失败重试复用

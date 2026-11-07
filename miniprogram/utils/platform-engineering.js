@@ -179,7 +179,8 @@ function projectView(detail) {
 module.exports = {
   api, online, dateOf, timestampDate, centsText, statusView, statusMatches, nodeRows, nodeStatusView,
   stagesView, plansView, settleView, errorText, projectView,
-  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS, threeStageSumError
+  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS, threeStageSumError,
+  idemFingerprint
 };
 
 // ===================== 在线编排（record/projects/home 页 API 态；wx 依赖仅限上传 helper） =====================
@@ -260,6 +261,31 @@ function threeStageSumError(f) {
     return { code: 0, msg: '三期金额之和须等于合同总额（当前差 ' + gap + ' 元）' };
   }
   return null;
+}
+
+/**
+ * 幂等命令指纹（Codex R4-R6）：同目标同内容=同一命令（失败重试复用键）；改用户输入=新命令。
+ * 按 action 投影实际提交字段——排除服务端回流/展示字段（supplyOptions/supplyLabel/行余量统计），
+ * 但保留行内用户输入：material-adjust 的 {id,adjust}、material-plan 的提交行、plan 的节点输入。
+ * 纯函数导出供 verify-idem-fingerprint.cjs 行为级验证（响应丢失→刷新回流变化→同内容重试指纹必须稳定）。
+ */
+function idemFingerprint(action, form) {
+  const FP_LINES = {
+    'material-adjust': l => ({ id: l.id, adjust: l.adjust }),
+    'material-plan': l => ({ name: l.name, spec: l.spec, unit: l.unit, quantity: l.quantity })
+  };
+  const FP_NODES = n => ({ nodeIndex: n.nodeIndex || n.index, name: n.name, startDate: n.start, endDate: n.end });
+  return JSON.stringify(form || {}, (k, v) => {
+    if (k === 'supplyOptions' || k === 'supplyLabel') return undefined; // 展示选项/标签（服务端回流）
+    if (k === 'lines') {
+      const project = FP_LINES[action];
+      if (!project) return undefined; // 其余 action 的 lines 为服务端回流行（余量统计）——不入指纹
+      return { rows: (v || []).map(project).filter(r => r.name != null || r.id != null || r.adjust != null) };
+    }
+    // 计划表仅 plan 动作入指纹（内部键改名 ns——避免 replacer 对返回值内同名键递归命中自身死循环）
+    if (k === 'nodes') return action === 'plan' ? { ns: (v || []).map(FP_NODES) } : undefined;
+    return v;
+  });
 }
 
 /**
