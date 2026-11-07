@@ -69,12 +69,8 @@ public class SaleQuoteService {
         long total = SaleQuoteMath.totalOf(SaleQuoteMath.sum(mainValues), SaleQuoteMath.sum(decorValues),
                 insurance, management);
 
-        var input = new LinkedHashMap<String, Object>();
-        input.put("operation", "quote-create");
-        input.put("customerId", cmd.customerId());
-        input.put("schemeId", cmd.schemeId());
-        input.put("items", items);
-        input.put("totalCents", total);
+        // S1-23：指纹覆盖抬头与尺寸。漏 address/priceVersion/宽深层面积时，同键改这些字段会回放旧报价。
+        var input = createFingerprint(cmd, items, total);
         var replayed = commands.replayed(post, idempotencyKey, input);
         if (replayed.isPresent()) {
             return quotes.selectById(replayed.get().getAggregateId());
@@ -153,5 +149,22 @@ public class SaleQuoteService {
 
     private static String trimmed(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** 报价创建幂等指纹（与 record 共用）。同键异地址/价目口径/尺寸必须冲突，不得回放旧单。 */
+    static Map<String, Object> createFingerprint(QuoteCommand cmd, Map<String, Object> items, long totalCents) {
+        var input = new LinkedHashMap<String, Object>();
+        input.put("operation", "quote-create");
+        input.put("customerId", cmd.customerId());
+        input.put("schemeId", cmd.schemeId());
+        input.put("items", items);
+        input.put("totalCents", totalCents);
+        input.put("priceVersion", trimmed(cmd.priceVersion()));
+        input.put("address", trimmed(cmd.address()));
+        input.put("width", cmd.width());
+        input.put("depth", cmd.depth());
+        input.put("floors", cmd.floors());
+        input.put("area", cmd.area());
+        return input;
     }
 }

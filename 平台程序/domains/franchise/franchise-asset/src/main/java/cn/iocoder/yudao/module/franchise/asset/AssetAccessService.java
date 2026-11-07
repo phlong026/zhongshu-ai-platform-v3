@@ -114,13 +114,22 @@ public class AssetAccessService {
      * 越权 RESOURCE_FORBIDDEN（同码不泄露）。upload 从入参、complete/download 由调用方查得类型后调用。
      */
     public void requireChannelPermission(PostSnapshot post, String assetType) {
-        var roles = assetType == null ? null : CHANNEL_ROLES.get(assetType);
-        if (roles == null) {
-            return; // 未知类型放行给后续资产校验（保持 1_071_000_001 原语义）
-        }
-        if (!roles.contains(post.roleCode())) {
+        if (!channelAllowed(assetType, post == null ? null : post.roleCode())) {
             throw exception(ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
         }
+    }
+
+    /**
+     * 类型×岗位矩阵的静态判定，与 {@link #requireChannelPermission} 同源。
+     * dev 字节通道（{@code DesignDevController}）不经过本服务实例，直接调用此方法。
+     * 未知类型或类型为空：放行（后续资产校验保持 1_071_000_001 原语义）；已知类型须角色命中。
+     */
+    public static boolean channelAllowed(String assetType, String roleCode) {
+        var roles = assetType == null ? null : CHANNEL_ROLES.get(assetType);
+        if (roles == null) {
+            return true;
+        }
+        return roleCode != null && roles.contains(roleCode);
     }
 
     // 严格对齐各域 8xx 种子 query 矩阵（R3：ENG 归工程岗、CONTRACT 归业务岗——不跨域放宽）
