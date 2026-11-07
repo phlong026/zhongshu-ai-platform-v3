@@ -1,9 +1,5 @@
 const A = require('../../../utils/account');
-const X = require('../../../utils/access');
-const Model = require('../model');
-const Facts = require('../owner-performance').facts;
-const Tasks = require('../../../utils/performance-tasks').withFacts(Facts);
-const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（任务机在线；失败降级本地演示）
+const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（任务机在线；无 token/失败一律错误态，不回落本地演示）
 const orgApi = require('../../../api/org');
 
 const monthEnd = period => new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).toISOString().slice(0, 10);
@@ -18,7 +14,7 @@ function progress(task) {
 
 function taskRows(rows, staff) {
   const names = Object.fromEntries(staff.map(person => [person.id, person.name]));
-  const labels = Object.fromEntries(Tasks.TYPES.map(type => [type.id, type]));
+  const labels = Object.fromEntries(P.TYPES.map(type => [type.id, type]));
   return rows.map(task => ({
     ...task,
     ...progress(task),
@@ -34,8 +30,8 @@ function taskRows(rows, staff) {
 }
 
 Page({
-  data: { showDemoBadge:false,
-    ready: false, error: '', view: 'mine', title: '绩效任务', myName: '', memberStaffId:'', period: '', periodEnd: '', tabs: [], rows: [], goalRows: [], staff: [], types: Tasks.TYPES,
+  data: { 
+    ready: false, error: '', view: 'mine', title: '绩效任务', myName: '', memberStaffId:'', period: '', periodEnd: '', tabs: [], rows: [], goalRows: [], staff: [], types: P.TYPES,
     form: {}, assigneeIndex: 0, typeIndex: 0, previous: null, reassignTask: null, evidenceTask: null,
     evidence: { note: '', photos: [] }, archive: null,
     canInitialize: false, initializationHint: ''
@@ -50,7 +46,6 @@ Page({
     this.refresh();
   },
   onShow() { if (this.data.ready) this.refresh(); 
-  this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) }); // M11-T01：pages/admin/tasks 深度三级，原少退一级 MODULE_NOT_FOUND
   },
   resetTaskForm() {
     const period = this.requestedPeriod || this.data.period || A.localDate().slice(0, 7);
@@ -59,69 +54,9 @@ Page({
       assigneeIndex: 0, typeIndex: 0, previous: null
     });
   },
-  clearDerived(error = '', ready = false) {
-    this.state = null;
-    this.setData({
-      ready, error, view:'mine', title:'绩效任务', myName:'', memberStaffId:'', period:'', periodEnd:'', tabs:[], rows:[], goalRows:[], staff:[], archive:null,
-      canArchive:false, canInitialize:false, initializationHint:'', previous:null, reassignTask:null, evidenceTask:null, evidence:{ note:'', photos:[] }
-    });
-    wx.setNavigationBarTitle({ title:'绩效任务' });
-  },
   refresh() {
     if (P.online()) return this.refreshOnline();
-    let actor;
-    try {
-      actor = X.context();
-      const actorKey = [actor.loggedIn, actor.active, actor.companyId, actor.personId, actor.staffId, actor.role].join(':');
-      if (this.actorKey && this.actorKey !== actorKey) {
-        this.initialPeriod = '';
-        this.requestedPeriod = '';
-        this.requestedView = '';
-        this.initialMemberStaffId = '';
-        this.requestedMemberStaffId = '';
-        this.clearDerived();
-        this.resetTaskForm();
-      }
-      this.actorKey = actorKey;
-      X.assert(actor.active, '当前身份已退出或停用');
-      const state = Model.load();
-      const period = this.requestedPeriod || A.localDate().slice(0, 7);
-      this.state = state;
-      const boss = X.isBoss(actor);
-      const tabs = [
-        ...(boss ? [{ id: 'team', label: '团队任务' }] : []),
-        { id: 'mine', label: '我的任务' },
-        ...(boss ? [{ id: 'archive', label: '任务归档' }] : [])
-      ];
-      const allowed = new Set(tabs.map(tab => tab.id));
-      const requested = this.requestedView || this.data.view;
-      const view = requested === 'member' ? 'member' : allowed.has(requested) ? requested : boss ? 'team' : 'mine';
-      const activeStaff = (state.staff || []).filter(person => person.active !== false);
-      const member = view === 'member' ? activeStaff.find(person => person.id === this.requestedMemberStaffId) : null;
-      const raw = view === 'team' ? Tasks.list(state, { scope: 'company', period }) : view === 'member' ? Tasks.list(state, { scope:'member', staff:this.requestedMemberStaffId, period }) : view === 'mine' ? Tasks.list(state, { scope: 'mine', period }) : [];
-      const staff = activeStaff.map(person => ({ id: person.id, name: person.name }));
-      const archive = view === 'archive' ? Tasks.archiveSummary(state, period) : null;
-      const rows = taskRows(raw, staff), myName = member?.name || actor.name || A.load().profile.name || '当前成员';
-      const title = view === 'mine' ? myName + ' · 我的绩效' : view === 'member' ? myName + ' · 绩效目标' : view === 'archive' ? '绩效任务归档' : '团队绩效任务';
-      this.requestedView = '';
-      this.setData({
-        ready: true, error: '', view, title, myName, memberStaffId:member?.id || '', period, periodEnd: monthEnd(period), tabs:view === 'member' ? [] : tabs, rows, goalRows:['mine','member'].includes(view) ? rows : [], canArchive: view === 'team' && raw.length > 0 && !raw[0].frozen,
-        canInitialize: boss && view === 'team' && !raw.some(task => task.frozen),
-        staff: boss && view !== 'member' ? staff : [], archive: archive ? this.displayArchive(archive, staff) : null
-      });
-      wx.setNavigationBarTitle({ title });
-      if (!this.data.form.assigneeId && boss && staff.length) this.selectAssignee({ detail: { value: 0 } });
-    } catch (error) {
-      if (!actor?.active) {
-        this.initialPeriod = '';
-        this.requestedPeriod = '';
-        this.requestedView = '';
-      }
-      this.initialMemberStaffId = '';
-      this.requestedMemberStaffId = '';
-      this.clearDerived(error.message || '绩效任务加载失败', true);
-      this.resetTaskForm();
-    }
+    this.setData({ ready: true, error: '请先登录后端账号', rows: [], tabs: [], staff: [] });
   },
   writable() { if (this.data.view === 'member') { this.fail('成员绩效仅供查看'); return false; } return true; },
   displayArchive(summary, staff) {
@@ -199,16 +134,7 @@ Page({
       finally { this.busy = false; }
       return;
     }
-    try {
-      const result = Tasks.initializePrevious(this.state, {
-        period:this.data.period,
-        idempotencyKey:['performance-task-initialize', this.state.companyId, this.data.period, Date.now()].join(':')
-      });
-      this.refresh();
-      const message = result.created.length ? '已按上月真实实绩生成 ' + result.created.length + ' 项建议任务' : '上月暂无可用真实业绩，未生成 0 目标任务';
-      this.setData({ initializationHint:message });
-      wx.showToast({ title:result.created.length ? '建议任务已生成' : '上月暂无业绩', icon:'none' });
-    } catch (error) { this.fail(error.message); }
+    this.fail('请先登录后端账号');
   },
   field(event) { this.setData({ ['form.' + event.currentTarget.dataset.key]: event.detail.value, error: '' }); },
   selectAssignee(event) {
@@ -222,11 +148,11 @@ Page({
     this.setData({ typeIndex: index, 'form.type': type.id, 'form.target': type.manual ? '' : this.data.form.target });
     this.updatePrevious();
   },
-  updatePrevious() {
+  updatePrevious() { // 在线态：上月参考取任务行自带 suggestion（API 真源），不再查本地账簿
     const form = this.data.form;
-    if (!this.state || !form.assigneeId || !form.type) return;
-    try { this.setData({ previous: Tasks.previousActual(this.state, { period: this.data.period, assigneeId: form.assigneeId, type: form.type }) }); }
-    catch (_) { this.setData({ previous: null }); }
+    if (!form.assigneeId || !form.type) return;
+    const row = this.data.rows.find(item => item.assigneeId === form.assigneeId && item.type === form.type && item.suggestion);
+    this.setData({ previous: row ? { period: row.suggestion.period, value: P.valueText(form.type, row.suggestion.value), unit: P.typeMeta(form.type).unit } : null });
   },
   async submitTask(event) {
     if (!this.writable() || this.busy) return;
@@ -244,12 +170,7 @@ Page({
       finally { this.busy = false; }
       return;
     }
-    try {
-      Tasks.create(this.state, { ...this.data.form, ...event.detail.value, period: this.data.period });
-      this.resetTaskForm();
-      this.refresh();
-      wx.showToast({ title: '任务已派发', icon: 'success' });
-    } catch (error) { this.fail(error.message); }
+    this.fail('请先登录后端账号');
   },
   beginReassign(event) {
     if (!this.writable()) return;
@@ -278,16 +199,7 @@ Page({
       finally { this.busy = false; }
       return;
     }
-    try {
-      const person = this.data.staff[Number(event.detail.value.assigneeIndex)];
-      Tasks.reassign(this.state, this.data.reassignTask.id, {
-        assigneeId: person.id, note: event.detail.value.note,
-        idempotencyKey: 'performance-task-reassign:' + this.data.reassignTask.id + ':' + person.id
-      });
-      this.setData({ reassignTask: null });
-      this.refresh();
-      wx.showToast({ title: '改派已留痕', icon: 'success' });
-    } catch (error) { this.fail(error.message); }
+    this.fail('请先登录后端账号');
   },
   beginManual(event) {
     if (!this.writable()) return;
@@ -340,15 +252,7 @@ Page({
       finally { this.busy = false; }
       return;
     }
-    try {
-      Tasks.completeManual(this.state, this.data.evidenceTask.id, {
-        note: event.detail.value.note, photos: this.data.evidence.photos,
-        idempotencyKey: 'performance-task-manual:' + this.data.evidenceTask.id + ':' + Date.now()
-      });
-      this.cancelManual();
-      this.refresh();
-      wx.showToast({ title: '完成凭证已保存', icon: 'success' });
-    } catch (error) { this.fail(error.message); }
+    this.fail('请先登录后端账号');
   },
   async archive() {
     if (!this.writable() || this.busy) return;
@@ -369,12 +273,7 @@ Page({
       finally { this.busy = false; }
       return;
     }
-    try {
-      Tasks.archive(this.state, this.data.period, { note: '月度绩效任务归档', idempotencyKey: 'performance-task-archive:' + this.state.companyId + ':' + this.data.period });
-      this.requestedView = 'archive';
-      this.refresh();
-      wx.showToast({ title: '本月任务已归档', icon: 'success' });
-    } catch (error) { this.fail(error.message); }
+    this.fail('请先登录后端账号');
   },
   async revise() {
     if (!this.writable() || this.busy) return;
@@ -393,11 +292,6 @@ Page({
       finally { this.busy = false; }
       return;
     }
-    try {
-      const revision = (this.data.archive?.latest?.revision || 1) + 1;
-      Tasks.reviseArchive(this.state, this.data.period, { note: '原业务事实变化后重新冻结', idempotencyKey: 'performance-task-archive:' + this.state.companyId + ':' + this.data.period + ':r' + revision });
-      this.refresh();
-      wx.showToast({ title: '修订版已归档', icon: 'success' });
-    } catch (error) { this.fail(error.message); }
+    this.fail('请先登录后端账号');
   }
 });

@@ -1,13 +1,8 @@
-const M = require('../model');
-const C = require('../../../utils/collection-commission');
-const X = require('../../../utils/access');
-const O = require('../../../utils/organization');
 const N = require('../../../utils/page-navigation');
 const Files = require('../../../utils/sample-files');
-const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（提成在线；失败降级本地演示）
+const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（提成在线；无 token/失败一律错误态，不回落本地演示）
 
 const clone = require('../../../utils/clone');
-const money = require('../../../utils/money').money;
 const blankForm = () => ({ amount:'', assignee:'', note:'', file:null, checked:false, expectedVersion:0 });
 const clean = () => ({ ready:false, error:'', busy:false, actor:{}, canEditPolicy:false, commissionRows:[], commissionProjects:[], commissionProjectIndex:0, commissionStaff:[], commissionStaffIndex:0, commissionForm:blankForm() });
 
@@ -15,37 +10,10 @@ Page({
   data:clean(),
   onLoad(options = {}) { this.options = options; this.selectedProjectId = options.id || ''; },
   onShow() { this.refresh(); 
-  this.setData && this.setData({ showDemoBadge: require('../../../utils/demo-badge').isDemoMode(this) }); // M11-T01：pages/admin/commission 深度三级，原少退一级 MODULE_NOT_FOUND
   },
   refresh() {
     if (P.online()) return this.refreshOnline();
-    try {
-      const actor = X.context();
-      if (!actor.active || !['boss','owner','finance','finance-lead'].includes(actor.role)) throw Error('当前身份无本组织提成查看权限');// API 态准入在 refreshOnline（apiPost.roleCode 矩阵）
-      const state = M.load();
-      const projects = (wx.getStorageSync(require('../../../utils/storage-keys').engineering)?.projects || []).filter(row => (row.companyId || 'quanzhou') === actor.companyId && row.recordFlow).map(row => ({ id:row.projectId || row.id, name:row.name || row.customer || row.projectId || row.id }));
-      const staff = (state.staff || []).filter(row => row.active !== false && row.personId).map(row => ({ id:row.id, name:row.name }));
-      if (!projects.some(row => row.id === this.selectedProjectId)) this.selectedProjectId = projects[0]?.id || '';
-      const selectedPolicy = C.policyFor(state, this.selectedProjectId);
-      const projectIndex = Math.max(0, projects.findIndex(row => row.id === this.selectedProjectId));
-      const staffIndex = Math.max(0, staff.findIndex(row => row.id === selectedPolicy?.assigneeId));
-      const finance = O.has(actor.role, 'finance'), actualBoss = actor.role === 'boss';
-      const rows = C.rows(state).map(row => ({
-        id:row.id, projectId:row.projectId, project:row.project, totalText:money(row.total), assignee:row.assignee, version:row.version,
-        stages:row.stages.map(stage => ({
-          stage:stage.stage, label:stage.label, status:stage.status, payableId:stage.payableId, reviewDue:stage.reviewDue,
-          requiredText:money(stage.required), receivedText:money(stage.received), amountText:money(stage.amount), paidText:money(stage.paid), outstandingText:money(stage.outstanding),
-          canRelease:finance && stage.eligible && !stage.payableId,
-          canPay:finance && !!stage.payableId && !stage.reviewDue && stage.outstanding > 0,
-          canReconcile:actualBoss && stage.reviewDue && stage.eligible,
-          reason:stage.reviewDue?'原收款已变化，未付部分暂停；已付差额只待人工核对，不代表已追回。':!stage.eligible?'阶段款尚未收齐，暂不能发放。':stage.payableId?'应付已生成，可登记付款。':'阶段款已足额，可由财务生成本期应付。'
-        }))
-      }));
-      const form = { ...blankForm(), amount:selectedPolicy ? String(selectedPolicy.total / 100) : '', assignee:selectedPolicy?.assigneeId || staff[staffIndex]?.id || '', expectedVersion:selectedPolicy?.version || 0 };
-      this.setData({ ready:true, error:'', actor:{ role:actor.role, companyId:actor.companyId, demo:actor.demo }, canEditPolicy:actualBoss, commissionRows:rows, commissionProjects:projects, commissionProjectIndex:projectIndex, commissionStaff:staff, commissionStaffIndex:staffIndex, commissionForm:form });
-    } catch (error) {
-      this.setData({ ...clean(), error:error.message });
-    }
+    this.setData({ ...clean(), error: '请先登录后端账号' });
   },
   async refreshOnline() { // API 态：身份=API 岗位（Codex P1-2）；项目=工程域∪已有规则（P1-5）；选人=org 真源（P1-3）
     const post = P.apiPost();
@@ -140,14 +108,8 @@ Page({
       finally { this.setData({ busy: false }); }
       return;
     }
-    try {
-      this.setData({ busy:true, error:'' });
-      M.mutate(state => M.apply(state, action, id, form));
-      this.refresh();
-      wx.showToast({ title:action === 'commission-policy' ? '提成规则已保存' : action === 'commission-release' ? '提成应付已生成' : '人工核对已记录', icon:'none' });
-    } catch (error) { this.fail(error.message); }
-    finally { this.setData({ busy:false }); }
+    this.fail('请先登录后端账号');
   },
-  commissionPay(event) { const id=event.currentTarget.dataset.payable; if (id) N.open('/pages/admin/index?view=pay&id=' + encodeURIComponent(id)); },
+  commissionPay(event) { const id=event.currentTarget.dataset.payable; if (id) N.open('/pages/admin/finance-desk/index?view=flows&tab=payables'); },
   fail(error) { this.setData({ error }); wx.showToast({ title:error, icon:'none' }); wx.pageScrollTo?.({ scrollTop:0, duration:150 }); }
 });

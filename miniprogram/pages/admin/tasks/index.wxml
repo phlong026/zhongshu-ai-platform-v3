@@ -1,5 +1,5 @@
 <view class="task-page">
-<view wx:if="{{showDemoBadge}}" style="background:#fff7e6;color:#ad6800;padding:8rpx 24rpx;font-size:24rpx;text-align:center">演示数据 · 本地保存，登录后切换平台数据</view>
+
   <owner-header title="{{view==='member'?'成员绩效':view==='mine'?'我的绩效':'绩效任务'}}" back="{{true}}"/>
   <view class="task-content">
     <text wx:if="{{error}}" class="error">{{error}}</text>
