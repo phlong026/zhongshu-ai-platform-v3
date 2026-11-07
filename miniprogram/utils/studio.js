@@ -21,7 +21,7 @@ const script = '';
 function initial() {
 return { version: 3, title: '', original: '', script: '', tasks: [], records: [], works: [], publishDrafts: {} };
 }
-function storageKey(){const a=wx.getStorageSync(require('./storage-keys').account),s=a&&a.session;if(!s)return KEY+':guest';const raw=wx.getStorageSync(require('./storage-keys').management),book=raw&&(raw.companyId===s.companyId?raw:(raw.books||{})[s.companyId]),person=book&&(book.staff||[]).find(p=>p.id===(s.staffId||String(s.userId||'').replace(/^demo-/,'')));if(!Access.context().active||!Job.has(Access.context().role,'sales')||person&&person.active===false)return KEY+':disabled:'+s.companyId+':'+s.userId;return s.loggedIn&&s.userId==='demo-zhang'&&s.companyId==='quanzhou'?KEY:KEY+':'+(s.loggedIn?s.companyId+':'+s.userId:'guest');}
+function storageKey(){const post=apiSalesPost(),local=Access.context();if(post&&!(local.active&&Job.has(local.role,'sales')))return KEY+':api:'+String(post.postId);const a=wx.getStorageSync(require('./storage-keys').account),s=a&&a.session;if(!s)return KEY+':guest';const raw=wx.getStorageSync(require('./storage-keys').management),book=raw&&(raw.companyId===s.companyId?raw:(raw.books||{})[s.companyId]),person=book&&(book.staff||[]).find(p=>p.id===(s.staffId||String(s.userId||'').replace(/^demo-/,'')));if(!Access.context().active||!Job.has(Access.context().role,'sales')||person&&person.active===false)return KEY+':disabled:'+s.companyId+':'+s.userId;return s.loggedIn&&s.userId==='demo-zhang'&&s.companyId==='quanzhou'?KEY:KEY+':'+(s.loggedIn?s.companyId+':'+s.userId:'guest');}
 function scopedKey(base){return base+storageKey().slice(KEY.length);}
 function read() {
 const raw = wx.getStorageSync(storageKey());
@@ -45,8 +45,9 @@ return Object.assign({}, work, { kind: work.kind || (task && task.kind) || '', i
 });
 return state;
 }
-function allowed(){return Access.context().active&&Job.has(Access.context().role,'sales');}
-function guard(){if(allowed())return true;wx.redirectTo({url:'/pages/account/index?view='+(Access.context().active?'access':'login')});return false;}
+function apiSalesPost(){try{const http=require('../api/http');if(!http.token())return null;const post=require('../api/auth').currentApiPost();if(post&&['sales','sales-lead','boss','owner'].includes(post.roleCode))return post;}catch(e){}return null;}
+function allowed(){const local=Access.context();if(local.active&&Job.has(local.role,'sales'))return true;return !!apiSalesPost();}
+function guard(){if(allowed())return true;let token=false;try{token=!!require('../api/http').token();}catch(e){}wx.redirectTo({url:'/pages/account/index?view='+(Access.context().active||token?'access':'login')});return false;}
 function write(state,token) { const old=read();if(token!==AUTH&&['tasks','works','records'].some(k=>JSON.stringify(state[k])!==JSON.stringify(old[k])))throw Error('作品和发布状态只能通过对应办理动作更新'); if(!allowed())throw Error('当前人员未获创作授权');if(state._scope&&state._scope!==storageKey())throw Error('工作身份已变化，请重新打开本人创作');wx.setStorageSync(storageKey(), state); return state; }
 function completeTask(id) {
 const state = read(); const task = state.tasks.find(task => task.id === id);

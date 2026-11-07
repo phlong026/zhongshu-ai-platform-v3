@@ -401,7 +401,7 @@ async function perform(action, id, form, node, key) {
       return api.plan.save(id, nodes, key);
     }
     default:
-      throw { code: 0, msg: '该操作暂未开通在线办理，请在本地演示态查看' };
+      throw { code: 0, msg: '该操作暂未开通在线办理' };
   }
 }
 

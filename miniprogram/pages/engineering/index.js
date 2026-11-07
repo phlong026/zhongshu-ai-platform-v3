@@ -5,11 +5,11 @@ data: { panel: null, deskTitle: '工程工作台', roleLabel: '', active: false,
 onLoad() { PTPage.init(this); },
 // 工程 tab：工程岗重定向到工程首页；其余岗位（老板等）走平台 API 态——项目计数 + 平台待办，无本地演示数据。
 onShow() {
-const a = require('../../utils/access').context();
-if (a.active && require('../../utils/organization').has(a.role, 'engineer')) { wx.redirectTo({ url: '/pages/build/home/index' }); return; }
-const X = require('../../utils/access'), O = require('../../utils/organization');
 const http = require('../../api/http'), auth = require('../../api/auth');
 const post = (() => { try { return http.token() ? auth.currentApiPost() : null; } catch (e) { return null; } })();
+if (post && require('../../utils/organization').has(post.roleCode, 'engineer')) { wx.redirectTo({ url: '/pages/build/home/index' }); return; }
+const a = require('../../utils/access').context();
+const X = require('../../utils/access'), O = require('../../utils/organization');
 const nav = require('../../utils/workbench-nav')();
 this.setData({ ...nav, panel: null, canWork: nav.canEngineering, active: !nav.guest, deskTitle: '工程工作台', roleLabel: post ? (O.roles[post.roleCode] || post.roleCode) : (X.roles[a.role] || '访客'), projectCount: 0, activeCount: 0, todoCount: 0 });
 if (this.getTabBar()) { this.getTabBar().refresh?.(); this.getTabBar().setData({ selected: 2, hidden: false }); }

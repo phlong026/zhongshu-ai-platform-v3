@@ -50,11 +50,13 @@ Page({
       : null;
     const bundle=await P.loadProject(this.id);
     const expenses=expensePull?await expensePull:null;
+    const apiPost=(()=>{try{const http=require('../../../api/http');return http.token()?require('../../../api/auth').currentApiPost():null;}catch(e){return null;}})();
+    const apiRole=apiPost&&apiPost.roleCode||'';
     const data=P.recordView(bundle,{view:this.data.view,stage:this.stage,planId:this.planId,nodeId:this.nodeId,
       form:this.data.form,initialized:this.initialized&&!reset,
       today:require('../../../utils/account').localDate(),
-      writeRole:['engineer','project-manager'].includes(X.context().role),
-      financeRole:O.has(X.context().role,'finance'),
+      writeRole:['engineer','project-manager'].includes(apiRole),
+      financeRole:O.has(apiRole,'finance'),
       expenses:expenses||undefined,expenseMode:this.data.expenseMode||'register'}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
     this.initialized=true;
     // 收款登记承接：原收款记录行统一指财务台收支页（finance-desk 承接收款登记）

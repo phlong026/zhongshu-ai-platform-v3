@@ -116,7 +116,7 @@ assert.equal(P.validateShareLink('https://v.douyin.com/abc123/'), '');
 assert.equal(P.validateShareLink('http://xhslink.com/x'), '');
 
 // ===== validatePublicationForm：对齐后端 INPUT_INVALID；定时≥1 分钟 =====
-const now = Date.parse('2026-11-02T10:00:00+08:00');
+const now = new Date(2026, 10, 2, 10, 0, 0).getTime(); // 与页面同一套本地时间解析，不绑定运行机时区
 assert.equal(P.validatePublicationForm({ title: '', publishText: 'x' }, now), '请填写标题');
 assert.equal(P.validatePublicationForm({ title: 't', publishText: ' ' }, now), '请填写发布文案');
 assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x', scheduled: '2026-13-99 99:99' }, now), '请选择有效的定时时间');
@@ -134,15 +134,15 @@ assert.equal(P.validatePublishedUrl('http://example.com:8080/p?q=1#f'), '');
 assert.equal(P.validatePublishedUrl('https://' + 'a'.repeat(2000) + '.com/x'), '请输入有效的 http 或 https 作品链接', '超 2000 长度拒绝');
 
 // ===== degradeMessage：网络态降级文案 / 业务错误透传 =====
-assert.equal(P.degradeMessage({ message: 'request:fail timeout' }), '网络暂不可用，已保留本机内容');
-assert.equal(P.degradeMessage({ errMsg: 'request:fail abort' }), '网络暂不可用，已保留本机内容');
+assert.equal(P.degradeMessage({ message: 'request:fail timeout' }), '网络暂不可用，请稍后重试');
+assert.equal(P.degradeMessage({ errMsg: 'request:fail abort' }), '网络暂不可用，请稍后重试');
 assert.equal(P.degradeMessage({ message: '链接格式不正确' }), '链接格式不正确');
 assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
 
 // ===== pollTask：wx.request 桩下终态收敛 / 失败 / 不确定 / 超时 =====
 (async () => {
   const queue = [];
-  global.wx = { getStorageSync: () => '', setStorageSync() {}, removeStorageSync() {}, request: options => queue.push(options) };
+  global.wx = { getStorageSync: key => key === 'zs-api-base' ? 'https://api.test' : '', setStorageSync() {}, removeStorageSync() {}, request: options => queue.push(options) };
   const respond = payload => { const options = queue.shift(); assert.ok(options, '请求已入队'); options.success({ statusCode: 200, data: { code: 0, data: payload } }); };
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -261,7 +261,7 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   global.wx = { getStorageSync: () => '', setStorageSync() {}, removeStorageSync() {} };
   const studioExports = require('../miniprogram/utils/studio');
   for (const name of ['KEY', 'title', 'original', 'script', 'initial', 'scopedKey', 'scope', 'guard', 'allowed', 'read', 'write',
-    'createDemoTask', 'completeTask', 'saveWork', 'createPublication', 'confirmDemoPublication', 'demoPublicationUrl',
+    'completeTask', 'saveWork', 'createPublication',
     'normalizePublishedUrl', 'scheduleError', 'imageFor', 'kindLabel', 'formatTime', 'recentItems', 'restoreManualDraft', 'accounts']) {
     assert.ok(name in studioExports, 'studio.js 导出缺失：' + name);
   }

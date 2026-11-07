@@ -73,15 +73,15 @@ ok('record 页失败降级文案（errorText）', record.includes('P.errorText')
 ok('record 页 funding 视图首批隐藏（17 §七：无 funding-plan 在线映射）', typeof P.perform==='function' && !P.perform.toString().includes("'funding-plan'"));
 const projects = read('miniprogram/pages/build/projects/index.js');
 ok('projects 页列表 API 态 + 新建 API 态', projects.includes('refreshOnline') && projects.includes('submitCreateOnline'));
-ok('projects 页降级本地（P.online() 分流后原逻辑保留）', projects.includes('W.allowed()') && projects.includes('R.create'));
+ok('projects 页失败不回落本地账簿', projects.includes('不回落本地演示数据') && !projects.includes('W.allowed()') && !projects.includes('R.create'));
 const home = read('miniprogram/pages/build/home/index.js');
-ok('home 页统计 API 态 + 平台待办（PTPage）', home.includes('refreshEngCount') && home.includes('PTPage'));
+ok('home 页统计 API 态 + 平台待办（PTPage）', home.includes('loadOnline') && home.includes('PTPage'));
 const materials = read('miniprogram/pages/build/materials/index.js');
-ok('materials 页 recordFlow 归口 record（API 态在 record 页内办理）', materials.includes('engineering-records') && materials.includes('materials\'),{replace:true}'));
+ok('materials 页转跳 record 材料视图（不再读本地 engineering-records）', materials.includes("view=materials") && !materials.includes('engineering-records'));
 const engineering = read('miniprogram/pages/engineering/index.js');
-ok('engineering 聚合入口（工程岗重定向 build/home；入口路由全通）', engineering.includes('build/home/index'));
+ok('engineering 聚合入口（API 工程岗重定向 build/home）', engineering.includes('build/home/index') && engineering.includes('post.roleCode'));
 const buildIndex = read('miniprogram/pages/build/index.js');
-ok('build/index 经典容器保留本地演示态（recordFlow 重定向 record）', buildIndex.includes('engineering-records'));
+ok('build/index 无本地演示态（在线转 record，离线提示登录）', buildIndex.includes('build/record/index') && buildIndex.includes('请先登录后端账号') && !buildIndex.includes('engineering-records'));
 
 console.log('[4] 在线编排红线');
 const pf = read('miniprogram/utils/platform-engineering.js');
@@ -145,15 +145,15 @@ ok('performOnline busy 防重（双击不再双笔）', (() => {
   const m = record.match(/async performOnline\(action,f,node\)\{[\s\S]{0,120}if\(this\.data\.busy\)return/);
   return !!m && /finally\{this\.setData\(\{busy:false\}\);?\}/.test(record);
 })());
-ok('performOnline 一次性幂等键（__idemKeys 成功释放/失败复用）', record.includes('__idemKeys') && record.includes('delete this.__idemKeys[action]') && record.includes('this.__idemKeys[action]'));
-ok('refreshOnline 设 canCreate（projects，856 write+isBoss 口径）', (() => {
-  const m = projects.match(/async refreshOnline\(\)\{[\s\S]*?canCreate:[\s\S]*?Access\.isBoss\(a\)[\s\S]*?Job\.has\(a\.role,'engineer'\)[\s\S]*?Job\.has\(a\.role,'project-manager'\)/);
+ok('performOnline 幂等键按目标+命令指纹复用（成功释放 idemId）', record.includes('__idemKeys') && record.includes('delete this.__idemKeys[idemId]') && record.includes('cached.fp'));
+ok('refreshOnline 设 canCreate（projects，API 岗位 856 write+isBoss 口径）', (() => {
+  const m = projects.match(/async refreshOnline\(\)\{[\s\S]*?canCreate:!!navCtx&&\(\['boss','owner'\]\.includes\(navCtx\.role\)\|\|Job\.has\(navCtx\.role,'engineer'\)\)/);
   return !!m;
 })());
-ok('projects refreshOnline 失败回退离线（__platDown+refresh+toast）', projects.includes('this.__platDown=true') && /refreshOnline\(\)\{[\s\S]*?this\.refresh\(\)/.test(projects));
-ok('record refreshOnline 失败回退离线（__platDown+refresh+toast）', record.includes('this.__platDown=true') && /refreshOnline\(reset\)\{[\s\S]*?this\.refresh\(reset\)/.test(record));
-ok('API 态隐藏「待验收」筛选（API 恒空）', projects.includes("concat(P.online()&&!this.__platDown?[]:['待验收'])"));
-ok('openCreate 父项目选项走在线数据（__platRows）', projects.includes('P.listCards(this.__platRows)'));
+ok('projects refreshOnline 失败显示错误态（不回落本地）', /async refreshOnline\(\)\{[\s\S]*?catch\(e\)\{[\s\S]*?cards:\[\]/.test(projects) && !projects.includes('__platDown'));
+ok('record refreshOnline 失败显示错误态（不回落本地）', /async refreshOnline\(reset\)\{[\s\S]*?catch\(e\)\{[\s\S]*?不回落本地演示数据/.test(record) && !record.includes('__platDown'));
+ok('项目筛选不再提供「待验收」（本地口径已下线）', projects.includes("itemList=['待接收','待开工','已交付','已归档']") && !projects.includes("['待验收']"));
+ok('openCreate 父项目选项走在线数据（__platRows）', projects.includes('P.listCards(this.__platRows||[])'));
 ok('record wxml 模板/导入按钮 API 态隐藏（本地演示态功能）', read('miniprogram/pages/build/record/index.wxml').includes("view==='prepare'&&own&&!platEng"));
 ok('projects wxml 进度护栏（progress<0 不渲染百分比）', read('miniprogram/pages/build/projects/index.wxml').includes("item.progress>=0"));
 ok('lock：engineering-records settle 待办不挂已归档', (() => {

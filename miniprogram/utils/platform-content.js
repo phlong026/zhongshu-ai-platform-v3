@@ -92,10 +92,10 @@ function validatePublishedUrl(value) {
   return '';
 }
 
-/** 错误降级：后端不可达/未登录时保留本机演示兜底（demo 语义不破坏），仅提示网络态 */
+/** 错误文案：后端不可达时只提示网络态，不声称已回落本机演示内容 */
 function degradeMessage(error) {
   const message = String((error && (error.message || error.errMsg)) || '');
-  if (/fail|timeout|abort/i.test(message)) return '网络暂不可用，已保留本机内容';
+  if (/fail|timeout|abort/i.test(message)) return '网络暂不可用，请稍后重试';
   return message || '操作未完成，请稍后重试';
 }
 
