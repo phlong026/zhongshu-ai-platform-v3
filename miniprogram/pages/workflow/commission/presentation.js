@@ -1,60 +1,398 @@
-const Files = require('../../../utils/sample-files');
-const Checkout = require('../../../utils/design-checkout');
-const Access = require('../../../utils/access');
-const imageRoot = '/pages/workflow/assets/';
-const money = require('../../../utils/money').yuan;
-const specs = [
-  { key: 'resultFile', label: '设计成果', name: '正式设计成果.pdf', kind: 'result', image: imageRoot + 'biz-plan-result.jpg' },
-  { key: 'drawingFile', label: '施工图纸', name: '施工图纸.pdf', kind: 'drawing', image: imageRoot + 'biz-plan-1.jpg' },
-  { key: 'reviewFile', label: '专业审核', name: '专业审核记录.pdf', kind: 'review', image: '' }
-];
-function document(customer, key, version, date) {
-  const actor = Access.context();
-  const spec = specs.find(row => row.key === key) || { key, label: key === 'confirmationFile' ? '客户确认' : '需求资料', name: key === 'confirmationFile' ? '客户成果确认书.pdf' : '设计需求资料.pdf', kind: key === 'confirmationFile' ? 'confirmation' : 'brief' };
-  return { ...Files.reference({ name: spec.name, customer: customer.name, customerId: customer.id, projectId: customer.projectId, project: customer.name + '乡墅', version, sourceParty: key === 'confirmationFile' ? customer.owner : actor.name, confirmationParty: key === 'confirmationFile' ? customer.name : '', purpose: spec.label, details: ['图纸版本：' + version, '登记日期：' + (date || require('../../../utils/account').localDate()), '建筑面积：' + (customer.request?.basis?.area || customer.budgets?.at(-1)?.area || '') + '㎡'] }), previewKind: spec.kind, previewCustomer: customer.name, previewArea: customer.request?.basis?.area || customer.budgets?.at(-1)?.area || 0 };
+/**
+ * 设计委托页展示映射层（API 态）：
+ * 后端 /franchise/commissions、/franchise/design-policies DTO → 页面 data 键
+ * （customer/rows/fields/form/pricingQuote 及设计行政工作台视图）。
+ * 后端字段名未最终定稿，这里按常见别名宽容取值；契约落地后只需调整本文件的 normalize 映射。
+ * 不含本地持久化、模拟支付与 sample-files 假文件逻辑。
+ */
+const Money = require('../../../utils/money');
+const Status = require('../../../utils/status-labels').commission;
+
+const money = cents => Money.money(cents, { symbol: false });
+const today = () => require('../../../utils/account').localDate();
+
+/** 视图 → API 动作（与 api/franchise/commission.js 注释的命令枚举一致；submit 走独立提交端点） */
+const ACTIONS = { submit: 'commission-submit', feedback: 'commission-feedback', complete: 'design-complete', dispatch: 'design-dispatch', handover: 'packet-submit', receive: 'packet-receive' };
+const FILTERS = ['全部', Status.designing, Status.modifying, Status.pay, Status.dispatch, Status.handover, Status.receive, Status.dispatched];
+const STATUS_ORDER = { [Status.modifying]: 0, [Status.designing]: 1, [Status.pay]: 2, [Status.dispatch]: 3, [Status.handover]: 4, [Status.receive]: 5, [Status.dispatched]: 6 };
+const KNOWN_VIEWS = ['progress', 'submit', 'complete', 'dispatch', 'handover', 'receive'];
+
+const url = (id, view = 'progress') => '/pages/workflow/commission/index?view=' + view + '&id=' + encodeURIComponent(id);
+
+/* ---- 宽容取值 ---- */
+function pick(obj) {
+  for (let i = 1; i < arguments.length; i++) {
+    const v = obj ? obj[arguments[i]] : undefined;
+    if (v !== undefined && v !== null && v !== '') return v;
+  }
+  return undefined;
 }
-function bundle(customer, version) {
-  return Object.fromEntries(specs.map(spec => [spec.key, document(customer, spec.key, version)]).concat([['drawingVersion', version]]));
+/** 金额：优先 nameCents（分），回退 nameYuan（元取整为分） */
+function centsOf(obj, ...names) {
+  if (!obj) return null;
+  for (const n of names) {
+    const c = obj[n + 'Cents'];
+    if (c !== undefined && c !== null && c !== '') return Number(c) || 0;
+  }
+  for (const n of names) {
+    const y = obj[n + 'Yuan'];
+    if (y !== undefined && y !== null && y !== '') return Math.round(Number(y) * 100) || 0;
+  }
+  return null;
 }
-function cards(customer, form) {
-  const source = { ...customer.businessFlow?.completed?.files, ...customer.businessFlow?.dispatch, ...customer.businessFlow?.packet, ...form };
-  const currentVersion = source.drawingVersion || 'V' + (customer.request?.version || 1);
-  return specs.map(spec => ({ ...spec, version: currentVersion, file: source[spec.key] || null, ready: !!source[spec.key] && (!source[spec.key].text || String(source[spec.key].text).includes('版本：' + currentVersion)) }));
+/** 金额回填表单（元字符串）；无值返回 '' */
+function formMoney(obj, ...names) {
+  const cents = centsOf(obj, ...names);
+  return cents == null ? '' : String(cents / 100);
 }
-function preview(file, customer, key) {
-  const kind = file.previewKind || specs.find(row => row.key === key)?.kind || (key === 'confirmationFile' ? 'confirmation' : 'brief');
-  const spec = specs.find(row => row.kind === kind);
-  return { ...file, kind, image: spec?.image || '', customer: customer.name, city: customer.city, projectId: customer.projectId, version: file.meta?.version || 'V' + (customer.request?.version || 1), area: customer.request?.basis?.area || customer.budgets?.at(-1)?.area || '', scope: customer.request?.scope || '', sourceParty: file.meta?.sourceParty || customer.owner || '', confirmationParty: file.meta?.confirmationParty || customer.name };
-}
-function build(customer, view, form, quote, next, actor) {
-  const flow = customer.businessFlow || {}, payment = Checkout.order(customer), paid = Checkout.paid(customer);
-  // M05-T04/M06-T03：冻结版本链（下发序号+冻结需求版本/移交包版本+退回补件重提链）
-  const dispatch = flow.dispatch || null, packet = customer.businessFlow?.packet || null;
-  const basis = customer.request?.basis || require('../../../utils/design-coordination').basis(customer) || quote || {};
-  const step = !customer.request ? 0 : !paid ? 1 : !flow.dispatch ? 2 : !customer.acceptance ? 3 : 4;
-  const files = cards(customer, form), documentCount = files.filter(row => row.ready).length;
-  let engineering = null;
-  if (customer.acceptance && ['engineer', 'project-manager'].includes(actor.role)) engineering = (wx.getStorageSync(require('../../../utils/storage-keys').engineering)?.projects || []).find(row => row.sourceCustomerId === customer.id && Access.project(row, actor));
-  const state = customer.acceptance ? ['项目已创建', '工程已接收本版资料', '工程负责人'] : customer.handover ? ['工程待接收', '完整资料包已提交', customer.handover.manager] : flow.dispatch ? ['设计成果已下发', '待确认成果并移交工程', customer.owner] : flow.completed ? ['设计已完成', '待下发本版成果', '总部设计'] : paid ? ['设计进行中', '总部设计已收到任务', '总部设计'] : ['订单待支付', '支付后开始设计', customer.owner];
+
+/* ---- DTO 归一化 ---- */
+function normalizeQuote(raw) {
+  if (!raw) return null;
+  const rate = centsOf(raw, 'rate'), amount = centsOf(raw, 'amount', 'total');
+  if (rate == null && amount == null && !pick(raw, 'scope')) return null;
   return {
-    step, steps: ['设计委托', '支付费用', '设计成果', '移交工程'].map((label, index) => ({ label, index: index + 1, done: index < step, active: index === Math.min(step, 3) })),
-    name: customer.name, city: customer.city, owner: customer.owner || '', projectId: customer.projectId,
-    area: basis.area || 0, floors: basis.floors || customer.request?.basis?.floors || '', width: customer.request?.basis?.width || '', depth: customer.request?.basis?.depth || '',
-    amount: money((payment?.amountCents || quote?.amountCents || 0) / 100), rate: money((payment?.rateCents || quote?.rateCents || 0) / 100),
-    scope: customer.request?.scope || quote?.scope || '', recipient: payment?.recipient || quote?.recipient || '众墅之家总部',
-    demand: customer.request?.text || customer.summary || '', version: form.drawingVersion || flow.dispatch?.drawingVersion || flow.completed?.files?.drawingVersion || 'V' + (customer.request?.version || 1),
-    orderNumber: payment ? 'DS' + String(payment.createdAt || '').replace(/\D/g, '').slice(0, 14) + customer.id.slice(-4).toUpperCase() : '',
-    paymentMethod: payment?.paymentMethod || (payment?.channel==='alipay'?'余额':'零钱'), brief: customer.handover?.note || flow.packet?.note || form.note || '', channel: payment?.channel || form.channel || 'wechat', channelName: payment?.channel === 'alipay' ? '支付宝' : '微信支付', paid, paidAt: payment?.paidAt ? require('../../../utils/account').displayTime(payment.paidAt) : '',
-    files, documentCount, allFilesReady: documentCount === 3, state: state[0], subtitle: state[1], nextOwner: state[2],
-    dispatchedVersionText: dispatch ? '第 ' + dispatch.version + ' 次下发 · ' + (dispatch.drawingVersion || '线下成果') + '（冻结需求 V' + dispatch.requestVersion + '）' : '',
-    pendingVersionNotice: dispatch && customer.request && customer.request.version > dispatch.requestVersion
-      ? '客户需求已更新至 V' + customer.request.version + '，未经正式确认不能替换已下发的 ' + (dispatch.drawingVersion || '线下成果') : '',
-    dispatchHistory: (flow.dispatchHistory || []).map(h => '第 ' + h.version + ' 次 · ' + (h.drawingVersion || '线下成果') + ' · 因修改意见关闭'),
-    packetVersionText: packet ? '第 ' + packet.version + ' 包 · 冻结第 ' + packet.dispatchVersion + ' 次下发 · ' + packet.drawingVersion : '',
-    packetHistory: (customer.handoverHistory || []).map(h => '第 ' + h.version + ' 包 · ' + (h.drawingVersion || '') + ' · 已退回补件'),
-    resultImage: imageRoot + 'biz-plan-result.jpg', attachment: form.attachment || customer.request?.attachment || null,
-    confirmation: form.confirmationFile || flow.packet?.confirmationFile || null,
-    engineeringId: engineering?.id || '', nextView: next.view, readOnly: !['submit', 'pay', 'complete', 'dispatch', 'handover', 'receive'].includes(view)
+    area: Number(pick(raw, 'area', 'buildingArea') || 0),
+    rateCents: rate, amountCents: amount,
+    scope: String(pick(raw, 'scope') || ''),
+    recipient: String(pick(raw, 'recipient', 'payee') || '众墅之家总部'),
+    pricingVersion: Number(pick(raw, 'pricingVersion', 'version') || 0)
   };
 }
-module.exports = { build, bundle, document, preview };
+function normalizeFee(raw) {
+  if (!raw) return null;
+  return {
+    mode: String(pick(raw, 'mode', 'type') || ''),
+    status: String(pick(raw, 'status', 'feeStatus') || ''),
+    totalCents: centsOf(raw, 'total', 'totalAmount'),
+    firstCents: centsOf(raw, 'first', 'firstAmount'),
+    tailCents: centsOf(raw, 'tail', 'tailAmount'),
+    recipient: String(pick(raw, 'recipient', 'payee') || ''),
+    detail: String(pick(raw, 'detail', 'statusText') || ''),
+    quote: normalizeQuote(raw.quote || raw.areaPricing)
+  };
+}
+function normalize(dto = {}) {
+  return {
+    id: String(pick(dto, 'customerId', 'id') || ''),
+    commissionId: String(pick(dto, 'commissionId', 'id') || ''),
+    projectId: String(pick(dto, 'projectId') || ''),
+    name: String(pick(dto, 'customerName', 'name') || ''),
+    city: String(pick(dto, 'city') || ''),
+    company: String(pick(dto, 'companyName', 'company') || ''),
+    owner: String(pick(dto, 'owner', 'ownerName') || ''),
+    revision: Number(pick(dto, 'revision') || 0),
+    request: dto.request || null,
+    fee: normalizeFee(dto.fee || dto.feeInfo || dto.cost),
+    dispatch: dto.dispatch || null,
+    completed: dto.completed || null,
+    feedbacks: dto.feedbacks || [],
+    dispatchHistory: dto.dispatchHistory || [],
+    packet: dto.packet || null,
+    handover: dto.handover || null,
+    handoverHistory: dto.handoverHistory || [],
+    returns: (dto.returns || []).filter(r => r && r.status === 'pending'),
+    acceptance: dto.acceptance || null,
+    events: dto.events || [],
+    allowedActions: (dto.allowedActions || []).map(String),
+    stateText: String(pick(dto, 'stateText', 'statusText') || ''),
+    nextView: String(pick(dto, 'nextView') || ''),
+    nextOwner: String(pick(dto, 'nextOwner', 'nextOwnerName') || '')
+  };
+}
+
+/* ---- 状态推导（优先后端显式提示，缺省按归一化状态推导） ---- */
+function derive(c) {
+  const fb = c.feedbacks[c.feedbacks.length - 1];
+  if (c.acceptance) return { state: '业务移交完成', owner: '已完成', view: 'progress', actionable: false };
+  if (c.handover && c.handover.status === 'returned') return { state: Status.handover, owner: '经办业务', view: 'handover', actionable: true, roleState: '移交资料待补充' };
+  if (c.handover) return { state: Status.receive, owner: String(pick(c.handover, 'manager', 'managerName')) || '工程负责人', view: 'receive', actionable: true, roleState: '资料待接收' };
+  if (c.fee && c.fee.status === 'returned') return { state: '委托费用待修改', owner: '经办业务', view: 'submit', actionable: true };
+  if (!c.request) return { state: Status.submit, owner: '经办业务', view: 'submit', actionable: true };
+  if (c.fee && ['pending', 'pending-approval', 'pending_approval', 'approving'].includes(c.fee.status)) return { state: '费用待老板审批', owner: '加盟商老板', view: 'progress', actionable: false, detail: '委托费用待加盟商老板审批' };
+  if (fb && fb.status === 'pending') return { state: Status.modifying, owner: '总部设计', view: 'complete', actionable: true, roleState: '客户新增修改意见 · 待继续设计' };
+  if (!c.completed) return { state: Status.designing, owner: '总部设计', view: 'complete', actionable: true, roleState: '待登记设计完成' };
+  if (!c.dispatch) return { state: Status.dispatch, owner: '总部设计', view: 'dispatch', actionable: true, roleState: '待正式成果下发' };
+  return { state: Status.handover, owner: '经办业务', view: 'handover', actionable: true, roleState: '已下发 · 待收图并移交' };
+}
+function stateOf(c) {
+  const n = derive(c);
+  return { ...n, view: KNOWN_VIEWS.includes(c.nextView) ? c.nextView : n.view, state: c.stateText || n.state, owner: c.nextOwner || n.owner };
+}
+
+/** 视图 → API 动作名 */
+const actionFor = view => ACTIONS[view] || '';
+
+/** 角色视图兜底（后端 allowedActions 缺省时使用） */
+const ROLE_VIEWS = {
+  sales: ['submit', 'feedback', 'handover'],
+  'sales-lead': ['submit', 'feedback', 'handover'],
+  boss: ['submit', 'feedback', 'handover'],
+  owner: ['submit', 'feedback', 'handover'],
+  'hq-design-admin': ['complete', 'dispatch'],
+  engineer: ['receive'],
+  'project-manager': ['receive']
+};
+function canDo(c, view, actor) {
+  if (c.allowedActions.length) return !!actionFor(view) && c.allowedActions.indexOf(actionFor(view)) >= 0;
+  const n = stateOf(c);
+  const roles = Object.keys(ROLE_VIEWS).filter(role => ROLE_VIEWS[role].indexOf(view) >= 0);
+  return !!(n.actionable && n.view === view && actor && roles.indexOf(actor.role) >= 0);
+}
+
+/** 工作台项目状态（设计行政七态口径） */
+function statusOf(c) {
+  const fb = c.feedbacks[c.feedbacks.length - 1];
+  if (c.acceptance) return Status.dispatched;
+  if (c.handover) return c.handover.status === 'returned' ? Status.handover : Status.receive;
+  if (!c.request || (c.fee && (['pending', 'pending-approval', 'pending_approval', 'approving', 'returned'].includes(c.fee.status)))) return Status.pay;
+  if (fb && fb.status === 'pending') return Status.modifying;
+  if (!c.completed) return Status.designing;
+  if (!c.dispatch) return Status.dispatch;
+  return Status.handover;
+}
+
+/* ---- 展示行 ---- */
+function feeNotice(c) {
+  if (!c.request) return '提交委托后费用按授权规则执行；到账登记由财务在财务工作台办理';
+  if (c.fee && ['pending', 'pending-approval', 'pending_approval', 'approving'].includes(c.fee.status)) return '委托费用待加盟商老板审批';
+  if (c.fee && c.fee.status === 'returned') return '委托费用待修改后重新提交';
+  return '费用按授权规则执行；到账登记由财务在财务工作台办理';
+}
+function packageRows(c) {
+  const p = c.packet;
+  if (!p) return [];
+  return [['正式设计成果', 'resultFile'], ['本版施工图', 'drawingFile'], ['线下专业审核依据', 'reviewFile'], ['客户确认凭据', 'confirmationFile']]
+    .map(pair => ({ key: pair[1], label: pair[0], file: p[pair[1]] || null }))
+    .filter(r => r.file);
+}
+function rowsFor(c, n) {
+  const fb = c.feedbacks[c.feedbacks.length - 1];
+  const rows = [{ label: '当前进度', value: n.state }, { label: '当前办理', value: n.owner }];
+  const basis = c.request && c.request.basis;
+  rows.push({ label: '交付范围', value: (c.request && c.request.scope) || '随委托确认' });
+  if (n.detail) rows.push({ label: '办理说明', value: n.detail });
+  rows.push({ label: '费用执行', value: feeNotice(c) });
+  const fee = c.fee;
+  if (fee && fee.totalCents != null) {
+    rows.push({ label: '设计服务总额', value: '¥ ' + money(fee.totalCents) });
+    if (fee.firstCents != null) rows.push({ label: '首款', value: '¥ ' + money(fee.firstCents) });
+    if (fee.tailCents != null) rows.push({ label: '尾款', value: '¥ ' + money(fee.tailCents) });
+    if (fee.recipient) rows.push({ label: '总部实际收款方', value: fee.recipient });
+    if (fee.detail) rows.push({ label: '到账进度', value: fee.detail });
+  }
+  if (c.request) {
+    rows.push({ label: '设计需求', value: c.request.text });
+    if (basis) rows.push({ label: '尺寸依据', value: '预算 V' + basis.version + ' · ' + basis.width + 'm × ' + basis.depth + 'm · ' + basis.floors + '层 · ' + basis.area + '㎡' });
+    const att = c.request.attachment;
+    if (att) rows.push({ label: '需求附件', value: att.name, file: att });
+  }
+  if (c.completed) rows.push({ label: '设计完成', value: (c.completed.date || '') + (c.completed.by ? ' · ' + c.completed.by : '') });
+  const dispatch = c.dispatch;
+  if (dispatch) {
+    rows.push({ label: '交付记录', value: (dispatch.date || '') + (dispatch.note ? ' · ' + dispatch.note : '') });
+    [['正式设计成果', 'resultFile'], ['本版施工图', 'drawingFile'], ['线下审核依据', 'reviewFile']].forEach(pair => {
+      const f = dispatch[pair[1]];
+      if (f) rows.push({ label: pair[0], value: f.name, file: f });
+    });
+    rows.push({ label: '确认下发版本', value: '第 ' + dispatch.version + ' 次下发 · ' + (dispatch.drawingVersion || '线下成果') + '（冻结需求 V' + dispatch.requestVersion + '）' });
+    if (c.request && dispatch.requestVersion != null && c.request.version > dispatch.requestVersion) rows.push({ label: '版本提示', value: '客户需求已更新至 V' + c.request.version + '，未经正式确认不能替换已下发的 ' + (dispatch.drawingVersion || '线下成果') });
+  }
+  c.dispatchHistory.forEach(h => rows.push({ label: '历史下发', value: '第 ' + h.version + ' 次 · ' + (h.drawingVersion || '线下成果') + ' · 因修改意见关闭' }));
+  if (fb && fb.note) rows.push({ label: '本次修改意见', value: fb.note });
+  if (c.packet) {
+    packageRows(c).forEach(r => rows.push({ label: r.label, value: r.file.name, file: r.file }));
+    rows.push({ label: '移交包版本', value: '第 ' + c.packet.version + ' 包 · 冻结第 ' + c.packet.dispatchVersion + ' 次下发 · ' + c.packet.drawingVersion });
+  }
+  c.handoverHistory.forEach(h => rows.push({ label: '历史移交包', value: '第 ' + h.version + ' 包 · ' + (h.drawingVersion || '') + ' · 已退回补件' }));
+  if (c.handover && c.handover.note) rows.push({ label: '电子交底', value: c.handover.note });
+  c.returns.forEach(r => rows.unshift({ label: '待补充', value: r.reason }));
+  return rows;
+}
+
+/* ---- 表单 ---- */
+function formInit(c, view) {
+  const requestVersion = (c.request && c.request.version) || 0;
+  const version = 'V' + (requestVersion + c.feedbacks.length + 1);
+  if (view === 'submit') {
+    const basis = c.request && c.request.basis;
+    const form = {
+      text: (c.request && c.request.text) || '',
+      scope: (c.request && c.request.scope) || (c.fee && c.fee.quote && c.fee.quote.scope) || '',
+      attachment: (c.request && c.request.attachment) || null,
+      checked: false
+    };
+    if (basis) form.__budgetVersion = basis.version;
+    if (c.fee && c.fee.quote) form.__pricingVersion = c.fee.quote.pricingVersion;
+    if (c.fee && c.fee.totalCents != null && c.fee.firstCents != null) { // 已有分笔费用约定的委托沿用原金额
+      form.total = String(c.fee.totalCents / 100);
+      form.first = String(c.fee.firstCents / 100);
+      form.recipient = c.fee.recipient || '';
+    }
+    return form;
+  }
+  if (view === 'complete') return { note: '', drawingVersion: version, recipient: c.owner, checked: false };
+  if (view === 'feedback') return { note: '', attachment: null };
+  if (view === 'dispatch') return { recipient: c.owner, drawingVersion: version, note: '', checked: false };
+  if (view === 'handover') {
+    const p = c.packet || c.dispatch || {};
+    return {
+      resultFile: p.resultFile || null,
+      drawingFile: p.drawingFile || null,
+      reviewFile: p.reviewFile || null,
+      drawingVersion: p.drawingVersion || '',
+      confirmationFile: (c.packet && c.packet.confirmationFile) || null,
+      confirmationDate: (c.packet && c.packet.confirmationDate) || today(),
+      note: (c.packet && c.packet.note) || '',
+      received: false,
+      confirmed: !!(c.packet && c.packet.confirmationFile),
+      dispatchVersion: c.dispatch && c.dispatch.version,
+      __fromDispatch: !c.packet && !!c.dispatch
+    };
+  }
+  if (view === 'receive') return { note: '', checked: false };
+  return {};
+}
+function fieldsFor(c, view, can) {
+  const fields = [];
+  const add = (key, label, kind = 'input', locked = false) => fields.push({ key, label, kind, locked });
+  const hasSplit = !!(c.fee && c.fee.totalCents != null && c.fee.firstCents != null);
+  if (view === 'submit' && can) {
+    add('text', '客户设计需求', 'textarea');
+    if (hasSplit) {
+      add('scope', '本次交付范围', 'textarea');
+      add('total', '设计服务总额（元）', 'money');
+      add('first', '首款金额（元，余款为尾款）', 'money');
+      add('recipient', '总部实际收款方');
+    }
+    add('attachment', '需求附件（选填）', 'file');
+    add('checked', hasSplit ? '已核对需求、尺寸来源、范围及首尾款约定' : '已核对需求、尺寸来源、交付范围及费用授权规则');
+  }
+  if (view === 'complete' && can) { add('note', '线下完成说明（选填）', 'textarea'); add('checked', '本次设计及内部专业审核已完成', 'check'); }
+  if (view === 'feedback' && can) { add('note', '需线下沟通的修改意见', 'textarea'); add('attachment', '客户修改意见附件（选填）', 'file'); }
+  if (view === 'dispatch' && can) {
+    add('recipient', '实际成果接收人');
+    add('drawingVersion', '本次施工图版本（无正式图纸可留空）');
+    add('note', '实际交付清单、渠道及说明', 'textarea');
+    add('checked', '本次正式成果已经实际下发', 'check');
+  }
+  if (view === 'handover' && can) {
+    const locked = !!(c.packet ? false : c.dispatch);
+    add('resultFile', '正式设计成果', 'file', locked);
+    add('drawingFile', '本版施工图', 'file', locked);
+    add('drawingVersion', '本次施工图版本', 'input', locked);
+    add('reviewFile', '对应版本的线下专业审核依据', 'file', locked);
+    add('confirmationFile', '客户对本版成果的确认凭据', 'file');
+    add('confirmationDate', '客户确认日期', 'date');
+    add('note', '现场重点与电子交底', 'textarea');
+    add('received', '正式文件已收齐且可读取', 'check');
+    add('confirmed', '客户已确认本次采用的成果版本', 'check');
+  }
+  if (view === 'receive' && can) { add('note', '退回原因（退回时必填）', 'textarea'); add('checked', '本版图纸、客户确认、审核依据及交底已核对', 'check'); }
+  return fields;
+}
+
+/** 自动计价卡片（服务端费用直通报价） */
+function quoteOf(c) {
+  const q = c.fee && c.fee.quote;
+  if (!q) return null;
+  return { area: q.area, rateText: money(q.rateCents), amountText: money(q.amountCents), scope: q.scope, recipient: q.recipient };
+}
+
+/* ---- 设计行政工作台（commissions.page 列表 → 首页/项目视图） ---- */
+function statusDetail(status, n) {
+  if (status === Status.modifying) return '客户新增修改意见 · 待继续设计';
+  if (status === Status.designing) return '核对需求与资料 · 待登记设计完成';
+  if (status === Status.pay) return (n.detail || n.roleState || n.state) + ' · 下一位：' + n.owner;
+  if (status === Status.dispatch) return '设计完成 · 登记正式成果下发';
+  if (status === Status.handover) return '正式成果已下发 · 待经办业务移交';
+  if (status === Status.receive) return '业务已移交 · 待工程负责人接收';
+  return '正式成果与移交记录可查';
+}
+function actionLabel(status) {
+  if (status === Status.modifying) return '处理修改';
+  if (status === Status.designing) return '查看委托';
+  if (status === Status.dispatch) return '上传并下发';
+  if (status === Status.dispatched) return '查看记录';
+  return '查看进度';
+}
+function latestEvent(c, actions) {
+  return (c.events || [])
+    .filter(e => actions.indexOf(String(e && e.action)) >= 0)
+    .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))[0] || null;
+}
+function eventTime(at) {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return '';
+  return String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+}
+function workbench(list) {
+  const rows = list.filter(c => c.request).map(c => {
+    const n = stateOf(c), status = statusOf(c);
+    const actionable = !!(n.actionable && ['complete', 'dispatch'].indexOf(n.view) >= 0);
+    const event = latestEvent(c, ['design-complete', 'design-dispatch']);
+    return {
+      id: c.id,
+      projectId: c.projectId || c.id,
+      name: c.name,
+      initial: String(c.name || '项').slice(0, 1),
+      city: c.city,
+      company: c.company || '加盟商名称待完善',
+      owner: c.owner || '未登记',
+      status,
+      tone: status === Status.dispatched || status === Status.dispatch ? 'done' : [Status.pay, Status.handover, Status.receive].indexOf(status) >= 0 ? 'waiting' : '',
+      state: n.state,
+      detail: statusDetail(status, n),
+      nextOwner: n.owner,
+      url: url(c.id, 'progress'),
+      actionUrl: url(c.id, actionable ? n.view : 'progress'),
+      action: actionLabel(status),
+      actionable,
+      recentAt: (event && event.at) || '',
+      recentWhen: event ? eventTime(event.at) : '',
+      recentText: event ? (event.action === 'design-dispatch' ? '成果已下发' : '已登记设计完成') : ''
+    };
+  }).sort((a, b) => (STATUS_ORDER[a.status] || 0) - (STATUS_ORDER[b.status] || 0) || String(a.name).localeCompare(String(b.name), 'zh-CN'));
+  const counts = {};
+  FILTERS.forEach(label => { counts[label] = label === '全部' ? rows.length : rows.filter(r => r.status === label).length; });
+  const byRecency = rows.slice().sort((a, b) => String(b.recentAt || '').localeCompare(String(a.recentAt || '')));
+  const actionable = byRecency.filter(r => r.actionable);
+  const tasks = actionable.slice(0, 3).map((r, index) => ({ ...r, url: r.actionUrl, primary: index === 0 }));
+  const recent = byRecency.filter(r => r.recentAt).slice(0, 5);
+  const metrics = [
+    { label: '设计与修改', value: counts[Status.designing] + counts[Status.modifying], filter: '设计与修改', icon: '/assets/home-design-icon.png' },
+    { label: Status.pay, value: counts[Status.pay], filter: Status.pay, icon: '/assets/money.png' },
+    { label: Status.dispatch, value: counts[Status.dispatch], filter: Status.dispatch, icon: '/assets/contract.png' }
+  ];
+  return { rows, counts, tasks, taskCount: actionable.length, recent, metrics, filters: FILTERS.map(label => ({ label, count: counts[label] })) };
+}
+function paginate(list, keyword = '', filter = '全部', limit = 20) {
+  const query = String(keyword || '').trim().toLowerCase();
+  const filtered = (list || []).filter(c => c.request).filter(c => {
+    const status = statusOf(c), n = stateOf(c);
+    const statusOk = filter === '全部' || (filter === '设计与修改' ? [Status.designing, Status.modifying].indexOf(status) >= 0 : status === filter);
+    if (!statusOk) return false;
+    if (!query) return true;
+    return [c.name, c.projectId, c.company, c.owner, c.city].join(' ').toLowerCase().includes(query);
+  }).map(c => {
+    const n = stateOf(c), status = statusOf(c);
+    const actionable = !!(n.actionable && ['complete', 'dispatch'].indexOf(n.view) >= 0);
+    return {
+      id: c.id, name: c.name, city: c.city, status, company: c.company || '加盟商名称待完善', owner: c.owner || '未登记',
+      tone: status === Status.dispatched || status === Status.dispatch ? 'done' : [Status.pay, Status.handover, Status.receive].indexOf(status) >= 0 ? 'waiting' : '',
+      detail: statusDetail(status, n),
+      url: url(c.id, actionable ? n.view : 'progress')
+    };
+  });
+  const size = Math.max(20, Number(limit) || 20);
+  return { rows: filtered.slice(0, size), total: filtered.length, hasMore: filtered.length > size };
+}
+function dateLabel(date = today()) {
+  const value = new Date(date + 'T00:00:00');
+  return (value.getMonth() + 1) + '月' + value.getDate() + '日 周' + '日一二三四五六'[value.getDay()];
+}
+function errorMessage(err) {
+  return (err && (err.message || err.msg)) || '网络异常，请稍后重试';
+}
+
+module.exports = { ACTIONS, FILTERS, url, normalize, stateOf, actionFor, canDo, statusOf, rowsFor, packageRows, formInit, fieldsFor, quoteOf, feeNotice, formMoney, workbench, paginate, dateLabel, errorMessage };
