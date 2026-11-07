@@ -151,7 +151,7 @@ function collectionSources(state, period, task, snapshot) {
   const eligibleReceipts = (state.receipts || []).filter(receipt => ['已核算', '已备案'].includes(receipt.status) && inMonth(F.cashDate(receipt)));
   const receipts = eligibleReceipts.filter(receipt => sourceMatchesTask(owners.get(receipt.projectId) || {}, task)).map(receipt => {
     const amount = Number(receiptAmount(receipt) || 0) / 100;
-    return { id: receipt.id, name: (receipt.customer || '项目') + ' · 实际回款', date: F.cashDate(receipt), amount, amountText: amount + '元', url: '/pages/admin/index?view=receipt&id=' + encodeURIComponent(receipt.id) };
+    return { id: receipt.id, name: (receipt.customer || '项目') + ' · 实际回款', date: F.cashDate(receipt), amount, amountText: amount + '元', url: '/pages/admin/finance-desk/index?view=flows&tab=receivables&id=' + encodeURIComponent(receipt.id) };
   });
   const receiptById = new Map((state.receipts || []).map(receipt => [receipt.id, receipt]));
   const eligibleRefunds = (state.refunds || []).filter(refund => refund.status === '已核实' && inMonth(F.cashDate(refund)));
@@ -160,14 +160,14 @@ function collectionSources(state, period, task, snapshot) {
     return sourceMatchesTask(owners.get(receipt?.projectId || refund.projectId) || {}, task);
   }).map(refund => {
     const amount = -Number(refund.amount || 0) / 100;
-    return { id: refund.id, name: (refund.customer || '项目') + ' · 已核实退款', date: F.cashDate(refund), amount, amountText: amount + '元', url: '/pages/admin/index?view=refund-result&id=' + encodeURIComponent(refund.id) };
+    return { id: refund.id, name: (refund.customer || '项目') + ' · 已核实退款', date: F.cashDate(refund), amount, amountText: amount + '元', url: '/pages/admin/finance-desk/index?view=flows&tab=receivables&id=' + encodeURIComponent(refund.id) };
   });
   const unresolvedSources = eligibleReceipts.filter(receipt => unresolved(owners.get(receipt.projectId))).map(receipt => ({
-    id:receipt.id, name:(receipt.customer || '项目') + ' · 回款责任人待核对', date:F.cashDate(receipt), url:'/pages/admin/index?view=receipt&id=' + encodeURIComponent(receipt.id)
+    id:receipt.id, name:(receipt.customer || '项目') + ' · 回款责任人待核对', date:F.cashDate(receipt), url:'/pages/admin/finance-desk/index?view=flows&tab=receivables&id=' + encodeURIComponent(receipt.id)
   })).concat(eligibleRefunds.filter(refund => {
     const receipt = receiptById.get(refund.receiptId);
     return unresolved(owners.get(receipt?.projectId || refund.projectId));
-  }).map(refund => ({ id:refund.id, name:(refund.customer || '项目') + ' · 退款责任人待核对', date:F.cashDate(refund), url:'/pages/admin/index?view=refund-result&id=' + encodeURIComponent(refund.id) })));
+  }).map(refund => ({ id:refund.id, name:(refund.customer || '项目') + ' · 退款责任人待核对', date:F.cashDate(refund), url:'/pages/admin/finance-desk/index?view=flows&tab=receivables&id=' + encodeURIComponent(refund.id) })));
   return { sources:receipts.concat(refunds), unresolvedSources };
 }
 

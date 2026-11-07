@@ -24,8 +24,8 @@ module.exports = function(kind) {
       require('../../utils/platform-todos-page').init(this);
     },
     onShow() {
-      // R2 P1-2：performance 视图在线态全分流——不进 W.snapshot（本地账簿加载会写 demo Storage）
-      if (PP.online() && this.kind === 'performance') {
+      // M+：在线态全部视图走平台链路——不进 W.snapshot（本地账簿加载会写 demo Storage；非 performance/finance 视图自然空态）
+      if (PP.online()) {
         if (!this.platPeriod) this.platPeriod = PP.currentPeriod();
         this.refreshPlatView();
         this.refreshPlatSummary();
@@ -62,7 +62,7 @@ module.exports = function(kind) {
       const view = this.kind;
       this.setData({
         ready: true, view, title: titles[view] || '', rows: [], total: 0, error: this.platDegraded
-          ? '平台绩效数据加载失败，以下为本地演示数据（只读预览）' : '',
+          ? '绩效数据加载失败，请下拉重试' : '',
         platDegraded: !!this.platDegraded,
         operatingDegraded: !!this.platOperatingDegraded, // R2 P2-9：经营接口独立降级可见
         desk: {
@@ -124,10 +124,8 @@ module.exports = function(kind) {
         this.ownerSnapshot = desk;
         desk.home = H.home(desk);
         Object.assign(desk, B.forView(view, desk));
-        if (view === 'performance') desk.performance = PP.online() && this.platSummary
-          && this.platSummaryKey === (this.platPeriod || PP.currentPeriod()) + ':' + (() => { try { return String(require('../../api/auth').currentApiPost().postId); } catch (e) { return ''; } })()
-          ? PP.platPerformance(this.platSummary, this.platPeriod || desk.period || PP.currentPeriod(), this.data.selectedDepartment)
-          : P.build(desk, this.data.selectedDepartment, this.data.expandedPerson);
+        // M+（D1）：删除本地绩效回落 P.build——无条件渲染平台绩效结构（无汇总时为空态，依赖 platDegraded 错误横幅提示重试）
+        if (view === 'performance') desk.performance = PP.platPerformance(this.platSummary || null, this.platPeriod || desk.period || PP.currentPeriod(), this.data.selectedDepartment);
         const keyword = this.data.keyword.trim();
         const homeRows = H.rows(view, desk, this.options);
         let rows = homeRows !== null ? homeRows : view === 'todos' ? H.todoRows(desk, this.options.tab || 'all') : ['receivables','payables','stat'].includes(view) ? B.rows(view, desk, this.options.id) : W.rowsFor(view, desk, this.options.person, this.options.department, this.options.tab || 'all');
@@ -144,21 +142,12 @@ module.exports = function(kind) {
         const display = { name:desk.name, company:desk.company, date:desk.date, sample:desk.sample, period:desk.period, periodLabel:desk.periodLabel, actor:{ role:desk.actor.role, companyId:desk.actor.companyId } };
         if (view === 'company') display.staff = desk.staff.map(person=>({id:person.id}));
         if (view === 'home') {
-          display.home = desk.home; display.ledger = desk.ledger; display.approvalCount = desk.approvalCount;
-          display.income = desk.income; display.paid = desk.paid;
-          // M10-T03/R3 P1：在线态 operating 真源覆盖（与财务一致——不再读本地账）
-          if (PP.online() && this.platSummary && this.platSummary.operating) {
-            const op = this.platSummary.operating;
-            const last = (op.trend || []).slice(-1).pop() || {};
-            // R4 P1：保持 owner-model wan() 字符串形状（分→万文本；模板直接显示）
-            const wanStr = cents => (Number(cents || 0) / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 });
-            display.income = wanStr(last.incomeCents || 0);
-            display.paid = wanStr(last.paidCents || 0);
-          }
+          // M+（D3）：本地数值兜底（ledger/income/paid，出自离线 W.snapshot 账簿）已删除——经营数值只来自平台 operating
+          display.home = desk.home; display.approvalCount = desk.approvalCount;
         }
         if (view === 'finance') {
           display.business = desk.business;
-          // M10-T03/R3 P1：在线态经营截面覆盖；失败降级可见（R2 P2-9）
+          // M+（D3）：仅保留在线 operating 注入；拉取失败仅置 operatingDegraded 错误卡，不回落本地账簿
           if (PP.online()) {
             if (this.platSummary && this.platSummary.operating) {
               display.operating = this.platSummary.operating;
@@ -168,8 +157,9 @@ module.exports = function(kind) {
           }
         }
         if (view === 'performance') display.performance = desk.performance;
-        const homeTodos = view === 'home' ? H.visibleTodos(desk, this.data.todoTab) : [];
-        this.setData({ ready:true, desk:display, rows, total, projects:[], form, performanceSettings, managementSettings:settings, companyForm, assignmentForm, rulesForm, view, record:B.recordFor(view,desk,this.options.id), error:'', homeTodos, homeTodoTotal:view==='home'?H.todoRows(desk,this.data.todoTab).length:0 });
+        // M+（D6）：在线态不渲染本地待办行——platformTodos 优先，本地行仅非 API 态显示
+        const homeTodos = view === 'home' && !PP.online() ? H.visibleTodos(desk, this.data.todoTab) : [];
+        this.setData({ ready:true, desk:display, rows, total, projects:[], form, performanceSettings, managementSettings:settings, companyForm, assignmentForm, rulesForm, view, record:B.recordFor(view,desk,this.options.id), error:'', homeTodos, homeTodoTotal:view==='home'&&!PP.online()?H.todoRows(desk,this.data.todoTab).length:0 });
         if (view === 'home') require('../../utils/platform-todos-page').refresh(this, false);
       } catch(error) { this.setData({error:error.message,ready:false,desk:null,rows:[]}); }
     },
@@ -178,6 +168,7 @@ module.exports = function(kind) {
     loadMore() { this.setData({pageLimit:this.data.pageLimit + 20}); this.refresh(); },
     todoTab(e) {
       const todoTab=e.currentTarget.dataset.tab, snapshot=this.ownerSnapshot;
+      if (PP.online()) return this.setData({todoTab}); // M+（D6）：在线态只切 tab，不渲染本地待办行
       if(snapshot) this.setData({todoTab,homeTodos:H.visibleTodos(snapshot,todoTab),homeTodoTotal:H.todoRows(snapshot,todoTab).length});
     },
     departmentFilter(e) { this.setData({selectedDepartment:e.currentTarget.dataset.department,expandedPerson:''});
@@ -214,11 +205,14 @@ module.exports = function(kind) {
     go(e) {
       if (!W.allowed()) return this.onShow();
       const d=e.currentTarget.dataset, s=W.snapshot(), home=H.home(s);
+      // M+（D5）：本地 admin/detail 链接改指平台页——财务→finance-desk flows，组织→api-members，绩效→绩效任务
+      const flows = tab => '/pages/admin/finance-desk/index?view=flows&tab=' + tab;
+      const members = '/pages/account/index?view=api-members';
       const actions = {
-        commissions:'/pages/admin/commission/index', receivables:W.detail('receivables'),payables:W.detail('payables'),costs:'/pages/admin/operations/index?view=costs',funds:'/pages/admin/operations/index?view=funds',operating:'/pages/admin/operations/index',business:W.detail('business'),engineering:W.detail('engineering'),approvals:W.detail('approvals'),todos:W.detail('todos',{tab:this.data.todoTab}),reports:'/pages/admin/finance/index',performance:'/pages/admin/tasks/index?view=team',tasks:'/pages/admin/tasks/index?view=team',
+        commissions:'/pages/admin/commission/index', receivables:flows('receivables'),payables:flows('payables'),costs:'/pages/admin/operations/index?view=costs',funds:'/pages/admin/operations/index?view=funds',operating:'/pages/admin/operations/index',business:W.detail('business'),engineering:W.detail('engineering'),approvals:flows('payables'),todos:flows('receivables'),reports:'/pages/admin/finance/index',performance:'/pages/admin/tasks/index?view=team',tasks:'/pages/admin/tasks/index?view=team',
         promotion:'/pages/admin/operations/index?view=expenses&id='+encodeURIComponent('company:'+s.actor.companyId)+'&purpose='+encodeURIComponent('推广获客'),
-        goals:W.detail('targets'),team:W.detail('team'),reviews:W.detail('reviews'),activity:W.detail('activity'),receipts:W.admin('finance')+'&tab='+encodeURIComponent('收款'),payments:W.detail('payables'),financeProgress:W.detail('finance-progress'),staff:W.admin('staff'),settings:W.detail('settings'),handover:W.detail('handover'),company:W.detail('company'),
-        profile:'/pages/account/index?view=profile',messages:'/pages/account/index?view=messages',learning:'/pages/account/index?view=learning',services:'/pages/account/index?view=services',selection:'/pages/account/index?view=selection',help:'/pages/account/index?view=help',privacy:'/pages/account/index?view=privacy',rules:W.admin('rules'),engineeringTeam:W.admin('engineering-team'),businessTeam:W.admin('business-team'),designTeam:W.admin('design-team'),financeTeam:W.admin('finance-team')
+        goals:W.detail('targets'),team:W.detail('team'),reviews:W.detail('reviews'),activity:W.detail('activity'),receipts:flows('receivables'),payments:flows('payables'),financeProgress:flows('receivables'),staff:members,settings:W.detail('settings'),handover:W.detail('handover'),company:members,
+        profile:'/pages/account/index?view=profile',messages:'/pages/account/index?view=messages',learning:'/pages/account/index?view=learning',services:'/pages/account/index?view=services',selection:'/pages/account/index?view=selection',help:'/pages/account/index?view=help',privacy:'/pages/account/index?view=privacy',rules:'/pages/admin/tasks/index',engineeringTeam:members,businessTeam:members,designTeam:members,financeTeam:members
       };
       let url=d.url || actions[d.action];
       if(d.key) url=[...this.data.rows,...s.approvals,...s.queue,...s.focus,...s.projectRows,...s.team,...s.events,...H.todoRows(s),...home.six,...home.business.notes,home.business.appointments,home.business.acquisition,...home.engineering.sites,...B.rows(this.kind,s,this.options.id)].find(row=>row?.key===d.key)?.url;
@@ -279,16 +273,9 @@ module.exports = function(kind) {
       }});
     },
     archiveOperating() {
-      // M10-T03 P1：在线态分流到服务端快照（operating.snapshot 快照写服务端）；本地 demo 保持 M.mutate
+      // M+（D4）：仅保留在线分流到服务端快照（operating.snapshot）；本地 M.mutate 结账分支已删除
       if (PP.online()) return this.archivePlatSnapshot();
-      const snapshot=this.ownerSnapshot, info=this.data.desk.business.snapshotInfo;
-      if(!info.canArchive) return;
-      const expectedSignature=require('../../utils/operating-report').sourceSignature(snapshot.state,snapshot.period);
-      wx.showModal({title:'确认月度结账',content:'',editable:true,placeholderText:'填写本月结账说明',success:result=>{
-        if(!result.confirm) return;
-        try { M.mutate(state=>M.apply(state,'operating-snapshot',snapshot.period,{checked:true,note:String(result.content||'').trim(),version:info.version,expectedSignature})); this.refresh(); wx.showToast({title:'结账已保存',icon:'success'}); }
-        catch(error) { this.fail(error.message); }
-      }});
+      return this.fail('请登录平台岗位后再归档月度快照');
     },
     copyReminder() {
       const reminder=this.data.record?.reminder;

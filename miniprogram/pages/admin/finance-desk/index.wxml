@@ -1,6 +1,6 @@
 <import src="./finance-home.wxml"/>
 <view class="fin-page">
-<view wx:if="{{showDemoBadge}}" style="background:#fff7e6;color:#ad6800;padding:8rpx 24rpx;font-size:24rpx;text-align:center">演示数据 · 本地保存，登录后切换平台数据</view>
+
  <block wx:if="{{view==='desk'&&ready}}"><template is="financeHome" data="{{desk:deskHome}}"/></block>
  <block wx:else>
  <brand-header branded divider account-font title="{{title}}"/>

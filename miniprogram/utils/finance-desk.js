@@ -11,7 +11,9 @@ const validReceipt=r=>['已核算','已备案'].includes(r.status)&&Number(value
 const netReceipt=(s,r)=>Math.max(0,Number(value(r)||0)-sum((s.refunds||[]).filter(x=>x.receiptId===r.id&&x.status==='已核实'),'amount'));
 const origin=c=>c.companyId||'quanzhou';
 const url=(view,id='',extra={})=>ROOT+'?view='+view+(id?'&id='+encodeURIComponent(id):'')+Object.entries(extra).filter(([,v])=>v!==undefined&&v!=='').map(([k,v])=>'&'+k+'='+encodeURIComponent(v)).join('');
-const admin=(view,id)=>'/pages/admin/index?view='+view+(id?'&id='+encodeURIComponent(id):'');
+// M+（E1）：admin 链接改指 finance-desk 对应视图（映射同 pages/admin/index 跳转壳）；未映射视图仍走跳转壳分流
+const ADMIN_TABS={receipt:'receivables','receipt-supplement':'receivables','incoming-register':'receivables',refund:'receivables','refund-result':'receivables','refund-review':'receivables',correction:'receivables',pay:'payables','pay-supplement':'payables',verify:'payables','partial-payment':'payables',reconcile:'reconcile','cross-evidence':'reconcile',todos:'receivables',finance:'receivables',projects:'receivables',project:'receivables'};
+const admin=(view,id)=>ADMIN_TABS[view]?ROOT+'?view=flows&tab='+ADMIN_TABS[view]+(id?'&id='+encodeURIComponent(id):''):'/pages/admin/index?view='+view+(id?'&id='+encodeURIComponent(id):'');
 const operating=(view,id)=>'/pages/admin/operations/index?view='+view+(id?'&id='+encodeURIComponent(id):'');
 const allowed=(a=X.context())=>a.active&&O.has(a.role,'finance');
 function assertState(s){X.assert(allowed()&&s?.companyId===X.context().companyId,'当前身份无本组织财务权限');}
