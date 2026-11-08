@@ -57,6 +57,10 @@ function cachedSession() {
 /** 桥接失败冷却：任何失败后 60s 内不再打桥接（联合调试修复 2026-11-08——
  * 真机页面跳转各触发一次桥接，无冷却时连续失败会打爆端点限流（429）并造成跳转卡死） */
 let bridgeCooldownUntil = 0;
+/** 单飞通道：跳转链上多组件并发触发桥接时共享同一 promise——
+ * 微信对短时重复 wx.login 返回同一 code（一次性），并发各自 wx.login 必致第二个请求
+ * 以 40029（code 已使用）失败（联合调试实证 2026-11-09，后端 issueSession 每 60s 周期成对报错） */
+let bridgeInFlight = null;
 
 /** 桥接换卡：code 经 X-WX-Login-Code 头上送；404/501/503/403/429/业务错=降级 null（含冷却），401=平台会话失效上抛 */
 function bridgeSession(code, fp) {
@@ -78,18 +82,26 @@ function bridgeSession(code, fp) {
     });
 }
 
-/** 取（或复用）钱包会话；平台未登录/桥接不可用返回 null（先 wx.login 取一次性 code） */
+/** 取（或复用）钱包会话；平台未登录/桥接不可用返回 null（先 wx.login 取一次性 code）。
+ * 冷却检查前置（冷却期内不浪费 wx.login），并发触发走单飞共享同一桥接。 */
 function ensureSession(force) {
   const cached = cachedSession();
   if (cached && !force) return Promise.resolve(cached);
+  if (Date.now() < bridgeCooldownUntil) return Promise.resolve(null);
+  if (bridgeInFlight) return bridgeInFlight;
   const fp = fingerprint();
-  if (typeof wx.login !== 'function') return bridgeSession(null, fp);
-  return new Promise((resolve) => {
-    wx.login({
-      success: (res) => resolve(bridgeSession(res && res.code, fp)),
-      fail: () => resolve(bridgeSession(null, fp))
-    });
-  });
+  const loginStep = typeof wx.login !== 'function'
+    ? Promise.resolve(null)
+    : new Promise((resolve) => {
+        wx.login({
+          success: (res) => resolve(res && res.code),
+          fail: () => resolve(null)
+        });
+      });
+  bridgeInFlight = loginStep.then((code) => bridgeSession(code, fp))
+    .then((token) => { bridgeInFlight = null; return token; },
+          (err) => { bridgeInFlight = null; throw err; });
+  return bridgeInFlight;
 }
 
 /**
