@@ -24,6 +24,16 @@ module.exports = function(kind) {
       if (!this.platPeriod) this.platPeriod = PP.currentPeriod();
       this.refreshPlatView();
       this.refreshPlatSummary();
+      // 姓名真源（2026-11-09）：切生产收口后 desk.name 不再有本地账簿填充——
+      // 经 profile/mine 同步后端 nickname 到「你好，」问候（后台改名即生效）
+      const http = require('../../api/http');
+      if (http.token()) {
+        const alive = http.requestGuard('profile');
+        http.get('/platform/profile/mine').then(remote => {
+          if (!alive()) return;
+          this.setData({ 'desk.name': (remote && remote.nickname) || '' });
+        }).catch(() => {});
+      }
     },
     archivePlatSnapshot() { // M10-T03：快照写服务端（operating.snapshot；period=选中月——历史月归档提交选中月）
       if (!PP.online()) return;

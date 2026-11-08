@@ -71,6 +71,16 @@ module.exports = function (tabIndex) {
       // 课程进度代次守卫（Codex R2 P2）：递增移到 token 检查外——退出/换会话（无新请求）也使旧挂起响应失效
       this.__courseGen = (this.__courseGen || 0) + 1; const courseGen = this.__courseGen;
       if (http.token()) {
+        // 姓名真源（2026-11-09）：posts/mine 不含 name——apiPost.name 恒空，此前只显示登录前旧缓存；
+        // 经 profile/mine 同步后端最新 nickname（后台改名即生效，与 account 身份页同模式）
+        const profileAlive = http.requestGuard('profile');
+        http.get('/platform/profile/mine').then(remote => {
+          if (!profileAlive()) return;
+          const PP = require('../../utils/platform-profile');
+          const profile = PP.mergeProfile(A.load().profile, remote);
+          A.mutate(s => { s.profile = profile; });
+          this.setData({ name: profile.name, avatar: profile.avatar });
+        }).catch(() => {});
         http.get('/platform/messages/unread-count').then(r => {
           this.apiUnread = (r && r.count) || 0;
           const fresh = A.load();
