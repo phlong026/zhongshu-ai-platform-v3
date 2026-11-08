@@ -50,15 +50,21 @@ module.exports = function (tabIndex) {
     logout() { return require('../../utils/session-actions').logout(); },
     onShow() {
       const s = A.load(), c = A.company(s), a = A.access.context(s);
-      const engineeringProfile = !!(a.active && O.has(a.role, 'engineer'));
-      const ownerProfile = !!(a.active && require('../../utils/access').isBoss(a));
+      // 联合调试修复（2026-11-08）：登录态必须含 API 会话——纯 API 登录（微信一键/短信）下
+      // 本地 session.loggedIn 恒 false，「我的」页永远显示登录按钮。API 岗位/昵称为真源展示。
+      const apiPost = (() => { try { const http = require('../../api/http'); return http.token() ? require('../../api/auth').currentApiPost() : null; } catch (e) { return null; } })();
+      const apiLoggedIn = !!apiPost;
+      const engineeringProfile = !!(apiLoggedIn && ['engineer', 'project-manager'].includes(apiPost.roleCode)) || !!(a.active && O.has(a.role, 'engineer') && !apiLoggedIn);
+      const ownerProfile = !!(apiLoggedIn && ['boss', 'owner'].includes(apiPost.roleCode)) || !!(a.active && require('../../utils/access').isBoss(a) && !apiLoggedIn);
       this.setData({
         engineeringProfile, courseId: engineeringProfile ? 'engineering' : 'ai-video', courseTitle: engineeringProfile ? '乡墅开工与现场交底' : 'AI短视频获客实战',
         courseImage: engineeringProfile ? '/pages/account/assets/course-engineering.jpg' : A.courseImage,
-        loggedIn: s.session.loggedIn, showStoreServices: !s.session.loggedIn || a.orgType === 'store',
+        loggedIn: s.session.loggedIn || apiLoggedIn, showStoreServices: !apiLoggedIn && (!s.session.loggedIn || a.orgType === 'store'),
         entries: entries(a),
         ownerProfile, managementEntries: managementEntries(a),
-        name: s.profile.name, avatar: s.profile.avatar, role: A.roles[s.session.role], company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
+        name: apiLoggedIn ? (apiPost.name || s.profile.name) : s.profile.name, avatar: s.profile.avatar,
+        role: apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : A.roles[s.session.role],
+        company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
         unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total: (A.courseChapters[engineeringProfile ? 'engineering' : 'ai-video'] || A.chapters).length, percent: 0 }
       });
       // API 未读数（基-2）：有会话才拉，回来合计刷新（11 文档 §十）

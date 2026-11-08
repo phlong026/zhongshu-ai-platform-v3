@@ -54,8 +54,13 @@ function cachedSession() {
   }
 }
 
-/** 桥接换卡：code 经 X-WX-Login-Code 头上送；404/501/503=功能不可用降级 null，401=平台会话失效上抛 */
+/** 桥接失败冷却：任何失败后 60s 内不再打桥接（联合调试修复 2026-11-08——
+ * 真机页面跳转各触发一次桥接，无冷却时连续失败会打爆端点限流（429）并造成跳转卡死） */
+let bridgeCooldownUntil = 0;
+
+/** 桥接换卡：code 经 X-WX-Login-Code 头上送；404/501/503/403/429/业务错=降级 null（含冷却），401=平台会话失效上抛 */
 function bridgeSession(code, fp) {
+  if (Date.now() < bridgeCooldownUntil) return Promise.resolve(null);
   return http.request('POST', '/platform/wallet/session', null,
       code ? { 'X-WX-Login-Code': code } : null)
     .then((data) => {
@@ -67,8 +72,9 @@ function bridgeSession(code, fp) {
     })
     .catch((err) => {
       if (err && err.code === 401) throw err; // 平台会话失效：交给平台登录流程
-      if (err && (err.code === 404 || err.code === 501 || err.code === 503 || err.code === 403)) return null;
-      throw err;
+      // 404/501/503/403=功能不可用；429=限流；其余业务错（如凭证交换失败）——统一降级并冷却 60s
+      bridgeCooldownUntil = Date.now() + 60000;
+      return null;
     });
 }
 
