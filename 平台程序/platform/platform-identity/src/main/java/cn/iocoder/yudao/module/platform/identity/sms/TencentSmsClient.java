@@ -38,8 +38,13 @@ public class TencentSmsClient implements SmsClient {
     private final String signName;
     private final String templateId;
 
-    public TencentSmsClient(com.tencentcloudapi.sms.v20210111.SmsClient sdk, String sdkAppId, String signName, String templateId,
-                            String secretId, String secretKey, String region) {
+    public TencentSmsClient(com.tencentcloudapi.sms.v20210111.SmsClient sdk,
+                            @org.springframework.beans.factory.annotation.Value("${platform.identity.sms.sdk-app-id}") String sdkAppId,
+                            @org.springframework.beans.factory.annotation.Value("${platform.identity.sms.sign-name}") String signName,
+                            @org.springframework.beans.factory.annotation.Value("${platform.identity.sms.template-id}") String templateId,
+                            @org.springframework.beans.factory.annotation.Value("${platform.identity.sms.secret-id}") String secretId,
+                            @org.springframework.beans.factory.annotation.Value("${platform.identity.sms.secret-key}") String secretKey,
+                            @org.springframework.beans.factory.annotation.Value("${platform.identity.sms.region:ap-guangzhou}") String region) {
         if (isBlank(sdkAppId) || isBlank(signName) || isBlank(templateId)
                 || isBlank(secretId) || isBlank(secretKey) || isBlank(region)) {
             throw new IllegalStateException(

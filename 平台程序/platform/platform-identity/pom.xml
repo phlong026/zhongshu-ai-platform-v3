@@ -45,13 +45,6 @@
             <artifactId>tencentcloud-sdk-java-sms</artifactId>
         </dependency>
 
-        <!-- M02-T04：腾讯云短信 real 通道（tencentcloud-sdk-java-sms；版本由根 dependencyManagement 管理） -->
-        <dependency>
-            <groupId>com.tencentcloudapi</groupId>
-            <artifactId>tencentcloud-sdk-java-sms</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
             <artifactId>yudao-platform-test-support</artifactId>
