@@ -8,12 +8,14 @@ Page({
     // 联合调试修复（2026-11-08）：路由必须先走 API 岗位——纯 API 登录（微信一键/短信）下
     // 本地 demo 身份（X.context）恒为空，boss/finance 落此 tab 只会看到守卫页而非工作台。
     const apiPost = (() => { try { const http = require('../../api/http'); return http.token() ? require('../../api/auth').currentApiPost() : null; } catch (e) { return null; } })();
-    if (apiPost && ['boss', 'owner'].includes(apiPost.roleCode)) return wx.redirectTo({ url: '/pages/admin/home/index' });
-    if (apiPost && ['finance', 'finance-lead'].includes(apiPost.roleCode)) return wx.redirectTo({ url: '/pages/admin/finance-desk/index' });
-    if (apiPost && apiPost.roleCode === 'hq-design-admin') return wx.redirectTo({ url: '/pages/workflow/commission/index?view=admin' });
+    // 真机白屏修复（2026-11-09）：本页是 tabBar 页——redirectTo 会移除 tab 页并销毁自定义
+    // tabBar 实例，真机 runtime 渲染层竞态致新页白屏（模拟器不复现）。登录后换根场景统一 reLaunch。
+    if (apiPost && ['boss', 'owner'].includes(apiPost.roleCode)) return wx.reLaunch({ url: '/pages/admin/home/index' });
+    if (apiPost && ['finance', 'finance-lead'].includes(apiPost.roleCode)) return wx.reLaunch({ url: '/pages/admin/finance-desk/index' });
+    if (apiPost && apiPost.roleCode === 'hq-design-admin') return wx.reLaunch({ url: '/pages/workflow/commission/index?view=admin' });
     const actor = X.context();
-    if (actor.active && X.isBoss(actor)) return wx.redirectTo({ url: '/pages/admin/home/index' });
-    if (actor.active && ['finance', 'finance-lead'].includes(actor.role)) return wx.redirectTo({ url: '/pages/admin/finance-desk/index' });
+    if (actor.active && X.isBoss(actor)) return wx.reLaunch({ url: '/pages/admin/home/index' });
+    if (actor.active && ['finance', 'finance-lead'].includes(actor.role)) return wx.reLaunch({ url: '/pages/admin/finance-desk/index' });
     // 到达此 tab 的其余角色（sales-lead/project-manager 等）：只显示空态与登录引导，不注入任何本地管理数据。
     const nav = require('../../utils/workbench-nav')();
     const post = apiPost;
