@@ -1,7 +1,7 @@
 /**
  * 工程全周期纯函数层（阶段 2）：后端英文态→页面中文态映射、日期双形状归一、
  * 分→元文本、汇总派生、脱敏视图适配（record 页 data 形状适配层——wxml 不动）。
- * 后端契约见 api/franchise/engineering.js；离线/失败一律降级本地演示（utils/engineering-records.js）不白屏。
+ * 后端契约见 api/franchise/engineering.js；离线或失败由页面展示错误态，不回落本地账簿。
  */
 const api = require('../api/franchise/engineering');
 const http = require('../api/http');
@@ -429,7 +429,7 @@ async function perform(action, id, form, node, key) {
       return api.plan.save(id, nodes, key);
     }
     default:
-      throw { code: 0, msg: '该操作暂未开通在线办理，请在本地演示态查看' };
+      throw { code: 0, msg: '该操作暂未开通在线办理' };
   }
 }
 

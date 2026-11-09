@@ -74,15 +74,15 @@ ok('record 页失败降级文案（errorText）', record.includes('P.errorText')
 ok('record 页 funding 视图首批隐藏（17 §七：无 funding-plan 在线映射）', typeof P.perform==='function' && !P.perform.toString().includes("'funding-plan'"));
 const projects = read('miniprogram/pages/build/projects/index.js');
 ok('projects 页列表 API 态 + 新建 API 态', projects.includes('refreshOnline') && projects.includes('submitCreateOnline'));
-ok('projects 页纯 API 态（无本地降级——切生产后失败即错误态不回落）', !projects.includes('W.allowed()') );
+ok('projects 页失败不回落本地账簿', projects.includes('不回落本地演示数据') && !projects.includes('W.allowed()') && !projects.includes('R.create'));
 const home = read('miniprogram/pages/build/home/index.js');
-ok('home 页统计 API 态 + 平台待办（PTPage）', home.includes('PTPage'));
+ok('home 页统计 API 态 + 平台待办（PTPage）', home.includes('loadOnline') && home.includes('PTPage'));
 const materials = read('miniprogram/pages/build/materials/index.js');
-ok('materials 页归口 record（API 态在 record 页内办理）', materials.includes('record'));
+ok('materials 页转跳 record 材料视图（不再读本地 engineering-records）', materials.includes("view=materials") && !materials.includes('engineering-records'));
 const engineering = read('miniprogram/pages/engineering/index.js');
-ok('engineering 聚合入口（工程岗重定向 build/home；入口路由全通）', engineering.includes('build/home/index'));
+ok('engineering 聚合入口（API 工程岗重定向 build/home）', engineering.includes('build/home/index') && engineering.includes('post.roleCode'));
 const buildIndex = read('miniprogram/pages/build/index.js');
-ok('build/index 归口 record（重定向壳）', buildIndex.includes('record'));
+ok('build/index 无本地演示态（在线转 record，离线提示登录）', buildIndex.includes('build/record/index') && buildIndex.includes('请先登录后端账号') && !buildIndex.includes('engineering-records'));
 
 console.log('[4] 在线编排红线');
 const pf = read('miniprogram/utils/platform-engineering.js');
@@ -157,14 +157,14 @@ ok('material-adjust 逐行幂等子键（同键多行不被后端去重）', rea
 // Codex R5 P1 回归锁：指纹必须排除服务端回流字段（lines 余量/supplyLabel 标签）——到货响应丢失后刷新重试不得误判新命令。
 // 行为级验证（挂起响应/刷新场景实跑）登记为已知限制，随 e2e 批补齐
 ok('幂等指纹走 idemFingerprint 纯函数（行为验证另跑 verify-idem-fingerprint.cjs 19 项）', record.includes('P.idemFingerprint(action,f0)'));
-ok('refreshOnline 设 canCreate（projects，856 write+isBoss 口径）', (() => {
-  const m = projects.match(/async refreshOnline\(\)\{[\s\S]*?canCreate:[\s\S]*?Access\.isBoss\(a\)[\s\S]*?Job\.has\(a\.role,'engineer'\)[\s\S]*?Job\.has\(a\.role,'project-manager'\)/);
+ok('refreshOnline 设 canCreate（projects，API 岗位 856 write+isBoss 口径）', (() => {
+  const m = projects.match(/async refreshOnline\(\)\{[\s\S]*?canCreate:!!navCtx&&\(\['boss','owner'\]\.includes\(navCtx\.role\)\|\|Job\.has\(navCtx\.role,'engineer'\)\)/);
   return !!m;
 })());
-ok('projects refreshOnline 失败即错误态（不回落本地——切生产契约）', !projects.includes('__platDown'));
-ok('record refreshOnline 失败即错误态（不回落本地——切生产契约）', !record.includes('__platDown'));
-ok('API 态无「待验收」本地筛选（切生产后纯 API）', !projects.includes('待验收') || !projects.includes('__platDown'));
-ok('openCreate 父项目选项走在线数据（列表缓存行）', projects.includes('listCards') || projects.includes('__platRows'));
+ok('projects refreshOnline 失败显示错误态（不回落本地）', /async refreshOnline\(\)\{[\s\S]*?catch\(e\)\{[\s\S]*?cards:\[\]/.test(projects) && !projects.includes('__platDown'));
+ok('record refreshOnline 失败显示错误态（不回落本地）', /async refreshOnline\(reset\)\{[\s\S]*?catch\(e\)\{[\s\S]*?不回落本地演示数据/.test(record) && !record.includes('__platDown'));
+ok('项目筛选不再提供「待验收」（本地口径已下线）', projects.includes("itemList=['待接收','待开工','已交付','已归档']") && !projects.includes("['待验收']"));
+ok('openCreate 父项目选项走在线数据（__platRows）', projects.includes('P.listCards(this.__platRows||[])'));
 ok('record wxml 模板/导入按钮 API 态隐藏（本地演示态功能）', read('miniprogram/pages/build/record/index.wxml').includes("view==='prepare'&&own&&!platEng"));
 ok('projects wxml 进度护栏（progress<0 不渲染百分比）', read('miniprogram/pages/build/projects/index.wxml').includes("item.progress>=0"));
 ok('lock：engineering-records settle 待办不挂已归档', (() => {

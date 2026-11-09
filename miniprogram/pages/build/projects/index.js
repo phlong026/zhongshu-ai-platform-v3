@@ -37,7 +37,7 @@ Page({
    const navigationIndex=((navCtx&&Job.roles[navCtx.role]?Job.navigation(navCtx):Job.navigation(a)).tabs.find(tab=>tab.key===(readOnly?'owner-engineering':'projects'))?.index)??8;
    this.setData({allowed:true,readOnly,navigationIndex,cards,incoming:[],tasks:[],allCount:cards.length,taskCount:0,error:'',platEng:true,
     // 新建入口对齐 856 write=engineer/project-manager 口径 + v3 全局 isBoss 惯例
-    canCreate:Access.isBoss(a)||Job.has(a.role,'engineer')||Job.has(a.role,'project-manager')});
+    canCreate:!!navCtx&&(['boss','owner'].includes(navCtx.role)||Job.has(navCtx.role,'engineer'))});
   }catch(e){ // 失败：错误态+空列表（不白屏、不回落本地数据），平台错误以 toast 保留
    const msg=P.errorText(e&&e.data?e.data:e);
    this.setData({error:msg,cards:[],incoming:[],tasks:[],allCount:0,taskCount:0});

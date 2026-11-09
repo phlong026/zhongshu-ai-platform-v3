@@ -249,7 +249,7 @@ async function main() {
   assert.ok(pf.includes('fileAssetId: r.fileAssetId || null'), 'D2 收款记录 assetId 透出');
 
   const pageJs = read('miniprogram/pages/build/record/index.js');
-  assert.ok(pageJs.includes("financeRole:O.has(X.context().role,'finance')"), 'D3 页面传 finance 岗');
+  assert.ok(pageJs.includes("financeRole:O.has(apiRole,'finance')"), 'D3 页面传 API 岗位 finance 岗（不读已删除的本地演示会话）');
   assert.ok(pageJs.includes('previewAsset'), 'D3 授权查看 handler');
   const wxml = read('miniprogram/pages/build/record/index.wxml');
   assert.ok(wxml.includes('previewAsset') && wxml.includes('data-asset-id'), 'D3 消费链按钮');

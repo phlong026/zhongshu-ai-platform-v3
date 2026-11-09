@@ -287,7 +287,7 @@ console.log('[AC] M08-T01/T03：缺省键 5 函数真实调用（隔离沙箱）
   var crypto = require('node:crypto');
   var longMsg = 'abcdbcdecdefdefgefghfghfghijghijhijijkijkijkljklmklmnlmnomnopnopq';
   ok(Fin.sha256Hex(longMsg) === crypto.createHash('sha256').update(longMsg).digest('hex'), 'sha256 长串与 Node crypto 一致（多块）');
-  ok(Fin.sha256Hex(encodeURIComponent('中文测试')) === crypto.createHash('sha256').update(encodeURIComponent('中文测试')).digest('hex'), 'UTF-8 字节口径与 Node crypto 一致（生产 uploadVoucher 同口径）');
+  ok(Fin.sha256Hex(encodeURIComponent('中文测试')) === crypto.createHash('sha256').update(encodeURIComponent('中文测试')).digest('hex'), 'sha256Hex 与 Node crypto 一致（UTF-8 字节串）');
   for (var round = 0; round < 12; round++) {
     var probe = encodeURIComponent('探针' + round + ':' + 'x'.repeat(round * 7));
     var expectedProbe = crypto.createHash('sha256').update(probe).digest('hex');
@@ -310,8 +310,11 @@ main().then(() => {
   console.log('[M5] 凭证/修订/本地分页');
   const apiFin = read('miniprogram/api/finance.js');
   ok(apiFin.includes("assetType: 'FIN_VOUCHER'") && apiFin.includes('/franchise/assets/upload-tickets')
-      && apiFin.includes('/franchise/assets/' ) && apiFin.includes('/complete'),
-    'F1 基-1 凭证上传编排（FIN_VOUCHER+ticket+complete）');
+      && apiFin.includes('/franchise/assets/' ) && apiFin.includes('/complete')
+      && apiFin.includes('base64ToBinary') && apiFin.includes('sha256Hex(binary)')
+      && apiFin.includes("method: 'PUT'") && apiFin.includes('ticket.uploadUrl')
+      && !apiFin.includes('unescape(encodeURIComponent(fsData))'),
+    'F1 基-1 凭证上传编排（解码字节 SHA + 生产 COS PUT + ticket + complete）');
   ok(apiFin.includes('/revision') && apiFin.includes('/revisions')
       && apiFin.includes('function reviseReceipt'),
     'F2 修订端点（乐观锁+历史+非遮蔽实现）');

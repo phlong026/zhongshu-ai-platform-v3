@@ -93,8 +93,8 @@ Page({
    this.__transferTargets=candidates.reduce((m,c2)=>{m[c2.label]=c2.userId;return m;},{});
    this.setData({ownerOptions:candidates.map(c=>c.label)});
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGenAtRequest))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({platformError:'接手人列表加载失败：'+PFc.errorMessage(err)});
   });
  },
@@ -270,8 +270,8 @@ Page({
    this.setData({busy:false,budgetResult:{quoteId:String(res.quoteId),totalText:yuan(res.totalCents),mainTotalText:yuan(mainTotal),decorTotalText:yuan(decorTotal),mainRows,decorRows,priceVersion:res.priceVersion||'sales-v1-表单口径',stale:false},error:''});
    this.setData({view:'budget-result'});
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({busy:false});
    if((err&&err.code)!==-1)this.platformDropCommand('quote');
    fail(PF.errorMessageSales(err));
@@ -288,8 +288,8 @@ Page({
    const cards=(rows||[]).map(r=>PF.contractRow(r));
    this.setData({salesContracts:cards,contractsHasActive:cards.some(c=>c.status!=='VOIDED')});// WXML 不支持方法调用，标志位在 JS 算
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({contractsError:PFc.errorMessageSales(err)});
   });
   api.quotes.list(this.id).then(rows=>{
@@ -326,8 +326,8 @@ Page({
    this.platformDropCommand('contract');this.setData({busy:false,contractForm:null});
    this.loadPlatformContract();
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({busy:false});// S1-21：网络失败保留快照原键；重拉 R8 供核对（006 同样进入核对）
    this.loadPlatformContract();
    fail(PF.errorMessageSales(err));
@@ -348,8 +348,8 @@ Page({
    if(res&&res.status==='SIGNED')wx.showToast({title:'已签订',icon:'none'});else wx.showToast({title:'合同状态已变化，已刷新',icon:'none'});
    this.loadPlatformContract();
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({busy:false});
    if((err&&err.code)!==-1)this.platformDropCommandFor('sign',id);
    fail(PF.errorMessageSales(err));
@@ -372,8 +372,8 @@ Page({
     wx.showToast({title:'已作废',icon:'none'});
     this.loadPlatformContract();
    }).catch(err=>{
-    if(this.stale(gen,sessionGen,postKey))return;
     if(this.handle401(err,sessionGen))return;
+    if(this.stale(gen,sessionGen,postKey))return;
     this.setData({busy:false});
     if((err&&err.code)!==-1)this.platformDropCommandFor('void',id);
     this.setData({contractError:PF.errorMessageSales(err)});
@@ -411,8 +411,8 @@ Page({
    wx.showToast({title:'已办理回款',icon:'none'});
    this.loadPlatformContract();
   }).catch(err2=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err2,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({busy:false});
    if((err2&&err2.code)!==-1)this.platformDropCommandFor('collect',stageId);
    fail(PF.errorMessageSales(err2));
@@ -434,14 +434,14 @@ Page({
     this.__deliveryId=d.id;
     this.setData({delivery:PF.deliveryView(d),noDelivery:false});
    }).catch(err=>{
-    if(this.stale(gen,sessionGen,postKey))return;
     if(this.handle401(err,sessionGen))return;
+    if(this.stale(gen,sessionGen,postKey))return;
     if(err&&err.code===1113000004)return this.setData({noDelivery:true,delivery:null});// R8 已确认归属 → 004=尚未创建交付
     this.setData({deliveryError:PFc.errorMessageSales(err)});
    });
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({deliveryError:PFc.errorMessageSales(err)});
   });
  },
@@ -456,8 +456,8 @@ Page({
    this.setData({busy:false});
    this.loadPlatformDelivery();
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({busy:false});
    if((err&&err.code)!==-1)this.platformDropCommandFor('delivery-create',this.data.signedContractId);
    this.setData({deliveryError:PF.errorMessageSales(err)});
@@ -477,8 +477,8 @@ Page({
    this.setData({busy:false});
    this.loadPlatformDelivery();
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({busy:false});
    if((err&&err.code)!==-1)this.platformDropCommandFor('dv-'+node,this.data.signedContractId);
    this.setData({deliveryError:PF.errorMessageSales(err)});
@@ -514,8 +514,8 @@ Page({
    wx.showToast({title:'已转为正式方案',icon:'none'});
    if(this.data.schemesList)this.setData({schemesList:this.data.schemesList.map(s2=>({...s2,formal:this.__promoted[s2.id]||s2.formal}))});
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({busy:false});
    if((err&&err.code)!==-1)this.platformDropCommandFor('promote',schemeId);
    wx.showToast({title:PF.errorMessageSales(err),icon:'none'});
@@ -540,8 +540,8 @@ Page({
    wx.showToast({title:'需求已登记 V'+res.version,icon:'none'});
    this.openView('customer',true);
   }).catch(err=>{
-   if(this.stale(gen,sessionGen,postKey))return;
    if(this.handle401(err,sessionGen))return;
+   if(this.stale(gen,sessionGen,postKey))return;
    this.setData({busy:false});
    if((err&&err.code)!==-1)this.platformDropCommand('requirement');
    fail(PF.errorMessageSales(err));

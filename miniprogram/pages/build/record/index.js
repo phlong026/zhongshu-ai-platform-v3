@@ -42,7 +42,7 @@ Page({
   }).catch(err=>this.fail((err&&err.msg)||'授权查看失败，请重试'));
  },
  closeSamplePreview(){this.setData({samplePreview:null});},
-  async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败降级本地演示
+  async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败只显示错误态
    try{
     // 费用视图并行预拉清单（失败不阻断详情渲染，清单区显示空）
     const expensePull=this.data.view==='expenses'
@@ -50,11 +50,13 @@ Page({
       : null;
     const bundle=await P.loadProject(this.id);
     const expenses=expensePull?await expensePull:null;
+    const apiPost=(()=>{try{const http=require('../../../api/http');return http.token()?require('../../../api/auth').currentApiPost():null;}catch(e){return null;}})();
+    const apiRole=apiPost&&apiPost.roleCode||'';
     const data=P.recordView(bundle,{view:this.data.view,stage:this.stage,planId:this.planId,nodeId:this.nodeId,
       form:this.data.form,initialized:this.initialized&&!reset,
       today:require('../../../utils/account').localDate(),
-      writeRole:['engineer','project-manager'].includes(X.context().role),
-      financeRole:O.has(X.context().role,'finance'),
+      writeRole:['engineer','project-manager'].includes(apiRole),
+      financeRole:O.has(apiRole,'finance'),
       expenses:expenses||undefined,expenseMode:this.data.expenseMode||'register'}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
     this.initialized=true;
     // 收款登记承接：原收款记录行统一指财务台收支页（finance-desk 承接收款登记）

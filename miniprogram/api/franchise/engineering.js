@@ -5,7 +5,6 @@
  * 金额一律分（cents）；写命令一律带 Idempotency-Key（后端三层幂等）。
  */
 const http = require('../http');
-const X = require('../../utils/access'); // R2 P2-8：缓存组织维度
 
 const idem = (key, action) => (key
   ? { 'Idempotency-Key': key }
@@ -154,15 +153,22 @@ function base64ToBinary(b64) {
  * R1 P1-3：complete 响应检查 uploadStatus——REJECTED（SHA_MISMATCH 等）抛 rejectedReason，
  * 拒绝资产不返回 assetId、不进业务调用。取消/超时（未 complete）无有效资产引用，不落业务记录。
  */
-// R2 P2-8：缓存键含组织+资产类型（同路径同内容不同类型须重签票；切组织隔离）
+// 缓存键含平台组织+资产类型（同路径不同类型须重签票；换组织不复用上一组织的资产）
 const voucherCache = new Map(); // 'orgId|assetType|filePath' -> { sha, assetId }
+function voucherOrg() {
+  try {
+    const post = require('../auth').currentApiPost();
+    if (post && post.orgId != null && String(post.orgId) !== '') return String(post.orgId);
+  } catch (e) {}
+  return 'na';
+}
 async function uploadVoucher(filePath, assetType) {
   if (!filePath) throw { code: 0, msg: '请选择凭据文件' };
   const financeApi = require('../finance');
   const fsData = await financeApi.readFileBase64(filePath);
   const binary = base64ToBinary(fsData);
   const sha = financeApi.sha256Hex(binary); // 原始字节摘要
-  const cacheKey = (X && X.context().companyId || 'na') + '|' + assetType + '|' + filePath;
+  const cacheKey = voucherOrg() + '|' + assetType + '|' + filePath;
   const cached = voucherCache.get(cacheKey);
   if (cached && cached.sha === sha) return cached.assetId; // 重试复用（响应丢失场景）
   const stat = wx.getFileSystemManager().statSync(filePath);
