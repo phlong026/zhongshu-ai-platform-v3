@@ -22,7 +22,7 @@ assert(page.includes('apiRoleOptionsForAdd') && page.includes("O.enabled(post.or
 assert(page.includes('roleCode:role.id,teamId:team?team.deptId:null'), '添加成员提交部门与岗位（teamId 可空为全店）');
 assert(page.includes('revokeRow') && page.includes('toggleActiveRow') && page.includes('wx.showModal'), '撤销/停用均有确认弹窗');
 assert(page.includes("roleName:O.roles[r.roleCode]||r.roleCode"), '成员列表显示岗位中文名');
-assert(page.includes("['boss','owner'].includes(cur.roleCode)"), '管理入口仅对老板/门店负责人开放');
+assert(page.includes('isOrgManager(apiPost)') && page.includes("['boss','owner'].includes(post.roleCode)"), '管理入口仅对老板/门店负责人开放');
 
 // 3) 视图：表单、提示与入口
 assert(wxml.includes("view==='api-members'"), '成员与权限视图已注册');

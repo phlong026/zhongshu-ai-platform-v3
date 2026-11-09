@@ -1,0 +1,285 @@
+{
+  "sourceHead": "06c036312bb8234a7f012a397928602a70c1d22a",
+  "source": "current-working-tree",
+  "accountFileSha256": "4d077085ff1870f68b2b7d2f1480c84836c61767e1bc2efb2c1616115a0aa540",
+  "passed": [
+    {
+      "name": "老板工作台空数据卡片与工程占位",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/admin/home/index",
+        "ready": true,
+        "todos": "ready",
+        "six": [
+          {
+            "label": "本月回款",
+            "value": "0"
+          },
+          {
+            "label": "本月签约",
+            "value": "0"
+          },
+          {
+            "label": "有效客户",
+            "value": 0
+          },
+          {
+            "label": "完成节点",
+            "value": 0
+          },
+          {
+            "label": "合格到货",
+            "value": 0
+          },
+          {
+            "label": "财务登记",
+            "value": 0
+          }
+        ],
+        "projectAvailable": true,
+        "projectCounts": [
+          0,
+          0,
+          0
+        ],
+        "projectMessage": "当前没有工程项目"
+      }
+    },
+    {
+      "name": "业务工作台空数据可用",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/business/index",
+        "platformStatus": "ready",
+        "todos": "ready",
+        "error": ""
+      }
+    },
+    {
+      "name": "工程工作台四卡零值与筛选",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/build/home/index",
+        "error": "",
+        "todos": "ready",
+        "stats": [
+          {
+            "label": "在建",
+            "value": 0,
+            "filter": "在建"
+          },
+          {
+            "label": "待开工",
+            "value": 0,
+            "filter": "待开工"
+          },
+          {
+            "label": "待交付",
+            "value": 0,
+            "filter": "待交付"
+          },
+          {
+            "label": "全部项目",
+            "value": 0,
+            "filter": "全部"
+          }
+        ],
+        "recent": null,
+        "rawKeys": [
+          "eng",
+          "error",
+          "platformTodos",
+          "__webviewId__"
+        ]
+      }
+    },
+    {
+      "name": "财务岗位默认进入工作台",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/admin/finance-desk/index",
+        "view": "desk",
+        "ready": true,
+        "platformFinance": "ready",
+        "todos": "ready",
+        "error": ""
+      }
+    },
+    {
+      "name": "总部设计行政工作台空数据可用",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/workflow/commission/index",
+        "view": "admin",
+        "platformStatus": "ready",
+        "error": "",
+        "taskCount": 0
+      }
+    },
+    {
+      "name": "我的页显示后端公司岗位并选中底栏",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/profile/index",
+        "name": "原生验证-boss",
+        "role": "老板",
+        "company": "测试门店",
+        "tabSelected": 4
+      }
+    },
+    {
+      "name": "老板直达profile不退登录",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "requested": "profile",
+        "path": "pages/account/index",
+        "view": "profile",
+        "apiLoggedIn": true,
+        "error": ""
+      }
+    },
+    {
+      "name": "老板直达messages不退登录",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "requested": "messages",
+        "path": "pages/account/index",
+        "view": "messages",
+        "apiLoggedIn": true,
+        "error": ""
+      }
+    },
+    {
+      "name": "老板直达identity不退登录",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "requested": "identity",
+        "path": "pages/account/index",
+        "view": "identity",
+        "apiLoggedIn": true,
+        "error": ""
+      }
+    },
+    {
+      "name": "老板可直达成员与权限",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/account/index",
+        "view": "api-members",
+        "apiCanManage": true,
+        "busy": false,
+        "error": ""
+      }
+    },
+    {
+      "name": "普通岗位成员与权限进入访问提示",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/account/index",
+        "view": "access",
+        "accessLabel": "企业业务"
+      }
+    },
+    {
+      "name": "材料入口无项目先选项目",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/build/projects/index",
+        "options": {
+          "destination": "materials"
+        }
+      }
+    },
+    {
+      "name": "材料入口保留项目详情参数",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "path": "pages/build/record/index",
+        "options": {
+          "view": "materials",
+          "id": "101",
+          "nodeId": "202"
+        }
+      }
+    },
+    {
+      "name": "工程在建数与最近项目继续办理链接",
+      "status": "passed",
+      "detail": "",
+      "evidence": {
+        "stats": [
+          {
+            "label": "在建",
+            "value": 1,
+            "filter": "在建"
+          },
+          {
+            "label": "待开工",
+            "value": 0,
+            "filter": "待开工"
+          },
+          {
+            "label": "待交付",
+            "value": 0,
+            "filter": "待交付"
+          },
+          {
+            "label": "全部项目",
+            "value": 1,
+            "filter": "全部"
+          }
+        ],
+        "recent": {
+          "name": "原生在建项目",
+          "stage": "在建",
+          "image": "/pages/build/assets/house.jpg",
+          "status": "在建",
+          "date": "2026-11-01",
+          "progress": null,
+          "progressKnown": false,
+          "url": "/pages/build/record/index?id=101&view=overview",
+          "overdue": 0
+        }
+      }
+    }
+  ],
+  "productErrors": [],
+  "fixtureOrToolUnverified": [
+    {
+      "name": "成员管理写操作",
+      "detail": "原生夹具严格阻断写请求，本轮未执行真实添加、撤销、停用、交接或紧急撤权；这些路径仅由主线 Node 真实 HTTP 请求边界回归覆盖。"
+    },
+    {
+      "name": "12岗位登录落点全组合",
+      "detail": "本轮以5个核心岗位当前页原子快照为准，未扩展为12岗位登录中转矩阵，避免已知SDK中转页超时造成伪失败"
+    }
+  ],
+  "screenshots": [
+    "01-boss-empty.png",
+    "02-engineer-empty.png",
+    "03-finance-desk.png",
+    "04-profile-company.png",
+    "05-engineer-project.png"
+  ],
+  "storageRestore": "passed",
+  "disconnect": "passed",
+  "summary": {
+    "passed": 14,
+    "productErrors": 0,
+    "fixtureOrToolUnverified": 2,
+    "screenshots": 5
+  }
+}

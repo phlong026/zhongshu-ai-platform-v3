@@ -1,16 +1,11 @@
-<wxs src="../../../utils/tone.wxs" module="st"/>
-<view class="page engineering-desk materials-page"><brand-header wx:if="{{readOnly}}" title="材料" back="{{true}}" divider="{{true}}"/><brand-header wx:else title="材料" divider="{{true}}"/><view class="eng-content">
- <text wx:if="{{error}}" class="eng-error">{{error}}</text><view wx:if="{{!allowed}}" class="eng-empty"><text>当前身份无施工材料访问权限</text><button class="eng-outline" bindtap="home">返回工作台</button></view>
- <block wx:elif="{{overview}}"><view class="eng-section"><scroll-view class="eng-node-scroll" scroll-x="{{true}}"><button wx:for="{{filters}}" wx:key="*this" class="{{filter===item?'selected':''}}" data-value="{{item}}" bindtap="setFilter">{{item}}</button></scroll-view></view>
- <view wx:for="{{groups}}" wx:key="id" class="eng-section"><view class="eng-heading"><text>{{item.name}}</text></view><text class="eng-muted">工程人员　{{item.engineer}}</text>
- <block wx:for="{{item.stages}}" wx:for-item="stage" wx:key="id"><view class="eng-heading"><text>{{stage.name}}</text><text class="eng-tag {{st.tone(stage.status)}}">{{stage.status}}</text></view><button wx:for="{{stage.plans}}" wx:for-item="plan" wx:key="id" class="eng-row" data-url="{{plan.url}}" bindtap="go"><view class="eng-grow"><text class="eng-name">{{plan.items}}</text><text class="eng-muted">需到场 {{plan.due}} · {{plan.payment}}</text></view><text class="eng-tag {{st.tone(plan.arrival)}}">{{plan.arrival}}</text></button><text wx:if="{{!stage.plans.length}}" class="eng-muted">本阶段暂无材料计划</text></block>
- <button wx:if="{{item.canPlan}}" class="eng-outline eng-submit" data-url="{{item.newUrl}}" bindtap="go">提交材料计划</button></view>
- <view wx:if="{{!groups.length}}" class="eng-empty"><text>暂无材料计划</text></view><text class="eng-hint">材料到场后，点开对应计划登记实际到货。</text></block>
- <block wx:elif="{{p}}"><picker class="eng-project-selector eng-section" range="{{projects}}" range-key="name" value="{{projectIndex}}" bindchange="pickProject"><view class="eng-project-picker"><image src="{{projectCard.image}}" mode="aspectFill"/><view class="eng-grow"><text class="eng-name">{{p.name}}</text><text class="eng-muted">已关联工程项目</text><text class="eng-muted">{{p.city}}</text><text class="eng-muted">{{p.floors}}层 · {{p.area}}㎡</text><text class="eng-muted">工程负责人　{{p.manager}}</text></view><image class="eng-arrow" src="/assets/creation-chevron-muted.png"/></view></picker><text class="eng-pick-hint">切换项目，查看对应材料计划</text>
- <scroll-view class="eng-node-scroll" scroll-x="{{true}}"><button wx:for="{{nodes}}" wx:key="id" class="{{nodeId===item.id?'selected':''}}" data-id="{{item.id}}" bindtap="node">{{item.name}}</button></scroll-view>
- <view class="eng-section"><view class="eng-heading"><text>本节点材料清单</text></view><view wx:if="{{canEdit}}" class="eng-actions"><button class="eng-primary" bindtap="material"><image class="eng-submit-icon" src="/pages/engineering/assets/material.png"/>按节点配材</button><button class="eng-outline" bindtap="material"><image class="eng-submit-icon" src="/pages/engineering/assets/add.png"/>新增材料</button></view><text wx:else class="eng-muted">{{p.archived||p.delivery?'工程已交付，材料记录只读':'当前身份可查看本项目材料记录'}}</text></view>
- <view wx:for="{{materials}}" wx:key="id" class="eng-section eng-material-card"><view class="eng-material-title"><image src="{{item.image}}" mode="aspectFill"/><view class="eng-grow"><text class="eng-name">{{item.name}}</text><text class="eng-muted">规格型号：{{item.spec||item.name}}</text><text class="eng-tag {{st.tone(item.status)}}">{{item.status}}</text></view></view><view class="eng-material-stats"><view><text class="eng-muted">需用数量</text><text class="eng-number">{{item.quantity}} <text class="eng-muted">{{item.unit}}</text></text></view><view><text class="eng-muted">已安排</text><text class="eng-number accent">{{item.arranged}} <text class="eng-muted">{{item.unit}}</text></text></view><view><text class="eng-muted">实收</text><text class="eng-number accent">{{item.received}} <text class="eng-muted">{{item.unit}}</text></text></view></view><view class="eng-material-date"><text class="eng-muted">需到场日期 {{item.date}}</text><text class="eng-muted">未安排 {{item.unarranged}}{{item.unit}}</text></view><view class="eng-material-links"><button data-id="{{item.id}}" data-view="supply" bindtap="open">供应安排</button><button data-id="{{item.id}}" data-view="batches" bindtap="open">进场批次 {{item.issues?'· 差异待处理':''}}</button></view></view>
- <view wx:if="{{!materials.length}}" class="eng-empty"><text>本节点暂无材料计划</text><text class="eng-muted">按现场实际需用量建立清单后提交</text></view>
- <button wx:if="{{canEdit}}" class="eng-primary eng-submit" disabled="{{!pendingCount||busy}}" loading="{{busy}}" bindtap="submit">提交待办需求（{{pendingCount}}项）</button><text class="eng-hint">提交需求不等于下单，供应安排与实际收货分别记录。</text><view class="eng-material-footer"><button class="eng-link" bindtap="project">返回关联工程项目</button></view></block>
- <view wx:else class="eng-empty"><text>暂无可查看的工程项目</text><text class="eng-muted">请先在项目页接收业务移交或核对项目授权</text><button class="eng-outline" bindtap="home">返回工程首页</button></view>
-</view></view><custom-tab-bar active-index="{{navigationIndex}}" nested="{{true}}"/>
+<view class="page engineering-desk materials-page">
+  <brand-header title="材料" divider="{{true}}"/>
+  <view class="eng-content">
+    <view wx:if="{{error}}" class="eng-empty">
+      <text class="eng-error">{{error}}</text>
+      <button class="eng-outline" bindtap="retry">重新打开</button>
+      <button class="eng-link" bindtap="home">返回工程首页</button>
+    </view>
+    <view wx:else class="eng-empty"><text>正在打开材料页面…</text></view>
+  </view>
+</view>

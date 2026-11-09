@@ -1,5 +1,8 @@
 const PP = require('../../utils/platform-performance'); // 阶段 3 API 态（绩效 Tab 平台汇总）
 const A = require('../../utils/account');
+const OwnerHome = require('../../utils/platform-owner-home');
+const Engineering = require('../../utils/platform-engineering');
+const http = require('../../api/http');
 const { routeValue } = require('../../utils/view-container');
 // 切生产收口：owner-model/owner-home/owner-business/owner-performance/owner-settings/model（本地账簿链）引用已下线
 const titles = { home:'首页', finance:'经营', performance:'绩效', profile:'我的', stat:'经营原单明细', metric:'经营指标明细', appointments:'预约到店', acquisition:'内容获客', todos:'全部待办', approvals:'待我审批', 'finance-progress':'财务办理进度', receivables:'应收账款', payables:'应付账款', receivable:'应收原单', payable:'应付原单', business:'业务概览', engineering:'工程概览', targets:'月度目标设置', team:'团队绩效', reviews:'结果复核', activity:'操作记录', settings:'审批与分工', rules:'我的规矩', company:'门店资料', handover:'工程负责人交接' };
@@ -10,6 +13,7 @@ module.exports = function(kind) {
     openDesignPolicy(){ require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=policy'); },
     logout(){ return require('../../utils/session-actions').logout(); },
     retryPlatformTodos(){ require('../../utils/platform-todos-page').retry(this); },
+    retryHome(){ this.refresh(); },
     openPlatformTodo(e){ require('../../utils/platform-todos-page').open(this, e); },
     onLoad(options = {}) {
       this.options = { ...options };
@@ -22,16 +26,15 @@ module.exports = function(kind) {
       // 切生产收口：owner 族页面纯在线——无平台会话不再走本地账簿（W.snapshot 双轨下线），统一回个人页登录
       if (!PP.online()) { this.setData({ready:false,desk:null,rows:[]}); wx.switchTab({url:'/pages/profile/index'}); return; }
       if (!this.platPeriod) this.platPeriod = PP.currentPeriod();
-      this.refreshPlatView();
-      this.refreshPlatSummary();
+      this.refresh();
       // 姓名真源（2026-11-09）：切生产收口后 desk.name 不再有本地账簿填充——
       // 经 profile/mine 同步后端 nickname 到「你好，」问候（后台改名即生效）
-      const http = require('../../api/http');
       if (http.token()) {
         const alive = http.requestGuard('profile');
         http.get('/platform/profile/mine').then(remote => {
           if (!alive()) return;
-          this.setData({ 'desk.name': (remote && remote.nickname) || '' });
+          this.platProfileName = (remote && remote.nickname) || '';
+          this.setData({ 'desk.name': this.platProfileName });
         }).catch(() => {});
       }
     },
@@ -60,14 +63,23 @@ module.exports = function(kind) {
         this.platSummary = null; this.platSummaryKey = '';
       }
       const view = this.kind;
+      const ownerHome = OwnerHome.view({
+        period: this.platPeriod,
+        post: currentPost,
+        name: this.platProfileName,
+        summary: this.platSummary && this.platSummary.summary,
+        operating: this.platSummary && this.platSummary.operating,
+        projectsStatus: this.ownerProjectsStatus,
+        projects: this.ownerProjects
+      });
       this.setData({
         ready: true, view, title: titles[view] || '', rows: [], total: 0, error: this.platDegraded
-          ? '绩效数据加载失败，请下拉重试' : '',
+          ? '绩效数据加载失败，请重试' : this.platOperatingDegraded
+            ? '经营数据加载失败，其他指标已保留' : '',
         platDegraded: !!this.platDegraded,
         operatingDegraded: !!this.platOperatingDegraded, // R2 P2-9：经营接口独立降级可见
         desk: {
-          name: '', company: '', date: '', sample: false,
-          period: this.platPeriod, periodLabel: this.platPeriod,
+          ...ownerHome,
           // M10-T03/R4 P1：finance 在线视图 desk.operating 直供模板（business.historical 等本地键不动）
           operating: this.platSummary && this.platSummary.operating || null,
           business: Object.assign({}, (this.data.desk && this.data.desk.business) || {}, {
@@ -87,17 +99,27 @@ module.exports = function(kind) {
       const period = this.platPeriod || PP.currentPeriod();
       const cacheKey = period + ':' + (post ? post.postId : '');
       const requestGen = (this.platReqGen = (this.platReqGen || 0) + 1);
+      const requestSession = http.sessionGeneration();
+      const requestPostId = String((post && post.postId) || '');
+      const alive = () => requestGen === this.platReqGen
+        && requestSession === http.sessionGeneration()
+        && requestPostId === String((PP.apiPost() || {}).postId || '');
       // M10-T03：在线余额三源并行——任务/目标/经营 analytics（与财务一致；迟到响应丢弃防串台）
+      const projects = this.kind === 'home'
+        ? Engineering.api.projects.page().then(rows => ({ status:'ready', rows })).catch(() => ({ status:'error', rows:null }))
+        : Promise.resolve({ status:this.ownerProjectsStatus, rows:this.ownerProjects });
       Promise.all([PP.api.tasks.summary(period), PP.api.goals.get(period),
-        PP.api.operating.analytics(period).catch(() => null)])
-        .then(([summary, goals, operating]) => {
-          if (requestGen !== this.platReqGen) return; // 迟到响应丢弃（退出/换岗不串台）
+        PP.api.operating.analytics(period).catch(() => null), projects])
+        .then(([summary, goals, operating, projectResult]) => {
+          if (!alive()) return; // 迟到响应丢弃（换月/退出/换岗不串台）
+          this.ownerProjectsStatus = projectResult.status;
+          this.ownerProjects = projectResult.rows;
           this.platSummary = { summary, goals, operating };
           this.platSummaryKey = cacheKey;
-          this.platSummaryPost = post.postId; // M10-T03：缓存归属岗位（换岗不串台）
+          this.platSummaryPost = requestPostId; // M10-T03：缓存归属岗位（换岗不串台）
           this.platDegraded = false;
           this.platOperatingDegraded = operating == null; // R2 P2：经营接口失败独立降级标记
-          if (this.kind === 'performance' || this.kind === 'finance') this.refreshPlatView(); // R5 P1：finance 响应后刷新（desk.operating 同步选中月）
+          this.refreshPlatView();
           // M10-T03 P1：home/finance 视图在线余额转页面（operating 真源——不再读本地账）
           if ((this.kind === 'home' || this.kind === 'finance') && operating) {
             this.setData({ operating: {
@@ -111,17 +133,22 @@ module.exports = function(kind) {
           }
         })
         .catch(() => {
-          if (requestGen !== this.platReqGen) return;
+          if (!alive()) return;
           this.platSummary = null; this.platSummaryKey = ''; this.platDegraded = true;
           this.platOperatingDegraded = false;
-          if (this.kind === 'performance') this.refreshPlatView(); // R2 P2-6：失败同步可见状态
+          if (this.kind === 'home') { this.ownerProjectsStatus = 'error'; this.ownerProjects = null; }
+          this.refreshPlatView();
         });
     },
     refresh() {
       // 切生产收口：本地账簿渲染体（W.snapshot/H/B/Settings 本地链）已下线——
       // 非在线态错误态；在线态统一平台视图（home/finance/performance 平台直供，本地账簿明细 view 自然空态）
       if (!PP.online()) { this.setData({ready:false,desk:null,rows:[],error:'请先登录后端账号'}); return; }
-      if (this.kind === 'home') require('../../utils/platform-todos-page').refresh(this, false);
+      if (this.kind === 'home') {
+        require('../../utils/platform-todos-page').refresh(this, false);
+        this.ownerProjectsStatus = 'loading';
+        this.ownerProjects = null;
+      }
       this.refreshPlatView();
       this.refreshPlatSummary();
     },
@@ -143,17 +170,14 @@ module.exports = function(kind) {
       const period=e.detail.value;
       if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) return;
       // R2 P1-3：performance 在线态换月独立 platPeriod（查询/缓存键/展示统一），不写本地账簿
-      if (PP.online() && this.kind === 'performance') {
+      if (PP.online() && ['home','performance','finance'].includes(this.kind)) {
         this.platPeriod = period;
+        this.platSummary = null;
+        this.platSummaryKey = '';
+        this.platDegraded = false;
+        this.platOperatingDegraded = false;
         this.refreshPlatView();
         this.refreshPlatSummary();
-        return;
-      }
-      // M10-T03/R3 P1：finance 在线态换月同步 platPeriod 并刷新（historical/结账按钮随选中月更新）
-      if (PP.online() && this.kind === 'finance') {
-        this.platPeriod = period;
-        this.refreshPlatSummary();
-        this.refreshPlatView();
         return;
       }
       // 切生产收口：本地账簿 period 写入（M.mutate）下线——非在线态提示登录
@@ -171,7 +195,7 @@ module.exports = function(kind) {
         goals:'/pages/admin/tasks/index?view=team',team:members,reviews:'/pages/admin/tasks/index?view=team',activity:members,receipts:flows('receivables'),payments:flows('payables'),financeProgress:flows('receivables'),staff:members,settings:members,handover:members,company:members,
         profile:'/pages/account/index?view=profile',messages:'/pages/account/index?view=messages',learning:'/pages/account/index?view=learning',services:'/pages/account/index?view=services',selection:'/pages/account/index?view=selection',help:'/pages/account/index?view=help',privacy:'/pages/account/index?view=privacy',rules:'/pages/admin/tasks/index',engineeringTeam:members,businessTeam:members,designTeam:members,financeTeam:members
       };
-      const url=d.url || actions[d.action];
+      const url=d.url || actions[d.action || d.key];
       if(url) require('../../utils/page-navigation').open(url);
     },
     input(e) {

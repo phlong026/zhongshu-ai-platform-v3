@@ -443,13 +443,15 @@ function listCards(rows) {
     const started = !!r.actualStartAt;
     return {
       id: String(r.id), name: r.name, city: r.city || '', customer: r.customer || '',
-      status, stage: status, title: status, engineer: '', actualStart: dateOf(r.actualStartAt),
+      status, statusText: status, statusKey: r.status, statusRaw: r.status,
+      stage: status, title: status, engineer: '', actualStart: dateOf(r.actualStartAt),
       contractTotal: r.contractTotalCents != null ? r.contractTotalCents / 100 : null,
       image: '/pages/build/assets/house.jpg', area: r.area == null ? '' : r.area, floors: r.floors == null ? '' : r.floors,
       date: '', pace: '',
       progress: done ? 100 : (status === '待开工' ? 0 : -1), // -1=列表行无节点数据不可知（wxml 护栏隐藏进度条）
       next: !started ? '核查开工条件' : done ? '交付资料与款项收尾' : '现场检查与节点验收',
-      canFunds: false
+      canFunds: false,
+      url: '/pages/build/record/index?id=' + encodeURIComponent(String(r.id)) + '&view=overview'
     };
   });
 }

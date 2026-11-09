@@ -19,7 +19,6 @@ const root = path.join(__dirname, '..');
 (async () => {
   // ===== AC6：api 层契约（connect 后 wx.request spy——http.get/post 闭包内部 request，覆盖 exports 无效）=====
   const runtime = await require('./role-page-runtime.cjs').connect();
-  const A = require(path.join(root, 'miniprogram/utils/account'));
   const auth = require(path.join(root, 'miniprogram/api/auth.js'));
   const httpPage = require(path.join(root, 'miniprogram/api/http.js'));
   const orgApi = require(path.join(root, 'miniprogram/api/org.js'));
@@ -81,7 +80,6 @@ const root = path.join(__dirname, '..');
   httpPage.saveSession({ token: 'tk-boss' });
   auth.savePosts([{ postId: 21, roleCode: 'boss', orgId: 9, orgType: 'store', lead: false }]);
   httpPage.saveSession({ postId: 21 });
-  A.mutate(state => { if (!state.session.loggedIn) A.loginDemo(state, 'boss'); });
 
   wx.reLaunch({ url: '/pages/account/index?view=api-members' });
   const page = () => getCurrentPages().at(-1);
@@ -206,13 +204,14 @@ const root = path.join(__dirname, '..');
   const salesPage = getCurrentPages().at(-1);
   assert.equal(salesPage.data.apiCanManage, false, 'sales 岗无管理权限');
   salesPage.confirmHandover();
-  assert.ok(salesPage.data.error.includes('老板或负责人'), '非管理岗拦截：' + salesPage.data.error);
+  assert.match(salesPage.data.error, /老板|负责人/, '非管理岗拦截');
   assert.ok(!requests.some(r => r.url.endsWith('/platform/org/staff-handover')), '非管理岗不发交接请求');
   const shotC = path.join(os.tmpdir(), 'member-handover-nomanage.json');
   await runtime.screenshot({ path: shotC });
   const renderedC = JSON.parse(fs.readFileSync(shotC, 'utf8')).renderedText;
   assert.ok(!renderedC.includes('发起正常交接'), '非管理岗渲染不含交接按钮');
-  assert.ok(renderedC.includes('在岗成员'), '非管理岗仍见成员列表（只读）');
+  assert.equal(salesPage.data.view, 'access', '非管理岗直达应进入权限提示页');
+  assert.ok(!renderedC.includes('在岗成员'), '非管理岗不可通过管理直链读取成员列表');
   console.log('  ✅ AC5b 非管理岗直链：卡片隐藏+处理拒绝+不发请求');
 
   // AC7：延迟响应回归（R2 P1-2）——序号守卫丢弃旧刷新；busy 由交接链持有不被旧刷新绕过

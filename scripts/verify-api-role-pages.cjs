@@ -6,6 +6,7 @@ const storage = new Map();
 let registeredPage;
 let navigation = [];
 let requests = [];
+let modal;
 
 global.Page = definition => { registeredPage = definition; };
 global.Component = () => {};
@@ -24,6 +25,7 @@ global.wx = {
   reLaunch: options => navigation.push({ kind: 'reLaunch', url: options.url }),
   navigateTo: options => navigation.push({ kind: 'navigateTo', url: options.url }),
   showToast() {},
+  showModal(options) { modal = options; },
   pageScrollTo() {}
 };
 
@@ -70,6 +72,7 @@ function reset(post) {
   storage.clear();
   navigation = [];
   requests = [];
+  modal = null;
   if (!post) return;
   http.saveSession({ token: 'api-role-page-fixture', postId: post.postId });
   auth.savePosts([post]);
@@ -120,6 +123,28 @@ reset(post('sales'));
 const apiLocalOrder = pageOf(definitions.account);
 apiLocalOrder.onLoad({ view: 'devices' });
 assert.match(navigation[0]?.url || '', /view=access/, 'API role does not gain access to legacy local-order views');
+
+for (const role of ['sales', 'sales-lead', 'engineer', 'project-manager', 'finance', 'finance-lead', 'hq-design-admin']) {
+  reset(post(role));
+  const membersPage = pageOf(definitions.account);
+  membersPage.onLoad({ view: 'api-members' });
+  assert.match(navigation[0]?.url || '', /view=access/, role + ' cannot open the organization manager page directly');
+  requests = [];
+  membersPage.addMember();
+  membersPage.revokeRow({ currentTarget: { dataset: { postId: '99', name: '示例' } } });
+  membersPage.toggleActiveRow({ currentTarget: { dataset: { userId: '99', name: '示例', active: true } } });
+  assert.equal(requests.length, 0, 'forbidden handlers must not call the organization API');
+  assert.equal(modal, null, 'forbidden handlers must not show a management confirmation');
+}
+
+reset(post('boss'));
+auth.savePosts([post('boss'), post('owner', { postId: 43, orgId: 8 })]);
+const manager = pageOf(definitions.account);
+manager.handoverCtx = { orgId: 7, postId: '42' };
+manager.revokeRow({ currentTarget: { dataset: { postId: '99', name: '示例' } } });
+auth.switchPost(43);
+modal.success({ confirm: true });
+assert.ok(requests.every(request => request.method === 'GET'), 'a confirmation opened under another post cannot revoke staff');
 
 // Profile display and management entries must come from the current StaffPost, not a stale demo company.
 reset(post('boss', { orgName: '南宁门店' }));

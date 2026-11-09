@@ -1,0 +1,15 @@
+{
+  "miniprogram/pages/account/index.js": "4d077085ff1870f68b2b7d2f1480c84836c61767e1bc2efb2c1616115a0aa540",
+  "miniprogram/pages/profile/profile-page.js": "dd333e621616c548cdb20e78042dd936cabfd1454f3c2c8cd0276ac46056325c",
+  "miniprogram/pages/admin/finance-desk/index.js": "9891f69b27dbdd424d727753164d9f268bb5175b12fdb697344590bb89f0069d",
+  "miniprogram/pages/admin/owner-page.js": "c6c8e44cd08b0820e8f04ea3ab5f6775803cecb1296b021e490a116f8509d298",
+  "miniprogram/pages/admin/home/index.wxml": "f25a20f8d9dacd43bf09f0a523ebf4dc7d374d6eb3cc53c987d6ccc443affcb6",
+  "miniprogram/pages/build/home/index.js": "2351e93dfd1ad212fa33214cad2f7b477c98f0dfcd1b1ac2929aa10de46e63a5",
+  "miniprogram/pages/build/home/index.wxml": "5d16281588bc42c49a35a95378f68d175619c9946bdef5696635f121a4a97634",
+  "miniprogram/pages/build/materials/index.js": "02afb38815e14328e3d19f4f0a583bbfa7f7e26c13396547e5d42a3217cae975",
+  "miniprogram/pages/build/materials/index.wxml": "cd0fd341e652394719451f808b52bddf00bb26235874aa21366ccdc5b1f375cd",
+  "miniprogram/pages/engineering/index.js": "e26adeb757c8dd7fc079af769fbb19c3d4f146bf948ea1fb9726a0140ad171ea",
+  "miniprogram/pages/business/index.js": "f35f7467f62b0cea4f4ac9c5d4d21a2fbfb67c319b79b3385e05bbf5d0bc8bbe",
+  "miniprogram/utils/platform-engineering.js": "f5272bddceb018fb836d3786ab9f10768274bcbf4e44ee66bf0465a04543e997",
+  "miniprogram/utils/platform-owner-home.js": "a40887de655e08a72b1f5a44f95f52616dee3a22384b1fcfa6b7115aa87d8870"
+}

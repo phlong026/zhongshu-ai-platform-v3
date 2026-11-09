@@ -5,7 +5,7 @@
   "scripts": {
     "check:sales": "node scripts/verify-sales-customers.cjs && node scripts/verify-sales-publication.cjs && node scripts/verify-sales-creation-chain.cjs && node scripts/verify-sales-design.cjs && node scripts/verify-business-four-flows.cjs && node scripts/verify-guest-home-role-nav.cjs && npm run check",
     "check:sales:native": "node scripts/verify-sales-offline-native.cjs && node scripts/verify-sales-typography-native.cjs",
-    "check": "node scripts/verify.cjs && npm run check:profile-navigation",
+    "check": "node scripts/verify.cjs && npm run check:profile-navigation && npm run check:api-pages",
     "check:profile-navigation": "node --test scripts/verify-profile-navigation.cjs",
     "check:task-order": "node scripts/verify-task-order.cjs && node scripts/verify-sales-todo-order.cjs && node scripts/verify-design-todo-order.cjs && node scripts/verify-engineering-todo-order.cjs && node scripts/verify-finance-todo-order.cjs",
     "check:packages": "node scripts/verify-design-package.cjs && node scripts/verify.cjs",
@@ -123,7 +123,8 @@
     "check:all-role-performance": "node scripts/verify-all-role-performance.cjs && node scripts/verify-performance-member-view.cjs && node scripts/verify-performance-notifications.cjs && npm run check:personal-performance",
     "check:all-role-performance:native": "node scripts/verify-all-role-performance-native.cjs",
     "check:demo-badge": "node scripts/verify-demo-badge.cjs",
-    "check:auth-contract": "node scripts/verify-auth-session-contract.cjs"
+    "check:auth-contract": "node scripts/verify-auth-session-contract.cjs",
+    "check:api-pages": "node scripts/verify-api-role-pages.cjs && node scripts/verify-api-workbench-contracts.cjs && node scripts/verify-material-entry.cjs && node scripts/verify-member-actions-session.cjs && node scripts/verify-org-admin.cjs && node scripts/verify-member-handover.cjs && node scripts/verify-auth-session-contract.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0",
