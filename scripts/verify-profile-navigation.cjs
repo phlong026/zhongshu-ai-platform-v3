@@ -198,3 +198,32 @@ test('无 API 会话：home() 保持 switchTab 本地首页', () => {
   assert.equal(navigation.length, 1);
   assert.equal(navigation[0].kind, 'switchTab');
 });
+
+test('我的页未读数响应带会话守卫：换会话后迟到响应不回写旧角标', async () => {
+  reset('sales');
+  const page = show('/pages/profile/index');
+  settleNavigation();
+  const unreadReq = requests.filter(r => r.url.endsWith('/platform/messages/unread-count')).at(-1);
+  assert.ok(unreadReq, '未读数请求已发出');
+  http.saveSession({ token: 'profile-navigation-fixture-next', postId: '42' }); // 新会话代次
+  unreadReq.success({ statusCode: 200, data: { code: 0, data: { count: 7 } } });
+  await new Promise(r => setImmediate(r)); // 等 promise 链落地
+  assert.equal(page.data.unread, 0, '迟到响应不得更新未读角标');
+});
+
+test('未知岗位 roleCode：workbench-nav 回退本地导航并告警一次', () => {
+  reset(null);
+  http.saveSession({ token: 'profile-navigation-fixture', postId: '42' });
+  auth.savePosts([{ postId: 42, orgId: 7, roleCode: 'brand-new-role', orgType: 'store', lead: false }]);
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(' '));
+  try {
+    const nav = require('../miniprogram/utils/workbench-nav')();
+    assert.equal(nav.guest, true, '未知岗位回退本地(游客)导航');
+    require('../miniprogram/utils/workbench-nav')(); // 第二次调用不重复告警
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.equal(warnings.filter(w => w.includes('brand-new-role')).length, 1, '同岗位只告警一次');
+});

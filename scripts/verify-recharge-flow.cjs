@@ -167,6 +167,21 @@ async function main() {
   wx.setStorageSync('zs-api-base', 'http://127.0.0.1:' + addr.port + '/admin-api');
   dead.close();
 
+  // 13. P2-3（2026-11-10）：桥接 200 但无 token 也进入冷却——防止反复消耗一次性 wx.login
+  // （重新 require 取全新模块态：上一节 404 已置冷却，须清零后才能验证空 token 的冷却语义）
+  delete require.cache[require.resolve('../miniprogram/api/wallet.js')];
+  const wallet2 = require('../miniprogram/api/wallet.js');
+  wallet2.clearWalletSession();
+  let emptyCalls = 0, emptyLogins = 0;
+  const realRequest = global.wx.request, realLogin = global.wx.login;
+  global.wx.request = (opts) => { emptyCalls += 1; opts.success && opts.success({ statusCode: 200, data: { code: 0, data: {} } }); };
+  global.wx.login = (opts) => { emptyLogins += 1; opts.success && opts.success({ code: 'one-shot-empty-token' }); };
+  const emptyToken = await wallet2.ensureSession(true);
+  ok(emptyToken === null, '桥接 200 无 token → 降级 null');
+  await wallet2.ensureSession(true);
+  ok(emptyCalls === 1 && emptyLogins === 1, '空 token 已冷却：第二次不再打桥接/不再 wx.login（calls=' + emptyCalls + ' logins=' + emptyLogins + '）');
+  global.wx.request = realRequest; global.wx.login = realLogin;
+
   console.log('\n共 ' + (passed + failed) + ' 项：通过 ' + passed + '，失败 ' + failed);
   server.close();
   process.exit(failed ? 1 : 0);

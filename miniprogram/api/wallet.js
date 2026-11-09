@@ -72,6 +72,8 @@ function bridgeSession(code, fp) {
         saveWalletSession(data.token, fp);
         return cachedSession();
       }
+      // 200 但无 token：视同桥接失败进入冷却，防止反复消耗一次性 wx.login（P2-3 修复 2026-11-10）
+      bridgeCooldownUntil = Date.now() + 60000;
       return null;
     })
     .catch((err) => {

@@ -88,7 +88,9 @@ module.exports = function (tabIndex) {
           A.mutate(s => { s.profile = profile; });
           this.setData({ name: profile.name, avatar: profile.avatar });
         }).catch(() => {});
+        const unreadAlive = http.requestGuard('unread');
         http.get('/platform/messages/unread-count').then(r => {
+          if (!unreadAlive()) return;
           this.apiUnread = (r && r.count) || 0;
           const fresh = A.load();
           this.setData({ unread: M.totalUnread(A.scoped(fresh, fresh.messages).filter(x => !x.read).length, this.apiUnread) });
