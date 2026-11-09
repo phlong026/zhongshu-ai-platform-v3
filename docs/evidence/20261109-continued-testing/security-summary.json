@@ -1,0 +1,12 @@
+{
+  "credential_pattern_hits": [],
+  "production_dependency_vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "new_dependencies": false
+}

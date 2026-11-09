@@ -1,0 +1,790 @@
+{
+  "testedSource": {
+    "baseHead": "1bba6c5197ebb779c137cc432cd256bfbd2d132d",
+    "baseBranch": "fix/profile-navigation-20261109",
+    "patchedFile": "miniprogram/pages/account/index.js",
+    "patchedFileSha256": "cafc340426e2ecdd96b954827f8b507c58d1c1a45ce9b38e8145057f57143631",
+    "currentMainRepoHeadAtVerification": "606aecc",
+    "provenance": {
+      "repoBusinessJsExcludingApp": 177,
+      "mismatchesAgainstCurrentRepo": 0,
+      "tempOnlyJs": [
+        "miniprogram/test/role-native-fixture.js"
+      ],
+      "appDifference": "隔离副本app.js仅额外require测试夹具",
+      "note": "当前仓库标题样式变更未复制进本次隔离副本，不能据此声明新视觉验收。"
+    }
+  },
+  "environment": "微信开发者工具模拟器 + 官方 automator，端口19460；IDE未重启",
+  "isolation": {
+    "realHttpUploadSocketAllowed": false,
+    "fixture": "miniprogram/test/role-native-fixture.js",
+    "storageKeysSnapshottedAndRestored": 4,
+    "originalStorageValuesExposed": false,
+    "userMiniprogramProjectConfigIncluded": false,
+    "rootProjectConfigUsed": true
+  },
+  "summary": {
+    "roleLandingPassed": 12,
+    "roleLandingFailed": 0,
+    "postSwitchPassed": true,
+    "productErrors": [],
+    "toolUnverified": [],
+    "result": "12个已启用岗位组合均由account.goAfterLogin直达最终工作台；老板A→工程B切岗后“我的”角色与公司同步。"
+  },
+  "roleLandings": [
+    {
+      "caseId": "boss",
+      "role": "boss",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/home/index",
+      "actualRoute": "pages/admin/home/index",
+      "actualView": "home",
+      "profileContext": {
+        "role": "老板",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "owner-nav",
+        "active": "home",
+        "tabs": [
+          {
+            "index": 10,
+            "key": "owner-home",
+            "page": "home",
+            "text": "工作台",
+            "url": "/pages/admin/home/index",
+            "native": false
+          },
+          {
+            "index": 11,
+            "key": "owner-business",
+            "page": "business",
+            "text": "业务",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 12,
+            "key": "owner-engineering",
+            "page": "engineering",
+            "text": "工程",
+            "url": "/pages/engineering/index",
+            "native": true
+          },
+          {
+            "index": 4,
+            "key": "owner-profile",
+            "page": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/admin/home/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 20,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 265,
+          "route": "pages/admin/home/index"
+        }
+      ],
+      "elapsedMs": 265,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": "",
+      "stabilizationRetry": 1,
+      "firstAttempt": {
+        "status": "tool-unverified",
+        "reason": "account-page-not-ready",
+        "actualRoute": "pages/home/index"
+      }
+    },
+    {
+      "caseId": "owner",
+      "role": "owner",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/home/index",
+      "actualRoute": "pages/admin/home/index",
+      "actualView": "home",
+      "profileContext": {
+        "role": "门店负责人",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "owner-nav",
+        "active": "home",
+        "tabs": [
+          {
+            "index": 10,
+            "key": "owner-home",
+            "page": "home",
+            "text": "工作台",
+            "url": "/pages/admin/home/index",
+            "native": false
+          },
+          {
+            "index": 11,
+            "key": "owner-business",
+            "page": "business",
+            "text": "业务",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 12,
+            "key": "owner-engineering",
+            "page": "engineering",
+            "text": "工程",
+            "url": "/pages/engineering/index",
+            "native": true
+          },
+          {
+            "index": 4,
+            "key": "owner-profile",
+            "page": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/admin/home/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 45,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 891,
+          "route": "pages/admin/home/index"
+        }
+      ],
+      "elapsedMs": 891,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "sales",
+      "role": "sales",
+      "orgType": "store",
+      "expectedUrl": "/pages/business/index",
+      "actualRoute": "pages/business/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "业务员",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 1,
+        "tabs": [
+          {
+            "index": 1,
+            "key": "business",
+            "text": "首页",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 5,
+            "key": "creation",
+            "text": "创作",
+            "url": "/pages/creation/index",
+            "native": false
+          },
+          {
+            "index": 6,
+            "key": "design",
+            "text": "方案",
+            "url": "/pages/design/index",
+            "native": false
+          },
+          {
+            "index": 7,
+            "key": "customers",
+            "text": "客户",
+            "url": "/pages/customers/index",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/business/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 35,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 325,
+          "route": "pages/business/index"
+        }
+      ],
+      "elapsedMs": 325,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "sales-lead",
+      "role": "sales-lead",
+      "orgType": "store",
+      "expectedUrl": "/pages/business/index",
+      "actualRoute": "pages/business/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "业务负责人",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 1,
+        "tabs": [
+          {
+            "index": 1,
+            "key": "business",
+            "text": "首页",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 5,
+            "key": "creation",
+            "text": "创作",
+            "url": "/pages/creation/index",
+            "native": false
+          },
+          {
+            "index": 6,
+            "key": "design",
+            "text": "方案",
+            "url": "/pages/design/index",
+            "native": false
+          },
+          {
+            "index": 7,
+            "key": "customers",
+            "text": "客户",
+            "url": "/pages/customers/index",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/business/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 19,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 158,
+          "route": "pages/business/index"
+        }
+      ],
+      "elapsedMs": 158,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "engineer",
+      "role": "engineer",
+      "orgType": "store",
+      "expectedUrl": "/pages/build/home/index",
+      "actualRoute": "pages/build/home/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "工程人员",
+        "company": "测试门店"
+      },
+      "navigation": null,
+      "stack": [
+        "pages/build/home/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 20,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 462,
+          "route": "pages/build/home/index"
+        }
+      ],
+      "elapsedMs": 462,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "project-manager",
+      "role": "project-manager",
+      "orgType": "store",
+      "expectedUrl": "/pages/build/home/index",
+      "actualRoute": "pages/build/home/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "工程负责人",
+        "company": "测试门店"
+      },
+      "navigation": null,
+      "stack": [
+        "pages/build/home/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 18,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 160,
+          "route": "pages/build/home/index"
+        }
+      ],
+      "elapsedMs": 160,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "finance",
+      "role": "finance",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/finance-desk/index",
+      "actualRoute": "pages/admin/finance-desk/index",
+      "actualView": "desk",
+      "profileContext": {
+        "role": "财务专员",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "nested-custom-tab-bar",
+        "selected": 16,
+        "tabs": [
+          {
+            "index": 16,
+            "key": "finance-home",
+            "text": "首页",
+            "url": "/pages/admin/finance-desk/index",
+            "native": false
+          },
+          {
+            "index": 17,
+            "key": "finance-books",
+            "text": "账本",
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/admin/finance-desk/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 18,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 160,
+          "route": "pages/admin/finance-desk/index"
+        }
+      ],
+      "elapsedMs": 160,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "finance-lead",
+      "role": "finance-lead",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/finance-desk/index",
+      "actualRoute": "pages/admin/finance-desk/index",
+      "actualView": "desk",
+      "profileContext": {
+        "role": "财务负责人",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "nested-custom-tab-bar",
+        "selected": 16,
+        "tabs": [
+          {
+            "index": 16,
+            "key": "finance-home",
+            "text": "首页",
+            "url": "/pages/admin/finance-desk/index",
+            "native": false
+          },
+          {
+            "index": 17,
+            "key": "finance-books",
+            "text": "账本",
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/admin/finance-desk/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 17,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 140,
+          "route": "pages/admin/finance-desk/index"
+        }
+      ],
+      "elapsedMs": 140,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "hq-design-admin",
+      "role": "hq-design-admin",
+      "orgType": "headquarters",
+      "expectedUrl": "/pages/workflow/commission/index?view=admin",
+      "actualRoute": "pages/workflow/commission/index",
+      "actualView": "admin",
+      "profileContext": {
+        "role": "设计行政",
+        "company": "测试总部"
+      },
+      "navigation": null,
+      "stack": [
+        "pages/workflow/commission/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 20,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 390,
+          "route": "pages/workflow/commission/index"
+        }
+      ],
+      "elapsedMs": 390,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "hq-finance",
+      "role": "finance",
+      "orgType": "headquarters",
+      "expectedUrl": "/pages/admin/finance-desk/index",
+      "actualRoute": "pages/admin/finance-desk/index",
+      "actualView": "desk",
+      "profileContext": {
+        "role": "财务专员",
+        "company": "测试总部"
+      },
+      "navigation": {
+        "kind": "nested-custom-tab-bar",
+        "selected": 16,
+        "tabs": [
+          {
+            "index": 16,
+            "key": "finance-home",
+            "text": "首页",
+            "url": "/pages/admin/finance-desk/index",
+            "native": false
+          },
+          {
+            "index": 17,
+            "key": "finance-books",
+            "text": "账本",
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/admin/finance-desk/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 20,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 144,
+          "route": "pages/admin/finance-desk/index"
+        }
+      ],
+      "elapsedMs": 144,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "hq-finance-lead",
+      "role": "finance-lead",
+      "orgType": "headquarters",
+      "expectedUrl": "/pages/admin/finance-desk/index",
+      "actualRoute": "pages/admin/finance-desk/index",
+      "actualView": "desk",
+      "profileContext": {
+        "role": "财务负责人",
+        "company": "测试总部"
+      },
+      "navigation": {
+        "kind": "nested-custom-tab-bar",
+        "selected": 16,
+        "tabs": [
+          {
+            "index": 16,
+            "key": "finance-home",
+            "text": "首页",
+            "url": "/pages/admin/finance-desk/index",
+            "native": false
+          },
+          {
+            "index": 17,
+            "key": "finance-books",
+            "text": "账本",
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/admin/finance-desk/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 20,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 144,
+          "route": "pages/admin/finance-desk/index"
+        }
+      ],
+      "elapsedMs": 144,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    },
+    {
+      "caseId": "hq-boss",
+      "role": "boss",
+      "orgType": "headquarters",
+      "expectedUrl": "/pages/admin/home/index",
+      "actualRoute": "pages/admin/home/index",
+      "actualView": "home",
+      "profileContext": {
+        "role": "老板",
+        "company": "测试总部"
+      },
+      "navigation": {
+        "kind": "owner-nav",
+        "active": "home",
+        "tabs": [
+          {
+            "index": 10,
+            "key": "owner-home",
+            "page": "home",
+            "text": "工作台",
+            "url": "/pages/admin/home/index",
+            "native": false
+          },
+          {
+            "index": 11,
+            "key": "owner-business",
+            "page": "business",
+            "text": "业务",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 12,
+            "key": "owner-engineering",
+            "page": "engineering",
+            "text": "工程",
+            "url": "/pages/engineering/index",
+            "native": true
+          },
+          {
+            "index": 4,
+            "key": "owner-profile",
+            "page": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/admin/home/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 19,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 144,
+          "route": "pages/admin/home/index"
+        }
+      ],
+      "elapsedMs": 144,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    }
+  ],
+  "postSwitch": {
+    "from": {
+      "role": "老板",
+      "company": "甲门店"
+    },
+    "to": {
+      "role": "工程人员",
+      "company": "乙门店"
+    },
+    "workbenchRoute": "pages/build/home/index",
+    "usedAccountSelectApiPost": true,
+    "usedCustomTabBarToProfile": false,
+    "usedBoundedDirectProfileProbe": true,
+    "status": "passed",
+    "reason": ""
+  },
+  "regressionCauseAndRepair": {
+    "baselineRisk": {
+      "classification": "中转导航竞态，原因未定，待真机/运行时专项排查",
+      "switchTab": {
+        "name": "switchTab",
+        "url": "/pages/management/index",
+        "calledAt": 1794193393626,
+        "success": null,
+        "fail": "switchTab:fail timeout",
+        "complete": "switchTab:fail timeout"
+      },
+      "targetReLaunches": [
+        {
+          "name": "reLaunch",
+          "url": "/pages/admin/home/index",
+          "calledAt": 1794193393740,
+          "success": "reLaunch:ok",
+          "fail": null,
+          "complete": "reLaunch:ok"
+        },
+        {
+          "name": "reLaunch",
+          "url": "/pages/admin/home/index",
+          "calledAt": 1794193395431,
+          "success": "reLaunch:ok",
+          "fail": null,
+          "complete": "reLaunch:ok"
+        },
+        {
+          "name": "reLaunch",
+          "url": "/pages/admin/home/index",
+          "calledAt": 1794193397939,
+          "success": "reLaunch:ok",
+          "fail": null,
+          "complete": "reLaunch:ok"
+        }
+      ],
+      "directTarget": {
+        "command": {
+          "completed": true,
+          "error": ""
+        },
+        "finalRoute": "pages/admin/home/index",
+        "exceptions": []
+      },
+      "storageDuringStall": {
+        "tokenPresent": true,
+        "postIdPresent": true,
+        "postsCount": 1
+      },
+      "note": "同一目标直接 reLaunch 成功；goAfterLogin 的 switchTab 中转最终 fail timeout，期间中转页 reLaunch 已发出但路由未及时完成。证据不足以单独归因产品或SDK。"
+    },
+    "repair": "account.openApiHome从O.navigation(context).tabs[0]选择真实首页：原生tab调用switchTab，专属页一次reLaunch直达；goAfterLogin与selectApiPost复用。",
+    "observation": "修复后12组合没有经过management/engineering/business中转页。"
+  },
+  "verificationBoundaries": {
+    "simulatorTiming": "仅保留为路由轮询诊断，不代表真机性能或帧率。",
+    "baselineRepeatedSwitching": "老板/销售10轮只证明终态与页面栈；存在Element.tap/SDK异常等待值，性能数据不可采信。工程/财务/设计重复切换仍属工具未验证，未在本轮扩测。",
+    "deviceUat": "未执行真机扫码预览；黑屏/卡顿最终验收仍需开发版真机。",
+    "visualAcceptance": "未覆盖当前606aecc标题样式20文件的视觉验收。"
+  },
+  "storageRestore": {
+    "firstPass": {
+      "status": "passed"
+    },
+    "bossRetry": {
+      "status": "passed"
+    },
+    "postSwitch": {
+      "status": "passed"
+    }
+  },
+  "baselineArtifacts": {
+    "report": "evidence/native-extended-final-report.json",
+    "probe": "evidence/boss-routing-probe.json"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "algorithm": "sha256",
+  "testedSource": {
+    "baseHead": "1bba6c5197ebb779c137cc432cd256bfbd2d132d",
+    "baseBranch": "fix/profile-navigation-20261109",
+    "patchedFile": "miniprogram/pages/account/index.js",
+    "patchedFileSha256": "cafc340426e2ecdd96b954827f8b507c58d1c1a45ce9b38e8145057f57143631",
+    "currentMainRepoHeadAtVerification": "606aecc",
+    "provenance": {
+      "repoBusinessJsExcludingApp": 177,
+      "mismatchesAgainstCurrentRepo": 0,
+      "tempOnlyJs": [
+        "miniprogram/test/role-native-fixture.js"
+      ],
+      "appDifference": "隔离副本app.js仅额外require测试夹具",
+      "note": "当前仓库标题样式变更未复制进本次隔离副本，不能据此声明新视觉验收。"
+    }
+  },
+  "files": [
+    {
+      "file": "evidence/native-account-direct-routing-report.json",
+      "sha256": "3070d2c6b06fe6a4fd9e0ef1d8416886e1521067aede13fb2fcb0f49ed7d1318",
+      "bytes": 21088
+    },
+    {
+      "file": "evidence/patched-landing-first-pass.json",
+      "sha256": "ceb92a40585eda8092dd850c5947324ff7ca303feffc5d645e4736bfd156d80b",
+      "bytes": 17770
+    },
+    {
+      "file": "evidence/patched-landing-boss-retry.json",
+      "sha256": "0b22ff584003f263e33707d50e9ed9074ed223a0c7cdfe726cb1edbab64ba615",
+      "bytes": 3017
+    },
+    {
+      "file": "evidence/native-extended-report.json",
+      "sha256": "31f366693d3cdb943b4fa88265c13cdf1f8e54f04d8a0bbfe72a75efe5212042",
+      "bytes": 2066
+    },
+    {
+      "file": "evidence/native-extended-final-report.json",
+      "sha256": "612232d297f2883bdc179efe2dc5ba012d5d9c6881c5ed3366f4e7da14fb2125",
+      "bytes": 53004
+    },
+    {
+      "file": "evidence/boss-routing-probe.json",
+      "sha256": "28d496109a1651819a2dc96a964f63550c700c35f7bb7fa87a9db92a398a0021",
+      "bytes": 4336
+    }
+  ]
+}

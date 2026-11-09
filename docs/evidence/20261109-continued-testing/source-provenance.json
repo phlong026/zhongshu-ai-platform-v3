@@ -1,0 +1,13 @@
+{
+  "mainHead": "606aecc",
+  "isolationBaseHead": "1bba6c5",
+  "accountSourceSha256": "cafc340426e2ecdd96b954827f8b507c58d1c1a45ce9b38e8145057f57143631",
+  "identicalJavaScriptFiles": 177,
+  "differences": [
+    {
+      "file": "app.js",
+      "reason": "isolated fixture import only"
+    }
+  ],
+  "note": "主仓库606aecc的20个标题样式/标记变更不在本次原生截图验收范围；业务JS逐文件核验。"
+}

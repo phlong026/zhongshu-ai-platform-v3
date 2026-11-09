@@ -1,0 +1,90 @@
+{
+  "sourceHead": "1bba6c5197ebb779c137cc432cd256bfbd2d132d",
+  "branch": "fix/profile-navigation-20261109",
+  "projectRoot": "/private/tmp/zs-native-extended.kMNbBa",
+  "wsEndpoint": "ws://127.0.0.1:19460",
+  "environment": "微信开发者工具模拟器；耗时仅为模拟器自动化观测，不代表真机帧率",
+  "isolation": {
+    "fixtureRequired": true,
+    "realNetworkAllowed": false,
+    "storageKeysSnapshotted": 4
+  },
+  "roleLandings": [],
+  "switching": [],
+  "postSwitch": {
+    "from": {
+      "role": "老板",
+      "company": "甲门店"
+    },
+    "to": {
+      "role": "工程人员",
+      "company": "乙门店"
+    },
+    "workbenchRoute": "pages/build/home/index",
+    "usedAccountSelectApiPost": true,
+    "usedCustomTabBarToProfile": false,
+    "usedBoundedDirectProfileProbe": true,
+    "status": "passed",
+    "reason": ""
+  },
+  "noPost": null,
+  "storageRestore": {
+    "status": "passed"
+  },
+  "disconnect": {
+    "status": "passed"
+  },
+  "networkFinal": {
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/platform/profile/mine"
+      },
+      {
+        "method": "GET",
+        "path": "/platform/messages/unread-count"
+      },
+      {
+        "method": "GET",
+        "path": "/franchise/content/course-progress"
+      },
+      {
+        "method": "POST",
+        "path": "/platform/wallet/session"
+      },
+      {
+        "method": "GET",
+        "path": "/franchise/engineering/projects"
+      },
+      {
+        "method": "GET",
+        "path": "/platform/todos"
+      },
+      {
+        "method": "GET",
+        "path": "/platform/profile/mine"
+      },
+      {
+        "method": "GET",
+        "path": "/platform/messages/unread-count"
+      },
+      {
+        "method": "GET",
+        "path": "/franchise/content/course-progress"
+      }
+    ],
+    "writes": [
+      {
+        "method": "POST",
+        "path": "/platform/wallet/session"
+      }
+    ],
+    "unknownReads": [],
+    "recognizedReadCount": 8
+  },
+  "passed": [
+    "post-switch"
+  ],
+  "productErrors": [],
+  "toolUnverified": []
+}

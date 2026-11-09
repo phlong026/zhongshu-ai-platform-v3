@@ -1,0 +1,126 @@
+{
+  "sourceHead": "1bba6c5197ebb779c137cc432cd256bfbd2d132d",
+  "branch": "fix/profile-navigation-20261109",
+  "projectRoot": "/private/tmp/zs-native-extended.kMNbBa",
+  "wsEndpoint": "ws://127.0.0.1:19460",
+  "environment": "微信开发者工具模拟器；耗时仅为模拟器自动化观测，不代表真机帧率",
+  "isolation": {
+    "fixtureRequired": true,
+    "realNetworkAllowed": false,
+    "storageKeysSnapshotted": 4
+  },
+  "roleLandings": [
+    {
+      "caseId": "boss",
+      "role": "boss",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/home/index",
+      "actualRoute": "pages/admin/home/index",
+      "actualView": "home",
+      "profileContext": {
+        "role": "老板",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "owner-nav",
+        "active": "home",
+        "tabs": [
+          {
+            "index": 10,
+            "key": "owner-home",
+            "page": "home",
+            "text": "工作台",
+            "url": "/pages/admin/home/index",
+            "native": false
+          },
+          {
+            "index": 11,
+            "key": "owner-business",
+            "page": "business",
+            "text": "业务",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 12,
+            "key": "owner-engineering",
+            "page": "engineering",
+            "text": "工程",
+            "url": "/pages/engineering/index",
+            "native": true
+          },
+          {
+            "index": 4,
+            "key": "owner-profile",
+            "page": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/admin/home/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 20,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 265,
+          "route": "pages/admin/home/index"
+        }
+      ],
+      "elapsedMs": 265,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": ""
+    }
+  ],
+  "switching": [],
+  "postSwitch": null,
+  "noPost": null,
+  "storageRestore": {
+    "status": "passed"
+  },
+  "disconnect": {
+    "status": "passed"
+  },
+  "networkFinal": {
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/platform/todos"
+      },
+      {
+        "method": "GET",
+        "path": "/franchise/engineering/projects"
+      },
+      {
+        "method": "GET",
+        "path": "/franchise/performance/tasks/summary"
+      },
+      {
+        "method": "GET",
+        "path": "/franchise/performance/goals"
+      },
+      {
+        "method": "GET",
+        "path": "/franchise/performance/operating/analytics"
+      },
+      {
+        "method": "GET",
+        "path": "/platform/profile/mine"
+      }
+    ],
+    "writes": [],
+    "unknownReads": [],
+    "recognizedReadCount": 6
+  },
+  "passed": [
+    "landing:boss"
+  ],
+  "productErrors": [],
+  "toolUnverified": []
+}

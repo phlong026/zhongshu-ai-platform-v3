@@ -1,0 +1,1999 @@
+{
+  "sourceHead": "1bba6c5197ebb779c137cc432cd256bfbd2d132d",
+  "sourceBranch": "fix/profile-navigation-20261109",
+  "currentMainRepoHeadNotTested": "606aecc",
+  "projectRoot": "/private/tmp/zs-native-extended.kMNbBa",
+  "environment": "微信开发者工具模拟器 + 官方 automator，端口19460；耗时仅为模拟器自动化观测，不代表真机帧率",
+  "isolation": {
+    "realHttpUploadSocketAllowed": false,
+    "fixture": "miniprogram/test/role-native-fixture.js",
+    "storageKeysSnapshottedAndRestored": 4,
+    "originalStorageValuesExposed": false,
+    "userMiniprogramProjectConfigIncluded": false,
+    "rootProjectConfigUsed": true
+  },
+  "summary": {
+    "passed": [
+      "landing:sales",
+      "landing:sales-lead",
+      "switching:boss",
+      "switching:sales",
+      "no-post"
+    ],
+    "productErrors": [],
+    "toolUnverified": [
+      {
+        "scope": "landing:boss",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:owner",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:engineer",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:project-manager",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:finance",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:finance-lead",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:hq-design-admin",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:hq-finance",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:hq-finance-lead",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "landing:hq-boss",
+        "reason": "intermediate-navigation-race-cause-undetermined"
+      },
+      {
+        "scope": "switching:engineer",
+        "reason": "开发者工具 Element.tap 在第2轮返回延迟/超时；保留已完成轮次，不推断产品失败"
+      },
+      {
+        "scope": "switching:finance",
+        "reason": "开发者工具 Element.tap 在第2轮返回延迟/超时；保留已完成轮次，不推断产品失败"
+      },
+      {
+        "scope": "switching:design",
+        "reason": "开发者工具 Element.tap 在第2轮返回延迟/超时；保留已完成轮次，不推断产品失败"
+      },
+      {
+        "scope": "post-switch",
+        "reason": "A资料已验证；selectApiPost(B)已触发并到工程中转页，受同类中转竞态影响，B的“我的”最终同步未验证"
+      }
+    ],
+    "conclusion": "未形成新的产品缺陷结论；发现可复现的中转导航竞态，但产品与开发者工具责任边界仍需真机专项确认。"
+  },
+  "navigationRaceEvidence": {
+    "classification": "中转导航竞态，原因未定，待真机/运行时专项排查",
+    "switchTab": {
+      "name": "switchTab",
+      "url": "/pages/management/index",
+      "calledAt": 1794193393626,
+      "success": null,
+      "fail": "switchTab:fail timeout",
+      "complete": "switchTab:fail timeout"
+    },
+    "targetReLaunches": [
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193393740,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      },
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193395431,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      },
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193397939,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      }
+    ],
+    "directTarget": {
+      "command": {
+        "completed": true,
+        "error": ""
+      },
+      "finalRoute": "pages/admin/home/index",
+      "exceptions": []
+    },
+    "storageDuringStall": {
+      "tokenPresent": true,
+      "postIdPresent": true,
+      "postsCount": 1
+    },
+    "note": "同一目标直接 reLaunch 成功；goAfterLogin 的 switchTab 中转最终 fail timeout，期间中转页 reLaunch 已发出但路由未及时完成。证据不足以单独归因产品或SDK。"
+  },
+  "roleLandings": [
+    {
+      "caseId": "boss",
+      "role": "boss",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/home/index",
+      "actualRoute": "pages/management/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "老板",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 10,
+            "key": "owner-home",
+            "text": "工作台",
+            "url": "/pages/admin/home/index",
+            "native": false
+          },
+          {
+            "index": 11,
+            "key": "owner-business",
+            "text": "业务",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 12,
+            "key": "owner-engineering",
+            "text": "工程",
+            "url": "/pages/engineering/index",
+            "native": true
+          },
+          {
+            "index": 4,
+            "key": "owner-profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/management/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 16,
+          "route": "pages/management/index"
+        }
+      ],
+      "elapsedMs": 4548,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/management/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "owner",
+      "role": "owner",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/home/index",
+      "actualRoute": "pages/management/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "门店负责人",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 10,
+            "key": "owner-home",
+            "text": "工作台",
+            "url": "/pages/admin/home/index",
+            "native": false
+          },
+          {
+            "index": 11,
+            "key": "owner-business",
+            "text": "业务",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 12,
+            "key": "owner-engineering",
+            "text": "工程",
+            "url": "/pages/engineering/index",
+            "native": true
+          },
+          {
+            "index": 4,
+            "key": "owner-profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/management/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 16,
+          "route": "pages/management/index"
+        }
+      ],
+      "elapsedMs": 4559,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/management/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "sales",
+      "role": "sales",
+      "orgType": "store",
+      "expectedUrl": "/pages/business/index",
+      "actualRoute": "pages/business/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "业务员",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 1,
+        "tabs": [
+          {
+            "index": 1,
+            "key": "business",
+            "text": "首页",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 5,
+            "key": "creation",
+            "text": "创作",
+            "url": "/pages/creation/index",
+            "native": false
+          },
+          {
+            "index": 6,
+            "key": "design",
+            "text": "方案",
+            "url": "/pages/design/index",
+            "native": false
+          },
+          {
+            "index": 7,
+            "key": "customers",
+            "text": "客户",
+            "url": "/pages/customers/index",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/business/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 16,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 141,
+          "route": "pages/business/index"
+        }
+      ],
+      "elapsedMs": 141,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": "",
+      "rawStatus": "passed",
+      "finalStatus": "passed"
+    },
+    {
+      "caseId": "sales-lead",
+      "role": "sales-lead",
+      "orgType": "store",
+      "expectedUrl": "/pages/business/index",
+      "actualRoute": "pages/business/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "业务负责人",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 1,
+        "tabs": [
+          {
+            "index": 1,
+            "key": "business",
+            "text": "首页",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 5,
+            "key": "creation",
+            "text": "创作",
+            "url": "/pages/creation/index",
+            "native": false
+          },
+          {
+            "index": 6,
+            "key": "design",
+            "text": "方案",
+            "url": "/pages/design/index",
+            "native": false
+          },
+          {
+            "index": 7,
+            "key": "customers",
+            "text": "客户",
+            "url": "/pages/customers/index",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/business/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 15,
+          "route": "pages/account/index"
+        },
+        {
+          "tMs": 146,
+          "route": "pages/business/index"
+        }
+      ],
+      "elapsedMs": 146,
+      "lifecycleRetry": null,
+      "status": "passed",
+      "reason": "",
+      "rawStatus": "passed",
+      "finalStatus": "passed"
+    },
+    {
+      "caseId": "engineer",
+      "role": "engineer",
+      "orgType": "store",
+      "expectedUrl": "/pages/build/home/index",
+      "actualRoute": "pages/engineering/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "工程人员",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 2,
+            "key": "engineering",
+            "text": "首页",
+            "url": "/pages/build/home/index",
+            "native": false
+          },
+          {
+            "index": 8,
+            "key": "projects",
+            "text": "项目",
+            "url": "/pages/build/projects/index",
+            "native": false
+          },
+          {
+            "index": 9,
+            "key": "materials",
+            "text": "材料",
+            "url": "/pages/build/materials/index",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/engineering/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 35,
+          "route": "pages/engineering/index"
+        }
+      ],
+      "elapsedMs": 4576,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/engineering/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "project-manager",
+      "role": "project-manager",
+      "orgType": "store",
+      "expectedUrl": "/pages/build/home/index",
+      "actualRoute": "pages/engineering/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "工程负责人",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 2,
+            "key": "engineering",
+            "text": "首页",
+            "url": "/pages/build/home/index",
+            "native": false
+          },
+          {
+            "index": 8,
+            "key": "projects",
+            "text": "项目",
+            "url": "/pages/build/projects/index",
+            "native": false
+          },
+          {
+            "index": 9,
+            "key": "materials",
+            "text": "材料",
+            "url": "/pages/build/materials/index",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/engineering/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 22,
+          "route": "pages/engineering/index"
+        }
+      ],
+      "elapsedMs": 4514,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/engineering/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "finance",
+      "role": "finance",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/finance-desk/index",
+      "actualRoute": "pages/management/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "财务专员",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 16,
+            "key": "finance-home",
+            "text": "首页",
+            "url": "/pages/admin/finance-desk/index",
+            "native": false
+          },
+          {
+            "index": 17,
+            "key": "finance-books",
+            "text": "账本",
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/management/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 22,
+          "route": "pages/management/index"
+        }
+      ],
+      "elapsedMs": 4574,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/management/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "finance-lead",
+      "role": "finance-lead",
+      "orgType": "store",
+      "expectedUrl": "/pages/admin/finance-desk/index",
+      "actualRoute": "pages/management/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "财务负责人",
+        "company": "测试门店"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 16,
+            "key": "finance-home",
+            "text": "首页",
+            "url": "/pages/admin/finance-desk/index",
+            "native": false
+          },
+          {
+            "index": 17,
+            "key": "finance-books",
+            "text": "账本",
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/management/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 18,
+          "route": "pages/management/index"
+        }
+      ],
+      "elapsedMs": 4578,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/management/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "hq-design-admin",
+      "role": "hq-design-admin",
+      "orgType": "headquarters",
+      "expectedUrl": "/pages/workflow/commission/index?view=admin",
+      "actualRoute": "pages/business/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "设计行政",
+        "company": "测试总部"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 19,
+            "key": "business",
+            "text": "首页",
+            "url": "/pages/workflow/commission/index?view=admin",
+            "native": false
+          },
+          {
+            "index": 20,
+            "key": "design-admin-projects",
+            "text": "项目",
+            "url": "/pages/workflow/commission/index?view=projects",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/business/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 23,
+          "route": "pages/business/index"
+        }
+      ],
+      "elapsedMs": 4567,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/business/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "hq-finance",
+      "role": "finance",
+      "orgType": "headquarters",
+      "expectedUrl": "/pages/admin/finance-desk/index",
+      "actualRoute": "pages/management/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "财务专员",
+        "company": "测试总部"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 16,
+            "key": "finance-home",
+            "text": "首页",
+            "url": "/pages/admin/finance-desk/index",
+            "native": false
+          },
+          {
+            "index": 17,
+            "key": "finance-books",
+            "text": "账本",
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/management/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 19,
+          "route": "pages/management/index"
+        }
+      ],
+      "elapsedMs": 4559,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/management/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "hq-finance-lead",
+      "role": "finance-lead",
+      "orgType": "headquarters",
+      "expectedUrl": "/pages/admin/finance-desk/index",
+      "actualRoute": "pages/management/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "财务负责人",
+        "company": "测试总部"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 16,
+            "key": "finance-home",
+            "text": "首页",
+            "url": "/pages/admin/finance-desk/index",
+            "native": false
+          },
+          {
+            "index": 17,
+            "key": "finance-books",
+            "text": "账本",
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+            "native": false
+          },
+          {
+            "index": 4,
+            "key": "profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/management/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 16,
+          "route": "pages/management/index"
+        }
+      ],
+      "elapsedMs": 4522,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/management/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    },
+    {
+      "caseId": "hq-boss",
+      "role": "boss",
+      "orgType": "headquarters",
+      "expectedUrl": "/pages/admin/home/index",
+      "actualRoute": "pages/management/index",
+      "actualView": "",
+      "profileContext": {
+        "role": "老板",
+        "company": "测试总部"
+      },
+      "navigation": {
+        "kind": "built-in-custom-tab-bar",
+        "selected": 0,
+        "tabs": [
+          {
+            "index": 10,
+            "key": "owner-home",
+            "text": "工作台",
+            "url": "/pages/admin/home/index",
+            "native": false
+          },
+          {
+            "index": 11,
+            "key": "owner-business",
+            "text": "业务",
+            "url": "/pages/business/index",
+            "native": true
+          },
+          {
+            "index": 12,
+            "key": "owner-engineering",
+            "text": "工程",
+            "url": "/pages/engineering/index",
+            "native": true
+          },
+          {
+            "index": 4,
+            "key": "owner-profile",
+            "text": "我的",
+            "url": "/pages/profile/index",
+            "native": true
+          }
+        ]
+      },
+      "stack": [
+        "pages/management/index"
+      ],
+      "timeline": [
+        {
+          "tMs": 18,
+          "route": "pages/management/index"
+        }
+      ],
+      "elapsedMs": 4588,
+      "lifecycleRetry": {
+        "triggered": true,
+        "route": "pages/management/index"
+      },
+      "status": "product-error",
+      "reason": "intermediate-navigation-race-cause-undetermined",
+      "rawStatus": "product-error",
+      "rawReason": "landing-timeout",
+      "finalStatus": "tool-unverified",
+      "evidenceRef": "evidence/boss-routing-probe.json"
+    }
+  ],
+  "switching": [
+    {
+      "family": "boss",
+      "role": "boss",
+      "expectedWorkbench": "/pages/admin/home/index",
+      "iterations": [
+        {
+          "iteration": 1,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 158,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 1,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 144,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 2,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 10155,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 144,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 3,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 142650,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 637,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 4,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 56784,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 145,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 5,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 123890,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 447,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 6,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 281194,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 449,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 7,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 964982,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 154,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 8,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 10155,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 144,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 9,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 10155,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 147,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 10,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 10155,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 142,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/home/index"
+            ]
+          }
+        }
+      ],
+      "simulatorTiming": {
+        "maxToProfileMs": 964982,
+        "maxToWorkbenchMs": 637,
+        "sampleCount": 10
+      },
+      "finalProfile": {
+        "route": "pages/profile/index",
+        "stack": [
+          "pages/profile/index"
+        ],
+        "data": {
+          "name": "测试用户-boss",
+          "role": "老板",
+          "company": "测试门店",
+          "loggedIn": true,
+          "view": "",
+          "platformStatus": "",
+          "error": "",
+          "deskPresent": false
+        },
+        "tab": {
+          "kind": "built-in-custom-tab-bar",
+          "selected": 4,
+          "tabs": [
+            {
+              "index": 10,
+              "key": "owner-home",
+              "text": "工作台",
+              "url": "/pages/admin/home/index",
+              "native": false
+            },
+            {
+              "index": 11,
+              "key": "owner-business",
+              "text": "业务",
+              "url": "/pages/business/index",
+              "native": true
+            },
+            {
+              "index": 12,
+              "key": "owner-engineering",
+              "text": "工程",
+              "url": "/pages/engineering/index",
+              "native": true
+            },
+            {
+              "index": 4,
+              "key": "owner-profile",
+              "text": "我的",
+              "url": "/pages/profile/index",
+              "native": true
+            }
+          ]
+        }
+      },
+      "screenshot": "/private/tmp/zs-native-extended.kMNbBa/evidence/switch-boss-profile.png",
+      "status": "passed",
+      "reason": "",
+      "finalStatus": "passed",
+      "finalReason": ""
+    },
+    {
+      "family": "sales",
+      "role": "sales",
+      "expectedWorkbench": "/pages/business/index",
+      "iterations": [
+        {
+          "iteration": 1,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 270,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 21,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 2,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 260,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 23,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 3,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 261,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 23,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 4,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 265,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 22,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 5,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 262,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 24,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 6,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 263,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 25,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 7,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 264,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 20,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 8,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 262,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 19,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 9,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 261,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 22,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        },
+        {
+          "iteration": 10,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 266,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 21,
+            "ready": true,
+            "stack": [
+              "pages/business/index"
+            ]
+          }
+        }
+      ],
+      "simulatorTiming": {
+        "maxToProfileMs": 270,
+        "maxToWorkbenchMs": 25,
+        "sampleCount": 10
+      },
+      "finalProfile": {
+        "route": "pages/profile/index",
+        "stack": [
+          "pages/profile/index"
+        ],
+        "data": {
+          "name": "测试用户-sales",
+          "role": "业务员",
+          "company": "测试门店",
+          "loggedIn": true,
+          "view": "",
+          "platformStatus": "",
+          "error": "",
+          "deskPresent": false
+        },
+        "tab": {
+          "kind": "built-in-custom-tab-bar",
+          "selected": 4,
+          "tabs": [
+            {
+              "index": 1,
+              "key": "business",
+              "text": "首页",
+              "url": "/pages/business/index",
+              "native": true
+            },
+            {
+              "index": 5,
+              "key": "creation",
+              "text": "创作",
+              "url": "/pages/creation/index",
+              "native": false
+            },
+            {
+              "index": 6,
+              "key": "design",
+              "text": "方案",
+              "url": "/pages/design/index",
+              "native": false
+            },
+            {
+              "index": 7,
+              "key": "customers",
+              "text": "客户",
+              "url": "/pages/customers/index",
+              "native": false
+            },
+            {
+              "index": 4,
+              "key": "profile",
+              "text": "我的",
+              "url": "/pages/profile/index",
+              "native": true
+            }
+          ]
+        }
+      },
+      "screenshot": "/private/tmp/zs-native-extended.kMNbBa/evidence/switch-sales-profile.png",
+      "status": "passed",
+      "reason": "",
+      "finalStatus": "passed",
+      "finalReason": ""
+    },
+    {
+      "family": "engineer",
+      "role": "engineer",
+      "expectedWorkbench": "/pages/build/home/index",
+      "iterations": [
+        {
+          "iteration": 1,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 761,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 394,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/build/home/index"
+            ]
+          }
+        },
+        {
+          "iteration": 2,
+          "toProfile": {
+            "triggered": false,
+            "elapsedMs": 13616,
+            "ready": false,
+            "stack": [
+              "pages/profile/index",
+              "pages/build/home/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": false,
+            "extraRequests": 3,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 291,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/build/home/index"
+            ]
+          }
+        }
+      ],
+      "simulatorTiming": {
+        "maxToProfileMs": 13616,
+        "maxToWorkbenchMs": 394,
+        "sampleCount": 2
+      },
+      "finalProfile": {
+        "route": "pages/build/home/index",
+        "stack": [
+          "pages/profile/index",
+          "pages/build/home/index"
+        ],
+        "data": {
+          "name": "",
+          "role": "",
+          "company": "",
+          "view": "",
+          "platformStatus": "",
+          "error": "",
+          "deskPresent": false
+        },
+        "tab": null
+      },
+      "screenshot": "",
+      "status": "tool-unverified",
+      "reason": "iterations-incomplete",
+      "finalStatus": "tool-unverified",
+      "finalReason": "开发者工具 Element.tap 在第2轮返回延迟/超时；保留已完成轮次，不推断产品失败"
+    },
+    {
+      "family": "finance",
+      "role": "finance",
+      "expectedWorkbench": "/pages/admin/finance-desk/index",
+      "iterations": [
+        {
+          "iteration": 1,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 273,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 1,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 267,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/finance-desk/index"
+            ]
+          }
+        },
+        {
+          "iteration": 2,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 3633,
+            "ready": false,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/finance-desk/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": false,
+            "extraRequests": 3,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 744,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/admin/finance-desk/index"
+            ]
+          }
+        }
+      ],
+      "simulatorTiming": {
+        "maxToProfileMs": 3633,
+        "maxToWorkbenchMs": 744,
+        "sampleCount": 2
+      },
+      "finalProfile": {
+        "route": "pages/admin/finance-desk/index",
+        "stack": [
+          "pages/profile/index",
+          "pages/admin/finance-desk/index"
+        ],
+        "data": {
+          "name": "",
+          "role": "",
+          "company": "",
+          "view": "desk",
+          "platformStatus": "",
+          "error": "",
+          "deskPresent": false
+        },
+        "tab": {
+          "kind": "nested-custom-tab-bar",
+          "selected": 16,
+          "tabs": [
+            {
+              "index": 16,
+              "key": "finance-home",
+              "text": "首页",
+              "url": "/pages/admin/finance-desk/index",
+              "native": false
+            },
+            {
+              "index": 17,
+              "key": "finance-books",
+              "text": "账本",
+              "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger",
+              "native": false
+            },
+            {
+              "index": 4,
+              "key": "profile",
+              "text": "我的",
+              "url": "/pages/profile/index",
+              "native": true
+            }
+          ]
+        }
+      },
+      "screenshot": "",
+      "status": "tool-unverified",
+      "reason": "iterations-incomplete",
+      "finalStatus": "tool-unverified",
+      "finalReason": "开发者工具 Element.tap 在第2轮返回延迟/超时；保留已完成轮次，不推断产品失败"
+    },
+    {
+      "family": "design",
+      "role": "hq-design-admin",
+      "expectedWorkbench": "/pages/workflow/commission/index?view=admin",
+      "iterations": [
+        {
+          "iteration": 1,
+          "toProfile": {
+            "triggered": true,
+            "elapsedMs": 272,
+            "ready": true,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": true,
+            "extraRequests": 0,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 403,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/workflow/commission/index"
+            ]
+          }
+        },
+        {
+          "iteration": 2,
+          "toProfile": {
+            "triggered": false,
+            "elapsedMs": 13602,
+            "ready": false,
+            "stack": [
+              "pages/profile/index",
+              "pages/workflow/commission/index"
+            ]
+          },
+          "repeatProfile": {
+            "triggered": true,
+            "noNavigation": false,
+            "extraRequests": 3,
+            "stack": [
+              "pages/profile/index"
+            ]
+          },
+          "toWorkbench": {
+            "triggered": true,
+            "elapsedMs": 149,
+            "ready": true,
+            "stack": [
+              "pages/profile/index",
+              "pages/workflow/commission/index"
+            ]
+          }
+        }
+      ],
+      "simulatorTiming": {
+        "maxToProfileMs": 13602,
+        "maxToWorkbenchMs": 403,
+        "sampleCount": 2
+      },
+      "finalProfile": {
+        "route": "pages/workflow/commission/index",
+        "stack": [
+          "pages/profile/index",
+          "pages/workflow/commission/index"
+        ],
+        "data": {
+          "name": "",
+          "role": "",
+          "company": "",
+          "view": "admin",
+          "platformStatus": "ready",
+          "error": "",
+          "deskPresent": false
+        },
+        "tab": null
+      },
+      "screenshot": "",
+      "status": "tool-unverified",
+      "reason": "iterations-incomplete",
+      "finalStatus": "tool-unverified",
+      "finalReason": "开发者工具 Element.tap 在第2轮返回延迟/超时；保留已完成轮次，不推断产品失败"
+    }
+  ],
+  "postSwitch": {
+    "from": {
+      "role": "老板",
+      "company": "甲门店"
+    },
+    "to": null,
+    "workbenchRoute": "pages/engineering/index",
+    "usedAccountSelectApiPost": true,
+    "usedCustomTabBarToProfile": false,
+    "status": "product-error",
+    "reason": "profile-context-did-not-sync",
+    "rawStatus": "product-error",
+    "finalStatus": "tool-unverified",
+    "finalReason": "A资料已验证；selectApiPost(B)已触发并到工程中转页，受同类中转竞态影响，B的“我的”最终同步未验证"
+  },
+  "noPost": {
+    "actualRoute": "pages/profile/index",
+    "navigation": {
+      "kind": "built-in-custom-tab-bar",
+      "selected": 4,
+      "tabs": [
+        {
+          "index": 0,
+          "key": "home",
+          "text": "首页",
+          "url": "/pages/home/index",
+          "native": true
+        },
+        {
+          "index": 4,
+          "key": "account",
+          "text": "登录",
+          "url": "/pages/account/index?view=login",
+          "native": false
+        }
+      ]
+    },
+    "stack": [
+      "pages/profile/index"
+    ],
+    "network": {
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/platform/profile/mine"
+        },
+        {
+          "method": "GET",
+          "path": "/platform/messages/unread-count"
+        },
+        {
+          "method": "GET",
+          "path": "/franchise/content/course-progress"
+        }
+      ],
+      "writes": [],
+      "unknownReads": [],
+      "recognizedReadCount": 3
+    },
+    "status": "tool-unverified",
+    "reason": "no-post-landing-timeout",
+    "rawStatus": "tool-unverified",
+    "finalStatus": "passed",
+    "finalReason": "无有效岗位按 organization.home(!active) 正确落到“我的”，访客导航且无写请求"
+  },
+  "storageRestore": {
+    "landings": {
+      "status": "passed"
+    },
+    "switching": {
+      "boss": {
+        "status": "passed"
+      },
+      "sales": {
+        "status": "passed"
+      },
+      "engineer": {
+        "status": "passed"
+      },
+      "finance": {
+        "status": "passed"
+      },
+      "design": {
+        "status": "passed"
+      }
+    },
+    "tail": {
+      "status": "passed"
+    },
+    "probe": "passed"
+  },
+  "artifacts": {
+    "rawLandingEvidence": "evidence/raw-landing-report.json",
+    "routingProbe": "evidence/boss-routing-probe.json",
+    "screenshots": [
+      "evidence/final-boss-profile.png",
+      "evidence/final-sales-profile.png",
+      "evidence/switch-boss-profile.png",
+      "evidence/switch-sales-profile.png"
+    ]
+  }
+}

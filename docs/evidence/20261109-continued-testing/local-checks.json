@@ -1,0 +1,44 @@
+{
+  "staticProjectCheck": {
+    "command": "npm run check",
+    "exitCode": 0,
+    "wxmlChecked": 59,
+    "jsChecked": 178,
+    "jsonChecked": 59,
+    "assetsChecked": 161
+  },
+  "accountNavigationRegression": {
+    "cases": 24,
+    "passed": 24,
+    "redFailure": "store/boss原路径switchTab management，期望一次reLaunch admin/home",
+    "green": "12岗位乘登录与主动切岗两条路径均通过"
+  },
+  "profileNavigation": {
+    "passed": 23,
+    "failed": 0
+  },
+  "authSession": {
+    "passed": 54,
+    "failed": 0
+  },
+  "memberActionIsolation": {
+    "passed": 10,
+    "failed": 0
+  },
+  "dualChannelLoginContract": {
+    "exitCode": 0
+  },
+  "nodeSyntaxCheck": {
+    "exitCode": 0,
+    "files": [
+      "miniprogram/pages/account/index.js",
+      "scripts/verify-api-role-pages.cjs"
+    ]
+  },
+  "independentReview": "两个改动文件未发现新增阻断问题",
+  "nativeRoleLanding": {
+    "passed": 12,
+    "failed": 0
+  },
+  "performanceAcceptance": "未执行真机；异常SDK等待值不作性能通过证据"
+}

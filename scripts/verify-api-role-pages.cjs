@@ -178,6 +178,35 @@ assert.equal(salesProfile.data.company, '当前组织');
 assert.deepEqual(salesProfile.data.managementEntries, [], 'ordinary API role gets no management entry');
 
 // API roles must enter the same dedicated workbench as their custom tab definition.
+const enabledRoles = [
+  ['store', 'boss', '/pages/admin/home/index'],
+  ['store', 'owner', '/pages/admin/home/index'],
+  ['store', 'sales', '/pages/business/index'],
+  ['store', 'sales-lead', '/pages/business/index'],
+  ['store', 'engineer', '/pages/build/home/index'],
+  ['store', 'project-manager', '/pages/build/home/index'],
+  ['store', 'finance', '/pages/admin/finance-desk/index'],
+  ['store', 'finance-lead', '/pages/admin/finance-desk/index'],
+  ['headquarters', 'hq-design-admin', '/pages/workflow/commission/index?view=admin'],
+  ['headquarters', 'finance', '/pages/admin/finance-desk/index'],
+  ['headquarters', 'finance-lead', '/pages/admin/finance-desk/index'],
+  ['headquarters', 'boss', '/pages/admin/home/index']
+];
+for (const [orgType, roleCode, url] of enabledRoles) {
+  const expected = { kind: url === '/pages/business/index' ? 'switchTab' : 'reLaunch', url };
+  reset(post(roleCode, { orgType }));
+  pageOf(definitions.account).goAfterLogin();
+  assert.deepEqual(navigation, [expected], orgType + '/' + roleCode + ' login must reach its workbench in one navigation');
+
+  reset(post('sales'));
+  auth.savePosts([post('sales'), post(roleCode, { orgType, postId: 43 })]);
+  const identityPage = pageOf(definitions.account);
+  identityPage.refresh = () => {};
+  identityPage.selectApiPost({ currentTarget: { dataset: { postId: '43' } } });
+  assert.equal(String(auth.currentApiPost().postId), '43');
+  assert.deepEqual(navigation, [expected], orgType + '/' + roleCode + ' post switch must not enter an intermediate tab');
+}
+
 reset(post('engineer'));
 pageOf(definitions.engineering).onShow();
 assert.deepEqual(navigation[0], { kind: 'reLaunch', url: '/pages/build/home/index' });
@@ -220,4 +249,4 @@ const salesFinance = pageOf(definitions.finance);
 salesFinance.onLoad({});
 assert.equal(salesFinance.data.view, 'flows', 'non-finance API role is not presented with the finance desk');
 
-console.log('verify-api-role-pages: API会话守卫、岗位工作台、财务默认态与组织展示全部通过');
+console.log('verify-api-role-pages: API会话守卫、12岗位登录与切岗直达、财务默认态与组织展示全部通过');

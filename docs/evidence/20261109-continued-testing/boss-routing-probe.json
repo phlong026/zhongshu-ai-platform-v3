@@ -1,0 +1,186 @@
+{
+  "sourceHead": "1bba6c5197ebb779c137cc432cd256bfbd2d132d",
+  "storageRestore": "passed",
+  "exceptions": [],
+  "beforeLogin": {
+    "route": "pages/account/index",
+    "data": {
+      "view": "login",
+      "role": "老板",
+      "loggedIn": true,
+      "deskTitle": ""
+    },
+    "storage": {
+      "tokenPresent": true,
+      "postIdPresent": true,
+      "postsCount": 1
+    },
+    "currentPost": null,
+    "events": [
+      {
+        "name": "reLaunch",
+        "url": "/pages/account/index?view=login",
+        "calledAt": 1794193389664,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      }
+    ]
+  },
+  "afterLogin": {
+    "route": "pages/management/index",
+    "data": {
+      "view": "",
+      "role": "",
+      "loggedIn": false,
+      "active": false,
+      "deskTitle": "管理工作台"
+    },
+    "storage": {
+      "tokenPresent": true,
+      "postIdPresent": true,
+      "postsCount": 1
+    },
+    "currentPost": null,
+    "events": [
+      {
+        "name": "reLaunch",
+        "url": "/pages/account/index?view=login",
+        "calledAt": 1794193389664,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      },
+      {
+        "name": "switchTab",
+        "url": "/pages/management/index",
+        "calledAt": 1794193393626,
+        "success": null,
+        "fail": null,
+        "complete": null
+      },
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193393740,
+        "success": null,
+        "fail": null,
+        "complete": null
+      }
+    ]
+  },
+  "manualOnShowTrigger": {
+    "triggered": true,
+    "route": "pages/management/index"
+  },
+  "afterManualOnShow": {
+    "route": "pages/management/index",
+    "data": {
+      "view": "",
+      "role": "",
+      "loggedIn": false,
+      "active": false,
+      "deskTitle": "管理工作台"
+    },
+    "storage": {
+      "tokenPresent": true,
+      "postIdPresent": true,
+      "postsCount": 1
+    },
+    "currentPost": null,
+    "events": [
+      {
+        "name": "reLaunch",
+        "url": "/pages/account/index?view=login",
+        "calledAt": 1794193389664,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      },
+      {
+        "name": "switchTab",
+        "url": "/pages/management/index",
+        "calledAt": 1794193393626,
+        "success": null,
+        "fail": null,
+        "complete": null
+      },
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193393740,
+        "success": null,
+        "fail": null,
+        "complete": null
+      },
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193395431,
+        "success": null,
+        "fail": null,
+        "complete": null
+      }
+    ]
+  },
+  "directTargetCommand": {
+    "completed": true,
+    "error": ""
+  },
+  "afterDirectTarget": {
+    "route": "pages/admin/home/index",
+    "data": {
+      "view": "home",
+      "role": "",
+      "deskTitle": ""
+    },
+    "storage": {
+      "tokenPresent": true,
+      "postIdPresent": true,
+      "postsCount": 1
+    },
+    "currentPost": null,
+    "events": [
+      {
+        "name": "reLaunch",
+        "url": "/pages/account/index?view=login",
+        "calledAt": 1794193389664,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      },
+      {
+        "name": "switchTab",
+        "url": "/pages/management/index",
+        "calledAt": 1794193393626,
+        "success": null,
+        "fail": "switchTab:fail timeout",
+        "complete": "switchTab:fail timeout"
+      },
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193393740,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      },
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193395431,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      },
+      {
+        "name": "reLaunch",
+        "url": "/pages/admin/home/index",
+        "calledAt": 1794193397939,
+        "success": "reLaunch:ok",
+        "fail": null,
+        "complete": "reLaunch:ok"
+      }
+    ]
+  }
+}
