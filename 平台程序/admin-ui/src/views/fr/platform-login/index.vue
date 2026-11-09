@@ -50,7 +50,7 @@ import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { usePermissionStore } from '@/store/modules/permission'
 import { useUserStore } from '@/store/modules/user'
 import { deleteUserCache } from '@/hooks/web/useCache'
-import { setPortalMode, type PlatformId } from '@/utils/platformIdentity'
+import { portalMode, setPortalMode, type PlatformId } from '@/utils/platformIdentity'
 import { roleLabel } from '@/utils/platformRoles'
 
 defineOptions({ name: 'PlatformStaffLogin' })
@@ -69,6 +69,9 @@ let timer: ReturnType<typeof setInterval> | undefined
 
 // 过期会话可能在浏览器里残留岗位列表；未登录时必须回到短信表单。
 if (!getAccessToken()) identity.clear()
+else if (portalMode(getAccessToken()) === 'staff' && !identity.posts.length && !identity.error) {
+  notice.value = '暂无有效任职，请联系组织管理员配置工作身份。'
+}
 
 const rules: FormRules = {
   mobile: [{ required: true, pattern: /^1\d{10}$/, message: '请输入正确手机号', trigger: 'blur' }],

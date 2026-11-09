@@ -1,0 +1,13 @@
+{
+  "vulnerabilities": {
+    "info": 0,
+    "low": 6,
+    "moderate": 8,
+    "high": 13,
+    "critical": 1
+  },
+  "dependencies": 469,
+  "devDependencies": 0,
+  "optionalDependencies": 137,
+  "totalDependencies": 606
+}

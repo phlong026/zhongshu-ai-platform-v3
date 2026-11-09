@@ -283,6 +283,9 @@ const refreshToken = async () => {
 }
 const handleAuthorized = () => {
   const { t } = useI18n()
+  // 清会话会移除门户标记，先记住员工应返回的登录入口。
+  const staffPortal =
+    portalMode(getAccessToken()) === 'staff' || window.location.href.includes('/platform-login')
   const clearAuthSession = () => {
     resetRouter()
     deleteUserCache()
@@ -293,9 +296,7 @@ const handleAuthorized = () => {
     // 登录页不弹二次确认，但 401 仍必须清理旧会话并向调用方抛错。
     if (/\/(platform-)?login(?:[/?#]|$)/.test(window.location.href)) {
       clearAuthSession()
-      window.location.replace(
-        window.location.href.includes('/platform-login') ? '/platform-login' : '/login'
-      )
+      window.location.replace(staffPortal ? '/platform-login' : '/login')
       return Promise.reject(t('sys.api.timeoutMessage'))
     }
     isRelogin.show = true
@@ -309,8 +310,8 @@ const handleAuthorized = () => {
     }).then(() => {
       clearAuthSession()
       isRelogin.show = false
-      // 干掉token后再走一次路由让它过router.beforeEach的校验
-      window.location.href = window.location.href
+      if (staffPortal) window.location.replace('/platform-login')
+      else window.location.href = window.location.href
     })
   }
   return Promise.reject(t('sys.api.timeoutMessage'))

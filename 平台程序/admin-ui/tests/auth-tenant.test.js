@@ -98,7 +98,7 @@ function transport(
         isCurrentGeneration: (value) => value === platform.generation,
         isPostScopedUrl: (url) => String(url).includes('/platform/org/'),
         clearPlatformIdentity: () => identityClears++,
-        portalMode: () => 'admin',
+        portalMode: () => platform.mode || 'admin',
         setPortalMode() {}
       }
     },
@@ -180,6 +180,22 @@ test('员工登录页加载岗位遇到401时清会话并保持拒绝，不把�
     () => app.response({ data: { code: 401 }, config: { headers: {} }, headers: {}, request: {} }),
     /timeoutMessage/
   )
+  assert.equal(app.identityClears(), 1)
+  assert.equal(app.tokenRemovals(), 1)
+  assert.deepEqual(app.redirects, ['/platform-login'])
+})
+test('员工业务页会话过期后回到员工短信入口，不误入管理员登录', async () => {
+  const app = transport(
+    { VITE_APP_TENANT_ENABLE: 'false', VITE_APP_TENANT_ID: '1' },
+    { postId: '11', generation: 3, mode: 'staff' },
+    '',
+    'https://app.example/fr/org/staff'
+  )
+  await assert.rejects(
+    () => app.response({ data: { code: 401 }, config: { headers: {} }, headers: {}, request: {} }),
+    /timeoutMessage/
+  )
+  await Promise.resolve()
   assert.equal(app.identityClears(), 1)
   assert.equal(app.tokenRemovals(), 1)
   assert.deepEqual(app.redirects, ['/platform-login'])

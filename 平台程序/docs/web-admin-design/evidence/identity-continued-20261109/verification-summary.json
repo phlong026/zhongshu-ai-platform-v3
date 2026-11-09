@@ -1,0 +1,19 @@
+{
+  "webTests": {
+    "passed": 136,
+    "failed": 0
+  },
+  "backendOrgAuthz": {
+    "passed": 103,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "typecheck": 0,
+  "eslint": 0,
+  "stylelint": 0,
+  "prettier": 0,
+  "viteBuild": 0,
+  "secretPatternHits": 0,
+  "scope": "本地受控HTTP夹具浏览器 + 独立PostgreSQL集成测试；未连接生产账号/短信/数据库"
+}

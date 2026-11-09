@@ -196,6 +196,89 @@ test('相邻超大岗位ID按字符串精确切换，非本人岗位被拒绝', 
   assert.equal(identity.currentPostId(), second)
 })
 
+test('刷新不把缓存权限当已验证身份，撤岗后清旧上下文并要求重新选岗', async () => {
+  const identity = loadSession(new Map())
+  const oldPost = { postId: '11', orgId: '1001' }
+  identity.savePosts([oldPost])
+  const generation = identity.beginPostSwitch('11')
+  identity.saveCurrentContext(generation, {
+    post: oldPost,
+    permissions: ['platform:org:query', 'platform:org:manage']
+  })
+  let rows = [
+    { postId: '22', orgId: '1002' },
+    { postId: '33', orgId: '1003' }
+  ]
+  let contextReads = 0
+  const activePinia = pinia.createPinia()
+  pinia.setActivePinia(activePinia)
+  const loaded = loadModule('store/modules/platformIdentity.ts', {
+    pinia,
+    '@/store': { store: activePinia },
+    '@/api/platform/staff': {
+      getMyPosts: async () => rows,
+      getCurrentPostContext: async () => {
+        contextReads++
+        return {
+          post: rows.find((row) => row.postId === identity.currentPostId()),
+          permissions: ['platform:org:query']
+        }
+      }
+    },
+    '@/utils/auth': { getAccessToken: () => 'token' },
+    '@/utils/platformIdentity': identity
+  })
+  const store = loaded.usePlatformIdentityStore()
+  assert.equal(store.context, null, '缓存只能帮助显示候选身份，不能恢复未经服务端复验的权限')
+  assert.equal(store.hasCurrentPostPermission('platform:org:manage'), false)
+  assert.equal(await store.restoreContext(), null)
+  assert.equal(identity.currentPostId(), '')
+  assert.equal(identity.currentContext(), null)
+  assert.equal(contextReads, 0)
+
+  await store.selectPost('22', false)
+  assert.equal(store.currentPost.postId, '22')
+  rows = [
+    { postId: '33', orgId: '1003' },
+    { postId: '44', orgId: '1004' }
+  ]
+  assert.equal(await store.restoreContext(), null)
+  assert.equal(store.context, null, '会话内撤岗也不能保留旧岗位与权限')
+  assert.equal(store.hasCurrentPostPermission('platform:org:query'), false)
+  assert.equal(identity.currentPostId(), '')
+})
+
+test('员工有候选岗位但尚未通过身份复验时，业务路由转到工作身份页', async () => {
+  let guard
+  const identity = { posts: [{ postId: '22' }, { postId: '33' }], context: null, error: '' }
+  loadModule('permission.ts', {
+    './router': {
+      __esModule: true,
+      default: {
+        beforeEach: (fn) => {
+          guard = fn
+        },
+        afterEach() {}
+      }
+    },
+    '@/config/axios/service': { isRelogin: { show: false } },
+    '@/utils/auth': { getAccessToken: () => 'token' },
+    '@/hooks/web/useTitle': { useTitle() {} },
+    '@/hooks/web/useNProgress': { useNProgress: () => ({ start() {}, done() {} }) },
+    '@/hooks/web/usePageLoading': { usePageLoading: () => ({ loadStart() {}, loadDone() {} }) },
+    '@/store/modules/dict': {},
+    '@/store/modules/user': {},
+    '@/store/modules/permission': {
+      usePermissionStoreWithOut: () => ({ getRouters: [{}], generateRoutes: async () => {} })
+    },
+    '@/utils/routeParams': {},
+    '@/utils/platformIdentity': { portalMode: () => 'staff' },
+    '@/store/modules/platformIdentity': { usePlatformIdentityStoreWithOut: () => identity }
+  })
+  assert.equal((await guard({ path: '/fr/org/staff' }, {})).path, '/fr/identity')
+  assert.equal(await guard({ path: '/fr/identity' }, {}), true, '选岗页本身不能循环跳转')
+})
+
 test('岗位列表网络失败保留已知身份并暴露可重试错误，不伪装成无任职', async () => {
   const storage = new Map()
   const identity = loadSession(storage)
@@ -355,4 +438,45 @@ test('员工短信登录复用平台接口并在无任职时给出明确落点',
   assert.match(view, /暂无有效任职/)
   assert.match(view, /if \(!getAccessToken\(\)\) identity\.clear\(\)/)
   assert.match(view, /selectPost/)
+})
+
+test('刷新后所有岗位失效时显示无任职原因，未登录和管理员不会误显示', () => {
+  const filename = path.join(__dirname, '../src/views/fr/platform-login/index.vue')
+  const descriptor = parse(source('views/fr/platform-login/index.vue'), { filename }).descriptor
+  const script = compileScript(descriptor, { id: 'platform-login' }).content
+  const code = ts.transpileModule(script, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }).outputText
+  const setup = (token, mode, error = '') => {
+    const identity = { posts: [], error, clear() {} }
+    const module = { exports: {} }
+    vm.runInNewContext(code, {
+      module,
+      exports: module.exports,
+      defineOptions() {},
+      computed: vue.computed,
+      useRouter: () => ({}),
+      require(name) {
+        const imports = {
+          vue: { ...vue, onBeforeUnmount() {} },
+          'element-plus': {},
+          '@/api/platform/staff': {},
+          '@/utils/auth': { getAccessToken: () => token },
+          '@/store/modules/platformIdentity': { usePlatformIdentityStore: () => identity },
+          '@/store/modules/permission': { usePermissionStore: () => ({}) },
+          '@/store/modules/user': { useUserStore: () => ({}) },
+          '@/hooks/web/useCache': {},
+          '@/utils/platformIdentity': { portalMode: () => mode },
+          '@/utils/platformRoles': { roleLabel: (role) => role }
+        }
+        if (Object.hasOwn(imports, name)) return imports[name]
+        throw new Error(`Unexpected import: ${name}`)
+      }
+    })
+    return module.exports.default.setup({}, { expose() {} })
+  }
+  assert.match(setup('staff-token', 'staff').notice.value, /暂无有效任职.*联系组织管理员/)
+  assert.equal(setup('', 'staff').notice.value, '')
+  assert.equal(setup('admin-token', 'admin').notice.value, '')
+  assert.equal(setup('staff-token', 'staff', '加载失败').notice.value, '')
 })

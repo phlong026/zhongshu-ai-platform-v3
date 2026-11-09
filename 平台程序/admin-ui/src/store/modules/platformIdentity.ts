@@ -5,9 +5,7 @@ import { getAccessToken } from '@/utils/auth'
 import {
   beginPostSwitch,
   clearPlatformIdentity,
-  currentContext,
   currentPostId,
-  hasCurrentPostPermission,
   isCurrentGeneration,
   posts,
   saveCurrentContext,
@@ -21,7 +19,8 @@ import {
 export const usePlatformIdentityStore = defineStore('platform-identity', {
   state: () => ({
     posts: posts() as StaffPost[],
-    context: currentContext() as CurrentPostContext | null,
+    // 刷新后只保留候选岗位，权限必须经服务端重新确认。
+    context: null as CurrentPostContext | null,
     loading: false,
     error: ''
   }),
@@ -74,11 +73,16 @@ export const usePlatformIdentityStore = defineStore('platform-identity', {
         return null
       }
       const selected = rows.find((post) => String(post.postId) === currentPostId())
-      if (!selected && rows.length > 1) return null
+      if (!selected && rows.length > 1) {
+        beginPostSwitch('')
+        this.context = null
+        this.loading = false
+        return null
+      }
       return this.selectPost((selected || rows[0]).postId, false)
     },
     hasCurrentPostPermission(permission: string) {
-      return hasCurrentPostPermission(permission)
+      return this.context?.permissions.includes(permission) === true
     },
     clear(preservePortal = false) {
       clearPlatformIdentity()

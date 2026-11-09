@@ -41,6 +41,9 @@ router.beforeEach(async (to, from) => {
       if (!identity.posts.length && !identity.error) {
         return to.path === '/platform-login' ? true : { path: '/platform-login', replace: true }
       }
+      if (!identity.context && to.path !== '/fr/identity') {
+        return { path: '/fr/identity', replace: true }
+      }
       if (to.path === '/platform-login') return { path: '/fr/identity', replace: true }
       if (!to.path.startsWith('/fr')) return { path: '/fr/identity', replace: true }
       return true

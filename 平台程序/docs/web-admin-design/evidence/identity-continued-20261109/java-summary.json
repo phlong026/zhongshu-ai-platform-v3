@@ -1,0 +1,124 @@
+{
+  "command_exit_code": 0,
+  "database": "PostgreSQL 17.11 Testcontainers",
+  "suites": [
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.AccessTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.OrgScopeRuleIntegrationTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluatorTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.RequestCurrentPostTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.controller.admin.MyPostControllerTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffIdentityWorkflowIntegrationTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffOrgAdminControllerTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffPostTemplateControllerTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.authz.service.OrgOnboardIntegrationTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.org.DepartureHandoverDuplicatePortTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.org.DepartureHandoverServiceIntegrationTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.org.OrgAndPostIntegrationTest",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.org.OrgTablesTenantIgnoreTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.org.StaffPostAssignContractIntegrationTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.org.StaffPostUserDeletedRecycleIntegrationTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.iocoder.yudao.module.platform.org.StaffProfileServiceTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "totals": {
+    "tests": 103,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+}

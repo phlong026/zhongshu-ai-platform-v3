@@ -1,0 +1,44 @@
+{
+  "url": "http://127.0.0.1:5189/login?redirect=/fr/org/staff",
+  "text": "众墅之家\n让好方案，沉淀为公司的设计资产\n设计管理后台\n仅限授权管理员使用\n管理员账号\n登录密码\n记住账号\n忘记密码\n登录后台\n员工手机号登录与选择工作身份\n如需开通管理员权限，请联系系统负责人",
+  "inputs": [
+    {
+      "placeholder": "请输入管理员账号",
+      "type": "text"
+    },
+    {
+      "placeholder": "请输入登录密码",
+      "type": "password"
+    },
+    {
+      "placeholder": "",
+      "type": "checkbox"
+    },
+    {
+      "placeholder": "请输入租户名称",
+      "type": "text"
+    },
+    {
+      "placeholder": "请输入手机号码",
+      "type": "text"
+    },
+    {
+      "placeholder": "请输入验证码",
+      "type": "text"
+    },
+    {
+      "placeholder": "请输入密码",
+      "type": "password"
+    },
+    {
+      "placeholder": "确认密码",
+      "type": "password"
+    }
+  ],
+  "buttons": [
+    "登录后台",
+    "员工手机号登录与选择工作身份",
+    "重置密码",
+    "返回"
+  ]
+}
