@@ -4,8 +4,7 @@
 .page.workbench-page .workbench-header{position:sticky;top:0;z-index:60;background:var(--zs-bg)}
 .page.workbench-page .content{padding:20rpx var(--zs-space-page) 0}
 .page.workbench-page .section{background:var(--zs-card);border-radius:var(--zs-radius);padding:var(--zs-space-card);margin-bottom:var(--zs-space-section)}
-.page.workbench-page .section-heading{min-height:64rpx;padding-left:20rpx;margin:0 0 12rpx;display:flex;align-items:center;justify-content:space-between}
-.page.workbench-page .section-heading::before{width:6rpx;height:30rpx;top:17rpx;background:var(--zs-brand);border-radius:4rpx}
+.page.workbench-page .section-heading{min-height:64rpx;padding-left:0;margin:0 0 12rpx;display:flex;align-items:center;justify-content:space-between}
 .page.workbench-page .section-title{font-family:var(--zs-font-family);font-size:var(--zs-font-title);font-weight:600;line-height:46rpx;letter-spacing:0}
 .page.workbench-page .customer-name,.page.workbench-page .todo .grow>text:first-child,.page.workbench-page .finance-todo .grow>text:first-child,.page.workbench-page .guest-todo-heading,.page.workbench-page .guest-project-heading{font-size:var(--zs-font-body);font-weight:500;line-height:38rpx;letter-spacing:0}
 .page.workbench-page .customer-desc,.page.workbench-page .hint,.page.workbench-page .guest-footnote,.page.workbench-page .guest-period,.page.workbench-page .guest-status,.page.workbench-page .guest-stat-label,.page.workbench-page .stat-label{font-size:var(--zs-font-caption);font-weight:400;line-height:34rpx;color:var(--zs-text-3);letter-spacing:0}

@@ -9,8 +9,7 @@ button[disabled] { color: #aaa; }
 .page { min-height: 100vh; padding-bottom: calc(108rpx + env(safe-area-inset-bottom)); }
 .content { padding: 0 var(--zs-space-page); }
 .section { background: var(--zs-card); border-radius: var(--zs-radius); padding: var(--zs-space-card); margin-bottom: var(--zs-space-section); }
-.section-heading { min-height: 64rpx; display: flex; align-items: center; justify-content: space-between; padding-left: 25rpx; position: relative; }
-.section-heading::before { content: ""; width: 6rpx; height: 34rpx; border-radius: 4rpx; background: #76471e; position: absolute; left: 0; top: 10rpx; }
+.section-heading { min-height: 64rpx; display: flex; align-items: center; justify-content: space-between; padding-left: 0; position: relative; }
 .section-title { font-family:var(--zs-font-family); font-weight: 600; font-size:var(--zs-font-title); line-height: 46rpx; letter-spacing: 0; }
 .section-heading.compact .section-title { font-size:var(--zs-font-emphasis); }
 .plus { font-size:var(--zs-font-title); font-weight: 300; margin-right: 7rpx; vertical-align: -1rpx; }

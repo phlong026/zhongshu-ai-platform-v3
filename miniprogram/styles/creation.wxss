@@ -18,7 +18,6 @@ page {
 .creation-card { background: var(--zs-card); border-radius: 22rpx; }
 .creation-heading { min-height: 48rpx; display: flex; align-items: center; gap: 16rpx; }
 .creation-heading-title { font-size:var(--zs-font-title); font-weight: 600; line-height: 46rpx; }
-.creation-mark { width: 10rpx; height: 32rpx; flex-shrink: 0; }
 .creation-arrow { width: 14rpx; height: 24rpx; flex-shrink: 0; }
 .creation-brown, .studio-brown { color: var(--creation-brand); }
 .creation-muted, .studio-muted { color: var(--creation-muted); }

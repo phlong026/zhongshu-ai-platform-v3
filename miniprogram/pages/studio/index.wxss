@@ -1,7 +1,6 @@
 @import '../../styles/creation.wxss';
 .studio-card { padding: var(--zs-space-card); margin-bottom: var(--zs-space-section); }
 .studio-heading { display: flex; align-items: center; gap: 16rpx; min-height: 48rpx; font-size:var(--zs-font-title); line-height: 46rpx; font-weight: 600; margin-bottom: 16rpx; }
-.studio-mark { width: 10rpx; height: 32rpx; flex-shrink: 0; }
 .studio-bordered { border: 1rpx solid var(--creation-border); border-radius: 16rpx; }
 .studio-outline > image:not(.studio-chevron) { width: 32rpx; height: 32rpx; }
 .studio-chevron { width: 14rpx; height: 24rpx; flex-shrink: 0; }

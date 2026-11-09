@@ -94,20 +94,10 @@
 
 .section-title {
   margin: var(--zs-space-section) 0 18rpx;
-  padding-left: 18rpx;
+  padding-left: 0;
   position: relative;
   font-size: var(--zs-font-title);
   font-weight: 600;
-}
-.section-title::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10rpx;
-  width: 6rpx;
-  height: 30rpx;
-  border-radius: 4rpx;
-  background: #76471e;
 }
 
 /* 套餐双列网格 */
