@@ -1,0 +1,556 @@
+{
+  "sourceHead": "57859f7c315d8478f99379996c4d473de8260608",
+  "results": [
+    {
+      "caseId": "boss",
+      "role": "boss",
+      "orgType": "store",
+      "label": "老板",
+      "failures": [],
+      "unverified": [
+        "资料/消息/身份入口本批按范围缩减未执行"
+      ],
+      "notInScope": [
+        "login-landing",
+        "profile"
+      ],
+      "networkAfterLanding": {
+        "requests": [],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 0
+      },
+      "workbench": {
+        "path": "pages/admin/home/index",
+        "expected": "pages/admin/home/index",
+        "routeReady": true,
+        "error": "",
+        "status": "ready",
+        "view": "home",
+        "deskPresent": true,
+        "ledgerRows": null,
+        "platformTodosStatus": "idle",
+        "eng": null,
+        "screenshot": "boss-workbench.png",
+        "screenshotError": ""
+      },
+      "networkAfterWorkbench": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/performance/tasks/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/goals"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/operating/analytics"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/profile/mine"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 4
+      },
+      "networkAfterProfile": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/performance/tasks/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/goals"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/operating/analytics"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/profile/mine"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 4
+      },
+      "network": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/performance/tasks/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/goals"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/operating/analytics"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/profile/mine"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 4
+      },
+      "overall": "unverified"
+    },
+    {
+      "caseId": "sales",
+      "role": "sales",
+      "orgType": "store",
+      "label": "业务员",
+      "failures": [],
+      "unverified": [
+        "资料/消息/身份入口本批按范围缩减未执行"
+      ],
+      "notInScope": [
+        "login-landing",
+        "profile"
+      ],
+      "networkAfterLanding": {
+        "requests": [],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 0
+      },
+      "workbench": {
+        "path": "pages/business/index",
+        "expected": "pages/business/index",
+        "routeReady": true,
+        "error": "",
+        "status": "ready",
+        "view": "",
+        "deskPresent": false,
+        "ledgerRows": null,
+        "platformTodosStatus": "ready",
+        "isSalesHome": true,
+        "eng": null,
+        "screenshot": "sales-workbench.png",
+        "screenshotError": ""
+      },
+      "networkAfterWorkbench": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/customers"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/commissions"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/content/growth/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/content/drafts"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 5
+      },
+      "networkAfterProfile": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/customers"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/commissions"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/content/growth/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/content/drafts"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 5
+      },
+      "network": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/customers"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/commissions"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/content/growth/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/content/drafts"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 5
+      },
+      "overall": "unverified"
+    },
+    {
+      "caseId": "engineer",
+      "role": "engineer",
+      "orgType": "store",
+      "label": "工程人员",
+      "failures": [],
+      "unverified": [
+        "资料/消息/身份入口本批按范围缩减未执行"
+      ],
+      "notInScope": [
+        "login-landing",
+        "profile"
+      ],
+      "networkAfterLanding": {
+        "requests": [],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 0
+      },
+      "workbench": {
+        "path": "pages/build/home/index",
+        "expected": "pages/build/home/index",
+        "routeReady": true,
+        "error": "",
+        "status": "",
+        "view": "",
+        "deskPresent": false,
+        "ledgerRows": null,
+        "platformTodosStatus": "ready",
+        "eng": {
+          "stats": [
+            {
+              "key": "IN_PROGRESS",
+              "label": "在建",
+              "count": 0
+            },
+            {
+              "key": "PENDING_START",
+              "label": "待开工",
+              "count": 0
+            },
+            {
+              "key": "READY_DELIVER",
+              "label": "待交付",
+              "count": 0
+            },
+            {
+              "key": "ALL",
+              "label": "全部项目",
+              "count": 0
+            }
+          ],
+          "recent": null
+        },
+        "screenshot": "engineer-workbench.png",
+        "screenshotError": ""
+      },
+      "networkAfterWorkbench": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/engineering/projects"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 2
+      },
+      "networkAfterProfile": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/engineering/projects"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 2
+      },
+      "network": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/engineering/projects"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 2
+      },
+      "overall": "unverified"
+    },
+    {
+      "caseId": "finance",
+      "role": "finance",
+      "orgType": "store",
+      "label": "财务专员",
+      "failures": [],
+      "unverified": [
+        "资料/消息/身份入口本批按范围缩减未执行"
+      ],
+      "notInScope": [
+        "login-landing",
+        "profile"
+      ],
+      "networkAfterLanding": {
+        "requests": [],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 0
+      },
+      "workbench": {
+        "path": "pages/admin/finance-desk/index",
+        "expected": "pages/admin/finance-desk/index",
+        "routeReady": true,
+        "error": "",
+        "status": "ready",
+        "view": "flows",
+        "deskPresent": false,
+        "ledgerRows": 0,
+        "platformTodosStatus": "ready",
+        "eng": null,
+        "screenshot": "finance-workbench.png",
+        "screenshotError": ""
+      },
+      "networkAfterWorkbench": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/finance/receipts"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/payments"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/refunds"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/bank-flows"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/payables"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/receipts"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/reconciliation"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 8
+      },
+      "networkAfterProfile": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/finance/receipts"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/payments"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/refunds"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/bank-flows"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/payables"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/receipts"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/reconciliation"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 8
+      },
+      "network": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/finance/receipts"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/payments"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/refunds"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/bank-flows"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/payables"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/receipts"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/finance/reconciliation"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/todos"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 8
+      },
+      "overall": "unverified"
+    },
+    {
+      "caseId": "hq-design-admin",
+      "role": "hq-design-admin",
+      "orgType": "headquarters",
+      "label": "设计行政",
+      "failures": [],
+      "unverified": [
+        "资料/消息/身份入口本批按范围缩减未执行"
+      ],
+      "notInScope": [
+        "login-landing",
+        "profile"
+      ],
+      "networkAfterLanding": {
+        "requests": [],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 0
+      },
+      "workbench": {
+        "path": "pages/workflow/commission/index",
+        "expected": "pages/workflow/commission/index",
+        "routeReady": true,
+        "error": "",
+        "status": "ready",
+        "view": "admin",
+        "deskPresent": false,
+        "ledgerRows": null,
+        "platformTodosStatus": "",
+        "eng": null,
+        "screenshot": "hq-design-admin-workbench.png",
+        "screenshotError": ""
+      },
+      "networkAfterWorkbench": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/commissions"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 1
+      },
+      "networkAfterProfile": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/commissions"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 1
+      },
+      "network": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/commissions"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 1
+      },
+      "overall": "unverified"
+    }
+  ],
+  "storageRestore": {
+    "status": "passed"
+  },
+  "disconnect": {
+    "status": "passed"
+  }
+}

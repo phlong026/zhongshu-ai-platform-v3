@@ -1,0 +1,344 @@
+{
+  "date": "2026-11-09",
+  "sourceHead": "57859f7c315d8478f99379996c4d473de8260608",
+  "evidenceKind": "official-wechat-devtools-with-isolated-api-fixture",
+  "attemptedRoleCombinations": 12,
+  "nativeProfilesObserved": 6,
+  "representativeWorkbenchesObserved": 5,
+  "realAuthenticationVerified": false,
+  "physicalDevicePerformanceVerified": false,
+  "notes": [
+    "Do not use raw early failures as product defect counts.",
+    "POST /platform/wallet/session was blocked by fixture; wallet unverified.",
+    "Initial todos fixture was corrected before core5 final observations.",
+    "All recorded batches restored storage and disconnected successfully.",
+    "Six unrecorded profile combinations remain unverified."
+  ],
+  "cases": [
+    {
+      "caseId": "boss",
+      "role": "boss",
+      "orgType": "store",
+      "loginLanding": {
+        "classification": "unverified-sdk-or-transition-timing",
+        "observation": {
+          "expected": "pages/admin/home/index",
+          "actual": "pages/management/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "name-role-tab-observed-correct-company-missing",
+        "observation": {
+          "path": "pages/profile/index",
+          "name": "原生测试-boss",
+          "role": "老板",
+          "expectedName": "原生测试-boss",
+          "expectedRole": "老板",
+          "tabSelected": 4,
+          "screenshot": "/private/tmp/zhongshu-role-native.d1kFPr/evidence/boss-profile.png",
+          "screenshotError": ""
+        }
+      }
+    },
+    {
+      "caseId": "owner",
+      "role": "owner",
+      "orgType": "store",
+      "loginLanding": {
+        "classification": "unverified-sdk-or-transition-timing",
+        "observation": {
+          "expected": "pages/admin/home/index",
+          "actual": "pages/management/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "unverified-sdk-timeout",
+        "observation": null
+      }
+    },
+    {
+      "caseId": "sales",
+      "role": "sales",
+      "orgType": "store",
+      "loginLanding": {
+        "classification": "observed-correct",
+        "observation": {
+          "expected": "pages/business/index",
+          "actual": "pages/business/index",
+          "pass": true,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "name-role-tab-observed-correct-company-missing",
+        "observation": {
+          "path": "pages/profile/index",
+          "name": "原生测试-sales",
+          "role": "业务员",
+          "expectedName": "原生测试-sales",
+          "expectedRole": "业务员",
+          "tabSelected": 4,
+          "screenshot": "/private/tmp/zhongshu-role-native.d1kFPr/evidence/sales-profile.png",
+          "screenshotError": ""
+        }
+      }
+    },
+    {
+      "caseId": "sales-lead",
+      "role": "sales-lead",
+      "orgType": "store",
+      "loginLanding": {
+        "classification": "observed-correct",
+        "observation": {
+          "expected": "pages/business/index",
+          "actual": "pages/business/index",
+          "pass": true,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "name-role-tab-observed-correct-company-missing",
+        "observation": {
+          "path": "pages/profile/index",
+          "name": "原生测试-sales-lead",
+          "role": "业务负责人",
+          "expectedName": "原生测试-sales-lead",
+          "expectedRole": "业务负责人",
+          "tabSelected": 4,
+          "screenshot": "/private/tmp/zhongshu-role-native.d1kFPr/evidence/sales-lead-profile.png",
+          "screenshotError": ""
+        }
+      }
+    },
+    {
+      "caseId": "engineer",
+      "role": "engineer",
+      "orgType": "store",
+      "loginLanding": {
+        "classification": "product-route-gap-confirmed-by-source",
+        "observation": {
+          "expected": "pages/build/home/index",
+          "actual": "pages/engineering/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "name-role-tab-observed-correct-company-missing",
+        "observation": {
+          "path": "pages/profile/index",
+          "name": "原生测试-engineer",
+          "role": "工程人员",
+          "expectedName": "原生测试-engineer",
+          "expectedRole": "工程人员",
+          "tabSelected": 4,
+          "screenshot": "/private/tmp/zhongshu-role-native.d1kFPr/evidence/engineer-profile.png",
+          "screenshotError": ""
+        }
+      }
+    },
+    {
+      "caseId": "project-manager",
+      "role": "project-manager",
+      "orgType": "store",
+      "loginLanding": {
+        "classification": "product-route-gap-confirmed-by-source",
+        "observation": {
+          "expected": "pages/build/home/index",
+          "actual": "pages/engineering/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "unverified-sdk-timeout",
+        "observation": null
+      }
+    },
+    {
+      "caseId": "finance",
+      "role": "finance",
+      "orgType": "store",
+      "loginLanding": {
+        "classification": "unverified-sdk-or-transition-timing",
+        "observation": {
+          "expected": "pages/admin/finance-desk/index",
+          "actual": "pages/management/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "unverified-sdk-timeout",
+        "observation": null
+      }
+    },
+    {
+      "caseId": "finance-lead",
+      "role": "finance-lead",
+      "orgType": "store",
+      "loginLanding": {
+        "classification": "unverified-sdk-or-transition-timing",
+        "observation": {
+          "expected": "pages/admin/finance-desk/index",
+          "actual": "pages/management/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "name-role-tab-observed-correct-company-missing",
+        "observation": {
+          "path": "pages/profile/index",
+          "name": "原生测试-finance-lead",
+          "role": "财务负责人",
+          "expectedName": "原生测试-finance-lead",
+          "expectedRole": "财务负责人",
+          "tabSelected": 4,
+          "screenshot": "/private/tmp/zhongshu-role-native.d1kFPr/evidence/finance-lead-profile.png",
+          "screenshotError": ""
+        }
+      }
+    },
+    {
+      "caseId": "hq-design-admin",
+      "role": "hq-design-admin",
+      "orgType": "headquarters",
+      "loginLanding": {
+        "classification": "product-route-gap-confirmed-by-source",
+        "observation": {
+          "expected": "pages/workflow/commission/index",
+          "actual": "pages/business/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "name-role-tab-observed-correct-company-missing",
+        "observation": {
+          "path": "pages/profile/index",
+          "name": "原生测试-hq-design-admin",
+          "role": "设计行政",
+          "expectedName": "原生测试-hq-design-admin",
+          "expectedRole": "设计行政",
+          "tabSelected": 4,
+          "screenshot": "/private/tmp/zhongshu-role-native.d1kFPr/evidence/hq-design-admin-profile.png",
+          "screenshotError": ""
+        }
+      }
+    },
+    {
+      "caseId": "hq-finance",
+      "role": "finance",
+      "orgType": "headquarters",
+      "loginLanding": {
+        "classification": "unverified-sdk-or-transition-timing",
+        "observation": {
+          "expected": "pages/admin/finance-desk/index",
+          "actual": "pages/management/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "unverified-sdk-timeout",
+        "observation": null
+      }
+    },
+    {
+      "caseId": "hq-finance-lead",
+      "role": "finance-lead",
+      "orgType": "headquarters",
+      "loginLanding": {
+        "classification": "unverified-sdk-or-transition-timing",
+        "observation": {
+          "expected": "pages/admin/finance-desk/index",
+          "actual": "pages/management/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "unverified-sdk-timeout",
+        "observation": null
+      }
+    },
+    {
+      "caseId": "hq-boss",
+      "role": "boss",
+      "orgType": "headquarters",
+      "loginLanding": {
+        "classification": "unverified-sdk-or-transition-timing",
+        "observation": {
+          "expected": "pages/admin/home/index",
+          "actual": "pages/management/index",
+          "pass": false,
+          "trigger": {
+            "triggered": true,
+            "route": "pages/account/index"
+          }
+        }
+      },
+      "profile": {
+        "classification": "unverified-sdk-timeout",
+        "observation": null
+      }
+    }
+  ],
+  "nodeDiagnostics": {
+    "accountGuard": {
+      "roles": 9,
+      "views": [
+        "profile",
+        "messages",
+        "identity"
+      ],
+      "reproductions": 27,
+      "observed": "API token and valid post still redirect to login; auth.token export is undefined"
+    },
+    "engineeringModel": {
+      "inputInProgressProjects": 1,
+      "observedInProgressCount": 0,
+      "observedAllCount": 1,
+      "valueFilterFieldsMissing": true,
+      "recentUrlMissing": true
+    }
+  }
+}

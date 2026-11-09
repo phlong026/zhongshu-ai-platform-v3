@@ -1,0 +1,115 @@
+{
+  "sourceHead": "57859f7c315d8478f99379996c4d473de8260608",
+  "results": [
+    {
+      "caseId": "boss",
+      "role": "boss",
+      "orgType": "store",
+      "label": "老板",
+      "failures": [],
+      "unverified": [
+        "资料/消息/身份入口本批按范围缩减未执行"
+      ],
+      "notInScope": [
+        "login-landing",
+        "profile"
+      ],
+      "networkAfterLanding": {
+        "requests": [],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 0
+      },
+      "workbench": {
+        "path": "pages/admin/home/index",
+        "expected": "pages/admin/home/index",
+        "routeReady": true,
+        "error": "",
+        "status": "ready",
+        "view": "home",
+        "deskPresent": true,
+        "ledgerRows": null,
+        "platformTodosStatus": "idle",
+        "eng": null,
+        "screenshot": "boss-workbench.png",
+        "screenshotError": ""
+      },
+      "networkAfterWorkbench": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/performance/tasks/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/goals"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/operating/analytics"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/profile/mine"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 4
+      },
+      "networkAfterProfile": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/performance/tasks/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/goals"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/operating/analytics"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/profile/mine"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 4
+      },
+      "network": {
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/franchise/performance/tasks/summary"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/goals"
+          },
+          {
+            "method": "GET",
+            "path": "/franchise/performance/operating/analytics"
+          },
+          {
+            "method": "GET",
+            "path": "/platform/profile/mine"
+          }
+        ],
+        "writes": [],
+        "unknownReads": [],
+        "recognizedReadCount": 4
+      },
+      "overall": "unverified"
+    }
+  ],
+  "storageRestore": {
+    "status": "passed"
+  },
+  "disconnect": {
+    "status": "passed"
+  }
+}
