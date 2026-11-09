@@ -1,5 +1,5 @@
 <view class="records-page">
-  <brand-header title="充值明细" back="{{true}}"/>
+  <brand-header id="brand-header" title="充值明细" back="{{true}}"/>
 
   <view wx:if="{{loadState === 'loading'}}" class="records-loading">加载中…</view>
   <view wx:elif="{{loadState === 'unavailable'}}" class="records-empty">钱包功能尚未开通</view>

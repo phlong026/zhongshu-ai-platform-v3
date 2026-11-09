@@ -1,5 +1,5 @@
 <view class="wallet-page">
-  <brand-header title="设计点充值" back="{{true}}"/>
+  <brand-header id="brand-header" title="设计点充值" back="{{true}}"/>
 
   <view wx:if="{{loadState === 'loading'}}" class="wallet-loading">加载中…</view>
 

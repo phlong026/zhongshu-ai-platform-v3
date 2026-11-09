@@ -129,6 +129,33 @@ function bad(name, detail) { results.push('  ❌ ' + name + ' — ' + detail); }
   if (dProf.loggedIn) ok('我的页登录态（今日修复验证）', 'loggedIn=true, role=' + (dProf.role || ''));
   else bad('我的页登录态（今日修复验证）', '仍显示未登录');
 
+  // 11. P1-1 直达化验收（2026-11-10）：brand-header「工作台」按钮一次直达专属工作台，
+  // 不经中转 tab 等 onShow 二次导航（page-navigation.home() 直达化的模拟器验收）。
+  // automator 取自定义组件内部元素用 id + createSelectorQuery（基础库 3.17.4 标签选择器不可靠）；
+  // workbench() 与按钮 bindtap 同一处理函数，验证同一代码路径。
+  await mini.navigateTo('/pages/wallet/recharge/index');
+  await sleep(2500);
+  const wb = await mini.evaluate(() => {
+    const p = getCurrentPages().slice(-1)[0];
+    const c = p.selectComponent('#brand-header');
+    if (!c) return { comp: false };
+    return new Promise(resolve => {
+      c.createSelectorQuery().select('.return-home').boundingClientRect().exec(r => {
+        resolve({ comp: true, showNavigation: c.data.showNavigation, btnRendered: !!(r && r[0]) });
+      });
+    });
+  });
+  if (wb && wb.comp && wb.btnRendered) {
+    ok('工作台按钮渲染（P1-1 前置）', 'showNavigation=' + wb.showNavigation);
+    await mini.evaluate(() => { getCurrentPages().slice(-1)[0].selectComponent('#brand-header').workbench(); });
+    await sleep(3000);
+    const landed = await mini.currentPage();
+    if (landed.path === 'pages/admin/home/index') ok('工作台按钮直达（P1-1）', landed.path);
+    else bad('工作台按钮直达（P1-1）', '落点=' + landed.path + '（期望 admin/home 直达）');
+  } else {
+    bad('工作台按钮直达（P1-1）', '组件/按钮未取到：' + JSON.stringify(wb));
+  }
+
   // 10. 汇总
   console.log('\n== 阶段 A 结果 ==');
   results.forEach(r => console.log(r));

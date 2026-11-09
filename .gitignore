@@ -20,3 +20,5 @@ qa/
 miniprogram/project.config.json
 # Playwright MCP 浏览器工具自动输出（console log / 页面快照）
 .playwright-mcp/
+# verify-finance-desk-platform 运行时生成的幂等键沙盒夹具
+scripts/.m08t01-sandbox.js
