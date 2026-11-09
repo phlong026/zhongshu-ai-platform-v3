@@ -251,6 +251,8 @@ service.interceptors.response.use(
     }
   },
   (error: AxiosError) => {
+    // 旧请求在重放前被请求拦截器拒绝时没有 config，也应静默丢弃内部代次标识。
+    if (error.message === 'STALE_POST_RESPONSE') return Promise.reject(error)
     const generation = (
       error.config as (InternalAxiosRequestConfig & { platformGeneration?: number }) | undefined
     )?.platformGeneration

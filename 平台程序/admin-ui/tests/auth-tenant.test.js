@@ -40,10 +40,11 @@ function transport(
   refreshToken = 'test-refresh',
   pageHref = 'https://app.example/fr/identity'
 ) {
-  let request, response
+  let request, response, responseError
   let identityClears = 0
   let tokenRemovals = 0
   const redirects = []
+  const messages = []
   const posts = []
   const client = async (config) => config
   client.interceptors = {
@@ -53,8 +54,9 @@ function transport(
       }
     },
     response: {
-      use: (fn) => {
+      use: (fn, onError) => {
         response = fn
+        responseError = onError
       }
     }
   }
@@ -72,7 +74,7 @@ function transport(
     {
       axios,
       'element-plus': {
-        ElMessage: { error() {} },
+        ElMessage: { error: (message) => messages.push(message) },
         ElNotification: { error() {} },
         ElMessageBox: { confirm: () => Promise.resolve() }
       },
@@ -108,6 +110,8 @@ function transport(
   return {
     request,
     response,
+    responseError,
+    messages,
     posts,
     axios,
     redirects,
@@ -194,6 +198,23 @@ test('岗位请求固定原 X-Post-Id 和代次，切岗后的成功、失败与
   )
   assert.throws(() => app.request(request), /STALE_POST_RESPONSE/)
 })
+test('切岗后旧请求在重放前被拒绝时不向用户展示内部错误标识', async () => {
+  const platform = { postId: '11', generation: 3 }
+  const app = transport({ VITE_APP_TENANT_ENABLE: 'false', VITE_APP_TENANT_ID: '1' }, platform)
+  const request = app.request({ url: '/platform/org/staff', method: 'get', headers: {} })
+  platform.postId = '22'
+  platform.generation = 4
+  let stale
+  try {
+    app.request(request)
+  } catch (error) {
+    stale = error
+  }
+  assert.ok(stale)
+  await assert.rejects(() => app.responseError(stale), /STALE_POST_RESPONSE/)
+  assert.deepEqual(app.messages, [])
+})
+
 test('页面权限与后端超级管理员规则一致，普通账号无预算权限仍拒绝', () => {
   const user = { roles: [], permissions: new Set() }
   const permission = evaluate(
