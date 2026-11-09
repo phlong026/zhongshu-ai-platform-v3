@@ -12,9 +12,11 @@
 
 底座的 system/infra 页面仍在仓库中，但众墅业务完成度只按上述 `zs` 代码面统计。
 
+2026-11-09 新增员工身份配置工作区：`/platform-login` 员工短信登录、`/fr/identity` 有效岗位选择、`/fr/org/staff` 本组织部门/员工/任职与离职交接。员工门户仅使用当前 StaffPost 能力；全局组织开通仍由平台授权人员办理。接口、验证结果及尚未进行的生产/手机验收见 [身份配置实现记录](../docs/web-admin-design/身份配置Web实现与验收-20261109.md)。
+
 ## 工具版本
 
-- Node.js：`>= 20.19.0`
+- Node.js：建议使用已有 Node 24（本轮24.14.1）；当前 pnpm 11 至少需要22.13，部分现有测试依赖也需要较新运行时。
 - pnpm：`11.19.0`（由 `package.json#packageManager` 固定）
 
 项目级 `.npmrc` 固定使用 npm 官方 registry；`pnpm-workspace.yaml` 仅允许锁文件中 3 个明确登记的传递依赖执行安装脚本。

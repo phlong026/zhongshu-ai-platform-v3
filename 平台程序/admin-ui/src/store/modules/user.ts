@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { getAccessToken, removeToken } from '@/utils/auth'
 import { CACHE_KEY, useCache, deleteUserCache } from '@/hooks/web/useCache'
 import { getInfo, loginOut } from '@/api/login'
+import { usePlatformIdentityStoreWithOut } from '@/store/modules/platformIdentity'
 
 const { wsCache } = useCache()
 
@@ -85,6 +86,7 @@ export const useUserStore = defineStore('admin-user', {
     },
     async loginOut() {
       await loginOut()
+      usePlatformIdentityStoreWithOut().clear()
       removeToken()
       deleteUserCache() // 删除用户缓存
       this.resetState()

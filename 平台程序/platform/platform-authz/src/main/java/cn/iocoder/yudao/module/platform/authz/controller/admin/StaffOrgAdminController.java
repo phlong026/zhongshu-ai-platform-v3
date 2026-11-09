@@ -72,6 +72,9 @@ public class StaffOrgAdminController {
     public record Team(long deptId, long orgId, String name, String line) {
     }
 
+    public record PostTemplate(String roleCode, String line, boolean lead) {
+    }
+
     public record StaffRow(long postId, long userId, String name, String mobile, boolean active,
                            String roleCode, Long teamId, String teamName, String createTime) {
     }
@@ -115,6 +118,17 @@ public class StaffOrgAdminController {
         return success(orgService.listTeams(orgId).stream()
                 .map(unit -> new Team(unit.getDeptId(), unit.getOrgId(),
                         systemDirectory.deptName(unit.getDeptId()), unit.getLine()))
+                .toList());
+    }
+
+    @GetMapping("/post-templates")
+    @Operation(summary = "当前组织类型可指派的岗位模板")
+    @PreAuthorize("@post.has('platform:org:query')")
+    public CommonResult<List<PostTemplate>> postTemplates(@RequestParam("orgId") long orgId) {
+        requireScope(orgId);
+        return success(orgService.listPostTemplates(orgId).stream()
+                .map(template -> new PostTemplate(template.getRoleCode(), template.getLine(),
+                        Boolean.TRUE.equals(template.getLead())))
                 .toList());
     }
 

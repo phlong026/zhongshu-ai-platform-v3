@@ -3,12 +3,15 @@ package cn.iocoder.yudao.module.platform.org;
 import cn.iocoder.yudao.module.platform.org.dal.OrgTypeMapper;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper;
+import cn.iocoder.yudao.module.platform.org.dal.PostTemplateDO;
+import cn.iocoder.yudao.module.platform.org.dal.PostTemplateMapper;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -21,6 +24,8 @@ public class OrgServiceImpl implements OrgService {
     private OrgTypeMapper orgTypeMapper;
     @Resource
     private OrgUnitMapper orgUnitMapper;
+    @Resource
+    private PostTemplateMapper postTemplateMapper;
     @Resource
     private SystemDirectory systemDirectory;
     /** 钱包会话撤权回调（franchise-org 实现；组装裁剪时静默跳过） */
@@ -79,6 +84,15 @@ public class OrgServiceImpl implements OrgService {
     @Override
     public List<OrgUnitDO> listTeams(long orgId) {
         return orgUnitMapper.selectActiveTeamsByOrg(orgId);
+    }
+
+    @Override
+    public List<PostTemplateDO> listPostTemplates(long orgId) {
+        String orgType = requireOrg(orgId).getOrgType();
+        return postTemplateMapper.selectList().stream()
+                .filter(template -> template.allows(orgType))
+                .sorted(Comparator.comparing(PostTemplateDO::getRoleCode))
+                .toList();
     }
 
     @Override

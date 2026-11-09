@@ -38,6 +38,7 @@ const supportPaths = new Set([
   '/system/role',
   '/system/log/operate-log',
   '/system/log/login-log',
+  '/platform-org/onboard',
   '/infra/config',
   '/infra/file/file',
   '/infra/file/file-config',
@@ -99,6 +100,21 @@ export function buildProjectMenus(
     ]
   })
   return [...base.filter((route) => route.path === '/'), ...project, ...supportMenus(authorized)]
+}
+
+export function buildStaffMenus(
+  routes: AppRouteRecordRaw[],
+  can: (permission: string) => boolean
+): AppRouteRecordRaw[] {
+  return routes
+    .filter((route) => route.path === '/fr')
+    .map((route) => ({
+      ...route,
+      meta: { ...route.meta, title: '组织管理', icon: 'ep:user-filled', alwaysShow: true },
+      children: (route.children || []).filter(
+        (child) => !child.meta?.hidden && (child.path === 'identity' || can('platform:org:query'))
+      )
+    }))
 }
 
 export function searchProjectMenus(routes: AppRouteRecordRaw[], keyword: string) {

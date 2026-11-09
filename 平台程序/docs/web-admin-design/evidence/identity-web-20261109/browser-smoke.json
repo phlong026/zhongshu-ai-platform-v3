@@ -1,0 +1,198 @@
+{
+  "kind": "Chrome browser + local in-memory HTTP fixture",
+  "realSmsOrProductionWrites": false,
+  "url": "http://127.0.0.1:5188",
+  "observations": [
+    {
+      "step": "SMS form and post selection",
+      "result": "passed",
+      "detail": "Fake login result lists two organizations; no real SMS sent"
+    },
+    {
+      "step": "Current organization roster",
+      "result": "passed",
+      "detail": "Organization A initially has one team and one active post"
+    },
+    {
+      "step": "Create department via dialog",
+      "result": "passed",
+      "detail": "New engineering team appears; team count changes from 1 to 2"
+    },
+    {
+      "step": "Create staff and assign role",
+      "result": "passed",
+      "detail": "Role defaults to empty; after explicitly selecting engineer and engineering team, roster changes from 1 to 2"
+    },
+    {
+      "step": "Switch organization",
+      "result": "passed",
+      "detail": "Organization B has one team and one active post; A employee and new engineering team disappear"
+    },
+    {
+      "step": "Long post IDs in HTTP header",
+      "result": "passed",
+      "detail": "Distinct 9007199254740993 and 9007199254740995 preserved exactly"
+    }
+  ],
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/platform/auth/sms/login",
+      "postId": ""
+    },
+    {
+      "method": "GET",
+      "path": "/platform/posts/mine",
+      "postId": ""
+    },
+    {
+      "method": "GET",
+      "path": "/platform/posts/current-context",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/teams",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/post-templates",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/staff",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/handover-pending",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/teams",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/post-templates",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/staff",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/handover-pending",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "POST",
+      "path": "/platform/org/teams",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/teams",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/post-templates",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/staff",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/handover-pending",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/teams",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/post-templates",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/staff",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/handover-pending",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "POST",
+      "path": "/platform/org/staff",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/teams",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/post-templates",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/staff",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/handover-pending",
+      "postId": "9007199254740993"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/posts/current-context",
+      "postId": "9007199254740995"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/teams",
+      "postId": "9007199254740995"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/post-templates",
+      "postId": "9007199254740995"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/staff",
+      "postId": "9007199254740995"
+    },
+    {
+      "method": "GET",
+      "path": "/platform/org/handover-pending",
+      "postId": "9007199254740995"
+    },
+    {
+      "method": "GET",
+      "path": "/fixture-observations",
+      "postId": ""
+    }
+  ],
+  "screenshots": [
+    "staff-after-create.png",
+    "after-organization-switch.png"
+  ]
+}

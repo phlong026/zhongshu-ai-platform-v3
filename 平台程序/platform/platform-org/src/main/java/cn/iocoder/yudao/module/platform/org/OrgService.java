@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.platform.org;
 
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
+import cn.iocoder.yudao.module.platform.org.dal.PostTemplateDO;
 
 import java.util.List;
 
@@ -27,5 +28,8 @@ public interface OrgService {
 
     /** 组织内全部启用团队（成员管理展示部门用） */
     List<OrgUnitDO> listTeams(long orgId);
+
+    /** 当前组织类型可以指派的真实岗位模板；授权范围由调用方校验 */
+    List<PostTemplateDO> listPostTemplates(long orgId);
 
 }

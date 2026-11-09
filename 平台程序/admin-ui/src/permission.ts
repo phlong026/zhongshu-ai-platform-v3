@@ -9,6 +9,8 @@ import { useDictStoreWithOut } from '@/store/modules/dict'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { parseRouteLocation } from '@/utils/routeParams'
+import { portalMode } from '@/utils/platformIdentity'
+import { usePlatformIdentityStoreWithOut } from '@/store/modules/platformIdentity'
 
 const { start, done } = useNProgress()
 
@@ -21,7 +23,8 @@ const whiteList = [
   '/auth-redirect',
   '/bind',
   '/register',
-  '/oauthLogin/gitee'
+  '/oauthLogin/gitee',
+  '/platform-login'
 ]
 
 // 路由加载前（vue-router 4 推荐 return 风格守卫：返回目标即跳转，true/undefined 放行）
@@ -29,6 +32,19 @@ router.beforeEach(async (to, from) => {
   start()
   loadStart()
   if (getAccessToken()) {
+    if (portalMode(getAccessToken()) === 'staff') {
+      const permissionStore = usePermissionStoreWithOut()
+      const identity = usePlatformIdentityStoreWithOut()
+      if (!permissionStore.getRouters.length || !identity.context) {
+        await permissionStore.generateRoutes()
+      }
+      if (!identity.posts.length && !identity.error) {
+        return to.path === '/platform-login' ? true : { path: '/platform-login', replace: true }
+      }
+      if (to.path === '/platform-login') return { path: '/fr/identity', replace: true }
+      if (!to.path.startsWith('/fr')) return { path: '/fr/identity', replace: true }
+      return true
+    }
     if (to.path === '/login') {
       return { path: '/' }
     }

@@ -3,10 +3,14 @@ import { store } from '@/store'
 import { cloneDeep } from 'lodash-es'
 import remainingRouter from '@/router/modules/remaining'
 import zsRouter from '@/router/modules/zs'
-import { buildProjectMenus } from '@/utils/projectNavigation'
+import frRouter from '@/router/modules/fr'
+import { buildProjectMenus, buildStaffMenus } from '@/utils/projectNavigation'
 import { checkPermi } from '@/utils/permission'
 import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
+import { usePlatformIdentityStoreWithOut } from '@/store/modules/platformIdentity'
+import { portalMode } from '@/utils/platformIdentity'
+import { getAccessToken } from '@/utils/auth'
 
 const { wsCache } = useCache()
 
@@ -41,6 +45,23 @@ export const usePermissionStore = defineStore('permission', {
   actions: {
     async generateRoutes(): Promise<unknown> {
       return new Promise<void>(async (resolve) => {
+        const platformIdentity = usePlatformIdentityStoreWithOut()
+        if (portalMode(getAccessToken()) === 'staff') {
+          try {
+            if (!platformIdentity.context) await platformIdentity.restoreContext()
+          } catch {
+            platformIdentity.error = '工作身份加载失败，请检查网络后重试。'
+          }
+          this.addRouters = []
+          this.routers = [
+            ...remainingRouter.filter((route) => route.path === '/'),
+            ...buildStaffMenus(cloneDeep(frRouter) as AppRouteRecordRaw[], (permission) =>
+              platformIdentity.hasCurrentPostPermission(permission)
+            )
+          ]
+          resolve()
+          return
+        }
         // 获得菜单列表，它在登录的时候，setUserInfoAction 方法中已经进行获取
         let res: AppCustomRouteRecordRaw[] = []
         const roleRouters = wsCache.get(CACHE_KEY.ROLE_ROUTERS)
