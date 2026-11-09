@@ -278,16 +278,17 @@ const POST_INVALID_CODE = 1103000002; // PlatformAuthzErrorCodes.POST_NOT_USABLE
   await wait(10);
   ok(!storage.has(TOKEN_KEY) && !storage.has(POST_KEY), 'M1 纯 API 账号：通用退出清 API 令牌与岗位');
   ok(reLaunchCalls === 1, 'M1 退出后回个人页');
-  // M2: 演示+API 共存 → 两条链都清，本地业务记录保留
+  // M2: 当前 API 多岗位会话退出 → 令牌/岗位全清，本地业务记录保留
   reset(); reLaunchCalls = 0;
-  storage.set(TOKEN_KEY, 't-both');
+  http.saveSession({ token: 't-api-multi', postId: '41' });
+  auth.savePosts([{ postId: 41, roleCode: 'sales' }, { postId: 42, roleCode: 'sales-lead' }]);
   const A2 = require('../miniprogram/utils/account');
-  A2.mutate(st => A2.loginDemo(st, 'sales-dual'));
+  A2.mutate(st => { st.customers = [{ id: 'retained-local-record', name: '保留的本地记录' }]; });
   const customersBefore = JSON.stringify(A2.load().customers || []);
   SA.logout();
   await wait(10);
-  ok(!storage.has(TOKEN_KEY), 'M2 共存账号：API 令牌被清');
-  ok(!A2.load().session.loggedIn, 'M2 共存账号：演示会话被退出');
+  ok(!storage.has(TOKEN_KEY) && !storage.has(POST_KEY) && auth.apiPosts().length === 0, 'M2 多岗位 API 账号：令牌与岗位上下文被清');
+  ok(!A2.load().session.loggedIn, 'M2 API 退出不创建本地登录态');
   ok(JSON.stringify(A2.load().customers || []) === customersBefore, 'M2 本地业务记录（客户列表）保留');
   // M3: 本地未登录且无 API token → 退出仍安全（不再直接 return）
   reset(); reLaunchCalls = 0;

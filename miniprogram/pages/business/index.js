@@ -18,7 +18,7 @@ this.setData({keyword});this.filterCustomers();
 }
 });
 const dashboardShow=definition.onShow;
-definition.onShow=function(){if(require('../../utils/access').context().role==='hq-design-admin'){wx.redirectTo({url:'/pages/workflow/commission/index?view=admin'});return;}dashboardShow.call(this);const a=require('../../utils/access').context(),auth=require('../../api/auth'),post=(()=>{try{return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();this.setData({active:a.active||!!post});this.loadPlatformHome();};
+definition.onShow=function(){const a=require('../../utils/access').context(),auth=require('../../api/auth'),post=(()=>{try{return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();if(post?post.roleCode==='hq-design-admin':a.role==='hq-design-admin'){wx.reLaunch({url:'/pages/workflow/commission/index?view=admin'});return;}dashboardShow.call(this);this.setData({active:a.active||!!post});this.loadPlatformHome();};
 // API 态工作台：客资/本月委托/获客漏斗并行拉取；平台待办走 PTPage。失败显示错误态，绝不回落本地演示数据。
 definition.loadPlatformHome=function(){
 const auth=require('../../api/auth');

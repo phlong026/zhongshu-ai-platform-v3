@@ -24,6 +24,7 @@ function managementEntries(a) {
   if (!a.active) return [];
   const X = require('../../utils/access');
   if (X.isBoss(a)) {
+    if (a.api) return [{ text: '成员与权限', url: account('api-members') }];
     // Same urls the owner pages build; the admin pages live in a subpackage, so they are spelled out here.
     const admin = view => '/pages/admin/index?view=' + view, detail = view => '/pages/admin/detail/index?view=' + view;
     return [
@@ -36,9 +37,14 @@ function managementEntries(a) {
 
 function entries(a) {
   if (!a.active) return [];
+  if (a.api) {
+    if (require('../../utils/access').isBoss(a)) return [{ text: '团队绩效', url: '/pages/admin/tasks/index?view=team' }];
+    if (a.role === 'sales-lead') return [{ text: '客户与责任转交', url: '/pages/customers/index' }];
+    if (a.role === 'project-manager') return [{ text: '工程项目', url: '/pages/build/projects/index' }];
+  }
   if (require('../../utils/access').isBoss(a)) return [{ text: '我的团队', url: '/pages/admin/detail/index?view=team' }];
   if (a.role === 'hq-design-admin' && a.orgType === 'headquarters') return [{ text: '设计费计价设置', url: '/pages/workflow/commission/index?view=pricing' }];
-  const team = TEAM[a.role];
+  const team = a.api ? null : TEAM[a.role];
   if (['finance','finance-lead'].includes(a.role)) return (team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }] : []).concat([{ text: '项目回款提成', url: '/pages/admin/commission/index' }, { text: '公司费用与推广登记', url: '/pages/admin/operations/index?view=expenses&id=' + encodeURIComponent('company:' + a.companyId) + '&purpose=' + encodeURIComponent('推广获客') }]);
   // the business lead also hands customers over between salespeople (single or batch) from here
   return team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }].concat(a.role === 'sales-lead' ? [{ text: '责任转交', url: '/pages/workflow/index?view=transfer' }] : []) : [];
@@ -54,17 +60,18 @@ module.exports = function (tabIndex) {
       // 本地 session.loggedIn 恒 false，「我的」页永远显示登录按钮。API 岗位/昵称为真源展示。
       const apiPost = (() => { try { const http = require('../../api/http'); return http.token() ? require('../../api/auth').currentApiPost() : null; } catch (e) { return null; } })();
       const apiLoggedIn = !!apiPost;
+      const actor = apiLoggedIn ? { ...O.apiContext(apiPost), companyId: apiPost.orgId } : a;
       const engineeringProfile = !!(apiLoggedIn && ['engineer', 'project-manager'].includes(apiPost.roleCode)) || !!(a.active && O.has(a.role, 'engineer') && !apiLoggedIn);
       const ownerProfile = !!(apiLoggedIn && ['boss', 'owner'].includes(apiPost.roleCode)) || !!(a.active && require('../../utils/access').isBoss(a) && !apiLoggedIn);
       this.setData({
         engineeringProfile, courseId: engineeringProfile ? 'engineering' : 'ai-video', courseTitle: engineeringProfile ? '乡墅开工与现场交底' : 'AI短视频获客实战',
         courseImage: engineeringProfile ? '/pages/account/assets/course-engineering.jpg' : A.courseImage,
         loggedIn: s.session.loggedIn || apiLoggedIn, showStoreServices: !apiLoggedIn && (!s.session.loggedIn || a.orgType === 'store'),
-        entries: entries(a),
-        ownerProfile, managementEntries: managementEntries(a),
+        entries: entries(actor),
+        ownerProfile, managementEntries: managementEntries(actor),
         name: apiLoggedIn ? (apiPost.name || s.profile.name) : s.profile.name, avatar: s.profile.avatar,
         role: apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : A.roles[s.session.role],
-        company: c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司',
+        company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
         unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total: (A.courseChapters[engineeringProfile ? 'engineering' : 'ai-video'] || A.chapters).length, percent: 0 }
       });
       // API 未读数（基-2）：有会话才拉，回来合计刷新（11 文档 §十）
