@@ -7,7 +7,8 @@ function apiSession(){try{const auth=require('../api/auth'),http=require('../api
 function scope(){const api=apiSession();if(api){const p=api.post;return ['api',p.tenantId||'',p.orgId||'',p.postId||'',api.gen].join(':');}const a=require('./access').context();return [a.companyId,a.staffId,a.role,a.active].join(':');}
 function url(page){const opts={...(page.options||{})};if(page.data?.view)opts.view=page.data.view;if(page.id)opts.id=page.id;return '/'+page.route+Object.keys(opts).filter(k=>opts[k]!==undefined&&opts[k]!=='').map((k,i)=>(i?'&':'?')+encodeURIComponent(k)+'='+encodeURIComponent(opts[k])).join('');}
 function homeUrl(){return '/pages/'+(require('./access').home()||'home')+'/index';}
-function home(){current()?.persistEditor?.();const api=apiSession();if(api){const O=require('./organization');return wx.switchTab({url:'/pages/'+(O.home(O.apiContext(api.post))||'home')+'/index'});}return wx.switchTab({url:homeUrl()});}
+function home(){current()?.persistEditor?.();const api=apiSession();if(api){const O=require('./organization');const dest=O.navigation(O.apiContext(api.post)).tabs[0];const options={url:dest.url,fail:()=>wx.showToast({title:'工作台打开失败，请重试',icon:'none'})};// 专属工作台一次换根直达，避免 switchTab 落在中转 tab 等 onShow 二次导航互相等待（与登录/切岗 openApiHome 同型，2026-11-10）。
+return dest.native?wx.switchTab(options):wx.reLaunch(options);}return wx.switchTab({url:homeUrl()});}
 function target(route,view,id,extra={}){return route+'?view='+view+(id?'&id='+encodeURIComponent(id):'')+Object.keys(extra).filter(k=>extra[k]).map(k=>'&'+k+'='+encodeURIComponent(extra[k])).join('');}
 function parent(page=current()){
  const route=page?.route||'',d=page?.data||{},o=page?.options||{},v=d.view||o.view,id=page?.id||o.id||d.id||'';

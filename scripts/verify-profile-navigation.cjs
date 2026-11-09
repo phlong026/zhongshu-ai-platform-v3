@@ -170,3 +170,31 @@ for (const route of ['/pages/admin/profile/index', '/pages/account/sales/index']
     assert.equal(transitions.length, 0);
   });
 }
+
+// ---- P1-1（2026-11-10）：home() 对 API 岗位直达专属工作台——不再 switchTab 落在中转 tab
+// 等 onShow 二次导航（与登录/切岗 openApiHome 同型；真机 switchTab:fail timeout 同源隐患）。
+for (const [role, expected] of [
+  ['boss', { kind: 'reLaunch', url: '/pages/admin/home/index' }],
+  ['owner', { kind: 'reLaunch', url: '/pages/admin/home/index' }],
+  ['finance', { kind: 'reLaunch', url: '/pages/admin/finance-desk/index' }],
+  ['engineer', { kind: 'reLaunch', url: '/pages/build/home/index' }],
+  ['hq-design-admin', { kind: 'reLaunch', url: '/pages/workflow/commission/index?view=admin' }],
+  ['sales', { kind: 'switchTab', url: '/pages/business/index' }],
+]) {
+  test(role + ': home() 直达岗位首页，不经中转 tab 二次导航', () => {
+    reset(role);
+    pages = [{ route: 'pages/workflow/index' }];
+    navigation = [];
+    require('../miniprogram/utils/page-navigation').home();
+    assert.deepEqual(navigation, [expected]);
+  });
+}
+
+test('无 API 会话：home() 保持 switchTab 本地首页', () => {
+  reset(null);
+  pages = [{ route: 'pages/workflow/index' }];
+  navigation = [];
+  require('../miniprogram/utils/page-navigation').home();
+  assert.equal(navigation.length, 1);
+  assert.equal(navigation[0].kind, 'switchTab');
+});
