@@ -1,11 +1,11 @@
-const X = require('../../../utils/access'), J = require('../../../utils/organization');
-const base = require('../../profile/profile-page')(4);
 Page({
-  ...base,
-  onShow() {
-    const a = X.context();
-    if (!a.active || !J.has(a.role, 'sales')) return wx.switchTab({ url: '/pages/profile/index' });
-    return base.onShow.call(this);
-  },
-  open(e) { const a = X.context(); if (!a.active || !J.has(a.role, 'sales')) return; return base.open.call(this, e); }
+  onLoad() {
+    wx.switchTab({
+      url: '/pages/profile/index',
+      fail(error) {
+        console.error('老版业务我的入口跳转失败', error);
+        wx.showToast({ title: '切换失败，请重试', icon: 'none' });
+      }
+    });
+  }
 });
