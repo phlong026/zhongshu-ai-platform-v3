@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.annotation.security.PermitAll;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,6 +36,7 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @RestController
 @RequestMapping("/design/v1/profile")
 @PermitAll
+@Slf4j
 public class AppProfileController {
 
     @Resource
@@ -81,12 +83,17 @@ public class AppProfileController {
         return success(vo);
     }
 
-    /** 本人最近一次兑换登记的绑定信息（公司/联系人/电话）；未兑换过为 null，前端按"未登记"展示 */
+    /** 本人最近一次登记的绑定信息（公司/联系人/电话）：授权码兑换或已通过的开通申请，取最新一条 */
     private void applyBinding(AppProfileRespVO vo, long accountId) {
         var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT company_name, contact_name, contact_phone FROM access_code_redemption "
-                        + "WHERE account_id = ? AND deleted = FALSE ORDER BY id DESC LIMIT 1", accountId);
+                "SELECT company_name, contact_name, contact_phone FROM ("
+                        + "SELECT company_name, contact_name, contact_phone, create_time, id FROM access_code_redemption "
+                        + "WHERE account_id = ? AND deleted = FALSE "
+                        + "UNION ALL "
+                        + "SELECT company_name, contact_name, contact_phone, create_time, id FROM design_activation_request "
+                        + "WHERE account_id = ? AND deleted = FALSE AND status = 'APPROVED'"
+                        + ") x ORDER BY x.create_time DESC, x.id DESC LIMIT 1", accountId, accountId);
         if (rows.isEmpty()) return;
         Map<String, Object> row = rows.get(0);
         vo.setCompanyName((String) row.get("company_name"));
@@ -118,8 +125,8 @@ public class AppProfileController {
     }
 
     @PutMapping("/binding")
-    @Operation(summary = "本人补录绑定信息（公司/联系人/电话）：存量已激活客户未登记时的自助补填，"
-            + "复用兑换绑定口径与审计留痕，写本人最近一次兑换记录")
+    @Operation(summary = "本人补录绑定信息（公司/联系人/电话）：授权码兑换客户写兑换记录（含审计留痕）；"
+            + "申请开通客户写最近一条已通过的开通申请")
     public CommonResult<Boolean> updateBinding(
             @Valid @RequestBody cn.iocoder.yudao.module.identity.controller.app.vo.AppProfileBindingUpdateReqVO body,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
@@ -130,14 +137,25 @@ public class AppProfileController {
         List<Long> codeIds = jdbc.queryForList(
                 "SELECT code_id FROM access_code_redemption WHERE account_id = ? AND deleted = FALSE "
                         + "ORDER BY id DESC LIMIT 1", Long.class, context.accountId());
-        if (codeIds.isEmpty() || codeIds.get(0) == null) {
-            // 激活走兑换，正常必有兑换记录；无记录说明数据异常，引导线下处理而不是静默造数
-            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "未找到激活码兑换记录，请联系管理员登记");
+        if (!codeIds.isEmpty() && codeIds.get(0) != null) {
+            return success(accessCodeService.updateBinding(codeIds.get(0),
+                    new cn.iocoder.yudao.module.identity.accesscode.AccessCodeService.BindingUpdate(
+                            body.getCompanyName(), body.getContactName(), body.getContactPhone()),
+                    "account:" + context.accountId()));
         }
-        return success(accessCodeService.updateBinding(codeIds.get(0),
-                new cn.iocoder.yudao.module.identity.accesscode.AccessCodeService.BindingUpdate(
-                        body.getCompanyName(), body.getContactName(), body.getContactPhone()),
-                "account:" + context.accountId()));
+        // 无兑换记录 = 申请开通客户：写最近一条已通过申请的绑定字段（PENDING 不可补录，避免未审批先有绑定）
+        int changed = jdbc.update(
+                "UPDATE design_activation_request SET company_name = ?, contact_name = ?, contact_phone = ?, "
+                        + "update_time = now() WHERE id = (SELECT id FROM design_activation_request "
+                        + "WHERE account_id = ? AND deleted = FALSE AND status = 'APPROVED' "
+                        + "ORDER BY create_time DESC, id DESC LIMIT 1)",
+                body.getCompanyName(), body.getContactName(), body.getContactPhone(), context.accountId());
+        if (changed == 0) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,
+                    "未找到激活或开通记录，请联系管理员登记");
+        }
+        log.info("[updateBinding][account={} 申请开通绑定信息已更新]", context.accountId());
+        return success(true);
     }
 
     @PatchMapping("/preferences")

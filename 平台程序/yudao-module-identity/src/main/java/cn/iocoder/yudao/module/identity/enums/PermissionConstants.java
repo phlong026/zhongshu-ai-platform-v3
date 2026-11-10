@@ -22,4 +22,7 @@ public interface PermissionConstants {
     /** Review data subject requests and approve closure after retention/financial checks. */
     String PRIVACY_MANAGE = "identity:privacy:manage";
 
+    /** 开通申请审批：查看、通过（开使用权）、驳回；充值设计点走 commerce 人工调点 */
+    String ACTIVATION_REQUEST_MANAGE = "identity:activation-request:manage";
+
 }

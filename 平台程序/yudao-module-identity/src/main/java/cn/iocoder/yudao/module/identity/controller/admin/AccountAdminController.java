@@ -62,7 +62,7 @@ public class AccountAdminController {
         Long total = jdbc.queryForObject(
                 "SELECT count(*) FROM account a" + where, Long.class, args.toArray());
         // 最新一条流水的 available_after 即当前可用余额（账本只追加，末行即快照）
-        // 激活码列：取该账号最近一次兑换的授权码掩码与账户绑定信息（一码一账号；多次兑换取最新，形成用户↔码对应关系）
+        // 绑定信息列：兑换记录与开通申请两个来源取时间最新一条（申请开通无激活码，code_mask 为空）
         String listSql =
                 "SELECT a.id, a.nickname, a.status, a.create_time, g.id AS grant_id, g.status AS grant_status, "
                         + "(SELECT count(*) FROM design_project p WHERE p.user_id = a.id AND p.deleted = FALSE) AS project_count, "
@@ -74,11 +74,16 @@ public class AccountAdminController {
                         + "FROM account a "
                         + "LEFT JOIN design_access_grant g ON g.account_id = a.id AND g.status = 'ACTIVE' "
                         + "  AND g.deleted = FALSE "
-                        + "LEFT JOIN LATERAL (SELECT c.code_mask, r.company_name, r.contact_name, r.contact_phone "
+                        + "LEFT JOIN LATERAL (SELECT x.code_mask, x.company_name, x.contact_name, x.contact_phone FROM ( "
+                        + "  SELECT c.code_mask, r.company_name, r.contact_name, r.contact_phone, r.create_time AS occurred_at "
                         + "  FROM access_code_redemption r "
                         + "  JOIN design_access_code c ON c.id = r.code_id AND c.deleted = FALSE "
                         + "  WHERE r.account_id = a.id AND r.deleted = FALSE "
-                        + "  ORDER BY r.id DESC LIMIT 1) ac ON TRUE"
+                        + "  UNION ALL "
+                        + "  SELECT NULL, q.company_name, q.contact_name, q.contact_phone, q.create_time "
+                        + "  FROM design_activation_request q "
+                        + "  WHERE q.account_id = a.id AND q.deleted = FALSE "
+                        + ") x ORDER BY x.occurred_at DESC LIMIT 1) ac ON TRUE"
                         + where
                         + " ORDER BY a.id DESC LIMIT ? OFFSET ?";
         args.add(Math.min(pageSize, 100));
@@ -124,6 +129,13 @@ public class AccountAdminController {
                         + "WHERE r.account_id = ? AND r.deleted = FALSE ORDER BY r.id DESC LIMIT 1", id);
         accessCode.forEach(this::stringifyIds);
         detail.put("accessCode", accessCode.isEmpty() ? null : accessCode.get(0));
+        // 申请开通渠道：无兑换记录时绑定信息与开通方式从最新一条开通申请带出
+        List<Map<String, Object>> activationRequest = jdbc.queryForList(
+                "SELECT status, company_name, contact_name, contact_phone, create_time, handled_at "
+                        + "FROM design_activation_request "
+                        + "WHERE account_id = ? AND deleted = FALSE ORDER BY id DESC LIMIT 1", id);
+        activationRequest.forEach(this::stringifyIds);
+        detail.put("activationRequest", activationRequest.isEmpty() ? null : activationRequest.get(0));
         List<Map<String, Object>> grants = jdbc.queryForList(
                 "SELECT id, status, granted_at, revoked_at, revoked_by FROM design_access_grant "
                         + "WHERE account_id = ? AND deleted = FALSE ORDER BY id DESC LIMIT 20", id);

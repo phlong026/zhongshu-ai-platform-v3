@@ -21,4 +21,12 @@ public interface ErrorCodeConstants {
     // ========== 技术型授权（09 钱包会话桥接）==========
     ErrorCode ACCESS_GRANT_TECHNICAL = new ErrorCode(1_070_000_006, "该授权为系统技术授权，不可在此解绑；如需断开请停用对应账号");
 
+    // ========== 开通申请（设计小程序 2026-11-04 申请-开通链路）==========
+    // 注意：1_070_000_006 已被 ACCESS_GRANT_TECHNICAL 占用，ALREADY_PENDING 顺延到 010；
+    // 007（ALREADY_ACTIVE）必须保持原值——小程序前端 pages/auth/index.js 按 1070000007 判定"已开通"。
+    ErrorCode ACTIVATION_REQUEST_ALREADY_PENDING = new ErrorCode(1_070_000_010, "已提交过开通申请，请等待管理员处理");
+    ErrorCode ACTIVATION_REQUEST_ALREADY_ACTIVE = new ErrorCode(1_070_000_007, "账号已开通使用权限，无需再申请");
+    ErrorCode ACTIVATION_REQUEST_NOT_FOUND = new ErrorCode(1_070_000_008, "开通申请不存在");
+    ErrorCode ACTIVATION_REQUEST_ALREADY_HANDLED = new ErrorCode(1_070_000_009, "该申请已被处理，请刷新后重试");
+
 }

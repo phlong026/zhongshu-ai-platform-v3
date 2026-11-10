@@ -77,18 +77,26 @@ public class AppHomeController {
         var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
         Integer tables = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() "
-                        + "AND table_name IN ('account', 'access_code_redemption')", Integer.class);
-        if (tables == null || tables < 2) {
+                        + "AND table_name IN ('account', 'access_code_redemption', 'design_activation_request')",
+                Integer.class);
+        if (tables == null || tables < 3) {
             return true;
         }
-        // 与「我的」页/补录接口同口径：只看该账号最近一条兑换记录是否完整（任意历史记录不完整不代表当前未补齐）
+        // 与「我的」页/补录接口同口径：绑定信息有两个来源，取该账号最近一条——
+        // ① 授权码兑换记录（access_code_redemption）；② 已通过的开通申请（design_activation_request.status='APPROVED'）。
+        // 只认 APPROVED：PENDING 未审批通过前不应视为已绑定。
         Integer incomplete = jdbc.queryForObject(
-                "SELECT CASE WHEN r.id IS NULL OR COALESCE(r.company_name, '') = '' "
-                        + "OR COALESCE(r.contact_name, '') = '' OR COALESCE(r.contact_phone, '') = '' "
+                "SELECT CASE WHEN b.id IS NULL OR COALESCE(b.company_name, '') = '' "
+                        + "OR COALESCE(b.contact_name, '') = '' OR COALESCE(b.contact_phone, '') = '' "
                         + "THEN 1 ELSE 0 END FROM account a "
                         + "LEFT JOIN LATERAL (SELECT x.id, x.company_name, x.contact_name, x.contact_phone "
-                        + "FROM access_code_redemption x WHERE x.account_id = a.id AND x.deleted = FALSE "
-                        + "ORDER BY x.id DESC LIMIT 1) r ON TRUE "
+                        + "FROM (SELECT id, company_name, contact_name, contact_phone, create_time "
+                        + "      FROM access_code_redemption WHERE account_id = a.id AND deleted = FALSE "
+                        + "      UNION ALL "
+                        + "      SELECT id, company_name, contact_name, contact_phone, create_time "
+                        + "      FROM design_activation_request WHERE account_id = a.id AND deleted = FALSE "
+                        + "        AND status = 'APPROVED') x "
+                        + "ORDER BY x.create_time DESC, x.id DESC LIMIT 1) b ON TRUE "
                         + "WHERE a.id = ? AND a.deleted = FALSE",
                 Integer.class, ctx.get().accountId());
         return incomplete == null || incomplete == 0;
