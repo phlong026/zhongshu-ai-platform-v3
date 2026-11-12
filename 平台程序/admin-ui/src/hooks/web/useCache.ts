@@ -14,7 +14,7 @@ export const CACHE_KEY = {
   // 系统设置
   IS_DARK: 'isDark',
   LANG: 'lang',
-  THEME: 'theme_v2_enterprise',
+  THEME: 'theme',
   LAYOUT: 'layout',
   DICT_CACHE: 'dictCache',
   // 登录表单

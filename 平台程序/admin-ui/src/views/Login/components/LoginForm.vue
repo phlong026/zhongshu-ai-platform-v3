@@ -285,20 +285,20 @@ onMounted(() => {
   }
 
   :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-    background-color: #2563eb;
-    border-color: #2563eb;
+    background-color: #714320;
+    border-color: #714320;
   }
 
   :deep(.el-checkbox__inner:hover) {
-    border-color: #2563eb;
+    border-color: #714320;
   }
 
   .zs-forget {
     font-size: 14px;
-    color: #2563eb;
+    color: #714320;
 
     &:hover {
-      color: #1d4fd8;
+      color: #8a5a34;
     }
   }
 }
@@ -310,18 +310,18 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 2px;
   color: #fff;
-  background: #2563eb;
+  background: #714320;
   border: none;
   border-radius: 6px;
 
   &:hover,
   &:focus {
     color: #fff;
-    background: #1d4fd8;
+    background: #82522f;
   }
 
   &.is-loading {
-    background: #2563eb;
+    background: #714320;
   }
 }
 

@@ -75,14 +75,14 @@ export const useAppStore = defineStore('app', {
       isDark: wsCache.get(CACHE_KEY.IS_DARK) || false, // 是否是暗黑模式
       currentSize: wsCache.get('default') || 'default', // 组件尺寸
       theme: wsCache.get(CACHE_KEY.THEME) || {
-        // 主题色（企业蓝）
-        elColorPrimary: '#2563eb',
+        // 主题色（众墅之家棕）
+        elColorPrimary: '#714320',
         // 左侧菜单边框颜色
         leftMenuBorderColor: 'inherit',
         // 左侧菜单背景颜色
-        leftMenuBgColor: '#1f2937',
+        leftMenuBgColor: '#4a3421',
         // 左侧菜单浅色背景颜色
-        leftMenuBgLightColor: '#273449',
+        leftMenuBgLightColor: '#5a422c',
         // 左侧菜单选中背景颜色
         leftMenuBgActiveColor: 'var(--el-color-primary)',
         // 左侧菜单收起选中背景颜色

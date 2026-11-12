@@ -1,27 +1,27 @@
-/** 管理后台共享样式：企业调性（中性配色/高信息密度/响应式） */
+/** 众墅之家管理后台共享样式：页面骨架 / 统计卡 / 主按钮（对照效果图采样） */
 .zs-page {
-  padding: 16px 20px;
-  background: #f0f2f5;
+  padding: 24px 32px;
+  background: #fbf7f2;
   min-height: calc(100vh - var(--top-tool-height, 60px) - var(--tags-view-height, 35px));
 
   .zs-page-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #1f2329;
+    font-size: 28px;
+    font-weight: 700;
+    color: #282728;
     margin: 0;
   }
 
   .zs-page-subtitle {
-    margin-top: 4px;
-    font-size: 12px;
-    color: #8a8f99;
+    margin-top: 6px;
+    font-size: 14px;
+    color: #9b9b9b;
   }
 
   .zs-page-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 14px;
+    margin-bottom: 20px;
   }
 
   .zs-actions {
@@ -32,39 +32,39 @@
   .zs-stat-cards {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 16px;
+    margin-bottom: 20px;
 
     .zs-stat-card {
       background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      padding: 14px 16px;
+      border-radius: 12px;
+      padding: 20px 24px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 16px;
+      box-shadow: 0 2px 12px rgb(113 67 32 / 5%);
 
       .zs-stat-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 4px;
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 18px;
-        background: #f0f5ff;
-        color: #2563eb;
+        font-size: 24px;
+        background: #f5eee7;
+        color: #714320;
       }
 
       .zs-stat-label {
-        font-size: 12px;
-        color: #646a73;
+        font-size: 13px;
+        color: #6f6f6f;
       }
 
       .zs-stat-value {
-        font-size: 20px;
-        font-weight: 600;
-        color: #1f2329;
+        font-size: 26px;
+        font-weight: 700;
+        color: #282728;
         line-height: 1.2;
       }
     }
@@ -72,30 +72,30 @@
 
   .zs-table-card {
     background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    padding: 14px 16px;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgb(113 67 32 / 5%);
   }
 
   .zs-btn-primary {
-    background: #2563eb;
-    border-color: #2563eb;
+    background: #714320;
+    border-color: #714320;
     color: #fff;
 
     &:hover,
     &:focus {
-      background: #1d4fd8;
-      border-color: #1d4fd8;
+      background: #82522f;
+      border-color: #82522f;
       color: #fff;
     }
   }
 
   .zs-link {
-    color: #2563eb;
+    color: #714320;
     cursor: pointer;
 
     &:hover {
-      color: #1d4fd8;
+      color: #8a5a34;
     }
   }
 
@@ -112,23 +112,9 @@
     color: #3f9e56;
     cursor: pointer;
   }
-
-  @media (max-width: 768px) {
-    padding: 12px;
-
-    .zs-page-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-    }
-
-    .zs-stat-cards {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
 }
 
-// 表格状态 tag 配色（语义色保留：蓝/绿/灰/红/橙）
+// 表格状态 tag 配色（对照效果图：未使用=蓝、已绑定=绿、已过期=灰、已停用=红）
 .zs-tag {
   display: inline-block;
   padding: 2px 10px;
@@ -150,9 +136,10 @@
     background: #f0f0f0;
   }
 
+  // 「显示到首页」标记（需求 3b）：品牌暖棕提示
   &.zs-tag--home {
-    color: #2563eb;
-    background: #e8f1fc;
+    color: #8b4818;
+    background: #f6ead9;
   }
 
   &.zs-tag--red {
@@ -163,5 +150,26 @@
   &.zs-tag--orange {
     color: #c07a1f;
     background: #faf1e2;
+  }
+}
+
+// 响应式：窄屏收敛（配色不变）
+@media (max-width: 768px) {
+  .zs-page {
+    padding: 12px;
+
+    .zs-page-title {
+      font-size: 20px;
+    }
+
+    .zs-page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .zs-stat-cards {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 }
