@@ -1,0 +1,39 @@
+{
+  "base_commit": "8eadadba89fd8d1b38198836273d9b8ce5f39a32",
+  "branch": "feat/platform-split-docker-20261110",
+  "authorization": "用户2026-11-11明确授权独立worktree实施，生产切换仍须独立授权",
+  "files": [
+    {
+      "file": "平台程序/docs/platform-split-20261110/后端拆分方案-20261110.md",
+      "sha256": "477688581ae25a411778967540bb76cabe951eb7dfb594c178829990b5f91899"
+    },
+    {
+      "file": "平台程序/docs/platform-split-20261110/架构决议-20261110.md",
+      "sha256": "ac8e65814f5e96151de624e0b1ecde1fd310ba80aba85abcf77d8c9f3ba09a4e"
+    },
+    {
+      "file": "平台程序/docs/platform-split-20261110/复审与实施基线-20261110.md",
+      "sha256": "9660a051fa1bb4c6cb22b7b361802a203c3cb75026c2edb8f04db5cc01eab620"
+    },
+    {
+      "file": "平台程序/docs/platform-split-20261110/Docker独立部署建议-20261110.md",
+      "sha256": "74fdead7d01f47e6e296b15a4f23e278e0dc5d40b8485776e6c836eee76a4aa3"
+    },
+    {
+      "file": "平台程序/docs/platform-split-20261110/服务器只读证据-20261110-2300.md",
+      "sha256": "c544a5309fc57ac8693a7d1e3f5ca7f14e0505ca1d5c90598dd4427f2d144008"
+    },
+    {
+      "file": "平台程序/docs/platform-split-20261110/Codex复审-R4-20261110.md",
+      "sha256": "3fb414943b826670fa16cf18ccf1b1815c908f0efe6ea36166ad9e4153e678f8"
+    },
+    {
+      "original_dirty_file": "平台程序/admin-ui/vite.config.ts",
+      "sha256": "6e92201263f6d29815472bbc906803831a55e1993fe83e8c87f1deda9872dc44"
+    },
+    {
+      "original_dirty_file": "平台程序/yudao-server/src/main/java/cn/iocoder/yudao/server/wiring/RealServiceWiringPolicy.java",
+      "sha256": "3ad32670ce07de91aa787dd1d610545064e0f9f21e32296aa111a8e45b405782"
+    }
+  ]
+}

@@ -14,3 +14,7 @@ target/
 .serena/
 __pycache__/
 .workbuddy-ai/
+
+# OMC 运行状态（按规范默认忽略；技能例外为 .omc/skills/**）
+.omc/
+!.omc/skills/
