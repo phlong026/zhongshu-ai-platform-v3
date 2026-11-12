@@ -130,8 +130,9 @@ public final class RealServiceWiringPolicy {
                     "zhongshu.identity.wechat-appid", "stub-appid", "T-XPAY"),
             new RealModeRequirement("zhongshu.commerce.payment.provider", "virtual",
                     "zhongshu.identity.wechat-appsecret", null, "T-XPAY"),
-            // M02-T04 批次#39：短信 real 六配置（TencentSmsClient 构造期校验消费）——均无开发占位值；
-            // region 有安全默认（ap-guangzhou），登记占位值比对即跳过。
+            // M02-T04 批次#39：短信 real 六配置（TencentSmsClient 构造期校验消费）——均无开发占位值。
+            // region 修正（2026-11-08 生产部署）：ap-guangzhou 是 SendSms API 唯一支持地域（合法值），
+            // 误登记为占位值导致守卫与真实 API 互斥死锁——改为 null 仅查非空。
             new RealModeRequirement("platform.identity.sms.provider", "real",
                     "platform.identity.sms.sdk-app-id", null, "M02-T04"),
             new RealModeRequirement("platform.identity.sms.provider", "real",
@@ -143,7 +144,7 @@ public final class RealServiceWiringPolicy {
             new RealModeRequirement("platform.identity.sms.provider", "real",
                     "platform.identity.sms.secret-key", null, "M02-T04"),
             new RealModeRequirement("platform.identity.sms.provider", "real",
-                    "platform.identity.sms.region", "ap-guangzhou", "M02-T04"));
+                    "platform.identity.sms.region", null, "M02-T04"));
 
     private RealServiceWiringPolicy() {
     }

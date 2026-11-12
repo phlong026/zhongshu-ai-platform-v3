@@ -144,8 +144,7 @@ class PrivacyLifecycleTest {
     /** 立面参考图 DESIGN_REFERENCE 是用户自己的照片：必须走真实上传入口落成 USER_UPLOAD，才会被导出清单圈进来，且只属于本人。 */
     AssetService assets(){
         var moderation=mock(ContentModerationPort.class);when(moderation.supportsUpload(anyString())).thenReturn(true);
-        var service=new AssetService(ds,manager,storage,new AssetContentScanner(),moderation,delivery,new RightsGrantService(ds));
-        ReflectionTestUtils.setField(service,"accountStatePort",guard);return service;
+        return new AssetService(ds,manager,storage,new AssetContentScanner(),moderation,delivery,new RightsGrantService(ds),guard);
     }
     @Test void exportListsOwnersDesignReferenceUploadsButNotOthersOrCompanyAssets() throws Exception {
         var assets=assets();var sha="a".repeat(64);

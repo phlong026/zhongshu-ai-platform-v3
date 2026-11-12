@@ -29,7 +29,8 @@ class DesignJobIntegrityTest {
         jdbc=new JdbcTemplate(ds);var tx=new DataSourceTransactionManager(ds);points=new PointAccountService(ds,tx);
         var ledger=new PointLedgerPortAdapter(points);var events=new JdbcReliableEventPort(ds);var rules=new PriceRuleService(ds);
         orch=new AiJobOrchestrationService(ds,tx,events,null,null);settle=new AiJobSettlementService(ds,tx,new PricingPortAdapter(rules),ledger,orch,events);
-        projects=new DesignProjectService(ds,tx,new AiJobPortAdapter(settle,orch),null,null,null);
+        projects=new DesignProjectService(ds,tx,new AiJobPortAdapter(settle,orch),null,null,null,
+                org.mockito.Mockito.mock(AccountStatePort.class));
     }
     @AfterAll void stop(){pg.stop();}
     @BeforeEach void setup() {

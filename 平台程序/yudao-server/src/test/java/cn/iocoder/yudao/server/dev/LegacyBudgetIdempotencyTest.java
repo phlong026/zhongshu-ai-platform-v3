@@ -22,7 +22,8 @@ class LegacyBudgetIdempotencyTest {
             ds.setUrl(pg.getJdbcUrl());ds.setUsername(pg.getUsername());ds.setPassword(pg.getPassword());
             Flyway.configure().dataSource(ds).locations("classpath:db/migration/platform","classpath:db/migration/design","classpath:db/migration/commerce").load().migrate();
             var jdbc=new JdbcTemplate(ds);var tx=new DataSourceTransactionManager(ds);
-            var projects=new DesignProjectService(ds,tx,null,null,null,null);
+            var projects=new DesignProjectService(ds,tx,null,null,null,null,
+                    org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
             var points=new PointAccountService(ds,tx);var usage=new UsagePointPriceService(ds,tx,new PointLedgerPortAdapter(points));
             usage.createRule("BUDGET_ESTIMATE",7,Instant.now().minusSeconds(1),null,"fixture");
             var quote=usage.quote("BUDGET_ESTIMATE");var confirmed=new UsagePricingPort.Confirmation(quote.product(),String.valueOf(quote.ruleId()),quote.ruleVersion());
