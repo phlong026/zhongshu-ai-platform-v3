@@ -83,7 +83,8 @@ class BudgetAccountPriceT14ContractTest {
         Flyway.configure().dataSource(ds).locations("classpath:db/migration/platform", "classpath:db/migration/design").load().migrate();
         transactions = new DataSourceTransactionManager(ds);
         jdbc = new JdbcTemplate(ds);
-        projects = new DesignProjectService(ds, transactions, mock(cn.iocoder.yudao.module.infra.zhongshu.api.AiJobPort.class), null, null, null);
+        projects = new DesignProjectService(ds, transactions, mock(cn.iocoder.yudao.module.infra.zhongshu.api.AiJobPort.class),
+                null, null, null, mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
     }
 
     @BeforeEach

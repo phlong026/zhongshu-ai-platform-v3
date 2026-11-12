@@ -45,7 +45,8 @@ class BudgetProjectInputsT10ContractTest {
         var ds = new SimpleDriverDataSource(new org.postgresql.Driver(), PG.getJdbcUrl(), PG.getUsername(), PG.getPassword());
         Flyway.configure().dataSource(ds).locations("classpath:db/migration/platform", "classpath:db/migration/commerce", "classpath:db/migration/ai-orchestration", "classpath:db/migration/design").load().migrate();
         jdbc = new JdbcTemplate(ds);
-        projects = new DesignProjectService(ds, new DataSourceTransactionManager(ds), jobs, null, null, null);
+        projects = new DesignProjectService(ds, new DataSourceTransactionManager(ds), jobs, null, null, null,
+                mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
     }
 
     @BeforeEach

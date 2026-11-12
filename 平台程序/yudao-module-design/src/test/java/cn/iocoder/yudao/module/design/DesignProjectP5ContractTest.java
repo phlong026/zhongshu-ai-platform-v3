@@ -67,6 +67,11 @@ class DesignProjectP5ContractTest {
     private static final long USER_A = 1101L;
     private static final long USER_B = 2202L;
     private static final long ADMIN = 9901L;
+    private static final cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort ACTIVE_FIXTURE_ACCOUNTS = accountId -> {
+        if (!List.of(USER_A, USER_B, ADMIN).contains(accountId)) {
+            throw new ServiceException(403, "测试账户未开通");
+        }
+    };
 
     private JdbcTemplate jdbc;
     private DesignProjectService projects;
@@ -113,8 +118,13 @@ class DesignProjectP5ContractTest {
                 Files.createTempDirectory("p5-assets").toString());
         var assetService = new AssetService(dataSource, txManager, objectStorage,
                 new AssetContentScanner(), new StubContentModerationAdapter(),
-                new cn.iocoder.yudao.module.infra.zhongshu.delivery.JdbcDeliveryPort(dataSource), rights);
-        projects = new DesignProjectService(dataSource, txManager, aiJobPort, assetService, rights, quarantine);
+                new cn.iocoder.yudao.module.infra.zhongshu.delivery.JdbcDeliveryPort(dataSource), rights,
+                ACTIVE_FIXTURE_ACCOUNTS);
+        projects = new DesignProjectService(dataSource, txManager, aiJobPort, assetService, rights, quarantine,
+                ACTIVE_FIXTURE_ACCOUNTS);
+        for (Object service : List.of(points, orchestration, settlement)) {
+            org.springframework.test.util.ReflectionTestUtils.setField(service, "accountStatePort", ACTIVE_FIXTURE_ACCOUNTS);
+        }
     }
 
     private void seedPriceRule() {
@@ -404,7 +414,8 @@ class DesignProjectP5ContractTest {
 
         // 未终态不可晋升/不可选择
         assertThatThrownBy(() -> projects.promoteCandidates(USER_A, projectId, created.jobId()))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOfSatisfying(ServiceException.class, error -> assertThat(error.getCode()).isEqualTo(
+                        cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.DESIGN_JOB_NOT_TERMINAL.getCode()));
 
         runProviderToSettled(created.jobId(), 2, 2);
         var candidates = projects.promoteCandidates(USER_A, projectId, created.jobId());
@@ -620,14 +631,50 @@ class DesignProjectP5ContractTest {
         assertThatThrownBy(() -> projects.createFlatJob(USER_A, project, 1, "legacy-flat-replay", confirmed("FLAT"), landscape))
                 .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(
                         cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode()));
-        jdbc.update("UPDATE design_requirement_snapshot SET inputs=inputs || '{\"note\":\"变更后的需求\"}'::jsonb WHERE project_id=?", project);
-        assertThatThrownBy(() -> projects.createFlatJob(USER_A, project, 1, "legacy-flat-replay", confirmed("FLAT")))
+        var highResolution = cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("FLAT", "4K", "PORTRAIT");
+        assertThatThrownBy(() -> projects.createFlatJob(USER_A, project, 1, "legacy-flat-replay", confirmed("FLAT"), highResolution))
                 .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(
                         cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode()));
+        // P-10：重放只核对原请求；项目演进、授权撤回和报价变化不能重建旧任务输入。
+        jdbc.update("UPDATE design_requirement_snapshot SET inputs=inputs || '{\"note\":\"变更后的需求\"}'::jsonb WHERE project_id=?", project);
+        jdbc.update("UPDATE design_project SET stage='ELEVATION' WHERE id=?", project);
+        jdbc.update("UPDATE asset_rights_grant SET status='WITHDRAWN'");
+        jdbc.update("UPDATE generation_price_rule SET version=version+1");
+        var afterChanges = projects.createFlatJob(USER_A, project, 1, "legacy-flat-replay", null);
+        assertThat(afterChanges.jobId()).isEqualTo(job);
+        assertThat(afterChanges.created()).isFalse();
         assertThat(jdbc.queryForObject("SELECT input_snapshot::text FROM ai_job WHERE id=?", String.class, job)).isEqualTo(original);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class)).isEqualTo(1L);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger WHERE user_id=? AND type='FLAT_GENERATION_DEBIT'", Long.class, USER_A)).isEqualTo(1L);
         assertThat(jdbc.queryForObject("SELECT available_points FROM design_point_account WHERE user_id=?", Long.class, USER_A)).isEqualTo(90L);
+    }
+
+    @Test
+    void flatReplayRequiresPersistedOrientationAndRejectsDifferentSpecs() {
+        points.credit(USER_A, "RECHARGE_BASE_CREDIT", 100, "fixture", "legacy-specs", "legacy-specs-seed", null, null);
+        long project = projects.createProject(USER_A, "SELF_UPLOAD", null, null, null);
+        var options = cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("FLAT", "2K", "LANDSCAPE");
+        long job = projects.createFlatJob(USER_A, project, 1, "legacy-specs", confirmed("FLAT"), options).jobId();
+        String original = jdbc.queryForObject("SELECT input_snapshot::text FROM ai_job WHERE id=?", String.class, job);
+        var replay = projects.createFlatJob(USER_A, project, 1, "legacy-specs", null, options);
+        assertThat(replay.jobId()).isEqualTo(job);
+        assertThat(replay.created()).isFalse();
+        for (var changed : List.of(
+                cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("FLAT", "2K", "PORTRAIT"),
+                cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("FLAT", "4K", "LANDSCAPE"))) {
+            assertThatThrownBy(() -> projects.createFlatJob(USER_A, project, 1, "legacy-specs", null, changed))
+                    .isInstanceOfSatisfying(ServiceException.class, error -> assertThat(error.getCode()).isEqualTo(
+                            cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode()));
+        }
+        assertThat(jdbc.queryForObject("SELECT input_snapshot::text FROM ai_job WHERE id=?", String.class, job)).isEqualTo(original);
+        // 连原始方向也未持久化时，不能猜当前默认值并放行。
+        jdbc.update("UPDATE ai_job SET input_snapshot=input_snapshot-'imageOptions' WHERE id=?", job);
+        assertThatThrownBy(() -> projects.createFlatJob(USER_A, project, 1, "legacy-specs", null, options))
+                .isInstanceOfSatisfying(ServiceException.class, error -> assertThat(error.getCode()).isEqualTo(
+                        cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode()));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger WHERE type='FLAT_GENERATION_DEBIT'", Long.class)).isEqualTo(1L);
+        assertThat(available(USER_A)).isEqualTo(90);
     }
 
     @Test

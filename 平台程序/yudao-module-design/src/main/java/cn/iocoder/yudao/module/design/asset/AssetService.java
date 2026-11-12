@@ -36,9 +36,9 @@ import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.ASSET_VALI
  */
 @Slf4j
 @Service
+@org.springframework.context.annotation.Primary
 public class AssetService {
-    @jakarta.annotation.Resource
-    private cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort accountStatePort;
+    private final cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort accountStatePort;
 
     public record UploadTicket(long assetId, String uploadUrl) {
     }
@@ -77,10 +77,23 @@ public class AssetService {
     private final java.util.concurrent.ConcurrentHashMap<Long, Object> renditionLocks =
             new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Compatibility signature: callers must migrate to an explicit account authorization policy. */
+    @Deprecated
     public AssetService(DataSource dataSource, PlatformTransactionManager transactionManager,
                         ObjectStoragePort storage, AssetContentScanner scanner,
                         ContentModerationPort contentModerationPort, DeliveryPort deliveryPort,
                         RightsGrantService rightsGrantService) {
+        this(dataSource, transactionManager, storage, scanner, contentModerationPort, deliveryPort, rightsGrantService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AssetService(DataSource dataSource, PlatformTransactionManager transactionManager,
+                        ObjectStoragePort storage, AssetContentScanner scanner,
+                        ContentModerationPort contentModerationPort, DeliveryPort deliveryPort,
+                        RightsGrantService rightsGrantService,
+                        @org.springframework.beans.factory.annotation.Qualifier("jdbcAccountStateAdapter")
+                        cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort accountStatePort) {
+        this.accountStatePort = java.util.Objects.requireNonNull(accountStatePort, "Explicit account authorization policy required");
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.txTemplate = new TransactionTemplate(transactionManager);
         this.storage = storage;
@@ -154,7 +167,7 @@ public class AssetService {
         };
         String objectKey = "uploads/" + policy.keyPrefix() + "/" + userId + "/" + assetId + ext;
         txTemplate.execute(status -> {
-            if (userOwnedType(assetType) && accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
+            if (userOwnedType(assetType)) accountStatePort.requireActiveForWrite(userId);
             jdbcTemplate.update(
                     "INSERT INTO asset (id, object_key, owner_user_id, asset_type, source_type, sha256, "
                             + "declared_mime, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -192,13 +205,21 @@ public class AssetService {
 
     /** 上传完成：短事务领取 → 事务外扫描 → 短事务固化终态。 */
     public String completeUpload(long userId, long assetId) {
+        return completeUploadWithCompletion(userId, assetId, ignored -> { });
+    }
+
+    /** Service receipts join only the terminal local transaction, never object storage or moderation I/O. */
+    public String completeUploadWithCompletion(long userId, long assetId, java.util.function.Consumer<String> terminalCompletion) {
+        java.util.Objects.requireNonNull(terminalCompletion, "terminalCompletion");
         // (a) 短事务：对象级权限 + 领取校验任务
         AssetRow asset = txTemplate.execute(status -> {
+            requireServiceUploadWrite(userId);
             AssetRow row = loadForUpdate(assetId);
             if (row.ownerUserId() != userId) {
                 throw exception(RESOURCE_FORBIDDEN);
             }
             if ("ACCEPTED".equals(row.uploadStatus())) {
+                terminalCompletion.accept(row.uploadStatus());
                 return null; // 幂等：已完成
             }
             // PENDING 可领取；VALIDATING 超过 10 分钟视为残留（(b) 阶段崩溃），允许重新领取
@@ -259,11 +280,15 @@ public class AssetService {
             if (rejectReason == null && !skipModeration) moderation = contentModerationPort.review(asset.assetType(), report.sanitizedContent());
         } catch (ModerationUnavailableException e) {
             txTemplate.executeWithoutResult(status -> {
+                requireServiceUploadWrite(userId);
                 int updated = jdbcTemplate.update("UPDATE asset SET upload_status=CASE WHEN moderation_attempts >= 7 THEN 'REJECTED' ELSE 'PENDING' END, "
                         + "moderation_attempts=moderation_attempts+1, moderation_retry_at=now()+interval '5 minutes', "
                         + "rejected_reason='MODERATION_UNAVAILABLE', update_time=now() WHERE id=? AND validation_token=? AND upload_status='VALIDATING'",
                         assetId, asset.validationToken());
-                if (updated == 1) recordScan(assetId, "CONTENT_MODERATION", "PENDING", "UPSTREAM_UNAVAILABLE");
+                if (updated == 1) {
+                    recordScan(assetId, "CONTENT_MODERATION", "PENDING", "UPSTREAM_UNAVAILABLE");
+                    if ("REJECTED".equals(load(assetId).uploadStatus())) terminalCompletion.accept("REJECTED");
+                }
             });
             return load(assetId).uploadStatus();
         }
@@ -294,6 +319,7 @@ public class AssetService {
                 ? storeRenditions(acceptedKey, asset.declaredMime(), sanitized)
                 : new StoredRenditions(null, null);
         return txTemplate.execute(status -> {
+            requireServiceUploadWrite(userId);
             AssetRow current = loadForUpdate(assetId);
             if (!asset.validationToken().equals(current.validationToken()) || !"VALIDATING".equals(current.uploadStatus()))
                 throw exception(ASSET_VALIDATION_FAILED);
@@ -311,6 +337,7 @@ public class AssetService {
                         finalRejectReason, assetId, asset.validationToken());
                 if (updated == 1) {
                     log.warn("[completeUpload][asset={} REJECTED 原因={}]", assetId, finalRejectReason);
+                    terminalCompletion.accept("REJECTED");
                     return "REJECTED";
                 }
                 throw exception(ASSET_VALIDATION_FAILED);
@@ -322,6 +349,7 @@ public class AssetService {
                                 + "WHERE id = ? AND upload_status = 'VALIDATING' AND validation_token = ?",
                         assetId, asset.validationToken());
                 if (updated != 1) throw exception(ASSET_VALIDATION_FAILED);
+                terminalCompletion.accept("REJECTED");
                 return "REJECTED";
             }
             if (skipModeration) {
@@ -335,6 +363,7 @@ public class AssetService {
                 if (updated == 1) {
                     log.info("[completeUpload][asset={} ACCEPTED(免审) size={} type={}]",
                             assetId, sanitized.length, asset.assetType());
+                    terminalCompletion.accept("ACCEPTED");
                     return "ACCEPTED";
                 }
                 throw exception(ASSET_VALIDATION_FAILED);
@@ -355,10 +384,16 @@ public class AssetService {
             if (updated == 1) {
                 log.info("[completeUpload][asset={} ACCEPTED size={} type={}]",
                         assetId, sanitized.length, asset.assetType());
+                terminalCompletion.accept("ACCEPTED");
                 return "ACCEPTED";
             }
             throw exception(ASSET_VALIDATION_FAILED);
         });
+    }
+
+    private void requireServiceUploadWrite(long ownerId) {
+        // The capability migration enforces disjoint account namespaces. Preserve the consumer path's policy.
+        if (ownerId >= 8_000_000_000_000_000_000L) accountStatePort.requireActiveForWrite(ownerId);
     }
 
     /** 下载签名结果（B2 板块 A / P-2⑦）：调用方直接获得 URL 与到期时刻，不自行推算 TTL */

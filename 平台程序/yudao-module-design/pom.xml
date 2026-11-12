@@ -25,7 +25,12 @@
             <artifactId>yudao-module-infra</artifactId>
             <version>${revision}</version>
         </dependency>
-        <!-- B2 板块 A / P-2：实现 franchise-api 的 DesignServicePort（架构例外已登记，S8 依赖边界检查） -->
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>design-capability-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <!-- 融合模式旧资产桥接仍实现 AssetAccessPort；平台 B 不加载本 design 模块。 -->
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
             <artifactId>yudao-domain-franchise-api</artifactId>

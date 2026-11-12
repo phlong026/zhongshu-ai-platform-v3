@@ -89,7 +89,8 @@ class TencentImsModerationAdapterTest {
     @Test void unsupportedPdfIsRejectedBeforeTicketDatabaseOrStorageAccess() {
         var ds=org.mockito.Mockito.mock(javax.sql.DataSource.class);var storage=org.mockito.Mockito.mock(ObjectStoragePort.class);
         var assets=new AssetService(ds,new org.springframework.jdbc.datasource.DataSourceTransactionManager(ds),storage,
-                new AssetContentScanner(),adapter,org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.delivery.DeliveryPort.class),null);
+                new AssetContentScanner(),adapter,org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.delivery.DeliveryPort.class),null,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
         assertThatThrownBy(()->assets.createUploadTicket(7,"CASE_PDF","application/pdf",100,"a".repeat(64)))
                 .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class).hasMessageContaining("不支持");
         org.mockito.Mockito.verifyNoInteractions(ds,storage);

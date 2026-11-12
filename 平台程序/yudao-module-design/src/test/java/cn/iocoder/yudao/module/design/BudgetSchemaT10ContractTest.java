@@ -42,7 +42,8 @@ class BudgetSchemaT10ContractTest {
         }
 
         BudgetService budgets() {
-            var projects = new DesignProjectService(ds, new DataSourceTransactionManager(ds), null, null, null, null);
+            var projects = new DesignProjectService(ds, new DataSourceTransactionManager(ds), null, null, null, null,
+                    org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
             return new BudgetService(ds, projects);
         }
     }

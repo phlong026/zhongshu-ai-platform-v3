@@ -55,6 +55,11 @@ class ResultVersionP6ContractTest {
             .withPassword("zhongshu");
 
     private static final long USER_A = 3301L;
+    private static final cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort ACTIVE_FIXTURE_ACCOUNTS = accountId -> {
+        if (!List.of(USER_A, 4402L).contains(accountId)) {
+            throw new ServiceException(403, "测试账户未开通");
+        }
+    };
 
     private JdbcTemplate jdbc;
     private DesignProjectService projects;
@@ -98,8 +103,13 @@ class ResultVersionP6ContractTest {
                         .toString());
         var assetService = new AssetService(dataSource, txManager, objectStorage,
                 new AssetContentScanner(), new StubContentModerationAdapter(),
-                new cn.iocoder.yudao.module.infra.zhongshu.delivery.JdbcDeliveryPort(dataSource), rights);
-        projects = new DesignProjectService(dataSource, txManager, aiJobPort, assetService, rights, quarantine);
+                new cn.iocoder.yudao.module.infra.zhongshu.delivery.JdbcDeliveryPort(dataSource), rights,
+                ACTIVE_FIXTURE_ACCOUNTS);
+        projects = new DesignProjectService(dataSource, txManager, aiJobPort, assetService, rights, quarantine,
+                ACTIVE_FIXTURE_ACCOUNTS);
+        for (Object service : List.of(points, orchestration, settlement)) {
+            org.springframework.test.util.ReflectionTestUtils.setField(service, "accountStatePort", ACTIVE_FIXTURE_ACCOUNTS);
+        }
     }
 
     @BeforeEach
@@ -125,9 +135,10 @@ class ResultVersionP6ContractTest {
     }
 
     private void givePoints(long userId, long amount) {
-        var points = new cn.iocoder.yudao.module.commerce.points.PointLedgerPortAdapter(
-                new cn.iocoder.yudao.module.commerce.points.PointAccountService(
-                        objectDataSource(), new DataSourceTransactionManager(objectDataSource())));
+        var accounts = new cn.iocoder.yudao.module.commerce.points.PointAccountService(
+                objectDataSource(), new DataSourceTransactionManager(objectDataSource()));
+        org.springframework.test.util.ReflectionTestUtils.setField(accounts, "accountStatePort", ACTIVE_FIXTURE_ACCOUNTS);
+        var points = new cn.iocoder.yudao.module.commerce.points.PointLedgerPortAdapter(accounts);
         points.credit(userId, "RECHARGE_BASE_CREDIT", amount, "recharge_order", "r-" + userId,
                 "k-seed-" + userId + "-" + amount, null, null);
     }
@@ -306,7 +317,9 @@ class ResultVersionP6ContractTest {
         var changed = mapper.convertValue(Map.of("count",1,"requirementInputs",Map.of("note","changed","floorCount",3,"referenceAssetIds",List.of("928101")),"refCaseId","928201"),
                 cn.iocoder.yudao.module.design.controller.app.vo.AppDesignJobCreateReqVO.class);
         changed.setPriceConfirmation(confirmed("ELEVATION"));
-        assertThatThrownBy(() -> controller.createElevationJob(String.valueOf(projectId),changed,"resume-inputs","Bearer owner")).isInstanceOf(ServiceException.class);
+        assertIdempotencyConflict(() -> controller.createElevationJob(String.valueOf(projectId), changed, "resume-inputs", "Bearer owner"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class)).isEqualTo(2L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class)).isEqualTo(ledger);
         for (String column : List.of("publication_status='OFFLINE'", "tenant_id=1")) {
             jdbc.update("UPDATE design_case SET " + column + " WHERE id=928201");
             assertThatThrownBy(() -> controller.createElevationJob(String.valueOf(projectId),request,"forbidden-case","Bearer owner")).isInstanceOf(ServiceException.class);
@@ -322,7 +335,162 @@ class ResultVersionP6ContractTest {
         ledger = jdbc.queryForObject("SELECT count(*) FROM design_point_ledger",Long.class);
         jdbc.update("UPDATE asset_rights_grant SET status='WITHDRAWN' WHERE id=928204");
         assertThatThrownBy(() -> controller.createElevationJob(String.valueOf(projectId),request,"revoked-case","Bearer owner")).isInstanceOf(ServiceException.class);
+        assertThat(controller.createElevationJob(String.valueOf(projectId), request, "resume-inputs", "Bearer owner")
+                .getData().getJobId()).isEqualTo(job);
+        assertThat(mapper.readValue(jobSnapshot(Long.parseLong(job)), Map.class)).isEqualTo(frozen);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class)).isEqualTo(3L);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger",Long.class)).isEqualTo(ledger);
+    }
+
+    @Test
+    void elevationReplayComparesNormalizedRequestBeforeMutableState() {
+        givePoints(USER_A, 500);
+        long project = projects.createProject(USER_A, "SELF_UPLOAD", null, null, null, "ELEVATION");
+        var options = cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("ELEVATION", "2K", "PORTRAIT");
+        var config = Map.<String, Object>of("note", "  保留庭院  ", "floorCount", "3");
+        long job = projects.createElevationJob(USER_A, project, 1, "normalized-replay", config,
+                confirmed("ELEVATION"), options).jobId();
+        String original = jobSnapshot(job);
+        long ledger = jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class);
+        long balance = jdbc.queryForObject("SELECT available_points FROM design_point_account WHERE user_id=?", Long.class, USER_A);
+        jdbc.update("UPDATE design_project SET stage='FLAT' WHERE id=?", project);
+        jdbc.update("UPDATE design_requirement_snapshot SET inputs='{\"note\":\"后续需求\"}'::jsonb WHERE project_id=?", project);
+        jdbc.update("UPDATE generation_price_rule SET version=version+1");
+
+        var normalized = Map.<String, Object>of("floorCount", 3, "note", "保留庭院");
+        var replay = projects.createElevationJob(USER_A, project, 1, "normalized-replay", normalized, null, options);
+        assertThat(replay.jobId()).isEqualTo(job);
+        assertThat(replay.created()).isFalse();
+        for (Map<String, Object> changed : List.of(Map.<String, Object>of("floorCount", 3),
+                Map.<String, Object>of("floorCount", 3, "note", "不同需求"), Map.<String, Object>of())) {
+            assertIdempotencyConflict(() -> projects.createElevationJob(USER_A, project, 1, "normalized-replay", changed, null, options));
+        }
+        for (var changed : List.of(
+                cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("ELEVATION", "2K", "LANDSCAPE"),
+                cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("ELEVATION", "4K", "PORTRAIT"))) {
+            assertIdempotencyConflict(() -> projects.createElevationJob(USER_A, project, 1, "normalized-replay", normalized, null, changed));
+        }
+        assertThat(jobSnapshot(job)).isEqualTo(original);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class)).isEqualTo(ledger);
+        assertThat(jdbc.queryForObject("SELECT available_points FROM design_point_account WHERE user_id=?", Long.class, USER_A)).isEqualTo(balance);
+    }
+
+    @Test
+    void legacyElevationReplayUsesCompleteFrozenConfigAndImageOptions() {
+        givePoints(USER_A, 500);
+        long project = projects.createProject(USER_A, "SELF_UPLOAD", null, null, null, "ELEVATION");
+        var config = Map.<String, Object>of("note", "庭院", "floorCount", 3);
+        long job = projects.createElevationJob(USER_A, project, 1, "legacy-elevation", config, confirmed("ELEVATION")).jobId();
+        jdbc.update("UPDATE ai_job SET input_snapshot=input_snapshot-'requestedImageOptions'-'requestConfig' WHERE id=?", job);
+        String original = jobSnapshot(job);
+        long ledger = jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class);
+        jdbc.update("UPDATE design_project SET stage='FLAT' WHERE id=?", project);
+        jdbc.update("UPDATE design_requirement_snapshot SET inputs='{}'::jsonb WHERE project_id=?", project);
+
+        var replay = projects.createElevationJob(USER_A, project, 1, "legacy-elevation",
+                Map.of("note", " 庭院 ", "floorCount", "3"), null);
+        assertThat(replay.jobId()).isEqualTo(job);
+        assertThat(replay.created()).isFalse();
+        // 确证旧快照缺 requestConfig：省略字段继承原冻结有效输入，同值覆写仍是同一设计意图。
+        for (Map<String, Object> retry : List.of(Map.<String, Object>of("note", " 庭院 "), Map.<String, Object>of())) {
+            var legacyReplay = projects.createElevationJob(USER_A, project, 1, "legacy-elevation", retry, null);
+            assertThat(legacyReplay.jobId()).isEqualTo(job);
+            assertThat(legacyReplay.created()).isFalse();
+        }
+        assertIdempotencyConflict(() -> projects.createElevationJob(USER_A, project, 1, "legacy-elevation", Map.of("note", "变更", "floorCount", 3), null));
+        assertIdempotencyConflict(() -> projects.createElevationJob(USER_A, project, 1, "legacy-elevation", config, null,
+                cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("ELEVATION", "2K", "PORTRAIT")));
+        assertIdempotencyConflict(() -> projects.createElevationJob(USER_A, project, 1, "legacy-elevation", config, null,
+                cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize("ELEVATION", "4K", "LANDSCAPE")));
+        assertThat(jobSnapshot(job)).isEqualTo(original);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class)).isEqualTo(ledger);
+    }
+
+    @Test
+    void legacyElevationWithEmptyRequestReplaysInheritedFrozenRequirements() {
+        givePoints(USER_A, 500);
+        long project = projects.createProject(USER_A, "SELF_UPLOAD", null, null,
+                Map.of("note", "原始需求", "floorCount", 2), "ELEVATION");
+        for (Map<String, Object> config : List.of(Map.<String, Object>of(), Map.<String, Object>of("note", "局部覆盖"))) {
+            String key = "legacy-inherited-" + config.size();
+            long job = projects.createElevationJob(USER_A, project, 1, key, config, confirmed("ELEVATION")).jobId();
+            jdbc.update("UPDATE ai_job SET input_snapshot=input_snapshot-'requestConfig'-'requestedImageOptions' WHERE id=?", job);
+            String original = jobSnapshot(job);
+            long jobs = jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class);
+            long ledger = jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class);
+            var replay = projects.createElevationJob(USER_A, project, 1, key, config, null);
+            assertThat(replay.jobId()).isEqualTo(job);
+            assertThat(replay.created()).isFalse();
+            assertIdempotencyConflict(() -> projects.createElevationJob(USER_A, project, 1, key, Map.of("floorCount", 3), null));
+            assertThat(jobSnapshot(job)).isEqualTo(original);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class)).isEqualTo(jobs);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class)).isEqualTo(ledger);
+        }
+    }
+
+    @Test
+    void revisionReplayRejectsChangedOrientationAndKeepsFirstSpecsAfterVersionEvolution() {
+        long project = projectWithFlatSelected();
+        long elevation = projects.createElevationJob(USER_A, project, 1, "revision-source", null, confirmed("ELEVATION")).jobId();
+        runElevation(elevation, 1);
+        projects.selectElevationCandidate(USER_A, project, projects.promoteCandidates(USER_A, project, elevation).get(0).candidateId());
+        var config = Map.<String, Object>of("note", "调整庭院", "floorCount", 3);
+        var created = projects.createRevisionRequestReceipt(USER_A, project, "改庭院", config, 1, "revision-replay",
+                confirmed("ELEVATION"), null, null);
+        runElevation(created.newJobId(), 1);
+        var version = projects.selectElevationCandidate(USER_A, project,
+                projects.promoteCandidates(USER_A, project, created.newJobId()).get(0).candidateId());
+        long ledger = jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class);
+        long balance = jdbc.queryForObject("SELECT available_points FROM design_point_account WHERE user_id=?", Long.class, USER_A);
+        // 隔离夹具模拟后续版本规格变化；省略规格的旧请求必须仍按首次冻结值恢复。
+        jdbc.update("UPDATE design_result_version SET config_snapshot=jsonb_set(config_snapshot,'{imageOptions}','{\"resolution\":\"4K\",\"orientation\":\"PORTRAIT\"}'::jsonb) WHERE id=?", version.versionId());
+        jdbc.update("UPDATE design_selection SET active=FALSE WHERE project_id=?", project);
+        jdbc.update("UPDATE generation_price_rule SET version=version+1");
+        for (boolean legacy : List.of(false, true)) {
+            if (legacy) {
+                jdbc.update("UPDATE ai_job SET input_snapshot=input_snapshot-'requestedImageOptions'-'requestConfig' WHERE id=?", created.newJobId());
+            }
+            String original = jobSnapshot(created.newJobId());
+            var replay = projects.createRevisionRequestReceipt(USER_A, project, "改庭院",
+                    config, 1, "revision-replay", null, null, null);
+            assertThat(replay.requestId()).isEqualTo(created.requestId());
+            assertThat(replay.newJobId()).isEqualTo(created.newJobId());
+            assertThat(replay.replayed()).isTrue();
+            assertThat(projects.createRevisionRequestReceipt(USER_A, project, "改庭院", config, 1,
+                    "revision-replay", null, "2K", "LANDSCAPE").replayed()).isTrue();
+            assertIdempotencyConflict(() -> projects.createRevisionRequestReceipt(USER_A, project, "改庭院", config, 1,
+                    "revision-replay", null, "2K", "PORTRAIT"));
+            assertIdempotencyConflict(() -> projects.createRevisionRequestReceipt(USER_A, project, "改庭院", config, 1,
+                    "revision-replay", null, "4K", "LANDSCAPE"));
+            assertThat(projects.createRevisionRequestReceipt(USER_A, project, "改庭院",
+                    Map.of("floorCount", "3", "note", " 调整庭院 "), 1, "revision-replay", null, null, null).replayed()).isTrue();
+            assertIdempotencyConflict(() -> projects.createRevisionRequestReceipt(USER_A, project, "不同理由", config, 1,
+                    "revision-replay", null, null, null));
+            assertIdempotencyConflict(() -> projects.createRevisionRequestReceipt(USER_A, project, "改庭院", Map.of(), 1,
+                    "revision-replay", null, null, null));
+            assertIdempotencyConflict(() -> projects.createRevisionRequestReceipt(USER_A, project, "改庭院", config, 2,
+                    "revision-replay", null, null, null));
+            assertIdempotencyConflict(() -> projects.createElevationJob(USER_A, project, 1, "revision-replay", config, null));
+            assertIdempotencyConflict(() -> projects.createRevisionRequestReceipt(USER_A, project, "改庭院", config, 1,
+                    "revision-source", null, null, null));
+            assertThat(jobSnapshot(created.newJobId())).isEqualTo(original);
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_job", Long.class)).isEqualTo(3L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_revision_request", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger", Long.class)).isEqualTo(ledger);
+        assertThat(jdbc.queryForObject("SELECT available_points FROM design_point_account WHERE user_id=?", Long.class, USER_A)).isEqualTo(balance);
+    }
+
+    private String jobSnapshot(long jobId) {
+        return jdbc.queryForObject("SELECT input_snapshot::text FROM ai_job WHERE id=?", String.class, jobId);
+    }
+
+    private void assertIdempotencyConflict(org.assertj.core.api.ThrowableAssert.ThrowingCallable request) {
+        assertThatThrownBy(request).isInstanceOfSatisfying(ServiceException.class,
+                error -> assertThat(error.getCode()).isEqualTo(
+                        cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode()));
     }
 
     // ========== 1. 需求①拆分：未选平面可直接生成立面（纯立面线路，零参考文生图） ==========

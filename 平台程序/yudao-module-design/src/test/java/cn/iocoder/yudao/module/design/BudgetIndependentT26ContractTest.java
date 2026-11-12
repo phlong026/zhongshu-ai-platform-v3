@@ -51,8 +51,8 @@ class BudgetIndependentT26ContractTest {
         // Read-only identity projection fixture; identity behavior is tested in its owning module.
         jdbc.execute("CREATE TABLE account(id bigint PRIMARY KEY,nickname varchar(100),deleted boolean DEFAULT FALSE)");
         jdbc.execute("INSERT INTO account(id,nickname) VALUES(1,'独立预算用户'),(2,'其他用户')");
-        var projects = new DesignProjectService(ds,manager,mock(AiJobPort.class),null,null,null);
         AccountStatePort accounts = user -> { if(blocked.contains(user)) throw exception(RESOURCE_FORBIDDEN); };
+        var projects = new DesignProjectService(ds,manager,mock(AiJobPort.class),null,null,null,accounts);
         drafts = new BudgetDraftService(ds,manager,projects,accounts);
         points = new PointAccountService(ds,manager);
         pricing = new UsagePointPriceService(ds,manager,new PointLedgerPortAdapter(points));

@@ -1,9 +1,12 @@
 package cn.iocoder.yudao.module.aiorchestration;
 
+import cn.iocoder.yudao.module.aiorchestration.job.AiJobOrchestrationService;
 import cn.iocoder.yudao.module.aiorchestration.job.RuntimeCallTraceService;
 import cn.iocoder.yudao.module.aiorchestration.job.RuntimeCallTraceService.*;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
@@ -25,6 +28,7 @@ class RuntimeCallTraceIntegrationTest {
     @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
     private JdbcTemplate jdbc;
     private RuntimeCallTraceService service;
+    private AiJobOrchestrationService orchestration;
 
     @BeforeAll void migrate() {
         var ds = new SimpleDriverDataSource();
@@ -33,10 +37,13 @@ class RuntimeCallTraceIntegrationTest {
         Flyway.configure().dataSource(ds).locations("classpath:db/migration/platform", "classpath:db/migration/commerce",
                 "classpath:db/migration/ai-orchestration").load().migrate();
         jdbc = new JdbcTemplate(ds);
-        service = new RuntimeCallTraceService(ds, new DataSourceTransactionManager(ds));
+        var transactions = new DataSourceTransactionManager(ds);
+        service = new RuntimeCallTraceService(ds, transactions);
+        orchestration = new AiJobOrchestrationService(ds, transactions,
+                new cn.iocoder.yudao.module.infra.zhongshu.event.JdbcReliableEventPort(ds), null, null);
     }
     @BeforeEach void reset() {
-        jdbc.execute("TRUNCATE ai_runtime_call_trace,ai_job,ai_job_attempt");
+        jdbc.execute("TRUNCATE ai_runtime_call_trace,ai_job,ai_job_attempt,platform_cost_business,platform_cost_ledger");
         jdbc.execute("INSERT INTO ai_job(id,user_id,phase,status,requested_count,output_prefix,fencing_token,claim_expires_at) "
                 + "VALUES(1,7,'FLAT','RUNNING',2,'ai-quarantine/1',3,now()+interval '5 minutes')");
         jdbc.execute("INSERT INTO ai_job_attempt(id,job_id,attempt_no,worker_id,fencing_token) VALUES(2,1,1,'fixture',3)");
@@ -53,6 +60,114 @@ class RuntimeCallTraceIntegrationTest {
                 "用户要求与候选 " + slot,"1536x1024",null,null,1,"high",List.of());
         return new Event(1,3,"image-1-"+slot,1,3,"GENERATE",slot,state,request,
                 "SUCCEEDED".equals(state) ? new ResponseSpec(null,"b".repeat(64),13,7,"image/png",80L) : null,null);
+    }
+
+    private AiJobOrchestrationService.ClaimedJob claimServiceJob() {
+        jdbc.execute("INSERT INTO platform_cost_business(id,caller_app_id,org_id,tenant_id,service_account_id,"
+                + "request_key,task_key,fingerprint,product,price_version,unit,prompt_micros,image_micros,usage_micros,"
+                + "requested_count,reserved_micros) VALUES('trace-service','platform-b',41,31,8000000000000000031,"
+                + "'trace-request','trace-task','trace-fingerprint','FLAT',1,'MICRO_CNY',5,10,0,2,25)");
+        jdbc.execute("DELETE FROM ai_job_attempt");
+        jdbc.execute("UPDATE ai_job SET tenant_id=31,user_id=8000000000000000031,billing_mode='SERVICE_COST',"
+                + "cost_business_id='trace-service',status='QUEUED',fencing_token=2,claim_expires_at=NULL WHERE id=1");
+        var claimed = orchestration.claim("trace-worker", 1, 300, "fixture");
+        assertThat(claimed).hasSize(1);
+        return claimed.get(0);
+    }
+
+    @Test void claimedServiceAttemptInheritsThePersistedJobTenant() {
+        var claimed = claimServiceJob();
+        assertThat(claimed.jobId()).isEqualTo(1);
+        assertThat(claimed.attemptNo()).isEqualTo(1);
+        assertThat(claimed.fencingToken()).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT tenant_id FROM ai_job WHERE id=1", Long.class)).isEqualTo(31);
+        assertThat(jdbc.queryForObject("SELECT tenant_id FROM ai_job_attempt WHERE job_id=1", Long.class)).isEqualTo(31);
+    }
+
+    @Test void serviceJobTraceRegistersAndReconcilesWithoutExposingItToConsumerAdminOrChangingCost() {
+        var claimed = claimServiceJob();
+        var request = plan("服务任务需求", "service-model");
+        var requested = event("REQUESTED", request, null, null);
+        var completed = event("SUCCEEDED", request, planResponse("原计划"), null);
+        assertThat(service.record(claimed.jobId(), requested)).isTrue();
+        assertThat(service.reconcile(claimed.jobId(), completed)).isEqualTo("RETRY");
+        assertThat(jdbc.queryForObject("SELECT state FROM ai_runtime_call_trace WHERE job_id=1", String.class)).isEqualTo("REQUESTED");
+        assertThat(orchestration.completeAttempt(1, claimed.attemptNo(), claimed.fencingToken())).isTrue();
+        jdbc.execute("UPDATE ai_job SET status='SUCCEEDED' WHERE id=1");
+        var jobBefore = jdbc.queryForMap("SELECT * FROM ai_job WHERE id=1");
+        var costBefore = jdbc.queryForMap("SELECT * FROM platform_cost_business WHERE id='trace-service'");
+        assertThat(service.reconcile(1, completed)).isEqualTo("RECORDED");
+        assertThat(service.reconcile(1, completed)).isEqualTo("RECORDED");
+        assertThat(jdbc.queryForObject("SELECT response_spec->>'promptText' FROM ai_runtime_call_trace WHERE job_id=1", String.class)).isEqualTo("原计划");
+        assertThat(service.list(1)).isEmpty();
+        assertThat(jdbc.queryForMap("SELECT * FROM ai_job WHERE id=1")).isEqualTo(jobBefore);
+        assertThat(jdbc.queryForMap("SELECT * FROM platform_cost_business WHERE id='trace-service'")).isEqualTo(costBefore);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM platform_cost_ledger", Long.class)).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 32})
+    void foreignAttemptTenantCannotAuthorizeServiceTraceOrReconciliation(long attemptTenant) {
+        claimServiceJob();
+        jdbc.update("UPDATE ai_job_attempt SET tenant_id=? WHERE job_id=1", attemptTenant);
+        var request = plan("服务任务需求", "service-model");
+        assertThatThrownBy(() -> service.record(1, event("REQUESTED", request, null, null)))
+                .hasMessage("RUNTIME_TRACE_LEASE");
+        assertThatThrownBy(() -> service.reconcile(1, event("SUCCEEDED", request, planResponse("计划"), null)))
+                .hasMessage("RUNTIME_TRACE_SOURCE");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_runtime_call_trace", Long.class)).isZero();
+    }
+
+    @Test void recoveredServiceTraceRequiresBothCurrentAndSourceAttemptsToMatchTheJobTenant() {
+        claimServiceJob();
+        var request = plan("原服务请求", "service-model");
+        service.record(1, event("DISPATCHED", request, null, null));
+        jdbc.execute("UPDATE ai_job SET claim_expires_at=now()-interval '1 second' WHERE id=1");
+        var current = orchestration.claim("recovery-worker", 1, 300, "fixture").get(0);
+        var replay = new Event(current.attemptNo(), current.fencingToken(), "plan-1", 1, 3,
+                "PLAN", 0, "SUCCEEDED", request, planResponse("原计划"), null);
+        assertThat(jdbc.queryForList("SELECT tenant_id FROM ai_job_attempt WHERE job_id=1 ORDER BY attempt_no", Long.class))
+                .containsExactly(31L, 31L);
+        assertThatThrownBy(() -> service.record(1, event("SUCCEEDED", request, planResponse("原计划"), null)))
+                .hasMessage("RUNTIME_TRACE_LEASE");
+        jdbc.execute("UPDATE ai_job_attempt SET tenant_id=0 WHERE job_id=1 AND attempt_no=1");
+        assertThatThrownBy(() -> service.record(1, replay)).hasMessage("RUNTIME_TRACE_LEASE");
+        assertThatThrownBy(() -> service.reconcile(1, event("SUCCEEDED", request, planResponse("原计划"), null)))
+                .hasMessage("RUNTIME_TRACE_SOURCE");
+        jdbc.execute("UPDATE ai_job_attempt SET tenant_id=31 WHERE job_id=1 AND attempt_no=1");
+        jdbc.execute("UPDATE ai_job_attempt SET tenant_id=32 WHERE job_id=1 AND attempt_no=2");
+        assertThatThrownBy(() -> service.record(1, replay)).hasMessage("RUNTIME_TRACE_LEASE");
+        jdbc.execute("UPDATE ai_job_attempt SET tenant_id=31 WHERE job_id=1 AND attempt_no=2");
+        assertThat(service.record(1, replay)).isTrue();
+        assertThat(jdbc.queryForObject("SELECT source_attempt_no FROM ai_runtime_call_trace WHERE job_id=1", Integer.class)).isEqualTo(1);
+    }
+
+    @Test void serviceTraceStillRejectsExpiredDeletedForeignSlotAndMutableEvidence() {
+        claimServiceJob();
+        var request = plan("原服务请求", "service-model");
+        var requested = event("REQUESTED", request, null, null);
+        var completed = event("SUCCEEDED", request, planResponse("原计划"), null);
+        service.record(1, requested);
+        assertThatThrownBy(() -> service.record(9, requested)).hasMessage("RUNTIME_TRACE_INVALID");
+        assertThatThrownBy(() -> service.reconcile(9, completed)).hasMessage("RUNTIME_TRACE_INVALID");
+        assertThatThrownBy(() -> service.record(1, generate(3, "REQUESTED"))).hasMessage("RUNTIME_TRACE_LEASE");
+        assertThatThrownBy(() -> service.record(1, event("REQUESTED", plan("改参", "service-model"), null, null)))
+                .hasMessage("RUNTIME_TRACE_CONFLICT");
+        jdbc.execute("UPDATE ai_job_attempt SET deleted=TRUE WHERE job_id=1");
+        assertThatThrownBy(() -> service.record(1, requested)).hasMessage("RUNTIME_TRACE_LEASE");
+        assertThatThrownBy(() -> service.reconcile(1, completed)).hasMessage("RUNTIME_TRACE_SOURCE");
+        jdbc.execute("UPDATE ai_job_attempt SET deleted=FALSE,finished_at=now() WHERE job_id=1");
+        assertThatThrownBy(() -> service.record(1, requested)).hasMessage("RUNTIME_TRACE_LEASE");
+        jdbc.execute("UPDATE ai_job_attempt SET finished_at=NULL WHERE job_id=1");
+        jdbc.execute("UPDATE ai_job SET claim_expires_at=now()-interval '1 second' WHERE id=1");
+        assertThatThrownBy(() -> service.record(1, requested)).hasMessage("RUNTIME_TRACE_LEASE");
+        assertThat(service.reconcile(1, completed)).isEqualTo("RECORDED");
+        assertThatThrownBy(() -> service.reconcile(1, event("SUCCEEDED", request, planResponse("替换响应"), null)))
+                .hasMessage("RUNTIME_TRACE_CONFLICT");
+        jdbc.execute("UPDATE ai_job SET deleted=TRUE WHERE id=1");
+        assertThatThrownBy(() -> service.record(1, requested)).hasMessage("RUNTIME_TRACE_LEASE");
+        assertThat(service.reconcile(1, completed)).isEqualTo("DISCARDED");
+        assertThat(jdbc.queryForObject("SELECT response_spec->>'promptText' FROM ai_runtime_call_trace WHERE job_id=1", String.class)).isEqualTo("原计划");
     }
 
     @Test void registrationAndResponseAreIdempotentAndDoNotTouchBillingOrLegacyPlanRecord() {
@@ -224,7 +339,7 @@ class RuntimeCallTraceIntegrationTest {
         jdbc.execute("UPDATE ai_job_attempt SET deleted=FALSE,tenant_id=7");
         assertThatThrownBy(()->service.reconcile(1,completed)).hasMessage("RUNTIME_TRACE_SOURCE");
         jdbc.execute("UPDATE ai_job_attempt SET tenant_id=0; UPDATE ai_job SET tenant_id=7");
-        assertThat(service.reconcile(1,completed)).isEqualTo("DISCARDED");
+        assertThatThrownBy(()->service.reconcile(1,completed)).hasMessage("RUNTIME_TRACE_SOURCE");
         jdbc.execute("UPDATE ai_job SET tenant_id=0");
         // Privacy closure erases the trace while retaining the existing job/financial receipt.
         jdbc.execute("DELETE FROM ai_runtime_call_trace");

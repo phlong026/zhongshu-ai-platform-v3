@@ -1,0 +1,95 @@
+{
+  "policy": "Versioned bootstrap for an empty B database; no automatic baseline, repair or ignored history.",
+  "sources": [
+    {
+      "source": "sql/postgresql/ruoyi-vue-pro.sql",
+      "sha256": "8bab190f6fb6b55721b6ed1ce2451f90a95db5f970be71d5dd5c48fc3d0fe679",
+      "seed_rows": {
+        "dual": 1,
+        "infra_config": 7,
+        "infra_file_config": 11,
+        "infra_job": 18,
+        "system_dept": 16,
+        "system_dict_data": 915,
+        "system_dict_type": 186,
+        "system_mail_account": 4,
+        "system_mail_template": 3,
+        "system_menu": 1321,
+        "system_notice": 3,
+        "system_notify_message": 9,
+        "system_oauth2_client": 1,
+        "system_post": 4,
+        "system_role": 6,
+        "system_role_menu": 886,
+        "system_sms_channel": 3,
+        "system_sms_template": 15,
+        "system_social_client": 8,
+        "system_tenant": 1,
+        "system_tenant_package": 1,
+        "system_user_post": 11,
+        "system_user_role": 21,
+        "system_users": 1,
+        "yudao_demo01_contact": 1,
+        "yudao_demo02_category": 7,
+        "yudao_demo03_course": 17,
+        "yudao_demo03_grade": 3,
+        "yudao_demo03_student": 3
+      }
+    },
+    {
+      "source": "sql/postgresql/quartz.sql",
+      "sha256": "d8da5fdbd4f33ef273ce9ea9460fdc790f1bcabaa0fae2f08f1bdf25a3297bcd",
+      "seed_rows": {}
+    }
+  ],
+  "retained_seed_tables": [
+    "dual",
+    "system_dept",
+    "system_dict_data",
+    "system_dict_type",
+    "system_menu",
+    "system_post",
+    "system_role",
+    "system_role_menu",
+    "system_tenant",
+    "system_tenant_package"
+  ],
+  "removed_seed_tables": [
+    "infra_config",
+    "infra_file_config",
+    "infra_job",
+    "system_mail_account",
+    "system_mail_template",
+    "system_notice",
+    "system_notify_message",
+    "system_oauth2_client",
+    "system_sms_channel",
+    "system_sms_template",
+    "system_social_client",
+    "system_user_post",
+    "system_user_role",
+    "system_users",
+    "yudao_demo01_contact",
+    "yudao_demo02_category",
+    "yudao_demo03_course",
+    "yudao_demo03_grade",
+    "yudao_demo03_student"
+  ],
+  "removed_seed_policy": "No historical users, role/post bindings, credentials, social/SMS/mail clients, file settings, scheduled jobs, notices or demo rows.",
+  "bootstrap_transformations": [
+    "Remove source BEGIN/COMMIT statements so Flyway owns each migration transaction.",
+    "Set headquarters tenant expiry to 2099-12-31 23:59:59, preserving the required non-null timestamp."
+  ],
+  "oauth_client": "Only B default ADMIN client, independently generated database UUID secret; no copied secret.",
+  "administrator": "No seeded user. Explicit bootstrap-admin command with external credential files after migration.",
+  "migrations": [
+    {
+      "resource": "db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "sha256": "18ad0d0a65a1ff3e31b8e3988c1a25b3256ca1d02b374b1c314979189c936a5c"
+    },
+    {
+      "resource": "db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql",
+      "sha256": "67532571354d10d490cfbfdad0723b2ed03a2f142130108cc1131eed2ea53355"
+    }
+  ]
+}

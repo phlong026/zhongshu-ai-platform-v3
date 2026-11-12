@@ -87,7 +87,8 @@ class BudgetItemizedT10ContractTest {
         jdbc = new JdbcTemplate(ds);
         originalItems = jdbc.queryForList("SELECT id, name FROM budget_item");
         originalOptions = jdbc.queryForList("SELECT id, label FROM budget_option");
-        projects = new DesignProjectService(ds, transactions, mock(AiJobPort.class), null, null, null);
+        projects = new DesignProjectService(ds, transactions, mock(AiJobPort.class), null, null, null,
+                mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
         legacy = new BudgetService(ds, projects);
     }
 

@@ -48,18 +48,19 @@ public class RuntimeCallTraceService {
         if (request.getBytes(StandardCharsets.UTF_8).length > 524288
                 || (response != null && response.getBytes(StandardCharsets.UTF_8).length > 65536)) invalid();
         return Boolean.TRUE.equals(tx.execute(status -> {
-            var jobs = jdbc.queryForList("SELECT status, phase, requested_count, fencing_token, claim_expires_at "
-                    + "FROM ai_job WHERE tenant_id=0 AND id=? AND deleted=FALSE FOR UPDATE", jobId);
+            var jobs = jdbc.queryForList("SELECT tenant_id, status, phase, requested_count, fencing_token, claim_expires_at "
+                    + "FROM ai_job WHERE id=? AND deleted=FALSE FOR UPDATE", jobId);
             if (jobs.isEmpty()) throw new IllegalStateException("RUNTIME_TRACE_LEASE");
             var job = jobs.get(0);
+            long tenantId = ((Number) job.get("tenant_id")).longValue();
             Timestamp expiry = (Timestamp) job.get("claim_expires_at");
             if (!"FLAT".equals(job.get("phase")) || !"RUNNING".equals(job.get("status"))
                     || ((Number) job.get("fencing_token")).longValue() != event.fencingToken()
                     || expiry == null || !expiry.toInstant().isAfter(Instant.now())
                     || event.slot() > ((Number) job.get("requested_count")).intValue()
-                    || !attemptExists(jobId, event.attemptNo(), event.fencingToken(), true)
+                    || !attemptExists(tenantId, jobId, event.attemptNo(), event.fencingToken(), true)
                     || event.sourceAttemptNo() > event.attemptNo()
-                    || !attemptExists(jobId, event.sourceAttemptNo(), event.sourceFencingToken(), false)) {
+                    || !attemptExists(tenantId, jobId, event.sourceAttemptNo(), event.sourceFencingToken(), false)) {
                 throw new IllegalStateException("RUNTIME_TRACE_LEASE");
             }
             List<Map<String, Object>> old = existing(jobId, event.callId());
@@ -87,16 +88,17 @@ public class RuntimeCallTraceService {
         if (request.getBytes(StandardCharsets.UTF_8).length > 524288
                 || (response != null && response.getBytes(StandardCharsets.UTF_8).length > 65536)) invalid();
         return tx.execute(status -> {
-            var jobs = jdbc.queryForList("SELECT status,phase,requested_count,fencing_token,claim_expires_at,deleted "
-                    + "FROM ai_job WHERE tenant_id=0 AND id=? FOR UPDATE", jobId);
+            var jobs = jdbc.queryForList("SELECT tenant_id,status,phase,requested_count,fencing_token,claim_expires_at,deleted "
+                    + "FROM ai_job WHERE id=? FOR UPDATE", jobId);
             if (jobs.isEmpty() || Boolean.TRUE.equals(jobs.get(0).get("deleted"))) return "DISCARDED";
             var job = jobs.get(0);
+            long tenantId = ((Number) job.get("tenant_id")).longValue();
             if (!"FLAT".equals(job.get("phase")) || event.slot() > ((Number) job.get("requested_count")).intValue()) invalid();
             var old = existing(jobId, event.callId());
             if (!old.isEmpty()) assertSameRequest(event, request, old.get(0));
-            var attempts = jdbc.queryForList("SELECT finished_at FROM ai_job_attempt WHERE tenant_id=0 "
+            var attempts = jdbc.queryForList("SELECT finished_at FROM ai_job_attempt WHERE tenant_id=? "
                     + "AND job_id=? AND attempt_no=? AND fencing_token=? AND deleted=FALSE",
-                    jobId, event.sourceAttemptNo(), event.sourceFencingToken());
+                    tenantId, jobId, event.sourceAttemptNo(), event.sourceFencingToken());
             if (attempts.size() != 1) throw new IllegalStateException("RUNTIME_TRACE_SOURCE");
             Timestamp expiry = (Timestamp) job.get("claim_expires_at");
             boolean liveSource = "RUNNING".equals(job.get("status"))
@@ -154,10 +156,10 @@ public class RuntimeCallTraceService {
                         rs.getTimestamp("create_time").toInstant(), rs.getTimestamp("update_time").toInstant()), jobId);
     }
 
-    private boolean attemptExists(long job, int attempt, long token, boolean unfinished) {
+    private boolean attemptExists(long tenant, long job, int attempt, long token, boolean unfinished) {
         return Integer.valueOf(1).equals(jdbc.queryForObject("SELECT count(*) FROM ai_job_attempt "
-                + "WHERE tenant_id=0 AND job_id=? AND attempt_no=? AND fencing_token=? AND deleted=FALSE"
-                + (unfinished ? " AND finished_at IS NULL" : ""), Integer.class, job, attempt, token));
+                + "WHERE tenant_id=? AND job_id=? AND attempt_no=? AND fencing_token=? AND deleted=FALSE"
+                + (unfinished ? " AND finished_at IS NULL" : ""), Integer.class, tenant, job, attempt, token));
     }
 
     private static void validate(long job, Event e) {

@@ -98,7 +98,8 @@ class BudgetRevisionT10ContractTest {
         Flyway.configure().dataSource(ds).locations("classpath:db/migration/platform", "classpath:db/migration/design").load().migrate();
         itemNames = jdbc.queryForList("SELECT id, name FROM budget_item");
         optionLabels = jdbc.queryForList("SELECT id, label FROM budget_option");
-        var projects = new DesignProjectService(ds, transactions, mock(AiJobPort.class), null, null, null);
+        var projects = new DesignProjectService(ds, transactions, mock(AiJobPort.class), null, null, null,
+                mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
         appBudgets = new ItemizedBudgetService(ds, transactions, projects, new JdbcAuditPort(ds));
         legacy = new BudgetService(ds, projects);
         revisions = service(new JdbcAuditPort(ds));

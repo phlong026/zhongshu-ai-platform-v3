@@ -1,0 +1,13 @@
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <!-- Container logging owns rotation. Do not write into A's filesystem or a user-home log directory. -->
+    <logger name="software.amazon.awssdk" level="INFO"/>
+    <logger name="software.amazon.awssdk.core.ResponseInputStream" level="INFO"/>
+    <logger name="org.apache.hc.client5.http" level="INFO"/>
+    <logger name="org.apache.hc.client5.http.headers" level="INFO"/>
+    <logger name="org.apache.hc.client5.http.wire" level="INFO"/>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

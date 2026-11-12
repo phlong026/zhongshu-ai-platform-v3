@@ -105,8 +105,10 @@ class FlatSelectionR2ContractTest {
                         .toString());
         var assetService = new AssetService(dataSource, txManager, objectStorage,
                 new AssetContentScanner(), new StubContentModerationAdapter(),
-                new cn.iocoder.yudao.module.infra.zhongshu.delivery.JdbcDeliveryPort(dataSource), rights);
-        projects = new DesignProjectService(dataSource, txManager, aiJobPort, assetService, rights, quarantine);
+                new cn.iocoder.yudao.module.infra.zhongshu.delivery.JdbcDeliveryPort(dataSource), rights,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
+        projects = new DesignProjectService(dataSource, txManager, aiJobPort, assetService, rights, quarantine,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
 
         controller = new AppDesignProjectController();
         ReflectionTestUtils.setField(controller, "designProjectService", projects);

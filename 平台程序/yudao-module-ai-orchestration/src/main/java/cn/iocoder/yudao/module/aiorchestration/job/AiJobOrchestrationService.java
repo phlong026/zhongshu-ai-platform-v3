@@ -175,15 +175,15 @@ public class AiJobOrchestrationService {
             List<ClaimedJob> jobs = new java.util.ArrayList<>(ids.size());
             for (Long jobId : ids) {
                 Map<String, Object> job = jdbcTemplate.queryForMap(
-                        "SELECT fencing_token, phase, requested_count, output_prefix FROM ai_job WHERE id = ?", jobId);
+                        "SELECT tenant_id, fencing_token, phase, requested_count, output_prefix FROM ai_job WHERE id = ?", jobId);
                 long fencing = ((Number) job.get("fencing_token")).longValue();
                 Integer attemptNo = jdbcTemplate.queryForObject(
                         "SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM ai_job_attempt WHERE job_id = ?",
                         Integer.class, jobId);
                 jdbcTemplate.update(
-                        "INSERT INTO ai_job_attempt (id, job_id, attempt_no, worker_id, fencing_token) "
-                                + "VALUES (?, ?, ?, ?, ?)",
-                        IdWorker.getId(), jobId, attemptNo, workerId + "@" + providerCode, fencing);
+                        "INSERT INTO ai_job_attempt (id, job_id, attempt_no, worker_id, fencing_token, tenant_id) "
+                                + "VALUES (?, ?, ?, ?, ?, ?)",
+                        IdWorker.getId(), jobId, attemptNo, workerId + "@" + providerCode, fencing, job.get("tenant_id"));
                 jobs.add(new ClaimedJob(jobId, attemptNo, fencing,
                         (String) job.get("phase"),
                         ((Number) job.get("requested_count")).intValue(),

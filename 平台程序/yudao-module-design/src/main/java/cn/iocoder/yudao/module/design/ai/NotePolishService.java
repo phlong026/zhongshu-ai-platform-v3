@@ -57,6 +57,11 @@ public class NotePolishService {
     private final Transport transport;
     private final NotePolishLimiter limiter;
     private final ObjectMapper mapper = new ObjectMapper();
+    // Jackson's documented UTF-8 options match runtime JSON.stringify, including lone surrogates.
+    private static final ObjectMapper SERVICE_JSON = new ObjectMapper(com.fasterxml.jackson.core.JsonFactory.builder()
+            .disable(com.fasterxml.jackson.core.json.JsonWriteFeature.WRITE_HEX_UPPER_CASE)
+            .enable(com.fasterxml.jackson.core.json.JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8)
+            .build());
 
     @Autowired
     public NotePolishService(NotePolishProperties properties,
@@ -101,6 +106,105 @@ public class NotePolishService {
         }
     }
 
+    public record ServiceReceipt(String status, String polished, String requestHash) { }
+
+    /** Service requests carry a durable key understood by runtime; legacy consumer requests are unchanged. */
+    public String polishForService(long accountId, String note, String line, String receiptId) {
+        String normalized = serviceNote(note);
+        String body;
+        try {
+            body = new String(SERVICE_JSON.writeValueAsBytes(Map.of("receiptId", receiptId, "note", normalized,
+                    "line", "ELEVATION".equals(line) ? "ELEVATION" : "FLAT")), StandardCharsets.UTF_8);
+        } catch (Exception error) {
+            throw new IllegalArgumentException("Invalid note polish request", error);
+        }
+        Response response = serviceRequest(accountId, PATH, body);
+        try {
+            JsonNode receipt = mapper.readTree(response.body());
+            if (response.status()!=200 || !"SUCCEEDED".equals(receipt.path("status").asText())
+                    || !serviceRequestHash(normalized,line).equals(receipt.path("requestHash").asText())) {
+                throw new ServiceException(502, "润色结果待收据核实");
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+            log.warn("[notePolishService][account={} receipt={}] 服务收据解析失败",accountId,receiptId,error);
+            throw new ServiceException(502, "润色结果待收据核实");
+        }
+        return parse(accountId,response,System.nanoTime());
+    }
+
+    /** Read-only recovery. An unknown request is never resubmitted by this method. */
+    public ServiceReceipt serviceReceipt(long accountId, String receiptId) {
+        try {
+            String body = mapper.writeValueAsString(Map.of("receiptId", receiptId));
+            Response response = serviceRequest(accountId, PATH + "/receipt", body);
+            if (response.status() != 200) throw new ServiceException(503, "润色服务收据不可用");
+            JsonNode node = mapper.readTree(response.body());
+            String status = node.path("status").asText();
+            if (!java.util.List.of("NOT_FOUND", "PROCESSING", "SUCCEEDED", "FAILED", "UNKNOWN").contains(status)) {
+                throw new ServiceException(503, "润色服务收据无效");
+            }
+            String polished = node.path("polished").isTextual() ? node.path("polished").asText().trim() : null;
+            if ("SUCCEEDED".equals(status) && (polished == null || polished.isBlank())) {
+                throw new ServiceException(503, "润色服务收据结果缺失");
+            }
+            return new ServiceReceipt(status, polished == null ? null : polished.substring(0, Math.min(polished.length(), MAX_OUTPUT)),
+                    node.path("requestHash").isTextual() ? node.path("requestHash").asText() : null);
+        } catch (ServiceException error) {
+            throw error;
+        } catch (Exception error) {
+            log.warn("[notePolishReceipt][account={} receipt={}] 收据读取失败", accountId, receiptId, error);
+            throw new ServiceException(503, "润色服务收据不可用");
+        }
+    }
+
+    /** Runtime canonical hash: JSON.stringify({note,line}), both strings, in this exact order. */
+    public static String serviceRequestHash(String note, String line) {
+        try {
+            var canonical = new LinkedHashMap<String,String>();
+            canonical.put("note",serviceNote(note));
+            canonical.put("line","ELEVATION".equals(line)?"ELEVATION":"FLAT");
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(
+                    SERVICE_JSON.writeValueAsBytes(canonical)));
+        } catch (java.security.NoSuchAlgorithmException | com.fasterxml.jackson.core.JsonProcessingException error) {
+            throw new IllegalStateException("Cannot hash runtime receipt request",error);
+        }
+    }
+
+    private static String serviceNote(String note) {
+        if (note==null) throw new ServiceException(400,"请先输入补充需求");
+        int start=0,end=note.length();
+        while(start<end && jsWhitespace(note.charAt(start))) start++;
+        while(end>start && jsWhitespace(note.charAt(end-1))) end--;
+        String normalized=note.substring(start,end);
+        if (normalized.isEmpty() || normalized.length()>MAX_NOTE) throw new ServiceException(400,"补充需求需为1至200字");
+        return normalized;
+    }
+
+    private static boolean jsWhitespace(char value) {
+        return value==0xFEFF || value==9 || value==11 || value==12 || value==10 || value==13
+                || value==0x2028 || value==0x2029 || Character.getType(value)==Character.SPACE_SEPARATOR;
+    }
+
+    private Response serviceRequest(long accountId, String path, String body) {
+        String origin = runtimeOrigin();
+        if (origin == null || blank(internalSecret)) throw new ServiceException(503, NOT_CONFIGURED);
+        boolean submission = PATH.equals(path);
+        // Receipt polling does not call a model and must not exhaust the model's daily allowance.
+        if (submission) limiter.acquire(accountId);
+        try {
+            return transport.post(origin + path, body, signedHeaders(body, path));
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            log.warn("[notePolishService][account={} path={}] 调用中断", accountId, path, error);
+            throw new ServiceException(502, FAILED);
+        } catch (Exception error) {
+            log.warn("[notePolishService][account={} path={}] 调用失败", accountId, path, error);
+            throw new ServiceException(502, FAILED);
+        } finally {
+            if (submission) limiter.release();
+        }
+    }
+
     private String parse(long accountId, Response response, long started) {
         if (response.status() == 429) {
             log.warn("[notePolish][account={} runtime 限流 status=429 cost={}ms]", accountId, elapsedMs(started));
@@ -140,21 +244,29 @@ public class NotePolishService {
 
     /** HMAC-SHA256(secret, "{timestamp}\nPOST\n{path}\n{sha256(body)}")，与 InternalSignatureVerifier / ai-runtime 一致 */
     private Map<String, String> signedHeaders(String body) throws Exception {
+        return signedHeaders(body, PATH);
+    }
+
+    private Map<String, String> signedHeaders(String body, String path) throws Exception {
         String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Content-Type", "application/json");
         headers.put("X-ZS-Timestamp", timestamp);
-        headers.put("X-ZS-Signature", signature(internalSecret, timestamp, body));
+        headers.put("X-ZS-Signature", signature(internalSecret, timestamp, body, path));
         return headers;
     }
 
     /** 签名口径单点定义；跨语言黄金向量测试（NotePolishServiceTest / note-polish.test.mjs）锁住它 */
     public static String signature(String secret, String timestamp, String body) throws Exception {
+        return signature(secret, timestamp, body, PATH);
+    }
+
+    private static String signature(String secret, String timestamp, String body, String path) throws Exception {
         String bodyHash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(body.getBytes(StandardCharsets.UTF_8)));
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         return HexFormat.of().formatHex(mac.doFinal(
-                (timestamp + "\nPOST\n" + PATH + "\n" + bodyHash).getBytes(StandardCharsets.UTF_8)));
+                (timestamp + "\nPOST\n" + path + "\n" + bodyHash).getBytes(StandardCharsets.UTF_8)));
     }
 
     private static Response defaultTransport(String url, String body, Map<String, String> headers) throws Exception {

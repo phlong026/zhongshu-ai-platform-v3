@@ -420,9 +420,14 @@ class CaseP3BContractTest {
         var options = catalog.listPublishedStyles();
         var codes = options.stream()
                 .map(CaseCatalogService.StyleOption::code).collect(Collectors.toList());
-        assertThat(codes.subList(0, 7)).containsExactly(
-                "NEW_CHINESE", "CHINESE", "EUROPEAN", "NEW_ASIAN", "SONG", "COUNTRYSIDE", "MODERN");
-        assertThat(codes.subList(7, codes.size())).containsExactlyInAnyOrder("AMERICAN", "地中海");
+        assertThat(codes.subList(0, 9)).containsExactly(
+                "NEW_CHINESE", "CHINESE", "EUROPEAN", "NEW_ASIAN", "SONG", "COUNTRYSIDE", "MODERN",
+                "HUI_PAI", "SU_SHI");
+        assertThat(codes.subList(9, codes.size())).containsExactlyInAnyOrder("AMERICAN", "地中海");
+        assertThat(options).filteredOn(option -> option.code().equals("HUI_PAI"))
+                .extracting(CaseCatalogService.StyleOption::label).containsExactly("徽派");
+        assertThat(options).filteredOn(option -> option.code().equals("SU_SHI"))
+                .extracting(CaseCatalogService.StyleOption::label).containsExactly("苏式");
         assertThat(codes).doesNotContain("JAPANESE", "FRENCH", "未发布风格");
         assertThat(options).filteredOn(option -> option.code().equals("NEW_ASIAN"))
                 .extracting(CaseCatalogService.StyleOption::label).containsExactly("新亚洲");

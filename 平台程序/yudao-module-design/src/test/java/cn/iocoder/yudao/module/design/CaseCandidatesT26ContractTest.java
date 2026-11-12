@@ -73,7 +73,8 @@ class CaseCandidatesT26ContractTest {
         policy = new CaseMatchProperties();
         candidates = new CaseGenerationCandidateService(ds, manager, policy);
         jobs = mock(AiJobPort.class);
-        projects = new DesignProjectService(ds, manager, jobs, null, null, null);
+        projects = new DesignProjectService(ds, manager, jobs, null, null, null,
+                mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
         controller = new AppCaseController();
         ReflectionTestUtils.setField(controller, "caseCatalogService", catalog);
         ReflectionTestUtils.setField(controller, "caseGenerationCandidateService", candidates);

@@ -21,6 +21,7 @@ import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.BUDGET_INP
  * 预算测算（架构 §6.8；P0 仅参考区间）：规则版本化，输入快照可复算，历史不漂移
  */
 @Service
+@org.springframework.context.annotation.Primary
 public class BudgetService {
 
     public record Estimate(long estimateId, long projectId, String ruleVersion, long totalLowCents,
@@ -85,25 +86,54 @@ public class BudgetService {
                                    Long resultVersionId,
                                    cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
                                    String key) {
+        return createEstimateWithReceipt(userId, projectId, regionCode, structureType, materialGrade,
+                buildingArea, resultVersionId, confirmation, key).estimate();
+    }
+
+    private record EstimateCreation(Estimate estimate, boolean replayed) {
+    }
+
+    private EstimateCreation createEstimateWithReceipt(long userId, long projectId, String regionCode,
+                                                       String structureType, String materialGrade, int buildingArea,
+                                                       Long resultVersionId,
+                                                       cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
+                                                       String key) {
         if (key == null || key.isBlank() || key.length() > 128) throw new ServiceException(400, "请提供有效 Idempotency-Key");
         if (transactionTemplate == null) throw new IllegalStateException("BUDGET_TRANSACTION_NOT_WIRED");
         return transactionTemplate.execute(status -> {
             projectService.getProject(projectId, userId).orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
-            var input = new java.util.LinkedHashMap<String,Object>();
-            input.put("projectId",String.valueOf(projectId));input.put("region",regionCode);
-            input.put("structure",structureType);input.put("material",materialGrade);
-            input.put("area",buildingArea);input.put("resultVersionId",resultVersionId);
+            var input = new java.util.LinkedHashMap<String, Object>();
+            input.put("projectId", String.valueOf(projectId));
+            input.put("region", regionCode);
+            input.put("structure", structureType);
+            input.put("material", materialGrade);
+            input.put("area", buildingArea);
+            input.put("resultVersionId", resultVersionId);
             String hash;
-            try { hash=java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                    .digest(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(input))); }
-            catch (Exception error) { throw new IllegalArgumentException("Invalid budget input",error); }
-            jdbcTemplate.update("INSERT INTO budget_legacy_request(user_id,request_key,request_hash) VALUES(?,?,?) ON CONFLICT DO NOTHING",userId,key,hash);
-            var receipt=jdbcTemplate.queryForMap("SELECT request_hash,estimate_id FROM budget_legacy_request WHERE user_id=? AND request_key=? FOR UPDATE",userId,key);
-            if (!hash.equals(receipt.get("request_hash"))) throw new ServiceException(409,"同一请求号不能用于不同预算输入");
-            if (receipt.get("estimate_id") != null) return getEstimate(userId,((Number)receipt.get("estimate_id")).longValue()).orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
-            var estimate=createEstimateInside(userId,projectId,regionCode,structureType,materialGrade,buildingArea,resultVersionId,confirmation);
-            jdbcTemplate.update("UPDATE budget_legacy_request SET estimate_id=? WHERE user_id=? AND request_key=?",estimate.estimateId(),userId,key);
-            return estimate;
+            try {
+                hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                        .digest(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(input)));
+            } catch (Exception error) {
+                throw new IllegalArgumentException("Invalid budget input", error);
+            }
+            jdbcTemplate.update("INSERT INTO budget_legacy_request(user_id,request_key,request_hash) "
+                    + "VALUES(?,?,?) ON CONFLICT DO NOTHING", userId, key, hash);
+            var receipt = jdbcTemplate.queryForMap("SELECT request_hash,estimate_id FROM budget_legacy_request "
+                    + "WHERE user_id=? AND request_key=? FOR UPDATE", userId, key);
+            if (!hash.equals(receipt.get("request_hash"))) {
+                throw new ServiceException(409, "同一请求号不能用于不同预算输入");
+            }
+            // 重放标记与结果都在同一个收据锁下读取，避免并发首次请求重复落审计。
+            if (receipt.get("estimate_id") != null) {
+                var estimate = getEstimate(userId, ((Number) receipt.get("estimate_id")).longValue())
+                        .orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
+                return new EstimateCreation(estimate, true);
+            }
+            var estimate = createEstimateInside(userId, projectId, regionCode, structureType, materialGrade,
+                    buildingArea, resultVersionId, confirmation);
+            jdbcTemplate.update("UPDATE budget_legacy_request SET estimate_id=? WHERE user_id=? AND request_key=?",
+                    estimate.estimateId(), userId, key);
+            return new EstimateCreation(estimate, false);
         });
     }
 
@@ -120,19 +150,11 @@ public class BudgetService {
         if (key == null || key.isBlank() || key.length() > 128) throw new ServiceException(400, "请提供有效 Idempotency-Key");
         if (transactionTemplate == null) throw new IllegalStateException("BUDGET_TRANSACTION_NOT_WIRED");
         return transactionTemplate.execute(status -> {
-            var prior = jdbcTemplate.queryForList(
-                    "SELECT estimate_id, request_hash FROM budget_legacy_request WHERE user_id=? AND request_key=? FOR UPDATE",
-                    userId, key);
-            if (!prior.isEmpty() && prior.get(0).get("estimate_id") != null) {
-                var estimate = getEstimate(userId, ((Number) prior.get(0).get("estimate_id")).longValue())
-                        .orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
-                return new EstimateReceipt(estimate.estimateId(), estimate.totalLowCents(), estimate.totalHighCents(),
-                        estimateRuleVersionId(estimate), true);
-            }
-            var estimate = createEstimate(userId, projectId, regionCode, structureType, materialGrade,
+            var created = createEstimateWithReceipt(userId, projectId, regionCode, structureType, materialGrade,
                     buildingArea, resultVersionId, confirmation, key);
+            var estimate = created.estimate();
             return new EstimateReceipt(estimate.estimateId(), estimate.totalLowCents(), estimate.totalHighCents(),
-                    estimateRuleVersionId(estimate), false);
+                    estimateRuleVersionId(estimate), created.replayed());
         });
     }
 
@@ -148,6 +170,40 @@ public class BudgetService {
                                    String structureType, String materialGrade, int buildingArea,
                                    Long resultVersionId,
                                    cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation) {
+        return createEstimateInside(userId, projectId, regionCode, structureType, materialGrade,
+                buildingArea, resultVersionId, confirmation, null);
+    }
+
+    /** Only the service billing provider can supply a durable, verified preparation. */
+    public EstimateReceipt createServiceEstimate(cn.iocoder.yudao.module.infra.zhongshu.api.PlatformCostPort costs,
+                                                 cn.iocoder.yudao.module.infra.zhongshu.api.PlatformCostPort.Subject subject,
+                                                 String fingerprint, long projectId, String regionCode,
+                                                 String structureType, String materialGrade, int buildingArea,
+                                                 Long resultVersionId) {
+        if (transactionTemplate == null) throw new IllegalStateException("BUDGET_TRANSACTION_NOT_WIRED");
+        return transactionTemplate.execute(status -> {
+            costs.requirePrepared(subject, subject.receiptId(), fingerprint);
+            projectService.getProject(projectId, subject.serviceAccountId()).orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
+            var replay = jdbcTemplate.queryForList("SELECT id,rule_version_id,total_low_cents,total_high_cents FROM budget_estimate "
+                    + "WHERE cost_business_id=? AND user_id=? AND project_id=? AND deleted=FALSE",
+                    subject.receiptId(), subject.serviceAccountId(), projectId);
+            if (!replay.isEmpty()) {
+                var row = replay.get(0);
+                return new EstimateReceipt(((Number)row.get("id")).longValue(), ((Number)row.get("total_low_cents")).longValue(),
+                        ((Number)row.get("total_high_cents")).longValue(), ((Number)row.get("rule_version_id")).longValue(), true);
+            }
+            var estimate = createEstimateInside(subject.serviceAccountId(), projectId, regionCode, structureType,
+                    materialGrade, buildingArea, resultVersionId, null, subject.receiptId());
+            return new EstimateReceipt(estimate.estimateId(), estimate.totalLowCents(), estimate.totalHighCents(),
+                    estimateRuleVersionId(estimate), false);
+        });
+    }
+
+    private Estimate createEstimateInside(long userId, long projectId, String regionCode,
+                                   String structureType, String materialGrade, int buildingArea,
+                                   Long resultVersionId,
+                                   cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
+                                   String serviceBillingId) {
         // Reuse the project domain's ownership check before looking up prices or writing a budget.
         projectService.getProject(projectId, userId).orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
         if (resultVersionId != null && !Boolean.TRUE.equals(jdbcTemplate.queryForObject(
@@ -179,7 +235,9 @@ public class BudgetService {
                         + "input_snapshot, total_low_cents, total_high_cents) "
                         + "VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?)",
                 id, projectId, userId, ruleId, resultVersionId, toJson(input), low, high);
-        if (usagePricing != null) {
+        if (serviceBillingId != null) {
+            jdbcTemplate.update("UPDATE budget_estimate SET billing_mode='SERVICE_COST',cost_business_id=? WHERE id=?", serviceBillingId, id);
+        } else if (usagePricing != null) {
             var snapshot = usagePricing.quote("BUDGET_ESTIMATE");
             cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.requireConfirmed(snapshot, confirmation);
             usagePricing.prepareCharge(userId, snapshot, "budget_estimate", String.valueOf(id));

@@ -69,7 +69,8 @@ class BudgetMessageP7BContractTest {
 
         // These tests only use project creation/read; AI/assets/rights are not called.
         var projects = new DesignProjectService(dataSource, new DataSourceTransactionManager(dataSource),
-                null, null, null, null);
+                null, null, null, null,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
         budget = new BudgetService(dataSource, projects);
         messages = new MessageService(dataSource);
         dispatcher = new OutboxDispatcherService(dataSource, List.of(messages));

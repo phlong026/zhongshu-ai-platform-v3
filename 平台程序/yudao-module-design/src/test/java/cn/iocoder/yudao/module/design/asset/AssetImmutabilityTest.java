@@ -52,7 +52,8 @@ class AssetImmutabilityTest {
     }
     AssetService service(ContentModerationPort moderation) {
         return new AssetService(ds, new DataSourceTransactionManager(ds), storage, new AssetContentScanner(), moderation,
-                new JdbcDeliveryPort(ds), new RightsGrantService(ds));
+                new JdbcDeliveryPort(ds), new RightsGrantService(ds),
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
     }
     @AfterAll void close() { if (storage != null) storage.close(); }
     byte[] png() throws Exception { var out = new ByteArrayOutputStream(); ImageIO.write(new BufferedImage(32,32,BufferedImage.TYPE_INT_RGB), "png", out); return out.toByteArray(); }

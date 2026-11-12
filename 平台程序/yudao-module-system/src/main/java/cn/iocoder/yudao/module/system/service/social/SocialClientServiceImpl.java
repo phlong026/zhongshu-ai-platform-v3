@@ -55,6 +55,7 @@ import me.zhyd.oauth.model.AuthUser;
 import me.zhyd.oauth.request.AuthAlipayRequest;
 import me.zhyd.oauth.request.AuthRequest;
 import me.zhyd.oauth.utils.AuthStateUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -116,10 +117,11 @@ public class SocialClientServiceImpl implements SocialClientService {
     @Autowired(required = false) // 由于 justauth.enable 配置项，可以关闭 AuthRequestFactory 的功能，所以这里只能不强制注入
     private AuthRequestFactory authRequestFactory;
 
-    @Resource
-    private WxMpService wxMpService;
-    @Resource
-    private WxMpProperties wxMpProperties;
+    // 员工平台未启用公众号时，核心登录仍须正常装配。
+    @Autowired
+    private ObjectProvider<WxMpService> wxMpServiceProvider;
+    @Autowired
+    private ObjectProvider<WxMpProperties> wxMpPropertiesProvider;
     @Resource
     private StringRedisTemplate stringRedisTemplate; // WxMpService 需要使用到，所以在 Service 注入了它
     /**
@@ -249,7 +251,12 @@ public class SocialClientServiceImpl implements SocialClientService {
             return wxMpServiceCache.getUnchecked(client.getClientId() + ":" + client.getClientSecret());
         }
         // 第二步，不存在 DB 配置项，则使用 application-*.yaml 对应的 WxMpService 对象
-        return wxMpService;
+        WxMpService service = wxMpServiceProvider.getIfAvailable();
+        if (service == null) {
+            log.warn("[getWxMpService][微信公众号未配置，userType={}]", userType);
+            throw exception(SOCIAL_CLIENT_NOT_EXISTS);
+        }
+        return service;
     }
 
     /**
@@ -260,6 +267,8 @@ public class SocialClientServiceImpl implements SocialClientService {
      * @return WxMpService 对象
      */
     public WxMpService buildWxMpService(String clientId, String clientSecret) {
+        // 默认 SDK 未启用时，数据库配置的真实公众号渠道仍可独立使用。
+        WxMpProperties wxMpProperties = wxMpPropertiesProvider.getIfAvailable(WxMpProperties::new);
         // 第一步，创建 WxMpRedisConfigImpl 对象
         WxMpRedisConfigImpl configStorage = new WxMpRedisConfigImpl(
                 new RedisTemplateWxRedisOps(stringRedisTemplate),

@@ -101,9 +101,11 @@ class SubmissionP7AContractTest {
                 "p7-assets-" + System.nanoTime()).toString());
         var assetService = new AssetService(dataSource, txManager, assetStorage,
                 new AssetContentScanner(), new StubContentModerationAdapter(),
-                new cn.iocoder.yudao.module.infra.zhongshu.delivery.JdbcDeliveryPort(dataSource), rights);
+                new cn.iocoder.yudao.module.infra.zhongshu.delivery.JdbcDeliveryPort(dataSource), rights,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
         assets = assetService;
-        projects = new DesignProjectService(dataSource, txManager, aiJobPort, assetService, rights, quarantine);
+        projects = new DesignProjectService(dataSource, txManager, aiJobPort, assetService, rights, quarantine,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
         var catalog = new CaseCatalogService(dataSource, txManager);
         submissions = new SubmissionReviewService(dataSource, txManager, catalog, eventPort);
     }

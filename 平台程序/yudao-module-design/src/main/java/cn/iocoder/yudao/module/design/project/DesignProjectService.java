@@ -42,9 +42,9 @@ import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.GENERATION
  */
 @Slf4j
 @Service
+@org.springframework.context.annotation.Primary
 public class DesignProjectService {
-    @jakarta.annotation.Resource
-    private cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort accountStatePort;
+    private final cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort accountStatePort;
 
     public record ProjectSnapshot(long projectId, long userId, String sourceType, Long refCaseId,
                                   String stage, String status, String name) {
@@ -65,10 +65,24 @@ public class DesignProjectService {
 
     private final cn.iocoder.yudao.module.infra.zhongshu.api.QuarantineObjectPort quarantineObjectPort;
 
+    /** Compatibility signature: callers must migrate to an explicit account authorization policy. */
+    @Deprecated
     public DesignProjectService(DataSource dataSource, PlatformTransactionManager transactionManager,
                                 AiJobPort aiJobPort, AssetService assetService,
                                 RightsGrantService rightsGrantService,
                                 cn.iocoder.yudao.module.infra.zhongshu.api.QuarantineObjectPort quarantineObjectPort) {
+        this(dataSource, transactionManager, aiJobPort, assetService, rightsGrantService, quarantineObjectPort, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public DesignProjectService(DataSource dataSource, PlatformTransactionManager transactionManager,
+                                AiJobPort aiJobPort,
+                                @org.springframework.beans.factory.annotation.Qualifier("assetService") AssetService assetService,
+                                RightsGrantService rightsGrantService,
+                                cn.iocoder.yudao.module.infra.zhongshu.api.QuarantineObjectPort quarantineObjectPort,
+                                @org.springframework.beans.factory.annotation.Qualifier("jdbcAccountStateAdapter")
+                                cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort accountStatePort) {
+        this.accountStatePort = java.util.Objects.requireNonNull(accountStatePort, "Explicit account authorization policy required");
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.txTemplate = new TransactionTemplate(transactionManager);
         this.aiJobPort = aiJobPort;
@@ -92,7 +106,7 @@ public class DesignProjectService {
     public long createProject(long userId, String sourceType, Long refCaseId, Long sketchAssetId,
                               Map<String, Object> requirementInputs, String line, Long selectedCaseVersionId) {
         return txTemplate.execute(status -> {
-            if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
+            accountStatePort.requireActiveForWrite(userId);
             if (selectedCaseVersionId != null && (selectedCaseVersionId <= 0 || !"CASE_REFERENCE".equals(sourceType))) {
                 throw new ServiceException(400, "参考案例版本只能用于有效的参考案例请求");
             }
@@ -215,7 +229,7 @@ public class DesignProjectService {
         }
         if (key.length() > 128) throw new IllegalArgumentException("Request key too long");
         return txTemplate.execute(status -> {
-            if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
+            accountStatePort.requireActiveForWrite(userId);
             var intent = new java.util.LinkedHashMap<String,Object>();
             intent.put("source",source); intent.put("caseId",caseId); intent.put("sketchId",sketchId); intent.put("inputs",inputs); intent.put("line",line);
             // Keep historical fingerprints byte-for-byte compatible when the optional field is absent.
@@ -378,7 +392,7 @@ public class DesignProjectService {
                                         cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
                                         cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options) {
         return txTemplate.execute(transaction -> {
-        if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
+        accountStatePort.requireActiveForWrite(userId);
         jdbcTemplate.queryForMap("SELECT id FROM design_project WHERE id=? FOR UPDATE",projectId);
         ProjectSnapshot project = getProject(projectId)
                 .orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
@@ -389,7 +403,7 @@ public class DesignProjectService {
         // 项目转 ELEVATION 后旧平面键重放仍返回原任务；首个平面任务以调用方传入键落库（不再替换为项目创建键）。
         String operationKey = idempotencyKey;
         if (idempotencyKey!=null && !idempotencyKey.isBlank()) {
-            Long replayed = flatReplayReceipt(userId, projectId, idempotencyKey, count, options.resolution());
+            Long replayed = flatReplayReceipt(userId, projectId, idempotencyKey, count, options);
             if (replayed != null) return new FlatJobCreated(replayed, false);
         } else {
             // C 端「无显式键首次生成」兼容：保持 initialGenerationKey 语义不变
@@ -415,37 +429,39 @@ public class DesignProjectService {
 
     /**
      * 平面任务旧键重放收据（P-10②）：命中且参数一致返回 jobId；不一致=键重用拒绝。
-     * request_resolution 为 NULL 的存量任务跳过该比较（历史默认 2K）。
+     * 规格从首次冻结输入读取，旧列缺值也不能跳过方向或分辨率校验。
      */
-    private Long flatReplayReceipt(long userId, long projectId, String key, int count, String resolution) {
+    private Long flatReplayReceipt(long userId, long projectId, String key, int count,
+                                   cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options) {
         var rows = jdbcTemplate.queryForList(
                 "SELECT id, requested_count, request_resolution, project_ref, phase FROM ai_job "
                         + "WHERE user_id=? AND idempotency_key=? AND deleted=FALSE", userId, key);
         if (rows.isEmpty()) return null;
         var row = rows.get(0);
-        Object storedResolution = row.get("request_resolution");
         if (!String.valueOf(projectId).equals(row.get("project_ref")) || !"FLAT".equals(row.get("phase"))
-                || count != ((Number) row.get("requested_count")).intValue()
-                || storedResolution != null && !java.util.Objects.equals(resolution, storedResolution)) {
+                || count != ((Number) row.get("requested_count")).intValue()) {
             throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
         }
-        return ((Number) row.get("id")).longValue();
+        long jobId = ((Number) row.get("id")).longValue();
+        requireReplayImageOptions(jobInput(jobId), row.get("request_resolution"), "FLAT",
+                options.resolution(), options.orientation());
+        return jobId;
     }
 
     /**
      * 立面任务旧键重放收据（P-10②）：与调整请求共享键空间（唯一索引=user+key），
      * 该键已被调整请求占用=跨操作冲突（R13↔R18 同键拒绝）。
      */
-    private Long elevationReplayReceipt(long userId, long projectId, String key, int count, String resolution) {
+    private Long elevationReplayReceipt(long userId, long projectId, String key, int count,
+                                        cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options,
+                                        Map<String, Object> config) {
         var rows = jdbcTemplate.queryForList(
                 "SELECT id, requested_count, request_resolution, project_ref, phase FROM ai_job "
                         + "WHERE user_id=? AND idempotency_key=? AND deleted=FALSE", userId, key);
         if (rows.isEmpty()) return null;
         var row = rows.get(0);
-        Object storedResolution = row.get("request_resolution");
         if (!"ELEVATION".equals(row.get("phase")) || !String.valueOf(projectId).equals(row.get("project_ref"))
-                || count != ((Number) row.get("requested_count")).intValue()
-                || storedResolution != null && !java.util.Objects.equals(resolution, storedResolution)) {
+                || count != ((Number) row.get("requested_count")).intValue()) {
             throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
         }
         long jobId = ((Number) row.get("id")).longValue();
@@ -454,7 +470,56 @@ public class DesignProjectService {
         if (revisionOwned != null && revisionOwned > 0) {
             throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
         }
+        Map<String, Object> input = jobInput(jobId);
+        requireReplayImageOptions(input, row.get("request_resolution"), "ELEVATION",
+                options.resolution(), options.orientation());
+        boolean legacy = !input.containsKey("requestConfig");
+        Object original = input.get(legacy ? "requirements" : "requestConfig");
+        if (!(original instanceof Map<?, ?>)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+        Map<String, Object> requested = BudgetInputs.validateRequirementInputs(config);
+        if (legacy) {
+            // 老快照只冻结有效输入：省略值沿用原快照，不读取现在的项目需求、选图或授权。
+            var effective = new java.util.LinkedHashMap<>((Map<String, Object>) original);
+            if (requested != null) effective.putAll(requested);
+            requested = effective;
+        }
+        requireReplayConfig((Map<String, Object>) original, requested);
         return jobId;
+    }
+
+    private void requireReplayImageOptions(Map<String, Object> input, Object requestResolution, String phase,
+                                           String resolution, String orientation) {
+        Object raw = input.get(input.containsKey("requestedImageOptions") ? "requestedImageOptions" : "imageOptions");
+        if (!(raw instanceof Map<?, ?> stored)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+        String storedResolution = stringValue(stored.get("resolution"));
+        if (storedResolution == null) storedResolution = stringValue(requestResolution);
+        String storedOrientation = stringValue(stored.get("orientation"));
+        if (storedResolution == null || storedResolution.isBlank() || storedOrientation == null || storedOrientation.isBlank()) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+        var original = cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize(
+                phase, storedResolution, storedOrientation);
+        // 调整请求省略规格时必须继承首次收据，不能继承当前最新结果版本。
+        var requested = cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize(phase,
+                resolution == null || resolution.isBlank() ? original.resolution() : resolution,
+                orientation == null || orientation.isBlank() ? original.orientation() : orientation);
+        if (!original.equals(requested)
+                || requestResolution != null && !original.resolution().equals(requestResolution)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+    }
+
+    private void requireReplayConfig(Map<String, Object> original, Map<String, Object> requested) {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        Map<String, Object> stored = BudgetInputs.validateRequirementInputs(original == null ? Map.of() : original);
+        Map<String, Object> normalized = BudgetInputs.validateRequirementInputs(requested == null ? Map.of() : requested);
+        if (!mapper.valueToTree(stored).equals(mapper.valueToTree(normalized))) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
     }
 
     /** Called under the owned project row lock. The job port still validates key/count/resolution before replay. */
@@ -722,7 +787,7 @@ public class DesignProjectService {
                                               cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
                                               cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options,Long sourceSelection,boolean completeRequirements) {
         return txTemplate.execute(transaction -> {
-        if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
+        accountStatePort.requireActiveForWrite(userId);
         jdbcTemplate.queryForMap("SELECT id FROM design_project WHERE id=? FOR UPDATE",projectId);
         ProjectSnapshot project = getProject(projectId)
                 .orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
@@ -731,7 +796,7 @@ public class DesignProjectService {
         }
         // P-10②：重放先于全部可变前置检查（平面选择读取/引用资产校验/快照重建/报价）
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            Long replayed = elevationReplayReceipt(userId, projectId, idempotencyKey, count, options.resolution());
+            Long replayed = elevationReplayReceipt(userId, projectId, idempotencyKey, count, options, elevationConfig);
             if (replayed != null) return new FlatJobCreated(replayed, false);
         }
         // 需求①拆分：立面不再以「已选平面」为前置——平面选择可选；有选定时仍校验其链路（调整链沿版本快照），
@@ -923,7 +988,7 @@ public class DesignProjectService {
                                                         cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
                                                         String resolution, String orientation) {
         return txTemplate.execute(transaction -> {
-        if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
+        accountStatePort.requireActiveForWrite(userId);
         jdbcTemplate.queryForMap("SELECT id FROM design_project WHERE id=? FOR UPDATE",projectId);
         ProjectSnapshot project = getProject(projectId)
                 .orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
@@ -931,7 +996,7 @@ public class DesignProjectService {
             throw exception(RESOURCE_FORBIDDEN);
         }
         // P-10②：属主校验后立即查旧键收据——最新版本演进不影响重放（省略的 resolution/orientation 按首次解析规格冻结）
-        RevisionReceipt replayed = revisionReplayReceipt(userId, projectId, idempotencyKey, reason, configUpdates, count, resolution);
+        RevisionReceipt replayed = revisionReplayReceipt(userId, projectId, idempotencyKey, reason, configUpdates, count, resolution, orientation);
         if (replayed != null) return replayed;
         List<Long> versionRows = jdbcTemplate.query(
                 "SELECT id FROM design_result_version WHERE project_id = ? AND deleted = FALSE "
@@ -977,11 +1042,12 @@ public class DesignProjectService {
 
     /**
      * 调整请求旧键重放收据（P-10②）：收据比较=完整规范化请求（reason/configUpdates/count，
-     * resolution 显式给定且存量非空时才比较——省略值不重新继承最新版本）；
+     * resolution/orientation 显式给定时比较首次冻结值，省略值不重新继承最新版本）；
      * 同键被普通立面任务占用=跨操作冲突（R13↔R18 共享键空间）。
      */
     private RevisionReceipt revisionReplayReceipt(long userId, long projectId, String key, String reason,
-                                                  Map<String,Object> configUpdates, int count, String resolution) {
+                                                  Map<String,Object> configUpdates, int count, String resolution,
+                                                  String orientation) {
         if (key == null || key.isBlank()) return null;
         var rows = jdbcTemplate.queryForList(
                 "SELECT j.id AS job_id, j.requested_count, j.request_resolution, j.project_ref, j.phase, "
@@ -998,21 +1064,17 @@ public class DesignProjectService {
             return null;
         }
         var row = rows.get(0);
-        Object storedResolution = row.get("request_resolution");
         if (!"ELEVATION".equals(row.get("phase")) || !String.valueOf(projectId).equals(row.get("project_ref"))
                 || count != ((Number) row.get("requested_count")).intValue()
-                || !java.util.Objects.equals(reason, row.get("reason"))
-                || resolution != null && storedResolution != null && !java.util.Objects.equals(resolution, storedResolution)) {
+                || !java.util.Objects.equals(reason, row.get("reason"))) {
             throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
         }
-        String expected = configUpdates == null ? null : toStringJson(configUpdates);
+        requireReplayImageOptions(jobInput(((Number) row.get("job_id")).longValue()),
+                row.get("request_resolution"), "ELEVATION", resolution, orientation);
         try {
             var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             Object existing = row.get("config_updates");
-            if (!java.util.Objects.equals(existing == null ? null : mapper.readTree(existing.toString()),
-                    expected == null ? null : mapper.readTree(expected))) {
-                throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
-            }
+            requireReplayConfig(existing == null ? null : mapper.readValue(existing.toString(), Map.class), configUpdates);
         } catch (java.io.IOException error) {
             throw new IllegalStateException("INVALID_REVISION_CONFIG", error);
         }
@@ -1160,7 +1222,7 @@ public class DesignProjectService {
     }
 
     private void lockOwnedProject(long userId,long projectId) {
-        if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
+        accountStatePort.requireActiveForWrite(userId);
         var rows=jdbcTemplate.queryForList("SELECT id FROM design_project WHERE id=? AND user_id=? AND deleted=FALSE FOR UPDATE",projectId,userId);
         if (rows.isEmpty()) throw exception(RESOURCE_FORBIDDEN);
     }

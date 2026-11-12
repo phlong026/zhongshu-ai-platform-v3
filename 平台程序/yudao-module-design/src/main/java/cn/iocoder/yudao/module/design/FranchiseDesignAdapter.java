@@ -7,16 +7,16 @@ import cn.iocoder.yudao.module.design.asset.ModerationUnavailableException;
 import cn.iocoder.yudao.module.design.budget.BudgetService;
 import cn.iocoder.yudao.module.design.catalog.CaseCatalogService;
 import cn.iocoder.yudao.module.design.project.DesignProjectService;
-import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
 import cn.iocoder.yudao.module.infra.zhongshu.api.AiJobPort;
 import cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions;
 import cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort;
 import cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
@@ -31,7 +31,7 @@ import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.FLAT_REFER
 import static cn.iocoder.yudao.module.franchise.api.FranchiseDesignErrorCodes.SCHEME_KIND_MISMATCH;
 
 /**
- * 设计服务适配器（B2 板块 A / P-2）：yudao-module-design 实现 franchise-api 的 DesignServicePort，
+ * 设计服务适配器（B2 板块 A / P-2）：yudao-module-design 实现 design-capability-api 的 DesignServicePort，
  * 供 franchise-design 薄域代理 C 端设计能力给 B 端员工。
  *
  * <p>要点（需求文档 §3.3/§3.4/§四）：
@@ -48,7 +48,10 @@ import static cn.iocoder.yudao.module.franchise.api.FranchiseDesignErrorCodes.SC
  */
 @Slf4j
 @Component
-public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPort {
+@Primary
+@ConditionalOnProperty(prefix = "platform.legacy-design-bridge", name = "enabled",
+        havingValue = "true", matchIfMissing = true)
+public class FranchiseDesignAdapter implements DesignServicePort {
 
     private static final List<String> ALLOWED_ACTIONS_WHITELIST = List.of(
             "VIEW", "CREATE_FLAT_JOB", "SELECT_FLAT", "CREATE_ELEVATION_JOB", "SELECT_ELEVATION",
@@ -375,7 +378,6 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
         }
     }
 
-    @Override
     public boolean validateReference(long serviceAccountId, long assetId) {
         // 基-1 AssetAccessPort：与 validateAsset 同一校验实现，失败返回 false 不抛异常（14 文档 D-基1-7）
         return assetReferenceValid(jdbcTemplate.queryForList(
@@ -383,7 +385,6 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
                 serviceAccountId);
     }
 
-    @Override
     public String assetTypeOf(long serviceAccountId, long assetId) {
         var rows = jdbcTemplate.queryForList(
                 "SELECT owner_user_id, asset_type FROM asset WHERE id=? AND deleted=FALSE", assetId);
@@ -391,6 +392,12 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
             return null;
         }
         return String.valueOf(rows.get(0).get("asset_type"));
+    }
+
+    /** 跨组织或已删除的资产同样占用 ID，禁止回退到恰好同 ID 的历史文件。 */
+    public boolean legacyReferenceAllowed(long assetId) {
+        return Boolean.FALSE.equals(jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM asset WHERE id=?)", Boolean.class, assetId));
     }
 
     /** 引用有效性（两 Port 共享）：存在 + ACCEPTED + 属主=服务账号；包级静态便于纯单测三分支（14 文档 AC11） */
@@ -587,11 +594,9 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
         return new DownloadUrlView(download.url(), download.expiresAtEpochSecond());
     }
 
-    @Override
     public DesignServicePort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
                                                                  String mimeType, long sizeBytes, String sha256) {
-        // 基-1 B 端专用签发（14 文档 D-基1-4a）：仅接受 B_END 类型；completeUpload/createDownloadUrl
-        // 与 DesignServicePort 同签名，由既有方法同时充当两接口实现
+        // 旧资产桥接使用此 B_END 入口；DesignServicePort 的 command 重载仍使用设计资产通道。
         var ticket = assetService.createServiceTicket(serviceAccountId, assetType, mimeType, sizeBytes, sha256);
         return new DesignServicePort.UploadTicketView(ticket.assetId(), ticket.uploadUrl());
     }

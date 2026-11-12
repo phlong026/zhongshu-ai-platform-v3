@@ -81,6 +81,79 @@ class NotePolishServiceTest {
     }
 
     @Test
+    void serviceReceiptCanonicalHashMatchesRuntimeAndTrimsUnicodeWhitespace() {
+        assertThat(NotePolishService.serviceRequestHash("老人房在一楼", "FLAT"))
+                .isEqualTo("27949f96baba1e796195d02dbd9181b4d31b437909b2fa29a5a4a4f483544b66");
+        assertThat(NotePolishService.serviceRequestHash("白墙灰瓦", "ELEVATION"))
+                .isEqualTo("c5a543d09fdf83f005d30f59787ed24b5ced80ad90e1ce0895a544f43d42fc17");
+        assertThat(NotePolishService.serviceRequestHash("\uFEFF\u00A0老人房在一楼\u3000", "FLAT"))
+                .isEqualTo(NotePolishService.serviceRequestHash("老人房在一楼", "FLAT"));
+    }
+
+    @Test
+    void serviceHashMatchesRuntimeForControlCharactersSurrogatePairsAndLoneSurrogates() {
+        assertThat(NotePolishService.serviceRequestHash("房"+(char)0x1f+"间","FLAT"))
+                .isEqualTo("e96b9694fb7dbac773cb389dffd62d22a10bfa44ef073e6e988f69fcbbb944c0");
+        assertThat(NotePolishService.serviceRequestHash("房"+new String(Character.toChars(0x1f3e0))+"间","FLAT"))
+                .isEqualTo("c1f153ba512a0776a69d7548ebcf6fd8edfc6d964cbd4828a7bf38c58b13fb6d");
+        assertThat(NotePolishService.serviceRequestHash("房"+(char)0xd800+"间","FLAT"))
+                .isEqualTo("0688afeb4b29d96333f0742359d4e707cd614f81ca6bf759105c50a3cec5b4bf");
+        assertThat(NotePolishService.serviceRequestHash("房"+new String(new char[]{34,92,47,8,12,10,13,9,0,31})+"间","FLAT"))
+                .isEqualTo("268f83212856f463914dd0b3b36972c926cd3d667a3a8d7cefc9bb23a8861777");
+    }
+
+    @Test
+    void serviceSubmitPreservesLoneSurrogateInUtf8RequestBody() {
+        String note="房"+(char)0xd800+"间";
+        var accepted=service("http://127.0.0.1:8081",SECRET,(url,body,headers) -> {
+            var wirePayload=new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readTree(body.getBytes(StandardCharsets.UTF_8));
+            assertThat(wirePayload.path("note").asText()).isEqualTo(note);
+            assertThat(body).contains("\\ud800");
+            return new Response(200,"{\"status\":\"SUCCEEDED\",\"requestHash\":\"0688afeb4b29d96333f0742359d4e707cd614f81ca6bf759105c50a3cec5b4bf\",\"polished\":\"一层设老人房\"}");
+        });
+        assertThat(accepted.polishForService(USER,note,"FLAT","svc:surrogate-body"))
+                .isEqualTo("一层设老人房");
+    }
+
+    @Test
+    void serviceSubmitRequiresSuccessfulMatchingDurableReceipt() {
+        String hash=NotePolishService.serviceRequestHash("老人房在一楼","FLAT");
+        var accepted=service("http://127.0.0.1:8081",SECRET,(url,body,headers) -> {
+            assertThat(body).contains("\"receiptId\":\"svc:receipt-1\"");
+            return new Response(200,"{\"status\":\"SUCCEEDED\",\"requestHash\":\""+hash+"\",\"polished\":\"一层设老人房\"}");
+        });
+        assertThat(accepted.polishForService(USER,"老人房在一楼","FLAT","svc:receipt-1")).isEqualTo("一层设老人房");
+        var unknown=service("http://127.0.0.1:8081",SECRET,(url,body,headers) -> new Response(200,"{\"status\":\"UNKNOWN\"}"));
+        assertThatThrownBy(() -> unknown.polishForService(USER,"老人房在一楼","FLAT","svc:receipt-2")).isInstanceOf(ServiceException.class);
+    }
+
+    @Test
+    void receiptQuerySignsItsOwnPathAndNeverInvokesSubmit() {
+        var recovery=service("http://127.0.0.1:8081",SECRET,(url,body,headers) -> {
+            assertThat(url).endsWith("/internal/note-polish/receipt");
+            String bodyHash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(body.getBytes(StandardCharsets.UTF_8)));
+            Mac mac=Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8),"HmacSHA256"));
+            String expected=HexFormat.of().formatHex(mac.doFinal((headers.get("X-ZS-Timestamp")+"\nPOST\n/internal/note-polish/receipt\n"+bodyHash).getBytes(StandardCharsets.UTF_8)));
+            assertThat(headers.get("X-ZS-Signature")).isEqualTo(expected);
+            return new Response(200,"{\"status\":\"UNKNOWN\",\"requestHash\":\"receipt-hash\"}");
+        });
+        assertThat(recovery.serviceReceipt(USER,"svc:receipt-1").status()).isEqualTo("UNKNOWN");
+    }
+
+    @Test
+    void receiptPollingDoesNotConsumeModelQuotaNeededForRecovery() {
+        String hash=NotePolishService.serviceRequestHash("老人房在一楼","FLAT");
+        var recovery=new NotePolishService(properties("http://127.0.0.1:8081"),SECRET,(url,body,headers) ->
+                url.endsWith("/receipt")?new Response(200,"{\"status\":\"NOT_FOUND\"}"):
+                        new Response(200,"{\"status\":\"SUCCEEDED\",\"requestHash\":\""+hash+"\",\"polished\":\"一层设老人房\"}"),
+                new NotePolishLimiter(1,1,1,System::currentTimeMillis));
+        for(int i=0;i<12;i++) assertThat(recovery.serviceReceipt(USER,"svc:receipt-1").status()).isEqualTo("NOT_FOUND");
+        assertThat(recovery.polishForService(USER,"老人房在一楼","FLAT","svc:receipt-1")).isEqualTo("一层设老人房");
+    }
+
+    @Test
     void unconfiguredRuntimeOrSecretFailsFastWithoutOutboundCall() {
         NotePolishService.Transport never = (u, b, h) -> { throw new AssertionError("不应出站调用"); };
         for (NotePolishService s : new NotePolishService[]{service("", SECRET, never), service(null, SECRET, never),

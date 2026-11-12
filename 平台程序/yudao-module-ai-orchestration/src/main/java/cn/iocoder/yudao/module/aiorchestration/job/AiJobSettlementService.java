@@ -41,6 +41,22 @@ public class AiJobSettlementService {
 
     private final cn.iocoder.yudao.module.infra.zhongshu.event.ReliableEventPort reliableEventPort;
     private final cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort usagePricingPort;
+    private cn.iocoder.yudao.module.infra.zhongshu.api.PlatformCostPort platformCostPort;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setPlatformCostPort(cn.iocoder.yudao.module.infra.zhongshu.api.PlatformCostPort port) {
+        this.platformCostPort = port;
+        port.registerTaskRouting();
+    }
+
+    private cn.iocoder.yudao.module.infra.zhongshu.api.PlatformCostPort serviceCosts() {
+        if (platformCostPort == null) throw new IllegalStateException("SERVICE_COST_ROUTING_NOT_WIRED");
+        return platformCostPort;
+    }
+
+    private static boolean serviceTask(Map<String, Object> job) {
+        return "SERVICE_COST".equals(job.get("billing_mode"));
+    }
 
     @org.springframework.beans.factory.annotation.Autowired
     public AiJobSettlementService(DataSource dataSource, PlatformTransactionManager transactionManager,
@@ -80,6 +96,10 @@ public class AiJobSettlementService {
                                     PricingPort.PriceConfirmation confirmation, String resolution) {
         final String requestKey = idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey;
             return txTemplate.execute(status -> {
+                // This key is assigned only after a durable service preparation. Missing bindings fail closed.
+                if (requestKey != null && requestKey.startsWith("svc:")) {
+                    return serviceCosts().createJob(userId, requestKey, phase, count, projectRef, resolution);
+                }
                 if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
                 Long replay=orchestrationService.findRequestReplay(userId,phase,count,requestKey,projectRef,resolution);
                 if (replay != null) return replay;
@@ -140,6 +160,7 @@ public class AiJobSettlementService {
     public String reservePromptCall(long jobId,int attemptNo,long token) {
         return txTemplate.execute(transaction -> {
             var job=lockPromptJob(jobId,attemptNo,token,true);
+            if (serviceTask(job)) return serviceCosts().reservePrompt(jobId, token);
             if (((Number)job.get("prompt_pricing_version")).intValue()==0) return "EXEMPT";
             return usagePricingPort.reservePrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token);
         });
@@ -148,6 +169,7 @@ public class AiJobSettlementService {
     public boolean finishPromptCall(long jobId,int attemptNo,long token,String outcome) {
         return Boolean.TRUE.equals(txTemplate.execute(transaction -> {
             var job=lockPromptJob(jobId,attemptNo,token,false);
+            if (serviceTask(job)) return serviceCosts().finishPrompt(jobId, token, outcome, null, null, false);
             if (((Number)job.get("prompt_pricing_version")).intValue()==0) return false;
             return usagePricingPort.finishPrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token,outcome);
         }));
@@ -156,7 +178,12 @@ public class AiJobSettlementService {
 
     public boolean finishPromptCall(long jobId,int attemptNo,long token,String outcome,String callId,String responseHash) {
         return Boolean.TRUE.equals(txTemplate.execute(transaction -> {
-            var job=lockPromptJob(jobId,attemptNo,token,true);
+            var job=lockPromptJob(jobId,attemptNo,token,false);
+            if (serviceTask(job)) {
+                if (!isTerminal((String) job.get("status"))) requirePromptLease(job);
+                return serviceCosts().finishPrompt(jobId, token, outcome, callId, responseHash, true);
+            }
+            requirePromptLease(job);
             if (((Number)job.get("prompt_pricing_version")).intValue()==0) return false;
             return usagePricingPort.finishPromptForCurrentAttempt(((Number)job.get("user_id")).longValue(),
                     String.valueOf(jobId),token,outcome,callId,responseHash);
@@ -182,16 +209,24 @@ public class AiJobSettlementService {
     }
 
     private Map<String,Object> lockPromptJob(long id,int attempt,long token,boolean starting) {
-        var row=jdbcTemplate.queryForMap("SELECT user_id,prompt_pricing_version,status,fencing_token,claim_expires_at FROM ai_job WHERE id=? AND deleted=FALSE FOR UPDATE",id);
+        var row=jdbcTemplate.queryForMap("SELECT user_id,prompt_pricing_version,status,fencing_token,claim_expires_at,billing_mode FROM ai_job WHERE id=? AND deleted=FALSE FOR UPDATE",id);
         Integer exists=jdbcTemplate.queryForObject("SELECT count(*) FROM ai_job_attempt WHERE job_id=? AND attempt_no=? AND fencing_token=?",Integer.class,id,attempt,token);
         if (((Number)row.get("fencing_token")).longValue()!=token || exists==null || exists!=1) throw new IllegalStateException("Stale prompt attempt");
-        var lease=(java.sql.Timestamp)row.get("claim_expires_at");
-        if (starting && (!"RUNNING".equals(row.get("status")) || lease==null || !lease.toInstant().isAfter(java.time.Instant.now()))) throw new IllegalStateException("Prompt lease expired");
+        if (starting) requirePromptLease(row);
         return row;
     }
 
+    private void requirePromptLease(Map<String,Object> row) {
+        var lease=(java.sql.Timestamp)row.get("claim_expires_at");
+        if (!"RUNNING".equals(row.get("status")) || lease==null || !lease.toInstant().isAfter(java.time.Instant.now())) {
+            throw new IllegalStateException("Prompt lease expired");
+        }
+    }
+
     public boolean chargePromptCall(long jobId) {
-        long userId = jdbcTemplate.queryForObject("SELECT user_id FROM ai_job WHERE id = ?", Long.class, jobId);
+        var job = jdbcTemplate.queryForMap("SELECT user_id,billing_mode FROM ai_job WHERE id = ?", jobId);
+        if (serviceTask(job)) throw new IllegalStateException("SERVICE_PROMPT_REQUIRES_DURABLE_CALL_RECEIPT");
+        long userId = ((Number) job.get("user_id")).longValue();
         return usagePricingPort.chargePrepared(userId, "AI_PROMPT", "ai_job", String.valueOf(jobId));
     }
 
@@ -202,7 +237,7 @@ public class AiJobSettlementService {
     public SettlementSummary settle(long jobId, String reason) {
         SettlementSummary existing = txTemplate.execute(status -> {
             Map<String, Object> job = jdbcTemplate.queryForMap(
-                    "SELECT status, user_id, requested_count, unit_point_cost, total_point_cost, accepted_count "
+                    "SELECT status, user_id, requested_count, unit_point_cost, total_point_cost, accepted_count, billing_mode "
                             + "FROM ai_job WHERE id = ? FOR UPDATE", jobId);
             String currentStatus = (String) job.get("status");
             if (isTerminal(currentStatus)) {
@@ -244,10 +279,14 @@ public class AiJobSettlementService {
                 nextStatus = "PARTIALLY_SUCCEEDED";
             }
 
-            if (usagePricingPort != null) usagePricingPort.releaseUnsentPrompt(userId,String.valueOf(jobId));
+            if (serviceTask(job)) {
+                serviceCosts().settleImages(jobId, billable, nextStatus);
+            } else if (usagePricingPort != null) {
+                usagePricingPort.releaseUnsentPrompt(userId,String.valueOf(jobId));
+            }
             long settlementVersion = 1;
             long refundedNow = 0;
-            if (refund > 0) {
+            if (refund > 0 && !serviceTask(job)) {
                 String refundKey = "AI_JOB_SETTLE:" + jobId + ":v" + settlementVersion + ":" + reason;
                 pointLedgerPort.credit(userId, "TASK_SETTLEMENT_REFUND", refund,
                         "ai_job", String.valueOf(jobId), refundKey, null,

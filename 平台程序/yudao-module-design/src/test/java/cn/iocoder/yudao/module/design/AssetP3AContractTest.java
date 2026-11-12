@@ -82,7 +82,8 @@ class AssetP3AContractTest {
         rightsGrantService = new RightsGrantService(dataSource);
         assetService = new AssetService(dataSource, txManager, storage,
                 new AssetContentScanner(), new StubContentModerationAdapter(),
-                new JdbcDeliveryPort(dataSource), rightsGrantService);
+                new JdbcDeliveryPort(dataSource), rightsGrantService,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.infra.zhongshu.api.AccountStatePort.class));
         cases = new cn.iocoder.yudao.module.design.catalog.CaseCatalogService(dataSource, txManager);
         companyImages = new cn.iocoder.yudao.module.design.catalog.CompanyCaseImageService(cases, assetService, rightsGrantService, txManager);
     }

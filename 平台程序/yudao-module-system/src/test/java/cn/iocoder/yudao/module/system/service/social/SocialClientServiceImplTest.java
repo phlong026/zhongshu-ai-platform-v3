@@ -34,6 +34,7 @@ import me.zhyd.oauth.utils.AuthStateUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -44,6 +45,7 @@ import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertPojoEq
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.*;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -206,6 +208,39 @@ public class SocialClientServiceImplTest extends BaseDbUnitTest {
     }
 
     // =================== 微信公众号独有 ===================
+
+    @Test
+    public void testAbsentMpSdkDoesNotBlockCoreServicesAndFailsExplicitlyWhenUsed() {
+        optionalMpContext(mock(SocialClientMapper.class)).run(context -> {
+            assertThat(context).hasNotFailed();
+            assertServiceException(() -> context.getBean(SocialClientServiceImpl.class)
+                    .getWxMpService(UserTypeEnum.ADMIN.getValue()), SOCIAL_CLIENT_NOT_EXISTS);
+        });
+    }
+
+    @Test
+    public void testDatabaseMpClientWorksWithoutDefaultSdkConfiguration() {
+        SocialClientMapper mapper = mock(SocialClientMapper.class);
+        SocialClientDO client = randomPojo(SocialClientDO.class,
+                value -> value.setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        when(mapper.selectBySocialTypeAndUserType(SocialTypeEnum.WECHAT_MP.getType(), UserTypeEnum.ADMIN.getValue()))
+                .thenReturn(client);
+        optionalMpContext(mapper).run(context -> {
+            assertThat(context).hasNotFailed();
+            WxMpService service = context.getBean(SocialClientServiceImpl.class).getWxMpService(UserTypeEnum.ADMIN.getValue());
+            assertEquals(client.getClientId(), service.getWxMpConfigStorage().getAppId());
+            assertEquals(client.getClientSecret(), service.getWxMpConfigStorage().getSecret());
+        });
+    }
+
+    private ApplicationContextRunner optionalMpContext(SocialClientMapper mapper) {
+        return new ApplicationContextRunner()
+                .withBean(SocialClientServiceImpl.class)
+                .withBean("socialClientMapper", SocialClientMapper.class, () -> mapper)
+                .withBean(WxMaService.class, () -> mock(WxMaService.class))
+                .withBean(WxMaProperties.class, WxMaProperties::new)
+                .withBean(StringRedisTemplate.class, () -> mock(StringRedisTemplate.class));
+    }
 
     @Test
     public void testCreateWxMpJsapiSignature() throws WxErrorException {
