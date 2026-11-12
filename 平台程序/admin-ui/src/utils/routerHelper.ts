@@ -10,7 +10,11 @@ import {
   splitRoutePath
 } from '@/utils/routeParams'
 
-const modules = import.meta.glob('../views/**/*.{vue,tsx}')
+// B 构建不携带 A 设计管理页面；组织开通是既有 B 页面，单独保留。
+const modules = {
+  ...import.meta.glob(['../views/**/*.{vue,tsx}', '!../views/zs/**']),
+  ...import.meta.glob('../views/zs/platform-org/index.vue')
+}
 /**
  * 注册一个异步组件
  * @param componentPath 例:/bpm/oa/leave/detail

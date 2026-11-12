@@ -264,7 +264,7 @@ test('平台组织开通保留为全局授权菜单，员工工作区只读当�
   )
 })
 
-test('权限 store 裁剪展示菜单，但保留后端授权动态路由，不冒充权限撤销', async () => {
+test('B权限store只注册本地运营及授权支持路由，A源码菜单函数仍可独立使用', async () => {
   const store = pinia.createPinia()
   pinia.setActivePinia(store)
   const loaded = load('store/modules/permission.ts', {
@@ -303,9 +303,10 @@ test('权限 store 裁剪展示菜单，但保留后端授权动态路由，不�
   )
   assert.equal(
     state.getAddRouters.some((route) => route.path === '/mall'),
-    true
+    false
   )
-  assert.ok(values(state.getRouters, '/zs/budget').includes('/zs/budget'))
+  assert.equal(values(state.getRouters, '/zs/budget').length, 0)
+  assert.ok(values(state.getRouters, '/system/user').includes('/system/user'))
 })
 
 test('真实搜索组件随权限菜单变化而更新，不扫描全部路由，选择后正常导航', () => {

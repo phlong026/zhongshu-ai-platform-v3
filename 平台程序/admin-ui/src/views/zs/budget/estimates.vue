@@ -213,8 +213,8 @@ onMounted(load)
 }
 
 .quote-disabled {
-  color: var(--el-text-color-placeholder);
   font-size: 12px;
+  color: var(--el-text-color-placeholder);
   cursor: not-allowed;
 }
 </style>

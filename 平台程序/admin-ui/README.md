@@ -16,7 +16,7 @@
 
 ## 工具版本
 
-- Node.js：建议使用已有 Node 24（本轮24.14.1）；当前 pnpm 11 至少需要22.13，部分现有测试依赖也需要较新运行时。
+- Node.js：B 构建与测试使用 Node 24 LTS（`>=24.14.1 <25`，本次验证为 24.14.1）。`vue-i18n` 安全补丁至少要求 Node 22；B 不再声明支持 Node 20。仅选择项目工具链，不修改全局 Node 或 A 应用。
 - pnpm：`11.19.0`（由 `package.json#packageManager` 固定）
 
 项目级 `.npmrc` 固定使用 npm 官方 registry；`pnpm-workspace.yaml` 仅允许锁文件中 3 个明确登记的传递依赖执行安装脚本。

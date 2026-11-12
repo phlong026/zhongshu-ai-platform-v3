@@ -158,8 +158,10 @@
         <div class="price-book-copy">
           <strong>基准价版本</strong>
           <span v-if="priceBook && priceBook.version"
-            >v{{ priceBook.version }} · {{ priceBook.itemCount }} 项<template v-if="priceBook.createdAt"
-              > · {{ displayTime(priceBook.createdAt) }}</template
+            >v{{ priceBook.version }} · {{ priceBook.itemCount }} 项<template
+              v-if="priceBook.createdAt"
+            >
+              · {{ displayTime(priceBook.createdAt) }}</template
             ></span
           >
           <span v-else>尚未建立版本</span>
@@ -588,12 +590,7 @@
           placeholder="如：2026-10 武汉调价"
         />
       </el-form-item>
-      <el-alert
-        v-if="priceBookError"
-        :title="priceBookError"
-        type="error"
-        :closable="false"
-      />
+      <el-alert v-if="priceBookError" :title="priceBookError" type="error" :closable="false" />
       <template #footer>
         <el-button :disabled="priceBookLoading" @click="priceBookVisible = false">取消</el-button>
         <el-button type="primary" :loading="priceBookLoading" @click="applyPublishPriceBook"
@@ -1035,15 +1032,16 @@ onMounted(refresh)
 <style scoped lang="scss">
 .price-book-bar {
   display: flex;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  background: var(--el-fill-color-lighter);
 }
+
 .price-book-copy {
   display: flex;
   align-items: center;
@@ -1052,6 +1050,7 @@ onMounted(refresh)
   font-size: 13px;
   color: var(--el-text-color-regular);
 }
+
 .budget-filters {
   display: flex;
   flex-wrap: wrap;

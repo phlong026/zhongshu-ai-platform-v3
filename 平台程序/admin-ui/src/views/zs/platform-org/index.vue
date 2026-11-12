@@ -33,12 +33,7 @@
           <el-input v-model="form.adminMobile" placeholder="11 位手机号；已存在账号将被复用" />
         </el-form-item>
         <el-form-item>
-          <el-button
-            class="zs-btn-primary"
-            type="primary"
-            :loading="submitting"
-            @click="submit"
-          >
+          <el-button class="zs-btn-primary" type="primary" :loading="submitting" @click="submit">
             正式开通
           </el-button>
         </el-form-item>

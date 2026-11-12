@@ -102,6 +102,39 @@ export function buildProjectMenus(
   return [...base.filter((route) => route.path === '/'), ...project, ...supportMenus(authorized)]
 }
 
+// B 总部仅展示其本地运营实体；授权仍由服务端 @ss 校验。
+const platformPermissions: Record<string, string> = {
+  wallets: 'platform:wallet:query',
+  plans: 'platform:wallet:plan:query',
+  orders: 'platform:wallet:order:query',
+  ledger: 'platform:wallet:ledger:query',
+  anomalies: 'platform:wallet:anomaly:query',
+  'design-prices': 'platform:design:price:query',
+  'design-costs': 'platform:design:cost:query',
+  audit: 'platform:ops:audit:query'
+}
+
+export function buildPlatformMenus(
+  base: AppRouteRecordRaw[],
+  authorized: AppRouteRecordRaw[],
+  can: (permissions: string[]) => boolean
+): AppRouteRecordRaw[] {
+  const operations = authorized
+    .filter((route) => route.path === '/platform-ops' && !route.meta?.hidden)
+    .flatMap((route) => {
+      const children = (route.children || []).filter(
+        (child) =>
+          !child.meta?.hidden &&
+          platformPermissions[child.path] &&
+          can([platformPermissions[child.path]])
+      )
+      return children.length
+        ? [{ ...route, children, redirect: fullPath(route.path, children[0].path) }]
+        : []
+    })
+  return [...base.filter((route) => route.path === '/'), ...operations, ...supportMenus(authorized)]
+}
+
 export function buildStaffMenus(
   routes: AppRouteRecordRaw[],
   can: (permission: string) => boolean

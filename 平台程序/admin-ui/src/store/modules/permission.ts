@@ -2,9 +2,8 @@ import { defineStore } from 'pinia'
 import { store } from '@/store'
 import { cloneDeep } from 'lodash-es'
 import remainingRouter from '@/router/modules/remaining'
-import zsRouter from '@/router/modules/zs'
 import frRouter from '@/router/modules/fr'
-import { buildProjectMenus, buildStaffMenus } from '@/utils/projectNavigation'
+import { buildPlatformMenus, buildStaffMenus } from '@/utils/projectNavigation'
 import { checkPermi } from '@/utils/permission'
 import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
@@ -68,7 +67,7 @@ export const usePermissionStore = defineStore('permission', {
         if (roleRouters) {
           res = roleRouters as AppCustomRouteRecordRaw[]
         }
-        const routerMap: AppRouteRecordRaw[] = generateRoute(res)
+        const routerMap = buildPlatformMenus([], generateRoute(res), checkPermi)
         // 动态路由，404一定要放到最后面
         // preschooler：vue-router@4以后已支持静态404路由，此处可不再追加
         this.addRouters = routerMap.concat([
@@ -84,12 +83,7 @@ export const usePermissionStore = defineStore('permission', {
           }
         ])
         // 渲染菜单的所有路由
-        this.routers = buildProjectMenus(
-          cloneDeep(remainingRouter),
-          cloneDeep(zsRouter) as AppRouteRecordRaw[],
-          routerMap,
-          checkPermi
-        )
+        this.routers = buildPlatformMenus(cloneDeep(remainingRouter), routerMap, checkPermi)
         resolve()
       })
     },
