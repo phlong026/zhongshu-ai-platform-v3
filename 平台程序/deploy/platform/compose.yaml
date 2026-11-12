@@ -1,0 +1,177 @@
+name: zhongshu-platform-b
+
+x-runtime: &runtime
+  restart: unless-stopped
+  pull_policy: never
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  networks: [private]
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  api:
+    <<: *runtime
+    image: ${PLATFORM_API_IMAGE:?Set an audited immutable B image tag or digest}
+    user: "10001:10001"
+    group_add: ["20000"]
+    cpus: 1.0
+    mem_limit: 1536m
+    pids_limit: 256
+    tmpfs: ["/tmp:size=128m,mode=1777"]
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp
+    command:
+      - --spring.profiles.active=pg,prod
+      - --spring.config.import=file:/etc/platform/runtime.properties,file:/run/secrets/platform.properties,configtree:/run/secrets/
+      - --server.port=48080
+      - --server.address=0.0.0.0
+      - --spring.datasource.dynamic.datasource.master.url=jdbc:postgresql://postgres-b:5432/zhongshu_platform_b
+      - --spring.datasource.dynamic.datasource.master.username=platform_app
+      - --spring.data.redis.host=redis-b
+      - --spring.data.redis.port=6379
+      - --spring.data.redis.username=platform_app
+      - --spring.data.redis.database=0
+      - --spring.flyway.enabled=false
+      - --spring.flyway.clean-disabled=true
+      - --spring.sql.init.mode=never
+      - --spring.jpa.hibernate.ddl-auto=none
+      - --flowable.database-schema-update=false
+      - --spring.quartz.jdbc.initialize-schema=never
+    ports:
+      - "127.0.0.1:48081:48080"
+    volumes:
+      - type: bind
+        source: ./runtime.properties
+        target: /etc/platform/runtime.properties
+        read_only: true
+        bind: {create_host_path: false}
+    secrets:
+      - source: pg_app_password
+        target: spring.datasource.dynamic.datasource.master.password
+      - source: redis_app_password
+        target: spring.data.redis.password
+      - source: platform_config
+        target: platform.properties
+    depends_on:
+      postgres-b: {condition: service_healthy}
+      redis-b: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, java, -cp, /opt/platform/health, Healthcheck]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    stop_grace_period: 60s
+
+  postgres-b:
+    <<: *runtime
+    image: postgres:16.15-bookworm
+    user: "999:999"
+    group_add: ["20000"]
+    cpus: 1.0
+    mem_limit: 1024m
+    pids_limit: 128
+    shm_size: 128m
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=16m,uid=999,gid=999,mode=0770
+    environment:
+      POSTGRES_DB: zhongshu_platform_b
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_bootstrap_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/platform/pg_hba.conf
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - max_connections=60
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - statement_timeout=60000
+      - -c
+      - idle_in_transaction_session_timeout=60000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - type: bind
+        source: ./postgres-init.sh
+        target: /docker-entrypoint-initdb.d/10-platform.sh
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./pg_hba.conf
+        target: /etc/platform/pg_hba.conf
+        read_only: true
+        bind: {create_host_path: false}
+    secrets: [pg_bootstrap_password, pg_owner_password, pg_app_password]
+    healthcheck:
+      test: [CMD-SHELL, 'PGPASSWORD="$$(cat /run/secrets/pg_app_password)" psql -X -h 127.0.0.1 -U platform_app -d zhongshu_platform_b -v ON_ERROR_STOP=1 -Atqc "SELECT 1" | grep -qx 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    stop_grace_period: 60s
+
+  redis-b:
+    <<: *runtime
+    image: redis:7.4.11-bookworm
+    user: "999:999"
+    group_add: ["20000"]
+    cpus: 0.5
+    mem_limit: 384m
+    pids_limit: 64
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    entrypoint: [sh, /etc/platform/redis-start.sh]
+    volumes:
+      - redisdata:/data
+      - type: bind
+        source: ./redis-start.sh
+        target: /etc/platform/redis-start.sh
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./redis-health.sh
+        target: /etc/platform/redis-health.sh
+        read_only: true
+        bind: {create_host_path: false}
+    secrets: [redis_app_password, redis_backup_password]
+    healthcheck:
+      test: [CMD, sh, /etc/platform/redis-health.sh]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    stop_grace_period: 60s
+
+networks:
+  private:
+    name: zhongshu-platform-b_private
+    driver: bridge
+
+volumes:
+  pgdata:
+    name: zhongshu-platform-b_pgdata
+  redisdata:
+    name: zhongshu-platform-b_redisdata
+
+secrets:
+  pg_bootstrap_password:
+    file: ${PLATFORM_PG_BOOTSTRAP_PASSWORD_FILE:?Set external bootstrap secret path}
+  pg_owner_password:
+    file: ${PLATFORM_PG_OWNER_PASSWORD_FILE:?Set external migration-owner secret path}
+  pg_app_password:
+    file: ${PLATFORM_PG_APP_PASSWORD_FILE:?Set external application database secret path}
+  redis_app_password:
+    file: ${PLATFORM_REDIS_APP_PASSWORD_FILE:?Set external Redis application secret path}
+  redis_backup_password:
+    file: ${PLATFORM_REDIS_BACKUP_PASSWORD_FILE:?Set external Redis backup secret path}
+  platform_config:
+    file: ${PLATFORM_CONFIG_FILE:?Set external B-only platform.properties path}

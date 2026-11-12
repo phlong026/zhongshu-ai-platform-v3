@@ -1,0 +1,205 @@
+{
+  "format": "zhongshu-legacy-b-writer-coverage/v1",
+  "scope": "G1_STATIC_CANDIDATES_ONLY",
+  "freeze_ready": false,
+  "migration_ready": false,
+  "production_verified": false,
+  "ownership_universe_verified": false,
+  "instance_acknowledgements": {},
+  "durable_work_reviewed": false,
+  "callback_receiver_verified": false,
+  "unique_consumers_verified": false,
+  "watermarks": {},
+  "note": "终点达成（G2s窄审PASS+c32意见a/b落地）：13 writers全部分覆盖=193 wired写入口；豁免3项（Captcha get/check×2 Redis-only消费方全gate；SocialClient sendSubscribeMessage void返回）+纯读1项（check-token c32源码级核验）=197写面零例外闭合。13类全覆盖终点达成——FROZEN可签前提就绪：wiredWriters=13全WIRED+豁免rationale在册+排空判据核验（ai_job 178全终态/fr_content_task 111全终态+配额量/outbox 357全DISPATCHED/data_subject 0行/refund非终态+inbox开放项清单——G2m/G2n/G2o/G2p已证）+前置项披露清单。FROZEN推演演练=绿后第一件（LegacyPlatformFrozenRehearsalTest）。",
+  "writers": [
+    {
+      "id": "platform-http",
+      "status": "WIRED",
+      "candidate_paths": [
+        "platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/controller/admin/StaffProfileController.java",
+        "platform/platform-workflow/src/main/java/cn/iocoder/yudao/module/platform/workflow/controller/admin/PlatformMessageController.java",
+        "platform/platform-workflow/src/main/java/cn/iocoder/yudao/module/platform/workflow/controller/admin/PlatformTodoController.java",
+        "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffOrgAdminController.java",
+        "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/MyPostController.java",
+        "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/OrgOnboardController.java",
+        "platform/platform-identity/src/main/java/cn/iocoder/yudao/module/platform/identity/controller/admin/StaffWechatBindingController.java",
+        "platform/platform-identity/src/main/java/cn/iocoder/yudao/module/platform/identity/controller/admin/PlatformAuthController.java"
+      ],
+      "required_evidence": "按服务端HandlerMethod核平台全部入口，包括写GET、直连和批量",
+      "coverage_note": "G2l已接线14写入口（profile-update-mine/message-read/message-read-all/org-team-create/staff-create/post-assign/post-revoke/staff-status/staff-handover/emergency-revoke/org-onboard/staff-wechat-login/staff-sms-send/staff-sms-login）。边界①（两套会话体系不混同）：platform员工会话写system_oauth2_access_token+pf_wechat_binding；identity旧token体系写user_session（legacy-session writer=3入口已接）；legacy-session剩余面（admin AuthController、revokeAllForAccount其余调用方）维持NOT_WIRED+FROZEN硬阻断，不因A1/A3接线主张已覆盖。边界②：O6/O7交接撤权使G2d登记'非HTTP可达'的桥接撤权链（WalletSessionRevocationAdapter→user_session）经HTTP可达，收口在platform-http permit覆盖下。纯读11个GET不收口；platform-wallet 4控制器仅新B闭包不在停写面。"
+    },
+    {
+      "id": "franchise-http",
+      "status": "WIRED",
+      "candidate_paths": [
+        "domains/franchise/franchise-org/src/main/java/cn/iocoder/yudao/module/franchise/org/controller/admin/WalletSessionController.java",
+        "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/controller/admin/LeadController.java",
+        "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/controller/admin/CustomerController.java",
+        "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentTaskController.java",
+        "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentDraftController.java",
+        "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPublicationController.java",
+        "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPersonaController.java",
+        "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentAssetController.java"
+      ],
+      "required_evidence": "加盟业务全部入口与资产ticket闭包；旧ADMIN直接访问同样受控",
+      "coverage_note": "franchise-http=22入口（G2a/G2b/G2c 3：wallet-session-issue+lead-invalidate+lead-link；G2r 19：内容运营面14（T2 save-work方案b与D系同批+D1-D3+P1-P4+PR1-3+A1-A3资产ticket闭包AssetAccessPort承接——G2n登记本批承接）+CRM客资/客户面5（lead-capture多表事务链三分支+uk_fr_customer_phone并发红测真实MVC并行+c31 G2c条件落地；customer-update CAS revision冲突/customer-follow/customer-scheme/customer-transfer责任转交——§11.11候选表漏列saveScheme/transfer求和复核更正随批登记）。G2b负例测试capture从白名单外收缩为pending（capture接线后负例集收缩，编辑披露于冻结json）。CRM GET纯读面（page/get/follows查询/pending）不收口。类别1自身HTTP写面收口（按入口粒度登记；终态冻结统一更新status）。"
+    },
+    {
+      "id": "legacy-session",
+      "status": "WIRED",
+      "candidate_paths": [
+        "yudao-module-identity/src/main/java/cn/iocoder/yudao/module/identity/session/UserSessionService.java"
+      ],
+      "required_evidence": "issue/validate/refresh按服务端owner；旧B token拒绝，A登录持续",
+      "status_note": "G2s终批扩展3→17（admin AuthController 8+OAuth2开放/令牌面6）；13类全覆盖"
+    },
+    {
+      "id": "identity-provision",
+      "status": "WIRED",
+      "candidate_paths": [
+        "yudao-module-identity/src/main/java/cn/iocoder/yudao/module/identity/account/AccountProvisionAdapter.java",
+        "yudao-module-identity/src/main/java/cn/iocoder/yudao/module/identity/account/JdbcAccountStateAdapter.java",
+        "yudao-module-identity/src/main/java/cn/iocoder/yudao/module/identity/controller/app/AppPrivacyController.java"
+      ],
+      "required_evidence": "账号/grant创建及同事务守卫；fr-service前缀不是完整归属证明"
+    },
+    {
+      "id": "system-mutations",
+      "status": "WIRED",
+      "candidate_paths": [
+        "yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/dept/DeptServiceImpl.java",
+        "yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/RoleServiceImpl.java",
+        "yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java"
+      ],
+      "required_evidence": "共享system用户/组织/角色关系、导入/批量及事件生产事务；混合A/B对象无明确owner不得冻结",
+      "status_note": "G2s终批扩展18→88（阶段二运营配置面70入口）；13类全覆盖"
+    },
+    {
+      "id": "system-events",
+      "status": "WIRED",
+      "candidate_paths": [
+        "platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/StaffPostUserDeletedListener.java"
+      ],
+      "required_evidence": "提交前登记子permit，AFTER_COMMIT和REQUIRES_NEW结束后释放；不可静默skip"
+    },
+    {
+      "id": "commerce-wallet",
+      "status": "WIRED",
+      "candidate_paths": [
+        "yudao-module-commerce/src/main/java/cn/iocoder/yudao/module/commerce/points/PointAccountService.java",
+        "yudao-module-commerce/src/main/java/cn/iocoder/yudao/module/commerce/adjustment/ManualPointAdjustmentService.java",
+        "yudao-module-commerce/src/main/java/cn/iocoder/yudao/module/commerce/controller/admin/GenerationPriceRuleAdminController.java",
+        "yudao-module-commerce/src/main/java/cn/iocoder/yudao/module/commerce/controller/admin/UsagePriceRuleAdminController.java"
+      ],
+      "required_evidence": "旧钱包ensure/credit/debit/reserve/consume/release和人工调账全部按对象owner；A钱包持续",
+      "coverage_note": "定价规则两控制器（7写入口：generation-price-create/retire/delete、usage-price-create/retire/delete、prompt-reconcile（Usage=4写法））为类别4后续批候选扩展：coverage候选扩展已通报manifest owner；接线前FROZEN硬阻断；配置写面不得弱化为可豁免（G2f+增补合同登记）"
+    },
+    {
+      "id": "commerce-payment",
+      "status": "WIRED",
+      "candidate_paths": [
+        "yudao-module-commerce/src/main/java/cn/iocoder/yudao/module/commerce/payment/RechargePaymentService.java",
+        "yudao-module-commerce/src/main/java/cn/iocoder/yudao/module/commerce/payment/RefundRecoveryJob.java"
+      ],
+      "required_evidence": "接收和消费分离，支付/退款inbox正确重放，唯一消费owner及集合水位；文档PG复现未执行"
+    },
+    {
+      "id": "design-driver",
+      "status": "WIRED",
+      "candidate_paths": [
+        "yudao-server/src/main/java/cn/iocoder/yudao/server/dev/ZhongshuJobDriver.java"
+      ],
+      "required_evidence": "六轮按对象在claim/LIMIT前筛选并执行前复核，不能停整个driver；A队列无饥饿",
+      "coverage_note": "G2m登记（混合模式，c31五点全批）：六轮无claim轮（不领取新任务，领取仅在HTTP /claims=ai-cancel-runtime writer J1接线）。validate/settle/promote三轮=收口型登记豁免（G2j判例：既有任务终态判定+既有预留退款非新资金移动；settle轮查询含QUEUED——J1停新领取后QUEUED存量由settle宽限退款清零，排空自洽）；outbox轮=OutboxDispatcherService.dispatchOnce调用点，组件接线归类别12批去重引用；payment/inbox轮=类别8已闭环不重复。开关zhongshu.design.driver-enabled默认false、prod显式true——豁免前提=进程存活+prod开启。存量核验：B独立库无ai_job表（B不含ai-orchestration）；本地dev融合库178行全终态零非终态零SERVICE_COST；生产库核验归切流前置运维项。【G2p排除面框架补登】设计域worker遗漏面补登：AssetValidationRecoveryJob（设计域@Scheduled，写asset_scan_result/asset——design自有表域内）——G2j判据核验登记不构成接线需求。"
+    },
+    {
+      "id": "ai-cancel-runtime",
+      "status": "WIRED",
+      "candidate_paths": [
+        "yudao-module-ai-orchestration/src/main/java/cn/iocoder/yudao/module/aiorchestration/job/AiJobCancelRecoveryJob.java",
+        "yudao-module-ai-orchestration/src/main/java/cn/iocoder/yudao/module/aiorchestration/controller/internal/AiJobInternalController.java",
+        "yudao-module-ai-orchestration/src/main/java/cn/iocoder/yudao/module/aiorchestration/controller/app/AppAiJobController.java"
+      ],
+      "required_evidence": "独立取消轮及Runtime领取/结算由其owner接线；持久任务和UNKNOWN外呼逐一审计",
+      "coverage_note": "G2m已接线2写入口（job-claim=POST /internal-api/design/v1/ai-jobs/claims停新领取门禁；job-cancel-request=POST /design/v1/ai-jobs/{id}/cancellation-requests用户取消写）。J2-J8七入口（lease-renewals/prompt-calls/prompt-call-events/progress-events/result-events/failure-events/completion-events）登记豁免=在途执行收口面（DRAINING拒绝将致completion屏障悬挂破坏排空；J3/J4=既有预留的按量结转（消耗已预留点数），非新增预留/充值——c31⑤措辞）。AiJobCancelRecoveryJob sweep=收口轮豁免。capability收据交互：SERVICE_COST任务持久call receipt门禁不受影响（B库无940表，分支抛NOT_WIRED→UNKNOWN收口）；925 command回执链恢复归类别13（调用方不同互不相交）。"
+    },
+    {
+      "id": "content-jobs",
+      "status": "WIRED",
+      "candidate_paths": [
+        "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/content/ContentTaskJob.java",
+        "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentTaskController.java",
+        "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentScriptController.java"
+      ],
+      "required_evidence": "提交/轮询/超时/收尾及已提交provider任务唯一owner；关sweep不证明已排空",
+      "coverage_note": "G2n已接线4任务创建面入口（content-task-create=POST /franchise/content/tasks、content-link-parse=POST /franchise/content/links/parse、content-script-extract=POST /franchise/content/scripts/extract、content-script-optimize=POST /franchise/content/scripts/optimize——全部写fr_content_task任务化，DRAINING 503=停新内容任务，G2m J1同型）。ContentTaskJob sweep三段（submitQueued存量推进/pollInFlight查询对账/timeoutOverdue 2h转人工）=登记豁免（G2j判例，前提=旧融合进程存活+prod开关true application-prod.yaml 108行；开关代码默认false）。capability边界：配额=fr_content_ai_usage域内计数表（ContentQuotaService INSERT ON CONFLICT/GREATEST扣减）非资金域无跨writer交叉；provider外呼（Diadi/ASR/DeepSeek/Hifly等）为content自有通道非Runtime/925链；content域零outbox交互（类别12边界干净，G2m登记的outbox去重引用不变）。运营面14入口+资产ticket闭包已由G2r接线归franchise-http（本注记'归他批'引用随G2r闭合；T2 save-work=franchise-http/content-save-work）。ContentFakeDevController @Profile(zsdev)=dev owner不接线。存量核验（dev旧融合库只读SELECT）：fr_content_task 111行全终态（FAILED 11/SUBMISSION_UNCERTAIN 11/SUCCEEDED 89）零自动排空目标态；SUBMISSION_UNCERTAIN 11行=人工开放项单列，关联fr_content_ai_usage冻结配额量可见（digital 99/ai_video_768p 143/asr 23/copy 15/link_resolution 18/ai_video_2k 0）；生产库核验=切流前置运维项。B进程：content域共享代码（G2k裁决同构）+B生产sweep经EnvironmentPolicy强制true但写B自身库=合法不在停写面。"
+    },
+    {
+      "id": "outbox-export-privacy",
+      "status": "WIRED",
+      "candidate_paths": [
+        "yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/zhongshu/delivery/OutboxDispatcherService.java",
+        "yudao-server/src/main/java/cn/iocoder/yudao/server/privacy/PrivacyLifecycleService.java",
+        "yudao-server/src/main/java/cn/iocoder/yudao/server/dev/ZhongshuExportWorker.java",
+        "yudao-server/src/main/java/cn/iocoder/yudao/server/controller/admin/AdminDataDeleteController.java",
+        "yudao-server/src/main/java/cn/iocoder/yudao/server/controller/admin/PrivacyAdminController.java",
+        "yudao-server/src/main/java/cn/iocoder/yudao/server/controller/app/AppPrivacyLifecycleController.java",
+        "yudao-module-identity/src/main/java/cn/iocoder/yudao/module/identity/controller/app/AppDataSubjectRequestController.java",
+        "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/controller/admin/ExportAuditAdminController.java"
+      ],
+      "required_evidence": "逐事件/目标对象归属，A任务持续；未证消费者存在即阻断冻结",
+      "coverage_note": "G2o已接线7写入口+G2q扩展4写入口（G2p交叉核验触发子集批：ExportAuditAdminController=yudao-module-design/controller/admin——位置更正=逐入口语义双判定实证；E1 export-job-create=POST /design/v1/export-jobs deliveryPort.createExportJob新导出任务源requester_type='ADMIN'（G2m J1同型停新任务）；E2 export-job-cancel=本人UPDATE cancel_requested（G2m C1同型）；E3 export-download-ticket+E4 export-download(CHANNEL_ACK)=取回面（c31③改判同款）——requester_type='ADMIN'平台管理语义非设计应用操作=不在排除面；W3 worker同表双属=豁免登记（G2o已登记））（admin-data-delete=DELETE /design/v1/admin-data/{type}/{id}逻辑删除/audit_event物理删除+account类型revokeAllForAccount链=G2d调用方①；admin-data-delete-batch上限200逐条审计；privacy-request-decision=CLOSE_ACCOUNT批准全账号擦除流=G2d调用方②守卫点数清零+无在途+retention版本，真实行业务覆盖=既有PrivacyLifecycleTest真实PG Testcontainers含409守卫分支+并发死锁，覆盖边界=decision端点HTTP层门禁语义由G2o套件锁定；data-export-request/account-closure-request=用户隐私请求创建P0只登记幂等；privacy-download-ticket/privacy-download=取回面接线（c31③改判：票据签发+一次性消费写'纯取回零业务写'前提不成立；PL2=ResponseEntity面走CHANNEL_ACK G2h机制复用）。DRAINING/FROZEN语义=503挂起（无permit跨域擦除/删除写=冻结证明破坏不可接受）；合规代价登记：DS挂起计数入开放项清单可观测、已完成导出不可下载=数据主体访问权延迟（解冻恢复+人工按storage文件交付，与PA1停摆人工路径合并不加新机制）、AD/PA管理操作承接同型。豁免：W1 outbox投递收口轮（dispatchOnce调度唯一=driver.outbox轮G2m引用本批正式归属；生产sink零=无订阅者收敛DISPATCHEDdev 357行实证零PENDING零DEAD）+W2 EXPORT收口tick（prod true yaml92）+W3设计导出轮（prod true yaml54——dev位置但生产活跃=worker豁免，与G2i DesignDevController @Profile排除生产形成归类判据先例对：判据=是否生产运行时注册）。B闭包：privacy/admin-delete/worker组件=旧融合专属停写面唯一；OutboxDispatcherService=infra共享但调度唯一在旧融合+sink零→B进程outbox静默零写入。存量核验（dev旧融合库只读SELECT）：outbox_event 357行全DISPATCHED零PENDING零DEAD；data_subject_request 0行（隐私请求存量=0含UNCERTAIN类开放项计数=0）；生产库核验=切流前置运维项。G2i已接AppPrivacyController.acceptConsents（identity-provision，隐私同意事实）与本writer请求生命周期分属两writer不混同。"
+    },
+    {
+      "id": "remote-recovery",
+      "status": "WIRED",
+      "candidate_paths": [
+        "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/remote/RemoteDesignGateway.java"
+      ],
+      "required_evidence": "核旧融合装配关系和持久command执行owner；新B恢复不等于已停止旧融合恢复",
+      "coverage_note": "G2p纯核验登记批（c31五点批准+排除面框架；零接线零豁免零拦截器项——比G2j更简：三重核验闭合无停写面可gate）。三重核验：N1 fr_design_remote_command表在dev旧融合库不存在（旧融合bootstrap不含franchise-design-remote location 925/945/961——925 command体系=B独立演进产物）；N2旧融合进程装配关（RemoteDesignConfiguration=@ConditionalOnProperty(remote.enabled=true缺省false)，grep全部profile yaml remote零命中→Gateway/CommandStore bean不装配）；N3 B闭包含（pom第78行+B迁移8 location+B properties:82显式enabled=true→B进程remote域活跃）。'归类别13'历史口径（G2e/G2m登记）本义=B侧gateway装配owner核验，本批正式承接闭合。组件全枚举：RemoteDesignGateway（call事务内禁入守卫+recover @Scheduled 10s QUERY_RECEIPT收口轮）+RemoteDesignCommandStore（纯JDBC状态机next_attempt_at/租约/fencing）+RemoteDesignChargePort（945计费requireReady fail-fast）——全部B进程处理B自身command=B合法操作（G2k裁决）；回执链三方一致性引用联验925证据（210/210micros）不重复验证；remote域无独立HTTP controller（service层出站网关）。fail-fast双保险：误配=caller-app-id缺省（启动失败）+写不存在的表（SQL fail-fast）——不产生静默写；部署清单约束照DesignDevController先例登记（prod禁配remote.enabled=true）。B库fr_design_remote_command存量9行（REJECTED 1/SUCCEEDED 8）=B合法运营数据（联验真实command）非停写面。交叉核验（c31加严双判定+范围有界化）触发G2q子集批：ExportAuditAdminController 4写入口（requester_type='ADMIN'平台管理语义非设计应用操作=不在排除面）→writer=outbox-export-privacy接线（G2q另立合同）；设计域排除面=63-4=59入口语义=设计应用操作显式排除于停写范畴（A保护约束最高优先级+capability实时消费无副本retain-source+G2k进程本地先例——c31排除面框架）。设计域worker遗漏面补登：AssetValidationRecoveryJob（设计域@Scheduled写asset_scan_result/asset——design自有表域内，G2j判据核验登记不构成接线需求）。方法论登记：ExportAuditAdminController位于yudao-module-design非yudao-server——位置归属会把平台管理入口错归排除面——架构排除面框架必须逐入口语义双判定的实证（c31指出）。"
+    }
+  ],
+  "exemptions": [
+    {
+      "face": "CaptchaController.get（POST /system/captcha/get）",
+      "writer": "n/a（登录前置安全面）",
+      "rationale": "Redis-only（cache-type redis+RedisCaptchaServiceImpl实证，验证码生成仅写Redis无业务表写）；消费方全gate（login/register/send-sms-code均AuthController=DRAINING全503）——c32批准豁免前提入册"
+    },
+    {
+      "face": "CaptchaController.check（POST /system/captcha/check）",
+      "writer": "n/a（登录前置安全面）",
+      "rationale": "Redis-only（校验消费仅写Redis一次性状态无业务表写）；消费方全gate（login/register/send-sms-code均AuthController=DRAINING全503）——c32批准豁免前提入册"
+    },
+    {
+      "face": "SocialClientController.sendSubscribeMessage（POST /system/social-client/send-subscribe-message）",
+      "writer": "n/a（void返回）",
+      "rationale": "void返回无响应证据面可gate（COMMON_RESULT判别器每调用必UNKNOWN→pending永不释放）；外部订阅消息推送非legacy B业务表写——G2s实施期发现（c32求和71→70+1豁免算术更正）"
+    }
+  ],
+  "pure_reads_confirmed": [
+    "OAuth2OpenController.check-token（POST，读语义——c32源码级核验完成）"
+  ],
+  "preexisting_deviations": [
+    {
+      "file": "yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/social/SocialClientServiceImpl.java",
+      "deviation": "+19/-5 WxMpService可选依赖化",
+      "provenance": "B launcher lane早期既有变更（首轮构建前既定，e1666eab包内已含）——G2s冻结json前置已存项披露（c32意见b）"
+    },
+    {
+      "file": "yudao-module-identity/src/main/java/cn/iocoder/yudao/module/identity/account/JdbcAccountStateAdapter.java",
+      "deviation": "@Primary +4行归属注释",
+      "provenance": "G2e证据链正名保留（capability第二AccountStatePort候选，CapabilityAccountGuardWiringTest锁定）——c32意见b引用"
+    },
+    {
+      "file": "dev测试改动",
+      "provenance": "DesignDevController/ContentFakeDevController/FranchiseE2ESetupController等dev面=@Profile排除生产+部署清单约束（G2i/G2n先例）——c32意见b引用e1666eab包记录闭合"
+    },
+    {
+      "file": "yudao-server/src/main/java/cn/iocoder/yudao/server/wiring/RealServiceWiringPolicy.java",
+      "deviation": "M02-T04部署lane修正（mtime 2026-11-11 00:01早于G2s）",
+      "provenance": "部署lane既有修正非G2s范围——c32随签(a)点名（原'dev测试改动等'未覆盖该生产main文件），引用e1666eab包记录闭合"
+    }
+  ]
+}

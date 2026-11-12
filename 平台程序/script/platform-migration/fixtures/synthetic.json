@@ -1,0 +1,37 @@
+{
+  "format": "zhongshu-platform-synthetic/v1",
+  "synthetic": true,
+  "b_orgs": ["101"],
+  "accounts": [
+    {"id": "1001", "app": "A", "org_id": null},
+    {"id": "2001", "app": "B", "org_id": "101"}
+  ],
+  "balances": [
+    {"account_id": "1001", "available": 13743, "reserved": 24},
+    {"account_id": "2001", "available": 0, "reserved": 0}
+  ],
+  "obligations": [
+    {"id": "71", "account_id": "1001", "kind": "ai", "executor": "A", "watermark": "synthetic-checkpoint-1"}
+  ],
+  "users": [
+    {"id": "3001", "historical_orgs": ["101", "202"]}
+  ],
+  "bindings": [
+    {"id": "4001", "user_id": "3001"},
+    {"id": "4002", "user_id": "3001"}
+  ],
+  "binding_events": [
+    {"id": "5001", "org_id": "101", "user_id": "3001", "binding_id": "4002", "previous_binding_id": "4001"}
+  ],
+  "assets": [
+    {"id": "6001", "app": "A", "org_id": null, "status": "ACCEPTED"},
+    {"id": "6002", "app": "B", "org_id": "101", "status": "ACCEPTED"}
+  ],
+  "references": [
+    {"asset_id": "6001", "app": "A", "org_id": null, "kind": "avatar"},
+    {"asset_id": "6002", "app": "B", "org_id": "101", "kind": "business"}
+  ],
+  "sequences": [
+    {"name": "synthetic_id_seq", "last_value": 101, "increment": 1, "is_called": false, "max_id": 100, "owned_by": null}
+  ]
+}

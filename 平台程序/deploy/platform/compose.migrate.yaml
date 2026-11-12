@@ -1,0 +1,22 @@
+# Only used by ops.py migrate after scope/freeze confirmation. Compose >= 2.24.4.
+services:
+  api:
+    restart: "no"
+    ports: !reset []
+    depends_on: !reset {}
+    healthcheck:
+      disable: true
+    secrets: !override
+      - source: pg_owner_password
+        target: spring.flyway.password
+      - source: platform_config
+        target: platform.properties
+    command:
+      - migrate
+      - --spring.profiles.active=pg,migration
+      - --spring.config.import=file:/etc/platform/runtime.properties,file:/run/secrets/platform.properties,configtree:/run/secrets/
+      - --spring.flyway.url=jdbc:postgresql://postgres-b:5432/zhongshu_platform_b
+      - --spring.flyway.user=platform_owner
+      - --spring.flyway.clean-disabled=true
+      - --spring.flyway.validate-on-migrate=true
+      - --spring.flyway.baseline-on-migrate=false

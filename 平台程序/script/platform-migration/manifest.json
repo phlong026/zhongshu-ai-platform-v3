@@ -1,0 +1,3225 @@
+{
+  "format": "zhongshu-platform-ownership/v1",
+  "evidence_level": "STATIC_SOURCE_AND_LOCAL_ARTIFACT_RESOURCES",
+  "production_verified": false,
+  "locations": [
+    "platform-bootstrap",
+    "platform",
+    "pf",
+    "franchise",
+    "franchise-system",
+    "platform-wallet",
+    "franchise-asset",
+    "franchise-design-remote"
+  ],
+  "migrations": [
+    {
+      "path": "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261111.910__fr_asset.sql",
+      "location": "franchise-asset",
+      "version": "20261111.910",
+      "source_sha256": "cd51f516d0c828b1b25ba52c24a9aa02c0afb02d1960fdcadbfeb8f96b3f87f9",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-asset/V20261111.910__fr_asset.sql",
+        "sha256": "cd51f516d0c828b1b25ba52c24a9aa02c0afb02d1960fdcadbfeb8f96b3f87f9"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261022.803__fr_commission.sql",
+      "location": "franchise",
+      "version": "20261022.803",
+      "source_sha256": "70bfd702d9e7cad38747fb7cfdc78b483bd673d05d71be10700aeeea681bfb5c",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261022.803__fr_commission.sql",
+        "sha256": "70bfd702d9e7cad38747fb7cfdc78b483bd673d05d71be10700aeeea681bfb5c"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261104.821__fr_commission_dispatch_scheme_version.sql",
+      "location": "franchise",
+      "version": "20261104.821",
+      "source_sha256": "78f0ea136fb613a523832db05875c31446e0e8b79aca9d6d219b85f661ed4de7",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.821__fr_commission_dispatch_scheme_version.sql",
+        "sha256": "78f0ea136fb613a523832db05875c31446e0e8b79aca9d6d219b85f661ed4de7"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261104.822__fr_handover_freeze_contract.sql",
+      "location": "franchise",
+      "version": "20261104.822",
+      "source_sha256": "2321d1fc3e1948b8c16892f4fe8435d4af30f96e5604da55f7d67cb395dff416",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.822__fr_handover_freeze_contract.sql",
+        "sha256": "2321d1fc3e1948b8c16892f4fe8435d4af30f96e5604da55f7d67cb395dff416"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261104.823__fr_commission_dispatched_submission.sql",
+      "location": "franchise",
+      "version": "20261104.823",
+      "source_sha256": "8a00f3c9bc7dd2d909d4fc283ed30a8feaf3d157f1b4e542aab665c7041404db",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.823__fr_commission_dispatched_submission.sql",
+        "sha256": "8a00f3c9bc7dd2d909d4fc283ed30a8feaf3d157f1b4e542aab665c7041404db"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.812__fr_content_core.sql",
+      "location": "franchise",
+      "version": "20261102.812",
+      "source_sha256": "b4eee999711ac28c2845ae1c8aca4ee6b4a65ffc23debf9ef0a2c5e55379d564",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.812__fr_content_core.sql",
+        "sha256": "b4eee999711ac28c2845ae1c8aca4ee6b4a65ffc23debf9ef0a2c5e55379d564"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.813__fr_content_persona_video.sql",
+      "location": "franchise",
+      "version": "20261102.813",
+      "source_sha256": "e0bd7b8b23610d9b495ee614b95629bc75a35dccd462ae3713a1d13783fb2bfd",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.813__fr_content_persona_video.sql",
+        "sha256": "e0bd7b8b23610d9b495ee614b95629bc75a35dccd462ae3713a1d13783fb2bfd"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql",
+      "location": "franchise",
+      "version": "20261022.802",
+      "source_sha256": "e5a82226e2aded06fd9eeb430e2c1b848d6f9bb3f3fb1f3cea3b0d2897ce6a88",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261022.802__fr_crm.sql",
+        "sha256": "e5a82226e2aded06fd9eeb430e2c1b848d6f9bb3f3fb1f3cea3b0d2897ce6a88"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261102.807__fr_scheme_design_project.sql",
+      "location": "franchise",
+      "version": "20261102.807",
+      "source_sha256": "ab6c748e86e8fc7683aeb235e93664b284c101ffad22221d708f4549c8fc1fd7",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.807__fr_scheme_design_project.sql",
+        "sha256": "ab6c748e86e8fc7683aeb235e93664b284c101ffad22221d708f4549c8fc1fd7"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261102.809__fr_scheme_stage.sql",
+      "location": "franchise",
+      "version": "20261102.809",
+      "source_sha256": "085e01b7e2b8822a9b035b1a140239714648f40f328bee2ac3145d4da953c430",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.809__fr_scheme_stage.sql",
+        "sha256": "085e01b7e2b8822a9b035b1a140239714648f40f328bee2ac3145d4da953c430"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.925__remote_design_commands.sql",
+      "location": "franchise-design-remote",
+      "version": "20261111.925",
+      "source_sha256": "0d0d1ea652fe6121cb6da655d056ef3b8ff291fc29663ae6a3ca74305d9cf1d1",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-design-remote/V20261111.925__remote_design_commands.sql",
+        "sha256": "0d0d1ea652fe6121cb6da655d056ef3b8ff291fc29663ae6a3ca74305d9cf1d1"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.945__design_wallet_pricing.sql",
+      "location": "franchise-design-remote",
+      "version": "20261111.945",
+      "source_sha256": "86af10b73c5abaaa22a36626837c72b9a3ca9ed6f68a5f9b0b7464bfbf698d0c",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-design-remote/V20261111.945__design_wallet_pricing.sql",
+        "sha256": "86af10b73c5abaaa22a36626837c72b9a3ca9ed6f68a5f9b0b7464bfbf698d0c"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.961__design_operations_admin.sql",
+      "location": "franchise-design-remote",
+      "version": "20261111.961",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "source_sha256": "cf3c0d921c879a9d76aa803413c848bb50f69b8f5a1cb529f972c52d962dbba4",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-design-remote/V20261111.961__design_operations_admin.sql",
+        "sha256": "cf3c0d921c879a9d76aa803413c848bb50f69b8f5a1cb529f972c52d962dbba4"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.814__fr_eng_core.sql",
+      "location": "franchise",
+      "version": "20261102.814",
+      "source_sha256": "6936c030107fb0b08c2d355b60e559da484cac807789561013d2aca5859e3c5b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.814__fr_eng_core.sql",
+        "sha256": "6936c030107fb0b08c2d355b60e559da484cac807789561013d2aca5859e3c5b"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.815__fr_eng_material.sql",
+      "location": "franchise",
+      "version": "20261102.815",
+      "source_sha256": "66c788ace131238525f13e1f5ab776934dbe845dbb7f5b71a2ad397834774151",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.815__fr_eng_material.sql",
+        "sha256": "66c788ace131238525f13e1f5ab776934dbe845dbb7f5b71a2ad397834774151"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.816__fr_eng_finance.sql",
+      "location": "franchise",
+      "version": "20261102.816",
+      "source_sha256": "395e337a41438a5de995078b9ad72c4b777dfd8b1f28a91941a309e2a9e73a7d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.816__fr_eng_finance.sql",
+        "sha256": "395e337a41438a5de995078b9ad72c4b777dfd8b1f28a91941a309e2a9e73a7d"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261104.817__fr_eng_sale_contract.sql",
+      "location": "franchise",
+      "version": "20261104.817",
+      "source_sha256": "cf5c62efbfc4067728c006d879d215e3bce848f8622113022b85c8bcb378fef4",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.817__fr_eng_sale_contract.sql",
+        "sha256": "cf5c62efbfc4067728c006d879d215e3bce848f8622113022b85c8bcb378fef4"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261104.818__fr_eng_three_stage.sql",
+      "location": "franchise",
+      "version": "20261104.818",
+      "source_sha256": "5bbada2038db1fc8afbf21beea4d19b8006212ec1db18a6e51a98d771b7ee7b9",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.818__fr_eng_three_stage.sql",
+        "sha256": "5bbada2038db1fc8afbf21beea4d19b8006212ec1db18a6e51a98d771b7ee7b9"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261104.824__fr_eng_expense.sql",
+      "location": "franchise",
+      "version": "20261104.824",
+      "source_sha256": "2dc5885fc16ae63c298520b680aa286300d921b6778cad23b21954651b004f42",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.824__fr_eng_expense.sql",
+        "sha256": "2dc5885fc16ae63c298520b680aa286300d921b6778cad23b21954651b004f42"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql",
+      "location": "franchise",
+      "version": "20261101.804",
+      "source_sha256": "49a8ed693768d3c508c73201487833b0fd990d8063ae62ca072dcf6323c82156",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261101.804__fr_finance.sql",
+        "sha256": "49a8ed693768d3c508c73201487833b0fd990d8063ae62ca072dcf6323c82156"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.805__fr_finance_txn_fix.sql",
+      "location": "franchise",
+      "version": "20261101.805",
+      "source_sha256": "3639d9fb20bf3e5922214170c4610627059d76600098076863004d875affe557",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261101.805__fr_finance_txn_fix.sql",
+        "sha256": "3639d9fb20bf3e5922214170c4610627059d76600098076863004d875affe557"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.806__fr_finance_txn_index_fix.sql",
+      "location": "franchise",
+      "version": "20261101.806",
+      "source_sha256": "daf1cd948f75093eab740d765dfddc12227cc18d0273114c0f7f5e0f93febb23",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261101.806__fr_finance_txn_index_fix.sql",
+        "sha256": "daf1cd948f75093eab740d765dfddc12227cc18d0273114c0f7f5e0f93febb23"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261102.810__fr_receipt_business_unique.sql",
+      "location": "franchise",
+      "version": "20261102.810",
+      "source_sha256": "5601f4b371fec1e39ef2e51156b16fb755f4cd7aae9798cad5a67fabb3eb51e0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.810__fr_receipt_business_unique.sql",
+        "sha256": "5601f4b371fec1e39ef2e51156b16fb755f4cd7aae9798cad5a67fabb3eb51e0"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261104.820__fr_fin_refund_direction.sql",
+      "location": "franchise",
+      "version": "20261104.820",
+      "source_sha256": "400450faf514777600f9d1df13621e5cf0f00476a031af7397585c236b3c036d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.820__fr_fin_refund_direction.sql",
+        "sha256": "400450faf514777600f9d1df13621e5cf0f00476a031af7397585c236b3c036d"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261104.827__fr_fin_payment_pending_link.sql",
+      "location": "franchise",
+      "version": "20261104.827",
+      "source_sha256": "51632832cbeeb72a4c436cf1f3b9e55a1fee2de2e5b522a55effb13bb99fad48",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.827__fr_fin_payment_pending_link.sql",
+        "sha256": "51632832cbeeb72a4c436cf1f3b9e55a1fee2de2e5b522a55effb13bb99fad48"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261104.828__fr_fin_refund_source_check.sql",
+      "location": "franchise",
+      "version": "20261104.828",
+      "source_sha256": "73ce088c580f8858bc2c913bf5c3d3ce716cd0b0b7472575696b7c11496c7826",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.828__fr_fin_refund_source_check.sql",
+        "sha256": "73ce088c580f8858bc2c913bf5c3d3ce716cd0b0b7472575696b7c11496c7826"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261104.829__fr_fin_abnormal_fund.sql",
+      "location": "franchise",
+      "version": "20261104.829",
+      "source_sha256": "7d9ed7b92a8e7185ce8b2260c70f4ba0b39c12d1497ab104157d447fae1cf061",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.829__fr_fin_abnormal_fund.sql",
+        "sha256": "7d9ed7b92a8e7185ce8b2260c70f4ba0b39c12d1497ab104157d447fae1cf061"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261104.830__fr_fin_txn_no_owner_types.sql",
+      "location": "franchise",
+      "version": "20261104.830",
+      "source_sha256": "3b220d51f5cdbb3efb0f1669e1481a1eff840d8cfddd98580a57f2633517c233",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.830__fr_fin_txn_no_owner_types.sql",
+        "sha256": "3b220d51f5cdbb3efb0f1669e1481a1eff840d8cfddd98580a57f2633517c233"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261022.801__fr_org.sql",
+      "location": "franchise",
+      "version": "20261022.801",
+      "source_sha256": "dc02066a6a88ac89ad08ffc3f0dca9f3151cca517820e2c5f7941c340b1f31e6",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261022.801__fr_org.sql",
+        "sha256": "dc02066a6a88ac89ad08ffc3f0dca9f3151cca517820e2c5f7941c340b1f31e6"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261022.851__fr_system_roles_menus.sql",
+      "location": "franchise-system",
+      "version": "20261022.851",
+      "source_sha256": "53b5cdafc6797a7318ac036564ddd466c2786f5280599756cec93cc00bfbe3ee",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261022.851__fr_system_roles_menus.sql",
+        "sha256": "53b5cdafc6797a7318ac036564ddd466c2786f5280599756cec93cc00bfbe3ee"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261101.852__fin_permissions.sql",
+      "location": "franchise-system",
+      "version": "20261101.852",
+      "source_sha256": "6e862b7c4467573925321a0cf5d6be1357a13bd6cc30294413c61930d9bf7716",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261101.852__fin_permissions.sql",
+        "sha256": "6e862b7c4467573925321a0cf5d6be1357a13bd6cc30294413c61930d9bf7716"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261102.853__design_permissions.sql",
+      "location": "franchise-system",
+      "version": "20261102.853",
+      "source_sha256": "00bb6ee841ae9b2666a1faff981b41244a7ddf47d66495f4e87e957c31973b49",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261102.853__design_permissions.sql",
+        "sha256": "00bb6ee841ae9b2666a1faff981b41244a7ddf47d66495f4e87e957c31973b49"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261102.854__sales_permissions.sql",
+      "location": "franchise-system",
+      "version": "20261102.854",
+      "source_sha256": "41f62796307fccadc2098a8336fbfcd08c123ff5f925488e80fc36f044f2927d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261102.854__sales_permissions.sql",
+        "sha256": "41f62796307fccadc2098a8336fbfcd08c123ff5f925488e80fc36f044f2927d"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261102.855__content_permissions.sql",
+      "location": "franchise-system",
+      "version": "20261102.855",
+      "source_sha256": "bb8a65d503dd708f6b529d5e6384fa84c8d53ef6409a01530c25ae353c2b5675",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261102.855__content_permissions.sql",
+        "sha256": "bb8a65d503dd708f6b529d5e6384fa84c8d53ef6409a01530c25ae353c2b5675"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261102.856__engineering_permissions.sql",
+      "location": "franchise-system",
+      "version": "20261102.856",
+      "source_sha256": "a1e03ce0f74f3f3e5f1e3bc9efcc256400b6fb7661dd847143cb87425dd669a4",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261102.856__engineering_permissions.sql",
+        "sha256": "a1e03ce0f74f3f3e5f1e3bc9efcc256400b6fb7661dd847143cb87425dd669a4"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261102.857__performance_permissions.sql",
+      "location": "franchise-system",
+      "version": "20261102.857",
+      "source_sha256": "c971ce4594c7c3e3e00436db54fdd5d5dba7f6108bfa001c06dbfb6bdc6d959b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261102.857__performance_permissions.sql",
+        "sha256": "c971ce4594c7c3e3e00436db54fdd5d5dba7f6108bfa001c06dbfb6bdc6d959b"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261105.858__eng_voucher_design_use.sql",
+      "location": "franchise-system",
+      "version": "20261105.858",
+      "source_sha256": "e685eeb00b87a9c0988b847c6fc3263be42f8fd16fb5f4ae01de4a6af17f1758",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261105.858__eng_voucher_design_use.sql",
+        "sha256": "e685eeb00b87a9c0988b847c6fc3263be42f8fd16fb5f4ae01de4a6af17f1758"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.817__fr_perf_core.sql",
+      "location": "franchise",
+      "version": "20261102.817",
+      "source_sha256": "5be818f415da165aa4863790d7c3f429b1093dadeecfda5575c1fec35cf90e6e",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.817__fr_perf_core.sql",
+        "sha256": "5be818f415da165aa4863790d7c3f429b1093dadeecfda5575c1fec35cf90e6e"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.818__fr_perf_commission.sql",
+      "location": "franchise",
+      "version": "20261102.818",
+      "source_sha256": "0dc82cc6c6d474a94fc8f187e0801bea46c1cb91ec6a1363996455ec9c0f7bb0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.818__fr_perf_commission.sql",
+        "sha256": "0dc82cc6c6d474a94fc8f187e0801bea46c1cb91ec6a1363996455ec9c0f7bb0"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.819__fr_perf_operating.sql",
+      "location": "franchise",
+      "version": "20261102.819",
+      "source_sha256": "94fc63bc7b7a5350fa3a334db2d92a3cd284517fc30accd41ca9b4767999f15f",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.819__fr_perf_operating.sql",
+        "sha256": "94fc63bc7b7a5350fa3a334db2d92a3cd284517fc30accd41ca9b4767999f15f"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261104.825__fr_perf_three_stage.sql",
+      "location": "franchise",
+      "version": "20261104.825",
+      "source_sha256": "d3c91b3837a8bf1a6b3ff3958e151598d10fbf194714504db1c0ea7c2e6a2c41",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.825__fr_perf_three_stage.sql",
+        "sha256": "d3c91b3837a8bf1a6b3ff3958e151598d10fbf194714504db1c0ea7c2e6a2c41"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261104.826__fr_perf_policy_three_stage.sql",
+      "location": "franchise",
+      "version": "20261104.826",
+      "source_sha256": "fb1fce4fb8da6e091ef6a00309ee70d0b39bc7ad8437b55955bc203a5d2f8dfd",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.826__fr_perf_policy_three_stage.sql",
+        "sha256": "fb1fce4fb8da6e091ef6a00309ee70d0b39bc7ad8437b55955bc203a5d2f8dfd"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261102.808__fr_sales.sql",
+      "location": "franchise",
+      "version": "20261102.808",
+      "source_sha256": "cfe6034dddd38ad4c4118dad585f3f99d4eaeb966eee6d584900bd70c2fa4af9",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.808__fr_sales.sql",
+        "sha256": "cfe6034dddd38ad4c4118dad585f3f99d4eaeb966eee6d584900bd70c2fa4af9"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261102.811__fr_sale_delivery_unique.sql",
+      "location": "franchise",
+      "version": "20261102.811",
+      "source_sha256": "034d6846676ee2c6f3da8c933fb5affb29f10616cb5b8c0e31c8ad8ceed9d149",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261102.811__fr_sale_delivery_unique.sql",
+        "sha256": "034d6846676ee2c6f3da8c933fb5affb29f10616cb5b8c0e31c8ad8ceed9d149"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261104.812__fr_sale_three_stage.sql",
+      "location": "franchise",
+      "version": "20261104.812",
+      "source_sha256": "b8be50e1eeda782162f96c99ca2fbfdcb230209979b0e931fdb92a5507a100ec",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261104.812__fr_sale_three_stage.sql",
+        "sha256": "b8be50e1eeda782162f96c99ca2fbfdcb230209979b0e931fdb92a5507a100ec"
+      }
+    },
+    {
+      "path": "platform/platform-command/src/main/resources/db/migration/pf/V20261022.701__pf_command_event.sql",
+      "location": "pf",
+      "version": "20261022.701",
+      "source_sha256": "5f3577585d89ea46735354a61e26d3c2e17a89cf6e62a9fa8ca517f6e563af76",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-command-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261022.701__pf_command_event.sql",
+        "sha256": "5f3577585d89ea46735354a61e26d3c2e17a89cf6e62a9fa8ca517f6e563af76"
+      }
+    },
+    {
+      "path": "platform/platform-identity/src/main/resources/db/migration/pf/V20261022.704__pf_wechat_binding.sql",
+      "location": "pf",
+      "version": "20261022.704",
+      "source_sha256": "8f516399ad3b5437452288ef928ede7825e3e29f031cd7e11ae71ca943d5881d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-identity-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261022.704__pf_wechat_binding.sql",
+        "sha256": "8f516399ad3b5437452288ef928ede7825e3e29f031cd7e11ae71ca943d5881d"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql",
+      "location": "pf",
+      "version": "20261022.702",
+      "source_sha256": "73846e6a09614dfbcd3b381e02defd36acdbda8334affc2f3b27c08875c9f064",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261022.702__pf_org.sql",
+        "sha256": "73846e6a09614dfbcd3b381e02defd36acdbda8334affc2f3b27c08875c9f064"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261031.703__pf_org_admin_permissions.sql",
+      "location": "pf",
+      "version": "20261031.703",
+      "source_sha256": "c4250829fddef4af5aa131991c4875bac3420529293777dbc65c4f41c26b7b90",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261031.703__pf_org_admin_permissions.sql",
+        "sha256": "c4250829fddef4af5aa131991c4875bac3420529293777dbc65c4f41c26b7b90"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261101.706__pf_org_sales_lead_query.sql",
+      "location": "pf",
+      "version": "20261101.706",
+      "source_sha256": "5cef1774eba1b5fe2782f93ae9110161a3241c0146e193ab5345ad30e4317086",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261101.706__pf_org_sales_lead_query.sql",
+        "sha256": "5cef1774eba1b5fe2782f93ae9110161a3241c0146e193ab5345ad30e4317086"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261104.707__pf_org_onboard.sql",
+      "location": "pf",
+      "version": "20261104.707",
+      "source_sha256": "21b79c71ec5d0951e982beaf13be5d5793a5642667b56ddf1f6cbcca66d23309",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261104.707__pf_org_onboard.sql",
+        "sha256": "21b79c71ec5d0951e982beaf13be5d5793a5642667b56ddf1f6cbcca66d23309"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261104.708__pf_handover_pending.sql",
+      "location": "pf",
+      "version": "20261104.708",
+      "source_sha256": "a85209e88773b6d1adb9a31290ac171877c4d1288bc2e74285e96ed84dda36fe",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261104.708__pf_handover_pending.sql",
+        "sha256": "a85209e88773b6d1adb9a31290ac171877c4d1288bc2e74285e96ed84dda36fe"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261104.709__pf_handover_audit.sql",
+      "location": "pf",
+      "version": "20261104.709",
+      "source_sha256": "2c583f281079fdd0115a6aa7a389b2d474ce7cf9fcb463e9d2440cb578485ad5",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261104.709__pf_handover_audit.sql",
+        "sha256": "2c583f281079fdd0115a6aa7a389b2d474ce7cf9fcb463e9d2440cb578485ad5"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.901__pf_wallet_accounting.sql",
+      "location": "platform-wallet",
+      "version": "20261111.901",
+      "source_sha256": "6e550e034da43448e3b90ea392505b842f32027fcfe774a7c4765739579fde18",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261111.901__pf_wallet_accounting.sql",
+        "sha256": "6e550e034da43448e3b90ea392505b842f32027fcfe774a7c4765739579fde18"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.902__pf_wallet_service_mapping_plans_permissions.sql",
+      "location": "platform-wallet",
+      "version": "20261111.902",
+      "source_sha256": "1e40d8385a0ddb8a2fe3ccbaa86ee6623a7240073b00b40af1dc60a2c448f4f4",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261111.902__pf_wallet_service_mapping_plans_permissions.sql",
+        "sha256": "1e40d8385a0ddb8a2fe3ccbaa86ee6623a7240073b00b40af1dc60a2c448f4f4"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql",
+      "location": "platform-wallet",
+      "version": "20261111.903",
+      "source_sha256": "2b45959e1d32b0d0d37e322131a7b1e6a9d73318e9ec4c11bd4d34cb8cfed77d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql",
+        "sha256": "2b45959e1d32b0d0d37e322131a7b1e6a9d73318e9ec4c11bd4d34cb8cfed77d"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.904__pf_wallet_refund.sql",
+      "location": "platform-wallet",
+      "version": "20261111.904",
+      "source_sha256": "07e64bd7196cb579cfcabc88b564b2a89735b3ee4a51941ecaae7fef90c1e63c",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261111.904__pf_wallet_refund.sql",
+        "sha256": "07e64bd7196cb579cfcabc88b564b2a89735b3ee4a51941ecaae7fef90c1e63c"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.905__pf_wallet_manual_adjustment.sql",
+      "location": "platform-wallet",
+      "version": "20261111.905",
+      "source_sha256": "5a07712d35e26bac3920e087abcb8a7a16204d56ecabd0c76524947ccb693261",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261111.905__pf_wallet_manual_adjustment.sql",
+        "sha256": "5a07712d35e26bac3920e087abcb8a7a16204d56ecabd0c76524947ccb693261"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.906__pf_wallet_recovery.sql",
+      "location": "platform-wallet",
+      "version": "20261111.906",
+      "source_sha256": "711c7440ca10fe9b85fee9b3fd2942fa749125593d193d12c8ed852b24a4119a",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261111.906__pf_wallet_recovery.sql",
+        "sha256": "711c7440ca10fe9b85fee9b3fd2942fa749125593d193d12c8ed852b24a4119a"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.960__platform_operations_admin.sql",
+      "location": "platform-wallet",
+      "version": "20261111.960",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "source_sha256": "7275e2f75e0309865960a7897cdc42db68a34dc9df1a6414e8edf7359b2175c1",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261111.960__platform_operations_admin.sql",
+        "sha256": "7275e2f75e0309865960a7897cdc42db68a34dc9df1a6414e8edf7359b2175c1"
+      }
+    },
+    {
+      "path": "platform/platform-workflow/src/main/resources/db/migration/pf/V20261022.703__pf_approval.sql",
+      "location": "pf",
+      "version": "20261022.703",
+      "source_sha256": "5dd2ad125d4004bdea0929785a0d34ec9ab3961f767bd51a51f816ee90b62ff5",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-workflow-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261022.703__pf_approval.sql",
+        "sha256": "5dd2ad125d4004bdea0929785a0d34ec9ab3961f767bd51a51f816ee90b62ff5"
+      }
+    },
+    {
+      "path": "platform/platform-workflow/src/main/resources/db/migration/pf/V20261101.705__pf_message.sql",
+      "location": "pf",
+      "version": "20261101.705",
+      "source_sha256": "26798bab2537aef7a39a4d271ee3767e24769d4d0ec498b406fdc9b921b23e9b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-workflow-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261101.705__pf_message.sql",
+        "sha256": "26798bab2537aef7a39a4d271ee3767e24769d4d0ec498b406fdc9b921b23e9b"
+      }
+    },
+    {
+      "path": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.001__zhongshu_baseline.sql",
+      "location": "platform",
+      "version": "20260905.001",
+      "source_sha256": "062d2a64d13e42ed819ddce6d1d8200fb3d3e53f06b032049249f2c8a1b58655",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform/V20260905.001__zhongshu_baseline.sql",
+        "sha256": "062d2a64d13e42ed819ddce6d1d8200fb3d3e53f06b032049249f2c8a1b58655"
+      }
+    },
+    {
+      "path": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.002__zhongshu_baseline_probe_index.sql",
+      "location": "platform",
+      "version": "20260905.002",
+      "source_sha256": "605da226485f9bcafa6de29d94d753cc5fdd8a14c9eb3ef4132f0398b3a15892",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform/V20260905.002__zhongshu_baseline_probe_index.sql",
+        "sha256": "605da226485f9bcafa6de29d94d753cc5fdd8a14c9eb3ef4132f0398b3a15892"
+      }
+    },
+    {
+      "path": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+      "location": "platform",
+      "version": "20260905.003",
+      "source_sha256": "668cc2fdf7ded6109309c8f2b3d2843a3c7906b8d74dc625d30153ec86657dad",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+        "sha256": "668cc2fdf7ded6109309c8f2b3d2843a3c7906b8d74dc625d30153ec86657dad"
+      }
+    },
+    {
+      "path": "yudao-module-infra/src/main/resources/db/migration/platform/V20260913.005__export_job_leases.sql",
+      "location": "platform",
+      "version": "20260913.005",
+      "source_sha256": "5c25e50cb2bca79943817367a08fa49eabcaa3e94d8727a6e1cc9b9d9c2c3d09",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform/V20260913.005__export_job_leases.sql",
+        "sha256": "5c25e50cb2bca79943817367a08fa49eabcaa3e94d8727a6e1cc9b9d9c2c3d09"
+      }
+    },
+    {
+      "path": "yudao-module-infra/src/main/resources/db/migration/platform/V20261002.006__export_job_cancel.sql",
+      "location": "platform",
+      "version": "20261002.006",
+      "source_sha256": "0a22540046fc2e18aab2e755a569579bdcffc037189658998bfe331706ce876b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform/V20261002.006__export_job_cancel.sql",
+        "sha256": "0a22540046fc2e18aab2e755a569579bdcffc037189658998bfe331706ce876b"
+      }
+    },
+    {
+      "path": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "location": "platform-bootstrap",
+      "version": "20260904.001",
+      "source_sha256": "18ad0d0a65a1ff3e31b8e3988c1a25b3256ca1d02b374b1c314979189c936a5c",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-server.jar",
+        "resource": "db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+        "sha256": "18ad0d0a65a1ff3e31b8e3988c1a25b3256ca1d02b374b1c314979189c936a5c"
+      }
+    },
+    {
+      "path": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql",
+      "location": "platform-bootstrap",
+      "version": "20260904.002",
+      "source_sha256": "67532571354d10d490cfbfdad0723b2ed03a2f142130108cc1131eed2ea53355",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-server.jar",
+        "resource": "db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql",
+        "sha256": "67532571354d10d490cfbfdad0723b2ed03a2f142130108cc1131eed2ea53355"
+      }
+    }
+  ],
+  "tables": [
+    {
+      "name": "audit_event",
+      "owner": "SHARED",
+      "strategy": "subset-review",
+      "selector": "按 biz_type/biz_id/payload 或 job_type/filter/field_scope 证明 owner；A 继续执行，未明不迁",
+      "source_migrations": [
+        "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "dispatcher_lease",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "B 自建运行状态；不复制 A 租约/票据/探针",
+      "source_migrations": [
+        "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "dual",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "export_job",
+      "owner": "SHARED",
+      "strategy": "subset-review",
+      "selector": "按 biz_type/biz_id/payload 或 job_type/filter/field_scope 证明 owner；A 继续执行，未明不迁",
+      "source_migrations": [
+        "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_asset",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261111.910__fr_asset.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_asset_download_ticket",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261111.910__fr_asset.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_asset_upload_ticket",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261111.910__fr_asset.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_commission",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261022.803__fr_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_commission_handover",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261022.803__fr_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_commission_progress",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261022.803__fr_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_commission_submission",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261022.803__fr_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_ai_usage",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.812__fr_content_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_course_progress",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.813__fr_content_persona_video.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_draft",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.812__fr_content_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_persona",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.813__fr_content_persona_video.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_provider_call",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.812__fr_content_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_publication",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.812__fr_content_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_script",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.812__fr_content_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_task",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.812__fr_content_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_video_draft",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261102.813__fr_content_persona_video.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_customer",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_customer_follow",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_customer_scheme",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_design_billing",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.945__design_wallet_pricing.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_design_policy",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261022.803__fr_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_design_price",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.945__design_wallet_pricing.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_design_remote_command",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.925__remote_design_commands.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_closure",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.814__fr_eng_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_collection",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.816__fr_eng_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_collection_term",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.816__fr_eng_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_document",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.814__fr_eng_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_expense",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261104.824__fr_eng_expense.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_followup",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.816__fr_eng_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_material",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.815__fr_eng_material.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_material_movement",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.815__fr_eng_material.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_plan_node",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.814__fr_eng_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_plan_version",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.814__fr_eng_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_project",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.814__fr_eng_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_site_record",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.814__fr_eng_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_supply",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.815__fr_eng_material.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_supply_receipt",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261102.815__fr_eng_material.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_abnormal_fund",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261104.829__fr_fin_abnormal_fund.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_bank_confirm",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_bank_flow",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_file",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_match_attempt",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "bank_flow_id JOIN fr_fin_bank_flow(company_id IN B_ORG)；tried_receipt_id 引用闭包",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_payable",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_payment",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_receipt",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_receipt_revision",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "receipt_id JOIN fr_fin_receipt(company_id IN B_ORG)；operator/tenant 校验",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_refund",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_txn_no",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.804__fr_finance.sql",
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261101.805__fr_finance_txn_fix.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_lead",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_perf_commission_policy",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.818__fr_perf_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_perf_commission_release",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.818__fr_perf_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_perf_cycle",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.817__fr_perf_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_perf_goal",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.817__fr_perf_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_perf_operating_snapshot",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.819__fr_perf_operating.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_perf_reconciliation",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.819__fr_perf_operating.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_perf_task",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.817__fr_perf_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_perf_task_archive",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261102.817__fr_perf_core.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_contract",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261102.808__fr_sales.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_delivery",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261102.808__fr_sales.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_payment_stage",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261102.808__fr_sales.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_quote",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261102.808__fr_sales.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_requirement",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261102.808__fr_sales.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_stage_receipt",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261104.812__fr_sale_three_stage.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_api_access_log",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_api_error_log",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_codegen_column",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_codegen_table",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_config",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_data_source_config",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_file",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "仅 B 业务/头像文件引用闭包；对象访问与 file_config 单独核准",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_file_config",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_file_content",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "仅 B 业务/头像文件引用闭包；对象访问与 file_config 单独核准",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_job",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "infra_job_log",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "one_time_delivery_ticket",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "B 自建运行状态；不复制 A 租约/票据/探针",
+      "source_migrations": [
+        "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "one_time_download_ticket",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "B 自建运行状态；不复制 A 租约/票据/探针",
+      "source_migrations": [
+        "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "outbox_event",
+      "owner": "SHARED",
+      "strategy": "subset-review",
+      "selector": "按 biz_type/biz_id/payload 或 job_type/filter/field_scope 证明 owner；A 继续执行，未明不迁",
+      "source_migrations": [
+        "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_approval",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
+      "source_migrations": [
+        "platform/platform-workflow/src/main/resources/db/migration/pf/V20261022.703__pf_approval.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_command_event",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
+      "source_migrations": [
+        "platform/platform-command/src/main/resources/db/migration/pf/V20261022.701__pf_command_event.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_handover_audit",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261104.709__pf_handover_audit.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_handover_pending",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261104.708__pf_handover_pending.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_manual_point_adjustment",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.905__pf_wallet_manual_adjustment.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_message",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
+      "source_migrations": [
+        "platform/platform-workflow/src/main/resources/db/migration/pf/V20261101.705__pf_message.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_ops_anomaly_review",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按tenant_id+anomaly_id闭合已审定B的pf_payment_anomaly_audit，并闭合actor身份；保留追加审计，不单独搬运孤立核对记录。归属缺证则阻断。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.960__platform_operations_admin.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_ops_config_audit",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按tenant_id及B配置对象归属逐条审定；保留actor、版本与before/after原始审计。不能仅以tenant=0或表前缀整表复制；新部署无历史时只建结构，不伪造历史。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.960__platform_operations_admin.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_org_service_account",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.902__pf_wallet_service_mapping_plans_permissions.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_org_type",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B 组织/岗位使用 code/role_code 与定义版本；合并 seed 内容一致才允许去重",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_org_unit",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "dept_id 为主键；org_id IN B_ORG，闭合 TEAM/ORG/system_dept；ORG 要求 org_id=dept_id",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_payment_anomaly_audit",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_payment_attempt",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_payment_notification_inbox",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_payment_transaction",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_point_account",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.901__pf_wallet_accounting.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_point_ledger",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.901__pf_wallet_accounting.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_post_template",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B 组织/岗位使用 code/role_code 与定义版本；合并 seed 内容一致才允许去重",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_recharge_credit",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_recharge_order",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_recharge_plan",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.902__pf_wallet_service_mapping_plans_permissions.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_refund_order",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.904__pf_wallet_refund.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_staff_post",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_wallet",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.901__pf_wallet_accounting.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_wallet_charge",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.901__pf_wallet_accounting.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_wallet_recovery_task",
+      "owner": "B",
+      "strategy": "transform",
+      "selector": "新 B 模型；旧源缺字段不能直接 COPY。零资金条件可初始化；非零/资产/命令需逐对象映射",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.906__pf_wallet_recovery.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_wechat_binding",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN 的当前及历史绑定闭包；appid 必须与 B 实际应用一致，不重写 openid；保留撤销状态",
+      "source_migrations": [
+        "platform/platform-identity/src/main/resources/db/migration/pf/V20261022.704__pf_wechat_binding.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_wechat_binding_event",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id IN B_ORG；保留 binding_id/previous_binding_id/user_id；org_id=0 独立决议，不能按 user_id 全选",
+      "source_migrations": [
+        "platform/platform-identity/src/main/resources/db/migration/pf/V20261022.704__pf_wechat_binding.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_blob_triggers",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_calendars",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_cron_triggers",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_fired_triggers",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_job_details",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_locks",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_paused_trigger_grps",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_scheduler_state",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_simple_triggers",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_simprop_triggers",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "qrtz_triggers",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_dept",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_dict_data",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "审定 B 字典类型及 data 子集；与 bootstrap 同 ID/业务键比对",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_dict_type",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "审定 B 字典类型及 data 子集；与 bootstrap 同 ID/业务键比对",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_login_log",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_mail_account",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_mail_log",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_mail_template",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_menu",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_notice",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_notify_message",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_notify_template",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_oauth2_access_token",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_oauth2_approve",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_oauth2_client",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_oauth2_code",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_oauth2_refresh_token",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_operate_log",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_post",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_role",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_role_menu",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_sms_channel",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_sms_code",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_sms_log",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 B actor/recipient/tenant/业务映射证明；不能以 tenant=0 全选",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_sms_template",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_social_client",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_social_user",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_social_user_bind",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_tenant",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_tenant_package",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_user_post",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_user_role",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "system_users",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "yudao_demo01_contact",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "yudao_demo02_category",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "yudao_demo03_course",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "yudao_demo03_grade",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "yudao_demo03_student",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "不从旧融合复制；公共 seed/审核配置由 B 自建，session/secret/job/runtime/demo 排除",
+      "source_migrations": [
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "zhongshu_baseline_probe",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "B 自建运行状态；不复制 A 租约/票据/探针",
+      "source_migrations": [
+        "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.001__zhongshu_baseline.sql"
+      ],
+      "runtime_verified": false
+    }
+  ],
+  "sequences": [
+    {
+      "name": "audit_event_id_seq",
+      "kind": "identity-name-candidate",
+      "table": "audit_event",
+      "source_migration": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+      "catalog_verified": false,
+      "association": "IDENTITY列，实际名称/ownership/状态需PG catalog",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "dispatcher_lease_id_seq",
+      "kind": "identity-name-candidate",
+      "table": "dispatcher_lease",
+      "source_migration": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+      "catalog_verified": false,
+      "association": "IDENTITY列，实际名称/ownership/状态需PG catalog",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "export_job_id_seq",
+      "kind": "identity-name-candidate",
+      "table": "export_job",
+      "source_migration": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+      "catalog_verified": false,
+      "association": "IDENTITY列，实际名称/ownership/状态需PG catalog",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_api_access_log_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_api_error_log_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_codegen_column_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_codegen_table_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_config_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_data_source_config_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_file_config_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_file_content_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_file_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_job_log_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "infra_job_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "one_time_delivery_ticket_id_seq",
+      "kind": "identity-name-candidate",
+      "table": "one_time_delivery_ticket",
+      "source_migration": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+      "catalog_verified": false,
+      "association": "IDENTITY列，实际名称/ownership/状态需PG catalog",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "one_time_download_ticket_id_seq",
+      "kind": "identity-name-candidate",
+      "table": "one_time_download_ticket",
+      "source_migration": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+      "catalog_verified": false,
+      "association": "IDENTITY列，实际名称/ownership/状态需PG catalog",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "outbox_event_id_seq",
+      "kind": "identity-name-candidate",
+      "table": "outbox_event",
+      "source_migration": "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+      "catalog_verified": false,
+      "association": "IDENTITY列，实际名称/ownership/状态需PG catalog",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_dept_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_dict_data_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_dict_type_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_login_log_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_mail_account_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_mail_log_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_mail_template_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_menu_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_notice_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_notify_message_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_notify_template_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_oauth2_access_token_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_oauth2_approve_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_oauth2_client_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_oauth2_code_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_oauth2_refresh_token_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_operate_log_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_post_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_role_menu_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_role_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_sms_channel_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_sms_code_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_sms_log_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_sms_template_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_social_client_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_social_user_bind_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_social_user_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_tenant_package_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_tenant_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_user_post_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_user_role_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "system_users_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "yudao_demo01_contact_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "yudao_demo02_category_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "yudao_demo03_course_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "yudao_demo03_grade_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "yudao_demo03_student_seq",
+      "kind": "explicit",
+      "table": null,
+      "source_migration": "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "catalog_verified": false,
+      "association": "DDL START 1；无OWNED BY/default nextval，不能由名称假定所属列",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    }
+  ],
+  "blocking_evidence": [
+    "B账户归属全集",
+    "A/B共享身份决议",
+    "资金预留与在途",
+    "资产闭包和COS策略",
+    "生产Flyway历史",
+    "热停写和A连续服务",
+    "通知恢复及唯一owner",
+    "隔离导出导入恢复演练",
+    "925命令迁移专用undo缺失及现有undo非空数据限制，需核准回滚/恢复策略"
+  ],
+  "a_retained_locations": [
+    "identity",
+    "design",
+    "commerce",
+    "ai-orchestration",
+    "design-capability"
+  ],
+  "a_exclusive_migrations": [
+    "identity/V20261029.110__activation_request.sql",
+    "identity/V20261111.930__activation_gift_and_binding.sql"
+  ],
+  "source_history_policy": "只读比对；不复制旧融合flyway历史，不repair，不ignore missing/future",
+  "structure_policy": "既有B migrate CLI；仅数据迁移，整库备份恢复另复用ops.py且不混用",
+  "migration_ready": false,
+  "freeze_ready": false,
+  "artifact_evidence": {
+    "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
+    "sha256": "e1666eab32e0adf9c873db5e75a862904f4a808abf36af47e2e8f250ddd91bf3",
+    "artifact_bytes": 182614479,
+    "resource_manifest": ".omc/artifacts/platform-rebuild-20261111/artifact-manifest.json",
+    "resource_manifest_sha256": "3a937f021367e3415afb1e371060eb7b92a4ba058e404a8df9715138fbc4284e",
+    "package_content_verification": ".omc/artifacts/platform-rebuild-20261111/package-content-verification.json",
+    "package_content_verification_sha256": "9f3311308fd01d56204d24cb7b096bef224abc5cb414a11ce3277f06978af4ff",
+    "resource_count": 69,
+    "location_counts": {
+      "franchise-asset": 1,
+      "franchise": 33,
+      "franchise-design-remote": 3,
+      "franchise-system": 8,
+      "pf": 10,
+      "platform-wallet": 7,
+      "platform": 5,
+      "platform-bootstrap": 2
+    },
+    "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
+    "database_history_verified": false,
+    "note": "绑定2026-11-11第八轮最终重建JAR；69项forward迁移源/清单/JAR三方逐字一致，源未变故本清单逐项hash不动，forward不改。包内核验含U904=705b1b8b…与U925=54a1c225…逐字匹配、CapabilityJson Long序列化、G2b负检查干净（见package_content_verification，overall=PASS）。上一轮制品e6b042a5…（182612166B）及其清单保存于.omc/artifacts/pre-rebuild-baseline-20261111/。路径相对工程根。ownership.py源码检查不重新扫描JAR。"
+  },
+  "rollback_review": {
+    "scope": "本次新增/改指纹迁移，以及用于核清925边界的945；不是所有迁移的回滚验收",
+    "entries": [
+      {
+        "version": "20261111.903",
+        "source_migration": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "platform/platform-wallet/src/main/resources/db/migration-undo/platform-wallet/V20261111.903__undo_pf_wallet_payment.sql",
+            "source_sha256": "dbcd6df3766bd785b7add350169e03868d4b0d75b136c6325eb27ad0412d71da"
+          }
+        ],
+        "limitations": "脚本在充值单或inbox非空时拒绝，删除六张支付表及wx_product_id列；须先处理904/960等依赖，不能把存在脚本当作非空数据可回滚。",
+        "execution_verified": false
+      },
+      {
+        "version": "20261111.904",
+        "source_migration": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.904__pf_wallet_refund.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "platform/platform-wallet/src/main/resources/db/migration-undo/platform-wallet/V20261111.904__undo_pf_wallet_refund.sql",
+            "source_sha256": "705b1b8b2c0334cde0c76133324e152af97647b72a65ce9dcacce753a58eef11"
+          }
+        ],
+        "limitations": "重写后脚本：单DO块自身原子且参与调用方事务，无显式COMMIT；在任何锁/DDL前要求READ COMMITTED隔离级别否则RAISE，不允许更高隔离旧快照判空；ACCESS EXCLUSIVE锁pf_recharge_order/pf_payment_notification_inbox/pf_refund_order三表全空才普通DROP pf_refund_order，任一非空拒绝保留事实。边界证据：隔离红测RR/Serializable完整data+catalog不变，38/38绿0skip（Guard13+RefundRecovery25）且9b独立有界PASS；36/37为旧候选不构成最终证据。独立审查结论与冻结物见/tmp/wallet-undo904-20261111/{changes.diff,landed-hashes.json,tests.log,red-tests.log,isolation-red-tests.log}；diff SHA f0f4303edda4ecd3a73bf83d21fb8c90716896bb1304c87b6c0a98dbc291821a。仅隔离测试验证，未对平台库执行。",
+        "execution_verified": false
+      },
+      {
+        "version": "20261111.925",
+        "source_migration": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.925__remote_design_commands.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "domains/franchise/franchise-design/src/main/resources/db/migration-undo/franchise-design-remote/V20261111.925__undo_remote_design_commands.sql",
+            "source_sha256": "54a1c225d27d0a44e66de2117e68f87729964ae8c02b1c7a8c15f47b7543f9f4"
+          }
+        ],
+        "limitations": "B专用空库撤销脚本：先停应用/恢复任务/运营写入及其他迁移，按961→945→925顺序执行；READ COMMITTED门禁防高隔离锁后旧快照误判空表；锁fr_design_remote_command后核961/945依赖（billing/price/两运营表与960021-960023菜单）及命令事实、DESIGN_CAPABILITY钱包流水、fr-design-remote审计任一非空即RAISE拒绝，仅DROP TABLE fr_design_remote_command RESTRICT。仅U925自身原子（单事务+lock/statement timeout），不宣称961→945→925整组原子；不触碰Flyway历史。边界证据：20/20绿0skip，红测边界=缺脚本2/20，不能写成20种旧数据损失均已复现；591独立有界PASS。冻结物与红绿记录见/tmp/zs-remote-undo925-psnwcc/（undo925.patch、green-tests.log、red-tests.log），测试SHA 585668cddfde6df83449be97d2f216f6c67e9a0e90c664be1cb7a9a1bdf35ee6。仅隔离测试验证，未对平台库执行。",
+        "execution_verified": false
+      },
+      {
+        "version": "20261111.945",
+        "source_migration": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.945__design_wallet_pricing.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "domains/franchise/franchise-design/src/main/resources/db/migration-undo/franchise-design-remote/V20261111.945__undo_design_wallet_pricing.sql",
+            "source_sha256": "1c6177c9d0113255d093d60f89d6b2b1cbf78ca40b63f2c838c0931bd2c14408"
+          }
+        ],
+        "limitations": "仅在fr_design_billing无记录时删除billing与price；不处理925命令表，不可当作925回滚。",
+        "execution_verified": false
+      },
+      {
+        "version": "20261111.960",
+        "source_migration": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.960__platform_operations_admin.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "platform/platform-wallet/src/main/resources/db/migration-undo/platform-wallet/V20261111.960__undo_platform_operations_admin.sql",
+            "source_sha256": "1f3b90d320b2eeaa76225e9a97ecf77edc4e730ab276e3912e031837beb837a2"
+          }
+        ],
+        "limitations": "ACCESS EXCLUSIVE锁后核两张运营审计表均空才删除表/触发函数/索引/菜单；非空明确拒绝，961需先撤。",
+        "execution_verified": false
+      },
+      {
+        "version": "20261111.961",
+        "source_migration": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.961__design_operations_admin.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "domains/franchise/franchise-design/src/main/resources/db/migration-undo/franchise-design-remote/V20261111.961__undo_design_operations_admin.sql",
+            "source_sha256": "10467a56b243a05a5147cfed482bca04dd082fa2a15831ae6415478d18e7bf1c"
+          }
+        ],
+        "limitations": "只删除两项运营索引及对应菜单/角色菜单关系，保留价目、命令、计费和审计事实；先于960撤销。",
+        "execution_verified": false
+      }
+    ]
+  }
+}

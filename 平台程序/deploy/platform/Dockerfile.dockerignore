@@ -1,0 +1,9 @@
+**
+!deploy/
+!deploy/platform/
+!deploy/platform/Dockerfile
+!deploy/platform/Dockerfile.dockerignore
+!deploy/platform/Healthcheck.java
+!yudao-platform-server/
+!yudao-platform-server/target/
+!yudao-platform-server/target/yudao-platform-server.jar
