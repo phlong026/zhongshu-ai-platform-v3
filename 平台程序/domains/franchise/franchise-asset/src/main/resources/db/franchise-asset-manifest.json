@@ -1,0 +1,48 @@
+{
+  "application": "B",
+  "owner": "franchise-asset",
+  "activation": "platform.legacy-design-bridge.enabled=false",
+  "migration": "db/migration/franchise-asset/V20261111.910__fr_asset.sql",
+  "undo": "db/migration-undo/franchise-asset/V20261111.910__undo_fr_asset.sql",
+  "migration_sha256": "cd51f516d0c828b1b25ba52c24a9aa02c0afb02d1960fdcadbfeb8f96b3f87f9",
+  "undo_sha256": "07de8e8490735171d1f30cd326c4e6b80c5d3d1573a1413ada5b0002e4d3a82c",
+  "tables": [
+    {"name": "fr_asset", "key": "id", "scope": ["tenant_id", "org_id", "service_account_id"], "sequences": [], "id_generation": "snowflake"},
+    {"name": "fr_asset_upload_ticket", "key": "token_hash", "references": ["fr_asset.id"]},
+    {"name": "fr_asset_download_ticket", "key": "token_hash", "references": ["fr_asset.id"]}
+  ],
+  "source": {"A": ["asset"], "B_legacy": ["fr_fin_file"], "automatic_copy": false},
+  "reference_closure": [
+    "fr_sale_contract.asset_id",
+    "fr_eng_project.contract_asset_id",
+    "fr_eng_site_record.file_asset_ids",
+    "fr_fin_receipt.voucher_file_id",
+    "fr_fin_payment.voucher_file_id",
+    "fr_content_task.input_snapshot.assetId/references[].assetId",
+    "account.avatar=asset:<id> (ownership review before migration)"
+  ],
+  "historical_import_requirements": [
+    "Prove tenant/org ownership from all references before import; preserve original IDs and immutable object bytes.",
+    "Map service accounts to B pf_org_service_account. No A account IDs may become B authority.",
+    "Pending/validating assets require new upload tickets and verification; do not promote to ACCEPTED.",
+    "Preserve original object keys in a reviewed import mapping; copy into B private prefix with independent credentials.",
+    "Compare reference closure, status, declared and accepted size/SHA256. Do not copy login sessions or signed URLs."
+  ],
+  "storage": {
+    "provider_property": "zhongshu.franchise.asset.storage.provider",
+    "providers": ["local", "cos"],
+    "prefix": "franchise/{tenantId}/{orgId}/",
+    "upload_prefix": "uploads/",
+    "accepted_prefix": "accepted/",
+    "upload_ttl_seconds": 900,
+    "download_ttl_seconds": 300,
+    "deployment_gate": "Independent B CAM identity limited to B prefix; verify private bucket and no client write permission to accepted prefix. Local provider is for isolated development only."
+  },
+  "api": {
+    "metadata": "/admin-api/franchise/assets",
+    "bytes": "/admin-api/franchise/assets/{assetId}/content?token=<one-use-token>",
+    "authentication": "ADMIN session + active current post + tenant/org/role + one-use persistent ticket",
+    "provider_download": "Internal content task verifies B org service account and CONTENT_ASSET before issuing a short COS URL"
+  },
+  "rollback": "Undo refuses when fr_asset is nonempty. Before B writes, revert code and empty B tables. After writes preserve metadata and objects and use an independently approved recovery plan. Never restore or change A database or objects."
+}

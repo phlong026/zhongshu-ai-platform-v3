@@ -32,6 +32,8 @@
         <module>platform-authz</module>
         <!-- 员工登录：小程序微信登录绑定员工、签发后台令牌 -->
         <module>platform-identity</module>
+        <!-- B 自有钱包，与设计消费者钱包分离 -->
+        <module>platform-wallet</module>
     </modules>
 
 </project>

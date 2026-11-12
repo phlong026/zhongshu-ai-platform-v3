@@ -17,6 +17,8 @@ import javax.sql.DataSource;
  */
 @Slf4j
 @Service
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "platform.legacy-design-bridge.enabled", havingValue = "true", matchIfMissing = true)
 public class StoreServiceAccountService implements StoreServiceAccountPort {
 
     private final AccountProvisionPort accountProvision;

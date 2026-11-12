@@ -769,12 +769,10 @@ public class EngPlanService {
             throw exception(ENGINEERING_INPUT_INVALID, "请上传有效的" + usage + "凭据");
         }
         long serviceAccount = serviceAccounts.requireServiceAccount(post.orgId());
-        if (!assets.validateReference(serviceAccount, assetId)) {
-            throw exception(ENGINEERING_INPUT_INVALID, usage + "凭据资产不存在、未验收或不属于本组织");
-        }
-        String type = assets.assetTypeOf(serviceAccount, assetId);
-        if (type == null || !allowedTypes.contains(type)) {
-            throw exception(ENGINEERING_INPUT_INVALID, usage + "凭据资产类型不符（须 " + String.join("/", allowedTypes) + "）");
+        var actor = new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(
+                post.orgId(), serviceAccount, post.userId(), post.postId());
+        if (!assets.validateReference(actor, assetId, allowedTypes)) {
+            throw exception(ENGINEERING_INPUT_INVALID, usage + "凭据资产不存在、未验收、不属于本组织或类型不符");
         }
     }
 

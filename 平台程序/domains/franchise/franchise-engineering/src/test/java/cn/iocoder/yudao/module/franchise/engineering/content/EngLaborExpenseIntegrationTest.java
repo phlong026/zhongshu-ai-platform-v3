@@ -119,19 +119,19 @@ class EngLaborExpenseIntegrationTest extends FranchisePgIntegrationTest {
                 }
 
                 @Override
-                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.UploadTicketView createUploadTicket(
+                public cn.iocoder.yudao.module.franchise.api.AssetAccessPort.UploadTicketView createUploadTicket(
                         long serviceAccountId, String assetType, String mimeType, long sizeBytes, String sha256) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.AssetCompleted completeUpload(
+                public cn.iocoder.yudao.module.franchise.api.AssetAccessPort.AssetCompleted completeUpload(
                         long serviceAccountId, long assetId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.DownloadUrlView createDownloadUrl(
+                public cn.iocoder.yudao.module.franchise.api.AssetAccessPort.DownloadUrlView createDownloadUrl(
                         long serviceAccountId, long assetId) {
                     throw new UnsupportedOperationException();
                 }

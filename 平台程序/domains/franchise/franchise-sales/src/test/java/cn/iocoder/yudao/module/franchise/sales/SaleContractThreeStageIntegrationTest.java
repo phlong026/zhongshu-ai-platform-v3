@@ -50,10 +50,10 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
             return new cn.iocoder.yudao.module.franchise.test.BusinessReceiptPortTestStub(jdbc);
         }
 
-        /** DesignServicePort/StoreServiceAccountPort 动态代理桩：本测试 assetId 恒 null 不触达（validateAsset 早退） */
+        /** AssetAccessPort/StoreServiceAccountPort 动态代理桩：本测试 assetId 恒 null 不触达（validateAsset 早退） */
         @Bean
-        cn.iocoder.yudao.module.franchise.api.DesignServicePort designServicePort() {
-            return untouchedStub(cn.iocoder.yudao.module.franchise.api.DesignServicePort.class);
+        cn.iocoder.yudao.module.franchise.api.AssetAccessPort assetAccessPort() {
+            return untouchedStub(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
         }
 
         @Bean

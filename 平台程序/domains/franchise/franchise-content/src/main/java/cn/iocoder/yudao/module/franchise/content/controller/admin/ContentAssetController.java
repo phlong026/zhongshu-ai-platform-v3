@@ -38,13 +38,24 @@ public class ContentAssetController {
         return currentPost.require();
     }
 
+    private AssetAccessPort.Actor actor(PostSnapshot post, long account) {
+        return new AssetAccessPort.Actor(post.orgId(), account, post.userId(), post.postId());
+    }
+
+    private void requireContentType(AssetAccessPort.Actor actor, long id) {
+        if (!"CONTENT_ASSET".equals(assets.assetTypeOf(actor, id))) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
+        }
+    }
+
     @PostMapping("/upload-tickets")
     @Operation(summary = "签发素材上传票据（CONTENT_ASSET，B_END 免审）")
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> uploadTicket(@RequestBody Map<String, Object> body) {
         PostSnapshot post = post();
         long account = serviceAccounts.requireServiceAccount(post.orgId());
-        var ticket = assets.createUploadTicket(account, "CONTENT_ASSET",
+        var ticket = assets.createUploadTicket(actor(post, account), "CONTENT_ASSET",
                 String.valueOf(body.get("mimeType")),
                 Long.parseLong(String.valueOf(body.get("sizeBytes"))),
                 body.get("sha256") == null ? null : String.valueOf(body.get("sha256")));
@@ -57,7 +68,9 @@ public class ContentAssetController {
     public CommonResult<Map<String, Object>> complete(@PathVariable("assetId") Long assetId) {
         PostSnapshot post = post();
         long account = serviceAccounts.requireServiceAccount(post.orgId());
-        var completed = assets.completeUpload(account, assetId);
+        var actor = actor(post, account);
+        requireContentType(actor, assetId);
+        var completed = assets.completeUpload(actor, assetId);
         return success(Map.of("assetId", completed.assetId(), "status", completed.uploadStatus()));
     }
 
@@ -67,7 +80,13 @@ public class ContentAssetController {
     public CommonResult<Map<String, Object>> downloadTicket(@PathVariable("assetId") Long assetId) {
         PostSnapshot post = post();
         long account = serviceAccounts.requireServiceAccount(post.orgId());
-        var view = assets.createDownloadUrl(account, assetId);
+        var actor = actor(post, account);
+        requireContentType(actor, assetId);
+        if (!assets.validateReference(actor, assetId, java.util.Set.of("CONTENT_ASSET"))) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
+        }
+        var view = assets.createDownloadUrl(actor, assetId);
         return success(Map.of("downloadUrl", view.downloadUrl(), "expiresAt",
                 view.expiresAt() == null ? 0L : view.expiresAt()));
     }

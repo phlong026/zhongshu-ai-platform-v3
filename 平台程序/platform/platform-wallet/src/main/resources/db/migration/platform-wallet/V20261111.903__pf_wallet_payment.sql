@@ -1,0 +1,110 @@
+-- B 支付订单固定付款身份、报价、渠道与组织。真实渠道开关默认关闭。
+ALTER TABLE pf_recharge_plan ADD COLUMN wx_product_id VARCHAR(128);
+CREATE TABLE pf_recharge_order (
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    wallet_id BIGINT NOT NULL,
+    org_id BIGINT NOT NULL,
+    actor_id BIGINT NOT NULL,
+    post_id BIGINT NOT NULL,
+    binding_id BIGINT NOT NULL,
+    order_no VARCHAR(64) NOT NULL UNIQUE CHECK (order_no LIKE 'PFW%'),
+    plan_id BIGINT NOT NULL REFERENCES pf_recharge_plan(id),
+    plan_snapshot JSONB NOT NULL,
+    price_fen BIGINT NOT NULL CHECK (price_fen > 0),
+    base_points BIGINT NOT NULL CHECK (base_points > 0),
+    bonus_points BIGINT NOT NULL CHECK (bonus_points >= 0),
+    payer_appid VARCHAR(64) NOT NULL,
+    payer_openid VARCHAR(128) NOT NULL,
+    channel VARCHAR(32) NOT NULL,
+    offer_id VARCHAR(128) NOT NULL,
+    environment INTEGER NOT NULL CHECK (environment IN (0, 1)),
+    payment_state VARCHAR(24) NOT NULL DEFAULT 'CREATED' CHECK (payment_state IN ('CREATED','PENDING','UNKNOWN','SUCCEEDED','CLOSED','FAILED')),
+    credit_state VARCHAR(24) NOT NULL DEFAULT 'NOT_READY' CHECK (credit_state IN ('NOT_READY','PENDING','CREDITED','BLOCKED')),
+    idempotency_key VARCHAR(128) NOT NULL,
+    request_hash CHAR(64) NOT NULL,
+    create_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    update_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, idempotency_key),
+    UNIQUE (tenant_id, wallet_id, id),
+    FOREIGN KEY (tenant_id, plan_id) REFERENCES pf_recharge_plan(tenant_id, id),
+    FOREIGN KEY (tenant_id, wallet_id, org_id) REFERENCES pf_wallet(tenant_id, id, org_id)
+);
+CREATE INDEX idx_pf_recharge_order_page ON pf_recharge_order(tenant_id, wallet_id, create_time DESC, id DESC);
+CREATE TABLE pf_payment_attempt (
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    wallet_id BIGINT NOT NULL,
+    order_id BIGINT NOT NULL,
+    attempt_key VARCHAR(128) NOT NULL,
+    state VARCHAR(16) NOT NULL CHECK (state IN ('PROCESSING','SUCCEEDED','UNKNOWN','REJECTED')),
+    lease_token VARCHAR(64) NOT NULL,
+    lease_until TIMESTAMPTZ NOT NULL,
+    create_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, wallet_id, order_id, attempt_key),
+    FOREIGN KEY (tenant_id, wallet_id, order_id) REFERENCES pf_recharge_order(tenant_id, wallet_id, id)
+);
+CREATE TABLE pf_payment_transaction (
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    wallet_id BIGINT NOT NULL,
+    order_id BIGINT NOT NULL,
+    channel VARCHAR(32) NOT NULL,
+    appid VARCHAR(64) NOT NULL,
+    offer_id VARCHAR(128) NOT NULL,
+    environment INTEGER NOT NULL,
+    transaction_id VARCHAR(128) NOT NULL,
+    order_type INTEGER NOT NULL CHECK (order_type IN (0, 7)),
+    amount_fen BIGINT NOT NULL CHECK (amount_fen > 0),
+    paid_at TIMESTAMPTZ NOT NULL,
+    create_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (channel, appid, offer_id, environment, transaction_id),
+    UNIQUE (tenant_id, wallet_id, order_id),
+    FOREIGN KEY (tenant_id, wallet_id, order_id) REFERENCES pf_recharge_order(tenant_id, wallet_id, id)
+);
+CREATE TABLE pf_recharge_credit (
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    wallet_id BIGINT NOT NULL,
+    order_id BIGINT NOT NULL,
+    base_points BIGINT NOT NULL CHECK (base_points > 0),
+    bonus_points BIGINT NOT NULL CHECK (bonus_points >= 0),
+    ledger_base_id BIGINT NOT NULL REFERENCES pf_point_ledger(id),
+    ledger_bonus_id BIGINT REFERENCES pf_point_ledger(id),
+    credited_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (tenant_id, wallet_id, ledger_base_id) REFERENCES pf_point_ledger(tenant_id, wallet_id, id),
+    FOREIGN KEY (tenant_id, wallet_id, ledger_bonus_id) REFERENCES pf_point_ledger(tenant_id, wallet_id, id),
+    UNIQUE (tenant_id, wallet_id, order_id),
+    FOREIGN KEY (tenant_id, wallet_id, order_id) REFERENCES pf_recharge_order(tenant_id, wallet_id, id)
+);
+CREATE TABLE pf_payment_notification_inbox (
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    wallet_id BIGINT,
+    order_id BIGINT,
+    channel VARCHAR(32) NOT NULL,
+    appid VARCHAR(64) NOT NULL,
+    offer_id VARCHAR(128) NOT NULL,
+    environment INTEGER NOT NULL,
+    body_hash CHAR(64) NOT NULL,
+    payload BYTEA NOT NULL,
+    event_type VARCHAR(64),
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','PROCESSED','UNKNOWN','REJECTED')),
+    lease_token VARCHAR(64),
+    lease_until TIMESTAMPTZ,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    create_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (channel, appid, offer_id, environment, body_hash),
+    FOREIGN KEY (tenant_id, wallet_id, order_id) REFERENCES pf_recharge_order(tenant_id, wallet_id, id),
+    CHECK ((wallet_id IS NULL) = (order_id IS NULL))
+);
+CREATE TABLE pf_payment_anomaly_audit (
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    wallet_id BIGINT NOT NULL,
+    order_id BIGINT NOT NULL,
+    anomaly_type VARCHAR(64) NOT NULL,
+    detail VARCHAR(512) NOT NULL,
+    create_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (tenant_id, wallet_id, order_id) REFERENCES pf_recharge_order(tenant_id, wallet_id, id)
+);

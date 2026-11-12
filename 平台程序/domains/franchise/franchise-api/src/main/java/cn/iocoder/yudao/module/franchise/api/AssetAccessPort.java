@@ -1,38 +1,61 @@
 package cn.iocoder.yudao.module.franchise.api;
 
-/**
- * B 端资产访问 Port（基-1，14 文档）：franchise 各域以组织服务账号身份走 design 资产票据链，
- * 引用 assetId（零新表，D-基1-1）。类型面=AssetTypePolicy 的 B_END 四类
- * （FIN_VOUCHER/ENG_DRAWING/ENG_SITE_PHOTO/CONTRACT_ATTACHMENT），免内容审核（D-基1-4b）。
- * 实现方：yudao-module-design FranchiseDesignAdapter（同时实现 DesignServicePort，资产能力同源）。
- */
+import java.util.Set;
+
+/** 业务附件契约。默认方法仅用于融合模式兼容；平台实现必须使用显式组织及操作者上下文。 */
 public interface AssetAccessPort {
+    record Actor(long orgId, long serviceAccountId, long userId, long postId) { }
+    record UploadTicketView(long assetId, String uploadUrl) { }
+    record AssetCompleted(long assetId, String uploadStatus, String rejectedReason) { }
+    record DownloadUrlView(String downloadUrl, Long expiresAt) { }
 
-    /**
-     * 签发上传票据（仅接受 B_END 类型，C_END 类型名 → design 资产校验异常）。
-     * uploadUrl=COS PUT URL 或 local 占位（local 模式字节经 dev 端点落盘）。
-     */
-    DesignServicePort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
-                                                          String mimeType, long sizeBytes, String sha256);
-
-    /** 上传完成：B_END 免审直 ACCEPTED；终态重放幂等读；PENDING/退避对 B_END 不可达 */
-    DesignServicePort.AssetCompleted completeUpload(long serviceAccountId, long assetId);
-
-    /** 下载地址：COS=签名 URL+到期；local=local:// 占位（字节核验走 dev 读取端点） */
-    DesignServicePort.DownloadUrlView createDownloadUrl(long serviceAccountId, long assetId);
-
-    /**
-     * 资产类型读取（属主校验后返回 assetType；不存在或非本组织服务账号属主返回 null）。
-     * 编排层用它做 B_END 通道限制（franchise-asset 通道权限宽于设计通道，只放行 B_END 资产——
-     * 防止绕过 franchise:design:use 读取同组织私有人草图，Codex 补审 P1）与 complete 审计取类型。
-     */
+    UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
+                                       String mimeType, long sizeBytes, String sha256);
+    AssetCompleted completeUpload(long serviceAccountId, long assetId);
+    DownloadUrlView createDownloadUrl(long serviceAccountId, long assetId);
     String assetTypeOf(long serviceAccountId, long assetId);
-
-    /**
-     * 引用校验：存在 + ACCEPTED + owner==本组织服务账号。
-     * 与 {@link DesignServicePort#validateAsset(long, long)} 共享同一校验实现，仅失败语义不同
-     * （本方法返回 false 不抛异常；validateAsset 抛 RESOURCE_FORBIDDEN）。消费域引用 assetId 前调用。
-     */
     boolean validateReference(long serviceAccountId, long assetId);
 
+    default UploadTicketView createUploadTicket(Actor actor, String assetType, String mimeType,
+                                                long sizeBytes, String sha256) {
+        return createUploadTicket(actor.serviceAccountId(), assetType, mimeType, sizeBytes, sha256);
+    }
+
+    default AssetCompleted completeUpload(Actor actor, long assetId) {
+        return completeUpload(actor.serviceAccountId(), assetId);
+    }
+
+    default DownloadUrlView createDownloadUrl(Actor actor, long assetId) {
+        return createDownloadUrl(actor.serviceAccountId(), assetId);
+    }
+
+    default String assetTypeOf(Actor actor, long assetId) {
+        return assetTypeOf(actor.serviceAccountId(), assetId);
+    }
+
+    default boolean validateReference(Actor actor, long assetId, Set<String> allowedTypes) {
+        if (!validateReference(actor.serviceAccountId(), assetId)) return false;
+        String type = assetTypeOf(actor, assetId);
+        return type != null && allowedTypes.contains(type);
+    }
+
+    /** 只有不存在资产记录时才允许检查历史财务文件，拒绝用历史同 ID 覆盖资产类型/状态。 */
+    default boolean legacyReferenceAllowed(Actor actor, long assetId) {
+        return assetTypeOf(actor, assetId) == null;
+    }
+
+    /** orgId 来自已持久化内容任务；实现从本地组织目录恢复租户并核验现有服务映射。无 HTTP 入口。 */
+    default DownloadUrlView createTaskDownloadUrl(long orgId, long assetId, String requiredType) {
+        throw new IllegalArgumentException("后台素材访问未授权");
+    }
+
+    /** 后台内容任务专用；平台实现重新校验组织服务账号映射、租户、类型和 ACCEPTED。 */
+    default DownloadUrlView createServiceDownloadUrl(long orgId, long serviceAccountId, long assetId,
+                                                     String requiredType) {
+        if (!requiredType.equals(assetTypeOf(serviceAccountId, assetId))
+                || !validateReference(serviceAccountId, assetId)) {
+            throw new IllegalArgumentException("业务素材不可用");
+        }
+        return createDownloadUrl(serviceAccountId, assetId);
+    }
 }

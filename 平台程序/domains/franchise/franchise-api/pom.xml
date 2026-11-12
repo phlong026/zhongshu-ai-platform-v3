@@ -18,6 +18,12 @@
     </description>
 
     <dependencies>
+        <!-- 融合消费者继续从 franchise-api 传递获得兼容的设计能力契约。 -->
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>design-capability-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
             <artifactId>yudao-platform-org</artifactId>

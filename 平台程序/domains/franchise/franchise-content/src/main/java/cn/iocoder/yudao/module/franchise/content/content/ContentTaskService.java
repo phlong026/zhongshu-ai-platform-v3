@@ -2,8 +2,6 @@ package cn.iocoder.yudao.module.franchise.content.content;
 
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
-import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
-import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.franchise.content.content.ContentRulesRewrite.Rewritten;
@@ -53,14 +51,13 @@ public class ContentTaskService {
     private final OralVideoPort oral;
     private final VideoGenerationPort video;
     private final AssetAccessPort assets;
-    private final StoreServiceAccountPort accounts;
     private final FranchiseCommands commands;
     private final ContentProviderProperties providerProperties;
 
     public ContentTaskService(ContentTaskStore store, ContentQuotaService quota,
                               LinkParsePort linkParse, AsrPort asr, ScriptRewritePort rewrite,
                               OralVideoPort oral, VideoGenerationPort video,
-                              AssetAccessPort assets, StoreServiceAccountPort accounts,
+                              AssetAccessPort assets,
                               FranchiseCommands commands, ContentProviderProperties providerProperties) {
         this.store = store;
         this.quota = quota;
@@ -70,7 +67,6 @@ public class ContentTaskService {
         this.oral = oral;
         this.video = video;
         this.assets = assets;
-        this.accounts = accounts;
         this.commands = commands;
         this.providerProperties = providerProperties;
     }
@@ -356,9 +352,8 @@ public class ContentTaskService {
     /** 素材地址解析：assetId 优先（基-1 签名 URL，生产=COS），否则原样透传 sourceUrl。 */
     private String resolveMediaUrl(long companyId, Object assetId, Object sourceUrl) {
         if (assetId != null && !String.valueOf(assetId).isBlank()) {
-            long account = accounts.requireServiceAccount(companyId);
-            DesignServicePort.DownloadUrlView view = assets.createDownloadUrl(account,
-                    Long.parseLong(String.valueOf(assetId)));
+            AssetAccessPort.DownloadUrlView view = assets.createTaskDownloadUrl(companyId,
+                    Long.parseLong(String.valueOf(assetId)), "CONTENT_ASSET");
             return view.downloadUrl();
         }
         if (sourceUrl != null && !String.valueOf(sourceUrl).isBlank()) {

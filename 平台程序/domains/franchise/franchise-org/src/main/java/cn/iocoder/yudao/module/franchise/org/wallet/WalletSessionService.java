@@ -27,6 +27,8 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
  * （refresh token 不下发）→ 同事务审计。openid 只以 SHA-256 前 8 位摘要进审计。
  */
 @Service
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "platform.legacy-design-bridge.enabled", havingValue = "true", matchIfMissing = true)
 public class WalletSessionService {
 
     /** 30 分钟：收敛服务账号会话暴露面与撤权旁路缺口（09 文档 §四-3/§十-1） */

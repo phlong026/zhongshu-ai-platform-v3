@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.franchise.design;
 
 import cn.iocoder.yudao.module.franchise.api.CustomerSchemePort;
 import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
+import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.*;
+import cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignGateway;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort.ServiceAccountInactiveException;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
@@ -52,9 +54,22 @@ public class DesignAccessService {
     private final CurrentPost currentPost;
     private final TransactionTemplate txTemplate;
     private final JdbcTemplate jdbcTemplate;
+    private RemoteDesignGateway remote;
 
-    public DesignAccessService(DesignServicePort designService, CustomerSchemePort customerSchemes,
-                               StoreServiceAccountPort serviceAccounts, FranchiseCommands commands,
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setRemoteGateway(RemoteDesignGateway remote) {
+        this.remote = remote;
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void verifyCapabilityWiring() {
+        if (remote == null && (designService == null || serviceAccounts == null)) {
+            throw new IllegalStateException("Design capability requires either remote gateway or the legacy bridge");
+        }
+    }
+
+    public DesignAccessService(@org.springframework.lang.Nullable DesignServicePort designService, CustomerSchemePort customerSchemes,
+                               @org.springframework.lang.Nullable StoreServiceAccountPort serviceAccounts, FranchiseCommands commands,
                                CurrentPost currentPost, PlatformTransactionManager transactionManager,
                                DataSource dataSource) {
         this.designService = designService;
@@ -105,6 +120,7 @@ public class DesignAccessService {
     // ========== 项目与任务 ==========
 
     public DesignServicePort.ProjectCreated createProject(PostSnapshot post, DesignServicePort.DesignProjectCreate cmd) {
+        if (remote != null) return remote.call(post, Operation.CREATE_PROJECT, cmd.idempotencyKey(), cmd);
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
             var created = designService.createProject(accountId, cmd, actor(post));
@@ -118,18 +134,18 @@ public class DesignAccessService {
     }
 
     public DesignServicePort.ProjectPageView listProjects(PostSnapshot post, String cursor, int limit) {
+        if (remote != null) return remote.call(post, Operation.LIST_PROJECTS, null, new Page(cursor, limit));
         return designService.listProjects(serviceAccount(post), cursor, limit);
     }
 
     /** R10 带 customerId：先查关联集合（CRM 可读校验在前），再在集合内分页（分页前过滤，不漏项） */
     public Map<String, Object> listProjectsForCustomer(PostSnapshot post, long customerId, String cursor, int limit) {
-        long accountId = serviceAccount(post);
         Set<Long> linked = new HashSet<>(customerAccessible(() -> customerSchemes.listDesignProjectIds(post, customerId)));
         List<DesignServicePort.ProjectListItem> collected = new java.util.ArrayList<>();
         String pageCursor = cursor;
         int guard = 0;
         while (guard++ < 50) {
-            var page = designService.listProjects(accountId, pageCursor, Math.max(limit, 50));
+            var page = listProjects(post, pageCursor, Math.max(limit, 50));
             for (var item : page.list()) {
                 if (linked.contains(item.projectId())) {
                     collected.add(item);
@@ -154,27 +170,43 @@ public class DesignAccessService {
     }
 
     public DesignServicePort.ProjectDetailView getProject(PostSnapshot post, long projectId, Long jobId) {
+        if (remote != null) return remote.call(post, Operation.GET_PROJECT,
+                jobId == null ? null : "promotion:" + projectId + ":" + jobId + ":" + post.userId() + ":" + post.postId() + ":" + post.roleCode(),
+                new Project(projectId, jobId));
         return designService.getProject(serviceAccount(post), projectId, jobId);
     }
 
     public DesignServicePort.AiJobView getAiJob(PostSnapshot post, long jobId) {
+        if (remote != null) return remote.call(post, Operation.GET_AI_JOB, null, new Job(jobId));
         return designService.getAiJob(serviceAccount(post), jobId);
     }
 
     public DesignServicePort.AiJobView cancelAiJob(PostSnapshot post, long jobId) {
+        return cancelAiJob(post, jobId, null);
+    }
+
+    public DesignServicePort.AiJobView cancelAiJob(PostSnapshot post, long jobId, String key) {
+        if (remote != null) return remote.call(post, Operation.CANCEL_AI_JOB, key, new Job(jobId));
         return designService.cancelAiJob(serviceAccount(post), jobId);
     }
 
     public String notePolish(PostSnapshot post, String note, String line) {
+        return notePolish(post, note, line, null);
+    }
+
+    public String notePolish(PostSnapshot post, String note, String line, String key) {
+        if (remote != null) return remote.call(post, Operation.NOTE_POLISH, key, new Note(note, line));
         return designService.notePolish(serviceAccount(post), note, line);
     }
 
     public List<DesignServicePort.ResultVersionView> listResultVersions(PostSnapshot post, long projectId) {
+        if (remote != null) return remote.call(post, Operation.LIST_RESULT_VERSIONS, null, new Project(projectId, null));
         return designService.listResultVersions(serviceAccount(post), projectId);
     }
 
     public DesignServicePort.JobSubmitted createFlatJob(PostSnapshot post, long projectId,
                                                         DesignServicePort.FlatJobCreate cmd) {
+        if (remote != null) return remote.call(post, Operation.CREATE_FLAT_JOB, cmd.idempotencyKey(), new FlatJob(projectId, cmd));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
             var submitted = designService.createFlatJob(accountId, projectId, cmd, actor(post));
@@ -188,6 +220,7 @@ public class DesignAccessService {
 
     public DesignServicePort.JobSubmitted createElevationJob(PostSnapshot post, long projectId,
                                                              DesignServicePort.ElevationJobCreate cmd) {
+        if (remote != null) return remote.call(post, Operation.CREATE_ELEVATION_JOB, cmd.idempotencyKey(), new ElevationJob(projectId, cmd));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
             var submitted = designService.createElevationJob(accountId, projectId, cmd, actor(post));
@@ -202,6 +235,12 @@ public class DesignAccessService {
 
     public DesignServicePort.SelectionSaved confirmFlatCandidate(PostSnapshot post, long projectId,
                                                                  Long expectedJobId, long candidateId) {
+        return confirmFlatCandidate(post, projectId, expectedJobId, candidateId, null);
+    }
+
+    public DesignServicePort.SelectionSaved confirmFlatCandidate(PostSnapshot post, long projectId,
+                                                                 Long expectedJobId, long candidateId, String key) {
+        if (remote != null) return remote.call(post, Operation.CONFIRM_FLAT_CANDIDATE, key, new Selection(projectId, expectedJobId, candidateId));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
             var saved = designService.confirmFlatCandidate(accountId, projectId, expectedJobId, candidateId, actor(post));
@@ -216,6 +255,12 @@ public class DesignAccessService {
 
     public DesignServicePort.SelectionSaved selectElevationCandidate(PostSnapshot post, long projectId,
                                                                      Long expectedJobId, long candidateId) {
+        return selectElevationCandidate(post, projectId, expectedJobId, candidateId, null);
+    }
+
+    public DesignServicePort.SelectionSaved selectElevationCandidate(PostSnapshot post, long projectId,
+                                                                     Long expectedJobId, long candidateId, String key) {
+        if (remote != null) return remote.call(post, Operation.SELECT_ELEVATION_CANDIDATE, key, new Selection(projectId, expectedJobId, candidateId));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
             var saved = designService.selectElevationCandidate(accountId, projectId, expectedJobId, candidateId, actor(post));
@@ -230,6 +275,7 @@ public class DesignAccessService {
 
     public DesignServicePort.RevisionSubmitted createRevisionRequest(PostSnapshot post, long projectId,
                                                                      DesignServicePort.RevisionCreate cmd) {
+        if (remote != null) return remote.call(post, Operation.CREATE_REVISION_REQUEST, cmd.idempotencyKey(), new Revision(projectId, cmd));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
             var submitted = designService.createRevisionRequest(accountId, projectId, cmd, actor(post));
@@ -249,7 +295,7 @@ public class DesignAccessService {
      * 同键重放读回首结果；同键异内容 → 1099000000；replayed 不重复审计。
      */
     public Map<String, Object> saveToCustomer(PostSnapshot post, SaveToCustomerCommand cmd) {
-        long accountId = serviceAccount(post);
+        long accountId = remote == null ? serviceAccount(post) : 0;
         String idemKey = FranchiseCommandKeys.normalize(cmd.idempotencyKey());
         var scope = new FranchiseCommandKeys.PostKeyScope("franchise", post.userId());
         var fingerprint = new LinkedHashMap<String, Object>();
@@ -262,6 +308,16 @@ public class DesignAccessService {
         fingerprint.put("width", cmd.width() == null ? null : cmd.width().stripTrailingZeros().toPlainString());
         fingerprint.put("depth", cmd.depth() == null ? null : cmd.depth().stripTrailingZeros().toPlainString());
         fingerprint.put("floors", cmd.floors());
+        DesignServicePort.SchemeRef remoteRef;
+        if (remote != null) {
+            customerAccessible(() -> { customerSchemes.requireWritable(post, cmd.customerId()); return null; });
+            var existing = commands.replayed(post, idemKey, fingerprint);
+            if (existing.isPresent()) return Map.of("schemeId", existing.get().getAggregateId(), "version", existing.get().getRevision(), "replayed", true);
+            remoteRef = remote.call(post, Operation.VALIDATE_SCHEME_REF, null,
+                    new Scheme(cmd.projectId(), cmd.kind(), cmd.resultVersionId(), cmd.estimateId()));
+        } else {
+            remoteRef = null;
+        }
         return txTemplate.execute(status -> {
             jdbcTemplate.queryForMap("SELECT pg_advisory_xact_lock(?)",
                     FranchiseCommandKeys.lockKey(scope, idemKey));
@@ -276,7 +332,7 @@ public class DesignAccessService {
                 customerSchemes.requireWritable(post, cmd.customerId());
                 return null;
             });
-            var ref = designService.validateSchemeRef(accountId, cmd.projectId(), cmd.kind(),
+            var ref = remoteRef != null ? remoteRef : designService.validateSchemeRef(accountId, cmd.projectId(), cmd.kind(),
                     cmd.resultVersionId(), cmd.estimateId());
             BigDecimal width = cmd.width();
             BigDecimal depth = cmd.depth();
@@ -401,36 +457,48 @@ public class DesignAccessService {
     // ========== 灵感库 / 预算 / 资产（只读或票据类，无审计） ==========
 
     public DesignServicePort.CasePage listCases(PostSnapshot post, DesignServicePort.CaseQuery query) {
+        if (remote != null) return remote.call(post, Operation.LIST_CASES, null, query);
         return designService.listCases(query);
     }
 
     public List<DesignServicePort.StyleOption> listCaseStyles(PostSnapshot post) {
+        if (remote != null) return remote.call(post, Operation.LIST_CASE_STYLES, null, new Empty());
         return designService.listCaseStyles();
     }
 
     public DesignServicePort.CaseDetailView getCaseDetail(PostSnapshot post, long caseId) {
+        if (remote != null) return remote.call(post, Operation.GET_CASE_DETAIL, null, new Case(caseId));
         return designService.getCaseDetail(caseId);
     }
 
-    public void favoriteCase(PostSnapshot post, long caseId) {
+    public void favoriteCase(PostSnapshot post, long caseId) { favoriteCase(post, caseId, null); }
+
+    public void favoriteCase(PostSnapshot post, long caseId, String key) {
+        if (remote != null) { remote.call(post, Operation.FAVORITE_CASE, key, new Case(caseId)); return; }
         designService.favoriteCase(serviceAccount(post), caseId);
     }
 
-    public void unfavoriteCase(PostSnapshot post, long caseId) {
+    public void unfavoriteCase(PostSnapshot post, long caseId) { unfavoriteCase(post, caseId, null); }
+
+    public void unfavoriteCase(PostSnapshot post, long caseId, String key) {
+        if (remote != null) { remote.call(post, Operation.UNFAVORITE_CASE, key, new Case(caseId)); return; }
         designService.unfavoriteCase(serviceAccount(post), caseId);
     }
 
     public DesignServicePort.CasePage listFavorites(PostSnapshot post, String cursor, int limit) {
+        if (remote != null) return remote.call(post, Operation.LIST_FAVORITES, null, new Page(cursor, limit));
         return designService.listFavorites(serviceAccount(post), cursor, limit);
     }
 
     public DesignServicePort.RuleInfoView budgetRuleInfo(PostSnapshot post, String regionCode,
                                                          String structureType, String materialGrade) {
+        if (remote != null) return remote.call(post, Operation.BUDGET_RULE_INFO, null, new BudgetRule(regionCode, structureType, materialGrade));
         return designService.budgetRuleInfo(regionCode, structureType, materialGrade);
     }
 
     public DesignServicePort.EstimateCreated createBudgetEstimate(PostSnapshot post, long projectId,
                                                                   DesignServicePort.BudgetEstimateCreate cmd) {
+        if (remote != null) return remote.call(post, Operation.CREATE_BUDGET_ESTIMATE, cmd.idempotencyKey(), new Budget(projectId, cmd));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
             var created = designService.createBudgetEstimate(accountId, projectId, cmd, actor(post));
@@ -445,14 +513,26 @@ public class DesignAccessService {
 
     public DesignServicePort.UploadTicketView createUploadTicket(PostSnapshot post,
                                                                  DesignServicePort.UploadTicketCreate cmd) {
+        return createUploadTicket(post, cmd, null);
+    }
+
+    public DesignServicePort.UploadTicketView createUploadTicket(PostSnapshot post,
+                                                                 DesignServicePort.UploadTicketCreate cmd, String key) {
+        if (remote != null) return remote.call(post, Operation.CREATE_UPLOAD_TICKET, key, cmd);
         return designService.createUploadTicket(serviceAccount(post), cmd);
     }
 
     public DesignServicePort.AssetCompleted completeUpload(PostSnapshot post, long assetId) {
+        return completeUpload(post, assetId, null);
+    }
+
+    public DesignServicePort.AssetCompleted completeUpload(PostSnapshot post, long assetId, String key) {
+        if (remote != null) return remote.call(post, Operation.COMPLETE_UPLOAD, key, new Asset(assetId));
         return designService.completeUpload(serviceAccount(post), assetId);
     }
 
     public DesignServicePort.DownloadUrlView createDownloadUrl(PostSnapshot post, long assetId) {
+        if (remote != null) return remote.call(post, Operation.CREATE_DOWNLOAD_URL, null, new Asset(assetId));
         return designService.createDownloadUrl(serviceAccount(post), assetId);
     }
 

@@ -35,7 +35,7 @@ class ContentTaskServiceTest {
         ContentQuotaService quota = mock(ContentQuotaService.class);
         OralVideoPort oral = mock(OralVideoPort.class);
         ContentTaskService service = new ContentTaskService(store, quota, null, null, null, oral, null,
-                null, null, null, new ContentProviderProperties());
+                null, null, new ContentProviderProperties());
         // 数字人按秒预扣（createDigital）；供应商明确失败（FAILED 快照）必须回退，与 ai_video 同口径
         FrContentTaskDO task = task("digital", "{\"voice\":\"nv\",\"text\":\"测试口播文案内容\"}", "ht-1");
         when(oral.poll(eq("ht-1"), any())).thenReturn(new OralVideoPort.Snapshot("FAILED", null, null));
@@ -53,7 +53,7 @@ class ContentTaskServiceTest {
         ContentQuotaService quota = mock(ContentQuotaService.class);
         AsrPort asr = mock(AsrPort.class);
         ContentTaskService service = new ContentTaskService(store, quota, null, asr, null, null, null,
-                null, null, null, new ContentProviderProperties());
+                null, null, new ContentProviderProperties());
         FrContentTaskDO task = task("asr", "{\"assetId\":5}", "ds-task-1");
         when(asr.transcribe(any())).thenReturn(new AsrPort.Transcript("转写文本", 12.0));
         when(store.succeedPolled(eq(9L), eq(100L), isNull(), anyString())).thenReturn(true);

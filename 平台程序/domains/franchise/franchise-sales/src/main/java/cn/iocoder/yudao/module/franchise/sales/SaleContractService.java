@@ -2,7 +2,7 @@ package cn.iocoder.yudao.module.franchise.sales;
 
 import cn.iocoder.yudao.module.franchise.sales.dal.*;
 import cn.iocoder.yudao.module.franchise.api.BusinessReceiptPort;
-import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
+import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort.ServiceAccountInactiveException;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
@@ -70,7 +70,7 @@ public class SaleContractService {
     private final SaleStageReceiptMapper stageReceipts;
     private final SaleRequirementService requirements;
     private final BusinessReceiptPort businessReceipts;
-    private final DesignServicePort designService;
+    private final AssetAccessPort assets;
     private final StoreServiceAccountPort serviceAccounts;
     private final FranchiseCommands commands;
     private final SalesAccess access;
@@ -80,7 +80,7 @@ public class SaleContractService {
     public SaleContractService(SaleContractMapper contracts, SalePaymentStageMapper stages,
                                SaleStageReceiptMapper stageReceipts,
                                SaleRequirementService requirements, BusinessReceiptPort businessReceipts,
-                               DesignServicePort designService, StoreServiceAccountPort serviceAccounts,
+                               AssetAccessPort assets, StoreServiceAccountPort serviceAccounts,
                                FranchiseCommands commands, SalesAccess access,
                                PlatformTransactionManager transactionManager, DataSource dataSource) {
         this.contracts = contracts;
@@ -88,7 +88,7 @@ public class SaleContractService {
         this.stageReceipts = stageReceipts;
         this.requirements = requirements;
         this.businessReceipts = businessReceipts;
-        this.designService = designService;
+        this.assets = assets;
         this.serviceAccounts = serviceAccounts;
         this.commands = commands;
         this.access = access;
@@ -427,7 +427,10 @@ public class SaleContractService {
         }
         try {
             long serviceAccount = serviceAccounts.requireServiceAccount(post.orgId());
-            designService.validateAsset(serviceAccount, assetId);
+            var actor = new AssetAccessPort.Actor(post.orgId(), serviceAccount, post.userId(), post.postId());
+            if (!assets.validateReference(actor, assetId, java.util.Set.of("CONTRACT_ATTACHMENT"))) {
+                throw exception(cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.REFERENCE_INVALID);
+            }
         } catch (ServiceAccountInactiveException e) {
             throw exception(STAGE_ALREADY_PAID); // 不可达路径：服务账号停用在建合同时无意义——防御
         }

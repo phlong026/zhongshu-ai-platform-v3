@@ -49,18 +49,18 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 }
 
                 @Override
-                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
+                public cn.iocoder.yudao.module.franchise.api.AssetAccessPort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
                                                                              String mimeType, long sizeBytes, String sha256) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.AssetCompleted completeUpload(long serviceAccountId, long assetId) {
+                public cn.iocoder.yudao.module.franchise.api.AssetAccessPort.AssetCompleted completeUpload(long serviceAccountId, long assetId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public cn.iocoder.yudao.module.franchise.api.DesignServicePort.DownloadUrlView createDownloadUrl(long serviceAccountId, long assetId) {
+                public cn.iocoder.yudao.module.franchise.api.AssetAccessPort.DownloadUrlView createDownloadUrl(long serviceAccountId, long assetId) {
                     throw new UnsupportedOperationException();
                 }
 
@@ -379,8 +379,9 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                 as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
                         new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "主体完成", fakeForNode, true), idem())))
-                .isInstanceOf(ServiceException.class)
-                .hasMessageContaining("凭据资产不存在、未验收或不属于本组织");
+                .isInstanceOfSatisfying(ServiceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(1_115_000_001))
+                .hasMessage("提交内容不合法：现场验收凭据资产不存在、未验收、不属于本组织或类型不符");
         // 合法 completeNode：节点 DONE + 凭据文档落库（前置：材料合格到齐——到货行 quantity>=需用）
         long gateReceiptAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         // 合格到货行（quality=OK + actual_quantity=15 ≥ 需用——共享库中幂等用例已把需用改到 15，
@@ -476,8 +477,9 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         long fakeId = IDS.incrementAndGet();
         assertThatThrownBy(() -> asVoid(engineer, () -> closuresService.deliver(engineer, projectId,
                 new EngClosureService.DeliverCommand(java.time.LocalDate.now(), "业主-陈先生", null, fakeId, "交付"), idem())))
-                .isInstanceOf(ServiceException.class)
-                .hasMessageContaining("凭据资产不存在、未验收或不属于本组织");
+                .isInstanceOfSatisfying(ServiceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(1_115_000_001))
+                .hasMessage("提交内容不合法：交付凭据资产不存在、未验收、不属于本组织或类型不符");
         // 未 ACCEPTED：拒绝
         long unaccepted = insertAsset("ENG_SITE_PHOTO", false, store.orgId());
         assertThatThrownBy(() -> asVoid(engineer, () -> closuresService.deliver(engineer, projectId,

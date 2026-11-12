@@ -17,6 +17,8 @@ import java.util.List;
  * 否则「先停用账号再撤岗」会抛异常、「从未开过钱包的组织撤权」会反向创建账号）。须在调用方事务内执行。
  */
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "platform.legacy-design-bridge.enabled", havingValue = "true", matchIfMissing = true)
 public class WalletSessionRevocationAdapter implements WalletSessionRevocation {
 
     private static final String FR_SERVICE_PREFIX = "fr-service:";

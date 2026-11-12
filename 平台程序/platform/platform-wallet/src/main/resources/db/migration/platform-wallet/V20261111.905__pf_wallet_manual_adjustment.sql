@@ -1,0 +1,22 @@
+CREATE TABLE pf_manual_point_adjustment (
+    id BIGINT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    wallet_id BIGINT NOT NULL,
+    maker_id BIGINT NOT NULL,
+    checker_id BIGINT,
+    delta BIGINT NOT NULL CHECK (delta <> 0 AND delta <> '-9223372036854775808'::bigint),
+    reason VARCHAR(512) NOT NULL CHECK (length(reason) > 0),
+    request_key VARCHAR(128) NOT NULL,
+    request_hash CHAR(64) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'SUBMITTED' CHECK (status IN ('SUBMITTED','EXECUTED','REJECTED')),
+    checker_comment VARCHAR(512),
+    ledger_id BIGINT,
+    create_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    update_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, request_key),
+    FOREIGN KEY (tenant_id, wallet_id) REFERENCES pf_wallet(tenant_id, id),
+    FOREIGN KEY (tenant_id, wallet_id, ledger_id) REFERENCES pf_point_ledger(tenant_id, wallet_id, id),
+    CHECK (checker_id IS NULL OR checker_id <> maker_id),
+    CHECK ((status = 'SUBMITTED') = (checker_id IS NULL)),
+    CHECK ((status = 'EXECUTED') = (ledger_id IS NOT NULL))
+);

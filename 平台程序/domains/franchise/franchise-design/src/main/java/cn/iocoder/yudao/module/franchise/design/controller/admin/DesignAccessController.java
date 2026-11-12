@@ -77,15 +77,17 @@ public class DesignAccessController {
 
     @PutMapping("/cases/{caseId}/favorite")
     @Operation(summary = "收藏案例（服务账号名下，组织共享，重放天然幂等）")
-    public CommonResult<Boolean> favorite(@PathVariable("caseId") long caseId) {
-        access.favoriteCase(access.post(), caseId);
+    public CommonResult<Boolean> favorite(@PathVariable("caseId") long caseId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        access.favoriteCase(access.post(), caseId, key);
         return success(true);
     }
 
     @DeleteMapping("/cases/{caseId}/favorite")
     @Operation(summary = "取消收藏")
-    public CommonResult<Boolean> unfavorite(@PathVariable("caseId") long caseId) {
-        access.unfavoriteCase(access.post(), caseId);
+    public CommonResult<Boolean> unfavorite(@PathVariable("caseId") long caseId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        access.unfavoriteCase(access.post(), caseId, key);
         return success(true);
     }
 
@@ -104,15 +106,17 @@ public class DesignAccessController {
 
     @PostMapping("/assets/upload-tickets")
     @Operation(summary = "申请上传票据（COS=原始字节 PUT；local=dev 通道）")
-    public CommonResult<DesignServicePort.UploadTicketView> uploadTicket(@RequestBody UploadTicketReq req) {
+    public CommonResult<DesignServicePort.UploadTicketView> uploadTicket(@RequestBody UploadTicketReq req,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
         return success(access.createUploadTicket(access.post(),
-                new DesignServicePort.UploadTicketCreate(req.assetType(), req.mimeType(), req.sizeBytes(), req.sha256())));
+                new DesignServicePort.UploadTicketCreate(req.assetType(), req.mimeType(), req.sizeBytes(), req.sha256()), key));
     }
 
     @PostMapping("/assets/{assetId}/complete")
     @Operation(summary = "完成上传（首次触发审核；终态重放=幂等读）")
-    public CommonResult<DesignServicePort.AssetCompleted> completeUpload(@PathVariable("assetId") long assetId) {
-        return success(access.completeUpload(access.post(), assetId));
+    public CommonResult<DesignServicePort.AssetCompleted> completeUpload(@PathVariable("assetId") long assetId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        return success(access.completeUpload(access.post(), assetId, key));
     }
 
     @PostMapping("/assets/{assetId}/download-tickets")
@@ -204,8 +208,9 @@ public class DesignAccessController {
 
     @PostMapping("/ai-jobs/{jobId}/cancellation-requests")
     @Operation(summary = "请求取消生成任务（QUEUED/RUNNING/VALIDATING 可取消；退点随结算）")
-    public CommonResult<DesignServicePort.AiJobView> cancelAiJob(@PathVariable("jobId") long jobId) {
-        return success(access.cancelAiJob(access.post(), jobId));
+    public CommonResult<DesignServicePort.AiJobView> cancelAiJob(@PathVariable("jobId") long jobId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        return success(access.cancelAiJob(access.post(), jobId, key));
     }
 
     public record NotePolishReq(String note, String line) {
@@ -213,11 +218,12 @@ public class DesignAccessController {
 
     @PostMapping("/note-polish")
     @Operation(summary = "补充需求 AI 润色（保留原意与数字，限流在服务内）")
-    public CommonResult<Map<String, Object>> notePolish(@RequestBody NotePolishReq req) {
+    public CommonResult<Map<String, Object>> notePolish(@RequestBody NotePolishReq req,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
         if (req.note() == null || req.note().isBlank()) {
             throw exception(new cn.iocoder.yudao.framework.common.exception.ErrorCode(400, "请先填写需求说明"));
         }
-        String polished = access.notePolish(access.post(), req.note(), req.line() == null ? "FLAT" : req.line());
+        String polished = access.notePolish(access.post(), req.note(), req.line() == null ? "FLAT" : req.line(), key);
         return success(Map.of("polished", polished));
     }
 
@@ -227,18 +233,20 @@ public class DesignAccessController {
     @PostMapping("/projects/{projectId}/flat-selections")
     @Operation(summary = "选定平面候选（jobId/candidateId 一致性校验；ELEVATION 阶段 selectionSaved=true 无版本）")
     public CommonResult<Map<String, Object>> flatSelection(@PathVariable("projectId") long projectId,
-                                                           @RequestBody SelectionReq req) {
+                                                           @RequestBody SelectionReq req,
+                                                           @RequestHeader(value = "Idempotency-Key", required = false) String key) {
         PostSnapshot post = access.post();
-        var saved = access.confirmFlatCandidate(post, projectId, req.jobId(), req.candidateId());
+        var saved = access.confirmFlatCandidate(post, projectId, req.jobId(), req.candidateId(), key);
         return success(selectionResult(saved));
     }
 
     @PostMapping("/projects/{projectId}/elevation-selections")
     @Operation(summary = "选定立面候选并生成结果版本")
     public CommonResult<Map<String, Object>> elevationSelection(@PathVariable("projectId") long projectId,
-                                                                @RequestBody SelectionReq req) {
+                                                                @RequestBody SelectionReq req,
+                                                                @RequestHeader(value = "Idempotency-Key", required = false) String key) {
         PostSnapshot post = access.post();
-        var saved = access.selectElevationCandidate(post, projectId, req.jobId(), req.candidateId());
+        var saved = access.selectElevationCandidate(post, projectId, req.jobId(), req.candidateId(), key);
         return success(selectionResult(saved));
     }
 

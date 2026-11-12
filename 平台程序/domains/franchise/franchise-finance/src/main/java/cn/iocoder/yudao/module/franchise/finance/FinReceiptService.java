@@ -122,13 +122,24 @@ public class FinReceiptService {
         if (voucherFileId == null || voucherFileId <= 0) {
             return;
         }
-        long accountId = serviceAccounts.requireServiceAccount(post.orgId());
-        if (assets.validateReference(accountId, voucherFileId)) {
-            return;
-        }
-        Long fileOrg = voucherFileMapper.selectById(voucherFileId) == null ? null
-                : voucherFileMapper.selectById(voucherFileId).getCompanyId();
-        if (fileOrg == null || fileOrg != post.orgId()) {
+        requireVoucherAsset(post, voucherFileId, assets, voucherFileMapper, serviceAccounts);
+    }
+
+    /** 收付款共用：新资产的错误类型/状态不能通过同 ID 历史文件回退。 */
+    static void requireVoucherAsset(PostSnapshot post, long fileId,
+                                    cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets,
+                                    FinVoucherMapper files,
+                                    cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort accounts) {
+        long accountId = accounts.requireServiceAccount(post.orgId());
+        var actor = new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(
+                post.orgId(), accountId, post.userId(), post.postId());
+        if (assets.validateReference(actor, fileId, java.util.Set.of("FIN_VOUCHER"))) return;
+        if (!assets.legacyReferenceAllowed(actor, fileId)) throw exception(VOUCHER_INVALID_FIN);
+        var file = files.selectById(fileId);
+        Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
+        if (file == null || !Objects.equals(file.getCompanyId(), post.orgId()) || tenant == null
+                || !Objects.equals(file.getTenantId(), tenant) || file.getContentType() == null
+                || !java.util.Set.of("image/jpeg", "image/png", "application/pdf").contains(file.getContentType())) {
             throw exception(VOUCHER_INVALID_FIN);
         }
     }

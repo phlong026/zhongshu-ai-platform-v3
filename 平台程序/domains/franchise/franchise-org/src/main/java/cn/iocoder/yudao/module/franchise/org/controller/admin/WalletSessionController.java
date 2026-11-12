@@ -29,6 +29,8 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @RestController
 @RequestMapping("/platform/wallet")
 @Validated
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "platform.legacy-design-bridge.enabled", havingValue = "true", matchIfMissing = true)
 public class WalletSessionController {
 
     @Resource

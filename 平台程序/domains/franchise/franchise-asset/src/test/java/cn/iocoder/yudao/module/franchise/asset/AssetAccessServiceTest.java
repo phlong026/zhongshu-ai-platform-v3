@@ -2,7 +2,6 @@ package cn.iocoder.yudao.module.franchise.asset;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
-import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
 import cn.iocoder.yudao.module.franchise.api.FranchiseDesignErrorCodes;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort.ServiceAccountInactiveException;
@@ -36,23 +35,23 @@ class AssetAccessServiceTest {
         }
 
         @Override
-        public DesignServicePort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
+        public AssetAccessPort.UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
                                                                      String mimeType, long sizeBytes, String sha256) {
             calls.add("upload:" + serviceAccountId + ":" + assetType);
             assertThat(serviceAccountId).as("编排须以服务账号身份调 Port").isEqualTo(expectedAccount);
-            return new DesignServicePort.UploadTicketView(501L, "local://stub");
+            return new AssetAccessPort.UploadTicketView(501L, "local://stub");
         }
 
         @Override
-        public DesignServicePort.AssetCompleted completeUpload(long serviceAccountId, long assetId) {
+        public AssetAccessPort.AssetCompleted completeUpload(long serviceAccountId, long assetId) {
             calls.add("complete:" + serviceAccountId + ":" + assetId);
-            return new DesignServicePort.AssetCompleted(assetId, "ACCEPTED", null);
+            return new AssetAccessPort.AssetCompleted(assetId, "ACCEPTED", null);
         }
 
         @Override
-        public DesignServicePort.DownloadUrlView createDownloadUrl(long serviceAccountId, long assetId) {
+        public AssetAccessPort.DownloadUrlView createDownloadUrl(long serviceAccountId, long assetId) {
             calls.add("download:" + serviceAccountId + ":" + assetId);
-            return new DesignServicePort.DownloadUrlView("local://stub?expires=1", 1L);
+            return new AssetAccessPort.DownloadUrlView("local://stub?expires=1", 1L);
         }
 
         @Override
@@ -68,14 +67,16 @@ class AssetAccessServiceTest {
         }
     }
 
-    /** Recording CommandLog（动态代理）：拦截 append 捕获审计事件，其余方法返回 null */
+    /** Recording CommandLog：捕获并返回实际命令信封，保留幂等键及聚合归属合同。 */
     private CommandLog recordingCommandLog(List<String> aggregates) {
         return (CommandLog) java.lang.reflect.Proxy.newProxyInstance(
                 CommandLog.class.getClassLoader(), new Class[]{CommandLog.class},
                 (proxy, method, args) -> {
                     if ("append".equals(method.getName()) && args[0] != null) {
-                        aggregates.add(((cn.iocoder.yudao.module.platform.command.dal.CommandEventDO) args[0])
-                                .getAggregateType());
+                        var event = (cn.iocoder.yudao.module.platform.command.dal.CommandEventDO) args[0];
+                        assertThat(event.getIdempotencyKey()).isNotBlank();
+                        aggregates.add(event.getAggregateType());
+                        return event;
                     }
                     return null;
                 });
@@ -96,7 +97,7 @@ class AssetAccessServiceTest {
         List<String> aggregates = new ArrayList<>();
         AssetAccessService service = service(new RecordingPort(777L, calls), new FranchiseCommands(recordingCommandLog(aggregates)));
 
-        DesignServicePort.UploadTicketView view = service.uploadTicket(POST, "FIN_VOUCHER",
+        AssetAccessPort.UploadTicketView view = service.uploadTicket(POST, "FIN_VOUCHER",
                 "application/pdf", 100, "a".repeat(64));
 
         assertThat(view.assetId()).isEqualTo(501L);
@@ -129,7 +130,10 @@ class AssetAccessServiceTest {
                 CommandLog.class.getClassLoader(), new Class[]{CommandLog.class},
                 (proxy, method, args) -> {
                     if ("append".equals(method.getName()) && args[0] != null) {
-                        events.add((cn.iocoder.yudao.module.platform.command.dal.CommandEventDO) args[0]);
+                        var event = (cn.iocoder.yudao.module.platform.command.dal.CommandEventDO) args[0];
+                        assertThat(event.getIdempotencyKey()).isNotBlank();
+                        events.add(event);
+                        return event;
                     }
                     return null;
                 });

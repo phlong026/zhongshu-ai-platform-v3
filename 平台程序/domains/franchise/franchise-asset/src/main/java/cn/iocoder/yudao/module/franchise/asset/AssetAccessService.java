@@ -3,7 +3,6 @@ package cn.iocoder.yudao.module.franchise.asset;
 import cn.hutool.core.util.IdUtil;
 import cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
-import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
 import cn.iocoder.yudao.module.franchise.api.FranchiseDesignErrorCodes;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort.ServiceAccountInactiveException;
@@ -64,29 +63,31 @@ public class AssetAccessService {
         }
     }
 
-    public DesignServicePort.UploadTicketView uploadTicket(PostSnapshot post, String assetType,
-                                                           String mimeType, long sizeBytes, String sha256) {
-        requireChannelPermission(post, assetType); // M5 分派（R2 P1-1）
-        long accountId = serviceAccount(post);
-        DesignServicePort.UploadTicketView view = assets.createUploadTicket(accountId, assetType, mimeType, sizeBytes, sha256);
+    public AssetAccessPort.Actor actor(PostSnapshot post) {
+        return new AssetAccessPort.Actor(post.orgId(), serviceAccount(post), post.userId(), post.postId());
+    }
+
+    public AssetAccessPort.UploadTicketView uploadTicket(PostSnapshot post, String assetType,
+                                                        String mimeType, long sizeBytes, String sha256) {
+        requireChannelPermission(post, assetType);
+        var view = assets.createUploadTicket(actor(post), assetType, mimeType, sizeBytes, sha256);
         audit(post, "upload-ticket", view.assetId(), assetType);
         return view;
     }
 
-    public DesignServicePort.AssetCompleted completeUpload(PostSnapshot post, long assetId) {
-        requireChannelPermission(post, channelTypeOf(post, assetId)); // M5 分派
-        long accountId = serviceAccount(post);
-        String assetType = requireBEndAsset(accountId, assetId);
-        DesignServicePort.AssetCompleted completed = assets.completeUpload(accountId, assetId);
+    public AssetAccessPort.AssetCompleted completeUpload(PostSnapshot post, long assetId) {
+        var actor = actor(post);
+        String assetType = requireBEndAsset(actor, assetId);
+        requireChannelPermission(post, assetType);
+        var completed = assets.completeUpload(actor, assetId);
         audit(post, "complete", assetId, assetType);
         return completed;
     }
 
-    public DesignServicePort.DownloadUrlView createDownloadUrl(PostSnapshot post, long assetId) {
-        requireChannelPermission(post, channelTypeOf(post, assetId)); // M5 分派
-        long accountId = serviceAccount(post);
-        requireBEndAsset(accountId, assetId);
-        return assets.createDownloadUrl(accountId, assetId);
+    public AssetAccessPort.DownloadUrlView createDownloadUrl(PostSnapshot post, long assetId) {
+        var actor = actor(post);
+        requireChannelPermission(post, requireBEndAsset(actor, assetId));
+        return assets.createDownloadUrl(actor, assetId);
     }
 
     /**
@@ -96,12 +97,11 @@ public class AssetAccessService {
      */
     /** 通道分派前置查类型（不存在→null→分派拒绝；不泄露区分） */
     public String channelTypeOf(PostSnapshot post, long assetId) {
-        long accountId = serviceAccount(post);
-        return assets.assetTypeOf(accountId, assetId);
+        return assets.assetTypeOf(actor(post), assetId);
     }
 
-    private String requireBEndAsset(long accountId, long assetId) {
-        String assetType = assets.assetTypeOf(accountId, assetId);
+    private String requireBEndAsset(AssetAccessPort.Actor actor, long assetId) {
+        String assetType = assets.assetTypeOf(actor, assetId);
         if (assetType == null || !B_END_TYPES.contains(assetType)) {
             throw exception(ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
         }
@@ -114,7 +114,7 @@ public class AssetAccessService {
      * 越权 RESOURCE_FORBIDDEN（同码不泄露）。upload 从入参、complete/download 由调用方查得类型后调用。
      */
     public void requireChannelPermission(PostSnapshot post, String assetType) {
-        if (!channelAllowed(assetType, post.roleCode())) {
+        if (assetType == null || !B_END_TYPES.contains(assetType) || !channelAllowed(assetType, post.roleCode())) {
             throw exception(ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
         }
     }
