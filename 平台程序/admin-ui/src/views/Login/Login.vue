@@ -8,7 +8,7 @@
           <img :src="brandLogoUrl" alt="众墅之家" />
           <span>众墅之家</span>
         </div>
-        <div :class="`${prefixCls}__slogan`">让好方案，沉淀为公司的设计资产</div>
+        <div :class="`${prefixCls}__slogan`">众墅之家，让乡墅建造更简单</div>
       </div>
       <!-- 右半幅：浅暖灰底 + 白色登录卡片 -->
       <div :class="`${prefixCls}__right`">
