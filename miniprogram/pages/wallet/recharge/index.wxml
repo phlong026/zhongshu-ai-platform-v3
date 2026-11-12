@@ -3,9 +3,10 @@
 
   <view wx:if="{{loadState === 'loading'}}" class="wallet-loading">加载中…</view>
 
-  <view wx:elif="{{loadState === 'unavailable'}}" class="wallet-empty">
-    <text class="wallet-empty-title">钱包功能尚未开通</text>
-    <text class="wallet-empty-sub">管理员开通后将在此展示充值套餐</text>
+  <view wx:elif="{{loadState === 'failed'}}" class="wallet-empty">
+    <text class="wallet-empty-title">钱包加载失败</text>
+    <text class="wallet-empty-sub">{{errorText}}</text>
+    <button bindtap="load">重新加载</button>
   </view>
 
   <block wx:else>
@@ -17,13 +18,15 @@
           <button class="balance-link" bindtap="goToRecords">充值记录</button>
         </view>
         <view class="balance-num">{{balanceText}}<text class="balance-unit">设计点</text></view>
-        <view class="balance-rate">1 元 = 10 设计点 · 支付成功即时到账</view>
+        <view class="balance-rate">按套餐充值 · 到账以充值记录为准</view>
       </view>
 
       <!-- 促销横幅（取后台推荐套餐，无推荐则不显示） -->
       <view wx:if="{{promoText}}" class="promo-row">{{promoText}}</view>
 
       <view class="section-title">选择充值套餐</view>
+      <view wx:if="{{!plans.length}}" class="wallet-empty-sub">暂无可用充值套餐</view>
+      <view wx:if="{{hasPendingOrder}}" class="wallet-empty-sub">有待确认订单，本次操作将继续处理原订单</view>
       <view class="plans-grid">
         <button
           wx:for="{{plans}}"
@@ -67,8 +70,8 @@
         <view class="paybar-amount">待支付 <text class="paybar-num">{{payAmountText}}</text></view>
         <view class="paybar-points">到账 <text class="paybar-points-num">{{payPointsText}}</text> 设计点</view>
       </view>
-      <button class="paybar-btn {{paying ? 'paybar-btn-paying' : ''}}" bindtap="confirmPay">
-        {{paying ? '正在创建订单…' : '确认支付'}}
+      <button class="paybar-btn {{paying ? 'paybar-btn-paying' : ''}}" bindtap="confirmPay" disabled="{{paying || (hasPendingOrder ? false : !plans.length)}}">
+        {{paying ? '处理中…' : (hasPendingOrder ? '继续处理原订单' : '确认支付')}}
       </button>
     </view>
 
@@ -79,11 +82,11 @@
           {{resultState === 'done' ? '✓' : (resultState === 'processing' ? '…' : '!')}}
         </view>
         <view class="result-title">
-          {{resultState === 'done' ? '支付成功' : (resultState === 'processing' ? '确认到账中' : '支付未完成')}}
+          {{resultState === 'done' ? '充值已到账' : (resultState === 'processing' ? '确认到账中' : '订单待处理')}}
         </view>
         <view class="result-text">{{resultText}}</view>
         <view class="result-actions">
-          <button wx:if="{{canContinuePay}}" class="result-btn result-btn-main" catchtap="continuePay">继续支付</button>
+          <button wx:if="{{canContinuePay}}" class="result-btn result-btn-main" catchtap="continuePay" disabled="{{paying}}">继续处理原订单</button>
           <button class="result-btn" catchtap="dismissResult">
             {{resultState === 'done' ? '完成' : (resultState === 'processing' ? '我知道了' : '关闭')}}
           </button>

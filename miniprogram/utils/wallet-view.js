@@ -58,18 +58,16 @@ function ribbonFor(plan, plans) {
   return null;
 }
 
-/** 套餐卡片视图（排序按后台 sort 升序，稳定） */
+/** B 已按套餐顺序返回；ID 保持字符串，价格单位为分。 */
 function plansView(plans) {
-  return (plans || []).slice()
-    .sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0))
-    .map((p) => ({
-      planId: String(p.planId),
-      name: p.name || '',
-      priceText: formatYuan(p.amountCents),
-      pointsText: formatThousands((Number(p.basePoints) || 0) + (Number(p.bonusPoints) || 0)),
-      bonus: bonusInfo(p.basePoints, p.bonusPoints),
-      ribbon: ribbonFor(p, plans)
-    }));
+  return (plans || []).map((p) => ({
+    planId: p.id,
+    name: p.name || '',
+    priceText: formatYuan(p.priceFen),
+    pointsText: formatThousands((Number(p.basePoints) || 0) + (Number(p.bonusPoints) || 0)),
+    bonus: bonusInfo(p.basePoints, p.bonusPoints),
+    ribbon: ribbonFor(p, plans)
+  }));
 }
 
 /** 选中套餐后的底部支付栏：{amountText, pointsText}；未选中返回占位 */
@@ -80,42 +78,39 @@ function payBar(plans, selectedIdx) {
   return { amountText: picked.priceText, pointsText: picked.pointsText };
 }
 
-/**
- * 支付路由判定（后端契约：payParams.paySig=虚拟支付；payParams.state=SESSION_CODE_REQUIRED 表示
- * 建单时缺一次性 code 无法签名）。客户端能力不足（基础库不支持 requestVirtualPayment）回退
- * 商户号微信支付；两者皆缺或 stub 无 payParams 直接进查单轮询。
- */
+/** 只接受 B 已冻结的虚拟支付参数；缺参数不得进入成功/到账流程。 */
 function payRoute(order, capability) {
-  const cap = capability || {};
   const params = order && order.payParams;
-  if (params && params.state === 'SESSION_CODE_REQUIRED') return 'session-code-required';
-  if (params && params.paySig && cap.virtualPayment) return 'virtual';
-  if (params && params.paySig && !cap.virtualPayment && cap.wechatPayment) return 'virtual-unsupported';
-  if (params && params.package) return 'wechat';
-  return 'poll';
+  if (!params || !['signData', 'mode', 'paySig', 'signature'].every((key) => typeof params[key] === 'string' && params[key])) {
+    return 'unavailable';
+  }
+  return capability && capability.virtualPayment ? 'virtual' : 'virtual-unsupported';
 }
 
-/** 订单状态文案（paymentState + fulfillmentState 两套状态联合表达） */
+/** 支付事实和积分到账是两件事。 */
 function orderStatusText(order) {
-  const pay = order && order.paymentState;
-  const fulfill = order && order.fulfillmentState;
-  if (fulfill === 'CREDITED') return '已到账';
-  if (pay === 'SUCCEEDED') return '到账中';
+  const pay = order && order.status;
+  const credit = order && order.creditState;
+  if (credit === 'BLOCKED') return '入账已冻结';
+  if (credit === 'CREDITED') return '已到账';
+  if (pay === 'SUCCEEDED') return '待入账';
   if (pay === 'FAILED') return '支付失败';
   if (pay === 'CLOSED') return '已关闭';
-  if (pay === 'PENDING') return '支付确认中';
-  return '待支付';
+  if (pay === 'PENDING' || pay === 'UNKNOWN') return '支付结果确认中';
+  if (pay === 'CREATED') return '待支付';
+  return '订单状态待确认';
 }
 
 /** 流水文案：type→中文标题、delta→带符号点数 */
 function ledgerView(item) {
   const delta = Number(item.delta) || 0;
   return {
-    title: LEDGER_TITLES[item.type] || item.type || '点数变动',
+    id: item.id,
+    title: LEDGER_TITLES[item.type] || item.reason || item.type || '点数变动',
     deltaText: (delta > 0 ? '+' : '') + formatThousands(delta),
     positive: delta > 0,
-    balanceText: formatThousands(Number(item.balanceAfter) || 0),
-    timeText: formatTime(item.createdAt)
+    balanceText: formatThousands(Number(item.availableAfter) || 0),
+    timeText: formatTime(item.createTime)
   };
 }
 
@@ -124,14 +119,15 @@ function orderView(order) {
   const total = (Number(order.basePoints) || 0) + (Number(order.bonusPoints) || 0);
   const bonus = bonusInfo(order.basePoints, order.bonusPoints);
   return {
-    orderId: String(order.orderId),
-    amountText: formatYuan(order.amountCents),
+    orderId: order.id,
+    orderNo: order.orderNo,
+    amountText: formatYuan(order.priceFen),
     pointsText: formatThousands(total),
     bonusText: bonus ? bonus.label : '',
     statusText: orderStatusText(order),
-    credited: order.fulfillmentState === 'CREDITED',
-    closable: order.paymentState === 'CREATED' || order.paymentState === 'PENDING',
-    timeText: formatTime(order.createdAt)
+    credited: order.creditState === 'CREDITED',
+    closable: order.status === 'CREATED' && order.creditState !== 'BLOCKED',
+    timeText: formatTime(order.createTime)
   };
 }
 
@@ -144,13 +140,10 @@ function formatTime(value) {
   return text;
 }
 
-/**
- * 资产卡可见性状态机（组件与 verify 共用）：
- * hidden=不渲染（未登录/无钱包会话/查询失败）；ready=正常展示余额。
- */
-function cardState(platformLoggedIn, walletToken, account, accountError) {
+/** 资产卡只依赖平台登录、岗位与余额查询；失败隐藏，不阻塞所在页面。 */
+function cardState(platformLoggedIn, postId, account, accountError) {
   if (!platformLoggedIn) return 'hidden';
-  if (!walletToken) return 'hidden';
+  if (!postId) return 'hidden';
   if (accountError) return 'hidden';
   if (!account || account.availablePoints === undefined || account.availablePoints === null) return 'hidden';
   return 'ready';

@@ -1,68 +1,40 @@
-/**
- * 设计点资产卡（「我的」页第 2 位）：品牌渐变卡展示点数余额，去充值/充值明细双入口。
- *
- * 自取数组件：挂载与所在页每次 onShow 时刷新（pageLifetimes.show），充值回来余额即时更新；
- * 平台未登录、钱包会话不可用（桥接未部署/充值未开放）或查询失败时整体隐藏——
- * 资产卡属增量能力，任何异常都不阻塞「我的」页原有功能。
- */
+/** 设计点资产卡：使用当前 ADMIN 岗位的组织钱包，失败不阻塞「我的」页。 */
 const http = require('../../api/http');
 const wallet = require('../../api/wallet');
 const view = require('../../utils/wallet-view');
 
 Component({
-  data: {
-    visible: false,
-    balanceText: ''
-  },
-
+  data: { visible: false, balanceText: '' },
   lifetimes: {
     attached() {
+      this._detached = false;
       this.refresh();
+    },
+    detached() {
+      this._detached = true;
     }
   },
-
   pageLifetimes: {
-    show() {
-      this.refresh();
-    }
+    show() { this.refresh(); }
   },
-
   methods: {
     refresh() {
-      const platformLoggedIn = !!(wx.getStorageSync(http.TOKEN_KEY) || '');
-      if (!platformLoggedIn) {
-        this.setData({ visible: false });
-        return;
-      }
-      wallet.ensureSession().then((token) => {
-        const state = view.cardState(platformLoggedIn, token, null, false);
-        if (state !== 'ready') {
-          this.setData({ visible: false });
-          return null;
-        }
-        return wallet.pointAccount().then((account) => {
-          if (view.cardState(platformLoggedIn, token, account, false) !== 'ready') {
-            this.setData({ visible: false });
-            return;
-          }
-          this.setData({
-            visible: true,
-            balanceText: view.formatThousands(account.availablePoints)
-          });
-        });
+      const seq = this._requestSeq = (this._requestSeq || 0) + 1;
+      const fp = wallet.fingerprint();
+      const alive = () => !this._detached && seq === this._requestSeq && fp === wallet.fingerprint();
+      this.setData({ visible: false, balanceText: '' });
+      if (!http.token() || !http.currentPostId()) return;
+      wallet.pointAccount(fp).then((account) => {
+        if (!alive()) return;
+        const visible = view.cardState(!!http.token(), http.currentPostId(), account, false) === 'ready';
+        this.setData({ visible, balanceText: visible ? view.formatThousands(account.availablePoints) : '' });
       }).catch((err) => {
-        // 网络失败等一律静默隐藏；带上下文留 warn 便于排查
-        console.warn('[point-asset-card] 余额查询失败', err && (err.code || err.message));
-        this.setData({ visible: false });
+        if (!alive() || wallet.isStale(err)) return;
+        console.warn('[point-asset-card] 余额查询失败', err && err.code);
+        this.setData({ visible: false, balanceText: '' });
       });
     },
-
-    goToRecharge() {
-      wx.navigateTo({ url: '/pages/wallet/recharge/index' });
-    },
-
-    goToRecords() {
-      wx.navigateTo({ url: '/pages/wallet/records/index' });
-    }
+    goToRecharge() { wx.navigateTo({ url: '/pages/wallet/recharge/index' }); },
+    goToRecords() { wx.navigateTo({ url: '/pages/wallet/records/index' }); }
   }
 });

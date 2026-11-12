@@ -1,323 +1,286 @@
-/**
- * 设计点充值面板（后端契约：yudao-module-commerce AppRecharge*Controller；09 文档 §五）。
- *
- * 支付编排（与设计小程序已验证流程同源）：
- * 1. 确认支付 → wx.login 取一次性 code（虚拟支付签名必需，换取即弃）；
- * 2. createOrder(planId, Idempotency-Key, X-WX-Login-Code) → 按 payRoute 分发；
- * 3. wx.requestVirtualPayment（signData 服务端签名原文，原样透传禁止重序列化）；
- * 4. 成功回调只进查单轮询，到账以服务端 fulfillmentState=CREDITED 为准（红线 3：禁止前端加点）；
- * 5. 失败/取消 → 先查单对账（可能实际已支付），未支付则进入「继续支付」恢复流（pay-params 重领，不重复建单）。
- *
- * 串账防护（09 文档 §五-2）：支付意图指纹在点击时冻结（this._payFp），贯穿 wx.login → 建单/重领 →
- * dispatchPay → 原生支付回调 → 轮询/对账；期间切岗/换人 → wallet 层抛 WALLET_STALE 或指纹不符 →
- * 静默终止（不更新页面、不排定重试、不重开「继续支付」、不发起支付）。
- */
+/** B 组织钱包充值。建单键持久保存；每次支付尝试独立取 code，到账只认服务端 creditState。 */
+const http = require('../../../api/http');
 const wallet = require('../../../api/wallet');
 const view = require('../../../utils/wallet-view');
-
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_TIMES = 15;
 
 Page({
   data: {
-    loadState: 'loading', // loading | ready | unavailable
-    balanceText: '',
-    plans: [],
-    selectedIdx: -1,
-    payAmountText: '¥--',
-    payPointsText: '--',
-    agreement: true,
-    paying: false,
-    promoText: '',
-    resultState: '', // '' | processing | done | failed | slow
-    resultText: '',
-    resultOrderId: '',
-    canContinuePay: false
+    loadState: 'loading', errorText: '', balanceText: '', plans: [], selectedIdx: -1,
+    payAmountText: '¥--', payPointsText: '--', agreement: true, paying: false, promoText: '',
+    resultState: '', resultText: '', resultOrderId: '', canContinuePay: false, hasPendingOrder: false
   },
-
   onLoad() {
-    this._lifecycleToken = 0;
-    this._pollTimer = null;
-    this._pollLeft = 0;
-    this._payFp = null;
+    this._unloaded = false;
+    this._loadSeq = 0;
+    this._paySeq = 0;
+    this._pollSeq = 0;
     this.load();
   },
-
+  onShow() {
+    if (this._fp !== wallet.fingerprint()) this.load();
+  },
   onUnload() {
-    this._lifecycleToken += 1;
+    this._unloaded = true;
+    this.stopPolling();
+  },
+  stopPolling() {
+    this._pollSeq += 1;
     if (this._pollTimer) clearTimeout(this._pollTimer);
   },
-
-  isCurrentLifecycle(token) {
-    return token === this._lifecycleToken;
+  payIntentAlive(seq) {
+    return !this._unloaded && this._payFp === wallet.fingerprint() && (seq === undefined || seq === this._paySeq);
   },
-
-  /** 支付意图指纹是否仍然有效 */
-  payIntentAlive() {
-    return this._payFp !== null && wallet.fingerprint() === this._payFp;
-  },
-
   load() {
-    wallet.ensureSession().then((token) => {
-      if (!token) {
-        // 桥接未部署/充值未开放/岗位无权：安静降级，不给「我的」页能力报错感
-        this.setData({ loadState: 'unavailable' });
-        return;
+    const fp = wallet.fingerprint();
+    if (fp !== this._fp) {
+      this.stopPolling();
+      this._paySeq += 1;
+      this._payFp = null;
+      this._fp = fp;
+      this._intent = null;
+      this._intentError = '';
+      // postId 是任职资源身份；只存订单恢复信息，不存 token、code 或签名。
+      this._intentKey = 'zs-wallet-intent-v2:' + http.tenantId() + ':' + http.currentPostId();
+      try {
+        const saved = wx.getStorageSync(this._intentKey);
+        if (saved) {
+          if (typeof saved !== 'object' || !saved.planId || !saved.idempotencyKey) throw new Error('invalid intent');
+          this._intent = saved;
+        }
+      } catch (err) {
+        console.warn('[wallet/recharge] 读取原订单恢复信息失败');
+        this._intentError = '无法读取原订单，请先查看充值记录，暂不创建新订单';
       }
-      return Promise.all([wallet.listPlans(), wallet.pointAccount()]).then(([plans, account]) => {
-        const planViews = view.plansView(plans || []);
-        const pickedIdx = this.pickDefaultIdx(planViews);
-        const bar = view.payBar(plans || [], pickedIdx);
-        this.setData({
-          loadState: 'ready',
-          plans: planViews,
-          selectedIdx: pickedIdx,
-          payAmountText: bar.amountText,
-          payPointsText: bar.pointsText,
-          balanceText: view.formatThousands(account && account.availablePoints),
-          promoText: this.buildPromoText(planViews)
-        });
-      });
+      this.setData({ paying: false, resultState: '', resultText: '', canContinuePay: false,
+        resultOrderId: this._intent && this._intent.orderId || '', hasPendingOrder: !!this._intent });
+    }
+    const seq = ++this._loadSeq;
+    const alive = () => !this._unloaded && seq === this._loadSeq && fp === wallet.fingerprint();
+    this.setData({ loadState: 'loading', errorText: '', balanceText: '', plans: [], selectedIdx: -1 });
+    const intent = this._intent;
+    const originalOrder = intent && intent.orderId ? wallet.getOrder(intent.orderId, fp) : Promise.resolve(null);
+    return Promise.all([wallet.listPlans(fp), wallet.pointAccount(fp), originalOrder]).then(([plans, account, order]) => {
+      if (!alive()) return;
+      const planViews = view.plansView(plans);
+      const pickedIdx = intent ? planViews.findIndex((plan) => plan.planId === intent.planId) : this.pickDefaultIdx(planViews);
+      // 原单可能使用旧报价；未知建单结果不借用当前套餐价格，查到原单才显示其快照。
+      const bar = order ? view.orderView(order) : intent ? { amountText: '待确认', pointsText: '待确认' } : view.payBar(plans, pickedIdx);
+      this.setData({ loadState: 'ready', plans: planViews, selectedIdx: pickedIdx,
+        payAmountText: bar.amountText, payPointsText: bar.pointsText,
+        balanceText: view.formatThousands(account.availablePoints), promoText: this.buildPromoText(planViews) });
     }).catch((err) => {
-      if (wallet.isStale(err)) return; // 切岗期间的迟到加载：静默放弃
-      console.warn('[wallet/recharge] 加载失败', err && (err.code || err.message));
-      this.setData({ loadState: err && err.code === 'WALLET_UNAVAILABLE' ? 'unavailable' : 'ready-failed' });
-      if (!err || err.code !== 'WALLET_UNAVAILABLE') {
-        wx.showToast({ title: (err && err.message) || '加载失败，请重试', icon: 'none' });
-      }
+      if (!alive() || wallet.isStale(err)) return;
+      console.warn('[wallet/recharge] 加载失败', err && err.code);
+      this.setData({ loadState: 'failed', errorText: wallet.errorMessage(err) });
     });
   },
-
-  /** 默认选中「推荐」，其次「最划算」，都没有则第一个 */
-  pickDefaultIdx(planViews) {
-    const byRibbon = (name) => planViews.findIndex((p) => p.ribbon === name);
-    const idx = byRibbon('推荐') >= 0 ? byRibbon('推荐') : byRibbon('最划算');
-    return idx >= 0 ? idx : (planViews.length ? 0 : -1);
+  pickDefaultIdx(plans) {
+    const recommended = plans.findIndex((p) => p.ribbon === '推荐');
+    const best = plans.findIndex((p) => p.ribbon === '最划算');
+    return recommended >= 0 ? recommended : best >= 0 ? best : plans.length ? 0 : -1;
   },
-
-  buildPromoText(planViews) {
-    const hero = planViews.find((p) => p.ribbon === '推荐') || planViews.find((p) => p.ribbon === '最划算');
-    if (!hero || !hero.bonus) return '';
-    return '充值专享：充 ' + hero.priceText + ' 到账 ' + hero.pointsText + ' 设计点（' + hero.bonus.label + '）';
+  buildPromoText(plans) {
+    const hero = plans.find((p) => p.ribbon === '推荐') || plans.find((p) => p.ribbon === '最划算');
+    return hero && hero.bonus ? '充值专享：充 ' + hero.priceText + ' 到账 ' + hero.pointsText + ' 设计点（' + hero.bonus.label + '）' : '';
   },
-
   tapPlan(e) {
+    if (this.data.paying || this._intent) return;
     const idx = Number(e.currentTarget.dataset.idx);
     const selected = this.data.plans[idx];
-    if (!selected) return;
-    this.setData({
-      selectedIdx: idx,
-      payAmountText: selected.priceText,
-      payPointsText: selected.pointsText
-    });
+    if (selected) this.setData({ selectedIdx: idx, payAmountText: selected.priceText, payPointsText: selected.pointsText });
   },
-
-  toggleAgreement() {
-    this.setData({ agreement: !this.data.agreement });
+  toggleAgreement() { this.setData({ agreement: !this.data.agreement }); },
+  makeIdemKey(kind) { return kind + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12); },
+  saveIntent(intent) {
+    // 写入失败必须阻止建单，否则超时后会丢失幂等键。
+    try {
+      wx.setStorageSync(this._intentKey, intent);
+      this._intent = intent;
+      this.setData({ hasPendingOrder: true });
+    } catch (err) {
+      console.warn('[wallet/recharge] 保存原订单恢复信息失败');
+      throw { code: 'WALLET_STORAGE', message: '无法保存原订单信息，请稍后重试' };
+    }
   },
-
-  makeIdemKey() {
-    return 'recharge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+  clearIntent() {
+    try {
+      wx.removeStorageSync(this._intentKey);
+      this._intent = null;
+      this.setData({ hasPendingOrder: false });
+    } catch (err) {
+      console.warn('[wallet/recharge] 清理已结束订单恢复信息失败');
+      // 保留原订单，下次先查其终态，不冒险重建。
+    }
   },
-
-  capability() {
-    return {
-      virtualPayment: typeof wx.requestVirtualPayment === 'function',
-      wechatPayment: typeof wx.requestPayment === 'function'
-    };
-  },
-
   confirmPay() {
-    if (this.data.paying) return;
-    const { agreement, selectedIdx, plans, resultState } = this.data;
-    if (resultState === 'processing') return;
-    if (!agreement) {
-      wx.showToast({ title: '请先阅读并同意充值协议', icon: 'none' });
-      return;
-    }
-    const picked = plans[selectedIdx];
-    if (!picked) {
-      wx.showToast({ title: '请选择充值套餐', icon: 'none' });
-      return;
-    }
-    // 支付意图冻结：点击时取指纹，贯穿 wx.login → 建单 → 支付回调 → 轮询/对账
-    const fp = wallet.fingerprint();
-    this._payFp = fp;
-    const token = this._lifecycleToken;
+    if (this._unloaded || this._fp !== wallet.fingerprint() || this.data.paying || this.data.resultState === 'processing') return;
+    if (this._intentError) return wx.showToast({ title: this._intentError, icon: 'none' });
+    if (!this.data.agreement) return wx.showToast({ title: '请先阅读并同意充值协议', icon: 'none' });
+    if (this._intent && this._intent.orderId) return this.continuePay();
+    const picked = this.data.plans[this.data.selectedIdx];
+    if (!this._intent && !picked) return wx.showToast({ title: '请选择充值套餐', icon: 'none' });
+    this._payFp = this._fp;
+    const seq = ++this._paySeq;
     this.setData({ paying: true });
-    // 支付当刻的 session_key 才能通过签名校验：先 wx.login 换一次性 code 随建单上送
+    try {
+      if (!this._intent) this.saveIntent({ planId: picked.planId, idempotencyKey: this.makeIdemKey('order') });
+    } catch (err) {
+      this.paymentError(err, seq);
+      return;
+    }
+    return wallet.createOrder(this._intent.planId, this._intent.idempotencyKey, this._payFp).catch((err) => {
+      // B 的 006 专指套餐不可用且未落单；通用参数错误、超时不能证明原单不存在。
+      if (this.payIntentAlive(seq) && err && err.code === 1120000006) this.clearIntent();
+      throw err;
+    }).then((order) => {
+      if (!this.payIntentAlive(seq)) return;
+      this.saveIntent({ ...this._intent, orderId: order.id });
+      this.setData({ resultOrderId: order.id });
+      if (!this.showFinalOrder(order)) this.requestPaymentParams(order.id, seq);
+    }).catch((err) => this.paymentError(err, seq));
+  },
+  paymentError(err, seq) {
+    if (!this.payIntentAlive(seq) || wallet.isStale(err)) return;
+    console.warn('[wallet/recharge] 支付步骤未完成', err && err.code);
+    this.setData({ paying: false, resultState: 'failed', resultText: wallet.errorMessage(err),
+      canContinuePay: !!(this._intent && this._intent.orderId) });
+  },
+  requestPaymentParams(orderId, seq) {
+    if (!this.payIntentAlive(seq)) return;
+    if (typeof wx.login !== 'function') return this.paymentError({ message: '微信登录不可用，请在微信内重试' }, seq);
+    const attemptKey = this.makeIdemKey('attempt');
     wx.login({
+      timeout: 15000,
       success: (res) => {
-        if (!this.isCurrentLifecycle(token) || !this.payIntentAlive()) return this.abortStaleIntent();
-        wallet.createOrder(picked.planId, this.makeIdemKey(), res && res.code, fp).then((order) => {
-          if (!this.isCurrentLifecycle(token) || !this.payIntentAlive()) return this.abortStaleIntent();
-          this.setData({ paying: false, resultOrderId: String(order.orderId) });
-          this.dispatchPay(order);
-        }).catch((err) => {
-          if (!this.isCurrentLifecycle(token) || wallet.isStale(err)) return this.abortStaleIntent();
-          this.setData({ paying: false });
-          wx.showToast({ title: (err && err.message) || '创建订单失败', icon: 'none' });
-        });
+        if (!this.payIntentAlive(seq)) return;
+        if (!res || !res.code) return this.paymentError({ message: '微信登录未返回有效凭据，请重试' }, seq);
+        wallet.getPayParams(orderId, res.code, attemptKey, this._payFp).then((params) => {
+          if (!this.payIntentAlive(seq)) return;
+          this.dispatchPay({ id: orderId, payParams: params }, seq);
+        }).catch((err) => this.paymentError(err, seq));
       },
-      fail: () => {
-        if (!this.isCurrentLifecycle(token) || !this.payIntentAlive()) return this.abortStaleIntent();
-        this.setData({ paying: false });
-        wx.showToast({ title: '微信登录失败，请重试', icon: 'none' });
-      }
+      fail: () => this.paymentError({ message: '微信登录失败，请重试' }, seq)
     });
   },
-
-  /** 支付意图过期（切岗/换人）：静默终止，不更新页面、不提示、不发起任何后续调用 */
-  abortStaleIntent() {
-    this.setData({ paying: false });
-  },
-
-  dispatchPay(order) {
-    const route = view.payRoute(order, this.capability());
-    const params = order.payParams || {};
-    if (route === 'session-code-required') {
-      // 建单时缺一次性 code 无法签名：订单已保留，等用户回来经「继续支付」重签
-      this.setData({ resultState: 'failed', resultText: '支付签名未就绪，请稍后点击「继续支付」', canContinuePay: true });
-      return;
+  dispatchPay(order, seq) {
+    if (!this.payIntentAlive(seq)) return;
+    const route = view.payRoute(order, { virtualPayment: typeof wx.requestVirtualPayment === 'function' });
+    if (route !== 'virtual') {
+      return this.paymentError({ message: route === 'virtual-unsupported' ? '当前微信版本不支持该支付方式，请升级后重试' : '支付参数不可用，请稍后查询原订单' }, seq);
     }
-    if (route === 'virtual') {
+    const params = order.payParams;
+    let settled = false;
+    const accept = () => {
+      if (settled || !this.payIntentAlive(seq)) return false;
+      settled = true;
+      return true;
+    };
+    try {
       wx.requestVirtualPayment({
-        signData: params.signData, // 服务端签名原文，必须原样透传
-        mode: params.mode,
-        paySig: params.paySig,
-        signature: params.signature,
-        success: () => this.payIntentAlive() && this.startPolling(String(order.orderId)),
-        fail: (res) => this.payIntentAlive() && this.reconcileAfterPayFail(String(order.orderId), res && res.errMsg)
+        signData: params.signData, mode: params.mode, paySig: params.paySig, signature: params.signature,
+        success: () => { if (accept()) this.startPolling(order.id); },
+        fail: () => { if (accept()) this.reconcileAfterPayFail(order.id, seq); }
       });
-      return;
+    } catch (err) {
+      if (accept()) this.reconcileAfterPayFail(order.id, seq);
     }
-    if (route === 'virtual-unsupported') {
-      wx.showToast({ title: '当前微信版本不支持该支付方式，请升级后重试', icon: 'none' });
-      return;
-    }
-    if (route === 'wechat') {
-      wx.requestPayment({
-        ...params,
-        success: () => this.payIntentAlive() && this.startPolling(String(order.orderId)),
-        fail: (res) => this.payIntentAlive() && this.reconcileAfterPayFail(String(order.orderId), res && res.errMsg)
-      });
-      return;
-    }
-    // stub/无支付参数：直接进查单轮询（本地开发路径）
-    this.startPolling(String(order.orderId));
   },
-
+  /** 返回 true 表示已处理终态/冻结/待入账，不能再签发支付参数。 */
+  showFinalOrder(order) {
+    const snapshot = view.orderView(order);
+    this.setData({ payAmountText: snapshot.amountText, payPointsText: snapshot.pointsText });
+    if (order.creditState === 'BLOCKED') {
+      this.setData({ paying: false, resultState: 'failed', resultText: '入账已冻结，请联系管理员', canContinuePay: false });
+      return true;
+    }
+    if (order.creditState === 'CREDITED') {
+      this.clearIntent();
+      this.setData({ paying: false, resultState: 'done', resultText: '设计点已到账', canContinuePay: false });
+      this.refreshAccount();
+      return true;
+    }
+    if (order.status === 'FAILED' || order.status === 'CLOSED') {
+      this.clearIntent();
+      this.setData({ paying: false, resultState: 'failed', resultText: view.orderStatusText(order), canContinuePay: false });
+      return true;
+    }
+    if (order.status === 'SUCCEEDED') {
+      this.startPolling(order.id);
+      return true;
+    }
+    if (!['CREATED', 'PENDING', 'UNKNOWN'].includes(order.status)) {
+      this.setData({ paying: false, resultState: 'slow', resultText: '订单状态待确认，请查看充值明细', canContinuePay: false });
+      return true;
+    }
+    return false;
+  },
+  continuePay() {
+    if (this.data.paying || this._fp !== wallet.fingerprint() || this._unloaded || !this._intent || !this._intent.orderId) return;
+    this._payFp = this._fp;
+    const seq = ++this._paySeq;
+    const orderId = this._intent.orderId;
+    this.stopPolling();
+    this.setData({ paying: true });
+    // 用户重试先查原单。查询失败只展示错误，绝不创建替代订单。
+    return wallet.getOrder(orderId, this._payFp).then((order) => {
+      if (!this.payIntentAlive(seq)) return;
+      if (!this.showFinalOrder(order)) this.requestPaymentParams(orderId, seq);
+    }).catch((err) => this.paymentError(err, seq));
+  },
+  reconcileAfterPayFail(orderId, seq) {
+    return wallet.getOrder(orderId, this._payFp).then((order) => {
+      if (!this.payIntentAlive(seq)) return;
+      if (this.showFinalOrder(order)) return;
+      this.setData({ paying: false, resultState: 'failed', resultText: '支付尚未确认，可继续处理原订单', canContinuePay: true });
+    }).catch((err) => this.paymentError(err, seq));
+  },
   startPolling(orderId) {
-    this._lifecycleToken += 1; // 作废在建的 wx.login 回调
-    const token = this._lifecycleToken;
-    this._pollLeft = POLL_MAX_TIMES;
-    this.setData({ resultState: 'processing', resultText: '支付成功，等待设计点到账…', resultOrderId: orderId, canContinuePay: false });
+    if (!this.payIntentAlive()) return;
+    this.stopPolling();
+    const pollSeq = this._pollSeq;
+    let remaining = POLL_MAX_TIMES;
+    const alive = () => this.payIntentAlive() && pollSeq === this._pollSeq;
+    this.setData({ paying: false, resultState: 'processing', resultText: '到账确认中，请稍候…', resultOrderId: orderId, canContinuePay: false });
+    const next = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        this.setData({ resultState: 'slow', resultText: '结果仍在确认，可稍后查看原订单', canContinuePay: true });
+      } else this._pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
+    };
     const tick = () => {
-      if (!this.isCurrentLifecycle(token) || !this.payIntentAlive()) return; // 切岗即终止轮询
+      if (!alive()) return;
       wallet.getOrder(orderId, this._payFp).then((order) => {
-        if (!this.isCurrentLifecycle(token) || !this.payIntentAlive()) return;
-        if (order.fulfillmentState === 'CREDITED') {
-          this.setData({ resultState: 'done', resultText: '设计点已到账' });
-          this.refreshAccount();
+        if (!alive()) return;
+        if (order.creditState === 'CREDITED' || order.creditState === 'BLOCKED' || order.status === 'FAILED' || order.status === 'CLOSED') {
+          this.showFinalOrder(order);
           return;
         }
-        if (order.paymentState === 'FAILED' || order.paymentState === 'CLOSED') {
-          this.setData({ resultState: 'failed', resultText: '订单未完成支付', canContinuePay: false });
-          return;
-        }
-        this._pollLeft -= 1;
-        if (this._pollLeft <= 0) {
-          this.setData({ resultState: 'slow', resultText: '到账确认中，可稍后在充值明细中查看' });
-          return;
-        }
-        this._pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
+        this.setData({ resultText: order.status === 'SUCCEEDED' ? '支付已确认，待入账' : '支付结果确认中，请稍候…' });
+        next();
       }).catch((err) => {
-        if (!this.isCurrentLifecycle(token) || wallet.isStale(err)) return;
-        this._pollLeft -= 1;
-        if (this._pollLeft <= 0) {
-          this.setData({ resultState: 'slow', resultText: '到账确认中，可稍后在充值明细中查看' });
-        } else {
-          console.warn('[wallet/recharge] 查单失败将继续重试', err && err.message);
-          this._pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
-        }
+        if (!alive() || wallet.isStale(err)) return;
+        console.warn('[wallet/recharge] 查单失败', err && err.code);
+        this.setData({ resultState: 'slow', resultText: wallet.errorMessage(err), canContinuePay: true });
       });
     };
     tick();
   },
-
-  /** 支付失败/取消：先对账——渠道可能实际已扣款；未支付则提供恢复入口 */
-  reconcileAfterPayFail(orderId, errMsg) {
-    wallet.getOrder(orderId, this._payFp).then((order) => {
-      if (!this.payIntentAlive()) return;
-      if (order.fulfillmentState === 'CREDITED' || order.paymentState === 'SUCCEEDED') {
-        this.startPolling(orderId); // 实际已支付，继续等到账
-        return;
-      }
-      if (order.paymentState === 'CLOSED' || order.paymentState === 'FAILED') {
-        this.setData({ resultState: 'failed', resultText: '订单已关闭，请重新下单', canContinuePay: false });
-        return;
-      }
-      this.setData({
-        resultState: 'failed',
-        resultText: '支付未完成' + (errMsg ? '（' + errMsg + '）' : ''),
-        canContinuePay: true
-      });
-    }).catch((err) => {
-      if (wallet.isStale(err)) return;
-      this.setData({ resultState: 'failed', resultText: '支付未完成', canContinuePay: true, resultOrderId: orderId });
-    });
-  },
-
-  /** T13-24 恢复支付：pay-params 重领签名，禁止重复建单 */
-  continuePay() {
-    const orderId = this.data.resultOrderId;
-    if (!orderId || this.data.paying) return;
-    const fp = wallet.fingerprint();
-    this._payFp = fp;
-    const token = this._lifecycleToken;
-    this.setData({ paying: true });
-    wx.login({
-      success: (res) => {
-        if (!this.isCurrentLifecycle(token) || !this.payIntentAlive()) return this.abortStaleIntent();
-        wallet.getPayParams(orderId, res && res.code, fp).then((params) => {
-          if (!this.isCurrentLifecycle(token) || !this.payIntentAlive()) return this.abortStaleIntent();
-          this.setData({ paying: false });
-          this.dispatchPay({ orderId: orderId, payParams: params });
-        }).catch((err) => {
-          if (!this.isCurrentLifecycle(token) || wallet.isStale(err)) return this.abortStaleIntent();
-          this.setData({ paying: false });
-          // 409=订单已不可支付（已付/已关），引导查记录
-          wx.showToast({ title: (err && err.message) || '订单暂不可支付，请查看充值明细', icon: 'none' });
-          this.setData({ canContinuePay: false });
-        });
-      },
-      fail: () => {
-        if (!this.isCurrentLifecycle(token) || !this.payIntentAlive()) return this.abortStaleIntent();
-        this.setData({ paying: false });
-        wx.showToast({ title: '微信登录失败，请重试', icon: 'none' });
-      }
-    });
-  },
-
   refreshAccount() {
-    wallet.pointAccount().then((account) => {
-      this.setData({ balanceText: view.formatThousands(account && account.availablePoints) });
+    const fp = this._fp;
+    return wallet.pointAccount(fp).then((account) => {
+      if (!this._unloaded && fp === wallet.fingerprint()) this.setData({ balanceText: view.formatThousands(account.availablePoints) });
     }).catch((err) => {
-      if (wallet.isStale(err)) return; // 余额刷新失败不打扰，充值明细页可复核
+      if (!this._unloaded && fp === wallet.fingerprint() && !wallet.isStale(err)) console.warn('[wallet/recharge] 余额刷新失败', err && err.code);
     });
   },
-
   dismissResult() {
-    if (this.data.resultState === 'processing') return;
+    if (this.data.resultState === 'processing' || this.data.paying) return;
     const finished = this.data.resultState === 'done';
     this.setData({ resultState: '', resultText: '', canContinuePay: false });
     if (finished) wx.navigateBack();
   },
-
-  goToRecords() {
-    wx.navigateTo({ url: '/pages/wallet/records/index' });
-  },
-
-  /** 结果卡片自身拦截冒泡（空实现，阻止点卡片触发遮罩关闭） */
+  goToRecords() { wx.navigateTo({ url: '/pages/wallet/records/index' }); },
   noop() {}
 });
