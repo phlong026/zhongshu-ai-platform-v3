@@ -27,6 +27,8 @@ class RealServiceWiringPolicyTest {
         p.put("zhongshu.design.asset.storage.provider", "local");
         p.put("zhongshu.design.asset.moderation.provider", "stub");
         p.put("zhongshu.content.provider", "fake");
+        // M02-T04：员工短信端口同样要求显式选择实现（PORTS 登记，未设置即拒）
+        p.put("platform.identity.sms.provider", "stub");
         return p;
     }
 
@@ -70,6 +72,17 @@ class RealServiceWiringPolicyTest {
         p.put("zhongshu.commerce.payment.wechat.api-v3-key", "test-api-v3-key-32bytes-long!!!!");
         p.put("zhongshu.commerce.payment.wechat.merchant-private-key-path", "classpath:test-only/apiclient_key.pem");
         p.put("zhongshu.commerce.payment.wechat.notify-url", "https://test.example.com/design/v1/payments/wechat/notify");
+        // M02-T04：员工短信 real 六配置（TencentSmsClient 构造期消费；region 已修正为仅查非空，
+        // ap-guangzhou 是合法值而非占位——这里用虚构值只测守卫形状）
+        p.put("platform.identity.sms.provider", "real");
+        p.put("platform.identity.sms.sdk-app-id", "1400123456");
+        p.put("platform.identity.sms.sign-name", "测试签名");
+        p.put("platform.identity.sms.template-id", "1400123");
+        p.put("platform.identity.sms.secret-id", "test-sms-secret-id");
+        p.put("platform.identity.sms.secret-key", "test-sms-secret-key");
+        p.put("platform.identity.sms.region", "ap-test");
+        // 生产守卫：内容任务扫描必须显式启用
+        p.put("zhongshu.content.task-sweep-enabled", "true");
         return p;
     }
 
