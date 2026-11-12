@@ -36,10 +36,10 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
             port: env.VITE_PORT, // 端口号
             host: "0.0.0.0",
             open: env.VITE_OPEN === 'true',
-            // 众墅之家：本地联调启用代理，/admin-api → 后端 48080
+            // 众墅之家：本地联调启用代理，/admin-api → 后端（缺省本机 48080，可用 VITE_PROXY_TARGET 指向生产）
             proxy: {
               '/admin-api': {
-                target: 'http://localhost:48080',
+                target: env.VITE_PROXY_TARGET || 'http://localhost:48080',
                 ws: false,
                 changeOrigin: true,
               },
