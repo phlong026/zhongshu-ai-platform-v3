@@ -11,6 +11,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -107,7 +114,13 @@ class AiJobOrgChargeRoutingTest {
                         "classpath:db/migration/ai-orchestration")
                 .load().migrate();
         DataSourceTransactionManager tx = new DataSourceTransactionManager(dataSource);
-        settlement = new AiJobSettlementService(dataSource, tx, null, null, null, message -> 0L);
+        // 创建路由也走真实 createJobWithOrgCharge：只桩掉重放查询（返回 null=无重放）
+        cn.iocoder.yudao.module.aiorchestration.job.AiJobOrchestrationService orchestration =
+                mock(cn.iocoder.yudao.module.aiorchestration.job.AiJobOrchestrationService.class);
+        when(orchestration.findRequestReplay(anyLong(), anyString(), anyInt(), any(), any(), any()))
+                .thenReturn(null);
+        settlement = new AiJobSettlementService(dataSource, tx, null, null, orchestration,
+                message -> 0L);
         ReflectionTestUtils.setField(settlement, "orgPointPort", port);
     }
 
@@ -121,14 +134,11 @@ class AiJobOrgChargeRoutingTest {
         port.bindingOperationId = null;
     }
 
-    /** 直接落一条"公司池任务"行（charge_id NULL、prompt 不计费），模拟桥侧建任务结果。 */
+    /** 走真实创建路由（createJobWithOrgCharge）：charge_id NULL、prompt 不计费、resolution 透传。 */
     private long newOrgJob(int count, String resolution) {
-        long jobId = System.nanoTime() % 1_000_000_000L + 1000;
-        jdbc.update("INSERT INTO ai_job (id, user_id, project_ref, phase, status, requested_count, "
-                        + "output_prefix, idempotency_key, unit_point_cost, total_point_cost, charge_id, "
-                        + "prompt_pricing_version, request_resolution) "
-                        + "VALUES (?, 1, 'proj-1', 'FLAT', 'RUNNING', ?, 'ai-quarantine/x', ?, 2, ?, NULL, 0, ?)",
-                jobId, count, "key-" + count, 2L * count, resolution);
+        long jobId = settlement.createJobWithOrgCharge(1L, "FLAT", count, "key-" + count,
+                "proj-1", resolution, 2, 2L * count);
+        jdbc.update("UPDATE ai_job SET status='RUNNING' WHERE id=?", jobId);
         return jobId;
     }
 
@@ -160,7 +170,6 @@ class AiJobOrgChargeRoutingTest {
     void terminalSettlesOrgPoolByAcceptedCount() {
         port.bindingOperationId = 77L;
         long jobId = newOrgJob(2, "2K");
-        jdbc.update("UPDATE ai_job SET status='RUNNING' WHERE id=?", jobId);
         accept(jobId, 1);
 
         settlement.settle(jobId, "SETTLE");
@@ -174,7 +183,6 @@ class AiJobOrgChargeRoutingTest {
     void zeroAcceptedReleasesOrgPool() {
         port.bindingOperationId = 77L;
         long jobId = newOrgJob(2, "2K");
-        jdbc.update("UPDATE ai_job SET status='RUNNING' WHERE id=?", jobId);
 
         settlement.settle(jobId, "SETTLE");
 
