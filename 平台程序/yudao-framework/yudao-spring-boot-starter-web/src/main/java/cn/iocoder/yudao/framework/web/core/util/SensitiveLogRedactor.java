@@ -67,6 +67,8 @@ public final class SensitiveLogRedactor {
             "code", "password", "oldPassword", "newPassword", "confirmPassword", "pwd",
             "secret", "appSecret", "clientSecret", "token", "accessToken", "refreshToken",
             "idToken", "session_key", "sessionKey", "idCard", "bankCard",
+            // PII：员工/客资导入的手机号可能出现在 body/query/form 的任一层级，统一遮蔽。
+            "mobile", "phone", "mobilePhone", "telephone", "contactMobile",
             // T26-08: prompts contain the owner's requirements; never create unowned log copies.
             "prompt", "promptText", "systemPrompt", "signature", "X-ZS-Signature"};
 
@@ -115,6 +117,55 @@ public final class SensitiveLogRedactor {
      */
     public static boolean isSensitiveKey(String key) {
         return key != null && SENSITIVE_LOWER.contains(key.toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * 路径感知敏感键：兼容 {@code rows[0].mobile}、{@code rows[0][mobile]}、{@code rows.0.mobilePhone} 等
+     * 查询串/表单嵌套键。先精确匹配；否则按 {@code . [ ]} 拆段（忽略空段与纯数字段），任一段命中敏感词即判定。
+     * {@code phonebook}/{@code mobileFlag} 等单段形近词不误伤。
+     */
+    public static boolean isSensitiveKeyPath(String key) {
+        if (isSensitiveKey(key)) {
+            return true;
+        }
+        if (key == null) {
+            return false;
+        }
+        for (String rawSegment : key.toLowerCase(Locale.ROOT).split("[.\\[\\]]")) {
+            String segment = normalizePathSegment(rawSegment);
+            if (segment.isEmpty()) {
+                continue;
+            }
+            boolean numeric = true;
+            for (int i = 0; i < segment.length(); i++) {
+                if (!Character.isDigit(segment.charAt(i))) {
+                    numeric = false;
+                    break;
+                }
+            }
+            if (!numeric && SENSITIVE_LOWER.contains(segment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 路径段规范化：trim 后**至多剥一对首尾同种引号**（{@code '} / {@code "} / {@code `}），再 trim。
+     * 不匹配或只有单边引号时不剥，避免把字面键（如 {@code user[mobile']}、{@code user[''mobile'']}）过度归一化。
+     * 仅处理 Spring map 键的引号形式（如 {@code user['mobile']}），不做 URL 二次解码/Unicode 归一化。
+     */
+    private static String normalizePathSegment(String rawSegment) {
+        String segment = rawSegment.trim();
+        if (segment.length() >= 2 && isQuoteChar(segment.charAt(0))
+                && segment.charAt(segment.length() - 1) == segment.charAt(0)) {
+            segment = segment.substring(1, segment.length() - 1).trim();
+        }
+        return segment;
+    }
+
+    private static boolean isQuoteChar(char ch) {
+        return ch == '\'' || ch == '"' || ch == '`';
     }
 
     /** Omit the entire trace payload in generic logs; only the owner-scoped trace store may retain it. */
@@ -218,7 +269,7 @@ public final class SensitiveLogRedactor {
         }
         Map<String, String> safe = new LinkedHashMap<>(Math.max(16, params.size()));
         for (Map.Entry<String, String> entry : params.entrySet()) {
-            safe.put(entry.getKey(), isSensitiveKey(entry.getKey()) ? MASK : entry.getValue());
+            safe.put(entry.getKey(), isSensitiveKeyPath(entry.getKey()) ? MASK : entry.getValue());
         }
         return safe;
     }

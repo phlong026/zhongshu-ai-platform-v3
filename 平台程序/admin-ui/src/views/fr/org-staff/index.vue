@@ -52,6 +52,9 @@
           <el-button type="primary" :disabled="saving || !postTemplates.length" @click="openStaff"
             >录入员工 / 恢复任职</el-button
           >
+          <el-button :disabled="saving || !postTemplates.length" @click="openImport"
+            >批量导入</el-button
+          >
         </template>
       </div>
 
@@ -240,6 +243,130 @@
         ></el-table
       >
     </el-dialog>
+
+    <el-dialog v-model="importDialog" title="员工批量导入" width="880px" @closed="resetImport">
+      <div class="import-toolbar">
+        <el-button @click="downloadImportTemplate">下载模板（CSV）</el-button>
+        <el-button :disabled="importBusy" @click="importFileInput?.click()"
+          >选择 CSV 文件</el-button
+        >
+        <input
+          ref="importFileInput"
+          type="file"
+          accept=".csv,text/csv"
+          class="import-file"
+          @change="onImportFile"
+        />
+        <span v-if="importFileName" class="import-file-name">{{ importFileName }}</span>
+      </div>
+      <div class="hint">
+        模板列：姓名 / 手机 / 角色码 / 团队名；单批 1-{{ STAFF_IMPORT_MAX_ROWS }} 行（文件上限
+        {{ STAFF_IMPORT_MAX_FILE_BYTES / 1024 / 1024 }}MB）；行号为数据行（表头不算，从 1 开始）。
+      </div>
+      <el-alert
+        v-if="importNotice"
+        :title="importNotice"
+        type="warning"
+        show-icon
+        class="import-error"
+      />
+      <el-alert
+        v-for="error in importParseErrors"
+        :key="error"
+        :title="error"
+        type="error"
+        show-icon
+        class="import-error"
+      />
+      <el-table v-if="importRows.length" :data="importRows" max-height="240" size="small">
+        <el-table-column prop="line" label="行号" width="70" />
+        <el-table-column prop="name" label="姓名" width="110" />
+        <el-table-column prop="mobile" label="手机" width="130" />
+        <el-table-column prop="roleCode" label="角色码" width="110" />
+        <el-table-column prop="teamName" label="团队名" min-width="120" />
+        <el-table-column prop="error" label="解析提示" min-width="220" />
+      </el-table>
+      <div v-if="importRows.length" class="hint">
+        共 {{ importRows.length }} 行；带解析提示的行需修正后重新上传。
+      </div>
+
+      <template v-if="importPrecheckResult">
+        <div class="import-summary">
+          预检结果：共 {{ importPrecheckResult.total }} 行，可创建
+          {{ importPrecheckResult.created }}，跳过 {{ importPrecheckResult.skipped }}，失败
+          {{ importPrecheckResult.failed }}（提交时服务端会逐行重新校验）
+        </div>
+        <el-table :data="importPrecheckResult.rows" max-height="320" size="small">
+          <el-table-column prop="line" label="行号" width="70" />
+          <el-table-column prop="name" label="姓名" width="100" />
+          <el-table-column prop="mobile" label="手机" width="125" />
+          <el-table-column prop="roleCode" label="角色码" width="105" />
+          <el-table-column prop="teamName" label="团队名" min-width="110" />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="importStatusMeta[row.status]?.type || 'info'">
+                {{ importStatusMeta[row.status]?.label || row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="说明" min-width="220">
+            <template #default="{ row }">
+              {{ row.message || row.note || '' }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+
+      <template v-if="importSubmitResult">
+        <el-alert
+          :title="`提交完成：成功 ${importSubmitResult.created + importSubmitResult.skipped}（新建 ${
+            importSubmitResult.created
+          } / 跳过 ${importSubmitResult.skipped}），失败 ${importSubmitResult.failed}`"
+          :type="importSubmitResult.failed ? 'warning' : 'success'"
+          show-icon
+          class="import-error"
+        />
+        <el-table :data="importSubmitResult.rows" max-height="320" size="small">
+          <el-table-column prop="line" label="行号" width="70" />
+          <el-table-column prop="name" label="姓名" width="100" />
+          <el-table-column prop="mobile" label="手机" width="125" />
+          <el-table-column prop="roleCode" label="角色码" width="105" />
+          <el-table-column prop="teamName" label="团队名" min-width="110" />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="importStatusMeta[row.status]?.type || 'info'">
+                {{ importStatusMeta[row.status]?.label || row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="说明" min-width="220">
+            <template #default="{ row }">
+              {{ row.message || row.note || '' }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+
+      <template #footer>
+        <el-button @click="importDialog = false">关闭</el-button>
+        <el-button :disabled="!canPrecheckImport" :loading="importBusy" @click="runImportPrecheck"
+          >预检</el-button
+        >
+        <el-button
+          type="primary"
+          :disabled="!canSubmitImport"
+          :loading="importBusy"
+          @click="submitImport"
+          >确认提交</el-button
+        >
+        <el-button
+          v-if="importSubmitResult && importSubmitResult.failed > 0"
+          :disabled="importBusy"
+          @click="retryFailedImport"
+          >重提失败行</el-button
+        >
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -249,7 +376,26 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { usePermissionStore } from '@/store/modules/permission'
 import * as api from '@/api/platform/staff'
-import type { HandoverResult, PendingRow, PostTemplate, StaffRow, Team } from '@/api/platform/staff'
+import type {
+  HandoverResult,
+  PendingRow,
+  PostTemplate,
+  StaffImportResult,
+  StaffRow,
+  Team
+} from '@/api/platform/staff'
+import {
+  STAFF_IMPORT_MAX_FILE_BYTES,
+  STAFF_IMPORT_MAX_ROWS,
+  buildStaffImportTemplateCsv,
+  createImportGenerationGuard,
+  failedRowsForRetry,
+  parseStaffImportCsv,
+  runGuardedImportRequest,
+  withinFileSizeLimit,
+  withinImportLimit,
+  type StaffImportRow
+} from './importModel'
 import { isCurrentGeneration, postGeneration, type PlatformId } from '@/utils/platformIdentity'
 import { roleLabel } from '@/utils/platformRoles'
 
@@ -277,7 +423,25 @@ const teamDialog = ref(false),
   staffDialog = ref(false),
   assignDialog = ref(false),
   handoverDialog = ref(false),
-  resultDialog = ref(false)
+  resultDialog = ref(false),
+  importDialog = ref(false)
+const importFileInput = ref<HTMLInputElement>()
+const importBusy = ref(false)
+const importFileName = ref('')
+const importRows = ref<StaffImportRow[]>([])
+const importParseErrors = ref<string[]>([])
+const importPrecheckResult = ref<StaffImportResult | null>(null)
+const importSubmitResult = ref<StaffImportResult | null>(null)
+const importNotice = ref('')
+const importStatusMeta: Record<
+  string,
+  { label: string; type: 'success' | 'warning' | 'danger' | 'info' }
+> = {
+  OK: { label: '可创建', type: 'success' },
+  CREATED: { label: '已创建', type: 'success' },
+  SKIPPED: { label: '已存在，跳过', type: 'info' },
+  FAILED: { label: '失败', type: 'danger' }
+}
 const teamForm = reactive({ name: '', line: '' })
 const staffForm = reactive({
   name: '',
@@ -297,12 +461,23 @@ const handoverForm = reactive({
 })
 const handoverResult = ref<HandoverResult | null>(null)
 let loadGeneration = 0
+const importGuard = createImportGenerationGuard()
 
 const roleOptions = computed(() =>
   postTemplates.value.map((template) => ({
     value: template.roleCode,
     label: roleLabel(template.roleCode)
   }))
+)
+const importRowsReady = computed(
+  () =>
+    importRows.value.length > 0 &&
+    importParseErrors.value.length === 0 &&
+    !importRows.value.some((row) => row.error)
+)
+const canPrecheckImport = computed(() => !importBusy.value && importRowsReady.value)
+const canSubmitImport = computed(
+  () => !importBusy.value && importRowsReady.value && importPrecheckResult.value !== null
 )
 const receivers = computed(() =>
   Array.from(
@@ -337,6 +512,173 @@ const orgId = () => {
   return currentPost.value.orgId
 }
 
+// ===== P1 批2：员工批量导入（预检→提交→失败行重提） =====
+
+const resetImport = () => {
+  importGuard.next()
+  importBusy.value = false
+  importFileName.value = ''
+  importRows.value = []
+  importParseErrors.value = []
+  importPrecheckResult.value = null
+  importSubmitResult.value = null
+  importNotice.value = ''
+  if (importFileInput.value) importFileInput.value.value = ''
+}
+const openImport = () => {
+  resetImport()
+  importDialog.value = true
+}
+const downloadImportTemplate = () => {
+  const blob = new Blob([buildStaffImportTemplateCsv()], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = '员工导入模板.csv'
+  link.click()
+  URL.revokeObjectURL(url)
+}
+const onImportFile = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const generation = importGuard.next()
+  importFileName.value = file.name
+  importBusy.value = true
+  importNotice.value = ''
+  // 换文件即清空旧批次：读取/超限失败保持全空，提交按钮因 precheck=null 而禁用。
+  importRows.value = []
+  importParseErrors.value = []
+  importPrecheckResult.value = null
+  importSubmitResult.value = null
+  if (!withinFileSizeLimit(file.size)) {
+    ElMessage.error(`文件超过大小上限（${STAFF_IMPORT_MAX_FILE_BYTES / 1024 / 1024}MB）`)
+    importBusy.value = false
+    input.value = ''
+    return
+  }
+  try {
+    const parsed = parseStaffImportCsv(await file.text())
+    if (!importGuard.isCurrent(generation)) return
+    importRows.value = parsed.rows
+    importParseErrors.value = parsed.errors
+    if (parsed.errors.length) ElMessage.error('CSV 解析失败，请检查表头与列数')
+  } catch {
+    if (importGuard.isCurrent(generation)) ElMessage.error('文件读取失败，请重试')
+  } finally {
+    input.value = ''
+    if (importGuard.isCurrent(generation)) importBusy.value = false
+  }
+}
+const importPayloadRows = () =>
+  importRows.value.map(({ line, name, mobile, roleCode, teamName }) => ({
+    line,
+    name,
+    mobile,
+    roleCode,
+    teamName
+  }))
+const runImportPrecheck = async () => {
+  if (!importRows.value.length) {
+    ElMessage.warning('请先选择包含数据的 CSV 文件')
+    return
+  }
+  if (importParseErrors.value.length) {
+    ElMessage.error('存在解析错误，请修正后重新上传')
+    return
+  }
+  if (importRows.value.some((row) => row.error)) {
+    ElMessage.error('存在重复行，请修正后重新上传')
+    return
+  }
+  if (!withinImportLimit(importRows.value)) {
+    ElMessage.error(`单批须为 1-${STAFF_IMPORT_MAX_ROWS} 行，当前 ${importRows.value.length} 行`)
+    return
+  }
+  const generation = importGuard.next()
+  importBusy.value = true
+  try {
+    // P2-6：代次校验与写回在同一同步回合（apply），await 之后不再赋值。
+    await runGuardedImportRequest(
+      () =>
+        api.precheckStaffImport({
+          orgId: orgId(),
+          rows: importPayloadRows()
+        }),
+      generation,
+      importGuard.isCurrent,
+      (result) => {
+        importPrecheckResult.value = result
+        importSubmitResult.value = null
+        importBusy.value = false
+      }
+    )
+  } catch {
+    if (importGuard.isCurrent(generation)) {
+      ElMessage.error('预检失败，请检查网络或当前工作身份后重试')
+    }
+  } finally {
+    if (importGuard.isCurrent(generation)) importBusy.value = false
+  }
+}
+const submitImport = async () => {
+  if (!importPrecheckResult.value) {
+    ElMessage.warning('请先完成预检')
+    return
+  }
+  const generation = importGuard.next()
+  importBusy.value = true
+  try {
+    // P2-6：代次校验与写回同一同步回合；提交结果/提示在 apply 内完成。
+    await runGuardedImportRequest(
+      () =>
+        api.submitStaffImport({
+          orgId: orgId(),
+          rows: importPayloadRows()
+        }),
+      generation,
+      importGuard.isCurrent,
+      (value) => {
+        importSubmitResult.value = value
+        importPrecheckResult.value = null
+        importBusy.value = false
+        if (value.failed === 0) {
+          ElMessage.success(`导入完成：成功 ${value.created + value.skipped} 行`)
+        } else {
+          ElMessage.warning(
+            `部分成功：成功 ${value.created + value.skipped} 行，失败 ${value.failed} 行`
+          )
+        }
+      }
+    )
+  } catch {
+    if (importGuard.isCurrent(generation)) ElMessage.error('提交失败，请稍后重试')
+    if (importGuard.isCurrent(generation)) importBusy.value = false
+    return
+  }
+  // N-P2-4：刷新列表失败单独提示，不影响提交结果；提交本身的错误提示保持不变。
+  if (importSubmitResult.value && importSubmitResult.value.created > 0) {
+    try {
+      await load()
+    } catch {
+      loadError.value = '组织人员数据加载失败，请检查当前工作身份后重试。'
+    }
+    if (loadError.value) {
+      importNotice.value = '导入已提交，列表刷新失败，请手动刷新'
+      ElMessage.warning(importNotice.value)
+    }
+  }
+}
+const retryFailedImport = async () => {
+  if (!importSubmitResult.value) return
+  const failed = failedRowsForRetry(importSubmitResult.value.rows)
+  if (!failed.length) return
+  importRows.value = failed
+  importSubmitResult.value = null
+  importPrecheckResult.value = null
+  await runImportPrecheck()
+}
+
 const load = async () => {
   if (!canQuery.value) return
   const generation = ++loadGeneration
@@ -369,6 +711,8 @@ const resetTransientState = () => {
   assignDialog.value = false
   handoverDialog.value = false
   resultDialog.value = false
+  importDialog.value = false
+  resetImport()
   handoverResult.value = null
   actionError.value = ''
   loadError.value = ''
@@ -573,6 +917,38 @@ onMounted(async () => {
 .staff-pagination {
   justify-content: flex-end;
   margin-top: 16px;
+}
+
+.import-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.import-file {
+  display: none;
+}
+
+.import-file-name {
+  font-size: 12px;
+  color: #8a7d72;
+}
+
+.hint {
+  margin: 6px 0;
+  font-size: 12px;
+  color: #9b9b9b;
+}
+
+.import-error {
+  margin-top: 8px;
+}
+
+.import-summary {
+  margin: 12px 0 8px;
+  font-size: 13px;
+  color: #4d301e;
 }
 
 h2 {

@@ -384,6 +384,84 @@ class SensitiveLogRedactorTest {
         assertThat(SensitiveLogRedactor.isBodyParseLeak(outer2)).isTrue();
     }
 
+
+
+    @Test
+    void nestedPathKeysAreSensitiveButSingleWordLookalikesAreNot() {
+        assertThat(SensitiveLogRedactor.isSensitiveKey("rows[0].mobile")).isFalse(); // 精确匹配语义不变
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("rows[0].mobile")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("rows[0][mobile]")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("rows.0.mobilePhone")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user.contactMobile")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user['mobile']")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user[\"mobile\"]")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user[ 'mobile' ]")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("rows[0][\"mobilePhone\"]")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user[`mobile`]")).isTrue();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("phonebook")).isFalse();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("mobileFlag")).isFalse();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user['phonebook']")).isFalse();
+        // 只剥成对同种引号：单边/混合/双层引号不得过度归一化
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user[mobile']")).isFalse();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user['mobile]")).isFalse();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user[''mobile'']")).isFalse();
+        assertThat(SensitiveLogRedactor.isSensitiveKeyPath("user['mobile\"]")).isFalse();
+
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("rows[0].mobile", "13800138000");
+        params.put("rows[0][mobile]", "13900139000");
+        params.put("rows.0.mobilePhone", "13700137000");
+        params.put("user.contactMobile", "13600136000");
+        params.put("user['mobile']", "13500135000");
+        params.put("user[\"mobile\"]", "13400134000");
+        params.put("user[ 'mobile' ]", "13300133000");
+        params.put("rows[0][\"mobilePhone\"]", "13200132000");
+        params.put("phonebook", "KEEP-PHONEBOOK");
+        params.put("mobileFlag", "KEEP-MOBILEFLAG");
+        params.put("user['phonebook']", "KEEP-QUOTED-PHONEBOOK");
+        params.put("user[`mobile`]", "13100131000");
+        params.put("user[mobile']", "KEEP-OVERMASK-1");
+        params.put("user['mobile]", "KEEP-OVERMASK-2");
+        params.put("user[''mobile'']", "KEEP-OVERMASK-3");
+        params.put("user['mobile\"]", "KEEP-OVERMASK-4");
+        Map<String, String> redacted = SensitiveLogRedactor.redactMap(params);
+        assertThat(redacted).containsEntry("rows[0].mobile", "***")
+                .containsEntry("rows[0][mobile]", "***")
+                .containsEntry("rows.0.mobilePhone", "***")
+                .containsEntry("user.contactMobile", "***")
+                .containsEntry("user['mobile']", "***")
+                .containsEntry("user[\"mobile\"]", "***")
+                .containsEntry("user[ 'mobile' ]", "***")
+                .containsEntry("rows[0][\"mobilePhone\"]", "***")
+                .containsEntry("phonebook", "KEEP-PHONEBOOK")
+                .containsEntry("mobileFlag", "KEEP-MOBILEFLAG")
+                .containsEntry("user['phonebook']", "KEEP-QUOTED-PHONEBOOK")
+                .containsEntry("user[`mobile`]", "***")
+                .containsEntry("user[mobile']", "KEEP-OVERMASK-1")
+                .containsEntry("user['mobile]", "KEEP-OVERMASK-2")
+                .containsEntry("user[''mobile'']", "KEEP-OVERMASK-3")
+                .containsEntry("user['mobile\"]", "KEEP-OVERMASK-4");
+    }
+
+    @Test
+    void piiMobileKeysAreRedactedAtEveryJsonDepthAndInQueryMap() {
+        String body = "{\"rows\":[{\"mobile\":\"13800138000\",\"name\":\"张三\","
+                + "\"phone\":\"13900139000\",\"mobilePhone\":\"13700137000\","
+                + "\"telephone\":\"13600136000\",\"contactMobile\":\"13500135000\"}]}";
+        String safe = SensitiveLogRedactor.redactJsonBody(body);
+        assertThat(safe).doesNotContain("13800138000", "13900139000", "13700137000", "13600136000", "13500135000")
+                .contains("\"name\":\"张三\"", "\"mobile\":\"***\"");
+
+        Map<String, String> params = Map.of("mobile", "13800138000", "Phone", "13900139000",
+                "MOBILEPHONE", "13700137000", "telephone", "13600136000",
+                "contactMobile", "13500135000", "name", "张三");
+        Map<String, String> redacted = SensitiveLogRedactor.redactMap(params);
+        assertThat(redacted).containsEntry("mobile", "***").containsEntry("Phone", "***")
+                .containsEntry("MOBILEPHONE", "***").containsEntry("telephone", "***")
+                .containsEntry("contactMobile", "***").containsEntry("name", "张三");
+        assertThat(params.get("mobile")).isEqualTo("13800138000");
+    }
+
     /** 用真实 Jackson 解析畸形 body（未加引号 token）得到 {@link JsonProcessingException}，其 message 回显原始 token。 */
     private static JsonProcessingException realJacksonParseException() {
         try {

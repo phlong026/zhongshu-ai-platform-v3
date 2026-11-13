@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.common.util.spring.SpringUtils;
 import cn.iocoder.yudao.framework.web.core.util.SensitiveLogRedactor;
@@ -48,6 +49,9 @@ public class ApiAccessLogInterceptor implements HandlerInterceptor {
                 // Internal requests bypass ApiAccessLogFilter; omit here without reading any payload or signature.
                 log.info("[preHandle][开始请求 URL({}) 参数({})]", request.getRequestURI(),
                         SensitiveLogRedactor.RUNTIME_TRACE_OMITTED);
+            } else if (disableRequestLogging(handlerMethod)) {
+                // 端点显式关闭访问日志/请求参数日志时，控制台也不得读取或打印 body/query。
+                log.info("[preHandle][开始请求 URL({}) 无参数]", request.getRequestURI());
             } else {
                 Map<String, String> queryString = ServletUtils.getParamMap(request);
                 String requestBody = ServletUtils.getBody(request);
@@ -80,6 +84,17 @@ public class ApiAccessLogInterceptor implements HandlerInterceptor {
             log.info("[afterCompletion][完成请求 URL({}) 耗时({} ms)]",
                     request.getRequestURI(), stopWatch.getTotalTimeMillis());
         }
+    }
+
+    /**
+     * 端点显式关闭访问日志或请求参数日志时，控制台也不得读取/打印 body/query。
+     */
+    private static boolean disableRequestLogging(HandlerMethod handlerMethod) {
+        if (handlerMethod == null) {
+            return false;
+        }
+        ApiAccessLog annotation = handlerMethod.getMethodAnnotation(ApiAccessLog.class);
+        return annotation != null && (!annotation.enable() || !annotation.requestEnable());
     }
 
     /**

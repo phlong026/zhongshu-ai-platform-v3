@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.common.util.spring.SpringUtils;
 import cn.iocoder.yudao.framework.web.core.util.SensitiveLogRedactor;
@@ -14,7 +15,9 @@ import org.mockito.MockedStatic;
 import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.method.HandlerMethod;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,6 +92,37 @@ class ApiAccessLogInterceptorTest {
         assertThat(appender.list).hasSize(1);
         assertThat(appender.list.get(0).getFormattedMessage()).contains("test-model")
                 .doesNotContain("USER-MARKER", "SYSTEM-MARKER", "RESPONSE-MARKER");
+    }
+
+    @Test
+    void annotatedEndpointsWithRequestLoggingDisabledDoNotPrintBodyOrQuery() throws Exception {
+        String mobile = "13800138000";
+        String body = "{\"rows\":[{\"mobile\":\"" + mobile + "\",\"name\":\"张三\"}]}";
+        for (String methodName : java.util.List.of("precheck", "submit")) {
+            appender.list.clear();
+            MockHttpServletRequest request = request("/admin-api/platform/org/staff-import/" + methodName, body);
+            request.addParameter("mobile", mobile);
+            Method method = AnnotatedController.class.getMethod(methodName);
+            HandlerMethod handlerMethod = new HandlerMethod(new AnnotatedController(), method);
+            try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
+                spring.when(SpringUtils::isProd).thenReturn(false);
+                assertThat(interceptor.preHandle(request, new MockHttpServletResponse(), handlerMethod)).isTrue();
+            }
+            assertThat(appender.list).hasSize(1);
+            assertThat(appender.list.get(0).getFormattedMessage())
+                    .contains("无参数").doesNotContain(mobile, "张三");
+            assertThat(appender.list.get(0).getThrowableProxy()).isNull();
+        }
+    }
+
+    static class AnnotatedController {
+        @ApiAccessLog(enable = false)
+        public void precheck() {
+        }
+
+        @ApiAccessLog(requestEnable = false)
+        public void submit() {
+        }
     }
 
     private static MockHttpServletRequest request(String path, String body) {

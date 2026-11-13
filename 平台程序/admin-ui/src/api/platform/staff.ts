@@ -111,3 +111,37 @@ export const emergencyRevokeStaff = (data: { orgId: PlatformId; userId: Platform
   request.post<HandoverResult>({ url: `${orgBase}/staff-emergency-revoke`, data })
 export const getHandoverPending = (orgId: PlatformId) =>
   request.get<PendingRow[]>({ url: `${orgBase}/handover-pending`, params: { orgId } })
+
+// ===== P1 批2：员工批量导入（B-only 端点；legacy 进程不注册） =====
+
+export interface StaffImportRowPayload {
+  line: number
+  name: string
+  mobile: string
+  roleCode: string
+  teamName: string
+}
+
+export interface StaffImportResultRow extends StaffImportRowPayload {
+  status: 'OK' | 'SKIPPED' | 'FAILED' | 'CREATED'
+  code?: number | null
+  message?: string | null
+  postId?: PlatformId | null
+  userId?: PlatformId | null
+  note?: string | null
+}
+
+export interface StaffImportResult {
+  orgId: PlatformId
+  total: number
+  created: number
+  skipped: number
+  failed: number
+  rows: StaffImportResultRow[]
+}
+
+export const precheckStaffImport = (data: { orgId: PlatformId; rows: StaffImportRowPayload[] }) =>
+  request.post<StaffImportResult>({ url: `${orgBase}/staff-import/precheck`, data })
+
+export const submitStaffImport = (data: { orgId: PlatformId; rows: StaffImportRowPayload[] }) =>
+  request.post<StaffImportResult>({ url: `${orgBase}/staff-import`, data })

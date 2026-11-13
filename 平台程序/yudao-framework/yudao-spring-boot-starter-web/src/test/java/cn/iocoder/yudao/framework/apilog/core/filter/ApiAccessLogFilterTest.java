@@ -176,6 +176,37 @@ class ApiAccessLogFilterTest {
                 cause, new MockHttpInputMessage(MALFORMED_BODY.getBytes(StandardCharsets.UTF_8)));
     }
 
+
+    @Test
+    void unauthenticatedNestedQueryMobileKeysAreRemovedFromAccessLog() throws Exception {
+        String mobile = "13800138000";
+        MockHttpServletRequest request = new MockHttpServletRequest("POST",
+                "/admin-api/platform/org/staff-import/precheck");
+        request.addParameter("rows[0].mobile", mobile);
+        request.addParameter("rows[0][mobile]", mobile);
+        request.addParameter("rows.0.mobilePhone", mobile);
+        request.addParameter("user.contactMobile", mobile);
+        request.addParameter("user['mobile']", mobile);
+        request.addParameter("user[\"mobile\"]", mobile);
+        request.addParameter("user[ 'mobile' ]", mobile);
+        request.addParameter("rows[0][\"mobilePhone\"]", mobile);
+        request.addParameter("phonebook", "KEEP-PHONEBOOK");
+        request.addParameter("mobileFlag", "KEEP-MOBILEFLAG");
+        request.addParameter("user['phonebook']", "KEEP-QUOTED-PHONEBOOK");
+        request.addParameter("user[mobile']", "KEEP-OVERMASK-1");
+        request.addParameter("user['mobile]", "KEEP-OVERMASK-2");
+        request.addParameter("user[''mobile'']", "KEEP-OVERMASK-3");
+        request.addParameter("user['mobile\"]", "KEEP-OVERMASK-4");
+        // 未认证拒绝路径：无 HandlerMethod → 注解不生效，必须依赖 redactor 路径判定。
+        try (MockedStatic<WebFrameworkUtils> ignored = mockStatic(WebFrameworkUtils.class)) {
+            filter.doFilterInternal(request, new MockHttpServletResponse(), (req, res) -> { });
+        }
+        ApiAccessLogCreateReqDTO dto = captureAccessLog();
+        String json = JsonUtils.toJsonString(dto);
+        assertThat(json).doesNotContain(mobile)
+                .contains("KEEP-PHONEBOOK").contains("KEEP-MOBILEFLAG").contains("KEEP-QUOTED-PHONEBOOK").contains("KEEP-OVERMASK-1").contains("KEEP-OVERMASK-2").contains("KEEP-OVERMASK-3").contains("KEEP-OVERMASK-4");
+    }
+
     private MockHttpServletRequest newJsonRequest() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.setMethod("POST");

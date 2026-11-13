@@ -202,7 +202,8 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
         }
         // T13-04 安全（修 codex A）：凭据键改用大小写不敏感移除——原 MapUtil.removeAny 精确匹配，
         // {"CODE":..} / {"Session_Key":..} 等大写变体会漏移除而随访问日志库落盘。
-        map.keySet().removeIf(SensitiveLogRedactor::isSensitiveKey);
+        // 路径感知：rows[0].mobile / rows[0][mobile] 等嵌套查询键同样整条移除。
+        map.keySet().removeIf(SensitiveLogRedactor::isSensitiveKeyPath);
         return JsonUtils.toJsonString(map);
     }
 
