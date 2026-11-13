@@ -107,7 +107,7 @@ class DesignIdentityMappingIntegrationTest {
         service.generate();
         var row = service.list("UNMATCHED", null, 1, 10).get(0);
         assertThat(row.matchedUserId()).isNull();
-        assertThat(row.note()).contains("缺少联系手机号");
+        assertThat(row.note()).contains("手机号");
     }
 
     @Test
@@ -151,8 +151,65 @@ class DesignIdentityMappingIntegrationTest {
 
     @Test
     void confirmRequiresGeneratedRow() {
-        assertThatThrownBy(() -> service.confirm(9999L, 1L, 1L, "x", "admin"))
+        seedStaff(510L, "13800000010", 1001L, "boss");
+        assertThatThrownBy(() -> service.confirm(9999L, 510L, 1001L, "依据", "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("不存在或已处置");
+    }
+
+    @Test
+    void grantOnlyAccountStillEnteredAsUnmatched() {
+        // P1①：人工审批开通不产生 redemption，仅 ACTIVE grant —— 必须进映射全集
+        jdbc.update("INSERT INTO design_access_grant (id, account_id, status) VALUES (?, ?, 'ACTIVE')",
+                61_001L, 9100L);
+
+        var result = service.generate();
+
+        assertThat(result.created()).isEqualTo(1);
+        var row = service.list("UNMATCHED", null, 1, 10).get(0);
+        assertThat(row.accountId()).isEqualTo(9100L);
+        assertThat(row.note()).contains("人工审批开通");
+    }
+
+    @Test
+    void multiplePhonesForSameAccountIsConflict() {
+        seedStaff(507L, "13800000006", 1001L, "boss");
+        seedRedemption(9101L, "13800000006");
+        seedRedemption(9102L, "13800000007"); // 同 account 不同号
+        jdbc.update("UPDATE access_code_redemption SET account_id = 9101 WHERE account_id = 9102");
+
+        service.generate();
+
+        var row = service.list("UNMATCHED", null, 1, 10).get(0);
+        assertThat(row.note()).contains("多个不同手机号");
+    }
+
+    @Test
+    void confirmRejectsInvalidEmployeeOrOrg() {
+        seedStaff(508L, "13800000008", 1001L, "boss");
+        seedRedemption(9103L, "13800000008");
+        service.generate();
+
+        assertThatThrownBy(() -> service.confirm(9103L, 508L, 1002L, "错误组织", "admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("无有效任职");
+        assertThatThrownBy(() -> service.confirm(9103L, 999_999L, 1001L, "不存在员工", "admin"))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.confirm(9103L, 508L, 1001L, " ", "admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("依据");
+    }
+
+    @Test
+    void terminalStateCannotBeReprocessed() {
+        seedStaff(509L, "13800000009", 1001L, "boss");
+        seedRedemption(9104L, "13800000009");
+        service.generate();
+        service.confirm(9104L, 509L, 1001L, "确认", "admin");
+        assertThatThrownBy(() -> service.confirm(9104L, 509L, 1001L, "再次确认", "admin"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.reject(9104L, "驳回", "admin"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

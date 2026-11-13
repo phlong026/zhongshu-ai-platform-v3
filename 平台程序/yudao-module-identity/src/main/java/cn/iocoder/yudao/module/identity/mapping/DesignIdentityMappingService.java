@@ -48,12 +48,33 @@ public class DesignIdentityMappingService {
      */
     public GenerateResult generate() {
         boolean hasStaffTable = exists("system_users");
+        // P1①：全集 = 已兑换账号 ∪ 有效授予账号（人工审批开通不产生 redemption）；
+        // P2①：手机号按账号聚合——规范化后去重，多号冲突/空串一律不作为匹配证据。
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT r.account_id, r.contact_phone, c.batch_id, b.issued_by, b.purpose_note "
-                        + "FROM access_code_redemption r "
-                        + "LEFT JOIN design_access_code c ON c.id = r.code_id AND c.deleted = FALSE "
-                        + "LEFT JOIN design_access_code_batch b ON b.id = c.batch_id AND b.deleted = FALSE "
-                        + "WHERE r.deleted = FALSE ORDER BY r.account_id");
+                "SELECT a.account_id, "
+                        + "  (SELECT count(DISTINCT regexp_replace(trim(r0.contact_phone), '[^0-9]', '', 'g')) "
+                        + "     FROM access_code_redemption r0 WHERE r0.account_id = a.account_id "
+                        + "     AND r0.deleted = FALSE AND nullif(trim(r0.contact_phone),'') IS NOT NULL) AS phone_count, "
+                        + "  (SELECT min(regexp_replace(trim(r1.contact_phone), '[^0-9]', '', 'g')) "
+                        + "     FROM access_code_redemption r1 WHERE r1.account_id = a.account_id "
+                        + "     AND r1.deleted = FALSE AND nullif(trim(r1.contact_phone),'') IS NOT NULL) AS phone, "
+                        + "  (SELECT min(c.batch_id) FROM access_code_redemption r2 "
+                        + "     JOIN design_access_code c ON c.id = r2.code_id AND c.deleted = FALSE "
+                        + "     WHERE r2.account_id = a.account_id AND r2.deleted = FALSE) AS batch_id, "
+                        + "  (SELECT b.issued_by FROM access_code_redemption r3 "
+                        + "     JOIN design_access_code c3 ON c3.id = r3.code_id AND c3.deleted = FALSE "
+                        + "     JOIN design_access_code_batch b ON b.id = c3.batch_id AND b.deleted = FALSE "
+                        + "     WHERE r3.account_id = a.account_id AND r3.deleted = FALSE "
+                        + "     ORDER BY r3.id LIMIT 1) AS issued_by, "
+                        + "  (SELECT b.purpose_note FROM access_code_redemption r4 "
+                        + "     JOIN design_access_code c4 ON c4.id = r4.code_id AND c4.deleted = FALSE "
+                        + "     JOIN design_access_code_batch b ON b.id = c4.batch_id AND b.deleted = FALSE "
+                        + "     WHERE r4.account_id = a.account_id AND r4.deleted = FALSE "
+                        + "     ORDER BY r4.id LIMIT 1) AS purpose_note "
+                        + "FROM (SELECT account_id FROM access_code_redemption WHERE deleted = FALSE "
+                        + "      UNION SELECT account_id FROM design_access_grant "
+                        + "           WHERE status = 'ACTIVE' AND deleted = FALSE) a "
+                        + "ORDER BY a.account_id");
         int created = 0;
         int matched = 0;
         int unmatched = 0;
@@ -64,20 +85,39 @@ public class DesignIdentityMappingService {
                 skipped++;
                 continue;
             }
-            String phone = row.get("contact_phone") == null ? null : String.valueOf(row.get("contact_phone"));
-            Long userId = phone == null || !hasStaffTable ? null : findUserByMobile(phone);
-            Long orgId = userId == null ? null : findActiveOrg(userId);
+            int phoneCount = intOf(row.get("phone_count"));
+            String rawPhone = row.get("phone") == null ? null : String.valueOf(row.get("phone"));
+            String phone = normalizeMobile(rawPhone);
+            Long userId = null;
+            Long orgId = null;
+            String note;
+            if (phoneCount > 1) {
+                note = "同一账号存在多个不同手机号，冲突待人工核对";
+            } else if (phone == null) {
+                note = row.get("batch_id") == null
+                        ? "无兑换记录（人工审批开通）且缺有效手机号，无法自动匹配"
+                        : "缺少有效手机号（空或非 11 位），无法自动匹配";
+            } else if (!hasStaffTable) {
+                note = "缺少员工表，无法匹配";
+            } else {
+                userId = findUserByMobile(phone);
+                orgId = userId == null ? null : findActiveOrg(userId);
+                note = buildNote(phone, userId, orgId);
+            }
             String matchType = userId == null ? "NONE" : "PHONE";
             String status = userId == null || orgId == null ? "UNMATCHED" : "CANDIDATE";
-            String note = buildNote(phone, userId, orgId);
-            jdbc.update("INSERT INTO design_identity_mapping (id, account_id, contact_phone, batch_id, "
-                            + "batch_issued_by, batch_purpose_note, matched_user_id, matched_org_id, "
+            int inserted = jdbc.update("INSERT INTO design_identity_mapping (id, account_id, contact_phone, "
+                            + "batch_id, batch_issued_by, batch_purpose_note, matched_user_id, matched_org_id, "
                             + "match_type, status, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                             + "ON CONFLICT (account_id) DO NOTHING",
                     IdWorker.getId(), accountId, phone,
                     row.get("batch_id") == null ? null : ((Number) row.get("batch_id")).longValue(),
                     row.get("issued_by"), row.get("purpose_note"),
                     userId, orgId, matchType, status, note);
+            if (inserted == 0) {
+                skipped++; // 并发/已存在：不计入 created（P2②）
+                continue;
+            }
             created++;
             if ("CANDIDATE".equals(status)) {
                 matched++;
@@ -92,22 +132,40 @@ public class DesignIdentityMappingService {
 
     /** 人工确认（把候选或未匹配行钉死到指定员工/组织）。 */
     public void confirm(long accountId, long userId, long orgId, String note, String operator) {
+        if (note == null || note.isBlank()) {
+            throw new IllegalArgumentException("确认必须填写依据说明");
+        }
+        // P1②：确认前校验员工存续且在目标组织有有效任职（确认是 B-16 迁移的唯一依据）
+        Integer userOk = jdbc.queryForObject(
+                "SELECT count(*) FROM system_users WHERE id = ? AND deleted = 0", Integer.class, userId);
+        if (userOk == null || userOk == 0) {
+            throw new IllegalArgumentException("员工不存在或已删除：" + userId);
+        }
+        Integer postOk = jdbc.queryForObject(
+                "SELECT count(*) FROM pf_staff_post WHERE user_id = ? AND org_id = ? AND status = 'ACTIVE'",
+                Integer.class, userId, orgId);
+        if (postOk == null || postOk == 0) {
+            throw new IllegalArgumentException("员工在该组织无有效任职：" + userId + "@" + orgId);
+        }
+        // P2③：仅未处置状态可确认（CAS），已确认/已驳回需走显式纠错流程
         int updated = jdbc.update("UPDATE design_identity_mapping SET matched_user_id = ?, "
                         + "matched_org_id = ?, match_type = 'MANUAL', status = 'CONFIRMED', "
-                        + "note = ?, operator = ?, update_time = now() WHERE account_id = ?",
+                        + "note = ?, operator = ?, update_time = now() "
+                        + "WHERE account_id = ? AND status IN ('CANDIDATE','UNMATCHED')",
                 userId, orgId, note, operator, accountId);
         if (updated == 0) {
-            throw new IllegalArgumentException("映射行不存在，请先执行生成：" + accountId);
+            throw new IllegalStateException("当前状态不允许确认（不存在或已处置）：" + accountId);
         }
     }
 
     /** 人工驳回（确认该账号无法归属，进入过渡清单，授权只读续期）。 */
     public void reject(long accountId, String note, String operator) {
         int updated = jdbc.update("UPDATE design_identity_mapping SET status = 'REJECTED', "
-                        + "note = ?, operator = ?, update_time = now() WHERE account_id = ?",
+                        + "note = ?, operator = ?, update_time = now() "
+                        + "WHERE account_id = ? AND status IN ('CANDIDATE','UNMATCHED')",
                 note, operator, accountId);
         if (updated == 0) {
-            throw new IllegalArgumentException("映射行不存在：" + accountId);
+            throw new IllegalStateException("当前状态不允许驳回（不存在或已处置）：" + accountId);
         }
     }
 
@@ -203,6 +261,15 @@ public class DesignIdentityMappingService {
             return "员工存在但无唯一有效任职（多岗或无岗），需人工确认";
         }
         return "手机号唯一匹配员工与有效任职，待人工确认";
+    }
+
+    /** 手机号归一：仅保留数字且必须为 11 位大陆手机号；否则视为无有效证据。 */
+    private static String normalizeMobile(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String digits = raw.replaceAll("[^0-9]", "");
+        return digits.matches("1\\d{10}") ? digits : null;
     }
 
     private static int intOf(Object value) {

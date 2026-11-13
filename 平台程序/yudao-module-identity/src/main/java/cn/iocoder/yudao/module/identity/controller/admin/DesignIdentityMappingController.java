@@ -36,7 +36,7 @@ public class DesignIdentityMappingController {
 
     public record ConfirmReqVO(@NotNull(message = "员工不能为空") Long userId,
                                @NotNull(message = "组织不能为空") Long orgId,
-                               String note) {
+                               @NotBlank(message = "确认必须填写依据说明") String note) {
     }
 
     public record RejectReqVO(@NotBlank(message = "请填写驳回原因") String note) {
