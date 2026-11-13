@@ -1,0 +1,7 @@
+-- V20261113.313 存量点数迁移（24 号任务书 B-16）：个人账本允许 MIGRATION_OUT 类型
+-- 迁移语义：个人可用点按 CONFIRMED 映射聚合入公司池；个人侧写一条负流水留痕后清零，池侧写 MIGRATION 流水。
+ALTER TABLE design_point_ledger DROP CONSTRAINT ck_design_point_ledger_type;
+ALTER TABLE design_point_ledger ADD CONSTRAINT ck_design_point_ledger_type CHECK (type IN
+    ('RECHARGE_BASE_CREDIT', 'RECHARGE_BONUS_CREDIT', 'FLAT_GENERATION_DEBIT',
+     'ELEVATION_GENERATION_DEBIT', 'TASK_SETTLEMENT_REFUND', 'MANUAL_CREDIT', 'MANUAL_DEBIT',
+     'MIGRATION_OUT'));
