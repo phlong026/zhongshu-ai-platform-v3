@@ -13,6 +13,8 @@ import cn.iocoder.yudao.module.franchise.crm.CustomerService.TransferCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.UpdateCommand;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
+import cn.iocoder.yudao.module.platform.org.SystemDirectory;
+import jakarta.annotation.Resource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,10 +35,21 @@ public class CustomerController {
 
     private final CustomerService customerService;
     private final CurrentPost currentPost;
+    private final SystemDirectory systemDirectory;
 
-    public CustomerController(CustomerService customerService, CurrentPost currentPost) {
+    public CustomerController(CustomerService customerService, CurrentPost currentPost,
+                              SystemDirectory systemDirectory) {
         this.customerService = customerService;
         this.currentPost = currentPost;
+        this.systemDirectory = systemDirectory;
+    }
+
+    /** 客资表格行：原 Customer 字段 + 负责人姓名（本组织在职名单映射）。 */
+    public record CustomerRow(long id, String name, String phone, String wechat, String source,
+                              String province, String city, String summary, String status,
+                              long ownerUserId, String ownerName, java.time.LocalDate nextVisitDate,
+                              java.time.OffsetDateTime lastFollowAt, long revision,
+                              java.time.OffsetDateTime createTime) {
     }
 
     public record UpdateReq(String name, String wechat, String province, String city, String summary, long revision) {
@@ -46,12 +59,41 @@ public class CustomerController {
     }
 
     @GetMapping
-    @Operation(summary = "客户列表：业务员看本人经办，负责人看管理团队，老板看全部")
+    @Operation(summary = "客户列表：业务员看本人经办，负责人看管理团队，老板看全部；支持状态/负责人筛选")
     @PreAuthorize("@post.has('franchise:customer:query')")
-    public CommonResult<PageResult<Customer>> page(@Valid PageParam page, @RequestParam(required = false) String keyword) {
+    public CommonResult<PageResult<CustomerRow>> page(@Valid PageParam page,
+                                                      @RequestParam(required = false) String keyword,
+                                                      @RequestParam(required = false) String status,
+                                                      @RequestParam(required = false) Long ownerUserId) {
+        if (status != null && !status.isBlank()
+                && !CustomerDO.STATUS_REGISTERED.equals(status) && !CustomerDO.STATUS_FOLLOWING.equals(status)) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "状态只支持 REGISTERED/FOLLOWING");
+        }
         // record 转换必须走显式工厂：BeanUtils(hutool) 对 record 反射拷贝产出全默认值（P1 客户接入前置补丁 S1-11d）
-        PageResult<CustomerDO> result = customerService.page(currentPost.require(), page, keyword);
-        return success(new PageResult<>(result.getList().stream().map(Customer::of).toList(), result.getTotal()));
+        PageResult<CustomerDO> result = customerService.page(currentPost.require(), page, keyword, status, ownerUserId);
+        var ownerNames = result.getList().isEmpty() ? java.util.Map.<Long, String>of()
+                : systemDirectory.usersByIds(result.getList().stream().map(CustomerDO::getOwnerUserId).distinct().toList())
+                        .stream().collect(java.util.stream.Collectors.toMap(
+                                SystemDirectory.UserBrief::userId, SystemDirectory.UserBrief::name));
+        return success(new PageResult<>(result.getList().stream().map(c -> new CustomerRow(
+                c.getId(), c.getName(), c.getPhone(), c.getWechat(), c.getSource(), c.getProvince(),
+                c.getCity(), c.getSummary(), c.getStatus(), c.getOwnerUserId(),
+                ownerNames.getOrDefault(c.getOwnerUserId(), ""), c.getNextVisitDate(), c.getLastFollowAt(),
+                c.getRevision(), c.getCreateTime())).toList(), result.getTotal()));
+    }
+
+    @GetMapping("/owner-options")
+    @Operation(summary = "负责人筛选名册：可见范围内出现过的负责人")
+    @PreAuthorize("@post.has('franchise:customer:query')")
+    public CommonResult<java.util.List<CustomerService.OwnerOption>> ownerOptions() {
+        return success(customerService.ownerOptions(currentPost.require()));
+    }
+
+    @GetMapping("/transfer-candidates")
+    @Operation(summary = "接手人候选：本组织在岗 sales/sales-lead；非老板按授权团队收窄，停用账号排除")
+    @PreAuthorize("@post.has('franchise:customer:transfer')")
+    public CommonResult<java.util.List<CustomerService.TransferCandidate>> transferCandidates() {
+        return success(customerService.transferCandidates(currentPost.require()));
     }
 
     @GetMapping("/{id}")

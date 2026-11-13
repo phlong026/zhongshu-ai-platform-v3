@@ -56,7 +56,86 @@
 
         <el-tab-pane label="客资列表" name="customers">
           <div class="zs-table-card">
-            <el-empty description="客资表格与转让在 P1 批4 提供" />
+            <div class="filters">
+              <el-input
+                v-model="customerFilters.keyword"
+                placeholder="姓名/手机号"
+                clearable
+                class="filter-input"
+                @keyup.enter="searchCustomers"
+              />
+              <el-select v-model="customerFilters.status" class="filter-select">
+                <el-option
+                  v-for="option in CUSTOMER_STATUS_OPTIONS"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+              <el-select
+                v-model="customerFilters.ownerUserId"
+                class="filter-select"
+                clearable
+                placeholder="负责人"
+              >
+                <el-option
+                  v-for="owner in ownerOptions"
+                  :key="owner.userId"
+                  :label="owner.name || `用户 ${owner.userId}`"
+                  :value="owner.userId"
+                />
+              </el-select>
+              <el-button type="primary" :loading="customerLoading" @click="searchCustomers"
+                >查询</el-button
+              >
+              <el-button :loading="customerLoading" @click="reloadCustomers">刷新</el-button>
+            </div>
+            <el-alert
+              v-if="customerNotice"
+              :title="customerNotice"
+              :type="customerError ? 'error' : 'success'"
+              show-icon
+              class="mb-12px"
+            />
+            <el-table v-loading="customerLoading" :data="customers.list" empty-text="暂无客资">
+              <el-table-column prop="name" label="姓名" width="110" />
+              <el-table-column prop="phone" label="手机" width="130" />
+              <el-table-column label="状态" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="customerStatusTag(row.status)">
+                    {{ customerStatusLabel(row.status) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="负责人" width="120">
+                <template #default="{ row }">{{ row.ownerName || row.ownerUserId }}</template>
+              </el-table-column>
+              <el-table-column prop="source" label="来源" width="120" show-overflow-tooltip />
+              <el-table-column label="下次回访" width="120">
+                <template #default="{ row }">{{ row.nextVisitDate || '-' }}</template>
+              </el-table-column>
+              <el-table-column label="最近跟进" width="170">
+                <template #default="{ row }">{{ formatTime(row.lastFollowAt) }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="90" fixed="right">
+                <template #default="{ row }">
+                  <el-button v-if="canTransfer" link type="primary" @click="openTransfer(row)"
+                    >转让</el-button
+                  >
+                </template>
+              </el-table-column>
+            </el-table>
+            <el-pagination
+              v-if="customers.total > customerPageSize"
+              class="customers-pager"
+              background
+              layout="total, prev, pager, next"
+              :total="customers.total"
+              :page-size="customerPageSize"
+              :current-page="customerPageNo"
+              :disabled="customerLoading"
+              @current-change="onCustomerPageChange"
+            />
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -90,6 +169,37 @@
       <template #footer>
         <el-button @click="invalidDialog = false">取消</el-button>
         <el-button type="danger" :loading="actionBusy" @click="confirmInvalid">确认作废</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="transferDialog" title="转让客资" width="480px">
+      <p>
+        将 <strong>{{ transferRow?.name }}</strong
+        >（{{ transferRow?.phone }}）转交给：
+      </p>
+      <el-select v-model="transferTargetUserId" class="transfer-select" placeholder="选择接手人">
+        <el-option
+          v-for="candidate in transferCandidates"
+          :key="candidate.userId"
+          :label="`${candidate.name}（${candidate.roleCode}${candidate.teamName ? ' · ' + candidate.teamName : ''}）`"
+          :value="candidate.userId"
+        />
+      </el-select>
+      <el-input
+        v-model="transferReason"
+        type="textarea"
+        :rows="3"
+        maxlength="200"
+        show-word-limit
+        placeholder="请填写转让原因（必填）"
+        class="transfer-reason"
+      />
+      <div class="hint">接手人仅限本组织在岗业务人员；负责人只能转给本人管理团队的人。</div>
+      <template #footer>
+        <el-button @click="transferDialog = false">取消</el-button>
+        <el-button type="primary" :loading="transferBusy" @click="confirmTransfer"
+          >确认转让</el-button
+        >
       </template>
     </el-dialog>
 
@@ -210,6 +320,15 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import * as api from '@/api/platform/leads'
+import * as customerApi from '@/api/platform/customers'
+import type { CustomerRow, OwnerOption, TransferCandidate } from '@/api/platform/customers'
+import {
+  CUSTOMER_STATUS_OPTIONS,
+  customerStatusLabel,
+  customerStatusTag,
+  normalizeCustomerQuery,
+  transferIdempotencyKey
+} from './model'
 import type { LeadImportResult, PendingLead } from '@/api/platform/leads'
 import {
   CSV_MAX_FILE_BYTES,
@@ -236,6 +355,142 @@ const canImport = computed(() => {
 const orgId = () => identity.currentPost?.orgId as any
 
 const activeTab = ref('pending')
+
+// ===== 客资列表（批4）=====
+const canQueryCustomers = computed(() => identity.can('franchise:customer:query'))
+const canTransfer = computed(() => identity.can('franchise:customer:transfer'))
+const customerFilters = ref<{ keyword: string; status: string; ownerUserId: string }>({
+  keyword: '',
+  status: '',
+  ownerUserId: ''
+})
+const customers = ref<{ list: CustomerRow[]; total: number }>({ list: [], total: 0 })
+const customerPageNo = ref(1)
+const customerPageSize = 20
+const customerLoading = ref(false)
+const customerNotice = ref('')
+const customerError = ref(false)
+let customerGeneration = 0
+const ownerOptions = ref<OwnerOption[]>([])
+const ownerOptionsLoaded = ref(false)
+const transferCandidates = ref<TransferCandidate[]>([])
+const transferDialog = ref(false)
+const transferBusy = ref(false)
+const transferRow = ref<CustomerRow | null>(null)
+const transferTargetUserId = ref('')
+const transferReason = ref('')
+
+const loadCustomers = async (): Promise<boolean> => {
+  if (!canQueryCustomers.value) return false
+  const generation = ++customerGeneration
+  customerLoading.value = true
+  customerNotice.value = ''
+  try {
+    const query = normalizeCustomerQuery({
+      pageNo: customerPageNo.value,
+      pageSize: customerPageSize,
+      keyword: customerFilters.value.keyword,
+      status: customerFilters.value.status,
+      ownerUserId: customerFilters.value.ownerUserId
+    })
+    const result = await customerApi.getCustomers(query)
+    if (generation !== customerGeneration) return false
+    customers.value = { list: result?.list || [], total: result?.total || 0 }
+    return true
+  } catch {
+    if (generation !== customerGeneration) return false
+    customerNotice.value = '客资列表加载失败，请检查网络或当前工作身份后重试'
+    customerError.value = true
+    return false
+  } finally {
+    if (generation === customerGeneration) customerLoading.value = false
+  }
+}
+
+const searchCustomers = () => {
+  customerPageNo.value = 1
+  void loadCustomers()
+}
+const reloadCustomers = () => {
+  void loadCustomers()
+}
+const onCustomerPageChange = (page: number) => {
+  customerPageNo.value = page
+  void loadCustomers()
+}
+
+const loadOwnerOptions = async (force = false) => {
+  if (!canQueryCustomers.value || (ownerOptionsLoaded.value && !force)) return
+  try {
+    ownerOptions.value = await customerApi.getOwnerOptions()
+    ownerOptionsLoaded.value = true
+  } catch {
+    ownerOptions.value = []
+  }
+}
+
+const loadTransferCandidates = async () => {
+  if (!canTransfer.value || transferCandidates.value.length) return
+  try {
+    transferCandidates.value = await customerApi.getTransferCandidates()
+  } catch {
+    transferCandidates.value = []
+  }
+}
+
+const openTransfer = async (row: CustomerRow) => {
+  transferRow.value = row
+  transferTargetUserId.value = ''
+  transferReason.value = ''
+  transferDialog.value = true
+  await loadTransferCandidates()
+}
+
+const confirmTransfer = async () => {
+  if (!transferRow.value) return
+  if (!transferTargetUserId.value) {
+    ElMessage.warning('请选择接手人')
+    return
+  }
+  if (!transferReason.value.trim()) {
+    ElMessage.warning('请填写转让原因')
+    return
+  }
+  transferBusy.value = true
+  try {
+    await customerApi.transferCustomer(
+      transferRow.value.id,
+      {
+        targetUserId: transferTargetUserId.value,
+        reason: transferReason.value.trim(),
+        revision: transferRow.value.revision
+      },
+      transferIdempotencyKey(transferRow.value.id, transferRow.value.revision)
+    )
+    transferDialog.value = false
+    // 先刷新列表再落提示：loadCustomers 会清空提示，顺序反了会把"转让成功"吞掉。
+    const refreshed = await loadCustomers()
+    // 新负责人可能此前没有客资：强制重载名册，否则筛选下拉缺少刚转入的人。
+    await loadOwnerOptions(true)
+    if (refreshed) {
+      customerNotice.value = '转让成功'
+      customerError.value = false
+    } else {
+      // 转让已成功（服务端已提交），刷新失败不得把成功事实说成失败。
+      customerNotice.value = '转让已成功，列表刷新失败，请手动刷新'
+      customerError.value = false
+    }
+  } catch {
+    transferDialog.value = false
+    const refreshed = await loadCustomers()
+    if (refreshed) {
+      customerNotice.value = '转让失败：该客资可能已被他人修改，列表已刷新，请重试'
+      customerError.value = true
+    }
+  } finally {
+    transferBusy.value = false
+  }
+}
 
 // ===== 待关联 =====
 const pending = ref<PendingLead[]>([])
@@ -497,6 +752,8 @@ const submitImport = async () => {
           ? `提交完成，${result.failed} 行失败：数据错误请修正 CSV 后重新上传（新批次）；临时错误可直接重试失败行`
           : '提交完成'
         importBusy.value = false
+        // 导入可能新增负责人（owner=操作者）：刷新负责人名册。
+        void loadOwnerOptions(true)
         // 导入可能产生新的待关联客资：刷新列表失败不得把提交成功误报为失败；
         // 回调必须校验代次，避免重开/换文件后旧批次回调污染新提示。
         void loadPending().then((ok) => {
@@ -536,6 +793,10 @@ const formatTime = (value?: string) => {
 
 onMounted(() => {
   if (canHandle.value) loadPending()
+  if (canQueryCustomers.value) {
+    void loadCustomers()
+    void loadOwnerOptions()
+  }
 })
 
 // ElMessageBox 在确认链中保留引用，避免 tree-shaking 误删（与 org-staff 一致）。
@@ -585,6 +846,32 @@ void ElMessageBox
 }
 
 .import-error {
+  margin-top: 8px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.filter-input {
+  width: 220px;
+}
+
+.filter-select {
+  width: 180px;
+}
+
+.customers-pager {
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+.transfer-select,
+.transfer-reason {
+  width: 100%;
   margin-top: 8px;
 }
 

@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.franchise.crm.dal.CustomerMapper;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
 import cn.iocoder.yudao.module.platform.command.Revisions;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
@@ -88,6 +89,64 @@ public class CustomerService {
 
     public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword) {
         return customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword);
+    }
+
+    /** Web 客资表格：在可见范围内追加状态/负责人筛选。 */
+    public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword,
+                                       String status, Long ownerUserId) {
+        return customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword, status, ownerUserId);
+    }
+
+    /** 负责人筛选名册：可见范围内出现过的负责人（含已停用账号，历史客资仍需按原负责人筛）。 */
+    public List<OwnerOption> ownerOptions(PostSnapshot post) {
+        List<Long> ids = customerMapper.selectOwnerIds(CustomerAccess.visibleTo(post));
+        if (ids.isEmpty()) return List.of();
+        Map<Long, SystemDirectory.UserBrief> users = systemDirectory.usersByIds(ids).stream()
+                .collect(java.util.stream.Collectors.toMap(SystemDirectory.UserBrief::userId, u -> u));
+        return ids.stream()
+                .map(id -> {
+                    SystemDirectory.UserBrief u = users.get(id);
+                    // 用户已删除/尚未填写昵称时 name 为 null：统一空串，排序与前端展示都不再空指针。
+                    return new OwnerOption(id, u == null || u.name() == null ? "" : u.name());
+                })
+                .sorted(java.util.Comparator.comparing(OwnerOption::name))
+                .toList();
+    }
+
+    public record OwnerOption(long userId, String name) {
+    }
+
+    /**
+     * 接手人候选：与 transfer 的校验完全同源——先按 {@link #salesPostOf} 选出规范岗位
+     * （sales 优先于 sales-lead），再用该岗位的团队判断授权范围，避免"看到的候选点下去被拒"。
+     */
+    public List<TransferCandidate> transferCandidates(PostSnapshot post) {
+        java.util.LinkedHashMap<Long, TransferCandidate> byUser = new java.util.LinkedHashMap<>();
+        for (String role : List.of("sales", "sales-lead")) {
+            for (StaffPostDO postRow : staffPostService.listActivePostsInOrg(post.orgId(), role)) {
+                long userId = postRow.getUserId();
+                if (byUser.containsKey(userId) || userId == post.userId()) continue;
+                StaffPostDO canonical = salesPostOf(post, userId);
+                if (canonical == null) continue;
+                if (!isBoss(post) && !CustomerAccess.teamAccess(post, canonical.getTeamId())) continue;
+                byUser.put(userId, new TransferCandidate(userId, null, canonical.getRoleCode(),
+                        canonical.getTeamId(), null));
+            }
+        }
+        if (byUser.isEmpty()) return List.of();
+        Map<Long, SystemDirectory.UserBrief> users = systemDirectory.usersByIds(byUser.keySet()).stream()
+                .collect(java.util.stream.Collectors.toMap(SystemDirectory.UserBrief::userId, u -> u));
+        List<TransferCandidate> out = new java.util.ArrayList<>(byUser.size());
+        for (TransferCandidate c : byUser.values()) {
+            SystemDirectory.UserBrief user = users.get(c.userId());
+            if (user == null || !user.active()) continue;
+            out.add(new TransferCandidate(c.userId(), user.name(), c.roleCode(), c.teamId(),
+                    c.teamId() == null ? "" : systemDirectory.deptName(c.teamId())));
+        }
+        return out;
+    }
+
+    public record TransferCandidate(long userId, String name, String roleCode, Long teamId, String teamName) {
     }
 
     public CustomerDO requireReadable(PostSnapshot post, long customerId) {

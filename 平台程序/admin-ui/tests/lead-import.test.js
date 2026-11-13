@@ -144,6 +144,14 @@ function loadPage(apiStub, identityStore, elMessage) {
         return { usePlatformIdentityStore: () => identityStore }
       }
       if (name === '@/api/platform/leads') return apiStub
+      if (name === '@/api/platform/customers') {
+        return {
+          getCustomers: async () => ({ list: [], total: 0 }),
+          getTransferCandidates: async () => [],
+          transferCustomer: async () => ({})
+        }
+      }
+      if (name === './model') return loadTsModule('views/fr/customers/model.ts')
       if (name === '@/views/fr/org-staff/leadImportModel') return leadModel
       throw new Error(`Unexpected import: ${name}`)
     }

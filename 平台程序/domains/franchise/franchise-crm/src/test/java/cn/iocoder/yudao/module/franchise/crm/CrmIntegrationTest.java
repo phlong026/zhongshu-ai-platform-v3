@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.franchise.crm.dal.CustomerFollowDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.LeadDO;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.test.FakeSystemDirectory;
 import cn.iocoder.yudao.module.franchise.test.FranchiseFixture.Store;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
@@ -264,6 +265,103 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     void crmEntitiesAreTenantIgnored() {
         for (Class<?> entity : List.of(LeadDO.class, CustomerDO.class, CustomerFollowDO.class, CustomerSchemeDO.class)) {
             assertThat(entity.isAnnotationPresent(TenantIgnore.class)).as(entity.getSimpleName()).isTrue();
+        }
+    }
+
+
+    // ===================== 批4：客资表格筛选与接手人候选 =====================
+
+    @Test
+    void customerPageFiltersByStatusAndOwnerWithinVisibility() {
+        long a = capture(salesA1, phone()).customerId();
+        long b = capture(salesB, phone()).customerId();
+
+        var all = as(boss, () -> customers.page(boss, page(), null, null, null));
+        assertThat(all.getList()).extracting(CustomerDO::getId).contains(a, b);
+
+        var filtered = as(boss, () -> customers.page(boss, page(), null,
+                CustomerDO.STATUS_REGISTERED, salesA1.userId()));
+        assertThat(filtered.getList()).extracting(CustomerDO::getId).contains(a).doesNotContain(b);
+
+        // 可见范围仍先生效：salesB 指定 owner=salesA1 也看不到 A 团队的客户
+        var invisible = as(salesB, () -> customers.page(salesB, page(), null, null, salesA1.userId()));
+        assertThat(invisible.getList()).isEmpty();
+    }
+
+    @Test
+    void transferCandidatesRespectRoleTeamAndActiveStatus() {
+        var bossCandidates = as(boss, () -> customers.transferCandidates(boss));
+        assertThat(bossCandidates).extracting(CustomerService.TransferCandidate::userId)
+                .contains(salesA1.userId(), salesA2.userId(), salesB.userId(),
+                        leadA.userId(), leadWholeLine.userId())
+                .doesNotContain(engineer.userId(), boss.userId(), otherStoreSales.userId());
+
+        // 销售主管只能看到自己管理团队的候选
+        var leadCandidates = as(leadA, () -> customers.transferCandidates(leadA));
+        assertThat(leadCandidates).extracting(CustomerService.TransferCandidate::userId)
+                .containsExactlyInAnyOrder(salesA1.userId(), salesA2.userId());
+
+        // 停用账号不得成为接手人
+        FakeSystemDirectory.INSTANCE.setUserActive(salesA2.userId(), false);
+        try {
+            assertThat(as(boss, () -> customers.transferCandidates(boss)))
+                    .extracting(CustomerService.TransferCandidate::userId)
+                    .doesNotContain(salesA2.userId());
+        } finally {
+            FakeSystemDirectory.INSTANCE.setUserActive(salesA2.userId(), true);
+        }
+    }
+
+
+    @Test
+    void ownerOptionsCoverDistinctOwnersInVisibleScope() {
+        capture(salesA1, phone());
+        capture(salesB, phone());
+        var bossOptions = as(boss, () -> customers.ownerOptions(boss));
+        assertThat(bossOptions).extracting(CustomerService.OwnerOption::userId)
+                .contains(salesA1.userId(), salesB.userId());
+        // 业务员只看得到自己的客资 → 名册里只有自己
+        var salesOptions = as(salesA1, () -> customers.ownerOptions(salesA1));
+        assertThat(salesOptions).extracting(CustomerService.OwnerOption::userId)
+                .containsExactly(salesA1.userId());
+    }
+
+    @Test
+    void dualPostCandidateUsesTheSameCanonicalPostAsTransferValidation() {
+        long userId = FakeSystemDirectory.INSTANCE.newUser();
+        fixture.postFor(userId, store.orgId(), SALES, store.salesTeamB());
+        fixture.postFor(userId, store.orgId(), SALES_LEAD, store.salesTeamA());
+
+        // 规范岗位是 sales(B)（sales 优先），A 团队主管看到候选也会被转让校验拒绝 → 候选不得出现
+        assertThat(as(leadA, () -> customers.transferCandidates(leadA)))
+                .extracting(CustomerService.TransferCandidate::userId)
+                .doesNotContain(userId);
+
+        var bossRow = as(boss, () -> customers.transferCandidates(boss)).stream()
+                .filter(c -> c.userId() == userId).findFirst().orElseThrow();
+        assertThat(bossRow.roleCode()).isEqualTo(SALES);
+        assertThat(bossRow.teamId()).isEqualTo(store.salesTeamB());
+
+        // 实际转让与候选一致：A 主管转给该人（规范岗位在 B）必须被拒；老板可以转（B 团队）
+        long customerId = capture(salesA1, phone()).customerId();
+        assertError(() -> as(leadA, () -> customers.transfer(leadA, customerId,
+                new TransferCommand(userId, "调岗"), 1, null)), TRANSFER_TARGET_INVALID);
+        var moved = as(boss, () -> customers.transfer(boss, customerId,
+                new TransferCommand(userId, "老板调整"), 1, null));
+        assertThat(moved.customer().getOwnerUserId()).isEqualTo(userId);
+        assertThat(moved.customer().getTeamId()).isEqualTo(store.salesTeamB());
+    }
+
+    @Test
+    void ownerOptionsKeepInactiveOwnersOfHistoricCustomers() {
+        capture(salesA1, phone());
+        FakeSystemDirectory.INSTANCE.setUserActive(salesA1.userId(), false);
+        try {
+            var options = as(boss, () -> customers.ownerOptions(boss));
+            assertThat(options).extracting(CustomerService.OwnerOption::userId)
+                    .contains(salesA1.userId());
+        } finally {
+            FakeSystemDirectory.INSTANCE.setUserActive(salesA1.userId(), true);
         }
     }
 

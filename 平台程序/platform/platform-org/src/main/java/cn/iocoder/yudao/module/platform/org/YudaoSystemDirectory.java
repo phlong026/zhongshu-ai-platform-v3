@@ -132,15 +132,11 @@ public class YudaoSystemDirectory implements SystemDirectory {
         if (userIds == null || userIds.isEmpty()) {
             return List.of();
         }
-        List<UserBrief> result = new ArrayList<>();
-        for (Long id : userIds) {
-            AdminUserDO user = adminUserService.getUser(id);
-            if (user != null) {
-                result.add(new UserBrief(user.getId(), user.getNickname(), user.getMobile(),
-                        CommonStatusEnum.ENABLE.getStatus().equals(user.getStatus())));
-            }
-        }
-        return result;
+        // 单次 IN 查询，避免按 ID 循环（客户/候选批量映射时的 N+1）。
+        return adminUserService.getUserList(userIds).stream()
+                .map(user -> new UserBrief(user.getId(), user.getNickname(), user.getMobile(),
+                        CommonStatusEnum.ENABLE.getStatus().equals(user.getStatus())))
+                .toList();
     }
 
     @Override
