@@ -2,9 +2,9 @@
   <div class="zs-page">
     <div class="zs-page-header">
       <div>
-        <h1 class="zs-page-title">组织开通</h1>
+        <h1 class="zs-page-title">公司开通</h1>
         <div class="zs-page-subtitle">
-          正式开通加盟组织并授予首任管理员（boss）；开通、员工授权与点数充值分别管理
+          正式开通加盟组织并授予首任管理员（boss），可同时开通设计能力并赠点；激活码方式已停用
         </div>
       </div>
     </div>
@@ -31,6 +31,14 @@
         </el-form-item>
         <el-form-item label="首管理员手机号" prop="adminMobile">
           <el-input v-model="form.adminMobile" placeholder="11 位手机号；已存在账号将被复用" />
+        </el-form-item>
+        <el-form-item label="开通设计能力">
+          <el-switch v-model="form.designEnabled" />
+          <span class="tip">开启后建立公司积分池（设计/AI 能力按量扣点）</span>
+        </el-form-item>
+        <el-form-item v-if="form.designEnabled" label="开通赠点">
+          <el-input-number v-model="form.initialCredits" :min="0" :max="100000" :step="10" />
+          <span class="tip">仅首次生效，可填 0</span>
         </el-form-item>
         <el-form-item>
           <el-button
@@ -71,7 +79,10 @@ const form = reactive({
   orgType: 'store',
   orgName: '',
   adminName: '',
-  adminMobile: ''
+  adminMobile: '',
+  // 24 号 B-8：设计能力开通与首次赠点（省略/关闭=不改变既有开通状态）
+  designEnabled: false,
+  initialCredits: 0
 })
 
 const rules: FormRules = {
@@ -99,3 +110,11 @@ const submit = async () => {
   }
 }
 </script>
+
+<style scoped>
+.tip {
+  margin-left: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+</style>

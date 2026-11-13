@@ -15,6 +15,10 @@ export interface OnboardPayload {
   orgName: string
   adminName: string
   adminMobile: string
+  /** 24 号 B-8：同时开通设计能力（建公司积分池）；省略=不改变既有开通状态 */
+  designEnabled?: boolean
+  /** 24 号 B-8：开通赠点（仅首次生效，可 0） */
+  initialCredits?: number
 }
 
 const base = '/platform/org'
