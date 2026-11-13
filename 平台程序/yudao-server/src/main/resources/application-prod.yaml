@@ -61,6 +61,9 @@ zhongshu:
   identity:
     wechat:
       provider: real
+    # 24 号 B-14：激活码退役（生产必须 false；守卫强制，缺省亦拒绝启动）
+    access-code:
+      enabled: ${ZS_ACCESS_CODE_ENABLED:false}
   commerce:
     payment:
       # T-XPAY：虚拟商品（设计点）合规通道=微信小程序虚拟支付（wx.requestVirtualPayment）。

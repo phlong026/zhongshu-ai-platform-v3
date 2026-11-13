@@ -42,7 +42,8 @@ class RealServiceWiringPolicyTest {
         p.put("zhongshu.design.asset.moderation.biz-type","test-policy");
         p.put("zhongshu.design.asset.moderation.daily-limit","10");
         for (String key : List.of("yudao.security.mock-enable", "zhongshu.design.seed-dev-data",
-                "zhongshu.design.asset.dev-content-endpoint", "spring.datasource.druid.stat-view-servlet.enabled")) p.put(key, "false");
+                "zhongshu.design.asset.dev-content-endpoint", "spring.datasource.druid.stat-view-servlet.enabled",
+                "zhongshu.identity.access-code.enabled")) p.put(key, "false");
         p.put("management.endpoint.env.show-values", "NEVER");
         p.put("management.endpoint.configprops.show-values", "NEVER");
         p.put("management.endpoints.web.exposure.include", "health,info");

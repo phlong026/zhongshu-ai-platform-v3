@@ -74,6 +74,9 @@ zhongshu:
     note-polish:
       runtime-url: ${ZS_AI_RUNTIME_URL:}
   identity:
+    # 24 号 B-14：激活码退役开关（本地/联调默认开；生产 profile 强制 false）
+    access-code:
+      enabled: ${ZS_ACCESS_CODE_ENABLED:true}
     wechat-appid: ${ZS_WX_APPID:}
     # T13-04：真实 code2session AppSecret——生产安全基线不给默认值；provider=real 时必须由 ZS_WX_APPSECRET 注入，
     # 缺失即被启动守卫 RealServiceWiringPolicy 快速失败（本 profile 不声明 provider，见上方 T13-01 注释）。
