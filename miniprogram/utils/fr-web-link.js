@@ -25,6 +25,7 @@ const NOT_CONFIGURED = 'Web 门户地址未配置：请在 config/env.js 填入 
 const CREDENTIAL_PATTERN = /token|access[-_]?refresh|authorization|cookie|session|secret/i;
 const HOST_PATTERN = /^https:\/\/([A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)(?::(0|[1-9][0-9]{0,4}))?$/;
 const HOST_MAX = 253;
+const runtimeEnv = require('./runtime-env');
 
 /** 迭代解码（仅凭据兜底扫描用；最多 3 层；任一层失败返回 null=可疑） */
 function decodeFully(value) {
@@ -73,7 +74,7 @@ function normalizeHost(raw) {
 
 /** 解析主机：storage 覆写优先，其次集中配置（require 放在函数内，便于纯函数测试注入） */
 function resolveHost(override) {
-  const fromOverride = normalizeHost(override);
+  const fromOverride = normalizeHost(runtimeEnv.storageOverridesAllowed() ? override : '');
   if (fromOverride) return fromOverride;
   let configured = '';
   try {

@@ -9,6 +9,7 @@ const TENANT_KEY = 'zs-api-tenant-v1';
 // 基址单源 config/env.js（生产域名）；storage `zs-api-base` 仅作本地联调覆写。
 // 未配置任何基址时显式失败，绝不静默回落 127.0.0.1 之类的本地地址。
 const DEFAULT_BASE = require('../config/env').API_BASE;
+const runtimeEnv = require('../utils/runtime-env');
 const TIMEOUT = 15000;
 // M02-T01/I05：岗位失效错误码（后端 PlatformAuthzErrorCodes.POST_NOT_USABLE 1_103_000_002）
 // ——token 仍有效而当前岗位被撤/组织停用，与账号失效（401）分属不同恢复路径
@@ -19,7 +20,7 @@ let postInvalidRecovering = false; // 恢复流进行中：并发岗位失效去
 let sessionGen = 0; // 会话代次：saveSession/clearSession 时 +1；401 处理前校验，防旧请求 401 清掉新会话
 
 function base() {
-  return (wx.getStorageSync('zs-api-base') || DEFAULT_BASE).replace(/\/$/, '');
+  return runtimeEnv.configuredValue(DEFAULT_BASE, 'zs-api-base').replace(/\/$/, '');
 }
 
 function token() {
@@ -221,6 +222,40 @@ function upload(path, filePath, formData) {
   });
 }
 
+/** 上传票据原始字节：B 本地代理是 /admin-api 同源 PUT；COS 为绝对签名 URL。 */
+function putTicketBytes(uploadUrl, bytes, mimeType) {
+  const value = String(uploadUrl || '');
+  const baseMatch = /^(https?:\/\/[^/]+)(?:\/|$)/i.exec(base());
+  if (!baseMatch) return Promise.reject({ code: -1, message: 'API 基址无效，无法上传参考图' });
+  const origin = baseMatch[1];
+  let url = '', sameOrigin = false;
+  if (/^\/admin-api\/franchise\/assets\/\d+\/content\?token=[^\s]+$/i.test(value)) {
+    url = origin + value;
+    sameOrigin = true;
+  } else if (/^https?:\/\/[^\s]+$/i.test(value)) {
+    url = value;
+    sameOrigin = value.indexOf(origin + '/') === 0;
+  } else {
+    return Promise.reject({ code: -1, message: '上传票据地址无效，请重新获取' });
+  }
+  return new Promise((resolve, reject) => wx.request({
+    url, method: 'PUT', data: bytes, timeout: TIMEOUT,
+    header: Object.assign({ 'Content-Type': mimeType || 'application/octet-stream' }, sameOrigin ? {
+      'tenant-id': tenantId(),
+      ...(token() ? { Authorization: 'Bearer ' + token() } : {}),
+      ...(currentPostId() ? { 'X-Post-Id': currentPostId() } : {})
+    } : {}),
+    success(res) {
+      if (res.statusCode < 200 || res.statusCode >= 300) return reject({ code: res.statusCode, message: '参考图上传失败（HTTP ' + res.statusCode + '）' });
+      if (sameOrigin && res.data && res.data.code !== undefined && res.data.code !== 0) {
+        return reject({ code: res.data.code, message: res.data.msg || '参考图上传失败' });
+      }
+      resolve(true);
+    },
+    fail: () => reject({ code: -1, message: '参考图上传网络失败' })
+  }));
+}
+
 module.exports = {
   TOKEN_KEY,
   POST_KEY,
@@ -240,6 +275,7 @@ module.exports = {
   notifySessionExpired,
   request,
   upload,
+  putTicketBytes,
   get: (path, params) => request('GET', path, params),
   post: (path, data, extraHeader) => request('POST', path, data, extraHeader),
   put: (path, data, extraHeader) => request('PUT', path, data, extraHeader),

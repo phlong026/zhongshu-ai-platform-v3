@@ -409,7 +409,7 @@ module.exports = function attach(page, deps) {
       this.platFail((err && err.code === 429) ? 'AI 优化繁忙，请稍后再试' : PF.errorMessageDesign(err));
     });
   };
-  // ---- 立面自传参考图（≤3 张；upload-tickets → local dev 字节通道/COS PUT → complete）----
+  // ---- 立面自传参考图（≤3 张；设计能力生产链只接受 COS 预签名 PUT → complete）----
   page.platAddReference = function () {
     const existing = (this.data.form.referenceAssetIds || []).filter(Boolean);
     if (existing.length >= 3) return this.platFail('自传参考最多 3 张');
@@ -419,31 +419,30 @@ module.exports = function attach(page, deps) {
       const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
       this.setData({ busy: true });
       const fs = wx.getFileSystemManager();
-      const uploadOne = f => new Promise((resolve, reject) => {
-        fs.readFile({ filePath: f.tempFilePath, success: rd => {
-          const bytes = rd.data;
-          // sha256：走 finance.js 的工具（与工程凭据链同一实现）
-          const sha = require('../../../api/finance').sha256Hex(bytes);
-          api.assets.uploadTicket({ assetType: 'DESIGN_REFERENCE', mimeType: 'image/jpeg', sizeBytes: bytes.byteLength || bytes.length, sha256: sha })
-            .then(t => {
-              const put = () => new Promise((res2, rej2) => {
-                fs.readFile({ filePath: f.tempFilePath, success: rd2 => {
-                  wx.request({ url: t.uploadUrl, method: 'PUT', data: rd2.data, header: { 'Content-Type': 'image/jpeg' },
-                    success: res2, fail: rej2 });
-                }, fail: rej2 });
-              });
-              // local 通道（uploadUrl=local:// 相对路径）走 dev content 直传
-              if (String(t.uploadUrl || '').indexOf('local://') === 0 || String(t.uploadUrl || '').indexOf('http') !== 0) {
-                return http.upload('/app-api/design/v1/assets/' + t.assetId + '/content', f.tempFilePath)
-                  .then(res2).catch(rej2);
-              }
-              return put();
-            })
-            .then(() => api.assets.complete(t.assetId))
-            .then(done => { if (done && done.uploadStatus === 'REJECTED') throw { message: '参考图未通过校验：' + (done.rejectedReason || '请更换图片') }; resolve(t.assetId); })
-            .catch(reject);
-        }, fail: () => reject({ message: '读取图片失败' }) });
-      });
+      const readFile = filePath => new Promise((resolve, reject) => fs.readFile({ filePath, success: r2 => resolve(r2.data), fail: reject }));
+      const uploadOne = async f => {
+        const bytes = await readFile(f.tempFilePath).catch(() => { throw new Error('读取图片失败'); });
+        const byteArray = typeof bytes === 'string' ? null : new Uint8Array(bytes.buffer || bytes, bytes.byteOffset || 0, bytes.byteLength || 0);
+        const isJpeg = byteArray && byteArray.length >= 3 && byteArray[0] === 0xff && byteArray[1] === 0xd8 && byteArray[2] === 0xff;
+        const isPng = byteArray && byteArray.length >= 8 && byteArray[0] === 0x89 && byteArray[1] === 0x50 && byteArray[2] === 0x4e && byteArray[3] === 0x47
+          && byteArray[4] === 0x0d && byteArray[5] === 0x0a && byteArray[6] === 0x1a && byteArray[7] === 0x0a;
+        const mimeType = isJpeg ? 'image/jpeg' : isPng ? 'image/png' : '';
+        if (!mimeType) throw new Error('参考图仅支持 JPEG 或 PNG 格式');
+        let binary = typeof bytes === 'string' ? bytes : '';
+        for (let offset = 0; byteArray && offset < byteArray.length; offset += 8192) {
+          binary += String.fromCharCode.apply(null, byteArray.subarray(offset, offset + 8192));
+        }
+        const sha = require('../../../api/finance').sha256Hex(binary);
+        const ticket = await api.assets.uploadTicket({ assetType: 'DESIGN_REFERENCE', mimeType, sizeBytes: bytes.byteLength || bytes.length, sha256: sha });
+        if (/^local:\/\//i.test(String(ticket.uploadUrl || ''))) {
+          throw new Error('当前环境的本地设计存储不支持小程序上传，请切换对象存储后重试');
+        }
+        await http.putTicketBytes(ticket.uploadUrl, bytes, mimeType);
+        const done = await api.assets.complete(ticket.assetId);
+        const status = done && (done.uploadStatus || done.status);
+        if (status !== 'ACCEPTED') throw new Error('参考图未通过校验：' + ((done && done.rejectedReason) || '请更换图片'));
+        return ticket.assetId;
+      };
       Promise.all(files.map(uploadOne)).then(ids => {
         if (this.platStale(gen, sg)) return;
         const all = existing.concat(ids.map(String));

@@ -5,7 +5,7 @@
   "scripts": {
     "check:sales": "node scripts/verify-sales-customers.cjs && node scripts/verify-sales-publication.cjs && node scripts/verify-sales-creation-chain.cjs && node scripts/verify-sales-design.cjs && node scripts/verify-business-four-flows.cjs && node scripts/verify-guest-home-role-nav.cjs && npm run check",
     "check:sales:native": "node scripts/verify-sales-offline-native.cjs && node scripts/verify-sales-typography-native.cjs",
-    "check": "node scripts/verify.cjs && npm run check:profile-navigation && npm run check:api-pages",
+    "check": "node scripts/verify.cjs && node scripts/verify-joint-review-miniapp.cjs && node scripts/verify-finance-bank-confirm-idem.cjs && npm run check:profile-navigation && npm run check:api-pages",
     "check:profile-navigation": "node --test scripts/verify-profile-navigation.cjs",
     "check:task-order": "node scripts/verify-task-order.cjs && node scripts/verify-sales-todo-order.cjs && node scripts/verify-design-todo-order.cjs && node scripts/verify-engineering-todo-order.cjs && node scripts/verify-finance-todo-order.cjs",
     "check:packages": "node scripts/verify-design-package.cjs && node scripts/verify.cjs",

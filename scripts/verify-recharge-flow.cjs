@@ -16,6 +16,7 @@ function ok(cond, name) {
 // ---- wx shim：storage + request → 本地 node http ----
 const store = {};
 global.wx = {
+  getAccountInfoSync() { return { miniProgram: { envVersion: 'develop' } }; },
   getStorageSync(k) { return store[k] !== undefined ? store[k] : ''; },
   setStorageSync(k, v) { store[k] = v; },
   removeStorageSync(k) { delete store[k]; },

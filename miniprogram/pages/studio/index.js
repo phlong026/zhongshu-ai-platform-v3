@@ -410,19 +410,25 @@ inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError
 savePublicationLink(){
 if(this.data.receiptSaving)return;
 if(!http.token())return wx.showToast({title:'请先登录后再登记发布链接',icon:'none'}); // 无 token：提示登录，不落本地演示回执
-return this.savePublicationLinkOnline(); // 在线发布记录：publications.verify（已发布时）→ link 登记链接
+return this.savePublicationLinkOnline(); // 在线发布记录：publishing → verify → link；verify 状态直接 link
 },
-/** 在线登记发布链接：重复链接后端报 1_114_000_003 → 对应文案；演示已发布态先 verify 再 link */
+/** 在线登记发布链接：严格按服务端状态机推进；重复链接后端报 1_114_000_003 → 对应文案。 */
 savePublicationLinkOnline(){
 const invalid=P.validatePublishedUrl(this.data.publishedUrlInput);
 if(invalid)return this.setData({receiptError:invalid});
 const url=this.data.publishedUrlInput.trim(),recordId=this.data.recordId;
 this.setData({receiptSaving:true,receiptError:''});
-// 演示已发布（published）需先转待回执核验；其余状态直接登记；幂等键按记录维度生成，失败保留重试复用
-const prepare=(this.data.detail&&this.data.detail.status==='published')?contentApi.publications.verify(recordId,this.contentKey('verify:'+recordId)).catch(()=>{}):Promise.resolve();
-prepare.then(()=>contentApi.publications.link(recordId,url,this.contentKey('link:'+recordId))).then(()=>{
+const receiptGen=(this.__receiptGen||0)+1;this.__receiptGen=receiptGen;
+const sessionGen=http.sessionGeneration();
+const status=String((this.data.detail&&this.data.detail.status)||'publishing');
+P.savePublicationReceipt({status,url,currentUrl:this.data.detail&&this.data.detail.publishedUrl,
+verify:()=>contentApi.publications.verify(recordId,this.contentKey('verify:'+recordId)),
+link:()=>contentApi.publications.link(recordId,url,this.contentKey('link:'+recordId)),
+alive:()=>receiptGen===this.__receiptGen&&sessionGen===http.sessionGeneration()}).then(result=>{
+if(receiptGen!==this.__receiptGen||sessionGen!==http.sessionGeneration())return;
 this.contentDropKey('verify:'+recordId);this.contentDropKey('link:'+recordId);
 this.setData({receiptSaved:true});
+if(result.alreadySaved){this.setData({receiptSaving:false});return wx.showToast({title:'发布链接已保存',icon:'success'});}
 wx.reLaunch({
 url:'/pages/business/index',
 success:()=>wx.showToast({title:'发布链接已保存',icon:'success'}),
@@ -430,6 +436,7 @@ fail:()=>this.setData({receiptError:'链接已保存，返回首页失败，请�
 complete:()=>this.setData({receiptSaving:false})
 });
 }).catch(error=>{
+if(receiptGen!==this.__receiptGen||sessionGen!==http.sessionGeneration())return;
 const code=String((error&&error.code)||'');
 const message=code==='1_114_000_003'||code==='1114000003'||/已登记|重复/.test(String((error&&error.message)||''))?'该发布链接已登记过，请核对后填写':(error&&error.message)||'保存失败，请稍后重试';
 this.setData({receiptSaving:false,receiptError:message});

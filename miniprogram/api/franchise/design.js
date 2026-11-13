@@ -21,7 +21,7 @@ const cases = {
 };
 
 const assets = {
-  /** 上传票据 {assetType:'USER_SKETCH', mimeType, sizeBytes, sha256} → {assetId, uploadUrl}（COS=原始字节 PUT；local=dev 通道） */
+  /** 上传票据 {assetType:'USER_SKETCH', mimeType, sizeBytes, sha256} → {assetId, uploadUrl}（小程序生产链使用 COS 原始字节 PUT） */
   uploadTicket: (data) => http.post('/franchise/design/assets/upload-tickets', data),
   /** 完成上传（首次触发审核；终态重放=幂等读）→ {assetId, uploadStatus, rejectedReason?} */
   complete: (assetId) => http.post('/franchise/design/assets/' + assetId + '/complete'),

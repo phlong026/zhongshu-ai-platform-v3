@@ -107,6 +107,21 @@ function rowsOf(rows) {
   return [];
 }
 
+/** 发布回执状态机：publishing 必须先核验，verify 才能登记链接。 */
+async function savePublicationReceipt({ status, url, currentUrl, verify, link, alive = () => true }) {
+  const requireAlive = () => { if (!alive()) throw { stale: true, silent: true, message: '旧会话操作已忽略' }; };
+  if (status === 'published') {
+    if (String(currentUrl || '') === String(url || '')) return { alreadySaved: true };
+    throw new Error('该作品已登记发布链接，如需更正请联系管理员');
+  }
+  requireAlive();
+  if (status === 'publishing') { await verify(); requireAlive(); }
+  else if (status !== 'verify') throw new Error('当前发布状态不能登记链接，请刷新后重试');
+  requireAlive();
+  await link();
+  return { alreadySaved: false };
+}
+
 /** 任务轮询（页面通用）：intervalMs 间隔拉取直至终态或超时；onTick 每次回调。
  * 连续网络错容忍 maxConsecutiveErrors 次（默认 2，第 3 次整体 reject），错误路径同样受 timeoutMs 约束；
  * 返回 promise 挂 cancel() 取消钩子（页面 onUnload 终止轮询，防 UI 长时间占锁）——
@@ -146,5 +161,5 @@ module.exports = {
   api,
   taskView, progressOf, mapResolution, mapDuration, mapRatio, mapVideoParameters,
   mapReferences, validateShareLink, validatePublicationForm, validatePublishedUrl,
-  degradeMessage, rowsOf, pollTask
+  degradeMessage, rowsOf, savePublicationReceipt, pollTask
 };
