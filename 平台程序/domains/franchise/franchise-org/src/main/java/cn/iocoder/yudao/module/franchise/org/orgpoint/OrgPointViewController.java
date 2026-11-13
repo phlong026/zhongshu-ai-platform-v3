@@ -93,8 +93,7 @@ public class OrgPointViewController {
     }
 
     @GetMapping("/my-usage")
-    @PreAuthorize("@post.has('franchise:org:point:query')")
-    @Operation(summary = "本人当月用量与明细")
+    @Operation(summary = "本人当月用量与明细（全部在岗员工；按当前岗位本人查询）")
     public CommonResult<OrgPointPort.MyUsage> myUsage(
             @RequestParam(required = false) String month,
             @RequestParam(defaultValue = "1") int page,

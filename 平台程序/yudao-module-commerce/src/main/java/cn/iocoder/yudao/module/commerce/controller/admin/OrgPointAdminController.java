@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,6 +44,23 @@ public class OrgPointAdminController {
     public CommonResult<OrgPointPort.PoolSummary> adjust(@Valid @RequestBody AdjustReqVO req) {
         Long adminUserId = SecurityFrameworkUtils.getLoginUserId();
         return success(orgPoint.adjust(req.orgId(), req.credits(), req.bizKey(), req.note(), adminUserId));
+    }
+
+    @PostMapping("/org-point-operations/{operationId}/settle")
+    @Operation(summary = "人工核对：确认已交付，按实际数量结算（D6 §2.4，超时不自动退款）")
+    @PreAuthorize("@ss.hasPermission('commerce:org-point:adjust')")
+    public CommonResult<OrgPointPort.Settlement> settleOperation(
+            @PathVariable("operationId") long operationId,
+            @RequestParam(defaultValue = "1") long actualQuantity) {
+        return success(orgPoint.settle(operationId, actualQuantity));
+    }
+
+    @PostMapping("/org-point-operations/{operationId}/release")
+    @Operation(summary = "人工核对：确认未执行，全额释放预扣")
+    @PreAuthorize("@ss.hasPermission('commerce:org-point:adjust')")
+    public CommonResult<OrgPointPort.Settlement> releaseOperation(
+            @PathVariable("operationId") long operationId) {
+        return success(orgPoint.release(operationId));
     }
 
     @GetMapping("/org-point-accounts")

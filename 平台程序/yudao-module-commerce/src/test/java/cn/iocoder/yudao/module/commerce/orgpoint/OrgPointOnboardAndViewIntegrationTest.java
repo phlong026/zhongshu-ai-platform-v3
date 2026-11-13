@@ -108,6 +108,30 @@ class OrgPointOnboardAndViewIntegrationTest {
     }
 
     @Test
+    void stalePendingOnlyReportsBeyondThreshold() {
+        listener.onOnboarded(new OrgOnboardedEvent(3006L, true, 100));
+        long fresh = service.reserve(new OrgPointPort.ReserveCommand(
+                "content:61:copy", 3006L, 7L, null, "copy", 1, "content_task", 61L));
+        long stale = service.reserve(new OrgPointPort.ReserveCommand(
+                "content:62:copy", 3006L, 7L, null, "copy", 1, "content_task", 62L));
+        jdbc.update("UPDATE org_point_ledger SET operation_time = now() - interval '30 hour' "
+                + "WHERE operation_id = ?", stale);
+        // 终态的不算 PENDING
+        long settled = service.reserve(new OrgPointPort.ReserveCommand(
+                "content:63:copy", 3006L, 7L, null, "copy", 1, "content_task", 63L));
+        jdbc.update("UPDATE org_point_ledger SET operation_time = now() - interval '30 hour' "
+                + "WHERE operation_id = ?", settled);
+        service.settle(settled, 1);
+
+        var pending = service.findPendingOlderThan(24, 100);
+
+        assertThat(pending).extracting(OrgPointService.PendingOperation::operationId)
+                .containsExactly(stale);
+        assertThat(pending.get(0).requested()).isEqualTo(2);
+        assertThat(fresh).isNotNull();
+    }
+
+    @Test
     void ledgerPagingAndFilters() {
         listener.onOnboarded(new OrgOnboardedEvent(3005L, true, 100));
         for (int i = 0; i < 5; i++) {

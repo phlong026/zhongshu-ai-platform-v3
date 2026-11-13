@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -55,7 +56,32 @@ class AiJobOrgChargeRoutingTest {
         Long bindingOperationId;
         /** prompt 预留：bizKey → operationId。 */
         final java.util.Map<String, Long> promptOperations = new java.util.HashMap<>();
+        final java.util.Set<Long> promptTerminal = new java.util.HashSet<>();
+        final java.util.Map<String, String> promptReceipts = new java.util.HashMap<>();
         long nextPromptOperation = 88L;
+
+        @Override public java.util.List<PendingPromptOperation> findPendingPromptOperations(long jobId) {
+            return promptOperations.entrySet().stream()
+                    .filter(e -> e.getKey().startsWith("design:prompt:" + jobId + ":"))
+                    .filter(e -> !promptTerminal.contains(e.getValue()))
+                    .map(e -> new PendingPromptOperation(e.getValue(), e.getKey()))
+                    .sorted(java.util.Comparator.comparingLong(PendingPromptOperation::operationId))
+                    .toList();
+        }
+
+        @Override public int countPromptOperations(String bizKeyPrefix) {
+            return (int) promptOperations.keySet().stream()
+                    .filter(k -> k.startsWith(bizKeyPrefix)).count();
+        }
+
+        @Override public void savePromptReceipt(long jobId, int attemptNo, String callId,
+                                                String responseHash, String outcome, Long operationId) {
+            String key = jobId + ":" + attemptNo;
+            String existing = promptReceipts.putIfAbsent(key, responseHash + "|" + outcome);
+            if (existing != null && !existing.equals(responseHash + "|" + outcome)) {
+                throw new IllegalStateException("Prompt receipt conflict");
+            }
+        }
 
         @Override
         public Long findOperationByRef(String refType, long refId, String subject) {
@@ -65,6 +91,7 @@ class AiJobOrgChargeRoutingTest {
         @Override
         public Settlement settle(long operationId, long actualQuantity) {
             settled.add(operationId);
+            promptTerminal.add(operationId);
             settleQuantity = actualQuantity;
             return new Settlement(operationId, 4, 4 - actualQuantity, false);
         }
@@ -72,6 +99,7 @@ class AiJobOrgChargeRoutingTest {
         @Override
         public Settlement release(long operationId) {
             released.add(operationId);
+            promptTerminal.add(operationId);
             return new Settlement(operationId, 4, 4, false);
         }
 
@@ -152,6 +180,8 @@ class AiJobOrgChargeRoutingTest {
         port.settleQuantity = 0;
         port.bindingOperationId = null;
         port.promptOperations.clear();
+        port.promptTerminal.clear();
+        port.promptReceipts.clear();
         port.nextPromptOperation = 88L;
     }
 
@@ -259,6 +289,58 @@ class AiJobOrgChargeRoutingTest {
 
         assertThat(port.settled).isEmpty();
         assertThat(port.released).isEmpty();
+    }
+
+    @Test
+    void notSentRetryCreatesNewOperation() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 5555L);
+        assertThat(settlement.reservePromptCall(jobId, 1, 5555L)).isEqualTo("ORG_RESERVED");
+        settlement.finishPromptCall(jobId, 1, 5555L, "NOT_SENT");
+        assertThat(port.released).containsExactly(88L);
+
+        assertThat(settlement.reservePromptCall(jobId, 1, 5555L)).isEqualTo("ORG_RESERVED");
+        assertThat(port.promptOperations).hasSize(2);
+        assertThat(port.promptOperations.keySet()).anyMatch(k -> k.endsWith(":r1"));
+
+        settlement.finishPromptCall(jobId, 1, 5555L, "SUCCEEDED",
+                "plan-" + jobId, "b".repeat(64));
+        assertThat(port.settled).containsExactly(89L);
+    }
+
+    @Test
+    void unknownBlocksNewAttemptReservation() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 6666L);
+        settlement.reservePromptCall(jobId, 1, 6666L);
+        settlement.finishPromptCall(jobId, 1, 6666L, "UNKNOWN");
+
+        // 新 attempt（新 token）抢到租约后不允许再次预留（旧调用可能已执行）
+        jdbc.update("UPDATE ai_job SET fencing_token=7777, claim_expires_at=now()+interval '10 minute' "
+                + "WHERE id=?", jobId);
+        jdbc.update("INSERT INTO ai_job_attempt (id, job_id, attempt_no, worker_id, fencing_token) "
+                + "VALUES (?, ?, 2, 'w-2', 7777)", jobId * 1000 + 2, jobId);
+        assertThatThrownBy(() -> settlement.reservePromptCall(jobId, 2, 7777L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("禁止重投");
+    }
+
+    @Test
+    void invalidOutcomeRejected() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 8888L);
+        settlement.reservePromptCall(jobId, 1, 8888L);
+        assertThatThrownBy(() -> settlement.finishPromptCall(jobId, 1, 8888L, "COMPLETED"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid prompt outcome");
+        assertThatCode(() -> settlement.finishPromptCall(jobId, 1, 8888L, "SUCCEEDED",
+                "plan-" + jobId, "c".repeat(64))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> settlement.finishPromptCall(jobId, 1, 8888L, "SUCCEEDED",
+                "plan-" + jobId, "d".repeat(64)))
+                .isInstanceOf(RuntimeException.class); // 收据 hash 冲突
     }
 
     @Test

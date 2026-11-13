@@ -121,6 +121,19 @@ public interface OrgPointPort {
 
     PoolBinding findBinding(String refType, long refId, String subject);
 
+    /** 未终结的 prompt 预扣（job 维度，用于禁重投/确认旧调用）。 */
+    record PendingPromptOperation(long operationId, String bizKey) {
+    }
+
+    java.util.List<PendingPromptOperation> findPendingPromptOperations(long jobId);
+
+    /** 该前缀下已存在的 operation 数（含终态；用于 NOT_SENT 后重试生成新 operation）。 */
+    int countPromptOperations(String bizKeyPrefix);
+
+    /** 持久化 prompt 调用收据；同 attempt 不同 hash 冲突时抛异常。 */
+    void savePromptReceipt(long jobId, int attemptNo, String callId, String responseHash,
+                           String outcome, Long operationId);
+
     /** 开通建池（幂等；已存在不动）。 */
     PoolSummary ensurePool(long orgId);
 

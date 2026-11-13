@@ -186,6 +186,18 @@ public class AiJobSettlementService {
         return binding != null ? binding : orgPointPort.findBinding("ai_job", jobId, "ai_elevation");
     }
 
+    /** 目标 operation：优先该 job 的未决 prompt（允许新持有者确认旧调用），否则本 attempt 键。 */
+    private Long resolvePromptOperation(long jobId, int attemptNo, long token) {
+        if (orgPointPort == null) {
+            return null;
+        }
+        var pendingOps = orgPointPort.findPendingPromptOperations(jobId);
+        if (!pendingOps.isEmpty()) {
+            return pendingOps.get(0).operationId();
+        }
+        return orgPointPort.findOperationByBizKey(promptBizKey(jobId, attemptNo, token));
+    }
+
     /** 扣除一次实际提示词模型调用；业务键使 runtime 重试保持幂等。
      *  公司池 job（bridge 绑定存在）：reserve 公司池 `ai_prompt`，返回 "ORG_RESERVED"；
      *  非公司池且 prompt_pricing_version=0：返回 "EXEMPT"；其余走原个人池链。 */
@@ -197,12 +209,23 @@ public class AiJobSettlementService {
                 if (binding == null) {
                     return "EXEMPT";
                 }
-                String bizKey = promptBizKey(jobId, attemptNo, token);
-                if (orgPointPort.findOperationByBizKey(bizKey) == null) {
-                    orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
-                            bizKey, binding.orgId(), binding.actorUserId(), binding.actorPostId(),
-                            "ai_prompt", 1, "ai_job_prompt", jobId));
+                String baseKey = promptBizKey(jobId, attemptNo, token);
+                var pendingOps = orgPointPort.findPendingPromptOperations(jobId);
+                if (!pendingOps.isEmpty()) {
+                    // P1-1：同一 job 存在未决 prompt（可能已被供应商受理）→ 仅允许同键重放，禁止新 attempt 重投
+                    if (pendingOps.size() == 1 && baseKey.equals(pendingOps.get(0).bizKey())) {
+                        return "ORG_RESERVED";
+                    }
+                    throw new IllegalStateException(
+                            "存在未决提示词调用，禁止重投：jobId=" + jobId + " pending="
+                                    + pendingOps.size());
                 }
+                // P1-2：NOT_SENT 后同 attempt 重试必须生成新 operation（旧 RESERVE 已终态，不能复用）
+                int existingOps = orgPointPort.countPromptOperations(baseKey);
+                String bizKey = existingOps == 0 ? baseKey : baseKey + ":r" + existingOps;
+                orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
+                        bizKey, binding.orgId(), binding.actorUserId(), binding.actorPostId(),
+                        "ai_prompt", 1, "ai_job_prompt", jobId));
                 return "ORG_RESERVED";
             }
             return usagePricingPort.reservePrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token);
@@ -218,8 +241,7 @@ public class AiJobSettlementService {
                 if (!List.of("DISPATCHED","SUCCEEDED","UNKNOWN","NOT_SENT").contains(outcome)) {
                     throw new IllegalArgumentException("Invalid prompt outcome");
                 }
-                Long operationId = orgPointPort == null ? null
-                        : orgPointPort.findOperationByBizKey(promptBizKey(jobId, attemptNo, token));
+                Long operationId = resolvePromptOperation(jobId, attemptNo, token);
                 if (operationId == null) {
                     return false;
                 }
@@ -240,6 +262,9 @@ public class AiJobSettlementService {
             var job=lockPromptJob(jobId,attemptNo,token,true);
             if (((Number)job.get("prompt_pricing_version")).intValue()==0) {
                 // 公司池 job：收据要求与个人链一致（callId=plan-{jobId}，SUCCEEDED 必带 sha256）
+                if (!List.of("DISPATCHED","SUCCEEDED","UNKNOWN","NOT_SENT").contains(outcome)) {
+                    throw new IllegalArgumentException("Invalid prompt outcome");
+                }
                 if (!java.util.Objects.equals("plan-" + jobId, callId)) {
                     throw new IllegalArgumentException("Prompt call identity mismatch");
                 }
@@ -247,10 +272,13 @@ public class AiJobSettlementService {
                         && (responseHash == null || !responseHash.matches("[a-f0-9]{64}"))) {
                     throw new IllegalArgumentException("Prompt response receipt required");
                 }
-                Long operationId = orgPointPort == null ? null
-                        : orgPointPort.findOperationByBizKey(promptBizKey(jobId, attemptNo, token));
+                Long operationId = resolvePromptOperation(jobId, attemptNo, token);
                 if (operationId == null) {
                     return false;
+                }
+                // P2-3：成功/未知收据持久化；同 attempt 换 hash 直接冲突
+                if (orgPointPort != null) {
+                    orgPointPort.savePromptReceipt(jobId, attemptNo, callId, responseHash, outcome, operationId);
                 }
                 switch (outcome) {
                     case "SUCCEEDED" -> orgPointPort.settle(operationId, 1);

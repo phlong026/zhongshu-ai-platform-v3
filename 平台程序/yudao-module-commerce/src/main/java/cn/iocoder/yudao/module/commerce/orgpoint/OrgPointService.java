@@ -519,6 +519,46 @@ public class OrgPointService implements OrgPointPort {
     }
 
     @Override
+    public List<PendingPromptOperation> findPendingPromptOperations(long jobId) {
+        return jdbc.query(
+                "SELECT r.operation_id, r.biz_key FROM org_point_ledger r "
+                        + "WHERE r.type = 'RESERVE' AND r.biz_key LIKE ? "
+                        + "AND NOT EXISTS (SELECT 1 FROM org_point_ledger t "
+                        + "  WHERE t.operation_id = r.operation_id AND t.type IN ('SETTLE','RELEASE')) "
+                        + "ORDER BY r.id",
+                (rs, i) -> new PendingPromptOperation(rs.getLong("operation_id"), rs.getString("biz_key")),
+                "design:prompt:" + jobId + ":%");
+    }
+
+    @Override
+    public int countPromptOperations(String bizKeyPrefix) {
+        Integer n = jdbc.queryForObject(
+                "SELECT count(*) FROM org_point_ledger WHERE type = 'RESERVE' AND biz_key LIKE ?",
+                Integer.class, bizKeyPrefix + "%");
+        return n == null ? 0 : n;
+    }
+
+    @Override
+    public void savePromptReceipt(long jobId, int attemptNo, String callId, String responseHash,
+                                  String outcome, Long operationId) {
+        jdbc.update("INSERT INTO design_prompt_receipt (id, job_id, attempt_no, call_id, response_hash, "
+                        + "outcome, operation_id) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                        + "ON CONFLICT (job_id, attempt_no) DO NOTHING",
+                IdWorker.getId(), jobId, attemptNo, callId, responseHash, outcome, operationId);
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT call_id, response_hash, outcome FROM design_prompt_receipt "
+                        + "WHERE job_id = ? AND attempt_no = ?", jobId, attemptNo);
+        if (!rows.isEmpty()) {
+            Map<String, Object> row = rows.get(0);
+            if (!java.util.Objects.equals(row.get("call_id"), callId)
+                    || !java.util.Objects.equals(row.get("response_hash"), responseHash)
+                    || !java.util.Objects.equals(row.get("outcome"), outcome)) {
+                throw exception(ORG_POINT_REPLAY_CONFLICT);
+            }
+        }
+    }
+
+    @Override
     public Long findOperationByRef(String refType, long refId, String subject) {
         List<Long> rows = jdbc.query(
                 "SELECT operation_id FROM design_billing_binding "
@@ -612,6 +652,27 @@ public class OrgPointService implements OrgPointPort {
                 rs.getString("price_snapshot"), rs.getString("ref_type"),
                 rs.getObject("ref_id", Long.class), rs.getString("note"),
                 rs.getTimestamp("create_time").toInstant()), args.toArray());
+    }
+
+    /** 长期未终结的预扣（D6 §2.4）：仅告警与人工核对用，绝不自动退款。 */
+    public record PendingOperation(long operationId, long orgId, String subject, Long actorUserId,
+                                   long requested, java.time.Instant operationTime) {
+    }
+
+    public List<PendingOperation> findPendingOlderThan(long thresholdHours, int limit) {
+        return jdbc.query(
+                "SELECT r.operation_id, r.org_id, r.subject, r.actor_user_id, -r.available_delta AS requested, "
+                        + "r.operation_time FROM org_point_ledger r "
+                        + "WHERE r.type = 'RESERVE' AND r.operation_time < now() - (? * interval '1 hour') "
+                        + "AND NOT EXISTS (SELECT 1 FROM org_point_ledger t "
+                        + "  WHERE t.operation_id = r.operation_id AND t.type IN ('SETTLE','RELEASE')) "
+                        + "ORDER BY r.operation_time LIMIT ?",
+                (rs, i) -> new PendingOperation(rs.getLong("operation_id"), rs.getLong("org_id"),
+                        rs.getString("subject"), rs.getObject("actor_user_id", Long.class),
+                        rs.getLong("requested"),
+                        rs.getTimestamp("operation_time") == null ? null
+                                : rs.getTimestamp("operation_time").toInstant()),
+                thresholdHours, Math.min(Math.max(limit, 1), 500));
     }
 
     public static String currentMonth() {
