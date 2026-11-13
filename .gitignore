@@ -22,3 +22,4 @@ miniprogram/project.config.json
 .playwright-mcp/
 # verify-finance-desk-platform 运行时生成的幂等键沙盒夹具
 scripts/.m08t01-sandbox.js
+.gstack/
