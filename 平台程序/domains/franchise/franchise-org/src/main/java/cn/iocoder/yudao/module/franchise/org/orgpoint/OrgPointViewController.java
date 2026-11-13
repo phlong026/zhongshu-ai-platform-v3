@@ -47,7 +47,8 @@ public class OrgPointViewController {
                                    @NotNull @Positive Long monthlyCredits) {
     }
 
-    public record MemberPermissionReqVO(@NotNull Long userId, List<String> allowedSubjects) {
+    public record MemberPermissionReqVO(@NotNull Long userId,
+                                        @NotNull List<String> allowedSubjects) {
     }
 
     private PostSnapshot requireBoss() {
@@ -109,7 +110,7 @@ public class OrgPointViewController {
     @Operation(summary = "设置员工月度额度")
     public CommonResult<Boolean> setMemberQuota(@Valid @RequestBody MemberQuotaReqVO req) {
         PostSnapshot post = requireBoss();
-        orgPoint.setMemberQuota(post.orgId(), req.userId(), req.monthlyCredits());
+        orgPoint.setMemberQuota(post.orgId(), req.userId(), req.monthlyCredits(), post.userId());
         return success(true);
     }
 
@@ -117,7 +118,7 @@ public class OrgPointViewController {
     @Operation(summary = "清除员工月度额度（删行=不限）")
     public CommonResult<Boolean> clearMemberQuota(@RequestParam @NotNull Long userId) {
         PostSnapshot post = requireBoss();
-        orgPoint.clearMemberQuota(post.orgId(), userId);
+        orgPoint.clearMemberQuota(post.orgId(), userId, post.userId());
         return success(true);
     }
 
@@ -132,7 +133,7 @@ public class OrgPointViewController {
     @Operation(summary = "设置员工业务权限（空列表=全禁）")
     public CommonResult<Boolean> setMemberPermission(@Valid @RequestBody MemberPermissionReqVO req) {
         PostSnapshot post = requireBoss();
-        orgPoint.setMemberPermission(post.orgId(), req.userId(), req.allowedSubjects());
+        orgPoint.setMemberPermission(post.orgId(), req.userId(), req.allowedSubjects(), post.userId());
         return success(true);
     }
 
@@ -140,7 +141,7 @@ public class OrgPointViewController {
     @Operation(summary = "清除员工业务权限（删行=全允许）")
     public CommonResult<Boolean> clearMemberPermission(@RequestParam @NotNull Long userId) {
         PostSnapshot post = requireBoss();
-        orgPoint.clearMemberPermission(post.orgId(), userId);
+        orgPoint.clearMemberPermission(post.orgId(), userId, post.userId());
         return success(true);
     }
 }

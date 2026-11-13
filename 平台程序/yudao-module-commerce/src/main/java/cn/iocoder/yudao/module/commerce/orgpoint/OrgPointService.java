@@ -56,6 +56,10 @@ public class OrgPointService implements OrgPointPort {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
 
+    /** 配置变更业务审计（任务书 §106/§180）；单测可直接构造服务时不注入。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort auditPort;
+
     public OrgPointService(DataSource dataSource, PlatformTransactionManager transactionManager) {
         this.jdbc = new JdbcTemplate(dataSource);
         this.tx = new TransactionTemplate(transactionManager);
@@ -403,11 +407,16 @@ public class OrgPointService implements OrgPointPort {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    public void setMemberQuota(long orgId, long userId, long monthlyCredits) {
+    public void setMemberQuota(long orgId, long userId, long monthlyCredits, long operatorUserId) {
+        if (monthlyCredits <= 0 || monthlyCredits > 1_000_000_000L) {
+            throw new IllegalArgumentException("月度额度必须在 1..1e9 之间：" + monthlyCredits);
+        }
         jdbc.update("INSERT INTO org_member_quota (id, org_id, user_id, monthly_credits) "
                         + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
                         + "SET monthly_credits = EXCLUDED.monthly_credits, update_time = now()",
                 IdWorker.getId(), orgId, userId, monthlyCredits);
+        auditConfig("ORG_MEMBER_QUOTA", "SET", orgId, userId, operatorUserId,
+                Map.of("monthlyCredits", monthlyCredits));
     }
 
     // ==================== 员工业务权限矩阵（B-12） ====================
@@ -422,9 +431,13 @@ public class OrgPointService implements OrgPointPort {
     }
 
     @Override
-    public void setMemberPermission(long orgId, long userId, List<String> allowedSubjects) {
-        List<String> normalized = allowedSubjects == null ? List.of()
-                : allowedSubjects.stream().filter(s -> s != null && !s.isBlank())
+    public void setMemberPermission(long orgId, long userId, List<String> allowedSubjects,
+                                    long operatorUserId) {
+        // 评审 P2：null 语义必须显式——拒绝缺省，全禁用空数组表达
+        if (allowedSubjects == null) {
+            throw new IllegalArgumentException("allowedSubjects 不能为空数组以外的 null（全禁请传 []）");
+        }
+        List<String> normalized = allowedSubjects.stream().filter(s -> s != null && !s.isBlank())
                 .distinct().sorted().toList();
         if (normalized.isEmpty()) {
             // 空数组=全禁（与"删行=全允许"区分，保留显式行）
@@ -432,17 +445,47 @@ public class OrgPointService implements OrgPointPort {
                             + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
                             + "SET allowed_subjects = EXCLUDED.allowed_subjects, update_time = now()",
                     IdWorker.getId(), orgId, userId, "[]");
+            auditConfig("ORG_MEMBER_PERMISSION", "SET", orgId, userId, operatorUserId,
+                    Map.of("allowedSubjects", List.of()));
             return;
         }
         jdbc.update("INSERT INTO org_member_permission (id, org_id, user_id, allowed_subjects) "
                         + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
                         + "SET allowed_subjects = EXCLUDED.allowed_subjects, update_time = now()",
                 IdWorker.getId(), orgId, userId, JsonUtils.toJsonString(normalized));
+        auditConfig("ORG_MEMBER_PERMISSION", "SET", orgId, userId, operatorUserId,
+                Map.of("allowedSubjects", normalized));
     }
 
     @Override
-    public void clearMemberPermission(long orgId, long userId) {
+    public void clearMemberPermission(long orgId, long userId, long operatorUserId) {
+        List<String> previous = findPermissionSubjects(orgId, userId);
         jdbc.update("DELETE FROM org_member_permission WHERE org_id = ? AND user_id = ?", orgId, userId);
+        auditConfig("ORG_MEMBER_PERMISSION", "CLEAR", orgId, userId, operatorUserId,
+                previous == null ? Map.of() : Map.of("previousAllowedSubjects", previous));
+    }
+
+    @Override
+    public void assertSubjectAllowed(long orgId, long userId, String subject) {
+        enforceSubjectPermission(orgId, userId, subject);
+    }
+
+    /** 配置变更审计（§106/§180：删除/变更另记审计，含操作者、组织、目标成员与前值）。 */
+    private void auditConfig(String bizType, String action, long orgId, long userId,
+                             long operatorUserId, Map<String, Object> detail) {
+        if (auditPort == null) {
+            return; // 单测直连构造；生产由 Spring 注入
+        }
+        Map<String, Object> payload = new LinkedHashMap<>(detail);
+        payload.put("orgId", orgId);
+        payload.put("targetUserId", userId);
+        auditPort.record(cn.iocoder.yudao.module.infra.zhongshu.audit.AuditEventMessage.builder()
+                .eventType(bizType).actorType(
+                        cn.iocoder.yudao.module.infra.zhongshu.audit.AuditEventMessage.ActorType.ADMIN)
+                .actorId(String.valueOf(operatorUserId)).action(action)
+                .bizType(bizType.toLowerCase()).bizId(orgId + ":" + userId)
+                .result(cn.iocoder.yudao.module.infra.zhongshu.audit.AuditEventMessage.AuditResult.SUCCESS)
+                .detail(payload).build());
     }
 
     /** 准入强制：有权限行且科目不在允许集 → 1_072_000_015（写事务内、外呼之前）。 */
@@ -464,13 +507,22 @@ public class OrgPointService implements OrgPointPort {
         if (text == null || text.isBlank()) {
             return List.of();
         }
-        List<?> raw = JsonUtils.parseObject(text, List.class);
-        return raw == null ? List.of() : raw.stream().map(String::valueOf).toList();
+        try {
+            List<?> raw = JsonUtils.parseObject(text, List.class);
+            return raw == null ? List.of() : raw.stream().map(String::valueOf).toList();
+        } catch (RuntimeException e) {
+            // 评审 P2：脏数据受控拒绝（按全禁处理并告警），绝不回退全允许
+            log.warn("[parseSubjects][脏权限数据按全禁处理] raw={}", text);
+            return List.of();
+        }
     }
 
     /** 删行=不限（唯一"不限"表达）。 */
-    public void clearMemberQuota(long orgId, long userId) {
+    public void clearMemberQuota(long orgId, long userId, long operatorUserId) {
+        Long previous = memberMonthlyQuota(orgId, userId);
         jdbc.update("DELETE FROM org_member_quota WHERE org_id = ? AND user_id = ?", orgId, userId);
+        auditConfig("ORG_MEMBER_QUOTA", "CLEAR", orgId, userId, operatorUserId,
+                previous == null ? Map.of() : Map.of("previousMonthlyCredits", previous));
     }
 
     public List<LedgerRow> ledgerRows(long orgId, Long actorUserId, String subject, String billingMonth,

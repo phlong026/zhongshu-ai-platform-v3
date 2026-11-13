@@ -76,7 +76,7 @@ class OrgMemberPermissionIntegrationTest {
 
     @Test
     void partialAllowListEnforced() {
-        service.setMemberPermission(ORG, USER, List.of("copy"));
+        service.setMemberPermission(ORG, USER, List.of("copy"), 1L);
         service.reserve(reserve("content:p3", "copy"));
         assertThatThrownBy(() -> service.reserve(reserve("content:p4", "digital")))
                 .isInstanceOf(ServiceException.class)
@@ -85,22 +85,48 @@ class OrgMemberPermissionIntegrationTest {
 
     @Test
     void emptyListDeniesAll() {
-        service.setMemberPermission(ORG, USER, List.of());
+        service.setMemberPermission(ORG, USER, List.of(), 1L);
         assertThatThrownBy(() -> service.reserve(reserve("content:p5", "copy")))
                 .isInstanceOf(ServiceException.class);
     }
 
     @Test
     void clearRestoresAllAllowed() {
-        service.setMemberPermission(ORG, USER, List.of("copy"));
-        service.clearMemberPermission(ORG, USER);
+        service.setMemberPermission(ORG, USER, List.of("copy"), 1L);
+        service.clearMemberPermission(ORG, USER, 1L);
         assertThat(service.memberPermissions(ORG)).isEmpty();
         service.reserve(reserve("content:p6", "digital"));
     }
 
     @Test
+    void nullSubjectsRejectedButEmptyMeansDenyAll() {
+        assertThatThrownBy(() -> service.setMemberPermission(ORG, USER, null, 1L))
+                .isInstanceOf(IllegalArgumentException.class);
+        service.setMemberPermission(ORG, USER, List.of(), 1L);
+        assertThatThrownBy(() -> service.reserve(reserve("content:p7", "copy")))
+                .isInstanceOf(ServiceException.class);
+    }
+
+    @Test
+    void dirtyJsonTreatedAsDenyAllNotAllowAll() {
+        jdbc.update("INSERT INTO org_member_permission (id, org_id, user_id, allowed_subjects) "
+                + "VALUES (?, ?, ?, ?)", 900001L, ORG, USER, "{broken");
+        assertThatThrownBy(() -> service.reserve(reserve("content:p8", "copy")))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("未被授权");
+    }
+
+    @Test
+    void assertSubjectAllowedWorksWithoutCharge() {
+        service.setMemberPermission(ORG, USER, List.of("copy"), 1L);
+        service.assertSubjectAllowed(ORG, USER, "copy");
+        assertThatThrownBy(() -> service.assertSubjectAllowed(ORG, USER, "asr"))
+                .isInstanceOf(ServiceException.class);
+    }
+
+    @Test
     void normalizationSortsAndDedups() {
-        service.setMemberPermission(ORG, USER, List.of("digital", "copy", "copy"));
+        service.setMemberPermission(ORG, USER, List.of("digital", "copy", "copy"), 1L);
         assertThat(service.memberPermissions(ORG).get(0).allowedSubjects())
                 .containsExactly("copy", "digital");
     }

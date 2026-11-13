@@ -78,7 +78,7 @@ class OrgMemberQuotaIntegrationTest {
     /** ai_video_768p = 166666 微积分/秒：60 秒 = 10 积分。 */
     @Test
     void quotaExceededThenReleaseAllowsResubmit() {
-        service.setMemberQuota(ORG, USER, 100);
+        service.setMemberQuota(ORG, USER, 100, 1L);
         service.reserve(reserve("content:q1", 60));
         assertThat(service.monthUsed(ORG, USER, OrgPointService.currentMonth())).isEqualTo(10);
 
@@ -98,7 +98,7 @@ class OrgMemberQuotaIntegrationTest {
 
     @Test
     void inFlightReservationCountsTowardQuota() {
-        service.setMemberQuota(ORG, USER, 15);
+        service.setMemberQuota(ORG, USER, 15, 1L);
         service.reserve(reserve("content:inflight", 60)); // 10 积分在途
         assertThatThrownBy(() -> service.reserve(reserve("content:inflight2", 60)))
                 .isInstanceOf(ServiceException.class)
@@ -107,7 +107,7 @@ class OrgMemberQuotaIntegrationTest {
 
     @Test
     void crossMonthReleaseReturnsToOriginMonth() {
-        service.setMemberQuota(ORG, USER, 100);
+        service.setMemberQuota(ORG, USER, 100, 1L);
         long op = service.reserve(reserve("content:cross", 60));
         // 模拟上月发起的操作：直接改写 RESERVE 快照月份（终态必须复制该月份）
         jdbc.update("UPDATE org_point_ledger SET billing_month = '2020-01' WHERE operation_id = ?", op);
@@ -120,7 +120,7 @@ class OrgMemberQuotaIntegrationTest {
 
     @Test
     void concurrentReserveAtQuotaBoundaryAllowsExactlyOne() throws Exception {
-        service.setMemberQuota(ORG, USER, 100);
+        service.setMemberQuota(ORG, USER, 100, 1L);
         ExecutorService pool = Executors.newFixedThreadPool(2);
         CountDownLatch start = new CountDownLatch(1);
         List<Callable<Boolean>> tasks = new ArrayList<>();
@@ -155,8 +155,8 @@ class OrgMemberQuotaIntegrationTest {
 
     @Test
     void clearQuotaMeansUnlimited() {
-        service.setMemberQuota(ORG, USER, 10);
-        service.clearMemberQuota(ORG, USER);
+        service.setMemberQuota(ORG, USER, 10, 1L);
+        service.clearMemberQuota(ORG, USER, 1L);
         assertThat(service.memberMonthlyQuota(ORG, USER)).isNull();
         service.reserve(reserve("content:unlimited", 600)); // 100 积分，无额度限制
     }

@@ -83,18 +83,22 @@ public interface OrgPointPort {
 
     List<MemberQuota> memberQuotas(long orgId);
 
-    void setMemberQuota(long orgId, long userId, long monthlyCredits);
+    void setMemberQuota(long orgId, long userId, long monthlyCredits, long operatorUserId);
 
-    void clearMemberQuota(long orgId, long userId);
+    void clearMemberQuota(long orgId, long userId, long operatorUserId);
 
     /** 员工业务权限清单（无行=全允许）。 */
     java.util.List<MemberPermission> memberPermissions(long orgId);
 
     /** 设置员工业务权限（空列表=全禁；全开请用 clear）。 */
-    void setMemberPermission(long orgId, long userId, java.util.List<String> allowedSubjects);
+    void setMemberPermission(long orgId, long userId, java.util.List<String> allowedSubjects,
+                             long operatorUserId);
 
     /** 清除员工业务权限（删行=全允许）。 */
-    void clearMemberPermission(long orgId, long userId);
+    void clearMemberPermission(long orgId, long userId, long operatorUserId);
+
+    /** 准入校验（免费/缓存路径也须调用；不产生任何扣费）。 */
+    void assertSubjectAllowed(long orgId, long userId, String subject);
 
     /** 开通建池（幂等；已存在不动）。 */
     PoolSummary ensurePool(long orgId);

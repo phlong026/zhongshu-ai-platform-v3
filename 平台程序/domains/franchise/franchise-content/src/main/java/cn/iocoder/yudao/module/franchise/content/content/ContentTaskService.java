@@ -151,6 +151,8 @@ public class ContentTaskService {
         input.put("sourceUrl", sourceUrl);
         input.put("durationSec", durationSec);
         if (cached != null) {
+            // 评审 P1：免费缓存命中同样受业务权限准入（任务书：免费操作也受准入）
+            orgPoint.assertSubjectAllowed(companyId, authorUserId, ContentBillingCatalog.ASR.key());
             long id = ContentTaskStore.newId();
             FrContentTaskDO task = store.insert(id, companyId, authorUserId, "asr",
                     JsonUtils.toJsonString(input), mediaSha256);
