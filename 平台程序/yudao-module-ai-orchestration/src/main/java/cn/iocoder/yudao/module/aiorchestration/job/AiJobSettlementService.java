@@ -295,6 +295,15 @@ public class AiJobSettlementService {
                         : orgPointPort.settle(orgOperationId, billable);
                 refundedNow = orgSettlement.refunded();
             } else if (refund > 0) {
+                // 评审 R2 连带缺口：既无个人扣费流水也无公司池绑定的任务不得退款（防幻影加点）
+                Integer personalDebits = jdbcTemplate.queryForObject(
+                        "SELECT count(*) FROM design_point_ledger WHERE biz_type='ai_job' "
+                                + "AND biz_id=? AND delta<0 AND deleted=FALSE", Integer.class,
+                        String.valueOf(jobId));
+                if (personalDebits == null || personalDebits == 0) {
+                    throw new IllegalStateException(
+                            "任务既无个人扣费也无公司池绑定，拒绝结算: jobId=" + jobId);
+                }
                 String refundKey = "AI_JOB_SETTLE:" + jobId + ":v" + settlementVersion + ":" + reason;
                 pointLedgerPort.credit(userId, "TASK_SETTLEMENT_REFUND", refund,
                         "ai_job", String.valueOf(jobId), refundKey, null,

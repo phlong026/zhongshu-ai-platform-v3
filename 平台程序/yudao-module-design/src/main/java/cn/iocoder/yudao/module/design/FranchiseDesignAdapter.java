@@ -520,15 +520,18 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
         // 取价内聚（P-2⑧）：先查预算收据（budget_legacy_request）——重放路径不报价
         UsagePricingPort.Confirmation confirmation = null;
         var budgetBilling = orgBilling(actor);
-        if (budgetBilling == null && cmd.idempotencyKey() != null && !cmd.idempotencyKey().isBlank()) {
-            var prior = jdbcTemplate.queryForList(
-                    "SELECT estimate_id FROM budget_legacy_request WHERE user_id=? AND request_key=?",
-                    serviceAccountId, cmd.idempotencyKey());
-            if (prior.isEmpty() || prior.get(0).get("estimate_id") == null) {
+        // 评审 P2-1：公司池路径不解析旧 usage 报价（旧规则缺失/退役不得阻断公司池预算）
+        if (budgetBilling == null) {
+            if (cmd.idempotencyKey() == null || cmd.idempotencyKey().isBlank()) {
                 confirmation = budgetAutoConfirmation();
+            } else {
+                var prior = jdbcTemplate.queryForList(
+                        "SELECT estimate_id FROM budget_legacy_request WHERE user_id=? AND request_key=?",
+                        serviceAccountId, cmd.idempotencyKey());
+                if (prior.isEmpty() || prior.get(0).get("estimate_id") == null) {
+                    confirmation = budgetAutoConfirmation();
+                }
             }
-        } else {
-            confirmation = budgetAutoConfirmation();
         }
         var receipt = budgetService.createEstimateReceipt(serviceAccountId, projectId, cmd.regionCode(),
                 cmd.structureType(), cmd.materialGrade(), cmd.buildingArea(), cmd.resultVersionId(),
