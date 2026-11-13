@@ -81,8 +81,15 @@ export const getTeams = (orgId: PlatformId) =>
   request.get<Team[]>({ url: `${orgBase}/teams`, params: { orgId } })
 export const getPostTemplates = (orgId: PlatformId) =>
   request.get<PostTemplate[]>({ url: `${orgBase}/post-templates`, params: { orgId } })
-export const createTeam = (data: { orgId: PlatformId; name: string; line?: string }) =>
-  request.post<Team>({ url: `${orgBase}/teams`, data })
+export const createTeam = (
+  data: { orgId: PlatformId; name: string; line?: string },
+  idempotencyKey: string
+) =>
+  request.post<Team>({
+    url: `${orgBase}/teams`,
+    data,
+    headers: { 'Idempotency-Key': idempotencyKey }
+  })
 export const getStaff = (orgId: PlatformId) =>
   request.get<StaffRow[]>({ url: `${orgBase}/staff`, params: { orgId } })
 export const createStaff = (data: {

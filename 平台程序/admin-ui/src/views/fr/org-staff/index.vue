@@ -1,5 +1,5 @@
 <template>
-  <div class="zs-page">
+  <div v-loading="identity.loading" class="zs-page">
     <div class="zs-page-header identity-header">
       <div>
         <h1 class="zs-page-title">部门与员工</h1>
@@ -22,7 +22,19 @@
       </el-select>
     </div>
 
-    <el-alert v-if="!canQuery" title="当前工作身份没有组织人员查看权限" type="warning" show-icon />
+    <el-alert v-if="switchError" :title="switchError" type="error" show-icon class="mb-16px">
+      <template #default>
+        <el-button v-if="pendingPostId" link type="primary" @click="retrySwitch"
+          >重试切换</el-button
+        >
+      </template>
+    </el-alert>
+    <el-alert
+      v-else-if="!canQuery"
+      title="当前工作身份没有组织人员查看权限"
+      type="warning"
+      show-icon
+    />
     <template v-else>
       <el-alert v-if="loadError" :title="loadError" type="error" show-icon class="mb-16px" />
       <el-alert v-if="actionError" :title="actionError" type="error" show-icon class="mb-16px" />
@@ -398,6 +410,7 @@ import {
 } from './importModel'
 import { isCurrentGeneration, postGeneration, type PlatformId } from '@/utils/platformIdentity'
 import { roleLabel } from '@/utils/platformRoles'
+import { generateUUID } from '@/utils'
 
 defineOptions({ name: 'FranchiseOrgStaff' })
 const identity = usePlatformIdentityStore()
@@ -443,6 +456,7 @@ const importStatusMeta: Record<
   FAILED: { label: '失败', type: 'danger' }
 }
 const teamForm = reactive({ name: '', line: '' })
+let teamRequest = { fingerprint: '', key: '' }
 const staffForm = reactive({
   name: '',
   mobile: '',
@@ -705,6 +719,8 @@ const load = async () => {
     if (generation === loadGeneration) loading.value = false
   }
 }
+const switchError = ref('')
+const pendingPostId = ref<PlatformId>()
 const resetTransientState = () => {
   teamDialog.value = false
   staffDialog.value = false
@@ -724,17 +740,32 @@ const resetTransientState = () => {
   staffPage.value = 1
 }
 const switchPost = async (postId: PlatformId) => {
+  switchError.value = ''
+  pendingPostId.value = postId
+  try {
+    const context = await identity.selectPost(postId)
+    if (!context) return
+  } catch {
+    switchError.value = identity.error || '工作身份切换失败，请检查网络后重试。'
+    return
+  }
   ++loadGeneration
   resetTransientState()
   teams.value = []
   postTemplates.value = []
   staff.value = []
   pending.value = []
-  await identity.selectPost(postId)
-  await permissions.generateRoutes()
+  pendingPostId.value = undefined
+  try {
+    await permissions.generateRoutes()
+  } catch {
+    switchError.value = '工作身份已切换，页面权限加载失败，请刷新后重试。'
+    return
+  }
   if (!identity.can('platform:org:query')) return router.replace('/fr/identity')
   await load()
 }
+const retrySwitch = () => pendingPostId.value && switchPost(pendingPostId.value)
 const openTeam = () => {
   Object.assign(teamForm, { name: '', line: '' })
   teamDialog.value = true
@@ -776,8 +807,15 @@ const confirmed = (message: string, title: string) =>
 const saveTeam = async () => {
   if (!teamForm.name.trim()) return ElMessage.warning('请填写部门名称')
   const scope = actionScope()
+  const payload = { orgId: scope.orgId, name: teamForm.name.trim(), line: teamForm.line.trim() }
+  const fingerprint = JSON.stringify([scope.generation, payload])
+  if (teamRequest.fingerprint !== fingerprint) {
+    teamRequest = { fingerprint, key: generateUUID() }
+  }
+  const request = teamRequest
   await run(scope, async () => {
-    await api.createTeam({ orgId: scope.orgId, ...teamForm })
+    await api.createTeam(payload, request.key)
+    if (teamRequest === request) teamRequest = { fingerprint: '', key: '' }
     teamDialog.value = false
   })
 }

@@ -13,7 +13,7 @@ BASE = 'http://127.0.0.1:48080/admin-api'
 step_no = 0
 
 
-def call(method, path, body=None, token=None, post_id=None, expect_code=0):
+def call(method, path, body=None, token=None, post_id=None, idempotency_key=None, expect_code=0):
     req = urllib.request.Request(BASE + path, method=method)
     req.add_header('content-type', 'application/json')
     req.add_header('tenant-id', '1')
@@ -21,6 +21,8 @@ def call(method, path, body=None, token=None, post_id=None, expect_code=0):
         req.add_header('Authorization', 'Bearer ' + token)
     if post_id:
         req.add_header('X-Post-Id', str(post_id))
+    if idempotency_key:
+        req.add_header('Idempotency-Key', idempotency_key)
     data = json.dumps(body).encode() if body is not None else None
     try:
         with urllib.request.urlopen(req, data=data, timeout=20) as resp:
@@ -58,7 +60,7 @@ def main():
 
     step('老板建部门（工程二部）')
     team = call('POST', '/platform/org/teams', {'orgId': org_id, 'name': '工程二部', 'line': 'engineering'},
-                token=boss['token'], post_id=boss['post'])
+                token=boss['token'], post_id=boss['post'], idempotency_key=f'smoke-team-{org_id}-engineering')
     assert team['deptId'] and team['name'] == '工程二部', team
 
     step('老板查看部门列表与本店成员')

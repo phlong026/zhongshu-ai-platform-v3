@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.module.platform.authz.FakeSystemDirectoryForOnboard;
 import cn.iocoder.yudao.module.platform.authz.RequestCurrentPost;
 import cn.iocoder.yudao.module.platform.authz.enums.PlatformAuthzErrorCodes;
+import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
 import cn.iocoder.yudao.module.platform.org.OrgService;
 import cn.iocoder.yudao.module.platform.org.OrgServiceImpl;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
@@ -52,7 +53,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * standalone MockMvc 不组装 Spring Method Security，因此本类验证真实 CurrentPost/组织范围，
  * 不将 {@code @PreAuthorize("@post.has(...)")} 声明为已通过。
  */
-@Import({OrgServiceImpl.class, StaffPostServiceImpl.class, StaffIdentityWorkflowIntegrationTest.Config.class})
+@Import({OrgServiceImpl.class, StaffPostServiceImpl.class, CommandLogImpl.class, TeamCommandService.class,
+        StaffIdentityWorkflowIntegrationTest.Config.class})
 class StaffIdentityWorkflowIntegrationTest extends PlatformPgIntegrationTest {
 
     private static final String ORG_TYPE = "wf-store";
@@ -83,6 +85,8 @@ class StaffIdentityWorkflowIntegrationTest extends PlatformPgIntegrationTest {
     @Resource
     private StaffPostService staffPostService;
     @Resource
+    private TeamCommandService teamCommandService;
+    @Resource
     private WorkflowDirectory directory;
     @Resource
     private JdbcTemplate jdbc;
@@ -110,6 +114,7 @@ class StaffIdentityWorkflowIntegrationTest extends PlatformPgIntegrationTest {
         ReflectionTestUtils.setField(staffController, "currentPost", currentPost);
         ReflectionTestUtils.setField(staffController, "staffPostService", staffPostService);
         ReflectionTestUtils.setField(staffController, "orgService", orgService);
+        ReflectionTestUtils.setField(staffController, "teamCommandService", teamCommandService);
         ReflectionTestUtils.setField(staffController, "systemDirectory", directory);
 
         MyPostController postController = new MyPostController();
@@ -283,6 +288,7 @@ class StaffIdentityWorkflowIntegrationTest extends PlatformPgIntegrationTest {
     private MvcResult createTeam(long orgId, long bossPostId, String name) throws Exception {
         return mvc.perform(post("/platform/org/teams")
                         .header(RequestCurrentPost.HEADER, bossPostId)
+                        .header("Idempotency-Key", "it-team-" + orgId + "-" + name)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"orgId\":" + orgId + ",\"name\":\"" + name + "\",\"line\":\"sales\"}"))
                 .andExpect(status().isOk())

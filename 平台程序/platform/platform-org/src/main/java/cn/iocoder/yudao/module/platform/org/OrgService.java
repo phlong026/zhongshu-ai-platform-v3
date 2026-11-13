@@ -17,6 +17,9 @@ public interface OrgService {
     /** 在组织内建团队；parentTeamId 为空时直接挂在组织下，否则必须是本组织的团队 */
     long createTeam(long orgId, Long parentTeamId, String name, String line);
 
+    /** 串行化同一组织的命令型写入；锁在当前事务结束时释放。 */
+    void lockOrgForCommand(long orgId);
+
     /** 启用或停用组织；停用后该组织的任职不能再作为工作身份使用 */
     void setOrgActive(long orgId, boolean active);
 

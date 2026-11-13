@@ -48,7 +48,7 @@ function loadModule(file, imports) {
   return module.exports
 }
 
-function loadOrgStaffView() {
+function loadOrgStaffView(overrides = {}) {
   const filename = path.join(__dirname, '../src/views/fr/org-staff/index.vue')
   const descriptor = parse(source('views/fr/org-staff/index.vue'), { filename }).descriptor
   const script = compileScript(descriptor, { id: 'platform-org-staff' }).content
@@ -62,13 +62,15 @@ function loadOrgStaffView() {
     loading: false,
     context: {},
     selectPost: async () => null,
-    restoreContext: async () => null
+    restoreContext: async () => null,
+    ...overrides.identity
   }
   const module = { exports: {} }
   vm.runInNewContext(code, {
     module,
     exports: module.exports,
     defineOptions() {},
+    computed: vue.computed,
     useRouter: () => ({ replace: async () => {} }),
     require(name) {
       const imports = {
@@ -79,9 +81,19 @@ function loadOrgStaffView() {
         },
         '@/store/modules/platformIdentity': { usePlatformIdentityStore: () => identity },
         '@/store/modules/permission': {
-          usePermissionStore: () => ({ generateRoutes: async () => null })
+          usePermissionStore: () => ({
+            generateRoutes: async () => null,
+            ...overrides.permissions
+          })
         },
-        '@/api/platform/staff': {},
+        '@/api/platform/staff': {
+          getTeams: async () => [],
+          getPostTemplates: async () => [],
+          getStaff: async () => [],
+          getPendingHandovers: async () => [],
+          ...overrides.api
+        },
+        '@/utils': { generateUUID: () => require('node:crypto').randomUUID() },
         '@/utils/platformIdentity': {
           isCurrentGeneration: () => true,
           postGeneration: () => 1
@@ -105,6 +117,81 @@ function loadOrgStaffView() {
     }
   })
   return module.exports.default.setup({}, { expose() {} })
+}
+
+function loadPlatformLoginView({ login, loadPosts, token = '', mode = 'admin' }) {
+  const filename = path.join(__dirname, '../src/views/fr/platform-login/index.vue')
+  const descriptor = parse(source('views/fr/platform-login/index.vue'), { filename }).descriptor
+  const script = compileScript(descriptor, { id: 'platform-login-recovery' }).content
+  const code = ts.transpileModule(script, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }).outputText
+  let accessToken = token
+  let portal = mode
+  const identity = {
+    posts: [],
+    error: '',
+    clear() {
+      this.posts = []
+      this.error = ''
+    },
+    async loadPosts() {
+      try {
+        const rows = await loadPosts()
+        this.posts = rows
+        this.error = ''
+        return rows
+      } catch (error) {
+        this.error = '工作身份加载失败，请检查网络后重试。'
+        throw error
+      }
+    },
+    async selectPost() {
+      return null
+    }
+  }
+  const module = { exports: {} }
+  vm.runInNewContext(code, {
+    module,
+    exports: module.exports,
+    defineOptions() {},
+    computed: vue.computed,
+    useRouter: () => ({ replace: async () => {} }),
+    require(name) {
+      const imports = {
+        vue: { ...vue, onBeforeUnmount() {} },
+        'element-plus': { ElMessage: { warning() {}, success() {} } },
+        '@/api/platform/staff': { sendStaffSms: async () => {}, staffSmsLogin: login },
+        '@/utils/auth': {
+          getAccessToken: () => accessToken,
+          setToken: (value) => {
+            accessToken = value.accessToken
+          }
+        },
+        '@/store/modules/platformIdentity': { usePlatformIdentityStore: () => identity },
+        '@/store/modules/permission': {
+          usePermissionStore: () => ({ $reset() {}, generateRoutes: async () => {} })
+        },
+        '@/store/modules/user': { useUserStore: () => ({ resetState() {} }) },
+        '@/hooks/web/useCache': { deleteUserCache() {} },
+        '@/utils/platformIdentity': {
+          portalMode: () => portal,
+          setPortalMode: (value) => {
+            portal = value
+          },
+          resolveStaffLandingPath: () => '/fr/identity'
+        },
+        '@/utils/platformRoles': { roleLabel: (role) => role }
+      }
+      if (Object.hasOwn(imports, name)) return imports[name]
+      throw new Error(`Unexpected import: ${name}`)
+    }
+  })
+  return {
+    state: module.exports.default.setup({}, { expose() {} }),
+    identity,
+    clearToken: () => (accessToken = '')
+  }
 }
 
 test('岗位会话只保存当前岗位权限，切岗递增代次并清空旧上下文', () => {
@@ -316,6 +403,107 @@ test('岗位列表网络失败保留已知身份并暴露可重试错误，不�
   assert.match(store.error, /加载失败/)
 })
 
+test('切岗上下文加载失败时恢复旧岗位与权限，不提前清空页面数据', async () => {
+  const storage = new Map()
+  const identitySession = loadSession(storage)
+  const oldPost = { postId: '11', orgId: '1001', orgName: '旧组织', roleCode: 'boss' }
+  const nextPost = { postId: '22', orgId: '1002', orgName: '新组织', roleCode: 'boss' }
+  identitySession.savePosts([oldPost, nextPost])
+  const oldGeneration = identitySession.beginPostSwitch(oldPost.postId)
+  const oldContext = { post: oldPost, permissions: ['platform:org:query'] }
+  identitySession.saveCurrentContext(oldGeneration, oldContext)
+  const activePinia = pinia.createPinia()
+  pinia.setActivePinia(activePinia)
+  const loaded = loadModule('store/modules/platformIdentity.ts', {
+    pinia,
+    '@/store': { store: activePinia },
+    '@/api/platform/staff': {
+      getMyPosts: async () => [oldPost, nextPost],
+      getCurrentPostContext: async () => {
+        throw new Error('context timeout')
+      }
+    },
+    '@/utils/auth': { getAccessToken: () => 'token' },
+    '@/utils/platformIdentity': identitySession
+  })
+  const store = loaded.usePlatformIdentityStore()
+  store.context = oldContext
+
+  await assert.rejects(() => store.selectPost(nextPost.postId, false), /context timeout/)
+  assert.equal(String(store.currentPost.postId), oldPost.postId)
+  assert.equal(identitySession.currentPostId(), oldPost.postId)
+  assert.equal(identitySession.hasCurrentPostPermission('platform:org:query'), true)
+  assert.match(store.error, /切换失败/)
+})
+
+test('组织人员页切岗失败保留旧列表并显示可重试错误', async () => {
+  const oldPost = { postId: '11', orgId: '1001', orgName: '旧组织', roleCode: 'boss' }
+  const state = loadOrgStaffView({
+    identity: {
+      currentPost: oldPost,
+      selectPost: async () => {
+        throw new Error('context timeout')
+      }
+    }
+  })
+  state.teams.value = [{ deptId: '1', name: '原部门' }]
+  state.staff.value = [{ userId: '1', name: '原员工' }]
+
+  await state.switchPost('22')
+  assert.equal(state.teams.value.length, 1)
+  assert.equal(state.staff.value.length, 1)
+  assert.match(state.switchError.value, /切换失败.*重试/)
+})
+
+test('短信登录后岗位加载失败保留会话，重试只加载岗位不重复消费验证码', async () => {
+  let loginCalls = 0
+  let postCalls = 0
+  let failPosts = true
+  const view = loadPlatformLoginView({
+    login: async () => {
+      loginCalls++
+      return { accessToken: 'staff-token' }
+    },
+    loadPosts: async () => {
+      postCalls++
+      if (failPosts) throw new Error('posts unavailable')
+      return [
+        { postId: '11', orgId: '1001', roleCode: 'boss' },
+        { postId: '22', orgId: '1002', roleCode: 'finance' }
+      ]
+    }
+  })
+  view.state.form.mobile = '13800138000'
+  view.state.form.captcha = '123456'
+  view.state.formRef.value = { validate: async () => true }
+
+  await view.state.login()
+  assert.equal(view.state.authenticated.value, true)
+  assert.match(view.identity.error, /加载失败/)
+  assert.equal(loginCalls, 1)
+  failPosts = false
+  await view.state.retryPosts()
+  assert.equal(view.identity.posts.length, 2)
+  assert.equal(loginCalls, 1, '岗位重试不得再次提交已消费的验证码')
+  assert.equal(postCalls, 2)
+})
+
+test('岗位重试收到401清理令牌后回到短信登录态', async () => {
+  let view
+  view = loadPlatformLoginView({
+    token: 'staff-token',
+    mode: 'staff',
+    login: async () => ({ accessToken: 'staff-token' }),
+    loadPosts: async () => {
+      view.clearToken()
+      throw new Error('认证失败')
+    }
+  })
+
+  await view.state.retryPosts()
+  assert.equal(view.state.authenticated.value, false)
+})
+
 test('超大用户ID在岗位指派请求体中原样传递', async () => {
   const calls = []
   const api = loadModule('api/platform/staff.ts', {
@@ -491,4 +679,31 @@ test('刷新后所有岗位失效时显示无任职原因，未登录和管理�
   assert.equal(setup('', 'staff').notice.value, '')
   assert.equal(setup('admin-token', 'admin').notice.value, '')
   assert.equal(setup('staff-token', 'staff', '加载失败').notice.value, '')
+})
+
+test('部门创建超时重试复用键，内容变化或成功后换键', async () => {
+  const keys = []
+  let fail = true
+  const state = loadOrgStaffView({
+    api: {
+      createTeam: async (data, key) => {
+        keys.push(key)
+        if (fail) throw new Error('response lost')
+        return { deptId: '21' }
+      }
+    }
+  })
+  state.teamForm.name = '工程部'
+  await state.saveTeam()
+  await state.saveTeam()
+  assert.ok(keys[0])
+  assert.equal(keys[0], keys[1])
+  state.teamForm.name = '财务部'
+  await state.saveTeam()
+  assert.notEqual(keys[2], keys[1])
+  fail = false
+  await state.saveTeam()
+  assert.equal(keys[3], keys[2])
+  await state.saveTeam()
+  assert.notEqual(keys[4], keys[3])
 })

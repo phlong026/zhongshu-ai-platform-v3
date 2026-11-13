@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.authz.enums.PlatformAuthzErrorCodes;
 import cn.iocoder.yudao.module.platform.org.DepartureHandoverService;
 import cn.iocoder.yudao.module.platform.org.OrgService;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -61,6 +63,8 @@ public class StaffOrgAdminController {
     private StaffPostService staffPostService;
     @Resource
     private OrgService orgService;
+    @Resource
+    private TeamCommandService teamCommandService;
     @Resource
     private SystemDirectory systemDirectory;
     // CV01 联验修复（批次#38）：@Resource 按字段名注入撞 bean 名第四课——commission.HandoverService
@@ -135,9 +139,11 @@ public class StaffOrgAdminController {
     @PostMapping("/teams")
     @Operation(summary = "在组织内新建部门")
     @PreAuthorize("@post.has('platform:org:manage')")
-    public CommonResult<Team> createTeam(@Valid @RequestBody CreateTeamReqVO req) {
+    public CommonResult<Team> createTeam(@RequestHeader("Idempotency-Key") String idempotencyKey,
+                                         @Valid @RequestBody CreateTeamReqVO req) {
         requireScope(req.orgId());
-        long deptId = orgService.createTeam(req.orgId(), null, req.name(), req.line());
+        PostSnapshot post = currentPost.require();
+        long deptId = teamCommandService.create(post, idempotencyKey, req.name(), req.line());
         return success(new Team(deptId, req.orgId(), req.name(), req.line()));
     }
 

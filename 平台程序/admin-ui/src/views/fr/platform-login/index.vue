@@ -6,7 +6,20 @@
       <p>使用管理员配置的手机号登录，系统只展示已授权的有效任职。</p>
 
       <el-alert v-if="notice" :title="notice" type="warning" show-icon class="mb-18px" />
-      <el-form v-if="!posts.length" ref="formRef" :model="form" :rules="rules" label-position="top">
+      <el-alert
+        v-if="authenticated && identity.error"
+        :title="identity.error"
+        type="error"
+        show-icon
+        class="mb-18px"
+      />
+      <el-form
+        v-if="!authenticated"
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-position="top"
+      >
         <el-form-item label="手机号" prop="mobile">
           <el-input v-model="form.mobile" maxlength="11" placeholder="请输入员工手机号" />
         </el-form-item>
@@ -24,7 +37,7 @@
         >
       </el-form>
 
-      <div v-else>
+      <div v-else-if="posts.length">
         <h2>选择工作身份</h2>
         <button
           v-for="post in posts"
@@ -37,6 +50,15 @@
           <strong>{{ roleLabel(post.roleCode) }}</strong>
         </button>
       </div>
+      <el-button
+        v-else
+        type="primary"
+        class="w-full"
+        :loading="identity.loading"
+        @click="retryPosts"
+      >
+        重新加载工作身份
+      </el-button>
     </div>
   </div>
 </template>
@@ -70,6 +92,11 @@ const submitting = ref(false)
 const countdown = ref(0)
 const notice = ref('')
 const posts = computed(() => identity.posts)
+const isStaffSession = () => {
+  const token = getAccessToken()
+  return !!token && portalMode(token) === 'staff'
+}
+const authenticated = ref(isStaffSession())
 let timer: ReturnType<typeof setInterval> | undefined
 
 // 过期会话可能在浏览器里残留岗位列表；未登录时必须回到短信表单。
@@ -93,6 +120,20 @@ const sendCode = async () => {
   }, 1000)
 }
 
+const retryPosts = async () => {
+  notice.value = ''
+  try {
+    const rows = await identity.loadPosts()
+    authenticated.value = isStaffSession()
+    if (!authenticated.value) return
+    if (!rows.length) notice.value = '暂无有效任职，请联系组织管理员配置工作身份。'
+    else if (rows.length === 1) await selectPost(rows[0].postId)
+  } catch {
+    authenticated.value = isStaffSession()
+    if (!authenticated.value) notice.value = '登录状态已失效，请重新获取验证码。'
+  }
+}
+
 const login = async () => {
   if (!(await formRef.value?.validate().catch(() => false))) return
   submitting.value = true
@@ -105,9 +146,8 @@ const login = async () => {
     identity.clear()
     setToken(token as any)
     setPortalMode('staff', token.accessToken)
-    const rows = await identity.loadPosts()
-    if (!rows.length) notice.value = '暂无有效任职，请联系组织管理员配置工作身份。'
-    else if (rows.length === 1) await selectPost(rows[0].postId)
+    authenticated.value = true
+    await retryPosts()
   } finally {
     submitting.value = false
   }

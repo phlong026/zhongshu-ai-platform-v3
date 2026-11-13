@@ -76,6 +76,7 @@ function loadPage(apiStub, identityStore, elMessage) {
         return { isCurrentGeneration: () => true, postGeneration: () => 1 }
       }
       if (name === '@/utils/platformRoles') return { roleLabel: (c) => c }
+      if (name === '@/utils') return { generateUUID: () => 'staff-import-test-request' }
       if (name === './importModel') return importModel
       if (name === '@/api/platform/staff') return apiStub
       throw new Error(`Unexpected import: ${name}`)

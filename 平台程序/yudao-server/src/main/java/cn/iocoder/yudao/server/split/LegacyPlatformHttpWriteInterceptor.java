@@ -518,7 +518,8 @@ public final class LegacyPlatformHttpWriteInterceptor implements AsyncHandlerInt
                 new WriteTarget("platform-http", "message-read", "旧平台消息已读入口暂不可用"));
         methods.put(exactMethod(PlatformMessageController.class, "readAll"),
                 new WriteTarget("platform-http", "message-read-all", "旧平台消息批量已读入口暂不可用"));
-        methods.put(exactMethod(StaffOrgAdminController.class, "createTeam", StaffOrgAdminController.CreateTeamReqVO.class),
+        methods.put(exactMethod(StaffOrgAdminController.class, "createTeam", String.class,
+                        StaffOrgAdminController.CreateTeamReqVO.class),
                 new WriteTarget("platform-http", "org-team-create", "旧平台部门创建入口暂不可用"));
         methods.put(exactMethod(StaffOrgAdminController.class, "createStaff", StaffOrgAdminController.CreateStaffReqVO.class),
                 new WriteTarget("platform-http", "staff-create", "旧平台员工录入入口暂不可用"));

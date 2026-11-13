@@ -63,6 +63,13 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
+    public void lockOrgForCommand(long orgId) {
+        if (orgUnitMapper.lockOrgForUpdate(orgId) == null) {
+            throw exception(ORG_NOT_FOUND);
+        }
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void setOrgActive(long orgId, boolean active) {
         // 09 钱包会话桥接撤权协议：组织行排他锁（发卡/岗位新增的组织共享锁互斥），状态修改与钱包会话吊销同事务

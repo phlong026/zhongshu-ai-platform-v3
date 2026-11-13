@@ -5,6 +5,7 @@ import { getAccessToken } from '@/utils/auth'
 import {
   beginPostSwitch,
   clearPlatformIdentity,
+  currentContext,
   currentPostId,
   isCurrentGeneration,
   posts,
@@ -48,20 +49,34 @@ export const usePlatformIdentityStore = defineStore('platform-identity', {
       if (!this.posts.some((post) => String(post.postId) === String(postId))) {
         throw new Error('所选工作身份已失效，请刷新后重试')
       }
+      const previousPostId = currentPostId()
+      const previousContext = this.context || currentContext()
+      const confirmedPostId = previousContext?.post.postId || previousPostId
       const generation = beginPostSwitch(postId)
-      this.context = null
       this.error = ''
       this.loading = true
-      if (clearViews) {
-        const { useTagsViewStoreWithOut } = await import('@/store/modules/tagsView')
-        useTagsViewStoreWithOut().delAllViews()
-      }
       try {
         const context = await getCurrentPostContext()
         if (!isCurrentGeneration(generation)) return null
         if (!saveCurrentContext(generation, context)) return null
         this.context = context
+        if (clearViews) {
+          const { useTagsViewStoreWithOut } = await import('@/store/modules/tagsView')
+          if (!isCurrentGeneration(generation)) return null
+          useTagsViewStoreWithOut().delAllViews()
+        }
         return context
+      } catch (error) {
+        if (isCurrentGeneration(generation)) {
+          const rollbackGeneration = beginPostSwitch(confirmedPostId)
+          if (confirmedPostId && previousContext) {
+            saveCurrentContext(rollbackGeneration, previousContext)
+          }
+          this.context = previousContext
+          this.error = '工作身份切换失败，已恢复原身份，请检查网络后重试。'
+          this.loading = false
+        }
+        throw error
       } finally {
         if (isCurrentGeneration(generation)) this.loading = false
       }

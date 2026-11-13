@@ -399,7 +399,7 @@ class LegacyPlatformPlatformHttpInterceptorTest {
             new HandlerCall(messageController, PlatformMessageController.class.getDeclaredMethod(
                     "readAll")),
             new HandlerCall(orgController, StaffOrgAdminController.class.getDeclaredMethod(
-                    "createTeam", StaffOrgAdminController.CreateTeamReqVO.class)),
+                    "createTeam", String.class, StaffOrgAdminController.CreateTeamReqVO.class)),
             new HandlerCall(orgController, StaffOrgAdminController.class.getDeclaredMethod(
                     "createStaff", StaffOrgAdminController.CreateStaffReqVO.class)),
             new HandlerCall(orgController, StaffOrgAdminController.class.getDeclaredMethod(

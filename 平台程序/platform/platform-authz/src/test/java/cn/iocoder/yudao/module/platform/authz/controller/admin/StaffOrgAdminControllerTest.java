@@ -47,6 +47,8 @@ class StaffOrgAdminControllerTest {
     private SystemDirectory systemDirectory;
     @Mock
     private cn.iocoder.yudao.module.platform.org.DepartureHandoverService handoverService;
+    @Mock
+    private TeamCommandService teamCommandService;
 
     private StaffOrgAdminController controller;
 
@@ -58,6 +60,22 @@ class StaffOrgAdminControllerTest {
         ReflectionTestUtils.setField(controller, "orgService", orgService);
         ReflectionTestUtils.setField(controller, "systemDirectory", systemDirectory);
         ReflectionTestUtils.setField(controller, "handoverService", handoverService);
+        ReflectionTestUtils.setField(controller, "teamCommandService", teamCommandService);
+    }
+
+    @Test
+    void createTeamDelegatesStableKeyAndActor() {
+        loginAsBossAt(STORE_ORG);
+        var post = currentPost.require();
+        when(teamCommandService.create(post, " team-1 ", "业务部", "sales"))
+                .thenReturn(152L);
+
+        var result = controller.createTeam(" team-1 ",
+                new StaffOrgAdminController.CreateTeamReqVO(STORE_ORG, "业务部", "sales"));
+
+        assertThat(result.getData().deptId()).isEqualTo(152L);
+        org.mockito.Mockito.verify(teamCommandService)
+                .create(post, " team-1 ", "业务部", "sales");
     }
 
     @Test
