@@ -10,7 +10,8 @@
 | 1 | 岗位权限种子 `franchise:org:point:query/write`（菜单 710900 段，role_menu 714600 段；boss/owner 双授） | `franchise-system/V20261113.859`（+undo） |
 | 2 | `/platform/org-point/*` 全部端点加 `@post.has` 门禁（读=query、额度/权限写=write），保留 `requireBoss` 纵深防御 | `OrgPointViewController` |
 | 3 | `BillingPriceCatalog` 注册 `ai_prompt`（1 积分/次，v1） | `BillingPriceCatalog` |
-| 4 | 端口补 `PoolBinding findBinding(...)` / `Long findOperationByBizKey(...)` | `OrgPointPort` + `OrgPointService` |
+| 4 | 端口补 `PoolBinding findBinding(...)` / `Long findOperationByBizKey(...)` / prompt 未决查询与收据写入 | `OrgPointPort` + `OrgPointService` |
+| 4b | **长期 PENDING 告警**：每小时扫描超阈值未终结预扣，汇总一条审计事件（不自动退款）+ 人工核对端点 settle/release | `OrgPointPendingAlertJob`、`OrgPointAdminController` |
 | 5 | **prompt 独立状态机（公司池 job）**：reserve→`ORG_RESERVED`；SUCCEEDED→settle(1)；NOT_SENT→release；DISPATCHED/UNKNOWN→保持 PENDING；幂等键 `design:prompt:{jobId}:{attempt}:{token}`；收据校验（callId=plan-{jobId}，SUCCEEDED 必带 sha256） | `AiJobSettlementService.reservePromptCall/finishPromptCall`（含带收据重载） |
 
 ## 二、语义要点
@@ -41,6 +42,6 @@
 
 | 项 | 说明 |
 |---|---|
-| design 长期 PENDING 告警/重试扫描（D6 §2.4） | 未做；operations 视图已能列出 PENDING，扫描 Job 待后续批 |
+| design 长期 PENDING 告警/重试扫描（D6 §2.4） | **已做告警与人工核对端点**（`OrgPointPendingAlertJob` + `/org-point-operations/{id}/settle|release`）；自动重试仍不做（UNKNOWN 禁自动退款） |
 | prompt 预留超时自动释放 | **刻意不做**：UNKNOWN/DISPATCHED 保持 PENDING 需人工核对，禁止超时自动退款 |
 | `/zs` 页面与公司开通页 | 未做（前端） |

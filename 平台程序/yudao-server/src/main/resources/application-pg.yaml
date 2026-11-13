@@ -73,6 +73,10 @@ zhongshu:
     # runtime-url 必须是不含路径/凭据的 origin（如 http://127.0.0.1:8081）；为空即未启用，小程序提示"暂未配置"。
     note-polish:
       runtime-url: ${ZS_AI_RUNTIME_URL:}
+  org-point:
+    # 24 号 D6 §2.4：长期未终结预扣告警（仅告警+人工核对，绝不自动退款）
+    pending-alert-enabled: ${ZS_ORG_POINT_PENDING_ALERT:true}
+    pending-alert-hours: ${ZS_ORG_POINT_PENDING_ALERT_HOURS:24}
   identity:
     # 24 号 B-14：激活码退役开关（本地/联调默认开；生产 profile 强制 false）
     access-code:

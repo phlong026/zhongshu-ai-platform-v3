@@ -58,6 +58,9 @@ zhongshu:
     wecom-corp-id: ${ZS_SUPPORT_WECOM_CORP_ID:}
     wecom-url: ${ZS_SUPPORT_WECOM_URL:}
     help-url: ${ZS_SUPPORT_HELP_URL:}
+  org-point:
+    pending-alert-enabled: ${ZS_ORG_POINT_PENDING_ALERT:true}
+    pending-alert-hours: ${ZS_ORG_POINT_PENDING_ALERT_HOURS:24}
   identity:
     wechat:
       provider: real
