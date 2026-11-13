@@ -284,20 +284,15 @@ public class AiJobSettlementService {
             if (usagePricingPort != null) usagePricingPort.releaseUnsentPrompt(userId,String.valueOf(jobId));
             long settlementVersion = 1;
             long refundedNow = 0;
-            Object chargeIdRaw = job.get("charge_id");
-            if (chargeIdRaw == null) {
-                // 公司池任务（D6 v2 §2.3-A）：按 ACCEPTED 数结算；0 有效全退。禁凭此释放 prompt。
-                if (orgPointPort == null) {
-                    throw new IllegalStateException("公司池任务结算要求 OrgPointPort 装配");
-                }
-                String subject = "FLAT".equals(job.get("phase")) ? "ai_flat" : "ai_elevation";
-                Long operationId = orgPointPort.findOperationByRef("ai_job", jobId, subject);
-                if (operationId == null) {
-                    throw new IllegalStateException("公司池任务缺少计费绑定: jobId=" + jobId);
-                }
+            // 评审 P1-1：以"持久计费绑定"识别公司池任务；无绑定一律走原个人池结算
+            //（存量存在"个人账本已预扣但 charge_id 为空"的历史任务，不能凭 NULL 判为公司池）
+            String subject = "FLAT".equals(job.get("phase")) ? "ai_flat" : "ai_elevation";
+            Long orgOperationId = orgPointPort == null ? null
+                    : orgPointPort.findOperationByRef("ai_job", jobId, subject);
+            if (orgOperationId != null) {
                 var orgSettlement = billable == 0
-                        ? orgPointPort.release(operationId)
-                        : orgPointPort.settle(operationId, billable);
+                        ? orgPointPort.release(orgOperationId)
+                        : orgPointPort.settle(orgOperationId, billable);
                 refundedNow = orgSettlement.refunded();
             } else if (refund > 0) {
                 String refundKey = "AI_JOB_SETTLE:" + jobId + ":v" + settlementVersion + ":" + reason;

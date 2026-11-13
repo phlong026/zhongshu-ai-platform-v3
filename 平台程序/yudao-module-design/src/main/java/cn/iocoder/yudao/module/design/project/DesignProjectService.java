@@ -428,7 +428,7 @@ public class DesignProjectService {
             long total = orgPointPort.quoteCredits(subject, count);
             long unit = count <= 0 ? total : total / count;
             jobId = aiJobPort.createFlatJobWithOrgCharge(userId, count, operationKey,
-                    String.valueOf(projectId), unit, total);
+                    String.valueOf(projectId), unit, total, options.resolution());
             bindOrgCharge(billing, subject, jobId, count);
         } else {
             jobId = aiJobPort.createFlatJob(userId, count, operationKey, String.valueOf(projectId), confirmation, options);

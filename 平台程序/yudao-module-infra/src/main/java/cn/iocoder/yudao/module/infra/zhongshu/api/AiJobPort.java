@@ -14,7 +14,7 @@ public interface AiJobPort {
 
     /** 桥侧公司池建平面任务（不扣个人池；D6 v2）。 */
     long createFlatJobWithOrgCharge(long userId, int count, String idempotencyKey, String projectRef,
-                                    long unitPointCost, long totalPointCost);
+                                    long unitPointCost, long totalPointCost, String resolution);
 
     /** 桥侧公司池建立面任务（不扣个人池；D6 v2）。 */
     long createElevationJobWithOrgCharge(long userId, int count, String idempotencyKey, String projectRef,

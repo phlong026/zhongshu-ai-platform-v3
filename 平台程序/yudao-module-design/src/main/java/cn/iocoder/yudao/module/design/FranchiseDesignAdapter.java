@@ -201,9 +201,13 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
     public JobSubmitted createFlatJob(long serviceAccountId, long projectId, FlatJobCreate cmd, Actor actor) {
         return txTemplate.execute(status -> {
             var options = GenerationImageOptions.normalize("FLAT", cmd.resolution(), cmd.orientation());
-            var confirmation = jobAutoConfirmation(serviceAccountId, cmd.idempotencyKey(), "FLAT", cmd.count(), options.resolution());
+            var billing = orgBilling(actor);
+            // 评审 P2-1：公司池路径不依赖旧图片报价（旧规则缺失/退役不得阻塞公司池建任务）
+            var confirmation = billing == null
+                    ? jobAutoConfirmation(serviceAccountId, cmd.idempotencyKey(), "FLAT", cmd.count(), options.resolution())
+                    : null;
             var created = designProjectService.createFlatJob(serviceAccountId, projectId,
-                    cmd.count(), cmd.idempotencyKey(), confirmation, options, orgBilling(actor));
+                    cmd.count(), cmd.idempotencyKey(), confirmation, options, billing);
             log.info("[franchise-design][createFlatJob actor={} account={} project={} job={} replayed={}]",
                     actor.actorUserId(), serviceAccountId, projectId, created.jobId(), !created.created());
             return new JobSubmitted(created.jobId(), !created.created());
@@ -219,9 +223,12 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
             putIfPresent(config, "roofType", cmd.roofType());
             putIfPresent(config, "material", cmd.material());
             putIfPresent(config, "color", cmd.color());
-            var confirmation = jobAutoConfirmation(serviceAccountId, cmd.idempotencyKey(), "ELEVATION", cmd.count(), options.resolution());
+            var billing = orgBilling(actor);
+            var confirmation = billing == null
+                    ? jobAutoConfirmation(serviceAccountId, cmd.idempotencyKey(), "ELEVATION", cmd.count(), options.resolution())
+                    : null;
             var created = designProjectService.createElevationJob(serviceAccountId, projectId,
-                    cmd.count(), cmd.idempotencyKey(), config, confirmation, options, orgBilling(actor));
+                    cmd.count(), cmd.idempotencyKey(), config, confirmation, options, billing);
             log.info("[franchise-design][createElevationJob actor={} account={} project={} job={} replayed={}]",
                     actor.actorUserId(), serviceAccountId, projectId, created.jobId(), !created.created());
             return new JobSubmitted(created.jobId(), !created.created());
@@ -289,12 +296,15 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
         return txTemplate.execute(status -> {
             // 省略 resolution/orientation 时按 design 默认口径规范化（报价与冻结输入同源，防 ELEVATION/null）
             var options = GenerationImageOptions.normalize("ELEVATION", cmd.resolution(), cmd.orientation());
-            var confirmation = jobAutoConfirmation(serviceAccountId, cmd.idempotencyKey(), "ELEVATION",
-                    cmd.count() == null ? 2 : cmd.count(), options.resolution());
+            var billing = orgBilling(actor);
+            var confirmation = billing == null
+                    ? jobAutoConfirmation(serviceAccountId, cmd.idempotencyKey(), "ELEVATION",
+                            cmd.count() == null ? 2 : cmd.count(), options.resolution())
+                    : null;
             var receipt = designProjectService.createRevisionRequestReceipt(serviceAccountId, projectId,
                     cmd.reason(), cmd.configUpdates(), cmd.count() == null ? 2 : cmd.count(),
                     cmd.idempotencyKey(), confirmation, options.resolution(), options.orientation(),
-                    orgBilling(actor));
+                    billing);
             log.info("[franchise-design][createRevisionRequest actor={} account={} project={} request={} replayed={}]",
                     actor.actorUserId(), serviceAccountId, projectId, receipt.requestId(), receipt.replayed());
             return new RevisionSubmitted(receipt.requestId(), receipt.newJobId(), receipt.replayed());
@@ -509,7 +519,8 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
                                                 BudgetEstimateCreate cmd, Actor actor) {
         // 取价内聚（P-2⑧）：先查预算收据（budget_legacy_request）——重放路径不报价
         UsagePricingPort.Confirmation confirmation = null;
-        if (cmd.idempotencyKey() != null && !cmd.idempotencyKey().isBlank()) {
+        var budgetBilling = orgBilling(actor);
+        if (budgetBilling == null && cmd.idempotencyKey() != null && !cmd.idempotencyKey().isBlank()) {
             var prior = jdbcTemplate.queryForList(
                     "SELECT estimate_id FROM budget_legacy_request WHERE user_id=? AND request_key=?",
                     serviceAccountId, cmd.idempotencyKey());
@@ -521,7 +532,7 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
         }
         var receipt = budgetService.createEstimateReceipt(serviceAccountId, projectId, cmd.regionCode(),
                 cmd.structureType(), cmd.materialGrade(), cmd.buildingArea(), cmd.resultVersionId(),
-                confirmation, cmd.idempotencyKey(), orgBilling(actor));
+                confirmation, cmd.idempotencyKey(), budgetBilling);
         log.info("[franchise-design][createBudgetEstimate actor={} account={} project={} estimate={} replayed={}]",
                 actor.actorUserId(), serviceAccountId, projectId, receipt.estimateId(), receipt.replayed());
         return new EstimateCreated(receipt.estimateId(), receipt.totalLowCents(), receipt.totalHighCents(),
