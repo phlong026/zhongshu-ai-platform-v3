@@ -66,6 +66,14 @@ def check(name, ok, detail=''):
     return ok
 
 
+def fail(name, detail=''):
+    """流程级失败：同时计入总数与失败数（避免"失败 1/0 项"）。"""
+    global CHECKS
+    CHECKS += 1
+    FAILS.append(name)
+    print(' FAIL ' + name + (('  ' + str(detail)) if detail else ''))
+
+
 def ok_body(status, body):
     """成功响应：HTTP 200 且业务 code 显式等于 0（缺码/None 不算成功）。"""
     return status == 200 and body.get('code') == 0
@@ -102,11 +110,9 @@ def main():
         admin = login_admin()   # 登录失败也必须落 FAIL 证据（不能在 try 外）
         run(admin, cleanup, sink)
     except SystemExit as e:  # 流程提前终止也要落 FAIL 证据，且不得返回 0
-        FAILS.append('流程未完成：' + str(e))
-        print('❌ 流程提前终止：' + str(e))
+        fail('流程未完成：' + str(e))
     except Exception as e:   # 网络/解析异常同样计失败
-        FAILS.append('流程异常：' + repr(e))
-        print('❌ 流程异常：' + repr(e))
+        fail('流程异常：' + repr(e))
     finally:
         for name, method, path, token, post_id in reversed(cleanup):
             try:
