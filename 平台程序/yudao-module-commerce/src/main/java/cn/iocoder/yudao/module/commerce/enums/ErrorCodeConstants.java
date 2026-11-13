@@ -22,5 +22,6 @@ public interface ErrorCodeConstants {
     ErrorCode ORG_MEMBER_QUOTA_EXCEEDED = new ErrorCode(1_072_000_012, "本月用量已达额度上限，额度由公司管理员设置");
     ErrorCode ORG_POINT_SUSPENDED = new ErrorCode(1_072_000_013, "公司积分账户已停用");
     ErrorCode ORG_POINT_REPLAY_CONFLICT = new ErrorCode(1_072_000_014, "幂等键已被不同参数的请求占用");
+    ErrorCode ORG_SUBJECT_FORBIDDEN = new ErrorCode(1_072_000_015, "当前岗位未被授权使用该功能，请联系公司管理员");
 
 }

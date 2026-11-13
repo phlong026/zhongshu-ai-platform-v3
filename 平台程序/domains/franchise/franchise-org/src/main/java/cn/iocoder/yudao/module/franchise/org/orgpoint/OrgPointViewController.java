@@ -47,6 +47,9 @@ public class OrgPointViewController {
                                    @NotNull @Positive Long monthlyCredits) {
     }
 
+    public record MemberPermissionReqVO(@NotNull Long userId, List<String> allowedSubjects) {
+    }
+
     private PostSnapshot requireBoss() {
         PostSnapshot post = currentPost.require();
         if (!FranchiseRoles.isBoss(post)) {
@@ -114,6 +117,29 @@ public class OrgPointViewController {
     public CommonResult<Boolean> clearMemberQuota(@RequestParam @NotNull Long userId) {
         PostSnapshot post = requireBoss();
         orgPoint.clearMemberQuota(post.orgId(), userId);
+        return success(true);
+    }
+
+    @GetMapping("/member-permissions")
+    @Operation(summary = "员工业务权限清单（无行=全允许）")
+    public CommonResult<List<OrgPointPort.MemberPermission>> memberPermissions() {
+        PostSnapshot post = requireBoss();
+        return success(orgPoint.memberPermissions(post.orgId()));
+    }
+
+    @PutMapping("/member-permissions")
+    @Operation(summary = "设置员工业务权限（空列表=全禁）")
+    public CommonResult<Boolean> setMemberPermission(@Valid @RequestBody MemberPermissionReqVO req) {
+        PostSnapshot post = requireBoss();
+        orgPoint.setMemberPermission(post.orgId(), req.userId(), req.allowedSubjects());
+        return success(true);
+    }
+
+    @DeleteMapping("/member-permissions")
+    @Operation(summary = "清除员工业务权限（删行=全允许）")
+    public CommonResult<Boolean> clearMemberPermission(@RequestParam @NotNull Long userId) {
+        PostSnapshot post = requireBoss();
+        orgPoint.clearMemberPermission(post.orgId(), userId);
         return success(true);
     }
 }

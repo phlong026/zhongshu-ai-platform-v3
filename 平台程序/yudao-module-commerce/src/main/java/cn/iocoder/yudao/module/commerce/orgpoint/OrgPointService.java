@@ -24,6 +24,7 @@ import static cn.iocoder.yudao.module.commerce.enums.ErrorCodeConstants.ORG_NOT_
 import static cn.iocoder.yudao.module.commerce.enums.ErrorCodeConstants.ORG_POINT_INSUFFICIENT;
 import static cn.iocoder.yudao.module.commerce.enums.ErrorCodeConstants.ORG_POINT_REPLAY_CONFLICT;
 import static cn.iocoder.yudao.module.commerce.enums.ErrorCodeConstants.ORG_POINT_SUSPENDED;
+import static cn.iocoder.yudao.module.commerce.enums.ErrorCodeConstants.ORG_SUBJECT_FORBIDDEN;
 
 /**
  * 公司积分池账本（24 号任务书批 A / B-1~B-7）。
@@ -142,6 +143,7 @@ public class OrgPointService implements OrgPointPort {
                 }
                 return replayed.operationId();
             }
+            enforceSubjectPermission(command.orgId(), command.actorUserId(), subject.key());
             enforceMemberQuota(command.orgId(), command.actorUserId(), n);
             int updated = jdbc.update("UPDATE org_point_account SET balance = balance - ?, "
                     + "version = version + 1, update_time = now() WHERE org_id = ? AND balance >= ? "
@@ -353,6 +355,64 @@ public class OrgPointService implements OrgPointPort {
                         + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
                         + "SET monthly_credits = EXCLUDED.monthly_credits, update_time = now()",
                 IdWorker.getId(), orgId, userId, monthlyCredits);
+    }
+
+    // ==================== 员工业务权限矩阵（B-12） ====================
+
+    /** 无行=全允许（fail-open，存量零回填）；空数组=全禁。 */
+    @Override
+    public List<MemberPermission> memberPermissions(long orgId) {
+        return jdbc.query("SELECT user_id, allowed_subjects FROM org_member_permission WHERE org_id = ? "
+                        + "ORDER BY update_time DESC",
+                (rs, i) -> new MemberPermission(rs.getLong("user_id"),
+                        parseSubjects(rs.getString("allowed_subjects"))), orgId);
+    }
+
+    @Override
+    public void setMemberPermission(long orgId, long userId, List<String> allowedSubjects) {
+        List<String> normalized = allowedSubjects == null ? List.of()
+                : allowedSubjects.stream().filter(s -> s != null && !s.isBlank())
+                .distinct().sorted().toList();
+        if (normalized.isEmpty()) {
+            // 空数组=全禁（与"删行=全允许"区分，保留显式行）
+            jdbc.update("INSERT INTO org_member_permission (id, org_id, user_id, allowed_subjects) "
+                            + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
+                            + "SET allowed_subjects = EXCLUDED.allowed_subjects, update_time = now()",
+                    IdWorker.getId(), orgId, userId, "[]");
+            return;
+        }
+        jdbc.update("INSERT INTO org_member_permission (id, org_id, user_id, allowed_subjects) "
+                        + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
+                        + "SET allowed_subjects = EXCLUDED.allowed_subjects, update_time = now()",
+                IdWorker.getId(), orgId, userId, JsonUtils.toJsonString(normalized));
+    }
+
+    @Override
+    public void clearMemberPermission(long orgId, long userId) {
+        jdbc.update("DELETE FROM org_member_permission WHERE org_id = ? AND user_id = ?", orgId, userId);
+    }
+
+    /** 准入强制：有权限行且科目不在允许集 → 1_072_000_015（写事务内、外呼之前）。 */
+    private void enforceSubjectPermission(long orgId, long actorUserId, String subjectKey) {
+        List<String> allowed = findPermissionSubjects(orgId, actorUserId);
+        if (allowed != null && !allowed.contains(subjectKey)) {
+            throw exception(ORG_SUBJECT_FORBIDDEN);
+        }
+    }
+
+    private List<String> findPermissionSubjects(long orgId, long actorUserId) {
+        List<String> rows = jdbc.query(
+                "SELECT allowed_subjects FROM org_member_permission WHERE org_id = ? AND user_id = ?",
+                (rs, i) -> rs.getString(1), orgId, actorUserId);
+        return rows.isEmpty() ? null : parseSubjects(rows.get(0));
+    }
+
+    private static List<String> parseSubjects(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        List<?> raw = JsonUtils.parseObject(text, List.class);
+        return raw == null ? List.of() : raw.stream().map(String::valueOf).toList();
     }
 
     /** 删行=不限（唯一"不限"表达）。 */

@@ -57,6 +57,10 @@ public interface OrgPointPort {
     record MemberQuota(long userId, long monthlyCredits) {
     }
 
+    /** 员工业务权限（null = 无行 = 全允许；空列表 = 全禁）。 */
+    record MemberPermission(long userId, java.util.List<String> allowedSubjects) {
+    }
+
     PoolSummary summary(long orgId);
 
     List<LedgerEntry> ledger(long orgId, Long actorUserId, String subject, String billingMonth,
@@ -73,6 +77,15 @@ public interface OrgPointPort {
     void setMemberQuota(long orgId, long userId, long monthlyCredits);
 
     void clearMemberQuota(long orgId, long userId);
+
+    /** 员工业务权限清单（无行=全允许）。 */
+    java.util.List<MemberPermission> memberPermissions(long orgId);
+
+    /** 设置员工业务权限（空列表=全禁；全开请用 clear）。 */
+    void setMemberPermission(long orgId, long userId, java.util.List<String> allowedSubjects);
+
+    /** 清除员工业务权限（删行=全允许）。 */
+    void clearMemberPermission(long orgId, long userId);
 
     /** 开通建池（幂等；已存在不动）。 */
     PoolSummary ensurePool(long orgId);
