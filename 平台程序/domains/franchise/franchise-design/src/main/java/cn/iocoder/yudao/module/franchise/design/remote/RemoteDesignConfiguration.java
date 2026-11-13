@@ -24,7 +24,10 @@ public class RemoteDesignConfiguration {
     @Bean
     RemoteDesignGateway remoteDesignGateway(@Value("${zhongshu.design.remote.caller-app-id}") String caller,
                                            DesignCapabilityTransport transport, RemoteDesignCommandStore commands,
-                                           ObjectMapper mapper) {
-        return new RemoteDesignGateway(caller, transport, commands, mapper);
+                                           ObjectMapper mapper,
+                                           @Value("${zhongshu.design.remote.max-in-flight:16}") int globalLimit,
+                                           @Value("${zhongshu.design.remote.max-in-flight-per-org:4}") int organizationLimit) {
+        return new RemoteDesignGateway(caller, transport, commands, mapper,
+                new RemoteDesignAdmission(globalLimit, organizationLimit));
     }
 }

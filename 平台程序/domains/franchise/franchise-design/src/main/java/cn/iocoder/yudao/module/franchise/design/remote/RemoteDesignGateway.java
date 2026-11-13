@@ -22,19 +22,35 @@ public class RemoteDesignGateway {
     private final RemoteDesignCommandStore commands;
     private final ObjectMapper mapper;
     private final CapabilityJson json;
+    private final RemoteDesignAdmission admission;
 
     public RemoteDesignGateway(String callerAppId, DesignCapabilityTransport transport,
                                RemoteDesignCommandStore commands, ObjectMapper mapper) {
+        this(callerAppId, transport, commands, mapper, new RemoteDesignAdmission(16, 4));
+    }
+
+    public RemoteDesignGateway(String callerAppId, DesignCapabilityTransport transport,
+                               RemoteDesignCommandStore commands, ObjectMapper mapper, RemoteDesignAdmission admission) {
         cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.requireText(callerAppId, 80, "callerAppId");
         this.callerAppId = callerAppId;
         this.transport = transport;
         this.commands = commands;
         this.mapper = mapper.copy();
         this.json = new CapabilityJson(mapper);
+        this.admission = java.util.Objects.requireNonNull(admission);
+    }
+
+    public <T> T call(PostSnapshot post, Operation operation, String requestKey, Object payload) {
+        try (var permit = admission.enter(post.orgId())) {
+            return callAdmitted(post, operation, requestKey, payload);
+        } catch (RemoteDesignAdmission.BusyException busy) {
+            // Nothing was persisted or sent: retry with the same business key is safe.
+            throw new ServiceException(429, "设计服务繁忙，请稍后使用原业务键重试");
+        }
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T call(PostSnapshot post, Operation operation, String requestKey, Object payload) {
+    private <T> T callAdmitted(PostSnapshot post, Operation operation, String requestKey, Object payload) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("Remote design HTTP must not run inside a database transaction");
         }
@@ -157,9 +173,12 @@ public class RemoteDesignGateway {
     @Scheduled(fixedDelayString = "${zhongshu.design.remote.recovery-delay-ms:10000}")
     public void recover() {
         for (var command : commands.recoverable(25)) {
-            try {
+            try (var permit = admission.enter(command.post().orgId())) {
                 if ("SUCCEEDED".equals(command.state())) pollSettlement(command);
                 else submit(commands.claim(command));
+            } catch (RemoteDesignAdmission.BusyException busy) {
+                // Leave the durable command unchanged for the next recovery pass.
+                log.debug("[remote-design][recovery deferred command={}]", command.commandId());
             } catch (RuntimeException failure) {
                 log.warn("[remote-design][recovery command={} org={} state={}]", command.commandId(), command.post().orgId(), command.state(), failure);
             }
