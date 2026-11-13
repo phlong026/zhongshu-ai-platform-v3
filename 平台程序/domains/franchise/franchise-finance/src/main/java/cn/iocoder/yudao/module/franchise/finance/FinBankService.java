@@ -64,6 +64,7 @@ public class FinBankService {
     /** 确认到账：金额必须一致；receipt 必须待登记且同公司；双 UNIQUE 保证唯一入账 */
     @Transactional
     public long confirm(PostSnapshot post, String idempotencyKey, long flowId, long receiptId) {
+        idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cn.iocoder.yudao.module.franchise.finance.FinBankService.ConfirmInput.of(flowId, receiptId));
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();

@@ -56,6 +56,7 @@ public class FinRefundService {
 
     @Transactional
     public long register(PostSnapshot post, String idempotencyKey, RegisterCommand cmd) {
+        idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
@@ -126,6 +127,7 @@ public class FinRefundService {
      * CAS 争抢替代权，同号更正原子切换 identity owner——不释放流水号供任意复用。 */
     @Transactional
     public long registerExpense(PostSnapshot post, String idempotencyKey, ExpenseRefundCommand cmd) {
+        idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) return replayed.get().getAggregateId();
         BusinessDateGuard.requireValid(cmd.date());

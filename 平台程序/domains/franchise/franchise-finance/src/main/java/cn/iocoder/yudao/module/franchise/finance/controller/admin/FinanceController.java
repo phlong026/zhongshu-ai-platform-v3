@@ -230,7 +230,7 @@ public class FinanceController {
     @Operation(summary = "登记实收（登记即生效；design 来源走委托五项门禁）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
     public CommonResult<Map<String, Object>> registerReceipt(
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody ReceiptRegisterCommand cmd) {
         PostSnapshot post = currentPost.require();
         long id = receiptService.register(post, idempotencyKey, new FinReceiptService.RegisterCommand(
@@ -302,7 +302,7 @@ public class FinanceController {
     @PostMapping("/payables")
     @Operation(summary = "登记应付")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
-    public CommonResult<Map<String, Object>> registerPayable(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+    public CommonResult<Map<String, Object>> registerPayable(@RequestHeader("Idempotency-Key") String idempotencyKey,
                                                              @Valid @RequestBody PaymentServicePayableCommand cmd) {
         long id = paymentService.registerPayable(currentPost.require(), idempotencyKey, new FinPaymentService.PayableCommand(
                 currentPost.require().orgId(), cmd.projectId(), cmd.stage(),
@@ -324,7 +324,7 @@ public class FinanceController {
     @PostMapping("/payments")
     @Operation(summary = "付款登记（登记即已核实；I-2 累计校验）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
-    public CommonResult<Map<String, Object>> registerPayment(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+    public CommonResult<Map<String, Object>> registerPayment(@RequestHeader("Idempotency-Key") String idempotencyKey,
                                                              @Valid @RequestBody PaymentCommand cmd) {
         long id = paymentService.register(currentPost.require(), idempotencyKey, new FinPaymentService.PaymentCommand(
                 cmd.payableId(), cmd.amountCents() == null ? 0 : cmd.amountCents(),
@@ -353,15 +353,19 @@ public class FinanceController {
         Long orgId = currentPost.require().orgId();
         List<FinRefundDO> rows = refundMapper.selectByCompany(orgId);
         if (receiptId != null) {
-            rows = rows.stream().filter(r -> r.getReceiptId() == receiptId).toList();
+            rows = rows.stream().filter(r -> sameReceiptId(r.getReceiptId(), receiptId)).toList();
         }
         return success(rows);
+    }
+
+    static boolean sameReceiptId(Long stored, Long requested) {
+        return requested == null || java.util.Objects.equals(stored, requested);
     }
 
     @PostMapping("/refunds")
     @Operation(summary = "登记退款（线下事实，登记即已核实；可携 replaces_id 走更正链）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
-    public CommonResult<Map<String, Object>> registerRefund(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+    public CommonResult<Map<String, Object>> registerRefund(@RequestHeader("Idempotency-Key") String idempotencyKey,
                                                             @Valid @RequestBody RefundCommand cmd) {
         long id = refundService.register(currentPost.require(), idempotencyKey, new FinRefundService.RegisterCommand(
                 cmd.receiptId(), cmd.amountCents(), cmd.reason(), cmd.date(),
@@ -387,7 +391,7 @@ public class FinanceController {
     @Operation(summary = "登记支出退回（关联原付款单；金额≤该付款单剩余可退回额度）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
     public CommonResult<Map<String, Object>> registerExpenseRefund(
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody ExpenseRefundCommand cmd) {
         long id = refundService.registerExpense(currentPost.require(), idempotencyKey,
                 new FinRefundService.ExpenseRefundCommand(cmd.paymentId(),
@@ -421,7 +425,7 @@ public class FinanceController {
     @Operation(summary = "登记异常资金（原单缺失/超上限/日期凭据待核的真实资金事实，留痕不凑平）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
     public CommonResult<Map<String, Object>> registerAbnormalFund(
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody AbnormalFundCommand cmd) {
         long id = abnormalFundService.register(currentPost.require(), idempotencyKey,
                 new FinAbnormalFundService.RegisterCommand(cmd.fundDirection(),
@@ -474,9 +478,9 @@ public class FinanceController {
     @PostMapping("/bank-confirms")
     @Operation(summary = "确认到账（唯一入账；金额一致门禁；失败尝试独立留痕）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
-    public CommonResult<Map<String, Object>> confirmBank(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+    public CommonResult<Map<String, Object>> confirmBank(@RequestHeader("Idempotency-Key") String idempotencyKey,
                                                          @Valid @RequestBody BankConfirmCommand cmd) {
-        long id = bankService.confirm(currentPost.require(), idempotencyKey != null ? idempotencyKey : cmd.idempotencyKey(), cmd.bankFlowId(), cmd.receiptId());
+        long id = bankService.confirm(currentPost.require(), idempotencyKey, cmd.bankFlowId(), cmd.receiptId());
         return success(Map.of("confirmId", id));
     }
 

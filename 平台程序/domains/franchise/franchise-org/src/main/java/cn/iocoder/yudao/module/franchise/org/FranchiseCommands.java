@@ -12,6 +12,7 @@ import java.util.Optional;
 
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
+import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
 /**
@@ -34,11 +35,21 @@ public class FranchiseCommands {
             return Optional.empty();
         }
         return commandLog.findByIdempotencyKey(scopedKey(post, idempotencyKey)).map(existing -> {
-            if (!DigestUtil.sha256Hex(JsonUtils.toJsonString(input)).equals(existing.getPayloadHash())) {
+            // Preserve historical key format, but never replay a fact from another organization.
+            if (!java.util.Objects.equals(existing.getOrgId(), post.orgId())
+                    || !DigestUtil.sha256Hex(JsonUtils.toJsonString(input)).equals(existing.getPayloadHash())) {
                 throw exception(IDEMPOTENCY_KEY_REUSED);
             }
             return existing;
         });
+    }
+
+    /** 资金写入必须由调用方提供稳定键；拒绝静默截断，避免不同长键折叠为同一命令。 */
+    public String requireIdempotencyKey(String idempotencyKey) {
+        if (StrUtil.isBlank(idempotencyKey) || idempotencyKey.trim().length() > 80) {
+            throw exception(BAD_REQUEST);
+        }
+        return idempotencyKey.trim();
     }
 
     /** 追加命令事件；revision 为聚合执行后的版本号。
@@ -53,7 +64,8 @@ public class FranchiseCommands {
                 .setActorUserId(post.userId()).setActorPostId(post.postId()).setActorRoleCode(post.roleCode())
                 .setPayload(JsonUtils.toJsonString(input))
                 .setIdempotencyKey(StrUtil.isBlank(idempotencyKey) ? null : scopedKey(post, idempotencyKey)));
-        if (event.getIdempotencyKey() != null && (event.getAggregateId() != aggregateId
+        if (event.getIdempotencyKey() != null && (!java.util.Objects.equals(event.getOrgId(), post.orgId())
+                || event.getAggregateId() != aggregateId
                 || !event.getAggregateType().equals(aggregateType))) {
             throw exception(STATE_VERSION_CONFLICT);
         }

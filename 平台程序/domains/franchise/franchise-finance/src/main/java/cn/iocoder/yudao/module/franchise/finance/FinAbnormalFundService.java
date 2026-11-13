@@ -60,6 +60,7 @@ public class FinAbnormalFundService {
 
     @Transactional
     public long register(PostSnapshot post, String idempotencyKey, RegisterCommand cmd) {
+        idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();

@@ -43,6 +43,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.MediaType;
 
 import java.util.List;
 import java.util.Set;
@@ -70,6 +71,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 仅验证「端点形态 / 权限 / 参数校验 / 旧端点兼容」，真实 SQL 由 FinancePageMapperIntegrationTest 覆盖。
  */
 class FinancePageHttpContractTest {
+
+    @Test
+    void legacyRefundFilterMatchesLargeLongByValue() {
+        Long stored = Long.valueOf("9223372036854775000");
+        Long requested = Long.valueOf("9223372036854775000");
+
+        assertThat(FinanceController.sameReceiptId(stored, requested)).isTrue();
+    }
+
+    @Test
+    void financialCreationRequiresIdempotencyHeaderAtHttpBoundary() {
+        when(directory.roleHasPermission("finance", "franchise:fin:register")).thenReturn(true);
+        context.run(ctx -> mvc(ctx).perform(post("/franchise/finance/receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sourceType\":\"manual\",\"sourceRef\":\"R-1\",\"name\":\"实收\",\"amountCents\":100}"))
+                .andExpect(status().isBadRequest()));
+    }
 
     private static final PostSnapshot FINANCE = new PostSnapshot(21L, 7L, 100L, "store", "finance", null, false, Set.of());
 

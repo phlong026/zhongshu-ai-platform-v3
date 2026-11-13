@@ -52,6 +52,7 @@ public class FinPaymentService {
 
     @Transactional
     public long registerPayable(PostSnapshot post, String idempotencyKey, PayableCommand cmd) {
+        idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
@@ -68,6 +69,7 @@ public class FinPaymentService {
     /** 付款登记（登记即已核实）；I-2：Σ已核实（行锁内含本笔）≤ 应付总额 */
     @Transactional
     public long register(PostSnapshot post, String idempotencyKey, PaymentCommand cmd) {
+        idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
