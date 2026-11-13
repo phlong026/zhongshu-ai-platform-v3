@@ -57,6 +57,11 @@
 
 复跑：content 11/11 绿；全仓 compile 通过。
 
+## R3 终审（窄域）
+
+Codex 极窄终审（b4aaaeb4）对剩余 2 项 P1 逐项核销：**A-P1-4 通过、B-P1-5 通过，未发现新矛盾 → VERDICT: PASS**。
+批 A/B（含批 C 权限矩阵）代码评审闭环：R1 双 FAIL → R2 7/9 通过 → R3 PASS。
+
 ## 遗留（未修，需评审确认）
 
 1. **P2-2 岗位权限码**：老板视图当前仅 `FranchiseRoles.isBoss` 门禁；补 `@post.has` 需要新增权限种子与角色模板绑定（批 C 一并做）。
