@@ -60,7 +60,7 @@ class OrgMemberQuotaIntegrationTest {
         Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration/platform", "classpath:db/migration/commerce")
                 .load().migrate();
-        service = new OrgPointService(dataSource, new DataSourceTransactionManager(dataSource));
+        service = new OrgPointService(dataSource, new DataSourceTransactionManager(dataSource), message -> 0L);
     }
 
     @BeforeEach

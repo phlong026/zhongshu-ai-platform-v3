@@ -55,14 +55,14 @@ public class OrgPointService implements OrgPointPort {
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
+    /** 配置变更业务审计（任务书 §106/§180）：构造器必传，生产缺失 Bean 即启动失败。 */
+    private final cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort auditPort;
 
-    /** 配置变更业务审计（任务书 §106/§180）；单测可直接构造服务时不注入。 */
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort auditPort;
-
-    public OrgPointService(DataSource dataSource, PlatformTransactionManager transactionManager) {
+    public OrgPointService(DataSource dataSource, PlatformTransactionManager transactionManager,
+                           cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort auditPort) {
         this.jdbc = new JdbcTemplate(dataSource);
         this.tx = new TransactionTemplate(transactionManager);
+        this.auditPort = java.util.Objects.requireNonNull(auditPort, "AuditPort");
     }
 
     // ==================== 开通/账户（B-1/B-8） ====================
@@ -411,12 +411,17 @@ public class OrgPointService implements OrgPointPort {
         if (monthlyCredits <= 0 || monthlyCredits > 1_000_000_000L) {
             throw new IllegalArgumentException("月度额度必须在 1..1e9 之间：" + monthlyCredits);
         }
+        Long previous = memberMonthlyQuota(orgId, userId);
         jdbc.update("INSERT INTO org_member_quota (id, org_id, user_id, monthly_credits) "
                         + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
                         + "SET monthly_credits = EXCLUDED.monthly_credits, update_time = now()",
                 IdWorker.getId(), orgId, userId, monthlyCredits);
-        auditConfig("ORG_MEMBER_QUOTA", "SET", orgId, userId, operatorUserId,
-                Map.of("monthlyCredits", monthlyCredits));
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("monthlyCredits", monthlyCredits);
+        if (previous != null) {
+            detail.put("previousMonthlyCredits", previous);
+        }
+        auditConfig("ORG_MEMBER_QUOTA", "SET", orgId, userId, operatorUserId, detail);
     }
 
     // ==================== 员工业务权限矩阵（B-12） ====================
@@ -439,22 +444,31 @@ public class OrgPointService implements OrgPointPort {
         }
         List<String> normalized = allowedSubjects.stream().filter(s -> s != null && !s.isBlank())
                 .distinct().sorted().toList();
+        List<String> previous = findPermissionSubjects(orgId, userId);
         if (normalized.isEmpty()) {
             // 空数组=全禁（与"删行=全允许"区分，保留显式行）
             jdbc.update("INSERT INTO org_member_permission (id, org_id, user_id, allowed_subjects) "
                             + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
                             + "SET allowed_subjects = EXCLUDED.allowed_subjects, update_time = now()",
                     IdWorker.getId(), orgId, userId, "[]");
-            auditConfig("ORG_MEMBER_PERMISSION", "SET", orgId, userId, operatorUserId,
-                    Map.of("allowedSubjects", List.of()));
+            Map<String, Object> emptyDetail = new LinkedHashMap<>();
+            emptyDetail.put("allowedSubjects", List.of());
+            if (previous != null) {
+                emptyDetail.put("previousAllowedSubjects", previous);
+            }
+            auditConfig("ORG_MEMBER_PERMISSION", "SET", orgId, userId, operatorUserId, emptyDetail);
             return;
         }
         jdbc.update("INSERT INTO org_member_permission (id, org_id, user_id, allowed_subjects) "
                         + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
                         + "SET allowed_subjects = EXCLUDED.allowed_subjects, update_time = now()",
                 IdWorker.getId(), orgId, userId, JsonUtils.toJsonString(normalized));
-        auditConfig("ORG_MEMBER_PERMISSION", "SET", orgId, userId, operatorUserId,
-                Map.of("allowedSubjects", normalized));
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("allowedSubjects", normalized);
+        if (previous != null) {
+            detail.put("previousAllowedSubjects", previous);
+        }
+        auditConfig("ORG_MEMBER_PERMISSION", "SET", orgId, userId, operatorUserId, detail);
     }
 
     @Override
@@ -473,9 +487,6 @@ public class OrgPointService implements OrgPointPort {
     /** 配置变更审计（§106/§180：删除/变更另记审计，含操作者、组织、目标成员与前值）。 */
     private void auditConfig(String bizType, String action, long orgId, long userId,
                              long operatorUserId, Map<String, Object> detail) {
-        if (auditPort == null) {
-            return; // 单测直连构造；生产由 Spring 注入
-        }
         Map<String, Object> payload = new LinkedHashMap<>(detail);
         payload.put("orgId", orgId);
         payload.put("targetUserId", userId);
