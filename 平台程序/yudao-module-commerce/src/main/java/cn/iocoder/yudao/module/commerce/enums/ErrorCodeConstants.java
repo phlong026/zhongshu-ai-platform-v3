@@ -23,5 +23,7 @@ public interface ErrorCodeConstants {
     ErrorCode ORG_POINT_SUSPENDED = new ErrorCode(1_072_000_013, "公司积分账户已停用");
     ErrorCode ORG_POINT_REPLAY_CONFLICT = new ErrorCode(1_072_000_014, "幂等键已被不同参数的请求占用");
     ErrorCode ORG_SUBJECT_FORBIDDEN = new ErrorCode(1_072_000_015, "当前岗位未被授权使用该功能，请联系公司管理员");
+    // D8 科目价格表化：并发发布冲突 / 重复停用已退休行
+    ErrorCode ORG_PRICE_CONFLICT = new ErrorCode(1_072_000_016, "价格已被他人修改或已停用，请刷新后重试");
 
 }

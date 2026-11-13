@@ -9,6 +9,8 @@ const businessPermissions: Record<string, string> = {
   'budget-estimates': 'design:budget:query',
   'generation-pricing': 'commerce:generation-price:query',
   'usage-pricing': 'commerce:usage-price:query',
+  // 24 号 D8：公司池科目价格（预扣写快照，后台调价只影响新任务）
+  'org-point-pricing': 'commerce:org-point-price:query',
   export: 'design:export:manage',
   audit: 'design:audit:query',
   // 此前遗漏该键，导致「隐私申请」页因 permission 恒为 falsy 而永不出现在菜单（只能手输 URL）。

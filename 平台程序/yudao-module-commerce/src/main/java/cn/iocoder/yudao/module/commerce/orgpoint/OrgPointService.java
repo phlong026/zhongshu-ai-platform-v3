@@ -55,6 +55,10 @@ public class OrgPointService implements OrgPointPort {
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
+
+    /** D8 表化价格（DB 配置优先；缺省/单测未注入时回退 BillingPriceCatalog 默认价）。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private OrgPointPriceService priceService;
     /** 只读一致快照（REPEATABLE READ）：告警汇总的 total/byOrg/样本必须来自同一时点。 */
     private final TransactionTemplate snapshotTx;
     /** 配置变更业务审计（任务书 §106/§180）：构造器必传，生产缺失 Bean 即启动失败。 */
@@ -156,9 +160,9 @@ public class OrgPointService implements OrgPointPort {
 
     @Override
     public long reserve(ReserveCommand command) {
-        BillingPriceCatalog.Subject subject = BillingPriceCatalog.subject(command.subject());
+        PriceSpec spec = resolvePrice(command.subject());
         long quantity = Math.max(command.quantity(), 1);
-        long n = BillingPriceCatalog.creditsFor(subject, quantity);
+        long n = creditsFor(spec, quantity);
         return tx.execute(status -> {
             lockAccount(command.orgId());
             OrgPointAccountRow account = findAccount(command.orgId());
@@ -170,7 +174,7 @@ public class OrgPointService implements OrgPointPort {
             }
             LedgerRow replayed = findByBizKey(command.bizKey());
             if (replayed != null) {
-                if (!sameReserveIntent(replayed, command, subject.key())) {
+                if (!sameReserveIntent(replayed, command, spec.subject())) {
                     throw exception(ORG_POINT_REPLAY_CONFLICT);
                 }
                 return replayed.operationId();
@@ -178,7 +182,7 @@ public class OrgPointService implements OrgPointPort {
             // 评审 P2-3：账期与时间锚点一次获取，校验与入账共用同一个月界
             String month = currentMonth();
             Instant now = Instant.now();
-            enforceSubjectPermission(command.orgId(), command.actorUserId(), subject.key());
+            enforceSubjectPermission(command.orgId(), command.actorUserId(), spec.subject());
             enforceMemberQuota(command.orgId(), command.actorUserId(), n, month);
             int updated = jdbc.update("UPDATE org_point_account SET balance = balance - ?, "
                     + "version = version + 1, update_time = now() WHERE org_id = ? AND balance >= ? "
@@ -187,9 +191,9 @@ public class OrgPointService implements OrgPointPort {
                 throw exception(ORG_POINT_INSUFFICIENT);
             }
             long operationId = IdWorker.getId();
-            String snapshot = JsonUtils.toJsonString(snapshot(subject, quantity, n, null, null));
+            String snapshot = JsonUtils.toJsonString(snapshot(spec, quantity, n, null, null));
             insertLedger(new LedgerInsert(command.orgId(), operationId, command.bizKey(),
-                    now, TYPE_RESERVE, subject.key(), command.actorUserId(),
+                    now, TYPE_RESERVE, spec.subject(), command.actorUserId(),
                     command.actorPostId(), -n, month, snapshot, command.refType(),
                     command.refId(), null));
             return operationId;
@@ -495,8 +499,39 @@ public class OrgPointService implements OrgPointPort {
 
     @Override
     public long quoteCredits(String subject, long quantity) {
-        return BillingPriceCatalog.creditsFor(BillingPriceCatalog.subject(subject),
-                Math.max(quantity, 1));
+        return creditsFor(resolvePrice(subject), Math.max(quantity, 1));
+    }
+
+    /** 生效价规格（DB 配置优先，否则代码默认价）。 */
+    private record PriceSpec(String subject, String unit, long priceMicros, long minCharge,
+                             String versionText) {
+    }
+
+    private PriceSpec resolvePrice(String subjectKey) {
+        BillingPriceCatalog.Subject base = BillingPriceCatalog.subject(subjectKey);
+        if (priceService != null) {
+            OrgPointPriceService.ResolvedPrice resolved = priceService.resolve(subjectKey);
+            if (resolved != null) {
+                return new PriceSpec(subjectKey, resolved.unit(), resolved.priceMicros(),
+                        resolved.minCharge(), resolved.versionText());
+            }
+        }
+        return new PriceSpec(subjectKey, base.unit().name(), base.priceMicrosPerUnit(),
+                base.minCharge(), base.priceVersion());
+    }
+
+    /** 数量 → 积分（向上取整，不低于最低收费；上限防溢出）。 */
+    private static long creditsFor(PriceSpec spec, long quantity) {
+        long q = Math.max(quantity, 1);
+        if (q > BillingPriceCatalog.MAX_QUANTITY) {
+            throw new IllegalArgumentException("计量数量超出上限：" + q);
+        }
+        if (spec.priceMicros() <= 0 || spec.priceMicros() > BillingPriceCatalog.MAX_PRICE_MICROS) {
+            // 写入侧已校验；此处兜底防脏数据使乘法溢出后静默少扣积分
+            throw new IllegalArgumentException("单价超出合法范围（微积分）：" + spec.priceMicros());
+        }
+        long credits = (q * spec.priceMicros() + MICROS_PER_CREDIT - 1) / MICROS_PER_CREDIT;
+        return Math.max(credits, spec.minCharge());
     }
 
     @Override
@@ -729,7 +764,8 @@ public class OrgPointService implements OrgPointPort {
             return;
         }
         long used = monthUsed(orgId, actorUserId, billingMonth);
-        if (used + n > quota) {
+        // 不用 used+n > quota：n 异常巨大时求和会溢出成负数而放行（等价变形，避免溢出）
+        if (n > quota - used) {
             throw exception(ORG_MEMBER_QUOTA_EXCEEDED);
         }
     }
@@ -830,13 +866,13 @@ public class OrgPointService implements OrgPointPort {
         return Math.max(credits, minCharge);
     }
 
-    private Map<String, Object> snapshot(BillingPriceCatalog.Subject subject, long quantity,
+    private Map<String, Object> snapshot(PriceSpec subject, long quantity,
                                          long n, Long actualQuantity, Long m) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("subject", subject.key());
-        snapshot.put("unit", subject.unit().name());
-        snapshot.put("priceMicrosPerUnit", subject.priceMicrosPerUnit());
-        snapshot.put("priceVersion", subject.priceVersion());
+        snapshot.put("subject", subject.subject());
+        snapshot.put("unit", subject.unit());
+        snapshot.put("priceMicrosPerUnit", subject.priceMicros());
+        snapshot.put("priceVersion", subject.versionText());
         snapshot.put("minCharge", subject.minCharge());
         snapshot.put("quantity", quantity);
         snapshot.put("credits", n);

@@ -65,6 +65,11 @@ public final class BillingPriceCatalog {
         return subject;
     }
 
+    /** 全部科目（按目录声明顺序）：后台价格页据此展示科目清单与代码默认价。 */
+    public static java.util.Collection<Subject> all() {
+        return java.util.Collections.unmodifiableCollection(SUBJECTS.values());
+    }
+
     public static boolean contains(String key) {
         return key != null && SUBJECTS.containsKey(key);
     }
@@ -82,4 +87,17 @@ public final class BillingPriceCatalog {
 
     /** 单笔计量上限（秒/次）：1e9 秒 ≈ 31 年，足以覆盖任何真实业务且乘加不溢出。 */
     public static final long MAX_QUANTITY = 1_000_000_000L;
+
+    /**
+     * 单价上限（微积分/单位）= 1000 积分/单位。
+     * 与 MAX_QUANTITY 相乘 ≤ 1e18 < Long.MAX，保证换算不溢出（否则会静默少扣积分）。
+     */
+    public static final long MAX_PRICE_MICROS = 1_000_000_000L;
+
+    /**
+     * 最低收费上限（积分）= 1e9。
+     * minCharge 会直接成为单笔预扣 N：不设上限时巨大值会让 `当月已用 + N` 溢出并绕过员工额度，
+     * 也会让快照里的 Long 超出 JS 安全整数而被序列化为字符串（结算端按 Number 读取会抛 CCE）。
+     */
+    public static final long MAX_MIN_CHARGE = 1_000_000_000L;
 }
