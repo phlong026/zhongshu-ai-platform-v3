@@ -1,0 +1,37 @@
+{
+ "generatedAt": "2026-11-13",
+ "note": "任务02产物身份登记；hash 为登记时点本机快照，运行制品一致性由任务04回填核验",
+ "candidate": {
+  "miniapp": {
+   "repo": "zhongshu-ai-platform-v3",
+   "branch": "main",
+   "sourceSha": "0f60217b915475ea2616577a9945b7fa953e9b9b",
+   "upToDateWithOrigin": true,
+   "localChecks": "npm run check 退出0（181 JS/60 JSON/35页/mainBytes 1953365）；认证契约54绿；265断言（verify-operating-brief-payment-void）"
+  },
+  "backend": {
+   "repo": "众墅之家AI赋能平台（平台程序）",
+   "line": "feat/backend-miniapp-parity（parity 主线）",
+   "sourceSha": "c156c0d19af5a8dff8ca58d1a00a943fd4eb385d",
+   "worktreeNote": "B 工作树当前在 feat/org-point-pool-20261113@49a2a147（同内容+任务书期文档），候选以 parity 主线为准",
+   "splitTree": {
+    "path": ".worktrees/platform-split-20261110",
+    "headSha": "60e70cfb9f10e39e53464aafbcf2b8596dedc696",
+    "docs": [
+     "docs/platform-split-20261110/实施记录与验收清单-20261111.md",
+     "docs/platform-split-20261110/交付说明-20261112.md"
+    ]
+   }
+  },
+  "adminUi": {
+   "repo": "众墅之家AI赋能平台（平台程序/admin-ui）",
+   "distDir": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/admin-ui/dist",
+   "dist": {
+    "files": 307,
+    "bytes": 9411852,
+    "sha256": "9e6326e8566a0bac14cd857a576203e5c9a288638b48a0601354f2bd0fce1edc"
+   },
+   "mtimeNote": "mtime 不作线上版本依据（复审与实施基线-20261110.md:46）；候选部署前需重新 build:prod 并绑定源码 SHA"
+  }
+ }
+}

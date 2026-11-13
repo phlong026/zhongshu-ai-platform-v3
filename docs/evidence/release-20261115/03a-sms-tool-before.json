@@ -1,0 +1,60 @@
+{
+ "verdict": "FAIL",
+ "reproduction": "dynamic",
+ "fixedScript": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/平台程序/script/cv-e4-sms.py",
+ "mobileMasked": "138****1234",
+ "checks": {
+  "R1-动态复现-原始脚本被captcha契约拒绝": {
+   "ok": true,
+   "detail": "rc=1 login bodies=[{'mobile': '13800001234', 'code': '123456'}]"
+  },
+  "R1-复现-发码路径打印完整手机号（旧行为）": {
+   "ok": false,
+   "detail": "rc=2 完整手机号出现在stdout=False"
+  },
+  "F1-仅发码退出码0": {
+   "ok": false,
+   "detail": "rc=1 stderr=).end())\n  File \"/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py\", line 355, in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\njson.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n"
+  },
+  "F1-恰好1次send且0次login": {
+   "ok": false,
+   "detail": "sends=0 logins=0"
+  },
+  "F1-发送不写登录证据": {
+   "ok": true,
+   "detail": "send 步骤不应落证据文件"
+  },
+  "F1-不宣称登录通过": {
+   "ok": true,
+   "detail": "发送成功不得表述为登录 PASS"
+  },
+  "F2-仅登录退出码0": {
+   "ok": false,
+   "detail": "rc=1 stderr=).end())\n  File \"/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py\", line 355, in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\njson.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n"
+  },
+  "F2-登录不重发(0次send)": {
+   "ok": true,
+   "detail": "sends=0"
+  },
+  "F2-请求体含6位captcha且无code": {
+   "ok": false,
+   "detail": "bodies=[]"
+  },
+  "F2-登录证据落盘": {
+   "ok": false,
+   "detail": "files=[]"
+  },
+  "F3-输出全程脱敏": {
+   "ok": true,
+   "detail": "校正后脚本 stdout/stderr 不得出现完整手机号"
+  }
+ },
+ "failures": [
+  "R1-复现-发码路径打印完整手机号（旧行为）",
+  "F1-仅发码退出码0",
+  "F1-恰好1次send且0次login",
+  "F2-仅登录退出码0",
+  "F2-请求体含6位captcha且无code",
+  "F2-登录证据落盘"
+ ]
+}
