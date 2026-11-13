@@ -120,12 +120,19 @@ public class CustomerService {
      * 接手人候选：与 transfer 的校验完全同源——先按 {@link #salesPostOf} 选出规范岗位
      * （sales 优先于 sales-lead），再用该岗位的团队判断授权范围，避免"看到的候选点下去被拒"。
      */
-    public List<TransferCandidate> transferCandidates(PostSnapshot post) {
+    public List<TransferCandidate> transferCandidates(PostSnapshot post, long customerId) {
+        // 与 transfer 同源：先把 transfer 的门禁原样过一遍（可读 ≠ 可转让），
+        // 否则主管调岗后旧团队客户仍可读并返回候选，但每次转让都会被拒。
+        CustomerDO customer = requireReadable(post, customerId);
+        if (!CustomerAccess.canTransfer(post, customer)) {
+            throw exception(CUSTOMER_FORBIDDEN);
+        }
         java.util.LinkedHashMap<Long, TransferCandidate> byUser = new java.util.LinkedHashMap<>();
         for (String role : List.of("sales", "sales-lead")) {
             for (StaffPostDO postRow : staffPostService.listActivePostsInOrg(post.orgId(), role)) {
                 long userId = postRow.getUserId();
-                if (byUser.containsKey(userId) || userId == post.userId()) continue;
+                if (byUser.containsKey(userId) || userId == post.userId()
+                        || userId == customer.getOwnerUserId()) continue;
                 StaffPostDO canonical = salesPostOf(post, userId);
                 if (canonical == null) continue;
                 if (!isBoss(post) && !CustomerAccess.teamAccess(post, canonical.getTeamId())) continue;
@@ -365,6 +372,7 @@ public class CustomerService {
         if (commands.replayed(post, idempotencyKey, input).isEmpty()) {
             StaffPostDO target = salesPostOf(post, input.targetUserId());
             if (target == null || Objects.equals(customer.getOwnerUserId(), target.getUserId())
+                    || target.getUserId() == post.userId()
                     || !isBoss(post) && !CustomerAccess.teamAccess(post, target.getTeamId())) {
                 throw exception(TRANSFER_TARGET_INVALID);
             }

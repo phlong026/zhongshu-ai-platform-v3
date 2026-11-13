@@ -215,7 +215,13 @@ test('customers page: transfer sends revision and idempotency key, failure refre
           ownerOptionCalls += 1
           return [{ userId: '1', name: '王五' }]
         },
-        getTransferCandidates: async () => [{ userId: '2', name: '李四', roleCode: 'sales' }],
+        getTransferCandidates: async (customerId) => {
+          assert.equal(customerId, '9')
+          return [
+            { userId: '2', name: '李四', roleCode: 'sales' },
+            { userId: '1', name: '当前负责人', roleCode: 'sales' }
+          ]
+        },
         transferCustomer: async () => {
           transferCalls += 1
           if (transferCalls === 1) return {}
@@ -365,4 +371,92 @@ test('customers page: transfer success with refresh failure keeps the success fa
   await page.confirmTransfer()
   assert.match(page.customerNotice.value, /转让已成功，列表刷新失败/)
   assert.equal(page.customerError.value, false)
+})
+
+test('customers page: transfer candidates exclude the current owner and pass customerId', async () => {
+  const calls = []
+  const row = {
+    id: '9',
+    name: '张三',
+    phone: '13800000001',
+    status: 'REGISTERED',
+    ownerUserId: '1',
+    revision: 3
+  }
+  const page = loadPage(
+    identity(['franchise:lead:handle', 'franchise:customer:query', 'franchise:customer:transfer']),
+    {
+      customerApi: {
+        getCustomers: async () => ({ list: [row], total: 1 }),
+        getOwnerOptions: async () => [],
+        getTransferCandidates: async (customerId) => {
+          calls.push(customerId)
+          return [
+            { userId: '2', name: '李四', roleCode: 'sales' },
+            { userId: '1', name: '当前负责人', roleCode: 'sales' }
+          ]
+        },
+        transferCustomer: async () => ({})
+      }
+    }
+  )
+  await page.openTransfer(row)
+  assert.equal(calls[0], '9')
+  assert.deepEqual(
+    page.transferCandidates.value.map((c) => c.userId),
+    ['2']
+  )
+})
+
+test('customers page: failed page change keeps previous page number and data', async () => {
+  let failNext = false
+  const page = loadPage(identity(['franchise:lead:handle', 'franchise:customer:query']), {
+    customerApi: {
+      getCustomers: async (params) => {
+        if (failNext) throw new Error('page 3 down')
+        return { list: [{ id: `p${params.pageNo}` }], total: 40 }
+      },
+      getOwnerOptions: async () => [],
+      getTransferCandidates: async () => [],
+      transferCustomer: async () => ({})
+    }
+  })
+  await page.loadCustomers(2)
+  assert.equal(page.customerPageNo.value, 2)
+  failNext = true
+  await page.onCustomerPageChange(3)
+  assert.equal(page.customerPageNo.value, 2)
+  assert.equal(page.customers.value.list[0].id, 'p2')
+  assert.match(page.customerNotice.value, /客资列表加载失败/)
+})
+
+test('customers page: transfer failure with refresh failure keeps both facts', async () => {
+  const page = loadPage(
+    identity(['franchise:lead:handle', 'franchise:customer:query', 'franchise:customer:transfer']),
+    {
+      customerApi: {
+        getCustomers: async () => {
+          throw new Error('refresh down')
+        },
+        getOwnerOptions: async () => [],
+        getTransferCandidates: async () => [],
+        transferCustomer: async () => {
+          throw new Error('conflict')
+        }
+      }
+    }
+  )
+  page.transferRow.value = {
+    id: '9',
+    name: '张三',
+    phone: '13800000001',
+    status: 'REGISTERED',
+    ownerUserId: '1',
+    revision: 3
+  }
+  page.transferTargetUserId.value = '2'
+  page.transferReason.value = '调岗'
+  await page.confirmTransfer()
+  assert.match(page.customerNotice.value, /转让失败，且列表刷新失败/)
+  assert.equal(page.customerError.value, true)
 })

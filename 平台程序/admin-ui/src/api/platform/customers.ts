@@ -52,8 +52,8 @@ export interface OwnerOption {
 export const getOwnerOptions = (): Promise<OwnerOption[]> =>
   request.get({ url: '/franchise/customers/owner-options' })
 
-export const getTransferCandidates = (): Promise<TransferCandidate[]> =>
-  request.get({ url: '/franchise/customers/transfer-candidates' })
+export const getTransferCandidates = (customerId: PlatformId): Promise<TransferCandidate[]> =>
+  request.get({ url: '/franchise/customers/transfer-candidates', params: { customerId } })
 
 export const transferCustomer = (
   id: PlatformId,

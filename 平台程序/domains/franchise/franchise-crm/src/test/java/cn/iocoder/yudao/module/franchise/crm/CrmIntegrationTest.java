@@ -289,27 +289,44 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
-    void transferCandidatesRespectRoleTeamAndActiveStatus() {
-        var bossCandidates = as(boss, () -> customers.transferCandidates(boss));
+    void transferCandidatesRespectRoleTeamActiveStatusAndCurrentOwner() {
+        long customerId = capture(salesA2, phone()).customerId();
+        var bossCandidates = as(boss, () -> customers.transferCandidates(boss, customerId));
         assertThat(bossCandidates).extracting(CustomerService.TransferCandidate::userId)
-                .contains(salesA1.userId(), salesA2.userId(), salesB.userId(),
-                        leadA.userId(), leadWholeLine.userId())
-                .doesNotContain(engineer.userId(), boss.userId(), otherStoreSales.userId());
+                .contains(salesA1.userId(), salesB.userId(), leadA.userId(), leadWholeLine.userId())
+                // 当前负责人不是合法接手人；工程/老板/跨组织销售也不是
+                .doesNotContain(salesA2.userId(), engineer.userId(), boss.userId(), otherStoreSales.userId());
 
-        // 销售主管只能看到自己管理团队的候选
-        var leadCandidates = as(leadA, () -> customers.transferCandidates(leadA));
+        // 销售主管只能看到自己管理团队的候选（且排除当前负责人 salesA2）
+        var leadCandidates = as(leadA, () -> customers.transferCandidates(leadA, customerId));
         assertThat(leadCandidates).extracting(CustomerService.TransferCandidate::userId)
-                .containsExactlyInAnyOrder(salesA1.userId(), salesA2.userId());
+                .containsExactly(salesA1.userId());
 
         // 停用账号不得成为接手人
-        FakeSystemDirectory.INSTANCE.setUserActive(salesA2.userId(), false);
+        FakeSystemDirectory.INSTANCE.setUserActive(salesA1.userId(), false);
         try {
-            assertThat(as(boss, () -> customers.transferCandidates(boss)))
+            assertThat(as(boss, () -> customers.transferCandidates(boss, customerId)))
                     .extracting(CustomerService.TransferCandidate::userId)
-                    .doesNotContain(salesA2.userId());
+                    .doesNotContain(salesA1.userId());
         } finally {
-            FakeSystemDirectory.INSTANCE.setUserActive(salesA2.userId(), true);
+            FakeSystemDirectory.INSTANCE.setUserActive(salesA1.userId(), true);
         }
+
+        // 可读 ≠ 可转让：sales 能读自己经办的客户，但候选端点应与 transfer 一样拒绝
+        long ownCustomerId = capture(salesA1, phone()).customerId();
+        assertError(() -> as(salesA1, () -> customers.transferCandidates(salesA1, ownCustomerId)),
+                CUSTOMER_FORBIDDEN);
+
+        // 跨组织 customerId：不可读即不可枚举候选（与 transfer 的 requireReadable 同源）
+        long otherCustomerId = capture(otherStoreSales, phone()).customerId();
+        assertError(() -> as(boss, () -> customers.transferCandidates(boss, otherCustomerId)),
+                CUSTOMER_NOT_FOUND);
+
+        // 与 transfer 同源：转给当前负责人 / 转给自己都必须拒绝
+        assertError(() -> as(boss, () -> customers.transfer(boss, customerId,
+                new TransferCommand(salesA2.userId(), "转给当前负责人"), 1, null)), TRANSFER_TARGET_INVALID);
+        assertError(() -> as(leadA, () -> customers.transfer(leadA, customerId,
+                new TransferCommand(leadA.userId(), "转给自己"), 1, null)), TRANSFER_TARGET_INVALID);
     }
 
 
@@ -333,11 +350,12 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         fixture.postFor(userId, store.orgId(), SALES_LEAD, store.salesTeamA());
 
         // 规范岗位是 sales(B)（sales 优先），A 团队主管看到候选也会被转让校验拒绝 → 候选不得出现
-        assertThat(as(leadA, () -> customers.transferCandidates(leadA)))
+        long candidateCustomerId = capture(salesA1, phone()).customerId();
+        assertThat(as(leadA, () -> customers.transferCandidates(leadA, candidateCustomerId)))
                 .extracting(CustomerService.TransferCandidate::userId)
                 .doesNotContain(userId);
 
-        var bossRow = as(boss, () -> customers.transferCandidates(boss)).stream()
+        var bossRow = as(boss, () -> customers.transferCandidates(boss, candidateCustomerId)).stream()
                 .filter(c -> c.userId() == userId).findFirst().orElseThrow();
         assertThat(bossRow.roleCode()).isEqualTo(SALES);
         assertThat(bossRow.teamId()).isEqualTo(store.salesTeamB());

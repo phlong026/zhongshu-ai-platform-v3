@@ -65,7 +65,8 @@ public class CustomerController {
                                                       @RequestParam(required = false) String keyword,
                                                       @RequestParam(required = false) String status,
                                                       @RequestParam(required = false) Long ownerUserId) {
-        if (status != null && !status.isBlank()
+        status = cn.hutool.core.util.StrUtil.trimToNull(status);
+        if (status != null
                 && !CustomerDO.STATUS_REGISTERED.equals(status) && !CustomerDO.STATUS_FOLLOWING.equals(status)) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "状态只支持 REGISTERED/FOLLOWING");
         }
@@ -92,8 +93,9 @@ public class CustomerController {
     @GetMapping("/transfer-candidates")
     @Operation(summary = "接手人候选：本组织在岗 sales/sales-lead；非老板按授权团队收窄，停用账号排除")
     @PreAuthorize("@post.has('franchise:customer:transfer')")
-    public CommonResult<java.util.List<CustomerService.TransferCandidate>> transferCandidates() {
-        return success(customerService.transferCandidates(currentPost.require()));
+    public CommonResult<java.util.List<CustomerService.TransferCandidate>> transferCandidates(
+            @RequestParam long customerId) {
+        return success(customerService.transferCandidates(currentPost.require(), customerId));
     }
 
     @GetMapping("/{id}")

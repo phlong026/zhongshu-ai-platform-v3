@@ -147,6 +147,7 @@ function loadPage(apiStub, identityStore, elMessage) {
       if (name === '@/api/platform/customers') {
         return {
           getCustomers: async () => ({ list: [], total: 0 }),
+          getOwnerOptions: async () => [],
           getTransferCandidates: async () => [],
           transferCustomer: async () => ({})
         }

@@ -374,20 +374,21 @@ let customerGeneration = 0
 const ownerOptions = ref<OwnerOption[]>([])
 const ownerOptionsLoaded = ref(false)
 const transferCandidates = ref<TransferCandidate[]>([])
+const transferCandidateCache = new Map<string, TransferCandidate[]>()
 const transferDialog = ref(false)
 const transferBusy = ref(false)
 const transferRow = ref<CustomerRow | null>(null)
 const transferTargetUserId = ref('')
 const transferReason = ref('')
 
-const loadCustomers = async (): Promise<boolean> => {
+const loadCustomers = async (targetPage = customerPageNo.value): Promise<boolean> => {
   if (!canQueryCustomers.value) return false
   const generation = ++customerGeneration
   customerLoading.value = true
   customerNotice.value = ''
   try {
     const query = normalizeCustomerQuery({
-      pageNo: customerPageNo.value,
+      pageNo: targetPage,
       pageSize: customerPageSize,
       keyword: customerFilters.value.keyword,
       status: customerFilters.value.status,
@@ -396,6 +397,8 @@ const loadCustomers = async (): Promise<boolean> => {
     const result = await customerApi.getCustomers(query)
     if (generation !== customerGeneration) return false
     customers.value = { list: result?.list || [], total: result?.total || 0 }
+    // 成功后才切页码：失败时页码与表格仍停在同一页，避免"第 3 页显示第 2 页数据"。
+    customerPageNo.value = query.pageNo
     return true
   } catch {
     if (generation !== customerGeneration) return false
@@ -414,9 +417,8 @@ const searchCustomers = () => {
 const reloadCustomers = () => {
   void loadCustomers()
 }
-const onCustomerPageChange = (page: number) => {
-  customerPageNo.value = page
-  void loadCustomers()
+const onCustomerPageChange = async (page: number) => {
+  await loadCustomers(page)
 }
 
 const loadOwnerOptions = async (force = false) => {
@@ -429,12 +431,24 @@ const loadOwnerOptions = async (force = false) => {
   }
 }
 
-const loadTransferCandidates = async () => {
-  if (!canTransfer.value || transferCandidates.value.length) return
+const loadTransferCandidates = async (customer: CustomerRow) => {
+  if (!canTransfer.value) return
+  const key = `${customer.id}:${customer.revision}`
+  const cached = transferCandidateCache.get(key)
+  if (cached) {
+    transferCandidates.value = cached
+    return
+  }
   try {
-    transferCandidates.value = await customerApi.getTransferCandidates()
+    const list = await customerApi.getTransferCandidates(customer.id)
+    // 双保险：服务端已排除当前负责人与操作者，前端再挡一次。
+    transferCandidates.value = (list || []).filter(
+      (candidate) => `${candidate.userId}` !== `${customer.ownerUserId}`
+    )
+    transferCandidateCache.set(key, transferCandidates.value)
   } catch {
     transferCandidates.value = []
+    ElMessage.warning('接手人候选加载失败，请重试')
   }
 }
 
@@ -443,7 +457,7 @@ const openTransfer = async (row: CustomerRow) => {
   transferTargetUserId.value = ''
   transferReason.value = ''
   transferDialog.value = true
-  await loadTransferCandidates()
+  await loadTransferCandidates(row)
 }
 
 const confirmTransfer = async () => {
@@ -483,10 +497,10 @@ const confirmTransfer = async () => {
   } catch {
     transferDialog.value = false
     const refreshed = await loadCustomers()
-    if (refreshed) {
-      customerNotice.value = '转让失败：该客资可能已被他人修改，列表已刷新，请重试'
-      customerError.value = true
-    }
+    customerNotice.value = refreshed
+      ? '转让失败：该客资可能已被他人修改，列表已刷新，请重试'
+      : '转让失败，且列表刷新失败，请手动刷新后重试'
+    customerError.value = true
   } finally {
     transferBusy.value = false
   }

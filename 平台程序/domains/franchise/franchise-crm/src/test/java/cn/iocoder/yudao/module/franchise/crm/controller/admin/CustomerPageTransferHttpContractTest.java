@@ -24,6 +24,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -66,9 +67,10 @@ class CustomerPageTransferHttpContractTest {
                 .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), 0L));
         when(service.ownerOptions(any())).thenReturn(List.of(
                 new CustomerService.OwnerOption(7L, "李四")));
-        when(service.transferCandidates(any())).thenReturn(List.of(
+        when(service.transferCandidates(any(), anyLong())).thenReturn(List.of(
                 new CustomerService.TransferCandidate(7L, "李四", "sales", 11L, "业务一组")));
-        when(directory.usersByIds(any())).thenReturn(List.of());
+        when(directory.usersByIds(any())).thenReturn(List.of(
+                new SystemDirectory.UserBrief(7L, "李四", "13800000000", true)));
     }
 
     @AfterEach
@@ -125,20 +127,57 @@ class CustomerPageTransferHttpContractTest {
     void transferCandidatesRequireTransferPermission() {
         when(directory.roleHasPermission("boss", "franchise:customer:transfer")).thenReturn(false);
         when(directory.roleHasPermission("boss", "franchise:customer:query")).thenReturn(true);
-        context.run(ctx -> mvc(ctx).perform(get("/franchise/customers/transfer-candidates"))
+        context.run(ctx -> mvc(ctx).perform(get("/franchise/customers/transfer-candidates")
+                        .param("customerId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(403)));
     }
 
     @Test
     void transferCandidatesReturnActiveSalesWithTeamName() {
-        context.run(ctx -> mvc(ctx).perform(get("/franchise/customers/transfer-candidates"))
+        context.run(ctx -> mvc(ctx).perform(get("/franchise/customers/transfer-candidates")
+                        .param("customerId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data[0].userId").value(7))
                 .andExpect(jsonPath("$.data[0].name").value("李四"))
                 .andExpect(jsonPath("$.data[0].roleCode").value("sales"))
                 .andExpect(jsonPath("$.data[0].teamName").value("业务一组")));
+    }
+
+    @Test
+    void transferCandidatesRequireCustomerId() {
+        context.run(ctx -> mvc(ctx).perform(get("/franchise/customers/transfer-candidates"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400)));
+    }
+
+    @Test
+    void pageMapsOwnerNameAndFallsBackToEmpty() {
+        var customer = new cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO();
+        customer.setId(5L);
+        customer.setCompanyId(ORG);
+        customer.setName("张三");
+        customer.setPhone("13800000001");
+        customer.setSource("门店");
+        customer.setStatus("REGISTERED");
+        customer.setOwnerUserId(7L);
+        customer.setRevision(1L);
+        when(service.page(any(), any(), any(), any(), any()))
+                .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(customer), 1L));
+        context.run(ctx -> mvc(ctx).perform(get("/franchise/customers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.list[0].ownerName").value("李四")));
+    }
+
+    @Test
+    void unreadableCustomerIdIsRejectedByServiceEnvelope() {
+        when(service.transferCandidates(any(), anyLong())).thenThrow(
+                new cn.iocoder.yudao.framework.common.exception.ServiceException(1_110_000_000, "客户不存在或无权访问"));
+        context.run(ctx -> mvc(ctx).perform(get("/franchise/customers/transfer-candidates")
+                        .param("customerId", "999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1110000000)));
     }
 
     @Test
