@@ -23,3 +23,6 @@ miniprogram/project.config.json
 # verify-finance-desk-platform 运行时生成的幂等键沙盒夹具
 scripts/.m08t01-sandbox.js
 .gstack/
+
+# 后端测试/服务误生成日志（LOG_FILE 变量未定义时 logback 用它当字面文件名）
+LOG_FILE_IS_UNDEFINED
