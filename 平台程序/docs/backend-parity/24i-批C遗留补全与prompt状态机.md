@@ -78,9 +78,19 @@
 | P2-1 | 阈值无范围校验（配 -1 会把新记录也报出） | 服务层校验 `1..720` 小时，越界抛错（Job 捕获后跳过本轮并告警日志） |
 | P2-2 | 人工 settle 接受 0/负数并按 1 入账 | 端点 `@Min(1)` + 类 `@Validated`，零交付必须走 release |
 
-| P2-2 | 汇总三次查询非同一快照（total=1 但 byOrg 为空） | 汇总整体包进 **REPEATABLE READ 只读事务**（`snapshotTx`），total/byOrg/样本同一时点 |
+| P2-2 | 汇总三次查询非同一快照（total=1 但 byOrg 为空） | 汇总整体包进 **REPEATABLE READ 只读事务**（`snapshotTx`）；R3 指出外层事务会使其失效 → 改 **REQUIRES_NEW**；R4 PASS |
 
 复跑：`OrgPointOnboardAndViewIntegrationTest` **8/8**（新增跨组织全覆盖、阈值越界）；orgpoint 相关 24/24；commerce 全套 64/64；全仓 compile 通过。
+
+## D6 §2.4 告警 Job 评审闭环
+
+| 轮次 | 结论 | 处置 |
+|---|---|---|
+| R1 | FAIL（1 P1 + 2 P2） | 截断漏组织 / 阈值无校验 / settle 收 0 负数 |
+| 修复 | `eb2c5410` | 按组织全量聚合 + 阈值 1..720 + `@Min(1)` |
+| R2 | FAIL（1 P2） | 三次查询非同一快照 |
+| 修复 | `a77f0190` → `5e49090d` | RR 只读 + **REQUIRES_NEW** |
+| R4 | **PASS** | 极窄终审核销 |
 
 ## 四、未做/边界
 
