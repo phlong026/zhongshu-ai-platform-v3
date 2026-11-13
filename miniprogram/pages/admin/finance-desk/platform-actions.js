@@ -63,10 +63,32 @@ module.exports = function attach(page, financeApi, PF) {
       wx.showToast({ title: '请先选择对应待登记应收', icon: 'none' });
       return;
     }
+    const post = authApi.currentApiPost() || {};
+    const scope = {
+      session: httpApi.sessionGeneration(),
+      orgId: String(post.orgId || ''),
+      postId: String(post.postId || '')
+    };
+    const context = [scope.session, scope.orgId, scope.postId, String(flowId), String(receipt.id)].join('|');
+    if (this.bankConfirmIdemCtx !== context) {
+      this.bankConfirmIdem = financeApi.idemKey('confirm');
+      this.bankConfirmIdemCtx = context;
+    }
+    const idem = this.bankConfirmIdem;
+    const stillSameScope = () => {
+      const current = authApi.currentApiPost() || {};
+      return scope.session === httpApi.sessionGeneration()
+        && scope.orgId === String(current.orgId || '')
+        && scope.postId === String(current.postId || '');
+    };
     this.setData({ busy: true });
-    financeApi.confirmBank(String(flowId), receipt.id) // M08-T07
-      .then(() => { wx.showToast({ title: '已确认入账' }); this.loadPlatformFinance(); })
-      .catch(err => { wx.showToast({ title: PF.errorMessage(err), icon: 'none' }); })
+    financeApi.confirmBank(String(flowId), receipt.id, idem) // 同一业务上下文失败重试复用同键
+      .then(() => {
+        if (this.bankConfirmIdemCtx === context) { this.bankConfirmIdem = null; this.bankConfirmIdemCtx = null; }
+        if (!stillSameScope()) return;
+        wx.showToast({ title: '已确认入账' }); this.loadPlatformFinance();
+      })
+      .catch(err => { if (stillSameScope()) wx.showToast({ title: PF.errorMessage(err), icon: 'none' }); })
       .finally(() => this.setData({ busy: false }));
   };
   page.submitRegister = function () {
