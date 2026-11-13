@@ -218,4 +218,44 @@ export interface FinanceExportQuery {
  * 文件名由前端按 table 约定（后端 Content-Disposition 仍正确，仅前端未取用——如实登记边界）。
  */
 export const exportFinanceCsv = (params: FinanceExportQuery): Promise<Blob> =>
-  service({ method: 'POST', url: '/franchise/finance/exports', params, responseType: 'blob' }) as unknown as Promise<Blob>
+  service({
+    method: 'POST',
+    url: '/franchise/finance/exports',
+    params,
+    responseType: 'blob'
+  }) as unknown as Promise<Blob>
+
+// ===== 异常资金写操作（P1 尾批①）=====
+
+export interface AbnormalRegisterPayload {
+  fundDirection: string
+  amountCents: number
+  counterparty?: string
+  relatedProjectId?: string
+  stageOrCategory?: string
+  businessDate?: string
+  method?: string
+  transactionNo?: string
+  reason?: string
+}
+
+/** 登记异常资金（幂等键由页面按弹窗会话生成）。 */
+export const registerAbnormalFund = (
+  data: AbnormalRegisterPayload,
+  idempotencyKey: string
+): Promise<{ fundId: string }> =>
+  request.post({
+    url: '/franchise/finance/abnormal-funds',
+    data,
+    headers: { 'Idempotency-Key': idempotencyKey }
+  })
+
+/** 转正关联：linkedType 由资金方向唯一决定（receipt/refund/payment）。 */
+export const linkAbnormalFund = (
+  id: string | number,
+  data: { linkedType: string; linkedId: string }
+): Promise<boolean> => request.post({ url: `/franchise/finance/abnormal-funds/${id}/link`, data })
+
+/** 作废（留痕；幂等）。 */
+export const voidAbnormalFund = (id: string | number, reason: string): Promise<boolean> =>
+  request.delete({ url: `/franchise/finance/abnormal-funds/${id}`, data: { reason } })
