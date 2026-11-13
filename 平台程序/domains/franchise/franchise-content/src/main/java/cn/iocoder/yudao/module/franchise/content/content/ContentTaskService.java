@@ -229,12 +229,15 @@ public class ContentTaskService {
         return store.insert(id, companyId, authorUserId, kind, JsonUtils.toJsonString(input), sha);
     }
 
-    /** 公司积分池预扣（24 号 B-13 content 批 A）：biz_key=content:{taskId}:{subject}，任务级幂等。 */
-    private void reservePool(long companyId, long authorUserId, String subject, int units,
-                             long taskId, String refType, long refId) {
+    /** 公司积分池预扣（24 号 B-13 content 批 A）：biz_key=content:{taskId}:{subject}，任务级幂等。
+     *  返回预扣键并落库到任务行——终态后结算失败可由 reconcilePool 幂等重试（评审 P1-4）。 */
+    private String reservePool(long companyId, long authorUserId, String subject, int units,
+                               long taskId, String refType, long refId) {
+        String bizKey = "content:" + taskId + ":" + subject;
         orgPoint.reserve(new OrgPointPort.ReserveCommand(
-                "content:" + taskId + ":" + subject, companyId, authorUserId, null,
-                subject, units, refType, refId));
+                bizKey, companyId, authorUserId, null, subject, units, refType, refId));
+        store.markPoolBizKey(taskId, companyId, bizKey);
+        return bizKey;
     }
 
     public FrContentTaskDO requireOwned(long companyId, long taskId) {
@@ -471,19 +474,48 @@ public class ContentTaskService {
             if (latest == null) {
                 return;
             }
+            String bizKey = latest.getPoolBizKey();
             String subject = poolSubject(latest);
-            if (subject == null) {
-                return;
+            if (bizKey == null) {
+                if (subject == null) {
+                    return;
+                }
+                bizKey = "content:" + latest.getId() + ":" + subject;
             }
-            String bizKey = "content:" + latest.getId() + ":" + subject;
             switch (latest.getStatus()) {
-                case "SUCCEEDED" -> orgPoint.settleByBizKey(bizKey, estimatedUnitsOf(latest));
+                case "SUCCEEDED" -> orgPoint.settleByBizKey(bizKey, deliveredUnitsOf(latest));
                 case "FAILED", "CANCELLED" -> orgPoint.releaseByBizKey(bizKey);
                 default -> { /* QUEUED/SUBMITTING/RUNNING/SUBMISSION_UNCERTAIN：保持在途占用 */ }
             }
         } catch (RuntimeException e) {
-            log.warn("org pool settle failed for task {}: {}", task.getId(), e.getMessage());
+            // 不静默：任务已终态但结算失败，由 ContentTaskJob 的 reconcile 扫描幂等重试（评审 P1-4）
+            log.warn("org pool settle failed for task {}, will retry by reconcile sweep: {}",
+                    task.getId(), e.getMessage());
         }
+    }
+
+    /** 终态后结算失败的重试入口（ContentTaskJob 扫描调用；幂等）。 */
+    public void reconcilePool(FrContentTaskDO task) {
+        settlePool(task);
+    }
+
+    /**
+     * 实际交付计量（评审 P1-3）：优先取结果快照的真实值（digital.durationSec / ai_video.outputSeconds），
+     * 缺失才回退到输入预估——否则按预估结算会吃掉应退差额。
+     */
+    private long deliveredUnitsOf(FrContentTaskDO task) {
+        if (task.getResultSnapshot() != null && !task.getResultSnapshot().isBlank()) {
+            Map<String, Object> result = JsonUtils.parseObject(task.getResultSnapshot(), Map.class);
+            Object actual = switch (task.getKind()) {
+                case "digital" -> result.get("durationSec");
+                case "ai_video" -> result.get("outputSeconds");
+                default -> null;
+            };
+            if (actual instanceof Number number && number.longValue() > 0) {
+                return number.longValue();
+            }
+        }
+        return estimatedUnitsOf(task);
     }
 
     private String poolSubject(FrContentTaskDO task) {

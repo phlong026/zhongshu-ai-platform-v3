@@ -67,11 +67,17 @@ public final class BillingPriceCatalog {
         return key != null && SUBJECTS.containsKey(key);
     }
 
-    /** 单位数量 → 积分（向上取整，不低于 minCharge）。 */
+    /** 单位数量 → 积分（向上取整，不低于 minCharge）。数量上限防整数溢出（评审 P2-2）。 */
     public static long creditsFor(Subject subject, long quantity) {
         long q = Math.max(quantity, 1);
+        if (q > MAX_QUANTITY) {
+            throw new IllegalArgumentException("计量数量超出上限：" + q);
+        }
         long numerator = q * subject.priceMicrosPerUnit();
         long credits = (numerator + 999_999L) / 1_000_000L;
         return Math.max(credits, subject.minCharge());
     }
+
+    /** 单笔计量上限（秒/次）：1e9 秒 ≈ 31 年，足以覆盖任何真实业务且乘加不溢出。 */
+    public static final long MAX_QUANTITY = 1_000_000_000L;
 }

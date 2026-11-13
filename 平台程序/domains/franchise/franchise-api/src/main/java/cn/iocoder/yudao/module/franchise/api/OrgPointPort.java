@@ -40,7 +40,9 @@ public interface OrgPointPort {
 
     // ==================== 查询/管理（批 B：老板/员工/总部视图） ====================
 
-    record PoolSummary(long orgId, long balance, long inFlight, String status) {
+    /** 评审 P1-5：补 B-10 要求的"当月全员用量"。 */
+    record PoolSummary(long orgId, long balance, long inFlight, String status,
+                       String month, long monthUsedTotal) {
     }
 
     record LedgerEntry(long id, Long operationId, String type, String subject, Long actorUserId,
@@ -57,6 +59,11 @@ public interface OrgPointPort {
     record MemberQuota(long userId, long monthlyCredits) {
     }
 
+    /** 员工本人当月用量（评审 P1-5：汇总 + 明细分页，替代固定 50 条裸流水）。 */
+    record MyUsage(long orgId, long userId, String month, long used, Long monthlyQuota,
+                   List<LedgerEntry> entries) {
+    }
+
     /** 员工业务权限（null = 无行 = 全允许；空列表 = 全禁）。 */
     record MemberPermission(long userId, java.util.List<String> allowedSubjects) {
     }
@@ -69,6 +76,8 @@ public interface OrgPointPort {
     List<OperationView> operations(long orgId, int page, int size);
 
     long monthUsed(long orgId, long userId, String billingMonth);
+
+    MyUsage myUsage(long orgId, long userId, String billingMonth, int page, int size);
 
     Long memberQuotaOf(long orgId, long userId);
 

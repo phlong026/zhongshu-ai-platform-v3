@@ -27,7 +27,8 @@ public class OrgOnboardListener {
 
     @EventListener
     public void onOnboarded(OrgOnboardedEvent event) {
-        if (!event.designEnabled()) {
+        // 评审 P1-2：只要要求赠点也必须建池（否则赠点写库+余额 0 的账实不一致）
+        if (!event.designEnabled() && event.initialCredits() <= 0) {
             return;
         }
         orgPointService.ensurePoolAccount(event.orgId());

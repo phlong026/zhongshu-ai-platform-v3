@@ -90,11 +90,14 @@ public class OrgPointService implements OrgPointPort {
                 return false;
             }
             lockAccount(orgId);
-            jdbc.update("UPDATE org_point_account SET balance = balance + ?, version = version + 1, "
+            int updated = jdbc.update("UPDATE org_point_account SET balance = balance + ?, version = version + 1, "
                     + "update_time = now() WHERE org_id = ?", credits, orgId);
+            if (updated != 1) {
+                throw new IllegalStateException("开通赠点账户不存在或更新异常：orgId=" + orgId);
+            }
             insertLedger(new LedgerInsert(orgId, null, bizKey, null, TYPE_MANUAL_ADJUST, null,
-                    null, null, credits, null, null, null, null,
-                    note == null ? "开通赠点" : note));
+                    0L, null, credits, null, null, null, null,
+                    note == null ? "开通赠点（系统）" : note));
             return true;
         });
         return Boolean.TRUE.equals(granted);
@@ -102,10 +105,26 @@ public class OrgPointService implements OrgPointPort {
 
     /** 总部人工调点（B-9）：bizKey 幂等；负数不得致余额 < 0。 */
     public OrgPointAccountRow adjustBalance(long orgId, long credits, String bizKey, String note, Long adminUserId) {
-        ensurePoolAccount(orgId);
+        // 评审 P2-4：调点审计必填（管理员 + 说明），拒绝无主调点
+        if (adminUserId == null) {
+            throw new IllegalArgumentException("调点必须记录操作管理员");
+        }
+        if (note == null || note.isBlank()) {
+            throw new IllegalArgumentException("调点必须填写说明");
+        }
         return tx.execute(status -> {
-            if (findByBizKey(bizKey) != null) {
+            LedgerRow replayed = findByBizKey(bizKey);
+            if (replayed != null) {
+                // 评审 P1-3：同键必须同组织同金额，否则拒绝
+                if (!Long.valueOf(orgId).equals(replayed.orgId())
+                        || replayed.availableDelta() != credits) {
+                    throw exception(ORG_POINT_REPLAY_CONFLICT);
+                }
                 return findAccount(orgId);
+            }
+            // 评审 P1-4：调点要求池已开通，不得隐式建 ACTIVE 池
+            if (findAccount(orgId) == null) {
+                throw exception(ORG_NOT_ENABLED);
             }
             lockAccount(orgId);
             int updated = jdbc.update("UPDATE org_point_account SET balance = balance + ?, "
@@ -143,8 +162,11 @@ public class OrgPointService implements OrgPointPort {
                 }
                 return replayed.operationId();
             }
+            // 评审 P2-3：账期与时间锚点一次获取，校验与入账共用同一个月界
+            String month = currentMonth();
+            Instant now = Instant.now();
             enforceSubjectPermission(command.orgId(), command.actorUserId(), subject.key());
-            enforceMemberQuota(command.orgId(), command.actorUserId(), n);
+            enforceMemberQuota(command.orgId(), command.actorUserId(), n, month);
             int updated = jdbc.update("UPDATE org_point_account SET balance = balance - ?, "
                     + "version = version + 1, update_time = now() WHERE org_id = ? AND balance >= ? "
                     + "AND status = 'ACTIVE'", n, command.orgId(), n);
@@ -154,8 +176,8 @@ public class OrgPointService implements OrgPointPort {
             long operationId = IdWorker.getId();
             String snapshot = JsonUtils.toJsonString(snapshot(subject, quantity, n, null, null));
             insertLedger(new LedgerInsert(command.orgId(), operationId, command.bizKey(),
-                    Instant.now(), TYPE_RESERVE, subject.key(), command.actorUserId(),
-                    command.actorPostId(), -n, currentMonth(), snapshot, command.refType(),
+                    now, TYPE_RESERVE, subject.key(), command.actorUserId(),
+                    command.actorPostId(), -n, month, snapshot, command.refType(),
                     command.refId(), null));
             return operationId;
         });
@@ -173,6 +195,11 @@ public class OrgPointService implements OrgPointPort {
                 if (!TYPE_SETTLE.equals(terminal.type())) {
                     throw exception(ORG_POINT_REPLAY_CONFLICT);
                 }
+                // R1-P2（评审 P1-2）：同键改实际量必须拒绝——否则会静默沿用首次结算结果
+                long settledQuantity = actualQuantityOf(terminal.priceSnapshot());
+                if (Math.max(actualQuantity, 1) != settledQuantity) {
+                    throw exception(ORG_POINT_REPLAY_CONFLICT);
+                }
                 long charged = -reserve.availableDelta();
                 long refunded = terminal.availableDelta();
                 return new Settlement(operationId, charged, refunded, true);
@@ -184,9 +211,7 @@ public class OrgPointService implements OrgPointPort {
                 jdbc.update("UPDATE org_point_account SET balance = balance + ?, version = version + 1, "
                         + "update_time = now() WHERE org_id = ?", refund, reserve.orgId());
             }
-            String snapshot = JsonUtils.toJsonString(snapshot(
-                    BillingPriceCatalog.subject(reserve.subject()),
-                    originalQuantity(reserve.priceSnapshot()), charged, actualQuantity, m));
+            String snapshot = terminalSnapshot(reserve.priceSnapshot(), actualQuantity, m);
             insertLedger(new LedgerInsert(reserve.orgId(), operationId,
                     reserve.bizKey() + ":SETTLE", reserve.operationTime(), TYPE_SETTLE,
                     reserve.subject(), reserve.actorUserId(), reserve.actorPostId(), refund,
@@ -248,13 +273,15 @@ public class OrgPointService implements OrgPointPort {
         if (account == null) {
             return null;
         }
-        return new PoolSummary(orgId, account.balance(), inFlight(orgId), account.status());
+        String month = currentMonth();
+        return new PoolSummary(orgId, account.balance(), inFlight(orgId), account.status(),
+                month, orgMonthUsed(orgId, month));
     }
 
     @Override
     public List<LedgerEntry> ledger(long orgId, Long actorUserId, String subject, String billingMonth,
                                     int page, int size) {
-        return ledgerRows(orgId, actorUserId, subject, billingMonth, size, Math.max(page, 1) * size - size)
+        return ledgerRows(orgId, actorUserId, subject, billingMonth, pageSize(size), offsetOf(page, size))
                 .stream().map(row -> new LedgerEntry(row.id(), row.operationId(), row.type(),
                         row.subject(), row.actorUserId(), row.availableDelta(), row.billingMonth(),
                         row.refType(), row.refId(), row.note(), row.createTime()))
@@ -264,7 +291,8 @@ public class OrgPointService implements OrgPointPort {
     /** 任务合并视图：同一 operation 的 RESERVE + 终态折叠为一行（分页前折叠，R3-P2 复刻项目教训）。 */
     @Override
     public List<OperationView> operations(long orgId, int page, int size) {
-        int offset = Math.max(page, 1) * size - size;
+        long offset = offsetOf(page, size);
+        int safeSize = pageSize(size);
         return jdbc.query(
                 "SELECT r.operation_id, r.org_id, r.subject, r.actor_user_id, r.biz_key, r.operation_time, "
                         + "-r.available_delta AS requested, COALESCE(t.type, 'PENDING') AS state, "
@@ -287,7 +315,7 @@ public class OrgPointService implements OrgPointPort {
                                     : rs.getTimestamp("operation_time").toInstant(),
                             rs.getTimestamp("terminal_time") == null ? null
                                     : rs.getTimestamp("terminal_time").toInstant());
-                }, orgId, size, offset);
+                }, orgId, safeSize, offset);
     }
 
     @Override
@@ -297,6 +325,29 @@ public class OrgPointService implements OrgPointPort {
                         + "WHERE org_id = ? AND actor_user_id = ? AND billing_month = ? "
                         + "AND type IN ('RESERVE','SETTLE','RELEASE')",
                 Long.class, orgId, userId, billingMonth);
+        return sum == null ? 0 : sum;
+    }
+
+    @Override
+    public MyUsage myUsage(long orgId, long userId, String billingMonth, int page, int size) {
+        String month = billingMonth == null || billingMonth.isBlank() ? currentMonth() : billingMonth;
+        long used = monthUsed(orgId, userId, month);
+        List<LedgerEntry> entries = ledgerRows(orgId, userId, null, month,
+                pageSize(size), offsetOf(page, size)).stream()
+                .map(row -> new LedgerEntry(row.id(), row.operationId(), row.type(), row.subject(),
+                        row.actorUserId(), row.availableDelta(), row.billingMonth(), row.refType(),
+                        row.refId(), row.note(), row.createTime()))
+                .toList();
+        return new MyUsage(orgId, userId, month, used, memberMonthlyQuota(orgId, userId), entries);
+    }
+
+    /** 组织当月全员用量（三态口径）。 */
+    public long orgMonthUsed(long orgId, String billingMonth) {
+        Long sum = jdbc.queryForObject(
+                "SELECT COALESCE(-SUM(available_delta), 0) FROM org_point_ledger "
+                        + "WHERE org_id = ? AND billing_month = ? "
+                        + "AND type IN ('RESERVE','SETTLE','RELEASE')",
+                Long.class, orgId, billingMonth);
         return sum == null ? 0 : sum;
     }
 
@@ -321,7 +372,9 @@ public class OrgPointService implements OrgPointPort {
     @Override
     public PoolSummary adjust(long orgId, long credits, String bizKey, String note, Long adminUserId) {
         OrgPointAccountRow row = adjustBalance(orgId, credits, bizKey, note, adminUserId);
-        return new PoolSummary(orgId, row.balance(), inFlight(orgId), row.status());
+        String month = currentMonth();
+        return new PoolSummary(orgId, row.balance(), inFlight(orgId), row.status(),
+                month, orgMonthUsed(orgId, month));
     }
 
     public OrgPointAccountRow findAccount(long orgId) {
@@ -421,7 +474,7 @@ public class OrgPointService implements OrgPointPort {
     }
 
     public List<LedgerRow> ledgerRows(long orgId, Long actorUserId, String subject, String billingMonth,
-                                     int limit, int offset) {
+                                     int limit, long offset) {
         StringBuilder sql = new StringBuilder(
                 "SELECT id, org_id, operation_id, biz_key, operation_time, type, subject, actor_user_id, "
                         + "actor_post_id, available_delta, billing_month, price_snapshot, ref_type, ref_id, "
@@ -461,12 +514,12 @@ public class OrgPointService implements OrgPointPort {
 
     // ==================== 内部 ====================
 
-    private void enforceMemberQuota(long orgId, long actorUserId, long n) {
+    private void enforceMemberQuota(long orgId, long actorUserId, long n, String billingMonth) {
         Long quota = memberMonthlyQuota(orgId, actorUserId);
         if (quota == null) {
             return;
         }
-        long used = monthUsed(orgId, actorUserId, currentMonth());
+        long used = monthUsed(orgId, actorUserId, billingMonth);
         if (used + n > quota) {
             throw exception(ORG_MEMBER_QUOTA_EXCEEDED);
         }
@@ -527,8 +580,11 @@ public class OrgPointService implements OrgPointPort {
         return subjectKey.equals(row.subject())
                 && Long.valueOf(command.orgId()).equals(row.orgId())
                 && Long.valueOf(command.actorUserId()).equals(row.actorUserId())
+                && java.util.Objects.equals(command.actorPostId(), row.actorPostId())
                 && java.util.Objects.equals(command.refType(), row.refType())
-                && java.util.Objects.equals(command.refId(), row.refId());
+                && java.util.Objects.equals(command.refId(), row.refId())
+                // R1-P2（评审 P1-2）：数量变化必须拒绝，否则同键改量会静默沿用首次预扣额
+                && originalQuantity(row.priceSnapshot()) == Math.max(command.quantity(), 1);
     }
 
     private long originalQuantity(String priceSnapshot) {
@@ -536,11 +592,31 @@ public class OrgPointService implements OrgPointPort {
         return Math.max(asLong(snapshot.get("quantity")), 1);
     }
 
+    private long actualQuantityOf(String priceSnapshot) {
+        Map<String, Object> snapshot = JsonUtils.parseObject(priceSnapshot, Map.class);
+        Object actual = snapshot.get("actualQuantity");
+        return actual == null ? originalQuantity(priceSnapshot) : Math.max(asLong(actual), 1);
+    }
+
+    /**
+     * 终态快照（评审 P2-1）：**复制原 RESERVE 的全部价格字段**（subject/unit/priceMicrosPerUnit/
+     * priceVersion/minCharge/quantity），只追加 actualQuantity/actualCredits——调价后审计不得自相矛盾。
+     */
+    private String terminalSnapshot(String reserveSnapshot, long actualQuantity, long m) {
+        Map<String, Object> snapshot = JsonUtils.parseObject(reserveSnapshot, Map.class);
+        snapshot.put("actualQuantity", Math.max(actualQuantity, 1));
+        snapshot.put("actualCredits", m);
+        return JsonUtils.toJsonString(snapshot);
+    }
+
     private long creditsFromSnapshot(String priceSnapshot, long actualQuantity) {
         Map<String, Object> snapshot = JsonUtils.parseObject(priceSnapshot, Map.class);
         long priceMicros = asLong(snapshot.get("priceMicrosPerUnit"));
         long minCharge = asLong(snapshot.get("minCharge"));
         long q = Math.max(actualQuantity, 1);
+        if (q > BillingPriceCatalog.MAX_QUANTITY) {
+            throw new IllegalArgumentException("计量数量超出上限：" + q);
+        }
         long credits = (q * priceMicros + MICROS_PER_CREDIT - 1) / MICROS_PER_CREDIT;
         return Math.max(credits, minCharge);
     }
@@ -562,6 +638,15 @@ public class OrgPointService implements OrgPointPort {
             snapshot.put("actualCredits", m);
         }
         return snapshot;
+    }
+
+    /** 评审 P2-1：分页钳制 + long 偏移，防 int 溢出/负 OFFSET。 */
+    private static int pageSize(int size) {
+        return Math.min(Math.max(size, 1), 100);
+    }
+
+    private static long offsetOf(int page, int size) {
+        return (long) Math.max(Math.min(page, 1_000_000), 1) * pageSize(size) - pageSize(size);
     }
 
     private static long asLong(Object value) {

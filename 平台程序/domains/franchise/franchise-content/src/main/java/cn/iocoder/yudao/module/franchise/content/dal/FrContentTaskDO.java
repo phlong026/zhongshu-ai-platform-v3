@@ -31,6 +31,8 @@ public class FrContentTaskDO {
     private String model;
     private String status;
     private String failedReason;
+    /** 公司积分池预扣键（content:{taskId}:{subject}）；终态结算失败时可幂等重试（24 号评审 P1-4） */
+    private String poolBizKey;
     private OffsetDateTime createTime;
     private OffsetDateTime completeTime;
 

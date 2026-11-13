@@ -109,7 +109,7 @@ class OrgPointLedgerIntegrationTest {
     @Test
     void replaySameBizKeyReturnsSameOperation() {
         service.ensurePool(1002L);
-        service.adjust(1002L, 100, "adjust:t-2", null, 1L);
+        service.adjust(1002L, 100, "adjust:t-2", "测试充值", 1L);
         var cmd = new OrgPointPort.ReserveCommand("content:2:copy", 1002L, 7L, null,
                 "copy", 1, "content_task", 2L);
         long first = service.reserve(cmd);
@@ -124,7 +124,7 @@ class OrgPointLedgerIntegrationTest {
     @Test
     void replayWithDifferentParamsRejected() {
         service.ensurePool(1003L);
-        service.adjust(1003L, 100, "adjust:t-3", null, 1L);
+        service.adjust(1003L, 100, "adjust:t-3", "测试充值", 1L);
         service.reserve(new OrgPointPort.ReserveCommand("content:3:copy", 1003L, 7L, null,
                 "copy", 1, "content_task", 3L));
         assertThatThrownBy(() -> service.reserve(new OrgPointPort.ReserveCommand(
@@ -136,7 +136,7 @@ class OrgPointLedgerIntegrationTest {
     @Test
     void terminalIsMutuallyExclusive() throws Exception {
         service.ensurePool(1004L);
-        service.adjust(1004L, 100, "adjust:t-4", null, 1L);
+        service.adjust(1004L, 100, "adjust:t-4", "测试充值", 1L);
         long op = service.reserve(new OrgPointPort.ReserveCommand(
                 "content:4:copy", 1004L, 7L, null, "copy", 1, "content_task", 4L));
         ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -188,7 +188,7 @@ class OrgPointLedgerIntegrationTest {
     @Test
     void insufficientBalanceRejected() {
         service.ensurePool(1005L);
-        service.adjust(1005L, 1, "adjust:t-5", null, 1L);
+        service.adjust(1005L, 1, "adjust:t-5", "测试充值", 1L);
         assertThatThrownBy(() -> service.reserve(new OrgPointPort.ReserveCommand(
                 "content:5:digital", 1005L, 7L, null, "digital", 300, "content_task", 5L)))
                 .isInstanceOf(ServiceException.class)
@@ -201,8 +201,26 @@ class OrgPointLedgerIntegrationTest {
         service.adjust(1006L, 50, "adjust:t-6", "首次", 1L);
         service.adjust(1006L, 50, "adjust:t-6", "重放", 1L);
         assertThat(service.findAccount(1006L).balance()).isEqualTo(50);
-        assertThatThrownBy(() -> service.adjust(1006L, -60, "adjust:t-6b", null, 1L))
+        assertThatThrownBy(() -> service.adjust(1006L, -60, "adjust:t-6b", "越界测试", 1L))
                 .isInstanceOf(ServiceException.class);
+    }
+
+    @Test
+    void adjustReplayWithDifferentAmountRejected() {
+        service.ensurePool(1008L);
+        service.adjust(1008L, 50, "adjust:t-8", "首次", 1L);
+        assertThatThrownBy(() -> service.adjust(1008L, 100, "adjust:t-8", "改量", 1L))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("幂等键");
+        assertThat(service.findAccount(1008L).balance()).isEqualTo(50);
+    }
+
+    @Test
+    void adjustRequiresOpenedPool() {
+        assertThatThrownBy(() -> service.adjust(1009L, 10, "adjust:t-9", "未开池", 1L))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("未开通");
+        assertThat(service.findAccount(1009L)).isNull();
     }
 
     @Test

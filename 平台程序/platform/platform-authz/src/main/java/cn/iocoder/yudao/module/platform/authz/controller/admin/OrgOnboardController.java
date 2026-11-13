@@ -33,9 +33,6 @@ public class OrgOnboardController {
     @Resource
     private OrgOnboardService orgOnboardService;
 
-    @Resource
-    private org.springframework.context.ApplicationEventPublisher eventPublisher;
-
     public record OnboardReqVO(@NotBlank(message = "组织类型不能为空") String orgType,
                                @NotBlank(message = "组织名称不能为空") String orgName,
                                @NotBlank(message = "首管理员姓名不能为空") String adminName,
@@ -56,14 +53,8 @@ public class OrgOnboardController {
     public CommonResult<OnboardRespVO> onboard(@Valid @RequestBody OnboardReqVO req) {
         long operator = SecurityFrameworkUtils.getLoginUserId();
         OrgOnboardService.OnboardResult r = orgOnboardService.onboard(
-                req.orgType(), req.orgName(), req.adminName(), req.adminMobile(), operator);
-        // 24 号 B-8：设计能力开通与赠点由积分池归属方（commerce 监听器）处理，
-        // 避免 platform 反向依赖业务模块；designEnabled 省略时不改变既有开通状态。
-        if (Boolean.TRUE.equals(req.designEnabled()) || (req.initialCredits() != null && req.initialCredits() > 0)) {
-            eventPublisher.publishEvent(new cn.iocoder.yudao.module.platform.org.OrgOnboardedEvent(
-                    r.orgId(), Boolean.TRUE.equals(req.designEnabled()),
-                    req.initialCredits() == null ? 0 : req.initialCredits()));
-        }
+                req.orgType(), req.orgName(), req.adminName(), req.adminMobile(), operator,
+                req.designEnabled(), req.initialCredits());
         return success(new OnboardRespVO(r.orgId(), r.adminUserId(), r.postId(), r.reusedOrg()));
     }
 }

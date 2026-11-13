@@ -66,12 +66,15 @@ class ContentTaskServiceTest {
         when(oral.poll(eq("ht-1"), any())).thenReturn(new OralVideoPort.Snapshot("DONE", "https://v/1.mp4", 12));
         when(store.succeedPolled(eq(9L), eq(100L), eq("https://v/1.mp4"), anyString())).thenReturn(true);
         when(store.byId(eq(100L), eq(9L))).thenReturn(
-                task("digital", "{\"voice\":\"nv\",\"text\":\"测试口播文案内容\"}", "ht-1").setStatus("SUCCEEDED"));
+                task("digital", "{\"voice\":\"nv\",\"text\":\"测试口播文案内容\"}", "ht-1")
+                        .setStatus("SUCCEEDED")
+                        .setResultSnapshot("{\"durationSec\":12}"));
 
         service.pollOne(task);
 
         // 公司池按任务终态对账：SUCCEEDED → 按实付计量单位结算
-        verify(orgPoint).settleByBizKey(eq("content:9:digital"), anyLong());
+        // 评审 P1-3：按结果快照的实际交付 12 秒结算，而非输入预估
+        verify(orgPoint).settleByBizKey(eq("content:9:digital"), eq(12L));
     }
 
     @Test

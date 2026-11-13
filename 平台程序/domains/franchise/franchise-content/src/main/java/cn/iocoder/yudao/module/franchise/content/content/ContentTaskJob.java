@@ -45,8 +45,20 @@ public class ContentTaskJob {
             submitQueued();
             pollInFlight();
             timeoutOverdue();
+            reconcilePendingPool();
         } catch (RuntimeException e) {
             log.warn("content task sweep failed: {}", e.getMessage());
+        }
+    }
+
+    /** 终态任务的公司池结算重试（评审 P1-4）：瞬时故障/进程退出后不永久悬空。 */
+    private void reconcilePendingPool() {
+        for (FrContentTaskDO task : store.findTerminalWithPendingPool(20)) {
+            try {
+                tasks.reconcilePool(task);
+            } catch (RuntimeException e) {
+                log.warn("content task {} pool reconcile failed: {}", task.getId(), e.getMessage());
+            }
         }
     }
 
