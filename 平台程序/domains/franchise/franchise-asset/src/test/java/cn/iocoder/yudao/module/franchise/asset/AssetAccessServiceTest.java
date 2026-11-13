@@ -68,14 +68,15 @@ class AssetAccessServiceTest {
         }
     }
 
-    /** Recording CommandLog（动态代理）：拦截 append 捕获审计事件，其余方法返回 null */
+    /** Recording CommandLog（动态代理）：拦截 append 捕获审计事件。append 须回传事件，供 FranchiseCommands 做聚合一致性检查。 */
     private CommandLog recordingCommandLog(List<String> aggregates) {
         return (CommandLog) java.lang.reflect.Proxy.newProxyInstance(
                 CommandLog.class.getClassLoader(), new Class[]{CommandLog.class},
                 (proxy, method, args) -> {
-                    if ("append".equals(method.getName()) && args[0] != null) {
+                    if ("append".equals(method.getName()) && args != null && args[0] != null) {
                         aggregates.add(((cn.iocoder.yudao.module.platform.command.dal.CommandEventDO) args[0])
                                 .getAggregateType());
+                        return args[0];
                     }
                     return null;
                 });
@@ -115,8 +116,9 @@ class AssetAccessServiceTest {
 
         assertThat(completed.uploadStatus()).isEqualTo("ACCEPTED");
         assertThat(download.downloadUrl()).contains("local://");
-        assertThat(calls).containsExactly("typeOf:777:501", "complete:777:501",
-                "typeOf:777:501", "download:777:501"); // complete/download 前均做 B_END 类型校验
+        assertThat(calls).containsExactly(
+                "typeOf:777:501", "typeOf:777:501", "complete:777:501",
+                "typeOf:777:501", "typeOf:777:501", "download:777:501"); // 权限分派与 B_END 白名单各查一次类型
         assertThat(aggregates).containsExactly("fr-asset-complete"); // download 不记审计（14 文档 §四）
     }
 
@@ -128,8 +130,9 @@ class AssetAccessServiceTest {
         CommandLog log = (CommandLog) java.lang.reflect.Proxy.newProxyInstance(
                 CommandLog.class.getClassLoader(), new Class[]{CommandLog.class},
                 (proxy, method, args) -> {
-                    if ("append".equals(method.getName()) && args[0] != null) {
+                    if ("append".equals(method.getName()) && args != null && args[0] != null) {
                         events.add((cn.iocoder.yudao.module.platform.command.dal.CommandEventDO) args[0]);
+                        return args[0];
                     }
                     return null;
                 });
@@ -155,8 +158,45 @@ class AssetAccessServiceTest {
             assertThatThrownBy(() -> service.createDownloadUrl(POST, 501L))
                     .isInstanceOfSatisfying(ServiceException.class,
                             e -> assertThat(e.getCode()).isEqualTo(1_099_000_002));
-            assertThat(calls).containsExactly("typeOf:777:501", "typeOf:777:501"); // 未透传 complete/download
+            // 未知类型先过权限分派（放行）再被 B_END 白名单拒绝；两次 typeOf，不透传 complete/download
+            assertThat(calls).containsExactly("typeOf:777:501", "typeOf:777:501",
+                    "typeOf:777:501", "typeOf:777:501");
         }
+    }
+
+    @Test
+    void channelAllowedMatchesConsumptionMatrixAndLetsUnknownTypesThrough() {
+        assertThat(AssetAccessService.channelAllowed("FIN_VOUCHER", "finance")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("FIN_VOUCHER", "finance-lead")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("FIN_VOUCHER", "boss")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("FIN_VOUCHER", "sales")).isFalse();
+        assertThat(AssetAccessService.channelAllowed("FIN_VOUCHER", "hq-design-admin")).isFalse();
+        assertThat(AssetAccessService.channelAllowed("FIN_VOUCHER", null)).isFalse();
+        assertThat(AssetAccessService.channelAllowed("ENG_DRAWING", "engineer")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("ENG_DRAWING", "project-manager")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("ENG_DRAWING", "owner")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("ENG_SITE_PHOTO", "sales")).isFalse();
+        assertThat(AssetAccessService.channelAllowed("CONTRACT_ATTACHMENT", "sales")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("CONTRACT_ATTACHMENT", "sales-lead")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("CONTENT_ASSET", "sales")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("CONTENT_ASSET", "finance")).isFalse();
+        // 设计稿等未知类型保持放行，dev 字节通道不误伤 design:use 三岗
+        assertThat(AssetAccessService.channelAllowed("USER_SKETCH", "sales")).isTrue();
+        assertThat(AssetAccessService.channelAllowed(null, "sales")).isTrue();
+    }
+
+    @Test
+    void crossChannelUploadIsForbiddenBeforePortCall() {
+        List<String> calls = new ArrayList<>();
+        AssetAccessService service = service(new RecordingPort(777L, calls),
+                new FranchiseCommands(recordingCommandLog(new ArrayList<>())));
+        PostSnapshot sales = new PostSnapshot(11L, 22L, 33L, "store", "sales", null, false, Set.of());
+
+        assertThatThrownBy(() -> service.uploadTicket(sales, "FIN_VOUCHER",
+                "application/pdf", 100, "a".repeat(64)))
+                .isInstanceOfSatisfying(ServiceException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(1_099_000_002));
+        assertThat(calls).isEmpty();
     }
 
     @Test

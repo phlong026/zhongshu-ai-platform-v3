@@ -47,11 +47,17 @@ public interface CrmRespVos {
 
     record Scheme(long id, long customerId, String kind, int version, String title, String payload,
                   java.math.BigDecimal width, java.math.BigDecimal depth, Integer floors,
-                  java.math.BigDecimal area, Long totalCents, long authorUserId, OffsetDateTime createTime) {
+                  java.math.BigDecimal area, Long totalCents, long authorUserId, OffsetDateTime createTime,
+                  String stage) {
         public static Scheme of(CustomerSchemeDO s) {
+            // S1-20：客户详情须带回 stage，formal 徽标才能跨会话读到（空值按升级前默认 reference）
+            String stage = s.getStage();
+            if (stage == null || stage.isBlank()) {
+                stage = "reference";
+            }
             return new Scheme(s.getId(), s.getCustomerId(), s.getKind(), s.getVersion(), s.getTitle(),
                     s.getPayload(), s.getWidth(), s.getDepth(), s.getFloors(), s.getArea(),
-                    s.getTotalCents(), s.getAuthorUserId(), s.getCreateTime());
+                    s.getTotalCents(), s.getAuthorUserId(), s.getCreateTime(), stage);
         }
     }
 
