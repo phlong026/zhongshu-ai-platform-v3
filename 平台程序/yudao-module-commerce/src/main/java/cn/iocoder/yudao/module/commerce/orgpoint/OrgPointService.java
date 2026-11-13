@@ -65,6 +65,9 @@ public class OrgPointService implements OrgPointPort {
         this.jdbc = new JdbcTemplate(dataSource);
         this.tx = new TransactionTemplate(transactionManager);
         this.snapshotTx = new TransactionTemplate(transactionManager);
+        // REQUIRES_NEW：不加入外层事务，保证 RR+只读真正生效（否则外层 READ_COMMITTED 会忽略内层设置）
+        this.snapshotTx.setPropagationBehavior(
+                org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.snapshotTx.setIsolationLevel(
                 org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
         this.snapshotTx.setReadOnly(true);
