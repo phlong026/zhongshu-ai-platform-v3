@@ -1,3 +1,4 @@
+// 历史合并制品native脚本：依赖A/B合并的dev-setup，不可作为platform-split生产验收入口。
 // 阶段1 P1 客户接入 native 验收（AC12-AC18 + AC14b）：微信开发者工具真实渲染与 Element.tap/input/change 事件 + 本地后端真实链路。
 // 前提：
 //  1) 后端 :48080 已起（local,pg,zsdev，stub 微信）：
@@ -99,7 +100,7 @@ const mobilePrefix = '139' + suffix.slice(-7); // 十位、1 开头（dev-setup 
   const leadA = await call('POST', '/franchise/leads', { name: '陈先生' + suffix.slice(-4), phone: phoneA, need: '两层乡墅', source: 'native造数' }, sales.token, sales.postId);
   assert.equal(leadA.result, 'CREATED');
   const idA = String(leadA.customerId);
-  const teamB = await call('POST', '/platform/org/teams', { orgId: Number(r && setup.storeOrgId), name: '业务二部' + suffix.slice(-3), line: 'sales' }, boss.token, boss.postId);
+  const teamB = await call('POST', '/platform/org/teams', { orgId: Number(r && setup.storeOrgId), name: '业务二部' + suffix.slice(-3), line: 'sales' }, boss.token, boss.postId, 0, { 'Idempotency-Key': 'native-crm-team-' + suffix });
   const qian = await call('POST', '/platform/org/staff', { orgId: Number(setup.storeOrgId), name: '钱业务' + suffix.slice(-2), mobile: '136' + suffix.slice(-8), roleCode: 'sales', teamId: teamB.deptId }, boss.token, boss.postId);
   const sun = await call('POST', '/platform/org/staff', { orgId: Number(setup.storeOrgId), name: '孙业务' + suffix.slice(-2), mobile: '135' + suffix.slice(-8), roleCode: 'sales', teamId: Number(setup.salesTeamId) }, boss.token, boss.postId);
   const stopped = await call('POST', '/platform/org/staff', { orgId: Number(setup.storeOrgId), name: '停用业务' + suffix.slice(-2), mobile: '134' + suffix.slice(-8), roleCode: 'sales', teamId: Number(setup.salesTeamId) }, boss.token, boss.postId);
