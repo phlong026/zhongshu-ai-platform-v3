@@ -5,11 +5,24 @@
         <h1 class="zs-page-title">总部运营工作台</h1>
         <div class="zs-page-subtitle">组织开通、员工支持与平台钱包运营</div>
       </div>
-      <el-button type="primary" class="zs-btn-primary" @click="router.push('/platform-org/onboard')">
+      <el-button
+        v-if="checkPermi(['platform:org:onboard'])"
+        type="primary"
+        class="zs-btn-primary"
+        @click="router.push('/platform-org/onboard')"
+      >
         <el-icon class="btn-icon"><Plus /></el-icon>
         开通新组织
       </el-button>
     </div>
+
+    <el-alert
+      v-if="hasErrors"
+      title="部分运营数据加载失败，成功的数据仍可查看"
+      type="error"
+      :closable="false"
+    />
+    <el-button v-if="hasErrors" :loading="loading" @click="load">重新加载</el-button>
 
     <!-- 关键数字（8卡） -->
     <div class="zs-stat-cards">
@@ -20,10 +33,14 @@
         :class="{ 'zs-stat-card--alert': card.alert }"
         @click="card.to && router.push(card.to)"
       >
-        <div class="zs-stat-icon"><el-icon><component :is="card.icon" /></el-icon></div>
+        <div class="zs-stat-icon"
+          ><el-icon><component :is="card.icon" /></el-icon
+        ></div>
         <div>
           <div class="zs-stat-label">{{ card.label }}</div>
-          <div class="zs-stat-value" v-loading="loading">{{ card.value }}</div>
+          <div class="zs-stat-value" v-loading="sourceStates[card.source] === 'pending'">{{
+            card.value
+          }}</div>
         </div>
       </div>
     </div>
@@ -32,29 +49,49 @@
     <el-row :gutter="16">
       <el-col :xs="24" :md="12">
         <div class="chart-card">
-          <div class="chart-card__title">各组织钱包可用点数</div>
-          <Echart v-if="walletChartOptions" :options="walletChartOptions" :height="300" />
+          <div class="chart-card__title">组织钱包可用点数（前10）</div>
+          <el-empty
+            v-if="sourceMessage('wallets')"
+            :description="sourceMessage('wallets')"
+            :image-size="60"
+          />
+          <Echart v-else-if="walletChartOptions" :options="walletChartOptions" :height="300" />
           <el-empty v-else-if="!loading" description="暂无钱包数据" :image-size="60" />
         </div>
       </el-col>
       <el-col :xs="24" :md="12">
         <div class="chart-card">
-          <div class="chart-card__title">积分流水趋势（近30日）</div>
-          <Echart v-if="ledgerChartOptions" :options="ledgerChartOptions" :height="300" />
+          <div class="chart-card__title">最近100条流水（按日汇总）</div>
+          <el-empty
+            v-if="sourceMessage('ledger')"
+            :description="sourceMessage('ledger')"
+            :image-size="60"
+          />
+          <Echart v-else-if="ledgerChartOptions" :options="ledgerChartOptions" :height="300" />
           <el-empty v-else-if="!loading" description="暂无流水数据" :image-size="60" />
         </div>
       </el-col>
       <el-col :xs="24" :md="12">
         <div class="chart-card">
-          <div class="chart-card__title">流水类型分布</div>
-          <Echart v-if="bizTypeChartOptions" :options="bizTypeChartOptions" :height="300" />
+          <div class="chart-card__title">最近100条流水类型分布</div>
+          <el-empty
+            v-if="sourceMessage('ledger')"
+            :description="sourceMessage('ledger')"
+            :image-size="60"
+          />
+          <Echart v-else-if="bizTypeChartOptions" :options="bizTypeChartOptions" :height="300" />
           <el-empty v-else-if="!loading" description="暂无流水数据" :image-size="60" />
         </div>
       </el-col>
       <el-col :xs="24" :md="12">
         <div class="chart-card">
-          <div class="chart-card__title">设计能力定价点数</div>
-          <Echart v-if="priceChartOptions" :options="priceChartOptions" :height="300" />
+          <div class="chart-card__title">生效设计定价点数（前10）</div>
+          <el-empty
+            v-if="sourceMessage('prices')"
+            :description="sourceMessage('prices')"
+            :image-size="60"
+          />
+          <Echart v-else-if="priceChartOptions" :options="priceChartOptions" :height="300" />
           <el-empty v-else-if="!loading" description="暂无定价数据" :image-size="60" />
         </div>
       </el-col>
@@ -78,15 +115,31 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, markRaw } from 'vue'
 import { useRouter } from 'vue-router'
+import { checkPermi } from '@/utils/permission'
 import {
-  Coin, Wallet, Document, Warning, PriceTag, DataLine, DocumentChecked, Plus
+  Coin,
+  Wallet,
+  Document,
+  Warning,
+  PriceTag,
+  DataLine,
+  DocumentChecked,
+  Plus
 } from '@element-plus/icons-vue'
 import Echart from '@/components/Echart/src/Echart.vue'
 import type { EChartsOption } from 'echarts'
 import {
-  getWallets, getRechargeOrders, getAnomalies, getDesignPrices, getLedger,
-  getDesignCosts, getAudit,
-  type WalletRow, type LedgerRow, type DesignPriceRow
+  getWalletSummary,
+  getRechargePlans,
+  getRechargeOrders,
+  getAnomalies,
+  getActiveDesignPrices,
+  getLedger,
+  getDesignCosts,
+  getAudit,
+  type WalletRow,
+  type LedgerRow,
+  type DesignPriceRow
 } from '@/api/platform/operations'
 
 defineOptions({ name: 'PlatformOperationsHome' })
@@ -96,38 +149,128 @@ const loading = ref(true)
 const wallets = ref<WalletRow[]>([])
 const ledger = ref<LedgerRow[]>([])
 const prices = ref<DesignPriceRow[]>([])
+const walletCount = ref(0)
+const totalAvailablePoints = ref(0)
 const orderTotal = ref(0)
+const planTotal = ref(0)
 const anomalyTotal = ref(0)
 const priceTotal = ref(0)
 const costTotal = ref(0)
 const auditTotal = ref(0)
-
-const totalAvailablePoints = computed(() =>
-  wallets.value.reduce((sum, w) => sum + (Number(w.availablePoints) || 0), 0)
+const permissions = {
+  wallets: 'platform:wallet:query',
+  ledger: 'platform:wallet:ledger:query',
+  prices: 'platform:design:price:query',
+  orders: 'platform:wallet:order:query',
+  plans: 'platform:wallet:plan:query',
+  anomalies: 'platform:wallet:anomaly:query',
+  costs: 'platform:design:cost:query',
+  audit: 'platform:ops:audit:query'
+} as const
+type Source = keyof typeof permissions
+type Status = 'pending' | 'ready' | 'error' | 'denied'
+const sourceStates = ref(
+  Object.fromEntries(Object.keys(permissions).map((key) => [key, 'pending'])) as Record<
+    Source,
+    Status
+  >
+)
+const hasErrors = computed(() => Object.values(sourceStates.value).includes('error'))
+const sourceMessage = (source: Source) =>
+  ({ pending: '加载中', ready: '', error: '加载失败，请重试', denied: '无权限' })[
+    sourceStates.value[source]
+  ]
+const display = (source: Source, value: string) =>
+  sourceStates.value[source] === 'ready'
+    ? value
+    : sourceStates.value[source] === 'error'
+      ? '加载失败'
+      : sourceStates.value[source] === 'denied'
+        ? '无权限'
+        : '—'
+const statCards = computed(() =>
+  [
+    {
+      label: '钱包总可用点数',
+      source: 'wallets' as Source,
+      value: totalAvailablePoints.value.toLocaleString(),
+      icon: Coin,
+      to: '/platform-ops/wallets'
+    },
+    {
+      label: '组织钱包数',
+      source: 'wallets' as Source,
+      value: String(walletCount.value),
+      icon: Wallet,
+      to: '/platform-ops/wallets'
+    },
+    {
+      label: '充值订单总数',
+      source: 'orders' as Source,
+      value: String(orderTotal.value),
+      icon: Document,
+      to: '/platform-ops/orders'
+    },
+    {
+      label: '充值套餐数',
+      source: 'plans' as Source,
+      value: String(planTotal.value),
+      icon: Document,
+      to: '/platform-ops/plans'
+    },
+    {
+      label: '支付异常记录',
+      source: 'anomalies' as Source,
+      value: anomalyTotal.value === 0 ? '无' : String(anomalyTotal.value),
+      icon: Warning,
+      to: '/platform-ops/anomalies'
+    },
+    {
+      label: '生效设计定价',
+      source: 'prices' as Source,
+      value: String(priceTotal.value),
+      icon: PriceTag,
+      to: '/platform-ops/design-prices'
+    },
+    {
+      label: '调用成本记录',
+      source: 'costs' as Source,
+      value: String(costTotal.value),
+      icon: DataLine,
+      to: '/platform-ops/design-costs'
+    },
+    {
+      label: '配置审计条数',
+      source: 'audit' as Source,
+      value: String(auditTotal.value),
+      icon: DocumentChecked,
+      to: '/platform-ops/audit'
+    }
+  ].map((card) => ({
+    ...card,
+    icon: markRaw(card.icon),
+    value: display(card.source, card.value),
+    to: sourceStates.value[card.source] === 'denied' ? '' : card.to,
+    alert:
+      card.source === 'anomalies' &&
+      sourceStates.value.anomalies === 'ready' &&
+      anomalyTotal.value > 0
+  }))
 )
 
-const statCards = computed(() => [
-  { label: '钱包总可用点数', value: totalAvailablePoints.value.toLocaleString(), icon: markRaw(Coin), to: '/platform-ops/wallets', alert: false },
-  { label: '组织钱包数', value: String(wallets.value.length), icon: markRaw(Wallet), to: '/platform-ops/wallets', alert: false },
-  { label: '充值订单总数', value: String(orderTotal.value), icon: markRaw(Document), to: '/platform-ops/orders', alert: false },
-  { label: '充值套餐数', value: String(0), icon: markRaw(Document), to: '/platform-ops/plans', alert: false },
-  { label: '待核对支付异常', value: anomalyTotal.value === 0 ? '无' : String(anomalyTotal.value), icon: markRaw(Warning), to: '/platform-ops/anomalies', alert: anomalyTotal.value > 0 },
-  { label: '生效设计定价', value: String(priceTotal.value), icon: markRaw(PriceTag), to: '/platform-ops/design-prices', alert: false },
-  { label: '调用成本记录', value: String(costTotal.value), icon: markRaw(DataLine), to: '/platform-ops/design-costs', alert: false },
-  { label: '配置审计条数', value: String(auditTotal.value), icon: markRaw(DocumentChecked), to: '/platform-ops/audit', alert: false }
-])
-
-const quickEntries = [
-  { path: '/platform-org/onboard', title: '组织开通' },
-  { path: '/platform-ops/wallets', title: '组织钱包' },
-  { path: '/platform-ops/plans', title: '充值套餐' },
-  { path: '/platform-ops/orders', title: '充值订单' },
-  { path: '/platform-ops/ledger', title: '积分流水' },
-  { path: '/platform-ops/anomalies', title: '支付异常' },
-  { path: '/platform-ops/design-prices', title: '设计定价' },
-  { path: '/platform-ops/design-costs', title: '调用成本' },
-  { path: '/platform-ops/audit', title: '配置审计' }
-]
+const quickEntries = computed(() =>
+  [
+    { path: '/platform-org/onboard', title: '组织开通', permission: 'platform:org:onboard' },
+    { path: '/platform-ops/wallets', title: '组织钱包', permission: permissions.wallets },
+    { path: '/platform-ops/plans', title: '充值套餐', permission: permissions.plans },
+    { path: '/platform-ops/orders', title: '充值订单', permission: permissions.orders },
+    { path: '/platform-ops/ledger', title: '积分流水', permission: permissions.ledger },
+    { path: '/platform-ops/anomalies', title: '支付异常', permission: permissions.anomalies },
+    { path: '/platform-ops/design-prices', title: '设计定价', permission: permissions.prices },
+    { path: '/platform-ops/design-costs', title: '调用成本', permission: permissions.costs },
+    { path: '/platform-ops/audit', title: '配置审计', permission: permissions.audit }
+  ].filter((entry) => checkPermi([entry.permission]))
+)
 
 const BRAND = '#714320'
 const BRAND_LIGHT = '#a67b4f'
@@ -179,7 +322,7 @@ const ledgerChartOptions = computed<EChartsOption | null>(() => {
     if (!day) continue
     byDay.set(day, (byDay.get(day) || 0) + (Number(row.delta) || 0))
   }
-  const days = [...byDay.keys()].sort().slice(-30)
+  const days = [...byDay.keys()].sort()
   return {
     grid: { left: 8, right: 16, top: 20, bottom: 8, containLabel: true },
     tooltip: { trigger: 'axis' },
@@ -257,29 +400,89 @@ const priceChartOptions = computed<EChartsOption | null>(() => {
   }
 })
 
-onMounted(async () => {
-  try {
-    const [walletsRes, ledgerRes, pricesRes, ordersRes, anomaliesRes, costsRes, auditRes] = await Promise.all([
-      getWallets({ pageNo: 1, pageSize: 100 }),
-      getLedger({ pageNo: 1, pageSize: 100 }),
-      getDesignPrices({ pageNo: 1, pageSize: 100 }),
-      getRechargeOrders({ pageNo: 1, pageSize: 1 }),
-      getAnomalies({ pageNo: 1, pageSize: 1 }),
-      getDesignCosts({ pageNo: 1, pageSize: 1 }),
-      getAudit({ pageNo: 1, pageSize: 1 })
-    ])
-    wallets.value = walletsRes.list || []
-    ledger.value = ledgerRes.list || []
-    prices.value = pricesRes.list || []
-    orderTotal.value = ordersRes.total || 0
-    anomalyTotal.value = anomaliesRes.total || 0
-    priceTotal.value = pricesRes.total || 0
-    costTotal.value = costsRes.total || 0
-    auditTotal.value = auditRes.total || 0
-  } finally {
-    loading.value = false
+let loadGeneration = 0
+async function load() {
+  const generation = ++loadGeneration
+  loading.value = true
+  async function fetchSource<T>(
+    source: Source,
+    request: () => Promise<T>,
+    apply: (result: T) => void
+  ) {
+    if (!checkPermi([permissions[source]])) {
+      sourceStates.value[source] = 'denied'
+      return
+    }
+    sourceStates.value[source] = 'pending'
+    try {
+      const result = await request()
+      if (generation !== loadGeneration) return
+      apply(result)
+      sourceStates.value[source] = 'ready'
+    } catch {
+      if (generation === loadGeneration) sourceStates.value[source] = 'error'
+    }
   }
-})
+  await Promise.all([
+    fetchSource('wallets', getWalletSummary, (result) => {
+      wallets.value = result.topWallets
+      walletCount.value = result.walletCount
+      totalAvailablePoints.value = result.totalAvailablePoints
+    }),
+    fetchSource(
+      'ledger',
+      () => getLedger({ pageNo: 1, pageSize: 100 }),
+      (result) => {
+        ledger.value = result.list
+      }
+    ),
+    fetchSource(
+      'prices',
+      () => getActiveDesignPrices({ pageNo: 1, pageSize: 10 }),
+      (result) => {
+        prices.value = result.list
+        priceTotal.value = result.total
+      }
+    ),
+    fetchSource(
+      'plans',
+      () => getRechargePlans({ pageNo: 1, pageSize: 1 }),
+      (result) => {
+        planTotal.value = result.total
+      }
+    ),
+    fetchSource(
+      'orders',
+      () => getRechargeOrders({ pageNo: 1, pageSize: 1 }),
+      (result) => {
+        orderTotal.value = result.total
+      }
+    ),
+    fetchSource(
+      'anomalies',
+      () => getAnomalies({ pageNo: 1, pageSize: 1 }),
+      (result) => {
+        anomalyTotal.value = result.total
+      }
+    ),
+    fetchSource(
+      'costs',
+      () => getDesignCosts({ pageNo: 1, pageSize: 1 }),
+      (result) => {
+        costTotal.value = result.total
+      }
+    ),
+    fetchSource(
+      'audit',
+      () => getAudit({ pageNo: 1, pageSize: 1 }),
+      (result) => {
+        auditTotal.value = result.total
+      }
+    )
+  ])
+  if (generation === loadGeneration) loading.value = false
+}
+onMounted(load)
 </script>
 
 <style scoped>
@@ -288,19 +491,24 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
 }
+
 .btn-icon {
   margin-right: 4px;
 }
+
 .zs-stat-card {
   cursor: pointer;
 }
+
 .zs-stat-card--alert {
   border-color: #e8c8c0;
 }
+
 .zs-stat-card--alert .zs-stat-icon {
   color: #d0342c;
   background: #fceceb;
 }
+
 .chart-card {
   padding: 14px 16px;
   margin-bottom: 16px;
@@ -308,27 +516,32 @@ onMounted(async () => {
   border: 1px solid #efe6dd;
   border-radius: 12px;
 }
+
 .chart-card__title {
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 600;
   color: #282728;
 }
+
 .quick-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
+
 .quick-row__title {
   font-size: 13px;
   font-weight: 600;
   color: #282728;
 }
+
 .quick-tag {
   cursor: pointer;
 }
-@media (max-width: 768px) {
+
+@media (width <= 768px) {
   .zs-page-header {
     flex-direction: column;
     align-items: flex-start;

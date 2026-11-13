@@ -24,7 +24,9 @@ class DesignOperationsSecurityTest {
                 .withBean(DesignOperationsController.class).run(ctx -> {
                     var controller=ctx.getBean(DesignOperationsController.class);
                     controller.prices(1,20);
+                    controller.activePrices(1,20);
                     verify(service).prices(1,20);
+                    verify(service).activePrices(1,20);
                     assertThatThrownBy(() -> controller.costs(1,20,null)).isInstanceOf(AccessDeniedException.class);
                     verifyNoMoreInteractions(service);
                 });

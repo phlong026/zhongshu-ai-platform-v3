@@ -148,9 +148,7 @@ export function buildStaffMenus(
       // 有 permission 的按各路由自己的权限标识过滤，不再统一套 platform:org:query。
       // 菜单过滤只控制可见性，授权真源仍是服务端 @post.has 与页内守卫。
       children: (route.children || []).filter(
-        (child) =>
-          !child.meta?.hidden &&
-          (!child.meta?.permission || can(child.meta.permission))
+        (child) => !child.meta?.hidden && (!child.meta?.permission || can(child.meta.permission))
       )
     }))
 }

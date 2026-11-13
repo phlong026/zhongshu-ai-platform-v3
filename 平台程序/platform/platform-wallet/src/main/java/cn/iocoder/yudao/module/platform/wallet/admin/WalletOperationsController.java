@@ -24,6 +24,11 @@ public class WalletOperationsController {
             @RequestParam(required = false) String orgId) {
         return success(service.wallets(pageNo, pageSize, orgId));
     }
+    @GetMapping("/wallet-summary")
+    @PreAuthorize("@ss.hasPermission('platform:wallet:query')")
+    public CommonResult<WalletOperationsService.WalletSummary> walletSummary() {
+        return success(service.walletSummary());
+    }
     @GetMapping("/recharge-plans")
     @PreAuthorize("@ss.hasPermission('platform:wallet:plan:query')")
     public CommonResult<PageResult<WalletOperationsService.Plan>> plans(

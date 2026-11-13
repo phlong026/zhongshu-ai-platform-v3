@@ -152,3 +152,15 @@ export const getAnomalyReviews = (
   params: OperationsQuery
 ): Promise<OperationsPage<AnomalyReview>> =>
   request.get({ url: `/platform/ops/anomalies/${encodeURIComponent(id)}/reviews`, params })
+
+export interface WalletSummary {
+  walletCount: number
+  totalAvailablePoints: number
+  topWallets: WalletRow[]
+}
+export const getWalletSummary = (): Promise<WalletSummary> =>
+  request.get({ url: '/platform/ops/wallet-summary' })
+export const getActiveDesignPrices = (
+  params: OperationsQuery
+): Promise<OperationsPage<DesignPriceRow>> =>
+  request.get({ url: '/platform/ops/design-prices/active', params })

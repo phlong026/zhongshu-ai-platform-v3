@@ -22,6 +22,12 @@ public class DesignOperationsController {
             @RequestParam(defaultValue = "1") int pageNo, @RequestParam(defaultValue = "20") int pageSize) {
         return success(service.prices(pageNo, pageSize));
     }
+    @GetMapping("/design-prices/active")
+    @PreAuthorize("@ss.hasPermission('platform:design:price:query')")
+    public CommonResult<PageResult<DesignOperationsService.Price>> activePrices(
+            @RequestParam(defaultValue = "1") int pageNo, @RequestParam(defaultValue = "20") int pageSize) {
+        return success(service.activePrices(pageNo, pageSize));
+    }
     @GetMapping("/design-costs")
     @PreAuthorize("@ss.hasPermission('platform:design:cost:query')")
     public CommonResult<PageResult<DesignOperationsService.Cost>> costs(

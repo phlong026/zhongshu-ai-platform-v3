@@ -40,7 +40,9 @@ class WalletOperationsSecurityTest {
         context.run(ctx -> {
             var controller = ctx.getBean(WalletOperationsController.class);
             controller.wallets(1, 20, null);
+            controller.walletSummary();
             verify(service).wallets(1, 20, null);
+            verify(service).walletSummary();
             assertThatThrownBy(() -> controller.plans(1, 20)).isInstanceOf(AccessDeniedException.class);
             assertThatThrownBy(() -> controller.orders(1, 20, null)).isInstanceOf(AccessDeniedException.class);
             assertThatThrownBy(() -> controller.ledger(1, 20, null)).isInstanceOf(AccessDeniedException.class);

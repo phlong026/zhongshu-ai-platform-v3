@@ -162,6 +162,8 @@ test('B运营客户端只访问B总部API，保留字符串ID与整数分页', a
   await api.getRechargeOrders({ pageNo: 1, pageSize: 20 })
   await api.getLedger({ pageNo: 1, pageSize: 20 })
   await api.getAnomalies({ pageNo: 1, pageSize: 20 })
+  await api.getWalletSummary()
+  await api.getActiveDesignPrices({ pageNo: 1, pageSize: 10 })
   assert.deepEqual(
     requests.map((request) => request.url),
     [
@@ -169,13 +171,15 @@ test('B运营客户端只访问B总部API，保留字符串ID与整数分页', a
       '/platform/ops/recharge-plans',
       '/platform/ops/recharge-orders',
       '/platform/ops/ledger',
-      '/platform/ops/anomalies'
+      '/platform/ops/anomalies',
+      '/platform/ops/wallet-summary',
+      '/platform/ops/design-prices/active'
     ]
   )
   assert.equal(requests[0].params.orgId, '9007199254740993')
   assert.equal(requests[0].params.pageNo, 2)
   assert.equal(
-    requests.some((request) => Object.hasOwn(request.params, 'tenantId')),
+    requests.some((request) => request.params && Object.hasOwn(request.params, 'tenantId')),
     false
   )
 })

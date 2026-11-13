@@ -52,6 +52,23 @@ class WalletOperationsIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(service.wallets(1, 20, "9007199254740993").getList()).isEmpty();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_wallet WHERE tenant_id=?", Long.class, tenant)).isEqualTo(2);
     }
+    @Test void summaryAggregatesAllTwoHundredWalletsAndRanksTopTenWithinTenant() {
+        long expectedTotal = 0;
+        for (int points = 1; points <= 200; points++) {
+            wallet(tenant, points);
+            expectedTotal += points;
+        }
+        wallet(tenant + 1, 999_999);
+
+        var summary = service.walletSummary();
+
+        assertThat(summary.walletCount()).isEqualTo(200);
+        assertThat(summary.totalAvailablePoints()).isEqualTo(expectedTotal);
+        assertThat(summary.topWallets()).hasSize(10)
+                .extracting(WalletOperationsService.Wallet::availablePoints)
+                .containsExactly(200L, 199L, 198L, 197L, 196L, 195L, 194L, 193L, 192L, 191L);
+        assertThat(summary.topWallets()).allMatch(row -> row.availablePoints() <= 200);
+    }
     @Test void pagingRejectsUnboundedOrInvalidQueriesAndTenantImpersonation() {
         assertThatThrownBy(() -> service.wallets(0, 20, null)).hasMessageContaining("分页");
         assertThatThrownBy(() -> service.wallets(1, 101, null)).hasMessageContaining("分页");

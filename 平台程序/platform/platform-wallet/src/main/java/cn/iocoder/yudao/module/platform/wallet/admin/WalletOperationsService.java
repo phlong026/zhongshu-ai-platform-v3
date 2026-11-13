@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import javax.sql.DataSource;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /** 总部运营只读取 B 持久事实。每个 SQL 自带 tenant 条件，不借用组织岗位钱包作用域。 */
@@ -34,6 +35,7 @@ public class WalletOperationsService {
                          String reason, Instant createTime) { }
     public record Anomaly(String id, String orgId, String walletId, String orderId,
                           String anomalyType, String detail, Instant createTime) { }
+    public record WalletSummary(long walletCount, long totalAvailablePoints, List<Wallet> topWallets) { }
 
     public WalletOperationsService(DataSource source) {
         jdbc = new JdbcTemplate(source);
@@ -48,6 +50,28 @@ public class WalletOperationsService {
                 """, "w.org_id", "w.id DESC", pageNo, pageSize, orgId,
                 (rs, row) -> new Wallet(rs.getString("id"), rs.getString("org_id"), rs.getString("status"),
                         rs.getBoolean("spending_frozen"), rs.getLong("available_points"), rs.getLong("reserved_points")));
+    }
+
+    public WalletSummary walletSummary() {
+        long tenant = requireTenant();
+        try {
+            var totals = jdbc.queryForObject("""
+                    SELECT count(*) AS wallet_count,coalesce(sum(a.available_points),0) AS total_available_points
+                    FROM pf_wallet w JOIN pf_point_account a ON a.wallet_id=w.id AND a.tenant_id=w.tenant_id
+                    WHERE w.tenant_id=?
+                    """, (rs, row) -> new long[] {rs.getLong("wallet_count"), rs.getLong("total_available_points")}, tenant);
+            var topWallets = jdbc.query("""
+                    SELECT w.id,w.org_id,w.status,w.spending_frozen,a.available_points,a.reserved_points
+                    FROM pf_wallet w JOIN pf_point_account a ON a.wallet_id=w.id AND a.tenant_id=w.tenant_id
+                    WHERE w.tenant_id=?
+                    ORDER BY a.available_points DESC,w.id DESC LIMIT 10
+                    """, (rs, row) -> new Wallet(rs.getString("id"), rs.getString("org_id"), rs.getString("status"),
+                    rs.getBoolean("spending_frozen"), rs.getLong("available_points"), rs.getLong("reserved_points")), tenant);
+            return new WalletSummary(totals[0], totals[1], List.copyOf(topWallets));
+        } catch (DataAccessException error) {
+            log.error("[platformOps][operation=walletSummary,tenant={}] 本地运营查询失败", tenant, error);
+            throw error;
+        }
     }
 
     public PageResult<Plan> plans(int pageNo, int pageSize) {

@@ -41,6 +41,15 @@ public class DesignOperationsService {
                         rs.getString("resolution"), rs.getString("unit"), rs.getLong("prompt_points"), rs.getLong("image_points"),
                         rs.getLong("usage_points"), rs.getInt("max_image_units"), rs.getBoolean("active")));
     }
+    public PageResult<Price> activePrices(int pageNo, int pageSize) {
+        return page("activePrices", """
+                SELECT id,version,operation,resolution,unit,prompt_points,image_points,usage_points,max_image_units,active
+                FROM fr_design_price WHERE tenant_id=? AND active=true
+                """, "operation,resolution,id DESC", pageNo, pageSize, null,
+                (rs, row) -> new Price(rs.getString("id"), rs.getLong("version"), rs.getString("operation"),
+                        rs.getString("resolution"), rs.getString("unit"), rs.getLong("prompt_points"), rs.getLong("image_points"),
+                        rs.getLong("usage_points"), rs.getInt("max_image_units"), rs.getBoolean("active")));
+    }
     public PageResult<Cost> costs(int pageNo, int pageSize, String orgId) {
         return page("costs", """
                 SELECT c.command_id,c.org_id,c.operation,c.state,c.settlement_version,c.settlement_json,c.audited,c.created_at,

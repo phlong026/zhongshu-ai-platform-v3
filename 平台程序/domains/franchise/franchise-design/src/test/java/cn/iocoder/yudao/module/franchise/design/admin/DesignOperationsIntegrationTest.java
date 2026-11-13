@@ -54,6 +54,20 @@ class DesignOperationsIntegrationTest extends PlatformPgIntegrationTest {
             assertThat(price.version()).isEqualTo(1);
         });
     }
+    @Test void activePricePageExcludesInactiveHistoryAndOtherTenants() {
+        price(tenant, 1, "CREATE_FLAT_JOB", false);
+        price(tenant, 2, "CREATE_FLAT_JOB", true);
+        price(tenant, 1, "CREATE_FACADE_JOB", true);
+        price(tenant + 1, 1, "CREATE_OTHER_JOB", true);
+
+        var active = service.activePrices(1, 20);
+
+        assertThat(active.getTotal()).isEqualTo(2);
+        assertThat(active.getList()).hasSize(2).allMatch(DesignOperationsService.Price::active)
+                .extracting(DesignOperationsService.Price::operation)
+                .containsExactly("CREATE_FACADE_JOB", "CREATE_FLAT_JOB");
+        assertThat(service.prices(1, 20).getTotal()).isEqualTo(3);
+    }
     @Test void persistedMicrosAreReportedWithoutApplyingRetailPrice() {
         command(tenant, "settled", """
             {"jobId":1,"version":2,"status":"SUCCEEDED","terminal":true,"requestedCount":1,"validResultCount":1,
@@ -70,5 +84,12 @@ class DesignOperationsIntegrationTest extends PlatformPgIntegrationTest {
             INSERT INTO fr_design_remote_command(caller_app_id,tenant_id,org_id,operation,request_key,remote_request_key,fingerprint,actor_json,payload_json,state,settlement_json)
             VALUES('B',?,88,'CREATE_FLAT_JOB',?,?,'0000000000000000000000000000000000000000000000000000000000000000','{}','{}','UNKNOWN',?::jsonb)
             """, owner, key, java.util.UUID.randomUUID().toString(), settlement);
+    }
+    private void price(long owner, long version, String operation, boolean active) {
+        jdbc.update("""
+            INSERT INTO fr_design_price(tenant_id,id,version,operation,resolution,unit,prompt_points,image_points,
+                                        usage_points,max_prompt_units,max_image_units,max_usage_units,active)
+            VALUES(?,?,?,?,'2K','B_WALLET_POINTS',2,3,0,1,8,0,?)
+            """, owner, IdWorker.getId(), version, operation, active);
     }
 }
