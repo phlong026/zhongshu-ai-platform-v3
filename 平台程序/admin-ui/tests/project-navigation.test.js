@@ -102,7 +102,7 @@ test('业务菜单按六组组装：户型最上、隐私在最后组末尾，�
   )
   assert.deepEqual(Array.from(result, (route) => route.meta?.title).slice(1, 7), [
     '案例库',
-    '客户与激活',
+    '客户与开通',
     '资金与点数',
     '预算与报价',
     '定价管理',
@@ -115,7 +115,7 @@ test('业务菜单按六组组装：户型最上、隐私在最后组末尾，�
   )
   assert.deepEqual(
     Array.from(result[2].children, (child) => child.path),
-    ['/zs/account', '/zs/access-code']
+    ['/zs/account']
   )
   assert.deepEqual(
     Array.from(result[3].children, (child) => child.path),
@@ -154,7 +154,6 @@ test('保留全部业务入口且子项为绝对路径，可直接导航', () =>
   for (const target of [
     'case',
     'review',
-    'access-code',
     'recharge',
     'budget',
     'budget-estimates',

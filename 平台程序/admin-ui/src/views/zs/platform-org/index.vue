@@ -99,12 +99,24 @@ const submit = async () => {
   await formRef.value?.validate().catch(() => Promise.reject(new Error('invalid')))
   submitting.value = true
   try {
-    result.value = await onboardOrg({ ...form })
+    // P1-1：关闭设计能力时不发送赠点（避免"关闭仍赠点"）
+    const payload = {
+      orgType: form.orgType,
+      orgName: form.orgName,
+      adminName: form.adminName,
+      adminMobile: form.adminMobile,
+      designEnabled: form.designEnabled,
+      initialCredits: form.designEnabled ? form.initialCredits : undefined
+    }
+    result.value = await onboardOrg(payload)
     resultText.value = result.value.reusedOrg
       ? `该组织已存在，本次为幂等开通：组织编号 ${result.value.orgId}；首管理员已确认授权。`
       : `开通成功：组织编号 ${result.value.orgId}；首管理员（boss）已授权，可通知其经小程序登录。`
     ElMessage.success('开通完成')
     formRef.value?.resetFields()
+    // P1-2：新增字段无 prop，resetFields 管不到，显式复位防跨公司继承
+    form.designEnabled = false
+    form.initialCredits = 0
   } finally {
     submitting.value = false
   }
