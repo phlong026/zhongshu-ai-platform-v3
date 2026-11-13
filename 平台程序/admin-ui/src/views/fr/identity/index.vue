@@ -53,12 +53,21 @@ const identity = usePlatformIdentityStore()
 const permissions = usePermissionStore()
 const router = useRouter()
 const error = ref('')
+/**
+ * 选岗后按当前身份权限选择默认落地页（批4 硬性交付，替代原硬编码 org:query）。
+ * 优先级：财务查询（老板/财务 Web 刚需第一项，R5 §二/§四 P0）> 组织查询 > 留在身份页。
+ */
+const defaultLandingPath = (): string => {
+  if (identity.can('franchise:fin:query')) return '/fr/finance'
+  if (identity.can('platform:org:query')) return '/fr/org/staff'
+  return '/fr/identity'
+}
 const switchPost = async (postId: PlatformId) => {
   error.value = ''
   try {
     await identity.selectPost(postId)
     await permissions.generateRoutes()
-    if (identity.can('platform:org:query')) await router.replace('/fr/org/staff')
+    await router.replace(defaultLandingPath())
   } catch {
     error.value = '工作身份切换失败，该任职可能已被撤销，请刷新后重试。'
   }
