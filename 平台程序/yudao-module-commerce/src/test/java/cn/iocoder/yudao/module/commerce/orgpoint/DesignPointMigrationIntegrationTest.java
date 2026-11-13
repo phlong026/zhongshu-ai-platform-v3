@@ -128,6 +128,59 @@ class DesignPointMigrationIntegrationTest {
     }
 
     @Test
+    void blockedBatchWritesNothing() {
+        account(501L, 30, 0);   // 可迁，但因同批存在阻塞账号必须零写入
+        account(502L, 10, 4);   // 在途阻塞
+        account(503L, 5, 0);    // 未确认映射阻塞
+        mapping(501L, 7001L, 501L, "CONFIRMED");
+        mapping(502L, 7001L, 502L, "CONFIRMED");
+        mapping(503L, 7001L, 503L, "CANDIDATE");
+
+        assertThatThrownBy(() -> service.execute("admin")).isInstanceOf(IllegalStateException.class);
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_ledger WHERE type='MIGRATION_OUT'",
+                Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE type='MIGRATION'",
+                Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT available_points FROM design_point_account WHERE user_id=501",
+                Long.class)).isEqualTo(30);
+    }
+
+    @Test
+    void secondBatchUsesCumulativeBaseline() {
+        account(601L, 10, 0);
+        mapping(601L, 7001L, 501L, "CONFIRMED");
+        service.execute("admin");
+        account(602L, 25, 0);
+        mapping(602L, 7002L, 502L, "CONFIRMED");
+
+        var second = service.execute("admin");
+
+        assertThat(second.migratedAccounts()).isEqualTo(1);
+        assertThat(second.migratedCredits()).isEqualTo(25);
+        assertThat(second.personalLedgerSum()).isEqualTo(35);
+        assertThat(second.orgLedgerSum()).isEqualTo(35);
+        assertThat(second.balanced()).isTrue();
+    }
+
+    @Test
+    void ledgerPairsMatchBizKey() {
+        account(701L, 12, 0);
+        account(702L, 8, 0);
+        mapping(701L, 7001L, 501L, "CONFIRMED");
+        mapping(702L, 7001L, 502L, "CONFIRMED");
+        service.execute("admin");
+
+        Integer pairs = jdbc.queryForObject(
+                "SELECT count(*) FROM org_point_ledger o JOIN design_point_ledger p "
+                        + "ON p.idempotency_key = o.biz_key || ':OUT' AND p.type = 'MIGRATION_OUT' "
+                        + "WHERE o.type = 'MIGRATION' AND o.available_delta = -p.delta", Integer.class);
+        assertThat(pairs).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_point_account "
+                + "WHERE available_points > 0", Integer.class)).isZero();
+    }
+
+    @Test
     void executeIsIdempotentOnRerun() {
         account(401L, 15, 0);
         mapping(401L, 7001L, 501L, "CONFIRMED");

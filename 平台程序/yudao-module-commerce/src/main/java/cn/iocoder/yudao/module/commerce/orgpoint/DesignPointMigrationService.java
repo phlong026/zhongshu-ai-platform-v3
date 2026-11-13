@@ -97,34 +97,65 @@ public class DesignPointMigrationService {
         return new MigrationReport(total, eligible, buckets, blocked, migrated == null ? 0 : migrated);
     }
 
-    /** 执行迁移：逐账号短事务（个人负流水 + 池加点 + 幂等键），最后守恒校验。 */
+    /** 迁移全局互斥键：所有迁移写路径必须持有同一把 advisory lock（防预检后被插入在途/并发迁移）。 */
+    private static final long MIGRATION_LOCK_KEY = 9_202_611_131L;
+
+    /**
+     * 执行迁移（**整批单事务**）：advisory 锁冻结全批 → 预检 → 逐账号行锁重读 → 清零(校验 1 行) →
+     * 池加点 + 双账流水 → 守恒断言。任一环节失败整体回滚，杜绝部分迁移。
+     */
     public MigrationResult execute(String operator) {
-        MigrationReport pre = dryRun();
-        if (!pre.blocked().isEmpty()) {
-            throw new IllegalStateException("存在阻塞账号，禁止迁移：共 " + pre.blocked().size()
-                    + " 个（在途预留或未确认映射）");
-        }
-        long credited = 0;
-        int accounts = 0;
-        for (OrgBucket bucket : pre.byOrg()) {
-            List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT a.user_id, a.available_points FROM design_point_account a "
-                            + "JOIN design_identity_mapping m ON m.account_id = a.user_id "
-                            + "WHERE m.matched_org_id = ? AND m.status = 'CONFIRMED' "
-                            + "AND a.deleted = FALSE AND a.available_points > 0 AND a.reserved_points = 0 "
-                            + "ORDER BY a.user_id", bucket.orgId());
-            for (Map<String, Object> row : rows) {
-                long accountId = ((Number) row.get("user_id")).longValue();
-                long amount = ((Number) row.get("available_points")).longValue();
+        return tx.execute(status -> {
+            // P1-3：全批冻结（事务级 advisory lock，直到提交/回滚释放）
+            jdbc.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, MIGRATION_LOCK_KEY);
+            MigrationReport pre = dryRun();
+            if (!pre.blocked().isEmpty()) {
+                throw new IllegalStateException("存在阻塞账号，禁止迁移：共 " + pre.blocked().size()
+                        + " 个（在途预留或未确认映射）");
+            }
+            long credited = 0;
+            int accounts = 0;
+            for (OrgBucket bucket : pre.byOrg()) {
                 long orgId = bucket.orgId();
-                String bizKey = "migration:" + accountId;
-                Long done = tx.execute(status -> {
+                // 行锁 + 重读：锁定瞬间仍满足"可用>0、在途=0、已确认映射"才处理
+                List<Map<String, Object>> rows = jdbc.queryForList(
+                        "SELECT a.user_id, a.available_points FROM design_point_account a "
+                                + "JOIN design_identity_mapping m ON m.account_id = a.user_id "
+                                + "WHERE m.matched_org_id = ? AND m.status = 'CONFIRMED' "
+                                + "AND a.deleted = FALSE AND a.available_points > 0 "
+                                + "AND a.reserved_points = 0 ORDER BY a.user_id FOR UPDATE OF a", orgId);
+                for (Map<String, Object> row : rows) {
+                    long accountId = ((Number) row.get("user_id")).longValue();
+                    long amount = ((Number) row.get("available_points")).longValue();
+                    String bizKey = "migration:" + accountId;
                     if (existsOrgLedger(bizKey)) {
-                        return 0L;
+                        continue; // 幂等：已迁账号跳过
                     }
-                    // 池侧：先确保池存在，再 MIGRATION 加点
+                    // P1-1：条件清零必须命中且仅命中 1 行；否则整批回滚（防"实际未清零但账本平衡"）
+                    int zeroed = jdbc.update("UPDATE design_point_account SET available_points = 0, "
+                                    + "version = version + 1, update_time = now() "
+                                    + "WHERE user_id = ? AND available_points = ? AND reserved_points = 0",
+                            accountId, amount);
+                    if (zeroed != 1) {
+                        throw new IllegalStateException("个人账户清零失败（余额已变化），整批回滚：account="
+                                + accountId);
+                    }
+                    // 个人侧留痕
+                    jdbc.update("INSERT INTO design_point_ledger (id, user_id, type, delta, "
+                                    + "available_after, reserved_after, biz_type, biz_id, idempotency_key, "
+                                    + "operator_id, reason) "
+                                    + "VALUES (?, ?, 'MIGRATION_OUT', ?, 0, 0, 'org_point_migration', ?, ?, ?, ?)",
+                            IdWorker.getId(), accountId, -amount, String.valueOf(orgId),
+                            bizKey + ":OUT", operator, "迁入公司池 orgId=" + orgId);
+                    // 池侧：确保池存在 → 加点 → MIGRATION 流水
                     jdbc.update("INSERT INTO org_point_account (id, org_id) VALUES (?, ?) "
                             + "ON CONFLICT (org_id) DO NOTHING", IdWorker.getId(), orgId);
+                    java.util.List<Long> balances = jdbc.queryForList(
+                            "SELECT balance FROM org_point_account WHERE org_id = ? FOR UPDATE",
+                            Long.class, orgId);
+                    if (balances.isEmpty()) {
+                        throw new IllegalStateException("公司池不存在：orgId=" + orgId);
+                    }
                     jdbc.update("UPDATE org_point_account SET balance = balance + ?, "
                             + "version = version + 1, update_time = now() WHERE org_id = ?", amount, orgId);
                     jdbc.update("INSERT INTO org_point_ledger (id, org_id, operation_id, biz_key, type, "
@@ -132,35 +163,22 @@ public class DesignPointMigrationService {
                                     + "VALUES (?, ?, NULL, ?, 'MIGRATION', NULL, ?, ?, NULL, 'design_account', ?, ?)",
                             IdWorker.getId(), orgId, bizKey, accountId, amount, accountId,
                             "存量个人点迁入（operator=" + operator + "）");
-                    // 个人侧：负流水留痕后清零
-                    jdbc.update("UPDATE design_point_account SET available_points = 0, "
-                            + "version = version + 1, update_time = now() "
-                            + "WHERE user_id = ? AND available_points = ?", accountId, amount);
-                    jdbc.update("INSERT INTO design_point_ledger (id, user_id, type, delta, "
-                                    + "available_after, reserved_after, biz_type, biz_id, idempotency_key, "
-                                    + "operator_id, reason) "
-                                    + "VALUES (?, ?, 'MIGRATION_OUT', ?, 0, 0, 'org_point_migration', ?, ?, ?, ?)",
-                            IdWorker.getId(), accountId, -amount, String.valueOf(orgId),
-                            bizKey + ":OUT", operator, "迁入公司池 orgId=" + orgId);
-                    return amount;
-                });
-                if (done != null && done > 0) {
-                    credited += done;
+                    credited += amount;
                     accounts++;
                 }
             }
-        }
-        long personalOut = sumPersonalMigrationOut();
-        long orgIn = sumOrgMigrationIn();
-        long expectedAfter = pre.alreadyMigrated() + credited;
-        boolean balanced = personalOut == orgIn && orgIn == expectedAfter;
-        log.info("[execute][迁移完成] accounts={} credits={} personalOut={} orgIn={} balanced={}",
-                accounts, credited, personalOut, orgIn, balanced);
-        if (!balanced) {
-            throw new IllegalStateException("迁移守恒校验失败：personalOut=" + personalOut
-                    + " orgIn=" + orgIn);
-        }
-        return new MigrationResult(accounts, credited, personalOut, orgIn, true);
+            long personalOut = sumPersonalMigrationOut();
+            long orgIn = sumOrgMigrationIn();
+            long expectedAfter = pre.alreadyMigrated() + credited;
+            boolean balanced = personalOut == orgIn && orgIn == expectedAfter;
+            log.info("[execute][迁移完成] accounts={} credits={} personalOut={} orgIn={} balanced={}",
+                    accounts, credited, personalOut, orgIn, balanced);
+            if (!balanced) {
+                throw new IllegalStateException("迁移守恒校验失败：personalOut=" + personalOut
+                        + " orgIn=" + orgIn + " expected=" + expectedAfter);
+            }
+            return new MigrationResult(accounts, credited, personalOut, orgIn, true);
+        });
     }
 
     private boolean existsOrgLedger(String bizKey) {
