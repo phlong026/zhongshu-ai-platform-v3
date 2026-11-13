@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.franchise.finance.controller.admin;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.franchise.finance.FinBankService;
 import cn.iocoder.yudao.module.franchise.finance.FinFileService;
 import cn.iocoder.yudao.module.franchise.finance.FinPaymentService;
@@ -35,6 +37,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -99,6 +102,121 @@ public class FinanceController {
     private FinAbnormalFundMapper abnormalFundMapper;
     @Resource
     private FinReconciliationService reconciliationService;
+
+    // ===== Web 财务核对页：只读分页 + 组合筛选（P0 批2；旧 List 端点保持兼容小程序） =====
+    // 逐表日期口径按 DO 实证：receipts=receivedDate、payments=payDate、refunds=date、abnormal-funds=businessDate；
+    // FinPayableDO 无业务日期/到期日字段，payables 不提供任何日期或到期日参数，也不承诺导出列。
+
+    @GetMapping("/receipts/page")
+    @Operation(summary = "实收分页（只读：期间/项目/类型/状态/keyword 组合筛选）")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<PageResult<FinReceiptDO>> receiptsPage(
+            @RequestParam(value = "pageNo", defaultValue = "1") int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "receivedDateFrom", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate receivedDateFrom,
+            @RequestParam(value = "receivedDateTo", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate receivedDateTo,
+            @RequestParam(value = "projectId", required = false) Long projectId,
+            @RequestParam(value = "method", required = false) String method,
+            @RequestParam(value = "sourceType", required = false) String sourceType,
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        PageParam page = pageParam(pageNo, pageSize);
+        validateRange(receivedDateFrom, receivedDateTo);
+        return success(receiptMapper.selectPage(page, currentPost.require().orgId(), status,
+                receivedDateFrom, receivedDateTo, projectId, method, sourceType, keyword));
+    }
+
+    @GetMapping("/payments/page")
+    @Operation(summary = "付款分页（只读：期间/项目/状态/keyword 组合筛选）")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<PageResult<FinPaymentDO>> paymentsPage(
+            @RequestParam(value = "pageNo", defaultValue = "1") int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "payDateFrom", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate payDateFrom,
+            @RequestParam(value = "payDateTo", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate payDateTo,
+            @RequestParam(value = "projectId", required = false) Long projectId,
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        PageParam page = pageParam(pageNo, pageSize);
+        validateRange(payDateFrom, payDateTo);
+        return success(paymentMapper.selectPage(page, currentPost.require().orgId(), status,
+                payDateFrom, payDateTo, projectId, keyword));
+    }
+
+    @GetMapping("/refunds/page")
+    @Operation(summary = "退款分页（只读：期间/原收款单/方向/状态/keyword 组合筛选）")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<PageResult<FinRefundDO>> refundsPage(
+            @RequestParam(value = "pageNo", defaultValue = "1") int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "dateFrom", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(value = "dateTo", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(value = "receiptId", required = false) Long receiptId,
+            @RequestParam(value = "refundDirection", required = false) String refundDirection,
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        PageParam page = pageParam(pageNo, pageSize);
+        validateRange(dateFrom, dateTo);
+        validateRefundDirection(refundDirection);
+        return success(refundMapper.selectPage(page, currentPost.require().orgId(), status,
+                dateFrom, dateTo, receiptId, refundDirection, keyword));
+    }
+
+    @GetMapping("/payables/page")
+    @Operation(summary = "应付分页（只读：项目/状态/keyword 组合筛选；DO 无到期日字段，不提供日期筛选）")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<PageResult<FinPayableDO>> payablesPage(
+            @RequestParam(value = "pageNo", defaultValue = "1") int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "projectId", required = false) Long projectId,
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        PageParam page = pageParam(pageNo, pageSize);
+        return success(payableMapper.selectPage(page, currentPost.require().orgId(), status, projectId, keyword));
+    }
+
+    @GetMapping("/abnormal-funds/page")
+    @Operation(summary = "异常资金分页（只读：状态/日期待核/业务日期区间/keyword 组合筛选）")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<PageResult<FinAbnormalFundDO>> abnormalFundsPage(
+            @RequestParam(value = "pageNo", defaultValue = "1") int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "datePendingOnly", defaultValue = "false") boolean datePendingOnly,
+            @RequestParam(value = "businessDateFrom", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate businessDateFrom,
+            @RequestParam(value = "businessDateTo", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate businessDateTo,
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        PageParam page = pageParam(pageNo, pageSize);
+        validateRange(businessDateFrom, businessDateTo);
+        return success(abnormalFundMapper.selectPage(page, currentPost.require().orgId(), status,
+                datePendingOnly, businessDateFrom, businessDateTo, keyword));
+    }
+
+    /** 分页参数校验真实落到方法参数：1 ≤ pageNo、1 ≤ pageSize ≤ 100（需求 §三.1，非 PageParam 默认 200 上限）。 */
+    private static PageParam pageParam(int pageNo, int pageSize) {
+        if (pageNo < 1 || pageSize < 1 || pageSize > 100) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST);
+        }
+        PageParam page = new PageParam();
+        page.setPageNo(pageNo);
+        page.setPageSize(pageSize);
+        return page;
+    }
+
+    private static void validateRange(LocalDate from, LocalDate to) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST);
+        }
+    }
+
+    private static void validateRefundDirection(String direction) {
+        if (direction != null && !"client".equals(direction) && !"expense".equals(direction)) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST);
+        }
+    }
 
     // ===== 实收 =====
 
