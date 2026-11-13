@@ -37,7 +37,11 @@ public class OrgOnboardController {
                                @NotBlank(message = "组织名称不能为空") String orgName,
                                @NotBlank(message = "首管理员姓名不能为空") String adminName,
                                @NotBlank(message = "首管理员手机号不能为空")
-                               @Pattern(regexp = "1\\d{10}", message = "手机号格式不正确") String adminMobile) {
+                               @Pattern(regexp = "1\\d{10}", message = "手机号格式不正确") String adminMobile,
+                               // 24 号 B-8：省略/false = 不改变既有开通状态；true = 建池开通
+                               Boolean designEnabled,
+                               // 24 号 B-8：开通赠点（仅首次生效）
+                               Long initialCredits) {
     }
 
     public record OnboardRespVO(long orgId, long adminUserId, long postId, boolean reusedOrg) {
@@ -49,7 +53,8 @@ public class OrgOnboardController {
     public CommonResult<OnboardRespVO> onboard(@Valid @RequestBody OnboardReqVO req) {
         long operator = SecurityFrameworkUtils.getLoginUserId();
         OrgOnboardService.OnboardResult r = orgOnboardService.onboard(
-                req.orgType(), req.orgName(), req.adminName(), req.adminMobile(), operator);
+                req.orgType(), req.orgName(), req.adminName(), req.adminMobile(), operator,
+                req.designEnabled(), req.initialCredits());
         return success(new OnboardRespVO(r.orgId(), r.adminUserId(), r.postId(), r.reusedOrg()));
     }
 }

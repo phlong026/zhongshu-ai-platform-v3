@@ -16,6 +16,15 @@ import errorCode from './errorCode'
 import { resetRouter } from '@/router'
 import { deleteUserCache } from '@/hooks/web/useCache'
 import { ApiEncrypt } from '@/utils/encrypt'
+import {
+  clearPlatformIdentity,
+  currentPostId,
+  isCurrentGeneration,
+  isPostScopedUrl,
+  portalMode,
+  postGeneration,
+  setPortalMode
+} from '@/utils/platformIdentity'
 
 const tenantEnable = import.meta.env.VITE_APP_TENANT_ENABLE
 const { result_code, base_url, request_timeout } = config
@@ -56,6 +65,16 @@ service.interceptors.request.use(
     }
     if (getAccessToken() && isToken) {
       config.headers.Authorization = 'Bearer ' + getAccessToken() // 让每个请求携带自定义 token
+    }
+    if (isPostScopedUrl(config.url)) {
+      const scopedConfig = config as InternalAxiosRequestConfig & { platformGeneration?: number }
+      const generation = scopedConfig.platformGeneration
+      if (generation !== undefined && !isCurrentGeneration(generation)) {
+        throw new Error('STALE_POST_RESPONSE')
+      }
+      const postId = currentPostId()
+      if (!config.headers['X-Post-Id'] && postId) config.headers['X-Post-Id'] = postId
+      if (generation === undefined) scopedConfig.platformGeneration = postGeneration()
     }
     // 单租户和多租户请求均需租户标识，切换租户仅在多租户模式下开放。
     const tenantId = getTenantId()
@@ -108,6 +127,12 @@ service.interceptors.request.use(
 // response 拦截器
 service.interceptors.response.use(
   async (response: AxiosResponse<any>) => {
+    const generation = (
+      response.config as InternalAxiosRequestConfig & { platformGeneration?: number }
+    ).platformGeneration
+    if (generation !== undefined && !isCurrentGeneration(generation)) {
+      return Promise.reject(new Error('STALE_POST_RESPONSE'))
+    }
     let { data } = response
     const config = response.config
     if (!data) {
@@ -161,7 +186,10 @@ service.interceptors.response.use(
         try {
           const refreshTokenRes = await refreshToken()
           // 2.1 刷新成功，则回放队列的请求 + 当前请求
-          setToken((await refreshTokenRes).data.data)
+          const previousMode = portalMode(getAccessToken())
+          const refreshedToken = (await refreshTokenRes).data.data
+          setToken(refreshedToken)
+          if (previousMode === 'staff') setPortalMode('staff', refreshedToken.accessToken)
           config.headers!.Authorization = 'Bearer ' + getAccessToken()
           requestList.forEach((cb: any) => {
             cb()
@@ -223,6 +251,14 @@ service.interceptors.response.use(
     }
   },
   (error: AxiosError) => {
+    // 旧请求在重放前被请求拦截器拒绝时没有 config，也应静默丢弃内部代次标识。
+    if (error.message === 'STALE_POST_RESPONSE') return Promise.reject(error)
+    const generation = (
+      error.config as (InternalAxiosRequestConfig & { platformGeneration?: number }) | undefined
+    )?.platformGeneration
+    if (generation !== undefined && !isCurrentGeneration(generation)) {
+      return Promise.reject(new Error('STALE_POST_RESPONSE'))
+    }
     console.log('err' + error) // for debug
     let { message } = error
     const { t } = useI18n()
@@ -247,10 +283,21 @@ const refreshToken = async () => {
 }
 const handleAuthorized = () => {
   const { t } = useI18n()
+  // 清会话会移除门户标记，先记住员工应返回的登录入口。
+  const staffPortal =
+    portalMode(getAccessToken()) === 'staff' || window.location.href.includes('/platform-login')
+  const clearAuthSession = () => {
+    resetRouter()
+    deleteUserCache()
+    clearPlatformIdentity()
+    removeToken()
+  }
   if (!isRelogin.show) {
-    // 如果已经到登录页面则不进行弹窗提示
-    if (window.location.href.includes('login')) {
-      return
+    // 登录页不弹二次确认，但 401 仍必须清理旧会话并向调用方抛错。
+    if (/\/(platform-)?login(?:[/?#]|$)/.test(window.location.href)) {
+      clearAuthSession()
+      window.location.replace(staffPortal ? '/platform-login' : '/login')
+      return Promise.reject(t('sys.api.timeoutMessage'))
     }
     isRelogin.show = true
     ElMessageBox.confirm(t('sys.api.timeoutMessage'), t('common.confirmTitle'), {
@@ -261,12 +308,10 @@ const handleAuthorized = () => {
       confirmButtonText: t('login.relogin'),
       type: 'warning'
     }).then(() => {
-      resetRouter() // 重置静态路由表
-      deleteUserCache() // 删除用户缓存
-      removeToken()
+      clearAuthSession()
       isRelogin.show = false
-      // 干掉token后再走一次路由让它过router.beforeEach的校验
-      window.location.href = window.location.href
+      if (staffPortal) window.location.replace('/platform-login')
+      else window.location.href = window.location.href
     })
   }
   return Promise.reject(t('sys.api.timeoutMessage'))

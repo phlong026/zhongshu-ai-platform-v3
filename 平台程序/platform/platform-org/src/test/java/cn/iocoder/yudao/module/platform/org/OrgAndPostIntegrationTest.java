@@ -59,6 +59,20 @@ class OrgAndPostIntegrationTest extends PlatformPgIntegrationTest {
     // ===================== 组织与团队 =====================
 
     @Test
+    void postTemplateChoicesComeFromRegisteredOrganizationTypes() {
+        long store = orgService.createOrg("t-store", "模板测试门店", null);
+        long headquarters = orgService.createOrg("t-hq", "模板测试总部", null);
+
+        assertThat(orgService.listPostTemplates(store))
+                .extracting(cn.iocoder.yudao.module.platform.org.dal.PostTemplateDO::getRoleCode)
+                .contains("t-sales", "t-sales-lead", "t-finance");
+        assertThat(orgService.listPostTemplates(headquarters))
+                .extracting(cn.iocoder.yudao.module.platform.org.dal.PostTemplateDO::getRoleCode)
+                .contains("t-finance").doesNotContain("t-sales", "t-sales-lead");
+        assertError(() -> orgService.listPostTemplates(Long.MAX_VALUE), ORG_NOT_FOUND);
+    }
+
+    @Test
     void createsOrgAndTeamsOnTopOfDepartments() {
         long orgId = orgService.createOrg("t-store", "湖北加盟商", null);
         long team = orgService.createTeam(orgId, null, "业务部", "sales");

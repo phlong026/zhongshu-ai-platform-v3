@@ -190,6 +190,13 @@ const zsRouter: RouteRecordRaw[] = [
         name: 'ZsUsagePricing',
         meta: { title: '服务计费', icon: 'ep:coin', noCache: true, group: 'pricing' }
       },
+      {
+        // 24 号 D8：公司积分池按科目计价，后台调价（预扣写快照，调价只影响新任务）
+        path: 'org-point-pricing',
+        component: () => import('@/views/zs/org-point-pricing/index.vue'),
+        name: 'ZsOrgPointPricing',
+        meta: { title: '公司池价格', icon: 'ep:wallet', noCache: true, group: 'pricing' }
+      },
       // —— 运营与合规 ops ——
       {
         path: 'ai-job',

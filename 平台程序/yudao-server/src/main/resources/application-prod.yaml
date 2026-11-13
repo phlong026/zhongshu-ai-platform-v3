@@ -58,9 +58,16 @@ zhongshu:
     wecom-corp-id: ${ZS_SUPPORT_WECOM_CORP_ID:}
     wecom-url: ${ZS_SUPPORT_WECOM_URL:}
     help-url: ${ZS_SUPPORT_HELP_URL:}
+  org-point:
+    migration-enabled: ${ZS_ORG_POINT_MIGRATION_ENABLED:false}
+    pending-alert-enabled: ${ZS_ORG_POINT_PENDING_ALERT:true}
+    pending-alert-hours: ${ZS_ORG_POINT_PENDING_ALERT_HOURS:24}
   identity:
     wechat:
       provider: real
+    # 24 号 B-14：激活码退役（生产必须 false；守卫强制，缺省亦拒绝启动）
+    access-code:
+      enabled: ${ZS_ACCESS_CODE_ENABLED:false}
   commerce:
     payment:
       # T-XPAY：虚拟商品（设计点）合规通道=微信小程序虚拟支付（wx.requestVirtualPayment）。

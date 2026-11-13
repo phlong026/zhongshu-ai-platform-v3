@@ -85,6 +85,16 @@ public class BudgetService {
                                    Long resultVersionId,
                                    cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
                                    String key) {
+        return createEstimate(userId, projectId, regionCode, structureType, materialGrade,
+                buildingArea, resultVersionId, confirmation, key, null);
+    }
+
+    public Estimate createEstimate(long userId, long projectId, String regionCode,
+                                   String structureType, String materialGrade, int buildingArea,
+                                   Long resultVersionId,
+                                   cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
+                                   String key,
+                                   cn.iocoder.yudao.module.design.project.DesignProjectService.OrgBilling billing) {
         if (key == null || key.isBlank() || key.length() > 128) throw new ServiceException(400, "请提供有效 Idempotency-Key");
         if (transactionTemplate == null) throw new IllegalStateException("BUDGET_TRANSACTION_NOT_WIRED");
         return transactionTemplate.execute(status -> {
@@ -101,7 +111,7 @@ public class BudgetService {
             var receipt=jdbcTemplate.queryForMap("SELECT request_hash,estimate_id FROM budget_legacy_request WHERE user_id=? AND request_key=? FOR UPDATE",userId,key);
             if (!hash.equals(receipt.get("request_hash"))) throw new ServiceException(409,"同一请求号不能用于不同预算输入");
             if (receipt.get("estimate_id") != null) return getEstimate(userId,((Number)receipt.get("estimate_id")).longValue()).orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
-            var estimate=createEstimateInside(userId,projectId,regionCode,structureType,materialGrade,buildingArea,resultVersionId,confirmation);
+            var estimate=createEstimateInside(userId,projectId,regionCode,structureType,materialGrade,buildingArea,resultVersionId,confirmation,billing);
             jdbcTemplate.update("UPDATE budget_legacy_request SET estimate_id=? WHERE user_id=? AND request_key=?",estimate.estimateId(),userId,key);
             return estimate;
         });
@@ -112,11 +122,25 @@ public class BudgetService {
                                   long ruleVersionId, boolean replayed) {
     }
 
+    /** 设计桥公司池端口（D6 v2）：仅桥侧 OrgBilling 非空时使用。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private cn.iocoder.yudao.module.franchise.api.OrgPointPort orgPointPort;
+
     public EstimateReceipt createEstimateReceipt(long userId, long projectId, String regionCode,
                                                  String structureType, String materialGrade, int buildingArea,
                                                  Long resultVersionId,
                                                  cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
                                                  String key) {
+        return createEstimateReceipt(userId, projectId, regionCode, structureType, materialGrade,
+                buildingArea, resultVersionId, confirmation, key, null);
+    }
+
+    public EstimateReceipt createEstimateReceipt(long userId, long projectId, String regionCode,
+                                                 String structureType, String materialGrade, int buildingArea,
+                                                 Long resultVersionId,
+                                                 cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
+                                                 String key,
+                                                 cn.iocoder.yudao.module.design.project.DesignProjectService.OrgBilling billing) {
         if (key == null || key.isBlank() || key.length() > 128) throw new ServiceException(400, "请提供有效 Idempotency-Key");
         if (transactionTemplate == null) throw new IllegalStateException("BUDGET_TRANSACTION_NOT_WIRED");
         return transactionTemplate.execute(status -> {
@@ -130,7 +154,7 @@ public class BudgetService {
                         estimateRuleVersionId(estimate), true);
             }
             var estimate = createEstimate(userId, projectId, regionCode, structureType, materialGrade,
-                    buildingArea, resultVersionId, confirmation, key);
+                    buildingArea, resultVersionId, confirmation, key, billing);
             return new EstimateReceipt(estimate.estimateId(), estimate.totalLowCents(), estimate.totalHighCents(),
                     estimateRuleVersionId(estimate), false);
         });
@@ -148,6 +172,15 @@ public class BudgetService {
                                    String structureType, String materialGrade, int buildingArea,
                                    Long resultVersionId,
                                    cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation) {
+        return createEstimateInside(userId, projectId, regionCode, structureType, materialGrade,
+                buildingArea, resultVersionId, confirmation, null);
+    }
+
+    private Estimate createEstimateInside(long userId, long projectId, String regionCode,
+                                   String structureType, String materialGrade, int buildingArea,
+                                   Long resultVersionId,
+                                   cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.Confirmation confirmation,
+                                   cn.iocoder.yudao.module.design.project.DesignProjectService.OrgBilling billing) {
         // Reuse the project domain's ownership check before looking up prices or writing a budget.
         projectService.getProject(projectId, userId).orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
         if (resultVersionId != null && !Boolean.TRUE.equals(jdbcTemplate.queryForObject(
@@ -179,7 +212,21 @@ public class BudgetService {
                         + "input_snapshot, total_low_cents, total_high_cents) "
                         + "VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?)",
                 id, projectId, userId, ruleId, resultVersionId, toJson(input), low, high);
-        if (usagePricing != null) {
+        if (billing != null) {
+            // D6 v2 §2.2：预算为同步链——预扣与结算同事务完成（按次=1）
+            if (orgPointPort == null) {
+                throw new IllegalStateException("公司池端口未装配，无法以桥侧计费创建预算");
+            }
+            String bizKey = "design:estimate:" + id + ":budget_estimate";
+            long operationId = orgPointPort.reserve(
+                    new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
+                            bizKey, billing.orgId(), billing.actorUserId(), billing.actorPostId(),
+                            "budget_estimate", 1, "design_estimate", id));
+            orgPointPort.bindOperation("BRIDGE", billing.orgId(), billing.actorUserId(),
+                    billing.actorPostId(), "design_estimate", id, "budget_estimate",
+                    operationId, bizKey);
+            orgPointPort.settle(operationId, 1);
+        } else if (usagePricing != null) {
             var snapshot = usagePricing.quote("BUDGET_ESTIMATE");
             cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort.requireConfirmed(snapshot, confirmation);
             usagePricing.prepareCharge(userId, snapshot, "budget_estimate", String.valueOf(id));

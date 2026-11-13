@@ -59,6 +59,14 @@ public class DesignProjectService {
 
     private final AiJobPort aiJobPort;
 
+    /** 设计桥公司池端口（D6 v2）：仅桥侧传 OrgBilling 时使用；App 链 null 走个人池。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private cn.iocoder.yudao.module.franchise.api.OrgPointPort orgPointPort;
+
+    /** 桥侧计费上下文；null = App 链（个人池，行为不变）。 */
+    public record OrgBilling(long orgId, long actorUserId, long actorPostId) {
+    }
+
     private final AssetService assetService;
 
     private final RightsGrantService rightsGrantService;
@@ -377,6 +385,13 @@ public class DesignProjectService {
     public FlatJobCreated createFlatJob(long userId, long projectId, int count, String idempotencyKey,
                                         cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
                                         cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options) {
+        return createFlatJob(userId, projectId, count, idempotencyKey, confirmation, options, null);
+    }
+
+    public FlatJobCreated createFlatJob(long userId, long projectId, int count, String idempotencyKey,
+                                        cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
+                                        cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options,
+                                        OrgBilling billing) {
         return txTemplate.execute(transaction -> {
         if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
         jdbcTemplate.queryForMap("SELECT id FROM design_project WHERE id=? FOR UPDATE",projectId);
@@ -404,13 +419,36 @@ public class DesignProjectService {
         Map<String,Object> frozenInput = existingFlatReplayInput(userId, projectId, operationKey);
         // 平面生成已改为纯文生图：新任务不再校验或刷新案例生成参考授权；
         // 历史任务仍按自身已冻结的 input_snapshot 恢复，不做重建。
-        long jobId = aiJobPort.createFlatJob(userId, count, operationKey, String.valueOf(projectId), confirmation, options);
+        long jobId;
+        if (billing != null) {
+            if (orgPointPort == null) {
+                throw new IllegalStateException("公司池端口未装配，无法以桥侧计费创建任务");
+            }
+            String subject = "ai_flat";
+            long total = orgPointPort.quoteCredits(subject, count);
+            long unit = count <= 0 ? total : total / count;
+            jobId = aiJobPort.createFlatJobWithOrgCharge(userId, count, operationKey,
+                    String.valueOf(projectId), unit, total, options.resolution());
+            bindOrgCharge(billing, subject, jobId, count);
+        } else {
+            jobId = aiJobPort.createFlatJob(userId, count, operationKey, String.valueOf(projectId), confirmation, options);
+        }
         boolean created = aiJobPort.freezeInput(jobId,
                 runtimeInput(project, "FLAT", null, options, count, null, false, frozenInput));
         jdbcTemplate.update(
                 "UPDATE design_project SET update_time = now() WHERE id = ?", projectId);
         return new FlatJobCreated(jobId, created);
         });
+    }
+
+    /** 公司池预扣 + 计费归属绑定（与任务创建同事务；D6 v2 §2.1）。 */
+    private void bindOrgCharge(OrgBilling billing, String subject, long jobId, int count) {
+        String bizKey = "design:job:" + jobId + ":" + subject;
+        long operationId = orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
+                bizKey, billing.orgId(), billing.actorUserId(), billing.actorPostId(),
+                subject, Math.max(count, 1), "ai_job", jobId));
+        orgPointPort.bindOperation("BRIDGE", billing.orgId(), billing.actorUserId(),
+                billing.actorPostId(), "ai_job", jobId, subject, operationId, bizKey);
     }
 
     /**
@@ -714,13 +752,24 @@ public class DesignProjectService {
                                              Map<String, Object> elevationConfig,
                                              cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
                                              cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options) {
-        return createElevationJob(userId,projectId,count,idempotencyKey,elevationConfig,confirmation,options,null,false);
+        return createElevationJob(userId,projectId,count,idempotencyKey,elevationConfig,confirmation,options,null,false,null);
+    }
+
+    /** 桥侧公司池入口（D6 v2）：billing 非空即走公司池；null 保持 App 个人池。 */
+    public FlatJobCreated createElevationJob(long userId, long projectId, int count, String idempotencyKey,
+                                             Map<String, Object> elevationConfig,
+                                             cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
+                                             cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options,
+                                             OrgBilling billing) {
+        return createElevationJob(userId, projectId, count, idempotencyKey, elevationConfig,
+                confirmation, options, null, false, billing);
     }
 
     private FlatJobCreated createElevationJob(long userId,long projectId,int count,String idempotencyKey,
                                               Map<String,Object> elevationConfig,
                                               cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
-                                              cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options,Long sourceSelection,boolean completeRequirements) {
+                                              cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions options,Long sourceSelection,boolean completeRequirements,
+                                              OrgBilling billing) {
         return txTemplate.execute(transaction -> {
         if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
         jdbcTemplate.queryForMap("SELECT id FROM design_project WHERE id=? FOR UPDATE",projectId);
@@ -755,7 +804,20 @@ public class DesignProjectService {
         // 方向自选（22号文档 7.2）：不再强制对齐已选平面任务的方向，由立面配置请求给定
         var alignedOptions=cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptions.normalize(
                 "ELEVATION",options.resolution(),options.orientation());
-        long jobId = aiJobPort.createElevationJob(userId, count, idempotencyKey, String.valueOf(projectId), confirmation, alignedOptions);
+        long jobId;
+        if (billing != null) {
+            if (orgPointPort == null) {
+                throw new IllegalStateException("公司池端口未装配，无法以桥侧计费创建任务");
+            }
+            String subject = "ai_elevation";
+            long total = orgPointPort.quoteCredits(subject, count);
+            long unit = count <= 0 ? total : total / count;
+            jobId = aiJobPort.createElevationJobWithOrgCharge(userId, count, idempotencyKey,
+                    String.valueOf(projectId), unit, total, alignedOptions.resolution());
+            bindOrgCharge(billing, subject, jobId, count);
+        } else {
+            jobId = aiJobPort.createElevationJob(userId, count, idempotencyKey, String.valueOf(projectId), confirmation, alignedOptions);
+        }
         var frozen=runtimeInput(project,"ELEVATION",validatedConfig,alignedOptions,count,flatSelection,completeRequirements);
         frozen.put("requestedImageOptions",Map.of("resolution",options.resolution(),"orientation",options.orientation()));
         frozen.put("requestConfig",validatedConfig==null?Map.of():validatedConfig);
@@ -922,6 +984,17 @@ public class DesignProjectService {
                                                         String idempotencyKey,
                                                         cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
                                                         String resolution, String orientation) {
+        return createRevisionRequestReceipt(userId, projectId, reason, configUpdates, count,
+                idempotencyKey, confirmation, resolution, orientation, null);
+    }
+
+    /** 桥侧修订入口（D6 v2）：billing 非空走公司池。 */
+    public RevisionReceipt createRevisionRequestReceipt(long userId, long projectId, String reason,
+                                                        Map<String, Object> configUpdates, int count,
+                                                        String idempotencyKey,
+                                                        cn.iocoder.yudao.module.infra.zhongshu.api.PricingPort.PriceConfirmation confirmation,
+                                                        String resolution, String orientation,
+                                                        OrgBilling billing) {
         return txTemplate.execute(transaction -> {
         if (accountStatePort != null) accountStatePort.requireActiveForWrite(userId);
         jdbcTemplate.queryForMap("SELECT id FROM design_project WHERE id=? FOR UPDATE",projectId);
@@ -954,7 +1027,7 @@ public class DesignProjectService {
         var options = revisionOptions(projectId, resolution, orientation);
         Object rawFlatSelection = sourceVersion.get("flat_selection_id");
         var job = createElevationJob(userId, projectId, count, idempotencyKey, inherited, confirmation, options,
-                rawFlatSelection == null ? null : ((Number) rawFlatSelection).longValue(), true);
+                rawFlatSelection == null ? null : ((Number) rawFlatSelection).longValue(), true, billing);
         var old = jdbcTemplate.queryForList("SELECT id,reason,config_updates::text FROM design_revision_request WHERE new_job_id=? ORDER BY id LIMIT 1",job.jobId());
         if (!old.isEmpty()) {
             String expected=configUpdates==null?null:toStringJson(configUpdates);

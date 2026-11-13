@@ -3,13 +3,14 @@ const businessPermissions: Record<string, string> = {
   case: 'design:case:query',
   review: 'design:submission:review',
   account: 'identity:account:query',
-  'access-code': 'identity:access-code:manage',
   recharge: 'commerce:recharge-order:query',
   'point-ledger': 'commerce:points:query',
   budget: 'design:budget:query',
   'budget-estimates': 'design:budget:query',
   'generation-pricing': 'commerce:generation-price:query',
   'usage-pricing': 'commerce:usage-price:query',
+  // 24 号 D8：公司池科目价格（预扣写快照，后台调价只影响新任务）
+  'org-point-pricing': 'commerce:org-point-price:query',
   export: 'design:export:manage',
   audit: 'design:audit:query',
   // 此前遗漏该键，导致「隐私申请」页因 permission 恒为 falsy 而永不出现在菜单（只能手输 URL）。
@@ -19,9 +20,11 @@ const businessPermissions: Record<string, string> = {
 }
 
 // 业务菜单分组：与路由 meta.group 对应，顺序即侧边栏顺序（户型最上、隐私在最后组末尾）。
+// 2026-11-13（24 号 B-14）：激活码机制退役，「客户与激活」改名「客户与开通」；
+// access-code 权限映射已移除，激活码页不再出现在菜单（路由与后端数据保留，可回滚）。
 const businessGroups = [
   { key: 'content', title: '案例库', icon: 'ep:office-building' },
-  { key: 'auth', title: '客户与激活', icon: 'ep:key' },
+  { key: 'auth', title: '客户与开通', icon: 'ep:key' },
   { key: 'fund', title: '资金与点数', icon: 'ep:coin' },
   { key: 'budget', title: '预算与报价', icon: 'ep:money' },
   { key: 'pricing', title: '定价管理', icon: 'ep:price-tag' },
@@ -38,6 +41,7 @@ const supportPaths = new Set([
   '/system/role',
   '/system/log/operate-log',
   '/system/log/login-log',
+  '/platform-org/onboard',
   '/infra/config',
   '/infra/file/file',
   '/infra/file/file-config',
@@ -99,6 +103,21 @@ export function buildProjectMenus(
     ]
   })
   return [...base.filter((route) => route.path === '/'), ...project, ...supportMenus(authorized)]
+}
+
+export function buildStaffMenus(
+  routes: AppRouteRecordRaw[],
+  can: (permission: string) => boolean
+): AppRouteRecordRaw[] {
+  return routes
+    .filter((route) => route.path === '/fr')
+    .map((route) => ({
+      ...route,
+      meta: { ...route.meta, title: '组织管理', icon: 'ep:user-filled', alwaysShow: true },
+      children: (route.children || []).filter(
+        (child) => !child.meta?.hidden && (child.path === 'identity' || can('platform:org:query'))
+      )
+    }))
 }
 
 export function searchProjectMenus(routes: AppRouteRecordRaw[], keyword: string) {

@@ -1,0 +1,21 @@
+# 众墅之家后端 systemd 单元 —— 与《18-正式环境部署指南》2.4 保持一致的仓库参考副本
+# 安装：sudo cp deploy/zhongshu.service /etc/systemd/system/zhongshu.service
+#       sudo systemctl daemon-reload && sudo systemctl enable --now zhongshu
+# 健康验证：curl http://127.0.0.1:48080/actuator/health
+[Unit]
+Description=Zhongshu Design Backend
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=zhongshu
+WorkingDirectory=/opt/zhongshu
+# 环境变量来自 deploy/env.prod.template 复制出的 /opt/zhongshu/.env（权限 600）
+EnvironmentFile=/opt/zhongshu/.env
+# 生产 profile 必须 pg,prod（RealServiceWiringPolicy 拒绝 zsdev/local/dev）
+ExecStart=/usr/bin/java -Xmx2g -jar yudao-server.jar --spring.profiles.active=pg,prod
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

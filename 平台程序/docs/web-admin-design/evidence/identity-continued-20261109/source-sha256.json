@@ -1,0 +1,8 @@
+{
+  "admin-ui/src/config/axios/service.ts": "21fb6569abc2ceeb00e1e1d36c2912afdabe0739e5f1695306cfefbc26be18c0",
+  "admin-ui/src/permission.ts": "919c77d4c3314ed1bef7e143fe79157b6d0432a8f8afd6fcdc43443b47ce6324",
+  "admin-ui/src/store/modules/platformIdentity.ts": "2d22a923f1132d4d2d7a9d0295757eaad39f495ca11104088e6d0fae4ea4ea63",
+  "admin-ui/src/views/fr/platform-login/index.vue": "276dfd5187dcaa064e565a3cb94c2e6f53bab3adebd2411bf690559e47c3ce53",
+  "admin-ui/tests/auth-tenant.test.js": "464cefe3db74301ed750e394243a13dc54a379e5f5351358c0fc2b471417b737",
+  "admin-ui/tests/platform-staff-workspace.test.js": "6de2fbb62c6b49345dc1430e36d6b3d4a1de82654599f5e3e74bd454c79f5aca"
+}

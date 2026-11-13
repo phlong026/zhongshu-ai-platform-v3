@@ -33,6 +33,9 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @RequestMapping("/design/v1/access-code-batches")
 public class AccessCodeBatchAdminController {
 
+    @Resource
+    private cn.iocoder.yudao.module.identity.accesscode.AccessCodeRetirementReportService retirementReportService;
+
     /** 业务平台单租户常量：直连 SQL 的行级租户过滤（与 design 模块 BudgetCatalogService 的同名惯例一致） */
     private static final long BUSINESS_TENANT_ID = 0L;
 
@@ -115,6 +118,14 @@ public class AccessCodeBatchAdminController {
         String operator = String.valueOf(SecurityFrameworkUtils.getLoginUserId());
         List<String> codes = accessCodeService.exportByTicket(batchId, body.get("ticket"), operator);
         return success(Map.of("codes", codes, "notice", "批次票据仅可消费一次；未使用单码可在授权码列表复制"));
+    }
+
+    @GetMapping("/retirement-report")
+    @Operation(summary = "激活码退役清单（只读）：未兑换/已消费/停用/过期 + 既有有效授权数")
+    @PreAuthorize("@ss.hasPermission('identity:access-code:manage')")
+    public CommonResult<cn.iocoder.yudao.module.identity.accesscode.AccessCodeRetirementReportService.RetirementReport>
+            retirementReport() {
+        return success(retirementReportService.report());
     }
 
     @GetMapping("/company-summary")

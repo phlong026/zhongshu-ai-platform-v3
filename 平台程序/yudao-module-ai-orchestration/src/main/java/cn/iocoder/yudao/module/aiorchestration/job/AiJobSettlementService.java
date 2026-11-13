@@ -40,8 +40,14 @@ public class AiJobSettlementService {
     private final AiJobOrchestrationService orchestrationService;
 
     private final cn.iocoder.yudao.module.infra.zhongshu.event.ReliableEventPort reliableEventPort;
+    @org.springframework.beans.factory.annotation.Autowired
     private final cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort usagePricingPort;
 
+    /** 设计桥公司池端口（D6 v2）：仅桥侧任务使用；App 链 charge_id 非空走原链。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private cn.iocoder.yudao.module.franchise.api.OrgPointPort orgPointPort;
+
+    /** Spring 装配入口（多构造器必须显式标记，否则启动期 No default constructor found）。 */
     @org.springframework.beans.factory.annotation.Autowired
     public AiJobSettlementService(DataSource dataSource, PlatformTransactionManager transactionManager,
                                   PricingPort pricingPort, PointLedgerPort pointLedgerPort,
@@ -129,6 +135,38 @@ public class AiJobSettlementService {
             });
     }
 
+    /**
+     * 桥侧建任务（24 号 D6 v2）：不扣个人池、不写 ai_task_charge；金额快照由调用方按公司池目录预计算。
+     * 幂等：与 createJobWithCharge 共用 request replay；charge_id=NULL 即"公司池任务"标志。
+     */
+    public long createJobWithOrgCharge(long userId, String phase, int count, String idempotencyKey,
+                                       String projectRef, String resolution,
+                                       long unitPointCost, long totalPointCost) {
+        final String requestKey = idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey;
+        return txTemplate.execute(status -> {
+            Long replay = orchestrationService.findRequestReplay(userId, phase, count, requestKey,
+                    projectRef, resolution);
+            if (replay != null) {
+                return replay;
+            }
+            long jobId = IdWorker.getId();
+            jdbcTemplate.update(
+                    "INSERT INTO ai_job (id, user_id, project_ref, phase, status, requested_count, "
+                            + "output_prefix, idempotency_key, unit_point_cost, total_point_cost, charge_id, "
+                            + "prompt_pricing_version, request_resolution) "
+                            + "VALUES (?, ?, ?, ?, 'QUEUED', ?, ?, ?, ?, ?, NULL, 0, ?)",
+                    jobId, userId, projectRef, phase, count, "ai-quarantine/" + jobId,
+                    requestKey, unitPointCost, totalPointCost, resolution);
+            reliableEventPort.append(cn.iocoder.yudao.module.infra.zhongshu.event.OutboxEventMessage.builder()
+                    .eventType("AI_JOB_CREATED").bizType("ai_job").bizId(String.valueOf(jobId))
+                    .payload(Map.of("jobId", jobId, "phase", phase, "count", count,
+                            "billing", "ORG_POOL")).build());
+            log.info("[createJobWithOrgCharge][job={} user={} orgPoolCost={}]",
+                    jobId, userId, totalPointCost);
+            return jobId;
+        });
+    }
+
     private String scopedChargeKey(long userId,String key,long jobId) {
         if (key == null || key.isBlank()) return "AI_JOB:GENERATED:" + userId + ":" + jobId;
         try { return "AI_JOB:REQUEST:"+userId+":"+java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
@@ -136,11 +174,140 @@ public class AiJobSettlementService {
         catch (java.security.NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
     }
 
-    /** 扣除一次实际提示词模型调用；业务键使 runtime 重试保持幂等。 */
+    /** 公司池 job 的提示词计费键（逐次调用唯一：job+attempt+token）。 */
+    static String promptBizKey(long jobId, int attemptNo, long token) {
+        return "design:prompt:" + jobId + ":" + attemptNo + ":" + token;
+    }
+
+    /** 设计桥公司池 job 的绑定（无绑定=非公司池任务）。 */
+    private cn.iocoder.yudao.module.franchise.api.OrgPointPort.PoolBinding orgBinding(long jobId) {
+        if (orgPointPort == null) {
+            return null;
+        }
+        var binding = orgPointPort.findBinding("ai_job", jobId, "ai_flat");
+        return binding != null ? binding : orgPointPort.findBinding("ai_job", jobId, "ai_elevation");
+    }
+
+    /** prompt 预留（公司池）：未决链内重放直接返回；全链已成功也返回；其他未决→禁重投；否则按重试序号新建。 */
+    private String reservePromptPool(long jobId, int attemptNo, long token,
+                                     cn.iocoder.yudao.module.franchise.api.OrgPointPort.PoolBinding binding) {
+        String baseKey = promptBizKey(jobId, attemptNo, token);
+        var all = orgPointPort.promptOperations(jobId);
+        // 该 attempt 已通过其他 operation（如新持有者确认旧调用）成功计费 → 重放不再扣
+        var receipt = orgPointPort.findPromptReceipt(jobId, attemptNo);
+        if (receipt != null && receipt.operationId() != null) {
+            boolean settled = all.stream()
+                    .anyMatch(op -> op.operationId() == receipt.operationId()
+                            && "SETTLED".equals(op.state()));
+            if (settled) {
+                return "ORG_RESERVED";
+            }
+        }
+        var chain = all.stream().filter(op -> isPromptChainKey(op.bizKey(), baseKey)).toList();
+        if (chain.stream().anyMatch(op -> "PENDING".equals(op.state()))) {
+            return "ORG_RESERVED"; // 网络重放 / 已预留
+        }
+        if (chain.stream().anyMatch(op -> "SETTLED".equals(op.state()))) {
+            return "ORG_RESERVED"; // 已成功计费，重放不再扣
+        }
+        boolean otherPending = all.stream()
+                .anyMatch(op -> "PENDING".equals(op.state()) && !isPromptChainKey(op.bizKey(), baseKey));
+        if (otherPending) {
+            // 其他 attempt 的调用可能已被供应商受理 → 禁止重投，等人工核对
+            throw new IllegalStateException("存在未决提示词调用，禁止重投：jobId=" + jobId);
+        }
+        int seq = chain.size(); // base=0、首次重试=1...
+        String bizKey = seq == 0 ? baseKey : baseKey + ":r" + seq;
+        orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
+                bizKey, binding.orgId(), binding.actorUserId(), binding.actorPostId(),
+                "ai_prompt", 1, "ai_job_prompt", jobId));
+        return "ORG_RESERVED";
+    }
+
+    private static boolean isPromptChainKey(String bizKey, String baseKey) {
+        return bizKey.equals(baseKey) || bizKey.startsWith(baseKey + ":r");
+    }
+
+    /**
+     * prompt 终态推进（公司池）：
+     * 收据先校验（成功 hash 冻结），再解析目标 operation（在途优先，否则 SUCCEEDED 补扣一次），
+     * 最后按 SUCCEEDED→settle / NOT_SENT→release / DISPATCHED·UNKNOWN→保持 PENDING 执行。
+     */
+    private boolean finishPromptPool(long jobId, int attemptNo, long token, String outcome,
+                                     String callId, String responseHash) {
+        if (orgPointPort == null) {
+            return false;
+        }
+        // 1) 收据校验（P2：任何早退前必须先校验，禁止绕过 hash 冲突）
+        var existing = orgPointPort.findPromptReceipt(jobId, attemptNo);
+        if (existing != null) {
+            // 无收据重载先写入的 NOT_SENT 行 callId 为空：允许后续带收据的调用补齐 callId
+            if (existing.callId() != null && callId != null
+                    && !java.util.Objects.equals(existing.callId(), callId)) {
+                throw new IllegalStateException("Prompt call receipt conflict");
+            }
+            if ("SUCCEEDED".equals(existing.outcome())) {
+                if (!"SUCCEEDED".equals(outcome)
+                        || (responseHash != null && !java.util.Objects.equals(existing.responseHash(), responseHash))) {
+                    throw new IllegalStateException("Confirmed prompt receipt cannot change");
+                }
+                return true; // 成功收据幂等重放
+            }
+            if ("SUCCEEDED".equals(outcome) && existing.responseHash() != null
+                    && !java.util.Objects.equals(existing.responseHash(), responseHash)) {
+                throw new IllegalStateException("Prompt response hash conflict");
+            }
+        }
+        // 2) 目标 operation：在途优先；否则 SUCCEEDED 需补扣一次（NOT_SENT 后重试直接成功）
+        String baseKey = promptBizKey(jobId, attemptNo, token);
+        var allOps = orgPointPort.promptOperations(jobId);
+        var chain = allOps.stream().filter(op -> isPromptChainKey(op.bizKey(), baseKey)).toList();
+        Long operationId = chain.stream().filter(op -> "PENDING".equals(op.state()))
+                .map(cn.iocoder.yudao.module.franchise.api.OrgPointPort.PromptOperation::operationId)
+                .findFirst().orElse(null);
+        if (operationId == null) {
+            // 当前 attempt 无在途：允许新持有者确认旧 attempt 的未决调用（其业务键不同）
+            operationId = allOps.stream().filter(op -> "PENDING".equals(op.state()))
+                    .map(cn.iocoder.yudao.module.franchise.api.OrgPointPort.PromptOperation::operationId)
+                    .findFirst().orElse(null);
+        }
+        if (operationId == null && "SUCCEEDED".equals(outcome)) {
+            var binding = orgBinding(jobId);
+            if (binding == null) {
+                return false;
+            }
+            int seq = chain.size();
+            String bizKey = seq == 0 ? baseKey : baseKey + ":r" + seq;
+            operationId = orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
+                    bizKey, binding.orgId(), binding.actorUserId(), binding.actorPostId(),
+                    "ai_prompt", 1, "ai_job_prompt", jobId));
+        }
+        // 3) 状态推进
+        if (operationId != null) {
+            switch (outcome) {
+                case "SUCCEEDED" -> orgPointPort.settle(operationId, 1);
+                case "NOT_SENT" -> orgPointPort.release(operationId);
+                default -> { /* DISPATCHED/UNKNOWN：保持 PENDING */ }
+            }
+        }
+        // 4) 收据持久化（含无 operation 的通知型结果）
+        orgPointPort.savePromptReceipt(jobId, attemptNo, callId, responseHash, outcome, operationId);
+        return true;
+    }
+
+    /** 扣除一次实际提示词模型调用；业务键使 runtime 重试保持幂等。
+     *  公司池 job（bridge 绑定存在）：reserve 公司池 `ai_prompt`，返回 "ORG_RESERVED"；
+     *  非公司池且 prompt_pricing_version=0：返回 "EXEMPT"；其余走原个人池链。 */
     public String reservePromptCall(long jobId,int attemptNo,long token) {
         return txTemplate.execute(transaction -> {
             var job=lockPromptJob(jobId,attemptNo,token,true);
-            if (((Number)job.get("prompt_pricing_version")).intValue()==0) return "EXEMPT";
+            if (((Number)job.get("prompt_pricing_version")).intValue()==0) {
+                var binding = orgBinding(jobId);
+                if (binding == null) {
+                    return "EXEMPT";
+                }
+                return reservePromptPool(jobId, attemptNo, token, binding);
+            }
             return usagePricingPort.reservePrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token);
         });
     }
@@ -148,7 +315,14 @@ public class AiJobSettlementService {
     public boolean finishPromptCall(long jobId,int attemptNo,long token,String outcome) {
         return Boolean.TRUE.equals(txTemplate.execute(transaction -> {
             var job=lockPromptJob(jobId,attemptNo,token,false);
-            if (((Number)job.get("prompt_pricing_version")).intValue()==0) return false;
+            if (((Number)job.get("prompt_pricing_version")).intValue()==0) {
+                // 公司池 prompt 状态机（D6 §2.3-B）：
+                // SUCCEEDED→settle(1)；NOT_SENT→release；DISPATCHED/UNKNOWN→保持 PENDING（不动作）
+                if (!List.of("DISPATCHED","SUCCEEDED","UNKNOWN","NOT_SENT").contains(outcome)) {
+                    throw new IllegalArgumentException("Invalid prompt outcome");
+                }
+                return finishPromptPool(jobId, attemptNo, token, outcome, null, null);
+            }
             return usagePricingPort.finishPrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token,outcome);
         }));
     }
@@ -157,7 +331,20 @@ public class AiJobSettlementService {
     public boolean finishPromptCall(long jobId,int attemptNo,long token,String outcome,String callId,String responseHash) {
         return Boolean.TRUE.equals(txTemplate.execute(transaction -> {
             var job=lockPromptJob(jobId,attemptNo,token,true);
-            if (((Number)job.get("prompt_pricing_version")).intValue()==0) return false;
+            if (((Number)job.get("prompt_pricing_version")).intValue()==0) {
+                // 公司池 job：收据要求与个人链一致（callId=plan-{jobId}，SUCCEEDED 必带 sha256）
+                if (!List.of("DISPATCHED","SUCCEEDED","UNKNOWN","NOT_SENT").contains(outcome)) {
+                    throw new IllegalArgumentException("Invalid prompt outcome");
+                }
+                if (!java.util.Objects.equals("plan-" + jobId, callId)) {
+                    throw new IllegalArgumentException("Prompt call identity mismatch");
+                }
+                if ("SUCCEEDED".equals(outcome)
+                        && (responseHash == null || !responseHash.matches("[a-f0-9]{64}"))) {
+                    throw new IllegalArgumentException("Prompt response receipt required");
+                }
+                return finishPromptPool(jobId, attemptNo, token, outcome, callId, responseHash);
+            }
             return usagePricingPort.finishPromptForCurrentAttempt(((Number)job.get("user_id")).longValue(),
                     String.valueOf(jobId),token,outcome,callId,responseHash);
         }));
@@ -202,7 +389,8 @@ public class AiJobSettlementService {
     public SettlementSummary settle(long jobId, String reason) {
         SettlementSummary existing = txTemplate.execute(status -> {
             Map<String, Object> job = jdbcTemplate.queryForMap(
-                    "SELECT status, user_id, requested_count, unit_point_cost, total_point_cost, accepted_count "
+                    "SELECT status, user_id, requested_count, unit_point_cost, total_point_cost, "
+                            + "accepted_count, charge_id, phase "
                             + "FROM ai_job WHERE id = ? FOR UPDATE", jobId);
             String currentStatus = (String) job.get("status");
             if (isTerminal(currentStatus)) {
@@ -247,7 +435,26 @@ public class AiJobSettlementService {
             if (usagePricingPort != null) usagePricingPort.releaseUnsentPrompt(userId,String.valueOf(jobId));
             long settlementVersion = 1;
             long refundedNow = 0;
-            if (refund > 0) {
+            // 评审 P1-1：以"持久计费绑定"识别公司池任务；无绑定一律走原个人池结算
+            //（存量存在"个人账本已预扣但 charge_id 为空"的历史任务，不能凭 NULL 判为公司池）
+            String subject = "FLAT".equals(job.get("phase")) ? "ai_flat" : "ai_elevation";
+            Long orgOperationId = orgPointPort == null ? null
+                    : orgPointPort.findOperationByRef("ai_job", jobId, subject);
+            if (orgOperationId != null) {
+                var orgSettlement = billable == 0
+                        ? orgPointPort.release(orgOperationId)
+                        : orgPointPort.settle(orgOperationId, billable);
+                refundedNow = orgSettlement.refunded();
+            } else if (refund > 0) {
+                // 评审 R2 连带缺口：既无个人扣费流水也无公司池绑定的任务不得退款（防幻影加点）
+                Integer personalDebits = jdbcTemplate.queryForObject(
+                        "SELECT count(*) FROM design_point_ledger WHERE biz_type='ai_job' "
+                                + "AND biz_id=? AND delta<0 AND deleted=FALSE", Integer.class,
+                        String.valueOf(jobId));
+                if (personalDebits == null || personalDebits == 0) {
+                    throw new IllegalStateException(
+                            "任务既无个人扣费也无公司池绑定，拒绝结算: jobId=" + jobId);
+                }
                 String refundKey = "AI_JOB_SETTLE:" + jobId + ":v" + settlementVersion + ":" + reason;
                 pointLedgerPort.credit(userId, "TASK_SETTLEMENT_REFUND", refund,
                         "ai_job", String.valueOf(jobId), refundKey, null,

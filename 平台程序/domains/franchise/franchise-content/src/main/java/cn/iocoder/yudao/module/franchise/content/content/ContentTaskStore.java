@@ -48,6 +48,7 @@ public class ContentTaskStore {
                 .setModel(rs.getString("model"))
                 .setStatus(rs.getString("status"))
                 .setFailedReason(rs.getString("failed_reason"))
+                .setPoolBizKey(rs.getString("pool_biz_key"))
                 .setCreateTime(rs.getObject("create_time", OffsetDateTime.class))
                 .setCompleteTime(rs.getObject("complete_time", OffsetDateTime.class));
     }
@@ -60,6 +61,30 @@ public class ContentTaskStore {
                         + "VALUES (?, ?, ?, ?, CAST(? AS jsonb), ?, 'QUEUED')",
                 id, companyId, authorUserId, kind, inputJson, inputSha256);
         return byId(companyId, id);
+    }
+
+    /** 记录公司池预扣键（24 号评审 P1-4：终态后结算失败可被扫描幂等重试）。 */
+    public void markPoolBizKey(long id, long companyId, String poolBizKey) {
+        // 评审 A-P1-4：必须在任务 INSERT 之后调用；0 行说明顺序错/任务不存在，直接失败
+        int updated = jdbcTemplate.update(
+                "UPDATE fr_content_task SET pool_biz_key = ? WHERE id = ? AND company_id = ?",
+                poolBizKey, id, companyId);
+        if (updated != 1) {
+            throw new IllegalStateException("池预扣键落库失败（任务未插入？）：taskId=" + id);
+        }
+    }
+
+    /** 已终态但池预扣仍未终结的任务（重试窗口）。 */
+    public List<FrContentTaskDO> findTerminalWithPendingPool(int limit) {
+        return jdbcTemplate.query(
+                "SELECT * FROM fr_content_task t WHERE t.pool_biz_key IS NOT NULL "
+                        + "AND t.status IN ('SUCCEEDED','FAILED','CANCELLED') "
+                        + "AND EXISTS (SELECT 1 FROM org_point_ledger r WHERE r.biz_key = t.pool_biz_key "
+                        + "  AND r.type = 'RESERVE' AND NOT EXISTS ("
+                        + "    SELECT 1 FROM org_point_ledger x WHERE x.operation_id = r.operation_id "
+                        + "    AND x.type IN ('SETTLE','RELEASE'))) "
+                        + "ORDER BY t.complete_time NULLS LAST LIMIT ?",
+                ROW, limit);
     }
 
     public FrContentTaskDO byId(long companyId, long id) {

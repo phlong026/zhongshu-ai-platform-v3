@@ -457,6 +457,6 @@ public class DesignAccessService {
     }
 
     private DesignServicePort.Actor actor(PostSnapshot post) {
-        return new DesignServicePort.Actor(post.userId(), post.postId(), post.roleCode());
+        return new DesignServicePort.Actor(post.userId(), post.postId(), post.roleCode(), post.orgId());
     }
 }

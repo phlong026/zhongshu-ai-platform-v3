@@ -38,12 +38,24 @@ public class OrgOnboardService {
     private SystemDirectory systemDirectory;
     @Resource
     private cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper orgUnitMapper;
+    @Resource
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     public record OnboardResult(long orgId, long adminUserId, long postId, boolean reusedOrg) {
     }
 
     @Transactional(rollbackFor = Exception.class)
     public OnboardResult onboard(String orgType, String orgName, String adminName, String adminMobile, long operatorUserId) {
+        return onboard(orgType, orgName, adminName, adminMobile, operatorUserId, null, null);
+    }
+
+    /**
+     * 开通 + 设计能力（24 号 B-8）：事件在**同一事务内**发布——池建失败回滚整个开通，
+     * 避免"组织已建但无池"；designEnabled 省略/null 不改变既有开通状态。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public OnboardResult onboard(String orgType, String orgName, String adminName, String adminMobile,
+                                 long operatorUserId, Boolean designEnabled, Long initialCredits) {
         // Codex R1 P1-1：业务键事务锁先行——并发开通串行化，锁后二次查重命中复用，杜绝重复建组织
         orgUnitMapper.lockOrgKeyForOnboard("org-onboard:" + orgType + ":" + orgName);
         // 幂等查重：同名根部门下的 ACTIVE 组织——同类型复用（重复开通不重复建组织），异类型显式拒绝（016）
@@ -67,6 +79,11 @@ public class OrgOnboardService {
         long adminUserId = existing != null ? existing : systemDirectory.createUser(adminName, adminMobile, orgId);
         // boss 任职幂等（同岗位同 team=null 一致即幂等；被占不同 team 时 015 显式拒绝）
         long postId = staffPostService.assignPostInOrg(adminUserId, orgId, ADMIN_ROLE_CODE, null, operatorUserId);
+        if (Boolean.TRUE.equals(designEnabled) || (initialCredits != null && initialCredits > 0)) {
+            eventPublisher.publishEvent(new cn.iocoder.yudao.module.platform.org.OrgOnboardedEvent(
+                    orgId, Boolean.TRUE.equals(designEnabled),
+                    initialCredits == null ? 0 : initialCredits));
+        }
         return new OnboardResult(orgId, adminUserId, postId, reused != null);
     }
 }

@@ -55,6 +55,10 @@
         登录后台
       </el-button>
 
+      <el-button class="zs-staff-login" text @click="push('/platform-login')">
+        员工手机号登录与选择工作身份
+      </el-button>
+
       <Verify
         v-if="loginData.captchaEnable === 'true'"
         ref="verify"
@@ -82,6 +86,7 @@ import { usePermissionStore } from '@/store/modules/permission'
 import * as LoginApi from '@/api/login'
 import { LoginStateEnum, useFormValid, useLoginState } from './useLogin'
 import ForgetPasswordForm from './ForgetPasswordForm.vue'
+import { usePlatformIdentityStoreWithOut } from '@/store/modules/platformIdentity'
 
 defineOptions({ name: 'LoginForm' })
 
@@ -184,6 +189,7 @@ const handleLogin = async (params: any) => {
       authUtil.removeLoginForm()
     }
     authUtil.setToken(res)
+    usePlatformIdentityStoreWithOut().clear()
     if (!redirect.value) {
       redirect.value = '/'
     }
@@ -220,6 +226,12 @@ onMounted(() => {
   background: #fefefe;
   border-radius: 12px;
   box-shadow: 0 8px 40px rgb(113 67 32 / 8%);
+}
+
+.zs-staff-login {
+  width: 100%;
+  margin: 12px 0 0;
+  color: #8d4f24;
 }
 
 .zs-login-head {

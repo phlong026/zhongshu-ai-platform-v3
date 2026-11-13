@@ -1,0 +1,644 @@
+[
+  {
+    "method": "POST",
+    "route": "/platform/auth/sms/login",
+    "postId": "",
+    "time": 1794190359486
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794190359492
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/current-context",
+    "postId": "9007199254740993",
+    "time": 1794190359686
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794190360371
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794190360371
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794190360372
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794190360372
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794190360803
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794190405996
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794190405996
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794190405996
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794190405997
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794190439593
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794190439593
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794190439593
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794190439594
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/current-context",
+    "postId": "9007199254740997",
+    "time": 1794190440827
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/current-context",
+    "postId": "9007199254740993",
+    "time": 1794190441876
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794190441923
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794190441923
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794190441924
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794190441924
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794190470963
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794190470964
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794190470964
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794190470964
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794190714555
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794190715822
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794190715825
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794190738821
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/current-context",
+    "postId": "9007199254740995",
+    "time": 1794190962820
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740995",
+    "time": 1794190962885
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740995",
+    "time": 1794190962886
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740995",
+    "time": 1794190962887
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740995",
+    "time": 1794190962887
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794190965824
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794190965828
+  },
+  {
+    "method": "POST",
+    "route": "/platform/auth/sms/login",
+    "postId": "",
+    "time": 1794191004498
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191004502
+  },
+  {
+    "method": "POST",
+    "route": "/platform/auth/sms/login",
+    "postId": "",
+    "time": 1794191048824
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191048834
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/current-context",
+    "postId": "9007199254740993",
+    "time": 1794191063373
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794191063461
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794191063461
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191063462
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191063462
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794191064022
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794191064022
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191064023
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191064023
+  },
+  {
+    "method": "POST",
+    "route": "/system/auth/refresh-token",
+    "postId": "",
+    "time": 1794191064024
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794191064032
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191064033
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191064033
+  },
+  {
+    "method": "POST",
+    "route": "/system/auth/refresh-token",
+    "postId": "",
+    "time": 1794191064034
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191064038
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191064038
+  },
+  {
+    "method": "POST",
+    "route": "/system/auth/refresh-token",
+    "postId": "",
+    "time": 1794191064039
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191064041
+  },
+  {
+    "method": "POST",
+    "route": "/system/auth/refresh-token",
+    "postId": "",
+    "time": 1794191064042
+  },
+  {
+    "method": "POST",
+    "route": "/system/captcha/get",
+    "postId": "",
+    "time": 1794191080188
+  },
+  {
+    "method": "POST",
+    "route": "/system/captcha/get",
+    "postId": "",
+    "time": 1794191080189
+  },
+  {
+    "method": "GET",
+    "route": "/system/tenant/get-by-website",
+    "postId": "",
+    "time": 1794191080189
+  },
+  {
+    "method": "POST",
+    "route": "/system/captcha/get",
+    "postId": "",
+    "time": 1794191134723
+  },
+  {
+    "method": "POST",
+    "route": "/system/captcha/get",
+    "postId": "",
+    "time": 1794191134723
+  },
+  {
+    "method": "GET",
+    "route": "/system/tenant/get-by-website",
+    "postId": "",
+    "time": 1794191134724
+  },
+  {
+    "method": "POST",
+    "route": "/system/captcha/get",
+    "postId": "",
+    "time": 1794191135911
+  },
+  {
+    "method": "POST",
+    "route": "/system/captcha/get",
+    "postId": "",
+    "time": 1794191135911
+  },
+  {
+    "method": "GET",
+    "route": "/system/tenant/get-by-website",
+    "postId": "",
+    "time": 1794191135912
+  },
+  {
+    "method": "POST",
+    "route": "/platform/auth/sms/login",
+    "postId": "",
+    "time": 1794191165138
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191165142
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/current-context",
+    "postId": "9007199254740993",
+    "time": 1794191177013
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794191177109
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191177109
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794191177109
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191177109
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794191177647
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794191177647
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191177647
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191177647
+  },
+  {
+    "method": "POST",
+    "route": "/system/auth/refresh-token",
+    "postId": "",
+    "time": 1794191177649
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794191177657
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191177658
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191177658
+  },
+  {
+    "method": "POST",
+    "route": "/system/auth/refresh-token",
+    "postId": "",
+    "time": 1794191177659
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191177661
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191177661
+  },
+  {
+    "method": "POST",
+    "route": "/system/auth/refresh-token",
+    "postId": "",
+    "time": 1794191177662
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191177664
+  },
+  {
+    "method": "POST",
+    "route": "/system/auth/refresh-token",
+    "postId": "",
+    "time": 1794191177665
+  },
+  {
+    "method": "POST",
+    "route": "/platform/auth/sms/login",
+    "postId": "",
+    "time": 1794191199397
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191199402
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/current-context",
+    "postId": "9007199254740993",
+    "time": 1794191218187
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/teams",
+    "postId": "9007199254740993",
+    "time": 1794191218259
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/post-templates",
+    "postId": "9007199254740993",
+    "time": 1794191218259
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/staff",
+    "postId": "9007199254740993",
+    "time": 1794191218259
+  },
+  {
+    "method": "GET",
+    "route": "/platform/org/handover-pending",
+    "postId": "9007199254740993",
+    "time": 1794191218259
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191219046
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191219049
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191248313
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191248823
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794191248829
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794193140982
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794193169147
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794193169150
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794193186493
+  },
+  {
+    "method": "GET",
+    "route": "/platform/posts/mine",
+    "postId": "",
+    "time": 1794193186497
+  }
+]
