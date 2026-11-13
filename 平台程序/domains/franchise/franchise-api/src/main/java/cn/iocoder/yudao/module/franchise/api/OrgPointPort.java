@@ -112,6 +112,15 @@ public interface OrgPointPort {
     /** 异步/结算/恢复按业务引用反查 operation（无绑定返回 null）。 */
     Long findOperationByRef(String refType, long refId, String subject);
 
+    /** 按稳定业务键反查 operation（prompt 逐次调用用，无行返回 null）。 */
+    Long findOperationByBizKey(String bizKey);
+
+    /** 设计域计费绑定（org/actor/operation）；无绑定返回 null。 */
+    record PoolBinding(long orgId, long actorUserId, Long actorPostId, long operationId) {
+    }
+
+    PoolBinding findBinding(String refType, long refId, String subject);
+
     /** 开通建池（幂等；已存在不动）。 */
     PoolSummary ensurePool(long orgId);
 

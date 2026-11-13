@@ -11,6 +11,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -60,6 +61,7 @@ public class OrgPointViewController {
     }
 
     @GetMapping("/summary")
+    @PreAuthorize("@post.has('franchise:org:point:query')")
     @Operation(summary = "公司积分池概览：可用余额 + 在途预留 + 状态")
     public CommonResult<OrgPointPort.PoolSummary> summary() {
         PostSnapshot post = requireBoss();
@@ -67,6 +69,7 @@ public class OrgPointViewController {
     }
 
     @GetMapping("/operations")
+    @PreAuthorize("@post.has('franchise:org:point:query')")
     @Operation(summary = "任务合并视图（服务端分页前折叠）")
     public CommonResult<List<OrgPointPort.OperationView>> operations(
             @RequestParam(defaultValue = "1") int page,
@@ -76,6 +79,7 @@ public class OrgPointViewController {
     }
 
     @GetMapping("/ledger")
+    @PreAuthorize("@post.has('franchise:org:point:query')")
     @Operation(summary = "逐笔流水（可按员工/科目/月份筛选）")
     public CommonResult<List<OrgPointPort.LedgerEntry>> ledger(
             @RequestParam(required = false) Long actorUserId,
@@ -89,6 +93,7 @@ public class OrgPointViewController {
     }
 
     @GetMapping("/my-usage")
+    @PreAuthorize("@post.has('franchise:org:point:query')")
     @Operation(summary = "本人当月用量与明细")
     public CommonResult<OrgPointPort.MyUsage> myUsage(
             @RequestParam(required = false) String month,
@@ -100,6 +105,7 @@ public class OrgPointViewController {
     }
 
     @GetMapping("/member-quotas")
+    @PreAuthorize("@post.has('franchise:org:point:query')")
     @Operation(summary = "员工月度额度清单")
     public CommonResult<List<OrgPointPort.MemberQuota>> memberQuotas() {
         PostSnapshot post = requireBoss();
@@ -107,6 +113,7 @@ public class OrgPointViewController {
     }
 
     @PutMapping("/member-quotas")
+    @PreAuthorize("@post.has('franchise:org:point:write')")
     @Operation(summary = "设置员工月度额度")
     public CommonResult<Boolean> setMemberQuota(@Valid @RequestBody MemberQuotaReqVO req) {
         PostSnapshot post = requireBoss();
@@ -115,6 +122,7 @@ public class OrgPointViewController {
     }
 
     @DeleteMapping("/member-quotas")
+    @PreAuthorize("@post.has('franchise:org:point:write')")
     @Operation(summary = "清除员工月度额度（删行=不限）")
     public CommonResult<Boolean> clearMemberQuota(@RequestParam @NotNull Long userId) {
         PostSnapshot post = requireBoss();
@@ -123,6 +131,7 @@ public class OrgPointViewController {
     }
 
     @GetMapping("/member-permissions")
+    @PreAuthorize("@post.has('franchise:org:point:query')")
     @Operation(summary = "员工业务权限清单（无行=全允许）")
     public CommonResult<List<OrgPointPort.MemberPermission>> memberPermissions() {
         PostSnapshot post = requireBoss();
@@ -130,6 +139,7 @@ public class OrgPointViewController {
     }
 
     @PutMapping("/member-permissions")
+    @PreAuthorize("@post.has('franchise:org:point:write')")
     @Operation(summary = "设置员工业务权限（空列表=全禁）")
     public CommonResult<Boolean> setMemberPermission(@Valid @RequestBody MemberPermissionReqVO req) {
         PostSnapshot post = requireBoss();
@@ -138,6 +148,7 @@ public class OrgPointViewController {
     }
 
     @DeleteMapping("/member-permissions")
+    @PreAuthorize("@post.has('franchise:org:point:write')")
     @Operation(summary = "清除员工业务权限（删行=全允许）")
     public CommonResult<Boolean> clearMemberPermission(@RequestParam @NotNull Long userId) {
         PostSnapshot post = requireBoss();

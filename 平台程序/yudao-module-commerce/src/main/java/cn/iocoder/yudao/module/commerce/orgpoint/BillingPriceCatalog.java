@@ -39,6 +39,8 @@ public final class BillingPriceCatalog {
             "ai_elevation", "AI 立面方案", Unit.CALL, 3_000_000L, "v1", 1);
     public static final Subject BUDGET_ESTIMATE = new Subject(
             "budget_estimate", "快速预算", Unit.CALL, 1_000_000L, "v1", 1);
+    public static final Subject AI_PROMPT = new Subject(
+            "ai_prompt", "提示词调用", Unit.CALL, 1_000_000L, "v1", 1);
     public static final Subject NOTE_POLISH = new Subject(
             "note_polish", "笔记润色", Unit.CALL, 1_000_000L, "v1", 1);
 
@@ -46,7 +48,7 @@ public final class BillingPriceCatalog {
 
     static {
         for (Subject subject : new Subject[]{LINK_RESOLUTION, COPY, ASR, DIGITAL, AI_VIDEO_768P,
-                AI_VIDEO_2K, AI_FLAT, AI_ELEVATION, BUDGET_ESTIMATE, NOTE_POLISH}) {
+                AI_VIDEO_2K, AI_FLAT, AI_ELEVATION, BUDGET_ESTIMATE, AI_PROMPT, NOTE_POLISH}) {
             SUBJECTS.put(subject.key(), subject);
         }
     }

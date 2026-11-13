@@ -53,6 +53,9 @@ class AiJobOrgChargeRoutingTest {
         long settleQuantity;
         /** 可配置：默认无绑定（走原个人链/拒绝）；公司池用例设为 77。 */
         Long bindingOperationId;
+        /** prompt 预留：bizKey → operationId。 */
+        final java.util.Map<String, Long> promptOperations = new java.util.HashMap<>();
+        long nextPromptOperation = 88L;
 
         @Override
         public Long findOperationByRef(String refType, long refId, String subject) {
@@ -72,7 +75,23 @@ class AiJobOrgChargeRoutingTest {
             return new Settlement(operationId, 4, 4, false);
         }
 
-        @Override public long reserve(ReserveCommand command) { throw new UnsupportedOperationException(); }
+        @Override public long reserve(ReserveCommand command) {
+            if ("ai_prompt".equals(command.subject())) {
+                long operationId = nextPromptOperation++;
+                promptOperations.put(command.bizKey(), operationId);
+                return operationId;
+            }
+            throw new UnsupportedOperationException();
+        }
+
+        @Override public Long findOperationByBizKey(String bizKey) { return promptOperations.get(bizKey); }
+
+        @Override public PoolBinding findBinding(String refType, long refId, String subject) {
+            if (bindingOperationId == null || !"ai_job".equals(refType)) {
+                return null;
+            }
+            return new PoolBinding(7001L, 9L, null, bindingOperationId);
+        }
         @Override public Settlement settleByBizKey(String k, long q) { throw new UnsupportedOperationException(); }
         @Override public Settlement releaseByBizKey(String k) { throw new UnsupportedOperationException(); }
         @Override public PoolSummary summary(long orgId) { throw new UnsupportedOperationException(); }
@@ -132,6 +151,8 @@ class AiJobOrgChargeRoutingTest {
         port.released.clear();
         port.settleQuantity = 0;
         port.bindingOperationId = null;
+        port.promptOperations.clear();
+        port.nextPromptOperation = 88L;
     }
 
     /** 走真实创建路由（createJobWithOrgCharge）：charge_id NULL、prompt 不计费、resolution 透传。 */
@@ -188,6 +209,63 @@ class AiJobOrgChargeRoutingTest {
 
         assertThat(port.released).containsExactly(77L);
         assertThat(port.settled).isEmpty();
+    }
+
+    private void seedPromptAttempt(long jobId, int attemptNo, long token) {
+        jdbc.update("UPDATE ai_job SET status='RUNNING', fencing_token=?, "
+                + "claim_expires_at=now()+interval '10 minute' WHERE id=?", token, jobId);
+        jdbc.update("INSERT INTO ai_job_attempt (id, job_id, attempt_no, worker_id, fencing_token) "
+                + "VALUES (?, ?, ?, 'w-1', ?)", jobId * 1000 + attemptNo, jobId, attemptNo, token);
+    }
+
+    @Test
+    void orgPromptSuccessChargesPoolOnce() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 1234L);
+
+        assertThat(settlement.reservePromptCall(jobId, 1, 1234L)).isEqualTo("ORG_RESERVED");
+        // 幂等：重复预留不新增 operation
+        assertThat(settlement.reservePromptCall(jobId, 1, 1234L)).isEqualTo("ORG_RESERVED");
+        assertThat(port.promptOperations).hasSize(1);
+
+        assertThat(settlement.finishPromptCall(jobId, 1, 1234L, "SUCCEEDED",
+                "plan-" + jobId, "a".repeat(64))).isTrue();
+        assertThat(port.settled).containsExactly(88L);
+        assertThat(port.settleQuantity).isEqualTo(1);
+    }
+
+    @Test
+    void orgPromptNotSentReleasesReservation() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 2222L);
+        settlement.reservePromptCall(jobId, 1, 2222L);
+
+        settlement.finishPromptCall(jobId, 1, 2222L, "NOT_SENT");
+
+        assertThat(port.released).containsExactly(88L);
+        assertThat(port.settled).isEmpty();
+    }
+
+    @Test
+    void orgPromptUnknownKeepsPending() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 3333L);
+        settlement.reservePromptCall(jobId, 1, 3333L);
+
+        settlement.finishPromptCall(jobId, 1, 3333L, "UNKNOWN");
+
+        assertThat(port.settled).isEmpty();
+        assertThat(port.released).isEmpty();
+    }
+
+    @Test
+    void nonOrgJobPromptIsExempt() {
+        long jobId = newOrgJob(1, "2K"); // 无绑定 → 非公司池任务
+        seedPromptAttempt(jobId, 1, 4444L);
+        assertThat(settlement.reservePromptCall(jobId, 1, 4444L)).isEqualTo("EXEMPT");
     }
 
     @Test

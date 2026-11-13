@@ -172,11 +172,39 @@ public class AiJobSettlementService {
         catch (java.security.NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
     }
 
-    /** 扣除一次实际提示词模型调用；业务键使 runtime 重试保持幂等。 */
+    /** 公司池 job 的提示词计费键（逐次调用唯一：job+attempt+token）。 */
+    static String promptBizKey(long jobId, int attemptNo, long token) {
+        return "design:prompt:" + jobId + ":" + attemptNo + ":" + token;
+    }
+
+    /** 设计桥公司池 job 的绑定（无绑定=非公司池任务）。 */
+    private cn.iocoder.yudao.module.franchise.api.OrgPointPort.PoolBinding orgBinding(long jobId) {
+        if (orgPointPort == null) {
+            return null;
+        }
+        var binding = orgPointPort.findBinding("ai_job", jobId, "ai_flat");
+        return binding != null ? binding : orgPointPort.findBinding("ai_job", jobId, "ai_elevation");
+    }
+
+    /** 扣除一次实际提示词模型调用；业务键使 runtime 重试保持幂等。
+     *  公司池 job（bridge 绑定存在）：reserve 公司池 `ai_prompt`，返回 "ORG_RESERVED"；
+     *  非公司池且 prompt_pricing_version=0：返回 "EXEMPT"；其余走原个人池链。 */
     public String reservePromptCall(long jobId,int attemptNo,long token) {
         return txTemplate.execute(transaction -> {
             var job=lockPromptJob(jobId,attemptNo,token,true);
-            if (((Number)job.get("prompt_pricing_version")).intValue()==0) return "EXEMPT";
+            if (((Number)job.get("prompt_pricing_version")).intValue()==0) {
+                var binding = orgBinding(jobId);
+                if (binding == null) {
+                    return "EXEMPT";
+                }
+                String bizKey = promptBizKey(jobId, attemptNo, token);
+                if (orgPointPort.findOperationByBizKey(bizKey) == null) {
+                    orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
+                            bizKey, binding.orgId(), binding.actorUserId(), binding.actorPostId(),
+                            "ai_prompt", 1, "ai_job_prompt", jobId));
+                }
+                return "ORG_RESERVED";
+            }
             return usagePricingPort.reservePrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token);
         });
     }
@@ -184,7 +212,24 @@ public class AiJobSettlementService {
     public boolean finishPromptCall(long jobId,int attemptNo,long token,String outcome) {
         return Boolean.TRUE.equals(txTemplate.execute(transaction -> {
             var job=lockPromptJob(jobId,attemptNo,token,false);
-            if (((Number)job.get("prompt_pricing_version")).intValue()==0) return false;
+            if (((Number)job.get("prompt_pricing_version")).intValue()==0) {
+                // 公司池 prompt 状态机（D6 §2.3-B）：
+                // SUCCEEDED→settle(1)；NOT_SENT→release；DISPATCHED/UNKNOWN→保持 PENDING（不动作）
+                if (!List.of("DISPATCHED","SUCCEEDED","UNKNOWN","NOT_SENT").contains(outcome)) {
+                    throw new IllegalArgumentException("Invalid prompt outcome");
+                }
+                Long operationId = orgPointPort == null ? null
+                        : orgPointPort.findOperationByBizKey(promptBizKey(jobId, attemptNo, token));
+                if (operationId == null) {
+                    return false;
+                }
+                switch (outcome) {
+                    case "SUCCEEDED" -> orgPointPort.settle(operationId, 1);
+                    case "NOT_SENT" -> orgPointPort.release(operationId);
+                    default -> { /* DISPATCHED/UNKNOWN：保持 PENDING，人工核对 */ }
+                }
+                return true;
+            }
             return usagePricingPort.finishPrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token,outcome);
         }));
     }
@@ -193,7 +238,27 @@ public class AiJobSettlementService {
     public boolean finishPromptCall(long jobId,int attemptNo,long token,String outcome,String callId,String responseHash) {
         return Boolean.TRUE.equals(txTemplate.execute(transaction -> {
             var job=lockPromptJob(jobId,attemptNo,token,true);
-            if (((Number)job.get("prompt_pricing_version")).intValue()==0) return false;
+            if (((Number)job.get("prompt_pricing_version")).intValue()==0) {
+                // 公司池 job：收据要求与个人链一致（callId=plan-{jobId}，SUCCEEDED 必带 sha256）
+                if (!java.util.Objects.equals("plan-" + jobId, callId)) {
+                    throw new IllegalArgumentException("Prompt call identity mismatch");
+                }
+                if ("SUCCEEDED".equals(outcome)
+                        && (responseHash == null || !responseHash.matches("[a-f0-9]{64}"))) {
+                    throw new IllegalArgumentException("Prompt response receipt required");
+                }
+                Long operationId = orgPointPort == null ? null
+                        : orgPointPort.findOperationByBizKey(promptBizKey(jobId, attemptNo, token));
+                if (operationId == null) {
+                    return false;
+                }
+                switch (outcome) {
+                    case "SUCCEEDED" -> orgPointPort.settle(operationId, 1);
+                    case "NOT_SENT" -> orgPointPort.release(operationId);
+                    default -> { }
+                }
+                return true;
+            }
             return usagePricingPort.finishPromptForCurrentAttempt(((Number)job.get("user_id")).longValue(),
                     String.valueOf(jobId),token,outcome,callId,responseHash);
         }));

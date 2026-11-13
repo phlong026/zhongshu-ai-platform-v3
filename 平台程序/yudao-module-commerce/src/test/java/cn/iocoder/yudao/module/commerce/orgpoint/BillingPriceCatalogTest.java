@@ -12,7 +12,7 @@ class BillingPriceCatalogTest {
     void allContentAndDesignSubjectsRegistered() {
         for (String key : new String[]{"link_resolution", "copy", "asr", "digital",
                 "ai_video_768p", "ai_video_2k", "ai_flat", "ai_elevation",
-                "budget_estimate", "note_polish"}) {
+                "budget_estimate", "ai_prompt", "note_polish"}) {
             assertThat(BillingPriceCatalog.contains(key)).as(key).isTrue();
         }
     }

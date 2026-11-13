@@ -503,6 +503,22 @@ public class OrgPointService implements OrgPointPort {
     }
 
     @Override
+    public Long findOperationByBizKey(String bizKey) {
+        return findOperationIdByBizKey(bizKey);
+    }
+
+    @Override
+    public PoolBinding findBinding(String refType, long refId, String subject) {
+        List<PoolBinding> rows = jdbc.query(
+                "SELECT org_id, actor_user_id, actor_post_id, operation_id FROM design_billing_binding "
+                        + "WHERE ref_type = ? AND ref_id = ? AND subject = ?",
+                (rs, i) -> new PoolBinding(rs.getLong("org_id"), rs.getLong("actor_user_id"),
+                        rs.getObject("actor_post_id", Long.class), rs.getLong("operation_id")),
+                refType, refId, subject);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
     public Long findOperationByRef(String refType, long refId, String subject) {
         List<Long> rows = jdbc.query(
                 "SELECT operation_id FROM design_billing_binding "
