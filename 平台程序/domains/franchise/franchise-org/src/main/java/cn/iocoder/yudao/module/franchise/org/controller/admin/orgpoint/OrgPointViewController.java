@@ -1,8 +1,9 @@
-package cn.iocoder.yudao.module.franchise.org.orgpoint;
+package cn.iocoder.yudao.module.franchise.org.controller.admin.orgpoint;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.franchise.api.OrgPointPort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
+import cn.iocoder.yudao.module.franchise.org.orgpoint.OrgPointErrorCodes;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import io.swagger.v3.oas.annotations.Operation;

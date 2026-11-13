@@ -92,6 +92,15 @@
 | 修复 | `a77f0190` → `5e49090d` | RR 只读 + **REQUIRES_NEW** |
 | R4 | **PASS** | 极窄终审核销 |
 
+## 验收门 verify-org-point（任务书 §七）
+
+新增 `script/verify-org-point.py`（cv-e4 模式：缺 `ZS_VERIFY_ADMIN_PASSWORD` 即 SKIP 退出码 2），本机 `local,pg,zsdev` 起服实测 **13 项全绿**：
+开通（幂等复用+建池）→ 总部调点 → 内容任务预扣公司池 → 老板 summary（余额/在途/当月用量）→ 操作合并视图（PENDING 金额）→ 员工 my-usage → 月度额度拒绝（1_072_000_012）→ 业务权限拒绝（1_072_000_015）→ 人工核对结算（退差 0）→ 迁移预检 → 身份映射生成/报告。证据 `docs/business-flow-audit-20261103/evidence/verify-org-point-1794556324.json`。
+
+**验收脚本抓到并修复的两个真实启动阻断**：
+1. `AiJobSettlementService` 双构造器未标注 `@Autowired` → 生产启动 `No default constructor found`（已标注 7 参构造为装配入口）。
+2. `OrgPointViewController` 原放在 `...org.orgpoint` 包 → yudao 的 `/admin-api` 前缀只作用于 `**.controller.admin.**`，导致全部 `/platform/org-point/*` 404（已迁入 `...org.controller.admin.orgpoint`）。
+
 ## 四、未做/边界
 
 | 项 | 说明 |

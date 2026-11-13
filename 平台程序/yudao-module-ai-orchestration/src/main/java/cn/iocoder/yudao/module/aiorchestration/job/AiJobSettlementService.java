@@ -47,6 +47,8 @@ public class AiJobSettlementService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private cn.iocoder.yudao.module.franchise.api.OrgPointPort orgPointPort;
 
+    /** Spring 装配入口（多构造器必须显式标记，否则启动期 No default constructor found）。 */
+    @org.springframework.beans.factory.annotation.Autowired
     public AiJobSettlementService(DataSource dataSource, PlatformTransactionManager transactionManager,
                                   PricingPort pricingPort, PointLedgerPort pointLedgerPort,
                                   AiJobOrchestrationService orchestrationService,
