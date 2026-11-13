@@ -3,7 +3,7 @@ CREATE TABLE design_prompt_receipt (
   id            BIGINT PRIMARY KEY,
   job_id        BIGINT      NOT NULL,
   attempt_no    INT         NOT NULL,
-  call_id       VARCHAR(64) NOT NULL,
+  call_id       VARCHAR(64),
   response_hash VARCHAR(64),
   outcome       VARCHAR(16) NOT NULL,
   operation_id  BIGINT,

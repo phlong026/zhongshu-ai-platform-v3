@@ -535,10 +535,11 @@ public class OrgPointService implements OrgPointPort {
     @Override
     public PromptReceipt findPromptReceipt(long jobId, int attemptNo) {
         List<PromptReceipt> rows = jdbc.query(
-                "SELECT call_id, response_hash, outcome FROM design_prompt_receipt "
+                "SELECT call_id, response_hash, outcome, operation_id FROM design_prompt_receipt "
                         + "WHERE job_id = ? AND attempt_no = ?",
                 (rs, i) -> new PromptReceipt(rs.getString("call_id"), rs.getString("response_hash"),
-                        rs.getString("outcome")), jobId, attemptNo);
+                        rs.getString("outcome"), rs.getObject("operation_id", Long.class)),
+                jobId, attemptNo);
         return rows.isEmpty() ? null : rows.get(0);
     }
 

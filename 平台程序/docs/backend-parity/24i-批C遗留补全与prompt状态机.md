@@ -48,6 +48,16 @@
 
 复跑：`AiJobOrgChargeRoutingTest` **14/14**（新增成功重放不重复扣、`:r1` 重放单 operation、确认旧 operation 后 hash 冲突）；ai-orchestration **72/72**；commerce orgpoint **61/61**。
 
+## 评审 R3 修复
+
+| 编号 | 问题 | 修复 |
+|---|---|---|
+| P1-a | `design_prompt_receipt.call_id` NOT NULL，四参数（无收据）路径落库失败 | 列改为可空（无收据是合法路径）；补真实 DB 测试（null callId → 后续带收据升级） |
+| P1-b | 新持有者确认旧 operation 后，同 attempt 再 reserve 会重复预扣 | 收据带 `operationId`；reserve 先查该 attempt 收据指向的 operation 若已 SETTLED → 直接返回 ORG_RESERVED |
+| P1-c | "未成功收据已有 hash 与成功 hash 不同"被误拒 | 同一场景由 R2 单调规则覆盖（仅成功冻结），本轮已核对无需变更 |
+
+复跑：`AiJobOrgChargeRoutingTest` **15/15**（新增确认旧 operation 后 reserve 不重复扣）；`DesignBillingBindingIntegrationTest` **6/6**（null callId 真实落库）；ai-orchestration **73/73**。
+
 ## 四、未做/边界
 
 | 项 | 说明 |

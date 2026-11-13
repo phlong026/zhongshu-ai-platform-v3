@@ -91,6 +91,18 @@ class DesignBillingBindingIntegrationTest {
     }
 
     @Test
+    void promptReceiptAllowsNullCallId() {
+        // 无收据重载（NOT_SENT/UNKNOWN）写 callId=null：表结构必须允许
+        service.savePromptReceipt(9001L, 1, null, null, "NOT_SENT", null);
+        var receipt = service.findPromptReceipt(9001L, 1);
+        assertThat(receipt.outcome()).isEqualTo("NOT_SENT");
+        assertThat(receipt.callId()).isNull();
+        // 后续带收据升级为 SUCCEEDED
+        service.savePromptReceipt(9001L, 1, "plan-9001", "a".repeat(64), "SUCCEEDED", 1001L);
+        assertThat(service.findPromptReceipt(9001L, 1).operationId()).isEqualTo(1001L);
+    }
+
+    @Test
     void fullDeliveryChargesAll() {
         long op = reserveJob(9002L, "ai_flat", 2); // 预扣 4
         var settlement = service.settle(op, 2);

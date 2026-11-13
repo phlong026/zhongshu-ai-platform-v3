@@ -57,7 +57,7 @@ class AiJobOrgChargeRoutingTest {
         /** prompt 预留：bizKey → operationId。 */
         final java.util.Map<String, Long> promptOperations = new java.util.HashMap<>();
         final java.util.Map<Long, String> promptTerminal = new java.util.HashMap<>();
-        final java.util.Map<String, String[]> promptReceipts = new java.util.HashMap<>();
+        final java.util.Map<String, PromptReceipt> promptReceipts = new java.util.HashMap<>();
         long nextPromptOperation = 88L;
 
         @Override public java.util.List<PromptOperation> promptOperations(long jobId) {
@@ -70,13 +70,13 @@ class AiJobOrgChargeRoutingTest {
         }
 
         @Override public PromptReceipt findPromptReceipt(long jobId, int attemptNo) {
-            String[] row = promptReceipts.get(jobId + ":" + attemptNo);
-            return row == null ? null : new PromptReceipt(row[0], row[1], row[2]);
+            return promptReceipts.get(jobId + ":" + attemptNo);
         }
 
         @Override public void savePromptReceipt(long jobId, int attemptNo, String callId,
                                                 String responseHash, String outcome, Long operationId) {
-            promptReceipts.put(jobId + ":" + attemptNo, new String[]{callId, responseHash, outcome});
+            promptReceipts.put(jobId + ":" + attemptNo,
+                    new PromptReceipt(callId, responseHash, outcome, operationId));
         }
 
         @Override
@@ -385,6 +385,28 @@ class AiJobOrgChargeRoutingTest {
                 "plan-" + jobId, "0".repeat(64)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("cannot change");
+    }
+
+    @Test
+    void confirmingOldOperationThenReserveDoesNotDoubleCharge() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 3030L);
+        settlement.reservePromptCall(jobId, 1, 3030L);
+        settlement.finishPromptCall(jobId, 1, 3030L, "UNKNOWN");
+
+        // 新持有者确认旧 operation 成功
+        jdbc.update("UPDATE ai_job SET fencing_token=3131, claim_expires_at=now()+interval '10 minute' "
+                + "WHERE id=?", jobId);
+        jdbc.update("INSERT INTO ai_job_attempt (id, job_id, attempt_no, worker_id, fencing_token) "
+                + "VALUES (?, ?, 2, 'w-2', 3131)", jobId * 1000 + 2, jobId);
+        settlement.finishPromptCall(jobId, 2, 3131L, "SUCCEEDED", "plan-" + jobId, "1".repeat(64));
+        assertThat(port.settled).containsExactly(88L);
+
+        // 该 attempt 已有成功收据 → 再预留必须直接重放，不新增扣费
+        assertThat(settlement.reservePromptCall(jobId, 2, 3131L)).isEqualTo("ORG_RESERVED");
+        assertThat(port.promptOperations).hasSize(1);
+        assertThat(port.settled).containsExactly(88L);
     }
 
     @Test

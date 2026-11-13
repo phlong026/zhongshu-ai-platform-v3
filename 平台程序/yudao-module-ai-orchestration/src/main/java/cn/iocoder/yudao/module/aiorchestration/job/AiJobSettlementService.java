@@ -191,6 +191,16 @@ public class AiJobSettlementService {
                                      cn.iocoder.yudao.module.franchise.api.OrgPointPort.PoolBinding binding) {
         String baseKey = promptBizKey(jobId, attemptNo, token);
         var all = orgPointPort.promptOperations(jobId);
+        // 该 attempt 已通过其他 operation（如新持有者确认旧调用）成功计费 → 重放不再扣
+        var receipt = orgPointPort.findPromptReceipt(jobId, attemptNo);
+        if (receipt != null && receipt.operationId() != null) {
+            boolean settled = all.stream()
+                    .anyMatch(op -> op.operationId() == receipt.operationId()
+                            && "SETTLED".equals(op.state()));
+            if (settled) {
+                return "ORG_RESERVED";
+            }
+        }
         var chain = all.stream().filter(op -> isPromptChainKey(op.bizKey(), baseKey)).toList();
         if (chain.stream().anyMatch(op -> "PENDING".equals(op.state()))) {
             return "ORG_RESERVED"; // 网络重放 / 已预留

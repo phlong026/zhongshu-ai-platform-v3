@@ -128,7 +128,7 @@ public interface OrgPointPort {
     java.util.List<PromptOperation> promptOperations(long jobId);
 
     /** prompt 调用收据（callId/hash/outcome 快照）。 */
-    record PromptReceipt(String callId, String responseHash, String outcome) {
+    record PromptReceipt(String callId, String responseHash, String outcome, Long operationId) {
     }
 
     PromptReceipt findPromptReceipt(long jobId, int attemptNo);
