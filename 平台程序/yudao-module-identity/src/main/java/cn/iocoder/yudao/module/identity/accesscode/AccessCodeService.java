@@ -8,6 +8,9 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.identity.enums.ErrorCodeConstants.ACCESS_CODE_RETIRED;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -68,8 +71,16 @@ public class AccessCodeService {
     }
 
     /** 创建批次；INLINE 返回一次性明文列表，TICKET 返回空列表（明文进加密制品） */
+    /** 24 号 B-14：激活码退役开关（生产守卫强制 false）。关闭后不再生成新批次。 */
+    @org.springframework.beans.factory.annotation.Value("${zhongshu.identity.access-code.enabled:true}")
+    // 初始化 true：手工构造（测试）视为开启；Spring 由 @Value 注入实际值
+    private boolean accessCodeEnabled = true;
+
     public BatchCreateResult createBatch(int quantity, String deliveryMode, Integer validityDays,
                                          String purposeNote, String issuedBy) {
+        if (!accessCodeEnabled) {
+            throw exception(ACCESS_CODE_RETIRED);
+        }
         List<String> codes = new ArrayList<>(quantity);
         for (int i = 0; i < quantity; i++) {
             codes.add(cipher.generate());

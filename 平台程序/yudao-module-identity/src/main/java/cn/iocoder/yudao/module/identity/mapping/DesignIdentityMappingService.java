@@ -269,7 +269,8 @@ public class DesignIdentityMappingService {
             return null;
         }
         String digits = raw.replaceAll("[^0-9]", "");
-        return digits.matches("1\\d{10}") ? digits : null;
+        // 大陆手机号：1 + 第二位 3-9 + 9 位数字（排除 100/120 等非手机号段）
+        return digits.matches("1[3-9]\\d{9}") ? digits : null;
     }
 
     private static int intOf(Object value) {

@@ -201,6 +201,28 @@ class DesignIdentityMappingIntegrationTest {
     }
 
     @Test
+    void invalidMobileSegmentIsNotUsedAsEvidence() {
+        seedStaff(511L, "10012345678", 1001L, "boss"); // 11 位但非手机号段
+        seedRedemption(9105L, "10012345678");
+        service.generate();
+        var row = service.list("UNMATCHED", null, 1, 10).get(0);
+        assertThat(row.matchedUserId()).isNull();
+        assertThat(row.note()).contains("手机号");
+    }
+
+    @Test
+    void rejectedStateCannotBeReprocessed() {
+        seedStaff(512L, "13800000011", 1001L, "boss");
+        seedRedemption(9106L, null);
+        service.generate();
+        service.reject(9106L, "无法归属", "admin");
+        assertThatThrownBy(() -> service.confirm(9106L, 512L, 1001L, "试图确认", "admin"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.reject(9106L, "再次驳回", "admin"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void terminalStateCannotBeReprocessed() {
         seedStaff(509L, "13800000009", 1001L, "boss");
         seedRedemption(9104L, "13800000009");

@@ -18,6 +18,7 @@ import java.util.Optional;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.identity.enums.ErrorCodeConstants.ACCESS_CODE_ALREADY_CONSUMED;
+import static cn.iocoder.yudao.module.identity.enums.ErrorCodeConstants.ACCESS_CODE_RETIRED;
 import static cn.iocoder.yudao.module.identity.enums.ErrorCodeConstants.ACCESS_CODE_DISABLED;
 import static cn.iocoder.yudao.module.identity.enums.ErrorCodeConstants.ACCESS_CODE_EXPIRED;
 import static cn.iocoder.yudao.module.identity.enums.ErrorCodeConstants.ACCESS_CODE_INVALID;
@@ -54,6 +55,11 @@ public class AccessCodeRedemptionService {
 
     private final AccountLoginService accountLoginService;
 
+    /** 24 号 B-14：激活码退役开关（生产守卫强制 false）。关闭后只保留既有授权，不再接受新兑换。 */
+    @org.springframework.beans.factory.annotation.Value("${zhongshu.identity.access-code.enabled:true}")
+    // 初始化 true：手工构造（测试）视为开启；Spring 由 @Value 注入实际值
+    private boolean accessCodeEnabled = true;
+
     public AccessCodeRedemptionService(DataSource dataSource, PlatformTransactionManager transactionManager,
                                        AccessCodeCipher cipher, AccountLoginService accountLoginService) {
         this.jdbcTemplate = new JdbcTemplate(dataSource);
@@ -68,6 +74,9 @@ public class AccessCodeRedemptionService {
 
     public RedemptionResult redeem(String appid, String openid, String unionid, String plaintextCode,
                                    RedemptionBinding binding) {
+        if (!accessCodeEnabled) {
+            throw exception(ACCESS_CODE_RETIRED);
+        }
         String codeHash = cipher.hash(plaintextCode);
         try {
             return txTemplate.execute(status -> redeemInTx(appid, openid, unionid, codeHash, binding));
