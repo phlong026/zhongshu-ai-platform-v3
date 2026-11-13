@@ -89,12 +89,13 @@ public class OrgPointViewController {
 
     @GetMapping("/my-usage")
     @Operation(summary = "本人当月用量与明细")
-    public CommonResult<List<OrgPointPort.LedgerEntry>> myUsage(
-            @RequestParam(required = false) String month) {
+    public CommonResult<OrgPointPort.MyUsage> myUsage(
+            @RequestParam(required = false) String month,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
         PostSnapshot post = currentPost.require();
-        String target = month == null || month.isBlank()
-                ? LocalDate.now(ZoneId.of("Asia/Shanghai")).toString().substring(0, 7) : month;
-        return success(orgPoint.ledger(post.orgId(), post.userId(), null, target, 1, 50));
+        return success(orgPoint.myUsage(post.orgId(), post.userId(), month, page,
+                Math.min(Math.max(size, 1), 100)));
     }
 
     @GetMapping("/member-quotas")

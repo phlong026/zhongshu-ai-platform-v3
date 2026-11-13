@@ -136,11 +136,11 @@ public class ContentTaskService {
         }
         quota.reserve(companyId, ContentBillingCatalog.LINK_RESOLUTION.key(), 1);
         long id = ContentTaskStore.newId();
-        reservePool(companyId, authorUserId, ContentBillingCatalog.LINK_RESOLUTION.key(), 1, id,
-                "content_task", id);
+        String poolKey = reservePool(companyId, authorUserId,
+                ContentBillingCatalog.LINK_RESOLUTION.key(), 1, id, "content_task", id);
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("url", url.trim());
-        return insert(id, companyId, authorUserId, "link_parse", input, null);
+        return insertWithPoolKey(id, companyId, authorUserId, "link_parse", input, null, poolKey);
     }
 
     /** 缓存命中时直接 SUCCEEDED：零外呼、零配额（AC4）。 */
@@ -162,9 +162,9 @@ public class ContentTaskService {
         }
         quota.reserve(companyId, ContentBillingCatalog.ASR.key(), 1);
         long id = ContentTaskStore.newId();
-        reservePool(companyId, authorUserId, ContentBillingCatalog.ASR.key(), 1, id,
+        String poolKey = reservePool(companyId, authorUserId, ContentBillingCatalog.ASR.key(), 1, id,
                 "content_task", id);
-        return insert(id, companyId, authorUserId, "asr", input, mediaSha256);
+        return insertWithPoolKey(id, companyId, authorUserId, "asr", input, mediaSha256, poolKey);
     }
 
     public FrContentTaskDO createCopy(long companyId, long authorUserId, String sourceText,
@@ -179,9 +179,9 @@ public class ContentTaskService {
         input.put("personaId", personaId);
         input.put("personaPrompt", personaPromptJson);
         long id = ContentTaskStore.newId();
-        reservePool(companyId, authorUserId, ContentBillingCatalog.COPY.key(), 1, id,
+        String poolKey = reservePool(companyId, authorUserId, ContentBillingCatalog.COPY.key(), 1, id,
                 "content_task", id);
-        return insert(id, companyId, authorUserId, "copy", input, null);
+        return insertWithPoolKey(id, companyId, authorUserId, "copy", input, null, poolKey);
     }
 
     public FrContentTaskDO createDigital(long companyId, long authorUserId, String voice, String text,
@@ -198,9 +198,9 @@ public class ContentTaskService {
         input.put("title", title == null || title.isBlank() ? "数字人口播" : title);
         input.put("subtitle", subtitle);
         long id = ContentTaskStore.newId();
-        reservePool(companyId, authorUserId, ContentBillingCatalog.DIGITAL.key(), seconds, id,
-                "content_task", id);
-        return insert(id, companyId, authorUserId, "digital", input, null);
+        String poolKey = reservePool(companyId, authorUserId, ContentBillingCatalog.DIGITAL.key(),
+                seconds, id, "content_task", id);
+        return insertWithPoolKey(id, companyId, authorUserId, "digital", input, null, poolKey);
     }
 
     public FrContentTaskDO createAiVideo(long companyId, long authorUserId, String description,
@@ -220,8 +220,9 @@ public class ContentTaskService {
         input.put("duration", durationSeconds);
         input.put("ratio", ratio);
         long id = ContentTaskStore.newId();
-        reservePool(companyId, authorUserId, subject, durationSeconds, id, "content_task", id);
-        return insert(id, companyId, authorUserId, "ai_video", input, null);
+        String poolKey = reservePool(companyId, authorUserId, subject, durationSeconds, id,
+                "content_task", id);
+        return insertWithPoolKey(id, companyId, authorUserId, "ai_video", input, null, poolKey);
     }
 
     private FrContentTaskDO insert(long id, long companyId, long authorUserId, String kind,
@@ -236,8 +237,15 @@ public class ContentTaskService {
         String bizKey = "content:" + taskId + ":" + subject;
         orgPoint.reserve(new OrgPointPort.ReserveCommand(
                 bizKey, companyId, authorUserId, null, subject, units, refType, refId));
-        store.markPoolBizKey(taskId, companyId, bizKey);
         return bizKey;
+    }
+
+    /** 先 INSERT 再落池预扣键（评审 A-P1-4：顺序颠倒会导致 UPDATE 0 行、重试扫描漏选）。 */
+    private FrContentTaskDO insertWithPoolKey(long id, long companyId, long authorUserId, String kind,
+                                              Map<String, Object> input, String sha, String poolKey) {
+        FrContentTaskDO task = insert(id, companyId, authorUserId, kind, input, sha);
+        store.markPoolBizKey(id, companyId, poolKey);
+        return task;
     }
 
     public FrContentTaskDO requireOwned(long companyId, long taskId) {

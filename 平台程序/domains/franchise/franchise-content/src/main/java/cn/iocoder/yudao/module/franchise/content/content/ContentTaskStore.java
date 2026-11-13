@@ -65,8 +65,13 @@ public class ContentTaskStore {
 
     /** 记录公司池预扣键（24 号评审 P1-4：终态后结算失败可被扫描幂等重试）。 */
     public void markPoolBizKey(long id, long companyId, String poolBizKey) {
-        jdbcTemplate.update("UPDATE fr_content_task SET pool_biz_key = ? WHERE id = ? AND company_id = ?",
+        // 评审 A-P1-4：必须在任务 INSERT 之后调用；0 行说明顺序错/任务不存在，直接失败
+        int updated = jdbcTemplate.update(
+                "UPDATE fr_content_task SET pool_biz_key = ? WHERE id = ? AND company_id = ?",
                 poolBizKey, id, companyId);
+        if (updated != 1) {
+            throw new IllegalStateException("池预扣键落库失败（任务未插入？）：taskId=" + id);
+        }
     }
 
     /** 已终态但池预扣仍未终结的任务（重试窗口）。 */

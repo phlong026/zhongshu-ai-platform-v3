@@ -48,6 +48,15 @@
 - platform-authz `OrgOnboardIntegrationTest` **7/7 绿**（事件入事务后无回归）；
 - 全仓 `compile` 通过。
 
+## R2 复审补充修复（f30abd5b 之后）
+
+| 编号 | R2 发现 | 修复 |
+|---|---|---|
+| A-P1-4（复现） | `markPoolBizKey` 在任务 INSERT **之前**调用 → UPDATE 0 行，键未落库，重试扫描漏选 | 改为 `insertWithPoolKey`：先 INSERT 再落键，且 UPDATE 必须恰 1 行否则抛错；五个创建入口全部改序 |
+| B-P1-5（复现） | my-usage 控制器改动未随 f30abd5b 提交 | 本次一并提交（`/my-usage` 返回 `MyUsage` 汇总+额度+分页明细） |
+
+复跑：content 11/11 绿；全仓 compile 通过。
+
 ## 遗留（未修，需评审确认）
 
 1. **P2-2 岗位权限码**：老板视图当前仅 `FranchiseRoles.isBoss` 门禁；补 `@post.has` 需要新增权限种子与角色模板绑定（批 C 一并做）。
