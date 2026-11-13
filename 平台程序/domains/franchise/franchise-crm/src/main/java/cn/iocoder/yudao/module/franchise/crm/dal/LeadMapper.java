@@ -19,6 +19,24 @@ public interface LeadMapper extends BaseMapperX<LeadDO> {
                 .eq(LeadDO::getStatus, LeadDO.STATUS_LINK_REQUIRED)) > 0;
     }
 
+    /** 导入用：本组织内该手机号是否已有待关联客资（显式 company 过滤，不依赖线程内岗位）。 */
+    default boolean existsPendingInOrg(long companyId, String phone) {
+        return selectCount(new LambdaQueryWrapperX<LeadDO>()
+                .eq(LeadDO::getCompanyId, companyId)
+                .eq(LeadDO::getPhone, phone)
+                .eq(LeadDO::getStatus, LeadDO.STATUS_LINK_REQUIRED)) > 0;
+    }
+
+    /** 导入用：本组织内该手机号最近一条客资（显式 company 过滤）。 */
+    default LeadDO selectLatestByPhoneInOrg(long companyId, String phone) {
+        List<LeadDO> list = selectList(new LambdaQueryWrapperX<LeadDO>()
+                .eq(LeadDO::getCompanyId, companyId)
+                .eq(LeadDO::getPhone, phone)
+                .orderByDesc(LeadDO::getCreateTime)
+                .orderByDesc(LeadDO::getId));
+        return list.isEmpty() ? null : list.get(0);
+    }
+
     /** 待关联客资，visibility 追加可见范围条件 */
     default List<LeadDO> selectPending(Consumer<LambdaQueryWrapperX<LeadDO>> visibility) {
         LambdaQueryWrapperX<LeadDO> query = new LambdaQueryWrapperX<LeadDO>().eq(LeadDO::getStatus, LeadDO.STATUS_LINK_REQUIRED);

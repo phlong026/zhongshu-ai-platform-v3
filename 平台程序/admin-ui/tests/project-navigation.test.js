@@ -45,7 +45,12 @@ const franchise = [
   {
     path: '/fr',
     meta: {},
-    children: [leaf('identity', '工作身份'), leaf('org/staff', '部门与员工')]
+    children: [
+      leaf('identity', '工作身份'),
+      // 批1 起逐路由授权：每个页面自带 meta.permission（不再统一套 platform:org:query）。
+      { path: 'org/staff', meta: { title: '部门与员工', permission: 'platform:org:query' } },
+      { path: 'customers', meta: { title: '客资', permission: 'franchise:lead:handle' } }
+    ]
   }
 ]
 const authorized = [
@@ -261,6 +266,15 @@ test('平台组织开通保留为全局授权菜单，员工工作区只读当�
       (child) => child.path
     ),
     ['identity', 'org/staff']
+  )
+  // 逐路由授权：只持 lead:handle 的岗位只看到客资页，不因共用页而看到部门与员工。
+  assert.deepEqual(
+    Array.from(
+      helpers.buildStaffMenus(franchise, (permission) => permission === 'franchise:lead:handle')[0]
+        .children,
+      (child) => child.path
+    ),
+    ['identity', 'customers']
   )
 })
 

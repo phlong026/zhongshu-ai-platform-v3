@@ -20,5 +20,6 @@ public interface FranchiseCrmErrorCodes {
     ErrorCode CUSTOMER_INPUT_INVALID = new ErrorCode(1_110_000_010, "请填写客户称呼，其余信息不超过长度限制");
     ErrorCode SCHEME_INVALID = new ErrorCode(1_110_000_011, "请填写方案名称；预算须有有效的面宽、进深、层数和面积");
     ErrorCode TRANSFER_TARGET_INVALID = new ErrorCode(1_110_000_012, "接手人须为本组织在岗业务人员，负责人只能转给本人管理团队的人");
+    ErrorCode LEAD_IMPORT_FORBIDDEN = new ErrorCode(1_110_000_013, "仅老板/负责人可发起客资导入");
 
 }

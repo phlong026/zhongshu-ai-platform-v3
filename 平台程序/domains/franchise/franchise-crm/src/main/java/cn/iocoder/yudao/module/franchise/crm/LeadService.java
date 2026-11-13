@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.crm.dal.CustomerMapper;
 import cn.iocoder.yudao.module.franchise.crm.dal.LeadDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.LeadMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
 import cn.iocoder.yudao.module.platform.command.Revisions;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -187,6 +188,80 @@ public class LeadService {
             default -> LeadDO.CONVERSION_DIRECT.equals(lead.getConversion()) ? CaptureOutcome.CREATED : CaptureOutcome.LINKED;
         };
         return new CaptureResult(lead.getId(), lead.getCustomerId(), outcome);
+    }
+
+    // ===================== P1 批3：客资批量导入（Web /fr/customers） =====================
+
+    /**
+     * 导入路径：新建客户（owner=操作者）+ CONVERTED(direct) lead。@Transactional 独立事务。
+     *
+     * <p>组织与 owner 一律从 post 派生（不接受调用方传入），并在此校验 boss/owner——
+     * 这是写事务入口的第二道防线（控制器已校验一次）。
+     */
+    public record ImportNewCustomerResult(long leadId, Long customerId) { }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ImportNewCustomerResult importNewCustomer(PostSnapshot post, String name,
+                                                      String phone, String need, String source,
+                                                      String idempotencyKey) {
+        long orgId = requireImportOperator(post);
+        var replay = commands.replayed(post, idempotencyKey,
+                new CaptureCommand(name, phone, need, source));
+        if (replay.isPresent()) {
+            LeadDO existing = requireLead(replay.get().getAggregateId());
+            return new ImportNewCustomerResult(existing.getId(), existing.getCustomerId());
+        }
+        CaptureCommand input = normalize(new CaptureCommand(name, phone, need, source));
+        long leadId = IdWorker.getId();
+        CustomerDO customer = new CustomerDO().setId(IdWorker.getId()).setCompanyId(orgId)
+                .setTeamId(post.teamId()).setOwnerUserId(post.userId()).setName(input.name())
+                .setPhone(input.phone()).setSource(input.source()).setSummary(input.need())
+                .setStatus(CustomerDO.STATUS_REGISTERED).setOriginLeadId(leadId).setRevision(1L);
+        customerMapper.insert(customer);
+        LeadDO lead = new LeadDO().setId(leadId).setCompanyId(orgId).setTeamId(post.teamId())
+                .setName(input.name()).setPhone(input.phone()).setNeed(input.need()).setSource(input.source())
+                .setRegistrarUserId(post.userId()).setRegistrarPostId(post.postId()).setRevision(1L)
+                .setStatus(LeadDO.STATUS_CONVERTED).setConversion(LeadDO.CONVERSION_DIRECT)
+                .setCustomerId(customer.getId());
+        leadMapper.insert(lead);
+        commands.record(post, CustomerService.AGGREGATE, customer.getId(), 1, "customer-create",
+                phone, null);
+        commands.record(post, AGGREGATE, leadId, 1, "lead-import", input, idempotencyKey);
+        return new ImportNewCustomerResult(leadId, customer.getId());
+    }
+
+    /**
+     * 导入路径：同手机号已存在客户 → 仅创建 LINK_REQUIRED lead（不覆盖客户/不自动关联）。
+     * @Transactional 独立事务；org/owner 从 post 派生并校验 boss/owner。
+     */
+    public record ImportLinkRequiredResult(long leadId) { }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ImportLinkRequiredResult importLinkRequiredLead(PostSnapshot post, String name,
+                                                            String phone, String need, String source,
+                                                            String idempotencyKey) {
+        long orgId = requireImportOperator(post);
+        var replay = commands.replayed(post, idempotencyKey,
+                new CaptureCommand(name, phone, need, source));
+        if (replay.isPresent()) {
+            return new ImportLinkRequiredResult(replay.get().getAggregateId());
+        }
+        CaptureCommand input = normalize(new CaptureCommand(name, phone, need, source));
+        LeadDO lead = new LeadDO().setId(IdWorker.getId()).setCompanyId(orgId).setTeamId(post.teamId())
+                .setName(input.name()).setPhone(input.phone()).setNeed(input.need()).setSource(input.source())
+                .setRegistrarUserId(post.userId()).setRegistrarPostId(post.postId()).setRevision(1L)
+                .setStatus(LeadDO.STATUS_LINK_REQUIRED);
+        leadMapper.insert(lead);
+        commands.record(post, AGGREGATE, lead.getId(), 1, "lead-import", input, idempotencyKey);
+        return new ImportLinkRequiredResult(lead.getId());
+    }
+
+    /** 导入写入口防线：仅 boss/owner，且返回其组织（组织不接受外部传入）。 */
+    private static long requireImportOperator(PostSnapshot post) {
+        if (post == null || !FranchiseRoles.isBoss(post)) {
+            throw exception(LEAD_IMPORT_FORBIDDEN);
+        }
+        return post.orgId();
     }
 
 }

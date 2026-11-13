@@ -27,6 +27,8 @@ function loadTsModule(file, stubs = {}) {
     console,
     require(name) {
       if (name in stubs) return stubs[name]
+      // 批3：CSV 解析器已提取为共享模块（@/utils/csvImport），测试内按别名解析。
+      if (name === '@/utils/csvImport') return loadTsModule('utils/csvImport.ts')
       throw new Error(`Unexpected import: ${name}`)
     }
   })
@@ -81,7 +83,6 @@ function loadPage(apiStub, identityStore, elMessage) {
   })
   const setupCtx = { expose: () => {}, slots: {}, attrs: {}, emit: () => {} }
   const bindings = module.exports.default.setup({}, setupCtx)
-  console.log('LOADER bindings keys:', Object.keys(bindings).length)
   return { bindings, elMessage, api: apiStub, identity: identityStore }
 }
 
@@ -140,11 +141,6 @@ function makePage() {
 }
 
 async function prepareReady(bindings) {
-  console.log(
-    'DEBUG keys:',
-    Object.keys(bindings || {}).length,
-    Object.keys(bindings || {}).slice(0, 5)
-  )
   bindings.importRows.value = [
     { line: 1, name: '张三', mobile: '13800000001', roleCode: 'sales', teamName: '业务一组' }
   ]

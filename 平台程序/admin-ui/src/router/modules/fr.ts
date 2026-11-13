@@ -33,6 +33,17 @@ const frRouter: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'customers',
+        name: 'FranchiseCustomers',
+        component: () => import('@/views/fr/customers/index.vue'),
+        meta: {
+          title: '客资',
+          icon: 'ep:user-filled',
+          noCache: true,
+          permission: 'franchise:lead:handle'
+        }
+      },
+      {
         path: 'org/staff',
         name: 'FranchiseOrgStaff',
         component: () => import('@/views/fr/org-staff/index.vue'),

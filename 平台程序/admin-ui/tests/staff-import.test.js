@@ -21,6 +21,8 @@ function load(file) {
     exports: module.exports,
     console,
     require(name) {
+      // 批3：CSV 解析器已提取为共享模块（@/utils/csvImport），测试内按别名解析。
+      if (name === '@/utils/csvImport') return load('utils/csvImport.ts')
       throw Error(`Unexpected import: ${name}`)
     }
   })

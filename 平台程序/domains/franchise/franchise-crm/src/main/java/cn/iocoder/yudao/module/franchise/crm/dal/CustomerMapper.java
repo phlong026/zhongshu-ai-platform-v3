@@ -20,6 +20,14 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
         return selectOne(CustomerDO::getPhone, phone);
     }
 
+    /** 导入用：本组织内该手机号客户（显式 company 过滤；手机号在本组织唯一）。 */
+    default CustomerDO selectByPhoneInOrg(long companyId, String phone) {
+        List<CustomerDO> list = selectList(new LambdaQueryWrapperX<CustomerDO>()
+                .eq(CustomerDO::getCompanyId, companyId)
+                .eq(CustomerDO::getPhone, phone));
+        return list.isEmpty() ? null : list.get(0);
+    }
+
     default PageResult<CustomerDO> selectPage(PageParam page, Consumer<LambdaQueryWrapperX<CustomerDO>> visibility,
                                               String keyword) {
         LambdaQueryWrapperX<CustomerDO> query = new LambdaQueryWrapperX<>();

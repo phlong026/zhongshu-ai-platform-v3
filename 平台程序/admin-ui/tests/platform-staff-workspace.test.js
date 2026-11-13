@@ -86,7 +86,19 @@ function loadOrgStaffView() {
           isCurrentGeneration: () => true,
           postGeneration: () => 1
         },
-        '@/utils/platformRoles': { roleLabel: (roleCode) => roleCode }
+        '@/utils/platformRoles': { roleLabel: (roleCode) => roleCode },
+        // 批2 起 org-staff 页引入导入纯函数；本测试只关心权限/菜单，给出最小桩。
+        './importModel': {
+          STAFF_IMPORT_MAX_FILE_BYTES: 2 * 1024 * 1024,
+          STAFF_IMPORT_MAX_ROWS: 500,
+          buildStaffImportTemplateCsv: () => '',
+          createImportGenerationGuard: () => ({ next: () => 1, isCurrent: () => true }),
+          failedRowsForRetry: () => [],
+          parseStaffImportCsv: () => ({ rows: [], errors: [] }),
+          runGuardedImportRequest: async () => undefined,
+          withinFileSizeLimit: () => true,
+          withinImportLimit: () => true
+        }
       }
       if (Object.hasOwn(imports, name)) return imports[name]
       throw new Error(`Unexpected import: ${name}`)
