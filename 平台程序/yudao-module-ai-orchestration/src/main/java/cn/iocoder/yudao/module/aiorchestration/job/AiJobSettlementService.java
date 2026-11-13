@@ -40,9 +40,13 @@ public class AiJobSettlementService {
     private final AiJobOrchestrationService orchestrationService;
 
     private final cn.iocoder.yudao.module.infra.zhongshu.event.ReliableEventPort reliableEventPort;
+    @org.springframework.beans.factory.annotation.Autowired
     private final cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort usagePricingPort;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    /** 设计桥公司池端口（D6 v2）：仅桥侧任务使用；App 链 charge_id 非空走原链。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private cn.iocoder.yudao.module.franchise.api.OrgPointPort orgPointPort;
+
     public AiJobSettlementService(DataSource dataSource, PlatformTransactionManager transactionManager,
                                   PricingPort pricingPort, PointLedgerPort pointLedgerPort,
                                   AiJobOrchestrationService orchestrationService,
@@ -129,6 +133,38 @@ public class AiJobSettlementService {
             });
     }
 
+    /**
+     * 桥侧建任务（24 号 D6 v2）：不扣个人池、不写 ai_task_charge；金额快照由调用方按公司池目录预计算。
+     * 幂等：与 createJobWithCharge 共用 request replay；charge_id=NULL 即"公司池任务"标志。
+     */
+    public long createJobWithOrgCharge(long userId, String phase, int count, String idempotencyKey,
+                                       String projectRef, String resolution,
+                                       long unitPointCost, long totalPointCost) {
+        final String requestKey = idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey;
+        return txTemplate.execute(status -> {
+            Long replay = orchestrationService.findRequestReplay(userId, phase, count, requestKey,
+                    projectRef, resolution);
+            if (replay != null) {
+                return replay;
+            }
+            long jobId = IdWorker.getId();
+            jdbcTemplate.update(
+                    "INSERT INTO ai_job (id, user_id, project_ref, phase, status, requested_count, "
+                            + "output_prefix, idempotency_key, unit_point_cost, total_point_cost, charge_id, "
+                            + "prompt_pricing_version, request_resolution) "
+                            + "VALUES (?, ?, ?, ?, 'QUEUED', ?, ?, ?, ?, ?, NULL, 0, ?)",
+                    jobId, userId, projectRef, phase, count, "ai-quarantine/" + jobId,
+                    requestKey, unitPointCost, totalPointCost, resolution);
+            reliableEventPort.append(cn.iocoder.yudao.module.infra.zhongshu.event.OutboxEventMessage.builder()
+                    .eventType("AI_JOB_CREATED").bizType("ai_job").bizId(String.valueOf(jobId))
+                    .payload(Map.of("jobId", jobId, "phase", phase, "count", count,
+                            "billing", "ORG_POOL")).build());
+            log.info("[createJobWithOrgCharge][job={} user={} orgPoolCost={}]",
+                    jobId, userId, totalPointCost);
+            return jobId;
+        });
+    }
+
     private String scopedChargeKey(long userId,String key,long jobId) {
         if (key == null || key.isBlank()) return "AI_JOB:GENERATED:" + userId + ":" + jobId;
         try { return "AI_JOB:REQUEST:"+userId+":"+java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
@@ -202,7 +238,8 @@ public class AiJobSettlementService {
     public SettlementSummary settle(long jobId, String reason) {
         SettlementSummary existing = txTemplate.execute(status -> {
             Map<String, Object> job = jdbcTemplate.queryForMap(
-                    "SELECT status, user_id, requested_count, unit_point_cost, total_point_cost, accepted_count "
+                    "SELECT status, user_id, requested_count, unit_point_cost, total_point_cost, "
+                            + "accepted_count, charge_id, phase "
                             + "FROM ai_job WHERE id = ? FOR UPDATE", jobId);
             String currentStatus = (String) job.get("status");
             if (isTerminal(currentStatus)) {
@@ -247,7 +284,22 @@ public class AiJobSettlementService {
             if (usagePricingPort != null) usagePricingPort.releaseUnsentPrompt(userId,String.valueOf(jobId));
             long settlementVersion = 1;
             long refundedNow = 0;
-            if (refund > 0) {
+            Object chargeIdRaw = job.get("charge_id");
+            if (chargeIdRaw == null) {
+                // 公司池任务（D6 v2 §2.3-A）：按 ACCEPTED 数结算；0 有效全退。禁凭此释放 prompt。
+                if (orgPointPort == null) {
+                    throw new IllegalStateException("公司池任务结算要求 OrgPointPort 装配");
+                }
+                String subject = "FLAT".equals(job.get("phase")) ? "ai_flat" : "ai_elevation";
+                Long operationId = orgPointPort.findOperationByRef("ai_job", jobId, subject);
+                if (operationId == null) {
+                    throw new IllegalStateException("公司池任务缺少计费绑定: jobId=" + jobId);
+                }
+                var orgSettlement = billable == 0
+                        ? orgPointPort.release(operationId)
+                        : orgPointPort.settle(operationId, billable);
+                refundedNow = orgSettlement.refunded();
+            } else if (refund > 0) {
                 String refundKey = "AI_JOB_SETTLE:" + jobId + ":v" + settlementVersion + ":" + reason;
                 pointLedgerPort.credit(userId, "TASK_SETTLEMENT_REFUND", refund,
                         "ai_job", String.valueOf(jobId), refundKey, null,

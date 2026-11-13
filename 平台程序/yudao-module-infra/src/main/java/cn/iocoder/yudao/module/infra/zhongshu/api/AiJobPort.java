@@ -12,6 +12,14 @@ public interface AiJobPort {
     /** 创建平面任务并同事务扣点（幂等键 = user + Idempotency-Key）；返回 jobId */
     long createFlatJob(long userId, int count, String idempotencyKey, String projectRef);
 
+    /** 桥侧公司池建平面任务（不扣个人池；D6 v2）。 */
+    long createFlatJobWithOrgCharge(long userId, int count, String idempotencyKey, String projectRef,
+                                    long unitPointCost, long totalPointCost);
+
+    /** 桥侧公司池建立面任务（不扣个人池；D6 v2）。 */
+    long createElevationJobWithOrgCharge(long userId, int count, String idempotencyKey, String projectRef,
+                                         long unitPointCost, long totalPointCost, String resolution);
+
     /** 创建立面任务并同事务扣点；须引用已选平面任务（projectRef 携带项目上下文） */
     long createElevationJob(long userId, int count, String idempotencyKey, String projectRef);
 

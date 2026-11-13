@@ -484,6 +484,33 @@ public class OrgPointService implements OrgPointPort {
         enforceSubjectPermission(orgId, userId, subject);
     }
 
+    @Override
+    public long quoteCredits(String subject, long quantity) {
+        return BillingPriceCatalog.creditsFor(BillingPriceCatalog.subject(subject),
+                Math.max(quantity, 1));
+    }
+
+    @Override
+    public void bindOperation(String origin, long orgId, long actorUserId, Long actorPostId,
+                              String refType, long refId, String subject, long operationId,
+                              String bizKey) {
+        jdbc.update("INSERT INTO design_billing_binding (id, origin, org_id, actor_user_id, "
+                        + "actor_post_id, ref_type, ref_id, subject, operation_id, biz_key) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (ref_type, ref_id, subject) "
+                        + "DO NOTHING",
+                IdWorker.getId(), origin, orgId, actorUserId, actorPostId, refType, refId,
+                subject, operationId, bizKey);
+    }
+
+    @Override
+    public Long findOperationByRef(String refType, long refId, String subject) {
+        List<Long> rows = jdbc.query(
+                "SELECT operation_id FROM design_billing_binding "
+                        + "WHERE ref_type = ? AND ref_id = ? AND subject = ?",
+                (rs, i) -> rs.getLong(1), refType, refId, subject);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
     /** 配置变更审计（§106/§180：删除/变更另记审计，含操作者、组织、目标成员与前值）。 */
     private void auditConfig(String bizType, String action, long orgId, long userId,
                              long operatorUserId, Map<String, Object> detail) {

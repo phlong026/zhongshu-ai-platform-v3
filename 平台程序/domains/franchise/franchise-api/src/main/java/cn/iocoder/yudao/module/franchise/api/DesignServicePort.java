@@ -22,7 +22,11 @@ import java.util.Map;
 public interface DesignServicePort {
 
     /** B 端操作者快照（审计留痕用；服务账号是纯技术占位，操作者身份以 Actor 追溯） */
-    record Actor(long actorUserId, long actorPostId, String actorRoleCode) {
+    record Actor(long actorUserId, long actorPostId, String actorRoleCode, long orgId) {
+        /** 兼容旧调用（无组织上下文 = App 链路由）。 */
+        public Actor(long actorUserId, long actorPostId, String actorRoleCode) {
+            this(actorUserId, actorPostId, actorRoleCode, 0L);
+        }
     }
 
     // ========== 项目与任务（A2/A3/A4/A5） ==========

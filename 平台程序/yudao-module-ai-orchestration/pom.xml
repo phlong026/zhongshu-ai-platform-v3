@@ -20,6 +20,13 @@
     </description>
 
     <dependencies>
+        <!-- 设计域公司池端口（24 号 D6 v2）：桥侧任务按绑定行走 OrgPointPort，App 链不变 -->
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-domain-franchise-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- 众墅 Infra 扩展端口（ReliableEventPort/共享 SPI）；业务模块允许依赖 infra，禁止依赖其他业务模块 -->
         <dependency>
             <groupId>cn.iocoder.boot</groupId>

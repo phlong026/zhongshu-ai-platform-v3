@@ -100,6 +100,18 @@ public interface OrgPointPort {
     /** 准入校验（免费/缓存路径也须调用；不产生任何扣费）。 */
     void assertSubjectAllowed(long orgId, long userId, String subject);
 
+    // ==================== 设计域接入（D6 v2） ====================
+
+    /** 只算不扣：按目录快照换算积分（创建任务前预览金额）。 */
+    long quoteCredits(String subject, long quantity);
+
+    /** 持久化计费归属（BRIDGE/APP），与 reserve 同一事务调用；唯一键 ref_type+ref_id+subject 幂等。 */
+    void bindOperation(String origin, long orgId, long actorUserId, Long actorPostId,
+                       String refType, long refId, String subject, long operationId, String bizKey);
+
+    /** 异步/结算/恢复按业务引用反查 operation（无绑定返回 null）。 */
+    Long findOperationByRef(String refType, long refId, String subject);
+
     /** 开通建池（幂等；已存在不动）。 */
     PoolSummary ensurePool(long orgId);
 

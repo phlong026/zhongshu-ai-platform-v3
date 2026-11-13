@@ -190,13 +190,20 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
                 .collect(Collectors.toList());
     }
 
+    /** 桥侧计费上下文（D6 v2）：actor.orgId>0 即走公司池；否则 null=个人池（App 链）。 */
+    private DesignProjectService.OrgBilling orgBilling(Actor actor) {
+        return actor.orgId() > 0
+                ? new DesignProjectService.OrgBilling(actor.orgId(), actor.actorUserId(), actor.actorPostId())
+                : null;
+    }
+
     @Override
     public JobSubmitted createFlatJob(long serviceAccountId, long projectId, FlatJobCreate cmd, Actor actor) {
         return txTemplate.execute(status -> {
             var options = GenerationImageOptions.normalize("FLAT", cmd.resolution(), cmd.orientation());
             var confirmation = jobAutoConfirmation(serviceAccountId, cmd.idempotencyKey(), "FLAT", cmd.count(), options.resolution());
             var created = designProjectService.createFlatJob(serviceAccountId, projectId,
-                    cmd.count(), cmd.idempotencyKey(), confirmation, options);
+                    cmd.count(), cmd.idempotencyKey(), confirmation, options, orgBilling(actor));
             log.info("[franchise-design][createFlatJob actor={} account={} project={} job={} replayed={}]",
                     actor.actorUserId(), serviceAccountId, projectId, created.jobId(), !created.created());
             return new JobSubmitted(created.jobId(), !created.created());
@@ -214,7 +221,7 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
             putIfPresent(config, "color", cmd.color());
             var confirmation = jobAutoConfirmation(serviceAccountId, cmd.idempotencyKey(), "ELEVATION", cmd.count(), options.resolution());
             var created = designProjectService.createElevationJob(serviceAccountId, projectId,
-                    cmd.count(), cmd.idempotencyKey(), config, confirmation, options);
+                    cmd.count(), cmd.idempotencyKey(), config, confirmation, options, orgBilling(actor));
             log.info("[franchise-design][createElevationJob actor={} account={} project={} job={} replayed={}]",
                     actor.actorUserId(), serviceAccountId, projectId, created.jobId(), !created.created());
             return new JobSubmitted(created.jobId(), !created.created());
@@ -286,7 +293,8 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
                     cmd.count() == null ? 2 : cmd.count(), options.resolution());
             var receipt = designProjectService.createRevisionRequestReceipt(serviceAccountId, projectId,
                     cmd.reason(), cmd.configUpdates(), cmd.count() == null ? 2 : cmd.count(),
-                    cmd.idempotencyKey(), confirmation, options.resolution(), options.orientation());
+                    cmd.idempotencyKey(), confirmation, options.resolution(), options.orientation(),
+                    orgBilling(actor));
             log.info("[franchise-design][createRevisionRequest actor={} account={} project={} request={} replayed={}]",
                     actor.actorUserId(), serviceAccountId, projectId, receipt.requestId(), receipt.replayed());
             return new RevisionSubmitted(receipt.requestId(), receipt.newJobId(), receipt.replayed());
@@ -513,7 +521,7 @@ public class FranchiseDesignAdapter implements DesignServicePort, AssetAccessPor
         }
         var receipt = budgetService.createEstimateReceipt(serviceAccountId, projectId, cmd.regionCode(),
                 cmd.structureType(), cmd.materialGrade(), cmd.buildingArea(), cmd.resultVersionId(),
-                confirmation, cmd.idempotencyKey());
+                confirmation, cmd.idempotencyKey(), orgBilling(actor));
         log.info("[franchise-design][createBudgetEstimate actor={} account={} project={} estimate={} replayed={}]",
                 actor.actorUserId(), serviceAccountId, projectId, receipt.estimateId(), receipt.replayed());
         return new EstimateCreated(receipt.estimateId(), receipt.totalLowCents(), receipt.totalHighCents(),

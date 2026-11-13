@@ -25,6 +25,21 @@ public class AiJobPortAdapter implements AiJobPort {
     }
 
     @Override
+    public long createFlatJobWithOrgCharge(long userId, int count, String idempotencyKey,
+                                           String projectRef, long unitPointCost, long totalPointCost) {
+        return settlementService.createJobWithOrgCharge(userId, "FLAT", count, idempotencyKey,
+                projectRef, "2K", unitPointCost, totalPointCost);
+    }
+
+    @Override
+    public long createElevationJobWithOrgCharge(long userId, int count, String idempotencyKey,
+                                                String projectRef, long unitPointCost,
+                                                long totalPointCost, String resolution) {
+        return settlementService.createJobWithOrgCharge(userId, "ELEVATION", count, idempotencyKey,
+                projectRef, resolution, unitPointCost, totalPointCost);
+    }
+
+    @Override
     public long createFlatJob(long userId, int count, String idempotencyKey, String projectRef) {
         return settlementService.createJobWithCharge(userId, "FLAT", count, idempotencyKey, projectRef);
     }
