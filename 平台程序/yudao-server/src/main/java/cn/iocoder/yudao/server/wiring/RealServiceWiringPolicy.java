@@ -186,7 +186,8 @@ public final class RealServiceWiringPolicy {
                 if(!"true".equalsIgnoreCase(propertyResolver.apply(key))) violations.add("生产环境必须显式启用 "+key);
             }
             for (String key : List.of("yudao.security.mock-enable", "zhongshu.design.seed-dev-data",
-                    "zhongshu.design.asset.dev-content-endpoint", "spring.datasource.druid.stat-view-servlet.enabled")) {
+                    "zhongshu.design.asset.dev-content-endpoint", "spring.datasource.druid.stat-view-servlet.enabled",
+                    "zhongshu.identity.access-code.enabled")) {
                 if (!"false".equalsIgnoreCase(propertyResolver.apply(key))) {
                     violations.add("生产环境必须显式关闭 " + key + "，禁止缺省或开发开关覆盖");
                 }

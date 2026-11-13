@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.identity;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.identity.accesscode.AccessCodeCipher;
+import cn.iocoder.yudao.module.identity.accesscode.AccessCodeService;
 import cn.iocoder.yudao.module.identity.accesscode.AccessCodeRedemptionService;
 import cn.iocoder.yudao.module.identity.account.AccountLoginService;
 import org.junit.jupiter.api.Test;
@@ -31,15 +32,27 @@ class AccessCodeRetirementSwitchTest {
                 .satisfies(e -> assertThat(((ServiceException) e).getCode()).isEqualTo(1_070_000_011));
     }
 
+    private AccessCodeService batchService(boolean enabled) {
+        AccessCodeService service = new AccessCodeService(
+                mock(javax.sql.DataSource.class), null, mock(AccessCodeCipher.class),
+                mock(cn.iocoder.yudao.module.infra.zhongshu.delivery.DeliveryPort.class));
+        ReflectionTestUtils.setField(service, "accessCodeEnabled", enabled);
+        return service;
+    }
+
     @Test
-    void enabledSwitchDoesNotHitRetirementGuard() {
-        // 手动构造时字段默认 false（Spring 由 @Value 注入 true）；显式开启后不再命中退役码
-        AccessCodeRedemptionService service = service(true);
-        try {
-            service.redeem("wx-app", "openid", null, "ABC123");
-        } catch (RuntimeException e) {
-            // 依赖为 mock/null，后续流程可能 NPE——关键是不再抛退役码
-            assertThat(e).isNotInstanceOf(ServiceException.class);
-        }
+    void retiredSwitchBlocksBatchCreation() {
+        assertThatThrownBy(() -> batchService(false).createBatch(1, "INLINE", 30, "备注", "op"))
+                .isInstanceOf(ServiceException.class)
+                .satisfies(e -> assertThat(((ServiceException) e).getCode()).isEqualTo(1_070_000_011));
+    }
+
+    @Test
+    void enabledSwitchPassesGuardAndFailsOnlyOnMissingDependencies() {
+        // 开启后必须越过退役守卫：依赖为 null 时会抛 IllegalStateException（事务未装配），而不是退役码
+        assertThatThrownBy(() -> batchService(true).createBatch(1, "INLINE", 30, "备注", "op"))
+                .isInstanceOf(IllegalStateException.class)
+                // 越过退役守卫后因事务管理器缺失而失败（依赖为 mock/null）——证明不是退役码
+                .hasMessageContaining("PlatformTransactionManager");
     }
 }

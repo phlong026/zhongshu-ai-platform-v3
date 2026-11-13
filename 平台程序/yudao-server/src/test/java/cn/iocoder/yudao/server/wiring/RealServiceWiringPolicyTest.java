@@ -124,6 +124,21 @@ class RealServiceWiringPolicyTest {
     }
 
     @Test
+    void prodWithAccessCodeEnabledFails() {
+        // 24 号 B-14：激活码退役开关生产必须关闭
+        var p = allReal(); p.put("zhongshu.identity.access-code.enabled", "true");
+        assertThatThrownBy(() -> RealServiceWiringPolicy.validate(PROD, p::get))
+                .hasMessageContaining("zhongshu.identity.access-code.enabled");
+    }
+
+    @Test
+    void prodMissingAccessCodeSwitchFails() {
+        var p = allReal(); p.remove("zhongshu.identity.access-code.enabled");
+        assertThatThrownBy(() -> RealServiceWiringPolicy.validate(PROD, p::get))
+                .hasMessageContaining("zhongshu.identity.access-code.enabled");
+    }
+
+    @Test
     void prodWithLocalStorageFails() {
         Map<String, String> p = allReal();
         p.put("zhongshu.design.asset.storage.provider", "local");
