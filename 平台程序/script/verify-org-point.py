@@ -30,7 +30,7 @@ if not ADMIN_PASSWORD:
     sys.exit(2)
 
 # P2-1：毫秒 + 随机后缀，保证业务键/批次/证据文件名唯一
-RUN = '%d%03d' % (int(time.time()), random.randint(0, 999))
+RUN = '%d%03d' % (int(time.time() * 1000), random.randint(0, 999))
 FAILS = []
 CHECKS = 0
 
@@ -67,8 +67,8 @@ def check(name, ok, detail=''):
 
 
 def ok_body(status, body):
-    """成功响应：HTTP 200 且业务 code==0。"""
-    return status == 200 and (body.get('code') or 0) == 0
+    """成功响应：HTTP 200 且业务 code 显式等于 0（缺码/None 不算成功）。"""
+    return status == 200 and body.get('code') == 0
 
 
 def has_code(body, code):
@@ -97,9 +97,16 @@ def login_admin():
 def main():
     admin = login_admin()
     cleanup = []          # [(name, method, path, token, post_id)]，finally 执行且失败计入 FAILS
-    sink = {'orgId': None, 'taskId': None, 'operationId': None, 'expected': 0}
+    sink = {'orgId': None, 'taskId': None, 'operationId': None, 'expected': 0,
+            'completed': False}
     try:
-        return run(admin, cleanup, sink)
+        run(admin, cleanup, sink)
+    except SystemExit as e:  # 流程提前终止也要落 FAIL 证据，且不得返回 0
+        FAILS.append('流程未完成：' + str(e))
+        print('❌ 流程提前终止：' + str(e))
+    except Exception as e:   # 网络/解析异常同样计失败
+        FAILS.append('流程异常：' + repr(e))
+        print('❌ 流程异常：' + repr(e))
     finally:
         for name, method, path, token, post_id in reversed(cleanup):
             try:
@@ -109,6 +116,7 @@ def main():
             except Exception as e:  # 异常也要计入失败（P1-3）
                 check('清理：' + name, False, str(e))
         write_evidence(sink)
+    return 0 if (not FAILS and sink.get('completed')) else 1
 
 
 def run(admin, cleanup, sink):
@@ -184,13 +192,13 @@ def run(admin, cleanup, sink):
           ok_body(status, body) and (body.get('data') or {}).get('used') == expected, body.get('data'))
 
     # 7) 月度额度：设 1 分 → 再建任务必须 1_072_000_012；清理必检
+    cleanup.append(('删月度额度', 'DELETE',
+                    '/admin-api/platform/org-point/member-quotas?userId=' + str(sales['userId']),
+                    boss_token, boss_post))
     status, body = http('PUT', '/admin-api/platform/org-point/member-quotas',
                         {'userId': sales['userId'], 'monthlyCredits': 1},
                         token=boss_token, post_id=boss_post)
     check('设置月度额度成功', ok_body(status, body), body)
-    cleanup.append(('删月度额度', 'DELETE',
-                    '/admin-api/platform/org-point/member-quotas?userId=' + str(sales['userId']),
-                    boss_token, boss_post))
     status, body = http('POST', '/admin-api/franchise/content/tasks',
                         {'kind': 'digital', 'voice': 'v', 'text': text, 'avatar': 'a'},
                         token=sales_token, post_id=sales_post,
@@ -198,13 +206,13 @@ def run(admin, cleanup, sink):
     check('超月度额度被拒（1_072_000_012）', has_code(body, 1_072_000_012), body)
 
     # 8) 业务权限：只允许 link_resolution → digital 必须 1_072_000_015；清理必检
+    cleanup.append(('删业务权限', 'DELETE',
+                    '/admin-api/platform/org-point/member-permissions?userId=' + str(sales['userId']),
+                    boss_token, boss_post))
     status, body = http('PUT', '/admin-api/platform/org-point/member-permissions',
                         {'userId': sales['userId'], 'allowedSubjects': ['link_resolution']},
                         token=boss_token, post_id=boss_post)
     check('设置业务权限成功', ok_body(status, body), body)
-    cleanup.append(('删业务权限', 'DELETE',
-                    '/admin-api/platform/org-point/member-permissions?userId=' + str(sales['userId']),
-                    boss_token, boss_post))
     status, body = http('POST', '/admin-api/franchise/content/tasks',
                         {'kind': 'digital', 'voice': 'v', 'text': text, 'avatar': 'a'},
                         token=sales_token, post_id=sales_post,
@@ -238,11 +246,11 @@ def run(admin, cleanup, sink):
           ok_body(status, body) and all(k in rep for k in ('total', 'confirmed', 'unmatched', 'byMatchType')),
           {k: rep.get(k) for k in ('total', 'confirmed', 'unmatched')})
 
+    sink['completed'] = True
     if FAILS:
         print('❌ VERIFY-ORG-POINT 失败 %d/%d 项：%s' % (len(FAILS), CHECKS, FAILS))
-        return 1
-    print('✅ VERIFY-ORG-POINT 全部通过（%d 项）' % CHECKS)
-    return 0
+    else:
+        print('✅ VERIFY-ORG-POINT 全部通过（%d 项）' % CHECKS)
 
 
 def write_evidence(sink):
@@ -250,7 +258,8 @@ def write_evidence(sink):
         'run': RUN, 'checks': CHECKS, 'failures': FAILS,
         'orgId': sink.get('orgId'), 'taskId': sink.get('taskId'),
         'operationId': sink.get('operationId'), 'expectedCredits': sink.get('expected'),
-        'verdict': 'PASS' if not FAILS else 'FAIL'
+        'completed': bool(sink.get('completed')),
+        'verdict': 'PASS' if (not FAILS and sink.get('completed')) else 'FAIL'
     }
     out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            'docs', 'business-flow-audit-20261103', 'evidence')
