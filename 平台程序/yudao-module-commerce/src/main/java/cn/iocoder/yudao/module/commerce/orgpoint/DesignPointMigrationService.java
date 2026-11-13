@@ -167,6 +167,13 @@ public class DesignPointMigrationService {
                     accounts++;
                 }
             }
+            // P1-3：迁移期间若账号失格（新增在途/映射变更）会被锁定查询过滤——末尾重跑预检，
+            // 一旦出现新的阻塞账号或仍有可迁账号，整批回滚，绝不让"被静默跳过"的账号留在个人侧。
+            MigrationReport after = dryRun();
+            if (!after.blocked().isEmpty() || after.eligibleAccounts() > 0) {
+                throw new IllegalStateException("迁移期间存在未纳入的可迁/失格账号，整批回滚：blocked="
+                        + after.blocked().size() + " remainingEligible=" + after.eligibleAccounts());
+            }
             long personalOut = sumPersonalMigrationOut();
             long orgIn = sumOrgMigrationIn();
             long expectedAfter = pre.alreadyMigrated() + credited;
