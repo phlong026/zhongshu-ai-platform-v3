@@ -114,7 +114,6 @@ public class AssetAccessService {
      * 越权 RESOURCE_FORBIDDEN（同码不泄露）。upload 从入参、complete/download 由调用方查得类型后调用。
      */
     public void requireChannelPermission(PostSnapshot post, String assetType) {
-<<<<<<< HEAD
         if (!channelAllowed(assetType, post == null ? null : post.roleCode())) {
             throw exception(ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN);
         }
