@@ -1,5 +1,7 @@
 # 众墅之家平台后端
 
+当前B赋能平台上线候选使用 `yudao-platform-server`，默认端口48081；Web入口是“总部运营工作台”。构建请运行 `bash script/platform/build-platform.sh`。下方历史 `yudao-server` 与A设计模块说明不能替代B部署路径。当前三端联合审查、接口变更与容量边界见 [本轮记录](docs/joint-review-20261114/README.md)。
+
 众墅之家管理后台与小程序端的 Java 后端，基于 RuoYi-Vue-Pro JDK 17 维护线扩展，采用 Spring Boot、PostgreSQL、Flyway 和 Redis。
 
 ## 实际构建面

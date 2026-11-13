@@ -1,74 +1,40 @@
-# 众墅之家设计管理后台
+# 众墅之家赋能平台管理后台（B）
 
-众墅之家设计平台的运营管理端，基于 Vue 3、Vite、TypeScript、Element Plus 和 RuoYi-Vue-Pro 管理端底座改造。
+当前 `platform-split` 候选是用户确认的“总部运营工作台”，包含总部运营、组织开通和员工门户。不得以旧“设计管理后台”（A）的画面或运行结果作为本项目验收。
 
-## 当前范围
+| 对象 | 当前B入口与源码 | 核对方式 |
+|---|---|---|
+| 总部管理后台 | `/index` → `src/views/platform/home/index.vue` | 页面标题“总部运营工作台”，总部运营与组织开通菜单 |
+| 总部运营 | `/platform-ops/*` → `src/api/platform/operations.ts` | 接口 `/admin-api/platform/ops/*`，总部权限校验 |
+| 员工门户 | `/platform-login`、`/fr/*` | 员工短信身份及岗位，不代替总部验收 |
+| 后端制品 | `yudao-platform-server` | B默认端口48081，独立数据库与Redis |
 
-业务代码集中在：
+`src/views/zs/` 中仍有历史A代码，仅复用已明确保留的组织配置组件；入口注册与构建边界由测试约束。历史 `yudao-server`、48080及“设计管理后台”不作为本轮B运行候选。
 
-- `src/views/zs/`：工作台、案例、审核、授权码、充值方案、订单、点数流水、C 端用户、AI 任务、导出和审计。
-- `src/api/zs/index.ts`：众墅管理端 API。
-- `src/router/modules/zs.ts`：众墅静态业务路由。
+## 本地运行
 
-底座的 system/infra 页面仍在仓库中，但众墅业务完成度只按上述 `zs` 代码面统计。
-
-2026-11-09 新增员工身份配置工作区：`/platform-login` 员工短信登录、`/fr/identity` 有效岗位选择、`/fr/org/staff` 本组织部门/员工/任职与离职交接。员工门户仅使用当前 StaffPost 能力；全局组织开通仍由平台授权人员办理。接口、验证结果及尚未进行的生产/手机验收见 [身份配置实现记录](../docs/web-admin-design/身份配置Web实现与验收-20261109.md)。
-
-## 工具版本
-
-- Node.js：B 构建与测试使用 Node 24 LTS（`>=24.14.1 <25`，本次验证为 24.14.1）。`vue-i18n` 安全补丁至少要求 Node 22；B 不再声明支持 Node 20。仅选择项目工具链，不修改全局 Node 或 A 应用。
-- pnpm：`11.19.0`（由 `package.json#packageManager` 固定）
-
-项目级 `.npmrc` 固定使用 npm 官方 registry；`pnpm-workspace.yaml` 仅允许锁文件中 3 个明确登记的传递依赖执行安装脚本。
-
-## 环境配置
-
-复制 `.env.example` 为本地环境文件，并按实际环境填写：
-
-```dotenv
-NODE_ENV=development
-VITE_APP_TITLE=众墅之家设计管理后台
-VITE_BASE_PATH=/
-VITE_BASE_URL=
-VITE_API_URL=/admin-api
-VITE_UPLOAD_TYPE=server
-VITE_APP_TENANT_ENABLE=false
-VITE_APP_CAPTCHA_ENABLE=true
-VITE_APP_DOCALERT_ENABLE=false
-VITE_OPEN=false
-VITE_PORT=5173
-```
-
-不要提交真实环境地址、账号、令牌或其它凭据。
-
-## 常用命令
+Node `>=24.14.1 <25`，pnpm `11.19.0`。在本工作树执行：
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm dev
+cp .env.example .env.env.local
+pnpm dev --port 5186 --strictPort
+```
+
+开发默认将 `/admin-api` 代理至 `http://127.0.0.1:48081`；如使用另一套隔离B后端，在本地环境文件设置 `VITE_PROXY_TARGET`。不得仅凭端口猜测版本，应核对进程工作目录、Git分支、制品SHA、页面标题与API目标。启动新候选时使用空闲端口，不停止其它工作区的服务。
+
+无私有环境文件时，API默认为同源 `/admin-api`，品牌标题默认为“众墅之家赋能平台管理后台”。部署需由反向代理将该路径转发给同一候选B后端。需要环境覆盖时从 `.env.example` 创建对应文件；仓库不存放实际 `.env.prod`、密钥或令牌。所有 `VITE_*` 变量均会暴露到浏览器，不可放入机密。
+
+## 验证
+
+```bash
+node --test tests/*.test.js
 pnpm ts:check
 pnpm lint
 pnpm build:prod
+pnpm audit
 ```
 
-`build:prod` 使用已入库的 `.env.prod` 安全默认值；部署环境可按目标域名覆盖公开的 Vite 构建变量。不要把令牌、密钥或其它机密放入 `VITE_*` 变量。
+总部与员工两套角色都要检查空态、失败、无权限、会话失效及迟到响应。自动测试和构建不替代真实角色、浏览器与渠道验收。本轮协议变更、分支与验收限制见 [联合审查变更记录](../docs/joint-review-20261114/README.md)。
 
-## 出图价格管理
-
-「众墅运营 → 生成价格」位于 `/zs/generation-pricing`。平面、立面分别按 2K / 4K 配置每张设计点、允许张数和生效时间。调整价格会新增规则；停用保留历史记录，不改变已创建任务的冻结价格。
-
-现有价格迁移为 2K；4K 初始不设价格，运营人员配置生效规则后才能生成。查询与管理权限分别为 `commerce:generation-price:query`、`commerce:generation-price:manage`。接口说明见[出图规格与计价 API](../后端程序/docs/zhongshu-design/04-出图规格与计价API-2026-09-29.md)。
-
-## 质量要求
-
-- 冻结安装、TypeScript 检查、Lint 和生产构建必须由根级 CI 执行。
-- 关键路由、API 参数、权限态、19 位 ID、金额和时间格式必须有自动化测试。
-- 空数据、无权限、登录失效、网络错误和服务错误不得通过空 `catch` 静默吞掉。
-- 视觉验收证据必须登记视口、fixture、提交号和可取回制品。
-
-## 上游与许可证
-
-- 管理端底座来源：RuoYi-Vue-Pro / vue-element-plus-admin 生态。
-- 本目录的上游许可证见 [`LICENSE`](LICENSE)。
-- 本项目源码来源与归档完整性见根目录 [`SOURCE_PROVENANCE.md`](../SOURCE_PROVENANCE.md)。
-- 当前任务与验证状态见 [`项目状态看板`](../项目文档/项目状态看板.md)。
+`package.json`、锁文件与 `pnpm-workspace.yaml` 一起维护。只允许已登记的安装脚本；保留供应链发布年龄门禁。项目沿用 RuoYi-Vue-Pro / vue-element-plus-admin 底座，许可证见 [LICENSE](LICENSE)。
