@@ -33,6 +33,7 @@ function loadPage(roleCode, apiStub) {
   const { descriptor } = parse(fs.readFileSync(file, 'utf8'), { filename: file })
   const script = compileScript(descriptor, { id: 'fr-finance-page' }).content
   const model = loadTsModule('views/fr/finance/abnormalModel.ts')
+  const bankModel = loadTsModule('views/fr/finance/bankModel.ts')
   const identity = {
     currentPost: { postId: 1, orgId: 151, roleCode },
     can: (p) => p === 'franchise:fin:query'
@@ -60,6 +61,7 @@ function loadPage(roleCode, apiStub) {
       }
       if (name === '@/api/platform/franchiseFinance') return apiStub
       if (name === './abnormalModel') return model
+      if (name === './bankModel') return bankModel
       throw new Error(`Unexpected import: ${name}`)
     }
   })
@@ -83,6 +85,9 @@ function makeApi(overrides = {}) {
       return { list: [], total: 0 }
     },
     getMonthReconciliation: async () => ({ month: '2026-11' }),
+    getBankFlows: async () => [],
+    getPendingBankReceipts: async () => [],
+    confirmBankFlow: async () => ({ confirmId: '1' }),
     exportFinanceCsv: async () => new Blob(),
     registerAbnormalFund: async (payload, key) => {
       calls.push(['register', payload, key])

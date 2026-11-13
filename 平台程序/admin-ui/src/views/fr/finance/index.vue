@@ -518,9 +518,98 @@
               @change="loadTable('payables')"
             />
           </el-tab-pane>
+          <el-tab-pane label="银行对账" name="bank">
+            <el-alert
+              title="生产流水入口尚未建立：当前仅展示既有流水（联调/E2E/导入）并办理确认到账，不承诺完整对账闭环。"
+              type="info"
+              show-icon
+              class="mb-12px"
+            />
+            <el-form inline class="filter-form">
+              <el-form-item label="状态">
+                <el-select v-model="bankStatus" style="width: 140px">
+                  <el-option
+                    v-for="option in BANK_FLOW_STATUS_OPTIONS"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item>
+                <el-button class="zs-btn-primary" :loading="bankLoading" @click="loadBankFlows"
+                  >查询</el-button
+                >
+              </el-form-item>
+            </el-form>
+            <el-alert
+              v-if="bankNotice"
+              :title="bankNotice"
+              :type="bankError ? 'error' : 'success'"
+              show-icon
+              class="mb-12px"
+            />
+            <el-table v-loading="bankLoading" :data="bankRows" empty-text="暂无银行流水">
+              <el-table-column
+                prop="bankRef"
+                label="银行流水号"
+                min-width="160"
+                show-overflow-tooltip
+              />
+              <el-table-column label="金额（分）" width="120" align="right">
+                <template #default="{ row }">{{ fmt(row.amountCents) }}</template>
+              </el-table-column>
+              <el-table-column prop="bankDate" label="到账日期" width="120" />
+              <el-table-column prop="status" label="状态" width="100" />
+              <el-table-column label="来源" width="110">
+                <template #default="{ row }">{{ bankSourceLabel(row.source) }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="120" fixed="right">
+                <template #default="{ row }">
+                  <el-button
+                    v-if="canConfirmBankFund && isConfirmableBankFlow(row)"
+                    link
+                    type="primary"
+                    @click="openBankConfirm(row)"
+                    >确认到账</el-button
+                  >
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
         </el-tabs>
       </div>
     </template>
+
+    <el-dialog v-model="bankConfirmDialog" title="确认到账" width="520px">
+      <p>
+        流水 <strong>{{ bankConfirmFlow?.bankRef }}</strong> 金额
+        {{ fmt(bankConfirmFlow?.amountCents) }} 分，选择同金额的待登记应收：
+      </p>
+      <el-select
+        v-model="bankConfirmReceiptId"
+        class="bank-receipt-select"
+        filterable
+        placeholder="仅列出同金额的待登记应收"
+      >
+        <el-option
+          v-for="receipt in bankReceiptCandidates"
+          :key="receipt.id"
+          :label="`${receipt.id}（${fmt(receipt.amountCents)} 分${receipt.sourceType ? ' · ' + receipt.sourceType : ''}）`"
+          :value="receipt.id"
+        />
+      </el-select>
+      <div class="hint">
+        确认后该应收转为已登记、流水转已认领（唯一入账）；金额/状态不符由服务端拒绝。
+      </div>
+      <el-alert v-if="bankConfirmError" :title="bankConfirmError" type="error" show-icon />
+      <template #footer>
+        <el-button @click="bankConfirmDialog = false">取消</el-button>
+        <el-button type="primary" :loading="bankConfirmBusy" @click="submitBankConfirm"
+          >确认到账</el-button
+        >
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="registerDialog" title="登记异常资金" width="560px">
       <el-form label-width="96px">
@@ -640,6 +729,10 @@ import {
   registerAbnormalFund,
   linkAbnormalFund,
   voidAbnormalFund,
+  getBankFlows,
+  getPendingBankReceipts,
+  confirmBankFlow,
+  type BankFlowRow,
   type ReceiptRow,
   type PaymentRow,
   type RefundRow,
@@ -653,6 +746,15 @@ import {
   type PayableQuery,
   type FinanceExportQuery
 } from '@/api/platform/franchiseFinance'
+import {
+  BANK_FLOW_STATUS_OPTIONS,
+  bankSourceLabel,
+  canConfirmBank,
+  confirmError,
+  isConfirmableBankFlow,
+  matchingReceipts,
+  newBankConfirmKey
+} from './bankModel'
 import {
   ABNORMAL_DIRECTIONS,
   ABNORMAL_METHODS,
@@ -731,6 +833,140 @@ const voidBusy = ref(false)
 const voidRow = ref<AbnormalFundRow | null>(null)
 const voidReason = ref('')
 const voidError = ref('')
+
+// ===== 银行对账（P1 尾批②）=====
+const canConfirmBankFund = computed(() => canConfirmBank(currentRole.value))
+const bankStatus = ref('')
+const bankRows = ref<BankFlowRow[]>([])
+const bankLoading = ref(false)
+const bankNotice = ref('')
+const bankError = ref(false)
+const bankConfirmDialog = ref(false)
+const bankConfirmBusy = ref(false)
+const bankConfirmFlow = ref<BankFlowRow | null>(null)
+const bankConfirmReceiptId = ref('')
+const bankConfirmError = ref('')
+const bankConfirmKey = ref('')
+const bankReceiptCandidates = ref<ReceiptRow[]>([])
+let bankFlowGeneration = 0
+let bankCandidateGeneration = 0
+let bankSubmitGeneration = 0
+/** busy 所有权：只有持有者的提交代次才能清 loading，避免旧提交清掉新提交。 */
+let bankBusyOwner = 0
+
+async function loadBankFlows(): Promise<boolean> {
+  if (!canQuery.value) return false
+  const generation = ++bankFlowGeneration
+  bankLoading.value = true
+  bankNotice.value = ''
+  try {
+    const rows = (await getBankFlows(bankStatus.value || undefined)) || []
+    if (generation !== bankFlowGeneration) return false
+    bankRows.value = rows
+    return true
+  } catch {
+    if (generation !== bankFlowGeneration) return false
+    bankNotice.value = '银行流水加载失败，请稍后重试'
+    bankError.value = true
+    return false
+  } finally {
+    if (generation === bankFlowGeneration) bankLoading.value = false
+  }
+}
+
+/**
+ * 提交后的静默流水刷新：失败不写 notice/error（避免旧提交覆盖新查询的提示），
+ * 只返回是否成功；数据写回仍受流水代次保护。
+ */
+async function refreshBankRowsQuietly(): Promise<boolean> {
+  if (!canQuery.value) return false
+  const generation = ++bankFlowGeneration
+  try {
+    const rows = (await getBankFlows(bankStatus.value || undefined)) || []
+    if (generation !== bankFlowGeneration) return false
+    bankRows.value = rows
+    return true
+  } catch {
+    return false
+  } finally {
+    // 静默刷新会推进流水代次：必须同时接管 loading 收尾，否则被它作废的在途查询
+    // 因代次不匹配不再清 loading，列表会永久停在 loading=true。
+    if (generation === bankFlowGeneration) bankLoading.value = false
+  }
+}
+
+async function openBankConfirm(flow: BankFlowRow) {
+  // 新弹窗开启即作废在途提交：A 的迟到成功不得关闭 B 的弹窗或改 B 的提示；
+  // 同时释放被取代提交的 busy，否则 B 会永久 loading。
+  bankSubmitGeneration += 1
+  if (bankBusyOwner !== 0) {
+    bankConfirmBusy.value = false
+    bankBusyOwner = 0
+  }
+  const generation = ++bankCandidateGeneration
+  bankConfirmFlow.value = flow
+  bankConfirmReceiptId.value = ''
+  bankConfirmError.value = ''
+  bankConfirmKey.value = newBankConfirmKey()
+  bankReceiptCandidates.value = []
+  bankConfirmDialog.value = true
+  try {
+    const receipts = await getPendingBankReceipts()
+    if (generation !== bankCandidateGeneration) return
+    bankReceiptCandidates.value = matchingReceipts(receipts || [], flow.amountCents)
+  } catch {
+    if (generation !== bankCandidateGeneration) return
+    bankReceiptCandidates.value = []
+    bankConfirmError.value = '待登记应收加载失败，请稍后重试'
+  }
+}
+
+async function submitBankConfirm() {
+  const flow = bankConfirmFlow.value
+  if (!flow) return
+  const selected = bankReceiptCandidates.value.find(
+    (receipt) => `${receipt.id}` === `${bankConfirmReceiptId.value}`
+  )
+  bankConfirmError.value = confirmError(flow, selected, bankConfirmReceiptId.value)
+  if (bankConfirmError.value) return
+  const submitGeneration = ++bankSubmitGeneration
+  bankBusyOwner = submitGeneration
+  bankConfirmBusy.value = true
+  let written = false
+  try {
+    await confirmBankFlow(flow.id, bankConfirmReceiptId.value, bankConfirmKey.value)
+    written = true
+    if (submitGeneration === bankSubmitGeneration) bankConfirmDialog.value = false
+  } catch {
+    // 失败时保留错误提示，交由刷新结果决定文案
+  }
+  // 提交期间用户已打开别的弹窗/切走：本次结果不再写回任何 UI 或触发刷新（避免覆盖新查询）。
+  if (submitGeneration !== bankSubmitGeneration) return
+  try {
+    const refreshed = await refreshBankRowsQuietly()
+    // 刷新等待期间仍可能打开新弹窗/发起新提交：写提示与实收刷新前必须再校验一次。
+    if (submitGeneration !== bankSubmitGeneration) return
+    if (written) {
+      bankNotice.value = refreshed
+        ? '确认到账成功：应收已登记、流水已认领'
+        : '确认到账已成功，列表刷新失败，请手动刷新'
+      bankError.value = false
+      // 应收状态已变化：同步刷新实收列表（空列表也刷新；失败不阻塞成功提示）
+      void loadTable('receipts').catch(() => undefined)
+    } else {
+      bankNotice.value = refreshed
+        ? '确认到账失败：流水已被认领、应收状态不符或金额不一致，列表已刷新'
+        : '确认到账失败，且列表刷新失败，请手动刷新后重试'
+      bankError.value = true
+    }
+  } finally {
+    // 只允许 busy 所有权持有者收尾，避免清掉新提交的 loading。
+    if (bankBusyOwner === submitGeneration) {
+      bankConfirmBusy.value = false
+      bankBusyOwner = 0
+    }
+  }
+}
 
 function resetRegisterForm() {
   registerForm.fundDirection = ''
@@ -1011,6 +1247,10 @@ async function loadTable(table: string, pageNo?: number) {
 }
 
 function onTabChange(name: string) {
+  if (name === 'bank') {
+    loadBankFlows()
+    return
+  }
   if (name === 'receipts') loadTable('receipts')
   else if (name === 'payments') loadTable('payments')
   else if (name === 'refunds') loadTable('refunds')
@@ -1134,6 +1374,11 @@ onMounted(async () => {
   margin-bottom: 12px;
 }
 
+.bank-receipt-select {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
 .section-actions {
   display: flex;
   align-items: center;
@@ -1175,6 +1420,11 @@ onMounted(async () => {
 @media (width <= 768px) {
   .recon-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bank-receipt-select {
+    width: 100%;
+    margin-bottom: 8px;
   }
 
   .section-actions {

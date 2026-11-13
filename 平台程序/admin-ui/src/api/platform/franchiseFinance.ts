@@ -259,3 +259,34 @@ export const linkAbnormalFund = (
 /** 作废（留痕；幂等）。 */
 export const voidAbnormalFund = (id: string | number, reason: string): Promise<boolean> =>
   request.delete({ url: `/franchise/finance/abnormal-funds/${id}`, data: { reason } })
+
+// ===== 银行对账（P1 尾批②）=====
+
+export interface BankFlowRow {
+  id: string
+  companyId: string
+  bankRef: string
+  amountCents: number
+  bankDate: string
+  status: string
+  source: string
+  createTime?: string
+}
+
+export const getBankFlows = (status?: string): Promise<BankFlowRow[]> =>
+  request.get({ url: '/franchise/finance/bank-flows', params: status ? { status } : {} })
+
+/** 确认到账候选：既有应收列表按「待登记」过滤（复用旧端点，生产流水入口未建前不做新契约）。 */
+export const getPendingBankReceipts = (): Promise<ReceiptRow[]> =>
+  request.get({ url: '/franchise/finance/receipts', params: { status: '待登记' } })
+
+export const confirmBankFlow = (
+  bankFlowId: string,
+  receiptId: string,
+  idempotencyKey: string
+): Promise<{ confirmId: string }> =>
+  request.post({
+    url: '/franchise/finance/bank-confirms',
+    data: { bankFlowId, receiptId },
+    headers: { 'Idempotency-Key': idempotencyKey }
+  })
