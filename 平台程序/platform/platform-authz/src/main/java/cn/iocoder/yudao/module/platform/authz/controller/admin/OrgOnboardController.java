@@ -33,11 +33,18 @@ public class OrgOnboardController {
     @Resource
     private OrgOnboardService orgOnboardService;
 
+    @Resource
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     public record OnboardReqVO(@NotBlank(message = "组织类型不能为空") String orgType,
                                @NotBlank(message = "组织名称不能为空") String orgName,
                                @NotBlank(message = "首管理员姓名不能为空") String adminName,
                                @NotBlank(message = "首管理员手机号不能为空")
-                               @Pattern(regexp = "1\\d{10}", message = "手机号格式不正确") String adminMobile) {
+                               @Pattern(regexp = "1\\d{10}", message = "手机号格式不正确") String adminMobile,
+                               // 24 号 B-8：省略/false = 不改变既有开通状态；true = 建池开通
+                               Boolean designEnabled,
+                               // 24 号 B-8：开通赠点（仅首次生效）
+                               Long initialCredits) {
     }
 
     public record OnboardRespVO(long orgId, long adminUserId, long postId, boolean reusedOrg) {
@@ -50,6 +57,13 @@ public class OrgOnboardController {
         long operator = SecurityFrameworkUtils.getLoginUserId();
         OrgOnboardService.OnboardResult r = orgOnboardService.onboard(
                 req.orgType(), req.orgName(), req.adminName(), req.adminMobile(), operator);
+        // 24 号 B-8：设计能力开通与赠点由积分池归属方（commerce 监听器）处理，
+        // 避免 platform 反向依赖业务模块；designEnabled 省略时不改变既有开通状态。
+        if (Boolean.TRUE.equals(req.designEnabled()) || (req.initialCredits() != null && req.initialCredits() > 0)) {
+            eventPublisher.publishEvent(new cn.iocoder.yudao.module.platform.org.OrgOnboardedEvent(
+                    r.orgId(), Boolean.TRUE.equals(req.designEnabled()),
+                    req.initialCredits() == null ? 0 : req.initialCredits()));
+        }
         return success(new OnboardRespVO(r.orgId(), r.adminUserId(), r.postId(), r.reusedOrg()));
     }
 }

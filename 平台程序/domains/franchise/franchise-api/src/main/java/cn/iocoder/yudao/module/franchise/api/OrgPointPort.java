@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.franchise.api;
 
+import java.util.List;
+
 /**
  * 公司积分池端口（24 号任务书 §四）：消费域唯一扣费入口。
  *
@@ -35,4 +37,49 @@ public interface OrgPointPort {
 
     record Settlement(long operationId, long charged, long refunded, boolean replayed) {
     }
+
+    // ==================== 查询/管理（批 B：老板/员工/总部视图） ====================
+
+    record PoolSummary(long orgId, long balance, long inFlight, String status) {
+    }
+
+    record LedgerEntry(long id, Long operationId, String type, String subject, Long actorUserId,
+                       long availableDelta, String billingMonth, String refType, Long refId,
+                       String note, java.time.Instant createTime) {
+    }
+
+    /** 任务合并视图（服务端分页前折叠）：state=PENDING|COMPLETED|RELEASED。 */
+    record OperationView(long operationId, long orgId, String subject, Long actorUserId,
+                         String state, long requested, long charged, long refunded,
+                         String bizKey, java.time.Instant operationTime, java.time.Instant terminalTime) {
+    }
+
+    record MemberQuota(long userId, long monthlyCredits) {
+    }
+
+    PoolSummary summary(long orgId);
+
+    List<LedgerEntry> ledger(long orgId, Long actorUserId, String subject, String billingMonth,
+                             int page, int size);
+
+    List<OperationView> operations(long orgId, int page, int size);
+
+    long monthUsed(long orgId, long userId, String billingMonth);
+
+    Long memberQuotaOf(long orgId, long userId);
+
+    List<MemberQuota> memberQuotas(long orgId);
+
+    void setMemberQuota(long orgId, long userId, long monthlyCredits);
+
+    void clearMemberQuota(long orgId, long userId);
+
+    /** 开通建池（幂等；已存在不动）。 */
+    PoolSummary ensurePool(long orgId);
+
+    /** 开通赠点（仅首次，biz_key=onboard-grant:{orgId}）；返回是否本次实际赠点。 */
+    boolean grantOnboardOnce(long orgId, long credits, String note);
+
+    /** 总部调点（biz_key 幂等；负数不得致余额<0）。 */
+    PoolSummary adjust(long orgId, long credits, String bizKey, String note, Long adminUserId);
 }

@@ -63,7 +63,7 @@ public class OrgPointService implements OrgPointPort {
     // ==================== 开通/账户（B-1/B-8） ====================
 
     /** 建池（幂等）：已存在则原样返回，不重建、不清零。 */
-    public OrgPointAccountRow ensurePool(long orgId) {
+    public OrgPointAccountRow ensurePoolAccount(long orgId) {
         OrgPointAccountRow existing = findAccount(orgId);
         if (existing != null) {
             return existing;
@@ -82,6 +82,7 @@ public class OrgPointService implements OrgPointPort {
         if (credits <= 0) {
             return false;
         }
+        ensurePoolAccount(orgId);
         Boolean granted = tx.execute(status -> {
             String bizKey = "onboard-grant:" + orgId;
             if (findByBizKey(bizKey) != null) {
@@ -99,7 +100,8 @@ public class OrgPointService implements OrgPointPort {
     }
 
     /** 总部人工调点（B-9）：bizKey 幂等；负数不得致余额 < 0。 */
-    public OrgPointAccountRow adjust(long orgId, long credits, String bizKey, String note, Long adminUserId) {
+    public OrgPointAccountRow adjustBalance(long orgId, long credits, String bizKey, String note, Long adminUserId) {
+        ensurePoolAccount(orgId);
         return tx.execute(status -> {
             if (findByBizKey(bizKey) != null) {
                 return findAccount(orgId);
@@ -238,6 +240,88 @@ public class OrgPointService implements OrgPointPort {
 
     // ==================== 查询（B-10/B-11 服务层） ====================
 
+    @Override
+    public PoolSummary summary(long orgId) {
+        OrgPointAccountRow account = findAccount(orgId);
+        if (account == null) {
+            return null;
+        }
+        return new PoolSummary(orgId, account.balance(), inFlight(orgId), account.status());
+    }
+
+    @Override
+    public List<LedgerEntry> ledger(long orgId, Long actorUserId, String subject, String billingMonth,
+                                    int page, int size) {
+        return ledgerRows(orgId, actorUserId, subject, billingMonth, size, Math.max(page, 1) * size - size)
+                .stream().map(row -> new LedgerEntry(row.id(), row.operationId(), row.type(),
+                        row.subject(), row.actorUserId(), row.availableDelta(), row.billingMonth(),
+                        row.refType(), row.refId(), row.note(), row.createTime()))
+                .toList();
+    }
+
+    /** 任务合并视图：同一 operation 的 RESERVE + 终态折叠为一行（分页前折叠，R3-P2 复刻项目教训）。 */
+    @Override
+    public List<OperationView> operations(long orgId, int page, int size) {
+        int offset = Math.max(page, 1) * size - size;
+        return jdbc.query(
+                "SELECT r.operation_id, r.org_id, r.subject, r.actor_user_id, r.biz_key, r.operation_time, "
+                        + "-r.available_delta AS requested, COALESCE(t.type, 'PENDING') AS state, "
+                        + "COALESCE(t.available_delta, 0) AS refunded, t.create_time AS terminal_time "
+                        + "FROM org_point_ledger r "
+                        + "LEFT JOIN org_point_ledger t ON t.operation_id = r.operation_id "
+                        + "  AND t.type IN ('SETTLE','RELEASE') "
+                        + "WHERE r.org_id = ? AND r.type = 'RESERVE' "
+                        + "ORDER BY r.create_time DESC, r.id DESC LIMIT ? OFFSET ?",
+                (rs, i) -> {
+                    long requested = rs.getLong("requested");
+                    long refunded = rs.getLong("refunded");
+                    String state = rs.getString("state");
+                    return new OperationView(rs.getLong("operation_id"), rs.getLong("org_id"),
+                            rs.getString("subject"), rs.getObject("actor_user_id", Long.class),
+                            "PENDING".equals(state) ? "PENDING"
+                                    : ("RELEASE".equals(state) ? "RELEASED" : "COMPLETED"),
+                            requested, requested - refunded, refunded, rs.getString("biz_key"),
+                            rs.getTimestamp("operation_time") == null ? null
+                                    : rs.getTimestamp("operation_time").toInstant(),
+                            rs.getTimestamp("terminal_time") == null ? null
+                                    : rs.getTimestamp("terminal_time").toInstant());
+                }, orgId, size, offset);
+    }
+
+    @Override
+    public long monthUsed(long orgId, long userId, String billingMonth) {
+        Long sum = jdbc.queryForObject(
+                "SELECT COALESCE(-SUM(available_delta), 0) FROM org_point_ledger "
+                        + "WHERE org_id = ? AND actor_user_id = ? AND billing_month = ? "
+                        + "AND type IN ('RESERVE','SETTLE','RELEASE')",
+                Long.class, orgId, userId, billingMonth);
+        return sum == null ? 0 : sum;
+    }
+
+    @Override
+    public Long memberQuotaOf(long orgId, long userId) {
+        return memberMonthlyQuota(orgId, userId);
+    }
+
+    @Override
+    public List<MemberQuota> memberQuotas(long orgId) {
+        return jdbc.query("SELECT user_id, monthly_credits FROM org_member_quota WHERE org_id = ? "
+                        + "ORDER BY update_time DESC",
+                (rs, i) -> new MemberQuota(rs.getLong("user_id"), rs.getLong("monthly_credits")), orgId);
+    }
+
+    @Override
+    public PoolSummary ensurePool(long orgId) {
+        ensurePoolAccount(orgId);
+        return summary(orgId);
+    }
+
+    @Override
+    public PoolSummary adjust(long orgId, long credits, String bizKey, String note, Long adminUserId) {
+        OrgPointAccountRow row = adjustBalance(orgId, credits, bizKey, note, adminUserId);
+        return new PoolSummary(orgId, row.balance(), inFlight(orgId), row.status());
+    }
+
     public OrgPointAccountRow findAccount(long orgId) {
         List<OrgPointAccountRow> rows = jdbc.query(
                 "SELECT org_id, balance, status, version FROM org_point_account WHERE org_id = ?",
@@ -254,16 +338,6 @@ public class OrgPointService implements OrgPointPort {
                         + "  SELECT 1 FROM org_point_ledger t WHERE t.operation_id = r.operation_id "
                         + "  AND t.type IN ('SETTLE','RELEASE'))",
                 Long.class, orgId);
-        return sum == null ? 0 : sum;
-    }
-
-    /** 员工当月占用（三态全参与：SETTLE 退差与 RELEASE 全退均冲减）。 */
-    public long monthUsed(long orgId, long userId, String billingMonth) {
-        Long sum = jdbc.queryForObject(
-                "SELECT COALESCE(-SUM(available_delta), 0) FROM org_point_ledger "
-                        + "WHERE org_id = ? AND actor_user_id = ? AND billing_month = ? "
-                        + "AND type IN ('RESERVE','SETTLE','RELEASE')",
-                Long.class, orgId, userId, billingMonth);
         return sum == null ? 0 : sum;
     }
 
@@ -286,8 +360,8 @@ public class OrgPointService implements OrgPointPort {
         jdbc.update("DELETE FROM org_member_quota WHERE org_id = ? AND user_id = ?", orgId, userId);
     }
 
-    public List<LedgerRow> ledger(long orgId, Long actorUserId, String subject, String billingMonth,
-                                  int limit, int offset) {
+    public List<LedgerRow> ledgerRows(long orgId, Long actorUserId, String subject, String billingMonth,
+                                     int limit, int offset) {
         StringBuilder sql = new StringBuilder(
                 "SELECT id, org_id, operation_id, biz_key, operation_time, type, subject, actor_user_id, "
                         + "actor_post_id, available_delta, billing_month, price_snapshot, ref_type, ref_id, "
