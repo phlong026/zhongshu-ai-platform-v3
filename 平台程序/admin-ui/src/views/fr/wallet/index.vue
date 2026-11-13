@@ -140,35 +140,37 @@ const formatTime = (value?: string) => {
   )}:${pad(date.getMinutes())}`
 }
 
-const load = async () => {
-  if (!canRead.value) return
+const load = async (targetPage = pageNo.value): Promise<boolean> => {
+  if (!canRead.value) return false
   const generation = ++loadGeneration
   loading.value = true
   loadError.value = ''
   try {
     const [acc, page] = await Promise.all([
       api.getWalletAccount(),
-      api.getWalletLedger(normalizeLedgerPage(pageNo.value, pageSize))
+      api.getWalletLedger(normalizeLedgerPage(targetPage, pageSize))
     ])
-    if (generation !== loadGeneration) return
+    if (generation !== loadGeneration) return false
     account.value = acc
     ledger.value = { list: page?.list || [], total: page?.total || 0 }
+    // 成功后才切页码：失败时页码与表格仍停在上一页，避免"第 3 页显示第 2 页数据"。
+    pageNo.value = normalizeLedgerPage(targetPage, pageSize).pageNo
+    return true
   } catch {
-    if (generation !== loadGeneration) return
+    if (generation !== loadGeneration) return false
     loadError.value = '钱包数据加载失败，请检查网络或当前工作身份后重试'
+    return false
   } finally {
     if (generation === loadGeneration) loading.value = false
   }
 }
 
-const reload = () => {
-  pageNo.value = 1
-  void load()
+const reload = async () => {
+  await load(1)
 }
 
-const onPageChange = (page: number) => {
-  pageNo.value = page
-  void load()
+const onPageChange = async (page: number) => {
+  await load(page)
 }
 
 onMounted(() => {

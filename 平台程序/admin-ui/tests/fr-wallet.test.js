@@ -355,3 +355,31 @@ test('wallet page: an older request finishing first must not clear loading for t
   assert.equal(page.loading.value, false)
   assert.equal(page.ledger.value.list[0].id, 'p3')
 })
+
+test('wallet page: failed page change keeps previous page number and data', async () => {
+  let failNext = false
+  const api = {
+    getWalletAccount: async () => ({
+      walletId: '1',
+      orgId: '151',
+      status: 'ACTIVE',
+      availablePoints: 5,
+      reservedPoints: 0,
+      version: 1
+    }),
+    getWalletLedger: async (params) => {
+      if (failNext) throw new Error('page 3 down')
+      return { list: [{ id: `p${params.pageNo}` }], total: 40 }
+    }
+  }
+  const page = loadPage(api, identity(true))
+  await page.load(2)
+  assert.equal(page.pageNo.value, 2)
+  assert.equal(page.ledger.value.list[0].id, 'p2')
+  failNext = true
+  await page.onPageChange(3)
+  // 第 3 页加载失败：页码与数据必须仍停在第 2 页，且给出错误提示
+  assert.equal(page.pageNo.value, 2)
+  assert.equal(page.ledger.value.list[0].id, 'p2')
+  assert.match(page.loadError.value, /钱包数据加载失败/)
+})
