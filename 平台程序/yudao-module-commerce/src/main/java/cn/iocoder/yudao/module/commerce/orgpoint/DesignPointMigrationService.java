@@ -32,6 +32,14 @@ public class DesignPointMigrationService {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
 
+    /**
+     * 架构决策（2026-11-13 用户拍板）：AI 设计小程序与众墅之家赋能平台是**两个独立运营体系**，
+     * 旧小程序点数**不迁入**公司池；本服务仅保留为历史能力并默认关闭，防止误操作搬走设计系统点数。
+     * 如需在极特殊场景启用，必须显式设置 `zhongshu.org-point.migration-enabled=true` 并人工复核。
+     */
+    @org.springframework.beans.factory.annotation.Value("${zhongshu.org-point.migration-enabled:false}")
+    private boolean migrationEnabled = false;
+
     public DesignPointMigrationService(DataSource dataSource, PlatformTransactionManager transactionManager) {
         this.jdbc = new JdbcTemplate(dataSource);
         this.tx = new TransactionTemplate(transactionManager);
@@ -105,6 +113,10 @@ public class DesignPointMigrationService {
      * 池加点 + 双账流水 → 守恒断言。任一环节失败整体回滚，杜绝部分迁移。
      */
     public MigrationResult execute(String operator) {
+        if (!migrationEnabled) {
+            throw new IllegalStateException(
+                    "点数迁移已按架构决策停用（设计小程序与赋能平台独立运营，点数不互通）");
+        }
         return tx.execute(status -> {
             // P1-3：全批冻结（事务级 advisory lock，直到提交/回滚释放）
             jdbc.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, MIGRATION_LOCK_KEY);

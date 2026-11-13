@@ -34,6 +34,7 @@ class DesignPointMigrationIntegrationTest {
             .withPassword("zhongshu");
 
     private JdbcTemplate jdbc;
+    private DataSource dataSource;
     private DesignPointMigrationService service;
 
     @BeforeAll
@@ -43,13 +44,15 @@ class DesignPointMigrationIntegrationTest {
         ds.setUrl(PG.getJdbcUrl());
         ds.setUsername(PG.getUsername());
         ds.setPassword(PG.getPassword());
-        DataSource dataSource = ds;
+        this.dataSource = ds;
         jdbc = new JdbcTemplate(dataSource);
         Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration/platform", "classpath:db/migration/identity",
                         "classpath:db/migration/commerce")
                 .load().migrate();
         service = new DesignPointMigrationService(dataSource, new DataSourceTransactionManager(dataSource));
+        // 手工构造时开关默认为 false（Spring 由 @Value 注入）；测试显式开启以覆盖历史迁移逻辑
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "migrationEnabled", true);
     }
 
     @BeforeEach
@@ -67,6 +70,21 @@ class DesignPointMigrationIntegrationTest {
         jdbc.update("INSERT INTO design_identity_mapping (id, account_id, matched_user_id, matched_org_id, "
                         + "match_type, status) VALUES (?, ?, ?, ?, 'MANUAL', ?)",
                 accountId * 100, accountId, userId, orgId, status);
+    }
+
+    @Test
+    void executeIsDisabledByArchitectureDecision() {
+        // 架构决策：两系统独立运营 → 默认关闭，execute 必须拒绝且零写入
+        var disabled = new DesignPointMigrationService(dataSource,
+                new DataSourceTransactionManager(dataSource));  // 默认 migrationEnabled=false
+        account(100L, 10, 0);
+        mapping(100L, 7001L, 500L, "CONFIRMED");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> disabled.execute("admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("独立运营");
+        assertThat(jdbc.queryForObject("SELECT available_points FROM design_point_account WHERE user_id=100",
+                Long.class)).isEqualTo(10);
     }
 
     @Test

@@ -59,6 +59,7 @@ zhongshu:
     wecom-url: ${ZS_SUPPORT_WECOM_URL:}
     help-url: ${ZS_SUPPORT_HELP_URL:}
   org-point:
+    migration-enabled: ${ZS_ORG_POINT_MIGRATION_ENABLED:false}
     pending-alert-enabled: ${ZS_ORG_POINT_PENDING_ALERT:true}
     pending-alert-hours: ${ZS_ORG_POINT_PENDING_ALERT_HOURS:24}
   identity:

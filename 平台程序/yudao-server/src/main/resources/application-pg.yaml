@@ -75,6 +75,7 @@ zhongshu:
       runtime-url: ${ZS_AI_RUNTIME_URL:}
   org-point:
     # 24 号 D6 §2.4：长期未终结预扣告警（仅告警+人工核对，绝不自动退款）
+    migration-enabled: ${ZS_ORG_POINT_MIGRATION_ENABLED:false}
     pending-alert-enabled: ${ZS_ORG_POINT_PENDING_ALERT:true}
     pending-alert-hours: ${ZS_ORG_POINT_PENDING_ALERT_HOURS:24}
   identity:
