@@ -38,6 +38,16 @@
 
 复跑：`AiJobOrgChargeRoutingTest` **11/11**（新增 NOT_SENT 重试新 operation / UNKNOWN 禁重投 / 非法 outcome / hash 冲突）；ai-orchestration 全套 **69/69**；commerce orgpoint 全套 **61/61**；全仓 compile 通过。
 
+## 评审 R2 修复（幂等模型重构）
+
+| 编号 | 问题 | 修复 |
+|---|---|---|
+| P1-a | 收据冻结阻断正常重试（NOT_SENT→SUCCEEDED / UNKNOWN→SUCCEEDED 必冲突） | 收据改为**单调推进**：NOT_SENT/UNKNOWN/DISPATCHED→SUCCEEDED 允许；仅"已成功换 hash"或"成功后回退"才冲突；无收据行允许后续补齐 callId |
+| P1-b | 重试 operation 身份未贯穿（成功后重放会重复扣；`:r1` 重放被拒；r1 完成后 finish 回落旧 operation） | 统一 `reservePromptPool`/`finishPromptPool`：按"链路=base 或 base:rN"判定；**链内有 PENDING 或 SETTLED → 直接重放返回**；仅全链 RELEASED 才新建 `:rN`；finish 在途优先（含旧 attempt 的未决，允许新持有者确认） |
+| P2 | 旧 operation 确认后绕过 hash 冲突 | 收据校验前置到任何早退之前（callId/hash/outcome 单调规则），确认旧 operation 后仍拒不同 hash |
+
+复跑：`AiJobOrgChargeRoutingTest` **14/14**（新增成功重放不重复扣、`:r1` 重放单 operation、确认旧 operation 后 hash 冲突）；ai-orchestration **72/72**；commerce orgpoint **61/61**。
+
 ## 四、未做/边界
 
 | 项 | 说明 |

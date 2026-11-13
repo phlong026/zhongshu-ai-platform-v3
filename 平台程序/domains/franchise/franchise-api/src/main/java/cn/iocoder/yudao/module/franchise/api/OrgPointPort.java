@@ -121,16 +121,19 @@ public interface OrgPointPort {
 
     PoolBinding findBinding(String refType, long refId, String subject);
 
-    /** 未终结的 prompt 预扣（job 维度，用于禁重投/确认旧调用）。 */
-    record PendingPromptOperation(long operationId, String bizKey) {
+    /** prompt 计费操作（job 维度全链，state=PENDING/SETTLED/RELEASED）。 */
+    record PromptOperation(long operationId, String bizKey, String state) {
     }
 
-    java.util.List<PendingPromptOperation> findPendingPromptOperations(long jobId);
+    java.util.List<PromptOperation> promptOperations(long jobId);
 
-    /** 该前缀下已存在的 operation 数（含终态；用于 NOT_SENT 后重试生成新 operation）。 */
-    int countPromptOperations(String bizKeyPrefix);
+    /** prompt 调用收据（callId/hash/outcome 快照）。 */
+    record PromptReceipt(String callId, String responseHash, String outcome) {
+    }
 
-    /** 持久化 prompt 调用收据；同 attempt 不同 hash 冲突时抛异常。 */
+    PromptReceipt findPromptReceipt(long jobId, int attemptNo);
+
+    /** 写入/推进收据（NOT_SENT/UNKNOWN→SUCCEEDED 允许推进；成功 hash 不可改由调用方校验）。 */
     void savePromptReceipt(long jobId, int attemptNo, String callId, String responseHash,
                            String outcome, Long operationId);
 

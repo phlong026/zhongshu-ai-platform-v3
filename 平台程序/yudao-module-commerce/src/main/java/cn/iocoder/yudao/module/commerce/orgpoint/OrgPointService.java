@@ -519,43 +519,40 @@ public class OrgPointService implements OrgPointPort {
     }
 
     @Override
-    public List<PendingPromptOperation> findPendingPromptOperations(long jobId) {
+    public List<PromptOperation> promptOperations(long jobId) {
         return jdbc.query(
-                "SELECT r.operation_id, r.biz_key FROM org_point_ledger r "
-                        + "WHERE r.type = 'RESERVE' AND r.biz_key LIKE ? "
-                        + "AND NOT EXISTS (SELECT 1 FROM org_point_ledger t "
-                        + "  WHERE t.operation_id = r.operation_id AND t.type IN ('SETTLE','RELEASE')) "
-                        + "ORDER BY r.id",
-                (rs, i) -> new PendingPromptOperation(rs.getLong("operation_id"), rs.getString("biz_key")),
+                "SELECT r.operation_id, r.biz_key, "
+                        + "  CASE WHEN t.id IS NULL THEN 'PENDING' WHEN t.type = 'SETTLE' THEN 'SETTLED' "
+                        + "       ELSE 'RELEASED' END AS state "
+                        + "FROM org_point_ledger r LEFT JOIN org_point_ledger t "
+                        + "  ON t.operation_id = r.operation_id AND t.type IN ('SETTLE','RELEASE') "
+                        + "WHERE r.type = 'RESERVE' AND r.biz_key LIKE ? ORDER BY r.id",
+                (rs, i) -> new PromptOperation(rs.getLong("operation_id"), rs.getString("biz_key"),
+                        rs.getString("state")),
                 "design:prompt:" + jobId + ":%");
     }
 
     @Override
-    public int countPromptOperations(String bizKeyPrefix) {
-        Integer n = jdbc.queryForObject(
-                "SELECT count(*) FROM org_point_ledger WHERE type = 'RESERVE' AND biz_key LIKE ?",
-                Integer.class, bizKeyPrefix + "%");
-        return n == null ? 0 : n;
+    public PromptReceipt findPromptReceipt(long jobId, int attemptNo) {
+        List<PromptReceipt> rows = jdbc.query(
+                "SELECT call_id, response_hash, outcome FROM design_prompt_receipt "
+                        + "WHERE job_id = ? AND attempt_no = ?",
+                (rs, i) -> new PromptReceipt(rs.getString("call_id"), rs.getString("response_hash"),
+                        rs.getString("outcome")), jobId, attemptNo);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Override
     public void savePromptReceipt(long jobId, int attemptNo, String callId, String responseHash,
                                   String outcome, Long operationId) {
+        // 收据允许单调推进（NOT_SENT/UNKNOWN/DISPATCHED → SUCCEEDED），冲突校验由调用方先做
         jdbc.update("INSERT INTO design_prompt_receipt (id, job_id, attempt_no, call_id, response_hash, "
                         + "outcome, operation_id) VALUES (?, ?, ?, ?, ?, ?, ?) "
-                        + "ON CONFLICT (job_id, attempt_no) DO NOTHING",
+                        + "ON CONFLICT (job_id, attempt_no) DO UPDATE SET "
+                        + "call_id = EXCLUDED.call_id, response_hash = EXCLUDED.response_hash, "
+                        + "outcome = EXCLUDED.outcome, operation_id = EXCLUDED.operation_id, "
+                        + "update_time = now()",
                 IdWorker.getId(), jobId, attemptNo, callId, responseHash, outcome, operationId);
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT call_id, response_hash, outcome FROM design_prompt_receipt "
-                        + "WHERE job_id = ? AND attempt_no = ?", jobId, attemptNo);
-        if (!rows.isEmpty()) {
-            Map<String, Object> row = rows.get(0);
-            if (!java.util.Objects.equals(row.get("call_id"), callId)
-                    || !java.util.Objects.equals(row.get("response_hash"), responseHash)
-                    || !java.util.Objects.equals(row.get("outcome"), outcome)) {
-                throw exception(ORG_POINT_REPLAY_CONFLICT);
-            }
-        }
     }
 
     @Override

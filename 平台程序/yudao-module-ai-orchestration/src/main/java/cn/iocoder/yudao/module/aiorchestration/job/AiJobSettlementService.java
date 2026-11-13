@@ -186,16 +186,101 @@ public class AiJobSettlementService {
         return binding != null ? binding : orgPointPort.findBinding("ai_job", jobId, "ai_elevation");
     }
 
-    /** 目标 operation：优先该 job 的未决 prompt（允许新持有者确认旧调用），否则本 attempt 键。 */
-    private Long resolvePromptOperation(long jobId, int attemptNo, long token) {
+    /** prompt 预留（公司池）：未决链内重放直接返回；全链已成功也返回；其他未决→禁重投；否则按重试序号新建。 */
+    private String reservePromptPool(long jobId, int attemptNo, long token,
+                                     cn.iocoder.yudao.module.franchise.api.OrgPointPort.PoolBinding binding) {
+        String baseKey = promptBizKey(jobId, attemptNo, token);
+        var all = orgPointPort.promptOperations(jobId);
+        var chain = all.stream().filter(op -> isPromptChainKey(op.bizKey(), baseKey)).toList();
+        if (chain.stream().anyMatch(op -> "PENDING".equals(op.state()))) {
+            return "ORG_RESERVED"; // 网络重放 / 已预留
+        }
+        if (chain.stream().anyMatch(op -> "SETTLED".equals(op.state()))) {
+            return "ORG_RESERVED"; // 已成功计费，重放不再扣
+        }
+        boolean otherPending = all.stream()
+                .anyMatch(op -> "PENDING".equals(op.state()) && !isPromptChainKey(op.bizKey(), baseKey));
+        if (otherPending) {
+            // 其他 attempt 的调用可能已被供应商受理 → 禁止重投，等人工核对
+            throw new IllegalStateException("存在未决提示词调用，禁止重投：jobId=" + jobId);
+        }
+        int seq = chain.size(); // base=0、首次重试=1...
+        String bizKey = seq == 0 ? baseKey : baseKey + ":r" + seq;
+        orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
+                bizKey, binding.orgId(), binding.actorUserId(), binding.actorPostId(),
+                "ai_prompt", 1, "ai_job_prompt", jobId));
+        return "ORG_RESERVED";
+    }
+
+    private static boolean isPromptChainKey(String bizKey, String baseKey) {
+        return bizKey.equals(baseKey) || bizKey.startsWith(baseKey + ":r");
+    }
+
+    /**
+     * prompt 终态推进（公司池）：
+     * 收据先校验（成功 hash 冻结），再解析目标 operation（在途优先，否则 SUCCEEDED 补扣一次），
+     * 最后按 SUCCEEDED→settle / NOT_SENT→release / DISPATCHED·UNKNOWN→保持 PENDING 执行。
+     */
+    private boolean finishPromptPool(long jobId, int attemptNo, long token, String outcome,
+                                     String callId, String responseHash) {
         if (orgPointPort == null) {
-            return null;
+            return false;
         }
-        var pendingOps = orgPointPort.findPendingPromptOperations(jobId);
-        if (!pendingOps.isEmpty()) {
-            return pendingOps.get(0).operationId();
+        // 1) 收据校验（P2：任何早退前必须先校验，禁止绕过 hash 冲突）
+        var existing = orgPointPort.findPromptReceipt(jobId, attemptNo);
+        if (existing != null) {
+            // 无收据重载先写入的 NOT_SENT 行 callId 为空：允许后续带收据的调用补齐 callId
+            if (existing.callId() != null && callId != null
+                    && !java.util.Objects.equals(existing.callId(), callId)) {
+                throw new IllegalStateException("Prompt call receipt conflict");
+            }
+            if ("SUCCEEDED".equals(existing.outcome())) {
+                if (!"SUCCEEDED".equals(outcome)
+                        || (responseHash != null && !java.util.Objects.equals(existing.responseHash(), responseHash))) {
+                    throw new IllegalStateException("Confirmed prompt receipt cannot change");
+                }
+                return true; // 成功收据幂等重放
+            }
+            if ("SUCCEEDED".equals(outcome) && existing.responseHash() != null
+                    && !java.util.Objects.equals(existing.responseHash(), responseHash)) {
+                throw new IllegalStateException("Prompt response hash conflict");
+            }
         }
-        return orgPointPort.findOperationByBizKey(promptBizKey(jobId, attemptNo, token));
+        // 2) 目标 operation：在途优先；否则 SUCCEEDED 需补扣一次（NOT_SENT 后重试直接成功）
+        String baseKey = promptBizKey(jobId, attemptNo, token);
+        var allOps = orgPointPort.promptOperations(jobId);
+        var chain = allOps.stream().filter(op -> isPromptChainKey(op.bizKey(), baseKey)).toList();
+        Long operationId = chain.stream().filter(op -> "PENDING".equals(op.state()))
+                .map(cn.iocoder.yudao.module.franchise.api.OrgPointPort.PromptOperation::operationId)
+                .findFirst().orElse(null);
+        if (operationId == null) {
+            // 当前 attempt 无在途：允许新持有者确认旧 attempt 的未决调用（其业务键不同）
+            operationId = allOps.stream().filter(op -> "PENDING".equals(op.state()))
+                    .map(cn.iocoder.yudao.module.franchise.api.OrgPointPort.PromptOperation::operationId)
+                    .findFirst().orElse(null);
+        }
+        if (operationId == null && "SUCCEEDED".equals(outcome)) {
+            var binding = orgBinding(jobId);
+            if (binding == null) {
+                return false;
+            }
+            int seq = chain.size();
+            String bizKey = seq == 0 ? baseKey : baseKey + ":r" + seq;
+            operationId = orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
+                    bizKey, binding.orgId(), binding.actorUserId(), binding.actorPostId(),
+                    "ai_prompt", 1, "ai_job_prompt", jobId));
+        }
+        // 3) 状态推进
+        if (operationId != null) {
+            switch (outcome) {
+                case "SUCCEEDED" -> orgPointPort.settle(operationId, 1);
+                case "NOT_SENT" -> orgPointPort.release(operationId);
+                default -> { /* DISPATCHED/UNKNOWN：保持 PENDING */ }
+            }
+        }
+        // 4) 收据持久化（含无 operation 的通知型结果）
+        orgPointPort.savePromptReceipt(jobId, attemptNo, callId, responseHash, outcome, operationId);
+        return true;
     }
 
     /** 扣除一次实际提示词模型调用；业务键使 runtime 重试保持幂等。
@@ -209,24 +294,7 @@ public class AiJobSettlementService {
                 if (binding == null) {
                     return "EXEMPT";
                 }
-                String baseKey = promptBizKey(jobId, attemptNo, token);
-                var pendingOps = orgPointPort.findPendingPromptOperations(jobId);
-                if (!pendingOps.isEmpty()) {
-                    // P1-1：同一 job 存在未决 prompt（可能已被供应商受理）→ 仅允许同键重放，禁止新 attempt 重投
-                    if (pendingOps.size() == 1 && baseKey.equals(pendingOps.get(0).bizKey())) {
-                        return "ORG_RESERVED";
-                    }
-                    throw new IllegalStateException(
-                            "存在未决提示词调用，禁止重投：jobId=" + jobId + " pending="
-                                    + pendingOps.size());
-                }
-                // P1-2：NOT_SENT 后同 attempt 重试必须生成新 operation（旧 RESERVE 已终态，不能复用）
-                int existingOps = orgPointPort.countPromptOperations(baseKey);
-                String bizKey = existingOps == 0 ? baseKey : baseKey + ":r" + existingOps;
-                orgPointPort.reserve(new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand(
-                        bizKey, binding.orgId(), binding.actorUserId(), binding.actorPostId(),
-                        "ai_prompt", 1, "ai_job_prompt", jobId));
-                return "ORG_RESERVED";
+                return reservePromptPool(jobId, attemptNo, token, binding);
             }
             return usagePricingPort.reservePrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token);
         });
@@ -241,16 +309,7 @@ public class AiJobSettlementService {
                 if (!List.of("DISPATCHED","SUCCEEDED","UNKNOWN","NOT_SENT").contains(outcome)) {
                     throw new IllegalArgumentException("Invalid prompt outcome");
                 }
-                Long operationId = resolvePromptOperation(jobId, attemptNo, token);
-                if (operationId == null) {
-                    return false;
-                }
-                switch (outcome) {
-                    case "SUCCEEDED" -> orgPointPort.settle(operationId, 1);
-                    case "NOT_SENT" -> orgPointPort.release(operationId);
-                    default -> { /* DISPATCHED/UNKNOWN：保持 PENDING，人工核对 */ }
-                }
-                return true;
+                return finishPromptPool(jobId, attemptNo, token, outcome, null, null);
             }
             return usagePricingPort.finishPrompt(((Number)job.get("user_id")).longValue(),String.valueOf(jobId),token,outcome);
         }));
@@ -272,20 +331,7 @@ public class AiJobSettlementService {
                         && (responseHash == null || !responseHash.matches("[a-f0-9]{64}"))) {
                     throw new IllegalArgumentException("Prompt response receipt required");
                 }
-                Long operationId = resolvePromptOperation(jobId, attemptNo, token);
-                if (operationId == null) {
-                    return false;
-                }
-                // P2-3：成功/未知收据持久化；同 attempt 换 hash 直接冲突
-                if (orgPointPort != null) {
-                    orgPointPort.savePromptReceipt(jobId, attemptNo, callId, responseHash, outcome, operationId);
-                }
-                switch (outcome) {
-                    case "SUCCEEDED" -> orgPointPort.settle(operationId, 1);
-                    case "NOT_SENT" -> orgPointPort.release(operationId);
-                    default -> { }
-                }
-                return true;
+                return finishPromptPool(jobId, attemptNo, token, outcome, callId, responseHash);
             }
             return usagePricingPort.finishPromptForCurrentAttempt(((Number)job.get("user_id")).longValue(),
                     String.valueOf(jobId),token,outcome,callId,responseHash);

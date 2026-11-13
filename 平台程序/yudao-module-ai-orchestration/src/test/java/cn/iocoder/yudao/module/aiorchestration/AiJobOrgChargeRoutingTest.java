@@ -56,31 +56,27 @@ class AiJobOrgChargeRoutingTest {
         Long bindingOperationId;
         /** prompt 预留：bizKey → operationId。 */
         final java.util.Map<String, Long> promptOperations = new java.util.HashMap<>();
-        final java.util.Set<Long> promptTerminal = new java.util.HashSet<>();
-        final java.util.Map<String, String> promptReceipts = new java.util.HashMap<>();
+        final java.util.Map<Long, String> promptTerminal = new java.util.HashMap<>();
+        final java.util.Map<String, String[]> promptReceipts = new java.util.HashMap<>();
         long nextPromptOperation = 88L;
 
-        @Override public java.util.List<PendingPromptOperation> findPendingPromptOperations(long jobId) {
+        @Override public java.util.List<PromptOperation> promptOperations(long jobId) {
             return promptOperations.entrySet().stream()
                     .filter(e -> e.getKey().startsWith("design:prompt:" + jobId + ":"))
-                    .filter(e -> !promptTerminal.contains(e.getValue()))
-                    .map(e -> new PendingPromptOperation(e.getValue(), e.getKey()))
-                    .sorted(java.util.Comparator.comparingLong(PendingPromptOperation::operationId))
+                    .sorted(java.util.Comparator.comparingLong(java.util.Map.Entry::getValue))
+                    .map(e -> new PromptOperation(e.getValue(), e.getKey(),
+                            promptTerminal.getOrDefault(e.getValue(), "PENDING")))
                     .toList();
         }
 
-        @Override public int countPromptOperations(String bizKeyPrefix) {
-            return (int) promptOperations.keySet().stream()
-                    .filter(k -> k.startsWith(bizKeyPrefix)).count();
+        @Override public PromptReceipt findPromptReceipt(long jobId, int attemptNo) {
+            String[] row = promptReceipts.get(jobId + ":" + attemptNo);
+            return row == null ? null : new PromptReceipt(row[0], row[1], row[2]);
         }
 
         @Override public void savePromptReceipt(long jobId, int attemptNo, String callId,
                                                 String responseHash, String outcome, Long operationId) {
-            String key = jobId + ":" + attemptNo;
-            String existing = promptReceipts.putIfAbsent(key, responseHash + "|" + outcome);
-            if (existing != null && !existing.equals(responseHash + "|" + outcome)) {
-                throw new IllegalStateException("Prompt receipt conflict");
-            }
+            promptReceipts.put(jobId + ":" + attemptNo, new String[]{callId, responseHash, outcome});
         }
 
         @Override
@@ -91,7 +87,7 @@ class AiJobOrgChargeRoutingTest {
         @Override
         public Settlement settle(long operationId, long actualQuantity) {
             settled.add(operationId);
-            promptTerminal.add(operationId);
+            promptTerminal.put(operationId, "SETTLED");
             settleQuantity = actualQuantity;
             return new Settlement(operationId, 4, 4 - actualQuantity, false);
         }
@@ -99,7 +95,7 @@ class AiJobOrgChargeRoutingTest {
         @Override
         public Settlement release(long operationId) {
             released.add(operationId);
-            promptTerminal.add(operationId);
+            promptTerminal.put(operationId, "RELEASED");
             return new Settlement(operationId, 4, 4, false);
         }
 
@@ -341,6 +337,54 @@ class AiJobOrgChargeRoutingTest {
         assertThatThrownBy(() -> settlement.finishPromptCall(jobId, 1, 8888L, "SUCCEEDED",
                 "plan-" + jobId, "d".repeat(64)))
                 .isInstanceOf(RuntimeException.class); // 收据 hash 冲突
+    }
+
+    @Test
+    void successReplayDoesNotDoubleCharge() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 9999L);
+        settlement.reservePromptCall(jobId, 1, 9999L);
+        settlement.finishPromptCall(jobId, 1, 9999L, "SUCCEEDED", "plan-" + jobId, "e".repeat(64));
+
+        assertThat(settlement.reservePromptCall(jobId, 1, 9999L)).isEqualTo("ORG_RESERVED");
+        assertThat(port.promptOperations).hasSize(1);
+        assertThat(port.settled).containsExactly(88L);
+    }
+
+    @Test
+    void retryReservationReplayStaysSingleOperation() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 1010L);
+        settlement.reservePromptCall(jobId, 1, 1010L);
+        settlement.finishPromptCall(jobId, 1, 1010L, "NOT_SENT");
+        settlement.reservePromptCall(jobId, 1, 1010L); // 建 :r1
+        settlement.reservePromptCall(jobId, 1, 1010L); // 重放 :r1
+
+        assertThat(port.promptOperations).hasSize(2);
+    }
+
+    @Test
+    void confirmingOldOperationStillEnforcesHashConflict() {
+        port.bindingOperationId = 77L;
+        long jobId = newOrgJob(1, "2K");
+        seedPromptAttempt(jobId, 1, 2020L);
+        settlement.reservePromptCall(jobId, 1, 2020L);
+        settlement.finishPromptCall(jobId, 1, 2020L, "UNKNOWN");
+
+        // 新持有者确认旧 operation
+        jdbc.update("UPDATE ai_job SET fencing_token=2121, claim_expires_at=now()+interval '10 minute' "
+                + "WHERE id=?", jobId);
+        jdbc.update("INSERT INTO ai_job_attempt (id, job_id, attempt_no, worker_id, fencing_token) "
+                + "VALUES (?, ?, 2, 'w-2', 2121)", jobId * 1000 + 2, jobId);
+        settlement.finishPromptCall(jobId, 2, 2121L, "SUCCEEDED", "plan-" + jobId, "f".repeat(64));
+        assertThat(port.settled).containsExactly(88L);
+
+        assertThatThrownBy(() -> settlement.finishPromptCall(jobId, 2, 2121L, "SUCCEEDED",
+                "plan-" + jobId, "0".repeat(64)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cannot change");
     }
 
     @Test
