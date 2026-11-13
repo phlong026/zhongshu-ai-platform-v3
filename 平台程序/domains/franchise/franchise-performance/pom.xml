@@ -50,6 +50,14 @@
             <artifactId>yudao-spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- P1 批1：真实 PG 集成测试支撑（仅 test scope；仓内既有测试支撑模块，不进入 B 运行包）。
+             与 crm/engineering/finance 同型；生产依赖零改动。 -->
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-domain-franchise-test-support</artifactId>
+            <version>${revision}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

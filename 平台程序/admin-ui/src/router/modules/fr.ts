@@ -22,6 +22,17 @@ const frRouter: RouteRecordRaw[] = [
         meta: { title: '工作身份', icon: 'ep:switch', noCache: true }
       },
       {
+        path: 'dashboard',
+        name: 'FranchiseDashboard',
+        component: () => import('@/views/fr/dashboard/index.vue'),
+        meta: {
+          title: '经营看板',
+          icon: 'ep:data-analysis',
+          noCache: true,
+          permission: 'franchise:performance:operate'
+        }
+      },
+      {
         path: 'org/staff',
         name: 'FranchiseOrgStaff',
         component: () => import('@/views/fr/org-staff/index.vue'),

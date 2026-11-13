@@ -46,6 +46,7 @@ import { ref, onMounted } from 'vue'
 import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { usePermissionStore } from '@/store/modules/permission'
 import type { PlatformId } from '@/utils/platformIdentity'
+import { resolveStaffLandingPath } from '@/utils/platformIdentity'
 import { roleLabel } from '@/utils/platformRoles'
 
 defineOptions({ name: 'FranchiseIdentity' })
@@ -54,14 +55,11 @@ const permissions = usePermissionStore()
 const router = useRouter()
 const error = ref('')
 /**
- * 选岗后按当前身份权限选择默认落地页（批4 硬性交付，替代原硬编码 org:query）。
- * 优先级：财务查询（老板/财务 Web 刚需第一项，R5 §二/§四 P0）> 组织查询 > 留在身份页。
+ * 选岗后落地页：与短信登录共用 resolveStaffLandingPath（P2-1）。
+ * 角色优先 + 权限兜底，避免两处各自硬编码漂移。
  */
-const defaultLandingPath = (): string => {
-  if (identity.can('franchise:fin:query')) return '/fr/finance'
-  if (identity.can('platform:org:query')) return '/fr/org/staff'
-  return '/fr/identity'
-}
+const defaultLandingPath = (): string =>
+  resolveStaffLandingPath(identity.currentPost?.roleCode, (permission) => identity.can(permission))
 const switchPost = async (postId: PlatformId) => {
   error.value = ''
   try {

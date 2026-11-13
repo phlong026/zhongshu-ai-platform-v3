@@ -94,3 +94,27 @@ export const isPostScopedUrl = (url = '') =>
   // 钱包 account/ledger 等 GET 需当前岗位上下文（服务端 @post.has('platform:wallet:read')）。
   url.includes('/platform/wallet/') ||
   url.includes('/platform/posts/current-context')
+
+/**
+ * 员工 Web 选岗后的落地页（identity 切换与短信登录共用，P2-1）。
+ *
+ * 角色优先（权限无法区分 boss 与 finance，两者都有 operate+fin）：
+ * - boss / owner → /fr/dashboard（老板首屏看经营）
+ * - finance / finance-lead → /fr/finance（财务首屏看核对）
+ * 其余角色按权限兜底，保证 roleCode 不在映射表时仍有落地页：
+ * - franchise:performance:operate → /fr/dashboard
+ * - franchise:fin:query → /fr/finance
+ * - platform:org:query → /fr/org/staff
+ * - 否则留在 /fr/identity
+ */
+export const resolveStaffLandingPath = (
+  roleCode: string | null | undefined,
+  can: (permission: string) => boolean
+): string => {
+  if (roleCode === 'boss' || roleCode === 'owner') return '/fr/dashboard'
+  if (roleCode === 'finance' || roleCode === 'finance-lead') return '/fr/finance'
+  if (can('franchise:performance:operate')) return '/fr/dashboard'
+  if (can('franchise:fin:query')) return '/fr/finance'
+  if (can('platform:org:query')) return '/fr/org/staff'
+  return '/fr/identity'
+}

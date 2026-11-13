@@ -50,7 +50,12 @@ import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { usePermissionStore } from '@/store/modules/permission'
 import { useUserStore } from '@/store/modules/user'
 import { deleteUserCache } from '@/hooks/web/useCache'
-import { portalMode, setPortalMode, type PlatformId } from '@/utils/platformIdentity'
+import {
+  portalMode,
+  resolveStaffLandingPath,
+  setPortalMode,
+  type PlatformId
+} from '@/utils/platformIdentity'
 import { roleLabel } from '@/utils/platformRoles'
 
 defineOptions({ name: 'PlatformStaffLogin' })
@@ -112,7 +117,9 @@ const selectPost = async (postId: PlatformId) => {
   const context = await identity.selectPost(postId)
   if (!context) return
   await permissionStore.generateRoutes()
-  await router.replace(identity.can('platform:org:query') ? '/fr/org/staff' : '/fr/identity')
+  await router.replace(
+    resolveStaffLandingPath(context.post.roleCode, (permission) => identity.can(permission))
+  )
 }
 
 onBeforeUnmount(() => timer && clearInterval(timer))
