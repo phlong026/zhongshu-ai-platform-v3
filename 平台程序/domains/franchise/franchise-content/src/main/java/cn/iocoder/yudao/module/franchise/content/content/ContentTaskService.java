@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.content.content;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
+import cn.iocoder.yudao.module.franchise.api.OrgPointPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -56,12 +57,14 @@ public class ContentTaskService {
     private final StoreServiceAccountPort accounts;
     private final FranchiseCommands commands;
     private final ContentProviderProperties providerProperties;
+    private final OrgPointPort orgPoint;
 
     public ContentTaskService(ContentTaskStore store, ContentQuotaService quota,
                               LinkParsePort linkParse, AsrPort asr, ScriptRewritePort rewrite,
                               OralVideoPort oral, VideoGenerationPort video,
                               AssetAccessPort assets, StoreServiceAccountPort accounts,
-                              FranchiseCommands commands, ContentProviderProperties providerProperties) {
+                              FranchiseCommands commands, ContentProviderProperties providerProperties,
+                              OrgPointPort orgPoint) {
         this.store = store;
         this.quota = quota;
         this.linkParse = linkParse;
@@ -73,6 +76,7 @@ public class ContentTaskService {
         this.accounts = accounts;
         this.commands = commands;
         this.providerProperties = providerProperties;
+        this.orgPoint = orgPoint;
     }
 
     /** 任务行 provider 列记实际服务通道：fake 模式统一记 fake（§四 provider 枚举含 fake）。 */
@@ -131,9 +135,12 @@ public class ContentTaskService {
             throw exception(INPUT_INVALID);
         }
         quota.reserve(companyId, ContentBillingCatalog.LINK_RESOLUTION.key(), 1);
+        long id = ContentTaskStore.newId();
+        reservePool(companyId, authorUserId, ContentBillingCatalog.LINK_RESOLUTION.key(), 1, id,
+                "content_task", id);
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("url", url.trim());
-        return insert(companyId, authorUserId, "link_parse", input, null);
+        return insert(id, companyId, authorUserId, "link_parse", input, null);
     }
 
     /** 缓存命中时直接 SUCCEEDED：零外呼、零配额（AC4）。 */
@@ -154,7 +161,10 @@ public class ContentTaskService {
             return task;
         }
         quota.reserve(companyId, ContentBillingCatalog.ASR.key(), 1);
-        return insert(companyId, authorUserId, "asr", input, mediaSha256);
+        long id = ContentTaskStore.newId();
+        reservePool(companyId, authorUserId, ContentBillingCatalog.ASR.key(), 1, id,
+                "content_task", id);
+        return insert(id, companyId, authorUserId, "asr", input, mediaSha256);
     }
 
     public FrContentTaskDO createCopy(long companyId, long authorUserId, String sourceText,
@@ -168,7 +178,10 @@ public class ContentTaskService {
         input.put("requirement", requirement);
         input.put("personaId", personaId);
         input.put("personaPrompt", personaPromptJson);
-        return insert(companyId, authorUserId, "copy", input, null);
+        long id = ContentTaskStore.newId();
+        reservePool(companyId, authorUserId, ContentBillingCatalog.COPY.key(), 1, id,
+                "content_task", id);
+        return insert(id, companyId, authorUserId, "copy", input, null);
     }
 
     public FrContentTaskDO createDigital(long companyId, long authorUserId, String voice, String text,
@@ -176,15 +189,18 @@ public class ContentTaskService {
         if (text == null || text.isBlank() || voice == null || voice.isBlank() || avatar == null || avatar.isBlank()) {
             throw exception(INPUT_INVALID);
         }
-        quota.reserve(companyId, ContentBillingCatalog.DIGITAL.key(),
-                ContentBillingCatalog.oralSeconds(text));
+        int seconds = ContentBillingCatalog.oralSeconds(text);
+        quota.reserve(companyId, ContentBillingCatalog.DIGITAL.key(), seconds);
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("voice", voice);
         input.put("text", text);
         input.put("avatar", avatar);
         input.put("title", title == null || title.isBlank() ? "数字人口播" : title);
         input.put("subtitle", subtitle);
-        return insert(companyId, authorUserId, "digital", input, null);
+        long id = ContentTaskStore.newId();
+        reservePool(companyId, authorUserId, ContentBillingCatalog.DIGITAL.key(), seconds, id,
+                "content_task", id);
+        return insert(id, companyId, authorUserId, "digital", input, null);
     }
 
     public FrContentTaskDO createAiVideo(long companyId, long authorUserId, String description,
@@ -203,13 +219,22 @@ public class ContentTaskService {
         input.put("resolution", "2K".equals(resolution) ? "2K" : "768P");
         input.put("duration", durationSeconds);
         input.put("ratio", ratio);
-        return insert(companyId, authorUserId, "ai_video", input, null);
+        long id = ContentTaskStore.newId();
+        reservePool(companyId, authorUserId, subject, durationSeconds, id, "content_task", id);
+        return insert(id, companyId, authorUserId, "ai_video", input, null);
     }
 
-    private FrContentTaskDO insert(long companyId, long authorUserId, String kind,
+    private FrContentTaskDO insert(long id, long companyId, long authorUserId, String kind,
                                    Map<String, Object> input, String sha) {
-        long id = ContentTaskStore.newId();
         return store.insert(id, companyId, authorUserId, kind, JsonUtils.toJsonString(input), sha);
+    }
+
+    /** 公司积分池预扣（24 号 B-13 content 批 A）：biz_key=content:{taskId}:{subject}，任务级幂等。 */
+    private void reservePool(long companyId, long authorUserId, String subject, int units,
+                             long taskId, String refType, long refId) {
+        orgPoint.reserve(new OrgPointPort.ReserveCommand(
+                "content:" + taskId + ":" + subject, companyId, authorUserId, null,
+                subject, units, refType, refId));
     }
 
     public FrContentTaskDO requireOwned(long companyId, long taskId) {
@@ -251,6 +276,7 @@ public class ContentTaskService {
             store.fail(task.getId(), task.getCompanyId(), "任务处理异常，请稍后重试");
             releaseReserved(task);
         }
+        settlePool(task);
     }
 
     private void submitLinkParse(FrContentTaskDO task, ProviderCallAudit audit) {
@@ -391,6 +417,7 @@ public class ContentTaskService {
         } catch (ContentProviderException.Uncertain e) {
             store.markUncertain(task.getId(), task.getCompanyId(), e.getMessage());
         }
+        settlePool(task);
     }
 
     private void pollAsr(FrContentTaskDO task, ProviderCallAudit audit) {
@@ -429,6 +456,47 @@ public class ContentTaskService {
             }
             default -> log.debug("ai_video task {} still running", task.getId());
         }
+    }
+
+    // ---------------- 公司积分池结算对账（24 号 B-13） ----------------
+
+    /**
+     * 按任务最终状态对账公司池：SUCCEEDED→settle（按计量单位实收）；FAILED/CANCELLED→release；
+     * 其余（含 SUBMISSION_UNCERTAIN）保持 PENDING——未知结果可能已被供应商受理，绝不自动退款。
+     * 幂等：settleByBizKey/releaseByBizKey 命中既有终态直接返回；上线前存量任务无 RESERVE 行则 no-op。
+     */
+    private void settlePool(FrContentTaskDO task) {
+        try {
+            FrContentTaskDO latest = store.byId(task.getCompanyId(), task.getId());
+            if (latest == null) {
+                return;
+            }
+            String subject = poolSubject(latest);
+            if (subject == null) {
+                return;
+            }
+            String bizKey = "content:" + latest.getId() + ":" + subject;
+            switch (latest.getStatus()) {
+                case "SUCCEEDED" -> orgPoint.settleByBizKey(bizKey, estimatedUnitsOf(latest));
+                case "FAILED", "CANCELLED" -> orgPoint.releaseByBizKey(bizKey);
+                default -> { /* QUEUED/SUBMITTING/RUNNING/SUBMISSION_UNCERTAIN：保持在途占用 */ }
+            }
+        } catch (RuntimeException e) {
+            log.warn("org pool settle failed for task {}: {}", task.getId(), e.getMessage());
+        }
+    }
+
+    private String poolSubject(FrContentTaskDO task) {
+        Map<String, Object> input = JsonUtils.parseObject(task.getInputSnapshot(), Map.class);
+        return switch (task.getKind()) {
+            case "link_parse" -> ContentBillingCatalog.LINK_RESOLUTION.key();
+            case "asr" -> ContentBillingCatalog.ASR.key();
+            case "copy" -> ContentBillingCatalog.COPY.key();
+            case "digital" -> ContentBillingCatalog.DIGITAL.key();
+            case "ai_video" -> "2K".equals(input.get("resolution"))
+                    ? ContentBillingCatalog.AI_VIDEO_2K.key() : ContentBillingCatalog.AI_VIDEO_768P.key();
+            default -> null;
+        };
     }
 
     // ---------------- 配额回退 ----------------

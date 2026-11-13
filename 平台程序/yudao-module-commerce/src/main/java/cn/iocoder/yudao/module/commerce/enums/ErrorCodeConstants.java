@@ -16,4 +16,11 @@ public interface ErrorCodeConstants {
     ErrorCode REFUND_POINTS_ALREADY_USED = new ErrorCode(1_072_000_004, "到账后已发生点数消耗，无法受理整单退款");
     ErrorCode REFUND_POLICY_NOT_ENABLED = new ErrorCode(1_072_000_005, "P0 仅支持整单全额退款，不支持部分退款");
 
+    // ========== 公司积分池（24 号任务书批 A，错误码 1_072_000_010 起） ==========
+    ErrorCode ORG_NOT_ENABLED = new ErrorCode(1_072_000_010, "公司未开通设计能力，请联系平台开通");
+    ErrorCode ORG_POINT_INSUFFICIENT = new ErrorCode(1_072_000_011, "公司积分池余额不足，请联系管理员充值");
+    ErrorCode ORG_MEMBER_QUOTA_EXCEEDED = new ErrorCode(1_072_000_012, "本月用量已达额度上限，额度由公司管理员设置");
+    ErrorCode ORG_POINT_SUSPENDED = new ErrorCode(1_072_000_013, "公司积分账户已停用");
+    ErrorCode ORG_POINT_REPLAY_CONFLICT = new ErrorCode(1_072_000_014, "幂等键已被不同参数的请求占用");
+
 }

@@ -26,6 +26,14 @@
             <version>${revision}</version>
         </dependency>
 
+        <!-- 公司积分池（24 号任务书批 A）：实现 franchise-api 的 OrgPointPort 合同。
+             仅依赖 franchise-api（纯合同模块，无实现/无迁移），不依赖任何 franchise 业务模块。 -->
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-domain-franchise-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- 限流（T13-25 微信支付通知入口 @RateLimiter）：与 identity 模块一致，独立限流不复用业务端点配额 -->
         <dependency>
             <groupId>cn.iocoder.boot</groupId>

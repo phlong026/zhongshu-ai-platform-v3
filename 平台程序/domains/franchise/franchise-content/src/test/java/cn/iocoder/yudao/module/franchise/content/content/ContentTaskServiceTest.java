@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.franchise.content.content;
 
+import cn.iocoder.yudao.module.franchise.api.OrgPointPort;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.franchise.content.provider.AsrPort;
 import cn.iocoder.yudao.module.franchise.content.provider.ContentProviderProperties;
@@ -10,6 +11,7 @@ import org.mockito.ArgumentCaptor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -34,26 +36,50 @@ class ContentTaskServiceTest {
         ContentTaskStore store = mock(ContentTaskStore.class);
         ContentQuotaService quota = mock(ContentQuotaService.class);
         OralVideoPort oral = mock(OralVideoPort.class);
+        OrgPointPort orgPoint = mock(OrgPointPort.class);
         ContentTaskService service = new ContentTaskService(store, quota, null, null, null, oral, null,
-                null, null, null, new ContentProviderProperties());
+                null, null, null, new ContentProviderProperties(), orgPoint);
         // 数字人按秒预扣（createDigital）；供应商明确失败（FAILED 快照）必须回退，与 ai_video 同口径
         FrContentTaskDO task = task("digital", "{\"voice\":\"nv\",\"text\":\"测试口播文案内容\"}", "ht-1");
         when(oral.poll(eq("ht-1"), any())).thenReturn(new OralVideoPort.Snapshot("FAILED", null, null));
         when(store.fail(eq(9L), eq(100L), anyString())).thenReturn(true);
+        when(store.byId(eq(100L), eq(9L))).thenReturn(
+                task("digital", "{\"voice\":\"nv\",\"text\":\"测试口播文案内容\"}", "ht-1").setStatus("FAILED"));
 
         service.pollOne(task);
 
         verify(store).fail(eq(9L), eq(100L), contains("数字人"));
         verify(quota).release(eq(100L), eq("digital"), anyInt());
+        // 公司池按任务终态对账：FAILED → 释放预扣
+        verify(orgPoint).releaseByBizKey(eq("content:9:digital"));
     }
 
     @Test
-    void asrPollResumesWithProviderTaskIdOnly() {
+    void digitalPollSuccessSettlesCompanyPool() {
         ContentTaskStore store = mock(ContentTaskStore.class);
+        ContentQuotaService quota = mock(ContentQuotaService.class);
+        OralVideoPort oral = mock(OralVideoPort.class);
+        OrgPointPort orgPoint = mock(OrgPointPort.class);
+        ContentTaskService service = new ContentTaskService(store, quota, null, null, null, oral, null,
+                null, null, null, new ContentProviderProperties(), orgPoint);
+        FrContentTaskDO task = task("digital", "{\"voice\":\"nv\",\"text\":\"测试口播文案内容\"}", "ht-1");
+        when(oral.poll(eq("ht-1"), any())).thenReturn(new OralVideoPort.Snapshot("DONE", "https://v/1.mp4", 12));
+        when(store.succeedPolled(eq(9L), eq(100L), eq("https://v/1.mp4"), anyString())).thenReturn(true);
+        when(store.byId(eq(100L), eq(9L))).thenReturn(
+                task("digital", "{\"voice\":\"nv\",\"text\":\"测试口播文案内容\"}", "ht-1").setStatus("SUCCEEDED"));
+
+        service.pollOne(task);
+
+        // 公司池按任务终态对账：SUCCEEDED → 按实付计量单位结算
+        verify(orgPoint).settleByBizKey(eq("content:9:digital"), anyLong());
+    }
+
+    @Test
+    void asrPollResumesWithProviderTaskIdOnly() {        ContentTaskStore store = mock(ContentTaskStore.class);
         ContentQuotaService quota = mock(ContentQuotaService.class);
         AsrPort asr = mock(AsrPort.class);
         ContentTaskService service = new ContentTaskService(store, quota, null, asr, null, null, null,
-                null, null, null, new ContentProviderProperties());
+                null, null, null, new ContentProviderProperties(), mock(OrgPointPort.class));
         FrContentTaskDO task = task("asr", "{\"assetId\":5}", "ds-task-1");
         when(asr.transcribe(any())).thenReturn(new AsrPort.Transcript("转写文本", 12.0));
         when(store.succeedPolled(eq(9L), eq(100L), isNull(), anyString())).thenReturn(true);
