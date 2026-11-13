@@ -171,6 +171,8 @@ service.interceptors.response.use(
     const code = data.code ?? result_code
     // 获取错误信息
     const msg = data.msg || errorCode[code] || errorCode['default']
+    // 按请求关闭全局错误提示：页面自行展示单条业务提示时使用（默认行为不变）。
+    const silentError = (response.config as { silentError?: boolean }).silentError === true
     if (ignoreMsgs.indexOf(msg) !== -1) {
       // 如果是忽略的错误码，直接返回 msg 异常
       return Promise.reject(msg)
@@ -221,28 +223,29 @@ service.interceptors.response.use(
         })
       }
     } else if (code === 500) {
-      ElMessage.error(t('sys.api.errMsg500'))
+      if (!silentError) ElMessage.error(t('sys.api.errMsg500'))
       return Promise.reject(new Error(msg))
     } else if (code === 901) {
-      ElMessage.error({
-        offset: 300,
-        dangerouslyUseHTMLString: true,
-        message:
-          '<div>' +
-          t('sys.api.errMsg901') +
-          '</div>' +
-          '<div> &nbsp; </div>' +
-          '<div>参考 https://doc.iocoder.cn/ 教程</div>' +
-          '<div> &nbsp; </div>' +
-          '<div>5 分钟搭建本地环境</div>'
-      })
+      if (!silentError)
+        ElMessage.error({
+          offset: 300,
+          dangerouslyUseHTMLString: true,
+          message:
+            '<div>' +
+            t('sys.api.errMsg901') +
+            '</div>' +
+            '<div> &nbsp; </div>' +
+            '<div>参考 https://doc.iocoder.cn/ 教程</div>' +
+            '<div> &nbsp; </div>' +
+            '<div>5 分钟搭建本地环境</div>'
+        })
       return Promise.reject(new Error(msg))
     } else if (code !== 0 && code !== 200) {
       if (msg === '无效的刷新令牌') {
         // hard coding：忽略这个提示，直接登出
         console.log(msg)
         return handleAuthorized()
-      } else {
+      } else if (!silentError) {
         ElNotification.error({ title: msg })
       }
       return Promise.reject('error')
@@ -259,7 +262,8 @@ service.interceptors.response.use(
     if (generation !== undefined && !isCurrentGeneration(generation)) {
       return Promise.reject(new Error('STALE_POST_RESPONSE'))
     }
-    console.log('err' + error) // for debug
+    const silentError =
+      (error.config as typeof error.config & { silentError?: boolean })?.silentError === true
     let { message } = error
     const { t } = useI18n()
     if (message === 'Network Error') {
@@ -269,7 +273,7 @@ service.interceptors.response.use(
     } else if (message.includes('Request failed with status code')) {
       message = t('sys.api.apiRequestFailed') + message.substr(message.length - 3)
     }
-    ElMessage.error(message)
+    if (!silentError) ElMessage.error(message)
     return Promise.reject(error)
   }
 )

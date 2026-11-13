@@ -55,6 +55,17 @@ const frRouter: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'wallet',
+        name: 'FranchiseWallet',
+        component: () => import('@/views/fr/wallet/index.vue'),
+        meta: {
+          title: '钱包对账',
+          icon: 'ep:wallet',
+          noCache: true,
+          permission: 'platform:wallet:read'
+        }
+      },
+      {
         path: 'finance',
         name: 'FranchiseFinance',
         component: () => import('@/views/fr/finance/index.vue'),
