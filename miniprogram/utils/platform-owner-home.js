@@ -100,7 +100,8 @@ function view(input) {
     ledger: {
       inTotal: moneyText(received),
       payTotal: moneyText(paid),
-      receivableTotal: moneyText(totals && totals.receivableOutstandingCents),
+      // 后端 totals 实际字段=receivableCents（PerfOperatingService.analytics）；旧键仅兼容既有 mock
+      receivableTotal: moneyText(totals && (totals.receivableCents !== undefined ? totals.receivableCents : totals.receivableOutstandingCents)),
       payableTotal: moneyText(totals && totals.payableOutstandingCents)
     },
     home: {
