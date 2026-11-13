@@ -99,8 +99,43 @@ class AccessCodeRetirementReportTest {
     void reportIsReadOnly() {
         batch(8002L);
         code(9011L, 8002L, "ACTIVE", false, false);
+        code(9012L, 8002L, "CONSUMED", true, false);
+        jdbc.update("INSERT INTO design_access_grant (id, account_id, status) VALUES (?, ?, 'ACTIVE')",
+                7003L, 503L);
+        String beforeCodes = jdbc.queryForObject(
+                "SELECT string_agg(id || ':' || status || ':' || coalesce(consumed_at::text,'-') || ':' "
+                        + "|| coalesce(expires_at::text,'-'), '|' ORDER BY id) FROM design_access_code",
+                String.class);
+        String beforeGrants = jdbc.queryForObject(
+                "SELECT string_agg(id || ':' || status, '|' ORDER BY id) FROM design_access_grant",
+                String.class);
+        String beforeBatches = jdbc.queryForObject(
+                "SELECT string_agg(id || ':' || quantity || ':' || issued_by, '|' ORDER BY id) "
+                        + "FROM design_access_code_batch", String.class);
+
         service.report();
-        assertThat(jdbc.queryForObject("SELECT status FROM design_access_code WHERE id=9011", String.class))
-                .isEqualTo("ACTIVE");
+
+        assertThat(jdbc.queryForObject(
+                "SELECT string_agg(id || ':' || status || ':' || coalesce(consumed_at::text,'-') || ':' "
+                        + "|| coalesce(expires_at::text,'-'), '|' ORDER BY id) FROM design_access_code",
+                String.class)).isEqualTo(beforeCodes);
+        assertThat(jdbc.queryForObject(
+                "SELECT string_agg(id || ':' || status, '|' ORDER BY id) FROM design_access_grant",
+                String.class)).isEqualTo(beforeGrants);
+        assertThat(jdbc.queryForObject(
+                "SELECT string_agg(id || ':' || quantity || ':' || issued_by, '|' ORDER BY id) "
+                        + "FROM design_access_code_batch", String.class)).isEqualTo(beforeBatches);
+    }
+
+    @Test
+    void softDeletedBatchExcludedFromBothTotalsAndBreakdown() {
+        batch(8003L);
+        code(9021L, 8003L, "ACTIVE", false, false);
+        jdbc.update("UPDATE design_access_code_batch SET deleted = TRUE WHERE id = 8003");
+
+        var report = service.report();
+
+        assertThat(report.totalCodes()).isZero();
+        assertThat(report.byBatch()).isEmpty();
     }
 }

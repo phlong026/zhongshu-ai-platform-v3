@@ -31,12 +31,14 @@ public class AccessCodeRetirementReportService {
     public RetirementReport report() {
         Map<String, Object> totals = jdbc.queryForMap(
                 "SELECT count(*) AS total, "
-                        + "count(*) FILTER (WHERE status = 'ACTIVE' AND consumed_at IS NULL) AS active_unused, "
-                        + "count(*) FILTER (WHERE consumed_at IS NOT NULL) AS consumed, "
-                        + "count(*) FILTER (WHERE status = 'DISABLED') AS disabled, "
-                        + "count(*) FILTER (WHERE expires_at IS NOT NULL AND expires_at < now() "
-                        + "  AND status = 'ACTIVE' AND consumed_at IS NULL) AS expired "
-                        + "FROM design_access_code WHERE deleted = FALSE");
+                        + "count(*) FILTER (WHERE c.status = 'ACTIVE' AND c.consumed_at IS NULL) AS active_unused, "
+                        + "count(*) FILTER (WHERE c.consumed_at IS NOT NULL) AS consumed, "
+                        + "count(*) FILTER (WHERE c.status = 'DISABLED') AS disabled, "
+                        + "count(*) FILTER (WHERE c.expires_at IS NOT NULL AND c.expires_at < now() "
+                        + "  AND c.status = 'ACTIVE' AND c.consumed_at IS NULL) AS expired "
+                        + "FROM design_access_code c "
+                        + "JOIN design_access_code_batch b ON b.id = c.batch_id AND b.deleted = FALSE "
+                        + "WHERE c.deleted = FALSE");
         Integer grants = jdbc.queryForObject(
                 "SELECT count(*) FROM design_access_grant WHERE status = 'ACTIVE' AND deleted = FALSE",
                 Integer.class);
