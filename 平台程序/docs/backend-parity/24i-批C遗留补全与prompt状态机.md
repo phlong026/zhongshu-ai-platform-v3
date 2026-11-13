@@ -78,7 +78,9 @@
 | P2-1 | 阈值无范围校验（配 -1 会把新记录也报出） | 服务层校验 `1..720` 小时，越界抛错（Job 捕获后跳过本轮并告警日志） |
 | P2-2 | 人工 settle 接受 0/负数并按 1 入账 | 端点 `@Min(1)` + 类 `@Validated`，零交付必须走 release |
 
-复跑：`OrgPointOnboardAndViewIntegrationTest` **8/8**（新增跨组织全覆盖、阈值越界）；commerce orgpoint 全套 **64/64**；全仓 compile 通过。
+| P2-2 | 汇总三次查询非同一快照（total=1 但 byOrg 为空） | 汇总整体包进 **REPEATABLE READ 只读事务**（`snapshotTx`），total/byOrg/样本同一时点 |
+
+复跑：`OrgPointOnboardAndViewIntegrationTest` **8/8**（新增跨组织全覆盖、阈值越界）；orgpoint 相关 24/24；commerce 全套 64/64；全仓 compile 通过。
 
 ## 四、未做/边界
 

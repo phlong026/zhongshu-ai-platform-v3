@@ -55,6 +55,8 @@ public class OrgPointService implements OrgPointPort {
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
+    /** 只读一致快照（REPEATABLE READ）：告警汇总的 total/byOrg/样本必须来自同一时点。 */
+    private final TransactionTemplate snapshotTx;
     /** 配置变更业务审计（任务书 §106/§180）：构造器必传，生产缺失 Bean 即启动失败。 */
     private final cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort auditPort;
 
@@ -62,6 +64,10 @@ public class OrgPointService implements OrgPointPort {
                            cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort auditPort) {
         this.jdbc = new JdbcTemplate(dataSource);
         this.tx = new TransactionTemplate(transactionManager);
+        this.snapshotTx = new TransactionTemplate(transactionManager);
+        this.snapshotTx.setIsolationLevel(
+                org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        this.snapshotTx.setReadOnly(true);
         this.auditPort = java.util.Objects.requireNonNull(auditPort, "AuditPort");
     }
 
@@ -678,6 +684,10 @@ public class OrgPointService implements OrgPointPort {
                     + PENDING_ALERT_MAX_HOURS + " 小时之间：" + thresholdHours);
         }
         int limit = Math.min(Math.max(sampleLimit, 1), 100);
+        return snapshotTx.execute(status -> pendingAlertSummaryInSnapshot(thresholdHours, limit));
+    }
+
+    private PendingAlertSummary pendingAlertSummaryInSnapshot(long thresholdHours, int limit) {
         String base = " FROM org_point_ledger r WHERE r.type = 'RESERVE' "
                 + "AND r.operation_time < now() - (? * interval '1 hour') "
                 + "AND NOT EXISTS (SELECT 1 FROM org_point_ledger t "
