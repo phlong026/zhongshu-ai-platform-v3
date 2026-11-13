@@ -2,6 +2,9 @@
  * 平台账簿操作层（B2 板块 C / F2-F6）：登记表单校验与提交、到账确认。
  * 纯逻辑注入 page（零 wx 依赖的部分留在 utils/platform-finance.js）。
  */
+const httpApi = require('../../../api/http');
+const authApi = require('../../../api/auth');
+
 module.exports = function attach(page, financeApi, PF) {
   page.openRegister = function (e) {
     const type = e.currentTarget.dataset.type;
@@ -168,6 +171,60 @@ module.exports = function attach(page, financeApi, PF) {
             this.loadPlatformFinance();
           })
           .catch(err => this.setData({ busy: false, registerError: PF.errorMessage(err) }));
+      }
+    });
+  };
+
+  // ===================== P1 批6：付款单撤销（DELETE /franchise/finance/payments/{id}，1_102_000_012/037） =====================
+  page.openPaymentVoid = function (e) {
+    // 与挂起中的登记/更正互斥：旧回调会清表单，避免「已撤销但上下文被覆盖」
+    if (this.data.busy || this.data.registerBusy) return;
+    const rowId = String(e.currentTarget.dataset.id || '');
+    const paymentId = rowId.replace(/^p-/, '');
+    if (!paymentId) return;
+    const row = (this.data.platformLedger || []).find(r => String(r.id) === rowId)
+      || (this.ledgerSource || []).find(r => String(r.id) === rowId);
+    // canVoid 由 index.js 按当前岗位 roleCode（仅 finance-lead 持 franchise:fin:payment-void）+ 行来源/状态预计算
+    if (!row || row.canVoid !== true) {
+      return this.setData({ ledgerError: '仅财务负责人可撤销已核实付款，请刷新列表后重试' });
+    }
+    const amountText = row.amountCents ? (row.amountCents / 100).toFixed(2) : '';
+    wx.showModal({
+      title: '撤销付款',
+      content: '该笔付款' + (amountText ? ' ¥' + amountText : '') + '将作废留痕，对应应付未付余额恢复；请填写撤销原因。',
+      editable: true,
+      placeholderText: '撤销原因（必填）',
+      success: res => {
+        if (!res.confirm) return;
+        const reason = String(res.content || '').trim();
+        const reasonError = PF.voidReasonError(reason);
+        if (reasonError) return this.setData({ ledgerError: reasonError });
+        this.setData({ busy: true, ledgerError: '', voidNotice: '' });
+        // P2-3：发出时冻结岗位/会话/单据；回调写 UI/刷新前复核，换岗或会话变化后静默丢弃
+        const seq = this._voidSeq = (this._voidSeq || 0) + 1;
+        const context = {
+          postKey: String((authApi.currentApiPost() || {}).postId || ''),
+          session: httpApi.sessionGeneration(),
+          paymentId
+        };
+        const stillSame = () => context.session === httpApi.sessionGeneration()
+          && context.postKey === String((authApi.currentApiPost() || {}).postId || '');
+        const drop = () => {
+          if (seq !== this._voidSeq) return; // 已有更新的撤销接管，不动 busy
+          if (this.data.busy) this.setData({ busy: false });
+        };
+        financeApi.voidPayment(paymentId, reason, financeApi.idemKey('payment-void'))
+          .then(() => {
+            if (!stillSame()) return drop();
+            // 作废释放额度：台账行已消失，联动提示说明应付余额恢复（刷新后不再出现该笔）
+            this.setData({ busy: false, voidNotice: PF.voidNoticeText(row) });
+            wx.showToast({ title: '付款已撤销', icon: 'none' });
+            this.loadPlatformFinance();
+          })
+          .catch(err => {
+            if (!stillSame()) return drop();
+            this.setData({ busy: false, ledgerError: PF.errorMessage(err) });
+          });
       }
     });
   };

@@ -36,3 +36,5 @@
 .pt-title{font-size:var(--zs-font-body);color:#322c26}
 .pt-meta{font-size:var(--zs-font-meta);color:#9c8e80}
 .pt-amount{flex-shrink:0;font-size:var(--zs-font-body);font-weight:600;color:#9b7b5e}
+.home-brief-entry,.home-web-entry{display:flex;align-items:center;gap:16rpx;width:100%;text-align:left}
+.home-brief-entry text,.home-web-entry text{display:block}

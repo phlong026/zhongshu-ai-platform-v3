@@ -70,6 +70,14 @@ function voidRefund(id, reason, idemKey) {
     { 'Idempotency-Key': idemKey || genIdemKey('refund-void') });
 }
 
+/** 作废付款（P1 批6；仅持 franchise:fin:payment-void 的岗位=finance-lead；body.reason 留痕；
+ * 后端按「已作废」幂等、存在有效支出退回时报 1102000037；DELETE 端点不读 Idempotency-Key，
+ * 头按既有写操作惯例携带，不构成幂等承诺。 */
+function voidPayment(id, reason, idemKey) {
+  return http.del('/franchise/finance/payments/' + id, { reason },
+    { 'Idempotency-Key': idemKey || genIdemKey('payment-void') });
+}
+
 /** 对账视图（批次#34：月度四口径 毛额/退款/净额/异常资金含待归月单列） */
 function reconciliation(month) {
   return http.get('/franchise/finance/reconciliation', { month });
@@ -239,6 +247,7 @@ module.exports = {
   idemKey, receipts, payments, payables, refunds,
   registerReceipt, registerPayment, registerRefund, registerExpenseRefund, registerPayable,
   voidRefund, reconciliation,
+  voidPayment,
   confirmBank, bankFlows, projectAccount,
   uploadVoucher, reviseReceipt, revisions, sha256Hex, readFileBase64, guessMime
 };

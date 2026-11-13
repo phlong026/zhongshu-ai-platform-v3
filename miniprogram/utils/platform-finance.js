@@ -98,13 +98,45 @@ function errorMessage(err) {
     1102000016: '流水金额与应收金额不一致',
     1102000017: '应收状态已变化，请刷新后重试',
     1102000018: '没有该操作权限',
+    1102000012: '付款记录不存在，请刷新列表',
     1102000030: '支出退回关联付款单不存在，请刷新选择',
     1102000031: '支出退回金额超过该笔付款的剩余可退回金额，请刷新余额',
-    1102000032: '仅已核实的付款可以登记支出退回'
+    1102000032: '仅已核实的付款可以登记支出退回',
+    1102000037: '该付款存在有效支出退回，请先作废退回记录'
   };
   if (code && map[code]) return map[code];
   if (code === 403) return '没有该操作权限';
   return (err && err.message) || '操作失败，请重试';
 }
 
-module.exports = { pageMode, yuan, toCents, ledgerRows, metrics, filterSealedEntries, errorMessage, SEALED };
+// ===================== 付款单撤销（P1 批6） =====================
+/** 付款作废角色位：后端岗位矩阵 V20261101.852 仅 finance-lead 持 franchise:fin:payment-void
+ * （boss/owner 只持 refund-void）；小程序 current-context 白名单不暴露该码，故按 roleCode 判定。 */
+const PAYMENT_VOID_ROLE = 'finance-lead';
+const VOID_REASON_MAX = 200;
+
+/** 台账行是否显示「撤销」：角色位 + 行来源=付款 + 状态=已核实 */
+function canVoidPayment(roleCode, sourceKind, status) {
+  return roleCode === PAYMENT_VOID_ROLE && sourceKind === 'payment' && status === '已核实';
+}
+
+/** 撤销原因必填 + 长度上限（后端 void_reason 仅留痕不做长度校验，前端自守） */
+function voidReasonError(reason) {
+  const value = String(reason == null ? '' : reason).trim();
+  if (!value) return '请填写撤销原因';
+  if (value.length > VOID_REASON_MAX) return '撤销原因请控制在 ' + VOID_REASON_MAX + ' 字以内';
+  return '';
+}
+
+/** 撤销成功后的台账联动提示（作废释放额度：台账行消失、应付未付余额恢复） */
+function voidNoticeText(row) {
+  const cents = row && Number(row.amountCents);
+  const amount = Number.isFinite(cents) && cents > 0 ? '¥' + (cents / 100).toFixed(2) : '';
+  return '付款已撤销' + (amount ? '（' + amount + '）' : '') + '：该笔作废留痕、不再计入实付，对应应付未付余额同步恢复；台账已刷新。';
+}
+
+module.exports = {
+  pageMode, yuan, toCents, ledgerRows, metrics, filterSealedEntries, errorMessage,
+  PAYMENT_VOID_ROLE, VOID_REASON_MAX, canVoidPayment, voidReasonError, voidNoticeText,
+  SEALED
+};

@@ -12,6 +12,12 @@ module.exports = function(kind) {
     data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', platformTodos:null, todoTab:'all', homeTodos:[], homeTodoTotal:0, rows:[], total:0, pageLimit:20, record:null, error:'', form:{}, saving:false, selectedDepartment:'all', expandedPerson:'', companyForm:{}, assignmentForm:{}, managementSettings:null, performanceSettings:null },
     openDesignPolicy(){ require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=policy'); },
     logout(){ return require('../../utils/session-actions').logout(); },
+    copyFrLink(){ // P1 §5.4：老板首页「在浏览器打开」——复制 /fr/finance 链接（无 token/凭据）
+      const FrLink=require('../../utils/fr-web-link');
+      const link=FrLink.buildFromContext(wx.getStorageSync(FrLink.STORAGE_KEY),'/fr/finance');
+      if(!link){ wx.showToast({title:FrLink.NOT_CONFIGURED,icon:'none'}); return; }
+      wx.setClipboardData({data:link,success:()=>wx.showToast({title:'链接已复制，请在 PC 浏览器登录后打开',icon:'none'})});
+    },
     retryPlatformTodos(){ require('../../utils/platform-todos-page').retry(this); },
     retryHome(){ this.refresh(); },
     openPlatformTodo(e){ require('../../utils/platform-todos-page').open(this, e); },
