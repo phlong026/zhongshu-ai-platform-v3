@@ -95,11 +95,11 @@ def login_admin():
 
 
 def main():
-    admin = login_admin()
     cleanup = []          # [(name, method, path, token, post_id)]，finally 执行且失败计入 FAILS
     sink = {'orgId': None, 'taskId': None, 'operationId': None, 'expected': 0,
             'completed': False}
     try:
+        admin = login_admin()   # 登录失败也必须落 FAIL 证据（不能在 try 外）
         run(admin, cleanup, sink)
     except SystemExit as e:  # 流程提前终止也要落 FAIL 证据，且不得返回 0
         FAILS.append('流程未完成：' + str(e))
@@ -116,7 +116,12 @@ def main():
             except Exception as e:  # 异常也要计入失败（P1-3）
                 check('清理：' + name, False, str(e))
         write_evidence(sink)
-    return 0 if (not FAILS and sink.get('completed')) else 1
+    # 最终结论在清理之后统一输出，避免"先报成功、后因清理失败翻案"的矛盾
+    if FAILS or not sink.get('completed'):
+        print('❌ VERIFY-ORG-POINT 失败 %d/%d 项：%s' % (len(FAILS), CHECKS, FAILS))
+        return 1
+    print('✅ VERIFY-ORG-POINT 全部通过（%d 项）' % CHECKS)
+    return 0
 
 
 def run(admin, cleanup, sink):
@@ -247,10 +252,6 @@ def run(admin, cleanup, sink):
           {k: rep.get(k) for k in ('total', 'confirmed', 'unmatched')})
 
     sink['completed'] = True
-    if FAILS:
-        print('❌ VERIFY-ORG-POINT 失败 %d/%d 项：%s' % (len(FAILS), CHECKS, FAILS))
-    else:
-        print('✅ VERIFY-ORG-POINT 全部通过（%d 项）' % CHECKS)
 
 
 def write_evidence(sink):
