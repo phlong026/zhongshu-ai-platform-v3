@@ -144,8 +144,13 @@ export function buildStaffMenus(
     .map((route) => ({
       ...route,
       meta: { ...route.meta, title: '组织管理', icon: 'ep:user-filled', alwaysShow: true },
+      // 逐路由授权映射：无 meta.permission 的子路由（如 identity 身份切换）恒显；
+      // 有 permission 的按各路由自己的权限标识过滤，不再统一套 platform:org:query。
+      // 菜单过滤只控制可见性，授权真源仍是服务端 @post.has 与页内守卫。
       children: (route.children || []).filter(
-        (child) => !child.meta?.hidden && (child.path === 'identity' || can('platform:org:query'))
+        (child) =>
+          !child.meta?.hidden &&
+          (!child.meta?.permission || can(child.meta.permission))
       )
     }))
 }

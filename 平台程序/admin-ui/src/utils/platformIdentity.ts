@@ -14,6 +14,9 @@ export interface StaffPost {
 export interface CurrentPostContext {
   post: StaffPost
   permissions: string[]
+  // 负责人管理的团队（含所在团队及下级）；供 P1 客资接手人候选等按授权团队渲染。
+  // 可选字段保持向后兼容：旧会话缓存可能不含此字段。
+  managedTeamIds?: PlatformId[]
 }
 
 const POSTS_KEY = 'platform-staff-posts'
@@ -88,4 +91,6 @@ const parsePortalBinding = (): { mode: 'admin' | 'staff'; accessToken: string } 
 export const isPostScopedUrl = (url = '') =>
   url.includes('/franchise/') ||
   url.includes('/platform/org/') ||
+  // 钱包 account/ledger 等 GET 需当前岗位上下文（服务端 @post.has('platform:wallet:read')）。
+  url.includes('/platform/wallet/') ||
   url.includes('/platform/posts/current-context')

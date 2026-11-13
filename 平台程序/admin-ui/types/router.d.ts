@@ -47,6 +47,9 @@ declare module 'vue-router' {
     activeMenu?: string
     noTagsView?: boolean
     followAuth?: string
+    // /fr 门户逐路由授权：buildStaffMenus 按各子路由自己的 permission 过滤菜单
+    // （identity 等无 permission 的路由恒显；服务端 @post.has 仍是授权真源）。
+    permission?: string
     canTo?: boolean
     hash?: string
     iframeSrc?: string

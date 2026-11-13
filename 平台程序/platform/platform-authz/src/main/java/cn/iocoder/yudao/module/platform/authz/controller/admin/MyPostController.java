@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 
@@ -46,7 +47,18 @@ public class MyPostController {
         }
     }
 
-    public record PostContext(StaffPost post, List<String> permissions) {
+    // 前端按岗位权限渲染 /fr 菜单与页面的能力清单（逐项经授权真源过滤，不暴露账号全部角色并集）。
+    // 消费路由：org:query/manage→/fr/org/staff；franchise:fin:query→/fr/finance（P0 批4）；
+    // franchise:performance:operate→/fr/dashboard（P1）；platform:wallet:read→/fr 钱包对账 tab（P1）。
+    // 新增写权限码一律不入白名单；既有 org:manage 保留（/fr/org/staff 既有页面能力）。
+    private static final List<String> WEB_CAPABILITIES = List.of(
+            "platform:org:query",
+            "platform:org:manage",
+            "franchise:fin:query",
+            "franchise:performance:operate",
+            "platform:wallet:read");
+
+    public record PostContext(StaffPost post, List<String> permissions, Set<Long> managedTeamIds) {
     }
 
     @GetMapping("/mine")
@@ -69,10 +81,11 @@ public class MyPostController {
     public CommonResult<PostContext> currentContext() {
         PostSnapshot post = currentPost.require();
         // 仅暴露本工作区需要的能力，授权真源与 @post.has 相同；不能使用账号的全部角色并集。
-        List<String> permissions = List.of("platform:org:query", "platform:org:manage").stream()
+        List<String> permissions = WEB_CAPABILITIES.stream()
                 .filter(permission -> systemDirectory.roleHasPermission(post.roleCode(), permission))
                 .toList();
-        return success(new PostContext(StaffPost.of(post, orgName(post.orgId())), permissions));
+        return success(new PostContext(StaffPost.of(post, orgName(post.orgId())), permissions,
+                post.managedTeamIds()));
     }
 
     private String orgName(long orgId) {
