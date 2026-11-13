@@ -58,6 +58,18 @@
 
 复跑：`AiJobOrgChargeRoutingTest` **15/15**（新增确认旧 operation 后 reserve 不重复扣）；`DesignBillingBindingIntegrationTest` **6/6**（null callId 真实落库）；ai-orchestration **73/73**。
 
+## 评审闭环
+
+| 轮次 | 结论 | 处置 |
+|---|---|---|
+| R1 | FAIL（2 P1 + 3 P2） | 跨 attempt 重投 / NOT_SENT 重试伪预留 / my-usage 门禁 / 收据缺失 |
+| 修复 | `cf261652` | 未决禁重投、重试新 operation、my-usage 去门禁、收据持久化 |
+| R2 | FAIL（2 P1 + 1 P2） | 收据冻结阻断正常重试 / 重试身份未贯穿 / 确认旧 operation 绕过 hash |
+| 修复 | `9eee0755` | 收据单调推进 + 链路幂等 + 收据校验前置 |
+| R3 | FAIL（2 P1） | call_id 非空导致无收据路径落库失败 / 确认旧 operation 后 reserve 重复扣 |
+| 修复 | `2be5ec0c` | call_id 可空 + 收据带 operationId 且已结算则该 attempt 重放不扣 |
+| R4 | **PASS** | 极窄终审核销，无连带矛盾 |
+
 ## 四、未做/边界
 
 | 项 | 说明 |
