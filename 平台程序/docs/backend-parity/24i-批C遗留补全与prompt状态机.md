@@ -70,6 +70,16 @@
 | 修复 | `2be5ec0c` | call_id 可空 + 收据带 operationId 且已结算则该 attempt 重放不扣 |
 | R4 | **PASS** | 极窄终审核销，无连带矛盾 |
 
+## D6 §2.4 告警 Job 评审修复
+
+| 编号 | 问题 | 修复 |
+|---|---|---|
+| P1-1 | 扫描固定取最旧 100 条，后续组织永不告警 | 改为 `pendingAlertSummary`：**按组织全量聚合**（total/byOrg 覆盖全部超阈值记录），样本单独限 20 条仅用于定位；新增 120+1 条跨组织回归 |
+| P2-1 | 阈值无范围校验（配 -1 会把新记录也报出） | 服务层校验 `1..720` 小时，越界抛错（Job 捕获后跳过本轮并告警日志） |
+| P2-2 | 人工 settle 接受 0/负数并按 1 入账 | 端点 `@Min(1)` + 类 `@Validated`，零交付必须走 release |
+
+复跑：`OrgPointOnboardAndViewIntegrationTest` **8/8**（新增跨组织全覆盖、阈值越界）；commerce orgpoint 全套 **64/64**；全仓 compile 通过。
+
 ## 四、未做/边界
 
 | 项 | 说明 |

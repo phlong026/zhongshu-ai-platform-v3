@@ -657,20 +657,51 @@ public class OrgPointService implements OrgPointPort {
                                    long requested, java.time.Instant operationTime) {
     }
 
-    public List<PendingOperation> findPendingOlderThan(long thresholdHours, int limit) {
-        return jdbc.query(
-                "SELECT r.operation_id, r.org_id, r.subject, r.actor_user_id, -r.available_delta AS requested, "
-                        + "r.operation_time FROM org_point_ledger r "
-                        + "WHERE r.type = 'RESERVE' AND r.operation_time < now() - (? * interval '1 hour') "
-                        + "AND NOT EXISTS (SELECT 1 FROM org_point_ledger t "
-                        + "  WHERE t.operation_id = r.operation_id AND t.type IN ('SETTLE','RELEASE')) "
-                        + "ORDER BY r.operation_time LIMIT ?",
+    public static final long PENDING_ALERT_MIN_HOURS = 1;
+    public static final long PENDING_ALERT_MAX_HOURS = 24 * 30;
+
+    /** 告警汇总：total 与实际按组织计数均覆盖**全部**超阈值记录（不截断），样本仅用于定位。 */
+    public record PendingAlertSummary(long total, long requestedTotal,
+                                      List<OrgPendingCount> byOrg, List<PendingOperation> oldestSample) {
+    }
+
+    public record OrgPendingCount(long orgId, long count, long requested) {
+    }
+
+    /**
+     * 长期未终结预扣汇总（D6 §2.4）：按组织全量聚合，避免"最旧 N 条占满窗口导致后续组织永不告警"。
+     * `sampleLimit` 只限制返回的定位样本，不影响计数。
+     */
+    public PendingAlertSummary pendingAlertSummary(long thresholdHours, int sampleLimit) {
+        if (thresholdHours < PENDING_ALERT_MIN_HOURS || thresholdHours > PENDING_ALERT_MAX_HOURS) {
+            throw new IllegalArgumentException("告警阈值必须在 " + PENDING_ALERT_MIN_HOURS + ".."
+                    + PENDING_ALERT_MAX_HOURS + " 小时之间：" + thresholdHours);
+        }
+        int limit = Math.min(Math.max(sampleLimit, 1), 100);
+        String base = " FROM org_point_ledger r WHERE r.type = 'RESERVE' "
+                + "AND r.operation_time < now() - (? * interval '1 hour') "
+                + "AND NOT EXISTS (SELECT 1 FROM org_point_ledger t "
+                + "  WHERE t.operation_id = r.operation_id AND t.type IN ('SETTLE','RELEASE'))";
+        Map<String, Object> totals = jdbc.queryForMap(
+                "SELECT count(*) AS total, COALESCE(SUM(-r.available_delta), 0) AS requested" + base,
+                thresholdHours);
+        List<OrgPendingCount> byOrg = jdbc.query(
+                "SELECT r.org_id, count(*) AS cnt, COALESCE(SUM(-r.available_delta), 0) AS requested"
+                        + base + " GROUP BY r.org_id ORDER BY cnt DESC, r.org_id",
+                (rs, i) -> new OrgPendingCount(rs.getLong("org_id"), rs.getLong("cnt"),
+                        rs.getLong("requested")), thresholdHours);
+        List<PendingOperation> sample = jdbc.query(
+                "SELECT r.operation_id, r.org_id, r.subject, r.actor_user_id, "
+                        + "-r.available_delta AS requested, r.operation_time"
+                        + base + " ORDER BY r.operation_time, r.id LIMIT ?",
                 (rs, i) -> new PendingOperation(rs.getLong("operation_id"), rs.getLong("org_id"),
                         rs.getString("subject"), rs.getObject("actor_user_id", Long.class),
                         rs.getLong("requested"),
                         rs.getTimestamp("operation_time") == null ? null
                                 : rs.getTimestamp("operation_time").toInstant()),
-                thresholdHours, Math.min(Math.max(limit, 1), 500));
+                thresholdHours, limit);
+        return new PendingAlertSummary(((Number) totals.get("total")).longValue(),
+                ((Number) totals.get("requested")).longValue(), byOrg, sample);
     }
 
     public static String currentMonth() {

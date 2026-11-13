@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,31 +40,34 @@ public class OrgPointPendingAlertJob {
         if (!enabled) {
             return;
         }
-        List<OrgPointService.PendingOperation> pending;
+        OrgPointService.PendingAlertSummary summary;
         try {
-            pending = orgPointService.findPendingOlderThan(thresholdHours, 100);
+            // 按组织全量聚合（不截断）；阈值越界由服务层拒绝
+            summary = orgPointService.pendingAlertSummary(thresholdHours, 20);
+        } catch (IllegalArgumentException e) {
+            log.warn("[pendingAlert][配置非法] {}", e.getMessage());
+            return;
         } catch (RuntimeException e) {
             log.warn("[pendingAlert][扫描失败] {}", e.getMessage());
             return;
         }
-        if (pending.isEmpty()) {
+        if (summary.total() == 0) {
             return;
         }
         Map<String, Object> byOrg = new LinkedHashMap<>();
-        for (OrgPointService.PendingOperation op : pending) {
-            byOrg.put(String.valueOf(op.orgId()),
-                    ((Number) byOrg.getOrDefault(String.valueOf(op.orgId()), 0)).intValue() + 1);
+        for (OrgPointService.OrgPendingCount org : summary.byOrg()) {
+            byOrg.put(String.valueOf(org.orgId()), org.count());
         }
-        log.warn("[pendingAlert][长期未终结预扣] count={} thresholdHours={} byOrg={}",
-                pending.size(), thresholdHours, byOrg);
+        log.warn("[pendingAlert][长期未终结预扣] count={} requested={} thresholdHours={} byOrg={}",
+                summary.total(), summary.requestedTotal(), thresholdHours, byOrg);
         auditPort.record(AuditEventMessage.builder()
                 .eventType("ORG_POINT_PENDING_ALERT").actorType(AuditEventMessage.ActorType.SYSTEM)
                 .actorId("system").action("ALERT")
                 .bizType("org_point_ledger").bizId("pending-" + thresholdHours + "h")
                 .result(AuditEventMessage.AuditResult.SUCCESS)
-                .detail(Map.of("count", pending.size(), "thresholdHours", thresholdHours,
-                        "byOrg", byOrg,
-                        "operationIds", pending.stream().limit(20)
+                .detail(Map.of("count", summary.total(), "requestedTotal", summary.requestedTotal(),
+                        "thresholdHours", thresholdHours, "byOrg", byOrg,
+                        "operationIds", summary.oldestSample().stream()
                                 .map(OrgPointService.PendingOperation::operationId).toList()))
                 .build());
     }

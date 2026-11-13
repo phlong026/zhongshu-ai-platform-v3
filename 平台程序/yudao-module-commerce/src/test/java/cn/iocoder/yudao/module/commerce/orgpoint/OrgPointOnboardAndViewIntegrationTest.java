@@ -18,6 +18,7 @@ import org.testcontainers.utility.DockerImageName;
 import javax.sql.DataSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 批 B 验收（24 号 §七 B-8/B-10/B-11）：开通事件建池赠点、任务合并视图折叠、逐笔流水分页。
@@ -123,12 +124,52 @@ class OrgPointOnboardAndViewIntegrationTest {
                 + "WHERE operation_id = ?", settled);
         service.settle(settled, 1);
 
-        var pending = service.findPendingOlderThan(24, 100);
+        var summary = service.pendingAlertSummary(24, 20);
 
-        assertThat(pending).extracting(OrgPointService.PendingOperation::operationId)
+        assertThat(summary.total()).isEqualTo(1);
+        assertThat(summary.requestedTotal()).isEqualTo(2);
+        assertThat(summary.byOrg()).singleElement().satisfies(org -> {
+            assertThat(org.orgId()).isEqualTo(3006L);
+            assertThat(org.count()).isEqualTo(1);
+        });
+        assertThat(summary.oldestSample()).extracting(OrgPointService.PendingOperation::operationId)
                 .containsExactly(stale);
-        assertThat(pending.get(0).requested()).isEqualTo(2);
         assertThat(fresh).isNotNull();
+    }
+
+    @Test
+    void alertSummaryCoversOrgsBeyondSampleWindow() {
+        listener.onOnboarded(new OrgOnboardedEvent(3007L, true, 100_000));
+        listener.onOnboarded(new OrgOnboardedEvent(3008L, true, 100_000));
+        // org 3007：120 条更旧的 PENDING（远超样本窗口）；org 3008：1 条最新但仍超阈值
+        for (int i = 0; i < 120; i++) {
+            long op = service.reserve(new OrgPointPort.ReserveCommand(
+                    "content:7" + i + ":copy", 3007L, 7L, null, "copy", 1, "content_task", 7000L + i));
+            jdbc.update("UPDATE org_point_ledger SET operation_time = now() - interval '40 hour' "
+                    + "WHERE operation_id = ?", op);
+        }
+        long newest = service.reserve(new OrgPointPort.ReserveCommand(
+                "content:8:copy", 3008L, 7L, null, "copy", 1, "content_task", 8000L));
+        jdbc.update("UPDATE org_point_ledger SET operation_time = now() - interval '30 hour' "
+                + "WHERE operation_id = ?", newest);
+
+        var summary = service.pendingAlertSummary(24, 20);
+
+        // 计数覆盖全部 121 条，样本只有 20 条，且两个组织都出现在 byOrg（不会因截断漏组织）
+        assertThat(summary.total()).isEqualTo(121);
+        assertThat(summary.byOrg()).extracting(OrgPointService.OrgPendingCount::orgId)
+                .containsExactlyInAnyOrder(3007L, 3008L);
+        assertThat(summary.oldestSample()).hasSize(20);
+    }
+
+    @Test
+    void alertThresholdOutOfRangeRejected() {
+        assertThatThrownBy(() -> service.pendingAlertSummary(0, 20))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.pendingAlertSummary(-1, 20))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.pendingAlertSummary(24 * 31, 20))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

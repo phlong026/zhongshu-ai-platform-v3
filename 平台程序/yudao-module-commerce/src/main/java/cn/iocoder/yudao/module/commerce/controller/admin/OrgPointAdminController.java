@@ -27,6 +27,7 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @Tag(name = "公司积分池（平台管理）")
 @RestController
 @RequestMapping("/design/v1")
+@org.springframework.validation.annotation.Validated
 public class OrgPointAdminController {
 
     @Resource
@@ -51,7 +52,8 @@ public class OrgPointAdminController {
     @PreAuthorize("@ss.hasPermission('commerce:org-point:adjust')")
     public CommonResult<OrgPointPort.Settlement> settleOperation(
             @PathVariable("operationId") long operationId,
-            @RequestParam(defaultValue = "1") long actualQuantity) {
+            @RequestParam(defaultValue = "1") @jakarta.validation.constraints.Min(value = 1,
+                    message = "实际数量必须 ≥1；零交付请调用 release") long actualQuantity) {
         return success(orgPoint.settle(operationId, actualQuantity));
     }
 
