@@ -847,6 +847,8 @@ const bankConfirmFlow = ref<BankFlowRow | null>(null)
 const bankConfirmReceiptId = ref('')
 const bankConfirmError = ref('')
 const bankConfirmKey = ref('')
+/** 当前幂等键对应的 payload（flowId:receiptId）；选择变化时轮换键，避免 IDEMPOTENCY_KEY_REUSED。 */
+let bankConfirmKeyPayload = ''
 const bankReceiptCandidates = ref<ReceiptRow[]>([])
 let bankFlowGeneration = 0
 let bankCandidateGeneration = 0
@@ -863,9 +865,12 @@ async function loadBankFlows(): Promise<boolean> {
     const rows = (await getBankFlows(bankStatus.value || undefined)) || []
     if (generation !== bankFlowGeneration) return false
     bankRows.value = rows
+    bankError.value = false
     return true
   } catch {
     if (generation !== bankFlowGeneration) return false
+    // 失败清空旧数据：不能把上一筛选的行挂在新筛选值下。
+    bankRows.value = []
     bankNotice.value = '银行流水加载失败，请稍后重试'
     bankError.value = true
     return false
@@ -908,6 +913,7 @@ async function openBankConfirm(flow: BankFlowRow) {
   bankConfirmReceiptId.value = ''
   bankConfirmError.value = ''
   bankConfirmKey.value = newBankConfirmKey()
+  bankConfirmKeyPayload = ''
   bankReceiptCandidates.value = []
   bankConfirmDialog.value = true
   try {
@@ -929,6 +935,12 @@ async function submitBankConfirm() {
   )
   bankConfirmError.value = confirmError(flow, selected, bankConfirmReceiptId.value)
   if (bankConfirmError.value) return
+  const payloadKey = `${flow.id}:${bankConfirmReceiptId.value}`
+  if (bankConfirmKeyPayload !== payloadKey) {
+    // 失败后更换应收再提交：沿用旧键会被后端判 IDEMPOTENCY_KEY_REUSED；同选择重试仍复用旧键。
+    bankConfirmKey.value = newBankConfirmKey()
+    bankConfirmKeyPayload = payloadKey
+  }
   const submitGeneration = ++bankSubmitGeneration
   bankBusyOwner = submitGeneration
   bankConfirmBusy.value = true
@@ -938,7 +950,10 @@ async function submitBankConfirm() {
     written = true
     if (submitGeneration === bankSubmitGeneration) bankConfirmDialog.value = false
   } catch {
-    // 失败时保留错误提示，交由刷新结果决定文案
+    // 后端失败也写进弹窗内，避免用户只看到全局 toast 而弹窗无反馈。
+    if (submitGeneration === bankSubmitGeneration) {
+      bankConfirmError.value = '确认失败：流水已被认领、应收状态不符或金额不一致，请刷新后重试'
+    }
   }
   // 提交期间用户已打开别的弹窗/切走：本次结果不再写回任何 UI 或触发刷新（避免覆盖新查询）。
   if (submitGeneration !== bankSubmitGeneration) return
@@ -951,8 +966,9 @@ async function submitBankConfirm() {
         ? '确认到账成功：应收已登记、流水已认领'
         : '确认到账已成功，列表刷新失败，请手动刷新'
       bankError.value = false
-      // 应收状态已变化：同步刷新实收列表（空列表也刷新；失败不阻塞成功提示）
+      // 应收状态已变化：同步刷新实收列表与月度对账卡（毛实收/净实收随之变化；失败不阻塞成功提示）
       void loadTable('receipts').catch(() => undefined)
+      void loadReconciliation().catch(() => undefined)
     } else {
       bankNotice.value = refreshed
         ? '确认到账失败：流水已被认领、应收状态不符或金额不一致，列表已刷新'

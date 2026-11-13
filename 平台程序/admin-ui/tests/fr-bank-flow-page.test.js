@@ -151,7 +151,9 @@ test('bank tab: confirm sends string ids and key; success refreshes flows', asyn
   page.bankConfirmKey.value = 'bank-confirm:test'
   await page.submitBankConfirm()
   const call = api.__calls.find((c) => c[0] === 'confirm')
-  assert.deepEqual(JSON.parse(JSON.stringify(call)), ['confirm', '11', '1', 'bank-confirm:test'])
+  assert.equal(call[1], '11')
+  assert.equal(call[2], '1')
+  assert.match(call[3], /^bank-confirm:[A-Za-z0-9_-]{1,40}$/) // 首次提交按 payload 注册键
   assert.match(page.bankNotice.value, /确认到账成功/)
   assert.equal(api.__calls.filter((c) => c[0] === 'flows').length >= 1, true)
 })
@@ -622,4 +624,101 @@ test('bank tab: quiet refresh during a pending query still finishes loading', as
   resolveQuery([{ id: 'old' }])
   await query
   assert.equal(page.bankLoading.value, false)
+})
+
+test('bank tab: confirm success refreshes reconciliation card', async () => {
+  let reconRefreshes = 0
+  const api = makeApi({
+    getMonthReconciliation: async () => {
+      reconRefreshes += 1
+      return { month: '2026-11' }
+    }
+  })
+  const page = loadPage('finance', api)
+  page.bankConfirmFlow.value = {
+    id: '11',
+    bankRef: 'A',
+    amountCents: 500,
+    status: '待匹配',
+    source: 'dev'
+  }
+  page.bankReceiptCandidates.value = [{ id: '1', amountCents: 500, status: '待登记' }]
+  page.bankConfirmReceiptId.value = '1'
+  await page.submitBankConfirm()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(reconRefreshes >= 1, true)
+})
+
+test('bank tab: backend failure shows an inline dialog error', async () => {
+  const api = makeApi({
+    confirmBankFlow: async () => {
+      throw new Error('conflict')
+    }
+  })
+  const page = loadPage('finance', api)
+  page.bankConfirmFlow.value = {
+    id: '11',
+    bankRef: 'A',
+    amountCents: 500,
+    status: '待匹配',
+    source: 'dev'
+  }
+  page.bankReceiptCandidates.value = [{ id: '1', amountCents: 500, status: '待登记' }]
+  page.bankConfirmReceiptId.value = '1'
+  page.bankConfirmDialog.value = true
+  await page.submitBankConfirm()
+  assert.match(page.bankConfirmError.value, /确认失败/)
+  assert.equal(page.bankConfirmDialog.value, true)
+})
+
+test('bank tab: changing receipt after failure rotates the idempotency key', async () => {
+  let fail = true
+  const keys = []
+  const api = makeApi({
+    confirmBankFlow: async (_flowId, _receiptId, key) => {
+      keys.push(key)
+      if (fail) throw new Error('conflict')
+      return { confirmId: '1' }
+    }
+  })
+  const page = loadPage('finance', api)
+  page.bankConfirmFlow.value = {
+    id: '11',
+    bankRef: 'A',
+    amountCents: 500,
+    status: '待匹配',
+    source: 'dev'
+  }
+  page.bankReceiptCandidates.value = [
+    { id: '1', amountCents: 500, status: '待登记' },
+    { id: '2', amountCents: 500, status: '待登记' }
+  ]
+  page.bankConfirmReceiptId.value = '1'
+  await page.submitBankConfirm()
+  const firstKey = keys[0]
+  // 同选择重试：复用同键
+  fail = false
+  await page.submitBankConfirm()
+  assert.equal(keys[1], firstKey)
+  // 更换选择：轮换键（否则后端 IDEMPOTENCY_KEY_REUSED）
+  fail = true
+  page.bankConfirmReceiptId.value = '2'
+  await page.submitBankConfirm()
+  assert.notEqual(keys[2], firstKey)
+})
+
+test('bank tab: failed load clears rows so stale filter data is not shown', async () => {
+  const api = makeApi({
+    getBankFlows: async () => {
+      throw new Error('down')
+    }
+  })
+  const page = loadPage('finance', api)
+  page.bankRows.value = [
+    { id: 'old', bankRef: 'old', amountCents: 1, bankDate: '', status: '待匹配', source: 'dev' }
+  ]
+  page.bankStatus.value = '已认领'
+  await page.loadBankFlows()
+  assert.equal(page.bankRows.value.length, 0)
+  assert.equal(page.bankError.value, true)
 })

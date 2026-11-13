@@ -274,11 +274,20 @@ export interface BankFlowRow {
 }
 
 export const getBankFlows = (status?: string): Promise<BankFlowRow[]> =>
-  request.get({ url: '/franchise/finance/bank-flows', params: status ? { status } : {} })
+  // 页面统一展示单条提示，关掉全局 toast，避免"成功提示 + 红色刷新错误"同时出现。
+  request.get({
+    url: '/franchise/finance/bank-flows',
+    params: status ? { status } : {},
+    silentError: true
+  })
 
 /** 确认到账候选：既有应收列表按「待登记」过滤（复用旧端点，生产流水入口未建前不做新契约）。 */
 export const getPendingBankReceipts = (): Promise<ReceiptRow[]> =>
-  request.get({ url: '/franchise/finance/receipts', params: { status: '待登记' } })
+  request.get({
+    url: '/franchise/finance/receipts',
+    params: { status: '待登记' },
+    silentError: true
+  })
 
 export const confirmBankFlow = (
   bankFlowId: string,

@@ -93,3 +93,42 @@ test('status filter options are the two real flow statuses plus all', () => {
     '已认领'
   ])
 })
+
+test('bank API passes silentError so page owns the single notice', () => {
+  const calls = []
+  const file = path.join(__dirname, '../src/api/platform/franchiseFinance.ts')
+  const module = { exports: {} }
+  vm.runInNewContext(
+    ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+    }).outputText,
+    {
+      module,
+      exports: module.exports,
+      console,
+      require(name) {
+        if (name === '@/config/axios/service') {
+          return { service: async (option) => option }
+        }
+        if (name === '@/config/axios') {
+          return {
+            get: async (option) => {
+              calls.push(option)
+              return option
+            },
+            post: async (option) => option,
+            delete: async (option) => option
+          }
+        }
+        throw new Error(`Unexpected import: ${name}`)
+      }
+    }
+  )
+  const api = module.exports
+  api.getBankFlows('待匹配')
+  api.getPendingBankReceipts()
+  assert.equal(calls[0].silentError, true)
+  assert.equal(calls[1].silentError, true)
+  assert.equal(calls[0].url, '/franchise/finance/bank-flows')
+  assert.equal(calls[1].url, '/franchise/finance/receipts')
+})
