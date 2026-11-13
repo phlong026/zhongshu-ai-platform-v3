@@ -1,0 +1,321 @@
+
+> zhongshu-native-miniapp@1.0.0 check
+> node scripts/verify.cjs && node scripts/verify-joint-review-miniapp.cjs && node scripts/verify-finance-bank-confirm-idem.cjs && npm run check:profile-navigation && npm run check:api-pages
+
+{
+  "result": "passed",
+  "appid": "wxe584f6fad7b54487",
+  "wxmlChecked": 60,
+  "nativePages": 35,
+  "jsChecked": 183,
+  "jsonChecked": 58,
+  "assetsChecked": 161,
+  "packageBytes": 7062072,
+  "mainBytes": 1957938,
+  "ignoredFiles": [
+    "assets/manifest.json",
+    "assets/studio-record-cover.jpg",
+    "assets/studio-video-play.png",
+    "assets/avatar-profile.jpg",
+    "assets/studio-button-surface.jpg",
+    "assets/studio-channels.jpg",
+    "assets/studio-check-brown.png",
+    "assets/studio-check-empty.png",
+    "assets/studio-control-play.png",
+    "assets/studio-digital-presenter.jpg",
+    "assets/studio-douyin.jpg",
+    "assets/studio-edit.png",
+    "assets/studio-error.png",
+    "assets/studio-fullscreen.png",
+    "assets/studio-ip.png",
+    "assets/studio-play.png",
+    "assets/studio-portrait.jpg",
+    "assets/studio-refresh.png",
+    "assets/studio-save.png",
+    "assets/studio-section-mark.png",
+    "assets/studio-spinner.png",
+    "assets/studio-success-large.png",
+    "assets/studio-success.png",
+    "assets/studio-task-error.png",
+    "assets/studio-task-success.png",
+    "assets/studio-voice.png",
+    "assets/studio-volume.png",
+    "assets/studio-warning.png"
+  ],
+  "ignoredBytes": 262025,
+  "subPackages": {
+    "design-workflow": 234599,
+    "business-workflow": 1900648,
+    "engineering-workflow": 1022797,
+    "account-workflow": 1041408,
+    "management-workflow": 477669,
+    "growth-workflow": 17106,
+    "studio-workflow": 342842,
+    "creation-workflow": 14842,
+    "ai-video-workflow": 19232,
+    "wallet-workflow": 32991
+  }
+}
+verify-joint-review-miniapp ✔  上传、发布状态机、首页部分失败行为通过
+verify-finance-bank-confirm-idem ✔ 失败重试同键，成功/选择/组织/岗位变化换键
+
+> zhongshu-native-miniapp@1.0.0 check:profile-navigation
+> node --test scripts/verify-profile-navigation.cjs
+
+TAP version 13
+# Subtest: boss: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 1 - boss: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 3.064625
+  ...
+# Subtest: owner: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 2 - owner: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 0.304959
+  ...
+# Subtest: sales: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 3 - sales: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 0.4255
+  ...
+# Subtest: sales-lead: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 4 - sales-lead: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 0.57525
+  ...
+# Subtest: engineer: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 5 - engineer: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 0.428416
+  ...
+# Subtest: project-manager: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 6 - project-manager: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 0.216334
+  ...
+# Subtest: finance: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 7 - finance: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 0.221417
+  ...
+# Subtest: finance-lead: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 8 - finance-lead: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 0.2155
+  ...
+# Subtest: hq-design-admin: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+ok 9 - hq-design-admin: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页
+  ---
+  duration_ms: 0.452958
+  ...
+# Subtest: boss: 旧入口 /pages/admin/profile/index 单向回到原生页
+ok 10 - boss: 旧入口 /pages/admin/profile/index 单向回到原生页
+  ---
+  duration_ms: 0.648917
+  ...
+# Subtest: boss: 旧入口 /pages/account/sales/index 单向回到原生页
+ok 11 - boss: 旧入口 /pages/account/sales/index 单向回到原生页
+  ---
+  duration_ms: 0.390375
+  ...
+# Subtest: owner: 旧入口 /pages/admin/profile/index 单向回到原生页
+ok 12 - owner: 旧入口 /pages/admin/profile/index 单向回到原生页
+  ---
+  duration_ms: 0.267708
+  ...
+# Subtest: owner: 旧入口 /pages/account/sales/index 单向回到原生页
+ok 13 - owner: 旧入口 /pages/account/sales/index 单向回到原生页
+  ---
+  duration_ms: 0.299833
+  ...
+# Subtest: sales: 旧入口 /pages/admin/profile/index 单向回到原生页
+ok 14 - sales: 旧入口 /pages/admin/profile/index 单向回到原生页
+  ---
+  duration_ms: 0.300458
+  ...
+# Subtest: sales: 旧入口 /pages/account/sales/index 单向回到原生页
+ok 15 - sales: 旧入口 /pages/account/sales/index 单向回到原生页
+  ---
+  duration_ms: 0.24925
+  ...
+# Subtest: guest: 旧入口 /pages/admin/profile/index 单向回到原生页
+ok 16 - guest: 旧入口 /pages/admin/profile/index 单向回到原生页
+  ---
+  duration_ms: 0.266958
+  ...
+# Subtest: guest: 旧入口 /pages/account/sales/index 单向回到原生页
+ok 17 - guest: 旧入口 /pages/account/sales/index 单向回到原生页
+  ---
+  duration_ms: 0.166958
+  ...
+# Subtest: boss: 连续往返与重复点击当前我的项，不累积页面或再次重定向
+ok 18 - boss: 连续往返与重复点击当前我的项，不累积页面或再次重定向
+  ---
+  duration_ms: 5.526541
+  ...
+# Subtest: owner: 连续往返与重复点击当前我的项，不累积页面或再次重定向
+ok 19 - owner: 连续往返与重复点击当前我的项，不累积页面或再次重定向
+  ---
+  duration_ms: 3.546667
+  ...
+# Subtest: sales: 连续往返与重复点击当前我的项，不累积页面或再次重定向
+ok 20 - sales: 连续往返与重复点击当前我的项，不累积页面或再次重定向
+  ---
+  duration_ms: 3.713542
+  ...
+# Subtest: 游客直达我的显示登录引导，不触发资料请求
+ok 21 - 游客直达我的显示登录引导，不触发资料请求
+  ---
+  duration_ms: 0.178333
+  ...
+# Subtest: /pages/admin/profile/index: 兼容入口跳转失败时提示重试并记录错误
+ok 22 - /pages/admin/profile/index: 兼容入口跳转失败时提示重试并记录错误
+  ---
+  duration_ms: 0.131125
+  ...
+# Subtest: /pages/account/sales/index: 兼容入口跳转失败时提示重试并记录错误
+ok 23 - /pages/account/sales/index: 兼容入口跳转失败时提示重试并记录错误
+  ---
+  duration_ms: 0.054333
+  ...
+# Subtest: boss: home() 直达岗位首页，不经中转 tab 二次导航
+ok 24 - boss: home() 直达岗位首页，不经中转 tab 二次导航
+  ---
+  duration_ms: 0.670625
+  ...
+# Subtest: owner: home() 直达岗位首页，不经中转 tab 二次导航
+ok 25 - owner: home() 直达岗位首页，不经中转 tab 二次导航
+  ---
+  duration_ms: 0.0985
+  ...
+# Subtest: finance: home() 直达岗位首页，不经中转 tab 二次导航
+ok 26 - finance: home() 直达岗位首页，不经中转 tab 二次导航
+  ---
+  duration_ms: 0.093958
+  ...
+# Subtest: engineer: home() 直达岗位首页，不经中转 tab 二次导航
+ok 27 - engineer: home() 直达岗位首页，不经中转 tab 二次导航
+  ---
+  duration_ms: 0.067292
+  ...
+# Subtest: hq-design-admin: home() 直达岗位首页，不经中转 tab 二次导航
+ok 28 - hq-design-admin: home() 直达岗位首页，不经中转 tab 二次导航
+  ---
+  duration_ms: 0.061708
+  ...
+# Subtest: sales: home() 直达岗位首页，不经中转 tab 二次导航
+ok 29 - sales: home() 直达岗位首页，不经中转 tab 二次导航
+  ---
+  duration_ms: 0.058417
+  ...
+# Subtest: 无 API 会话：home() 保持 switchTab 本地首页
+ok 30 - 无 API 会话：home() 保持 switchTab 本地首页
+  ---
+  duration_ms: 0.085791
+  ...
+# Subtest: 我的页未读数响应带会话守卫：换会话后迟到响应不回写旧角标
+ok 31 - 我的页未读数响应带会话守卫：换会话后迟到响应不回写旧角标
+  ---
+  duration_ms: 5.91175
+  ...
+# Subtest: 未知岗位 roleCode：workbench-nav 回退本地导航并告警一次
+ok 32 - 未知岗位 roleCode：workbench-nav 回退本地导航并告警一次
+  ---
+  duration_ms: 0.261708
+  ...
+1..32
+# tests 32
+# suites 0
+# pass 32
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 78.573125
+
+> zhongshu-native-miniapp@1.0.0 check:api-pages
+> node scripts/verify-api-role-pages.cjs && node scripts/verify-api-workbench-contracts.cjs && node scripts/verify-material-entry.cjs && node scripts/verify-member-actions-session.cjs && node scripts/verify-org-admin.cjs && node scripts/verify-member-handover.cjs && node scripts/verify-auth-session-contract.cjs
+
+verify-api-role-pages: API会话守卫、12岗位登录与切岗直达、财务默认态与组织展示全部通过
+API 工作台字段契约检查通过
+材料入口：先选项目、保留项目和节点、失败提示与重试均通过
+成员操作会话隔离：10例通过
+verify-org-admin: 全部断言通过（部门加人/岗位指派/撤销停用/入口守卫 契约完整）
+  ✅ AC6 org.js 三方法契约（端点+请求体）
+  ✅ AC1 交接卡/撤权/待分配清单渲染元素齐全
+  ✅ AC2 正常交接请求体与交接清单渲染
+  ✅ AC3 紧急撤权确认弹窗+请求体+结果清单
+  ✅ AC4 待分配行补交接回填与发起
+  ✅ AC5 单人组织拦截（无接收人+请求记录反证）
+  ✅ AC5b 非管理岗直链：卡片隐藏+处理拒绝+不发请求
+  ✅ AC7 延迟响应回归：序号守卫+busy 交接链持有（分阶段释放+中间窗口断言）
+  ✅ AC8 切岗跨组织防护：刷新清空双方+ctx 失配拦截
+
+批次#32 M01-T04/M04-T04 交接接线验证：全部通过
+[auth-contract] HTTP 401（既有契约回归锁定）
+  ok - HTTP401 reject code=401
+  ok - HTTP401 清 token+岗位缓存
+  ok - HTTP401 触发 onUnauthorized 引导登录
+[auth-contract] HTTP200/body401 与 HTTP401 同契约（I02）
+  ok - body401 reject code=401
+  ok - body401 清 token+岗位缓存
+  ok - body401 触发 onUnauthorized
+[auth-contract] 旧会话 401 不破坏新会话
+  ok - 旧会话 HTTP401 静默丢弃
+  ok - 旧会话 HTTP401 不清新会话
+  ok - 旧会话 body401 静默丢弃
+  ok - 旧会话 body401 不清新会话
+[auth-contract] 钱包 skipSessionGuard 隔离
+  ok - 钱包 HTTP401 不动平台会话
+  ok - 钱包 body401 不动平台会话
+[auth-contract] 岗位失效 1_103_000_002（I05：token 仍有效，区别于账号失效）
+  ok - 岗位失效 reject 带 postInvalid 标记
+  ok - postInvalid 回调携带失效 postId
+  ok - 岗位失效保留 token、不触发账号登出
+  ok - 恢复流已自动切到有效岗位
+  ok - 钱包域岗位失效不触发平台恢复回调
+[auth-contract] 恢复期去抖（并发失效只触发一次恢复流）
+  ok - 恢复未结束前后续失效不再触发回调
+  ok - 去抖窗口内回调参数正确
+[auth-contract] 403 不误判账号退出（回归锁定）
+  ok - HTTP/body 403 普通 reject
+  ok - 403 不清会话、不触发登出/岗位恢复
+[auth-contract] auth.recoverPostInvalid 四态恢复
+  ok - 多岗：自动切到另一有效岗
+  ok - 当前岗位已更新为服务端真源（不回切失效岗）
+  ok - 恢复流不清 token
+  ok - 恢复完成后去抖复位，可再次触发
+  ok - 仅剩失效岗：无替代→登出引导重登
+  ok - 无替代岗位触发登录引导链
+  ok - 登录引导真实跳转登录页（生产注册链）
+  ok - 全部撤销：登出
+  ok - 组织停用 null 元素被过滤，切到有效岗
+  ok - 失败场景经生产链路触发一次恢复
+  ok - 刷新失败：登出并引导重登
+  ok - 失败路径复位去抖：后续失效可再次触发
+[auth-contract] 恢复流会话代次护栏（真实在途竞态）
+  ok - K1 恢复流已发起 myPosts
+  ok - K1 迟到恢复不覆盖手动切岗
+  ok - K1 token 不受迟到恢复影响
+  ok - K2 恢复流已发起 myPosts
+  ok - K2 清场态不被迟到恢复回填
+  ok - K2 恢复流不重复触发登录引导
+  ok - K3 恢复流已发起 myPosts
+  ok - K3 恢复失败不登出期间登录的新会话
+  ok - K3 不对新账号触发登录引导
+[auth-contract] 批次#5：saveLogin 岗位上下文隔离（M02-T02/I03）
+  ok - L1 新 token 已保存
+  ok - L1 旧岗位 postId 与列表缓存全部隔离
+  ok - L2 新 token 不搭旧岗位缓存（currentApiPost 为空）
+  ok - L3 B 任职列表到达后重建岗位上下文
+  ok - L4 会话变化后守卫返回 false（迟到任职结果应丢弃）
+  ok - L4 同会话内守卫返回 true
+[auth-contract] 批次#5：统一退出清理范围（M02-T03/I04）
+  ok - M1 纯 API 账号：通用退出清 API 令牌与岗位
+  ok - M1 退出后回个人页
+  ok - M2 多岗位 API 账号：令牌与岗位上下文被清
+  ok - M2 API 退出不创建本地登录态
+  ok - M2 本地业务记录（客户列表）保留
+  ok - M3 纯净状态退出仍正常走完流程
+
+通过 54，失败 0

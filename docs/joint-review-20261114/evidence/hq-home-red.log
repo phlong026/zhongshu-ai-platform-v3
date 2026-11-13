@@ -1,0 +1,66 @@
+✖ 总部全量钱包200组织不截成100，套餐与生效价格读取真实总数 (70.94625ms)
+✖ 单项失败不清空成功数据，失败/等待不显示业务零，允许重试 (27.51825ms)
+✖ 权限不足不发总部数据请求，卡片展示无权限且入口不可点击 (11.070916ms)
+✖ 重试后的新结果不被旧请求覆盖 (11.764542ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 358.314042
+
+✖ failing tests:
+
+test at tests/platform-home.test.js:42:1
+✖ 总部全量钱包200组织不截成100，套餐与生效价格读取真实总数 (70.94625ms)
+  TypeError: state.load is not a function
+      at TestContext.<anonymous> (/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/joint-review-20261114/平台程序/admin-ui/tests/platform-home.test.js:44:15)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+
+test at tests/platform-home.test.js:51:1
+✖ 单项失败不清空成功数据，失败/等待不显示业务零，允许重试 (27.51825ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  '无' !== '—'
+
+      at TestContext.<anonymous> (/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/joint-review-20261114/平台程序/admin-ui/tests/platform-home.test.js:54:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '无',
+    expected: '—',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/platform-home.test.js:65:1
+✖ 权限不足不发总部数据请求，卡片展示无权限且入口不可点击 (11.070916ms)
+  TypeError: state.load is not a function
+      at TestContext.<anonymous> (/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/joint-review-20261114/平台程序/admin-ui/tests/platform-home.test.js:68:15)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at tests/platform-home.test.js:75:1
+✖ 重试后的新结果不被旧请求覆盖 (11.764542ms)
+  TypeError: state.load is not a function
+      at TestContext.<anonymous> (/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/joint-review-20261114/平台程序/admin-ui/tests/platform-home.test.js:81:21)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)

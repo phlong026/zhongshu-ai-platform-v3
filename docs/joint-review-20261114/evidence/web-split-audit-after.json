@@ -1,0 +1,171 @@
+{
+  "advisories": {
+    "1241206": {
+      "findings": [
+        {
+          "version": "0.16.47",
+          "paths": [
+            ".>markmap-lib>@vscode/markdown-it-katex>katex",
+            ".>markmap-lib>katex"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1241206,
+      "title": "KaTeX: Existing prototype pollution can bypass trust restrictions",
+      "module_name": "katex",
+      "vulnerable_versions": ">=0.11.0 <0.18.2",
+      "patched_versions": ">=0.18.2",
+      "severity": "low",
+      "cwe": "CWE-807",
+      "github_advisory_id": "GHSA-238p-pmpm-9mq7",
+      "url": "https://github.com/advisories/GHSA-238p-pmpm-9mq7"
+    },
+    "1244013": {
+      "findings": [
+        {
+          "version": "10.5.0",
+          "paths": [
+            ".>@form-create/designer>js-beautify>glob",
+            ".>js-beautify>glob"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1244013,
+      "title": "Glob: AbortSignal cancellation bypass allows post-timeout filesystem traversal",
+      "module_name": "glob",
+      "vulnerable_versions": ">=9.0.0 <=14.0.1",
+      "patched_versions": ">=14.0.2",
+      "severity": "moderate",
+      "cwe": "CWE-400",
+      "github_advisory_id": "GHSA-3g3m-2fjr-6pw4",
+      "url": "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4"
+    },
+    "1244623": {
+      "findings": [
+        {
+          "version": "9.0.9",
+          "paths": [
+            ".>@form-create/designer>js-beautify>editorconfig>minimatch",
+            ".>@form-create/designer>js-beautify>glob>minimatch",
+            ".>js-beautify>editorconfig>minimatch",
+            ".>js-beautify>glob>minimatch",
+            ".>prettier-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "10.2.6",
+          "paths": [
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>eslint>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>eslint>minimatch",
+            ".>eslint>@eslint/config-array>minimatch",
+            ".>eslint>minimatch",
+            ".>eslint-plugin-vue>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>eslint-plugin-vue>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>eslint-plugin-vue>eslint>@eslint/config-array>minimatch",
+            ".>eslint-plugin-vue>eslint>minimatch",
+            ".>eslint-plugin-vue>vue-eslint-parser>eslint>@eslint/config-array>minimatch",
+            ".>eslint-plugin-vue>vue-eslint-parser>eslint>minimatch",
+            ".>eslint-plugin-vue>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch",
+            ".>eslint-plugin-vue>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch",
+            ".>eslint-plugin-vue>@typescript-eslint/parser>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>minimatch",
+            ".>typescript-eslint>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>eslint>minimatch",
+            ".>vue-eslint-parser>eslint>@eslint/config-array>minimatch",
+            ".>vue-eslint-parser>eslint>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1244623,
+      "title": "minimatch has potential denial of service via globparts amplification",
+      "module_name": "minimatch",
+      "vulnerable_versions": ">=7.0.0 <11.0.1",
+      "patched_versions": ">=11.0.1",
+      "severity": "moderate",
+      "cwe": "CWE-405",
+      "github_advisory_id": "GHSA-g3hv-75wg-m249",
+      "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249"
+    },
+    "1246029": {
+      "findings": [
+        {
+          "version": "5.11.1",
+          "paths": [
+            ".>vite-plugin-svg-icons-ng>svg-icon-baker>fast-xml-parser"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1246029,
+      "title": "fast-xml-parser: Quadratic CPU consumption scanning unterminated stop-node tags",
+      "module_name": "fast-xml-parser",
+      "vulnerable_versions": "<=5.11.2",
+      "patched_versions": ">=5.11.3",
+      "severity": "low",
+      "cwe": "CWE-407",
+      "github_advisory_id": "GHSA-474x-hrwr-fgx4",
+      "url": "https://github.com/advisories/GHSA-474x-hrwr-fgx4"
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 2,
+      "moderate": 2,
+      "high": 0,
+      "critical": 0
+    },
+    "dependencies": 510,
+    "devDependencies": 559,
+    "optionalDependencies": 99,
+    "totalDependencies": 1168
+  }
+}

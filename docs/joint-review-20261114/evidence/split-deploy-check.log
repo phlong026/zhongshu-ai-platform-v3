@@ -1,0 +1,19 @@
+test_01_real_compose_parser_and_policy (__main__.DeploymentChecks) ... ok
+test_02_missing_configuration_fails_closed (__main__.DeploymentChecks) ... ok
+test_03_negative_compose_models (__main__.DeploymentChecks) ... ok
+test_04_secret_files_are_external_distinct_and_not_defaults (__main__.DeploymentChecks) ... ok
+test_05_mutations_require_explicit_confirmation (__main__.DeploymentChecks) ... ok
+test_06_image_scope_and_labels (__main__.DeploymentChecks) ... ok
+test_07_migration_compose_owner_only (__main__.DeploymentChecks) ... ok
+test_08_backup_integrity_and_nonempty_restore_refused (__main__.DeploymentChecks) ... ok
+test_09_runtime_scope_rejects_wrong_volume_and_running_api (__main__.DeploymentChecks) ... ok
+test_10_default_migration_is_plan_without_daemon (__main__.DeploymentChecks) ... WARNING:root:PLAN ONLY: migrate for zhongshu-platform-b/zhongshu_platform_b; no Docker daemon call or mutation
+ok
+test_11_shell_and_python_syntax (__main__.DeploymentChecks) ... ok
+test_12_minimal_image_and_no_unsafe_commands (__main__.DeploymentChecks) ... ok
+test_13_redis_health_requires_actuator_info_permission (__main__.DeploymentChecks) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 2.874s
+
+OK

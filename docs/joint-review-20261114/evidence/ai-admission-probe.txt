@@ -1,0 +1,3 @@
+2026-11-14; isolated JVM, no HTTP/DB/provider calls
+100 synchronized callers: 16 admitted, 84 explicit busy; per organization max4; release/reuse1000 successful.
+This verifies resource admission only, not 100 successful AI tasks or 200 online capacity.

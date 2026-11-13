@@ -1,0 +1,10 @@
+✔ 干净B工作树默认代理赋能后端48081，显式代理配置仍生效 (46.150417ms)
+✔ 无私有env文件时API仍走同源admin-api，部署覆盖保持有效 (5.939ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 209.420875

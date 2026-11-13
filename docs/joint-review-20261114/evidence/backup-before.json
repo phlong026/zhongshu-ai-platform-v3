@@ -1,0 +1,12 @@
+{
+  "scenario": "pg_dump emits partial SQL then exits 1",
+  "exit_code": 1,
+  "retained_files": [
+    {
+      "name": "review_fixture-20261114-005100.sql.gz",
+      "bytes": 38,
+      "mode": "0o644"
+    }
+  ],
+  "expected": "failed dump never appears with success .sql.gz filename"
+}

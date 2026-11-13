@@ -1,0 +1,44 @@
+{
+  "review_date": "2026-11-14",
+  "repositories": [
+    {
+      "root": "/Users/honor.pei/Documents/企业FDE项目/zhongshu-ai-platform-v3",
+      "head": "b8b37f89da31f513be519514ed41b4b6fd1e7dfc",
+      "branch": "fix/joint-release-audit-20261114",
+      "remote": "https://github.com/phlong026/zhongshu-ai-platform-v3.git",
+      "status": "?? .workbuddy/"
+    },
+    {
+      "root": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台",
+      "head": "f77fad1c715df8e92237f07c1a1594502a7110ac",
+      "branch": "fix/joint-release-audit-20261114",
+      "remote": "https://github.com/phlong026/zhongshu-ai-platform-v3.git",
+      "status": ""
+    }
+  ],
+  "selected_backend_candidate": {
+    "root": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/joint-review-20261114",
+    "branch": "fix/joint-release-split-20261114",
+    "head": "60e70cfb9f10e39e53464aafbcf2b8596dedc696",
+    "reason": "用户明确采用功能完整的 platform-split 分支",
+    "source_branch": "feat/platform-split-docker-20261110"
+  },
+  "selected_mini_candidate": {
+    "root": "/Users/honor.pei/Documents/企业FDE项目/zhongshu-ai-platform-v3/.worktrees/joint-review-20261114",
+    "branch": "fix/joint-review-mini-isolated-20261114",
+    "head": "b8b37f89da31f513be519514ed41b4b6fd1e7dfc",
+    "reason": "用户要求所有修改独立新分区；迁入独立worktree"
+  },
+  "final_isolated_candidates": {
+    "mini": {
+      "root": "/Users/honor.pei/Documents/企业FDE项目/zhongshu-ai-platform-v3/.worktrees/joint-review-20261114",
+      "branch": "fix/joint-review-mini-isolated-20261114",
+      "code_head": "4da9c15c969b6579a4dc5907d5ec7b9442ddb867"
+    },
+    "backend_web": {
+      "root": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/joint-review-20261114",
+      "branch": "fix/joint-release-split-20261114",
+      "code_head": "86abb721d43d766609d772e5e4a1faf992d2d6dd"
+    }
+  }
+}

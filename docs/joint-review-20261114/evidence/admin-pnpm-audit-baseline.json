@@ -1,0 +1,1450 @@
+{
+  "advisories": {
+    "1113465": {
+      "findings": [
+        {
+          "version": "9.0.3",
+          "paths": [
+            ".>prettier-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1113465,
+      "title": "minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern",
+      "module_name": "minimatch",
+      "vulnerable_versions": ">=9.0.0 <9.0.6",
+      "patched_versions": ">=9.0.6",
+      "severity": "high",
+      "cwe": "CWE-1333",
+      "github_advisory_id": "GHSA-3ppc-4f35-3m26",
+      "url": "https://github.com/advisories/GHSA-3ppc-4f35-3m26"
+    },
+    "1113544": {
+      "findings": [
+        {
+          "version": "9.0.3",
+          "paths": [
+            ".>prettier-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1113544,
+      "title": "minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments",
+      "module_name": "minimatch",
+      "vulnerable_versions": ">=9.0.0 <9.0.7",
+      "patched_versions": ">=9.0.7",
+      "severity": "high",
+      "cwe": "CWE-407",
+      "github_advisory_id": "GHSA-7r86-cg39-jmmj",
+      "url": "https://github.com/advisories/GHSA-7r86-cg39-jmmj"
+    },
+    "1113552": {
+      "findings": [
+        {
+          "version": "9.0.3",
+          "paths": [
+            ".>prettier-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1113552,
+      "title": "minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions",
+      "module_name": "minimatch",
+      "vulnerable_versions": ">=9.0.0 <9.0.7",
+      "patched_versions": ">=9.0.7",
+      "severity": "high",
+      "cwe": "CWE-1333",
+      "github_advisory_id": "GHSA-23c5-xmqv-rm74",
+      "url": "https://github.com/advisories/GHSA-23c5-xmqv-rm74"
+    },
+    "1240091": {
+      "findings": [
+        {
+          "version": "3.1.7",
+          "paths": [
+            ".>@commitlint/cli>@commitlint/load>@commitlint/config-validator>ajv>fast-uri",
+            ".>@commitlint/cli>@commitlint/load>@commitlint/resolve-extends>@commitlint/config-validator>ajv>fast-uri",
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-html>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-order>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240091,
+      "title": "fast-uri vulnerable to inconsistent host case normalization via percent-encoded octets",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.8",
+      "patched_versions": ">=3.1.8",
+      "severity": "moderate",
+      "cwe": "CWE-178",
+      "github_advisory_id": "GHSA-hrr3-gc8f-f4qj",
+      "url": "https://github.com/advisories/GHSA-hrr3-gc8f-f4qj"
+    },
+    "1240100": {
+      "findings": [
+        {
+          "version": "1.1.18",
+          "paths": [
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240100,
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.21",
+      "patched_versions": ">=1.1.21",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-q2hr-2g5m-vwhr",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr"
+    },
+    "1240104": {
+      "findings": [
+        {
+          "version": "1.1.18",
+          "paths": [
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240104,
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.20",
+      "patched_versions": ">=1.1.20",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-qhr7-859c-m2p7",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7"
+    },
+    "1240108": {
+      "findings": [
+        {
+          "version": "1.1.18",
+          "paths": [
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>@typescript-eslint/parser>eslint>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>eslint>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>@eslint/eslintrc>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>@humanwhocodes/config-array>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>file-entry-cache>flat-cache>rimraf>glob>minimatch>brace-expansion",
+            ".>prettier-eslint>vue-eslint-parser>eslint>minimatch>brace-expansion"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240108,
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.19",
+      "patched_versions": ">=1.1.19",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-6j4f-fj2g-mc7p",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+    },
+    "1241206": {
+      "findings": [
+        {
+          "version": "0.16.47",
+          "paths": [
+            ".>markmap-lib>@vscode/markdown-it-katex>katex",
+            ".>markmap-lib>katex"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1241206,
+      "title": "KaTeX: Existing prototype pollution can bypass trust restrictions",
+      "module_name": "katex",
+      "vulnerable_versions": ">=0.11.0 <0.18.2",
+      "patched_versions": ">=0.18.2",
+      "severity": "low",
+      "cwe": "CWE-807",
+      "github_advisory_id": "GHSA-238p-pmpm-9mq7",
+      "url": "https://github.com/advisories/GHSA-238p-pmpm-9mq7"
+    },
+    "1242600": {
+      "findings": [
+        {
+          "version": "14.3.1",
+          "paths": [
+            ".>markdown-it",
+            ".>markmap-lib>markdown-it"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242600,
+      "title": "markdown-it: Quadratic complexity in smartquotes with unmatched closing quotes",
+      "module_name": "markdown-it",
+      "vulnerable_versions": "<14.3.2",
+      "patched_versions": ">=14.3.2",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-r7fv-28h4-cvq7",
+      "url": "https://github.com/advisories/GHSA-r7fv-28h4-cvq7"
+    },
+    "1242604": {
+      "findings": [
+        {
+          "version": "1.16.0",
+          "paths": [
+            ".>axios>follow-redirects"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242604,
+      "title": "follow-redirects array-form headers bypass cross-origin credential stripping",
+      "module_name": "follow-redirects",
+      "vulnerable_versions": ">=1.16.0 <1.16.1",
+      "patched_versions": ">=1.16.1",
+      "severity": "high",
+      "cwe": "CWE-200, CWE-212",
+      "github_advisory_id": "GHSA-q3jh-wrc6-jgq8",
+      "url": "https://github.com/advisories/GHSA-q3jh-wrc6-jgq8"
+    },
+    "1242605": {
+      "findings": [
+        {
+          "version": "1.16.0",
+          "paths": [
+            ".>axios>follow-redirects"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242605,
+      "title": "follow-redirects sensitiveHeaders regex escaping can expose credential headers",
+      "module_name": "follow-redirects",
+      "vulnerable_versions": ">=1.16.0 <1.16.1",
+      "patched_versions": ">=1.16.1",
+      "severity": "high",
+      "cwe": "CWE-185, CWE-200",
+      "github_advisory_id": "GHSA-8r9p-f939-6h3c",
+      "url": "https://github.com/advisories/GHSA-8r9p-f939-6h3c"
+    },
+    "1242624": {
+      "findings": [
+        {
+          "version": "8.1.4",
+          "paths": [
+            ".>vue-router>unplugin>vite",
+            ".>@vitejs/plugin-vue>vite",
+            ".>@vitejs/plugin-vue-jsx>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>vite",
+            ".>unocss>@unocss/vite>vite",
+            ".>unplugin-auto-import>unimport>unplugin>vite",
+            ".>unplugin-auto-import>unplugin>vite",
+            ".>unplugin-vue-components>unplugin>vite",
+            ".>vite",
+            ".>vite-plugin-compression>vite",
+            ".>vite-plugin-svg-icons-ng>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242624,
+      "title": "launch-editor: escapeCmdArgs() omits % escaping on Windows",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.0.0 <=8.1.5",
+      "patched_versions": ">=8.1.6",
+      "severity": "moderate",
+      "cwe": "CWE-78",
+      "github_advisory_id": "GHSA-698v-4r3x-3vcv",
+      "url": "https://github.com/advisories/GHSA-698v-4r3x-3vcv"
+    },
+    "1242646": {
+      "findings": [
+        {
+          "version": "14.3.1",
+          "paths": [
+            ".>markdown-it",
+            ".>markmap-lib>markdown-it"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242646,
+      "title": "markdown-it: Quadratic-time denial of service in inline HTML parsing with html enabled",
+      "module_name": "markdown-it",
+      "vulnerable_versions": "<14.3.3",
+      "patched_versions": ">=14.3.3",
+      "severity": "low",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-vfgh-jcmw-g37q",
+      "url": "https://github.com/advisories/GHSA-vfgh-jcmw-g37q"
+    },
+    "1242647": {
+      "findings": [
+        {
+          "version": "2.0.0",
+          "paths": [
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/service-shiki>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>devframe>@modelcontextprotocol/server"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242647,
+      "title": "MCP  TypeScript server SDK: Shared transport or server instances delivered one HTTP client's messages to another",
+      "module_name": "@modelcontextprotocol/server",
+      "vulnerable_versions": ">=2.0.0 <2.3.0",
+      "patched_versions": ">=2.3.0",
+      "severity": "high",
+      "cwe": "CWE-362",
+      "github_advisory_id": "GHSA-jm63-cq47-j5jp",
+      "url": "https://github.com/advisories/GHSA-jm63-cq47-j5jp"
+    },
+    "1242648": {
+      "findings": [
+        {
+          "version": "2.0.0",
+          "paths": [
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/service-shiki>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>devframe>@modelcontextprotocol/server"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242648,
+      "title": "MCP TypeScript SDK: One HTTP request within the default size limit could exhaust server memory during validation",
+      "module_name": "@modelcontextprotocol/server",
+      "vulnerable_versions": ">=2.0.0 <2.3.0",
+      "patched_versions": ">=2.3.0",
+      "severity": "high",
+      "cwe": "CWE-770",
+      "github_advisory_id": "GHSA-46jr-4wx8-v453",
+      "url": "https://github.com/advisories/GHSA-46jr-4wx8-v453"
+    },
+    "1242653": {
+      "findings": [
+        {
+          "version": "8.1.4",
+          "paths": [
+            ".>vue-router>unplugin>vite",
+            ".>@vitejs/plugin-vue>vite",
+            ".>@vitejs/plugin-vue-jsx>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>vite",
+            ".>unocss>@unocss/vite>vite",
+            ".>unplugin-auto-import>unimport>unplugin>vite",
+            ".>unplugin-auto-import>unplugin>vite",
+            ".>unplugin-vue-components>unplugin>vite",
+            ".>vite",
+            ".>vite-plugin-compression>vite",
+            ".>vite-plugin-svg-icons-ng>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242653,
+      "title": "launch-editor: Editor CLI flag misinterpretation causing arbitrary command execution for some editors",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.0.0 <=8.1.5",
+      "patched_versions": ">=8.1.6",
+      "severity": "moderate",
+      "cwe": "CWE-88",
+      "github_advisory_id": "GHSA-r825-w8mm-5pxw",
+      "url": "https://github.com/advisories/GHSA-r825-w8mm-5pxw"
+    },
+    "1242660": {
+      "findings": [
+        {
+          "version": "8.1.4",
+          "paths": [
+            ".>vue-router>unplugin>vite",
+            ".>@vitejs/plugin-vue>vite",
+            ".>@vitejs/plugin-vue-jsx>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>vite",
+            ".>unocss>@unocss/vite>vite",
+            ".>unplugin-auto-import>unimport>unplugin>vite",
+            ".>unplugin-auto-import>unplugin>vite",
+            ".>unplugin-vue-components>unplugin>vite",
+            ".>vite",
+            ".>vite-plugin-compression>vite",
+            ".>vite-plugin-svg-icons-ng>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242660,
+      "title": "launch-editor: `fs.existsSync()` existence check can be bypassed on Windows",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.0.0 <=8.1.5",
+      "patched_versions": ">=8.1.6",
+      "severity": "high",
+      "cwe": "CWE-77",
+      "github_advisory_id": "GHSA-587h-7wmj-h5pm",
+      "url": "https://github.com/advisories/GHSA-587h-7wmj-h5pm"
+    },
+    "1242666": {
+      "findings": [
+        {
+          "version": "2.0.0",
+          "paths": [
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/service-shiki>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>devframe>@modelcontextprotocol/server"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242666,
+      "title": "MCP TypeScript SDK: Server bearer authentication accepted tokens issued for another service",
+      "module_name": "@modelcontextprotocol/server",
+      "vulnerable_versions": ">=2.0.0 <2.3.0",
+      "patched_versions": ">=2.3.0",
+      "severity": "moderate",
+      "cwe": "CWE-863",
+      "github_advisory_id": "GHSA-rvq5-wwqv-78pq",
+      "url": "https://github.com/advisories/GHSA-rvq5-wwqv-78pq"
+    },
+    "1242672": {
+      "findings": [
+        {
+          "version": "14.3.1",
+          "paths": [
+            ".>markdown-it",
+            ".>markmap-lib>markdown-it"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242672,
+      "title": "markdown-it: Quadratic-time rendering of a single multi-line link reference definition with default options (regression since 14.0)",
+      "module_name": "markdown-it",
+      "vulnerable_versions": ">=14.1.0 <14.3.3",
+      "patched_versions": ">=14.3.3",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-gfr2-rv44-r23c",
+      "url": "https://github.com/advisories/GHSA-gfr2-rv44-r23c"
+    },
+    "1242726": {
+      "findings": [
+        {
+          "version": "8.1.4",
+          "paths": [
+            ".>vue-router>unplugin>vite",
+            ".>@vitejs/plugin-vue>vite",
+            ".>@vitejs/plugin-vue-jsx>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>vite",
+            ".>unocss>@unocss/vite>vite",
+            ".>unplugin-auto-import>unimport>unplugin>vite",
+            ".>unplugin-auto-import>unplugin>vite",
+            ".>unplugin-vue-components>unplugin>vite",
+            ".>vite",
+            ".>vite-plugin-compression>vite",
+            ".>vite-plugin-svg-icons-ng>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242726,
+      "title": "Vite: Cross origin script execution through Vite custom middleware",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.0.0 <=8.1.5",
+      "patched_versions": ">=8.1.6",
+      "severity": "low",
+      "cwe": "CWE-80",
+      "github_advisory_id": "GHSA-9jrq-w75r-8gcw",
+      "url": "https://github.com/advisories/GHSA-9jrq-w75r-8gcw"
+    },
+    "1242732": {
+      "findings": [
+        {
+          "version": "8.1.4",
+          "paths": [
+            ".>vue-router>unplugin>vite",
+            ".>@vitejs/plugin-vue>vite",
+            ".>@vitejs/plugin-vue-jsx>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>vite",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>vite",
+            ".>unocss>@unocss/vite>vite",
+            ".>unplugin-auto-import>unimport>unplugin>vite",
+            ".>unplugin-auto-import>unplugin>vite",
+            ".>unplugin-vue-components>unplugin>vite",
+            ".>vite",
+            ".>vite-plugin-compression>vite",
+            ".>vite-plugin-svg-icons-ng>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242732,
+      "title": "Vite: Files outside `server.fs.allow` could be served when project paths match system paths on non-Windows machine",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.0.0 <=8.1.5",
+      "patched_versions": ">=8.1.6",
+      "severity": "moderate",
+      "cwe": "CWE-22, CWE-284",
+      "github_advisory_id": "GHSA-rq7h-c2jc-7f22",
+      "url": "https://github.com/advisories/GHSA-rq7h-c2jc-7f22"
+    },
+    "1242880": {
+      "findings": [
+        {
+          "version": "3.4.16",
+          "paths": [
+            ".>dompurify",
+            ".>vue-dompurify-html>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242880,
+      "title": "DOMPurify SAFE_FOR_TEMPLATES bypass: split template expressions survive in attached shadow root content on DOM output modes",
+      "module_name": "dompurify",
+      "vulnerable_versions": ">=3.4.4 <=3.4.16",
+      "patched_versions": ">=3.4.17",
+      "severity": "critical",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-cg2g-xh64-v4q7",
+      "url": "https://github.com/advisories/GHSA-cg2g-xh64-v4q7"
+    },
+    "1242881": {
+      "findings": [
+        {
+          "version": "3.4.16",
+          "paths": [
+            ".>dompurify",
+            ".>vue-dompurify-html>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242881,
+      "title": "DOMPurify IN_PLACE: hook that removes a parent or sibling leaves the detached subtree's event handlers armed (incomplete fix for GHSA-p98j-92pf-mc4p)",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.16",
+      "patched_versions": ">=3.4.17",
+      "severity": "high",
+      "cwe": "CWE-79, CWE-693",
+      "github_advisory_id": "GHSA-mrv2-3pqr-j5jr",
+      "url": "https://github.com/advisories/GHSA-mrv2-3pqr-j5jr"
+    },
+    "1242882": {
+      "findings": [
+        {
+          "version": "3.4.16",
+          "paths": [
+            ".>dompurify",
+            ".>vue-dompurify-html>dompurify"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242882,
+      "title": "DOMPurify: SMIL attributeName=href guard is skipped when PARSER_MEDIA_TYPE is application/xhtml+xml",
+      "module_name": "dompurify",
+      "vulnerable_versions": "<=3.4.16",
+      "patched_versions": ">=3.4.17",
+      "severity": "low",
+      "cwe": "CWE-79",
+      "github_advisory_id": "GHSA-c6gr-qvv4-5v3f",
+      "url": "https://github.com/advisories/GHSA-c6gr-qvv4-5v3f"
+    },
+    "1243066": {
+      "findings": [
+        {
+          "version": "4.5.4",
+          "paths": [
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/service-shiki>devframe>@modelcontextprotocol/server>@modelcontextprotocol/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/service-shiki>devframe>@modelcontextprotocol/server>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>devframe>@modelcontextprotocol/server>@modelcontextprotocol/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>devframe>@modelcontextprotocol/server>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>@devframes/hub>devframe>@modelcontextprotocol/server>@modelcontextprotocol/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>@devframes/hub>devframe>@modelcontextprotocol/server>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/hub>devframe>@modelcontextprotocol/server>@modelcontextprotocol/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/hub>devframe>@modelcontextprotocol/server>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>@json-render/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>devframe>@modelcontextprotocol/server>@modelcontextprotocol/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>devframe>@modelcontextprotocol/server>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>@devframes/hub>devframe>@modelcontextprotocol/server>@modelcontextprotocol/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>@devframes/hub>devframe>@modelcontextprotocol/server>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>devframe>@modelcontextprotocol/server>@modelcontextprotocol/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>devframe>@modelcontextprotocol/server>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>devframe>@modelcontextprotocol/server>@modelcontextprotocol/core>zod",
+            ".>unocss>@unocss/vite>@unocss/inspector>devframe>@modelcontextprotocol/server>zod"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243066,
+      "title": "Zod can exhaust memory while validating oversized constrained collections",
+      "module_name": "zod",
+      "vulnerable_versions": "<4.6.6",
+      "patched_versions": ">=4.6.6",
+      "severity": "high",
+      "cwe": "CWE-770",
+      "github_advisory_id": "GHSA-mrhx-c7xc-m3w5",
+      "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5"
+    },
+    "1243077": {
+      "findings": [
+        {
+          "version": "8.10.2",
+          "paths": [
+            ".>jsdom>undici"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243077,
+      "title": "undici vulnerable to Denial of Service via unbounded memory in the EventSource parser",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.12.2",
+      "patched_versions": ">=8.12.2",
+      "severity": "moderate",
+      "cwe": "CWE-770",
+      "github_advisory_id": "GHSA-4qv8-2p9j-2685",
+      "url": "https://github.com/advisories/GHSA-4qv8-2p9j-2685"
+    },
+    "1243079": {
+      "findings": [
+        {
+          "version": "6.28.1",
+          "paths": [
+            ".>markmap-lib>markmap-html-parser>cheerio>undici"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243079,
+      "title": "undici vulnerable to Denial of Service via unbounded memory in the EventSource parser",
+      "module_name": "undici",
+      "vulnerable_versions": ">=6.5.0 <6.29.1",
+      "patched_versions": ">=6.29.1",
+      "severity": "moderate",
+      "cwe": "CWE-770",
+      "github_advisory_id": "GHSA-4qv8-2p9j-2685",
+      "url": "https://github.com/advisories/GHSA-4qv8-2p9j-2685"
+    },
+    "1243080": {
+      "findings": [
+        {
+          "version": "8.10.2",
+          "paths": [
+            ".>jsdom>undici"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243080,
+      "title": "undici vulnerable to Subresource Integrity bypass via non-lowercase algorithm tokens",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.12.2",
+      "patched_versions": ">=8.12.2",
+      "severity": "moderate",
+      "cwe": "CWE-178",
+      "github_advisory_id": "GHSA-f72v-6w45-q472",
+      "url": "https://github.com/advisories/GHSA-f72v-6w45-q472"
+    },
+    "1243098": {
+      "findings": [
+        {
+          "version": "3.1.7",
+          "paths": [
+            ".>@commitlint/cli>@commitlint/load>@commitlint/config-validator>ajv>fast-uri",
+            ".>@commitlint/cli>@commitlint/load>@commitlint/resolve-extends>@commitlint/config-validator>ajv>fast-uri",
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-html>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-order>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243098,
+      "title": "fast-uri vulnerable to URI scheme spoofing via percent-encoded scheme decoding",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.9",
+      "patched_versions": ">=3.1.9",
+      "severity": "moderate",
+      "cwe": "CWE-172, CWE-180",
+      "github_advisory_id": "GHSA-w74x-v6f9-j3xg",
+      "url": "https://github.com/advisories/GHSA-w74x-v6f9-j3xg"
+    },
+    "1243101": {
+      "findings": [
+        {
+          "version": "3.1.7",
+          "paths": [
+            ".>@commitlint/cli>@commitlint/load>@commitlint/config-validator>ajv>fast-uri",
+            ".>@commitlint/cli>@commitlint/load>@commitlint/resolve-extends>@commitlint/config-validator>ajv>fast-uri",
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-html>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-order>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243101,
+      "title": "fast-uri vulnerable to improper path equivalence in relative reference normalization",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.9",
+      "patched_versions": ">=3.1.9",
+      "severity": "low",
+      "cwe": "CWE-41",
+      "github_advisory_id": "GHSA-xhq7-xmqj-769h",
+      "url": "https://github.com/advisories/GHSA-xhq7-xmqj-769h"
+    },
+    "1243104": {
+      "findings": [
+        {
+          "version": "3.1.7",
+          "paths": [
+            ".>@commitlint/cli>@commitlint/load>@commitlint/config-validator>ajv>fast-uri",
+            ".>@commitlint/cli>@commitlint/load>@commitlint/resolve-extends>@commitlint/config-validator>ajv>fast-uri",
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-html>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-order>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243104,
+      "title": "fast-uri vulnerable to host confusion via unchecked WHATWG host canonicalization",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.1.3 <3.1.9",
+      "patched_versions": ">=3.1.9",
+      "severity": "moderate",
+      "cwe": "CWE-20, CWE-436",
+      "github_advisory_id": "GHSA-wjr9-j795-jxcr",
+      "url": "https://github.com/advisories/GHSA-wjr9-j795-jxcr"
+    },
+    "1243107": {
+      "findings": [
+        {
+          "version": "3.1.7",
+          "paths": [
+            ".>@commitlint/cli>@commitlint/load>@commitlint/config-validator>ajv>fast-uri",
+            ".>@commitlint/cli>@commitlint/load>@commitlint/resolve-extends>@commitlint/config-validator>ajv>fast-uri",
+            ".>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-html>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint>table>ajv>fast-uri",
+            ".>stylelint-config-standard>stylelint-config-recommended>stylelint>table>ajv>fast-uri",
+            ".>stylelint-order>stylelint>table>ajv>fast-uri"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243107,
+      "title": "fast-uri vulnerable to scheme injection via an unescaped first-segment colon in suffix references",
+      "module_name": "fast-uri",
+      "vulnerable_versions": ">=3.0.0 <3.1.9",
+      "patched_versions": ">=3.1.9",
+      "severity": "low",
+      "cwe": "CWE-41, CWE-116",
+      "github_advisory_id": "GHSA-333x-w4r6-6crp",
+      "url": "https://github.com/advisories/GHSA-333x-w4r6-6crp"
+    },
+    "1243112": {
+      "findings": [
+        {
+          "version": "8.10.2",
+          "paths": [
+            ".>jsdom>undici"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243112,
+      "title": "undici vulnerable to Denial of Service via unhandled error on excessive content-encodings",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.12.2",
+      "patched_versions": ">=8.12.2",
+      "severity": "high",
+      "cwe": "CWE-248, CWE-459",
+      "github_advisory_id": "GHSA-xjj6-f33q-929c",
+      "url": "https://github.com/advisories/GHSA-xjj6-f33q-929c"
+    },
+    "1243114": {
+      "findings": [
+        {
+          "version": "6.28.1",
+          "paths": [
+            ".>markmap-lib>markmap-html-parser>cheerio>undici"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243114,
+      "title": "undici vulnerable to Denial of Service via unhandled error on excessive content-encodings",
+      "module_name": "undici",
+      "vulnerable_versions": ">=6.23.0 <6.29.1",
+      "patched_versions": ">=6.29.1",
+      "severity": "high",
+      "cwe": "CWE-248, CWE-459",
+      "github_advisory_id": "GHSA-xjj6-f33q-929c",
+      "url": "https://github.com/advisories/GHSA-xjj6-f33q-929c"
+    },
+    "1243472": {
+      "findings": [
+        {
+          "version": "8.10.2",
+          "paths": [
+            ".>jsdom>undici"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243472,
+      "title": "undici vulnerable to cache poisoning and cross-user disclosure via cross-origin redirects",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.12.2",
+      "patched_versions": ">=8.12.2",
+      "severity": "high",
+      "cwe": "CWE-346, CWE-524",
+      "github_advisory_id": "GHSA-4w7w-5xrc-9h26",
+      "url": "https://github.com/advisories/GHSA-4w7w-5xrc-9h26"
+    },
+    "1243474": {
+      "findings": [
+        {
+          "version": "8.10.2",
+          "paths": [
+            ".>jsdom>undici"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243474,
+      "title": "undici vulnerable to TLS certificate validation bypass via dropped tls options in Agent",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.12.2",
+      "patched_versions": ">=8.12.2",
+      "severity": "high",
+      "cwe": "CWE-295",
+      "github_advisory_id": "GHSA-2m5v-pch6-74hx",
+      "url": "https://github.com/advisories/GHSA-2m5v-pch6-74hx"
+    },
+    "1243476": {
+      "findings": [
+        {
+          "version": "6.28.1",
+          "paths": [
+            ".>markmap-lib>markmap-html-parser>cheerio>undici"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243476,
+      "title": "undici vulnerable to TLS certificate validation bypass via dropped tls options in Agent",
+      "module_name": "undici",
+      "vulnerable_versions": ">=4.0.0 <6.29.1",
+      "patched_versions": ">=6.29.1",
+      "severity": "high",
+      "cwe": "CWE-295",
+      "github_advisory_id": "GHSA-2m5v-pch6-74hx",
+      "url": "https://github.com/advisories/GHSA-2m5v-pch6-74hx"
+    },
+    "1243477": {
+      "findings": [
+        {
+          "version": "8.10.2",
+          "paths": [
+            ".>jsdom>undici"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243477,
+      "title": "undici vulnerable to Denial of Service via TLS 1.2 certificate-changing renegotiation",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.12.2",
+      "patched_versions": ">=8.12.2",
+      "severity": "high",
+      "cwe": "CWE-248, CWE-617",
+      "github_advisory_id": "GHSA-qrxm-fqhp-jwvm",
+      "url": "https://github.com/advisories/GHSA-qrxm-fqhp-jwvm"
+    },
+    "1243479": {
+      "findings": [
+        {
+          "version": "6.28.1",
+          "paths": [
+            ".>markmap-lib>markmap-html-parser>cheerio>undici"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243479,
+      "title": "undici vulnerable to Denial of Service via TLS 1.2 certificate-changing renegotiation",
+      "module_name": "undici",
+      "vulnerable_versions": ">=4.2.1 <6.29.1",
+      "patched_versions": ">=6.29.1",
+      "severity": "high",
+      "cwe": "CWE-248, CWE-617",
+      "github_advisory_id": "GHSA-qrxm-fqhp-jwvm",
+      "url": "https://github.com/advisories/GHSA-qrxm-fqhp-jwvm"
+    },
+    "1243480": {
+      "findings": [
+        {
+          "version": "8.10.2",
+          "paths": [
+            ".>jsdom>undici"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243480,
+      "title": "undici WebSocket client vulnerable to Denial of Service via unbounded automatic PONG buffering",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.12.2",
+      "patched_versions": ">=8.12.2",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-405, CWE-770",
+      "github_advisory_id": "GHSA-9fm3-97px-rjf6",
+      "url": "https://github.com/advisories/GHSA-9fm3-97px-rjf6"
+    },
+    "1243482": {
+      "findings": [
+        {
+          "version": "6.28.1",
+          "paths": [
+            ".>markmap-lib>markmap-html-parser>cheerio>undici"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243482,
+      "title": "undici WebSocket client vulnerable to Denial of Service via unbounded automatic PONG buffering",
+      "module_name": "undici",
+      "vulnerable_versions": ">=5.15.0 <6.29.1",
+      "patched_versions": ">=6.29.1",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-405, CWE-770",
+      "github_advisory_id": "GHSA-9fm3-97px-rjf6",
+      "url": "https://github.com/advisories/GHSA-9fm3-97px-rjf6"
+    },
+    "1243483": {
+      "findings": [
+        {
+          "version": "8.10.2",
+          "paths": [
+            ".>jsdom>undici"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243483,
+      "title": "undici vulnerable to Denial of Service via unhandled exception in the decompress interceptor",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.12.2",
+      "patched_versions": ">=8.12.2",
+      "severity": "moderate",
+      "cwe": "CWE-248",
+      "github_advisory_id": "GHSA-55wc-3pg8-jfw6",
+      "url": "https://github.com/advisories/GHSA-55wc-3pg8-jfw6"
+    },
+    "1243487": {
+      "findings": [
+        {
+          "version": "2.0.0",
+          "paths": [
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/service-shiki>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@devframes/vite>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>@devframes/json-render>@devframes/hub>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>@vitejs/devtools-kit>devframe>@modelcontextprotocol/server",
+            ".>unocss>@unocss/vite>@unocss/inspector>devframe>@modelcontextprotocol/server"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243487,
+      "title": "MCP TypeScript SDK: HTTP server transports and handlers did not limit request body size or JSON-RPC batch length",
+      "module_name": "@modelcontextprotocol/server",
+      "vulnerable_versions": ">=2.0.0 <2.1.0",
+      "patched_versions": ">=2.1.0",
+      "severity": "high",
+      "cwe": "CWE-770",
+      "github_advisory_id": "GHSA-f897-62hf-6gxq",
+      "url": "https://github.com/advisories/GHSA-f897-62hf-6gxq"
+    },
+    "1243629": {
+      "findings": [
+        {
+          "version": "11.4.0",
+          "paths": [
+            ".>vue-i18n>@intlify/core-base",
+            ".>vue-i18n>@intlify/devtools-types>@intlify/core-base"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243629,
+      "title": "Vue I18n: `escapeParameter` does not escape named values when the same call also passes a list",
+      "module_name": "@intlify/core-base",
+      "vulnerable_versions": ">=9.0.0-beta.12 <11.4.14",
+      "patched_versions": ">=11.4.14",
+      "severity": "low",
+      "cwe": "CWE-79, CWE-116",
+      "github_advisory_id": "GHSA-8rc2-428q-7ww3",
+      "url": "https://github.com/advisories/GHSA-8rc2-428q-7ww3"
+    },
+    "1243633": {
+      "findings": [
+        {
+          "version": "11.4.0",
+          "paths": [
+            ".>vue-i18n"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243633,
+      "title": "Vue I18n: `escapeParameter` does not escape named values when the same call also passes a list",
+      "module_name": "vue-i18n",
+      "vulnerable_versions": ">=9.0.0-beta.5 <11.4.14",
+      "patched_versions": ">=11.4.14",
+      "severity": "low",
+      "cwe": "CWE-79, CWE-116",
+      "github_advisory_id": "GHSA-8rc2-428q-7ww3",
+      "url": "https://github.com/advisories/GHSA-8rc2-428q-7ww3"
+    },
+    "1243635": {
+      "findings": [
+        {
+          "version": "11.4.0",
+          "paths": [
+            ".>vue-i18n>@intlify/core-base>@intlify/devtools-types>@intlify/shared",
+            ".>vue-i18n>@intlify/core-base>@intlify/message-compiler>@intlify/shared",
+            ".>vue-i18n>@intlify/core-base>@intlify/shared",
+            ".>vue-i18n>@intlify/devtools-types>@intlify/core-base>@intlify/message-compiler>@intlify/shared",
+            ".>vue-i18n>@intlify/devtools-types>@intlify/core-base>@intlify/shared",
+            ".>vue-i18n>@intlify/devtools-types>@intlify/shared",
+            ".>vue-i18n>@intlify/shared"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243635,
+      "title": "Vue I18n: escapeParameter does not prevent XSS through srcdoc in translation messages",
+      "module_name": "@intlify/shared",
+      "vulnerable_versions": ">=11.1.10 <11.4.14",
+      "patched_versions": ">=11.4.14",
+      "severity": "high",
+      "cwe": "CWE-79, CWE-116",
+      "github_advisory_id": "GHSA-83rm-6c8r-g728",
+      "url": "https://github.com/advisories/GHSA-83rm-6c8r-g728"
+    },
+    "1243647": {
+      "findings": [
+        {
+          "version": "11.4.0",
+          "paths": [
+            ".>vue-i18n>@intlify/core-base",
+            ".>vue-i18n>@intlify/devtools-types>@intlify/core-base"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243647,
+      "title": "Vue I18n: escapeParameter does not prevent XSS through srcdoc in translation messages",
+      "module_name": "@intlify/core-base",
+      "vulnerable_versions": ">=11.1.10 <11.4.14",
+      "patched_versions": ">=11.4.14",
+      "severity": "high",
+      "cwe": "CWE-79, CWE-116",
+      "github_advisory_id": "GHSA-83rm-6c8r-g728",
+      "url": "https://github.com/advisories/GHSA-83rm-6c8r-g728"
+    },
+    "1243655": {
+      "findings": [
+        {
+          "version": "11.4.0",
+          "paths": [
+            ".>vue-i18n"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243655,
+      "title": "Vue I18n: escapeParameter does not prevent XSS through srcdoc in translation messages",
+      "module_name": "vue-i18n",
+      "vulnerable_versions": ">=11.1.10 <11.4.14",
+      "patched_versions": ">=11.4.14",
+      "severity": "high",
+      "cwe": "CWE-79, CWE-116",
+      "github_advisory_id": "GHSA-83rm-6c8r-g728",
+      "url": "https://github.com/advisories/GHSA-83rm-6c8r-g728"
+    },
+    "1243687": {
+      "findings": [
+        {
+          "version": "6.16.0",
+          "paths": [
+            ".>qs",
+            ".>url>qs"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243687,
+      "title": "qs : qs.stringify with arrayFormat 'comma' throws an uncaught TypeError on array elements carrying a non-callable own toString (DoS)",
+      "module_name": "qs",
+      "vulnerable_versions": ">=6.7.0 <=6.16.0",
+      "patched_versions": ">=6.16.1",
+      "severity": "moderate",
+      "cwe": "CWE-248, CWE-704",
+      "github_advisory_id": "GHSA-6pq8-jhm2-2vcw",
+      "url": "https://github.com/advisories/GHSA-6pq8-jhm2-2vcw"
+    },
+    "1244003": {
+      "findings": [
+        {
+          "version": "1.16.0",
+          "paths": [
+            ".>axios>follow-redirects"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1244003,
+      "title": "follow-redirects: Cross-realm sensitiveHeaders arrays are discarded and custom credentials can follow redirects",
+      "module_name": "follow-redirects",
+      "vulnerable_versions": ">=1.16.0 <=1.16.1",
+      "patched_versions": ">=1.16.2",
+      "severity": "high",
+      "cwe": "CWE-201",
+      "github_advisory_id": "GHSA-mrwp-f3q8-3g9p",
+      "url": "https://github.com/advisories/GHSA-mrwp-f3q8-3g9p"
+    },
+    "1244013": {
+      "findings": [
+        {
+          "version": "10.5.0",
+          "paths": [
+            ".>@form-create/designer>js-beautify>glob",
+            ".>js-beautify>glob"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "13.0.6",
+          "paths": [
+            ".>rimraf>glob"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1244013,
+      "title": "Glob: AbortSignal cancellation bypass allows post-timeout filesystem traversal",
+      "module_name": "glob",
+      "vulnerable_versions": ">=9.0.0 <=14.0.1",
+      "patched_versions": ">=14.0.2",
+      "severity": "moderate",
+      "cwe": "CWE-400",
+      "github_advisory_id": "GHSA-3g3m-2fjr-6pw4",
+      "url": "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4"
+    },
+    "1244623": {
+      "findings": [
+        {
+          "version": "9.0.9",
+          "paths": [
+            ".>@form-create/designer>js-beautify>editorconfig>minimatch",
+            ".>@form-create/designer>js-beautify>glob>minimatch",
+            ".>js-beautify>editorconfig>minimatch",
+            ".>js-beautify>glob>minimatch"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "10.2.6",
+          "paths": [
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>@unocss/eslint-config>@unocss/eslint-plugin>@typescript-eslint/utils>eslint>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>@unocss/eslint-plugin>@typescript-eslint/utils>eslint>minimatch",
+            ".>eslint>@eslint/config-array>minimatch",
+            ".>eslint>minimatch",
+            ".>eslint-plugin-vue>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>eslint-plugin-vue>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>eslint-plugin-vue>eslint>@eslint/config-array>minimatch",
+            ".>eslint-plugin-vue>eslint>minimatch",
+            ".>eslint-plugin-vue>vue-eslint-parser>eslint>@eslint/config-array>minimatch",
+            ".>eslint-plugin-vue>vue-eslint-parser>eslint>minimatch",
+            ".>eslint-plugin-vue>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch",
+            ".>eslint-plugin-vue>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch",
+            ".>eslint-plugin-vue>@typescript-eslint/parser>eslint>minimatch",
+            ".>rimraf>glob>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/parser>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>@typescript-eslint/utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/eslint-plugin>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/parser>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>@eslint-community/eslint-utils>eslint>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>@typescript-eslint/typescript-estree>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>@typescript-eslint/utils>eslint>minimatch",
+            ".>typescript-eslint>eslint>@eslint/config-array>minimatch",
+            ".>typescript-eslint>eslint>minimatch",
+            ".>vue-eslint-parser>eslint>@eslint/config-array>minimatch",
+            ".>vue-eslint-parser>eslint>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "version": "9.0.3",
+          "paths": [
+            ".>prettier-eslint>@typescript-eslint/parser>@typescript-eslint/typescript-estree>minimatch"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1244623,
+      "title": "minimatch has potential denial of service via globparts amplification",
+      "module_name": "minimatch",
+      "vulnerable_versions": ">=7.0.0 <11.0.1",
+      "patched_versions": ">=11.0.1",
+      "severity": "moderate",
+      "cwe": "CWE-405",
+      "github_advisory_id": "GHSA-g3hv-75wg-m249",
+      "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249"
+    },
+    "1246029": {
+      "findings": [
+        {
+          "version": "5.11.1",
+          "paths": [
+            ".>vite-plugin-svg-icons-ng>svg-icon-baker>fast-xml-parser"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1246029,
+      "title": "fast-xml-parser: Quadratic CPU consumption scanning unterminated stop-node tags",
+      "module_name": "fast-xml-parser",
+      "vulnerable_versions": "<=5.11.2",
+      "patched_versions": ">=5.11.3",
+      "severity": "low",
+      "cwe": "CWE-407",
+      "github_advisory_id": "GHSA-474x-hrwr-fgx4",
+      "url": "https://github.com/advisories/GHSA-474x-hrwr-fgx4"
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 9,
+      "moderate": 17,
+      "high": 26,
+      "critical": 1
+    },
+    "dependencies": 508,
+    "devDependencies": 558,
+    "optionalDependencies": 98,
+    "totalDependencies": 1164
+  }
+}

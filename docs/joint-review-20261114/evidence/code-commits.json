@@ -1,0 +1,141 @@
+{
+  "mini": [
+    {
+      "sha": "14e1dde3ef70bc99b94313a07613681745e3b2de",
+      "title": "让到账确认失败重试复用原幂等键",
+      "files": [
+        "miniprogram/pages/admin/finance-desk/platform-actions.js",
+        "scripts/verify-finance-bank-confirm-idem.cjs"
+      ]
+    },
+    {
+      "sha": "ce487a97fb7732a8c65f8f053bd5059795a18baf",
+      "title": "修复赋能小程序上传与跨岗位异步状态",
+      "files": [
+        "miniprogram/api/franchise/design.js",
+        "miniprogram/api/http.js",
+        "miniprogram/api/wallet.js",
+        "miniprogram/config/env.js",
+        "miniprogram/pages/business/index.js",
+        "miniprogram/pages/business/index.wxml",
+        "miniprogram/pages/studio/index.js",
+        "miniprogram/pages/workflow/explore/platform-bridge.js",
+        "miniprogram/utils/fr-web-link.js",
+        "miniprogram/utils/platform-content.js",
+        "miniprogram/utils/platform-home-results.js",
+        "miniprogram/utils/runtime-env.js",
+        "package.json",
+        "scripts/verify-joint-review-miniapp.cjs",
+        "scripts/verify-recharge-flow.cjs"
+      ]
+    },
+    {
+      "sha": "4da9c15c969b6579a4dc5907d5ec7b9442ddb867",
+      "title": "同步旧验收脚本的团队幂等请求头",
+      "files": [
+        "scripts/verify-crm-pages-native.cjs"
+      ]
+    }
+  ],
+  "backend_web": [
+    {
+      "sha": "eb4cdf1925034544edd0ee52e3119e28427950af",
+      "title": "防止财务重试缺键和跨组织回放旧记录",
+      "files": [
+        "平台程序/domains/franchise/franchise-finance/src/main/java/cn/iocoder/yudao/module/franchise/finance/FinAbnormalFundService.java",
+        "平台程序/domains/franchise/franchise-finance/src/main/java/cn/iocoder/yudao/module/franchise/finance/FinBankService.java",
+        "平台程序/domains/franchise/franchise-finance/src/main/java/cn/iocoder/yudao/module/franchise/finance/FinPaymentService.java",
+        "平台程序/domains/franchise/franchise-finance/src/main/java/cn/iocoder/yudao/module/franchise/finance/FinReceiptService.java",
+        "平台程序/domains/franchise/franchise-finance/src/main/java/cn/iocoder/yudao/module/franchise/finance/FinRefundService.java",
+        "平台程序/domains/franchise/franchise-finance/src/main/java/cn/iocoder/yudao/module/franchise/finance/controller/admin/FinanceController.java",
+        "平台程序/domains/franchise/franchise-finance/src/test/java/cn/iocoder/yudao/module/franchise/finance/controller/admin/FinancePageHttpContractTest.java",
+        "平台程序/domains/franchise/franchise-org/src/main/java/cn/iocoder/yudao/module/franchise/org/FranchiseCommands.java",
+        "平台程序/domains/franchise/franchise-org/src/test/java/cn/iocoder/yudao/module/franchise/org/FranchiseCommandsTest.java"
+      ]
+    },
+    {
+      "sha": "f44a377e952597360a11a90588f02832b2678dce",
+      "title": "确保短信并发限额和验证码只消费一次",
+      "files": [
+        "平台程序/platform/platform-identity/src/main/java/cn/iocoder/yudao/module/platform/identity/SmsCaptchaService.java",
+        "平台程序/platform/platform-identity/src/test/java/cn/iocoder/yudao/module/platform/identity/SmsCaptchaServiceRedisIntegrationTest.java",
+        "平台程序/platform/platform-identity/src/test/java/cn/iocoder/yudao/module/platform/identity/SmsCaptchaServiceTest.java"
+      ]
+    },
+    {
+      "sha": "2267c3390b98bc62c61bafc74e6ad92b335d056a",
+      "title": "保留员工登录岗位上下文并防止部门重复创建",
+      "files": [
+        "平台程序/admin-ui/src/api/platform/staff.ts",
+        "平台程序/admin-ui/src/store/modules/platformIdentity.ts",
+        "平台程序/admin-ui/src/views/fr/org-staff/index.vue",
+        "平台程序/admin-ui/src/views/fr/platform-login/index.vue",
+        "平台程序/admin-ui/tests/platform-staff-workspace.test.js",
+        "平台程序/admin-ui/tests/staff-import-submit.test.js",
+        "平台程序/platform/platform-authz/pom.xml",
+        "平台程序/platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffOrgAdminController.java",
+        "平台程序/platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/TeamCommandService.java",
+        "平台程序/platform/platform-authz/src/test/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffIdentityWorkflowIntegrationTest.java",
+        "平台程序/platform/platform-authz/src/test/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffOrgAdminControllerTest.java",
+        "平台程序/platform/platform-authz/src/test/java/cn/iocoder/yudao/module/platform/authz/controller/admin/TeamCommandServiceTest.java",
+        "平台程序/platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/OrgService.java",
+        "平台程序/platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/OrgServiceImpl.java",
+        "平台程序/script/platform-org-admin-smoke.py",
+        "平台程序/yudao-server/src/main/java/cn/iocoder/yudao/server/split/LegacyPlatformHttpWriteInterceptor.java",
+        "平台程序/yudao-server/src/test/java/cn/iocoder/yudao/server/split/LegacyPlatformPlatformHttpInterceptorTest.java"
+      ]
+    },
+    {
+      "sha": "fcf0dafb1e663229666263dc68c9602dea08462a",
+      "title": "限制远程设计在途调用以保留普通业务资源",
+      "files": [
+        "平台程序/deploy/platform/runtime.properties",
+        "平台程序/domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/remote/RemoteDesignAdmission.java",
+        "平台程序/domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/remote/RemoteDesignConfiguration.java",
+        "平台程序/domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/remote/RemoteDesignGateway.java",
+        "平台程序/domains/franchise/franchise-design/src/test/java/cn/iocoder/yudao/module/franchise/design/remote/RemoteDesignAdmissionTest.java"
+      ]
+    },
+    {
+      "sha": "e1c5376706d3bef3e0a5d2f48b32f00854e733d9",
+      "title": "按全量组织事实展示总部运营指标",
+      "files": [
+        "平台程序/admin-ui/src/api/platform/operations.ts",
+        "平台程序/admin-ui/src/types/auto-components.d.ts",
+        "平台程序/admin-ui/src/utils/projectNavigation.ts",
+        "平台程序/admin-ui/src/views/platform/home/index.vue",
+        "平台程序/admin-ui/tests/platform-home.test.js",
+        "平台程序/admin-ui/tests/platform-operations.test.js",
+        "平台程序/domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/admin/DesignOperationsController.java",
+        "平台程序/domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/admin/DesignOperationsService.java",
+        "平台程序/domains/franchise/franchise-design/src/test/java/cn/iocoder/yudao/module/franchise/design/admin/DesignOperationsIntegrationTest.java",
+        "平台程序/domains/franchise/franchise-design/src/test/java/cn/iocoder/yudao/module/franchise/design/admin/DesignOperationsSecurityTest.java",
+        "平台程序/platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/admin/WalletOperationsController.java",
+        "平台程序/platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/admin/WalletOperationsService.java",
+        "平台程序/platform/platform-wallet/src/test/java/cn/iocoder/yudao/module/platform/wallet/admin/WalletOperationsIntegrationTest.java",
+        "平台程序/platform/platform-wallet/src/test/java/cn/iocoder/yudao/module/platform/wallet/admin/WalletOperationsSecurityTest.java"
+      ]
+    },
+    {
+      "sha": "f212deb408b00c007c01aba7e2c8fdae378cd2db",
+      "title": "修补管理端依赖高危项并保留兼容范围",
+      "files": [
+        "平台程序/admin-ui/package.json",
+        "平台程序/admin-ui/pnpm-lock.yaml",
+        "平台程序/admin-ui/pnpm-workspace.yaml"
+      ]
+    },
+    {
+      "sha": "86abb721d43d766609d772e5e4a1faf992d2d6dd",
+      "title": "让隔离后台默认连接正确的赋能服务",
+      "files": [
+        "平台程序/admin-ui/.env.example",
+        "平台程序/admin-ui/index.html",
+        "平台程序/admin-ui/src/config/axios/config.ts",
+        "平台程序/admin-ui/src/store/modules/app.ts",
+        "平台程序/admin-ui/tests/platform-startup.test.js",
+        "平台程序/admin-ui/vite.config.ts"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+test_b_launcher_is_registered_separately_from_fusion (__main__.PlatformReleaseBoundaryTest) ... ok
+test_bootstrap_is_versioned_and_contains_no_legacy_credentials_or_jobs (__main__.PlatformReleaseBoundaryTest) ... ok
+test_fusion_still_retains_all_original_implementations (__main__.PlatformReleaseBoundaryTest) ... ok
+test_pg_profile_uses_explicit_b_locations (__main__.PlatformReleaseBoundaryTest) ... ok
+test_regular_startup_cannot_migrate_and_readiness_checks_dependencies (__main__.PlatformReleaseBoundaryTest) ... ok
+test_runtime_dependency_closure_has_no_design_implementation (__main__.PlatformReleaseBoundaryTest) ... ok
+test_runtime_resources_contain_only_b_migration_sources (__main__.PlatformReleaseBoundaryTest) ... ok
+test_unknown_nonempty_database_is_not_automatically_baselined (__main__.PlatformReleaseBoundaryTest) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.573s
+
+OK

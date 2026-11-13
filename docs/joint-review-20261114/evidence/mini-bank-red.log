@@ -1,0 +1,8 @@
+AssertionError [ERR_ASSERTION]: 到账确认必须显式传稳定幂等键
+    at main (/Users/honor.pei/Documents/企业FDE项目/zhongshu-ai-platform-v3/.worktrees/joint-review-20261114/scripts/verify-finance-bank-confirm-idem.cjs:41:12) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: /^fin-confirm-key-/,
+  operator: 'match'
+}

@@ -1,0 +1,21 @@
+✓ Lockfile passes supply-chain policies (verified 27m ago)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1
++
+Progress: resolved 1, reused 1, downloaded 0, added 1, done
+
+Done in 823ms using pnpm v11.19.0
+$ pnpm lint:eslint:check && pnpm lint:style:check && pnpm lint:format:check
+$ eslint ./src --cache --cache-location node_modules/.cache/eslint/
+
+/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/joint-review-20261114/平台程序/admin-ui/src/components/FormCreate/src/components/SafeEditor.vue
+  4:23  warning  Property name "fcEditor" is not PascalCase  vue/component-definition-name-casing
+
+✖ 1 problem (0 errors, 1 warning)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+
+$ stylelint "./src/**/*.{vue,less,postcss,css,scss}" --cache --cache-location node_modules/.cache/stylelint/
+$ prettier --check --cache --cache-location node_modules/.cache/prettier/.prettier-cache "src/**/*.{js,ts,json,tsx,css,less,scss,vue,html,md}"
+Checking formatting...
+All matched files use Prettier code style!
