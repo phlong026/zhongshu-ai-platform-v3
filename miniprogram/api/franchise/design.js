@@ -15,7 +15,7 @@ const cases = {
   detail: (caseId) => http.get('/franchise/design/cases/' + caseId),
   /** 收藏/取消（服务账号名下，组织共享） */
   favorite: (caseId) => http.put('/franchise/design/cases/' + caseId + '/favorite'),
-  unfavorite: (caseId) => http.delete('/franchise/design/cases/' + caseId + '/favorite'),
+  unfavorite: (caseId) => http.del('/franchise/design/cases/' + caseId + '/favorite'),
   /** 收藏列表 */
   favorites: (cursor, limit) => http.get('/franchise/design/favorites', { cursor: cursor || undefined, limit: limit || 20 })
 };

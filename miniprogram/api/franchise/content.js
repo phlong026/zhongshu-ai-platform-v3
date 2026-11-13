@@ -69,7 +69,7 @@ const personas = {
   page: () => http.get('/franchise/content/personas'),
   create: (data) => http.post('/franchise/content/personas', data),
   update: (id, data) => http.put('/franchise/content/personas/' + id, data),
-  remove: (id) => http.delete('/franchise/content/personas/' + id)
+  remove: (id) => http.del('/franchise/content/personas/' + id)
 };
 
 const publications = {
