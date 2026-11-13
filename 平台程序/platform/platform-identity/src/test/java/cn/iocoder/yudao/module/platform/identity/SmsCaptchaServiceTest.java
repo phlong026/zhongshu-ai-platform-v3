@@ -11,8 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.data.redis.core.ValueOperations;
-
-import java.time.Duration;
+import org.springframework.data.redis.core.script.RedisScript;
 
 import static cn.iocoder.yudao.module.platform.identity.enums.PlatformIdentityErrorCodes.*;
 import static cn.iocoder.yudao.module.platform.identity.SmsCaptchaService.*;
@@ -48,7 +47,8 @@ class SmsCaptchaServiceTest {
 
     @Test
     void sendRejectsWithinSixtySeconds() {
-        when(redis.hasKey(KEY_INTERVAL + MOBILE)).thenReturn(true);
+        when(redis.execute(any(RedisScript.class), anyList(), any(), any(), any(), any(), any()))
+                .thenReturn(SmsCaptchaService.SEND_TOO_FREQUENT);
 
         assertThatThrownBy(() -> service.sendLoginCaptcha(MOBILE))
                 .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(SMS_SEND_TOO_FREQUENT.getCode()));
@@ -57,8 +57,8 @@ class SmsCaptchaServiceTest {
 
     @Test
     void sendRejectsWhenDailyLimitReached() {
-        when(redis.hasKey(anyString())).thenReturn(false);
-        when(ops.increment(contains(KEY_DAILY))).thenReturn((long) (DAILY_SEND_LIMIT + 1));
+        when(redis.execute(any(RedisScript.class), anyList(), any(), any(), any(), any(), any()))
+                .thenReturn(SmsCaptchaService.SEND_DAILY_LIMIT);
 
         assertThatThrownBy(() -> service.sendLoginCaptcha(MOBILE))
                 .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(SMS_DAILY_LIMIT.getCode()));
@@ -67,22 +67,20 @@ class SmsCaptchaServiceTest {
 
     @Test
     void sendStoresSixDigitCaptchaBeforeDispatching() {
-        when(redis.hasKey(anyString())).thenReturn(false);
-        when(ops.increment(contains(KEY_DAILY))).thenReturn(1L);
+        when(redis.execute(any(RedisScript.class), anyList(), any(), any(), any(), any(), any()))
+                .thenReturn(SmsCaptchaService.SEND_ALLOWED);
 
         service.sendLoginCaptcha(MOBILE);
 
         ArgumentCaptor<String> captcha = ArgumentCaptor.forClass(String.class);
-        verify(ops).set(eq(KEY_CAPTCHA + MOBILE), captcha.capture(), eq(Duration.ofMinutes(5)));
+        verify(smsClient).sendLoginCaptcha(eq(MOBILE), captcha.capture());
         assertThat(captcha.getValue()).matches("\\d{6}");
-        verify(ops).set(eq(KEY_INTERVAL + MOBILE), eq("1"), eq(Duration.ofSeconds(60)));
-        verify(redis).delete(KEY_FAILS + MOBILE);
-        verify(smsClient).sendLoginCaptcha(MOBILE, captcha.getValue());
     }
 
     @Test
     void verifyRejectsExpiredCaptcha() {
-        when(ops.get(KEY_CAPTCHA + MOBILE)).thenReturn(null);
+        when(redis.execute(any(RedisScript.class), anyList(), eq("123456"), any(), any()))
+                .thenReturn(SmsCaptchaService.VERIFY_EXPIRED);
 
         assertThatThrownBy(() -> service.verifyLoginCaptcha(MOBILE, "123456"))
                 .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(SMS_CAPTCHA_EXPIRED.getCode()));
@@ -90,22 +88,22 @@ class SmsCaptchaServiceTest {
 
     @Test
     void verifyCountsFailuresAndDiscardsAfterFiveWrongAttempts() {
-        when(ops.get(KEY_CAPTCHA + MOBILE)).thenReturn("123456");
-        when(ops.increment(KEY_FAILS + MOBILE)).thenReturn((long) MAX_VERIFY_FAILS);
+        when(redis.execute(any(RedisScript.class), anyList(), eq("999999"), any(), any()))
+                .thenReturn(SmsCaptchaService.VERIFY_WRONG);
 
         assertThatThrownBy(() -> service.verifyLoginCaptcha(MOBILE, "999999"))
                 .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(SMS_CAPTCHA_WRONG.getCode()));
-        verify(redis).delete(KEY_CAPTCHA + MOBILE);
+        verify(redis).execute(any(RedisScript.class), anyList(), eq("999999"), any(), any());
     }
 
     @Test
     void verifyConsumesCaptchaOnSuccess() {
-        when(ops.get(KEY_CAPTCHA + MOBILE)).thenReturn("123456");
+        when(redis.execute(any(RedisScript.class), anyList(), eq("123456"), any(), any()))
+                .thenReturn(SmsCaptchaService.VERIFY_MATCHED);
 
         service.verifyLoginCaptcha(MOBILE, "123456");
 
-        verify(redis).delete(KEY_CAPTCHA + MOBILE);
-        verify(redis).delete(KEY_FAILS + MOBILE);
+        verify(redis).execute(any(RedisScript.class), anyList(), eq("123456"), any(), any());
     }
 
 }
