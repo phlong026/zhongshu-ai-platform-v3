@@ -9,12 +9,15 @@
      ZS_VERIFY_BASE=http://127.0.0.1:48080   # 可选，默认本机
 用法：
   ZS_VERIFY_ADMIN_PASSWORD=admin123 python3 script/verify-org-point.py
-验收链：开通/调点 → 内容任务预扣（公司池）→ 老板视图（余额/在途/操作合并）
-        → 月度额度拒绝 → 业务权限拒绝 → 人工核对结算 → 迁移预检 → 身份映射报告。
-证据落 ../docs/business-flow-audit-20261103/evidence/verify-org-point-<ts>.json
+覆盖：开通建池 → 调点 → 内容任务预扣 → 老板 summary/合并视图 → 员工 my-usage
+      → 月度额度拒绝 → 业务权限拒绝 → 人工核对结算（退差 0）→ 迁移预检 → 身份映射报告。
+说明：三态代数、跨月归月、并发与终态互斥由集成测试覆盖（OrgPoint*/OrgMember*），
+      本脚本是"真实 HTTP + 真实库"的端到端冒烟门，不替代集成测试。
+证据落 docs/business-flow-audit-20261103/evidence/verify-org-point-<run>.json
 """
 import json
 import os
+import random
 import sys
 import time
 import urllib.error
@@ -26,8 +29,10 @@ if not ADMIN_PASSWORD:
     print('SKIP：缺少 ZS_VERIFY_ADMIN_PASSWORD（本机联调库超管密码）')
     sys.exit(2)
 
-RUN = str(int(time.time()))
+# P2-1：毫秒 + 随机后缀，保证业务键/批次/证据文件名唯一
+RUN = '%d%03d' % (int(time.time()), random.randint(0, 999))
 FAILS = []
+CHECKS = 0
 
 
 def http(method, path, body=None, token=None, post_id=None, headers=None):
@@ -53,10 +58,22 @@ def http(method, path, body=None, token=None, post_id=None, headers=None):
 
 
 def check(name, ok, detail=''):
-    print(('  ok  ' if ok else ' FAIL ') + name + (('  ' + str(detail)) if detail else ''))
+    global CHECKS
+    CHECKS += 1
+    print(('  ok  ' if ok else ' FAIL ') + name + (('  ' + str(detail)) if detail and not ok else ''))
     if not ok:
         FAILS.append(name)
     return ok
+
+
+def ok_body(status, body):
+    """成功响应：HTTP 200 且业务 code==0。"""
+    return status == 200 and (body.get('code') or 0) == 0
+
+
+def has_code(body, code):
+    """错误断言：业务错误码精确匹配（yudao 错误可能仍为 HTTP 200）。"""
+    return body.get('code') == code
 
 
 def login_staff(mobile, appid='wx-e2e'):
@@ -79,15 +96,31 @@ def login_admin():
 
 def main():
     admin = login_admin()
+    cleanup = []          # [(name, method, path, token, post_id)]，finally 执行且失败计入 FAILS
+    sink = {'orgId': None, 'taskId': None, 'operationId': None, 'expected': 0}
+    try:
+        return run(admin, cleanup, sink)
+    finally:
+        for name, method, path, token, post_id in reversed(cleanup):
+            try:
+                status, body = http(method, path, token=token, post_id=post_id)
+                if not ok_body(status, body):
+                    check('清理：' + name, False, body)
+            except Exception as e:  # 异常也要计入失败（P1-3）
+                check('清理：' + name, False, str(e))
+        write_evidence(sink)
 
-    # 1) 一键搭建（唯一批次，避免跨轮污染）
-    suffix = 'vo' + RUN[-6:]
+
+def run(admin, cleanup, sink):
+    # 1) 一键搭建（唯一批次）
+    suffix = 'vo' + RUN
     status, body = http('POST', '/admin-api/platform/dev-setup/franchise-e2e/setup',
                         {'batch': suffix, 'storeName': '验收门店'})
     env = body.get('data') or {}
-    if status != 200 or 'storeOrgId' not in env:
+    if not ok_body(status, body) or 'storeOrgId' not in env:
         raise SystemExit(f'dev-setup 失败 status={status} body={body}')
     org_id = env['storeOrgId']
+    sink['orgId'] = org_id
     sales, boss = env['sales'], env['boss']
     sales_token, posts = login_staff(sales['mobile'])
     sales_post = next((p['postId'] for p in posts if p.get('roleCode') == 'sales'), sales['postId'])
@@ -95,123 +128,136 @@ def main():
     boss_post = next((p['postId'] for p in boss_posts if p.get('roleCode') == 'boss'), boss['postId'])
     check('dev-setup 组织与岗位就绪', org_id > 0 and sales['userId'] > 0 and boss['userId'] > 0)
 
-    # 1b) 公司开通（幂等复用组织 + 建公司积分池）；dev-setup 直接建组织不会建池
+    # 1b) 公司开通（幂等复用 + 建池）
     status, body = http('POST', '/admin-api/platform/org/onboard',
                         {'orgType': 'store', 'orgName': '验收门店-' + suffix,
                          'adminName': boss['name'], 'adminMobile': boss['mobile'],
                          'designEnabled': True, 'initialCredits': 0}, token=admin)
     onboard = body.get('data') or {}
     check('公司开通幂等复用并建池',
-          status == 200 and onboard.get('orgId') == org_id and onboard.get('reusedOrg') is True,
+          ok_body(status, body) and onboard.get('orgId') == org_id and onboard.get('reusedOrg') is True,
           {'expectedOrg': org_id, 'got': onboard})
-    org_id = onboard.get('orgId') or org_id
 
     # 2) 总部调点 +100
     status, body = http('POST', '/admin-api/design/v1/org-point-adjustments',
                         {'orgId': org_id, 'credits': 100, 'bizKey': 'verify:' + RUN, 'note': '验收调点'},
                         token=admin)
-    check('总部调点 +100', status == 200 and (body.get('data') or {}).get('balance') == 100,
+    check('总部调点 +100', ok_body(status, body) and (body.get('data') or {}).get('balance') == 100,
           body.get('msg', ''))
 
-    # 3) 销售创建数字人任务（4 字 → 2 秒 → 1 积分）
+    # 3) 内容任务预扣（4 字 → 2 秒 → 1 积分）
     text = '验收口播'
     expected = max(1, -(-(((len(text) + 1) // 2) * 50000) // 1000000))
+    sink['expected'] = expected
     status, body = http('POST', '/admin-api/franchise/content/tasks',
                         {'kind': 'digital', 'voice': 'v', 'text': text, 'avatar': 'a'},
                         token=sales_token, post_id=sales_post,
                         headers={'Idempotency-Key': 'vo-task-' + RUN})
     task = body.get('data') or {}
     task_id = task.get('id')
-    check('内容任务创建并预扣公司池', status == 200 and task_id, body.get('msg', ''))
+    sink['taskId'] = task_id
+    check('内容任务创建并预扣公司池', ok_body(status, body) and bool(task_id), body.get('msg', ''))
     if not task_id:
-        raise SystemExit('任务创建失败，终止')
+        raise SystemExit('任务创建失败，终止（后续断言不可信）')
 
-    # 4) 老板视图：余额/在途
+    # 4) 老板视图
     status, body = http('GET', '/admin-api/platform/org-point/summary', token=boss_token, post_id=boss_post)
     summary = body.get('data') or {}
-    check('老板 summary 余额扣减', status == 200 and summary.get('balance') == 100 - expected, summary)
+    check('老板 summary 余额扣减',
+          ok_body(status, body) and summary.get('balance') == 100 - expected, summary)
     check('老板 summary 在途=预扣额', summary.get('inFlight') == expected, summary.get('inFlight'))
 
-    # 5) 操作合并视图含本条 PENDING
+    # 5) 操作合并视图：operationId 必须是硬断言（P1-2）
     status, body = http('GET', '/admin-api/platform/org-point/operations', token=boss_token, post_id=boss_post)
     ops = body.get('data') or []
     op = next((o for o in ops if o.get('subject') == 'digital' and o.get('state') == 'PENDING'), None)
-    check('操作合并视图含 PENDING 且金额正确', bool(op) and op.get('requested') == expected, op)
     operation_id = op.get('operationId') if op else None
+    sink['operationId'] = operation_id
+    check('操作合并视图含 PENDING 且金额正确（operationId 非空）',
+          ok_body(status, body) and bool(operation_id) and op.get('requested') == expected, op)
+    if not operation_id:
+        raise SystemExit('operationId 缺失，终止（不可跳过结算断言）')
 
-    # 6) 员工 my-usage（普通员工可访问）
+    # 6) 员工 my-usage
     status, body = http('GET', '/admin-api/platform/org-point/my-usage', token=sales_token, post_id=sales_post)
     check('员工 my-usage 可访问且本人用量正确',
-          status == 200 and (body.get('data') or {}).get('used') == expected, body.get('data'))
+          ok_body(status, body) and (body.get('data') or {}).get('used') == expected, body.get('data'))
 
-    # 7) 月度额度：设 1 分，再建任务必须被拒（1_072_000_012）
-    http('PUT', '/admin-api/platform/org-point/member-quotas',
-         {'userId': sales['userId'], 'monthlyCredits': 1}, token=boss_token, post_id=boss_post)
+    # 7) 月度额度：设 1 分 → 再建任务必须 1_072_000_012；清理必检
+    status, body = http('PUT', '/admin-api/platform/org-point/member-quotas',
+                        {'userId': sales['userId'], 'monthlyCredits': 1},
+                        token=boss_token, post_id=boss_post)
+    check('设置月度额度成功', ok_body(status, body), body)
+    cleanup.append(('删月度额度', 'DELETE',
+                    '/admin-api/platform/org-point/member-quotas?userId=' + str(sales['userId']),
+                    boss_token, boss_post))
     status, body = http('POST', '/admin-api/franchise/content/tasks',
                         {'kind': 'digital', 'voice': 'v', 'text': text, 'avatar': 'a'},
                         token=sales_token, post_id=sales_post,
                         headers={'Idempotency-Key': 'vo-quota-' + RUN})
-    check('超月度额度被拒（1_072_000_012）',
-          body.get('code') == 1_072_000_012 or status != 200, body)
-    http('DELETE', '/admin-api/platform/org-point/member-quotas?userId=' + str(sales['userId']),
-         token=boss_token, post_id=boss_post)
+    check('超月度额度被拒（1_072_000_012）', has_code(body, 1_072_000_012), body)
 
-    # 8) 业务权限：只允许 link_resolution，digital 必须被拒（1_072_000_015）
-    http('PUT', '/admin-api/platform/org-point/member-permissions',
-         {'userId': sales['userId'], 'allowedSubjects': ['link_resolution']},
-         token=boss_token, post_id=boss_post)
+    # 8) 业务权限：只允许 link_resolution → digital 必须 1_072_000_015；清理必检
+    status, body = http('PUT', '/admin-api/platform/org-point/member-permissions',
+                        {'userId': sales['userId'], 'allowedSubjects': ['link_resolution']},
+                        token=boss_token, post_id=boss_post)
+    check('设置业务权限成功', ok_body(status, body), body)
+    cleanup.append(('删业务权限', 'DELETE',
+                    '/admin-api/platform/org-point/member-permissions?userId=' + str(sales['userId']),
+                    boss_token, boss_post))
     status, body = http('POST', '/admin-api/franchise/content/tasks',
                         {'kind': 'digital', 'voice': 'v', 'text': text, 'avatar': 'a'},
                         token=sales_token, post_id=sales_post,
                         headers={'Idempotency-Key': 'vo-perm-' + RUN})
-    check('业务权限拒绝 digital（1_072_000_015）',
-          body.get('code') == 1_072_000_015 or status != 200, body)
-    http('DELETE', '/admin-api/platform/org-point/member-permissions?userId=' + str(sales['userId']),
-         token=boss_token, post_id=boss_post)
+    check('业务权限拒绝 digital（1_072_000_015）', has_code(body, 1_072_000_015), body)
 
-    # 9) 人工核对结算：按实际 1 单位结算，余额不再变化（预扣=实收）
-    if operation_id:
-        status, body = http('POST', '/admin-api/design/v1/org-point-operations/%d/settle?actualQuantity=%d'
-                            % (int(operation_id), expected), token=admin)
-        settled = body.get('data') or {}
-        refunded = settled.get('refunded')
-        check('人工核对结算成功且退差=0',
-              status == 200 and refunded is not None and int(refunded) == 0, settled)
-        status, body = http('GET', '/admin-api/platform/org-point/summary', token=boss_token, post_id=boss_post)
-        check('结算后余额稳定、在途归零',
-              (body.get('data') or {}).get('balance') == 100 - expected
-              and (body.get('data') or {}).get('inFlight') == 0, body.get('data'))
+    # 9) 人工核对结算：退差 0；结算后余额稳定
+    status, body = http('POST', '/admin-api/design/v1/org-point-operations/%d/settle?actualQuantity=%d'
+                        % (int(operation_id), expected), token=admin)
+    settled = body.get('data') or {}
+    ok = ok_body(status, body) and settled.get('refunded') is not None and int(settled['refunded']) == 0
+    check('人工核对结算成功且退差=0', ok, settled)
+    status, body = http('GET', '/admin-api/platform/org-point/summary', token=boss_token, post_id=boss_post)
+    data = body.get('data') or {}
+    check('结算后余额稳定、在途归零',
+          ok_body(status, body) and data.get('balance') == 100 - expected and data.get('inFlight') == 0, data)
 
-    # 10) 存量迁移预检（只读）
+    # 10) 迁移预检（只读）
     status, body = http('GET', '/admin-api/design/v1/point-migration/dry-run', token=admin)
     dry = body.get('data') or {}
     check('点数迁移预检可读且结构完整',
-          status == 200 and all(k in dry for k in ('totalAvailable', 'eligibleAccounts', 'blocked')))
+          ok_body(status, body) and all(k in dry for k in ('totalAvailable', 'eligibleAccounts', 'blocked')),
+          body)
 
-    # 11) 身份映射生成/报告（只读语义：生成候选 + 报告结构）
-    status, _ = http('POST', '/admin-api/design/v1/identity-mapping/generate', {}, token=admin)
-    check('身份映射生成可执行', status == 200)
+    # 11) 身份映射生成/报告（生成必须 code==0）
+    status, body = http('POST', '/admin-api/design/v1/identity-mapping/generate', {}, token=admin)
+    check('身份映射生成可执行', ok_body(status, body), body)
     status, body = http('GET', '/admin-api/design/v1/identity-mapping/report', token=admin)
     rep = body.get('data') or {}
     check('身份映射报告结构完整',
-          status == 200 and all(k in rep for k in ('total', 'confirmed', 'unmatched', 'byMatchType')),
+          ok_body(status, body) and all(k in rep for k in ('total', 'confirmed', 'unmatched', 'byMatchType')),
           {k: rep.get(k) for k in ('total', 'confirmed', 'unmatched')})
 
+    if FAILS:
+        print('❌ VERIFY-ORG-POINT 失败 %d/%d 项：%s' % (len(FAILS), CHECKS, FAILS))
+        return 1
+    print('✅ VERIFY-ORG-POINT 全部通过（%d 项）' % CHECKS)
+    return 0
+
+
+def write_evidence(sink):
     evidence = {
-        'run': RUN, 'orgId': org_id, 'taskId': task_id, 'operationId': operation_id,
-        'expectedCredits': expected, 'failures': FAILS, 'verdict': 'PASS' if not FAILS else 'FAIL'
+        'run': RUN, 'checks': CHECKS, 'failures': FAILS,
+        'orgId': sink.get('orgId'), 'taskId': sink.get('taskId'),
+        'operationId': sink.get('operationId'), 'expectedCredits': sink.get('expected'),
+        'verdict': 'PASS' if not FAILS else 'FAIL'
     }
     out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            'docs', 'business-flow-audit-20261103', 'evidence')
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f'verify-org-point-{RUN}.json'), 'w') as f:
         json.dump(evidence, f, ensure_ascii=False, indent=1)
-
-    if FAILS:
-        print(f'❌ VERIFY-ORG-POINT 失败 {len(FAILS)} 项：{FAILS}')
-        return 1
-    print('✅ VERIFY-ORG-POINT 全部通过（evidence 落盘）')
-    return 0
+    print(f'证据已落盘：{out_dir}/verify-org-point-{RUN}.json')
 
 
 if __name__ == '__main__':
