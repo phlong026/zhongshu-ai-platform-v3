@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointErrors.ORG_MEMBER_QUOTA_EXCEEDED;
+import static cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointErrors.ORG_MEMBER_QUOTA_DISABLED;
 import static cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointErrors.ORG_NOT_ENABLED;
 import static cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointErrors.ORG_POINT_INSUFFICIENT;
 import static cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointErrors.ORG_POINT_REPLAY_CONFLICT;
@@ -34,7 +34,7 @@ import static cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointErrors.OR
  *   <li>一条流水一行、只追加：RESERVE=-N；SETTLE=+max(N-M,0)；RELEASE=+N。可用余额=SUM(available_delta)，
  *       在途预留=未终结 operation 的 -RESERVE 汇总；</li>
  *   <li>终态行复制原 RESERVE 的 operation_time/billing_month/org/actor/subject 快照，<b>禁止按当前时间重算月份</b>；</li>
- *   <li>预扣短事务顺序：锁账户行 FOR UPDATE → biz_key 幂等查 → 额度聚合（三态）→ 校验 → 余额 CAS → 写 RESERVE；
+ *   <li>预扣短事务顺序：锁账户行 FOR UPDATE → biz_key 幂等查 → 业务权限校验 → 余额 CAS → 写 RESERVE；
  *       提交后调用方才可外呼（付费外呼绝不进事务）；</li>
  *   <li>终态互斥：同一 operation 只允许一条 SETTLE 或 RELEASE（部分唯一索引兜底），结算/释放同事务锁原 RESERVE 行；</li>
  *   <li>金额由服务端按目录快照换算，禁止信任调用方传入积分数（四原则①快照冻价）。</li>
@@ -187,7 +187,6 @@ public class OrgPointService implements OrgPointPort {
             String month = currentMonth();
             Instant now = Instant.now();
             enforceSubjectPermission(command.orgId(), command.actorUserId(), spec.subject());
-            enforceMemberQuota(command.orgId(), command.actorUserId(), n, month);
             int updated = jdbc.update("UPDATE org_point_account SET balance = balance - ?, "
                     + "version = version + 1, update_time = now() WHERE org_id = ? AND balance >= ? "
                     + "AND status = 'ACTIVE'", n, command.orgId(), n);
@@ -359,7 +358,7 @@ public class OrgPointService implements OrgPointPort {
                         row.actorUserId(), row.availableDelta(), row.billingMonth(), row.refType(),
                         row.refId(), row.note(), row.createTime()))
                 .toList();
-        return new MyUsage(orgId, userId, month, used, memberMonthlyQuota(orgId, userId), entries);
+        return new MyUsage(orgId, userId, month, used, null, entries);
     }
 
     /** 组织当月全员用量（三态口径）。 */
@@ -374,14 +373,12 @@ public class OrgPointService implements OrgPointPort {
 
     @Override
     public Long memberQuotaOf(long orgId, long userId) {
-        return memberMonthlyQuota(orgId, userId);
+        return null;
     }
 
     @Override
     public List<MemberQuota> memberQuotas(long orgId) {
-        return jdbc.query("SELECT user_id, monthly_credits FROM org_member_quota WHERE org_id = ? "
-                        + "ORDER BY update_time DESC",
-                (rs, i) -> new MemberQuota(rs.getLong("user_id"), rs.getLong("monthly_credits")), orgId);
+        return List.of();
     }
 
     @Override
@@ -417,30 +414,10 @@ public class OrgPointService implements OrgPointPort {
         return sum == null ? 0 : sum;
     }
 
-    public Long memberMonthlyQuota(long orgId, long userId) {
-        List<Long> rows = jdbc.query(
-                "SELECT monthly_credits FROM org_member_quota WHERE org_id = ? AND user_id = ?",
-                (rs, i) -> rs.getLong(1), orgId, userId);
-        return rows.isEmpty() ? null : rows.get(0);
-    }
-
+    @Override
+    @Deprecated(forRemoval = false)
     public void setMemberQuota(long orgId, long userId, long monthlyCredits, long operatorUserId) {
-        if (monthlyCredits <= 0 || monthlyCredits > 1_000_000_000L) {
-            throw new IllegalArgumentException("月度额度必须在 1..1e9 之间：" + monthlyCredits);
-        }
-        tx.executeWithoutResult(status -> {
-            Long previous = memberMonthlyQuota(orgId, userId);
-            jdbc.update("INSERT INTO org_member_quota (id, org_id, user_id, monthly_credits) "
-                            + "VALUES (?, ?, ?, ?) ON CONFLICT (org_id, user_id) DO UPDATE "
-                            + "SET monthly_credits = EXCLUDED.monthly_credits, update_time = now()",
-                    IdWorker.getId(), orgId, userId, monthlyCredits);
-            Map<String, Object> detail = new LinkedHashMap<>();
-            detail.put("monthlyCredits", monthlyCredits);
-            if (previous != null) {
-                detail.put("previousMonthlyCredits", previous);
-            }
-            auditConfig("ORG_MEMBER_QUOTA", "SET", orgId, userId, operatorUserId, detail);
-        });
+        throw exception(ORG_MEMBER_QUOTA_DISABLED);
     }
 
     // ==================== 员工业务权限矩阵（B-12） ====================
@@ -712,14 +689,11 @@ public class OrgPointService implements OrgPointPort {
         }
     }
 
-    /** 删行=不限（唯一"不限"表达）。 */
+    /** 兼容旧调用方的停用入口：固定拒绝，不修改历史数据。 */
+    @Override
+    @Deprecated(forRemoval = false)
     public void clearMemberQuota(long orgId, long userId, long operatorUserId) {
-        tx.executeWithoutResult(status -> {
-            Long previous = memberMonthlyQuota(orgId, userId);
-            jdbc.update("DELETE FROM org_member_quota WHERE org_id = ? AND user_id = ?", orgId, userId);
-            auditConfig("ORG_MEMBER_QUOTA", "CLEAR", orgId, userId, operatorUserId,
-                    previous == null ? Map.of() : Map.of("previousMonthlyCredits", previous));
-        });
+        throw exception(ORG_MEMBER_QUOTA_DISABLED);
     }
 
     public List<LedgerRow> ledgerRows(long orgId, Long actorUserId, String subject, String billingMonth,
@@ -818,18 +792,6 @@ public class OrgPointService implements OrgPointPort {
     }
 
     // ==================== 内部 ====================
-
-    private void enforceMemberQuota(long orgId, long actorUserId, long n, String billingMonth) {
-        Long quota = memberMonthlyQuota(orgId, actorUserId);
-        if (quota == null) {
-            return;
-        }
-        long used = monthUsed(orgId, actorUserId, billingMonth);
-        // 不用 used+n > quota：n 异常巨大时求和会溢出成负数而放行（等价变形，避免溢出）
-        if (n > quota - used) {
-            throw exception(ORG_MEMBER_QUOTA_EXCEEDED);
-        }
-    }
 
     private void lockAccount(long orgId) {
         jdbc.queryForList("SELECT org_id FROM org_point_account WHERE org_id = ? FOR UPDATE", orgId);

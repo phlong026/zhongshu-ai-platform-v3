@@ -110,7 +110,7 @@ public class OrgPointPriceService {
             throw new IllegalArgumentException("最低收费必须 ≥1：" + minCharge);
         }
         if (minCharge > BillingPriceCatalog.MAX_MIN_CHARGE) {
-            // minCharge 直接成为单笔预扣 N：不封顶会让「当月已用 + N」溢出绕过员工额度
+            // minCharge 直接成为单笔预扣 N：封顶可防止脏配置制造异常巨额单笔扣费。
             throw new IllegalArgumentException("最低收费超出上限（" + BillingPriceCatalog.MAX_MIN_CHARGE
                     + " 积分）：" + minCharge);
         }

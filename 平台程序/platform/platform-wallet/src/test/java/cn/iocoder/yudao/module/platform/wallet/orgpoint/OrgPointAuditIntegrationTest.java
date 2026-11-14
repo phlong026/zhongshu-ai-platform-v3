@@ -59,20 +59,20 @@ class OrgPointAuditIntegrationTest extends PlatformPgIntegrationTest {
         AuditPort mockAudit = mock(AuditPort.class);
         OrgPointService isolated = new OrgPointService(dataSource, transactionManager, mockAudit,
                 new OrgPointPriceService(dataSource, transactionManager));
-        isolated.setMemberQuota(7101L, 7201L, 30, 7301L);
-        isolated.setMemberQuota(7101L, 7201L, 50, 7301L);
+        isolated.setMemberPermission(7101L, 7201L, List.of("copy"), 7301L);
+        isolated.setMemberPermission(7101L, 7201L, List.of("copy", "digital"), 7301L);
 
         ArgumentCaptor<AuditEventMessage> messages = ArgumentCaptor.forClass(AuditEventMessage.class);
         verify(mockAudit, org.mockito.Mockito.times(2)).record(messages.capture());
         AuditEventMessage update = messages.getAllValues().get(1);
-        assertThat(update.getEventType()).isEqualTo("ORG_MEMBER_QUOTA");
+        assertThat(update.getEventType()).isEqualTo("ORG_MEMBER_PERMISSION");
         assertThat(update.getActorType()).isEqualTo(AuditEventMessage.ActorType.ADMIN);
         assertThat(update.getActorId()).isEqualTo("7301");
         assertThat(update.getAction()).isEqualTo("SET");
         assertThat(update.getDetail()).containsEntry("orgId", 7101L)
                 .containsEntry("targetUserId", 7201L)
-                .containsEntry("monthlyCredits", 50L)
-                .containsEntry("previousMonthlyCredits", 30L);
+                .containsEntry("allowedSubjects", List.of("copy", "digital"))
+                .containsEntry("previousAllowedSubjects", List.of("copy"));
     }
 
     @Test
@@ -96,15 +96,16 @@ class OrgPointAuditIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
-    void auditFailureRollsBackQuotaAndPermissionChanges() {
+    void auditFailureRollsBackPermissionSetAndClear() {
         AuditPort failingAudit = mock(AuditPort.class);
         doThrow(new IllegalStateException("audit unavailable")).when(failingAudit).record(any());
         OrgPointService isolated = new OrgPointService(dataSource, transactionManager, failingAudit,
                 new OrgPointPriceService(dataSource, transactionManager));
 
-        assertThatThrownBy(() -> isolated.setMemberQuota(7701L, 7801L, 30, 7901L))
+        assertThatThrownBy(() -> isolated.setMemberPermission(
+                7701L, 7801L, List.of("copy"), 7901L))
                 .isInstanceOf(IllegalStateException.class);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_member_quota WHERE org_id=7701",
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_member_permission WHERE org_id=7701",
                 Integer.class)).isZero();
 
         jdbc.update("INSERT INTO org_member_permission(id,org_id,user_id,allowed_subjects) VALUES (?,?,?,?)",

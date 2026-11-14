@@ -22,10 +22,7 @@ import java.util.concurrent.Future;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * 批 A 员工月度额度验收（24 号 §七 OrgMemberQuotaIntegrationTest / ConcurrencyTest）：
- * 超限拒 → RELEASE 释放后可再提交 → 跨月退回归操作发起月 → 在途占用计入 → 并发边界恰一成功。
- */
+/** 历史员工月额度停用验收：只保留数据，不再作为准入或展示上限。 */
 @TestPropertySource(properties = "platform.test.extra-flyway-locations=,classpath:db/migration/platform-wallet")
 class OrgMemberQuotaIntegrationTest extends PlatformPgIntegrationTest {
 
@@ -52,39 +49,51 @@ class OrgMemberQuotaIntegrationTest extends PlatformPgIntegrationTest {
                 quantity, "content_task", 1L);
     }
 
-    /** ai_video_768p = 166666 微积分/秒：60 秒 = 10 积分。 */
     @Test
-    void quotaExceededThenReleaseAllowsResubmit() {
-        service.setMemberQuota(ORG, USER, 100, 1L);
-        service.reserve(reserve("content:q1", 60));
-        assertThat(service.monthUsed(ORG, USER, OrgPointService.currentMonth())).isEqualTo(10);
+    void historicalQuotaDoesNotLimitReserveOrAppearAsEffectiveQuota() {
+        insertHistoricalQuota(1);
 
-        // 再预扣 10×10=100 会超 100
-        assertThatThrownBy(() -> service.reserve(reserve("content:q2", 600)))
-                .isInstanceOf(ServiceException.class)
-                .hasMessageContaining("额度上限");
+        service.reserve(reserve("content:legacy-quota", 60));
 
-        // 释放后可继续提交（R1 新增验收）
-        long op = service.reserve(new OrgPointPort.ReserveCommand(
-                "content:q3", ORG, USER, null, "ai_video_768p", 60, "content_task", 3L));
-        service.release(op);
         assertThat(service.monthUsed(ORG, USER, OrgPointService.currentMonth())).isEqualTo(10);
-        service.reserve(new OrgPointPort.ReserveCommand(
-                "content:q4", ORG, USER, null, "ai_video_768p", 60, "content_task", 4L));
+        assertThat(service.memberQuotaOf(ORG, USER)).isNull();
+        assertThat(service.memberQuotas(ORG)).isEmpty();
+        assertThat(service.myUsage(ORG, USER, null, 1, 20).monthlyQuota()).isNull();
+        assertThat(jdbc.queryForObject("SELECT monthly_credits FROM org_member_quota "
+                + "WHERE org_id=? AND user_id=?", Long.class, ORG, USER)).isEqualTo(1L);
     }
 
     @Test
-    void inFlightReservationCountsTowardQuota() {
-        service.setMemberQuota(ORG, USER, 15, 1L);
-        service.reserve(reserve("content:inflight", 60)); // 10 积分在途
-        assertThatThrownBy(() -> service.reserve(reserve("content:inflight2", 60)))
+    void quotaAdministrationIsDisabledAndDoesNotMutateHistoricalRows() {
+        insertHistoricalQuota(25);
+
+        assertThatThrownBy(() -> service.setMemberQuota(ORG, USER, 50, 1L))
                 .isInstanceOf(ServiceException.class)
-                .hasMessageContaining("额度上限");
+                .hasMessageContaining("已停用");
+        assertThatThrownBy(() -> service.clearMemberQuota(ORG, USER, 1L))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("已停用");
+        assertThat(jdbc.queryForObject("SELECT monthly_credits FROM org_member_quota "
+                + "WHERE org_id=? AND user_id=?", Long.class, ORG, USER)).isEqualTo(25L);
+    }
+
+    @Test
+    void balanceAndPermissionRemainHardLimitsDespiteHistoricalQuota() {
+        insertHistoricalQuota(1);
+
+        assertThatThrownBy(() -> service.reserve(new OrgPointPort.ReserveCommand(
+                "content:no-balance", ORG, USER, null, "ai_flat", 6_000, "content_task", 2L)))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("公司积分池余额不足");
+
+        service.setMemberPermission(ORG, USER, List.of(), 1L);
+        assertThatThrownBy(() -> service.reserve(reserve("content:forbidden", 60)))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("未被授权");
     }
 
     @Test
     void crossMonthReleaseReturnsToOriginMonth() {
-        service.setMemberQuota(ORG, USER, 100, 1L);
         long op = 9_001L;
         // 以历史月份初始创建预留夹具；账本上线后是 append-only，测试也不得改写已有流水。
         jdbc.update("UPDATE org_point_account SET balance = balance - 10 WHERE org_id = ?", ORG);
@@ -101,8 +110,8 @@ class OrgMemberQuotaIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
-    void concurrentReserveAtQuotaBoundaryAllowsExactlyOne() throws Exception {
-        service.setMemberQuota(ORG, USER, 100, 1L);
+    void concurrentReserveCannotOverdrawCompanyBalance() throws Exception {
+        insertHistoricalQuota(1);
         ExecutorService pool = Executors.newFixedThreadPool(2);
         CountDownLatch start = new CountDownLatch(1);
         List<Callable<Boolean>> tasks = new ArrayList<>();
@@ -112,7 +121,7 @@ class OrgMemberQuotaIntegrationTest extends PlatformPgIntegrationTest {
                 start.await();
                 try {
                     service.reserve(new OrgPointPort.ReserveCommand(
-                            key, ORG, USER, null, "ai_video_768p", 360, "content_task", 9L));
+                            key, ORG, USER, null, "ai_flat", 3_000, "content_task", 9L));
                     return true;
                 } catch (RuntimeException e) {
                     return false;
@@ -131,15 +140,15 @@ class OrgMemberQuotaIntegrationTest extends PlatformPgIntegrationTest {
             }
         }
         pool.shutdown();
-        // 每笔 60 积分，额度 100：行锁串行化后恰一成功
+        // 每笔 6000 积分、公司余额 10000：账户行锁串行化后恰一成功。
         assertThat(succeeded).isEqualTo(1);
+        assertThat(service.findAccount(ORG).balance()).isEqualTo(4_000);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE type='RESERVE'",
+                Integer.class)).isEqualTo(1);
     }
 
-    @Test
-    void clearQuotaMeansUnlimited() {
-        service.setMemberQuota(ORG, USER, 10, 1L);
-        service.clearMemberQuota(ORG, USER, 1L);
-        assertThat(service.memberMonthlyQuota(ORG, USER)).isNull();
-        service.reserve(reserve("content:unlimited", 600)); // 100 积分，无额度限制
+    private void insertHistoricalQuota(long monthlyCredits) {
+        jdbc.update("INSERT INTO org_member_quota(id,org_id,user_id,monthly_credits) VALUES (?,?,?,?)",
+                9_101L, ORG, USER, monthlyCredits);
     }
 }

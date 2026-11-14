@@ -96,8 +96,8 @@ public final class BillingPriceCatalog {
 
     /**
      * 最低收费上限（积分）= 1e9。
-     * minCharge 会直接成为单笔预扣 N：不设上限时巨大值会让 `当月已用 + N` 溢出并绕过员工额度，
-     * 也会让快照里的 Long 超出 JS 安全整数而被序列化为字符串（结算端按 Number 读取会抛 CCE）。
+     * minCharge 会直接成为单笔预扣 N：封顶可防止脏配置制造异常巨额扣费，
+     * 也避免快照里的 Long 超出 JS 安全整数而被序列化为字符串（结算端按 Number 读取会抛 CCE）。
      */
     public static final long MAX_MIN_CHARGE = 1_000_000_000L;
 }

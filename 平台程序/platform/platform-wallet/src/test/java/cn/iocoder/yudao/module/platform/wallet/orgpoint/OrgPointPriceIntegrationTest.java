@@ -169,7 +169,7 @@ class OrgPointPriceIntegrationTest extends PlatformPgIntegrationTest {
         // 单价上限：数量×单价不得溢出 long（否则会静默少扣）
         assertThatThrownBy(() -> prices.publish("copy", 1_000_000_001L, 1, "admin"))
                 .isInstanceOf(IllegalArgumentException.class);
-        // 最低收费上限：N 直接成为预扣额，不封顶会让「当月已用+N」溢出绕过额度
+        // 最低收费上限：N 直接成为预扣额，封顶防止脏配置制造异常巨额扣费。
         assertThatThrownBy(() -> prices.publish("copy", 1_000_000L, 1_000_000_001L, "admin"))
                 .isInstanceOf(IllegalArgumentException.class);
     }

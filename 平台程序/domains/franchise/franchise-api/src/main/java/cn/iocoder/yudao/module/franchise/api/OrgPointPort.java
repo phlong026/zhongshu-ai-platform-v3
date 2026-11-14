@@ -8,7 +8,7 @@ import java.util.List;
  * <p>合同要点：
  * <ul>
  *   <li>金额由服务端按 BillingPriceCatalog 快照换算，**调用方只传计量数量**（次/秒），不传积分数；</li>
- *   <li>reserve 为短事务（锁账户行→幂等→额度→余额→写 RESERVE），**提交后调用方才可外呼**；</li>
+ *   <li>reserve 为短事务（锁账户行→幂等→业务权限→公司余额→写 RESERVE），**提交后调用方才可外呼**；</li>
  *   <li>settleByBizKey / releaseByBizKey 幂等：同一 reserve 键重放返回既有终态；无 RESERVE 行时静默 no-op
  *       （兼容上线前已在途的存量任务）；</li>
  *   <li>SUBMISSION_UNCERTAIN 类未知结果**不得调用 release**——保持 PENDING 走人工核对。</li>
@@ -16,7 +16,7 @@ import java.util.List;
  */
 public interface OrgPointPort {
 
-    /** 预扣；返回 operationId。额度/余额不足抛 1_072 段错误码。 */
+    /** 预扣；返回 operationId。只按业务权限和公司积分余额准入。 */
     long reserve(ReserveCommand command);
 
     /** 按 operation 结算（按原快照换算实收，退差 max(N-M,0)）。 */
@@ -56,10 +56,13 @@ public interface OrgPointPort {
                          String bizKey, java.time.Instant operationTime, java.time.Instant terminalTime) {
     }
 
+    /** @deprecated 员工月度额度已停用，仅保留类型以兼容旧调用方编译。 */
+    @Deprecated(forRemoval = false)
     record MemberQuota(long userId, long monthlyCredits) {
     }
 
     /** 员工本人当月用量（评审 P1-5：汇总 + 明细分页，替代固定 50 条裸流水）。 */
+    /** monthlyQuota 固定为 null；字段仅保留用于响应兼容。 */
     record MyUsage(long orgId, long userId, String month, long used, Long monthlyQuota,
                    List<LedgerEntry> entries) {
     }
@@ -79,12 +82,20 @@ public interface OrgPointPort {
 
     MyUsage myUsage(long orgId, long userId, String billingMonth, int page, int size);
 
+    /** @deprecated 额度已停用，固定返回 null。 */
+    @Deprecated(forRemoval = false)
     Long memberQuotaOf(long orgId, long userId);
 
+    /** @deprecated 额度已停用，固定返回空列表。 */
+    @Deprecated(forRemoval = false)
     List<MemberQuota> memberQuotas(long orgId);
 
+    /** @deprecated 额度已停用，调用时抛出稳定业务错误。 */
+    @Deprecated(forRemoval = false)
     void setMemberQuota(long orgId, long userId, long monthlyCredits, long operatorUserId);
 
+    /** @deprecated 额度已停用，调用时抛出稳定业务错误。 */
+    @Deprecated(forRemoval = false)
     void clearMemberQuota(long orgId, long userId, long operatorUserId);
 
     /** 员工业务权限清单（无行=全允许）。 */
