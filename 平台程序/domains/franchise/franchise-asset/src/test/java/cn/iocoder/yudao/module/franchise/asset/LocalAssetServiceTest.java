@@ -14,6 +14,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -35,6 +36,21 @@ class LocalAssetServiceTest {
     private MemoryStorage storage;
     private LocalAssetService service;
 
+    @Test
+    void designReferenceStaysInBStorageAndUsesTheDesignRoleChannel() throws Exception {
+        current = new PostSnapshot(11L, 22L, 33L, "store", "hq-design-admin", null, false, Set.of());
+        byte[] png = png();
+        var ticket = service.createUploadTicket(ACTOR, "DESIGN_REFERENCE", "image/png", png.length, sha(png));
+        assertThat(ticket.uploadUrl()).startsWith("/admin-api/franchise/assets/");
+        String token = ticket.uploadUrl().substring(ticket.uploadUrl().indexOf("token=") + 6);
+        service.receiveUpload(ACTOR, ticket.assetId(), token, new ByteArrayInputStream(png));
+        assertThat(service.completeUpload(ACTOR, ticket.assetId()).uploadStatus()).isEqualTo("ACCEPTED");
+        assertThat(service.validateReference(ACTOR, ticket.assetId(), Set.of("DESIGN_REFERENCE"))).isTrue();
+        assertThat(storage.values.keySet()).hasSize(2).allMatch(key -> key.startsWith("franchise/1/33/"));
+        assertThat(jdbc.queryForObject("SELECT asset_type FROM fr_asset WHERE id=?", String.class, ticket.assetId()))
+                .isEqualTo("DESIGN_REFERENCE");
+    }
+
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
@@ -42,6 +58,13 @@ class LocalAssetServiceTest {
         ds.setURL("jdbc:h2:mem:asset_" + java.util.UUID.randomUUID() + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/franchise-asset/V20261111.910__fr_asset.sql")).execute(ds);
         jdbc = new JdbcTemplate(ds);
+        // H2 为未命名 CHECK 生成随机名；生产 PostgreSQL 使用 fr_asset_asset_type_check。
+        String assetTypeCheck = jdbc.queryForObject("SELECT cc.constraint_name FROM information_schema.check_constraints cc "
+                + "JOIN information_schema.table_constraints tc ON tc.constraint_catalog=cc.constraint_catalog "
+                + "AND tc.constraint_schema=cc.constraint_schema AND tc.constraint_name=cc.constraint_name "
+                + "WHERE tc.table_name='FR_ASSET' AND UPPER(cc.check_clause) LIKE '%ASSET_TYPE%'", String.class);
+        jdbc.execute("ALTER TABLE fr_asset DROP CONSTRAINT " + assetTypeCheck);
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/franchise-asset/V20261114.920__design_reference_asset.sql")).execute(ds);
         jdbc.execute("CREATE TABLE pf_org_unit (dept_id BIGINT,org_id BIGINT,kind VARCHAR(8),status VARCHAR(16))");
         jdbc.execute("CREATE TABLE system_dept (id BIGINT,tenant_id BIGINT,status INT,deleted INT)");
         jdbc.update("INSERT INTO pf_org_unit VALUES (33,33,'ORG','ACTIVE')");
@@ -227,6 +250,13 @@ class LocalAssetServiceTest {
 
     private static String sha(byte[] value) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+    }
+
+    private static byte[] png() throws Exception {
+        var image = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var output = new ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", output);
+        return output.toByteArray();
     }
 
     private static class MemoryStorage implements ObjectStoragePort {

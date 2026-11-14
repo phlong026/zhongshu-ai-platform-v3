@@ -13,9 +13,19 @@ class AssetTypeBEndSnapshotTest {
 
     @Test
     void bEndTypesMatchDesignAssetTypePolicySnapshot() {
-        // 快照取自 yudao-module-design AssetTypePolicy.B_END（2026-11-03 实读：五类 B_END 免审）
+        // DESIGN_REFERENCE 在独立 B 中归 B 自有资产；不再走 A 的 C_END 素材入口。
         assertThat(AssetAccessService.B_END_TYPES).containsExactlyInAnyOrder(
-                "FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT", "CONTENT_ASSET");
+                "FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT", "CONTENT_ASSET", "DESIGN_REFERENCE");
+    }
+
+    @Test
+    void designReferenceDoesNotGrantBossOrCrossDomainRolesAssetAccess() {
+        assertThat(AssetAccessService.channelAllowed("DESIGN_REFERENCE", "sales")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("DESIGN_REFERENCE", "sales-lead")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("DESIGN_REFERENCE", "hq-design-admin")).isTrue();
+        assertThat(AssetAccessService.channelAllowed("DESIGN_REFERENCE", "boss")).isFalse();
+        assertThat(AssetAccessService.channelAllowed("DESIGN_REFERENCE", "finance")).isFalse();
+        assertThat(AssetAccessService.channelAllowed("DESIGN_REFERENCE", "engineer")).isFalse();
     }
 
 }

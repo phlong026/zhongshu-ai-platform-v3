@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.franchise.design;
 
 import cn.iocoder.yudao.module.franchise.api.CustomerSchemePort;
 import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
+import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.*;
 import cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignGateway;
 import cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseAccessService;
@@ -57,6 +58,7 @@ public class DesignAccessService {
     private final JdbcTemplate jdbcTemplate;
     private RemoteDesignGateway remote;
     private PublicCaseAccessService publicCases;
+    private AssetAccessPort localAssets;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setRemoteGateway(RemoteDesignGateway remote) {
@@ -68,6 +70,11 @@ public class DesignAccessService {
         this.publicCases = publicCases;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setLocalAssets(AssetAccessPort localAssets) {
+        this.localAssets = localAssets;
+    }
+
     @jakarta.annotation.PostConstruct
     public void verifyCapabilityWiring() {
         if (remote == null && (designService == null || serviceAccounts == null)) {
@@ -75,6 +82,9 @@ public class DesignAccessService {
         }
         if (remote != null && publicCases == null) {
             throw new IllegalStateException("Remote design requires B-local public case access");
+        }
+        if (remote != null && (localAssets == null || serviceAccounts == null)) {
+            throw new IllegalStateException("Remote design requires B-local asset access");
         }
     }
 
@@ -241,6 +251,15 @@ public class DesignAccessService {
             }
             return submitted;
         });
+    }
+
+    /** B 参考图不能当成 A 资产 ID。跨应用素材读取协议就绪前，在付费任务提交前明确失败。 */
+    public void requireReferenceInputSupported(Map<String, Object> requirementInputs) {
+        if (remote == null || requirementInputs == null || !requirementInputs.containsKey("referenceAssetIds")) return;
+        Object references = requirementInputs.get("referenceAssetIds");
+        if (references instanceof java.util.Collection<?> collection && collection.isEmpty()) return;
+        throw new cn.iocoder.yudao.framework.common.exception.ServiceException(1_112_100_003,
+                "当前独立设计服务暂不支持参考图参与生成，请移除参考图后重试");
     }
 
     public DesignServicePort.SelectionSaved confirmFlatCandidate(PostSnapshot post, long projectId,
@@ -534,7 +553,10 @@ public class DesignAccessService {
 
     public DesignServicePort.UploadTicketView createUploadTicket(PostSnapshot post,
                                                                  DesignServicePort.UploadTicketCreate cmd, String key) {
-        if (remote != null) return remote.call(post, Operation.CREATE_UPLOAD_TICKET, key, cmd);
+        if (remote != null) {
+            var ticket = localAssets.createUploadTicket(assetActor(post), cmd.assetType(), cmd.mimeType(), cmd.sizeBytes(), cmd.sha256());
+            return new DesignServicePort.UploadTicketView(ticket.assetId(), ticket.uploadUrl());
+        }
         return designService.createUploadTicket(serviceAccount(post), cmd);
     }
 
@@ -543,13 +565,23 @@ public class DesignAccessService {
     }
 
     public DesignServicePort.AssetCompleted completeUpload(PostSnapshot post, long assetId, String key) {
-        if (remote != null) return remote.call(post, Operation.COMPLETE_UPLOAD, key, new Asset(assetId));
+        if (remote != null) {
+            var completed = localAssets.completeUpload(assetActor(post), assetId);
+            return new DesignServicePort.AssetCompleted(completed.assetId(), completed.uploadStatus(), completed.rejectedReason());
+        }
         return designService.completeUpload(serviceAccount(post), assetId);
     }
 
     public DesignServicePort.DownloadUrlView createDownloadUrl(PostSnapshot post, long assetId) {
-        if (remote != null) return remote.call(post, Operation.CREATE_DOWNLOAD_URL, null, new Asset(assetId));
+        if (remote != null) {
+            var ticket = localAssets.createDownloadUrl(assetActor(post), assetId);
+            return new DesignServicePort.DownloadUrlView(ticket.downloadUrl(), ticket.expiresAt());
+        }
         return designService.createDownloadUrl(serviceAccount(post), assetId);
+    }
+
+    private AssetAccessPort.Actor assetActor(PostSnapshot post) {
+        return new AssetAccessPort.Actor(post.orgId(), serviceAccount(post), post.userId(), post.postId());
     }
 
     private DesignServicePort.Actor actor(PostSnapshot post) {

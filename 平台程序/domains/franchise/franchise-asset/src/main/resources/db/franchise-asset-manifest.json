@@ -6,6 +6,15 @@
   "undo": "db/migration-undo/franchise-asset/V20261111.910__undo_fr_asset.sql",
   "migration_sha256": "cd51f516d0c828b1b25ba52c24a9aa02c0afb02d1960fdcadbfeb8f96b3f87f9",
   "undo_sha256": "07de8e8490735171d1f30cd326c4e6b80c5d3d1573a1413ada5b0002e4d3a82c",
+  "additional_migrations": [
+    {
+      "migration": "db/migration/franchise-asset/V20261114.920__design_reference_asset.sql",
+      "undo": "db/migration-undo/franchise-asset/V20261114.920__undo_design_reference_asset.sql",
+      "migration_sha256": "52eb2b75624bdf9da28eab0a6ce6cdff375a7ed5f3e59c8f62d23d8920ca95c4",
+      "undo_sha256": "fb8e4392f27c70637a16612ae712f461e23c0f4308d6ce7296b2b34b760050f8",
+      "purpose": "Keep DESIGN_REFERENCE bytes in B-owned storage for independent design workflows"
+    }
+  ],
   "tables": [
     {"name": "fr_asset", "key": "id", "scope": ["tenant_id", "org_id", "service_account_id"], "sequences": [], "id_generation": "snowflake"},
     {"name": "fr_asset_upload_ticket", "key": "token_hash", "references": ["fr_asset.id"]},

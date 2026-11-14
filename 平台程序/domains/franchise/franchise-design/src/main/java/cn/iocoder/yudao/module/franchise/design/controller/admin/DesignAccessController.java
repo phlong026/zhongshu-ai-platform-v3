@@ -185,7 +185,8 @@ public class DesignAccessController {
     }
 
     public record ElevationJobReq(Integer count, String resolution, String orientation,
-                                  String styleCode, String roofType, String material, String color) {
+                                  String styleCode, String roofType, String material, String color,
+                                  Map<String, Object> requirementInputs) {
     }
 
     @PostMapping("/projects/{projectId}/elevation-jobs")
@@ -194,6 +195,7 @@ public class DesignAccessController {
                                                                 @RequestBody ElevationJobReq req,
                                                                 @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         PostSnapshot post = access.post();
+        access.requireReferenceInputSupported(req.requirementInputs());
         var submitted = access.createElevationJob(post, projectId, new DesignServicePort.ElevationJobCreate(
                 req.count() == null ? 2 : req.count(), req.resolution(), req.orientation(),
                 req.styleCode(), req.roofType(), req.material(), req.color(), idempotencyKey));

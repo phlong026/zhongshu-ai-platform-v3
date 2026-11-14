@@ -43,7 +43,7 @@ public class LocalAssetService implements AssetAccessPort {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Map<String, Long> MAX_BYTES = Map.of(
             "FIN_VOUCHER", 20L << 20, "ENG_DRAWING", 30L << 20, "ENG_SITE_PHOTO", 10L << 20,
-            "CONTRACT_ATTACHMENT", 20L << 20, "CONTENT_ASSET", 50L << 20);
+            "CONTRACT_ATTACHMENT", 20L << 20, "CONTENT_ASSET", 50L << 20, "DESIGN_REFERENCE", 20L << 20);
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final ObjectStoragePort storage;
@@ -354,7 +354,7 @@ public class LocalAssetService implements AssetAccessPort {
         if (mime == null || type == null) return false;
         return switch (type) {
             case "FIN_VOUCHER", "ENG_DRAWING", "CONTRACT_ATTACHMENT" -> Set.of("image/jpeg", "image/png", "application/pdf").contains(mime);
-            case "ENG_SITE_PHOTO" -> Set.of("image/jpeg", "image/png").contains(mime);
+            case "ENG_SITE_PHOTO", "DESIGN_REFERENCE" -> Set.of("image/jpeg", "image/png").contains(mime);
             case "CONTENT_ASSET" -> Set.of("image/jpeg", "image/png", "audio/mpeg", "video/mp4").contains(mime);
             default -> false;
         };
