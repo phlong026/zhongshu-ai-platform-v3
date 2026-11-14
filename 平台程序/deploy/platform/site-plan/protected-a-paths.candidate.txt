@@ -1,0 +1,9 @@
+# Observed existing paths, not an assertion that the A inventory is complete.
+# Runtime validation separately includes root and Docker block-device ancestry.
+# Copy only to a reviewed external root-owned file after the A inventory is finalized.
+/opt/zhongshu
+/var/lib/postgresql
+/var/lib/redis
+/etc/nginx
+/etc/letsencrypt
+/var/lib/docker

@@ -1,0 +1,96 @@
+# CANDIDATE ONLY. Do not place under an active Nginx include path before review.
+log_format platform_b_api_sanitized
+    '$remote_addr [$time_local] "$request_method $uri $server_protocol" '
+    '$status $body_bytes_sent upstream_status=$upstream_status '
+    'request_time=$request_time upstream_time=$upstream_response_time';
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name platform-api.zszhj.com;
+    access_log /var/log/nginx/zhongshu-platform-b-api.access.log platform_b_api_sanitized;
+    error_log /dev/null crit;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/lib/zhongshu-platform-b/acme;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location ~ (^|/)\. {
+        return 404;
+    }
+
+    location / {
+        return 308 https://platform-api.zszhj.com$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name platform-api.zszhj.com;
+    access_log /var/log/nginx/zhongshu-platform-b-api.access.log platform_b_api_sanitized;
+    error_log /dev/null crit;
+
+    ssl_certificate /etc/letsencrypt/live/platform-api.zszhj.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/platform-api.zszhj.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+
+    location ~ (^|/)\. {
+        return 404;
+    }
+
+    location = /infra/ws {
+        access_log off;
+        proxy_pass http://127.0.0.1:48081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 60s;
+        proxy_buffering off;
+        proxy_cache off;
+        add_header Cache-Control "no-store, private" always;
+    }
+
+    location ^~ /infra/ws/ {
+        return 404;
+    }
+
+    location ~ ^/(?:actuator|internal-api|management|metrics|prometheus|provider|redis|postgres|cos-admin)(?:/|$) {
+        return 404;
+    }
+
+    location ~ ^/(?:admin-api|app-api)/(?:actuator|internal-api|management|metrics|prometheus|provider|redis|postgres|cos-admin)(?:/|$) {
+        return 404;
+    }
+
+    location ~ ^/(?:admin-api|app-api)(?:/|$) {
+        proxy_pass http://127.0.0.1:48081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_buffering off;
+        proxy_cache off;
+        add_header Cache-Control "no-store, private" always;
+        client_max_body_size 50m;
+    }
+
+    location / {
+        return 404;
+    }
+}

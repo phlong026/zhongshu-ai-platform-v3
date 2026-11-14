@@ -1,0 +1,17 @@
+{
+  "status": "proposal-only-not-applied",
+  "zone": "zszhj.com",
+  "records": [
+    {"name": "platform-api", "type": "A", "value": "124.223.61.18", "ttlSeconds": 600},
+    {"name": "platform-admin", "type": "A", "value": "124.223.61.18", "ttlSeconds": 600}
+  ],
+  "preserveExistingRecords": ["@", "api", "api2"],
+  "optionalLaterDomain": "b-assets.zszhj.com",
+  "assetsStatus": "not-configured-use-reviewed-native-B-COS-origin-first",
+  "activationRequirements": [
+    "Dedicated B virtual-host preparation and full server Nginx validation",
+    "Independent B certificates, renewal and rollback validation",
+    "B service readiness and A protection checks",
+    "Mini Program legal domains and release configuration verification"
+  ]
+}

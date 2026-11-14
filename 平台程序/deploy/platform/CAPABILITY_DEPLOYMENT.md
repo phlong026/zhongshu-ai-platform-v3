@@ -2,6 +2,8 @@
 
 本目录只描述和校验 B。它不会停止、挂载、迁移或写入 A。`compose.yaml` 提供 B 主 API/PG/Redis，
 `compose.capabilities.yaml` 增加 B Provider、Provider 专用 PG/Redis、一次性迁移容器和 B Runtime。
+B 独立域名的待审 Nginx 边界与上线前门禁见 [`nginx/README.md`](nginx/README.md)。
+当前主机的盘用途、容量、域名候选及云盘身份兼容阻塞见 [`site-plan/README.md`](site-plan/README.md)；该目录不是可执行部署批准。
 
 ## 服务器只读核查
 

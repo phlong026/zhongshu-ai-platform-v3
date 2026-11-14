@@ -1,0 +1,21 @@
+# DISABLED HISTORICAL ARCHIVE — NEVER DEPLOY, INCLUDE, SYMLINK OR COPY TO NGINX.
+# api2.zszhj.com belongs to A. This former template is retained only to explain
+# historical repository references; it is not a B deployment candidate.
+#
+# Historical content follows. It is intentionally stored with a .disabled suffix.
+
+# HISTORICAL: api2.zszhj.com → 新平台后端（员工端小程序专用子域名，与旧后端 api.zszhj.com 完全隔离）
+# HISTORICAL: 部署位置：/etc/nginx/conf.d/api2.zszhj.com.conf
+# HISTORICAL: server {
+# HISTORICAL:     listen 80;
+# HISTORICAL:     server_name api2.zszhj.com;
+# HISTORICAL:     location / {
+# HISTORICAL:         proxy_pass http://127.0.0.1:48081;
+# HISTORICAL:         proxy_set_header Host $host;
+# HISTORICAL:         proxy_set_header X-Real-IP $remote_addr;
+# HISTORICAL:         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+# HISTORICAL:         proxy_set_header X-Forwarded-Proto $scheme;
+# HISTORICAL:         proxy_read_timeout 120s;
+# HISTORICAL:         client_max_body_size 50m;
+# HISTORICAL:     }
+# HISTORICAL: }
