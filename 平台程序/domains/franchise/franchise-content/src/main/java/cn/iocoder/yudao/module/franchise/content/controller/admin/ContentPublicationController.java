@@ -20,7 +20,7 @@ import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 
-/** 发布记录 direct-v1 + 客资聚合（D-1.5-11；growth 面四岗共用 query 权限）。 */
+/** 手动发布登记 + 客资聚合；不负责外部账号授权或自动发帖。 */
 @Tag(name = "加盟 - 内容创作（发布/获客）")
 @RestController
 @RequestMapping("/franchise/content")
@@ -39,7 +39,7 @@ public class ContentPublicationController {
     }
 
     @PostMapping("/publications")
-    @Operation(summary = "创建发布记录（幂等 duplicate；五态 direct-v1）")
+    @Operation(summary = "创建手动发布登记（不接受定时发布）")
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> create(@RequestBody Map<String, Object> body,
             @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
@@ -58,7 +58,7 @@ public class ContentPublicationController {
     }
 
     @PostMapping("/publications/{id}/verify")
-    @Operation(summary = "演示已发布→待回执核验")
+    @Operation(summary = "人工确认外部发布完成，进入链接核验")
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> verify(@PathVariable("id") Long id) {
         PostSnapshot post = post();
@@ -66,7 +66,7 @@ public class ContentPublicationController {
     }
 
     @PostMapping("/publications/{id}/link")
-    @Operation(summary = "回执发布链接（全局唯一 1_114_000_003）")
+    @Operation(summary = "登记人工发布链接（全局唯一 1_114_000_003）")
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> link(@PathVariable("id") Long id,
                                                   @RequestBody Map<String, Object> body) {
@@ -97,7 +97,10 @@ public class ContentPublicationController {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", row.getId());
         view.put("workId", row.getWorkId());
+        view.put("authorUserId", row.getAuthorUserId());
         view.put("title", row.getTitle());
+        view.put("publishText", row.getPublishText() == null ? "" : row.getPublishText());
+        view.put("tags", row.getTags() == null ? "" : row.getTags());
         view.put("accountId", row.getAccountId());
         view.put("platform", row.getPlatform());
         view.put("status", row.getStatus());
@@ -106,6 +109,7 @@ public class ContentPublicationController {
         view.put("publishedAt", row.getPublishedAt() == null ? "" : row.getPublishedAt().toString());
         view.put("failureReason", row.getFailureReason() == null ? "" : row.getFailureReason());
         view.put("signature", row.getSignature() == null ? "" : row.getSignature());
+        view.put("createTime", row.getCreateTime() == null ? "" : row.getCreateTime().toString());
         return view;
     }
 

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.INPUT_INVALID;
@@ -18,15 +19,11 @@ import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentEr
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.WORK_INVALID;
 
 /**
- * 发布记录 direct-v1 状态机（D-1.5-11，v3 蓝本照搬）：
- * 五态 publishing/published/verify/failed/scheduled；回执链接非空唯一（1_114_000_003）；
- * (work_id, account_id) 非失败防重（部分唯一索引）；定时≥1 分钟；签名防篡改（创建时冻结）。
+ * 手动发布登记状态机：新记录只从 publishing 开始，核验后登记外部发布链接。
+ * 历史 scheduled 数据继续保留，可由本人显式核验后登记；服务不执行自动发布。
  */
 @Service
 public class ContentPublicationService {
-
-    /** v3 蓝本：定时发布须至少 1 分钟后（F4）。 */
-    private static final long MIN_SCHEDULE_AHEAD_SECONDS = 60;
 
     private final FrContentPublicationMapper publications;
     private final ContentDraftService drafts;
@@ -46,6 +43,7 @@ public class ContentPublicationService {
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public FrContentPublicationDO createFromPost(cn.iocoder.yudao.module.platform.org.PostSnapshot post,
                                                  Map<String, Object> body, String idempotencyKey) {
+        requireManualPublication(body);
         var replay = commands.replayed(post, idempotencyKey, body);
         if (replay.isPresent()) {
             return requireOwned(post.orgId(), post.userId(), replay.get().getAggregateId());
@@ -57,19 +55,16 @@ public class ContentPublicationService {
     }
 
     public FrContentPublicationDO create(long companyId, long userId, Map<String, Object> body) {
+        requireManualPublication(body);
         long workId = requiredLong(body.get("workId"), "workId");
-        drafts.workOf(companyId, workId); // 作品属主校验（WORK_INVALID）
-        String accountId = requiredText(body.get("accountId"), 64, "accountId");
-        String platform = requiredText(body.get("platform"), 32, "platform");
-        String status = "publishing";
-        OffsetDateTime scheduledAt = null;
-        if (body.get("scheduledAt") != null && !String.valueOf(body.get("scheduledAt")).isBlank()) {
-            scheduledAt = OffsetDateTime.parse(String.valueOf(body.get("scheduledAt")));
-            if (scheduledAt.isBefore(OffsetDateTime.now().plusSeconds(MIN_SCHEDULE_AHEAD_SECONDS))) {
-                throw exception(INPUT_INVALID);
-            }
-            status = "scheduled";
+        String accountId = requiredAccountId(body.get("accountId"));
+        String platform = requiredPlatform(body.get("platform"));
+        var work = drafts.workOf(companyId, workId);
+        if (!Objects.equals(work.getAuthorUserId(), userId)) {
+            throw exception(WORK_INVALID);
         }
+        String status = "publishing";
+        OffsetDateTime now = OffsetDateTime.now();
         FrContentPublicationDO row = new FrContentPublicationDO()
                 .setId(IdWorker.getId())
                 .setCompanyId(companyId)
@@ -82,20 +77,22 @@ public class ContentPublicationService {
                         : Long.parseLong(String.valueOf(body.get("coverAssetId"))))
                 .setAccountId(accountId)
                 .setPlatform(platform)
-                .setScheduledAt(scheduledAt)
+                .setScheduledAt(null)
                 .setStatus(status)
-                .setVersions(versionsJson(1, status));
+                .setVersions(versionsJson(1, status))
+                .setCreateTime(now)
+                .setUpdateTime(now);
         row.setSignature(signatureOf(row));
         // JSONB 列（versions）经 JdbcTemplate CAST 写入（MyBatis String 直写 jsonb 会 42804）
         try {
             jdbcTemplate.update(
                     "INSERT INTO fr_content_publication (id, company_id, author_user_id, work_id, title, "
                             + "publish_text, tags, cover_asset_id, account_id, platform, scheduled_at, status, "
-                            + "versions, signature) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?)",
+                            + "versions, signature, create_time, update_time) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?)",
                     row.getId(), companyId, userId, workId, row.getTitle(), row.getPublishText(), row.getTags(),
-                    row.getCoverAssetId(), accountId, platform, scheduledAt, status,
-                    row.getVersions(), row.getSignature());
+                    row.getCoverAssetId(), accountId, platform, null, status,
+                    row.getVersions(), row.getSignature(), now, now);
         } catch (DuplicateKeyException e) {
             throw exception(INPUT_INVALID, "该作品在此账号已有进行中的发布记录");
         }
@@ -127,7 +124,7 @@ public class ContentPublicationService {
         return requireOwned(companyId, userId, publicationId);
     }
 
-    /** 演示已发布（v3 F6）：publishing 直转 verify（等回执）。 */
+    /** 人工确认已在外部平台发布：新 publishing 或历史 scheduled 转待回执核验。 */
     public FrContentPublicationDO verify(long companyId, long userId, long publicationId) {
         transition(companyId, userId, publicationId, "publishing", "verify");
         return requireOwned(companyId, userId, publicationId);
@@ -162,8 +159,9 @@ public class ContentPublicationService {
     private void transition(long companyId, long userId, long publicationId, String from, String to) {
         FrContentPublicationDO row = requireOwned(companyId, userId, publicationId);
         jdbcTemplate.update(
-                "UPDATE fr_content_publication SET status = ?, versions = CAST(? AS jsonb), update_time = now() "
-                        + "WHERE id = ? AND status = ?",
+                "UPDATE fr_content_publication SET status = ?, scheduled_at = NULL, "
+                        + "versions = CAST(? AS jsonb), update_time = now() "
+                        + "WHERE id = ? AND status IN (?, 'scheduled')",
                 to, bumpVersions(row, to), publicationId, from);
     }
 
@@ -184,21 +182,52 @@ public class ContentPublicationService {
     }
 
     private static String bumpVersions(FrContentPublicationDO row, String status) {
-        int version = 1;
+        Map<String, Object> versions = new LinkedHashMap<>();
         if (row.getVersions() != null) {
-            Object parsed = JsonUtils.parseObject(row.getVersions(), Map.class).get("version");
-            if (parsed instanceof Number number) {
-                version = number.intValue();
-            }
+            versions.putAll(JsonUtils.parseObject(row.getVersions(), Map.class));
         }
-        return versionsJson(version + 1, status);
+        int version = 1;
+        Object parsed = versions.get("version");
+        if (parsed instanceof Number number) {
+            version = number.intValue();
+        }
+        if (row.getScheduledAt() != null) {
+            // DB 约束要求非 scheduled 状态清空主列；旧计划时间留在版本元数据中供追溯。
+            versions.putIfAbsent("originalScheduledAt", row.getScheduledAt().toString());
+        }
+        versions.put("version", version + 1);
+        versions.put("status", status);
+        return JsonUtils.toJsonString(versions);
     }
 
-    private static String requiredText(Object value, int max, String field) {
-        if (value == null || String.valueOf(value).isBlank()) {
+    private static String requiredAccountId(Object value) {
+        if (value == null) {
             throw exception(INPUT_INVALID);
         }
-        return clip(String.valueOf(value), max);
+        String accountId = String.valueOf(value).trim();
+        if (accountId.isEmpty() || accountId.length() > 64) {
+            throw exception(INPUT_INVALID);
+        }
+        return accountId;
+    }
+
+    private static String requiredPlatform(Object value) {
+        String platform = value == null ? "" : String.valueOf(value).trim();
+        if (!"douyin".equals(platform) && !"channels".equals(platform)) {
+            throw exception(INPUT_INVALID);
+        }
+        return platform;
+    }
+
+    /** 上线策略只允许人工登记；必须在任何查询、幂等读取或写入之前执行。 */
+    private static void requireManualPublication(Map<String, Object> body) {
+        if (body == null) {
+            throw exception(INPUT_INVALID);
+        }
+        Object scheduledAt = body.get("scheduledAt");
+        if (scheduledAt != null && !String.valueOf(scheduledAt).isBlank()) {
+            throw exception(INPUT_INVALID);
+        }
     }
 
     private static long requiredLong(Object value, String field) {
