@@ -1,0 +1,25 @@
+package cn.iocoder.yudao.module.platform.wallet.orgpoint;
+
+import cn.iocoder.yudao.framework.common.exception.ErrorCode;
+
+/** Company-point error contract retained from the original commerce implementation. */
+final class OrgPointErrors {
+
+    static final ErrorCode ORG_NOT_ENABLED =
+            new ErrorCode(1_072_000_010, "公司未开通设计能力，请联系平台开通");
+    static final ErrorCode ORG_POINT_INSUFFICIENT =
+            new ErrorCode(1_072_000_011, "公司积分池余额不足，请联系管理员充值");
+    static final ErrorCode ORG_MEMBER_QUOTA_EXCEEDED =
+            new ErrorCode(1_072_000_012, "本月用量已达额度上限，额度由公司管理员设置");
+    static final ErrorCode ORG_POINT_SUSPENDED =
+            new ErrorCode(1_072_000_013, "公司积分账户已停用");
+    static final ErrorCode ORG_POINT_REPLAY_CONFLICT =
+            new ErrorCode(1_072_000_014, "幂等键已被不同参数的请求占用");
+    static final ErrorCode ORG_SUBJECT_FORBIDDEN =
+            new ErrorCode(1_072_000_015, "当前岗位未被授权使用该功能，请联系公司管理员");
+    static final ErrorCode ORG_PRICE_CONFLICT =
+            new ErrorCode(1_072_000_016, "价格已被他人修改或已停用，请刷新后重试");
+
+    private OrgPointErrors() {
+    }
+}
