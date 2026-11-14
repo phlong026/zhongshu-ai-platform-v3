@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-14",
+  "kind": "curated-sanitized-repair-summary-not-har",
+  "userDecision": "独立B尚未就绪，先保留待部署验收项",
+  "overall": "source-fixes-committed;four-role-partial-runtime-retest;B-deployment-pending",
+  "frontend": {
+    "branch": "fix/live-integration-20261114",
+    "apiBaseObserved": "https://api2.zszhj.com/admin-api",
+    "commits": [
+      {
+        "id": "a1b851a8",
+        "subject": "让获客统计与作品列表使用真实内容接口"
+      },
+      {
+        "id": "27a9a403",
+        "subject": "防止文件上传把二进制素材算成空摘要"
+      },
+      {
+        "id": "2e6e9a14",
+        "subject": "防止设计门禁触发生命周期错误和参考图假上传"
+      },
+      {
+        "id": "1b7f08fb",
+        "subject": "让老板财务指标进入有权查看的真实经营数据"
+      },
+      {
+        "id": "e1048473",
+        "subject": "让真实员工会话兼容账户与业务页面"
+      },
+      {
+        "id": "655c4ca3",
+        "subject": "防止AI视频静默丢弃已选择的素材"
+      },
+      {
+        "id": "c49425a5",
+        "subject": "把本轮接口联调回归纳入统一检查"
+      },
+      {
+        "id": "a65ee5f1",
+        "subject": "让客户负责人和办理岗位对应真实任职"
+      },
+      {
+        "id": "d88efc7d",
+        "subject": "让财务空态指标与登记快捷入口可实际使用"
+      },
+      {
+        "id": "843a58ec",
+        "subject": "让财务工程凭据只走独立资产通道"
+      },
+      {
+        "id": "df917276",
+        "subject": "关闭个人充值入口避免混用公司积分"
+      },
+      {
+        "id": "3c75ce83",
+        "subject": "让手动发布登记保留真实账号与重试语义"
+      },
+      {
+        "id": "466a2bc0",
+        "subject": "防止业务首页只统计前五十条记录"
+      },
+      {
+        "id": "aa36df62",
+        "subject": "把追加修复回归纳入日常检查"
+      }
+    ]
+  },
+  "backend": {
+    "checkout": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/b-independent-20261114/平台程序",
+    "branch": "feat/b-independent-20261114",
+    "taskCommits": [
+      {
+        "id": "da99d2da",
+        "change": "同号账号显式消歧"
+      },
+      {
+        "id": "85a53c51",
+        "change": "独立设计资产通道及跨应用付费前阻断"
+      },
+      {
+        "id": "aa874511",
+        "change": "本人学习进度有效任职读取"
+      }
+    ],
+    "releaseReady": false,
+    "buildNote": "本轮候选package通过；其他线程后续提交运行策略等改动，部署须选定提交重新隔离构建"
+  },
+  "runtime": {
+    "fourRoles": [
+      "boss",
+      "sales",
+      "engineer",
+      "finance"
+    ],
+    "phaseOne": {
+      "observations": 99,
+      "renderedObservations": 90,
+      "distinctRoutes": 15,
+      "finalErrors": 0,
+      "finalWarnings": 36
+    },
+    "targetedFollowup": {
+      "observations": 14,
+      "newRoutes": [
+        "pages/wallet/recharge/index",
+        "pages/wallet/records/index"
+      ],
+      "walletOldARequests": 0,
+      "publicationWithoutWorkPostRequests": 0,
+      "businessCustomersBusinessCode": 0,
+      "businessCommissionsBusinessCode": 0
+    },
+    "combinedDistinctRoutes": 17,
+    "routeCountIsNotPassCount": true,
+    "finalRoute": "pages/admin/home/index",
+    "finalRole": "boss",
+    "finalConsole": {
+      "errors": 0,
+      "warnings": 22,
+      "warningScope": "current hot-reload session, not deduplicated defects"
+    },
+    "temporaryRequestMonitorRemoved": true
+  },
+  "pendingRuntime": [
+    {
+      "path": "/franchise/company-points/summary",
+      "roles": "all four",
+      "http": 200,
+      "businessCode": 404,
+      "status": "PENDING_B_DEPLOY"
+    },
+    {
+      "path": "/franchise/company-points/my-usage",
+      "roles": "all four",
+      "http": 200,
+      "businessCode": 404,
+      "status": "PENDING_B_DEPLOY"
+    },
+    {
+      "path": "/platform/org/staff",
+      "case": "duplicate mobile disambiguation",
+      "status": "PENDING_B_DEPLOY"
+    },
+    {
+      "path": "/franchise/content/course-progress",
+      "roles": [
+        "engineer",
+        "finance"
+      ],
+      "http": 200,
+      "businessCode": 403,
+      "status": "PENDING_B_DEPLOY"
+    },
+    {
+      "case": "B asset participating in remote A generation",
+      "status": "MISSING_CROSS_APP_ASSET_READ_CONTRACT"
+    },
+    {
+      "case": "courses/media/feedback resources",
+      "status": "MISSING_RESOURCE_OR_SERVICE"
+    }
+  ],
+  "verification": {
+    "npmCheck": "PASS",
+    "basic": {
+      "nativePages": 35,
+      "wxmlChecked": 60,
+      "jsChecked": 184,
+      "jsonChecked": 60
+    },
+    "profileNavigation": {
+      "passed": 32,
+      "failed": 0
+    },
+    "companyPointsFrontend": {
+      "passed": 7,
+      "failed": 0
+    },
+    "integrationRegression": {
+      "passed": 58,
+      "failed": 0
+    },
+    "walletCheck": {
+      "passed": 8,
+      "failed": 0
+    },
+    "financePureGroups": 9,
+    "financePlatformAssertions": 56,
+    "paymentVoidAssertions": 265,
+    "engineeringVoucherAssertions": 60,
+    "backendCompanyPointTests": 15,
+    "backendMemberAssetIsolationTests": 26,
+    "backendContentTests": 113,
+    "backendCourseTestsIncludedInContent": 3,
+    "backendPackageAtCandidateTime": "PASS",
+    "productionNpmAuditVulnerabilities": 0,
+    "changedJsSyntax": "PASS",
+    "diffWhitespace": "PASS",
+    "reversePatchCheck": "PASS",
+    "addedCredentialPatternScan": "PASS"
+  },
+  "sharedA": {
+    "mutatedDuringRepairTurn": false,
+    "jarReplaced": false,
+    "restartedDuringRepairTurn": false,
+    "lastReadOnlyHealth": "UP",
+    "activeSince": "2026-11-14 17:44:06 CST",
+    "jarSha256": "a5e05c5b1b6317b3022c3c3057f45696a0222c0e9f9d532aa26609ae57401e91",
+    "note": "Earlier one-time WeChat secret repair/restart separately authorized and documented"
+  },
+  "notPerformed": [
+    "push",
+    "merge",
+    "mini-program upload",
+    "B deployment",
+    "real financial write",
+    "paid AI generation",
+    "external publication",
+    "SMS send",
+    "real COS/media upload",
+    "HQ design-admin role UAT",
+    "device UAT"
+  ],
+  "limitations": [
+    "Empty customer/project/work/commission/financial records limit deep workflow coverage",
+    "Initial API mapping counts and line numbers are historical snapshots",
+    "Legacy unrelated harness failures are recorded in the report; old A recharge checks are archived",
+    "Database migration undo must preserve DESIGN_REFERENCE data before rollback"
+  ],
+  "evidenceNote": "Curated summary of tool observations and collected test terminal results. Raw tokens, phone numbers, headers and full AX trees are deliberately excluded."
+}
