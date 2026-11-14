@@ -1,0 +1,31 @@
+{
+  "status": "PREPARED_ONLY",
+  "path": "/opt/zhongshu-platform-b-preflight/20261114-79fe7bc2",
+  "fileCount": 15,
+  "payloadBytes": 39253,
+  "manifestSha256": "3700ea2a5d4c3928be539ac2facc91ba86ba376224afb0a05edb22de9e59e247",
+  "owner": "root:root",
+  "rootMode": "0o700",
+  "before": {
+    "aApi": 200,
+    "aRuntime": 200,
+    "services": "Id=zhongshu.service\nActiveState=active\nExecMainStartTimestamp=Sat 2026-11-14 17:44:06 CST\n\nId=zhongshu-runtime.service\nActiveState=active\nExecMainStartTimestamp=Tue 2026-10-20 08:39:04 CST",
+    "nginxSiteSha256": {
+      "/etc/nginx/sites-enabled/zhongshu.conf": "86895e61bcee1e8473692238dd9db29c48188551ea5b1fece8706b8bb59d32fc",
+      "/etc/nginx/sites-enabled/api2.zszhj.com.conf": "45d642816891e3cd4d4899f8615ab81cede9d7403d0bf6b717b19e9e6d51fbc2"
+    }
+  },
+  "after": {
+    "aApi": 200,
+    "aRuntime": 200,
+    "services": "Id=zhongshu.service\nActiveState=active\nExecMainStartTimestamp=Sat 2026-11-14 17:44:06 CST\n\nId=zhongshu-runtime.service\nActiveState=active\nExecMainStartTimestamp=Tue 2026-10-20 08:39:04 CST",
+    "nginxSiteSha256": {
+      "/etc/nginx/sites-enabled/zhongshu.conf": "86895e61bcee1e8473692238dd9db29c48188551ea5b1fece8706b8bb59d32fc",
+      "/etc/nginx/sites-enabled/api2.zszhj.com.conf": "45d642816891e3cd4d4899f8615ab81cede9d7403d0bf6b717b19e9e6d51fbc2"
+    }
+  },
+  "aProtectionComparison": "UNCHANGED",
+  "storageGate": "REFUSED_NOT_BYPASSED",
+  "nginxReloaded": false,
+  "servicesStarted": false
+}

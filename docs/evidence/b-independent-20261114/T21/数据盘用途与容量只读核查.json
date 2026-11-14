@@ -1,0 +1,145 @@
+{
+  "sampledAt": "2026-11-14T13:15:19.596169+00:00",
+  "readOnly": true,
+  "blockDevices": {
+    "exitCode": 0,
+    "stdout": "{\n   \"blockdevices\": [\n      {\n         \"name\": \"sr0\",\n         \"kname\": \"sr0\",\n         \"type\": \"rom\",\n         \"size\": 184012800,\n         \"fstype\": \"iso9660\",\n         \"uuid\": \"2026-09-29-21-45-40-00\",\n         \"mountpoints\": [],\n         \"model\": \"QEMU DVD-ROM\",\n         \"serial\": \"QM00002\",\n         \"wwn\": null,\n         \"ro\": false,\n         \"rota\": true,\n         \"pkname\": null\n      },{\n         \"name\": \"vda\",\n         \"kname\": \"vda\",\n         \"type\": \"disk\",\n         \"size\": 42949672960,\n         \"fstype\": null,\n         \"uuid\": null,\n         \"mountpoints\": [],\n         \"model\": null,\n         \"serial\": null,\n         \"wwn\": null,\n         \"ro\": false,\n         \"rota\": true,\n         \"pkname\": null,\n         \"children\": [\n            {\n               \"name\": \"vda1\",\n               \"kname\": \"vda1\",\n               \"type\": \"part\",\n               \"size\": 564133888,\n               \"fstype\": \"vfat\",\n               \"uuid\": \"21B0-4C4F\",\n               \"mountpoints\": [\n                   \"/boot/efi\"\n               ],\n               \"model\": null,\n               \"serial\": null,\n               \"wwn\": null,\n               \"ro\": false,\n               \"rota\": true,\n               \"pkname\": \"vda\"\n            },{\n               \"name\": \"vda2\",\n               \"kname\": \"vda2\",\n               \"type\": \"part\",\n               \"size\": 1048576,\n               \"fstype\": null,\n               \"uuid\": null,\n               \"mountpoints\": [],\n               \"model\": null,\n               \"serial\": null,\n               \"wwn\": null,\n               \"ro\": false,\n               \"rota\": true,\n               \"pkname\": \"vda\"\n            },{\n               \"name\": \"vda3\",\n               \"kname\": \"vda3\",\n               \"type\": \"part\",\n               \"size\": 42383425024,\n               \"fstype\": \"ext4\",\n               \"uuid\": \"f8351c6b-9739-4e8d-abfd-fdbd167938da\",\n               \"mountpoints\": [\n                   \"/\"\n               ],\n               \"model\": null,\n               \"serial\": null,\n               \"wwn\": null,\n               \"ro\": false,\n               \"rota\": true,\n               \"pkname\": \"vda\"\n            }\n         ]\n      },{\n         \"name\": \"vdb\",\n         \"kname\": \"vdb\",\n         \"type\": \"disk\",\n         \"size\": 42949672960,\n         \"fstype\": \"ext4\",\n         \"uuid\": \"e07286c2-5dc1-421f-9cd3-6840a95dadc3\",\n         \"mountpoints\": [\n             \"/mnt/datadisk0\"\n         ],\n         \"model\": null,\n         \"serial\": \"disk-aqc9ak09\",\n         \"wwn\": null,\n         \"ro\": false,\n         \"rota\": true,\n         \"pkname\": null\n      }\n   ]\n}",
+    "stderr": ""
+  },
+  "mounts": {
+    "/": {
+      "exitCode": 0,
+      "stdout": "{\n   \"filesystems\": [\n      {\n         \"target\": \"/\",\n         \"source\": \"/dev/vda3\",\n         \"fstype\": \"ext4\",\n         \"options\": \"rw,relatime\",\n         \"uuid\": \"f8351c6b-9739-4e8d-abfd-fdbd167938da\",\n         \"maj:min\": \"253:3\"\n      }\n   ]\n}",
+      "stderr": ""
+    },
+    "/mnt/datadisk0": {
+      "exitCode": 0,
+      "stdout": "{\n   \"filesystems\": [\n      {\n         \"target\": \"/mnt/datadisk0\",\n         \"source\": \"/dev/vdb\",\n         \"fstype\": \"ext4\",\n         \"options\": \"rw,relatime\",\n         \"uuid\": \"e07286c2-5dc1-421f-9cd3-6840a95dadc3\",\n         \"maj:min\": \"253:16\"\n      }\n   ]\n}",
+      "stderr": ""
+    },
+    "/var/lib/docker": {
+      "exitCode": 0,
+      "stdout": "{\n   \"filesystems\": [\n      {\n         \"target\": \"/\",\n         \"source\": \"/dev/vda3\",\n         \"fstype\": \"ext4\",\n         \"options\": \"rw,relatime\",\n         \"uuid\": \"f8351c6b-9739-4e8d-abfd-fdbd167938da\",\n         \"maj:min\": \"253:3\"\n      }\n   ]\n}",
+      "stderr": ""
+    },
+    "/opt/zhongshu": {
+      "exitCode": 0,
+      "stdout": "{\n   \"filesystems\": [\n      {\n         \"target\": \"/\",\n         \"source\": \"/dev/vda3\",\n         \"fstype\": \"ext4\",\n         \"options\": \"rw,relatime\",\n         \"uuid\": \"f8351c6b-9739-4e8d-abfd-fdbd167938da\",\n         \"maj:min\": \"253:3\"\n      }\n   ]\n}",
+      "stderr": ""
+    }
+  },
+  "filesystemCapacity": {
+    "/": {
+      "totalBytes": 41601839104,
+      "availableBytes": 18989871104,
+      "freeBytes": 20802379776,
+      "availableInodes": 2432030,
+      "totalInodes": 2583616,
+      "device": 64771,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755"
+    },
+    "/mnt/datadisk0": {
+      "totalBytes": 41956900864,
+      "availableBytes": 39790518272,
+      "freeBytes": 41954779136,
+      "availableInodes": 2621428,
+      "totalInodes": 2621440,
+      "device": 64784,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755"
+    },
+    "/var/lib/docker": {
+      "totalBytes": 41601839104,
+      "availableBytes": 18989871104,
+      "freeBytes": 20802379776,
+      "availableInodes": 2432030,
+      "totalInodes": 2583616,
+      "device": 64771,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o710"
+    }
+  },
+  "dataTopLevel": [
+    {
+      "name": "lost+found",
+      "directory": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700",
+      "sizeBytes": 16384,
+      "mtimeUTC": "2026-09-07T07:14:20+00:00"
+    }
+  ],
+  "dataUsage": {
+    "exitCode": 0,
+    "stdout": "16384\t/mnt/datadisk0/lost+found\n20480\t/mnt/datadisk0",
+    "stderr": ""
+  },
+  "memory": {
+    "exitCode": 0,
+    "stdout": "total        used        free      shared  buff/cache   available\nMem:     16360644608  3228852224   482971648   393412608 13391351808 13131792384\nSwap:     2147479552       12288  2147467264",
+    "stderr": ""
+  },
+  "loadAverage": "0.26 0.16 0.14 1/460 3091413",
+  "dockerRoot": {
+    "exitCode": 0,
+    "stdout": "\"/var/lib/docker\"",
+    "stderr": ""
+  },
+  "dockerDiskUsage": {
+    "exitCode": 0,
+    "stdout": "{\"Active\":\"0\",\"Reclaimable\":\"0B\",\"Size\":\"0B\",\"TotalCount\":\"0\",\"Type\":\"Images\"}\n{\"Active\":\"0\",\"Reclaimable\":\"0B\",\"Size\":\"0B\",\"TotalCount\":\"0\",\"Type\":\"Containers\"}\n{\"Active\":\"0\",\"Reclaimable\":\"0B\",\"Size\":\"0B\",\"TotalCount\":\"0\",\"Type\":\"Local Volumes\"}\n{\"Active\":\"0\",\"Reclaimable\":\"0B\",\"Size\":\"0B\",\"TotalCount\":\"0\",\"Type\":\"Build Cache\"}",
+    "stderr": ""
+  },
+  "dataDiskOpenReferences": [],
+  "procScan": {
+    "pidCount": 200,
+    "races": 0,
+    "permissionErrors": 0
+  },
+  "configReferenceFiles": [
+    "/etc/fstab"
+  ],
+  "configReferenceScope": [
+    "/etc/systemd/system",
+    "/etc/cron.d",
+    "/var/spool/cron/crontabs",
+    "/etc/fstab",
+    "/etc/docker/daemon.json"
+  ],
+  "fstabDataEntry": [
+    {
+      "source": "/dev/vdb",
+      "target": "/mnt/datadisk0",
+      "filesystem": "ext4",
+      "options": "defaults,nofail"
+    }
+  ],
+  "services": {
+    "exitCode": 0,
+    "stdout": "Id=zhongshu.service\nActiveState=active\nSubState=running\nExecMainStartTimestamp=Sat 2026-11-14 17:44:06 CST\nWorkingDirectory=/opt/zhongshu\n\nId=zhongshu-runtime.service\nActiveState=active\nSubState=running\nExecMainStartTimestamp=Tue 2026-10-20 08:39:04 CST\nWorkingDirectory=/opt/zhongshu/ai-runtime",
+    "stderr": ""
+  },
+  "aJarHash": {
+    "exitCode": 0,
+    "stdout": "a5e05c5b1b6317b3022c3c3057f45696a0222c0e9f9d532aa26609ae57401e91  /opt/zhongshu/yudao-server.jar",
+    "stderr": ""
+  },
+  "health": {
+    "aApi": {
+      "exitCode": 0,
+      "stdout": "200",
+      "stderr": ""
+    },
+    "aRuntime": {
+      "exitCode": 0,
+      "stdout": "200",
+      "stderr": ""
+    }
+  }
+}

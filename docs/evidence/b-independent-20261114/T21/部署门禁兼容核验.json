@@ -1,0 +1,36 @@
+{
+  "scope": "production pure function applied to read-only sampled lsblk topology; not full host validation",
+  "bMount": "/mnt/datadisk0",
+  "bBlockIdentity": "253:16",
+  "protectedBlockIdentities": [
+    "253:3",
+    "253:3",
+    "253:3"
+  ],
+  "actualExpectedStatus": "REFUSED",
+  "reason": "Physical block ancestor lacks a stable WWN/serial identity",
+  "candidateFragments": {
+    "same-host.pilot.candidate.env": {
+      "pathPlan": [
+        "/mnt/datadisk0/zhongshu-platform-b/postgres-b",
+        "/mnt/datadisk0/zhongshu-platform-b/redis-b",
+        "/mnt/datadisk0/zhongshu-platform-b/postgres-design",
+        "/mnt/datadisk0/zhongshu-platform-b/redis-design",
+        "/mnt/datadisk0/zhongshu-platform-b/runtime-journal",
+        "/mnt/datadisk0/zhongshu-platform-b/backup-staging"
+      ],
+      "incompleteProofRejected": "Same-host storage configuration must be complete"
+    },
+    "same-host.production.candidate.env": {
+      "pathPlan": [
+        "/mnt/zhongshu-platform-b-data/zhongshu-platform-b/postgres-b",
+        "/mnt/zhongshu-platform-b-data/zhongshu-platform-b/redis-b",
+        "/mnt/zhongshu-platform-b-data/zhongshu-platform-b/postgres-design",
+        "/mnt/zhongshu-platform-b-data/zhongshu-platform-b/redis-design",
+        "/mnt/zhongshu-platform-b-data/zhongshu-platform-b/runtime-journal",
+        "/mnt/zhongshu-platform-b-data/zhongshu-platform-b/backup-staging"
+      ],
+      "incompleteProofRejected": "Same-host storage configuration must be complete"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+
+; <<>> DiG 9.10.6 <<>> @andy.dnspod.net platform-api.zszhj.com A +time=3 +tries=1 +noall +comments +answer +authority
+; (5 servers found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 16215
+;; flags: qr aa rd; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+;; WARNING: recursion requested but not available
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 1400
+;; AUTHORITY SECTION:
+zszhj.com.		180	IN	SOA	handball.dnspod.net. freednsadmin.dnspod.com. 1788752033 3600 180 1209600 180
+
+
+
+; <<>> DiG 9.10.6 <<>> @handball.dnspod.net platform-admin.zszhj.com A +time=3 +tries=1 +noall +comments +answer +authority
+; (5 servers found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 61494
+;; flags: qr aa rd; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+;; WARNING: recursion requested but not available
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 1400
+;; AUTHORITY SECTION:
+zszhj.com.		180	IN	SOA	handball.dnspod.net. freednsadmin.dnspod.com. 1788752033 3600 180 1209600 180
+
+
+
+; <<>> DiG 9.10.6 <<>> @andy.dnspod.net b-assets.zszhj.com CNAME +time=3 +tries=1 +noall +comments +answer +authority
+; (5 servers found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 32532
+;; flags: qr aa rd; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+;; WARNING: recursion requested but not available
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 1400
+;; AUTHORITY SECTION:
+zszhj.com.		180	IN	SOA	handball.dnspod.net. freednsadmin.dnspod.com. 1788752033 3600 180 1209600 180

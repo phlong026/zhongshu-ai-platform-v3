@@ -1,0 +1,45 @@
+{
+  "status": "quote-only-no-order-no-purchase",
+  "sampledAt": "2026-11-14T21:32:41.822139+08:00",
+  "source": "Tencent CBS purchase configuration dialog, authenticated account, closed without confirmation",
+  "region": "ap-shanghai",
+  "zone": "ap-shanghai-5",
+  "duration": "1 year",
+  "quantityPerDisk": 1,
+  "backupPoints": 0,
+  "autoRenew": false,
+  "attachOption": "not-attached",
+  "quotes": [
+    {
+      "purpose": "proposed-data",
+      "type": "增强型SSD云硬盘",
+      "capacityGiB": 100,
+      "discountedAnnualCny": 996.0,
+      "originalAnnualCny": 1200.0,
+      "quotedPeakIops": 6800,
+      "quotedPeakThroughputMiBps": 170
+    },
+    {
+      "purpose": "proposed-backup",
+      "type": "高性能云硬盘",
+      "capacityGiB": 200,
+      "discountedAnnualCny": 697.2,
+      "originalAnnualCny": 840.0,
+      "quotedPeakIops": 3400,
+      "quotedPeakThroughputMiBps": 130
+    }
+  ],
+  "combinedDiskBaseAnnualCny": 1693.2,
+  "excluded": [
+    "KMS service and keys",
+    "snapshot/backup point charges",
+    "cross-region backup storage and traffic",
+    "performance validation on BF1 instance"
+  ],
+  "encryptionStatus": "not-selected; console requires KMS activation, final encrypted order must be quoted after KMS and target-instance compatibility review",
+  "limitations": [
+    "Displayed quote is time-dependent and is not an approved order",
+    "Console warns enhanced SSD performance promise depends on instance compatibility; not a measured fsync result",
+    "No financial resource or permission activated"
+  ]
+}

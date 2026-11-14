@@ -1,0 +1,51 @@
+{
+  "observedAtCST": "2026-11-14 evening (after 21:15 CST server sample)",
+  "source": "Authenticated Tencent CVM and CBS console, read-only DOM",
+  "instanceId": "ins-4m1linvl",
+  "region": "ap-shanghai",
+  "zone": "ap-shanghai-5",
+  "publicIp": "124.223.61.18",
+  "instanceType": "BF1.2XLARGE16",
+  "vcpus": 8,
+  "memoryGiB": 16,
+  "publicBandwidthMbps": 5,
+  "systemDisk": {
+    "id": "disk-731jrb7z",
+    "capacityGiB": 40,
+    "type": "高性能云硬盘"
+  },
+  "dataDisk": {
+    "id": "disk-aqc9ak09",
+    "capacityGiB": 40,
+    "type": "高性能云硬盘",
+    "status": "使用中",
+    "attachedInstanceId": "ins-4m1linvl",
+    "shared": false,
+    "encrypted": false,
+    "deleteWithInstance": false,
+    "baselineIops": 2120,
+    "baselineThroughputMiBps": 106,
+    "snapshotPolicy": null,
+    "snapshotCount": 0,
+    "backupPointCountShown": 1,
+    "backupPointScopeNotInspected": true
+  },
+  "limitations": [
+    "Cloud volume ID does not prove dedicated physical fault domain or thick provisioning",
+    "Console IOPS and throughput are specification values, not measured fsync or concurrent A+B performance",
+    "No cloud resources purchased or modified"
+  ],
+  "serverSampledAtUTC": "2026-11-14T13:15:19.596169+00:00",
+  "dns": {
+    "accountDomainPresent": true,
+    "domain": "zszhj.com",
+    "status": "正常",
+    "recordCount": 3,
+    "plan": "免费版",
+    "candidateApi": "platform-api.zszhj.com",
+    "candidateAdmin": "platform-admin.zszhj.com",
+    "candidateAssets": "b-assets.zszhj.com",
+    "authoritativeCandidateStatus": "NXDOMAIN",
+    "appliedChanges": false
+  }
+}

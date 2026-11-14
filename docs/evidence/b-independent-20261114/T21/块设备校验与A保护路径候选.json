@@ -1,0 +1,89 @@
+{
+  "protectedPathCandidates": {
+    "/opt/zhongshu": {
+      "exists": true,
+      "realpath": "/opt/zhongshu"
+    },
+    "/var/lib/postgresql": {
+      "exists": true,
+      "realpath": "/var/lib/postgresql"
+    },
+    "/var/lib/redis": {
+      "exists": true,
+      "realpath": "/var/lib/redis"
+    },
+    "/etc/nginx": {
+      "exists": true,
+      "realpath": "/etc/nginx"
+    },
+    "/etc/letsencrypt": {
+      "exists": true,
+      "realpath": "/etc/letsencrypt"
+    },
+    "/var/lib/docker": {
+      "exists": true,
+      "realpath": "/var/lib/docker"
+    }
+  },
+  "blockTopology": {
+    "blockdevices": [
+      {
+        "name": "sr0",
+        "kname": "sr0",
+        "type": "rom",
+        "pkname": null,
+        "maj:min": "11:0",
+        "serial": "QM00002",
+        "wwn": null
+      },
+      {
+        "name": "vda",
+        "kname": "vda",
+        "type": "disk",
+        "pkname": null,
+        "maj:min": "253:0",
+        "serial": null,
+        "wwn": null,
+        "children": [
+          {
+            "name": "vda1",
+            "kname": "vda1",
+            "type": "part",
+            "pkname": "vda",
+            "maj:min": "253:1",
+            "serial": null,
+            "wwn": null
+          },
+          {
+            "name": "vda2",
+            "kname": "vda2",
+            "type": "part",
+            "pkname": "vda",
+            "maj:min": "253:2",
+            "serial": null,
+            "wwn": null
+          },
+          {
+            "name": "vda3",
+            "kname": "vda3",
+            "type": "part",
+            "pkname": "vda",
+            "maj:min": "253:3",
+            "serial": null,
+            "wwn": null
+          }
+        ]
+      },
+      {
+        "name": "vdb",
+        "kname": "vdb",
+        "type": "disk",
+        "pkname": null,
+        "maj:min": "253:16",
+        "serial": "disk-aqc9ak09",
+        "wwn": null
+      }
+    ]
+  },
+  "postgresDataDirectory": "/var/lib/postgresql/18/main"
+}
