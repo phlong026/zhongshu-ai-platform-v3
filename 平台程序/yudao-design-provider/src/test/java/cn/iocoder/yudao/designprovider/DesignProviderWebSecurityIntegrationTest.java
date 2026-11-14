@@ -144,6 +144,8 @@ class DesignProviderWebSecurityIntegrationTest {
                 .collect(Collectors.toSet());
         assertThat(paths).containsExactlyInAnyOrder(
                 "/error", "/internal-api/design/v1/platform/{action}",
+                "/internal-api/deploy-smoke/platform",
+                "/internal-api/design/v1/ai-jobs/auth-smoke",
                 "/internal-api/design/v1/ai-jobs/claims",
                 "/internal-api/design/v1/ai-jobs/{jobId}/lease-renewals",
                 "/internal-api/design/v1/ai-jobs/{jobId}/prompt-calls",

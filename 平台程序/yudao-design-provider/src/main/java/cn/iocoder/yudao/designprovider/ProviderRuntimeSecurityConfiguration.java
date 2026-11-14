@@ -31,6 +31,7 @@ import java.util.function.LongSupplier;
 @Configuration(proxyBeanMethods = false)
 class ProviderRuntimeSecurityConfiguration {
     static final String PREFIX = "/internal-api/design/v1/ai-jobs/";
+    static final String AUTH_SMOKE_PATH = PREFIX + "auth-smoke";
 
     @Bean
     FilterRegistrationBean<CacheRequestBodyFilter> providerRuntimeBodyCache() {
@@ -102,6 +103,11 @@ class ProviderRuntimeSecurityConfiguration {
             } catch (IllegalArgumentException unsafeTimestamp) {
                 LOG.warn("[runtimeAuthentication][reason=INVALID_TIMESTAMP method={}]", request.getMethod());
                 reject(response, 401, "UNAUTHORIZED");
+                return;
+            }
+            // The smoke skips Redis state, but must pass the same overflow-safe timestamp window.
+            if (AUTH_SMOKE_PATH.equals(request.getRequestURI())) {
+                chain.doFilter(request, response);
                 return;
             }
             final Boolean claimed;

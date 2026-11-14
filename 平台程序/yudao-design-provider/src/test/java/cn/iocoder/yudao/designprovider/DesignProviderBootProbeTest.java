@@ -28,7 +28,7 @@ class DesignProviderBootProbeTest {
             Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
                     .locations("classpath:db/migration/platform", "classpath:db/migration/identity", "classpath:db/migration/design",
                             "classpath:db/migration/commerce", "classpath:db/migration/ai-orchestration",
-                            "classpath:db/migration/design-capability")
+                            "classpath:db/migration/design-capability", "classpath:db/migration/design-provider")
                     .baselineOnMigrate(false).outOfOrder(false).cleanDisabled(true).load().migrate();
             var application = new SpringApplication(DesignProviderApplication.class);
             application.setWebApplicationType(WebApplicationType.NONE);

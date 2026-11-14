@@ -60,8 +60,11 @@ import java.util.Arrays;
 })
 @Import({DesignCapabilityController.class, ProviderDependencyConfiguration.class,
         ProviderSecurityConfiguration.class, ProviderDriverReadinessConfiguration.class,
+        ProviderMigrationReadinessConfiguration.class,
         ProviderCapabilityBoundaryConfiguration.class, ProviderRequiredSecretConfiguration.class,
         ProviderRuntimeSecurityConfiguration.class, ProviderRuntimeAssetController.class,
+        ProviderRuntimeAuthSmokeController.class,
+        ProviderPlatformAuthSmokeController.class,
         ProviderAiJobInternalController.class, ProviderPromptEventService.class, ProviderOutputTicketService.class,
         RuntimeCallTraceInternalController.class,
         ProviderDesignJobDriver.class})

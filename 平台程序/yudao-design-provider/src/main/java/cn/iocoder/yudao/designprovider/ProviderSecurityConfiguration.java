@@ -25,6 +25,8 @@ class ProviderSecurityConfiguration {
                         // Preserve the controller's fail-closed 4xx/5xx status on the internal ERROR dispatch.
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Controller performs dedicated HMAC verification; endpoint returns no data and writes no state.
+                        .requestMatchers("/internal-api/deploy-smoke/platform").permitAll()
                         .anyRequest().denyAll())
                 .build();
     }
