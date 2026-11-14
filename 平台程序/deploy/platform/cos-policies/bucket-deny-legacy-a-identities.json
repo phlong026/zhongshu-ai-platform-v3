@@ -1,0 +1,21 @@
+{
+  "Statement": [
+    {
+      "Action": [
+        "name/cos:*"
+      ],
+      "Effect": "Deny",
+      "Principal": {
+        "qcs": [
+          "qcs::cam::uin/100045498012:uin/100054794778",
+          "qcs::cam::uin/100045498012:uin/100053333114"
+        ]
+      },
+      "Resource": [
+        "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/*"
+      ],
+      "Sid": "DenyLegacyAServiceIdentitiesOnB"
+    }
+  ],
+  "version": "2.0"
+}
