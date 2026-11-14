@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  * 内容科目当日用量统计。
  *
  * <p>公司积分池上线后，本表不再是配额、预扣或拒绝门槛；付费准入唯一依据是
- * OrgPointPort 的权限、员工额度和公司余额。该统计可供运营展示，失败不得伪装成“日上限”。
+ * OrgPointPort 的业务权限和公司余额。该统计可供运营展示，失败不得伪装成“日上限”。
  */
 @Component
 public class ContentQuotaService {
