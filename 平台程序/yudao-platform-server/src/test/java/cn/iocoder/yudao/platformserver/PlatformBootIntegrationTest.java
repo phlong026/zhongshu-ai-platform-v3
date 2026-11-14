@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.platformserver;
 
 import cn.iocoder.yudao.platformmigration.PlatformMigrationConfiguration;
+import cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseAccessService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -104,6 +105,11 @@ class PlatformBootIntegrationTest {
                     "--zhongshu.franchise.asset.storage-root=" + temporaryDirectory.resolve("assets"),
                     "--zhongshu.content.provider=real",
                     "--zhongshu.content.task-sweep-enabled=false"));
+            SpringApplication missingPublicCaseOrigin = new SpringApplication(YudaoPlatformServerApplication.class);
+            missingPublicCaseOrigin.setAdditionalProfiles("pg", "local");
+            assertThatThrownBy(() -> missingPublicCaseOrigin.run(options.toArray(String[]::new)))
+                    .hasStackTraceContaining("zhongshu.design.public-cases.origin is required");
+            options.add("--zhongshu.design.public-cases.origin=https://public-cases.example.test");
             try (var context = (ServletWebServerApplicationContext) api.run(options.toArray(String[]::new))) {
                 assertThat(context.getEnvironment().getProperty("spring.flyway.password")).isNull();
                 for (String legacy : List.of("zhongshuJobDriver", "zhongshuExportWorker", "privacyLifecycleService",
@@ -115,6 +121,7 @@ class PlatformBootIntegrationTest {
                 assertThat(context.containsBean("saleContractService")).isTrue();
                 assertThat(context.containsBean("finReceiptService")).isTrue();
                 assertThat(context.containsBean("engPlanService")).isTrue();
+                assertThat(context.getBean(PublicCaseAccessService.class)).isNotNull();
                 assertThat(context.getBean(org.quartz.Scheduler.class).isStarted()).isFalse();
                 HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
                 var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"

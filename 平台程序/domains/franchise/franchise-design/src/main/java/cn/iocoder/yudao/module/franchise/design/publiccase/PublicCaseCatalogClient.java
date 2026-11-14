@@ -17,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
@@ -73,15 +74,27 @@ public final class PublicCaseCatalogClient {
     }
 
     public JsonNode getCase(long caseId) {
+        return getCase(caseId, settings.requestTimeout);
+    }
+
+    public JsonNode getCase(long caseId, Duration remaining) {
         if (caseId <= 0) {
             throw new IllegalArgumentException("caseId must be positive");
         }
-        return get(Endpoint.DETAIL, CASES_PATH + "/" + caseId);
+        if (remaining == null || remaining.isZero() || remaining.isNegative()) {
+            throw new IllegalArgumentException("remaining deadline must be positive");
+        }
+        Duration deadline = remaining.compareTo(settings.requestTimeout) < 0 ? remaining : settings.requestTimeout;
+        return get(Endpoint.DETAIL, CASES_PATH + "/" + caseId, deadline);
     }
 
     private JsonNode get(Endpoint endpoint, String pathAndQuery) {
+        return get(endpoint, pathAndQuery, settings.requestTimeout);
+    }
+
+    private JsonNode get(Endpoint endpoint, String pathAndQuery, Duration deadline) {
         HttpRequest request = HttpRequest.newBuilder(settings.origin.resolve(pathAndQuery))
-                .timeout(settings.requestTimeout)
+                .timeout(deadline)
                 .header("Accept", "application/json")
                 .header("Accept-Encoding", "identity")
                 .header("tenant-id", settings.tenantId)
@@ -102,7 +115,7 @@ public final class PublicCaseCatalogClient {
                 }
                 return subscriber;
             });
-            long remaining = settings.requestTimeout.toNanos() - (System.nanoTime() - started);
+            long remaining = deadline.toNanos() - (System.nanoTime() - started);
             if (remaining <= 0) {
                 throw new TimeoutException("Public case response deadline exceeded");
             }
@@ -205,7 +218,8 @@ public final class PublicCaseCatalogClient {
         long elapsedMs = Math.max(0, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
         log.warn("[publicCaseCatalog] endpoint={} failureKind={} httpStatus={} upstreamCode={} elapsedMs={} transportCause={}",
                 endpoint, kind, status, upstreamCode, elapsedMs, cause);
-        return new PublicCaseCatalogException(clientMessage, upstreamCode);
+        return new PublicCaseCatalogException(clientMessage, upstreamCode, kind == FailureKind.TIMEOUT,
+                kind == FailureKind.INVALID_RESPONSE || kind == FailureKind.RESPONSE_TOO_LARGE);
     }
 
     private static String encode(String value) {

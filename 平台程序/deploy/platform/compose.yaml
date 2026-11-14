@@ -25,6 +25,7 @@ services:
     tmpfs: ["/tmp:size=128m,mode=1777"]
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp
+      PF_DESIGN_PUBLIC_CASES_ORIGIN: ${PF_DESIGN_PUBLIC_CASES_ORIGIN:-}
     command:
       - --spring.profiles.active=pg,prod
       - --spring.config.import=file:/etc/platform/runtime.properties,file:/run/secrets/platform.properties,configtree:/run/secrets/

@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.franchise.api.CustomerSchemePort;
 import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
 import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.*;
 import cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignGateway;
+import cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseAccessService;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort.ServiceAccountInactiveException;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
@@ -55,16 +56,25 @@ public class DesignAccessService {
     private final TransactionTemplate txTemplate;
     private final JdbcTemplate jdbcTemplate;
     private RemoteDesignGateway remote;
+    private PublicCaseAccessService publicCases;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setRemoteGateway(RemoteDesignGateway remote) {
         this.remote = remote;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setPublicCaseAccess(PublicCaseAccessService publicCases) {
+        this.publicCases = publicCases;
+    }
+
     @jakarta.annotation.PostConstruct
     public void verifyCapabilityWiring() {
         if (remote == null && (designService == null || serviceAccounts == null)) {
             throw new IllegalStateException("Design capability requires either remote gateway or the legacy bridge");
+        }
+        if (remote != null && publicCases == null) {
+            throw new IllegalStateException("Remote design requires B-local public case access");
         }
     }
 
@@ -457,16 +467,19 @@ public class DesignAccessService {
     // ========== 灵感库 / 预算 / 资产（只读或票据类，无审计） ==========
 
     public DesignServicePort.CasePage listCases(PostSnapshot post, DesignServicePort.CaseQuery query) {
+        if (publicCases != null) return publicCases.listCases(post, query);
         if (remote != null) return remote.call(post, Operation.LIST_CASES, null, query);
         return designService.listCases(query);
     }
 
     public List<DesignServicePort.StyleOption> listCaseStyles(PostSnapshot post) {
+        if (publicCases != null) return publicCases.listCaseStyles(post);
         if (remote != null) return remote.call(post, Operation.LIST_CASE_STYLES, null, new Empty());
         return designService.listCaseStyles();
     }
 
     public DesignServicePort.CaseDetailView getCaseDetail(PostSnapshot post, long caseId) {
+        if (publicCases != null) return publicCases.getCaseDetail(post, caseId);
         if (remote != null) return remote.call(post, Operation.GET_CASE_DETAIL, null, new Case(caseId));
         return designService.getCaseDetail(caseId);
     }
@@ -474,6 +487,7 @@ public class DesignAccessService {
     public void favoriteCase(PostSnapshot post, long caseId) { favoriteCase(post, caseId, null); }
 
     public void favoriteCase(PostSnapshot post, long caseId, String key) {
+        if (publicCases != null) { publicCases.favoriteCase(post, caseId); return; }
         if (remote != null) { remote.call(post, Operation.FAVORITE_CASE, key, new Case(caseId)); return; }
         designService.favoriteCase(serviceAccount(post), caseId);
     }
@@ -481,11 +495,13 @@ public class DesignAccessService {
     public void unfavoriteCase(PostSnapshot post, long caseId) { unfavoriteCase(post, caseId, null); }
 
     public void unfavoriteCase(PostSnapshot post, long caseId, String key) {
+        if (publicCases != null) { publicCases.unfavoriteCase(post, caseId); return; }
         if (remote != null) { remote.call(post, Operation.UNFAVORITE_CASE, key, new Case(caseId)); return; }
         designService.unfavoriteCase(serviceAccount(post), caseId);
     }
 
     public DesignServicePort.CasePage listFavorites(PostSnapshot post, String cursor, int limit) {
+        if (publicCases != null) return publicCases.listFavorites(post, cursor, limit);
         if (remote != null) return remote.call(post, Operation.LIST_FAVORITES, null, new Page(cursor, limit));
         return designService.listFavorites(serviceAccount(post), cursor, limit);
     }

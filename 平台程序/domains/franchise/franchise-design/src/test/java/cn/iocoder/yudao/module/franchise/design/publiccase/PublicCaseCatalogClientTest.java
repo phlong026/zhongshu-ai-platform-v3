@@ -265,6 +265,36 @@ class PublicCaseCatalogClientTest {
         }
     }
 
+    @Test
+    void callerRemainingDeadlineShortensConfiguredTimeoutAndCancelsBodyRead() throws Exception {
+        CountDownLatch releaseBody = new CountDownLatch(1);
+        start(exchange -> {
+            exchange.sendResponseHeaders(200, 0);
+            try (var output = exchange.getResponseBody()) {
+                output.write("{\"code\":0,\"data\":{".getBytes(StandardCharsets.UTF_8));
+                output.flush();
+                releaseBody.await(2, TimeUnit.SECONDS);
+                output.write("\"caseId\":\"19\"}}".getBytes(StandardCharsets.UTF_8));
+            } catch (IOException cancelled) {
+                // Depending on kernel buffering the server may or may not observe the client cancellation.
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        ILoggingEvent warning = captureSingleWarning(() -> {
+            try {
+                assertTimeoutPreemptively(Duration.ofMillis(700), () ->
+                        assertThrows(PublicCaseCatalogException.class,
+                                () -> client(Duration.ofSeconds(2), 4096)
+                                        .getCase(19, Duration.ofMillis(75))));
+            } finally {
+                releaseBody.countDown();
+            }
+        });
+        assertEquals("TIMEOUT", warning.getArgumentArray()[1].toString());
+    }
+
     private PublicCaseCatalogClient client(Duration timeout, int maxResponseBytes) {
         PublicCaseCatalogSettings settings = PublicCaseCatalogSettings.forLoopbackTests(
                 serverOrigin(), "1", Duration.ofMillis(50), timeout, maxResponseBytes);
