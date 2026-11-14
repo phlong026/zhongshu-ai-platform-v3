@@ -16,7 +16,7 @@ data: {
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
 ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
-tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,tasksError:'',
+tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,tasksError:'',worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
 publishText: '想把二层乡墅住得舒适，先从家人的日常出发。\n采光、动线和通风，才是住得舒服的关键。',
 tags: '#乡墅设计  #农村建房', scheduled: '', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
 actor: '李顾问', voice: '李顾问原声', filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
@@ -73,6 +73,9 @@ const state = studio.read();
 this.setData({ title: state.title, original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), scriptLength: state.script.length, estimatedSeconds: Math.ceil(state.script.replace(/\s/g, '').length / 4), extraction: state.extraction || null, rewriteVersion: (state.rewriteHistory[state.rewriteHistory.length - 1] || {}).version || 0 });
 }
 if (this.data.view === 'tasks') this.syncApiTasks();
+if (this.data.view === 'works') this.syncApiWorks();
+if (this.data.view === 'records') this.syncApiRecords();
+if (this.data.view === 'detail') this.syncApiRecords(this.data.recordId);
 return;
 }
 // 无 token：清空演示集合并提示登录（不回落本地数据）
@@ -88,6 +91,60 @@ const mapped = P.rowsOf(rows).map(task => this.mapApiTask(task)).filter(Boolean)
 const tasks = mapped.filter(task => filter === 0 || (filter === 1 && task.status === 'generating') || (filter === 2 && task.status === 'completed') || (filter === 3 && task.status !== 'generating' && task.status !== 'completed'));
 this.setData({ tasks, tasksError: '' });
 }).catch(() => { this.setData({ tasksError: '任务列表加载失败，请下拉重试', tasks: [] }); }); // 拉取失败：错误态 + 清空，不回落本地列表
+},
+/** 在线作品列表：drafts.works 返回本人作品；异步结果只允许写回发起时的会话、岗位与页面。 */
+syncApiWorks() {
+const alive=http.requestGuard('studio-works'),scope=this.actorScope;
+this.setData({worksLoading:true,worksError:''});
+contentApi.drafts.works().then(rows=>{
+if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!=='works')return;
+const works=P.rowsOf(rows).map(row=>{
+if(!row||row.id==null||row.id==='')return null;
+const kind=row.kind==='ai_video'?'ai':(row.kind==='digital'?'digital':'remix');
+return{id:String(row.id),taskId:row.taskId==null?'':String(row.taskId),title:String(row.title||'未命名作品'),kind,status:String(row.status||'draft'),image:studio.imageFor({kind})};
+}).filter(Boolean);
+this.setData({works,worksLoading:false,worksError:''});
+}).catch(error=>{
+if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!=='works')return;
+this.setData({works:[],worksLoading:false,worksError:P.degradeMessage(error)});
+});
+},
+/** 发布记录列表与详情共用 publications.page；状态筛选在页面端完成。 */
+syncApiRecords(recordId) {
+const alive=http.requestGuard('studio-records'),scope=this.actorScope,view=this.data.view,filter=this.data.recordFilter;
+this.setData({recordsLoading:true,recordsError:''});
+contentApi.publications.page().then(rows=>{
+if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!==view)return;
+const mapped=P.rowsOf(rows).map(row=>this.mapApiPublication(row)).filter(Boolean);
+if(recordId!=null&&recordId!==''){
+const detail=mapped.find(item=>item.id===String(recordId));
+if(!detail)throw Error('发布记录不存在或已清理');
+this.setData({detail,timeline:this.publicationTimeline(detail),recordsLoading:false,recordsError:'',invalidMessage:''});
+return;
+}
+const records=mapped.filter(item=>filter===0||(filter===1&&['publishing','verify','scheduled'].includes(item.status))||(filter===2&&item.status==='published')||(filter===3&&item.status==='failed'));
+this.setData({records,recordsLoading:false,recordsError:''});
+}).catch(error=>{
+if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!==view)return;
+const message=P.degradeMessage(error);
+if(recordId!=null&&recordId!=='')this.setData({detail:null,timeline:[],recordsLoading:false,recordsError:message,invalidMessage:message});
+else this.setData({records:[],recordsLoading:false,recordsError:message});
+});
+},
+mapApiPublication(row) {
+if(!row||row.id==null||row.id==='')return null;
+const status=String(row.status||'publishing'),info=statusInfo[status]||{label:'状态待确认',icon:'warning',tone:'yellow',action:'查看详情'};
+const platform=String(row.platform||'douyin'),account=String(row.accountName||row.account||row.accountId||('众墅之家 · '+(platform==='douyin'?'建房顾问':'乡墅设计')));
+const timeValue=status==='published'?(row.publishedAt||row.createTime):status==='scheduled'?(row.scheduledAt||row.createTime):row.createTime;
+return{id:String(row.id),apiRecord:true,workId:row.workId==null?'':String(row.workId),title:String(row.title||'未命名发布'),publishText:String(row.publishText||''),tags:String(row.tags||''),platform,account,status,publishedUrl:String(row.publishedUrl||''),failureReason:String(row.failureReason||''),signature:String(row.signature||''),cover:'/assets/studio-publication-cover.jpg',kindLabel:'数字人口播',time:studio.formatTime(timeValue),displayTime:studio.formatTime(timeValue),timeLabel:status==='published'?'发布时间':status==='scheduled'?'计划发布时间':'提交时间',identifier:String(row.signature||row.id),label:info.label,icon:info.icon,tone:info.tone,action:info.action||'查看详情',note:status==='failed'?String(row.failureReason||info.note||'发布失败'):String(info.note||'')};
+},
+publicationTimeline(record) {
+const timeline=[{label:'已提交发布',time:record.time}];
+if(record.status==='scheduled')timeline.push({label:'等待计划时间',time:record.displayTime});
+if(record.status==='verify')timeline.push({label:'等待链接核验',time:'待完成'});
+if(record.status==='published')timeline.push({label:'已登记发布链接',time:record.displayTime});
+if(record.status==='failed')timeline.push({label:'发布失败',time:record.failureReason||'原因未记录'});
+return timeline;
 },
 /** 后端 TaskView → 本地任务形状（ID 一律不透明字符串；progress 用区间示意） */
 mapApiTask(task) {

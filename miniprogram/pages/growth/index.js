@@ -6,6 +6,11 @@ const crm=require('../../api/franchise/crm');
 const http=require('../../api/http');
 const {makeFormHandlers}=require('../../utils/view-container');
 const displayContent=content=>content?{...content,status:content.status==='演示已发布'?'已登记发布':content.status}:content;
+const totalOf=value=>{
+if(typeof value==='number'&&Number.isFinite(value))return value;
+if(!value||typeof value!=='object'||Array.isArray(value))return 0;
+return Object.values(value).reduce((total,count)=>total+(Number.isFinite(Number(count))?Number(count):0),0);
+};
 Page({...makeFormHandlers(),data:{view:'home',title:'内容与客资',contents:[],leads:[],form:{source:'直接来访'},error:'',primary:'',id:'',staff:[],published:[],pendingLeads:[]},
 onLoad(o){this.id=o.id||'';this.setData({view:['content','capture','lead'].includes(o.view)?o.view:'home'});this.refresh();if(this.data.view==='capture'&&o.contentId){const index=this.data.published.findIndex(c=>c.id===o.contentId);if(index>=0)this.setData({'form.contentId':o.contentId,publishedIndex:index+1});}},onShow(){this.refresh();},
 refresh(){const post=(()=>{try{return http.token()?require('../../api/auth').currentApiPost():null;}catch(e){return null;}})();if(!(post&&post.orgType==='store'&&['sales','sales-lead','boss','owner'].includes(post.roleCode)))return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('加盟商内容与线索')});const a={active:true,orgType:'store',role:post.roleCode,staffId:'',name:post.name||''};const s=G.load(),v=this.data.view,c=s.contents.find(c=>c.id===this.id),l=s.leads.find(l=>l.id===this.id);let primary='',action='';if(v==='content'&&c){if(Job.has(a.role,'sales')&&c.authorId===a.staffId&&c.status!=='演示已发布'){primary='前往发布设置';action='publish';}}if(v==='capture'){if(!Job.has(a.role,'sales'))return wx.redirectTo({url:'/pages/account/index?view=access'});primary='登记客资';action='capture';}if(v==='lead'&&l){if(l.status==='跟进中'&&l.ownerId===a.staffId){primary='保存跟进';action='follow';}}
@@ -15,10 +20,10 @@ syncGrowth(){
 contentApi.growth.summary().then(summary=>{
 if(!summary||typeof summary!=='object')return;
 const per=Array.isArray(summary.perPublication)?summary.perPublication:[];
-const patch={growthStats:{publications:summary.publications||0,leads:summary.leads||0,converted:summary.converted||0}};
+const patch={growthStats:{publications:totalOf(summary.publications),leads:totalOf(summary.leads),converted:totalOf(summary.converted)}};
 // 登记客资来源选择改为平台发布维度；capture 页进行中不换列表（防选择索引错位）
 if(this.data.view!=='capture'){
-const rows=per.filter(row=>row&&row.publicationId!=null).map(row=>({id:String(row.publicationId),publicationId:String(row.publicationId),title:String(row.title||row.workTitle||('发布作品 '+row.publicationId)),leads:row.leads||0,converted:row.converted||0}));
+const rows=per.filter(row=>row&&(row.publicationId!=null||row.id!=null)).map(row=>{const publicationId=row.publicationId!=null?row.publicationId:row.id;return{id:String(publicationId),publicationId:String(publicationId),title:String(row.title||row.workTitle||('发布作品 '+publicationId)),leads:totalOf(row.leads),converted:totalOf(row.converted)};});
 if(rows.length){patch.published=rows;patch.publishedNames=['直接来访／转介绍',...rows.map(r=>r.title)];}
 }
 this.setData(patch);
