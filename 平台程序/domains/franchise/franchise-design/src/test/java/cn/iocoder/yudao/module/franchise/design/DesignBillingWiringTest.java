@@ -1,7 +1,7 @@
 package cn.iocoder.yudao.module.franchise.design;
 
 import cn.iocoder.yudao.module.franchise.design.billing.DesignWalletChargeAdapter;
-import cn.iocoder.yudao.module.platform.wallet.WalletChargeService;
+import cn.iocoder.yudao.module.franchise.api.OrgPointPort;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -21,11 +21,11 @@ class DesignBillingWiringTest {
                 .run(application -> assertThat(application).hasNotFailed().doesNotHaveBean(DesignWalletChargeAdapter.class));
     }
 
-    @Test void explicitBBridgeCreatesRealAdapterWithBWalletDependencies() {
+    @Test void explicitBBridgeCreatesRealAdapterWithCompanyPointPool() {
         context.withPropertyValues("platform.legacy-design-bridge.enabled=false")
                 .withBean(DataSource.class, () -> mock(DataSource.class))
                 .withBean(PlatformTransactionManager.class, () -> mock(PlatformTransactionManager.class))
-                .withBean(WalletChargeService.class, () -> mock(WalletChargeService.class))
+                .withBean(OrgPointPort.class, () -> mock(OrgPointPort.class))
                 .run(application -> assertThat(application).hasNotFailed().hasSingleBean(DesignWalletChargeAdapter.class));
     }
 }
