@@ -11,6 +11,7 @@ import cn.iocoder.yudao.framework.web.config.YudaoWebAutoConfiguration;
 import cn.iocoder.yudao.framework.websocket.config.YudaoWebSocketAutoConfiguration;
 import cn.iocoder.yudao.module.design.LegacyAssetAccessAdapter;
 import cn.iocoder.yudao.module.design.capability.DesignCapabilityController;
+import cn.iocoder.yudao.module.aiorchestration.controller.internal.RuntimeCallTraceInternalController;
 import org.dromara.trans.config.TransServiceConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
@@ -29,7 +30,7 @@ import java.util.Arrays;
 
 /**
  * Isolated design capability process. Controller discovery is deny-by-default:
- * only the signed capability controller is imported explicitly. Exclusions remove A's user-facing
+ * only the signed capability and Runtime service controllers are imported explicitly. Exclusions remove A's user-facing
  * logging, dictionary, WebSocket, Quartz, WeChat and EasyTrans surfaces; capability rejection logs,
  * durable receipts and cost ledgers remain in the scanned capability implementation.
  */
@@ -59,7 +60,11 @@ import java.util.Arrays;
 })
 @Import({DesignCapabilityController.class, ProviderDependencyConfiguration.class,
         ProviderSecurityConfiguration.class, ProviderDriverReadinessConfiguration.class,
-        ProviderCapabilityBoundaryConfiguration.class, ProviderRequiredSecretConfiguration.class})
+        ProviderCapabilityBoundaryConfiguration.class, ProviderRequiredSecretConfiguration.class,
+        ProviderRuntimeSecurityConfiguration.class, ProviderRuntimeAssetController.class,
+        ProviderAiJobInternalController.class, ProviderPromptEventService.class, ProviderOutputTicketService.class,
+        RuntimeCallTraceInternalController.class,
+        ProviderDesignJobDriver.class})
 @EnableScheduling
 public class DesignProviderApplication extends SpringBootServletInitializer {
 

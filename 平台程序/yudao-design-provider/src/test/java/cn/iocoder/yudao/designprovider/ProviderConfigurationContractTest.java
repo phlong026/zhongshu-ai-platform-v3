@@ -11,6 +11,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.StreamUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -22,6 +23,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ProviderConfigurationContractTest {
+
+    @Test
+    void runtimeReplayTtlCoversInclusiveFutureWindowAndRejectsUnsafeClockOrWindow() {
+        assertThat(ProviderRuntimeSecurityConfiguration.RuntimeAuthenticationFilter
+                .replayTtl("1300", 300, 1000)).isEqualTo(Duration.ofSeconds(601));
+        assertThat(ProviderRuntimeSecurityConfiguration.RuntimeAuthenticationFilter
+                .replayTtl("700", 300, 1000)).isEqualTo(Duration.ofSeconds(1));
+        assertThat(ProviderRuntimeSecurityConfiguration.RuntimeAuthenticationFilter
+                .replayTtl("1000", 5, 1000)).isEqualTo(Duration.ofSeconds(6));
+        assertThat(ProviderRuntimeSecurityConfiguration.RuntimeAuthenticationFilter
+                .replayTtl("1000", 600, 1000)).isEqualTo(Duration.ofSeconds(601));
+        assertThatThrownBy(() -> ProviderRuntimeSecurityConfiguration.RuntimeAuthenticationFilter
+                .replayTtl(String.valueOf(Long.MAX_VALUE), 300, 1000)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ProviderRuntimeSecurityConfiguration.RuntimeAuthenticationFilter
+                .replayTtl("1000", 0, 1000)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ProviderRuntimeSecurityConfiguration.RuntimeAuthenticationFilter
+                .replayTtl("1000", 3601, 1000)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ProviderRuntimeSecurityConfiguration.RuntimeAuthenticationFilter
+                .replayTtl("1300", 300, 999)).isInstanceOf(IllegalArgumentException.class);
+    }
 
     @Test
     void requiredSecretGuardRejectsMissingPlaceholderAndBlankValues() {
@@ -37,6 +58,18 @@ class ProviderConfigurationContractTest {
                 "spring.data.redis.password", "DP_REDIS_PASSWORD"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("DP_REDIS_PASSWORD is required");
+    }
+
+    @Test
+    void providerStartupRejectsAnyEnvironmentOverrideThatReintroducesDailyModerationQuota() {
+        ProviderRequiredSecretConfiguration.requireUnlimited(environmentWith(
+                "zhongshu.design.asset.moderation.daily-limit", "0"),
+                "zhongshu.design.asset.moderation.daily-limit");
+        assertThatThrownBy(() -> ProviderRequiredSecretConfiguration.requireUnlimited(environmentWith(
+                "zhongshu.design.asset.moderation.daily-limit", "1"),
+                "zhongshu.design.asset.moderation.daily-limit"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("B_PROVIDER_DAILY_LIMIT_MUST_BE_ZERO");
     }
 
     private static StandardEnvironment environmentWith(String key, String value) {

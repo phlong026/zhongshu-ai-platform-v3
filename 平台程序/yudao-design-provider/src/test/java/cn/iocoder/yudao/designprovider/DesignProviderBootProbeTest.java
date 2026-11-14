@@ -26,7 +26,7 @@ class DesignProviderBootProbeTest {
             postgres.start();
             redis.start();
             Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                    .locations("classpath:db/migration/identity", "classpath:db/migration/design",
+                    .locations("classpath:db/migration/platform", "classpath:db/migration/identity", "classpath:db/migration/design",
                             "classpath:db/migration/commerce", "classpath:db/migration/ai-orchestration",
                             "classpath:db/migration/design-capability")
                     .baselineOnMigrate(false).outOfOrder(false).cleanDisabled(true).load().migrate();

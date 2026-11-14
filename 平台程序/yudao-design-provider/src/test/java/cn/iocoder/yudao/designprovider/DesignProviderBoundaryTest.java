@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.designprovider;
 
 import cn.iocoder.yudao.module.design.capability.DesignCapabilityController;
+import cn.iocoder.yudao.module.aiorchestration.controller.internal.RuntimeCallTraceInternalController;
 import org.junit.jupiter.api.Test;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DesignProviderBoundaryTest {
 
     @Test
-    void providerImportsOnlyCapabilityControllerAndExcludesAllOtherControllersFromScanning() {
+    void providerImportsOnlyServiceControllersAndExcludesUserFacingControllersFromScanning() {
         var scan = DesignProviderApplication.class.getAnnotation(org.springframework.context.annotation.ComponentScan.class);
         assertThat(scan).isNotNull();
         assertThat(Set.of(scan.basePackages())).containsExactlyInAnyOrder(
@@ -32,7 +33,9 @@ class DesignProviderBoundaryTest {
 
         var imported = DesignProviderApplication.class.getAnnotation(org.springframework.context.annotation.Import.class);
         assertThat(imported).isNotNull();
-        assertThat(imported.value()).contains(DesignCapabilityController.class);
+        assertThat(imported.value()).contains(DesignCapabilityController.class, ProviderAiJobInternalController.class,
+                RuntimeCallTraceInternalController.class, ProviderRuntimeAssetController.class,
+                ProviderOutputTicketService.class, ProviderPromptEventService.class);
         var capability = DesignCapabilityController.class.getAnnotation(RequestMapping.class);
         assertThat(capability.value()).containsExactly("/internal-api/design/v1/platform");
         assertThat(Arrays.stream(capability.value())).noneMatch(path ->
