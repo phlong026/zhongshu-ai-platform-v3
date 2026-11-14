@@ -23,21 +23,30 @@ const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 // ===== wx / http 边界桩（仅 mock 传输，不 mock 业务实现） =====
 const FILES = { '/tmp/v.jpg': 'YWJj' }; // 'abc' 的 base64——NIST 向量
 const ABC_SHA = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
-const httpLog = { posts: [] };
+const httpLog = { posts: [], puts: [] };
 let completeStatus = 'ACCEPTED';
+const storage = {
+  'zs-api-token-v1': 'fixture-token',
+  'zs-api-post-v1': 'post-engineer',
+  'zs-api-tenant-v1': '1',
+  'zs-api-posts-v1': [{ postId: 'post-engineer', userId: 'user-engineer', orgId: 'org-fixture', roleCode: 'engineer' }]
+};
 globalThis.wx = {
   getFileSystemManager: () => ({
     readFile: ({ filePath, success }) => success({ data: FILES[filePath] || '' }),
     statSync: p => ({ size: 3 })
   }),
-  getStorageSync: () => ({}), setStorageSync: () => {} // R2 P2-8：access.context 组织维度读取（缓存键）
+  base64ToArrayBuffer: value => Uint8Array.from(Buffer.from(value, 'base64')).buffer,
+  request: options => { httpLog.puts.push(options); options.success({ statusCode: 204, data: '' }); },
+  getStorageSync: key => storage[key] === undefined ? '' : storage[key],
+  setStorageSync: (key, value) => { storage[key] = value; },
+  removeStorageSync: key => { delete storage[key]; }
 };
 const httpApi = require('../miniprogram/api/http');
 const realPost = httpApi.post;
 httpApi.post = (p2, data) => {
   httpLog.posts.push({ path: String(p2), data });
-  if (String(p2).indexOf('/upload-tickets') >= 0) return Promise.resolve({ assetId: 88001 });
-  if (String(p2).indexOf('/bytes') >= 0) return Promise.resolve(true);
+  if (String(p2).indexOf('/upload-tickets') >= 0) return Promise.resolve({ assetId: 88001, uploadUrl: 'https://cos.example/signed' });
   if (String(p2).indexOf('/complete') >= 0) {
     if (completeStatus === 'REJECTED') return Promise.resolve({ uploadStatus: 'REJECTED', rejectedReason: 'SHA_MISMATCH: 实际内容与声明 SHA-256 不一致' });
     return Promise.resolve({ assetId: 88001, uploadStatus: 'ACCEPTED', rejectedReason: '' });
@@ -54,7 +63,9 @@ async function main() {
   const ticketReq = httpLog.posts.find(p2 => p2.path.indexOf('/upload-tickets') >= 0);
   assert.equal(ticketReq.data.sha256, ABC_SHA, 'A1 票据 SHA=原始字节摘要（NIST abc 向量）');
   assert.equal(ticketReq.data.assetType, 'ENG_DRAWING', 'A1 动作类型透传');
-  assert.ok(httpLog.posts.some(p2 => p2.path.indexOf('/88001/bytes') >= 0), 'A1 字节通道调用');
+  assert.equal(httpLog.puts.length, 1, 'A1 HTTPS COS 原始字节 PUT');
+  assert.deepEqual([...new Uint8Array(httpLog.puts[0].data)], [97, 98, 99], 'A1 PUT 字节为原始 abc');
+  assert.equal(httpLog.puts[0].header.Authorization, undefined, 'A1 COS 不携平台凭据');
   assert.ok(httpLog.posts.some(p2 => p2.path.indexOf('/88001/complete') >= 0), 'A1 complete 调用');
 
   // A2：complete REJECTED——不返回 assetId、报拒绝原因
@@ -241,7 +252,8 @@ async function main() {
   assert.ok(apiSrc.includes("uploadStatus !== 'ACCEPTED'"), 'D1 complete 状态检查（REJECTED 拒绝）');
   assert.ok(apiSrc.includes('base64ToBinary'), 'D1 原始字节解码（SHA 语义）');
   assert.ok(/voucherCache/.test(apiSrc), 'D1 重试缓存');
-  assert.ok(apiSrc.includes("http.post('/platform/dev/design/assets/'"), 'D1 字节通道走统一 http（身份头由封装注入）');
+  assert.ok(apiSrc.includes('BAsset.putTicketBytes') && !apiSrc.includes('/platform/dev/design/assets/'),
+    'D1 字节通道仅走独立 B proxy/COS，不回退 A dev');
 
   assert.ok(!pf.includes('VOUCHER_ACTIONS.includes(action)'), 'D2 拦截已摘');
   assert.ok(pf.includes("!p.actualStart) actions = [{ action: 'prepare', label: '提交开工准备' }"), 'D2 prepare 门禁字段');
@@ -274,8 +286,11 @@ async function main() {
   const getSeg = devCtl.slice(devCtl.indexOf('@GetMapping("/assets/{assetId}/bytes")'), devCtl.indexOf('public CommonResult<Map<String, Object>> getBytes') + 80);
   assert.ok(getSeg.includes("@post.has('franchise:design:use')") && !getSeg.includes('asset:bytes'),
     'D5b GET bytes 撤四岗（R4 P1-1：读取仅 design:use——防组织内横向读取 FIN_VOUCHER 等跨类资产）');
-  assert.ok(apiSrc.includes("method: 'PUT'") && apiSrc.includes('ticket.uploadUrl'), 'D6 生产 COS PUT 分支（R3 P1-3/20 号契约 §2）');
-  assert.ok(apiSrc.includes('/platform/dev/design/assets/'), 'D6 local dev bytes 分支保留');
+  const bAssetPut = read('miniprogram/utils/b-asset-upload.js');
+  assert.ok(bAssetPut.includes("method: 'PUT'") && bAssetPut.includes('admin-api') && bAssetPut.includes('franchise\\/assets'),
+    'D6 HTTPS COS 与独立 B 认证代理共用原始字节 PUT');
+  assert.ok(!apiSrc.includes('/platform/dev/design/assets/') && bAssetPut.includes('B 素材上传通道'),
+    'D6 local/旧 A 私有通道明确拒绝');
   assert.ok(wxml.includes('wx:for="{{item.files}}"'), 'D7 多图逐张查看（R3 P2-5）');
 
   console.log('verify-engineering-voucher-chain: A 真实现 5 + B 编排 6 + C 视图 17 + D 静态 23 = 60 断言 全部 PASS');

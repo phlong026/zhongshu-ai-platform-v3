@@ -5,6 +5,7 @@
  * 金额一律分（cents）；写命令一律带 Idempotency-Key（后端三层幂等）。
  */
 const http = require('../http');
+const BAsset = require('../../utils/b-asset-upload');
 
 const idem = (key, action) => (key
   ? { 'Idempotency-Key': key }
@@ -149,53 +150,62 @@ function base64ToBinary(b64) {
  * M07-T04 批次#36：工程凭据上传（基-1 票据链）。
  * R1 P1-6 响应丢失重试：同路径文件缓存 {sha, assetId}——重试复用已完成资产，
  * 业务幂等键（deliver 指纹含资产 ID）重放合法，不会「同键不同资产」。
- * R1 P1-2：字节通道走统一 http 封装（自动 Authorization/X-Post-Id/租户头+业务错误解包）。
+ * 字节上传仅走独立 B 认证代理或 HTTPS COS 签名 URL；不再回退 A 私有 dev 通道。
  * R1 P1-3：complete 响应检查 uploadStatus——REJECTED（SHA_MISMATCH 等）抛 rejectedReason，
  * 拒绝资产不返回 assetId、不进业务调用。取消/超时（未 complete）无有效资产引用，不落业务记录。
  */
-// 缓存键含平台组织+资产类型（同路径不同类型须重签票；换组织不复用上一组织的资产）
-const voucherCache = new Map(); // 'orgId|assetType|filePath' -> { sha, assetId }
-function voucherOrg() {
+// 仅在可确认完整后端身份时缓存；岗位或登录会话变化后必须重新签票，不能跨身份复用 assetId。
+const voucherCache = new Map();
+function voucherIdentity() {
   try {
+    if (!http.token()) return '';
+    const tenantId = http.tenantId();
+    const postId = http.currentPostId();
     const post = require('../auth').currentApiPost();
-    if (post && post.orgId != null && String(post.orgId) !== '') return String(post.orgId);
+    const userId = post && post.userId;
+    const orgId = post && post.orgId;
+    const sessionGeneration = http.sessionGeneration();
+    if (tenantId == null || String(tenantId) === '' || postId == null || String(postId) === ''
+      || !post || String(post.postId) !== String(postId)
+      || userId == null || String(userId) === '' || orgId == null || String(orgId) === ''
+      || sessionGeneration == null || String(sessionGeneration) === '') return '';
+    return JSON.stringify([String(tenantId), String(postId), String(userId), String(orgId),
+      String(sessionGeneration)]);
   } catch (e) {}
-  return 'na';
+  return '';
 }
 async function uploadVoucher(filePath, assetType) {
   if (!filePath) throw { code: 0, msg: '请选择凭据文件' };
+  const alive = http.sessionGuard();
+  const requireAlive = () => { if (!alive()) throw { code: 0, msg: '身份已切换，请重新选择文件' }; };
   const financeApi = require('../finance');
   const fsData = await financeApi.readFileBase64(filePath);
+  requireAlive();
   const binary = base64ToBinary(fsData);
   const sha = financeApi.sha256Hex(binary); // 原始字节摘要
-  const cacheKey = voucherOrg() + '|' + assetType + '|' + filePath;
-  const cached = voucherCache.get(cacheKey);
-  if (cached && cached.sha === sha) return cached.assetId; // 重试复用（响应丢失场景）
+  const identity = voucherIdentity();
+  const cacheKey = identity ? JSON.stringify([identity, assetType, filePath, sha]) : '';
+  const cachedAssetId = cacheKey ? voucherCache.get(cacheKey) : null;
+  if (cachedAssetId != null) {
+    requireAlive();
+    if (voucherIdentity() === identity) return cachedAssetId; // 同身份、同会话重试复用
+  }
   const stat = wx.getFileSystemManager().statSync(filePath);
   const sizeBytes = stat.size || binary.length;
-  const ticket = await assets.uploadTicket(assetType, financeApi.guessMime(filePath), sizeBytes, sha);
+  const mimeType = financeApi.guessMime(filePath);
+  const ticket = await assets.uploadTicket(assetType, mimeType, sizeBytes, sha);
+  requireAlive();
   const assetId = ticket.assetId;
-  if (ticket.uploadUrl && !/^local:\/\//.test(ticket.uploadUrl) && ticket.uploadUrl.indexOf('/platform/dev/') < 0) {
-    // R3 P1-3/20 号契约 §2：生产 COS 签名 URL 原始字节 PUT（dev bytes 仅 local/zsdev profile 存在）
-    await new Promise((resolve, reject) => {
-      wx.request({
-        url: ticket.uploadUrl, method: 'PUT',
-        header: { 'content-type': financeApi.guessMime(filePath) },
-        data: wx.base64ToArrayBuffer(fsData), // 原始字节（complete 校验 SHA 与申报一致）
-        success: r => (r.statusCode >= 200 && r.statusCode < 300 ? resolve()
-          : reject({ code: 0, msg: '凭据上传失败（' + r.statusCode + '），请重试' })),
-        fail: () => reject({ code: 0, msg: '凭据上传网络失败，请重试' })
-      });
-    });
-  } else {
-    await http.post('/platform/dev/design/assets/' + assetId + '/bytes', { contentBase64: fsData });
-  }
+  await BAsset.putTicketBytes({ http, uploadUrl: ticket.uploadUrl,
+    bytes: wx.base64ToArrayBuffer(fsData), mimeType, alive, label: '工程凭据' });
+  requireAlive();
   const completed = await assets.complete(assetId);
+  requireAlive();
   if (!completed || completed.uploadStatus !== 'ACCEPTED') {
     const reason = (completed && completed.rejectedReason) || '校验未通过';
     throw { code: 0, msg: '凭据校验未通过：' + reason + '，请更换文件后重试' };
   }
-  voucherCache.set(cacheKey, { sha, assetId });
+  if (cacheKey && voucherIdentity() === identity) voucherCache.set(cacheKey, assetId);
   return assetId;
 }
 

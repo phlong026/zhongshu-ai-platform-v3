@@ -270,8 +270,10 @@ console.log('[AC] M08-T01/T03：缺省键 5 函数真实调用（隔离沙箱）
     '  token: function () { return "tok"; } };\n';
   fs.writeFileSync(sandboxPath, httpMockSrc
     + apiSrc.replace(/const http = require\(['"]\.\/http['"]\);/, "")
+      .replace(/const BAsset = require\(['"]\.\.\/utils\/b-asset-upload['"]\);/, 'const BAsset = {};')
     + '\nmodule.exports = { idemKey, registerReceipt, registerPayment, registerRefund, registerPayable, confirmBank, sha256Hex, __captured: capturedKeys };');
   const Sandbox = require(sandboxPath);
+  fs.unlinkSync(sandboxPath);
   const callsBefore = Sandbox.__captured.length;
   let threw = false;
   try {
@@ -309,12 +311,14 @@ main().then(() => {
   const read = p => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
   console.log('[M5] 凭证/修订/本地分页');
   const apiFin = read('miniprogram/api/finance.js');
+  const bAssetPut = read('miniprogram/utils/b-asset-upload.js');
   ok(apiFin.includes("assetType: 'FIN_VOUCHER'") && apiFin.includes('/franchise/assets/upload-tickets')
       && apiFin.includes('/franchise/assets/' ) && apiFin.includes('/complete')
-      && apiFin.includes('base64ToBinary') && apiFin.includes('sha256Hex(binary)')
-      && apiFin.includes("method: 'PUT'") && apiFin.includes('ticket.uploadUrl')
+      && apiFin.includes('sha256Hex(bytes)') && apiFin.includes('BAsset.putTicketBytes')
+      && bAssetPut.includes("method: 'PUT'") && bAssetPut.includes('admin-api') && bAssetPut.includes('franchise\\/assets')
+      && !apiFin.includes('/platform/dev/design/assets/') && !apiFin.includes('helperUser')
       && !apiFin.includes('unescape(encodeURIComponent(fsData))'),
-    'F1 基-1 凭证上传编排（解码字节 SHA + 生产 COS PUT + ticket + complete）');
+    'F1 基-1 凭证上传编排（原始字节 SHA + B proxy/COS PUT + ticket + complete）');
   ok(apiFin.includes('/revision') && apiFin.includes('/revisions')
       && apiFin.includes('function reviseReceipt'),
     'F2 修订端点（乐观锁+历史+非遮蔽实现）');
