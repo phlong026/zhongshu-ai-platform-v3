@@ -102,9 +102,9 @@ public class ContentDraftController {
     }
 
     @GetMapping("/course-progress")
-    @Operation(summary = "课程进度")
-    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    @Operation(summary = "课程进度（所有有效任职均可查看本人当前组织记录）")
     public CommonResult<List<Map<String, Object>>> courseProgress(@RequestParam(required = false) String courseId) {
+        // 学习记录是员工个人数据，不授予内容业务权限；有效任职与本人/org 边界由 CurrentPost 权威提供。
         PostSnapshot post = post();
         List<FrContentCourseProgressDO> rows = drafts.courseProgress(post.orgId(), post.userId(), courseId);
         return success(rows.stream().map(row -> Map.<String, Object>of(
