@@ -58,7 +58,8 @@ class OrgPointHeadquartersSecurityTest {
                         new OrgPointHeadquartersController.ReviewAdjustment(true, "ok")))
                         .isInstanceOf(AccessDeniedException.class);
                 assertThatThrownBy(() -> controller.publishPrice(
-                        new OrgPointHeadquartersController.PublishPrice("ai_flat", 1_000_000, 1, "reason")))
+                        new OrgPointHeadquartersController.PublishPrice(
+                                "ai_flat", 1_000_000, 1, "reason", "hq-price:key")))
                         .isInstanceOf(AccessDeniedException.class);
             });
         }
@@ -77,6 +78,21 @@ class OrgPointHeadquartersSecurityTest {
                 assertThatThrownBy(() -> controller.review(1L,
                         new OrgPointHeadquartersController.ReviewAdjustment(true, "ok")))
                         .isInstanceOf(AccessDeniedException.class);
+            });
+        }
+    }
+
+    @Test
+    void priceUpdatePermissionForwardsIdempotencyKey() {
+        authenticate();
+        when(ss.hasPermission("platform:org-point:price:update")).thenReturn(true);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            context.run(ctx -> {
+                var controller = ctx.getBean(OrgPointHeadquartersController.class);
+                controller.publishPrice(new OrgPointHeadquartersController.PublishPrice(
+                        "copy", 2_000_000, 1, "approved", "hq-price:101"));
+                verify(service).publishPrice(101L, "copy", 2_000_000, 1, "approved", "hq-price:101");
             });
         }
     }

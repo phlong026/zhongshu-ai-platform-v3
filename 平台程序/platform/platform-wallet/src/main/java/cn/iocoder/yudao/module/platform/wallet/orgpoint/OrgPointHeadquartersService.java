@@ -148,14 +148,30 @@ public class OrgPointHeadquartersService {
         });
     }
 
-    public long publishPrice(long actorId, String subject, long priceMicros, long minCharge, String reason) {
+    public long publishPrice(long actorId, String subject, long priceMicros, long minCharge,
+                             String reason, String requestKey) {
+        requireText(subject, 64);
         requireText(reason, 512);
+        requireText(requestKey, 128);
         return required(() -> {
-            lockHeadquartersActor(actorId);
+            Scope scope = lockHeadquartersActor(actorId);
+            String hash = DigestUtil.sha256Hex(JsonUtils.toJsonString(
+                    List.of(scope.tenantId(), actorId, subject, priceMicros, minCharge, reason)));
+            jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 918))", requestKey);
+            List<Map<String, Object>> existing = jdbc.queryForList(
+                    "SELECT price_id,request_hash FROM org_point_hq_price_request WHERE request_key=?", requestKey);
+            if (!existing.isEmpty()) {
+                if (!hash.equals(existing.get(0).get("request_hash"))) throw conflict();
+                return ((Number) existing.get(0).get("price_id")).longValue();
+            }
             long priceId = prices.publish(subject, priceMicros, minCharge, Long.toString(actorId));
             jdbc.update("INSERT INTO org_point_price_audit(id,subject,price_id,price_micros,min_charge,actor_id,reason) "
                             + "VALUES(?,?,?,?,?,?,?)", IdWorker.getId(), subject, priceId, priceMicros,
                     minCharge, actorId, reason);
+            jdbc.update("INSERT INTO org_point_hq_price_request(id,request_key,request_hash,tenant_id,actor_id,"
+                            + "subject,price_micros,min_charge,reason,price_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    IdWorker.getId(), requestKey, hash, scope.tenantId(), actorId, subject, priceMicros,
+                    minCharge, reason, priceId);
             return priceId;
         });
     }

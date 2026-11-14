@@ -39,6 +39,7 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
         forward(913);
         forward(914);
         forward(917);
+        forward(918);
     }
 
     @AfterEach
@@ -78,12 +79,14 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
     @Test
     void emptySchemasCanRollbackInReverseOrder() throws Exception {
         execute("INSERT INTO system_role_menu(id,role_id,menu_id) VALUES(1,2,917000)");
+        undo(918);
         undo(917);
         undo(914);
         undo(913);
         undo(912);
         undo(911);
         assertThat(regclass("org_point_subject_price")).isNull();
+        assertThat(regclass("org_point_hq_price_request")).isNull();
         assertThat(regclass("design_prompt_receipt")).isNull();
         assertThat(regclass("design_billing_binding")).isNull();
         assertThat(regclass("org_point_ledger")).isNull();
@@ -108,6 +111,49 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
                 .hasMessageContaining("refuse undo");
         execute("ROLLBACK");
         assertThat(value("SELECT count(*) FROM org_point_price_audit")).isEqualTo(1);
+    }
+
+    @Test
+    void nonEmptyPriceRequestRefusesItsOwnRollbackAndRemainsImmutable() throws Exception {
+        execute("INSERT INTO org_point_hq_price_request(id,request_key,request_hash,tenant_id,actor_id,subject,"
+                + "price_micros,min_charge,reason,price_id) VALUES(1,'price-key',repeat('a',64),1,2,'copy',"
+                + "1000000,1,'approved',3)");
+        assertThatThrownBy(() -> undo(918)).isInstanceOf(SQLException.class)
+                .hasMessageContaining("refuse undo");
+        assertThatThrownBy(() -> execute("UPDATE org_point_hq_price_request SET reason='changed' WHERE id=1"))
+                .isInstanceOf(SQLException.class).hasMessageContaining("append-only");
+        execute("ROLLBACK");
+        assertThat(value("SELECT count(*) FROM org_point_hq_price_request")).isEqualTo(1);
+    }
+
+    @Test
+    void priceRequestRollbackLockPreventsConcurrentFactInsertion() throws Exception {
+        connection.setAutoCommit(false);
+        execute("LOCK TABLE org_point_hq_price_request IN ACCESS EXCLUSIVE MODE");
+        var executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            var insertion = executor.submit(() -> {
+                try (Connection other = dataSource.getConnection(); var statement = other.createStatement()) {
+                    statement.execute("SET search_path TO " + schema);
+                    statement.execute("INSERT INTO org_point_hq_price_request(id,request_key,request_hash,tenant_id,"
+                            + "actor_id,subject,price_micros,min_charge,reason,price_id) VALUES(9,'race',repeat('b',64),"
+                            + "1,2,'copy',1000000,1,'racing fact',3)");
+                    return null;
+                } catch (SQLException error) {
+                    return error;
+                }
+            });
+            assertThatThrownBy(() -> insertion.get(200, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+            undo(918);
+            connection.commit();
+            Object insertionResult = insertion.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(insertionResult).isInstanceOf(SQLException.class);
+            assertThat(regclass("org_point_hq_price_request")).isNull();
+        } finally {
+            executor.shutdownNow();
+            connection.setAutoCommit(true);
+        }
     }
 
     @Test
@@ -184,6 +230,7 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
             case 913 -> "design_prompt_receipt";
             case 914 -> "org_point_subject_price";
             case 917 -> "org_point_headquarters_admin";
+            case 918 -> "org_point_hq_price_idempotency";
             default -> throw new IllegalArgumentException("unsupported version " + version);
         };
         String undo = "migration-undo".equals(kind) ? "undo_" : "";

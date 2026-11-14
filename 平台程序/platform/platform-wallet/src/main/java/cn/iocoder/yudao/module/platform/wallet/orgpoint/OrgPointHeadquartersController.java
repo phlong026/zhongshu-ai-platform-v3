@@ -42,7 +42,8 @@ public class OrgPointHeadquartersController {
 
     public record SubmitAdjustment(long delta, String reason, String requestKey) { }
     public record ReviewAdjustment(boolean approve, String comment) { }
-    public record PublishPrice(String subject, long priceMicros, long minCharge, String reason) { }
+    public record PublishPrice(String subject, long priceMicros, long minCharge, String reason,
+                               String requestKey) { }
 
     @PostMapping("/{orgId}/adjustments")
     @PreAuthorize("@ss.hasPermission('platform:org-point:adjustment:submit')")
@@ -71,7 +72,8 @@ public class OrgPointHeadquartersController {
     @PostMapping("/prices")
     @PreAuthorize("@ss.hasPermission('platform:org-point:price:update')")
     public CommonResult<Long> publishPrice(@RequestBody PublishPrice body) {
-        return success(service.publishPrice(actor(), body.subject(), body.priceMicros(), body.minCharge(), body.reason()));
+        return success(service.publishPrice(actor(), body.subject(), body.priceMicros(), body.minCharge(),
+                body.reason(), body.requestKey()));
     }
 
     private static long actor() {

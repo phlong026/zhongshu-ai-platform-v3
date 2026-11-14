@@ -41,7 +41,7 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
         OrgPointPriceService prices = new OrgPointPriceService(dataSource, transactionManager);
         points = new OrgPointService(dataSource, transactionManager, (AuditPort) message -> 0L, prices);
         service = new OrgPointHeadquartersService(dataSource, transactionManager, points, prices, TENANT);
-        jdbc.execute("TRUNCATE org_point_price_audit,org_point_hq_adjustment,org_point_ledger,"
+        jdbc.execute("TRUNCATE org_point_hq_price_request,org_point_price_audit,org_point_hq_adjustment,org_point_ledger,"
                 + "org_point_account,org_point_subject_price");
         jdbc.update("INSERT INTO pf_org_type(code,domain,name) VALUES('headquarters','test','总部'),('store','test','门店') ON CONFLICT DO NOTHING");
         jdbc.update("INSERT INTO pf_post_template(role_code,domain,org_types) VALUES('hq-admin','test','headquarters') ON CONFLICT DO NOTHING");
@@ -137,13 +137,93 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
 
     @Test
     void pricePublicationRequiresHeadquartersActorAndWritesAppendOnlyAudit() {
-        long id = service.publishPrice(maker, "ai_flat", 4_000_000L, 1, "经审批调整新任务价格");
+        long id = service.publishPrice(maker, "ai_flat", 4_000_000L, 1,
+                "经审批调整新任务价格", "hq-price:test:1");
         assertThat(id).isPositive();
         assertThat(points.quoteCredits("ai_flat", 2)).isEqualTo(8);
         assertThat(jdbc.queryForObject("SELECT actor_id FROM org_point_price_audit WHERE price_id=?",
                 Long.class, id)).isEqualTo(maker);
         assertThatThrownBy(() -> jdbc.update("DELETE FROM org_point_price_audit WHERE price_id=?", id))
                 .isInstanceOf(org.springframework.dao.DataAccessException.class);
+    }
+
+    @Test
+    void pricePublicationReplayReturnsOriginalAndChangedBindingConflicts() {
+        String reason = "审批单 PR-100";
+        long id = service.publishPrice(maker, "copy", 2_000_000L, 1, reason, "hq-price:replay");
+
+        assertThat(service.publishPrice(maker, "copy", 2_000_000L, 1, reason, "hq-price:replay"))
+                .isEqualTo(id);
+        assertThatThrownBy(() -> service.publishPrice(checker, "copy", 2_000_000L, 1,
+                reason, "hq-price:replay")).hasMessageContaining("冲突");
+        assertThatThrownBy(() -> service.publishPrice(maker, "copy", 3_000_000L, 1,
+                reason, "hq-price:replay")).hasMessageContaining("冲突");
+        assertThatThrownBy(() -> service.publishPrice(maker, "ai_flat", 2_000_000L, 1,
+                reason, "hq-price:replay")).hasMessageContaining("冲突");
+        assertThatThrownBy(() -> service.publishPrice(maker, "copy", 2_000_000L, 1,
+                "另一审批单", "hq-price:replay")).hasMessageContaining("冲突");
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_subject_price WHERE subject='copy'",
+                Integer.class)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_price_audit WHERE price_id=?",
+                Integer.class, id)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_hq_price_request WHERE request_key=?",
+                Integer.class, "hq-price:replay")).isOne();
+        assertThat(jdbc.queryForObject("SELECT tenant_id FROM org_point_hq_price_request WHERE request_key=?",
+                Long.class, "hq-price:replay")).isEqualTo(TENANT);
+    }
+
+    @Test
+    void concurrentPriceReplayCreatesOneVersionAndOneAudit() throws Exception {
+        var start = new java.util.concurrent.CountDownLatch(1);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(() -> concurrentPrice(start));
+            var second = executor.submit(() -> concurrentPrice(start));
+            start.countDown();
+            Object one = first.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            Object two = second.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(one).isInstanceOf(Long.class).isEqualTo(two);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_subject_price WHERE subject='ai_elevation'",
+                    Integer.class)).isOne();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_price_audit WHERE subject='ai_elevation'",
+                    Integer.class)).isOne();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_hq_price_request WHERE request_key=?",
+                    Integer.class, "hq-price:race")).isOne();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void invalidPriceOrRequestKeyLeavesNoPriceFacts() {
+        assertThatThrownBy(() -> service.publishPrice(maker, "copy", 0, 1,
+                "无效价格", "hq-price:invalid")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.publishPrice(maker, "copy", 1_000_000L, 1,
+                "缺少幂等键", " ")).hasMessageContaining("文本参数无效");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_subject_price", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_price_audit", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_hq_price_request", Integer.class)).isZero();
+    }
+
+    @Test
+    void priceRequestFactFailureRollsBackPriceVersionAndAudit() {
+        jdbc.execute("CREATE FUNCTION reject_hq_price_request() RETURNS trigger LANGUAGE plpgsql AS $$ "
+                + "BEGIN RAISE EXCEPTION 'forced price request failure'; END $$");
+        jdbc.execute("CREATE TRIGGER reject_hq_price_request BEFORE INSERT ON org_point_hq_price_request "
+                + "FOR EACH ROW EXECUTE FUNCTION reject_hq_price_request()");
+        try {
+            assertThatThrownBy(() -> service.publishPrice(maker, "copy", 2_000_000L, 1,
+                    "审批通过", "hq-price:forced-failure"))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class)
+                    .hasMessageContaining("forced price request failure");
+        } finally {
+            jdbc.execute("DROP TRIGGER reject_hq_price_request ON org_point_hq_price_request");
+            jdbc.execute("DROP FUNCTION reject_hq_price_request()");
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_subject_price", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_price_audit", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_hq_price_request", Integer.class)).isZero();
     }
 
     private long org(String type, String name) {
@@ -172,6 +252,19 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
         try {
             start.await();
             return service.submitAdjustment(actor, store, delta, "并发调点", requestKey);
+        } catch (Exception error) {
+            return error;
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    private Object concurrentPrice(java.util.concurrent.CountDownLatch start) {
+        TenantContextHolder.setTenantId(TENANT);
+        try {
+            start.await();
+            return service.publishPrice(maker, "ai_elevation", 5_000_000L, 1,
+                    "并发审批", "hq-price:race");
         } catch (Exception error) {
             return error;
         } finally {
