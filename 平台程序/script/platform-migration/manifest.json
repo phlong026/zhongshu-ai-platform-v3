@@ -909,6 +909,19 @@
         "resource": "db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql",
         "sha256": "67532571354d10d490cfbfdad0723b2ed03a2f142130108cc1131eed2ea53355"
       }
+    },
+    {
+      "path": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261115.970__reference_asset_mirror.sql",
+      "location": "franchise-design-remote",
+      "version": "20261115.970",
+      "source_sha256": "09892e8a2ca064b9772241e8e501e4c05499c900d446afa9682897327db4c0fb",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-design-remote/V20261115.970__reference_asset_mirror.sql",
+        "sha256": "09892e8a2ca064b9772241e8e501e4c05499c900d446afa9682897327db4c0fb"
+      }
     }
   ],
   "tables": [
@@ -2492,6 +2505,16 @@
         "yudao-module-infra/src/main/resources/db/migration/platform/V20260905.001__zhongshu_baseline.sql"
       ],
       "runtime_verified": false
+    },
+    {
+      "name": "fr_design_reference_mirror",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "B仅存跨应用参考图映射和同步租约，不复制A业务数据",
+      "source_migrations": [
+        "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261115.970__reference_asset_mirror.sql"
+      ],
+      "runtime_verified": false
     }
   ],
   "sequences": [
@@ -3218,6 +3241,19 @@
           }
         ],
         "limitations": "只删除两项运营索引及对应菜单/角色菜单关系，保留价目、命令、计费和审计事实；先于960撤销。",
+        "execution_verified": false
+      },
+      {
+        "version": "20261115.970",
+        "source_migration": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261115.970__reference_asset_mirror.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "domains/franchise/franchise-design/src/main/resources/db/migration-undo/franchise-design-remote/V20261115.970__undo_reference_asset_mirror.sql",
+            "source_sha256": "e866e3dc5866c88577c348add05aae6cb67640ac48b333645c54662810bcd4af"
+          }
+        ],
+        "limitations": "非空映射表拒绝undo，必须保留映射、远端孤儿资产及项目引用，禁止直接删表后重建引用。",
         "execution_verified": false
       }
     ]
