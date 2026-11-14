@@ -66,6 +66,15 @@ B_SAME_HOST_STORAGE_ATTESTATION_SIGNATURE_FILE=/absolute/external/storage-attest
 B_SAME_HOST_APPROVER_PUBLIC_KEY_FILE=/absolute/external/storage-approver-public.pem
 B_SAME_HOST_PROTECTED_A_PATHS_FILE=/absolute/external/protected-a-paths.txt
 B_SAME_HOST_MIN_FREE_BYTES=<reviewed byte floor>
+B_SAME_HOST_BACKUP_MOUNT=/mnt/independent-backup-disk
+B_SAME_HOST_BACKUP_ROOT=/mnt/independent-backup-disk/zhongshu-platform-b-backups
+B_SAME_HOST_BACKUP_STORAGE_PROOF_FILE=/absolute/external/same-host-backup-storage-proof.json
+B_SAME_HOST_BACKUP_STORAGE_PROOF_SHA256=<backup proof file sha256>
+B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_FILE=/absolute/external/backup-storage-attestation.json
+B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_SIGNATURE_FILE=/absolute/external/backup-storage-attestation.sig
+B_SAME_HOST_BACKUP_APPROVER_PUBLIC_KEY_FILE=/absolute/external/storage-approver-public.pem
+B_SAME_HOST_BACKUP_MIN_FREE_BYTES=<protected live free-space floor>
+B_SAME_HOST_BACKUP_MAX_BYTES=<hard upper bound for one complete backup set>
 ```
 
 `protected-a-paths.txt` 每行是一个真实存在的 A 数据/发布根路径；必须包含服务器已发现的 `/opt/zhongshu`。
@@ -112,7 +121,7 @@ python3 deploy/platform/same_host_storage.py check \
   --env-file /absolute/external/deployment.env
 ```
 
-`prepare` 只创建固定 B 根及六个空/既有合规子目录，不格式化、挂载、删除、移动、chown 非 B 路径或执行
+`prepare` 只创建固定 B 数据根、六个数据子目录，以及在完成独立备份盘合同时创建固定备份根；不格式化、挂载、删除、移动、chown 非 B 路径或执行
 Docker prune。四个 PG/Redis 目录固定为 UID/GID `999:999` mode `0700`，journal 为 `1000:1000` mode
 `0700`，backup staging 为 `root:root` mode `0700`，B 根为 `root:20000` mode `0710`。既有目录只要
 owner/mode/device 不完全匹配就拒绝，不自动“修复”。首次 prepare 要求 B 根尚不存在，六个子目录创建后严格为空，
@@ -126,11 +135,28 @@ owner/mode/device 不完全匹配就拒绝，不自动“修复”。首次 prep
 `-f deploy/platform/compose.same-host.yaml`。校验、迁移、发布和备份应优先使用仓库 Python wrapper，它们会从同一
 env 自动加载 overlay；不得复制非同机命令后漏掉 overlay。
 
-**当前不支持同机自动备份。** 数据盘内的 `backup-staging` 仅为保留目录，不能作为可信备份目标：备份写入会与
-数据库/journal 竞争同一物理容量，且尚无独立 B-only backup mount、最大写入上界和写入中保留水位合同。
-因此同机模式下 `ops.py backup` 与 `full-backup.py backup` 都会 fail-closed。备份须在独立隔离主机/独立备份挂载
-完成，或先另行实现并审查带独立物理卷证明和持续水位检查的 backup overlay；不得通过修改 env 或复制非同机命令
-绕过。非同机备份命令见“一致性备份”章节。
+**同机自动备份只在第二块 B-only 物理盘合同完整时开启。** 数据盘内的 `backup-staging` 仍不是备份目标。
+备份挂载必须与 root、Docker data-root、完整 A 保护路径以及 B 数据盘的 lsblk/dm 祖先和 stable WWN/serial 全部不相交；
+proof 与独立签名 attestation 还必须精确绑定 `capacityBytes`、`minimumFreeBytes`和 `maximumBackupBytes`。任一字段、信任锚、
+Linux mount-ID 或真实物理隔离证据缺失时，`full-backup.py backup` 继续 fail-closed。`ops.py backup` 只覆盖基础三服务，
+无法证明完整 B 的 Provider/Runtime 写入者已冻结，因此在 same-host 完整部署中始终拒绝；不得用它绕过 `full-backup.py`。
+
+所有 PG dump、Redis RDB、Journal tar、COS inventory 和 manifest 共用一个总写入预算；Redis 使用已在隔离容器验证的
+`redis-cli --rdb /dev/stdout` 直接输出，禁止先在生产 `/data` 生成临时 RDB。该路径已用关闭 default 用户的隔离 Redis、
+仅授权 `platform_backup` 复制所需命令的 ACL 实测，导出文件通过 `redis-check-rdb` 且无额外 EOF marker。子进程 stdout 通过受控 pipe 逐块写入，stderr 只做固定
+64 KiB 计数上界的内存 drain，二者都不落到 root/A 盘临时文件。每个块写入前同时预留 filesystem block/文件元数据、检查总上界与
+live free-space floor，写入后再查水位；期间容量下降会立即终止。备份全程持有已审核 mount/root/output dirfd，
+每次写入都复核 dev/inode/mount ID 且 mount ID 仍在 Linux mountinfo，并从父 dirfd 重开固定 root/output 名称确认仍指向同一 inode；
+所有创建都用 dirfd+`O_NOFOLLOW`，卸载或目录置换后不会回落 root/A 路径。固定 B backup root 上的 `flock` 非阻塞独占锁
+覆盖整个事务，第二个备份进程不得并发消耗同一 free-space floor。manifest 与完成标记先写独立隐藏临时名，
+只在最终冻结、挂载、预算和 fsync 复核后原子发布并 fsync 目录；`verify` 还要求 `.backup-complete` 精确等于
+`manifest.json` SHA-256。任何失败只按已记录 inode 清理本事务文件，没有匹配完成标记的 manifest 不得验证通过。
+事务从创建输出目录起还持续保留 `.backup-in-progress`，只在全部发布步骤成功后删除；清理本身失败会明确报错并保留该标记，
+`verify` 必定拒绝，不会把残留的 official/temp 文件误认为可信备份。该发布状态机同时覆盖非 same-host 备份；
+`verify` 通过 output dirfd+`O_NOFOLLOW` 读取，同名 `.backup-in-progress` 任何目录项（包括悬空 symlink）都会拒绝。成功删除该标记后必须
+fsync output 目录；掉电后若保守地恢复出 in-progress，结果是拒绝而不是误接受。
+Journal 归档仅通过已打开的 dirfd/`O_NOFOLLOW` 文件 FD 读取，用 Linux `/proc/self/fdinfo` mount ID 拒绝嵌套/同文件系统 bind mount，
+并在每项归档后重新打开核对 inode/device/mount ID，目录或文件置换会使整次备份失败。
 
 ## 发布前输入
 
@@ -213,10 +239,10 @@ Runtime 先取得 journal 单写者锁；Provider 在 Runtime receipt 可用后�
 
 生产变更仍须由既有发布流程显式批准；本部署包不包含自动上线命令。
 
-## 一致性备份（同机自动备份当前禁用）
+## 一致性备份
 
-以下命令只适用于非同机或经过独立审查的隔离备份执行环境；启用 same-host overlay 时两个 backup wrapper 会在
-任何 dump/journal 读取前拒绝。不要在同机上照抄本节命令。
+非同机使用既有独立备份挂载。同机模式只能使用前节已准备、已签名且与 A/B 数据盘物理隔离的
+`B_SAME_HOST_BACKUP_MOUNT`；任一现场门禁不通过都在 dump/journal 读取前拒绝。
 
 每次备份先停止新的 B 外部流量，再停止 `api`、`design-provider`、`ai-runtime`，并确认迁移容器已退出。
 从三个写入服务全部停止开始，到 COS 版本清单和本地备份全部完成为止，必须保持同一个冻结窗口。同一冻结
@@ -255,13 +281,13 @@ docker compose --project-name zhongshu-platform-b --env-file "$B_ENV" $B_COMPOSE
 ```bash
 python3 deploy/platform/full-backup.py backup \
   --env-file /absolute/external/deployment.env \
-  --output /absolute/off-repo/backup-YYYYMMDDTHHMMSSZ \
+  --output /absolute/reviewed-backup-root/backup-YYYYMMDDTHHMMSSZ \
   --cos-inventory /absolute/external/cos-version-inventory.json \
   --writes-frozen --confirm-target zhongshu-platform-b/full
 
 python3 deploy/platform/full-backup.py verify \
   --env-file /absolute/external/deployment.env \
-  --output /absolute/off-repo/backup-YYYYMMDDTHHMMSSZ \
+  --output /absolute/reviewed-backup-root/backup-YYYYMMDDTHHMMSSZ \
   --confirm-sha256 <受信任的manifest.json SHA-256>
 ```
 
@@ -323,6 +349,7 @@ Redis 恢复、COS 版本恢复和 journal 卷替换具有外部副作用，必�
 - 真实总部 tenant、五项 HQ 权限授予和真实价格；
 - Provider TLS/COS/腾讯审核与真实 AI 供应商；
 - Runtime 独占卷、thick 属性、空间与 fsync p99；
+- 独立 B-only 备份盘的 thick/容量/fsync、与 A/root/Docker/B 数据盘的物理祖先不相交、Linux mount-ID 和写入水位故障演练；
 - Provider/Runtime/COS 的备份恢复演练；
 - 冻结窗口内由可信云身份导出的 COS 版本清单；仓库脚本只能验证 bucket、时间、字段和摘要，不能证明云账号身份；
 - A 文件、进程、schema、账本与正常设计链路在 B 部署前后均未被修改。
@@ -332,8 +359,9 @@ Redis 恢复、COS 版本恢复和 journal 卷替换具有外部副作用，必�
 演练必须在 Linux 测试主机和独立 B 测试 bucket 完成，不能用 macOS 目录、Docker named volume 或 loop 文件冒充
 生产 thick 卷：
 
-1. 为测试主机分配可由存储平台证明为 thick 的独立块盘，格式化为 ext4/xfs，挂载为 Runtime 专用目录并生成
-   `.capacity-proof.json`、SHA-256、容量和 fsync p99 证据。
+1. 为测试主机分配两块可由存储平台证明为 thick 的独立块盘：一块用于 B 数据/Runtime，一块仅用于 B 备份。二者格式化为
+   ext4/xfs 后生成各自的 proof、SHA-256、签名 attestation、容量和 fsync p99 证据；备份盘除 `lost+found` 和固定
+   `zhongshu-platform-b-backups` 根外不得存在任何其他项目内容。
 2. 将三个测试镜像推入隔离 registry，使用 registry 返回的 `@sha256`，生成仅供测试的 Provider SAN 证书、外部
    secrets、真实非 1 的测试 HQ tenant；不得复制 A 凭据或连接 A 数据库/bucket。
 3. 创建启用 versioning 的独立 B 测试 bucket，用受限只读云身份在 writer 全部 exited 后导出

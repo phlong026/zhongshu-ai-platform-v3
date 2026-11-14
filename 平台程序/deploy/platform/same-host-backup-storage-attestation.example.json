@@ -1,0 +1,16 @@
+{
+  "project": "zhongshu-platform-b",
+  "storageRole": "backup",
+  "mountpoint": "/REPLACE_WITH_APPROVED_BACKUP_MOUNT",
+  "volumeId": "REPLACE_WITH_BACKUP_STORAGE_PLATFORM_VOLUME_ID",
+  "provisioning": "thick",
+  "measurementSha256": "REPLACE_WITH_BACKUP_STORAGE_PROOF_SHA256",
+  "protectedPathsSha256": "REPLACE_WITH_COMPLETE_A_PATHS_SHA256",
+  "minimumFreeBytes": 0,
+  "maximumBackupBytes": 0,
+  "physicalVolumeIds": ["REPLACE_WITH_BACKUP_LSBLK_WWN_OR_SERIAL"],
+  "protectedPhysicalVolumeIds": ["REPLACE_WITH_A_ROOT_DOCKER_AND_B_DATA_WWN_OR_SERIAL"],
+  "aScopeComplete": true,
+  "issuedAt": "REPLACE_WITH_UTC_TIMESTAMP",
+  "expiresAt": "REPLACE_WITH_UTC_TIMESTAMP_WITHIN_APPROVAL_WINDOW"
+}

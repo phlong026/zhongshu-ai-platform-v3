@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "storageRole": "backup",
+  "mountpoint": "/REPLACE_WITH_APPROVED_BACKUP_MOUNT",
+  "filesystem": "ext4",
+  "provisioning": "thick",
+  "volumeId": "REPLACE_WITH_BACKUP_STORAGE_PLATFORM_VOLUME_ID",
+  "fsyncP99Ms": 0.0,
+  "capacityBytes": 0,
+  "requiredFreeBytes": 0,
+  "maximumBackupBytes": 0,
+  "measuredAt": "REPLACE_WITH_UTC_TIMESTAMP"
+}

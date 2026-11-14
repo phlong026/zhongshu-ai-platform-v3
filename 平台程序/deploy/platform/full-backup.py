@@ -6,10 +6,12 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import tarfile
 from datetime import datetime, timezone
+from bounded_backup_io import BackupBudget, BackupTarget, BudgetedFile, stream_command
 import same_host_storage as same_host
 
 HERE = Path(__file__).resolve().parent
@@ -28,6 +30,109 @@ def sha256(path):
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _fd_mount_id(fd):
+    demand(sys.platform.startswith("linux"),
+           "Safe same-host archive requires Linux mount-ID evidence")
+    info = Path(f"/proc/self/fdinfo/{fd}").read_text()
+    match = re.search(r"^mnt_id:\s*(\d+)\s*$", info, re.MULTILINE)
+    demand(match, "Linux mount ID is unavailable for an opened backup source")
+    return int(match.group(1))
+
+
+def _open_child(parent_fd, name, flags):
+    demand(name not in ("", ".", "..") and "/" not in name, "Unsafe archive entry name")
+    return os.open(name, flags | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
+
+
+def _opened_identity(fd):
+    metadata = os.fstat(fd)
+    return metadata, (metadata.st_dev, metadata.st_ino, stat.S_IFMT(metadata.st_mode), _fd_mount_id(fd))
+
+
+def _content_identity(metadata):
+    return (metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns)
+
+
+def _tar_info(name, metadata):
+    info = tarfile.TarInfo(name)
+    info.mode = stat.S_IMODE(metadata.st_mode)
+    info.uid = metadata.st_uid
+    info.gid = metadata.st_gid
+    info.mtime = int(metadata.st_mtime)
+    info.uname = ""
+    info.gname = ""
+    if stat.S_ISDIR(metadata.st_mode):
+        info.type = tarfile.DIRTYPE
+        info.size = 0
+    else:
+        info.type = tarfile.REGTYPE
+        info.size = metadata.st_size
+    return info
+
+
+def _archive_open_directory(archive, directory_fd, relative, root_device, root_mount_id):
+    for name in sorted(os.listdir(directory_fd)):
+        listed = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        demand(not stat.S_ISLNK(listed.st_mode), "Runtime journal symlinks are refused")
+        is_directory = stat.S_ISDIR(listed.st_mode)
+        demand(is_directory or stat.S_ISREG(listed.st_mode),
+               "Runtime journal special files are refused")
+        flags = os.O_RDONLY | (os.O_DIRECTORY if is_directory else 0)
+        child_fd = _open_child(directory_fd, name, flags)
+        try:
+            metadata, identity = _opened_identity(child_fd)
+            demand(stat.S_IFMT(metadata.st_mode) == stat.S_IFMT(listed.st_mode),
+                   "Runtime journal entry changed type while opening")
+            demand(metadata.st_dev == root_device and identity[3] == root_mount_id,
+                   "Runtime journal contains a cross-device or nested mount entry")
+            entry = relative / name
+            info = _tar_info(entry.as_posix(), metadata)
+            if is_directory:
+                archive.addfile(info)
+                _archive_open_directory(archive, child_fd, entry, root_device, root_mount_id)
+            else:
+                with os.fdopen(os.dup(child_fd), "rb", closefd=True) as stream:
+                    archive.addfile(info, stream)
+            demand(_content_identity(os.fstat(child_fd)) == _content_identity(metadata),
+                   "Runtime journal entry changed while being archived")
+            check_fd = _open_child(directory_fd, name, flags)
+            try:
+                _, current_identity = _opened_identity(check_fd)
+                demand(current_identity == identity,
+                       "Runtime journal entry was replaced during archive")
+            finally:
+                os.close(check_fd)
+        finally:
+            os.close(child_fd)
+
+
+def secure_journal_archive(source, target, budget=None):
+    source = Path(source)
+    parent_fd = os.open(source.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+                        | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        root_fd = _open_child(parent_fd, source.name, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            root_metadata, root_identity = _opened_identity(root_fd)
+            output = budget.open(target) if budget else BudgetedFile(None, target)
+            with output:
+                with tarfile.open(fileobj=output, mode="w:gz", format=tarfile.PAX_FORMAT) as archive:
+                    _archive_open_directory(archive, root_fd, Path(), root_metadata.st_dev, root_identity[3])
+            demand(_content_identity(os.fstat(root_fd)) == _content_identity(root_metadata),
+                   "Runtime journal root changed while being archived")
+            check_fd = _open_child(parent_fd, source.name, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                _, current_identity = _opened_identity(check_fd)
+                demand(current_identity == root_identity,
+                       "Runtime journal root was replaced during archive")
+            finally:
+                os.close(check_fd)
+        finally:
+            os.close(root_fd)
+    finally:
+        os.close(parent_fd)
 
 
 def run(command, context, *, stdout=None, timeout=1800, environment=None):
@@ -241,29 +346,157 @@ def require_frozen(base, environment, model, values):
     return evidence
 
 
-def pg_dump(base, service, user, database, secret, target, environment):
+def _output_stream(target, budget):
+    return budget.open(target) if budget else target.open("xb")
+
+
+def pg_dump(base, service, user, database, secret, target, environment, budget=None):
     script = f'export PGPASSWORD="$(cat /run/secrets/{secret})"; exec pg_dump -h 127.0.0.1 -U {user} -d {database} --format=custom --no-owner --no-privileges'
-    with target.open("xb") as stream:
-        run(base + ["exec", "-T", service, "sh", "-ec", script], f"Backup {database}", stdout=stream,
-            environment=environment)
+    with _output_stream(target, budget) as stream:
+        command = base + ["exec", "-T", service, "sh", "-ec", script]
+        if budget:
+            stream_command(command, f"Backup {database}", stream, environment)
+        else:
+            run(command, f"Backup {database}", stdout=stream, environment=environment)
 
 
-def redis_dump(base, service, user, secret, target, environment):
+def redis_dump(base, service, user, secret, target, environment, budget=None):
     script = (f'export REDISCLI_AUTH="$(cat /run/secrets/{secret})"; '
-              'snapshot=$(mktemp /data/.full-backup.XXXXXX); trap \'rm -f "$snapshot"\' EXIT; '
-              f'redis-cli --no-auth-warning --user {user} --rdb "$snapshot" >/dev/null; cat "$snapshot"')
-    with target.open("xb") as stream:
-        run(base + ["exec", "-T", service, "sh", "-ec", script], f"Backup {service}", stdout=stream,
-            environment=environment)
+              f'exec redis-cli --no-auth-warning --user {user} --rdb /dev/stdout')
+    with _output_stream(target, budget) as stream:
+        command = base + ["exec", "-T", service, "sh", "-ec", script]
+        if budget:
+            stream_command(command, f"Backup {service}", stream, environment)
+        else:
+            run(command, f"Backup {service}", stdout=stream, environment=environment)
 
 
-def journal_archive(source, target, values):
+def journal_archive(source, target, values, budget=None):
     demand(source.is_dir(), "Runtime journal must be a directory")
     same_host.validate_journal(values, source)
-    with tarfile.open(target, "x:gz", format=tarfile.PAX_FORMAT) as archive:
-        for path in sorted(source.rglob("*")):
-            demand(not path.is_symlink(), "Runtime journal symlinks are refused")
-            archive.add(path, arcname=path.relative_to(source), recursive=False)
+    secure_journal_archive(source, target, budget)
+
+
+def write_output(path, content, budget=None):
+    with _output_stream(path, budget) as stream:
+        stream.write(content)
+
+
+def _identity_at(directory_fd, name):
+    metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    return metadata.st_dev, metadata.st_ino
+
+
+def _unlink_owned_at(directory_fd, name, identity):
+    if identity is None:
+        return
+    try:
+        current = _identity_at(directory_fd, name)
+    except FileNotFoundError:
+        return
+    if current == identity:
+        os.unlink(name, dir_fd=directory_fd)
+
+
+def _write_at(directory_fd, name, content):
+    with BudgetedFile(None, Path(name), directory_fd) as stream:
+        stream.write(content)
+    return _identity_at(directory_fd, name)
+
+
+def _ensure_progress_at(directory_fd):
+    try:
+        os.stat(".backup-in-progress", dir_fd=directory_fd, follow_symlinks=False)
+        return
+    except FileNotFoundError:
+        pass
+    _write_at(directory_fd, ".backup-in-progress", b"backup publication failed\n")
+
+
+def commit_path_manifest(output, content, final_check):
+    temporary = f".manifest.json.tmp-{os.getpid()}"
+    completion_temporary = f".backup-complete.tmp-{os.getpid()}"
+    progress = ".backup-in-progress"
+    directory_fd = os.open(output, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+                           | getattr(os, "O_NOFOLLOW", 0))
+    manifest_identity = completion_identity = None
+    manifest_published = completion_published = False
+    try:
+        _write_at(directory_fd, progress, b"backup transaction has not committed\n")
+        os.fsync(directory_fd)
+        manifest_identity = _write_at(directory_fd, temporary, content)
+        completion_identity = _write_at(
+            directory_fd, completion_temporary,
+            (hashlib.sha256(content).hexdigest() + "\n").encode())
+        try:
+            final_check()
+            os.rename(temporary, "manifest.json", src_dir_fd=directory_fd,
+                      dst_dir_fd=directory_fd)
+            manifest_published = True
+            os.fsync(directory_fd)
+            os.rename(completion_temporary, ".backup-complete", src_dir_fd=directory_fd,
+                      dst_dir_fd=directory_fd)
+            completion_published = True
+            os.fsync(directory_fd)
+            os.unlink(progress, dir_fd=directory_fd)
+            os.fsync(directory_fd)
+        except Exception as error:
+            cleanup_errors = []
+            try:
+                _ensure_progress_at(directory_fd)
+            except OSError as cleanup_error:
+                cleanup_errors.append(f"in-progress marker: {type(cleanup_error).__name__}")
+            for name, identity in (
+                    (".backup-complete" if completion_published else completion_temporary, completion_identity),
+                    ("manifest.json" if manifest_published else temporary, manifest_identity)):
+                try:
+                    _unlink_owned_at(directory_fd, name, identity)
+                except OSError as cleanup_error:
+                    cleanup_errors.append(f"{name}: {type(cleanup_error).__name__}")
+            try:
+                os.fsync(directory_fd)
+            except OSError as cleanup_error:
+                cleanup_errors.append(f"output fsync: {type(cleanup_error).__name__}")
+            if cleanup_errors:
+                raise RuntimeError("Backup publication failed and cleanup is incomplete; "
+                                   "the in-progress marker forces verify refusal; "
+                                   + "; ".join(cleanup_errors)) from error
+            raise
+    finally:
+        os.close(directory_fd)
+
+
+def _open_regular_at(directory_fd, name):
+    fd = os.open(name, os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
+                 dir_fd=directory_fd)
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise ValueError(f"Backup entry is not a regular file: {name}")
+    return fd
+
+
+def _read_regular_at(directory_fd, name, maximum_bytes):
+    fd = _open_regular_at(directory_fd, name)
+    try:
+        demand(os.fstat(fd).st_size <= maximum_bytes, f"Backup metadata file is too large: {name}")
+        with os.fdopen(os.dup(fd), "rb") as stream:
+            content = stream.read(maximum_bytes + 1)
+        demand(len(content) <= maximum_bytes, f"Backup metadata file is too large: {name}")
+        return content
+    finally:
+        os.close(fd)
+
+
+def _sha256_at(directory_fd, name):
+    fd = _open_regular_at(directory_fd, name)
+    digest = hashlib.sha256()
+    try:
+        with os.fdopen(os.dup(fd), "rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+    finally:
+        os.close(fd)
+    return digest.hexdigest()
 
 
 def backup(args):
@@ -273,9 +506,10 @@ def backup(args):
     demand(not args.output.exists() and args.output.parent.is_dir(),
            "Backup directory must be a new child of an existing external directory")
     values, environment = selected_env(args.env_file)
+    backup_contract = None
     if same_host.compose_overlay(values):
         same_host.validate_host(values)
-        same_host.validate_backup_output(values, args.output)
+        backup_contract = same_host.validate_backup_output(values, args.output)
     journal = Path(values.get("AI_RUNTIME_JOURNAL_DIR", "")).resolve(strict=True)
     inventory = args.cos_inventory.resolve(strict=True)
     demand(inventory.is_file() and not inventory.is_symlink(), "COS version inventory is required")
@@ -288,42 +522,82 @@ def backup(args):
     before = require_frozen(base, environment, model, values)
     validate_cos_inventory(cos, values["COS_B_BUCKET"], before["freezeStartedAt"],
                            datetime.now(timezone.utc).isoformat())
-    args.output.mkdir(mode=0o700)
-    pg_dump(base, "postgres-b", "platform_owner", "zhongshu_platform_b", "pg_owner_password",
-            args.output / "platform-postgres.dump", environment)
-    pg_dump(base, "postgres-design", "design_provider_owner", "zhongshu_design_provider", "design_pg_owner_password",
-            args.output / "provider-postgres.dump", environment)
-    redis_dump(base, "redis-b", "platform_backup", "redis_backup_password", args.output / "platform-redis.rdb", environment)
-    redis_dump(base, "redis-design", "design_provider_backup", "design_redis_backup_password",
-               args.output / "provider-redis.rdb", environment)
-    journal_archive(journal, args.output / "runtime-journal.tar.gz", values)
-    after = require_frozen(base, environment, model, values)
-    demand(after == before, "B freeze/container evidence changed during snapshot")
-    (args.output / "cos-version-inventory.json").write_bytes(inventory_bytes)
-    names = ("platform-postgres.dump", "provider-postgres.dump", "platform-redis.rdb", "provider-redis.rdb",
-             "runtime-journal.tar.gz", "cos-version-inventory.json")
-    manifest = {"project": PROJECT, "scope": "full", "writesFrozen": True,
-                "createdAt": datetime.now(timezone.utc).isoformat(),
-                "images": {service: before["containers"][service] for service in
-                           ("api", "design-provider", "ai-runtime", "design-provider-migrate")},
-                "freezeEvidence": before,
-                "files": {name: sha256(args.output / name) for name in names},
-                "note": "Secret/config files are intentionally excluded"}
-    (args.output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(sha256(args.output / "manifest.json"))
+    session = BackupTarget(backup_contract, args.output) if backup_contract else None
+    if not session:
+        args.output.mkdir(mode=0o700)
+    try:
+        budget = session.budget if session else None
+        reference = lambda name: name if session else args.output / name
+        digest = lambda name: session.sha256(name) if session else sha256(args.output / name)
+        pg_dump(base, "postgres-b", "platform_owner", "zhongshu_platform_b", "pg_owner_password",
+                reference("platform-postgres.dump"), environment, budget)
+        pg_dump(base, "postgres-design", "design_provider_owner", "zhongshu_design_provider",
+                "design_pg_owner_password", reference("provider-postgres.dump"), environment, budget)
+        redis_dump(base, "redis-b", "platform_backup", "redis_backup_password",
+                   reference("platform-redis.rdb"), environment, budget)
+        redis_dump(base, "redis-design", "design_provider_backup", "design_redis_backup_password",
+                   reference("provider-redis.rdb"), environment, budget)
+        journal_archive(journal, reference("runtime-journal.tar.gz"), values, budget)
+        after = require_frozen(base, environment, model, values)
+        demand(after == before, "B freeze/container evidence changed during snapshot")
+        write_output(reference("cos-version-inventory.json"), inventory_bytes, budget)
+        names = ("platform-postgres.dump", "provider-postgres.dump", "platform-redis.rdb", "provider-redis.rdb",
+                 "runtime-journal.tar.gz", "cos-version-inventory.json")
+        manifest = {"project": PROJECT, "scope": "full", "writesFrozen": True,
+                    "createdAt": datetime.now(timezone.utc).isoformat(),
+                    "images": {service: before["containers"][service] for service in
+                               ("api", "design-provider", "ai-runtime", "design-provider-migrate")},
+                    "freezeEvidence": before,
+                    "files": {name: digest(name) for name in names},
+                    "note": "Secret/config files are intentionally excluded"}
+        if backup_contract:
+            manifest["backupStorage"] = backup_contract["evidence"]
+        manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode()
+
+        def final_check():
+            final = require_frozen(base, environment, model, values)
+            demand(final == before, "B freeze/container evidence changed before manifest commit")
+
+        if session:
+            session.commit_manifest(manifest_bytes, final_check)
+        else:
+            commit_path_manifest(args.output, manifest_bytes, final_check)
+        print(digest("manifest.json"))
+    finally:
+        if session:
+            session.close()
 
 
 def verify(args):
-    manifest = json.loads((args.output / "manifest.json").read_text())
-    demand(manifest.get("project") == PROJECT and manifest.get("scope") == "full" and manifest.get("writesFrozen") is True,
-           "Not a frozen full B backup")
-    demand(args.confirm_sha256 == sha256(args.output / "manifest.json"), "Trusted manifest SHA256 required")
-    expected = {"platform-postgres.dump", "provider-postgres.dump", "platform-redis.rdb", "provider-redis.rdb",
-                "runtime-journal.tar.gz", "cos-version-inventory.json"}
-    demand(set(manifest.get("files", {})) == expected, "Backup set is incomplete")
-    for name, digest in manifest["files"].items():
-        path = args.output / name
-        demand(path.is_file() and not path.is_symlink() and sha256(path) == digest, f"Checksum mismatch: {name}")
+    directory_fd = os.open(args.output, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+                           | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        try:
+            os.stat(".backup-in-progress", dir_fd=directory_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise ValueError("Backup publication is incomplete or lacks its committed manifest marker")
+        try:
+            manifest_bytes = _read_regular_at(directory_fd, "manifest.json", 16 * 1024 * 1024)
+            completion_bytes = _read_regular_at(directory_fd, ".backup-complete", 128)
+        except OSError as error:
+            raise ValueError("Backup publication is incomplete or lacks its committed manifest marker") from error
+        manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+        demand(completion_bytes == (manifest_sha256 + "\n").encode(),
+               "Backup publication is incomplete or lacks its committed manifest marker")
+        manifest = json.loads(manifest_bytes)
+        demand(manifest.get("project") == PROJECT and manifest.get("scope") == "full"
+               and manifest.get("writesFrozen") is True, "Not a frozen full B backup")
+        demand(args.confirm_sha256 == manifest_sha256, "Trusted manifest SHA256 required")
+        expected = {"platform-postgres.dump", "provider-postgres.dump", "platform-redis.rdb", "provider-redis.rdb",
+                    "runtime-journal.tar.gz", "cos-version-inventory.json"}
+        demand(set(manifest.get("files", {})) == expected, "Backup set is incomplete")
+        for name, digest in manifest["files"].items():
+            demand(_sha256_at(directory_fd, name) == digest,
+                   f"Checksum mismatch: {name}")
+    finally:
+        os.close(directory_fd)
     print("Frozen full B backup verified")
 
 

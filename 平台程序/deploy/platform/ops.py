@@ -263,12 +263,10 @@ def backup(base, directory):
         pg(base, ["pg_dump", "-h", "127.0.0.1", "-U", "platform_owner", "-d", DATABASE,
                   "--format=custom", "--no-owner", "--no-privileges"], stdout=stream)
     redis_script = ('export REDISCLI_AUTH="$(cat /run/secrets/redis_backup_password)"; '
-                    'snapshot=$(mktemp /data/.platform-backup.XXXXXX); '
-                    'trap \'rm -f "$snapshot"\' EXIT; '
-                    'redis-cli --no-auth-warning --user platform_backup --rdb "$snapshot" >/dev/null; '
-                    'cat "$snapshot"')
+                    'exec redis-cli --no-auth-warning --user platform_backup --rdb /dev/stdout')
     with (directory / "redis.rdb").open("xb") as stream:
-        run(base + ["exec", "-T", "redis-b", "sh", "-ec", redis_script], context="B Redis snapshot", timeout=1800, stdout=stream)
+        run(base + ["exec", "-T", "redis-b", "sh", "-ec", redis_script],
+            context="B Redis snapshot", timeout=1800, stdout=stream)
     manifest = {"project": PROJECT, "database": DATABASE, "writes_frozen": True,
                 "files": {name: sha256(directory / name) for name in ("postgres.dump", "redis.rdb")}}
     (directory / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -288,7 +286,7 @@ def verify_backup(directory, confirmation):
 
 def validate_backup_location(action, values, directory):
     if action == "backup" and same_host.compose_overlay(values):
-        same_host.validate_backup_output(values, directory)
+        raise ValueError("Same-host complete deployment requires full-backup.py; partial ops backup is refused")
 
 
 def restore(base, directory):

@@ -24,7 +24,15 @@ SAME_HOST_VARIABLES = (
     "B_SAME_HOST_MIN_FREE_BYTES", "B_SAME_HOST_STORAGE_ATTESTATION_FILE",
     "B_SAME_HOST_STORAGE_ATTESTATION_SIGNATURE_FILE", "B_SAME_HOST_APPROVER_PUBLIC_KEY_FILE",
 )
-VARIABLES = (*SAME_HOST_VARIABLES, "AI_RUNTIME_JOURNAL_DIR")
+BACKUP_VARIABLES = (
+    "B_SAME_HOST_BACKUP_MOUNT", "B_SAME_HOST_BACKUP_ROOT",
+    "B_SAME_HOST_BACKUP_STORAGE_PROOF_FILE", "B_SAME_HOST_BACKUP_STORAGE_PROOF_SHA256",
+    "B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_FILE",
+    "B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_SIGNATURE_FILE",
+    "B_SAME_HOST_BACKUP_APPROVER_PUBLIC_KEY_FILE", "B_SAME_HOST_BACKUP_MIN_FREE_BYTES",
+    "B_SAME_HOST_BACKUP_MAX_BYTES",
+)
+VARIABLES = (*SAME_HOST_VARIABLES, *BACKUP_VARIABLES, "AI_RUNTIME_JOURNAL_DIR")
 TRUSTED_APPROVER_KEY_HASH_FILE = HERE / "trusted-storage-approver.sha256"
 DirectoryContract = namedtuple("DirectoryContract", "path uid gid mode")
 VOLUME_DIRECTORIES = {
@@ -32,6 +40,7 @@ VOLUME_DIRECTORIES = {
     "design-pgdata": "postgres-design", "design-redisdata": "redis-design",
 }
 OWNER_MARKER = ".b-storage-owner.json"
+BACKUP_OWNER_MARKER = ".b-backup-owner.json"
 
 
 def demand(condition, message):
@@ -65,6 +74,22 @@ def example_values(mount):
         "B_SAME_HOST_STORAGE_ATTESTATION_SIGNATURE_FILE": str(Path(mount) / ".storage-attestation.sig"),
         "B_SAME_HOST_APPROVER_PUBLIC_KEY_FILE": str(Path(mount) / ".storage-approver.pem"),
         "AI_RUNTIME_JOURNAL_DIR": root + "/runtime-journal",
+    }
+
+
+def example_backup_values(mount):
+    mount = Path(mount)
+    evidence = Path("/var/lib/zhongshu-platform-b-storage-evidence")
+    return {
+        "B_SAME_HOST_BACKUP_MOUNT": str(mount),
+        "B_SAME_HOST_BACKUP_ROOT": str(mount / f"{PROJECT}-backups"),
+        "B_SAME_HOST_BACKUP_STORAGE_PROOF_FILE": str(evidence / "backup-storage-proof.json"),
+        "B_SAME_HOST_BACKUP_STORAGE_PROOF_SHA256": "b" * 64,
+        "B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_FILE": str(evidence / "backup-storage-attestation.json"),
+        "B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_SIGNATURE_FILE": str(evidence / "backup-storage-attestation.sig"),
+        "B_SAME_HOST_BACKUP_APPROVER_PUBLIC_KEY_FILE": str(evidence / "storage-approver.pem"),
+        "B_SAME_HOST_BACKUP_MIN_FREE_BYTES": str(8 * 1024**3),
+        "B_SAME_HOST_BACKUP_MAX_BYTES": str(16 * 1024**3),
     }
 
 
@@ -108,6 +133,27 @@ def path_plan(values, protected_paths):
         demand(path != Path("/") and not any(_overlaps(path, protected) for protected in denied),
                "B same-host path overlaps a protected A/system/repository path")
     return planned
+
+
+def backup_path_plan(values, required=True):
+    present = [key for key in BACKUP_VARIABLES if values.get(key)]
+    if not present and not required:
+        return None
+    demand(len(present) == len(BACKUP_VARIABLES),
+           "Same-host backup storage configuration must be complete")
+    mount = _absolute_clean(values["B_SAME_HOST_BACKUP_MOUNT"], "Same-host backup mount")
+    root = _absolute_clean(values["B_SAME_HOST_BACKUP_ROOT"], "Same-host backup root")
+    demand(root == mount / f"{PROJECT}-backups",
+           "Same-host backup root must be the fixed project child of its mount")
+    data_mount = _absolute_clean(values["B_SAME_HOST_MOUNT"], "Same-host data mount")
+    demand(mount != data_mount and not _overlaps(mount, data_mount),
+           "Backup storage must be a separate mount from B data storage")
+    demand(re.fullmatch(r"[0-9a-f]{64}", values["B_SAME_HOST_BACKUP_STORAGE_PROOF_SHA256"]),
+           "Backup storage proof SHA-256 is required")
+    for key in ("B_SAME_HOST_BACKUP_MIN_FREE_BYTES", "B_SAME_HOST_BACKUP_MAX_BYTES"):
+        demand(values[key].isdigit() and int(values[key]) > 0,
+               f"{key} must be a positive byte count")
+    return root
 
 
 def directory_contracts(root):
@@ -323,22 +369,10 @@ def _private_root_file(path, label):
 
 
 def validate_attestation(values, proof, proof_file, protected_file, b_physical, protected_physical):
-    demand(TRUSTED_APPROVER_KEY_HASH_FILE.is_file() and not TRUSTED_APPROVER_KEY_HASH_FILE.is_symlink(),
-           "Trusted storage approver key hash is not provisioned in the reviewed deployment package")
-    trusted_hash = TRUSTED_APPROVER_KEY_HASH_FILE.read_text().strip()
-    demand(re.fullmatch(r"[0-9a-f]{64}", trusted_hash), "Trusted storage approver key hash is invalid")
     attestation_file = Path(values["B_SAME_HOST_STORAGE_ATTESTATION_FILE"])
     signature_file = Path(values["B_SAME_HOST_STORAGE_ATTESTATION_SIGNATURE_FILE"])
     public_key_file = Path(values["B_SAME_HOST_APPROVER_PUBLIC_KEY_FILE"])
-    for path, label in ((attestation_file, "Storage attestation"), (signature_file, "Attestation signature"),
-                        (public_key_file, "Approver public key")):
-        _private_root_file(path, label)
-    demand(_sha256(public_key_file) == trusted_hash, "Storage approver key is not the reviewed trust anchor")
-    verified = subprocess.run(["openssl", "dgst", "-sha256", "-verify", str(public_key_file),
-                               "-signature", str(signature_file), str(attestation_file)],
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30, check=False)
-    demand(verified.returncode == 0, "Independent storage attestation signature is invalid")
-    attestation = json.loads(attestation_file.read_text())
+    attestation = _verified_attestation(attestation_file, signature_file, public_key_file)
     demand(attestation.get("project") == PROJECT and attestation.get("mountpoint") == str(Path(values["B_SAME_HOST_MOUNT"]))
            and attestation.get("volumeId") == proof.get("volumeId")
            and attestation.get("provisioning") == "thick"
@@ -349,12 +383,53 @@ def validate_attestation(values, proof, proof_file, protected_file, b_physical, 
            and set(attestation.get("protectedPhysicalVolumeIds", [])) == set(protected_physical)
            and attestation.get("aScopeComplete") is True,
            "Independent attestation does not bind the reviewed B disk, floor and complete A scope")
+    _validate_attestation_window(attestation)
+
+
+def _verified_attestation(attestation_file, signature_file, public_key_file):
+    demand(TRUSTED_APPROVER_KEY_HASH_FILE.is_file() and not TRUSTED_APPROVER_KEY_HASH_FILE.is_symlink(),
+           "Trusted storage approver key hash is not provisioned in the reviewed deployment package")
+    trusted_hash = TRUSTED_APPROVER_KEY_HASH_FILE.read_text().strip()
+    demand(re.fullmatch(r"[0-9a-f]{64}", trusted_hash), "Trusted storage approver key hash is invalid")
+    for path, label in ((attestation_file, "Storage attestation"), (signature_file, "Attestation signature"),
+                        (public_key_file, "Approver public key")):
+        _private_root_file(path, label)
+    demand(_sha256(public_key_file) == trusted_hash, "Storage approver key is not the reviewed trust anchor")
+    verified = subprocess.run(["openssl", "dgst", "-sha256", "-verify", str(public_key_file),
+                               "-signature", str(signature_file), str(attestation_file)],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30, check=False)
+    demand(verified.returncode == 0, "Independent storage attestation signature is invalid")
+    return json.loads(attestation_file.read_text())
+
+
+def _validate_attestation_window(attestation):
     issued = datetime.fromisoformat(str(attestation.get("issuedAt", "")).replace("Z", "+00:00"))
     expires = datetime.fromisoformat(str(attestation.get("expiresAt", "")).replace("Z", "+00:00"))
     demand(issued.tzinfo is not None and expires.tzinfo is not None
            and issued.astimezone(timezone.utc) <= datetime.now(timezone.utc) < expires.astimezone(timezone.utc)
            and expires - issued <= timedelta(days=7),
            "Independent storage attestation is expired")
+
+
+def validate_backup_attestation(values, proof, proof_file, protected_file,
+                                backup_physical, protected_physical):
+    attestation_file = Path(values["B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_FILE"])
+    signature_file = Path(values["B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_SIGNATURE_FILE"])
+    public_key_file = Path(values["B_SAME_HOST_BACKUP_APPROVER_PUBLIC_KEY_FILE"])
+    attestation = _verified_attestation(attestation_file, signature_file, public_key_file)
+    demand(attestation.get("project") == PROJECT and attestation.get("storageRole") == "backup"
+           and attestation.get("mountpoint") == values["B_SAME_HOST_BACKUP_MOUNT"]
+           and attestation.get("volumeId") == proof.get("volumeId")
+           and attestation.get("provisioning") == "thick"
+           and attestation.get("measurementSha256") == _sha256(proof_file)
+           and attestation.get("protectedPathsSha256") == _sha256(protected_file)
+           and attestation.get("minimumFreeBytes") == int(values["B_SAME_HOST_BACKUP_MIN_FREE_BYTES"])
+           and attestation.get("maximumBackupBytes") == int(values["B_SAME_HOST_BACKUP_MAX_BYTES"])
+           and set(attestation.get("physicalVolumeIds", [])) == set(backup_physical)
+           and set(attestation.get("protectedPhysicalVolumeIds", [])) == set(protected_physical)
+           and attestation.get("aScopeComplete") is True,
+           "Backup attestation does not bind the independent disk, capacity budget and protected scope")
+    _validate_attestation_window(attestation)
 
 
 def validate_tree(path, expected_device):
@@ -419,7 +494,8 @@ def _filesystem_type(mount):
     return result.stdout.strip()
 
 
-def validate_host(values, require_directories=True, check_docker=True):
+def validate_host(values, require_directories=True, check_docker=True, check_backup=True):
+    backup_root = backup_path_plan(values, required=False)
     compose_overlay(values)
     mount = Path(values["B_SAME_HOST_MOUNT"])
     proof_file = Path(values["B_SAME_HOST_STORAGE_PROOF_FILE"])
@@ -491,14 +567,125 @@ def validate_host(values, require_directories=True, check_docker=True):
         validate_tree(resolved, root_stat.st_dev)
     if check_docker:
         validate_existing_docker_volumes(values)
+    if require_directories and check_backup and backup_root is not None:
+        validate_backup_mount(values)
     return planned
+
+
+def _backup_marker_value(values, proof):
+    return {
+        "version": 1, "project": PROJECT, "storageRole": "backup",
+        "mountpoint": values["B_SAME_HOST_BACKUP_MOUNT"],
+        "backupRoot": values["B_SAME_HOST_BACKUP_ROOT"], "volumeId": proof["volumeId"],
+        "minimumFreeBytes": int(values["B_SAME_HOST_BACKUP_MIN_FREE_BYTES"]),
+        "maximumBackupBytes": int(values["B_SAME_HOST_BACKUP_MAX_BYTES"]),
+    }
+
+
+def _validate_backup_marker(root, values, proof):
+    marker = root / BACKUP_OWNER_MARKER
+    demand(marker.is_file() and not marker.is_symlink(), "Trusted B backup ownership marker is missing")
+    metadata = marker.stat()
+    demand(metadata.st_uid == 0 and metadata.st_gid == 0 and stat.S_IMODE(metadata.st_mode) == 0o600,
+           "Trusted B backup ownership marker permissions are invalid")
+    demand(json.loads(marker.read_text()) == _backup_marker_value(values, proof),
+           "Trusted B backup marker does not bind the reviewed storage budget")
+
+
+def _validate_backup_mount_exclusive(mount, root):
+    entries = {entry.name for entry in os.scandir(mount)}
+    demand(entries <= {"lost+found", Path(root).name},
+           "Backup mount is not exclusively assigned to the fixed B backup root")
+
+
+def validate_backup_mount(values, require_root=True):
+    root = backup_path_plan(values)
+    mount = Path(values["B_SAME_HOST_BACKUP_MOUNT"])
+    proof_file = Path(values["B_SAME_HOST_BACKUP_STORAGE_PROOF_FILE"])
+    protected_file = Path(values["B_SAME_HOST_PROTECTED_A_PATHS_FILE"])
+    for path in (mount, proof_file, protected_file):
+        _reject_symlink_components(path)
+    mount = mount.resolve(strict=True)
+    demand(mount.is_dir() and mount in _mountpoints(),
+           "Same-host backup storage root must be an actual Linux mount point")
+    _validate_backup_mount_exclusive(mount, root)
+    filesystem = _filesystem_type(mount)
+    protected = _protected_paths(protected_file.resolve(strict=True))
+    docker_root_result = subprocess.run(["docker", "info", "--format", "{{.DockerRootDir}}"],
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                        timeout=30, check=False)
+    demand(docker_root_result.returncode == 0 and docker_root_result.stdout.strip(),
+           "Docker data-root discovery failed")
+    data_mount = Path(values["B_SAME_HOST_MOUNT"]).resolve(strict=True)
+    shared_paths = [Path("/").resolve(), Path(docker_root_result.stdout.strip()).resolve(strict=True),
+                    *protected, data_mount]
+    mount_identity = _mount_identity(mount)
+    shared_identities = [_mount_identity(path) for path in shared_paths]
+    for shared_identity in shared_identities:
+        demand(not _same_storage(mount_identity, shared_identity),
+               "Backup mount shares root, Docker, A, or the B data storage device")
+    backup_physical, protected_physical = _block_independence(mount_identity, shared_identities)
+    proof_metadata = proof_file.stat()
+    demand(proof_file.is_file() and not proof_file.is_symlink() and proof_metadata.st_uid == 0
+           and not (proof_metadata.st_mode & 0o027),
+           "Backup storage proof must be root-owned and not group/world-writable")
+    demand(_sha256(proof_file) == values["B_SAME_HOST_BACKUP_STORAGE_PROOF_SHA256"],
+           "Backup storage proof hash mismatch")
+    proof = json.loads(proof_file.read_text())
+    try:
+        measured_at = datetime.fromisoformat(str(proof.get("measuredAt", "")).replace("Z", "+00:00"))
+        demand(measured_at.tzinfo is not None, "Backup storage proof timestamp requires a timezone")
+        age = datetime.now(timezone.utc) - measured_at.astimezone(timezone.utc)
+        demand(timedelta(0) <= age <= timedelta(hours=24), "Backup storage proof is stale or future-dated")
+    except (ValueError, TypeError) as error:
+        raise ValueError("Backup storage proof measuredAt is invalid") from error
+    usage = shutil.disk_usage(mount)
+    minimum_free = int(values["B_SAME_HOST_BACKUP_MIN_FREE_BYTES"])
+    maximum_backup = int(values["B_SAME_HOST_BACKUP_MAX_BYTES"])
+    demand(proof.get("version") == 1 and proof.get("storageRole") == "backup"
+           and proof.get("mountpoint") == str(mount) and proof.get("filesystem") == filesystem
+           and proof.get("provisioning") == "thick"
+           and isinstance(proof.get("volumeId"), str) and proof["volumeId"].strip()
+           and isinstance(proof.get("fsyncP99Ms"), (int, float)) and proof["fsyncP99Ms"] > 0
+           and proof.get("capacityBytes") == usage.total
+           and proof.get("requiredFreeBytes") == minimum_free
+           and proof.get("maximumBackupBytes") == maximum_backup,
+           "Backup proof lacks the reviewed thick/fsync/capacity/budget contract")
+    demand(usage.free >= minimum_free + maximum_backup,
+           "Backup mount lacks the attested floor plus maximum backup budget")
+    validate_backup_attestation(values, proof, proof_file, protected_file,
+                                backup_physical, protected_physical)
+    evidence = {"storageRole": "backup", "mountpoint": str(mount), "volumeId": proof["volumeId"],
+                "proofSha256": _sha256(proof_file), "minimumFreeBytes": minimum_free,
+                "maximumBackupBytes": maximum_backup,
+                "physicalVolumeIds": sorted(backup_physical),
+                "protectedPhysicalVolumeIds": sorted(protected_physical)}
+    if not require_root:
+        return {"mount": mount, "root": root, "minimumFreeBytes": minimum_free,
+                "maximumBackupBytes": maximum_backup, "proof": proof, "evidence": evidence}
+    _reject_symlink_components(root)
+    resolved_root = root.resolve(strict=True)
+    metadata = resolved_root.stat()
+    demand(resolved_root == root and resolved_root.parent == mount
+           and stat.S_ISDIR(metadata.st_mode) and metadata.st_uid == 0 and metadata.st_gid == 0
+           and stat.S_IMODE(metadata.st_mode) == 0o700 and metadata.st_dev == mount.stat().st_dev
+           and resolved_root not in _mountpoints(),
+           "Same-host backup root ownership, device or mount contract failed")
+    _validate_backup_marker(resolved_root, values, proof)
+    return {"mount": mount, "root": resolved_root, "minimumFreeBytes": minimum_free,
+            "maximumBackupBytes": maximum_backup, "proof": proof, "evidence": evidence,
+            "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+            "rootIdentity": (metadata.st_dev, metadata.st_ino)}
 
 
 def validate_backup_output(values, output):
     if not compose_overlay(values):
-        return
-    raise ValueError("Same-host automatic backup is disabled until an independently attested B-only backup mount "
-                     "and write-watermark contract are reviewed")
+        return None
+    contract = validate_backup_mount(values)
+    output = Path(output)
+    demand(output.parent == contract["root"] and not output.exists() and not output.is_symlink(),
+           "Same-host backup output must be a new direct child of the reviewed B-only backup root")
+    return contract
 
 
 def validate_journal(values, journal, mountpoints=None):
@@ -514,12 +701,52 @@ def validate_journal(values, journal, mountpoints=None):
                               _mountpoints() if mountpoints is None else mountpoints)
 
 
+def prepare_backup(values):
+    if backup_path_plan(values, required=False) is None:
+        return
+    contract = validate_backup_mount(values, require_root=False)
+    root = contract["root"]
+    if root.exists() or root.is_symlink():
+        validate_backup_mount(values)
+        return
+    mount_fd = os.open(contract["mount"], os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        os.mkdir(root.name, mode=0o700, dir_fd=mount_fd)
+        os.chown(root.name, 0, 0, dir_fd=mount_fd, follow_symlinks=False)
+        os.chmod(root.name, 0o700, dir_fd=mount_fd, follow_symlinks=False)
+        root_fd = os.open(root.name, os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
+                          dir_fd=mount_fd)
+        try:
+            marker_bytes = (json.dumps(_backup_marker_value(values, contract["proof"]),
+                                       sort_keys=True, separators=(",", ":")) + "\n").encode()
+            temporary = f".{BACKUP_OWNER_MARKER}.tmp-{os.getpid()}"
+            marker_fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                                | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=root_fd)
+            try:
+                remaining = memoryview(marker_bytes)
+                while remaining:
+                    remaining = remaining[os.write(marker_fd, remaining):]
+                os.fsync(marker_fd)
+            finally:
+                os.close(marker_fd)
+            os.rename(temporary, BACKUP_OWNER_MARKER, src_dir_fd=root_fd, dst_dir_fd=root_fd)
+            os.fsync(root_fd)
+            os.fsync(mount_fd)
+        finally:
+            os.close(root_fd)
+    finally:
+        os.close(mount_fd)
+    validate_backup_mount(values)
+
+
 def prepare(values):
     demand(os.geteuid() == 0, "Same-host directory preparation requires root")
     validate_host(values, require_directories=False)
     mount = Path(values["B_SAME_HOST_MOUNT"])
     root = Path(values["B_SAME_HOST_DATA_ROOT"])
     if root.exists() or root.is_symlink():
+        validate_host(values, check_backup=False)
+        prepare_backup(values)
         validate_host(values)
         return
     proof = json.loads(Path(values["B_SAME_HOST_STORAGE_PROOF_FILE"]).read_text())
@@ -572,6 +799,8 @@ def prepare(values):
             os.close(root_fd)
     finally:
         os.close(mount_fd)
+    validate_host(values, check_backup=False)
+    prepare_backup(values)
     validate_host(values)
 
 

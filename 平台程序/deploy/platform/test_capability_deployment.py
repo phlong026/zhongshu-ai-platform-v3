@@ -2,9 +2,12 @@ import importlib.util
 import base64
 import hashlib
 import json
+import os
+import stat
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 import unittest
 import sys
 from datetime import datetime, timedelta, timezone
@@ -25,6 +28,7 @@ def load(name, file):
 
 verify = load("verify_capability", "verify-capability-deployment.py")
 backup = load("full_backup", "full-backup.py")
+bounded = load("bounded_backup_io_test", "bounded_backup_io.py")
 release = load("release_capabilities", "release-capabilities.py")
 same_host = load("same_host_storage", "same_host_storage.py")
 ops = load("platform_ops", "ops.py")
@@ -151,6 +155,546 @@ class CapabilityDeploymentTest(unittest.TestCase):
             volume["Options"] = None
             with self.assertRaises(ValueError):
                 same_host.validate_volume_inspection([volume], values)
+
+    def test_secure_journal_archive_rejects_a_real_symlink_swap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            journal, outside = root / "journal", root / "outside"
+            journal.mkdir()
+            outside.write_text("must-not-be-archived")
+            victim = journal / "event.json"
+            victim.write_text("safe")
+            original_open = backup._open_child
+            swapped = False
+
+            def swap_before_open(parent_fd, name, flags):
+                nonlocal swapped
+                if name == "event.json" and not swapped:
+                    victim.unlink()
+                    victim.symlink_to(outside)
+                    swapped = True
+                return original_open(parent_fd, name, flags)
+
+            with patch.object(backup, "_open_child", side_effect=swap_before_open), \
+                    patch.object(backup, "_fd_mount_id", return_value=1):
+                with self.assertRaises((OSError, ValueError)):
+                    backup.secure_journal_archive(journal, root / "journal.tar.gz")
+            self.assertTrue(swapped)
+
+    def test_secure_journal_archive_rejects_mount_id_change(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            journal = root / "journal"
+            (journal / "nested").mkdir(parents=True)
+            (journal / "nested" / "event.json").write_text("safe")
+            real_mount_id = backup._fd_mount_id
+            nested_inode = (journal / "nested").stat().st_ino
+
+            def different_child_mount(fd):
+                return 2 if os.fstat(fd).st_ino == nested_inode else 1
+
+            with patch.object(backup, "_fd_mount_id", side_effect=different_child_mount):
+                with self.assertRaisesRegex(ValueError, "mount"):
+                    backup.secure_journal_archive(journal, root / "journal.tar.gz")
+            self.assertTrue(callable(real_mount_id))
+
+    def test_secure_journal_archive_rejects_directory_replacement_after_open(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            journal, moved = root / "journal", root / "moved-journal"
+            journal.mkdir()
+            (journal / "event.json").write_text("safe")
+            original_archive = backup._archive_open_directory
+            replaced = False
+
+            def replace_root(*args):
+                nonlocal replaced
+                if not replaced:
+                    journal.rename(moved)
+                    journal.mkdir()
+                    (journal / "foreign.json").write_text("replacement")
+                    replaced = True
+                return original_archive(*args)
+
+            with patch.object(backup, "_archive_open_directory", side_effect=replace_root), \
+                    patch.object(backup, "_fd_mount_id", return_value=1):
+                with self.assertRaisesRegex(ValueError, "root"):
+                    backup.secure_journal_archive(journal, root / "journal.tar.gz")
+            self.assertTrue(replaced)
+
+    def test_secure_journal_archive_rejects_real_linux_bind_submount(self):
+        if not sys.platform.startswith("linux"):
+            self.skipTest("requires Linux mount IDs")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            journal, source = root / "journal", root / "source"
+            (journal / "nested").mkdir(parents=True)
+            source.mkdir()
+            (source / "event.json").write_text("safe")
+            mounted = subprocess.run(["mount", "--bind", str(source), str(journal / "nested")],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+            if not mounted:
+                self.skipTest("requires CAP_SYS_ADMIN for a real bind-mount regression")
+            try:
+                with self.assertRaisesRegex(ValueError, "mount"):
+                    backup.secure_journal_archive(journal, root / "journal.tar.gz")
+            finally:
+                subprocess.run(["umount", str(journal / "nested")], check=True,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def test_backup_budget_stops_during_write_when_floor_or_limit_would_be_crossed(self):
+        usage = SimpleNamespace(total=11_000, used=1_000, free=10_000)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            budget = backup.BackupBudget(root, minimum_free_bytes=8_000,
+                                         maximum_backup_bytes=1_500,
+                                         disk_usage=lambda _: usage, allocation_unit=1)
+            with budget.open(root / "bounded.bin") as stream:
+                stream.write(b"a" * 700)
+                usage.free = 8_500
+                with self.assertRaisesRegex(ValueError, "watermark"):
+                    stream.write(b"b" * 600)
+            usage.free = 9_000
+            budget = backup.BackupBudget(root, minimum_free_bytes=7_000,
+                                         maximum_backup_bytes=500,
+                                         disk_usage=lambda _: usage, allocation_unit=1)
+            with budget.open(root / "limited.bin") as stream:
+                with self.assertRaisesRegex(ValueError, "budget"):
+                    stream.write(b"x" * 501)
+            free_values = iter((1_000, 1_000, 1_000, 1_000, 100))
+            budget = backup.BackupBudget(
+                root, minimum_free_bytes=500, maximum_backup_bytes=100,
+                disk_usage=lambda _: SimpleNamespace(total=2_000, used=1_000,
+                                                      free=next(free_values)), allocation_unit=1)
+            with budget.open(root / "post-write-floor.bin") as stream:
+                with self.assertRaisesRegex(ValueError, "crossed"):
+                    stream.write(b"x" * 10)
+
+    def test_dump_subprocess_stdout_is_limited_while_streaming(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            budget = backup.BackupBudget(root, minimum_free_bytes=1, maximum_backup_bytes=128,
+                                         allocation_unit=1)
+            with budget.open(root / "dump.bin") as output:
+                with self.assertRaisesRegex(ValueError, "budget"):
+                    backup.stream_command(
+                        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'x' * 1024)"],
+                        "test dump", output, dict(os.environ), timeout=10)
+            self.assertLessEqual((root / "dump.bin").stat().st_size, 128)
+
+    def test_dump_subprocess_stderr_is_memory_bounded_and_never_spooled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            budget = backup.BackupBudget(root, minimum_free_bytes=1, maximum_backup_bytes=1024,
+                                         allocation_unit=1)
+            with budget.open(root / "dump.bin") as output:
+                with self.assertRaisesRegex(RuntimeError, "stderr limit"):
+                    backup.stream_command(
+                        [sys.executable, "-c",
+                         "import sys; sys.stderr.buffer.write(b'e' * (1024 * 1024))"],
+                        "hostile stderr", output, dict(os.environ), timeout=10)
+            self.assertFalse(any(path.name.startswith("tmp") for path in root.iterdir()))
+
+    def test_backup_target_refuses_inactive_mount_without_falling_back_to_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory) / "mount"
+            backup_root = mount / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            contract = {
+                "mount": mount, "root": backup_root, "minimumFreeBytes": 1,
+                "maximumBackupBytes": 1024 * 1024,
+                "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                "rootIdentity": (backup_root.stat().st_dev, backup_root.stat().st_ino),
+            }
+            active = {7}
+            with bounded.BackupTarget(contract, backup_root / "backup-1",
+                                      mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: set(active)) as target:
+                active.clear()
+                with self.assertRaisesRegex(ValueError, "no longer active"):
+                    target.open("dump.bin")
+            self.assertFalse((backup_root / "backup-1" / "dump.bin").exists())
+
+    def test_backup_target_rejects_real_linux_mount_detach(self):
+        if not sys.platform.startswith("linux"):
+            self.skipTest("requires Linux mount IDs")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, mount = root / "source", root / "mount"
+            backup_root = source / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            mount.mkdir()
+            mounted = subprocess.run(["mount", "--bind", str(source), str(mount)],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+            if not mounted:
+                self.skipTest("requires CAP_SYS_ADMIN for a real detach regression")
+            target = None
+            try:
+                visible_root = mount / "zhongshu-platform-b-backups"
+                contract = {
+                    "mount": mount, "root": visible_root, "minimumFreeBytes": 1,
+                    "maximumBackupBytes": 1024 * 1024,
+                    "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                    "rootIdentity": (visible_root.stat().st_dev, visible_root.stat().st_ino),
+                }
+                target = bounded.BackupTarget(contract, visible_root / "backup-1")
+                subprocess.run(["umount", "-l", str(mount)], check=True,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                mounted = False
+                with self.assertRaisesRegex(ValueError, "no longer active"):
+                    target.open("dump.bin")
+                self.assertFalse((mount / "zhongshu-platform-b-backups" / "backup-1" / "dump.bin").exists())
+            finally:
+                if target:
+                    target.close()
+                if mounted:
+                    subprocess.run(["umount", "-l", str(mount)], check=False,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def test_manifest_is_not_published_when_final_gate_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory) / "mount"
+            backup_root = mount / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            contract = {
+                "mount": mount, "root": backup_root, "minimumFreeBytes": 1,
+                "maximumBackupBytes": 1024 * 1024,
+                "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                "rootIdentity": (backup_root.stat().st_dev, backup_root.stat().st_ino),
+            }
+            output = backup_root / "backup-1"
+            with bounded.BackupTarget(contract, output, mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: {7}) as target:
+                with self.assertRaisesRegex(ValueError, "final gate"):
+                    target.commit_manifest(b'{}\n', lambda: (_ for _ in ()).throw(
+                        ValueError("final gate failed")))
+            self.assertFalse((output / "manifest.json").exists())
+            self.assertFalse(any(path.name.startswith(".manifest.json.tmp-") for path in output.iterdir()))
+            self.assertTrue((output / ".backup-in-progress").exists())
+
+    def test_manifest_refuses_output_directory_replacement_and_cleans_owned_temp(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory) / "mount"
+            backup_root = mount / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            contract = {
+                "mount": mount, "root": backup_root, "minimumFreeBytes": 1,
+                "maximumBackupBytes": 1024 * 1024,
+                "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                "rootIdentity": (backup_root.stat().st_dev, backup_root.stat().st_ino),
+            }
+            output, moved = backup_root / "backup-1", backup_root / "moved-backup"
+            with bounded.BackupTarget(contract, output, mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: {7}) as target:
+                def replace_output():
+                    output.rename(moved)
+                    output.mkdir()
+
+                with self.assertRaisesRegex(ValueError, "visible output"):
+                    target.commit_manifest(b'{}\n', replace_output)
+            self.assertFalse((output / "manifest.json").exists())
+            self.assertFalse((moved / "manifest.json").exists())
+            self.assertFalse(any(path.name.startswith(".manifest.json.tmp-") for path in moved.iterdir()))
+            self.assertTrue((moved / ".backup-in-progress").exists())
+
+    def test_manifest_refuses_backup_root_replacement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory) / "mount"
+            backup_root = mount / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            contract = {
+                "mount": mount, "root": backup_root, "minimumFreeBytes": 1,
+                "maximumBackupBytes": 1024 * 1024,
+                "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                "rootIdentity": (backup_root.stat().st_dev, backup_root.stat().st_ino),
+            }
+            output = backup_root / "backup-1"
+            moved_root = mount / "moved-root"
+            with bounded.BackupTarget(contract, output, mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: {7}) as target:
+                def replace_root():
+                    backup_root.rename(moved_root)
+                    backup_root.mkdir()
+
+                with self.assertRaisesRegex(ValueError, "visible root"):
+                    target.commit_manifest(b'{}\n', replace_root)
+            self.assertFalse((backup_root / "manifest.json").exists())
+            self.assertFalse((moved_root / "backup-1" / "manifest.json").exists())
+
+    def test_backup_root_lock_refuses_a_second_process_and_releases_on_close(self):
+        if not hasattr(os, "fork"):
+            self.skipTest("requires fork for an independent lock contender")
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory) / "mount"
+            backup_root = mount / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            contract = {
+                "mount": mount, "root": backup_root, "minimumFreeBytes": 1,
+                "maximumBackupBytes": 1024 * 1024,
+                "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                "rootIdentity": (backup_root.stat().st_dev, backup_root.stat().st_ino),
+            }
+            read_fd, write_fd = os.pipe()
+            with bounded.BackupTarget(contract, backup_root / "backup-1",
+                                      mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: {7}) as first:
+                pid = os.fork()
+                if pid == 0:
+                    os.close(read_fd)
+                    first.close()
+                    try:
+                        bounded.BackupTarget(contract, backup_root / "backup-2",
+                                             mount_id_reader=lambda _: 7,
+                                             active_mount_ids=lambda: {7})
+                    except ValueError as error:
+                        os.write(write_fd, b"blocked" if "already holds" in str(error) else b"wrong-error")
+                    else:
+                        os.write(write_fd, b"unexpected-success")
+                    os.close(write_fd)
+                    os._exit(0)
+                os.close(write_fd)
+                result = os.read(read_fd, 64)
+                os.close(read_fd)
+                _, status = os.waitpid(pid, 0)
+                self.assertEqual((result, status), (b"blocked", 0))
+            with bounded.BackupTarget(contract, backup_root / "backup-3",
+                                      mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: {7}):
+                pass
+
+    def test_manifest_directory_fsync_failure_removes_official_and_completion_marker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory) / "mount"
+            backup_root = mount / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            contract = {
+                "mount": mount, "root": backup_root, "minimumFreeBytes": 1,
+                "maximumBackupBytes": 1024 * 1024,
+                "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                "rootIdentity": (backup_root.stat().st_dev, backup_root.stat().st_ino),
+            }
+            output = backup_root / "backup-1"
+            with bounded.BackupTarget(contract, output, mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: {7}) as target:
+                real_fsync = bounded.os.fsync
+
+                def fail_directory_fsync(fd):
+                    if fd == target.output_fd:
+                        raise OSError("injected directory fsync failure")
+                    return real_fsync(fd)
+
+                with patch.object(bounded.os, "fsync", side_effect=fail_directory_fsync):
+                    with self.assertRaisesRegex(RuntimeError, "cleanup is incomplete"):
+                        target.commit_manifest(b'{}\n', lambda: None)
+            self.assertFalse((output / "manifest.json").exists())
+            self.assertFalse((output / ".backup-complete").exists())
+            self.assertFalse(any("tmp-" in path.name for path in output.iterdir()))
+            self.assertTrue((output / ".backup-in-progress").exists())
+
+    def test_successful_manifest_has_matching_completion_marker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory) / "mount"
+            backup_root = mount / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            contract = {
+                "mount": mount, "root": backup_root, "minimumFreeBytes": 1,
+                "maximumBackupBytes": 1024 * 1024,
+                "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                "rootIdentity": (backup_root.stat().st_dev, backup_root.stat().st_ino),
+            }
+            output = backup_root / "backup-1"
+            content = b'{"project":"zhongshu-platform-b"}\n'
+            with bounded.BackupTarget(contract, output, mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: {7}) as target:
+                target.commit_manifest(content, lambda: None)
+            self.assertEqual((output / ".backup-complete").read_text(),
+                             hashlib.sha256(content).hexdigest() + "\n")
+            self.assertFalse((output / ".backup-in-progress").exists())
+
+    def test_cleanup_failure_is_explicit_and_in_progress_marker_forces_verify_refusal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory) / "mount"
+            backup_root = mount / "zhongshu-platform-b-backups"
+            backup_root.mkdir(parents=True)
+            contract = {
+                "mount": mount, "root": backup_root, "minimumFreeBytes": 1,
+                "maximumBackupBytes": 1024 * 1024,
+                "mountIdentity": (mount.stat().st_dev, mount.stat().st_ino),
+                "rootIdentity": (backup_root.stat().st_dev, backup_root.stat().st_ino),
+            }
+            output = backup_root / "backup-1"
+            with bounded.BackupTarget(contract, output, mount_id_reader=lambda _: 7,
+                                      active_mount_ids=lambda: {7}) as target:
+                with patch.object(target, "_unlink_owned", side_effect=OSError("injected unlink failure")):
+                    with self.assertRaisesRegex(RuntimeError, "cleanup is incomplete"):
+                        target.commit_manifest(b'{}\n', lambda: (_ for _ in ()).throw(
+                            ValueError("final gate failed")))
+            self.assertTrue((output / ".backup-in-progress").exists())
+            with self.assertRaisesRegex(ValueError, "publication is incomplete"):
+                backup.verify(SimpleNamespace(output=output, confirm_sha256="0" * 64))
+
+    def test_full_backup_verify_rejects_manifest_without_completion_marker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            manifest = output / "manifest.json"
+            manifest.write_text('{}\n')
+            args = SimpleNamespace(output=output, confirm_sha256=hashlib.sha256(
+                manifest.read_bytes()).hexdigest())
+            with self.assertRaisesRegex(ValueError, "publication is incomplete"):
+                backup.verify(args)
+
+    def test_full_backup_verify_rejects_dangling_in_progress_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            manifest = output / "manifest.json"
+            manifest.write_text('{}\n')
+            (output / ".backup-complete").write_text(hashlib.sha256(
+                manifest.read_bytes()).hexdigest() + "\n")
+            (output / ".backup-in-progress").symlink_to(output / "missing-target")
+            args = SimpleNamespace(output=output, confirm_sha256=hashlib.sha256(
+                manifest.read_bytes()).hexdigest())
+            with self.assertRaisesRegex(ValueError, "publication is incomplete"):
+                backup.verify(args)
+
+    def test_path_manifest_double_fault_keeps_in_progress_and_verify_refuses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            real_fsync = backup.os.fsync
+            real_unlink = backup.os.unlink
+            directory_fsyncs = 0
+
+            def fail_directory_fsync(fd):
+                nonlocal directory_fsyncs
+                if stat.S_ISDIR(os.fstat(fd).st_mode):
+                    directory_fsyncs += 1
+                    if directory_fsyncs >= 2:
+                        raise OSError("injected directory fsync failure")
+                return real_fsync(fd)
+
+            def fail_publication_unlink(path, *args, **kwargs):
+                if str(path) in ("manifest.json", ".backup-complete"):
+                    raise OSError("injected unlink failure")
+                return real_unlink(path, *args, **kwargs)
+
+            with patch.object(backup.os, "fsync", side_effect=fail_directory_fsync), \
+                    patch.object(backup.os, "unlink", side_effect=fail_publication_unlink):
+                with self.assertRaisesRegex(RuntimeError, "cleanup is incomplete"):
+                    backup.commit_path_manifest(output, b'{}\n', lambda: None)
+            self.assertTrue(os.path.lexists(output / ".backup-in-progress"))
+            with self.assertRaisesRegex(ValueError, "publication is incomplete"):
+                backup.verify(SimpleNamespace(output=output, confirm_sha256="0" * 64))
+
+    def test_verify_regular_open_rejects_fifo_without_blocking(self):
+        if not hasattr(os, "fork"):
+            self.skipTest("requires fork to bound a blocking-open regression")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            os.mkfifo(root / "fifo")
+            directory_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+            read_fd, write_fd = os.pipe()
+            pid = os.fork()
+            if pid == 0:
+                os.close(read_fd)
+                try:
+                    backup._open_regular_at(directory_fd, "fifo")
+                except ValueError:
+                    os.write(write_fd, b"rejected")
+                except Exception:
+                    os.write(write_fd, b"wrong-error")
+                else:
+                    os.write(write_fd, b"accepted")
+                os.close(write_fd)
+                os.close(directory_fd)
+                os._exit(0)
+            os.close(write_fd)
+            deadline = time.monotonic() + 1
+            finished = False
+            while time.monotonic() < deadline:
+                waited, _ = os.waitpid(pid, os.WNOHANG)
+                if waited:
+                    finished = True
+                    break
+                time.sleep(0.01)
+            if not finished:
+                os.kill(pid, 9)
+                os.waitpid(pid, 0)
+                result = b"blocked"
+            else:
+                result = os.read(read_fd, 32)
+            os.close(read_fd)
+            os.close(directory_fd)
+            self.assertEqual(result, b"rejected")
+
+    def test_metadata_read_rejects_actual_growth_beyond_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "manifest.json"
+            path.write_bytes(b"12345")
+            directory_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+            real_fstat = backup.os.fstat
+
+            def stale_size(fd):
+                metadata = real_fstat(fd)
+                if stat.S_ISREG(metadata.st_mode):
+                    return SimpleNamespace(st_mode=metadata.st_mode, st_size=4)
+                return metadata
+
+            try:
+                with patch.object(backup.os, "fstat", side_effect=stale_size):
+                    with self.assertRaisesRegex(ValueError, "too large"):
+                        backup._read_regular_at(directory_fd, "manifest.json", 4)
+            finally:
+                os.close(directory_fd)
+
+    def test_redis_dump_streams_rdb_without_writing_production_data_volume(self):
+        captured = []
+        budget = object()
+
+        class Output:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+
+        with patch.object(backup, "_output_stream", return_value=Output()), \
+                patch.object(backup, "stream_command",
+                             side_effect=lambda command, *args: captured.append(command)):
+            backup.redis_dump(["docker", "compose"], "redis-b", "platform_backup",
+                              "redis_backup_password", Path("/unused"), {}, budget)
+        command_text = " ".join(captured[0])
+        self.assertIn("--rdb /dev/stdout", command_text)
+        self.assertNotIn("mktemp /data", command_text)
+
+    def test_same_host_backup_requires_independent_mount_contract(self):
+        values = same_host.example_values("/mnt/data-b")
+        values.update(same_host.example_backup_values("/mnt/backup-b"))
+        self.assertEqual(same_host.backup_path_plan(values),
+                         Path("/mnt/backup-b/zhongshu-platform-b-backups"))
+        values["B_SAME_HOST_BACKUP_MOUNT"] = "/mnt/data-b"
+        with self.assertRaises(ValueError):
+            same_host.backup_path_plan(values)
+
+    def test_backup_mount_rejects_any_non_b_root_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory)
+            (mount / "lost+found").mkdir()
+            same_host._validate_backup_mount_exclusive(mount, mount / "zhongshu-platform-b-backups")
+            (mount / "foreign-project").mkdir()
+            with self.assertRaisesRegex(ValueError, "exclusively"):
+                same_host._validate_backup_mount_exclusive(mount, mount / "zhongshu-platform-b-backups")
+
+    def test_prepare_can_create_backup_root_after_existing_data_root_is_validated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = Path(directory)
+            values = same_host.example_values(mount)
+            values.update(same_host.example_backup_values(mount / "backup-disk"))
+            Path(values["B_SAME_HOST_DATA_ROOT"]).mkdir()
+            with patch.object(same_host.os, "geteuid", return_value=0), \
+                    patch.object(same_host, "validate_host") as validate, \
+                    patch.object(same_host, "prepare_backup") as prepare_backup:
+                same_host.prepare(values)
+            self.assertEqual(validate.call_args_list[0].kwargs, {"require_directories": False})
+            self.assertEqual(validate.call_args_list[1].kwargs, {"check_backup": False})
+            self.assertEqual(validate.call_args_list[2].kwargs, {})
+            prepare_backup.assert_called_once_with(values)
 
     def test_full_backup_binds_actual_container_mounts_to_reviewed_model(self):
         model = {
@@ -356,6 +900,59 @@ class CapabilityDeploymentTest(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         same_host.validate_attestation(values, {"volumeId": "volume-b"}, proof, protected,
                                                        {"B-DISK"}, {"A-DISK"})
+
+    def test_backup_attestation_binds_physical_ids_floor_and_total_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            private_key, public_key = root / "private.pem", root / "public.pem"
+            proof, protected = root / "proof.json", root / "protected.txt"
+            attestation, signature, trust = root / "attestation.json", root / "attestation.sig", root / "trust.sha256"
+            subprocess.run(["openssl", "genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:2048",
+                            "-out", str(private_key)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["openssl", "pkey", "-in", str(private_key), "-pubout", "-out", str(public_key)],
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            proof.write_text('{"volumeId":"backup-volume"}\n')
+            protected.write_text('/opt/zhongshu\n')
+            values = same_host.example_values(root / "data")
+            values.update(same_host.example_backup_values(root / "backup"))
+            values.update({
+                "B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_FILE": str(attestation),
+                "B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_SIGNATURE_FILE": str(signature),
+                "B_SAME_HOST_BACKUP_APPROVER_PUBLIC_KEY_FILE": str(public_key),
+                "B_SAME_HOST_BACKUP_STORAGE_PROOF_FILE": str(proof),
+                "B_SAME_HOST_PROTECTED_A_PATHS_FILE": str(protected),
+            })
+            now = datetime.now(timezone.utc)
+            payload = {
+                "project": "zhongshu-platform-b", "storageRole": "backup",
+                "mountpoint": values["B_SAME_HOST_BACKUP_MOUNT"], "volumeId": "backup-volume",
+                "provisioning": "thick", "measurementSha256": hashlib.sha256(proof.read_bytes()).hexdigest(),
+                "protectedPathsSha256": hashlib.sha256(protected.read_bytes()).hexdigest(),
+                "minimumFreeBytes": int(values["B_SAME_HOST_BACKUP_MIN_FREE_BYTES"]),
+                "maximumBackupBytes": int(values["B_SAME_HOST_BACKUP_MAX_BYTES"]),
+                "physicalVolumeIds": ["BACKUP-DISK"],
+                "protectedPhysicalVolumeIds": ["A-DISK", "B-DATA-DISK"], "aScopeComplete": True,
+                "issuedAt": now.isoformat(), "expiresAt": (now + timedelta(days=1)).isoformat(),
+            }
+            trust.write_text(hashlib.sha256(public_key.read_bytes()).hexdigest())
+            with patch.object(same_host, "TRUSTED_APPROVER_KEY_HASH_FILE", trust), \
+                    patch.object(same_host, "_private_root_file"):
+                for candidate, accepted in ((payload, True),
+                                            ({**payload, "maximumBackupBytes": 1}, False),
+                                            ({**payload, "physicalVolumeIds": ["B-DATA-DISK"]}, False)):
+                    attestation.write_text(json.dumps(candidate))
+                    subprocess.run(["openssl", "dgst", "-sha256", "-sign", str(private_key),
+                                    "-out", str(signature), str(attestation)], check=True,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if accepted:
+                        same_host.validate_backup_attestation(
+                            values, {"volumeId": "backup-volume"}, proof, protected,
+                            {"BACKUP-DISK"}, {"A-DISK", "B-DATA-DISK"})
+                    else:
+                        with self.assertRaises(ValueError):
+                            same_host.validate_backup_attestation(
+                                values, {"volumeId": "backup-volume"}, proof, protected,
+                                {"BACKUP-DISK"}, {"A-DISK", "B-DATA-DISK"})
 
     def test_only_sha256_image_references_are_immutable(self):
         self.assertTrue(verify.immutable("registry.example/b@sha256:" + "a" * 64))
