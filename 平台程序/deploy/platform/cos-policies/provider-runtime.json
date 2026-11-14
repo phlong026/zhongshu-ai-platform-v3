@@ -1,0 +1,28 @@
+{
+  "version": "2.0",
+  "statement": [
+    {
+      "effect": "allow",
+      "action": [
+        "name/cos:PutObject",
+        "name/cos:HeadObject",
+        "name/cos:GetObject"
+      ],
+      "resource": [
+        "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/uploads/*",
+        "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/accepted/*",
+        "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/ai-quarantine/*",
+        "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/moderation-input/*"
+      ]
+    },
+    {
+      "effect": "allow",
+      "action": [
+        "name/cos:DeleteObject"
+      ],
+      "resource": [
+        "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/moderation-input/*"
+      ]
+    }
+  ]
+}

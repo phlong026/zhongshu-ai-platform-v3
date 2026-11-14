@@ -26,6 +26,12 @@ EXTERNAL_FILES = (
     "AI_RUNTIME_CONFIG_FILE", "DESIGN_PG_BOOTSTRAP_PASSWORD_FILE", "DESIGN_PG_OWNER_PASSWORD_FILE",
     "DESIGN_PG_APP_PASSWORD_FILE", "DESIGN_REDIS_APP_PASSWORD_FILE", "DESIGN_REDIS_BACKUP_PASSWORD_FILE",
 )
+AUDITED_B_COS_BUCKET = "zhongshu-platform-b-assets-1397776231"
+AUDITED_B_COS_REGION = "ap-shanghai"
+AUDITED_B_COS_ENDPOINT = f"https://cos.{AUDITED_B_COS_REGION}.myqcloud.com"
+AUDITED_B_COS_OBJECT_ORIGIN = (
+    f"https://{AUDITED_B_COS_BUCKET}.cos.{AUDITED_B_COS_REGION}.myqcloud.com"
+)
 
 
 def demand(condition, message):
@@ -74,17 +80,36 @@ def same_secret(left, right):
 
 
 def validate_configuration_contract(platform, provider, runtime, expected_bucket):
+    demand(expected_bucket == AUDITED_B_COS_BUCKET,
+           "COS_B_BUCKET must name the audited B asset bucket")
+    demand(platform.get("zhongshu.franchise.asset.storage.provider") == "cos",
+           "API asset storage must be COS in production")
+    demand(platform.get("zhongshu.franchise.asset.storage.cos.bucket") == expected_bucket,
+           "API COS bucket differs from the backup B bucket")
+    demand(platform.get("zhongshu.franchise.asset.storage.cos.region") == AUDITED_B_COS_REGION,
+           "API COS region differs from the audited B region")
+    demand(platform.get("zhongshu.franchise.asset.storage.cos.endpoint") == AUDITED_B_COS_ENDPOINT,
+           "API COS endpoint differs from the audited regional SDK endpoint")
+    demand(platform.get("zhongshu.franchise.asset.storage.cos.path-style-access") == "false",
+           "API COS path-style access must be explicitly disabled")
     demand(provider.get("zhongshu.design.asset.storage.provider") == "cos",
            "Provider storage must be COS in production")
     demand(provider.get("zhongshu.design.asset.storage.cos.bucket") == expected_bucket,
            "Provider COS bucket differs from the backup B bucket")
+    demand(provider.get("zhongshu.design.asset.storage.cos.region") == AUDITED_B_COS_REGION,
+           "Provider COS region differs from the audited B region")
+    demand(provider.get("zhongshu.design.asset.storage.cos.path-style-access") == "false",
+           "Provider COS path-style access must be explicitly disabled")
     endpoint = provider.get("zhongshu.design.asset.storage.cos.endpoint", "")
     parsed = urlsplit(endpoint)
     demand(parsed.scheme == "https" and parsed.netloc and not parsed.path.strip("/")
            and not parsed.query and not parsed.fragment, "Provider COS endpoint must be a fixed HTTPS origin")
-    origins = {item.strip().rstrip("/") for item in runtime.get("ZS_AI_STORAGE_ORIGINS", "").split(",") if item.strip()}
-    demand(runtime.get("ZS_AI_STORAGE_MODE") == "https" and endpoint.rstrip("/") in origins,
-           "Runtime HTTPS storage origins must contain the reviewed Provider COS origin")
+    demand(endpoint == AUDITED_B_COS_ENDPOINT
+           and endpoint == platform.get("zhongshu.franchise.asset.storage.cos.endpoint"),
+           "API and Provider COS endpoints must equal the audited regional SDK endpoint")
+    demand(runtime.get("ZS_AI_STORAGE_MODE") == "https"
+           and runtime.get("ZS_AI_STORAGE_ORIGINS") == AUDITED_B_COS_OBJECT_ORIGIN,
+           "Runtime storage origin must equal the audited B bucket virtual-host origin")
     shared = provider.get("zhongshu.ai.internal-secret", "")
     demand(len(shared) >= 32 and same_secret(shared, runtime.get("ZS_INTERNAL_SECRET", "")),
            "Provider and Runtime shared HMAC secrets differ")

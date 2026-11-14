@@ -1,0 +1,9 @@
+# Merge into the external PLATFORM_CONFIG_FILE; this fragment is not a complete production config.
+# Distinct B API CAM identity: only franchise/* in this bucket. Never copy A credentials.
+zhongshu.franchise.asset.storage.provider=cos
+zhongshu.franchise.asset.storage.cos.endpoint=https://cos.ap-shanghai.myqcloud.com
+zhongshu.franchise.asset.storage.cos.region=ap-shanghai
+zhongshu.franchise.asset.storage.cos.bucket=zhongshu-platform-b-assets-1397776231
+zhongshu.franchise.asset.storage.cos.path-style-access=false
+zhongshu.franchise.asset.storage.cos.secret-id=REPLACE_WITH_B_API_SECRET_ID
+zhongshu.franchise.asset.storage.cos.secret-key=REPLACE_WITH_B_API_SECRET_KEY

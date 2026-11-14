@@ -1,0 +1,18 @@
+{
+  "version": "2.0",
+  "statement": [
+    {
+      "effect": "allow",
+      "action": [
+        "name/cos:GetBucketObjectVersions",
+        "name/cos:GetBucketVersioning",
+        "name/cos:GetBucketEncryption",
+        "name/cos:HeadObject",
+        "name/cos:GetObject"
+      ],
+      "resource": [
+        "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/*"
+      ]
+    }
+  ]
+}

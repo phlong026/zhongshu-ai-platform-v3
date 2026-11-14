@@ -967,36 +967,71 @@ class CapabilityDeploymentTest(unittest.TestCase):
 
     def test_provider_runtime_api_and_cos_contracts_must_match(self):
         key = base64.b64encode(b"k" * 32).decode()
+        bucket = "zhongshu-platform-b-assets-1397776231"
+        endpoint = "https://cos.ap-shanghai.myqcloud.com"
+        object_origin = "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com"
         platform = {
+            "zhongshu.franchise.asset.storage.provider": "cos",
+            "zhongshu.franchise.asset.storage.cos.bucket": bucket,
+            "zhongshu.franchise.asset.storage.cos.endpoint": endpoint,
+            "zhongshu.franchise.asset.storage.cos.region": "ap-shanghai",
+            "zhongshu.franchise.asset.storage.cos.path-style-access": "false",
             "zhongshu.design.remote.active-key-id": "b-platform",
             "zhongshu.design.remote.caller-app-id": "platform-b",
             "zhongshu.design.remote.keys.b-platform": key,
         }
         provider = {
             "zhongshu.design.asset.storage.provider": "cos",
-            "zhongshu.design.asset.storage.cos.bucket": "platform-b",
-            "zhongshu.design.asset.storage.cos.endpoint": "https://platform-b.cos.example.test",
+            "zhongshu.design.asset.storage.cos.bucket": bucket,
+            "zhongshu.design.asset.storage.cos.endpoint": endpoint,
+            "zhongshu.design.asset.storage.cos.region": "ap-shanghai",
+            "zhongshu.design.asset.storage.cos.path-style-access": "false",
             "zhongshu.ai.internal-secret": "s" * 32,
             "zhongshu.design.capability.keys.b-platform.caller-app-id": "platform-b",
             "zhongshu.design.capability.keys.b-platform.secret-base64": key,
         }
         runtime = {"ZS_INTERNAL_SECRET": "s" * 32, "ZS_AI_STORAGE_MODE": "https",
-                   "ZS_AI_STORAGE_ORIGINS": "https://platform-b.cos.example.test"}
-        verify.validate_configuration_contract(platform, provider, runtime, "platform-b")
+                   "ZS_AI_STORAGE_ORIGINS": object_origin}
+        verify.validate_configuration_contract(platform, provider, runtime, bucket)
+        for changed in (
+                {**platform, "zhongshu.franchise.asset.storage.provider": "local"},
+                {**platform, "zhongshu.franchise.asset.storage.cos.bucket": "ai-design-a-assets"},
+                {**platform, "zhongshu.franchise.asset.storage.cos.endpoint":
+                 "https://cos.ap-guangzhou.myqcloud.com"},
+                {**platform, "zhongshu.franchise.asset.storage.cos.region": "ap-guangzhou"},
+                {**platform, "zhongshu.franchise.asset.storage.cos.path-style-access": "true"},
+        ):
+            with self.assertRaises(ValueError):
+                verify.validate_configuration_contract(changed, provider, runtime, bucket)
         for changed in ({**provider, "zhongshu.design.asset.storage.cos.bucket": "other"},
+                        {**provider, "zhongshu.design.asset.storage.cos.endpoint":
+                         "https://cos.ap-guangzhou.myqcloud.com"},
+                        {**provider, "zhongshu.design.asset.storage.cos.region": "ap-guangzhou"},
+                        {**provider, "zhongshu.design.asset.storage.cos.path-style-access": "true"},
                         {**provider, "zhongshu.ai.internal-secret": "x" * 32},
                         {**provider, "zhongshu.design.asset.storage.provider": "local"},
                         {**provider, "zhongshu.design.capability.keys.b-platform.secret-base64":
                          base64.b64encode(b"z" * 32).decode()}):
             with self.assertRaises(ValueError):
-                verify.validate_configuration_contract(platform, changed, runtime, "platform-b")
+                verify.validate_configuration_contract(platform, changed, runtime, bucket)
+        with self.assertRaises(ValueError):
+            verify.validate_configuration_contract(platform, provider, runtime, "ai-design-a-assets")
         with self.assertRaises(ValueError):
             verify.validate_configuration_contract(platform, provider,
-                                                   {**runtime, "ZS_AI_STORAGE_MODE": "local-fs"}, "platform-b")
+                                                   {**runtime, "ZS_AI_STORAGE_MODE": "local-fs"}, bucket)
         with self.assertRaises(ValueError):
             verify.validate_configuration_contract(platform, provider,
-                                                   {**runtime, "ZS_AI_STORAGE_ORIGINS": "https://other.example"},
-                                                   "platform-b")
+                                                   {**runtime, "ZS_AI_STORAGE_ORIGINS": endpoint}, bucket)
+        for origin in (
+                "https://ai-design-a-assets.cos.ap-shanghai.myqcloud.com",
+                "https://*.cos.ap-shanghai.myqcloud.com",
+                object_origin + "/franchise",
+                object_origin + "?bucket=other",
+                object_origin + ",https://other.example",
+        ):
+            with self.assertRaises(ValueError):
+                verify.validate_configuration_contract(
+                    platform, provider, {**runtime, "ZS_AI_STORAGE_ORIGINS": origin}, bucket)
 
     def test_cos_inventory_is_bound_to_bucket_freeze_and_hashes(self):
         valid = {

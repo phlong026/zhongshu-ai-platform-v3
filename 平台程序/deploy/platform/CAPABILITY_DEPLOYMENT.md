@@ -181,12 +181,21 @@ Journal 归档仅通过已打开的 dirfd/`O_NOFOLLOW` 文件 FD 读取，用 Li
    普通 Compose
    named volume、NFS、thin-provision、压缩或去重卷不满足要求。卷管理员在根目录创建 0600、Runtime
    UID 所有的 `.capacity-proof.json` 并提供原始字节 SHA-256；还需保存真实 fsync p99 和容量证据。
-7. `COS_B_BUCKET` 必须等于 Provider properties 中真实的 COS bucket；Provider
-   `zhongshu.ai.internal-secret` 必须等于 Runtime `ZS_INTERNAL_SECRET`。校验器以常量时间比较并分别执行 HMAC
-   challenge，只报告合同是否通过，绝不输出密钥。
-8. Provider 存储必须为 `cos`，Runtime 必须为 `ZS_AI_STORAGE_MODE=https`，且
-   `ZS_AI_STORAGE_ORIGINS` 必须包含 Provider 审核过的 COS HTTPS origin。`local`、`local-fs` 或其他 origin
-   一律拒绝，避免产物落在备份 bucket 之外。
+7. `COS_B_BUCKET` 必须精确为已审定的 B 桶 `zhongshu-platform-b-assets-1397776231`。API 的真实资产适配器读取
+   `zhongshu.franchise.asset.storage.*`，Provider 读取 `zhongshu.design.asset.storage.*`；两份外部 properties 都必须显式设置
+   `provider=cos`、相同 bucket、`region=ap-shanghai`、`endpoint=https://cos.ap-shanghai.myqcloud.com` 和
+   `path-style-access=false`。校验器同时绑定两套配置，不能只校验 Provider，也不接受 A 桶、其他桶、其他 endpoint 或本地模式。
+   两个服务必须使用彼此独立的最小权限 CAM 身份和密钥，禁止共享同一身份或密钥；凭据不得写入 env、文档、备份或校验输出。
+8. API 当前对象键限定在 `franchise/`，Provider 输出票据限定在 `ai-quarantine/`，共享 B 桶时前缀不重叠；COS 清单与恢复
+   必须覆盖整个 B 桶，不能只备份其中一个前缀。API/Provider 的 AWS S3 SDK 在 `path-style-access=false` 时以 regional endpoint
+   `https://cos.ap-shanghai.myqcloud.com` 作为 `endpointOverride`，并自动生成带 bucket 的 virtual-host URL。Runtime 必须为
+   `ZS_AI_STORAGE_MODE=https`，且 `ZS_AI_STORAGE_ORIGINS` 必须唯一、精确等于实际预签名对象 origin
+   `https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com`。regional endpoint、A/其他桶、通配 host、附加路径、
+   query 或额外 origin 一律拒绝。Provider `zhongshu.ai.internal-secret` 必须等于 Runtime `ZS_INTERNAL_SECRET`；校验器以常量时间
+   比较并分别执行 HMAC challenge，只报告合同是否通过，绝不输出密钥。
+
+API 的 COS 配置片段见 [platform-cos.properties.example](platform-cos.properties.example)，四份可审查的最小权限策略见
+[cos-policies/README.md](cos-policies/README.md)。示例不含可用密钥，必须合并到源码之外的完整服务配置。
 
 先做无副作用校验：
 
