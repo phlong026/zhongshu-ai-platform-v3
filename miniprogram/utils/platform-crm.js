@@ -117,7 +117,10 @@ function customerRow(c, ctx) {
     action: canW ? '写跟进' : '看记录',
     url: '/pages/workflow/index?view=customer&id=' + encodeURIComponent(id) + (fresh && canW ? '&modal=follow' : ''),
     hasPhone: !!c.phone,
-    hasDesign: false, hasPlan: false, hasVisit: false, owner: '', view: 'customer'
+    hasDesign: false, hasPlan: false, hasVisit: false,
+    ownerUserId: c.ownerUserId == null ? '' : String(c.ownerUserId),
+    ownerName: c.ownerName || '', ownerDisplay: c.ownerName || '负责人待核', ownerRoleName: '',
+    view: 'customer'
   };
 }
 
@@ -171,7 +174,9 @@ function detailView(detail, ctx) {
       source: c.source || '', province: c.province || '', city: c.city || '',
       summary: c.summary || '', status,
       width: size ? size.width : '', depth: size ? size.depth : '', floors: size ? size.floors : '',
-      owner: '', revision: c.revision, api: true,
+      ownerUserId: c.ownerUserId == null ? '' : String(c.ownerUserId),
+      ownerName: c.ownerName || '', ownerDisplay: c.ownerName || '负责人待核', ownerRoleName: '',
+      revision: c.revision, api: true,
       follows
     },
     schemesList: (detail.schemes || []).map(sc => ({

@@ -40,7 +40,7 @@ Page({
   let view=requested?(requested==='arrival'?'customer':requested):'customer';
   if(view==='budget-result')view='budget';// 结果为页面内态；深链直达回参数页
   if(view!=='customers'&&!this.id)view='customers';
-  this.setData({platformMode:true,view,title:V.titles[view]||'客户工作区',transferMode:0,customer:null,sections:[],form:{},modal:'',error:'',busy:false,blocked:null,customerTabs:['概况','跟进'],activeCustomerTab:0,todayStr:PF.today(),isBossView:['boss','owner'].includes(post.roleCode)});
+  this.setData({platformMode:true,view,title:V.titles[view]||'客户工作区',transferMode:0,customer:null,sections:[],form:{},modal:'',error:'',busy:false,blocked:null,customerTabs:['概况','跟进'],activeCustomerTab:0,todayStr:PF.today(),role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode)});
   // 加载统一由 onShow→refresh 触发（onLoad→onShow 连续生命周期，避免重复请求）
   if(options.modal&&view==='customers')this.openModal(options.modal);
  },
@@ -75,6 +75,7 @@ Page({
     customerInitial:(model.customer.name||'').slice(0,1),phone:PFc.maskPhone(model.customer.phone)||model.customer.wechat||'',
     projectSummary:model.customer.summary||'',city:(model.customer.city||'').replace(/市$/,''),
     registered:model.customer.status==='已登记',hasDesign:false,simpleBusiness:false});// 成功不清 error：版本冲突等提示保留至用户下次操作
+   if(view==='transfer')this.reconcileTransferOwner();
   }).catch(err=>{
    if(this.handle401(err,sessionGen))return;
    if(this.stale(gen,sessionGen,postKey))return;
@@ -86,18 +87,21 @@ Page({
   const gen=this.__candGen=(this.__candGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   require('../../api/org').orgStaff(post.orgId).then(rows=>{
    if(this.__unloaded||gen!==this.__candGen||sessionGen!==this.__http.sessionGeneration()||postKey!==this.__postKey)return;
+   this.__transferStaff={postKey,rows:rows||[]};
    const targets=(rows||[]).filter(r=>['sales','sales-lead'].includes(r.roleCode)&&r.active===true);
    // M04-I04：同名员工都保留（按 userId 区分），展示名加部门后缀去歧义；映射按 picker 序→userId
    const candidates=targets.map(r=>({userId:r.userId,label:r.name+' · '+(r.teamName||r.roleCode||'')})); // M04-I04：label 恒含 team 后缀——同名/同部门/缺 teamName 均不产生相同 label（Codex R1 P1-1）
    this.__transferCandidates=candidates;
    this.__transferTargets=candidates.reduce((m,c2)=>{m[c2.label]=c2.userId;return m;},{});
    this.setData({ownerOptions:candidates.map(c=>c.label)});
+   this.reconcileTransferOwner();
   }).catch(err=>{
    if(this.handle401(err,sessionGenAtRequest))return;
    if(this.stale(gen,sessionGen,postKey))return;
    this.setData({platformError:'接手人列表加载失败：'+PFc.errorMessage(err)});
   });
  },
+ reconcileTransferOwner(){const customer=this.data.customer,staff=this.__transferStaff;if(!customer||!staff||staff.postKey!==this.__postKey)return;const ownerId=String(customer.ownerUserId||''),rows=(staff.rows||[]).filter(r=>r.active===true&&String(r.userId||'')===ownerId),canonical=['sales','sales-lead'].map(role=>rows.find(r=>r.roleCode===role)).find(Boolean),named=rows.find(r=>String(r.name||'').trim()),name=canonical&&String(canonical.name||named&&named.name||'').trim();this.setData({customer:{...customer,ownerDisplay:name||'负责人待核',ownerRoleName:name?(Job.roles[canonical.roleCode]||canonical.roleCode):''}});},
  applyDetail(detail){
   const model=PF.detailView(detail,{today:PF.today(),canWrite:this.data.canFollow});
   this.setData({customer:model.customer,showSizeBlock:model.showSizeBlock,blocked:null,
@@ -551,7 +555,7 @@ Page({
   // API 态刷新：无会话保持当前态（onLoad 门禁与 401 兜底），不回落本地；切岗清数据；按视图重拉
   const post=this.platformSession();
   if(!post||PF.pageMode(http.token(),post)!=='api')return;
-  if(this.__postKey!==String(post.postId)){this.__post=post;this.__postKey=String(post.postId);this.__cmdKeys={};this.setData({customer:null,form:{},filteredCustomers:[],modal:''});}
+  if(this.__postKey!==String(post.postId)){this.__post=post;this.__postKey=String(post.postId);this.__cmdKeys={};this.__transferStaff=null;this.setData({customer:null,form:{},filteredCustomers:[],modal:'',role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode)});}
   const v=this.data.view;
   if(v==='customers')this.loadPlatformList();
   else if(v==='budget')this.loadPlatformBudget();

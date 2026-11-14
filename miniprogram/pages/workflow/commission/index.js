@@ -40,6 +40,9 @@ Page({ ...makeFormHandlers(),
     const post = this.post();
     if (!post) return this.failState('请先登录后端账号');
     this.__post = post;
+    if (!this.id && !['admin', 'projects', 'policy', 'pricing'].includes(this.view)) {
+      return this.failState('缺少委托或客户编号，请从客户或项目列表进入');
+    }
     const alive = http.requestGuard('commission');
     if (this.view === 'admin' || this.view === 'projects') return this.refreshWorkbench(alive);
     if (this.view === 'policy' || this.view === 'pricing') return this.refreshRules(alive, reset);
