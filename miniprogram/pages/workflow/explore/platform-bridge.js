@@ -147,9 +147,10 @@ module.exports = function attach(page, deps) {
     this.platTeardown(); return true;
   };
   page.platTeardown = function () {
+    this.__platGen += 1; // 使换岗/登出前发起的字节上传与 complete 立即失效
     this.__platTimers.forEach(t => clearTimeout(t)); this.__platTimers = [];
     this.__platKeys = {};
-    this.setData({ platformMode: false, platformErr: '', platCases: [], platStyles: [], platResult: null, platProjects: [], platRule: null });
+    this.setData({ platformMode: false, busy: false, platformErr: '', platCases: [], platStyles: [], platResult: null, platProjects: [], platRule: null });
   };
   page.platOnUnload = function () { this.__platUnloaded = true; this.__platTimers.forEach(t => clearTimeout(t)); };
   page.platFail = msg => { page.setData({ busy: false, platformErr: msg }); };
@@ -409,7 +410,7 @@ module.exports = function attach(page, deps) {
       this.platFail((err && err.code === 429) ? 'AI 优化繁忙，请稍后再试' : PF.errorMessageDesign(err));
     });
   };
-  // ---- 立面自传参考图（≤3 张；upload-tickets → local dev 字节通道/COS PUT → complete）----
+  // ---- 立面自传参考图（≤3 张；upload-tickets → B 代理/COS 原始字节 PUT → complete）----
   page.platAddReference = function () {
     const existing = (this.data.form.referenceAssetIds || []).filter(Boolean);
     if (existing.length >= 3) return this.platFail('自传参考最多 3 张');
@@ -423,24 +424,50 @@ module.exports = function attach(page, deps) {
         fs.readFile({ filePath: f.tempFilePath, success: rd => {
           const bytes = rd.data;
           // sha256：走 finance.js 的工具（与工程凭据链同一实现）
-          const sha = require('../../../api/finance').sha256Hex(bytes);
-          api.assets.uploadTicket({ assetType: 'DESIGN_REFERENCE', mimeType: 'image/jpeg', sizeBytes: bytes.byteLength || bytes.length, sha256: sha })
-            .then(t => {
-              const put = () => new Promise((res2, rej2) => {
-                fs.readFile({ filePath: f.tempFilePath, success: rd2 => {
-                  wx.request({ url: t.uploadUrl, method: 'PUT', data: rd2.data, header: { 'Content-Type': 'image/jpeg' },
-                    success: res2, fail: rej2 });
-                }, fail: rej2 });
-              });
-              // local 通道（uploadUrl=local:// 相对路径）走 dev content 直传
-              if (String(t.uploadUrl || '').indexOf('local://') === 0 || String(t.uploadUrl || '').indexOf('http') !== 0) {
-                return http.upload('/app-api/design/v1/assets/' + t.assetId + '/content', f.tempFilePath)
-                  .then(res2).catch(rej2);
+          const finance = require('../../../api/finance');
+          const mimeType = finance.guessMime(f.tempFilePath);
+          const sha = finance.sha256Hex(bytes);
+          api.assets.uploadTicket({ assetType: 'DESIGN_REFERENCE', mimeType, sizeBytes: bytes.byteLength || bytes.length, sha256: sha })
+            .then(ticket => {
+              if (this.platStale(gen, sg)) throw { silent: true };
+              const rawUrl = String(ticket.uploadUrl || '');
+              const direct = /^https?:\/\//.test(rawUrl);
+              const proxy = /^\/admin-api\/franchise\/assets\/\d+\/content\?token=/.test(rawUrl);
+              const oldPrivateAssetUrl = /\/(?:app-api\/design\/v1\/assets|platform\/dev\/design\/assets)\//.test(rawUrl);
+              if (oldPrivateAssetUrl || (!direct && !proxy)) throw { message: '当前环境未配置可用的 B 素材上传通道' };
+              let uploadUrl = rawUrl;
+              const header = { 'Content-Type': mimeType };
+              if (proxy) {
+                const apiBase = String(http.base ? http.base() : '');
+                const origin = (apiBase.match(/^https?:\/\/[^/]+/) || [])[0];
+                if (!origin) throw { message: '当前环境未配置可用的 B 素材上传通道' };
+                uploadUrl = origin + rawUrl;
+                if (http.token()) header.Authorization = 'Bearer ' + http.token();
+                if (http.currentPostId()) header['X-Post-Id'] = http.currentPostId();
+                header['tenant-id'] = http.tenantId();
               }
-              return put();
+              return new Promise((resolvePut, rejectPut) => {
+                wx.request({ url: uploadUrl, method: 'PUT', data: bytes, timeout: 15000, header,
+                  success: response => {
+                    const body = response && response.data;
+                    if (response.statusCode >= 200 && response.statusCode < 300 && !(body && body.code !== undefined && body.code !== 0)) {
+                      resolvePut(ticket); return;
+                    }
+                    rejectPut({ message: (body && body.msg) || '参考图上传失败（HTTP ' + response.statusCode + '）' });
+                  },
+                  fail: error => rejectPut({ message: (error && error.errMsg) || '参考图上传网络失败，请重试' })
+                });
+              });
             })
-            .then(() => api.assets.complete(t.assetId))
-            .then(done => { if (done && done.uploadStatus === 'REJECTED') throw { message: '参考图未通过校验：' + (done.rejectedReason || '请更换图片') }; resolve(t.assetId); })
+            .then(ticket => {
+              if (this.platStale(gen, sg)) throw { silent: true };
+              return api.assets.complete(ticket.assetId).then(done => ({ ticket, done }));
+            })
+            .then(({ ticket, done }) => {
+              if (this.platStale(gen, sg)) throw { silent: true };
+              if (!done || done.uploadStatus !== 'ACCEPTED') throw { message: '参考图未通过校验：' + ((done && done.rejectedReason) || '请更换图片') };
+              resolve(ticket.assetId);
+            })
             .catch(reject);
         }, fail: () => reject({ message: '读取图片失败' }) });
       });

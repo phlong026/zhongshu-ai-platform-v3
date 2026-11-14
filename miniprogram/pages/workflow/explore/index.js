@@ -6,7 +6,9 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
   const http=(()=>{try{return require('../../../api/http');}catch(e){return null;}})();
   const post=(()=>{try{const auth=require('../../../api/auth');return http&&http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
   const PFD=require('../../../utils/platform-design');
-  if(!post||PFD.pageMode(http?http.token():'',post)!=='api'){const q=o&&o.view?'?view='+encodeURIComponent(o.view):'';return wx.redirectTo({url:'/pages/account/index?view=login&return='+encodeURIComponent('/pages/workflow/explore/index'+q)});}
+  const token=http?http.token():'';
+  if(!token){const q=o&&o.view?'?view='+encodeURIComponent(o.view):'';return wx.redirectTo({url:'/pages/account/index?view=login&return='+encodeURIComponent('/pages/workflow/explore/index'+q)});}
+  if(!post||PFD.pageMode(token,post)!=='api')return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('设计赋能')});
   this.__post=post;this.__postKey=String(post.postId);this.__http=http;
   this.platformMode=true;// 实例属性：handler 分流依据（data.platformMode 供 wxml）
   require('./platform-bridge')(this,{PF:PFD,http,api:require('../../../api/franchise/design')});
@@ -21,7 +23,7 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
   if(v==='budget')this.platLoadRule();
  },
  onUnload(){if(this.platOnUnload)this.platOnUnload();},
- onShow(){const post=(()=>{try{const auth=require('../../../api/auth');const http=require('../../../api/http');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();if(!post||String(post.postId)!==String(this.__postKey||'')){this.platTeardown();return;}},
+ onShow(){if(!this.platformMode||typeof this.platTeardown!=='function')return;const post=(()=>{try{const auth=require('../../../api/auth');const http=require('../../../api/http');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();if(!post||String(post.postId)!==String(this.__postKey||'')){this.platTeardown();return;}},
  run(fn){this.setData({error:''});try{return fn();}catch(e){this.setData({error:e.message});return null;}},
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
  back(){return require('../../../utils/page-navigation').back();},
