@@ -44,18 +44,18 @@ B 不设置任何每日业务调用次数上限。是否可用由 B 后端在领
 
 ## 内部入口：补充需求润色（复用 A 能力）
 
-除 `/health` 外，本进程提供唯一一个业务入口，供后端调用；出图仍是本进程主动领任务，两者互不影响。
+除 `/health` 外，本进程只提供润色执行与收据查询这一组业务入口，供后端调用；出图仍是本进程主动领任务，两者互不影响。
 
 |项|说明|
 |---|---|
-|路径|`POST /internal/note-polish`，请求体 JSON `{ "receiptId": "B 已持久化的稳定 taskKey", "note": "≤200 字", "line": "FLAT" \| "ELEVATION" }`，≤4KB，超限 413；缺 receiptId 拒绝|
-|鉴权|与 runtime → 后端同一套 HMAC：`HMAC-SHA256(ZS_INTERNAL_SECRET, "{timestamp}\nPOST\n/internal/note-polish\n{sha256(body)}")`，头 `X-ZS-Timestamp`（秒，±300 秒内）、`X-ZS-Signature`（hex）。未通过一律 401，不暴露细节|
-|成功|`200 { "polished": "…" }`，输出限制 200 字|
-|失败|`429 { "error": "BUSY" }` 并发上限 4；`400` 入参或 receiptId 非法；`409 RECEIPT_CONFLICT/OUTCOME_UNKNOWN` 表示同 receipt 篡改或历史付费结果未知、禁止重投；`503 STORAGE_UNAVAILABLE` 表示 Journal 空间门禁失败；`502 PROVIDER_FAILED` 为首次供应商失败（上游正文不回传）|
+|路径|`POST /internal/note-polish`，请求体 JSON `{ "receiptId": "B 已持久化的稳定 taskKey", "note": "≤200 字", "line": "FLAT" \| "ELEVATION" }`，≤4KB，超限 413；缺 receiptId 拒绝。`POST /internal/note-polish/receipt` 仅接受 `{ "receiptId": "..." }`，只读查询持久收据，绝不调用供应商|
+|鉴权|与 runtime → 后端同一套 HMAC：`HMAC-SHA256(ZS_INTERNAL_SECRET, "{timestamp}\nPOST\n{actualPath}\n{sha256(body)}")`，`actualPath` 必须是实际请求的执行或收据路径；头 `X-ZS-Timestamp`（秒，±300 秒内）、`X-ZS-Signature`（hex）。未通过一律 401，不暴露细节|
+|成功|润色返回 `200 { "status": "SUCCEEDED", "polished": "…", "requestHash": "..." }`；只读收据返回 `NOT_FOUND/PROCESSING/SUCCEEDED/UNKNOWN`，其中只有 `SUCCEEDED` 携带已持久化结果。同 receiptId 同参数重放完成结果；参数变化返回冲突，不重新付费|
+|失败|`429 { "error": "BUSY" }` 并发上限 4；`400` 入参或 receiptId 非法；`409 RECEIPT_CONFLICT/OUTCOME_UNKNOWN` 表示同 receipt 篡改或历史付费结果未知、禁止重投；`503 RECEIPT_UNAVAILABLE` 表示收据 schema/文件损坏，仅记录脱敏错误码；`503 STORAGE_UNAVAILABLE` 表示 Journal 空间门禁失败；`502 PROVIDER_FAILED` 为首次供应商失败（上游正文不回传）|
 |密钥|`ZS_AI_API_KEY` 仍只在本进程，后端不再需要持有供应商密钥|
 |网络|Compose 默认只发布 `127.0.0.1:8081`。后端与本进程不在同一台主机时，需把该端口放到内网并限制只允许后端访问（建议同时启用 mTLS/内网网关）|
 
-`node src/main.mjs --check` 仅校验配置结构，不发起真实请求。`node --test test/*.test.mjs` 使用本地替身，无真实消费。`docker compose build` 构建镜像，`docker compose up -d` 会启动真实轮询，必须完成下方人工验收前置条件后再执行；本轮未执行此部署命令。
+`node src/main.mjs --check` 仅校验配置结构，不发起真实请求。`node --test test/*.test.mjs` 使用本地替身，无真实消费。`npm run test:cross-process` 会构建并启动真实 B Provider JAR、真实 Runtime 进程、临时 PostgreSQL/Redis 与本地 fake HTTPS 供应商；润色必须从 Provider 的签名 `NOTE_POLISH` 能力入口进入，经过真实公司成本预备、Runtime receipt、收据重放与结算链；同时验证设计任务 ACK 丢失、账本状态和 Runtime 重启。它不连接真实供应商或生产数据。`docker compose build` 构建镜像，`docker compose up -d` 会启动真实轮询，必须完成下方人工验收前置条件后再执行；本轮未执行此部署命令。
 
 冻结选项对应的供应商请求尺寸如下：
 
@@ -115,11 +115,13 @@ started、REQUESTED、trace DISPATCHED 等前置持久化可能消耗 emergency�
 
 Journal 默认不做按时间删除。监控需告警总字节、未 ACK outbox、UNKNOWN 数和损坏文件；只有后端已可靠记录相同 callId/attempt/fencing 的终态 ACK，且超过经业务批准的保留期后，才允许离线归档对应 completed 事实。UNKNOWN、未 ACK outbox、started 防重文件和损坏待审文件不得自动删除。
 
+生产进程启动时强制获取 Journal 单写者锁；Linux 锁记录容器 hostname、系统 boot ID、`/proc/<pid>/ns/pid` namespace identity 与 `/proc/<pid>/stat` 进程启动时钟。只有 namespace identity 相同，才允许用 PID、boot ID 和启动时钟共同证明旧进程已死亡；namespace 不同、无法读取或旧锁缺少 namespace 字段一律 `JOURNAL_LOCKED`，不得抢锁。滚动替换必须先优雅停止旧容器，异常残留锁须按 UNKNOWN/供应商账单流程人工核对。润色的首个防重事实不再是空 marker，而是通过同卷临时文件 fsync + hard-link 原子发布的完整 requestHash/bootId 记录。当前 boot 在途才返回 PROCESSING；任何旧 boot started 事实在恢复时先持久化为 UNKNOWN，禁止重发付费请求。
+
 启动时 Runtime 只读巡检遗留的非 emergency `.capacity` 文件并记录 `runtime_stale_capacity_detected` 数量，绝不自动删除。恢复必须先停止全部共享该卷的 Runtime，逐项核对对应 started/UNKNOWN、供应商账单和后端终态，再由人工删除确认无活跃调用的遗留预留；运行中删除可能破坏其他进程的付费容量保证。
 
 ## B 后端契约与当前边界
 
-Runtime 当前沿用 A 的内部路径和字段合同（`/internal-api/design/v1/ai-jobs/...`），但只连接 `ZS_AI_CORE_URL` 指向的 B 后端。B 后端必须独立实现 claim、inputs、prompt-calls、call-traces、result-events、completion-events 等相同合同，并在资金钩子中接入公司积分；未完成该适配前，本目录只能通过离线 fixture 验证，不能视为可部署联调。供应商 driver 也只覆盖现有同步 OpenAI 兼容协议，不支持异步任务 ID 轮询。
+Runtime 当前沿用 A 的内部路径和字段合同（`/internal-api/design/v1/ai-jobs/...`），但只连接 `ZS_AI_CORE_URL` 指向的 B 后端。B Provider 已具备 claim、inputs、prompt-calls、call-traces、result-events、completion-events 及公司积分结算合同；本目录的隔离跨进程测试已用真实 Provider/Runtime 进程和临时 PG/Redis 验证正常结算、DISPATCHED ACK 丢失后的 UNKNOWN、outbox 重启去重，以及润色收据重放。该证据仍是本地 fake 供应商集成，不等同真实供应商、真实目标卷、COS 或生产部署验收。供应商 driver 只覆盖现有同步 OpenAI 兼容协议，不支持异步任务 ID 轮询。
 
 ## 供应商验收前必须核对
 

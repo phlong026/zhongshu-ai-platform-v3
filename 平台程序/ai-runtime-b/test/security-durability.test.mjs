@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { chmodSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { spawn } from 'node:child_process';
+import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Journal, Provider, runCoreEventReconciler, runJob, sha } from '../src/runtime.mjs';
 import { createInternalHandler, NOTE_POLISH_PATH } from '../src/internal-http.mjs';
@@ -42,6 +43,68 @@ test('receiptId 使润色在并发和重启后只付费一次，并拒绝缺失�
   assert.equal((await uncertain(request(unknownPayload))).status, 502);
   assert.equal((await uncertain(request(unknownPayload))).status, 409);
   assert.equal(unknownCalls, 1);
+});
+
+test('润色 claim 原子持久 hash/bootId；旧 boot 三个崩溃窗口均转 UNKNOWN 且不重投', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'polish-crash-window-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const oldBoot = '11111111-1111-4111-8111-111111111111';
+  const newBoot = '22222222-2222-4222-8222-222222222222';
+  const receiptId = 'svc:crash-after-marker', requestHash = sha(JSON.stringify({ note: '旧需求', line: 'FLAT' }));
+  const old = new Journal(dir, { bootId: oldBoot });
+  let supplierCalls = 0;
+  old.onceReceipt(receiptId, requestHash, async () => {
+    supplierCalls++;
+    return new Promise(() => {});
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(readdirSync(dir).some(name => name.endsWith('.started')), false);
+  const key = 'polish-' + sha(receiptId);
+  const claimed = JSON.parse(readFileSync(old.path(key), 'utf8'));
+  assert.deepEqual({ ...claimed, at: '<timestamp>' }, {
+    schemaVersion: 1, state: 'started', requestHash, bootId: oldBoot, at: '<timestamp>'
+  });
+  assert.ok(Number.isFinite(Date.parse(claimed.at)));
+
+  const restarted = new Journal(dir, { bootId: newBoot });
+  assert.deepEqual(restarted.receipt(receiptId), { status: 'UNKNOWN', polished: null, requestHash });
+  await assert.rejects(restarted.onceReceipt(receiptId, requestHash, async () => { supplierCalls++; }), /OUTCOME_UNCERTAIN/);
+  await assert.rejects(restarted.onceReceipt(receiptId, sha('different'), async () => { supplierCalls++; }), /RECEIPT_CONFLICT/);
+  assert.equal(supplierCalls, 1);
+
+  for (const [suffix, state] of [['json', 'started'], ['supplier-return', 'started']]) {
+    const id = `svc:crash-after-${suffix}`, hash = sha(id), recordKey = 'polish-' + sha(id);
+    old.write(recordKey, { schemaVersion: 1, state, requestHash: hash, bootId: oldBoot, at: new Date().toISOString() });
+    assert.deepEqual(restarted.receipt(id), { status: 'UNKNOWN', polished: null, requestHash: hash });
+  }
+});
+
+test('生产 Journal 单写者锁跨进程互斥，崩溃持有者死亡后才允许接管', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'journal-writer-lock-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const moduleUrl = new URL('../src/runtime.mjs', import.meta.url).href;
+  const child = spawn(process.execPath, ['--input-type=module', '-e',
+    `import { Journal } from ${JSON.stringify(moduleUrl)}; new Journal(${JSON.stringify(dir)}, { singleWriter: true }); console.log('LOCKED'); setInterval(() => {}, 1000);`],
+  { stdio: ['ignore', 'pipe', 'pipe'] });
+  await new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.stdout.on('data', chunk => { if (chunk.toString().includes('LOCKED')) resolve(); });
+    child.stderr.on('data', chunk => reject(Error(chunk.toString())));
+  });
+  assert.throws(() => new Journal(dir, { singleWriter: true }), /JOURNAL_LOCKED/);
+  child.kill('SIGKILL');
+  await new Promise(resolve => child.once('exit', resolve));
+  const lockPath = join(dir, '.runtime-lock.json'), deadOwner = JSON.parse(readFileSync(lockPath, 'utf8'));
+  const { pidNamespace: _legacyMissingNamespace, ...legacyOwner } = deadOwner;
+  writeFileSync(lockPath, JSON.stringify(legacyOwner));
+  assert.throws(() => new Journal(dir, { singleWriter: true }), /JOURNAL_LOCKED/,
+    'legacy locks without a PID namespace identity must fail closed');
+  writeFileSync(lockPath, JSON.stringify({ ...deadOwner, hostId: 'another-container' }));
+  assert.throws(() => new Journal(dir, { singleWriter: true }), /JOURNAL_LOCKED/,
+    'a different PID namespace cannot be proven dead and must fail closed');
+  writeFileSync(lockPath, JSON.stringify({ ...deadOwner, hostId: hostname() }));
+  const second = new Journal(dir, { singleWriter: true });
+  second.close();
 });
 
 test('UNKNOWN、NOT_SENT 与 completion 发送失败进入 outbox，重启仅补原栅栏而不调用供应商', async t => {

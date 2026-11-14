@@ -5,9 +5,11 @@ import { createInternalHandler, createRequestListener } from './internal-http.mj
 let settings;
 try { settings = config(); } catch (error) { console.error(safeFailureCode(error)); process.exit(1); }
 if (process.argv.includes('--check')) { console.log('Runtime configuration structure valid; no channel request performed.'); process.exit(0); }
-const journal = new Journal(settings.journalPath, { capacityProofSha256: settings.capacityProofSha256 });
-try { journal.prepareCapacity(); }
-catch (error) { console.error(safeFailureCode(error)); process.exit(1); }
+let journal;
+try {
+  journal = new Journal(settings.journalPath, { capacityProofSha256: settings.capacityProofSha256, singleWriter: true });
+  journal.prepareCapacity();
+} catch (error) { journal?.close(); console.error(safeFailureCode(error)); process.exit(1); }
 const staleCapacity = journal.capacityReservations();
 if (staleCapacity.length) console.error(JSON.stringify({ event: 'runtime_stale_capacity_detected', count: staleCapacity.length }));
 const core = new Core(settings), provider = new Provider(settings, journal);
@@ -17,7 +19,13 @@ const internal = createInternalHandler({ settings, provider, journal, log: line 
 const server = createServer(createRequestListener({ internal, version: '1.0.0',
   healthy: () => !stop.signal.aborted && journal.capacityHealthy() && (active || Date.now() - lastPoll < 60000) }));
 server.listen(8081, '0.0.0.0');
-for (const event of ['SIGTERM', 'SIGINT']) process.on(event, () => { stop.abort(); server.close(); });
+let serverClose = Promise.resolve(), closing = false;
+const shutdown = () => {
+  if (closing) return;
+  closing = true; stop.abort();
+  serverClose = new Promise(resolve => server.close(resolve));
+};
+for (const event of ['SIGTERM', 'SIGINT']) process.on(event, shutdown);
 const traceReconciliation = runTraceReconciler(core, provider, { signal: stop.signal });
 const coreEventReconciliation = runCoreEventLoop(core, journal, { signal: stop.signal });
 while (!stop.signal.aborted) {
@@ -39,3 +47,5 @@ while (!stop.signal.aborted) {
   if (!stop.signal.aborted) await sleep(3000);
 }
 await Promise.all([traceReconciliation, coreEventReconciliation]);
+await serverClose;
+journal.close();

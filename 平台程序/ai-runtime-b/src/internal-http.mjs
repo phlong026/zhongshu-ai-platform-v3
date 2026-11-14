@@ -5,6 +5,7 @@ import { sha, safeFailureCode } from './runtime.mjs';
 //   HMAC-SHA256(secret, "{timestamp}\n{METHOD}\n{path}\n{sha256(body)}")，头 X-ZS-Timestamp / X-ZS-Signature。
 // 这里只承载补充需求润色；出图仍是 runtime 主动领任务，本文件不改变既有出图链路。
 export const NOTE_POLISH_PATH = '/internal/note-polish';
+export const NOTE_POLISH_RECEIPT_PATH = NOTE_POLISH_PATH + '/receipt';
 export const MAX_BODY_BYTES = 4096;
 const REPLAY_WINDOW_SECONDS = 300;
 const MAX_NOTE = 200;
@@ -27,7 +28,7 @@ const reply = (status, body) => ({ status, body });
 export function createInternalHandler({ settings, provider, journal, maxConcurrent = 4, log = () => {} }) {
   let active = 0;
   return async function handle({ method, path, headers, body }) {
-    if (path !== NOTE_POLISH_PATH) return reply(404, { error: 'NOT_FOUND' });
+    if (![NOTE_POLISH_PATH, NOTE_POLISH_RECEIPT_PATH].includes(path)) return reply(404, { error: 'NOT_FOUND' });
     if (method !== 'POST') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
     // 先验签再解析：未通过签名的请求不触碰任何业务逻辑，也不暴露校验细节
     if (!verifySignature({ secret: settings.secret, method, path, headers: headers || {}, body })) {
@@ -35,6 +36,15 @@ export function createInternalHandler({ settings, provider, journal, maxConcurre
     }
     let input;
     try { input = JSON.parse(body.toString('utf8')); } catch { return reply(400, { error: 'BAD_REQUEST' }); }
+    if (path === NOTE_POLISH_RECEIPT_PATH) {
+      if (typeof input?.receiptId !== 'string' || !/^[a-zA-Z0-9:_-]{1,160}$/.test(input.receiptId)
+          || Object.keys(input).length !== 1) return reply(400, { error: 'BAD_REQUEST' });
+      try { return reply(200, journal.receipt(input.receiptId)); }
+      catch (error) {
+        log({ event: 'note_polish_receipt_failed', reason: safeFailureCode(error) });
+        return reply(503, { error: 'RECEIPT_UNAVAILABLE' });
+      }
+    }
     const note = typeof input?.note === 'string' ? input.note.trim() : '';
     const line = input?.line === undefined ? 'FLAT' : input.line;
     const receiptId = input?.receiptId;
@@ -47,10 +57,11 @@ export function createInternalHandler({ settings, provider, journal, maxConcurre
     if (active >= maxConcurrent) return reply(429, { error: 'BUSY' });
     active++;
     try {
-      const polished = await journal.onceReceipt(receiptId, sha(body),
+      const requestHash = sha(JSON.stringify({ note, line }));
+      const polished = await journal.onceReceipt(receiptId, requestHash,
         capacity => { capacity.assertReady(); return provider.polishNote(note, line, AbortSignal.timeout(25000)); },
         settings.capacityGuard ? 256 * 1024 : 0);
-      return reply(200, { polished });
+      return reply(200, { status: 'SUCCEEDED', polished, requestHash });
     } catch (error) {
       if (error.message === 'RECEIPT_CONFLICT') return reply(409, { error: 'RECEIPT_CONFLICT' });
       if (error.message === 'PROVIDER_OUTCOME_UNCERTAIN') return reply(409, { error: 'OUTCOME_UNKNOWN' });
@@ -92,7 +103,7 @@ export function createRequestListener({ internal, healthy, version }) {
       const up = healthy();
       return send(up ? 200 : 503, { status: up ? 'UP' : 'DOWN', version });
     }
-    if (request.url !== NOTE_POLISH_PATH) { response.writeHead(404); response.end(); return; }
+    if (![NOTE_POLISH_PATH, NOTE_POLISH_RECEIPT_PATH].includes(request.url)) { response.writeHead(404); response.end(); return; }
     const body = await readBody(request, MAX_BODY_BYTES);
     if (body === null) { response.setHeader('Connection', 'close'); return send(413, { error: 'PAYLOAD_TOO_LARGE' }); }
     const result = await internal({ method: request.method, path: request.url,

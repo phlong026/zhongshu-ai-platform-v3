@@ -1,5 +1,7 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync, renameSync, openSync, fsyncSync, closeSync, existsSync, unlinkSync, readdirSync, statfsSync, statSync, writeSync, ftruncateSync, chmodSync } from 'node:fs';
+import { readFileSync, readlinkSync, writeFileSync, mkdirSync, renameSync, linkSync, openSync, fsyncSync, closeSync, existsSync, unlinkSync, readdirSync, statfsSync, statSync, writeSync, ftruncateSync, chmodSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { hostname } from 'node:os';
 import { join, dirname, resolve as resolvePath, sep as pathSep } from 'node:path';
 import { setTimeout as abortableDelay } from 'node:timers/promises';
 export const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -14,6 +16,7 @@ const OPERATIONAL_FREE_BYTES = 1024 * 1024;
 const PLAN_RESERVE_BYTES = 1024 * 1024;
 const IMAGE_RESERVE_BYTES = MAX_IMAGE_JSON + 2 * 1024 * 1024;
 const POLISH_RESERVE_BYTES = 256 * 1024;
+const RECEIPT_RECORD_MAX_BYTES = 4096;
 const IMAGE_OPTION_SIZES = Object.freeze({
   // 2K 档统一走 sunburst-2k（小字不崩）。该模型经探针仅支持 1536x1024 / 1152x2048 两个原生尺寸，
   // 2048x1152 会被上游以"Invalid value for 'image'"拒掉（2026-10-11 生产平面横版任务连续 400 实锤）
@@ -355,7 +358,8 @@ const SAFE_FAILURE_CODES = new Set([
   'TRACE_BATCH_LIMIT', 'TRACE_JOURNAL_INVALID', 'TRACE_LOOP_CONFIG', 'TRACE_NOT_DISPATCHED',
   'STORAGE_ORIGIN', 'PROVIDER_IMAGE_INVALID', 'PROVIDER_IMAGE_TOO_LARGE',
   'PROVIDER_IMAGE_RESPONSE_TOO_LARGE', 'PROVIDER_IMAGE_URL_ORIGIN', 'PROVIDER_PLAN_INVALID',
-  'PROVIDER_OUTCOME_UNCERTAIN', 'POLISH_EMPTY', 'JOURNAL_KEY', 'RECEIPT_ID', 'RECEIPT_CONFLICT',
+  'PROVIDER_OUTCOME_UNCERTAIN', 'POLISH_EMPTY', 'JOURNAL_KEY', 'RECEIPT_ID', 'RECEIPT_HASH', 'RECEIPT_CONFLICT',
+  'RECEIPT_JOURNAL_INVALID', 'JOURNAL_BOOT_ID', 'JOURNAL_LOCKED', 'JOURNAL_LOCK_IDENTITY', 'JOURNAL_LOCK_UNSUPPORTED',
   'CORE_EVENT_CONTRACT', 'CORE_EVENT_CONFLICT', 'CORE_EVENT_NOT_ACCEPTED', 'JOURNAL_REQUIRED',
   'JOURNAL_CAPACITY', 'JOURNAL_CAPACITY_UNSUPPORTED', 'JOURNAL_FS_PROOF', 'JOURNAL_OWNER',
   'JOB_CONTRACT', 'CLAIM_CONTRACT', 'RESULT_NOT_ACCEPTED',
@@ -436,12 +440,95 @@ export class Journal {
     this.directory = directory; mkdirSync(directory, { recursive: true, mode: 0o700 }); chmodSync(directory, 0o700);
     this.capacityProofSha256 = typeof options === 'object' ? options.capacityProofSha256 : undefined;
     this.capacityProofVerifier = typeof options === 'object' ? options.capacityProofVerifier : undefined;
+    this.bootId = typeof options?.bootId === 'string' ? options.bootId : randomUUID();
+    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(this.bootId)) throw Error('JOURNAL_BOOT_ID');
     const metadata = statSync(directory);
     if (!metadata.isDirectory() || (typeof process.getuid === 'function' && metadata.uid !== process.getuid())) throw Error('JOURNAL_OWNER');
+    this.lockOwnerAlive = typeof options?.lockOwnerAlive === 'function' ? options.lockOwnerAlive : null;
+    if (options?.singleWriter === true) this.acquireWriterLock();
   }
   syncDirectory() {
     const fd = openSync(this.directory, 'r');
     try { fsyncSync(fd); } finally { closeSync(fd); }
+  }
+  processIdentity(pid = process.pid) {
+    const hostId = hostname();
+    if (typeof hostId !== 'string' || !hostId || hostId.length > 255) throw Error('JOURNAL_LOCK_IDENTITY');
+    if (process.platform === 'linux') {
+      const systemBootId = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8'), suffix = stat.slice(stat.lastIndexOf(') ') + 2).trim().split(/\s+/);
+      const pidNamespace = readlinkSync(`/proc/${pid}/ns/pid`);
+      if (!/^[a-f0-9-]{36}$/.test(systemBootId) || !/^\d+$/.test(suffix[19] || '')
+          || !/^pid:\[\d+\]$/.test(pidNamespace)) throw Error('JOURNAL_LOCK_IDENTITY');
+      return { hostId, pidNamespace, systemBootId, processStart: suffix[19] };
+    }
+    if (process.platform === 'darwin') {
+      const systemBootId = sha(execFileSync('/usr/sbin/sysctl', ['-n', 'kern.boottime'], { encoding: 'utf8' }).trim());
+      const processStart = execFileSync('/bin/ps', ['-p', String(pid), '-o', 'lstart='], { encoding: 'utf8' }).trim();
+      if (!processStart) throw Error('JOURNAL_LOCK_IDENTITY');
+      return { hostId, pidNamespace: `darwin:${hostId}`, systemBootId, processStart };
+    }
+    throw Error('JOURNAL_LOCK_UNSUPPORTED');
+  }
+  writerLockPath() { return join(this.directory, '.runtime-lock.json'); }
+  writerOwnerIsLive(current) {
+    if (this.lockOwnerAlive) return this.lockOwnerAlive(current) === true;
+    const local = this.processIdentity();
+    if (current.hostId !== local.hostId || current.pidNamespace !== local.pidNamespace) return true;
+    try {
+      const owner = this.processIdentity(current.pid);
+      return owner.pidNamespace === current.pidNamespace && owner.systemBootId === current.systemBootId
+        && owner.processStart === current.processStart;
+    } catch (error) {
+      // Linux procfs ENOENT and macOS ps exit 1 are the only accepted proofs that the recorded PID is gone.
+      if (error?.code === 'ENOENT' || (process.platform === 'darwin' && error?.status === 1 && !error?.signal)) return false;
+      throw error;
+    }
+  }
+  persistExclusivePath(path, value) {
+    const temp = path + '.' + randomUUID() + '.tmp', data = JSON.stringify(value);
+    const fd = openSync(temp, 'wx', 0o600);
+    try { writeFileSync(fd, data); fsyncSync(fd); } finally { closeSync(fd); }
+    try { linkSync(temp, path); this.syncDirectory(); return true; }
+    catch (error) { if (error.code === 'EEXIST') return false; throw error; }
+    finally { this.removeFile(temp); }
+  }
+  acquireWriterLock() {
+    const identity = this.processIdentity(), path = this.writerLockPath();
+    this.writerOwnerId = randomUUID();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (this.persistExclusivePath(path, { schemaVersion: 1, ownerId: this.writerOwnerId, pid: process.pid,
+        hostId: identity.hostId, pidNamespace: identity.pidNamespace,
+        systemBootId: identity.systemBootId, processStart: identity.processStart })) return;
+      let current;
+      try {
+        current = JSON.parse(readFileSync(path, 'utf8'));
+        const keys = Object.keys(current).sort().join(',');
+        if (keys !== 'hostId,ownerId,pid,pidNamespace,processStart,schemaVersion,systemBootId' || current.schemaVersion !== 1
+            || typeof current.ownerId !== 'string' || !Number.isSafeInteger(current.pid) || current.pid < 1
+            || typeof current.hostId !== 'string' || !current.hostId || typeof current.systemBootId !== 'string'
+            || typeof current.pidNamespace !== 'string' || !current.pidNamespace
+            || typeof current.processStart !== 'string') throw Error('invalid');
+      } catch { throw Error('JOURNAL_LOCKED'); }
+      let live = true;
+      try {
+        live = this.writerOwnerIsLive(current);
+      } catch { live = true; }
+      if (live) throw Error('JOURNAL_LOCKED');
+      const stale = path + '.' + current.ownerId + '.stale';
+      try { renameSync(path, stale); this.syncDirectory(); }
+      catch (error) { if (error.code === 'ENOENT') continue; throw Error('JOURNAL_LOCKED'); }
+    }
+    throw Error('JOURNAL_LOCKED');
+  }
+  close() {
+    if (!this.writerOwnerId) return;
+    const path = this.writerLockPath();
+    try {
+      const current = JSON.parse(readFileSync(path, 'utf8'));
+      if (current.ownerId === this.writerOwnerId) this.removeFile(path);
+    } catch { /* A missing/corrupt lock is never replaced or deleted here. */ }
+    this.writerOwnerId = null;
   }
   healthy(minFreeBytes = 64 * 1024 * 1024) {
     try { const value = statfsSync(this.directory); return Number(value.bavail) * Number(value.bsize) >= minFreeBytes; }
@@ -594,11 +681,48 @@ export class Journal {
     this.removeFile(this.path(key));
     return true;
   }
+  receiptRecord(key) {
+    const path = this.path(key);
+    if (!existsSync(path)) {
+      if (existsSync(path + '.started')) throw Error('RECEIPT_JOURNAL_INVALID');
+      return null;
+    }
+    try {
+      const metadata = statSync(path);
+      if (!metadata.isFile() || metadata.size < 1 || metadata.size > RECEIPT_RECORD_MAX_BYTES) throw Error('invalid');
+      const record = JSON.parse(readFileSync(path, 'utf8'));
+      if (!record || Array.isArray(record) || record.schemaVersion !== 1
+          || !['started', 'completed', 'unknown'].includes(record.state)
+          || !/^[a-f0-9]{64}$/.test(record.requestHash || '')
+          || !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(record.bootId || '')
+          || typeof record.at !== 'string' || !Number.isFinite(Date.parse(record.at))) throw Error('invalid');
+      const expected = record.state === 'completed'
+        ? 'at,bootId,requestHash,schemaVersion,state,value' : 'at,bootId,requestHash,schemaVersion,state';
+      if (Object.keys(record).sort().join(',') !== expected
+          || (record.state === 'completed' && (typeof record.value !== 'string' || !record.value || record.value.length > 200))) throw Error('invalid');
+      return record;
+    } catch (error) {
+      if (error.message === 'RECEIPT_JOURNAL_INVALID') throw error;
+      throw Error('RECEIPT_JOURNAL_INVALID');
+    }
+  }
+  claimReceipt(key, requestHash) {
+    return this.persistExclusivePath(this.path(key), { schemaVersion: 1, state: 'started', requestHash,
+      bootId: this.bootId, at: new Date().toISOString() });
+  }
+  recoverStaleReceipt(key, record) {
+    if (!record || record.state !== 'started' || record.bootId === this.bootId) return record;
+    const recovered = { schemaVersion: 1, state: 'unknown', requestHash: record.requestHash,
+      bootId: this.bootId, at: new Date().toISOString() };
+    this.write(key, recovered);
+    return recovered;
+  }
   async onceReceipt(receiptId, requestHash, operation, reserveBytes = 0) {
     if (typeof receiptId !== 'string' || !/^[a-zA-Z0-9:_-]{1,160}$/.test(receiptId)) throw Error('RECEIPT_ID');
-    const key = 'polish-' + sha(receiptId), started = this.path(key) + '.started';
+    if (!/^[a-f0-9]{64}$/.test(requestHash || '')) throw Error('RECEIPT_HASH');
+    const key = 'polish-' + sha(receiptId);
     const inspect = () => {
-      const record = this.read(key);
+      const record = this.recoverStaleReceipt(key, this.receiptRecord(key));
       if (!record) return null;
       if (record.requestHash !== requestHash) throw Error('RECEIPT_CONFLICT');
       if (record.state === 'completed') return { done: true, value: record.value };
@@ -607,12 +731,7 @@ export class Journal {
     };
     const previous = inspect();
     if (previous?.done) return previous.value;
-    try {
-      const fd = openSync(started, 'wx', 0o600);
-      try { fsyncSync(fd); } finally { closeSync(fd); }
-      this.syncDirectory();
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error;
+    if (!this.claimReceipt(key, requestHash)) {
       for (let attempt = 0; attempt < 120; attempt++) {
         const current = inspect();
         if (current?.done) return current.value;
@@ -623,20 +742,35 @@ export class Journal {
     let reservation;
     try {
       reservation = this.reservePaidCapacity(key, reserveBytes);
-      this.write(key, { state: 'started', requestHash, at: new Date().toISOString() });
     } catch (error) {
       if (reservation) this.removeFile(reservation);
-      this.removeFile(started); throw error;
+      this.removeFile(this.path(key)); throw error;
     }
     try {
       const value = await operation({ assertReady: () => this.assertPaidCapacity(reservation, reserveBytes) });
-      this.writeReserved(key, { state: 'completed', requestHash, value, at: new Date().toISOString() }, reservation);
+      this.writeReserved(key, { schemaVersion: 1, state: 'completed', requestHash, bootId: this.bootId,
+        value, at: new Date().toISOString() }, reservation);
       return value;
     } catch (error) {
       if (reservation) this.removeFile(reservation);
-      this.write(key, { state: 'unknown', requestHash, at: new Date().toISOString() });
+      this.write(key, { schemaVersion: 1, state: 'unknown', requestHash, bootId: this.bootId, at: new Date().toISOString() });
       throw error;
     }
+  }
+  receipt(receiptId) {
+    if (typeof receiptId !== 'string' || !/^[a-zA-Z0-9:_-]{1,160}$/.test(receiptId)) throw Error('RECEIPT_ID');
+    const key = 'polish-' + sha(receiptId), record = this.recoverStaleReceipt(key, this.receiptRecord(key));
+    if (!record) return { status: 'NOT_FOUND', polished: null, requestHash: null };
+    if (record.state === 'completed') {
+      return { status: 'SUCCEEDED', polished: record.value, requestHash: record.requestHash };
+    }
+    if (record.state === 'started') {
+      return { status: 'PROCESSING', polished: null, requestHash: record.requestHash };
+    }
+    if (record.state === 'unknown') {
+      return { status: 'UNKNOWN', polished: null, requestHash: record.requestHash };
+    }
+    throw Error('RECEIPT_JOURNAL_INVALID');
   }
   validateCoreEvent(event) {
     const validEndpoint = ['prompt-call-events', 'completion-events'].includes(event?.endpoint);

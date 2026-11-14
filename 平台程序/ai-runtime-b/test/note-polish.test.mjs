@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Journal, Provider, sha } from '../src/runtime.mjs';
@@ -10,6 +10,7 @@ import { createInternalHandler, verifySignature } from '../src/internal-http.mjs
 // 补充需求「AI 优化」走 ai-runtime（方案 A）：Provider 密钥只留在本进程，后端以内部签名调用，不再持有密钥
 const SECRET = 'test-internal-secret-0123456789abcdef';
 const PATH = '/internal/note-polish';
+const RECEIPT_PATH = PATH + '/receipt';
 
 function sign(body, { path = PATH, method = 'POST', timestamp = String(Math.floor(Date.now() / 1000)), secret = SECRET } = {}) {
   const signature = createHmac('sha256', secret).update(`${timestamp}\n${method}\n${path}\n${sha(body)}`).digest('hex');
@@ -29,7 +30,11 @@ function fixture({ polish, maxConcurrent = 4 } = {}) {
     const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
     return handle({ method: 'POST', path: PATH, headers: headers ?? sign(body), body: Buffer.from(body), ...extra });
   };
-  return { dir, journal, call, handle, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+  const receipt = receiptId => {
+    const body = JSON.stringify({ receiptId });
+    return handle({ method: 'POST', path: RECEIPT_PATH, headers: sign(body, { path: RECEIPT_PATH }), body: Buffer.from(body) });
+  };
+  return { dir, journal, call, receipt, handle, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
 // ===== 内部签名 =====
@@ -47,13 +52,56 @@ test('签名缺失、错误、过期或请求体被改动一律 401，且不调�
   f.cleanup();
 });
 
-test('签名正确时返回润色结果；响应只含 polished，不回显任何密钥', async () => {
+test('签名正确时返回 Provider 服务收据合同，不回显任何密钥', async () => {
   const f = fixture();
   const result = await f.call({ note: '老人房在一楼', line: 'ELEVATION' });
   assert.equal(result.status, 200);
-  assert.deepEqual(result.body, { polished: '润色:ELEVATION:老人房在一楼' });
+  assert.deepEqual(result.body, { status: 'SUCCEEDED', polished: '润色:ELEVATION:老人房在一楼',
+    requestHash: sha(JSON.stringify({ note: '老人房在一楼', line: 'ELEVATION' })) });
   assert.doesNotMatch(JSON.stringify(result.body), new RegExp(SECRET));
   f.cleanup();
+});
+
+test('只读收据查询覆盖 NOT_FOUND、PROCESSING、SUCCEEDED、UNKNOWN，且绝不调用供应商', async () => {
+  let calls = 0, release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const f = fixture({ polish: async note => { calls++; if (note === '处理中') await gate; if (note === '未知') throw Error('lost'); return `润色:${note}`; } });
+  assert.deepEqual((await f.receipt('receipt-missing')).body, { status: 'NOT_FOUND', polished: null, requestHash: null });
+  const processing = f.call({ receiptId: 'receipt-processing', note: '处理中', line: 'FLAT' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual((await f.receipt('receipt-processing')).body, { status: 'PROCESSING', polished: null,
+    requestHash: sha(JSON.stringify({ note: '处理中', line: 'FLAT' })) });
+  release();
+  assert.equal((await processing).status, 200);
+  assert.deepEqual((await f.receipt('receipt-processing')).body, { status: 'SUCCEEDED', polished: '润色:处理中',
+    requestHash: sha(JSON.stringify({ note: '处理中', line: 'FLAT' })) });
+  assert.equal((await f.call({ receiptId: 'receipt-unknown', note: '未知', line: 'FLAT' })).status, 502);
+  assert.deepEqual((await f.receipt('receipt-unknown')).body, { status: 'UNKNOWN', polished: null,
+    requestHash: sha(JSON.stringify({ note: '未知', line: 'FLAT' })) });
+  assert.equal(calls, 2, 'receipt lookup must never invoke provider');
+  f.cleanup();
+});
+
+test('收据文件 schema 损坏或超限时 503 并记录脱敏错误码，不静默吞掉', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'note-polish-corrupt-'));
+  const journal = new Journal(dir);
+  const receiptId = 'receipt-corrupt', key = 'polish-' + sha(receiptId), logs = [];
+  const handle = createInternalHandler({ settings: { secret: SECRET }, journal,
+    provider: { polishNote: async () => assert.fail('receipt lookup must not call supplier') }, log: line => logs.push(line) });
+  for (const bad of [JSON.stringify({ state: 'completed', value: 'x', requestHash: 'a'.repeat(64), secret: 'do-not-log' }),
+    JSON.stringify({ schemaVersion: 1, state: 'completed', requestHash: 'a'.repeat(64), bootId: 'x', at: 'now', value: 'x'.repeat(5000) })]) {
+    writeFileSync(journal.path(key), bad);
+    const body = JSON.stringify({ receiptId });
+    const result = await handle({ method: 'POST', path: RECEIPT_PATH,
+      headers: sign(body, { path: RECEIPT_PATH }), body: Buffer.from(body) });
+    assert.deepEqual(result, { status: 503, body: { error: 'RECEIPT_UNAVAILABLE' } });
+  }
+  assert.deepEqual(logs, [
+    { event: 'note_polish_receipt_failed', reason: 'RECEIPT_JOURNAL_INVALID' },
+    { event: 'note_polish_receipt_failed', reason: 'RECEIPT_JOURNAL_INVALID' }
+  ]);
+  assert.doesNotMatch(JSON.stringify(logs), /do-not-log/);
+  rmSync(dir, { recursive: true, force: true });
 });
 
 test('非 POST 或其他路径返回 404/405', async () => {
@@ -157,7 +205,15 @@ test('HTTP：/health 行为不变；润色经真实请求往返；超过 4KB 的
     const body = JSON.stringify({ receiptId: 'fixture-http-roundtrip', note: '老人房在一楼', line: 'FLAT' });
     response = await fetch(base + PATH, { method: 'POST', body, headers: { 'content-type': 'application/json', ...sign(body) } });
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { polished: '润色:老人房在一楼' });
+    assert.deepEqual(await response.json(), { status: 'SUCCEEDED', polished: '润色:老人房在一楼',
+      requestHash: sha(JSON.stringify({ note: '老人房在一楼', line: 'FLAT' })) });
+
+    const receiptBody = JSON.stringify({ receiptId: 'fixture-http-roundtrip' });
+    response = await fetch(base + RECEIPT_PATH, { method: 'POST', body: receiptBody,
+      headers: { 'content-type': 'application/json', ...sign(receiptBody, { path: RECEIPT_PATH }) } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { status: 'SUCCEEDED', polished: '润色:老人房在一楼',
+      requestHash: sha(JSON.stringify({ note: '老人房在一楼', line: 'FLAT' })) });
 
     const huge = JSON.stringify({ note: 'x'.repeat(5000) });
     response = await fetch(base + PATH, { method: 'POST', body: huge, headers: { 'content-type': 'application/json', ...sign(huge) } });

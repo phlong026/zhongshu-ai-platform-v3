@@ -8,6 +8,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
+    "test:cross-process": "node test/cross-process-http.integration.mjs",
+    "test:pid-namespace-lock": "node test/pid-namespace-lock.integration.mjs",
     "start": "node src/main.mjs",
     "check": "node src/main.mjs --check"
   },
