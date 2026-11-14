@@ -213,12 +213,22 @@ module.exports = function attach(page, deps) {
       if (this.platStale(gen, sg)) return;
       const ids = [detail.coverAssetId].concat(detail.floorPlanAssetIds || []).filter(Boolean);
       this.setData({ platCaseAssetIds: ids });
-      return this.platFetchImages(ids).then(urls => this.setData({ platCaseImages: urls }));
+      return this.platFetchImages(ids, c.id).then(urls => { if (!this.platStale(gen, sg)) this.setData({ platCaseImages: urls }); });
     }).catch(err => { if (!this.platStale(gen, sg)) this.setData({ platformErr: PF.errorMessageDesign(err) }); });
   };
-  page.platFetchImages = function (assetIds) {
-    const jobs = (assetIds || []).filter(Boolean).map(a => api.assets.downloadUrl(a).then(r => r.downloadUrl).catch(() => ''));
-    return Promise.all(jobs);
+  page.platFetchImages = async function (assetIds, caseId) {
+    const ids = (assetIds || []).filter(Boolean);
+    const read = a => (caseId ? api.cases.downloadUrl(caseId, a) : api.assets.downloadUrl(a)).then(r => {
+      if (!r || typeof r.downloadUrl !== 'string' || !r.downloadUrl.trim()) throw new Error('图片下载票据无效，请重试');
+      return r.downloadUrl;
+    });
+    // 公开图每张需要三次上游读取；逐张取票，避免四层平面+封面触发本组织并发限额。
+    if (caseId) {
+      const urls = [];
+      for (const id of ids) urls.push(await read(id));
+      return urls;
+    }
+    return Promise.all(ids.map(read));
   };
   page.platCaseTab = function (e) { this.setData({ caseTab: Number(e.currentTarget.dataset.index) }); };
   page.platFavorite = function () {
@@ -232,7 +242,7 @@ module.exports = function attach(page, deps) {
 
   // ---- AI 生成链（R9 → R12/R13 → R14 轮询 → R11 → R15/R16）----
   page.platProjectFingerprint = function (f) {
-    return [f.width, f.depth, f.floors, f.style || '', f.note || ''].join('|');
+    return [f.width, f.depth, f.floors, f.style || '', f.note || '', f.referenceCaseId || '', (f.referenceAssetIds || []).map(String).join(',')].join('|');
   };
   page.platGenerate = function (kind) {
     if (this.data.busy) return;
@@ -246,7 +256,7 @@ module.exports = function attach(page, deps) {
     // 需求参数变化 → 旧项目（旧 requirementInputs/幂等键）作废：重置项目/候选/预算状态，防 409 与错参数生成
     const fp = this.platProjectFingerprint(f);
     if (this.__platProjectFp && this.__platProjectFp !== fp) {
-      this.__platProjectId = ''; this.platDropKey('proj-budget');
+      this.__platProjectId = ''; ['proj-budget', 'proj-plan', 'proj-facade', 'flat', 'elev'].forEach(action => this.platDropKey(action));
       this.setData({ platResultVersionId: '' });
       this.__platEstimateId = '';
     }
@@ -257,12 +267,12 @@ module.exports = function attach(page, deps) {
     this.setData({ busy: true, platformErr: '', platResult: null, platPolling: true, platPollTip: '已提交，AI 生成中…',
       platProgress: 5, platStatusText: '排队等待中…', platAccepted: 0, platCancelResult: null,
       platEstimateText: PF.estimateText(Number(f.count)) });
-    const body = { sourceType: 'SELF_UPLOAD', line, requirementInputs: inputs.inputs };
+    const body = { sourceType: 'SELF_UPLOAD', line, requirementInputs: Object.assign({}, inputs.inputs) };
+    if (kind === 'facade') body.requirementInputs.referenceAssetIds = (f.referenceAssetIds || []).filter(Boolean).map(String);
     if (kind === 'facade' && f.referenceCaseId) { body.sourceType = 'CASE_REFERENCE'; body.refCaseId = f.referenceCaseId; }
     const projAction = 'proj-' + kind;
     const createKey = this.platKey(projAction);
     api.projects.create(body, createKey).then(proj => {
-      this.platDropKey(projAction);
       if (this.platStale(gen, sg)) return;
       const projectId = String(proj.projectId);
       this.__platProjectId = projectId;
@@ -274,14 +284,12 @@ module.exports = function attach(page, deps) {
         jobBody.styleCode = PF.styleCode(f.style);
         jobBody.roofType = PF.roofCode(f.roof);
         jobBody.material = f.material; jobBody.color = f.color;
-        const refs = (this.data.form.referenceAssetIds || []).filter(Boolean);
-        if (refs.length) jobBody.requirementInputs = Object.assign({}, inputs.inputs, { referenceAssetIds: refs });
         if (!jobBody.styleCode || !jobBody.roofType) { this.setData({ busy: false, platPolling: false }); return this.platFail('请选择有效风格与屋顶'); }
         if (!jobBody.material || !jobBody.color) { this.setData({ busy: false, platPolling: false }); return this.platFail('请选择材质与主色'); }
       }
       const createJob = kind === 'plan' ? api.projects.createFlatJob : api.projects.createElevationJob;
       return createJob(projectId, jobBody, jobKey).then(job => {
-        this.platDropKey(jobAction);
+        this.platDropKey(projAction); this.platDropKey(jobAction);
         if (this.platStale(gen, sg)) return;
         this.__platJobId = String(job.jobId);
         this.__platKind = kind;
@@ -291,7 +299,7 @@ module.exports = function attach(page, deps) {
       if (this.platStale(gen, sg)) return;
       if (this.platHandle401(err, sg)) return;
       this.setData({ busy: false, platPolling: false });
-      if ((err && err.code) !== -1) { this.platDropKey(projAction); this.platDropKey(kind === 'plan' ? 'flat' : 'elev'); }
+      if (![-1, 1112100002].includes(Number(err && err.code))) { this.platDropKey(projAction); this.platDropKey(kind === 'plan' ? 'flat' : 'elev'); }
       this.platFail(PF.errorMessageDesign(err));
     });
   };
@@ -329,7 +337,7 @@ module.exports = function attach(page, deps) {
           if (this.platStale(gen, sg)) return;
           if (this.platHandle401(err, sg)) return;
           // 未终态业务码（手动刷新场景）→ 仍在生成
-          this.platFail(String((err && err.message) || '').indexOf('未终态') >= 0 || (err && err.code) ? PF.STILL_RUNNING_MESSAGE : PF.errorMessageDesign(err));
+          this.platFail(PF.errorMessageDesign(err));
         });
       }).catch(err => {
         if (this.platStale(gen, sg)) return;
@@ -357,7 +365,7 @@ module.exports = function attach(page, deps) {
       if (this.platStale(gen, sg)) return;
       if (this.platHandle401(err, sg)) return;
       this.setData({ platPolling: false });
-      this.platFail(PF.STILL_RUNNING_MESSAGE);
+      this.platFail(PF.errorMessageDesign(err));
     });
   };
   // ---- 取消生成（对齐旧版 1.5：QUEUED/RUNNING/VALIDATING 均可取消，退点随结算）----

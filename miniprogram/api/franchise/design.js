@@ -7,6 +7,8 @@ const http = require('../http');
 const idem = (key, action) => (key ? { 'Idempotency-Key': key } : { 'Idempotency-Key': 'design-' + action + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e8) });
 
 const cases = {
+  /** 公开案例图片只读取当前案例成员，不能借用生成结果或B输入资产编号。 */
+  downloadUrl: (caseId, assetId) => http.post('/franchise/design/cases/' + caseId + '/assets/' + assetId + '/download-tickets'),
   /** 灵感库列表（游标分页，±1m 尺寸筛选）{styleCode?, floorCount?, faceWidth?, depth?, keyword?, cursor?, limit?} */
   page: (params) => http.get('/franchise/design/cases', params),
   /** 风格筛选项 */
@@ -25,7 +27,7 @@ const assets = {
   uploadTicket: (data) => http.post('/franchise/design/assets/upload-tickets', data),
   /** 完成上传（首次触发审核；终态重放=幂等读）→ {assetId, uploadStatus, rejectedReason?} */
   complete: (assetId) => http.post('/franchise/design/assets/' + assetId + '/complete'),
-  /** 换短期签名 URL（票据一次性消费在能力方内完成）→ {downloadUrl, expiresAt?} */
+  /** 设计候选/结果短期URL（remote固定由能力方读取；B输入预览用franchise/assets）→ {downloadUrl, expiresAt?} */
   downloadUrl: (assetId) => http.post('/franchise/design/assets/' + assetId + '/download-tickets')
 };
 
