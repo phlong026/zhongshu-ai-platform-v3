@@ -45,7 +45,7 @@ function mapRatio(v3Label) {
 function mapVideoParameters(parameters) {
   const pick = key => {
     const found = (parameters || []).find(item => item.key === key);
-    return found ? found.value : '';
+    return found ? (typeof found.value === 'number' ? (found.options || [])[found.value] : found.value) : '';
   };
   return {
     resolution: mapResolution(pick('resolution')),

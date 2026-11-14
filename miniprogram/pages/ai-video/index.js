@@ -3,6 +3,7 @@ const studio = require('../../utils/studio');
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：F11 参数映射/降级文案）
 const contentApi=require('../../api/franchise/content');
 const http=require('../../api/http');
+const media=require('../../utils/content-media');
 Page({
 data: {
 mode: 'frames', description: '', firstFrame: '', lastFrame: '', references: [], assets, libraryOpen: false, libraryTarget: '', editingTaskId: '', invalidMessage: '',
@@ -96,7 +97,7 @@ const items = await Promise.all(result.tempFiles.map(async (file, i) => ({ id: D
 this.addReferences(items); this.saveDraft();
 } catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
 };
-if (type === 'audio') wx.chooseMessageFile({ count, type: 'file', extension: ['mp3', 'wav', 'm4a', 'aac'], success, fail: this.mediaFailure });
+if (type === 'audio') wx.chooseMessageFile({ count, type: 'file', extension: ['mp3'], success, fail: this.mediaFailure });
 else wx.chooseMedia({ count, mediaType: [type], success, fail: this.mediaFailure });
 } });
 },
@@ -133,19 +134,40 @@ if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToa
 this.saveDraft();
 if (http.token()) return this.generateOnline(); // 在线：直连后端创建 ai_video 任务
 wx.showToast({ title: '请先登录后端账号后再生成视频', icon: 'none' });
-},/** 在线生成：F11 参数映射（1080P→2K、720P→768P、'8 秒'→8、比例透传）+ references 角色映射；数量恒 1 不上送。
- * 本批素材字节上传通道未开（local 环境无法真传 COS）：首尾帧沿用本地路径仅展示，提交无媒体 T2V/文字任务。 */
-generateOnline() {
+},
+async generateOnline() {
+if(this.data.generating)return;
+const sessionAlive=http.sessionGuard(),scope=this.actorScope;
+const alive=()=>sessionAlive()&&scope===studio.scope();
+this.setData({generating:true});
+try {
 const mapped = P.mapVideoParameters(this.data.parameters);
 const payload = { kind: 'ai_video', description: this.data.description.trim(), resolution: mapped.resolution, duration: mapped.duration, ratio: mapped.ratio };
-if (this.data.mode === 'reference' && this.data.references.length) payload.references = P.mapReferences(this.data.references);
-contentApi.tasks.create(payload).then(res => {
-const taskId = res && res.taskId ? String(res.taskId) : '';
+const inputs=this.data.mode==='reference'
+  ? this.data.references.map(item=>({path:item.path,role:{image:'reference_image',video:'reference_video',audio:'reference_audio'}[item.type],name:item.name}))
+  : [{path:this.data.firstFrame,role:'first_frame'},{path:this.data.lastFrame,role:'last_frame'}].filter(item=>item.path);
+const signature=JSON.stringify({payload,inputs});
+if(!this.__videoSubmission||this.__videoSubmission.signature!==signature){
+  const references=[];
+  for(const input of inputs){
+    if(!input.role)throw Error('参考素材类型无效，请重新选择');
+    const assetId=await media.upload(input.path,alive);
+    references.push(Object.assign({role:input.role,assetId},input.name?{name:input.name}:{}));
+  }
+  if(references.length)payload.references=references;
+  this.__videoSubmission={signature,payload,key:'video-'+Date.now()+'-'+Math.floor(Math.random()*1e8)};
+}
+if(!alive())return;
+const res=await contentApi.tasks.create(this.__videoSubmission.payload,this.__videoSubmission.key);
+if(!alive())return;
+const taskId = res && (res.taskId||res.id) ? String(res.taskId||res.id) : '';
 if (!taskId) throw Error('任务创建失败，请稍后重试');
+this.__videoSubmission=null;
 wx.showToast({ title: '任务已提交，可在任务中心查看进度', icon: 'none' });
 const nav = { url: '/pages/studio/index?view=tasks' };
 if (getCurrentPages().length >= 9) wx.redirectTo(nav); else wx.navigateTo(nav);
-}).catch(error => { wx.showToast({ title: P.degradeMessage(error), icon: 'none' }); });
+}catch(error){if(alive())wx.showToast({ title: P.degradeMessage(error), icon: 'none' });}
+finally{if(alive())this.setData({generating:false});}
 },
 returnToTasks() { wx.redirectTo({ url: '/pages/studio/index?view=tasks' }); },
 noop() {}

@@ -24,7 +24,7 @@
       <view class="creation-heading"><text class="creation-heading-title">生成参数</text></view>
       <view class="parameter-grid"><view wx:for="{{parameters}}" wx:key="key" class="parameter"><text class="parameter-label">{{item.label}}</text><picker range="{{item.options}}" value="{{item.value}}" data-index="{{index}}" bindchange="changeParameter" aria-label="{{item.label}}"><view class="parameter-select"><text>{{item.options[item.value]}}</text><image src="/assets/creation-down.png" /></view></picker></view></view>
     </view>
-    <view class="page-actions"><button class="creation-primary generate-button" bindtap="generate" hover-class="pressed"><text class="button-label">创建任务</text></button></view>
+    <view class="page-actions"><button class="creation-primary generate-button" bindtap="generate" hover-class="pressed" loading="{{generating}}" disabled="{{generating}}"><text class="button-label">{{generating?'正在提交…':'创建任务'}}</text></button></view>
     </block>
   </view>
 </view>
