@@ -2,9 +2,9 @@
   <div class="zs-page">
     <div class="zs-page-header">
       <div>
-        <h1 class="zs-page-title">{{ section?.title || '平台钱包' }}</h1>
+        <h1 class="zs-page-title">{{ section?.title || '历史平台钱包' }}</h1>
         <div class="zs-page-subtitle"
-          >当前租户内的平台运营记录；金额以分计，设计调用成本以微元计</div
+          >历史钱包运营记录，不代表当前公司积分池余额；金额以分计，设计调用成本以微元计</div
         >
       </div>
     </div>
@@ -272,7 +272,7 @@ const sections: Record<
   }
 > = {
   wallets: {
-    title: '组织钱包',
+    title: '历史组织钱包',
     permission: 'platform:wallet:query',
     query: getWallets,
     columns: [
@@ -285,7 +285,7 @@ const sections: Record<
     ]
   },
   plans: {
-    title: '充值套餐',
+    title: '历史充值套餐',
     permission: 'platform:wallet:plan:query',
     query: getRechargePlans,
     columns: [
@@ -299,7 +299,7 @@ const sections: Record<
     ]
   },
   orders: {
-    title: '充值订单',
+    title: '历史充值订单',
     permission: 'platform:wallet:order:query',
     query: getRechargeOrders,
     columns: [
@@ -314,7 +314,7 @@ const sections: Record<
     ]
   },
   ledger: {
-    title: '积分流水',
+    title: '历史钱包流水',
     permission: 'platform:wallet:ledger:query',
     query: getLedger,
     columns: [
@@ -345,7 +345,7 @@ const sections: Record<
   }
 }
 sections['design-prices'] = {
-  title: '设计能力定价',
+  title: '历史设计能力定价',
   permission: 'platform:design:price:query',
   query: getDesignPrices,
   columns: [

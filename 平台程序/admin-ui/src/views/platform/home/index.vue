@@ -3,7 +3,7 @@
     <div class="zs-page-header">
       <div>
         <h1 class="zs-page-title">总部运营工作台</h1>
-        <div class="zs-page-subtitle">组织开通、员工支持与平台钱包运营</div>
+        <div class="zs-page-subtitle">组织开通、员工支持、公司积分与历史钱包运营</div>
       </div>
       <el-button
         v-if="checkPermi(['platform:org:onboard'])"
@@ -49,7 +49,7 @@
     <el-row :gutter="16">
       <el-col :xs="24" :md="12">
         <div class="chart-card">
-          <div class="chart-card__title">组织钱包可用点数（前10）</div>
+          <div class="chart-card__title">历史钱包可用点数（前10，不含公司积分池）</div>
           <el-empty
             v-if="sourceMessage('wallets')"
             :description="sourceMessage('wallets')"
@@ -191,14 +191,14 @@ const display = (source: Source, value: string) =>
 const statCards = computed(() =>
   [
     {
-      label: '钱包总可用点数',
+      label: '历史钱包总可用点数',
       source: 'wallets' as Source,
       value: totalAvailablePoints.value.toLocaleString(),
       icon: Coin,
       to: '/platform-ops/wallets'
     },
     {
-      label: '组织钱包数',
+      label: '历史组织钱包数',
       source: 'wallets' as Source,
       value: String(walletCount.value),
       icon: Wallet,
@@ -261,12 +261,17 @@ const statCards = computed(() =>
 const quickEntries = computed(() =>
   [
     { path: '/platform-org/onboard', title: '组织开通', permission: 'platform:org:onboard' },
-    { path: '/platform-ops/wallets', title: '组织钱包', permission: permissions.wallets },
-    { path: '/platform-ops/plans', title: '充值套餐', permission: permissions.plans },
-    { path: '/platform-ops/orders', title: '充值订单', permission: permissions.orders },
-    { path: '/platform-ops/ledger', title: '积分流水', permission: permissions.ledger },
+    {
+      path: '/platform-org-points',
+      title: '公司积分池',
+      permission: 'platform:org-point:query'
+    },
+    { path: '/platform-ops/wallets', title: '历史组织钱包', permission: permissions.wallets },
+    { path: '/platform-ops/plans', title: '历史充值套餐', permission: permissions.plans },
+    { path: '/platform-ops/orders', title: '历史充值订单', permission: permissions.orders },
+    { path: '/platform-ops/ledger', title: '历史钱包流水', permission: permissions.ledger },
     { path: '/platform-ops/anomalies', title: '支付异常', permission: permissions.anomalies },
-    { path: '/platform-ops/design-prices', title: '设计定价', permission: permissions.prices },
+    { path: '/platform-ops/design-prices', title: '历史设计定价', permission: permissions.prices },
     { path: '/platform-ops/design-costs', title: '调用成本', permission: permissions.costs },
     { path: '/platform-ops/audit', title: '配置审计', permission: permissions.audit }
   ].filter((entry) => checkPermi([entry.permission]))

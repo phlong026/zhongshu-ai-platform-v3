@@ -67,6 +67,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
           noCache: false,
           affix: true
         }
+      },
+      {
+        path: 'platform-org-points',
+        component: () => import('@/views/platform/org-points/index.vue'),
+        name: 'PlatformOrgPoints',
+        meta: {
+          title: '公司积分池',
+          icon: 'ep:coin',
+          hidden: true,
+          canTo: true,
+          noCache: true,
+          permission: 'platform:org-point:query'
+        }
       }
     ]
   },
