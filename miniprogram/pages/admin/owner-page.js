@@ -86,13 +86,8 @@ module.exports = function(kind) {
         operatingDegraded: !!this.platOperatingDegraded, // R2 P2-9：经营接口独立降级可见
         desk: {
           ...ownerHome,
-          // M10-T03/R4 P1：finance 在线视图 desk.operating 直供模板（business.historical 等本地键不动）
+          // finance 在线视图仅消费 OwnerHome 对真实 operating analytics 的映射，不拼接旧本地经营模型
           operating: this.platSummary && this.platSummary.operating || null,
-          business: Object.assign({}, (this.data.desk && this.data.desk.business) || {}, {
-            // R5 P1：historical=选中月早于当前月（历史快照态）；保留模板消费的 headline/levels/analytics 等本地字段
-            historical: this.platPeriod && this.platPeriod < PP.currentPeriod(),
-            snapshotInfo: { available: false, note: '在线快照经「归档月度快照」写服务端' },
-            operating: this.platSummary && this.platSummary.operating || null }),
           performance: PP.platPerformance(this.platSummary, this.platPeriod, this.data.selectedDepartment),
           actor: { role: (PP.apiPost() || {}).roleCode || '', companyId: (PP.apiPost() || {}).orgId || '' }
         },
@@ -132,7 +127,7 @@ module.exports = function(kind) {
               incomeText: ((operating.trend || []).slice(-1).pop() || {}).incomeCents,
               paidText: ((operating.trend || []).slice(-1).pop() || {}).paidCents,
               netText: ((operating.trend || []).slice(-1).pop() || {}).netCents,
-              receivableCents: (operating.totals || {}).receivableOutstandingCents,
+              receivableCents: (operating.totals || {}).receivableCents,
               payableOutstandingCents: (operating.totals || {}).payableOutstandingCents,
               period
             }});
@@ -193,12 +188,12 @@ module.exports = function(kind) {
       if (!PP.online()) return this.fail('请先登录后端账号');
       // 切生产收口：本地账簿行 key 查找链（W.snapshot/H/B）下线；全部动作映射平台页
       const d=e.currentTarget.dataset, post=PP.apiPost()||{};
-      const flows = tab => '/pages/admin/finance-desk/index?view=flows&tab=' + tab;
+      const period = this.platPeriod || PP.currentPeriod();
       const members = '/pages/account/index?view=api-members';
       const actions = {
-        commissions:'/pages/admin/commission/index', receivables:flows('receivables'),payables:flows('payables'),costs:'/pages/admin/operations/index?view=costs',funds:'/pages/admin/operations/index?view=funds',operating:'/pages/admin/operations/index',business:'/pages/business/index',engineering:'/pages/engineering/index',approvals:flows('payables'),todos:flows('receivables'),reports:'/pages/admin/finance/index',performance:'/pages/admin/tasks/index?view=team',tasks:'/pages/admin/tasks/index?view=team',
+        commissions:'/pages/admin/commission/index', receivables:'/pages/admin/brief/index?period='+encodeURIComponent(period),payables:'/pages/admin/brief/index?period='+encodeURIComponent(period),costs:'/pages/admin/operations/index?view=costs',funds:'/pages/admin/operations/index?view=funds',operating:'/pages/admin/brief/index?period='+encodeURIComponent(period),business:'/pages/business/index',engineering:'/pages/engineering/index',approvals:'/pages/admin/commission/index',todos:'/pages/admin/tasks/index?view=team&period='+encodeURIComponent(period),reports:'/pages/admin/finance/index',performance:'/pages/admin/tasks/index?view=team&period='+encodeURIComponent(period),tasks:'/pages/admin/tasks/index?view=team&period='+encodeURIComponent(period),
         promotion:'/pages/admin/operations/index?view=expenses&id='+encodeURIComponent('company:'+(post.orgId||''))+'&purpose='+encodeURIComponent('推广获客'),
-        goals:'/pages/admin/tasks/index?view=team',team:members,reviews:'/pages/admin/tasks/index?view=team',activity:members,receipts:flows('receivables'),payments:flows('payables'),financeProgress:flows('receivables'),staff:members,settings:members,handover:members,company:members,
+        goals:'/pages/admin/tasks/index?view=team',team:members,reviews:'/pages/admin/tasks/index?view=team',activity:members,receipts:'/pages/admin/brief/index?period='+encodeURIComponent(period),payments:'/pages/admin/brief/index?period='+encodeURIComponent(period),financeProgress:'/pages/admin/tasks/index?view=team&period='+encodeURIComponent(period),staff:members,settings:members,handover:members,company:members,
         profile:'/pages/account/index?view=profile',messages:'/pages/account/index?view=messages',learning:'/pages/account/index?view=learning',services:'/pages/account/index?view=services',selection:'/pages/account/index?view=selection',help:'/pages/account/index?view=help',privacy:'/pages/account/index?view=privacy',rules:'/pages/admin/tasks/index',engineeringTeam:members,businessTeam:members,designTeam:members,financeTeam:members
       };
       const url=d.url || actions[d.action || d.key];

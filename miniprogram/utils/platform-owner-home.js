@@ -6,10 +6,61 @@ function numberText(value) {
 }
 
 function moneyText(cents) {
-  return cents == null ? dash : '¥' + (Number(cents) / 100).toLocaleString('en-US', {
+  if (cents == null) return dash;
+  const amount = Number(cents) / 100;
+  return (amount < 0 ? '-' : '') + '¥' + Math.abs(amount).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+}
+
+const compositionLabels = {
+  engineering: '工程回款', design: '设计服务', payment: '实际付款',
+  refund: '客户退款', 'expense-refund': '支出退回'
+};
+const agingLabels = {
+  notDue: '未到期', d1_30: '逾期 1-30 天', d31_60: '逾期 31-60 天',
+  d61_90: '逾期 61-90 天', d90Plus: '逾期 90 天以上', undated: '未约定日期'
+};
+
+function ratioText(value) {
+  if (value == null || !Number.isFinite(Number(value))) return dash;
+  return (Number(value) * 100).toLocaleString('en-US', { maximumFractionDigits: 1 }) + '%';
+}
+
+function operatingBusiness(operating, period) {
+  const available = !!operating;
+  const trend = available && Array.isArray(operating.trend) ? operating.trend : [];
+  const current = trend.find(row => row.period === period) || null;
+  const totals = available && operating.totals || {};
+  const summary = [
+    { key: 'income', label: '本月实收', value: current ? moneyText(current.incomeCents) : dash, note: '已登记回款' },
+    { key: 'paid', label: '本月实付', value: current ? moneyText(current.paidCents) : dash, note: '已核实付款及退款净额' },
+    { key: 'net', label: '本月净流入', value: current ? moneyText(current.netCents) : dash, note: '实收减实付' },
+    { key: 'receivable', label: '待收余额', value: available ? moneyText(totals.receivableCents) : dash, note: '工程收款约定未收' },
+    { key: 'payable', label: '待付余额', value: available ? moneyText(totals.payableOutstandingCents) : dash, note: '应付扣除有效付款' },
+    { key: 'collection-rate', label: '累计回款率', value: available ? ratioText(totals.collectionRate) : dash, note: '实收占收款约定' },
+    { key: 'coverage', label: '资金覆盖', value: available && totals.coverage != null ? Number(totals.coverage).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '倍' : dash, note: '近 6 月净流入 / 待付' }
+  ];
+  const composition = key => (available && Array.isArray(operating[key]) ? operating[key] : []).map((row, index) => ({
+    key: String(row.kind || index), label: compositionLabels[row.kind] || String(row.kind || '其他'), value: moneyText(row.cents)
+  }));
+  const receivableAging = available && operating.receivableAging || {};
+  const payableAging = available && operating.payableAging || {};
+  return {
+    available,
+    message: available ? '' : '经营分析暂不可用，请稍后重试',
+    summary,
+    trend: trend.map(row => ({
+      period: String(row.period || ''), label: periodLabel(row.period),
+      income: moneyText(row.incomeCents), paid: moneyText(row.paidCents), net: moneyText(row.netCents)
+    })),
+    incomeComposition: composition('incomeComposition'),
+    paidComposition: composition('paidComposition'),
+    aging: Object.keys(agingLabels).map(key => ({
+      key, label: agingLabels[key], receivable: moneyText(receivableAging[key] || 0), payable: moneyText(payableAging[key] || 0)
+    }))
+  };
 }
 
 function metric(summary, department, key) {
@@ -104,14 +155,15 @@ function view(input) {
       receivableTotal: moneyText(totals && (totals.receivableCents !== undefined ? totals.receivableCents : totals.receivableOutstandingCents)),
       payableTotal: moneyText(totals && totals.payableOutstandingCents)
     },
+    business: operatingBusiness(operating, period),
     home: {
       six: [
-        { key: 'collections', action: 'receivables', label: '本月回款', value: business.collections, unit: business.collections === dash ? '' : '元', sub: '财务实收' },
+        { key: 'collections', url: '/pages/admin/brief/index?period=' + encodeURIComponent(period), label: '本月回款', value: business.collections, unit: business.collections === dash ? '' : '元', sub: '财务实收' },
         { key: 'contracts', action: 'business', label: '本月签约', value: business.contracts, unit: business.contracts === dash ? '' : '元', sub: '已签合同' },
         { key: 'effective-customers', action: 'business', label: '有效客户', value: business.customers, unit: business.customers === dash ? '' : '人', sub: '本月有效' },
         { key: 'completed-nodes', action: 'engineering', label: '完成节点', value: engineeringMetrics.completed, unit: engineeringMetrics.completed === dash ? '' : '个', sub: '本月完成' },
         { key: 'qualified-deliveries', action: 'engineering', label: '合格到货', value: engineeringMetrics.deliveries, unit: engineeringMetrics.deliveries === dash ? '' : '批', sub: '本月登记' },
-        { key: 'finance-registrations', action: 'financeProgress', label: '财务登记', value: financeRegistrations, unit: financeRegistrations === dash ? '' : '笔', sub: '本月登记' }
+        { key: 'finance-registrations', url: '/pages/admin/tasks/index?view=team&period=' + encodeURIComponent(period), label: '财务登记', value: financeRegistrations, unit: financeRegistrations === dash ? '' : '笔', sub: '本月登记' }
       ],
       business: {
         stages: [
@@ -128,4 +180,4 @@ function view(input) {
   };
 }
 
-module.exports = { view, moneyText, periodLabel };
+module.exports = { view, moneyText, periodLabel, operatingBusiness };
