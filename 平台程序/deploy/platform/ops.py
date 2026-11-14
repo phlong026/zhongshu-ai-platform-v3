@@ -42,12 +42,7 @@ def demand(condition, message):
 
 def validate_image(image):
     demand(isinstance(image, str) and not any(c.isspace() for c in image), "Invalid image reference")
-    if "@sha256:" in image:
-        demand(re.fullmatch(r"[^@]+@sha256:[0-9a-f]{64}", image), "Invalid image digest")
-    else:
-        tag = image.rsplit("/", 1)[-1]
-        demand(":" in tag and tag.rsplit(":", 1)[1] not in ("", "latest", "edge", "main", "dev"),
-               "An audited fixed image version or digest is required")
+    demand(re.fullmatch(r"[^@]+@sha256:[0-9a-f]{64}", image), "An audited @sha256 image digest is required")
 
 
 def validate_model(model):
@@ -102,8 +97,12 @@ def validate_model(model):
     demand(len(args) == len(API_ARGUMENTS) and set(args) == {f"--{key}={value}" for key, value in API_ARGUMENTS.items()}, "API connection/migration locks changed")
     for dependency in ("postgres-b", "redis-b"):
         demand(services["api"].get("depends_on", {}).get(dependency, {}).get("condition") == "service_healthy", "Healthy dependencies required")
-    demand(services["postgres-b"]["image"] == "postgres:16.15-bookworm", "PostgreSQL version changed")
-    demand(services["redis-b"]["image"] == "redis:7.4.11-bookworm", "Redis version changed")
+    demand(services["postgres-b"]["image"] ==
+           "postgres@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9",
+           "PostgreSQL digest changed")
+    demand(services["redis-b"]["image"] ==
+           "redis@sha256:44960b3100c48159a66d28c18b0588c193492e25f7551d60e51dd464fc3eca5b",
+           "Redis digest changed")
 
 
 def validate_secret_files(model, repository=REPOSITORY):

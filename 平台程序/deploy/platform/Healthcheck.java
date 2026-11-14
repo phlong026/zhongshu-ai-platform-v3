@@ -9,7 +9,8 @@ public final class Healthcheck {
     public static void main(String[] args) {
         try {
             var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).build();
-            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:48080/actuator/health/readiness"))
+            var url = System.getenv().getOrDefault("HEALTH_URL", "http://127.0.0.1:48080/actuator/health/readiness");
+            var request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(3)).GET().build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200

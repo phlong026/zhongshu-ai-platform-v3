@@ -1,0 +1,22 @@
+# Copy outside the repository and set mode 0640, group 20000. Do not commit the populated file.
+spring.datasource.dynamic.datasource.master.password=REPLACE_WITH_EXTERNAL_SECRET
+spring.data.redis.password=REPLACE_WITH_EXTERNAL_SECRET
+zhongshu.ai.internal-secret=REPLACE_WITH_THE_SAME_RANDOM_SECRET_AS_ZS_INTERNAL_SECRET
+zhongshu.design.capability.enabled=true
+zhongshu.design.capability.keys.b-platform.caller-app-id=REPLACE_WITH_B_CALLER_APP_ID
+zhongshu.design.capability.keys.b-platform.secret-base64=REPLACE_WITH_SAME_DEDICATED_BASE64_KEY_AS_PLATFORM_CONFIG
+zhongshu.design.capability.keys.b-platform.operations=CREATE_PROJECT,LIST_PROJECTS,GET_PROJECT,GET_AI_JOB,CANCEL_AI_JOB,NOTE_POLISH,LIST_RESULT_VERSIONS,CREATE_FLAT_JOB,CREATE_ELEVATION_JOB,CONFIRM_FLAT_CANDIDATE,SELECT_ELEVATION_CANDIDATE,CREATE_REVISION_REQUEST,VALIDATE_SCHEME_REF,BUDGET_RULE_INFO,CREATE_BUDGET_ESTIMATE,CREATE_UPLOAD_TICKET,COMPLETE_UPLOAD,CREATE_DOWNLOAD_URL,QUERY_RECEIPT,GET_SETTLEMENT
+server.ssl.key-store-type=PKCS12
+server.ssl.key-store-password=REPLACE_WITH_EXTERNAL_SECRET
+server.ssl.key-alias=design-provider
+zhongshu.design.asset.storage.provider=cos
+zhongshu.design.asset.storage.cos.endpoint=https://REPLACE.cos.REPLACE.myqcloud.com
+zhongshu.design.asset.storage.cos.region=REPLACE
+zhongshu.design.asset.storage.cos.bucket=REPLACE
+zhongshu.design.asset.storage.cos.secret-id=REPLACE_WITH_EXTERNAL_SECRET
+zhongshu.design.asset.storage.cos.secret-key=REPLACE_WITH_EXTERNAL_SECRET
+zhongshu.design.asset.moderation.provider=tencent-ims
+zhongshu.design.asset.moderation.secret-id=REPLACE_WITH_EXTERNAL_SECRET
+zhongshu.design.asset.moderation.secret-key=REPLACE_WITH_EXTERNAL_SECRET
+zhongshu.design.asset.moderation.region=REPLACE
+zhongshu.design.asset.moderation.biz-type=REPLACE

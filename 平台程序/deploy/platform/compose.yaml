@@ -71,7 +71,7 @@ services:
 
   postgres-b:
     <<: *runtime
-    image: postgres:16.15-bookworm
+    image: postgres@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
     user: "999:999"
     group_add: ["20000"]
     cpus: 1.0
@@ -123,7 +123,7 @@ services:
 
   redis-b:
     <<: *runtime
-    image: redis:7.4.11-bookworm
+    image: redis@sha256:44960b3100c48159a66d28c18b0588c193492e25f7551d60e51dd464fc3eca5b
     user: "999:999"
     group_add: ["20000"]
     cpus: 0.5

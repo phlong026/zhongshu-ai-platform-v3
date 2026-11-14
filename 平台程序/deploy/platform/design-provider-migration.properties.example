@@ -1,0 +1,2 @@
+# Copy outside the repository. The owner credential is used only by the one-shot migration container.
+spring.flyway.password=REPLACE_WITH_EXTERNAL_OWNER_SECRET

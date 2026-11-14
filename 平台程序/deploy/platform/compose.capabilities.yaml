@@ -1,0 +1,246 @@
+# Overlay for the independent B design capability. Use together with compose.yaml.
+# Images are pre-built/scanned and referenced by immutable version or digest; production never builds or pulls.
+services:
+  api:
+    environment:
+      PF_DESIGN_ORIGIN: https://design-provider:48443
+      JAVA_TOOL_OPTIONS: >-
+        -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp
+        -Djavax.net.ssl.trustStore=/run/secrets/design_provider_truststore
+        -Djavax.net.ssl.trustStorePassword=changeit
+    secrets:
+      - source: design_provider_truststore
+        target: design_provider_truststore
+    depends_on:
+      design-provider: {condition: service_healthy}
+
+  design-provider-migrate:
+    image: ${DESIGN_PROVIDER_IMAGE:?Set the audited immutable B Provider image tag or digest}
+    pull_policy: never
+    user: "10002:10002"
+    group_add: ["20000"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [private]
+    cpus: 1.0
+    mem_limit: 1024m
+    pids_limit: 128
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp
+    command:
+      - migrate
+      - --spring.profiles.active=migration
+      - --spring.config.import=file:/run/secrets/design-provider-migration.properties
+      - --spring.flyway.url=jdbc:postgresql://postgres-design:5432/zhongshu_design_provider
+      - --spring.flyway.user=design_provider_owner
+    secrets:
+      - source: design_provider_migration_config
+        target: design-provider-migration.properties
+    depends_on:
+      postgres-design: {condition: service_healthy}
+    restart: "no"
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+
+  design-provider:
+    image: ${DESIGN_PROVIDER_IMAGE:?Set the audited immutable B Provider image tag or digest}
+    pull_policy: never
+    user: "10002:10002"
+    group_add: ["20000"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [private]
+    cpus: 1.0
+    mem_limit: 1536m
+    pids_limit: 256
+    tmpfs: ["/tmp:size=128m,mode=1777"]
+    environment:
+      HEALTH_URL: https://design-provider:48443/actuator/health/readiness
+      JAVA_TOOL_OPTIONS: >-
+        -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp
+        -Djavax.net.ssl.trustStore=/run/secrets/design_provider_truststore
+        -Djavax.net.ssl.trustStorePassword=changeit
+    command:
+      - --spring.config.import=file:/run/secrets/design-provider.properties
+      - --spring.main.lazy-initialization=false
+      - --spring.flyway.enabled=false
+      - --server.port=48443
+      - --server.ssl.enabled=true
+      - --server.ssl.key-store=/run/secrets/design-provider-keystore
+      - --spring.datasource.dynamic.datasource.master.url=jdbc:postgresql://postgres-design:5432/zhongshu_design_provider
+      - --spring.datasource.dynamic.datasource.master.username=design_provider_app
+      - --spring.data.redis.host=redis-design
+      - --spring.data.redis.port=6379
+      - --spring.data.redis.username=design_provider_app
+      - --zhongshu.ai.note-polish.runtime-url=http://ai-runtime:8081
+      - --zhongshu.design.driver-enabled=true
+    secrets:
+      - source: design_provider_config
+        target: design-provider.properties
+      - source: design_provider_keystore
+        target: design-provider-keystore
+      - source: design_provider_truststore
+        target: design_provider_truststore
+    depends_on:
+      design-provider-migrate: {condition: service_completed_successfully}
+      redis-design: {condition: service_healthy}
+      ai-runtime: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, java, -cp, /opt/design-provider/health, Healthcheck]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+
+  ai-runtime:
+    image: ${AI_RUNTIME_IMAGE:?Set the audited immutable B Runtime image tag or digest}
+    pull_policy: never
+    user: "1000:1000"
+    group_add: ["20000"]
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [private]
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 64
+    tmpfs: ["/tmp:size=32m,mode=1777,noexec,nosuid"]
+    entrypoint: [node, /etc/platform/runtime-start.mjs]
+    environment:
+      ZS_AI_JOURNAL_DIR: /data
+      ZS_AI_CORE_URL: https://design-provider:48443
+      NODE_EXTRA_CA_CERTS: /run/secrets/design-provider-ca.pem
+    volumes:
+      - type: bind
+        source: ${AI_RUNTIME_JOURNAL_DIR:?Set an absolute dedicated thick-provisioned ext4/xfs directory}
+        target: /data
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./runtime-start.mjs
+        target: /etc/platform/runtime-start.mjs
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./runtime-hmac-smoke.mjs
+        target: /etc/platform/runtime-hmac-smoke.mjs
+        read_only: true
+        bind: {create_host_path: false}
+    secrets:
+      - source: ai_runtime_config
+        target: ai-runtime.env
+      - source: design_provider_ca
+        target: design-provider-ca.pem
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+
+  postgres-design:
+    image: postgres@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
+    pull_policy: never
+    user: "999:999"
+    group_add: ["20000"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [private]
+    cpus: 1.0
+    mem_limit: 1024m
+    pids_limit: 128
+    shm_size: 128m
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=16m,uid=999,gid=999,mode=0770
+    environment:
+      POSTGRES_DB: zhongshu_design_provider
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/design_pg_bootstrap_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+    command: [postgres, -c, hba_file=/etc/platform/provider-pg_hba.conf, -c, password_encryption=scram-sha-256, -c, max_connections=40, -c, shared_buffers=256MB, -c, statement_timeout=60000, -c, idle_in_transaction_session_timeout=60000]
+    volumes:
+      - design-pgdata:/var/lib/postgresql/data
+      - type: bind
+        source: ./provider-postgres-init.sh
+        target: /docker-entrypoint-initdb.d/10-design-provider.sh
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./provider-pg_hba.conf
+        target: /etc/platform/provider-pg_hba.conf
+        read_only: true
+        bind: {create_host_path: false}
+    secrets: [design_pg_bootstrap_password, design_pg_owner_password, design_pg_app_password]
+    healthcheck:
+      test: [CMD-SHELL, 'PGPASSWORD="$$(cat /run/secrets/design_pg_app_password)" psql -X -h 127.0.0.1 -U design_provider_app -d zhongshu_design_provider -v ON_ERROR_STOP=1 -Atqc "SELECT 1" | grep -qx 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+
+  redis-design:
+    image: redis@sha256:44960b3100c48159a66d28c18b0588c193492e25f7551d60e51dd464fc3eca5b
+    pull_policy: never
+    user: "999:999"
+    group_add: ["20000"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [private]
+    cpus: 0.5
+    mem_limit: 384m
+    pids_limit: 64
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    entrypoint: [sh, /etc/platform/provider-redis-start.sh]
+    volumes:
+      - design-redisdata:/data
+      - type: bind
+        source: ./provider-redis-start.sh
+        target: /etc/platform/provider-redis-start.sh
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./provider-redis-health.sh
+        target: /etc/platform/provider-redis-health.sh
+        read_only: true
+        bind: {create_host_path: false}
+    secrets: [design_redis_app_password, design_redis_backup_password]
+    healthcheck:
+      test: [CMD, sh, /etc/platform/provider-redis-health.sh]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+
+volumes:
+  design-pgdata: {name: zhongshu-platform-b_design-pgdata}
+  design-redisdata: {name: zhongshu-platform-b_design-redisdata}
+
+secrets:
+  design_pg_bootstrap_password: {file: "${DESIGN_PG_BOOTSTRAP_PASSWORD_FILE:?Set external design PG bootstrap secret path}"}
+  design_pg_owner_password: {file: "${DESIGN_PG_OWNER_PASSWORD_FILE:?Set external design PG owner secret path}"}
+  design_pg_app_password: {file: "${DESIGN_PG_APP_PASSWORD_FILE:?Set external design PG app secret path}"}
+  design_redis_app_password: {file: "${DESIGN_REDIS_APP_PASSWORD_FILE:?Set external design Redis app secret path}"}
+  design_redis_backup_password: {file: "${DESIGN_REDIS_BACKUP_PASSWORD_FILE:?Set external design Redis backup secret path}"}
+  design_provider_config: {file: "${DESIGN_PROVIDER_CONFIG_FILE:?Set external provider properties path}"}
+  design_provider_migration_config: {file: "${DESIGN_PROVIDER_MIGRATION_CONFIG_FILE:?Set external provider migration properties path}"}
+  design_provider_keystore: {file: "${DESIGN_PROVIDER_KEYSTORE_FILE:?Set external provider PKCS12 keystore path}"}
+  design_provider_truststore: {file: "${DESIGN_PROVIDER_TRUSTSTORE_FILE:?Set external API truststore path}"}
+  design_provider_ca: {file: "${DESIGN_PROVIDER_CA_FILE:?Set external provider CA PEM path}"}
+  ai_runtime_config: {file: "${AI_RUNTIME_CONFIG_FILE:?Set external Runtime env path}"}
