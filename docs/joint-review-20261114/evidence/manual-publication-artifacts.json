@@ -1,0 +1,19 @@
+{
+  "miniCodeCommit": "c0b02d9c9e155a8ec938efe17f1185a9858ebaba",
+  "backendCodeCommit": "a5cc641201f8a4314d87b136b91720b1857ca6f3",
+  "backendArtifact": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/joint-review-20261114/平台程序/yudao-platform-server/target/yudao-platform-server.jar",
+  "bytes": 182691458,
+  "sha256": "cbb702707ebb2a5f0bdb18448f49bb34016af239752eb37cde2140b50239779c",
+  "verification": "actual JAR verifier exit 0; rebuilt with skipTests after 29-module test run",
+  "tests": {
+    "reactorModules": 29,
+    "total": 1122,
+    "passed": 1104,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 18,
+    "contentTotal": 64,
+    "targetedTotal": 12
+  },
+  "releaseState": "local candidate only; not pushed, deployed, uploaded or released"
+}

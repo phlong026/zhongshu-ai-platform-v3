@@ -1,0 +1,196 @@
+Filtered verification summary; original: /tmp/zs-manual-publication-content-final.log
+Aggregate [tests, failures, errors, skipped]: [1122, 0, 0, 18]
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.023 s -- in cn.iocoder.yudao.framework.common.util.collection.CollectionUtilsTest
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.100 s -- in cn.iocoder.yudao.framework.common.util.date.LocalDateTimeUtilsTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.036 s -- in cn.iocoder.yudao.framework.common.util.http.HttpUtilsTest
+[INFO] Tests run: 28, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.892 s -- in cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandlerTest
+[INFO] Tests run: 31, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.040 s -- in cn.iocoder.yudao.framework.web.core.util.SensitiveLogRedactorTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.030 s -- in cn.iocoder.yudao.framework.web.core.filter.BoundedRequestBodyTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.080 s -- in cn.iocoder.yudao.framework.apilog.core.filter.ApiAccessLogFilterTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.029 s -- in cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptorTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.057 s -- in cn.iocoder.yudao.framework.desensitize.core.DesensitizeTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.167 s -- in cn.iocoder.yudao.framework.encrypt.ApiEncryptTest
+[INFO] Tests run: 54, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.047 s -- in cn.iocoder.yudao.framework.mybatis.core.util.MyBatisUtilsTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.038 s -- in cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperXTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperXTest
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.212 s -- in cn.iocoder.yudao.framework.test.core.util.FakeHttpServerTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.631 s -- in cn.iocoder.yudao.framework.ratelimiter.core.aop.RateLimiterLoggingTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.034 s -- in cn.iocoder.yudao.framework.ratelimiter.StableRateLimiterKeyTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.105 s -- in cn.iocoder.yudao.framework.signature.core.ApiSignatureTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.095 s -- in cn.iocoder.yudao.framework.ip.core.utils.AreaUtilsTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in cn.iocoder.yudao.framework.ip.core.utils.IPUtilsTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.022 s -- in cn.iocoder.yudao.framework.excel.core.util.ExcelUtilsTest
+[INFO] Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.825 s -- in cn.iocoder.yudao.framework.excel.core.convert.MultiDictConvertTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in cn.iocoder.yudao.framework.dict.core.util.DictFrameworkUtilsTest
+[INFO] Tests run: 21, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.023 s -- in cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtilsTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.490 s -- in cn.iocoder.yudao.framework.datapermission.core.aop.DataPermissionContextHolderTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.112 s -- in cn.iocoder.yudao.framework.datapermission.core.aop.DataPermissionAnnotationInterceptorTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.136 s -- in cn.iocoder.yudao.framework.datapermission.core.rule.DataPermissionRuleFactoryImplTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.273 s -- in cn.iocoder.yudao.framework.datapermission.core.rule.dept.DeptDataPermissionRuleTest
+[INFO] Tests run: 23, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.163 s -- in cn.iocoder.yudao.framework.datapermission.core.db.DataPermissionRuleHandlerTest
+[INFO] Tests run: 43, Failures: 0, Errors: 0, Skipped: 0
+[WARNING] Tests run: 1, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.015 s -- in cn.iocoder.yudao.module.infra.framework.file.core.ftp.FtpFileClientTest
+[WARNING] Tests run: 11, Failures: 0, Errors: 0, Skipped: 6, Time elapsed: 0.505 s -- in cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest
+[WARNING] Tests run: 1, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0 s -- in cn.iocoder.yudao.module.infra.framework.file.core.sftp.SftpFileClientTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.114 s -- in cn.iocoder.yudao.module.infra.framework.file.core.utils.FileTypeUtilsTest
+[WARNING] Tests run: 5, Failures: 0, Errors: 0, Skipped: 2, Time elapsed: 0.027 s -- in cn.iocoder.yudao.module.infra.framework.file.core.local.LocalFileClientTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.034 s -- in cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptionsTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.109 s -- in cn.iocoder.yudao.module.infra.service.logger.ApiAccessLogServiceImplTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.361 s -- in cn.iocoder.yudao.module.infra.service.logger.ApiErrorLogServiceImplTest
+[INFO] Tests run: 24, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.918 s -- in cn.iocoder.yudao.module.infra.service.file.FileServiceImplTest
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.589 s -- in cn.iocoder.yudao.module.infra.service.file.FileConfigServiceImplTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.317 s -- in cn.iocoder.yudao.module.infra.service.config.ConfigServiceImplTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.620 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5EleGeneralTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.265 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5EleSchemaTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.423 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdvNextTest
+[INFO] Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.470 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineUniappTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.164 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVue2Test
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.156 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdSchemaTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.120 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenBuilderTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.144 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdGeneralTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.156 s -- in cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVue3Test
+[INFO] Tests run: 20, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.726 s -- in cn.iocoder.yudao.module.infra.service.codegen.CodegenServiceImplTest
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.490 s -- in cn.iocoder.yudao.module.infra.service.job.JobServiceImplTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.282 s -- in cn.iocoder.yudao.module.infra.service.job.JobLogServiceImplTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.250 s -- in cn.iocoder.yudao.module.infra.service.db.DatabaseTableServiceImplTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.389 s -- in cn.iocoder.yudao.module.infra.service.db.DataSourceConfigServiceImplTest
+[WARNING] Tests run: 198, Failures: 0, Errors: 0, Skipped: 10
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.200 s -- in cn.iocoder.yudao.module.system.framework.sms.core.client.impl.HuaweiSmsClientTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.079 s -- in cn.iocoder.yudao.module.system.framework.sms.core.client.impl.QiniuSmsClientTest
+[WARNING] Tests run: 7, Failures: 0, Errors: 0, Skipped: 7, Time elapsed: 0.003 s -- in cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.021 s -- in cn.iocoder.yudao.module.system.framework.sms.core.client.impl.TencentSmsClientTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.020 s -- in cn.iocoder.yudao.module.system.framework.sms.core.client.impl.AliyunSmsClientTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.274 s -- in cn.iocoder.yudao.module.system.controller.admin.oauth2.OAuth2OpenControllerTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.694 s -- in cn.iocoder.yudao.module.system.service.tenant.TenantPackageServiceImplTest
+[INFO] Tests run: 23, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.725 s -- in cn.iocoder.yudao.module.system.service.tenant.TenantServiceImplTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.297 s -- in cn.iocoder.yudao.module.system.service.notify.NotifyTemplateServiceImplTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.060 s -- in cn.iocoder.yudao.module.system.service.notify.NotifySendServiceImplTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.281 s -- in cn.iocoder.yudao.module.system.service.notify.NotifyMessageServiceImplTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.190 s -- in cn.iocoder.yudao.module.system.service.logger.OperateLogServiceImplTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.170 s -- in cn.iocoder.yudao.module.system.service.logger.LoginLogServiceImplTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.192 s -- in cn.iocoder.yudao.module.system.service.sms.SmsLogServiceImplTest
+[INFO] Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.275 s -- in cn.iocoder.yudao.module.system.service.sms.SmsTemplateServiceImplTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.228 s -- in cn.iocoder.yudao.module.system.service.sms.SmsChannelServiceTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.249 s -- in cn.iocoder.yudao.module.system.service.sms.SmsCodeServiceImplTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.103 s -- in cn.iocoder.yudao.module.system.service.sms.SmsSendServiceImplTest
+[INFO] Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.365 s -- in cn.iocoder.yudao.module.system.service.auth.AdminAuthServiceImplTest
+[INFO] Tests run: 22, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.197 s -- in cn.iocoder.yudao.module.system.service.mail.MailTemplateServiceImplTest
+[WARNING] Tests run: 9, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.177 s -- in cn.iocoder.yudao.module.system.service.mail.MailSendServiceImplTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.194 s -- in cn.iocoder.yudao.module.system.service.mail.MailAccountServiceImplTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.187 s -- in cn.iocoder.yudao.module.system.service.mail.MailLogServiceImplTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.129 s -- in cn.iocoder.yudao.module.system.service.oauth2.OAuth2CodeServiceImplTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.219 s -- in cn.iocoder.yudao.module.system.service.oauth2.OAuth2ClientServiceImplTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.062 s -- in cn.iocoder.yudao.module.system.service.oauth2.OAuth2GrantServiceImplTest
+[INFO] Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.580 s -- in cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenServiceImplTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.162 s -- in cn.iocoder.yudao.module.system.service.oauth2.OAuth2ApproveServiceImplTest
+[INFO] Tests run: 38, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.570 s -- in cn.iocoder.yudao.module.system.service.user.AdminUserServiceImplTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.248 s -- in cn.iocoder.yudao.module.system.service.user.AdminUserDeleteTokenRecycleTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.135 s -- in cn.iocoder.yudao.module.system.service.notice.NoticeServiceImplTest
+[INFO] Tests run: 28, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.043 s -- in cn.iocoder.yudao.module.system.service.social.SocialClientServiceImplTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.203 s -- in cn.iocoder.yudao.module.system.service.social.SocialUserServiceImplTest
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.145 s -- in cn.iocoder.yudao.module.system.service.dept.PostServiceImplTest
+[INFO] Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.153 s -- in cn.iocoder.yudao.module.system.service.dept.DeptServiceImplTest
+[INFO] Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.162 s -- in cn.iocoder.yudao.module.system.service.permission.MenuServiceImplTest
+[INFO] Tests run: 25, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.201 s -- in cn.iocoder.yudao.module.system.service.permission.PermissionServiceTest
+[INFO] Tests run: 22, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.171 s -- in cn.iocoder.yudao.module.system.service.permission.RoleServiceImplTest
+[INFO] Tests run: 20, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.199 s -- in cn.iocoder.yudao.module.system.service.dict.DictDataServiceImplTest
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.175 s -- in cn.iocoder.yudao.module.system.service.dict.DictTypeServiceImplTest
+[WARNING] Tests run: 480, Failures: 0, Errors: 0, Skipped: 8
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.160 s -- in cn.iocoder.yudao.module.franchise.api.DesignCapabilityContractTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in cn.iocoder.yudao.module.franchise.api.DesignServicePortContractTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.026 s -- in cn.iocoder.yudao.module.franchise.api.capability.security.CapabilitySignatureTest
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.770 s -- in cn.iocoder.yudao.module.platform.org.StaffImportServicePiiLogTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.020 s -- in cn.iocoder.yudao.module.platform.org.StaffProfileServiceTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.803 s -- in cn.iocoder.yudao.module.platform.org.StaffPostUserDeletedRecycleIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.803 s -- in cn.iocoder.yudao.module.platform.org.StaffImportTransactionIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.701 s -- in cn.iocoder.yudao.module.platform.org.DepartureHandoverDuplicatePortTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.001 s -- in cn.iocoder.yudao.module.platform.org.OrgTablesTenantIgnoreTest
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.013 s -- in cn.iocoder.yudao.module.platform.org.OrgAndPostIntegrationTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.764 s -- in cn.iocoder.yudao.module.platform.org.StaffImportServiceIntegrationTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.102 s -- in cn.iocoder.yudao.module.platform.org.StaffPostAssignContractIntegrationTest
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.279 s -- in cn.iocoder.yudao.module.platform.org.DepartureHandoverServiceIntegrationTest
+[INFO] Tests run: 68, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.813 s -- in cn.iocoder.yudao.module.platform.command.CommandLogIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.001 s -- in cn.iocoder.yudao.module.platform.command.PlatformTablesTenantIgnoreTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.353 s -- in cn.iocoder.yudao.module.platform.authz.StaffImportLogRecordResidueIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in cn.iocoder.yudao.module.platform.authz.AccessTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.407 s -- in cn.iocoder.yudao.module.platform.authz.controller.admin.MyPostControllerTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.324 s -- in cn.iocoder.yudao.module.platform.authz.controller.admin.TeamCommandServiceTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.065 s -- in cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportAccessLogFilterTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.893 s -- in cn.iocoder.yudao.module.platform.authz.controller.admin.StaffIdentityWorkflowIntegrationTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.468 s -- in cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportControllerHttpContractTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.025 s -- in cn.iocoder.yudao.module.platform.authz.controller.admin.StaffPostTemplateControllerTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.048 s -- in cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportControllerConditionalTest
+[INFO] Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.119 s -- in cn.iocoder.yudao.module.platform.authz.controller.admin.StaffOrgAdminControllerTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.017 s -- in cn.iocoder.yudao.module.platform.authz.RequestCurrentPostTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.286 s -- in cn.iocoder.yudao.module.platform.authz.OrgScopeRuleIntegrationTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.970 s -- in cn.iocoder.yudao.module.platform.authz.service.OrgOnboardIntegrationTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluatorTest
+[INFO] Tests run: 79, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.115 s -- in cn.iocoder.yudao.module.platform.workflow.ApprovalIntegrationTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in cn.iocoder.yudao.module.platform.workflow.message.MessageSenderTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in cn.iocoder.yudao.module.platform.workflow.message.PlatformMessageServiceTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in cn.iocoder.yudao.module.platform.workflow.TodoServiceTest
+[INFO] Tests run: 24, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.797 s -- in cn.iocoder.yudao.module.franchise.org.FranchiseSystemSeedTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.428 s -- in cn.iocoder.yudao.module.franchise.org.FranchiseRolesTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.557 s -- in cn.iocoder.yudao.module.franchise.org.FranchiseCommandsTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeysTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.188 s -- in cn.iocoder.yudao.module.franchise.content.provider.DeepSeekChatClientTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.017 s -- in cn.iocoder.yudao.module.franchise.content.provider.HiflyOralClientTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.022 s -- in cn.iocoder.yudao.module.franchise.content.provider.DiadiLinkClientTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in cn.iocoder.yudao.module.franchise.content.provider.MetasoH3ClientTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.027 s -- in cn.iocoder.yudao.module.franchise.content.provider.FakeContentProvidersTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in cn.iocoder.yudao.module.franchise.content.provider.DashScopeAsrClientTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in cn.iocoder.yudao.module.franchise.content.content.ContentBillingCatalogTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.65 s -- in cn.iocoder.yudao.module.franchise.content.content.ContentPublicationPgIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.206 s -- in cn.iocoder.yudao.module.franchise.content.content.ContentTaskServiceTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.035 s -- in cn.iocoder.yudao.module.franchise.content.content.ContentAssetIsolationTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.195 s -- in cn.iocoder.yudao.module.franchise.content.content.ContentPublicationServiceTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.104 s -- in cn.iocoder.yudao.module.franchise.content.content.ContentScriptServiceTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in cn.iocoder.yudao.module.franchise.content.content.ContentRulesRewriteTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.347 s -- in cn.iocoder.yudao.module.franchise.content.controller.admin.ContentPublicationHttpContractTest
+[INFO] Tests run: 64, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Reactor Summary for yudao 2026.08-SNAPSHOT:
+[INFO] yudao .............................................. SUCCESS [  0.209 s]
+[INFO] yudao-framework .................................... SUCCESS [  0.077 s]
+[INFO] yudao-common ....................................... SUCCESS [  1.361 s]
+[INFO] yudao-spring-boot-starter-web ...................... SUCCESS [  1.770 s]
+[INFO] yudao-spring-boot-starter-security ................. SUCCESS [  0.078 s]
+[INFO] yudao-spring-boot-starter-mybatis .................. SUCCESS [  0.732 s]
+[INFO] yudao-spring-boot-starter-redis .................... SUCCESS [  0.046 s]
+[INFO] yudao-spring-boot-starter-mq ....................... SUCCESS [  0.083 s]
+[INFO] yudao-spring-boot-starter-job ...................... SUCCESS [  0.034 s]
+[INFO] yudao-spring-boot-starter-test ..................... SUCCESS [  0.935 s]
+[INFO] yudao-spring-boot-starter-biz-tenant ............... SUCCESS [  0.075 s]
+[INFO] yudao-spring-boot-starter-websocket ................ SUCCESS [  0.069 s]
+[INFO] yudao-spring-boot-starter-monitor .................. SUCCESS [  0.053 s]
+[INFO] yudao-spring-boot-starter-protection ............... SUCCESS [  1.213 s]
+[INFO] yudao-spring-boot-starter-biz-ip ................... SUCCESS [  0.463 s]
+[INFO] yudao-spring-boot-starter-excel .................... SUCCESS [  2.611 s]
+[INFO] yudao-spring-boot-starter-biz-data-permission ...... SUCCESS [  1.707 s]
+[INFO] yudao-module-infra ................................. SUCCESS [ 10.486 s]
+[INFO] yudao-module-system ................................ SUCCESS [ 12.962 s]
+[INFO] design-capability-api .............................. SUCCESS [  0.503 s]
+[INFO] yudao-platform-test-support ........................ SUCCESS [  0.050 s]
+[INFO] yudao-platform-org ................................. SUCCESS [ 15.858 s]
+[INFO] yudao-domain-franchise-api ......................... SUCCESS [  0.083 s]
+[INFO] yudao-platform-command ............................. SUCCESS [  4.227 s]
+[INFO] yudao-platform-authz ............................... SUCCESS [ 13.611 s]
+[INFO] yudao-platform-workflow ............................ SUCCESS [  6.696 s]
+[INFO] yudao-domain-franchise-test-support ................ SUCCESS [  0.090 s]
+[INFO] yudao-domain-franchise-org ......................... SUCCESS [  8.406 s]
+[INFO] yudao-domain-franchise-content ..................... SUCCESS [ 12.482 s]
+[INFO] BUILD SUCCESS
+[INFO] Total time:  01:37 min
+[INFO] Finished at: 2026-11-14T10:21:10+08:00
