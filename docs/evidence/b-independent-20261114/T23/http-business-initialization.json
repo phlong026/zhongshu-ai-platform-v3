@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-11-14T23:10:00+08:00",
+  "target": {
+    "product": "B",
+    "base": "http://127.0.0.1:58081/admin-api",
+    "tenantId": 1,
+    "userId": 145
+  },
+  "headquarters": {
+    "orgId": 118,
+    "orgType": "headquarters",
+    "bossPostId": "2121619170781044738",
+    "designAdminPostId": "2121620216580415490",
+    "profileMobileMatchedPrivateFile": true,
+    "currentContextPermissionCount": 5
+  },
+  "store": {
+    "orgId": 119,
+    "orgType": "store",
+    "bossPostId": "2121620613810364417",
+    "salesPostId": "2121621022180384770",
+    "pointPoolActivated": true,
+    "pointBalance": 0,
+    "paymentTriggered": false,
+    "directBalanceWrite": false,
+    "approvalClaimed": false
+  },
+  "privateEvidence": {
+    "directoryModeRequired": "0600 files",
+    "responsesStoredOutsideRepository": true,
+    "tokenStoredInRepository": false,
+    "mobileStoredInRepository": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "capturedAt": "2026-11-14T15:05:47.144723+00:00",
+  "store": {
+    "orgId": 119,
+    "adminUserId": 145,
+    "postId": "2121620613810364417",
+    "orgType": "store",
+    "roleCode": "boss",
+    "reusedOrg": false
+  },
+  "pointPool": {
+    "activationStatus": 200,
+    "activationCode": 0,
+    "summaryStatus": 200,
+    "summaryCode": 0,
+    "balanceFields": {
+      "balance": 0
+    },
+    "directBalanceWrite": false,
+    "paymentTriggered": false,
+    "approvalClaimed": false
+  },
+  "postsMine": {
+    "status": 200,
+    "code": 0,
+    "count": 3
+  }
+}

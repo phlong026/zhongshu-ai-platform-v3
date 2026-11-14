@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-11-14T23:01:00+08:00",
+  "project": {
+    "name": "众墅之家AI赋能平台V3",
+    "appId": "wxe584f6fad7b54487",
+    "product": "B"
+  },
+  "page": "pages/profile/index",
+  "session": {
+    "tokenPresent": true,
+    "tenantId": 1,
+    "orgId": 118,
+    "orgType": "headquarters",
+    "roleCode": "boss",
+    "postId": "2121619170781044738"
+  },
+  "requests": [
+    { "method": "GET", "path": "/admin-api/franchise/company-points/summary", "status": 200, "code": 0 },
+    { "method": "GET", "path": "/admin-api/franchise/company-points/my-usage", "status": 200, "code": 0 },
+    { "method": "GET", "path": "/admin-api/franchise/company-points/summary", "status": 200, "code": 0 },
+    { "method": "GET", "path": "/admin-api/franchise/company-points/my-usage", "status": 200, "code": 0 },
+    { "method": "GET", "path": "/admin-api/platform/profile/mine", "status": 200, "code": 0 },
+    { "method": "GET", "path": "/admin-api/platform/messages/unread-count", "status": 200, "code": 0 },
+    { "method": "GET", "path": "/admin-api/franchise/content/course-progress", "status": 200, "code": 0 }
+  ],
+  "exceptionCount": 0
+}

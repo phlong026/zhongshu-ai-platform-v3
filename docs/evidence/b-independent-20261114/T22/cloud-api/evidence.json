@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "provider": "Tencent Cloud",
+  "accountUin": "100045498012",
+  "region": "ap-shanghai",
+  "instanceId": "ins-4m1linvl",
+  "collectedAt": "2026-11-14T14:25:21Z",
+  "source": {"kind": "Tencent Cloud API Explorer", "authentication": "user-completed MFA", "captureBoundary": "visible response bodies only; no headers, cookies, or temporary credentials"},
+  "responses": {
+    "DescribeDisks": {"file": "describe-disks.response.json", "requestId": "c9642527-9b4c-4625-a134-ae0e94650431", "status": "success", "totalCount": 2},
+    "DescribeInstances": {"file": "describe-instances.response.json", "requestId": "174fc883-d4d3-44db-89d4-298bdbd24043", "status": "success", "totalCount": 1},
+    "GetCallerIdentity": {"file": "get-caller-identity.response.json", "requestId": "c8bfe787-7d76-4d04-95be-04d35002af96", "status": "error", "errorCode": "InvalidParameter.AccessKeyNotSupport"}
+  },
+  "crossChecks": {
+    "instanceState": "RUNNING",
+    "zone": "ap-shanghai-5",
+    "systemDiskId": "disk-731jrb7z",
+    "systemDiskControlPlaneMatch": true,
+    "dataDiskId": "disk-aqc9ak09",
+    "dataDiskControlPlaneMatch": true,
+    "allReturnedDisksAttached": true,
+    "allReturnedDisksShareable": false,
+    "allReturnedDisksEncrypted": false
+  },
+  "limitations": [
+    "GetCallerIdentity cannot validate account identity for the API Explorer temporary token; it returned InvalidParameter.AccessKeyNotSupport.",
+    "The console UI displayed UIN 100045498012, but that is not a successful STS caller-identity proof.",
+    "This evidence is a point-in-time control-plane observation and is not a provider attestation of guest serial, thick provisioning, or physical fault domain."
+  ]
+}

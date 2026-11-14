@@ -1,0 +1,29 @@
+{
+  "aFilesUnchanged": true,
+  "aServicesUnchanged": true,
+  "health": {
+    "a-api": {
+      "status": 200,
+      "body": {
+        "status": "UP"
+      }
+    },
+    "a-runtime": {
+      "status": 200,
+      "body": {
+        "status": "UP",
+        "version": "1.0.0"
+      }
+    },
+    "b-api": {
+      "status": 200,
+      "body": {
+        "status": "UP"
+      }
+    }
+  },
+  "aNginxReloadedByThisTask": false,
+  "newPaidResourcesActivated": 0,
+  "publicPortsOpened": 0,
+  "bProviderPendingRealRuntimeCredentials": true
+}

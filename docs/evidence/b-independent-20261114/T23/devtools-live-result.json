@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-11-14T15:02:06.237Z",
+  "project": {
+    "appId": "wxe584f6fad7b54487",
+    "name": "众墅之家AI赋能平台V3"
+  },
+  "entry": {
+    "page": "pages/admin/home/index",
+    "role": "boss",
+    "orgType": "headquarters"
+  },
+  "pageData": {
+    "title": "首页",
+    "role": "",
+    "apiMode": false,
+    "loading": false,
+    "error": ""
+  },
+  "requests": [],
+  "exceptions": [],
+  "checks": {
+    "sessionActive": true,
+    "allObservedRequestsSucceeded": true,
+    "noRuntimeException": true
+  },
+  "limits": [
+    "未调用短信发送",
+    "未触发AI外部供应商调用",
+    "未验证缺少供应商密钥的AI生成成功"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-11-14T15:05:19.171Z",
+  "action": "老板工作台点击经营简报",
+  "from": "pages/admin/home/index",
+  "to": "pages/admin/brief/index",
+  "pageData": {
+    "ready": true,
+    "error": "",
+    "archiveError": "",
+    "hasBrief": true
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/performance/operating/snapshots",
+      "status": 200,
+      "code": 0,
+      "error": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/performance/operating/analytics",
+      "status": 200,
+      "code": 0,
+      "error": ""
+    }
+  ],
+  "exceptions": [],
+  "check": {
+    "routeReached": true,
+    "allRequestsSucceeded": true,
+    "noRuntimeException": true
+  }
+}

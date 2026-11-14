@@ -1,0 +1,18 @@
+{
+  "scope": "B integration database component backups; no global writer freeze or production DR claim",
+  "databases": {
+    "zhongshu_platform_b": {
+      "bytes": 727922,
+      "sha256": "e4153b38562f6d93d9994326ff3f4ad75a3d1c5fff3b1544b7847a8cee4d31f2",
+      "restoredMigrationCount": 78
+    },
+    "zhongshu_design_provider": {
+      "bytes": 261399,
+      "sha256": "6ea41923744038fc1e60c8c7022a52e978e81f4f200d721eb414f1e0f1cfef21",
+      "restoredMigrationCount": 70
+    }
+  },
+  "isolatedRestore": "passed",
+  "network": "none",
+  "serverDataWrittenDuringRestore": false
+}

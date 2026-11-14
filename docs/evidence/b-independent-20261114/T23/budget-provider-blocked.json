@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-11-14T23:20:00+08:00",
+  "target": {
+    "tenantId": 1,
+    "orgId": 119,
+    "postId": "2121621022180384770",
+    "roleCode": "sales"
+  },
+  "probe": {
+    "method": "GET",
+    "path": "/admin-api/franchise/design/budget/rule-info",
+    "query": {
+      "regionCode": "LOCAL_IT",
+      "structureType": "FRAME",
+      "materialGrade": "STANDARD"
+    },
+    "attempts": 4,
+    "httpStatus": 200,
+    "bodyCode": 500,
+    "result": "blocked"
+  },
+  "blocker": "B Runtime 缺少真实供应商凭据，Provider readiness 不能通过",
+  "safety": {
+    "fakeCredentialUsed": false,
+    "budgetEstimateCreated": false,
+    "aiJobCreated": false,
+    "paymentTriggered": false,
+    "companyPointBalanceAfterProbe": 0
+  }
+}

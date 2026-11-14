@@ -1,0 +1,50 @@
+{
+  "recordedAt": "2026-11-14T14:22:11.265771+00:00",
+  "scope": "B independent CBS identity and deployment readiness only",
+  "runtime": {
+    "command": "npm test (ai-runtime-b)",
+    "tests": 132,
+    "passed": 132,
+    "failed": 0,
+    "skipped": 0
+  },
+  "storageAndDeployment": {
+    "command": "python3 -B -m unittest discover -s deploy/platform -p test*.py",
+    "tests": 65,
+    "passed": 63,
+    "failed": 0,
+    "skipped": 2,
+    "status": "passed; both Linux-only skips separately passed in isolated Linux"
+  },
+  "linuxMountRegression": {
+    "environment": "local Docker 6771159cd4fa; network none; repository readonly; tmpfs /tmp",
+    "tests": [
+      "test_secure_journal_archive_rejects_real_linux_bind_submount",
+      "test_backup_target_rejects_real_linux_mount_detach"
+    ],
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0
+  },
+  "financialHold": {
+    "newCbs": false,
+    "kmsActivation": false,
+    "snapshots": false,
+    "backupPoints": false
+  },
+  "productionDeployment": false,
+  "collector": {
+    "offline": "passed",
+    "cliPermissions": "passed",
+    "javaToPythonContract": "passed"
+  },
+  "review": {
+    "P0": 0,
+    "P1": 0,
+    "P2": 0
+  },
+  "runtimeProductionDependencyAudit": {
+    "vulnerabilities": 0
+  },
+  "laterIntegrationDeployment": "See T23; production storage approval remains separate"
+}

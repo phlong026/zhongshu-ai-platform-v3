@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "provider": "Tencent Cloud API Explorer",
+  "collectedAt": "2026-11-14T14:25:21Z",
+  "api": {"service": "cbs", "version": "2017-03-12", "action": "DescribeDisks", "region": "ap-shanghai"},
+  "request": {"Filters": [{"Name": "instance-id", "Values": ["ins-4m1linvl"]}], "Limit": 100, "Offset": 0},
+  "response": {
+    "Response": {
+      "DiskSet": [
+        {"Attached": true, "AutoRenewFlagError": false, "AutoSnapshotPolicyIds": null, "BackupDisk": false, "BurstPerformance": false, "CreateTime": "2026-09-07 15:13:43", "DeadlineError": false, "DeadlineTime": "2027-09-12 15:14:03", "DeleteSnapshot": 0, "DeleteWithInstance": true, "DifferDaysOfDeadline": 301, "DiskBackupCount": 0, "DiskBackupQuota": 0, "DiskChargeType": "PREPAID", "DiskId": "disk-731jrb7z", "DiskName": "未命名_系统盘", "DiskSize": 40, "DiskState": "ATTACHED", "DiskType": "CLOUD_PREMIUM", "DiskUsage": "SYSTEM_DISK", "Encrypt": false, "EncryptType": "", "ErrorPrompt": "", "InstanceId": "ins-4m1linvl", "InstanceIdList": ["ins-4m1linvl"], "InstanceType": "CVM", "IsReturnable": false, "LastAttachInsId": null, "MigratePercent": 0, "Migrating": false, "Placement": {"CageId": "", "CdcId": "", "CdcName": "", "DedicatedClusterId": null, "ProjectId": 0, "ProjectName": "默认项目", "Zone": "ap-shanghai-5"}, "Portable": false, "RenewFlag": "NOTIFY_AND_MANUAL_RENEW", "ReturnFailCode": 10, "RollbackPercent": 0, "Rollbacking": false, "Shareable": false, "SnapshotAbility": true, "SnapshotCount": 0, "SnapshotSize": 0, "Tags": [], "ThroughputPerformance": 0},
+        {"Attached": true, "AutoRenewFlagError": false, "AutoSnapshotPolicyIds": null, "BackupDisk": false, "BurstPerformance": false, "CreateTime": "2026-09-07 15:13:36", "DeadlineError": true, "DeadlineTime": "2027-09-07 15:14:03", "DeleteSnapshot": 0, "DeleteWithInstance": false, "DifferDaysOfDeadline": 296, "DiskBackupCount": 1, "DiskBackupQuota": 1, "DiskChargeType": "PREPAID", "DiskId": "disk-aqc9ak09", "DiskName": "未命名_数据盘_1", "DiskSize": 40, "DiskState": "ATTACHED", "DiskType": "CLOUD_PREMIUM", "DiskUsage": "DATA_DISK", "Encrypt": false, "EncryptType": "", "ErrorPrompt": "", "InstanceId": "ins-4m1linvl", "InstanceIdList": ["ins-4m1linvl"], "InstanceType": "CVM", "IsReturnable": true, "LastAttachInsId": "ins-4m1linvl", "MigratePercent": 0, "Migrating": false, "Placement": {"CageId": "", "CdcId": "", "CdcName": "", "DedicatedClusterId": null, "ProjectId": 0, "ProjectName": "默认项目", "Zone": "ap-shanghai-5"}, "Portable": true, "RenewFlag": "NOTIFY_AND_MANUAL_RENEW", "ReturnFailCode": 0, "RollbackPercent": 0, "Rollbacking": false, "Shareable": false, "SnapshotAbility": true, "SnapshotCount": 0, "SnapshotSize": 0, "Tags": [], "ThroughputPerformance": 0}
+      ],
+      "RequestId": "c9642527-9b4c-4625-a134-ae0e94650431",
+      "TotalCount": 2
+    }
+  },
+  "captureBoundary": "Visible response-editor body only; headers, cookies, and temporary credentials were not captured."
+}

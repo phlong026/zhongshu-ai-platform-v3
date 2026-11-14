@@ -1,0 +1,83 @@
+{
+  "capturedAt": "2026-11-14T15:06:37.226Z",
+  "appId": "wxe584f6fad7b54487",
+  "defaultSession": {
+    "userId": 145,
+    "orgId": 119,
+    "orgType": "store",
+    "roleCode": "boss",
+    "postId": "2121620613810364417",
+    "postCount": 3,
+    "tokenPresent": true
+  },
+  "profileRequests": [
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/company-points/summary",
+      "status": 200,
+      "code": 0,
+      "balance": 0,
+      "error": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/company-points/my-usage",
+      "status": 200,
+      "code": 0,
+      "error": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/company-points/summary",
+      "status": 200,
+      "code": 0,
+      "balance": 0,
+      "error": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/company-points/my-usage",
+      "status": 200,
+      "code": 0,
+      "error": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/platform/profile/mine",
+      "status": 200,
+      "code": 0,
+      "error": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/platform/messages/unread-count",
+      "status": 200,
+      "code": 0,
+      "error": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/content/course-progress",
+      "status": 200,
+      "code": 0,
+      "error": ""
+    }
+  ],
+  "home": {
+    "route": "pages/admin/home/index",
+    "ready": true,
+    "hasDesk": true,
+    "error": "",
+    "actor": {
+      "role": "boss",
+      "companyId": 119
+    },
+    "company": "众墅之家联调公司"
+  },
+  "exceptions": [],
+  "checks": {
+    "storeSummaryZero": true,
+    "homeReady": true,
+    "noRuntimeException": true
+  }
+}

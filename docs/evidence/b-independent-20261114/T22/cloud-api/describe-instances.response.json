@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "provider": "Tencent Cloud API Explorer",
+  "collectedAt": "2026-11-14T14:25:21Z",
+  "api": {"service": "cvm", "version": "2017-03-12", "action": "DescribeInstances", "region": "ap-shanghai"},
+  "request": {"InstanceIds": ["ins-4m1linvl"]},
+  "response": {
+    "Response": {
+      "InstanceSet": [{"CPU": 8, "CamRoleName": "", "CpuTopology": {"CoreCount": 4, "ThreadPerCore": 2}, "CreatedTime": "2026-09-07T07:14:03Z", "DataDisks": [{"CdcId": null, "DeleteWithInstance": false, "DiskId": "disk-aqc9ak09", "DiskSize": 40, "DiskType": "CLOUD_PREMIUM", "Encrypt": false, "KmsKeyId": null, "ThroughputPerformance": 0}], "DedicatedClusterId": "", "DefaultLoginPort": 22, "DefaultLoginUser": "ubuntu", "DisableApiTermination": false, "ExpiredTime": "2027-09-12T07:14:03Z", "HpcClusterId": "", "IPv6Addresses": null, "ImageId": "img-dk53t5vb", "InstanceChargeType": "PREPAID", "InstanceId": "ins-4m1linvl", "InstanceName": "未命名", "InstanceState": "RUNNING", "InstanceType": "BF1.2XLARGE16", "InternetAccessible": {"InternetChargeType": "BANDWIDTH_PREPAID", "InternetMaxBandwidthOut": 5}, "IsolatedSource": "NOTISOLATED", "LatestOperation": "AssociateInstancesKeyPairs", "LatestOperationErrorMsg": null, "LatestOperationRequestId": "86945dc0-0dfe-420a-abd0-df5471e91b92", "LatestOperationState": "SUCCESS", "LicenseType": "TencentCloud", "LoginSettings": {"KeyIds": ["skey-khj2fjqx"]}, "Memory": 16, "OsName": "Ubuntu Server 26.04 LTS 64位", "Placement": {"HostId": null, "ProjectId": 0, "Zone": "ap-shanghai-5"}, "PrivateIpAddresses": ["172.17.0.16"], "PublicIpAddresses": ["124.223.61.18"], "RdmaIpAddresses": null, "RenewFlag": "NOTIFY_AND_MANUAL_RENEW", "RestrictState": "NORMAL", "SecurityGroupIds": ["sg-qz4yox40"], "StopChargingMode": "NOT_APPLICABLE", "SystemDisk": {"CdcId": null, "DiskId": "disk-731jrb7z", "DiskSize": 40, "DiskType": "CLOUD_PREMIUM", "Encrypt": false, "KmsKeyId": null}, "Tags": [], "Uuid": "6694b472-4871-4111-9f5e-5637a47a6ebf", "VirtualPrivateCloud": {"AsVpcGateway": false, "SubnetId": "subnet-kwubc4zd", "VpcId": "vpc-huwiee18"}}],
+      "RequestId": "174fc883-d4d3-44db-89d4-298bdbd24043",
+      "TotalCount": 1
+    }
+  },
+  "captureBoundary": "Visible response-editor body only; headers, cookies, and temporary credentials were not captured."
+}

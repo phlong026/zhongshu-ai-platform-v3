@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "provider": "Tencent Cloud API Explorer",
+  "collectedAt": "2026-11-14T14:25:21Z",
+  "api": {"service": "sts", "version": "2018-08-13", "action": "GetCallerIdentity", "region": "ap-shanghai"},
+  "request": {},
+  "response": {"Response": {"Error": {"Code": "InvalidParameter.AccessKeyNotSupport", "Message": "token not support. | only support assumeRole or federated user secret"}, "RequestId": "c8bfe787-7d76-4d04-95be-04d35002af96"}},
+  "captureBoundary": "Visible response-editor body only; this API Explorer temporary token is not supported by GetCallerIdentity. Headers, cookies, and temporary credentials were not captured."
+}

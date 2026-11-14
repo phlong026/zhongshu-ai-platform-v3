@@ -1,0 +1,17 @@
+{
+  "evidenceSha256": "f59245da3c25e1fd0de4291a439cbd042a54a0ca5196010b4f0ad7f1b641fa58",
+  "accountUin": "100045498012",
+  "systemDiskId": "disk-731jrb7z",
+  "disks": [
+    "disk-731jrb7z",
+    "disk-aqc9ak09"
+  ],
+  "provenance": {
+    "sts": "Official SDK, existing B COS audit identity; no IAM changes",
+    "cvmAndCbs": "MFA-authenticated API Explorer; visible JSON responses only",
+    "captureStart": "2026-11-14T14:25:21Z",
+    "collectionCompletedAt": "2026-11-14T14:28:09.137097+00:00"
+  },
+  "secretsIncluded": false,
+  "signedStorageApproval": false
+}

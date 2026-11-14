@@ -1,0 +1,66 @@
+{
+  "collectedAt": "2026-11-14T15:02:23.459256+00:00",
+  "health": {
+    "a-api": {
+      "status": 200,
+      "body": {
+        "status": "UP"
+      }
+    },
+    "a-runtime": {
+      "status": 200,
+      "body": {
+        "status": "UP",
+        "version": "1.0.0"
+      }
+    },
+    "b-api": {
+      "status": 200,
+      "body": {
+        "status": "UP"
+      }
+    }
+  },
+  "services": {
+    "zhongshu.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestamp": "Sat 2026-11-14 17:44:06 CST",
+      "MemoryCurrent": "1796415488",
+      "CPUQuotaPerSecUSec": "infinity",
+      "MemoryMax": "infinity"
+    },
+    "zhongshu-runtime.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestamp": "Tue 2026-10-20 08:39:04 CST",
+      "MemoryCurrent": "372162560",
+      "CPUQuotaPerSecUSec": "infinity",
+      "MemoryMax": "infinity"
+    },
+    "zhongshu-platform-b-integration.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestamp": "Sat 2026-11-14 22:57:50 CST",
+      "MemoryCurrent": "613863424",
+      "CPUQuotaPerSecUSec": "1.500000s",
+      "MemoryMax": "1610612736"
+    },
+    "zhongshu-platform-b-integration-provider.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestamp": "Sat 2026-11-14 23:02:16 CST",
+      "MemoryCurrent": "191537152",
+      "CPUQuotaPerSecUSec": "1s",
+      "MemoryMax": "1342177280"
+    }
+  },
+  "aFiles": {
+    "/opt/zhongshu/yudao-server.jar": "a5e05c5b1b6317b3022c3c3057f45696a0222c0e9f9d532aa26609ae57401e91",
+    "/etc/nginx/sites-enabled/zhongshu.conf": "86895e61bcee1e8473692238dd9db29c48188551ea5b1fece8706b8bb59d32fc",
+    "/etc/nginx/sites-enabled/api2.zszhj.com.conf": "45d642816891e3cd4d4899f8615ab81cede9d7403d0bf6b717b19e9e6d51fbc2"
+  },
+  "docker": [
+    "zhongshu-platform-b-integration-postgres-design-1|Up 2 minutes (healthy)",
+    "zhongshu-platform-b-integration-redis-design-1|Up 2 minutes (healthy)",
+    "zhongshu-platform-b-integration-postgres-b-1|Up 18 minutes (healthy)",
+    "zhongshu-platform-b-integration-redis-b-1|Up 18 minutes (healthy)"
+  ],
+  "disk": "Filesystem       1B-blocks        Used       Avail Mounted on\n/dev/vda3      41601839104 22213885952 17575444480 /\n/dev/vdb       41956900864   129744896 39662895104 /mnt/datadisk0\n"
+}

@@ -1,0 +1,74 @@
+{
+  "capturedAt": "2026-11-14T15:04:33.878078+00:00",
+  "sessionProject": {
+    "product": "B",
+    "appId": "wxe584f6fad7b54487",
+    "tenantId": 1,
+    "orgId": 118,
+    "postId": "2121620216580415490",
+    "roleCode": "hq-design-admin"
+  },
+  "boundary": {
+    "publicCatalogReadAuthority": "A via B read-only proxy",
+    "favoriteWriteAuthority": "B local fr_design_case_favorite",
+    "aFavoriteEndpointCalled": false
+  },
+  "case": {
+    "caseId": "2112123885294055425",
+    "title": "田园一层4室2厅",
+    "allowedActions": [
+      "FAVORITE"
+    ]
+  },
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/design/favorites?limit=50",
+      "status": 200,
+      "code": 0,
+      "count": 0
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/design/cases?limit=20",
+      "status": 200,
+      "code": 0,
+      "count": 20
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/design/cases/{caseId}",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "PUT",
+      "path": "/admin-api/franchise/design/cases/{caseId}/favorite",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/design/favorites?limit=50",
+      "status": 200,
+      "code": 0,
+      "count": 1,
+      "containsSelected": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin-api/franchise/design/cases/{caseId}/favorite",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "path": "/admin-api/franchise/design/favorites?limit=50",
+      "status": 200,
+      "code": 0,
+      "count": 0,
+      "containsSelected": false
+    }
+  ],
+  "restored": true
+}

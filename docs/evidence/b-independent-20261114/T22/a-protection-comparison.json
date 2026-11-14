@@ -1,0 +1,13 @@
+{
+  "unchanged": {
+    "files": true,
+    "services": true,
+    "health": true
+  },
+  "health": {
+    "api": 200,
+    "runtime": 200
+  },
+  "aServicesRestartedByThisTask": false,
+  "aFilesWrittenByThisTask": false
+}

@@ -1,0 +1,10 @@
+{
+  "Response": {
+    "Type": "CAMUser",
+    "AccountId": "100045498012",
+    "UserId": "100055125769",
+    "PrincipalId": "100055125769",
+    "Arn": "qcs::cam:100045498012:uin/100055125769",
+    "RequestId": "67e16618-e6b7-4c1b-a36d-ea706fce9f79"
+  }
+}

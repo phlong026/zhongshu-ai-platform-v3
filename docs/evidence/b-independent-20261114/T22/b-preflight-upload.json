@@ -1,0 +1,11 @@
+{
+  "directory": "/opt/zhongshu-platform-b-preflight/20261114-cbs-readiness-89f97ed5",
+  "files": 8,
+  "bytes": 16553,
+  "rootMode": "0700",
+  "fileMode": "0600",
+  "noSecrets": true,
+  "servicesStarted": false,
+  "nginxActivated": false,
+  "manifestSha256": "eed8e1b9c8ff347406120fe6d2f14c9907977d3b672f788653d35ae1632a237a"
+}
