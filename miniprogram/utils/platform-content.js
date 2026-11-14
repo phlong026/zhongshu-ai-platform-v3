@@ -70,15 +70,14 @@ function validateShareLink(link) {
   return '';
 }
 
-/** 发布表单校验（对齐后端 INPUT_INVALID 语义；定时≥1 分钟由后端终判，前端同款预判） */
-function validatePublicationForm(form, now) {
+/** 首发仅登记手动发布元数据：账号名称/标识不代表平台授权。 */
+function validatePublicationForm(form) {
   if (!String(form.title || '').trim()) return '请填写标题';
   if (!String(form.publishText || '').trim()) return '请填写发布文案';
-  if (form.scheduled) {
-    const time = new Date(String(form.scheduled).replace(' ', 'T') + ':00');
-    if (!Number.isFinite(time.getTime())) return '请选择有效的定时时间';
-    if (time.getTime() < (now || Date.now()) + 60000) return '定时发布需至少提前1分钟';
-  }
+  const accountId = String(form.accountId || '').trim();
+  if (!accountId) return '请填写实际发布账号名称或标识';
+  if (accountId.length > 64) return '发布账号名称或标识需为1-64个字符';
+  if (!['douyin', 'channels'].includes(form.platform)) return '请选择发布平台';
   return '';
 }
 
@@ -107,7 +106,7 @@ function rowsOf(rows) {
   return [];
 }
 
-/** 发布回执状态机：publishing 必须先核验，verify 才能登记链接。 */
+/** 手动发布回执：新 publishing 与历史 scheduled 均由用户登记时先核验，verify 才能写链接。 */
 async function savePublicationReceipt({ status, url, currentUrl, verify, link, alive = () => true }) {
   const requireAlive = () => { if (!alive()) throw { stale: true, silent: true, message: '旧会话操作已忽略' }; };
   if (status === 'published') {
@@ -115,7 +114,7 @@ async function savePublicationReceipt({ status, url, currentUrl, verify, link, a
     throw new Error('该作品已登记发布链接，如需更正请联系管理员');
   }
   requireAlive();
-  if (status === 'publishing') { await verify(); requireAlive(); }
+  if (status === 'publishing' || status === 'scheduled') { await verify(); requireAlive(); }
   else if (status !== 'verify') throw new Error('当前发布状态不能登记链接，请刷新后重试');
   requireAlive();
   await link();

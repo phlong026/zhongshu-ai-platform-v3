@@ -3,22 +3,23 @@ const { unavailable, assets } = require('../../utils/creation');
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：七态映射/校验/降级）
 const contentApi=P.api;                                 // /franchise/content/** 契约层
 const http=require('../../api/http');
+const auth=require('../../api/auth');
 const titles = { remix: '文案二创', digital: '数字人口播', tasks: '任务中心', result: '视频结果', publish: '发布设置', receipt:'登记发布链接', records: '发布记录', detail: '发布详情', works: '我的作品', library: '素材库', recent: '全部创作' };
 const statusInfo = {
-publishing: { label: '待登记链接', icon: 'clock', tone: 'warm', action: '补填链接' },
+publishing: { label: '待手动发布', icon: 'clock', tone: 'warm', action: '登记链接' },
 published: { label: '已发布', icon: 'check-green', tone: 'green', action: '查看回执' },
 verify: { label: '待核实', icon: 'warning', tone: 'yellow', action: '核实结果', note: '请勿重复发布' },
-failed: { label: '失败', icon: 'error', tone: 'red', action: '查看原因', note: '账号授权已失效' },
-scheduled: { label: '待发布', icon: 'clock', tone: 'warm', action: '查看进度' }
+failed: { label: '失败', icon: 'error', tone: 'red', action: '查看原因', note: '发布记录处理失败，请查看原因' },
+scheduled: { label: '待手动发布', icon: 'clock', tone: 'warm', action: '登记链接', note: '定时发布已关闭，请手动发布后登记链接' }
 };
 Page({
 data: { 
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
 ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
-tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,tasksError:'',
+tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', publishPlatform:'douyin',publishAccount:'',publicationSaving:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,tasksError:'',recordsError:'',detailError:'',
 publishText: '想把二层乡墅住得舒适，先从家人的日常出发。\n采光、动线和通风，才是住得舒服的关键。',
-tags: '#乡墅设计  #农村建房', scheduled: '', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
+tags: '#乡墅设计  #农村建房', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
 actor: '李顾问', voice: '李顾问原声', filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
 },
 onLoad(options) {
@@ -36,11 +37,14 @@ return;
 }
 if (view === 'publish') {
 const draft = options.work && state.publishDrafts ? state.publishDrafts[options.work] : null; // 发布表单草稿（本地暂存，非演示集合）
-if (draft) this.setData(draft);
+if (draft) this.setData({
+title:String(draft.title||''),publishText:String(draft.publishText||''),tags:String(draft.tags||''),cover:draft.cover||this.data.cover,workId:options.work,
+publishAccount:typeof draft.publishAccount==='string'?draft.publishAccount:'',publishPlatform:['douyin','channels'].includes(draft.publishPlatform)?draft.publishPlatform:'douyin'
+}); // 旧 selectedAccount/scheduled 草稿不进入首发手动登记表单
 if (options.work && http.token()) this.loadApiWork(options.work); // 在线作品：接口回读，缺失不拦截
 }
 if (view === 'remix' && state.rewriteSettings) this.setData(state.rewriteSettings);
-const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,scheduled:c.pack.scheduled,selectedAccount:studio.accounts.findIndex(a=>a.id===c.pack.accountId)});}
+const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover});}
 this.refreshData();
 if(view==='receipt'){
 this.setData({publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||''});
@@ -62,8 +66,8 @@ state.rewriteSettings = { rewriteMode, ipIndex, customIp: customIp || '', requir
 }
 if (this.data.view === 'publish' && !this.data.invalidMessage && this.data.workId) {
 const state = studio.read();
-const { title, publishText, tags, selectedAccount, scheduled, cover, workId } = this.data;
-state.publishDrafts[workId] = { title, publishText, tags, selectedAccount, scheduled, cover, workId }; studio.write(state);
+const { title, publishText, tags, publishAccount, publishPlatform, cover, workId } = this.data;
+state.publishDrafts[workId] = { title, publishText, tags, publishAccount, publishPlatform, cover, workId }; studio.write(state);
 }
 },
 refreshData() {
@@ -73,6 +77,8 @@ const state = studio.read();
 this.setData({ title: state.title, original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), scriptLength: state.script.length, estimatedSeconds: Math.ceil(state.script.replace(/\s/g, '').length / 4), extraction: state.extraction || null, rewriteVersion: (state.rewriteHistory[state.rewriteHistory.length - 1] || {}).version || 0 });
 }
 if (this.data.view === 'tasks') this.syncApiTasks();
+if (this.data.view === 'records') this.loadApiRecords();
+if (this.data.view === 'detail') this.loadApiDetail(this.data.recordId);
 return;
 }
 // 无 token：清空演示集合并提示登录（不回落本地数据）
@@ -103,6 +109,56 @@ script: text, failedReason: String(task.failedReason || ''), resultUrl: String(t
 configuration: {}, image: studio.imageFor({ kind }), kindLabel: studio.kindLabel(kind)
 };
 },
+publicationLoadContext() {
+const post=auth.currentApiPost()||{};
+return {session:http.sessionGeneration(),orgId:String(post.orgId||''),postId:String(post.postId||''),userId:String(post.userId||'')};
+},
+publicationLoadAlive(context,gen) {
+const post=auth.currentApiPost()||{};
+return gen===this.__publicationLoadGen&&context.session===http.sessionGeneration()
+&&context.orgId===String(post.orgId||'')&&context.postId===String(post.postId||'');
+},
+mapApiPublication(row) {
+if(!row||row.id==null&&row.publicationId==null)return null;
+const id=String(row.id!=null?row.id:row.publicationId),status=String(row.status||'publishing');
+const info=statusInfo[status]||{label:'状态待确认',icon:'warning',tone:'yellow',action:'查看详情'};
+const platform=['douyin','channels'].includes(row.platform)?row.platform:'douyin';
+const post=auth.currentApiPost()||{},authorUserId=String(row.authorUserId||'');
+const explicitlyOther=!!authorUserId&&post.userId!=null&&String(post.userId)!==authorUserId;
+const displayTime=studio.formatTime(row.publishedAt||row.createTime||row.scheduledAt||'');
+return {id,apiRecord:true,workId:String(row.workId||''),title:String(row.title||''),publishText:String(row.publishText||''),tags:String(row.tags||''),
+platform,account:String(row.accountId||row.accountName||row.account||'未记录'),authorUserId,status,publishedUrl:String(row.publishedUrl||''),
+contentId:String(row.contentId||''),kindLabel:studio.kindLabel(row.kind==='ai_video'?'ai':(row.kind||'digital')),cover:'/assets/studio-publication-cover.jpg',
+label:info.label,icon:info.icon,tone:info.tone,action:info.action||'查看详情',note:String(row.failureReason||info.note||''),
+time:displayTime,displayTime,timeLabel:status==='published'?'链接登记时间':'记录创建时间',identifier:id,canRegisterLink:!explicitlyOther};
+},
+loadApiRecords() {
+const gen=this.__publicationLoadGen=(this.__publicationLoadGen||0)+1,context=this.publicationLoadContext(),filter=this.data.recordFilter;
+this.setData({recordsError:''});
+contentApi.publications.page().then(rows=>{
+if(!this.publicationLoadAlive(context,gen)||this.data.view!=='records')return;
+const mapped=P.rowsOf(rows).map(row=>this.mapApiPublication(row)).filter(Boolean);
+const records=mapped.filter(row=>filter===0||(filter===1&&['publishing','verify','scheduled'].includes(row.status))||(filter===2&&row.status==='published')||(filter===3&&row.status==='failed'));
+this.setData({records,recordsError:''});
+}).catch(error=>{if(this.publicationLoadAlive(context,gen)&&this.data.view==='records')this.setData({records:[],recordsError:P.degradeMessage(error)});});
+},
+retryRecords(){this.loadApiRecords();},
+loadApiDetail(recordId) {
+const gen=this.__publicationLoadGen=(this.__publicationLoadGen||0)+1,context=this.publicationLoadContext();
+this.setData({detailError:''});
+contentApi.publications.page().then(rows=>{
+if(!this.publicationLoadAlive(context,gen)||this.data.view!=='detail')return;
+const row=P.rowsOf(rows).find(item=>item&&String(item.id!=null?item.id:item.publicationId)===String(recordId));
+if(!row)throw Error('发布记录不存在或已不可见');
+const detail=this.mapApiPublication(row);
+const timeline=[{label:'发布记录已创建',time:studio.formatTime(row.createTime||'')}];
+if(detail.status==='scheduled')timeline.push({label:'定时发布已关闭，请手动发布后登记链接',time:''});
+else if(detail.status==='published')timeline.push({label:'发布链接已登记',time:studio.formatTime(row.publishedAt||'')});
+else timeline.push({label:detail.label,time:''});
+this.setData({detail,timeline,detailError:''});
+}).catch(error=>{if(this.publicationLoadAlive(context,gen)&&this.data.view==='detail')this.setData({detail:null,timeline:[],detailError:P.degradeMessage(error)});});
+},
+retryPublicationDetail(){this.loadApiDetail(this.data.recordId);},
 go(view, query) {
 const options = { url: '/pages/studio/index?view=' + view + (query || '') };
 require('../../utils/page-navigation').open(options.url);
@@ -346,61 +402,58 @@ if (!task) { this.refreshData(); return; }
 if (task.kind === 'ai') wx.navigateTo({ url: '/pages/ai-video/index?task=' + encodeURIComponent(task.id) });
 else { state.script = task.script || ''; state.title = task.title; delete state.editorBuffer; studio.write(state); this.go('digital'); }
 },
-selectAccount(e) { this.setData({ selectedAccount: Number(e.currentTarget.dataset.index), sheet: '' }); },
-switchAccount() { this.setData({ sheet: 'accounts', sheetTitle: '更换账号' }); },
+selectPublishPlatform(e) { const platform=e.currentTarget.dataset.platform;if(['douyin','channels'].includes(platform))this.setData({publishPlatform:platform}); },
+inputPublishAccount(e) { this.setData({publishAccount:e.detail.value}); },
 changeCover() { this.setData({ sheet: 'cover', sheetTitle: '更换封面' }); },
 selectCover(e) { this.setData({ cover: e.currentTarget.dataset.path, sheet: '' }); },
 inputTitle(e) { this.setData({ title: e.detail.value }); },
 clearTitle() { this.setData({ title: '' }); },
 inputPublishText(e) { this.setData({ publishText: e.detail.value }); },
 inputTags(e) { this.setData({ tags: e.detail.value }); },
-chooseSchedule() { const parts = this.data.scheduled.split(' '); this.setData({ sheet: 'schedule', sheetTitle: '发布时间', scheduleDay: parts[0] || '', scheduleClock: parts[1] || '' }); },
-immediate() { this.setData({ scheduled: '', sheet: '' }); },
-scheduleDate(e) { this.setData({ scheduleDay: e.detail.value }); },
-scheduleTime(e) { this.setData({ scheduleClock: e.detail.value }); },
-saveSchedule() {
-const { scheduleDay, scheduleClock } = this.data;
-const time = scheduleDay && scheduleClock ? scheduleDay + ' ' + scheduleClock : '';
-const error = time ? studio.scheduleError(time) : '请选择日期和时间';
-if (error) { wx.showToast({ title: error, icon: 'none' }); return; }
-this.setData({ scheduled: time, sheet: '' });
-},
-moreSettings() { this.setData({ sheet: 'settings', sheetTitle: '更多设置' }); },
 submitPublish() {
-if (!http.token()) return wx.showToast({ title: '请先登录后再发布', icon: 'none' }); // 无 token：提示登录，不落本地发布记录
-return this.submitPublishOnline(); // 发布链走后端
+if(this.data.publicationSaving)return;
+if (!http.token()) return wx.showToast({ title: '请先登录后创建发布记录', icon: 'none' });
+return this.submitPublishOnline();
 },
-/** 在线发布链第一步：publications.create {workId,title,publishText,tags,accountId,platform,scheduledAt?} → 回执页登记链接 */
+/** 创建手动发布记录：accountId 仅保存用户填写的账号元数据，不代表授权或自动发布。 */
 submitPublishOnline() {
-const error=P.validatePublicationForm({title:this.data.title,publishText:this.data.publishText,scheduled:this.data.scheduled},Date.now());
+const accountId=String(this.data.publishAccount||'').trim(),platform=this.data.publishPlatform;
+const error=P.validatePublicationForm({title:this.data.title,publishText:this.data.publishText,accountId,platform});
 if(error)return wx.showToast({title:error,icon:'none'});
-const account=studio.accounts[this.data.selectedAccount]||studio.accounts[0]; // 平台发布账号为组织配置，沿用 demo 两账号 id 上送
-const payload={workId:String(this.data.workId),title:this.data.title.trim(),publishText:this.data.publishText.trim(),tags:String(this.data.tags||'').trim(),accountId:account.id,platform:account.platform};
-if(this.data.scheduled)payload.scheduledAt=new Date(this.data.scheduled.replace(' ','T')+':00').toISOString();
-contentApi.publications.create(payload).then(res=>{
+const payload={workId:String(this.data.workId),title:this.data.title.trim(),publishText:this.data.publishText.trim(),tags:String(this.data.tags||'').trim(),accountId,platform};
+const post=auth.currentApiPost()||{},scope={session:http.sessionGeneration(),orgId:String(post.orgId||''),postId:String(post.postId||'')};
+const context=JSON.stringify([scope.session,scope.orgId,scope.postId,payload]);
+if(this.__publicationCreateCtx!==context){this.contentDropKey('publication-create');this.__publicationCreateCtx=context;}
+const key=this.contentKey('publication-create');
+const stillSame=()=>{const current=auth.currentApiPost()||{};return scope.session===http.sessionGeneration()&&scope.orgId===String(current.orgId||'')&&scope.postId===String(current.postId||'')&&this.__publicationCreateCtx===context;};
+const release=()=>{if(this.__publicationCreateCtx===context&&this.data.publicationSaving)this.setData({publicationSaving:false});};
+this.setData({publicationSaving:true,operationError:''});
+contentApi.publications.create(payload,key).then(res=>{
+if(!stillSame())return release();
 const id=res&&(res.id||res.publicationId)?String(res.id||res.publicationId):'';
 if(!id)throw Error('发布记录创建失败，请稍后重试');
+this.contentDropKey('publication-create');this.__publicationCreateCtx=null;
+this.setData({publicationSaving:false});
 this.persistEditor();
 this.go('receipt','&record='+encodeURIComponent(id));
 }).catch(error=>{
+if(!stillSame())return release();
 const message=P.degradeMessage(error);
-this.setData({operationError:message});
+this.setData({publicationSaving:false,operationError:message});
 wx.showToast({title:message,icon:'none'});
 });
 },
 /** 在线回执页：publications.page 找记录并按 statusInfo 五态渲染（best-effort） */
 loadApiReceipt(recordId) {
+const gen=this.__publicationLoadGen=(this.__publicationLoadGen||0)+1,context=this.publicationLoadContext();
 contentApi.publications.page().then(rows=>{
 const row=P.rowsOf(rows).find(item=>item&&String(item.id!=null?item.id:item.publicationId)===String(recordId));
-if(this.data.view!=='receipt')return;
+if(!this.publicationLoadAlive(context,gen)||this.data.view!=='receipt')return;
 if(!row)throw Error('发布记录加载失败，请返回重试');
-const status=String(row.status||'publishing');
-const info=statusInfo[status]||{label:'状态待确认',icon:'warning',tone:'yellow'};
-const platform=String(row.platform||'douyin');
-const detail={ id:String(recordId), apiRecord:true, title:String(row.title||''), publishText:String(row.publishText||''), tags:String(row.tags||''), platform, account:String(row.accountName||row.account||('众墅之家 · '+(platform==='douyin'?'建房顾问':'乡墅设计'))), authorName:String(row.authorName||''), workId:String(row.workId||''), kindLabel:studio.kindLabel(row.kind==='ai_video'?'ai':(row.kind||'digital')), cover:'/assets/studio-publication-cover.jpg', status, publishedUrl:String(row.publishedUrl||''), label:info.label, icon:info.icon, tone:info.tone };
+const detail=this.mapApiPublication(row);
 this.setData({ detail, publishedUrlInput:detail.publishedUrl||this.data.publishedUrlInput, invalidMessage:'' });
 }).catch(error=>{
-this.setData({invalidMessage:P.degradeMessage(error)});
+if(this.publicationLoadAlive(context,gen)&&this.data.view==='receipt')this.setData({invalidMessage:P.degradeMessage(error)});
 });
 },
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
@@ -410,7 +463,8 @@ inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError
 savePublicationLink(){
 if(this.data.receiptSaving)return;
 if(!http.token())return wx.showToast({title:'请先登录后再登记发布链接',icon:'none'}); // 无 token：提示登录，不落本地演示回执
-return this.savePublicationLinkOnline(); // 在线发布记录：publishing → verify → link；verify 状态直接 link
+if(this.data.detail&&this.data.detail.canRegisterLink===false)return wx.showToast({title:'仅原发布人员可登记链接',icon:'none'});
+return this.savePublicationLinkOnline(); // 用户手动发布后登记：publishing/scheduled → verify → link
 },
 /** 在线登记发布链接：严格按服务端状态机推进；重复链接后端报 1_114_000_003 → 对应文案。 */
 savePublicationLinkOnline(){
@@ -445,7 +499,12 @@ wx.showToast({title:message,icon:'none'});
 },
 copyPublishedUrl(){if(this.data.detail?.publishedUrl)wx.setClipboardData({data:this.data.detail.publishedUrl});},
 advancePublication() {
-unavailable('查看平台作品'); // 本地演示发布记录已移除；在线记录经回执页（receipt）办理
+const detail=this.data.detail;
+if(detail&&detail.apiRecord&&detail.canRegisterLink!==false&&['publishing','verify','scheduled'].includes(detail.status))return this.go('receipt','&record='+encodeURIComponent(detail.id));
+if(detail&&detail.canRegisterLink===false)return wx.showToast({title:'仅原发布人员可登记链接',icon:'none'});
+if(detail&&detail.status==='published')return wx.showToast({title:'链接已登记，可点击链接复制',icon:'none'});
+if(detail&&detail.status==='failed')return wx.showToast({title:'该记录已失败，请查看失败原因',icon:'none'});
+unavailable('查看平台作品');
 },
 returnHome(){wx.reLaunch({url:'/pages/business/index'});},
 returnRecords() { wx.redirectTo({ url: '/pages/studio/index?view=records' }); },

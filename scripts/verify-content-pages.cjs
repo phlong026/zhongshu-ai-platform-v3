@@ -115,14 +115,13 @@ assert.equal(P.validateShareLink('不是链接'), '请输入完整的视频分�
 assert.equal(P.validateShareLink('https://v.douyin.com/abc123/'), '');
 assert.equal(P.validateShareLink('http://xhslink.com/x'), '');
 
-// ===== validatePublicationForm：对齐后端 INPUT_INVALID；定时≥1 分钟 =====
-const now = new Date(2026, 10, 2, 10, 0, 0).getTime(); // 与页面同一套本地时间解析，不绑定运行机时区
-assert.equal(P.validatePublicationForm({ title: '', publishText: 'x' }, now), '请填写标题');
-assert.equal(P.validatePublicationForm({ title: 't', publishText: ' ' }, now), '请填写发布文案');
-assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x', scheduled: '2026-13-99 99:99' }, now), '请选择有效的定时时间');
-assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x', scheduled: '2026-11-02 10:00' }, now), '定时发布需至少提前1分钟', '定时早于 1 分钟拒绝');
-assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x', scheduled: '2026-11-02 10:30' }, now), '', '提前 30 分钟通过');
-assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x' }, now), '', '立即发布通过');
+// ===== validatePublicationForm：首发只登记手动发布元数据，不接定时 =====
+assert.equal(P.validatePublicationForm({ title: '', publishText: 'x' }), '请填写标题');
+assert.equal(P.validatePublicationForm({ title: 't', publishText: ' ' }), '请填写发布文案');
+assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x', accountId: ' ' }), '请填写实际发布账号名称或标识');
+assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x', accountId: 'a'.repeat(65), platform: 'douyin' }), '发布账号名称或标识需为1-64个字符');
+assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x', accountId: '账号', platform: 'other' }), '请选择发布平台');
+assert.equal(P.validatePublicationForm({ title: 't', publishText: 'x', accountId: '账号', platform: 'douyin', scheduled: '2026-13-99 99:99' }), '', '旧 scheduled 元数据不参与首发校验');
 
 // ===== validatePublishedUrl：对齐 studio.normalizePublishedUrl 语义 =====
 assert.equal(P.validatePublishedUrl(''), '请填写发布后的作品链接');

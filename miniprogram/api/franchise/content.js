@@ -73,11 +73,11 @@ const personas = {
 };
 
 const publications = {
-  /** 创建发布记录（direct-v1 五态；幂等 duplicate 返回既有） */
+  /** 创建手动发布记录（accountId 仅为账号元数据，不授权、不自动发布、不接定时；幂等 duplicate 返回既有） */
   create: (data, key) => http.post('/franchise/content/publications', data, idem(key, 'pub')),
-  /** 发布列表（?status= publishing|published|verify|failed|scheduled） */
+  /** 发布列表（?status= publishing|published|verify|failed|scheduled；scheduled 仅兼容历史记录） */
   page: (status) => http.get('/franchise/content/publications', status ? { status } : undefined),
-  /** 演示已发布 → 待回执核验；幂等键由调用方生成存 this（重试复用） */
+  /** 用户手动发布后触发回执核验；幂等键由调用方生成存 this（重试复用） */
   verify: (id, key) => http.post('/franchise/content/publications/' + id + '/verify', {}, idem(key, 'pub-verify')),
   /** 回执发布链接（全局唯一，重复登记 1_114_000_003）；幂等键由调用方生成存 this（重试复用） */
   link: (id, publishedUrl, key) => http.post('/franchise/content/publications/' + id + '/link', { publishedUrl }, idem(key, 'pub-link')),
