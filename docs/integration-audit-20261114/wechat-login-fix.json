@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-14",
+  "timezone": "Asia/Shanghai",
+  "authorization": "用户明确允许本次最小修复及共享服务重启；这是一次性例外，不解除独立部署的A保护边界。",
+  "target": "/opt/zhongshu/env.merged",
+  "changedKeys": [
+    "PF_WX_STAFF_APPSECRET"
+  ],
+  "beforeFileSha256": "80628e70a90c423963bd783ab37674ad96a2d3655065d841eb917ed7ccd227e4",
+  "afterFileSha256": "c658493029eb9a7b08b20aa5fa78c5ae5a1db2b9730c63d79581a6be64eae4f3",
+  "onlyTargetConfigLineChanged": true,
+  "backupDirectory": "/opt/zhongshu/backups/wechat-login-20261114T094354Z",
+  "backupAccess": "root directory 0700; original configuration and metadata 0600",
+  "credentialValidation": {
+    "productionBefore": 40125,
+    "sameAppIdLocalCandidate": 0,
+    "forceRefresh": false,
+    "secretOrTokenSavedInReport": false
+  },
+  "service": {
+    "name": "zhongshu.service",
+    "beforePid": 1676621,
+    "afterPid": 3040254,
+    "activeSince": "2026-11-14 17:44:06 CST",
+    "activeState": "active",
+    "subState": "running",
+    "automaticRestartCount": 0
+  },
+  "jarSha256BeforeAndAfter": "a5e05c5b1b6317b3022c3c3057f45696a0222c0e9f9d532aa26609ae57401e91",
+  "health": [
+    {
+      "host": "api.zszhj.com",
+      "httpStatus": 200,
+      "status": "UP"
+    },
+    {
+      "host": "api2.zszhj.com",
+      "httpStatus": 200,
+      "status": "UP"
+    }
+  ],
+  "loginAcceptance": {
+    "httpStatus": 200,
+    "businessCode": 0,
+    "phoneAuthorizationCompleted": true,
+    "validPostsLoaded": true,
+    "landedOn": "pages/admin/home/index",
+    "successfulWechatLoginsAfterFix": 2
+  },
+  "rollback": "恢复服务器权限受限备份及原uid/gid/mode，再受控重启同一服务；旧凭据本身无效，回退会恢复原登录故障。Git revert不能回退服务器配置。",
+  "notDone": [
+    "没有替换JAR、nginx或unit",
+    "没有修改其他小程序凭据",
+    "没有重置微信AppSecret",
+    "没有上传小程序或部署新的独立B"
+  ]
+}

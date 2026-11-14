@@ -1,5 +1,7 @@
 # 微信一键登录运行时只读诊断（2026-11-14）
 
+> 修复前的运行时快照。后续登录修复已执行，当前结论见 [登录修复记录](wechat-login-fix.md) 和 [四岗位实测](live-integration-results.md)。
+
 ## 已确认结论
 
 开发者工具的登录请求发往 `https://api2.zszhj.com/admin-api/platform/auth/wechat-login`。主代理已观察到 HTTP 200、业务码 `1104000002`、提示“微信服务暂不可用，请稍后重试”。本次通过已有 SSH 只读连接核对生产日志，确认该错误出现在微信 `code2session` 阶段，上游返回 `errcode=40125`。

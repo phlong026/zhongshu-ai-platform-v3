@@ -1,0 +1,1089 @@
+{
+  "observationCount": 163,
+  "renderedRoutes": [
+    "pages/admin/brief/index",
+    "pages/admin/home/index",
+    "pages/admin/finance-desk/index",
+    "pages/business/index",
+    "pages/customers/index",
+    "pages/workflow/index",
+    "pages/build/projects/index",
+    "pages/profile/index",
+    "pages/account/index",
+    "pages/admin/tasks/index",
+    "pages/creation/index",
+    "pages/studio/index",
+    "pages/ai-video/index",
+    "pages/growth/index",
+    "pages/design/index",
+    "pages/admin/finance/index",
+    "pages/admin/commission/index",
+    "pages/engineering/index",
+    "pages/build/home/index",
+    "pages/workflow/commission/index",
+    "pages/workflow/explore/index"
+  ],
+  "cases": [
+    {
+      "i": 3,
+      "role": "boss",
+      "label": "本月回款入口",
+      "path": "pages/admin/finance-desk/index",
+      "requests": [
+        "snapshots?period=2026-11 => 200",
+        "analytics?period=2026-11 => 200",
+        "todos => 200",
+        "projects => 200",
+        "summary?period=2026-11 => 200",
+        "goals?period=2026-11 => 200",
+        "analytics?period=2026-11 => 200",
+        "mine => 200",
+        "todos => 200"
+      ],
+      "visibleIssues": [
+        "当前岗位无财务权限，请从财务岗进入"
+      ]
+    },
+    {
+      "i": 5,
+      "role": "boss",
+      "label": "签约指标入口",
+      "path": "pages/business/index",
+      "requests": [
+        "todos => 200",
+        "customers?pageNo=1&pageSize=50 => 200",
+        "commissions?pageNo=1&pageSize=50&keyword=undefined => 200",
+        "summary => 200",
+        "drafts => 200"
+      ]
+    },
+    {
+      "i": 6,
+      "role": "boss",
+      "label": "客户列表",
+      "path": "pages/customers/index",
+      "requests": [
+        "customers?pageNo=1&pageSize=50 => 200"
+      ]
+    },
+    {
+      "i": 7,
+      "role": "boss",
+      "label": "首个客户记录详情",
+      "path": "pages/workflow/index",
+      "requests": [
+        "2119412792184377345 => 200"
+      ],
+      "visibleIssues": [
+        "正在加载…"
+      ]
+    },
+    {
+      "i": 8,
+      "role": "boss",
+      "label": "客户跟进页签",
+      "path": "pages/workflow/index",
+      "requests": [],
+      "visibleIssues": [
+        "正在加载…"
+      ]
+    },
+    {
+      "i": 9,
+      "role": "boss",
+      "label": "客户责任转交表单",
+      "path": "pages/workflow/index",
+      "requests": [
+        "staff?orgId=9000000002 => 200",
+        "2119412792184377345 => 200"
+      ],
+      "visibleIssues": [
+        "正在加载…"
+      ]
+    },
+    {
+      "i": 14,
+      "role": "boss",
+      "label": "工程工作台",
+      "path": "pages/build/projects/index",
+      "requests": []
+    },
+    {
+      "i": 15,
+      "role": "boss",
+      "label": "新增工程项目表单",
+      "path": "pages/build/projects/index",
+      "requests": []
+    },
+    {
+      "i": 16,
+      "role": "boss",
+      "label": "退出新增项目表单",
+      "path": "pages/build/projects/index",
+      "requests": []
+    },
+    {
+      "i": 17,
+      "role": "boss",
+      "label": "个人中心",
+      "path": "pages/profile/index",
+      "requests": [
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "mine => 200",
+        "unread-count => 200",
+        "course-progress => 200"
+      ]
+    },
+    {
+      "i": 18,
+      "role": "boss",
+      "label": "公司积分summary实际失败",
+      "path": "pages/profile/index",
+      "requests": [],
+      "businessCode": 404,
+      "message": "请求地址不存在:admin-api/franchise/company-points/summary"
+    },
+    {
+      "i": 19,
+      "role": "boss",
+      "label": "公司积分加载失败状态",
+      "path": "pages/profile/index",
+      "requests": [
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "mine => 200",
+        "unread-count => 200",
+        "course-progress => 200"
+      ],
+      "visibleIssues": [
+        "公司积分 -- 可用余额 -- 本人本月使用 积分信息加载失败，请稍后重试"
+      ]
+    },
+    {
+      "i": 20,
+      "role": "boss",
+      "label": "组织与有效任职",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 21,
+      "role": "boss",
+      "label": "成员与权限管理",
+      "path": "pages/account/index",
+      "requests": [
+        "teams?orgId=9000000002 => 200",
+        "staff?orgId=9000000002 => 200",
+        "handover-pending?orgId=9000000002 => 200",
+        "teams?orgId=9000000002 => 200",
+        "staff?orgId=9000000002 => 200",
+        "handover-pending?orgId=9000000002 => 200"
+      ]
+    },
+    {
+      "i": 22,
+      "role": "boss",
+      "label": "客户工程组织巡检控制台",
+      "path": "",
+      "requests": [],
+      "consoleFindings": [
+        "549 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "651 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404"
+      ]
+    },
+    {
+      "i": 25,
+      "role": "boss",
+      "label": "本人绩效任务",
+      "path": "pages/admin/tasks/index",
+      "requests": [
+        "tasks?period=2026-11&scope=company => 200",
+        "staff?orgId=9000000002 => 200"
+      ]
+    },
+    {
+      "i": 26,
+      "role": "boss",
+      "label": "我的绩效任务页签",
+      "path": "pages/admin/tasks/index",
+      "requests": [
+        "tasks?period=2026-11&scope=mine => 200",
+        "staff?orgId=9000000002 => 200"
+      ]
+    },
+    {
+      "i": 27,
+      "role": "boss",
+      "label": "绩效任务归档页签",
+      "path": "pages/admin/tasks/index",
+      "requests": [
+        "tasks?period=2026-11&scope=mine => 200",
+        "staff?orgId=9000000002 => 200",
+        "archives?period=2026-11 => 200"
+      ]
+    },
+    {
+      "i": 29,
+      "role": "boss",
+      "label": "团队绩效入口",
+      "path": "pages/admin/tasks/index",
+      "requests": [
+        "tasks?period=2026-11&scope=company => 200",
+        "staff?orgId=9000000002 => 200"
+      ]
+    },
+    {
+      "i": 31,
+      "role": "boss",
+      "label": "消息中心",
+      "path": "pages/account/index",
+      "requests": [
+        "messages?limit=50 => 200",
+        "messages?limit=50 => 200",
+        "unread-count => 200"
+      ]
+    },
+    {
+      "i": 33,
+      "role": "boss",
+      "label": "个人资料",
+      "path": "pages/account/index",
+      "requests": [
+        "messages?limit=50 => 200",
+        "mine => 200",
+        "messages?limit=50 => 200",
+        "unread-count => 200"
+      ]
+    },
+    {
+      "i": 37,
+      "role": "boss",
+      "label": "课程详情",
+      "path": "pages/account/index",
+      "requests": [
+        "course-progress => 200",
+        "course-progress => 200"
+      ]
+    },
+    {
+      "i": 38,
+      "role": "boss",
+      "label": "课程学习入口",
+      "path": "pages/account/index",
+      "requests": [],
+      "visibleIssues": [
+        "视频准备中，可先查看配套资料。"
+      ]
+    },
+    {
+      "i": 41,
+      "role": "boss",
+      "label": "学习资料目录",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 43,
+      "role": "boss",
+      "label": "帮助与反馈",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 44,
+      "role": "boss",
+      "label": "已登录账号提交空反馈的校验",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 46,
+      "role": "boss",
+      "label": "账号与隐私",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 47,
+      "role": "boss",
+      "label": "登录设备入口",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 50,
+      "role": "boss",
+      "label": "内容获客统计",
+      "path": "pages/admin/home/index",
+      "requests": []
+    },
+    {
+      "i": 52,
+      "role": "boss",
+      "label": "内容获客入口坐标复核",
+      "path": "pages/business/index",
+      "requests": [
+        "todos => (pending)",
+        "customers?pageNo=1&pageSize=50 => 200",
+        "commissions?pageNo=1&pageSize=50&keyword=undefined => (pending)",
+        "summary => 200",
+        "drafts => 200"
+      ]
+    },
+    {
+      "i": 53,
+      "role": "boss",
+      "label": "业务工作台数据就绪",
+      "path": "pages/business/index",
+      "requests": [
+        "todos => 200",
+        "customers?pageNo=1&pageSize=50 => 200",
+        "commissions?pageNo=1&pageSize=50&keyword=undefined => 200",
+        "summary => 200",
+        "drafts => 200"
+      ]
+    },
+    {
+      "i": 54,
+      "role": "boss",
+      "label": "创作中心（开发者工具打开注册路由）",
+      "path": "pages/creation/index",
+      "requests": [
+        "todos => 200",
+        "customers?pageNo=1&pageSize=50 => 200",
+        "commissions?pageNo=1&pageSize=50&keyword=undefined => 200",
+        "summary => 200",
+        "drafts => 200"
+      ]
+    },
+    {
+      "i": 58,
+      "role": "boss",
+      "label": "我的作品列表",
+      "path": "pages/studio/index",
+      "requests": []
+    },
+    {
+      "i": 60,
+      "role": "boss",
+      "label": "内容发布记录",
+      "path": "pages/studio/index",
+      "requests": []
+    },
+    {
+      "i": 66,
+      "role": "boss",
+      "label": "数字人口播配置",
+      "path": "pages/studio/index",
+      "requests": []
+    },
+    {
+      "i": 67,
+      "role": "boss",
+      "label": "数字人选择",
+      "path": "pages/studio/index",
+      "requests": []
+    },
+    {
+      "i": 69,
+      "role": "boss",
+      "label": "声音试听",
+      "path": "pages/studio/index",
+      "requests": []
+    },
+    {
+      "i": 70,
+      "role": "boss",
+      "label": "声音试听实际弹窗",
+      "path": "",
+      "requests": [],
+      "message": "当前仅提供声音选择界面，尚未配置试听音频。"
+    },
+    {
+      "i": 73,
+      "role": "boss",
+      "label": "AI视频配置",
+      "path": "pages/ai-video/index",
+      "requests": [
+        "video-draft => 200"
+      ]
+    },
+    {
+      "i": 74,
+      "role": "boss",
+      "label": "AI视频参考模式",
+      "path": "pages/ai-video/index",
+      "requests": []
+    },
+    {
+      "i": 75,
+      "role": "boss",
+      "label": "内容创作与AI视频控制台",
+      "path": "",
+      "requests": [],
+      "consoleFindings": [
+        "565 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "667 row Warning Repeat 2 index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "699 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "723 row Warning Repeat 2 index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "731 row Warning Repeat 3 index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404"
+      ]
+    },
+    {
+      "i": 76,
+      "role": "boss",
+      "label": "获客管理（开发者工具路由）",
+      "path": "pages/growth/index",
+      "requests": [
+        "video-draft => 200",
+        "summary => 200",
+        "pending => 200",
+        "summary => 200",
+        "pending => 200"
+      ],
+      "visibleIssues": [
+        "发布作品 [object Object] · 登记客资 [object Object] · 已转化 0"
+      ]
+    },
+    {
+      "i": 78,
+      "role": "boss",
+      "label": "设计赋能首页（开发者工具路由）",
+      "path": "pages/design/index",
+      "requests": [],
+      "visibleIssues": [
+        "请使用平台账号登录后使用 AI 设计，当前入口已停用。"
+      ]
+    },
+    {
+      "i": 79,
+      "role": "boss",
+      "label": "灵感设计权限检查（开发者工具路由）",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 80,
+      "role": "boss",
+      "label": "设计入口跳转后的控制台错误",
+      "path": "",
+      "requests": [],
+      "consoleFindings": [
+        "546 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "648 row Warning Repeat 2 index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "680 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "704 row Warning Repeat 5 index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "864 row Error WAServiceMainContext…t=wechat&v=3.18.0:1 TypeError: MiniProgramError this.platTeardown is not a function at ui.onShow (index.js? [sm]:24) at ui.<anonymous> (WASubContext.js?t=wechat&v=3.18.0:1) at s.__callPageLifeTime__ (WASubContext.js?t=wechat&v=3.18.0:1) at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at Sr (WASubCo"
+      ]
+    },
+    {
+      "i": 82,
+      "role": "boss",
+      "label": "经营财务看板（开发者工具路由）",
+      "path": "pages/admin/finance/index",
+      "requests": [
+        "summary?period=2026-11 => 200",
+        "goals?period=2026-11 => 200",
+        "analytics?period=2026-11 => 200",
+        "mine => 200"
+      ]
+    },
+    {
+      "i": 84,
+      "role": "boss",
+      "label": "经营提成与结算（开发者工具路由）",
+      "path": "pages/admin/commission/index",
+      "requests": [
+        "rows => 200",
+        "projects => 200",
+        "staff?orgId=9000000002 => 200"
+      ]
+    },
+    {
+      "i": 85,
+      "role": "boss",
+      "label": "工程工作台注册入口（开发者工具路由）",
+      "path": "pages/engineering/index",
+      "requests": [
+        "todos => 200",
+        "projects => 200"
+      ]
+    },
+    {
+      "i": 86,
+      "role": "boss",
+      "label": "施工计划入口",
+      "path": "pages/build/projects/index",
+      "requests": [
+        "projects => 200"
+      ]
+    },
+    {
+      "i": 90,
+      "role": "boss",
+      "label": "材料计划入口最终权限状态",
+      "path": "pages/account/index",
+      "requests": [
+        "projects => 200"
+      ]
+    },
+    {
+      "i": 91,
+      "role": "boss",
+      "label": "材料计划入口新增错误",
+      "path": "",
+      "requests": [],
+      "consoleFindings": [
+        "500 row Warning Repeat 2 index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "532 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "556 row Warning Repeat 5 index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "716 row Error WAServiceMainContext…t=wechat&v=3.18.0:1 TypeError: MiniProgramError this.platTeardown is not a function at ui.onShow (index.js? [sm]:24) at ui.<anonymous> (WASubContext.js?t=wechat&v=3.18.0:1) at s.__callPageLifeTime__ (WASubContext.js?t=wechat&v=3.18.0:1) at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at WASubContext.js?t=wechat&v=3.18.0:1 at Sr (WASubCo",
+        "902 row Error index.js? [sm]:16 [materials] 打开材料入口失败 (env: macOS,mp,2.02.2609250; lib: 3.18.0)"
+      ]
+    },
+    {
+      "i": 92,
+      "role": "boss",
+      "label": "长时联调遇到会话失效",
+      "path": "",
+      "requests": [],
+      "businessCode": 401,
+      "message": "账号未登录"
+    },
+    {
+      "i": 93,
+      "role": "boss",
+      "label": "重新微信登录（开发者工具路由）",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 94,
+      "role": "boss",
+      "label": "切换微信登录通道",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 95,
+      "role": "boss",
+      "label": "恢复已确认的登录协议勾选",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 96,
+      "role": "boss",
+      "label": "微信重新登录提交",
+      "path": "pages/account/index",
+      "requests": []
+    },
+    {
+      "i": 97,
+      "role": "boss",
+      "label": "微信重新登录成功后的工作台",
+      "path": "pages/admin/home/index",
+      "requests": [
+        "wechat-login => 200",
+        "mine => 200",
+        "todos => 200",
+        "projects => 200",
+        "summary?period=2026-11 => 200",
+        "goals?period=2026-11 => 200",
+        "analytics?period=2026-11 => 200",
+        "mine => 200"
+      ]
+    },
+    {
+      "i": 98,
+      "role": "boss",
+      "label": "恢复会话后的工程工作台（开发者工具路由）",
+      "path": "pages/engineering/index",
+      "requests": [
+        "todos => 200",
+        "projects => 200"
+      ]
+    },
+    {
+      "i": 102,
+      "role": "boss",
+      "label": "节点款项入口",
+      "path": "pages/build/projects/index",
+      "requests": [
+        "projects => 200"
+      ]
+    },
+    {
+      "i": 103,
+      "role": "boss",
+      "label": "工程专属首页（开发者工具路由）",
+      "path": "pages/build/home/index",
+      "requests": [
+        "projects => 200",
+        "todos => 200"
+      ]
+    },
+    {
+      "i": 104,
+      "role": "boss",
+      "label": "设计委托管理入口（开发者工具路由）",
+      "path": "pages/workflow/commission/index",
+      "requests": [],
+      "visibleIssues": [
+        "当前岗位无设计行政权限"
+      ]
+    },
+    {
+      "i": 105,
+      "role": "boss",
+      "label": "绩效兼容入口（开发者工具路由）",
+      "path": "pages/admin/tasks/index",
+      "requests": [
+        "tasks?period=2026-11&scope=company => 200",
+        "staff?orgId=9000000002 => 200"
+      ]
+    },
+    {
+      "i": 106,
+      "role": "boss",
+      "label": "经营办理兼容入口（开发者工具路由）",
+      "path": "pages/admin/home/index",
+      "requests": [
+        "todos => 200",
+        "projects => 200",
+        "summary?period=2026-11 => 200",
+        "goals?period=2026-11 => 200",
+        "analytics?period=2026-11 => 200",
+        "mine => 200"
+      ]
+    },
+    {
+      "i": 107,
+      "role": "boss",
+      "label": "旧管理成员入口（开发者工具路由）",
+      "path": "pages/account/index",
+      "requests": [
+        "teams?orgId=9000000002 => 200",
+        "staff?orgId=9000000002 => 200",
+        "handover-pending?orgId=9000000002 => 200",
+        "teams?orgId=9000000002 => 200",
+        "staff?orgId=9000000002 => 200",
+        "handover-pending?orgId=9000000002 => 200"
+      ]
+    },
+    {
+      "i": 110,
+      "role": "boss",
+      "label": "公司积分重试",
+      "path": "pages/profile/index",
+      "requests": [],
+      "visibleIssues": [
+        "公司积分 -- 可用余额 -- 本人本月使用 积分信息加载失败，请稍后重试"
+      ]
+    },
+    {
+      "i": 111,
+      "role": "boss",
+      "label": "公司积分重试请求记录",
+      "path": "pages/profile/index",
+      "requests": [
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "mine => 200",
+        "unread-count => 200",
+        "course-progress => 200",
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200"
+      ],
+      "visibleIssues": [
+        "公司积分 -- 可用余额 -- 本人本月使用 积分信息加载失败，请稍后重试"
+      ]
+    },
+    {
+      "i": 112,
+      "role": "boss",
+      "label": "本人积分使用记录实际缺失",
+      "path": "",
+      "requests": [],
+      "businessCode": 404,
+      "message": "请求地址不存在:admin-api/franchise/company-points/my-usage"
+    },
+    {
+      "i": 113,
+      "role": "boss",
+      "label": "为当前员工追加测试任职",
+      "path": "pages/account/index",
+      "requests": [
+        "teams?orgId=9000000002 => 200",
+        "staff?orgId=9000000002 => 200",
+        "handover-pending?orgId=9000000002 => 200",
+        "teams?orgId=9000000002 => 200",
+        "staff?orgId=9000000002 => 200",
+        "handover-pending?orgId=9000000002 => 200"
+      ]
+    },
+    {
+      "i": 117,
+      "role": "boss",
+      "label": "追加业务员任职",
+      "path": "pages/account/index",
+      "requests": [
+        "staff => 200"
+      ]
+    },
+    {
+      "i": 119,
+      "role": "boss",
+      "label": "用户授权追加测试岗位完成",
+      "path": "/platform/org/posts",
+      "requests": [],
+      "result": [
+        {
+          "roleCode": "sales",
+          "code": 0,
+          "postId": "2121551958544220161"
+        },
+        {
+          "roleCode": "engineer",
+          "code": 0,
+          "postId": "2121551959030759425"
+        },
+        {
+          "roleCode": "finance",
+          "code": 0,
+          "postId": "2121551960310022145"
+        }
+      ]
+    },
+    {
+      "i": 120,
+      "role": "boss",
+      "label": "服务端刷新后的四个有效岗位",
+      "path": "pages/account/index",
+      "requests": [
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "mine => 200",
+        "unread-count => 200",
+        "course-progress => 200",
+        "mine => 200",
+        "posts => 200",
+        "posts => 200",
+        "posts => 200",
+        "mine => 200",
+        "mine => 200"
+      ]
+    },
+    {
+      "i": 121,
+      "role": "sales",
+      "label": "切换业务员工作台",
+      "path": "pages/business/index",
+      "requests": [
+        "todos => 200",
+        "customers?pageNo=1&pageSize=50 => 200",
+        "commissions?pageNo=1&pageSize=50&keyword=undefined => 200",
+        "summary => 200",
+        "drafts => 200"
+      ]
+    },
+    {
+      "i": 123,
+      "role": "sales",
+      "label": "业务员AI设计首页",
+      "path": "pages/design/index",
+      "requests": []
+    },
+    {
+      "i": 124,
+      "role": "sales",
+      "label": "业务员灵感库",
+      "path": "pages/workflow/explore/index",
+      "requests": [
+        "styles => 200",
+        "cases?limit=20 => 200"
+      ]
+    },
+    {
+      "i": 125,
+      "role": "sales",
+      "label": "灵感案例详情",
+      "path": "pages/workflow/explore/index",
+      "requests": [
+        "2112123885294055425 => 200",
+        "download-tickets => 200",
+        "download-tickets => 200"
+      ]
+    },
+    {
+      "i": 126,
+      "role": "sales",
+      "label": "案例收藏接口",
+      "path": "pages/workflow/explore/index",
+      "requests": [
+        "favorite => 200"
+      ]
+    },
+    {
+      "i": 129,
+      "role": "sales",
+      "label": "快速预算配置与规则",
+      "path": "pages/workflow/explore/index",
+      "requests": [],
+      "visibleIssues": [
+        "当前区域暂无计价规则，无法估算。"
+      ]
+    },
+    {
+      "i": 134,
+      "role": "sales",
+      "label": "AI立面配置",
+      "path": "pages/workflow/explore/index",
+      "requests": []
+    },
+    {
+      "i": 136,
+      "role": "sales",
+      "label": "业务员个人中心",
+      "path": "pages/profile/index",
+      "requests": [
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "mine => 200",
+        "unread-count => 200",
+        "course-progress => 200"
+      ],
+      "visibleIssues": [
+        "公司积分 -- 可用余额 -- 本人本月使用 积分信息加载失败，请稍后重试"
+      ]
+    },
+    {
+      "i": 138,
+      "role": "engineer",
+      "label": "切换工程人员工作台",
+      "path": "pages/build/home/index",
+      "requests": [
+        "projects => 200",
+        "todos => 200"
+      ]
+    },
+    {
+      "i": 142,
+      "role": "engineer",
+      "label": "工程人员个人中心",
+      "path": "pages/profile/index",
+      "requests": [
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "summary => 200",
+        "my-usage?page=1&size=1 => 200",
+        "mine => 200",
+        "unread-count => 200",
+        "course-progress => 200"
+      ]
+    },
+    {
+      "i": 144,
+      "role": "finance",
+      "label": "切换财务专员工作台",
+      "path": "pages/admin/finance-desk/index",
+      "requests": [
+        "receipts => 200",
+        "payments => 200",
+        "refunds => 200",
+        "bank-flows?status=%E5%BE%85%E5%8C%B9%E9%85%8D => 200",
+        "payables?status=%E8%BF%9B%E8%A1%8C%E4%B8%AD => 200",
+        "receipts?status=%E5%BE%85%E7%99%BB%E8%AE%B0 => 200",
+        "reconciliation?month=2026-11 => 200",
+        "todos => 200"
+      ]
+    },
+    {
+      "i": 145,
+      "role": "finance",
+      "label": "财务收款账本",
+      "path": "pages/admin/finance-desk/index",
+      "requests": [
+        "receipts => 200",
+        "payments => 200",
+        "refunds => 200",
+        "bank-flows?status=%E5%BE%85%E5%8C%B9%E9%85%8D => 200",
+        "payables?status=%E8%BF%9B%E8%A1%8C%E4%B8%AD => 200",
+        "receipts?status=%E5%BE%85%E7%99%BB%E8%AE%B0 => 200",
+        "reconciliation?month=2026-11 => 200",
+        "todos => 200"
+      ]
+    },
+    {
+      "i": 146,
+      "role": "finance",
+      "label": "财务应收页签",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 147,
+      "role": "finance",
+      "label": "财务应付页签",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 148,
+      "role": "finance",
+      "label": "财务月末对账",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 149,
+      "role": "finance",
+      "label": "财务项目账",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 151,
+      "role": "finance",
+      "label": "收款登记表单",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 152,
+      "role": "finance",
+      "label": "收款空表单校验",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 154,
+      "role": "finance",
+      "label": "付款登记表单",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 156,
+      "role": "finance",
+      "label": "退款登记表单",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 158,
+      "role": "finance",
+      "label": "支出退回表单",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 160,
+      "role": "finance",
+      "label": "应付登记表单",
+      "path": "pages/admin/finance-desk/index",
+      "requests": []
+    },
+    {
+      "i": 162,
+      "role": "finance",
+      "label": "四岗位联调控制台汇总",
+      "path": "",
+      "requests": [],
+      "consoleFindings": [
+        "877 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "883 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "889 row Error VM2371:1 Uncaught TypeError: wx.redirectTo(...) is not a function at <anonymous>:1:76 (env: macOS,mp,2.02.2609250; lib: 3.18.0)",
+        "896 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "950 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404",
+        "986 row Warning index.js? [sm]:85 [point-asset-card] 公司积分查询失败 404"
+      ]
+    }
+  ],
+  "scope": "Sanitized developer-tools observations; HTTP 200 is not a business success assertion; repeated navigation and cached requests are retained.",
+  "recordedRoles": [
+    "boss",
+    "sales",
+    "engineer",
+    "finance"
+  ],
+  "recordedAt": "2026-11-14T18:49:18.940106+08:00",
+  "navigationObservationsFinal": 166,
+  "sourceSnapshotObservationCount": 163,
+  "finalState": {
+    "role": "boss",
+    "financialRecordsCreated": 0,
+    "caseFavoriteRestored": true
+  },
+  "countingNote": "166条含返回、过渡态与重复观察，不是166个通过用例；快照导出94条精选观察，21个实际承载路由。Network表可能包含同一阶段的缓存/重复请求；HTTP200不代表业务码0。",
+  "confirmedFailures": [
+    {
+      "id": "LIVE-01",
+      "method": "GET",
+      "path": "/franchise/company-points/summary",
+      "httpStatus": 200,
+      "businessCode": 404
+    },
+    {
+      "id": "LIVE-02",
+      "method": "GET",
+      "path": "/franchise/company-points/my-usage?page=1&size=1",
+      "httpStatus": 200,
+      "businessCode": 404
+    },
+    {
+      "id": "LIVE-03",
+      "method": "GET",
+      "path": "/franchise/content/growth/summary",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "responseShape": {
+        "publications": {},
+        "leads": {},
+        "converted": 0,
+        "perPublication": []
+      },
+      "visible": "发布作品 [object Object] · 登记客资 [object Object] · 已转化 0"
+    },
+    {
+      "id": "LIVE-05",
+      "method": "POST",
+      "path": "/platform/org/staff",
+      "httpStatus": 200,
+      "businessCode": 500,
+      "exception": "TooManyResultsException"
+    }
+  ],
+  "consoleInterpretation": {
+    "cumulativeErrors": 3,
+    "cumulativeWarningsAtEnd": 342,
+    "applicationErrors": [
+      {
+        "message": "this.platTeardown is not a function",
+        "source": "pages/workflow/explore/index.js:24",
+        "trigger": "老板无design:use任职时经开发者工具打开设计流程，onLoad门禁提前返回，onShow仍调用未装配的方法。"
+      },
+      {
+        "message": "[materials] 打开材料入口失败",
+        "trigger": "会话返回401时触发；恢复微信登录后同入口复测正常。"
+      }
+    ],
+    "diagnosticProbeErrors": [
+      {
+        "message": "wx.redirectTo(...) is not a function",
+        "source": "VM2371",
+        "cause": "控制台存在上一条未执行导航命令，追加测试指令时拼接触发；清空输入重跑成功，不计为产品缺陷。"
+      }
+    ],
+    "warningNote": "累计含重复WXSS/基础库提示、undefined或null属性和积分404，不能计作342个独立缺陷。"
+  }
+}

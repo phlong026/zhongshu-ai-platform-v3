@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-14",
+  "authorization": "用户明确同意在当前测试员工的现有门店追加业务员、工程人员、财务专员；保留老板任职，不含总部设计行政。",
+  "orgId": "9000000002",
+  "employeeLabel": "当前已用微信登录的测试员工",
+  "method": "POST /platform/org/posts",
+  "created": [
+    {
+      "roleCode": "sales",
+      "postId": "2121551958544220161",
+      "businessCode": 0
+    },
+    {
+      "roleCode": "engineer",
+      "postId": "2121551959030759425",
+      "businessCode": 0
+    },
+    {
+      "roleCode": "finance",
+      "postId": "2121551960310022145",
+      "businessCode": 0
+    }
+  ],
+  "serverReadbackRoles": [
+    "boss",
+    "sales",
+    "engineer",
+    "finance"
+  ],
+  "cacheRefresh": "重新GET /platform/posts/mine，并以真实响应刷新现有任职缓存，然后在身份页逐项切换；未伪造token/任职或放宽鉴权。",
+  "finalRole": "boss",
+  "retainedAfterTest": true,
+  "otherEmployeesChanged": false,
+  "fallbackReason": {
+    "initialUiEndpoint": "POST /platform/org/staff",
+    "httpStatus": 200,
+    "businessCode": 500,
+    "exception": "TooManyResultsException",
+    "location": "StaffPostServiceImpl.createStaffInOrg:132 -> SystemDirectory.userIdByMobile",
+    "resolution": "使用既有追加任职接口，按当前老板任职匹配的员工userId配置；未清理或改写历史重复记录。"
+  },
+  "rollback": "如用户要求撤销测试任职，可用原老板任职通过既有撤销任职接口逐个撤销上述3个postId；本轮按授权保留。"
+}
