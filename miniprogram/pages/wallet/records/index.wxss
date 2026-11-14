@@ -116,3 +116,13 @@
 .list-more {
   padding: 24rpx;
 }
+.retired-message text {
+  display: block;
+  margin-bottom: 14rpx;
+  line-height: 1.7;
+}
+.retired-secondary {
+  border: 1rpx solid var(--zs-brand);
+  background: var(--zs-card);
+  color: var(--zs-brand);
+}

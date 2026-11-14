@@ -1,45 +1,12 @@
 <view class="records-page">
-  <brand-header id="brand-header" title="充值明细" back="{{true}}"/>
-
-  <view wx:if="{{loadState === 'loading'}}" class="records-loading">加载中…</view>
-  <view wx:elif="{{loadState === 'unavailable'}}" class="records-empty">钱包功能尚未开通</view>
-
-  <block wx:else>
-    <view class="tabs">
-      <button class="tab {{tab === 'orders' ? 'tab-on' : ''}}" data-tab="orders" bindtap="switchTab">充值订单</button>
-      <button class="tab {{tab === 'ledger' ? 'tab-on' : ''}}" data-tab="ledger" bindtap="switchTab">点数流水</button>
+  <brand-header id="brand-header" title="公司积分" back="{{true}}"/>
+  <view class="list">
+    <view class="list-empty retired-message">
+      <text>个人充值记录已停止使用</text>
+      <text>平台现统一使用公司积分池；旧个人钱包余额与记录不会迁移。</text>
+      <text>公司积分卡位于“我的”页面，展示公司余额和本人本月使用量。</text>
+      <button class="list-empty-btn" bindtap="openCompanyPoints">{{loggedIn?'查看公司积分':'登录后查看公司积分'}}</button>
+      <button class="list-empty-btn retired-secondary" bindtap="returnWorkbench">返回工作台</button>
     </view>
-
-    <!-- 订单 Tab -->
-    <view wx:if="{{tab === 'orders'}}" class="list">
-      <view wx:if="{{!orders.length}}" class="list-empty">
-        <text>暂无充值订单</text>
-        <button class="list-empty-btn" bindtap="goRecharge">去充值</button>
-      </view>
-      <view wx:for="{{orders}}" wx:key="orderId" class="cell">
-        <view class="cell-main">
-          <view class="cell-title">充值 {{item.pointsText}} 设计点 <text wx:if="{{item.bonusText}}" class="cell-bonus">{{item.bonusText}}</text></view>
-          <view class="cell-sub">{{item.timeText}} · 单号 {{item.orderId}}</view>
-        </view>
-        <view class="cell-side">
-          <view class="cell-amount">{{item.amountText}}</view>
-          <view class="cell-status {{item.credited ? 'cell-status-ok' : ''}}">{{item.statusText}}</view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 流水 Tab -->
-    <view wx:if="{{tab === 'ledger'}}" class="list">
-      <view wx:if="{{!ledger.length}}" class="list-empty"><text>暂无点数流水</text></view>
-      <view wx:for="{{ledger}}" wx:key="index" class="cell">
-        <view class="cell-main">
-          <view class="cell-title">{{item.title}}</view>
-          <view class="cell-sub">{{item.timeText}} · 余额 {{item.balanceText}}</view>
-        </view>
-        <view class="cell-delta {{item.positive ? 'cell-delta-plus' : ''}}">{{item.deltaText}}</view>
-      </view>
-    </view>
-
-    <view wx:if="{{loadingMore}}" class="list-more">加载中…</view>
-  </block>
+  </view>
 </view>

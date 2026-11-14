@@ -295,6 +295,34 @@
   opacity: 0.7;
 }
 
+.retired-copy {
+  display: block;
+  margin-top: 18rpx;
+  color: rgba(255, 250, 243, 0.86);
+  font-size: var(--zs-font-body);
+  line-height: 1.7;
+}
+.retired-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+.retired-primary {
+  width: 100%;
+  margin: 0;
+}
+.retired-secondary {
+  width: 100%;
+  min-height: 80rpx;
+  margin: 0;
+  border: 1rpx solid var(--zs-line);
+  border-radius: 999rpx;
+  background: var(--zs-card);
+  color: var(--zs-brand);
+  font-size: var(--zs-font-body);
+}
+
 /* 支付结果浮层 */
 .result-mask {
   position: fixed;
