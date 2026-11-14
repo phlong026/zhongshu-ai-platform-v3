@@ -272,6 +272,32 @@ test('付费容量门禁要求卷内能力证明文件与配置SHA一致', async
   assert.equal(calls, 0);
 });
 
+test('腾讯CBS稳定journal证明支持托管块设备且拒绝身份字段漂移', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'cbs-runtime-proof-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const proof = join(dir, '.capacity-proof.json');
+  const value = { version: 2, project: 'zhongshu-platform-b', storageRole: 'runtime-journal',
+    identityMode: 'tencent-cbs-v1', allocationContract: 'managed-block-v1', accountUin: '100045498012',
+    region: 'ap-shanghai', zone: 'ap-shanghai-5', instanceId: 'ins-fixture', volumeId: 'disk-fixture',
+    filesystem: 'ext4', filesystemUuid: 'e07286c2-5dc1-421f-9cd3-6840a95dadc3', exclusiveWriter: true };
+  const check = candidate => {
+    const bytes = Buffer.from(JSON.stringify(candidate));
+    writeFileSync(proof, bytes, { mode: 0o600 }); chmodSync(proof, 0o600);
+    return new Journal(dir, { capacityProofSha256: sha(bytes) }).verifyCapacityProof();
+  };
+  assert.equal(check(value), true);
+  for (const patch of [{ allocationContract: 'thick' }, { identityMode: 'serial-wwn-thick-v1' },
+    { storageRole: 'backup' }, { project: 'legacy-a' }, { exclusiveWriter: false },
+    { zone: 'ap-beijing-1' }, { volumeId: '' }, { filesystemUuid: '' },
+    { identityEvidenceSha256: 'a'.repeat(64) }, { collectedAt: '2026-11-14T00:00:00Z' }]) {
+    assert.throws(() => check({ ...value, ...patch }), /JOURNAL_FS_PROOF/);
+  }
+  const duplicate = Buffer.from(JSON.stringify(value).replace('"version":2', '"version":1,"version":2'));
+  writeFileSync(proof, duplicate);
+  assert.throws(() => new Journal(dir, { capacityProofSha256: sha(duplicate) }).verifyCapacityProof(), /JOURNAL_FS_PROOF/);
+  assert.equal(check(value), true, 'fresh cloud evidence is intentionally outside the stable Runtime proof');
+});
+
 test('outbox 按 BigInt jobId 和数值 attempt/fencing 排序，并由所有更早未ACK资金终态阻断 completion', async t => {
   const dir = mkdtempSync(join(tmpdir(), 'numeric-outbox-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));

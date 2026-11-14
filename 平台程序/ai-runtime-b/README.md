@@ -109,7 +109,28 @@ node src/main.mjs
 
 started、REQUESTED、trace DISPATCHED 等前置持久化可能消耗 emergency，因此主模型请求和每一次 fallback 请求在实际 HTTP 外呼前都会重新校验证明、当前调用的物理预留、三份完整 emergency 和操作余量；补齐失败不发送该次供应商请求。计划调用的公司积分 `prompt-call-events/DISPATCHED` 只在最终容量门禁通过后发送，因为 B 的 SERVICE_COST 合同一旦确认 DISPATCHED 就进入保守 UNKNOWN、禁止再降级为 NOT_SENT；门禁失败仍从 RESERVED 走 NOT_SENT 释放。Runtime 分开记录 `dispatchAttempted` 与供应商实际发送：DISPATCHED 回执丢失时，资金进入 durable UNKNOWN、trace 仍记录实际未调用供应商的 NOT_SENT；其后不得重投。进程正常启动时也必须先通过同一 proof/emergency 检查，不能等到首个业务请求才暴露卷错误。
 
-`st_blocks` 只验证本次探针确实获得了报告的物理块，不能证明云盘底层不是 thin-provision。部署前必须由卷管理员验证目标是 Runtime 独占写入的本地 Linux ext4/xfs thick 卷，并在该卷根目录写入 0600、Runtime owner 的 `.capacity-proof.json`：`{"version":1,"filesystem":"ext4|xfs","allocation":"thick","exclusiveWriter":true,"volumeId":"..."}`；配置其精确 SHA-256。Runtime 同时校验文件 owner、权限、设备号、内容哈希和字段。NFS、压缩、去重、thin-provision、共享写入或不可靠报告 `st_blocks` 的卷禁止部署。
+`st_blocks` 只验证本次探针确实获得了报告的物理块，不能证明云盘底层不是 thin-provision。默认的
+`serial-wwn-thick-v1` 部署模式继续使用 v1 Runtime 证明：卷管理员确认 Runtime 独占写入的本地 Linux
+ext4/xfs thick 卷后，在卷根目录写入 0600、Runtime owner 的 `.capacity-proof.json`，例如
+`{"version":1,"filesystem":"ext4","allocation":"thick","exclusiveWriter":true,"volumeId":"..."}`。
+
+显式 `tencent-cbs-v1` 部署模式改用稳定的 Runtime v2 证明。文件必须只包含下列 13 个字段，并按下列形态写成
+UTF-8 canonical compact JSON：无空白、无换行、无 BOM、无重复键或额外字段；然后对**原始文件字节**计算固定
+SHA-256，写入 `ZS_AI_JOURNAL_FS_PROOF_SHA256`：
+
+```json
+{"version":2,"project":"zhongshu-platform-b","storageRole":"runtime-journal","identityMode":"tencent-cbs-v1","allocationContract":"managed-block-v1","accountUin":"100000000000","region":"ap-shanghai","zone":"ap-shanghai-5","instanceId":"ins-example","volumeId":"disk-example","filesystem":"ext4","filesystemUuid":"00000000-0000-0000-0000-000000000000","exclusiveWriter":true}
+```
+
+实际值必须来自已核对的 CBS evidence、目标 ext4/xfs 文件系统和单写者边界，示例值不是生产证据。v2 文件故意
+不包含短时 `identityEvidenceSha256` 或 `collectedAt`：云 evidence 到期后可重新只读采集，并重做 fresh data
+host proof 与受信 attestation；attestation 必须签入稳定的 `runtimeProofSha256`。只要本文件原始字节及 SHA
+未变，轮换 evidence 不要求重启 Runtime。
+
+无论 v1/v2，Runtime 都同时校验文件 owner、0600、同设备、内容哈希和字段；启动及每次付费外呼前仍执行真实
+write/fsync、`st_blocks` 块预留、三份 emergency reserve 和 Journal 单写者锁。NFS、压缩、去重、共享写入或
+不可靠报告 `st_blocks` 的卷禁止部署；`managed-block-v1` 仅表示经控制面和 guest 绑定的托管块设备合同，
+不能表述为腾讯云物理 thick 或物理故障域独占保证。
 
 容量分配使用同步 write/fsync，会阻塞 Node 事件循环。上线前必须在真实目标卷以四图片槽位峰值压测：单槽预留 p99 不超过 1 秒、四槽连续预留总 p99 不超过 5 秒（小于 15 秒租约心跳的三分之一），同时 `/health` p99 不超过 1 秒；任一不满足即禁止部署，需改用独立容量守护进程/worker thread 后复审，不能调大租约掩盖。
 

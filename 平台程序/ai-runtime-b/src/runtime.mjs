@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto';
-import { readFileSync, readlinkSync, writeFileSync, mkdirSync, renameSync, linkSync, openSync, fsyncSync, closeSync, existsSync, unlinkSync, readdirSync, statfsSync, statSync, writeSync, ftruncateSync, chmodSync } from 'node:fs';
+import { readFileSync, readlinkSync, writeFileSync, mkdirSync, renameSync, linkSync, openSync, fsyncSync, closeSync, existsSync, unlinkSync, readdirSync, statfsSync, statSync, lstatSync, writeSync, ftruncateSync, chmodSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { hostname } from 'node:os';
 import { join, dirname, resolve as resolvePath, sep as pathSep } from 'node:path';
@@ -574,14 +574,30 @@ export class Journal {
   verifyCapacityProof() {
     if (this.capacityProofVerifier) return this.capacityProofVerifier() === true;
     if (!/^[a-f0-9]{64}$/.test(this.capacityProofSha256 || '')) throw Error('JOURNAL_FS_PROOF');
-    const path = join(this.directory, '.capacity-proof.json'), metadata = statSync(path);
-    if (!metadata.isFile() || metadata.dev !== statSync(this.directory).dev || (metadata.mode & 0o777) !== 0o600
+    const path = join(this.directory, '.capacity-proof.json'), metadata = lstatSync(path);
+    if (!metadata.isFile() || metadata.size > 8192 || metadata.dev !== statSync(this.directory).dev || (metadata.mode & 0o777) !== 0o600
         || (typeof process.getuid === 'function' && metadata.uid !== process.getuid())) throw Error('JOURNAL_FS_PROOF');
     const bytes = readFileSync(path);
     if (sha(bytes) !== this.capacityProofSha256) throw Error('JOURNAL_FS_PROOF');
     let value; try { value = JSON.parse(bytes); } catch { throw Error('JOURNAL_FS_PROOF'); }
-    if (value?.version !== 1 || !['ext4', 'xfs'].includes(value.filesystem) || value.allocation !== 'thick'
-        || value.exclusiveWriter !== true || typeof value.volumeId !== 'string' || !value.volumeId.trim()) throw Error('JOURNAL_FS_PROOF');
+    if (!['ext4', 'xfs'].includes(value?.filesystem) || value.exclusiveWriter !== true
+        || typeof value.volumeId !== 'string' || !value.volumeId.trim()) throw Error('JOURNAL_FS_PROOF');
+    if (value.version === 1) {
+      if (value.allocation !== 'thick') throw Error('JOURNAL_FS_PROOF');
+    } else if (value.version === 2) {
+      const fields = ['version', 'project', 'storageRole', 'identityMode', 'allocationContract', 'accountUin',
+        'region', 'zone', 'instanceId', 'volumeId', 'filesystem', 'filesystemUuid', 'exclusiveWriter'];
+      // Canonical compact JSON also rejects duplicate keys. Cloud snapshots expire independently of this stable proof.
+      if (bytes.toString('utf8') !== JSON.stringify(value) || Object.keys(value).length !== fields.length
+          || fields.some(key => !Object.hasOwn(value, key))
+          || fields.slice(1, -1).some(key => typeof value[key] !== 'string') || value.project !== 'zhongshu-platform-b'
+          || value.storageRole !== 'runtime-journal' || value.identityMode !== 'tencent-cbs-v1'
+          || value.allocationContract !== 'managed-block-v1' || !/^[0-9]{6,20}$/.test(value.accountUin)
+          || !/^ap-[a-z]+(?:-[a-z]+)*$/.test(value.region) || !value.zone?.startsWith(`${value.region}-`)
+          || !/^[0-9]+$/.test(value.zone.slice(value.region.length + 1))
+          || !/^ins-[a-z0-9]+$/.test(value.instanceId) || !/^disk-[a-z0-9]+$/.test(value.volumeId)
+          || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value.filesystemUuid)) throw Error('JOURNAL_FS_PROOF');
+    } else throw Error('JOURNAL_FS_PROOF');
     return true;
   }
   ensureEmergencyReserve() {
