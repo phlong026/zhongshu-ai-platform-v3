@@ -90,7 +90,7 @@ public final class PublicCaseAccessService implements AutoCloseable {
         List<Map<String, Object>> list = new ArrayList<>();
         data.path("list").forEach(item -> {
             if (!item.isObject()) throw invalidResponse();
-            list.add(mapper.convertValue(item, MAP));
+            list.add(hideUnavailableActions(mapper.convertValue(item, MAP)));
         });
         JsonNode next = data.get("nextCursor");
         if (next != null && !next.isNull() && !next.isTextual()) throw invalidResponse();
@@ -163,6 +163,16 @@ public final class PublicCaseAccessService implements AutoCloseable {
         if (!data.isObject()) throw invalidResponse();
         Map<String, Object> fields = mapper.convertValue(data, MAP);
         if (!sameCase(fields.get("caseId"), caseId)) throw invalidResponse();
+        return hideUnavailableActions(fields);
+    }
+
+    /** B cannot materialize A's case assets yet, so it must not advertise that action as available. */
+    private static Map<String, Object> hideUnavailableActions(Map<String, Object> fields) {
+        Object actions = fields.get("allowedActions");
+        if (!(actions instanceof List<?> values)) return fields;
+        fields.put("allowedActions", values.stream()
+                .filter(action -> !"DESIGN_WITH".equals(action))
+                .toList());
         return fields;
     }
 

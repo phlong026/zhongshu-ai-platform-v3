@@ -90,7 +90,7 @@ class PublicCaseAccessServiceTest {
     }
 
     @Test
-    void publicReadsKeepExistingContractAndPreserveAllowedActions() {
+    void publicReadsHideUnavailableDesignWithActionFromListsAndDetail() {
         handler = exchange -> {
             try {
                 assertThat(exchange.getRequestMethod()).isEqualTo("GET");
@@ -104,7 +104,7 @@ class PublicCaseAccessServiceTest {
                     reply(exchange, 200, detail("7", "[​\"FAVORITE\",\"DESIGN_WITH\"]"));
                 } else {
                     reply(exchange, 200, """
-                            {"code":0,"data":{"list":[{"caseId":"7","title":"山居","allowedActions":["FAVORITE"]}],"nextCursor":"a-next"}}
+                            {"code":0,"data":{"list":[{"caseId":"7","title":"山居","allowedActions":["VIEW","DESIGN_WITH","FAVORITE"]}],"nextCursor":"a-next"}}
                             """);
                 }
             } catch (IOException error) {
@@ -121,10 +121,10 @@ class PublicCaseAccessServiceTest {
 
         assertThat(page.nextCursor()).isEqualTo("a-next");
         assertThat(page.list().get(0)).containsEntry("caseId", "7")
-                .containsEntry("allowedActions", java.util.List.of("FAVORITE"));
+                .containsEntry("allowedActions", java.util.List.of("VIEW", "FAVORITE"));
         assertThat(styles).containsExactly(new DesignServicePort.StyleOption("MODERN", "现代"));
         assertThat(detail.fields()).containsEntry("caseId", "7")
-                .containsEntry("allowedActions", java.util.List.of("FAVORITE", "DESIGN_WITH"));
+                .containsEntry("allowedActions", java.util.List.of("FAVORITE"));
     }
 
     @Test
@@ -160,7 +160,7 @@ class PublicCaseAccessServiceTest {
         assertThat(otherEmployee.list()).extracting(item -> item.get("caseId")).containsExactly("8");
         assertThat(otherOrganization.list()).extracting(item -> item.get("caseId")).containsExactly("9");
         assertThat(otherTenant.list()).extracting(item -> item.get("caseId")).containsExactly("10");
-        assertThat(first.list().get(0)).containsEntry("allowedActions", java.util.List.of("FAVORITE", "DESIGN_WITH"));
+        assertThat(first.list().get(0)).containsEntry("allowedActions", java.util.List.of("FAVORITE"));
     }
 
     @Test

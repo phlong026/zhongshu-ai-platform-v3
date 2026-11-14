@@ -53,7 +53,7 @@ class PublicCaseCatalogClientTest {
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
             query.set(exchange.getRequestURI().getRawQuery());
             reply(exchange, 200, """
-                    {"code":0,"msg":"","data":{"list":[{"id":7,"allowedActions":["VIEW","GENERATE"]}],"nextCursor":"c2"}}
+                    {"code":0,"msg":"","data":{"list":[{"id":7,"allowedActions":["VIEW","DESIGN_WITH"]}],"nextCursor":"c2"}}
                     """);
         });
 
@@ -65,7 +65,7 @@ class PublicCaseCatalogClientTest {
         assertEquals("1", tenant.get());
         assertEquals(null, authorization.get());
         assertEquals("keyword=%E6%9A%96%20%E7%99%BD&limit=20&maxArea=120&minArea=80", query.get());
-        assertEquals("GENERATE", data.path("list").get(0).path("allowedActions").get(1).asText());
+        assertEquals("DESIGN_WITH", data.path("list").get(0).path("allowedActions").get(1).asText());
         assertEquals("c2", data.path("nextCursor").asText());
     }
 
