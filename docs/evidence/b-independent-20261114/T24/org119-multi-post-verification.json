@@ -1,0 +1,109 @@
+{
+  "capturedAt": "2026-11-14T15:27:18Z",
+  "environment": "B integration API through localhost tunnel 58081",
+  "tenantId": "1",
+  "orgId": "119",
+  "userId": "145",
+  "operation": {
+    "endpoint": "POST /admin-api/platform/org/posts",
+    "operatorPostId": "2121620613810364417",
+    "operatorRoleCode": "boss",
+    "idempotentAssignments": [
+      {
+        "roleCode": "finance",
+        "postId": "2121622126125391874",
+        "active": true,
+        "teamId": null
+      },
+      {
+        "roleCode": "engineer",
+        "postId": "2121622125286531073",
+        "active": true,
+        "teamId": null
+      }
+    ]
+  },
+  "activeStorePostsAfter": [
+    {
+      "roleCode": "boss",
+      "postId": "2121620613810364417"
+    },
+    {
+      "roleCode": "sales",
+      "postId": "2121621022180384770"
+    },
+    {
+      "roleCode": "engineer",
+      "postId": "2121622125286531073"
+    },
+    {
+      "roleCode": "finance",
+      "postId": "2121622126125391874"
+    }
+  ],
+  "currentContext": {
+    "finance": {
+      "postId": "2121622126125391874",
+      "permissions": [
+        "franchise:fin:query",
+        "franchise:performance:operate"
+      ],
+      "managedTeamIds": []
+    },
+    "engineer": {
+      "postId": "2121622125286531073",
+      "permissions": [],
+      "managedTeamIds": [],
+      "note": "current-context exposes only the Web capability allowlist; engineering access is verified by the route probe below"
+    },
+    "boss": {
+      "postId": "2121620613810364417",
+      "permissions": [
+        "platform:org:query",
+        "platform:org:manage",
+        "franchise:fin:query",
+        "franchise:performance:operate",
+        "platform:wallet:read"
+      ],
+      "managedTeamIds": []
+    }
+  },
+  "readOnlyRouteProbes": [
+    {
+      "actorRoleCode": "finance",
+      "route": "GET /admin-api/franchise/finance/receipts/page?pageNo=1&pageSize=1",
+      "httpStatus": 200,
+      "bodyCode": 0,
+      "resultCount": 0
+    },
+    {
+      "actorRoleCode": "engineer",
+      "route": "GET /admin-api/franchise/finance/receipts/page?pageNo=1&pageSize=1",
+      "httpStatus": 200,
+      "bodyCode": 403
+    },
+    {
+      "actorRoleCode": "engineer",
+      "route": "GET /admin-api/franchise/engineering/projects",
+      "httpStatus": 200,
+      "bodyCode": 0,
+      "resultCount": 0
+    },
+    {
+      "actorRoleCode": "engineer",
+      "route": "GET /admin-api/platform/org/staff?orgId=119",
+      "httpStatus": 200,
+      "bodyCode": 403
+    }
+  ],
+  "safety": {
+    "newUserCreated": false,
+    "existingPostsRevoked": false,
+    "devToolsPostChanged": false,
+    "pointBalanceChanged": false,
+    "supplierCalled": false,
+    "secretsRecorded": false,
+    "mobileRecorded": false,
+    "headquartersTwoPersonReviewRuleChanged": false
+  }
+}

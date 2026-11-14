@@ -1,0 +1,10 @@
+{
+  "exit": 0,
+  "result": {
+    "noAuthStatus": 401,
+    "status": 200,
+    "textModelListed": true,
+    "imageModelListed": true,
+    "modelCount": 929
+  }
+}

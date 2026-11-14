@@ -1,0 +1,61 @@
+[
+  {
+    "path": "/franchise/design/budget/rule-info?regionCode=LOCAL_IT&structureType=FRAME&materialGrade=STANDARD",
+    "http": 200,
+    "body": {
+      "code": 0,
+      "msg": "",
+      "data": {
+        "regionCode": "LOCAL_IT",
+        "structureType": "FRAME",
+        "materialGrade": "STANDARD",
+        "ruleVersionId": 202611140001,
+        "lowCentsPerSqm": 100000,
+        "highCentsPerSqm": 150000,
+        "effectiveAt": "2026-11-14 23:04:26.838292"
+      }
+    }
+  },
+  {
+    "path": "/franchise/company-points/summary",
+    "http": 200,
+    "body": {
+      "code": 0,
+      "msg": "",
+      "data": {
+        "orgId": 119,
+        "balance": 0,
+        "inFlight": 0,
+        "status": "ACTIVE",
+        "month": "2026-11",
+        "monthUsedTotal": 0
+      }
+    }
+  },
+  {
+    "path": "/franchise/design/projects",
+    "line": "FLAT",
+    "http": 200,
+    "body": {
+      "code": 0,
+      "msg": "",
+      "data": {
+        "projectId": "2121748279658020865",
+        "replayed": false
+      }
+    }
+  },
+  {
+    "path": "/franchise/design/projects",
+    "line": "ELEVATION",
+    "http": 200,
+    "body": {
+      "code": 0,
+      "msg": "",
+      "data": {
+        "projectId": "2121748280190697473",
+        "replayed": false
+      }
+    }
+  }
+]

@@ -1,0 +1,24 @@
+{
+  "source": "A running Runtime environment plus verified source defaults",
+  "copiedSupplierKeys": [
+    "ZS_AI_API_KEY",
+    "ZS_AI_IMAGE_MODEL",
+    "ZS_AI_IMAGE_MODEL_FALLBACK",
+    "ZS_AI_IMAGE_MODEL_2K",
+    "ZS_AI_IMAGE_QUALITY",
+    "ZS_AI_IMAGE_SIZE_FLAT",
+    "ZS_AI_IMAGE_SIZE_ELEVATION",
+    "ZS_AI_REQUEST_TIMEOUT_MS",
+    "ZS_AI_IMAGE_URL_ORIGINS",
+    "ZS_AI_BASE_URL",
+    "ZS_AI_MODEL"
+  ],
+  "keyPresent": true,
+  "keySha256": "d1e8c3d5286df1c8c51443dcd4c81eadb3f348653e8ea02b6fbf62fef2bf4b16",
+  "baseUrl": "https://api.apilio.ai/v1",
+  "textModel": "gpt-5.6-sol",
+  "imageModel": "gpt-image-2",
+  "aInternalSecretsCopied": false,
+  "aStorageConfigCopied": false,
+  "aDailyLimitsCopied": false
+}

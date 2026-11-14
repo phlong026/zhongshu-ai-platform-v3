@@ -1,0 +1,106 @@
+{
+  "runtimeImage": "sha256:0b84470027520e6da73c086e2b4c7e7205514098b025c35e4762eb750eb669fc",
+  "runtimePort": "127.0.0.1:18082",
+  "providerBridge": "172.19.0.1:48443 -> 127.0.0.1:48443",
+  "proxyPubliclyBound": false,
+  "composeService": {
+    "image": "sha256:0b84470027520e6da73c086e2b4c7e7205514098b025c35e4762eb750eb669fc",
+    "user": "1000:1000",
+    "group_add": [
+      "20000"
+    ],
+    "init": true,
+    "pull_policy": "never",
+    "read_only": true,
+    "cap_drop": [
+      "ALL"
+    ],
+    "security_opt": [
+      "no-new-privileges:true"
+    ],
+    "networks": [
+      "private"
+    ],
+    "extra_hosts": [
+      "design-provider:172.19.0.1"
+    ],
+    "cpus": 1.0,
+    "mem_limit": "768m",
+    "pids_limit": 128,
+    "tmpfs": [
+      "/tmp:size=16m,mode=1777"
+    ],
+    "restart": "unless-stopped",
+    "stop_grace_period": "60s",
+    "ports": [
+      "127.0.0.1:18082:8081"
+    ],
+    "entrypoint": [
+      "node",
+      "/etc/platform/runtime-start.mjs"
+    ],
+    "environment": {
+      "ZS_AI_CORE_URL": "https://design-provider:48443",
+      "ZS_AI_JOURNAL_DIR": "/data",
+      "NODE_EXTRA_CA_CERTS": "/run/secrets/design-provider-ca.pem"
+    },
+    "volumes": [
+      {
+        "type": "bind",
+        "source": "/mnt/datadisk0/zhongshu-platform-b-integration/runtime-journal",
+        "target": "/data",
+        "read_only": false,
+        "bind": {
+          "create_host_path": false
+        }
+      },
+      {
+        "type": "bind",
+        "source": "/opt/zhongshu-platform-b-integration/release/runtime-start.mjs",
+        "target": "/etc/platform/runtime-start.mjs",
+        "read_only": true,
+        "bind": {
+          "create_host_path": false
+        }
+      },
+      {
+        "type": "bind",
+        "source": "/opt/zhongshu-platform-b-integration/release/runtime-hmac-smoke.mjs",
+        "target": "/etc/platform/runtime-hmac-smoke.mjs",
+        "read_only": true,
+        "bind": {
+          "create_host_path": false
+        }
+      },
+      {
+        "type": "bind",
+        "source": "/etc/zhongshu-platform-b-integration/runtime.env",
+        "target": "/run/secrets/ai-runtime.env",
+        "read_only": true,
+        "bind": {
+          "create_host_path": false
+        }
+      },
+      {
+        "type": "bind",
+        "source": "/etc/zhongshu-platform-b-integration/design-provider-ca.pem",
+        "target": "/run/secrets/design-provider-ca.pem",
+        "read_only": true,
+        "bind": {
+          "create_host_path": false
+        }
+      }
+    ],
+    "logging": {
+      "driver": "json-file",
+      "options": {
+        "max-size": "10m",
+        "max-file": "3"
+      }
+    }
+  },
+  "proxyUnits": {
+    "zhongshu-platform-b-integration-provider-bridge.socket": "[Unit]\nDescription=B private Docker bridge to independent Provider TLS\nAfter=docker.service\n[Socket]\nListenStream=172.19.0.1:48443\nNoDelay=true\n[Install]\nWantedBy=sockets.target\n",
+    "zhongshu-platform-b-integration-provider-bridge.service": "[Unit]\nDescription=B private Provider TCP forwarding only\nRequires=zhongshu-platform-b-integration-provider-bridge.socket\nAfter=zhongshu-platform-b-integration-provider-bridge.socket\n[Service]\nExecStart=/usr/lib/systemd/systemd-socket-proxyd --exit-idle-time=300s 127.0.0.1:48443\nDynamicUser=yes\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nMemoryMax=64M\nCPUQuota=25%\nTasksMax=32\n"
+  }
+}

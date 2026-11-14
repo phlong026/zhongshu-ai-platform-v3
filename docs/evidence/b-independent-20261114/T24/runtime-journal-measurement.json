@@ -1,0 +1,22 @@
+{
+  "journal": "/mnt/datadisk0/zhongshu-platform-b-integration/runtime-journal",
+  "proofSha256": "673621d7a4250712f8824a922a7ead77447d78b922a6582ce65b0a4e51d2582e",
+  "mount": {
+    "source": "/dev/vdb",
+    "uuid": "e07286c2-5dc1-421f-9cd3-6840a95dadc3",
+    "fstype": "ext4",
+    "target": "/mnt/datadisk0"
+  },
+  "observedDiskId": "disk-aqc9ak09",
+  "fsyncSamplesMs": [
+    2.590639,
+    3.779162,
+    2.716605,
+    4.646512,
+    2.338564
+  ],
+  "allocatedProbeBytes": 131072,
+  "journalOwner": "1000:1000",
+  "runtimeEnvironmentContainsNoADailyLimits": true,
+  "scope": "integration-only; not a formal signed production storage approval"
+}

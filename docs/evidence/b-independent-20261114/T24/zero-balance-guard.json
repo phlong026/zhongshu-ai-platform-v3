@@ -1,0 +1,33 @@
+{
+  "before": {
+    "code": 0,
+    "msg": "",
+    "data": {
+      "orgId": 119,
+      "balance": 0,
+      "inFlight": 0,
+      "status": "ACTIVE",
+      "month": "2026-11",
+      "monthUsedTotal": 0
+    }
+  },
+  "flatRequestResult": {
+    "code": 1072000011,
+    "msg": "公司积分池余额不足，请联系管理员充值",
+    "data": null
+  },
+  "after": {
+    "code": 0,
+    "msg": "",
+    "data": {
+      "orgId": 119,
+      "balance": 0,
+      "inFlight": 0,
+      "status": "ACTIVE",
+      "month": "2026-11",
+      "monthUsedTotal": 0
+    }
+  },
+  "pointPoolBypassed": false,
+  "testCreditsGranted": false
+}
