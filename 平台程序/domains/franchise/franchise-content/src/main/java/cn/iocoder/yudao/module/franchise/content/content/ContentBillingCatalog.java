@@ -11,15 +11,15 @@ public final class ContentBillingCatalog {
 
     public enum Unit { CALL, SECOND }
 
-    public record Subject(String key, String name, Unit unit, String provider, int defaultDailyQuota) {
+    public record Subject(String key, String name, Unit unit, String provider) {
     }
 
-    public static final Subject LINK_RESOLUTION = new Subject("link_resolution", "链接解析", Unit.CALL, "diadi", 200);
-    public static final Subject COPY = new Subject("copy", "文案改写", Unit.CALL, "deepseek", 500);
-    public static final Subject ASR = new Subject("asr", "语音转写", Unit.CALL, "dashscope", 200);
-    public static final Subject DIGITAL = new Subject("digital", "数字人口播", Unit.SECOND, "hifly", 3600);
-    public static final Subject AI_VIDEO_768P = new Subject("ai_video_768p", "AI 视频 768P", Unit.SECOND, "metaso", 3600);
-    public static final Subject AI_VIDEO_2K = new Subject("ai_video_2k", "AI 视频 2K", Unit.SECOND, "metaso", 1800);
+    public static final Subject LINK_RESOLUTION = new Subject("link_resolution", "链接解析", Unit.CALL, "diadi");
+    public static final Subject COPY = new Subject("copy", "文案改写", Unit.CALL, "deepseek");
+    public static final Subject ASR = new Subject("asr", "语音转写", Unit.CALL, "dashscope");
+    public static final Subject DIGITAL = new Subject("digital", "数字人口播", Unit.SECOND, "hifly");
+    public static final Subject AI_VIDEO_768P = new Subject("ai_video_768p", "AI 视频 768P", Unit.SECOND, "metaso");
+    public static final Subject AI_VIDEO_2K = new Subject("ai_video_2k", "AI 视频 2K", Unit.SECOND, "metaso");
 
     private static final Map<String, Subject> SUBJECTS = Map.of(
             LINK_RESOLUTION.key(), LINK_RESOLUTION,

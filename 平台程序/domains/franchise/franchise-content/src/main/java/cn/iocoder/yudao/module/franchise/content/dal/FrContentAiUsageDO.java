@@ -9,7 +9,7 @@ import lombok.experimental.Accessors;
 
 import java.time.LocalDate;
 
-/** 组织日配额（16 §四/D-1.5-8）：(org_id, service, day) 唯一 + count；超限 1_114_000_002。 */
+/** 组织内容 AI 当日用量统计：(org_id, service, day) 唯一 + count；不作为业务准入或扣费门槛。 */
 @TableName("fr_content_ai_usage")
 @TenantIgnore
 @Data

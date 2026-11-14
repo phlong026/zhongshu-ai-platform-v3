@@ -2,9 +2,12 @@ package cn.iocoder.yudao.module.franchise.content.provider;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -64,33 +67,109 @@ class DeepSeekChatClientTest {
     }
 
     @Test
-    void truncatedFinishReasonIsDefinitiveRejection() {
+    void successfulButTruncatedResponseIsUncertain() {
         ContentProviderTransport.Scripted transport = new ContentProviderTransport.Scripted(
                 ContentProviderTransport.json(200,
                         "{\"choices\":[{\"message\":{\"content\":\"截断\"},\"finish_reason\":\"length\"}]}", 10));
         assertThatThrownBy(() -> client(transport).rewrite(
                 new ScriptRewritePort.RewriteCall("原文", null, null, ProviderCallAudit.NONE)))
-                .isInstanceOf(ContentProviderException.Rejection.class)
+                .isInstanceOf(ContentProviderException.Uncertain.class)
                 .hasMessageContaining("超过输出上限");
     }
 
     @Test
-    void emptyContentIsRejection() {
+    void successfulButEmptyContentIsUncertain() {
         ContentProviderTransport.Scripted transport = new ContentProviderTransport.Scripted(
                 ContentProviderTransport.json(200,
                         "{\"choices\":[{\"message\":{\"content\":\"  \"},\"finish_reason\":\"stop\"}]}", 10));
         assertThatThrownBy(() -> client(transport).rewrite(
                 new ScriptRewritePort.RewriteCall("原文", null, null, ProviderCallAudit.NONE)))
-                .isInstanceOf(ContentProviderException.Rejection.class)
+                .isInstanceOf(ContentProviderException.Uncertain.class)
                 .hasMessageContaining("结果为空");
     }
 
     @Test
-    void http4xx5xxRejectionButNetworkUncertain() {
+    void verifiedNotAcceptedWhitelistCanUseFreeFallback() {
+        for (int status : new int[]{400, 401, 403, 404, 422}) {
+            assertThatThrownBy(() -> client(new ContentProviderTransport.Scripted(
+                    ContentProviderTransport.json(status, "rejected", 10))).rewrite(
+                    new ScriptRewritePort.RewriteCall("原文", null, null, ProviderCallAudit.NONE)))
+                    .isInstanceOfAny(ContentProviderException.Rejection.class,
+                            ContentProviderException.Unavailable.class);
+        }
+    }
+
+    @Test
+    void unverifiedClientErrorsAreUncertainAndMustNotRefund() {
+        for (int status : new int[]{409, 418, 425, 451}) {
+            assertThatThrownBy(() -> client(new ContentProviderTransport.Scripted(
+                    ContentProviderTransport.json(status, "unknown", 10))).rewrite(
+                    new ScriptRewritePort.RewriteCall("原文", null, null, ProviderCallAudit.NONE)))
+                    .isInstanceOf(ContentProviderException.Uncertain.class);
+        }
+    }
+
+    @Test
+    void realLocalHttpKeepsOnlyVerifiedNotAcceptedStatusesRefundable() throws Exception {
+        AtomicInteger status = new AtomicInteger(400);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/chat/completions", exchange -> {
+            byte[] body = "provider-response".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(status.get(), body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        try {
+            ContentProviderProperties.DeepSeek local = config();
+            local.setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
+            DeepSeekChatClient client = new DeepSeekChatClient(local, new ContentProviderTransport.Jdk(), null);
+            ScriptRewritePort.RewriteCall call = new ScriptRewritePort.RewriteCall(
+                    "原文", null, null, ProviderCallAudit.NONE);
+
+            assertThatThrownBy(() -> client.rewrite(call))
+                    .isInstanceOf(ContentProviderException.Rejection.class);
+            for (int unknown : new int[]{409, 425, 429, 500}) {
+                status.set(unknown);
+                assertThatThrownBy(() -> client.rewrite(call))
+                        .isInstanceOf(ContentProviderException.Uncertain.class);
+            }
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void timeoutRateLimitAndServerErrorsAreUncertain() {
+        for (int status : new int[]{408, 429, 500, 503}) {
+            assertThatThrownBy(() -> client(new ContentProviderTransport.Scripted(
+                    ContentProviderTransport.json(status, "unknown", 10))).rewrite(
+                    new ScriptRewritePort.RewriteCall("原文", null, null, ProviderCallAudit.NONE)))
+                    .isInstanceOf(ContentProviderException.Uncertain.class);
+        }
+    }
+
+    @Test
+    void successfulButMalformedResponseIsUncertain() {
+        for (String body : new String[]{"not-json", "{}", "{\"choices\":[]}",
+                "{\"choices\":[{\"message\":{\"content\":\"有文字\"},\"finish_reason\":\"unknown\"}]}"}) {
+            assertThatThrownBy(() -> client(new ContentProviderTransport.Scripted(
+                    ContentProviderTransport.json(200, body, 10))).rewrite(
+                    new ScriptRewritePort.RewriteCall("原文", null, null, ProviderCallAudit.NONE)))
+                    .isInstanceOf(ContentProviderException.Uncertain.class);
+        }
+    }
+
+    @Test
+    void redirectWithoutDefinitiveAcceptanceIsUncertain() {
         assertThatThrownBy(() -> client(new ContentProviderTransport.Scripted(
-                ContentProviderTransport.json(500, "boom", 10))).rewrite(
+                ContentProviderTransport.json(302, "redirect", 10))).rewrite(
                 new ScriptRewritePort.RewriteCall("原文", null, null, ProviderCallAudit.NONE)))
-                .isInstanceOf(ContentProviderException.Rejection.class);
+                .isInstanceOf(ContentProviderException.Uncertain.class);
+    }
+
+    @Test
+    void credentialsAndNetworkKeepTheirExistingClassification() {
 
         assertThatThrownBy(() -> client(new ContentProviderTransport.Scripted(
                 ContentProviderTransport.json(401, "denied", 10))).rewrite(

@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.INPUT_INVALID;
 
 @Tag(name = "加盟 - 内容创作（任务）")
 @RestController
@@ -76,6 +78,52 @@ public class ContentTaskController {
     public CommonResult<Map<String, Object>> detail(@PathVariable("id") Long id) {
         PostSnapshot post = post();
         return success(viewOf(tasks.requireOwned(post.orgId(), id)));
+    }
+
+    @PostMapping("{id}/manual-verification")
+    @Operation(summary = "人工核验 UNKNOWN 任务是否已交付（结论与积分终态幂等）")
+    @PreAuthorize("@post.has('" + ContentPermissions.VERIFY + "')")
+    public CommonResult<Map<String, Object>> manualVerification(
+            @PathVariable("id") Long id,
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
+        Long actualUnits = parseQuantity(body.get("actualQuantity"));
+        FrContentTaskDO task = tasks.manualVerify(post(), id,
+                body.get("decision") == null ? null : String.valueOf(body.get("decision")),
+                actualUnits,
+                body.get("reason") == null ? null : String.valueOf(body.get("reason")),
+                body.get("evidenceSummary") == null ? null : String.valueOf(body.get("evidenceSummary")),
+                ContentScriptController.requireIdem(idem));
+        return success(viewOf(task));
+    }
+
+    @GetMapping("{id}/manual-verification")
+    @Operation(summary = "查看 UNKNOWN 人工核验审计（仅核验岗）")
+    @PreAuthorize("@post.has('" + ContentPermissions.VERIFY + "')")
+    public CommonResult<Map<String, Object>> manualVerificationAudit(@PathVariable("id") Long id) {
+        FrContentTaskDO task = tasks.requireVerificationAudit(post(), id);
+        Map<String, Object> audit = new LinkedHashMap<>();
+        audit.put("taskId", task.getId());
+        audit.put("status", task.getStatus());
+        audit.put("decision", task.getManualVerifyDecision() == null ? "" : task.getManualVerifyDecision());
+        audit.put("actualQuantity", task.getManualVerifyActualUnits());
+        audit.put("reason", task.getManualVerifyReason() == null ? "" : task.getManualVerifyReason());
+        audit.put("evidenceSummary", task.getManualVerifyEvidence() == null ? "" : task.getManualVerifyEvidence());
+        audit.put("operatorUserId", task.getManualVerifyOperatorUserId());
+        audit.put("operatorPostId", task.getManualVerifyOperatorPostId());
+        audit.put("verifiedAt", task.getManualVerifiedAt());
+        return success(audit);
+    }
+
+    private static Long parseQuantity(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(String.valueOf(raw));
+        } catch (NumberFormatException e) {
+            throw exception(INPUT_INVALID);
+        }
     }
 
     @PostMapping("{id}/save-work")

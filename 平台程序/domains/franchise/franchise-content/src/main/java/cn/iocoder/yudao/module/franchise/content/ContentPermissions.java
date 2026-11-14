@@ -6,6 +6,7 @@ public final class ContentPermissions {
     public static final String QUERY = "franchise:content:query";
     public static final String WRITE = "franchise:content:write";
     public static final String PERSONA = "franchise:content:persona";
+    public static final String VERIFY = "franchise:content:verify";
 
     private ContentPermissions() {
     }

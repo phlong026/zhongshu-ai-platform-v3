@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 内容任务扫写 Job（对标 AiJobCancelRecoveryJob 样板：开关+间隔+分页扫描+逐条独立收口）：
@@ -45,8 +46,21 @@ public class ContentTaskJob {
             submitQueued();
             pollInFlight();
             timeoutOverdue();
+            reconcilePendingPool();
         } catch (RuntimeException e) {
             log.warn("content task sweep failed: {}", e.getMessage());
+        }
+    }
+
+    /** 恢复终态任务中因瞬时故障未完成的积分池结算。 */
+    private void reconcilePendingPool() {
+        String leaseToken = UUID.randomUUID().toString();
+        for (FrContentTaskDO task : store.claimTerminalWithPendingPool(20, leaseToken, 120)) {
+            try {
+                tasks.reconcilePool(task, leaseToken);
+            } catch (RuntimeException e) {
+                log.warn("content task {} pool reconcile failed: {}", task.getId(), e.getMessage());
+            }
         }
     }
 

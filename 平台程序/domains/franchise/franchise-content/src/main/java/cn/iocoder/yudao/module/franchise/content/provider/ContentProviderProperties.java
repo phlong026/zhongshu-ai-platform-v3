@@ -2,9 +2,6 @@ package cn.iocoder.yudao.module.franchise.content.provider;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 /**
  * 内容域 provider 配置（红线：密钥只经环境变量占位注入，不进代码/日志/PR；
  * pg 基线只留 ${ENV:} 占位，zsdev 全 fake 零密钥）。
@@ -18,9 +15,6 @@ public class ContentProviderProperties {
 
     /** fake 结局控制（ok|failed|uncertain），供 e2e 分支断言 */
     private Fake fake = new Fake();
-
-    /** 组织日配额默认值（按科目；可用配置覆盖，D-1.5-8） */
-    private Map<String, Integer> quota = new LinkedHashMap<>();
 
     private Diadi diadi = new Diadi();
     private DashScope dashscope = new DashScope();
@@ -146,8 +140,6 @@ public class ContentProviderProperties {
     public void setProvider(ProviderMode provider) { this.provider = provider; }
     public Fake getFake() { return fake; }
     public void setFake(Fake fake) { this.fake = fake; }
-    public Map<String, Integer> getQuota() { return quota; }
-    public void setQuota(Map<String, Integer> quota) { this.quota = quota; }
     public Diadi getDiadi() { return diadi; }
     public void setDiadi(Diadi diadi) { this.diadi = diadi; }
     public DashScope getDashscope() { return dashscope; }

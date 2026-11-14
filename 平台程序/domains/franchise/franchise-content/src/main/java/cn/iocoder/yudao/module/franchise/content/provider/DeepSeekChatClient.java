@@ -16,7 +16,7 @@ import java.util.Map;
  * DeepSeek 文案改写（D-1.5-2 / 16a A1，对标 script_rewrite.py）：
  * POST {base}/chat/completions，deepseek-chat、超时 240s、max_tokens 8192、temperature 1.3（V3.1 勘误定标）。
  * 消息结构：system（同款口播稿编辑提示词）→ 人设快照（可选）→ 本次要求（可选）→ 待处理原文。
- * finish_reason=length→Rejection（截断）；401/403→Unavailable；网络→Uncertain（上层落 rules 兜底）。
+ * 只有可证未受理的明确拒绝才可免费兜底；408/429/5xx、网络和成功但不可判读的回包均为 Uncertain。
  * system prompt 是 prompt 快照落库的单一来源（产物可审计，D-1.5-2）。
  */
 public class DeepSeekChatClient implements ScriptRewritePort {
@@ -66,41 +66,56 @@ public class DeepSeekChatClient implements ScriptRewritePort {
                     payload.toString().getBytes(StandardCharsets.UTF_8), config.getTimeoutSeconds());
         } catch (ContentProviderTransport.NetworkFailure e) {
             record(call.audit(), endpoint, e.isTimeout() ? "TIMEOUT" : "NETWORK_ERROR", null, elapsed(start));
-            throw new ContentProviderException.Uncertain("文案改写请求未能确认完成，已转用离线改写兜底");
+            throw new ContentProviderException.Uncertain("文案改写请求未能确认完成，请等待人工核验");
         } catch (IOException e) {
             record(call.audit(), endpoint, "NETWORK_ERROR", null, elapsed(start));
-            throw new ContentProviderException.Uncertain("文案改写请求未能确认完成，已转用离线改写兜底");
+            throw new ContentProviderException.Uncertain("文案改写请求未能确认完成，请等待人工核验");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             record(call.audit(), endpoint, "INTERRUPTED", null, elapsed(start));
-            throw new ContentProviderException.Uncertain("文案改写请求已中断，已转用离线改写兜底");
+            throw new ContentProviderException.Uncertain("文案改写请求已中断，请等待人工核验");
         }
         long latency = elapsed(start);
         if (response.status() == 401 || response.status() == 403) {
             record(call.audit(), endpoint, "HTTP_" + response.status(), null, latency);
             throw new ContentProviderException.Unavailable("文案改写服务凭据无效或无权限，请联系管理员");
         }
+        if (response.status() == 408 || response.status() == 429 || response.status() >= 500) {
+            record(call.audit(), endpoint, "HTTP_" + response.status(), null, latency);
+            throw new ContentProviderException.Uncertain(
+                    "文案改写服务是否受理无法确认（HTTP " + response.status() + "），请等待人工核验");
+        }
         if (response.status() < 200 || response.status() >= 300) {
             record(call.audit(), endpoint, "HTTP_" + response.status(), null, latency);
-            throw new ContentProviderException.Rejection(
-                    "文案改写服务返回错误（HTTP " + response.status() + "），已转用离线改写兜底", response.status(), null);
+            if (response.status() == 400 || response.status() == 404 || response.status() == 422) {
+                throw new ContentProviderException.Rejection(
+                        "文案改写服务返回明确未受理（HTTP " + response.status() + "），已转用离线改写兜底",
+                        response.status(), null);
+            }
+            throw new ContentProviderException.Uncertain(
+                    "文案改写服务是否受理无法确认（HTTP " + response.status() + "），请等待人工核验");
         }
         JsonNode root;
         try {
             root = JSON.readTree(response.body());
         } catch (IOException e) {
             record(call.audit(), endpoint, "PARSE_ERROR", null, latency);
-            throw new ContentProviderException.Rejection("文案改写服务返回内容异常，已转用离线改写兜底", response.status(), null);
+            throw new ContentProviderException.Uncertain("文案改写服务已响应但内容无法判读，请等待人工核验");
         }
         JsonNode choice = root.path("choices").path(0);
         String content = choice.path("message").path("content").asText("").trim();
-        if ("length".equals(choice.path("finish_reason").asText())) {
+        String finishReason = choice.path("finish_reason").asText("");
+        if ("length".equals(finishReason)) {
             record(call.audit(), endpoint, "TRUNCATED", 1, latency);
-            throw new ContentProviderException.Rejection("改写结果超过输出上限，已转用离线改写兜底；也可缩短原文后重试", response.status(), null);
+            throw new ContentProviderException.Uncertain("改写结果超过输出上限，已有交付但计费结果待人工核验");
         }
         if (content.isEmpty()) {
             record(call.audit(), endpoint, "EMPTY", 1, latency);
-            throw new ContentProviderException.Rejection("文案改写结果为空，已转用离线改写兜底", response.status(), null);
+            throw new ContentProviderException.Uncertain("文案改写结果为空，计费结果待人工核验");
+        }
+        if (!"stop".equals(finishReason)) {
+            record(call.audit(), endpoint, "UNREADABLE_FINISH", 1, latency);
+            throw new ContentProviderException.Uncertain("文案改写服务已响应但完成状态无法判读，请等待人工核验");
         }
         record(call.audit(), endpoint, "OK", 1, latency);
         return new Result(content, config.getModel());
