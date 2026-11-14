@@ -13,6 +13,8 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 
+import tencent_cbs_storage as cbs_storage
+
 
 HERE = Path(__file__).resolve().parent
 PROJECT = "zhongshu-platform-b"
@@ -32,7 +34,11 @@ BACKUP_VARIABLES = (
     "B_SAME_HOST_BACKUP_APPROVER_PUBLIC_KEY_FILE", "B_SAME_HOST_BACKUP_MIN_FREE_BYTES",
     "B_SAME_HOST_BACKUP_MAX_BYTES",
 )
-VARIABLES = (*SAME_HOST_VARIABLES, *BACKUP_VARIABLES, "AI_RUNTIME_JOURNAL_DIR")
+CBS_VARIABLES = (
+    "B_SAME_HOST_STORAGE_IDENTITY_MODE", "B_SAME_HOST_TENCENT_CBS_EVIDENCE_FILE",
+    "B_SAME_HOST_TENCENT_CBS_EVIDENCE_SHA256",
+)
+VARIABLES = (*SAME_HOST_VARIABLES, *BACKUP_VARIABLES, *CBS_VARIABLES, "AI_RUNTIME_JOURNAL_DIR")
 TRUSTED_APPROVER_KEY_HASH_FILE = HERE / "trusted-storage-approver.sha256"
 DirectoryContract = namedtuple("DirectoryContract", "path uid gid mode")
 VOLUME_DIRECTORIES = {
@@ -94,8 +100,11 @@ def example_backup_values(mount):
 
 
 def compose_overlay(values):
+    mode = cbs_storage.identity_mode(values)
     present = [key for key in SAME_HOST_VARIABLES if values.get(key)]
     if not present:
+        demand(mode == cbs_storage.LEGACY_IDENTITY_MODE,
+               "Tencent CBS mode requires complete same-host storage configuration")
         return []
     demand(len(present) == len(SAME_HOST_VARIABLES) and values.get("AI_RUNTIME_JOURNAL_DIR"),
            "Same-host storage configuration must be complete")
@@ -105,6 +114,12 @@ def compose_overlay(values):
     demand(values["B_SAME_HOST_MIN_FREE_BYTES"].isdigit()
            and int(values["B_SAME_HOST_MIN_FREE_BYTES"]) > 0,
            "Same-host minimum free bytes must be positive")
+    if mode == cbs_storage.IDENTITY_MODE:
+        demand(all(values.get(key) for key in CBS_VARIABLES),
+               "Tencent CBS identity mode requires a complete external cloud evidence binding")
+        _absolute_clean(values["B_SAME_HOST_TENCENT_CBS_EVIDENCE_FILE"], "Tencent CBS evidence file")
+        demand(re.fullmatch(r"[0-9a-f]{64}", values["B_SAME_HOST_TENCENT_CBS_EVIDENCE_SHA256"]),
+               "Tencent CBS evidence SHA-256 is required")
     return ["-f", str(OVERLAY)]
 
 
@@ -386,7 +401,23 @@ def validate_attestation(values, proof, proof_file, protected_file, b_physical, 
     _validate_attestation_window(attestation)
 
 
-def _verified_attestation(attestation_file, signature_file, public_key_file):
+def validate_cbs_attestation(values, proof, proof_file, protected_file, cloud,
+                             protected_logical_ids):
+    attestation = _verified_attestation(
+        Path(values["B_SAME_HOST_STORAGE_ATTESTATION_FILE"]),
+        Path(values["B_SAME_HOST_STORAGE_ATTESTATION_SIGNATURE_FILE"]),
+        Path(values["B_SAME_HOST_APPROVER_PUBLIC_KEY_FILE"]),
+        strict_json=True,
+    )
+    cbs_storage.validate_cbs_attestation_fields(
+        attestation, proof, cloud, _sha256(proof_file), _sha256(protected_file),
+        int(values["B_SAME_HOST_MIN_FREE_BYTES"]), protected_logical_ids,
+    )
+    _validate_attestation_window(attestation)
+    return attestation
+
+
+def _verified_attestation(attestation_file, signature_file, public_key_file, strict_json=False):
     demand(TRUSTED_APPROVER_KEY_HASH_FILE.is_file() and not TRUSTED_APPROVER_KEY_HASH_FILE.is_symlink(),
            "Trusted storage approver key hash is not provisioned in the reviewed deployment package")
     trusted_hash = TRUSTED_APPROVER_KEY_HASH_FILE.read_text().strip()
@@ -399,6 +430,8 @@ def _verified_attestation(attestation_file, signature_file, public_key_file):
                                "-signature", str(signature_file), str(attestation_file)],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30, check=False)
     demand(verified.returncode == 0, "Independent storage attestation signature is invalid")
+    if strict_json:
+        return cbs_storage.strict_json_bytes(attestation_file.read_bytes())
     return json.loads(attestation_file.read_text())
 
 
@@ -430,6 +463,23 @@ def validate_backup_attestation(values, proof, proof_file, protected_file,
            and attestation.get("aScopeComplete") is True,
            "Backup attestation does not bind the independent disk, capacity budget and protected scope")
     _validate_attestation_window(attestation)
+
+
+def validate_cbs_backup_attestation(values, proof, proof_file, protected_file, cloud,
+                                    protected_logical_ids):
+    attestation = _verified_attestation(
+        Path(values["B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_FILE"]),
+        Path(values["B_SAME_HOST_BACKUP_STORAGE_ATTESTATION_SIGNATURE_FILE"]),
+        Path(values["B_SAME_HOST_BACKUP_APPROVER_PUBLIC_KEY_FILE"]),
+        strict_json=True,
+    )
+    cbs_storage.validate_cbs_attestation_fields(
+        attestation, proof, cloud, _sha256(proof_file), _sha256(protected_file),
+        int(values["B_SAME_HOST_BACKUP_MIN_FREE_BYTES"]), protected_logical_ids,
+        storage_role="backup", maximum_backup_bytes=int(values["B_SAME_HOST_BACKUP_MAX_BYTES"]),
+    )
+    _validate_attestation_window(attestation)
+    return attestation
 
 
 def validate_tree(path, expected_device):
@@ -467,12 +517,15 @@ def validate_tree_with_mounts(path, expected_device, mountpoints):
 
 
 def _marker_value(values, proof):
-    return {
+    marker = {
         "version": 1, "project": PROJECT, "mountpoint": values["B_SAME_HOST_MOUNT"],
         "dataRoot": values["B_SAME_HOST_DATA_ROOT"], "volumeId": proof["volumeId"],
         "directories": {name: str(contract.path) for name, contract in
                         directory_contracts(Path(values["B_SAME_HOST_DATA_ROOT"])).items()},
     }
+    if cbs_storage.identity_mode(values) == cbs_storage.IDENTITY_MODE:
+        marker["identityMode"] = cbs_storage.IDENTITY_MODE
+    return marker
 
 
 def _validate_marker(root, values, proof):
@@ -494,9 +547,14 @@ def _filesystem_type(mount):
     return result.stdout.strip()
 
 
-def validate_host(values, require_directories=True, check_docker=True, check_backup=True):
+def validate_host(values, require_directories=True, check_docker=True, check_backup=True,
+                  _return_cbs_contract=False):
     backup_root = backup_path_plan(values, required=False)
     compose_overlay(values)
+    selected_mode = cbs_storage.identity_mode(values)
+    if selected_mode == cbs_storage.IDENTITY_MODE and check_backup:
+        demand(backup_root is not None,
+               "Tencent CBS release validation requires a complete independent backup disk contract")
     mount = Path(values["B_SAME_HOST_MOUNT"])
     proof_file = Path(values["B_SAME_HOST_STORAGE_PROOF_FILE"])
     protected_file = Path(values["B_SAME_HOST_PROTECTED_A_PATHS_FILE"])
@@ -513,11 +571,11 @@ def validate_host(values, require_directories=True, check_docker=True, check_bac
            "Docker data-root discovery failed")
     docker_root = Path(docker_root_result.stdout.strip()).resolve(strict=True)
     mount_identity = _mount_identity(mount)
-    shared_identities = [_mount_identity(path) for path in [Path("/").resolve(), docker_root, *protected]]
+    shared_paths = [Path("/").resolve(), docker_root, *protected]
+    shared_identities = [_mount_identity(path) for path in shared_paths]
     for shared_identity in shared_identities:
         demand(not _same_storage(mount_identity, shared_identity),
                "B same-host mount shares the root, Docker, or protected A storage device")
-    b_physical, protected_physical = _block_independence(mount_identity, shared_identities)
     planned = path_plan(values, protected)
     root = Path(values["B_SAME_HOST_DATA_ROOT"])
     proof_metadata = proof_file.stat()
@@ -526,31 +584,60 @@ def validate_host(values, require_directories=True, check_docker=True, check_bac
            "Storage proof must be root-owned and not group/world-writable")
     demand(_sha256(proof_file) == values["B_SAME_HOST_STORAGE_PROOF_SHA256"],
            "Same-host storage proof hash mismatch")
-    proof = json.loads(proof_file.read_text())
-    try:
-        measured_at = datetime.fromisoformat(str(proof.get("measuredAt", "")).replace("Z", "+00:00"))
-        demand(measured_at.tzinfo is not None, "Storage proof timestamp requires a timezone")
-        age = datetime.now(timezone.utc) - measured_at.astimezone(timezone.utc)
-        demand(timedelta(0) <= age <= timedelta(hours=24), "Storage proof is stale or future-dated")
-    except (ValueError, TypeError) as error:
-        raise ValueError("Storage proof measuredAt is invalid") from error
+    mode = selected_mode
+    proof = (cbs_storage.strict_json_bytes(proof_file.read_bytes())
+             if mode == cbs_storage.IDENTITY_MODE else json.loads(proof_file.read_text()))
     usage = shutil.disk_usage(mount)
     minimum_free = int(values["B_SAME_HOST_MIN_FREE_BYTES"])
-    demand(proof.get("version") == 1 and proof.get("mountpoint") == str(mount)
-           and proof.get("filesystem") == filesystem and proof.get("provisioning") == "thick"
-           and isinstance(proof.get("volumeId"), str) and proof["volumeId"].strip()
-           and isinstance(proof.get("fsyncP99Ms"), (int, float)) and proof["fsyncP99Ms"] > 0
-           and isinstance(proof.get("capacityBytes"), int) and proof["capacityBytes"] == usage.total
-           and proof.get("requiredFreeBytes") == minimum_free,
-           "Storage proof lacks the reviewed thick/fsync/capacity contract")
+    cbs_contract = None
+    if mode == cbs_storage.LEGACY_IDENTITY_MODE:
+        b_physical, protected_physical = _block_independence(mount_identity, shared_identities)
+        try:
+            measured_at = datetime.fromisoformat(str(proof.get("measuredAt", "")).replace("Z", "+00:00"))
+            demand(measured_at.tzinfo is not None, "Storage proof timestamp requires a timezone")
+            age = datetime.now(timezone.utc) - measured_at.astimezone(timezone.utc)
+            demand(timedelta(0) <= age <= timedelta(hours=24), "Storage proof is stale or future-dated")
+        except (ValueError, TypeError) as error:
+            raise ValueError("Storage proof measuredAt is invalid") from error
+        demand(proof.get("version") == 1 and proof.get("mountpoint") == str(mount)
+               and proof.get("filesystem") == filesystem and proof.get("provisioning") == "thick"
+               and isinstance(proof.get("volumeId"), str) and proof["volumeId"].strip()
+               and isinstance(proof.get("fsyncP99Ms"), (int, float)) and proof["fsyncP99Ms"] > 0
+               and isinstance(proof.get("capacityBytes"), int) and proof["capacityBytes"] == usage.total
+               and proof.get("requiredFreeBytes") == minimum_free,
+               "Storage proof lacks the reviewed thick/fsync/capacity contract")
+        validate_attestation(values, proof, proof_file, protected_file, b_physical, protected_physical)
+    else:
+        cloud_contract = cbs_storage.get_cbs_contract(values, mount, storage_role="data")
+        cloud = cloud_contract["cloud"]
+        guest_binding = cbs_storage.collect_live_guest_binding(
+            mount_identity, shared_identities[0], list(zip(shared_paths, shared_identities)), cloud)
+        protected_logical_ids = sorted({item["stableId"] for item in guest_binding["protectedMounts"]})
+        cbs_storage.validate_cbs_proof(
+            proof, cloud, cloud_contract["identityEvidenceSha256"], mount, filesystem,
+            usage.total, minimum_free, guest_binding,
+        )
+        validate_cbs_attestation(values, proof, proof_file, protected_file, cloud,
+                                 protected_logical_ids)
+        cbs_contract = {
+            "identityMode": cbs_storage.IDENTITY_MODE,
+            "allocationContract": "managed-block-v1",
+            "identityEvidenceSha256": cloud_contract["identityEvidenceSha256"],
+            "accountUin": cloud["accountUin"], "region": cloud["region"], "zone": cloud["zone"],
+            "instanceId": cloud["instanceId"], "volumeId": proof["volumeId"],
+            "filesystem": filesystem, "filesystemUuid": mount_identity["uuid"],
+            "encrypted": cloud["disksById"][proof["volumeId"]]["Encrypt"],
+            "runtimeProofSha256": proof["runtimeProofSha256"],
+            "guestBinding": guest_binding,
+            "guestBindingSha256": cbs_storage.canonical_sha256(guest_binding),
+        }
     demand(usage.free >= minimum_free, "Same-host storage has less than the reviewed free-space floor")
-    validate_attestation(values, proof, proof_file, protected_file, b_physical, protected_physical)
     if not require_directories:
         if root.exists() or root.is_symlink():
             _reject_symlink_components(root)
         if check_docker:
             validate_existing_docker_volumes(values)
-        return planned
+        return cbs_contract if _return_cbs_contract else planned
     root = root.resolve(strict=True)
     root_stat = root.stat()
     demand(stat.S_IMODE(root_stat.st_mode) == 0o710 and root_stat.st_uid == 0 and root_stat.st_gid == 20000
@@ -569,17 +656,74 @@ def validate_host(values, require_directories=True, check_docker=True, check_bac
         validate_existing_docker_volumes(values)
     if require_directories and check_backup and backup_root is not None:
         validate_backup_mount(values)
-    return planned
+    return cbs_contract if _return_cbs_contract else planned
+
+
+def validated_cbs_data_contract(values, require_directories=True, check_docker=True,
+                                check_backup=True):
+    demand(cbs_storage.identity_mode(values) == cbs_storage.IDENTITY_MODE,
+           "Validated CBS data contract requires explicit tencent-cbs-v1 mode")
+    return validate_host(values, require_directories=require_directories, check_docker=check_docker,
+                         check_backup=check_backup, _return_cbs_contract=True)
+
+
+def inspect_cbs_host(values):
+    """Read live identity only; this never validates signatures or declares release readiness."""
+    demand(all(values.get(key) for key in ("B_SAME_HOST_MOUNT", "B_SAME_HOST_PROTECTED_A_PATHS_FILE")),
+           "CBS inspection requires explicit mount and protected-path inputs")
+    demand(cbs_storage.identity_mode(values) == cbs_storage.IDENTITY_MODE,
+           "CBS inspection requires explicit tencent-cbs-v1 mode")
+    mount = Path(values["B_SAME_HOST_MOUNT"])
+    protected_file = Path(values["B_SAME_HOST_PROTECTED_A_PATHS_FILE"])
+    for path in (mount, protected_file):
+        _reject_symlink_components(path)
+    mount = mount.resolve(strict=True)
+    demand(mount.is_dir() and mount.is_mount(), "Same-host storage root must be an actual mount point")
+    protected = _protected_paths(protected_file.resolve(strict=True))
+    docker_result = subprocess.run(["docker", "info", "--format", "{{.DockerRootDir}}"],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                   timeout=30, check=False)
+    demand(docker_result.returncode == 0 and docker_result.stdout.strip(),
+           "Docker data-root discovery failed")
+    shared_paths = [Path("/").resolve(), Path(docker_result.stdout.strip()).resolve(strict=True), *protected]
+    mount_identity = _mount_identity(mount)
+    shared_identities = [_mount_identity(path) for path in shared_paths]
+    for shared_identity in shared_identities:
+        demand(not _same_storage(mount_identity, shared_identity),
+               "B same-host mount shares the root, Docker, or protected A storage device")
+    cloud_contract = cbs_storage.get_cbs_contract(values, mount, storage_role="data")
+    cloud = cloud_contract["cloud"]
+    guest_binding = cbs_storage.collect_live_guest_binding(
+        mount_identity, shared_identities[0], list(zip(shared_paths, shared_identities)), cloud)
+    protected_ids = sorted({item["stableId"] for item in guest_binding["protectedMounts"]})
+    cbs_storage.validate_guest_binding(guest_binding, cloud, guest_binding["target"]["stableId"],
+                                       protected_ids)
+    return {
+        "notReleaseReady": True,
+        "signedApprovalValidated": False,
+        "identityMode": cbs_storage.IDENTITY_MODE,
+        "allocationContract": "managed-block-v1",
+        "identityEvidenceSha256": cloud_contract["identityEvidenceSha256"],
+        "accountUin": cloud["accountUin"], "region": cloud["region"], "zone": cloud["zone"],
+        "instanceId": cloud["instanceId"], "volumeId": guest_binding["target"]["stableId"],
+        "filesystem": _filesystem_type(mount), "filesystemUuid": mount_identity["uuid"],
+        "encrypted": cloud["disksById"][guest_binding["target"]["stableId"]]["Encrypt"],
+        "guestBinding": guest_binding,
+        "guestBindingSha256": cbs_storage.canonical_sha256(guest_binding),
+    }
 
 
 def _backup_marker_value(values, proof):
-    return {
+    marker = {
         "version": 1, "project": PROJECT, "storageRole": "backup",
         "mountpoint": values["B_SAME_HOST_BACKUP_MOUNT"],
         "backupRoot": values["B_SAME_HOST_BACKUP_ROOT"], "volumeId": proof["volumeId"],
         "minimumFreeBytes": int(values["B_SAME_HOST_BACKUP_MIN_FREE_BYTES"]),
         "maximumBackupBytes": int(values["B_SAME_HOST_BACKUP_MAX_BYTES"]),
     }
+    if cbs_storage.identity_mode(values) == cbs_storage.IDENTITY_MODE:
+        marker["identityMode"] = cbs_storage.IDENTITY_MODE
+    return marker
 
 
 def _validate_backup_marker(root, values, proof):
@@ -624,42 +768,70 @@ def validate_backup_mount(values, require_root=True):
     for shared_identity in shared_identities:
         demand(not _same_storage(mount_identity, shared_identity),
                "Backup mount shares root, Docker, A, or the B data storage device")
-    backup_physical, protected_physical = _block_independence(mount_identity, shared_identities)
     proof_metadata = proof_file.stat()
     demand(proof_file.is_file() and not proof_file.is_symlink() and proof_metadata.st_uid == 0
            and not (proof_metadata.st_mode & 0o027),
            "Backup storage proof must be root-owned and not group/world-writable")
     demand(_sha256(proof_file) == values["B_SAME_HOST_BACKUP_STORAGE_PROOF_SHA256"],
            "Backup storage proof hash mismatch")
-    proof = json.loads(proof_file.read_text())
-    try:
-        measured_at = datetime.fromisoformat(str(proof.get("measuredAt", "")).replace("Z", "+00:00"))
-        demand(measured_at.tzinfo is not None, "Backup storage proof timestamp requires a timezone")
-        age = datetime.now(timezone.utc) - measured_at.astimezone(timezone.utc)
-        demand(timedelta(0) <= age <= timedelta(hours=24), "Backup storage proof is stale or future-dated")
-    except (ValueError, TypeError) as error:
-        raise ValueError("Backup storage proof measuredAt is invalid") from error
+    mode = cbs_storage.identity_mode(values)
+    proof = (cbs_storage.strict_json_bytes(proof_file.read_bytes())
+             if mode == cbs_storage.IDENTITY_MODE else json.loads(proof_file.read_text()))
     usage = shutil.disk_usage(mount)
     minimum_free = int(values["B_SAME_HOST_BACKUP_MIN_FREE_BYTES"])
     maximum_backup = int(values["B_SAME_HOST_BACKUP_MAX_BYTES"])
-    demand(proof.get("version") == 1 and proof.get("storageRole") == "backup"
-           and proof.get("mountpoint") == str(mount) and proof.get("filesystem") == filesystem
-           and proof.get("provisioning") == "thick"
-           and isinstance(proof.get("volumeId"), str) and proof["volumeId"].strip()
-           and isinstance(proof.get("fsyncP99Ms"), (int, float)) and proof["fsyncP99Ms"] > 0
-           and proof.get("capacityBytes") == usage.total
-           and proof.get("requiredFreeBytes") == minimum_free
-           and proof.get("maximumBackupBytes") == maximum_backup,
-           "Backup proof lacks the reviewed thick/fsync/capacity/budget contract")
+    if mode == cbs_storage.LEGACY_IDENTITY_MODE:
+        backup_physical, protected_physical = _block_independence(mount_identity, shared_identities)
+        try:
+            measured_at = datetime.fromisoformat(str(proof.get("measuredAt", "")).replace("Z", "+00:00"))
+            demand(measured_at.tzinfo is not None, "Backup storage proof timestamp requires a timezone")
+            age = datetime.now(timezone.utc) - measured_at.astimezone(timezone.utc)
+            demand(timedelta(0) <= age <= timedelta(hours=24), "Backup storage proof is stale or future-dated")
+        except (ValueError, TypeError) as error:
+            raise ValueError("Backup storage proof measuredAt is invalid") from error
+        demand(proof.get("version") == 1 and proof.get("storageRole") == "backup"
+               and proof.get("mountpoint") == str(mount) and proof.get("filesystem") == filesystem
+               and proof.get("provisioning") == "thick"
+               and isinstance(proof.get("volumeId"), str) and proof["volumeId"].strip()
+               and isinstance(proof.get("fsyncP99Ms"), (int, float)) and proof["fsyncP99Ms"] > 0
+               and proof.get("capacityBytes") == usage.total
+               and proof.get("requiredFreeBytes") == minimum_free
+               and proof.get("maximumBackupBytes") == maximum_backup,
+               "Backup proof lacks the reviewed thick/fsync/capacity/budget contract")
+        validate_backup_attestation(values, proof, proof_file, protected_file,
+                                    backup_physical, protected_physical)
+        identity_evidence = {
+            "physicalVolumeIds": sorted(backup_physical),
+            "protectedPhysicalVolumeIds": sorted(protected_physical),
+        }
+    else:
+        cloud_contract = cbs_storage.get_cbs_contract(values, mount, storage_role="backup")
+        cloud = cloud_contract["cloud"]
+        guest_binding = cbs_storage.collect_live_guest_binding(
+            mount_identity, shared_identities[0], list(zip(shared_paths, shared_identities)), cloud)
+        protected_logical_ids = sorted({item["stableId"] for item in guest_binding["protectedMounts"]})
+        cbs_storage.validate_cbs_proof(
+            proof, cloud, cloud_contract["identityEvidenceSha256"], mount, filesystem,
+            usage.total, minimum_free, guest_binding, storage_role="backup",
+            maximum_backup_bytes=maximum_backup,
+        )
+        validate_cbs_backup_attestation(values, proof, proof_file, protected_file, cloud,
+                                        protected_logical_ids)
+        identity_evidence = {
+            "identityMode": cbs_storage.IDENTITY_MODE,
+            "allocationContract": "managed-block-v1",
+            "identityEvidenceSha256": cloud_contract["identityEvidenceSha256"],
+            "accountUin": cloud["accountUin"], "region": cloud["region"], "zone": cloud["zone"],
+            "instanceId": cloud["instanceId"],
+            "logicalVolumeIds": [proof["volumeId"]],
+            "protectedLogicalVolumeIds": protected_logical_ids,
+            "guestBindingSha256": cbs_storage.canonical_sha256(guest_binding),
+        }
     demand(usage.free >= minimum_free + maximum_backup,
            "Backup mount lacks the attested floor plus maximum backup budget")
-    validate_backup_attestation(values, proof, proof_file, protected_file,
-                                backup_physical, protected_physical)
     evidence = {"storageRole": "backup", "mountpoint": str(mount), "volumeId": proof["volumeId"],
                 "proofSha256": _sha256(proof_file), "minimumFreeBytes": minimum_free,
-                "maximumBackupBytes": maximum_backup,
-                "physicalVolumeIds": sorted(backup_physical),
-                "protectedPhysicalVolumeIds": sorted(protected_physical)}
+                "maximumBackupBytes": maximum_backup, **identity_evidence}
     if not require_root:
         return {"mount": mount, "root": root, "minimumFreeBytes": minimum_free,
                 "maximumBackupBytes": maximum_backup, "proof": proof, "evidence": evidence}
@@ -806,7 +978,7 @@ def prepare(values):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("check", "prepare"))
+    parser.add_argument("action", choices=("check", "inspect", "prepare"))
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-target")
@@ -817,10 +989,14 @@ def main():
         demand(args.execute and args.confirm_target == TARGET,
                f"Explicit --execute --confirm-target {TARGET} is required")
         prepare(values)
+        print("B same-host storage contract passed")
+    elif args.action == "inspect":
+        demand(not args.execute, "Inspect is read-only and does not accept --execute")
+        print(json.dumps(inspect_cbs_host(values), sort_keys=True, separators=(",", ":")))
     else:
         demand(not args.execute, "Check is read-only and does not accept --execute")
         validate_host(values)
-    print("B same-host storage contract passed")
+        print("B same-host storage contract passed")
 
 
 if __name__ == "__main__":

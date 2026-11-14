@@ -15,6 +15,7 @@ import sys
 import tempfile
 from urllib.parse import urlsplit
 import same_host_storage as same_host
+from runtime_storage_proof import validate_runtime_proof
 
 HERE = Path(__file__).resolve().parent
 REPO = next(parent for parent in HERE.parents if (parent / ".git").exists())
@@ -235,8 +236,13 @@ def validate(env_file, structure_only):
     if structure_only:
         return
     same_host.inspect_existing_model_volumes(model, environment)
+    storage_contract = None
+    identity_mode = values.get("B_SAME_HOST_STORAGE_IDENTITY_MODE", "serial-wwn-thick-v1")
     if same_host.compose_overlay(values):
-        same_host.validate_host(values)
+        if identity_mode == "tencent-cbs-v1":
+            storage_contract = same_host.validated_cbs_data_contract(values)
+        else:
+            same_host.validate_host(values)
     repository = REPO.resolve()
     for key in EXTERNAL_FILES:
         path = Path(values.get(key, "")).resolve(strict=True)
@@ -266,7 +272,8 @@ def validate(env_file, structure_only):
         demand(fs.returncode == 0 and fs.stdout.strip() in ("ext4", "xfs"), "Runtime journal requires ext4/xfs")
     proof = journal / ".capacity-proof.json"
     demand(proof.is_file() and not proof.is_symlink(), "Runtime capacity proof is missing")
-    demand(hashlib.sha256(proof.read_bytes()).hexdigest() == proof_hash, "Runtime capacity proof hash mismatch")
+    demand(proof.stat().st_size <= 8192, "Runtime capacity proof is too large")
+    validate_runtime_proof(proof.read_bytes(), proof_hash, identity_mode, storage_contract)
     provider_values = parse_properties(Path(values["DESIGN_PROVIDER_CONFIG_FILE"]))
     validate_configuration_contract(parse_properties(platform_path), provider_values, runtime_values,
                                     values.get("COS_B_BUCKET", ""))

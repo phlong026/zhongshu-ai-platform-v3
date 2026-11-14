@@ -77,6 +77,24 @@ class CapabilityDeploymentTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             same_host.compose_overlay(values)
 
+    def test_tencent_cbs_overlay_requires_explicit_complete_evidence_binding(self):
+        values = same_host.example_values("/mnt/datadisk0")
+        values["B_SAME_HOST_STORAGE_IDENTITY_MODE"] = "tencent-cbs-v1"
+        with self.assertRaises(ValueError):
+            same_host.compose_overlay(values)
+        values.update({
+            "B_SAME_HOST_TENCENT_CBS_EVIDENCE_FILE": "/var/lib/zhongshu-platform-b/cbs.json",
+            "B_SAME_HOST_TENCENT_CBS_EVIDENCE_SHA256": "c" * 64,
+        })
+        self.assertEqual(same_host.compose_overlay(values),
+                         ["-f", str(HERE / "compose.same-host.yaml")])
+        with self.assertRaisesRegex(ValueError, "backup disk contract"):
+            same_host.validate_host(values)
+        legacy = same_host.example_values("/mnt/datadisk0")
+        legacy["B_SAME_HOST_TENCENT_CBS_EVIDENCE_FILE"] = "/must/not/be/read"
+        self.assertEqual(same_host.compose_overlay(legacy),
+                         ["-f", str(HERE / "compose.same-host.yaml")])
+
     def test_same_host_paths_are_fixed_b_children_and_never_overlap_a(self):
         values = same_host.example_values("/mnt/datadisk0")
         planned = same_host.path_plan(values, protected_paths=[Path("/srv/zhongshu-platform-a")])

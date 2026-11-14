@@ -7,11 +7,11 @@
 
 | 方案 | 数据位置 | 备份位置 | 使用边界 |
 | --- | --- | --- | --- |
-| 短期试点 | 现有 `/mnt/datadisk0` 下固定 B 子目录 | 另购 B 专用备份盘 | 需先通过存储门禁；建议使用合成数据或经批准的受控测试数据 |
-| 正式生产建议 | 新增 100 GiB 加密 B 数据盘，挂 `/mnt/zhongshu-platform-b-data` | 新增 200 GiB 加密 B 备份盘，挂 `/mnt/zhongshu-platform-b-backup` | 起始规划规格，须按可售盘型、增长、恢复空间与实时报价校准 |
+| 短期试点 | 现有 `/mnt/datadisk0` 下固定 B 子目录 | 尚无合格 B 专用备份盘 | 未加密状态须如实签入 proof/attestation；仅可作为待正式受信批准的受限试点候选 |
+| 正式容量草案 | 建议 100 GiB B 加密数据盘，仅保留为容量测算 | 建议 200 GiB B 加密备份盘，仅保留为容量测算 | 新盘、KMS、快照和其他付费能力全部暂停；KMS 费用与授权须另行确认 |
 
-新增盘挂本机必须选择上海五区；独立云盘 ID 只证明逻辑卷不同，不代表底层物理故障域独占。没有下单、创建、格式化或挂载任何新盘。
-现有盘为未加密盘，没有快照或定期快照策略，当前顶层只有系统 `lost+found`，文件占用约 20 KiB，非 root 可用 37.058 GiB。
+若未来另行授权新增盘，挂本机必须选择上海五区；独立云盘 ID 只证明逻辑卷不同，不代表底层物理故障域独占。当前没有下单、创建、格式化或挂载任何新盘，也未启用 KMS 或快照。
+现有盘为未加密盘，没有快照或定期快照策略；这不是本轮代码硬拒绝条件，但 evidence、host proof 与 attestation 必须一致记录 `encrypted=false`，不得伪装成生产加密。当前顶层只有系统 `lost+found`，文件占用约 20 KiB，非 root 可用 37.058 GiB；本轮没有初始化任何数据目录。
 试点留 12 GiB 运维余量后约有 25.06 GiB 业务头寸；该数值不是生产规模承诺。正式方案的数据余量先按 25 GiB 规划，备份余量 32 GiB，单次备份上限 96 GiB。
 
 PG、WAL、两套 Redis AOF/RDB 与 Runtime journal 必须分别落在固定 B 子目录；`backup-staging` 不能当备份目标。
@@ -23,16 +23,17 @@ Runtime journal 当前会保留已完成记录，未发现自动清理策略。1
 200 GiB 不是多份 96 GiB 上界全备的保留承诺。先做一份完整备份/恢复测量，再定保留份数；不自动删除已有备份。
 另一块同机同 AZ 盘不能覆盖主机或可用区故障，正式灾备还应保留 B 专属异地副本/备份服务，不写入 A 桶，也不把业务资产桶版本控制称为独立备份。
 
-## 当前校验阻塞及整改方向
+## 身份模式与当前阻塞
 
-现有 `same_host_storage.py` 要求 root、Docker、A 与 B 卷的块设备祖先都有稳定 WWN/serial，并要求受信签名的 `thick` 供应证明。
-实际 guest 的 `vda` 没有 serial/WWN，故现在不能运行 `prepare`。腾讯云控制面已确认系统盘与数据盘 ID，但没有给出物理 fault domain 或 thick 的证明；不能把 UUID、设备名或手写 serial 当成该证明。
+默认模式仍是 `serial-wwn-thick-v1`：未显式配置时，`same_host_storage.py` 继续要求 root、Docker、A 与 B 卷的块设备祖先都有稳定 WWN/serial，并要求受信签名的 thick 供应证明。实际 guest 的 `vda` 没有 serial/WWN，因此默认模式仍 fail-closed。
 
-后续应单独实现并审查腾讯云控制面身份校验：受限只读身份查询 `DescribeDisks`、`DescribeInstances`，绑定账号、实例、可用区、云盘 ID、用途、挂载状态、加密状态、容量、查询时间和 RequestId，再与 guest UUID、major:minor、挂载点交叉核对。
-证据哈希由独立受信审批方签名；API RequestId 不是审批签名。新增云盘身份模式必须明确只证明逻辑卷隔离，保留旧模式，不把缺失证明静默放行。
-当前代码未实现该兼容模式、真实信任锚未安装，也没有伪造 proof/attestation。
+只有显式设置 `B_SAME_HOST_STORAGE_IDENTITY_MODE=tencent-cbs-v1` 才启用腾讯 CBS 模式。该模式读取仓库外 root 所有、0600、最大 1 MiB 且采集完成不超过一小时的 `evidence.json`，并以 `B_SAME_HOST_TENCENT_CBS_EVIDENCE_SHA256` 绑定原始字节。采集器只调用 STS `GetCallerIdentity`、CVM `DescribeInstances` 和 CBS `DescribeDisks`；主机侧 IMDS 只辅助交叉核对 instance/region/zone，不替代云 API 身份。
 
-配置片段故意留空真实 SHA、签名等字段，误用会拒绝；它们不能作为完整 deployment env 运行，也不能通过改后缀绕过门禁。
+仓内既有策略记录中的账号 UIN 候选是 `100045498012`，但仍必须由本次 fresh STS 响应确认，不能把旧策略文件当 CBS evidence。guest 中目标设备的稳定 serial 与 CBS `DiskId` 一致，是本项目用于绑定控制面和 guest 设备的审查策略，不是腾讯云对物理硬件、fault domain 或 thick provisioning 的官方保证。CBS proof/attestation 必须使用 `allocationContract=managed-block-v1`；不能把逻辑卷 ID、RequestId、UUID 或手写 JSON 称为物理独占或 thick 证明。
+
+数据盘 proof 必须是 fresh v2 host proof，并由受信审批 attestation 绑定 `identityEvidenceSha256`、guest binding 与 `runtimeProofSha256`。云 evidence 过期后可以重新只读采集并重做 host proof/attestation；只要 Runtime 的稳定 `.capacity-proof.json` 内容和 SHA 未变，不需要重启 Runtime。真实信任锚、签名、host proof 和 attestation 当前均未提供。
+
+配置片段只预填显式 identity mode 和已知主机/盘的注释；云 evidence 文件/哈希、proof 哈希、签名与信任锚故意留空，误用会拒绝。它们不能作为完整 deployment env 运行，也不能通过改后缀绕过门禁。现盘受限试点仍须正式受信方批准真实 `encrypted=false` 合同；当前没有 B 专用备份盘，完整备份与恢复仍被阻断；同一数据盘目录不能替代独立备份盘。
 现有 `/etc/fstab` 使用 `/dev/vdb defaults,nofail`，以后可在备份与审阅后改为该盘 UUID；本次没有改动。
 
 ## 域名准备与切换
@@ -49,9 +50,9 @@ Runtime journal 当前会保留已完成记录，未发现自动清理策略。1
 
 - [DescribeDisks](https://cloud.tencent.com/document/product/362/16315)
 - [DescribeInstances](https://cloud.tencent.com/document/product/213/15728)
-- [DescribeSnapshots](https://cloud.tencent.com/document/product/362/15647)
+- [GetCallerIdentity](https://cloud.tencent.com/document/product/1312/48195)
+- [实例元数据](https://cloud.tencent.com/document/product/213/4934)
 - [CBS API](https://cloud.tencent.com/document/product/362/15633)
 
 官方字段由腾讯维护的 SDK 模型交叉核对；未找到 guest serial/WWN、thick 或物理故障域独立的公开保证。
-控制台已查到上海五区单块 100 GiB 增强型 SSD 一年基础价 996 元、单块 200 GiB 高性能盘一年基础价 697.20 元，合计 1693.20 元；数量各 1、备份点 0、暂不挂载、未选加密，未提交订单。
-此报价不含 KMS、快照/备份点及异地副本费用。控制台提示加密需要先开通 KMS，且增强型 SSD 性能承诺需核实目标实例兼容性；不能把此基础价称为已确认的加密生产方案总价。最终以下单前实时配置与报价为准。
+历史控制台报价只作为容量讨论记录，不是采购建议或授权。新盘、KMS、快照/备份点及异地副本费用能力均暂停；恢复工作前必须取得新的明确授权和实时报价。
