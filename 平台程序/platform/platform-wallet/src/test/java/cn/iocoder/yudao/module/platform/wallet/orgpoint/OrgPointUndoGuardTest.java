@@ -22,17 +22,23 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
 
     @Autowired private DataSource dataSource;
     private Connection connection;
+    private String schema;
 
     @BeforeEach
     void setUp() throws Exception {
         connection = dataSource.getConnection();
-        String schema = "orgundo_" + UUID.randomUUID().toString().replace("-", "");
+        schema = "orgundo_" + UUID.randomUUID().toString().replace("-", "");
         execute("CREATE SCHEMA " + schema);
         execute("SET search_path TO " + schema);
+        execute("CREATE TABLE system_menu(id BIGINT PRIMARY KEY,name TEXT,permission TEXT,type INT,sort INT,"
+                + "parent_id BIGINT,path TEXT,icon TEXT,component TEXT,component_name TEXT,status INT,"
+                + "visible BOOLEAN,keep_alive BOOLEAN,always_show BOOLEAN,creator TEXT,updater TEXT)");
+        execute("CREATE TABLE system_role_menu(id BIGINT PRIMARY KEY,role_id BIGINT,menu_id BIGINT)");
         forward(911);
         forward(912);
         forward(913);
         forward(914);
+        forward(917);
     }
 
     @AfterEach
@@ -71,6 +77,8 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
 
     @Test
     void emptySchemasCanRollbackInReverseOrder() throws Exception {
+        execute("INSERT INTO system_role_menu(id,role_id,menu_id) VALUES(1,2,917000)");
+        undo(917);
         undo(914);
         undo(913);
         undo(912);
@@ -79,6 +87,58 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
         assertThat(regclass("design_prompt_receipt")).isNull();
         assertThat(regclass("design_billing_binding")).isNull();
         assertThat(regclass("org_point_ledger")).isNull();
+        assertThat(value("SELECT count(*) FROM system_role_menu WHERE menu_id=917000")).isZero();
+    }
+
+    @Test
+    void headquartersFactsRefuseRollbackAndRemainAuditable() throws Exception {
+        execute("INSERT INTO org_point_hq_adjustment(id,org_id,delta,reason,request_key,request_hash,maker_id) "
+                + "VALUES(1,2,3,'reason','key',repeat('a',64),4)");
+        assertThatThrownBy(() -> undo(917)).isInstanceOf(SQLException.class)
+                .hasMessageContaining("refuse undo");
+        execute("ROLLBACK");
+        assertThat(value("SELECT count(*) FROM org_point_hq_adjustment")).isEqualTo(1);
+    }
+
+    @Test
+    void nonEmptyPriceAuditRefusesHeadquartersRollback() throws Exception {
+        execute("INSERT INTO org_point_price_audit(id,subject,price_id,price_micros,min_charge,actor_id,reason) "
+                + "VALUES(1,'ai_flat',2,3000000,1,4,'approved price')");
+        assertThatThrownBy(() -> undo(917)).isInstanceOf(SQLException.class)
+                .hasMessageContaining("refuse undo");
+        execute("ROLLBACK");
+        assertThat(value("SELECT count(*) FROM org_point_price_audit")).isEqualTo(1);
+    }
+
+    @Test
+    void rollbackTableLocksPreventConcurrentFactInsertion() throws Exception {
+        connection.setAutoCommit(false);
+        execute("LOCK TABLE org_point_hq_adjustment IN ACCESS EXCLUSIVE MODE");
+        execute("LOCK TABLE org_point_price_audit IN ACCESS EXCLUSIVE MODE");
+        var executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            var insertion = executor.submit(() -> {
+                try (Connection other = dataSource.getConnection(); var statement = other.createStatement()) {
+                    statement.execute("SET search_path TO " + schema);
+                    statement.execute("INSERT INTO org_point_hq_adjustment(id,org_id,delta,reason,request_key,request_hash,maker_id) "
+                            + "VALUES(9,2,3,'racing fact','race',repeat('b',64),4)");
+                    return null;
+                } catch (SQLException error) {
+                    return error;
+                }
+            });
+            assertThatThrownBy(() -> insertion.get(200, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+            undo(917);
+            connection.commit();
+            Object insertionResult = insertion.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(insertionResult).isInstanceOf(SQLException.class);
+            assertThat(regclass("org_point_hq_adjustment")).isNull();
+            assertThat(regclass("org_point_price_audit")).isNull();
+        } finally {
+            executor.shutdownNow();
+            connection.setAutoCommit(true);
+        }
     }
 
     @Test
@@ -95,7 +155,27 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
     }
 
     private void forward(int version) throws Exception { execute(script("migration", version)); }
-    private void undo(int version) throws Exception { execute(script("migration-undo", version)); }
+    private void undo(int version) throws Exception {
+        boolean manageTransaction = connection.getAutoCommit();
+        if (manageTransaction) {
+            connection.setAutoCommit(false);
+        }
+        try {
+            execute(script("migration-undo", version));
+            if (manageTransaction) {
+                connection.commit();
+            }
+        } catch (Exception error) {
+            if (manageTransaction) {
+                connection.rollback();
+            }
+            throw error;
+        } finally {
+            if (manageTransaction) {
+                connection.setAutoCommit(true);
+            }
+        }
+    }
 
     private static String script(String kind, int version) throws Exception {
         String name = switch (version) {
@@ -103,6 +183,7 @@ class OrgPointUndoGuardTest extends PlatformPgIntegrationTest {
             case 912 -> "design_billing_binding";
             case 913 -> "design_prompt_receipt";
             case 914 -> "org_point_subject_price";
+            case 917 -> "org_point_headquarters_admin";
             default -> throw new IllegalArgumentException("unsupported version " + version);
         };
         String undo = "migration-undo".equals(kind) ? "undo_" : "";

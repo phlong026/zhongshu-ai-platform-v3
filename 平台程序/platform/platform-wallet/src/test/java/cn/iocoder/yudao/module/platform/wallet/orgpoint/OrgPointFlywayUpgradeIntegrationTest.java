@@ -54,13 +54,16 @@ class OrgPointFlywayUpgradeIntegrationTest extends PlatformPgIntegrationTest {
         jdbc.update("INSERT INTO " + schema + ".org_point_account(id,org_id,balance) VALUES (1,7,99)");
         jdbc.update("INSERT INTO " + schema + ".org_member_quota(id,org_id,user_id,monthly_credits) "
                 + "VALUES (2,7,8,25)");
+        jdbc.execute("CREATE TABLE " + schema + ".system_menu (id BIGINT PRIMARY KEY,name TEXT,permission TEXT,"
+                + "type INT,sort INT,parent_id BIGINT,path TEXT,icon TEXT,component TEXT,component_name TEXT,"
+                + "status INT,visible BOOLEAN,keep_alive BOOLEAN,always_show BOOLEAN,creator TEXT,updater TEXT)");
 
         Flyway current = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema)
                 // 测试 schema 只模拟 911~914 的历史；更早且低于当前版本的迁移按已忽略处理。
                 .ignoreMigrationPatterns("*:ignored")
                 .locations("classpath:" + LOCATION).load();
+        assertThat(current.migrate().migrationsExecuted).isEqualTo(1);
         current.validate();
-        assertThat(current.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForObject("SELECT balance FROM " + schema
                 + ".org_point_account WHERE org_id=7", Long.class)).isEqualTo(99L);
         assertThat(jdbc.queryForObject("SELECT monthly_credits FROM " + schema
