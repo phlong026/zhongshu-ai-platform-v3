@@ -158,8 +158,8 @@ async function uploadVoucher(filePath, helperUser) {
   return assetId;
 }
 
-/** sha256（UTF-8 字节序列输入→hex 小写；纯 JS 直白 FIPS 180-4 实现，无高尔夫压缩——原转录版多处错误）。
- * M08-T03：以 NIST 标准向量（abc/空串/长串）验证。调用方先 encodeURIComponent 转 UTF-8 字节序列。 */
+/** sha256（二进制字符串、ArrayBuffer 或字节视图 → hex 小写；FIPS 180-4）。
+ * 字符串调用方需先转 UTF-8 字节；文件上传直接传 readFile 返回的 ArrayBuffer。 */
 function sha256Hex(ascii) {
   var K = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -176,17 +176,23 @@ function sha256Hex(ascii) {
     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
   ];
   var rotr = function (x, n) { return (x >>> n) | (x << (32 - n)); };
-  var msg = [];
+  var binaryString = typeof ascii === 'string';
+  var bytes = binaryString ? null : ascii instanceof ArrayBuffer ? new Uint8Array(ascii)
+    : ArrayBuffer.isView(ascii) ? new Uint8Array(ascii.buffer, ascii.byteOffset, ascii.byteLength) : null;
+  if (!binaryString && !bytes) throw new TypeError('SHA-256 需要二进制字节');
+  var length = binaryString ? ascii.length : bytes.byteLength;
+  // 有界字节数组避免大文件展开成 JavaScript 数字数组。
+  var msg = new Uint8Array(Math.ceil((length + 9) / 64) * 64);
   var i;
-  for (i = 0; i < ascii.length; i++) {
+  if (bytes) msg.set(bytes);
+  else for (i = 0; i < length; i++) {
     var code = ascii.charCodeAt(i);
     if (code > 255) return '';
-    msg.push(code);
+    msg[i] = code;
   }
-  var bitLen = msg.length * 8;
-  msg.push(0x80);
-  while (msg.length % 64 !== 56) msg.push(0);
-  for (i = 7; i >= 0; i--) msg.push((bitLen / Math.pow(2, i * 8)) & 0xff);
+  var bitLen = length * 8;
+  msg[length] = 0x80;
+  for (i = 0; i < 8; i++) msg[msg.length - 1 - i] = (bitLen / Math.pow(2, i * 8)) & 0xff;
 
   for (var block = 0; block < msg.length / 64; block++) {
     var w = [];
