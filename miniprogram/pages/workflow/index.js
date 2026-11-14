@@ -65,7 +65,7 @@ Page({
   const PFc=this.__pf,post=this.__post;
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   const canW=PFc.can(post,'write');
-  this.setData({platformStatus:'loading',error:this.data.error||'正在加载…',customer:null,canEditCustomer:canW,canFollow:canW});// 保留已有文案（如版本冲突提示）
+  this.setData({platformStatus:'loading',error:this.data.error==='正在加载…'?'':this.data.error,customer:null,canEditCustomer:canW,canFollow:canW});// 加载态由 platformStatus 表达，error 只保留实际业务提示
   if(view==='transfer')this.loadTransferTargets(sessionGen);
   this.__crmApi.customers.get(this.id).then(detail=>{
    if(this.stale(gen,sessionGen,postKey))return;

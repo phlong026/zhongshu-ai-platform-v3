@@ -4,6 +4,7 @@ let navigation;
 let shouldFail = false;
 global.Page = page => { definition = page; };
 global.wx = {
+  getStorageSync(key) { return key === 'zs-api-token-v1' ? 'material-entry-fixture' : ''; },
   redirectTo(options) {
     navigation = options.url;
     if (shouldFail) options.fail?.({ errMsg: '测试导航失败' });

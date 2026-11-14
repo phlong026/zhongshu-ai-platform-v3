@@ -151,7 +151,7 @@ http.onUnauthorized(() => {
     const top = pages[pages.length - 1];
     if (top && typeof top.handle401 === 'function') return; // 页面自理，不全局跳转
   } catch (e) { /* getCurrentPages 不可用时按全局跳转处理 */ }
-  wx.reLaunch({ url: '/pages/account/index' });
+  wx.reLaunch({ url: '/pages/account/index?view=login' });
 });
 
 // M02-T01/I05：岗位失效恢复流注册（模块级单例；恢复期间并发失效由 http 层去抖）

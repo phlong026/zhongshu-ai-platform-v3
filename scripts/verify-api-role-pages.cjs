@@ -104,7 +104,7 @@ function seedLocalRole(role, orgType = 'store') {
 
 // API-only accounts must pass protected account views; a missing API session must still be guarded.
 for (const role of ['boss', 'owner', 'sales', 'sales-lead', 'engineer', 'project-manager', 'finance', 'finance-lead', 'hq-design-admin']) {
-  for (const view of ['profile', 'messages', 'identity']) {
+  for (const view of ['profile', 'messages', 'identity', 'devices', 'permissions', 'binding']) {
     reset(post(role, { orgType: role === 'hq-design-admin' ? 'headquarters' : 'store' }));
     const page = pageOf(definitions.account);
     page.onLoad({ view });
@@ -121,8 +121,8 @@ assert.match(navigation[0]?.url || '', /view=login/, 'guest is sent to login');
 
 reset(post('sales'));
 const apiLocalOrder = pageOf(definitions.account);
-apiLocalOrder.onLoad({ view: 'devices' });
-assert.match(navigation[0]?.url || '', /view=access/, 'API role does not gain access to legacy local-order views');
+apiLocalOrder.onLoad({ view: 'feedback' });
+assert.match(navigation[0]?.url || '', /view=access/, 'API role does not gain access to legacy local feedback records');
 
 for (const role of ['sales', 'sales-lead', 'engineer', 'project-manager', 'finance', 'finance-lead', 'hq-design-admin']) {
   reset(post(role));

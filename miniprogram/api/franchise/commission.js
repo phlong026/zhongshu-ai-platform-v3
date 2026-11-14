@@ -20,7 +20,7 @@ const commissions = {
     http.post('/franchise/customers/' + customerId + '/commission', data, keyHeader(idempotencyKey)),
   /** 分页列表 */
   page: (pageNo, pageSize, keyword) =>
-    http.get('/franchise/commissions', { pageNo, pageSize, keyword: keyword || undefined }),
+    http.get('/franchise/commissions', Object.assign({ pageNo, pageSize }, keyword ? { keyword } : {})),
   /** 详情（含 allowedActions 与显示状态） */
   get: (id) => http.get('/franchise/commissions/' + id),
   /** 老板审批费用 {approve, note} */
