@@ -17,6 +17,15 @@ function yuan(cents) {
   return (cents / 100).toFixed(2);
 }
 
+/** API 财务工作台快捷入口：登记类直接打开真实 API 表单，流水入口只切平台台账。 */
+function shortcuts(headquarters) {
+  const ledger = { label: '收支流水', icon: '/assets/book.png', url: '/pages/admin/finance-desk/index?view=flows&tab=ledger' };
+  const entry = (label, type) => ({ label, type, icon: '/assets/money.png', url: '' });
+  return headquarters
+    ? [entry('确认到账', 'receipt'), entry('退款登记', 'refund'), ledger]
+    : [entry('收款登记', 'receipt'), entry('付款登记', 'payment'), entry('应付登记', 'payable'), ledger];
+}
+
 /** 登记金额：元字符串 → 分（严格十进制，拒绝逗号/超两位小数/科学计数法/非正数/超上限；非法 → null） */
 function toCents(input) {
   const s = String(input == null ? '' : input).trim();
@@ -70,7 +79,12 @@ function metrics(receipts, payments, refunds, month) {
     .reduce((a, p) => a + (p.amountCents || 0), 0);
   const refunded = (refunds || []).filter(r => r.status === '已核实' && r.refundDirection !== 'expense' && inMonth(r, 'date'))
     .reduce((a, r) => a + (r.amountCents || 0), 0);
-  return { received: yuan(received), paid: yuan(paid), refunded: yuan(refunded) };
+  const metricYuan = cents => cents === 0 ? '0.00' : yuan(cents);
+  return {
+    received: metricYuan(received),
+    paid: metricYuan(paid),
+    refunded: metricYuan(refunded)
+  };
 }
 
 /** 封存入口过滤：返回新数组（不修改原配置），API 态移除禁入清单入口 */
@@ -136,7 +150,7 @@ function voidNoticeText(row) {
 }
 
 module.exports = {
-  pageMode, yuan, toCents, ledgerRows, metrics, filterSealedEntries, errorMessage,
+  pageMode, yuan, toCents, ledgerRows, metrics, shortcuts, filterSealedEntries, errorMessage,
   PAYMENT_VOID_ROLE, VOID_REASON_MAX, canVoidPayment, voidReasonError, voidNoticeText,
   SEALED
 };

@@ -64,7 +64,7 @@ assert.equal(m.received, '750000.00', '本月已登记收款（空日期 30 万�
 assert.equal(m.paid, '200000.00', '本月已登记付款（作废 500 万不计）');
 assert.equal(m.refunded, '250000.00', '本月退款净额（作废不计）');
 const mSep = PF.metrics(receipts, payments, refunds, '2026-09');
-assert.equal(mSep.received, '', '空业务日期不进任何月净额（不按 createTime 归月；yuan(0) 零值展示为空串惯例）');
+assert.equal(mSep.received, '0.00', '空业务日期不进任何月净额（不按 createTime 归月；汇总零值显示0.00）');
 ok('AC3 指标聚合（待归月排除）');
 
 // AC4 金额换算
