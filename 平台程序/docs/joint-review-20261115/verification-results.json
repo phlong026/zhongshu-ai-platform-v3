@@ -1,0 +1,80 @@
+{
+  "date": "2026-11-15",
+  "scope": "B reference protocol implementation and local regression only",
+  "status": "SOURCE_COMPLETE_RUNTIME_PENDING_B_DEPLOY",
+  "backendBranch": "feat/b-independent-20261114",
+  "backendCommits": [
+    "44520c9a",
+    "168ead07"
+  ],
+  "frontendBranch": "fix/live-integration-20261114",
+  "frontendCommit": "f939c7e2",
+  "backendTests": {
+    "passed": 96,
+    "failed": 0,
+    "skipped": 0,
+    "classes": {
+      "DesignAssetIsolationTest": 5,
+      "LocalAssetServiceTest": 11,
+      "AssetTypeBEndSnapshotTest": 2,
+      "RemoteReferenceReaderTest": 10,
+      "ReferenceByteUploaderTest": 2,
+      "ReferenceMirrorStoreTest": 3,
+      "RemoteDesignCommandStoreTest": 12,
+      "RemoteDesignCommandUndoTest": 20,
+      "PublicCaseCatalogClientTest": 17,
+      "PublicCaseAccessServiceTest": 10,
+      "DesignAccessPublicCaseRoutingTest": 1,
+      "PublicCaseAdmissionTest": 1,
+      "PublicCaseCatalogConfigurationTest": 2
+    },
+    "database": "real temporary PostgreSQL 17"
+  },
+  "frontendCheck": "PASS",
+  "frontendIntegrationTests": {
+    "passed": 65,
+    "failed": 0,
+    "newProtocolBehaviorTests": 7
+  },
+  "backendPackage": "PASS",
+  "artifactBoundaryVerifier": "PASS",
+  "releaseBoundaryTests": 8,
+  "artifactVerifierTests": 6,
+  "isolatedEmptyUndoAndReapply": "PASS",
+  "nonemptyUndoRefusal": "PASS",
+  "migrationAndUndoManifestHashes": "PASS",
+  "newJavaFormat": "PASS",
+  "changedJsSyntax": "PASS",
+  "credentialPatternScan": "PASS",
+  "productionNpmAuditVulnerabilities": 0,
+  "projectDependenciesAdded": false,
+  "independentReview": {
+    "verdict": "APPROVE",
+    "remainingP1": 0,
+    "remainingP2": 0
+  },
+  "localArtifact": {
+    "sha256": "7296e403ab2cf64a686a600f89642b843826b1fcd6ae352ce290ad5daa934a69",
+    "releaseReady": false,
+    "note": "Local package evidence only; no deployment, upload or production run"
+  },
+  "sharedA": {
+    "sourceModulesChanged": false,
+    "runtimeActionsPerformed": false,
+    "secretChanged": false,
+    "serviceRestarted": false
+  },
+  "notPerformed": [
+    "push",
+    "merge",
+    "mini-program upload",
+    "deployment",
+    "real COS upload",
+    "real image generation",
+    "point consumption",
+    "real four-role runtime UAT",
+    "device memory and weak-network UAT",
+    "full backend dependency vulnerability scan"
+  ],
+  "rollback": "Code revert alone does not remove mirror data or remote copies. Nonempty migration undo deliberately refuses."
+}

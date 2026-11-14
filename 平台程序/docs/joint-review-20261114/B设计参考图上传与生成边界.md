@@ -4,7 +4,9 @@
 
 上传协议保持原始字节 PUT：COS 签名地址不附带平台令牌；B 本地代理 `/admin-api/franchise/assets/{assetId}/content?token=...` 仍需有效平台会话与任职。HTTP、业务返回与 complete 的 ACCEPTED 均需校验后才允许保存引用。多租户、组织、service account、删除态和真实资产类型的复核保留。
 
-**生成边界：**目前 A 的远程设计能力没有安全读取 B 素材的契约。立面生成请求携带非空 `requirementInputs.referenceAssetIds` 时，返回业务码 `1112100003`，在远程命令、积分预留和外呼之前拒绝。不能将 B assetId 作为 A assetId，也不能静默丢掉图片进行收费生成。跨应用参考图生成仍未实现；上传闭环不等于生成闭环。
+> 2026-11-15 更新：读取与映射协议已补齐源码和回归，见[新协议](../joint-review-20261115/参考图跨应用读取协议.md)。以下保留11月14日修复时的边界，不作为最新结论；真实B验收仍待部署。
+
+**历史生成边界：**当时 A 的远程设计能力没有安全读取 B 素材的契约。立面生成请求携带非空 `requirementInputs.referenceAssetIds` 时，返回业务码 `1112100003`，在远程命令、积分预留和外呼之前拒绝。不能将 B assetId 作为 A assetId，也不能静默丢掉图片进行收费生成。跨应用参考图生成仍未实现；上传闭环不等于生成闭环。
 
 数据库增量为 `V20261114.920__design_reference_asset.sql`，只扩展资产类型 CHECK；manifest 包含正向与 undo 文件 SHA-256。undo 检测到任何 DESIGN_REFERENCE 行（含已删除行）会主动拒绝，必须先保留对象及元数据并安排恢复方案，不能只 revert 代码。没有该类型数据时，可在独立 B 按迁移工具既有流程执行 undo。对象存储孤儿另需盘点。
 
