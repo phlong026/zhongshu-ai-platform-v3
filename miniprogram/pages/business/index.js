@@ -5,6 +5,26 @@ const CRM = require('../../utils/platform-crm');
 const crmApi = require('../../api/franchise/crm');
 const commissionApi = require('../../api/franchise/commission');
 const contentApi = require('../../api/franchise/content');
+const SUMMARY_PAGE_SIZE=100, SUMMARY_ROW_LIMIT=10000;
+async function loadSummaryRows(fetchPage,isStale,label){
+const result=[];let expectedTotal=null;
+for(let pageNo=1;pageNo<=Math.ceil(SUMMARY_ROW_LIMIT/SUMMARY_PAGE_SIZE);pageNo+=1){
+if(isStale())throw {silent:true};
+const response=await fetchPage(pageNo,SUMMARY_PAGE_SIZE);
+if(isStale())throw {silent:true};
+const pageRows=response&&Array.isArray(response.list)?response.list:null,total=Number(response&&response.total);
+if(!pageRows||!Number.isInteger(total)||total<0)throw new Error(label+'汇总分页返回无效');
+if(total>SUMMARY_ROW_LIMIT)throw new Error(label+'记录超过'+SUMMARY_ROW_LIMIT+'条，汇总暂不可用');
+if(expectedTotal===null)expectedTotal=total;
+else if(total!==expectedTotal)throw new Error(label+'汇总期间总数变化，请重试');
+if(pageRows.length>SUMMARY_PAGE_SIZE||result.length+pageRows.length>expectedTotal)throw new Error(label+'汇总分页数据异常');
+if(pageRows.length===0&&result.length<expectedTotal)throw new Error(label+'汇总分页存在空洞，请重试');
+result.push(...pageRows);
+if(result.length===expectedTotal)return result;
+if(pageRows.length<SUMMARY_PAGE_SIZE)throw new Error(label+'汇总分页不完整，请重试');
+}
+throw new Error(label+'汇总超出安全分页范围');
+}
 const definition=createDashboard(1, {
 data: { panel: null, keyword: '', customers: [], filteredCustomers: [],
 platCustomers: [], platCommissions: [], platGrowth: null, platformStatus: '', platformError: '', platformTodos: null,
@@ -27,9 +47,10 @@ this.__platGen=(this.__platGen||0)+1;
 if(!token||!post){this.guestHome();return;}
 const gen=this.__platGen,sessionGen=http.sessionGeneration();
 PTPage.refresh(this,false);
-Promise.all([crmApi.customers.page(1,50),commissionApi.commissions.page(1,50),contentApi.growth.summary(),contentApi.drafts.works().catch(()=>[])]).then(([custRes,commRes,growth,works])=>{
+const current=()=>this.stale(gen,sessionGen);
+Promise.all([loadSummaryRows(crmApi.customers.page,current,'客户'),loadSummaryRows(commissionApi.commissions.page,current,'委托'),contentApi.growth.summary(),contentApi.drafts.works().catch(()=>[])]).then(([custRows,commRows,growth,works])=>{
 if(this.stale(gen,sessionGen))return;
-this.applyPlatformHome(post,(custRes&&custRes.list)||[],(commRes&&commRes.list)||[],growth,require('../../utils/platform-content').rowsOf(works));
+this.applyPlatformHome(post,custRows,commRows,growth,require('../../utils/platform-content').rowsOf(works));
 }).catch(err=>{
 if(err&&err.silent)return;
 if(err&&err.code===401){if(!this.stale(gen,sessionGen))this.guestHome();return;}
@@ -43,7 +64,7 @@ definition.stale=function(gen,sessionGen){return gen!==this.__platGen||sessionGe
 definition.guestHome=function(){PTPage.refresh(this,false);this.setData({platformStatus:'',platformError:'',platCustomers:[],platCommissions:[],platGrowth:null,customers:[],filteredCustomers:[],isSalesHome:false,isBossBiz:false,bossBiz:null,todayCount:0,overdueCount:0,appointmentCount:0,commission:null,recentCustomer:null,recentCreation:null});};
 definition.applyPlatformHome=function(post,custRows,commRows,growth,works){
 const day=CRM.today(),period=day.slice(0,7);
-const rows=(custRows||[]).map(c=>CRM.customerRow(c,{today:day,canWrite:CRM.can(post,'write')}));
+const summaryRows=(custRows||[]).map(c=>CRM.customerRow(c,{today:day,canWrite:CRM.can(post,'write')})),rows=summaryRows.slice(0,50);
 // wxml 客户行原键名适配：desc/button/action/avatar 由 API 行映射补齐
 const desk=rows.map(r=>({...r,avatar:'/assets/avatar-wang.jpg',desc:r.detail,button:r.action,action:'customerDetail'}));
 const monthRows=(commRows||[]).filter(r=>{const d=CRM.toDate(r.createTime||r.date||r.submittedAt);return d&&d.slice(0,7)===period;});
@@ -51,12 +72,12 @@ const cents=r=>{const v=r.totalCents!=null?r.totalCents:r.amountCents!=null?r.am
 const totalYuan=Math.round(monthRows.reduce((n,r)=>n+cents(r),0)/100);
 const commission=totalYuan>=10000?{value:String(Math.round(totalYuan/100)/100),unit:'万元'}:{value:totalYuan.toLocaleString('en-US'),unit:'元'};
 const g=growth&&typeof growth==='object'?growth:{};
-const due=CRM.tabFilter(rows,'due',{today:day}),upcoming=CRM.tabFilter(rows,'appointments',{today:day});
-const overdue=rows.filter(r=>r.appointment&&r.appointment<day);
-const following=rows.filter(r=>r.status==='跟进中').length;
+const due=CRM.tabFilter(summaryRows,'due',{today:day}),upcoming=CRM.tabFilter(summaryRows,'appointments',{today:day});
+const overdue=summaryRows.filter(r=>r.appointment&&r.appointment<day);
+const following=summaryRows.filter(r=>r.status==='跟进中').length;
 const week='日一二三四五六'.charAt(new Date(day+'T12:00:00+08:00').getUTCDay());
 const dateText=Number(day.slice(5,7))+'月'+Number(day.slice(8,10))+'日 周'+week;
-const patch={platformStatus:'ready',platformError:'',platCustomers:rows,platCommissions:monthRows,platGrowth:g,customers:desk,filteredCustomers:this.filterRows(desk),
+const patch={platformStatus:'ready',platformError:'',platCustomers:rows,platCommissions:monthRows.slice(0,50),platGrowth:g,customers:desk,filteredCustomers:this.filterRows(desk),
 recentCustomer:desk[0]?{id:desk[0].id,initial:desk[0].initial,name:desk[0].name,stage:desk[0].stageName}:null,
 recentCreation:(works&&works[0])?{id:'work:'+(works[0].workId!=null?works[0].workId:works[0].id),title:String(works[0].title||'我的作品'),badge:'我的作品',image:'/assets/business-video.jpg'}:null};
 if(['boss','owner'].includes(post.roleCode)){
