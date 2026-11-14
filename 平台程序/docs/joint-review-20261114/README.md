@@ -26,3 +26,14 @@
 ## 最终本地验证
 
 Web290/290、typecheck/lint/build通过；后端40模块全量verify加末轮org/finance79项回归，最终账本1698（1677通过、21跳过、0失败/错误），真实Redis另3/3。最终JAR重打包后已实际扫描通过，发布边界8项与扫描器6项测试通过。细项及跳过原因见 [后端验证](后端最终验证.md) 与 [独立复核](最终独立代码复核.md)。源码已有7个逻辑提交，未push/部署；其他尚未验收的内容业务/真实渠道/容量门禁见总报告。
+
+## 2026-11-14 手动发布首发契约
+
+用户已确认首发为“手动发布后登记链接”，关闭定时入口。本平台不持有或操作第三方社交账号，`accountId`在此链路表示操作者填写的账号名称/标识，不能解释为已授权账号。
+
+- `POST /admin-api/franchise/content/publications`：提供本人workId、title、publishText、accountId、platform及稳定Idempotency-Key。accountId去首尾空格后1至64字符，超长拒绝而非截断；platform仅douyin/channels。非空scheduledAt一律拒绝，发生在查询/幂等回放/写入前；省略、null或空值兼容手动记录。新记录为publishing，表示待登记链接，返回实际创建时间。
+- `POST .../publications/{id}/verify`：操作者开始人工登记回执时，允许本人本组织的publishing或历史scheduled进入verify；不调用第三方平台或调度器。数据库CHECK要求非scheduled的scheduled_at为空，因此人工核验时将原值保存为versions.originalScheduledAt，再清空主列；后续版本更新保留该历史字段及冻结内容指纹。重复调用不重复迁移；已发布记录保留既有幂等语义。
+- `POST .../publications/{id}/link`：沿用作品链接唯一性与记录归属校验。保存只表示登记了用户提供的链接，不声称已核实第三方平台发布事实。
+- `GET .../publications`：沿用同组织可读范围，补充已存publishText、tags、authorUserId、createTime，供真实列表及详情显示。手动登记动作仍限定本人，后端为最终授权边界。
+
+该范围更新不替代容量、真实渠道、角色真机和部署回滚门禁。本次后端代码提交为`a5cc6412`；专项12/12、内容64/64、29模块1122项（1104通过、18既有跳过、0失败错误），40模块重新打包及实际制品扫描通过。最新JAR SHA-256为`cbb702707ebb2a5f0bdb18448f49bb34016af239752eb37cde2140b50239779c`。详见[本次后端验证](手动发布后端验证.md)、[独立验收](手动发布独立验收.md)及小程序隔离树13报告；上文1698账本属于首轮冻结证据，不代表本次全平台重跑。
