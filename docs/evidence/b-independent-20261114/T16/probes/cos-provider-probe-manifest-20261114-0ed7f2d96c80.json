@@ -1,0 +1,50 @@
+{
+  "bucket": "zhongshu-platform-b-assets-1397776231",
+  "completedAt": "2026-11-14T10:54:31.528862+00:00",
+  "createdAt": "2026-11-14T10:54:29.779117+00:00",
+  "identity": "zhongshu-b-cos-provider",
+  "moderationDeleteMarker": {
+    "deleteMarker": true,
+    "key": "moderation-input/deployment-probe/20261114-22b6f9b7fa56a69b/provider.txt",
+    "versionId": "MTg0NDQ5NDk0MjAwMzg2ODU3MTE"
+  },
+  "objects": [
+    {
+      "key": "uploads/deployment-probe/20261114-22b6f9b7fa56a69b/provider.txt",
+      "prefix": "uploads",
+      "serverSideEncryption": "AES256",
+      "sha256": "4499605da714b2d2d1482042a2b5cf77a0fb7696d2be23d5779f08d6e68c4d6a",
+      "size": 34,
+      "versionId": "MTg0NDQ5NDk0MjAwMzk1NzcxNzQ"
+    },
+    {
+      "key": "accepted/deployment-probe/20261114-22b6f9b7fa56a69b/provider.txt",
+      "prefix": "accepted",
+      "serverSideEncryption": "AES256",
+      "sha256": "a54e762dec703ed1318faa3ee183d56e24fea12578c9d1d9ba289c9d77162ff9",
+      "size": 35,
+      "versionId": "MTg0NDQ5NDk0MjAwMzkzNTQ1NjI"
+    },
+    {
+      "key": "ai-quarantine/deployment-probe/20261114-22b6f9b7fa56a69b/provider.txt",
+      "prefix": "ai-quarantine",
+      "serverSideEncryption": "AES256",
+      "sha256": "8425470dbdbfbc6645fde20dd2f0ab96883850c22bc5e60b20236940b58a30c4",
+      "size": 40,
+      "versionId": "MTg0NDQ5NDk0MjAwMzkwODIwMjk"
+    },
+    {
+      "key": "moderation-input/deployment-probe/20261114-22b6f9b7fa56a69b/provider.txt",
+      "prefix": "moderation-input",
+      "serverSideEncryption": "AES256",
+      "sha256": "f642fe02edc377b15cde98a75ebc2cb53d9e0bfc917aa852e9a86def3e377ab4",
+      "size": 43,
+      "versionId": "MTg0NDQ5NDk0MjAwMzg4ODcwMzA"
+    }
+  ],
+  "region": "ap-shanghai",
+  "schemaVersion": 1,
+  "status": "PASS",
+  "unexpectedDeleteMarkers": [],
+  "unexpectedFranchiseKey": null
+}

@@ -1,0 +1,153 @@
+{
+  "bucket": "zhongshu-platform-b-assets-1397776231",
+  "checks": [
+    {
+      "name": "credentials_mode_0600",
+      "observed": "0o600",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_identity",
+      "observed": "zhongshu-b-cos-api",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_bucket",
+      "observed": "zhongshu-platform-b-assets-1397776231",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_region",
+      "observed": "ap-shanghai",
+      "passed": true
+    },
+    {
+      "name": "credential_material_present",
+      "passed": true
+    },
+    {
+      "name": "put_v1_version_id",
+      "passed": true
+    },
+    {
+      "name": "put_v1_new_version",
+      "passed": true
+    },
+    {
+      "name": "head_v1_version_id",
+      "passed": true
+    },
+    {
+      "name": "head_v1_size",
+      "passed": true
+    },
+    {
+      "name": "head_v1_default_sse",
+      "observed": "AES256",
+      "passed": true
+    },
+    {
+      "name": "get_v1_content",
+      "passed": true
+    },
+    {
+      "name": "put_v2_version_id",
+      "passed": true
+    },
+    {
+      "name": "put_v2_new_version",
+      "passed": true
+    },
+    {
+      "name": "head_v2_version_id",
+      "passed": true
+    },
+    {
+      "name": "head_v2_size",
+      "passed": true
+    },
+    {
+      "name": "head_v2_default_sse",
+      "observed": "AES256",
+      "passed": true
+    },
+    {
+      "name": "get_v2_content",
+      "passed": true
+    },
+    {
+      "name": "latest_head_version",
+      "passed": true
+    },
+    {
+      "name": "latest_get_content",
+      "passed": true
+    },
+    {
+      "name": "presigned_get_https",
+      "passed": true
+    },
+    {
+      "name": "presigned_get_host",
+      "observed": "zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com",
+      "passed": true
+    },
+    {
+      "name": "presigned_put_https",
+      "passed": true
+    },
+    {
+      "name": "presigned_put_host",
+      "observed": "zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com",
+      "passed": true
+    },
+    {
+      "name": "anonymous_get_denied",
+      "observed": {
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "api_delete_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "outside_prefix_put_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "bucket_version_listing_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "a_bucket_missing_key_read_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    }
+  ],
+  "completedAt": "2026-11-14T10:54:29.609177+00:00",
+  "identity": "zhongshu-b-cos-api",
+  "key": "franchise/deployment-probe/20261114-6dfcc7087d20850c/api.txt",
+  "manifestFile": "cos-api-probe-manifest-20261114-3e74b90fc6e5.json",
+  "region": "ap-shanghai",
+  "schemaVersion": 1,
+  "startedAt": "2026-11-14T10:54:28.201600+00:00",
+  "status": "PASS",
+  "totalUploadedBytes": 48
+}

@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "adapterClass": "cn.iocoder.yudao.module.franchise.asset.CosObjectStorageAdapter",
+  "host": "zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com",
+  "key": "franchise/deployment-probe/20261114-java-361780eaa65f4617b389584d01ce3254/api-adapter.txt",
+  "putStatus": 200,
+  "getStatus": 200,
+  "versionId": "",
+  "serverSideEncryption": "",
+  "size": 59,
+  "sha256": "bcf16fc36cd335f8959ff80f972136e06d0361a447813071db7cfd66240c908d",
+  "signedUrlsStored": false,
+  "credentialsStored": false
+}

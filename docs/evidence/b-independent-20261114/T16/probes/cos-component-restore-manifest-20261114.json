@@ -1,0 +1,40 @@
+{
+  "bucket": "zhongshu-platform-b-assets-1397776231",
+  "checks": {
+    "sourceDiffersFromLatest": true,
+    "sourceKeyNotOverwritten": true,
+    "sourceOldVersionHash": true,
+    "sourceOldVersionSize": true,
+    "targetDefaultEncryptionAES256": true,
+    "targetHasVersionId": true,
+    "targetHashMatchesOldVersion": true,
+    "targetSizeMatchesOldVersion": true
+  },
+  "completedAt": "2026-11-14T10:40:51.845111+00:00",
+  "credentialsStored": false,
+  "fullStackDisasterRecovery": false,
+  "independentBackupStore": false,
+  "region": "ap-shanghai",
+  "schemaVersion": 1,
+  "scope": "single-component-same-bucket-restore-probe",
+  "signedUrlsStored": false,
+  "source": {
+    "key": "franchise/deployment-probe/20261114-1716d589309559f8/api.txt",
+    "sha256": "a4068bdbb229b4c3797b2d1d018d5067b682375f0c1da1a281d6b36e831a8c66",
+    "size": 24,
+    "versionId": "MTg0NDQ5NDk0MjE0MTEwMzg2NjA"
+  },
+  "sourceLatest": {
+    "sha256": "7dcb7fced6518fa79ecb388a9ac963b33abff6daef76ed21de32f14798a29901",
+    "size": 24,
+    "versionId": "MTg0NDQ5NDk0MjE0MTA3OTExODE"
+  },
+  "status": "PASS",
+  "target": {
+    "key": "franchise/deployment-probe/20261114-ce6f973b879c587c/restored-api.txt",
+    "serverSideEncryption": "AES256",
+    "sha256": "a4068bdbb229b4c3797b2d1d018d5067b682375f0c1da1a281d6b36e831a8c66",
+    "size": 24,
+    "versionId": "MTg0NDQ5NDk0MjA4NTc4OTQxMzU"
+  }
+}

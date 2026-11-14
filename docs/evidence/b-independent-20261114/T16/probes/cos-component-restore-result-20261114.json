@@ -1,0 +1,16 @@
+{
+  "checks": {
+    "sourceDiffersFromLatest": true,
+    "sourceKeyNotOverwritten": true,
+    "sourceOldVersionHash": true,
+    "sourceOldVersionSize": true,
+    "targetDefaultEncryptionAES256": true,
+    "targetHasVersionId": true,
+    "targetHashMatchesOldVersion": true,
+    "targetSizeMatchesOldVersion": true
+  },
+  "manifest": "/Users/honor.pei/.config/zhongshu-platform-b/cos-component-restore-manifest-20261114.json",
+  "schemaVersion": 1,
+  "status": "PASS",
+  "unexpectedMutations": []
+}

@@ -1,0 +1,146 @@
+{
+  "bucket": "zhongshu-platform-b-assets-1397776231",
+  "bucketSecurity": {
+    "acl": "private-owner-only",
+    "bucketPolicy": "bounded-deny-legacy-a-runtime-on-b",
+    "defaultEncryption": "AES256",
+    "versioning": "Enabled"
+  },
+  "checks": [
+    {
+      "name": "credentials_mode_0600",
+      "observed": "0o600",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_identity",
+      "observed": "zhongshu-b-cos-audit",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_bucket",
+      "observed": "zhongshu-platform-b-assets-1397776231",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_region",
+      "observed": "ap-shanghai",
+      "passed": true
+    },
+    {
+      "name": "credential_material_present",
+      "passed": true
+    },
+    {
+      "name": "head_bucket",
+      "observed": {
+        "status": 200
+      },
+      "passed": true
+    },
+    {
+      "name": "bucket_acl_canned_private",
+      "observed": "private",
+      "passed": true
+    },
+    {
+      "name": "bucket_acl_single_grant",
+      "observed": 1,
+      "passed": true
+    },
+    {
+      "name": "bucket_acl_owner_full_control",
+      "passed": true
+    },
+    {
+      "name": "bucket_acl_no_public_grantee",
+      "passed": true
+    },
+    {
+      "name": "bucket_policy_bounded_deny_exact",
+      "observed": {
+        "matchesExactContract": true,
+        "statementCount": 1
+      },
+      "passed": true
+    },
+    {
+      "name": "bucket_versioning_enabled",
+      "observed": "Enabled",
+      "passed": true
+    },
+    {
+      "name": "bucket_default_encryption_aes256",
+      "observed": "AES256",
+      "passed": true
+    },
+    {
+      "name": "audit_get_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "audit_put_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "audit_delete_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "audit_versions_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "a_bucket_missing_key_read_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    }
+  ],
+  "completedAt": "2026-11-14T10:50:07.329041+00:00",
+  "identity": "zhongshu-b-cos-audit",
+  "legacyPrincipalCredentialMappingVerified": false,
+  "policy": {
+    "Statement": [
+      {
+        "Action": [
+          "name/cos:*"
+        ],
+        "Effect": "Deny",
+        "Principal": {
+          "qcs": [
+            "qcs::cam::uin/100045498012:uin/100054794778"
+          ]
+        },
+        "Resource": [
+          "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/*"
+        ],
+        "Sid": "DenyLegacyARuntimeOnB"
+      }
+    ],
+    "version": "2.0"
+  },
+  "region": "ap-shanghai",
+  "schemaVersion": 3,
+  "startedAt": "2026-11-14T10:50:06.138694+00:00",
+  "status": "PASS",
+  "unexpectedMutations": []
+}

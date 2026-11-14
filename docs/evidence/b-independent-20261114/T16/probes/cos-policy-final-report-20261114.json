@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_WITH_IDENTITY_MAPPING_GATE",
+  "scope": "B bucket policy and four B COS identities regression",
+  "bucket": "zhongshu-platform-b-assets-1397776231",
+  "region": "ap-shanghai",
+  "policy": {
+    "version": "2.0",
+    "Statement": [
+      {
+        "Sid": "DenyLegacyARuntimeOnB",
+        "Effect": "Deny",
+        "Principal": {
+          "qcs": [
+            "qcs::cam::uin/100045498012:uin/100054794778"
+          ]
+        },
+        "Action": [
+          "name/cos:*"
+        ],
+        "Resource": [
+          "qcs::cos:ap-shanghai:uid/1397776231:zhongshu-platform-b-assets-1397776231/*"
+        ]
+      }
+    ]
+  },
+  "policyContract": {
+    "getPolicyStatus": 200,
+    "exactMatch": true,
+    "statementCount": 1,
+    "additionalAllow": false,
+    "additionalPrincipal": false,
+    "additionalAction": false,
+    "additionalResource": false
+  },
+  "regression": {
+    "api": "PASS 28/28",
+    "provider": "PASS 35/35",
+    "backup": "PASS 64/64",
+    "audit": "PASS 18/18"
+  },
+  "evidence": {
+    "api": "/Users/honor.pei/.config/zhongshu-platform-b/cos-api-probe-result-20261114-3e74b90fc6e5.json",
+    "provider": "/Users/honor.pei/.config/zhongshu-platform-b/cos-provider-probe-result-20261114-0ed7f2d96c80.json",
+    "backup": "/Users/honor.pei/.config/zhongshu-platform-b/cos-backup-probe-result-20261114-e80dfa8c1ef4.json",
+    "audit": "/Users/honor.pei/.config/zhongshu-platform-b/cos-audit-probe-result-20261114-policy-final.json",
+    "historicalPolicy404": "/Users/honor.pei/.config/zhongshu-platform-b/cos-audit-probe-result-20261114-8ac981725578.json",
+    "historicalPolicy404Refined": "/Users/honor.pei/.config/zhongshu-platform-b/cos-audit-probe-result-20261114-refined.json"
+  },
+  "gates": {
+    "legacyPrincipalCredentialMappingVerified": false,
+    "reason": "A production credential-to-principal mapping remains subject to the production identity inventory; no A credential was accessed."
+  },
+  "aBucketWrites": 0,
+  "credentialsStored": false,
+  "signedUrlsStored": false
+}

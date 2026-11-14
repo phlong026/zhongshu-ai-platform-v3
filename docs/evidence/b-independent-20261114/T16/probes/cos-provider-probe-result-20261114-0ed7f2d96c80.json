@@ -1,0 +1,186 @@
+{
+  "bucket": "zhongshu-platform-b-assets-1397776231",
+  "checks": [
+    {
+      "name": "credentials_mode_0600",
+      "observed": "0o600",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_identity",
+      "observed": "zhongshu-b-cos-provider",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_bucket",
+      "observed": "zhongshu-platform-b-assets-1397776231",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_region",
+      "observed": "ap-shanghai",
+      "passed": true
+    },
+    {
+      "name": "credential_material_present",
+      "passed": true
+    },
+    {
+      "name": "uploads_put_version_id",
+      "passed": true
+    },
+    {
+      "name": "uploads_head_version",
+      "passed": true
+    },
+    {
+      "name": "uploads_head_size",
+      "passed": true
+    },
+    {
+      "name": "uploads_default_sse",
+      "observed": "AES256",
+      "passed": true
+    },
+    {
+      "name": "uploads_get_content",
+      "passed": true
+    },
+    {
+      "name": "accepted_put_version_id",
+      "passed": true
+    },
+    {
+      "name": "accepted_head_version",
+      "passed": true
+    },
+    {
+      "name": "accepted_head_size",
+      "passed": true
+    },
+    {
+      "name": "accepted_default_sse",
+      "observed": "AES256",
+      "passed": true
+    },
+    {
+      "name": "accepted_get_content",
+      "passed": true
+    },
+    {
+      "name": "ai-quarantine_put_version_id",
+      "passed": true
+    },
+    {
+      "name": "ai-quarantine_head_version",
+      "passed": true
+    },
+    {
+      "name": "ai-quarantine_head_size",
+      "passed": true
+    },
+    {
+      "name": "ai-quarantine_default_sse",
+      "observed": "AES256",
+      "passed": true
+    },
+    {
+      "name": "ai-quarantine_get_content",
+      "passed": true
+    },
+    {
+      "name": "moderation-input_put_version_id",
+      "passed": true
+    },
+    {
+      "name": "moderation-input_head_version",
+      "passed": true
+    },
+    {
+      "name": "moderation-input_head_size",
+      "passed": true
+    },
+    {
+      "name": "moderation-input_default_sse",
+      "observed": "AES256",
+      "passed": true
+    },
+    {
+      "name": "moderation-input_get_content",
+      "passed": true
+    },
+    {
+      "name": "moderation_delete_marker_id",
+      "passed": true
+    },
+    {
+      "name": "moderation_delete_marker_flag",
+      "observed": "true",
+      "passed": true
+    },
+    {
+      "name": "moderation_latest_hidden_by_marker",
+      "observed": {
+        "code": "NoSuchResource",
+        "status": 404
+      },
+      "passed": true
+    },
+    {
+      "name": "moderation_old_version_head",
+      "passed": true
+    },
+    {
+      "name": "moderation_old_version_get",
+      "passed": true
+    },
+    {
+      "name": "uploads_delete_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "accepted_delete_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "ai-quarantine_delete_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "franchise_put_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "a_bucket_missing_key_read_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    }
+  ],
+  "completedAt": "2026-11-14T10:54:31.528862+00:00",
+  "identity": "zhongshu-b-cos-provider",
+  "manifestFile": "cos-provider-probe-manifest-20261114-0ed7f2d96c80.json",
+  "region": "ap-shanghai",
+  "schemaVersion": 1,
+  "startedAt": "2026-11-14T10:54:29.779117+00:00",
+  "status": "PASS",
+  "totalUploadedBytes": 152
+}

@@ -1,0 +1,311 @@
+{
+  "bucket": "zhongshu-platform-b-assets-1397776231",
+  "checks": [
+    {
+      "name": "credentials_mode_0600",
+      "observed": "0o600",
+      "passed": true
+    },
+    {
+      "name": "api_manifest_mode_0600",
+      "observed": "0o600",
+      "passed": true
+    },
+    {
+      "name": "provider_manifest_mode_0600",
+      "observed": "0o600",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_identity",
+      "observed": "zhongshu-b-cos-backup",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_bucket",
+      "observed": "zhongshu-platform-b-assets-1397776231",
+      "passed": true
+    },
+    {
+      "name": "credential_scope_region",
+      "observed": "ap-shanghai",
+      "passed": true
+    },
+    {
+      "name": "credential_material_present",
+      "passed": true
+    },
+    {
+      "name": "api_manifest_pass",
+      "passed": true
+    },
+    {
+      "name": "provider_manifest_pass",
+      "passed": true
+    },
+    {
+      "name": "source_manifest_bucket",
+      "passed": true
+    },
+    {
+      "name": "expected_probe_version_count",
+      "passed": true
+    },
+    {
+      "name": "expected_probe_marker_present",
+      "passed": true
+    },
+    {
+      "name": "bucket_versioning_enabled",
+      "observed": "Enabled",
+      "passed": true
+    },
+    {
+      "name": "bucket_default_encryption_aes256",
+      "observed": "AES256",
+      "passed": true
+    },
+    {
+      "name": "list_not_truncated_41660e69dbff",
+      "passed": true
+    },
+    {
+      "name": "listed_versions_match_41660e69dbff",
+      "observed": {
+        "actualCount": 1,
+        "expectedCount": 1
+      },
+      "passed": true
+    },
+    {
+      "name": "no_unexpected_marker_41660e69dbff",
+      "passed": true
+    },
+    {
+      "name": "listed_size_d61cb0585a74",
+      "passed": true
+    },
+    {
+      "name": "head_version_d61cb0585a74",
+      "passed": true
+    },
+    {
+      "name": "head_sse_d61cb0585a74",
+      "passed": true
+    },
+    {
+      "name": "download_hash_d61cb0585a74",
+      "passed": true
+    },
+    {
+      "name": "download_size_d61cb0585a74",
+      "passed": true
+    },
+    {
+      "name": "list_not_truncated_193c4fda9888",
+      "passed": true
+    },
+    {
+      "name": "listed_versions_match_193c4fda9888",
+      "observed": {
+        "actualCount": 1,
+        "expectedCount": 1
+      },
+      "passed": true
+    },
+    {
+      "name": "no_unexpected_marker_193c4fda9888",
+      "passed": true
+    },
+    {
+      "name": "listed_size_a2280d061c57",
+      "passed": true
+    },
+    {
+      "name": "head_version_a2280d061c57",
+      "passed": true
+    },
+    {
+      "name": "head_sse_a2280d061c57",
+      "passed": true
+    },
+    {
+      "name": "download_hash_a2280d061c57",
+      "passed": true
+    },
+    {
+      "name": "download_size_a2280d061c57",
+      "passed": true
+    },
+    {
+      "name": "list_not_truncated_55919548a27b",
+      "passed": true
+    },
+    {
+      "name": "listed_versions_match_55919548a27b",
+      "observed": {
+        "actualCount": 2,
+        "expectedCount": 2
+      },
+      "passed": true
+    },
+    {
+      "name": "no_unexpected_marker_55919548a27b",
+      "passed": true
+    },
+    {
+      "name": "listed_size_e00d82227294",
+      "passed": true
+    },
+    {
+      "name": "head_version_e00d82227294",
+      "passed": true
+    },
+    {
+      "name": "head_sse_e00d82227294",
+      "passed": true
+    },
+    {
+      "name": "download_hash_e00d82227294",
+      "passed": true
+    },
+    {
+      "name": "download_size_e00d82227294",
+      "passed": true
+    },
+    {
+      "name": "listed_size_7f82839fc9a8",
+      "passed": true
+    },
+    {
+      "name": "head_version_7f82839fc9a8",
+      "passed": true
+    },
+    {
+      "name": "head_sse_7f82839fc9a8",
+      "passed": true
+    },
+    {
+      "name": "download_hash_7f82839fc9a8",
+      "passed": true
+    },
+    {
+      "name": "download_size_7f82839fc9a8",
+      "passed": true
+    },
+    {
+      "name": "list_not_truncated_67866bd70007",
+      "passed": true
+    },
+    {
+      "name": "listed_versions_match_67866bd70007",
+      "observed": {
+        "actualCount": 1,
+        "expectedCount": 1
+      },
+      "passed": true
+    },
+    {
+      "name": "moderation_delete_marker_listed",
+      "passed": true
+    },
+    {
+      "name": "moderation_delete_marker_latest",
+      "passed": true
+    },
+    {
+      "name": "listed_size_59606d1acb7d",
+      "passed": true
+    },
+    {
+      "name": "head_version_59606d1acb7d",
+      "passed": true
+    },
+    {
+      "name": "head_sse_59606d1acb7d",
+      "passed": true
+    },
+    {
+      "name": "download_hash_59606d1acb7d",
+      "passed": true
+    },
+    {
+      "name": "download_size_59606d1acb7d",
+      "passed": true
+    },
+    {
+      "name": "list_not_truncated_4df788c26e28",
+      "passed": true
+    },
+    {
+      "name": "listed_versions_match_4df788c26e28",
+      "observed": {
+        "actualCount": 1,
+        "expectedCount": 1
+      },
+      "passed": true
+    },
+    {
+      "name": "no_unexpected_marker_4df788c26e28",
+      "passed": true
+    },
+    {
+      "name": "listed_size_de475c61ff2b",
+      "passed": true
+    },
+    {
+      "name": "head_version_de475c61ff2b",
+      "passed": true
+    },
+    {
+      "name": "head_sse_de475c61ff2b",
+      "passed": true
+    },
+    {
+      "name": "download_hash_de475c61ff2b",
+      "passed": true
+    },
+    {
+      "name": "download_size_de475c61ff2b",
+      "passed": true
+    },
+    {
+      "name": "moderation_old_version_downloaded",
+      "passed": true
+    },
+    {
+      "name": "backup_put_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "backup_delete_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    },
+    {
+      "name": "a_bucket_missing_key_read_denied",
+      "observed": {
+        "code": "AccessDenied",
+        "status": 403
+      },
+      "passed": true
+    }
+  ],
+  "completeBucketInventory": false,
+  "completedAt": "2026-11-14T10:54:33.618555+00:00",
+  "freezeId": null,
+  "identity": "zhongshu-b-cos-backup",
+  "inventoryFile": "cos-backup-probe-inventory-20261114-e80dfa8c1ef4.json",
+  "region": "ap-shanghai",
+  "schemaVersion": 1,
+  "scope": "deployment-probe-only",
+  "startedAt": "2026-11-14T10:54:31.698826+00:00",
+  "status": "PASS"
+}
