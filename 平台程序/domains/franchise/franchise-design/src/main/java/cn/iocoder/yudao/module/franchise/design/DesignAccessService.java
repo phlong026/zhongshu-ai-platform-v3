@@ -57,6 +57,11 @@ public class DesignAccessService {
     private final TransactionTemplate txTemplate;
     private final JdbcTemplate jdbcTemplate;
     private RemoteDesignGateway remote;
+    private cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReader referenceReader;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setReferenceReader(cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReader reader) {
+        this.referenceReader = reader;
+    }
     private PublicCaseAccessService publicCases;
     private AssetAccessPort localAssets;
 
@@ -140,7 +145,17 @@ public class DesignAccessService {
     // ========== 项目与任务 ==========
 
     public DesignServicePort.ProjectCreated createProject(PostSnapshot post, DesignServicePort.DesignProjectCreate cmd) {
-        if (remote != null) return remote.call(post, Operation.CREATE_PROJECT, cmd.idempotencyKey(), cmd);
+        if (remote != null) {
+            var ids = cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReader.referenceIds(cmd.requirementInputs());
+            if (!ids.isEmpty()) {
+                if (referenceReader == null || localAssets == null) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                        1_112_100_003, "参考图读取协议尚未配置");
+                if (cmd.idempotencyKey() == null || cmd.idempotencyKey().isBlank()) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,"创建参考图项目需要稳定业务键");
+                var translated = referenceReader.translate(post, cmd, localAssets, new AssetAccessPort.Actor(post.orgId(), serviceAccount(post), post.userId(), post.postId()));
+                return remote.call(post, Operation.CREATE_PROJECT, cmd.idempotencyKey(), translated);
+            }
+            return remote.call(post, Operation.CREATE_PROJECT, cmd.idempotencyKey(), cmd);
+        }
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
             var created = designService.createProject(accountId, cmd, actor(post));
@@ -253,13 +268,13 @@ public class DesignAccessService {
         });
     }
 
-    /** B 参考图不能当成 A 资产 ID。跨应用素材读取协议就绪前，在付费任务提交前明确失败。 */
+    /** 参考图必须在项目创建时冻结；旧任务级字段不能被静默忽略后收费。 */
     public void requireReferenceInputSupported(Map<String, Object> requirementInputs) {
         if (remote == null || requirementInputs == null || !requirementInputs.containsKey("referenceAssetIds")) return;
         Object references = requirementInputs.get("referenceAssetIds");
         if (references instanceof java.util.Collection<?> collection && collection.isEmpty()) return;
         throw new cn.iocoder.yudao.framework.common.exception.ServiceException(1_112_100_003,
-                "当前独立设计服务暂不支持参考图参与生成，请移除参考图后重试");
+                "参考图必须在创建项目时配置并冻结，请重新创建项目后重试");
     }
 
     public DesignServicePort.SelectionSaved confirmFlatCandidate(PostSnapshot post, long projectId,
@@ -503,6 +518,11 @@ public class DesignAccessService {
         return designService.getCaseDetail(caseId);
     }
 
+    public DesignServicePort.DownloadUrlView caseAssetDownloadUrl(PostSnapshot post,long caseId,long assetId) {
+        if (publicCases == null) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(503,"公开案例图片通道尚未配置");
+        return publicCases.caseAssetDownloadUrl(post,caseId,assetId);
+    }
+
     public void favoriteCase(PostSnapshot post, long caseId) { favoriteCase(post, caseId, null); }
 
     public void favoriteCase(PostSnapshot post, long caseId, String key) {
@@ -573,10 +593,8 @@ public class DesignAccessService {
     }
 
     public DesignServicePort.DownloadUrlView createDownloadUrl(PostSnapshot post, long assetId) {
-        if (remote != null) {
-            var ticket = localAssets.createDownloadUrl(assetActor(post), assetId);
-            return new DesignServicePort.DownloadUrlView(ticket.downloadUrl(), ticket.expiresAt());
-        }
+        // 设计候选/结果编号属于能力方；B输入图片走独立franchise/assets接口，禁止按同号回退。
+        if (remote != null) return remote.call(post, Operation.CREATE_DOWNLOAD_URL, null, new Asset(assetId));
         return designService.createDownloadUrl(serviceAccount(post), assetId);
     }
 

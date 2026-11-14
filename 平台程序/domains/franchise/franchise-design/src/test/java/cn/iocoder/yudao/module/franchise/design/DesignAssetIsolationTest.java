@@ -23,7 +23,7 @@ class DesignAssetIsolationTest {
     private static final AssetAccessPort.Actor ACTOR = new AssetAccessPort.Actor(33L, 777L, 22L, 11L);
 
     @Test
-    void remoteDesignUsesBLocalAssetsForTheWholeReferenceUploadChain() {
+    void remoteDesignUsesBLocalAssetsForTheReferenceUploadChain() {
         DesignServicePort legacy = mock(DesignServicePort.class);
         StoreServiceAccountPort accounts = mock(StoreServiceAccountPort.class);
         when(accounts.requireServiceAccount(33L)).thenReturn(777L);
@@ -41,7 +41,7 @@ class DesignAssetIsolationTest {
         var ticket = service.createUploadTicket(POST,
                 new DesignServicePort.UploadTicketCreate("DESIGN_REFERENCE", "image/png", 8L, "a".repeat(64)), "client-key");
         var completed = service.completeUpload(POST, 123L, "client-key");
-        var download = service.createDownloadUrl(POST, 123L);
+        var download = assets.createDownloadUrl(ACTOR, 123L);
 
         assertThat(ticket.uploadUrl()).startsWith("/admin-api/franchise/assets/");
         assertThat(completed.uploadStatus()).isEqualTo("ACCEPTED");
@@ -50,6 +50,53 @@ class DesignAssetIsolationTest {
         verify(assets).completeUpload(ACTOR, 123L);
         verify(assets).createDownloadUrl(ACTOR, 123L);
         verifyNoInteractions(remote, legacy);
+    }
+
+    @Test
+    void remoteResultAndBInputWithSameNumericIdUseDifferentAssetNamespaces() {
+        var remote=mock(RemoteDesignGateway.class);var assets=mock(AssetAccessPort.class);
+        var service=new DesignAccessService(mock(DesignServicePort.class),mock(CustomerSchemePort.class),
+                mock(StoreServiceAccountPort.class),mock(FranchiseCommands.class),mock(CurrentPost.class),
+                mock(PlatformTransactionManager.class),mock(DataSource.class));
+        service.setRemoteGateway(remote);service.setLocalAssets(assets);
+        when(remote.call(eq(POST),eq(cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Operation.CREATE_DOWNLOAD_URL),isNull(),any()))
+                .thenReturn(new DesignServicePort.DownloadUrlView("https://results.example/123",999L));
+        assertThat(service.createDownloadUrl(POST,123).downloadUrl()).isEqualTo("https://results.example/123");
+        verifyNoInteractions(assets);
+        verify(remote).call(POST,cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Operation.CREATE_DOWNLOAD_URL,null,
+                new cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Asset(123));
+    }
+
+    @Test
+    void projectReferencesCannotLeakBIdsBeforeTheReaderIsConfigured() {
+        var remote = mock(RemoteDesignGateway.class);
+        var service = new DesignAccessService(mock(DesignServicePort.class), mock(CustomerSchemePort.class),
+                mock(StoreServiceAccountPort.class), mock(FranchiseCommands.class), mock(CurrentPost.class),
+                mock(PlatformTransactionManager.class), mock(DataSource.class));
+        service.setRemoteGateway(remote);
+        var command = new DesignServicePort.DesignProjectCreate("SELF_UPLOAD", null, null,
+                java.util.Map.of("referenceAssetIds", java.util.List.of("123")), "ELEVATION", "project-key");
+        assertThatThrownBy(() -> service.createProject(POST, command))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        verifyNoInteractions(remote);
+    }
+
+    @Test
+    void projectUsesOnlyTranslatedReferencesAndKeepsItsBusinessKey() {
+        var remote=mock(RemoteDesignGateway.class);var assets=mock(AssetAccessPort.class);
+        var accounts=mock(StoreServiceAccountPort.class);when(accounts.requireServiceAccount(33L)).thenReturn(777L);
+        var reader=mock(cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReader.class);
+        var service=new DesignAccessService(mock(DesignServicePort.class),mock(CustomerSchemePort.class),accounts,
+                mock(FranchiseCommands.class),mock(CurrentPost.class),mock(PlatformTransactionManager.class),mock(DataSource.class));
+        service.setRemoteGateway(remote);service.setLocalAssets(assets);service.setReferenceReader(reader);
+        var original=new DesignServicePort.DesignProjectCreate("SELF_UPLOAD",null,null,java.util.Map.of("referenceAssetIds",java.util.List.of("123")),"ELEVATION","project-key");
+        var translated=new DesignServicePort.DesignProjectCreate("SELF_UPLOAD",null,null,java.util.Map.of("referenceAssetIds",java.util.List.of("901")),"ELEVATION","project-key");
+        when(reader.translate(POST,original,assets,ACTOR)).thenReturn(translated);
+        when(remote.call(POST,cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Operation.CREATE_PROJECT,"project-key",translated))
+                .thenReturn(new DesignServicePort.ProjectCreated(501,false));
+        assertThat(service.createProject(POST,original).projectId()).isEqualTo(501);
+        verify(remote).call(POST,cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Operation.CREATE_PROJECT,"project-key",translated);
+        verifyNoMoreInteractions(remote);
     }
 
     @Test
@@ -63,7 +110,7 @@ class DesignAssetIsolationTest {
         assertThatThrownBy(() -> service.requireReferenceInputSupported(java.util.Map.of("referenceAssetIds", java.util.List.of("123"))))
                 .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class, error -> {
                     assertThat(error.getCode()).isEqualTo(1_112_100_003);
-                    assertThat(error.getMessage()).contains("暂不支持参考图参与生成");
+                    assertThat(error.getMessage()).contains("创建项目时配置并冻结");
                 });
         verifyNoInteractions(remote, legacy);
     }

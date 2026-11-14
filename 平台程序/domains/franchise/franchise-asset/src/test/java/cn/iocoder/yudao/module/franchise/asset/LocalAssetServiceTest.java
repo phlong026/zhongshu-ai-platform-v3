@@ -46,6 +46,15 @@ class LocalAssetServiceTest {
         service.receiveUpload(ACTOR, ticket.assetId(), token, new ByteArrayInputStream(png));
         assertThat(service.completeUpload(ACTOR, ticket.assetId()).uploadStatus()).isEqualTo("ACCEPTED");
         assertThat(service.validateReference(ACTOR, ticket.assetId(), Set.of("DESIGN_REFERENCE"))).isTrue();
+        var reference = service.readDesignReference(ACTOR,ticket.assetId());
+        assertThat(reference.mimeType()).isEqualTo("image/png");
+        assertThat(reference.sha256()).isEqualTo(sha(reference.bytes()));
+        assertThat(reference.bytes()).isNotEmpty();
+        jdbc.update("UPDATE fr_asset SET accepted_sha256=? WHERE id=?", "0".repeat(64), ticket.assetId());
+        assertThatThrownBy(() -> service.readDesignReference(ACTOR,ticket.assetId())).hasMessageContaining("审核摘要不一致");
+        assertThatThrownBy(() -> service.readDesignReference(new Actor(34,777,22,11),ticket.assetId())).isInstanceOf(RuntimeException.class);
+        current = POST;
+        assertThatThrownBy(() -> service.readDesignReference(ACTOR,ticket.assetId())).isInstanceOf(RuntimeException.class);
         assertThat(storage.values.keySet()).hasSize(2).allMatch(key -> key.startsWith("franchise/1/33/"));
         assertThat(jdbc.queryForObject("SELECT asset_type FROM fr_asset WHERE id=?", String.class, ticket.assetId()))
                 .isEqualTo("DESIGN_REFERENCE");

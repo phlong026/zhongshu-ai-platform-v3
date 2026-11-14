@@ -7,6 +7,13 @@ public interface AssetAccessPort {
     record Actor(long orgId, long serviceAccountId, long userId, long postId) { }
     record UploadTicketView(long assetId, String uploadUrl) { }
     record AssetCompleted(long assetId, String uploadStatus, String rejectedReason) { }
+    record ReferenceContent(byte[] bytes, String mimeType, String sha256) { }
+
+    /** 内部原始读取；必须重新核验当前任职、组织、类型及已审核字节，不能接受外部URL。 */
+    default ReferenceContent readDesignReference(Actor actor, long assetId) {
+        throw new IllegalArgumentException("参考图读取未配置");
+    }
+
     record DownloadUrlView(String downloadUrl, Long expiresAt) { }
 
     UploadTicketView createUploadTicket(long serviceAccountId, String assetType,

@@ -40,6 +40,8 @@ public class RemoteDesignGateway {
         this.admission = java.util.Objects.requireNonNull(admission);
     }
 
+    public long tenant(PostSnapshot post) { return commands.tenant(post); }
+
     public <T> T call(PostSnapshot post, Operation operation, String requestKey, Object payload) {
         try (var permit = admission.enter(post.orgId())) {
             return callAdmitted(post, operation, requestKey, payload);

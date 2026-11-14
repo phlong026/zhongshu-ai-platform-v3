@@ -30,4 +30,21 @@ public class RemoteDesignConfiguration {
         return new RemoteDesignGateway(caller, transport, commands, mapper,
                 new RemoteDesignAdmission(globalLimit, organizationLimit));
     }
+    @Bean
+    ReferenceMirrorStore referenceMirrorStore(DataSource source, PlatformTransactionManager transactions) {
+        return new ReferenceMirrorStore(source, transactions);
+    }
+
+    @Bean
+    ReferenceByteUploader referenceByteUploader(@Value("${zhongshu.design.remote.reference-upload-hosts:}") String hosts) {
+        var allowed = java.util.Arrays.stream(hosts.split(",")).map(String::trim).filter(s -> !s.isEmpty())
+                .collect(java.util.stream.Collectors.toSet());
+        return new ReferenceByteUploader(allowed);
+    }
+
+    @Bean
+    RemoteReferenceReader remoteReferenceReader(@Value("${zhongshu.design.remote.caller-app-id}") String caller,
+            RemoteDesignGateway gateway, ReferenceMirrorStore mirrors, ReferenceByteUploader uploader) {
+        return new RemoteReferenceReader(caller, gateway, mirrors, uploader);
+    }
 }

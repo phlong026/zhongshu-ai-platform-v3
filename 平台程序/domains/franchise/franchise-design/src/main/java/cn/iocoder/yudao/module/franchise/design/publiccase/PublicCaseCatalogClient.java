@@ -88,18 +88,55 @@ public final class PublicCaseCatalogClient {
         return get(Endpoint.DETAIL, CASES_PATH + "/" + caseId, deadline);
     }
 
+    /** 匿名公开图片链：必须先从当前已发布案例详情确认图片归属，再换一次性票据。 */
+    public JsonNode caseAssetDownloadUrl(long caseId, long assetId) {
+        if (assetId <= 0) throw new IllegalArgumentException("assetId must be positive");
+        long started = System.nanoTime();
+        JsonNode detail = getCase(caseId);
+        String id = String.valueOf(assetId);
+        boolean member = id.equals(detail.path("coverAssetId").asText());
+        for (JsonNode image : detail.path("floorPlanAssetIds")) member |= id.equals(image.asText());
+        if (!String.valueOf(caseId).equals(detail.path("caseId").asText()) || !member) {
+            throw new PublicCaseCatalogException("图片不属于当前公开案例",403,false,false);
+        }
+        String path = "/app-api/design/v1/assets/" + assetId;
+        JsonNode ticket = exchange(Endpoint.DOWNLOAD,path+"/download-tickets",remaining(started),"{}");
+        String token = ticket.path("ticketId").asText("");
+        if (token.isBlank() || token.length()>256) throw new PublicCaseCatalogException("公开图片票据无效",null,false,true);
+        JsonNode result = exchange(Endpoint.DOWNLOAD,path+"/downloads",remaining(started),
+                mapper.createObjectNode().put("ticket",token).toString());
+        try {
+            java.net.URI url = java.net.URI.create(result.path("downloadUrl").asText(""));
+            if (!"https".equals(url.getScheme()) || url.getHost()==null || url.getRawUserInfo()!=null)
+                throw new IllegalArgumentException();
+        } catch (IllegalArgumentException invalid) {
+            throw new PublicCaseCatalogException("公开图片下载地址无效",null,false,true);
+        }
+        return result;
+    }
+
+    private Duration remaining(long started) {
+        Duration remaining = settings.requestTimeout.minusNanos(System.nanoTime()-started);
+        if (remaining.isNegative() || remaining.isZero()) throw new PublicCaseCatalogException("公开图片请求超时",null,true,false);
+        return remaining;
+    }
+
     private JsonNode get(Endpoint endpoint, String pathAndQuery) {
         return get(endpoint, pathAndQuery, settings.requestTimeout);
     }
 
     private JsonNode get(Endpoint endpoint, String pathAndQuery, Duration deadline) {
-        HttpRequest request = HttpRequest.newBuilder(settings.origin.resolve(pathAndQuery))
+        return exchange(endpoint,pathAndQuery,deadline,null);
+    }
+
+    private JsonNode exchange(Endpoint endpoint,String pathAndQuery,Duration deadline,String bodyJson) {
+        var builder = HttpRequest.newBuilder(settings.origin.resolve(pathAndQuery))
                 .timeout(deadline)
                 .header("Accept", "application/json")
                 .header("Accept-Encoding", "identity")
-                .header("tenant-id", settings.tenantId)
-                .GET()
-                .build();
+                .header("tenant-id", settings.tenantId);
+        HttpRequest request = bodyJson == null ? builder.GET().build() : builder.header("Content-Type","application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(bodyJson,StandardCharsets.UTF_8)).build();
         BoundedBodySubscriber subscriber = new BoundedBodySubscriber(settings.maxResponseBytes);
         CompletableFuture<HttpResponse<byte[]>> pending = null;
         AtomicInteger upstreamStatus = new AtomicInteger(-1);
@@ -226,7 +263,7 @@ public final class PublicCaseCatalogClient {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    private enum Endpoint { LIST, STYLES, DETAIL }
+    private enum Endpoint { LIST, STYLES, DETAIL, DOWNLOAD }
 
     private enum FailureKind {
         HTTP_STATUS, UPSTREAM_BUSINESS, INVALID_RESPONSE, RESPONSE_TOO_LARGE, TIMEOUT, INTERRUPTED, TRANSPORT

@@ -236,6 +236,33 @@ public class LocalAssetService implements AssetAccessPort {
     }
 
     @Override
+    public ReferenceContent readDesignReference(Actor actor, long id) {
+        long tenant = authorize(actor);
+        Asset asset = accepted(tenant, actor, id);
+        requireChannel(actor, asset.type());
+        if (!"DESIGN_REFERENCE".equals(asset.type())) throw exception(RESOURCE_FORBIDDEN);
+        try (InputStream input = storage.getObject(asset.objectKey())) {
+            byte[] bytes = input.readNBytes((20 << 20) + 1);
+            var facts = db("read-reference-integrity", id, () -> jdbc.queryForMap(
+                    "SELECT accepted_size_bytes,accepted_sha256 FROM fr_asset WHERE id=? AND tenant_id=? AND org_id=? AND deleted=FALSE",
+                    id, tenant, actor.orgId()));
+            if (bytes.length == 0 || bytes.length > (20 << 20)
+                    || !(facts.get("accepted_size_bytes") instanceof Number size) || size.longValue() != bytes.length
+                    || !hash(bytes).equals(facts.get("accepted_sha256"))) throw invalid("参考图内容与审核摘要不一致");
+            // 在对象读取之后重验，停用、切岗或删除不能借已开始的读取绕过。
+            accepted(authorize(actor), actor, id);
+            return new ReferenceContent(bytes, asset.mime(), hash(bytes));
+        } catch (IOException e) {
+            log.warn("B reference read failed tenant={} org={} asset={}", tenant, actor.orgId(), id, e);
+            throw invalid("参考图读取失败，请重试");
+        } catch (RuntimeException e) {
+            if (e instanceof ServiceException) throw e;
+            log.warn("B reference storage read failed tenant={} org={} asset={}", tenant, actor.orgId(), id, e);
+            throw invalid("参考图读取失败，请重试");
+        }
+    }
+
+    @Override
     public DownloadUrlView createTaskDownloadUrl(long orgId, long id, String requiredType) {
         // 定时任务没有员工会话；租户仅从持久化组织目录恢复，不能由客户端指定。
         var tenants = db("task-owner", id, () -> jdbc.queryForList(

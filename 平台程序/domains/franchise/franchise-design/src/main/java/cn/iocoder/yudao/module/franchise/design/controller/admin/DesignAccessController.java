@@ -75,6 +75,13 @@ public class DesignAccessController {
         return success((Map<String, Object>) access.getCaseDetail(access.post(), caseId).fields());
     }
 
+    @PostMapping("/cases/{caseId}/assets/{assetId}/download-tickets")
+    @Operation(summary = "读取当前公开案例的图片；与服务账号生成结果编号空间分开")
+    public CommonResult<DesignServicePort.DownloadUrlView> caseAssetDownload(
+            @PathVariable("caseId") long caseId,@PathVariable("assetId") long assetId) {
+        return success(access.caseAssetDownloadUrl(access.post(),caseId,assetId));
+    }
+
     @PutMapping("/cases/{caseId}/favorite")
     @Operation(summary = "收藏案例（服务账号名下，组织共享，重放天然幂等）")
     public CommonResult<Boolean> favorite(@PathVariable("caseId") long caseId,

@@ -108,6 +108,12 @@ public final class PublicCaseAccessService implements AutoCloseable {
         return styles;
     }
 
+    public DesignServicePort.DownloadUrlView caseAssetDownloadUrl(PostSnapshot post,long caseId,long assetId) {
+        JsonNode data = fromCatalog(tenant(),post,false,()->catalog.caseAssetDownloadUrl(caseId,assetId));
+        if (!data.path("downloadUrl").isTextual()) throw invalidResponse();
+        return new DesignServicePort.DownloadUrlView(data.path("downloadUrl").textValue(),null);
+    }
+
     public DesignServicePort.CaseDetailView getCaseDetail(PostSnapshot post, long caseId) {
         return new DesignServicePort.CaseDetailView(detail(tenant(), post, caseId, null));
     }

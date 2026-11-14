@@ -295,6 +295,47 @@ class PublicCaseCatalogClientTest {
         assertEquals("TIMEOUT", warning.getArgumentArray()[1].toString());
     }
 
+    @Test
+    void publicAssetUsesAnonymousTicketFlowOnlyAfterCaseMembershipCheck() throws Exception {
+        var paths = new java.util.ArrayList<String>();
+        start(exchange -> {
+            paths.add(exchange.getRequestURI().getPath());
+            assertEquals(null,exchange.getRequestHeaders().getFirst("Authorization"));
+            assertEquals(null,exchange.getRequestHeaders().getFirst("X-Post-Id"));
+            String path = exchange.getRequestURI().getPath();
+            if(path.endsWith("/cases/19")) reply(exchange,200,"{\"code\":0,\"data\":{\"caseId\":19,\"coverAssetId\":901,\"floorPlanAssetIds\":[902]}}");
+            else if(path.endsWith("/download-tickets")) {
+                assertEquals("POST",exchange.getRequestMethod());
+                reply(exchange,200,"{\"code\":0,\"data\":{\"ticketId\":\"opaque\"}}");
+            } else {
+                assertEquals("POST",exchange.getRequestMethod());
+                assertEquals("{\"ticket\":\"opaque\"}",new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8));
+                reply(exchange,200,"{\"code\":0,\"data\":{\"downloadUrl\":\"https://public.example/901\"}}");
+            }
+        });
+        assertEquals("https://public.example/901",client(Duration.ofSeconds(3),4096).caseAssetDownloadUrl(19,901).path("downloadUrl").asText());
+        assertEquals(java.util.List.of("/app-api/design/v1/cases/19","/app-api/design/v1/assets/901/download-tickets","/app-api/design/v1/assets/901/downloads"),paths);
+    }
+
+    @Test
+    void unrelatedAssetNeverRequestsATicketEvenWhenTheNumericIdCouldBeAnOwnedResult() throws Exception {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        start(exchange -> {calls.incrementAndGet();reply(exchange,200,"{\"code\":0,\"data\":{\"caseId\":19,\"coverAssetId\":901}}");});
+        assertThrows(PublicCaseCatalogException.class,()->client(Duration.ofSeconds(2),4096).caseAssetDownloadUrl(19,999));
+        assertEquals(1,calls.get());
+    }
+
+    @Test
+    void withdrawnPublicGrantDuringTicketConsumptionIsNotConvertedToAResultUrl() throws Exception {
+        start(exchange -> {
+            String path=exchange.getRequestURI().getPath();
+            if(path.endsWith("/cases/19"))reply(exchange,200,"{\"code\":0,\"data\":{\"caseId\":19,\"coverAssetId\":901}}");
+            else if(path.endsWith("/download-tickets"))reply(exchange,200,"{\"code\":0,\"data\":{\"ticketId\":\"opaque\"}}");
+            else reply(exchange,200,"{\"code\":403,\"data\":null}");
+        });
+        assertThrows(PublicCaseCatalogException.class,()->client(Duration.ofSeconds(3),4096).caseAssetDownloadUrl(19,901));
+    }
+
     private PublicCaseCatalogClient client(Duration timeout, int maxResponseBytes) {
         PublicCaseCatalogSettings settings = PublicCaseCatalogSettings.forLoopbackTests(
                 serverOrigin(), "1", Duration.ofMillis(50), timeout, maxResponseBytes);
