@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-14",
+  "timezone": "Asia/Shanghai",
+  "projectRoot": "/Users/honor.pei/Documents/企业FDE项目/zhongshu-ai-platform-v3",
+  "devtoolsVersion": "2.02.2609250 Stable",
+  "appId": "wxe584f6fad7b54487",
+  "visitedRoutes": [
+    "pages/home/index",
+    "pages/account/index?view=login"
+  ],
+  "actions": [
+    "打开现有本地赋能平台项目",
+    "首页点击登录",
+    "打开Network",
+    "微信一键登录",
+    "允许微信手机号授权",
+    "查看登录请求Headers和Preview",
+    "查看Console"
+  ],
+  "request": {
+    "method": "POST",
+    "url": "https://api2.zszhj.com/admin-api/platform/auth/wechat-login",
+    "httpStatus": 200,
+    "body": {
+      "code": 1104000002,
+      "msg": "微信服务暂不可用，请稍后重试",
+      "data": null
+    }
+  },
+  "productionLogEvidence": [
+    {
+      "time": "17:19:15.489",
+      "stage": "code2session",
+      "errcode": 40125
+    },
+    {
+      "time": "17:20:45.321",
+      "stage": "code2session",
+      "errcode": 40125
+    }
+  ],
+  "console": {
+    "errors": 0,
+    "warnings": 11,
+    "examples": [
+      "Setting data field \"role\" to undefined is invalid.",
+      "Some selectors are not allowed in component wxss",
+      "灰度基础库3.18.0",
+      "全局自定义组件影响按需注入"
+    ]
+  },
+  "outcome": "微信登录失败，未获得可用登录态，未进入岗位工作台。",
+  "coverageLimit": "登录后各岗位页面、详情和业务提交均未逐项点击；不以源码映射或内存复现代替真实联调。",
+  "secrets": "未保存手机号、微信授权code、请求凭据、token或AppSecret。"
+}

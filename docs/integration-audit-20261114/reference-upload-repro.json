@@ -1,0 +1,22 @@
+{
+  "scope": "in-memory reproduction using extracted current source; no network, no backend, no business writes",
+  "results": [
+    {
+      "channel": "COS",
+      "error": "ReferenceError: t is not defined",
+      "completeCalls": 0,
+      "observedUploadPaths": []
+    },
+    {
+      "channel": "local",
+      "error": "ReferenceError: res2 is not defined",
+      "completeCalls": 0,
+      "observedUploadPaths": [
+        "/app-api/design/v1/assets/123/content"
+      ]
+    }
+  ],
+  "frontendCommit": "b69e2faa55fe39fde969ea72940e15412f3885a1",
+  "source": "miniprogram/pages/workflow/explore/platform-bridge.js",
+  "sourceSha256": "a9124ff15249f97bbb0439379dc4b7ea1244e43d70492e30484d62ba96bc3a77"
+}
