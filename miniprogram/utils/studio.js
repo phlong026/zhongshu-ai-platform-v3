@@ -3,6 +3,8 @@ const Job=require('./organization');
 const Access=require('./access');
 const KEY = require('./storage-keys').studio,AUTH=Symbol('studio-command');
 const accounts = [{ id: 'douyin-adviser', platform: 'douyin', name: '众墅之家 · 建房顾问' }, { id: 'channels-design', platform: 'channels', name: '众墅之家 · 乡墅设计' }];
+// 首发后端只登记人工发布事实，不提供组织账号授权目录；线上页面只展示平台并由办理人填写实际账号。
+const publicationPlatforms = [{ platform: 'douyin', name: '抖音' }, { platform: 'channels', name: '视频号' }];
 let sequence = 0;
 const clone = require('./clone');
 const uid = prefix => prefix + '-' + Date.now() + '-' + (++sequence);
@@ -113,4 +115,4 @@ const draft = wx.getStorageSync(scopedKey(require('./storage-keys').creationDraf
 if (!draft || !draft.text || (typeof draft.workingText === 'string' && draft.workingText !== draft.text)) return false;
 const state = read(); delete state.extraction;state.rewriteHistory=[];state.original = draft.text; state.script = draft.rewrittenText && draft.rewrittenText !== draft.text ? draft.rewrittenText : ''; state.title = draft.text.split('\n')[0].slice(0, 28); delete state.editorBuffer; write(state); return true;
 }
-module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, completeTask, saveWork, createPublication,  normalizePublishedUrl, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts };
+module.exports = { KEY, title, original, script, initial,scopedKey,scope:storageKey,guard,allowed, read, write, completeTask, saveWork, createPublication,  normalizePublishedUrl, scheduleError, imageFor, kindLabel, formatTime, recentItems, restoreManualDraft, accounts, publicationPlatforms };

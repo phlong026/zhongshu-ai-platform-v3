@@ -1,14 +1,14 @@
 const studio = require('../../utils/studio');
-const { unavailable, assets } = require('../../utils/creation');
+const { assets } = require('../../utils/creation');
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：七态映射/校验/降级）
 const contentApi=P.api;                                 // /franchise/content/** 契约层
 const http=require('../../api/http');
-const titles = { remix: '文案二创', digital: '数字人口播', tasks: '任务中心', result: '视频结果', publish: '发布设置', receipt:'登记发布链接', records: '发布记录', detail: '发布详情', works: '我的作品', library: '素材库', recent: '全部创作' };
+const titles = { remix: '文案二创', digital: '数字人口播', tasks: '任务中心', result: '视频结果', publish: '手动发布登记', receipt:'登记发布链接', records: '发布记录', detail: '发布详情', works: '我的作品', library: '素材库', recent: '全部创作' };
 const statusInfo = {
 publishing: { label: '待登记链接', icon: 'clock', tone: 'warm', action: '补填链接' },
 published: { label: '已发布', icon: 'check-green', tone: 'green', action: '查看回执' },
 verify: { label: '待核实', icon: 'warning', tone: 'yellow', action: '核实结果', note: '请勿重复发布' },
-failed: { label: '失败', icon: 'error', tone: 'red', action: '查看原因', note: '账号授权已失效' },
+failed: { label: '失败', icon: 'error', tone: 'red', action: '查看原因', note: '请查看失败原因' },
 scheduled: { label: '待发布', icon: 'clock', tone: 'warm', action: '查看进度' }
 };
 Page({
@@ -16,9 +16,9 @@ data: {
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
 ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
-tasks: [], records: [], works: [], libraryAssets: assets, sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,tasksError:'',worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
+tasks: [], records: [], works: [], libraryAssets: assets, publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
 publishText: '想把二层乡墅住得舒适，先从家人的日常出发。\n采光、动线和通风，才是住得舒服的关键。',
-tags: '#乡墅设计  #农村建房', scheduled: '', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
+tags: '#乡墅设计  #农村建房', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
 actor: '李顾问', voice: '李顾问原声', filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
 },
 onLoad(options) {
@@ -40,7 +40,7 @@ if (draft) this.setData(draft);
 if (options.work && http.token()) this.loadApiWork(options.work); // 在线作品：接口回读，缺失不拦截
 }
 if (view === 'remix' && state.rewriteSettings) this.setData(state.rewriteSettings);
-const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,scheduled:c.pack.scheduled,selectedAccount:studio.accounts.findIndex(a=>a.id===c.pack.accountId)});}
+const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,selectedAccount:Math.max(0,(studio.publicationPlatforms||[]).findIndex(a=>a.platform===c.pack.platform))});}
 this.refreshData();
 if(view==='receipt'){
 this.setData({publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||''});
@@ -54,7 +54,7 @@ onHide() { this.persistEditor(); },
 onUnload() { this.persistEditor(); if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); }, // 终止任务轮询（防 UI 长时间占锁）
 persistEditor() {
 if(!studio.allowed()||this.actorScope!==studio.scope())return;
-if(this.data.view==='receipt'&&!this.data.receiptSaved&&this.data.detail){const state=studio.read();state.publicationLinkDrafts=state.publicationLinkDrafts||{};state.publicationLinkDrafts[this.data.recordId]=this.data.publishedUrlInput;studio.write(state);}
+if(this.data.view==='receipt'&&!this.data.receiptSaved&&['publishing','verify'].includes(this.data.detail&&this.data.detail.status)){const state=studio.read();state.publicationLinkDrafts=state.publicationLinkDrafts||{};state.publicationLinkDrafts[this.data.recordId]=this.data.publishedUrlInput;studio.write(state);}
 if (this.data.view === 'remix') {
 const state = studio.read();
 const { rewriteMode, ipIndex, customIp, requirement } = this.data;
@@ -62,8 +62,8 @@ state.rewriteSettings = { rewriteMode, ipIndex, customIp: customIp || '', requir
 }
 if (this.data.view === 'publish' && !this.data.invalidMessage && this.data.workId) {
 const state = studio.read();
-const { title, publishText, tags, selectedAccount, scheduled, cover, workId } = this.data;
-state.publishDrafts[workId] = { title, publishText, tags, selectedAccount, scheduled, cover, workId }; studio.write(state);
+const { title, publishText, tags, selectedAccount, publicationAccount, cover, workId } = this.data;
+state.publishDrafts[workId] = { title, publishText, tags, selectedAccount, publicationAccount, cover, workId }; studio.write(state);
 }
 },
 refreshData() {
@@ -134,7 +134,7 @@ else this.setData({records:[],recordsLoading:false,recordsError:message});
 mapApiPublication(row) {
 if(!row||row.id==null||row.id==='')return null;
 const status=String(row.status||'publishing'),info=statusInfo[status]||{label:'状态待确认',icon:'warning',tone:'yellow',action:'查看详情'};
-const platform=String(row.platform||'douyin'),account=String(row.accountName||row.account||row.accountId||('众墅之家 · '+(platform==='douyin'?'建房顾问':'乡墅设计')));
+const platform=String(row.platform||'douyin'),account=String(row.accountName||row.account||row.accountId||'账号未记录');
 const timeValue=status==='published'?(row.publishedAt||row.createTime):status==='scheduled'?(row.scheduledAt||row.createTime):row.createTime;
 return{id:String(row.id),apiRecord:true,workId:row.workId==null?'':String(row.workId),title:String(row.title||'未命名发布'),publishText:String(row.publishText||''),tags:String(row.tags||''),platform,account,status,publishedUrl:String(row.publishedUrl||''),failureReason:String(row.failureReason||''),signature:String(row.signature||''),cover:'/assets/studio-publication-cover.jpg',kindLabel:'数字人口播',time:studio.formatTime(timeValue),displayTime:studio.formatTime(timeValue),timeLabel:status==='published'?'发布时间':status==='scheduled'?'计划发布时间':'提交时间',identifier:String(row.signature||row.id),label:info.label,icon:info.icon,tone:info.tone,action:info.action||'查看详情',note:status==='failed'?String(row.failureReason||info.note||'发布失败'):String(info.note||'')};
 },
@@ -411,72 +411,100 @@ inputTitle(e) { this.setData({ title: e.detail.value }); },
 clearTitle() { this.setData({ title: '' }); },
 inputPublishText(e) { this.setData({ publishText: e.detail.value }); },
 inputTags(e) { this.setData({ tags: e.detail.value }); },
-chooseSchedule() { const parts = this.data.scheduled.split(' '); this.setData({ sheet: 'schedule', sheetTitle: '发布时间', scheduleDay: parts[0] || '', scheduleClock: parts[1] || '' }); },
-immediate() { this.setData({ scheduled: '', sheet: '' }); },
-scheduleDate(e) { this.setData({ scheduleDay: e.detail.value }); },
-scheduleTime(e) { this.setData({ scheduleClock: e.detail.value }); },
-saveSchedule() {
-const { scheduleDay, scheduleClock } = this.data;
-const time = scheduleDay && scheduleClock ? scheduleDay + ' ' + scheduleClock : '';
-const error = time ? studio.scheduleError(time) : '请选择日期和时间';
-if (error) { wx.showToast({ title: error, icon: 'none' }); return; }
-this.setData({ scheduled: time, sheet: '' });
-},
+inputPublicationAccount(e) { this.setData({ publicationAccount: e.detail.value }); },
 moreSettings() { this.setData({ sheet: 'settings', sheetTitle: '更多设置' }); },
 submitPublish() {
 if (!http.token()) return wx.showToast({ title: '请先登录后再发布', icon: 'none' }); // 无 token：提示登录，不落本地发布记录
 return this.submitPublishOnline(); // 发布链走后端
 },
-/** 在线发布链第一步：publications.create {workId,title,publishText,tags,accountId,platform,scheduledAt?} → 回执页登记链接 */
-submitPublishOnline() {
-const error=P.validatePublicationForm({title:this.data.title,publishText:this.data.publishText,scheduled:this.data.scheduled},Date.now());
+/** 在线手动发布登记：提交快照与幂等键保留到成功或明确业务失败；网络响应丢失按原请求重试。 */
+async submitPublishOnline() {
+if(this.data.publishSubmitting)return;
+const sessionAlive=http.sessionGuard(),scope=this.actorScope;
+const alive=()=>sessionAlive()&&this.actorScope===scope&&scope===studio.scope()&&this.data.view==='publish';
+if(!this.__publicationSubmission){
+if(this.data.invalidMessage||!String(this.data.workId||'').trim())return wx.showToast({title:'请先选择已保存的作品',icon:'none'});
+const error=P.validatePublicationForm({title:this.data.title,publishText:this.data.publishText},Date.now());
 if(error)return wx.showToast({title:error,icon:'none'});
-const account=studio.accounts[this.data.selectedAccount]||studio.accounts[0]; // 平台发布账号为组织配置，沿用 demo 两账号 id 上送
-const payload={workId:String(this.data.workId),title:this.data.title.trim(),publishText:this.data.publishText.trim(),tags:String(this.data.tags||'').trim(),accountId:account.id,platform:account.platform};
-if(this.data.scheduled)payload.scheduledAt=new Date(this.data.scheduled.replace(' ','T')+':00').toISOString();
-contentApi.publications.create(payload).then(res=>{
+const platform=(studio.publicationPlatforms||[])[this.data.selectedAccount];
+if(!platform)return wx.showToast({title:'请选择发布平台',icon:'none'});
+const accountId=String(this.data.publicationAccount||'').trim();
+if(!accountId)return wx.showToast({title:'请填写实际发布账号名称',icon:'none'});
+if(accountId.length>64)return wx.showToast({title:'发布账号名称不能超过64个字符',icon:'none'});
+const payload={workId:String(this.data.workId),title:this.data.title.trim(),publishText:this.data.publishText.trim(),tags:String(this.data.tags||'').trim(),accountId,platform:platform.platform};
+const action='publication:'+payload.workId;
+this.__publicationSubmission={payload,key:this.contentKey(action),action};
+}
+const submission=this.__publicationSubmission;
+this.setData({publishSubmitting:true,operationError:''});
+try{
+const res=await contentApi.publications.create(submission.payload,submission.key);
+if(!alive())return;
 const id=res&&(res.id||res.publicationId)?String(res.id||res.publicationId):'';
 if(!id)throw Error('发布记录创建失败，请稍后重试');
+this.contentDropKey(submission.action);this.__publicationSubmission=null;
 this.persistEditor();
 this.go('receipt','&record='+encodeURIComponent(id));
-}).catch(error=>{
-const message=P.degradeMessage(error);
+}catch(error){
+if(!alive())return;
+const code=Number(error&&error.code);
+const uncertain=!Number.isFinite(code)||code===-1||code===0||(code>=500&&code<600);
+if(!uncertain){
+this.contentDropKey(submission.action);this.__publicationSubmission=null;
+}
+const message=uncertain?'登记结果待确认，请重试核对本次提交':P.degradeMessage(error);
 this.setData({operationError:message});
 wx.showToast({title:message,icon:'none'});
-});
+}finally{if(alive())this.setData({publishSubmitting:false});}
 },
-/** 在线回执页：publications.page 找记录并按 statusInfo 五态渲染（best-effort） */
+/** 在线回执页：列表回读真实状态；迟到响应不得跨会话、岗位或记录写回。 */
 loadApiReceipt(recordId) {
+const alive=http.requestGuard('studio-receipt'),scope=this.actorScope,expected=String(recordId);
+this.setData({receiptLoading:true,receiptError:'',invalidMessage:''});
 contentApi.publications.page().then(rows=>{
+if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!=='receipt'||String(this.data.recordId)!==expected)return;
 const row=P.rowsOf(rows).find(item=>item&&String(item.id!=null?item.id:item.publicationId)===String(recordId));
-if(this.data.view!=='receipt')return;
 if(!row)throw Error('发布记录加载失败，请返回重试');
-const status=String(row.status||'publishing');
+const status=String(row.status||'');
 const info=statusInfo[status]||{label:'状态待确认',icon:'warning',tone:'yellow'};
 const platform=String(row.platform||'douyin');
-const detail={ id:String(recordId), apiRecord:true, title:String(row.title||''), publishText:String(row.publishText||''), tags:String(row.tags||''), platform, account:String(row.accountName||row.account||('众墅之家 · '+(platform==='douyin'?'建房顾问':'乡墅设计'))), authorName:String(row.authorName||''), workId:String(row.workId||''), kindLabel:studio.kindLabel(row.kind==='ai_video'?'ai':(row.kind||'digital')), cover:'/assets/studio-publication-cover.jpg', status, publishedUrl:String(row.publishedUrl||''), label:info.label, icon:info.icon, tone:info.tone };
-this.setData({ detail, publishedUrlInput:detail.publishedUrl||this.data.publishedUrlInput, invalidMessage:'' });
+const detail={ id:String(recordId), apiRecord:true, title:String(row.title||''), publishText:String(row.publishText||''), tags:String(row.tags||''), platform, account:String(row.accountName||row.account||row.accountId||'账号未记录'), authorName:String(row.authorName||''), workId:String(row.workId||''), kindLabel:studio.kindLabel(row.kind==='ai_video'?'ai':(row.kind||'digital')), cover:'/assets/studio-publication-cover.jpg', status, publishedUrl:String(row.publishedUrl||''), label:info.label, icon:info.icon, tone:info.tone };
+this.setData({ detail, publishedUrlInput:detail.publishedUrl||this.data.publishedUrlInput, receiptLoading:false,invalidMessage:'' });
 }).catch(error=>{
-this.setData({invalidMessage:P.degradeMessage(error)});
+if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!=='receipt'||String(this.data.recordId)!==expected)return;
+this.setData({detail:null,receiptLoading:false,invalidMessage:P.degradeMessage(error)});
 });
 },
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
 refreshRecords() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
 registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.contentId)wx.navigateTo({url:'/pages/growth/index?view=capture&contentId='+encodeURIComponent(record.contentId)});},
 inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:'',receiptSaved:false});},
+receiptWriteError(){
+if(this.data.receiptLoading)return '发布记录加载中，请稍候';
+const detail=this.data.detail,status=detail&&detail.status;
+if(!detail||String(detail.id)!==String(this.data.recordId)||!status)return '发布记录尚未加载完成，请返回重试';
+if(status==='scheduled')return '历史定时记录暂不支持登记链接，请返回发布记录查看';
+if(status==='published')return '已发布记录仅供查看，不能重复登记链接';
+if(!['publishing','verify'].includes(status))return '当前发布状态不可登记链接';
+return '';
+},
+guardReceiptWrite(){const message=this.receiptWriteError();if(!message)return true;this.setData({receiptError:message});wx.showToast({title:message,icon:'none'});return false;},
 savePublicationLink(){
 if(this.data.receiptSaving)return;
+if(!this.guardReceiptWrite())return;
 if(!http.token())return wx.showToast({title:'请先登录后再登记发布链接',icon:'none'}); // 无 token：提示登录，不落本地演示回执
-return this.savePublicationLinkOnline(); // 在线发布记录：publications.verify（已发布时）→ link 登记链接
+return this.savePublicationLinkOnline();
 },
-/** 在线登记发布链接：重复链接后端报 1_114_000_003 → 对应文案；演示已发布态先 verify 再 link */
+/** 在线登记发布链接：publishing 先人工确认外部发布；verify 才可直接登记链接。 */
 savePublicationLinkOnline(){
+if(!this.guardReceiptWrite())return;
 const invalid=P.validatePublishedUrl(this.data.publishedUrlInput);
 if(invalid)return this.setData({receiptError:invalid});
 const url=this.data.publishedUrlInput.trim(),recordId=this.data.recordId;
 this.setData({receiptSaving:true,receiptError:''});
-// 演示已发布（published）需先转待回执核验；其余状态直接登记；幂等键按记录维度生成，失败保留重试复用
-const prepare=(this.data.detail&&this.data.detail.status==='published')?contentApi.publications.verify(recordId,this.contentKey('verify:'+recordId)).catch(()=>{}):Promise.resolve();
+// 后端 verify 仅支持 publishing→verify；失败不可吞，否则 link 会产生误导性二次失败。
+const status=this.data.detail&&this.data.detail.status;
+const prepare=status==='publishing'?contentApi.publications.verify(recordId,this.contentKey('verify:'+recordId)):Promise.resolve();
 prepare.then(()=>contentApi.publications.link(recordId,url,this.contentKey('link:'+recordId))).then(()=>{
 this.contentDropKey('verify:'+recordId);this.contentDropKey('link:'+recordId);
 this.setData({receiptSaved:true});
@@ -495,7 +523,8 @@ wx.showToast({title:message,icon:'none'});
 },
 copyPublishedUrl(){if(this.data.detail?.publishedUrl)wx.setClipboardData({data:this.data.detail.publishedUrl});},
 advancePublication() {
-unavailable('查看平台作品'); // 本地演示发布记录已移除；在线记录经回执页（receipt）办理
+const record=this.data.detail;
+if(record&&record.id&&record.status!=='published')this.go('receipt','&record='+encodeURIComponent(record.id));
 },
 returnHome(){wx.reLaunch({url:'/pages/business/index'});},
 returnRecords() { wx.redirectTo({ url: '/pages/studio/index?view=records' }); },
