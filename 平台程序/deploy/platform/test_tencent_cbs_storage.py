@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
+from types import SimpleNamespace
 
 
 HERE = Path(__file__).resolve().parent
@@ -255,6 +256,34 @@ class TencentCbsStorageTest(unittest.TestCase):
         wrong_size["target"]["sizeBytes"] -= 1
         with self.assertRaises(ValueError):
             cbs.validate_guest_binding(wrong_size, cloud, "disk-data0001", ["disk-root0001"])
+
+    def test_live_topology_collection_accepts_only_the_root_without_serial(self):
+        cloud = cbs.validate_cloud_evidence(evidence(), now=NOW)
+        root = {"source": "/dev/vda1", "uuid": "uuid-root", "maj:min": "8:1"}
+        target = {"source": "/dev/vdb1", "uuid": "uuid-data", "maj:min": "8:17"}
+        topology = {"blockdevices": [
+            {"name": "vda", "kname": "vda", "type": "disk", "maj:min": "8:0",
+             "serial": None, "wwn": None, "size": 50 * 1024**3,
+             "children": [{"name": "vda1", "kname": "vda1", "type": "part", "pkname": "vda", "maj:min": "8:1"}]},
+            {"name": "vdb", "kname": "vdb", "type": "disk", "maj:min": "8:16",
+             "serial": "disk-data0001", "wwn": None, "size": 100 * 1024**3,
+             "children": [{"name": "vdb1", "kname": "vdb1", "type": "part", "pkname": "vdb", "maj:min": "8:17"}]},
+        ]}
+        with tempfile.TemporaryDirectory() as directory:
+            boot = Path(directory).resolve() / "boot_id"
+            boot.write_text("11111111-2222-3333-4444-555555555555\n")
+            metadata = {"instanceId": cloud["instanceId"], "region": cloud["region"], "zone": cloud["zone"]}
+            def collect():
+                with patch.object(cbs.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=json.dumps(topology))):
+                    return cbs.collect_live_guest_binding(target, root, [(Path("/"), root)], cloud,
+                                                          metadata_reader=lambda: metadata, boot_id_file=boot)
+            result = collect()
+            self.assertEqual(result["root"]["stableId"], "")
+            self.assertEqual(result["protectedMounts"][0]["stableId"], "disk-root0001")
+            cbs.validate_guest_binding(result, cloud, "disk-data0001", ["disk-root0001"])
+            topology["blockdevices"][1]["serial"] = None
+            with self.assertRaises(ValueError):
+                collect()
 
     def test_root_missing_stable_id_is_only_allowed_for_unique_system_disk(self):
         cloud = cbs.validate_cloud_evidence(evidence(), now=NOW)
