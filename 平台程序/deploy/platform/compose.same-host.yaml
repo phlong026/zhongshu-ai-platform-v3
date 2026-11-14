@@ -1,0 +1,14 @@
+# Optional same-host storage overlay. Directories must be prepared and validated by same_host_storage.py.
+volumes:
+  pgdata:
+    driver: local
+    driver_opts: {type: none, o: bind, device: "${B_SAME_HOST_DATA_ROOT:?}/postgres-b"}
+  redisdata:
+    driver: local
+    driver_opts: {type: none, o: bind, device: "${B_SAME_HOST_DATA_ROOT:?}/redis-b"}
+  design-pgdata:
+    driver: local
+    driver_opts: {type: none, o: bind, device: "${B_SAME_HOST_DATA_ROOT:?}/postgres-design"}
+  design-redisdata:
+    driver: local
+    driver_opts: {type: none, o: bind, device: "${B_SAME_HOST_DATA_ROOT:?}/redis-design"}

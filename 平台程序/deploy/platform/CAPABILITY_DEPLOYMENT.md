@@ -46,6 +46,92 @@ thin、压缩或去重卷不合格。
 使用该精确名称，不能靠改名绕过门禁。建议准备第二组全新 PG/Redis/Journal/bucket 作为恢复目标；备份目录位于
 仓库、发布目录和数据卷之外，权限 0700，空间按冻结点数据量校核。
 
+### 同机专用数据盘 overlay
+
+当 B 与 A 同机时，可选 `compose.same-host.yaml` 保留原 Compose 项目、卷名和 labels，只把四个 B named volume
+的 local-driver 底层目录绑定到 B 专用盘；Runtime journal 和备份 staging 同样固定在该 B 根目录。所有部署、
+迁移、发布和全备份脚本会根据 env 文件中的完整 `B_SAME_HOST_*` 配置自动加入同一个 overlay；只填一部分会拒绝，
+不能手工漏掉 overlay 运行某一步。
+
+以已审批挂载点为例，外部 env 必须明确设置：
+
+```text
+B_SAME_HOST_MOUNT=/mnt/datadisk0
+B_SAME_HOST_DATA_ROOT=/mnt/datadisk0/zhongshu-platform-b
+AI_RUNTIME_JOURNAL_DIR=/mnt/datadisk0/zhongshu-platform-b/runtime-journal
+B_SAME_HOST_STORAGE_PROOF_FILE=/absolute/external/same-host-storage-proof.json
+B_SAME_HOST_STORAGE_PROOF_SHA256=<proof file sha256>
+B_SAME_HOST_STORAGE_ATTESTATION_FILE=/absolute/external/storage-attestation.json
+B_SAME_HOST_STORAGE_ATTESTATION_SIGNATURE_FILE=/absolute/external/storage-attestation.sig
+B_SAME_HOST_APPROVER_PUBLIC_KEY_FILE=/absolute/external/storage-approver-public.pem
+B_SAME_HOST_PROTECTED_A_PATHS_FILE=/absolute/external/protected-a-paths.txt
+B_SAME_HOST_MIN_FREE_BYTES=<reviewed byte floor>
+```
+
+`protected-a-paths.txt` 每行是一个真实存在的 A 数据/发布根路径；必须包含服务器已发现的 `/opt/zhongshu`。
+检查器比较 B、根盘、Docker data-root 和全部 A 路径的 findmnt SOURCE/UUID/major:minor 与设备号，任何同盘均拒绝；
+同时拒绝源码树、符号链接、realpath 越界和跨设备目录。proof 参考
+`same-host-storage-proof.example.json`，必须记录存储平台卷 ID、thick 声明、live filesystem/capacity、受控 fsync p99
+和审批后的最低空闲字节，并用外部 SHA-256 绑定。proof/hash 不是可信审批本身：独立存储审批方还必须签署
+`same-host-storage-attestation.example.json`，绑定 volumeId、thick、proof hash、完整 A 范围 hash、容量水位和有效期。
+审批方公钥文件 SHA-256 必须预先写入受审部署包的 `trusted-storage-approver.sha256`；仓库只提供 `.example`，未安装
+真实信任锚时发布必定 fail-closed。脚本只能验证签名、字段、live ext4/xfs、容量和目录合同，不能替代云平台证明；
+缺少独立证明、权限或信任锚时必须保持 blocked。
+
+可信证明由两个独立责任方交付，不能由部署操作者自签自审：存储/运维责任方从云控制台或供应方工单核对
+volumeId 和 thick 属性，完成容量与 fsync 测量，并用其受控私钥签署最长 7 天有效的 attestation；安全/发布责任方
+通过独立渠道核验审批方公钥，在构建受审部署包时把该公钥文件 SHA-256 写入非 `.example` 的
+`deploy/platform/trusted-storage-approver.sha256`。服务器只接收公钥、attestation、detached signature、proof 和
+完整 A 保护范围文件。任一责任方、信任锚、签名、有效期或绑定字段缺失时，门禁保持关闭，不能临时改 env 绕过。
+
+`lsblk` 祖先链末端的 WWN 或 serial 是当前实现的硬门禁，用于把 guest 内 major:minor/dm 祖先与签名中的物理卷
+身份相互绑定；字段缺失会 blocked，禁止手填、复制设备名或臆造 serial。若云厂商不向 guest 暴露稳定标识，只有
+两条可审计后续路径：要求云厂商/运维启用可验证的 guest stable ID（例如受供应方支持的设备序列映射），或另行
+开发并独立审查云 API verifier，以实例身份读取 attachment/volumeId 并绑定当前设备祖先。当前部署包未实现第二条，
+因此在拿不到 WWN/serial 时不能发布。
+
+现场基线必须保存以下只读输出，并与 attestation 一起归档：
+
+```bash
+lsblk -J -o NAME,KNAME,TYPE,PKNAME,MAJ:MIN,SERIAL,WWN
+```
+
+校验器从 `KNAME/PKNAME/children/MAJ:MIN` 还原分区、device-mapper 和底层块设备祖先；B 与 root、Docker
+data-root、全部 A 保护路径的祖先集合必须不相交，叶节点必须都有 stable WWN/serial。attestation 中的
+`physicalVolumeIds` 与 `protectedPhysicalVolumeIds` 必须分别精确等于现场推导的两组 ID。
+
+管理员在**确认挂载点已存在且无需格式化**后才可执行：
+
+```bash
+python3 deploy/platform/same_host_storage.py check \
+  --env-file /absolute/external/deployment.env
+sudo python3 deploy/platform/same_host_storage.py prepare \
+  --env-file /absolute/external/deployment.env \
+  --execute --confirm-target zhongshu-platform-b/storage
+python3 deploy/platform/same_host_storage.py check \
+  --env-file /absolute/external/deployment.env
+```
+
+`prepare` 只创建固定 B 根及六个空/既有合规子目录，不格式化、挂载、删除、移动、chown 非 B 路径或执行
+Docker prune。四个 PG/Redis 目录固定为 UID/GID `999:999` mode `0700`，journal 为 `1000:1000` mode
+`0700`，backup staging 为 `root:root` mode `0700`，B 根为 `root:20000` mode `0710`。既有目录只要
+owner/mode/device 不完全匹配就拒绝，不自动“修复”。首次 prepare 要求 B 根尚不存在，六个子目录创建后严格为空，
+再原子写入并 fsync 绑定 project/mount/volumeId/目录合同的 root-owned ownership marker；崩溃留下的无 marker 根目录
+不会被自动接管。后续检查递归拒绝 `pg_wal` 等任意后代 symlink、嵌套 mount、设备节点、socket、fifo 和跨设备项。
+若四个固定 Docker volume 已存在，检查器只接受由同一 B Compose 创建、且 driver options 已精确
+指向上述 B 目录的卷；旧默认卷、external 卷或缺少 B labels 的手工卷一律拒绝，不会隐式重绑或接管数据。
+正式恢复演练仍使用第二组隔离资源，不能覆盖这些正式 B 路径。
+
+同机模式下，本文后续任何手工 `docker compose` 命令都必须同时包含
+`-f deploy/platform/compose.same-host.yaml`。校验、迁移、发布和备份应优先使用仓库 Python wrapper，它们会从同一
+env 自动加载 overlay；不得复制非同机命令后漏掉 overlay。
+
+**当前不支持同机自动备份。** 数据盘内的 `backup-staging` 仅为保留目录，不能作为可信备份目标：备份写入会与
+数据库/journal 竞争同一物理容量，且尚无独立 B-only backup mount、最大写入上界和写入中保留水位合同。
+因此同机模式下 `ops.py backup` 与 `full-backup.py backup` 都会 fail-closed。备份须在独立隔离主机/独立备份挂载
+完成，或先另行实现并审查带独立物理卷证明和持续水位检查的 backup overlay；不得通过修改 env 或复制非同机命令
+绕过。非同机备份命令见“一致性备份”章节。
+
 ## 发布前输入
 
 1. 在隔离构建环境生成并扫描三个不可变镜像：`PLATFORM_API_IMAGE`、`DESIGN_PROVIDER_IMAGE`、
@@ -64,7 +150,9 @@ thin、压缩或去重卷不合格。
    基础上加入 Provider CA，不能用只含内部证书的空 truststore 替换公共根；Runtime 使用同一 Provider CA PEM。
    Compose 中 `changeit` 是只含公钥证书 truststore 的非秘密完整性密码合同；truststore 严禁包含私钥，生成时
    必须显式使用相同密码。Provider 私钥 keystore 密码仍只允许放在外部 Provider properties 中。
-6. Runtime journal 必须是 Runtime 独占写入的 thick-provisioned Linux ext4/xfs 挂载点。普通 Compose
+6. Runtime journal 必须位于 Runtime 独占写入的 thick-provisioned Linux ext4/xfs 存储上。非同机 overlay 时
+   journal 自身必须是挂载点；同机 overlay 时它必须是审定独立父 mount 下的固定子目录，且全链同设备、无嵌套挂载。
+   普通 Compose
    named volume、NFS、thin-provision、压缩或去重卷不满足要求。卷管理员在根目录创建 0600、Runtime
    UID 所有的 `.capacity-proof.json` 并提供原始字节 SHA-256；还需保存真实 fsync p99 和容量证据。
 7. `COS_B_BUCKET` 必须等于 Provider properties 中真实的 COS bucket；Provider
@@ -79,10 +167,9 @@ thin、压缩或去重卷不合格。
 ```bash
 python3 deploy/platform/verify-capability-deployment.py \
   --env-file /absolute/external/deployment.env
-docker compose --project-name zhongshu-platform-b \
-  --env-file /absolute/external/deployment.env \
-  -f deploy/platform/compose.yaml -f deploy/platform/compose.capabilities.yaml config --quiet
 ```
+
+该 verifier 已渲染并核对完整 Compose；不要另抄一条可能漏掉 same-host overlay 的 raw Compose 校验命令。
 
 只有校验通过、旧共享源库在途设计任务和预扣已经只读核对、B 价格和总部权限已明确后，才可进入部署审批。
 Provider 独立库还必须为每个启用的 B 公司建立经过核对的 `design_capability_organization` 映射，并配置
@@ -126,7 +213,10 @@ Runtime 先取得 journal 单写者锁；Provider 在 Runtime receipt 可用后�
 
 生产变更仍须由既有发布流程显式批准；本部署包不包含自动上线命令。
 
-## 一致性备份
+## 一致性备份（同机自动备份当前禁用）
+
+以下命令只适用于非同机或经过独立审查的隔离备份执行环境；启用 same-host overlay 时两个 backup wrapper 会在
+任何 dump/journal 读取前拒绝。不要在同机上照抄本节命令。
 
 每次备份先停止新的 B 外部流量，再停止 `api`、`design-provider`、`ai-runtime`，并确认迁移容器已退出。
 从三个写入服务全部停止开始，到 COS 版本清单和本地备份全部完成为止，必须保持同一个冻结窗口。同一冻结
@@ -146,6 +236,8 @@ Runtime 先取得 journal 单写者锁；Provider 在 Runtime receipt 可用后�
 ```bash
 export B_ENV=/absolute/external/deployment.env
 export B_COMPOSE='-f deploy/platform/compose.yaml -f deploy/platform/compose.capabilities.yaml'
+# 同机模式必须追加；非同机模式省略下一行。
+export B_COMPOSE="$B_COMPOSE -f deploy/platform/compose.same-host.yaml"
 docker compose --project-name zhongshu-platform-b --env-file "$B_ENV" $B_COMPOSE \
   stop --timeout 120 api design-provider ai-runtime
 docker compose --project-name zhongshu-platform-b --env-file "$B_ENV" $B_COMPOSE \

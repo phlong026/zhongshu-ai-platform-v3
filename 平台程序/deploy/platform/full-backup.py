@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tarfile
 from datetime import datetime, timezone
+import same_host_storage as same_host
 
 HERE = Path(__file__).resolve().parent
 REPO = next(parent for parent in HERE.parents if (parent / ".git").exists())
@@ -97,9 +98,11 @@ def validate_cos_inventory(cos, expected_bucket, freeze_started_at, observed_at)
     reject_sensitive_keys(cos)
 
 
-def compose(env_file):
+def compose(env_file, values=None):
+    values = env_values(env_file) if values is None else values
     return ["docker", "compose", "--project-name", PROJECT, "--env-file", str(env_file),
-            "-f", str(HERE / "compose.yaml"), "-f", str(HERE / "compose.capabilities.yaml")]
+            "-f", str(HERE / "compose.yaml"), "-f", str(HERE / "compose.capabilities.yaml"),
+            *same_host.compose_overlay(values)]
 
 
 def freeze_evidence(rows):
@@ -146,7 +149,69 @@ def parse_ps(output):
         return [json.loads(line) for line in decoded.splitlines() if line.strip()]
 
 
-def require_frozen(base, environment):
+def validate_container_scope(container, service, model):
+    labels = container.get("Config", {}).get("Labels", {})
+    demand(labels.get("com.docker.compose.project") == PROJECT
+           and labels.get("com.docker.compose.service") == service,
+           f"{service} is outside the exact B Compose scope")
+    networks = container.get("NetworkSettings", {}).get("Networks", {})
+    demand(set(networks) == {f"{PROJECT}_private"}, f"{service} has an unexpected network")
+    expected = model["services"][service]
+    demand(container.get("Config", {}).get("Image") == expected.get("image"),
+           f"{service} actual image reference differs from the reviewed B model")
+    expected_mounts = {}
+    for mount in expected.get("volumes", []):
+        if mount["type"] == "volume":
+            expected_mounts[mount["target"]] = ("volume", model["volumes"][mount["source"]]["name"], True)
+        elif mount["type"] == "bind":
+            expected_mounts[mount["target"]] = (
+                "bind", str(Path(mount["source"]).resolve()), not mount.get("read_only", False))
+        else:
+            raise ValueError(f"Unexpected reviewed mount type for {service}")
+    for secret in expected.get("secrets", []):
+        target = secret.get("target", secret["source"])
+        if not target.startswith("/"):
+            target = "/run/secrets/" + target
+        expected_mounts[target] = ("bind", str(Path(model["secrets"][secret["source"]]["file"]).resolve()), False)
+    actual_mounts = {}
+    evidence = []
+    for mount in container.get("Mounts", []):
+        kind = mount.get("Type")
+        target = mount.get("Destination")
+        if kind == "volume":
+            source = mount.get("Name")
+        elif kind == "bind":
+            source = str(Path(mount.get("Source", "")).resolve())
+        elif kind == "tmpfs":
+            continue
+        else:
+            raise ValueError(f"Unexpected actual mount type for {service}")
+        actual_mounts[target] = (kind, source, bool(mount.get("RW")))
+        evidence.append({"target": target, "type": kind,
+                         "source": source if kind == "volume" or target == "/data"
+                         else hashlib.sha256(source.encode()).hexdigest(),
+                         "rw": bool(mount.get("RW"))})
+    demand(actual_mounts == expected_mounts, f"{service} mounts differ from the reviewed B model")
+    return {"containerId": container["Id"], "network": f"{PROJECT}_private",
+            "mounts": sorted(evidence, key=lambda item: item["target"])}
+
+
+def validate_volume_scope(items, model, values):
+    expected = {config["name"]: logical for logical, config in model.get("volumes", {}).items()}
+    demand({item.get("Name") for item in items} == set(expected), "Full backup volume set differs from B model")
+    for item in items:
+        logical = expected[item["Name"]]
+        labels = item.get("Labels") or {}
+        demand(item.get("Driver") == "local" and labels.get("com.docker.compose.project") == PROJECT
+               and labels.get("com.docker.compose.volume") == logical,
+               "Full backup volume lacks exact B ownership labels")
+    same_host.validate_actual_volumes_against_model(items, model)
+    same_host.validate_volume_inspection(items, values) if same_host.compose_overlay(values) else None
+    return {item["Name"]: {"driver": item.get("Driver"), "options": item.get("Options") or {}}
+            for item in items}
+
+
+def require_frozen(base, environment, model, values):
     services = ("api", "design-provider", "ai-runtime", "design-provider-migrate", "postgres-b", "redis-b",
                 "postgres-design", "redis-design")
     rows = parse_ps(run(base + ["ps", "--all", "--format", "json", *services], "Inspect full B freeze",
@@ -164,7 +229,16 @@ def require_frozen(base, environment):
         row["FinishedAt"] = item["State"].get("FinishedAt")
         row["ImageRef"] = item["Config"].get("Image")
         row["ImageID"] = item.get("Image")
-    return freeze_evidence(rows)
+    container_evidence = {service: validate_container_scope(
+        next(item for item in inspected if item.get("Config", {}).get("Labels", {}).get(
+            "com.docker.compose.service") == service), service, model) for service in services}
+    volume_names = [config["name"] for config in model.get("volumes", {}).values()]
+    volume_items = json.loads(run(["docker", "volume", "inspect", *volume_names],
+                                  "Inspect B volume ownership/options", environment=environment))
+    evidence = freeze_evidence(rows)
+    evidence["runtimeScope"] = {"containers": container_evidence,
+                                "volumes": validate_volume_scope(volume_items, model, values)}
+    return evidence
 
 
 def pg_dump(base, service, user, database, secret, target, environment):
@@ -183,8 +257,9 @@ def redis_dump(base, service, user, secret, target, environment):
             environment=environment)
 
 
-def journal_archive(source, target):
-    demand(source.is_dir() and source.is_mount(), "Runtime journal must be the reviewed dedicated mount point")
+def journal_archive(source, target, values):
+    demand(source.is_dir(), "Runtime journal must be a directory")
+    same_host.validate_journal(values, source)
     with tarfile.open(target, "x:gz", format=tarfile.PAX_FORMAT) as archive:
         for path in sorted(source.rglob("*")):
             demand(not path.is_symlink(), "Runtime journal symlinks are refused")
@@ -198,16 +273,19 @@ def backup(args):
     demand(not args.output.exists() and args.output.parent.is_dir(),
            "Backup directory must be a new child of an existing external directory")
     values, environment = selected_env(args.env_file)
+    if same_host.compose_overlay(values):
+        same_host.validate_host(values)
+        same_host.validate_backup_output(values, args.output)
     journal = Path(values.get("AI_RUNTIME_JOURNAL_DIR", "")).resolve(strict=True)
     inventory = args.cos_inventory.resolve(strict=True)
     demand(inventory.is_file() and not inventory.is_symlink(), "COS version inventory is required")
     inventory_bytes = inventory.read_bytes()
     cos = json.loads(inventory_bytes)
     demand(values.get("COS_B_BUCKET"), "Expected B COS bucket is required in the selected env file")
-    base = compose(args.env_file)
-    json.loads(run(base + ["config", "--format", "json"], "Render full B Compose", timeout=60,
-                   environment=environment))
-    before = require_frozen(base, environment)
+    base = compose(args.env_file, values)
+    model = json.loads(run(base + ["config", "--format", "json"], "Render full B Compose", timeout=60,
+                           environment=environment))
+    before = require_frozen(base, environment, model, values)
     validate_cos_inventory(cos, values["COS_B_BUCKET"], before["freezeStartedAt"],
                            datetime.now(timezone.utc).isoformat())
     args.output.mkdir(mode=0o700)
@@ -218,8 +296,8 @@ def backup(args):
     redis_dump(base, "redis-b", "platform_backup", "redis_backup_password", args.output / "platform-redis.rdb", environment)
     redis_dump(base, "redis-design", "design_provider_backup", "design_redis_backup_password",
                args.output / "provider-redis.rdb", environment)
-    journal_archive(journal, args.output / "runtime-journal.tar.gz")
-    after = require_frozen(base, environment)
+    journal_archive(journal, args.output / "runtime-journal.tar.gz", values)
+    after = require_frozen(base, environment, model, values)
     demand(after == before, "B freeze/container evidence changed during snapshot")
     (args.output / "cos-version-inventory.json").write_bytes(inventory_bytes)
     names = ("platform-postgres.dump", "provider-postgres.dump", "platform-redis.rdb", "provider-redis.rdb",

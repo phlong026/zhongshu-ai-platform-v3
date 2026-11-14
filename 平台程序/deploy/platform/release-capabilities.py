@@ -77,6 +77,11 @@ def require_writers_stopped(base, environment):
             demand(not container.get("State", {}).get("Running"), f"Stop {service} before candidate migration")
 
 
+def compose_base(env_file, values):
+    return ["docker", "compose", "--project-name", PROJECT, "--env-file", str(env_file),
+            *VERIFY.compose_files(values)]
+
+
 def wait_healthy(container_id, service, environment, timeout=180):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -127,10 +132,10 @@ def start_writers(base, expected, environment):
 
 def release(args):
     VERIFY.validate(args.env_file, False)
-    _, environment = VERIFY.selected_env(args.env_file)
-    base = ["docker", "compose", "--project-name", PROJECT, "--env-file", str(args.env_file),
-            "-f", str(HERE / "compose.yaml"), "-f", str(HERE / "compose.capabilities.yaml")]
+    values, environment = VERIFY.selected_env(args.env_file)
+    base = compose_base(args.env_file, values)
     model = json.loads(run(base + ["config", "--format", "json"], "Render reviewed B release", environment, 60))
+    VERIFY.same_host.inspect_existing_model_volumes(model, environment)
     expected = {service: (model["services"][service]["image"], image_id(model["services"][service]["image"], environment))
                 for service in ("api", "design-provider", "design-provider-migrate", "ai-runtime")}
     demand(expected["design-provider"] == expected["design-provider-migrate"],

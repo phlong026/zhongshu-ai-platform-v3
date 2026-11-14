@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import same_host_storage as same_host
 
 DIRECTORY = Path(__file__).resolve().parent
 REPOSITORY = next((parent for parent in DIRECTORY.parents if (parent / ".git").exists()), DIRECTORY.parents[1])
@@ -45,16 +46,20 @@ def validate_image(image):
     demand(re.fullmatch(r"[^@]+@sha256:[0-9a-f]{64}", image), "An audited @sha256 image digest is required")
 
 
-def validate_model(model):
+def validate_model(model, same_host_values=None):
+    same_host_values = same_host_values or {}
+    same_host.compose_overlay(same_host_values)
     demand(model.get("name") == PROJECT, "Only the fixed B Compose project is allowed")
     services = model.get("services", {})
     demand(set(services) == {"api", "postgres-b", "redis-b"}, "Unexpected Compose services")
     demand(set(model.get("networks", {})) == {"private"}, "Only the B private network is allowed")
     for name, network in model["networks"].items():
         demand(network.get("name") == f"{PROJECT}_{name}" and not network.get("external"), "Shared network refused")
-    demand(set(model.get("volumes", {})) == {"pgdata", "redisdata"}, "Unexpected data volumes")
+    expected_volumes = {"pgdata", "redisdata"}
+    demand(set(model.get("volumes", {})) == expected_volumes, "Unexpected data volumes")
     for name, volume in model["volumes"].items():
         demand(volume.get("name") == f"{PROJECT}_{name}" and not volume.get("external"), "Shared volume refused")
+    same_host.validate_compose_volumes(model, same_host_values, expected_volumes)
     allowed_binds = {
         "api": {"/etc/platform/runtime.properties": "runtime.properties"},
         "postgres-b": {"/docker-entrypoint-initdb.d/10-platform.sh": "postgres-init.sh", "/etc/platform/pg_hba.conf": "pg_hba.conf"},
@@ -178,17 +183,25 @@ def run(command, *, context, timeout=60, input_data=None, stdout=None, stdin=Non
     return result.stdout
 
 
-def compose_base(env_file):
-    return ["docker", "compose", "--project-name", PROJECT, "--env-file", str(env_file), "-f", str(DIRECTORY / "compose.yaml")]
+def compose_base(env_file, values=None):
+    values = same_host.env_values(env_file) if values is None else values
+    return ["docker", "compose", "--project-name", PROJECT, "--env-file", str(env_file),
+            "-f", str(DIRECTORY / "compose.yaml"), *same_host.compose_overlay(values)]
 
 
-def load_model(env_file):
+def load_model(env_file, values=None):
+    values = same_host.env_values(env_file) if values is None else values
     # Ambient Compose options and secret variables cannot silently replace the selected env file.
     for name in list(os.environ):
-        if name.startswith("COMPOSE_") or name in SECRET_VARIABLES or name == "PLATFORM_API_IMAGE":
+        if name.startswith("COMPOSE_") or name in SECRET_VARIABLES or name == "PLATFORM_API_IMAGE" \
+                or name in same_host.VARIABLES:
             del os.environ[name]
-    model = json.loads(run(compose_base(env_file) + ["config", "--format", "json"], context="Parse B Compose", timeout=30))
-    validate_model(model)
+    enabled = bool(same_host.compose_overlay(values))
+    if enabled:
+        same_host.validate_host(values)
+    model = json.loads(run(compose_base(env_file, values) + ["config", "--format", "json"],
+                           context="Parse B Compose", timeout=30))
+    validate_model(model, values if enabled else {})
     validate_secret_files(model)
     return model
 
@@ -208,12 +221,16 @@ def inspect_scope(base, model, require_frozen=False):
         if service in ("postgres-b", "redis-b"):
             demand(container.get("State", {}).get("Health", {}).get("Status") == "healthy", f"{service} is not healthy")
     demand({"postgres-b", "redis-b"} <= seen, "B database containers are missing")
+    volume_items = []
     for kind, names in (("volume", ("pgdata", "redisdata")), ("network", ("private",))):
         for name in names:
             item = json.loads(run(["docker", kind, "inspect", f"{PROJECT}_{name}"], context=f"Inspect B {kind}"))[0]
             labels = item.get("Labels") or {}
             demand(labels.get("com.docker.compose.project") == PROJECT
                    and labels.get(f"com.docker.compose.{kind}") == name, f"{kind} is not owned by B Compose")
+            if kind == "volume":
+                volume_items.append(item)
+    same_host.validate_actual_volumes_against_model(volume_items, model)
 
 
 def pg(base, arguments, **kwargs):
@@ -267,6 +284,11 @@ def verify_backup(directory, confirmation):
     demand(set(manifest.get("files", {})) == {"postgres.dump", "redis.rdb"}, "Unexpected backup file manifest")
     for name, digest in manifest["files"].items():
         demand(not (directory / name).is_symlink() and sha256(directory / name) == digest, "Backup checksum mismatch")
+
+
+def validate_backup_location(action, values, directory):
+    if action == "backup" and same_host.compose_overlay(values):
+        same_host.validate_backup_output(values, directory)
 
 
 def restore(base, directory):
@@ -327,14 +349,17 @@ def main():
     demand(args.env_file.is_absolute() and args.env_file.is_file(), "Use an absolute external env file")
     demand(not args.env_file.resolve().is_relative_to(REPOSITORY), "env file must be external")
     demand(not (args.env_file.stat().st_mode & 0o007), "env file must not be world-accessible")
-    model = load_model(args.env_file)
-    base = compose_base(args.env_file)
+    values = same_host.env_values(args.env_file)
+    model = load_model(args.env_file, values)
+    base = compose_base(args.env_file, values)
     if args.action == "config":
         logging.warning("B Compose and external-file policy passed; no daemon or runtime test performed")
         return
     if args.action in ("backup", "restore"):
         demand(args.backup_dir is not None and args.backup_dir.is_absolute(), "Absolute --backup-dir is required")
         demand(not args.backup_dir.resolve().is_relative_to(REPOSITORY), "Backups must be outside the release tree")
+    if args.action in ("backup", "restore"):
+        validate_backup_location(args.action, values, args.backup_dir)
     if args.action == "restore":
         verify_backup(args.backup_dir, args.confirm_sha256)
     if args.action == "rollback":

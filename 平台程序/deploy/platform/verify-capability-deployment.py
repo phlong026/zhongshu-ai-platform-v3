@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 from urllib.parse import urlsplit
+import same_host_storage as same_host
 
 HERE = Path(__file__).resolve().parent
 REPO = next(parent for parent in HERE.parents if (parent / ".git").exists())
@@ -167,13 +168,18 @@ def selected_env(path, ambient=None):
     return values, environment
 
 
+def compose_files(values):
+    return ["-f", str(HERE / "compose.yaml"), "-f", str(HERE / "compose.capabilities.yaml"),
+            *same_host.compose_overlay(values)]
+
+
 def validate(env_file, structure_only):
     values, environment = selected_env(env_file)
     command = ["docker", "compose", "--project-name", "zhongshu-platform-b", "--env-file", str(env_file),
-               "-f", str(HERE / "compose.yaml"), "-f", str(HERE / "compose.capabilities.yaml"),
-               "config", "--format", "json"]
+               *compose_files(values), "config", "--format", "json"]
     model = json.loads(run(command, environment))
     services = model.get("services", {})
+    same_host.validate_compose_volumes(model, values)
     demand(set(services) == EXPECTED, "Unexpected full B service set")
     demand(set(model.get("networks", {})) == {"private"}, "Capability services must use only the B private network")
     for name, service in services.items():
@@ -203,6 +209,9 @@ def validate(env_file, structure_only):
            "Provider must lock eager initialization and disable automatic Flyway")
     if structure_only:
         return
+    same_host.inspect_existing_model_volumes(model, environment)
+    if same_host.compose_overlay(values):
+        same_host.validate_host(values)
     repository = REPO.resolve()
     for key in EXTERNAL_FILES:
         path = Path(values.get(key, "")).resolve(strict=True)
@@ -224,7 +233,8 @@ def validate(env_file, structure_only):
     proof_hash = runtime_values.get("ZS_AI_JOURNAL_FS_PROOF_SHA256", "")
     demand(re.fullmatch(r"[0-9a-f]{64}", proof_hash), "Runtime capacity proof hash is required")
     journal = Path(values.get("AI_RUNTIME_JOURNAL_DIR", "")).resolve(strict=True)
-    demand(journal.is_dir() and journal.is_mount(), "Runtime journal must be a dedicated mount point")
+    demand(journal.is_dir(), "Runtime journal must be a directory")
+    same_host.validate_journal(values, journal)
     if sys.platform.startswith("linux"):
         fs = subprocess.run(["findmnt", "-n", "-o", "FSTYPE", "--target", str(journal)],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=10, check=False)
