@@ -13,7 +13,7 @@
     "check:guest-home": "node scripts/verify-guest-home-role-nav.cjs",
     "check:guest-home:native": "node scripts/verify-guest-home-role-nav-native.cjs",
     "check:appid": "node scripts/verify-wechat-project.cjs",
-    "check:wallet": "node scripts/verify-recharge-flow-native.cjs && node scripts/verify-recharge-flow.cjs",
+    "check:wallet": "node --test scripts/verify-live-wallet-retirement.cjs scripts/verify-company-points.cjs",
     "check:account-api": "node scripts/verify-message-api.cjs && node scripts/verify-profile-api.cjs && node scripts/verify-wechat-login-official.cjs",
     "check:verify-orphan": "node scripts/check-verify-orphan.cjs",
     "check:simulator": "node scripts/verify-dashboard-simulator.cjs",
@@ -126,7 +126,7 @@
     "check:demo-badge": "node scripts/verify-demo-badge.cjs",
     "check:auth-contract": "node scripts/verify-auth-session-contract.cjs",
     "check:api-pages": "node scripts/verify-api-role-pages.cjs && node scripts/verify-api-workbench-contracts.cjs && node scripts/verify-material-entry.cjs && node scripts/verify-member-actions-session.cjs && node scripts/verify-org-admin.cjs && node scripts/verify-member-handover.cjs && node scripts/verify-auth-session-contract.cjs",
-    "check:integration": "node --test scripts/verify-live-content-p1.cjs scripts/verify-live-design-p1.cjs scripts/verify-live-owner-p2.cjs scripts/verify-live-page-p2.cjs scripts/verify-live-video-media.cjs scripts/verify-upload-digest.cjs scripts/verify-live-member-choice.cjs"
+    "check:integration": "node --test scripts/verify-live-content-p1.cjs scripts/verify-live-design-p1.cjs scripts/verify-live-owner-p2.cjs scripts/verify-live-page-p2.cjs scripts/verify-live-video-media.cjs scripts/verify-upload-digest.cjs scripts/verify-live-member-choice.cjs scripts/verify-live-workflow-extra.cjs scripts/verify-live-finance-extra.cjs scripts/verify-live-b-asset-upload.cjs scripts/verify-live-wallet-retirement.cjs scripts/verify-live-manual-publication.cjs scripts/verify-live-engineering-voucher-cache.cjs scripts/verify-live-business-summary.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0",
