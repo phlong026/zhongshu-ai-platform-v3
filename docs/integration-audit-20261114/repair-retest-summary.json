@@ -154,7 +154,8 @@
     },
     {
       "case": "B asset participating in remote A generation",
-      "status": "MISSING_CROSS_APP_ASSET_READ_CONTRACT"
+      "status": "SOURCE_IMPLEMENTED_PENDING_B_DEPLOY",
+      "followup": "reference-protocol-followup-20261115.md"
     },
     {
       "case": "courses/media/feedback resources",
@@ -228,5 +229,22 @@
     "Legacy unrelated harness failures are recorded in the report; old A recharge checks are archived",
     "Database migration undo must preserve DESIGN_REFERENCE data before rollback"
   ],
-  "evidenceNote": "Curated summary of tool observations and collected test terminal results. Raw tokens, phone numbers, headers and full AX trees are deliberately excluded."
+  "evidenceNote": "Curated summary of tool observations and collected test terminal results. Raw tokens, phone numbers, headers and full AX trees are deliberately excluded.",
+  "referenceProtocolFollowup": {
+    "date": "2026-11-15",
+    "sourceStatus": "IMPLEMENTED",
+    "runtimeStatus": "PENDING_B_DEPLOY",
+    "frontendIntegrationTests": 65,
+    "backendRelevantTests": 96,
+    "backendPackage": "PASS",
+    "independentReview": "APPROVE_NO_P1_P2",
+    "sharedAChanged": false,
+    "pushed": false,
+    "deployed": false,
+    "frontendCommit": "f939c7e2",
+    "backendCommits": [
+      "44520c9a",
+      "168ead07"
+    ]
+  }
 }
