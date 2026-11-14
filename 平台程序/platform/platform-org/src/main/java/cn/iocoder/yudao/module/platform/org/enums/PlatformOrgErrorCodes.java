@@ -34,5 +34,7 @@ public interface PlatformOrgErrorCodes {
     ErrorCode HANDOVER_TARGET_SELF = new ErrorCode(1_101_000_020, "不能将工作交接给本人");
     ErrorCode HANDOVER_TARGET_ROLE_MISMATCH = new ErrorCode(1_101_000_021, "接收人在该组织没有可承接该类业务的岗位，无法交接");
     ErrorCode HANDOVER_TRANSFER_INCOMPLETE = new ErrorCode(1_101_000_022, "部分在途对象未能转移，本次交接已整体回滚，请重试");
+    ErrorCode STAFF_MOBILE_AMBIGUOUS = new ErrorCode(1_101_000_023, "该手机号对应多个员工账号，请指定员工后重试");
+    ErrorCode STAFF_USER_MOBILE_MISMATCH = new ErrorCode(1_101_000_024, "指定员工与手机号不匹配");
 
 }

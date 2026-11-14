@@ -150,6 +150,26 @@ class StaffPostAssignContractIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
+    void createStaffInOrgAcceptsExplicitMatchingUserAndRejectsMismatchedMobile() {
+        long store = orgService.createOrg("t-store", "门店", null);
+        long user = newUserId();
+        directory.userNames.put(user, "张旧");
+        directory.userMobiles.put(user, "13800004444");
+
+        long created = staffPostService.createStaffInOrg(store, user, "张旧", "13800004444",
+                "t-sales", null, 99L);
+        assertThat(staffPostService.getPost(created)).get()
+                .extracting(cn.iocoder.yudao.module.platform.org.dal.StaffPostDO::getUserId)
+                .isEqualTo(user);
+
+        assertThatThrownBy(() -> staffPostService.createStaffInOrg(store, user, "张旧", "13800005555",
+                "t-finance", null, 99L))
+                .isInstanceOf(ServiceException.class)
+                .extracting(error -> ((ServiceException) error).getCode())
+                .isEqualTo(STAFF_USER_MOBILE_MISMATCH.getCode());
+    }
+
+    @Test
     void newAccountAssignmentFailureLeavesNoActivePost() {
         long store = orgService.createOrg("t-store", "门店", null);
         // 未注册模板——新账号指派必失败（编排事务内），不得留下有效任职

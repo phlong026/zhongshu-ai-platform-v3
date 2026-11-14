@@ -46,7 +46,10 @@ public interface SystemDirectory {
     record UserBrief(long userId, String name, String mobile, boolean active) {
     }
 
-    /** 按手机号查用户编号；不存在返回 null */
+    /**
+     * 按手机号查用户编号；不存在返回 null。
+     * 多账号时仅允许唯一有效任职账号消歧，其余情况显式拒绝。
+     */
     Long userIdByMobile(String mobile);
 
     /** 新建后台用户（username 即手机号；员工经微信/短信登录，不使用密码） */

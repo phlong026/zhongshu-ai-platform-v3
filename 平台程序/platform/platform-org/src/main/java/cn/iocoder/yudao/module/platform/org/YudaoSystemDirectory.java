@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqV
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
@@ -23,6 +24,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.ArrayList;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes.STAFF_MOBILE_AMBIGUOUS;
+
 /**
  * 基于 yudao system 模块 Service 的 {@link SystemDirectory} 实现。
  */
@@ -37,6 +41,8 @@ public class YudaoSystemDirectory implements SystemDirectory {
     private PermissionService permissionService;
     @Resource
     private AdminUserService adminUserService;
+    @Resource
+    private AdminUserMapper adminUserMapper;
     @Resource
     private MenuService menuService;
     @Resource
@@ -111,8 +117,26 @@ public class YudaoSystemDirectory implements SystemDirectory {
 
     @Override
     public Long userIdByMobile(String mobile) {
-        AdminUserDO user = adminUserService.getUserByMobile(mobile);
-        return user == null ? null : user.getId();
+        // system_users.mobile 只是普通索引；selectOne 会把合法的历史重号直接变成 500。
+        // Mapper 仍由底座统一注入 tenant_id + deleted=0，这里只在当前租户的候选集内消歧。
+        List<AdminUserDO> users = adminUserMapper.selectListByMobile(mobile);
+        if (users.isEmpty()) {
+            return null;
+        }
+        if (users.size() == 1) {
+            return users.get(0).getId();
+        }
+        List<Long> userIds = users.stream().map(AdminUserDO::getId).toList();
+        List<Long> activeUserIds = staffPostMapper.selectActiveByUsers(userIds).stream()
+                .map(cn.iocoder.yudao.module.platform.org.dal.StaffPostDO::getUserId)
+                .distinct()
+                .toList();
+        if (activeUserIds.size() == 1) {
+            return activeUserIds.get(0);
+        }
+        // 多个在岗账号无法证明是同一人；多个未任职账号也没有可靠判据。
+        // 显式拒绝并要求上层指定 userId，不按创建时间或编号静默取第一条。
+        throw exception(STAFF_MOBILE_AMBIGUOUS);
     }
 
     @Override

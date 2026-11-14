@@ -129,10 +129,33 @@ public class StaffPostServiceImpl implements StaffPostService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public long createStaffInOrg(long orgId, String name, String mobile, String roleCode, Long teamId, long operatorUserId) {
-        Long existing = systemDirectory.userIdByMobile(mobile);
+        return createStaffInOrg(orgId, null, name, mobile, roleCode, teamId, operatorUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public long createStaffInOrg(long orgId, Long requestedUserId, String name, String mobile, String roleCode,
+                                 Long teamId, long operatorUserId) {
+        Long existing;
+        if (requestedUserId == null) {
+            existing = systemDirectory.userIdByMobile(mobile);
+        } else {
+            existing = validateRequestedUser(requestedUserId, mobile);
+        }
         long userId = existing != null ? existing : systemDirectory.createUser(name, mobile, orgId);
         // 同一事务：新账号指派失败整体回滚（不留孤立账号）；已有账号原资料不在本事务内、自然保留
         return findOrAssignValidated(userId, orgId, roleCode, teamId, operatorUserId);
+    }
+
+    private long validateRequestedUser(long userId, String mobile) {
+        SystemDirectory.UserBrief user = systemDirectory.usersByIds(List.of(userId)).stream()
+                .filter(candidate -> candidate.userId() == userId)
+                .findFirst()
+                .orElseThrow(() -> exception(USER_NOT_FOUND));
+        if (!Objects.equals(user.mobile(), mobile)) {
+            throw exception(STAFF_USER_MOBILE_MISMATCH);
+        }
+        return userId;
     }
 
     @Override

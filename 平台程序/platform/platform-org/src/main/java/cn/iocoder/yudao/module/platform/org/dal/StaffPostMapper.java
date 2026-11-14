@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -16,6 +17,13 @@ public interface StaffPostMapper extends BaseMapperX<StaffPostDO> {
                 .eq(StaffPostDO::getUserId, userId)
                 .eq(StaffPostDO::getStatus, StaffPostDO.STATUS_ACTIVE)
                 .orderByAsc(StaffPostDO::getCreateTime));
+    }
+
+    default List<StaffPostDO> selectActiveByUsers(Collection<Long> userIds) {
+        return selectList(new LambdaQueryWrapperX<StaffPostDO>()
+                .in(StaffPostDO::getUserId, userIds)
+                .eq(StaffPostDO::getStatus, StaffPostDO.STATUS_ACTIVE)
+                .orderByAsc(StaffPostDO::getUserId));
     }
 
     default List<StaffPostDO> selectActiveByOrg(Long orgId) {

@@ -84,6 +84,7 @@ public class StaffOrgAdminController {
     }
 
     public record CreateStaffReqVO(@NotNull(message = "组织不能为空") Long orgId,
+                                   Long userId,
                                    @NotBlank(message = "姓名不能为空") @Size(max = 20, message = "姓名最长 20 字") String name,
                                    @NotBlank(message = "手机号不能为空") @Pattern(regexp = "1\\d{10}", message = "手机号格式不正确") String mobile,
                                    @NotBlank(message = "岗位不能为空") @Size(max = 64) String roleCode,
@@ -167,12 +168,12 @@ public class StaffOrgAdminController {
     }
 
     @PostMapping("/staff")
-    @Operation(summary = "录入员工并指派岗位（手机号已存在则复用账号，岗位已存在则幂等返回）")
+    @Operation(summary = "录入员工并指派岗位（同号多账号时可用 userId 明确指定）")
     @PreAuthorize("@post.has('platform:org:manage')")
     public CommonResult<StaffRow> createStaff(@Valid @RequestBody CreateStaffReqVO req) {
         requireScope(req.orgId());
         // M01-T05：编排下沉 service（建号+指派同一事务）；M01-T03：teamId 冲突由 service 显式拒绝
-        long postId = staffPostService.createStaffInOrg(req.orgId(), req.name(), req.mobile(), req.roleCode(), req.teamId(),
+        long postId = staffPostService.createStaffInOrg(req.orgId(), req.userId(), req.name(), req.mobile(), req.roleCode(), req.teamId(),
                 currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
         // Codex R1 P2-3：以任职行 userId 取资料（提交后按可变手机号二次定位可能错配他人或查空）
         StaffPostDO post = staffPostService.getPost(postId).orElseThrow(() -> exception(PlatformOrgErrorCodes.POST_NOT_FOUND));

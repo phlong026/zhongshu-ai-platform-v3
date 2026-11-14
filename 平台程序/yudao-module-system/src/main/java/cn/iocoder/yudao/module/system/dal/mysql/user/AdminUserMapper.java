@@ -25,6 +25,16 @@ public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
         return selectOne(AdminUserDO::getMobile, mobile);
     }
 
+    /**
+     * 查询当前租户下的同号账号。
+     *
+     * <p>mobile 在底座只有普通索引，历史数据可能存在多条；调用方必须显式处理歧义，
+     * 不能使用 selectOne 隐式假设唯一。租户与逻辑删除条件由 MyBatis-Plus 拦截器统一注入。</p>
+     */
+    default List<AdminUserDO> selectListByMobile(String mobile) {
+        return selectList(AdminUserDO::getMobile, mobile);
+    }
+
     default PageResult<AdminUserDO> selectPage(UserPageReqVO reqVO, Collection<Long> deptIds, Collection<Long> userIds) {
         return selectPage(reqVO, new LambdaQueryWrapperX<AdminUserDO>()
                 .likeIfPresent(AdminUserDO::getUsername, reqVO.getUsername())

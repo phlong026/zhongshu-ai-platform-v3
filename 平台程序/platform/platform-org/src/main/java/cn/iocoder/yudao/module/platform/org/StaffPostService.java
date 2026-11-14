@@ -38,6 +38,13 @@ public interface StaffPostService {
     long createStaffInOrg(long orgId, String name, String mobile, String roleCode, Long teamId, long operatorUserId);
 
     /**
+     * 指定既有账号的建员编排。用于同一租户存在多个同号账号时由管理员明确选择；
+     * 服务会校验 userId 存在且手机号与请求一致，不跨账号合并。
+     */
+    long createStaffInOrg(long orgId, Long userId, String name, String mobile, String roleCode, Long teamId,
+                          long operatorUserId);
+
+    /**
      * 给已有员工追加岗位（M01-T03 命令语义）：同组织同岗位已存在时 teamId 一致幂等返回，
      * 不一致抛 POST_TEAM_CONFLICT（不静默忽略部门变更）；不存在则按模板校验新建。
      */
