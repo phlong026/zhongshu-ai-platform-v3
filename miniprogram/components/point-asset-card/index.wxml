@@ -1,9 +1,24 @@
 <view wx:if="{{visible}}" class="asset-card">
-  <view class="asset-head"><text class="asset-label">设计点余额</text></view>
-  <view class="asset-num">{{balanceText}}<text class="asset-unit">设计点</text></view>
-  <view class="asset-sub">用于 AI 方案生成 · 支付成功即时到账</view>
-  <view class="asset-actions">
-    <button class="asset-go" bindtap="goToRecharge">去充值</button>
-    <button class="asset-records" bindtap="goToRecords">充值明细</button>
+  <view class="asset-head"><text class="asset-label">公司积分</text><text class="asset-status">{{state==='loading'?'更新中':''}}</text></view>
+  <view class="asset-metrics">
+    <view class="asset-metric">
+      <text class="asset-num">{{balanceText}}</text>
+      <text class="asset-unit">{{balanceLabel}}</text>
+    </view>
+    <view class="asset-divider"/>
+    <view class="asset-metric">
+      <text class="asset-num">{{usedText}}</text>
+      <text class="asset-unit">本人本月使用</text>
+    </view>
+  </view>
+  <text wx:if="{{state==='ready'}}" class="asset-sub">按当前工作身份使用，由公司统一管理</text>
+  <view wx:elif="{{state==='suspended'}}" class="asset-feedback asset-warning">
+    <text>公司积分账户已暂停，请联系管理员</text><button class="asset-retry" bindtap="retry">重新加载</button>
+  </view>
+  <view wx:elif="{{state==='empty'}}" class="asset-feedback">
+    <text>{{emptyMessage}}</text><button class="asset-retry" bindtap="retry">重新加载</button>
+  </view>
+  <view wx:elif="{{state==='error'}}" class="asset-feedback">
+    <text>{{errorMessage}}</text><button class="asset-retry" bindtap="retry">重试</button>
   </view>
 </view>

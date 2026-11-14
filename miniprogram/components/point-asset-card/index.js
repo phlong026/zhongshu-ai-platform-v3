@@ -1,18 +1,16 @@
-/**
- * 设计点资产卡（「我的」页第 2 位）：品牌渐变卡展示点数余额，去充值/充值明细双入口。
- *
- * 自取数组件：挂载与所在页每次 onShow 时刷新（pageLifetimes.show），充值回来余额即时更新；
- * 平台未登录、钱包会话不可用（桥接未部署/充值未开放）或查询失败时整体隐藏——
- * 资产卡属增量能力，任何异常都不阻塞「我的」页原有功能。
- */
+/** 公司积分卡：展示当前岗位所属公司的余额和员工本人当月使用量。 */
 const http = require('../../api/http');
-const wallet = require('../../api/wallet');
-const view = require('../../utils/wallet-view');
+const points = require('../../api/company-points');
 
 Component({
   data: {
-    visible: false,
-    balanceText: ''
+    visible: true,
+    state: 'loading',
+    balanceText: '--',
+    usedText: '--',
+    balanceLabel: '可用余额',
+    emptyMessage: '公司积分池暂未开通',
+    errorMessage: ''
   },
 
   lifetimes: {
@@ -34,35 +32,69 @@ Component({
         this.setData({ visible: false });
         return;
       }
-      wallet.ensureSession().then((token) => {
-        const state = view.cardState(platformLoggedIn, token, null, false);
-        if (state !== 'ready') {
-          this.setData({ visible: false });
-          return null;
-        }
-        return wallet.pointAccount().then((account) => {
-          if (view.cardState(platformLoggedIn, token, account, false) !== 'ready') {
-            this.setData({ visible: false });
-            return;
-          }
-          this.setData({
-            visible: true,
-            balanceText: view.formatThousands(account.availablePoints)
-          });
+      if (!http.currentPostId()) {
+        this.setData({
+          visible: true,
+          state: 'empty',
+          balanceText: '--',
+          usedText: '--',
+          balanceLabel: '可用余额',
+          emptyMessage: '请选择工作身份',
+          errorMessage: ''
         });
+        return;
+      }
+      const loadId = this.__loadId = (this.__loadId || 0) + 1;
+      this.setData({
+        visible: true,
+        state: 'loading',
+        balanceText: '--',
+        usedText: '--',
+        balanceLabel: '可用余额',
+        emptyMessage: '公司积分池暂未开通',
+        errorMessage: ''
+      });
+      Promise.all([points.summary(), points.myUsage({ page: 1, size: 1 })]).then(([summary, usage]) => {
+        if (loadId !== this.__loadId) return;
+        if (!summary || summary.balance === undefined || !usage || usage.used === undefined) {
+          this.setData({ state: 'empty', balanceText: '--', usedText: '--' });
+          return;
+        }
+        const values = {
+          balanceText: points.formatCredits(summary.balance),
+          usedText: points.formatCredits(usage.used),
+          errorMessage: ''
+        };
+        if (summary.status === 'ACTIVE') {
+          this.setData(Object.assign(values, { state: 'ready', balanceLabel: '可用余额' }));
+          return;
+        }
+        if (summary.status === 'SUSPENDED') {
+          this.setData(Object.assign(values, { state: 'suspended', balanceLabel: '账户余额' }));
+          return;
+        }
+        const error = new Error('UNKNOWN_COMPANY_POINT_STATUS');
+        error.code = 'UNKNOWN_COMPANY_POINT_STATUS';
+        throw error;
       }).catch((err) => {
-        // 网络失败等一律静默隐藏；带上下文留 warn 便于排查
-        console.warn('[point-asset-card] 余额查询失败', err && (err.code || err.message));
-        this.setData({ visible: false });
+        if (loadId !== this.__loadId) return;
+        if (points.isStale(err)) {
+          this.refresh();
+          return;
+        }
+        console.warn('[point-asset-card] 公司积分查询失败', err && (err.code || err.message));
+        this.setData({
+          state: 'error',
+          balanceText: '--',
+          usedText: '--',
+          balanceLabel: '可用余额',
+          errorMessage: '积分信息加载失败，请稍后重试'
+        });
       });
     },
 
-    goToRecharge() {
-      wx.navigateTo({ url: '/pages/wallet/recharge/index' });
-    },
-
-    goToRecords() {
-      wx.navigateTo({ url: '/pages/wallet/records/index' });
+    retry() {
+      this.refresh();
     }
   }
 });
