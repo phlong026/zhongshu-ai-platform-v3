@@ -116,6 +116,9 @@ public interface OrgPointPort {
     /** 只算不扣：按目录快照换算积分（创建任务前预览金额）。 */
     long quoteCredits(String subject, long quantity);
 
+    /** 静态权威科目目录校验；不读取动态价格，不会把价格故障误报为未知科目。 */
+    boolean isKnownSubject(String subject);
+
     /** 持久化计费归属（BRIDGE/APP），与 reserve 同一事务调用；唯一键 ref_type+ref_id+subject 幂等。 */
     void bindOperation(String origin, long orgId, long actorUserId, Long actorPostId,
                        String refType, long refId, String subject, long operationId, String bizKey);

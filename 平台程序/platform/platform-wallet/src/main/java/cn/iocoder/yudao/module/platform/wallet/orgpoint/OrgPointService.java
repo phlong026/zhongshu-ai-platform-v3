@@ -476,6 +476,11 @@ public class OrgPointService implements OrgPointPort {
         return creditsFor(resolvePrice(subject), Math.max(quantity, 1));
     }
 
+    @Override
+    public boolean isKnownSubject(String subject) {
+        return BillingPriceCatalog.contains(subject);
+    }
+
     /** 生效价规格（DB 配置优先，否则代码默认价）。 */
     private record PriceSpec(String subject, String unit, long priceMicros, long minCharge,
                              String versionText) {
