@@ -3,6 +3,49 @@
 本目录只描述和校验 B。它不会停止、挂载、迁移或写入 A。`compose.yaml` 提供 B 主 API/PG/Redis，
 `compose.capabilities.yaml` 增加 B Provider、Provider 专用 PG/Redis、一次性迁移容器和 B Runtime。
 
+## 服务器只读核查
+
+首次接入服务器时先只读盘点，不运行 `compose up/down/stop/rm`，不执行数据库、Redis、COS 或文件写入命令，
+也不要用 `docker inspect` 输出完整容器配置（其中可能含环境变量）。以下命令只收集版本、监听端口、挂载、
+Compose 项目名和容器标签；输出归档前仍须检查是否包含内部主机名：
+
+```bash
+docker version --format 'client={{.Client.Version}} server={{.Server.Version}}'
+docker compose version
+docker compose ls --format json
+docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Label "com.docker.compose.project"}}\t{{.Label "com.docker.compose.service"}}'
+docker network ls --format 'table {{.Name}}\t{{.Driver}}\t{{.Scope}}'
+docker volume ls --format 'table {{.Name}}\t{{.Driver}}'
+ss -lntp
+findmnt -rn -o TARGET,SOURCE,FSTYPE,OPTIONS
+lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS
+df -hT
+```
+
+重点确认：服务器当前 A 的 Compose 项目名、容器名、网络、卷、数据库端口和反向代理入口；B 固定项目名
+`zhongshu-platform-b`、网络 `zhongshu-platform-b_private`、卷名前缀和 `127.0.0.1:48081` 均未冲突。
+不得读取、复制或复用 A 的容器环境、secret、数据库连接、COS 凭据、TLS 私钥或 Runtime journal。
+若目标服务器同时承载 A，首次完整备份恢复演练仍必须转到独立 Linux 测试主机，不能在共机上用“不同目录”
+代替隔离。
+
+## 隔离 Linux 演练最低前置
+
+Compose 声明的稳态资源上限合计约为 6 vCPU、6.25 GiB 内存（不含 Docker、内核、页缓存和备份工具）。
+隔离演练主机建议至少 8 vCPU、12 GiB 内存；磁盘容量不能使用固定拍脑袋值，须按两套 PG、两套 Redis、
+Runtime journal、镜像、临时 dump 和至少一份离线备份的实测容量加恢复余量计算。Runtime journal 必须另配
+存储平台可证明为 thick-provisioned 的独占块盘，格式化为 ext4/xfs；普通 Docker volume、loop 文件、NFS、
+thin、压缩或去重卷不合格。
+
+主机软件最低合同：64 位 Linux、Docker Engine 与 Compose v2（支持 `--pull never`、health condition 和
+`service_completed_successfully`）、Python 3.9+、OpenSSL、`findmnt`、`lsblk`、`sha256sum`；卷证据还需要
+存储平台证明及可输出 fsync p99 的受控测试工具。COS 侧需要一个与 A 不同、已启用 versioning 的测试 bucket，
+以及仅允许该测试 bucket 的演练身份。云 CLI 和真实 region/bucket 命令由正式运维手册提供，不写入仓库。
+
+演练主机必须没有 A 的凭据、卷、数据库、bucket 路由或容器；出站防火墙只允许隔离 registry、测试 COS、
+审核过的 AI 供应商和必要基础服务。由于校验/发布脚本故意固定项目名 `zhongshu-platform-b`，演练应在独立主机
+使用该精确名称，不能靠改名绕过门禁。建议准备第二组全新 PG/Redis/Journal/bucket 作为恢复目标；备份目录位于
+仓库、发布目录和数据卷之外，权限 0700，空间按冻结点数据量校核。
+
 ## 发布前输入
 
 1. 在隔离构建环境生成并扫描三个不可变镜像：`PLATFORM_API_IMAGE`、`DESIGN_PROVIDER_IMAGE`、
