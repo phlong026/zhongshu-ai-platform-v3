@@ -77,6 +77,56 @@ class PlatformEnvironmentPolicyTest {
     }
 
     @Test
+    void integrationMayDisableSmsWithoutWeakeningOtherProviders() {
+        var env = runtime();
+        env.setActiveProfiles("pg", "integration");
+        env.withProperty("platform.identity.sms.provider", "disabled");
+        assertThatCode(() -> PlatformEnvironmentPolicy.validate(env, false)).doesNotThrowAnyException();
+
+        env.withProperty("platform.identity.wechat.provider", "stub");
+        assertThatThrownBy(() -> PlatformEnvironmentPolicy.validate(env, false))
+                .hasMessageContaining("platform.identity.wechat.provider");
+    }
+
+    @Test
+    void integrationAlwaysRejectsSecurityMock() {
+        var env = runtime();
+        env.setActiveProfiles("pg", "integration");
+        env.withProperty("platform.identity.sms.provider", "disabled")
+                .withProperty("yudao.security.mock-enable", "true");
+
+        assertThatThrownBy(() -> PlatformEnvironmentPolicy.validate(env, false))
+                .hasMessageContaining("yudao.security.mock-enable");
+    }
+
+    @Test
+    void smsDisabledIsRejectedOutsideIntegrationAndInProduction() {
+        var withoutIntegration = runtime();
+        withoutIntegration.setActiveProfiles("pg");
+        withoutIntegration.withProperty("platform.identity.sms.provider", "disabled");
+        assertThatThrownBy(() -> PlatformEnvironmentPolicy.validate(withoutIntegration, false))
+                .hasMessageContaining("platform.identity.sms.provider");
+
+        var withDevelopmentProfile = runtime();
+        withDevelopmentProfile.setActiveProfiles("pg", "integration", "local");
+        withDevelopmentProfile.withProperty("platform.identity.sms.provider", "disabled");
+        assertThatThrownBy(() -> PlatformEnvironmentPolicy.validate(withDevelopmentProfile, false))
+                .hasMessageContaining("platform.identity.sms.provider");
+
+        for (String productionProfile : new String[]{"prod", "production"}) {
+            var production = runtime();
+            production.setActiveProfiles("pg", "integration", productionProfile);
+            production.withProperty("platform.identity.sms.provider", "disabled");
+            assertThatThrownBy(() -> PlatformEnvironmentPolicy.validate(production, false))
+                    .hasMessageContaining("platform.identity.sms.provider");
+        }
+
+        var missingInProduction = runtime().withProperty("platform.identity.sms.provider", "");
+        assertThatThrownBy(() -> PlatformEnvironmentPolicy.validate(missingInProduction, false))
+                .hasMessageContaining("platform.identity.sms.provider");
+    }
+
+    @Test
     void migrationRequiresOwnerButDoesNotRequireRuntimeProviders() {
         var env = common();
         env.setActiveProfiles("pg", "migration");

@@ -6,6 +6,11 @@ package cn.iocoder.yudao.module.platform.identity.sms;
  */
 public interface SmsClient {
 
+    /** 是否允许短信验证码发送与校验链路。 */
+    default boolean available() {
+        return true;
+    }
+
     /** 发送登录验证码短信；失败直接抛业务异常，不重试 */
     void sendLoginCaptcha(String mobile, String captcha);
 

@@ -75,6 +75,7 @@ public class SmsCaptchaService {
 
     /** 发送登录验证码（含全部限流） */
     public void sendLoginCaptcha(String mobile) {
+        requireAvailable();
         String captcha = String.format("%06d", random.nextInt(1_000_000));
         String dailyKey = KEY_DAILY + mobile + ":" + LocalDate.now();
         long dailyTtlMillis = Duration.between(
@@ -100,6 +101,7 @@ public class SmsCaptchaService {
 
     /** 校验并消费验证码；通过返回 true 并立即失效，失败抛业务异常并计数 */
     public void verifyLoginCaptcha(String mobile, String captcha) {
+        requireAvailable();
         Long result = redis.execute(VERIFY_SCRIPT, List.of(KEY_CAPTCHA + mobile, KEY_FAILS + mobile),
                 captcha, String.valueOf(CAPTCHA_TTL.toMillis()), String.valueOf(MAX_VERIFY_FAILS));
         if (result == null || result == VERIFY_EXPIRED) {
@@ -113,6 +115,12 @@ public class SmsCaptchaService {
     /** 读取最近一次验证码。仅供 local profile 的开发出码接口与端到端脚本使用，生产不存在调用方 */
     public String peekRecentCaptcha(String mobile) {
         return redis.opsForValue().get(KEY_CAPTCHA + mobile);
+    }
+
+    private void requireAvailable() {
+        if (!smsClient.available()) {
+            throw exception(SMS_SERVICE_UNAVAILABLE);
+        }
     }
 
     private static String mask(String mobile) {

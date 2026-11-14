@@ -92,6 +92,9 @@ public final class PlatformEnvironmentPolicy {
             }
             validateProviders(environment, problems, profiles, production);
         }
+        if (!migration && (production || profiles.contains("integration"))) {
+            requireValue(environment, problems, "yudao.security.mock-enable", "false");
+        }
         if (production) {
             for (String profile : List.of("local", "dev", "zsdev")) {
                 if (profiles.contains(profile)) {
@@ -99,7 +102,6 @@ public final class PlatformEnvironmentPolicy {
                 }
             }
             if (!migration) {
-                requireValue(environment, problems, "yudao.security.mock-enable", "false");
                 requireValue(environment, problems, "spring.datasource.druid.stat-view-servlet.enabled", "false");
                 requireValue(environment, problems, "management.endpoint.env.show-values", "never");
                 requireValue(environment, problems, "management.endpoint.configprops.show-values", "never");
@@ -117,11 +119,19 @@ public final class PlatformEnvironmentPolicy {
 
     private static void validateProviders(ConfigurableEnvironment environment, List<String> problems,
                                           Set<String> profiles, boolean production) {
-        for (String key : List.of("platform.identity.wechat.provider", "platform.identity.sms.provider")) {
-            String provider = environment.getProperty(key);
-            if (!"real".equals(provider) && !("stub".equals(provider) && profiles.contains("local") && !production)) {
-                problems.add(key + " 必须为 real；stub 只允许 local 且非生产");
-            }
+        String wechatProvider = environment.getProperty("platform.identity.wechat.provider");
+        if (!"real".equals(wechatProvider)
+                && !("stub".equals(wechatProvider) && profiles.contains("local") && !production)) {
+            problems.add("platform.identity.wechat.provider 必须为 real；stub 只允许 local 且非生产");
+        }
+        String smsProvider = environment.getProperty("platform.identity.sms.provider");
+        boolean integrationDisabled = "disabled".equals(smsProvider)
+                && profiles.equals(Set.of("pg", "integration")) && !production;
+        if (!"real".equals(smsProvider)
+                && !("stub".equals(smsProvider) && profiles.contains("local") && !production)
+                && !integrationDisabled) {
+            problems.add("platform.identity.sms.provider 必须为 real；stub 只允许 local 且非生产，"
+                    + "disabled 只允许 pg,integration 且非生产");
         }
         if ("real".equals(environment.getProperty("platform.identity.wechat.provider"))) {
             List<PlatformWechatProperties.App> apps = Binder.get(environment)

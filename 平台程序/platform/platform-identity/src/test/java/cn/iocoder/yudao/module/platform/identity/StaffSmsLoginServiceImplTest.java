@@ -53,6 +53,17 @@ class StaffSmsLoginServiceImplTest {
     }
 
     @Test
+    void unavailableSmsRejectsOldCaptchaBeforeIssuingToken() {
+        doThrow(new ServiceException(SMS_SERVICE_UNAVAILABLE.getCode(), SMS_SERVICE_UNAVAILABLE.getMsg()))
+                .when(smsCaptchaService).verifyLoginCaptcha(MOBILE, "123456");
+
+        assertThatThrownBy(() -> service.login(MOBILE, "123456"))
+                .isInstanceOfSatisfying(ServiceException.class, error ->
+                        assertThat(error.getCode()).isEqualTo(SMS_SERVICE_UNAVAILABLE.getCode()));
+        verifyNoInteractions(accounts, staffPostService, tokenIssuer);
+    }
+
+    @Test
     void rejectsMobileWithoutEnrolledStaff() {
         when(accounts.findByMobile(MOBILE)).thenReturn(List.of());
 

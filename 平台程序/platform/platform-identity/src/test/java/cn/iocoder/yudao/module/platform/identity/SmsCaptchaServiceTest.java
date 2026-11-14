@@ -43,6 +43,33 @@ class SmsCaptchaServiceTest {
         ReflectionTestUtils.setField(service, "redis", redis);
         ReflectionTestUtils.setField(service, "smsClient", smsClient);
         lenient().when(redis.opsForValue()).thenReturn(ops);
+        lenient().when(smsClient.available()).thenReturn(true);
+    }
+
+    @Test
+    void disabledChannelRejectsSendBeforeWritingAnyCaptchaOrLimitKeys() {
+        when(smsClient.available()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.sendLoginCaptcha(MOBILE))
+                .isInstanceOfSatisfying(ServiceException.class, error ->
+                        assertThat(error.getCode()).isEqualTo(SMS_SERVICE_UNAVAILABLE.getCode()));
+
+        verifyNoInteractions(redis);
+        verify(smsClient).available();
+        verifyNoMoreInteractions(smsClient);
+    }
+
+    @Test
+    void disabledChannelRejectsPreviouslyStoredCaptchaWithoutReadingIt() {
+        when(smsClient.available()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.verifyLoginCaptcha(MOBILE, "123456"))
+                .isInstanceOfSatisfying(ServiceException.class, error ->
+                        assertThat(error.getCode()).isEqualTo(SMS_SERVICE_UNAVAILABLE.getCode()));
+
+        verifyNoInteractions(redis);
+        verify(smsClient).available();
+        verifyNoMoreInteractions(smsClient);
     }
 
     @Test
@@ -52,7 +79,8 @@ class SmsCaptchaServiceTest {
 
         assertThatThrownBy(() -> service.sendLoginCaptcha(MOBILE))
                 .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(SMS_SEND_TOO_FREQUENT.getCode()));
-        verifyNoInteractions(smsClient);
+        verify(smsClient).available();
+        verifyNoMoreInteractions(smsClient);
     }
 
     @Test
@@ -62,7 +90,8 @@ class SmsCaptchaServiceTest {
 
         assertThatThrownBy(() -> service.sendLoginCaptcha(MOBILE))
                 .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(SMS_DAILY_LIMIT.getCode()));
-        verifyNoInteractions(smsClient);
+        verify(smsClient).available();
+        verifyNoMoreInteractions(smsClient);
     }
 
     @Test
