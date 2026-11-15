@@ -16,10 +16,18 @@ const {routeValue}=require('../../../utils/view-container');
 Page({
  data:{ platformNotice:'',voidNotice:'',ledgerError:'',...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
  onLoad(o={}){PTPage.init(this);this.__ledgerRouteIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.options={...o};this.id=routeValue(o.id);const post=httpApi.token()?auth.currentApiPost():null,actor=post?{role:post.roleCode,orgType:post.orgType}:X.context(),financeRole=['finance','finance-lead'].includes(actor.role);this.setData({view:views[o.view]?o.view:(financeRole?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:actor.orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
+ syncFinanceIdentity(financeIdentity){
+  if(this.__financeIdentity===financeIdentity)return false;
+  this.__financeIdentity=financeIdentity;this.__designReceipt=null;
+  // busy和粘性幂等键都属于旧岗位现场；先解除旧锁，旧Promise仍由自身scope守卫隔离，不能覆盖新岗位状态。
+  this.bankConfirmIdem=null;this.bankConfirmIdemCtx=null;
+  this.setData({busy:false,designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false});
+  return true;
+ },
  onShow(){
   this.__disposed=false;if(!this.__designFinance){require('./design-finance')(this,financeApi);this.__designFinance=true;}
   const activePost=auth.currentApiPost();this.setData({hq:!!activePost&&activePost.orgType==='headquarters',company:activePost&&activePost.orgName||''});
-  const financeIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();if(this.__financeIdentity!==financeIdentity){this.__financeIdentity=financeIdentity;this.__designReceipt=null;this.setData({designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false});}
+  const financeIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.syncFinanceIdentity(financeIdentity);
   const boss=activePost&&['boss','owner'].includes(activePost.roleCode);
   if(boss||this.__readOnlyLedgerIdentity){
    if(!this.__readOnlyLedgerIdentity)this.__readOnlyLedgerIdentity=this.__ledgerRouteIdentity;
