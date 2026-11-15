@@ -21,3 +21,6 @@ zhongshu.design.asset.moderation.secret-id=REPLACE_WITH_EXTERNAL_SECRET
 zhongshu.design.asset.moderation.secret-key=REPLACE_WITH_EXTERNAL_SECRET
 zhongshu.design.asset.moderation.region=REPLACE
 zhongshu.design.asset.moderation.biz-type=REPLACE
+
+# No daily business quota; production preflight requires this explicit value.
+zhongshu.design.asset.moderation.daily-limit=0

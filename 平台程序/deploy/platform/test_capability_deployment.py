@@ -983,7 +983,7 @@ class CapabilityDeploymentTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "ambient"):
                 verify.selected_env(path, {"DESIGN_PROVIDER_IMAGE": "shell-value"})
 
-    def test_provider_runtime_api_and_cos_contracts_must_match(self):
+    def capability_configuration(self):
         key = base64.b64encode(b"k" * 32).decode()
         bucket = "zhongshu-platform-b-assets-1397776231"
         endpoint = "https://cos.ap-shanghai.myqcloud.com"
@@ -998,6 +998,28 @@ class CapabilityDeploymentTest(unittest.TestCase):
             "zhongshu.design.remote.caller-app-id": "platform-b",
             "zhongshu.design.remote.keys.b-platform": key,
         }
+        platform.update({
+            "zhongshu.design.remote.enabled": "true",
+            "zhongshu.design.remote.reference-upload-hosts": object_origin.removeprefix("https://"),
+            "zhongshu.franchise.asset.storage.cos.secret-id": "api-cos-identity",
+            "zhongshu.franchise.asset.storage.cos.secret-key": "api-cos-credential",
+            "platform.identity.wechat.provider": "real",
+            "platform.identity.wechat.apps[0].appid": "wx-test-application",
+            "platform.identity.wechat.apps[0].secret": "wechat-test-credential",
+            "platform.identity.sms.provider": "real",
+            "platform.identity.sms.sdk-app-id": "1000000001",
+            "platform.identity.sms.sign-name": "approved-sign",
+            "platform.identity.sms.template-id": "100001",
+            "platform.identity.sms.secret-id": "sms-test-identity",
+            "platform.identity.sms.secret-key": "sms-test-credential",
+            "platform.identity.sms.region": "ap-guangzhou",
+            "zhongshu.content.provider": "real",
+            "zhongshu.content.task-sweep-enabled": "true",
+            "zhongshu.content.diadi.app-id": "diadi-test-app",
+            "zhongshu.content.diadi.app-secret": "diadi-test-credential",
+            **{"zhongshu.content." + channel + ".api-key": channel + "-test-credential"
+               for channel in ("dashscope", "deepseek", "hifly", "metaso")},
+        })
         provider = {
             "zhongshu.design.asset.storage.provider": "cos",
             "zhongshu.design.asset.storage.cos.bucket": bucket,
@@ -1010,6 +1032,94 @@ class CapabilityDeploymentTest(unittest.TestCase):
         }
         runtime = {"ZS_INTERNAL_SECRET": "s" * 32, "ZS_AI_STORAGE_MODE": "https",
                    "ZS_AI_STORAGE_ORIGINS": object_origin}
+        provider.update({
+            "zhongshu.design.capability.enabled": "true",
+            "zhongshu.design.capability.keys.b-platform.operations": ",".join(sorted(verify.REQUIRED_CAPABILITY_OPERATIONS)),
+            "zhongshu.design.asset.storage.cos.secret-id": "provider-cos-identity",
+            "zhongshu.design.asset.storage.cos.secret-key": "provider-cos-credential",
+            "zhongshu.design.asset.moderation.provider": "real",
+            "zhongshu.design.asset.moderation.secret-id": "moderation-test-identity",
+            "zhongshu.design.asset.moderation.secret-key": "moderation-test-credential",
+            "zhongshu.design.asset.moderation.region": "ap-shanghai",
+            "zhongshu.design.asset.moderation.biz-type": "approved-policy",
+            "zhongshu.design.asset.moderation.daily-limit": "0",
+        })
+        runtime.update({"ZS_AI_API_KEY": "supplier-test-credential", "ZS_AI_BASE_URL": "https://supplier.example/v1",
+                        "ZS_AI_MODEL": "text-model", "ZS_AI_IMAGE_MODEL": "image-model",
+                        "ZS_AI_IMAGE_URL_ORIGINS": "https://media.example"})
+        return platform, provider, runtime, bucket
+
+    def test_reference_upload_host_is_exact_audited_b_host(self):
+        platform, provider, runtime, bucket = self.capability_configuration()
+        key = "zhongshu.design.remote.reference-upload-hosts"
+        for value in ("", "REPLACE_WITH_BUCKET", "*.myqcloud.com", "https://" + bucket + ".cos.ap-shanghai.myqcloud.com",
+                      "a-design.cos.ap-shanghai.myqcloud.com", platform[key] + ",extra.example", platform[key].upper()):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "reference upload host"):
+                verify.validate_configuration_contract({**platform, key: value}, provider, runtime, bucket)
+
+    def test_cos_credentials_cannot_be_missing_placeholders_or_shared(self):
+        platform, provider, runtime, bucket = self.capability_configuration()
+        for prefix, original, other in (("zhongshu.franchise.asset.storage.cos", platform, provider),
+                                       ("zhongshu.design.asset.storage.cos", provider, platform)):
+            for suffix in ("secret-id", "secret-key"):
+                for value in ("", "REPLACE_WITH_EXTERNAL_SECRET"):
+                    changed = {**original, prefix + "." + suffix: value}
+                    with self.subTest(prefix=prefix, suffix=suffix, value=value), self.assertRaises(ValueError):
+                        verify.validate_configuration_contract(changed, other, runtime, bucket) if original is platform else verify.validate_configuration_contract(other, changed, runtime, bucket)
+        for suffix in ("secret-id", "secret-key"):
+            changed = {**provider, "zhongshu.design.asset.storage.cos." + suffix: platform["zhongshu.franchise.asset.storage.cos." + suffix]}
+            with self.subTest(shared=suffix), self.assertRaises(ValueError):
+                verify.validate_configuration_contract(platform, changed, runtime, bucket)
+
+    def test_full_production_channels_require_explicit_nonplaceholder_configuration(self):
+        platform, provider, runtime, bucket = self.capability_configuration()
+        selected = [("platform", platform, key) for key in platform if key.startswith(("platform.identity.", "zhongshu.content."))]
+        selected += [("provider", provider, key) for key in provider if key.startswith("zhongshu.design.asset.moderation.")]
+        selected += [("runtime", runtime, key) for key in ("ZS_AI_API_KEY", "ZS_AI_BASE_URL", "ZS_AI_MODEL", "ZS_AI_IMAGE_MODEL", "ZS_AI_IMAGE_URL_ORIGINS")]
+        for group, original, key in selected:
+            for value in ("", "REPLACE_WITH_EXTERNAL_VALUE"):
+                configs = {"platform": platform, "provider": provider, "runtime": runtime}
+                configs[group] = {**original, key: value}
+                with self.subTest(group=group, key=key, value=value), self.assertRaises(ValueError):
+                    verify.validate_configuration_contract(configs["platform"], configs["provider"], configs["runtime"], bucket)
+        for key, value in (("ZS_AI_BASE_URL", "http://supplier.example/v1"), ("ZS_AI_BASE_URL", "https://user:password@supplier.example/v1"),
+                           ("ZS_AI_IMAGE_URL_ORIGINS", "https://media.example/path"), ("ZS_AI_IMAGE_URL_ORIGINS", "*")):
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                verify.validate_configuration_contract(platform, provider, {**runtime, key: value}, bucket)
+
+    def test_signed_capability_switches_and_operation_scope_are_explicit(self):
+        platform, provider, runtime, bucket = self.capability_configuration()
+        for group, key in (("platform", "zhongshu.design.remote.enabled"), ("provider", "zhongshu.design.capability.enabled")):
+            for value in ("", "false"):
+                configs = {"platform": platform, "provider": provider}
+                configs[group] = {**configs[group], key: value}
+                with self.subTest(group=group, value=value), self.assertRaises(ValueError):
+                    verify.validate_configuration_contract(configs["platform"], configs["provider"], runtime, bucket)
+        key = "zhongshu.design.capability.keys.b-platform.operations"
+        for value in ("", provider[key].replace("CREATE_UPLOAD_TICKET,", ""), provider[key] + ",LIST_CASES", provider[key] + ",UNKNOWN", provider[key] + ",COMPLETE_UPLOAD"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "operation set"):
+                verify.validate_configuration_contract(platform, {**provider, key: value}, runtime, bucket)
+        example = verify.parse_properties(HERE / "design-provider.properties.example")
+        self.assertEqual(set(example[key].split(",")), verify.REQUIRED_CAPABILITY_OPERATIONS)
+
+    def test_external_templates_cover_the_full_production_channel_contract(self):
+        platform, provider, runtime, bucket = self.capability_configuration()
+        identity = verify.parse_properties(HERE / "platform-identity-content.properties.example")
+        required = {key for key in platform if key.startswith(("platform.identity.", "zhongshu.content."))}
+        self.assertTrue(required.issubset(identity))
+        cos = verify.parse_properties(HERE / "platform-cos.properties.example")
+        self.assertEqual(cos["zhongshu.design.remote.reference-upload-hosts"],
+                         verify.AUDITED_B_COS_OBJECT_ORIGIN.removeprefix("https://"))
+        moderation = verify.parse_properties(HERE / "design-provider.properties.example")
+        self.assertEqual(moderation["zhongshu.design.asset.moderation.daily-limit"], "0")
+        # Templates intentionally remain unusable until external credentials are supplied.
+        with self.assertRaises(ValueError):
+            verify.validate_configuration_contract({**platform, **identity}, provider, runtime, bucket)
+
+    def test_provider_runtime_api_and_cos_contracts_must_match(self):
+        platform, provider, runtime, bucket = self.capability_configuration()
+        endpoint = verify.AUDITED_B_COS_ENDPOINT
+        object_origin = verify.AUDITED_B_COS_OBJECT_ORIGIN
         verify.validate_configuration_contract(platform, provider, runtime, bucket)
         for changed in (
                 {**platform, "zhongshu.franchise.asset.storage.provider": "local"},

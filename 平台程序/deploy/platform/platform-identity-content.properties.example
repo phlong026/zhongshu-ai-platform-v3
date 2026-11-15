@@ -1,0 +1,20 @@
+# Merge into the external PLATFORM_CONFIG_FILE, mode 0640/GID 20000. Never commit populated secrets.
+# Full production B requires real channels. SMS=disabled is only valid for pg,integration, not prod.
+platform.identity.wechat.provider=real
+platform.identity.wechat.apps[0].appid=REPLACE_WITH_B_EMPLOYEE_APP_ID
+platform.identity.wechat.apps[0].secret=REPLACE_WITH_B_EMPLOYEE_SECRET
+platform.identity.sms.provider=real
+platform.identity.sms.sdk-app-id=REPLACE_WITH_APPROVED_SMS_SDK_APP_ID
+platform.identity.sms.sign-name=REPLACE_WITH_APPROVED_SMS_SIGN
+platform.identity.sms.template-id=REPLACE_WITH_APPROVED_SMS_TEMPLATE
+platform.identity.sms.secret-id=REPLACE_WITH_B_SMS_SECRET_ID
+platform.identity.sms.secret-key=REPLACE_WITH_B_SMS_SECRET_KEY
+platform.identity.sms.region=ap-guangzhou
+zhongshu.content.provider=real
+zhongshu.content.task-sweep-enabled=true
+zhongshu.content.diadi.app-id=REPLACE_WITH_DIADI_APP_ID
+zhongshu.content.diadi.app-secret=REPLACE_WITH_DIADI_APP_SECRET
+zhongshu.content.dashscope.api-key=REPLACE_WITH_DASHSCOPE_API_KEY
+zhongshu.content.deepseek.api-key=REPLACE_WITH_DEEPSEEK_API_KEY
+zhongshu.content.hifly.api-key=REPLACE_WITH_HIFLY_API_KEY
+zhongshu.content.metaso.api-key=REPLACE_WITH_METASO_API_KEY

@@ -34,6 +34,16 @@ AUDITED_B_COS_OBJECT_ORIGIN = (
     f"https://{AUDITED_B_COS_BUCKET}.cos.{AUDITED_B_COS_REGION}.myqcloud.com"
 )
 
+REQUIRED_CAPABILITY_OPERATIONS = frozenset(
+    """
+    CREATE_PROJECT LIST_PROJECTS GET_PROJECT GET_AI_JOB CANCEL_AI_JOB NOTE_POLISH
+    LIST_RESULT_VERSIONS CREATE_FLAT_JOB CREATE_ELEVATION_JOB CONFIRM_FLAT_CANDIDATE
+    SELECT_ELEVATION_CANDIDATE CREATE_REVISION_REQUEST VALIDATE_SCHEME_REF BUDGET_RULE_INFO
+    CREATE_BUDGET_ESTIMATE CREATE_UPLOAD_TICKET COMPLETE_UPLOAD CREATE_DOWNLOAD_URL QUERY_RECEIPT
+    GET_SETTLEMENT
+    """.split()
+)
+
 
 def demand(condition, message):
     if not condition:
@@ -80,6 +90,58 @@ def same_secret(left, right):
     return bool(left and right) and hmac.compare_digest(left.encode(), right.encode())
 
 
+def configured(values, key):
+    """Reject template placeholders; this is presence validation, never live authentication."""
+    value = values.get(key, "").strip()
+    upper = value.upper()
+    demand(bool(value) and not any(marker in upper for marker in
+           ("REPLACE", "PLACEHOLDER", "CHANGEME", "${", "<", ">"))
+           and upper not in ("REDACTED", "TODO", "TBD"),
+           f"Required non-placeholder configuration is missing: {key}")
+    return value
+
+
+def https_configuration(values, key, origin_only=False):
+    value = configured(values, key)
+    parsed = urlsplit(value)
+    demand(parsed.scheme == "https" and parsed.hostname and parsed.username is None
+           and parsed.password is None and not parsed.query and not parsed.fragment
+           and (not origin_only or not parsed.path.strip("/")),
+           f"Configuration must be a credential-free HTTPS {'origin' if origin_only else 'URL'}: {key}")
+    return value
+
+
+def validate_production_channels(platform, provider, runtime):
+    # These channels are part of the approved full B release, not integration fixtures.
+    for key, expected in (("platform.identity.wechat.provider", "real"),
+                          ("platform.identity.sms.provider", "real"),
+                          ("zhongshu.content.provider", "real"),
+                          ("zhongshu.content.task-sweep-enabled", "true")):
+        demand(platform.get(key) == expected, f"Full production release requires {key}={expected}")
+    for key in ("platform.identity.wechat.apps[0].appid", "platform.identity.wechat.apps[0].secret",
+                "platform.identity.sms.sdk-app-id", "platform.identity.sms.sign-name",
+                "platform.identity.sms.template-id", "platform.identity.sms.secret-id",
+                "platform.identity.sms.secret-key", "platform.identity.sms.region",
+                "zhongshu.content.diadi.app-id", "zhongshu.content.diadi.app-secret",
+                "zhongshu.content.dashscope.api-key", "zhongshu.content.deepseek.api-key",
+                "zhongshu.content.hifly.api-key", "zhongshu.content.metaso.api-key"):
+        configured(platform, key)
+    demand(provider.get("zhongshu.design.asset.moderation.provider") == "real",
+           "Production design moderation must be real")
+    demand(provider.get("zhongshu.design.asset.moderation.daily-limit") == "0",
+           "Production design moderation daily-limit must explicitly be 0")
+    for suffix in ("secret-id", "secret-key", "region", "biz-type"):
+        configured(provider, "zhongshu.design.asset.moderation." + suffix)
+    for key in ("ZS_AI_API_KEY", "ZS_AI_MODEL", "ZS_AI_IMAGE_MODEL"):
+        configured(runtime, key)
+    if "ZS_AI_IMAGE_MODEL_FALLBACK" in runtime:
+        configured(runtime, "ZS_AI_IMAGE_MODEL_FALLBACK")
+    https_configuration(runtime, "ZS_AI_BASE_URL")
+    origins = configured(runtime, "ZS_AI_IMAGE_URL_ORIGINS").split(",")
+    for origin in origins:
+        https_configuration({"origin": origin.strip()}, "origin", origin_only=True)
+
+
 def validate_configuration_contract(platform, provider, runtime, expected_bucket):
     demand(expected_bucket == AUDITED_B_COS_BUCKET,
            "COS_B_BUCKET must name the audited B asset bucket")
@@ -111,6 +173,22 @@ def validate_configuration_contract(platform, provider, runtime, expected_bucket
     demand(runtime.get("ZS_AI_STORAGE_MODE") == "https"
            and runtime.get("ZS_AI_STORAGE_ORIGINS") == AUDITED_B_COS_OBJECT_ORIGIN,
            "Runtime storage origin must equal the audited B bucket virtual-host origin")
+    reference_host = platform.get("zhongshu.design.remote.reference-upload-hosts", "").strip()
+    demand(reference_host == urlsplit(AUDITED_B_COS_OBJECT_ORIGIN).hostname,
+           "API reference upload host must equal the audited B bucket host")
+    for values, prefix in ((platform, "zhongshu.franchise.asset.storage.cos"),
+                           (provider, "zhongshu.design.asset.storage.cos")):
+        configured(values, prefix + ".secret-id")
+        configured(values, prefix + ".secret-key")
+    demand(not same_secret(platform["zhongshu.franchise.asset.storage.cos.secret-id"],
+                           provider["zhongshu.design.asset.storage.cos.secret-id"])
+           and not same_secret(platform["zhongshu.franchise.asset.storage.cos.secret-key"],
+                               provider["zhongshu.design.asset.storage.cos.secret-key"]),
+           "API and Provider COS must use distinct identities and credentials")
+    demand(platform.get("zhongshu.design.remote.enabled") == "true"
+           and provider.get("zhongshu.design.capability.enabled") == "true",
+           "API remote design and Provider capability must be explicitly enabled")
+    validate_production_channels(platform, provider, runtime)
     shared = provider.get("zhongshu.ai.internal-secret", "")
     demand(len(shared) >= 32 and same_secret(shared, runtime.get("ZS_INTERNAL_SECRET", "")),
            "Provider and Runtime shared HMAC secrets differ")
@@ -118,6 +196,10 @@ def validate_configuration_contract(platform, provider, runtime, expected_bucket
     caller = platform.get("zhongshu.design.remote.caller-app-id", "")
     demand(re.fullmatch(r"[a-zA-Z0-9._-]{1,64}", active) and caller,
            "API active capability key and caller are required")
+    operation_text = provider.get(f"zhongshu.design.capability.keys.{active}.operations", "")
+    operations = [operation.strip() for operation in operation_text.split(",")]
+    demand(set(operations) == REQUIRED_CAPABILITY_OPERATIONS and len(operations) == len(set(operations)),
+           "Provider capability operations must exactly match the audited B operation set")
     api_key = platform.get(f"zhongshu.design.remote.keys.{active}", "")
     prefix = f"zhongshu.design.capability.keys.{active}"
     demand(provider.get(prefix + ".caller-app-id") == caller

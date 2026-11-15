@@ -7,3 +7,6 @@ zhongshu.franchise.asset.storage.cos.bucket=zhongshu-platform-b-assets-139777623
 zhongshu.franchise.asset.storage.cos.path-style-access=false
 zhongshu.franchise.asset.storage.cos.secret-id=REPLACE_WITH_B_API_SECRET_ID
 zhongshu.franchise.asset.storage.cos.secret-key=REPLACE_WITH_B_API_SECRET_KEY
+
+# Reference imports upload to the Provider COS virtual-host URL, never A or a wildcard.
+zhongshu.design.remote.reference-upload-hosts=zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com
