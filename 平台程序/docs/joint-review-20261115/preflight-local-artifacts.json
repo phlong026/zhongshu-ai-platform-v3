@@ -1,0 +1,68 @@
+{
+  "sourceCommit": "82ea0f9d10557bd79146c40e55b29e54ebe3f069",
+  "build": "PASS",
+  "buildMode": "offline Maven reactor, Java17, detached fixed checkout; API and Provider package plus four Provider test classes",
+  "providerTests": {
+    "DesignProviderMigrationTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "DesignProviderBootProbeTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "DesignProviderBoundaryTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "DesignProviderWebSecurityIntegrationTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "apiBoundaryVerifier": "PASS",
+  "files": [
+    {
+      "file": "yudao-platform-server.jar",
+      "sha256": "78f62b7366652d8daed6fe3ef2c62234fd552c56b2fc6da60ba71d57a0cde895",
+      "bytes": 182843761,
+      "kind": "local-build-not-image",
+      "sourceCommit": "82ea0f9d10557bd79146c40e55b29e54ebe3f069"
+    },
+    {
+      "file": "yudao-design-provider.jar",
+      "sha256": "aade84a7a81ee4672ac99ec160553e6551c9a7d6901169048690c4e20ef47543",
+      "bytes": 181572018,
+      "kind": "local-build-not-image",
+      "sourceCommit": "82ea0f9d10557bd79146c40e55b29e54ebe3f069"
+    },
+    {
+      "file": "runtime-source.tar",
+      "sha256": "c40209357afaa6acde1608d5f6aa9b02f6260708b0c314d30291958d5b315e81",
+      "bytes": 337920,
+      "kind": "source-only-not-image",
+      "sourceCommit": "82ea0f9d10557bd79146c40e55b29e54ebe3f069"
+    }
+  ],
+  "releaseReady": false,
+  "notDone": [
+    "Linux/amd64 API Provider Runtime immutable images and vulnerability scans",
+    "Admin production artifact with real tenant configuration",
+    "Registry/image digest and formal deployment inputs",
+    "Remote deployment and runtime UAT",
+    "Unified final candidate including post-82ea0f9d fixes and parallel work"
+  ],
+  "storage": {
+    "kind": "local-only-evidence",
+    "path": "/Users/honor.pei/.codex/visualizations/2026/11/14/01a1d958-3d06-7101-842c-b81cbd1864fc/preflight-20261115",
+    "repositoryContainsBinaries": false
+  }
+}
