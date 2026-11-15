@@ -87,6 +87,59 @@ function metrics(receipts, payments, refunds, month) {
   };
 }
 
+/**
+ * 应付有效已付投影。payables DTO 不带 paidCents，必须从完整付款/退款事实按 payableId 精确聚合：
+ * Σ(已核实付款 amount - pendingLink) - Σ(对应已核实支出退回)。
+ * 与后端 EngineeringLedgerQueryAdapter / design settlement 的有效账口径一致；作废记录不参与。
+ */
+function payableProgress(payables, payments, refunds) {
+  if (!Array.isArray(payables)) throw new Error('应付数据不完整，请刷新重试');
+  if (!Array.isArray(payments)) throw new Error('付款数据不完整，请刷新重试');
+  if (!Array.isArray(refunds)) throw new Error('退款数据不完整，请刷新重试');
+  const cents = (value, label, allowZero) => {
+    const number = Number(value);
+    if (!Number.isSafeInteger(number) || number < 0 || (!allowZero && number === 0)) {
+      throw new Error(label + '金额无效，请刷新重试');
+    }
+    return number;
+  };
+  const allPayments = new Map();
+  const activePayments = new Map();
+  const paidByPayable = new Map();
+  for (const payment of payments) {
+    if (!payment || payment.id == null) throw new Error('付款数据缺少编号，请刷新重试');
+    const paymentId = String(payment.id);
+    if (allPayments.has(paymentId)) throw new Error('付款数据重复，请刷新重试');
+    allPayments.set(paymentId, payment);
+    if (payment.status !== '已核实') continue;
+    if (payment.payableId == null) throw new Error('付款数据缺少应付编号，请刷新重试');
+    const amount = cents(payment.amountCents, '付款', false);
+    const pending = payment.pendingLinkCents == null ? 0 : cents(payment.pendingLinkCents, '待关联', true);
+    if (pending > amount) throw new Error('付款待关联金额超过付款金额，请刷新重试');
+    const payableId = String(payment.payableId);
+    activePayments.set(paymentId, { payableId });
+    paidByPayable.set(payableId, (paidByPayable.get(payableId) || 0) + amount - pending);
+  }
+  for (const refund of refunds) {
+    if (!refund || refund.status !== '已核实' || refund.refundDirection !== 'expense') continue;
+    if (refund.paymentId == null) throw new Error('支出退回缺少付款编号，请刷新重试');
+    const paymentId = String(refund.paymentId);
+    if (!allPayments.has(paymentId)) throw new Error('支出退回对应付款不存在，请刷新重试');
+    const payment = activePayments.get(paymentId);
+    if (!payment) continue; // 作废付款不进入有效账，其关联退回也不单独冲减。
+    const amount = cents(refund.amountCents, '支出退回', false);
+    paidByPayable.set(payment.payableId, (paidByPayable.get(payment.payableId) || 0) - amount);
+  }
+  return payables.map(payable => {
+    if (!payable || payable.id == null) throw new Error('应付数据缺少编号，请刷新重试');
+    const totalCents = cents(payable.totalCents, '应付', false);
+    const paidCents = paidByPayable.get(String(payable.id)) || 0;
+    const remainingCents = Math.max(0, totalCents - paidCents);
+    return { ...payable, totalCents, paidCents, remainingCents,
+      canPay: payable.status === '进行中' && remainingCents > 0 };
+  });
+}
+
 /** 封存入口过滤：返回新数组（不修改原配置），API 态移除禁入清单入口 */
 const SEALED = ['verify', 'correction', 'correction-request', 'correction-approve', 'correction-request-supplement',
   'receipt-supplement', 'payment-supplement', 'payment-review', 'payment-return', 'receipt-return',
@@ -150,7 +203,7 @@ function voidNoticeText(row) {
 }
 
 module.exports = {
-  pageMode, yuan, toCents, ledgerRows, metrics, shortcuts, filterSealedEntries, errorMessage,
+  pageMode, yuan, toCents, ledgerRows, metrics, payableProgress, shortcuts, filterSealedEntries, errorMessage,
   PAYMENT_VOID_ROLE, VOID_REASON_MAX, canVoidPayment, voidReasonError, voidNoticeText,
   SEALED
 };

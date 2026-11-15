@@ -1,5 +1,6 @@
 const http = require('../../../api/http');
 const Money = require('../../../utils/money');
+const Finance = require('../../../utils/platform-finance');
 const today = () => require('../../../utils/account').localDate();
 const yuan = cents => ((Number(cents) || 0) / 100).toFixed(2);
 
@@ -20,14 +21,17 @@ function attach(page, api) {
     const alive = http.requestGuard('finance-source-rows');
     this.setData({ platformNotice: '', error: '' });
     try {
-      const source = await (tab === 'payables' ? api.payables() : api.receipts('待登记'));
+      const [source, payments, refunds] = tab === 'payables'
+        ? await Promise.all([api.payables(), api.payments(), api.refunds()])
+        : [await api.receipts('待登记'), [], []];
       if (!alive() || this.__disposed || this.data.flowTab !== tab) return;
       const keyword = String(this.data.keyword || '').trim().toLowerCase();
-      const rows = source.filter(row => !keyword || [row.id, row.name, row.projectId, row.sourceRef].join(' ').toLowerCase().includes(keyword)).map(row => ({
+      const progress = tab === 'payables' ? Finance.payableProgress(source, payments, refunds) : source;
+      const rows = progress.filter(row => !keyword || [row.id, row.name, row.projectId, row.sourceRef].join(' ').toLowerCase().includes(keyword)).map(row => ({
         id: String(row.id), name: row.name || ('原单 ' + row.id), status: row.status,
-        amountText: '¥' + yuan(tab === 'payables' ? row.totalCents - row.paidCents : row.amountCents), subtitle: row.sourceRef || '',
+        amountText: '¥' + yuan(tab === 'payables' ? row.remainingCents : row.amountCents), subtitle: row.sourceRef || '',
         dateText: row.dueDate || row.receivedDate || '日期待核', detail: tab === 'payables' ? '累计应付 ¥' + yuan(row.totalCents) + ' · 已付 ¥' + yuan(row.paidCents) : '待登记原单',
-        payableId: tab === 'payables' ? String(row.id) : '', canPay: tab === 'payables' && row.status === '进行中' && row.totalCents > row.paidCents }));
+        payableId: tab === 'payables' ? String(row.id) : '', canPay: tab === 'payables' && row.canPay }));
       this.setData({ rows, ready: true });
     } catch (e) { if (alive() && !this.__disposed) this.setData({ platformNotice: e.message || e.msg || '原单列表加载失败' }); }
   };
