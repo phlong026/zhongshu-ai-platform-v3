@@ -6,9 +6,10 @@
 const TOKEN_KEY = 'zs-api-token-v1';
 const POST_KEY = 'zs-api-post-v1';
 const TENANT_KEY = 'zs-api-tenant-v1';
-// 基址单源 config/env.js（生产域名）；storage `zs-api-base` 仅作本地联调覆写。
+// 基址单源 config/env.js（B 独立公网域名）；storage `zs-api-base` 仅在开发者工具作本地联调覆写。
 // 未配置任何基址时显式失败，绝不静默回落 127.0.0.1 之类的本地地址。
 const DEFAULT_BASE = require('../config/env').API_BASE;
+const runtimeBase = require('./runtime-base');
 const TIMEOUT = 15000;
 // M02-T01/I05：岗位失效错误码（后端 PlatformAuthzErrorCodes.POST_NOT_USABLE 1_103_000_002）
 // ——token 仍有效而当前岗位被撤/组织停用，与账号失效（401）分属不同恢复路径
@@ -19,7 +20,7 @@ let postInvalidRecovering = false; // 恢复流进行中：并发岗位失效去
 let sessionGen = 0; // 会话代次：saveSession/clearSession 时 +1；401 处理前校验，防旧请求 401 清掉新会话
 
 function base() {
-  return (wx.getStorageSync('zs-api-base') || DEFAULT_BASE).replace(/\/$/, '');
+  return (runtimeBase.devtoolsStorage('zs-api-base') || DEFAULT_BASE).replace(/\/$/, '');
 }
 
 function token() {

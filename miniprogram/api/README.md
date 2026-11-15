@@ -8,6 +8,7 @@
 | 文件 | 对应后端接口 | 说明 |
 |---|---|---|
 | `http.js` | — | wx.request 封装：token、`X-Post-Id` 当前岗位、`tenant-id` 多租户头（默认 1）、超时、错误与 401 处理 |
+| `runtime-base.js` | — | 仅允许开发者工具读取接口基址覆写；真机和桌面微信固定使用 B 环境配置 |
 | `auth.js` | `/platform/auth/wechat-login`、`/platform/auth/sms/send`、`/platform/auth/sms/login`、`/platform/posts/mine` | 员工双通道登录（微信一键 + 手机号验证码）、我的任职与岗位切换 |
 | `todos.js` | `/platform/todos` | 当前岗位的待办（可办理在前） |
 | `franchise/crm.js` | `/franchise/leads`、`/franchise/customers` | 客资、客户、跟进、方案版本、责任转交 |
@@ -21,7 +22,7 @@
 
 ## 约定
 
-- 后端地址：storage `zs-api-base`（默认 `http://127.0.0.1:48080/admin-api`），真机调试改为局域网地址；
+- 后端地址：默认使用 B 独立入口 `https://platform.zszhj.com/admin-api`；storage `zs-api-base` 与 `zs-wallet-base` 仅在微信开发者工具中允许覆写。真机和桌面微信忽略历史覆写，平台接口固定使用环境配置，钱包接口由其派生为 `/app-api`；
 - 登录态：storage `zs-api-token-v1`；当前岗位：storage `zs-api-post-v1`（即 X-Post-Id）；多租户：storage `zs-api-tenant-v1`（默认 1，即 tenant-id 头）；
 - 写命令可传幂等键（`Idempotency-Key`），重试安全；
 - 带版本写（编辑、转交、关联）须带后端返回的 `revision`，冲突时报「数据版本已过期，请刷新后重试」；

@@ -13,13 +13,14 @@
  * 桥接未部署（404/501）或充值未开放（503）或岗位无权（403）→ ensureSession 返回 null，页面据此降级。
  */
 const http = require('./http');
+const runtimeBase = require('./runtime-base');
 
 const SESSION_KEY = 'zs-wallet-token-v1';
 const STALE = 'WALLET_STALE';
 
-/** 钱包业务基址：/app-api 体系（真实 commerce App 端点），可经 zs-wallet-base 覆写 */
+/** 钱包业务基址：/app-api 体系；zs-wallet-base 仅在开发者工具中用于本地联调覆写 */
 function walletBase() {
-  const stored = wx.getStorageSync('zs-wallet-base');
+  const stored = runtimeBase.devtoolsStorage('zs-wallet-base');
   if (stored) return String(stored).replace(/\/$/, '');
   return http.base().replace('/admin-api', '/app-api');
 }
