@@ -96,6 +96,7 @@ class PlatformBootIntegrationTest {
                     "--yudao.captcha.enable=false",
                     "--wx.miniapp.appid=platform-miniapp-test",
                     "--wx.miniapp.secret=platform-miniapp-test-secret",
+                    "--zhongshu.org-point.headquarters-tenant-id=1",
                     "--zhongshu.design.remote.enabled=true",
                     "--zhongshu.design.remote.origin=https://design.example.test",
                     "--zhongshu.design.remote.caller-app-id=platform-b-test",
