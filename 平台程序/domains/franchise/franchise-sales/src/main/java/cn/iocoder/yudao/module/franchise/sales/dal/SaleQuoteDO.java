@@ -21,6 +21,8 @@ public class SaleQuoteDO {
     private Long companyId;
     private Long customerId;
     private Long schemeId;
+    private Long budgetSchemeId;
+    private Integer budgetVersion;
     private String schemeKind;
     private Integer schemeVersion;
     private String items;
