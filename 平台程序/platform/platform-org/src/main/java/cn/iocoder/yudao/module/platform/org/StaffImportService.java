@@ -251,8 +251,9 @@ public class StaffImportService {
             }
         }
         Set<String> allowedRoles = new HashSet<>();
+        OrgUnitDO org = orgService.getUnit(orgId);
         for (PostTemplateDO template : orgService.listPostTemplates(orgId)) {
-            allowedRoles.add(template.getRoleCode());
+            if (MemberRolePolicy.isAssignable(org == null ? null : org.getOrgType(), template.getRoleCode())) allowedRoles.add(template.getRoleCode());
         }
         return new Context(teamsByName, allowedRoles);
     }

@@ -1,5 +1,7 @@
 # 众墅之家平台后端
 
+2026-11-15 加盟商统一账号改造：总部固定字段开通门店老板账号，老板在本门店为员工开独立账号；账号密码、简称和微信共用原 `system_users.id`。接口、一次性密码交付、存量切换与迁移回退见[账号协议与运营说明](docs/franchise-account-20261115/协议与运营说明.md)，验证记录见[实施与验收](docs/franchise-account-20261115/实施与验收.md)。本次为未部署代码。
+
 当前B赋能平台上线候选使用 `yudao-platform-server`，默认端口48081；Web入口是“总部运营工作台”。构建请运行 `bash script/platform/build-platform.sh`。下方历史 `yudao-server` 与A设计模块说明不能替代B部署路径。当前三端联合审查、接口变更与容量边界见 [本轮记录](docs/joint-review-20261114/README.md)。
 
 参考图跨应用读取协议、白名单配置及待部署边界见[2026-11-15说明](docs/joint-review-20261115/参考图跨应用读取协议.md)。部署前后逐项执行依据见[独立B部署与验收清单](docs/joint-review-20261115/独立B部署与验收清单.md)；当前暂不部署。

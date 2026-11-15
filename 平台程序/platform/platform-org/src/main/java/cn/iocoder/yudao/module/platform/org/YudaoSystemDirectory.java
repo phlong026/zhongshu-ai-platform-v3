@@ -152,6 +152,23 @@ public class YudaoSystemDirectory implements SystemDirectory {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public long createUserWithPassword(String name, String mobile, Long deptId, String initialPassword) {
+        UserSaveReqVO req = new UserSaveReqVO();
+        // 保留底座账号约束；面向加盟商的正式账号/简称映射至此 userId。
+        req.setUsername(mobile);
+        req.setMobile(mobile);
+        req.setNickname(name);
+        req.setDeptId(deptId);
+        req.setPassword(initialPassword);
+        long userId = adminUserService.createUser(req);
+        // 旧底座默认成本因子为4，新交付密码采用BCrypt 10；不修改其他用户的密码。
+        String encoded = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(10).encode(initialPassword);
+        adminUserMapper.updateById(new AdminUserDO().setId(userId).setPassword(encoded));
+        return userId;
+    }
+
+    @Override
     public List<UserBrief> usersByIds(Collection<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return List.of();
@@ -166,8 +183,10 @@ public class YudaoSystemDirectory implements SystemDirectory {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void setUserActive(long userId, boolean active) {
-        // 09 钱包会话桥接撤权协议：成员停用先取用户全部岗位行排他锁（覆盖其全部组织，堵跨组织窗口），
-        // 状态修改与钱包会话吊销同事务提交/回滚
+        // 统一锁序为用户行 → 岗位行：与微信绑定的外呼后复核一致，避免交叉等待。
+        // lockById 只取锁不写状态，租户条件由底座拦截器保持。
+        adminUserMapper.lockById(userId);
+        // 09 钱包会话桥接撤权协议：覆盖该用户全部组织的岗位窗口。
         staffPostMapper.lockUserPostsForUpdate(userId);
         adminUserService.updateUserStatus(userId,
                 active ? CommonStatusEnum.ENABLE.getStatus() : CommonStatusEnum.DISABLE.getStatus());

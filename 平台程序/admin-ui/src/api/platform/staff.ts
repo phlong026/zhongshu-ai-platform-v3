@@ -33,6 +33,23 @@ export interface StaffRow {
   createTime: string
 }
 
+export interface CreateStaffPayload {
+  orgId: PlatformId
+  name: string
+  mobile: string
+  roleCode: string
+  teamId?: PlatformId | null
+}
+
+export interface StaffAccountResult extends StaffRow {
+  accountId: string
+  orgName: string
+  loginName: string
+  aliases: string[]
+  initialPassword: string | null
+  reusedUser: boolean
+}
+
 export interface HandoverItem {
   domain: string
   label: string
@@ -92,13 +109,10 @@ export const createTeam = (
   })
 export const getStaff = (orgId: PlatformId) =>
   request.get<StaffRow[]>({ url: `${orgBase}/staff`, params: { orgId } })
-export const createStaff = (data: {
-  orgId: PlatformId
-  name: string
-  mobile: string
-  roleCode: string
-  teamId?: PlatformId | null
-}) => request.post<StaffRow>({ url: `${orgBase}/staff`, data })
+export const createStaff = (data: CreateStaffPayload) =>
+  request.post<StaffRow>({ url: `${orgBase}/staff`, data })
+export const createStaffAccount = (data: CreateStaffPayload) =>
+  request.post<StaffAccountResult>({ url: `${orgBase}/staff-accounts`, data })
 export const assignPost = (data: {
   orgId: PlatformId
   userId: PlatformId

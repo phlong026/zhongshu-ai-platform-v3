@@ -55,6 +55,11 @@ public interface SystemDirectory {
     /** 新建后台用户（username 即手机号；员工经微信/短信登录，不使用密码） */
     long createUser(String name, String mobile, Long deptId);
 
+    /** 正式开通新用户；初始密码只经开通响应交付，正式登录别名另行映射至同一用户。 */
+    default long createUserWithPassword(String name, String mobile, Long deptId, String initialPassword) {
+        throw new UnsupportedOperationException("当前用户目录未配置账号密码开通");
+    }
+
     /** 批量取员工简要视图 */
     List<UserBrief> usersByIds(Collection<Long> userIds);
 

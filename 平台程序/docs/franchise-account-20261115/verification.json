@@ -1,0 +1,105 @@
+{
+  "scope": "总部开门店老板账号，门店开独立员工账号；账号密码与微信共用用户",
+  "branches": {
+    "platform": "feat/franchise-account-login-platform-20261115",
+    "mini": "feat/franchise-account-login-mini-20261115"
+  },
+  "checks": [
+    {
+      "name": "最终Reactor专项与制品打包",
+      "tests": 82,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "result": "passed"
+    },
+    {
+      "name": "独立B启动及运行边界",
+      "tests": 80,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "result": "passed",
+      "test_configuration": "zhongshu.org-point.headquarters-tenant-id=1"
+    },
+    {
+      "name": "后台相关Node回归",
+      "tests": 45,
+      "failures": 0,
+      "result": "passed"
+    },
+    {
+      "name": "小程序账号真实Page行为",
+      "tests": 16,
+      "failures": 0,
+      "result": "passed"
+    },
+    {
+      "name": "小程序接口集成",
+      "tests": 66,
+      "failures": 0,
+      "result": "passed"
+    },
+    {
+      "name": "小程序npm run check",
+      "result": "passed"
+    },
+    {
+      "name": "后台TypeScript/lint/Vite build",
+      "result": "passed"
+    },
+    {
+      "name": "发布边界与制品验证器自身",
+      "tests": 14,
+      "result": "passed"
+    },
+    {
+      "name": "制品边界检查",
+      "result": "passed",
+      "report": "artifact-verification.json"
+    },
+    {
+      "name": "独立只读审查",
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "result": "approved"
+    },
+    {
+      "name": "真实凭据模式扫描",
+      "hits": 0,
+      "result": "passed"
+    }
+  ],
+  "existing_issues": [
+    {
+      "name": "platform-home.test.js",
+      "tests": 4,
+      "failures": 4,
+      "baseline_reproduced": true,
+      "source_changed": false,
+      "note": "HEAD原始页面/测试和相同依赖临时目录也出现相同undefined.value错误"
+    },
+    {
+      "name": "后台生产依赖扫描",
+      "low": 1,
+      "moderate": 2,
+      "high": 0,
+      "critical": 0,
+      "dependencies_changed": false
+    }
+  ],
+  "environment_fixes": [
+    "JDK17；测试回环地址加入socksNonProxyHosts",
+    "钱包共享数据库用例改为独立JVM验证",
+    "Reactor恢复前重建当前分支本地API制品"
+  ],
+  "delivery": {
+    "pushed": false,
+    "deployed": false,
+    "mini_uploaded": false,
+    "real_wechat_or_device_verified": false,
+    "production_data_changed": false
+  },
+  "rollback": "源代码逆向patch检查通过；非空schema undo真实PG测试明确拒绝；已交付账号数据须保留"
+}

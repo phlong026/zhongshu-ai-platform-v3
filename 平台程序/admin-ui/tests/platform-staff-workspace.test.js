@@ -74,7 +74,14 @@ function loadOrgStaffView(overrides = {}) {
     useRouter: () => ({ replace: async () => {} }),
     require(name) {
       const imports = {
-        vue: { ...vue, onMounted() {} },
+        vue: {
+          ...vue,
+          onMounted() {},
+          onActivated() {},
+          onDeactivated() {},
+          onBeforeUnmount() {}
+        },
+        'vue-router': { onBeforeRouteLeave() {} },
         'element-plus': {
           ElMessage: { warning() {}, success() {} },
           ElMessageBox: { confirm: async () => true }
@@ -99,6 +106,10 @@ function loadOrgStaffView(overrides = {}) {
           postGeneration: () => 1
         },
         '@/utils/platformRoles': { roleLabel: (roleCode) => roleCode },
+        './staffAccountDelivery': {
+          buildStaffCredentialCopyText: () => '',
+          isRestrictedOwnerRole: (roleCode) => ['boss', 'owner'].includes(roleCode)
+        },
         // 批2 起 org-staff 页引入导入纯函数；本测试只关心权限/菜单，给出最小桩。
         './importModel': {
           STAFF_IMPORT_MAX_FILE_BYTES: 2 * 1024 * 1024,

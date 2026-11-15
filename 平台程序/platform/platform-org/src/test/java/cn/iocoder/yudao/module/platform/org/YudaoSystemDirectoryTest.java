@@ -28,6 +28,8 @@ class YudaoSystemDirectoryTest {
     private AdminUserMapper adminUserMapper;
     @Mock
     private StaffPostMapper staffPostMapper;
+    @Mock
+    private cn.iocoder.yudao.module.system.service.user.AdminUserService adminUserService;
 
     private YudaoSystemDirectory directory;
 
@@ -36,6 +38,7 @@ class YudaoSystemDirectoryTest {
         directory = new YudaoSystemDirectory();
         ReflectionTestUtils.setField(directory, "adminUserMapper", adminUserMapper);
         ReflectionTestUtils.setField(directory, "staffPostMapper", staffPostMapper);
+        ReflectionTestUtils.setField(directory, "adminUserService", adminUserService);
     }
 
     @Test
@@ -75,6 +78,29 @@ class YudaoSystemDirectoryTest {
 
         when(adminUserMapper.selectListByMobile(MOBILE)).thenReturn(List.of(user(10L)));
         assertThat(directory.userIdByMobile(MOBILE)).isEqualTo(10L);
+    }
+
+    @Test
+    void initializedPasswordUsesSameSystemUserAndStrongBcryptHash() {
+        when(adminUserService.createUser(org.mockito.ArgumentMatchers.any())).thenReturn(10L);
+        String initial = InitialAccountPassword.generate();
+        assertThat(directory.createUserWithPassword("李忠", MOBILE, 100L, initial)).isEqualTo(10L);
+        var captured = org.mockito.ArgumentCaptor.forClass(AdminUserDO.class);
+        org.mockito.Mockito.verify(adminUserMapper).updateById(captured.capture());
+        AdminUserDO updated = captured.getValue();
+        assertThat(updated.getId()).isEqualTo(10L);
+        assertThat(updated.getPassword()).startsWith("$2a$10$").isNotEqualTo(initial);
+        assertThat(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().matches(initial, updated.getPassword())).isTrue();
+    }
+
+    @Test
+    void statusChangeLocksUserBeforePostsWithoutAnExtraStatusWrite() {
+        directory.setUserActive(10L, true);
+        var order = org.mockito.Mockito.inOrder(adminUserMapper, staffPostMapper, adminUserService);
+        order.verify(adminUserMapper).lockById(10L);
+        order.verify(staffPostMapper).lockUserPostsForUpdate(10L);
+        order.verify(adminUserService).updateUserStatus(10L, 0);
+        order.verifyNoMoreInteractions();
     }
 
     private static AdminUserDO user(long id) {

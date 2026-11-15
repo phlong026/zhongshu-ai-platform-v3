@@ -10,6 +10,7 @@
       <el-select
         :model-value="currentPost?.postId"
         :loading="identity.loading"
+        :disabled="saving"
         style="width: 260px"
         @change="switchPost"
       >
@@ -148,9 +149,17 @@
       >
     </el-dialog>
 
-    <el-dialog v-model="staffDialog" title="录入员工 / 恢复任职" width="520px">
+    <el-dialog
+      v-model="staffDialog"
+      :title="isStoreOrg ? '开通员工独立账号' : '录入员工 / 恢复任职'"
+      width="520px"
+    >
       <el-alert
-        title="停职员工请填写原手机号；系统会复用已有账号并重新指派本组织岗位。"
+        :title="
+          isStoreOrg
+            ? '总部只开通门店老板账号；此处由门店老板为每位员工开通独立账号。原员工请填写原手机号复用账号。'
+            : '停职员工请填写原手机号；系统会复用已有账号并重新指派本组织岗位。'
+        "
         type="info"
         show-icon
         class="mb-16px"
@@ -176,8 +185,62 @@
       ></el-form>
       <template #footer
         ><el-button @click="staffDialog = false">取消</el-button
-        ><el-button type="primary" :loading="saving" @click="saveStaff">保存</el-button></template
+        ><el-button type="primary" :loading="saving" @click="saveStaff">{{
+          isStoreOrg ? '开通员工账号' : '保存'
+        }}</el-button></template
       >
+    </el-dialog>
+
+    <el-dialog
+      v-model="staffAccountDialog"
+      title="员工账号交付"
+      width="620px"
+      :close-on-click-modal="false"
+      @closed="clearStaffAccountCredential"
+    >
+      <template v-if="staffAccountResult">
+        <el-alert
+          :title="
+            staffAccountResult.reusedUser
+              ? '已复用该员工原账号，密码保持不变。'
+              : '员工独立账号已开通，初始密码仅在本次显示。'
+          "
+          :type="staffAccountResult.reusedUser ? 'info' : 'warning'"
+          show-icon
+          :closable="false"
+          class="mb-16px"
+        />
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="员工">{{ staffAccountResult.name }}</el-descriptions-item>
+          <el-descriptions-item label="所属门店">{{
+            staffAccountResult.orgName
+          }}</el-descriptions-item>
+          <el-descriptions-item label="登录账号">{{
+            staffAccountResult.loginName
+          }}</el-descriptions-item>
+          <el-descriptions-item label="快捷查找">{{
+            staffAccountResult.aliases.join('、') || '使用完整账号'
+          }}</el-descriptions-item>
+          <el-descriptions-item label="密码">
+            <template v-if="staffAccountResult.reusedUser">沿用原账号密码</template>
+            <strong v-else class="credential-password">{{
+              staffAccountResult.initialPassword
+            }}</strong>
+          </el-descriptions-item>
+        </el-descriptions>
+        <el-input
+          v-if="staffManualCopyVisible"
+          v-model="staffCredentialCopyText"
+          type="textarea"
+          :rows="7"
+          readonly
+          class="mt-16px"
+        />
+      </template>
+      <template #footer>
+        <el-button @click="staffAccountDialog = false">关闭</el-button>
+        <el-button type="primary" @click="copyStaffCredential">一键复制员工账号</el-button>
+      </template>
     </el-dialog>
 
     <el-dialog v-model="assignDialog" title="追加员工岗位" width="500px">
@@ -383,7 +446,16 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import {
+  computed,
+  onActivated,
+  onBeforeUnmount,
+  onDeactivated,
+  onMounted,
+  reactive,
+  ref
+} from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { usePermissionStore } from '@/store/modules/permission'
@@ -392,10 +464,12 @@ import type {
   HandoverResult,
   PendingRow,
   PostTemplate,
+  StaffAccountResult,
   StaffImportResult,
   StaffRow,
   Team
 } from '@/api/platform/staff'
+import { buildStaffCredentialCopyText, isRestrictedOwnerRole } from './staffAccountDelivery'
 import {
   STAFF_IMPORT_MAX_FILE_BYTES,
   STAFF_IMPORT_MAX_ROWS,
@@ -417,6 +491,7 @@ const identity = usePlatformIdentityStore()
 const permissions = usePermissionStore()
 const router = useRouter()
 const currentPost = computed(() => identity.currentPost)
+const isStoreOrg = computed(() => currentPost.value?.orgType === 'store')
 const canQuery = computed(() => identity.can('platform:org:query'))
 const canManage = computed(() => identity.can('platform:org:manage'))
 const loading = ref(false),
@@ -438,6 +513,11 @@ const teamDialog = ref(false),
   handoverDialog = ref(false),
   resultDialog = ref(false),
   importDialog = ref(false)
+const staffAccountDialog = ref(false)
+const staffAccountResult = ref<StaffAccountResult | null>(null)
+const staffCredentialCopyText = ref('')
+const staffManualCopyVisible = ref(false)
+const staffPageActive = ref(true)
 const importFileInput = ref<HTMLInputElement>()
 const importBusy = ref(false)
 const importFileName = ref('')
@@ -476,12 +556,15 @@ const handoverForm = reactive({
 const handoverResult = ref<HandoverResult | null>(null)
 let loadGeneration = 0
 const importGuard = createImportGenerationGuard()
+let staffAccountGeneration = 0
 
 const roleOptions = computed(() =>
-  postTemplates.value.map((template) => ({
-    value: template.roleCode,
-    label: roleLabel(template.roleCode)
-  }))
+  postTemplates.value
+    .filter((template) => !isRestrictedOwnerRole(template.roleCode))
+    .map((template) => ({
+      value: template.roleCode,
+      label: roleLabel(template.roleCode)
+    }))
 )
 const importRowsReady = computed(
   () =>
@@ -524,6 +607,47 @@ const resultTitle = computed(() =>
 const orgId = () => {
   if (!currentPost.value) throw new Error('当前工作身份已失效')
   return currentPost.value.orgId
+}
+
+const clearStaffAccountCredential = () => {
+  staffAccountGeneration += 1
+  if (staffAccountResult.value) staffAccountResult.value.initialPassword = null
+  staffAccountResult.value = null
+  staffCredentialCopyText.value = ''
+  staffManualCopyVisible.value = false
+  staffAccountDialog.value = false
+}
+
+const handleStaffRouteLeave = () => {
+  if (saving.value) {
+    ElMessage.warning('员工账号开通处理中，请稍候，完成后再离开页面')
+    return false
+  }
+  clearStaffAccountCredential()
+  return true
+}
+
+const handleStaffDeactivated = () => {
+  staffPageActive.value = false
+  if (!saving.value) clearStaffAccountCredential()
+}
+
+const handleStaffActivated = () => {
+  staffPageActive.value = true
+  if (staffAccountResult.value) staffAccountDialog.value = true
+}
+
+const copyStaffCredential = async () => {
+  if (!staffAccountResult.value) return
+  staffCredentialCopyText.value = buildStaffCredentialCopyText(staffAccountResult.value)
+  try {
+    await navigator.clipboard.writeText(staffCredentialCopyText.value)
+    staffManualCopyVisible.value = false
+    ElMessage.success('员工账号信息已复制')
+  } catch {
+    staffManualCopyVisible.value = true
+    ElMessage.error('自动复制失败，请在下方文本框中手动选择复制')
+  }
 }
 
 // ===== P1 批2：员工批量导入（预检→提交→失败行重提） =====
@@ -722,6 +846,7 @@ const load = async () => {
 const switchError = ref('')
 const pendingPostId = ref<PlatformId>()
 const resetTransientState = () => {
+  clearStaffAccountCredential()
   teamDialog.value = false
   staffDialog.value = false
   assignDialog.value = false
@@ -740,6 +865,10 @@ const resetTransientState = () => {
   staffPage.value = 1
 }
 const switchPost = async (postId: PlatformId) => {
+  if (saving.value) {
+    ElMessage.warning('员工账号开通处理中，请稍候后再切换工作身份')
+    return
+  }
   switchError.value = ''
   pendingPostId.value = postId
   try {
@@ -771,6 +900,7 @@ const openTeam = () => {
   teamDialog.value = true
 }
 const openStaff = () => {
+  clearStaffAccountCredential()
   Object.assign(staffForm, {
     name: '',
     mobile: '',
@@ -824,7 +954,21 @@ const saveStaff = async () => {
     return ElMessage.warning('请完整填写员工信息')
   const scope = actionScope()
   await run(scope, async () => {
-    await api.createStaff({ orgId: scope.orgId, ...staffForm })
+    if (isStoreOrg.value) {
+      const credentialGeneration = ++staffAccountGeneration
+      const result = await api.createStaffAccount({ orgId: scope.orgId, ...staffForm })
+      if (
+        credentialGeneration !== staffAccountGeneration ||
+        !isCurrentGeneration(scope.generation) ||
+        String(currentPost.value?.orgId) !== String(scope.orgId)
+      )
+        return
+      staffAccountResult.value = result
+      staffCredentialCopyText.value = buildStaffCredentialCopyText(result)
+      staffAccountDialog.value = staffPageActive.value
+    } else {
+      await api.createStaff({ orgId: scope.orgId, ...staffForm })
+    }
     staffDialog.value = false
   })
 }
@@ -905,6 +1049,10 @@ onMounted(async () => {
   if (!identity.context) await identity.restoreContext()
   await load()
 })
+onDeactivated(handleStaffDeactivated)
+onActivated(handleStaffActivated)
+onBeforeRouteLeave(handleStaffRouteLeave)
+onBeforeUnmount(handleStaffDeactivated)
 </script>
 
 <style scoped lang="scss">
@@ -987,6 +1135,12 @@ onMounted(async () => {
   margin: 12px 0 8px;
   font-size: 13px;
   color: #4d301e;
+}
+
+.credential-password {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.04em;
+  color: #8d4f24;
 }
 
 h2 {

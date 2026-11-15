@@ -52,8 +52,21 @@ class StaffOrgAdminControllerTest {
 
     private StaffOrgAdminController controller;
 
+    @Test
+    void memberEndpointsCannotCreateAdditionalBossOrOwner() {
+        loginAsBossAt(STORE_ORG);
+        assertThatThrownBy(() -> controller.createStaff(new StaffOrgAdminController.CreateStaffReqVO(
+                STORE_ORG, null, "另一老板", "13800000000", "boss", null)))
+                .hasMessageContaining("总部");
+        assertThatThrownBy(() -> controller.assignPost(new StaffOrgAdminController.AssignPostReqVO(
+                STORE_ORG, 100L, "owner", null)))
+                .hasMessageContaining("总部");
+        org.mockito.Mockito.verifyNoInteractions(staffPostService);
+    }
+
     @BeforeEach
     void setUp() {
+        lenient().when(currentPost.require()).thenCallRealMethod();
         controller = new StaffOrgAdminController();
         ReflectionTestUtils.setField(controller, "currentPost", currentPost);
         ReflectionTestUtils.setField(controller, "staffPostService", staffPostService);

@@ -1,12 +1,21 @@
 package cn.iocoder.yudao.module.platform.identity.controller.admin;
 
+import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.platform.identity.FranchiseAccountAuthService;
 import cn.iocoder.yudao.module.platform.identity.StaffSmsLoginService;
+import cn.iocoder.yudao.module.platform.identity.StaffWechatExplicitBindingService;
 import cn.iocoder.yudao.module.platform.identity.StaffWechatLoginService;
 import cn.iocoder.yudao.module.platform.identity.WechatLoginResult;
+import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.AccountLoginReqVO;
+import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.AccountLoginRespVO;
+import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.AccountMatchReqVO;
+import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.AccountMatchesRespVO;
 import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.SmsCaptchaSendReqVO;
 import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.SmsLoginReqVO;
 import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.SmsLoginRespVO;
+import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.WechatBindReqVO;
 import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.WechatLoginReqVO;
 import cn.iocoder.yudao.module.platform.identity.controller.admin.vo.WechatLoginRespVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,6 +44,43 @@ public class PlatformAuthController {
     private StaffWechatLoginService staffWechatLoginService;
     @Resource
     private StaffSmsLoginService staffSmsLoginService;
+    @Resource
+    private FranchiseAccountAuthService franchiseAccountAuthService;
+    @Resource
+    private StaffWechatExplicitBindingService explicitBindingService;
+
+    @PostMapping("/account/matches")
+    @PermitAll
+    @ApiAccessLog(requestEnable = false, responseEnable = false)
+    @Operation(summary = "按正式账号或简写查找加盟商账号")
+    public CommonResult<AccountMatchesRespVO> accountMatches(@Valid @RequestBody AccountMatchReqVO req) {
+        FranchiseAccountAuthService.MatchResult result = franchiseAccountAuthService.matches(req.getQuery());
+        return success(new AccountMatchesRespVO(result.items().stream().map(item -> new AccountMatchesRespVO.Item(
+                item.accountId(), item.loginName(), item.orgName(), item.ownerName())).toList(), result.hasMore()));
+    }
+
+    @PostMapping("/account/login")
+    @PermitAll
+    @ApiAccessLog(requestEnable = false, responseEnable = false)
+    @Operation(summary = "加盟商账号密码登录；初始密码首次使用时强制修改")
+    public CommonResult<AccountLoginRespVO> accountLogin(@Valid @RequestBody AccountLoginReqVO req) {
+        FranchiseAccountAuthService.LoginResult result = franchiseAccountAuthService.login(
+                req.getAccountId(), req.getPassword(), req.getNewPassword());
+        AccountLoginRespVO resp = new AccountLoginRespVO().setRequirePasswordChange(result.requirePasswordChange())
+                .setUserId(result.userId()).setPreferredPostId(result.preferredPostId()).setAccountId(result.accountId())
+                .setLoginName(result.loginName()).setOrgName(result.orgName());
+        if (result.token() != null) resp.setAccessToken(result.token().accessToken())
+                .setRefreshToken(result.token().refreshToken()).setExpiresTime(result.token().expiresTime());
+        return success(resp);
+    }
+
+    @PostMapping("/wechat-bind")
+    @ApiAccessLog(requestEnable = false, responseEnable = false)
+    @Operation(summary = "将当前已登录账号与微信绑定")
+    public CommonResult<Boolean> bindWechat(@Valid @RequestBody WechatBindReqVO req) {
+        explicitBindingService.bind(req.getAppid(), req.getLoginCode(), SecurityFrameworkUtils.getLoginUserId());
+        return success(true);
+    }
 
     @PostMapping("/wechat-login")
     @PermitAll

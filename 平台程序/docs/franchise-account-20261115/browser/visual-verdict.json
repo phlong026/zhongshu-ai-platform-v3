@@ -1,0 +1,23 @@
+{
+  "method": "manual_screenshot_inspection",
+  "visual_verdict_skill_available": false,
+  "reference": "既有总部米黄背景、棕色主操作、原生字体；没有独立参考图",
+  "evidence": [
+    "08-three-level-area-to-province-city-fixture.png",
+    "09-pending-leave-blocked-result-delivered-fixture.png",
+    "10-after-complete-leave-clears-fixture.png"
+  ],
+  "verdict": "pass",
+  "checks": {
+    "fixed_fields_visible": true,
+    "province_city_selection_visible": true,
+    "account_preview_and_delivery_visible": true,
+    "initial_password_masked_fixture_only": true,
+    "leave_after_delivery_clears_credentials": true,
+    "existing_palette_and_typography_retained": true
+  },
+  "limits": [
+    "实际Vue组件使用本地API替身，不是生产开通证据",
+    "没有进行手机或真实微信绑定视觉验收"
+  ]
+}

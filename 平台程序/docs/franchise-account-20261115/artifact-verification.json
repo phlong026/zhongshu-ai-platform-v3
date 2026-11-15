@@ -1,0 +1,486 @@
+{
+  "artifact": "/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/franchise-account-login-20261115/平台程序/yudao-platform-server/target/yudao-platform-server.jar",
+  "sha256": "61751090208de1f8cf6fe973ec004706d61370496fd304bd5a5bca74ce291fb3",
+  "migrations": [
+    {
+      "version": "20261111.910",
+      "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-asset/V20261111.910__fr_asset.sql",
+      "sha256": "cd51f516d0c828b1b25ba52c24a9aa02c0afb02d1960fdcadbfeb8f96b3f87f9"
+    },
+    {
+      "version": "20261114.920",
+      "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-asset/V20261114.920__design_reference_asset.sql",
+      "sha256": "52eb2b75624bdf9da28eab0a6ce6cdff375a7ed5f3e59c8f62d23d8920ca95c4"
+    },
+    {
+      "version": "20261111.925",
+      "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-design-remote/V20261111.925__remote_design_commands.sql",
+      "sha256": "0d0d1ea652fe6121cb6da655d056ef3b8ff291fc29663ae6a3ca74305d9cf1d1"
+    },
+    {
+      "version": "20261111.945",
+      "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-design-remote/V20261111.945__design_wallet_pricing.sql",
+      "sha256": "86af10b73c5abaaa22a36626837c72b9a3ca9ed6f68a5f9b0b7464bfbf698d0c"
+    },
+    {
+      "version": "20261111.961",
+      "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-design-remote/V20261111.961__design_operations_admin.sql",
+      "sha256": "cf3c0d921c879a9d76aa803413c848bb50f69b8f5a1cb529f972c52d962dbba4"
+    },
+    {
+      "version": "20261114.915",
+      "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-design-remote/V20261114.915__local_public_case_favorites.sql",
+      "sha256": "baadf18606cd7402f5db472e4559f518a8512a30b7502633ed0eea0eed5d5ff1"
+    },
+    {
+      "version": "20261115.970",
+      "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-design-remote/V20261115.970__reference_asset_mirror.sql",
+      "sha256": "09892e8a2ca064b9772241e8e501e4c05499c900d446afa9682897327db4c0fb"
+    },
+    {
+      "version": "20261022.851",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-system/V20261022.851__fr_system_roles_menus.sql",
+      "sha256": "53b5cdafc6797a7318ac036564ddd466c2786f5280599756cec93cc00bfbe3ee"
+    },
+    {
+      "version": "20261101.852",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-system/V20261101.852__fin_permissions.sql",
+      "sha256": "6e862b7c4467573925321a0cf5d6be1357a13bd6cc30294413c61930d9bf7716"
+    },
+    {
+      "version": "20261102.853",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-system/V20261102.853__design_permissions.sql",
+      "sha256": "00bb6ee841ae9b2666a1faff981b41244a7ddf47d66495f4e87e957c31973b49"
+    },
+    {
+      "version": "20261102.854",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-system/V20261102.854__sales_permissions.sql",
+      "sha256": "41f62796307fccadc2098a8336fbfcd08c123ff5f925488e80fc36f044f2927d"
+    },
+    {
+      "version": "20261102.855",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-system/V20261102.855__content_permissions.sql",
+      "sha256": "bb8a65d503dd708f6b529d5e6384fa84c8d53ef6409a01530c25ae353c2b5675"
+    },
+    {
+      "version": "20261102.856",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-system/V20261102.856__engineering_permissions.sql",
+      "sha256": "a1e03ce0f74f3f3e5f1e3bc9efcc256400b6fb7661dd847143cb87425dd669a4"
+    },
+    {
+      "version": "20261102.857",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-system/V20261102.857__performance_permissions.sql",
+      "sha256": "c971ce4594c7c3e3e00436db54fdd5d5dba7f6108bfa001c06dbfb6bdc6d959b"
+    },
+    {
+      "version": "20261105.858",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise-system/V20261105.858__eng_voucher_design_use.sql",
+      "sha256": "e685eeb00b87a9c0988b847c6fc3263be42f8fd16fb5f4ae01de4a6af17f1758"
+    },
+    {
+      "version": "20261022.801",
+      "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261022.801__fr_org.sql",
+      "sha256": "dc02066a6a88ac89ad08ffc3f0dca9f3151cca517820e2c5f7941c340b1f31e6"
+    },
+    {
+      "version": "20261022.802",
+      "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261022.802__fr_crm.sql",
+      "sha256": "e5a82226e2aded06fd9eeb430e2c1b848d6f9bb3f3fb1f3cea3b0d2897ce6a88"
+    },
+    {
+      "version": "20261022.803",
+      "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261022.803__fr_commission.sql",
+      "sha256": "70bfd702d9e7cad38747fb7cfdc78b483bd673d05d71be10700aeeea681bfb5c"
+    },
+    {
+      "version": "20261101.804",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261101.804__fr_finance.sql",
+      "sha256": "49a8ed693768d3c508c73201487833b0fd990d8063ae62ca072dcf6323c82156"
+    },
+    {
+      "version": "20261101.805",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261101.805__fr_finance_txn_fix.sql",
+      "sha256": "3639d9fb20bf3e5922214170c4610627059d76600098076863004d875affe557"
+    },
+    {
+      "version": "20261101.806",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261101.806__fr_finance_txn_index_fix.sql",
+      "sha256": "daf1cd948f75093eab740d765dfddc12227cc18d0273114c0f7f5e0f93febb23"
+    },
+    {
+      "version": "20261102.807",
+      "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.807__fr_scheme_design_project.sql",
+      "sha256": "ab6c748e86e8fc7683aeb235e93664b284c101ffad22221d708f4549c8fc1fd7"
+    },
+    {
+      "version": "20261102.808",
+      "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.808__fr_sales.sql",
+      "sha256": "cfe6034dddd38ad4c4118dad585f3f99d4eaeb966eee6d584900bd70c2fa4af9"
+    },
+    {
+      "version": "20261102.809",
+      "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.809__fr_scheme_stage.sql",
+      "sha256": "085e01b7e2b8822a9b035b1a140239714648f40f328bee2ac3145d4da953c430"
+    },
+    {
+      "version": "20261102.810",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.810__fr_receipt_business_unique.sql",
+      "sha256": "5601f4b371fec1e39ef2e51156b16fb755f4cd7aae9798cad5a67fabb3eb51e0"
+    },
+    {
+      "version": "20261102.811",
+      "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.811__fr_sale_delivery_unique.sql",
+      "sha256": "034d6846676ee2c6f3da8c933fb5affb29f10616cb5b8c0e31c8ad8ceed9d149"
+    },
+    {
+      "version": "20261102.812",
+      "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.812__fr_content_core.sql",
+      "sha256": "b4eee999711ac28c2845ae1c8aca4ee6b4a65ffc23debf9ef0a2c5e55379d564"
+    },
+    {
+      "version": "20261102.813",
+      "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.813__fr_content_persona_video.sql",
+      "sha256": "e0bd7b8b23610d9b495ee614b95629bc75a35dccd462ae3713a1d13783fb2bfd"
+    },
+    {
+      "version": "20261102.814",
+      "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.814__fr_eng_core.sql",
+      "sha256": "6936c030107fb0b08c2d355b60e559da484cac807789561013d2aca5859e3c5b"
+    },
+    {
+      "version": "20261102.815",
+      "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.815__fr_eng_material.sql",
+      "sha256": "66c788ace131238525f13e1f5ab776934dbe845dbb7f5b71a2ad397834774151"
+    },
+    {
+      "version": "20261102.816",
+      "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.816__fr_eng_finance.sql",
+      "sha256": "395e337a41438a5de995078b9ad72c4b777dfd8b1f28a91941a309e2a9e73a7d"
+    },
+    {
+      "version": "20261102.817",
+      "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.817__fr_perf_core.sql",
+      "sha256": "5be818f415da165aa4863790d7c3f429b1093dadeecfda5575c1fec35cf90e6e"
+    },
+    {
+      "version": "20261102.818",
+      "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.818__fr_perf_commission.sql",
+      "sha256": "0dc82cc6c6d474a94fc8f187e0801bea46c1cb91ec6a1363996455ec9c0f7bb0"
+    },
+    {
+      "version": "20261102.819",
+      "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261102.819__fr_perf_operating.sql",
+      "sha256": "94fc63bc7b7a5350fa3a334db2d92a3cd284517fc30accd41ca9b4767999f15f"
+    },
+    {
+      "version": "20261104.812",
+      "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.812__fr_sale_three_stage.sql",
+      "sha256": "b8be50e1eeda782162f96c99ca2fbfdcb230209979b0e931fdb92a5507a100ec"
+    },
+    {
+      "version": "20261104.817",
+      "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.817__fr_eng_sale_contract.sql",
+      "sha256": "cf5c62efbfc4067728c006d879d215e3bce848f8622113022b85c8bcb378fef4"
+    },
+    {
+      "version": "20261104.818",
+      "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.818__fr_eng_three_stage.sql",
+      "sha256": "5bbada2038db1fc8afbf21beea4d19b8006212ec1db18a6e51a98d771b7ee7b9"
+    },
+    {
+      "version": "20261104.820",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.820__fr_fin_refund_direction.sql",
+      "sha256": "400450faf514777600f9d1df13621e5cf0f00476a031af7397585c236b3c036d"
+    },
+    {
+      "version": "20261104.821",
+      "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.821__fr_commission_dispatch_scheme_version.sql",
+      "sha256": "78f0ea136fb613a523832db05875c31446e0e8b79aca9d6d219b85f661ed4de7"
+    },
+    {
+      "version": "20261104.822",
+      "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.822__fr_handover_freeze_contract.sql",
+      "sha256": "2321d1fc3e1948b8c16892f4fe8435d4af30f96e5604da55f7d67cb395dff416"
+    },
+    {
+      "version": "20261104.823",
+      "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.823__fr_commission_dispatched_submission.sql",
+      "sha256": "8a00f3c9bc7dd2d909d4fc283ed30a8feaf3d157f1b4e542aab665c7041404db"
+    },
+    {
+      "version": "20261104.824",
+      "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.824__fr_eng_expense.sql",
+      "sha256": "2dc5885fc16ae63c298520b680aa286300d921b6778cad23b21954651b004f42"
+    },
+    {
+      "version": "20261104.825",
+      "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.825__fr_perf_three_stage.sql",
+      "sha256": "d3c91b3837a8bf1a6b3ff3958e151598d10fbf194714504db1c0ea7c2e6a2c41"
+    },
+    {
+      "version": "20261104.826",
+      "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.826__fr_perf_policy_three_stage.sql",
+      "sha256": "fb1fce4fb8da6e091ef6a00309ee70d0b39bc7ad8437b55955bc203a5d2f8dfd"
+    },
+    {
+      "version": "20261104.827",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.827__fr_fin_payment_pending_link.sql",
+      "sha256": "51632832cbeeb72a4c436cf1f3b9e55a1fee2de2e5b522a55effb13bb99fad48"
+    },
+    {
+      "version": "20261104.828",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.828__fr_fin_refund_source_check.sql",
+      "sha256": "73ce088c580f8858bc2c913bf5c3d3ce716cd0b0b7472575696b7c11496c7826"
+    },
+    {
+      "version": "20261104.829",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.829__fr_fin_abnormal_fund.sql",
+      "sha256": "7d9ed7b92a8e7185ce8b2260c70f4ba0b39c12d1497ab104157d447fae1cf061"
+    },
+    {
+      "version": "20261104.830",
+      "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261104.830__fr_fin_txn_no_owner_types.sql",
+      "sha256": "3b220d51f5cdbb3efb0f1669e1481a1eff840d8cfddd98580a57f2633517c233"
+    },
+    {
+      "version": "20261114.916",
+      "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/franchise/V20261114.916__fr_content_pool_biz_key.sql",
+      "sha256": "5f1992d0fecf4d35445ba92da532c07b69e30cf684336d6645a06b6718adaa18"
+    },
+    {
+      "version": "20261022.701",
+      "source": "yudao-platform-command-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261022.701__pf_command_event.sql",
+      "sha256": "5f3577585d89ea46735354a61e26d3c2e17a89cf6e62a9fa8ca517f6e563af76"
+    },
+    {
+      "version": "20261022.702",
+      "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261022.702__pf_org.sql",
+      "sha256": "73846e6a09614dfbcd3b381e02defd36acdbda8334affc2f3b27c08875c9f064"
+    },
+    {
+      "version": "20261022.703",
+      "source": "yudao-platform-workflow-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261022.703__pf_approval.sql",
+      "sha256": "5dd2ad125d4004bdea0929785a0d34ec9ab3961f767bd51a51f816ee90b62ff5"
+    },
+    {
+      "version": "20261022.704",
+      "source": "yudao-platform-identity-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261022.704__pf_wechat_binding.sql",
+      "sha256": "8f516399ad3b5437452288ef928ede7825e3e29f031cd7e11ae71ca943d5881d"
+    },
+    {
+      "version": "20261031.703",
+      "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261031.703__pf_org_admin_permissions.sql",
+      "sha256": "c4250829fddef4af5aa131991c4875bac3420529293777dbc65c4f41c26b7b90"
+    },
+    {
+      "version": "20261101.705",
+      "source": "yudao-platform-workflow-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261101.705__pf_message.sql",
+      "sha256": "26798bab2537aef7a39a4d271ee3767e24769d4d0ec498b406fdc9b921b23e9b"
+    },
+    {
+      "version": "20261101.706",
+      "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261101.706__pf_org_sales_lead_query.sql",
+      "sha256": "5cef1774eba1b5fe2782f93ae9110161a3241c0146e193ab5345ad30e4317086"
+    },
+    {
+      "version": "20261104.707",
+      "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261104.707__pf_org_onboard.sql",
+      "sha256": "21b79c71ec5d0951e982beaf13be5d5793a5642667b56ddf1f6cbcca66d23309"
+    },
+    {
+      "version": "20261104.708",
+      "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261104.708__pf_handover_pending.sql",
+      "sha256": "a85209e88773b6d1adb9a31290ac171877c4d1288bc2e74285e96ed84dda36fe"
+    },
+    {
+      "version": "20261104.709",
+      "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261104.709__pf_handover_audit.sql",
+      "sha256": "2c583f281079fdd0115a6aa7a389b2d474ce7cf9fcb463e9d2440cb578485ad5"
+    },
+    {
+      "version": "20261115.710",
+      "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/pf/V20261115.710__pf_franchise_account.sql",
+      "sha256": "574bc95e328f238550232f78dd27f0236dca4d59cd0c6262898ac4ea8a67154d"
+    },
+    {
+      "version": "20260904.001",
+      "source": "yudao-platform-server.jar",
+      "resource": "db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+      "sha256": "18ad0d0a65a1ff3e31b8e3988c1a25b3256ca1d02b374b1c314979189c936a5c"
+    },
+    {
+      "version": "20260904.002",
+      "source": "yudao-platform-server.jar",
+      "resource": "db/migration/platform-bootstrap/V20260904.002__platform_quartz.sql",
+      "sha256": "67532571354d10d490cfbfdad0723b2ed03a2f142130108cc1131eed2ea53355"
+    },
+    {
+      "version": "20261111.901",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261111.901__pf_wallet_accounting.sql",
+      "sha256": "6e550e034da43448e3b90ea392505b842f32027fcfe774a7c4765739579fde18"
+    },
+    {
+      "version": "20261111.902",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261111.902__pf_wallet_service_mapping_plans_permissions.sql",
+      "sha256": "1e40d8385a0ddb8a2fe3ccbaa86ee6623a7240073b00b40af1dc60a2c448f4f4"
+    },
+    {
+      "version": "20261111.903",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261111.903__pf_wallet_payment.sql",
+      "sha256": "2b45959e1d32b0d0d37e322131a7b1e6a9d73318e9ec4c11bd4d34cb8cfed77d"
+    },
+    {
+      "version": "20261111.904",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261111.904__pf_wallet_refund.sql",
+      "sha256": "07e64bd7196cb579cfcabc88b564b2a89735b3ee4a51941ecaae7fef90c1e63c"
+    },
+    {
+      "version": "20261111.905",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261111.905__pf_wallet_manual_adjustment.sql",
+      "sha256": "5a07712d35e26bac3920e087abcb8a7a16204d56ecabd0c76524947ccb693261"
+    },
+    {
+      "version": "20261111.906",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261111.906__pf_wallet_recovery.sql",
+      "sha256": "711c7440ca10fe9b85fee9b3fd2942fa749125593d193d12c8ed852b24a4119a"
+    },
+    {
+      "version": "20261111.960",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261111.960__platform_operations_admin.sql",
+      "sha256": "7275e2f75e0309865960a7897cdc42db68a34dc9df1a6414e8edf7359b2175c1"
+    },
+    {
+      "version": "20261114.911",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261114.911__org_point_pool.sql",
+      "sha256": "f12f28dc667ae9a6c5431a5c32fac77dcb2387de4ff58e98a708648d10435904"
+    },
+    {
+      "version": "20261114.912",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261114.912__design_billing_binding.sql",
+      "sha256": "18cd82e989b6f7b567021b1f9019ab5b48c941c40a0e19bd1bf64c3875bb681e"
+    },
+    {
+      "version": "20261114.913",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261114.913__design_prompt_receipt.sql",
+      "sha256": "d0c9d4f04cad009f1f95e5a2eb8c24df454dd920a58407c926055a9525f2d90d"
+    },
+    {
+      "version": "20261114.914",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261114.914__org_point_subject_price.sql",
+      "sha256": "4bedefe90172ce8c3d7a9e0ccd63fc512622e7744a1dc8e79b64b9291812caea"
+    },
+    {
+      "version": "20261114.917",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261114.917__org_point_headquarters_admin.sql",
+      "sha256": "e88e91a8fd3aed660d176fe8950501ddde205c1c1879fc93c6dd7564bb8258c4"
+    },
+    {
+      "version": "20261114.918",
+      "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform-wallet/V20261114.918__org_point_hq_price_idempotency.sql",
+      "sha256": "ce221688f5c9791de6bebe5ffca54f17f7ebdd1dfd149b1c129d8a99132ce062"
+    },
+    {
+      "version": "20260905.001",
+      "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform/V20260905.001__zhongshu_baseline.sql",
+      "sha256": "062d2a64d13e42ed819ddce6d1d8200fb3d3e53f06b032049249f2c8a1b58655"
+    },
+    {
+      "version": "20260905.002",
+      "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform/V20260905.002__zhongshu_baseline_probe_index.sql",
+      "sha256": "605da226485f9bcafa6de29d94d753cc5fdd8a14c9eb3ef4132f0398b3a15892"
+    },
+    {
+      "version": "20260905.003",
+      "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform/V20260905.003__p1c_platform_tables.sql",
+      "sha256": "668cc2fdf7ded6109309c8f2b3d2843a3c7906b8d74dc625d30153ec86657dad"
+    },
+    {
+      "version": "20260913.005",
+      "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform/V20260913.005__export_job_leases.sql",
+      "sha256": "5c25e50cb2bca79943817367a08fa49eabcaa3e94d8727a6e1cc9b9d9c2c3d09"
+    },
+    {
+      "version": "20261002.006",
+      "source": "yudao-module-infra-2026.08-SNAPSHOT.jar",
+      "resource": "db/migration/platform/V20261002.006__export_job_cancel.sql",
+      "sha256": "0a22540046fc2e18aab2e755a569579bdcffc037189658998bfe331706ce876b"
+    }
+  ]
+}

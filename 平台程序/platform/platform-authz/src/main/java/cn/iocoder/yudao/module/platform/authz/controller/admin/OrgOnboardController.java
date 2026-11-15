@@ -47,6 +47,10 @@ public class OrgOnboardController {
     @Operation(summary = "正式开通组织并授予首任管理员（boss）；重复开通幂等返回既有组织")
     @PreAuthorize("@ss.hasPermission('platform:org:onboard')")
     public CommonResult<OnboardRespVO> onboard(@Valid @RequestBody OnboardReqVO req) {
+        if (!"headquarters".equals(req.orgType())) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,
+                    "加盟门店请使用固定字段的加盟商开通入口");
+        }
         long operator = SecurityFrameworkUtils.getLoginUserId();
         OrgOnboardService.OnboardResult r = orgOnboardService.onboard(
                 req.orgType(), req.orgName(), req.adminName(), req.adminMobile(), operator);

@@ -132,6 +132,7 @@ public class StaffOrgAdminController {
     public CommonResult<List<PostTemplate>> postTemplates(@RequestParam("orgId") long orgId) {
         requireScope(orgId);
         return success(orgService.listPostTemplates(orgId).stream()
+                .filter(template -> cn.iocoder.yudao.module.platform.org.MemberRolePolicy.isAssignable(currentPost.require().orgType(), template.getRoleCode()))
                 .map(template -> new PostTemplate(template.getRoleCode(), template.getLine(),
                         Boolean.TRUE.equals(template.getLead())))
                 .toList());
@@ -172,6 +173,7 @@ public class StaffOrgAdminController {
     @PreAuthorize("@post.has('platform:org:manage')")
     public CommonResult<StaffRow> createStaff(@Valid @RequestBody CreateStaffReqVO req) {
         requireScope(req.orgId());
+        cn.iocoder.yudao.module.platform.org.MemberRolePolicy.requireAssignable(currentPost.require().orgType(), req.roleCode());
         // M01-T05：编排下沉 service（建号+指派同一事务）；M01-T03：teamId 冲突由 service 显式拒绝
         long postId = staffPostService.createStaffInOrg(req.orgId(), req.userId(), req.name(), req.mobile(), req.roleCode(), req.teamId(),
                 currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
@@ -185,6 +187,7 @@ public class StaffOrgAdminController {
     @PreAuthorize("@post.has('platform:org:manage')")
     public CommonResult<StaffRow> assignPost(@Valid @RequestBody AssignPostReqVO req) {
         requireScope(req.orgId());
+        cn.iocoder.yudao.module.platform.org.MemberRolePolicy.requireAssignable(currentPost.require().orgType(), req.roleCode());
         long postId = staffPostService.assignPostInOrg(req.userId(), req.orgId(), req.roleCode(), req.teamId(),
                 currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
         return success(row(staffPostService.getPost(postId).orElseThrow(() -> exception(PlatformOrgErrorCodes.POST_NOT_FOUND)),

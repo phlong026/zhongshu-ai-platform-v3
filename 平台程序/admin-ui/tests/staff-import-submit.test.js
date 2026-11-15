@@ -65,7 +65,8 @@ function loadPage(apiStub, identityStore, elMessage) {
           ElMessageBox: {}
         }
       }
-      if (name === 'vue-router') return { useRouter: () => routerStub }
+      if (name === 'vue-router')
+        return { useRouter: () => routerStub, onBeforeRouteLeave: () => {} }
       if (name === '@/store/modules/platformIdentity') {
         return { usePlatformIdentityStore: () => identityStore }
       }
@@ -78,6 +79,12 @@ function loadPage(apiStub, identityStore, elMessage) {
       if (name === '@/utils/platformRoles') return { roleLabel: (c) => c }
       if (name === '@/utils') return { generateUUID: () => 'staff-import-test-request' }
       if (name === './importModel') return importModel
+      if (name === './staffAccountDelivery') {
+        return {
+          buildStaffCredentialCopyText: () => '',
+          isRestrictedOwnerRole: (roleCode) => ['boss', 'owner'].includes(roleCode)
+        }
+      }
       if (name === '@/api/platform/staff') return apiStub
       throw new Error(`Unexpected import: ${name}`)
     }
