@@ -104,7 +104,8 @@ Page({ ...makeFormHandlers(),
   },
   // ---- 客户委托视图：commissions.get → rows/fields/form ----
   async refreshCommission(alive, reset) {
-    this.setData({ platformStatus: 'loading', error: '' });
+    const preservedError = this.__submitFailure || ''; this.__submitFailure = '';
+    this.setData({ platformStatus: 'loading', error: preservedError });
     let res = null;
     try {
       if (this.__byCustomer) {
@@ -161,7 +162,7 @@ Page({ ...makeFormHandlers(),
     this.nextView = !can && n.actionable && n.view !== view && Presentation.actionFor(n.view) ? n.view : '';
     this.setData({
       title: ({ submit: '设计委托', progress: '委托与交付', feedback: '登记修改意见', handover: '成果与移交', complete: '设计办理', dispatch: '下发设计成果', receive: '业务资料接收' })[view] || '委托与交付',
-      view, platformStatus: 'ready', error: '',
+      view, platformStatus: 'ready', error: preservedError,
       customer: c.id || c.name ? { id: c.id, projectId: c.projectId, name: c.name, city: c.city, revision: c.revision } : null,
       form, fields, rows,
       canFeeDecide: c.allowedActions.includes('fee-decide'),
@@ -360,7 +361,7 @@ Page({ ...makeFormHandlers(),
     } catch (e) {
       if (!alive()) return;
       this.setData({ error: Presentation.errorMessage(e), busy: false });
-      if (this.view === 'submit') this.refresh(false);
+      if (this.view === 'submit') { this.__submitFailure = Presentation.errorMessage(e); this.refresh(false); }
     }
   },
   async returnPacket() {
