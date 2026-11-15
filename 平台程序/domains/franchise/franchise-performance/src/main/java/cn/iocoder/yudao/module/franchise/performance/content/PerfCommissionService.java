@@ -14,9 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.performance.enums.FranchisePerformanceErrorCodes.*;
@@ -325,7 +327,8 @@ public class PerfCommissionService {
         } else {
             List<Map<String, Object>> collectionRows = jdbc.queryForList(
                     "SELECT id, amount_cents, receipt_id FROM fr_eng_collection "
-                            + "WHERE company_id = ? AND project_id = ? AND stage = ?", post.orgId(), projectId, engStage);
+                            + "WHERE company_id = ? AND project_id = ? AND stage = ? ORDER BY id",
+                    post.orgId(), projectId, engStage);
             received = 0;
             for (Map<String, Object> row : collectionRows) {
                 long amount = ((Number) row.get("amount_cents")).longValue();
@@ -347,6 +350,57 @@ public class PerfCommissionService {
         boolean eligible = required > 0 && received >= required;
         return new StageFacts(stage, required, received, eligible,
                 String.join("|", signatureParts), receiptIds);
+    }
+
+    /**
+     * 兼容旧版按数据库物理返回顺序保存的工程收款签名。
+     *
+     * <p>仅对 {@code required:<n>|c:<id>:<amount>:<refunded>} 已知格式做集合等价；
+     * 统一合同及未知格式保守按原文比较，避免放宽历史对账语义。
+     */
+    static boolean sameStageSignature(String current, String released) {
+        if (Objects.equals(current, released)) {
+            return true;
+        }
+        EngineeringSignature currentEngineering = parseEngineeringSignature(current);
+        EngineeringSignature releasedEngineering = parseEngineeringSignature(released);
+        return currentEngineering != null && currentEngineering.equals(releasedEngineering);
+    }
+
+    private static EngineeringSignature parseEngineeringSignature(String signature) {
+        if (signature == null) {
+            return null;
+        }
+        String[] parts = signature.split("\\|", -1);
+        if (parts.length == 0 || !parts[0].startsWith("required:")) {
+            return null;
+        }
+        try {
+            long required = Long.parseLong(parts[0].substring("required:".length()));
+            List<CollectionSignature> collections = new ArrayList<>(Math.max(0, parts.length - 1));
+            for (int i = 1; i < parts.length; i++) {
+                String[] collection = parts[i].split(":", -1);
+                if (collection.length != 4 || !"c".equals(collection[0])) {
+                    return null;
+                }
+                collections.add(new CollectionSignature(
+                        Long.parseLong(collection[1]),
+                        Long.parseLong(collection[2]),
+                        Long.parseLong(collection[3])));
+            }
+            collections.sort(Comparator.comparingLong(CollectionSignature::id)
+                    .thenComparingLong(CollectionSignature::amount)
+                    .thenComparingLong(CollectionSignature::refunded));
+            return new EngineeringSignature(required, List.copyOf(collections));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private record EngineeringSignature(long required, List<CollectionSignature> collections) {
+    }
+
+    private record CollectionSignature(long id, long amount, long refunded) {
     }
 
     /** 对账行（F15 五态状态机+paid/outstanding；paid 读 finance 已核实付款） */
@@ -387,8 +441,8 @@ public class PerfCommissionService {
                                 + "WHERE payable_id = ? AND status = '已核实'", Long.class, rel.getPayableId());
             }
             boolean reviewDue = rel != null && (!facts.eligible
-                    || !facts.signature.equals(rel.getReceiptSignature())
-                    || !java.util.Objects.equals(rel.getPolicyVersion(), policy.getVersion()));
+                    || !sameStageSignature(facts.signature, rel.getReceiptSignature())
+                    || !Objects.equals(rel.getPolicyVersion(), policy.getVersion()));
             String status;
             if (amount <= 0) {
                 status = "未约定"; // R2 P2-9：0=未约定期优先显示（无 release、金额及已付均为零时不显示已付清）

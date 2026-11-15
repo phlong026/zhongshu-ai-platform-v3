@@ -388,11 +388,47 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 "2026-11-15 10:00:00");
 
         assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
+        assertThat(stageReviewDue(project, FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER)).isFalse();
 
         // 释放后新增一笔收款 → 收款签名变化 → 行视图「待人工核对」，导出口径一致
         jdbc.update("INSERT INTO fr_eng_collection (id, company_id, project_id, stage, amount_cents, receipt_id) "
                 + "VALUES (?,?,?,?,?,NULL)", nextId(), orgId, project, "SIGN_AFTER", 1);
         assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
+    }
+
+    @Test
+    void engineeringSignatureOrderDoesNotCreateFalseReviewDue() {
+        long employee = 925L;
+        long project = nextId();
+        long policy = insertPolicy(orgId, project, 10_000, 10_000, 0, 0, employee, "顺序兼容员工");
+        long payable = payableId();
+        long lowCollectionId = nextId();
+        long highCollectionId = nextId();
+        insertProject(orgId, project);
+        jdbc.update("INSERT INTO fr_eng_collection_term (company_id,project_id,stage,amount_cents) "
+                + "VALUES (?,?,'SIGN_AFTER',10000)", orgId, project);
+        // 先插入高 ID，复现旧 stageFacts 按物理顺序生成签名的场景。
+        jdbc.update("INSERT INTO fr_eng_collection (id,company_id,project_id,stage,amount_cents,receipt_id) "
+                + "VALUES (?,?,?,'SIGN_AFTER',6000,NULL)", highCollectionId, orgId, project);
+        jdbc.update("INSERT INTO fr_eng_collection (id,company_id,project_id,stage,amount_cents,receipt_id) "
+                + "VALUES (?,?,?,'SIGN_AFTER',4000,NULL)", lowCollectionId, orgId, project);
+        String generatedSignature = commissions.stageFacts(
+                postFor(orgId), project, FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER).signature();
+        insertPayable(orgId, project, payable, "SIGN_AFTER", 10_000);
+        jdbc.update("INSERT INTO fr_perf_commission_release (id,company_id,policy_id,project_id,stage,payable_id,"
+                        + "policy_version,receipt_signature,receipt_ids,release_user_id,release_at) "
+                        + "VALUES (?,?,?,?, 'SIGN_AFTER',?,1,?,'[]'::jsonb,?,?::timestamptz)",
+                nextId(), orgId, policy, project, payable, generatedSignature,
+                post.userId(), "2026-11-15 11:00:00");
+
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
+
+        String legacyReverseSignature = "required:10000|c:" + highCollectionId + ":6000:0|c:"
+                + lowCollectionId + ":4000:0";
+        jdbc.update("UPDATE fr_perf_commission_release SET receipt_signature = ? "
+                + "WHERE company_id = ? AND project_id = ?", legacyReverseSignature, orgId, project);
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
+        assertThat(stageReviewDue(project, FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER)).isFalse();
     }
 
     @Test
@@ -828,6 +864,17 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
     private long nextId() {
         return SEQ.incrementAndGet();
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean stageReviewDue(long projectId, String stage) {
+        Map<String, Object> row = commissions.row(postFor(orgId), projectId);
+        List<Map<String, Object>> stages = (List<Map<String, Object>>) row.get("stages");
+        return (Boolean) stages.stream()
+                .filter(item -> stage.equals(item.get("stage")))
+                .findFirst()
+                .orElseThrow()
+                .get("reviewDue");
     }
 
     /** 同岗位快照换组织（stageFacts 只读 orgId；不额外造任职）。 */

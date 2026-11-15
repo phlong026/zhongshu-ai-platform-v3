@@ -6,6 +6,7 @@
 
 - 新设 `backend-main` 沿用 Java/Web 独立历史；本候选包含 local `main=0158ffec` 且可正常 fast-forward。
 - 本地缓存 `origin/main=a28a1a50`，用户提供的远程实时快照为 `0f60217b`；二者都属小程序历史，与 Java/Web 候选无共同祖先，禁止 `--allow-unrelated-histories`、禁止覆盖远程 `main`。
+- canonical 后端接续入口为 `backend-main`：`git clone --branch backend-main --single-branch https://github.com/phlong026/zhongshu-ai-platform-v3.git <目录>`。
 - 旧 AI 个人积分/公司积分池链不是独立 B 首发范围，不从旧融合分支整链恢复。
 
 ## 本地分支逐项处置
@@ -69,3 +70,9 @@
 - P1 审计边界：首字节前通过既有同步 `OperateLogApiImpl -> OperateLogServiceImpl` 持久化 `attempt`，全部 flush 后再记 `success`。独立 PG 连接在第一次 output write 时已可见 attempt；审计建立失败为 0 字节，客户端中断保留 attempt 且无 success。
 - P2 数据边界：方案 stage 仅精确 `formal` 返回 formal，其余统一 reference；超过 15 位的员工 Snowflake ID 以前置单引号的电子表格文本输出，金额仍是 `BigDecimal` 数值。
 - P2 旧 hash 兼容：新增隔离 PG 回归，覆盖同业务回放、换 requirement、缺 delivery、旧事件跨 org、失败无新业务/命令行与外层事务回滚。
+
+## 独立复审签名整改
+
+- 新生成的工程收款签名固定按 `fr_eng_collection.id` 排序，与批量导出 SQL 的 `string_agg(... ORDER BY c.id)` 一致。
+- 服务行视图与导出共用严格等价比较：仅容忍历史工程 `c:` 片段顺序差异，不忽略 `required`/金额/退款/片段数量；`unified:` 与未知格式仍须原文相等。
+- 无迁移、无历史数据重写；回滚为单提交 `git revert`。

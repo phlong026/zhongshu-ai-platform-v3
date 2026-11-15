@@ -415,7 +415,8 @@ public class PerfCommissionExportService {
             return true;
         }
         return release.factRequired() <= 0 || release.factReceived() < release.factRequired()
-                || !Objects.equals(release.factSignature(), release.receiptSignature());
+                || !PerfCommissionService.sameStageSignature(
+                        release.factSignature(), release.receiptSignature());
     }
 
     private static boolean anyStageUnagreed(MonthRelease release) {

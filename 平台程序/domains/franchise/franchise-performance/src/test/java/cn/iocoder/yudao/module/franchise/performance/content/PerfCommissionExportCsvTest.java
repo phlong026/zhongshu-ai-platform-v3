@@ -71,6 +71,34 @@ class PerfCommissionExportCsvTest {
     }
 
     @Test
+    void engineeringStageSignatureIgnoresOnlyCollectionOrder() {
+        String canonical = "required:100|c:3:40:0|c:9:60:5";
+        String legacyReverse = "required:100|c:9:60:5|c:3:40:0";
+
+        assertThat(PerfCommissionService.sameStageSignature(canonical, legacyReverse)).isTrue();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:101|c:9:60:5|c:3:40:0")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:9:61:5|c:3:40:0")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:9:60:6|c:3:40:0")).isFalse();
+    }
+
+    @Test
+    void unifiedAndUnknownStageSignaturesRemainLiteral() {
+        String unified = "required:100|unified:9:SIGN_AFTER:100";
+        assertThat(PerfCommissionService.sameStageSignature(unified, unified)).isTrue();
+        assertThat(PerfCommissionService.sameStageSignature(unified,
+                "required:100|unified:9:SIGN_AFTER:101")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature("legacy:a|legacy:b",
+                "legacy:b|legacy:a")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(
+                "required:100|c:broken", "required:100|c:broken")).isTrue();
+        assertThat(PerfCommissionService.sameStageSignature(
+                "required:100|c:broken", "required:100|c:also-broken")).isFalse();
+    }
+
+    @Test
     void moneyConvertsCentsToYuanWithTwoDecimals() {
         assertThat(PerfCommissionExportService.moneyYuan(0)).isEqualTo("0.00");
         assertThat(PerfCommissionExportService.moneyYuan(5)).isEqualTo("0.05");
