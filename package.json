@@ -5,7 +5,7 @@
   "scripts": {
     "check:sales": "node scripts/verify-sales-customers.cjs && node scripts/verify-sales-publication.cjs && node scripts/verify-sales-creation-chain.cjs && node scripts/verify-sales-design.cjs && node scripts/verify-business-four-flows.cjs && node scripts/verify-guest-home-role-nav.cjs && npm run check",
     "check:sales:native": "node scripts/verify-sales-offline-native.cjs && node scripts/verify-sales-typography-native.cjs",
-    "check": "node scripts/verify.cjs && npm run check:profile-navigation && npm run check:api-pages && npm run check:company-points && npm run check:integration",
+    "check": "node scripts/verify.cjs && npm run check:profile-navigation && npm run check:api-pages && npm run check:company-points && npm run check:account-login && npm run check:integration",
     "check:company-points": "node --test scripts/verify-company-points.cjs",
     "check:profile-navigation": "node --test scripts/verify-profile-navigation.cjs",
     "check:task-order": "node scripts/verify-task-order.cjs && node scripts/verify-sales-todo-order.cjs && node scripts/verify-design-todo-order.cjs && node scripts/verify-engineering-todo-order.cjs && node scripts/verify-finance-todo-order.cjs",
@@ -126,7 +126,8 @@
     "check:demo-badge": "node scripts/verify-demo-badge.cjs",
     "check:auth-contract": "node scripts/verify-auth-session-contract.cjs",
     "check:api-pages": "node scripts/verify-api-role-pages.cjs && node scripts/verify-api-workbench-contracts.cjs && node scripts/verify-material-entry.cjs && node scripts/verify-member-actions-session.cjs && node scripts/verify-org-admin.cjs && node scripts/verify-member-handover.cjs && node scripts/verify-auth-session-contract.cjs",
-    "check:integration": "node --test scripts/verify-public-base-isolation.cjs scripts/verify-live-content-p1.cjs scripts/verify-live-design-p1.cjs scripts/verify-live-owner-p2.cjs scripts/verify-live-page-p2.cjs scripts/verify-live-video-media.cjs scripts/verify-upload-digest.cjs scripts/verify-live-member-choice.cjs scripts/verify-live-workflow-extra.cjs scripts/verify-live-finance-extra.cjs scripts/verify-live-b-asset-upload.cjs scripts/verify-live-wallet-retirement.cjs scripts/verify-live-manual-publication.cjs scripts/verify-live-engineering-voucher-cache.cjs scripts/verify-live-business-summary.cjs scripts/verify-reference-project-contract.cjs"
+    "check:integration": "node --test scripts/verify-public-base-isolation.cjs scripts/verify-live-content-p1.cjs scripts/verify-live-design-p1.cjs scripts/verify-live-owner-p2.cjs scripts/verify-live-page-p2.cjs scripts/verify-live-video-media.cjs scripts/verify-upload-digest.cjs scripts/verify-live-member-choice.cjs scripts/verify-live-workflow-extra.cjs scripts/verify-live-finance-extra.cjs scripts/verify-live-b-asset-upload.cjs scripts/verify-live-wallet-retirement.cjs scripts/verify-live-manual-publication.cjs scripts/verify-live-engineering-voucher-cache.cjs scripts/verify-live-business-summary.cjs scripts/verify-reference-project-contract.cjs",
+    "check:account-login": "node scripts/verify-account-login.cjs && node scripts/verify-login-dual-channel.cjs && node --test scripts/verify-account-login-behavior.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "^0.13.0",

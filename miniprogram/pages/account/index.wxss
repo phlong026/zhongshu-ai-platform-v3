@@ -11,6 +11,7 @@
 .login-agreement button{background:transparent;padding:0;margin:0;border:none;line-height:inherit}
 .login-card .solid.wechat-login-btn{display:flex;align-items:center;justify-content:center;gap:12rpx;background:#07c160!important;color:#fff!important}
 .wechat-login-icon{width:44rpx;height:44rpx;flex-shrink:0}
+.default-account,.selected-account{display:flex;align-items:center;gap:16rpx;margin:18rpx 0;padding:20rpx;border-radius:14rpx;background:#f7f1e9}.selected-account{display:block;border:1rpx solid #dbc5aa}.selected-account text{display:block}.account-search{margin-top:18rpx}.account-match-list{margin:18rpx 0}.account-match{display:flex;align-items:center;width:100%;padding:18rpx 20rpx;margin-top:12rpx;text-align:left;background:#f8f4ee;border:1rpx solid transparent;border-radius:14rpx}.account-match.selected-option{border-color:#9b6a43;background:#f5eadc}.account-match text{display:block}.change-password-title{display:block;margin:24rpx 0 12rpx;font-weight:600;color:#824019}.remember-account{margin-top:20rpx}.binding-error{margin-top:24rpx;padding:20rpx;border-radius:14rpx;background:#fff1ed}.binding-error .page-actions{margin-top:16rpx}
 .profile-hero .hint{margin-top:8rpx}
 .demo-entry-row{display:flex;justify-content:center;padding-top:8rpx}
 .demo-entry{background:transparent;font-size:var(--zs-font-caption);color:#9b7b5e;padding:10rpx 0}

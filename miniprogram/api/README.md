@@ -9,14 +9,15 @@
 |---|---|---|
 | `http.js` | — | wx.request 封装：token、`X-Post-Id` 当前岗位、`tenant-id` 多租户头（默认 1）、超时、错误与 401 处理 |
 | `runtime-base.js` | — | 仅允许开发者工具读取接口基址覆写；真机和桌面微信固定使用 B 环境配置 |
-| `auth.js` | `/platform/auth/wechat-login`、`/platform/auth/sms/send`、`/platform/auth/sms/login`、`/platform/posts/mine` | 员工双通道登录（微信一键 + 手机号验证码）、我的任职与岗位切换 |
+| `auth.js` | `/platform/auth/account/matches`、`/platform/auth/account/login`、`/platform/auth/wechat-login`、`/platform/auth/wechat-bind`、`/platform/posts/mine` | 账号密码和微信共用同一用户，简称匹配、首次改密、我的任职与岗位切换；短信API仅兼容，不在页面展示 |
+| `org.js` | `/platform/org/staff-accounts`，以及现有 `/platform/org/*` | 门店老板开员工独立账号、一次性交付凭据；总部成员仍使用原staff接口 |
 | `todos.js` | `/platform/todos` | 当前岗位的待办（可办理在前） |
 | `franchise/crm.js` | `/franchise/leads`、`/franchise/customers` | 客资、客户、跟进、方案版本、责任转交 |
 | `franchise/commission.js` | `/franchise/design-policies`、`/franchise/commissions` | 标准费用、委托状态机命令、费用审批 |
 
 ## 接入顺序（M2 设计 §12 M2.7）
 
-1. **账号与组织先行**：登录页双通道（`auth.smsLogin` 手机号验证码 / `auth.login` 微信一键）→ `auth.myPosts` 列岗位 → `auth.switchPost`；✅ 已接入（2026-10-31）：登录页双通道 + 真实登录后按后端岗位接管全站 Tab 导航与落地页（`utils/workbench-nav.js` api 优先，回退 demo），身份页可切换后端岗位/退出后端账号；业务数据可见性仍走 demo 上下文，待业务接口逐页接入后收口；
+1. **账号与组织先行**：2026-11-15登录页使用 `auth.accountMatches` 定位候选、`auth.accountLogin` 验证密码，或 `auth.login` 登录已绑定微信；未绑定先验证已有账号再调用 `auth.bindWechat`。`auth.myPosts` 获取有效岗位后才进入工作台，空岗位清会话，不回退旧本地身份。
 2. 待办中心接 `todos.list`；
 3. 业务主链按 crm（客资→客户→跟进→预算）→ commission（委托→审批→首尾款→移交→接收）逐页替换。
 
@@ -26,5 +27,6 @@
 - 登录态：storage `zs-api-token-v1`；当前岗位：storage `zs-api-post-v1`（即 X-Post-Id）；多租户：storage `zs-api-tenant-v1`（默认 1，即 tenant-id 头）；
 - 写命令可传幂等键（`Idempotency-Key`），重试安全；
 - 带版本写（编辑、转交、关联）须带后端返回的 `revision`，冲突时报「数据版本已过期，请刷新后重试」；
-- 短信验证码：60s 一条、每日上限由后端限流；本地联调从 `/admin-api/platform/dev-setup/sms-captcha?mobile=` 读码（仅 local profile）；
-- 本地演示模式（`utils/account.js` 的 loginDemo）保持不动，两套登录并存。
+- 首次改密响应 `requirePasswordChange=true` 时不保存会话；再次提交原初始密码与新密码后，服务端才签发令牌。新密码须10–64字符、包含ASCII字母与数字，UTF-8不超过72字节。
+- 本机默认账号仅保存 `zs-login-default-account-v1` 的账号标识和显示信息，不保存密码。新开员工初始密码仅在当前页面内存，离页、换岗或重新提交清除。
+- 旧短信API保留兼容；新版页面不再发送验证码或短信登录请求。存量未绑定微信且无可用密码的账号须由总部先完成账号配置，不能靠客户端生成第二账号。

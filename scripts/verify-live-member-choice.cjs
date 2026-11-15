@@ -28,7 +28,8 @@ function manager(rows) {
   requests = [];
   actionSheet = null;
   http.saveSession({ token: 'member-mobile-fixture', postId: '42' });
-  auth.savePosts([{ postId: '42', orgId: '7', roleCode: 'boss', orgType: 'store' }]);
+  // 总部保留旧 addStaff 同号消歧；门店改走 staff-accounts 独立账号开通接口。
+  auth.savePosts([{ postId: '42', orgId: '7', roleCode: 'boss', orgType: 'headquarters' }]);
   return {
     ...definition,
     handoverCtx: { postId: '42', orgId: '7' },
@@ -105,7 +106,7 @@ function rejectAsAmbiguous() {
   assert.equal(actionSheet, null, '本店列表无候选时不能伪造选择');
   assert.match(missing.data.error, /总部.*核对|总部.*分辨/, '无候选必须请总部分辨');
 
-  console.log('成员同号账号消歧：5 组行为通过');
+  console.log('总部旧成员同号账号消歧：5 组行为通过');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
