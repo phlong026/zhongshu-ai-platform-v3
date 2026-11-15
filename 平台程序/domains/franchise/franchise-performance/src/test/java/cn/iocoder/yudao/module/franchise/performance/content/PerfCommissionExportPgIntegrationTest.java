@@ -48,10 +48,12 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -162,7 +164,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 + "id bigint PRIMARY KEY, company_id bigint NOT NULL, project_id bigint NOT NULL,"
                 + "stage varchar(16) NOT NULL, amount_cents bigint NOT NULL, receipt_id bigint NULL)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_fin_refund ("
-                + "receipt_id bigint NULL, amount_cents bigint NOT NULL, status varchar(16) NOT NULL,"
+                + "company_id bigint NOT NULL, receipt_id bigint NULL, amount_cents bigint NOT NULL, status varchar(16) NOT NULL,"
                 + "replaced_by_id bigint NULL)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_fin_payment ("
                 + "id bigint PRIMARY KEY, payable_id bigint NULL, company_id bigint NOT NULL,"
@@ -171,6 +173,15 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 + "id bigint PRIMARY KEY, company_id bigint NOT NULL, project_id bigint NULL,"
                 + "stage varchar(64) NULL, total_cents bigint NOT NULL, recipient varchar(128) NULL,"
                 + "status varchar(16) NULL)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_contract ("
+                + "id bigint PRIMARY KEY, company_id bigint NOT NULL, customer_id bigint NOT NULL,"
+                + "status varchar(16) NOT NULL)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_payment_stage ("
+                + "id bigint PRIMARY KEY, company_id bigint NOT NULL, contract_id bigint NOT NULL,"
+                + "stage varchar(16) NOT NULL)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_stage_receipt ("
+                + "id bigint PRIMARY KEY, company_id bigint NOT NULL, stage_id bigint NOT NULL,"
+                + "receipt_id bigint NOT NULL, amount_cents bigint NOT NULL)");
     }
 
     // ===================== 主聚合口径 =====================
@@ -214,8 +225,8 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 String.valueOf(empB), "李四", "1", "200.00", "200.00", "0.00", "200.00", "0", "0", "1");
 
         ArgumentCaptor<OperateLogCreateReqDTO> captor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
-        verify(Config.AUDIT).createOperateLog(captor.capture());
-        OperateLogCreateReqDTO audit = captor.getValue();
+        verify(Config.AUDIT, times(2)).createOperateLog(captor.capture());
+        OperateLogCreateReqDTO audit = captor.getAllValues().get(1);
         assertThat(audit.getUserId()).isEqualTo(post.userId());
         assertThat(audit.getBizId()).isEqualTo(orgId);
         assertThat(audit.getAction()).contains("month=" + MONTH, "行数=2");
@@ -224,6 +235,43 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(audit.getRequestUrl()).isEqualTo("/franchise/performance/commission/export");
         assertThat(audit.getUserIp()).isNotBlank();
         assertThat(audit.getUserAgent()).isNotBlank();
+    }
+
+    @Test
+    void auditAttemptFailureWritesZeroBytes() {
+        doThrow(new IllegalStateException("audit unavailable"))
+                .when(Config.AUDIT).createOperateLog(any());
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        IllegalStateException error = catchThrowableOfType(
+                () -> exportService.writeCsv(post,
+                        new PerfCommissionExportService.ExportPlan(MONTH,
+                                "2026-11-01 00:00:00", "2026-12-01 00:00:00", List.of()), output),
+                IllegalStateException.class);
+
+        assertThat(error).hasMessageContaining("audit unavailable");
+        assertThat(output.size()).isZero();
+    }
+
+    @Test
+    void streamFailureKeepsAttemptAndNeverWritesSuccessAudit() {
+        OutputStream broken = new OutputStream() {
+            @Override
+            public void write(int value) throws IOException {
+                throw new IOException("client disconnected");
+            }
+        };
+
+        IOException error = catchThrowableOfType(
+                () -> exportService.writeCsv(post,
+                        new PerfCommissionExportService.ExportPlan(MONTH,
+                                "2026-11-01 00:00:00", "2026-12-01 00:00:00", List.of()), broken),
+                IOException.class);
+
+        assertThat(error).hasMessageContaining("client disconnected");
+        ArgumentCaptor<OperateLogCreateReqDTO> captor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
+        verify(Config.AUDIT).createOperateLog(captor.capture());
+        assertThat(captor.getValue().getAction()).contains("状态=attempt").doesNotContain("状态=success");
     }
 
     @Test
@@ -266,7 +314,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         try (Connection connection = dataSource.getConnection()) {
             SingleConnectionDataSource single = new SingleConnectionDataSource(connection, true);
             PerfCommissionExportService service = new PerfCommissionExportService(
-                    new JdbcTemplate(single), commissions, Config.AUDIT);
+                    new JdbcTemplate(single), Config.AUDIT);
 
             setSessionTimeZone(connection, "UTC");
             assertThat(showSessionTimeZone(connection)).contains("UTC");
@@ -292,8 +340,8 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(parse(lines.get(0))).containsExactlyElementsOf(PerfCommissionExportService.header());
 
         ArgumentCaptor<OperateLogCreateReqDTO> captor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
-        verify(Config.AUDIT).createOperateLog(captor.capture());
-        assertThat(captor.getValue().getAction()).contains("行数=0");
+        verify(Config.AUDIT, times(2)).createOperateLog(captor.capture());
+        assertThat(captor.getAllValues().get(1).getAction()).contains("状态=success", "行数=0");
     }
 
     @Test
@@ -344,6 +392,41 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         // 释放后新增一笔收款 → 收款签名变化 → 行视图「待人工核对」，导出口径一致
         jdbc.update("INSERT INTO fr_eng_collection (id, company_id, project_id, stage, amount_cents, receipt_id) "
                 + "VALUES (?,?,?,?,?,NULL)", nextId(), orgId, project, "SIGN_AFTER", 1);
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
+    }
+
+    @Test
+    void unifiedContractFactsKeepNetReceiptSignatureAndReviewDueSemantics() {
+        long employee = 950L;
+        long project = nextId();
+        long customer = nextId();
+        long contract = nextId();
+        long saleStage = nextId();
+        long receipt = nextId();
+        long payable = payableId();
+        long policy = insertPolicy(orgId, project, 10_000, 10_000, 0, 0, employee, "统一账员工");
+        insertProject(orgId, project);
+        jdbc.update("UPDATE fr_eng_project SET customer_id = ? WHERE id = ?", customer, project);
+        jdbc.update("INSERT INTO fr_eng_collection_term (company_id,project_id,stage,amount_cents) "
+                + "VALUES (?,?,'SIGN_AFTER',10000)", orgId, project);
+        jdbc.update("INSERT INTO fr_sale_contract (id,company_id,customer_id,status) VALUES (?,?,?,'SIGNED')",
+                contract, orgId, customer);
+        jdbc.update("INSERT INTO fr_sale_payment_stage (id,company_id,contract_id,stage) "
+                + "VALUES (?,?,?,'SIGN_AFTER')", saleStage, orgId, contract);
+        jdbc.update("INSERT INTO fr_sale_stage_receipt (id,company_id,stage_id,receipt_id,amount_cents) "
+                + "VALUES (?,?,?,?,12000)", nextId(), orgId, saleStage, receipt);
+        jdbc.update("INSERT INTO fr_fin_refund (company_id,receipt_id,amount_cents,status,replaced_by_id) "
+                + "VALUES (?,?,2000,'已核实',NULL)", orgId, receipt);
+        insertPayable(orgId, project, payable, "SIGN_AFTER", 10_000);
+        String signature = "required:10000|unified:" + contract + ":SIGN_AFTER:10000";
+        jdbc.update("INSERT INTO fr_perf_commission_release (id,company_id,policy_id,project_id,stage,payable_id,"
+                        + "policy_version,receipt_signature,receipt_ids,release_user_id,release_at) "
+                        + "VALUES (?,?,?,?, 'SIGN_AFTER',?,1,?,'[]'::jsonb,?,?::timestamptz)",
+                nextId(), orgId, policy, project, payable, signature, post.userId(), "2026-11-15 10:00:00");
+
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
+        jdbc.update("INSERT INTO fr_fin_refund (company_id,receipt_id,amount_cents,status,replaced_by_id) "
+                + "VALUES (?,?,1,'已核实',NULL)", orgId, receipt);
         assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
     }
 
@@ -458,8 +541,8 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(text.substring(1).split("\r\n")).hasSize(50_001); // 表头 + 5 万员工行
 
         ArgumentCaptor<OperateLogCreateReqDTO> captor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
-        verify(Config.AUDIT).createOperateLog(captor.capture());
-        assertThat(captor.getValue().getAction()).contains("行数=50000");
+        verify(Config.AUDIT, times(2)).createOperateLog(captor.capture());
+        assertThat(captor.getAllValues().get(1).getAction()).contains("状态=success", "行数=50000");
 
         // 第 50001 名员工 → 前置上限失败
         insertBulk(bulkOrg, policyBase + 50_000, projectBase + 50_000, userBase + 50_000, 1);
@@ -490,7 +573,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
             return invocation.callRealMethod();
         }).when(spyJdbc).query(anyString(), any(RowCallbackHandler.class), any(Object[].class));
         PerfCommissionExportService service = new PerfCommissionExportService(
-                spyJdbc, commissions, Config.AUDIT);
+                spyJdbc, Config.AUDIT);
 
         PostSnapshot owner = postFor(bulkOrg);
         PerfCommissionExportService.ExportPlan plan = service.prepare(owner, MONTH);
@@ -522,7 +605,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
             return invocation.callRealMethod();
         }).when(spyJdbc).query(anyString(), any(RowCallbackHandler.class), any(Object[].class));
         PerfCommissionExportService service = new PerfCommissionExportService(
-                spyJdbc, commissions, Config.AUDIT);
+                spyJdbc, Config.AUDIT);
 
         PostSnapshot owner = postFor(bulkOrg);
         PerfCommissionExportService.ExportPlan plan = service.prepare(owner, MONTH);
@@ -531,7 +614,9 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 () -> service.writeCsv(owner, plan, output), RuntimeException.class);
 
         assertThat(error).isNotNull().hasMessageContaining("second batch down");
-        verify(Config.AUDIT, never()).createOperateLog(any());
+        ArgumentCaptor<OperateLogCreateReqDTO> audit = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
+        verify(Config.AUDIT).createOperateLog(audit.capture());
+        assertThat(audit.getValue().getAction()).contains("状态=attempt").doesNotContain("状态=success");
         List<List<String>> written = bodyRows(output.toByteArray());
         assertThat(written).hasSize(500); // 第一批 500 行；第二批（第 501 行）未写出
         assertThat(written).noneMatch(row -> row.get(0).equals(String.valueOf(userBase + 501)));
@@ -564,7 +649,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
         RecordingDataSource recording = new RecordingDataSource(dataSource);
         PerfCommissionExportService service = new PerfCommissionExportService(
-                recording, commissions, Config.AUDIT);
+                recording, Config.AUDIT);
         PostSnapshot owner = postFor(bulkOrg);
         PerfCommissionExportService.ExportPlan plan = service.prepare(owner, MONTH);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -574,6 +659,27 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(recording.autoCommitAtPrepare()).isNotEmpty().contains(false);
         assertThat(recording.fetchSizes()).contains(500);
         assertThat(bodyRows(out.toByteArray())).hasSize(501);
+    }
+
+    @Test
+    void payableFactsForFiveHundredOneEmployeesUseOnlyTwoBatchQueries() throws Exception {
+        long bulkOrg = fixture.store().orgId();
+        long userBase = 96_000_000L;
+        insertBulkWithPayables(bulkOrg, 96_100_000_000L, 96_200_000_000L, userBase, 501);
+
+        RecordingDataSource recording = new RecordingDataSource(dataSource);
+        PerfCommissionExportService service = new PerfCommissionExportService(recording, Config.AUDIT);
+
+        PostSnapshot owner = postFor(bulkOrg);
+        PerfCommissionExportService.ExportPlan plan = service.prepare(owner, MONTH);
+        recording.resetQueryCount();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        service.writeCsv(owner, plan, out);
+
+        assertThat(recording.totalQueries()).isEqualTo(2);
+        assertThat(recording.batchQueries()).isEqualTo(2);
+        assertThat(bodyRows(out.toByteArray())).hasSize(501)
+                .allSatisfy(row -> assertThat(row.get(4)).isEqualTo("1.00"));
     }
 
     // ===================== 夹具 =====================
@@ -656,6 +762,33 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 org, "2026-11-10 00:00:00", org, policyBase, policyBase + count);
     }
 
+    /** 501 员工真实 payable + 工程收款事实，覆盖正常 reviewDue 路径。 */
+    private void insertBulkWithPayables(long org, long policyBase, long projectBase, long userBase, int count) {
+        long payableBase = policyBase + 2_000_000L;
+        long collectionBase = policyBase + 4_000_000L;
+        insertBulk(org, policyBase, projectBase, userBase, count);
+        jdbc.update("INSERT INTO fr_eng_project (id, company_id, source_type, manager_user_id, name, status, "
+                        + "author_user_id, customer_id) SELECT ? + g, ?, 'MANUAL', 1, '批量工程', "
+                        + "'IN_PROGRESS', 1, NULL FROM generate_series(1, ?) g",
+                projectBase, org, count);
+        jdbc.update("INSERT INTO fr_eng_collection_term (company_id, project_id, stage, amount_cents) "
+                        + "SELECT ?, ? + g, 'SIGN_AFTER', 100 FROM generate_series(1, ?) g",
+                org, projectBase, count);
+        jdbc.update("INSERT INTO fr_eng_collection (id, company_id, project_id, stage, amount_cents, receipt_id) "
+                        + "SELECT ? + g, ?, ? + g, 'SIGN_AFTER', 100, NULL FROM generate_series(1, ?) g",
+                collectionBase, org, projectBase, count);
+        jdbc.update("INSERT INTO fr_fin_payable (id, company_id, project_id, stage, total_cents, recipient, status) "
+                        + "SELECT ? + g, ?, ? + g, 'SIGN_AFTER', 100, '员工', '进行中' "
+                        + "FROM generate_series(1, ?) g",
+                payableBase, org, projectBase, count);
+        jdbc.update("UPDATE fr_perf_commission_release r SET payable_id = ? + (p.id - ?), "
+                        + "receipt_signature = 'required:100|c:' || (? + (p.id - ?)) || ':100:0' "
+                        + "FROM fr_perf_commission_policy p WHERE r.policy_id = p.id "
+                        + "AND p.company_id = ? AND p.id > ? AND p.id <= ?",
+                payableBase, policyBase, collectionBase, policyBase,
+                org, policyBase, policyBase + count);
+    }
+
     /** 单员工 5001 条 release（5001 个项目 × SIGN_AFTER），用于单员工上限用例。 */
     private void insertSingleEmployeeBulk(long org, long policyBase, long projectBase, long employee, int count) {
         jdbc.update("INSERT INTO fr_perf_commission_policy (id, company_id, project_id, total_cents, "
@@ -736,6 +869,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         private final List<Boolean> autoCommitAtPrepare = Collections.synchronizedList(new ArrayList<>());
         private final List<Integer> fetchSizes = Collections.synchronizedList(new ArrayList<>());
         private final AtomicInteger batchQueries = new AtomicInteger();
+        private final AtomicInteger totalQueries = new AtomicInteger();
 
         private RecordingDataSource(DataSource delegate) {
             super(delegate);
@@ -749,10 +883,13 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                     (proxy, method, args) -> {
                         Object result = method.invoke(real, args);
                         if ("prepareStatement".equals(method.getName()) && args != null && args.length > 0
-                                && String.valueOf(args[0]).contains("fp.total_cents AS payable_cents")) {
-                            batchQueries.incrementAndGet();
-                            autoCommitAtPrepare.add(real.getAutoCommit());
+                                && args[0] instanceof String) {
+                            totalQueries.incrementAndGet();
                             PreparedStatement statement = (PreparedStatement) result;
+                            if (String.valueOf(args[0]).contains("fp.total_cents AS payable_cents")) {
+                                batchQueries.incrementAndGet();
+                                autoCommitAtPrepare.add(real.getAutoCommit());
+                            }
                             return Proxy.newProxyInstance(
                                     PreparedStatement.class.getClassLoader(),
                                     new Class<?>[]{PreparedStatement.class},
@@ -778,6 +915,15 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
         private List<Integer> fetchSizes() {
             return fetchSizes;
+        }
+
+        private int totalQueries() {
+            return totalQueries.get();
+        }
+
+        private void resetQueryCount() {
+            totalQueries.set(0);
+            batchQueries.set(0);
         }
     }
 

@@ -80,7 +80,8 @@ import java.util.regex.Pattern;
  * <p><b>§8.1 通用导出决策</b>：CSV UTF-8 BOM；当前筛选（仅 month）全部结果；员工行数上限 5 万；
  * 金额分→元两位小数（BigDecimal，禁止 double）；文本列 = + - @ 前置单引号防公式注入，
  * 金额列（Number/BigDecimal）不加前缀；空结果仍输出表头；导出动作记审计
- * （actorUserId/orgId/month/行数，复用 system_operate_log 既有通道，零迁移零 DDL）。
+ * （actorUserId/orgId/month/行数，复用 system_operate_log 既有同步通道；首字节前记 attempt，
+ * 完成后记 success，零迁移零 DDL）。
  *
  * <p><b>流式写出（Codex r1 P2-2 / r2 P2-1 / r3 P1+P2）</b>：Controller 返回 StreamingResponseBody；
  * BOM/表头先写。员工 ID 在 prepare 时一次取定（LIMIT 50001，快照语义；流式窗口内新增员工不纳入本次导出）。
@@ -92,7 +93,7 @@ import java.util.regex.Pattern;
  * <p><b>组件复用</b>：CSV 行编码与 platform-wallet 的 {@code FinanceExportService.csvRow} 同型，
  * 但 franchise-performance 编译期不依赖 platform-wallet（避免跨域模块依赖），故在本模块保留
  * 同型小工具并以纯函数测试锁定形态；提成阶段金额映射复用
- * {@link PerfCommissionService#stageAmountOf}；待核对派生复用 {@link PerfCommissionService#stageFacts}。
+ * {@link PerfCommissionService#stageAmountOf}；待核对事实在每个员工批次 SQL 中集合计算，禁止流式回调内访问数据库。
  */
 @Service
 @ConditionalOnProperty(name = "platform.legacy-design-bridge.enabled", havingValue = "false")
@@ -117,29 +118,25 @@ public class PerfCommissionExportService {
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate batchTransaction;
-    private final PerfCommissionService commissions;
     private final OperateLogCommonApi operateLogApi;
 
     @Autowired
-    public PerfCommissionExportService(DataSource source, PerfCommissionService commissions,
-                                       OperateLogCommonApi operateLogApi) {
-        this(newJdbcTemplate(source), newBatchTransaction(source), commissions, operateLogApi);
+    public PerfCommissionExportService(DataSource source, OperateLogCommonApi operateLogApi) {
+        this(newJdbcTemplate(source), newBatchTransaction(source), operateLogApi);
     }
 
     /** 测试/内部装配：直接注入 JdbcTemplate（生产用 DataSource 构造器；不改变生产装配）。 */
-    PerfCommissionExportService(JdbcTemplate jdbc, PerfCommissionService commissions,
-                                OperateLogCommonApi operateLogApi) {
-        this(jdbc, newBatchTransaction(jdbc.getDataSource()), commissions, operateLogApi);
+    PerfCommissionExportService(JdbcTemplate jdbc, OperateLogCommonApi operateLogApi) {
+        this(jdbc, newBatchTransaction(jdbc.getDataSource()), operateLogApi);
     }
 
     private PerfCommissionExportService(JdbcTemplate jdbc, TransactionTemplate batchTransaction,
-                                        PerfCommissionService commissions, OperateLogCommonApi operateLogApi) {
+                                        OperateLogCommonApi operateLogApi) {
         this.jdbc = jdbc;
         this.jdbc.setQueryTimeout(15);
         // PgJDBC 仅在 autoCommit=false + fetchSize 下走游标；批次事务由 batchTransaction 提供
         this.jdbc.setFetchSize(EMPLOYEE_BATCH_SIZE);
         this.batchTransaction = batchTransaction;
-        this.commissions = commissions;
         this.operateLogApi = operateLogApi;
     }
 
@@ -199,6 +196,15 @@ public class PerfCommissionExportService {
     /** 分→元受控数值类型：CSV 金额单元格直接传 BigDecimal，不走公式注入前缀。 */
     public static BigDecimal moneyValue(long cents) {
         return BigDecimal.valueOf(cents).divide(HUNDRED, 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 电子表格标识符不可按数值解析：前置单引号避免 16 位以上 Snowflake ID
+     * 被 Excel 舍入；纯数字转换不引入公式。
+     */
+    public static String spreadsheetIdentifier(long identifier) {
+        String value = Long.toString(identifier);
+        return value.length() > 15 ? "'" + value : value;
     }
 
     /**
@@ -311,9 +317,13 @@ public class PerfCommissionExportService {
     /**
      * 写出 CSV（UTF-8 BOM + 表头 + 员工行）。按员工分批（500/批）查询，批内逐行消费、
      * 只聚合当前一个员工，员工切换即写行并丢弃；每批结束 flush，保证增量下发。
-     * 失败时抛异常（异常前已写出的字节无法撤回，但审计不会被写成成功行数）。
+     * 首字节前必须先持久化 attempt；失败时抛异常（已写字节无法撤回，
+     * 但 attempt 保留且不会写 success）。
      */
     public void writeCsv(PostSnapshot post, ExportPlan plan, OutputStream output) throws IOException {
+        // createOperateLog 是同步 API，且 StreamingResponseBody 运行时本方法无外层业务事务；
+        // attempt 插入成功返回后才允许首字节下发。
+        writeAudit(post.orgId(), post.userId(), plan.month(), "attempt", null);
         output.write(UTF8_BOM);
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8));
         writer.write(csvRow(HEADER));
@@ -335,7 +345,7 @@ public class PerfCommissionExportService {
                 // RowCallbackHandler 只聚合当前员工，事务结束即释放游标。
                 batchTransaction.executeWithoutResult(status -> {
                     EmployeeSink sink = new EmployeeSink(writer);
-                    jdbc.query(batchSql(placeholders), (ResultSet rs) -> sink.accept(rs, post), args.toArray());
+                    jdbc.query(batchSql(placeholders), (ResultSet rs) -> sink.accept(rs), args.toArray());
                     sink.finish();
                     written[0] += sink.written();
                 });
@@ -345,43 +355,67 @@ public class PerfCommissionExportService {
             throw error.getCause();
         }
         writer.flush();
-        writeAudit(post.orgId(), post.userId(), plan.month(), written[0]);
+        writeAudit(post.orgId(), post.userId(), plan.month(), "success", written[0]);
     }
 
     private static String batchSql(String placeholders) {
+        String stage = "CASE r.stage WHEN 'START' THEN 'SIGN_AFTER' "
+                + "WHEN 'TOPPING' THEN 'CAP_DONE' ELSE r.stage END";
         return "SELECT p.id AS policy_id, p.assignee_user_id, p.assignee_name, "
                 + "p.update_time AS policy_update_time, p.total_cents, p.start_cents, p.base_done_cents, "
                 + "p.topping_cents, p.version AS current_version, r.project_id, r.stage, r.policy_version, "
                 + "r.receipt_signature, fp.total_cents AS payable_cents, "
                 + "COALESCE((SELECT SUM(pm.amount_cents) FROM fr_fin_payment pm "
-                + "WHERE pm.payable_id = r.payable_id AND pm.status = '已核实'), 0) AS paid_cents "
+                + "WHERE pm.payable_id = r.payable_id AND pm.status = '已核实'), 0) AS paid_cents, "
+                + "COALESCE(term.amount_cents, 0) AS fact_required, "
+                + "CASE WHEN contract.id IS NOT NULL THEN COALESCE(unified.received, 0) "
+                + "ELSE COALESCE(engineering.received, 0) END AS fact_received, "
+                + "'required:' || COALESCE(term.amount_cents, 0) || "
+                + "CASE WHEN contract.id IS NOT NULL THEN '|unified:' || contract.id || ':' || " + stage
+                + " || ':' || COALESCE(unified.received, 0) "
+                + "ELSE COALESCE('|' || engineering.signature_parts, '') END AS fact_signature "
                 + "FROM fr_perf_commission_release r "
                 + "LEFT JOIN fr_perf_commission_policy p "
                 + "ON p.id = r.policy_id AND p.company_id = r.company_id "
                 + "LEFT JOIN fr_fin_payable fp ON fp.id = r.payable_id AND fp.company_id = r.company_id "
+                + "LEFT JOIN fr_eng_project project ON project.id = r.project_id "
+                + "AND project.company_id = r.company_id "
+                + "LEFT JOIN fr_eng_collection_term term ON term.project_id = r.project_id "
+                + "AND term.company_id = r.company_id AND term.stage = " + stage + " "
+                + "LEFT JOIN LATERAL (SELECT c.id FROM fr_sale_contract c "
+                + "WHERE c.company_id = r.company_id AND c.customer_id = project.customer_id "
+                + "AND c.status = 'SIGNED' LIMIT 1) contract ON TRUE "
+                + "LEFT JOIN fr_sale_payment_stage sale_stage ON sale_stage.company_id = r.company_id "
+                + "AND sale_stage.contract_id = contract.id AND sale_stage.stage = " + stage + " "
+                + "LEFT JOIN LATERAL (SELECT COALESCE(SUM(sr.amount_cents), 0) "
+                + "- COALESCE(SUM(refund.refunded), 0) AS received "
+                + "FROM fr_sale_stage_receipt sr LEFT JOIN LATERAL ("
+                + "SELECT COALESCE(SUM(g.amount_cents), 0) AS refunded FROM fr_fin_refund g "
+                + "WHERE g.company_id = r.company_id AND g.receipt_id = sr.receipt_id "
+                + "AND g.status = '已核实' AND g.replaced_by_id IS NULL) refund ON TRUE "
+                + "WHERE sr.company_id = r.company_id AND sr.stage_id = sale_stage.id) unified ON contract.id IS NOT NULL "
+                + "LEFT JOIN LATERAL (SELECT COALESCE(SUM(GREATEST(0, c.amount_cents "
+                + "- COALESCE(refund.refunded, 0))), 0) AS received, "
+                + "string_agg('c:' || c.id || ':' || c.amount_cents || ':' || COALESCE(refund.refunded, 0), "
+                + "'|' ORDER BY c.id) AS signature_parts FROM fr_eng_collection c "
+                + "LEFT JOIN LATERAL (SELECT COALESCE(SUM(g.amount_cents), 0) AS refunded "
+                + "FROM fr_fin_refund g WHERE g.company_id = r.company_id AND g.receipt_id = c.receipt_id "
+                + "AND g.status = '已核实' AND g.replaced_by_id IS NULL) refund ON c.receipt_id IS NOT NULL "
+                + "WHERE c.company_id = r.company_id AND c.project_id = r.project_id "
+                + "AND c.stage = " + stage + ") engineering ON contract.id IS NULL "
                 + "WHERE r.company_id = ? AND r.release_at >= ?::timestamptz "
                 + "AND r.release_at < ?::timestamptz "
                 + "AND (p.assignee_user_id IN (" + placeholders + ") OR p.id IS NULL) "
                 + "ORDER BY p.assignee_user_id NULLS LAST, r.project_id, r.stage";
     }
 
-    /** 待核对与行视图 reviewDue 同源：规则版本变化，或当前收款事实与释放签名不一致/未足额。 */
-    private boolean reviewDue(PostSnapshot post, MonthRelease release) {
+    /** 待核对与行视图 reviewDue 同源：规则版本变化，或批量收款事实与释放签名不一致/未足额。 */
+    private static boolean reviewDue(MonthRelease release) {
         if (!Objects.equals(release.policyVersion(), release.currentVersion())) {
             return true;
         }
-        String stage = canonicalStage(release.stage());
-        PerfCommissionService.StageFacts facts = commissions.stageFacts(post, release.projectId(), stage);
-        return !facts.eligible() || !Objects.equals(facts.signature(), release.receiptSignature());
-    }
-
-    /** 存量 START/TOPPING 显式映射（与 PerfCommissionService.requireStage 同源）。 */
-    private static String canonicalStage(String stage) {
-        return switch (stage == null ? "" : stage) {
-            case "START" -> "SIGN_AFTER";
-            case "TOPPING" -> "CAP_DONE";
-            default -> stage;
-        };
+        return release.factRequired() <= 0 || release.factReceived() < release.factRequired()
+                || !Objects.equals(release.factSignature(), release.receiptSignature());
     }
 
     private static boolean anyStageUnagreed(MonthRelease release) {
@@ -403,7 +437,7 @@ public class PerfCommissionExportService {
             this.writer = writer;
         }
 
-        private void accept(ResultSet rs, PostSnapshot post) throws SQLException {
+        private void accept(ResultSet rs) throws SQLException {
             Long policyId = rs.getObject("policy_id", Long.class);
             if (policyId == null) {
                 // prepare 已前置拦截；OR p.id IS NULL 使竞态孤儿行进入本批，显式失败而非静默少算
@@ -428,7 +462,8 @@ public class PerfCommissionExportService {
                     rs.getObject("current_version", Integer.class),
                     rs.getLong("project_id"), rs.getString("stage"),
                     rs.getObject("policy_version", Integer.class), rs.getString("receipt_signature"),
-                    rs.getObject("payable_cents", Long.class), rs.getLong("paid_cents"));
+                    rs.getObject("payable_cents", Long.class), rs.getLong("paid_cents"),
+                    rs.getLong("fact_required"), rs.getLong("fact_received"), rs.getString("fact_signature"));
 
             current.acceptName(release.assigneeName(), release.policyUpdateTime());
             long amount = release.payableCents() != null
@@ -441,7 +476,7 @@ public class PerfCommissionExportService {
             project.paidCents += release.paidCents();
             project.fullyPaid = project.fullyPaid && release.paidCents() >= amount;
             if (!project.reviewDue) {
-                project.reviewDue = release.payableCents() == null || reviewDue(post, release);
+                project.reviewDue = release.payableCents() == null || reviewDue(release);
             }
         }
 
@@ -472,7 +507,7 @@ public class PerfCommissionExportService {
 
     // ===================== 审计（§8.1：actor/筛选/行数；既有 system_operate_log 通道，零迁移） =====================
 
-    private void writeAudit(long orgId, long actorUserId, String month, long rows) {
+    private void writeAudit(long orgId, long actorUserId, String month, String status, Long rows) {
         try {
             OperateLogCreateReqDTO req = new OperateLogCreateReqDTO();
             req.setUserId(actorUserId);
@@ -480,9 +515,12 @@ public class PerfCommissionExportService {
             req.setType("加盟商绩效导出");
             req.setSubType("commission");
             req.setBizId(orgId);
-            req.setAction("导出绩效提成=commission；筛选条件=month=" + month + "；行数=" + rows);
+            String rowText = rows == null ? "" : "；行数=" + rows;
+            req.setAction("导出绩效提成=commission；状态=" + status
+                    + "；筛选条件=month=" + month + rowText);
             req.setExtra("{\"report\":\"commission\",\"orgId\":" + orgId
-                    + ",\"month\":\"" + month + "\",\"rows\":" + rows + "}");
+                    + ",\"month\":\"" + month + "\",\"status\":\"" + status + "\""
+                    + (rows == null ? "" : ",\"rows\":" + rows) + "}");
             req.setRequestMethod("GET");
             req.setRequestUrl("/franchise/performance/commission/export");
             // 与 P0 批3 导出同型：DTO 的 userIp/userAgent 带 @NotEmpty；无请求上下文用受控非空占位
@@ -492,8 +530,8 @@ public class PerfCommissionExportService {
             req.setUserAgent(ua == null || ua.isBlank() ? "performance-export" : ua);
             operateLogApi.createOperateLog(req);
         } catch (RuntimeException error) {
-            log.error("[perfCommissionExport][orgId={},month={},rows={}] 导出审计写入失败",
-                    orgId, month, rows, error);
+            log.error("[perfCommissionExport][orgId={},month={},status={},rows={}] 导出审计写入失败",
+                    orgId, month, status, rows, error);
             throw error;
         }
     }
@@ -504,7 +542,8 @@ public class PerfCommissionExportService {
                                 OffsetDateTime policyUpdateTime, long totalCents, long startCents,
                                 long baseDoneCents, long toppingCents, Integer currentVersion,
                                 long projectId, String stage, Integer policyVersion,
-                                String receiptSignature, Long payableCents, long paidCents) {
+                                String receiptSignature, Long payableCents, long paidCents,
+                                long factRequired, long factReceived, String factSignature) {
     }
 
     private record EmployeeRow(long employeeId, String employeeName, int projectCount, long totalCents,
@@ -513,7 +552,7 @@ public class PerfCommissionExportService {
 
         List<Object> cells() {
             return List.of(
-                    employeeId,
+                    spreadsheetIdentifier(employeeId),
                     employeeName == null ? "" : employeeName,
                     projectCount,
                     moneyValue(totalCents),

@@ -29,7 +29,8 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
  * §八通用条款的 {@code franchise:fin:query} 仅适用于财务账表导出（收款/付款/应付/退款/月度对账），
  * 不含本项。前端按 roleCode 显隐，服务端注解为最终门禁。
  *
- * <p>端点形态 = GET（只读导出，无业务副作用；审计写入由 Service 在流式写出完成后承担）。
+ * <p>端点形态 = GET（只读导出；审计为唯一副作用）。Service 在首字节前同步持久化
+ * attempt，流式完成后再记 success；中途失败保留 attempt 且不写 success。
  * 校验/5 万上限/规则完整性在返回 {@link StreamingResponseBody} <b>之前</b>完成，保证 400/500
  * 仍走生产异常链（HTTP 200 + CommonResult）；通过后 BOM/表头/员工行逐批写出，不整份缓冲。
  *

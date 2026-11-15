@@ -99,6 +99,16 @@ class PerfCommissionExportCsvTest {
     }
 
     @Test
+    void snowflakeEmployeeIdIsSpreadsheetTextWhileMoneyRemainsNumeric() {
+        String line = PerfCommissionExportService.csvRow(List.of(
+                PerfCommissionExportService.spreadsheetIdentifier(9_223_372_036_854_775_000L),
+                PerfCommissionExportService.moneyValue(12_345)));
+
+        assertThat(line).isEqualTo("\"'9223372036854775000\",\"123.45\"\r\n");
+        assertThat(line).doesNotContain("=\"");
+    }
+
+    @Test
     void csvEscapesQuotesAndEmbeddedNewlines() {
         assertThat(PerfCommissionExportService.csvRow(List.of("张\"三")))
                 .isEqualTo("\"张\"\"三\"\r\n");

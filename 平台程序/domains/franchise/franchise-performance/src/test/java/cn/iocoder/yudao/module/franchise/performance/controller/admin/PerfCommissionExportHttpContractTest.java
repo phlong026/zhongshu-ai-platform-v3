@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.franchise.performance.controller.admin;
 
 import cn.iocoder.yudao.framework.common.biz.infra.logger.ApiErrorLogCommonApi;
 import cn.iocoder.yudao.framework.common.biz.system.logger.OperateLogCommonApi;
+import cn.iocoder.yudao.framework.common.biz.system.logger.dto.OperateLogCreateReqDTO;
 import cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil;
 import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
 import cn.iocoder.yudao.module.franchise.performance.content.PerfCommissionExportService;
@@ -13,6 +14,7 @@ import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
@@ -197,7 +199,8 @@ class PerfCommissionExportHttpContractTest {
     /**
      * Codex r3 P2-3：HTTP 层中途失败。真实 Service + mock JdbcTemplate：第一名员工行写出后、
      * 第二名员工处抛错（响应已提交）。断言：无 Content-Length（chunked，截断客户端可感知）、
-     * 审计从未调用、已写字节只是前缀（含表头+第一名员工，缺第二名员工），不以完整 CSV 成功结束。
+     * 审计仅有首字节前 attempt、无 success；已写字节只是前缀
+     * （含表头+第一名员工，缺第二名员工），不以完整 CSV 成功结束。
      */
     @Test
     void partialStreamFailureIsNotSuccessfulAndNeverWritesAudit() throws Exception {
@@ -220,10 +223,9 @@ class PerfCommissionExportHttpContractTest {
         }).when(jdbc).query(anyString(), any(RowCallbackHandler.class), any(Object[].class));
 
         Constructor<PerfCommissionExportService> ctor = PerfCommissionExportService.class
-                .getDeclaredConstructor(JdbcTemplate.class, PerfCommissionService.class,
-                        OperateLogCommonApi.class);
+                .getDeclaredConstructor(JdbcTemplate.class, OperateLogCommonApi.class);
         ctor.setAccessible(true);
-        PerfCommissionExportService realService = ctor.newInstance(jdbc, commissions, audit);
+        PerfCommissionExportService realService = ctor.newInstance(jdbc, audit);
 
         ApplicationContextRunner runner = new ApplicationContextRunner()
                 .withPropertyValues("platform.legacy-design-bridge.enabled=false")
@@ -266,7 +268,10 @@ class PerfCommissionExportHttpContractTest {
                 assertThat(status >= 200 && status < 300).isFalse();
             }
         });
-        verify(audit, never()).createOperateLog(any());
+        ArgumentCaptor<OperateLogCreateReqDTO> auditCaptor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
+        verify(audit).createOperateLog(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().getAction())
+                .contains("状态=attempt").doesNotContain("状态=success");
     }
 
     private static ResultSet releaseRow(long projectId, long employeeId, String employeeName) throws Exception {
