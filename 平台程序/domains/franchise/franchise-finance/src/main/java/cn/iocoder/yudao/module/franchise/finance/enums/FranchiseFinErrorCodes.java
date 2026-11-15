@@ -7,6 +7,8 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
  * 消息面向财务，不含敏感凭据。
  */
 public interface FranchiseFinErrorCodes {
+    ErrorCode DESIGN_RECEIPT_EXCEED_PAYMENT = new ErrorCode(1_102_000_039,"设计核收金额超过原付款有效净额，请先核对退款和支出退回");
+    ErrorCode PAYMENT_HAS_DESIGN_RECEIPT = new ErrorCode(1_102_000_040,"该付款仍有有效平台设计核收，请先更正关联核收");
 
     ErrorCode RECEIPT_NOT_FOUND = new ErrorCode(1_102_000_000, "收款记录不存在");
     ErrorCode RECEIPT_TXN_DUPLICATE = new ErrorCode(1_102_000_001, "该流水号已在本公司登记过，请核对原记录");
