@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract
 import cn.iocoder.yudao.module.franchise.design.remote.transport.DesignCapabilityTransport;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.deser.std.StringDeserializer;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -35,8 +37,11 @@ public class RemoteDesignGateway {
         this.callerAppId = callerAppId;
         this.transport = transport;
         this.commands = commands;
-        this.mapper = mapper.copy();
-        this.json = new CapabilityJson(mapper);
+        var protocolStrings = new SimpleModule("design-capability-gateway-strings")
+                .addDeserializer(String.class, StringDeserializer.instance);
+        // Protocol responses must not inherit browser-input cleaning from the application's mapper.
+        this.mapper = mapper.copy().registerModule(protocolStrings);
+        this.json = new CapabilityJson(this.mapper);
         this.admission = java.util.Objects.requireNonNull(admission);
     }
 

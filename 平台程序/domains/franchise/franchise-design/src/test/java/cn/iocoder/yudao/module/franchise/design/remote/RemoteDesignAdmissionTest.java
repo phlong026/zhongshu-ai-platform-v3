@@ -1,9 +1,12 @@
 package cn.iocoder.yudao.module.franchise.design.remote;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.franchise.api.DesignServicePort;
+import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Asset;
 import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Operation;
 import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Empty;
 import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Note;
+import cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Reply;
 import cn.iocoder.yudao.module.franchise.design.remote.transport.DesignCapabilityTransport;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +24,39 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class RemoteDesignAdmissionTest {
+    @Test
+    void signedDownloadUrlSurvivesConsumerInputCleanerAcrossRawGatewayResponse() throws Exception {
+        String signedUrl = "https://cos.example/乡墅.png?x=1&y=<原值>";
+        var cleaner = new com.fasterxml.jackson.databind.module.SimpleModule("consumer-input-cleaner");
+        cleaner.addDeserializer(String.class, new com.fasterxml.jackson.databind.deser.std.StringDeserializer() {
+            @Override
+            public String deserialize(com.fasterxml.jackson.core.JsonParser parser,
+                                      com.fasterxml.jackson.databind.DeserializationContext context)
+                    throws java.io.IOException {
+                return super.deserialize(parser, context).replace("&", "&amp;").replace("<", "&lt;");
+            }
+        });
+        var consumer = new ObjectMapper().registerModule(cleaner);
+        var clean = new ObjectMapper();
+        var commands = mock(RemoteDesignCommandStore.class);
+        var transport = mock(DesignCapabilityTransport.class);
+        var post = new PostSnapshot(1, 2, 3, "store", "sales", null, false, Set.of());
+        var view = new DesignServicePort.DownloadUrlView(signedUrl, Long.MAX_VALUE);
+        when(commands.tenant(post)).thenReturn(1L);
+        when(transport.exchange(eq(Operation.CREATE_DOWNLOAD_URL), any(byte[].class)))
+                .thenReturn(new DesignCapabilityTransport.Response(200,
+                        clean.writeValueAsBytes(new Reply<>(0, "", view, null, false))));
+
+        var gateway = new RemoteDesignGateway("review", transport, commands, consumer);
+        DesignServicePort.DownloadUrlView result = gateway.call(
+                post, Operation.CREATE_DOWNLOAD_URL, null, new Asset(9));
+
+        assertNotEquals(signedUrl, consumer.convertValue(view, DesignServicePort.DownloadUrlView.class).downloadUrl());
+        assertEquals(view, result);
+        verify(commands).tenant(post);
+        verify(transport).exchange(eq(Operation.CREATE_DOWNLOAD_URL), any(byte[].class));
+    }
+
     @Test
     void hundredSimultaneousCallersAreBoundedWithoutWaiting() throws Exception {
         var gate = new RemoteDesignAdmission(16, 4);
