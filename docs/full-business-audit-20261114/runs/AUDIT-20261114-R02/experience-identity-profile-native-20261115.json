@@ -1,0 +1,162 @@
+{
+  "startedAt": "2026-11-15T03:28:26.168Z",
+  "project": "unuploaded experience-repair source",
+  "businessEnvironment": "isolated B",
+  "mocked": false,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "console": [
+    {
+      "stage": "real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    }
+  ],
+  "exceptions": [],
+  "steps": [
+    {
+      "step": "identity_order_and_store_boss_only",
+      "ok": true
+    }
+  ],
+  "automationWarnings": [],
+  "businessWrites": false,
+  "login": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "needPhone": false,
+    "savedByExistingLoginFinalizer": true
+  },
+  "lastAction": "wait: identity real profile request",
+  "identity": [
+    {
+      "postId": "2121621022180384770",
+      "name": "业务员",
+      "orgType": "门店",
+      "lead": "",
+      "selected": false
+    },
+    {
+      "postId": "2121622125286531073",
+      "name": "工程人员",
+      "orgType": "门店",
+      "lead": "",
+      "selected": false
+    },
+    {
+      "postId": "2121622126125391874",
+      "name": "财务专员",
+      "orgType": "门店",
+      "lead": "",
+      "selected": false
+    },
+    {
+      "postId": "2121620613810364417",
+      "name": "老板",
+      "orgType": "门店",
+      "lead": "",
+      "selected": false
+    },
+    {
+      "postId": "2121620216580415490",
+      "name": "设计行政",
+      "orgType": "总部",
+      "lead": "",
+      "selected": true
+    },
+    {
+      "postId": "2121622126905532417",
+      "name": "财务专员",
+      "orgType": "总部",
+      "lead": "",
+      "selected": false
+    }
+  ],
+  "posts": [
+    {
+      "postId": "2121620216580415490",
+      "orgType": "headquarters",
+      "roleCode": "hq-design-admin"
+    },
+    {
+      "postId": "2121620613810364417",
+      "orgType": "store",
+      "roleCode": "boss"
+    },
+    {
+      "postId": "2121621022180384770",
+      "orgType": "store",
+      "roleCode": "sales"
+    },
+    {
+      "postId": "2121622125286531073",
+      "orgType": "store",
+      "roleCode": "engineer"
+    },
+    {
+      "postId": "2121622126125391874",
+      "orgType": "store",
+      "roleCode": "finance"
+    },
+    {
+      "postId": "2121622126905532417",
+      "orgType": "headquarters",
+      "roleCode": "finance"
+    }
+  ],
+  "identityProfile": {
+    "nameReady": true,
+    "hasAvatar": true
+  },
+  "completed": true,
+  "endedAt": "2026-11-15T03:28:36.299Z",
+  "requests": [
+    {
+      "stage": "real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 281,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 57,
+      "result": {}
+    },
+    {
+      "stage": "ordered_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 44,
+      "result": {}
+    }
+  ]
+}

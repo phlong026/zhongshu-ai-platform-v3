@@ -1,0 +1,59 @@
+{
+  "completeCheck": {
+    "exitCode": 0,
+    "command": "NODE_PATH=<existing main checkout node_modules> npm run check",
+    "static": {
+      "wxml": 60,
+      "javascript": 185,
+      "json": 58,
+      "nativePages": 35
+    },
+    "profileNavigation": {
+      "passed": 32,
+      "failed": 0
+    },
+    "companyPoints": {
+      "passed": 7,
+      "failed": 0
+    },
+    "integration": {
+      "passed": 106,
+      "failed": 0
+    }
+  },
+  "targetedChecks": {
+    "profileApi": "passed",
+    "messageSessionGuard": {
+      "passed": 16,
+      "failed": 0
+    },
+    "authContract": {
+      "passed": 54,
+      "failed": 0
+    }
+  },
+  "review": {
+    "P0": 0,
+    "P1": 0,
+    "P2": 0,
+    "scope": "Changed customer, growth, role presentation and profile call range"
+  },
+  "orphanScan": {
+    "baseline": "d64e8194",
+    "baselineOrphans": 96,
+    "currentOrphans": 96,
+    "newOrphans": [],
+    "removedOrphans": [],
+    "newPostDisplayTestRegistered": true,
+    "exitCode": 1,
+    "status": "96 existing orphan scripts; unchanged list; new regression is registered"
+  },
+  "dependencies": {
+    "lockfileChanged": false,
+    "newDependencies": false,
+    "existingAuditAdvisories": 13,
+    "source": "public-catalog-security-scan-20261115.json"
+  },
+  "upload": false,
+  "backendCodeDeployment": false
+}

@@ -1,0 +1,97 @@
+{
+  "at": "2026-11-15T03:15:44.978700+00:00",
+  "environment": "isolated B",
+  "userId": 145,
+  "action": "revoke headquarters boss only",
+  "revokedPostId": "2121619170781044738",
+  "request": {
+    "method": "DELETE",
+    "path": "/platform/org/posts/2121619170781044738",
+    "code": 0
+  },
+  "beforeCount": 7,
+  "afterCount": 6,
+  "remainingPosts": [
+    {
+      "postId": "2121620216580415490",
+      "userId": 145,
+      "orgId": 118,
+      "orgName": "众墅之家联调总部",
+      "orgType": "headquarters",
+      "roleCode": "hq-design-admin",
+      "teamId": null,
+      "lead": false
+    },
+    {
+      "postId": "2121620613810364417",
+      "userId": 145,
+      "orgId": 119,
+      "orgName": "众墅之家联调公司",
+      "orgType": "store",
+      "roleCode": "boss",
+      "teamId": null,
+      "lead": false
+    },
+    {
+      "postId": "2121621022180384770",
+      "userId": 145,
+      "orgId": 119,
+      "orgName": "众墅之家联调公司",
+      "orgType": "store",
+      "roleCode": "sales",
+      "teamId": null,
+      "lead": false
+    },
+    {
+      "postId": "2121622125286531073",
+      "userId": 145,
+      "orgId": 119,
+      "orgName": "众墅之家联调公司",
+      "orgType": "store",
+      "roleCode": "engineer",
+      "teamId": null,
+      "lead": false
+    },
+    {
+      "postId": "2121622126125391874",
+      "userId": 145,
+      "orgId": 119,
+      "orgName": "众墅之家联调公司",
+      "orgType": "store",
+      "roleCode": "finance",
+      "teamId": null,
+      "lead": false
+    },
+    {
+      "postId": "2121622126905532417",
+      "userId": 145,
+      "orgId": 118,
+      "orgName": "众墅之家联调总部",
+      "orgType": "headquarters",
+      "roleCode": "finance",
+      "teamId": null,
+      "lead": false
+    }
+  ],
+  "verified": true,
+  "permissionChecks": [
+    {
+      "case": "revoked_headquarters_boss",
+      "http": 200,
+      "code": 1103000002,
+      "rowCount": null
+    },
+    {
+      "case": "remaining_store_boss",
+      "http": 200,
+      "code": 0,
+      "rowCount": 4
+    },
+    {
+      "case": "store_boss_cannot_manage_headquarters",
+      "http": 200,
+      "code": 1103000004,
+      "rowCount": null
+    }
+  ]
+}
