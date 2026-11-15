@@ -220,7 +220,12 @@ function rowsFor(c, n) {
     rows.push({ label: '确认下发版本', value: '第 ' + dispatch.version + ' 次下发 · ' + (dispatch.drawingVersion || '线下成果') + '（冻结需求 V' + dispatch.requestVersion + '）' });
     if (c.request && dispatch.requestVersion != null && c.request.version > dispatch.requestVersion) rows.push({ label: '版本提示', value: '客户需求已更新至 V' + c.request.version + '，未经正式确认不能替换已下发的 ' + (dispatch.drawingVersion || '线下成果') });
   }
-  c.dispatchHistory.forEach(h => rows.push({ label: '历史下发', value: '第 ' + h.version + ' 次 · ' + (h.drawingVersion || '线下成果') + ' · 因修改意见关闭' }));
+  c.dispatchHistory.forEach(h => {
+    rows.push({ label:'历史下发', value:'第 ' + h.version + ' 次 · ' + (h.drawingVersion || '线下成果') + ' · 历史版本仅供追溯' });
+    [['设计成果','resultFile'],['施工图','drawingFile'],['审核依据','reviewFile']].forEach(([label,key]) => {
+      if(h[key]) rows.push({label:'历史第 ' + h.version + ' 次 · ' + label,value:h[key].name,file:h[key]});
+    });
+  });
   if (fb && fb.note) rows.push({ label: '本次修改意见', value: fb.note });
   if (c.packet) {
     packageRows(c).forEach(r => rows.push({ label: r.label, value: r.file.name, file: r.file }));

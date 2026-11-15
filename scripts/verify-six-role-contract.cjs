@@ -20,6 +20,9 @@ assert.match(P.workbench([summary]).rows[0].url, /commissionId=commission-summar
 const frozen = P.normalize({ ...detail, commission: { ...detail.commission, dispatchSeq: 2 }, dispatches: [{ dispatchSeq: 1, resultAssetId: 'old', drawingAssetId: 'old', reviewAssetId: 'old' }, { dispatchSeq: 2, resultAssetId: 'new', drawingAssetId: 'new', reviewAssetId: 'new', drawingVersion: 'V2' }], handovers: [{ version: 1, dispatchSeq: 1, resultFile: 'old-string', confirmationFile: '{"assetId":"123","name":"确认"}', status: 'RETURNED' }] });
 assert.equal(frozen.dispatch.resultFile.dispatchSeq, 2);
 assert.equal(typeof frozen.packet.resultFile, 'object');
+const historyFiles = P.rowsFor(frozen, P.stateOf(frozen)).filter(r => /^历史第 1 次/.test(r.label) && r.file);
+assert.equal(historyFiles.length, 3, 'authorized participants need real historical result/drawing/review file entries');
+assert.equal(historyFiles[1].file.dispatchSeq, 1);
 assert.equal(P.formInit(frozen, 'handover').confirmationFile, null, 'new dispatch must not inherit old customer confirmation');
 const workflow = fs.readFileSync(path.join(root, 'miniprogram/pages/workflow/index.wxml'), 'utf8');
 assert.match(workflow, /data-view="commission"/);
