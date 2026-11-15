@@ -1,0 +1,26 @@
+[
+  {
+    "path": "/actuator/health",
+    "http": 404
+  },
+  {
+    "path": "/internal-api",
+    "http": 404
+  },
+  {
+    "path": "/provider",
+    "http": 404
+  },
+  {
+    "path": "/admin-api/internal-api",
+    "http": 404
+  },
+  {
+    "path": "/infra/ws/extra",
+    "http": 404
+  },
+  {
+    "path": "/.env",
+    "http": 404
+  }
+]

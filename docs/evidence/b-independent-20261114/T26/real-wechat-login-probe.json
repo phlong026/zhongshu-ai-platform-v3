@@ -1,0 +1,8 @@
+{
+  "stage": "B-real-wechat-login",
+  "http": 200,
+  "code": 0,
+  "message": "",
+  "needPhone": true,
+  "receivedToken": false
+}

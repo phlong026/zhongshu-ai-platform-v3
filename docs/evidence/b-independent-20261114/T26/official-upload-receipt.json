@@ -1,0 +1,66 @@
+{
+  "appid": "wxe584f6fad7b54487",
+  "version": "1.0.20261115.1",
+  "tool": "WeChat DevTools official CLI",
+  "exitCode": 0,
+  "terminalResult": "upload success",
+  "receivedAt": "2026-11-15T01:55:17.555850+00:00",
+  "size": {
+    "total": 6824026,
+    "packages": [
+      {
+        "name": "TOTAL",
+        "size": 6824026
+      },
+      {
+        "name": "main",
+        "size": 1826616
+      },
+      {
+        "name": "/pages/account/",
+        "size": 1040006
+      },
+      {
+        "name": "/pages/admin/",
+        "size": 439664
+      },
+      {
+        "name": "/pages/ai-video/",
+        "size": 19658
+      },
+      {
+        "name": "/pages/build/",
+        "size": 998098
+      },
+      {
+        "name": "/pages/creation/",
+        "size": 14094
+      },
+      {
+        "name": "/pages/design/",
+        "size": 234236
+      },
+      {
+        "name": "/pages/growth/",
+        "size": 16471
+      },
+      {
+        "name": "/pages/studio/",
+        "size": 342215
+      },
+      {
+        "name": "/pages/wallet/",
+        "size": 12496
+      },
+      {
+        "name": "/pages/workflow/",
+        "size": 1880472
+      }
+    ]
+  },
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "urlCheck": true,
+  "experienceVersion": "1.0.20261115.1 confirmed in console",
+  "formalReviewOrRelease": false,
+  "consoleUploadTime": "2026-11-15 09:53:14"
+}

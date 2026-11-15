@@ -1,0 +1,67 @@
+{
+  "appid": "wxe584f6fad7b54487",
+  "version": "1.0.20261115.2",
+  "tool": "WeChat DevTools official CLI",
+  "exitCode": 0,
+  "terminalResult": "upload success",
+  "size": {
+    "total": 6817259,
+    "packages": [
+      {
+        "name": "TOTAL",
+        "size": 6817259
+      },
+      {
+        "name": "main",
+        "size": 1824663
+      },
+      {
+        "name": "/pages/account/",
+        "size": 1039834
+      },
+      {
+        "name": "/pages/admin/",
+        "size": 440256
+      },
+      {
+        "name": "/pages/ai-video/",
+        "size": 19310
+      },
+      {
+        "name": "/pages/build/",
+        "size": 993468
+      },
+      {
+        "name": "/pages/creation/",
+        "size": 14165
+      },
+      {
+        "name": "/pages/design/",
+        "size": 234167
+      },
+      {
+        "name": "/pages/growth/",
+        "size": 16250
+      },
+      {
+        "name": "/pages/studio/",
+        "size": 341828
+      },
+      {
+        "name": "/pages/wallet/",
+        "size": 12470
+      },
+      {
+        "name": "/pages/workflow/",
+        "size": 1880848
+      }
+    ]
+  },
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "urlCheck": true,
+  "sourceCommit": "c13880d0",
+  "newDeviceBehavior": "Only devtools reads saved API-base overrides; real devices use B defaults",
+  "experienceVersion": "1.0.20261115.2 confirmed in console after reload",
+  "formalReviewOrRelease": false,
+  "phoneUat": "not yet performed by user"
+}

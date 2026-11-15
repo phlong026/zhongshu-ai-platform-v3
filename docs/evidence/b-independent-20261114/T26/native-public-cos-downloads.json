@@ -1,0 +1,18 @@
+[
+  {
+    "kind": "flat",
+    "ticketCode": 0,
+    "downloadHttp": 200,
+    "imageLoaded": true,
+    "width": 1152,
+    "height": 2048
+  },
+  {
+    "kind": "elevation",
+    "ticketCode": 0,
+    "downloadHttp": 200,
+    "imageLoaded": true,
+    "width": 1536,
+    "height": 1024
+  }
+]
