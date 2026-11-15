@@ -1,0 +1,12 @@
+{
+  "http": 200,
+  "response": {
+    "code": 0,
+    "msg": "",
+    "data": {
+      "polished": "两层乡墅，建筑面积100平方米；保留原有面积与尺寸要求，不增加其他设计需求。"
+    }
+  },
+  "seconds": 3.72,
+  "idempotencyKey": "b119-credit100-20261115-polish-v1"
+}

@@ -1,0 +1,13 @@
+{
+  "view": "facade-result",
+  "kind": "facade",
+  "title": "AI立面",
+  "platformMode": true,
+  "error": "",
+  "candidateCount": 1,
+  "image": {
+    "loaded": true,
+    "width": 1536,
+    "height": 1024
+  }
+}

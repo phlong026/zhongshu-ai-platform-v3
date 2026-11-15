@@ -1,0 +1,31 @@
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "jobId": "2121770204857896961",
+    "stage": "ELEVATION",
+    "progress": 100,
+    "jobStatus": "SUCCEEDED",
+    "projectId": "2121748280190697473",
+    "refCaseId": null,
+    "candidates": [
+      {
+        "jobId": "2121770204857896961",
+        "slotNo": 1,
+        "assetId": "2121771998698926082",
+        "candidateId": "2121771998703120385"
+      }
+    ],
+    "sourceType": "SELF_UPLOAD",
+    "acceptedCount": 1,
+    "allowedActions": [
+      "VIEW",
+      "CREATE_BUDGET",
+      "VIEW_RESULT",
+      "CREATE_ELEVATION_JOB",
+      "SELECT_ELEVATION",
+      "CREATE_REVISION",
+      "POLL_JOB"
+    ]
+  }
+}

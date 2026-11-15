@@ -1,0 +1,11 @@
+{
+  "path": "/franchise/design/projects/2121748279658020865/flat-jobs",
+  "http": 200,
+  "seconds": 0.06,
+  "idempotencyKey": "b119-credit100-20261115-flat-v1",
+  "response": {
+    "code": 401,
+    "msg": "账号未登录",
+    "data": null
+  }
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "kind": "flat",
+    "projectId": "2121748279658020865",
+    "jobId": "2121770204115505154",
+    "assetId": "2121771914464718850",
+    "candidateCount": 1,
+    "repeatReadStable": true,
+    "downloadHttpStatus": 200,
+    "downloadHost": "zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com",
+    "bytes": 1177094,
+    "sha256": "b4f6c6347332cd90eb379826d488432ecb92e575710767161d5a5d5e2eee85e6",
+    "width": 1152,
+    "height": 2048,
+    "matchesStoredDigestAndDimensions": true
+  },
+  {
+    "kind": "elevation",
+    "projectId": "2121748280190697473",
+    "jobId": "2121770204857896961",
+    "assetId": "2121771998698926082",
+    "candidateCount": 1,
+    "repeatReadStable": true,
+    "downloadHttpStatus": 200,
+    "downloadHost": "zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com",
+    "bytes": 3387145,
+    "sha256": "64627e2a5799e3d2821cbc671b5f049354ee400e3315b196346f8be6780bc6e3",
+    "width": 1536,
+    "height": 1024,
+    "matchesStoredDigestAndDimensions": true
+  }
+]

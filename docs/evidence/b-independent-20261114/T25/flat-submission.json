@@ -1,0 +1,13 @@
+{
+  "http": 200,
+  "response": {
+    "code": 0,
+    "msg": "",
+    "data": {
+      "jobId": "2121770204115505154",
+      "replayed": false
+    }
+  },
+  "seconds": 0.17,
+  "idempotencyKey": "b119-credit100-20261115-flat-v1"
+}

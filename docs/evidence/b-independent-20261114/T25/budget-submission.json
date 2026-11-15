@@ -1,0 +1,17 @@
+{
+  "http": 200,
+  "response": {
+    "code": 0,
+    "msg": "",
+    "data": {
+      "totalHighCents": 15000000,
+      "disclaimer": "仅供参考，不构成报价或结算依据",
+      "totalLowCents": 10000000,
+      "estimateId": "2121770187678027778",
+      "ruleVersionId": 202611140001,
+      "replayed": false
+    }
+  },
+  "seconds": 0.46,
+  "idempotencyKey": "b119-credit100-20261115-budget-v1"
+}

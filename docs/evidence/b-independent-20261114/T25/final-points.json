@@ -1,0 +1,12 @@
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "orgId": 119,
+    "balance": 93,
+    "inFlight": 0,
+    "status": "ACTIVE",
+    "month": "2026-11",
+    "monthUsedTotal": 7
+  }
+}

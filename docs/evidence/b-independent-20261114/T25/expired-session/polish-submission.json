@@ -1,0 +1,11 @@
+{
+  "path": "/franchise/design/note-polish",
+  "http": 200,
+  "seconds": 0.06,
+  "idempotencyKey": "b119-credit100-20261115-polish-v1",
+  "response": {
+    "code": 401,
+    "msg": "账号未登录",
+    "data": null
+  }
+}

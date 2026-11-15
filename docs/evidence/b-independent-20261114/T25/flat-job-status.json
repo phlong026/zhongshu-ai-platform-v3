@@ -1,0 +1,16 @@
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "jobId": "2121770204115505154",
+    "status": "SUCCEEDED",
+    "requestedCount": 1,
+    "acceptedCount": 1,
+    "progress": 100,
+    "phase": "FLAT",
+    "allowedActions": [
+      "VIEW",
+      "POLL_JOB"
+    ]
+  }
+}

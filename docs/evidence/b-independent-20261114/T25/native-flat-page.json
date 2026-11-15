@@ -1,0 +1,11 @@
+{
+  "view": "plan-result",
+  "platformMode": true,
+  "error": "",
+  "candidateCount": 1,
+  "image": {
+    "loaded": true,
+    "width": 1152,
+    "height": 2048
+  }
+}

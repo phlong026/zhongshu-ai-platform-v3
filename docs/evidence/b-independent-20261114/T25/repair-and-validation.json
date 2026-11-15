@@ -1,0 +1,54 @@
+{
+  "promotionFix": {
+    "commit": "db9e127f",
+    "before": "SQLSTATE 25P02 after uk_design_candidate_job_slot duplicate in enclosing transaction",
+    "tests": 45,
+    "failures": 0,
+    "errors": 0,
+    "softDeletedCandidateReplay": "covered"
+  },
+  "assetRouting": {
+    "includedCommit": "168ead07",
+    "tests": 34,
+    "failures": 0,
+    "errors": 0
+  },
+  "internalJsonFix": {
+    "commit": "1ab00593",
+    "before": "consumer String deserializer HTML-escaped signed URL query separators; diagnostic-only HTML decode returned COS 200",
+    "moduleTests": 15,
+    "reactorTests": 43,
+    "failures": 0,
+    "errors": 0,
+    "globalInputXssUnchanged": true
+  },
+  "build": {
+    "jdk": 17,
+    "modules": [
+      "yudao-platform-server",
+      "yudao-design-provider"
+    ],
+    "status": "BUILD SUCCESS"
+  },
+  "rollback": {
+    "reversePatchChecks": "passed",
+    "schema": "B-only additive fr_design_reference_mirror; leave in place when rolling back binary",
+    "bDatabaseBackup": "/mnt/datadisk0/zhongshu-platform-b-integration/backups/pre-api-db9e127f/platform-b.dump",
+    "backupSha256": "7d91e4a8608e62ae12a0e8233dfbafb8874222f2dcf902e1168e51cff8cf038e"
+  },
+  "migration": {
+    "validated": 79,
+    "applied": 1,
+    "version": "20261115.970",
+    "A": false
+  },
+  "gatewayRawResponseFix": {
+    "commit": "46cc52ea",
+    "tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "rawByteParsingPreserved": true,
+    "globalInputCleanerUnchanged": true,
+    "independentReview": "APPROVE"
+  }
+}
