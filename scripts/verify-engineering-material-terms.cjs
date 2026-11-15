@@ -4,11 +4,15 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const {createRequire}=require('node:module');
-function harness(){
+function harness(hooks={}){
  const calls=[],filename=path.resolve(__dirname,'../miniprogram/utils/platform-engineering.js'),module={exports:{}},real=createRequire(filename);
- const api={materials:{terms:async(id,body,key)=>{calls.push({id,body,key});return{id};}},uploadVoucher:async(p,type)=>{calls.push({upload:p,type});return'9007199254740999';}};
+ const storage=Object.create(null);
+ global.wx={getStorageSync:k=>storage[k]||'',setStorageSync:(k,v)=>{storage[k]=v;},removeStorageSync:k=>{delete storage[k];},getSystemInfoSync:()=>({})};
+ const http=real('../api/http');http.saveSession({token:'TEST-ONLY-session',postId:'original-finance',tenantId:'1'});
+ let uploads=0;
+ const api={materials:{terms:async(id,body,key)=>{calls.push({id,body,key});if(hooks.terms)await hooks.terms({id,body,key,http});return{id};}},uploadVoucher:async(p,type)=>{calls.push({upload:p,type});uploads++;if(hooks.upload)await hooks.upload(http);return String(9007199254740998n+BigInt(uploads));}};
  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:n=>n==='../api/franchise/engineering'?api:real(n),wx:{getStorageSync:()=>'',getSystemInfoSync:()=>({})}});
- return{P:module.exports,calls};
+ return{P:module.exports,calls,http,storage};
 }
 function bundle(){return{detail:{id:'91',nodes:[]},collections:{stages:[],records:[]},settle:{},materials:{plans:[{materialPlanId:'92',arrival:'待到货',lines:[{materialId:'93',supplyId:'94',name:'TEST ONLY 水泥',quantity:10,remaining:10,paidCents:0,totalCents:0}]}]},followups:[]};}
 test('actual unpaid supply exposes procurement only to finance terms role, not engineer/read-only',()=>{
@@ -19,6 +23,32 @@ test('actual unpaid supply exposes procurement only to finance terms role, not e
  assert.equal(P.recordView(bundle(),{view:'material',planId:'92',termsRole:true}).canTerms,true);
  const b=bundle();b.materials.plans[0].lines[0].paidCents=1;
  assert.equal(P.recordView(b,{view:'material',planId:'92',financeRole:true}).canTerms,false);
+});
+test('real HTTP session switch after first line stops second line; original identity retries stable keys without duplicate payable effects',async()=>{
+ const committed=new Map();let switchAfterFirst=true;
+ const{P,calls,http}=harness({terms:async({id,body,key,http})=>{
+  if(committed.has(key))assert.deepEqual(body,committed.get(key));else committed.set(key,body);
+  if(id==='94'&&switchAfterFirst){switchAfterFirst=false;http.saveSession({postId:'different-finance'});}
+ }});
+ const f={lines:[{id:'93',supplyId:'94',supplier:'TEST ONLY',unitPrice:'2'},{id:'95',supplyId:'96',supplier:'TEST ONLY',unitPrice:'3'}],file:{path:'/real.pdf',name:'TEST.pdf'}};
+ await assert.rejects(P.perform('material-terms','91',f,null,'stable'),e=>/身份已切换/.test(e.msg||e.message));
+ assert.deepEqual(calls.filter(c=>c.id).map(c=>c.id),['94']);assert.equal(committed.size,1);
+ http.saveSession({postId:'original-finance'});await P.perform('material-terms','91',f,null,'stable');
+ assert.deepEqual(calls.filter(c=>c.id).map(c=>[c.id,c.key]),[['94','stable-s94'],['94','stable-s94'],['96','stable-s96']]);
+ assert.equal(committed.size,2,'stubbed backend idempotency models only two actual payable effects');
+ assert.equal(calls.filter(c=>c.upload).length,1,'restored original post reuses command evidence despite upload session-generation cache invalidation');
+});
+test('post changed during upload, even without a session-generation increment, prevents all terms writes',async()=>{
+ const{P,calls}=harness({upload:async()=>{global.wx.setStorageSync('zs-api-post-v1','different-finance');}});
+ await assert.rejects(P.perform('material-terms','91',{lines:[{supplyId:'94',supplier:'TEST',unitPrice:'2'}],file:{path:'/real.pdf',name:'TEST.pdf'}},null,'stable'),e=>/身份已切换/.test(e.msg||e.message));
+ assert.equal(calls.filter(c=>c.id).length,0);
+});
+test('relogin with the same post cannot reuse a previous authenticated command evidence snapshot',async()=>{
+ const{P,calls,http}=harness(),f={lines:[{supplyId:'94',supplier:'TEST',unitPrice:'2'}],file:{path:'/real.pdf',name:'TEST.pdf'}};
+ await P.perform('material-terms','91',f,null,'stable');
+ http.saveSession({token:'TEST-ONLY-new-login',postId:'original-finance'});
+ await assert.rejects(P.perform('material-terms','91',f,null,'stable'),e=>/身份已切换/.test(e.msg||e.message));
+ assert.equal(calls.filter(c=>c.id).length,1);assert.equal(calls.filter(c=>c.upload).length,1);
 });
 test('money edits change command fingerprint; refreshed line statistics do not; row retry keys fit eighty chars',async()=>{
  const{P,calls}=harness(),f={lines:[{id:'93',supplyId:'94',supplier:'TEST ONLY',unitPrice:'2',freight:'0'}],file:{path:'/real.pdf',name:'TEST.pdf'}};

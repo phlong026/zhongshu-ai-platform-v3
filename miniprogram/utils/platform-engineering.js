@@ -6,6 +6,8 @@
 const api = require('../api/franchise/engineering');
 const http = require('../api/http');
 const epochMsOf = require('./epoch-ms').epochMsOf;
+// 仅同一表单文件、命令键及认证主体可恢复原凭据正文；不放宽上传模块的会话缓存。
+const materialTermsEvidence = new WeakMap();
 
 /**
  * 凭据类动作集合（M07-T04 批次#36：uploadVoucher 已接基-1 票据真传——ticket→bytes→complete），
@@ -376,6 +378,13 @@ async function perform(action, id, form, node, key) {
       }, key);
     }
     case 'material-terms': {
+      const sessionAlive = http.sessionGuard(), postId = String(http.currentPostId());
+      const credential = http.token(), tenantId = String(http.tenantId());
+      const requireAlive = () => {
+        if (!sessionAlive() || String(http.currentPostId()) !== postId
+          || http.token() !== credential || String(http.tenantId()) !== tenantId)
+          throw { code: 0, msg: '身份已切换，请切回原岗位核对采购记录后重试' };
+      };
       const rows = (f.lines || []).filter(l => !l.cancelled && !l.locked && !l.termsLocked && String(l.unitPrice == null ? '' : l.unitPrice).trim());
       if (!rows.length) throw { code: 0, msg: '请填写至少一项实际采购金额' };
       if (!f.file || !f.file.path) throw { code: 0, msg: '请选择真实采购凭据' };
@@ -386,14 +395,30 @@ async function perform(action, id, form, node, key) {
           throw { code: 0, msg: '请填写实际供应方和有效采购金额（最多两位小数）' };
         return { supplyId: String(l.supplyId), supplier, unitPrice: yuan(l, 'unitPrice', '单价'), freight: Number(raw) };
       });
-      const assetId = await uploadVoucher(f.file.path, 'FIN_VOUCHER');
-      const basis = JSON.stringify({ assetId: String(assetId), name: f.file.name || '采购凭据' });
+      requireAlive();
+      const priorEvidence = materialTermsEvidence.get(f.file);
+      const fingerprint = JSON.stringify(commands);
+      if (priorEvidence && priorEvidence.key === key && (priorEvidence.postId !== postId
+        || priorEvidence.credential !== credential || priorEvidence.tenantId !== tenantId))
+        throw { code: 0, msg: '身份已切换，请用原登录身份核对采购记录后重试' };
+      let basis;
+      if (priorEvidence && priorEvidence.key === key && priorEvidence.fingerprint === fingerprint) basis = priorEvidence.basis;
+      else {
+        const assetId = await uploadVoucher(f.file.path, 'FIN_VOUCHER');
+        requireAlive();
+        basis = JSON.stringify({ assetId: String(assetId), name: f.file.name || '采购凭据' });
+        materialTermsEvidence.set(f.file, { key, postId, credential, tenantId, fingerprint, basis });
+      }
+      requireAlive();
       const results = [];
       for (const c of commands) {
+        // 页面回包守卫无法阻止后续循环使用新岗位发送；每次 await 两侧都锁定入口身份。
+        requireAlive();
         const suffix = '-s' + c.supplyId;
         results.push(await api.materials.terms(c.supplyId, {
           supplier: c.supplier, unitPrice: c.unitPrice, freight: c.freight, basis
         }, String(key).slice(-(80 - suffix.length)) + suffix));
+        requireAlive();
       }
       return results;
     }
