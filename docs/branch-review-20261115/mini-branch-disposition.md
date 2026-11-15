@@ -75,4 +75,4 @@
 ## 安全清理与非交付项
 
 - 删除已跟踪的体验版完整二维码 `docs/evidence/b-independent-20261114/T26/B-experience-1.0.20261115.2.png`；相对文档改为“二维码留在 Git 之外并从微信后台实时生成”。未重写旧历史，也未重新上传体验版。
-- 未推送、未合并 `main`、未调用真实生产 API、未上传体验版、未做真机/真实岗位 UAT。依赖漏洞修复由主代理安排的独立任务处理，不在本业务提交修改依赖字段或锁文件。
+- 未推送、未合并 `main`、未调用真实生产 API、未上传体验版、未做真机/真实岗位 UAT。原标记 `DEPENDENCY_FOLLOWUP_PENDING` 的独立依赖任务已在后续提交完成：critical/high 清零，真实 Excel vendor 同步至官方 0.20.3；唯一残余是不可由当前 Buffer 调用面触达的 phin moderate 单一链，详见 [依赖修复记录](dependency-remediation.md)。

@@ -5,7 +5,8 @@
   "scripts": {
     "check:sales": "node scripts/verify-sales-customers.cjs && node scripts/verify-sales-publication.cjs && node scripts/verify-sales-creation-chain.cjs && node scripts/verify-sales-design.cjs && node scripts/verify-business-four-flows.cjs && node scripts/verify-guest-home-role-nav.cjs && npm run check",
     "check:sales:native": "node scripts/verify-sales-offline-native.cjs && node scripts/verify-sales-typography-native.cjs",
-    "check": "node scripts/verify.cjs && npm run check:profile-navigation && npm run check:api-pages && npm run check:company-points && npm run check:account-login && npm run check:integration && npm run check:engineering-ledger-entry && npm run check:finance-project-readonly",
+    "check": "node scripts/verify.cjs && npm run check:profile-navigation && npm run check:api-pages && npm run check:company-points && npm run check:account-login && npm run check:integration && npm run check:engineering-ledger-entry && npm run check:finance-project-readonly && npm run check:dependencies",
+    "check:dependencies": "node --test scripts/verify-dependency-compatibility.cjs scripts/verify-schedule-import.cjs",
     "check:finance-project-readonly": "node --test scripts/verify-finance-project-readonly.cjs",
     "check:engineering-ledger-entry": "node --test scripts/verify-engineering-project-ledger-entry.cjs",
     "check:company-points": "node --test scripts/verify-company-points.cjs",
@@ -132,7 +133,15 @@
     "check:account-login": "node scripts/verify-account-login.cjs && node scripts/verify-login-dual-channel.cjs && node --test scripts/verify-account-login-behavior.cjs"
   },
   "devDependencies": {
-    "miniprogram-automator": "^0.13.0",
-    "xlsx": "^0.18.5"
+    "miniprogram-automator": "0.13.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "overrides": {
+    "miniprogram-automator": {
+      "debug": "4.4.3"
+    },
+    "follow-redirects": "1.16.3",
+    "jpeg-js": "0.4.4",
+    "minimist": "0.2.4"
   }
 }

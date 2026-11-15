@@ -1,5 +1,7 @@
 # 众墅之家 · 原生微信小程序
 
+2026年11月15日依赖与 Excel 运行库修复：`miniprogram-automator@0.13.0` 保持兼容，安全叶子精确覆盖；Node 与小程序真实 vendor 统一使用 SheetJS 官方 0.20.3。`npm run check:dependencies` 已纳入默认检查，覆盖 PNG/JPEG Buffer 和真实进度表导入。完整审计的唯一残余为当前 Buffer 调用面不触达的 phin moderate 链，详见[依赖修复记录](docs/branch-review-20261115/dependency-remediation.md)。
+
 2026年11月15日加盟商统一账号改造（未上传）：登录页改为账号密码与微信；支持完整账号、拼音或缩写查找、多候选明确选择和当前设备默认账号。总部开通门店老板，老板在“成员与权限”给员工开独立账号、复制一次性交付信息；微信与密码始终指向同一用户。行为回归运行 `npm run check:account-login`，已纳入 `npm run check` 默认检查。新后端接口、存量账号准备及验收边界见[开通与登录说明](docs/franchise-account-login-20261115.md)。
 
 2026年11月9日“我的”页面导航修复：所有岗位在原生 `/pages/profile/index` 渲染；旧老板、销售个人页只作单向兼容跳转，避免真实登录后两页相互跳转、卡在默认空资料状态。资料、消息与课程继续异步加载，不等待接口响应才显示页面。回归命令为 `npm run check:profile-navigation`，已纳入 `npm run check`；覆盖九类岗位、旧入口、慢请求和连续切换。详见 [修复与验证记录](docs/profile-navigation-fix-20261109.md)，开发版上传和手机验收须另行记录。

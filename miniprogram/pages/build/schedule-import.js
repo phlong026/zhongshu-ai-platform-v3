@@ -14,6 +14,7 @@ function asDate(value,row,name){
 }
 function importNodes(buffer){
  if(buffer instanceof ArrayBuffer)buffer=new Uint8Array(buffer);
+ if(!(buffer instanceof Uint8Array)||buffer.length<4||buffer[0]!==0x50||buffer[1]!==0x4b||buffer[2]!==0x03||buffer[3]!==0x04)throw Error('文件无法解析，请确认为 .xlsx 格式的进度计划表');
  let rows;try{const wb=XLSX.read(buffer,{type:'array',cellDates:true}),ws=wb.Sheets[wb.SheetNames[0]];rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}).filter(r=>r.some(c=>String(c==null?'':c).trim()));}
  catch(e){throw Error('文件无法解析，请确认为 .xlsx 格式的进度计划表');}
  if(!rows.length)throw Error('表格没有内容，请按“节点名称、开始日期、结束日期”三列填写');
