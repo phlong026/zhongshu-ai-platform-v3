@@ -1,0 +1,22 @@
+{
+  "appid": "wxe584f6fad7b54487",
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "version": "1.0.20261115.4",
+  "sourceCommit": "c89037c47906552081a9df6402cc013c035963f5",
+  "sourceBranch": "feat/franchise-account-login-mini-20261115",
+  "tool": "WeChat DevTools official CLI",
+  "uploadedAt": "2026-11-15T16:03:12+08:00",
+  "taskId": "confirmation_upload_349c0e86-c413-41b4-9de9-fabe657ef1cf",
+  "status": "success",
+  "detail": "execution_success",
+  "resultSuccess": true,
+  "totalBytes": 6891922,
+  "accountPackageBytes": 1050876,
+  "supersedes": {
+    "version": "1.0.20261115.3",
+    "sourceCommit": "04288f3c04acd36a8dd4afc816531c3b1fa8d413",
+    "reason": "该版本未包含独立B近期业务链修复，不作为本次测试版本"
+  },
+  "formalReviewOrRelease": false,
+  "phoneUat": "pending user verification"
+}
