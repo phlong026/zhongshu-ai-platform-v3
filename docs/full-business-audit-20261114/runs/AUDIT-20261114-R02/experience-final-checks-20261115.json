@@ -1,7 +1,7 @@
 {
   "completeCheck": {
     "exitCode": 0,
-    "command": "NODE_PATH=<existing main checkout node_modules> npm run check",
+    "command": "npm run check",
     "static": {
       "wxml": 60,
       "javascript": 185,
@@ -17,9 +17,11 @@
       "failed": 0
     },
     "integration": {
-      "passed": 106,
+      "passed": 113,
       "failed": 0
-    }
+    },
+    "finishedAt": "2026-11-15T04:30:46.966741+00:00",
+    "usedExistingDependencies": true
   },
   "targetedChecks": {
     "profileApi": "passed",
@@ -30,13 +32,17 @@
     "authContract": {
       "passed": 54,
       "failed": 0
+    },
+    "customerContext": {
+      "passed": 23,
+      "failed": 0
     }
   },
   "review": {
     "P0": 0,
     "P1": 0,
     "P2": 0,
-    "scope": "Changed customer, growth, role presentation and profile call range"
+    "scope": "Changed customer, growth, role presentation, profile read, progress/delivery context and stage WXML/WXSS"
   },
   "orphanScan": {
     "baseline": "d64e8194",
@@ -55,5 +61,18 @@
     "source": "public-catalog-security-scan-20261115.json"
   },
   "upload": false,
-  "backendCodeDeployment": false
+  "backendCodeDeployment": false,
+  "nativeBuildMatchesTrackedMiniProgramFiles": 720,
+  "nativeStageVerification": {
+    "requests": 21,
+    "consoleErrors": 0,
+    "exceptionEvents": 0,
+    "businessRecordWrites": 0,
+    "remainingWarning": "WeChat global-component lazy-injection performance warning",
+    "views": [
+      "contract",
+      "progress",
+      "delivery"
+    ]
+  }
 }

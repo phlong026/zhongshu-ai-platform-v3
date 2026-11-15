@@ -1,0 +1,367 @@
+{
+  "startedAt": "2026-11-15T03:41:17.980Z",
+  "project": "unuploaded experience-repair source",
+  "businessEnvironment": "isolated B",
+  "mocked": false,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "console": [
+    {
+      "stage": "real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    }
+  ],
+  "exceptions": [],
+  "steps": [
+    {
+      "step": "contract_stage_text_amounts",
+      "ok": true
+    },
+    {
+      "step": "progress_stage_text_amounts",
+      "ok": true
+    },
+    {
+      "step": "delivery_deep_link_empty_state",
+      "ok": true
+    }
+  ],
+  "automationWarnings": [],
+  "businessWrites": false,
+  "login": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "needPhone": false,
+    "savedByExistingLoginFinalizer": true
+  },
+  "lastAction": "wait: delivery real customer and correct not-created state",
+  "stageViews": [
+    {
+      "view": "contract",
+      "id": "2121804604685508610",
+      "status": "SIGNED",
+      "stages": [
+        {
+          "id": "2121804604693897217",
+          "stageText": "签约后",
+          "statusText": "待回款",
+          "amountText": "484920.00",
+          "collectedText": "0.00",
+          "balanceText": "484920.00"
+        },
+        {
+          "id": "2121804604698091522",
+          "stageText": "基础完成后",
+          "statusText": "待回款",
+          "amountText": "0.00",
+          "collectedText": "0.00",
+          "balanceText": "0.00"
+        },
+        {
+          "id": "2121804604702285825",
+          "stageText": "封顶后",
+          "statusText": "待回款",
+          "amountText": "0.00",
+          "collectedText": "0.00",
+          "balanceText": "0.00"
+        }
+      ],
+      "renderedStageRows": [
+        "签约后（待回款）办理回款¥ 484920.00 · 余 484920.00",
+        "基础完成后（待回款）¥ 0.00",
+        "封顶后（待回款）¥ 0.00"
+      ]
+    },
+    {
+      "view": "progress",
+      "id": "2121804604685508610",
+      "status": "SIGNED",
+      "stages": [
+        {
+          "id": "2121804604693897217",
+          "stageText": "签约后",
+          "statusText": "待回款",
+          "amountText": "484920.00",
+          "collectedText": "0.00",
+          "balanceText": "484920.00"
+        },
+        {
+          "id": "2121804604698091522",
+          "stageText": "基础完成后",
+          "statusText": "待回款",
+          "amountText": "0.00",
+          "collectedText": "0.00",
+          "balanceText": "0.00"
+        },
+        {
+          "id": "2121804604702285825",
+          "stageText": "封顶后",
+          "statusText": "待回款",
+          "amountText": "0.00",
+          "collectedText": "0.00",
+          "balanceText": "0.00"
+        }
+      ],
+      "renderedStageRows": [
+        "签约后 待回款¥ 484920.00",
+        "基础完成后 待回款¥ 0.00",
+        "封顶后 待回款¥ 0.00"
+      ]
+    }
+  ],
+  "delivery": {
+    "customerLoaded": true,
+    "noDelivery": true,
+    "signedContractId": "2121804604685508610"
+  },
+  "completed": true,
+  "endedAt": "2026-11-15T03:41:42.379Z",
+  "requests": [
+    {
+      "stage": "real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 223,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 57,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 54,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 44,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/growth/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 52,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 65,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 68,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 113,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/drafts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 111,
+      "result": {}
+    },
+    {
+      "stage": "contract_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 61,
+      "result": {}
+    },
+    {
+      "stage": "contract_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 61,
+      "result": {}
+    },
+    {
+      "stage": "contract_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "contract_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 77,
+      "result": {}
+    },
+    {
+      "stage": "progress_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 49,
+      "result": {}
+    },
+    {
+      "stage": "progress_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 50,
+      "result": {}
+    },
+    {
+      "stage": "progress_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 53,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "progress_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 54,
+      "result": {}
+    },
+    {
+      "stage": "progress_stage_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/deliveries",
+      "bodyKeys": [
+        "contractId"
+      ],
+      "http": 200,
+      "businessCode": 1113000004,
+      "durationMs": 48
+    },
+    {
+      "stage": "delivery_deep_link",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 53,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "delivery_deep_link",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 66,
+      "result": {}
+    },
+    {
+      "stage": "delivery_deep_link",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/deliveries",
+      "bodyKeys": [
+        "contractId"
+      ],
+      "http": 200,
+      "businessCode": 1113000004,
+      "durationMs": 55
+    }
+  ]
+}

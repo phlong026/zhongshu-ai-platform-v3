@@ -89,9 +89,10 @@ function harness(options = {}) {
       create(body) { quoteCreates.push(body); return Promise.resolve({}); }
     },
     contracts: {
-      list: () => Promise.resolve([]),
+      list: () => Promise.resolve(options.contracts || []),
       create(body) { contractCreates.push(body); return Promise.resolve({}); }
-    }
+    },
+    deliveries: { get: () => Promise.resolve(options.delivery || {}) }
   };
   Object.assign(page, {
     id: 'customer-9',
@@ -145,6 +146,41 @@ test('customer detail initializes saleWrite and refreshes it after a role switch
   await flush(); await flush();
   assert.equal(h.page.data.saleWrite, false);
 });
+
+for (const view of ['progress', 'delivery']) {
+  test(view + ' fresh deep link loads the real CRM customer context', async () => {
+    const h = harness();
+    if (view === 'progress') h.page.loadPlatformProgress();
+    else h.page.loadPlatformDelivery();
+    await flush(); await flush();
+    assert.deepEqual(h.detailCalls, ['customer-9']);
+    assert.equal(h.page.data.customer.id, 'customer-9');
+    assert.equal(h.page.data.customer.name, '王先生');
+    assert.equal(h.page.data.platformStatus, 'ready');
+  });
+
+  test(view + ' customer failure is visible and never fabricates context', async () => {
+    const h = harness({ customerGet: () => Promise.reject({ message: '客户资料加载失败' }) });
+    if (view === 'progress') h.page.loadPlatformProgress();
+    else h.page.loadPlatformDelivery();
+    await flush(); await flush();
+    assert.equal(h.page.data.customer, null);
+    assert.equal(h.page.data.platformStatus, 'degraded');
+    assert.match(h.page.data.error, /客户/);
+  });
+
+  test(view + ' ignores customer context arriving after a post switch', async () => {
+    const pending = deferred();
+    const h = harness({ customerGet: () => pending.promise });
+    if (view === 'progress') h.page.loadPlatformProgress();
+    else h.page.loadPlatformDelivery();
+    h.switchPost();
+    pending.resolve({ customer: { id: 'customer-9', name: '旧岗位客户', status: 'FOLLOWING' }, follows: [], schemes: [] });
+    await flush(); await flush();
+    assert.deepEqual(h.detailCalls, ['customer-9']);
+    assert.equal(h.page.data.customer, null);
+  });
+}
 
 test('customer context failure is visible and never injects a placeholder customer', async () => {
   const h = harness({ detailResponse: () => Promise.reject({ code: 1110000001, message: '客户不存在或无权访问' }) });
@@ -290,6 +326,29 @@ test('trade views expose loading, retry, and saleWrite button gates', () => {
   assert.match(wxml, /wx:if="\{\{saleWrite\}\}"[^>]*bindtap="submit">登记需求/);
   assert.match(wxml, /wx:if="\{\{saleWrite\}\}"[^>]*bindtap="submit">开始测算/);
   assert.match(wxml, /saleWrite&&requirementsStatus==='ready'&&contractForm/);
+});
+
+test('real contract stages map and render without shadowing the tone WXS module', async () => {
+  const contract = {
+    contract: { id: 'contract-1', customerId: 'customer-9', totalCents: 48492000, status: 'SIGNED', revision: 2 },
+    stages: [
+      { stageId: 'stage-1', stage: 'SIGN_AFTER', label: '签约后', amountCents: 48492000, collectedCents: 0, balanceCents: 48492000, status: 'PENDING' },
+      { stageId: 'stage-2', stage: 'BASE_DONE', label: '基础完成后', amountCents: 0, collectedCents: 0, balanceCents: 0, status: 'PENDING' },
+      { stageId: 'stage-3', stage: 'CAP_DONE', label: '封顶后', amountCents: 0, collectedCents: 0, balanceCents: 0, status: 'PENDING' }
+    ]
+  };
+  const h = harness({ contracts: [contract] });
+  h.page.loadPlatformContract();
+  await flush(); await flush();
+  assert.equal(h.page.data.salesContracts[0].totalText, '484920.00');
+  assert.deepEqual(
+    h.page.data.salesContracts[0].stages.map(row => [row.stageText, row.statusText, row.amountText]),
+    [['签约后', '待回款', '484920.00'], ['基础完成后', '待回款', '0.00'], ['封顶后', '待回款', '0.00']]
+  );
+
+  const wxml = fs.readFileSync(path.join(ROOT, 'miniprogram/pages/workflow/index.wxml'), 'utf8');
+  assert.doesNotMatch(wxml, /wx:for-item="st"/);
+  assert.match(wxml, /wx:for-item="stageRow"[\s\S]{0,300}\{\{stageRow\.stageText\}\}/);
 });
 
 test('budget never derives roof area from the requirement width', async () => {

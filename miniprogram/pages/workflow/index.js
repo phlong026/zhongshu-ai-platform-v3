@@ -475,6 +475,7 @@ Page({
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   this.platformTradeFrame();
   this.setData({view:'delivery',title:'交付验收',salesContracts:null,delivery:null,noSignedContract:false,noDelivery:false,deliveryError:'',signedContractId:''});
+  this.loadTradeCustomerContext(gen,sessionGen,postKey);
   const api=this.platformSalesApi();
   api.contracts.list(this.id).then(rows=>{
    if(this.stale(gen,sessionGen,postKey))return;
@@ -540,6 +541,7 @@ Page({
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   this.platformTradeFrame();
   this.setData({view:'progress',title:'客户工作区',customerTabs:['概况','跟进','业务进度'],activeCustomerTab:2,progressRequirements:[],progressQuotes:[],progressContracts:[],progressDelivery:null});
+  this.loadTradeCustomerContext(gen,sessionGen,postKey);
   const api=this.platformSalesApi();
   api.requirements.list(this.id).then(rows=>{if(!this.stale(gen,sessionGen,postKey))this.setData({progressRequirements:(rows||[]).map(r=>PF.requirementRow(r))});}).catch(()=>{});
   api.quotes.list(this.id).then(rows=>{if(!this.stale(gen,sessionGen,postKey))this.setData({progressQuotes:(rows||[]).map(q=>PF.quoteRow(q))});}).catch(()=>{});

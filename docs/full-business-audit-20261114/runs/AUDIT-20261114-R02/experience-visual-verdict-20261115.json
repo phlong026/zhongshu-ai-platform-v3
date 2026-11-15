@@ -7,12 +7,19 @@
     "realProfileReplacesGuest": true,
     "customerHeaderWrapsWithoutTextClipping": true,
     "businessActionsVisibleForSales": true,
-    "catalogRealCoversVisible": true
+    "catalogRealCoversVisible": true,
+    "stageNamesAndAmountsVisible": true,
+    "progressContractRowsStacked": true,
+    "progressDeliveryHeadersWrap": true,
+    "deliveryNotCreatedStateVisible": true
   },
   "evidence": [
     "experience-identity-order-20261115.png",
     "experience-customer-header-20261115.png",
-    "experience-catalog-integrated-20261115.png"
+    "experience-catalog-integrated-20261115.png",
+    "experience-contract-stages-fixed-20261115.png",
+    "experience-progress-stages-fixed-20261115.png",
+    "experience-delivery-context-fixed-20261115.png"
   ],
   "boundary": "DevTools simulator screenshots; not real-phone acceptance or complete cross-role audit"
 }

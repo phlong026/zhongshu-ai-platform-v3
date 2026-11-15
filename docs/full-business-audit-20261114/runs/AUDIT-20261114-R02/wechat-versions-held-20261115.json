@@ -1,0 +1,24 @@
+{
+  "source": "Refreshed visible WeChat official version-management page",
+  "appName": "众墅之家赋能平台",
+  "appid": "wxe584f6fad7b54487",
+  "versions": [
+    {
+      "developer": "HiAi智能体",
+      "version": "1.0.20261030.3",
+      "submittedAt": "2026-10-30 08:49:29",
+      "experience": false
+    },
+    {
+      "developer": "裴火荣",
+      "version": "1.0.20261115.2",
+      "submittedAt": "2026-11-15 10:08:16",
+      "experience": true
+    }
+  ],
+  "uploadedDuringThisRepair": false,
+  "changedExperienceDuringThisRepair": false,
+  "boundary": "Visible version-management snapshot from before interruption. Local repairs were not uploaded; this is not a fresh post-resume version-state claim.",
+  "observedOn": "2026-11-15",
+  "postResumeBrowserSession": "No active session available; no new browser/version-management actions completed after resume."
+}
