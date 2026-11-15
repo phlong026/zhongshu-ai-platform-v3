@@ -157,7 +157,19 @@ Page({
  pickSite(e){const r=this.data.siteRecords.find(r=>r.id===e.currentTarget.dataset.id);if(r)this.setData({'form.siteId':r.id,'form.siteNote':r.note,'form.siteFile':r.file||null,'form.siteReason':''});},
  cancelCorrection(){this.setData({'form.correctId':'','form.siteId':''});},
  go(e){const d=e.currentTarget.dataset;if(d.url)Nav.open(d.url);},
- operating(e){const p=this.data.p;Nav.open('/pages/admin/home/index?view=operating&id='+encodeURIComponent(p.projectId)+((this.data.view==='funding'||this.data.view==='node')&&this.data.node?'&nodeId='+encodeURIComponent(this.data.node.id):''));}, // 经营视图由 owner-page 承接
+ operating(e){
+  const p=this.data.p;
+  if(P.online()){
+   const http=require('../../../api/http'),alive=http.sessionGuard(),postId=String(http.currentPostId()),post=require('../../../api/auth').currentApiPost();
+   const identity=postId+':'+http.sessionGeneration();
+   if(!alive()||this.__disposed||this.__inactive||this.__identity!==identity||!p||String(p.id)!==String(this.id)||String(p.projectId)!==String(this.id))
+    return this.fail('项目或身份已更新，请刷新后重新进入项目账');
+   // .3 原付款入口保留工程归属；B 使用已有项目账，不进入丢失项目上下文的老板首页。
+   if(e.currentTarget.dataset.view==='payables'&&post?.orgType==='store'&&['boss','owner','finance','finance-lead'].includes(post.roleCode))
+    return Nav.open('/pages/admin/finance-desk/index?view=project&id='+encodeURIComponent(String(this.id)));
+  }
+  Nav.open('/pages/admin/home/index?view=operating&id='+encodeURIComponent(p.projectId)+((this.data.view==='funding'||this.data.view==='node')&&this.data.node?'&nodeId='+encodeURIComponent(this.data.node.id):''));
+ },
  home(){Nav.open('/pages/build/home/index');},back(){Nav.back();},
  fail(error){this.setData({error});wx.showToast({title:error,icon:'none'});}
 });
