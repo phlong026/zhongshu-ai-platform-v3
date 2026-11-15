@@ -50,6 +50,30 @@ class DesignCapabilityContractTest {
         assertTrue(tree.at("/result/projectId").isIntegralNumber());
     }
 
+    @Test
+    void internalProtocolStringsDoNotInheritConsumerInputCleaning() throws Exception {
+        String signedUrl = "https://cos.example/乡墅.png?x=1&y=<原值>";
+        var cleaning = new com.fasterxml.jackson.databind.module.SimpleModule("consumer-input-cleaner");
+        cleaning.addDeserializer(String.class, new com.fasterxml.jackson.databind.deser.std.StringDeserializer() {
+            @Override
+            public String deserialize(com.fasterxml.jackson.core.JsonParser parser,
+                                      com.fasterxml.jackson.databind.DeserializationContext context)
+                    throws java.io.IOException {
+                return super.deserialize(parser, context).replace("&", "&amp;").replace("<", "&lt;");
+            }
+        });
+        var consumer = consumerMapper().registerModule(cleaning);
+        var capability = new cn.iocoder.yudao.module.franchise.api.capability.CapabilityJson(consumer);
+        var source = new DesignServicePort.DownloadUrlView(signedUrl, Long.MAX_VALUE);
+
+        assertNotEquals(signedUrl, consumer.convertValue(source, DesignServicePort.DownloadUrlView.class).downloadUrl());
+        assertEquals(signedUrl, capability.result(source, Operation.CREATE_DOWNLOAD_URL)
+                instanceof DesignServicePort.DownloadUrlView view ? view.downloadUrl() : null);
+        assertEquals(source, capability.read(capability.write(source), DesignServicePort.DownloadUrlView.class));
+        assertTrue(new com.fasterxml.jackson.databind.ObjectMapper().readTree(capability.write(source))
+                .get("expiresAt").isIntegralNumber());
+    }
+
     private com.fasterxml.jackson.databind.ObjectMapper consumerMapper() {
         var module = new com.fasterxml.jackson.databind.module.SimpleModule("consumer-long-fixture");
         module.addSerializer(Long.class, cn.iocoder.yudao.framework.common.util.json.databind.NumberSerializer.INSTANCE);

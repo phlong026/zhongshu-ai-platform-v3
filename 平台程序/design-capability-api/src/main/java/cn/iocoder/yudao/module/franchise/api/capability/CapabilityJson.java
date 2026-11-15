@@ -3,10 +3,11 @@ package cn.iocoder.yudao.module.franchise.api.capability;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.deser.std.StringDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.ser.std.NumberSerializers;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ser.std.NumberSerializers;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -20,10 +21,13 @@ public final class CapabilityJson {
     public CapabilityJson(ObjectMapper mapper) {
         // The internal protocol and fingerprint use exact integer tokens, including Snowflake IDs.
         // Override only the copy: browser-facing JSON must keep its safe-integer string policy.
-        var integers = new SimpleModule("design-capability-integers");
-        integers.addSerializer(Long.class, new NumberSerializers.LongSerializer(Long.class));
-        integers.addSerializer(Long.TYPE, new NumberSerializers.LongSerializer(Long.TYPE));
-        this.mapper = mapper.copy().registerModule(integers);
+        var codec = new SimpleModule("design-capability-codec");
+        codec.addSerializer(Long.class, new NumberSerializers.LongSerializer(Long.class));
+        codec.addSerializer(Long.TYPE, new NumberSerializers.LongSerializer(Long.TYPE));
+        // The signed internal protocol must preserve URLs and fingerprints byte-for-byte instead of
+        // inheriting browser-input cleaners from the consumer ObjectMapper.
+        codec.addDeserializer(String.class, StringDeserializer.instance);
+        this.mapper = mapper.copy().registerModule(codec);
     }
 
     public String fingerprint(DesignCapabilityContract.Request<?> request) {
