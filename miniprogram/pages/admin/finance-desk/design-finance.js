@@ -59,7 +59,7 @@ function attach(page, api) {
       if (!alive() || this.__disposed) return;
       this.designFeePage = pageNo;
       const rows = result.list.map(row => ({ ...row, key: row.commissionId + ':' + row.submissionVersion + ':' + row.stage,
-        expectedText: yuan(row.expectedCents), paidText: yuan(row.storePaidNetCents), receivedText: yuan(row.hqReceivedNetCents), exceptionText: row.financialException ? '财务异常：下发后发生退款/退回，当前净额不足' : '',
+        stageLabel: ({FULL:'全额',FIRST:'首款',TAIL:'尾款'})[row.stage] || '设计费', expectedText: yuan(row.expectedCents), paidText: yuan(row.storePaidNetCents), receivedText: yuan(row.hqReceivedNetCents), exceptionText: row.originPaymentOverReceivedCents > 0 ? '原付款与平台核收金额不一致，请先核对来源并更正' : row.financialException ? '下发后发生退款或退回，当前净额不足，请核对' : '',
         canPay: row.allowedActions.includes('PAYMENT_REGISTER'),
         payments: row.payments.map(p => ({ ...p, receivableText: yuan(p.receivableCents), canReceive: row.allowedActions.includes('RECEIPT_REGISTER') && p.receivableCents > 0 })) }));
       this.setData({ designFeeStatus: 'ready', designFeeRows: append ? (this.data.designFeeRows || []).concat(rows) : rows, designFeeTotal: result.total });
@@ -118,7 +118,7 @@ function attach(page, api) {
       const result = await api.projectLedger(id, pageNo, 20);
       if (!alive() || this.__disposed || String(this.id) !== id) return;
       this.projectLedgerPage = pageNo;
-      const entries = result.entries.list.map(r => ({ ...r, key: r.type + ':' + r.id, amountText: yuan(r.amountCents) }));
+      const entries = result.entries.list.map(r => ({ ...r, key: r.type + ':' + r.id, typeLabel: ({RECEIVABLE:'合同应收',PAYABLE:'应付登记',PAYMENT:'付款',RECEIPT:'收款',REFUND:'收款退款',EXPENSE_REFUND:'支出退回'})[r.type] || '账目', amountText: yuan(r.amountCents) }));
       this.setData({ ledgerProjectLoading: false, projectLedgerSummary: Object.keys(result.summary).map(key => ({ key, label: { receivableCents: '合同应收', receivedCents: '实收', refundedCents: '退款', paidCents: '实付', expenseRefundedCents: '支出退回', payableCents: '应付' }[key] || key, value: yuan(result.summary[key]) })), projectLedgerEntries: append ? (this.data.projectLedgerEntries || []).concat(entries) : entries, projectLedgerTotal: result.entries.total });
     } catch (e) { if (alive() && !this.__disposed) this.setData({ ledgerProjectLoading: false, ledgerProjectError: e.message || e.msg || '项目账加载失败' }); }
   };
