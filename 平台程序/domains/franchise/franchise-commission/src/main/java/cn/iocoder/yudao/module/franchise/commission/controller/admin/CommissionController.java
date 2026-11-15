@@ -139,7 +139,7 @@ public class CommissionController {
     }
 
     @PostMapping("/commissions/{id}/commands/{action}")
-    @Operation(summary = "委托命令：design-complete / design-dispatch / commission-feedback / packet-submit / packet-return / packet-receive")
+    @Operation(summary = "办理委托与设计交付", description = "design-complete / design-dispatch / commission-feedback / packet-submit / packet-return / packet-receive")
     @PreAuthorize("@post.has('franchise:commission:submit') or @post.has('franchise:commission:design') "
             + "or @post.has('franchise:commission:receive')")
     public CommonResult<CommissionDetail> command(@PathVariable long id, @PathVariable String action,
