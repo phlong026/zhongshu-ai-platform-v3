@@ -82,6 +82,34 @@ class PerfCommissionExportCsvTest {
                 "required:100|c:9:61:5|c:3:40:0")).isFalse();
         assertThat(PerfCommissionService.sameStageSignature(canonical,
                 "required:100|c:9:60:6|c:3:40:0")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:4:40:0|c:9:60:5")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:9:60:5")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:9:60:5|c:3:40:0|c:3:40:0")).isFalse();
+    }
+
+    @Test
+    void engineeringStageSignatureRejectsNonCanonicalDecimals() {
+        String canonical = "required:100|c:3:40:0|c:9:60:5";
+
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:+100|c:9:60:5|c:3:40:0")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:09:060:5|c:03:040:0")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:9:60:5|c:3:40:-0")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:9223372036854775808|c:9:60:5|c:3:40:0")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:-100|c:9:60:5|c:3:40:0")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:0:40:0|c:9:60:5")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:3:0:0|c:9:60:5")).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(canonical,
+                "required:100|c:3:40:-1|c:9:60:5")).isFalse();
     }
 
     @Test

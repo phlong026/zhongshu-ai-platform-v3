@@ -376,17 +376,23 @@ public class PerfCommissionService {
             return null;
         }
         try {
-            long required = Long.parseLong(parts[0].substring("required:".length()));
+            Long required = parseCanonicalDecimal(parts[0].substring("required:".length()), false);
+            if (required == null) {
+                return null;
+            }
             List<CollectionSignature> collections = new ArrayList<>(Math.max(0, parts.length - 1));
             for (int i = 1; i < parts.length; i++) {
                 String[] collection = parts[i].split(":", -1);
                 if (collection.length != 4 || !"c".equals(collection[0])) {
                     return null;
                 }
-                collections.add(new CollectionSignature(
-                        Long.parseLong(collection[1]),
-                        Long.parseLong(collection[2]),
-                        Long.parseLong(collection[3])));
+                Long id = parseCanonicalDecimal(collection[1], true);
+                Long amount = parseCanonicalDecimal(collection[2], true);
+                Long refunded = parseCanonicalDecimal(collection[3], false);
+                if (id == null || amount == null || refunded == null) {
+                    return null;
+                }
+                collections.add(new CollectionSignature(id, amount, refunded));
             }
             collections.sort(Comparator.comparingLong(CollectionSignature::id)
                     .thenComparingLong(CollectionSignature::amount)
@@ -395,6 +401,14 @@ public class PerfCommissionService {
         } catch (NumberFormatException ignored) {
             return null;
         }
+    }
+
+    private static Long parseCanonicalDecimal(String value, boolean positive) {
+        long parsed = Long.parseLong(value);
+        if (!Long.toString(parsed).equals(value) || (positive ? parsed <= 0 : parsed < 0)) {
+            return null;
+        }
+        return parsed;
     }
 
     private record EngineeringSignature(long required, List<CollectionSignature> collections) {
