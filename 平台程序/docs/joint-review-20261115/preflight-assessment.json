@@ -1,0 +1,229 @@
+{
+  "date": "2026-11-15",
+  "decision": "NOT_RELEASE_READY",
+  "scope": "local completion plus read-only B host metadata and public DNS; no deployment or business UAT",
+  "sourceCommits": {
+    "frontend": "fa7a85c811f3545778c3a7ba4c2b5e25ddc30f9e",
+    "artifactBuild": "82ea0f9d10557bd79146c40e55b29e54ebe3f069",
+    "configGate": "82ea0f9d10557bd79146c40e55b29e54ebe3f069",
+    "offlineEntryPoint": "1e5ea65370879f435cdbe24ceaa376a88eebdfe0",
+    "offlineEntryPointOriginal": "a174f943137a550e3e3a17b945ff50eca8bc2d65"
+  },
+  "checks": [
+    {
+      "id": "D01",
+      "status": "PARTIAL",
+      "satisfiedEvidence": "前后端分支已有固定提交；从82ea0f9d隔离重建API/Provider，冻结字节与SHA；Runtime源码已归档；Admin类型检查通过",
+      "remaining": "正式Linux/amd64三镜像digest、镜像扫描和真实租户配置的Admin产物未齐；冻结包82ea0f9d不含后续1ab00593及并行Gateway修改，最终候选须统一提交后重建与回归"
+    },
+    {
+      "id": "D02",
+      "status": "PARTIAL",
+      "satisfiedEvidence": "只读确认既有integration API/Provider/bridge及五容器运行，API48081/Provider48443/Runtime18082为回环或私网",
+      "remaining": "当前部署与本轮修复SHA/迁移历史未做业务或数据库核验；升级联调还是正式新实例须先定版，不能起第二套写入方"
+    },
+    {
+      "id": "D03",
+      "status": "PARTIAL",
+      "satisfiedEvidence": "两组PG/Redis及journal分别bind到/mnt/datadisk0/zhongshu-platform-b-integration独立子目录",
+      "remaining": "正式最小权限账户、权限/恢复策略、全栈一致性备份和恢复未证明"
+    },
+    {
+      "id": "D04",
+      "status": "BLOCKED",
+      "satisfiedEvidence": "宿主数据挂载ext4；09:14快照数据盘可用39630360576B、根盘17374859264B；本地存储/Journal证明逻辑测试通过",
+      "remaining": "缺正式受信proof/attestation、fsync/容量实测、B专用备份与全栈恢复证据；未以旧快照或本地模拟代替"
+    },
+    {
+      "id": "D05",
+      "status": "BLOCKED",
+      "satisfiedEvidence": "历史T23/T24记录总部118、门店119与四任职；公司池和计价源码具备",
+      "remaining": "生产总部租户/业务组织、正式价格、测试额度与双人复核身份未定版；T25未归档片段不当作已验，不断言当前余额仍为0"
+    },
+    {
+      "id": "D06",
+      "status": "BLOCKED",
+      "satisfiedEvidence": "正式微信/SMS非占位配置门禁、外置模板已补齐；disabled仅允许pg,integration的文档冲突已修复",
+      "remaining": "未提供或核对正式外置凭据及其有效性；prod不能用disabled、测试手机号/租户或假密钥放行"
+    },
+    {
+      "id": "D07",
+      "status": "BLOCKED",
+      "satisfiedEvidence": "签名开关、审定operations、caller/key、Runtime互签、TLS SAN和CA相关门禁具备",
+      "remaining": "仍缺外置信任库与固定JRE完整公共根集合的对照及目标容器信任链证据；未使用宿主CA交集弱证明代替"
+    },
+    {
+      "id": "D08",
+      "status": "PARTIAL",
+      "satisfiedEvidence": "B桶几何/Runtime精确origin、API/Provider独立非占位COS身份门禁补齐；历史T16有组件证据",
+      "remaining": "当前真实CAM关联、权限正负验权及全桶恢复未重验，源码policy不代表云端已绑定"
+    },
+    {
+      "id": "D09",
+      "status": "LOCAL_READY_EXTERNAL_PENDING",
+      "satisfiedEvidence": "新增精确B桶参考图主机门禁及模板，并有负例回归",
+      "remaining": "正式外置platform.properties中的值及实际签名URL主机匹配仍待B部署配置核验"
+    },
+    {
+      "id": "D10",
+      "status": "BLOCKED",
+      "satisfiedEvidence": "真实审核+daily-limit=0、Runtime供应商/模型/HTTPS origin、内容五通道非占位门禁补齐",
+      "remaining": "真实凭据与审核BizType、内容渠道、正式价格和额度边界未核验；models鉴权或现有服务healthy不等于图片生成通过"
+    },
+    {
+      "id": "D11",
+      "status": "BLOCKED",
+      "satisfiedEvidence": "本地nginx候选模拟验证通过；两个正式B域名在09:14递归DNS查询均NXDOMAIN",
+      "remaining": "正式DNS、证书/续期、Admin制品、微信合法域名及发布构建B基址未生效；本轮不修改"
+    },
+    {
+      "id": "D12",
+      "status": "PENDING_RESOURCE_AND_DATA",
+      "satisfiedEvidence": "现有错误/待上线提示保留；未伪造资源或业务数据",
+      "remaining": "课程/资料/反馈依赖及合同/工程/内容记录不齐；相关深层验收待条件，不因部署成功自动通过"
+    }
+  ],
+  "localChecks": {
+    "configurationSuite": {
+      "total": 54,
+      "passed": 52,
+      "skipped": 2,
+      "failed": 0,
+      "skipReason": "real Linux mount/submount/detach require Linux mount IDs and CAP_SYS_ADMIN"
+    },
+    "offlineComposeSuite": {
+      "passed": 13,
+      "failed": 0
+    },
+    "cloudStorageProofTests": 11,
+    "journalProofTests": 5,
+    "releaseBoundaryTests": 8,
+    "artifactVerifierTests": 6,
+    "adminTypecheck": "PASS",
+    "nginxCandidateSimulation": "PASS",
+    "isolatedApiAndProviderPackage": "PASS",
+    "providerTests": {
+      "passed": 5,
+      "failed": 0
+    },
+    "independentReview": {
+      "verdict": "APPROVE_NO_P1_P2",
+      "scope": "D06-D10 configuration gate/templates and offline deployment test entry point; report consistency checked separately",
+      "productionReadinessApproved": false
+    }
+  },
+  "readOnlyObservations": {
+    "observedLocalTime": "2026-11-15 09:14 Asia/Shanghai",
+    "bApiActiveSince": "2026-11-14 22:57:50 CST",
+    "bApiMainPid": 3123867,
+    "services": [
+      "zhongshu-platform-b-integration.service",
+      "zhongshu-platform-b-integration-provider.service",
+      "zhongshu-platform-b-integration-provider-bridge.service"
+    ],
+    "bDataMount": "/mnt/datadisk0 /dev/vdb ext4",
+    "dataAvailableBytes": 39630360576,
+    "rootAvailableBytes": 17374859264,
+    "bDataDirectories": [
+      "postgres-b",
+      "redis-b",
+      "postgres-design",
+      "redis-design",
+      "runtime-journal"
+    ],
+    "dataDirectoryPrefix": "/mnt/datadisk0/zhongshu-platform-b-integration/",
+    "publicDns": {
+      "platform-api.zszhj.com": "NXDOMAIN",
+      "platform-admin.zszhj.com": "NXDOMAIN"
+    },
+    "businessApiRequests": 0,
+    "secretFileContentsRead": false
+  },
+  "localArtifacts": {
+    "sourceCommit": "82ea0f9d10557bd79146c40e55b29e54ebe3f069",
+    "build": "PASS",
+    "buildMode": "offline Maven reactor, Java17, detached fixed checkout; API and Provider package plus four Provider test classes",
+    "providerTests": {
+      "DesignProviderMigrationTest": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "DesignProviderBootProbeTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "DesignProviderBoundaryTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "DesignProviderWebSecurityIntegrationTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "apiBoundaryVerifier": "PASS",
+    "files": [
+      {
+        "file": "yudao-platform-server.jar",
+        "sha256": "78f62b7366652d8daed6fe3ef2c62234fd552c56b2fc6da60ba71d57a0cde895",
+        "bytes": 182843761,
+        "kind": "local-build-not-image",
+        "sourceCommit": "82ea0f9d10557bd79146c40e55b29e54ebe3f069"
+      },
+      {
+        "file": "yudao-design-provider.jar",
+        "sha256": "aade84a7a81ee4672ac99ec160553e6551c9a7d6901169048690c4e20ef47543",
+        "bytes": 181572018,
+        "kind": "local-build-not-image",
+        "sourceCommit": "82ea0f9d10557bd79146c40e55b29e54ebe3f069"
+      },
+      {
+        "file": "runtime-source.tar",
+        "sha256": "c40209357afaa6acde1608d5f6aa9b02f6260708b0c314d30291958d5b315e81",
+        "bytes": 337920,
+        "kind": "source-only-not-image",
+        "sourceCommit": "82ea0f9d10557bd79146c40e55b29e54ebe3f069"
+      }
+    ],
+    "releaseReady": false,
+    "notDone": [
+      "Linux/amd64 API Provider Runtime immutable images and vulnerability scans",
+      "Admin production artifact with real tenant configuration",
+      "Registry/image digest and formal deployment inputs",
+      "Remote deployment and runtime UAT",
+      "Unified final candidate including post-82ea0f9d fixes and parallel work"
+    ],
+    "storage": {
+      "kind": "local-only-evidence",
+      "path": "/Users/honor.pei/.codex/visualizations/2026/11/14/01a1d958-3d06-7101-842c-b81cbd1864fc/preflight-20261115",
+      "repositoryContainsBinaries": false
+    }
+  },
+  "notPerformed": [
+    "shared A changes or restart",
+    "deployment or migrations",
+    "traffic/DNS/TLS changes",
+    "mini-program upload",
+    "real business/AI/points/finance acceptance",
+    "cloud resource purchase",
+    "registry publication",
+    "real secret verification"
+  ],
+  "parallelWorkExcluded": [
+    "frontend .workbuddy and untracked T25 evidence",
+    "post-snapshot capability signature fix 1ab00593",
+    "uncommitted RemoteDesignGateway.java and RemoteDesignAdmissionTest.java observed in the shared B worktree"
+  ],
+  "note": "Historical evidence and source-only checks are not current production acceptance. Local artifacts have provenance but are not production images or release approval.",
+  "auditBranch": "codex/b-preflight-20261115",
+  "gitDelivery": "local audit branch only; no new push by this audit run",
+  "evidenceReceipts": "preflight-logs/check-receipts.json"
+}

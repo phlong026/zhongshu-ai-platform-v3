@@ -1,0 +1,28 @@
+Collected summary, not the complete Maven log. Source: 82ea0f9d.
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.193 s -- in cn.iocoder.yudao.designprovider.DesignProviderMigrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.344 s -- in cn.iocoder.yudao.designprovider.DesignProviderBootProbeTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.029 s -- in cn.iocoder.yudao.designprovider.DesignProviderBoundaryTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 14.91 s -- in cn.iocoder.yudao.designprovider.DesignProviderWebSecurityIntegrationTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+[INFO] yudao-platform-workflow ............................ SUCCESS [  1.030 s]
+[INFO] yudao-platform-identity ............................ SUCCESS [  1.243 s]
+[INFO] yudao-domain-franchise-test-support ................ SUCCESS [  0.505 s]
+[INFO] platform-wallet .................................... SUCCESS [  2.059 s]
+[INFO] yudao-domain-franchise-org ......................... SUCCESS [  1.093 s]
+[INFO] yudao-domain-franchise-crm ......................... SUCCESS [  1.288 s]
+[INFO] yudao-domain-franchise-finance ..................... SUCCESS [  1.359 s]
+[INFO] yudao-domain-franchise-design ...................... SUCCESS [  1.689 s]
+[INFO] yudao-domain-franchise-asset ....................... SUCCESS [  1.059 s]
+[INFO] yudao-domain-franchise-sales ....................... SUCCESS [  1.148 s]
+[INFO] yudao-domain-franchise-engineering ................. SUCCESS [  1.505 s]
+[INFO] yudao-domain-franchise-commission .................. SUCCESS [  1.238 s]
+[INFO] yudao-domain-franchise-content ..................... SUCCESS [  1.603 s]
+[INFO] yudao-domain-franchise-performance ................. SUCCESS [  1.275 s]
+[INFO] yudao-platform-server .............................. SUCCESS [  2.192 s]
+[INFO] yudao-design-provider .............................. SUCCESS [ 28.828 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:28 min
+[INFO] Finished at: 2026-11-15T01:25:00Z
+[INFO] ------------------------------------------------------------------------
