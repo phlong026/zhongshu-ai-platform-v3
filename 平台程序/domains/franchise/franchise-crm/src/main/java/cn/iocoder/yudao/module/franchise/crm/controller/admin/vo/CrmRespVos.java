@@ -50,10 +50,7 @@ public interface CrmRespVos {
                   java.math.BigDecimal area, Long totalCents, long authorUserId, OffsetDateTime createTime,
                   String stage) {
         public static Scheme of(CustomerSchemeDO s) {
-            String stage = s.getStage();
-            if (stage == null || stage.isBlank()) {
-                stage = "reference";
-            }
+            String stage = "formal".equals(s.getStage()) ? "formal" : "reference";
             return new Scheme(s.getId(), s.getCustomerId(), s.getKind(), s.getVersion(), s.getTitle(),
                     s.getPayload(), s.getWidth(), s.getDepth(), s.getFloors(), s.getArea(),
                     s.getTotalCents(), s.getAuthorUserId(), s.getCreateTime(), stage);

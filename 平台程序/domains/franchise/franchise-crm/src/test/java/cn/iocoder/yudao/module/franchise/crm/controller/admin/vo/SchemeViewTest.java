@@ -20,5 +20,8 @@ class SchemeViewTest {
 
         scheme.setStage("  ");
         assertThat(CrmRespVos.Scheme.of(scheme).stage()).isEqualTo("reference");
+
+        scheme.setStage("draft");
+        assertThat(CrmRespVos.Scheme.of(scheme).stage()).isEqualTo("reference");
     }
 }
