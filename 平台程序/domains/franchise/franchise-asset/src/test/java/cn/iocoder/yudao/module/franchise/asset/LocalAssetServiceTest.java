@@ -39,6 +39,7 @@ class LocalAssetServiceTest {
     private LocalAssetService service;
     private CommissionDeliverableAccessPort.DeliverableRef scopedRef;
     private boolean scopeAllowed;
+    private boolean ownerMappingActive;
 
     @Test
     void designReferenceStaysInBStorageAndUsesTheDesignRoleChannel() throws Exception {
@@ -85,12 +86,16 @@ class LocalAssetServiceTest {
         jdbc.update("INSERT INTO system_dept VALUES (33,1,0,0)");
         storage = new MemoryStorage();
         current = POST;
+        ownerMappingActive = true;
         CurrentPost posts = () -> Optional.ofNullable(current);
         service = new LocalAssetService(ds, new DataSourceTransactionManager(ds), storage,
                 new AssetContentScanner(), posts, new cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort() {
-                    public long requireServiceAccount(long org) { return org == 33 ? 777 : 888; }
+                    public long requireServiceAccount(long org) {
+                        if (current == null || current.orgId() != org) throw new ServiceAccountInactiveException(org);
+                        return org == 33 ? 777 : 888;
+                    }
                     public long requireExistingServiceAccountForTask(long tenant, long org) {
-                        if (tenant != 1 || org != 33) throw new ServiceAccountInactiveException(org);
+                        if (tenant != 1 || org != 33 || !ownerMappingActive) throw new ServiceAccountInactiveException(org);
                         return 777;
                     }
                 }, (actor, commission, seq, slot) -> {
@@ -285,6 +290,10 @@ class LocalAssetServiceTest {
         assertThatThrownBy(() -> service.readDownload(consumer, ticket.assetId(), tokenOf(second))).isInstanceOf(RuntimeException.class);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_asset_download_ticket WHERE consumed_at IS NULL", Integer.class)).isEqualTo(1);
         scopeAllowed = true;
+        ownerMappingActive = false;
+        assertThatThrownBy(() -> service.readDownload(consumer, ticket.assetId(), tokenOf(second)))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        ownerMappingActive = true;
         assertThatThrownBy(() -> service.readDownload(new Actor(34, 888, 99, 44), ticket.assetId(), tokenOf(second))).isInstanceOf(RuntimeException.class);
         TenantContextHolder.setTenantId(2L);
         assertThatThrownBy(() -> service.readDownload(consumer, ticket.assetId(), tokenOf(second))).isInstanceOf(RuntimeException.class);

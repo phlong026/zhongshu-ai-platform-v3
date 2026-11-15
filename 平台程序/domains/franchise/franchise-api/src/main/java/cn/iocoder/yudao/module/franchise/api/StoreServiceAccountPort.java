@@ -15,8 +15,8 @@ public interface StoreServiceAccountPort {
     long requireServiceAccount(long orgId);
 
     /**
-     * 已持久化后台任务专用：只读 ACTIVE 映射，并复核组织所属租户；不创建账号、不依赖员工会话。
-     * 调用方的 tenant/org 必须来自服务端持久化任务与组织目录，禁止直接透传 HTTP 入参。
+     * 从持久化后台任务或已授权成果清单恢复：只读 ACTIVE 映射，并复核组织所属租户；不创建账号、不依赖员工会话。
+     * 调用方的 tenant/org 必须来自服务端持久化事实与组织目录；成果清单必须先复核消费人范围，禁止直接透传 HTTP 入参。
      */
     default long requireExistingServiceAccountForTask(long tenantId, long orgId) {
         throw new ServiceAccountInactiveException(orgId);

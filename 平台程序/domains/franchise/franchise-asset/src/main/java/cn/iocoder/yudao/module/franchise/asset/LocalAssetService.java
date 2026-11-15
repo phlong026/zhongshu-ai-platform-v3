@@ -259,7 +259,13 @@ public class LocalAssetService implements AssetAccessPort {
 
     private Asset scopedAsset(long tenant, Actor consumer, CommissionDeliverableAccessPort.DeliverableRef ref) {
         // owner 仅取自服务端清单。当前 consumer 已授权，不能用伪造 owner 调用 authorize。
-        long ownerAccount = accounts.requireServiceAccount(ref.ownerOrgId());
+        long ownerAccount;
+        try {
+            // 本组织解析器绑定当前员工组织。属主来自已授权的持久化清单，只读恢复其现有映射，不切岗或建号。
+            ownerAccount = accounts.requireExistingServiceAccountForTask(tenant, ref.ownerOrgId());
+        } catch (StoreServiceAccountPort.ServiceAccountInactiveException inactive) {
+            throw exception(RESOURCE_FORBIDDEN);
+        }
         var owner = new Actor(ref.ownerOrgId(), ownerAccount, consumer.userId(), consumer.postId());
         Asset asset = accepted(tenant, owner, ref.assetId());
         String type = ref.slot() == Slot.CONFIRMATION ? "CONTRACT_ATTACHMENT" : "DESIGN_DELIVERABLE";
