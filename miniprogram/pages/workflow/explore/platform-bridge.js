@@ -23,9 +23,8 @@ module.exports = function attach(page, deps) {
     this.setData({ ['form.' + key]: val, error: '' });
   };
   page.platUseCase = function (e) { // 灵感库→立面参考（facade 保留；plan D20 隐藏入口）
-    const id = e.currentTarget.dataset.id;
-    const c = (this.data.platCases || []).find(x => String(x.id) === String(id));
-    if (!c) return;
+    const c = this.data.platCase;
+    if (this.data.platCaseLoading || !this.data.platCaseVerified || !c || !c.id) return;
     const kind = this.data.pickingRef || 'facade';
     this.setData({ 'form.referenceCaseId': c.id, pickingRef: '' });
     this.platShow(kind === 'plan' ? 'ai-config' : 'ai-facade');
@@ -128,10 +127,14 @@ module.exports = function attach(page, deps) {
   };
 
   // ---- 基础：命令快照 / 乱序三元组 / 401 ----
-  page.__platGen = 0; page.__platKeys = {}; page.__platTimers = [];
-  page.platStale = function (gen, sessionGen) {
-    return this.__platUnloaded || gen !== this.__platGen || sessionGen !== http.sessionGeneration() ||
+  page.__platGen = 0; page.__platStylesGen = 0; page.__platCasesGen = 0; page.__platCasesRequestGen = 0;
+  page.__platKeys = {}; page.__platTimers = [];
+  page.platSessionStale = function (sessionGen) {
+    return this.__platUnloaded || sessionGen !== http.sessionGeneration() ||
       String((this.__post || {}).postId) !== String(this.__postKey || '');
+  };
+  page.platStale = function (gen, sessionGen) {
+    return gen !== this.__platGen || this.platSessionStale(sessionGen);
   };
   page.platKey = function (action) {
     if (!this.__platKeys[action]) this.__platKeys[action] = 'dsn-' + action + '-' + String(Math.floor(Math.random() * 1e16)).padStart(16, '0');
@@ -148,73 +151,147 @@ module.exports = function attach(page, deps) {
   };
   page.platTeardown = function () {
     this.__platGen += 1; // 使换岗/登出前发起的字节上传与 complete 立即失效
+    this.__platStylesGen += 1;
+    this.__platCasesGen += 1;
+    this.__platCasesRequestGen += 1;
     this.__platTimers.forEach(t => clearTimeout(t)); this.__platTimers = [];
     this.__platKeys = {};
-    this.setData({ platformMode: false, busy: false, platformErr: '', platCases: [], platStyles: [], platResult: null, platProjects: [], platRule: null });
+    this.setData({ platformMode: false, busy: false, platformErr: '', platCases: [], platStyles: [],
+      platCase: null, platCaseVerified: false, platCaseImages: [], platLoading: false, platCaseLoading: false, platCaseImageLoading: false,
+      platResult: null, platProjects: [], platRule: null });
   };
   page.platOnUnload = function () { this.__platUnloaded = true; this.__platTimers.forEach(t => clearTimeout(t)); };
   page.platFail = msg => { page.setData({ busy: false, platformErr: msg }); };
 
   // ---- 灵感库（R1/R2/R4/R5；图 R8 现取）----
   page.platLoadStyles = function () {
-    const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
+    const gen = ++this.__platStylesGen, sg = this.__http.sessionGeneration();
     api.cases.styles().then(styles => {
-      if (this.platStale(gen, sg)) return;
-      this.setData({ platStyles: (styles || []).map(s2 => ({ code: s2.code, label: s2.label })) });
-    }).catch(() => {});
+      if (gen !== this.__platStylesGen || this.platSessionStale(sg)) return;
+      const options = (styles || []).map(s2 => ({ code: s2.code, label: s2.label }));
+      this.setData({ platStyles: options, platStyleOptions: [{ code: '', label: '全部风格' }].concat(options), platStylesError: '' });
+    }).catch(err => {
+      if (gen !== this.__platStylesGen || this.platSessionStale(sg)) return;
+      if (this.platHandle401(err, sg)) return;
+      this.setData({ platStylesError: '风格筛选暂不可用，可重试或直接浏览户型' });
+    });
   };
   page.platLoadCases = function (reset) {
-    const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
+    const gen = ++this.__platCasesRequestGen, sg = this.__http.sessionGeneration();
+    if (reset) this.__platCasesGen += 1;
+    const listGen = this.__platCasesGen;
+    const coversAlive = () => listGen === this.__platCasesGen && !this.platSessionStale(sg);
+    const stale = () => gen !== this.__platCasesRequestGen || !coversAlive();
     const f = this.data.platFilter || {};
     const params = { limit: 20 };
+    if (['faceWidth', 'depth'].some(key => f[key] && (!Number.isFinite(Number(f[key])) || Number(f[key]) <= 0))) {
+      this.setData({ platLoading: false, platformErr: '开间和进深须为正数' }); return;
+    }
     if (!reset && this.data.platCursor) params.cursor = this.data.platCursor;
     if (f.styleCode) params.styleCode = f.styleCode;
     if (f.floorCount) params.floorCount = Number(f.floorCount);
     if (f.faceWidth) params.faceWidth = Number(f.faceWidth);
     if (f.depth) params.depth = Number(f.depth);
     if (this.data.keyword) params.keyword = this.data.keyword;
-    if (reset) { this.setData({ platCursor: '', platCases: [], platLoading: true }); this.platLoadStyles(); }
-    else this.setData({ platLoading: true });
+    if (reset) { this.setData({ platCursor: '', platCases: [], platLoading: true, platformErr: '' }); this.platLoadStyles(); }
+    else this.setData({ platLoading: true, platformErr: '' });
     api.cases.page(params).then(res => {
-      // 守卫仅限追页（reset 是用户最新意图，且 reset 分支的 platLoadStyles 代次恒新于 cases——
-      // 对 reset 生效会让每次进入/筛选的首屏响应被误丢）；追页迟到响应丢弃防旧页拼进新结果
-      if (!reset && this.platStale(gen, sg)) return;
+      if (stale()) return;
       const rows = (res && res.list || []).map(PF.caseRow);
       this.setData({
         platCases: reset ? rows : (this.data.platCases || []).concat(rows),
         platCursor: (res && res.nextCursor) || '',
         platLoading: false
       });
+      return PF.loadCaseCovers(rows, (caseId, assetId) => api.cases.downloadUrl(caseId, assetId),
+        coversAlive, row => {
+          const index = (this.data.platCases || []).findIndex(current => current.id === row.id);
+          if (index >= 0) this.setData({ ['platCases[' + index + ']']: row });
+        });
     }).catch(err => {
-      if (this.platStale(gen, sg)) return;
+      if (stale()) return;
       if (this.platHandle401(err, sg)) return;
       this.setData({ platLoading: false, platformErr: PF.errorMessageDesign(err) });
     });
   };
-  page.platLoadMore = function () { if (this.data.platCursor) this.platLoadCases(false); };
+  page.platLoadMore = function () { if (this.data.platCursor && !this.data.platLoading) this.platLoadCases(false); };
+  page.platRetryCases = function () { this.platLoadCases(!this.data.platCases.length); };
+  page.platCoverError = function (e) {
+    const index = (this.data.platCases || []).findIndex(row => row.id === String(e.currentTarget.dataset.id));
+    if (index < 0) return;
+    this.setData({ ['platCases[' + index + ']']: Object.assign({}, this.data.platCases[index], { coverUrl: '', coverError: true, coverLoading: false }) });
+  };
+  page.platRetryCover = function (e) {
+    const id = String(e.currentTarget.dataset.id), index = (this.data.platCases || []).findIndex(row => row.id === id);
+    if (index < 0 || this.data.platCases[index].coverLoading) return;
+    const gen = this.__platCasesGen, sg = this.__http.sessionGeneration();
+    const alive = () => gen === this.__platCasesGen && !this.platSessionStale(sg);
+    const row = Object.assign({}, this.data.platCases[index], { coverLoading: true, coverError: false });
+    this.setData({ ['platCases[' + index + ']']: row });
+    PF.loadCaseCovers([row], (caseId, assetId) => api.cases.downloadUrl(caseId, assetId), alive)
+      .then(rows => {
+        if (!alive()) return;
+        const currentIndex = (this.data.platCases || []).findIndex(current => current.id === id);
+        if (currentIndex >= 0) this.setData({ ['platCases[' + currentIndex + ']']: rows[0] });
+      })
+      .catch(err => {
+        if (!alive() || this.platHandle401(err, sg)) return;
+        this.setData({ ['platCases[' + index + ']']: Object.assign({}, row, { coverLoading: false, coverError: true }),
+          platformErr: PF.errorMessageDesign(err) });
+      });
+  };
   page.platFilterPick = function (e) {
     const key = e.currentTarget.dataset.key, idx = Number(e.detail.value);
     const list = key === 'styleCode' ? [{ code: '', label: '全部' }].concat(this.data.platStyles) : (key === 'floorCount' ? ['', '1', '2', '3', '4'] : null);
-    const value = list ? list[idx].code !== undefined ? list[idx].code : list[idx] : e.detail.value;
-    this.setData({ platFilter: Object.assign({}, this.data.platFilter, { [key]: value || undefined }) });
+    const selected = list && list[idx];
+    if (list && selected === undefined) return;
+    const value = list ? selected.code !== undefined ? selected.code : selected : e.detail.value;
+    const label = key === 'styleCode' ? selected.label : (idx ? idx + '层' : '全部');
+    this.setData({ platFilter: Object.assign({}, this.data.platFilter, { [key]: value || undefined }),
+      [key === 'styleCode' ? 'platStyleLabel' : 'platFloorLabel']: label });
     this.platLoadCases(true);
   };
   page.platSearchInput = function (e) { this.setData({ keyword: e.detail.value }); };
+  page.platDimensionInput = function (e) {
+    const key = e.currentTarget.dataset.key;
+    if (!['faceWidth', 'depth'].includes(key)) return;
+    this.setData({ platFilter: Object.assign({}, this.data.platFilter, { [key]: e.detail.value }), platformErr: '' });
+  };
   page.platSearch = function () { this.platLoadCases(true); };
   page.platOpenCase = function (e) {
     const id = e.currentTarget.dataset.id;
     const c = (this.data.platCases || []).find(x => String(x.id) === String(id));
     if (!c) return;
-    this.setData({ platCase: c, platCaseImages: [], caseTab: 0, platCaseFav: false });// 收藏回显初始化（防沿用上一案例收藏态）
+    this.platLoadCase(c.id, c);
+  };
+  page.platLoadCase = function (id, summary) {
+    if (!id) { this.setData({ platformErr: '未指定户型，请返回灵感库选择' }); return; }
+    id = String(id);
+    this.setData({ platCase: summary || { id }, platCaseVerified: false, platCaseImages: [], caseTabs: [], caseTab: 0, platCaseFav: false,
+      platCaseLoading: true, platCaseImageLoading: true, platCaseImagesError: false, platformErr: '' });
     this.platShow('case');
-    // 详情图现取：cover + elevation（floorPlanAssetIds 需 R3 详情——列表行只有 cover）
     const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
-    api.cases.detail(c.id).then(detail => {
+    api.cases.detail(id).then(detail => {
       if (this.platStale(gen, sg)) return;
-      const ids = [detail.coverAssetId].concat(detail.floorPlanAssetIds || []).filter(Boolean);
-      this.setData({ platCaseAssetIds: ids });
-      return this.platFetchImages(ids).then(urls => this.setData({ platCaseImages: urls }));
-    }).catch(err => { if (!this.platStale(gen, sg)) this.setData({ platformErr: PF.errorMessageDesign(err) }); });
+      const ids = [detail.coverAssetId].concat(detail.floorPlanAssetIds || []).filter(Boolean).map(String);
+      this.setData({ platCase: PF.caseRow(detail), platCaseVerified: true, platCaseAssetIds: ids, platCaseLoading: false,
+        caseTabs: ids.map((asset, index) => index === 0 ? '封面' : '图纸' + index) });
+      return PF.loadCaseCovers(ids.map(asset => ({ id, coverAssetId: asset })),
+        (caseId, assetId) => api.cases.downloadUrl(caseId, assetId), () => !this.platStale(gen, sg)).then(rows => {
+          if (this.platStale(gen, sg)) return;
+          this.setData({ platCaseImages: rows.map(row => row.coverUrl || ''), platCaseImageLoading: false,
+            platCaseImagesError: rows.some(row => row.coverError) });
+        });
+    }).catch(err => {
+      if (this.platStale(gen, sg) || this.platHandle401(err, sg)) return;
+      this.setData({ platCaseLoading: false, platCaseImageLoading: false, platformErr: PF.errorMessageDesign(err) });
+    });
+  };
+  page.platRetryCaseImages = function () { if (this.data.platCase) this.platLoadCase(this.data.platCase.id); };
+  page.platCaseImageError = function () {
+    const images = (this.data.platCaseImages || []).slice();
+    images[this.data.caseTab || 0] = '';
+    this.setData({ platCaseImages: images, platCaseImagesError: true });
   };
   page.platFetchImages = function (assetIds) {
     const jobs = (assetIds || []).filter(Boolean).map(a => api.assets.downloadUrl(a).then(r => r.downloadUrl).catch(() => ''));
@@ -226,7 +303,7 @@ module.exports = function attach(page, deps) {
     const key = this.data.platCaseFav ? 'unfavorite' : 'favorite';
     api.cases[key](c.id).then(() => {
       this.setData({ platCaseFav: !this.data.platCaseFav });
-      wx.showToast({ title: this.data.platCaseFav ? '已收藏（组织共享）' : '已取消收藏', icon: 'none' });
+      wx.showToast({ title: this.data.platCaseFav ? '已收藏' : '已取消收藏', icon: 'none' });
     }).catch(err => { if (!(err && err.code === 401)) wx.showToast({ title: PF.errorMessageDesign(err), icon: 'none' }); });
   };
 

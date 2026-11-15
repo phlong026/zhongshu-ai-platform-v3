@@ -12,6 +12,13 @@
 | `todos.js` | `/platform/todos` | 当前岗位的待办（可办理在前） |
 | `franchise/crm.js` | `/franchise/leads`、`/franchise/customers` | 客资、客户、跟进、方案版本、责任转交 |
 | `franchise/commission.js` | `/franchise/design-policies`、`/franchise/commissions` | 标准费用、委托状态机命令、费用审批 |
+| `franchise/design.js` | `/franchise/design/cases`、`/franchise/design/cases/{caseId}`、`/franchise/design/cases/{caseId}/assets/{assetId}/download-tickets` | B 只读代理旧 AI 设计的公开户型；案例图片使用带 caseId 的独立通道，不走生成素材接口 |
+
+### B 公开户型读取（2026-11-15）
+
+设计首页最多预览四个户型，灵感库按游标分页。前端仅调用 B；由 B 携带自身租户配置读取 A 的公开资料，收藏仍保存于 B。封面/详情短链只保留在当前页面，不持久化签名 URL。案例 ID 和资产 ID 全程保留字符串，避免大整数精度损失。
+
+隔离联调构建使用 `https://platform.zszhj.com/admin-api`，保持微信合法域名校验。测试边界与实测结果见 [本轮联调证据](../../docs/full-business-audit-20261114/runs/AUDIT-20261114-R02/development-upload-20261115.md)；下文接入顺序保留 M2.7 历史背景，当前实现以源码为准。
 
 ## 接入顺序（M2 设计 §12 M2.7）
 
@@ -21,7 +28,7 @@
 
 ## 约定
 
-- 后端地址：storage `zs-api-base`（默认 `http://127.0.0.1:48080/admin-api`），真机调试改为局域网地址；
+- 后端地址：默认来自 `config/env.js` 的 `API_BASE`；storage `zs-api-base` 仅作局部联调覆写，B 隔离构建使用上述合法 HTTPS 地址；
 - 登录态：storage `zs-api-token-v1`；当前岗位：storage `zs-api-post-v1`（即 X-Post-Id）；多租户：storage `zs-api-tenant-v1`（默认 1，即 tenant-id 头）；
 - 写命令可传幂等键（`Idempotency-Key`），重试安全；
 - 带版本写（编辑、转交、关联）须带后端返回的 `revision`，冲突时报「数据版本已过期，请刷新后重试」；

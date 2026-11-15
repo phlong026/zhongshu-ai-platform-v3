@@ -12,8 +12,10 @@ const cases = {
   /** 风格筛选项 */
   styles: () => http.get('/franchise/design/cases/styles'),
   /** 案例详情 */
-  detail: (caseId) => http.get('/franchise/design/cases/' + caseId),
-  /** 收藏/取消（服务账号名下，组织共享） */
+  detail: (caseId) => http.get('/franchise/design/cases/' + encodeURIComponent(caseId)),
+  /** A 公开案例图片：由 B 验证图片属于该案例后换取短链，与 B 生成素材分开。 */
+  downloadUrl: (caseId, assetId) => http.post('/franchise/design/cases/' + encodeURIComponent(caseId) + '/assets/' + encodeURIComponent(assetId) + '/download-tickets'),
+  /** 收藏/取消（保存在 B，按员工及组织隔离） */
   favorite: (caseId) => http.put('/franchise/design/cases/' + caseId + '/favorite'),
   unfavorite: (caseId) => http.del('/franchise/design/cases/' + caseId + '/favorite'),
   /** 收藏列表 */
