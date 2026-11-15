@@ -109,6 +109,7 @@ function attach(page, api) {
     } catch (e) { if (alive()) this.setData({ designReceiptBusy: false, designReceiptError: e.message || e.msg || '核收失败，请重试' }); }
   };
   page.loadProjectLedger = async function (append = false) {
+    if (this.canLoadProjectLedger && !this.canLoadProjectLedger()) return;
     if (!this.id) return this.setData({ ledgerProjectError: '缺少工程项目编号' });
     const id = String(this.id), alive = http.requestGuard('project-ledger');
     const pageNo = append ? (this.projectLedgerPage || 1) + 1 : 1;
@@ -116,11 +117,11 @@ function attach(page, api) {
     this.setData({ id });
     try {
       const result = await api.projectLedger(id, pageNo, 20);
-      if (!alive() || this.__disposed || String(this.id) !== id) return;
+      if (!alive() || this.__disposed || String(this.id) !== id || (this.canLoadProjectLedger && !this.canLoadProjectLedger())) return;
       this.projectLedgerPage = pageNo;
       const entries = result.entries.list.map(r => ({ ...r, key: r.type + ':' + r.id, typeLabel: ({RECEIVABLE:'合同应收',PAYABLE:'应付登记',PAYMENT:'付款',RECEIPT:'收款',REFUND:'收款退款',EXPENSE_REFUND:'支出退回'})[r.type] || '账目', amountText: yuan(r.amountCents) }));
       this.setData({ ledgerProjectLoading: false, projectLedgerSummary: Object.keys(result.summary).map(key => ({ key, label: { receivableCents: '合同应收', receivedCents: '实收', refundedCents: '退款', paidCents: '实付', expenseRefundedCents: '支出退回', payableCents: '应付' }[key] || key, value: yuan(result.summary[key]) })), projectLedgerEntries: append ? (this.data.projectLedgerEntries || []).concat(entries) : entries, projectLedgerTotal: result.entries.total });
-    } catch (e) { if (alive() && !this.__disposed) this.setData({ ledgerProjectLoading: false, ledgerProjectError: e.message || e.msg || '项目账加载失败' }); }
+    } catch (e) { if (alive() && !this.__disposed && (!this.canLoadProjectLedger || this.canLoadProjectLedger())) this.setData({ ledgerProjectLoading: false, ledgerProjectError: e.message || e.msg || '项目账加载失败' }); }
   };
   page.moreProjectLedger = function () { if ((this.data.projectLedgerEntries || []).length < this.data.projectLedgerTotal) this.loadProjectLedger(true); };
 }

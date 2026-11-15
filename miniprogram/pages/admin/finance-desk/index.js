@@ -15,11 +15,21 @@ const sourceKindOf=key=>key&&key.indexOf('r-')===0?'receipt':(key&&key.indexOf('
 const {routeValue}=require('../../../utils/view-container');
 Page({
  data:{ platformNotice:'',voidNotice:'',ledgerError:'',...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
- onLoad(o={}){PTPage.init(this);this.options={...o};this.id=routeValue(o.id);const post=httpApi.token()?auth.currentApiPost():null,actor=post?{role:post.roleCode,orgType:post.orgType}:X.context(),financeRole=['finance','finance-lead'].includes(actor.role);this.setData({view:views[o.view]?o.view:(financeRole?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:actor.orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
- onShow(){if(!this.__platformActions)require('./platform-actions')(this,financeApi,PF),this.__platformActions=true;
+ onLoad(o={}){PTPage.init(this);this.__ledgerRouteIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.options={...o};this.id=routeValue(o.id);const post=httpApi.token()?auth.currentApiPost():null,actor=post?{role:post.roleCode,orgType:post.orgType}:X.context(),financeRole=['finance','finance-lead'].includes(actor.role);this.setData({view:views[o.view]?o.view:(financeRole?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:actor.orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
+ onShow(){
   this.__disposed=false;if(!this.__designFinance){require('./design-finance')(this,financeApi);this.__designFinance=true;}
   const activePost=auth.currentApiPost();this.setData({hq:!!activePost&&activePost.orgType==='headquarters',company:activePost&&activePost.orgName||''});
-  const financeIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();if(this.__financeIdentity!==financeIdentity){this.__financeIdentity=financeIdentity;this.__designReceipt=null;this.setData({designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],registerType:'',registerForm:{},registerBusy:false});}
+  const financeIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();if(this.__financeIdentity!==financeIdentity){this.__financeIdentity=financeIdentity;this.__designReceipt=null;this.setData({designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false});}
+  const boss=activePost&&['boss','owner'].includes(activePost.roleCode);
+  if(boss||this.__readOnlyLedgerIdentity){
+   if(!this.__readOnlyLedgerIdentity)this.__readOnlyLedgerIdentity=this.__ledgerRouteIdentity;
+   const allowed=boss&&activePost.orgType==='store'&&this.data.view==='project'&&/^[1-9]\d*$/.test(this.id)&&this.__readOnlyLedgerIdentity===financeIdentity;
+   this.setData({...clean(),projectLedgerReadOnly:true,platformApiMode:allowed,platformFinance:null,platformRegister:null,reconciliation:null,refundVoidable:false,ready:allowed,title:views.project,error:allowed?'':'当前岗位或项目入口无访问权限',platformNotice:''});
+   if(allowed)this.loadProjectLedger();
+   return;
+  }
+  this.setData({projectLedgerReadOnly:false});
+  if(!this.__platformActions)require('./platform-actions')(this,financeApi,PF),this.__platformActions=true;
   if(!this.__ptSyncHook){const rawSetData=this.setData.bind(this);this.setData=(obj,cb)=>{rawSetData(obj,()=>{if(obj&&obj.platformTodos)this.syncPlatformTasks();if(cb)cb();});};this.__ptSyncHook=true;} // 平台待办到达后同步 tasks 视图行与工作台预览
   this.loadPlatformFinance(); // M+：先置 platformApiMode，本地分支按态跳过（财务岗不再触达本地账簿）
   if(this.data.platformApiMode)this.loadDesignFees();
@@ -31,6 +41,12 @@ Page({
   PTPage.refresh(this,false);this.syncPlatformTasks();
   },
  onUnload(){this.__disposed=true;},
+ canLoadProjectLedger(){
+  const post=auth.currentApiPost(),identity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();
+  if(!httpApi.token()||!post||this.__disposed||this.data.view!=='project'||!/^[1-9]\d*$/.test(this.id)||identity!==this.__financeIdentity)return false;
+  if(this.__readOnlyLedgerIdentity)return identity===this.__readOnlyLedgerIdentity&&post.orgType==='store'&&['boss','owner'].includes(post.roleCode);
+  return ['finance','finance-lead'].includes(post.roleCode);
+ },
  syncPlatformTasks(){ // M+：API 态待办渲染——tasks 视图行与工作台预览均来自平台待办，不读本地任务表
   if(!this.data.platformApiMode)return;
   const view=this.data.view;
@@ -76,7 +92,7 @@ financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>((N
   // 切生产收口：本地账簿渲染体（M.load/D.flows/D.projectRows 本地链）已下线——非平台态统一错误态
   return this.setData({...clean(),error:auth.currentApiPost()?'当前岗位无财务权限，请从财务岗进入':'请先登录后端账号'});
  },
- go(e){const destination=e.currentTarget.dataset.url;if(destination)N.open(destination);},
+ go(e){if(this.data.projectLedgerReadOnly)return;const destination=e.currentTarget.dataset.url;if(destination)N.open(destination);},
  search(e){this.setData({keyword:e.detail.value});this.refresh();},clear(){this.setData({keyword:'',filter:'all',statusFilter:'全部状态',category:['all','current'].includes(this.data.flowScope)?'实收':'全部类别',due:''});this.refresh();},
  segment(e){const tab=e.currentTarget.dataset.tab;if(tab==='books'){const next=X.context().orgType==='headquarters'?'partners':'projects';this.tabStates=this.tabStates||{};if(this.data.view==='flows')this.tabStates.flows={keyword:this.data.keyword,filter:this.data.filter,flowTab:this.data.flowTab,flowScope:this.data.flowScope,category:this.data.category,statusFilter:this.data.statusFilter};const saved=this.tabStates[next]||{};this.options={view:next};this.id='';this.setData({...clean(),view:next,filter:'all',statusFilter:'全部状态',due:'',...saved});this.refresh();wx.pageScrollTo({scrollTop:0,duration:0});return;}if(this.data.view!=='flows'){this.tabStates=this.tabStates||{};this.tabStates[this.data.view]={keyword:this.data.keyword,filter:this.data.filter};const saved=this.tabStates.flows||{};this.options={view:'flows'};this.id='';this.setData({...clean(),view:'flows',filter:'all',statusFilter:'全部状态',due:'',...saved,flowTab:tab});this.refresh();wx.pageScrollTo({scrollTop:0,duration:0});return;}this.setData({flowTab:tab,flowScope:'period',keyword:'',category:'全部类别',statusFilter:'全部状态',filter:'all',due:''});this.refresh();},
  filter(e){this.setData({filter:e.currentTarget.dataset.filter});this.refresh();},
