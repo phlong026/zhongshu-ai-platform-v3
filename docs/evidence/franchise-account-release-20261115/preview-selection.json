@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-15",
+  "timezone": "Asia/Shanghai",
+  "appid": "wxe584f6fad7b54487",
+  "correctProjectPath": "/Users/honor.pei/.codex/worktrees/franchise-account-login-mini/zhongshu-ai-platform-v3",
+  "oldProjectEntry": "/Users/honor.pei/Documents/企业FDE项目/zhongshu-ai-platform-v3/miniprogram",
+  "oldEntryRemovedFromDevtoolsList": true,
+  "oldFilesDeleted": false,
+  "page": "/pages/account/index?view=login",
+  "visibleLoginModes": [
+    "账号密码登录",
+    "微信一键登录"
+  ],
+  "sourceCodeCommit": "c89037c47906552081a9df6402cc013c035963f5",
+  "developmentVersion": "1.0.20261115.4",
+  "newUploadInThisCheck": false,
+  "previewQrCreated": true,
+  "phoneAutoPreviewSucceeded": true,
+  "userConfirmedPhoneDisplay": true,
+  "userConfirmation": "已经正常显示了",
+  "businessAccountAndWechatDataSyncVerified": false,
+  "screenshot": "account-login-devtools.png",
+  "temporaryPreviewQr": "/Users/honor.pei/.codex/visualizations/2026/11/15/01a1dde1-2967-7442-8fe5-05934f2bc4b4/account-login-preview-qr-20261115.png"
+}
