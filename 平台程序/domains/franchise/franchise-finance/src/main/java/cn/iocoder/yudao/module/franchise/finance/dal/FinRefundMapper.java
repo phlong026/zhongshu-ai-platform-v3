@@ -11,6 +11,9 @@ import java.util.List;
 
 @Mapper
 public interface FinRefundMapper extends BaseMapperX<FinRefundDO> {
+    default FinRefundDO lockById(long id) {
+        return selectOne(new LambdaQueryWrapperX<FinRefundDO>().eq(FinRefundDO::getId,id).last("FOR UPDATE"));
+    }
     default List<FinRefundDO> selectActiveByReceipt(Long receiptId) {
         return selectList(new LambdaQueryWrapperX<FinRefundDO>()
                 .eq(FinRefundDO::getReceiptId, receiptId).eq(FinRefundDO::getStatus, "已核实"));

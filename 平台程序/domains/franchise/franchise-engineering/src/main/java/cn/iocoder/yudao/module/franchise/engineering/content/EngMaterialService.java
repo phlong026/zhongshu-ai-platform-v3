@@ -221,6 +221,11 @@ public class EngMaterialService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> terms(PostSnapshot post, long supplyId, TermsCommand cmd, String idempotencyKey) {
+        idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
+        long lockKey=cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.lockKey(
+                new cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),idempotencyKey);
+        jdbcTemplate.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(?)) s",Integer.class,lockKey);
+        jdbcTemplate.queryForList("SELECT id FROM fr_eng_supply WHERE id=? AND company_id=? FOR UPDATE",supplyId,post.orgId());
         FrEngSupplyDO supply = supplies.selectById(supplyId);
         if (supply == null || supply.getCompanyId() != post.orgId()) {
             throw exception(ENGINEERING_INPUT_INVALID, "供应事项不存在");
@@ -245,7 +250,7 @@ public class EngMaterialService {
             throw exception(ENGINEERING_INPUT_INVALID, "材料已取消，无需记录采购金额");
         }
         // 已付款锁定：金额/凭据沿用原值（蓝本 :64）
-        if (supply.getPayableId() != null && ledger.paidCents(post, supply.getPayableId()) > 0) {
+        if (supply.getPayableId() != null && ledger.hasActivePayment(post, supply.getPayableId())) {
             boolean same = supply.getUnitPriceCents() != null && supply.getUnitPriceCents() == unitPrice
                     && supply.getFreightCents() != null && supply.getFreightCents() == freight
                     && cmd.supplier().equals(supply.getSupplier())
@@ -263,8 +268,14 @@ public class EngMaterialService {
         long amountCents = BigDecimal.valueOf(unitPrice).multiply(material.getQuantity())
                 .setScale(0, java.math.RoundingMode.HALF_UP).longValueExact() + freight;
         String sourceRef = "engineering-payable:" + supply.getProjectId() + ":" + supplyId;
-        long payableId = payables.registerPayable(post, new EngineeringPayablePort.PayableCommand(
-                supply.getProjectId(), sourceRef, StrUtil.trim(cmd.supplier()), amountCents, StrUtil.trim(cmd.basis())));
+        var payableCommand=new EngineeringPayablePort.PayableCommand(
+                supply.getProjectId(), sourceRef, StrUtil.trim(cmd.supplier()), amountCents, StrUtil.trim(cmd.basis()));
+        long payableId;
+        if(supply.getPayableId()==null) payableId=payables.registerPayable(post,payableCommand);
+        else {
+            payableId=supply.getPayableId();
+            payables.updateUnpaid(post,payableId,payableCommand,"eng-terms:"+cn.hutool.crypto.digest.DigestUtil.sha256Hex(idempotencyKey));
+        }
         supplies.updateById(new FrEngSupplyDO().setId(supplyId)
                 .setSupplier(StrUtil.trim(cmd.supplier())).setContact(StrUtil.nullToEmpty(cmd.contact()))
                 .setPromiseDate(cmd.promiseDate())
@@ -288,9 +299,12 @@ public class EngMaterialService {
     private static Map<String, Object> termsPayload(long supplyId, TermsCommand cmd) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("supplyId", supplyId);
-        m.put("supplier", cmd.supplier());
-        m.put("unitPrice", cmd.unitPrice() == null ? null : cmd.unitPrice().toPlainString());
-        m.put("freight", cmd.freight() == null ? null : cmd.freight().toPlainString());
+        m.put("supplier", StrUtil.trim(cmd.supplier()));
+        m.put("unitPrice", cmd.unitPrice() == null ? null : cmd.unitPrice().stripTrailingZeros().toPlainString());
+        m.put("freight", cmd.freight() == null ? "0" : cmd.freight().stripTrailingZeros().toPlainString());
+        m.put("basis",StrUtil.trim(cmd.basis()));
+        m.put("contact",StrUtil.nullToEmpty(cmd.contact()));
+        m.put("promiseDate",cmd.promiseDate()==null?null:cmd.promiseDate().toString());
         return m;
     }
 
@@ -591,6 +605,8 @@ public class EngMaterialService {
         List<FrEngSupplyReceiptDO> receiptRows = supplyReceipts.selectByProject(post.orgId(), projectId);
         Map<Long, Long> paidByPayable = ledger.paidCentsByPayableIds(post,
                 supplyRows.stream().map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull).toList());
+        Map<Long,Boolean> lockedByPayable=ledger.activePaymentsByPayableIds(post,
+                supplyRows.stream().map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull).toList());
         boolean full = EngProjectService.isFinanceOrAbove(post)
                 || post.userId() == project.getManagerUserId()
                 || (project.getAssignedEngineerUserId() != null && post.userId() == project.getAssignedEngineerUserId());
@@ -619,6 +635,7 @@ public class EngMaterialService {
             line.put("quantity", m.getQuantity());
             line.put("requiredDate", m.getRequiredDate());
             line.put("cancelled", cancelled);
+            line.put("termsLocked",s!=null && s.getPayableId()!=null && !Boolean.FALSE.equals(lockedByPayable.get(s.getPayableId())));
             line.put("received", received);
             line.put("remaining", cancelled ? BigDecimal.ZERO
                     : m.getQuantity().subtract(received).max(BigDecimal.ZERO));
@@ -626,6 +643,7 @@ public class EngMaterialService {
                     : total == 0 ? "待记录采购金额" : paid >= total ? "已付清" : paid > 0 ? "部分已付" : "待付款");
             if (full) {
                 line.put("supplyId", s == null ? null : s.getId());
+                line.put("payableId",s==null || s.getPayableId()==null?null:String.valueOf(s.getPayableId()));
                 line.put("supplier", s == null ? "" : StrUtil.nullToEmpty(s.getSupplier()));
                 line.put("totalCents", total);
                 line.put("paidCents", paid);
@@ -676,8 +694,15 @@ public class EngMaterialService {
         view.put("materialId", supply.getMaterialId());
         view.put("materialName", material == null ? null : material.getName());
         view.put("status", supply.getStatus());
+        FrEngProjectDO project=projects.selectById(supply.getProjectId());
+        if(project!=null && project.getCompanyId()==post.orgId() && (EngProjectService.isFinanceOrAbove(post)
+                || post.userId()==project.getManagerUserId()
+                || (project.getAssignedEngineerUserId()!=null && post.userId()==project.getAssignedEngineerUserId()))) {
+            view.put("payableId",supply.getPayableId()==null?null:String.valueOf(supply.getPayableId()));
+        }
         view.put("paid", supply.getPayableId() != null
                 && ledger.paidCents(post, supply.getPayableId()) > 0);
+        view.put("termsLocked",supply.getPayableId()!=null && ledger.hasActivePayment(post,supply.getPayableId()));
         view.put("receipts", supplyReceipts.selectBySupply(post.orgId(), supply.getId()).stream()
                 .map(r -> {
                     Map<String, Object> row = new LinkedHashMap<>();
@@ -697,7 +722,7 @@ public class EngMaterialService {
     }
 
     private void requireNotPaid(PostSnapshot post, FrEngSupplyDO supply) {
-        if (supply.getPayableId() != null && ledger.paidCents(post, supply.getPayableId()) > 0) {
+        if (supply.getPayableId() != null && ledger.hasActivePayment(post, supply.getPayableId())) {
             throw exception(MATERIAL_INVALID, "已有付款，请由财务在原付款事项处理");
         }
     }

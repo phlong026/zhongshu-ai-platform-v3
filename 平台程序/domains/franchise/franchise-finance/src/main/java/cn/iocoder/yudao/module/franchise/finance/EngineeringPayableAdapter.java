@@ -26,4 +26,11 @@ public class EngineeringPayableAdapter implements EngineeringPayablePort {
                 cmd.supplier(), cmd.basis());
         return payments.registerPayable(post, "eng-payable:" + cmd.sourceRef(), finCmd);
     }
+
+    @Override
+    public void updateUnpaid(PostSnapshot post,long payableId,PayableCommand cmd,String idempotencyKey) {
+        payments.updateUnpaidEngineeringPayable(post,idempotencyKey,
+                new FinPaymentService.EngineeringPayableUpdateCommand(payableId,cmd.sourceProjectId(),
+                        cmd.sourceRef(),cmd.supplier(),cmd.amountCents(),cmd.basis()));
+    }
 }

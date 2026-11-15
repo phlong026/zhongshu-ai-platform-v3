@@ -30,7 +30,10 @@ import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorC
  */
 @Service
 @Slf4j
+@org.springframework.context.annotation.Import({DesignFinanceLocks.class,FinTransactionIdentityGuard.class})
 public class FinRefundService {
+    @Resource private DesignFinanceLocks designLocks;
+    @Resource private FinTransactionIdentityGuard transactionIdentity;
 
     @Resource
     private FinRefundMapper refundMapper;
@@ -57,11 +60,15 @@ public class FinRefundService {
     @Transactional
     public long register(PostSnapshot post, String idempotencyKey, RegisterCommand cmd) {
         idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
         }
+        if(cmd.amountCents()<=0) throw exception(REFUND_EXCEED_BALANCE);
         BusinessDateGuard.requireValid(cmd.date()); // M08-T05/R04
+        designLocks.receipt(cmd.receiptId());
+        if(designLocks.designReceipt(cmd.receiptId())) receiptService.requireVoucherAsset(post,cmd.voucherFileId());
         FinReceiptDO receipt = receiptMapper.lockById(cmd.receiptId());
         if (receipt == null) {
             throw exception(RECEIPT_NOT_FOUND);
@@ -77,6 +84,7 @@ public class FinRefundService {
             throw exception(REFUND_EXCEED_BALANCE);
         }
         String txn = FinReceiptService.normalize(cmd.transactionNo());
+        transactionIdentity.requireNoPayment(post.orgId(),txn);
         FinTxnNoDO identity = txn == null ? null : txnNoMapper.find(post.orgId(), txn);
         if (identity != null && cmd.replacesId() == null) {
             throw exception(TXN_NO_OCCUPIED);
@@ -128,9 +136,13 @@ public class FinRefundService {
     @Transactional
     public long registerExpense(PostSnapshot post, String idempotencyKey, ExpenseRefundCommand cmd) {
         idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) return replayed.get().getAggregateId();
+        if(cmd.amountCents()<=0) throw exception(EXPENSE_REFUND_EXCEED);
         BusinessDateGuard.requireValid(cmd.date());
+        designLocks.payment(cmd.paymentId());
+        if(designLocks.designPayment(cmd.paymentId())) receiptService.requireVoucherAsset(post,cmd.voucherFileId());
         FinPaymentDO payment = paymentMapper.lockById(cmd.paymentId());
         if (payment == null) throw exception(PAYMENT_NOT_FOUND_EXPENSE);
         if (payment.getCompanyId() != post.orgId()) throw exception(ORG_MISMATCH);
@@ -141,6 +153,7 @@ public class FinRefundService {
             throw exception(EXPENSE_REFUND_EXCEED);
         }
         String txn = FinReceiptService.normalize(cmd.transactionNo());
+        transactionIdentity.requireNoPayment(post.orgId(),txn);
         FinTxnNoDO identity = txn == null ? null : txnNoMapper.find(post.orgId(), txn);
         if (identity != null && cmd.replacesId() == null) {
             throw exception(TXN_NO_OCCUPIED);
@@ -192,6 +205,11 @@ public class FinRefundService {
     /** 作废（finance-lead/boss/owner；void_reason 必填；重复作废无二次效果）；余额随状态回补 */
     @Transactional
     public void void_(PostSnapshot post, long refundId, String reason) {
+        void_(post,refundId,reason,null);
+    }
+
+    @Transactional
+    public void void_(PostSnapshot post,long refundId,String reason,String idempotencyKey) {
         FinRefundDO refund = refundMapper.selectById(refundId);
         if (refund == null) {
             throw exception(REFUND_NOT_FOUND);
@@ -199,11 +217,26 @@ public class FinRefundService {
         if (refund.getCompanyId() != post.orgId()) {
             throw exception(ORG_MISMATCH);
         }
+        boolean design=refund.getPaymentId()!=null?designLocks.designPayment(refund.getPaymentId()):designLocks.designReceipt(refund.getReceiptId());
+        if(design) {
+            idempotencyKey=commands.requireIdempotencyKey(idempotencyKey); designLocks.command(post,idempotencyKey);
+            if(commands.replayed(post,idempotencyKey,java.util.Map.of("refundId",refundId,"reason",reason)).isPresent()) return;
+            if(refund.getPaymentId()!=null) designLocks.payment(refund.getPaymentId()); else designLocks.receipt(refund.getReceiptId());
+            refund=refundMapper.lockById(refundId);
+        }
         if ("已作废".equals(refund.getStatus())) {
             return; // 幂等：重复作废无二次效果
         }
+        if(design && refund.getPaymentId()!=null) designLocks.requireExpenseRefundVoidCapacity(refund.getPaymentId(),refund.getAmountCents());
+        if(design && refund.getReceiptId()!=null) {
+            var receipt=receiptMapper.lockById(refund.getReceiptId());
+            if(receipt==null || !FinReceiptService.STATUS_REGISTERED.equals(receipt.getStatus()) || receipt.getOriginPaymentId()==null) throw exception(REFUND_SOURCE_INVALID);
+            long active=refundMapper.selectActiveByReceipt(receipt.getId()).stream().mapToLong(FinRefundDO::getAmountCents).sum();
+            receiptService.requireDesignReceiptCapacity(receipt.getOriginPaymentId(),receipt.getAmountCents()-active+refund.getAmountCents(),receipt.getId());
+        }
         refundMapper.updateById(new FinRefundDO().setId(refundId).setStatus("已作废")
                 .setVoidByUserId(post.userId()).setVoidReason(reason).setVoidedAt(OffsetDateTime.now()));
+        if(design) commands.record(post,"fin-refund",refundId,2,"fin-refund-void",java.util.Map.of("refundId",refundId,"reason",reason),idempotencyKey);
         log.info("[void][companyId={} refund={} by={} reason={}]", post.orgId(), refundId, post.userId(), reason);
     }
 

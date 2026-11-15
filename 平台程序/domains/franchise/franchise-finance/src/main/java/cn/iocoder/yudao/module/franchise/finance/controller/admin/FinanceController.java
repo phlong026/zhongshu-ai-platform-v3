@@ -69,6 +69,8 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @RequestMapping("/franchise/finance")
 @Validated
 public class FinanceController {
+    @Resource private cn.iocoder.yudao.module.franchise.finance.DesignFeeActionService designFeeActions;
+    @Resource private cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService projectLedger;
 
     @Resource
     private FinReceiptService receiptService;
@@ -223,7 +225,7 @@ public class FinanceController {
     public record ReceiptRegisterCommand(String sourceType, String sourceRef, String name, Long amountCents,
                                          LocalDate receivedDate, String method, String transactionNo,
                                          Long voucherFileId, Long projectId, Long customerId,
-                                         Long designCommissionId, String designStage) {
+                                         Long designCommissionId, String designStage, Long originPaymentId) {
     }
 
     @PostMapping("/receipts")
@@ -236,7 +238,7 @@ public class FinanceController {
         long id = receiptService.register(post, idempotencyKey, new FinReceiptService.RegisterCommand(
                 cmd.sourceType(), cmd.sourceRef(), cmd.name(), cmd.amountCents() == null ? 0 : cmd.amountCents(),
                 cmd.receivedDate(), cmd.method(), cmd.transactionNo(), cmd.voucherFileId(),
-                cmd.projectId(), cmd.customerId(), cmd.designCommissionId(), cmd.designStage()));
+                cmd.projectId(), cmd.customerId(), cmd.designCommissionId(), cmd.designStage(),cmd.originPaymentId()));
         return success(Map.of("receiptId", id));
     }
 
@@ -251,13 +253,23 @@ public class FinanceController {
     @Operation(summary = "修订实收金额（财务直接改+全留痕；baseRevisionVersion 乐观锁）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
     public CommonResult<Map<String, Object>> revision(@PathVariable("id") long id,
+                                                      @RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey,
                                                       @Valid @RequestBody RevisionCommand cmd) {
         int next = receiptService.revision(currentPost.require(), id,
-                cmd.baseRevisionVersion(), cmd.newAmountCents(), cmd.note());
+                cmd.baseRevisionVersion(), cmd.newAmountCents(), cmd.note(),idempotencyKey);
         return success(Map.of("revisionVersion", next));
     }
 
     public record RevisionCommand(Integer baseRevisionVersion, Long newAmountCents, String note) {
+    }
+
+    @DeleteMapping("/receipts/{id}")
+    @Operation(summary="作废设计核收（保留流水身份和原始审计；有有效退款先更正）")
+    @PreAuthorize("@post.has('" + FinPermissions.REFUND_VOID + "')")
+    public CommonResult<Boolean> voidDesignReceipt(@PathVariable("id") long id,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,@Valid @RequestBody VoidCommand cmd) {
+        receiptService.voidDesign(currentPost.require(),id,cmd.reason(),idempotencyKey);
+        return success(true);
     }
 
     @PostMapping("/receipts/{id}/void-pending")
@@ -273,7 +285,7 @@ public class FinanceController {
         return success(true);
     }
 
-    public record VoidCommand(String reason) {
+    public record VoidCommand(@NotBlank String reason) {
     }
 
     @GetMapping("/revisions")
@@ -339,8 +351,8 @@ public class FinanceController {
     @DeleteMapping("/payments/{id}")
     @Operation(summary = "作废付款（仅 finance-lead；释放额度留痕）")
     @PreAuthorize("@post.has('" + FinPermissions.PAYMENT_VOID + "')")
-    public CommonResult<Boolean> voidPayment(@PathVariable("id") long id, @Valid @RequestBody VoidCommand cmd) {
-        paymentService.void_(currentPost.require(), id, cmd.reason());
+    public CommonResult<Boolean> voidPayment(@PathVariable("id") long id,@RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey, @Valid @RequestBody VoidCommand cmd) {
+        paymentService.void_(currentPost.require(), id, cmd.reason(),idempotencyKey);
         return success(true);
     }
 
@@ -380,8 +392,8 @@ public class FinanceController {
     @DeleteMapping("/refunds/{id}")
     @Operation(summary = "作废退款（finance-lead/boss/owner；void_reason 必填）")
     @PreAuthorize("@post.has('" + FinPermissions.REFUND_VOID + "')")
-    public CommonResult<Boolean> voidRefund(@PathVariable("id") long id, @Valid @RequestBody VoidCommand cmd) {
-        refundService.void_(currentPost.require(), id, cmd.reason());
+    public CommonResult<Boolean> voidRefund(@PathVariable("id") long id,@RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey, @Valid @RequestBody VoidCommand cmd) {
+        refundService.void_(currentPost.require(), id, cmd.reason(),idempotencyKey);
         return success(true);
     }
 
@@ -488,6 +500,32 @@ public class FinanceController {
     }
 
     // ===== 项目账与设计费净额 =====
+
+    @GetMapping("/projects")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<PageResult<cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Project>> financeProjects(
+            @RequestParam(value="pageNo",defaultValue="1") int pageNo,@RequestParam(value="pageSize",defaultValue="10") int pageSize,
+            @RequestParam(value="keyword",required=false) String keyword) {
+        pageParam(pageNo,pageSize);
+        return success(projectLedger.projects(currentPost.require().orgId(),pageNo,pageSize,keyword));
+    }
+
+    @GetMapping("/design-fees")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<PageResult<cn.iocoder.yudao.module.franchise.finance.DesignFeeActionService.Item>> designFees(
+            @RequestParam(value="pageNo",defaultValue="1") int pageNo,@RequestParam(value="pageSize",defaultValue="10") int pageSize) {
+        pageParam(pageNo,pageSize);
+        return success(designFeeActions.page(currentPost.require().orgId(),pageNo,pageSize));
+    }
+
+    @GetMapping("/projects/{projectId}/ledger")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Ledger> projectLedger(
+            @PathVariable("projectId") long id,@RequestParam(value="pageNo",defaultValue="1") int pageNo,
+            @RequestParam(value="pageSize",defaultValue="10") int pageSize) {
+        pageParam(pageNo,pageSize);
+        return success(projectLedger.page(currentPost.require().orgId(),id,pageNo,pageSize));
+    }
 
     @GetMapping("/project-accounts/{projectId}")
     @Operation(summary = "项目账聚合（应收/实收/退款净额/已付）")

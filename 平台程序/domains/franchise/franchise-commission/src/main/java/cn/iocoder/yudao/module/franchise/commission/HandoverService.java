@@ -37,7 +37,11 @@ public class HandoverService {
 
     public record PacketCommand(int dispatchSeq, String resultFile, String drawingFile, String reviewFile,
                                 String confirmationFile, String drawingVersion, LocalDate confirmationDate,
-                                String note, long managerUserId, boolean confirmed) {
+                                String note, long managerUserId, boolean confirmed,Long confirmationAssetId) {
+        public PacketCommand(int seq,String result,String drawing,String review,String confirmation,String version,
+                             LocalDate date,String note,long manager,boolean confirmed) {
+            this(seq,result,drawing,review,confirmation,version,date,note,manager,confirmed,null);
+        }
     }
 
     public record DecisionCommand(String reason, boolean confirmed) {
@@ -54,6 +58,18 @@ public class HandoverService {
     private final CommissionSubmissionMapper submissionMapper;
     private final EngineeringPort engineering;
     private final cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContracts;
+    @jakarta.annotation.Resource private CommissionManifestService manifests;
+    @jakarta.annotation.Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.platform.org.SystemDirectory directory;
+    public record Receiver(long userId,String name,String roleCode) { }
+    public List<Receiver> receivers(PostSnapshot actor,long commissionId) {
+        var commission=commissionService.requireWritable(actor,commissionId);
+        var posts=new java.util.ArrayList<>(staffPostService.listActivePostsInOrg(commission.getCompanyId(),FranchiseRoles.ENGINEER));
+        posts.addAll(staffPostService.listActivePostsInOrg(commission.getCompanyId(),FranchiseRoles.PROJECT_MANAGER));
+        var users=directory.usersByIds(posts.stream().map(StaffPostDO::getUserId).distinct().toList());
+        return users.stream().filter(u->u.active() && u.userId()!=actor.userId()).map(u->new Receiver(u.userId(),u.name(),
+                posts.stream().filter(p->p.getUserId()==u.userId()).findFirst().orElseThrow().getRoleCode())).toList();
+    }
 
     public HandoverService(CommissionMapper commissionMapper, CommissionHandoverMapper handoverMapper,
                            StaffPostService staffPostService, FranchiseCommands commands, CommissionAccess access,
@@ -78,6 +94,8 @@ public class HandoverService {
     @Transactional(rollbackFor = Exception.class)
     public CommissionService.Detail submit(PostSnapshot post, long commissionId, PacketCommand command,
                                            String idempotencyKey) {
+        idempotencyKey=lock(post,idempotencyKey);
+        if(replayed(post,idempotencyKey,command,commissionId,"packet-submit")) return commissionService.get(post,commissionId);
         CommissionDO commission = commissionMapper.selectById(commissionId);
         if (commission == null || !access.canWrite(post, commission)) {
             throw exception(COMMISSION_NOT_FOUND);
@@ -87,18 +105,21 @@ public class HandoverService {
             throw exception(COMMISSION_STATE_INVALID);
         }
         PacketCommand input = normalize(command, commission);
-        if (commands.replayed(post, idempotencyKey, input).isPresent()) {
-            return commissionService.get(post, commissionId);
-        }
+        var manifest=manifests.require(commissionId,input.dispatchSeq());
+        if(input.confirmationAssetId()==null) throw exception(HANDOVER_INPUT_INVALID);
+        manifests.validate(post,commission.getCompanyId(),input.confirmationAssetId(),"CONTRACT_ATTACHMENT");
         StaffPostDO manager = requireManager(post, commission.getCompanyId(), input.managerUserId());
         Integer maxVersion = handoverMapper.selectMaxVersion(commissionId);
         CommissionHandoverDO handover = new CommissionHandoverDO()
                 .setCompanyId(commission.getCompanyId()).setCommissionId(commissionId)
                 .setVersion(maxVersion == null ? 1 : maxVersion + 1)
                 .setDispatchSeq(input.dispatchSeq())
-                .setResultFile(input.resultFile()).setDrawingFile(input.drawingFile())
-                .setReviewFile(input.reviewFile()).setConfirmationFile(input.confirmationFile())
-                .setDrawingVersion(input.drawingVersion()).setConfirmationDate(input.confirmationDate())
+                .setResultFile(CommissionManifestService.fileRef(commissionId,input.dispatchSeq(),"RESULT",manifest.resultAssetId(),"正式设计成果"))
+                .setDrawingFile(CommissionManifestService.fileRef(commissionId,input.dispatchSeq(),"DRAWING",manifest.drawingAssetId(),"正式施工图"))
+                .setReviewFile(CommissionManifestService.fileRef(commissionId,input.dispatchSeq(),"REVIEW",manifest.reviewAssetId(),"专业审核依据"))
+                .setConfirmationFile(CommissionManifestService.fileRef(commissionId,input.dispatchSeq(),"CONFIRMATION",input.confirmationAssetId(),"客户确认凭据"))
+                .setConfirmationAssetId(input.confirmationAssetId())
+                .setDrawingVersion(manifest.drawingVersion()).setConfirmationDate(input.confirmationDate())
                 .setNote(input.note()).setManagerUserId(manager.getUserId())
                 .setStatus(CommissionHandoverDO.STATUS_PENDING)
                 // M06-T03：提交时冻结当时有效下发方案版本（后续变更留版本不覆盖）
@@ -134,13 +155,14 @@ public class HandoverService {
 
     private void decide(PostSnapshot post, long commissionId, DecisionCommand command, boolean accept,
                         String idempotencyKey, String commandName) {
+        idempotencyKey=lock(post,idempotencyKey);
         CommissionDO commission = commissionMapper.selectById(commissionId);
         if (commission == null) {
             throw exception(COMMISSION_NOT_FOUND);
         }
         // 幂等重放前置（阶段 2）：重放不适用状态门——首次办理后状态已流转（如 ACCEPTED），
         // 同键重放应直接返回首次结果（AC3 重复回调幂等依赖此顺序）。
-        if (commands.replayed(post, idempotencyKey, command).isPresent()) {
+        if (replayed(post,idempotencyKey,command,commissionId,commandName)) {
             return;
         }
         if (!CommissionDO.STATUS_HANDOVER_SUBMITTED.equals(commission.getStatus())) {
@@ -224,8 +246,8 @@ public class HandoverService {
     private static PacketCommand normalize(PacketCommand c, CommissionDO commission) {
         int currentDispatchSeq = commission.getDispatchSeq() == null ? 0 : commission.getDispatchSeq();
         if (!c.confirmed() || c.dispatchSeq() != currentDispatchSeq
-                || blank(c.resultFile()) || blank(c.drawingFile()) || blank(c.reviewFile()) || blank(c.confirmationFile())
-                || StrUtil.isBlank(c.drawingVersion()) || c.drawingVersion().length() > 64
+                || c.resultFile()!=null || c.drawingFile()!=null || c.reviewFile()!=null || c.confirmationFile()!=null
+                || c.confirmationAssetId()==null
                 || c.confirmationDate() == null || c.confirmationDate().isAfter(LocalDate.now())
                 || StrUtil.isBlank(c.note()) || c.note().length() > 1000) {
             throw exception(HANDOVER_INPUT_INVALID);
@@ -233,8 +255,19 @@ public class HandoverService {
         return c;
     }
 
-    private static boolean blank(String file) {
-        return StrUtil.isBlank(file) || file.length() > 1024;
+    private String lock(PostSnapshot post,String key) {
+        key=commands.requireIdempotencyKey(key);
+        long lock=cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.lockKey(
+                new cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),key);
+        jdbc.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(?)) s",Integer.class,lock);
+        return key;
+    }
+    private boolean replayed(PostSnapshot post,String key,Object input,long id,String action) {
+        var replay=commands.replayed(post,key,input);
+        if(replay.isEmpty()) return false;
+        if(replay.get().getAggregateId()!=id || !action.equals(replay.get().getCommand())) throw exception(
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        return true;
     }
 
 }

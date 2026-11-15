@@ -4,6 +4,10 @@ import cn.iocoder.yudao.module.franchise.sales.dal.*;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.CustomerSchemePort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
+import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
+import cn.hutool.core.util.IdUtil;
+import org.springframework.jdbc.core.JdbcTemplate;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,19 +37,36 @@ public class SaleQuoteService {
     private final CustomerSchemePort customerSchemes;
     private final FranchiseCommands commands;
     private final SalesAccess access;
+    private final JdbcTemplate jdbc;
 
     public SaleQuoteService(SaleQuoteMapper quotes, SaleRequirementService requirements,
-                            CustomerSchemePort customerSchemes, FranchiseCommands commands, SalesAccess access) {
+                            CustomerSchemePort customerSchemes, FranchiseCommands commands, SalesAccess access, JdbcTemplate jdbc) {
         this.quotes = quotes;
         this.requirements = requirements;
         this.customerSchemes = customerSchemes;
         this.commands = commands;
         this.access = access;
+        this.jdbc = jdbc;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public SaleQuoteDO create(PostSnapshot post, QuoteCommand cmd, String idempotencyKey) {
         access.requireOrgCustomer(post, cmd.customerId());
+        String key = commands.requireIdempotencyKey(idempotencyKey);
+        jdbc.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(?)) s", Integer.class,
+                FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope(FranchiseRoles.DOMAIN, post.userId()), key));
+        BigDecimal width = dimension(cmd.width());
+        BigDecimal depth = dimension(cmd.depth());
+        if (cmd.floors() == null || cmd.floors() < 1 || cmd.floors() > 20) throw new IllegalArgumentException("请填写1至20层");
+        // 对照版允许按实际建筑面积核定（如中空/退台），不能用外轮廓乘层数覆盖人工确认值。
+        BigDecimal area = cmd.area() == null ? width.multiply(depth).multiply(BigDecimal.valueOf(cmd.floors())).setScale(2, java.math.RoundingMode.HALF_UP) : cmd.area();
+        if (area.signum() <= 0 || area.compareTo(new BigDecimal("99999.99")) > 0) throw new IllegalArgumentException("请填写有效的实际建筑面积");
+        try { area = area.setScale(2, java.math.RoundingMode.UNNECESSARY); }
+        catch (ArithmeticException error) { throw new IllegalArgumentException("建筑面积最多保留两位小数"); }
+        String priceVersion = trimmed(cmd.priceVersion());
+        String address = trimmed(cmd.address());
+        if (priceVersion != null && priceVersion.length() > 64 || address != null && address.length() > 256)
+            throw new IllegalArgumentException("报价版本或地址长度超出限制");
         // 方案只读快照（不隐式升级）：组织/客户一致性复核
         CustomerSchemePort.SchemeSnapshot snapshot = null;
         if (cmd.schemeId() != null) {
@@ -75,24 +96,35 @@ public class SaleQuoteService {
         input.put("schemeId", cmd.schemeId());
         input.put("items", items);
         input.put("totalCents", total);
-        var replayed = commands.replayed(post, idempotencyKey, input);
+        input.put("width", width); input.put("depth", depth); input.put("floors", cmd.floors()); input.put("area", area);
+        input.put("priceVersion", priceVersion); input.put("address", address);
+        var replayed = commands.replayed(post, key, input);
         if (replayed.isPresent()) {
             return quotes.selectById(replayed.get().getAggregateId());
         }
+        // 与委托提交共用客户锁：预算落库与委托精确版本冻结不能交错。
+        jdbc.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(?,0))) s",
+                Integer.class, "commission-customer:" + cmd.customerId());
+        long quoteId = IdUtil.getSnowflakeNextId();
+        var budgetPayload = new LinkedHashMap<String,Object>(input);
+        budgetPayload.put("quoteId", quoteId);
+        var budget = customerSchemes.saveScheme(post, cmd.customerId(), new CustomerSchemePort.SchemeSave(
+                "BUDGET", "建房预算", JsonUtils.toJsonString(budgetPayload), width, depth, cmd.floors(), area, total, null));
         // 抬头快照：客户名/电话取客户档案当时值（经 Port 校验后的受控读取——由 adapter 暴露当前客户名/电话）
         CustomerSchemePort.CustomerBrief brief = customerSchemes.getCustomerBrief(post, cmd.customerId());
-        SaleQuoteDO quote = new SaleQuoteDO()
+        SaleQuoteDO quote = new SaleQuoteDO().setId(quoteId)
+                .setBudgetSchemeId(budget.schemeId()).setBudgetVersion(budget.version())
                 .setCompanyId(post.orgId()).setCustomerId(cmd.customerId())
                 .setSchemeId(cmd.schemeId())
                 .setSchemeKind(snapshot == null ? null : snapshot.kind())
                 .setSchemeVersion(snapshot == null ? null : snapshot.version())
                 .setItems(JsonUtils.toJsonString(items)).setTotalCents(total)
-                .setPriceVersion(trimmed(cmd.priceVersion()))
-                .setCustomerName(brief.name()).setCustomerPhone(brief.phone()).setAddress(trimmed(cmd.address()))
-                .setWidth(cmd.width()).setDepth(cmd.depth()).setFloors(cmd.floors()).setArea(cmd.area())
+                .setPriceVersion(priceVersion)
+                .setCustomerName(brief.name()).setCustomerPhone(brief.phone()).setAddress(address)
+                .setWidth(width).setDepth(depth).setFloors(cmd.floors()).setArea(area)
                 .setAuthorUserId(post.userId());
         quotes.insert(quote);
-        commands.record(post, "fr-sale-quote", quote.getId(), 1, "sale-quote-create", input, idempotencyKey);
+        commands.record(post, "fr-sale-quote", quote.getId(), 1, "sale-quote-create", input, key);
         return quote;
     }
 
@@ -149,6 +181,13 @@ public class SaleQuoteService {
             Object v = ((Map<?, ?>) r).get("valueCents");
             return v instanceof Number n ? n.longValue() : 0;
         }).sum();
+    }
+
+    private static BigDecimal dimension(BigDecimal value) {
+        if (value == null || value.signum() <= 0 || value.compareTo(new BigDecimal("999.99")) > 0)
+            throw new IllegalArgumentException("请填写有效的开间和进深");
+        try { return value.setScale(2, java.math.RoundingMode.UNNECESSARY); }
+        catch (ArithmeticException error) { throw new IllegalArgumentException("开间和进深最多保留两位小数"); }
     }
 
     private static String trimmed(String value) {

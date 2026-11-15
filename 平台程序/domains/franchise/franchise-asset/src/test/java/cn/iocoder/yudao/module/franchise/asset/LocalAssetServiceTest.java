@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.franchise.asset;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor;
+import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort;
+import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort.Slot;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.h2.jdbcx.JdbcDataSource;
@@ -35,6 +37,9 @@ class LocalAssetServiceTest {
     private JdbcTemplate jdbc;
     private MemoryStorage storage;
     private LocalAssetService service;
+    private CommissionDeliverableAccessPort.DeliverableRef scopedRef;
+    private boolean scopeAllowed;
+    private boolean ownerMappingActive;
 
     @Test
     void designReferenceStaysInBStorageAndUsesTheDesignRoleChannel() throws Exception {
@@ -74,20 +79,29 @@ class LocalAssetServiceTest {
                 + "WHERE tc.table_name='FR_ASSET' AND UPPER(cc.check_clause) LIKE '%ASSET_TYPE%'", String.class);
         jdbc.execute("ALTER TABLE fr_asset DROP CONSTRAINT " + assetTypeCheck);
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/franchise-asset/V20261114.920__design_reference_asset.sql")).execute(ds);
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/franchise-asset/V20261115.984__design_deliverables_scopes.sql")).execute(ds);
         jdbc.execute("CREATE TABLE pf_org_unit (dept_id BIGINT,org_id BIGINT,kind VARCHAR(8),status VARCHAR(16))");
         jdbc.execute("CREATE TABLE system_dept (id BIGINT,tenant_id BIGINT,status INT,deleted INT)");
         jdbc.update("INSERT INTO pf_org_unit VALUES (33,33,'ORG','ACTIVE')");
         jdbc.update("INSERT INTO system_dept VALUES (33,1,0,0)");
         storage = new MemoryStorage();
         current = POST;
+        ownerMappingActive = true;
         CurrentPost posts = () -> Optional.ofNullable(current);
         service = new LocalAssetService(ds, new DataSourceTransactionManager(ds), storage,
                 new AssetContentScanner(), posts, new cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort() {
-                    public long requireServiceAccount(long org) { return org == 33 ? 777 : 888; }
+                    public long requireServiceAccount(long org) {
+                        if (current == null || current.orgId() != org) throw new ServiceAccountInactiveException(org);
+                        return org == 33 ? 777 : 888;
+                    }
                     public long requireExistingServiceAccountForTask(long tenant, long org) {
-                        if (tenant != 1 || org != 33) throw new ServiceAccountInactiveException(org);
+                        if (tenant != 1 || org != 33 || !ownerMappingActive) throw new ServiceAccountInactiveException(org);
                         return 777;
                     }
+                }, (actor, commission, seq, slot) -> {
+                    if (!scopeAllowed || commission != 42 || seq != 1 || scopedRef == null || slot != scopedRef.slot())
+                        throw new IllegalArgumentException("无权查看委托文件");
+                    return scopedRef;
                 });
     }
 
@@ -256,6 +270,52 @@ class LocalAssetServiceTest {
         assertThatThrownBy(() -> service.completeUpload(ACTOR, id)).isInstanceOf(RuntimeException.class);
         assertThat(service.validateReference(ACTOR, id, Set.of("FIN_VOUCHER"))).isFalse();
     }
+
+    @Test
+    void dispatchScopeReadsHqBytesButGenericDownloadStillCannotCrossOrganization() throws Exception {
+        current = new PostSnapshot(11L, 22L, 33L, "headquarters", "hq-design-admin", null, false, Set.of());
+        var ticket = service.createUploadTicket(ACTOR, "DESIGN_DELIVERABLE", "application/pdf", PDF.length, sha(PDF));
+        service.receiveUpload(ACTOR, ticket.assetId(), tokenOf(ticket.uploadUrl()), new ByteArrayInputStream(PDF));
+        service.completeUpload(ACTOR, ticket.assetId());
+        current = new PostSnapshot(44L, 55L, 34L, "store", "sales", null, false, Set.of());
+        Actor consumer = new Actor(34, 888, 55, 44);
+        scopeAllowed = true;
+        scopedRef = new CommissionDeliverableAccessPort.DeliverableRef(ticket.assetId(), 33, 42, 1, Slot.RESULT);
+        assertThatThrownBy(() -> service.createDownloadUrl(consumer, ticket.assetId())).isInstanceOf(RuntimeException.class);
+        var url = service.createCommissionDownloadUrl(consumer, 42, 1, Slot.RESULT).downloadUrl();
+        assertThat(service.readDownload(consumer, ticket.assetId(), tokenOf(url)).bytes()).isEqualTo(PDF);
+        assertThatThrownBy(() -> service.readDownload(consumer, ticket.assetId(), tokenOf(url))).isInstanceOf(RuntimeException.class);
+        var second = service.createCommissionDownloadUrl(consumer, 42, 1, Slot.RESULT).downloadUrl();
+        scopeAllowed = false;
+        assertThatThrownBy(() -> service.readDownload(consumer, ticket.assetId(), tokenOf(second))).isInstanceOf(RuntimeException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_asset_download_ticket WHERE consumed_at IS NULL", Integer.class)).isEqualTo(1);
+        scopeAllowed = true;
+        ownerMappingActive = false;
+        assertThatThrownBy(() -> service.readDownload(consumer, ticket.assetId(), tokenOf(second)))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        ownerMappingActive = true;
+        assertThatThrownBy(() -> service.readDownload(new Actor(34, 888, 99, 44), ticket.assetId(), tokenOf(second))).isInstanceOf(RuntimeException.class);
+        TenantContextHolder.setTenantId(2L);
+        assertThatThrownBy(() -> service.readDownload(consumer, ticket.assetId(), tokenOf(second))).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void confirmationScopeDoesNotBroadenEngineeringGenericContractRights() throws Exception {
+        current = new PostSnapshot(11L, 22L, 33L, "store", "sales", null, false, Set.of());
+        var ticket = service.createUploadTicket(ACTOR, "CONTRACT_ATTACHMENT", "application/pdf", PDF.length, sha(PDF));
+        service.receiveUpload(ACTOR, ticket.assetId(), tokenOf(ticket.uploadUrl()), new ByteArrayInputStream(PDF));
+        service.completeUpload(ACTOR, ticket.assetId());
+        current = new PostSnapshot(11L, 22L, 33L, "store", "engineer", null, false, Set.of());
+        scopeAllowed = true;
+        scopedRef = new CommissionDeliverableAccessPort.DeliverableRef(ticket.assetId(), 33, 42, 1, Slot.CONFIRMATION);
+        assertThatThrownBy(() -> service.createDownloadUrl(ACTOR, ticket.assetId())).isInstanceOf(RuntimeException.class);
+        String url = service.createCommissionDownloadUrl(ACTOR, 42, 1, Slot.CONFIRMATION).downloadUrl();
+        assertThat(service.readDownload(ACTOR, ticket.assetId(), tokenOf(url)).bytes()).isEqualTo(PDF);
+        scopedRef = new CommissionDeliverableAccessPort.DeliverableRef(ticket.assetId(), 33, 42, 1, Slot.RESULT);
+        assertThatThrownBy(() -> service.createCommissionDownloadUrl(ACTOR, 42, 1, Slot.RESULT)).isInstanceOf(RuntimeException.class);
+    }
+
+    private static String tokenOf(String url) { return url.substring(url.indexOf("token=") + 6); }
 
     private static String sha(byte[] value) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));

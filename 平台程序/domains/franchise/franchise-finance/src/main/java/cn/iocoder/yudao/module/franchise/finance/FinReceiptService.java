@@ -36,7 +36,13 @@ import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorC
  */
 @Service
 @Slf4j
+@org.springframework.context.annotation.Import({DesignFinanceLocks.class,FinTransactionIdentityGuard.class})
 public class FinReceiptService {
+    @Resource private DesignFinanceLocks designLocks;
+    @Resource private cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentMapper designPayments;
+    @Resource private cn.iocoder.yudao.module.franchise.finance.dal.FinPayableMapper designPayables;
+    @Resource private org.springframework.jdbc.core.JdbcTemplate designJdbc;
+    @Resource private FinTransactionIdentityGuard transactionIdentity;
 
     public static final String STATUS_PENDING = "待登记";
     public static final String STATUS_REGISTERED = "已登记";
@@ -64,12 +70,17 @@ public class FinReceiptService {
     public record RegisterCommand(String sourceType, String sourceRef, String name, long amountCents,
                                   LocalDate receivedDate, String method, String transactionNo,
                                   Long voucherFileId, Long projectId, Long customerId,
-                                  Long designCommissionId, String designStage) {
+                                  Long designCommissionId, String designStage, Long originPaymentId) {
+        public RegisterCommand(String sourceType,String sourceRef,String name,long amountCents,LocalDate receivedDate,
+                String method,String transactionNo,Long voucherFileId,Long projectId,Long customerId,Long designCommissionId,String designStage) {
+            this(sourceType,sourceRef,name,amountCents,receivedDate,method,transactionNo,voucherFileId,projectId,customerId,designCommissionId,designStage,null);
+        }
     }
 
     @Transactional
     public long register(PostSnapshot post, String idempotencyKey, RegisterCommand cmd) {
         idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId(); // 幂等重放：返回首次登记的收款
@@ -82,12 +93,23 @@ public class FinReceiptService {
         String name = cmd.name();
         long amountCents = cmd.amountCents();
         String sourceRef = cmd.sourceRef();
+        Long customerId=cmd.customerId();
+        Long projectId=cmd.projectId();
         if ("design".equals(sourceType)) {
             CommissionQueryPort.CommissionFeeView fee = designGate(post, cmd);
             companyId = fee.designOrgId(); // 总部收款侧
-            amountCents = fee.stageCents(cmd.designStage());
-            sourceRef = fee.commissionId() + ":" + fee.submissionVersion() + ":" + cmd.designStage();
-            name = "设计" + ("first".equals(cmd.designStage()) ? "首款" : "尾款") + " · " + name;
+            sourceRef = fee.commissionId() + ":" + fee.submissionVersion() + ":" + cmd.designStage().toUpperCase(java.util.Locale.ROOT);
+            designLocks.source("design",sourceRef);
+            if(amountCents<=0) throw exception(DESIGN_RECEIPT_EXCEED_PAYMENT);
+            if(cmd.originPaymentId()==null) throw exception(DESIGN_SOURCE_INVALID);
+            var origin=designPayments.lockById(cmd.originPaymentId());
+            var payable=origin==null?null:designPayables.selectById(origin.getPayableId());
+            if(origin==null || payable==null || !"已核实".equals(origin.getStatus()) || origin.getCompanyId()!=fee.companyId()
+                    || payable.getCompanyId()!=fee.companyId() || !java.util.Objects.equals(payable.getDesignOrgId(),fee.designOrgId())
+                    || !"design".equals(payable.getSourceType()) || !sourceRef.equals(payable.getSourceRef())) throw exception(DESIGN_SOURCE_INVALID);
+            requireDesignReceiptCapacity(origin.getId(),amountCents,null);
+            customerId=fee.customerId(); projectId=payable.getProjectId();
+            name = "设计" + cmd.designStage().toUpperCase(java.util.Locale.ROOT) + " · " + (name==null?"核收":name);
         } else {
             companyId = post.orgId();
         }
@@ -95,7 +117,8 @@ public class FinReceiptService {
         requireVoucherAsset(post, cmd.voucherFileId()); // M5 R2 P1-2：基-1 引用校验（21 号 V3）
         requireTxnNoFree(companyId, cmd.transactionNo(), null);
         FinReceiptDO receipt = new FinReceiptDO()
-                .setCompanyId(companyId).setProjectId(cmd.projectId()).setCustomerId(cmd.customerId())
+                .setCompanyId(companyId).setProjectId(projectId).setCustomerId(customerId)
+                .setOriginPaymentId("design".equals(sourceType)?cmd.originPaymentId():null)
                 .setSourceType(sourceType).setSourceRef(sourceRef).setName(name)
                 .setAmountCents(amountCents).setStatus(STATUS_REGISTERED)
                 .setReceivedDate(cmd.receivedDate()).setRegisteredAt(OffsetDateTime.now())
@@ -119,7 +142,7 @@ public class FinReceiptService {
      * ②双轨兼容期：fr_fin_file 同组织存在（旧 files 通道）亦接受——新上传暂走 files multipart（QUERY 权限），
      *   基-1 切换随 COS 批字节通道（14 文档 D-基1-2 完整执行延后登记）；两者皆 miss → VOUCHER_INVALID_FIN。
      */
-    private void requireVoucherAsset(PostSnapshot post, Long voucherFileId) {
+    void requireVoucherAsset(PostSnapshot post, Long voucherFileId) {
         if (voucherFileId == null || voucherFileId <= 0) {
             return;
         }
@@ -147,8 +170,7 @@ public class FinReceiptService {
 
     /** design 来源五项门禁（需求文档 §五） */
     private CommissionQueryPort.CommissionFeeView designGate(PostSnapshot post, RegisterCommand cmd) {
-        if (cmd.designCommissionId() == null || cmd.designStage() == null
-                || !List.of("first", "tail").contains(cmd.designStage())) {
+        if (cmd.designCommissionId() == null || cmd.designStage() == null) {
             throw exception(DESIGN_SOURCE_INVALID);
         }
         CommissionQueryPort.CommissionFeeView fee = commissions.findCurrentFee(cmd.designCommissionId());
@@ -171,6 +193,19 @@ public class FinReceiptService {
     /** 修订：行锁 + baseRevisionVersion 乐观锁 + I-1 修订分支（Σ已核实退款 ≤ 新金额）+ 全留痕 */
     @Transactional
     public int revision(PostSnapshot post, long receiptId, Integer baseRevisionVersion, long newAmountCents, String note) {
+        return revision(post,receiptId,baseRevisionVersion,newAmountCents,note,null);
+    }
+
+    @Transactional
+    public int revision(PostSnapshot post,long receiptId,Integer baseRevisionVersion,long newAmountCents,String note,String idempotencyKey) {
+        var input=new java.util.LinkedHashMap<String,Object>();
+        input.put("receiptId",receiptId); input.put("baseRevisionVersion",baseRevisionVersion); input.put("newAmountCents",newAmountCents); input.put("note",note);
+        boolean design=designLocks.designReceipt(receiptId);
+        if(design) {
+            idempotencyKey=commands.requireIdempotencyKey(idempotencyKey); designLocks.command(post,idempotencyKey);
+            var replay=commands.replayed(post,idempotencyKey,input); if(replay.isPresent()) return replay.get().getRevision().intValue();
+            designLocks.receipt(receiptId);
+        }
         FinReceiptDO receipt = receiptMapper.lockById(receiptId);
         if (receipt == null || !"已登记".equals(receipt.getStatus())) {
             throw exception(RECEIPT_STATUS_CONFLICT);
@@ -189,6 +224,10 @@ public class FinReceiptService {
         if (refunded > newAmountCents) {
             throw exception(REFUND_EXCEED_BALANCE); // 已退款超过新金额，修订拒绝
         }
+        if("design".equals(receipt.getSourceType())) {
+            if(receipt.getOriginPaymentId()==null) throw exception(DESIGN_SOURCE_INVALID);
+            requireDesignReceiptCapacity(receipt.getOriginPaymentId(),newAmountCents-refunded,receiptId);
+        }
         int base = baseRevisionVersion;
         receiptMapper.updateById(new FinReceiptDO().setId(receiptId)
                 .setAmountCents(newAmountCents).setRevisionVersion(base + 1));
@@ -196,8 +235,34 @@ public class FinReceiptService {
                 .setReceiptId(receiptId).setBaseRevisionVersion(base)
                 .setOriginalAmountCents(receipt.getAmountCents()).setNewAmountCents(newAmountCents)
                 .setNote(note).setOperatorUserId(post.userId()));
+        if(design) commands.record(post,"fin-receipt",receiptId,base+1,"fin-receipt-revision",input,idempotencyKey);
         log.info("[revision][receipt={} {}->{} by={}]", receiptId, receipt.getAmountCents(), newAmountCents, post.userId());
         return baseRevisionVersion + 1;
+    }
+
+    void requireDesignReceiptCapacity(long paymentId,long newNetAmount,Long excludedReceiptId) {
+        var rows=designJdbc.queryForList("SELECT amount_cents-COALESCE(pending_link_cents,0)-COALESCE((SELECT sum(amount_cents) FROM fr_fin_refund WHERE payment_id=m.id AND status='已核实'),0) FROM fr_fin_payment m WHERE id=? AND status='已核实'",Long.class,paymentId);
+        Long paid=rows.isEmpty()?null:rows.get(0);
+        long received=designJdbc.queryForObject("SELECT COALESCE(sum(r.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f WHERE f.receipt_id=r.id AND f.status='已核实'),0)),0) FROM fr_fin_receipt r WHERE origin_payment_id=? AND status='已登记' AND r.id<>COALESCE(?::bigint,0)",Long.class,paymentId,excludedReceiptId);
+        if(paid==null || newNetAmount<0 || received+newNetAmount>paid) throw exception(DESIGN_RECEIPT_EXCEED_PAYMENT);
+    }
+
+    @Transactional
+    public void voidDesign(PostSnapshot post,long receiptId,String reason,String idempotencyKey) {
+        idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
+        var input=Map.of("receiptId",receiptId,"reason",reason);
+        if(commands.replayed(post,idempotencyKey,input).isPresent()) return;
+        designLocks.receipt(receiptId);
+        var receipt=receiptMapper.lockById(receiptId);
+        if(receipt==null || receipt.getCompanyId()!=post.orgId()) throw exception(ORG_MISMATCH);
+        if(!"design".equals(receipt.getSourceType()) || receipt.getOriginPaymentId()==null) throw exception(RECEIPT_NOT_VOIDABLE_SOURCE);
+        if(STATUS_VOIDED.equals(receipt.getStatus())) return;
+        if(!refundMapper.selectActiveByReceipt(receiptId).isEmpty()) throw exception(REFUND_SOURCE_INVALID);
+        int version=receipt.getRevisionVersion()+1;
+        receiptMapper.updateById(new FinReceiptDO().setId(receiptId).setStatus(STATUS_VOIDED).setRevisionVersion(version)
+                .setVoidReason(reason).setVoidByUserId(post.userId()));
+        commands.record(post,"fin-receipt",receiptId,version,"design-receipt-void",input,idempotencyKey);
     }
 
     /**
@@ -273,6 +338,9 @@ public class FinReceiptService {
     /** 撤销跨端预期应收（仅待登记；财务负责人，controller 层挂 payment-void 之外的校验） */
     @Transactional
     public void voidPending(PostSnapshot post, long receiptId, String reason) {
+        // 设计核收仅走有原付款和共同阶段锁的正式入口，不能借跨端预期应收路径改账。
+        var source=receiptMapper.selectById(receiptId);
+        if(source!=null && "design".equals(source.getSourceType())) throw exception(DESIGN_SOURCE_INVALID);
         FinReceiptDO receipt = receiptMapper.lockById(receiptId);
         if (receipt == null || !STATUS_PENDING.equals(receipt.getStatus())) {
             throw exception(RECEIPT_NOT_VOIDABLE_SOURCE);
@@ -297,6 +365,7 @@ public class FinReceiptService {
         if (normalized == null) {
             return;
         }
+        transactionIdentity.requireNoPayment(companyId,normalized);
         FinTxnNoDO existing = txnNoMapper.find(companyId, normalized);
         if (existing != null && !Objects.equals(existing.getOwnerId(), selfId)) {
             throw exception(TXN_NO_OCCUPIED);

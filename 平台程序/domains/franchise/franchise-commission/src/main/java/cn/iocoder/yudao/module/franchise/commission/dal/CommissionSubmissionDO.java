@@ -26,6 +26,10 @@ public class CommissionSubmissionDO {
     private Long designOrgId;
     private Long commissionId;
     private Integer version;
+    private String mode;
+    private Long rateCents;
+    private Integer pricingVersion;
+    private Long attachmentAssetId;
     private String text;
     private String scope;
     /** JSON {name,url}，可空 */

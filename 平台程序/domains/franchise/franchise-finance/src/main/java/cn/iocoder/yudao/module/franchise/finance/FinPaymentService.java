@@ -25,7 +25,9 @@ import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorC
  */
 @Service
 @Slf4j
+@org.springframework.context.annotation.Import({DesignFinanceLocks.class,FinTransactionIdentityGuard.class})
 public class FinPaymentService {
+    @Resource private DesignFinanceLocks designLocks;
 
     @Resource
     private FinPaymentMapper paymentMapper;
@@ -41,6 +43,10 @@ public class FinPaymentService {
     private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
     @Resource
     private cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper refundMapper;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoMapper transactionNumbers;
+    @Resource private FinTransactionIdentityGuard transactionIdentity;
+    @Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public record PayableCommand(long companyId, Long projectId, String stage, long totalCents,
                                  String recipient, String agreementRef) {
@@ -50,9 +56,41 @@ public class FinPaymentService {
                                  String transactionNo, Long voucherFileId) {
     }
 
+    public record EngineeringPayableUpdateCommand(long payableId,long projectId,String sourceRef,
+                                                  String recipient,long totalCents,String basis) {}
+
+    /** 工程外事务持供应行锁；与付款共用应付行锁后复核无已核实付款，退回不解锁。 */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void updateUnpaidEngineeringPayable(PostSnapshot post,String idempotencyKey,EngineeringPayableUpdateCommand cmd) {
+        idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
+        if(commands.replayed(post,idempotencyKey,cmd).isPresent()) return;
+        var payable=payableMapper.lockById(cmd.payableId());
+        boolean sourceMatches=Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM fr_eng_supply WHERE company_id=? AND project_id=? AND payable_id=?
+                AND ('engineering-payable:' || project_id || ':' || id)=?)
+            """,Boolean.class,post.orgId(),cmd.projectId(),cmd.payableId(),cmd.sourceRef()));
+        if(payable==null || payable.getCompanyId()!=post.orgId()
+                || !java.util.Objects.equals(payable.getProjectId(),cmd.projectId())
+                || !"engineering".equals(payable.getStage()) || !sourceMatches
+                || (payable.getSourceType()!=null && (!"engineering".equals(payable.getSourceType())
+                    || !java.util.Objects.equals(payable.getSourceRef(),cmd.sourceRef())))
+                || !"进行中".equals(payable.getStatus())) throw exception(PAYABLE_NOT_FOUND);
+        if(cmd.totalCents()<=0 || cn.hutool.core.util.StrUtil.isBlank(cmd.recipient())
+                || cn.hutool.core.util.StrUtil.isBlank(cmd.basis())) throw exception(PAYMENT_EXCEED_PAYABLE);
+        if(paymentMapper.selectActiveByPayable(cmd.payableId()).stream().anyMatch(p->p.getCompanyId()==post.orgId()))
+            throw exception(PAYMENT_EXCEED_PAYABLE);
+        payableMapper.updateById(new FinPayableDO().setId(cmd.payableId()).setTotalCents(cmd.totalCents())
+                .setRecipient(cmd.recipient()).setAgreementRef(cmd.basis())
+                .setSourceType("engineering").setSourceRef(cmd.sourceRef()));
+        long revision=jdbc.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-payable' AND aggregate_id=?",Long.class,cmd.payableId());
+        commands.record(post,"fin-payable",cmd.payableId(),revision,"engineering-payable-unpaid-update",cmd,idempotencyKey);
+    }
+
     @Transactional
     public long registerPayable(PostSnapshot post, String idempotencyKey, PayableCommand cmd) {
         idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
@@ -70,6 +108,7 @@ public class FinPaymentService {
     @Transactional
     public long register(PostSnapshot post, String idempotencyKey, PaymentCommand cmd) {
         idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
         var replayed = commands.replayed(post, idempotencyKey, cmd);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
@@ -81,9 +120,16 @@ public class FinPaymentService {
         if (cmd.voucherFileId() != null && cmd.voucherFileId() > 0) {
             FinReceiptService.requireVoucherAsset(post, cmd.voucherFileId(), assets, voucherFiles, serviceAccounts);
         }
+        FinPayableDO source = payableMapper.selectById(cmd.payableId());
+        if(source!=null) designLocks.source(source.getSourceType(),source.getSourceRef());
         FinPayableDO payable = payableMapper.lockById(cmd.payableId());
         if (payable == null || payable.getCompanyId() != post.orgId()) {
             throw exception(PAYABLE_NOT_FOUND);
+        }
+        String transactionNo=FinReceiptService.normalize(cmd.transactionNo());
+        transactionIdentity.requireNoPayment(post.orgId(),transactionNo);
+        if(transactionNo!=null && transactionNumbers.find(post.orgId(),transactionNo)!=null) {
+            throw exception(TXN_NO_OCCUPIED);
         }
         // R2 P1-4：paid 有效账口径=Σ(amount-pending_link_cents)——PENDING_LINK 超额部分不计入
         // 有效余额（不冲减其他应付；reconcile 转正后计入）
@@ -92,6 +138,12 @@ public class FinPaymentService {
         // M10-T05/R1 P1-4：超余额部分转「已核待关联现金」独立异常留痕（不拒绝——真实资金留痕优先，
         // 不绕有效账上限：有效账只计额度内部分；reconcile 后可转正）
         long overCents = Math.max(0, paid + cmd.amountCents() - payable.getTotalCents());
+        if("design".equals(payable.getSourceType())) {
+            long expenseRefunded=paymentMapper.selectActiveByPayable(cmd.payableId()).stream()
+                    .flatMap(p->refundMapper.selectActiveByPayment(p.getId()).stream()).mapToLong(r->r.getAmountCents()).sum();
+            overCents=Math.max(0,paid-expenseRefunded+cmd.amountCents()-payable.getTotalCents());
+            if(cmd.amountCents()<=0 || overCents>0) throw exception(PAYMENT_EXCEED_PAYABLE);
+        }
         long linkedCents = cmd.amountCents() - overCents;
         FinPaymentDO payment = new FinPaymentDO()
                 .setPayableId(cmd.payableId()).setProjectId(payable.getProjectId()).setCompanyId(post.orgId())
@@ -99,9 +151,19 @@ public class FinPaymentService {
                 .setPendingLinkCents(overCents)
                 .setLinkStatus(overCents > 0 ? "PENDING_LINK" : "LINKED")
                 .setPayDate(cmd.payDate()).setOperatorUserId(post.userId())
-                .setTransactionNo(FinReceiptService.normalize(cmd.transactionNo()))
+                .setTransactionNo(transactionNo)
                 .setVoucherFileId(cmd.voucherFileId());
         paymentMapper.insert(payment);
+        if(transactionNo!=null) {
+            try {
+                transactionNumbers.insert(new cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoDO()
+                        .setCompanyId(post.orgId()).setTxnNo(transactionNo).setOwnerType("payment")
+                        .setOwnerId(payment.getId()).setClosed(false).setCreateTime(OffsetDateTime.now()));
+            } catch(org.springframework.dao.DuplicateKeyException occupied) {
+                // 不同应付并发抢同一流水：唯一身份兜底，失败付款与本事务一起回滚。
+                throw exception(TXN_NO_OCCUPIED);
+            }
+        }
         commands.record(post, "fin-payment", payment.getId(), 1, "fin-payment-register", cmd, idempotencyKey);
         log.info("[register][companyId={} payment={} payable={} amount={}]", post.orgId(), payment.getId(), cmd.payableId(), cmd.amountCents());
         return payment.getId();
@@ -112,6 +174,19 @@ public class FinPaymentService {
      * 封闭「退回持锁提交→作废无条件覆盖」与「作废先提交→退回状态复核拒绝」的双向交错。 */
     @Transactional
     public void void_(PostSnapshot post, long paymentId, String reason) {
+        void_(post,paymentId,reason,null);
+    }
+
+    @Transactional
+    public void void_(PostSnapshot post,long paymentId,String reason,String idempotencyKey) {
+        boolean design=designLocks.designPayment(paymentId);
+        if(design) {
+            idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
+            designLocks.command(post,idempotencyKey);
+            var input=java.util.Map.of("paymentId",paymentId,"reason",reason);
+            if(commands.replayed(post,idempotencyKey,input).isPresent()) return;
+            designLocks.payment(paymentId);
+        }
         FinPaymentDO payment = paymentMapper.lockById(paymentId);
         if (payment == null) {
             throw exception(PAYMENT_NOT_FOUND);
@@ -125,8 +200,10 @@ public class FinPaymentService {
         if (!refundMapper.selectActiveByPayment(paymentId).isEmpty()) {
             throw exception(PAYMENT_HAS_ACTIVE_REFUND); // 先作废退回记录，再作废付款
         }
+        if(designLocks.designPayment(paymentId) && designLocks.hasNetDesignReceipts(paymentId)) throw exception(PAYMENT_HAS_DESIGN_RECEIPT);
         paymentMapper.updateById(new FinPaymentDO().setId(paymentId).setStatus("已作废")
                 .setVoidByUserId(post.userId()).setVoidReason(reason).setVoidedAt(OffsetDateTime.now()));
+        if(design) commands.record(post,"fin-payment",paymentId,2,"fin-payment-void",java.util.Map.of("paymentId",paymentId,"reason",reason),idempotencyKey);
         log.info("[void][companyId={} payment={} by={} reason={}]", post.orgId(), paymentId, post.userId(), reason);
     }
 

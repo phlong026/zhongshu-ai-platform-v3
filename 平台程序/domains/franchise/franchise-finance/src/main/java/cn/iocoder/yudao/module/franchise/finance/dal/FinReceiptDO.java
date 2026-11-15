@@ -24,6 +24,7 @@ public class FinReceiptDO {
     private Long customerId;
     private String sourceType;
     private String sourceRef;
+    private Long originPaymentId;
     private String name;
     private Long amountCents;
     private String status;

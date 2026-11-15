@@ -6,7 +6,8 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
  * 设计委托首尾款进度，供财务域（M3）在核实到账的同一事务内调用；执行人为财务人员的岗位，
  * 命令事件按该岗位留痕。
  * 就绪口径来自小程序 transfers-v2.js 的 condition：门店实付 ≥ 应付，且总部实收 ≥ 应付；
- * 只统计当前提交版本的款项。
+ * 历史审计兼容接口；不再作为完成、下发或待办的资金授权依据。
+ * 新调用方应使用 DesignFeeSettlementPort 的实时净额投影和事务锁门禁。
  */
 public interface DesignFeeProgressApi {
 

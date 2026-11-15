@@ -26,6 +26,10 @@ public class FinPayableDO {
     private String recipient;
     private String status;
     private String agreementRef;
+    private String sourceType;
+    private String sourceRef;
+    private Long customerId;
+    private Long designOrgId;
     private Long tenantId;
     private OffsetDateTime createTime;
 }

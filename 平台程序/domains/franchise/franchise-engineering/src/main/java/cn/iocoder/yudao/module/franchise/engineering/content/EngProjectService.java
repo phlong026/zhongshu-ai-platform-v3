@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
 import cn.iocoder.yudao.module.platform.command.Revisions;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
+import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import cn.iocoder.yudao.module.platform.org.dal.StaffPostDO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -55,12 +56,13 @@ public class EngProjectService {
     private final FranchiseCommands commands;
     private final StaffPostService staffPosts;
     private final JdbcTemplate jdbcTemplate;
+    private final SystemDirectory systemDirectory;
 
     public EngProjectService(FrEngProjectMapper projects, FrEngDocumentMapper documents,
                              FrEngPlanVersionMapper planVersions, FrEngPlanNodeMapper planNodes,
                              FrEngClosureMapper closures, FrEngCollectionMapper collections,
                              FrEngCollectionTermMapper collectionTerms, FranchiseCommands commands,
-                             StaffPostService staffPosts, JdbcTemplate jdbcTemplate) {
+                             StaffPostService staffPosts, JdbcTemplate jdbcTemplate, SystemDirectory systemDirectory) {
         this.projects = projects;
         this.documents = documents;
         this.planVersions = planVersions;
@@ -71,6 +73,7 @@ public class EngProjectService {
         this.commands = commands;
         this.staffPosts = staffPosts;
         this.jdbcTemplate = jdbcTemplate;
+        this.systemDirectory = systemDirectory;
     }
 
     public record CreateCommand(String name, String customer, String city, String phone,
@@ -337,6 +340,9 @@ public class EngProjectService {
         view.put("sourceCommissionId", project.getSourceCommissionId());
         view.put("parentProjectId", project.getParentProjectId());
         view.put("managerUserId", project.getManagerUserId());
+        String managerName = project.getManagerUserId() == null ? "" : systemDirectory.usersByIds(List.of(project.getManagerUserId())).stream()
+                .map(SystemDirectory.UserBrief::name).filter(java.util.Objects::nonNull).findFirst().orElse("");
+        view.put("managerName", managerName);
         view.put("assignedEngineerUserId", project.getAssignedEngineerUserId());
         view.put("status", project.getStatus());
         view.put("drawingVersion", project.getDrawingVersion());

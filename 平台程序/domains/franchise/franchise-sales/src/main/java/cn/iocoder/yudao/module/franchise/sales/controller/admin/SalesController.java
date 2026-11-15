@@ -114,6 +114,7 @@ public class SalesController {
                 req.customerId(), req.schemeId(), req.items(), req.priceVersion(), req.address(),
                 req.width(), req.depth(), req.floors(), req.area()), idem);
         return success(Map.of("quoteId", created.getId(), "totalCents", created.getTotalCents(),
+                "budgetSchemeId", created.getBudgetSchemeId(), "budgetVersion", created.getBudgetVersion(),
                 "items", cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(created.getItems(), Map.class)));
     }
 

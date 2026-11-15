@@ -58,7 +58,8 @@ public class CommissionController {
 
     public record SubmitReq(String text, String scope, String attachment, java.math.BigDecimal total,
                             java.math.BigDecimal first, String recipient, Integer budgetVersion,
-                            Integer planVersion, Integer facadeVersion, boolean confirmed) {
+                            Integer planVersion, Integer facadeVersion, boolean confirmed,
+                            String mode,Integer feeRuleVersion,Long totalCents,Long firstCents,Long attachmentAssetId) {
     }
 
     public record FeeDecisionReq(boolean approve, String note) {
@@ -67,18 +68,31 @@ public class CommissionController {
     public record CompleteReq(String note, boolean confirmed) {
     }
 
-    public record DispatchReq(String note, String recipient, boolean confirmed) {
+    public record DispatchReq(String note,String recipient,String drawingVersion,Long resultAssetId,
+                              Long drawingAssetId,Long reviewAssetId,boolean confirmed) {
     }
 
     public record FeedbackReq(String note) {
     }
 
-    public record PacketReq(int dispatchSeq, String resultFile, String drawingFile, String reviewFile,
-                            String confirmationFile, String drawingVersion, LocalDate confirmationDate,
+    public record PacketReq(int dispatchSeq,Long confirmationAssetId,LocalDate confirmationDate,
                             String note, long managerUserId, boolean confirmed) {
     }
 
     public record DecisionReq(String reason, boolean confirmed) {
+    }
+
+    public record BudgetView(int version,java.math.BigDecimal width,java.math.BigDecimal depth,Integer floors,
+                             java.math.BigDecimal area,String payload) { }
+    public record ContextResp(long customerId,Long commissionId,BudgetView latestBudget,
+                              CommissionService.FeeOffer feeOffer,CommissionDetail commission,java.util.List<String> allowedActions) { }
+    @GetMapping("/customers/{customerId}/commission-context")
+    public CommonResult<ContextResp> context(@PathVariable long customerId) {
+        var c=commissionService.context(currentPost.require(),customerId);
+        var budget=c.latestBudget();
+        var view=budget==null?null:new BudgetView(budget.getVersion(),budget.getWidth(),budget.getDepth(),budget.getFloors(),budget.getArea(),budget.getPayload());
+        return success(new ContextResp(c.customerId(),c.commissionId(),view,c.feeOffer(),
+                c.commission()==null?null:CommissionDetail.of(c.commission()),c.allowedActions()));
     }
 
     @PostMapping("/customers/{customerId}/commission")
@@ -87,17 +101,21 @@ public class CommissionController {
     public CommonResult<CommissionDetail> submit(@PathVariable long customerId, @Valid @RequestBody SubmitReq req,
                                        @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
         return success(CommissionDetail.of(commissionService.submit(currentPost.require(), customerId,
-                new SubmitCommand(req.text(), req.scope(), req.attachment(), req.total(), req.first(), req.recipient(),
-                        req.budgetVersion(), req.planVersion(), req.facadeVersion(), req.confirmed()), key)));
+                new SubmitCommand(req.text(), req.scope(), req.attachment(), req.totalCents()==null?req.total():java.math.BigDecimal.valueOf(req.totalCents(),2),
+                        req.firstCents()==null?req.first():java.math.BigDecimal.valueOf(req.firstCents(),2), req.recipient(),
+                        req.budgetVersion(), req.planVersion(), req.facadeVersion(), req.confirmed(),req.mode(),req.feeRuleVersion(),req.attachmentAssetId()), key)));
     }
 
+    public record CommissionSummary(Commission commission,long commissionId,String displayStatus,java.util.List<String> allowedActions) { }
     @GetMapping("/commissions")
     @Operation(summary = "委托列表：业务按客户经办范围，老板全店，总部设计行政按设计组织，接收人含本人")
     @PreAuthorize("@post.has('franchise:commission:query')")
-    public CommonResult<PageResult<Commission>> page(@Valid PageParam page,
+    public CommonResult<PageResult<CommissionSummary>> page(@Valid PageParam page,
                                                        @RequestParam(required = false) String keyword) {
-        return success(cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(
-                commissionService.page(currentPost.require(), page, keyword), Commission.class));
+        var post=currentPost.require();
+        var result=commissionService.page(post,page,keyword);
+        return success(new PageResult<>(result.getList().stream().map(c->new CommissionSummary(Commission.of(c),c.getId(),
+                commissionService.displayStatus(c),commissionService.allowedActions(post,c))).toList(),result.getTotal()));
     }
 
     @GetMapping("/commissions/{id}")
@@ -105,6 +123,10 @@ public class CommissionController {
     @PreAuthorize("@post.has('franchise:commission:query')")
     public CommonResult<CommissionDetail> get(@PathVariable long id) {
         return success(CommissionDetail.of(commissionService.get(currentPost.require(), id)));
+    }
+    @GetMapping("/commissions/{id}/handover-receivers")
+    public CommonResult<java.util.List<HandoverService.Receiver>> receivers(@PathVariable long id) {
+        return success(handoverService.receivers(currentPost.require(),id));
     }
 
     @PostMapping("/commissions/{id}/fee-decision")
@@ -117,7 +139,7 @@ public class CommissionController {
     }
 
     @PostMapping("/commissions/{id}/commands/{action}")
-    @Operation(summary = "委托命令：design-complete / design-dispatch / commission-feedback / packet-submit / packet-return / packet-receive")
+    @Operation(summary = "办理委托与设计交付", description = "design-complete / design-dispatch / commission-feedback / packet-submit / packet-return / packet-receive")
     @PreAuthorize("@post.has('franchise:commission:submit') or @post.has('franchise:commission:design') "
             + "or @post.has('franchise:commission:receive')")
     public CommonResult<CommissionDetail> command(@PathVariable long id, @PathVariable String action,
@@ -128,7 +150,8 @@ public class CommissionController {
             case "design-complete" -> commissionService.complete(post, id,
                     new CompleteCommand(text(body), bool(body, "confirmed")), key);
             case "design-dispatch" -> commissionService.dispatch(post, id,
-                    new DispatchCommand(text(body), str(body, "recipient"), bool(body, "confirmed")), key);
+                    new DispatchCommand(text(body), str(body, "recipient"), bool(body, "confirmed"),str(body,"drawingVersion"),
+                            number(body,"resultAssetId"),number(body,"drawingAssetId"),number(body,"reviewAssetId")), key);
             case "commission-feedback" -> commissionService.feedback(post, id, new FeedbackCommand(text(body)), key);
             case "packet-submit" -> handoverService.submit(post, id, packet(body), key);
             case "packet-return" -> handoverService.returnPacket(post, id,
@@ -152,6 +175,9 @@ public class CommissionController {
     private static boolean bool(java.util.Map<String, Object> body, String key) {
         return Boolean.TRUE.equals(body.get(key));
     }
+    private static Long number(java.util.Map<String,Object> body,String key) {
+        Object value=body.get(key);return value==null?null:Long.valueOf(String.valueOf(value));
+    }
 
     private static PacketCommand packet(java.util.Map<String, Object> body) {
         Object date = body.get("confirmationDate");
@@ -162,7 +188,7 @@ public class CommissionController {
                 date == null ? null : LocalDate.parse(String.valueOf(date)),
                 str(body, "note"),
                 body.get("managerUserId") == null ? 0 : Long.parseLong(String.valueOf(body.get("managerUserId"))),
-                bool(body, "confirmed"));
+                bool(body, "confirmed"),number(body,"confirmationAssetId"));
     }
 
 }

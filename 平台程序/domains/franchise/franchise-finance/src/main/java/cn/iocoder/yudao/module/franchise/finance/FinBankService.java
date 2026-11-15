@@ -26,7 +26,10 @@ import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorC
  */
 @Service
 @Slf4j
+@org.springframework.context.annotation.Import(FinTransactionIdentityGuard.class)
 public class FinBankService {
+    @Resource private FinTransactionIdentityGuard transactionIdentity;
+    @Resource private cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoMapper transactionNumbers;
 
     public record ConfirmInput(long flowId, long receiptId) {
         public static ConfirmInput of(long flowId, long receiptId) {
@@ -76,6 +79,12 @@ public class FinBankService {
         if (flow.getCompanyId() != post.orgId()) {
             throw exception(ORG_MISMATCH);
         }
+        String transactionNo=FinReceiptService.normalize(flow.getBankRef());
+        transactionIdentity.requireNoPayment(post.orgId(),transactionNo);
+        var identity=transactionNo==null?null:transactionNumbers.find(post.orgId(),transactionNo);
+        if(identity!=null && (!"receipt".equals(identity.getOwnerType()) || identity.getOwnerId()!=receiptId)) throw exception(TXN_NO_OCCUPIED);
+        FinReceiptDO source=receiptMapper.selectById(receiptId);
+        if(source!=null && "design".equals(source.getSourceType())) throw exception(DESIGN_SOURCE_INVALID);
         FinReceiptDO receipt = receiptMapper.lockById(receiptId);
         if (receipt == null || receipt.getCompanyId() != post.orgId()) {
             throw exception(ORG_MISMATCH);
@@ -90,7 +99,7 @@ public class FinBankService {
         }
         receiptMapper.updateById(new FinReceiptDO().setId(receiptId).setStatus(FinReceiptService.STATUS_REGISTERED)
                 .setRegisteredAt(OffsetDateTime.now()).setReceivedDate(flow.getBankDate())
-                .setRegistrarUserId(post.userId()).setTransactionNo(flow.getBankRef()));
+                .setRegistrarUserId(post.userId()).setTransactionNo(transactionNo));
         FinBankConfirmDO confirm = new FinBankConfirmDO().setBankFlowId(flowId).setReceiptId(receiptId)
                 .setCompanyId(post.orgId()).setAmountCents(flow.getAmountCents())
                 .setMatchedByUserId(post.userId()).setMatchedAt(OffsetDateTime.now());
@@ -99,6 +108,15 @@ public class FinBankService {
         } catch (org.springframework.dao.DuplicateKeyException e) {
             // 并发认领同一流水或同一应收：唯一约束兜底
             throw exception(BANK_FLOW_TAKEN);
+        }
+        if(transactionNo!=null && identity==null) {
+            try {
+                transactionNumbers.insert(new cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoDO()
+                        .setCompanyId(post.orgId()).setTxnNo(transactionNo).setOwnerType("receipt")
+                        .setOwnerId(receiptId).setClosed(false).setCreateTime(OffsetDateTime.now()));
+            } catch(org.springframework.dao.DuplicateKeyException occupied) {
+                throw exception(TXN_NO_OCCUPIED);
+            }
         }
         flowMapper.updateById(new FinBankFlowDO().setId(flowId).setStatus("已认领"));
         commands.record(post, "fin-bank-confirm", confirm.getId(), 1, "fin-bank-confirm", cn.iocoder.yudao.module.franchise.finance.FinBankService.ConfirmInput.of(flowId, receiptId), idempotencyKey);

@@ -47,7 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         LeadService.class, CustomerService.class, cn.iocoder.yudao.module.franchise.crm.CrmOrgScope.class,
         cn.iocoder.yudao.module.franchise.crm.CrmDepartureHandoverPort.class,
         DepartureHandoverService.class})
-class DepartureContinuityIntegrationTest extends FranchisePgIntegrationTest {
+class DepartureContinuityIntegrationTest extends CommissionPgIntegrationTest {
 
     private static final AtomicLong PHONES = new AtomicLong(18_000_000_000L + System.nanoTime() % 800_000_000L);
 
@@ -136,7 +136,7 @@ class DepartureContinuityIntegrationTest extends FranchisePgIntegrationTest {
         as(boss, () -> handoverService.handover(store.orgId(), salesA1.userId(), salesB.userId(), boss.userId()));
 
         // 接收人接续办理：对同一客户重复提交委托 → 拒绝（不双入口重复计收入）
-        assertError(() -> as(salesB, () -> commissions.submit(salesB, customerId, submit(TOTAL, FIRST), null)),
+        assertError(() -> as(salesB, () -> commissions.submit(salesB, customerId, submit(TOTAL, FIRST), commandKey())),
                 COMMISSION_ALREADY_EXISTS);
         assertThat(commissionCountOf(customerId)).isEqualTo(1);
     }
@@ -164,12 +164,12 @@ class DepartureContinuityIntegrationTest extends FranchisePgIntegrationTest {
         long commissionId = commissionIdOf(customerId);
         // 老板费用退回 → 交接 → 接手人沿原委托重提（合法路径，不是重复提交）
         as(boss, () -> commissions.feeDecide(boss, commissionId,
-                new CommissionService.FeeDecisionCommand(false, "费用与方案不符，退回修改"), null));
+                new CommissionService.FeeDecisionCommand(false, "费用与方案不符，退回修改"), commandKey()));
         assertThat(jdbc.queryForObject("SELECT status FROM fr_commission WHERE id = ?", String.class, commissionId))
                 .isEqualTo(CommissionDO.STATUS_FEE_RETURNED);
 
         as(boss, () -> handoverService.handover(store.orgId(), salesA1.userId(), salesB.userId(), boss.userId()));
-        var resubmitted = as(salesB, () -> commissions.submit(salesB, customerId, submit(TOTAL, FIRST), null));
+        var resubmitted = as(salesB, () -> commissions.submit(salesB, customerId, submit(TOTAL, FIRST), commandKey()));
         // 原委托编号不变：不是第二条委托；版本推进；旧提交完整保留
         assertThat(resubmitted.commission().getId()).isEqualTo(commissionId);
         assertThat(resubmitted.commission().getStatus()).isEqualTo(CommissionDO.STATUS_FEE_PENDING);
@@ -196,7 +196,7 @@ class DepartureContinuityIntegrationTest extends FranchisePgIntegrationTest {
                         new BigDecimal("16"), 2, new BigDecimal("400"), 68_000_000L), null));
         as(salesA1, () -> customers.follow(salesA1, customerId, new FollowCommand("首轮到店", null), null));
         as(salesA1, () -> customers.follow(salesA1, customerId, new FollowCommand("方案讲解", null), null));
-        as(salesA1, () -> commissions.submit(salesA1, customerId, submit(TOTAL, FIRST), null));
+        as(salesA1, () -> commissions.submit(salesA1, customerId, submit(TOTAL, FIRST), commandKey()));
         return customerId;
     }
 
@@ -210,7 +210,7 @@ class DepartureContinuityIntegrationTest extends FranchisePgIntegrationTest {
     private static cn.iocoder.yudao.module.franchise.commission.CommissionService.SubmitCommand submit(
             BigDecimal total, BigDecimal first) {
         return new cn.iocoder.yudao.module.franchise.commission.CommissionService.SubmitCommand(
-                "两层乡墅，面宽13m进深16m", SCOPE, null, total, first, RECIPIENT, null, null, null, true);
+                "两层乡墅，面宽13m进深16m", SCOPE, null, total, first, RECIPIENT, 1, null, null, true);
     }
 
     private long commissionIdOf(long customerId) {

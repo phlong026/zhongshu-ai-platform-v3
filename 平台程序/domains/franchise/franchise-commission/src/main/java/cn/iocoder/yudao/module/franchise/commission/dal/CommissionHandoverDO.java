@@ -32,6 +32,7 @@ public class CommissionHandoverDO {
     private String drawingFile;
     private String reviewFile;
     private String confirmationFile;
+    private Long confirmationAssetId;
     private String drawingVersion;
     private LocalDate confirmationDate;
     /** 交底说明 */

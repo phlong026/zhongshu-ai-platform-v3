@@ -16,6 +16,12 @@ public interface AssetAccessPort {
 
     record DownloadUrlView(String downloadUrl, Long expiresAt) { }
 
+    /** 独立 B 的委托成果范围票据；属主从不可变下发清单派生，禁止客户端指定。 */
+    default DownloadUrlView createCommissionDownloadUrl(Actor actor, long commissionId, int dispatchSeq,
+                                                       CommissionDeliverableAccessPort.Slot slot) {
+        throw new IllegalArgumentException("委托成果访问未配置");
+    }
+
     UploadTicketView createUploadTicket(long serviceAccountId, String assetType,
                                        String mimeType, long sizeBytes, String sha256);
     AssetCompleted completeUpload(long serviceAccountId, long assetId);
