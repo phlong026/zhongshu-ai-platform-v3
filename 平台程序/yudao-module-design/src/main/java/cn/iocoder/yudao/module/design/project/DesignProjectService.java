@@ -7,7 +7,6 @@ import cn.iocoder.yudao.module.design.rights.RightsGrantService;
 import cn.iocoder.yudao.module.infra.zhongshu.api.AiJobPort;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -628,21 +627,20 @@ public class DesignProjectService {
                     throw new IllegalStateException("ACCEPTED_OBJECT_DIGEST");
             } catch(java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
             final int size=bytes.length;
-            try {
-                txTemplate.execute(s -> {
-                    var writable=jdbcTemplate.queryForList("SELECT id FROM design_project WHERE id=? AND user_id=? AND deleted=FALSE FOR UPDATE",projectId,userId);
-                    if (writable.isEmpty()) throw exception(RESOURCE_FORBIDDEN);
-                    // 使用校验后独立的 accepted/ai 对象晋升用户资产，并校对实际摘要与大小。
-                    long assetId = registerPromotedAsset(userId, result, size);
-                    jdbcTemplate.update(
-                            "INSERT INTO design_candidate (id, project_id, job_id, slot_no, asset_id, ai_result_id) "
-                                    + "VALUES (?, ?, ?, ?, ?, ?)",
-                            IdWorker.getId(), projectId, jobId, result.slotNo(), assetId, result.resultId());
-                    return null;
-                });
-            } catch (DuplicateKeyException e) {
-                // 已晋升：幂等
-            }
+            txTemplate.execute(s -> {
+                var writable=jdbcTemplate.queryForList("SELECT id FROM design_project WHERE id=? AND user_id=? AND deleted=FALSE FOR UPDATE",projectId,userId);
+                if (writable.isEmpty()) throw exception(RESOURCE_FORBIDDEN);
+                // 项目锁串行化晋升；先查唯一键（含软删除记录），避免重复插入中止调用方的外层事务。
+                if (!jdbcTemplate.queryForList("SELECT id FROM design_candidate WHERE job_id=? AND slot_no=?",
+                        jobId, result.slotNo()).isEmpty()) return null;
+                // 使用校验后独立的 accepted/ai 对象晋升用户资产，并校对实际摘要与大小。
+                long assetId = registerPromotedAsset(userId, result, size);
+                jdbcTemplate.update(
+                        "INSERT INTO design_candidate (id, project_id, job_id, slot_no, asset_id, ai_result_id) "
+                                + "VALUES (?, ?, ?, ?, ?, ?)",
+                        IdWorker.getId(), projectId, jobId, result.slotNo(), assetId, result.resultId());
+                return null;
+            });
         }
     }
 

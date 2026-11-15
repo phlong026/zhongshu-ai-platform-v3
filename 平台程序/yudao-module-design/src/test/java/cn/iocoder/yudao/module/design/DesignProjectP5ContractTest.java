@@ -753,7 +753,19 @@ class DesignProjectP5ContractTest {
         assertThat(asset.get("width")).isEqualTo(13);
         assertThat(asset.get("height")).isEqualTo(7);
         assertThat(asset.get("stored_sha256")).isEqualTo(result.get("content_sha256"));
-        assertThat(projects.promoteCandidates(USER_A,project,job)).hasSize(1);
+        long assetCount = jdbc.queryForObject("SELECT count(*) FROM asset", Long.class);
+        // GET_PROJECT 的能力回执已有外层事务，重复读取不能让 PostgreSQL 事务进入 aborted 状态。
+        var outerTx = new org.springframework.transaction.support.TransactionTemplate(manager);
+        outerTx.executeWithoutResult(status -> {
+            assertThat(projects.promoteCandidates(USER_A,project,job)).hasSize(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM asset", Long.class)).isEqualTo(assetCount);
+        });
+        // 唯一键包含已删除候选；重读不得复活它或创建新的资产。
+        jdbc.update("UPDATE design_candidate SET deleted=TRUE WHERE job_id=?", job);
+        outerTx.executeWithoutResult(status -> {
+            assertThat(projects.promoteCandidates(USER_A,project,job)).isEmpty();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM asset", Long.class)).isEqualTo(assetCount);
+        });
     }
 
     @Test
