@@ -1,0 +1,148 @@
+{
+  "environment": "isolated B pg,integration",
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "mocked": false,
+  "login": "Real wx.login exchange for existing phone-bound employee 145; existing account page afterRealLogin finalizer. No simulated phone grant or injected admin token.",
+  "customerId": "2121799549299286017",
+  "requirementId": "2121802662328492033",
+  "quoteId": "2121802700861562882",
+  "quoteTotalCents": 48492000,
+  "contractId": "2121804604685508610",
+  "finalContractStatus": "SIGNED",
+  "businessPosts": [
+    {
+      "stage": "capture",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/leads",
+      "bodyKeys": [
+        "name",
+        "phone",
+        "need",
+        "source"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 83,
+      "result": {
+        "leadId": "2121799549286703106",
+        "customerId": "2121799549299286017",
+        "result": "CREATED"
+      },
+      "sourceReceipt": "experience-crm-capture-first-pass.json"
+    },
+    {
+      "stage": "follow",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017/follows",
+      "bodyKeys": [
+        "note",
+        "nextVisitDate"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 84,
+      "result": {
+        "customerId": "2121799549299286017"
+      },
+      "sourceReceipt": "experience-crm-follow-first-pass.json"
+    },
+    {
+      "stage": "requirement",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId",
+        "width",
+        "depth",
+        "floors",
+        "style"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 73,
+      "result": {
+        "requirementId": "2121802662328492033"
+      },
+      "sourceReceipt": "experience-crm-quote-first-pass.json"
+    },
+    {
+      "stage": "quote",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId",
+        "items",
+        "priceVersion",
+        "width",
+        "depth",
+        "floors",
+        "area"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 82,
+      "result": {
+        "quoteId": "2121802700861562882",
+        "totalCents": 48492000
+      },
+      "sourceReceipt": "experience-crm-quote-first-pass.json"
+    },
+    {
+      "stage": "contract",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId",
+        "totalCents",
+        "signAfterCents",
+        "baseDoneCents",
+        "capDoneCents",
+        "requirementId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 88,
+      "result": {
+        "contractId": "2121804604685508610",
+        "status": "WAIT_SIGN"
+      },
+      "sourceReceipt": "experience-crm-native.json"
+    },
+    {
+      "stage": "contract_sign",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts/2121804604685508610/sign",
+      "bodyKeys": [
+        "revision"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 69,
+      "result": {
+        "contractId": "2121804604685508610",
+        "status": "SIGNED"
+      },
+      "sourceReceipt": "experience-crm-native.json"
+    }
+  ],
+  "latestContractRun": {
+    "startedAt": "2026-11-15T03:16:30.713Z",
+    "endedAt": "2026-11-15T03:17:01.059Z",
+    "console": [
+      {
+        "stage": "real_wechat_login",
+        "level": "warn",
+        "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+      }
+    ],
+    "exceptions": [],
+    "automationWarnings": []
+  },
+  "limitations": [
+    "Isolated synthetic customer only; no real customer contacted.",
+    "No receipt, payment, engineering, design-commission or paid AI writes in this customer scenario.",
+    "SDK receipt timeouts in early navigation were resolved by normal page readback and pacing; successful writes were not repeated.",
+    "Full cross-role design and engineering-finance acceptance remains open."
+  ],
+  "uploaded": false
+}

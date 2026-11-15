@@ -4,7 +4,7 @@ const PF=require('../../utils/platform-crm'),http=require('../../api/http');
 const V=require('./views');
 Object.assign(V.titles,{'money-review':'老板金额审批','task-access':'任务动作授权'});
 Page({
- data:{view:'customers',title:'我的客户',customer:null,form:{},sections:[],modal:'',keyword:'',filter:'全部',filters:['全部','待跟进','跟进中','已到店'],filteredCustomers:[],caseTab:0,selectedPlan:0,floor:0,activeCustomerTab:0,showAllProgressRecords:false,requirements:['三代同住','4间卧室','一层老人房'],foundationOptions:['独立基础','条形基础','桩基础'],structureOptions:['框架结构','砖混结构'],roofOptions:['坡屋顶','平屋顶'],styleOptions:['全部风格','新中式','现代简约'],orientationOptions:['南','东','西','北'],resolutionOptions:['2K','4K'],countOptions:['1','2','4'],aspectOptions:['横图','竖图'],methodOptions:['电话','微信','到店'],nextOptions:['电话联系','微信联系','到店沟通'],sourceOptions:['视频号咨询','抖音咨询','朋友介绍','到店咨询','其他'],provinceOptions:['湖北省','广东省','浙江省','其他'],cityOptions:['武汉市','宜昌市','襄阳市','黄冈市','麻城市','红安县','武穴市','蕲春县','罗田县','英山县','黄梅县','团风县','浠水县','其他'],managerOptions:['李经理','王经理'],platformMode:false,platformStatus:'',platformError:'',customerTabs:['概况','跟进','项目进度'],showSizeBlock:false,todayStr:'',requirementStyles:['现代简约','新中式'],error:'',busy:false,preview:null,designFlow:false,selectingCustomer:false,facadeStyleOptions:['新中式','现代简约']},
+ data:{view:'customers',title:'我的客户',customer:null,form:{},sections:[],modal:'',keyword:'',filter:'全部',filters:['全部','待跟进','跟进中','已到店'],filteredCustomers:[],caseTab:0,selectedPlan:0,floor:0,activeCustomerTab:0,showAllProgressRecords:false,requirements:['三代同住','4间卧室','一层老人房'],foundationOptions:['独立基础','条形基础','桩基础'],structureOptions:['框架结构','砖混结构'],roofOptions:['坡屋顶','平屋顶'],styleOptions:['全部风格','新中式','现代简约'],orientationOptions:['南','东','西','北'],resolutionOptions:['2K','4K'],countOptions:['1','2','4'],aspectOptions:['横图','竖图'],methodOptions:['电话','微信','到店'],nextOptions:['电话联系','微信联系','到店沟通'],sourceOptions:['视频号咨询','抖音咨询','朋友介绍','到店咨询','其他'],provinceOptions:['湖北省','广东省','浙江省','其他'],cityOptions:['武汉市','宜昌市','襄阳市','黄冈市','麻城市','红安县','武穴市','蕲春县','罗田县','英山县','黄梅县','团风县','浠水县','其他'],managerOptions:['李经理','王经理'],platformMode:false,platformStatus:'',platformError:'',requirementsStatus:'',requirementsError:'',customerTabs:['概况','跟进','项目进度'],showSizeBlock:false,todayStr:'',requirementStyles:['现代简约','新中式'],error:'',busy:false,preview:null,designFlow:false,selectingCustomer:false,facadeStyleOptions:['新中式','现代简约']},
  onLoad(options={}){this.options=options;this.__post=null;this.__postKey='';this.__cmdKeys={};
   const post=(()=>{try{const auth=require('../../api/auth');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
   if(PF.pageMode(http.token(),post)!=='api'){// 纯 API 态门禁：无平台会话不进本地演示，回登录页
@@ -40,7 +40,7 @@ Page({
   let view=requested?(requested==='arrival'?'customer':requested):'customer';
   if(view==='budget-result')view='budget';// 结果为页面内态；深链直达回参数页
   if(view!=='customers'&&!this.id)view='customers';
-  this.setData({platformMode:true,view,title:V.titles[view]||'客户工作区',transferMode:0,customer:null,sections:[],form:{},modal:'',error:'',busy:false,blocked:null,customerTabs:['概况','跟进'],activeCustomerTab:0,todayStr:PF.today(),role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode)});
+  this.setData({platformMode:true,view,title:V.titles[view]||'客户工作区',transferMode:0,customer:null,sections:[],form:{},modal:'',error:'',busy:false,blocked:null,customerTabs:['概况','跟进'],activeCustomerTab:0,todayStr:PF.today(),role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode),saleWrite:PF.can(post,'saleWrite')});
   // 加载统一由 onShow→refresh 触发（onLoad→onShow 连续生命周期，避免重复请求）
   if(options.modal&&view==='customers')this.openModal(options.modal);
  },
@@ -65,7 +65,7 @@ Page({
   const PFc=this.__pf,post=this.__post;
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   const canW=PFc.can(post,'write');
-  this.setData({platformStatus:'loading',error:this.data.error==='正在加载…'?'':this.data.error,customer:null,canEditCustomer:canW,canFollow:canW});// 加载态由 platformStatus 表达，error 只保留实际业务提示
+  this.setData({platformStatus:'loading',error:this.data.error==='正在加载…'?'':this.data.error,customer:null,canEditCustomer:canW,canFollow:canW,saleWrite:PFc.can(post,'saleWrite')});// 加载态由 platformStatus 表达，error 只保留实际业务提示
   if(view==='transfer')this.loadTransferTargets(sessionGen);
   this.__crmApi.customers.get(this.id).then(detail=>{
    if(this.stale(gen,sessionGen,postKey))return;
@@ -150,7 +150,9 @@ Page({
    if(result==='LINKED'&&cid){// 先探测可读性（同团队自动关联但 sales 仅读本人客户，S1-13）
     wx.showToast({title:'已关联同手机号原客户',icon:'none'});
     this.setData({busy:false});
-    return this.__crmApi.customers.get(cid).then(()=>this.openView('customer',true,cid)).catch(err=>{
+    return this.__crmApi.customers.get(cid).then(()=>{if(!this.stale(gen,sessionGen,postKey))this.openView('customer',true,cid);}).catch(err=>{
+     if(this.handle401(err,sessionGen))return;
+     if(this.stale(gen,sessionGen,postKey))return;
      if(err&&(err.code===1110000000||err.code===403))return this.setData({error:'该客户由同事负责，已关联到其名下，请联系负责人查看'});
      this.setData({error:PF.errorMessage(err)});
     });
@@ -220,43 +222,85 @@ Page({
  platformSalesApi(){return this.__crmSales=this.__crmSales||require('../../api/franchise/sales');},
  exportPlatformQuote(e){const quoteId=e&&e.currentTarget&&e.currentTarget.dataset.quoteId;if(!quoteId)return this.fail('请先完成报价测算');require('../../utils/page-navigation').open('/pages/workflow/quote-export/index?quote-id='+encodeURIComponent(quoteId));},
  customerNameFallback(){const q=(this.data.salesQuotes||[])[0],c=(this.data.salesContracts||[])[0];return (q&&q.customerName)||(c&&c.customerName)||('客户'+String(this.id||'').slice(-4));},
- platformTradeFrame(){this.setData({platformMode:true,customerNameText:this.data.customerNameText||this.customerNameFallback(),saleWrite:PF.can(this.__post,'saleWrite'),todayStr:PF.today()});},
+ platformTradeFrame(){const saleWrite=PF.can(this.__post,'saleWrite');this.setData({platformMode:true,customerNameText:this.data.customerNameText||this.customerNameFallback(),saleWrite,todayStr:PF.today()});return saleWrite;},
+ blockTradeLoad(){const message='当前岗位无交易业务办理权限';this.setData({requirementsStatus:'blocked',requirementsError:message,error:message});},
+ guardTradeSubmit(errorKey='error'){
+  const fail=message=>{this.setData({[errorKey]:message,busy:false});return false;};
+  if(!PF.can(this.__post,'saleWrite'))return fail('当前岗位无交易业务办理权限');
+  if(this.data.requirementsStatus==='loading')return fail('历史需求正在加载，请稍候');
+  if(this.data.requirementsStatus!=='ready')return fail('历史需求加载失败，请先重试');
+  return true;
+ },
+ retryRequirements(){const view=this.data.view;if(view==='requirement')return this.prepareRequirement();if(view==='budget')return this.loadPlatformBudget();if(view==='contract')return this.loadPlatformContract();},
+ loadTradeCustomerContext(gen,sessionGen,postKey){
+  const PFc=this.__pf,canW=PFc.can(this.__post,'write');
+  this.setData({platformStatus:'loading',platformError:'',customer:null,error:''});
+  return this.__crmApi.customers.get(this.id).then(detail=>{
+   if(this.stale(gen,sessionGen,postKey))return null;
+   const model=PFc.detailView(detail,{today:PFc.today(),canWrite:canW}),customer=model.customer;
+   this.setData({platformStatus:'ready',platformError:'',customer,showSizeBlock:model.showSizeBlock,blocked:null,
+    customerInitial:(customer.name||'').slice(0,1),phone:PFc.maskPhone(customer.phone)||customer.wechat||'',
+    projectSummary:customer.summary||'',city:(customer.city||'').replace(/市$/,''),customerNameText:customer.name||this.customerNameFallback()});
+   return customer;
+  }).catch(err=>{
+   if(this.handle401(err,sessionGen))return null;
+   if(this.stale(gen,sessionGen,postKey))return null;
+   const message=PFc.errorMessage(err);
+   this.setData({platformStatus:'degraded',platformError:message,error:message,customer:null});
+   return null;
+  });
+ },
  fetchLatestRequirement(gen,sessionGen,postKey){
+  this.setData({requirementsStatus:'loading',requirementsError:''});
   return this.platformSalesApi().requirements.list(this.id).then(rows=>{
    if(this.stale(gen,sessionGen,postKey))return null;
    const latest=(rows||[])[0]||null;
-   this.setData({salesRequirements:(rows||[]).map(r=>PF.requirementRow(r))});
+   this.setData({requirementsStatus:'ready',requirementsError:'',salesRequirements:(rows||[]).map(r=>PF.requirementRow(r))});
    return latest;
-  }).catch(()=>null);
+  }).catch(err=>{
+   if(this.handle401(err,sessionGen))return null;
+   if(this.stale(gen,sessionGen,postKey))return null;
+   const message='需求加载失败：'+PF.errorMessageSales(err);
+   this.setData({requirementsStatus:'error',requirementsError:message,error:message});
+   return null;
+  });
  },
  prepareRequirement(){
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.platformTradeFrame();
+  const saleWrite=this.platformTradeFrame(),editGen=this.__formEditGen||0;
   this.setData({view:'requirement',title:'登记需求',form:{width:'',depth:'',floors:'',style:'现代简约',prompt:'',note:''},error:'',busy:false});
+  this.loadTradeCustomerContext(gen,sessionGen,postKey);
+  if(!saleWrite)return this.blockTradeLoad();
   this.fetchLatestRequirement(gen,sessionGen,postKey).then(latest=>{
-   if(!latest||this.stale(gen,sessionGen,postKey))return;
+   if(!latest||this.stale(gen,sessionGen,postKey)||editGen!==(this.__formEditGen||0))return;
    this.setData({form:{width:latest.width!=null?String(latest.width):'',depth:latest.depth!=null?String(latest.depth):'',floors:latest.floors!=null?String(latest.floors):'',style:latest.style||'现代简约',prompt:latest.prompt||'',note:latest.note||''}});
   });
  },
  loadPlatformBudget(){
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.platformTradeFrame();
+  const saleWrite=this.platformTradeFrame(),editGen=this.__formEditGen||0;
   this.setData({view:'budget',title:'报价测算',error:'',busy:false});
-  const fill=f=>{if(this.stale(gen,sessionGen,postKey))return;this.setData({form:Object.assign({budgetChecked:false,exterior:{window:true,paint:true,stone:true,light:true,waterproof:true,lightning:true,insurance:false}},this.data.form,f)});};
-  this.fetchLatestRequirement(gen,sessionGen,postKey).then(latest=>{
+  const fill=f=>{if(this.stale(gen,sessionGen,postKey)||editGen!==(this.__formEditGen||0))return;this.setData({form:Object.assign({budgetChecked:false,roofArea:'',exterior:{window:true,paint:true,stone:true,light:true,waterproof:true,lightning:true,insurance:false}},this.data.form,f)});};
+  const customerRequest=this.loadTradeCustomerContext(gen,sessionGen,postKey);
+  if(!saleWrite)return this.blockTradeLoad();
+  Promise.all([this.fetchLatestRequirement(gen,sessionGen,postKey),customerRequest]).then(([latest,customer])=>{
    if(this.stale(gen,sessionGen,postKey))return;
-   if(latest&&latest.width!=null){fill({width:String(latest.width),depth:String(latest.depth),floors:String(latest.floors||''),roofArea:String(Math.round(Number(latest.width)*1.1))});return;}
-   this.__crmApi.customers.get(this.id).then(detail=>{if(!this.stale(gen,sessionGen,postKey)){const c=detail.customer||{};fill({width:c.width!=null?String(c.width):'',depth:c.depth!=null?String(c.depth):'',floors:c.floors!=null?String(c.floors):'',roofArea:c.width?String(Math.round(Number(c.width)*1.1)):''});}}).catch(()=>{});
+   if(latest&&latest.width!=null){fill({width:String(latest.width),depth:String(latest.depth),floors:String(latest.floors||'')});return;}
+   const c=customer||{};
+   fill({width:c.width!=null?String(c.width):'',depth:c.depth!=null?String(c.depth):'',floors:c.floors!=null?String(c.floors):''});
   });
  },
  budgetShowResult(){if(this.data.budgetResult)return this.setData({view:'budget-result'});wx.showToast({title:'请先完成报价测算',icon:'none'});},
  budgetShowForm(){return this.setData({view:'budget'});},
  platformSubmitQuote(){
   const f=this.data.form,fail=msg=>this.setData({error:msg,busy:false});
+  if(!this.guardTradeSubmit())return;
   const dims={width:Number(f.width),depth:Number(f.depth),floors:Number(f.floors)};
   if(!dims.width||dims.width<3||dims.width>40||!/^\d{1,2}(\.\d)?$/.test(String(f.width||'')))return fail('面宽须为3–40米，最多一位小数');
   if(!dims.depth||dims.depth<3||dims.depth>40||!/^\d{1,2}(\.\d)?$/.test(String(f.depth||'')))return fail('进深须为3–40米，最多一位小数');
   if(!Number.isInteger(dims.floors)||dims.floors<1||dims.floors>6)return fail('建筑层数须为1–6层整数');
+  if(!String(f.footprint==null?'':f.footprint).trim())return fail('请填写占地面积');
+  if(!String(f.area==null?'':f.area).trim())return fail('请填写建筑面积');
   for(const k of ['footprint','area','roofArea'])if(f[k]!==''&&f[k]!=null&&(!/^\d+(\.\d{1,2})?$/.test(String(f[k]))||Number(f[k])<=0))return fail('请填写有效的面积数值');
   if(!f.budgetChecked)return fail('请先人工核定屋顶面积');
   const compiled=PF.compileQuoteItems(f);
@@ -284,8 +328,10 @@ Page({
  loadPlatformContract(){
   const PFc=this.__pf;
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.platformTradeFrame();
+  const saleWrite=this.platformTradeFrame();
   this.setData({view:'contract',title:'签订合同',salesContracts:null,contractsError:'',salesQuotes:null,quotesError:'',canRegister:false,canFollow:false,canCollect:PF.can(this.__post,'collect')});// contractForm 保留（S1-21 表单保留协议）
+  this.loadTradeCustomerContext(gen,sessionGen,postKey);
+  if(!saleWrite)return this.blockTradeLoad();
   const api=this.platformSalesApi();
   api.contracts.list(this.id).then(rows=>{
    if(this.stale(gen,sessionGen,postKey))return;
@@ -312,7 +358,9 @@ Page({
  contractInput(e){this.setData({['contractForm.'+e.currentTarget.dataset.key]:e.detail.value,contractError:''});this.saveDraft();},
  contractDate(e){this.setData({'contractForm.signedDate':e.detail.value,contractError:''});this.saveDraft();},
  platformSubmitContract(){
-  const fm=this.data.contractForm,fail=msg=>this.setData({contractError:msg,busy:false});
+  const fail=msg=>this.setData({contractError:msg,busy:false});
+  if(!this.guardTradeSubmit('contractError'))return;
+  const fm=this.data.contractForm;
   // M06-T02 三期：Σ三期=总额；签约后>0；基础完成后/封顶后≥0（0=未约定）
   const total=PF.toCents(fm.total),signAfter=PF.toCents(fm.signAfter),baseDone=PF.toCents(fm.baseDone||'0'),capDone=PF.toCents(fm.capDone||'0');
   if(!total)return fail('请填写合同总额（最多两位小数）');
@@ -527,6 +575,7 @@ Page({
  },
  platformSubmitRequirement(){
   const f=this.data.form,fail=msg=>this.setData({error:msg,busy:false});
+  if(!this.guardTradeSubmit())return;
   const w=Number(f.width),d=Number(f.depth),fl=Number(f.floors);
   if(!w||w<3||w>40||!/^\d{1,2}(\.\d)?$/.test(String(f.width||'')))return fail('面宽须为3–40米，最多一位小数');
   if(!d||d<3||d>40||!/^\d{1,2}(\.\d)?$/.test(String(f.depth||'')))return fail('进深须为3–40米，最多一位小数');
@@ -555,7 +604,7 @@ Page({
   // API 态刷新：无会话保持当前态（onLoad 门禁与 401 兜底），不回落本地；切岗清数据；按视图重拉
   const post=this.platformSession();
   if(!post||PF.pageMode(http.token(),post)!=='api')return;
-  if(this.__postKey!==String(post.postId)){this.__post=post;this.__postKey=String(post.postId);this.__cmdKeys={};this.__transferStaff=null;this.setData({customer:null,form:{},filteredCustomers:[],modal:'',role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode)});}
+  if(this.__postKey!==String(post.postId)){this.__post=post;this.__postKey=String(post.postId);this.__cmdKeys={};this.__transferStaff=null;this.setData({customer:null,form:{},filteredCustomers:[],modal:'',role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode),saleWrite:PF.can(post,'saleWrite')});}
   const v=this.data.view;
   if(v==='customers')this.loadPlatformList();
   else if(v==='budget')this.loadPlatformBudget();
@@ -585,7 +634,7 @@ Page({
  toggle(e){const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:!this.data.form[key],error:''});this.saveDraft();},
  exteriorChange(e){this.setData({['form.exterior.'+e.currentTarget.dataset.key]:e.detail.value});this.saveDraft();},
  saveDraft(){// API 态：草稿不落本地存储；表单变更即作废命令快照/标记上次报价
-  this.__cmdKeys={};if(this.data.view==='budget'&&this.data.budgetResult&&!this.data.budgetResult.stale)this.setData({'budgetResult.stale':true});},
+  this.__formEditGen=(this.__formEditGen||0)+1;this.__cmdKeys={};if(this.data.view==='budget'&&this.data.budgetResult&&!this.data.budgetResult.stale)this.setData({'budgetResult.stale':true});},
  customerTab(e){const i=Number(e.currentTarget.dataset.index);if(i===2){this.openView('progress',true);return;}if(this.data.view==='progress'){require('../../utils/page-navigation').open('/pages/workflow/index?view=customer&id='+encodeURIComponent(this.id)+(i?'&tab='+i:''),{replace:true});return;}this.options.tab=i;this.setData({activeCustomerTab:i});},
   toggleProgressRecords(){const show=!this.data.showAllProgressRecords;this.setData({showAllProgressRecords:show,progressRecordLimit:20,visibleProgressRecords:show?(this.data.progressInfo?.records||[]).slice(0,20):[]});},
   loadMoreProgressRecords(){const limit=(this.data.progressRecordLimit||20)+20;this.setData({progressRecordLimit:limit,visibleProgressRecords:(this.data.progressInfo?.records||[]).slice(0,limit)});},

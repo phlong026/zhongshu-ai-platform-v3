@@ -37,7 +37,7 @@
     </block>
     <button class="boss-biz-entry" data-url="/pages/customers/index" bindtap="openBossLink">客户列表与跟进<view class="chevron"/></button>
   </view>
-  <view wx:else class="content"><login-guide wx:if="{{guest}}" title="业务工作台" description="客户跟进、方案设计、视频创作与工程移交按岗位分工办理，登录后查看本人工作台。" /><workbench-denied wx:elif="{{!canBusiness}}" title="{{active?'当前身份无业务办理权限':'登录后查看业务工作台'}}" lines="{{['客户跟进、设计和移交按岗位分工办理。请使用本人已授权的工作台。']}}" home-title="{{homeTitle}}" active="{{active}}" bind:home="goTab" bind:identity="openAction"/><block wx:else>
+  <view wx:else class="content"><login-guide wx:if="{{guest}}" title="业务工作台" description="客户跟进、方案设计、视频创作与工程移交按岗位分工办理，登录后查看本人工作台。" /><workbench-denied wx:elif="{{!canBusiness}}" title="{{active?'当前身份无业务办理权限':'登录后查看业务工作台'}}" lines="{{['客户跟进、设计和移交按岗位分工办理。请使用本人已授权的工作台。']}}" home-title="{{homeTitle||''}}" active="{{active}}" bind:home="goTab" bind:identity="openAction"/><block wx:else>
     <empty-state wx:if="{{platformStatus==='degraded'}}" custom-class="empty" message="{{platformError||'数据加载失败，请稍后重试'}}"/>
     <search-box variant="business" clearable="{{false}}" value="{{keyword}}" placeholder="搜索客户、项目或方案" aria-label="搜索客户、项目或方案" bind:input="search"/>
     <view class="section todo-section">

@@ -49,3 +49,8 @@ page{background:#fdfcf9;color:#0e0e0e;font-family:var(--zs-font-family);font-siz
 .customer-workspace>.body{display:flex;flex:1;flex-direction:column}
 .customer-workspace>.body>view{flex-shrink:0}
 .customer-workspace .customer-follow-actions{margin-top:auto}
+/* 客户与交易页的窄屏卡片按行排布，避免姓名、电话及摘要在 compact 横排中溢出。 */
+.customer-workspace .customer-banner.compact .banner-info,.view-requirement .customer-banner.compact .banner-info,.view-budget .customer-banner.compact .banner-info,.view-contract .customer-banner.compact .banner-info{display:block;min-width:0}
+.customer-workspace .customer-banner .name,.view-requirement .customer-banner .name,.view-budget .customer-banner .name,.view-contract .customer-banner .name{white-space:normal;flex-wrap:wrap}
+.customer-workspace .customer-banner .customer-name,.view-requirement .customer-banner .customer-name,.view-budget .customer-banner .customer-name,.view-contract .customer-banner .customer-name{min-width:0;overflow-wrap:anywhere}
+.customer-workspace .customer-banner .banner-line,.view-requirement .customer-banner .banner-line,.view-budget .customer-banner .banner-line,.view-contract .customer-banner .banner-line{white-space:normal;overflow-wrap:anywhere;margin-top:6rpx}
