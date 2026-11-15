@@ -208,7 +208,8 @@ public class CommissionService implements DesignFeeProgressApi {
             // 字段裁剪（§6）：设计行政看不到金额与收款方
             submissions = submissions.stream().map(s -> cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(s,CommissionSubmissionDO.class))
                     .map(s -> s.setTotalCents(null).setFirstCents(null)
-                    .setRecipient(null).setPolicyId(null).setPolicyVersion(null)).toList();
+                    .setRecipient(null).setPolicyId(null).setPolicyVersion(null)
+                    .setRateCents(null).setPricingVersion(null)).toList();
         }
         ApprovalDO approval = approvalService.latest(FranchiseRoles.DOMAIN, SUBJECT_TYPE, commission.getId()).orElse(null);
         if(designAdmin && approval!=null) {

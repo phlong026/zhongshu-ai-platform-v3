@@ -64,6 +64,9 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(id).isNotEqualTo(customer);
         assertThat(detail.submissions().get(0).getTotalCents()).isEqualTo(20225);
         assertThat(detail.submissions().get(0).getFirstCents()).isZero();
+        var hq=as(design,()->commissions.get(design,id));
+        assertThat(hq.submissions().get(0).getRateCents()).isNull();
+        assertThat(hq.submissions().get(0).getPricingVersion()).isNull();
         assertThat(as(sales,()->commissions.submit(sales,customer,input,submitKey)).submissions()).hasSize(1);
         assertThat(as(sales,()->commissions.context(sales,customer)).commissionId()).isEqualTo(id);
         var complete=new CommissionService.CompleteCommand("图纸校审完成",true);
@@ -123,18 +126,31 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(sales,()->grants.requireReadable(sales,id,1,CommissionDeliverableAccessPort.Slot.RESULT)).assetId()).isEqualTo(101);
         assertError(()->as(outsider,()->grants.requireReadable(outsider,id,1,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_NOT_FOUND);
         assertError(()->as(engineer,()->grants.requireReadable(engineer,id,1,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
-        assertError(()->as(sales,()->handovers.submit(sales,id,new HandoverService.PacketCommand(1,null,null,null,null,null,java.time.LocalDate.now(),"交底",sales.userId(),true,104L),key())),HANDOVER_TARGET_INVALID);
-        var packet=as(sales,()->handovers.submit(sales,id,new HandoverService.PacketCommand(1,null,null,null,null,null,java.time.LocalDate.now(),"交底",engineer.userId(),true,104L),key()));
-        assertThat(packet.handovers().get(0).getDrawingFile()).contains("102").doesNotContain("http");
-        assertThat(as(engineer,()->grants.requireReadable(engineer,id,1,CommissionDeliverableAccessPort.Slot.CONFIRMATION)).assetId()).isEqualTo(104);
+        as(sales,()->commissions.feedback(sales,id,new CommissionService.FeedbackCommand("调整立面"),key()));
+        assertThat(as(sales,()->grants.requireReadable(sales,id,1,CommissionDeliverableAccessPort.Slot.RESULT)).assetId()).isEqualTo(101);
+        assertThat(as(design,()->grants.requireReadable(design,id,1,CommissionDeliverableAccessPort.Slot.REVIEW)).assetId()).isEqualTo(103);
+        assertError(()->as(engineer,()->grants.requireReadable(engineer,id,1,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
+        as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("调整完成",true),key()));
+        as(design,()->commissions.dispatch(design,id,new CommissionService.DispatchCommand("再次下发","业务",true,"DRAW-V2",201L,202L,203L),key()));
+        assertThat(as(sales,()->grants.requireReadable(sales,id,1,CommissionDeliverableAccessPort.Slot.DRAWING)).assetId()).isEqualTo(102);
+        assertThat(as(design,()->grants.requireReadable(design,id,1,CommissionDeliverableAccessPort.Slot.REVIEW)).assetId()).isEqualTo(103);
+        assertError(()->as(outsider,()->grants.requireReadable(outsider,id,1,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_NOT_FOUND);
+        assertError(()->as(sales,()->grants.requireReadable(sales,id,999,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
+        assertError(()->as(engineer,()->grants.requireReadable(engineer,id,1,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
+        assertError(()->as(sales,()->handovers.submit(sales,id,new HandoverService.PacketCommand(2,null,null,null,null,null,java.time.LocalDate.now(),"交底",sales.userId(),true,104L),key())),HANDOVER_TARGET_INVALID);
+        var packet=as(sales,()->handovers.submit(sales,id,new HandoverService.PacketCommand(2,null,null,null,null,null,java.time.LocalDate.now(),"交底",engineer.userId(),true,104L),key()));
+        assertThat(packet.handovers().get(0).getDrawingFile()).contains("202").doesNotContain("http");
+        assertThat(as(engineer,()->grants.requireReadable(engineer,id,2,CommissionDeliverableAccessPort.Slot.CONFIRMATION)).assetId()).isEqualTo(104);
         as(engineer,()->handovers.returnPacket(engineer,id,new HandoverService.DecisionCommand("交底需补充",false),key()));
         var newEngineer=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
-        as(sales,()->handovers.submit(sales,id,new HandoverService.PacketCommand(1,null,null,null,null,null,java.time.LocalDate.now(),"补充交底",newEngineer.userId(),true,104L),key()));
-        assertError(()->as(engineer,()->grants.requireReadable(engineer,id,1,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
-        assertThat(as(newEngineer,()->grants.requireReadable(newEngineer,id,1,CommissionDeliverableAccessPort.Slot.CONFIRMATION)).assetId()).isEqualTo(104);
+        as(sales,()->handovers.submit(sales,id,new HandoverService.PacketCommand(2,null,null,null,null,null,java.time.LocalDate.now(),"补充交底",newEngineer.userId(),true,104L),key()));
+        assertError(()->as(engineer,()->grants.requireReadable(engineer,id,2,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
+        assertThat(as(newEngineer,()->grants.requireReadable(newEngineer,id,2,CommissionDeliverableAccessPort.Slot.CONFIRMATION)).assetId()).isEqualTo(104);
+        assertError(()->as(newEngineer,()->grants.requireReadable(newEngineer,id,1,CommissionDeliverableAccessPort.Slot.CONFIRMATION)),COMMISSION_FORBIDDEN);
         jdbc.update("UPDATE fr_commission SET dispatch_seq=NULL WHERE id=?",id);
-        assertError(()->as(newEngineer,()->grants.requireReadable(newEngineer,id,1,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
-        assertThat(jdbc.queryForObject("SELECT drawing_asset_id FROM fr_commission_dispatch_manifest WHERE commission_id=?",Long.class,id)).isEqualTo(102);
+        assertError(()->as(newEngineer,()->grants.requireReadable(newEngineer,id,2,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
+        assertThat(as(sales,()->grants.requireReadable(sales,id,1,CommissionDeliverableAccessPort.Slot.DRAWING)).assetId()).isEqualTo(102);
+        assertThat(jdbc.queryForObject("SELECT drawing_asset_id FROM fr_commission_dispatch_manifest WHERE commission_id=? AND dispatch_seq=1",Long.class,id)).isEqualTo(102);
     }
     private static String key() { return UUID.randomUUID().toString(); }
     private <T> T as(PostSnapshot post,java.util.function.Supplier<T> action) { currentPost.use(post);try{return action.get();}finally{currentPost.clear();} }

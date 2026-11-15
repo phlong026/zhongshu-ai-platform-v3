@@ -21,7 +21,7 @@ AREA_FULL 按预算面积 × 总部单价，正数 HALF_UP 到分，首尾款均
 
 命令锁 → 锁内重放 → 资金阶段锁（FULL 或 FIRST→TAIL）→ 更新行。Settlement 的 ensure/lockAndRead 必须加入同一外层事务。旧 markReady 只保留审计兼容，不参与动作门禁。
 
-`CommissionDeliverableAccessAdapter` 是 mapper-only 范围授权投影，不依赖资产服务或委托命令服务，避免资产票据回调循环。RESULT/DRAWING/REVIEW 来自 manifest；CONFIRMATION 来自当前移交包，仅门店参与人可读。撤回/替换下发后旧 scope 失效；通用资产通道不放宽。
+`CommissionDeliverableAccessAdapter` 是 mapper-only 范围授权投影，不依赖资产服务或委托命令服务，避免资产票据回调循环。RESULT/DRAWING/REVIEW 来自 manifest；当前仍可读该客户的销售/门店老板及当前委托可读且成果属主匹配的总部设计，可追溯正式 manifest 历史。工程严格限制当前下发与当前移交/工程指派关系，不能拿历史图纸施工；CONFIRMATION 只来自当前有效移交且仅门店参与人可读。票据消费重新核验这些关系，通用资产通道不放宽。
 
 ## 迁移和回退
 

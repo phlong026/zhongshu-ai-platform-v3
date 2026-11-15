@@ -27,19 +27,23 @@ public class CommissionDeliverableAccessAdapter implements CommissionDeliverable
         var manifests=jdbc.query("SELECT * FROM fr_commission_dispatch_manifest WHERE commission_id=? AND dispatch_seq=?",(rs,n)->new long[]{rs.getLong("design_org_id"),rs.getLong("result_asset_id"),rs.getLong("drawing_asset_id"),rs.getLong("review_asset_id")},commissionId,dispatchSeq);
         if(manifests.isEmpty()) throw exception(COMMISSION_FORBIDDEN);
         long[] manifest=manifests.get(0);
-        // A withdrawn/replaced dispatch cannot mint new tickets, nor consume previously minted tickets.
-        if(c.getDispatchSeq()==null || c.getDispatchSeq()!=dispatchSeq) throw exception(COMMISSION_FORBIDDEN);
+        boolean current=c.getDispatchSeq()!=null && c.getDispatchSeq()==dispatchSeq;
+        boolean storeParticipant=FranchiseRoles.atStore(actor) && actor.orgId()==c.getCompanyId()
+                && (FranchiseRoles.has(actor,FranchiseRoles.SALES) || FranchiseRoles.isBoss(actor))
+                && access.canRead(actor,c);
+        boolean designParticipant=access.isDesignAdminOf(actor,c) && manifest[0]==actor.orgId();
         var packets=handovers.selectByCommission(commissionId).stream().filter(h->h.getDispatchSeq()==dispatchSeq
                 && java.util.Objects.equals(h.getVersion(),c.getHandoverVersion())).toList();
         var project=engineering.findBySourceCommission(c.getCompanyId(),commissionId);
-        boolean engineer=actor.orgId()==c.getCompanyId() && FranchiseRoles.has(actor,FranchiseRoles.ENGINEER)
+        boolean engineer=current && actor.orgId()==c.getCompanyId() && FranchiseRoles.has(actor,FranchiseRoles.ENGINEER)
                 && (packets.stream().anyMatch(h->h.getManagerUserId()==actor.userId())
                 || project!=null && (Long.valueOf(actor.userId()).equals(project.managerUserId()) || Long.valueOf(actor.userId()).equals(project.assignedEngineerUserId())));
-        if(!access.canRead(actor,c) && !engineer) throw exception(COMMISSION_FORBIDDEN);
+        if(!storeParticipant && !designParticipant && !engineer) throw exception(COMMISSION_FORBIDDEN);
         if(slot==Slot.CONFIRMATION) {
+            if(!current) throw exception(COMMISSION_FORBIDDEN);
             var packet=packets.stream().filter(h->h.getConfirmationAssetId()!=null).findFirst().orElseThrow(()->exception(HANDOVER_NOT_FOUND));
             // Customer signatures are not readable by headquarters merely because they own the design.
-            if(actor.orgId()!=c.getCompanyId()) throw exception(COMMISSION_FORBIDDEN);
+            if(!storeParticipant && !engineer) throw exception(COMMISSION_FORBIDDEN);
             return new DeliverableRef(packet.getConfirmationAssetId(),c.getCompanyId(),commissionId,dispatchSeq,slot);
         }
         long id=switch(slot) { case RESULT->manifest[1];case DRAWING->manifest[2];case REVIEW->manifest[3];default->throw exception(COMMISSION_FORBIDDEN); };
