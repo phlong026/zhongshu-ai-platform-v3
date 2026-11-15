@@ -80,6 +80,7 @@ Page({
       today:require('../../../utils/account').localDate(),
       writeRole:['engineer','project-manager'].includes(apiRole),
       financeRole:O.has(apiRole,'finance'),
+      termsRole:apiPost?.orgType==='store'&&(O.has(apiRole,'finance')||['boss','owner'].includes(apiRole)),
       expenses:expenses||undefined,expenseMode:this.data.expenseMode||'register'}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
     this.initialized=true;
     // 收款登记承接：原收款记录行统一指财务台收支页（finance-desk 承接收款登记）

@@ -96,7 +96,10 @@ function plansView(summary) {
       quantity: l.quantity, received: l.received, remaining: l.remaining,
       requiredDate: dateOf(l.requiredDate), cancelled: !!l.cancelled,
       supplyId: l.supplyId ? String(l.supplyId) : '',
-      supplier: l.supplier || '', paymentStatus: l.paymentStatus || ''
+      supplier: l.supplier || '', paymentStatus: l.paymentStatus || '',
+      // 后端实际净付款锁定采购条款；工程脱敏态没有 paidCents 时不可推定为可编辑。
+      locked: l.paidCents != null && Number(l.paidCents) > 0,
+      termsEditable: l.paidCents != null && Number(l.paidCents) === 0 && !l.cancelled && !!l.supplyId
     }))
   }));
 }
@@ -277,6 +280,7 @@ function threeStageSumError(f) {
 function idemFingerprint(action, form) {
   const FP_LINES = {
     'material-adjust': l => ({ id: l.id, adjust: l.adjust }),
+    'material-terms': l => ({ id: l.id, supplyId: l.supplyId, supplier: l.supplier, unitPrice: l.unitPrice, freight: l.freight }),
     'material-plan': l => ({ name: l.name, spec: l.spec, unit: l.unit, quantity: l.quantity })
   };
   const FP_NODES = n => ({ nodeIndex: n.nodeIndex || n.index, name: n.name, startDate: n.start, endDate: n.end });
@@ -371,11 +375,28 @@ async function perform(action, id, form, node, key) {
         lines: lines.map(l => ({ name: l.name, spec: l.spec || '', unit: l.unit, quantity: Number(l.quantity) }))
       }, key);
     }
-    case 'material-terms':
-      return api.materials.terms(f.supplyId, {
-        supplier: f.supplier, unitPrice: yuan(f, 'unitPrice', '单价'), freight: Number(f.freight || 0),
-        basis: (f.file && f.file.name) || '采购凭据' // 展示文本口径：只送文件名字符串，不送 JSON 串
-      }, key);
+    case 'material-terms': {
+      const rows = (f.lines || []).filter(l => !l.cancelled && !l.locked && !l.termsLocked && String(l.unitPrice == null ? '' : l.unitPrice).trim());
+      if (!rows.length) throw { code: 0, msg: '请填写至少一项实际采购金额' };
+      if (!f.file || !f.file.path) throw { code: 0, msg: '请选择真实采购凭据' };
+      // 在任何写请求前校验整批；部分成功后用同一行幂等键重放，不重复创建应付。
+      const commands = rows.map(l => {
+        const supplier = String(l.supplier || '').trim(), raw = String(l.freight == null || l.freight === '' ? '0' : l.freight).trim();
+        if (!l.supplyId || !supplier || !/^\d+(\.\d{1,2})?$/.test(String(l.unitPrice).trim()) || !/^\d+(\.\d{1,2})?$/.test(raw))
+          throw { code: 0, msg: '请填写实际供应方和有效采购金额（最多两位小数）' };
+        return { supplyId: String(l.supplyId), supplier, unitPrice: yuan(l, 'unitPrice', '单价'), freight: Number(raw) };
+      });
+      const assetId = await uploadVoucher(f.file.path, 'FIN_VOUCHER');
+      const basis = JSON.stringify({ assetId: String(assetId), name: f.file.name || '采购凭据' });
+      const results = [];
+      for (const c of commands) {
+        const suffix = '-s' + c.supplyId;
+        results.push(await api.materials.terms(c.supplyId, {
+          supplier: c.supplier, unitPrice: c.unitPrice, freight: c.freight, basis
+        }, String(key).slice(-(80 - suffix.length)) + suffix));
+      }
+      return results;
+    }
     case 'arrival':
       if (!f.supplyId) return Promise.reject({ code: 0, msg: '请选择确认到货的供应事项' }); // R4 P1-2 显式选定
       return api.materials.arrival(f.supplyId, {
@@ -579,9 +600,10 @@ function recordView(bundle, ctx) {
     }
   } else if (view === 'material' && plan) {
     form.planId = plan.id;
-    form.lines = plan.lines.map(l => ({ id: l.id, name: l.name, spec: l.spec || '', unit: l.unit,
+    const previousLines = form.lines || [];
+    form.lines = plan.lines.map(l => ({ ...(previousLines.find(old => old.id === l.id) || {}), id: l.id, supplyId: l.supplyId, name: l.name, spec: l.spec || '', unit: l.unit,
       quantity: l.quantity, received: l.received, remaining: l.remaining, cancelled: !!l.cancelled,
-      supplier: l.supplier || '', actual: '', adjust: '' }));
+      locked: l.locked, termsLocked: !l.termsEditable, supplier: (previousLines.find(old => old.id === l.id) || {}).supplier || l.supplier || '', actual: '', adjust: '' }));
     if (own && !delivery && plan.arrival !== '已验收齐全' && plan.arrival !== '已取消') {
       // R1 P1-4/R4 P1-2/R5 P1-2：确认到货恢复——供应事项显式选定（选项每次刷新；
       // 用户已选仍有效则保留，余量归零行落选后回落首项——刷新不再指回首行）
@@ -683,7 +705,8 @@ function recordView(bundle, ctx) {
     stage, stageText: p.stageText, partLabel: stage === 'base' ? '基础完成后期款'
       : stage === 'topping' ? '封顶后期款' : '签约后期款',
     own, canPay: false, finance: false, // 收款登记/采购金额为凭据类动作，随 COS 批开放
-    canAdjust: own && !delivery && !!plan, canTerms: false,
+    canAdjust: own && !delivery && !!plan,
+    canTerms: (opts.termsRole == null ? financeRole : !!opts.termsRole) && !archived && !!plan && plan.lines.some(l => l.termsEditable),
     termsLocked: !!(plan && plan.payment === '已付清'),
     canCorrectNode: false, canReopen: false,
     demo: false
