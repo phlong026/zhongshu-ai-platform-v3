@@ -44,4 +44,6 @@ payments 为 paymentId、amountCents、netPaidCents、receivedNetCents、receiva
 
 工程 summary.plans[].lines[].termsLocked 与 supplyView.termsLocked 均为明确 Boolean，沿用上述未作废付款事实，不以 paidCents 净额为锁定依据。EngineeringLedgerQueryPort.hasActivePayment 和 activePaymentsByPayableIds 仅投影同组织已核实付款，旧实现默认 fail-closed。paidCents/paidCentsByPayableIds 继续按真实退回冲减，用于金额展示，不改退款或支出退回事实。
 
+材料 summary.plans[].lines[].payableId 与 supplyView.payableId 只读返回供应事项的真实应付 ID 字符串，无应付为 null，沿用财务/负责人/受派工程师原金额可见范围；其他岗位不返回该字段。不能按供应商名称、金额或未提供的 sourceRef 猜测归属。首次工程应付 sourceRef 可为空，项目账仍沿 projectId/payableId 纳入现金，流水最终按实际 payment.id 与金额对账。
+
 terms 幂等指纹覆盖 supplyId、规范化 supplier/unitPrice/freight、basis、contact、ISO promiseDate；同键同完整命令重放，同键更换凭据、联系人或约定日期拒绝，不返回假成功。前端调用沿用原工程接口，无新增公开财务写入口。

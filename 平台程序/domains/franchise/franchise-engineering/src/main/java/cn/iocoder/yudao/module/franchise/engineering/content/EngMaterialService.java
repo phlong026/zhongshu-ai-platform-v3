@@ -643,6 +643,7 @@ public class EngMaterialService {
                     : total == 0 ? "待记录采购金额" : paid >= total ? "已付清" : paid > 0 ? "部分已付" : "待付款");
             if (full) {
                 line.put("supplyId", s == null ? null : s.getId());
+                line.put("payableId",s==null || s.getPayableId()==null?null:String.valueOf(s.getPayableId()));
                 line.put("supplier", s == null ? "" : StrUtil.nullToEmpty(s.getSupplier()));
                 line.put("totalCents", total);
                 line.put("paidCents", paid);
@@ -693,6 +694,12 @@ public class EngMaterialService {
         view.put("materialId", supply.getMaterialId());
         view.put("materialName", material == null ? null : material.getName());
         view.put("status", supply.getStatus());
+        FrEngProjectDO project=projects.selectById(supply.getProjectId());
+        if(project!=null && project.getCompanyId()==post.orgId() && (EngProjectService.isFinanceOrAbove(post)
+                || post.userId()==project.getManagerUserId()
+                || (project.getAssignedEngineerUserId()!=null && post.userId()==project.getAssignedEngineerUserId()))) {
+            view.put("payableId",supply.getPayableId()==null?null:String.valueOf(supply.getPayableId()));
+        }
         view.put("paid", supply.getPayableId() != null
                 && ledger.paidCents(post, supply.getPayableId()) > 0);
         view.put("termsLocked",supply.getPayableId()!=null && ledger.hasActivePayment(post,supply.getPayableId()));

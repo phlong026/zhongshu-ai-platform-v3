@@ -650,6 +650,31 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     @Resource private cn.iocoder.yudao.module.franchise.finance.FinRefundService refundService;
 
     @Test
+    @SuppressWarnings("unchecked")
+    void materialViewsExposeExactPayableIdsWithoutCrossingSupplyOrAmountVisibility() {
+        as(engineer,()->materialsService.terms(engineer,supplyId,
+                new EngMaterialService.TermsCommand("第一供货",BigDecimal.TEN,BigDecimal.ZERO,null,null,"依据一"),idem()));
+        long firstPayable=jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,supplyId);
+        as(engineer,()->materialsService.submitPlan(engineer,projectId,new EngMaterialService.PlanCommand(nodeId,
+                java.time.LocalDate.now(),java.util.List.of(new EngMaterialService.PlanLine("第二材料","","包",BigDecimal.ONE)),"独立供货"),idem()));
+        long secondSupply=jdbc.queryForObject("SELECT id FROM fr_eng_supply WHERE project_id=? AND id<>?",Long.class,projectId,supplyId);
+        var secondResponse=as(engineer,()->materialsService.terms(engineer,secondSupply,
+                new EngMaterialService.TermsCommand("第二供货",new BigDecimal("30"),BigDecimal.ZERO,null,null,"依据二"),idem()));
+        long secondPayable=jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,secondSupply);
+        assertThat(secondPayable).isNotEqualTo(firstPayable);
+        assertThat(secondResponse.get("payableId")).isEqualTo(String.valueOf(secondPayable));
+        assertThat(materialsService.supplyView(engineer,supply()).get("payableId")).isEqualTo(String.valueOf(firstPayable));
+        var plans=(java.util.List<java.util.Map<String,Object>>)materialsService.summary(engineer,projectId,null).get("plans");
+        var lines=plans.stream().flatMap(p->((java.util.List<java.util.Map<String,Object>>)p.get("lines")).stream()).toList();
+        assertThat(lines.stream().filter(l->String.valueOf(l.get("supplyId")).equals(String.valueOf(supplyId))).findFirst().orElseThrow().get("payableId")).isEqualTo(String.valueOf(firstPayable));
+        assertThat(lines.stream().filter(l->String.valueOf(l.get("supplyId")).equals(String.valueOf(secondSupply))).findFirst().orElseThrow().get("payableId")).isEqualTo(String.valueOf(secondPayable));
+        var nonOwner=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+        assertThat(materialsService.supplyView(nonOwner,supply())).doesNotContainKey("payableId");
+        var limited=(java.util.List<java.util.Map<String,Object>>)materialsService.summary(nonOwner,projectId,null).get("plans");
+        for(var plan:limited) for(var line:(java.util.List<java.util.Map<String,Object>>)plan.get("lines")) assertThat(line).doesNotContainKey("payableId");
+    }
+
+    @Test
     void fullExpenseReturnDoesNotUnlockTermsButVoidedPaymentDoes() {
         var initial=new EngMaterialService.TermsCommand("原供应商",BigDecimal.TEN,BigDecimal.ZERO,null,null,"原合同");
         var revised=new EngMaterialService.TermsCommand("新供应商",new BigDecimal("20"),new BigDecimal("5"),null,null,"新合同");
