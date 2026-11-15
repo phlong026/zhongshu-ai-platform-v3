@@ -1,0 +1,29 @@
+{
+  "scope": "local checks only; excerpts and captured result receipts, not raw production logs",
+  "adminTypecheck": {
+    "command": "node --max_old_space_size=8192 ./node_modules/vue-tsc/bin/vue-tsc.js --noEmit --incremental --tsBuildInfoFile node_modules/.cache/vue-tsc/tsconfig.tsbuildinfo",
+    "cwd": "admin-ui",
+    "exitCode": 0,
+    "combinedOutputBytes": 0,
+    "combinedOutputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "commands": {
+    "configuration": "python3 -I deploy/platform/test_capability_deployment.py",
+    "offlineCompose": "python3 -I -B script/verify-platform-deploy.py",
+    "storage": "python3 -I deploy/platform/test_tencent_cbs_storage.py",
+    "journal": "python3 -I -m unittest discover -s deploy/platform -p test_runtime_storage_proof.py",
+    "nginx": "sh deploy/platform/nginx/verify-candidates.sh"
+  },
+  "logFiles": [
+    "configuration-tests.log",
+    "offline-compose-tests.log",
+    "storage-proof-tests.log",
+    "journal-proof-tests.log",
+    "release-boundary-tests.log",
+    "artifact-verifier-tests.log",
+    "nginx-simulation.log",
+    "fixed-build-summary.log",
+    "api-migration-inventory.json"
+  ],
+  "normalization": "Trailing whitespace removed from archived local text outputs; fixed build file is an excerpt, not the entire Maven log"
+}

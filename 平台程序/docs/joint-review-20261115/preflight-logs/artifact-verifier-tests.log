@@ -1,0 +1,11 @@
+test_accepts_b_package_and_emits_migration_manifest (__main__.ArtifactVerifierTest) ... ok
+test_rejects_design_migration_hidden_inside_allowed_dependency (__main__.ArtifactVerifierTest) ... ok
+test_rejects_duplicate_flyway_versions_across_dependencies (__main__.ArtifactVerifierTest) ... ok
+test_rejects_fusion_processor_in_root_metadata (__main__.ArtifactVerifierTest) ... ok
+test_rejects_legacy_classes_hidden_inside_allowed_dependency (__main__.ArtifactVerifierTest) ... ok
+test_rejects_old_design_dependency (__main__.ArtifactVerifierTest) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.855s
+
+OK
