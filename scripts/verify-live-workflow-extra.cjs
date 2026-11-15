@@ -35,9 +35,14 @@ delete require.cache[require.resolve(crmPath)];
 const CRM = require(crmPath);
 const mapped = CRM.detailView({
   customer: { id: '9', name: '客户', ownerUserId: '123', status: 'REGISTERED', revision: 1 },
-  follows: [], schemes: []
+  follows: [], schemes: [
+    { id: 'reference-1', title: '参考方案', stage: 'reference' },
+    { id: 'formal-1', title: '正式方案', stage: 'formal' }
+  ]
 }, { canWrite: false });
 assert.equal(String(mapped.customer.ownerUserId), '123', '详情映射必须保留 ownerUserId，不能再用空 owner 掩盖负责人');
+assert.equal(mapped.schemesList.find(item => item.id === 'reference-1').formal, false, '参考方案不得误标为正式');
+assert.equal(mapped.schemesList.find(item => item.id === 'formal-1').formal, true, '客户详情回读必须恢复服务端 formal 阶段');
 
 const http = {
   token: () => 'token',
@@ -92,6 +97,8 @@ assert.equal(workflowPage.data.customer.ownerDisplay, '负责人待核', '缺少
 
 const workflowWxml = read('miniprogram/pages/workflow/index.wxml');
 assert(/transfer-customer[\s\S]{0,1200}customer\.ownerDisplay\|\|'负责人待核'/.test(workflowWxml), 'API 转交视图必须使用已核对负责人展示值');
+const workflowSource = read('miniprogram/pages/workflow/index.js');
+assert(/formal:\s*!!\(this\.__promoted\[s2\.id\]\s*\|\|\s*s2\.formal\)/.test(workflowSource), '详情刷新必须保留服务端 formal 阶段，本会话晋级只能叠加');
 
 let currentPost;
 let detailGets = 0;

@@ -72,7 +72,7 @@ Page({
    if(this.stale(gen,sessionGen,postKey))return;
    const model=PFc.detailView(detail,{today:PFc.today(),canWrite:canW});
    this.__promoted=this.__promoted||{};
-   this.setData({platformStatus:'ready',customer:model.customer,schemesList:(model.schemesList||[]).map(s2=>({...s2,formal:this.__promoted[s2.id]||false})),showSizeBlock:model.showSizeBlock,blocked:null,
+   this.setData({platformStatus:'ready',customer:model.customer,schemesList:(model.schemesList||[]).map(s2=>({...s2,formal:!!(this.__promoted[s2.id]||s2.formal)})),showSizeBlock:model.showSizeBlock,blocked:null,
     customerInitial:(model.customer.name||'').slice(0,1),phone:PFc.maskPhone(model.customer.phone)||model.customer.wechat||'',
     projectSummary:model.customer.summary||'',city:(model.customer.city||'').replace(/市$/,''),
     registered:model.customer.status==='已登记',hasDesign:false,simpleBusiness:false});// 成功不清 error：版本冲突等提示保留至用户下次操作

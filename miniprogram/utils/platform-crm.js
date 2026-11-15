@@ -183,7 +183,8 @@ function detailView(detail, ctx) {
       id: String(sc.id), kind: sc.kind || '', version: sc.version,
       title: sc.title || '', kindText: sc.kind === 'PLAN' ? '平面方案' : sc.kind === 'FACADE' ? '立面方案' : sc.kind === 'BUDGET' ? '参考预算' : (sc.kind || ''),
       date: toDate(sc.createTime),
-      totalText: sc.totalCents != null ? (sc.totalCents / 100).toFixed(2) : ''
+      totalText: sc.totalCents != null ? (sc.totalCents / 100).toFixed(2) : '',
+      formal: sc.stage === 'formal'
     })),
     showSizeBlock: !!size,
     canEditCustomer: canW, canFollow: canW,
