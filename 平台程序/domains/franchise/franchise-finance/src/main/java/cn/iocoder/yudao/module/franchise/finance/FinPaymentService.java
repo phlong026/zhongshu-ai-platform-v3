@@ -46,6 +46,7 @@ public class FinPaymentService {
     @Resource
     private cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoMapper transactionNumbers;
     @Resource private FinTransactionIdentityGuard transactionIdentity;
+    @Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public record PayableCommand(long companyId, Long projectId, String stage, long totalCents,
                                  String recipient, String agreementRef) {
@@ -53,6 +54,39 @@ public class FinPaymentService {
 
     public record PaymentCommand(long payableId, long amountCents, LocalDate payDate,
                                  String transactionNo, Long voucherFileId) {
+    }
+
+    public record EngineeringPayableUpdateCommand(long payableId,long projectId,String sourceRef,
+                                                  String recipient,long totalCents,String basis) {}
+
+    /** 工程外事务持供应行锁；与付款共用应付行锁后重读净额，禁止检查后付款穿透。 */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void updateUnpaidEngineeringPayable(PostSnapshot post,String idempotencyKey,EngineeringPayableUpdateCommand cmd) {
+        idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
+        if(commands.replayed(post,idempotencyKey,cmd).isPresent()) return;
+        var payable=payableMapper.lockById(cmd.payableId());
+        boolean sourceMatches=Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM fr_eng_supply WHERE company_id=? AND project_id=? AND payable_id=?
+                AND ('engineering-payable:' || project_id || ':' || id)=?)
+            """,Boolean.class,post.orgId(),cmd.projectId(),cmd.payableId(),cmd.sourceRef()));
+        if(payable==null || payable.getCompanyId()!=post.orgId()
+                || !java.util.Objects.equals(payable.getProjectId(),cmd.projectId())
+                || !"engineering".equals(payable.getStage()) || !sourceMatches
+                || (payable.getSourceType()!=null && (!"engineering".equals(payable.getSourceType())
+                    || !java.util.Objects.equals(payable.getSourceRef(),cmd.sourceRef())))
+                || !"进行中".equals(payable.getStatus())) throw exception(PAYABLE_NOT_FOUND);
+        if(cmd.totalCents()<=0 || cn.hutool.core.util.StrUtil.isBlank(cmd.recipient())
+                || cn.hutool.core.util.StrUtil.isBlank(cmd.basis())) throw exception(PAYMENT_EXCEED_PAYABLE);
+        long paid=paymentMapper.selectActiveByPayable(cmd.payableId()).stream().filter(p->p.getCompanyId()==post.orgId()).mapToLong(p->amount(p)
+                -(p.getPendingLinkCents()==null?0:p.getPendingLinkCents())
+                -refundMapper.selectActiveByPayment(p.getId()).stream().filter(r->r.getCompanyId()==post.orgId()).mapToLong(r->r.getAmountCents()).sum()).sum();
+        if(paid!=0) throw exception(PAYMENT_EXCEED_PAYABLE);
+        payableMapper.updateById(new FinPayableDO().setId(cmd.payableId()).setTotalCents(cmd.totalCents())
+                .setRecipient(cmd.recipient()).setAgreementRef(cmd.basis())
+                .setSourceType("engineering").setSourceRef(cmd.sourceRef()));
+        long revision=jdbc.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-payable' AND aggregate_id=?",Long.class,cmd.payableId());
+        commands.record(post,"fin-payable",cmd.payableId(),revision,"engineering-payable-unpaid-update",cmd,idempotencyKey);
     }
 
     @Transactional

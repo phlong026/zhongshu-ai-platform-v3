@@ -221,6 +221,11 @@ public class EngMaterialService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> terms(PostSnapshot post, long supplyId, TermsCommand cmd, String idempotencyKey) {
+        idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
+        long lockKey=cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.lockKey(
+                new cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),idempotencyKey);
+        jdbcTemplate.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(?)) s",Integer.class,lockKey);
+        jdbcTemplate.queryForList("SELECT id FROM fr_eng_supply WHERE id=? AND company_id=? FOR UPDATE",supplyId,post.orgId());
         FrEngSupplyDO supply = supplies.selectById(supplyId);
         if (supply == null || supply.getCompanyId() != post.orgId()) {
             throw exception(ENGINEERING_INPUT_INVALID, "供应事项不存在");
@@ -263,8 +268,14 @@ public class EngMaterialService {
         long amountCents = BigDecimal.valueOf(unitPrice).multiply(material.getQuantity())
                 .setScale(0, java.math.RoundingMode.HALF_UP).longValueExact() + freight;
         String sourceRef = "engineering-payable:" + supply.getProjectId() + ":" + supplyId;
-        long payableId = payables.registerPayable(post, new EngineeringPayablePort.PayableCommand(
-                supply.getProjectId(), sourceRef, StrUtil.trim(cmd.supplier()), amountCents, StrUtil.trim(cmd.basis())));
+        var payableCommand=new EngineeringPayablePort.PayableCommand(
+                supply.getProjectId(), sourceRef, StrUtil.trim(cmd.supplier()), amountCents, StrUtil.trim(cmd.basis()));
+        long payableId;
+        if(supply.getPayableId()==null) payableId=payables.registerPayable(post,payableCommand);
+        else {
+            payableId=supply.getPayableId();
+            payables.updateUnpaid(post,payableId,payableCommand,"eng-terms:"+cn.hutool.crypto.digest.DigestUtil.sha256Hex(idempotencyKey));
+        }
         supplies.updateById(new FrEngSupplyDO().setId(supplyId)
                 .setSupplier(StrUtil.trim(cmd.supplier())).setContact(StrUtil.nullToEmpty(cmd.contact()))
                 .setPromiseDate(cmd.promiseDate())
@@ -288,9 +299,12 @@ public class EngMaterialService {
     private static Map<String, Object> termsPayload(long supplyId, TermsCommand cmd) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("supplyId", supplyId);
-        m.put("supplier", cmd.supplier());
-        m.put("unitPrice", cmd.unitPrice() == null ? null : cmd.unitPrice().toPlainString());
-        m.put("freight", cmd.freight() == null ? null : cmd.freight().toPlainString());
+        m.put("supplier", StrUtil.trim(cmd.supplier()));
+        m.put("unitPrice", cmd.unitPrice() == null ? null : cmd.unitPrice().stripTrailingZeros().toPlainString());
+        m.put("freight", cmd.freight() == null ? "0" : cmd.freight().stripTrailingZeros().toPlainString());
+        m.put("basis",StrUtil.trim(cmd.basis()));
+        m.put("contact",StrUtil.nullToEmpty(cmd.contact()));
+        m.put("promiseDate",cmd.promiseDate()==null?null:cmd.promiseDate().toString());
         return m;
     }
 

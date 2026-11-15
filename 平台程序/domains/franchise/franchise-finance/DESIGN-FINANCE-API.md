@@ -35,3 +35,11 @@ payments 为 paymentId、amountCents、netPaidCents、receivedNetCents、receiva
 仅新增 V20261115.983：应付来源/两侧组织/客户、核收 originPaymentId、索引及设计来源不可变触发器。历史手工账不伪迁移。undo 有数据前置检查：有新设计账关系时禁止删列，应恢复部署前隔离 B 数据库备份；代码 git revert 不等于财务数据回退。
 
 原生小程序/部署/双微信人员验收由集成运行记录单独证明；模块 PG 测试不替代这些验收。
+
+## 工程材料未付款条款修订
+
+工程 `POST /franchise/engineering/supplies/{supplyId}/terms`（沿用现有控制器路径）仅在 supply.payableId 为空时创建应付；已有应付通过 EngineeringPayablePort.updateUnpaid 加入工程外层事务，修订同一应付的 total/recipient/agreementRef，不用新随机键创建替代账。
+
+锁序为命令锁→供应事项行锁→应付行锁，与财务登记付款共用同一应付行锁。锁内复核应付组织、项目、engineering 阶段、供应事项的精确来源及本组织实时净有效付款为 0；已付款拒绝改价。修订和工程条款共同提交/回滚，财务事件记录真实 actor 及递增应付事件版本。未融合实现的默认更新端口拒绝执行。
+
+terms 幂等指纹覆盖 supplyId、规范化 supplier/unitPrice/freight、basis、contact、ISO promiseDate；同键同完整命令重放，同键更换凭据、联系人或约定日期拒绝，不返回假成功。前端调用沿用原工程接口，无新增公开财务写入口。

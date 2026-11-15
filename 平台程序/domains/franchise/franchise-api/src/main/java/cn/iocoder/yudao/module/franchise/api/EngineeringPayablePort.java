@@ -13,6 +13,11 @@ public interface EngineeringPayablePort {
     /** @return 应付 id（重放返回既有） */
     long registerPayable(PostSnapshot post, PayableCommand command);
 
+    /** 原供应事项未净付时修订同一应付；未融合实现必须拒绝，不能新建替代账。 */
+    default void updateUnpaid(PostSnapshot post,long payableId,PayableCommand command,String idempotencyKey) {
+        throw new UnsupportedOperationException("当前财务实现不支持未付款应付修订");
+    }
+
     record PayableCommand(long sourceProjectId, String sourceRef, String supplier,
                           long amountCents, String basis) {
     }

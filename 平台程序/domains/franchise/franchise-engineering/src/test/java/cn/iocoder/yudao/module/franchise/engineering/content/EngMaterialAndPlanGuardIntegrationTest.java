@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class, EngCollectionService.class,
         EngClosureService.class,
         EngExpenseService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinPaymentService.class,
         FranchiseCommands.class, CommandLogImpl.class,
         EngMaterialAndPlanGuardIntegrationTest.Config.class})
 class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest {
@@ -146,28 +147,16 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         }
 
         @Bean
-        cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort engineeringPayablePort() {
-            return new cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort() {
-                @Override
-                public long registerPayable(PostSnapshot post, PayableCommand command) {
-                    return 999001L;
-                }
-            };
+        cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort engineeringPayablePort(
+                cn.iocoder.yudao.module.franchise.finance.FinPaymentService payments) {
+            return new cn.iocoder.yudao.module.franchise.finance.EngineeringPayableAdapter(payments);
         }
 
         @Bean
-        cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort engineeringLedgerQueryPort() {
-            return new cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort() {
-                @Override
-                public long paidCents(PostSnapshot post, long payableId) {
-                    return 0L;
-                }
-
-                @Override
-                public java.util.Map<Long, Long> paidCentsByPayableIds(PostSnapshot post, java.util.Collection<Long> payableIds) {
-                    return java.util.Map.of();
-                }
-            };
+        cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort engineeringLedgerQueryPort(
+                cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentMapper payments,
+                cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper refunds) {
+            return new cn.iocoder.yudao.module.franchise.finance.EngineeringLedgerQueryAdapter(payments,refunds);
         }
     }
 
@@ -613,5 +602,109 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
 
     private static String idem() {
         return "idem-" + IDS.incrementAndGet();
+    }
+
+    @Test
+    void unpaidTermsEditKeepsSinglePayableAndRejectsEditAfterPayment() {
+        var initial=new EngMaterialService.TermsCommand("原供应商",new BigDecimal("10"),BigDecimal.ZERO,"张",java.time.LocalDate.now(),"原合同");
+        var revised=new EngMaterialService.TermsCommand("新供应商",new BigDecimal("20"),new BigDecimal("5"),"李",java.time.LocalDate.now(),"新合同");
+        as(engineer,()->materialsService.terms(engineer,supplyId,initial,idem()));
+        long payable=jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,supplyId);
+        String key=idem();
+        as(engineer,()->materialsService.terms(engineer,supplyId,revised,key));
+        as(engineer,()->materialsService.terms(engineer,supplyId,revised,key));
+        for(var conflict:java.util.List.of(
+                new EngMaterialService.TermsCommand("新供应商",new BigDecimal("20"),new BigDecimal("5"),"李",java.time.LocalDate.now(),"换凭据"),
+                new EngMaterialService.TermsCommand("新供应商",new BigDecimal("20"),new BigDecimal("5"),"换联系人",java.time.LocalDate.now(),"新合同"),
+                new EngMaterialService.TermsCommand("新供应商",new BigDecimal("20"),new BigDecimal("5"),"李",java.time.LocalDate.now().plusDays(1),"新合同"))) {
+            assertThatThrownBy(()->as(engineer,()->materialsService.terms(engineer,supplyId,conflict,key)))
+                    .isInstanceOfSatisfying(ServiceException.class,error->assertThat(error.getCode()).isEqualTo(
+                            cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode()));
+        }
+        assertThat(jdbc.queryForObject("SELECT contact FROM fr_eng_supply WHERE id=?",String.class,supplyId)).isEqualTo("李");
+        assertThat(jdbc.queryForObject("SELECT promise_date FROM fr_eng_supply WHERE id=?",java.time.LocalDate.class,supplyId)).isEqualTo(java.time.LocalDate.now());
+        assertThat(jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,supplyId)).isEqualTo(payable);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?",Long.class,projectId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(20500);
+        assertThat(jdbc.queryForObject("SELECT recipient FROM fr_fin_payable WHERE id=?",String.class,payable)).isEqualTo("新供应商");
+        assertThat(jdbc.queryForObject("SELECT agreement_ref FROM fr_fin_payable WHERE id=?",String.class,payable)).isEqualTo("新合同");
+        var finance=fixture.post(store.orgId(),"finance",null);
+        paymentService.register(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(payable,1,java.time.LocalDate.now(),null,null));
+        assertThatThrownBy(()->as(engineer,()->materialsService.terms(engineer,supplyId,initial,idem()))).isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(20500);
+        var other=fixture.store();var alien=fixture.post(other.orgId(),"engineer",other.engineeringTeam());
+        assertThatThrownBy(()->as(alien,()->materialsService.terms(alien,supplyId,revised,idem()))).isInstanceOf(ServiceException.class);
+    }
+
+    @Resource private cn.iocoder.yudao.module.franchise.finance.FinPaymentService paymentService;
+    @Resource private org.springframework.transaction.PlatformTransactionManager transactions;
+    @Resource private cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort payablePort;
+
+    @Test
+    void unpaidPayableUpdateRejectsForgedOrganizationProjectAndSource() {
+        var initial=new EngMaterialService.TermsCommand("原供应商",BigDecimal.TEN,BigDecimal.ZERO,null,null,"原合同");
+        as(engineer,()->materialsService.terms(engineer,supplyId,initial,idem()));
+        long payable=jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,supplyId);
+        String source="engineering-payable:"+projectId+":"+supplyId;
+        var command=new cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort.PayableCommand(projectId,source,"改名",50000,"新依据");
+        var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        var other=fixture.store();var alien=fixture.post(other.orgId(),"engineer",other.engineeringTeam());
+        assertThatThrownBy(()->tx.executeWithoutResult(s->payablePort.updateUnpaid(alien,payable,command,idem()))).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(()->tx.executeWithoutResult(s->payablePort.updateUnpaid(engineer,payable,
+                new cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort.PayableCommand(projectId+1,source,"改名",50000,"新依据"),idem()))).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(()->tx.executeWithoutResult(s->payablePort.updateUnpaid(engineer,payable,
+                new cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort.PayableCommand(projectId,source+"0","改名",50000,"新依据"),idem()))).isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(10000);
+        assertThat(jdbc.queryForObject("SELECT recipient FROM fr_fin_payable WHERE id=?",String.class,payable)).isEqualTo("原供应商");
+    }
+
+    @Test
+    void paymentHoldingPayableLockMakesTermsWaitThenReject() throws Exception {
+        assertPaymentTermsSerialization(true);
+    }
+
+    @Test
+    void termsHoldingPayableLockMakesPaymentWaitAndUseUpdatedAmount() throws Exception {
+        assertPaymentTermsSerialization(false);
+    }
+
+    private void assertPaymentTermsSerialization(boolean paymentFirst) throws Exception {
+        var initial=new EngMaterialService.TermsCommand("原供应商",BigDecimal.TEN,BigDecimal.ZERO,null,null,"原合同");
+        var revised=new EngMaterialService.TermsCommand("新供应商",new BigDecimal("20"),new BigDecimal("5"),null,null,"新合同");
+        as(engineer,()->materialsService.terms(engineer,supplyId,initial,idem()));
+        long payable=jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,supplyId);
+        var finance=fixture.post(store.orgId(),"finance",null);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        var locked=new java.util.concurrent.CountDownLatch(1);var release=new java.util.concurrent.CountDownLatch(1);
+        try {
+            var first=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(tx->{
+                if(paymentFirst) paymentService.register(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(payable,1,java.time.LocalDate.now(),null,null));
+                else as(engineer,()->materialsService.terms(engineer,supplyId,revised,idem()));
+                locked.countDown();
+                try {if(!release.await(10,java.util.concurrent.TimeUnit.SECONDS))throw new IllegalStateException("test transaction timeout");}
+                catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException(e);}
+                return true;
+            }));
+            assertThat(locked.await(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var second=pool.submit(()->{
+                try {
+                    if(paymentFirst) as(engineer,()->materialsService.terms(engineer,supplyId,revised,idem()));
+                    else paymentService.register(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(payable,20500,java.time.LocalDate.now(),null,null));
+                    return (Throwable)null;
+                } catch(Throwable e){return e;}
+            });
+            boolean waiting=false;
+            for(int i=0;i<100;i++) {
+                if(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted)",Boolean.class)){waiting=true;break;}
+                Thread.sleep(20);
+            }
+            assertThat(waiting).isTrue();assertThat(second.isDone()).isFalse();
+            release.countDown();assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            Throwable result=second.get(5,java.util.concurrent.TimeUnit.SECONDS);
+            if(paymentFirst) assertThat(result).isInstanceOf(ServiceException.class);else assertThat(result).isNull();
+            assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(paymentFirst?10000:20500);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?",Long.class,projectId)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT COALESCE(sum(pending_link_cents),0) FROM fr_fin_payment WHERE payable_id=?",Long.class,payable)).isZero();
+        } finally {release.countDown();pool.shutdownNow();}
     }
 }
