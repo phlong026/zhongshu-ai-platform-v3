@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
  * 加盟协同域 · 设计委托错误码，段 1-111-000-xxx。并发改动沿用 STATE_VERSION_CONFLICT。
  */
 public interface FranchiseCommissionErrorCodes {
+    ErrorCode SUBMISSION_VERSION_STALE = new ErrorCode(1_111_000_021, "预算或设计计价规则已更新，请刷新后重新确认");
 
     ErrorCode COMMISSION_NOT_FOUND = new ErrorCode(1_111_000_000, "委托不存在或无权访问");
     ErrorCode COMMISSION_FORBIDDEN = new ErrorCode(1_111_000_001, "当前岗位不能办理该委托");
@@ -19,8 +20,8 @@ public interface FranchiseCommissionErrorCodes {
     ErrorCode DESIGN_ORG_REQUIRED = new ErrorCode(1_111_000_009, "未找到总部组织，请联系平台配置");
     ErrorCode BOSS_ABSENT = new ErrorCode(1_111_000_010, "费用与标准不一致需老板审批，本门店没有可审批的老板，请先配置");
     ErrorCode FEE_DECISION_FORBIDDEN = new ErrorCode(1_111_000_011, "委托费用由本门店老板审批");
-    ErrorCode FIRST_PAYMENT_NOT_READY = new ErrorCode(1_111_000_012, "首款未付足或总部未核实到账，不能确认设计完成");
-    ErrorCode TAIL_PAYMENT_NOT_READY = new ErrorCode(1_111_000_013, "尾款未付足或总部未核实到账，不能下发成果");
+    ErrorCode FIRST_PAYMENT_NOT_READY = new ErrorCode(1_111_000_012, "当前费用模式的完成资金条件未满足，请核对设计费净付与核收");
+    ErrorCode TAIL_PAYMENT_NOT_READY = new ErrorCode(1_111_000_013, "设计费尚未两侧足额结清，不能下发成果");
     ErrorCode PROGRESS_INPUT_INVALID = new ErrorCode(1_111_000_014, "请填写说明与交付清单并勾选确认");
     ErrorCode FEEDBACK_INPUT_INVALID = new ErrorCode(1_111_000_015, "请填写修改意见");
     ErrorCode HANDOVER_INPUT_INVALID = new ErrorCode(1_111_000_016, "请上传四份文件、填写图纸版本与交底说明，客户确认日期不能晚于今天");

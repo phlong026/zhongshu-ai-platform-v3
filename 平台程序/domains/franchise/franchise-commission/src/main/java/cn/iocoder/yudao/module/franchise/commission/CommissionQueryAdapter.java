@@ -38,7 +38,10 @@ public class CommissionQueryAdapter implements CommissionQueryPort {
         return new CommissionFeeView(submission.getCommissionId(), submission.getCompanyId(),
                 submission.getDesignOrgId(), submission.getVersion(), status,
                 submission.getTotalCents() == null ? 0 : submission.getTotalCents(),
-                submission.getFirstCents() == null ? 0 : submission.getFirstCents());
+                submission.getFirstCents() == null ? 0 : submission.getFirstCents(),
+                cn.iocoder.yudao.module.franchise.api.DesignFeeSettlementPort.Mode.valueOf(submission.getMode()==null?"LEGACY_SPLIT":submission.getMode()),
+                commission==null?0:commission.getCustomerId(),submission.getBudgetVersion(),submission.getPricingVersion(),
+                submission.getArea(),submission.getRateCents(),submission.getRecipient());
     }
 
 }

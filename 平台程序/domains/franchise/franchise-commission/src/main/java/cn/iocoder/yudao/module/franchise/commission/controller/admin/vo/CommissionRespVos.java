@@ -44,13 +44,13 @@ public interface CommissionRespVos {
                       java.math.BigDecimal width, java.math.BigDecimal depth, Integer floors,
                       java.math.BigDecimal area, String schemeSnapshot, Long totalCents, Long firstCents,
                       String recipient, String authKind, Integer policyVersion, long submittedByUserId,
-                      OffsetDateTime createTime) {
+                      OffsetDateTime createTime,String mode,Long rateCents,Integer pricingVersion,Long attachmentAssetId) {
         public static Submission of(CommissionSubmissionDO s) {
             return new Submission(s.getId(), s.getCommissionId(), s.getVersion(), s.getText(), s.getScope(),
                     s.getAttachment(), s.getBudgetVersion(), s.getPlanVersion(), s.getFacadeVersion(),
                     s.getWidth(), s.getDepth(), s.getFloors(), s.getArea(), s.getSchemeSnapshot(),
                     s.getTotalCents(), s.getFirstCents(), s.getRecipient(), s.getAuthKind(),
-                    s.getPolicyVersion(), s.getSubmittedByUserId(), s.getCreateTime());
+                    s.getPolicyVersion(), s.getSubmittedByUserId(), s.getCreateTime(),s.getMode(),s.getRateCents(),s.getPricingVersion(),s.getAttachmentAssetId());
         }
     }
 
@@ -89,13 +89,15 @@ public interface CommissionRespVos {
 
     record CommissionDetail(Commission commission, List<Submission> submissions, List<Progress> progress,
                             List<Handover> handovers, Approval feeApproval, List<String> allowedActions,
-                            String displayStatus) {
+                            String displayStatus,long commissionId,
+                            cn.iocoder.yudao.module.franchise.api.DesignFeeSettlementPort.Settlement settlement,
+                            List<cn.iocoder.yudao.module.franchise.commission.CommissionManifestService.Manifest> dispatches) {
         public static CommissionDetail of(Detail d) {
             return new CommissionDetail(Commission.of(d.commission()),
                     d.submissions().stream().map(Submission::of).toList(),
                     d.progress().stream().map(Progress::of).toList(),
                     d.handovers().stream().map(Handover::of).toList(),
-                    Approval.of(d.feeApproval()), d.allowedActions(), d.displayStatus());
+                    Approval.of(d.feeApproval()), d.allowedActions(), d.displayStatus(),d.commission().getId(),d.settlement(),d.dispatches());
         }
     }
 

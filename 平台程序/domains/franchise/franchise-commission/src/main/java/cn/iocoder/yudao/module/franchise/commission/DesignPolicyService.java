@@ -28,6 +28,7 @@ public class DesignPolicyService {
 
     private final DesignPolicyMapper policyMapper;
     private final FranchiseCommands commands;
+    @jakarta.annotation.Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public DesignPolicyService(DesignPolicyMapper policyMapper, FranchiseCommands commands) {
         this.policyMapper = policyMapper;
@@ -48,6 +49,7 @@ public class DesignPolicyService {
     public DesignPolicyDO save(PostSnapshot post, PolicyCommand command, String idempotencyKey) {
         requireStoreBoss(post);
         PolicyCommand input = normalize(command);
+        jdbc.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(?,0))) s",Integer.class,"design-policy:"+post.orgId());
         var replay = commands.replayed(post, idempotencyKey, input);
         if (replay.isPresent()) {
             return policyMapper.selectActive(post.orgId());

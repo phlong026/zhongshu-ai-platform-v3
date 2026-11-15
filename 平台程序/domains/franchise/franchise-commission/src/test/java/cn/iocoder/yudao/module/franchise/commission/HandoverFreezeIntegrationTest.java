@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         cn.iocoder.yudao.module.franchise.engineering.content.EngineeringPortImpl.class,
         cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.class,
         cn.iocoder.yudao.module.franchise.sales.SaleContractQueryAdapter.class})
-class HandoverFreezeIntegrationTest extends FranchisePgIntegrationTest {
+class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
 
     private static final AtomicLong IDS = new AtomicLong(940_000_000_000L + System.nanoTime() % 100_000_000L);
 
@@ -121,10 +121,11 @@ class HandoverFreezeIntegrationTest extends FranchisePgIntegrationTest {
         as(salesA1, () -> commissions.feedback(salesA1, commissionId,
                 new CommissionService.FeedbackCommand("客户要求调整立面配色，需重新下发"), idem()));
         // feedback 置 DESIGNING+清 seq（修改意见→重新设计）；此处模拟设计行政重发完成态：DISPATCHED+seq2+新冻结版本
-        jdbc.update("UPDATE fr_commission SET status = 'DISPATCHED', dispatch_seq = 2, dispatched_scheme_version = 'P2/B2/F2', "
+        jdbc.update("UPDATE fr_commission SET submission_version=2,status = 'DISPATCHED', dispatch_seq = 2, dispatched_scheme_version = 'P2/B2/F2', "
                 + "dispatched_submission_version = 2 WHERE id = ?", commissionId);
         // 重发对应新提交（version=2，面积 120/2 层——与 V1 提交参数不同，验证按冻结版本取参）
         insertSubmission(commissionId, 2);
+        seedManifest(commissionId,2,"P2/B2/F2");
         // 正规流只提交一次新包（HANDOVER_SUBMITTED 态不可再提交第二包——旧包被退回后才可重提）：
         // 重发后的新包冻结新版本 P2/B2/F2
         as(salesA1, () -> handovers.submit(salesA1, commissionId, packet(2, "P2/B2/F2", engineer.userId()), idem()));
@@ -153,7 +154,7 @@ class HandoverFreezeIntegrationTest extends FranchisePgIntegrationTest {
         // 冻结取参必须按 dispatched_submission_version 而非 dispatch_seq（R2 P1 回归锁）
         long customerId = customerWithDispatchedDesign("P1/B1/F1");
         long commissionId = commissionIdOf(customerId);
-        jdbc.update("UPDATE fr_commission SET dispatch_seq = 1, dispatched_submission_version = 2 WHERE id = ?", commissionId);
+        jdbc.update("UPDATE fr_commission SET submission_version=2,dispatch_seq = 1, dispatched_submission_version = 2 WHERE id = ?", commissionId);
         insertSubmission(commissionId, 2); // V2 提交（area=120/floors=2，与 V1 预算 400 不同）
         as(salesA1, () -> handovers.submit(salesA1, commissionId, packet(1, "P1/B1/F1", engineer.userId()), idem()));
         as(engineer, () -> handovers.receive(engineer, commissionId,
@@ -282,10 +283,11 @@ class HandoverFreezeIntegrationTest extends FranchisePgIntegrationTest {
         var detail = as(salesA1, () -> commissions.submit(salesA1, customerId,
                 new CommissionService.SubmitCommand("两层乡墅，面宽13m进深16m", "方案、施工图与交底", null,
                         new java.math.BigDecimal("680000"), new java.math.BigDecimal("408000"), "总部财务",
-                        null, null, null, true), idem()));
+                        1, null, null, true), idem()));
         long commissionId = detail.commission().getId();
         jdbc.update("UPDATE fr_commission SET status = 'DISPATCHED', dispatch_seq = 1, dispatched_scheme_version = ?, "
                 + "dispatched_submission_version = 1 WHERE id = ?", schemeVersion, commissionId);
+        seedManifest(commissionId,1,schemeVersion);
         return customerId;
     }
 
@@ -311,10 +313,8 @@ class HandoverFreezeIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     private HandoverService.PacketCommand packet(int dispatchSeq, String drawingVersion, long managerUserId) {
-        return new HandoverService.PacketCommand(dispatchSeq,
-                "{\"name\":\"成果\",\"url\":\"oss://r\"}", "{\"name\":\"施工图\",\"url\":\"oss://d\"}",
-                "{\"name\":\"审核\",\"url\":\"oss://rv\"}", "{\"name\":\"确认\",\"url\":\"oss://c\"}",
-                drawingVersion, java.time.LocalDate.now(), "电子交底说明", managerUserId, true);
+        return new HandoverService.PacketCommand(dispatchSeq,null,null,null,null,null,
+                java.time.LocalDate.now(),"电子交底说明",managerUserId,true,104L);
     }
 
     private long commissionIdOfCurrent;

@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         FranchiseTodoProvider.class, TodoServiceImpl.class,
         cn.iocoder.yudao.module.franchise.crm.CustomerService.class,
         cn.iocoder.yudao.module.franchise.crm.LeadService.class, cn.iocoder.yudao.module.franchise.crm.CrmOrgScope.class})
-class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
+class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
 
     private static final BigDecimal TOTAL = new BigDecimal("680000");
     private static final BigDecimal FIRST = new BigDecimal("408000");
@@ -92,7 +92,7 @@ class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
 
         as(boss, () -> policies.save(boss,
                 new DesignPolicyService.PolicyCommand(TOTAL, FIRST, "方案、施工图与交底", "总部财务"), null));
-        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId, submit(), null));
+        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId, submit(), commandKey()));
 
         // 标准费用路径直接进入设计；设计 §10：DESIGNING 对业务侧无待办（办理中）。
         // 客户仍是 REGISTERED，首次跟进待办保留（跟进与委托互不阻塞）
@@ -107,7 +107,7 @@ class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
         long customerId = customerWithBudget();
         var detail = as(salesA1, () -> commissions.submit(salesA1, customerId,
                 new SubmitCommand("两层乡墅", "方案", null, new BigDecimal("750000"),
-                        new BigDecimal("400000"), "总部财务", null, null, null, true), null));
+                        new BigDecimal("400000"), "总部财务", 1, null, null, true), commandKey()));
         long id = detail.commission().getId();
 
         // 老板看到带金额的可办理审批；设计行政看不到费用审批
@@ -119,26 +119,26 @@ class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
                 });
         assertThat(todos(designAdmin)).extracting(TodoItem::key).doesNotContain("franchise:fee-approve:" + id);
 
-        as(boss, () -> commissions.feeDecide(boss, id, new FeeDecisionCommand(true, "同意"), null));
-        as(finance, () -> commissions.markFirstReady(id, 1, finance));
+        as(boss, () -> commissions.feeDecide(boss, id, new FeeDecisionCommand(true, "同意"), commandKey()));
+        as(finance, () -> seedFirst(id, 1, finance));
 
         // 设计行政：首款就绪 → 确认设计完成
         assertThat(todos(designAdmin)).extracting(TodoItem::key).contains("franchise:design-complete:" + id + ":1");
-        as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), null));
-        as(finance, () -> commissions.markTailPaid(id, 1, finance));
-        as(finance, () -> commissions.markTailReady(id, 1, finance));
+        as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), commandKey()));
+        as(finance, () -> seedTailPaid(id, 1, finance));
+        as(finance, () -> seedTailReady(id, 1, finance));
 
         // 设计行政：尾款就绪 → 下发成果；业务侧同步出现跟进尾款/移交待办
         assertThat(todos(designAdmin)).extracting(TodoItem::key).contains("franchise:design-dispatch:" + id + ":1");
         as(designAdmin, () -> commissions.dispatch(designAdmin, id,
-                new DispatchCommand("成果交付", "总部设计行政", true), null));
+                new DispatchCommand("成果交付", "总部设计行政", true,"TEST-V1",101L,102L,103L), commandKey()));
         assertThat(todos(salesA1)).extracting(TodoItem::key).contains("franchise:handover-prepare:" + id);
     }
 
     @Test
     void handoverShowsReviewForManagerOnly() {
         long id = commissionDispatched();
-        as(salesA1, () -> handovers.submit(salesA1, id, packet(engineer.userId()), null));
+        as(salesA1, () -> handovers.submit(salesA1, id, packet(engineer.userId()), commandKey()));
 
         assertThat(todos(engineer)).extracting(TodoItem::key)
                 .contains("franchise:handover-review:" + id + ":1");
@@ -149,7 +149,7 @@ class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
         assertThat(engineerTodos.stream().filter(t -> t.key().startsWith("franchise:handover-review"))
                 .allMatch(TodoItem::actionable)).isTrue();
 
-        as(engineer, () -> handovers.receive(engineer, id, new DecisionCommand(null, true), null));
+        as(engineer, () -> handovers.receive(engineer, id, new DecisionCommand(null, true), commandKey()));
         assertThat(todos(engineer)).extracting(TodoItem::key)
                 .doesNotContain("franchise:handover-review:" + id + ":1");
     }
@@ -176,7 +176,7 @@ class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
     @Test
     void todoServiceSortsActionableFirstAndDeduplicates() {
         long id = commissionDispatched();
-        as(salesA1, () -> handovers.submit(salesA1, id, packet(engineer.userId()), null));
+        as(salesA1, () -> handovers.submit(salesA1, id, packet(engineer.userId()), commandKey()));
 
         var list = as(engineer, () -> todoService.list(engineer));
         assertThat(list.items()).isNotEmpty();
@@ -200,14 +200,14 @@ class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
         long customerId = customerWithBudget();
         as(boss, () -> policies.save(boss,
                 new DesignPolicyService.PolicyCommand(TOTAL, FIRST, "方案、施工图与交底", "总部财务"), null));
-        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId, submit(), null));
+        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId, submit(), commandKey()));
         long id = detail.commission().getId();
-        as(finance, () -> commissions.markFirstReady(id, 1, finance));
-        as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), null));
-        as(finance, () -> commissions.markTailPaid(id, 1, finance));
-        as(finance, () -> commissions.markTailReady(id, 1, finance));
+        as(finance, () -> seedFirst(id, 1, finance));
+        as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), commandKey()));
+        as(finance, () -> seedTailPaid(id, 1, finance));
+        as(finance, () -> seedTailReady(id, 1, finance));
         as(designAdmin, () -> commissions.dispatch(designAdmin, id,
-                new DispatchCommand("成果交付", "总部设计行政", true), null));
+                new DispatchCommand("成果交付", "总部设计行政", true,"TEST-V1",101L,102L,103L), commandKey()));
         return id;
     }
 
@@ -230,13 +230,12 @@ class FranchiseTodoProviderTest extends FranchisePgIntegrationTest {
 
     private static SubmitCommand submit() {
         return new SubmitCommand("两层乡墅", "方案、施工图与交底", null, TOTAL, FIRST, "总部财务",
-                null, null, null, true);
+                1, null, null, true);
     }
 
     private static PacketCommand packet(long managerUserId) {
-        return new PacketCommand(1, "{\"name\":\"成果文件\"}", "{\"name\":\"施工图\"}",
-                "{\"name\":\"审核依据\"}", "{\"name\":\"客户确认\"}", "S2-2026", LocalDate.now(),
-                "已向工程负责人现场交底", managerUserId, true);
+        return new PacketCommand(1,null,null,null,null,null,LocalDate.now(),
+                "已向工程负责人现场交底",managerUserId,true,104L);
     }
 
     private List<TodoItem> todos(PostSnapshot post) {

@@ -111,6 +111,11 @@ public class FranchiseTodoProvider implements TodoProvider {
             String key = Long.toString(commission.getId());
             OffsetDateTime since = commission.getUpdateTime();
             String customer = commission.getCustomerName();
+            if(commission.getDispatchSeq()!=null && !commissions.settlement(commission).readyToDispatch()) {
+                items.add(item("design-finance-anomaly:"+key+":"+commission.getSubmissionVersion(),
+                        "「"+customer+"」下发后设计资金净额不足，请核对退款/退回",commission.getStatus(),null,
+                        false,COMMISSION_PAGE,since));
+            }
             switch (commission.getStatus()) {
                 case CommissionDO.STATUS_FEE_PENDING -> {
                     if (designAdminLine) {
@@ -133,7 +138,7 @@ public class FranchiseTodoProvider implements TodoProvider {
                 }
                 case CommissionDO.STATUS_DESIGNING -> {
                     if (designAdminLine && access.isDesignAdminOf(post, commission)
-                            && commission.getFirstReadyAt() != null) {
+                            && commissions.settlement(commission).readyToComplete()) {
                         items.add(item("design-complete:" + key + ":" + commission.getSubmissionVersion(),
                                 "「" + customer + "」首款已就绪，确认设计完成", "DESIGNING", null,
                                 true, DESIGN_PAGE, since));
@@ -141,11 +146,11 @@ public class FranchiseTodoProvider implements TodoProvider {
                 }
                 case CommissionDO.STATUS_DESIGN_COMPLETED -> {
                     if (designAdminLine && access.isDesignAdminOf(post, commission)
-                            && commission.getTailReadyAt() != null) {
+                            && commissions.settlement(commission).readyToDispatch()) {
                         items.add(item("design-dispatch:" + key + ":" + commission.getSubmissionVersion(),
                                 "「" + customer + "」尾款已就绪，下发成果", "DESIGN_COMPLETED", null,
                                 true, DESIGN_PAGE, since));
-                    } else if (commission.getTailPaidAt() == null && access.canWrite(post, commission)) {
+                    } else if (!commissions.settlement(commission).readyToDispatch() && access.canWrite(post, commission)) {
                         items.add(item("tail-follow:" + key, "「" + customer + "」设计已完成，跟进尾款支付",
                                 "DESIGN_COMPLETED", null, true, COMMISSION_PAGE, since));
                     }
