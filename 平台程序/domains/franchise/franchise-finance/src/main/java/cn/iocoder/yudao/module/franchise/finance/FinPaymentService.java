@@ -59,7 +59,7 @@ public class FinPaymentService {
     public record EngineeringPayableUpdateCommand(long payableId,long projectId,String sourceRef,
                                                   String recipient,long totalCents,String basis) {}
 
-    /** 工程外事务持供应行锁；与付款共用应付行锁后重读净额，禁止检查后付款穿透。 */
+    /** 工程外事务持供应行锁；与付款共用应付行锁后复核无已核实付款，退回不解锁。 */
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void updateUnpaidEngineeringPayable(PostSnapshot post,String idempotencyKey,EngineeringPayableUpdateCommand cmd) {
         idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
@@ -78,10 +78,8 @@ public class FinPaymentService {
                 || !"进行中".equals(payable.getStatus())) throw exception(PAYABLE_NOT_FOUND);
         if(cmd.totalCents()<=0 || cn.hutool.core.util.StrUtil.isBlank(cmd.recipient())
                 || cn.hutool.core.util.StrUtil.isBlank(cmd.basis())) throw exception(PAYMENT_EXCEED_PAYABLE);
-        long paid=paymentMapper.selectActiveByPayable(cmd.payableId()).stream().filter(p->p.getCompanyId()==post.orgId()).mapToLong(p->amount(p)
-                -(p.getPendingLinkCents()==null?0:p.getPendingLinkCents())
-                -refundMapper.selectActiveByPayment(p.getId()).stream().filter(r->r.getCompanyId()==post.orgId()).mapToLong(r->r.getAmountCents()).sum()).sum();
-        if(paid!=0) throw exception(PAYMENT_EXCEED_PAYABLE);
+        if(paymentMapper.selectActiveByPayable(cmd.payableId()).stream().anyMatch(p->p.getCompanyId()==post.orgId()))
+            throw exception(PAYMENT_EXCEED_PAYABLE);
         payableMapper.updateById(new FinPayableDO().setId(cmd.payableId()).setTotalCents(cmd.totalCents())
                 .setRecipient(cmd.recipient()).setAgreementRef(cmd.basis())
                 .setSourceType("engineering").setSourceRef(cmd.sourceRef()));

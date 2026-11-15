@@ -36,6 +36,25 @@ public class EngineeringLedgerQueryAdapter implements EngineeringLedgerQueryPort
     }
 
     @Override
+    public boolean hasActivePayment(PostSnapshot post,long payableId) {
+        return activePaymentsByPayableIds(post,List.of(payableId)).getOrDefault(payableId,true);
+    }
+
+    @Override
+    public Map<Long,Boolean> activePaymentsByPayableIds(PostSnapshot post,Collection<Long> payableIds) {
+        var result=new HashMap<Long,Boolean>();
+        if(payableIds==null || payableIds.isEmpty()) return result;
+        var ids=List.copyOf(payableIds);ids.forEach(id->result.put(id,false));
+        for(int i=0;i<ids.size();i+=100) {
+            paymentMapper.selectList(new LambdaQueryWrapper<FinPaymentDO>()
+                    .in(FinPaymentDO::getPayableId,ids.subList(i,Math.min(i+100,ids.size())))
+                    .eq(FinPaymentDO::getCompanyId,post.orgId()).eq(FinPaymentDO::getStatus,"已核实"))
+                    .forEach(p->result.put(p.getPayableId(),true));
+        }
+        return result;
+    }
+
+    @Override
     public Map<Long, Long> paidCentsByPayableIds(PostSnapshot post, Collection<Long> payableIds) {
         Map<Long, Long> result = new HashMap<>();
         if (payableIds == null || payableIds.isEmpty()) {

@@ -30,12 +30,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         EngClosureService.class,
         EngExpenseService.class,
         cn.iocoder.yudao.module.franchise.finance.FinPaymentService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinRefundService.class,
         FranchiseCommands.class, CommandLogImpl.class,
         EngMaterialAndPlanGuardIntegrationTest.Config.class})
 class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest {
 
     @TestConfiguration
     static class Config {
+        @Bean cn.iocoder.yudao.module.franchise.finance.FinReceiptService receiptService() {
+            return org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.finance.FinReceiptService.class);
+        }
+        @Bean cn.iocoder.yudao.module.franchise.api.CommissionQueryPort commissionQueryPort() {
+            return org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.api.CommissionQueryPort.class);
+        }
 
         /** 资产端口桩：白名单资产=ACCEPTED 本组织；类型可控 */
         @Bean
@@ -639,6 +646,55 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     @Resource private cn.iocoder.yudao.module.franchise.finance.FinPaymentService paymentService;
     @Resource private org.springframework.transaction.PlatformTransactionManager transactions;
     @Resource private cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort payablePort;
+    @Resource private cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort ledgerPort;
+    @Resource private cn.iocoder.yudao.module.franchise.finance.FinRefundService refundService;
+
+    @Test
+    void fullExpenseReturnDoesNotUnlockTermsButVoidedPaymentDoes() {
+        var initial=new EngMaterialService.TermsCommand("原供应商",BigDecimal.TEN,BigDecimal.ZERO,null,null,"原合同");
+        var revised=new EngMaterialService.TermsCommand("新供应商",new BigDecimal("20"),new BigDecimal("5"),null,null,"新合同");
+        as(engineer,()->materialsService.terms(engineer,supplyId,initial,idem()));
+        long payable=jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,supplyId);
+        var finance=fixture.post(store.orgId(),"finance",null);
+        long payment=paymentService.register(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(payable,10000,java.time.LocalDate.now(),null,null));
+        long refund=refundService.registerExpense(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinRefundService.ExpenseRefundCommand(payment,10000,"全额真实支出退回",java.time.LocalDate.now(),null,null,null));
+        assertThat(ledgerPort.paidCents(engineer,payable)).isZero();
+        assertThat(ledgerPort.hasActivePayment(engineer,payable)).isTrue();
+        assertThat(ledgerPort.activePaymentsByPayableIds(engineer,java.util.List.of(payable,-1L))).containsEntry(payable,true).containsEntry(-1L,false);
+        var other=fixture.store();var alien=fixture.post(other.orgId(),"finance",null);
+        assertThat(ledgerPort.hasActivePayment(alien,payable)).isFalse();
+        assertThatThrownBy(()->as(engineer,()->materialsService.terms(engineer,supplyId,revised,idem()))).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(()->new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx->
+                payablePort.updateUnpaid(engineer,payable,new cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort.PayableCommand(
+                        projectId,"engineering-payable:"+projectId+":"+supplyId,"新供应商",20500,"新合同"),idem())))
+                .isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(10000);
+        assertThat(jdbc.queryForObject("SELECT recipient FROM fr_fin_payable WHERE id=?",String.class,payable)).isEqualTo("原供应商");
+        assertThat(jdbc.queryForObject("SELECT supplier FROM fr_eng_supply WHERE id=?",String.class,supplyId)).isEqualTo("原供应商");
+        assertThat(materialsService.supplyView(engineer,supply()).get("termsLocked")).isEqualTo(true);
+        assertThat(summaryLine().get("termsLocked")).isEqualTo(true);
+        assertThat(summaryLine().get("paidCents")).isEqualTo(0L);
+        refundService.void_(finance,refund,"更正退回事实");
+        paymentService.void_(finance,payment,"原付款更正");
+        assertThat(ledgerPort.hasActivePayment(engineer,payable)).isFalse();
+        assertThat(ledgerPort.activePaymentsByPayableIds(engineer,java.util.List.of(payable))).containsEntry(payable,false);
+        as(engineer,()->materialsService.terms(engineer,supplyId,revised,idem()));
+        assertThat(materialsService.supplyView(engineer,supply()).get("termsLocked")).isEqualTo(false);
+        assertThat(summaryLine().get("termsLocked")).isEqualTo(false);
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(20500);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?",Long.class,projectId)).isEqualTo(1);
+    }
+
+    private cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyDO supply() {
+        return supplyMapper.selectById(supplyId);
+    }
+    @Resource private cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyMapper supplyMapper;
+
+    @SuppressWarnings("unchecked")
+    private java.util.Map<String,Object> summaryLine() {
+        var plans=(java.util.List<java.util.Map<String,Object>>)materialsService.summary(engineer,projectId,null).get("plans");
+        return ((java.util.List<java.util.Map<String,Object>>)plans.get(0).get("lines")).get(0);
+    }
 
     @Test
     void unpaidPayableUpdateRejectsForgedOrganizationProjectAndSource() {

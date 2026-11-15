@@ -40,6 +40,8 @@ payments 为 paymentId、amountCents、netPaidCents、receivedNetCents、receiva
 
 工程 `POST /franchise/engineering/supplies/{supplyId}/terms`（沿用现有控制器路径）仅在 supply.payableId 为空时创建应付；已有应付通过 EngineeringPayablePort.updateUnpaid 加入工程外层事务，修订同一应付的 total/recipient/agreementRef，不用新随机键创建替代账。
 
-锁序为命令锁→供应事项行锁→应付行锁，与财务登记付款共用同一应付行锁。锁内复核应付组织、项目、engineering 阶段、供应事项的精确来源及本组织实时净有效付款为 0；已付款拒绝改价。修订和工程条款共同提交/回滚，财务事件记录真实 actor 及递增应付事件版本。未融合实现的默认更新端口拒绝执行。
+锁序为命令锁→供应事项行锁→应付行锁，与财务登记付款共用同一应付行锁。锁内复核应付组织、项目、engineering 阶段、供应事项的精确来源及不存在本组织 status=已核实 的付款；全额支出退回也不解锁，原付款真正作废才可修改（与对照 .3 paidOut 一致）。修订和工程条款共同提交/回滚，财务事件记录真实 actor 及递增应付事件版本。未融合实现的默认更新端口拒绝执行。
+
+工程 summary.plans[].lines[].termsLocked 与 supplyView.termsLocked 均为明确 Boolean，沿用上述未作废付款事实，不以 paidCents 净额为锁定依据。EngineeringLedgerQueryPort.hasActivePayment 和 activePaymentsByPayableIds 仅投影同组织已核实付款，旧实现默认 fail-closed。paidCents/paidCentsByPayableIds 继续按真实退回冲减，用于金额展示，不改退款或支出退回事实。
 
 terms 幂等指纹覆盖 supplyId、规范化 supplier/unitPrice/freight、basis、contact、ISO promiseDate；同键同完整命令重放，同键更换凭据、联系人或约定日期拒绝，不返回假成功。前端调用沿用原工程接口，无新增公开财务写入口。

@@ -250,7 +250,7 @@ public class EngMaterialService {
             throw exception(ENGINEERING_INPUT_INVALID, "材料已取消，无需记录采购金额");
         }
         // 已付款锁定：金额/凭据沿用原值（蓝本 :64）
-        if (supply.getPayableId() != null && ledger.paidCents(post, supply.getPayableId()) > 0) {
+        if (supply.getPayableId() != null && ledger.hasActivePayment(post, supply.getPayableId())) {
             boolean same = supply.getUnitPriceCents() != null && supply.getUnitPriceCents() == unitPrice
                     && supply.getFreightCents() != null && supply.getFreightCents() == freight
                     && cmd.supplier().equals(supply.getSupplier())
@@ -605,6 +605,8 @@ public class EngMaterialService {
         List<FrEngSupplyReceiptDO> receiptRows = supplyReceipts.selectByProject(post.orgId(), projectId);
         Map<Long, Long> paidByPayable = ledger.paidCentsByPayableIds(post,
                 supplyRows.stream().map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull).toList());
+        Map<Long,Boolean> lockedByPayable=ledger.activePaymentsByPayableIds(post,
+                supplyRows.stream().map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull).toList());
         boolean full = EngProjectService.isFinanceOrAbove(post)
                 || post.userId() == project.getManagerUserId()
                 || (project.getAssignedEngineerUserId() != null && post.userId() == project.getAssignedEngineerUserId());
@@ -633,6 +635,7 @@ public class EngMaterialService {
             line.put("quantity", m.getQuantity());
             line.put("requiredDate", m.getRequiredDate());
             line.put("cancelled", cancelled);
+            line.put("termsLocked",s!=null && s.getPayableId()!=null && !Boolean.FALSE.equals(lockedByPayable.get(s.getPayableId())));
             line.put("received", received);
             line.put("remaining", cancelled ? BigDecimal.ZERO
                     : m.getQuantity().subtract(received).max(BigDecimal.ZERO));
@@ -692,6 +695,7 @@ public class EngMaterialService {
         view.put("status", supply.getStatus());
         view.put("paid", supply.getPayableId() != null
                 && ledger.paidCents(post, supply.getPayableId()) > 0);
+        view.put("termsLocked",supply.getPayableId()!=null && ledger.hasActivePayment(post,supply.getPayableId()));
         view.put("receipts", supplyReceipts.selectBySupply(post.orgId(), supply.getId()).stream()
                 .map(r -> {
                     Map<String, Object> row = new LinkedHashMap<>();
@@ -711,7 +715,7 @@ public class EngMaterialService {
     }
 
     private void requireNotPaid(PostSnapshot post, FrEngSupplyDO supply) {
-        if (supply.getPayableId() != null && ledger.paidCents(post, supply.getPayableId()) > 0) {
+        if (supply.getPayableId() != null && ledger.hasActivePayment(post, supply.getPayableId())) {
             throw exception(MATERIAL_INVALID, "已有付款，请由财务在原付款事项处理");
         }
     }
