@@ -10,7 +10,7 @@ function harness(hooks={}){
  global.wx={getStorageSync:k=>storage[k]||'',setStorageSync:(k,v)=>{storage[k]=v;},removeStorageSync:k=>{delete storage[k];},getSystemInfoSync:()=>({})};
  const http=real('../api/http');http.saveSession({token:'TEST-ONLY-session',postId:'original-finance',tenantId:'1'});
  // Stub models the existing uploadVoucher contract: same session/file reuses completed asset.
- const api={materials:{terms:async(id,body,key)=>{calls.push({id,body,key});if(hooks.terms)await hooks.terms({id,body,key,http});return{id};}},uploadVoucher:async(p,type)=>{calls.push({upload:p,type});if(hooks.upload)await hooks.upload(http);return'9007199254740999';}};
+ const api={materials:{arrival:async(id,body,key)=>{calls.push({arrival:true,id,body,key});return{id};},terms:async(id,body,key)=>{calls.push({id,body,key});if(hooks.terms)await hooks.terms({id,body,key,http});return{id};}},uploadVoucher:async(p,type)=>{calls.push({upload:p,type});if(hooks.upload)await hooks.upload(http);return'9007199254740999';}};
  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:n=>n==='../api/franchise/engineering'?api:real(n),wx:{getStorageSync:()=>'',getSystemInfoSync:()=>({})}});
  return{P:module.exports,calls,http,storage};
 }
@@ -82,4 +82,24 @@ test('line inputs preserve actual supply IDs and locked money; finance receives 
 test('invalid later line or missing real evidence prevents every procurement write',async()=>{
  const{P,calls}=harness();await assert.rejects(P.perform('material-terms','91',{lines:[{supplyId:'1',supplier:'TEST',unitPrice:'1'},{supplyId:'2',supplier:'',unitPrice:'2'}],file:{path:'/temp.pdf',name:'TEST.pdf'}},null,'k'));assert.equal(calls.length,0);
  await assert.rejects(P.perform('material-terms','91',{lines:[{supplyId:'1',supplier:'TEST',unitPrice:'1'}]},null,'k'));assert.equal(calls.length,0);
+});
+
+test('arrival UI has one quantity source connected to the selected supply',()=>{
+ const source=fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages/build/record/index.wxml'),'utf8');
+ assert.equal(source.includes('placeholder="本次实际合格到货数量，无到货留空"'),false,'unused line actual must not compete with selected supply actual');
+});
+test('normal split deliveries send batch expected equal to actual and keep exact supply',async()=>{
+ const{P,calls}=harness();
+ for(const actual of ['4','6','1.001'])await P.perform('arrival','91',{supplyId:'94',actual,transaction:'TEST ONLY '+actual,file:{path:'/actual.png'},date:'2026-11-15'},null,'arrive-'+actual);
+ const rows=calls.filter(c=>c.arrival);assert.equal(rows.length,3);
+ assert.deepEqual(rows.map(r=>[r.id,r.body.expected,r.body.actual]),[['94',4,4],['94',6,6],['94',1.001,1.001]]);
+ assert.ok(rows.every(r=>r.body.fileAssetId==='9007199254740999'));
+});
+test('invalid arrival quantities and missing actual evidence stop before upload or write',async()=>{
+ for(const actual of ['',undefined,'abc','NaN','Infinity','0','-1','0.0001','1e3']){
+  const{P,calls}=harness();await assert.rejects(P.perform('arrival','91',{supplyId:'94',actual,transaction:'TEST ONLY',file:{path:'/actual.png'}},null,'bad'),e=>/数量/.test(e.msg||e.message));assert.equal(calls.length,0);
+ }
+ for(const form of [{supplyId:'94',actual:'4',file:{path:'/actual.png'}},{supplyId:'94',actual:'4',transaction:'TEST ONLY'}]){
+  const{P,calls}=harness();await assert.rejects(P.perform('arrival','91',form,null,'missing'));assert.equal(calls.length,0);
+ }
 });

@@ -409,13 +409,21 @@ async function perform(action, id, form, node, key) {
       }
       return results;
     }
-    case 'arrival':
-      if (!f.supplyId) return Promise.reject({ code: 0, msg: '请选择确认到货的供应事项' }); // R4 P1-2 显式选定
+    case 'arrival': {
+      if (!f.supplyId) throw { code: 0, msg: '请选择确认到货的供应事项' };
+      // 沿用开发版数量精度；校验先于上传，避免空值或 NaN 进入到货命令。
+      const raw = String(f.actual == null ? '' : f.actual).trim(), actual = Number(raw);
+      if (!/^\d+(\.\d{1,3})?$/.test(raw) || !Number.isFinite(actual) || actual <= 0)
+        throw { code: 0, msg: '请填写大于0、最多三位小数的本次实际到货数量' };
+      if (!String(f.transaction || '').trim() || !f.file?.path)
+        throw { code: 0, msg: '请填写收货流水并选择到货凭据' };
       return api.materials.arrival(f.supplyId, {
-        actual: Number(f.actual), quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
-        transactionNo: f.transaction, occurredAt: dateStr,
-        fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_SITE_PHOTO'), note: f.note || ''
+        // 此页记录本次合格分批到货；不把全部计划余量误当本批应到量而生成补发。
+        expected: actual, actual, quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
+        transactionNo: String(f.transaction).trim(), occurredAt: dateStr,
+        fileAssetId: await uploadVoucher(f.file.path, 'ENG_SITE_PHOTO'), note: f.note || ''
       }, key);
+    }
     case 'material-adjust': {
       // 后端为单材料维度（PUT /materials/{id}）；页面表单按计划单逐行填调整量，此处逐行提交
       // Codex R2 遗留：每行派生独立幂等子键（同键=同命令去重，共用一键多行会被后端去重丢更新；部分成功后整单重试时已成功行同子键幂等返回原结果）
