@@ -152,7 +152,16 @@ test('perf export: only boss/owner/finance/finance-lead can export', () => {
   for (const role of ['boss', 'owner', 'finance', 'finance-lead']) {
     assert.equal(model.canExportPerfCommission(role), true, role)
   }
-  for (const role of ['sales', 'sales-lead', 'engineer', 'project-manager', 'hq-design-admin', null, undefined, '']) {
+  for (const role of [
+    'sales',
+    'sales-lead',
+    'engineer',
+    'project-manager',
+    'hq-design-admin',
+    null,
+    undefined,
+    ''
+  ]) {
     assert.equal(model.canExportPerfCommission(role), false, String(role))
   }
 })
