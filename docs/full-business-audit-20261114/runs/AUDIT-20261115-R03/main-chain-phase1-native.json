@@ -1,0 +1,1768 @@
+{
+  "startedAt": "2026-11-15T06:32:11.000Z",
+  "endedAt": "2026-11-15T06:34:38.130Z",
+  "completed": true,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "businessEnvironment": "isolated B",
+  "customerId": "2121799549299286017",
+  "quoteId": "2121853910761623552",
+  "contractId": "2121853966627188737",
+  "commissionId": "2121854025989173250",
+  "designFeeCents": 360000,
+  "businessApiMocked": false,
+  "mocked": true,
+  "mockedScope": [
+    "showModal editable reason only; actual void API remains real"
+  ],
+  "login": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "needPhone": false,
+    "savedByExistingLoginFinalizer": true
+  },
+  "steps": [
+    {
+      "step": "quote_to_commission_to_store_payment_to_partial_and_full_hq_receipts_to_design_complete",
+      "ok": true,
+      "customerId": "2121799549299286017",
+      "commissionId": "2121854025989173250"
+    }
+  ],
+  "requests": [
+    {
+      "stage": "real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 297,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 113,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 86,
+      "result": {}
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 52,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 93,
+      "result": {}
+    },
+    {
+      "stage": "hq_pricing",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design-pricing-policies/current",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 64,
+      "result": {
+        "id": "2121852918338965504",
+        "version": 1
+      }
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 61,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 307,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/drafts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 306,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/growth/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 306,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 308,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 308,
+      "result": {}
+    },
+    {
+      "stage": "main_budget",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 83,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "main_budget",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 84,
+      "result": {}
+    },
+    {
+      "stage": "main_budget",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 87,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "main_budget",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId",
+        "items",
+        "priceVersion",
+        "width",
+        "depth",
+        "floors",
+        "area"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 190,
+      "result": {
+        "quoteId": "2121853910761623552",
+        "totalCents": 48060000,
+        "budgetVersion": 1,
+        "budgetSchemeId": "2121853910821974018"
+      }
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 81,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 94,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 98,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 114,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts/2121804604685508610/void",
+      "bodyKeys": [
+        "reason",
+        "revision"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 140,
+      "result": {
+        "contractId": "2121804604685508610",
+        "status": "VOIDED"
+      }
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 105,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 112,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 189,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 368,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId",
+        "totalCents",
+        "signAfterCents",
+        "baseDoneCents",
+        "capDoneCents",
+        "requirementId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 134,
+      "result": {
+        "contractId": "2121853966627188737",
+        "status": "WAIT_SIGN"
+      }
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 98,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 107,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 142,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 191,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts/2121853966627188737/sign",
+      "bodyKeys": [
+        "revision"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 81,
+      "result": {
+        "contractId": "2121853966627188737",
+        "status": "SIGNED"
+      }
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 98,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 102,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 122,
+      "result": {}
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 142,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "main_contract_calibration",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 87,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "main_commission_submit",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017/commission-context",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 132,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "main_commission_submit",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017/commission",
+      "bodyKeys": [
+        "mode",
+        "text",
+        "scope",
+        "confirmed",
+        "budgetVersion",
+        "attachmentAssetId",
+        "feeRuleVersion"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 229,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "main_commission_submit",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017/commission-context",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 81,
+      "result": {
+        "customerId": "2121799549299286017",
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 57,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 63,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 285,
+      "result": {}
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 285,
+      "result": {}
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 287,
+      "result": {}
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 285,
+      "result": {}
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 289,
+      "result": {}
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 289,
+      "result": {}
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 408,
+      "result": {}
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 499,
+      "result": {}
+    },
+    {
+      "stage": "finance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 536,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 63,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 72,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 71,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 72,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 73,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 171,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 259,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 258,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 268,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 286,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 321,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [
+        "payableId",
+        "amountCents",
+        "payDate",
+        "transactionNo"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 132,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 58,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 147,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 149,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 149,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 150,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 157,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 166,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 265,
+      "result": {}
+    },
+    {
+      "stage": "design_store_payment",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 270,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 55,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 57,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 135,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 137,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 145,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 147,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 147,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 232,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 353,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 355,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 354,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 54,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 62,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 63,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 62,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 73,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 71,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 170,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 171,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 170,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 246,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_partial",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 260,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "sourceType",
+        "designCommissionId",
+        "designStage",
+        "originPaymentId",
+        "amountCents",
+        "receivedDate",
+        "method",
+        "transactionNo",
+        "name"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 172,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 88,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 177,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 177,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 179,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 179,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 186,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 205,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 284,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 295,
+      "result": {}
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 51,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 95,
+      "result": {}
+    },
+    {
+      "stage": "design_partial_gate",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 97,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 69,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 131,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 148,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 147,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 147,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 149,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 355,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 357,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 357,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 355,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 420,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 54,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 60,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 58,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 68,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 156,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 183,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 187,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 251,
+      "result": {}
+    },
+    {
+      "stage": "hqFinance_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 263,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "sourceType",
+        "designCommissionId",
+        "designStage",
+        "originPaymentId",
+        "amountCents",
+        "receivedDate",
+        "method",
+        "transactionNo",
+        "name"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 92,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 77,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payments",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 81,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/refunds",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 82,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 83,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/payables",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 85,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/bank-flows",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 128,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/receipts",
+      "bodyKeys": [
+        "status"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 198,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/reconciliation",
+      "bodyKeys": [
+        "month"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 200,
+      "result": {}
+    },
+    {
+      "stage": "hq_receipt_part_2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/finance/design-fees",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 200,
+      "result": {}
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 49,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 93,
+      "result": {}
+    },
+    {
+      "stage": "design_complete",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 84,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_complete",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250/commands/design-complete",
+      "bodyKeys": [
+        "note",
+        "confirmed"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 127,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_complete",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 107,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    }
+  ],
+  "console": [
+    {
+      "stage": "real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    },
+    {
+      "stage": "finance_identity",
+      "level": "error",
+      "message": "routeDone with a webviewId 17 is not found"
+    },
+    {
+      "stage": "finance_identity",
+      "level": "error",
+      "message": ""
+    }
+  ],
+  "exceptions": [],
+  "automationWarnings": []
+}

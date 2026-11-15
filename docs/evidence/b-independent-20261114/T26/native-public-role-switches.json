@@ -1,0 +1,26 @@
+[
+  {
+    "role": "sales",
+    "route": "pages/business/index",
+    "post": "2121621022180384770",
+    "tokenPresent": true
+  },
+  {
+    "role": "finance",
+    "route": "pages/admin/finance-desk/index",
+    "post": "2121622126125391874",
+    "tokenPresent": true
+  },
+  {
+    "role": "engineer",
+    "route": "pages/build/home/index",
+    "post": "2121622125286531073",
+    "tokenPresent": true
+  },
+  {
+    "role": "boss",
+    "route": "pages/admin/home/index",
+    "post": "2121620613810364417",
+    "tokenPresent": true
+  }
+]

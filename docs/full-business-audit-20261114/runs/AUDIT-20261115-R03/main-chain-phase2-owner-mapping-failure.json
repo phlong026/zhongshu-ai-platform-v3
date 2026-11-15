@@ -1,0 +1,814 @@
+{
+  "startedAt": "2026-11-15T06:37:55.050Z",
+  "phase": 2,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "businessEnvironment": "isolated B",
+  "customerId": "2121799549299286017",
+  "commissionId": "2121854025989173250",
+  "businessApiMocked": false,
+  "mocked": true,
+  "mockedScope": [
+    "chooseMessageFile"
+  ],
+  "fixtureBoundary": "Clearly named TEST ONLY PDF files; SDK supplies only native file chooser results. Real file bytes, B upload tickets, COS PUT, complete validation, scoped download tickets, and commands are not mocked.",
+  "mainLogin": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "savedByExistingLoginFinalizer": true,
+    "authMethod": "real_wechat_login"
+  },
+  "steps": [
+    {
+      "step": "dispatch_V1",
+      "ok": true,
+      "dispatchSeq": 1,
+      "assets": {
+        "RESULT": "2121855318835613696",
+        "DRAWING": "2121855324929937408",
+        "REVIEW": "2121855330076348416"
+      }
+    },
+    {
+      "step": "dispatch_V2",
+      "ok": true,
+      "dispatchSeq": 2,
+      "assets": {
+        "RESULT": "2121855452650688512",
+        "DRAWING": "2121855457729990656",
+        "REVIEW": "2121855462792515584"
+      }
+    }
+  ],
+  "failure": {
+    "stage": "sales_history_preview",
+    "message": "Timed out: historical real scoped ticket",
+    "stack": [
+      "Error: Timed out: historical real scoped ticket",
+      "    at wait (/Users/honor.pei/.config/zhongshu-platform-b/flow-audit-20261115-R03/verify-main-chain-phase2-native.cjs:44:11)",
+      "    at async /Users/honor.pei/.config/zhongshu-platform-b/flow-audit-20261115-R03/verify-main-chain-phase2-native.cjs:188:7"
+    ]
+  },
+  "pageAtFailure": {
+    "path": "pages/workflow/commission/index",
+    "view": "progress",
+    "error": "系统异常",
+    "formKeys": []
+  },
+  "requests": [
+    {
+      "stage": "main_real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 257,
+      "result": {}
+    },
+    {
+      "stage": "main_real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {}
+    },
+    {
+      "stage": "main_real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 74,
+      "result": {}
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 53,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 94,
+      "result": {}
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 64,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 76,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/upload-tickets",
+      "bodyKeys": [
+        "assetType",
+        "mimeType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 232,
+      "result": {
+        "assetId": "2121855318835613696"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "PUT",
+      "url": "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com/franchise/1/118/uploads/2121855318835613696.pdf",
+      "bodyKeys": [],
+      "http": 200,
+      "durationMs": 277
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121855318835613696/complete",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 680,
+      "result": {
+        "assetId": "2121855318835613696",
+        "uploadStatus": "ACCEPTED"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/upload-tickets",
+      "bodyKeys": [
+        "assetType",
+        "mimeType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 69,
+      "result": {
+        "assetId": "2121855324929937408"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "PUT",
+      "url": "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com/franchise/1/118/uploads/2121855324929937408.pdf",
+      "bodyKeys": [],
+      "http": 200,
+      "durationMs": 88
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121855324929937408/complete",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 198,
+      "result": {
+        "assetId": "2121855324929937408",
+        "uploadStatus": "ACCEPTED"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/upload-tickets",
+      "bodyKeys": [
+        "assetType",
+        "mimeType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 82,
+      "result": {
+        "assetId": "2121855330076348416"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "PUT",
+      "url": "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com/franchise/1/118/uploads/2121855330076348416.pdf",
+      "bodyKeys": [],
+      "http": 200,
+      "durationMs": 70
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121855330076348416/complete",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 181,
+      "result": {
+        "assetId": "2121855330076348416",
+        "uploadStatus": "ACCEPTED"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250/commands/design-dispatch",
+      "bodyKeys": [
+        "recipient",
+        "drawingVersion",
+        "note",
+        "resultAssetId",
+        "drawingAssetId",
+        "reviewAssetId",
+        "confirmed"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 131,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 62,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_dispatch_v1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 66,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 51,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 165,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/growth/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 164,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 176,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 176,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/drafts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 175,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 95,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_feedback_v1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 72,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_feedback_v1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 84,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_feedback_v1",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250/commands/commission-feedback",
+      "bodyKeys": [
+        "note"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 86,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_feedback_v1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 346,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_feedback_v1",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 80,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 45,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 89,
+      "result": {}
+    },
+    {
+      "stage": "design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 78,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_complete_v2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 86,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_complete_v2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250/commands/design-complete",
+      "bodyKeys": [
+        "note",
+        "confirmed"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 106,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_complete_v2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 87,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_complete_v2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 66,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 76,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/upload-tickets",
+      "bodyKeys": [
+        "assetType",
+        "mimeType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 71,
+      "result": {
+        "assetId": "2121855452650688512"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "PUT",
+      "url": "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com/franchise/1/118/uploads/2121855452650688512.pdf",
+      "bodyKeys": [],
+      "http": 200,
+      "durationMs": 82
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121855452650688512/complete",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 218,
+      "result": {
+        "assetId": "2121855452650688512",
+        "uploadStatus": "ACCEPTED"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/upload-tickets",
+      "bodyKeys": [
+        "assetType",
+        "mimeType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 69,
+      "result": {
+        "assetId": "2121855457729990656"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "PUT",
+      "url": "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com/franchise/1/118/uploads/2121855457729990656.pdf",
+      "bodyKeys": [],
+      "http": 200,
+      "durationMs": 71
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121855457729990656/complete",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 189,
+      "result": {
+        "assetId": "2121855457729990656",
+        "uploadStatus": "ACCEPTED"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/upload-tickets",
+      "bodyKeys": [
+        "assetType",
+        "mimeType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 73,
+      "result": {
+        "assetId": "2121855462792515584"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "PUT",
+      "url": "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com/franchise/1/118/uploads/2121855462792515584.pdf",
+      "bodyKeys": [],
+      "http": 200,
+      "durationMs": 70
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121855462792515584/complete",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 178,
+      "result": {
+        "assetId": "2121855462792515584",
+        "uploadStatus": "ACCEPTED"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250/commands/design-dispatch",
+      "bodyKeys": [
+        "recipient",
+        "drawingVersion",
+        "note",
+        "resultAssetId",
+        "drawingAssetId",
+        "reviewAssetId",
+        "confirmed"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 120,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 106,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "design_dispatch_v2",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 101,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 58,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/drafts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 73,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 75,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/growth/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 74,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 83,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 116,
+      "result": {}
+    },
+    {
+      "stage": "sales_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 113,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_history_preview",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 94,
+      "result": {
+        "commissionId": "2121854025989173250"
+      }
+    },
+    {
+      "stage": "sales_history_preview",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121854025989173250/dispatches/1/files/RESULT/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 500,
+      "durationMs": 90
+    }
+  ],
+  "console": [
+    {
+      "stage": "main_real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    }
+  ],
+  "exceptions": [],
+  "automationWarnings": []
+}

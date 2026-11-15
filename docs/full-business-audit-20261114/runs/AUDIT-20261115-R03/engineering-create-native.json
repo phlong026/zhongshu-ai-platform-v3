@@ -1,0 +1,260 @@
+{
+  "startedAt": "2026-11-15T04:40:57.798Z",
+  "endedAt": "2026-11-15T04:41:21.706Z",
+  "completed": true,
+  "mocked": false,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "login": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "needPhone": false,
+    "savedByExistingLoginFinalizer": true
+  },
+  "steps": [
+    {
+      "step": "new_engineering_project_from_ui",
+      "ok": true,
+      "projectId": "2121825845924421634"
+    }
+  ],
+  "requests": [
+    {
+      "stage": "real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 278,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 68,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 61,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "engineer_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/projects",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 55,
+      "result": {}
+    },
+    {
+      "stage": "engineer_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 114,
+      "result": {}
+    },
+    {
+      "stage": "engineering_projects",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/projects",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 50,
+      "result": {}
+    },
+    {
+      "stage": "engineering_create",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/projects",
+      "bodyKeys": [
+        "name",
+        "customer",
+        "city",
+        "phone",
+        "floors",
+        "area",
+        "parentProjectId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 119,
+      "result": {
+        "status": "PENDING_START",
+        "id": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 56,
+      "result": {
+        "status": "PENDING_START",
+        "id": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/collections",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 66,
+      "result": {}
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/followups",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 141,
+      "result": {}
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/materials/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 143,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 141,
+      "result": {
+        "status": "PENDING_START",
+        "id": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/settle-summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 153,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/followups",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 250,
+      "result": {}
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/settle-summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 251,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/materials/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 251,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_create",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/collections",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 263,
+      "result": {}
+    }
+  ],
+  "console": [
+    {
+      "stage": "real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    },
+    {
+      "stage": "engineer_identity",
+      "level": "error",
+      "message": "routeDone with a webviewId 9 is not found"
+    },
+    {
+      "stage": "engineer_identity",
+      "level": "error",
+      "message": ""
+    },
+    {
+      "stage": "engineering_projects",
+      "level": "warn",
+      "message": "[Component] property \"activeIndex\" of \"custom-tab-bar/index\" received type-uncompatible value: expected <Number> but got non-number value. Used 0 instead."
+    }
+  ],
+  "exceptions": []
+}

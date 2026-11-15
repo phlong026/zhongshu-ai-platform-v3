@@ -15,8 +15,8 @@ const http = read('miniprogram/api/http.js');
 const wxss = read('miniprogram/pages/account/index.wxss');
 const profile = read('miniprogram/utils/platform-profile.js');
 
-// 1) 登录按钮：官方绿底 + 官方图标 + 手机号快捷授权保留（员工账号匹配需手机号）
-assert(wxml.includes('open-type="getPhoneNumber"') && wxml.includes('bindgetphonenumber="wechatLogin"'), '微信一键登录保留手机号快捷授权（员工账号匹配）');
+// 1) 登录按钮：官方绿底 + 官方图标；绑定由登录后的同账号接口完成
+assert(wxml.includes('bindtap="wechatLogin"') && !wxml.includes('open-type="getPhoneNumber"'), '微信一键登录不再请求手机号授权');
 assert(wxml.includes('class="wechat-login-icon" src="/pages/account/assets/wechat-logo.png"'), '一键登录按钮使用微信官方双气泡图标');
 assert(fs.existsSync(path.join(root, 'miniprogram/pages/account/assets/wechat-logo.png')), '微信官方图标资产存在');
 assert(wxss.includes('.login-card .solid.wechat-login-btn{display:flex;align-items:center;justify-content:center;gap:12rpx;background:#07c160!important;color:#fff!important}'), '一键登录按钮为微信官方绿（!important 穿透品牌渐变）');
@@ -34,8 +34,8 @@ assert(!wxml.includes('<text class="large">众墅之家</text>'), '大标题已�
 assert(!wxml.includes('wechat-login-tip') && !wxml.includes('使用微信绑定的手机号一键登录'), '微信 tab 静态说明文字已精简删除');
 assert(!wxml.includes('无法授权手机号时'), '静态 fallback 提示已删（退路改为失败时动态提示）');
 assert(wxml.includes('<text>微信一键登录</text>'), '按钮文案与 tab 同名（精简）');
-assert(js.includes("return this.fail(deny?'已取消手机号授权，可改用验证码登录':'当前环境不支持手机号快捷授权（开发者工具或未认证 AppID），请改用验证码登录或真机重试')"), '无 code 按 errMsg 区分拒绝与环境不支持，零网络请求早退');
-assert(js.includes("const d=e.detail||{},deny=/(deny|cancel)/i.test(String(d.errMsg||''))"), 'errMsg deny/cancel 判定为用户主动取消');
+assert(js.includes('bindWechatAfterLogin:true'), '未绑定微信时转入已有账号登录绑定');
+assert(js.includes('auth.bindWechat(r.code)'), '账号登录后使用新微信 code 绑定同一账号');
 assert(wxss.includes('.login-brand{display:block;margin:0 auto 24rpx;width:440rpx;height:120rpx}'), '品牌字标横条样式存在');
 assert(wxss.includes('background:#07c160!important;color:#fff!important}'), '一键登录按钮官方绿以 !important 穿透（实测普通声明被品牌渐变压过）');
 assert(wxss.includes('.wechat-actions{margin-top:40rpx}'), '微信 tab seg 与按钮拉开呼吸间距（40rpx）');

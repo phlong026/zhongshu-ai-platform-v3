@@ -1,0 +1,9 @@
+{
+  "domain": "platform.zszhj.com",
+  "tool": "certbot renew --cert-name platform.zszhj.com --dry-run --no-random-sleep-on-renew",
+  "result": "all simulated renewals succeeded",
+  "productionCertificateChanged": false,
+  "AlineagesRequested": false,
+  "newPaidService": false,
+  "checkedAt": "2026-11-15T01:58:04.720898+00:00"
+}

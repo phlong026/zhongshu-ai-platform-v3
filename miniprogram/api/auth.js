@@ -1,7 +1,4 @@
-/**
- * 员工账号与岗位（M2.7 第一步接入：微信登录 + 我的任职）。
- * 对应后端 /platform/auth/wechat-login 与 /platform/posts/mine。
- */
+/** 员工账号、微信凭据与岗位。所有登录方式最终签发同一后台 userId 的平台令牌。 */
 const http = require('./http');
 
 const POSTS_KEY = 'zs-api-posts-v1';
@@ -53,6 +50,23 @@ function appId() {
   } catch (e) {
     return '';
   }
+}
+
+/** 按完整账号、地区/门店简写或老板姓名查找候选账号。 */
+function accountMatches(query) {
+  return http.post('/platform/auth/account/matches', { query: String(query || '').trim() });
+}
+
+/** 账号密码登录；初始密码场景携 newPassword 完成强制改密后才签发令牌。 */
+function accountLogin(accountId, password, newPassword) {
+  const payload = { accountId: String(accountId), password };
+  if (newPassword) payload.newPassword = newPassword;
+  return http.post('/platform/auth/account/login', payload);
+}
+
+/** 已登录账号绑定当前微信。后端只增加该 userId 的登录凭据，不创建用户。 */
+function bindWechat(loginCode) {
+  return http.post('/platform/auth/wechat-bind', { appid: appId(), loginCode });
 }
 
 /** 发送登录短信验证码（后端内置限流：60s 一条、每日上限） */
@@ -140,7 +154,7 @@ function recoverPostInvalid(invalidPostId) {
     );
 }
 
-module.exports = { login, saveLogin, myPosts, appId, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid, postLoadGuard };
+module.exports = { login, saveLogin, myPosts, appId, accountMatches, accountLogin, bindWechat, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid, postLoadGuard };
 
 // M02-T01/I02：账号失效统一引导——清会话后跳转登录页（account 页 onShow 因会话清空展示登录态）。
 // 自带 handle401 四组合处理的页面（customers/workflow 等，09 阶段1 契约：401→回 guest 渲染）豁免全局跳转，

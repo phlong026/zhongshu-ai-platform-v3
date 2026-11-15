@@ -1,0 +1,13 @@
+{
+  "http": 200,
+  "code": 0,
+  "org119Roles": [
+    "boss",
+    "sales",
+    "engineer",
+    "finance"
+  ],
+  "apiOverride": null,
+  "walletOverride": null,
+  "appId": "wxe584f6fad7b54487"
+}

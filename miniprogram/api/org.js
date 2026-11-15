@@ -19,6 +19,11 @@ function addStaff(payload) {
   return http.post('/platform/org/staff', payload);
 }
 
+/** 门店老板为员工开通独立账号并指派岗位；初始密码仅在本次响应返回。 */
+function openStaffAccount(payload) {
+  return http.post('/platform/org/staff-accounts', payload);
+}
+
 /** 给已有员工追加岗位 */
 function assignPost(payload) {
   return http.post('/platform/org/posts', payload);
@@ -49,4 +54,4 @@ function handoverPending(orgId) {
   return http.get('/platform/org/handover-pending', { orgId });
 }
 
-module.exports = { orgTeams, orgStaff, addStaff, assignPost, revokePost, setStaffStatus, staffHandover, staffEmergencyRevoke, handoverPending };
+module.exports = { orgTeams, orgStaff, addStaff, openStaffAccount, assignPost, revokePost, setStaffStatus, staffHandover, staffEmergencyRevoke, handoverPending };

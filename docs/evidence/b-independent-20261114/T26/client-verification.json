@@ -1,0 +1,32 @@
+{
+  "sourceCommit": "c13880d0",
+  "appid": "wxe584f6fad7b54487",
+  "publicApiBase": "https://platform.zszhj.com/admin-api",
+  "walletBase": "https://platform.zszhj.com/app-api",
+  "urlCheck": {
+    "project": true,
+    "localPrivate": true,
+    "privateConfigTracked": false
+  },
+  "checks": {
+    "publicBaseBehaviorAssertions": 10,
+    "integrationCases": 66,
+    "integrationFailures": 0,
+    "walletCases": 8,
+    "accountApi": "passed",
+    "javascriptSyntax": "passed",
+    "diffCheck": "passed",
+    "reversePatchCheck": "passed",
+    "independentReview": "APPROVE"
+  },
+  "devtoolsLive": {
+    "platform": "devtools",
+    "publicRoleSwitches": 4,
+    "signedCosImagesDownloaded": 2,
+    "wechatLogin": "code0_needPhone_true"
+  },
+  "userPhoneUatPerformed": false,
+  "apiOrWalletSessionClearedByIsolationChange": false,
+  "newDependencies": false,
+  "remotePush": false
+}

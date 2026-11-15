@@ -52,6 +52,7 @@ const auth = {
 function requirePage(name) {
   if (name === '../../utils/view-container') return { routeValue: value => value || '', fail() {} };
   if (name === '../../api/auth') return auth;
+  if (name === '../../utils/account-login') return { defaultAccount: () => null };
   if (name === '../../api/http') return { token: () => 'token' };
   if (name === '../../api/org') return {};
   if (name === '../../utils/organization') return organization;
@@ -78,7 +79,7 @@ vm.runInNewContext(fs.readFileSync(path.join(root, 'miniprogram/pages/account/in
   encodeURIComponent
 }, { filename: 'miniprogram/pages/account/index.js' });
 
-const page = { ...definition, data: {}, refresh() {} };
+const page = { ...definition, data: {}, refresh() {}, setData(patch) { Object.assign(this.data, patch); } };
 assert.equal(page.displayRole(null, 'missing-legacy-role'), '', '未登录且旧角色未知时向渲染层提供空字符串');
 const options = page.apiPostOptions();
 assert.deepEqual(Array.from(options, option => option.postId), [

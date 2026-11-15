@@ -1,0 +1,128 @@
+{
+  "startedAt": "2026-11-15T05:37:37.560Z",
+  "endedAt": "2026-11-15T05:38:00.692Z",
+  "completed": true,
+  "mocked": false,
+  "mockedScope": [],
+  "businessApiMocked": false,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "login": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "needPhone": false,
+    "savedByExistingLoginFinalizer": true
+  },
+  "steps": [
+    {
+      "step": "real_authenticated_download_helper",
+      "ok": true,
+      "assetId": "2121831010541273088"
+    }
+  ],
+  "requests": [
+    {
+      "stage": "real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 270,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 76,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 52,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 46,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "engineer_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/projects",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 54,
+      "result": {}
+    },
+    {
+      "stage": "engineer_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 112,
+      "result": {}
+    },
+    {
+      "stage": "engineering_projects",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/projects",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 150,
+      "result": {}
+    },
+    {
+      "stage": "engineering_download",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121831010541273088/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 70,
+      "result": {}
+    }
+  ],
+  "console": [
+    {
+      "stage": "real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    }
+  ],
+  "exceptions": [],
+  "download": {
+    "statusCode": 200,
+    "contentType": "application/pdf;charset=UTF-8",
+    "size": 753,
+    "pdfHeader": "%PDF-"
+  }
+}

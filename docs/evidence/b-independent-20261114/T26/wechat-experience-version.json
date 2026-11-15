@@ -1,0 +1,13 @@
+{
+  "appName": "众墅之家赋能平台",
+  "versions": [
+    {
+      "version": "1.0.20261030.3",
+      "experience": false
+    },
+    {
+      "version": "1.0.20261115.2",
+      "experience": true
+    }
+  ]
+}

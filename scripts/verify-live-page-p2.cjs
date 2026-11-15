@@ -77,6 +77,7 @@ test('LIVE-07 API employees may open their account information without demo logi
     displayOrder() {}, scoped: () => [], roles: {}, courseChapters: {}, chapters: [] };
   const p = page('miniprogram/pages/account/index.js', {
     '../../utils/view-container': { routeValue: v => v || '' },
+    '../../utils/account-login': { defaultAccount: () => null },
     '../../api/auth': { currentApiPost: () => post, apiPosts: () => [post] },
     '../../api/http': { token: () => 'session' }, '../../api/org': {},
     '../../utils/organization': { roles: {}, has: () => false }, '../../utils/sample-files': {},

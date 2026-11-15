@@ -1,0 +1,185 @@
+{
+  "startedAt": "2026-11-15T05:06:27.926Z",
+  "endedAt": "2026-11-15T05:07:01.688Z",
+  "completed": true,
+  "mocked": false,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "login": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "needPhone": false,
+    "savedByExistingLoginFinalizer": true
+  },
+  "steps": [],
+  "requests": [
+    {
+      "stage": "real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 267,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 70,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 49,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "business_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 108,
+      "result": {}
+    },
+    {
+      "stage": "business_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 156,
+      "result": {}
+    },
+    {
+      "stage": "business_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 155,
+      "result": {}
+    },
+    {
+      "stage": "business_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/growth/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 165,
+      "result": {}
+    },
+    {
+      "stage": "business_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/drafts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 164,
+      "result": {}
+    },
+    {
+      "stage": "business_customer_entry",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 58,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "business_commission_new",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 1111000000,
+      "durationMs": 60
+    },
+    {
+      "stage": "business_commission_new",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 50,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "hq_design_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {}
+    },
+    {
+      "stage": "hq_design_pricing",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design-policies/current",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 403,
+      "durationMs": 57
+    }
+  ],
+  "console": [
+    {
+      "stage": "real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    }
+  ],
+  "exceptions": []
+}

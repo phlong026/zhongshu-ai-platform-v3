@@ -1,0 +1,27 @@
+{
+  "base": "https://platform.zszhj.com/admin-api",
+  "businessCode": 0,
+  "orgId": 119,
+  "roles": [
+    {
+      "postId": "2121620613810364417",
+      "orgId": 119,
+      "roleCode": "boss"
+    },
+    {
+      "postId": "2121621022180384770",
+      "orgId": 119,
+      "roleCode": "sales"
+    },
+    {
+      "postId": "2121622125286531073",
+      "orgId": 119,
+      "roleCode": "engineer"
+    },
+    {
+      "postId": "2121622126125391874",
+      "orgId": 119,
+      "roleCode": "finance"
+    }
+  ]
+}

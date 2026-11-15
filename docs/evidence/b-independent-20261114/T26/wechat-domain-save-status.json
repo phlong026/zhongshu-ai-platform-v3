@@ -1,0 +1,70 @@
+{
+  "appid": "wxe584f6fad7b54487",
+  "appName": "众墅之家赋能平台",
+  "status": "SAVED_AND_VERIFIED",
+  "before": {
+    "request": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://platform.zszhj.com"
+    ],
+    "uploadFile": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://zhongshu-design-1397776231.cos.ap-guangzhou.myqcloud.com"
+    ],
+    "downloadFile": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://zhongshu-design-1397776231.cos.ap-guangzhou.myqcloud.com"
+    ]
+  },
+  "submitted": {
+    "request": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://platform.zszhj.com",
+      "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com"
+    ],
+    "uploadFile": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://zhongshu-design-1397776231.cos.ap-guangzhou.myqcloud.com",
+      "https://platform.zszhj.com",
+      "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com"
+    ],
+    "downloadFile": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://zhongshu-design-1397776231.cos.ap-guangzhou.myqcloud.com",
+      "https://platform.zszhj.com",
+      "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com"
+    ]
+  },
+  "allPreviousEntriesPreserved": true,
+  "savedAndReloadedVerified": true,
+  "reason": "管理员校验已完成；通过微信后台只读查看弹窗逐项复核",
+  "otherDomainsOrAppSecretsChanged": false,
+  "verifiedLists": {
+    "request合法域名": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://platform.zszhj.com",
+      "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com"
+    ],
+    "uploadFile合法域名": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://platform.zszhj.com",
+      "https://zhongshu-design-1397776231.cos.ap-guangzhou.myqcloud.com",
+      "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com"
+    ],
+    "downloadFile合法域名": [
+      "https://api.zszhj.com",
+      "https://api2.zszhj.com",
+      "https://platform.zszhj.com",
+      "https://zhongshu-design-1397776231.cos.ap-guangzhou.myqcloud.com",
+      "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com"
+    ]
+  }
+}
