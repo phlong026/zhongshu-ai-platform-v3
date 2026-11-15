@@ -36,6 +36,7 @@ Page({ ...makeFormHandlers(),
   dropCmdKey(action) { if (this.__cmdKeys) delete this.__cmdKeys[action]; },
   failState(message) {
     this.action = ''; this.nextView = ''; this.initialized = false; this.__list = null;
+    this.setData({ canFeeDecide: false, canFeedback: false, managerOptions: [] });
     this.setData({ platformStatus: 'degraded', error: message, customer: null, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, form: {}, fields: [], preview: null, primary: '', canReturn: false, budgetCard: false, isComplete: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null });
   },
   refresh(reset = false) {
@@ -43,7 +44,7 @@ Page({ ...makeFormHandlers(),
     if (!post) return this.failState('请先登录后端账号');
     const identity = String(post.postId) + ':' + http.sessionGeneration();
     if (this.__identity && this.__identity !== identity) {
-      this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, managerOptions: [] });
+      this.action = ''; this.nextView = ''; this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, primary: '', canReturn: false, canFeeDecide: false, canFeedback: false, managerOptions: [] });
     }
     this.__identity = identity;
     this.__post = post;
