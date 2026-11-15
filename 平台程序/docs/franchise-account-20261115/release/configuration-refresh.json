@@ -1,0 +1,14 @@
+{
+  "checkedAtUtc": "2026-11-15T08:17:17.888472+00:00",
+  "updatedKey": "zhongshu.content.dashscope.api-key",
+  "state": "configured",
+  "ready": true,
+  "liveCredentialMatchesExternalConfig": true,
+  "secretValuesPrinted": false,
+  "privateBackupCreated": true,
+  "bPid": "3985360",
+  "jar": "/opt/zhongshu-platform-b-integration/release/platform-680f9fd1-account-v2.jar",
+  "jarSha256": "80856d98995d626b21d39585802a5ec9b6f9de58754243cdf84c99b99fd1b781",
+  "protectedServicePidsUnchanged": true,
+  "paidVendorCallMade": false
+}

@@ -1,17 +1,9 @@
 {
-  "checkedAtUtc": "2026-11-15T08:11:01.028086+00:00",
+  "checkedAtUtc": "2026-11-15T08:17:35.865758+00:00",
   "scope": "independent B platform only; runtime property files and B API process environment",
   "valueExposure": false,
   "requiredForAccountPasswordLogin": false,
-  "missingContentChannels": [
-    {
-      "provider": "DashScope",
-      "environmentKeys": "PF_DASHSCOPE_API_KEY",
-      "feature": "音频转文字ASR",
-      "missingBehavior": "该渠道无法转写",
-      "state": "missing"
-    }
-  ],
+  "missingContentChannels": [],
   "configured": [
     "B WeChat AppID/AppSecret",
     "API COS secret ID/key",
@@ -47,6 +39,11 @@
     {
       "provider": "Metaso",
       "purpose": "AI视频",
+      "state": "configured"
+    },
+    {
+      "provider": "DashScope",
+      "purpose": "音频转文字ASR",
       "state": "configured"
     }
   ],

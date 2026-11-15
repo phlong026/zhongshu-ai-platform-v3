@@ -1,5 +1,5 @@
 {
-  "checkedAtUtc": "2026-11-15T08:11:01.028086+00:00",
+  "checkedAtUtc": "2026-11-15T08:17:35.865758+00:00",
   "scope": "B read-only account and management smoke; no new business accounts, no paid external calls",
   "adminLogin": {
     "http": 200,
@@ -42,7 +42,7 @@
   "contentCredentialStates": {
     "zhongshu.content.diadi.app-id": "configured",
     "zhongshu.content.diadi.app-secret": "configured",
-    "zhongshu.content.dashscope.api-key": "missing",
+    "zhongshu.content.dashscope.api-key": "configured",
     "zhongshu.content.deepseek.api-key": "configured",
     "zhongshu.content.hifly.api-key": "configured",
     "zhongshu.content.metaso.api-key": "configured"
