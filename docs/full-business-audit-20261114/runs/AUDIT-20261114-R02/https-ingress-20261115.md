@@ -37,7 +37,13 @@
 - 使用无敏感数据的 query canary 发起实际请求，再检查 B access log，确认 query 未写入日志；见 [日志验证](access-log-verification-20261115.json)。
 - B API 和 Provider 在本轮核查时均 active/running。进程运行不替代设计、预算、AI 任务全流程验收。
 
-## 当前剩余阻塞：微信公众平台合法域名登记
+## 微信合法域名登记与复测
+
+2026-11-15 后续已在 AppID `wxe584f6fad7b54487` 的微信公众平台保存 request 合法域名 `https://platform.zszhj.com`，保留原 `api`、`api2` 两个域名。用户完成微信安全扫码确认后，后台列表回读包含三个域名。
+
+旧诊断窗口在确认后仍返回缓存中的域名错误，保留其原始观察于 [旧窗口复测](wechat-domain-after-confirmation-20261115.json)。另用相同 AppID、`urlCheck=true` 的全新诊断项目实测：请求成功、HTTP 200、业务码 401（未登录预期），见 [登记后的新项目探针](wechat-domain-fresh-project-pass-20261115.json)。完整 35 路由业务包随后在开发者工具首页复测，同样得到 HTTP 200、业务码 401；这证明网络门禁和 B HTTPS 已连通，不代表微信业务登录成功。
+
+以下保留登记前的阻塞记录：
 
 服务器 HTTPS 可用不等于小程序网络门禁已放行。本轮通过已安装的微信官方 `miniprogram-automator` 启动独立诊断项目，以相同 AppID `wxe584f6fad7b54487`、`urlCheck=true` 发起真实请求，结果仍为：
 
@@ -48,7 +54,7 @@ request:fail url not in domain list
 
 详见 [微信开发者工具实际探针](wechat-legal-domain-probe-20261115.json)。此诊断项目仅发起无登录的读取请求，不加载业务登录模块，不注入 token，不修改原有账号缓存，不写业务单据。
 
-下一步需在该小程序的微信公众平台“开发管理 → 开发设置 → 服务器域名”中登记 `https://platform.zszhj.com` 为 **request 合法域名**（填写 origin，不带 `/admin-api` 路径）；媒体下载/上传及 socket 域名按实际能力分别核对。保存后刷新开发者工具的域名信息、重新编译并复测。不得靠关闭 `urlCheck` 代替登记。
+request 域名登记已完成；媒体下载/上传及 socket 域名仍需按实际能力分别核对。本次未改这些域名，不得靠关闭 `urlCheck` 代替登记。
 
 当前业务后端仍为 B 的 `pg,integration` 隔离联调实例。本次完成的是公网 HTTPS 入口接通，未宣布正式生产切换、真实微信登录通过或客户—设计—工程财务全链通过。
 

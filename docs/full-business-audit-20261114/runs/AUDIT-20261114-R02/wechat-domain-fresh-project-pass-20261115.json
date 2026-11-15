@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-15",
+  "source": "Official miniprogram-automator in WeChat DevTools",
+  "urlCheck": true,
+  "appId": "wxe584f6fad7b54487",
+  "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+  "businessWrites": false,
+  "result": {
+    "transport": "success",
+    "http": 200,
+    "businessCode": 401
+  }
+}

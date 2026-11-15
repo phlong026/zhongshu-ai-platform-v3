@@ -2,7 +2,7 @@
 
 日期：2026-11-14，Asia/Shanghai。原始方案：[全业务链路排查](../../README.md)。本轮脱敏证据：[evidence.json](evidence.json)。
 
-> 更新：2026-11-15 已配置 `platform.zszhj.com` 的可信 HTTPS 入口，详见 [HTTPS 接通与微信域名实测](https-ingress-20261115.md)。下文保留 11 月 14 日的准备阶段观察。
+> 更新：2026-11-15 已配置 `platform.zszhj.com` 的可信 HTTPS 入口，微信 request 合法域名已保存，开启域名校验的全新诊断项目和完整业务包均请求成功，详见 [HTTPS 接通与微信域名实测](https-ingress-20261115.md)。下文保留 11 月 14 日的准备阶段观察。
 
 ## 2026-11-14 阶段结论
 

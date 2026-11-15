@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-11-15T01:47:55.130Z",
+  "project": "full_business_build",
+  "appId": "wxe584f6fad7b54487",
+  "route": "pages/home/index",
+  "urlCheck": true,
+  "result": {
+    "transport": "success",
+    "http": 200,
+    "businessCode": 401
+  }
+}
