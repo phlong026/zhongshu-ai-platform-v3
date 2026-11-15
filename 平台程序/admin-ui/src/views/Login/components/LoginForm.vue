@@ -55,9 +55,7 @@
         登录后台
       </el-button>
 
-      <el-button class="zs-staff-login" text @click="push('/platform-login')">
-        员工手机号登录与选择工作身份
-      </el-button>
+      <p class="zs-miniapp-hint">门店老板和员工请在小程序登录并选择工作身份</p>
 
       <Verify
         v-if="loginData.captchaEnable === 'true'"
@@ -228,10 +226,13 @@ onMounted(() => {
   box-shadow: 0 8px 40px rgb(113 67 32 / 8%);
 }
 
-.zs-staff-login {
+.zs-miniapp-hint {
   width: 100%;
   margin: 12px 0 0;
-  color: #8d4f24;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #9b9b9b;
+  text-align: center;
 }
 
 .zs-login-head {
