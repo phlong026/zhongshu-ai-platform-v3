@@ -1,0 +1,23 @@
+{
+  "at": "2026-11-15T10:04:12.120040+08:00",
+  "caseId": "2112123885294055425",
+  "assetId": "2112124039677997058",
+  "results": [
+    {
+      "channel": "public_case_asset",
+      "http": 200,
+      "businessCode": 0,
+      "message": "",
+      "downloadHost": "zhongshu-design-assets-1397776231.cos.ap-shanghai.myqcloud.com",
+      "imageHTTP": 200,
+      "contentType": "image/jpeg",
+      "imagePrefixBytes": 32
+    },
+    {
+      "channel": "generated_asset_wrong_path",
+      "http": 200,
+      "businessCode": 403,
+      "message": "设计服务资源不可访问"
+    }
+  ]
+}

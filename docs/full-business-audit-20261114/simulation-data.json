@@ -1,0 +1,60 @@
+{
+  "kind": "synthetic_tabletop_scenario_not_created_in_backend",
+  "status": "planned",
+  "runIdTemplate": "AUDIT-20261114-R01",
+  "identityPolicy": "由正常流程创建并记录真实返回ID，不使用本文占位符冒充现有单据",
+  "customer": { "name": "联调客户周先生", "contact": "使用隔离环境专用测试联系方式", "orgAlias": "测试加盟商甲", "ownerAlias": "业务员甲" },
+  "project": { "alias": "周先生300平方米三层项目", "widthMeters": 10, "depthMeters": 10, "floors": 3, "areaSquareMeters": 300 },
+  "currency": "CNY",
+  "moneyUnit": "cents",
+  "design": {
+    "mode": "current_standard_contract_to_freeze_before_execution",
+    "mainExample": "current_standard_area_pricing",
+    "totalCents": 2400000,
+    "paymentStagePlan": null,
+    "releaseConditions": null,
+    "standardPricing": { "areaSquareMeters": 300, "rateCentsPerSquareMeter": 8000, "expectedTotalCents": 2400000, "status": "requires_contract_and_active_rule_verification" },
+    "separateHistoricalCompatibility": {
+      "source": "isolated_historical_shape_fixture_not_new_customer_mainline",
+      "firstCents": 1000000,
+      "finalCents": 1400000,
+      "firstPaymentChunksCents": [400000, 600000],
+      "finalReceiptChunksCents": [1000000, 400000]
+    },
+    "currentDrawingVersion": "V2",
+    "historicalDrawingVersions": ["V1"],
+    "realPaymentTriggered": false
+  },
+  "constructionContract": {
+    "totalCents": 48000000,
+    "stages": [
+      { "event": "signed", "label": "签约后", "amountCents": 15000000, "receiptChunksCents": [6000000, 9000000] },
+      { "event": "foundation_completed", "label": "基础完成后", "amountCents": 18000000, "receiptChunksCents": [8000000, 10000000] },
+      { "event": "roof_completed", "label": "封顶后", "amountCents": 15000000, "receiptChunksCents": [10000000, 5000000] }
+    ]
+  },
+  "projectOutflows": {
+    "designCents": 2400000,
+    "materialPurchaseChunksCents": [10000000, 8000000],
+    "laborCents": 12000000,
+    "otherExpenseCents": 600000,
+    "expectedTotalCents": 33000000
+  },
+  "expectedMainline": {
+    "contractNetReceiptCents": 48000000,
+    "projectNetCashInflowCents": 15000000,
+    "notEquivalentToCompleteProfit": true,
+    "uniqueEngineeringProjectCount": 1,
+    "storeDesignOutflowEqualsHqDesignInflowCents": 2400000
+  },
+  "separateRefundBranch": {
+    "customerRefundCents": 1000000,
+    "unchangedContractTotalCents": 48000000,
+    "expectedNetReceiptCents": 47000000,
+    "expectedRemainingReceivableCents": 1000000,
+    "expectedProjectNetCashInflowCents": 14000000,
+    "rule": "退款不自动改合同；有独立批准的合同变更时另测新版本及三期分配"
+  },
+  "companyPoints": { "initialPoints": null, "priceVersion": null, "expectedNetUsage": null, "rule": "以有效测试价格和真实任务收据核定，不混入人民币工程账或旧A个人积分" },
+  "runtimeEvidence": { "actualIds": {}, "realChannelAcceptance": "not_run", "devtoolsFlowAcceptance": "not_run", "productionWrites": false }
+}

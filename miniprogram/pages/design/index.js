@@ -1,12 +1,118 @@
-// AI 设计入口（纯平台态）：design:use 三岗（sales/sales-lead/hq-design-admin）直达设计工作流；无平台岗位即停用入口，不再回落本地案例。
-const ENTRY_ROLES=['sales','sales-lead','hq-design-admin'];
-const currentPost=()=>{try{const auth=require('../../api/auth');const http=require('../../api/http');return http.token()?auth.currentApiPost():null;}catch(e){return null;}};
+// AI 设计入口（纯平台态）：三类设计岗位从 B 读取 A 已发布的公开户型；收藏与业务数据仍归 B。
+const ENTRY_ROLES = ['sales', 'sales-lead', 'hq-design-admin'];
+const auth = require('../../api/auth');
+const http = require('../../api/http');
+const api = require('../../api/franchise/design');
+const PF = require('../../utils/platform-design');
+
+const currentPost = () => {
+  try { return http.token() ? auth.currentApiPost() : null; } catch (e) { return null; }
+};
+const allowed = post => !!post && ENTRY_ROLES.includes(post.roleCode);
+
 Page({
- data:{entries:[{title:'灵感库',view:'inspiration',icon:'home-design-icon',hint:'从优秀方案找灵感'},{title:'AI平面',view:'ai-config',icon:'plan-file',hint:'按家庭需求做布局'},{title:'AI立面',view:'ai-facade',icon:'house',hint:'探索建筑外观方案'},{title:'快速预算',view:'budget',icon:'contract',hint:'快速估算建造投入'}],entranceEnabled:false},
- onShow(){const post=currentPost();this.setData({entranceEnabled:!!post&&ENTRY_ROLES.includes(post.roleCode)});},
- open(e){
-  const post=currentPost();
-  if(!post||!ENTRY_ROLES.includes(post.roleCode))return;// 入口停用（wxml 仅在 entranceEnabled 时渲染入口）
-  const view=e.currentTarget.dataset.view;if(!this.data.entries.some(x=>x.view===view))return;
-  wx.navigateTo({url:'/pages/workflow/explore/index?view='+view});},
+  data: {
+    entries: [
+      { title: '灵感库', view: 'inspiration', icon: 'home-design-icon', hint: '从优秀方案找灵感' },
+      { title: 'AI平面', view: 'ai-config', icon: 'plan-file', hint: '按家庭需求做布局' },
+      { title: 'AI立面', view: 'ai-facade', icon: 'house', hint: '探索建筑外观方案' },
+      { title: '快速预算', view: 'budget', icon: 'contract', hint: '快速估算建造投入' }
+    ],
+    entranceEnabled: false,
+    catalogCases: [],
+    catalogLoading: false,
+    catalogLoaded: false,
+    catalogError: ''
+  },
+  onShow() {
+    const post = currentPost();
+    const enabled = allowed(post);
+    const key = enabled ? [http.sessionGeneration(), post.postId].join(':') : '';
+    if (!enabled) {
+      this.__catalogGeneration = (this.__catalogGeneration || 0) + 1;
+      this.__catalogKey = '';
+      this.setData({ entranceEnabled: false, catalogCases: [], catalogLoading: false, catalogLoaded: false, catalogError: '' });
+      return;
+    }
+    this.setData({ entranceEnabled: true });
+    if (this.__catalogKey === key && (this.data.catalogLoaded || this.data.catalogLoading)) return;
+    this.__catalogKey = key;
+    this.loadCatalog();
+  },
+  onUnload() {
+    this.__catalogUnloaded = true;
+    this.__catalogGeneration = (this.__catalogGeneration || 0) + 1;
+  },
+  catalogAlive(generation, sessionGeneration, postId) {
+    const post = currentPost();
+    return !this.__catalogUnloaded && generation === this.__catalogGeneration &&
+      sessionGeneration === http.sessionGeneration() && !!post && String(post.postId) === String(postId);
+  },
+  loadCatalog() {
+    const post = currentPost();
+    if (!allowed(post)) return;
+    const generation = (this.__catalogGeneration || 0) + 1;
+    this.__catalogGeneration = generation;
+    const sessionGeneration = http.sessionGeneration();
+    const postId = String(post.postId);
+    const alive = () => this.catalogAlive(generation, sessionGeneration, postId);
+    this.setData({ catalogLoading: true, catalogLoaded: false, catalogError: '', catalogCases: [] });
+    api.cases.page({ limit: 4 }).then(result => {
+      if (!alive()) return;
+      const rows = (result && result.list || []).slice(0, 4).map(PF.caseRow).map(row => Object.assign({}, row, {
+        coverLoading: !!row.coverAssetId, coverError: !row.coverAssetId, coverUrl: ''
+      }));
+      this.setData({ catalogCases: rows, catalogLoading: false, catalogLoaded: true });
+      return PF.loadCaseCovers(rows, (caseId, assetId) => api.cases.downloadUrl(caseId, assetId), alive).then(covered => {
+        if (alive()) this.setData({ catalogCases: covered });
+      });
+    }).catch(error => {
+      if (!alive()) return;
+      this.setData({ catalogLoading: false, catalogLoaded: true, catalogError: PF.errorMessageDesign(error) });
+    });
+  },
+  retryCatalog() { this.loadCatalog(); },
+  catalogImageError(e) {
+    const id = String(e.currentTarget.dataset.id);
+    this.setData({ catalogCases: (this.data.catalogCases || []).map(row => String(row.id) === id ?
+      Object.assign({}, row, { coverLoading: false, coverError: true, coverUrl: '' }) : row) });
+  },
+  retryCatalogCover(e) {
+    const id = String(e.currentTarget.dataset.id);
+    const row = (this.data.catalogCases || []).find(item => String(item.id) === id);
+    const post = currentPost();
+    if (!row || !row.coverAssetId || row.coverLoading || !allowed(post)) return;
+    const generation = this.__catalogGeneration;
+    const sessionGeneration = http.sessionGeneration();
+    const postId = String(post.postId);
+    const alive = () => this.catalogAlive(generation, sessionGeneration, postId);
+    this.setData({ catalogCases: this.data.catalogCases.map(item => String(item.id) === id ?
+      Object.assign({}, item, { coverLoading: true, coverError: false, coverUrl: '' }) : item) });
+    PF.loadCaseCovers([row], (caseId, assetId) => api.cases.downloadUrl(caseId, assetId), alive).then(covered => {
+      if (!alive() || !covered[0]) return;
+      this.setData({ catalogCases: this.data.catalogCases.map(item => String(item.id) === id ? covered[0] : item) });
+    }).catch(error => {
+      if (!alive()) return;
+      this.setData({
+        catalogCases: this.data.catalogCases.map(item => String(item.id) === id ?
+          Object.assign({}, item, { coverLoading: false, coverError: true, coverUrl: '' }) : item),
+        catalogError: PF.errorMessageDesign(error)
+      });
+    });
+  },
+  open(e) {
+    const post = currentPost();
+    if (!allowed(post)) return;
+    const view = e.currentTarget.dataset.view;
+    if (!this.data.entries.some(item => item.view === view)) return;
+    wx.navigateTo({ url: '/pages/workflow/explore/index?view=' + view });
+  },
+  openCatalog() {
+    if (allowed(currentPost())) wx.navigateTo({ url: '/pages/workflow/explore/index?view=inspiration' });
+  },
+  openCatalogCase(e) {
+    if (!allowed(currentPost())) return;
+    const id = String(e.currentTarget.dataset.id || '');
+    if (id) wx.navigateTo({ url: '/pages/workflow/explore/index?view=case&id=' + encodeURIComponent(id) });
+  }
 });

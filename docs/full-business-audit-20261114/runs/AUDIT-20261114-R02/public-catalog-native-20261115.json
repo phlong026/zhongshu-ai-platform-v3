@@ -1,0 +1,136 @@
+{
+  "startedAt": "2026-11-15T02:19:55.418Z",
+  "realAPI": true,
+  "mocked": false,
+  "loginMethod": "real wx.login exchange for an already phone-bound account; existing page afterRealLogin finalizer",
+  "consoleLevels": {
+    "warn": 2,
+    "info": 1
+  },
+  "consoleMessages": [
+    {
+      "stage": "login_bootstrap",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html",
+      "fields": [
+        "type",
+        "args"
+      ]
+    },
+    {
+      "stage": "identity",
+      "level": "warn",
+      "message": "[Component] property \"homeTitle\" of \"components/workbench-denied/index\" received type-uncompatible value: expected <String> but get null value. Use empty string instead.",
+      "fields": [
+        "type",
+        "args"
+      ]
+    }
+  ],
+  "exceptions": [],
+  "login": {
+    "http": 200,
+    "businessCode": 0,
+    "needPhone": false,
+    "userId": 145,
+    "savedByExistingLoginFinalizer": true
+  },
+  "posts": [
+    {
+      "postId": "2121619170781044738",
+      "userId": 145,
+      "orgId": 118,
+      "roleCode": "boss"
+    },
+    {
+      "postId": "2121620216580415490",
+      "userId": 145,
+      "orgId": 118,
+      "roleCode": "hq-design-admin"
+    },
+    {
+      "postId": "2121620613810364417",
+      "userId": 145,
+      "orgId": 119,
+      "roleCode": "boss"
+    },
+    {
+      "postId": "2121621022180384770",
+      "userId": 145,
+      "orgId": 119,
+      "roleCode": "sales"
+    },
+    {
+      "postId": "2121622125286531073",
+      "userId": 145,
+      "orgId": 119,
+      "roleCode": "engineer"
+    },
+    {
+      "postId": "2121622126125391874",
+      "userId": 145,
+      "orgId": 119,
+      "roleCode": "finance"
+    },
+    {
+      "postId": "2121622126905532417",
+      "userId": 145,
+      "orgId": 118,
+      "roleCode": "finance"
+    }
+  ],
+  "home": {
+    "path": "pages/design/index",
+    "error": "",
+    "rows": [
+      {
+        "id": "2112123885294055425",
+        "title": "田园一层4室2厅",
+        "coverLoaded": true,
+        "coverLoading": false,
+        "coverError": false
+      },
+      {
+        "id": "2111380030663786497",
+        "title": "新中式一层三室一厅",
+        "coverLoaded": true,
+        "coverLoading": false,
+        "coverError": false
+      },
+      {
+        "id": "2114876787406245890",
+        "title": "新中式一层2室1厅",
+        "coverLoaded": true,
+        "coverLoading": false,
+        "coverError": false
+      },
+      {
+        "id": "2112125436888739841",
+        "title": "田园一层1室1厅",
+        "coverLoaded": true,
+        "coverLoading": false,
+        "coverError": false
+      }
+    ]
+  },
+  "detail": {
+    "faceWidth": 17.8,
+    "depth": 13,
+    "floorCount": 1,
+    "buildingArea": 30,
+    "path": "pages/workflow/explore/index",
+    "view": "case",
+    "id": "2112123885294055425",
+    "title": "田园一层4室2厅",
+    "error": "",
+    "imageLoaded": [
+      true,
+      true
+    ]
+  },
+  "reference": {
+    "view": "ai-facade",
+    "caseId": "2112123885294055425"
+  },
+  "endedAt": "2026-11-15T02:20:24.495Z"
+}

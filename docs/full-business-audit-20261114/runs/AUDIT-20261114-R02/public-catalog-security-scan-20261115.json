@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-11-15T10:22:13.486879+08:00",
+  "newDependencies": false,
+  "packageLockChanged": false,
+  "existingLockedDependencyAdvisories": {
+    "info": 0,
+    "low": 1,
+    "moderate": 6,
+    "high": 3,
+    "critical": 3,
+    "total": 13
+  },
+  "packages": {
+    "@jimp/core": "critical",
+    "@jimp/custom": "moderate",
+    "@jimp/jpeg": "moderate",
+    "@jimp/types": "moderate",
+    "debug": "low",
+    "follow-redirects": "high",
+    "jimp": "moderate",
+    "jpeg-js": "high",
+    "minimist": "critical",
+    "miniprogram-automator": "moderate",
+    "mkdirp": "critical",
+    "phin": "moderate",
+    "xlsx": "high"
+  },
+  "action": "No dependency changes in this catalog repair; existing advisories recorded for separate remediation."
+}

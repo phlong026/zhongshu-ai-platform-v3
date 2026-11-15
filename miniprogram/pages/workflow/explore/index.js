@@ -7,7 +7,7 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
   const post=(()=>{try{const auth=require('../../../api/auth');return http&&http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
   const PFD=require('../../../utils/platform-design');
   const token=http?http.token():'';
-  if(!token){const q=o&&o.view?'?view='+encodeURIComponent(o.view):'';return wx.redirectTo({url:'/pages/account/index?view=login&return='+encodeURIComponent('/pages/workflow/explore/index'+q)});}
+  if(!token){const params=[];if(o&&o.view)params.push('view='+encodeURIComponent(o.view));if(o&&o.id)params.push('id='+encodeURIComponent(o.id));const q=params.length?'?'+params.join('&'):'';return wx.redirectTo({url:'/pages/account/index?view=login&return='+encodeURIComponent('/pages/workflow/explore/index'+q)});}
   if(!post||PFD.pageMode(token,post)!=='api')return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('设计赋能')});
   this.__post=post;this.__postKey=String(post.postId);this.__http=http;
   this.platformMode=true;// 实例属性：handler 分流依据（data.platformMode 供 wxml）
@@ -20,6 +20,7 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
   const kind=v.startsWith('facade')||v==='ai-facade'?'facade':v.startsWith('budget')||v==='budget'?'budget':'plan';
   this.setData({view:v,title:titles[v]||'灵感库',kind,form:{},platCases:[],platStyles:[],platFilter:{},platCursor:''});// 表单读写全在页面 state（demo 会话预填随 S 层移除）
   if(['inspiration','search'].includes(v))this.platLoadCases(true);
+  if(v==='case')this.platLoadCase(o.id);
   if(v==='budget')this.platLoadRule();
  },
  onUnload(){if(this.platOnUnload)this.platOnUnload();},

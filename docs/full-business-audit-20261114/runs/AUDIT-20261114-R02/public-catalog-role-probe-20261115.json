@@ -1,0 +1,80 @@
+{
+  "checkedAt": "2026-11-15T10:01:12.142081+08:00",
+  "businessWrites": false,
+  "results": [
+    {
+      "role": "sales",
+      "endpoint": "cases?limit=3",
+      "http": 200,
+      "code": 0,
+      "message": "",
+      "dataKeys": [
+        "list",
+        "nextCursor"
+      ],
+      "listCount": 3,
+      "sample": [
+        {
+          "caseId": "2112123885294055425",
+          "title": "田园一层4室2厅",
+          "coverAssetId": "2112124039677997058"
+        },
+        {
+          "caseId": "2111380030663786497",
+          "title": "新中式一层三室一厅",
+          "coverAssetId": "2111380265674833922"
+        },
+        {
+          "caseId": "2114876787406245890",
+          "title": "新中式一层2室1厅",
+          "coverAssetId": "2114876789780221954"
+        }
+      ]
+    },
+    {
+      "role": "sales",
+      "endpoint": "cases/styles",
+      "http": 200,
+      "code": 0,
+      "message": "",
+      "listCount": 10
+    },
+    {
+      "role": "hq-design-admin",
+      "endpoint": "cases?limit=3",
+      "http": 200,
+      "code": 0,
+      "message": "",
+      "dataKeys": [
+        "list",
+        "nextCursor"
+      ],
+      "listCount": 3,
+      "sample": [
+        {
+          "caseId": "2112123885294055425",
+          "title": "田园一层4室2厅",
+          "coverAssetId": "2112124039677997058"
+        },
+        {
+          "caseId": "2111380030663786497",
+          "title": "新中式一层三室一厅",
+          "coverAssetId": "2111380265674833922"
+        },
+        {
+          "caseId": "2114876787406245890",
+          "title": "新中式一层2室1厅",
+          "coverAssetId": "2114876789780221954"
+        }
+      ]
+    },
+    {
+      "role": "hq-design-admin",
+      "endpoint": "cases/styles",
+      "http": 200,
+      "code": 0,
+      "message": "",
+      "listCount": 10
+    }
+  ]
+}

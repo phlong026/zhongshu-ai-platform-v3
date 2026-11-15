@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-15",
+  "appId": "wxe584f6fad7b54487",
+  "urlCheck": true,
+  "requestLegalDomain": "https://platform.zszhj.com",
+  "result": {
+    "transport": "failed",
+    "errMsg": "request:fail url not in domain list"
+  }
+}

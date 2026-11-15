@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-11-15T10:22:13.500631+08:00",
+  "method": "Manual comparison of user supplied design-home screenshot and official DevTools real-account screenshots; visual-verdict skill not available",
+  "result": "pass",
+  "checks": {
+    "existingHeroAndFourEntriesPreserved": true,
+    "realCaseCoverImagesVisible": 4,
+    "detailCoverAndFloorplanURLsLoaded": 2,
+    "detailPublishedDimensionsMapped": true,
+    "noMockDataOrAdminTokenInjected": true,
+    "loadingFailureRetryUnitCoverage": true
+  },
+  "screenshots": [
+    "public-catalog-home-20261115.png",
+    "public-catalog-detail-20261115.png"
+  ],
+  "limits": [
+    "Source case parameters are displayed as published; no edits to A case data",
+    "Phone gallery save/downloadFile legal domains not accepted by this test",
+    "Complete customer-design-engineering-finance workflow still pending"
+  ]
+}
