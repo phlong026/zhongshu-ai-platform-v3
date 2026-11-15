@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "status": "blocked_before_response",
+  "collectedAtUtc": "2026-11-14T14:19:52Z",
+  "expected": {
+    "accountUin": "100045498012",
+    "region": "ap-shanghai",
+    "instanceId": "ins-4m1linvl"
+  },
+  "browserSession": {
+    "name": "cloud-api-evidence-20261114",
+    "url": "https://console.cloud.tencent.com/api/explorer?Product=cbs&Version=2017-03-12&Action=DescribeDisks",
+    "state": "left_open_at_Tencent_Cloud_MFA_dialog_for_user_verification"
+  },
+  "attempt": {
+    "api": "DescribeDisks",
+    "service": "cbs",
+    "version": "2017-03-12",
+    "request": {
+      "Filters": [
+        {
+          "Name": "instance-id",
+          "Values": [
+            "ins-4m1linvl"
+          ]
+        }
+      ],
+      "Limit": 100,
+      "Offset": 0
+    },
+    "result": "Tencent Cloud API Explorer displayed an identity-verification dialog requiring WeChat scan/MFA before dispatch; no API response body or RequestId was made available."
+  },
+  "notCollected": [
+    "DescribeDisks response",
+    "DescribeInstances response",
+    "STS GetCallerIdentity response"
+  ],
+  "security": {
+    "cloudControlPlaneWrites": false,
+    "otherApisCalled": false,
+    "temporaryCredentialsCaptured": false,
+    "cookiesCaptured": false,
+    "requestOrResponseHeadersCaptured": false
+  },
+  "nextStep": "An authorized account holder must complete the currently open Tencent Cloud MFA dialog. Then, in this same session, issue only DescribeDisks, DescribeInstances, and STS GetCallerIdentity and persist their visible response envelopes and RequestIds."
+}

@@ -1,0 +1,36 @@
+{
+  "recordedAt": "2026-11-14T14:22:11.265771+00:00",
+  "scope": "B independent CBS identity and deployment readiness only",
+  "runtime": {
+    "command": "npm test (ai-runtime-b)",
+    "tests": 132,
+    "passed": 132,
+    "failed": 0,
+    "skipped": 0
+  },
+  "storageAndDeployment": {
+    "command": "python3 -m unittest test_capability_deployment.py test_tencent_cbs_storage.py test_runtime_storage_proof.py",
+    "tests": 62,
+    "passed": 60,
+    "failed": 0,
+    "skipped": 2,
+    "status": "interim: CBS implementation still receiving final review"
+  },
+  "linuxMountRegression": {
+    "environment": "local Docker 6771159cd4fa; network none; repository readonly; tmpfs /tmp",
+    "tests": [
+      "test_secure_journal_archive_rejects_real_linux_bind_submount",
+      "test_backup_target_rejects_real_linux_mount_detach"
+    ],
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0
+  },
+  "financialHold": {
+    "newCbs": false,
+    "kmsActivation": false,
+    "snapshots": false,
+    "backupPoints": false
+  },
+  "productionDeployment": false
+}

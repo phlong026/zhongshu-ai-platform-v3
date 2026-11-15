@@ -1,0 +1,22 @@
+{
+  "collectedAt": "2026-11-14T14:20:41.491672+00:00",
+  "files": {
+    "/opt/zhongshu/yudao-server.jar": "a5e05c5b1b6317b3022c3c3057f45696a0222c0e9f9d532aa26609ae57401e91",
+    "/etc/nginx/sites-enabled/zhongshu.conf": "86895e61bcee1e8473692238dd9db29c48188551ea5b1fece8706b8bb59d32fc",
+    "/etc/nginx/sites-enabled/api2.zszhj.com.conf": "45d642816891e3cd4d4899f8615ab81cede9d7403d0bf6b717b19e9e6d51fbc2"
+  },
+  "services": {
+    "zhongshu.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestamp": "Sat 2026-11-14 17:44:06 CST"
+    },
+    "zhongshu-runtime.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestamp": "Tue 2026-10-20 08:39:04 CST"
+    }
+  },
+  "health": {
+    "api": 200,
+    "runtime": 200
+  }
+}
