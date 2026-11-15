@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.DELIVERY_DUPLICATE;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.DELIVERY_NODE_ORDER;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.REFERENCE_INVALID;
@@ -51,10 +52,15 @@ public class SaleDeliveryService {
     public SaleDeliveryDO create(PostSnapshot post, DeliveryCommand cmd, String idempotencyKey) {
         SaleContractDO contract = requireOrgContract(post, cmd.contractId());
         requirements.requireOfCustomer(contract.getCustomerId(), cmd.requirementId());
-        var input = Map.<String, Object>of("operation", "delivery-create", "contractId", cmd.contractId());
-        var replayed = commands.replayed(post, idempotencyKey, input);
+        var input = createFingerprint(cmd);
+        var replayed = commands.replayed(post, idempotencyKey, input, legacyFingerprint(cmd));
         if (replayed.isPresent()) {
-            return deliveries.selectById(replayed.get().getAggregateId());
+            SaleDeliveryDO existing = deliveries.selectById(replayed.get().getAggregateId());
+            if (existing == null || !java.util.Objects.equals(existing.getContractId(), cmd.contractId())
+                    || !java.util.Objects.equals(existing.getRequirementId(), cmd.requirementId())) {
+                throw exception(IDEMPOTENCY_KEY_REUSED);
+            }
+            return existing;
         }
         SaleDeliveryDO delivery = new SaleDeliveryDO()
                 .setCompanyId(post.orgId()).setCustomerId(contract.getCustomerId())
@@ -69,6 +75,18 @@ public class SaleDeliveryService {
         }
         commands.record(post, "fr-sale-delivery", delivery.getId(), 1, "sale-delivery-create", input, idempotencyKey);
         return delivery;
+    }
+
+    static Map<String, Object> createFingerprint(DeliveryCommand cmd) {
+        var input = new LinkedHashMap<String, Object>();
+        input.put("operation", "delivery-create");
+        input.put("contractId", cmd.contractId());
+        input.put("requirementId", cmd.requirementId());
+        return input;
+    }
+
+    private static Map<String, Object> legacyFingerprint(DeliveryCommand cmd) {
+        return Map.of("operation", "delivery-create", "contractId", cmd.contractId());
     }
 
     @Transactional(rollbackFor = Exception.class)

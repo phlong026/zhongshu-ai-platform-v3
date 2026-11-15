@@ -31,13 +31,26 @@ public class FranchiseCommands {
 
     /** 同一幂等键已经办理过时返回原事件（内容不同则拒绝），调用方应直接返回当前结果而不重复执行 */
     public Optional<CommandEventDO> replayed(PostSnapshot post, String idempotencyKey, Object input) {
+        return replayed(post, idempotencyKey, input, null);
+    }
+
+    /**
+     * 请求指纹增字段时兼容升级前的已完成事件。调用方命中旧指纹后仍须用已落库聚合校验
+     * 新字段，避免把旧指纹缺失的信息当作相同请求。
+     */
+    public Optional<CommandEventDO> replayed(PostSnapshot post, String idempotencyKey,
+                                             Object input, Object legacyInput) {
         if (StrUtil.isBlank(idempotencyKey)) {
             return Optional.empty();
         }
         return commandLog.findByIdempotencyKey(scopedKey(post, idempotencyKey)).map(existing -> {
             // Preserve historical key format, but never replay a fact from another organization.
+            String currentHash = DigestUtil.sha256Hex(JsonUtils.toJsonString(input));
+            String legacyHash = legacyInput == null ? null
+                    : DigestUtil.sha256Hex(JsonUtils.toJsonString(legacyInput));
             if (!java.util.Objects.equals(existing.getOrgId(), post.orgId())
-                    || !DigestUtil.sha256Hex(JsonUtils.toJsonString(input)).equals(existing.getPayloadHash())) {
+                    || (!currentHash.equals(existing.getPayloadHash())
+                    && !java.util.Objects.equals(legacyHash, existing.getPayloadHash()))) {
                 throw exception(IDEMPOTENCY_KEY_REUSED);
             }
             return existing;

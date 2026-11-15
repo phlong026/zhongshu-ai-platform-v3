@@ -53,6 +53,23 @@ class FranchiseCommandsTest {
     }
 
     @Test
+    void acceptsExplicitLegacyFingerprintButRejectsUnrelatedPayload() {
+        var log = mock(CommandLog.class);
+        var service = new FranchiseCommands(log);
+        var post = new PostSnapshot(1, 2, 300, "store", "sales", null, false, Set.of());
+        var legacyPayload = Map.of("operation", "delivery-create", "contractId", 9L);
+        var currentPayload = Map.of("operation", "delivery-create", "contractId", 9L, "requirementId", 1L);
+        var event = new CommandEventDO().setOrgId(post.orgId()).setAggregateId(11L)
+                .setPayloadHash(DigestUtil.sha256Hex(JsonUtils.toJsonString(legacyPayload)));
+        when(log.findByIdempotencyKey(anyString())).thenReturn(Optional.of(event));
+
+        assertThat(service.replayed(post, "same-key", currentPayload, legacyPayload)).contains(event);
+        assertThatThrownBy(() -> service.replayed(post, "same-key",
+                Map.of("operation", "delivery-create", "contractId", 10L), null))
+                .isInstanceOf(ServiceException.class);
+    }
+
+    @Test
     void concurrentRecordCannotAcceptAnotherOrganizationsEvent() {
         var log = mock(CommandLog.class);
         var service = new FranchiseCommands(log);
