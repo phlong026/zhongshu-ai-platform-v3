@@ -16,11 +16,21 @@ const {routeValue}=require('../../../utils/view-container');
 Page({
  data:{ platformNotice:'',voidNotice:'',ledgerError:'',...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
  onLoad(o={}){PTPage.init(this);this.__ledgerRouteIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.options={...o};this.id=routeValue(o.id);const post=httpApi.token()?auth.currentApiPost():null,actor=post?{role:post.roleCode,orgType:post.orgType}:X.context(),financeRole=['finance','finance-lead'].includes(actor.role);this.setData({view:views[o.view]?o.view:(financeRole?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:actor.orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
+ beginFinanceBusy(){
+  if(this.data.busy)return null;
+  const token={};this.__financeBusyOwner=token;this.setData({busy:true});return token;
+ },
+ ownsFinanceBusy(token){return !!token&&this.__financeBusyOwner===token;},
+ finishFinanceBusy(token,patch={}){
+  if(!this.ownsFinanceBusy(token))return false;
+  this.__financeBusyOwner=null;this.setData({busy:false,...patch});return true;
+ },
  syncFinanceIdentity(financeIdentity){
   if(this.__financeIdentity===financeIdentity)return false;
   this.__financeIdentity=financeIdentity;this.__designReceipt=null;
-  // busy和粘性幂等键都属于旧岗位现场；先解除旧锁，旧Promise仍由自身scope守卫隔离，不能覆盖新岗位状态。
-  this.bankConfirmIdem=null;this.bankConfirmIdemCtx=null;
+  // 身份变化使旧锁owner与登记代次同时失效；旧Promise只能清自己的token，不能覆盖新岗位状态。
+  this.__financeBusyOwner=null;this.bankConfirmIdem=null;this.bankConfirmIdemCtx=null;
+  this.registerIdem=null;this._registerSeq=(this._registerSeq||0)+1;this._correctionCtx=null;
   this.setData({busy:false,designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false});
   return true;
  },
@@ -111,8 +121,8 @@ financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>((N
  reconcileBook(){ // M+：本地对账留痕（M.mutate）已下线，改走平台 operating.reconcile；失败仅提示不回落本地
   if(this.data.busy)return;
   const month=(this.data.reconciliation&&this.data.reconciliation.month)||new Date().getFullYear()+'-'+('0'+(new Date().getMonth()+1)).slice(-2);
-  this.setData({busy:true});
-  perfApi.operating.reconcile(month).then(()=>{wx.showToast({title:'本月对账已完成并留痕',icon:'none'});this.loadPlatformFinance();}).catch(e=>{wx.showToast({title:(e&&(e.message||e.msg))||'对账失败，请稍后重试',icon:'none'});}).finally(()=>this.setData({busy:false}));
+  const busyToken=this.beginFinanceBusy();if(!busyToken)return;
+  perfApi.operating.reconcile(month).then(()=>{if(!this.ownsFinanceBusy(busyToken))return;wx.showToast({title:'本月对账已完成并留痕',icon:'none'});this.loadPlatformFinance();}).catch(e=>{if(this.ownsFinanceBusy(busyToken))wx.showToast({title:(e&&(e.message||e.msg))||'对账失败，请稍后重试',icon:'none'});}).finally(()=>this.finishFinanceBusy(busyToken));
  },
  switchWorkspaceTab(tab){if(!['finance-home','finance-books'].includes(tab.key))return false;const next=tab.key==='finance-home'?'desk':'flows';this.tabStates=this.tabStates||{};this.tabStates[this.data.view]={keyword:this.data.keyword,filter:this.data.filter,flowTab:this.data.flowTab,flowScope:this.data.view==='flows'?this.data.flowScope:'period',category:this.data.category,statusFilter:this.data.statusFilter};const saved=this.tabStates[next]||{};this.options={view:next};this.id='';this.setData({...clean(),view:next,keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',...saved,flowScope:next==='flows'?(saved.flowScope||'period'):'period',...(next==='flows'?{flowTab:saved.flowTab||'ledger'}:{})});this.refresh();wx.pageScrollTo({scrollTop:0,duration:0});return true;},
  back(){N.back({skipLocal:true,fallback:D.url(this.data.hq?'partners':'projects')});},home(){N.home();}

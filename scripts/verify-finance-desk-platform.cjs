@@ -4,7 +4,15 @@
  */
 const path = require('path');
 // mock wx（platform-actions 直接引用 wx.showToast）
-global.wx = { toasts: [], showToast(t) { this.toasts.push(t); } };
+global.wx = {
+  toasts: [],
+  showToast(t) { this.toasts.push(t); },
+  getStorageSync(key) {
+    if (key === 'zs-api-post-v1') return 'finance-test-post';
+    if (key === 'zs-api-posts-v1') return [{ postId: 'finance-test-post', orgId: 'finance-test-org' }];
+    return '';
+  }
+};
 const PF = require('../miniprogram/utils/platform-finance');
 const attach = require('../miniprogram/pages/admin/finance-desk/platform-actions');
 

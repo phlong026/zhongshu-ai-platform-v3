@@ -26,13 +26,19 @@ async function main() {
   http.sessionGeneration = () => session;
   http.currentPostId = () => post.postId;
   auth.currentApiPost = () => post;
-  global.wx = { toasts: [], showToast(options) { this.toasts.push(options); } };
+  global.wx = {
+    toasts: [],
+    showToast(options) { this.toasts.push(options); },
+    showModal(options) { options.success({ confirm: true, content: '跨岗位撤销原因足够长' }); }
+  };
 
   let keySeq = 0;
   const calls = [];
   let deferred;
   let todosPage;
   let originalTodosRefresh;
+  let performanceApi;
+  let originalReconcile;
   const financeApi = {
     idemKey(action) { return 'fin-' + action + '-key-' + (++keySeq); },
     confirmBank(flowId, receiptId, idem) {
@@ -91,6 +97,7 @@ async function main() {
     assert.notEqual(calls[5].idem, calls[4].idem, '会话或岗位变化必须生成新键');
     session += 1;
     post = { postId: 'post-C', orgId: 'org-C' };
+    page.__financeBusyOwner = {};
     page.data.busy = 'new-scope-busy';
     deferred.reject({ message: '网络异常' });
     await flush();
@@ -102,7 +109,25 @@ async function main() {
       confirmBank(flowId, receiptId, idem) {
         let resolve; let reject;
         const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; });
-        requests.push({ flowId, receiptId, idem, resolve, reject });
+        requests.push({ kind: 'bank', flowId, receiptId, idem, resolve, reject });
+        return promise;
+      },
+      voidPayment(paymentId, reason, idem) {
+        let resolve; let reject;
+        const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; });
+        requests.push({ kind: 'void', paymentId, reason, idem, resolve, reject });
+        return promise;
+      },
+      voidRefund(refundId, reason, idem) {
+        let resolve; let reject;
+        const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; });
+        requests.push({ kind: 'correction', refundId, reason, idem, resolve, reject });
+        return promise;
+      },
+      registerReceipt(body, idem) {
+        let resolve; let reject;
+        const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; });
+        requests.push({ kind: 'register', body, idem, resolve, reject });
         return promise;
       }
     };
@@ -110,6 +135,8 @@ async function main() {
     originalTodosRefresh = todosPage.refresh;
     todosPage.refresh = () => {};
     const spec = loadFinancePageSpec();
+    performanceApi = require('../miniprogram/api/franchise/performance');
+    originalReconcile = performanceApi.operating.reconcile;
     const switched = {
       ...spec,
       data: { busy: false, platformRegister: { pendingReceipts: [{ id: 'r-1' }] } },
@@ -184,6 +211,176 @@ async function main() {
     assert.equal(switched.data.busy, false, 'C当前失败后释放自己的忙状态');
     assert.equal(wx.toasts.length, beforeLateFailureToasts + 1, '仅C当前失败展示一次错误');
 
+    session = 30; post = { postId: 'void-A', orgId: 'org-A' };
+    switched.onShow();
+    switched.loads = 0;
+    switched.data.platformLedger = [{ id: 'p-9', amountCents: 123400, canVoid: true }];
+    switched.openPaymentVoid({ currentTarget: { dataset: { id: 'p-9' } } });
+    await flush();
+    assert.equal(requests[4].kind, 'void', 'A身份付款撤销已挂起');
+
+    session = 31; post = { postId: 'bank-B', orgId: 'org-B' };
+    switched.onShow();
+    switched.loads = 0;
+    switched.data.platformRegister = { pendingReceipts: [{ id: 'r-1' }] };
+    switched.bankPick({ currentTarget: { dataset: { flowId: 'f-cross' } }, detail: { value: '0' } });
+    switched.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 'f-cross' } } });
+    await flush();
+    assert.equal(requests[5].kind, 'bank', 'B身份银行确认在A撤销挂起时已发出');
+    const crossBankKey = switched.bankConfirmIdem;
+    requests[4].resolve({});
+    await flush();
+    assert.equal(switched.data.busy, true, 'A撤销迟到成功不得清除B银行确认的共享锁');
+    assert.equal(switched.bankConfirmIdem, crossBankKey, 'A撤销迟到成功不得释放B银行幂等键');
+    requests[5].resolve({});
+    await flush();
+
+    session = 32; post = { postId: 'void-A-fail', orgId: 'org-A' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.platformLedger = [{ id: 'p-10', amountCents: 223400, canVoid: true }];
+    switched.openPaymentVoid({ currentTarget: { dataset: { id: 'p-10' } } });
+    await flush();
+    session = 33; post = { postId: 'bank-B2', orgId: 'org-B' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.platformRegister = { pendingReceipts: [{ id: 'r-1' }] };
+    switched.bankPick({ currentTarget: { dataset: { flowId: 'f-cross-fail' } }, detail: { value: '0' } });
+    switched.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 'f-cross-fail' } } });
+    await flush();
+    const crossFailKey = switched.bankConfirmIdem;
+    const beforeVoidFailureToasts = wx.toasts.length;
+    requests[6].reject({ code: 1102000037 });
+    await flush();
+    assert.equal(switched.data.busy, true, 'A撤销迟到失败不得清除B银行确认的共享锁');
+    assert.equal(switched.bankConfirmIdem, crossFailKey, 'A撤销迟到失败不得释放B银行幂等键');
+    assert.equal(wx.toasts.length, beforeVoidFailureToasts, 'A撤销迟到失败不得弹旧错误');
+    assert.equal(switched.data.ledgerError, '', 'A撤销迟到失败不得写入B错误态');
+    requests[7].resolve({});
+    await flush();
+
+    session = 40; post = { postId: 'correction-A', orgId: 'org-A' };
+    switched.onShow(); switched.loads = 0;
+    switched._refundRows = [{ id: 'refund-1', status: '已核实', refundDirection: 'client', receiptId: 'receipt-1', amountCents: 8800 }];
+    switched.openCorrection({ currentTarget: { dataset: { id: 'f-refund-1' } } });
+    await flush();
+    assert.equal(requests[8].kind, 'correction', 'A身份退款更正已挂起');
+    session = 41; post = { postId: 'bank-B3', orgId: 'org-B' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.platformRegister = { pendingReceipts: [{ id: 'r-1' }] };
+    switched.bankPick({ currentTarget: { dataset: { flowId: 'f-correction' } }, detail: { value: '0' } });
+    switched.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 'f-correction' } } });
+    await flush();
+    const correctionBankKey = switched.bankConfirmIdem;
+    requests[8].resolve({});
+    await flush();
+    assert.equal(switched.data.busy, true, 'A更正迟到成功不得清除B银行确认的共享锁');
+    assert.equal(switched.bankConfirmIdem, correctionBankKey, 'A更正迟到成功不得释放B银行幂等键');
+    assert.notEqual(switched.data.registerType, 'refund', 'A更正迟到成功不得打开B身份表单');
+    assert.equal(switched.loads, 0, 'A更正迟到成功不得刷新B账簿');
+    requests[9].resolve({});
+    await flush();
+
+    session = 42; post = { postId: 'correction-A-fail', orgId: 'org-A' };
+    switched.onShow(); switched.loads = 0;
+    switched._refundRows = [{ id: 'refund-2', status: '已核实', refundDirection: 'client', receiptId: 'receipt-2', amountCents: 9900 }];
+    switched.openCorrection({ currentTarget: { dataset: { id: 'f-refund-2' } } });
+    await flush();
+    session = 43; post = { postId: 'bank-B4', orgId: 'org-B' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.platformRegister = { pendingReceipts: [{ id: 'r-1' }] };
+    switched.bankPick({ currentTarget: { dataset: { flowId: 'f-correction-fail' } }, detail: { value: '0' } });
+    switched.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 'f-correction-fail' } } });
+    await flush();
+    const beforeCorrectionFailureToasts = wx.toasts.length;
+    requests[10].reject({ message: 'late-correction-failure' });
+    await flush();
+    assert.equal(switched.data.busy, true, 'A更正迟到失败不得清除B银行确认的共享锁');
+    assert.equal(switched.data.registerError || '', '', 'A更正迟到失败不得写入B表单错误');
+    assert.equal(wx.toasts.length, beforeCorrectionFailureToasts, 'A更正迟到失败不得弹旧提示');
+    requests[11].resolve({});
+    await flush();
+
+    session = 50; post = { postId: 'register-A', orgId: 'org-A' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.registerType = 'receipt';
+    switched.data.registerForm = { name: '测试收款', amount: '88.00', method: 'cash' };
+    switched.submitRegister();
+    await flush();
+    assert.equal(requests[12].kind, 'register', 'A身份登记已挂起');
+    post = { postId: 'bank-B5', orgId: 'org-B' }; // 同session切岗，必须依赖financeIdentity代次而非仅sessionGuard
+    switched.onShow(); switched.loads = 0;
+    switched.data.platformRegister = { pendingReceipts: [{ id: 'r-1' }] };
+    switched.bankPick({ currentTarget: { dataset: { flowId: 'f-register' } }, detail: { value: '0' } });
+    switched.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 'f-register' } } });
+    await flush();
+    const registerBankKey = switched.bankConfirmIdem;
+    requests[12].resolve({});
+    await flush(); await flush();
+    assert.equal(switched.data.busy, true, 'A登记迟到成功不得清除B银行确认的共享锁');
+    assert.equal(switched.bankConfirmIdem, registerBankKey, 'A登记迟到成功不得释放B银行幂等键');
+    assert.equal(switched.data.registerType || '', '', 'A登记迟到成功不得清理或重建B表单');
+    assert.equal(switched.loads, 0, 'A登记迟到成功不得刷新B账簿');
+    requests[13].resolve({});
+    await flush();
+
+    session = 51; post = { postId: 'register-A-fail', orgId: 'org-A' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.registerType = 'receipt';
+    switched.data.registerForm = { name: '测试收款', amount: '99.00', method: 'cash' };
+    switched.submitRegister();
+    await flush();
+    post = { postId: 'bank-B6', orgId: 'org-B' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.platformRegister = { pendingReceipts: [{ id: 'r-1' }] };
+    switched.bankPick({ currentTarget: { dataset: { flowId: 'f-register-fail' } }, detail: { value: '0' } });
+    switched.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 'f-register-fail' } } });
+    await flush();
+    requests[14].reject({ message: 'late-register-failure' });
+    await flush(); await flush();
+    assert.equal(switched.data.busy, true, 'A登记迟到失败不得清除B银行确认的共享锁');
+    assert.equal(switched.data.registerError || '', '', 'A登记迟到失败不得写入B表单错误');
+    requests[15].resolve({});
+    await flush();
+
+    let reconcileRequest;
+    performanceApi.operating.reconcile = () => new Promise((resolve, reject) => { reconcileRequest = { resolve, reject }; });
+    session = 60; post = { postId: 'reconcile-A', orgId: 'org-A' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.reconciliation = { month: '2026-11' };
+    switched.reconcileBook();
+    assert.equal(switched.data.busy, true, 'A身份对账已挂起');
+    session = 61; post = { postId: 'bank-B7', orgId: 'org-B' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.platformRegister = { pendingReceipts: [{ id: 'r-1' }] };
+    switched.bankPick({ currentTarget: { dataset: { flowId: 'f-reconcile' } }, detail: { value: '0' } });
+    switched.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 'f-reconcile' } } });
+    await flush();
+    const beforeReconcileSuccessToasts = wx.toasts.length;
+    reconcileRequest.resolve({});
+    await flush();
+    assert.equal(switched.data.busy, true, 'A对账迟到成功不得清除B银行确认的共享锁');
+    assert.equal(wx.toasts.length, beforeReconcileSuccessToasts, 'A对账迟到成功不得弹旧提示');
+    assert.equal(switched.loads, 0, 'A对账迟到成功不得刷新B账簿');
+    requests[16].resolve({});
+    await flush();
+
+    session = 62; post = { postId: 'reconcile-A-fail', orgId: 'org-A' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.reconciliation = { month: '2026-11' };
+    switched.reconcileBook();
+    session = 63; post = { postId: 'bank-B8', orgId: 'org-B' };
+    switched.onShow(); switched.loads = 0;
+    switched.data.platformRegister = { pendingReceipts: [{ id: 'r-1' }] };
+    switched.bankPick({ currentTarget: { dataset: { flowId: 'f-reconcile-fail' } }, detail: { value: '0' } });
+    switched.confirmBankSubmitInner({ currentTarget: { dataset: { flowId: 'f-reconcile-fail' } } });
+    await flush();
+    const beforeReconcileFailureToasts = wx.toasts.length;
+    reconcileRequest.reject({ message: 'late-reconcile-failure' });
+    await flush();
+    assert.equal(switched.data.busy, true, 'A对账迟到失败不得清除B银行确认的共享锁');
+    assert.equal(wx.toasts.length, beforeReconcileFailureToasts, 'A对账迟到失败不得弹旧错误');
+    requests[17].resolve({});
+    await flush();
+
     assert.equal(page.loads, 1, '仅成功确认刷新一次账簿');
     console.log('verify-finance-bank-confirm-idem ✔ 失败重试同键，成功/选择/组织/岗位变化换键');
   } finally {
@@ -191,6 +388,7 @@ async function main() {
     http.currentPostId = originalCurrentPostId;
     auth.currentApiPost = originalCurrentPost;
     if (todosPage && originalTodosRefresh) todosPage.refresh = originalTodosRefresh;
+    if (performanceApi && originalReconcile) performanceApi.operating.reconcile = originalReconcile;
     delete global.wx;
   }
 }

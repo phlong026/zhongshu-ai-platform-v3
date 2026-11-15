@@ -6,6 +6,18 @@ const httpApi = require('../../../api/http');
 const authApi = require('../../../api/auth');
 
 module.exports = function attach(page, financeApi, PF) {
+  const beginBusy = target => {
+    if (typeof target.beginFinanceBusy === 'function') return target.beginFinanceBusy();
+    if (target.data.busy) return null;
+    const token = {}; target.__financeBusyOwner = token; target.setData({ busy: true }); return token;
+  };
+  const ownsBusy = (target, token) => typeof target.ownsFinanceBusy === 'function'
+    ? target.ownsFinanceBusy(token) : !!token && target.__financeBusyOwner === token;
+  const finishBusy = (target, token, patch = {}) => {
+    if (typeof target.finishFinanceBusy === 'function') return target.finishFinanceBusy(token, patch);
+    if (!ownsBusy(target, token)) return false;
+    target.__financeBusyOwner = null; target.setData({ busy: false, ...patch }); return true;
+  };
   page.openRegister = function (e) {
     const type = e.currentTarget.dataset.type;
     if (!['receipt', 'payment', 'refund', 'expense-refund', 'payable'].includes(type)) return;
@@ -82,15 +94,16 @@ module.exports = function attach(page, financeApi, PF) {
         && scope.orgId === String(current.orgId || '')
         && scope.postId === String(current.postId || '');
     };
-    this.setData({ busy: true });
+    const busyToken = beginBusy(this); if (!busyToken) return;
     financeApi.confirmBank(String(flowId), receipt.id, idem) // 同一业务上下文失败重试复用同键
       .then(() => {
+        if (!ownsBusy(this, busyToken)) return;
         if (this.bankConfirmIdemCtx === context) { this.bankConfirmIdem = null; this.bankConfirmIdemCtx = null; }
         if (!stillSameScope()) return;
         wx.showToast({ title: '已确认入账' }); this.loadPlatformFinance();
       })
-      .catch(err => { if (stillSameScope()) wx.showToast({ title: PF.errorMessage(err), icon: 'none' }); })
-      .finally(() => { if (stillSameScope()) this.setData({ busy: false }); });
+      .catch(err => { if (ownsBusy(this, busyToken) && stillSameScope()) wx.showToast({ title: PF.errorMessage(err), icon: 'none' }); })
+      .finally(() => finishBusy(this, busyToken));
   };
   page.submitRegister = function () {
     // R1 P2-1：更正作废挂起中（busy）同样不许发起新登记——双向互斥防表单互相覆盖
@@ -180,9 +193,10 @@ module.exports = function attach(page, financeApi, PF) {
       content: '原记录 ¥' + yuanText + ' 将作废留痕（撤销仅纠正误录），随后打开更正表单，提交后经替代关系锁定更正链。',
       success: res => {
         if (!res.confirm) return;
-        this.setData({ busy: true });
+        const busyToken = beginBusy(this); if (!busyToken) return;
         financeApi.voidRefund(refundId, '更正重登', financeApi.idemKey('refund-void'))
           .then(() => {
+            if (!ownsBusy(this, busyToken)) return;
             this.registerIdem = null; // 新表单换新键
             this._registerSeq = (this._registerSeq || 0) + 1; // R3 P2-1：更正接管使挂起旧登记回调过期
             const today = require('../../../utils/account').localDate();
@@ -193,10 +207,10 @@ module.exports = function attach(page, financeApi, PF) {
               : { receiptId: row.receiptId, receiptIdLabel: '原收款 #' + row.receiptId,
                   amount: yuanText, reason: row.reason || '', date: row.date || today,
                   transactionNo: row.transactionNo || '', replacesId: row.id };
-            this.setData({ busy: false, registerType: type, registerForm: form, registerError: '' });
+            if (!finishBusy(this, busyToken, { registerType: type, registerForm: form, registerError: '' })) return;
             this.loadPlatformFinance();
           })
-          .catch(err => this.setData({ busy: false, registerError: PF.errorMessage(err) }));
+          .catch(err => finishBusy(this, busyToken, { registerError: PF.errorMessage(err) }));
       }
     });
   };
@@ -225,7 +239,8 @@ module.exports = function attach(page, financeApi, PF) {
         const reason = String(res.content || '').trim();
         const reasonError = PF.voidReasonError(reason);
         if (reasonError) return this.setData({ ledgerError: reasonError });
-        this.setData({ busy: true, ledgerError: '', voidNotice: '' });
+        const busyToken = beginBusy(this); if (!busyToken) return;
+        this.setData({ ledgerError: '', voidNotice: '' });
         // P2-3：发出时冻结岗位/会话/单据；回调写 UI/刷新前复核，换岗或会话变化后静默丢弃
         const seq = this._voidSeq = (this._voidSeq || 0) + 1;
         const context = {
@@ -237,19 +252,19 @@ module.exports = function attach(page, financeApi, PF) {
           && context.postKey === String((authApi.currentApiPost() || {}).postId || '');
         const drop = () => {
           if (seq !== this._voidSeq) return; // 已有更新的撤销接管，不动 busy
-          if (this.data.busy) this.setData({ busy: false });
+          finishBusy(this, busyToken);
         };
         financeApi.voidPayment(paymentId, reason, financeApi.idemKey('payment-void'))
           .then(() => {
             if (!stillSame()) return drop();
             // 作废释放额度：台账行已消失，联动提示说明应付余额恢复（刷新后不再出现该笔）
-            this.setData({ busy: false, voidNotice: PF.voidNoticeText(row) });
+            if (!finishBusy(this, busyToken, { voidNotice: PF.voidNoticeText(row) })) return;
             wx.showToast({ title: '付款已撤销', icon: 'none' });
             this.loadPlatformFinance();
           })
           .catch(err => {
             if (!stillSame()) return drop();
-            this.setData({ busy: false, ledgerError: PF.errorMessage(err) });
+            finishBusy(this, busyToken, { ledgerError: PF.errorMessage(err) });
           });
       }
     });
