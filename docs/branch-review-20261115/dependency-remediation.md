@@ -7,6 +7,14 @@
 - Node `xlsx` 与小程序真实运行的 `miniprogram/pages/build/vendor/xlsx.mini.min.js` 同步到 SheetJS 官方 CDN `0.20.3`。未只修改开发依赖掩盖运行时风险。
 - Excel 导入入口增加 xlsx ZIP 头校验，损坏文件和伪 xlsx 统一返回格式错误；合法三列、日期单元格/文本日期、无表头、封顶补齐、20 行上限与日期倒序规则不变。
 
+### 导入内存边界
+
+进度计划只接受 20 行三列，入口在 `readFileSync` 前按微信文件元数据拒绝超过 2 MiB 的文件，`importNodes` 对实际 `ArrayBuffer` / `Uint8Array.byteLength` 再做同一检查。解析前按 PKWARE ZIP 中央目录及本地文件头限制为最多 128 个条目、声明展开总量最多 8 MiB、单条目压缩比最多 200；拒绝 ZIP64、分卷、加密及非 Store/Deflate 条目。该预算远高于正常 20 行三列表格，同时在 SheetJS 解压前拒绝携带巨大无关工作表、图片或高压缩内容的文件。
+
+SheetJS 0.20.3 官方解析选项确认 `sheets` 可限定工作表、`sheetRows` 可限定行窗口，且截断时 `!fullref` 保存原范围。导入使用 `sheets: 0`、`sheetRows: 22`（20 行 + 可选表头 + 超限哨兵）；发现 `!fullref` 时显式拒绝，避免把窗口后的数据静默当成成功导入。窗口内空白行继续兼容。文件选择取消保持静默，权限或系统失败则显示“选择进度表失败，请重试”。
+
+格式依据：SheetJS [Parsing Options](https://docs.sheetjs.com/docs/api/parse-options/)；PKWARE `APPNOTE.TXT` 4.3.12（中央目录）与 4.3.16（目录结束记录）。
+
 ## SheetJS 来源与完整性
 
 | 项 | 固定值 |
@@ -32,7 +40,7 @@ vendor 从上述固定 tarball 解包复制，保留 SheetJS 文件头。文件�
 
 ## 验证口径
 
-- `npm run check:dependencies`：13/13；覆盖 automator 导出、Jimp PNG/JPEG Buffer、Node/mini XLSX roundtrip、固定来源/hash，以及真实 `schedule-import#importNodes` 正反例。
+- `npm run check:dependencies`：覆盖 automator 导出、Jimp PNG/JPEG Buffer、Node/mini XLSX roundtrip、固定来源/hash，以及真实 `schedule-import#importNodes` 正反例与读取前内存边界。
 - `npm ls ... --all`：锁树与上述精确版本一致。
 - `npm audit --json`：仅残余上述 phin 单一链；`npm audit --omit=dev`：0。
 - 原始命令输出、退出码、最终文件 hash 与机器报告保存在 `/tmp/zhongshu-mini-dependency-fix-20261115/`；该目录不提交。
