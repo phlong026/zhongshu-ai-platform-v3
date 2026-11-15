@@ -89,6 +89,9 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
         as(salesA1, () -> customers.saveScheme(salesA1, customerId, budget(), null));
         assertThat(todos(salesA1)).extracting(TodoItem::key)
                 .contains("franchise:submit-commission:" + customerId);
+        assertThat(todos(salesA1)).filteredOn(t -> t.key().equals("franchise:submit-commission:" + customerId))
+                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(
+                        "/pages/workflow/commission/index?view=submit&customerId=" + customerId));
 
         as(boss, () -> policies.save(boss,
                 new DesignPolicyService.PolicyCommand(TOTAL, FIRST, "方案、施工图与交底", "总部财务"), null));
@@ -116,7 +119,9 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
                 .singleElement().satisfies(t -> {
                     assertThat(t.actionable()).isTrue();
                     assertThat(t.amountCents()).isEqualTo(75_000_000L);
+                    assertThat(t.appPath()).isEqualTo(path("progress", id));
                 });
+        assertTodoPath(salesA1, "fee-pending:" + id, "progress", id, false);
         assertThat(todos(designAdmin)).extracting(TodoItem::key).doesNotContain("franchise:fee-approve:" + id);
 
         as(boss, () -> commissions.feeDecide(boss, id, new FeeDecisionCommand(true, "同意"), commandKey()));
@@ -124,15 +129,19 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
 
         // 设计行政：首款就绪 → 确认设计完成
         assertThat(todos(designAdmin)).extracting(TodoItem::key).contains("franchise:design-complete:" + id + ":1");
+        assertTodoPath(designAdmin, "design-complete:" + id + ":1", "complete", id, true);
         as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), commandKey()));
+        assertTodoPath(salesA1, "tail-follow:" + id, "progress", id, true);
         as(finance, () -> seedTailPaid(id, 1, finance));
         as(finance, () -> seedTailReady(id, 1, finance));
 
         // 设计行政：尾款就绪 → 下发成果；业务侧同步出现跟进尾款/移交待办
         assertThat(todos(designAdmin)).extracting(TodoItem::key).contains("franchise:design-dispatch:" + id + ":1");
+        assertTodoPath(designAdmin, "design-dispatch:" + id + ":1", "dispatch", id, true);
         as(designAdmin, () -> commissions.dispatch(designAdmin, id,
                 new DispatchCommand("成果交付", "总部设计行政", true,"TEST-V1",101L,102L,103L), commandKey()));
         assertThat(todos(salesA1)).extracting(TodoItem::key).contains("franchise:handover-prepare:" + id);
+        assertTodoPath(salesA1, "handover-prepare:" + id, "handover", id, true);
     }
 
     @Test
@@ -144,6 +153,11 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
                 .contains("franchise:handover-review:" + id + ":1");
         assertThat(todos(salesA1)).extracting(TodoItem::key)
                 .contains("franchise:handover-waiting:" + id + ":1");
+        assertTodoPath(engineer, "handover-review:" + id + ":1", "receive", id, true);
+        assertTodoPath(salesA1, "handover-waiting:" + id + ":1", "progress", id, false);
+        PostSnapshot otherEngineer = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
+        assertThat(todos(otherEngineer)).extracting(TodoItem::key)
+                .doesNotContain("franchise:handover-review:" + id + ":1");
 
         var engineerTodos = todos(engineer);
         assertThat(engineerTodos.stream().filter(t -> t.key().startsWith("franchise:handover-review"))
@@ -152,6 +166,24 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
         as(engineer, () -> handovers.receive(engineer, id, new DecisionCommand(null, true), commandKey()));
         assertThat(todos(engineer)).extracting(TodoItem::key)
                 .doesNotContain("franchise:handover-review:" + id + ":1");
+    }
+
+    @Test
+    void returnedFeesAndPacketsKeepRealCommissionIdAndWritableView() {
+        long customerId = customerWithBudget();
+        long feeId = as(salesA1, () -> commissions.submit(salesA1, customerId,
+                new SubmitCommand("两层乡墅", "方案", null, new BigDecimal("750000"),
+                        new BigDecimal("400000"), "总部财务", 1, null, null, true), commandKey()))
+                .commission().getId();
+        assertThat(feeId).isNotEqualTo(customerId);
+        as(boss, () -> commissions.feeDecide(boss, feeId, new FeeDecisionCommand(false, "核对范围"), commandKey()));
+        assertTodoPath(salesA1, "fee-returned:" + feeId + ":1", "submit", feeId, true);
+
+        long packetId = commissionDispatched();
+        as(salesA1, () -> handovers.submit(salesA1, packetId, packet(engineer.userId()), commandKey()));
+        as(engineer, () -> handovers.returnPacket(engineer, packetId,
+                new DecisionCommand("补充交底", true), commandKey()));
+        assertTodoPath(salesA1, "handover-returned:" + packetId + ":1", "handover", packetId, true);
     }
 
     @Test
@@ -240,6 +272,18 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
 
     private List<TodoItem> todos(PostSnapshot post) {
         return as(post, () -> todoProvider.list(post));
+    }
+
+    private void assertTodoPath(PostSnapshot post, String key, String view, long commissionId, boolean actionable) {
+        assertThat(todos(post)).filteredOn(t -> t.key().equals("franchise:" + key))
+                .singleElement().satisfies(t -> {
+                    assertThat(t.appPath()).isEqualTo(path(view, commissionId));
+                    assertThat(t.actionable()).isEqualTo(actionable);
+                });
+    }
+
+    private static String path(String view, long commissionId) {
+        return "/pages/workflow/commission/index?view=" + view + "&commissionId=" + commissionId;
     }
 
     private <T> T as(PostSnapshot post, java.util.function.Supplier<T> action) {

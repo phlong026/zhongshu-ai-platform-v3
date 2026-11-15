@@ -15,6 +15,17 @@
 
 详情追加 `commissionId/settlement/dispatches`。资金投影包含 mode、当前 submissionVersion 和 FULL/FIRST/TAIL 各阶段的应付、门店净付、总部净收及 ready。总部设计行政保持原金额隔离：详情 `settlement=null`，提交金额、收款方和审批金额也裁剪；可办态通过 allowedActions/displayStatus 提供。财务岗位从专属 design-fees 接口取资金明细。提交快照增加 mode/rateCents/pricingVersion/attachmentAssetId。
 
+## 待办入口
+
+委托待办 `appPath` 精确进入 `/pages/workflow/commission/index`。首次 `submit-commission` 使用 `?view=submit&customerId={customerId}`；已有委托均使用 `&commissionId={commissionId}`，不把客户ID作为委托ID。
+
+- `fee-returned`：`view=submit`。
+- `design-complete/dispatch`：`view=complete/dispatch`。
+- `handover-prepare/returned`：`view=handover`；指定接收人的 `handover-review`：`view=receive`。
+- 费用审批及等待、尾款跟进、下发后资金异常、移交等待：`view=progress`；费用审批使用该页既有按钮。
+
+路径不改变 `actionable`、当前岗位权限或资金门禁，非办理人等待事项不获得办理权。首次跟进、回访和待关联客资入口不变。
+
 ## 事务与授权
 
 AREA_FULL 按预算面积 × 总部单价，正数 HALF_UP 到分，首尾款均为零，唯一 FULL 阶段。完成和下发均要求两边净额足额。LEGACY_SPLIT 完成只需 FIRST 门店净付，完成事务创建 TAIL 应付；下发要求 FIRST、TAIL 两侧足额。退款不改历史完成/下发事实，后续动作重算，已下发但净额不足生成异常待办。

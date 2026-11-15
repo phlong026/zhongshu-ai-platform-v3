@@ -32,8 +32,6 @@ public class FranchiseTodoProvider implements TodoProvider {
     private static final String CUSTOMERS_PAGE = "/pages/customers/index";
     private static final String COMMISSION_PAGE = "/pages/workflow/commission/index";
     private static final String GROWTH_PAGE = "/pages/growth/index";
-    private static final String DESIGN_PAGE = "/pages/design/index";
-    private static final String ENGINEERING_PAGE = "/pages/engineering/index";
 
     private final CustomerService customers;
     private final LeadService leads;
@@ -88,7 +86,7 @@ public class FranchiseTodoProvider implements TodoProvider {
                 .filter(customer -> !withCommission.contains(customer.getId()))
                 .forEach(customer -> items.add(item("submit-commission:" + customer.getId(),
                         "「" + customer.getName() + "」已存参考预算，待提交设计委托", "BUDGET_READY",
-                        null, true, COMMISSION_PAGE, customer.getUpdateTime())));
+                        null, true, COMMISSION_PAGE + "?view=submit&customerId=" + customer.getId(), customer.getUpdateTime())));
     }
 
     // ===================== 待关联客资 =====================
@@ -114,7 +112,7 @@ public class FranchiseTodoProvider implements TodoProvider {
             if(commission.getDispatchSeq()!=null && !commissions.settlement(commission).readyToDispatch()) {
                 items.add(item("design-finance-anomaly:"+key+":"+commission.getSubmissionVersion(),
                         "「"+customer+"」下发后设计资金净额不足，请核对退款/退回",commission.getStatus(),null,
-                        false,COMMISSION_PAGE,since));
+                        false,commissionPage(commission.getId(), "progress"),since));
             }
             switch (commission.getStatus()) {
                 case CommissionDO.STATUS_FEE_PENDING -> {
@@ -123,17 +121,17 @@ public class FranchiseTodoProvider implements TodoProvider {
                     }
                     if (FranchiseRoles.atStore(post) && FranchiseRoles.isBoss(post)) {
                         items.add(item("fee-approve:" + key, "「" + customer + "」委托费用待审批",
-                                "FEE_PENDING", latestTotalCents(commission.getId()), true, COMMISSION_PAGE, since));
+                                "FEE_PENDING", latestTotalCents(commission.getId()), true, commissionPage(commission.getId(), "progress"), since));
                     } else {
                         items.add(item("fee-pending:" + key, "「" + customer + "」委托费用审批中",
-                                "FEE_PENDING", null, false, COMMISSION_PAGE, since));
+                                "FEE_PENDING", null, false, commissionPage(commission.getId(), "progress"), since));
                     }
                 }
                 case CommissionDO.STATUS_FEE_RETURNED -> {
                     if (access.canWrite(post, commission)) {
                         items.add(item("fee-returned:" + key + ":" + commission.getSubmissionVersion(),
                                 "「" + customer + "」委托费用被退回，待修改重提", "FEE_RETURNED", null,
-                                true, COMMISSION_PAGE, since));
+                                true, commissionPage(commission.getId(), "submit"), since));
                     }
                 }
                 case CommissionDO.STATUS_DESIGNING -> {
@@ -141,7 +139,7 @@ public class FranchiseTodoProvider implements TodoProvider {
                             && commissions.settlement(commission).readyToComplete()) {
                         items.add(item("design-complete:" + key + ":" + commission.getSubmissionVersion(),
                                 "「" + customer + "」首款已就绪，确认设计完成", "DESIGNING", null,
-                                true, DESIGN_PAGE, since));
+                                true, commissionPage(commission.getId(), "complete"), since));
                     }
                 }
                 case CommissionDO.STATUS_DESIGN_COMPLETED -> {
@@ -149,16 +147,16 @@ public class FranchiseTodoProvider implements TodoProvider {
                             && commissions.settlement(commission).readyToDispatch()) {
                         items.add(item("design-dispatch:" + key + ":" + commission.getSubmissionVersion(),
                                 "「" + customer + "」尾款已就绪，下发成果", "DESIGN_COMPLETED", null,
-                                true, DESIGN_PAGE, since));
+                                true, commissionPage(commission.getId(), "dispatch"), since));
                     } else if (!commissions.settlement(commission).readyToDispatch() && access.canWrite(post, commission)) {
                         items.add(item("tail-follow:" + key, "「" + customer + "」设计已完成，跟进尾款支付",
-                                "DESIGN_COMPLETED", null, true, COMMISSION_PAGE, since));
+                                "DESIGN_COMPLETED", null, true, commissionPage(commission.getId(), "progress"), since));
                     }
                 }
                 case CommissionDO.STATUS_DISPATCHED -> {
                     if (access.canWrite(post, commission)) {
                         items.add(item("handover-prepare:" + key, "「" + customer + "」成果已下发，收图并移交",
-                                "DISPATCHED", null, true, ENGINEERING_PAGE, since));
+                                "DISPATCHED", null, true, commissionPage(commission.getId(), "handover"), since));
                     }
                 }
                 case CommissionDO.STATUS_HANDOVER_SUBMITTED -> handoverReviewTodo(post, commission, items);
@@ -166,7 +164,7 @@ public class FranchiseTodoProvider implements TodoProvider {
                     if (access.canWrite(post, commission)) {
                         items.add(item("handover-returned:" + key + ":" + commission.getHandoverVersion(),
                                 "「" + customer + "」移交被退回，待补充资料", "HANDOVER_RETURNED", null,
-                                true, ENGINEERING_PAGE, since));
+                                true, commissionPage(commission.getId(), "handover"), since));
                     }
                 }
                 default -> {
@@ -187,12 +185,16 @@ public class FranchiseTodoProvider implements TodoProvider {
         if (access.isHandoverManager(post, commission.getCompanyId(), handover.getManagerUserId())) {
             items.add(item("handover-review:" + commission.getId() + ":" + version,
                     "「" + commission.getCustomerName() + "」移交资料待核查接收", "HANDOVER_SUBMITTED",
-                    null, true, ENGINEERING_PAGE, handover.getCreateTime()));
+                    null, true, commissionPage(commission.getId(), "receive"), handover.getCreateTime()));
         } else if (access.canWrite(post, commission)) {
             items.add(item("handover-waiting:" + commission.getId() + ":" + version,
                     "「" + commission.getCustomerName() + "」移交审查中", "HANDOVER_SUBMITTED",
-                    null, false, ENGINEERING_PAGE, handover.getCreateTime()));
+                    null, false, commissionPage(commission.getId(), "progress"), handover.getCreateTime()));
         }
+    }
+
+    private static String commissionPage(long commissionId, String view) {
+        return COMMISSION_PAGE + "?view=" + view + "&commissionId=" + commissionId;
     }
 
     private Long latestTotalCents(long commissionId) {
