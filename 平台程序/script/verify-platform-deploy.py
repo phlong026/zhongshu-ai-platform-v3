@@ -7,12 +7,15 @@ import os
 from pathlib import Path
 import secrets
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPLOY = ROOT / "deploy/platform"
+# Isolated Python mode removes the script search path; load only the trusted deployment helpers.
+sys.path.insert(0, str(DEPLOY))
 REQUIRED = (
     "Dockerfile", "Dockerfile.dockerignore", "compose.yaml", "runtime.properties",
     "Healthcheck.java", "postgres-init.sh", "postgres-policy.sql", "pg_hba.conf",
@@ -33,7 +36,7 @@ class DeploymentChecks(unittest.TestCase):
         cls.addClassCleanup(cls.temp.cleanup)
         cls.tmp = Path(cls.temp.name)
         cls.env = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"],
-                   "PLATFORM_API_IMAGE": "local/platform-api:verify-only"}
+                   "PLATFORM_API_IMAGE": "local/platform-api@sha256:" + "a" * 64}
         for key in cls.ops.SECRET_VARIABLES:
             path = cls.tmp / key.lower()
             content = "platform.deployment-id=verification-only\n" if key == "PLATFORM_CONFIG_FILE" else secrets.token_hex(32)
