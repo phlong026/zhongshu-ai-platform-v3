@@ -97,9 +97,9 @@ function plansView(summary) {
       requiredDate: dateOf(l.requiredDate), cancelled: !!l.cancelled,
       supplyId: l.supplyId ? String(l.supplyId) : '',
       supplier: l.supplier || '', paymentStatus: l.paymentStatus || '',
-      // 后端实际净付款锁定采购条款；工程脱敏态没有 paidCents 时不可推定为可编辑。
-      locked: l.paidCents != null && Number(l.paidCents) > 0,
-      termsEditable: l.paidCents != null && Number(l.paidCents) === 0 && !l.cancelled && !!l.supplyId
+      // 对照版按仍有效的付款事实锁定，退款净额为零不解锁；缺投影时关闭编辑。
+      locked: l.termsLocked !== false,
+      termsEditable: l.termsLocked === false && !l.cancelled && !!l.supplyId
     }))
   }));
 }
@@ -719,7 +719,7 @@ function recordView(bundle, ctx) {
     own, canPay: false, finance: false, // 收款登记/采购金额为凭据类动作，随 COS 批开放
     canAdjust: own && !delivery && !!plan,
     canTerms: (opts.termsRole == null ? financeRole : !!opts.termsRole) && !archived && !!plan && plan.lines.some(l => l.termsEditable),
-    termsLocked: !!(plan && plan.payment === '已付清'),
+    termsLocked: !!plan && !plan.lines.some(l => l.termsEditable),
     canCorrectNode: false, canReopen: false,
     demo: false
   };

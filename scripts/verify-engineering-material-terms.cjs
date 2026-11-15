@@ -14,15 +14,25 @@ function harness(hooks={}){
  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:n=>n==='../api/franchise/engineering'?api:real(n),wx:{getStorageSync:()=>'',getSystemInfoSync:()=>({})}});
  return{P:module.exports,calls,http,storage};
 }
-function bundle(){return{detail:{id:'91',nodes:[]},collections:{stages:[],records:[]},settle:{},materials:{plans:[{materialPlanId:'92',arrival:'待到货',lines:[{materialId:'93',supplyId:'94',name:'TEST ONLY 水泥',quantity:10,remaining:10,paidCents:0,totalCents:0}]}]},followups:[]};}
+function bundle(){return{detail:{id:'91',nodes:[]},collections:{stages:[],records:[]},settle:{},materials:{plans:[{materialPlanId:'92',arrival:'待到货',lines:[{materialId:'93',supplyId:'94',name:'TEST ONLY 水泥',quantity:10,remaining:10,paidCents:0,totalCents:0,termsLocked:false}]}]},followups:[]};}
 test('actual unpaid supply exposes procurement only to finance terms role, not engineer/read-only',()=>{
  const{P}=harness();assert.equal(P.recordView(bundle(),{view:'material',planId:'92',financeRole:true}).canTerms,true);
  assert.equal(P.recordView(bundle(),{view:'material',planId:'92',writeRole:true}).canTerms,false);
  assert.equal(P.recordView(bundle(),{view:'material',planId:'92'}).canTerms,false);
  assert.equal(P.recordView(bundle(),{view:'material',planId:'92',financeRole:true,termsRole:false}).canTerms,false);
  assert.equal(P.recordView(bundle(),{view:'material',planId:'92',termsRole:true}).canTerms,true);
- const b=bundle();b.materials.plans[0].lines[0].paidCents=1;
+ const b=bundle();b.materials.plans[0].lines[0].termsLocked=true;
  assert.equal(P.recordView(b,{view:'material',planId:'92',financeRole:true}).canTerms,false);
+});
+test('active payment locks procurement after net-zero refund; missing lock projection fails closed; voided payment explicitly unlocks',()=>{
+ const{P}=harness(),b=bundle(),line=b.materials.plans[0].lines[0],ctx={view:'material',planId:'92',financeRole:true};
+ line.paidCents=0;line.termsLocked=true;
+ assert.equal(P.recordView(b,ctx).canTerms,false);assert.equal(P.recordView(b,ctx).form.lines[0].termsLocked,true);
+ delete line.termsLocked;assert.equal(P.recordView(b,ctx).canTerms,false);assert.equal(P.recordView(b,ctx).form.lines[0].termsLocked,true);
+ line.termsLocked='false';assert.equal(P.recordView(b,ctx).canTerms,false);
+ line.termsLocked=false;assert.equal(P.recordView(b,ctx).canTerms,true);assert.equal(P.recordView(b,ctx).form.lines[0].termsLocked,false);
+ line.cancelled=true;assert.equal(P.recordView(b,ctx).canTerms,false);
+ line.cancelled=false;delete line.supplyId;assert.equal(P.recordView(b,ctx).canTerms,false);
 });
 test('real HTTP session switch after first line stops the old invocation before its second write',async()=>{
  const committed=new Map();let switchAfterFirst=true;
