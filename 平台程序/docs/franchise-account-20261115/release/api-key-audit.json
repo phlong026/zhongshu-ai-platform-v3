@@ -1,0 +1,54 @@
+{
+  "checkedAtUtc": "2026-11-15T08:11:01.028086+00:00",
+  "scope": "independent B platform only; runtime property files and B API process environment",
+  "valueExposure": false,
+  "requiredForAccountPasswordLogin": false,
+  "missingContentChannels": [
+    {
+      "provider": "DashScope",
+      "environmentKeys": "PF_DASHSCOPE_API_KEY",
+      "feature": "音频转文字ASR",
+      "missingBehavior": "该渠道无法转写",
+      "state": "missing"
+    }
+  ],
+  "configured": [
+    "B WeChat AppID/AppSecret",
+    "API COS secret ID/key",
+    "Provider COS secret ID/key",
+    "Provider moderation secret ID/key",
+    "B API to Provider HMAC key",
+    "Provider/Runtime internal signature",
+    "Runtime ZS_AI_API_KEY and model/base URL"
+  ],
+  "disabled": [
+    "SMS (provider=disabled)"
+  ],
+  "otherMissingConfiguration": [
+    "zhongshu.design.remote.reference-upload-hosts"
+  ],
+  "validityLimit": "Presence check only. Does not verify vendor quota, authorization validity or paid generation.",
+  "configuredContentChannels": [
+    {
+      "provider": "DIADI",
+      "purpose": "链接解析",
+      "state": "configured"
+    },
+    {
+      "provider": "DeepSeek",
+      "purpose": "文案改写",
+      "state": "configured"
+    },
+    {
+      "provider": "HiFly",
+      "purpose": "数字人口播",
+      "state": "configured"
+    },
+    {
+      "provider": "Metaso",
+      "purpose": "AI视频",
+      "state": "configured"
+    }
+  ],
+  "liveCredentialMatchesExternalConfig": true
+}

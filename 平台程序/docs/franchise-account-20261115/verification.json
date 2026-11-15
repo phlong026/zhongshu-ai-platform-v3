@@ -101,5 +101,6 @@
     "real_wechat_or_device_verified": false,
     "production_data_changed": false
   },
-  "rollback": "源代码逆向patch检查通过；非空schema undo真实PG测试明确拒绝；已交付账号数据须保留"
+  "rollback": "源代码逆向patch检查通过；非空schema undo真实PG测试明确拒绝；已交付账号数据须保留",
+  "phase": "pre-deployment local verification snapshot; current delivery in release/deployment.json"
 }

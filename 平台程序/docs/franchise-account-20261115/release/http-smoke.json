@@ -1,0 +1,51 @@
+{
+  "checkedAtUtc": "2026-11-15T08:11:01.028086+00:00",
+  "scope": "B read-only account and management smoke; no new business accounts, no paid external calls",
+  "adminLogin": {
+    "http": 200,
+    "code": 0
+  },
+  "checks": {
+    "hqFranchisePreview": {
+      "http": 200,
+      "code": 0,
+      "canonicalLoginName": "hjmz-jxnc-gaoxin"
+    },
+    "anonymousAliasMatch": {
+      "http": 200,
+      "code": 0,
+      "itemCount": 0
+    },
+    "permissionMenu": {
+      "http": 200,
+      "code": 0,
+      "onboardingMenuPresent": true
+    },
+    "existingUserPosts": {
+      "http": 200,
+      "code": 0,
+      "postCount": 6
+    },
+    "anonymousStaffCreationDenied": {
+      "http": 200,
+      "code": 401
+    }
+  },
+  "schemaReadback": [
+    "BEGIN",
+    "20261115.710|t",
+    "3",
+    "0",
+    "COMMIT"
+  ],
+  "liveCredentialMatchesExternalConfig": true,
+  "contentCredentialStates": {
+    "zhongshu.content.diadi.app-id": "configured",
+    "zhongshu.content.diadi.app-secret": "configured",
+    "zhongshu.content.dashscope.api-key": "missing",
+    "zhongshu.content.deepseek.api-key": "configured",
+    "zhongshu.content.hifly.api-key": "configured",
+    "zhongshu.content.metaso.api-key": "configured"
+  },
+  "wechatCredentialPresent": true
+}

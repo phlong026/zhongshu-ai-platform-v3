@@ -1,0 +1,26 @@
+{
+  "base": "https://platform.zszhj.com",
+  "checks": {
+    "/admin/": {
+      "http": 200,
+      "bytes": 155695,
+      "sha256": "ef6fc35dc40a4deb704a8dbdac2511646afbc31a729670bc755abc005991262d"
+    },
+    "/admin/platform-org/onboard": {
+      "http": 200,
+      "bytes": 155695,
+      "sha256": "ef6fc35dc40a4deb704a8dbdac2511646afbc31a729670bc755abc005991262d"
+    },
+    "/actuator/health": {
+      "http": 404
+    },
+    "/internal-api/": {
+      "http": 404
+    },
+    "anonymousAccountMatch": {
+      "http": 200,
+      "code": 0,
+      "items": 0
+    }
+  }
+}

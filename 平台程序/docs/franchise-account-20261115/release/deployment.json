@@ -1,0 +1,30 @@
+{
+  "sourceCommit": "680f9fd16a401077007fc54835361e7adcfef29d",
+  "jar": "/opt/zhongshu-platform-b-integration/release/platform-680f9fd1-account-v2.jar",
+  "jarSha256": "80856d98995d626b21d39585802a5ec9b6f9de58754243cdf84c99b99fd1b781",
+  "webSha256": "468e0bb99d5842f6cb43566034ed0f4064d21c2386773a4e7c16c7eb96aa1e45",
+  "backupDirectory": "/opt/zhongshu-platform-b-integration/backups/franchise-account-20261115T080821Z",
+  "previousJar": "/opt/zhongshu-platform-b-integration/release/platform-877e8cc8-r03.jar",
+  "schemaRollback": "Additive account tables retained; no destructive restore",
+  "adminUrl": "https://platform.zszhj.com/admin/",
+  "newMigration": "20261115.710",
+  "migrationHistoryAfter": "85|20261115.985",
+  "staticProbeRetries": [
+    {
+      "path": "/admin/",
+      "curlExit": 22
+    }
+  ],
+  "webHttpsEntryAndAssetVerified": true,
+  "webSpaFallbackVerified": true,
+  "ready": true,
+  "bPidAfter": "3978453",
+  "aPidBefore": "3040254",
+  "aPidAfter": "3040254",
+  "aRuntimePidBefore": "2802088",
+  "aRuntimePidAfter": "2802088",
+  "providerPidBefore": "3644575",
+  "providerPidAfter": "3644575",
+  "aFilesUnchanged": true,
+  "bNginxSha256": "d765270cfc56ed56e3188e52fa39846dd101a130d278648a0e435beb4cdefbc8"
+}
