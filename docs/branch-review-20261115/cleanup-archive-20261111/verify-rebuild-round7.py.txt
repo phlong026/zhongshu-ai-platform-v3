@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+"""Round-7 rebuild package verification: forward/undo migrations, CapabilityJson,
+G2b negative checks, and entry-level diff old-vs-new JAR. Read-only."""
+import hashlib
+import io
+import json
+import zipfile
+from pathlib import Path
+
+PROJ = Path("/Users/honor.pei/Documents/企业FDE项目/众墅之家AI赋能平台/.worktrees/platform-split-20261110/平台程序")
+ART = PROJ.parent / ".omc" / "artifacts"
+NEW_JAR = PROJ / "yudao-platform-server" / "target" / "yudao-platform-server.jar"
+OLD_JAR = ART / "pre-rebuild-baseline-20261111" / "yudao-platform-server.jar"
+OLD_MANIFEST = ART / "pre-rebuild-baseline-20261111" / "artifact-manifest.json"
+NEW_MANIFEST = ART / "platform-rebuild-20261111" / "artifact-manifest.json"
+
+EXPECTED = {
+    "capability_json_source": "e8229ba07c2fac1e6f14a5de445ccdfd4db5a2f3ce698ee0cf353229c799641f",
+    "undo_904": "705b1b8b2c0334cde0c76133324e152af97647b72a65ce9dcacce753a58eef11",
+    "undo_925": "54a1c225d27d0a44e66de2117e68f87729964ae8c02b1c7a8c15f47b7543f9f4",
+}
+FORBIDDEN_PKG = "cn/iocoder/yudao/server/"
+FORBIDDEN_LIB_PREFIX = "yudao-server-"
+LOCATIONS = {"platform-bootstrap", "platform", "pf", "franchise", "franchise-system",
+             "platform-wallet", "franchise-asset", "franchise-design-remote"}
+
+result = {"checks": {}, "diff_summary": {}}
+fail = []
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def iter_all_archives(archive, origin, prefix=""):
+    """Yield (origin, resource_name, bytes) across all nesting levels."""
+    for name in archive.namelist():
+        if name.endswith("/") or not name.startswith(prefix):
+            continue
+        resource = name[len(prefix):]
+        if name.startswith("BOOT-INF/lib/") and name.endswith(".jar"):
+            with zipfile.ZipFile(io.BytesIO(archive.read(name))) as nested:
+                yield from iter_all_archives(nested, name.rsplit("/", 1)[1])
+        else:
+            yield origin, resource, archive.read(name)
+
+
+# ---------- load archives ----------
+new_zip = zipfile.ZipFile(NEW_JAR)
+old_zip = zipfile.ZipFile(OLD_JAR)
+
+# ---------- check 1: forward migrations JAR vs source vs old manifest ----------
+old_manifest = json.loads(OLD_MANIFEST.read_text())
+new_manifest = json.loads(NEW_MANIFEST.read_text())
+old_by_resource = {m["resource"]: m for m in old_manifest["migrations"]}
+new_by_resource = {m["resource"]: m for m in new_manifest["migrations"]}
+
+fw_match, fw_diff = 0, []
+source_by_resource = {}
+# source scan for B allowlist locations
+for loc in LOCATIONS:
+    for p in PROJ.glob(f"**/src/main/resources/db/migration/{loc}/V*.sql"):
+        if "/target/" in str(p):
+            continue
+        rel = f"db/migration/{loc}/{p.name}"
+        source_by_resource[rel] = (p, sha(p.read_bytes()))
+
+for res, m in new_by_resource.items():
+    src = source_by_resource.get(res)
+    old = old_by_resource.get(res)
+    if src is None:
+        fw_diff.append(f"{res}: not found in source")
+    elif src[1] != m["sha256"]:
+        fw_diff.append(f"{res}: jar {m['sha256'][:12]} != source {src[1][:12]}")
+    elif old is None:
+        fw_diff.append(f"{res}: not in old manifest")
+    elif old["sha256"] != m["sha256"]:
+        fw_diff.append(f"{res}: jar {m['sha256'][:12]} != old {old['sha256'][:12]}")
+    else:
+        fw_match += 1
+result["checks"]["forward_migrations"] = {
+    "count_new_manifest": len(new_by_resource),
+    "count_old_manifest": len(old_by_resource),
+    "count_source_allowlisted": len(source_by_resource),
+    "verbatim_match_all_three": fw_match,
+    "problems": fw_diff,
+}
+if len(new_by_resource) != 69 or fw_match != 69:
+    fail.append("forward migration 69-way match failed")
+
+# ---------- check 2: undo SQLs inside nested jars ----------
+undo_found = {}
+for origin, resource, data in iter_all_archives(new_zip, "yudao-platform-server.jar"):
+    if resource.startswith("db/migration-undo/") and resource.endswith(".sql"):
+        undo_found[resource] = {"origin": origin, "sha256": sha(data), "bytes": len(data)}
+u904 = undo_found.get("db/migration-undo/platform-wallet/V20261111.904__undo_pf_wallet_refund.sql")
+u925 = undo_found.get("db/migration-undo/franchise-design-remote/V20261111.925__undo_remote_design_commands.sql")
+result["checks"]["undo_sqls"] = {
+    "total_undo_sql_in_package": len(undo_found),
+    "u904": u904, "u925": u925,
+    "u904_sha_ok": bool(u904 and u904["sha256"] == EXPECTED["undo_904"]),
+    "u925_sha_ok": bool(u925 and u925["sha256"] == EXPECTED["undo_925"]),
+    "inventory": sorted(undo_found),
+}
+if not result["checks"]["undo_sqls"]["u904_sha_ok"]:
+    fail.append("U904 undo sha mismatch")
+if not result["checks"]["undo_sqls"]["u925_sha_ok"]:
+    fail.append("U925 undo sha mismatch")
+
+# ---------- check 3: CapabilityJson class in package ----------
+cap_hits = []
+for origin, resource, data in iter_all_archives(new_zip, "yudao-platform-server.jar"):
+    if resource.endswith("franchise/api/capability/CapabilityJson.class"):
+        cap_hits.append({"origin": origin, "resource": resource, "sha256": sha(data), "bytes": len(data),
+                         "has_LongSerializer_ref": b"LongSerializer" in data,
+                         "has_Long_TYPE_ref": b"java/lang/Long.TYPE" in data or b"Long.TYPE" in data})
+result["checks"]["capability_json_class"] = cap_hits
+if not cap_hits:
+    fail.append("CapabilityJson.class missing from package")
+else:
+    ok = any(h["has_LongSerializer_ref"] for h in cap_hits)
+    result["checks"]["capability_json_class_override_markers"] = ok
+    if not ok:
+        fail.append("CapabilityJson.class lacks LongSerializer marker")
+
+# ---------- check 4: G2b / fusion negative checks ----------
+neg = {"server_package_resources": [], "forbidden_libs": [], "fusion_factories": [],
+       "legacy_interceptor_refs": []}
+for origin, resource, data in iter_all_archives(new_zip, "yudao-platform-server.jar"):
+    if resource.startswith(FORBIDDEN_PKG):
+        neg["server_package_resources"].append(f"{origin}!{resource}")
+    if origin.endswith(".jar") and origin.startswith(FORBIDDEN_LIB_PREFIX):
+        neg["forbidden_libs"].append(origin)
+    if resource == "META-INF/spring.factories" and b"cn.iocoder.yudao.server." in data:
+        neg["fusion_factories"].append(origin)
+    if resource.endswith(".class") and b"LegacyPlatformHttpWriteInterceptor" in data:
+        neg["legacy_interceptor_refs"].append(f"{origin}!{resource}")
+# also plain entry names at every level
+for name in new_zip.namelist():
+    if name.startswith("BOOT-INF/lib/") and name.endswith(".jar"):
+        with zipfile.ZipFile(io.BytesIO(new_zip.read(name))) as nested:
+            for n in nested.namelist():
+                if n.startswith(FORBIDDEN_PKG):
+                    neg["server_package_resources"].append(f"{name}!{n}")
+neg_clean = all(not v for v in neg.values())
+result["checks"]["g2b_negative"] = {"clean": neg_clean, **neg}
+if not neg_clean:
+    fail.append("G2b/fusion negative check found forbidden content")
+
+# ---------- check 5: entry-level diff old vs new ----------
+
+
+def entry_map(zf):
+    out = {}
+    for i in zf.infolist():
+        out[i.filename] = (i.CRC, i.file_size)
+    return out
+
+
+om, nm = entry_map(old_zip), entry_map(new_zip)
+added = sorted(set(nm) - set(om))
+removed = sorted(set(om) - set(nm))
+changed = sorted(k for k in set(om) & set(nm) if om[k] != nm[k])
+result["diff_summary"] = {
+    "old_sha256": sha(OLD_JAR.read_bytes()), "old_bytes": OLD_JAR.stat().st_size,
+    "new_sha256": sha(NEW_JAR.read_bytes()), "new_bytes": NEW_JAR.stat().st_size,
+    "added_count": len(added), "removed_count": len(removed), "changed_count": len(changed),
+    "added": added, "removed": removed, "changed": changed[:200],
+}
+
+new_zip.close()
+old_zip.close()
+result["overall"] = "PASS" if not fail else "FAIL"
+result["failures"] = fail
+print(json.dumps(result, ensure_ascii=False, indent=2))
+raise SystemExit(1 if fail else 0)
