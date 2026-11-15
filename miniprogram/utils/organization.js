@@ -22,6 +22,18 @@ const inherited={'sales-lead':'sales','project-manager':'engineer','finance-lead
 const has=(role,wanted)=>role===wanted||inherited[role]===wanted;
 const staffHas=(p,wanted)=>(p?.roles||[p?.roleId]).some(r=>has(r,wanted));
 const defaultRole=(grants,preferred)=>{const first=grants.includes(preferred)?preferred:grants[0];return Object.keys(inherited).find(r=>inherited[r]===first&&grants.includes(r))||first;};
+const postDisplayRank=post=>{
+ const role=post&&post.roleCode,type=post&&post.orgType;
+ if(type==='store'&&['sales','sales-lead'].includes(role))return 0;
+ if(type==='store'&&['engineer','project-manager'].includes(role))return 1;
+ if(type==='store'&&['finance','finance-lead'].includes(role))return 2;
+ if(type==='store'&&['boss','owner'].includes(role))return 3;
+ if(type==='headquarters'&&role==='hq-design-admin')return 4;
+ if(type==='headquarters'&&['hq-operations','hq-operations-lead'].includes(role))return 5;
+ if(type==='headquarters'&&['finance','finance-lead'].includes(role))return 6;
+ return 99;
+};
+const sortPostsForDisplay=posts=>(Array.isArray(posts)?posts:[]).map((post,index)=>({post,index,rank:postDisplayRank(post)})).sort((a,b)=>a.rank-b.rank||a.index-b.index).map(item=>item.post);
 // Defaults only prefill new forms; the original record remains authoritative.
 function defaultAssignee(book, department) {
  const role={sales:'sales',engineering:'engineer',finance:'finance',design:'hq-design-admin',operations:'hq-operations'}[department];
@@ -31,4 +43,4 @@ function defaultAssignee(book, department) {
 // 后端任职（/platform/posts/mine 的 StaffPost：roleCode 与本文件角色 key 同名）→ 导航上下文。
 // 仅接管导航与落地页；业务数据可见性仍走 demo 上下文（业务数据后端化逐页接入后再收口）。
 const apiContext=p=>p?{loggedIn:true,active:true,role:p.roleCode,orgType:p.orgType,api:true,postId:p.postId,teamId:p.teamId||null,lead:!!p.lead}:null;
-module.exports={defaultAssignee,defaultRole,has,staffHas,roles,templates,teamForRole,allowed,enabled,home,navigation,apiContext};
+module.exports={defaultAssignee,defaultRole,has,staffHas,sortPostsForDisplay,roles,templates,teamForRole,allowed,enabled,home,navigation,apiContext};

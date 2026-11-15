@@ -99,6 +99,15 @@ function bankFlows() {
 function projectAccount(projectId) {
   return http.get('/franchise/finance/project-accounts/' + projectId);
 }
+function designFees(pageNo = 1, pageSize = 20) {
+  return http.get('/franchise/finance/design-fees', { pageNo, pageSize });
+}
+function projectLedger(projectId, pageNo = 1, pageSize = 20) {
+  return http.get('/franchise/finance/projects/' + projectId + '/ledger', { pageNo, pageSize });
+}
+function projects(pageNo = 1, pageSize = 20, keyword = '') {
+  return http.get('/franchise/finance/projects', { pageNo, pageSize, keyword });
+}
 
 
 // ===================== M5 收口（21 号）：基-1 凭证上传 + 收款修订 =====================
@@ -237,6 +246,6 @@ module.exports = {
   registerReceipt, registerPayment, registerRefund, registerExpenseRefund, registerPayable,
   voidRefund, reconciliation,
   voidPayment,
-  confirmBank, bankFlows, projectAccount,
+  confirmBank, bankFlows, projectAccount, designFees, projectLedger, projects,
   uploadVoucher, reviseReceipt, revisions, sha256Hex, readFileBase64, guessMime
 };

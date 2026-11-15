@@ -96,7 +96,10 @@ function plansView(summary) {
       quantity: l.quantity, received: l.received, remaining: l.remaining,
       requiredDate: dateOf(l.requiredDate), cancelled: !!l.cancelled,
       supplyId: l.supplyId ? String(l.supplyId) : '',
-      supplier: l.supplier || '', paymentStatus: l.paymentStatus || ''
+      supplier: l.supplier || '', paymentStatus: l.paymentStatus || '',
+      // 对照版按仍有效的付款事实锁定，退款净额为零不解锁；缺投影时关闭编辑。
+      locked: l.termsLocked !== false,
+      termsEditable: l.termsLocked === false && !l.cancelled && !!l.supplyId
     }))
   }));
 }
@@ -152,7 +155,7 @@ function projectView(detail) {
     name: detail.name, customer: detail.customer || '', city: detail.city || '',
     phone: detail.phone || '', area: detail.area, floors: detail.floors,
     sourceType: detail.sourceType, drawingVersion: detail.drawingVersion || '',
-    managerId: detail.managerUserId, manager: '',
+    managerId: detail.managerUserId, manager: detail.managerName || (detail.managerUserId ? '已指派工程人员' : '待指派'),
     archived: !!closure.archivedAt, delivery: closure.deliveredAt ? {
       date: dateOf(closure.deliveredAt), recipient: closure.recipient || '', note: closure.deliverNote || '',
       // M09-T02 批次#37：签收凭据真实可读——交付/业主签收 assetId（授权查看数据源）
@@ -170,7 +173,12 @@ function projectView(detail) {
     },
     actualStart: detail.actualStartAt ? { date: dateOf(detail.actualStartAt) } : null,
     plan: { version: 0, nodes: nodes.map(n => ({ ...n, id: n.id.replace(/^\D+/, ''), start: n.start || '', end: n.end || '' })) },
-    documents: (detail.documents || []).map(d => ({ name: d.name, file: { name: d.name }, date: '' })),
+    documents: (detail.documents || []).map(d => {
+      let ref = {};
+      try { const parsed = typeof d.fileRef === 'string' ? JSON.parse(d.fileRef) : d.fileRef; if (parsed && typeof parsed === 'object') ref = parsed; } catch (error) { /* 历史文本没有可授权字节。 */ }
+      return {name:d.name, file:{name:ref.name || d.name, ...(ref.assetId ? {assetId:String(ref.assetId)} : {}),
+        ...(ref.commissionId && ref.dispatchSeq && ref.slot ? {commissionId:String(ref.commissionId),dispatchSeq:Number(ref.dispatchSeq),slot:ref.slot} : {})}, date:''};
+    }).concat(detail.contractAssetId ? [{name:'已签工程合同',file:{name:'已签工程合同.pdf',assetId:String(detail.contractAssetId)},date:dateOf(detail.contractDate)}] : []),
     status: statusView(detail.status), statusRaw: detail.status,
     stageText: statusView(detail.status)
   };
@@ -272,6 +280,7 @@ function threeStageSumError(f) {
 function idemFingerprint(action, form) {
   const FP_LINES = {
     'material-adjust': l => ({ id: l.id, adjust: l.adjust }),
+    'material-terms': l => ({ id: l.id, supplyId: l.supplyId, supplier: l.supplier, unitPrice: l.unitPrice, freight: l.freight }),
     'material-plan': l => ({ name: l.name, spec: l.spec, unit: l.unit, quantity: l.quantity })
   };
   const FP_NODES = n => ({ nodeIndex: n.nodeIndex || n.index, name: n.name, startDate: n.start, endDate: n.end });
@@ -366,18 +375,55 @@ async function perform(action, id, form, node, key) {
         lines: lines.map(l => ({ name: l.name, spec: l.spec || '', unit: l.unit, quantity: Number(l.quantity) }))
       }, key);
     }
-    case 'material-terms':
-      return api.materials.terms(f.supplyId, {
-        supplier: f.supplier, unitPrice: yuan(f, 'unitPrice', '单价'), freight: Number(f.freight || 0),
-        basis: (f.file && f.file.name) || '采购凭据' // 展示文本口径：只送文件名字符串，不送 JSON 串
-      }, key);
-    case 'arrival':
-      if (!f.supplyId) return Promise.reject({ code: 0, msg: '请选择确认到货的供应事项' }); // R4 P1-2 显式选定
+    case 'material-terms': {
+      const sessionAlive = http.sessionGuard(), postId = String(http.currentPostId());
+      const credential = http.token(), tenantId = String(http.tenantId());
+      const requireAlive = () => {
+        if (!sessionAlive() || String(http.currentPostId()) !== postId
+          || http.token() !== credential || String(http.tenantId()) !== tenantId)
+          throw { code: 0, msg: '身份已切换，请切回原岗位核对采购记录后重试' };
+      };
+      const rows = (f.lines || []).filter(l => !l.cancelled && !l.locked && !l.termsLocked && String(l.unitPrice == null ? '' : l.unitPrice).trim());
+      if (!rows.length) throw { code: 0, msg: '请填写至少一项实际采购金额' };
+      if (!f.file || !f.file.path) throw { code: 0, msg: '请选择真实采购凭据' };
+      // 在任何写请求前校验整批；部分成功后用同一行幂等键重放，不重复创建应付。
+      const commands = rows.map(l => {
+        const supplier = String(l.supplier || '').trim(), raw = String(l.freight == null || l.freight === '' ? '0' : l.freight).trim();
+        if (!l.supplyId || !supplier || !/^\d+(\.\d{1,2})?$/.test(String(l.unitPrice).trim()) || !/^\d+(\.\d{1,2})?$/.test(raw))
+          throw { code: 0, msg: '请填写实际供应方和有效采购金额（最多两位小数）' };
+        return { supplyId: String(l.supplyId), supplier, unitPrice: yuan(l, 'unitPrice', '单价'), freight: Number(raw) };
+      });
+      requireAlive();
+      const assetId = await uploadVoucher(f.file.path, 'FIN_VOUCHER');
+      requireAlive();
+      const basis = JSON.stringify({ assetId: String(assetId), name: f.file.name || '采购凭据' });
+      const results = [];
+      for (const c of commands) {
+        // 页面回包守卫无法阻止后续循环使用新岗位发送；每次 await 两侧都锁定入口身份。
+        requireAlive();
+        const suffix = '-s' + c.supplyId;
+        results.push(await api.materials.terms(c.supplyId, {
+          supplier: c.supplier, unitPrice: c.unitPrice, freight: c.freight, basis
+        }, String(key).slice(-(80 - suffix.length)) + suffix));
+        requireAlive();
+      }
+      return results;
+    }
+    case 'arrival': {
+      if (!f.supplyId) throw { code: 0, msg: '请选择确认到货的供应事项' };
+      // 沿用开发版数量精度；校验先于上传，避免空值或 NaN 进入到货命令。
+      const raw = String(f.actual == null ? '' : f.actual).trim(), actual = Number(raw);
+      if (!/^\d+(\.\d{1,3})?$/.test(raw) || !Number.isFinite(actual) || actual <= 0)
+        throw { code: 0, msg: '请填写大于0、最多三位小数的本次实际到货数量' };
+      if (!String(f.transaction || '').trim() || !f.file?.path)
+        throw { code: 0, msg: '请填写收货流水并选择到货凭据' };
       return api.materials.arrival(f.supplyId, {
-        actual: Number(f.actual), quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
-        transactionNo: f.transaction, occurredAt: dateStr,
-        fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_SITE_PHOTO'), note: f.note || ''
+        // 此页记录本次合格分批到货；不把全部计划余量误当本批应到量而生成补发。
+        expected: actual, actual, quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
+        transactionNo: String(f.transaction).trim(), occurredAt: dateStr,
+        fileAssetId: await uploadVoucher(f.file.path, 'ENG_SITE_PHOTO'), note: f.note || ''
       }, key);
+    }
     case 'material-adjust': {
       // 后端为单材料维度（PUT /materials/{id}）；页面表单按计划单逐行填调整量，此处逐行提交
       // Codex R2 遗留：每行派生独立幂等子键（同键=同命令去重，共用一键多行会被后端去重丢更新；部分成功后整单重试时已成功行同子键幂等返回原结果）
@@ -574,9 +620,10 @@ function recordView(bundle, ctx) {
     }
   } else if (view === 'material' && plan) {
     form.planId = plan.id;
-    form.lines = plan.lines.map(l => ({ id: l.id, name: l.name, spec: l.spec || '', unit: l.unit,
+    const previousLines = form.lines || [];
+    form.lines = plan.lines.map(l => ({ ...(previousLines.find(old => old.id === l.id) || {}), id: l.id, supplyId: l.supplyId, name: l.name, spec: l.spec || '', unit: l.unit,
       quantity: l.quantity, received: l.received, remaining: l.remaining, cancelled: !!l.cancelled,
-      supplier: l.supplier || '', actual: '', adjust: '' }));
+      locked: l.locked, termsLocked: !l.termsEditable, supplier: (previousLines.find(old => old.id === l.id) || {}).supplier || l.supplier || '', actual: '', adjust: '' }));
     if (own && !delivery && plan.arrival !== '已验收齐全' && plan.arrival !== '已取消') {
       // R1 P1-4/R4 P1-2/R5 P1-2：确认到货恢复——供应事项显式选定（选项每次刷新；
       // 用户已选仍有效则保留，余量归零行落选后回落首项——刷新不再指回首行）
@@ -678,8 +725,9 @@ function recordView(bundle, ctx) {
     stage, stageText: p.stageText, partLabel: stage === 'base' ? '基础完成后期款'
       : stage === 'topping' ? '封顶后期款' : '签约后期款',
     own, canPay: false, finance: false, // 收款登记/采购金额为凭据类动作，随 COS 批开放
-    canAdjust: own && !delivery && !!plan, canTerms: false,
-    termsLocked: !!(plan && plan.payment === '已付清'),
+    canAdjust: own && !delivery && !!plan,
+    canTerms: (opts.termsRole == null ? financeRole : !!opts.termsRole) && !archived && !!plan && plan.lines.some(l => l.termsEditable),
+    termsLocked: !!plan && !plan.lines.some(l => l.termsEditable),
     canCorrectNode: false, canReopen: false,
     demo: false
   };

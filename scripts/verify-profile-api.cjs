@@ -53,6 +53,63 @@ assert.ok(/if\(!http\.token\(\)\)return;/.test(seg), '无 token 直接返回不�
 assert.ok(seg.includes('A.mutate') && seg.includes('this.setData({profile'), 'A.mutate 与 setData 均在 syncApiProfile 段内');
 assert.ok(seg.indexOf('A.mutate') < seg.indexOf('this.setData({profile'), '先 A.mutate 落 storage 再 setData（D-2 硬约束：navigateBack 复用旧实例靠 storage 重读兜底）');
 assert.ok(seg.includes('.catch(()=>{})'), '失败静默降级不白屏');
-assert.ok(pageSrc.includes("if(v==='profile'&&reset)this.syncApiProfile();"), 'refresh 末尾仅 profile 视图 onLoad（reset）触发');
+assert.ok(pageSrc.includes("if((v==='profile'||v==='identity')&&reset)this.syncApiProfile();"), 'refresh 末尾仅 profile/identity 首次加载（reset）触发');
+
+// ===== account 页面行为：identity/profile 首次读真资料，onShow 与其他页不重复读 =====
+const vm = require('node:vm');
+let definition;
+const profileGets = [];
+const state = {
+  session: { loggedIn: false, role: '', companyId: '', userId: '' },
+  profile: { name: '访客', phone: '', avatar: '' },
+  drafts: {}, favorites: [], messages: [], orders: [], companies: []
+};
+const account = {
+  courseImage: '', services: [{ id: 'store', name: '门店服务', image: '' }], chapters: [], courseChapters: {}, roles: {},
+  load: () => state, company: () => ({ roles: [] }), access: { context: () => ({ companyId: '', staffId: '', role: 'sales', active: true }) },
+  permitted: () => true, order: () => null, displayOrder: value => value, visible: value => value,
+  scoped: (value, rows) => rows || [], visibleOrders: () => [], mutate: fn => fn(state)
+};
+const currentPost = { postId: 'post-sales', orgId: 'store-1', orgType: 'store', roleCode: 'sales' };
+const http = {
+  token: () => 'token', requestGuard: () => () => true,
+  get: url => { if (url === '/platform/profile/mine') profileGets.push(url); return new Promise(() => {}); }
+};
+const organization = require('../miniprogram/utils/organization');
+vm.runInNewContext(pageSrc, {
+  Page: value => { definition = value; },
+  require(name) {
+    if (name === '../../utils/view-container') return { routeValue: value => value || '', fail() {} };
+    if (name === '../../api/auth') return { currentApiPost: () => currentPost, apiPosts: () => [currentPost] };
+    if (name === '../../api/http') return http;
+    if (name === '../../api/org') return {};
+    if (name === '../../utils/organization') return organization;
+    if (name === '../../utils/sample-files') return { displayFile: value => value };
+    if (name === './procurement') return { products: [], get: () => null, visibleProjects: () => [], list: () => [] };
+    if (name === '../../utils/account') return account;
+    if (name === '../../utils/platform-messages') return { totalUnread: value => value, mergeSources: () => [] };
+    if (name === '../../api/franchise/content') return { drafts: { courseProgress: () => new Promise(() => {}) } };
+    throw new Error('Unexpected module: ' + name);
+  },
+  wx: { redirectTo() {}, switchTab() {}, reLaunch() {}, showToast() {} },
+  console, Date, Math, Promise, setInterval, clearInterval, encodeURIComponent
+}, { filename: 'miniprogram/pages/account/index.js' });
+
+function page(view) {
+  const instance = { ...definition, options: {}, id: '', serviceId: 'store', data: JSON.parse(JSON.stringify(definition.data)) };
+  instance.data.view = view;
+  instance.setData = patch => Object.assign(instance.data, patch);
+  return instance;
+}
+
+const identityPage = page('identity');
+identityPage.refresh(true);
+assert.equal(profileGets.length, 1, 'identity 首次加载请求真实 profile');
+identityPage.onShow();
+assert.equal(profileGets.length, 1, 'identity 普通 onShow 不重复请求 profile');
+page('profile').refresh(true);
+assert.equal(profileGets.length, 2, 'profile 原首次读取行为保留');
+page('learning').refresh(true);
+assert.equal(profileGets.length, 2, 'learning 不得触发 profile 请求');
 
 console.log('verify-profile-api ✔  全部断言通过');

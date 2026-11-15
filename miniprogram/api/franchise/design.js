@@ -7,15 +7,15 @@ const http = require('../http');
 const idem = (key, action) => (key ? { 'Idempotency-Key': key } : { 'Idempotency-Key': 'design-' + action + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e8) });
 
 const cases = {
-  /** 公开案例图片只读取当前案例成员，不能借用生成结果或B输入资产编号。 */
-  downloadUrl: (caseId, assetId) => http.post('/franchise/design/cases/' + caseId + '/assets/' + assetId + '/download-tickets'),
   /** 灵感库列表（游标分页，±1m 尺寸筛选）{styleCode?, floorCount?, faceWidth?, depth?, keyword?, cursor?, limit?} */
   page: (params) => http.get('/franchise/design/cases', params),
   /** 风格筛选项 */
   styles: () => http.get('/franchise/design/cases/styles'),
   /** 案例详情 */
-  detail: (caseId) => http.get('/franchise/design/cases/' + caseId),
-  /** 收藏/取消（服务账号名下，组织共享） */
+  detail: (caseId) => http.get('/franchise/design/cases/' + encodeURIComponent(caseId)),
+  /** A 公开案例图片：由 B 验证图片属于该案例后换取短链，与 B 生成素材分开。 */
+  downloadUrl: (caseId, assetId) => http.post('/franchise/design/cases/' + encodeURIComponent(caseId) + '/assets/' + encodeURIComponent(assetId) + '/download-tickets'),
+  /** 收藏/取消（保存在 B，按员工及组织隔离） */
   favorite: (caseId) => http.put('/franchise/design/cases/' + caseId + '/favorite'),
   unfavorite: (caseId) => http.del('/franchise/design/cases/' + caseId + '/favorite'),
   /** 收藏列表 */

@@ -1,0 +1,120 @@
+{
+  "clientDate": "2026-11-15",
+  "domain": "https://platform.zszhj.com",
+  "results": [
+    {
+      "name": "https_root",
+      "url": "https://platform.zszhj.com/",
+      "tlsValidated": true,
+      "http": 404
+    },
+    {
+      "name": "unauth_posts",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "tlsValidated": true,
+      "http": 200,
+      "businessCode": 401,
+      "health": null
+    },
+    {
+      "name": "actuator_blocked",
+      "url": "https://platform.zszhj.com/actuator/health",
+      "tlsValidated": true,
+      "http": 404
+    },
+    {
+      "name": "internal_blocked",
+      "url": "https://platform.zszhj.com/internal-api/design/v1/platform/health",
+      "tlsValidated": true,
+      "http": 404
+    },
+    {
+      "name": "nested_internal_blocked",
+      "url": "https://platform.zszhj.com/admin-api/internal-api/design/v1/platform/health",
+      "tlsValidated": true,
+      "http": 404
+    },
+    {
+      "name": "A_api_health",
+      "url": "https://api.zszhj.com/actuator/health",
+      "tlsValidated": true,
+      "http": 200,
+      "businessCode": null,
+      "health": "UP"
+    },
+    {
+      "name": "A_api2_health",
+      "url": "https://api2.zszhj.com/actuator/health",
+      "tlsValidated": true,
+      "http": 200,
+      "businessCode": null,
+      "health": "UP"
+    },
+    {
+      "name": "http_to_https",
+      "http": 308,
+      "location": "https://platform.zszhj.com/admin-api/platform/posts/mine"
+    },
+    {
+      "name": "authenticated_B_posts",
+      "tlsValidated": true,
+      "http": 200,
+      "businessCode": 0,
+      "posts": [
+        {
+          "postId": "2121619170781044738",
+          "orgId": 118,
+          "orgType": "headquarters",
+          "roleCode": "boss"
+        },
+        {
+          "postId": "2121620216580415490",
+          "orgId": 118,
+          "orgType": "headquarters",
+          "roleCode": "hq-design-admin"
+        },
+        {
+          "postId": "2121620613810364417",
+          "orgId": 119,
+          "orgType": "store",
+          "roleCode": "boss"
+        },
+        {
+          "postId": "2121621022180384770",
+          "orgId": 119,
+          "orgType": "store",
+          "roleCode": "sales"
+        },
+        {
+          "postId": "2121622125286531073",
+          "orgId": 119,
+          "orgType": "store",
+          "roleCode": "engineer"
+        },
+        {
+          "postId": "2121622126125391874",
+          "orgId": 119,
+          "orgType": "store",
+          "roleCode": "finance"
+        },
+        {
+          "postId": "2121622126905532417",
+          "orgId": 118,
+          "orgType": "headquarters",
+          "roleCode": "finance"
+        }
+      ]
+    },
+    {
+      "name": "TLS_certificate",
+      "tlsProtocol": "TLSv1.2",
+      "subjectAltName": [
+        [
+          "DNS",
+          "platform.zszhj.com"
+        ]
+      ],
+      "notAfter": "Feb 12 22:33:39 2027 GMT"
+    }
+  ]
+}

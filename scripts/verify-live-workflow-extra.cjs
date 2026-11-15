@@ -98,6 +98,7 @@ let detailGets = 0;
 let redirects = [];
 const commissionHttp = {
   token: () => 'token',
+  sessionGeneration: () => 1,
   requestGuard: () => () => true
 };
 const commissionAuth = { currentApiPost: () => currentPost };
@@ -106,7 +107,8 @@ const commissionApi = {
     get: () => { detailGets += 1; return new Promise(() => {}); },
     page: () => new Promise(() => {})
   },
-  policies: { current: () => new Promise(() => {}) }
+  policies: { current: () => new Promise(() => {}) },
+  pricing: { current: () => new Promise(() => {}) }
 };
 const commission = loadPage('miniprogram/pages/workflow/commission/index.js', {
   '../../../utils/page-navigation': {},

@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-11-15T01:52:10.160Z",
+  "source": "Official WeChat DevTools UI automation; real button taps; no mocked phoneCode or injected token",
+  "initial": {
+    "path": "pages/account/index",
+    "loggedIn": false
+  },
+  "path": "pages/account/index",
+  "view": "login",
+  "error": "",
+  "loginBusy": false,
+  "requests": [],
+  "consoleCounts": {},
+  "exceptions": [],
+  "assessment": "UI tap observed; phone authorization callback and backend login not observed. Not a successful login and not yet a reproduced backend failure."
+}

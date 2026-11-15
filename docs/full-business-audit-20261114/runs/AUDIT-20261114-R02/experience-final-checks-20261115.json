@@ -1,0 +1,78 @@
+{
+  "completeCheck": {
+    "exitCode": 0,
+    "command": "npm run check",
+    "static": {
+      "wxml": 60,
+      "javascript": 185,
+      "json": 58,
+      "nativePages": 35
+    },
+    "profileNavigation": {
+      "passed": 32,
+      "failed": 0
+    },
+    "companyPoints": {
+      "passed": 7,
+      "failed": 0
+    },
+    "integration": {
+      "passed": 113,
+      "failed": 0
+    },
+    "finishedAt": "2026-11-15T04:30:46.966741+00:00",
+    "usedExistingDependencies": true
+  },
+  "targetedChecks": {
+    "profileApi": "passed",
+    "messageSessionGuard": {
+      "passed": 16,
+      "failed": 0
+    },
+    "authContract": {
+      "passed": 54,
+      "failed": 0
+    },
+    "customerContext": {
+      "passed": 23,
+      "failed": 0
+    }
+  },
+  "review": {
+    "P0": 0,
+    "P1": 0,
+    "P2": 0,
+    "scope": "Changed customer, growth, role presentation, profile read, progress/delivery context and stage WXML/WXSS"
+  },
+  "orphanScan": {
+    "baseline": "d64e8194",
+    "baselineOrphans": 96,
+    "currentOrphans": 96,
+    "newOrphans": [],
+    "removedOrphans": [],
+    "newPostDisplayTestRegistered": true,
+    "exitCode": 1,
+    "status": "96 existing orphan scripts; unchanged list; new regression is registered"
+  },
+  "dependencies": {
+    "lockfileChanged": false,
+    "newDependencies": false,
+    "existingAuditAdvisories": 13,
+    "source": "public-catalog-security-scan-20261115.json"
+  },
+  "upload": false,
+  "backendCodeDeployment": false,
+  "nativeBuildMatchesTrackedMiniProgramFiles": 720,
+  "nativeStageVerification": {
+    "requests": 21,
+    "consoleErrors": 0,
+    "exceptionEvents": 0,
+    "businessRecordWrites": 0,
+    "remainingWarning": "WeChat global-component lazy-injection performance warning",
+    "views": [
+      "contract",
+      "progress",
+      "delivery"
+    ]
+  }
+}

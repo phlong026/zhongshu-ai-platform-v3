@@ -52,12 +52,44 @@ function estimateText(count) { return '预计 ' + (count || 1) * 3 + '~' + (coun
 
 /** R4 案例 → 列表/详情渲染（coverAssetId 经 R8 现取） */
 function caseRow(c) {
+  const parameters = c.parameters || c;
   return {
     id: String(c.caseId != null ? c.caseId : c.id),
-    title: c.title || '', styleCode: c.styleCode || '', styleLabel: c.styleLabel || '',
-    floorCount: c.floorCount, buildingArea: c.buildingArea, faceWidth: c.faceWidth, depth: c.depth,
-    coverAssetId: c.coverAssetId || null, description: c.description || ''
+    title: c.title || '', styleCode: parameters.styleCode || '', styleLabel: c.styleLabel || '',
+    floorCount: parameters.floorCount, buildingArea: parameters.buildingArea, faceWidth: parameters.faceWidth, depth: parameters.depth,
+    versionId: c.caseVersionId == null ? '' : String(c.caseVersionId), version: c.version,
+    coverAssetId: c.coverAssetId || null, description: c.description || '',
+    coverUrl: '', coverLoading: !!c.coverAssetId, coverError: false
   };
+}
+
+/** 公开案例短链只留在当前页面；单批最多三张并取，避免为列表同时请求二十张图片。 */
+async function loadCaseCovers(rows, download, alive = () => true, onRow) {
+  const result = rows.map(row => Object.assign({}, row));
+  let next = 0, stopped = false;
+  async function worker() {
+    while (!stopped && alive()) {
+      const index = next++;
+      if (index >= result.length) return;
+      const row = result[index];
+      row.coverError = false;
+      if (row.coverAssetId) {
+        try {
+          const value = await download(String(row.id), String(row.coverAssetId));
+          if (!value || !value.downloadUrl) throw new Error('图片地址暂不可用');
+          row.coverUrl = value.downloadUrl;
+        } catch (err) {
+          if (err && err.code === 401) { stopped = true; throw err; }
+          row.coverUrl = '';
+          row.coverError = true;
+        }
+      }
+      row.coverLoading = false;
+      if (alive() && onRow) onRow(row, index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(3, result.length) }, () => worker()));
+  return result;
 }
 
 /** R19 → 预算区间单价展示（元/㎡） */
@@ -175,6 +207,6 @@ module.exports = {
   ENTRANCE_OPTIONS, FAMILY_OPTIONS, COURTYARD_OPTIONS, DRAWING_OPTIONS,
   styleCode, roofCode,
   POLL_INTERVAL_MS, POLL_MAX_MS, pollDecision, STILL_RUNNING_MESSAGE, STATUS_TEXT, smoothProgress, estimateText,
-  caseRow, projectRow, RESUME_TEXT, ruleInfoView, estimateView, candidateRows, resultVersionRow,
+  caseRow, loadCaseCovers, projectRow, RESUME_TEXT, ruleInfoView, estimateView, candidateRows, resultVersionRow,
   estimateBody, requirementInputs, errorMessageDesign
 };

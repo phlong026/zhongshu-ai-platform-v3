@@ -1,0 +1,68 @@
+{
+  "verifiedAt": "2026-11-15T09:53:46.746772+08:00",
+  "appId": "wxe584f6fad7b54487",
+  "build": {
+    "date": "2026-11-15",
+    "product": "zhongshu-ai-platform-v3 business Mini Program",
+    "sourceCommit": "5150d36ddc6c2d87a1df449be0db1fd6479fa710",
+    "sourceBusinessBaseline": "c49425a5",
+    "appid": "wxe584f6fad7b54487",
+    "version": "1.0.0-dev1115",
+    "releaseChannel": "development_only",
+    "experienceVersionChangeAllowed": false,
+    "apiBase": "https://platform.zszhj.com/admin-api",
+    "urlCheck": true,
+    "registeredRoutes": 35,
+    "entryPage": "pages/home/index",
+    "diagnosticProject": false,
+    "buildOnlyChanges": [
+      "API_BASE -> isolated B HTTPS",
+      "projectname -> B开发联调"
+    ],
+    "fullBusinessFlowAcceptance": "not_completed"
+  },
+  "checks": {
+    "npmRunCheck": {
+      "exitCode": 0,
+      "environment": "NODE_PATH reuses main checkout installed modules; fixture/local checks only"
+    },
+    "businessNativeRequest": "business-build-native-recheck-20261115.json"
+  },
+  "upload": {
+    "tool": "official WeChat DevTools CLI upload",
+    "exitCode": 0,
+    "completed": true,
+    "sizeBytes": 6826073,
+    "mainPackageBytes": 1822767
+  },
+  "wechatManagementReadback": {
+    "appName": "众墅之家赋能平台",
+    "development": {
+      "version": "1.0.0-dev1115",
+      "developer": "裴火荣",
+      "submittedAt": "2026-11-15 09:48:45",
+      "experienceBadge": false
+    },
+    "experienceBeforeAndAfter": {
+      "version": "1.0.20261030.3",
+      "developer": "HiAi智能体",
+      "submittedAt": "2026-10-30 08:49:29",
+      "experienceBadge": true,
+      "unchanged": true
+    },
+    "reviewVersionPresent": false,
+    "onlineVersionPresent": false
+  },
+  "buildFileSha256": {
+    "project.config.json": "c299ef4481c7a5b1686f96c75c6adcf9677286e58e3cf44337db64cf4e34da3e",
+    "miniprogram/app.json": "efab75dcc5863cd75b6fb7c233c5c64aa1da51b73c79890c0deebe76d913e19c",
+    "miniprogram/config/env.js": "eb1423bcc38876a71b197e5eb7153e8dc8652de12688e5ecf46b709fd9d20bac"
+  },
+  "limits": {
+    "realWeChatBusinessLogin": "not_verified",
+    "fullBusinessFlow": "not_completed",
+    "experienceChangesPerformed": false,
+    "ciKeyCreated": false,
+    "newDependenciesInstalled": false
+  }
+}

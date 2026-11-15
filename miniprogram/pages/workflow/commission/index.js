@@ -19,7 +19,9 @@ const commandKey = action => {
 Page({ ...makeFormHandlers(),
   data: { title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null },
   onLoad(options) {
-    this.disposed = false; this.options = options || {}; this.id = options.id || '';
+    this.disposed = false; this.options = options || {}; this.customerId = options.customerId || ''; this.id = options.commissionId || options.id || '';
+    if (!this.customerId && options.view === 'submit' && !options.commissionId) { this.customerId = this.id; this.id = ''; }
+    this.__byCustomer = !!this.customerId;
     let view = options.view || 'progress';
     // 模拟支付/体验收据视图随支付链路下线，历史深链一律回落进度态
     if (['pay', 'paid', 'created'].includes(view)) view = 'progress';
@@ -34,13 +36,19 @@ Page({ ...makeFormHandlers(),
   dropCmdKey(action) { if (this.__cmdKeys) delete this.__cmdKeys[action]; },
   failState(message) {
     this.action = ''; this.nextView = ''; this.initialized = false; this.__list = null;
+    this.setData({ canFeeDecide: false, canFeedback: false, managerOptions: [] });
     this.setData({ platformStatus: 'degraded', error: message, customer: null, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, form: {}, fields: [], preview: null, primary: '', canReturn: false, budgetCard: false, isComplete: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null });
   },
   refresh(reset = false) {
     const post = this.post();
     if (!post) return this.failState('请先登录后端账号');
+    const identity = String(post.postId) + ':' + http.sessionGeneration();
+    if (this.__identity && this.__identity !== identity) {
+      this.action = ''; this.nextView = ''; this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, primary: '', canReturn: false, canFeeDecide: false, canFeedback: false, managerOptions: [] });
+    }
+    this.__identity = identity;
     this.__post = post;
-    if (!this.id && !['admin', 'projects', 'policy', 'pricing'].includes(this.view)) {
+    if (!this.id && !this.customerId && !['admin', 'projects', 'policy', 'pricing'].includes(this.view)) {
       return this.failState('缺少委托或客户编号，请从客户或项目列表进入');
     }
     const alive = http.requestGuard('commission');
@@ -73,7 +81,7 @@ Page({ ...makeFormHandlers(),
     if (!isPricing && !(actor.orgType === 'store' && ['boss', 'owner'].includes(actor.role))) return this.failState('标准费用由加盟商老板配置');
     this.setData({ platformStatus: 'loading', error: '' });
     try {
-      const res = await API.policies.current();
+      const res = await (isPricing ? API.pricing : API.policies).current();
       if (!alive() || this.disposed) return;
       const p = res || {};
       const form = reset || !this.initialized ? (isPricing
@@ -96,38 +104,69 @@ Page({ ...makeFormHandlers(),
   },
   // ---- 客户委托视图：commissions.get → rows/fields/form ----
   async refreshCommission(alive, reset) {
-    this.setData({ platformStatus: 'loading', error: '' });
+    const preservedError = this.__submitFailure || ''; this.__submitFailure = '';
+    this.setData({ platformStatus: 'loading', error: preservedError });
     let res = null;
     try {
-      res = await API.commissions.get(this.id);
+      if (this.__byCustomer) {
+        const context = await API.commissions.context(this.customerId);
+        if (!alive() || this.disposed) return;
+        this.__context = context;
+        this.id = context.commissionId ? String(context.commissionId) : '';
+        res = context.commission;
+        if (!res) res = { customerId: context.customerId, allowedActions: context.allowedActions || [], request: context.latestBudget ? { basis: context.latestBudget } : null,
+          fee: context.feeOffer ? { ...context.feeOffer, quote: context.feeOffer.mode === 'AREA_FULL' ? { ...context.feeOffer, pricingVersion: context.feeOffer.ruleVersion } : null } : null };
+      } else {
+        res = await API.commissions.get(this.id);
+        if (this.view === 'submit' && res && res.commission) {
+          this.__context = await API.commissions.context(String(res.commission.customerId));
+        }
+      }
     } catch (err) {
       if (!alive() || this.disposed) return;
-      // 尚未提交委托的新客户：详情 404 视为空委托，允许进入提交视图
-      if (err && Number(err.code) === 404) res = null;
-      else return this.failState(Presentation.errorMessage(err));
+      return this.setData({ platformStatus: 'degraded', error: Presentation.errorMessage(err) });
     }
     if (!alive() || this.disposed) return;
     const c = Presentation.normalize(res || {});
+    if (this.view === 'submit' && this.__context) {
+      c.request = { ...(c.request || {}), basis: this.__context.latestBudget || null };
+      const offer = this.__context.feeOffer;
+      if (offer) c.fee = { ...offer, quote: offer.mode === 'AREA_FULL' ? { ...offer, amountCents: offer.totalCents, pricingVersion: offer.ruleVersion } : null };
+      c.allowedActions = this.__context.allowedActions || [];
+    }
+    this.customerId = c.id || this.customerId;
+    this.__commission = c;
     const view = this.view, actor = this.actor();
     const n = Presentation.stateOf(c);
     const action = Presentation.actionFor(view);
     const can = !!action && Presentation.canDo(c, view, actor);
     const basis = c.request && c.request.basis;
-    const budgetChanged = view === 'submit' && this.initialized && basis && this.data.form.__budgetVersion !== undefined && this.data.form.__budgetVersion !== basis.version;
+    const currentQuote = c.fee && c.fee.quote;
+    const budgetChanged = view === 'submit' && this.initialized && ((basis && this.data.form.__budgetVersion !== basis.version) || (currentQuote && this.data.form.__pricingVersion !== currentQuote.pricingVersion));
     let form = (reset || !this.initialized) ? Presentation.formInit(c, view) : this.data.form;
     // 参考预算更新后保留已填内容，但确认勾选必须对本版重做
-    if (budgetChanged && basis) form = { ...form, __budgetVersion: basis.version, checked: false };
+    if (budgetChanged) { form = { ...form, __budgetVersion: basis && basis.version, __pricingVersion: currentQuote && currentQuote.pricingVersion, __mode: c.fee && c.fee.mode, scope: currentQuote ? currentQuote.scope : form.scope, checked: false }; this.dropCmdKey('commission-submit'); }
     this.initialized = true;
     const fields = Presentation.fieldsFor(c, view, can);
     const rows = Presentation.rowsFor(c, n);
+    if (view === 'handover' && can) {
+      try {
+        const staff = await API.commissions.receivers(this.id);
+        if (!alive() || this.disposed) return;
+        this.__receivers = staff.filter(p => p.active !== false && ['engineer', 'project-manager'].includes(p.roleCode) && String(p.userId) !== String(this.__post.userId));
+        this.setData({ managerOptions: this.__receivers.map(p => ({ id: String(p.userId), label: p.name || String(p.userId) })) });
+      } catch (e) { if (!alive() || this.disposed) return; this.setData({ error: '工程接收人加载失败：' + Presentation.errorMessage(e) }); }
+    }
     const labels = { submit: '提交设计委托', feedback: '提交修改意见', complete: '设计完成', dispatch: '上传并下发成果', handover: c.handover ? '补充后移交给工程' : '移交给工程', receive: '确认接收' };
     this.action = can ? action : '';
     this.nextView = !can && n.actionable && n.view !== view && Presentation.actionFor(n.view) ? n.view : '';
     this.setData({
       title: ({ submit: '设计委托', progress: '委托与交付', feedback: '登记修改意见', handover: '成果与移交', complete: '设计办理', dispatch: '下发设计成果', receive: '业务资料接收' })[view] || '委托与交付',
-      view, platformStatus: 'ready', error: '',
+      view, platformStatus: 'ready', error: preservedError,
       customer: c.id || c.name ? { id: c.id, projectId: c.projectId, name: c.name, city: c.city, revision: c.revision } : null,
       form, fields, rows,
+      canFeeDecide: c.allowedActions.includes('fee-decide'),
+      canFeedback: view !== 'feedback' && c.allowedActions.includes('commission-feedback'),
       budgetReady: !!basis, budgetBasis: basis,
       budgetNotice: budgetChanged ? '参考预算已更新，请核对本版尺寸、需求和范围后重新勾选确认。' : view === 'submit' ? this.data.budgetNotice : '',
       pricingQuote: Presentation.quoteOf(c),
@@ -161,76 +200,110 @@ Page({ ...makeFormHandlers(),
   },
   openTask(e) { Nav.open(e.currentTarget.dataset.url); },
   check(e) { this.setData({ ['form.' + e.currentTarget.dataset.key]: e.detail.value.length > 0, error: '' }); },
+  chooseManager(e) { const p = (this.data.managerOptions || [])[Number(e.detail.value)]; if (p) this.setData({ 'form.managerUserId': p.id, 'form.managerName': p.label }); },
   chooseFile(e) {
+    if (this.data.busy) return;
     const key = e.currentTarget.dataset.key;
+    const session = http.sessionGuard(), view = this.view, alive = () => session() && !this.disposed && this.view === view;
     wx.chooseMessageFile({
       count: 1, type: 'file',
       success: async r => {
+        if (!alive()) return;
         try {
-          const f = r.tempFiles[0], saved = await require('../../../utils/creation').persistMedia(f.path);
-          this.setData({ ['form.' + key]: { name: f.name, path: saved, size: f.size }, error: '' });
-        } catch (err) { this.setData({ error: err.message }); }
+          this.setData({ busy: true, error: '' });
+          const f = r.tempFiles[0];
+          const uploaded = await require('../../../utils/commission-assets').upload(f, this.view === 'dispatch' ? 'DESIGN_DELIVERABLE' : 'CONTRACT_ATTACHMENT', alive);
+          if (!alive()) return;
+          this.setData({ ['form.' + key]: uploaded, busy: false, error: '' });
+        } catch (err) { if (alive()) this.setData({ busy: false, error: err.message }); }
       },
-      fail: err => { if (!/cancel/i.test(err.errMsg || '')) this.setData({ error: '文件选择失败，请重新选择' }); }
+      fail: err => { if (alive() && !/cancel/i.test(err.errMsg || '')) this.setData({ error: '文件选择失败，请重新选择' }); }
     });
   },
-  preview(e) {
+  async preview(e) {
     const f = this.data.form[e.currentTarget.dataset.key] || (this.data.rows[Number(e.currentTarget.dataset.index)] || {}).file;
     if (!f) return;
     if (f.text) return this.setData({ preview: { name: f.name, text: f.text } });
     if (f.path) return wx.openDocument({ filePath: f.path, showMenu: true, fail: () => this.setData({ error: '此格式无法直接预览，请核对原文件后继续' }) });
-    if (f.url) return wx.downloadFile({ url: f.url, success: r => wx.openDocument({ filePath: r.tempFilePath, showMenu: true, fail: () => this.setData({ error: '此格式无法直接预览，请核对原文件后继续' }) }), fail: () => this.setData({ error: '附件下载失败，请稍后重试' }) });
+    if (f.slot || f.assetId) {
+      const session = http.sessionGuard(), alive = () => session() && !this.disposed;
+      try {
+        const ticket = f.slot ? await API.commissions.downloadTicket(this.id, f.dispatchSeq, f.slot) : await http.post('/franchise/assets/' + f.assetId + '/download-tickets');
+        if (!alive()) return;
+        const file = await require('../../../utils/b-asset-download').downloadTicketFile({ http, downloadUrl: ticket.downloadUrl, alive, label: '委托附件' });
+        if (!alive()) return;
+        if (/^image\//.test(file.contentType || f.mimeType || '')) return wx.previewImage({ urls: [file.tempFilePath] });
+        return wx.openDocument({ filePath: file.tempFilePath, showMenu: true, fail: () => this.setData({ error: '此格式无法直接预览，请核对原文件' }) });
+      } catch (err) { if (alive()) this.setData({ error: Presentation.errorMessage(err) }); return; }
+    }
     this.setData({ error: '该附件暂无可预览的文件' });
   },
   closePreview() { this.setData({ preview: null }); },
-  completeBudget() { if (this.data.busy || this.view !== 'submit' || this.action !== 'commission-submit') return; Nav.open('/pages/workflow/index?view=budget&id=' + encodeURIComponent(this.id)); },
+  openFeedback() { if (!this.data.busy && this.data.canFeedback) Nav.open(Presentation.url(this.id, 'feedback')); },
+  async decideFee(e) {
+    if (this.data.busy || !this.data.canFeeDecide) return;
+    const approve = e.currentTarget.dataset.approve === true || e.currentTarget.dataset.approve === 'true';
+    const note = String(this.data.form.feeNote || '').trim();
+    if (!approve && !note) return this.setData({ error: '请填写退回原因' });
+    const session = http.sessionGuard(), alive = () => session() && !this.disposed;
+    this.setData({ busy: true, error: '' });
+    try {
+      await API.commissions.feeDecide(this.id, { approve, note }, this.cmdKey('fee-decide-' + approve));
+      if (!alive()) return;
+      this.dropCmdKey('fee-decide-' + approve); this.setData({ busy: false }); this.refresh(true);
+    } catch(e) { if (alive()) this.setData({ busy: false, error: Presentation.errorMessage(e) }); }
+  },
+  completeBudget() { if (this.data.busy || this.view !== 'submit' || this.action !== 'commission-submit') return; Nav.open('/pages/workflow/index?view=budget&id=' + encodeURIComponent(this.customerId)); },
   /** 命令 payload：表单 → 后端字段（金额统一转分，内部键剔除） */
   commandPayload(action) {
     const f = this.data.form;
-    const fileRef = file => file ? { name: file.name, size: file.size, path: file.path, url: file.url } : null;
+    const assetId = file => file && file.assetId ? String(file.assetId) : undefined;
     if (action === 'commission-submit') {
       const text = String(f.text || '').trim(), scope = String(f.scope || '').trim();
       if (!text) throw Error('请填写客户设计需求');
       if (!scope) throw Error('请填写本次交付范围');
       if (!f.checked) throw Error('请勾选确认已核对需求、尺寸来源、交付范围及费用约定');
-      const payload = { text, scope, checked: true, budgetVersion: f.__budgetVersion, attachment: fileRef(f.attachment) };
-      if (f.__pricingVersion) payload.pricingVersion = f.__pricingVersion;
-      if (f.total) { // 分笔费用约定（历史委托沿用）
+      if (!f.__budgetVersion) throw Error('请先完成有效参考预算');
+      const payload = { mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
+      if (f.__mode === 'AREA_FULL') payload.feeRuleVersion = f.__pricingVersion;
+      else if (f.__mode === 'LEGACY_SPLIT') {
         payload.totalCents = Money.parseCents(f.total);
         payload.firstCents = Money.parseCents(f.first);
         payload.recipient = String(f.recipient || '').trim();
         if (!payload.recipient) throw Error('请填写总部实际收款方');
         if (payload.firstCents >= payload.totalCents) throw Error('首款须小于总额');
-      }
+      } else throw Error('当前暂无有效设计费规则，请联系平台设计配置');
       return payload;
     }
     if (action === 'commission-feedback') {
       const note = String(f.note || '').trim();
       if (!note) throw Error('请填写需要线下沟通的修改意见');
-      return { note, attachment: fileRef(f.attachment) };
+      return { note };
     }
     if (action === 'design-complete') {
       if (!f.checked) throw Error('请确认本次线下设计及内部审核已完成');
-      return { note: String(f.note || '').trim(), drawingVersion: String(f.drawingVersion || '').trim(), checked: true };
+      return { note: String(f.note || '').trim(), confirmed: true };
     }
     if (action === 'design-dispatch') {
       if (!String(f.recipient || '').trim() || !String(f.note || '').trim() || !f.checked) throw Error('请填写实际接收人、交付清单或渠道，并确认已经下发');
-      return { recipient: String(f.recipient || '').trim(), drawingVersion: String(f.drawingVersion || '').trim(), note: String(f.note || '').trim(), checked: true };
+      if (!String(f.drawingVersion || '').trim() || !assetId(f.resultFile) || !assetId(f.drawingFile) || !assetId(f.reviewFile)) throw Error('请上传三份正式成果并填写图纸版本');
+      return { recipient: String(f.recipient || '').trim(), drawingVersion: String(f.drawingVersion || '').trim(), note: String(f.note || '').trim(), resultAssetId: assetId(f.resultFile), drawingAssetId: assetId(f.drawingFile), reviewAssetId: assetId(f.reviewFile), confirmed: true };
     }
     if (action === 'packet-submit') {
       if (!String(f.drawingVersion || '').trim()) throw Error('请填写本次施工图版本');
       if (!f.confirmationDate || String(f.confirmationDate) > require('../../../utils/account').localDate()) throw Error('请填写有效的客户确认日期');
       if (!f.received || !f.confirmed || !String(f.note || '').trim()) throw Error('请核对文件、图纸版本、客户确认日期及交底内容');
-      return { resultFile: fileRef(f.resultFile), drawingFile: fileRef(f.drawingFile), reviewFile: fileRef(f.reviewFile), confirmationFile: fileRef(f.confirmationFile), drawingVersion: String(f.drawingVersion || '').trim(), confirmationDate: f.confirmationDate, note: String(f.note || '').trim(), received: true, confirmed: true, dispatchVersion: f.dispatchVersion };
+      if (!assetId(f.confirmationFile) || !/^\d+$/.test(String(f.managerUserId || ''))) throw Error('请上传客户确认凭据并选择有效工程接收人');
+      return { dispatchSeq: f.dispatchVersion, confirmationAssetId: assetId(f.confirmationFile), confirmationDate: f.confirmationDate, note: String(f.note || '').trim(), managerUserId: String(f.managerUserId), confirmed: true };
     }
     if (action === 'packet-return') {
       const note = String(f.note || '').trim();
       if (!note) throw Error('请填写资料退回原因');
-      return { note };
+      return { reason: note, confirmed: true };
     }
     if (action === 'packet-receive') {
       if (!f.checked) throw Error('请核对本次图纸、签认依据和交底资料');
-      return { checked: true };
+      return { confirmed: true };
     }
     return copy(f);
   },
@@ -242,7 +315,8 @@ Page({ ...makeFormHandlers(),
       const rateCents = Money.parseCents(f.rate);
       if (!scope) throw Error('请填写默认交付范围');
       if (!recipient) throw Error('请填写总部收款主体');
-      await API.policies.save({ scope, recipient, rateCents, active: f.active !== false });
+      await API.pricing.save({ scope, recipient, rateCents, active: f.active !== false }, this.cmdKey('pricing-save'));
+      this.dropCmdKey('pricing-save');
       return;
     }
     if (!scope || !recipient) throw Error('请填写交付范围、总部实际收款方');
@@ -254,6 +328,7 @@ Page({ ...makeFormHandlers(),
     if (this.data.busy) return;
     if (this.nextView) return Nav.open(Presentation.url(this.id, this.nextView));
     this.setData({ busy: true, error: '' });
+    const session = http.sessionGuard(), alive = () => session() && !this.disposed;
     try {
       if (this.view === 'policy') { await this.saveRules(false); wx.showToast({ title: '历史规则已保存', icon: 'success' }); }
       else if (this.view === 'pricing') { await this.saveRules(true); wx.showToast({ title: '计价规则已保存', icon: 'success' }); }
@@ -262,8 +337,15 @@ Page({ ...makeFormHandlers(),
         if (!action) throw Error('当前没有可提交的办理动作');
         const payload = this.commandPayload(action);
         // 幂等键：失败时保留原键以便安全重试，成功后作废取新键
-        if (action === 'commission-submit') await API.commissions.submit(this.id, payload, this.cmdKey(action));
-        else await API.commissions.command(this.id, action, payload, this.cmdKey(action));
+        const result = action === 'commission-submit'
+          ? await API.commissions.submit(this.customerId, payload, this.cmdKey(action))
+          : await API.commissions.command(this.id, action, payload, this.cmdKey(action));
+        if (!alive()) return;
+        if (action === 'commission-submit') {
+          const id = result && (result.commissionId || (result.commission && result.commission.id));
+          if (!id) throw Error('委托响应缺少真实编号，请刷新客户委托核对后再办理');
+          this.id = String(id);
+        }
         this.dropCmdKey(action);
         this.action = ''; this.nextView = ''; this.view = 'progress'; this.initialized = false;
         this.setData({ busy: false });
@@ -272,22 +354,28 @@ Page({ ...makeFormHandlers(),
         wx.showToast({ title: '已保存并更新待办', icon: 'success' });
         return;
       }
+      if (!alive()) return;
       this.initialized = false;
       this.setData({ busy: false });
       this.refresh(true);
     } catch (e) {
+      if (!alive()) return;
       this.setData({ error: Presentation.errorMessage(e), busy: false });
+      if (this.view === 'submit') { this.__submitFailure = Presentation.errorMessage(e); this.refresh(false); }
     }
   },
-  returnPacket() {
+  async returnPacket() {
     if (this.data.busy) return;
     const action = 'packet-return';
     this.setData({ busy: true, error: '' });
-    API.commissions.command(this.id, action, this.commandPayload(action), this.cmdKey(action)).then(() => {
+    const session = http.sessionGuard(), alive = () => session() && !this.disposed;
+    try {
+      await API.commissions.command(this.id, action, this.commandPayload(action), this.cmdKey(action));
+      if (!alive()) return;
       this.dropCmdKey(action);
       this.action = ''; this.nextView = ''; this.view = 'progress'; this.initialized = false;
       this.setData({ busy: false });
       this.refresh(true);
-    }).catch(e => this.setData({ error: Presentation.errorMessage(e), busy: false }));
+    } catch(e) { if (alive()) this.setData({ error: Presentation.errorMessage(e), busy: false }); }
   }
 });

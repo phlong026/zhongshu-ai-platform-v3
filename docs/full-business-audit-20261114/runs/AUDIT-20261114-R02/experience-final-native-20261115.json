@@ -1,0 +1,422 @@
+{
+  "startedAt": "2026-11-15T03:23:51.006Z",
+  "project": "unuploaded experience-repair source",
+  "businessEnvironment": "isolated B",
+  "mocked": false,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "console": [
+    {
+      "stage": "real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    }
+  ],
+  "exceptions": [],
+  "steps": [
+    {
+      "step": "identity_order_and_store_boss_only",
+      "ok": true
+    },
+    {
+      "step": "capture_empty_context",
+      "ok": true
+    },
+    {
+      "step": "signed_contract_readback",
+      "ok": true
+    },
+    {
+      "step": "integrated_catalog_home_and_detail",
+      "ok": true
+    }
+  ],
+  "automationWarnings": [],
+  "businessWrites": false,
+  "login": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "needPhone": false,
+    "savedByExistingLoginFinalizer": true
+  },
+  "lastAction": "wait: real case detail images",
+  "identity": [
+    {
+      "postId": "2121621022180384770",
+      "name": "业务员",
+      "orgType": "门店",
+      "lead": "",
+      "selected": false
+    },
+    {
+      "postId": "2121622125286531073",
+      "name": "工程人员",
+      "orgType": "门店",
+      "lead": "",
+      "selected": false
+    },
+    {
+      "postId": "2121622126125391874",
+      "name": "财务专员",
+      "orgType": "门店",
+      "lead": "",
+      "selected": false
+    },
+    {
+      "postId": "2121620613810364417",
+      "name": "老板",
+      "orgType": "门店",
+      "lead": "",
+      "selected": false
+    },
+    {
+      "postId": "2121620216580415490",
+      "name": "设计行政",
+      "orgType": "总部",
+      "lead": "",
+      "selected": true
+    },
+    {
+      "postId": "2121622126905532417",
+      "name": "财务专员",
+      "orgType": "总部",
+      "lead": "",
+      "selected": false
+    }
+  ],
+  "posts": [
+    {
+      "postId": "2121620216580415490",
+      "orgType": "headquarters",
+      "roleCode": "hq-design-admin"
+    },
+    {
+      "postId": "2121620613810364417",
+      "orgType": "store",
+      "roleCode": "boss"
+    },
+    {
+      "postId": "2121621022180384770",
+      "orgType": "store",
+      "roleCode": "sales"
+    },
+    {
+      "postId": "2121622125286531073",
+      "orgType": "store",
+      "roleCode": "engineer"
+    },
+    {
+      "postId": "2121622126125391874",
+      "orgType": "store",
+      "roleCode": "finance"
+    },
+    {
+      "postId": "2121622126905532417",
+      "orgType": "headquarters",
+      "roleCode": "finance"
+    }
+  ],
+  "emptyCapture": {
+    "view": "capture",
+    "contentIsNull": true,
+    "contentType": "object"
+  },
+  "contractReadback": [
+    {
+      "id": "2121804604685508610",
+      "status": "SIGNED",
+      "totalText": "484920.00",
+      "revision": 2
+    }
+  ],
+  "catalog": {
+    "rows": [
+      {
+        "id": "2112123885294055425",
+        "title": "田园一层4室2厅",
+        "coverLoaded": true
+      },
+      {
+        "id": "2111380030663786497",
+        "title": "新中式一层三室一厅",
+        "coverLoaded": true
+      },
+      {
+        "id": "2114876787406245890",
+        "title": "新中式一层2室1厅",
+        "coverLoaded": true
+      },
+      {
+        "id": "2112125436888739841",
+        "title": "田园一层1室1厅",
+        "coverLoaded": true
+      }
+    ],
+    "error": "",
+    "detail": {
+      "id": "2112123885294055425",
+      "title": "田园一层4室2厅",
+      "imageCount": 2,
+      "error": ""
+    }
+  },
+  "completed": true,
+  "endedAt": "2026-11-15T03:24:23.621Z",
+  "requests": [
+    {
+      "stage": "real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 210,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 60,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 65,
+      "result": {}
+    },
+    {
+      "stage": "ordered_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 60,
+      "result": {}
+    },
+    {
+      "stage": "ordered_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 83,
+      "result": {}
+    },
+    {
+      "stage": "ordered_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 114,
+      "result": {}
+    },
+    {
+      "stage": "ordered_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/growth/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 116,
+      "result": {}
+    },
+    {
+      "stage": "ordered_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/drafts",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 122,
+      "result": {}
+    },
+    {
+      "stage": "empty_capture",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/growth/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 46,
+      "result": {}
+    },
+    {
+      "stage": "empty_capture",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/content/growth/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 90,
+      "result": {}
+    },
+    {
+      "stage": "signed_customer_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 57,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "signed_customer_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/customers/2121799549299286017",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 52,
+      "result": {
+        "customerId": "2121799549299286017"
+      }
+    },
+    {
+      "stage": "signed_customer_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/quotes",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 55,
+      "result": {}
+    },
+    {
+      "stage": "signed_customer_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/requirements",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 57,
+      "result": {}
+    },
+    {
+      "stage": "signed_customer_readback",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/sales/contracts",
+      "bodyKeys": [
+        "customerId"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 67,
+      "result": {}
+    },
+    {
+      "stage": "integrated_catalog_home",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design/cases",
+      "bodyKeys": [
+        "limit"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 147,
+      "result": {}
+    },
+    {
+      "stage": "integrated_catalog_home",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design/cases/2111380030663786497/assets/2111380265674833922/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 111,
+      "result": {}
+    },
+    {
+      "stage": "integrated_catalog_home",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design/cases/2112123885294055425/assets/2112124039677997058/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 112,
+      "result": {}
+    },
+    {
+      "stage": "integrated_catalog_home",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design/cases/2114876787406245890/assets/2114876789780221954/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 130,
+      "result": {}
+    },
+    {
+      "stage": "integrated_catalog_home",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design/cases/2112125436888739841/assets/2112125487136501761/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 97,
+      "result": {}
+    },
+    {
+      "stage": "integrated_catalog_detail",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design/cases/2112123885294055425",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 65,
+      "result": {}
+    },
+    {
+      "stage": "integrated_catalog_detail",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design/cases/2112123885294055425/assets/2112124039677997058/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 93,
+      "result": {}
+    },
+    {
+      "stage": "integrated_catalog_detail",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/design/cases/2112123885294055425/assets/2112124010779242498/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 94,
+      "result": {}
+    }
+  ]
+}

@@ -4,7 +4,7 @@
   <block wx:if="{{guest}}">
     <login-guide title="工程工作台" description="在建项目、施工计划、材料到货与节点验收按岗位授权开放，登录后查看本人工作台。" />
   </block>
-  <workbench-denied wx:elif="{{!canWork}}" title="{{active?'当前岗位无工程办理权限':'登录后查看工程工作台'}}" lines="{{['当前身份：'+(roleLabel||'访客'),'工程办理按工程人员、工程负责人及管理岗位授权开放。请返回本人工作台办理岗位事项。']}}" home-title="{{homeTitle}}" active="{{active}}" bind:home="goTab" bind:identity="openAction"/><block wx:else>
+  <workbench-denied wx:elif="{{!canWork}}" title="{{active?'当前岗位无工程办理权限':'登录后查看工程工作台'}}" lines="{{['当前身份：'+(roleLabel||'访客'),'工程办理按工程人员、工程负责人及管理岗位授权开放。请返回本人工作台办理岗位事项。']}}" home-title="{{homeTitle||''}}" active="{{active}}" bind:home="goTab" bind:identity="openAction"/><block wx:else>
     <view class="section"><view class="section-heading"><text class="section-title">项目总览</text><button class="guest-section-link" data-action="projects" bindtap="openAction">全部项目<image src="/pages/engineering/assets/arrow.png" mode="aspectFit"/></button></view>
       <view class="eng-shortcuts">
         <button data-action="projects" bindtap="openAction" hover-class="pressed"><image src="/pages/engineering/assets/folder.png" mode="aspectFit"/><view><text class="eng-shortcut-label">我的项目</text><view class="eng-shortcut-number">{{projectCount}}<text>个</text></view></view></button>

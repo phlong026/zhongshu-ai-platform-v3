@@ -11,7 +11,7 @@ Page({
  input(e){baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
  data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,samplePreview:null,expenseMode:'register'},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.nodeId=o.nodeId||'';this.stage=o.stage==='topping'?'topping':o.stage==='base'?'base':'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
- onShow(){if(this.id)this.refresh();
+ onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__identity=identity;this.initialized=false;this.__idemKeys={};this.setData({p:null,form:{},fields:[],actions:[],docs:[],fileNames:{},samplePreview:null,busy:false,error:''});}if(this.id)this.refresh();
   },
  refresh(reset=false){if(P.online())return this.refreshOnline(reset);this.setData({p:null,error:'请先登录后端账号'});}, // 本地数据分支已下线：在线走 API，离线只留登录提示与空态
  jumpNodeSection(e){const selector=e.currentTarget.dataset.section==='inspection'?'.node-inspection':this.data.fields.length?'.record-fields':'.node-site-records',info=getApp().globalData.windowInfo||wx.getWindowInfo(),header=(info.statusBarHeight||20)+(info.windowWidth||375)*87/750+12;const q=wx.createSelectorQuery();q.select(selector).boundingClientRect();q.selectViewport().scrollOffset();q.exec(r=>{if(r[0])wx.pageScrollTo({scrollTop:Math.max(0,r[0].top+(r[1]?.scrollTop||0)-header),duration:150});});},
@@ -25,24 +25,46 @@ Page({
  applyTemplate(e){try{const nodes=R.applyTemplate(this.data.p,this.data.templates[this.data.templateIndex]);this.setData({'form.nodes':nodes,error:''});wx.showToast({title:'已恢复标准节点清单，请逐项填写日期',icon:'none',duration:2500});}catch(err){this.fail(err.message);}},
  importPlan(){wx.chooseMessageFile({count:1,type:'file',extension:['xlsx'],success:r=>{try{const f=r.tempFiles[0],res=SI.importNodes(wx.getFileSystemManager().readFileSync(f.path));this.setData({'form.nodes':res.nodes,error:''});wx.showToast({title:res.notice||'已导入'+res.nodes.length+'个节点，请核对日期',icon:'none',duration:2500});}catch(err){this.fail(err.message);}}});},
  addLine(){this.setData({'form.lines':this.data.form.lines.concat({name:'',spec:'',quantity:'',unit:'包'})});},
- upload(e){const key=e.currentTarget.dataset.key||'file',multi=this.data.view==='node'&&key==='file',demo=!Files.release()&&X.context().demo,itemList=['拍照或从相册选择','选择聊天文件'];if(demo)itemList.push('使用参考凭据');wx.showActionSheet({itemList,success:r=>{if(r.tapIndex===2)return this.useSampleFile({currentTarget:{dataset:{sampleKey:key}}});if(r.tapIndex===0)return wx.chooseMedia({count:multi?9:1,mediaType:['image'],sourceType:['album','camera'],success:r=>{const files=r.tempFiles.map((f,i)=>({name:'现场照片-'+(i+1)+'.jpg',path:f.tempFilePath}));let saved=0;files.forEach(f=>wx.saveFile({tempFilePath:f.path,success:res=>{f.path=res.savedFilePath;if(++saved===files.length)this.setPhotos(key,files,multi);},fail:()=>this.fail('照片保存失败，请重新选择')}));}});wx.chooseMessageFile({count:1,type:'all',success:r=>{const f=r.tempFiles[0];wx.saveFile({tempFilePath:f.path,success:r=>this.setFile(key,{name:f.name,path:r.savedFilePath}),fail:()=>this.fail('凭据保存失败，请重新选择')});}});}});},
+ fileSelectionGuard(){const http=require('../../../api/http'),current=http.sessionGuard(),post=http.currentPostId(),id=this.id,view=this.data.view;return()=>current()&&!this.__disposed&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);},
+ upload(e){
+  const alive=this.fileSelectionGuard(),key=e.currentTarget.dataset.key||'file',multi=this.data.view==='node'&&key==='file',demo=!Files.release()&&X.context().demo,itemList=['拍照或从相册选择','选择聊天文件'];
+  if(demo)itemList.push('使用参考凭据');
+  wx.showActionSheet({itemList,success:r=>{
+   if(!alive())return;
+   if(r.tapIndex===2)return this.useSampleFile({currentTarget:{dataset:{sampleKey:key}}});
+   if(r.tapIndex===0)return wx.chooseMedia({count:multi?9:1,mediaType:['image'],sourceType:['album','camera'],success:r=>{
+    if(!alive())return;const files=r.tempFiles.map((f,i)=>({name:'现场照片-'+(i+1)+'.jpg',path:f.tempFilePath}));let saved=0;
+    files.forEach(f=>wx.saveFile({tempFilePath:f.path,success:res=>{if(!alive())return;f.path=res.savedFilePath;if(++saved===files.length)this.setPhotos(key,files,multi);},fail:()=>{if(alive())this.fail('照片保存失败，请重新选择');}}));
+   }});
+   wx.chooseMessageFile({count:1,type:'all',success:r=>{if(!alive())return;const f=r.tempFiles[0];if(!f)return;wx.saveFile({tempFilePath:f.path,success:r=>{if(alive())this.setFile(key,{name:f.name,path:r.savedFilePath});},fail:()=>{if(alive())this.fail('凭据保存失败，请重新选择');}});}});
+  }});
+ },
  useSampleFile(e){try{const key=e.currentTarget.dataset.sampleKey||e.currentTarget.dataset.key||'file',p=this.data.p,form=this.data.form,node=this.data.node,plan=this.data.plan,purpose={termsFile:'实际采购凭据',nodeFile:'节点验收更正凭据',siteFile:'现场记录更正凭据'}[key]||({prepare:'双方已签工程合同',start:'实际开工凭据',collection:'实际收款凭据',material:'实际到货凭据',node:'现场及验收凭据',delivery:'业主签收凭据',settlement:'结算确认凭据'}[this.data.view]||titles[this.data.view]+'办理凭据'),details=['工程阶段：'+titles[this.data.view],node?'施工节点：'+node.name+'（'+node.id+'）':'',form.date?'记录日期：'+form.date:'',form.total?'合同总额：'+form.total+'元':'',form.first?'开工款：'+form.first+'元':'',form.amount?'本次金额：'+form.amount+'元':'',form.transaction?'流水编号：'+form.transaction:'',form.receiver?'实际收款方：'+form.receiver:'',form.recipient?'签收人：'+form.recipient:'',plan?'材料计划：'+plan.id+' · '+plan.lines.map(line=>line.name).join('、'):'',form.note?'记录说明：'+form.note:''].filter(Boolean),sourceParty=form.receiver||form.recipient||X.context().name,confirmationParty=this.data.view==='delivery'?form.recipient:'',flowVersion=p.recordFlow?.version||1,version=['prepare','start','collection'].includes(this.data.view)?'工程合同V'+(p.recordFlow?.contract?.version||flowVersion):plan?'材料计划 '+plan.id:node?'施工计划V'+(p.plan?.version||flowVersion)+' · 节点'+node.id:p.drawingVersion||'工程资料V'+flowVersion;this.setFile(key,Files.reference({scope:'project',name:purpose+'参考凭据.pdf',customer:p.customer,customerId:p.sourceCustomerId,project:p.name,projectId:p.projectId||p.id,version,sourceParty,confirmationParty,purpose,details}));}catch(error){this.fail(error.message);}},
  setFile(key,file){this.setData({['form.'+key]:file,['fileNames.'+key]:Files.displayFile(file).name});},
  setPhotos(key,files,multi){if(!files.length)return;this.setData({['form.'+key]:files[0],...(multi?{['form.files']:files}:{}),['fileNames.'+key]:files.length>1?'已选'+files.length+'张照片':Files.displayFile(files[0]).name});},
- preview(e){const f=Files.displayFile(e.currentTarget.dataset.file);if(!f)return;if(f.path){if(/\.(png|jpe?g|webp|gif)$/i.test(f.name||''))return wx.previewImage({urls:[f.path]});wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.fail('文件暂时无法打开')});}else this.setData({samplePreview:f.previewKind?{...f,previewImage:({result:'/pages/build/assets/commission-result.jpg',drawing:'/pages/build/assets/commission-plan.jpg'})[f.previewKind]||'',projectName:this.data.p?.name||'',projectId:this.data.p?.projectId||''}:f});},
+ preview(e){const raw=e.currentTarget.dataset.file;if(raw&&raw.assetId)return this.previewAsset({currentTarget:{dataset:raw}});const f=Files.displayFile(raw);if(!f)return;if(f.path){if(/\.(png|jpe?g|webp|gif)$/i.test(f.name||''))return wx.previewImage({urls:[f.path]});wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.fail('文件暂时无法打开')});}else if(P.online())this.fail('资料尚未关联有效文件，请联系业务人员补充');else this.setData({samplePreview:f.previewKind?{...f,previewImage:({result:'/pages/build/assets/commission-result.jpg',drawing:'/pages/build/assets/commission-plan.jpg'})[f.previewKind]||'',projectName:this.data.p?.name||'',projectId:this.data.p?.projectId||''}:f});},
  zoomSampleImage(){const image=this.data.samplePreview?.previewImage;if(image)wx.previewImage({current:image,urls:[image]});},
- previewAsset(e){ // M07-T04 批次#36/R1 P1-5：在线凭据授权查看——downloadTicket 票据→图片预览或文档打开
-  const id=e.currentTarget.dataset.assetId;if(!id)return;
-  const engApi=require('../../../api/franchise/engineering');
-  engApi.assets.downloadTicket(id).then(t=>{
-    const url=t&&t.downloadUrl||'';
-    if(!url||url.indexOf('local://')===0)return wx.showToast({title:'本地通道无在线预览，随 COS 批开放',icon:'none'});
-    if(/\.(png|jpe?g|webp|gif)$/i.test(url.split('?')[0]))return wx.previewImage({urls:[url]}); // R2 P1-7：按 pathname 分流（COS 签名参数不破坏扩展名判断）
-    wx.downloadFile({url,success:r=>wx.openDocument({filePath:r.tempFilePath,fail:()=>this.fail('文档打开失败')}),fail:()=>this.fail('下载失败，请重试')});
-  }).catch(err=>this.fail((err&&err.msg)||'授权查看失败，请重试'));
+ async previewAsset(e){
+  const d=e.currentTarget.dataset,id=d.assetId;if(!id)return;
+  const http=require('../../../api/http'),sessionAlive=http.sessionGuard(),postId=http.currentPostId();
+  const alive=()=>!this.__previewClosed&&sessionAlive()&&String(http.currentPostId())===String(postId);
+  try{
+   const t=d.commissionId&&d.dispatchSeq&&d.slot
+    ?await http.post('/franchise/commissions/'+encodeURIComponent(d.commissionId)+'/dispatches/'+encodeURIComponent(d.dispatchSeq)+'/files/'+encodeURIComponent(d.slot)+'/download-tickets')
+    :await require('../../../api/franchise/engineering').assets.downloadTicket(id);
+   if(!alive())return;
+   const file=await require('../../../utils/b-asset-download').downloadTicketFile({http,downloadUrl:t&&t.downloadUrl,alive,label:'工程资料'});
+   if(!alive())return;
+   if(/^image\//i.test(file.contentType))return wx.previewImage({urls:[file.tempFilePath]});
+   wx.openDocument({filePath:file.tempFilePath,...(/application\/pdf/i.test(file.contentType)?{fileType:'pdf'}:{}),showMenu:true,fail:()=>{if(alive())this.fail('文档打开失败');}});
+  }catch(err){if(alive())this.fail((err&&err.msg)||(err&&err.message)||'授权查看失败，请重试');}
  },
+ onHide(){this.__inactive=true;this.__previewClosed=true;},
+ onUnload(){this.__disposed=true;this.__previewClosed=true;},
  closeSamplePreview(){this.setData({samplePreview:null});},
   async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败只显示错误态
+   const http=require('../../../api/http'),current=http.requestGuard('engineering-record:'+this.id+':'+this.data.view),id=this.id,view=this.data.view,post=http.currentPostId();
+   const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);
    try{
     // 费用视图并行预拉清单（失败不阻断详情渲染，清单区显示空）
     const expensePull=this.data.view==='expenses'
@@ -50,6 +72,7 @@ Page({
       : null;
     const bundle=await P.loadProject(this.id);
     const expenses=expensePull?await expensePull:null;
+    if(!alive())return;
     const apiPost=(()=>{try{const http=require('../../../api/http');return http.token()?require('../../../api/auth').currentApiPost():null;}catch(e){return null;}})();
     const apiRole=apiPost&&apiPost.roleCode||'';
     const data=P.recordView(bundle,{view:this.data.view,stage:this.stage,planId:this.planId,nodeId:this.nodeId,
@@ -57,13 +80,14 @@ Page({
       today:require('../../../utils/account').localDate(),
       writeRole:['engineer','project-manager'].includes(apiRole),
       financeRole:O.has(apiRole,'finance'),
+      termsRole:apiPost?.orgType==='store'&&(O.has(apiRole,'finance')||['boss','owner'].includes(apiRole)),
       expenses:expenses||undefined,expenseMode:this.data.expenseMode||'register'}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
     this.initialized=true;
     // 收款登记承接：原收款记录行统一指财务台收支页（finance-desk 承接收款登记）
     data.collections=(data.collections||[]).map(r=>({...r,url:'/pages/admin/finance-desk/index?view=flows&tab=receivables'}));
     this.setData({...data,view:this.data.view,title:titles[this.data.view],nodeId:this.nodeId,
       error:'',platEng:true,busy:false});
-   }catch(e){ // 失败显示错误态（不回落本地演示数据），平台错误以 toast 保留
+   }catch(e){if(!alive())return; // 失败显示错误态（不回落本地演示数据），平台错误以 toast 保留
     const msg=P.errorText(e&&e.data?e.data:e);
     this.setData({p:null,error:msg});
     wx.showToast({title:msg,icon:'none'});
@@ -71,6 +95,8 @@ Page({
   },
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
    if(this.data.busy)return;
+   const http=require('../../../api/http'),current=http.sessionGuard(),id=this.id,view=this.data.view,post=http.currentPostId();
+   const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);
    this.setData({busy:true,error:''});
    // 幂等键复合（Codex R1 P1-2/R2 P1/R3 P1/R4 P1）：按 action 显式选目标字段——节点系（含 material-plan）
    // 绑表单 nodeId、期次系绑 stage、对象系绑各自 ID；未列动作（交付/结算/归档等）一律项目级，不回落活动节点。
@@ -93,14 +119,15 @@ Page({
    }
    try{
     await P.perform(action,String(this.id),f0,node||this.data.node,cached.key);
+    if(!alive())return;
     delete this.__idemKeys[idemId]; // 成功后释放；失败保留，同目标同内容重试复用同键（指纹匹配时）
     wx.showToast({title:'已在线保存',icon:'success'});
     // Codex R1 P2-1：费用登记成功后清空表单（防旧名称/金额残留一键重复计成本）
     if(action==='expense-register')this.setData({'form.expenseName':'','form.expenseAmount':'','form.note':''});
     await this.refreshOnline(true);
-   }catch(e){const msg=P.errorText(e&&e.data?e.data.data||e.data:e);
+   }catch(e){if(!alive())return;const msg=P.errorText(e&&e.data?e.data.data||e.data:e);
     this.setData({error:msg});wx.showToast({title:msg,icon:'none'});}
-   finally{this.setData({busy:false});}
+   finally{if(alive())this.setData({busy:false});}
   },
   perform(e){if(this.data.busy)return; // 本地 R.run 分支已下线：无条件在线；离线态 fields/actions 为空天然禁用
   const action=e.currentTarget.dataset.action,f={...this.data.form};
@@ -130,7 +157,19 @@ Page({
  pickSite(e){const r=this.data.siteRecords.find(r=>r.id===e.currentTarget.dataset.id);if(r)this.setData({'form.siteId':r.id,'form.siteNote':r.note,'form.siteFile':r.file||null,'form.siteReason':''});},
  cancelCorrection(){this.setData({'form.correctId':'','form.siteId':''});},
  go(e){const d=e.currentTarget.dataset;if(d.url)Nav.open(d.url);},
- operating(e){const p=this.data.p;Nav.open('/pages/admin/home/index?view=operating&id='+encodeURIComponent(p.projectId)+((this.data.view==='funding'||this.data.view==='node')&&this.data.node?'&nodeId='+encodeURIComponent(this.data.node.id):''));}, // 经营视图由 owner-page 承接
+ operating(e){
+  const p=this.data.p;
+  if(P.online()){
+   const http=require('../../../api/http'),alive=http.sessionGuard(),postId=String(http.currentPostId()),post=require('../../../api/auth').currentApiPost();
+   const identity=postId+':'+http.sessionGeneration();
+   if(!alive()||this.__disposed||this.__inactive||this.__identity!==identity||!p||String(p.id)!==String(this.id)||String(p.projectId)!==String(this.id))
+    return this.fail('项目或身份已更新，请刷新后重新进入项目账');
+   // .3 原付款入口保留工程归属；B 使用已有项目账，不进入丢失项目上下文的老板首页。
+   if(e.currentTarget.dataset.view==='payables'&&post?.orgType==='store'&&['boss','owner','finance','finance-lead'].includes(post.roleCode))
+    return Nav.open('/pages/admin/finance-desk/index?view=project&id='+encodeURIComponent(String(this.id)));
+  }
+  Nav.open('/pages/admin/home/index?view=operating&id='+encodeURIComponent(p.projectId)+((this.data.view==='funding'||this.data.view==='node')&&this.data.node?'&nodeId='+encodeURIComponent(this.data.node.id):''));
+ },
  home(){Nav.open('/pages/build/home/index');},back(){Nav.back();},
  fail(error){this.setData({error});wx.showToast({title:error,icon:'none'});}
 });

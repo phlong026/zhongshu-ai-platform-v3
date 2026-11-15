@@ -1,0 +1,294 @@
+{
+  "runId": "AUDIT-20261114-R02",
+  "clientTimezone": "Asia/Shanghai",
+  "date": "2026-11-14",
+  "scope": "隔离环境和任职准备及只读接口预检，尚未开始连续业务办理",
+  "frontend": {
+    "sourceCommit": "ea3cb2aa111f849af25ca979f35269b377331111",
+    "preparedProjectPath": "/var/folders/fk/mkvjzrk94_1f6z5f598pckcw0000gn/T/zs-full-flow-audit-20261114-qudc4mky/project",
+    "preparedProjectImported": false,
+    "domainValidationEnabled": true,
+    "defaultProductionApiChanged": false,
+    "preparedApiBase": "https://platform.zszhj.com/admin-api"
+  },
+  "remoteB": {
+    "host": "124.223.61.18",
+    "service": "zhongshu-platform-b-integration.service",
+    "activeProfiles": "pg,integration",
+    "bindAddress": "127.0.0.1:48081",
+    "jarSha256": "831e5ffcd3e534a2a534d3420b92e3a2e43f5d81614d57c070c0c9da184268e8",
+    "health": "UP",
+    "ownerPurpose": "isolated joint testing",
+    "productionApproval": false,
+    "businessModuleClassesMatchLocalBuild": [
+      "authz",
+      "sales",
+      "commission",
+      "engineering"
+    ],
+    "identityModuleClassesMatchLocalBuild": false,
+    "localBackendHeadObserved": "8bc9516aad9e3f25bd9650c823a457091b52670b"
+  },
+  "publicIngress": {
+    "api2.zszhj.com": {
+      "tlsValidated": true,
+      "health": "UP",
+      "nginxUpstream": "http://127.0.0.1:48080",
+      "routesToNewB": false
+    },
+    "api.zszhj.com": {
+      "tlsValidated": true,
+      "health": "UP",
+      "nginxUpstream": "http://127.0.0.1:48080"
+    },
+    "platform-api.zszhj.com": {
+      "dnsResolved": false
+    },
+    "platform-admin.zszhj.com": {
+      "dnsResolved": false
+    },
+    "devtoolsLocalProbe": {
+      "url": "http://127.0.0.1:48081/actuator/health",
+      "result": "request:fail url not in domain list",
+      "domainValidationChanged": false
+    },
+    "requestedUserInput": "DNSPod浏览器操作连接连续超时；已请用户添加platform A记录，等待完成",
+    "selectedDomain": "platform.zszhj.com",
+    "dnsConsoleObservedRecords": [
+      {
+        "name": "@",
+        "type": "A",
+        "value": "124.223.61.18",
+        "ttl": 600
+      },
+      {
+        "name": "api",
+        "type": "A",
+        "value": "124.223.61.18",
+        "ttl": 600
+      },
+      {
+        "name": "api2",
+        "type": "A",
+        "value": "124.223.61.18",
+        "ttl": 600
+      }
+    ],
+    "dnsConsoleRecordCount": 3,
+    "DNSRecordCreatedByThisRun": false,
+    "BOnlyAcmeSite": {
+      "serverName": "platform.zszhj.com",
+      "path": "/etc/nginx/conf.d/zhongshu-platform-b-integration.conf",
+      "nginxTest": "passed",
+      "gracefulReload": "succeeded",
+      "existingSiteFilesModified": false,
+      "certificateIssued": false,
+      "businessProxyEnabled": false
+    }
+  },
+  "provider": {
+    "service": "zhongshu-platform-b-integration-provider.service",
+    "observedState": "activating/auto-restart",
+    "exitCode": 1,
+    "failureBoundary": "DurableServiceDesignBilling.requireReady -> NotePolishService.serviceReceipt -> serviceRequest transport exception wrapped as business 502",
+    "configuredRuntimeOrigin": "http://127.0.0.1:18082",
+    "rootCauseInvestigation": "配置指向服务器上未监听的18082且未找到B独立Runtime；另有启动期JDBC InterruptedException，是否独立故障待证实",
+    "configuredRuntimeListenerConfirmed": false
+  },
+  "testAppointmentPreparation": {
+    "environment": "remote_B_pg_integration_via_SSH_tunnel",
+    "userId": 145,
+    "before": [
+      {
+        "postId": "2121619170781044738",
+        "orgId": 118,
+        "orgType": "headquarters",
+        "roleCode": "boss"
+      },
+      {
+        "postId": "2121620216580415490",
+        "orgId": 118,
+        "orgType": "headquarters",
+        "roleCode": "hq-design-admin"
+      },
+      {
+        "postId": "2121620613810364417",
+        "orgId": 119,
+        "orgType": "store",
+        "roleCode": "boss"
+      },
+      {
+        "postId": "2121621022180384770",
+        "orgId": 119,
+        "orgType": "store",
+        "roleCode": "sales"
+      }
+    ],
+    "changes": [
+      {
+        "orgId": 119,
+        "roleCode": "engineer",
+        "postId": "2121622125286531073",
+        "code": 0,
+        "status": "added_in_B_integration"
+      },
+      {
+        "orgId": 119,
+        "roleCode": "finance",
+        "postId": "2121622126125391874",
+        "code": 0,
+        "status": "added_in_B_integration"
+      },
+      {
+        "orgId": 118,
+        "roleCode": "finance",
+        "postId": "2121622126905532417",
+        "code": 0,
+        "status": "added_in_B_integration"
+      }
+    ],
+    "after": [
+      {
+        "postId": "2121619170781044738",
+        "orgId": 118,
+        "orgType": "headquarters",
+        "roleCode": "boss"
+      },
+      {
+        "postId": "2121620216580415490",
+        "orgId": 118,
+        "orgType": "headquarters",
+        "roleCode": "hq-design-admin"
+      },
+      {
+        "postId": "2121620613810364417",
+        "orgId": 119,
+        "orgType": "store",
+        "roleCode": "boss"
+      },
+      {
+        "postId": "2121621022180384770",
+        "orgId": 119,
+        "orgType": "store",
+        "roleCode": "sales"
+      },
+      {
+        "postId": "2121622125286531073",
+        "orgId": 119,
+        "orgType": "store",
+        "roleCode": "engineer"
+      },
+      {
+        "postId": "2121622126125391874",
+        "orgId": 119,
+        "orgType": "store",
+        "roleCode": "finance"
+      },
+      {
+        "postId": "2121622126905532417",
+        "orgId": 118,
+        "orgType": "headquarters",
+        "roleCode": "finance"
+      }
+    ],
+    "businessDocumentsCreated": false,
+    "revocationApi": "DELETE /platform/org/posts/{postId} with owning org admin post; only revoke newly added test appointments"
+  },
+  "authenticatedReadOnlyApiPreflight": [
+    {
+      "name": "hq-design-pricing",
+      "path": "/franchise/design-policies/current",
+      "http": 200,
+      "code": 403,
+      "msg": "没有该操作权限",
+      "dataType": "NoneType"
+    },
+    {
+      "name": "store-fee-policy",
+      "path": "/franchise/design-policies/current",
+      "http": 200,
+      "code": 1111000005,
+      "msg": "本门店尚未配置标准设计费用",
+      "dataType": "NoneType"
+    },
+    {
+      "name": "hq-design-list",
+      "path": "/franchise/commissions?pageNo=1&pageSize=10",
+      "http": 200,
+      "code": 0,
+      "msg": "",
+      "dataType": "dict",
+      "dataKeys": [
+        "total",
+        "list"
+      ],
+      "total": 0
+    },
+    {
+      "name": "engineering-projects",
+      "path": "/franchise/engineering/projects?pageNo=1&pageSize=10",
+      "http": 200,
+      "code": 0,
+      "msg": "",
+      "dataType": "list"
+    }
+  ],
+  "acceptance": {
+    "environmentAlignment": "partial",
+    "testAppointments": "prepared_and_read_back_via_normal_API",
+    "realWechatLoginInNewB": "not_verified",
+    "clientDesignEngineeringFinanceUIFlow": "not_started",
+    "newCustomersContractsProjectsOrFinancialEntries": false,
+    "paidGenerationOrActualPayments": false,
+    "productionRestartOrDeployment": false,
+    "originalSystemAChanged": false
+  },
+  "blockingIssues": [
+    "missing_confirmed_legal_HTTPS_ingress_for_new_B",
+    "provider_readiness_failure",
+    "hq_design_pricing_endpoint_business_403",
+    "standard_design_fee_rule_not_configured",
+    "identity_artifact_version_difference_requires_verification"
+  ],
+  "updates20261115": {
+    "domain": "platform.zszhj.com",
+    "authoritativeDNS": {
+      "type": "A",
+      "value": "124.223.61.18",
+      "ttl": 600,
+      "recordAlreadyExistedWhenTurnResumed": true,
+      "duplicateAddedByThisRun": false
+    },
+    "https": {
+      "certificateIssuer": "LetsEncrypt YE2",
+      "certificateSubject": "platform.zszhj.com",
+      "notAfterAsiaShanghai": "2027-02-13T06:33:39+08:00",
+      "siteSha256": "e5a5328394b75ded4514d7b7a0a59724bc27785d1569ba6d000aa5903b3382b2",
+      "nginxTest": "passed",
+      "gracefulReload": "succeeded",
+      "authenticatedApiBusinessCode": 0,
+      "unauthenticatedApiBusinessCode": 401,
+      "internalPathsHttpStatus": 404,
+      "oldApiHealth": "UP",
+      "oldApi2Health": "UP",
+      "businessProxyEnabled": true
+    },
+    "BProviderObservedState": "active/running",
+    "officialDevtoolsDomainProbe": {
+      "date": "2026-11-15",
+      "source": "Official miniprogram-automator in WeChat DevTools",
+      "urlCheck": true,
+      "appId": "wxe584f6fad7b54487",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "businessWrites": false,
+      "result": {
+        "transport": "failed",
+        "errMsg": "request:fail url not in domain list"
+      }
+    },
+    "remainingFrontendGate": "微信公众平台request合法域名尚未包含新域名，实际wx.request返回url not in domain list",
+    "businessFlowUIAcceptance": "not_started",
+    "originalSystemAChanged": false
+  },
+  "evidenceSnapshotPolicy": "基础字段为2026-11-14初始观察；updates20261115为最新进展，明确覆盖已变化的DNS、HTTPS和Provider状态"
+}
