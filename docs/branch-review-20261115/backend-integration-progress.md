@@ -21,3 +21,10 @@
 1. 提交本分支处置与验证文档。
 2. 更新最终 `/tmp/zhongshu-backend-integration-20261115/report.json`、命令索引与提交后 clean/祖先关系证据。
 3. 由主代理安排独立只读 review；本分支不 push、不合并。
+
+## 独立初审 round 1
+
+- 初审结论 `REQUEST_CHANGES`（P1=2、P2=3），冻结点 `91136bb5`。
+- 绩效导出 N+1、审计时序、未知 stage、Snowflake ID 精度和 delivery 旧 hash PG 覆盖均已按初审要求整改。
+- 新鲜专项：`PerfCommissionExport*` 43/43；`FranchiseCommandsTest + SchemeViewTest + SaleDelivery* + SaleQuoteBudgetIntegrationTest` 合计 15/15。
+- 查询计数与审计调用顺序原始日志在 `/tmp/zhongshu-backend-integration-20261115/review-fix-round1-*`。

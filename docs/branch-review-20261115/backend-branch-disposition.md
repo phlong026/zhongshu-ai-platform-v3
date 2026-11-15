@@ -62,3 +62,10 @@
 - 原始分支矩阵：`/tmp/zhongshu-branch-review-matrix-20261115.json`、`/tmp/zhongshu-backend-integration-20261115/matrix.tsv`
 - 命令、测试、构建、格式与安全日志：`/tmp/zhongshu-backend-integration-20261115/`
 - 历史远程保存回执：本次只作分支来源证据，不替代当前候选验证。
+
+## 独立初审整改
+
+- P1 正常 payable 导出：工程/统一合同阶段约定、实收、退款和签名改为每 500 员工的批次 SQL 集合派生，`RowCallbackHandler` 不再访问数据库。501 员工且 payable 非空的真实 PG 回归实测写出阶段共 2 条 SQL（两批）。
+- P1 审计边界：首字节前通过既有同步 `OperateLogApiImpl -> OperateLogServiceImpl` 持久化 `attempt`，全部 flush 后再记 `success`。独立 PG 连接在第一次 output write 时已可见 attempt；审计建立失败为 0 字节，客户端中断保留 attempt 且无 success。
+- P2 数据边界：方案 stage 仅精确 `formal` 返回 formal，其余统一 reference；超过 15 位的员工 Snowflake ID 以前置单引号的电子表格文本输出，金额仍是 `BigDecimal` 数值。
+- P2 旧 hash 兼容：新增隔离 PG 回归，覆盖同业务回放、换 requirement、缺 delivery、旧事件跨 org、失败无新业务/命令行与外层事务回滚。
