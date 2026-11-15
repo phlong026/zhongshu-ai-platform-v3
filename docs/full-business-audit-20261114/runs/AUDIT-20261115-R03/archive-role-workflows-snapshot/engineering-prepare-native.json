@@ -1,0 +1,390 @@
+{
+  "startedAt": "2026-11-15T05:01:26.119Z",
+  "endedAt": "2026-11-15T05:01:53.005Z",
+  "completed": true,
+  "mocked": true,
+  "mockedScope": [
+    "showActionSheet",
+    "chooseMessageFile"
+  ],
+  "businessApiMocked": false,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "login": {
+    "http": 200,
+    "code": 0,
+    "userId": 145,
+    "needPhone": false,
+    "savedByExistingLoginFinalizer": true
+  },
+  "steps": [
+    {
+      "step": "real_upload_and_engineering_prepare",
+      "ok": true,
+      "projectId": "2121825845924421634"
+    }
+  ],
+  "requests": [
+    {
+      "stage": "real_wechat_login",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/platform/auth/wechat-login",
+      "bodyKeys": [
+        "appid",
+        "loginCode",
+        "needPhone"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 281,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/posts/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 68,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/commissions",
+      "bodyKeys": [
+        "pageNo",
+        "pageSize"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 56,
+      "result": {}
+    },
+    {
+      "stage": "real_wechat_login",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/profile/mine",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 49,
+      "result": {
+        "id": 145
+      }
+    },
+    {
+      "stage": "engineer_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/projects",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 59,
+      "result": {}
+    },
+    {
+      "stage": "engineer_identity",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/platform/todos",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 129,
+      "result": {}
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 64,
+      "result": {
+        "status": "PENDING_START",
+        "id": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/collections",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 64,
+      "result": {}
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/followups",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 139,
+      "result": {}
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/materials/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 140,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/settle-summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 142,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/collections",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 150,
+      "result": {}
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 187,
+      "result": {
+        "status": "PENDING_START",
+        "id": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/followups",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 236,
+      "result": {}
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/materials/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 247,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/settle-summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 246,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/upload-tickets",
+      "bodyKeys": [
+        "assetType",
+        "mimeType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 72,
+      "result": {
+        "assetId": "2121830993927634944"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "PUT",
+      "url": "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com/franchise/1/119/uploads/2121830993927634944.pdf",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": "",
+      "durationMs": 181
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121830993927634944/complete",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 230,
+      "result": {
+        "assetId": "2121830993927634944",
+        "uploadStatus": "ACCEPTED"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121830993927634944/download-tickets",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 66,
+      "result": {}
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/upload-tickets",
+      "bodyKeys": [
+        "assetType",
+        "mimeType",
+        "sizeBytes",
+        "sha256"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 71,
+      "result": {
+        "assetId": "2121831010541273088"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "PUT",
+      "url": "https://zhongshu-platform-b-assets-1397776231.cos.ap-shanghai.myqcloud.com/franchise/1/119/uploads/2121831010541273088.pdf",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": "",
+      "durationMs": 80
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/assets/2121831010541273088/complete",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 180,
+      "result": {
+        "assetId": "2121831010541273088",
+        "uploadStatus": "ACCEPTED"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "POST",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/prepare",
+      "bodyKeys": [
+        "total",
+        "signAfter",
+        "baseDone",
+        "capDone",
+        "contractAssetId",
+        "note",
+        "workers"
+      ],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 111,
+      "result": {
+        "status": "PENDING_START",
+        "id": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/followups",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 57,
+      "result": {}
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 63,
+      "result": {
+        "status": "PENDING_START",
+        "id": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/collections",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 63,
+      "result": {}
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/settle-summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 134,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    },
+    {
+      "stage": "engineering_prepare",
+      "method": "GET",
+      "url": "https://platform.zszhj.com/admin-api/franchise/engineering/2121825845924421634/materials/summary",
+      "bodyKeys": [],
+      "http": 200,
+      "businessCode": 0,
+      "durationMs": 323,
+      "result": {
+        "projectId": "2121825845924421634"
+      }
+    }
+  ],
+  "console": [
+    {
+      "stage": "real_wechat_login",
+      "level": "warn",
+      "message": "[Perf] 全局自定义组件可能影响按需注入的效果，请谨慎使用（在 app.json 中检测到 4 个）。\n参考 https://developers.weixin.qq.com/miniprogram/dev/framework/ability/lazyload.html"
+    },
+    {
+      "stage": "engineering_prepare",
+      "level": "warn",
+      "message": "wx.saveFile 即将废弃，请使用 wx.getFileSystemManager().saveFile"
+    }
+  ],
+  "exceptions": []
+}

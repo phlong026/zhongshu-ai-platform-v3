@@ -1,0 +1,9 @@
+[
+  {
+    "operate_name": "办理委托与设计交付",
+    "result_code": 0,
+    "user_id": 145,
+    "request_url": "/admin-api/franchise/commissions/2121854025989173250/commands/packet-submit",
+    "create_time": "2026-11-15T15:14:05.260298"
+  }
+]
