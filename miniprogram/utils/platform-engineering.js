@@ -152,7 +152,7 @@ function projectView(detail) {
     name: detail.name, customer: detail.customer || '', city: detail.city || '',
     phone: detail.phone || '', area: detail.area, floors: detail.floors,
     sourceType: detail.sourceType, drawingVersion: detail.drawingVersion || '',
-    managerId: detail.managerUserId, manager: '',
+    managerId: detail.managerUserId, manager: detail.managerName || (detail.managerUserId ? '已指派工程人员' : '待指派'),
     archived: !!closure.archivedAt, delivery: closure.deliveredAt ? {
       date: dateOf(closure.deliveredAt), recipient: closure.recipient || '', note: closure.deliverNote || '',
       // M09-T02 批次#37：签收凭据真实可读——交付/业主签收 assetId（授权查看数据源）
@@ -170,7 +170,12 @@ function projectView(detail) {
     },
     actualStart: detail.actualStartAt ? { date: dateOf(detail.actualStartAt) } : null,
     plan: { version: 0, nodes: nodes.map(n => ({ ...n, id: n.id.replace(/^\D+/, ''), start: n.start || '', end: n.end || '' })) },
-    documents: (detail.documents || []).map(d => ({ name: d.name, file: { name: d.name }, date: '' })),
+    documents: (detail.documents || []).map(d => {
+      let ref = {};
+      try { const parsed = typeof d.fileRef === 'string' ? JSON.parse(d.fileRef) : d.fileRef; if (parsed && typeof parsed === 'object') ref = parsed; } catch (error) { /* 历史文本没有可授权字节。 */ }
+      return {name:d.name, file:{name:ref.name || d.name, ...(ref.assetId ? {assetId:String(ref.assetId)} : {}),
+        ...(ref.commissionId && ref.dispatchSeq && ref.slot ? {commissionId:String(ref.commissionId),dispatchSeq:Number(ref.dispatchSeq),slot:ref.slot} : {})}, date:''};
+    }).concat(detail.contractAssetId ? [{name:'已签工程合同',file:{name:'已签工程合同.pdf',assetId:String(detail.contractAssetId)},date:dateOf(detail.contractDate)}] : []),
     status: statusView(detail.status), statusRaw: detail.status,
     stageText: statusView(detail.status)
   };
