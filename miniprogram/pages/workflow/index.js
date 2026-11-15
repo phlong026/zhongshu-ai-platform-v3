@@ -35,6 +35,7 @@ Page({
   this.__post=post;this.__pf=PF;this.__http=http;this.__crmApi=this.__crmApi||require('../../api/franchise/crm');
   this.__postKey=String(post.postId);this.id=routeValue(options.id)||'';
   const requested=(options.view==='ai-facade'?'facade-config':options.view)||'';
+  if(requested==='commission')return require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(this.id),{replace:true});
   const allowed=['customers','customer','arrival','transfer','requirement','budget','budget-result','contract','delivery','progress'];
   if(requested&&!allowed.includes(requested))return this.platformBlocked(requested);
   let view=requested?(requested==='arrival'?'customer':requested):'customer';
@@ -624,7 +625,7 @@ Page({
  },
  go(e){const d=e.currentTarget.dataset;if(!d.view)return;if(['receipt-supplement','pay-supplement'].includes(d.view))return require('../../utils/page-navigation').open('/pages/admin/index?view='+d.view+'&id='+encodeURIComponent(d.record));this.openView(d.view,false,null,d.record||'');},
  navTap(e){const url=e.currentTarget.dataset.url;if(url)require('../../utils/page-navigation').open(url);},
- openView(view,replace=false,id,record=''){if(view==='ai-facade')view='facade-config';if(!['customers','customer','arrival','transfer','requirement','budget','contract','delivery','progress'].includes(view)){require('../../utils/page-navigation').open('/pages/workflow/explore/index');return wx.showToast({title:'请在设计页办理',icon:'none'});}if(view==='arrival')view='customer';const target=id||this.id||'';if(view==='customers'&&!target)return this.platformBlocked('customers');return require('../../utils/page-navigation').open('/pages/workflow/index?view='+view+(view!=='customers'?'&id='+encodeURIComponent(target):''),{replace});},
+ openView(view,replace=false,id,record=''){if(view==='commission')return require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id||this.id||''));if(view==='ai-facade')view='facade-config';if(!['customers','customer','arrival','transfer','requirement','budget','contract','delivery','progress'].includes(view)){require('../../utils/page-navigation').open('/pages/workflow/explore/index');return wx.showToast({title:'请在设计页办理',icon:'none'});}if(view==='arrival')view='customer';const target=id||this.id||'';if(view==='customers'&&!target)return this.platformBlocked('customers');return require('../../utils/page-navigation').open('/pages/workflow/index?view='+view+(view!=='customers'?'&id='+encodeURIComponent(target):''),{replace});},
  openModal(name){this.__cmdKeys={};if(name==='register')return this.setData({form:{name:'',phone:'',source:'视频号咨询',summary:''},modal:'register',error:''});if(name==='edit'){const c=this.data.customer;if(!c)return;return this.setData({form:{name:c.name,phone:c.phone,wechat:c.wechat,source:c.source,province:c.province,city:c.city,summary:c.summary},modal:'edit',error:''});}if(name==='follow'){if(!this.data.canFollow)return this.fail('当前岗位不能办理该客户');return this.setData({form:Object.assign({},this.data.form,{followContent:'',appointment:''}),modal:'follow',error:''});}return this.setData({modal:'',error:''});},
  modal(e){this.openModal(e.currentTarget.dataset.modal);},
  closeModal(){this.setData({modal:'',error:''});},

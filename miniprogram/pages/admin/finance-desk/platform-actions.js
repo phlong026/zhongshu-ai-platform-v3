@@ -24,7 +24,8 @@ module.exports = function attach(page, financeApi, PF) {
   };
   page.registerInput = function (e) {
     const field = e.currentTarget.dataset.field;
-    this.setData({ ['registerForm.' + field]: e.detail.value });
+    const value = field === 'method' ? ['bank', 'cash', 'other'][Number(e.detail.value)] : e.detail.value;
+    this.setData({ ['registerForm.' + field]: value });
   };
   page.registerPick = function (e) {
     const field = e.currentTarget.dataset.field;
@@ -125,17 +126,20 @@ module.exports = function attach(page, financeApi, PF) {
     if (!this.registerIdem) this.registerIdem = financeApi.idemKey(type);
     const idem = this.registerIdem;
     const seq = this._registerSeq = (this._registerSeq || 0) + 1; // R1 P2-1：代次戳——旧登记回调不得覆盖后续更正表单
+    const sessionAlive = httpApi.sessionGuard();
+    const alive = () => sessionAlive() && !this.__disposed && seq === this._registerSeq;
     const withVoucher = (form.voucherPath
       ? financeApi.uploadVoucher(form.voucherPath).then(assetId => { body.voucherFileId = assetId; })
       : Promise.resolve());
     withVoucher
-      .then(() => call(body, idem))
+      .then(() => { if (!alive()) return; return call(body, idem); })
       .then(() => {
-        if (seq !== this._registerSeq) return; // 代次过期：更正/新表单已接管，旧成功回调不清场
+        if (!alive()) return; // 身份/代次过期不得清理新表单
         wx.showToast({ title: '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();
+        if (this.loadDesignFees) this.loadDesignFees();
       })
-      .catch(err => { if (seq === this._registerSeq) this.setData({ registerError: PF.errorMessage(err) }); })
-      .finally(() => { if (seq === this._registerSeq) this.setData({ registerBusy: false }); });
+      .catch(err => { if (alive()) this.setData({ registerError: PF.errorMessage(err) }); })
+      .finally(() => { if (alive()) this.setData({ registerBusy: false }); });
   };
 
   // ===================== M08-T08 批次#34：更正链双端（作废→重登携 replacesId 走 CAS 替代） =====================

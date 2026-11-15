@@ -17,11 +17,20 @@ Page({
  data:{ platformNotice:'',voidNotice:'',ledgerError:'',...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
  onLoad(o={}){PTPage.init(this);this.options={...o};this.id=routeValue(o.id);const post=httpApi.token()?auth.currentApiPost():null,actor=post?{role:post.roleCode,orgType:post.orgType}:X.context(),financeRole=['finance','finance-lead'].includes(actor.role);this.setData({view:views[o.view]?o.view:(financeRole?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:actor.orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
  onShow(){if(!this.__platformActions)require('./platform-actions')(this,financeApi,PF),this.__platformActions=true;
+  this.__disposed=false;if(!this.__designFinance){require('./design-finance')(this,financeApi);this.__designFinance=true;}
+  const activePost=auth.currentApiPost();this.setData({hq:!!activePost&&activePost.orgType==='headquarters',company:activePost&&activePost.orgName||''});
+  const financeIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();if(this.__financeIdentity!==financeIdentity){this.__financeIdentity=financeIdentity;this.__designReceipt=null;this.setData({designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],registerType:'',registerForm:{},registerBusy:false});}
   if(!this.__ptSyncHook){const rawSetData=this.setData.bind(this);this.setData=(obj,cb)=>{rawSetData(obj,()=>{if(obj&&obj.platformTodos)this.syncPlatformTasks();if(cb)cb();});};this.__ptSyncHook=true;} // 平台待办到达后同步 tasks 视图行与工作台预览
   this.loadPlatformFinance(); // M+：先置 platformApiMode，本地分支按态跳过（财务岗不再触达本地账簿）
+  if(this.data.platformApiMode)this.loadDesignFees();
+  if(this.data.platformApiMode&&this.data.view==='project')this.loadProjectLedger();
+  if(this.data.platformApiMode&&this.data.view==='projects')this.loadFinanceProjects();
+  if(this.data.platformApiMode&&['project','projects','statement'].includes(this.data.view))this.setData({platformNotice:''});
+  if(this.data.platformApiMode&&this.data.view==='flows')this.loadFinanceSourceRows();
   if(!this.data.platformApiMode)this.refresh();
   PTPage.refresh(this,false);this.syncPlatformTasks();
   },
+ onUnload(){this.__disposed=true;},
  syncPlatformTasks(){ // M+：API 态待办渲染——tasks 视图行与工作台预览均来自平台待办，不读本地任务表
   if(!this.data.platformApiMode)return;
   const view=this.data.view;
@@ -34,6 +43,9 @@ Page({
  renderPlatformShell(){ // M+：平台 API 态渲染——本地账簿/项目/加盟商分支全部跳过；无平台接口的视图显示空态提示
   const view=this.data.view;
   if(view==='tasks')return this.syncPlatformTasks();
+  if(view==='project'){this.setData({...clean(),ready:true,title:views.project,platformNotice:''});this.loadProjectLedger();return;}
+  if(view==='projects'){this.setData({...clean(),ready:true,title:views.projects,platformNotice:''});this.loadFinanceProjects();return;}
+  if(view==='flows'&&['payables','receivables'].includes(this.data.flowTab)){this.setData({...clean(),ready:true,title:views.flows,platformNotice:''});this.loadFinanceSourceRows();return;}
   const notice={projects:'项目收支暂无平台视图，请前往「收支 · 对账」查看',project:'项目账目暂无平台视图，请前往「收支 · 对账」查看',partners:'加盟商往来即将上线',partner:'加盟商往来即将上线',statement:'设计款到账进度即将上线'}[view]||(view==='flows'&&!['ledger','reconcile'].includes(this.data.flowTab)?'该列表暂无平台数据，登记与台账请使用「流水」与登记入口':'');
   this.setData({...clean(),ready:true,error:'',title:views[view],platformNotice:notice});
  },

@@ -15,6 +15,9 @@ const policies = {
 };
 
 const commissions = {
+  context: customerId => http.get('/franchise/customers/' + customerId + '/commission-context'),
+  receivers: id => http.get('/franchise/commissions/' + id + '/handover-receivers'),
+  downloadTicket: (id, seq, slot) => http.post('/franchise/commissions/' + id + '/dispatches/' + seq + '/files/' + slot + '/download-tickets'),
   /** 提交 / 重提委托 */
   submit: (customerId, data, idempotencyKey) =>
     http.post('/franchise/customers/' + customerId + '/commission', data, keyHeader(idempotencyKey)),
@@ -34,4 +37,8 @@ const commissions = {
     http.post('/franchise/commissions/' + id + '/commands/' + action, data, keyHeader(idempotencyKey))
 };
 
-module.exports = { policies, commissions };
+const pricing = {
+  current: () => http.get('/franchise/design-pricing-policies/current'),
+  save: (data, idempotencyKey) => http.post('/franchise/design-pricing-policies', data, keyHeader(idempotencyKey))
+};
+module.exports = { policies, pricing, commissions };
