@@ -34,6 +34,7 @@ function loadPage(roleCode, apiStub) {
   const script = compileScript(descriptor, { id: 'fr-finance-page' }).content
   const model = loadTsModule('views/fr/finance/abnormalModel.ts')
   const bankModel = loadTsModule('views/fr/finance/bankModel.ts')
+  const perfModel = loadTsModule('views/fr/finance/perfExportModel.ts')
   const identity = {
     currentPost: { postId: 1, orgId: 151, roleCode },
     can: (p) => p === 'franchise:fin:query'
@@ -62,6 +63,10 @@ function loadPage(roleCode, apiStub) {
       if (name === '@/api/platform/franchiseFinance') return apiStub
       if (name === './abnormalModel') return model
       if (name === './bankModel') return bankModel
+      if (name === '@/api/platform/franchisePerformance') {
+        return { exportPerfCommissionCsv: async () => ({ size: 1 }) }
+      }
+      if (name === './perfExportModel') return perfModel
       throw new Error(`Unexpected import: ${name}`)
     }
   })

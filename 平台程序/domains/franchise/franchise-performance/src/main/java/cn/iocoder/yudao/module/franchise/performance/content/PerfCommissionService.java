@@ -464,13 +464,28 @@ public class PerfCommissionService {
 
     /** R2 P1-1：按 release 行取提成应付约定额（同义务差额比较用） */
     private long policyAmountOf(FrPerfCommissionReleaseDO rel) {
-        FrPerfCommissionPolicyDO policy = policies.selectById(rel.getPolicyId());
-        if (policy == null) return 0;
-        return switch (rel.getStage()) {
-            case FrPerfCommissionReleaseDO.STAGE_BASE_DONE -> policy.getBaseDoneCents() == null ? 0 : policy.getBaseDoneCents();
-            case FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER, FrPerfCommissionReleaseDO.STAGE_START ->
-                    policy.getStartCents() == null ? 0 : policy.getStartCents();
-            default -> policy.getToppingCents() == null ? 0 : policy.getToppingCents();
+        return stageAmountOf(policies.selectById(rel.getPolicyId()), rel.getStage());
+    }
+
+    /**
+     * 三期阶段约定额（P1 尾批③：对账视图与绩效导出共用同一映射，避免两处 switch 漂移）。
+     * 存量 START/TOPPING 显式映射到签约后/封顶后；{@code null} 或 0 = 未约定。
+     */
+    static long stageAmountOf(FrPerfCommissionPolicyDO policy, String stage) {
+        return policy == null ? 0
+                : stageAmountOf(policy.getStartCents(), policy.getBaseDoneCents(),
+                        policy.getToppingCents(), stage);
+    }
+
+    /** 同上，直接传三期金额（导出流式查询免构造 DO；与 DO 重载共享同一 switch）。 */
+    static long stageAmountOf(Long startCents, Long baseDoneCents, Long toppingCents, String stage) {
+        long start = startCents == null ? 0 : startCents;
+        long baseDone = baseDoneCents == null ? 0 : baseDoneCents;
+        long topping = toppingCents == null ? 0 : toppingCents;
+        return switch (stage) {
+            case FrPerfCommissionReleaseDO.STAGE_BASE_DONE -> baseDone;
+            case FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER, FrPerfCommissionReleaseDO.STAGE_START -> start;
+            default -> topping;
         };
     }
 

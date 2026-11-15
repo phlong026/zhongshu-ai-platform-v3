@@ -23,6 +23,13 @@
         >
           导出月度对账 CSV
         </el-button>
+        <el-button
+          v-if="canExportPerf"
+          :loading="exporting === 'performance'"
+          @click="exportPerfCommission"
+        >
+          绩效报表导出
+        </el-button>
       </div>
     </div>
 
@@ -746,6 +753,13 @@ import {
   type PayableQuery,
   type FinanceExportQuery
 } from '@/api/platform/franchiseFinance'
+import { exportPerfCommissionCsv } from '@/api/platform/franchisePerformance'
+import {
+  canExportPerfCommission,
+  isValidMonth,
+  perfExportErrorMessage,
+  perfExportFilename
+} from './perfExportModel'
 import {
   BANK_FLOW_STATUS_OPTIONS,
   bankSourceLabel,
@@ -775,6 +789,9 @@ defineOptions({ name: 'FranchiseFinance' })
 
 const identity = usePlatformIdentityStore()
 const canQuery = computed(() => identity.can('franchise:fin:query'))
+// P1 尾批③：绩效报表导出按岗位显隐（后端 @post.has('franchise:performance:commission') 为真源；
+// 该权限码不在 WEB_CAPABILITIES，不能走 identity.can）
+const canExportPerf = computed(() => canExportPerfCommission(identity.currentPost?.roleCode))
 
 const month = ref(currentMonth())
 const reconciliation = ref<MonthReconciliation | null>(null)
@@ -1332,6 +1349,29 @@ async function exportCsv(table: FinanceExportQuery['table']) {
     // 失败形态为 HTTP 200 + CommonResult code=400（5 万上限收窄提示等）；拦截器已解析并抛错
     const message = typeof error === 'string' ? error : error?.message
     ElMessage.error(message || '导出失败，请收窄筛选条件后重试')
+  } finally {
+    exporting.value = ''
+  }
+}
+
+/**
+ * 绩效报表导出（P1 尾批③）：下载当前所选月份的员工×月份提成汇总 CSV。
+ * 失败只提示单条（拦截器已解析业务错误）；成功不额外弹提示、不误报。
+ */
+async function exportPerfCommission() {
+  if (!canExportPerf.value || exporting.value) return
+  // 请求发出前固定月份：请求期间切换月份不得影响本次下载（文件名与请求参数必须同月）
+  const requestedMonth = month.value
+  if (!isValidMonth(requestedMonth)) {
+    ElMessage.error('月份格式须为 YYYY-MM')
+    return
+  }
+  exporting.value = 'performance'
+  try {
+    const blob = await exportPerfCommissionCsv(requestedMonth)
+    downloadBlob(blob, perfExportFilename(requestedMonth))
+  } catch (error: any) {
+    ElMessage.error(perfExportErrorMessage(error))
   } finally {
     exporting.value = ''
   }
