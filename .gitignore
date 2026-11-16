@@ -18,3 +18,10 @@ __pycache__/
 # OMC 运行状态（按规范默认忽略；技能例外为 .omc/skills/**）
 .omc/
 !.omc/skills/
+
+# 本机工具缓存与 Maven 构建副产物
+平台程序/.tools/
+平台程序/admin-ui/.tools/
+平台程序/admin-ui/dist/
+**/.flattened-pom.xml
+*.tgz

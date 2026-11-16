@@ -375,7 +375,7 @@ public class GlobalExceptionHandler {
             if (SensitiveLogRedactor.isRuntimeCallTracePath(req.getRequestURI())) {
                 log.error("[createExceptionLog][调用追踪错误日志写入失败({})]", th.getClass().getName());
             } else {
-                log.error("[createExceptionLog][url({}) log({}) 发生异常]", req.getRequestURI(), JsonUtils.toJsonString(errorLog), th);
+                log.error("[createExceptionLog][url({}) log({}) 发生异常]", SensitiveLogRedactor.redactRequestPath(req.getRequestURI()), JsonUtils.toJsonString(errorLog), th);
             }
         }
     }
@@ -419,7 +419,7 @@ public class GlobalExceptionHandler {
         // 设置其它字段
         errorLog.setTraceId(TracerUtils.getTraceId());
         errorLog.setApplicationName(applicationName);
-        errorLog.setRequestUrl(request.getRequestURI());
+        errorLog.setRequestUrl(SensitiveLogRedactor.redactRequestPath(request.getRequestURI()));
         Map<String, Object> requestParams = MapUtil.<String, Object>builder()
                 // T13-04 安全：错误日志会落库（全环境），查询参数与请求体均可能含一次性登录 code/密码等凭据，
                 // 入库前分别结构化脱敏（query 走 redactMap、body 走 redactJsonBody），杜绝凭据经错误日志库泄露。

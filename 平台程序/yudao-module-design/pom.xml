@@ -101,6 +101,7 @@
         </dependency>
 
         <!-- P5 合同测试：真实 ai-orchestration/commerce（任务链+账本）仅测试期 -->
+        <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-platform-test-support</artifactId><version>${revision}</version><scope>test</scope></dependency>
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
             <artifactId>yudao-module-ai-orchestration</artifactId>

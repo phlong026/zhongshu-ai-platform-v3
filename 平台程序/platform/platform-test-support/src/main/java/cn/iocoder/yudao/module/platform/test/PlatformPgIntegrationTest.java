@@ -37,10 +37,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 public abstract class PlatformPgIntegrationTest {
 
     @SuppressWarnings("resource")
-    private static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    private static final PostgreSQLContainer<?> PG = TestPostgres.database("postgres:17-alpine");
 
     static {
+        // 支持隔离容器内网中的真实数据库；默认仍由 Testcontainers 管理。
         PG.start();
+        if (System.getProperty("platform.test.jdbc.url") != null) Runtime.getRuntime().addShutdownHook(new Thread(PG::stop,"disposable-test-database"));
         createSystemSchemaShim();
     }
 
@@ -78,7 +80,7 @@ public abstract class PlatformPgIntegrationTest {
                     creator varchar(64), updater varchar(64), tenant_id int8 DEFAULT 0)
                 """
         };
-        try (var conn = java.sql.DriverManager.getConnection(PG.getJdbcUrl(), PG.getUsername(), PG.getPassword());
+        try (var conn = java.sql.DriverManager.getConnection(jdbcUrl(), jdbcUsername(), jdbcPassword());
              var stmt = conn.createStatement()) {
             for (var sql : sqls) {
                 stmt.execute(sql);
@@ -88,11 +90,21 @@ public abstract class PlatformPgIntegrationTest {
         }
     }
 
+    private static String jdbcUrl() {
+        return PG.getJdbcUrl();
+    }
+    private static String jdbcUsername() {
+        return System.getProperty("platform.test.jdbc.username", PG.getUsername());
+    }
+    private static String jdbcPassword() {
+        return System.getProperty("platform.test.jdbc.password", PG.getPassword());
+    }
+
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", PG::getJdbcUrl);
-        registry.add("spring.datasource.username", PG::getUsername);
-        registry.add("spring.datasource.password", PG::getPassword);
+        registry.add("spring.datasource.url", PlatformPgIntegrationTest::jdbcUrl);
+        registry.add("spring.datasource.username", PlatformPgIntegrationTest::jdbcUsername);
+        registry.add("spring.datasource.password", PlatformPgIntegrationTest::jdbcPassword);
         // 业务域测试用 @TestPropertySource 设置 platform.test.extra-flyway-locations（以逗号开头）追加本域迁移目录
         registry.add("spring.flyway.locations", () -> "classpath:db/migration/pf${platform.test.extra-flyway-locations:}");
         // system_* 骨架 shim 使 schema 非空；baseline 后照常应用 pf 迁移（shim 表与迁移建表无交集）

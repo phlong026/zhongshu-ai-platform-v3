@@ -57,6 +57,9 @@ import java.util.stream.Stream;
  * @author 众墅之家设计平台（T13-04）
  */
 public final class SensitiveLogRedactor {
+    public static String redactRequestPath(String path) {
+        return path == null ? null : path.replaceFirst("(/training/media/)[a-f0-9-]{72}$", "$1[redacted]");
+    }
 
     /**
      * 需遮蔽的凭据 / 高敏字段名（规范化大小写形态）。刻意只覆盖凭据与高敏 PII，不含普通业务字段，

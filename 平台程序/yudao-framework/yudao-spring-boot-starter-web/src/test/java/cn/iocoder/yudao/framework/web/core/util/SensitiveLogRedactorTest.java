@@ -27,6 +27,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 保守返回 {@code true}（触发省略），供 {@code GlobalExceptionHandler} 与 {@code ApiAccessLogFilter} 脱敏异常文本。
  */
 class SensitiveLogRedactorTest {
+    @Test
+    void trainingMediaTicketDoesNotEnterLogPaths() {
+        assertThat(SensitiveLogRedactor.redactRequestPath("/admin-api/training/media/" + "a".repeat(72)))
+                .isEqualTo("/admin-api/training/media/[redacted]");
+        assertThat(SensitiveLogRedactor.redactRequestPath("/admin-api/training/admin/courses"))
+                .isEqualTo("/admin-api/training/admin/courses");
+    }
 
     @Test
     void promptsAndSignaturesAreRedactedAtEveryJsonDepthWithoutChangingPromptVersion() {

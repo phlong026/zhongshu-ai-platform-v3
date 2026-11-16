@@ -14,6 +14,7 @@
         <module>yudao-server</module>
         <!-- B 独立发行入口；原 server 保留作为 A 融合兼容基线 -->
         <module>yudao-platform-server</module>
+        <module>yudao-platform-operations</module>
         <!-- B 独立设计能力 Provider；不扫描 A 的 app/admin controller -->
         <module>yudao-design-provider</module>
         <!-- 设计能力的纯协议，不包含设计业务实现 -->

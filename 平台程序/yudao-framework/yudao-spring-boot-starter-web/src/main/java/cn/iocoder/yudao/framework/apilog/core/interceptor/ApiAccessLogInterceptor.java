@@ -30,6 +30,9 @@ import java.util.stream.IntStream;
  */
 @Slf4j
 public class ApiAccessLogInterceptor implements HandlerInterceptor {
+    private static String safeRequestUri(HttpServletRequest request) {
+        return SensitiveLogRedactor.redactRequestPath(request.getRequestURI());
+    }
 
     public static final String ATTRIBUTE_HANDLER_METHOD = "HANDLER_METHOD";
 
@@ -45,23 +48,23 @@ public class ApiAccessLogInterceptor implements HandlerInterceptor {
 
         // 打印 request 日志
         if (!SpringUtils.isProd()) {
-            if (SensitiveLogRedactor.isRuntimeCallTracePath(request.getRequestURI())) {
+            if (SensitiveLogRedactor.isRuntimeCallTracePath(safeRequestUri(request))) {
                 // Internal requests bypass ApiAccessLogFilter; omit here without reading any payload or signature.
-                log.info("[preHandle][开始请求 URL({}) 参数({})]", request.getRequestURI(),
+                log.info("[preHandle][开始请求 URL({}) 参数({})]", safeRequestUri(request),
                         SensitiveLogRedactor.RUNTIME_TRACE_OMITTED);
             } else if (disableRequestLogging(handlerMethod)) {
                 // 端点显式关闭访问日志/请求参数日志时，控制台也不得读取或打印 body/query。
-                log.info("[preHandle][开始请求 URL({}) 无参数]", request.getRequestURI());
+                log.info("[preHandle][开始请求 URL({}) 无参数]", safeRequestUri(request));
             } else {
                 Map<String, String> queryString = ServletUtils.getParamMap(request);
                 String requestBody = ServletUtils.getBody(request);
                 if (CollUtil.isEmpty(queryString) && StrUtil.isEmpty(requestBody)) {
-                    log.info("[preHandle][开始请求 URL({}) 无参数]", request.getRequestURI());
+                    log.info("[preHandle][开始请求 URL({}) 无参数]", safeRequestUri(request));
                 } else {
                     // Body and query use the same sensitive-key policy; malformed bodies are omitted in full.
                     String safeBody = SensitiveLogRedactor.redactJsonBody(requestBody);
                     String safeQuery = SensitiveLogRedactor.redactMap(queryString).toString();
-                    log.info("[preHandle][开始请求 URL({}) 参数({})]", request.getRequestURI(),
+                    log.info("[preHandle][开始请求 URL({}) 参数({})]", safeRequestUri(request),
                             StrUtil.blankToDefault(safeBody, safeQuery));
                 }
             }
@@ -82,7 +85,7 @@ public class ApiAccessLogInterceptor implements HandlerInterceptor {
             StopWatch stopWatch = (StopWatch) request.getAttribute(ATTRIBUTE_STOP_WATCH);
             stopWatch.stop();
             log.info("[afterCompletion][完成请求 URL({}) 耗时({} ms)]",
-                    request.getRequestURI(), stopWatch.getTotalTimeMillis());
+                    safeRequestUri(request), stopWatch.getTotalTimeMillis());
         }
     }
 

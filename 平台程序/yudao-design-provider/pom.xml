@@ -14,6 +14,7 @@
     <description>B 独立设计能力 Provider 启动与迁移边界</description>
 
     <dependencies>
+        <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-platform-test-support</artifactId><version>${revision}</version><scope>test</scope></dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
