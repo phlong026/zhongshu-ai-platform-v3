@@ -114,8 +114,17 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert(avatar.top >= card.top && avatar.bottom <= card.bottom && link.bottom <= card.bottom);
     await shot('01-boss-profile'); checks.push('头像、姓名、岗位、公司和资料入口均在卡片内，无重叠');
     if (process.argv.includes('--profile-only')) {
+      assert.equal((await data()).showStoreServices, true);
+      const services = await rect('.franchise-section');
+      assert(services && services.width > 0 && services.height > 0);
+      const serviceActions = await mp.evaluate(() => new Promise(resolve => wx.createSelectorQuery().selectAll('.franchise-section .tile').boundingClientRect().exec(rows => resolve((rows[0] || []).map(row => row.dataset.action)))));
+      assert.deepEqual(serviceActions, ['services', 'selection']);
+      await mp.evaluate(top => { wx.pageScrollTo({ scrollTop: Math.max(0, top - 100), duration: 0 }); return true; }, services.top);
+      await delay(250);
+      await shot('08-boss-franchise-services');
+      checks.push('门店老板登录后显示加盟商服务及展陈设计、众墅甄选两个入口');
       fs.writeFileSync(path.join(directory, '../profile-layout-results.json'), JSON.stringify({ result: 'passed', mode: 'isolated native WeChat renderer; all requests mocked', checks, geometry, exceptions: errors }, null, 2));
-      console.log('PASS 个人资料入口位于卡片右侧并垂直居中，与公司信息无重叠');
+      console.log('PASS 个人资料右侧入口及门店登录后的加盟商服务模块均正常显示');
       return;
     }
 

@@ -75,7 +75,7 @@ module.exports = function (tabIndex) {
       this.setData({
         identityText:Profile.compactIdentity(company,role),identityOrganization:Profile.compactIdentity(company,''),identityRole:Profile.compactIdentity('',role),learningAvailable:!!course,learningLabel:course?course.category+'培训':'',
         engineeringProfile, courseId:course?course.id:'',courseTitle:course?course.name:'',courseImage:course?course.image:'',
-        loggedIn, showStoreServices: !apiLoggedIn && (!s.session.loggedIn || a.orgType === 'store'),
+        loggedIn, showStoreServices: !loggedIn || actor.orgType === 'store',
         entries: entries(actor),
         ownerProfile, managementEntries: managementEntries(actor),
         name: apiLoggedIn ? (apiPost.name || s.profile.name) : s.profile.name, avatar: s.profile.avatar,

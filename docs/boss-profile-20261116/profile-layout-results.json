@@ -2,7 +2,8 @@
   "result": "passed",
   "mode": "isolated native WeChat renderer; all requests mocked",
   "checks": [
-    "头像、姓名、岗位、公司和资料入口均在卡片内，无重叠"
+    "头像、姓名、岗位、公司和资料入口均在卡片内，无重叠",
+    "门店老板登录后显示加盟商服务及展陈设计、众墅甄选两个入口"
   ],
   "geometry": [
     {

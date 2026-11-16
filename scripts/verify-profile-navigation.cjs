@@ -104,6 +104,7 @@ for (const [role, label] of roles) {
     assert.equal(page.data.role, label);
     assert.equal(page.data.name, '缓存姓名');
     assert.equal(page.data.loggedIn, true);
+    assert.equal(page.data.showStoreServices, role !== 'hq-design-admin');
     assert.equal(page.bar.data.selected, 4);
     assert.ok(requests.some(request => request.url.endsWith('/platform/profile/mine')));
   });
@@ -148,8 +149,20 @@ test('游客直达我的显示登录引导，不触发资料请求', () => {
   const page = show('/pages/profile/index');
   settleNavigation();
   assert.equal(page.data.loggedIn, false);
+  assert.equal(page.data.showStoreServices, true);
   assert.equal(navigation.length, 0);
   assert.equal(requests.length, 0);
+});
+
+test('门店登录后加盟商服务的两个入口仍直达对应展示页', () => {
+  reset('boss');
+  const page = show('/pages/profile/index');
+  assert.equal(page.data.showStoreServices, true);
+  for (const action of ['services', 'selection']) page.open({ currentTarget: { dataset: { action } } });
+  assert.deepEqual(navigation, [
+    { kind: 'navigateTo', url: '/pages/account/index?view=services' },
+    { kind: 'navigateTo', url: '/pages/account/index?view=selection' }
+  ]);
 });
 
 for (const route of ['/pages/admin/profile/index', '/pages/account/sales/index']) {
