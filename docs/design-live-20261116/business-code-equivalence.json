@@ -1,0 +1,10 @@
+{
+  "version": "1.0.20261116.7",
+  "nativeLiveTestSnapshot": "frontend",
+  "officialUploadSnapshot": "frontend-final",
+  "nativeMockedNetworks": false,
+  "allBusinessModulesAndRecursiveHostDependenciesIdentical": true,
+  "verifiedJavascriptFiles": 51,
+  "scope": "4 design modules plus recursively required host JS; surrounding boss UI checked by final package tests and preserved v6 hashes",
+  "nativeFinalProjectExtraAttempt": "Official CLI auto succeeded but the separate requested 9954 WebSocket was not listening; no native test success is claimed for that additional connection attempt."
+}

@@ -1,0 +1,41 @@
+{
+  "at": "2026-11-16T04:06:36.648050+00:00",
+  "checks": {
+    "b": {
+      "status": "UP",
+      "businessCode": null
+    },
+    "a-public-controller": {
+      "status": null,
+      "businessCode": 0
+    },
+    "b-public-https": {
+      "status": null,
+      "businessCode": 0
+    },
+    "provider-private-tls": {
+      "status": "UP",
+      "groups": [
+        "liveness",
+        "readiness"
+      ]
+    }
+  },
+  "qaCleanup": {
+    "at": "2026-11-16T04:05:22.317468+00:00",
+    "userId": 151,
+    "userDisabled": true,
+    "postRevoked": true,
+    "temporaryRoleLinkRevoked": true,
+    "oauthAccessAndRefreshRemaining": 0,
+    "logoutCallsSucceeded": 6,
+    "ownCacheKeysRemoved": 1,
+    "revokedSessionBusinessCode": 401,
+    "financialLedgerAndFrozenAcceptanceRecordsPreserved": true,
+    "testCustomerName": "\u8fc1\u79fb\u9a8c\u6536\u6837\u4f8b\uff08\u975e\u771f\u5b9e\u5ba2\u6237\uff09",
+    "credentialFilesDeleted": [
+      "qa-credentials.json",
+      "qa-session.json"
+    ]
+  }
+}

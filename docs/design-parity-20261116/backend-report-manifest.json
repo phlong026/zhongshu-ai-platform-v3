@@ -1,0 +1,1850 @@
+[
+  {
+    "module": "yudao-module-design",
+    "class": "DesignRequirementInputsT15ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-DesignRequirementInputsT15ContractTest.xml",
+    "sha256": "ad29ba8bfa991d8e55e9e4047d8c6e3d48a79ce981eaafcff0c9d4c06a38bd06"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.DesignProviderBootProbeTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.DesignProviderBootProbeTest.xml",
+    "sha256": "0208b9dc5a26633ff1441e48ad814b05acc75d0d2198ef0ae8e82ba4bbfb623e"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.DesignProviderBoundaryTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.DesignProviderBoundaryTest.xml",
+    "sha256": "643e5fa5c6a910c6fb6bee765cfa135cd74c81d025bb8d7b839d904d803669dc"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.DesignProviderMigrationTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.DesignProviderMigrationTest.xml",
+    "sha256": "ac6427965d735ae0076b46771aaf77b10a9f8ad6e6157a0ea217e2a8335f76c6"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.DesignProviderWebSecurityIntegrationTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.DesignProviderWebSecurityIntegrationTest.xml",
+    "sha256": "e1f2337071244a4734336bded3ec3186283546e12546c6d9c7c7d65cfeb14f2e"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.ProviderConfigurationContractTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.ProviderConfigurationContractTest.xml",
+    "sha256": "d65219e8ee75a58ad53c5bdd1ac76b8a96af839a4ba4a079c8e1067a2cded954"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.ProviderMigrationReadinessConfigurationTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.ProviderMigrationReadinessConfigurationTest.xml",
+    "sha256": "974b17db0d0e507126117e6d7e54256f220eaacf37ef9072ba0db8b55b4ebcbe"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.ProviderMigrationReadinessPortTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.ProviderMigrationReadinessPortTest.xml",
+    "sha256": "442408a62d7be482487a8ae9c3f1898bfdae0be553c62b70b2b9dac78d0ad47a"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.ProviderPlatformAuthSmokeControllerTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.ProviderPlatformAuthSmokeControllerTest.xml",
+    "sha256": "aaf4a3f49c63a377d5f80208e464fac4b5330f6b531c02416d618669b9d2323b"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.ProviderPromptEventServiceTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.ProviderPromptEventServiceTest.xml",
+    "sha256": "7a669cad8122bf75b70923d882419fa3f162fd181cee0541ce3a5903f0e1b453"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.ProviderReferenceImportAssemblyTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.ProviderReferenceImportAssemblyTest.xml",
+    "sha256": "8b39b4d072cf0074bb71e7d7be67dc01fd07a5dd6a0ff240bf9b231c9ebba244"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.ProviderRuntimeAuthSmokeFilterConcurrencyTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.ProviderRuntimeAuthSmokeFilterConcurrencyTest.xml",
+    "sha256": "598fc30c4016c87f8577bcfdffb32781e3e11c7e932f43c6297a0532297075c5"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.designprovider.PublishedCaseReferenceImporterIntegrationTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.designprovider.PublishedCaseReferenceImporterIntegrationTest.xml",
+    "sha256": "b45bb0a89750dbd434e4e29759334fd2f9f1de92554f1a8a637749760b3774bb"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-web",
+    "class": "cn.iocoder.yudao.framework.apilog.core.filter.ApiAccessLogFilterTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-web/target/surefire-reports/TEST-cn.iocoder.yudao.framework.apilog.core.filter.ApiAccessLogFilterTest.xml",
+    "sha256": "2dad9b30d08023a721a703721fabbfd89670e3065b6e1e0c269401a128b56a6d"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-web",
+    "class": "cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptorTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-web/target/surefire-reports/TEST-cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptorTest.xml",
+    "sha256": "11415bf8d2fa5a38645a4998218d3a0abd7c7ff8013b4a9b686e139503b4fef3"
+  },
+  {
+    "module": "yudao-framework/yudao-common",
+    "class": "cn.iocoder.yudao.framework.common.util.collection.CollectionUtilsTest",
+    "path": "yudao-framework/yudao-common/target/surefire-reports/TEST-cn.iocoder.yudao.framework.common.util.collection.CollectionUtilsTest.xml",
+    "sha256": "a4f12470fce3a4862e2c7df848dd32e588d1515a457d1815e483d5e7b087f4dd"
+  },
+  {
+    "module": "yudao-framework/yudao-common",
+    "class": "cn.iocoder.yudao.framework.common.util.date.LocalDateTimeUtilsTest",
+    "path": "yudao-framework/yudao-common/target/surefire-reports/TEST-cn.iocoder.yudao.framework.common.util.date.LocalDateTimeUtilsTest.xml",
+    "sha256": "8488e078582e3277d27d26d7f66932a45c59f35d37a99aba3a65ca87ed244a08"
+  },
+  {
+    "module": "yudao-framework/yudao-common",
+    "class": "cn.iocoder.yudao.framework.common.util.http.HttpUtilsTest",
+    "path": "yudao-framework/yudao-common/target/surefire-reports/TEST-cn.iocoder.yudao.framework.common.util.http.HttpUtilsTest.xml",
+    "sha256": "d905a972aca8b2547a6336b89d83f23faa55e978a9389ee97b2f2df77c3dfabd"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-biz-data-permission",
+    "class": "cn.iocoder.yudao.framework.datapermission.core.aop.DataPermissionAnnotationInterceptorTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-biz-data-permission/target/surefire-reports/TEST-cn.iocoder.yudao.framework.datapermission.core.aop.DataPermissionAnnotationInterceptorTest.xml",
+    "sha256": "33442ed3b46843a859abf467dd45fc599670d9a0493baeb79a524e558ebbcbed"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-biz-data-permission",
+    "class": "cn.iocoder.yudao.framework.datapermission.core.aop.DataPermissionContextHolderTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-biz-data-permission/target/surefire-reports/TEST-cn.iocoder.yudao.framework.datapermission.core.aop.DataPermissionContextHolderTest.xml",
+    "sha256": "5d2b62c9c9653b0fc43fdbdab521ca72814eca914f3de71f52fd2d68c4704d88"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-biz-data-permission",
+    "class": "cn.iocoder.yudao.framework.datapermission.core.db.DataPermissionRuleHandlerTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-biz-data-permission/target/surefire-reports/TEST-cn.iocoder.yudao.framework.datapermission.core.db.DataPermissionRuleHandlerTest.xml",
+    "sha256": "fce24be2999e744e126fdd84e7f5146b8a753b88ab491a9c8695ddc46fabc3c5"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-biz-data-permission",
+    "class": "cn.iocoder.yudao.framework.datapermission.core.rule.DataPermissionRuleFactoryImplTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-biz-data-permission/target/surefire-reports/TEST-cn.iocoder.yudao.framework.datapermission.core.rule.DataPermissionRuleFactoryImplTest.xml",
+    "sha256": "6b8f6f4b95b583a0ed84e8a2078f5faee10b366049a397d4f652ed465231dd96"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-biz-data-permission",
+    "class": "cn.iocoder.yudao.framework.datapermission.core.rule.dept.DeptDataPermissionRuleTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-biz-data-permission/target/surefire-reports/TEST-cn.iocoder.yudao.framework.datapermission.core.rule.dept.DeptDataPermissionRuleTest.xml",
+    "sha256": "3e3694b114045bcc4a6b870a83efc96880be880e039c602416865bb64515dada"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-biz-data-permission",
+    "class": "cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtilsTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-biz-data-permission/target/surefire-reports/TEST-cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtilsTest.xml",
+    "sha256": "cf9d53c2625f5e60e42f9a0996fce24c9343ff2d750d35d48c11f0d5d0543386"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-web",
+    "class": "cn.iocoder.yudao.framework.desensitize.core.DesensitizeTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-web/target/surefire-reports/TEST-cn.iocoder.yudao.framework.desensitize.core.DesensitizeTest.xml",
+    "sha256": "b3a7c985814f9c4694217fd686a51129ad2807ca02ab5b8a01a682c939a38885"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-excel",
+    "class": "cn.iocoder.yudao.framework.dict.core.util.DictFrameworkUtilsTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-excel/target/surefire-reports/TEST-cn.iocoder.yudao.framework.dict.core.util.DictFrameworkUtilsTest.xml",
+    "sha256": "9b67aabde57236cc571b38199e7987529b2685280ee39c37fe944abbabb5e184"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-web",
+    "class": "cn.iocoder.yudao.framework.encrypt.ApiEncryptTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-web/target/surefire-reports/TEST-cn.iocoder.yudao.framework.encrypt.ApiEncryptTest.xml",
+    "sha256": "4456374a4227567de38cfa0889ad630dde03d2d667c85cab6b1f0e88e153fe34"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-excel",
+    "class": "cn.iocoder.yudao.framework.excel.core.convert.MultiDictConvertTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-excel/target/surefire-reports/TEST-cn.iocoder.yudao.framework.excel.core.convert.MultiDictConvertTest.xml",
+    "sha256": "521c85edde762bfee7fcfca0a215ed3b8d9f6ea46e7a10d917f7fa13b0d3283c"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-excel",
+    "class": "cn.iocoder.yudao.framework.excel.core.util.ExcelUtilsTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-excel/target/surefire-reports/TEST-cn.iocoder.yudao.framework.excel.core.util.ExcelUtilsTest.xml",
+    "sha256": "16c0d45455a97c913c42ab9d8a203702e5cbef98a8469b4b5945ecba39b8270c"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-biz-ip",
+    "class": "cn.iocoder.yudao.framework.ip.core.utils.AreaUtilsTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-biz-ip/target/surefire-reports/TEST-cn.iocoder.yudao.framework.ip.core.utils.AreaUtilsTest.xml",
+    "sha256": "d9a5fc09e9148751f3d14abb4311e59314462aece5ff32959c1f66c048e59beb"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-biz-ip",
+    "class": "cn.iocoder.yudao.framework.ip.core.utils.IPUtilsTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-biz-ip/target/surefire-reports/TEST-cn.iocoder.yudao.framework.ip.core.utils.IPUtilsTest.xml",
+    "sha256": "01178d6ba98937eba9c712e7cfc637dccde2a9dcb7be68eedf00b49a26f024ea"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-mybatis",
+    "class": "cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperXTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-mybatis/target/surefire-reports/TEST-cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperXTest.xml",
+    "sha256": "7e4b58df01195d7ea0f46f204b3011dd2653f79b6448c3e3a1e633ce679bec53"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-mybatis",
+    "class": "cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperXTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-mybatis/target/surefire-reports/TEST-cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperXTest.xml",
+    "sha256": "34ba27532a8a64bf776b7b5cd9b85169f940172031aab7ff4359fbb9b5d93be4"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-mybatis",
+    "class": "cn.iocoder.yudao.framework.mybatis.core.util.MyBatisUtilsTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-mybatis/target/surefire-reports/TEST-cn.iocoder.yudao.framework.mybatis.core.util.MyBatisUtilsTest.xml",
+    "sha256": "ff323ce8c142c0a87741744acd73230dec4270723a49ec4f8c599581d6835dad"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-protection",
+    "class": "cn.iocoder.yudao.framework.ratelimiter.StableRateLimiterKeyTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-protection/target/surefire-reports/TEST-cn.iocoder.yudao.framework.ratelimiter.StableRateLimiterKeyTest.xml",
+    "sha256": "5f891222dba834e117e937a65e1059c5bd82fd2685a9679f17a686d22fd31a3d"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-protection",
+    "class": "cn.iocoder.yudao.framework.ratelimiter.core.aop.RateLimiterLoggingTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-protection/target/surefire-reports/TEST-cn.iocoder.yudao.framework.ratelimiter.core.aop.RateLimiterLoggingTest.xml",
+    "sha256": "bd7e8b7ff553f1fff9314d1824cb67bbb845ab4c5d37065395cac213fa6b2251"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-protection",
+    "class": "cn.iocoder.yudao.framework.signature.core.ApiSignatureTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-protection/target/surefire-reports/TEST-cn.iocoder.yudao.framework.signature.core.ApiSignatureTest.xml",
+    "sha256": "472ec1b1c1da89bb893dd2a317161bfb104e2a3ada4f3a429c50a75c1112b4da"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-test",
+    "class": "cn.iocoder.yudao.framework.test.core.util.FakeHttpServerTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-test/target/surefire-reports/TEST-cn.iocoder.yudao.framework.test.core.util.FakeHttpServerTest.xml",
+    "sha256": "91d00aeab123cf7d9acc6e77acab9f51cedeb3f38d303baf67a460434a8adf4c"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-web",
+    "class": "cn.iocoder.yudao.framework.web.core.filter.BoundedRequestBodyTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-web/target/surefire-reports/TEST-cn.iocoder.yudao.framework.web.core.filter.BoundedRequestBodyTest.xml",
+    "sha256": "7b37c0fe64b91f4fa547b88c4697b0430052f8e7e0fc44b728bc0dc77074def9"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-web",
+    "class": "cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandlerTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-web/target/surefire-reports/TEST-cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandlerTest.xml",
+    "sha256": "2468830df8ebdd2b86718db0d1902ef82190573b36faf23f2e152827f4c728cc"
+  },
+  {
+    "module": "yudao-framework/yudao-spring-boot-starter-web",
+    "class": "cn.iocoder.yudao.framework.web.core.util.SensitiveLogRedactorTest",
+    "path": "yudao-framework/yudao-spring-boot-starter-web/target/surefire-reports/TEST-cn.iocoder.yudao.framework.web.core.util.SensitiveLogRedactorTest.xml",
+    "sha256": "6d3a221178e6883361b32c8a5edc61685da015097856effafc9f7ce18689be87"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.AiJobInternalPromptEventTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.AiJobInternalPromptEventTest.xml",
+    "sha256": "fa25e027cd4412372cce4c18310fc0fb7b2f1223c7beba5e49f68e13cbe06861"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.AiJobP4BContractTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.AiJobP4BContractTest.xml",
+    "sha256": "0a10537aca28d71dcb05166db373794187748eaeb852995bf92fad2d37281360"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.AiJobP4CContractTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.AiJobP4CContractTest.xml",
+    "sha256": "46f6da3196e47e9ac88a2bd5bd0e4aa846b14249132b606704064d93f7b37cfc"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.AiOrchestrationP1AContractTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.AiOrchestrationP1AContractTest.xml",
+    "sha256": "74c2d9071e7558bae08e409758fd1a9b3675ca333a81a1c0b8cd980bb467063d"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.JobPromptRecordIntegrationTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.JobPromptRecordIntegrationTest.xml",
+    "sha256": "01e7955ef63b5ab48ff89abe77bd5e42d53893dc605b5ff2c01d794c0ccab62a"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.PromptReservationRecoveryIntegrationTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.PromptReservationRecoveryIntegrationTest.xml",
+    "sha256": "1bdcfbc8756d9cb2d03ff0a4c190c9f9fe4770440a31a0d58e111e43a7cd4ed6"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.RuntimeCallTraceIntegrationTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.RuntimeCallTraceIntegrationTest.xml",
+    "sha256": "5b32de2266b9a4eb05560359b1d3c4ad3b4d8a770e40cd85c140c25b018735d9"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.RuntimeCallTraceSignatureTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.RuntimeCallTraceSignatureTest.xml",
+    "sha256": "91409715a4c3ac6bf2c2ed396b3c6602b5b38a4010a12c9d25e25254b03cd8e0"
+  },
+  {
+    "module": "yudao-module-ai-orchestration",
+    "class": "cn.iocoder.yudao.module.aiorchestration.ServiceCostIsolationIntegrationTest",
+    "path": "yudao-module-ai-orchestration/target/surefire-reports/TEST-cn.iocoder.yudao.module.aiorchestration.ServiceCostIsolationIntegrationTest.xml",
+    "sha256": "7026569243f5e0df30ec8b762818555d3a190986ab8494f28876dfc7b2e34804"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.CommerceP1AContractTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.CommerceP1AContractTest.xml",
+    "sha256": "9a2b41cdfbe0ffe955b0d4aae5e80561a705b457a1ef7703f99b43c59e5a053d"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.PaymentP8AContractTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.PaymentP8AContractTest.xml",
+    "sha256": "b845b0510d7e73e84884819a9009d2d371c098fb82cfbae0537137822aad3056"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.PaymentRecoveryTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.PaymentRecoveryTest.xml",
+    "sha256": "063063a5b965e01b12743cbd320b375258de0487a2c1fbd1710622e5b6b3d82e"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.PointLedgerProjectionTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.PointLedgerProjectionTest.xml",
+    "sha256": "0260492c3297bf2fcc9b713a86beb0e760d58d6a75830309f62ed42b3135e7f8"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.PointsP4AContractTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.PointsP4AContractTest.xml",
+    "sha256": "b6862db2609e919ba9cc0c921151cef3ec611ae470491826cc6a1afd1033d6ab"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.RechargeOrderAdminControllerTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.RechargeOrderAdminControllerTest.xml",
+    "sha256": "dcb5ad3a1a5c9d52aeef21013ec6f1bdd85307f726726408ab4083e77188487b"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.controller.notify.WechatPayNotifyControllerTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.controller.notify.WechatPayNotifyControllerTest.xml",
+    "sha256": "1ed340b5099b27834097499f5a5ddf12f24a23ed39d6b470e271eda5406f12e9"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.payment.RefundRecoveryJobTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.payment.RefundRecoveryJobTest.xml",
+    "sha256": "4a08e8fc3a1d95edb2b9f2e0db7f24952c69a1c55e028343c869e5a545d1da44"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.payment.StubPaymentPortAdapterSafetyTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.payment.StubPaymentPortAdapterSafetyTest.xml",
+    "sha256": "2f9526213958d7047cee80ab17ee102999bcf33836da1d91f9e17f6e31ae6a67"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.payment.wechat.RefundRecoveryIntegrationTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.payment.wechat.RefundRecoveryIntegrationTest.xml",
+    "sha256": "d8ef48d1a68b2b09c2e59aa1652e38717f156b0f5a65d2478679ec67d2a9c4fc"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.payment.wechat.WechatPaymentAdapterTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.payment.wechat.WechatPaymentAdapterTest.xml",
+    "sha256": "5b3e2a64c07075a0d66838fe9ed8e9a572a34bb43a1bcf65266af8073be19351"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.payment.xpay.VirtualPaymentAdapterTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.payment.xpay.VirtualPaymentAdapterTest.xml",
+    "sha256": "1de9bd9a610fbc08626c9581873aa1116c50af2c17123c8e22dc2c94ea6f7fb2"
+  },
+  {
+    "module": "yudao-module-commerce",
+    "class": "cn.iocoder.yudao.module.commerce.pricing.PriceRuleResolutionTest",
+    "path": "yudao-module-commerce/target/surefire-reports/TEST-cn.iocoder.yudao.module.commerce.pricing.PriceRuleResolutionTest.xml",
+    "sha256": "93a06bf1b0f581cb996b5a7f87f7bbbb3ffc4ffcb5d878b301e4838e74abb9fa"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.AssetP3AContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.AssetP3AContractTest.xml",
+    "sha256": "af7f5bc25c8e7f982b3094202270f088ef6a8e4f9e0730fd311bdaa4a26edb94"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetAccountPriceT14ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetAccountPriceT14ContractTest.xml",
+    "sha256": "f3abd940335bf2e9f9c3f3e89c099936bef1e191563ab5533c10ccbb99519e14"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetCalculatorT10ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetCalculatorT10ContractTest.xml",
+    "sha256": "3b61d20ea442ab8c45c23e71740e2797510e7fd00121fabf79753ce36b52dbb6"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetCatalogT10ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetCatalogT10ContractTest.xml",
+    "sha256": "762178ba953aaf7eed4f09374d46ecf442b56c48a51f659f161e3c60d24666e8"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetEstimateReceiptIdempotencyTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetEstimateReceiptIdempotencyTest.xml",
+    "sha256": "910d776e0466be245eab330cd3029797ac6735430e75b356b8380ff8b5c2226a"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetFormulaExcelV1Test",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetFormulaExcelV1Test.xml",
+    "sha256": "6610c492f8eab06ef25fb03bded5ff47677f52c0107cc8c5609e51b8754f31b7"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetIndependentT26ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetIndependentT26ContractTest.xml",
+    "sha256": "94d8fc0f19d3638869d66dd30b0f5c49172b3c6e42b83e9a2075a3553109bf02"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetInputsT10ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetInputsT10ContractTest.xml",
+    "sha256": "8bbf2821fe18ee45a7438215d3d398d72abb1b4829a98291782e532331b0ffe1"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetItemizedT10ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetItemizedT10ContractTest.xml",
+    "sha256": "36beff6a0feae38b5aaa03128775253e52ff4e7e505617334c7e40a54878d647"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetLegacyT10ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetLegacyT10ContractTest.xml",
+    "sha256": "e4edc6051898277f5e5b80642921c89fcc7176b143db6daf08a19d491c6441f5"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetMessageP7BContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetMessageP7BContractTest.xml",
+    "sha256": "e9b6621bc5fd062130843242ded1a0bb431a3e55947f6112c77d819b305869ad"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetProjectInputsT10ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetProjectInputsT10ContractTest.xml",
+    "sha256": "0802db847896ad69b96469399229187f85a17ab98698dd7b9fe78876a4e146df"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetQuoteSummaryTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetQuoteSummaryTest.xml",
+    "sha256": "df0ca351a8ac53ffe4b3006f64445f414c0d1a91d4c77e0de449a53d10bf32d1"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetRevisionT10ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetRevisionT10ContractTest.xml",
+    "sha256": "bccfc2959b424ae7209ed22a03d7ccf0cfa13fc3e9c6f1cf27889c221c2cb39f"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetSchemaT10ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetSchemaT10ContractTest.xml",
+    "sha256": "85dd31c68d2a143ff6855ab6fb5c58d74f9c111dd26e0ee935724469418db224"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.BudgetUserRegionWuhanBaselineContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.BudgetUserRegionWuhanBaselineContractTest.xml",
+    "sha256": "a0832da51ac4c760561082ad6accd5afbf7a253500196e3e1a18fea9dc6ee892"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.CaseAdminDeleteUploaderContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.CaseAdminDeleteUploaderContractTest.xml",
+    "sha256": "952a3e6a21a82d6b444a6e17f6e3cc0877d2c86cce7cbc3680960521adbef994"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.CaseCandidatesT26ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.CaseCandidatesT26ContractTest.xml",
+    "sha256": "163bb1aea47227dd633ab388fb9aae6d5318cd800e7eea4860bc20195b746fad"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.CaseKeywordT26ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.CaseKeywordT26ContractTest.xml",
+    "sha256": "8dc3bda3550ec1db8d5d8affbcec6f8a6ba5815f8511884e4bbcbb41e49924b3"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.CaseP3BContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.CaseP3BContractTest.xml",
+    "sha256": "f2d4a7f00dba53e79deb2fb440e979bcb0ac1bc67a49778c05a661ef9b67c324"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.DesignMigrationUndoContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.DesignMigrationUndoContractTest.xml",
+    "sha256": "f892eb6477ec1a6f8fc3e1d47a1b20a645d76a083a1ecb158d1d1b77c22633b6"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.DesignP1AContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.DesignP1AContractTest.xml",
+    "sha256": "aef8c0ad5633d5e2e7c70cb58fa691fffa4d685cc70ce25f6c47179546f2790a"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.DesignProjectP5ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.DesignProjectP5ContractTest.xml",
+    "sha256": "c441ac95a8b3a9d2721b4ba26c63a9199a132a93974de970eef94181ed26e933"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.FlatSelectionR2ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.FlatSelectionR2ContractTest.xml",
+    "sha256": "fa6ae71e0c6e4509de38a403ba8e5d183d64a87cbbac6cb530c2d8cba0da7aeb"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.FranchiseDesignAdapterReferenceTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.FranchiseDesignAdapterReferenceTest.xml",
+    "sha256": "a793d22454eaece7ee4a53b08cfd0fab458a802cac0aa88934922f45d4e6e676"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.LegacyAssetAccessAdapterTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.LegacyAssetAccessAdapterTest.xml",
+    "sha256": "85c2c6d566082c2414476497bd408b8597e67f0f0f662a8696c9263f25e210c3"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.LegacyAssetReferenceFallbackTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.LegacyAssetReferenceFallbackTest.xml",
+    "sha256": "86f2962e998c0eadd5f0a259a4a9c5cedf35792c172c17c23bf626d6e5496a59"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.MessageLifecycleT26ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.MessageLifecycleT26ContractTest.xml",
+    "sha256": "e73d7dcb9a301af1f5324511fb6e0f8599f862f3e5e7292b69dad57e2eb5b01c"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.NotePolishControllerTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.NotePolishControllerTest.xml",
+    "sha256": "3717ed2ff2b2b26644f3141b8a4d81108d7287cfd15627c849b15fa51565b353"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.NotePolishServiceTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.NotePolishServiceTest.xml",
+    "sha256": "e5844c0167a1901846820567c8ff7834053b230a7026dd2bb8857a55b0ac25f3"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.ResponseShellContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.ResponseShellContractTest.xml",
+    "sha256": "4974304d995b84e3e99af2fd3e011363d7792a580dc96d7c730ac8fb5c90ec82"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.ResultVersionP6ContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.ResultVersionP6ContractTest.xml",
+    "sha256": "cdc9b28f6e1e686e371134af34ac25ce70341568917aac13f965082b598dd0ec"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.SubmissionP7AContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.SubmissionP7AContractTest.xml",
+    "sha256": "2ad82f225b17631f6eed4382b1c0a30b6aed68baf086c34acba594da581e97e1"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.asset.AssetEntranceIsolationTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.asset.AssetEntranceIsolationTest.xml",
+    "sha256": "8e49657d8aff5204cfe1e25095199131d4d585396244876f946a56232ddbfa41"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.asset.AssetImmutabilityTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.asset.AssetImmutabilityTest.xml",
+    "sha256": "6e8eee6c6ae58077be4b5b1f0788d3f0353193e2a86b675a621254d47691516e"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.asset.AssetRenditionGeneratorTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.asset.AssetRenditionGeneratorTest.xml",
+    "sha256": "3e431b28f815e781e8ae7c7382446b4c21c873304ad76fdfb511f5c69508eab1"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.asset.AssetTypePolicyTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.asset.AssetTypePolicyTest.xml",
+    "sha256": "62bae8151218ced57e1601aeba6d0082ec5b716883899dfa14de24d26e12a8f9"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.asset.CosObjectStorageAdapterContractTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.asset.CosObjectStorageAdapterContractTest.xml",
+    "sha256": "df4a237792ad18378fac3577c70f42edd7862bd9fb91a2db6aa2fec64df14db9"
+  },
+  {
+    "module": "yudao-design-provider",
+    "class": "cn.iocoder.yudao.module.design.asset.ProviderUnlimitedModerationIntegrationTest",
+    "path": "yudao-design-provider/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.asset.ProviderUnlimitedModerationIntegrationTest.xml",
+    "sha256": "f2776f62a9725b2313f2b12dc19b9a8ead23716b14611d51fb6756d59f1c913e"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.asset.TencentImsModerationAdapterTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.asset.TencentImsModerationAdapterTest.xml",
+    "sha256": "4decd9a404be3d04dbc604b7b09c28bfba7f1a91f24e27fd8addfe6b28407a9f"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.budget.OriginalBudgetSourceBaselineTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.budget.OriginalBudgetSourceBaselineTest.xml",
+    "sha256": "b6160ee18c92d42eba1c643f056aebd655803e632b4df5a955a062ab64488dd7"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.capability.CapabilityReceiptStoreTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.capability.CapabilityReceiptStoreTest.xml",
+    "sha256": "747fd029d4b4f10a789c88ae905e552f4bee871cd19817963462634b5ba1a073"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.capability.CapabilityServiceAccountGuardTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.capability.CapabilityServiceAccountGuardTest.xml",
+    "sha256": "d79b8d865b265ee6bb48514a1fe6767660179116d4322b70783ef66b9e7f1c01"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.capability.CapabilityUploadRevocationTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.capability.CapabilityUploadRevocationTest.xml",
+    "sha256": "9e7b77d78fa05988b4a8647693b3d9d02ecf6aa767d86815341ad69e4fe5dab7"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.capability.DesignCapabilityProviderTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.capability.DesignCapabilityProviderTest.xml",
+    "sha256": "1800387313529c30ded2523e10f314b292705d24173f51bc12901f088655089a"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.capability.OriginalDesignFlowIntegrationTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.capability.OriginalDesignFlowIntegrationTest.xml",
+    "sha256": "59ea32fb2bad723eb24138d6febb2984ec50debf596223c90f39f56bf5358fe3"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.capability.security.CapabilityMappingAuthenticationTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.capability.security.CapabilityMappingAuthenticationTest.xml",
+    "sha256": "3f2cf62d76c4d01dcd82f4687fd1ce5b45604a33bc07b15e6a14545d79baeccb"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.capability.security.CapabilityRequestAuthenticatorTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.capability.security.CapabilityRequestAuthenticatorTest.xml",
+    "sha256": "de91fce8f7e4d5a6d61b7a06d12762e836524762565dacd74080b5405b53386d"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.capability.security.CapabilitySecurityFilterChainTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.capability.security.CapabilitySecurityFilterChainTest.xml",
+    "sha256": "8ffa16631808d175308af1a0d7124e84673444bcf87521dd1b0a479e38a18ae6"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.controller.app.AppAssetRenditionControllerTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.controller.app.AppAssetRenditionControllerTest.xml",
+    "sha256": "125ee49c0ad3e7411bdc51cd1a8486bf436b72cc60631dbe05932600edb9cba6"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.controller.app.AppCaseControllerBatchAuthorizationTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.controller.app.AppCaseControllerBatchAuthorizationTest.xml",
+    "sha256": "af78a01ae29b92e333a31cfc1e073b6e6c4c780f5dc6cef65168b6002f337250"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.controller.app.FlatReferenceInputTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.controller.app.FlatReferenceInputTest.xml",
+    "sha256": "2cee20acfffff543f4c69edfdb0c672231b4f6aa9a5b6903d5bdc8c431e21a4b"
+  },
+  {
+    "module": "yudao-module-design",
+    "class": "cn.iocoder.yudao.module.design.controller.app.ProjectResumeActionTest",
+    "path": "yudao-module-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.design.controller.app.ProjectResumeActionTest.xml",
+    "sha256": "96a0fceefb2623859d4c2c320dea45ccab115eb2a8aa952a7738ada43b306a72"
+  },
+  {
+    "module": "design-capability-api",
+    "class": "cn.iocoder.yudao.module.franchise.api.DesignCapabilityContractTest",
+    "path": "design-capability-api/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.api.DesignCapabilityContractTest.xml",
+    "sha256": "85e23adb66642e8e2303f3274ab765d1f7858383c26b1318f24023e4812ebef6"
+  },
+  {
+    "module": "design-capability-api",
+    "class": "cn.iocoder.yudao.module.franchise.api.DesignFlowCallContractTest",
+    "path": "design-capability-api/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.api.DesignFlowCallContractTest.xml",
+    "sha256": "42fdf6252df1a77270dd507035b6a56dd05c57f9cc4a8accf5ed890e1ca79388"
+  },
+  {
+    "module": "design-capability-api",
+    "class": "cn.iocoder.yudao.module.franchise.api.DesignServicePortContractTest",
+    "path": "design-capability-api/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.api.DesignServicePortContractTest.xml",
+    "sha256": "7f83f650433176b215ab1e76149539dbca32edc455c312ee610337d9a15a4094"
+  },
+  {
+    "module": "design-capability-api",
+    "class": "cn.iocoder.yudao.module.franchise.api.capability.security.CapabilitySignatureTest",
+    "path": "design-capability-api/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.api.capability.security.CapabilitySignatureTest.xml",
+    "sha256": "b2a9ab969dcb78818c5c715c7161f2889dffdcf39c57e3ccd1ed136430158969"
+  },
+  {
+    "module": "domains/franchise/franchise-crm",
+    "class": "cn.iocoder.yudao.module.franchise.crm.CrmIntegrationTest",
+    "path": "domains/franchise/franchise-crm/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.crm.CrmIntegrationTest.xml",
+    "sha256": "5f5f87fcf07bbc8666920af6f642680d1a240308dad20bdd1120d6d7bd3d47cf"
+  },
+  {
+    "module": "domains/franchise/franchise-crm",
+    "class": "cn.iocoder.yudao.module.franchise.crm.DepartureHandoverIntegrationTest",
+    "path": "domains/franchise/franchise-crm/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.crm.DepartureHandoverIntegrationTest.xml",
+    "sha256": "db561ff844aa437ded4d0a8557d8c24c24d214fe091e1ec627418e1033571b29"
+  },
+  {
+    "module": "domains/franchise/franchise-crm",
+    "class": "cn.iocoder.yudao.module.franchise.crm.LeadImportServiceIntegrationTest",
+    "path": "domains/franchise/franchise-crm/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.crm.LeadImportServiceIntegrationTest.xml",
+    "sha256": "ba1dd3aa4effbe6d71d62c9be977aa6435dc3783c82781fd50735aa5eeea1d00"
+  },
+  {
+    "module": "domains/franchise/franchise-crm",
+    "class": "cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerPageTransferHttpContractTest",
+    "path": "domains/franchise/franchise-crm/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerPageTransferHttpContractTest.xml",
+    "sha256": "e112121ea6db8e682eb317375b52ec16cfe21f8dc4c09a1ea28f6eb77f843c9b"
+  },
+  {
+    "module": "domains/franchise/franchise-crm",
+    "class": "cn.iocoder.yudao.module.franchise.crm.controller.admin.LeadImportControllerHttpContractTest",
+    "path": "domains/franchise/franchise-crm/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.crm.controller.admin.LeadImportControllerHttpContractTest.xml",
+    "sha256": "64680182225dc1ce0d97b823a81dd4f12654d7933bbb734fa8848c9847d72117"
+  },
+  {
+    "module": "domains/franchise/franchise-crm",
+    "class": "cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.SchemeViewTest",
+    "path": "domains/franchise/franchise-crm/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.SchemeViewTest.xml",
+    "sha256": "f0a964ba2ade50cdc6ceed1d72f1eb2b2b97375c6bfe8a87e696123780ee960f"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.DesignAccessPublicCaseRoutingTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.DesignAccessPublicCaseRoutingTest.xml",
+    "sha256": "ffb9c8c5d6b6de3650c39c547360b4af0eb493dda12cc69bf6aaff123388f271"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.DesignAccessValidationTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.DesignAccessValidationTest.xml",
+    "sha256": "13b8206f0ac7e9c985a0e5d6ba7c7879b4307c44e354e55b7dcada07fe0832ce"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.DesignAssetIsolationTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.DesignAssetIsolationTest.xml",
+    "sha256": "78b90f64c17b84a44636b99831cd0424bad4ff84a4d3a2be4e21bb9604eb5f0e"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.DesignBillingWiringTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.DesignBillingWiringTest.xml",
+    "sha256": "5bc9630d9c26578e2e48885c1ee941ef07fec6093198de657b02ecb1f1c0eaa6"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.DesignItemizedArchiveServiceTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.DesignItemizedArchiveServiceTest.xml",
+    "sha256": "18ade70efb67c5f0c7e88bef6bf0497577433ee6438a3600b99a20b877001f15"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.DesignOrgPointChargeIntegrationTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.DesignOrgPointChargeIntegrationTest.xml",
+    "sha256": "d37ca2a7e6cbafc9dabea9df0dc72b849eca4fc22fe63968e5932b75b1ece3e7"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.DesignProjectCompanyPointsTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.DesignProjectCompanyPointsTest.xml",
+    "sha256": "0a6f145fb0a4fbc1ae7b31125fd88ad7edb876bf2ec38a984f741badc25de3ab"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.admin.DesignOperationsIntegrationTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.admin.DesignOperationsIntegrationTest.xml",
+    "sha256": "727fce5fa91c898cf0a7d4d2305fd96c104e994c89ff0bb5d2fc7f1ff471406c"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.admin.DesignOperationsSecurityTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.admin.DesignOperationsSecurityTest.xml",
+    "sha256": "463211a0c06945c3004170068177a016d21889f5a610f97d8036037d0240542c"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.admin.DesignPriceAdminIntegrationTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.admin.DesignPriceAdminIntegrationTest.xml",
+    "sha256": "1c316f9f244d4d032c7bda3fd29eda53dd2b7cec51db60f7d53cc2165ee76dc2"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.admin.OperationsConfigurationHttpTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.admin.OperationsConfigurationHttpTest.xml",
+    "sha256": "f6303b4b9882ed641a30d1144e3074d8566ba85b2d86d0dcbe21b60c81ee9551"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.admin.OperationsFactIntegrationTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.admin.OperationsFactIntegrationTest.xml",
+    "sha256": "2afd8a0a801d99deaf98773d576eda5f7427d919e84c0ceff70895ad309aa0f8"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseAccessServiceTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseAccessServiceTest.xml",
+    "sha256": "d0748d1ac5fb2f5647a5bb1e4e6dafbfae732f88dd982618d78c1c11be247402"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseAdmissionTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseAdmissionTest.xml",
+    "sha256": "6903417e35e476c0f69acc5c3835ac91f2aac20eb79426b57dd563cc495c5e24"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseCatalogClientTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseCatalogClientTest.xml",
+    "sha256": "1e589e1cc76e616a77c83c547a81f095318bf33cc6ae5be0dc48cd546ee5ecbc"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseCatalogConfigurationTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.publiccase.PublicCaseCatalogConfigurationTest.xml",
+    "sha256": "cc44e8b87d522d4c314c53d9fa3c946a8faf5fe5268e5a3ba42a2d17ea94a177"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.remote.ReferenceByteUploaderTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.remote.ReferenceByteUploaderTest.xml",
+    "sha256": "b0d99d7b99543c9e723ad989281561706b80a5e939679b43482ff7c1d97c71e1"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.remote.ReferenceMirrorStoreTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.remote.ReferenceMirrorStoreTest.xml",
+    "sha256": "9062c8953e36fde944bb13d225b5eabb570486e702f052aaf5bf38ddf0b99807"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignAdmissionTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignAdmissionTest.xml",
+    "sha256": "9e3d02206a5c669ad123c6ea83030262b2a0168d91102f2c13336be0a12e7b1b"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignCommandStoreTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignCommandStoreTest.xml",
+    "sha256": "5096e2a7a3f08eaa743c4c75eb29580289e304750fab5ccdaab2351c10da683f"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignCommandUndoTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignCommandUndoTest.xml",
+    "sha256": "ff5d4a0accafe307070b1f1e6f4f271915fffbc14fd4f658487407f0e1280531"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReaderTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReaderTest.xml",
+    "sha256": "34fff2d5d07c805967e2040cf072b645d1e2aa080d67e85e940118ba094d9df8"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.remote.transport.CapabilityTransportConfigurationTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.remote.transport.CapabilityTransportConfigurationTest.xml",
+    "sha256": "4c42124bafd198e6e969b143ba4508dbd5a9cea38c281d3eaa08c31107e533c7"
+  },
+  {
+    "module": "domains/franchise/franchise-design",
+    "class": "cn.iocoder.yudao.module.franchise.design.remote.transport.DesignCapabilityTransportTest",
+    "path": "domains/franchise/franchise-design/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.design.remote.transport.DesignCapabilityTransportTest.xml",
+    "sha256": "491c6940bf6b090b1b1977148a913bc6f4fe49b2a96d3e7ffc7a515f3b03f1eb"
+  },
+  {
+    "module": "domains/franchise/franchise-org",
+    "class": "cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeysTest",
+    "path": "domains/franchise/franchise-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeysTest.xml",
+    "sha256": "f6cc9dcb11f959d4f9af4679227afc4452fa73437651791bbf4690dcfdfca55c"
+  },
+  {
+    "module": "domains/franchise/franchise-org",
+    "class": "cn.iocoder.yudao.module.franchise.org.FranchiseCommandsTest",
+    "path": "domains/franchise/franchise-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.org.FranchiseCommandsTest.xml",
+    "sha256": "93eb8f6f9eb62815bd159ba7d0982c9d764c96306d2ca7d524e4c4f80b554b62"
+  },
+  {
+    "module": "domains/franchise/franchise-org",
+    "class": "cn.iocoder.yudao.module.franchise.org.FranchiseRolesTest",
+    "path": "domains/franchise/franchise-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.org.FranchiseRolesTest.xml",
+    "sha256": "af37c63d0b700f8b837accefec6cb01fdfd95b79f028ac60afa7f78264b1f74f"
+  },
+  {
+    "module": "domains/franchise/franchise-org",
+    "class": "cn.iocoder.yudao.module.franchise.org.FranchiseSystemSeedTest",
+    "path": "domains/franchise/franchise-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.org.FranchiseSystemSeedTest.xml",
+    "sha256": "5951e8e74f20c83349ccc0c4b410669f3924ae417366f6d6ce37e39ba5c4c8d1"
+  },
+  {
+    "module": "domains/franchise/franchise-org",
+    "class": "cn.iocoder.yudao.module.franchise.org.controller.admin.CompanyPointHttpSecurityTest",
+    "path": "domains/franchise/franchise-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.org.controller.admin.CompanyPointHttpSecurityTest.xml",
+    "sha256": "03b78c30e7faff01395835d1e578092a43c6379529f404b8fc9693ce351b46e9"
+  },
+  {
+    "module": "domains/franchise/franchise-org",
+    "class": "cn.iocoder.yudao.module.franchise.org.point.CompanyPointAccessIntegrationTest",
+    "path": "domains/franchise/franchise-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.franchise.org.point.CompanyPointAccessIntegrationTest.xml",
+    "sha256": "1774a86ac828708b2fa13dc8da620afdeb3f5fe14b976d5b7f38ac67da287599"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.AccessCodeMaskIntegrationTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.AccessCodeMaskIntegrationTest.xml",
+    "sha256": "5d8cacb4ce82a4d32cd902e6706f6ab567dfb5d8f2c09d0daa5b302815564843"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.AccessCodeStatusCountsContractTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.AccessCodeStatusCountsContractTest.xml",
+    "sha256": "4600ec39b1252e3d3c61531bd817be9d58b0e502dcd59c1d3f31e24e06008e91"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.AccountReRegistrationAfterDeleteContractTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.AccountReRegistrationAfterDeleteContractTest.xml",
+    "sha256": "a9eda2fc8135069eace75ead1f3e549632468ef7e035b39be263e9881f14222a"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.AccountResolutionConcurrencyContractTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.AccountResolutionConcurrencyContractTest.xml",
+    "sha256": "73ee2dd914bee38b6f6b889d40ec008fefdf508d200b0a46642146ceea0b2539"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.IdentityP1AContractTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.IdentityP1AContractTest.xml",
+    "sha256": "431cd0fbecfc644148f89b1748755f1f51d852c490ba1408ebe7c881cb6b13af"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.IdentityP2AContractTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.IdentityP2AContractTest.xml",
+    "sha256": "a385921c3e1ab96b3cc9a377eee404e435c4b0d0a70066b07558de6d1519e750"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.account.AccountLoginServiceTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.account.AccountLoginServiceTest.xml",
+    "sha256": "2b15bfb8dc99cbc68439853fa56999d155824ec3bf185766b77658192a5f8ff3"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.session.IdentitySessionIssuePortAdapterTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.session.IdentitySessionIssuePortAdapterTest.xml",
+    "sha256": "50bfed698f0dd843930cfc21fba45646fac504b152e0b0d81c8ac912ae426b2b"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.wechat.RealWechatIdentityAdapterTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.wechat.RealWechatIdentityAdapterTest.xml",
+    "sha256": "037459a6b3e9ba10f6631f0a9e5945be56533e1986cb56204fe807bca173a116"
+  },
+  {
+    "module": "yudao-module-identity",
+    "class": "cn.iocoder.yudao.module.identity.wechat.WechatLoginFailureClassificationTest",
+    "path": "yudao-module-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.identity.wechat.WechatLoginFailureClassificationTest.xml",
+    "sha256": "ec96228b8cc542c505350953900c438387a73d484ae82fc961df1c1128c366a5"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.framework.file.core.ftp.FtpFileClientTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.framework.file.core.ftp.FtpFileClientTest.xml",
+    "sha256": "97a2786448e87b84c2b5b4886cb2b930881729d3ef5cdc99f544a4667ff1123b"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.framework.file.core.local.LocalFileClientTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.framework.file.core.local.LocalFileClientTest.xml",
+    "sha256": "5e0afeb4d3bc6521520f0a94160f641fb6f7bd848b1030eeaf4f02335be8592f"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest.xml",
+    "sha256": "754e8ec0c129109a27d8f19ef09110590f7aebc9897a8d1c90f6c8047341b2a8"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.framework.file.core.sftp.SftpFileClientTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.framework.file.core.sftp.SftpFileClientTest.xml",
+    "sha256": "6b68c7ea59ac26979e061f30cb9e086fec686fd5c215aaf6bcbbf66802c1a100"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.framework.file.core.utils.FileTypeUtilsTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.framework.file.core.utils.FileTypeUtilsTest.xml",
+    "sha256": "bd79a13550b4821e516f7e44c264e6f2d668571512e98255c1dd6bb3076756e8"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.CodegenServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.CodegenServiceImplTest.xml",
+    "sha256": "441748b6027387c6052ac15b053e1aabc31cea007e6beb3727c2ef9a91bbd563"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenBuilderTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenBuilderTest.xml",
+    "sha256": "b8c522c7b5d3e1290eb42b01f874d62dcd24257537c06ad2bd166002184d1f38"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineUniappTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineUniappTest.xml",
+    "sha256": "4026ff9c5e5bdcabbf6a5c5fe3382b50053e009a502516835eafd9e1cc9ed69f"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdGeneralTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdGeneralTest.xml",
+    "sha256": "907b719e0087787d2994b573a546690e07872842477be5174802431785eb615a"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdSchemaTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdSchemaTest.xml",
+    "sha256": "f719ee4881a6075b24c3ec9adbf7b21e61849e7b87960d05a6cb691ea47466a5"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdvNextTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5AntdvNextTest.xml",
+    "sha256": "f8a7869f98220c28caffd689d35e50c69a70a26848af00e735db648ef8439957"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5EleGeneralTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5EleGeneralTest.xml",
+    "sha256": "ddafdd3982b5c3d83def720d5faf352d7ab21245809d8b2a38d4531993a3f0e6"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5EleSchemaTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVben5EleSchemaTest.xml",
+    "sha256": "cbedab6a945051ea2051a745f88ebb05d8d80e4d1bcdf077131c775c7ba34a7c"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVue2Test",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVue2Test.xml",
+    "sha256": "0f2ab5bb357feaeedc0fa7ccd3cc1d135f27884c525f4e7f174b676c523a2cb0"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVue3Test",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.codegen.inner.CodegenEngineVue3Test.xml",
+    "sha256": "f5406e90c136717d1683e8be592636d8a0701af3d4451868c01f0e248242e663"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.config.ConfigServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.config.ConfigServiceImplTest.xml",
+    "sha256": "1af726f172e310e5513ac6d9b980cd15a38b3fb279f06b7733589be6523edc4a"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.db.DataSourceConfigServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.db.DataSourceConfigServiceImplTest.xml",
+    "sha256": "b89f64840fbcdcda985806fa2f4ab9ac9f8f11392815cb7727541dd0a99fa2e2"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.db.DatabaseTableServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.db.DatabaseTableServiceImplTest.xml",
+    "sha256": "3a47d1f338d6ec15a10d3e6333b38fe76f5640c1cebf13cecff88ec37cfbf143"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.file.FileConfigServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.file.FileConfigServiceImplTest.xml",
+    "sha256": "d965a523be9c6d35691420c0d0dbbf30db3e9ea3cab26d5b1cb68e50fbd076ae"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.file.FileServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.file.FileServiceImplTest.xml",
+    "sha256": "5ce742609e33c549f9c099494446a69cf81ae6e3921a2199e36975cfef07f9cd"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.job.JobLogServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.job.JobLogServiceImplTest.xml",
+    "sha256": "6e2dcde01d034d28e9597cc5da55054d606684011f034cfe84878883e436260c"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.job.JobServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.job.JobServiceImplTest.xml",
+    "sha256": "c10be85ab955489c5c8fd91fed7d3bd459b9c35edbe2b064fc9db8d7358e6500"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.logger.ApiAccessLogServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.logger.ApiAccessLogServiceImplTest.xml",
+    "sha256": "fe7949e0a4ab77a1f1e28a2fb1253053431e87b56cc32e03414682adf439f191"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.service.logger.ApiErrorLogServiceImplTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.service.logger.ApiErrorLogServiceImplTest.xml",
+    "sha256": "e18ce1b0d98414fc8fac2753d72b180f7cf1a949dd338f518a2d360a6ba647a8"
+  },
+  {
+    "module": "yudao-module-infra",
+    "class": "cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptionsTest",
+    "path": "yudao-module-infra/target/surefire-reports/TEST-cn.iocoder.yudao.module.infra.zhongshu.api.GenerationImageOptionsTest.xml",
+    "sha256": "360c9745fe9d75fc107a1eaadaa93998b5c50bef3e4987d9f767c1473c86c5b4"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.AccessTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.AccessTest.xml",
+    "sha256": "4785746eddebbed638c0749d506d5c2200eab061f8e0670ceee9b996d3dab497"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.OrgScopeRuleIntegrationTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.OrgScopeRuleIntegrationTest.xml",
+    "sha256": "4da494274e32157e9dc4b787e01e6767945409dbd296ddd7c49c5c4b31d5d8ff"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluatorTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluatorTest.xml",
+    "sha256": "67c2473b2c0e6fc34e5f32af0fe0011b09ef3d56e1d6c3a46ed51be16add659b"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.RequestCurrentPostTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.RequestCurrentPostTest.xml",
+    "sha256": "e0761a126b7b2847da2f28437609d95407af38a2269d9301192f90ea17de2b36"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.StaffImportLogRecordResidueIntegrationTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.StaffImportLogRecordResidueIntegrationTest.xml",
+    "sha256": "487fbbe95c473259b21d4cded4f44653a38d67290c02d151b7352ee347d7fde3"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.LegacyOnboardRestrictionTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.LegacyOnboardRestrictionTest.xml",
+    "sha256": "750e22521bc8c6550bebd0065b4822163c477372fae599d91528a0e8a8eeb61e"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.MyPostControllerTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.MyPostControllerTest.xml",
+    "sha256": "200c34c2ceede1b01e591d2aefbd064074041f1bbb493191bf78ac76d3a5e09b"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.OrgAccountAdminSecurityTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.OrgAccountAdminSecurityTest.xml",
+    "sha256": "03b8efad79fcd69c9a44fe730e95b62bda27110516b45e4028c19230b654265f"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffIdentityWorkflowIntegrationTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.StaffIdentityWorkflowIntegrationTest.xml",
+    "sha256": "682a05093819c576f01653d935381235fe9624ff0d4fc544ed8e39ba9898ebaa"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportAccessLogFilterTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportAccessLogFilterTest.xml",
+    "sha256": "6c49a530fe2caf13ff7fc28429cd24aeb3f1344bb848ab182d2d3b181cd63296"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportControllerConditionalTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportControllerConditionalTest.xml",
+    "sha256": "cec2724062a19afe665352203d7624cb12cc735368fe1b3878b607321e62e653"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportControllerHttpContractTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportControllerHttpContractTest.xml",
+    "sha256": "06ae2c5588a9cc5c3e3195f5a4bc0ae9e47a1684f25ded2cf83f85251b987595"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffOrgAdminControllerTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.StaffOrgAdminControllerTest.xml",
+    "sha256": "9e4d68fac00077b76358a51dda6404ddb3155c6bb1797e38d01adfc6d53a0ac5"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.StaffPostTemplateControllerTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.StaffPostTemplateControllerTest.xml",
+    "sha256": "a7c117946b19ab33c19c21d8957836498817f43359a3d7853e4c407219859d7d"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.controller.admin.TeamCommandServiceTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.controller.admin.TeamCommandServiceTest.xml",
+    "sha256": "a6762c48679277fa449c4e9d5ef011619950372caf968f505c3cc9e1c0d1228b"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.service.FranchiseOnboardIntegrationTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.service.FranchiseOnboardIntegrationTest.xml",
+    "sha256": "eab730744f85a49f437ac9033ebd2dac8abaad01bb150a2b2fa5e3fe91908ca3"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.service.OrgDirectoryIntegrationTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.service.OrgDirectoryIntegrationTest.xml",
+    "sha256": "f587a25642d458150e7d6b6b49911fbbc3743050e5632d0be53c867213db95e6"
+  },
+  {
+    "module": "platform/platform-authz",
+    "class": "cn.iocoder.yudao.module.platform.authz.service.OrgOnboardIntegrationTest",
+    "path": "platform/platform-authz/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.authz.service.OrgOnboardIntegrationTest.xml",
+    "sha256": "1e6a07b7eeb3fc1be97e5ee902125f3692a72957a82ed4e3ca1b4d3e6253f735"
+  },
+  {
+    "module": "platform/platform-command",
+    "class": "cn.iocoder.yudao.module.platform.command.CommandLogIntegrationTest",
+    "path": "platform/platform-command/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.command.CommandLogIntegrationTest.xml",
+    "sha256": "5f1ca72c35595fc7fd6fcffb462b9a2d075768ad738c54233443d7c2fb95ec3d"
+  },
+  {
+    "module": "platform/platform-command",
+    "class": "cn.iocoder.yudao.module.platform.command.PlatformTablesTenantIgnoreTest",
+    "path": "platform/platform-command/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.command.PlatformTablesTenantIgnoreTest.xml",
+    "sha256": "7b494c4d5cf51be1e7e9e97c63152a62f160d2f83d72667660d5b1b7627c6126"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.AccountPasswordRulesTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.AccountPasswordRulesTest.xml",
+    "sha256": "72e412f69426b024297bc799880d4da68f7fa20e9c23bb18548cba88f610bb3f"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.BindingAuditIntegrationTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.BindingAuditIntegrationTest.xml",
+    "sha256": "82a73db4ccd00a35cca46d78d208feae6a08830988c33399b43e52a3fd14ce0a"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.FranchiseAccountAuthServiceIntegrationTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.FranchiseAccountAuthServiceIntegrationTest.xml",
+    "sha256": "5cbc1456291af12bbcef48060111b9a776744ac1feef48f6220c99012febb72a"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.LoginConsentControllerTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.LoginConsentControllerTest.xml",
+    "sha256": "5f1307b147532d9cb0249a0c0a8cb1763429d97f890f2ea5c934c20419f1e9bd"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.PlatformAuthAccessLogTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.PlatformAuthAccessLogTest.xml",
+    "sha256": "1796ff06ec6d8866d40ba747ec94a842721416cf017564a870b645186a39a2e5"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.RealWechatStaffClientTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.RealWechatStaffClientTest.xml",
+    "sha256": "c7b1d1fa05c2502e8561152e21b1315f04d2f7ef62c09357d2334f731a83029e"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.SmsCaptchaServiceRedisIntegrationTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.SmsCaptchaServiceRedisIntegrationTest.xml",
+    "sha256": "1ebeb856d535e845fffb731a5f104c8998a0cefb39303c1ef803745f65dafed6"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.SmsCaptchaServiceTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.SmsCaptchaServiceTest.xml",
+    "sha256": "fe0de1965ffa7d75472eb16861a07381531e196ee08e82429ea3f20989f1490c"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.StaffSmsLoginServiceImplTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.StaffSmsLoginServiceImplTest.xml",
+    "sha256": "a2bf861eb1b9b8a26bf909297714eea6e7c455b02e20157b893ca614bb999291"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.StaffWechatExplicitBindingServiceImplTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.StaffWechatExplicitBindingServiceImplTest.xml",
+    "sha256": "f02b8da0a604ecaf30645ee8c9450ac34be8b2f063ae8dcb1a96fb7bbb9df8ae"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.StaffWechatLoginIntegrationTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.StaffWechatLoginIntegrationTest.xml",
+    "sha256": "b4e15fd02e7ea250338415de40694aa0e69c135dd4490efe9a18a4831b4b2cd9"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.StubWechatStaffClientTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.StubWechatStaffClientTest.xml",
+    "sha256": "ee314849ef4606dd2aa48f040f79489e76b0a08967c74fd2e9f25e5dc2339042"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.sms.DisabledSmsClientTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.sms.DisabledSmsClientTest.xml",
+    "sha256": "5864f41e5ce97888cf569cf3430ca3f7daa1cad51952897d91170ef20aca5608"
+  },
+  {
+    "module": "platform/platform-identity",
+    "class": "cn.iocoder.yudao.module.platform.identity.sms.TencentSmsClientTest",
+    "path": "platform/platform-identity/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.identity.sms.TencentSmsClientTest.xml",
+    "sha256": "ef332ac89935442f5f2da0bf39c34a1ef73f98bd7d72611a817d916f12b381f8"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.DepartureHandoverDuplicatePortTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.DepartureHandoverDuplicatePortTest.xml",
+    "sha256": "0dc64c0a80961a5337ff99246d6f7c12831d4cbc9460006d60b8693bcd6e1cc0"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.DepartureHandoverServiceIntegrationTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.DepartureHandoverServiceIntegrationTest.xml",
+    "sha256": "bb510f8af61ca03697af7a5da5f75ce972695d3ecc1ff7a864d1e31e9b0a92df"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.FranchiseAccountNamingTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.FranchiseAccountNamingTest.xml",
+    "sha256": "27c8e93976480b26b217f972b520752ae33004e79350f7b3a4959da831edc6fb"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.OrgAndPostIntegrationTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.OrgAndPostIntegrationTest.xml",
+    "sha256": "3ebf61437c7e67a0c92725ad24c5e11d1b682cc01bb35fe722363b5c691c4f36"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.OrgTablesTenantIgnoreTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.OrgTablesTenantIgnoreTest.xml",
+    "sha256": "689bc2095a378a6001e94e8b69e95cda4065e97e0de963cacd2c7bf9b9423975"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.StaffImportServiceIntegrationTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.StaffImportServiceIntegrationTest.xml",
+    "sha256": "74e652a7fc88f3f4d3cc23624e51ae501fd64879b4fb3501d2d485344969c0e5"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.StaffImportServicePiiLogTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.StaffImportServicePiiLogTest.xml",
+    "sha256": "3fc4679360bbf29c1e39edae844b111b6388824f1138169545e71fce868e8f40"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.StaffImportTransactionIntegrationTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.StaffImportTransactionIntegrationTest.xml",
+    "sha256": "36322e69016130317435a1979cb02589e723c3e9a57bf675a016befadc3a25ff"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.StaffPostAssignContractIntegrationTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.StaffPostAssignContractIntegrationTest.xml",
+    "sha256": "1b0fe077584634b7bcbc1d4b2391b3dcf1e8ff5e289b64122dd9a3252e82415f"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.StaffPostDepartmentStateTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.StaffPostDepartmentStateTest.xml",
+    "sha256": "837938989904535d2aa8ce944cfd3c50a20254687f26bd71aa33a3fad10e3a51"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.StaffPostUserDeletedRecycleIntegrationTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.StaffPostUserDeletedRecycleIntegrationTest.xml",
+    "sha256": "35e9ddb99700f1ffae842e530e35622a0589b3d0bdcbe6e1589f114ab50bcb5a"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.StaffProfileServiceTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.StaffProfileServiceTest.xml",
+    "sha256": "7b709bdaeb7e79fc1e2bc2bf5ee543ab1cee25fd2e296ff7a869aea0b998976e"
+  },
+  {
+    "module": "platform/platform-org",
+    "class": "cn.iocoder.yudao.module.platform.org.YudaoSystemDirectoryTest",
+    "path": "platform/platform-org/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.org.YudaoSystemDirectoryTest.xml",
+    "sha256": "3de386ae6afe59a44a59083bf72e8f2611dd452c3077396d5b12c4c051a544bc"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.LocalServiceMappingWiringTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.LocalServiceMappingWiringTest.xml",
+    "sha256": "5ea6e02de0ea757cefab517838ffca32137305b73bef4b9a278138ef16d77bed"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.OrgPointPortContractTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.OrgPointPortContractTest.xml",
+    "sha256": "548bfb23dd06f701f1bc5cc2a16356e45ba42c7fe108aaa0dbde46c765a875fa"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.PaymentFactValidatorTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.PaymentFactValidatorTest.xml",
+    "sha256": "ed1aa38f08fde37920e914e7a5d8647fc1cb38b85ea72c3dba4ec59f7c2b05c9"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.VirtualPaymentAdapterSafetyTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.VirtualPaymentAdapterSafetyTest.xml",
+    "sha256": "57b65a2036f33105e3c445162202e1cbf69e1da71fa22a09ddbe1654b3a4392c"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.WalletAccountingIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.WalletAccountingIntegrationTest.xml",
+    "sha256": "ab319816fa4e7ef5bf9635bd1b747be9c86a1f516e7509158f6ddb512f38926d"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.WalletControllerSecurityTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.WalletControllerSecurityTest.xml",
+    "sha256": "68535b52656bc8a3659653804b5c561374376a52d0f1541b35e5367624b71076"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.WalletRecoveryWiringTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.WalletRecoveryWiringTest.xml",
+    "sha256": "1abb340751a51cd7e29de7075fb5e4b369e3566e5c8007e18e95d78cae90c216"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.WalletRefundRecoveryIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.WalletRefundRecoveryIntegrationTest.xml",
+    "sha256": "d2c27520113ae4b5b8a3579cc51a85146d1a8a467643b1a5a060fb133f10a3da"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.WalletRefundUndoGuardTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.WalletRefundUndoGuardTest.xml",
+    "sha256": "e9bd9ec4a0affdffcbeb4bfe25b08273a1d4e1f1a9ebdbedfe63b782a09ff980"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.WalletXpayNotifyHttpTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.WalletXpayNotifyHttpTest.xml",
+    "sha256": "6817a2b68f3e4bca7bcd349802c22f59bb9fbb23f6cdc5ef7beaad24fef4cb3e"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.admin.WalletConfigurationIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.admin.WalletConfigurationIntegrationTest.xml",
+    "sha256": "0362fde29c6953f78e811cc1e30bad2c78930e9364859e16280e3a2c6ded0c5f"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.admin.WalletOperationsIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.admin.WalletOperationsIntegrationTest.xml",
+    "sha256": "4647a7da57ae81a5a80537d121d9085cefe63fd765f0624966cd82394cd59325"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.admin.WalletOperationsSecurityTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.admin.WalletOperationsSecurityTest.xml",
+    "sha256": "cf8ed981d392d540979fb212b29ad3e255a82a633f3040ee27fb17ab3ad2acfc"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.export.FinanceExportAuditTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.export.FinanceExportAuditTest.xml",
+    "sha256": "28eb19767d7f47f74c877c208eeb674014777d258d2d65a64397186b1d14b13c"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.export.FinanceExportCsvTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.export.FinanceExportCsvTest.xml",
+    "sha256": "80198350016fabc854a5e2a40a9afd9bc338eefd7efe6982895a40b4c6b0d222"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.export.FinanceExportHttpContractTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.export.FinanceExportHttpContractTest.xml",
+    "sha256": "887484fd70dc15b281e946507c77a70bfa35e1a71fc56f22e4ca0336777486a4"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.export.FinanceExportPgIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.export.FinanceExportPgIntegrationTest.xml",
+    "sha256": "fa975b53ed1e7d94e8df046de21acba839c4994ed06b2643ebea36b5b0dfeb89"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.DesignBillingBindingIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.DesignBillingBindingIntegrationTest.xml",
+    "sha256": "796a39e81fd9bc8677f7db83a48f822e771c49f624b7bdf313608a879ce23501"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgMemberPermissionIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgMemberPermissionIntegrationTest.xml",
+    "sha256": "b03db52cb1e8e675e3e3bcd4b8102be1540b43508cbe378e393305f47621295f"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgMemberQuotaIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgMemberQuotaIntegrationTest.xml",
+    "sha256": "582e4ce8c5f83f56237ce8501e900954b64c0c4656ee0d239120797e7794d2c2"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointAuditIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointAuditIntegrationTest.xml",
+    "sha256": "cd352a66d28eb181982c6f83e5ac5e3decdeb78638eb419f0a8a7d93d25a0808"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointCombinedFlywayIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointCombinedFlywayIntegrationTest.xml",
+    "sha256": "ecde0162e594fe03e9809a15acb152ca7c6e7f52cfeaed2307c880094289b39c"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointFlywayUpgradeIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointFlywayUpgradeIntegrationTest.xml",
+    "sha256": "4bb2269de21368ac0efe75567898f32e7f88f5ebca80e41d8b2fb4d0a325d710"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointHeadquartersIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointHeadquartersIntegrationTest.xml",
+    "sha256": "5c0e019add98117de0cdc317461bfd50f6cbb84dfb092cfa5e6d2ef6d7ff6e16"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointHeadquartersSecurityTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointHeadquartersSecurityTest.xml",
+    "sha256": "c609ac22494204e0c4c274017eb990145933541ab84e0b68676ef6104f78ee24"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointLedgerIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointLedgerIntegrationTest.xml",
+    "sha256": "84f02fa5191aead0e553d880e6e06140d3f7d9d0c65b04a7cf76948e87d24b50"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPriceIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPriceIntegrationTest.xml",
+    "sha256": "2ffc6a12080a2347ab9430d9205e92cebb2367ae6dfb27bb3b7fac4df2f82842"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPricingPgIntegrationTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPricingPgIntegrationTest.xml",
+    "sha256": "af82a399a429da5d67c6808582632198c179c0a1770b1e9e1703a89bb069ff46"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPricingSecurityTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPricingSecurityTest.xml",
+    "sha256": "a38359b5e5798073709afe58b0f71432181f4485f75ca9a00f5fd77f391b3e35"
+  },
+  {
+    "module": "platform/platform-wallet",
+    "class": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointUndoGuardTest",
+    "path": "platform/platform-wallet/target/surefire-reports/TEST-cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointUndoGuardTest.xml",
+    "sha256": "9dd0180e4b7711ea4c3d21e41bd35ef3478c19a64a552fa77625dbecef0c6ed4"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.controller.admin.oauth2.OAuth2OpenControllerTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.controller.admin.oauth2.OAuth2OpenControllerTest.xml",
+    "sha256": "bb4d621e39800cd01fe2a37d2123fede4aa9ecdbb111af068289982c3ed9e3f2"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.AliyunSmsClientTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.framework.sms.core.client.impl.AliyunSmsClientTest.xml",
+    "sha256": "e6ca1eaacef042e57392d7c94d3c0711efee814b4ca6cf54e5e6fc0a747babeb"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.HuaweiSmsClientTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.framework.sms.core.client.impl.HuaweiSmsClientTest.xml",
+    "sha256": "9dda6d3c84eb1a0366b45fa15c62f4a9e4ff9ba1e62dc10c4bf9c2060c43e174"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.QiniuSmsClientTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.framework.sms.core.client.impl.QiniuSmsClientTest.xml",
+    "sha256": "d40875e7955c95cd4fcb27d98092935321860f8097f90b2b4c98ec1708fd9f84"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests.xml",
+    "sha256": "de62f2d31e1d8ac14e87c0c8397296ff933c4bc67d0f5836ef4f0f0f96b03314"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.TencentSmsClientTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.framework.sms.core.client.impl.TencentSmsClientTest.xml",
+    "sha256": "b6b3fb43bb4786cc2fa6a0fbb36ccac335945badcd90a19087d6b1182988479b"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.auth.AdminAuthServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.auth.AdminAuthServiceImplTest.xml",
+    "sha256": "6f2b1643fdff89f24bd9c8fa0f7fd3677b1fa3af587b415cb9e6361e903159b0"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.dept.DeptServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.dept.DeptServiceImplTest.xml",
+    "sha256": "24ad951a76b3fc4758f18b93bf72b92f50ab718d55897ca0cbde9eab87d4e09f"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.dept.PostServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.dept.PostServiceImplTest.xml",
+    "sha256": "74f5c608d092847e3e4ee4054c864cb5fae208c65baf351564229edc4a4d5217"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.dict.DictDataServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.dict.DictDataServiceImplTest.xml",
+    "sha256": "8daacb74b27129571e7297fbb42d434c38864d093446630bd9e41b18ca843390"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.dict.DictTypeServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.dict.DictTypeServiceImplTest.xml",
+    "sha256": "c9ce23b26e0962a87ffb872bd776e451c47eb7af8e9a9986e73c5e1eeb768aaf"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.logger.LoginLogServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.logger.LoginLogServiceImplTest.xml",
+    "sha256": "bd248fac0cddaa886855bc0befa6cca0da7ab9304b6c8b868ba099351b7c258b"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.logger.OperateLogServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.logger.OperateLogServiceImplTest.xml",
+    "sha256": "d6d59e17c4ba56ddd8264c485a4f420a3ac72db08bd827eff25d396b107709e0"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.mail.MailAccountServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.mail.MailAccountServiceImplTest.xml",
+    "sha256": "2f300a6b3dc4fdf0c71c25282407741621dae730662a8e87b78d3c707a40d40d"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.mail.MailLogServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.mail.MailLogServiceImplTest.xml",
+    "sha256": "c5e6d17cfabcc2bf213fda363a5809d15e593caa83f4346c8655d23787b56fa6"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.mail.MailSendServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.mail.MailSendServiceImplTest.xml",
+    "sha256": "8e47b780c6e59dd016d8fa2da1e850770aa9c6c7a515a1241f093aff50ecd0a5"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.mail.MailTemplateServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.mail.MailTemplateServiceImplTest.xml",
+    "sha256": "a4c17a577e4fb28cd2100f48b6ab648a60425ea1051d7ec4e01e7326a4a55c46"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.notice.NoticeServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.notice.NoticeServiceImplTest.xml",
+    "sha256": "b9d2e0cae05926dac0a82def908d160643452fb4809cfb07daa90fb8ade444ca"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.notify.NotifyMessageServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.notify.NotifyMessageServiceImplTest.xml",
+    "sha256": "8f5538d96b0de0fdd7260a8e844d2d9ad423ccac2f328ddb1b1d6f4f6ce40541"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.notify.NotifySendServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.notify.NotifySendServiceImplTest.xml",
+    "sha256": "46538cb1cdfdf57feadd9bf76c29d0717d71d2603bfa412c6db7c8180eadd17c"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.notify.NotifyTemplateServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.notify.NotifyTemplateServiceImplTest.xml",
+    "sha256": "cf9ac4fa3950abc4a5951beb68ba402d28ac75c390a1bbed4e27b12835ace71f"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.oauth2.OAuth2ApproveServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.oauth2.OAuth2ApproveServiceImplTest.xml",
+    "sha256": "238e7f356b11b4aa2f3b70d88d84661f2015f3bd8c5af32391e4cb995b31ced7"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.oauth2.OAuth2ClientServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.oauth2.OAuth2ClientServiceImplTest.xml",
+    "sha256": "ca8f3ca183709b8617965f72c8b9ac292bc55c5dbc7df5a30f2f4b007de744a3"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.oauth2.OAuth2CodeServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.oauth2.OAuth2CodeServiceImplTest.xml",
+    "sha256": "17dbd4cb6629b058f0c8785681f13536d8c4149595702003781ef0aaf83b57a2"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.oauth2.OAuth2GrantServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.oauth2.OAuth2GrantServiceImplTest.xml",
+    "sha256": "9f35dbb66c86811d25ef483bfc7e2c96a202caec5f978bf3762879138dff5051"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenServiceImplTest.xml",
+    "sha256": "22c0263797f640c91c8787ce3df6b0f8663ca2ed8417943ac8108fcda377ef92"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.permission.MenuServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.permission.MenuServiceImplTest.xml",
+    "sha256": "1209708a1a2ff3fb05267e74a4aa730f83e9c6932ef7139a3d0cbcfa184216c7"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.permission.PermissionServiceTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.permission.PermissionServiceTest.xml",
+    "sha256": "09e1f30e13eb7e814a671a75298d14e12530ff306e8b69d9d68a33dcf8658bc1"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.permission.RoleServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.permission.RoleServiceImplTest.xml",
+    "sha256": "71df07f1d61bcd13faab1b10c22972eec79834cc6da0c8eb31c78aa7b0c15bf3"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.sms.SmsChannelServiceTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.sms.SmsChannelServiceTest.xml",
+    "sha256": "a52ed896e18364d65623cb0b27fb275f270a7fdffdc6fcf8a8f0f87e167bb85f"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.sms.SmsCodeServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.sms.SmsCodeServiceImplTest.xml",
+    "sha256": "0971396a6f0630bf3430e1e6488510659a42b1205bf7b151ff6662eacd7214e9"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.sms.SmsLogServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.sms.SmsLogServiceImplTest.xml",
+    "sha256": "9729ca55b43eacd68e3d92773968cc2ff5d85fc816be8771d3a84ecf8e10bfcf"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.sms.SmsSendServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.sms.SmsSendServiceImplTest.xml",
+    "sha256": "7fd5d4373e9a261ba79a9aa63355a424c96054c985a89639fe84202bd750dce2"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.sms.SmsTemplateServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.sms.SmsTemplateServiceImplTest.xml",
+    "sha256": "fb0c36c24123d36c9d211e2a0df00f80649d830f1d50fa6a9aa37fca3c220fc2"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.social.SocialClientServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.social.SocialClientServiceImplTest.xml",
+    "sha256": "361587614f4dd1010d8094be118f6f0b88bf2adb461d0621367b9eb403b4373c"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.social.SocialUserServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.social.SocialUserServiceImplTest.xml",
+    "sha256": "a19b8e5340a2db051e92ebd9ad05ebdbbe6ea0f8a7340d30f8fc1cd2468858a7"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.tenant.TenantPackageServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.tenant.TenantPackageServiceImplTest.xml",
+    "sha256": "6dc3ce83e680a6899825125ebc100ebfb8fe5a354fb489f45637c50124bf2f86"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.tenant.TenantServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.tenant.TenantServiceImplTest.xml",
+    "sha256": "259f868fff1f7ef38f54824ab7b017891d2d34c62edea5b11d0fbbdf3d34bc0a"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.user.AdminUserDeleteTokenRecycleTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.user.AdminUserDeleteTokenRecycleTest.xml",
+    "sha256": "03d5e340a9ca6ff9f94572456ce1d1daa4cc00413d89e53199a5a231fb39b3a3"
+  },
+  {
+    "module": "yudao-module-system",
+    "class": "cn.iocoder.yudao.module.system.service.user.AdminUserServiceImplTest",
+    "path": "yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.user.AdminUserServiceImplTest.xml",
+    "sha256": "f62ad1872caf9b83b1f7ff2fb87dddb0f082029543492862a5e07bfd60742ed3"
+  }
+]

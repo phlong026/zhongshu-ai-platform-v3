@@ -1,0 +1,178 @@
+{
+  "completedAt": "2026-11-16T12:10:11.173567+08:00",
+  "backendDeployment": "live",
+  "miniProgramVersion": "1.0.20261116.7",
+  "miniProgramUpload": "success-official-cli",
+  "baselinePreserved": "1.0.20261116.6",
+  "trialVersion": "set-by-user-confirmed",
+  "formalRelease": false,
+  "physicalPhoneAcceptance": false,
+  "frontend": {
+    "check": "passed",
+    "tests": 295,
+    "businessCodeEquivalence": {
+      "version": "1.0.20261116.7",
+      "nativeLiveTestSnapshot": "frontend",
+      "officialUploadSnapshot": "frontend-final",
+      "nativeMockedNetworks": false,
+      "allBusinessModulesAndRecursiveHostDependenciesIdentical": true,
+      "verifiedJavascriptFiles": 51,
+      "scope": "4 design modules plus recursively required host JS; surrounding boss UI checked by final package tests and preserved v6 hashes",
+      "nativeFinalProjectExtraAttempt": "Official CLI auto succeeded but the separate requested 9954 WebSocket was not listening; no native test success is claimed for that additional connection attempt."
+    }
+  },
+  "backendTests": {
+    "tests": 2478,
+    "passed": 2459,
+    "failures": 0,
+    "errors": 0,
+    "existingDisabled": 19,
+    "classes": 308
+  },
+  "realFlows": {
+    "caseImages": {
+      "cover": 1,
+      "drawings": 3,
+      "floors": [
+        1,
+        2
+      ],
+      "allReady": true
+    },
+    "flat": {
+      "projectId": "2122151535924297729",
+      "jobId": "2122151537635573761",
+      "accepted": 2,
+      "requested": 2,
+      "netCredits": 4,
+      "versionId": "2122161277195337730"
+    },
+    "elevation": {
+      "projectId": "2122151542316417025",
+      "initialJobId": "2122151543767646210",
+      "initialAccepted": 1,
+      "initialRequested": 2,
+      "initialRefundCredits": 3,
+      "revisionJobId": "2122162619817213954",
+      "revisionAccepted": 2,
+      "revisionRequested": 2,
+      "latestVersionId": "2122167956532183041",
+      "projectNetCredits": 9,
+      "oldVersionReadOnly": true
+    },
+    "budgets": [
+      {
+        "kind": "INDEPENDENT_COMPLETE",
+        "budgetId": "2122164758383771650",
+        "revisionId": "2122164758383771651",
+        "totalCents": 42870000,
+        "saved": true,
+        "archived": true
+      },
+      {
+        "kind": "INDEPENDENT_INCOMPLETE",
+        "budgetId": "2122171813962268673",
+        "revisionId": "2122171813962268674",
+        "totalCents": null,
+        "pricedSubtotalCents": 41020000,
+        "saved": true,
+        "archived": true,
+        "olderCompleteBudgetUnchanged": true
+      },
+      {
+        "kind": "PROJECT_COMPLETE",
+        "budgetId": "2122173646688567298",
+        "revisionId": "2122173646688567299",
+        "projectId": "2122151535924297729",
+        "resultVersionId": "2122161277195337730",
+        "totalCents": 42870000,
+        "saved": true,
+        "archived": true
+      }
+    ],
+    "nativeUpload": {
+      "assetId": "2122175087325495296",
+      "httpMocked": false,
+      "type": "USER_SKETCH",
+      "validated": true
+    },
+    "customerId": "2122166199567601666",
+    "customerName": "迁移验收样例（非真实客户）",
+    "archiveTypes": [
+      "PLAN",
+      "FACADE",
+      "BUDGET"
+    ],
+    "companyCredits": {
+      "initialBalance": 100,
+      "reserved": 19,
+      "refunded": 3,
+      "netSpent": 16,
+      "balance": 84,
+      "inFlight": 0
+    }
+  },
+  "healthAndCleanup": {
+    "at": "2026-11-16T04:06:36.648050+00:00",
+    "checks": {
+      "b": {
+        "status": "UP",
+        "businessCode": null
+      },
+      "a-public-controller": {
+        "status": null,
+        "businessCode": 0
+      },
+      "b-public-https": {
+        "status": null,
+        "businessCode": 0
+      },
+      "provider-private-tls": {
+        "status": "UP",
+        "groups": [
+          "liveness",
+          "readiness"
+        ]
+      }
+    },
+    "qaCleanup": {
+      "at": "2026-11-16T04:05:22.317468+00:00",
+      "userId": 151,
+      "userDisabled": true,
+      "postRevoked": true,
+      "temporaryRoleLinkRevoked": true,
+      "oauthAccessAndRefreshRemaining": 0,
+      "logoutCallsSucceeded": 6,
+      "ownCacheKeysRemoved": 1,
+      "revokedSessionBusinessCode": 401,
+      "financialLedgerAndFrozenAcceptanceRecordsPreserved": true,
+      "testCustomerName": "迁移验收样例（非真实客户）",
+      "credentialFilesDeleted": [
+        "qa-credentials.json",
+        "qa-session.json"
+      ]
+    }
+  },
+  "boundaries": [
+    "Initial flat/elevation requests used real HTTPS and the native input builder; result selection, revision, budgets, upload and customer archive were exercised in native DevTools against real APIs.",
+    "The confirmation dialog was automated for paid revision/budget actions; wx.request was not mocked.",
+    "Native real tests ran on the business snapshot. The uploaded package preserves v6 surrounding UI and has the same 51 business/host JS files. An additional 9954 native attachment was unavailable; no success is claimed for that attachment.",
+    "No physical-phone acceptance or formal release is claimed. The official preview QR is available.",
+    "The 19 existing disabled backend tests remain; none were newly disabled.",
+    "Temporary QA identity, post, role link and OAuth access/refresh credentials were revoked. Ledger, frozen result/budget versions and the clearly labelled QA customer remain for audit."
+  ],
+  "previewRefreshedAt": "2026-11-16T12:16:12.790720+08:00",
+  "trialVersionEvidence": {
+    "source": "direct user confirmation in this chat",
+    "UIIndependentlyObserved": false,
+    "version": "1.0.20261116.7"
+  },
+  "phoneAcceptance": {
+    "status": "awaiting_user_phone_case_checkpoint",
+    "userConfirmedRemoteConnection": true,
+    "automatorPhoneEnvironmentRead": "timeout",
+    "moduleFlowsVerifiedOnPhone": [],
+    "note": "Awaiting the phone case-image checkpoint; previous DevTools results are unchanged and do not certify the phone phase.",
+    "temporaryDiagnosticRemoved": true
+  }
+}

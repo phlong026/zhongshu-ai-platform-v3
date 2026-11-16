@@ -1,0 +1,18 @@
+{
+  "b": {
+    "path": "/opt/zhongshu-platform-b-integration/release/design-backup-20261116-1205/b-after.dump",
+    "bytes": 1457116,
+    "sha256": "d693e53c704a5004e0a43c36ac6bc2019e1ac5a796cf55a8c510fd5890a6b1d9"
+  },
+  "provider": {
+    "path": "/opt/zhongshu-platform-b-integration/release/design-backup-20261116-1205/provider-after.dump",
+    "bytes": 346119,
+    "sha256": "68b32b193b9acc9e62b2256ccba06d5ea7a3eb5207736353ec373988f591ca13"
+  },
+  "a": {
+    "path": "/opt/zhongshu-platform-b-integration/release/design-backup-20261116-1205/a-after.dump",
+    "bytes": 15533082,
+    "sha256": "cce7901264a0f1c375c10a2826f735b6267634a1af5a9a3fa0c3047512bbcd31"
+  },
+  "backupDirectory": "/opt/zhongshu-platform-b-integration/release/design-backup-20261116-1205"
+}

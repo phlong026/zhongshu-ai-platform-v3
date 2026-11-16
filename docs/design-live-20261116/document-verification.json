@@ -1,0 +1,8 @@
+{
+  "bothMainRequirementsIdentical": true,
+  "matchingEvidenceFiles": 50,
+  "publicLiveJsonCredentialChecks": "passed",
+  "offlineFixturesRetained": true,
+  "frozenBackendSourcesMatching": 66,
+  "ownTestPostgresStopped": true
+}

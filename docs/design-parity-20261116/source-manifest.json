@@ -1,0 +1,505 @@
+{
+  "source": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram",
+  "files": [
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\index.js",
+      "sha256": "b53ee46289326473f29ee017f7821633550e53b6f842fd658933ce3e2bee9b3d",
+      "target": "miniprogram\\design-migration\\pages\\library\\index.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\index.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\library\\index.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\index.wxml",
+      "sha256": "0a9b60a4ba7de66e89f92f89c16e76f833da9e38b13f522164742f484cd5b4c1",
+      "target": "miniprogram\\design-migration\\pages\\library\\index.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\index.scss",
+      "sha256": "f5dc3a1caaee566bade229fdf43b13a4e62cb254633a7f6627f64f741313a21f",
+      "target": "miniprogram\\design-migration\\pages\\library\\index.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\detail.js",
+      "sha256": "1981fa4ce946ad6c8a02d5a44970856c3d5c3ee8cc21928316c53a0b91a131a8",
+      "target": "miniprogram\\design-migration\\pages\\library\\detail.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\detail.json",
+      "sha256": "58ab7c5761894c1b9b19c33b710d541f174e32cf668b6f1c4fc22087e99a5d35",
+      "target": "miniprogram\\design-migration\\pages\\library\\detail.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\detail.wxml",
+      "sha256": "cd101d45485e162e27fc1bb309760712c13563c28c854d4265e5d3e061fb900c",
+      "target": "miniprogram\\design-migration\\pages\\library\\detail.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\detail.scss",
+      "sha256": "88defa61648e757e0e2695318d7a4e79d360295a42cd2a39ba7a7b0b56cbc2b3",
+      "target": "miniprogram\\design-migration\\pages\\library\\detail.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\index.js",
+      "sha256": "b2b8473f0b7409f75a6a7bd8863b07d4da1a0b5bfbba3dfe46dfa386c321f13f",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\index.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\index.json",
+      "sha256": "58ab7c5761894c1b9b19c33b710d541f174e32cf668b6f1c4fc22087e99a5d35",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\index.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\index.wxml",
+      "sha256": "c28f6c873440c38a2f5fead56989574cd9ec2ad1222895f7a6248a40a285ab88",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\index.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\index.scss",
+      "sha256": "9d4078abf6bda298a81eb61cc7c496f901ac71da261d952222e7a7a3e5aa83dc",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\index.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\generating.js",
+      "sha256": "3ab4a41e62fc0a2087d72f3340982e565dddc0fccb2fb0549070d10407e38ef2",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\generating.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\generating.json",
+      "sha256": "58ab7c5761894c1b9b19c33b710d541f174e32cf668b6f1c4fc22087e99a5d35",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\generating.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\generating.wxml",
+      "sha256": "fd66e9f69f43664cedfbe00701fcc6ff0b282295e89aa8b87565776887b87589",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\generating.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\generating.scss",
+      "sha256": "0cb86e7e7257af6483a7888de251493fefd7af8173f4cb604ab05af095e1182b",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\generating.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\result.js",
+      "sha256": "64c632686c7bc10c25eb9fceb8d87bbb99098ae44bb8deb3e2271aeaf94ed18e",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\result.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\result.json",
+      "sha256": "5ff14e95415b94731680f72fe2640451339657ca363243c7f0ec5747b2b64d70",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\result.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\result.wxml",
+      "sha256": "95f6cdd0e7352f37d5ce7e21922b4d1f844be15162c72910c8faccc4a36b9c9d",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\result.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\result.scss",
+      "sha256": "42019b25df0e6dfed3ddc8ebcea8cc251e31e698ce189b108d7f9e9e4a7463a8",
+      "target": "miniprogram\\design-migration\\pages\\ai-design\\result.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\profile\\records.js",
+      "sha256": "e1f5ae0bd6ad828c1e8f72126cbdfc2b965f6f5eaddd7eeaf3f30c9f5849c658",
+      "target": "miniprogram\\design-migration\\pages\\profile\\records.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\profile\\records.json",
+      "sha256": "33429cba5b752b804b1c7659ad723f6e59430be3a3eea6e34712d83a76664379",
+      "target": "miniprogram\\design-migration\\pages\\profile\\records.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\profile\\records.wxml",
+      "sha256": "2a00e58e5444fa1a5deba6f53e1af04dfaaa44523b96ffd2bfbb35901b383a07",
+      "target": "miniprogram\\design-migration\\pages\\profile\\records.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\profile\\records.scss",
+      "sha256": "8668f757d47843be5badb3ba72a70e588ea23cb12b7c0c55b9c405ee7a998a23",
+      "target": "miniprogram\\design-migration\\pages\\profile\\records.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\profile\\record.js",
+      "sha256": "1fe88cca8b740c403afcf6f5bcaa464d459825ec2caaf73463f7edc941ebaee4",
+      "target": "miniprogram\\design-migration\\pages\\profile\\record.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\profile\\record.json",
+      "sha256": "33429cba5b752b804b1c7659ad723f6e59430be3a3eea6e34712d83a76664379",
+      "target": "miniprogram\\design-migration\\pages\\profile\\record.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\profile\\record.wxml",
+      "sha256": "8a811de42cfbf79e302476fee59f561bbcd26c67de48db45971e4fa53a3d09a9",
+      "target": "miniprogram\\design-migration\\pages\\profile\\record.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\profile\\record.scss",
+      "sha256": "18bf7a196d86c3fd52cf9ff7ac167c788b373eec3fdcd9be847e20d70bf2aced",
+      "target": "miniprogram\\design-migration\\pages\\profile\\record.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quick.js",
+      "sha256": "15b18a19883f6db277e59ade07fae8164e6d05c427ebb7880dc6c2c8a1615535",
+      "target": "miniprogram\\design-migration\\pages\\budget\\quick.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quick.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\quick.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quick.wxml",
+      "sha256": "c96a9001b3734b14df0ab0d5509ce9ad1d7176cfdc8e349e6d27e2bba0992238",
+      "target": "miniprogram\\design-migration\\pages\\budget\\quick.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quick.scss",
+      "sha256": "bfe93d736217fe2fe35429e2380fbab0acf7a62fc1b5c068d5371f196ff07ffb",
+      "target": "miniprogram\\design-migration\\pages\\budget\\quick.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\input.js",
+      "sha256": "182c01b6612315c7de4e50ddbc60db2c2d8cf8d1763b3333ef118abf0aaadd0c",
+      "target": "miniprogram\\design-migration\\pages\\budget\\input.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\input.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\input.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\input.wxml",
+      "sha256": "e4192a6ba267ae41f6402ea56a2d6c9e2d5b163c1134aa9b106a851623f537f4",
+      "target": "miniprogram\\design-migration\\pages\\budget\\input.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\input.scss",
+      "sha256": "52a8c3ebc5f5de074abf18efc5b9659566a4ff47ef0900f0e748a32abe9e3f38",
+      "target": "miniprogram\\design-migration\\pages\\budget\\input.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\parameters.js",
+      "sha256": "bff5216149ea09b46ccddfeb687a7c0dd0b51ea521aba5236f1fe6d19f5bdc31",
+      "target": "miniprogram\\design-migration\\pages\\budget\\parameters.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\parameters.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\parameters.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\parameters.wxml",
+      "sha256": "fd5d59e4f3b89ee2ea81cd09560f8287e8a4c006801fda9f8978064856239ca2",
+      "target": "miniprogram\\design-migration\\pages\\budget\\parameters.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\parameters.scss",
+      "sha256": "e0a176f7c48b6579c686ff67ab4c7871390f96064d9fb9597c82377d214d78b3",
+      "target": "miniprogram\\design-migration\\pages\\budget\\parameters.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\body.js",
+      "sha256": "07f52a9230d75d26b4e9191173fe70386b83b3e321408e01cf43c00eb3f22a42",
+      "target": "miniprogram\\design-migration\\pages\\budget\\body.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\body.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\body.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\body.wxml",
+      "sha256": "e22ae323a467dff14179b64fcef896f58c00e523e9c3a0c343d6e626b57f86ee",
+      "target": "miniprogram\\design-migration\\pages\\budget\\body.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\body.scss",
+      "sha256": "3e9e36bcff52f6cf041ce738de37b9e08784bc7e78210cf0ab126d1b84b015c1",
+      "target": "miniprogram\\design-migration\\pages\\budget\\body.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\body-detail.js",
+      "sha256": "0faedcd09869460ebfa1ac0c3003d9ab25722a464d2451839c290cd7544186c7",
+      "target": "miniprogram\\design-migration\\pages\\budget\\body-detail.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\body-detail.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\body-detail.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\body-detail.wxml",
+      "sha256": "5c7c0c5f7e5734be0317f1980b0a86e33b495a1f3322c7e2baf1677827105826",
+      "target": "miniprogram\\design-migration\\pages\\budget\\body-detail.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\body-detail.scss",
+      "sha256": "2c8bca9ebe51a54dd5bbcfbe230fca816a9e41b141ae43ec8bc8bcf6c5cceed2",
+      "target": "miniprogram\\design-migration\\pages\\budget\\body-detail.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\exterior.js",
+      "sha256": "0c9982362fe79ae6e067fbd0ec802401bd8d6c11d65e28e824455752fe09ab85",
+      "target": "miniprogram\\design-migration\\pages\\budget\\exterior.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\exterior.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\exterior.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\exterior.wxml",
+      "sha256": "d48c03e80497f466c92c1d73f0f98ff5e303ca53c5e40acd069d155d0f1eee95",
+      "target": "miniprogram\\design-migration\\pages\\budget\\exterior.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\exterior.scss",
+      "sha256": "ff8e72041739d130b0ab88c442592ff43b73ff9478996519e210d283eddead3a",
+      "target": "miniprogram\\design-migration\\pages\\budget\\exterior.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\exterior-detail.js",
+      "sha256": "a716aa4eefee7938c2af476edc6f0948683b85e1542effcafbf3dab58f7b5d42",
+      "target": "miniprogram\\design-migration\\pages\\budget\\exterior-detail.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\exterior-detail.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\exterior-detail.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\exterior-detail.wxml",
+      "sha256": "5c7c0c5f7e5734be0317f1980b0a86e33b495a1f3322c7e2baf1677827105826",
+      "target": "miniprogram\\design-migration\\pages\\budget\\exterior-detail.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\exterior-detail.scss",
+      "sha256": "2c8bca9ebe51a54dd5bbcfbe230fca816a9e41b141ae43ec8bc8bcf6c5cceed2",
+      "target": "miniprogram\\design-migration\\pages\\budget\\exterior-detail.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\result.js",
+      "sha256": "3a8cbba4970d18948c09c997d4ef16a3461cb965b10307b8eb1eb4a057f5741f",
+      "target": "miniprogram\\design-migration\\pages\\budget\\result.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\result.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\result.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\result.wxml",
+      "sha256": "0819469e13030b4eec4744fe217f40f860dc04912454489637ccc30b2dff7ee9",
+      "target": "miniprogram\\design-migration\\pages\\budget\\result.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\result.scss",
+      "sha256": "2a7b2866ab2ced4cdcc108a75fbebbd058f5b34a3f9577523ebf9f15e27b94a7",
+      "target": "miniprogram\\design-migration\\pages\\budget\\result.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quote.js",
+      "sha256": "8fb0ef9775d762348867a4071709e03b5b0bf01c8a03aa2d1459632f839d1b90",
+      "target": "miniprogram\\design-migration\\pages\\budget\\quote.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quote.json",
+      "sha256": "7e903e08ebc0273e5e4265251cf339c43a2cf258b980144a4cc89c0c5a460730",
+      "target": "miniprogram\\design-migration\\pages\\budget\\quote.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quote.wxml",
+      "sha256": "0a25351154d2fe5c61e8f36c3e77208c7118bc760a9a9b998c1d393d998d7c1f",
+      "target": "miniprogram\\design-migration\\pages\\budget\\quote.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quote.scss",
+      "sha256": "57363a0d112fc68c9a8b167ba31024e15271943941af29c54a50dd3a57e6d5b1",
+      "target": "miniprogram\\design-migration\\pages\\budget\\quote.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\history.js",
+      "sha256": "85fe96c6d54798561707b428fefd323761d79090e5ca257f352b41d480001d91",
+      "target": "miniprogram\\design-migration\\pages\\budget\\history.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\history.json",
+      "sha256": "af74cc482f1863f918a1ca9c3c7619c3cb3705d436fc27cb1946d24a7d8639a8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\history.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\history.wxml",
+      "sha256": "1ff5e84223a44f24a4babb019bc7375d8243e267ebcce7b57e941869b3aeec52",
+      "target": "miniprogram\\design-migration\\pages\\budget\\history.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\history.scss",
+      "sha256": "5ec46dbe9c4bf16ee4b87bc8ce4a38fde8cdb27d96ba23f06ed875f9e63255de",
+      "target": "miniprogram\\design-migration\\pages\\budget\\history.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\prices.js",
+      "sha256": "b65943b8955041b23540a34e9c74a56cae4deaa6cdb273f24bb4812a916c2c05",
+      "target": "miniprogram\\design-migration\\pages\\budget\\prices.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\prices.json",
+      "sha256": "b585ad90369c90180a87078b103e0ccd3330c645f97edd50f7a9c36981891aae",
+      "target": "miniprogram\\design-migration\\pages\\budget\\prices.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\prices.wxml",
+      "sha256": "7a6fa8199b6b109b51fd07cd57f5d6ac14c60ee2f0d5fa7f17e1838bcf2f0ff8",
+      "target": "miniprogram\\design-migration\\pages\\budget\\prices.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\prices.scss",
+      "sha256": "be1664019c68f6d750698acbaba9852078385e3e2aba8b198ae8741e03524449",
+      "target": "miniprogram\\design-migration\\pages\\budget\\prices.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\api.js",
+      "sha256": "7d5a285a715abb8a5862de8c4ae0fee159c6cb8c60c39baecd3ef7897f56e642",
+      "target": "miniprogram\\design-migration\\utils\\api.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\budget-draft.js",
+      "sha256": "7a48ce9fbcfc28f53595163d2e602525909a27794b0ecb917d63b1dee3663c9b",
+      "target": "miniprogram\\design-migration\\utils\\budget-draft.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\budget-selection.js",
+      "sha256": "fb5657792adcefea20a9eaaee0b78e073131f1140bc17b5e5f2f17bf7937e904",
+      "target": "miniprogram\\design-migration\\utils\\budget-selection.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\budget-view.js",
+      "sha256": "7597c29406c0aa3796cff0a6cc38b3d133cbd4f515eb439b4cbac7cf7e1e01bf",
+      "target": "miniprogram\\design-migration\\utils\\budget-view.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\generation-attempt.js",
+      "sha256": "b249110b2a671994bce7bdcaaf2ef7f906540420ab74c6d670ac1016d4f32b56",
+      "target": "miniprogram\\design-migration\\utils\\generation-attempt.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\generation-options.js",
+      "sha256": "af087e06ee60eb50a808f95ecc1d2360f2798ed026da7accbac61199724717e7",
+      "target": "miniprogram\\design-migration\\utils\\generation-options.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\generation-price.js",
+      "sha256": "42597a586bff8e431a0779b993c4d3993c366962c3ecf68dea53a970e188955a",
+      "target": "miniprogram\\design-migration\\utils\\generation-price.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\design-inputs.js",
+      "sha256": "0f0e90c8dce8fd157172a5646ade60fbd22dda0896559cda13e189a17e442e6c",
+      "target": "miniprogram\\design-migration\\utils\\design-inputs.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\record-view.js",
+      "sha256": "bece6bdec903addf8cb86ed0642662774794b99e2e97c1e3bb0707891fa11a02",
+      "target": "miniprogram\\design-migration\\utils\\record-view.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\format.js",
+      "sha256": "e9e0b35d9e307c0eda70d04ea1d603637fb51fbd6ba56629e2b8ff8a1821eb82",
+      "target": "miniprogram\\design-migration\\utils\\format.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\sha256.js",
+      "sha256": "8c53f5cd5bfd575a1e82599ba00a80e2821f517b69dd8d980579015c140bc0e6",
+      "target": "miniprogram\\design-migration\\utils\\sha256.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\project-resume.js",
+      "sha256": "85f9cc73abe23566674f0fce657a96848a18bf1e76a3cc03e34e50b32f8f4aec",
+      "target": "miniprogram\\design-migration\\utils\\project-resume.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\styles\\v12-theme.scss",
+      "sha256": "65caf0a27abeed3d24c404e1952a1f75747f357901831e42289ae3b9644e4e72",
+      "target": "miniprogram\\design-migration\\styles\\v12-theme.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\styles\\v12-tokens.scss",
+      "sha256": "cafdd21ca1df435d1cc4846161235edf7a20fd43ba86bdc4353c996ff13dec23",
+      "target": "miniprogram\\design-migration\\styles\\v12-tokens.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\components\\v12-navbar\\index.js",
+      "sha256": "e91951ef218bf100e06f56c75018037ad39c63b139a0db7db82e73b74ab2272d",
+      "target": "miniprogram\\design-migration\\components\\v12-navbar\\index.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\components\\v12-navbar\\index.json",
+      "sha256": "63d78bc96b81a3fbfc081a7aa5317aec503467a146d1dd9e03af7d40e4becdb3",
+      "target": "miniprogram\\design-migration\\components\\v12-navbar\\index.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\components\\v12-navbar\\index.scss",
+      "sha256": "8f72819b52b541796024e0552d2717e8276e07ceeafc2bc2fb56d26ebb4d4ede",
+      "target": "miniprogram\\design-migration\\components\\v12-navbar\\index.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\components\\v12-navbar\\index.wxml",
+      "sha256": "8c6f5755d591e8ca615955a7a8a7391c0d58dd7ed307184c9f73312608ccba54",
+      "target": "miniprogram\\design-migration\\components\\v12-navbar\\index.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\components\\v12-state\\index.js",
+      "sha256": "7d7588a6d4c75e0c9a63391a41995884e1af1290f99dc4e0bb1241dcb35a92a0",
+      "target": "miniprogram\\design-migration\\components\\v12-state\\index.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\components\\v12-state\\index.json",
+      "sha256": "e7b657f5a4b032a68e9e084639b3a5564ce552896d269c3f8c4463bf7a7fa3b5",
+      "target": "miniprogram\\design-migration\\components\\v12-state\\index.json"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\components\\v12-state\\index.scss",
+      "sha256": "9756a3abe604752ec816ebd879d061e1e223470797f9dbb9cd818cdacc996522",
+      "target": "miniprogram\\design-migration\\components\\v12-state\\index.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\components\\v12-state\\index.wxml",
+      "sha256": "db4445d4beac63330d5f081c5d14b640230be063454e23ba6a66bf35edfbfbe4",
+      "target": "miniprogram\\design-migration\\components\\v12-state\\index.wxml"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\read.scss",
+      "sha256": "5227c011a85a31008281bb74190be589950b1270fd8718ac696673a933dcf903",
+      "target": "miniprogram\\design-migration\\pages\\budget\\read.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\shared.scss",
+      "sha256": "58a83cc86b68737912567bb07f179a889f205ba03b72c15d2307c5e741fd350a",
+      "target": "miniprogram\\design-migration\\pages\\budget\\shared.scss"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\assets\\v12\\brand-logo.png",
+      "sha256": "275efbf794ea5e485bf49111d8681170dc3b07e3d858e07fb32be9d7aeaabe5a",
+      "target": "miniprogram\\design-migration\\assets\\v12\\brand-logo.png"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\assets\\v12\\budget-sketch.jpg",
+      "sha256": "6ae502024b0e7d9eb956dd708364797ad224a5f37aa11f4d293881f9a4a0dec5",
+      "target": "miniprogram\\design-migration\\assets\\v12\\budget-sketch.jpg"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\message-view.js",
+      "sha256": "37ceac7496345530687afa0b396a4b87e204de02f1eeea43a5afae3201884398",
+      "target": "miniprogram\\design-migration\\utils\\message-view.js"
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\budget-share.js",
+      "sha256": "cbffd7ff18e9fb8bf03f11555652c3a34af216759f4848b9834cbc7ca98843ec",
+      "target": "miniprogram\\design-migration\\utils\\budget-share.js"
+    }
+  ]
+}

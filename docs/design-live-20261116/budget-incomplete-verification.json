@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "archive": {
+    "saved": true,
+    "error": ""
+  },
+  "frozen": {
+    "total": 42870000,
+    "completeness": "COMPLETE",
+    "revision": "2122164758383771651"
+  },
+  "history": {
+    "rows": [
+      {
+        "budgetId": "2122171813962268673"
+      },
+      {
+        "budgetId": "2122164758383771650"
+      }
+    ],
+    "loading": false,
+    "error": ""
+  }
+}
