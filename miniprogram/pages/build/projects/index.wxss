@@ -1,3 +1,13 @@
 @import "../../../styles/engineering.wxss";
 .eng-project-card .eng-tools>button{padding:12rpx 0;gap:8rpx}.eng-project-compact .eng-progress-row{margin:10rpx 0}.eng-project-compact .eng-name{font-size:var(--zs-font-emphasis)}.eng-incoming-action{font-size:var(--zs-font-meta);padding:10rpx 16rpx}.eng-selection-note{margin-bottom:18rpx;color:var(--zs-brand);font-size:var(--zs-font-emphasis)}.eng-tasks-count{font-size:var(--zs-font-body);color:var(--zs-text-3)}
 .projects-page .record-field{padding:16rpx 0;border-bottom:1rpx solid var(--zs-line);font-size:var(--zs-font-emphasis)}.projects-page .record-field>text{display:block;margin-bottom:10rpx}.projects-page .record-field input{box-sizing:border-box;background:var(--zs-bg);border:1rpx solid var(--zs-line);border-radius:12rpx;padding:18rpx;width:100%;height:88rpx;font-size:var(--zs-font-emphasis);line-height:42rpx;color:var(--zs-ink)}.projects-page .record-field picker{padding:12rpx 0}.projects-page .eng-submit{margin-top:20rpx}
+.eng-project-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin-bottom:20rpx}
+.eng-project-title{font-size:var(--zs-font-title);font-weight:600;flex-shrink:0}
+.projects-page .eng-create-entry{min-height:64rpx;padding:10rpx 18rpx;font-size:var(--zs-font-meta);line-height:38rpx}
+.eng-project-cover{display:block;width:100%}
+.projects-page .eng-project-cover .eng-photo{margin:18rpx 0 0}
+.eng-project-more{display:flex;justify-content:flex-end;margin-top:-10rpx;margin-bottom:20rpx}
+.eng-project-more .is-expanded{transform:rotate(-90deg)}
+.eng-reset-filter{justify-content:center}
+.eng-project-compact .eng-name{display:block}
+.eng-project-compact .eng-tag{margin-top:8rpx}

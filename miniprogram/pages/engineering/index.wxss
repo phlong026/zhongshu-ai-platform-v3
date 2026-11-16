@@ -94,3 +94,10 @@
 .boss-eng-track{height:12rpx;border-radius:8rpx;background:#f1ece4;margin-top:10rpx;overflow:hidden}
 .boss-eng-fill{height:100%;border-radius:8rpx;background:var(--zs-brand)}
 .boss-eng-fill.late{background:var(--zs-danger)}
+
+/* 首页固定为问候、四项统计、待办。 */
+.engineering-greeting{font-size:var(--zs-font-title);font-weight:600;line-height:48rpx;padding:0 4rpx 22rpx}
+.engineering-live .eng-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));height:auto;gap:0}
+.engineering-live .eng-shortcuts>button{padding:24rpx 14rpx;border:0;border-bottom:1rpx solid var(--zs-line);justify-content:flex-start}
+.engineering-live .eng-shortcuts>button:nth-child(odd){border-right:1rpx solid var(--zs-line)}
+.engineering-live .eng-shortcuts>button:nth-child(n+3){border-bottom:0}

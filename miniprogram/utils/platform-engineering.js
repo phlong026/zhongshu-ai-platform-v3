@@ -42,6 +42,17 @@ function statusMatches(status, filter) {
   return statusView(status) === filter;
 }
 
+// 两个首页共用项目状态与顺序；未加载时用占位符，不能误报为零。
+function homeStats(cards, available = true) {
+  return [
+    ['IN_PROGRESS', '在建'], ['PENDING_START', '待开工'],
+    ['READY_DELIVER', '待交付'], ['', '全部项目']
+  ].map(([status, label]) => ({
+    label, value: available ? (status ? cards.filter(card => card.statusKey === status).length : cards.length) : '—',
+    filter: status ? label : '全部'
+  }));
+}
+
 /** 节点状态映射（PENDING/IN_PROGRESS/DONE → 蓝本中文三态） */
 const NODE_VIEW = { PENDING: '待开工', IN_PROGRESS: '施工中', DONE: '已完成' };
 function nodeStatusView(s) { return NODE_VIEW[s] || s || ''; }
@@ -185,7 +196,7 @@ function projectView(detail) {
 }
 
 module.exports = {
-  api, online, dateOf, timestampDate, centsText, statusView, statusMatches, nodeRows, nodeStatusView,
+  api, online, dateOf, timestampDate, centsText, statusView, statusMatches, homeStats, nodeRows, nodeStatusView,
   stagesView, plansView, settleView, errorText, projectView,
   uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS, threeStageSumError,
   idemFingerprint

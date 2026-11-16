@@ -7,3 +7,6 @@
 .pt-retry{margin-top:10rpx}
 .pt-row{display:flex;align-items:center;gap:14rpx;width:100%;}
 .pt-row-disabled{opacity:.55}
+.eng-recent-footer{display:flex;justify-content:flex-end;margin-top:12rpx}
+.eng-recent-project .eng-tag{margin-top:8rpx}
+.engineering-home .eng-hello{margin-bottom:20rpx}

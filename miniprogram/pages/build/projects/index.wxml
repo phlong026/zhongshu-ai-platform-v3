@@ -1,31 +1,58 @@
-<wxs src="../../../utils/tone.wxs" module="st"/>
 <view class="page engineering-desk projects-page">
-<brand-header wx:if="{{readOnly}}" title="项目" back="{{true}}" divider="{{true}}"/><brand-header wx:else title="项目" divider="{{true}}"/><view class="eng-content">
- <view wx:if="{{!allowed}}" class="eng-empty"><text>当前身份无工程项目访问权限</text><button class="eng-outline" bindtap="home">返回工作台</button></view>
- <block wx:else><view class="eng-search"><image src="/pages/engineering/assets/search.png"/><input class="eng-search-input" placeholder="搜索项目名称、客户姓名或地址" value="{{keyword}}" bindinput="search" aria-label="搜索授权项目"/><button class="eng-search-clear" wx:if="{{keyword}}" bindtap="clear">清空</button></view>
- <text wx:if="{{error}}" class="eng-error">{{error}}</text>
- <view wx:if="{{mode==='tasks'}}" class="eng-mode-row"><text class="eng-task-heading">全部待办 <text class="eng-tasks-count">{{tasks.length}}项</text></text><button class="eng-link" bindtap="showProjects">查看项目</button></view>
- <block wx:if="{{mode==='tasks'}}"><view wx:for="{{tasks}}" wx:key="id" class="eng-section"><text class="eng-name">{{item.name}}</text><text class="eng-next">{{item.title}}</text><text class="eng-muted">{{item.city}} {{item.date}}</text><button class="eng-outline eng-submit" data-url="{{item.url}}" bindtap="open">{{item.button}}</button></view><view wx:if="{{!tasks.length}}" class="eng-empty">暂无符合条件的待办</view></block>
- <block wx:else><view class="eng-filters"><button wx:for="{{filters}}" wx:key="*this" class="{{filter===item?'selected':''}}" data-value="{{item}}" bindtap="filter">{{item}}</button><button class="{{moreSelected?'selected':''}}" bindtap="more">{{moreSelected?filter:'更多'}}</button></view><text wx:if="{{selectedLabel}}" class="eng-muted eng-selection-note">选择项目，办理{{selectedLabel}}</text>
- <view wx:for="{{cards}}" wx:key="id" class="eng-section {{index===0?'eng-project-card':'eng-project-compact'}}">
-  <block wx:if="{{index===0}}"><view class="eng-project-line"><text class="eng-name">{{item.name}}</text><text class="eng-tag">{{item.stage}}</text><button class="eng-link" data-id="{{item.id}}" data-view="overview" bindtap="open">项目详情<image class="eng-arrow" src="/assets/creation-chevron-muted.png"/></button></view><text class="eng-muted eng-project-meta">{{item.city}}{{item.area?' · '+item.area+'㎡':''}}{{item.floors?' · '+item.floors+'层':''}}</text><image class="eng-photo" src="{{item.image}}" mode="aspectFill"/>
-  <view wx:if="{{item.status!=='待开工'&&item.progress>=0}}" class="eng-progress-row"><text>项目进度</text><view class="eng-progress"><view style="width:{{item.progress}}%"/></view><text>{{item.progress}}%</text></view><text class="eng-next">下一步：{{item.next}}</text><text wx:if="{{item.pace}}" class="eng-tag {{st.tone(item.pace)}}">{{item.pace}}</text><text wx:if="{{item.date&&item.status==='在建'}}" class="eng-muted">计划 {{item.date}}</text>
-  <view class="eng-tools"><button class="eng-project-tool" data-id="{{item.id}}" data-view="schedule" bindtap="open"><image src="/pages/engineering/assets/calendar.png"/><text>计划</text></button><button class="eng-project-tool" data-id="{{item.id}}" data-view="documents" bindtap="open"><image src="/pages/engineering/assets/folder.png"/><text>资料</text></button><button class="eng-project-tool" data-id="{{item.id}}" data-view="node" bindtap="open"><image src="/pages/engineering/assets/inspection.png"/><text>验收</text></button><button wx:if="{{item.canFunds}}" data-id="{{item.id}}" data-view="payments" bindtap="open"><image src="/assets/money.png"/><text>款项</text></button></view><button class="eng-primary" data-id="{{item.id}}" bindtap="open">{{readOnly?'查看项目':selectedLabel?'办理'+selectedLabel:'进入项目'}}<image class="eng-arrow" src="/pages/engineering/assets/arrow-white.png"/></button></block>
-  <button wx:else class="eng-row" data-id="{{item.id}}" bindtap="open"><image class="eng-thumb" src="{{item.image}}" mode="aspectFill"/><view class="eng-grow"><text class="eng-name">{{item.name}}</text><text class="eng-muted">{{item.city}}{{item.area?' · '+item.area+'㎡':''}}</text><text class="eng-tag">{{item.stage}}</text><view class="eng-progress-row"><view class="eng-progress"><view style="width:{{item.progress}}%"/></view><text>{{item.progress}}%</text></view><text class="eng-next">{{item.next}}</text></view><image class="eng-arrow" src="/assets/creation-chevron-muted.png"/></button>
- </view>
- <view wx:if="{{incoming.length&&(filter==='全部'||filter==='待接收')}}" class="eng-section eng-handover"><view class="eng-heading"><text>业务移交待接收</text><text class="eng-tag">{{incoming.length}}个项目</text></view><view wx:for="{{incoming}}" wx:key="id" class="eng-row"><image class="eng-thumb" src="/pages/engineering/assets/project-chen.jpg" mode="aspectFill"/><view class="eng-grow"><text class="eng-name">{{item.name}}</text><text class="eng-muted">{{item.city}} {{item.area?item.area+'㎡':''}}</text><text class="eng-muted">施工图 {{item.drawingVersion}}</text></view><button class="eng-outline eng-incoming-action" data-url="{{item.url}}" bindtap="open">{{item.action}}</button></view></view>
- <view wx:if="{{!cards.length&&!(incoming.length&&(filter==='全部'||filter==='待接收'))}}" class="eng-empty"><text>暂无符合条件的项目</text><text class="eng-muted">接收的业务项目将在这里持续跟进</text><button class="eng-outline" bindtap="showProjects">查看全部项目</button></view>
- <view wx:if="{{creating}}" class="eng-section">
-  <view class="eng-heading"><text>新增项目</text><button class="eng-link" bindtap="cancelCreate">取消</button></view>
-  <view class="record-field"><text>项目名称</text><input placeholder="例如：周家湾乡墅（增项可标注内容）" value="{{createForm.name}}" data-key="name" bindinput="createInput"/></view>
-  <view class="record-field"><text>客户称呼</text><input placeholder="例如：周建国" value="{{createForm.customer}}" data-key="customer" bindinput="createInput"/></view>
-  <view class="record-field"><text>所在城市</text><input placeholder="例如：武汉" value="{{createForm.city}}" data-key="city" bindinput="createInput"/></view>
-  <view class="record-field"><text>联系电话（选填）</text><input type="number" placeholder="11位手机号" value="{{createForm.phone}}" data-key="phone" bindinput="createInput"/></view>
-  <picker range="{{['1','2','3','4','5']}}" value="{{createForm.floors-1}}" bindchange="pickCreateFloors"><view class="record-field">建筑层数：{{createForm.floors}} 层　点击调整</view></picker>
-  <view class="record-field"><text>建筑面积㎡（选填）</text><input type="digit" placeholder="如 400" value="{{createForm.area}}" data-key="area" bindinput="createInput"/></view>
-  <picker range="{{parentOptions}}" range-key="name" value="{{createForm.parentIndex}}" bindchange="pickCreateParent"><view class="record-field">关联项目：{{parentOptions[createForm.parentIndex].name}}</view></picker>
-  <text class="eng-muted">新建项目自动带上标准进度计划与开工准备待办；关联原项目即为该项目的增项工程，图纸资料沿用原项目。</text>
-  <button class="eng-primary eng-submit" bindtap="submitCreate" loading="{{busy}}" disabled="{{busy}}">创建项目并办理开工准备</button>
- </view>
- <view wx:if="{{mode!=='tasks'&&!creating&&canCreate}}" class="eng-section"><button class="eng-outline eng-submit" bindtap="openCreate">＋ 新增项目 / 增项</button></view></block></block>
-</view></view><custom-tab-bar active-index="{{navigationIndex}}" nested="{{true}}"/>
+  <brand-header wx:if="{{readOnly}}" title="{{destination==='materials'?'材料':'项目'}}" back="{{true}}" divider="{{true}}"/>
+  <brand-header wx:else title="{{destination==='materials'?'材料':'项目'}}" divider="{{true}}"/>
+  <view class="eng-content">
+    <text wx:if="{{error}}" class="eng-error">{{error}}</text>
+    <view wx:if="{{loading&&!allowed}}" class="eng-empty">项目加载中…</view>
+    <view wx:elif="{{!allowed}}" class="eng-empty"><button class="eng-outline" bindtap="refresh">重新加载</button></view>
+    <block wx:else>
+      <view class="eng-project-toolbar">
+        <text class="eng-project-title">{{selectedLabel?'选择项目':'我的项目'}}</text>
+        <button wx:if="{{mode!=='tasks'&&!creating&&canCreate&&!destination}}" class="eng-outline eng-create-entry" bindtap="openCreate">＋ 新增项目 / 增项</button>
+      </view>
+      <view wx:if="{{creating}}" class="eng-section eng-create-form">
+        <view class="eng-heading"><text>新增项目 / 增项</text><button class="eng-link" bindtap="cancelCreate">取消</button></view>
+        <view class="record-field"><text>项目名称</text><input placeholder="填写项目或增项名称" value="{{createForm.name}}" data-key="name" bindinput="createInput"/></view>
+        <view class="record-field"><text>客户称呼</text><input placeholder="填写客户姓名" value="{{createForm.customer}}" data-key="customer" bindinput="createInput"/></view>
+        <view class="record-field"><text>所在城市</text><input placeholder="填写所在城市" value="{{createForm.city}}" data-key="city" bindinput="createInput"/></view>
+        <view class="record-field"><text>联系电话（选填）</text><input type="number" placeholder="11位手机号" value="{{createForm.phone}}" data-key="phone" bindinput="createInput"/></view>
+        <picker range="{{['1','2','3','4','5']}}" value="{{createForm.floors-1}}" bindchange="pickCreateFloors"><view class="record-field">建筑层数：{{createForm.floors}} 层</view></picker>
+        <view class="record-field"><text>建筑面积㎡（选填）</text><input type="digit" placeholder="填写建筑面积" value="{{createForm.area}}" data-key="area" bindinput="createInput"/></view>
+        <picker range="{{parentOptions}}" range-key="name" value="{{createForm.parentIndex}}" bindchange="pickCreateParent"><view class="record-field">关联项目：{{parentOptions[createForm.parentIndex].name}}</view></picker>
+        <button class="eng-primary eng-submit" bindtap="submitCreate" loading="{{busy}}" disabled="{{busy}}">创建项目</button>
+      </view>
+      <block wx:else>
+        <view class="eng-search"><image src="/pages/engineering/assets/search.png"/><input class="eng-search-input" placeholder="搜索项目、客户或地址" value="{{keyword}}" bindinput="search" aria-label="搜索授权项目"/><button class="eng-search-clear" wx:if="{{keyword}}" bindtap="clear">清空</button></view>
+        <view wx:if="{{mode==='tasks'}}" class="eng-mode-row"><text class="eng-task-heading">全部待办 <text class="eng-tasks-count">{{tasks.length}}项</text></text><button wx:if="{{allCount}}" class="eng-link" bindtap="showProjects">查看项目</button></view>
+        <block wx:if="{{mode==='tasks'}}">
+          <view wx:for="{{tasks}}" wx:key="id" class="eng-section"><text class="eng-name">{{item.name}}</text><text class="eng-next">{{item.title}}</text><text class="eng-muted">{{item.city}} {{item.date}}</text><button class="eng-outline eng-submit" data-url="{{item.url}}" bindtap="open">{{item.button}}</button></view>
+          <view wx:if="{{!tasks.length}}" class="eng-empty">暂无待办</view>
+        </block>
+        <block wx:else>
+          <view class="eng-filters"><button wx:for="{{filters}}" wx:key="*this" class="{{filter===item?'selected':''}}" data-value="{{item}}" bindtap="filter">{{item}}</button><button class="{{moreSelected?'selected':''}}" bindtap="more">{{moreSelected?filter:'更多'}}</button></view>
+          <view wx:for="{{visibleCards}}" wx:key="id" class="eng-section {{index===0?'eng-project-card':'eng-project-compact'}}">
+            <block wx:if="{{index===0}}">
+              <view class="eng-project-line"><text class="eng-name">{{item.name}}</text><text class="eng-tag">{{item.stage}}</text></view>
+              <text wx:if="{{item.city||item.area||item.floors}}" class="eng-muted eng-project-meta">{{item.city}}{{item.area?' · '+item.area+'㎡':''}}{{item.floors?' · '+item.floors+'层':''}}</text>
+              <button class="eng-project-cover" data-id="{{item.id}}" bindtap="open" aria-label="{{item.name}}"><image class="eng-photo" src="{{item.image}}" mode="aspectFill"/></button>
+              <view wx:if="{{item.status!=='待开工'&&item.progress>=0}}" class="eng-progress-row"><text>项目进度</text><view class="eng-progress"><view style="width:{{item.progress}}%"/></view><text>{{item.progress}}%</text></view>
+              <view wx:if="{{!destination}}" class="eng-tools">
+                <button class="eng-project-tool" data-id="{{item.id}}" data-view="schedule" bindtap="open"><image src="/pages/engineering/assets/calendar.png"/><text>计划</text></button>
+                <button class="eng-project-tool" data-id="{{item.id}}" data-view="materials" bindtap="open"><image src="/pages/engineering/assets/material.png"/><text>材料</text></button>
+                <button class="eng-project-tool" data-id="{{item.id}}" data-view="documents" bindtap="open"><image src="/pages/engineering/assets/folder.png"/><text>资料</text></button>
+                <button class="eng-project-tool" data-id="{{item.id}}" data-view="node" bindtap="open"><image src="/pages/engineering/assets/inspection.png"/><text>验收</text></button>
+                <button wx:if="{{item.canFunds}}" data-id="{{item.id}}" data-view="payments" bindtap="open"><image src="/assets/money.png"/><text>款项</text></button>
+              </view>
+              <button class="eng-primary eng-project-open" data-id="{{item.id}}" bindtap="open">{{selectedLabel?(destination==='materials'?'查看材料':'办理'+selectedLabel):'查看项目'}}<image class="eng-arrow" src="/pages/engineering/assets/arrow-white.png"/></button>
+            </block>
+            <button wx:else class="eng-row" data-id="{{item.id}}" bindtap="open"><image class="eng-thumb" src="{{item.image}}" mode="aspectFill"/><view class="eng-grow"><text class="eng-name">{{item.name}}</text><text wx:if="{{item.city||item.area}}" class="eng-muted">{{item.city}}{{item.area?' · '+item.area+'㎡':''}}</text><text class="eng-tag">{{item.stage}}</text><view wx:if="{{item.status!=='待开工'&&item.progress>=0}}" class="eng-progress-row"><view class="eng-progress"><view style="width:{{item.progress}}%"/></view><text>{{item.progress}}%</text></view></view><image class="eng-arrow" src="/assets/creation-chevron-muted.png"/></button>
+          </view>
+          <view wx:if="{{cards.length>1}}" class="eng-project-more"><button class="eng-link" bindtap="toggleProjects">{{expandedProjects?'收起项目':'显示更多'}}<image class="eng-arrow {{expandedProjects?'is-expanded':''}}" src="/assets/creation-chevron-muted.png"/></button></view>
+          <view wx:if="{{!cards.length&&!error}}" class="eng-empty"><text>{{allCount?'暂无符合条件的项目':'暂无项目'}}</text><button wx:if="{{allCount&&(filter!=='全部'||keyword)}}" class="eng-link eng-reset-filter" bindtap="showProjects">清除筛选</button></view>
+          <button wx:if="{{error}}" class="eng-outline eng-submit" bindtap="refresh">重新加载</button>
+        </block>
+      </block>
+    </block>
+  </view>
+</view>
+<custom-tab-bar active-index="{{navigationIndex}}" nested="{{true}}"/>
