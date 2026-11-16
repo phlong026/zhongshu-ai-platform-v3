@@ -2,6 +2,7 @@ const PP = require('../../utils/platform-performance'); // 阶段 3 API 态（�
 const A = require('../../utils/account');
 const OwnerHome = require('../../utils/platform-owner-home');
 const Engineering = require('../../utils/platform-engineering');
+const CRM = require('../../utils/platform-crm');
 const http = require('../../api/http');
 const { routeValue } = require('../../utils/view-container');
 // 切生产收口：owner-model/owner-home/owner-business/owner-performance/owner-settings/model（本地账簿链）引用已下线
@@ -9,7 +10,7 @@ const titles = { home:'首页', finance:'经营', performance:'绩效', profile:
 
 module.exports = function(kind) {
   return {
-    data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', platformTodos:null, todoTab:'all', homeTodos:[], homeTodoTotal:0, rows:[], total:0, pageLimit:20, record:null, error:'', form:{}, saving:false, selectedDepartment:'all', expandedPerson:'', companyForm:{}, assignmentForm:{}, managementSettings:null, performanceSettings:null },
+    data:{ ready:false, desk:null, title:titles[kind] || '', keyword:'', platformTodos:null, todoTab:'all', homeTodos:[], homeTodoTotal:0, rows:[], total:0, pageLimit:20, record:null, error:'', form:{}, saving:false, selectedDepartment:'all', expandedPerson:'', companyForm:{}, assignmentForm:{}, managementSettings:null, performanceSettings:null, homeFinanceTab:'operating', expandedBusiness:'', expandedEngineering:'' },
     openDesignPolicy(){ require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=policy'); },
     logout(){ return require('../../utils/session-actions').logout(); },
     copyFrLink(){ // P1 §5.4：老板首页「在浏览器打开」——复制 /fr/finance 链接（无 token/凭据）
@@ -21,6 +22,60 @@ module.exports = function(kind) {
     retryPlatformTodos(){ require('../../utils/platform-todos-page').retry(this); },
     retryHome(){ this.refresh(); },
     openPlatformTodo(e){ require('../../utils/platform-todos-page').open(this, e); },
+    switchHomeFinanceTab(e) {
+      const tab = e.currentTarget.dataset.tab;
+      if (['operating', 'ledger'].includes(tab)) this.setData({ homeFinanceTab: tab });
+    },
+    toggleHomeMetric(e) {
+      const { module, key } = e.currentTarget.dataset;
+      const field = { business:'expandedBusiness', engineering:'expandedEngineering' }[module];
+      const section = this.data.desk && this.data.desk.home[module];
+      if (!field || !section || !section.available || !section.metrics.some(row => row.key === key)) return;
+      this.setData({ [field]: this.data[field] === key ? '' : key });
+    },
+    onHide() { this.homeReqGen = (this.homeReqGen || 0) + 1; },
+    onUnload() { this.homeReqGen = (this.homeReqGen || 0) + 1; this.platReqGen = (this.platReqGen || 0) + 1; },
+    refreshHomeModules() {
+      if (this.kind !== 'home' || !PP.online()) return;
+      const post = PP.apiPost() || {}, session = http.sessionGeneration();
+      const scope = [session, post.orgId, post.postId].join(':');
+      if (this.ownerHomeScope !== scope) {
+        this.ownerHomeScope = scope;
+        this.platSummary = null; this.platSummaryKey = ''; this.platProfileName = '';
+        this.setData({ homeFinanceTab:'operating', expandedBusiness:'', expandedEngineering:'' });
+      }
+      const gen = this.homeReqGen = (this.homeReqGen || 0) + 1;
+      const stale = () => gen !== this.homeReqGen || session !== http.sessionGeneration()
+        || scope !== [http.sessionGeneration(), (PP.apiPost() || {}).orgId, (PP.apiPost() || {}).postId].join(':');
+      this.ownerBusinessStatus = 'loading'; this.ownerCustomers = null; this.ownerCommissions = null;
+      this.ownerProjectsStatus = 'loading'; this.ownerProjects = null;
+      const crmApi = require('../../api/franchise/crm');
+      const commissionApi = require('../../api/franchise/commission');
+      const business = Promise.all([
+        CRM.loadSummaryRows(crmApi.customers.page, stale, '客户'),
+        CRM.loadSummaryRows(commissionApi.commissions.page, stale, '委托')
+      ]).then(([customers, commissions]) => {
+        if (stale()) return;
+        this.ownerBusinessStatus = 'ready'; this.ownerCustomers = customers; this.ownerCommissions = commissions;
+        this.refreshPlatView();
+      }).catch(() => {
+        if (stale()) return;
+        this.ownerBusinessStatus = 'error'; this.ownerCustomers = null; this.ownerCommissions = null;
+        this.refreshPlatView();
+      });
+      const projects = Engineering.api.projects.page().then(rows => {
+        if (stale()) return;
+        if (!Array.isArray(rows)) throw new Error('工程项目返回无效');
+        this.ownerProjectsStatus = 'ready'; this.ownerProjects = rows;
+        this.refreshPlatView();
+      }).catch(() => {
+        if (stale()) return;
+        this.ownerProjectsStatus = 'error'; this.ownerProjects = null;
+        this.refreshPlatView();
+      });
+      this.refreshPlatView();
+      return Promise.all([business, projects]);
+    },
     onLoad(options = {}) {
       this.options = { ...options };
       for (const key of ['id','person','department','tab','metric']) this.options[key] = routeValue(options[key]);
@@ -76,7 +131,10 @@ module.exports = function(kind) {
         summary: this.platSummary && this.platSummary.summary,
         operating: this.platSummary && this.platSummary.operating,
         projectsStatus: this.ownerProjectsStatus,
-        projects: this.ownerProjects
+        projects: this.ownerProjects,
+        businessStatus: this.ownerBusinessStatus,
+        customers: this.ownerCustomers,
+        commissions: this.ownerCommissions
       });
       this.setData({
         ready: true, view, title: titles[view] || '', rows: [], total: 0, error: this.platDegraded
@@ -106,15 +164,10 @@ module.exports = function(kind) {
         && requestSession === http.sessionGeneration()
         && requestPostId === String((PP.apiPost() || {}).postId || '');
       // M10-T03：在线余额三源并行——任务/目标/经营 analytics（与财务一致；迟到响应丢弃防串台）
-      const projects = this.kind === 'home'
-        ? Engineering.api.projects.page().then(rows => ({ status:'ready', rows })).catch(() => ({ status:'error', rows:null }))
-        : Promise.resolve({ status:this.ownerProjectsStatus, rows:this.ownerProjects });
       Promise.all([PP.api.tasks.summary(period), PP.api.goals.get(period),
-        PP.api.operating.analytics(period).catch(() => null), projects])
-        .then(([summary, goals, operating, projectResult]) => {
+        PP.api.operating.analytics(period).catch(() => null)])
+        .then(([summary, goals, operating]) => {
           if (!alive()) return; // 迟到响应丢弃（换月/退出/换岗不串台）
-          this.ownerProjectsStatus = projectResult.status;
-          this.ownerProjects = projectResult.rows;
           this.platSummary = { summary, goals, operating };
           this.platSummaryKey = cacheKey;
           this.platSummaryPost = requestPostId; // M10-T03：缓存归属岗位（换岗不串台）
@@ -137,7 +190,6 @@ module.exports = function(kind) {
           if (!alive()) return;
           this.platSummary = null; this.platSummaryKey = ''; this.platDegraded = true;
           this.platOperatingDegraded = false;
-          if (this.kind === 'home') { this.ownerProjectsStatus = 'error'; this.ownerProjects = null; }
           this.refreshPlatView();
         });
     },
@@ -147,8 +199,7 @@ module.exports = function(kind) {
       if (!PP.online()) { this.setData({ready:false,desk:null,rows:[],error:'请先登录后端账号'}); return; }
       if (this.kind === 'home') {
         require('../../utils/platform-todos-page').refresh(this, false);
-        this.ownerProjectsStatus = 'loading';
-        this.ownerProjects = null;
+        this.refreshHomeModules();
       }
       this.refreshPlatView();
       this.refreshPlatSummary();

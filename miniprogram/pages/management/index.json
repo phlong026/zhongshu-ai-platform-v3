@@ -1,1 +1,1 @@
-{"navigationBarTitleText":"管理工作台","usingComponents":{"workbench-denied":"../../components/workbench-denied/index"}}
+{"navigationBarTitleText":"管理工作台","usingComponents":{"workbench-denied":"../../components/workbench-denied/index","brand-header":"/components/brand-header/index","login-guide":"/components/login-guide/index"}}

@@ -1,5 +1,6 @@
 const dash = '—';
 const Engineering = require('./platform-engineering');
+const CRM = require('./platform-crm');
 
 function numberText(value) {
   return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -92,17 +93,31 @@ function projectsView(source) {
   if (!available) {
     return {
       available: false,
+      loading: source.projectsStatus === 'loading',
       message: source.projectsStatus === 'loading' ? '项目概览加载中…' : '项目概览暂不可用',
-      counts: ['在建', '待开工', '待交付'].map(label => ({ label, value: dash })),
+      counts: Engineering.homeStats([], false),
+      metrics: Engineering.homeStats([], false).map(row => ({ ...row, key: row.filter, unit: '' })),
+      panels: [],
       sites: []
     };
   }
   const cards = Engineering.listCards(source.projects || []);
-  const count = (statusKey, label) => ({ label, value: cards.filter(card => card.statusKey === statusKey).length });
+  const counts = Engineering.homeStats(cards);
   return {
     available: true,
     message: cards.length ? '' : '当前没有工程项目',
-    counts: [count('IN_PROGRESS', '在建'), count('PENDING_START', '待开工'), count('READY_DELIVER', '待交付')],
+    counts,
+    metrics: counts.map(row => ({ ...row, key: row.filter, unit: '个' })),
+    panels: counts.map(stat => {
+      const rows = cards.filter(card => Engineering.statusMatches(card.statusKey, stat.filter));
+      return {
+        key: stat.filter, title: stat.label === '在建' ? '在建项目' : stat.label === '全部项目' ? stat.label : stat.label + '项目',
+        rows: rows.slice(0, 8).map(card => ({ key: String(card.id), name: card.name, detail: card.statusText, url: card.url })),
+        total: rows.length, hasMore: rows.length > 8,
+        url: '/pages/build/projects/index' + (stat.filter === '全部' ? '' : '?filter=' + encodeURIComponent(stat.filter)),
+        emptyText: '暂无' + (stat.label === '全部项目' ? '工程项目' : stat.label + '项目')
+      };
+    }),
     sites: cards.filter(card => !['DELIVERED', 'ARCHIVED'].includes(card.statusKey)).slice(0, 3).map(card => ({
       key: 'project-' + card.id,
       name: card.name,
@@ -111,6 +126,40 @@ function projectsView(source) {
       image: card.image,
       url: card.url
     }))
+  };
+}
+
+function businessView(source) {
+  const available = source.businessStatus === 'ready';
+  const definitions = [
+    { key: 'due', label: '今日待跟进', url: '/pages/customers/index?focus=due', emptyText: '暂无待跟进客户' },
+    { key: 'appointments', label: '预约到店', url: '/pages/customers/index?focus=appointments', emptyText: '暂无预约到店客户' },
+    { key: 'commission', label: '委托', url: '/pages/workflow/commission/index?view=projects', emptyText: '暂无委托记录' },
+    { key: 'all', label: '全部客户', url: '/pages/customers/index', emptyText: '暂无客户记录' }
+  ];
+  if (!available) return {
+    available: false, loading: source.businessStatus === 'loading', panels: [],
+    message: source.businessStatus === 'loading' ? '业务指标加载中…' : '业务指标暂不可用，请重试',
+    metrics: definitions.map(row => ({ key: row.key, label: row.label, value: dash, unit: '' }))
+  };
+  const summary = CRM.homeSummary(source.customers, source.commissions, source.post, source.today);
+  const customerRows = rows => rows.map(row => ({ key: row.id, name: row.name, detail: row.detail, url: row.url }));
+  const groups = {
+    due: summary.due, appointments: summary.upcoming, all: summary.rows
+  };
+  return {
+    available: true, message: '', metrics: summary.metrics,
+    panels: definitions.map(definition => {
+      const rows = definition.key === 'commission'
+        ? summary.monthRows.slice(0, 8).map(row => ({
+          key: String(row.id), name: row.customerName || row.name || '设计委托',
+          detail: row.statusText || row.status || '设计委托',
+          amount: moneyText(row.totalCents != null ? row.totalCents : row.amountCents != null ? row.amountCents : row.commissionCents || 0),
+          url: '/pages/workflow/commission/index?view=progress&commissionId=' + encodeURIComponent(row.id)
+        })) : customerRows(groups[definition.key].slice(0, 8));
+      const total = definition.key === 'commission' ? summary.monthRows.length : groups[definition.key].length;
+      return { ...definition, title: definition.label, rows, total, hasMore: total > 8 };
+    })
   };
 }
 
@@ -141,6 +190,14 @@ function view(input) {
   };
   const financeRegistrations = count(summary, 'finance', 'auto:financeRegistrations');
   const projectOverview = projectsView(source);
+  const six = [
+    { key: 'collections', url: '/pages/admin/brief/index?period=' + encodeURIComponent(period), label: '本月回款', value: business.collections, unit: business.collections === dash ? '' : '元', sub: '财务实收' },
+    { key: 'contracts', action: 'business', label: '本月签约', value: business.contracts, unit: business.contracts === dash ? '' : '元', sub: '已签合同' },
+    { key: 'effective-customers', action: 'business', label: '有效客户', value: business.customers, unit: business.customers === dash ? '' : '人', sub: '本月有效' },
+    { key: 'completed-nodes', action: 'engineering', label: '完成节点', value: engineeringMetrics.completed, unit: engineeringMetrics.completed === dash ? '' : '个', sub: '本月完成' },
+    { key: 'qualified-deliveries', action: 'engineering', label: '合格到货', value: engineeringMetrics.deliveries, unit: engineeringMetrics.deliveries === dash ? '' : '批', sub: '本月登记' },
+    { key: 'finance-registrations', url: '/pages/admin/tasks/index?view=team&period=' + encodeURIComponent(period), label: '财务登记', value: financeRegistrations, unit: financeRegistrations === dash ? '' : '笔', sub: '本月登记' }
+  ];
   return {
     name: source.name || '',
     company: post.orgName || '',
@@ -157,15 +214,11 @@ function view(input) {
     },
     business: operatingBusiness(operating, period),
     home: {
-      six: [
-        { key: 'collections', url: '/pages/admin/brief/index?period=' + encodeURIComponent(period), label: '本月回款', value: business.collections, unit: business.collections === dash ? '' : '元', sub: '财务实收' },
-        { key: 'contracts', action: 'business', label: '本月签约', value: business.contracts, unit: business.contracts === dash ? '' : '元', sub: '已签合同' },
-        { key: 'effective-customers', action: 'business', label: '有效客户', value: business.customers, unit: business.customers === dash ? '' : '人', sub: '本月有效' },
-        { key: 'completed-nodes', action: 'engineering', label: '完成节点', value: engineeringMetrics.completed, unit: engineeringMetrics.completed === dash ? '' : '个', sub: '本月完成' },
-        { key: 'qualified-deliveries', action: 'engineering', label: '合格到货', value: engineeringMetrics.deliveries, unit: engineeringMetrics.deliveries === dash ? '' : '批', sub: '本月登记' },
-        { key: 'finance-registrations', url: '/pages/admin/tasks/index?view=team&period=' + encodeURIComponent(period), label: '财务登记', value: financeRegistrations, unit: financeRegistrations === dash ? '' : '笔', sub: '本月登记' }
-      ],
+      six,
+      cards: six.slice(0, 4).map(row => ({ ...row, label: row.label.replace(/^本月/, ''), sub: '' })),
+      extraMetrics: six.slice(4),
       business: {
+        ...businessView(source),
         stages: [
           { label: '本月回款', value: business.collections, unit: business.collections === dash ? '' : '元' },
           { label: '本月签约', value: business.contracts, unit: business.contracts === dash ? '' : '元' },

@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "众墅之家", "disableScroll": true }
+{ "navigationBarTitleText": "众墅之家", "disableScroll": true, "usingComponents": { "brand-header": "/components/brand-header/index" } }

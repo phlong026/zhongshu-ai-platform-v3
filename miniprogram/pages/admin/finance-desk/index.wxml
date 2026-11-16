@@ -1,7 +1,7 @@
 <import src="./finance-home.wxml"/>
 <view class="fin-page">
 
- <block wx:if="{{view==='desk'&&ready}}"><template is="financeHome" data="{{desk:deskHome,platformFinance:platformFinance}}"/></block>
+ <block wx:if="{{view==='desk'&&ready}}"><template is="financeHome" data="{{desk:deskHome,platformFinance:platformFinance,platformTodos:platformTodos}}"/></block>
  <block wx:else>
  <brand-header branded divider account-font title="{{title}}"/>
  <view class="fin-content">
