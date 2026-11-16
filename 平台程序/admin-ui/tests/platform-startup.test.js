@@ -34,6 +34,7 @@ function devConfig(environment) {
     vite: { loadEnv: () => environment, normalizePath: (value) => value },
     './build/vite': { createVitePlugins: () => [] },
     './build/vite/editor-supply-chain': { editorSupplyChainGate: () => ({}) },
+    './build/vite/training-pdf-assets': { trainingPdfAssets: () => ({}) },
     './build/vite/optimize': { include: [], exclude: [] }
   }).default({ command: 'serve', mode: 'env.local' })
 }
@@ -59,7 +60,7 @@ test('无私有env文件时API仍走同源admin-api，部署覆盖保持有效',
 
 test('启动HTML只标识用户选定的赋能管理后台', () => {
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8')
-  assert.ok(html.includes('<title>众墅之家赋能平台管理后台</title>'))
+  assert.ok(html.includes('<title>管理后台</title>'))
   assert.ok(html.includes('总部运营'))
   assert.equal(html.includes('设计管理后台'), false)
   assert.equal(html.includes('%VITE_APP_TITLE%'), false)

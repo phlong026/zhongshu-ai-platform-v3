@@ -44,7 +44,8 @@ function home(overrides = {}, allowed = () => true) {
     ),
     '@/components/Echart/src/Echart.vue': {},
     '@/utils/permission': { checkPermi: allowed },
-    '@/api/platform/operations': api
+    '@/api/platform/operations': api,
+    '@/api/zs/platform-org': { getOrganizationPage: async () => ({ list: [], total: 0 }) }
   }
   const module = { exports: {} }
   vm.runInNewContext(
@@ -69,8 +70,8 @@ function home(overrides = {}, allowed = () => true) {
 test('总部全量钱包200组织不截成100，套餐与生效价格读取真实总数', async () => {
   const { state, card } = home()
   await state.load()
-  assert.equal(card('组织钱包数').value, '200')
-  assert.equal(card('钱包总可用点数').value, Number(200100).toLocaleString())
+  assert.equal(card('历史组织钱包数').value, '200')
+  assert.equal(card('历史钱包总可用点数').value, Number(200100).toLocaleString())
   assert.equal(card('充值套餐数').value, '7')
   assert.equal(card('生效设计定价').value, '3')
 })
@@ -85,7 +86,7 @@ test('单项失败不清空成功数据，失败/等待不显示业务零，允�
   })
   assert.equal(card('支付异常记录').value, '—')
   await state.load()
-  assert.equal(card('组织钱包数').value, '200')
+  assert.equal(card('历史组织钱包数').value, '200')
   assert.equal(card('支付异常记录').value, '加载失败')
   assert.equal(state.hasErrors.value, true)
   fail = false
@@ -107,8 +108,8 @@ test('权限不足不发总部数据请求，卡片展示无权限且入口不�
   )
   await state.load()
   assert.equal(calls, 0)
-  assert.equal(card('组织钱包数').value, '无权限')
-  assert.equal(card('组织钱包数').to, '')
+  assert.equal(card('历史组织钱包数').value, '无权限')
+  assert.equal(card('历史组织钱包数').to, '')
   assert.equal(state.quickEntries.value.length, 0)
 })
 
@@ -127,5 +128,5 @@ test('重试后的新结果不被旧请求覆盖', async () => {
   await state.load()
   resolveFirst({ walletCount: 10, totalAvailablePoints: 10, topWallets: [] })
   await old
-  assert.equal(card('组织钱包数').value, '201')
+  assert.equal(card('历史组织钱包数').value, '201')
 })

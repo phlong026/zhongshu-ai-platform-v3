@@ -384,3 +384,18 @@ test('用户和部门仅来自后端授权路由，菜单管理始终不进入�
   assert.deepEqual(values(menus(), '/system/user'), ['/system/user'])
   assert.deepEqual(values(menus(), '/system/dept'), ['/system/dept'])
 })
+
+test('总部六组导航保持所有授权页面地址，组织与权限排第二且最多两层', () => {
+  const input = [base[0], { path: '/platform-org', children: [leaf('onboard', '组织管理')] }, { path: '/system', children: [leaf('user', '用户管理')] }, { path: '/training', children: [leaf('courses', '课程管理'), leaf('materials', '资料库')] }, leaf('/platform-task-ops', '任务与积分核对'), leaf('/platform-pricing', '定价管理'), { path: '/infra', children: [leaf('config', '配置管理')] }]
+  const grouped = helpers.groupPlatformNavigation(input)
+  assert.deepEqual(Array.from(grouped, r => r.meta.title), ['工作台', '组织与权限', '课程培训', '运营与积分', '定价与套餐', '系统与审计'])
+  assert.deepEqual(Array.from(grouped[1].children, r => r.path), ['/platform-org/onboard', '/system/user'])
+  assert.ok(grouped.every(r => !r.children || r.children.every(c => c.path.startsWith('/') && !c.children)))
+  assert.equal(helpers.searchProjectMenus(grouped, '资料库')[0].value, '/training/materials')
+  assert.equal(input[1].children[0].path, 'onboard')
+})
+test('无权限的分组不补造菜单，未来授权页面仍保留入口', () => {
+  const grouped = helpers.groupPlatformNavigation([base[0], leaf('/future/page', '未来模块')])
+  assert.deepEqual(Array.from(grouped, r => r.meta.title), ['工作台', '其他功能'])
+  assert.equal(grouped[1].children[0].path, '/future/page')
+})

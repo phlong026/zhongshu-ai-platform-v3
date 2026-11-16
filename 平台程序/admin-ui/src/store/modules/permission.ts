@@ -3,7 +3,7 @@ import { store } from '@/store'
 import { cloneDeep } from 'lodash-es'
 import remainingRouter from '@/router/modules/remaining'
 import frRouter from '@/router/modules/fr'
-import { buildPlatformMenus, buildStaffMenus } from '@/utils/projectNavigation'
+import { buildPlatformMenus, buildStaffMenus, groupPlatformNavigation } from '@/utils/projectNavigation'
 import { checkPermi } from '@/utils/permission'
 import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
@@ -83,7 +83,7 @@ export const usePermissionStore = defineStore('permission', {
           }
         ])
         // 渲染菜单的所有路由
-        this.routers = buildPlatformMenus(cloneDeep(remainingRouter), routerMap, checkPermi)
+        this.routers = groupPlatformNavigation(buildPlatformMenus(cloneDeep(remainingRouter), routerMap, checkPermi))
         resolve()
       })
     },

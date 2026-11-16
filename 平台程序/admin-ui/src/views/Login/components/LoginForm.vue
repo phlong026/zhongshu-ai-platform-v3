@@ -55,8 +55,6 @@
         登录后台
       </el-button>
 
-      <p class="zs-miniapp-hint">门店老板和员工请在小程序登录并选择工作身份</p>
-
       <Verify
         v-if="loginData.captchaEnable === 'true'"
         ref="verify"
@@ -66,7 +64,6 @@
         @success="handleLogin"
       />
 
-      <div class="zs-footer">如需开通管理员权限，请联系系统负责人</div>
     </el-form>
 
     <!-- 忘记密码弹层（保留底座能力，视觉沿用设计语言） -->
@@ -108,7 +105,9 @@ const LoginRules = {
 }
 const loginData = reactive({
   isShowPassword: false,
-  captchaEnable: import.meta.env.VITE_APP_CAPTCHA_ENABLE,
+  // 生产后端默认开启验证码；构建环境遗漏变量时也必须渲染验证组件，
+  // 否则点击登录会因 verify.value 未挂载而直接报错。
+  captchaEnable: import.meta.env.VITE_APP_CAPTCHA_ENABLE || 'true',
   tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE,
   loginForm: {
     tenantName: import.meta.env.VITE_APP_DEFAULT_LOGIN_TENANT || '',

@@ -73,7 +73,8 @@ function loadOnboardView({ onboardFranchise }) {
           onboardOrg: async () => ({}),
           previewFranchise: async () => ({})
         },
-        './franchiseAccountForm': loadModel()
+        './franchiseAccountForm': loadModel(),
+        './OrgDirectory.vue': {}
       }
       if (Object.hasOwn(imports, name)) return imports[name]
       throw new Error(`Unexpected import: ${name}`)

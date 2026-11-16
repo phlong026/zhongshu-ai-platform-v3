@@ -2,8 +2,10 @@
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useAppStore } from '@/store/modules/app'
 import { Footer } from '@/layout/components/Footer'
+import { useAdminTableLayout } from '@/hooks/web/useAdminTableLayout'
 
 defineOptions({ name: 'AppView' })
+useAdminTableLayout()
 
 const appStore = useAppStore()
 
@@ -30,7 +32,7 @@ provide('reload', reload)
 <template>
   <section
     :class="[
-      'p-[var(--app-content-padding)] w-full bg-[var(--app-content-bg-color)] dark:bg-[var(--el-bg-color)]',
+      'admin-content p-[var(--app-content-padding)] w-full bg-[var(--app-content-bg-color)] dark:bg-[var(--el-bg-color)]',
       {
         '!min-h-[calc(100vh-var(--top-tool-height)-var(--tags-view-height)-var(--app-footer-height))] pb-0':
           footer

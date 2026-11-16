@@ -129,7 +129,7 @@ test('单租户使用部署配置，不继承旧的其他租户缓存', () => {
     auth({ VITE_APP_TENANT_ENABLE: 'false', VITE_APP_TENANT_ID: '42' }).getTenantId(),
     '42'
   )
-  assert.equal(auth({ VITE_APP_TENANT_ENABLE: 'false' }).getTenantId(), undefined)
+  assert.equal(auth({ VITE_APP_TENANT_ENABLE: 'false' }).getTenantId(), '1')
 })
 test('多租户保持选择的租户，不被单租户配置覆盖', () => {
   assert.equal(auth({ VITE_APP_TENANT_ENABLE: 'true', VITE_APP_TENANT_ID: '1' }).getTenantId(), 99)

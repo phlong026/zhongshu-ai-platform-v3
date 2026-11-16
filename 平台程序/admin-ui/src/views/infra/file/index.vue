@@ -59,7 +59,7 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
+    <el-table native-scrollbar v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
       <el-table-column type="selection" width="55" />
       <el-table-column label="文件名" align="center" prop="name" :show-overflow-tooltip="true" />
       <el-table-column label="文件路径" align="center" prop="path" :show-overflow-tooltip="true" />

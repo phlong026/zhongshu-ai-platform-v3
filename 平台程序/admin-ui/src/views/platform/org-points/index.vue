@@ -1,9 +1,8 @@
 <template>
-  <div class="zs-page">
-    <div class="zs-page-header">
+  <div class="zs-page" :class="{ 'embedded-points': embedded }">
+    <div v-if="!embedded" class="zs-page-header">
       <div>
         <h1 class="zs-page-title">公司积分池</h1>
-        <div class="zs-page-subtitle">赋能平台统一积分账本；旧钱包数据不计入此处余额</div>
       </div>
       <el-button :loading="loading" @click="loadAll">重新加载</el-button>
     </div>
@@ -17,6 +16,7 @@
       class="page-alert"
     />
     <el-alert
+      v-if="!canCreditDirectly"
       title="调点由一人提交、另一名有复核权限的总部人员确认后生效。"
       type="info"
       :closable="false"
@@ -38,7 +38,7 @@
     />
 
     <div v-loading="loading" class="pool-layout">
-      <section class="zs-table-card company-card">
+      <section v-if="!embedded" class="zs-table-card company-card">
         <div class="section-title">公司</div>
         <el-empty v-if="!companies.length && !loading" description="暂无公司积分数据" />
         <button
@@ -57,6 +57,13 @@
 
       <main class="pool-main">
         <template v-if="selectedCompany">
+          <div class="tab-actions">
+            <DirectCreditControl
+              :org-id="selectedOrgId"
+              :org-name="selectedCompany.name"
+              @credited="onCredited"
+            />
+          </div>
           <div class="summary-grid">
             <div class="summary-card">
               <span>当前可用</span><strong>{{ formatPoints(summary?.balance) }}</strong>
@@ -74,8 +81,10 @@
 
           <el-tabs v-model="activeTab" class="content-card">
             <el-tab-pane label="积分流水" name="ledger">
-              <el-table :data="ledger" empty-text="暂无积分流水">
-                <el-table-column prop="createTime" label="时间" min-width="170" />
+              <el-table native-scrollbar :data="ledger" empty-text="暂无积分流水">
+                <el-table-column prop="createTime" label="时间" min-width="170">
+                  <template #default="{ row }">{{ adminDateTime(row.createTime) }}</template>
+                </el-table-column>
                 <el-table-column prop="type" label="类型" width="110">
                   <template #default="{ row }">{{ ledgerTypeText(row.type) }}</template>
                 </el-table-column>
@@ -88,13 +97,16 @@
               </el-table>
             </el-tab-pane>
 
-            <el-tab-pane label="调点复核" name="adjustments">
+            <el-tab-pane label="积分调整记录" name="adjustments">
               <div class="tab-actions">
-                <el-button v-if="canSubmit" type="primary" @click="openAdjustment"
+                <el-button
+                  v-if="canSubmit && !canCreditDirectly"
+                  type="primary"
+                  @click="openAdjustment"
                   >提交调点申请</el-button
                 >
               </div>
-              <el-table :data="adjustments" empty-text="暂无调点申请">
+              <el-table native-scrollbar :data="adjustments" empty-text="暂无调点申请">
                 <el-table-column prop="id" label="申请编号" min-width="180" />
                 <el-table-column prop="delta" label="积分变动" width="120">
                   <template #default="{ row }">{{ formatInteger(row.delta) }}</template>
@@ -122,8 +134,13 @@
               </el-table>
             </el-tab-pane>
 
-            <el-tab-pane v-if="canQueryPrices" label="业务价格" name="prices">
-              <el-table :data="prices" empty-text="暂无业务价格">
+            <el-tab-pane v-if="canQueryPrices && !embedded" label="业务价格" name="prices">
+              <div class="tab-actions">
+                <el-button type="primary" @click="$router.push('/platform-pricing')"
+                  >打开统一定价管理</el-button
+                >
+              </div>
+              <el-table native-scrollbar :data="prices" empty-text="暂无业务价格">
                 <el-table-column prop="label" label="能力" min-width="160" />
                 <el-table-column prop="subject" label="科目" min-width="150" />
                 <el-table-column prop="unit" label="计量单位" width="110" />
@@ -259,7 +276,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import DirectCreditControl from './DirectCreditControl.vue'
 import { checkPermi } from '@/utils/permission'
+import { adminDateTime } from '@/utils/adminDisplay'
 import { useUserStore } from '@/store/modules/user'
 import { getTenantId } from '@/utils/auth'
 import { beginAttempt, createDraft, resetDraft, restoreDraft } from './adjustmentDraft'
@@ -301,14 +320,24 @@ import {
 } from '@/api/platform/orgPoints'
 
 defineOptions({ name: 'PlatformOrgPoints' })
+const props = withDefaults(defineProps<{ orgId?: string; embedded?: boolean }>(), {
+  orgId: '',
+  embedded: false
+})
 const message = useMessage()
 const userStore = useUserStore()
+const emit = defineEmits<{ credited: [] }>()
+const canCreditDirectly = computed(() => userStore.getRoles.includes('super_admin'))
+function onCredited() {
+  emit('credited')
+  void loadAll()
+}
 const canSubmit = computed(() => checkPermi(['platform:org-point:adjustment:submit']))
 const canReview = computed(() => checkPermi(['platform:org-point:adjustment:review']))
 const canQueryPrices = computed(() => checkPermi(['platform:org-point:price:query']))
 const canUpdatePrices = computed(() => checkPermi(['platform:org-point:price:update']))
 const companies = ref<CompanyPool[]>([])
-const selectedOrgId = ref('')
+const selectedOrgId = ref(props.orgId)
 const summary = ref<PoolSummary>()
 const ledger = ref<PoolLedgerEntry[]>([])
 const adjustments = ref<Adjustment[]>([])
@@ -345,9 +374,14 @@ const formatPoints = (value: string | number | null | undefined) =>
 const statusText = (value?: string) =>
   ({ ACTIVE: '正常', SUSPENDED: '已暂停' })[value || ''] || value || '未开通'
 const ledgerTypeText = (value: string) =>
-  ({ RESERVE: '预扣', SETTLE: '结算', RELEASE: '释放', ADJUST: '总部调点', GRANT: '开通赠点' })[
-    value
-  ] || value
+  ({
+    RESERVE: '预扣',
+    SETTLE: '结算',
+    RELEASE: '释放',
+    ADJUST: '总部调点',
+    MANUAL_ADJUST: '人工调整',
+    GRANT: '开通赠点'
+  })[value] || value
 const adjustmentStatusText = (value: Adjustment['status']) =>
   ({ SUBMITTED: '待复核', EXECUTED: '已执行', REJECTED: '已拒绝' })[value]
 const isOwnPendingAdjustment = (row: Adjustment) =>
@@ -402,11 +436,17 @@ async function loadAll() {
       pricePendingScope.value = undefined
       resetPriceDraft(priceForm.value, requestKey())
     }
-    const result = await getCompanyPools()
+    const result = (await getCompanyPools()).map((row) => ({ ...row, orgId: String(row.orgId) }))
     if (current !== generation) return
     companies.value = result
     const pendingAdjustment = findPending(localStorage, actorScope.tenantId, actorScope.actorId)
     const pendingPrice = findPricePending(localStorage, actorScope.tenantId, actorScope.actorId)
+    if (props.orgId && pendingAdjustment && pendingAdjustment.scope.orgId !== props.orgId) {
+      throw new Error('其他组织有待确认的积分申请，请先在公司积分池核对')
+    }
+    if (props.orgId && !result.some((row) => row.orgId === props.orgId)) {
+      throw new Error('当前组织不可办理积分调整')
+    }
     if (pendingAdjustment && pendingPrice) {
       throw new Error('同时存在未确认调点和价格发布，请先联系管理员对账')
     }

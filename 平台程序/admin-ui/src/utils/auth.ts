@@ -5,6 +5,9 @@ const { wsCache } = useCache()
 
 const AccessTokenKey = 'ACCESS_TOKEN'
 const RefreshTokenKey = 'REFRESH_TOKEN'
+// 当前平台按单租户部署。即使构建环境遗漏 VITE_APP_TENANT_ID，
+// 登录和刷新令牌也必须携带后端主租户编号，否则会被租户过滤器拦截。
+const DEFAULT_SINGLE_TENANT_ID = '1'
 
 // 获取token
 export const getAccessToken = () => {
@@ -77,7 +80,7 @@ export const removeLoginForm = () => {
 export const getTenantId = () => {
   // 关闭租户切换不等于关闭后端租户隔离；单租户部署不读取旧登录的租户缓存。
   if (import.meta.env.VITE_APP_TENANT_ENABLE !== 'true') {
-    return import.meta.env.VITE_APP_TENANT_ID
+    return import.meta.env.VITE_APP_TENANT_ID || DEFAULT_SINGLE_TENANT_ID
   }
   return wsCache.get(CACHE_KEY.TenantId)
 }

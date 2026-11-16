@@ -24,7 +24,7 @@
         </el-form-item>
       </el-form>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" />
-      <el-table v-else v-loading="loading" :data="rows" :row-key="rowKey" empty-text="暂无记录">
+      <el-table native-scrollbar v-else v-loading="loading" :data="rows" :row-key="rowKey" empty-text="暂无记录">
         <el-table-column
           v-for="column in section?.columns"
           :key="column[0]"
@@ -204,7 +204,7 @@
         :closable="false"
       />
       <el-alert v-if="reviewError" :title="reviewError" type="error" :closable="false" />
-      <el-table :data="reviews" v-loading="reviewLoading" empty-text="暂无核对说明">
+      <el-table native-scrollbar :data="reviews" v-loading="reviewLoading" empty-text="暂无核对说明">
         <el-table-column prop="actorId" label="操作人编号" width="190" /><el-table-column
           prop="note"
           label="核对说明"
@@ -236,6 +236,7 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { checkPermi } from '@/utils/permission'
+import { adminDateTime } from '@/utils/adminDisplay'
 import {
   getWallets,
   getRechargePlans,
@@ -400,6 +401,7 @@ const displayValue = (field: string, value: unknown) => {
   if (value === null || value === undefined)
     return field.endsWith('CostMicros') ? '未取得成本事实' : '—'
   if (typeof value === 'boolean') return value ? '是' : '否'
+  if (field.endsWith('Time') || field.endsWith('At')) return adminDateTime(value)
   const labels: Record<string, string> = {
     UNAVAILABLE: '未取得成本事实',
     RECORDED: '已有成本事实',

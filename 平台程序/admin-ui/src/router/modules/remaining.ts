@@ -69,6 +69,25 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'platform-task-ops',
+        component: () => import('@/views/platform/operations/index.vue'),
+        name: 'PlatformTaskOperations',
+        meta: { title: '任务与积分核对',icon: 'ep:finished',hidden: true,canTo: true,noCache: true,permission: 'platform:operations:query' }
+      },
+      {
+        path: 'platform-pricing',
+        component: () => import('@/views/platform/pricing/index.vue'),
+        name: 'PlatformPricing',
+        meta: {
+          title: '定价管理',
+          icon: 'ep:price-tag',
+          hidden: true,
+          canTo: true,
+          noCache: true,
+          permission: 'platform:org-point:price:query'
+        }
+      },
+      {
         path: 'platform-org-points',
         component: () => import('@/views/platform/org-points/index.vue'),
         name: 'PlatformOrgPoints',

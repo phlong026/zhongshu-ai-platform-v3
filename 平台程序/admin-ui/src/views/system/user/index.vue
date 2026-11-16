@@ -3,14 +3,14 @@
   <doc-alert title="三方登陆" url="https://doc.iocoder.cn/social-user/" />
   <doc-alert title="Excel 导入导出" url="https://doc.iocoder.cn/excel-import-and-export/" />
 
-  <el-row :gutter="20">
+  <el-row :gutter="20" class="admin-split-layout">
     <!-- 左侧部门树 -->
-    <el-col :span="4" :xs="24">
+    <el-col :span="4" :xs="24" class="admin-split-nav">
       <ContentWrap class="h-1/1">
         <DeptTreeSelect @node-click="handleDeptNodeClick" />
       </ContentWrap>
     </el-col>
-    <el-col :span="20" :xs="24">
+    <el-col :span="20" :xs="24" class="admin-split-main">
       <!-- 搜索 -->
       <ContentWrap>
         <el-form
@@ -104,19 +104,21 @@
         </el-form>
       </ContentWrap>
       <ContentWrap>
-        <el-table v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
+        <el-table native-scrollbar v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
           <el-table-column type="selection" width="55" />
-          <el-table-column label="用户编号" align="center" key="id" prop="id" />
+          <el-table-column label="用户编号" align="center" key="id" prop="id" min-width="90" />
           <el-table-column
             label="用户名称"
             align="center"
             prop="username"
+            min-width="170"
             :show-overflow-tooltip="true"
           />
           <el-table-column
             label="用户昵称"
             align="center"
             prop="nickname"
+            min-width="110"
             :show-overflow-tooltip="true"
           />
           <el-table-column
@@ -124,6 +126,7 @@
             align="center"
             key="deptName"
             prop="deptName"
+            min-width="260"
             :show-overflow-tooltip="true"
           />
           <el-table-column label="手机号码" align="center" prop="mobile" width="120" />

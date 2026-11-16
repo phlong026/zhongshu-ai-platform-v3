@@ -38,6 +38,7 @@ function walletView(api, allowed = true) {
     vue: { ...vue, watch() {}, onBeforeUnmount() {} },
     'vue-router': { useRoute: () => route },
     '@/utils/permission': { checkPermi: () => allowed },
+    '@/utils/adminDisplay': load('utils/adminDisplay.ts'),
     '@/api/platform/operations': api
   }
   vm.runInNewContext(code, {
@@ -295,4 +296,14 @@ test('设计成本与配置审计菜单有真实查询，未取得成本不显�
   await state.load()
   assert.equal(state.rows.value[0].reason, '实际审计')
   assert.equal(state.error.value, '')
+})
+
+test('运营时间戳的数字与字符串形式显示相同日期，不把毫秒数直接交给用户', () => {
+  const { state } = walletView({})
+  const millis = Date.parse('2026-11-16T03:04:05Z')
+  const date = state.displayValue('createTime', millis)
+  assert.equal(state.displayValue('createTime', String(millis)), date)
+  assert.equal(state.displayValue('effectiveAt', '2026-11-16T03:04:05Z'), date)
+  assert.notEqual(date, String(millis))
+  assert.equal(state.displayValue('createTime', null), '—')
 })

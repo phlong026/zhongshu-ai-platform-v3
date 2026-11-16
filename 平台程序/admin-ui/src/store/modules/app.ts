@@ -48,7 +48,7 @@ export const useAppStore = defineStore('app', {
       userInfo: 'userInfo', // 登录信息存储字段-建议每个项目换一个字段，避免与其他项目冲突
       sizeMap: ['default', 'large', 'small'],
       mobile: false, // 是否是移动端
-      title: import.meta.env.VITE_APP_TITLE || '众墅之家赋能平台管理后台', // 标题
+      title: '管理后台', // 标题
       pageLoading: false, // 路由跳转loading
 
       breadcrumb: true, // 面包屑

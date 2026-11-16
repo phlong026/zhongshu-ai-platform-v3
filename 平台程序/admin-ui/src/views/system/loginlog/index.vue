@@ -57,7 +57,7 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table v-loading="loading" :data="list">
+    <el-table native-scrollbar v-loading="loading" :data="list">
       <el-table-column label="日志编号" align="center" prop="id" />
       <el-table-column label="登录类型" align="center" prop="logType">
         <template #default="scope">

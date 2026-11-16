@@ -89,7 +89,7 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
+    <el-table native-scrollbar v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
       <el-table-column type="selection" width="55" />
       <el-table-column label="参数主键" align="center" prop="id" />
       <el-table-column label="参数分类" align="center" prop="category" />

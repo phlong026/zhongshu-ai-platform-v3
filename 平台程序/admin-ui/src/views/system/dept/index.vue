@@ -61,7 +61,7 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table
+    <el-table native-scrollbar
       v-loading="loading"
       :data="list"
       row-key="id"

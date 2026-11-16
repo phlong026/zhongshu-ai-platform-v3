@@ -2,21 +2,19 @@
   <div class="zs-page">
     <div class="zs-page-header">
       <div>
-        <h1 class="zs-page-title">组织开通</h1>
-        <div class="zs-page-subtitle">总部统一创建加盟商账号；员工授权与公司积分另行管理</div>
+        <h1 class="zs-page-title">组织管理</h1>
       </div>
     </div>
 
-    <div class="zs-table-card onboard-card">
+    <div
+      class="zs-table-card onboard-card"
+      :class="{ 'onboard-card--directory': mode === 'directory' }"
+    >
       <el-tabs v-model="mode" @tab-change="changeMode">
+        <el-tab-pane label="已开通组织" name="directory" :disabled="submitting">
+          <OrgDirectory v-if="mode === 'directory'" @create="mode = 'franchise'" />
+        </el-tab-pane>
         <el-tab-pane label="加盟门店开通" name="franchise" :disabled="submitting">
-          <el-alert
-            title="按品牌、地区、片区和老板姓名生成正式加盟商名称及登录账号"
-            type="info"
-            :closable="false"
-            show-icon
-            class="mode-alert"
-          />
           <el-form
             ref="franchiseFormRef"
             :model="franchiseForm"
@@ -55,7 +53,7 @@
                 v-model="franchiseForm.adminName"
                 :disabled="submitting"
                 maxlength="20"
-                placeholder="真实姓名，如：李忠"
+                placeholder="请输入老板姓名"
               />
             </el-form-item>
             <el-form-item label="老板手机号" prop="adminMobile">
@@ -63,7 +61,7 @@
                 v-model="franchiseForm.adminMobile"
                 :disabled="submitting"
                 maxlength="11"
-                placeholder="用于识别并复用已有用户"
+                placeholder="请输入11位手机号"
               />
             </el-form-item>
             <el-form-item label="片区拼音校正">
@@ -110,7 +108,6 @@
                     ><span>拼音结果</span
                     ><strong>{{ preview.areaPinyin }} / {{ preview.ownerPinyin }}</strong></div
                   >
-                  <small>最终账号以正式开通结果为准；并发重名时可能追加姓名或序号。</small>
                 </template>
                 <span v-else class="preview-muted">
                   {{ previewError || '填写省市、片区和老板姓名后自动生成' }}
@@ -172,6 +169,7 @@
               readonly
               class="manual-copy"
             />
+            <el-alert v-if="!franchiseResult.reusedOrg" title="新组织尚未开通 AI 能力，请在“组织列表 → 详情 → 能力开通”中设置。" type="info" :closable="false" class="result-alert" />
           </div>
         </el-tab-pane>
 
@@ -225,6 +223,7 @@ import { onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 
 import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { getAreaTree } from '@/api/system/area'
+import OrgDirectory from './OrgDirectory.vue'
 import {
   onboardFranchise,
   onboardOrg,
@@ -246,7 +245,7 @@ import {
 
 defineOptions({ name: 'PlatformOrgOnboard' })
 
-const mode = ref('franchise')
+const mode = ref('directory')
 const submitting = ref(false)
 const franchiseFormRef = ref<FormInstance>()
 const legacyFormRef = ref<FormInstance>()
@@ -507,6 +506,9 @@ onBeforeUnmount(handleDeactivated)
 <style lang="scss" scoped>
 .onboard-card {
   max-width: 920px;
+}
+.onboard-card--directory {
+  max-width: none;
 }
 
 .onboard-form {

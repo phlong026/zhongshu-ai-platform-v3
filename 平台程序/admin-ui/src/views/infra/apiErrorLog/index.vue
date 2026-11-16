@@ -96,7 +96,7 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table v-loading="loading" :data="list">
+    <el-table native-scrollbar v-loading="loading" :data="list">
       <el-table-column label="日志编号" align="center" prop="id" />
       <el-table-column label="用户编号" align="center" prop="userId" />
       <el-table-column label="用户类型" align="center" prop="userType">

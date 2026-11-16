@@ -1,0 +1,423 @@
+// 后台通用布局：字段换行，宽表按记录展示，弹窗头尾始终可访问。
+.admin-content {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  container-type: inline-size;
+
+  .zs-page {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    padding: clamp(12px, 2vw, 28px);
+  }
+
+  :is(.zs-table-card, .el-card, .el-tabs, .el-tab-pane, .el-form-item__content) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  :is(.zs-page-header, .zs-actions, .tab-actions) {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .zs-page-header > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .el-form--inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 20px;
+
+    .el-form-item {
+      max-width: 100%;
+      margin: 0 0 12px;
+    }
+
+    .el-form-item__content {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .el-button + .el-button {
+      margin-left: 0;
+    }
+  }
+
+  :is(.el-input, .el-select, .el-date-editor, .el-input-number) {
+    max-width: 100%;
+  }
+
+  .zs-stat-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .zs-stat-card {
+    min-width: 0;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+:is(.admin-content, .el-drawer, .el-dialog) {
+  .el-table {
+    max-width: 100%;
+
+    .el-scrollbar__wrap {
+      scrollbar-width: auto;
+
+      &::-webkit-scrollbar {
+        display: block;
+        width: 10px;
+        height: 10px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--el-text-color-placeholder);
+        border-radius: 5px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: var(--el-fill-color-light);
+      }
+    }
+
+    .cell {
+      line-height: 1.6;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-overflow: clip;
+    }
+
+    .el-scrollbar__bar.is-horizontal {
+      height: 10px;
+      // 宽表滚动入口不能只在悬停时出现。
+      opacity: 1 !important;
+    }
+  }
+
+  .el-pagination {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 10px 8px;
+    white-space: normal;
+  }
+
+  .el-descriptions__body {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .el-descriptions__cell {
+    overflow-wrap: anywhere;
+  }
+}
+
+.el-dialog {
+  display: flex;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 48px);
+  flex-direction: column;
+  margin-top: min(5vh, 32px);
+  margin-bottom: 16px;
+
+  .el-dialog__header,
+  .el-dialog__footer {
+    flex-shrink: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .el-dialog__body {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .el-dialog__footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+
+    .el-button + .el-button {
+      margin-left: 0;
+    }
+  }
+}
+
+.el-drawer {
+  max-width: 100vw;
+
+  .el-drawer__header {
+    flex-shrink: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .el-drawer__body {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+.el-message-box {
+  max-width: calc(100vw - 32px);
+}
+
+@container (max-width: 900px) {
+  .admin-content .admin-split-layout > .el-col {
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
+
+  .admin-content .admin-split-nav .el-card__body {
+    max-height: 280px;
+    overflow: auto;
+  }
+
+  .admin-content .zs-stat-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 560px) {
+  .admin-content .zs-table-card {
+    padding: 12px;
+  }
+
+  .admin-content .el-form--inline .el-form-item {
+    width: 100%;
+  }
+
+  .admin-content
+    .el-form--inline
+    .el-form-item__content
+    > :is(.el-input, .el-select, .el-date-editor) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  :is(.el-dialog, .el-drawer) .el-form-item {
+    display: block;
+  }
+
+  :is(.el-dialog, .el-drawer) .el-form-item__label {
+    display: block;
+    width: auto !important;
+    height: auto;
+    margin-bottom: 8px;
+    line-height: 1.5;
+    text-align: left;
+  }
+
+  :is(.el-dialog, .el-drawer) .el-form-item__content {
+    min-width: 0;
+    margin-left: 0 !important;
+  }
+}
+
+// Fit data to its container; never hide a column or shorten the underlying value.
+.admin-fit-table {
+  container-type: inline-size;
+
+  .el-table__header,
+  .el-table__body,
+  .el-table__footer {
+    width: 100% !important;
+    table-layout: fixed;
+  }
+  colgroup col {
+    width: auto !important;
+  }
+  colgroup col[data-admin-selection] {
+    width: 42px !important;
+  }
+  .el-table__empty-block {
+    width: 100% !important;
+    min-width: 0;
+  }
+  .el-table-fixed-column--left,
+  .el-table-fixed-column--right {
+    position: static !important;
+    box-shadow: none !important;
+    &::before {
+      display: none;
+    }
+  }
+  .cell {
+    width: auto !important;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
+  .cell > :is(div, span) {
+    max-width: 100%;
+  }
+  .cell .flex {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .el-button {
+    max-width: 100%;
+    height: auto;
+    min-height: 28px;
+    white-space: normal;
+  }
+  .el-button > span {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .el-button + .el-button {
+    margin-left: 0;
+  }
+  .el-image,
+  img {
+    max-width: 100%;
+    object-fit: contain;
+  }
+  :is(.el-input, .el-input-number, .el-select) {
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+.admin-table-records {
+  .el-table__header-wrapper:not(:has(th[data-admin-control])) {
+    display: none;
+  }
+  .el-table__header,
+  .el-table__body,
+  .el-table__footer {
+    display: block;
+  }
+  colgroup {
+    display: none;
+  }
+  thead,
+  tbody {
+    display: block;
+    width: 100%;
+  }
+  .el-table__header tr {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .el-table__header th {
+    display: none;
+  }
+  .el-table__header th[data-admin-control] {
+    display: block;
+    flex: 0 1 auto;
+  }
+  .el-table__body tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 16px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 8px;
+  }
+  .el-table__body td {
+    display: block;
+    width: auto !important;
+    min-width: 0;
+    padding: 10px 0;
+    text-align: left;
+    border-bottom: 0;
+    &::before {
+      display: block;
+      margin: 0 12px 4px;
+      font-size: 13px;
+      color: var(--el-text-color-secondary);
+      content: attr(data-admin-label);
+    }
+    .cell {
+      text-align: left;
+    }
+  }
+  .el-table__body td.admin-spanning-cell {
+    grid-column: 1 / -1;
+  }
+  @container (width < 480px) {
+    .el-table__body tr {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}
+:is(.admin-content, .el-dialog, .el-drawer) {
+  .el-descriptions__table {
+    width: 100%;
+    table-layout: fixed;
+  }
+  .el-descriptions__label {
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+  .el-descriptions__content {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .el-descriptions__content .el-button {
+    max-width: 100%;
+    height: auto;
+    white-space: normal;
+  }
+  pre {
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .el-tree-node__content {
+    height: auto;
+    min-height: 32px;
+    white-space: normal;
+  }
+  .el-tree-node__label {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+@container (max-width: 1200px) {
+  .admin-content .admin-split-layout > .el-col {
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
+  .admin-content .admin-split-nav .el-card__body {
+    max-height: 220px;
+    overflow-y: auto;
+  }
+}
+@media (max-width: 700px) {
+  :is(.admin-content, .el-dialog, .el-drawer) .el-descriptions__table tr {
+    display: flex;
+    flex-direction: column;
+  }
+  :is(.admin-content, .el-dialog, .el-drawer) .el-descriptions__cell {
+    display: block;
+    box-sizing: border-box;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .el-dialog:not(.is-fullscreen) {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px);
+  }
+  :is(.el-dialog, .el-drawer) .el-form .el-row > .el-col {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}

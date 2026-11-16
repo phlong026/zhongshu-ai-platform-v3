@@ -39,6 +39,8 @@ const supportPaths = new Set([
   '/system/log/operate-log',
   '/system/log/login-log',
   '/platform-org/onboard',
+  '/training/courses',
+  '/training/materials',
   '/infra/config',
   '/infra/file/file',
   '/infra/file/file-config',
@@ -132,7 +134,26 @@ export function buildPlatformMenus(
         ? [{ ...route, children, redirect: fullPath(route.path, children[0].path) }]
         : []
     })
-  return [...base.filter((route) => route.path === '/'), ...operations, ...supportMenus(authorized)]
+  // 页面由 remainingRouter 注册；只补展示入口，避免注册同路径的空动态路由。
+  const pricing: AppRouteRecordRaw[] =
+    base.some((route) => route.path === '/') && can(['platform:org-point:price:query'])
+      ? [
+          {
+            path: '/platform-pricing',
+            name: 'PlatformPricingEntry',
+            meta: { title: '定价管理', icon: 'ep:price-tag' }
+          }
+        ]
+      : []
+  return [
+    ...base.filter((route) => route.path === '/'),
+    ...pricing,
+    ...(base.some((route) => route.path === '/') && can(['platform:operations:query'])
+      ? [{path:'/platform-task-ops',name:'PlatformTaskOperationsEntry',meta:{title:'任务与积分核对',icon:'ep:finished'}}]
+      : []),
+    ...operations,
+    ...supportMenus(authorized)
+  ]
 }
 
 export function buildStaffMenus(
@@ -177,4 +198,34 @@ export function searchProjectMenus(routes: AppRouteRecordRaw[], keyword: string)
   }
   visit(routes, '/')
   return results
+}
+
+// Display-only grouping of already-authorized headquarters routes. Router registration stays unchanged.
+export function groupPlatformNavigation(routes: AppRouteRecordRaw[]): AppRouteRecordRaw[] {
+  const leaves: AppRouteRecordRaw[] = []
+  const visit = (items: AppRouteRecordRaw[], parent = '/') => {
+    for (const route of items) {
+      if (route.meta?.hidden) continue
+      const path = fullPath(parent, route.path)
+      if (route.children?.length) visit(route.children, path)
+      else leaves.push({ ...route, path })
+    }
+  }
+  visit(routes)
+  const groups = [
+    { key: 'organization', title: '组织与权限', icon: 'ep:user-filled', paths: ['/platform-org/onboard', '/system/user', '/system/role', '/system/dept'] },
+    { key: 'training', title: '课程培训', icon: 'ep:reading', paths: ['/training/courses', '/training/materials'] },
+    { key: 'operations', title: '运营与积分', icon: 'ep:coin', paths: ['/platform-task-ops', '/platform-ops/wallets', '/platform-ops/orders', '/platform-ops/ledger', '/platform-ops/anomalies'] },
+    { key: 'pricing', title: '定价与套餐', icon: 'ep:price-tag', paths: ['/platform-pricing', '/platform-ops/plans', '/platform-ops/design-prices'] },
+    { key: 'system', title: '系统与审计', icon: 'ep:setting', paths: ['/infra/config', '/infra/file/file', '/infra/file/file-config', '/system/log/operate-log', '/system/log/login-log', '/platform-ops/audit', '/infra/log/api-access-log', '/infra/log/api-error-log', '/platform-ops/design-costs'] }
+  ]
+  const used = new Set<string>(['/index'])
+  const result = groups.flatMap(group => {
+    const children = group.paths.flatMap(path => { const route = leaves.find(r => r.path === path); if (!route) return []; used.add(path); return [route] })
+    return children.length ? [{ path: `/navigation-${group.key}`, name: `PlatformNavigation${capitalize(group.key)}`, meta: { title: group.title, icon: group.icon, alwaysShow: true }, children }] : []
+  })
+  const other = leaves.filter(route => !used.has(route.path))
+  if (other.length) result.push({ path: '/navigation-other', name: 'PlatformNavigationOther', meta: { title: '其他功能', icon: 'ep:more-filled', alwaysShow: true }, children: other })
+  const home = leaves.find(route => route.path === '/index')
+  return [...(home ? [home] : []), ...result]
 }

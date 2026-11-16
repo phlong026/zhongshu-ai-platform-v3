@@ -10,6 +10,18 @@ export interface CompanyPool {
   inFlight: Int64
 }
 
+export interface DirectCreditReceipt {
+  id: string
+  beforeBalance: string
+  afterBalance: string
+  credits: string
+}
+export const addCompanyCredits = (
+  orgId: string,
+  data: { credits: number; reason: string; requestKey: string }
+): Promise<DirectCreditReceipt> =>
+  request.post({ url: `/platform/org-points/${encodeURIComponent(orgId)}/credits`, data })
+
 export interface PoolSummary {
   orgId: string
   balance: Int64

@@ -3,7 +3,6 @@
     <div class="zs-page-header">
       <div>
         <h1 class="zs-page-title">总部运营工作台</h1>
-        <div class="zs-page-subtitle">组织开通、员工支持、公司积分与历史钱包运营</div>
       </div>
       <el-button
         v-if="checkPermi(['platform:org:onboard'])"
@@ -24,78 +23,121 @@
     />
     <el-button v-if="hasErrors" :loading="loading" @click="load">重新加载</el-button>
 
-    <!-- 关键数字（8卡） -->
-    <div class="zs-stat-cards">
-      <div
-        v-for="card in statCards"
-        :key="card.label"
-        class="zs-stat-card"
-        :class="{ 'zs-stat-card--alert': card.alert }"
-        @click="card.to && router.push(card.to)"
-      >
-        <div class="zs-stat-icon"
-          ><el-icon><component :is="card.icon" /></el-icon
-        ></div>
-        <div>
-          <div class="zs-stat-label">{{ card.label }}</div>
-          <div class="zs-stat-value" v-loading="sourceStates[card.source] === 'pending'">{{
-            card.value
-          }}</div>
-        </div>
+    <section
+      v-if="checkPermi(['platform:org:onboard'])"
+      class="zs-table-card organization-card"
+      v-loading="organizationsLoading"
+    >
+      <div class="organization-card-heading">
+        <h2
+          >已开通组织 <span> {{ organizationTotal }} </span></h2
+        >
+        <el-button link type="primary" @click="router.push('/platform-org/onboard')"
+          >查看全部</el-button
+        >
       </div>
-    </div>
+      <el-alert
+        v-if="organizationsError"
+        :title="organizationsError"
+        type="error"
+        :closable="false"
+      />
+      <el-table native-scrollbar :data="organizations" empty-text="暂无已开通组织">
+        <el-table-column prop="orgName" label="组织名称" min-width="240" show-overflow-tooltip />
+        <el-table-column prop="ownerName" label="老板姓名" width="110" />
+        <el-table-column prop="mobile" label="手机号" width="140" />
+        <el-table-column prop="loginName" label="登录账号" min-width="220" show-overflow-tooltip />
+        <el-table-column label="操作" width="80" fixed="right"
+          ><template #default="{ row }"
+            ><el-button
+              link
+              type="primary"
+              @click="router.push({ path: '/platform-org/onboard', query: { orgId: row.orgId } })"
+              >详情</el-button
+            ></template
+          ></el-table-column
+        >
+      </el-table>
+    </section>
+    <el-collapse class="legacy-statistics">
+      <el-collapse-item title="历史运营数据" name="legacy">
+        <div class="zs-stat-cards">
+          <div
+            v-for="card in statCards"
+            :key="card.label"
+            class="zs-stat-card"
+            :class="{ 'zs-stat-card--alert': card.alert }"
+            @click="card.to && router.push(card.to)"
+          >
+            <div class="zs-stat-icon"
+              ><el-icon><component :is="card.icon" /></el-icon
+            ></div>
+            <div>
+              <div class="zs-stat-label">{{ card.label }}</div>
+              <div class="zs-stat-value" v-loading="sourceStates[card.source] === 'pending'">{{
+                card.value
+              }}</div>
+            </div>
+          </div>
+        </div>
 
-    <!-- 图表区（2×2） -->
-    <el-row :gutter="16">
-      <el-col :xs="24" :md="12">
-        <div class="chart-card">
-          <div class="chart-card__title">历史钱包可用点数（前10，不含公司积分池）</div>
-          <el-empty
-            v-if="sourceMessage('wallets')"
-            :description="sourceMessage('wallets')"
-            :image-size="60"
-          />
-          <Echart v-else-if="walletChartOptions" :options="walletChartOptions" :height="300" />
-          <el-empty v-else-if="!loading" description="暂无钱包数据" :image-size="60" />
-        </div>
-      </el-col>
-      <el-col :xs="24" :md="12">
-        <div class="chart-card">
-          <div class="chart-card__title">最近100条流水（按日汇总）</div>
-          <el-empty
-            v-if="sourceMessage('ledger')"
-            :description="sourceMessage('ledger')"
-            :image-size="60"
-          />
-          <Echart v-else-if="ledgerChartOptions" :options="ledgerChartOptions" :height="300" />
-          <el-empty v-else-if="!loading" description="暂无流水数据" :image-size="60" />
-        </div>
-      </el-col>
-      <el-col :xs="24" :md="12">
-        <div class="chart-card">
-          <div class="chart-card__title">最近100条流水类型分布</div>
-          <el-empty
-            v-if="sourceMessage('ledger')"
-            :description="sourceMessage('ledger')"
-            :image-size="60"
-          />
-          <Echart v-else-if="bizTypeChartOptions" :options="bizTypeChartOptions" :height="300" />
-          <el-empty v-else-if="!loading" description="暂无流水数据" :image-size="60" />
-        </div>
-      </el-col>
-      <el-col :xs="24" :md="12">
-        <div class="chart-card">
-          <div class="chart-card__title">生效设计定价点数（前10）</div>
-          <el-empty
-            v-if="sourceMessage('prices')"
-            :description="sourceMessage('prices')"
-            :image-size="60"
-          />
-          <Echart v-else-if="priceChartOptions" :options="priceChartOptions" :height="300" />
-          <el-empty v-else-if="!loading" description="暂无定价数据" :image-size="60" />
-        </div>
-      </el-col>
-    </el-row>
+        <!-- 图表区（2×2） -->
+        <el-row :gutter="16">
+          <el-col :xs="24" :md="12">
+            <div class="chart-card">
+              <div class="chart-card__title">历史钱包可用点数（前10，不含公司积分池）</div>
+              <el-empty
+                v-if="sourceMessage('wallets')"
+                :description="sourceMessage('wallets')"
+                :image-size="60"
+              />
+              <Echart v-else-if="walletChartOptions" :options="walletChartOptions" :height="300" />
+              <el-empty v-else-if="!loading" description="暂无钱包数据" :image-size="60" />
+            </div>
+          </el-col>
+          <el-col :xs="24" :md="12">
+            <div class="chart-card">
+              <div class="chart-card__title">最近100条流水（按日汇总）</div>
+              <el-empty
+                v-if="sourceMessage('ledger')"
+                :description="sourceMessage('ledger')"
+                :image-size="60"
+              />
+              <Echart v-else-if="ledgerChartOptions" :options="ledgerChartOptions" :height="300" />
+              <el-empty v-else-if="!loading" description="暂无流水数据" :image-size="60" />
+            </div>
+          </el-col>
+          <el-col :xs="24" :md="12">
+            <div class="chart-card">
+              <div class="chart-card__title">最近100条流水类型分布</div>
+              <el-empty
+                v-if="sourceMessage('ledger')"
+                :description="sourceMessage('ledger')"
+                :image-size="60"
+              />
+              <Echart
+                v-else-if="bizTypeChartOptions"
+                :options="bizTypeChartOptions"
+                :height="300"
+              />
+              <el-empty v-else-if="!loading" description="暂无流水数据" :image-size="60" />
+            </div>
+          </el-col>
+          <el-col :xs="24" :md="12">
+            <div class="chart-card">
+              <div class="chart-card__title">生效设计定价点数（前10）</div>
+              <el-empty
+                v-if="sourceMessage('prices')"
+                :description="sourceMessage('prices')"
+                :image-size="60"
+              />
+              <Echart v-else-if="priceChartOptions" :options="priceChartOptions" :height="300" />
+              <el-empty v-else-if="!loading" description="暂无定价数据" :image-size="60" />
+            </div>
+          </el-col>
+        </el-row>
+      </el-collapse-item>
+    </el-collapse>
 
     <!-- 快捷入口 -->
     <div class="zs-table-card quick-row">
@@ -116,6 +158,7 @@
 import { computed, onMounted, ref, markRaw } from 'vue'
 import { useRouter } from 'vue-router'
 import { checkPermi } from '@/utils/permission'
+import { getOrganizationPage, type Organization } from '@/api/zs/platform-org'
 import {
   Coin,
   Wallet,
@@ -145,6 +188,23 @@ import {
 defineOptions({ name: 'PlatformOperationsHome' })
 const router = useRouter()
 const loading = ref(true)
+const organizations = ref<Organization[]>([]),
+  organizationTotal = ref(0),
+  organizationsLoading = ref(false),
+  organizationsError = ref('')
+onMounted(async () => {
+  if (!checkPermi(['platform:org:onboard'])) return
+  organizationsLoading.value = true
+  try {
+    const result = await getOrganizationPage({ keyword: '', orgType: '', pageNo: 1, pageSize: 5 })
+    organizations.value = result.list
+    organizationTotal.value = result.total
+  } catch {
+    organizationsError.value = '组织加载失败，请进入组织管理重试'
+  } finally {
+    organizationsLoading.value = false
+  }
+})
 
 const wallets = ref<WalletRow[]>([])
 const ledger = ref<LedgerRow[]>([])
@@ -260,6 +320,7 @@ const statCards = computed(() =>
 
 const quickEntries = computed(() =>
   [
+    { path: '/platform-pricing', title: '定价管理', permission: 'platform:org-point:price:query' },
     { path: '/platform-org/onboard', title: '组织开通', permission: 'platform:org:onboard' },
     {
       path: '/platform-org-points',
@@ -491,6 +552,28 @@ onMounted(load)
 </script>
 
 <style scoped>
+.organization-card {
+  margin-bottom: 20px;
+}
+.organization-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.organization-card-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.organization-card-heading h2 span {
+  margin-left: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 15px;
+  font-weight: 400;
+}
+.legacy-statistics {
+  margin-bottom: 20px;
+}
 .zs-page-header {
   display: flex;
   align-items: center;
