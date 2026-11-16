@@ -1,0 +1,203 @@
+{
+  "createdAt": "2026-11-16T14:05:00.8114082+08:00",
+  "deployed": true,
+  "paidProviderRequests": 0,
+  "frontend": {
+    "allChecks": "npm run check passed in frozen publish tree",
+    "focusedTests": 58,
+    "failures": 0,
+    "log": "C:/Users/Administrator/.codex/artifacts/creation-flow-20261116/frontend-test.log",
+    "allChecksLog": "C:/Users/Administrator/.codex/artifacts/creation-flow-20261116/direct-release-frontend-check.log",
+    "currentSharedWorkspace": "one unrelated customer-session assertion failed; changed customer code excluded from release"
+  },
+  "backend": {
+    "module": "franchise-content",
+    "tests": 150,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": "C:/Users/Administrator/.codex/artifacts/creation-flow-20261116/direct-upload-all-backend.log",
+    "database": "isolated PostgreSQL 17.12",
+    "http": "actual JDK client to loopback-only official-contract stub",
+    "assetAndPointPorts": "isolated test implementations"
+  },
+  "officialContractProbe": {
+    "results": "hifly-official-contract-probe.json",
+    "source": "https://api.hifly.cc/hifly.html",
+    "result": "passed",
+    "checks": 6
+  },
+  "nativeCompilation": {
+    "compiler": "installed WeChat Developer Tools wcc/wcsc",
+    "wxml": "passed",
+    "wxss": "passed"
+  },
+  "nativeVisual": {
+    "results": "screenshots/native-flow-results.json",
+    "physicalPhone": false,
+    "result": "passed",
+    "screenshots": 8,
+    "previousErrors": [
+      "stale Page / callback destroyed during navigation",
+      "window capture timed out"
+    ],
+    "recovery": "return before delayed navigation; read current Page; official SDK screenshot",
+    "mode": "actual native Page/WXML; isolated HTTP fixture",
+    "latestAttempt": "automation websocket9975 unavailable; prior8 layout captures retained"
+  },
+  "liveProviderGeneration": "deferred by user; no owned media uploaded",
+  "productionPointPool": "not tested",
+  "sources": [
+    {
+      "sha256": "FA803E57FDFAF980700EA2CE0F67FEB97EC57217C38128EC0C50621BBA745B81",
+      "path": "miniprogram/pages/studio/characters/index.js",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "23A0EA744FE84F7842E1FFA96A82EF6F79C1D8F3E7948EC9C339B48C5D5CDBDC",
+      "path": "miniprogram/pages/studio/characters/index.wxml",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "4E9B0205E783B38676AA2DACFD48F5A57D00631E1312EFEDBBA7A63E0E076F56",
+      "path": "miniprogram/pages/studio/characters/index.wxss",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "6D64815BF2274646F78C5D2C62400FFD8A42534A29EB0FFE02204F32A7211BD2",
+      "path": "miniprogram/pages/studio/index.js",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "0950A0850E89ABF3C2DEF82F430DF9A7B8A2F90E3AD41AF50C58C9A5C77DED06",
+      "path": "miniprogram/pages/studio/index.wxml",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "B620F1667D237F2EE50848935C331BB087BB7EDE9F984AEDDC9359271ECAB57C",
+      "path": "miniprogram/pages/studio/index.wxss",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "9519B76F7218A498F89C1E6DE95C5321C50BA313F61B55F256F6A84873EEABC0",
+      "path": "miniprogram/components/creation-header/index.js",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "E0844572819C213B01EA1C0FC9507FCE5EF5A19B54D3F0994D1F5F9EC1789E7C",
+      "path": "miniprogram/utils/content-upload.js",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "F9B429CDD4AFB36D672B2E9EC9C88B06C9A56D7C24CF2F6D482E3B77C2E96DCE",
+      "path": "miniprogram/utils/clone-media.js",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "6E8CADE13EE308887425076B9787FF83AF8B25F0869DD6AD6BF2D9FBCF9E185F",
+      "path": "miniprogram/pages/creation/index.js",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "720B16E6B9A717337D4EF182C32E9B62DF084D691115E3D9016EACBA73F9CB9B",
+      "path": "miniprogram/utils/platform-content.js",
+      "repository": "frontend"
+    },
+    {
+      "sha256": "8FBE7B755DED6163152837CBAAECF9377EA0BD0BC05BF7EEB553F194CBE1EB0A",
+      "path": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/provider/HiflyCloneClient.java",
+      "repository": "backend"
+    },
+    {
+      "sha256": "52C2FA15690F571366024F5B3C0B2E8EF0314BC234ADC0CC4249DA3EF03EC376",
+      "path": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/provider/HiflyOralClient.java",
+      "repository": "backend"
+    },
+    {
+      "sha256": "0C6447ABF422DA579F976ADAA008AAA61EEEEBCD945FCF070AD9694B03ECD37C",
+      "path": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/content/ContentPersonaService.java",
+      "repository": "backend"
+    },
+    {
+      "sha256": "B0EC027FF05256D54A4DB8B93E971D98BBDE00600CFBF083C15845DB3C399A8E",
+      "path": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/content/ContentCloneService.java",
+      "repository": "backend"
+    },
+    {
+      "sha256": "A9F7A0342DC1EEDCDE2A2C09B9C4C708431FFCB204C08014B6D9B807AC2081EE",
+      "path": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/dal/FrContentPersonaDO.java",
+      "repository": "backend"
+    },
+    {
+      "sha256": "A6A79507D42AC723561ED0026678C0540C2214ADA2DCA95989462BC897A4A431",
+      "path": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPersonaController.java",
+      "repository": "backend"
+    },
+    {
+      "sha256": "A8EA89AEA58D053CD4BCBAF0B318CAB5CB41D1DE7241044CE63179E5DA7A8C3D",
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261116.923__fr_content_persona_ip_profile.sql",
+      "repository": "backend"
+    },
+    {
+      "sha256": "D5BE426EEA2C2099EB699C3192DBB67845FCF8F7498C161CDDFACBB5286FDC83",
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration-undo/franchise/V20261116.923__undo_fr_content_persona_ip_profile.sql",
+      "repository": "backend"
+    },
+    {
+      "path": "miniprogram/utils/hifly-upload.js",
+      "repository": "frontend",
+      "sha256": "C57E0BA87F95466220492204D44F3B8FCFDF7D3E051B39A429C9C49879D5D094"
+    },
+    {
+      "path": "miniprogram/utils/creation-link-draft.js",
+      "repository": "frontend",
+      "sha256": "C77F433028D27948F2D3E200B97145896393BF73641FDE6C5AB876E70E5DC832"
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/content/ContentCloneUploadService.java",
+      "repository": "backend",
+      "sha256": "0A10932E01819DD14C2469CE14BF420E07E34A5B82CEABF9630F50C2B8F07C4C"
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentCloneController.java",
+      "repository": "backend",
+      "sha256": "01CF50B234216CCCB17E8D194E2F895BF150C7B068AAD4DA44B4435E2F4875B3"
+    }
+  ],
+  "updatedAt": "2026-11-16T15:05:36.2922330+08:00",
+  "paidProviderRequestsAsOf": "2026-11-16T14:32:21+08:00",
+  "liveDeployment": {
+    "initialPriceCredits": {
+      "avatar_clone": 5,
+      "voice_clone": 5
+    },
+    "companyBalanceModified": false,
+    "formalMiniprogramPublish": false,
+    "receipt": "live/direct-deployment-verified.json",
+    "providerRead": {
+      "voiceList": "HTTP200/code0",
+      "avatarList": "HTTP200/code0"
+    },
+    "migrationFailures": 0,
+    "migrations": [
+      "20261115.917",
+      "20261116.923",
+      "20261116.924"
+    ],
+    "migrationCount": 95,
+    "frontendVersion": "1.0.20261116.1503",
+    "directUploadContract": "live/direct-upload-contract.json",
+    "uploadReceipt": "live/frontend-upload.json"
+  },
+  "livePhone": {
+    "fixture": false,
+    "status": "deferred by explicit user request"
+  },
+  "uploadArchitecture": {
+    "mediaBytes": "phone PUT directly to https://upload.hifly.cc",
+    "apiKey": "backend only",
+    "productionStorageFallback": false,
+    "backendStores": "metadata and provider file id",
+    "requestDomainVerified": false
+  }
+}

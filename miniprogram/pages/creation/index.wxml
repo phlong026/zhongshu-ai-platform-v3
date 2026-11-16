@@ -7,7 +7,8 @@
       <view class="section-heading remix-heading"><text class="section-title">爆款文案二创</text></view>
       <text class="hint remix-subtitle">粘贴参考视频链接，改成自己的表达。</text>
       <view class="share-input"><image class="link-icon" src="/assets/creation-link.png" mode="aspectFit" /><input class="link-input" value="{{link}}" bindinput="inputLink" placeholder="粘贴视频分享链接" maxlength="2000" aria-label="视频分享链接" /><button class="paste-button" bindtap="paste">粘贴</button></view>
-<button class="creation-primary extract-button" bindtap="extract" disabled="{{extracting}}">{{extracting?'解析中 '+parseProgress+'%':'提取文案'}}</button>
+<button class="creation-primary extract-button" bindtap="extract" disabled="{{extracting}}">{{extracting?extractStage+' '+parseProgress+'%':'提取文案'}}</button>
+      <text wx:if="{{extractError}}" class="sales-note">{{extractError}}</text>
       <button class="manual-link" bindtap="openEditor">没有链接？手动写文案<view class="chevron" /></button>
     </view>
     <view class="section creation-tools"><view class="section-heading"><text class="section-title">创作工具</text></view><view class="shortcuts"><button wx:for="{{shortcuts}}" wx:key="key" class="shortcut" data-key="{{item.key}}" bindtap="openShortcut"><image src="/assets/creation-{{item.icon}}.png" mode="aspectFit" /><text>{{item.title}}</text></button></view></view>

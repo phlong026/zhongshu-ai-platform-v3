@@ -90,4 +90,12 @@ const growth = {
   summary: () => http.get('/franchise/content/growth/summary')
 };
 
-module.exports = { links, scripts, tasks, drafts, assets, personas, publications, growth };
+const clones = {
+  uploadTicket: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-upload-tickets', data),
+  completeUpload: id => http.post('/franchise/content/clone-uploads/' + encodeURIComponent(id) + '/complete', {}),
+  quote: kind => http.get('/franchise/content/clones/quote', { kind }),
+  list: personaId => http.get('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones'),
+  create: (personaId, data, key) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones', data, idem(key, 'clone')),
+  refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {})
+};
+module.exports = { links, scripts, tasks, drafts, assets, personas, clones, publications, growth };

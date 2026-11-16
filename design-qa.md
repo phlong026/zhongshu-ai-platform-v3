@@ -162,3 +162,19 @@ final result: passed
 联合原生最终8组均通过，新增旧来源文档直链的写权限双重拦截及3项原生补测；82步、最终金额和财务原验收证据不变。当前最终联合版本为630文件，SHA256：19013ac9198ac545b0efd178c3a841776cd622f568a74c6fbd16213bb5d071ca。8ef为上一轮版本，增量覆盖证明见工程final-native-suite.json。财务报告与jointAcceptance/finalSource已同步；本次仅改文档，未启动微信或修改业务源码。
 
 final result: passed
+
+## 人物库、IP定位与数字人口播 · 2026-11-16
+
+final result: passed（模拟器原生页面）；physical phone: pending
+
+本节仅针对本轮人物库及数字人口播，保留上方其他模块的历史结论。
+
+source visual truth：docs/creation-fixes-20261116/人物库-05IP定位清爽排版-v3.png、人物库-06分身声音清爽排版-v3.png。两幅已选设计板包含设备外框，按内部手机内容区域对照八个原生视图。沿用creation-header、现有图标、系统字体及安全区。
+
+implementation screenshots：docs/creation-fixes-20261116/screenshots/native-01-人物库.png至native-08-数字人口播.png。均由官方miniprogram-automator截取实际Page/WXML渲染，HTTP为隔离fixture。native-flow-results.json通过8屏及定位保存、克隆制作/刷新、口播提交和作品保存。未当作手机或真实供应商证据。
+
+已修复P2：人物详情主字段改双栏行、补充定位折叠；克隆及口播选择器改横向行，正文与底部动作保持可见；禁用的制作按钮使用可辨识品牌底色。复核最新人物详情、分身、声音和口播页面，未见重叠或裁切。参考图保留设备外框，实施图为模拟器内部内容，两者按手机内容宽度与相应状态比较；测试数据长度已注明，不以整张设计板作像素比对。
+
+保留差异：现有页头导航、图标和系统字形沿用产品实现。真实手机键盘、安全区及用户长内容仍需实际验收。
+
+功能证据：前端专项54项、完整npm检查、后端141项、官网协议回放及WXML/WXSS编译通过。B平台已部署并完成917/923迁移，飞影真实列表读取成功，用户正在扫码上传素材。真实制作、积分结算和手机最终播放尚未记为通过。

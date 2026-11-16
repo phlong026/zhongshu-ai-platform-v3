@@ -62,11 +62,18 @@ function mapReferences(references) {
   }));
 }
 
+/** 从整段分享内容取出链接，兼容复制内容中的 https\://、https:\/\/ 和句尾标点。 */
+function shareLinkUrl(link) {
+  const value = String(link || '').replace(/\\([:/])/g, '$1');
+  const match = value.match(/https?:\/\/[^\s<>"'“”‘’]+/i);
+  return match ? match[0].replace(/[.,;:!?，。；：！？、)）\]】}》]+$/, '') : '';
+}
+
 /** 分享链接校验（creation 页入口）：抖音/小红书 http(s) 链接 */
 function validateShareLink(link) {
   const value = String(link || '').trim();
   if (!value) return '请先粘贴视频分享链接';
-  if (!/https?:\/\/[^\s]+/i.test(value)) return '请输入完整的视频分享链接';
+  if (!shareLinkUrl(value)) return '请输入完整的视频分享链接';
   return '';
 }
 
@@ -94,6 +101,7 @@ function validatePublishedUrl(value) {
 
 /** 错误文案：后端不可达时只提示网络态，不声称已回落本机演示内容 */
 function degradeMessage(error) {
+  if (String(error && error.code) === '1072000010') return '公司尚未开通积分账户，请联系公司管理员或平台开通后使用创作功能';
   const message = String((error && (error.message || error.errMsg)) || '');
   if (/fail|timeout|abort/i.test(message)) return '网络暂不可用，请稍后重试';
   return message || '操作未完成，请稍后重试';
@@ -145,6 +153,6 @@ function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxCo
 module.exports = {
   api,
   taskView, progressOf, mapResolution, mapDuration, mapRatio, mapVideoParameters,
-  mapReferences, validateShareLink, validatePublicationForm, validatePublishedUrl,
+  mapReferences, shareLinkUrl, validateShareLink, validatePublicationForm, validatePublishedUrl,
   degradeMessage, rowsOf, pollTask
 };

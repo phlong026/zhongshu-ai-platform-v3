@@ -72,7 +72,8 @@
       "root": "pages/studio",
       "name": "studio-workflow",
       "pages": [
-        "index"
+        "index",
+        "characters/index"
       ]
     },
     {

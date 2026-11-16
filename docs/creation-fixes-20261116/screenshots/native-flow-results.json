@@ -1,0 +1,136 @@
+{
+  "passed": true,
+  "mode": "native actual Page/WXML + isolated HTTP fixture; no paid calls",
+  "screens": 8,
+  "requests": [
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930",
+      "method": "PUT"
+    },
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/clones/quote",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "POST"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/clones/100/refresh",
+      "method": "POST"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/clones/quote",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "POST"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/clones/101/refresh",
+      "method": "POST"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/tasks",
+      "method": "POST"
+    },
+    {
+      "route": "/franchise/content/tasks/501",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/tasks/501/save-work",
+      "method": "POST"
+    },
+    {
+      "route": "/franchise/content/tasks",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/tasks",
+      "method": "GET"
+    }
+  ],
+  "ip": {
+    "id": "90071992547409930",
+    "name": "张工",
+    "who": "乡墅设计师",
+    "sell": "泸州自建房设计、施工服务",
+    "audience": "准备回乡建房的家庭",
+    "expressionStyle": "专业、通俗、不过度承诺",
+    "audienceNeeds": "预算、采光、施工质量",
+    "factualBackground": "已核实的从业资料",
+    "sampleScript": "先把预算讲清楚，再选适合家人的方案。",
+    "forbiddenClaims": "全网最低、保证零增项",
+    "enabled": true,
+    "cta": "",
+    "ipType": "",
+    "track": "",
+    "differentiator": ""
+  },
+  "resources": [
+    {
+      "id": "100",
+      "personaId": "90071992547409930",
+      "kind": "AVATAR",
+      "title": "张工",
+      "status": "READY",
+      "ready": true,
+      "demoUrl": null
+    },
+    {
+      "id": "101",
+      "personaId": "90071992547409930",
+      "kind": "VOICE",
+      "title": "张工",
+      "status": "READY",
+      "ready": true,
+      "demoUrl": "https://fixture.example/demo.mp3"
+    }
+  ]
+}

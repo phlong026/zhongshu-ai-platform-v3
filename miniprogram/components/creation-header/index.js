@@ -1,5 +1,5 @@
 Component({
-properties: { title: String },
+properties: { title: String, interceptBack: Boolean },
 data: { statusHeight: 47, navHeight: 44 },
 lifetimes: {
 attached() {
@@ -8,6 +8,6 @@ this.setData({ statusHeight: info.statusBarHeight || 20, navHeight: Math.max(44,
 }
 },
 methods: {
-back(){return require('../../utils/page-navigation').back();},workbench(){return require('../../utils/page-navigation').home();}
+back(){if(this.properties.interceptBack){this.triggerEvent('back');return;}return require('../../utils/page-navigation').back();},workbench(){return require('../../utils/page-navigation').home();}
 }
 });

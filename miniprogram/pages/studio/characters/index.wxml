@@ -1,0 +1,58 @@
+<view class="characters-page">
+  <creation-header id="characters-header" title="{{pageTitle}}" intercept-back="{{view!=='home'}}" bind:back="back"/>
+  <view class="character-content {{view==='home'?'':'with-footer'}}">
+    <block wx:if="{{view==='home'}}">
+      <view class="character-tools">
+        <button class="character-tool" data-kind="AVATAR" bindtap="openCloneEntry" disabled="{{loading||saving||cloneBusy||cloneRetry}}"><image src="/assets/video-filled.png"/>口播分身</button>
+        <button class="character-tool" data-kind="VOICE" bindtap="openCloneEntry" disabled="{{loading||saving||cloneBusy||cloneRetry}}"><image src="/pages/studio/assets/studio-voice.png"/>语音克隆</button>
+      </view>
+      <view class="search-row"><view class="search-field"><image src="/assets/search.png"/><input value="{{keyword}}" bindinput="search" placeholder="搜索人物"/></view><button wx:if="{{canManage}}" class="add-button" bindtap="edit">＋ 新增</button></view>
+      <view wx:if="{{loading}}" class="empty-card">加载中…</view>
+      <view wx:elif="{{!filtered.length&&!error}}" class="empty-card">{{keyword?'暂无匹配人物':'暂无人物'}}</view>
+      <view wx:for="{{filtered}}" wx:key="id" class="person-card" data-id="{{item.id}}" bindtap="detail">
+        <view class="person-heading"><view class="person-avatar"><image src="/assets/person-filled.png"/></view><view class="person-name"><text class="name">{{item.name}}</text><text class="secondary">{{item.who||'身份待补充'}}</text></view><text class="badge {{!item.enabled?'muted':''}}">{{!item.enabled?'已停用':item.who&&item.sell&&item.audience?'IP已完善':'待完善'}}</text></view>
+        <text wx:if="{{item.sell}}" class="person-service">{{item.sell}}</text><view class="card-link">查看定位 <image src="/assets/creation-chevron.png"/></view>
+      </view>
+    </block>
+    <block wx:elif="{{view==='edit'}}">
+      <view class="form-card character-editor">
+        <view wx:for="{{fields}}" wx:key="key" class="form-field"><text class="field-label">{{item.label}}</text><textarea wx:if="{{item.multiline}}" class="field-input short-textarea" value="{{form[item.key]}}" data-key="{{item.key}}" maxlength="{{item.max}}" bindinput="input" disabled="{{saving}}"/><input wx:else class="field-input" value="{{form[item.key]}}" data-key="{{item.key}}" maxlength="{{item.max}}" bindinput="input" disabled="{{saving}}"/><view wx:if="{{item.key==='expressionStyle'}}" class="style-tags"><button wx:for="{{expressionTags}}" wx:for-item="tag" wx:key="label" class="{{tag.selected?'selected':''}}" data-value="{{tag.label}}" bindtap="toggleStyle" disabled="{{saving}}">{{tag.label}}</button></view></view>
+        <view class="supplement-link" bindtap="supplement"><text>补充定位</text><image src="/assets/creation-chevron.png"/></view>
+        <view wx:if="{{editId}}" class="enabled-row"><text>启用人物</text><switch checked="{{form.enabled}}" color="#824019" bindchange="enabled" disabled="{{saving}}"/></view>
+      </view>
+    </block>
+    <block wx:elif="{{view==='supplement'}}">
+      <view class="form-card"><view wx:for="{{extraFields}}" wx:key="key" class="form-field"><text class="field-label">{{item.label}}</text><textarea class="field-input extra-textarea" value="{{form[item.key]}}" data-key="{{item.key}}" maxlength="{{item.max}}" bindinput="input" disabled="{{saving}}"/></view></view>
+    </block>
+    <block wx:elif="{{view==='detail'&&digitalPersona}}">
+      <view class="person-card detail-heading"><view class="person-heading"><view class="person-avatar"><image src="/assets/person-filled.png"/></view><view class="person-name"><text class="name">{{digitalPersona.name}}</text><text class="secondary">{{digitalPersona.who||'身份待补充'}}</text></view></view></view>
+      <view class="detail-tabs"><button class="active">IP定位</button><button data-kind="AVATAR" bindtap="openDigital">口播分身</button><button data-kind="VOICE" bindtap="openDigital">语音克隆</button></view>
+      <view class="form-card profile-values"><view wx:for="{{fields}}" wx:key="key" wx:if="{{item.key!=='name'}}" class="profile-value"><text class="field-label">{{item.label}}</text><text>{{digitalPersona[item.key]||'待补充'}}</text></view><view class="supplement-link" bindtap="toggleProfile"><text>补充定位</text><image src="{{profileExpanded?'/assets/creation-down.png':'/assets/creation-chevron.png'}}"/></view><view wx:for="{{extraFields}}" wx:key="key" wx:if="{{profileExpanded&&digitalPersona[item.key]}}" class="profile-value extra-value"><text class="field-label">{{item.label}}</text><text>{{digitalPersona[item.key]}}</text></view></view>
+    </block>
+    <block wx:elif="{{(view==='avatar'||view==='voice')&&digitalPersona}}">
+      <view id="digital-assets" class="form-card">
+        <view class="form-field inline-field"><text class="field-label">所属人物</text><picker range="{{digitalPeople}}" range-key="name" value="{{digitalPersonIndex}}" bindchange="chooseDigitalPerson" disabled="{{cloneBusy||cloneRetry}}"><view class="field-input picker-value"><text>{{digitalPersona.name}}</text><image src="/assets/creation-down.png"/></view></picker></view>
+        <view class="form-field inline-field"><text class="field-label">资源名称</text><input class="field-input" value="{{cloneTitle}}" bindinput="cloneTitle" maxlength="20" disabled="{{cloneBusy||cloneRetry}}"/></view>
+        <view class="form-field"><text class="field-label">{{view==='avatar'?'人物视频':'声音样本'}}</text><button class="upload-box" bindtap="uploadClone" disabled="{{cloneBusy||cloneRetry}}"><image src="/assets/creation-upload.png"/><text>{{cloneUploadId?cloneFileName||'素材已上传':view==='avatar'?'上传人物视频':'上传声音样本'}}</text></button><text class="file-spec">{{view==='avatar'?'MP4 · 5秒至30分钟 · ≤50MB':'MP3 · 5秒至3分钟 · ≤20MB'}}</text></view>
+        <checkbox-group bindchange="consent"><label class="consent-row"><checkbox value="authorized" checked="{{cloneConsented}}" disabled="{{cloneBusy||cloneRetry}}" color="#824019"/><text>本人素材或已授权</text></label></checkbox-group>
+        <view class="price-row"><text class="field-label">制作积分</text><text>{{cloneQuote&&cloneQuote.available?cloneQuote.credits+' 积分':cloneQuote?'暂不可用':'获取中…'}}</text></view>
+        <text wx:if="{{cloneQuote&&!cloneQuote.available&&cloneQuote.message}}" class="error-text">{{cloneQuote.message}}</text>
+      </view>
+      <button class="resource-link" bindtap="resources">查看人物资源 <image src="/assets/creation-chevron.png"/></button>
+    </block>
+    <block wx:elif="{{view==='resources'&&digitalPersona}}">
+      <view class="resource-toolbar"><picker class="person-name" range="{{digitalPeople}}" range-key="name" value="{{digitalPersonIndex}}" bindchange="chooseDigitalPerson" disabled="{{cloneBusy||cloneRetry}}"><view class="field-input picker-value"><text>{{digitalPersona.name}}</text><image src="/assets/creation-down.png"/></view></picker><button class="refresh-button" bindtap="refreshAll" disabled="{{cloneBusy||cloneLoading}}"><image src="/pages/studio/assets/studio-refresh.png"/>刷新</button></view>
+      <view wx:if="{{cloneLoading&&!cloneRows.length}}" class="empty-card">加载中…</view><view wx:elif="{{!cloneRows.length}}" class="empty-card">暂无资源</view>
+      <view wx:for="{{cloneRows}}" wx:key="id" class="resource-card"><view class="resource-icon"><image src="{{item.kind==='AVATAR'?'/assets/video-filled.png':'/pages/studio/assets/studio-voice.png'}}"/></view><view class="resource-info"><text class="resource-title">{{item.title}}</text><text class="secondary">{{item.kind==='AVATAR'?'口播分身':'克隆声音'}} · {{item.ready?'已就绪':item.status==='READY'?'结算确认中':cloneStatus[item.status]||'状态待核实'}}</text><text wx:if="{{item.failureReason}}" class="error-text">{{item.failureReason}}</text></view><button wx:if="{{item.kind==='VOICE'&&item.ready&&item.demoUrl}}" class="small-button" data-id="{{item.id}}" bindtap="audition">试听</button><button wx:elif="{{!item.ready&&item.status!=='FAILED'}}" class="small-button" data-id="{{item.id}}" bindtap="refreshClone" disabled="{{cloneBusy}}">查询</button></view>
+      <view wx:if="{{canManage}}" class="resource-actions"><button class="outline-button" data-kind="AVATAR" bindtap="openDigital" disabled="{{cloneBusy||cloneRetry}}">＋ 口播分身</button><button class="outline-button" data-kind="VOICE" bindtap="openDigital" disabled="{{cloneBusy||cloneRetry}}">＋ 语音克隆</button></view>
+    </block>
+    <view wx:if="{{error}}" class="error-card"><text>{{error}}</text><button wx:if="{{view==='home'}}" class="small-button" bindtap="load">重试</button></view>
+    <view wx:if="{{cloneError&&(view==='avatar'||view==='voice'||view==='resources')}}" class="error-card">{{cloneError}}</view>
+  </view>
+  <view wx:if="{{view!=='home'}}" class="character-footer">
+    <button wx:if="{{view==='edit'||view==='supplement'}}" class="primary-button" bindtap="save" loading="{{saving}}" disabled="{{saving}}">{{view==='supplement'?'保存':'保存定位'}}</button>
+    <block wx:elif="{{view==='detail'}}"><button wx:if="{{canManage}}" class="outline-button" data-id="{{digitalPersona.id}}" bindtap="edit">编辑定位</button><button class="primary-button" data-id="{{digitalPersona.id}}" bindtap="use" disabled="{{!digitalPersona.enabled}}">用于二创</button></block>
+    <button wx:elif="{{view==='avatar'||view==='voice'}}" class="primary-button" bindtap="createClone" loading="{{cloneBusy}}" disabled="{{cloneBusy||(!cloneRetry&&(!cloneUploadId||!cloneConsented||!cloneQuote.available))}}">{{cloneRetry?'确认提交结果':view==='avatar'?'确认制作':'确认克隆'}}</button>
+    <button wx:elif="{{view==='resources'}}" class="primary-button" bindtap="useDigital" disabled="{{!canUseDigital||cloneLoading||cloneBusy}}">用于口播</button>
+  </view>
+</view>

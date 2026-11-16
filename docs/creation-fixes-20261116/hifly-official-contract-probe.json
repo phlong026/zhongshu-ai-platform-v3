@@ -1,0 +1,28 @@
+[ {
+  "actual" : "official-task",
+  "expected" : "official-task",
+  "operation" : "AVATAR create"
+}, {
+  "resourceId" : "official-resource",
+  "expected" : "READY",
+  "operation" : "AVATAR poll",
+  "actual" : "READY"
+}, {
+  "actual" : "official-task",
+  "expected" : "official-task",
+  "operation" : "VOICE create"
+}, {
+  "resourceId" : "official-resource",
+  "expected" : "READY",
+  "operation" : "VOICE poll",
+  "actual" : "READY"
+}, {
+  "expected" : "DONE with video URL",
+  "operation" : "digital video poll",
+  "actual" : "DONE",
+  "videoUrl" : "https://fixture.example/video.mp4"
+}, {
+  "actual" : "nested-control",
+  "expected" : "nested-control",
+  "operation" : "existing nested test fixture"
+} ]

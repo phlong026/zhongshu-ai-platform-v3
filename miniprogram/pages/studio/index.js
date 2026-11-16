@@ -14,19 +14,20 @@ scheduled: { label: '待发布', icon: 'clock', tone: 'warm', action: '查看进
 Page({
 data: { 
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
-ipOptions: ['乡墅建房顾问', '乡村设计师'], requirement: '突出采光和生活动线，语气亲切一些。',
+ipOptions: ['不指定人物'], personaOptions: [{id:'',name:'不指定人物'}], selectedPersonaId: '', requirement: '',digitalSubmitting:false,digitalRetry:false,
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
 tasks: [], records: [], works: [], libraryAssets: assets, publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
 publishText: '想把二层乡墅住得舒适，先从家人的日常出发。\n采光、动线和通风，才是住得舒服的关键。',
 tags: '#乡墅设计  #农村建房', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
-actor: '李顾问', voice: '李顾问原声', filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
+actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
 },
 onLoad(options) {
-if(!studio.guard())return;this.actorScope=studio.scope();
+if(!studio.guard())return;this.__closed=false;this.actorScope=studio.scope();this.actorSessionGeneration=http.sessionGeneration();
 const view = titles[options.view] ? options.view : 'remix';
 this.options = options;
 const state = studio.read();
 this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: state.title, taskId: options.task || 'task-complete', recordId: options.record || 'record-success', workId: options.work || '' });
+if(view==='digital')this.restoreDigitalAttempt();
 if (view === 'result' && options.task) {
 if (http.token()) return this.loadApiResult(options.task); // 在线任务：直取后端详情（不回落本地演示任务）
 this.setData({ view: 'tasks', pageTitle: titles.tasks });
@@ -40,6 +41,10 @@ if (draft) this.setData(draft);
 if (options.work && http.token()) this.loadApiWork(options.work); // 在线作品：接口回读，缺失不拦截
 }
 if (view === 'remix' && state.rewriteSettings) this.setData(state.rewriteSettings);
+if (view === 'remix') {
+if(options.persona)this.setData({selectedPersonaId:String(options.persona),rewriteMode:0});
+this.loadPersonas();
+}
 const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,selectedAccount:Math.max(0,(studio.publicationPlatforms||[]).findIndex(a=>a.platform===c.pack.platform))});}
 this.refreshData();
 if(view==='receipt'){
@@ -48,17 +53,17 @@ if(http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} 
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
-onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData(); 
+onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if (this.options) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);
   },
-onHide() { this.persistEditor(); },
-onUnload() { this.persistEditor(); if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); }, // 终止任务轮询（防 UI 长时间占锁）
+onHide() { if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
+onUnload() { if(this.__voiceAudio)this.__voiceAudio.destroy();if(this.data.digitalSubmitting)wx.hideLoading(); this.__closed=true; this.persistEditor(); if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); }, // 终止任务轮询（防 UI 长时间占锁）
 persistEditor() {
 if(!studio.allowed()||this.actorScope!==studio.scope())return;
 if(this.data.view==='receipt'&&!this.data.receiptSaved&&['publishing','verify'].includes(this.data.detail&&this.data.detail.status)){const state=studio.read();state.publicationLinkDrafts=state.publicationLinkDrafts||{};state.publicationLinkDrafts[this.data.recordId]=this.data.publishedUrlInput;studio.write(state);}
 if (this.data.view === 'remix') {
 const state = studio.read();
-const { rewriteMode, ipIndex, customIp, requirement } = this.data;
-state.rewriteSettings = { rewriteMode, ipIndex, customIp: customIp || '', requirement }; studio.write(state);
+const { rewriteMode, ipIndex, selectedPersonaId, customIp, requirement } = this.data;
+state.rewriteSettings = { rewriteMode, ipIndex, selectedPersonaId, customIp: customIp || '', requirement }; studio.write(state);
 }
 if (this.data.view === 'publish' && !this.data.invalidMessage && this.data.workId) {
 const state = studio.read();
@@ -178,7 +183,17 @@ const index = (this.data.tasks || []).findIndex(t => t.id === taskId);
 if (index >= 0) this.setData({ ['tasks[' + index + '].progress']: P.progressOf(status), ['tasks[' + index + '].status']: P.taskView(status) });
 },
 switchRewrite(e) { this.setData({ rewriteMode: Number(e.currentTarget.dataset.index) }); },
-changeIp(e) { this.setData({ ipIndex: Number(e.detail.value) }); },
+changeIp(e) { const ipIndex=Number(e.detail.value),item=this.data.personaOptions[ipIndex];if(item)this.setData({ipIndex,selectedPersonaId:item.id,operationError:''}); },
+loadPersonas() {
+const guard=http.requestGuard('remix-personas'),scope=this.actorScope;
+return contentApi.personas.page().then(rows=>{
+if(this.__closed||!guard()||scope!==studio.scope())return;
+const options=[{id:'',name:'不指定人物'}].concat(P.rowsOf(rows).filter(r=>r&&r.id!=null&&r.enabled!==false).map(r=>({id:String(r.id),name:String(r.name||'未命名人物')})));
+const selected=String(this.data.selectedPersonaId||''),index=options.findIndex(p=>p.id===selected);
+this.setData({personaOptions:options,ipOptions:options.map(p=>p.name),ipIndex:Math.max(0,index),selectedPersonaId:index>=0?selected:'',operationError:selected&&index<0?'原选人物已停用或不存在，请重新选择人物':''});
+}).catch(error=>{if(guard()&&scope===studio.scope())this.setData({operationError:'人物库加载失败：'+P.degradeMessage(error)});});
+},
+openCharacters() { wx.navigateTo({url:'/pages/studio/characters/index'}); },
 inputRequirement(e) { this.setData({ requirement: e.detail.value, operationError: '' }); },
 inputOriginal(e) { const state=studio.read();state.original=String(e.detail.value||'');state.script='';state.rewriteHistory=[];delete state.extraction;studio.write(state);this.setData({original:state.original,script:'',scriptShort:'',scriptLength:0,estimatedSeconds:0,rewriteVersion:0,operationError:'',extraction:null}); },
 inputCustomIp(e) { this.setData({ customIp: e.detail.value }); },
@@ -204,14 +219,16 @@ regenerateOnline(original) {
 const persona=this.data.rewriteMode===1?String(this.data.customIp||'').trim():String(this.data.ipOptions[this.data.ipIndex]||'');
 const requirement=String(this.data.requirement||'').trim();
 const scope=this.actorScope;
-const finish=()=>{this.setData({rewriting:false});this.scrollToCopy();};
+const guard=http.requestGuard('remix-generate');
+const alive=()=>!this.__closed&&guard()&&this.actorScope===scope&&scope===studio.scope();
+const finish=()=>{if(alive()){this.setData({rewriting:false});this.scrollToCopy();}};
 const apply=text=>{
-if(this.actorScope!==scope)return finish(); // 工作身份已变化，丢弃迟到结果
+if(!alive())return;
 const state=studio.read();
 const version=((state.rewriteHistory[state.rewriteHistory.length-1]||{}).version||0)+1;
 state.original=original;state.script=text;
 state.rewriteHistory=state.rewriteHistory.concat({version,online:true,mode:'api-optimize',persona,requirement,original,script:text,at:Date.now()});
-state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,requirement};
+state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,selectedPersonaId:this.data.selectedPersonaId||'',requirement};
 studio.write(state);
 const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);
 if(draft&&draft.text===original)wx.setStorageSync(key,Object.assign({},draft,{rewrittenText:text,updatedAt:Date.now()}));
@@ -220,11 +237,14 @@ wx.showToast({title:'二创已生成',icon:'none'});
 finish();
 };
 this.fetchPersonaId(persona).then(personaId=>{
+if(!alive())throw {cancelled:true};
 const payload={sourceText:original};
-if(requirement)payload.requirement=requirement;
+const custom=this.data.rewriteMode===1?persona:'';
+if(requirement||custom)payload.requirement=[requirement,custom?'人物设定：'+custom:''].filter(Boolean).join('\n');
 if(personaId)payload.personaId=personaId;
 return this.resolveText(contentApi.scripts.optimize(payload));
 }).then(apply).catch(error=>{
+if(!alive()||(error&&error.cancelled))return;
 const message=P.degradeMessage(error);
 this.setData({operationError:message});
 wx.showToast({title:message,icon:'none'});
@@ -233,11 +253,12 @@ finish();
 },
 /** 组织人设库按名称匹配（personas.page）；列表为空/未命中/接口失败均返回空串 */
 fetchPersonaId(label) {
-if(!label)return Promise.resolve('');
+if(this.data.rewriteMode===1||!this.data.selectedPersonaId)return Promise.resolve('');
 return contentApi.personas.page().then(rows=>{
-const hit=P.rowsOf(rows).find(item=>item&&(item.name===label||item.title===label));
-return hit&&hit.id!=null?String(hit.id):'';
-}).catch(()=>'');
+const hit=P.rowsOf(rows).find(item=>item&&String(item.id)===String(this.data.selectedPersonaId)&&item.enabled!==false);
+if(!hit)throw Error('所选人物已停用或不存在，请重新选择');
+return String(hit.id);
+});
 },
 /** 优化响应双形状兼容：同步 {text} 或任务化 {taskId}→轮询取 result.text */
 resolveText(promise) {
@@ -283,13 +304,52 @@ wx.showToast({title:message,icon:'none'});
 makeDigital() {
 if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});
 const state = studio.read(); state.script = this.data.script; state.title = this.data.title; studio.write(state);
-this.go('digital');
+this.go('digital',this.data.selectedPersonaId?'&persona='+encodeURIComponent(this.data.selectedPersonaId):'');
 },
-changeActor() { this.setData({ sheet: 'actor', sheetTitle: '出镜人物' }); },
-selectActor() { this.setData({ actor: '李顾问', voice: '李顾问原声', sheet: '' }); },
-changeVoice() { this.setData({ sheet: 'voice', sheetTitle: '口播声音' }); },
-selectVoice() { this.setData({ voice: '李顾问原声', sheet: '' }); },
-audition() { wx.showModal({ title: '声音试听', content: '当前仅提供声音选择界面，尚未配置试听音频。', showCancel: false, confirmColor: '#824019' }); },
+restoreDigitalAttempt() {
+const attempt=wx.getStorageSync(studio.scopedKey('zs-digital-attempt'));
+this.__digitalAttempt=attempt&&attempt.key&&attempt.payload?attempt:null;
+if(this.__digitalAttempt){const {payload,personaId}=attempt,state=studio.read();state.script=payload.text;state.title=payload.title;studio.write(state);this.setData({digitalRetry:true,digitalPersonaId:personaId||'',script:payload.text,title:payload.title,scriptLength:payload.text.length});}
+},
+inputDigitalScript(e) {if(this.data.digitalSubmitting||this.data.digitalRetry)return;const text=e.detail.value,state=studio.read();state.script=text;studio.write(state);this.setData({script:text,scriptLength:text.length,estimatedSeconds:Math.ceil(text.replace(/\s/g,'').length/4),operationError:''});},
+async loadDigitalProfiles(preferred) {
+const guard=http.requestGuard('digital-personas'),scope=this.actorScope;
+this.setData({digitalLoading:true,operationError:'',actor:'',voice:'',avatarCloneId:'',voiceCloneId:'',avatarOptions:[],voiceOptions:[]});
+try{
+const rows=P.rowsOf(await contentApi.personas.page()).filter(r=>r&&r.enabled!==false&&r.id!=null).map(r=>({id:String(r.id),name:String(r.name||'未命名人物')}));
+if(this.__closed||!guard()||scope!==studio.scope())return;
+const attempt=this.__digitalAttempt;
+const saved=attempt?{personaId:attempt.personaId,avatarId:attempt.payload.avatarCloneId,voiceId:attempt.payload.voiceCloneId}:studio.read().digitalSelection||{};
+const id=String(saved.personaId&&attempt?saved.personaId:preferred||saved.personaId||''),index=Math.max(0,rows.findIndex(r=>r.id===id));
+this.setData({digitalPersonas:rows,digitalPersonaIndex:index,digitalPersonaId:rows[index]?rows[index].id:'',digitalLoading:false});
+if(rows[index])return this.loadDigitalClones(rows[index].id,saved);
+this.setData({operationError:'人物库暂无可选人物，请先由管理员新增人物并制作分身和声音'});
+}catch(e){if(!this.__closed&&guard()&&scope===studio.scope())this.setData({digitalLoading:false,operationError:P.degradeMessage(e)});}
+},
+changeDigitalPersona(e) {if(this.__generating||this.data.digitalRetry)return;const index=Number(e.detail.value),person=this.data.digitalPersonas[index];if(person){this.setData({digitalPersonaIndex:index,digitalPersonaId:person.id});this.loadDigitalClones(person.id,{});}},
+async loadDigitalClones(personaId,saved={}) {
+const guard=http.requestGuard('digital-clones'),scope=this.actorScope;
+this.setData({digitalLoading:true,operationError:'',avatarOptions:[],voiceOptions:[],avatarCloneId:'',voiceCloneId:'',actor:'',voice:''});
+try{
+const rows=P.rowsOf(await contentApi.clones.list(personaId)).filter(r=>r&&r.ready);
+if(this.__closed||!guard()||scope!==studio.scope()||this.data.digitalPersonaId!==personaId)return;
+const avatars=rows.filter(r=>r.kind==='AVATAR'),voices=rows.filter(r=>r.kind==='VOICE');
+const a=avatars.find(r=>String(r.id)===String(saved.avatarId))||(!this.__digitalAttempt&&avatars[0]),v=voices.find(r=>String(r.id)===String(saved.voiceId))||(!this.__digitalAttempt&&voices[0]);
+this.setData({digitalLoading:false,avatarOptions:avatars,voiceOptions:voices,avatarCloneId:a?String(a.id):'',voiceCloneId:v?String(v.id):'',actor:a?a.title:'',voice:v?v.title:'',operationError:!a||!v?'请在人物库准备同一人物名下已就绪的数字分身和克隆声音':''});
+this.persistDigitalSelection();
+}catch(e){if(!this.__closed&&guard()&&scope===studio.scope())this.setData({digitalLoading:false,operationError:P.degradeMessage(e)});}
+},
+persistDigitalSelection(){if(this.actorScope!==studio.scope())return;const state=studio.read();state.digitalSelection={personaId:this.data.digitalPersonaId,avatarId:this.data.avatarCloneId,voiceId:this.data.voiceCloneId};studio.write(state);},
+changeActor() {if(this.__generating||this.data.digitalRetry)return; this.setData({ sheet: 'actor', sheetTitle: '选择数字分身' }); },
+selectActor(e) {if(this.__generating||this.data.digitalRetry)return; const item=this.data.avatarOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({actor:item.title,avatarCloneId:String(item.id),sheet:''});this.persistDigitalSelection();} },
+changeVoice() {if(this.__generating||this.data.digitalRetry)return; this.setData({ sheet: 'voice', sheetTitle: '选择克隆声音' }); },
+selectVoice(e) {if(this.__generating||this.data.digitalRetry)return; const item=this.data.voiceOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({voice:item.title,voiceCloneId:String(item.id),sheet:''});this.persistDigitalSelection();} },
+audition() {
+const selected=this.data.voiceOptions.find(r=>String(r.id)===String(this.data.voiceCloneId));
+if(!selected||!selected.demoUrl)return wx.showToast({title:'暂无可用试听音频，请在人物库刷新状态',icon:'none'});
+if(this.__voiceAudio)this.__voiceAudio.destroy();this.__voiceAudio=wx.createInnerAudioContext();this.__voiceAudio.src=selected.demoUrl;
+this.__voiceAudio.onError(()=>wx.showToast({title:'试听音频暂不可用，请稍后重试',icon:'none'}));this.__voiceAudio.play();
+},
 generateDigital() {
 if (!this.data.script.trim()) { wx.showToast({ title: '请先填写口播文案', icon: 'none' }); return; }
 if (!http.token()) return wx.showToast({ title: '请先登录后再生成口播', icon: 'none' }); // 无 token：提示登录，不弹本地预览
@@ -299,23 +359,33 @@ return this.generateDigitalOnline(); // 在线：直连后端创建 digital 任�
  * showLoading 只覆盖提交阶段；轮询进度经任务中心列表回填展示，onUnload 终止。 */
 generateDigitalOnline() {
 if(this.__generating)return; // 提交防重（loading 只护提交阶段）
+if(!this.__digitalAttempt&&(this.data.digitalLoading||!this.data.avatarCloneId||!this.data.voiceCloneId))return wx.showToast({title:'请先选择已就绪的数字分身和克隆声音',icon:'none'});
 const text=this.data.script.trim();
 const title=String(this.data.title||'').trim()||text.split('\n')[0].slice(0,28);
+if(!this.__digitalAttempt&&(!text||text.length>10000))return this.setData({operationError:'口播文案须为1至10000字'});
 const state=studio.read();state.script=text;state.title=title;studio.write(state); // 本地留痕（script/title 非守卫键）
+if(!this.__digitalAttempt){this.__digitalAttempt={personaId:this.data.digitalPersonaId,payload:{kind:'digital',avatarCloneId:this.data.avatarCloneId,voiceCloneId:this.data.voiceCloneId,text,title},key:this.contentKey('task')};wx.setStorageSync(studio.scopedKey('zs-digital-attempt'),this.__digitalAttempt);}
+const attempt=this.__digitalAttempt,guard=http.requestGuard('digital-create'),scope=this.actorScope;
+const alive=()=>!this.__closed&&guard()&&scope===studio.scope();
+if(this.__digitalPoll&&this.__digitalPoll.cancel)this.__digitalPoll.cancel();this.__digitalPoll=null;
 this.__generating=true;
+this.setData({digitalSubmitting:true,digitalRetry:true,operationError:''});
 wx.showLoading({title:'提交生成任务',mask:true});
-contentApi.tasks.create({kind:'digital',voice:this.data.voice,text,avatar:this.data.actor,title},this.contentKey('task')).then(res=>{
+return contentApi.tasks.create(attempt.payload,attempt.key).then(res=>{
+if(!alive())return;
 wx.hideLoading();
 const taskId=res&&res.taskId?String(res.taskId):'';
 if(!taskId)throw Error('任务创建失败，请稍后重试');
+wx.removeStorageSync(studio.scopedKey('zs-digital-attempt'));this.__digitalAttempt=null;this.__generating=false;this.setData({digitalSubmitting:false,digitalRetry:false});
 this.contentDropKey('task'); // 提交成功释放；失败保留，重试复用同键
 this.go('tasks'); // 轮询进度在任务中心态展示
-const poll=this.__digitalPoll=P.pollTask(taskId,{onTick:task=>this.patchTaskProgress(String(task.id||taskId),task.status)});
+const poll=this.__digitalPoll=P.pollTask(taskId,{onTick:task=>{if(alive())this.patchTaskProgress(String(task.id||taskId),task.status);}});
 return poll.then(task=>{
-if(this.__digitalPoll!==poll)return null; // 已取消/新一轮提交
+if(!alive()||this.__digitalPoll!==poll)return null; // 已取消/新一轮提交
 this.__digitalPoll=null;this.__generating=false;
 const view=P.taskView(task.status);
-if(view==='completed')return contentApi.tasks.saveWork(taskId,title,this.contentKey('save-work:'+taskId)).then(()=>{
+if(view==='completed')return contentApi.tasks.saveWork(taskId,attempt.payload.title,this.contentKey('save-work:'+taskId)).then(()=>{
+if(!alive())return;
 this.contentDropKey('save-work:'+taskId);
 wx.showToast({title:'已生成并保存到我的作品'});
 if(this.data.view==='tasks')this.refreshData();
@@ -326,10 +396,15 @@ return null;
 }).catch(error=>{
 if(this.__digitalPoll===poll){this.__digitalPoll=null;this.__generating=false;}
 if(error&&error.cancelled)return null; // 页面卸载取消：静默
+if(!alive())return null;
 wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 任务已在任务中心，轮询失败仅提示
 });
 }).catch(error=>{
+if(!alive())return;
 wx.hideLoading();this.__generating=false;
+const code=Number(error&&error.code),uncertain=!Number.isFinite(code)||code<=0||(code>=500&&code<600);
+if(!uncertain){wx.removeStorageSync(studio.scopedKey('zs-digital-attempt'));this.__digitalAttempt=null;this.contentDropKey('task');}
+this.setData({digitalSubmitting:false,digitalRetry:uncertain,operationError:P.degradeMessage(error)});
 wx.showToast({title:P.degradeMessage(error),icon:'none'}); // 接口失败仅提示错误，不回落演示兜底
 });
 },
@@ -348,9 +423,10 @@ this.go('result', '&task=' + encodeURIComponent(id));
 refreshTasks() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
 playVideo() {
 const task=this.data.activeTask;
-if(task&&task.apiTask&&task.resultUrl){wx.setClipboardData({data:task.resultUrl,success:()=>wx.showToast({title:'成片链接已复制，可在浏览器查看',icon:'none'})});return;}
-wx.showModal({ title: '视频播放说明', content: '视频播放暂未开通，当前仅提供封面预览。', showCancel: false, confirmColor: '#824019' });
+if(task&&task.apiTask&&task.resultUrl){if(this.data.view==='result')wx.createVideoContext('digital-result',this).play();else if(wx.previewMedia)wx.previewMedia({sources:[{url:task.resultUrl,type:'video'}]});return;}
+wx.showToast({title:'暂无可播放视频',icon:'none'});
 },
+videoError(){this.setData({operationError:'视频加载失败，请刷新任务结果'});},
 attempt(action) { try { this.setData({operationError:''});return action(); } catch (error) { const message=error.message||'操作未完成，请重试';this.setData({operationError:message});wx.showToast({ title: message, icon: 'none' }); return null; } },
 saveResult() { return this.saveApiResult(false); }, // 任务全部在线：保存走 save-work 幂等通道
 publishResult() { return this.saveApiResult(true); },

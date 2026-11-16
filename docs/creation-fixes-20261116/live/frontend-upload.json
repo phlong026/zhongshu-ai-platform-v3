@@ -1,0 +1,73 @@
+{
+  "version": "1.0.20261116.1503",
+  "appid": "wxe584f6fad7b54487",
+  "uploadedAt": "2026-11-16T15:05:36.014603+08:00",
+  "cli": "official WeChat Developer Tools upload",
+  "result": "success; CLI returned upload",
+  "size": {
+    "total": 7532255,
+    "packages": [
+      {
+        "name": "TOTAL",
+        "size": 7532255
+      },
+      {
+        "name": "main",
+        "size": 1855022
+      },
+      {
+        "name": "/design-migration/",
+        "size": 495414
+      },
+      {
+        "name": "/pages/account/",
+        "size": 1082249
+      },
+      {
+        "name": "/pages/admin/",
+        "size": 466814
+      },
+      {
+        "name": "/pages/ai-video/",
+        "size": 19326
+      },
+      {
+        "name": "/pages/build/",
+        "size": 1024366
+      },
+      {
+        "name": "/pages/creation/",
+        "size": 16051
+      },
+      {
+        "name": "/pages/design/",
+        "size": 241480
+      },
+      {
+        "name": "/pages/growth/",
+        "size": 18688
+      },
+      {
+        "name": "/pages/studio/",
+        "size": 392102
+      },
+      {
+        "name": "/pages/wallet/",
+        "size": 12451
+      },
+      {
+        "name": "/pages/workflow/",
+        "size": 1908292
+      }
+    ]
+  },
+  "fixture": false,
+  "formalPublish": false,
+  "experienceVersionSwitched": false,
+  "requiredRequestDomain": "https://upload.hifly.cc",
+  "domainConfigurationVerified": false,
+  "backendReceipt": "direct-deployment-verified.json",
+  "releaseProject": "C:\\Users\\Administrator\\.codex\\artifacts\\creation-flow-20261116\\live-native",
+  "releaseChecks": "npm run check passed in frozen publish tree",
+  "workspaceCheck": "current workspace has an unrelated customer-session test failure; that changed customer code is excluded from publish tree"
+}
