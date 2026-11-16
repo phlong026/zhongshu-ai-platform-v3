@@ -8,6 +8,7 @@ const http = require('./http');
 
 const STALE = 'COMPANY_POINTS_STALE';
 const BASE = '/franchise/company-points';
+const inFlightReads = new Map();
 
 function fingerprint() {
   return http.sessionGeneration() + ':' + (http.currentPostId() || '');
@@ -25,7 +26,18 @@ function guarded(request) {
 }
 
 function summary() {
-  return guarded(() => http.get(BASE + '/summary'));
+  return read(BASE + '/summary');
+}
+
+// Only share pending reads in the same session/post. Settled balances are never cached.
+function read(path) {
+  const key = JSON.stringify([fingerprint(), path]);
+  if (inFlightReads.has(key)) return inFlightReads.get(key);
+  const pending = guarded(() => http.get(path));
+  inFlightReads.set(key, pending);
+  const forget = () => { if (inFlightReads.get(key) === pending) inFlightReads.delete(key); };
+  pending.then(forget, forget);
+  return pending;
 }
 
 function myUsage(options) {
@@ -34,7 +46,7 @@ function myUsage(options) {
   if (input.month) query.push('month=' + encodeURIComponent(input.month));
   query.push('page=' + encodeURIComponent(input.page || 1));
   query.push('size=' + encodeURIComponent(input.size || 20));
-  return guarded(() => http.get(BASE + '/my-usage?' + query.join('&')));
+  return read(BASE + '/my-usage?' + query.join('&'));
 }
 
 /**

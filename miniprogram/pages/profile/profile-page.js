@@ -71,15 +71,15 @@ module.exports = function (tabIndex) {
         ? (ownerProfile && courses.find(item => item.id === 'management')) || courses[0] || null
         : Learning.courses.find(item => item.id === 'ai-video') || null;
       const company=apiLoggedIn?(apiPost.orgName||''):(c?c.name:'');
-      const role=apiLoggedIn?(O.roles[apiPost.roleCode]||apiPost.roleCode):(A.roles[s.session.role]||'');
+      const role = apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : (A.roles[s.session.role] || '');
       this.setData({
-        identityText:Profile.compactIdentity(company,role),identityOrganization:Profile.compactIdentity(company,''),identityRole:Profile.compactIdentity('',role),learningAvailable:!!course,learningLabel:course?course.category+'培训':'',
+        identityText:Profile.compactIdentity(company,role),identityOrganization:Profile.compactIdentity(company,''),identityRole:Profile.compactIdentity('',role),learningAvailable:apiLoggedIn?true:!!course,learningLoading:apiLoggedIn,learningError:'',learningLabel:apiLoggedIn?'':course?course.category+'培训':'',
         engineeringProfile, courseId:course?course.id:'',courseTitle:course?course.name:'',courseImage:course?course.image:'',
         loggedIn, showStoreServices: !loggedIn || actor.orgType === 'store',
         entries: entries(actor),
         ownerProfile, managementEntries: managementEntries(actor),
         name: apiLoggedIn ? (apiPost.name || s.profile.name) : s.profile.name, avatar: s.profile.avatar,
-        role: apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : A.roles[s.session.role],
+        role,
         company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
         unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total:course?course.lessons:0, percent: 0 }
       });
@@ -104,14 +104,13 @@ module.exports = function (tabIndex) {
           const fresh = A.load();
           this.setData({ unread: M.totalUnread(A.scoped(fresh, fresh.messages).filter(x => !x.read).length, this.apiUnread) });
         }).catch(() => {});
-        // 课程进度 API 真源（/franchise/content/course-progress 全量拉取，不读本地 learning 存储）
-        require('../../api/franchise/content').drafts.courseProgress().then(rows => {
-          if (courseGen !== this.__courseGen) return;
-          const map = {}; (rows || []).forEach(r => { (map[r.courseId] = map[r.courseId] || []).push(Number(r.chapterIndex)); });
-          const cid = this.data.courseId, total = (A.courseChapters[cid] || A.chapters).length;
-          const done = (map[cid] || []).filter(i => Number.isInteger(i) && i >= 0 && i < total);
-          this.setData({ progress: { completed: done.length, total, percent: total ? done.length / total * 100 : 0 } });
-        }).catch(() => {});
+        const training=require('../../api/training'),identity=training.identity();
+        training.courses('').then(rows => {
+          if (courseGen !== this.__courseGen||identity!==training.identity()) return;
+          const available=rows||[],next=available.find(c=>c.completed>0&&c.percent<100)||available.find(c=>['boss','owner'].includes(apiPost.roleCode)&&c.category==='经营管理')||available[0];
+          this.setData({learningAvailable:true,learningLoading:false,learningLabel:next?next.category+'培训':'',courseId:next?next.id:'',courseTitle:next?next.title:'',courseImage:next?A.courseImage:'',progress:{completed:next?next.completed:0,total:next?next.lessons:0,percent:next?next.percent:0}});
+          if(next&&next.coverVersionId)training.ticket(next.id,next.coverVersionId,'poster').then(t=>{if(courseGen===this.__courseGen&&identity===training.identity())this.setData({courseImage:training.url(t)});}).catch(()=>{});
+        }).catch(() => { if(courseGen===this.__courseGen&&identity===training.identity())this.setData({learningLoading:false,learningError:'课程未能加载，请进入课程中心重试'}); });
       }
       const bar = this.getTabBar && this.getTabBar();
       if (bar) { bar.refresh && bar.refresh(); bar.setData({ selected: tabIndex, hidden: false }); }

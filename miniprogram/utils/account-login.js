@@ -1,4 +1,5 @@
 const DEFAULT_KEY = 'zs-login-default-account-v1';
+const CONSENT_KEY = 'zs-login-consent-v1';
 
 function publicAccount(account) {
   if (!account || account.accountId === undefined || !account.loginName) return null;
@@ -6,7 +7,11 @@ function publicAccount(account) {
     accountId: String(account.accountId),
     loginName: String(account.loginName),
     orgName: String(account.orgName || ''),
-    ownerName: String(account.ownerName || '')
+    ownerName: String(account.ownerName || ''),
+    personName: String(account.personName || account.ownerName || ''),
+    roleCode: String(account.roleCode || ''),
+    roleName: String(account.roleName || ''),
+    shortOrgName: String(account.shortOrgName || '')
   };
 }
 
@@ -34,7 +39,22 @@ function validNewPassword(value) {
     const code = character.codePointAt(0);
     bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
   }
-  return password.length >= 10 && password.length <= 64 && bytes <= 72 && /[A-Za-z]/.test(password) && /\d/.test(password);
+  return password.length >= 6 && password.length <= 64 && bytes <= 72;
 }
 
-module.exports = { DEFAULT_KEY, defaultAccount, saveDefault, clearDefault, validNewPassword };
+function consent(policy) {
+  if (!policy || !policy.agreementVersion || !policy.privacyVersion) return null;
+  try {
+    const saved = wx.getStorageSync(CONSENT_KEY);
+    return saved && saved.accepted === true && saved.agreementVersion === policy.agreementVersion && saved.privacyVersion === policy.privacyVersion
+      ? {accepted:true, agreementVersion:policy.agreementVersion, privacyVersion:policy.privacyVersion} : null;
+  } catch (e) { return null; }
+}
+function saveConsent(policy) {
+  const value = {accepted:true, agreementVersion:policy.agreementVersion, privacyVersion:policy.privacyVersion};
+  try { wx.setStorageSync(CONSENT_KEY, value); } catch (e) { /* 本次明确同意仍有效；下次重新确认。 */ }
+  return value;
+}
+function clearConsent() { try { wx.removeStorageSync(CONSENT_KEY); } catch (e) {} }
+
+module.exports = { CONSENT_KEY, consent, saveConsent, clearConsent, DEFAULT_KEY, defaultAccount, saveDefault, clearDefault, validNewPassword };

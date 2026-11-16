@@ -18,7 +18,8 @@ function login(options) {
             appid: opts.appid,
             loginCode: res.code,
             phoneCode: opts.phoneCode || undefined,
-            needPhone: opts.needPhone || false
+            loginVersion: 2,
+            consent: opts.consent
           })
           .then(resolve)
           .catch(reject);
@@ -33,9 +34,30 @@ function login(options) {
 /** 登录成功后保存令牌与首个岗位（有多个岗位时由用户在身份页切换）。
  * M02-T02/I03：token 落地瞬间先清上一账号的岗位上下文（postId 与缓存任职列表）——
  * 新 token 绝不搭配旧岗位缓存；任职列表由 afterRealLogin 拉取后重建。 */
-function saveLogin(result) {
-  http.saveSession({ token: result.accessToken, postId: '' });
+function saveLogin(result, options) {
+  http.saveSession({ token: result.accessToken, postId: '', refreshToken: result.refreshToken,
+    userId: result.userId, expiresTime: result.expiresTime, remember: !options || options.remember !== false });
   wx.removeStorageSync(POSTS_KEY);
+}
+
+let restoreFlight = null;
+/** 启动时复核本人任职并恢复上次岗位；缓存不能代替后台授权。 */
+function restoreSession() {
+  if (!http.token()) return Promise.resolve(null);
+  const generation = http.sessionGeneration();
+  if (restoreFlight && restoreFlight.generation === generation) return restoreFlight.promise;
+  const flight = { generation };
+  flight.promise = myPosts().then(posts => {
+    if (generation !== http.sessionGeneration()) throw { silent: true };
+    const list = (posts || []).filter(Boolean);
+    if (!list.length) { logout(); http.notifySessionExpired(); throw { code: 401, message: '当前账号暂无有效任职' }; }
+    const post = list.find(item => String(item.postId) === String(http.currentPostId())) || list[0];
+    savePosts(list);
+    if (String(http.currentPostId()) !== String(post.postId)) http.saveSession({ postId: post.postId });
+    return post;
+  }).finally(() => { if (restoreFlight === flight) restoreFlight = null; });
+  restoreFlight = flight;
+  return flight.promise;
 }
 
 /** 本人全部有效任职；postId 用于 X-Post-Id 切换当前岗位 */
@@ -58,15 +80,10 @@ function accountMatches(query) {
 }
 
 /** 账号密码登录；初始密码场景携 newPassword 完成强制改密后才签发令牌。 */
-function accountLogin(accountId, password, newPassword) {
-  const payload = { accountId: String(accountId), password };
+function accountLogin(accountId, password, newPassword, consent) {
+  const payload = { accountId: String(accountId), password, consent, loginVersion: 2 };
   if (newPassword) payload.newPassword = newPassword;
   return http.post('/platform/auth/account/login', payload);
-}
-
-/** 已登录账号绑定当前微信。后端只增加该 userId 的登录凭据，不创建用户。 */
-function bindWechat(loginCode) {
-  return http.post('/platform/auth/wechat-bind', { appid: appId(), loginCode });
 }
 
 /** 发送登录短信验证码（后端内置限流：60s 一条、每日上限） */
@@ -154,7 +171,9 @@ function recoverPostInvalid(invalidPostId) {
     );
 }
 
-module.exports = { login, saveLogin, myPosts, appId, accountMatches, accountLogin, bindWechat, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid, postLoadGuard };
+function loginPolicy() { return http.get('/platform/auth/login-policy'); }
+
+module.exports = { loginPolicy, login, saveLogin, restoreSession, myPosts, appId, accountMatches, accountLogin, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid, postLoadGuard };
 
 // M02-T01/I02：账号失效统一引导——清会话后跳转登录页（account 页 onShow 因会话清空展示登录态）。
 // 自带 handle401 四组合处理的页面（customers/workflow 等，09 阶段1 契约：401→回 guest 渲染）豁免全局跳转，

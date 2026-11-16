@@ -3,7 +3,7 @@
   <view class="list">
     <view class="list-empty retired-message">
       <text>个人充值记录已停止使用</text>
-      <text>平台现统一使用公司积分池；旧个人钱包余额与记录不会迁移。</text>
+      <text>当前使用公司积分池，旧钱包余额与记录不迁移。</text>
       <text>公司积分卡位于“我的”页面，展示公司余额和本人本月使用量。</text>
       <button class="list-empty-btn" bindtap="openCompanyPoints">{{loggedIn?'查看公司积分':'登录后查看公司积分'}}</button>
       <button class="list-empty-btn retired-secondary" bindtap="returnWorkbench">返回工作台</button>

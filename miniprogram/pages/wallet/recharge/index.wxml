@@ -3,7 +3,7 @@
   <view class="content">
     <view class="balance-card">
       <view class="balance-top"><text>个人设计点钱包已退役</text></view>
-      <text class="retired-copy">平台现统一使用公司积分池，由公司管理；个人充值首发关闭。</text>
+      <text class="retired-copy">积分由公司统一管理，个人充值暂未开放。</text>
     </view>
     <view class="notes">
       <text>· 旧个人钱包余额与充值记录不会迁入公司积分池</text>

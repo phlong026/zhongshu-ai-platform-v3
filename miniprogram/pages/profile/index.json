@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "我的" }
+{ "navigationBarTitleText": "我的", "usingComponents": { "brand-header": "/components/brand-header/index", "point-asset-card": "/components/point-asset-card/index" } }

@@ -63,11 +63,6 @@
   font-weight: 400;
   color: rgba(255, 250, 243, 0.85);
 }
-.asset-sub {
-  margin-top: 8rpx;
-  font-size: var(--zs-font-caption);
-  color: rgba(255, 250, 243, 0.66);
-}
 .asset-feedback {
   margin-top: 12rpx;
   display: flex;
