@@ -6,7 +6,7 @@
         <button class="character-tool" data-kind="AVATAR" bindtap="openCloneEntry" disabled="{{loading||saving||cloneBusy||cloneRetry}}"><image src="/assets/video-filled.png"/>口播分身</button>
         <button class="character-tool" data-kind="VOICE" bindtap="openCloneEntry" disabled="{{loading||saving||cloneBusy||cloneRetry}}"><image src="/pages/studio/assets/studio-voice.png"/>语音克隆</button>
       </view>
-      <view class="search-row"><view class="search-field"><image src="/assets/search.png"/><input value="{{keyword}}" bindinput="search" placeholder="搜索人物"/></view><button wx:if="{{canManage}}" class="add-button" bindtap="edit">＋ 新增</button></view>
+      <view class="search-row"><view class="search-field"><image src="/assets/search.png"/><input value="{{keyword}}" bindinput="search" placeholder="搜索人物"/></view><button wx:if="{{canCreate}}" class="add-button" bindtap="edit" disabled="{{loading||saving}}">＋ 添加人物</button></view>
       <view wx:if="{{loading}}" class="empty-card">加载中…</view>
       <view wx:elif="{{!filtered.length&&!error}}" class="empty-card">{{keyword?'暂无匹配人物':'暂无人物'}}</view>
       <view wx:for="{{filtered}}" wx:key="id" class="person-card" data-id="{{item.id}}" bindtap="detail">

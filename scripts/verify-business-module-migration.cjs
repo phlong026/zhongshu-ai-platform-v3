@@ -201,13 +201,13 @@ for (const kind of ['AVATAR', 'VOICE']) {
   });
 }
 
-test('both clone options remain visible in an empty library without giving sales write permissions', async () => {
+test('both clone options let sales open their personal IP form in an empty library', async () => {
   let writes = 0;
   const h = harness('studio/characters/index.js', { personas: { page: async () => [], create: async () => { writes++; } } }, 'sales');
   h.page.onLoad(); h.page.onShow(); await flush();
   for (const kind of ['AVATAR', 'VOICE']) {
     h.page.openCloneEntry(event({ kind })); await h.page.save();
-    assert.equal(h.page.data.cloneEntryKind, kind); assert.equal(h.page.data.editing, false);
+    assert.equal(h.page.data.cloneEntryKind, kind); assert.equal(h.page.data.editing, true); assert.equal(h.page.data.canCreate, true);
   }
   assert.equal(writes, 0); assert.equal(h.page.data.digitalPersona, null);
   const wxml = fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages/studio/characters/index.wxml'), 'utf8');

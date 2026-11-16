@@ -5,7 +5,7 @@
   "scripts": {
     "check:sales": "node scripts/verify-sales-customers.cjs && node scripts/verify-sales-publication.cjs && node scripts/verify-sales-creation-chain.cjs && node scripts/verify-sales-design.cjs && node scripts/verify-business-four-flows.cjs && node scripts/verify-guest-home-role-nav.cjs && npm run check",
     "check:sales:native": "node scripts/verify-sales-offline-native.cjs && node scripts/verify-sales-typography-native.cjs",
-    "check": "node scripts/verify.cjs && npm run check:profile-navigation && npm run check:profile-training && npm run check:api-pages && npm run check:company-points && npm run check:account-login && npm run check:integration && npm run check:engineering-ledger-entry && npm run check:finance-project-readonly && npm run check:dependencies && npm run check:creation-flow",
+    "check": "node scripts/verify.cjs && npm run check:profile-navigation && npm run check:profile-training && npm run check:api-pages && npm run check:company-points && npm run check:account-login && npm run check:integration && npm run check:engineering-ledger-entry && npm run check:finance-project-readonly && npm run check:dependencies && npm run check:creation-flow && node --test scripts/verify-persona-self.cjs",
     "check:dependencies": "node --test scripts/verify-dependency-compatibility.cjs scripts/verify-schedule-import.cjs",
     "check:finance-project-readonly": "node --test scripts/verify-finance-project-readonly.cjs",
     "check:engineering-ledger-entry": "node --test scripts/verify-engineering-project-ledger-entry.cjs",
