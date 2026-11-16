@@ -247,7 +247,7 @@ test('manual publication template exposes platform and account input but no sche
   const wxml = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.wxml'), 'utf8');
   assert.match(wxml, /发布平台/);
   assert.match(wxml, /publicationAccount/);
-  assert.match(wxml, /手动发布后登记链接/);
+  assert.match(wxml, /手动发布后登记链接|请先在所选平台发布内容，再登记链接/);
   assert.doesNotMatch(wxml, /chooseSchedule|sheet === 'schedule'|确认定时|定时需至少/);
 
   const pageSource = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');

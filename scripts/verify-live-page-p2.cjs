@@ -9,6 +9,7 @@ function page(file, modules, wx = {}) {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), {
     Page(value) { definition = value; },
     require(id) {
+      if (id==='../../utils/learning-catalog')return require('../miniprogram/utils/learning-catalog');
       if (id in modules) return modules[id];
       throw Error('Unexpected module ' + id);
     },

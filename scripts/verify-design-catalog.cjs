@@ -51,7 +51,7 @@ test('pagination and case detail do not strand the existing catalog cover work',
  h.page.platLoadCases(true);await flush();h.page.platLoadCases(false);await flush();h.page.platLoadCase('1');await flush();for(const p of pending)p.resolve({downloadUrl:'https://images.example/'+p.asset});await flush();assert.deepEqual(h.page.data.platCases.map(row=>({id:row.id,loading:row.coverLoading,url:row.coverUrl})),[{id:'1',loading:false,url:'https://images.example/101'},{id:'2',loading:false,url:'https://images.example/102'}]);
 });
 test('direct case detail can be selected as facade reference without list cache or event ID',async()=>{
- const h=harness({detail:async id=>({caseId:id,title:'详情'})});h.page.platLoadCase('19');await flush();h.page.platUseCase({currentTarget:{dataset:{kind:'facade'}}});assert.equal(h.page.data['form.referenceCaseId'],'19');assert.equal(h.page.data.view,'ai-facade');
+ const h=harness({detail:async id=>({caseId:id,title:'详情',allowedActions:['DESIGN_WITH']})});h.page.platLoadCase('19');await flush();h.page.platUseCase({currentTarget:{dataset:{kind:'facade'}}});assert.equal(h.page.data['form.referenceCaseId'],'19');assert.equal(h.page.data.view,'ai-facade');
 });
 test('opening detail while a next-page request is pending still settles list loading',async()=>{
  const next=deferred();let count=0;const h=harness({page:async()=>++count===1?{list:[{caseId:'1'}],nextCursor:'next'}:next.promise,detail:async id=>({caseId:id,title:'详情'})});h.page.platLoadCases(true);await flush();h.page.platLoadCases(false);h.page.platLoadCase('1');next.resolve({list:[{caseId:'2'}],nextCursor:null});await flush();assert.equal(h.page.data.platLoading,false);assert.deepEqual(h.page.data.platCases.map(r=>r.id),['1','2']);
@@ -61,4 +61,15 @@ test('case detail parameters keep published dimensions and version instead of bl
 });
 test('dimension search retains width and depth API filters without turning them into keyword',async()=>{
  const queries=[];const h=harness({page:async q=>{queries.push(q);return {list:[]};}});h.page.platDimensionInput({currentTarget:{dataset:{key:'faceWidth'}},detail:{value:'17.8'}});h.page.platDimensionInput({currentTarget:{dataset:{key:'depth'}},detail:{value:'13'}});h.page.platSearch();await flush();assert.equal(queries[0].faceWidth,17.8);assert.equal(queries[0].depth,13);assert.equal(queries[0].keyword,undefined);
+});
+
+
+test('case detail includes a distinct elevation and every numbered floor without duplicates', async()=>{
+ const h=harness({detail:async id=>({caseId:id,sourceType:'COMPANY',coverAssetId:'900',elevationAssetId:'901',floorPlans:[{assetId:'902',floorNo:1},{assetId:'903',floorNo:2}],floorPlanAssetIds:['902','903']})});
+ h.page.platLoadCase('19');await flush();assert.deepEqual(h.calls,[['19','900'],['19','901'],['19','902'],['19','903']]);assert.deepEqual(h.page.data.caseTabs,['封面','立面效果','1层平面','2层平面']);
+ assert.equal(PF.caseDrawings({coverAssetId:'1',elevationAssetId:'1',floorPlanAssetIds:['2','2']}).length,2);
+});
+
+test('case without reference authorization cannot be used to create a paid design',async()=>{
+ const h=harness({detail:async id=>({caseId:id,allowedActions:[],designUnavailableReason:'尚未授权参考'})});h.page.platLoadCase('19');await flush();h.page.platUseCase({});assert.equal(h.page.data['form.referenceCaseId'],undefined);assert.match(h.page.data.platformErr,/尚未授权/);
 });

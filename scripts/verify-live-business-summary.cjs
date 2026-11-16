@@ -28,10 +28,13 @@ function loadBusiness({ customerPage, commissionPage, session }) {
   let definition;
   const http = {
     token: () => 'token',
+    get:async()=>({nickname:'业务同事'}),
     sessionGeneration: () => session.generation
   };
   const auth = { currentApiPost: () => session.post };
   const CRM = {
+    loadSummaryRows: require('../miniprogram/utils/platform-crm').loadSummaryRows,
+    homeSummary: require('../miniprogram/utils/platform-crm').homeSummary,
     today: () => '2026-11-14',
     can: () => true,
     customerRow: row => row,

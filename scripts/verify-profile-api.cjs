@@ -80,6 +80,8 @@ vm.runInNewContext(pageSrc, {
   Page: value => { definition = value; },
   require(name) {
     if (name === '../../utils/view-container') return { routeValue: value => value || '', fail() {} };
+    if (name === '../../utils/learning-catalog') return require('../miniprogram/utils/learning-catalog');
+    if (name === '../../utils/account-login') return require('../miniprogram/utils/account-login');
     if (name === '../../api/auth') return { currentApiPost: () => currentPost, apiPosts: () => [currentPost] };
     if (name === '../../api/http') return http;
     if (name === '../../api/org') return {};

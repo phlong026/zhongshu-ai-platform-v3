@@ -1,0 +1,41 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const automator=require('miniprogram-automator');
+const out=path.resolve(__dirname,'../docs/business-followup-20261116');fs.mkdirSync(out,{recursive:true});
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+(async()=>{
+ const mp=await automator.connect({wsEndpoint:process.env.CUSTOMER_FORM_WS||'ws://127.0.0.1:9976'});
+ const errors=[],checks=[];mp.on('exception',error=>errors.push(error));
+ const data=()=>mp.evaluate(()=>getCurrentPages().slice(-1)[0].data);
+ const call=async(name,arg)=>{await mp.evaluate((name,arg)=>getCurrentPages().slice(-1)[0][name](arg),name,arg);await sleep(200);};
+ const until=async(check)=>{for(let i=0;i<80;i++){if(await check())return;await sleep(150);}throw Error('Native followup timeout');};
+ const route=async url=>{await mp.callWxMethod('reLaunch',{url});await until(async()=>(await mp.currentPage())?.path===url.split('?')[0].replace(/^\//,''));await sleep(500);};
+ const shot=async name=>{await mp.evaluate(()=>{wx.hideToast();});await mp.screenshot({path:path.join(out,name+'.png')});};
+ try{
+  assert.equal(await mp.evaluate(()=>wx.getStorageSync('zs-api-token-v1')),'isolated-customer-registration');
+  await route('/pages/business/index');
+  await mp.evaluate(()=>getCurrentPages().slice(-1)[0].setData({platformTodos:{status:'ready',count:1,rows:[{key:'follow',title:'客户回访',actionHint:'记录今日跟进',path:'/pages/customers/index',clickable:true}]}}));
+  const page=await mp.currentPage();const todo=await page.$('.platform-todos-section');assert(todo);
+  assert.equal(await (await todo.$('.section-title')).text(),'今日待办');
+  assert.equal((await todo.$$('.customer-card')).length,0);
+  assert.equal(await (await todo.$('.business-todo-content')).style('background-color'),'rgba(0, 0, 0, 0)');
+  assert.equal((await todo.$$('.business-todo-row')).length,1);
+  await shot('01-today-todos');checks.push('今日待办标题；正文无框体且办理入口保留');
+  await mp.evaluate(()=>{getApp().globalData.fixture.customers=[];});
+  await route('/pages/workflow/index?view=customers');
+  assert.equal((await (await mp.currentPage()).$$('[data-modal="register"]')).length,1);
+  await shot('02-customer-single-register');checks.push('客户空列表只保留右上角登记客户');
+  await route('/pages/creation/index');
+  assert.deepEqual((await data()).shortcuts.map(row=>row.title),['人物库','素材库','我的作品','任务中心']);
+  assert.equal((await (await mp.currentPage()).$$('.remix-card [data-key="works"]')).length,0);
+  await shot('03-creation-order');checks.push('四项创作工具顺序及顶部重复入口移除');
+  await route('/pages/studio/index?view=digital');
+  await until(async()=>!(await data()).digitalLoading);
+  const digital=await data();assert.equal(digital.actor,'');assert.equal(digital.voice,'');
+  assert.equal(digital.avatarOptions.length,0);assert.equal(digital.voiceOptions.length,0);
+  assert.equal(digital.script,'');assert.equal(String(await (await (await mp.currentPage()).$('.digital-generate')).property('disabled')),'true');
+  await shot('04-digital-empty');checks.push('数字人口播保留，空资源无模拟人物声音或文案');
+  assert.equal(errors.length,0,JSON.stringify(errors));
+  fs.writeFileSync(path.join(out,'native-results.json'),JSON.stringify({passed:true,checks,errors,fixture:true,paidGeneration:false},null,2));
+  console.log(JSON.stringify({passed:true,checks}));
+ }finally{await mp.disconnect();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

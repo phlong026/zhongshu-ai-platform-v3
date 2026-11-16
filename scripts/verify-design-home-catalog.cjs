@@ -28,7 +28,7 @@ function harness(options = {}) {
   const pageResult = options.pageResult || Promise.resolve({ list: [], nextCursor: null });
   const api = {
     cases: {
-      page(params) { requests.push(params); return typeof pageResult === 'function' ? pageResult() : pageResult; },
+      page(params) { requests.push(params); return typeof pageResult === 'function' ? pageResult(params) : pageResult; },
       downloadUrl(caseId, assetId) {
         downloads.push([String(caseId), String(assetId)]);
         if (options.downloadError) return Promise.reject(options.downloadError);
@@ -44,7 +44,7 @@ function harness(options = {}) {
       };
     },
     loadCaseCovers(rows, download, alive) {
-      assert.ok(rows.length <= 4, 'home preview must remain bounded');
+      assert.ok(rows.length <= 10, 'each catalog page must remain bounded');
       return Promise.all(rows.map(async row => {
         if (!row.coverAssetId) return { ...row, coverLoading: false, coverError: true };
         const result = await download(row.id, row.coverAssetId);
@@ -87,14 +87,14 @@ const rows = [1, 2, 3, 4, 5].map(n => ({
   faceWidth: 12, depth: 15, floorCount: 2
 }));
 
-test('authorized design home loads at most four B public cases and their covers', async () => {
+test('authorized design home loads every row in its first catalog page', async () => {
   const h = harness({ pageResult: Promise.resolve({ list: rows, nextCursor: 'next' }) });
   h.page.onShow();
   assert.equal(h.page.data.catalogLoading, true);
   await flush(); await flush();
-  assert.equal(JSON.stringify(h.requests), JSON.stringify([{ limit: 4 }]));
-  assert.equal(h.page.data.catalogCases.length, 4);
-  assert.equal(h.downloads.length, 4);
+  assert.equal(JSON.stringify(h.requests), JSON.stringify([{ limit: 10 }]));
+  assert.equal(h.page.data.catalogCases.length, 5);
+  assert.equal(h.downloads.length, 5);
   assert.match(h.page.data.catalogCases[0].coverUrl, /^https:\/\/image\.example\//);
   assert.equal(h.page.data.catalogError, '');
 });
@@ -175,4 +175,24 @@ test('home cards use the canonical direct case route and expose image failure re
   assert.match(wxml, /retryCatalogCover/);
   assert.match(wxml, /coverUrl/);
   assert.match(wxml, /暂无封面/);
+});
+
+
+test('home reaches the second page, deduplicates rows, and stops at the end', async () => {
+  const h = harness({pageResult: params => Promise.resolve(params.cursor ? {list: rows.slice(3), nextCursor: null} : {list: rows.slice(0, 4), nextCursor: 'next'})});
+  h.page.onShow(); await flush(); await flush();
+  h.page.onReachBottom(); await flush(); await flush();
+  assert.deepEqual(Array.from(h.page.data.catalogCases, r => r.id), ['1','2','3','4','5']);
+  assert.equal(h.requests[1].cursor, 'next');
+  h.page.onReachBottom(); assert.equal(h.requests.length, 2);
+});
+
+test('failed next page keeps previous cases and retries the same cursor', async () => {
+  let fails = true;
+  const h = harness({pageResult: params => !params.cursor ? Promise.resolve({list: rows.slice(0,2), nextCursor:'next'}) : fails ? Promise.reject(Error('网络暂不可用')) : Promise.resolve({list: rows.slice(2), nextCursor:null})});
+  h.page.onShow(); await flush(); await flush();
+  h.page.loadMoreCatalog(); await flush();
+  assert.equal(h.page.data.catalogCases.length,2); assert.equal(h.page.data.catalogCursor,'next');
+  fails = false; h.page.retryCatalog(); await flush(); await flush();
+  assert.equal(h.requests[2].cursor,'next'); assert.equal(h.page.data.catalogCases.length,5);
 });

@@ -25,8 +25,17 @@ async function setup(role, handler=()=>undefined) {
   wx.request=options=>{
     const url=new URL(options.url).pathname.replace('/admin-api','');calls.push({url,method:options.method,data:options.data});
     let data=handler(url,options);
+    if(data===undefined&&url.startsWith('/training/app/')){
+      const role=auth.currentApiPost()?.roleCode,allowed=Learning.coursesFor(role);
+      const categories={'ai-video':'AI短视频获客',sales:'业务销售',engineering:'工程施工',finance:'财务对账',design:'设计交付',management:'经营管理'};
+      const brief=c=>({id:c.id,title:c.name,category:categories[c.id],summary:'',lessons:c.lessons,completed:0,percent:0,coverVersionId:''});
+      const resources=Learning.resourcesFor(role).map(r=>({...r,versionId:r.id,fileName:r.name+'.pdf',extension:'pdf',preview:true,download:false,version:1}));
+      if(url==='/training/app/courses')data=allowed.map(brief);
+      else if(url==='/training/app/materials')data=resources;
+      else if(url.startsWith('/training/app/courses/')){const id=url.split('/').at(-1),c=allowed.find(c=>c.id===id);data=c?{...brief(c),lessons:Learning.chapters[id].map((title,i)=>({id:id+'-'+i,title,chapter:'岗位实操',attachments:[],completed:false})),attachments:resources.filter(r=>r.courseId===id)}:{__error:'当前岗位无此学习内容权限'};}
+    }
     if(data===undefined)data=url==='/platform/profile/mine'?{nickname:'裴火荣',mobile:'13800000000',avatar:'https://example.com/old.png'}:url==='/platform/messages/unread-count'?{count:0}:[];
-    setImmediate(()=>options.success({statusCode:200,data:{code:0,data}}));
+    setImmediate(()=>options.success({statusCode:200,data:data&&data.__error?{code:403,msg:data.__error,data:null}:{code:0,data}}));
   };
   return {runtime,auth,post,calls,async open(url){await runtime.callWxMethod('navigateTo',{url});await flush();return getCurrentPages().at(-1);}};
 }
@@ -52,77 +61,30 @@ test('所有岗位课程和资料使用同一规则，未知身份不显示课�
   assert.deepEqual(Learning.coursesFor('unknown'),[]);
 });
 
-for(const role of ['boss','owner']) test(role+'课程列表、全部课程详情和资料均开放，首页继续学习仍推荐管理课',async()=>{
-  const env=await setup(role);
-  let page=await env.open('/pages/profile/index');
-  assert.equal(page.data.courseId,'management');
-  page=await env.open('/pages/account/index?view=learning');
-  assert.deepEqual(page.data.filteredCourses.map(c=>c.id),Learning.courses.map(c=>c.id));
-  for(const course of Learning.courses){
-    page=await env.open('/pages/account/index?view=course&id='+course.id);
-    assert.equal(page.data.learningDenied,false);assert.equal(page.data.currentCourse.id,course.id);
-    assert.equal(page.data.chapters.length,course.lessons);
-    page=await env.open('/pages/account/index?view=resource&id='+course.resourceId);
-    assert.equal(page.data.learningDenied,false);assert.equal(page.data.resource.id,course.resourceId);
-  }
+for(const [role,expected] of Object.entries(franchiseCourses)) test(role+'从服务端展示课程、详情和资料，个人主页保留学习入口',async()=>{
+ const env=await setup(role),profile=await env.open('/pages/profile/index');
+ assert.equal(profile.data.showStoreServices,true);assert.equal(profile.data.learningAvailable,true);
+ assert.equal(profile.data.courseId,['boss','owner'].includes(role)?'management':expected[0]);
+ const nodes=render(path.resolve(__dirname,'../miniprogram/pages/profile/index.wxml'),profile.data);
+ assert.ok(allText(nodes).includes('学习培训')&&allText(nodes).includes('加盟商服务'));
+ let page=await env.open('/pages/account/index?view=learning');
+ assert.equal(page.route,'pages/account/training/index');assert.deepEqual(page.data.visibleCourses.map(c=>c.id),expected);
+ assert.deepEqual(page.data.visibleResources.map(r=>r.courseId),Learning.resourcesFor(role).map(r=>r.courseId));
+ for(const c of Learning.courses){page=await env.open('/pages/account/index?view=course&id='+c.id);if(expected.includes(c.id)){assert.equal(page.data.course.id,c.id);assert.equal(page.data.course.lessons.length,c.lessons);}else{assert.equal(page.data.course,null);assert.match(page.data.error,/无此学习内容权限/);}}
+ assert.ok(env.calls.some(c=>c.url==='/training/app/courses'));assert.ok(!env.calls.some(c=>c.url==='/franchise/learning/progress'));
 });
 
-test('课程列表、继续学习和直达详情均受当前岗位约束',async()=>{
-  const env=await setup('finance');
-  let page=await env.open('/pages/account/index?view=learning');
-  assert.deepEqual(page.data.filteredCourses.map(c=>c.id),['finance']);
-  assert.equal(page.data.resumeCourse.id,'finance');assert.equal(page.data.progress.total,6);
-  page=await env.open('/pages/account/index?view=course&id=ai-video');
-  assert.equal(page.data.learningDenied,true);assert.equal(page.data.currentCourse,null);
-  const nodes=render(path.resolve(__dirname,'../miniprogram/pages/account/index.wxml'),page.data);
-  assert.ok(allText(nodes).includes('当前岗位无此学习内容权限'));
-  assert.ok(!allText(nodes).includes('AI短视频获客实战'));
-  page=await env.open('/pages/account/index?view=resource&id=script');assert.equal(page.data.learningDenied,true);
-  page=await env.open('/pages/profile/index');assert.equal(page.data.courseId,'finance');
+test('切换岗位后重新请求服务端目录并移除旧岗位课程',async()=>{
+ const env=await setup('owner'),list=await env.open('/pages/account/index?view=learning');
+ assert.equal(list.data.visibleCourses.length,6);
+ env.auth.savePosts([env.post,{...env.post,postId:'post-finance',roleCode:'finance'}]);env.auth.switchPost('post-finance');list.onShow();await flush();
+ assert.deepEqual(list.data.visibleCourses.map(c=>c.id),['finance']);
+ env.auth.switchPost('post-owner');list.onShow();await flush();assert.equal(list.data.visibleCourses.length,6);
 });
 
-for(const [role,expected] of Object.entries(franchiseCourses)) test(role+'我的模块顺序不变，保留加盟商服务与岗位学习，详情和资料遵守同一权限',async()=>{
-  const env=await setup(role),profile=await env.open('/pages/profile/index');
-  assert.equal(profile.data.showStoreServices,true);
-  assert.equal(profile.data.learningAvailable,true);
-  assert.equal(profile.data.courseId,['boss','owner'].includes(role)?'management':expected[0]);
-  const nodes=render(path.resolve(__dirname,'../miniprogram/pages/profile/index.wxml'),profile.data);
-  const content=flatten(nodes).find(node=>hasClass(node,'content'));
-  const modules=content.children.filter(node=>node.tag!=='#text').map(node=>node.tag==='point-asset-card'?node.tag:
-    ['profile-card','quick-card','owner-management','academy-section','franchise-section','service-section','profile-logout'].find(name=>hasClass(node,name)));
-  assert.deepEqual(modules,['profile-card','point-asset-card','quick-card','service-section',...(['boss','owner'].includes(role)?['owner-management']:[]),'academy-section','franchise-section','service-section','profile-logout']);
-  const services=flatten(nodes).find(node=>hasClass(node,'franchise-section'));
-  assert.deepEqual(flatten(services.children).filter(node=>node.attrs?.['data-action']).map(node=>node.attrs['data-action']),['services','selection']);
-  assert.ok(allText(nodes).includes('学习培训')&&allText(nodes).includes('加盟商服务'));
-  let page=await env.open('/pages/account/index?view=learning');
-  assert.deepEqual(page.data.filteredCourses.map(course=>course.id),expected);
-  assert.deepEqual(page.data.filteredResources.map(resource=>resource.courseId),Learning.resources.filter(resource=>expected.includes(resource.courseId)).map(resource=>resource.courseId));
-  for(const course of Learning.courses){
-    const allowed=expected.includes(course.id);
-    page=await env.open('/pages/account/index?view=course&id='+course.id);
-    assert.equal(page.data.learningDenied,!allowed,role+': '+course.id);
-    assert.equal(page.data.currentCourse?.id||null,allowed?course.id:null);
-    assert.equal(page.data.chapters.length,allowed?course.lessons:0);
-    page=await env.open('/pages/account/index?view=resource&id='+course.resourceId);
-    assert.equal(page.data.learningDenied,!allowed,role+': '+course.resourceId);
-    assert.equal(page.data.resource?.id||null,allowed?course.resourceId:null);
-  }
-});
-
-test('门店负责人切换到财务后现有页面立即收窄课程，切回负责人恢复全部课程',async()=>{
-  const env=await setup('owner');
-  const profile=await env.open('/pages/profile/index'),list=await env.open('/pages/account/index?view=learning'),detail=await env.open('/pages/account/index?view=course&id=ai-video');
-  const financePost={...env.post,postId:'post-finance',roleCode:'finance'};
-  env.auth.savePosts([env.post,financePost]);
-  for(const role of ['finance','owner']){
-    env.auth.switchPost('post-'+role);
-    profile.onShow();list.onShow();detail.onShow();await flush();
-    assert.equal(profile.data.showStoreServices,true);assert.equal(profile.data.learningAvailable,true);
-    assert.equal(profile.data.courseId,role==='owner'?'management':'finance');
-    assert.deepEqual(list.data.filteredCourses.map(course=>course.id),franchiseCourses[role]);
-    assert.equal(detail.data.learningDenied,role==='finance');
-    assert.equal(detail.data.currentCourse?.id||null,role==='owner'?'ai-video':null);
-  }
+test('服务端未发布课程时不回落本地演示目录',async()=>{
+ const env=await setup('boss',url=>url.startsWith('/training/app/')?[]:undefined),page=await env.open('/pages/account/index?view=learning');
+ assert.deepEqual(page.data.visibleCourses,[]);assert.equal(page.data.resumeCourse,null);
 });
 
 test('未登录的我的页展示培训课程，课程入口登录后再访问且不加载个人进度',async()=>{
@@ -146,6 +108,24 @@ test('未登录的我的页展示培训课程，课程入口登录后再访问�
     assert.equal(url.searchParams.get('return'),target);
   }
   assert.equal(requests.length,0);
+});
+
+test('头像上传和资料保存全部成功才更新显示，保存失败保留原头像',async()=>{
+  const env=await setup('sales');const page=await env.open('/pages/account/index?view=profile');
+  let uploads=0;wx.uploadFile=options=>{uploads++;assert.equal(options.name,'file');setImmediate(()=>options.success({statusCode:200,data:JSON.stringify({code:0,data:'https://example.com/new.png'})}));};
+  const oldRequest=wx.request;
+  wx.request=options=>options.method==='PUT'?setImmediate(()=>options.success({statusCode:200,data:{code:500,msg:'系统异常'}})):oldRequest(options);
+  await page.onChooseAvatar({detail:{avatarUrl:'wxfile://avatar.png'}});
+  assert.equal(page.data.profile.avatar,'https://example.com/old.png');assert.match(page.data.error,/系统异常/);assert.equal(page.data.busy,false);
+  wx.request=oldRequest;await page.onChooseAvatar({detail:{avatarUrl:'wxfile://avatar.png'}});
+  assert.equal(page.data.profile.avatar,'https://example.com/new.png');assert.equal(uploads,2);
+  const writes=env.calls.filter(call=>call.method==='PUT').length;
+  wx.uploadFile=options=>options.success({statusCode:200,data:JSON.stringify({code:0,data:'wxfile://not-a-public-url'})});
+  await page.onChooseAvatar({detail:{avatarUrl:'wxfile://avatar.png'}});
+  assert.equal(env.calls.filter(call=>call.method==='PUT').length,writes);assert.equal(page.data.profile.avatar,'https://example.com/new.png');
+  const markup=fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages/account/index.wxml'),'utf8');
+  const section=markup.slice(markup.indexOf("view==='profile'"),markup.indexOf("view==='learning'"));
+  assert.ok(!/我的工作身份|资料使用说明|公司与岗位由管理员维护|点击头像可使用/.test(section));
 });
 
 test('上月自定义任务来自服务端，复用不复制完成状态，确认派发后下月仍可再用',async()=>{

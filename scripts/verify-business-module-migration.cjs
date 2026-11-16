@@ -331,3 +331,65 @@ test('resource refresh retries unfinished settlement before enabling digital use
   const h=harness('studio/characters/index.js',{clones:{refresh:async id=>refreshed.push(id),list:async()=>ready}});h.page.onLoad();
   Object.assign(h.page.data,{digitalPersona:{id:'21',enabled:true},cloneRows:[{...ready[0],ready:false},ready[1]]});await h.page.refreshAll();assert.deepEqual(refreshed,['31']);assert.equal(h.page.data.canUseDigital,true);
 });
+
+test('digital resources never display marked demo people, avatars or voices',async()=>{
+  const h=harness('studio/index.js',{
+    personas:{page:async()=>[{id:'demo',name:'模拟人物',demo:true},{id:'21',name:'真实人物'}]},
+    clones:{list:async()=>[{id:'demo-avatar',kind:'AVATAR',title:'模拟分身',ready:true,mock:true},
+      {id:'31',kind:'AVATAR',title:'真实分身',ready:true},{id:'32',kind:'VOICE',title:'真实声音',ready:true}]}
+  });
+  await h.page.loadDigitalProfiles();
+  assert.deepEqual(plain(h.page.data.digitalPersonas),[{id:'21',name:'真实人物'}]);
+  assert.equal(h.page.data.actor,'真实分身');assert.equal(h.page.data.voice,'真实声音');
+  assert.equal(h.page.data.avatarOptions.length,1);assert.equal(h.page.data.voiceOptions.length,1);
+  assert.equal(h.page.mapApiTask({id:'mock-task',status:'SUCCEEDED',mock:true}),null);
+});
+
+test('empty and failed digital resource loads clear old selections without supplying demo defaults',async()=>{
+  let failed=false;
+  const h=harness('studio/index.js',{personas:{page:async()=>{if(failed)throw Error('接口异常');return [];}}});
+  Object.assign(h.page.data,{actor:'旧分身',voice:'旧声音',avatarCloneId:'31',voiceCloneId:'32',digitalPersonas:[{id:'old',name:'旧人物'}]});
+  await h.page.loadDigitalProfiles();assert.equal(h.page.data.actor,'');assert.equal(h.page.data.voice,'');
+  assert.equal(h.page.data.digitalPersonas.length,0);assert.match(h.page.data.operationError,/暂无可选人物/);
+  failed=true;await h.page.loadDigitalProfiles();assert.equal(h.page.data.digitalPersonas.length,0);
+  assert.equal(h.page.data.avatarCloneId,'');assert.match(h.page.data.operationError,/接口异常/);
+});
+
+test('old name-only demo submissions cannot restore a digital script or become a retryable paid request',()=>{
+  const h=harness('studio/index.js');
+  h.storage.set('zs-digital-attempt:post-1',{key:'old-demo',payload:{actor:'李顾问',voice:'李顾问原声',text:'演示口播'}});
+  h.page.restoreDigitalAttempt();assert.equal(h.page.__digitalAttempt,null);
+  assert.equal(h.page.data.digitalRetry,false);assert.equal(h.page.data.script,'');
+});
+
+test('fresh digital generation prefers configured defaults over the last manual selection',async()=>{
+  const h=harness('studio/index.js',{personas:{page:async()=>[{id:'21',name:'张工'}]},clones:{list:async()=>[
+    {id:'31',kind:'AVATAR',title:'旧分身',ready:true},{id:'33',kind:'AVATAR',title:'默认分身',ready:true,isDefault:true},
+    {id:'32',kind:'VOICE',title:'旧声音',ready:true},{id:'34',kind:'VOICE',title:'默认声音',ready:true,isDefault:true}
+  ]}});
+  h.state.digitalSelection={personaId:'21',avatarId:'31',voiceId:'32'};
+  await h.page.loadDigitalProfiles('21');
+  assert.equal(h.page.data.avatarCloneId,'33');assert.equal(h.page.data.voiceCloneId,'34');
+  assert.equal(h.page.data.actorIsDefault,true);assert.equal(h.page.data.voiceIsDefault,true);
+  h.page.selectActor(event({id:'31'}));assert.equal(h.page.data.avatarCloneId,'31');assert.equal(h.page.data.actorIsDefault,false);
+});
+
+test('changing defaults cannot replace resources frozen by a pending digital submission',async()=>{
+  const h=harness('studio/index.js',{clones:{list:async()=>[
+    {id:'31',kind:'AVATAR',ready:true},{id:'33',kind:'AVATAR',ready:true,isDefault:true},
+    {id:'32',kind:'VOICE',ready:true},{id:'34',kind:'VOICE',ready:true,isDefault:true}
+  ]}});
+  h.page.__digitalAttempt={payload:{avatarCloneId:'31',voiceCloneId:'32'}};h.page.data.digitalPersonaId='21';
+  await h.page.loadDigitalClones('21',{avatarId:'31',voiceId:'32'});
+  assert.equal(h.page.data.avatarCloneId,'31');assert.equal(h.page.data.voiceCloneId,'32');
+});
+
+test('setting a default reloads authoritative rows and preserves the other resource kind',async()=>{
+  const rows=[{id:'31',kind:'AVATAR',ready:true,isDefault:true},{id:'33',kind:'AVATAR',ready:true,isDefault:false},{id:'32',kind:'VOICE',ready:true,isDefault:true}],requests=[];
+  const h=harness('studio/characters/index.js',{clones:{setDefault:async id=>{requests.push(id);rows.filter(r=>r.kind==='AVATAR').forEach(r=>{r.isDefault=r.id===id;});},list:async()=>rows}});
+  h.page.onLoad();Object.assign(h.page.data,{canManage:true,digitalPersona:{id:'21',enabled:true},cloneRows:plain(rows)});
+  await h.page.setDefaultClone(event({id:'33'}));
+  assert.deepEqual(requests,['33']);assert.equal(h.page.data.cloneRows.find(r=>r.id==='33').isDefault,true);
+  assert.equal(h.page.data.cloneRows.find(r=>r.id==='31').isDefault,false);assert.equal(h.page.data.cloneRows.find(r=>r.id==='32').isDefault,true);
+  h.page.data.canManage=false;await h.page.setDefaultClone(event({id:'31'}));assert.equal(requests.length,1);
+});

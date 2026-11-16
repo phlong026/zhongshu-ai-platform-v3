@@ -50,6 +50,7 @@ const auth = {
   switchPost: postId => switched.push(postId)
 };
 function requirePage(name) {
+  if(name==='../../utils/learning-catalog')return require('../miniprogram/utils/learning-catalog');
   if (name === '../../utils/view-container') return { routeValue: value => value || '', fail() {} };
   if (name === '../../api/auth') return auth;
   if (name === '../../utils/account-login') return { defaultAccount: () => null };

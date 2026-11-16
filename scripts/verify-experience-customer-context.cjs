@@ -295,7 +295,7 @@ test('a LINKED customer probe arriving after a post switch cannot navigate', asy
   });
   const navigations = [];
   h.page.openView = (...args) => navigations.push(args);
-  h.page.data.form = { name: '王先生', phone: '13800138000', source: '到店咨询', summary: '两层自住' };
+  h.page.data.form = { name: '王先生', phone: '13800138000', source: '到店咨询', summary: '两层自住', province:'湖北省',city:'武汉市',district:'江岸区',town:'大智街道',village:'保成社区',regionCode:'420102002003' };
   h.page.platformSubmitRegister();
   await flush();
   h.switchPost();
@@ -311,7 +311,7 @@ test('a current-session 401 from the LINKED customer probe clears the session an
   });
   const navigations = [];
   h.page.openView = (...args) => navigations.push(args);
-  h.page.data.form = { name: '王先生', phone: '13800138000', source: '到店咨询', summary: '两层自住' };
+  h.page.data.form = { name: '王先生', phone: '13800138000', source: '到店咨询', summary: '两层自住', province:'湖北省',city:'武汉市',district:'江岸区',town:'大智街道',village:'保成社区',regionCode:'420102002003' };
   h.page.platformSubmitRegister();
   await flush(); await flush();
   assert.equal(h.currentSessionGeneration(), 2);

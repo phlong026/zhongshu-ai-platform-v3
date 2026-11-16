@@ -97,7 +97,7 @@ async function main() {
       { id: 'p3', name: '待交付项目', status: 'READY_DELIVER' }
     ]
   });
-  assert.deepEqual(projectOverview.home.engineering.counts.map(row => row.value), [1, 1, 1]);
+  assert.deepEqual(projectOverview.home.engineering.counts.map(row => row.value), [1, 1, 1, 3]);
   assert.equal(projectOverview.home.engineering.sites.length, 3);
   assert.equal(projectOverview.home.engineering.sites[0].url, '/pages/build/record/index?id=p1&view=overview');
   assert.equal(ownerHome.view({ period: '2026-11', projectsStatus: 'error' }).home.engineering.available, false);

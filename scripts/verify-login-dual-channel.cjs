@@ -15,22 +15,22 @@ const wxss = read('miniprogram/pages/account/index.wxss');
 
 // 1) 双通道 UI：账号匹配/密码面板 + 微信一键按钮
 assert(wxml.includes("loginMode===(index===0?'account':'wechat')"), '登录页提供账号/微信双通道切换');
-assert(wxml.includes('data-handler="findAccounts"'), '账号通道提供简写查找');
+assert(wxml.includes('bindconfirm="findAccounts"'), '账号通道支持自动匹配及键盘搜索');
 assert(wxml.includes("'accountLogin'"), '账号通道提供密码登录');
-assert(wxml.includes('bindtap="wechatLogin"') && !wxml.includes('open-type="getPhoneNumber"'), '微信通道使用普通一键登录按钮');
+assert(wxml.includes('bindtap="wechatLogin"') && wxml.includes('open-type="getPhoneNumber"'), '微信通道提供一键登录及首次官方手机号授权');
 // 切生产剔除批：演示账号入口已下线——断言反向（不得再出现演示登录入口）
 assert(!wxml.includes('data-handler="login" bindtap="login"'), '演示账号入口已下线（切生产）');
 
-// 2) 登录逻辑：防重复提交、协议校验、首次微信转已有账号绑定
+// 2) 登录逻辑：防重复提交、协议校验、首次微信手机号自动识别
 assert(js.includes('if(this.data.loginBusy)return'), '登录动作防重复提交');
-assert(js.includes("return this.fail('请先阅读并同意用户协议和隐私政策')"), '两种登录方式都要求先勾选协议');
-assert(js.includes('result.needPhone') && js.includes('bindWechatAfterLogin'), '首次微信登录转已有账号绑定');
+assert(js.includes("ensureLoginConsent('account')") && js.includes("ensureLoginConsent('wechat')"), '两种登录方式使用同一协议弹窗守卫');
+assert(js.includes('result.needPhone') && js.includes('onWechatPhoneNumber') && !js.includes('bindWechatAfterLogin'), '首次微信手机号授权自动登录');
 assert(js.includes("auth.appId()"), '微信登录回传小程序 AppID 供后端白名单校验');
 assert(js.includes('auth.myPosts()') && js.includes('preferredPostId'), '登录成功后拉取任职并优先进入默认门店岗位');
 
 // 3) API 层：账号与微信绑定接口、请求头契约
 assert(auth.includes("'/platform/auth/account/matches'") && auth.includes("'/platform/auth/account/login'"), 'auth.js 定义账号匹配与密码登录接口');
-assert(auth.includes("'/platform/auth/wechat-bind'"), 'auth.js 定义微信绑定接口');
+assert(!auth.includes('/platform/auth/wechat-bind') && auth.includes('phoneCode: opts.phoneCode'), '客户端不手动绑定，仅提交微信授权 code');
 assert(auth.includes('getAccountInfoSync().miniProgram.appId'), 'auth.js 提供 appId 读取');
 assert(http.includes("'tenant-id': tenantId()"), 'http 层所有请求带 tenant-id 头');
 assert(http.includes('zs-api-tenant-v1'), 'tenant-id 支持通过 storage 覆盖（默认 1）');

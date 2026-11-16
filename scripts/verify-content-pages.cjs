@@ -21,6 +21,7 @@ const API_FACE = {
   drafts: ['works', 'updateStatus', 'videoDraft', 'saveVideoDraft', 'completeChapter', 'courseProgress'],
   assets: ['uploadTicket', 'complete', 'downloadUrl'],
   personas: ['page', 'create', 'update', 'remove'],
+  clones: ['quote', 'list', 'create', 'refresh', 'setDefault'],
   publications: ['create', 'page', 'verify', 'link', 'fail'],
   growth: ['summary']
 };
@@ -211,8 +212,9 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   }
   const studioSrc = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
   assert.match(studioSrc, /contentKey\(/, 'studio 页缺内容域幂等键 helper');
-  assert.match(studioSrc, /tasks\.create\([^)]*contentKey\('task'\)/, 'studio 任务创建未带幂等键');
-  assert.match(studioSrc, /saveWork\(taskId,title,this\.contentKey\('save-work:'/, 'studio 生成链 saveWork 未带幂等键');
+  assert.match(studioSrc, /key:this\.contentKey\('task'\)/, 'studio 任务创建未冻结幂等键');
+  assert.match(studioSrc, /tasks\.create\(attempt\.payload,attempt\.key\)/, 'studio 任务未使用已冻结请求与幂等键');
+  assert.match(studioSrc, /saveWork\(taskId,attempt\.payload\.title,this\.contentKey\('save-work:'/, 'studio 生成链 saveWork 未使用冻结标题或幂等键');
   assert.match(studioSrc, /saveWork\(this\.data\.taskId, '', this\.contentKey\('save-work:'/, 'studio 结果页 saveWork 未带幂等键');
   assert.match(studioSrc, /publications\.verify\(recordId,this\.contentKey\('verify:/, 'studio verify 未带幂等键');
   assert.match(studioSrc, /publications\.link\(recordId,url,this\.contentKey\('link:/, 'studio link 未带幂等键');
@@ -222,7 +224,7 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   assert.match(studioSrc, /patchTaskProgress/, 'studio 缺任务中心轮询进度回填');
   const creationSrc2 = fs.readFileSync(path.join(root, 'miniprogram/pages/creation/index.js'), 'utf8');
   assert.doesNotMatch(creationSrc2, /showLoading\(\{title:'解析链接中'/, 'creation showLoading 不得覆盖全程轮询');
-  assert.match(creationSrc2, /showLoading\(\{title:'提交解析任务'/, 'creation showLoading 应缩短为提交阶段');
+  assert.match(creationSrc2, /this\.setData\(\{extracting:true/, 'creation 提交开始即进入按钮忙碌态');
   assert.match(creationSrc2, /onUnload\(\)[\s\S]{0,120}__parsePoll[\s\S]{0,80}\.cancel\(\)/, 'creation onUnload 未终止解析轮询');
   assert.match(creationSrc2, /extracting: true|extracting:true/, 'creation 缺轮询按钮态');
   const growthSrc2 = fs.readFileSync(path.join(root, 'miniprogram/pages/growth/index.js'), 'utf8');
@@ -241,7 +243,8 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
     assert.match(source, /http\.token\(\)/, page + ' 页缺在线判定 http.token()');
   }
   const studioSource = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
-  assert.match(studioSource, /tasks\.create\(\{\s*kind:\s*'digital'/, 'studio 页 digital 生成未接 tasks.create');
+  assert.match(studioSource, /payload:\{kind:'digital'/, 'studio 页 digital 生成缺少数字人口播参数');
+  assert.match(studioSource, /tasks\.create\(attempt\.payload,attempt\.key\)/, 'studio 页 digital 生成未接 tasks.create');
   assert.match(studioSource, /publications\.create\(/, 'studio 页发布创建未接 publications.create');
   assert.match(studioSource, /publications\.link\(/, 'studio 页发布链接未接 publications.link');
   assert.match(studioSource, /1_114_000_003/, '重复链接错误码未处理');

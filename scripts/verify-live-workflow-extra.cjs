@@ -104,6 +104,7 @@ let currentPost;
 let detailGets = 0;
 let redirects = [];
 const commissionHttp = {
+  get:async()=>({nickname:'设计同事'}),
   token: () => 'token',
   sessionGeneration: () => 1,
   requestGuard: () => () => true
@@ -123,7 +124,7 @@ const commission = loadPage('miniprogram/pages/workflow/commission/index.js', {
   '../../../api/http': commissionHttp,
   '../../../api/auth': commissionAuth,
   '../../../api/franchise/commission': commissionApi,
-  './presentation': {},
+  './presentation': require(path.join(root,'miniprogram/pages/workflow/commission/presentation.js')),
   '../../../utils/organization': { apiContext: post => ({ role: post.roleCode, orgType: post.orgType, name: post.name || '' }) },
   '../../../utils/view-container': { makeFormHandlers: () => ({}) }
 }, { redirectTo: options => redirects.push(options.url) });
