@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "mode": "actual WXML; isolated sales permission and empty people HTTP fixture; .12 login files merged; no production writes",
+  "role": "sales",
+  "people": 0,
+  "canCreate": true
+}

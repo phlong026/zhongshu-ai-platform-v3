@@ -1,0 +1,51 @@
+{
+  "basePid": "968500",
+  "baseJar": "/opt/zhongshu-platform-b-integration/release/platform-training-categories-20261116-7aebb2d2a25c.jar",
+  "candidateJar": "/opt/zhongshu-platform-b-integration/release/platform-persona-self-20261116-51c946fac6a6.jar",
+  "candidateSha256": "51c946fac6a6bfb334e41a71935a7afaf2b0c068b8577234b4dc2285a3d5f47e",
+  "rollbackCompatibleJar": "/opt/zhongshu-platform-b-integration/release/platform-persona-self-rollback-20261116-2abfe47ddb2e.jar",
+  "changedBootEntries": [
+    "BOOT-INF/lib/yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+    "BOOT-INF/lib/yudao-domain-franchise-org-2026.08-SNAPSHOT.jar"
+  ],
+  "migration": "20261116.927",
+  "ownership": "sales manages own authored IP only; company managers retain company scope",
+  "deployedAt": 1794816204.0191321,
+  "pid": "1015397",
+  "deployedJar": "/opt/zhongshu-platform-b-integration/release/platform-persona-self-20261116-51c946fac6a6.jar",
+  "health": "UP",
+  "schemaVerification": [
+    "20261116.927:true",
+    "97:0"
+  ],
+  "backupPath": "/tmp/creation-self-ip-20261116/before-persona-self-full.dump",
+  "backupSha256": "9730d7191fd9720101ada451010abc241e801131aea09d0928627427c6c8a660",
+  "backupBytes": 2362204,
+  "backupMode": "0600; parent 0700",
+  "override": "/etc/systemd/system/zhongshu-platform-b-integration.service.d/zzzzz-creation-final-20261116.conf",
+  "preservedOtherModules": true,
+  "mediaStorage": "phone PUT directly to upload.hifly.cc; B stores metadata only",
+  "permissionVerification": [
+    "sales:franchise:content:persona:self",
+    "0",
+    "0"
+  ],
+  "publicLoginPolicy": {
+    "http": 200,
+    "code": 0
+  },
+  "finalVerification": {
+    "runtimePid": "1015397",
+    "runtimeJar": "/opt/zhongshu-platform-b-integration/release/platform-persona-self-20261116-51c946fac6a6.jar",
+    "unchangedBootEntriesPreserved": true,
+    "changedContentEntries": [
+      "cn/iocoder/yudao/module/franchise/content/content/ContentCloneService.class",
+      "cn/iocoder/yudao/module/franchise/content/content/ContentPersonaService$PersonaSnapshot.class",
+      "cn/iocoder/yudao/module/franchise/content/content/ContentPersonaService.class",
+      "cn/iocoder/yudao/module/franchise/content/ContentPermissions.class",
+      "cn/iocoder/yudao/module/franchise/content/controller/admin/ContentCloneController.class",
+      "cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPersonaController.class",
+      "cn/iocoder/yudao/module/franchise/content/content/ContentCloneUploadService.class"
+    ]
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "version": "1.0.20261116.1608",
+  "appid": "wxe584f6fad7b54487",
+  "source": "C:/Users/Administrator/.codex/artifacts/creation-self-ip-20261116/release",
+  "trialActivation": "pending",
+  "mergedLoginVersion": "1.0.20261116.12",
+  "baseCreationVersion": "1.0.20261116.1503",
+  "uploadedAt": "2026-11-16T16:10:44.605181+08:00",
+  "officialCliUpload": true,
+  "size": {
+    "total": 7538142,
+    "packages": [
+      {
+        "name": "TOTAL",
+        "size": 7538142
+      },
+      {
+        "name": "main",
+        "size": 1859687
+      },
+      {
+        "name": "/design-migration/",
+        "size": 495414
+      },
+      {
+        "name": "/pages/account/",
+        "size": 1082854
+      },
+      {
+        "name": "/pages/admin/",
+        "size": 466814
+      },
+      {
+        "name": "/pages/ai-video/",
+        "size": 19326
+      },
+      {
+        "name": "/pages/build/",
+        "size": 1024366
+      },
+      {
+        "name": "/pages/creation/",
+        "size": 16051
+      },
+      {
+        "name": "/pages/design/",
+        "size": 241480
+      },
+      {
+        "name": "/pages/growth/",
+        "size": 18688
+      },
+      {
+        "name": "/pages/studio/",
+        "size": 392719
+      },
+      {
+        "name": "/pages/wallet/",
+        "size": 12451
+      },
+      {
+        "name": "/pages/workflow/",
+        "size": 1908292
+      }
+    ]
+  },
+  "fixture": false,
+  "formalRelease": false,
+  "frontendChecks": "frozen merged release npm run check PASS",
+  "backendTests": {
+    "tests": 151,
+    "failures": 0,
+    "errors": 0,
+    "database": "isolated local PostgreSQL 17; test-only HTTP fixtures"
+  },
+  "nativeScreenshot": "actual WXML + isolated sales role/empty library HTTP fixture; no production writes",
+  "physicalAcceptance": "deferred by user",
+  "sourceSha256": {
+    "miniprogram/pages/studio/characters/index.js": "9e050d056f3d51cf7bb44f25a94884e9caf06da2b3ed30b86259583f52bf0ce7",
+    "miniprogram/pages/studio/characters/index.wxml": "1c513b3a44d8bfc95055cbc5c8a1c4f9570b46c7f0e5d9b7b74e7e1b8daf725c",
+    "miniprogram/pages/studio/characters/index.wxss": "f02ef18721d27fe99cb2b35874d88f0305947a5107542ca913d6dd04281672a6",
+    "miniprogram/utils/hifly-upload.js": "c57e0ba87f95466220492204d44f3b8fcfdf7d3e051b39a429c9c49879d5d094",
+    "miniprogram/api/franchise/content.js": "540d74c853eb62d8af05ffa7caa0c158429e0d4bc02cbd50664fecfcc217cd2f",
+    "miniprogram/api/auth.js": "ff2474e34d82a6717b3cafbc100f20ba6a1b49de2c56c38fc417642570022b5f",
+    "miniprogram/api/http.js": "6f2c968d9b2ad8733834052f119bf64429d147cc87204dfa6e7a45a4793c94b4",
+    "miniprogram/pages/account/index.js": "93c3e4a1f3d915e6d41ad627a1ec9b83868a3e1449c2694c91cc4247acf9d1a9",
+    "miniprogram/pages/account/index.wxml": "ae47e7096d8aea9eae62aef60db8c3596f882db7d4ba63a071989f5d00057faa",
+    "miniprogram/pages/home/index.js": "703d423f477ebd014798e26e304018a3045e1380b3c0a8b7a74f05cfda7b8f4a"
+  }
+}
