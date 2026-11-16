@@ -1,0 +1,30 @@
+{
+  "at": "2026-11-16T12:46:38.856463+08:00",
+  "version": "1.0.20261116.7",
+  "trialVersion": {
+    "state": "set",
+    "evidence": "direct user confirmation",
+    "independentlyObservedInBrowser": false
+  },
+  "phoneConnection": {
+    "state": "user-confirmed-connected",
+    "automatorEnvironmentRead": "timeout waiting for automator response"
+  },
+  "phoneModuleResults": {
+    "inspiration": "awaiting phone case-image checkpoint reply",
+    "aiFlat": "not yet verified on phone",
+    "aiElevation": "not yet verified on phone",
+    "quickBudget": "not yet verified on phone"
+  },
+  "temporaryDiagnostic": {
+    "status": "removed",
+    "removedAt": "2026-11-16T04:45:54.769015+00:00",
+    "requests": 0,
+    "physicalMobileClassRequests": 0,
+    "otherCurrentSiteContentPreserved": true,
+    "originalContentRestored": true,
+    "rows": []
+  },
+  "nextStep": "User feedback for case elevation/floor 1/floor 2 images, then continue phone generation and budget verification.",
+  "priorDevtoolsAcceptanceRemainsSeparate": true
+}

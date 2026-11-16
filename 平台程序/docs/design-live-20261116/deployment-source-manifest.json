@@ -1,0 +1,599 @@
+[
+  {
+    "path": "design-capability-api/src/main/java/cn/iocoder/yudao/module/franchise/api/DesignServicePort.java",
+    "module": "design-capability-api",
+    "artifactId": "design-capability-api",
+    "targets": [
+      "b",
+      "provider"
+    ],
+    "sha256": "04d6e884e207b3e10be64e08f059be43e294d74d95b8ac0bd58f7a8e2dfb14c7"
+  },
+  {
+    "path": "design-capability-api/src/main/java/cn/iocoder/yudao/module/franchise/api/capability/DesignCapabilityContract.java",
+    "module": "design-capability-api",
+    "artifactId": "design-capability-api",
+    "targets": [
+      "b",
+      "provider"
+    ],
+    "sha256": "b265ddf33fc82ada6401925df35df8652c834deaaab3169013bd3c40fe9b9662"
+  },
+  {
+    "path": "design-capability-api/src/main/java/cn/iocoder/yudao/module/franchise/api/capability/DesignFlowCall.java",
+    "module": "design-capability-api",
+    "artifactId": "design-capability-api",
+    "targets": [
+      "b",
+      "provider"
+    ],
+    "sha256": "efcfea3f3d4f4338d96f071b88fb80be3df4dcb1c6a18a7ebaccd74b60bfacdc"
+  },
+  {
+    "path": "domains/franchise/franchise-api/src/main/java/cn/iocoder/yudao/module/franchise/api/AssetAccessPort.java",
+    "module": "domains/franchise/franchise-api",
+    "artifactId": "yudao-domain-franchise-api",
+    "targets": [
+      "b"
+    ],
+    "sha256": "e9159b9333d975b94ccb2a0c97a4593917362e74c0faeaa125f25a84a1b22a2b"
+  },
+  {
+    "path": "domains/franchise/franchise-api/src/main/java/cn/iocoder/yudao/module/franchise/api/CustomerSchemePort.java",
+    "module": "domains/franchise/franchise-api",
+    "artifactId": "yudao-domain-franchise-api",
+    "targets": [
+      "b"
+    ],
+    "sha256": "2cf232403ea7f4407d882a9448cfd9cd068675dac150e97abf5e35d4f327d487"
+  },
+  {
+    "path": "domains/franchise/franchise-api/src/main/java/cn/iocoder/yudao/module/franchise/api/OrgPointPort.java",
+    "module": "domains/franchise/franchise-api",
+    "artifactId": "yudao-domain-franchise-api",
+    "targets": [
+      "b"
+    ],
+    "sha256": "d1b5d448586658dc4c2e5a78df21bf17e56e389035a20549e6f8f15fdc1a4897"
+  },
+  {
+    "path": "domains/franchise/franchise-asset/src/main/java/cn/iocoder/yudao/module/franchise/asset/LocalAssetService.java",
+    "module": "domains/franchise/franchise-asset",
+    "artifactId": "yudao-domain-franchise-asset",
+    "targets": [
+      "b"
+    ],
+    "sha256": "84171556935e392670bc4e34362f90ea1ee3bcf7c3812b625395558a19d2a6ee"
+  },
+  {
+    "path": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/CustomerSchemeAdapter.java",
+    "module": "domains/franchise/franchise-crm",
+    "artifactId": "yudao-domain-franchise-crm",
+    "targets": [
+      "b"
+    ],
+    "sha256": "230c21b407e7203b88cf542155fda676027f23dbeaf2c61028404c1e65c33134"
+  },
+  {
+    "path": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/CustomerService.java",
+    "module": "domains/franchise/franchise-crm",
+    "artifactId": "yudao-domain-franchise-crm",
+    "targets": [
+      "b"
+    ],
+    "sha256": "85c846b4786da49f2f5baecbe5a8dd8f25ba6509f3c6e6779ba0bb258a1f9153"
+  },
+  {
+    "path": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/dal/CustomerMapper.java",
+    "module": "domains/franchise/franchise-crm",
+    "artifactId": "yudao-domain-franchise-crm",
+    "targets": [
+      "b"
+    ],
+    "sha256": "de02eae225e3e621b181fa833cd36caff585760f57a7ea9c94253490d941c999"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/DesignFlowAccessService.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "bf43dfefbe98e73f3b3d5831ba1b915ef2fa46b31430e64cd2b5b285e32b025a"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/DesignItemizedArchiveService.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "4da50b5923baf818adb027bb96fae6847a565476d032b346a401d7f3992aeb65"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/billing/DesignWalletChargeAdapter.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "ab184588fb12f6392d573937e4b4c18ab3ea4c026bcff48f9fb91897aa831a68"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/controller/admin/DesignFlowController.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "8dff4786ad6156070c1e9fa391a28cf91da86f6b45861e40e70d71955b31eea6"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/controller/admin/DesignItemizedArchiveController.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "1849062fb2ac9d38160937e40b6969bd28a26436085e4dcc38810ae6d25ea84e"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/publiccase/PublicCaseAccessService.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "6627b2d12e104598f3672729e8d76a852807a0b595029cf2796b22c30fec3aff"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/publiccase/PublicCaseCatalogClient.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "d1c903c1773939515864bd52533aba7e07afe178372efc2d3cee0505937f2ea2"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/remote/RemoteDesignCommandStore.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "902f28db11279b9a2777b1e587f48cc76aa19dd11a51095cfb2f872389a2e997"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/remote/RemoteDesignGateway.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "7ecc87abe42bde6ca4c0b5dd958cc98b246cef90899de926b7237e45eb47407e"
+  },
+  {
+    "path": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/remote/RemoteReferenceReader.java",
+    "module": "domains/franchise/franchise-design",
+    "artifactId": "yudao-domain-franchise-design",
+    "targets": [
+      "b"
+    ],
+    "sha256": "9dba327592901c541e50b35b6b69986bb46c19f88ef1b35a1e7681615a5dcbda"
+  },
+  {
+    "path": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/orgpoint/OrgPointErrors.java",
+    "module": "platform/platform-wallet",
+    "artifactId": "platform-wallet",
+    "targets": [
+      "b"
+    ],
+    "sha256": "51c7c36932ec4acf48362463ecf25521194334617f09049f2bdeb673705a5f18"
+  },
+  {
+    "path": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/orgpoint/OrgPointService.java",
+    "module": "platform/platform-wallet",
+    "artifactId": "platform-wallet",
+    "targets": [
+      "b"
+    ],
+    "sha256": "05b49c35a34e656e3503a9090b1ced59ad1a2e3797cd8285180995fdf7e4d6b3"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/DesignProviderApplication.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "4007211ae02f29a67426ccbbdb5727ff73b1da371aa73502dce72cb1b1588a3f"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/DesignProviderMigrationConfiguration.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "e90110b067456634de36e434d85436a7246f5961ac055c61d1a7bd6dfd4edfc7"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/OneShotSmokeGate.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "3068ea9d1efe63b144f95881b65b82545c2c5a8fd3d390a39c4edb5966f13332"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderAiJobInternalController.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "18f457534866f8c989a41badd8d05554caec93af8645bc9fdd8e572a372d3855"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderCapabilityBoundaryConfiguration.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "3ff7aae35eb20790a8ae22907ecc3417bc7dc4ce394fb3737d93f8c625c40ab1"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderDependencyConfiguration.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "7de15869d756dceec7de498cfadd2394144cdee3ac45d439d12a2d8e28c7960e"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderDesignJobDriver.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "17369685b84772adb163f38ed73188cac833f668582927a876664fb74490857f"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderDriverReadinessConfiguration.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "2249768a0a18af6e4df69bbfcc12740858fc9214a04fab5a4daf41d75b3c588a"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderMigrationReadinessConfiguration.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "5b8fb804b2509b78d8478036e52dd28d819f44a8d509789959e1d9317ac6fd4a"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderNotePolishLimiter.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "8c2d2f29d376ea91e800e625c7c01de5a972dcec6a28257abc68124b6599b8f0"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderOutputTicketService.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "9d1dba791c7f6e79c18ee07ea9cc6c0192ee5f137e58fbc37445631372d17f17"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderPlatformAuthSmokeController.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "b7f56b0615a8256d030b13b901e875cc336c98817765f1bc2c332c80dd54f5b3"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderPromptEventService.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "5d995ae1e208c6455021b2f23abca4154af599530c831e141c5858b1d0de469b"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderRequiredSecretConfiguration.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "3c7e9f7ade420b9ba47644f2895a0441728afdbb3ea2b375f3da30ca78c31408"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderRuntimeAssetController.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "81bb33830ff6103e9cbc9098f53ca87c3a399420e3d97897a2d33237525f015c"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderRuntimeAuthSmokeController.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "7546d202724fc8828ec9685e1004d6a457c33ea7abe2b85d271d34ee1ffeceb1"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderRuntimeDriver.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "5974ae1658099ed42d35c27bcdb2045dbe376c475edceefa21685080ace2400c"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderRuntimeSecurityConfiguration.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "9ef4cb6467aa6a83eafc8c52ca20decbc352a05f929e6b557784e60c9909730a"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/ProviderSecurityConfiguration.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "ae1ac8ecbf831295cf9bcd4c5b1dbe4df0f6ab8cc10bd50ea32b005b6099f93c"
+  },
+  {
+    "path": "yudao-design-provider/src/main/java/cn/iocoder/yudao/designprovider/PublishedCaseReferenceImporter.java",
+    "module": "yudao-design-provider",
+    "artifactId": "yudao-design-provider",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "79c76e0726bc5fb286ef817bf4ca88fce47b652a8ef28813445ed3e1e2f0e3c6"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/FranchiseDesignAdapter.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "09c4a45f5999f1b89b176881ed06b1702437bb629ab713cd8a66be84ff4c1957"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/asset/AssetService.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "be5916636a06c5434ca10f65043616ba4850bddd17af2759f6937d2b81fe549b"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/AdminBudgetRevisionService.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "8668b2a56f41604f9aaee1b6369fc09c15c0b333cb8dfeaa7dfa7f09078bdf92"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/BudgetAccountPriceService.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "d94bd693f04ad0a475172759663f8c0dbd842ce534b13f6896a4729d8527075d"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/BudgetCalculator.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "8212517de32bca0d59cced34deb0b43b767d4095629a5a3a237295fd72680b4e"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/BudgetCatalogService.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "8571a5187a736ac81eaa6f72254ceb2e0d82582b814de840762abd5010d8be2c"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/BudgetDraftService.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "aeb09ece55dd096d0e720b440b2af75ffe5cbd938a8a55278397025109c965e3"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/BudgetInputs.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "570f38d616959a42e769c85ef9d49c6af75385a38efa6147cfe1d8407bc6b4f6"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/BudgetQuoteService.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "e4b102ab360595c03a66759a65a97f85916bcab07eebd74d63a29edfe5358a11"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/BudgetService.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "5398aa4ffaaa5bb2912b07ecbaaf7ac8475122dbd900e9b817d1dc7d0f487384"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/ItemizedBudgetService.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "cf2dd03a36be7e675fe5478aabf57883eb00442a1776383c5e574f03345b2f35"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/OriginalBudgetRules.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "27e50f7536c32b930339e4d7d709d67d0f1244b47cf008215e233b1d6db5f0ce"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/original/BudgetCalculator.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "b14f613fe147bf29870383711ee301e3167100f25499d07294f9b83e951c987f"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/budget/original/BudgetInputs.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "8ffd2b47959fb0fd03cf2b00aaa80c5af6fb497a97c16d61ae4fe3c6ccd5858a"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/capability/CapabilityOrganizationMapping.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "1857670c4f6283308f837f2222252377ae9048db088ae0aaed04e5019397206c"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/capability/CapabilityReceiptStore.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "326ce83f5fd6d08dab4005fe6732a76751dddecb99c5f31e27fffdd8d239cbcf"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/capability/CaseReferenceImportPort.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "c03b5002efdeac8eb9ddd4f0e41eccc18a9674a4840688eac5ba0706bb62b3d2"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/capability/DesignCapabilityConfiguration.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "44c938bc5d290dba1307fd0ac7f68a471c95bce0fbe5134643773c4ccc032c8b"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/capability/DesignCapabilityProvider.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "b9649a09bd2c61e8e297d7335a329fa748417bcc899163e67d6e473734e7f134"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/capability/OriginalDesignFlow.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "c2ee282042f5c4c30bd16036d5493aa35ad445af18e9bc7b5042e77779d0cc48"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/capability/billing/DurableServiceDesignBilling.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "fca3a9932dc0b4f0e0de199ef0761d4bf44264c1bfd20272036a50ebfdaa0624"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/controller/app/AppDesignProjectController.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "provider"
+    ],
+    "sha256": "1d071494ef537c42ef118a61285d725e86466025cb7640cdea1e7d6d8a9d063b"
+  },
+  {
+    "path": "yudao-module-design/src/main/java/cn/iocoder/yudao/module/design/controller/app/AppGenerationReferenceController.java",
+    "module": "yudao-module-design",
+    "artifactId": "yudao-module-design",
+    "targets": [
+      "a"
+    ],
+    "sha256": "d66dc509bb9c192e3b9825a444fd0d652aa318658df1e971dc3b182e2817e054"
+  },
+  {
+    "path": "yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/zhongshu/api/GenerationImageOptions.java",
+    "module": "yudao-module-infra",
+    "artifactId": "yudao-module-infra",
+    "targets": [
+      "b"
+    ],
+    "sha256": "ff4555ff2c0571388485f2c619899fd7fc68d082f3ccfadb39478b5ec8ab4287"
+  }
+]

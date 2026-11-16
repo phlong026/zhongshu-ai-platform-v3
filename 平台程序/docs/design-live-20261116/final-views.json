@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "project": {
+    "loaded": true,
+    "error": "",
+    "fields": [
+      {
+        "label": "方案类型",
+        "value": "立面方案"
+      },
+      {
+        "label": "方案来源",
+        "value": "基于户型库设计"
+      },
+      {
+        "label": "方案进度",
+        "value": "已形成 2 个方案版本"
+      },
+      {
+        "label": "累计消耗",
+        "value": "9 公司积分"
+      }
+    ],
+    "versions": [
+      {
+        "id": "2122167956532183041",
+        "title": "方案 v2",
+        "hint": "当前版本",
+        "time": "11-16 11:20"
+      },
+      {
+        "id": "2122161343326928897",
+        "title": "方案 v1",
+        "hint": "历史版本 · 只读回看",
+        "time": "11-16 10:54"
+      }
+    ]
+  },
+  "details": [
+    {
+      "page": "body-detail",
+      "error": "",
+      "loading": false,
+      "title": "主体类明细",
+      "completeness": "COMPLETE",
+      "items": 3,
+      "total": 42870000
+    },
+    {
+      "page": "exterior-detail",
+      "error": "",
+      "loading": false,
+      "title": "外装类明细",
+      "completeness": "COMPLETE",
+      "items": 7,
+      "total": 42870000
+    }
+  ],
+  "upload": {
+    "assetId": "2122175087325495296",
+    "source": "actual page uploadImage / actual COS PUT / actual completion validation"
+  },
+  "balance": {
+    "orgId": 120,
+    "balance": 84,
+    "inFlight": 0,
+    "status": "ACTIVE",
+    "month": "2026-11",
+    "monthUsedTotal": 16
+  }
+}

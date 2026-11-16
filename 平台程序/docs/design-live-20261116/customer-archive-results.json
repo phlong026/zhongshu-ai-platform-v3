@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "customerId": "2122166199567601666",
+  "http": "real HTTPS; no HTTP or confirmation mocking",
+  "results": {
+    "revision": {
+      "saved": true,
+      "versionId": "2122167956532183041"
+    },
+    "historical": {
+      "versionId": "2122161343326928897",
+      "readOnly": true,
+      "error": ""
+    },
+    "PLAN": {
+      "saved": true,
+      "error": "",
+      "busy": false
+    },
+    "FACADE": {
+      "saved": true,
+      "error": "",
+      "busy": false
+    },
+    "BUDGET": {
+      "saved": true,
+      "error": "",
+      "busy": false
+    }
+  }
+}

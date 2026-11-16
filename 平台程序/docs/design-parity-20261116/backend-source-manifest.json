@@ -1,0 +1,100 @@
+{
+  "source": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\后端程序",
+  "target": "E:\\众墅之家AI赋能平台V3版-后端\\平台程序",
+  "files": [
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\AdminBudgetRevisionService.java",
+      "sourceSha256": "4865d6074b099c0d2162b831ce7f8e0f6acb94610212f83fccab3b3edb15f5be",
+      "targetSha256": "8668b2a56f41604f9aaee1b6369fc09c15c0b333cb8dfeaa7dfa7f09078bdf92",
+      "identical": false,
+      "sourceNormalizedSha256": "4865d6074b099c0d2162b831ce7f8e0f6acb94610212f83fccab3b3edb15f5be",
+      "targetNormalizedSha256": "cda5ecd72d52335f8922757e45c0509fb4a087ea5096a9dc5ba1e80aa60641d4"
+    },
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetAccountPriceService.java",
+      "sourceSha256": "c307384f5e8d3700a24b2cf7575f3a2897b36330196f38c5f71aca8dc2e1767d",
+      "targetSha256": "d94bd693f04ad0a475172759663f8c0dbd842ce534b13f6896a4729d8527075d",
+      "identical": false,
+      "sourceNormalizedSha256": "c307384f5e8d3700a24b2cf7575f3a2897b36330196f38c5f71aca8dc2e1767d",
+      "targetNormalizedSha256": "3c20eeb844cfb330c9d18d0ee0c7d8f52ddd373f4c3741f59f5b6bdbbf0edce3"
+    },
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetCalculator.java",
+      "sourceSha256": "35f853bf7b20b684571f0f29b6ec622a65594871b39e7fa088a19ef91a483413",
+      "targetSha256": "8212517de32bca0d59cced34deb0b43b767d4095629a5a3a237295fd72680b4e",
+      "identical": false,
+      "sourceNormalizedSha256": "35f853bf7b20b684571f0f29b6ec622a65594871b39e7fa088a19ef91a483413",
+      "targetNormalizedSha256": "e2778d20b63eb4b742018dbb7a2cf5ca55f7205b1bc814d87e3572d578a0360a"
+    },
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetCatalogService.java",
+      "sourceSha256": "98af87410bb62fb0f3a1fbbec533f15b98358a3c3d89e9eed625ce1eec526350",
+      "targetSha256": "8571a5187a736ac81eaa6f72254ceb2e0d82582b814de840762abd5010d8be2c",
+      "identical": false,
+      "sourceNormalizedSha256": "98af87410bb62fb0f3a1fbbec533f15b98358a3c3d89e9eed625ce1eec526350",
+      "targetNormalizedSha256": "fef11c186cd09d60c79223aa800912cd5e1c3377d5142b9ce9c2d2c9fc2db7de"
+    },
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetDraftService.java",
+      "sourceSha256": "7f800d1fe75dfefcbc51522cb283c78481f5258c19fd2e4e81d46d7e6dc556c9",
+      "targetSha256": "aeb09ece55dd096d0e720b440b2af75ffe5cbd938a8a55278397025109c965e3",
+      "identical": false,
+      "sourceNormalizedSha256": "7f800d1fe75dfefcbc51522cb283c78481f5258c19fd2e4e81d46d7e6dc556c9",
+      "targetNormalizedSha256": "aee58de05cf000b945c9b7f28b2660a8c989ded8dfd7fa4254ffb600e65dbd02"
+    },
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetInputs.java",
+      "sourceSha256": "7c937f27fbea98cc9ba6e87e013d25c359d5ae898bd05121e99bd7c4a4d4da6a",
+      "targetSha256": "570f38d616959a42e769c85ef9d49c6af75385a38efa6147cfe1d8407bc6b4f6",
+      "identical": false,
+      "sourceNormalizedSha256": "7c937f27fbea98cc9ba6e87e013d25c359d5ae898bd05121e99bd7c4a4d4da6a",
+      "targetNormalizedSha256": "0eaaf726430dbfe5aed571d7b0ca90466b20e21a0a545e6ade20b50cfde96185"
+    },
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetQuoteService.java",
+      "sourceSha256": "f0c42eb946694afc8b8a119212def77cde4989c1f80a5c8c264feafd2c3ae3ad",
+      "targetSha256": "e4b102ab360595c03a66759a65a97f85916bcab07eebd74d63a29edfe5358a11",
+      "identical": false,
+      "sourceNormalizedSha256": "f0c42eb946694afc8b8a119212def77cde4989c1f80a5c8c264feafd2c3ae3ad",
+      "targetNormalizedSha256": "e0969d9b3adea21d18ccb49cbdb43e00253c4ba0e3f0715a88bfbd46df74b2fb"
+    },
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetService.java",
+      "sourceSha256": "50baf1f15a1530c774a32248599c04fecb63fc33af5b59c15b27df50e2391415",
+      "targetSha256": "5398aa4ffaaa5bb2912b07ecbaaf7ac8475122dbd900e9b817d1dc7d0f487384",
+      "identical": false,
+      "sourceNormalizedSha256": "50baf1f15a1530c774a32248599c04fecb63fc33af5b59c15b27df50e2391415",
+      "targetNormalizedSha256": "26cb109f013efefe6bfb2b6b5a7b42b8f43f095ee0adfb0ed1a501b391a33b97"
+    },
+    {
+      "path": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\ItemizedBudgetService.java",
+      "sourceSha256": "07d6553a15f8a697da6335534500b4f2544468561b053da30e3930e89ec19875",
+      "targetSha256": "cf2dd03a36be7e675fe5478aabf57883eb00442a1776383c5e574f03345b2f35",
+      "identical": false,
+      "sourceNormalizedSha256": "07d6553a15f8a697da6335534500b4f2544468561b053da30e3930e89ec19875",
+      "targetNormalizedSha256": "6790f1b1e4b6a1bf31beda7558f08daf3a6f6b5b3868d246e3c23d585cdb220c"
+    },
+    {
+      "path": "yudao-module-infra\\src\\main\\java\\cn\\iocoder\\yudao\\module\\infra\\zhongshu\\api\\GenerationImageOptions.java",
+      "sourceSha256": "63420bd1118b23b0c5e96151fadc9df8c95c5fee741cbd38c80ae814af4a4d88",
+      "targetSha256": "ff4555ff2c0571388485f2c619899fd7fc68d082f3ccfadb39478b5ec8ab4287",
+      "identical": true,
+      "sourceNormalizedSha256": "63420bd1118b23b0c5e96151fadc9df8c95c5fee741cbd38c80ae814af4a4d88",
+      "targetNormalizedSha256": "63420bd1118b23b0c5e96151fadc9df8c95c5fee741cbd38c80ae814af4a4d88"
+    }
+  ],
+  "originalRules": [
+    {
+      "source": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\后端程序\\yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetInputs.java",
+      "target": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\original\\BudgetInputs.java",
+      "sourceNormalizedSha256": "7c937f27fbea98cc9ba6e87e013d25c359d5ae898bd05121e99bd7c4a4d4da6a",
+      "identicalExceptPackage": true
+    },
+    {
+      "source": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\后端程序\\yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\BudgetCalculator.java",
+      "target": "yudao-module-design\\src\\main\\java\\cn\\iocoder\\yudao\\module\\design\\budget\\original\\BudgetCalculator.java",
+      "sourceNormalizedSha256": "35f853bf7b20b684571f0f29b6ec622a65594871b39e7fa088a19ef91a483413",
+      "identicalExceptPackage": true
+    }
+  ]
+}

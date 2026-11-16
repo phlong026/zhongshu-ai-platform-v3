@@ -1,0 +1,345 @@
+{
+  "completedAt": "2026-11-16T11:52:59.474745+08:00",
+  "status": "passed_with_existing_disabled_tests",
+  "scope": "灵感库、AI平面、AI立面、快速预算及相关后端模块依赖；最新逐类报告去重汇总",
+  "backend": {
+    "tests": 2478,
+    "passed": 2459,
+    "failures": 0,
+    "errors": 0,
+    "existingDisabled": 19,
+    "classes": 308,
+    "modules": {
+      "design-capability-api": {
+        "tests": 18,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "domains/franchise/franchise-crm": {
+        "tests": 63,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "domains/franchise/franchise-design": {
+        "tests": 140,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "domains/franchise/franchise-org": {
+        "tests": 25,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "platform/platform-authz": {
+        "tests": 101,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "platform/platform-command": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "platform/platform-identity": {
+        "tests": 76,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "platform/platform-org": {
+        "tests": 84,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "platform/platform-wallet": {
+        "tests": 239,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-design-provider": {
+        "tests": 64,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-framework/yudao-common": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-framework/yudao-spring-boot-starter-biz-data-permission": {
+        "tests": 43,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-framework/yudao-spring-boot-starter-biz-ip": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-framework/yudao-spring-boot-starter-excel": {
+        "tests": 21,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-framework/yudao-spring-boot-starter-mybatis": {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-framework/yudao-spring-boot-starter-protection": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-framework/yudao-spring-boot-starter-test": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-framework/yudao-spring-boot-starter-web": {
+        "tests": 54,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-module-ai-orchestration": {
+        "tests": 73,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-module-commerce": {
+        "tests": 161,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-module-design": {
+        "tests": 483,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "yudao-module-identity": {
+        "tests": 87,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "yudao-module-infra": {
+        "tests": 198,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 10
+      },
+      "yudao-module-system": {
+        "tests": 480,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 8
+      }
+    },
+    "disabledTests": [
+      {
+        "module": "yudao-module-design",
+        "class": "cn.iocoder.yudao.module.design.CaseP3BContractTest",
+        "name": "publishedCompanyCaseCannotBeChangedWithoutWithdrawal",
+        "reason": "Superseded: published company cases are editable with CAS"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.ftp.FtpFileClientTest",
+        "name": "test",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.ftp.FtpFileClientTest.test() is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.local.LocalFileClientTest",
+        "name": "testGetContent_notFound",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.local.LocalFileClientTest.testGetContent_notFound() is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.local.LocalFileClientTest",
+        "name": "test",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.local.LocalFileClientTest.test() is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest",
+        "name": "testMinIO",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest.testMinIO() throws java.lang.Exception is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest",
+        "name": "testQiniu",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest.testQiniu() throws java.lang.Exception is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest",
+        "name": "testHuaweiCloud",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest.testHuaweiCloud() throws java.lang.Exception is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest",
+        "name": "testAliyun",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest.testAliyun() throws java.lang.Exception is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest",
+        "name": "testQCloud",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest.testQCloud() throws java.lang.Exception is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest",
+        "name": "testQiniu_privateGet",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.s3.S3FileClientTest.testQiniu_privateGet() is @Disabled"
+      },
+      {
+        "module": "yudao-module-infra",
+        "class": "cn.iocoder.yudao.module.infra.framework.file.core.sftp.SftpFileClientTest",
+        "name": "test",
+        "reason": "public void cn.iocoder.yudao.module.infra.framework.file.core.sftp.SftpFileClientTest.test() is @Disabled"
+      },
+      {
+        "module": "yudao-module-system",
+        "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests",
+        "name": "testQiniuSmsClient_sendSms",
+        "reason": "public void cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests.testQiniuSmsClient_sendSms() throws java.lang.Throwable is @Disabled"
+      },
+      {
+        "module": "yudao-module-system",
+        "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests",
+        "name": "testQiniuSmsClient_getSmsTemplate",
+        "reason": "public void cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests.testQiniuSmsClient_getSmsTemplate() throws java.lang.Throwable is @Disabled"
+      },
+      {
+        "module": "yudao-module-system",
+        "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests",
+        "name": "testAliyunSmsClient_getSmsTemplate",
+        "reason": "public void cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests.testAliyunSmsClient_getSmsTemplate() throws java.lang.Throwable is @Disabled"
+      },
+      {
+        "module": "yudao-module-system",
+        "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests",
+        "name": "testHuaweiSmsClient_sendSms",
+        "reason": "public void cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests.testHuaweiSmsClient_sendSms() throws java.lang.Throwable is @Disabled"
+      },
+      {
+        "module": "yudao-module-system",
+        "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests",
+        "name": "testTencentSmsClient_getSmsTemplate",
+        "reason": "public void cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests.testTencentSmsClient_getSmsTemplate() throws java.lang.Throwable is @Disabled"
+      },
+      {
+        "module": "yudao-module-system",
+        "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests",
+        "name": "testTencentSmsClient_sendSms",
+        "reason": "public void cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests.testTencentSmsClient_sendSms() throws java.lang.Throwable is @Disabled"
+      },
+      {
+        "module": "yudao-module-system",
+        "class": "cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests",
+        "name": "testAliyunSmsClient_sendSms",
+        "reason": "public void cn.iocoder.yudao.module.system.framework.sms.core.client.impl.SmsClientTests.testAliyunSmsClient_sendSms() throws java.lang.Throwable is @Disabled"
+      },
+      {
+        "module": "yudao-module-system",
+        "class": "cn.iocoder.yudao.module.system.service.mail.MailSendServiceImplTest",
+        "name": "testDemo",
+        "reason": "public void cn.iocoder.yudao.module.system.service.mail.MailSendServiceImplTest.testDemo() is @Disabled"
+      }
+    ],
+    "report": "backend-junit-results.xml",
+    "sourceReportHashes": "backend-report-manifest.json",
+    "aggregation": "Each class uses its latest Surefire XML; earlier failures are superseded by successful retests. Captured stdout/stderr is omitted from the compact XML."
+  },
+  "frontend": {
+    "command": "npm run check",
+    "status": "passed",
+    "sourceParityGroups": 12,
+    "log": "frontend-final-check.log"
+  },
+  "native": {
+    "command": "npm run check:design-migration:native",
+    "status": "passed",
+    "groups": 9,
+    "results": [
+      "灵感库旧入口、来源筛选、游标加载到末页",
+      "详情全部楼层图、全图比例、收藏与授权动作",
+      "AI平面独立入口、原默认规格、公司报价及草图上传审核",
+      "AI立面独立入口、可选配置及参考图上传审核",
+      "部分成功、候选读取及实际公司积分退款",
+      "不可变结果版本、读取出图规格、保存至客户",
+      "独立预算草稿、地区与基础参数、报价确认、缺价总额为空",
+      "缺价预算按冻结快照保存至客户，保留空总额",
+      "独立预算历史入口与冻结版本读取"
+    ],
+    "evidence": "native-results.json",
+    "log": "native-final-run.log",
+    "screenshots": [
+      "native-ai-elevation.png",
+      "native-ai-flat.png",
+      "native-budget-draft.png",
+      "native-budget-incomplete.png",
+      "native-case-full-plan.png",
+      "native-partial-generation.png"
+    ]
+  },
+  "environment": {
+    "database": "PostgreSQL 17.12, disposable database per test container",
+    "redis": "real Redis 7.4.11, isolated ephemeral ports",
+    "objectStorage": "real MinIO, official RELEASE.2025-09-07T16-13-09Z build",
+    "backendIsolation": "Authz, wallet and franchise/provider tests use -DreuseForks=false to isolate class-specific Flyway locations and system_* shims. Default test infrastructure remains Docker; native services are opt-in."
+  },
+  "commands": [
+    {
+      "cwd": "E:\\众墅之家AI赋能平台V3版",
+      "command": "npm run check"
+    },
+    {
+      "cwd": "E:\\众墅之家AI赋能平台V3版",
+      "command": "npm run check:design-migration:native",
+      "note": "Connect an isolated WeChat DevTools test project via WECHAT_AUTOMATOR_WS; all request/modal/media mocks are restored."
+    },
+    {
+      "cwd": "E:\\众墅之家AI赋能平台V3版-后端\\平台程序",
+      "command": "mvnw.cmd -o -pl domains/franchise/franchise-org,domains/franchise/franchise-crm,domains/franchise/franchise-design,platform/platform-authz,platform/platform-wallet,yudao-design-provider -am -DreuseForks=false test",
+      "note": "Default Docker. In this run real local PostgreSQL/Redis/MinIO were supplied via platform.test.jdbc.* and platform.test.redis.executable/platform.test.minio.executable; unique databases are created and dropped by TestPostgres."
+    },
+    {
+      "cwd": "E:\\众墅之家AI赋能平台V3版-后端\\平台程序",
+      "command": "mvnw.cmd -o -pl platform/platform-identity -Dtest=SmsCaptchaServiceRedisIntegrationTest -Dzs.test.redis-port=<isolated-port> test"
+    }
+  ],
+  "boundaries": [
+    "This isolated phase did not deploy or upload; the subsequent deployment is documented separately.",
+    "This isolated phase did not call paid AI or consume real points; subsequent real API acceptance consumed a net 16 company credits. No real SMS was sent.",
+    "Native UI tests mock B APIs and use local test images; they do not certify live A/B/provider connectivity.",
+    "Original 19 disabled tests remain unchanged: 8 SMS SDK tests, 10 legacy file-storage SDK tests, 1 superseded CaseP3BContractTest covered by current CAS edit tests.",
+    "Original source A needs the supplied read-only controller patch; published budget configuration and prices must be synchronized as specified in the requirements."
+  ],
+  "phase": "isolated validation followed by the separately recorded real deployment",
+  "liveDeploymentEvidence": "../design-live-20261116/validation.json"
+}
