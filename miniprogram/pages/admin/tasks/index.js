@@ -1,6 +1,6 @@
 const A = require('../../../utils/account');
 const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（任务机在线；无 token/失败一律错误态，不回落本地演示）
-const orgApi = require('../../../api/org');
+const http = require('../../../api/http');
 
 const monthEnd = period => new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).toISOString().slice(0, 10);
 const validPeriod = period => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(period || ''));
@@ -31,10 +31,11 @@ function taskRows(rows, staff) {
 
 Page({
   data: { 
-    ready: false, error: '', view: 'mine', title: '绩效任务', myName: '', memberStaffId:'', period: '', periodEnd: '', tabs: [], rows: [], goalRows: [], staff: [], types: P.TYPES,
+    ready: false, error: '', view: 'mine', title: '绩效任务', myName: '', memberStaffId:'', period: '', periodEnd: '', tabs: [], rows: [], taskCount: 0, goalRows: [], staff: [], types: P.TYPES,
     form: {}, assigneeIndex: 0, typeIndex: 0, previous: null, reassignTask: null, evidenceTask: null,
     evidence: { note: '', photos: [] }, archive: null,
-    canInitialize: false, initializationHint: ''
+    canManage: false, submitting: false, taskOptionsOpen: false, taskOptions: [], taskOptionCount: 0, taskOptionsHeight: 0, taskQuery: '',
+    reusableTasks: [], reuseBusy: false, reuseError: '', reusePeriod: '', reuseLoaded: false
   },
   onLoad(options) {
     this.requestedView = options.view || '';
@@ -47,18 +48,38 @@ Page({
   },
   onShow() { if (this.data.ready) this.refresh(); 
   },
+  onUnload() { this.reuseGeneration = (this.reuseGeneration || 0) + 1; },
   resetTaskForm() {
     const period = this.requestedPeriod || this.data.period || A.localDate().slice(0, 7);
+    if (this.commandKeys) delete this.commandKeys.create;
     this.setData({
-      form: { title: '', assigneeId: '', due: monthEnd(period), type: 'manual', target: '', note: '', idempotencyKey: 'performance-task-create:' + Date.now() },
-      assigneeIndex: 0, typeIndex: 0, previous: null
+      form: { title: '', assigneeId: '', due: monthEnd(period), type: 'manual', target: '', note: '' },
+      assigneeIndex: 0, typeIndex: 0, previous: null, taskOptionsOpen: false, taskQuery: ''
     });
   },
+  commandKey(action, payload) {
+    const fingerprint = JSON.stringify([http.tenantId(), http.currentPostId(), http.sessionGeneration(),
+      action, String(payload.id || ''), P.taskPayload(action, payload)]);
+    const keys = this.commandKeys || (this.commandKeys = {});
+    if (!keys[action] || keys[action].fingerprint !== fingerprint) {
+      this.commandSequence = (this.commandSequence || 0) + 1;
+      keys[action] = { fingerprint, key: 'performance-task-' + action + ':' + Date.now() + ':' + Math.random().toString(16).slice(2) + ':' + this.commandSequence };
+    }
+    return keys[action].key;
+  },
   refresh() {
+    const scope = JSON.stringify([http.tenantId(), http.currentPostId(), http.sessionGeneration()]);
+    if (this.formScope && this.formScope !== scope) {
+      this.reuseGeneration = (this.reuseGeneration || 0) + 1;
+      this.setData({ reusableTasks: [], reuseBusy: false, reuseError: '', reuseLoaded: false, taskOptions: [] });
+      this.resetTaskForm();
+    }
+    this.formScope = scope;
     if (P.online()) return this.refreshOnline();
-    this.setData({ ready: true, error: '请先登录后端账号', rows: [], tabs: [], staff: [] });
+    this.setData({ ready: true, error: '请先登录后端账号', rows: [], taskCount: 0, tabs: [], staff: [] });
   },
   writable() { if (this.data.view === 'member') { this.fail('成员绩效仅供查看'); return false; } return true; },
+  manageTasks() { const post=P.apiPost();if(!post||!['boss','owner'].includes(post.roleCode)){this.fail('当前岗位无任务派发权限');return false;}return this.writable(); },
   displayArchive(summary, staff) {
     const names = Object.fromEntries(staff.map(person => [person.id, person.name]));
     const latest = summary.latest && {
@@ -73,15 +94,20 @@ Page({
   async refreshOnline() { // API 态：范围列表/归档在线渲染；成员=org 真源（Codex P1-3）
     const period = this.requestedPeriod || this.data.period || A.localDate().slice(0, 7);
     const requested = this.requestedView || this.data.view;
+    const alive=http.requestGuard('performance-tasks');
+    const post=P.apiPost(),canManage=!!post&&['boss','owner'].includes(post.roleCode);
+    this.setData({canManage});
     try {
       const view = requested === 'archive' ? 'archive' : requested === 'team' ? 'team' : requested === 'member' ? 'member' : 'mine';
       const [raw, members] = await Promise.all([
         P.loadTasks(period, view, this.requestedMemberStaffId || undefined),
         P.loadMembers().catch(() => P.memberView([]))
       ]);
+      if(!alive())return;
       const staff = members.length ? members : raw.map(r => ({ id: r.assigneeUserId, name: r.assigneeName, dept: r.assigneeDept }));
       this.apiStaff = staff;
       const archive = view === 'archive' ? P.archiveView(await P.api.tasks.archives(period)) : null;
+      if(!alive())return;
       const rows = taskRows(raw, staff);
       const myName = this.data.myName || '当前成员';
       const title = view === 'mine' ? myName + ' · 我的绩效' : view === 'member' ? myName + ' · 绩效目标'
@@ -94,15 +120,16 @@ Page({
       ];
       this.setData({
         ready: true, error: '', view, title, myName, memberStaffId: this.requestedMemberStaffId || '',
-        period, periodEnd: monthEnd(period), tabs: view === 'member' ? [] : tabs, rows,
+        period, periodEnd: monthEnd(period), tabs: view === 'member' ? [] : tabs, rows, taskCount: rows.length,
         types: P.TYPES,
         goalRows: ['mine', 'member'].includes(view) ? rows : [],
         canArchive: view === 'team' && raw.length > 0,
-        canInitialize: view === 'team', staff, archive: archive ? this.displayArchive(archive, staff) : null,
+        staff, archive: archive ? this.displayArchive(archive, staff) : null,
         platPerf: true
       });
       wx.setNavigationBarTitle({ title });
     } catch (error) {
+      if(!alive())return;
       const msg = P.errorText(error);
       this.setData({ error: msg, ready: true });
       wx.showToast({ title: msg, icon: 'none' });
@@ -110,42 +137,91 @@ Page({
   },
   fail(message) { this.setData({ error: message }); wx.showToast({ title: message, icon: 'none' }); },
   tab(event) {
+    if (this.busy) return;
+    this.setData({ taskOptionsOpen: false });
     this.requestedView = event.currentTarget.dataset.view;
     this.refresh();
   },
   month(event) {
+    if (this.busy) return;
+    this.reuseGeneration=(this.reuseGeneration||0)+1;
     this.requestedPeriod = event.detail.value;
-    this.setData({ initializationHint: '' });
+    this.setData({ reusableTasks: [], reuseBusy: false, reuseError: '', reusePeriod: '', reuseLoaded: false, taskOptions: [] });
     this.resetTaskForm();
     this.refresh();
   },
-  async initializePrevious() {
-    if (!this.writable() || this.busy) return;
-    if (P.online()) {
-      this.busy = true;
-      try {
-        const result = await P.perform('initialize', { period: this.data.period,
-          idem: 'performance-task-initialize:' + this.data.period });
-        this.refresh();
-        const message = result.created ? '已按上月真实实绩生成 ' + result.created + ' 项建议任务' : '上月暂无可用真实业绩，未生成 0 目标任务';
-        this.setData({ initializationHint: message });
-        wx.showToast({ title: result.created ? '建议任务已生成' : '上月暂无业绩', icon: 'none' });
-      } catch (error) { this.fail(P.errorText(error)); }
-      finally { this.busy = false; }
+  field(event) { this.setData({ ['form.' + event.currentTarget.dataset.key]: event.detail.value, error: '' }); },
+  updateTaskOptions(query = this.data.taskQuery) {
+    const keyword = String(query || '').trim();
+    const reusable = this.data.reusableTasks.map(task => ({ id: 'reuse:' + task.id, kind: 'reuse', taskId: task.id,
+      label: task.title, detail: '上月任务' + (task.assigneeName ? ' · ' + task.assigneeName : '') }));
+    const metrics = this.data.types.filter(type => !type.manual).map(type => ({ id: 'type:' + type.id, kind: 'metric',
+      type: type.id, label: type.label, detail: '业务指标 · ' + type.unit }));
+    const options = reusable.concat(metrics).filter(option => !keyword || option.label.includes(keyword));
+    this.setData({ taskQuery: keyword, taskOptions: options, taskOptionCount: options.length, taskOptionsHeight: Math.min(400, options.length * 112) });
+  },
+  async openTaskOptions() {
+    if (!this.manageTasks() || this.data.submitting) return;
+    this.setData({ taskOptionsOpen: true });
+    this.updateTaskOptions('');
+    await this.loadReusableTasks();
+  },
+  toggleTaskOptions() {
+    if (this.data.taskOptionsOpen) this.setData({ taskOptionsOpen: false });
+    else return this.openTaskOptions();
+  },
+  closeTaskOptions() { this.setData({ taskOptionsOpen: false }); },
+  inputTask(event) {
+    if (this.data.submitting) return;
+    this.setData({ 'form.title': event.detail.value, 'form.type': 'manual', 'form.target': '', typeIndex: 0, previous: null, taskOptionsOpen: true, error: '' });
+    this.updateTaskOptions(event.detail.value);
+    return this.loadReusableTasks();
+  },
+  selectTaskOption(event) {
+    if (!this.manageTasks() || this.data.submitting) return;
+    const id = event.currentTarget.dataset.id;
+    if (id === 'manual') {
+      this.setData({ 'form.type': 'manual', 'form.target': '', typeIndex: 0, previous: null, taskOptionsOpen: false, error: '' });
       return;
     }
-    this.fail('请先登录后端账号');
+    const option = this.data.taskOptions.find(row => row.id === id);
+    if (!option) return;
+    if (option.kind === 'reuse') return this.useReusableTask({ currentTarget: { dataset: { id: option.taskId } } });
+    const index = this.data.types.findIndex(type => type.id === option.type);
+    this.setData({ typeIndex: index, 'form.type': option.type, 'form.title': option.label, 'form.target': '', taskOptionsOpen: false, error: '' });
+    this.updatePrevious();
   },
-  field(event) { this.setData({ ['form.' + event.currentTarget.dataset.key]: event.detail.value, error: '' }); },
+  async loadReusableTasks() {
+    if(!this.manageTasks()||this.data.reuseBusy)return;
+    const period=P.previousPeriod(this.data.period);
+    if (this.data.reuseLoaded && this.data.reusePeriod === period) return;
+    const generation=this.reuseGeneration=(this.reuseGeneration||0)+1;
+    const alive=http.sessionGuard();
+    this.setData({reuseBusy:true,reuseError:'',reusePeriod:period,reusableTasks:[]});
+    this.updateTaskOptions();
+    try {
+      const rows=await P.loadTasks(period,'team');
+      if(!alive()||generation!==this.reuseGeneration)return;
+      this.setData({reusableTasks:rows.filter(row=>row.type==='manual'),reuseLoaded:true});
+      this.updateTaskOptions();
+    } catch(error) {if(alive()&&generation===this.reuseGeneration)this.setData({reuseError:P.errorText(error)});}
+    finally {if(alive()&&generation===this.reuseGeneration)this.setData({reuseBusy:false});}
+  },
+  useReusableTask(event) {
+    if(!this.manageTasks())return;
+    const task=this.data.reusableTasks.find(row=>String(row.id)===String(event.currentTarget.dataset.id));
+    if(!task)return;
+    const index=this.data.staff.findIndex(person=>String(person.id)===String(task.assigneeId));
+    const last=Number(monthEnd(this.data.period).slice(-2)),day=Math.min(Number(String(task.due||'').slice(-2))||last,last);
+    this.setData({typeIndex:0,assigneeIndex:Math.max(0,index),previous:null,
+      form:{title:task.title,assigneeId:index>=0?this.data.staff[index].id:'',type:'manual',target:'',note:'',due:this.data.period+'-'+String(day).padStart(2,'0')},
+      error:index<0?'请选择本月责任人':'',taskOptionsOpen:false});
+    wx.showToast({title:'已填入，请确认后派发',icon:'none'});
+  },
   selectAssignee(event) {
     const index = Number(event.detail.value), person = this.data.staff[index];
     if (!person) return;
-    this.setData({ assigneeIndex: index, 'form.assigneeId': person.id });
-    this.updatePrevious();
-  },
-  selectType(event) {
-    const index = Number(event.detail.value), type = this.data.types[index];
-    this.setData({ typeIndex: index, 'form.type': type.id, 'form.target': type.manual ? '' : this.data.form.target });
+    this.setData({ assigneeIndex: index, 'form.assigneeId': person.id, taskOptionsOpen: false });
     this.updatePrevious();
   },
   updatePrevious() { // 在线态：上月参考取任务行自带 suggestion（API 真源），不再查本地账簿
@@ -155,19 +231,28 @@ Page({
     this.setData({ previous: row ? { period: row.suggestion.period, value: P.valueText(form.type, row.suggestion.value), unit: P.typeMeta(form.type).unit } : null });
   },
   async submitTask(event) {
-    if (!this.writable() || this.busy) return;
+    if (!this.manageTasks() || this.busy) return;
     if (P.online()) {
       this.busy = true;
+      this.setData({ submitting: true, taskOptionsOpen: false });
+      const alive = http.sessionGuard();
       try {
-        const form = { ...this.data.form, ...event.detail.value, period: this.data.period };
-        const person = this.data.staff.find(x => x.id === form.assigneeId);
-        await P.perform('create', { ...form, assigneeName: person ? person.name : '',
-          assigneeDept: (person && person.dept) || 'business', idem: form.idempotencyKey });
+        const form = { ...this.data.form, ...(event&&event.detail&&event.detail.value||{}), period: this.data.period };
+        if(!String(form.title||'').trim()||String(form.title).trim().length>60)throw {message:'请输入1–60字的任务内容'};
+        form.title = String(form.title).trim();
+        if(!form.assigneeId)throw {message:'请选择责任人'};
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(form.due||'')||form.due<this.data.period+'-01'||form.due>monthEnd(this.data.period))throw {message:'截止日期须在任务月份内'};
+        const person = this.data.staff.find(x => String(x.id) === String(form.assigneeId));
+        if (!person) throw { message: '请选择有效责任人' };
+        if (form.type !== 'manual' && P.toTargetCents(form.type, form.target) === null) throw { message: '请输入大于0的目标值' };
+        const payload = { ...form, assigneeName: person.name, assigneeDept: person.dept || 'business' };
+        await P.perform('create', { ...payload, idem: this.commandKey('create', payload) });
+        if (!alive()) return;
         this.resetTaskForm();
         this.refresh();
         wx.showToast({ title: '任务已派发', icon: 'success' });
-      } catch (error) { this.fail(P.errorText(error)); }
-      finally { this.busy = false; }
+      } catch (error) { if (alive()) this.fail(P.errorText(error)); }
+      finally { this.busy = false; this.setData({ submitting: false }); }
       return;
     }
     this.fail('请先登录后端账号');
@@ -184,14 +269,9 @@ Page({
       this.busy = true;
       try {
         const person = this.data.staff[Number(event.detail.value.assigneeIndex)];
-        // R2 P1-4：每次独立改派生成新键（任务ID:人员:时间戳——B→A→B 不误判重放）；失败保留本键重试
-        if (!this.reassignKey || this.reassignKeyFor !== this.data.reassignTask.id + ':' + person.id) {
-          this.reassignKey = 'performance-task-reassign:' + this.data.reassignTask.id + ':' + person.id + ':' + Date.now();
-          this.reassignKeyFor = this.data.reassignTask.id + ':' + person.id;
-        }
-        await P.perform('reassign', { id: this.data.reassignTask.id, assigneeUserId: person.id,
-          assigneeName: person.name, idem: this.reassignKey });
-        this.reassignKey = null; this.reassignKeyFor = null; // 成功废弃
+        const payload = { id: this.data.reassignTask.id, assigneeUserId: person.id, assigneeName: person.name };
+        await P.perform('reassign', { ...payload, idem: this.commandKey('reassign', payload) });
+        delete this.commandKeys.reassign;
         this.setData({ reassignTask: null });
         this.refresh();
         wx.showToast({ title: '改派已留痕', icon: 'success' });
@@ -204,8 +284,6 @@ Page({
   beginManual(event) {
     if (!this.writable()) return;
     const task = this.data.rows.find(row => row.id === event.currentTarget.dataset.id);
-    // R3：键绑定任务 id 上下文（换任务换键）
-    this.manualKey = 'performance-task-manual:' + task.id + ':' + Date.now(); // 本次操作键，失败保留
     this.setData({ evidenceTask: task, evidence: { note: (task.manualDone && task.manualDone.note) || '', photos: (task.manualDone && task.manualDone.photos) || [] } });
   },
   cancelManual() { this.setData({ evidenceTask: null, evidence: { note: '', photos: [] } }); },
@@ -237,14 +315,9 @@ Page({
     if (P.online()) {
       this.busy = true;
       try {
-        const manualCtxOk = this.manualKeyCtx === String(this.data.evidenceTask.id);
-        if (!this.manualKey || !manualCtxOk) {
-          this.manualKey = 'performance-task-manual:' + this.data.evidenceTask.id + ':' + Date.now();
-          this.manualKeyCtx = String(this.data.evidenceTask.id);
-        }
-        await P.perform('manual', { id: this.data.evidenceTask.id, note: event.detail.value.note,
-          photos: this.data.evidence.photos, idem: this.manualKey });
-        this.manualKey = null; this.manualKeyCtx = null; // 成功废弃
+        const payload = { id: this.data.evidenceTask.id, note: event.detail.value.note, photos: this.data.evidence.photos };
+        await P.perform('manual', { ...payload, idem: this.commandKey('manual', payload) });
+        delete this.commandKeys.manual;
         this.cancelManual();
         this.refresh();
         wx.showToast({ title: '完成凭证已保存', icon: 'success' });
@@ -259,15 +332,11 @@ Page({
     if (P.online()) {
       this.busy = true;
       try {
-        // R3：键绑定命令上下文（period 变化换键——防跨月旧键死锁）
-        if (!this.archiveKey || this.archiveKeyCtx !== this.data.period) {
-          this.archiveKey = 'performance-task-archive:' + this.data.period + ':' + Date.now();
-          this.archiveKeyCtx = this.data.period;
-        }
-        await P.perform('archive', { period: this.data.period, idem: this.archiveKey });
+        const payload = { period: this.data.period };
+        await P.perform('archive', { ...payload, idem: this.commandKey('archive', payload) });
         this.requestedView = 'archive';
         this.refresh();
-        this.archiveKey = null; this.archiveKeyCtx = null; // 成功废弃
+        delete this.commandKeys.archive;
         wx.showToast({ title: '本月任务已归档', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
       finally { this.busy = false; }
@@ -280,13 +349,10 @@ Page({
     if (P.online()) {
       this.busy = true;
       try {
-        if (!this.reviseKey || this.reviseKeyCtx !== this.data.period) {
-          this.reviseKey = 'performance-task-archive:' + this.data.period + ':r' + Date.now();
-          this.reviseKeyCtx = this.data.period;
-        }
-        await P.perform('revise', { period: this.data.period, idem: this.reviseKey });
+        const payload = { period: this.data.period };
+        await P.perform('revise', { ...payload, idem: this.commandKey('revise', payload) });
         this.refresh();
-        this.reviseKey = null; this.reviseKeyCtx = null; // 成功废弃
+        delete this.commandKeys.revise;
         wx.showToast({ title: '修订版已归档', icon: 'success' });
       } catch (error) { this.fail(P.errorText(error)); }
       finally { this.busy = false; }

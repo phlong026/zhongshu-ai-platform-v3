@@ -5,7 +5,7 @@ const stamp = () => new Date().toISOString();
 const localDate=(value=Date.now())=>new Date(new Date(value).getTime()+8*3600000).toISOString().slice(0,10);
 const displayTime=value=>typeof value==='string'?value.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g,x=>new Date(Date.parse(x)+8*3600000).toISOString().slice(0,16).replace('T',' ')):value;
 function displayOrder(o){if(!o)return null;const Files=require('./sample-files'),value=clone(o);value.events=(value.events||[]).map(e=>Object.assign({},e,{text:Files.displayText(e.text),title:Files.displayText(e.title),at:displayTime(e.at)}));if(value.plan?.file)value.plan.file=Files.displayFile(value.plan.file);if(value.delivery?.files)value.delivery.files=value.delivery.files.map(Files.displayFile);if(value.cancel?.file)value.cancel.file=Files.displayFile(value.cancel.file);if(value.cancel?.history)value.cancel.history=value.cancel.history.map(row=>({...row,file:Files.displayFile(row.file)}));for(const key of ['cancel','delivery'])if(value[key])for(const field of ['at','receivedAt'])if(value[key][field])value[key][field]=displayTime(value[key][field]);return value;}
-const chapters = ['找准乡墅客户的关注点', '提取参考视频文案', '用AI改写获客文案', '把文案生成数字人口播', '添加封面与发布文案', '发布作品与记录线索', '复盘数据与优化内容', '完整实操与学习回顾'];
+const chapters = require('./learning-catalog').chapters['ai-video'];
 const courseImage = '/assets/account-course.jpg';
 const planImage = '/pages/account/assets/service-plan.jpg';
 function emptyState(){return { version: 1, session: { loggedIn: false, staffId: '', userId: '', companyId: '', role: '', roleSchemaVersion: 5 }, profile: { name: '访客', phone: '', avatar: '/assets/account-avatar.jpg' }, companies: [], learning: {}, messages: [], feedback: [], favorites: [], drafts: {}, orders: [], procurements: [] };}
@@ -25,7 +25,7 @@ function visible(s){const n=clone(s);delete n.personal;n.orders=visibleOrders(s)
 function logout(s){if(s.session.loggedIn){s.personal=s.personal||{};s.personal[s.session.companyId+':'+s.session.staffId]={learning:clone(s.learning),favorites:clone(s.favorites),profile:clone(s.profile)};}s.session.loggedIn=false;s.profile={name:'访客',phone:'',avatar:'/assets/account-avatar.jpg'};s.learning={};s.favorites=[];}
 function order(s,id){return visibleOrders(s).find(x=>x.id===id)||null;}
 function draftKey(s,id){return ['request',s.session.companyId,s.session.userId,id].join(':');}
-const courseChapters={'ai-video':chapters,engineering:['开工资料与施工图版本核对','现场条件与班组安排','现场交底与业主确认','施工计划与材料进场','节点验收与整改复验','竣工交付与资料归档']};
+const courseChapters=require('./learning-catalog').chapters;
 function progress(s,id='ai-video'){const rows=courseChapters[id]||chapters,p=(permitted(s,'account')?s.learning:{})[id]||{completed:[],current:0},done=p.completed.filter(i=>Number.isInteger(i)&&i>=0&&i<rows.length);return {completed:done.length,total:rows.length,current:Math.min(p.current,rows.length-1),percent:done.length/rows.length*100,chapter:rows[Math.min(p.current,rows.length-1)],done};}
 function completeChapter(s,id,index){requireSession(s);const rows=courseChapters[id];if(!rows||!Number.isInteger(index)||index<0||index>=rows.length)throw Error('课程章节不存在');const p=s.learning[id]||(s.learning[id]={completed:[],current:0});if(index>p.completed.length)throw Error('请先完成前面的章节');if(!p.completed.includes(index))p.completed.push(index);p.current=Math.min(p.completed.length,rows.length-1);return p;}
 

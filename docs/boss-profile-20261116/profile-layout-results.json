@@ -1,0 +1,72 @@
+{
+  "result": "passed",
+  "mode": "isolated native WeChat renderer; all requests mocked",
+  "checks": [
+    "头像、姓名、岗位、公司和资料入口均在卡片内，无重叠"
+  ],
+  "geometry": [
+    {
+      "id": "",
+      "dataset": {
+        "action": "profile"
+      },
+      "left": 15,
+      "right": 375.3999938964844,
+      "top": 99,
+      "bottom": 198,
+      "width": 360.3999938964844,
+      "height": 99
+    },
+    {
+      "id": "",
+      "dataset": {},
+      "left": 27,
+      "right": 85,
+      "top": 119.5,
+      "bottom": 177.5,
+      "width": 58,
+      "height": 58
+    },
+    {
+      "id": "",
+      "dataset": {},
+      "left": 96,
+      "right": 144,
+      "top": 127.5,
+      "bottom": 149.5,
+      "width": 48,
+      "height": 22
+    },
+    {
+      "id": "",
+      "dataset": {},
+      "left": 151,
+      "right": 185,
+      "top": 130,
+      "bottom": 147,
+      "width": 34,
+      "height": 17
+    },
+    {
+      "id": "",
+      "dataset": {},
+      "left": 96,
+      "right": 291.40000915527344,
+      "top": 152.5,
+      "bottom": 169.5,
+      "width": 195.40000915527344,
+      "height": 17
+    },
+    {
+      "id": "",
+      "dataset": {},
+      "left": 302.3999938964844,
+      "right": 350.3999938964844,
+      "top": 140,
+      "bottom": 157,
+      "width": 48,
+      "height": 17
+    }
+  ],
+  "exceptions": []
+}

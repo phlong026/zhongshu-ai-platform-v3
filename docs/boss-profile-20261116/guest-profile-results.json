@@ -1,0 +1,9 @@
+{
+  "result": "passed",
+  "mode": "isolated native WeChat renderer; all requests mocked",
+  "checks": [
+    "未登录显示学习培训和精选课程，不显示个人进度且不请求个人数据",
+    "点击课程引导登录，并保留目标课程地址"
+  ],
+  "exceptions": []
+}

@@ -26,27 +26,36 @@
       </view>
     </view>
 
-    <block wx:if="{{view==='team'}}">
-      <view class="card">
-        <view class="heading">上月实绩建议</view>
-        <text class="hint">按上月工作记录生成本月建议任务。</text>
-        <button wx:if="{{canInitialize}}" class="secondary initialize-previous" bindtap="initializePrevious">生成本月建议任务</button>
-        <text wx:else class="hint">本月任务已归档，不可重新初始化。</text>
-        <text wx:if="{{initializationHint}}" class="hint">{{initializationHint}}</text>
-      </view>
+    <block wx:if="{{view==='team'&&canManage}}">
       <view class="card task-form"><form class="task-form-body" bindsubmit="submitTask">
         <view class="heading">派发月度任务</view>
-        <label class="task-field"><text class="task-label">任务标题</text><input class="task-input" name="title" value="{{form.title}}" data-key="title" bindinput="field" placeholder="例：完成基础节点验收" maxlength="60"/></label>
-        <label class="task-field"><text class="task-label">责任人</text><picker class="task-select" range="{{staff}}" range-key="name" value="{{assigneeIndex}}" bindchange="selectAssignee"><view class="picker">{{form.assigneeId?staff[assigneeIndex].name:'请选择责任人'}}</view></picker></label>
-        <label class="task-field"><text class="task-label">类型</text><picker class="task-select" range="{{types}}" range-key="label" value="{{typeIndex}}" bindchange="selectType"><view class="picker">{{types[typeIndex].label}}</view></picker></label>
-        <label class="task-field"><text class="task-label">截止日期</text><picker class="task-select" mode="date" value="{{form.due}}" start="{{period}}-01" end="{{periodEnd}}" bindchange="field" data-key="due"><view class="picker">{{form.due}}</view></picker></label>
-        <label class="task-field" wx:if="{{form.type!=='manual'}}"><text class="task-label">目标值</text><input class="task-input" name="target" value="{{form.target}}" data-key="target" bindinput="field" type="digit" placeholder="请输入自动目标"/></label>
+        <view class="task-field">
+          <text class="task-label">任务内容</text>
+          <view class="task-combobox">
+            <input class="task-input task-title-input" name="title" value="{{form.title}}" bindinput="inputTask" bindfocus="openTaskOptions" disabled="{{submitting}}" placeholder="选择任务或直接输入" maxlength="60"/>
+            <button class="task-dropdown-toggle" bindtap="toggleTaskOptions" disabled="{{submitting}}" aria-label="{{taskOptionsOpen?'收起任务选项':'展开任务选项'}}" aria-expanded="{{taskOptionsOpen}}"><image class="{{taskOptionsOpen?'expanded':''}}" src="/assets/creation-chevron.png" mode="aspectFit"/></button>
+          </view>
+          <view wx:if="{{taskOptionsOpen}}" class="task-options">
+            <button class="task-option task-custom-option" data-id="manual" bindtap="selectTaskOption"><text>{{taskQuery?'使用输入内容':'自定义任务'}}</text><text class="hint">直接填写要安排的工作</text></button>
+            <text wx:if="{{reuseBusy}}" class="task-options-hint hint">正在读取上月任务…</text>
+            <view wx:if="{{reuseError}}" class="task-options-retry"><text class="hint">上月任务暂未读取成功，可继续输入</text><button bindtap="loadReusableTasks">重试</button></view>
+            <scroll-view wx:if="{{taskOptionCount>0}}" class="task-options-scroll" style="height:{{taskOptionsHeight}}rpx" scroll-y="{{true}}">
+              <button wx:for="{{taskOptions}}" wx:key="id" class="task-option" data-id="{{item.id}}" bindtap="selectTaskOption"><text>{{item.label}}</text><text class="hint">{{item.detail}}</text></button>
+            </scroll-view>
+            <text wx:elif="{{!reuseBusy}}" class="task-options-hint hint">暂无匹配任务，可直接输入新任务</text>
+            <button class="task-options-close" bindtap="closeTaskOptions">收起选项</button>
+          </view>
+        </view>
+        <view wx:if="{{form.type!=='manual'}}" class="selected-task-type">{{types[typeIndex].label}} · 按业务记录统计</view>
+        <label class="task-field"><text class="task-label">责任人</text><picker class="task-select" range="{{staff}}" range-key="name" value="{{assigneeIndex}}" disabled="{{submitting}}" bindchange="selectAssignee"><view class="picker">{{form.assigneeId?staff[assigneeIndex].name:'请选择责任人'}}</view></picker></label>
+        <label class="task-field"><text class="task-label">截止日期</text><picker class="task-select" mode="date" value="{{form.due}}" start="{{period}}-01" end="{{periodEnd}}" disabled="{{submitting}}" bindchange="field" data-key="due"><view class="picker">{{form.due}}</view></picker></label>
+        <label class="task-field" wx:if="{{form.type!=='manual'}}"><text class="task-label">目标值（{{types[typeIndex].unit}}）</text><input class="task-input" name="target" value="{{form.target}}" data-key="target" bindinput="field" disabled="{{submitting}}" type="digit" placeholder="请输入目标值"/></label>
         <view wx:if="{{previous}}" class="hint">上月同类事实：{{previous.value}}{{previous.unit}}（{{previous.period}}）</view>
-        <button class="primary" form-type="submit">派发任务</button>
+        <button class="primary" form-type="submit" loading="{{submitting}}" disabled="{{submitting}}">{{submitting?'正在派发':'派发任务'}}</button>
       </form></view>
     </block>
 
-    <view wx:if="{{view!=='archive'}}" class="list-head"><text>{{view==='team'?'组织任务':'绩效进展详情'}}</text><text>{{rows.length}} 项</text></view>
+    <view wx:if="{{view!=='archive'}}" class="list-head"><text>{{view==='team'?'组织任务':'绩效进展详情'}}</text><text>{{taskCount}} 项</text></view>
     <view wx:if="{{view!=='archive' && !rows.length}}" class="card"><empty-state message="本月暂无绩效任务"/></view>
     <view wx:if="{{view!=='archive'}}" wx:for="{{rows}}" wx:key="id" class="card task-card">
       <view class="task-top"><view class="task-copy"><text class="task-title">{{item.title}}</text><text class="meta">{{item.assigneeName}} · {{item.typeLabel}} · 截止 {{item.due}}</text></view><text class="status {{item.status==='已完成'?'done':''}}">{{item.status}}</text></view>

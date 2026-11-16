@@ -4,6 +4,8 @@ const A = require('../../utils/account');
 const O = require('../../utils/organization');
 const M = require('../../utils/platform-messages');
 const http = require('../../api/http');
+const Learning = require('../../utils/learning-catalog');
+const Profile = require('../../utils/platform-profile');
 
 const TEAM = { 'sales-lead': ['业务团队', 'business-team'], 'project-manager': ['工程团队', 'engineering-team'], 'finance-lead': ['财务管理', 'finance-team'], owner: ['门店团队与交接', 'staff'] };
 const account = (view, extra = '') => '/pages/account/index?view=' + view + extra;
@@ -58,21 +60,28 @@ module.exports = function (tabIndex) {
       const s = A.load(), c = A.company(s), a = A.access.context(s);
       // 联合调试修复（2026-11-08）：登录态必须含 API 会话——纯 API 登录（微信一键/短信）下
       // 本地 session.loggedIn 恒 false，「我的」页永远显示登录按钮。API 岗位/昵称为真源展示。
-      const apiPost = (() => { try { const http = require('../../api/http'); return http.token() ? require('../../api/auth').currentApiPost() : null; } catch (e) { return null; } })();
+      const apiPost = (() => { try { return http.token() ? require('../../api/auth').currentApiPost() : null; } catch (e) { return null; } })();
       const apiLoggedIn = !!apiPost;
+      const loggedIn = s.session.loggedIn || apiLoggedIn;
       const actor = apiLoggedIn ? { ...O.apiContext(apiPost), companyId: apiPost.orgId } : a;
       const engineeringProfile = !!(apiLoggedIn && ['engineer', 'project-manager'].includes(apiPost.roleCode)) || !!(a.active && O.has(a.role, 'engineer') && !apiLoggedIn);
       const ownerProfile = !!(apiLoggedIn && ['boss', 'owner'].includes(apiPost.roleCode)) || !!(a.active && require('../../utils/access').isBoss(a) && !apiLoggedIn);
+      const courses = Learning.coursesFor(actor.active ? actor.role : '');
+      const course = loggedIn
+        ? (ownerProfile && courses.find(item => item.id === 'management')) || courses[0] || null
+        : Learning.courses.find(item => item.id === 'ai-video') || null;
+      const company=apiLoggedIn?(apiPost.orgName||''):(c?c.name:'');
+      const role=apiLoggedIn?(O.roles[apiPost.roleCode]||apiPost.roleCode):(A.roles[s.session.role]||'');
       this.setData({
-        engineeringProfile, courseId: engineeringProfile ? 'engineering' : 'ai-video', courseTitle: engineeringProfile ? '乡墅开工与现场交底' : 'AI短视频获客实战',
-        courseImage: engineeringProfile ? '/pages/account/assets/course-engineering.jpg' : A.courseImage,
-        loggedIn: s.session.loggedIn || apiLoggedIn, showStoreServices: !apiLoggedIn && (!s.session.loggedIn || a.orgType === 'store'),
+        identityText:Profile.compactIdentity(company,role),identityOrganization:Profile.compactIdentity(company,''),identityRole:Profile.compactIdentity('',role),learningAvailable:!!course,learningLabel:course?course.category+'培训':'',
+        engineeringProfile, courseId:course?course.id:'',courseTitle:course?course.name:'',courseImage:course?course.image:'',
+        loggedIn, showStoreServices: !apiLoggedIn && (!s.session.loggedIn || a.orgType === 'store'),
         entries: entries(actor),
         ownerProfile, managementEntries: managementEntries(actor),
         name: apiLoggedIn ? (apiPost.name || s.profile.name) : s.profile.name, avatar: s.profile.avatar,
         role: apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : A.roles[s.session.role],
         company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
-        unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total: (A.courseChapters[engineeringProfile ? 'engineering' : 'ai-video'] || A.chapters).length, percent: 0 }
+        unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total:course?course.lessons:0, percent: 0 }
       });
       // API 未读数（基-2）：有会话才拉，回来合计刷新（11 文档 §十）
       // 课程进度代次守卫（Codex R2 P2）：递增移到 token 检查外——退出/换会话（无新请求）也使旧挂起响应失效
@@ -114,7 +123,7 @@ module.exports = function (tabIndex) {
       if (!target) {
         const action = d.action || (ACTIONS[d.view] ? d.view : ''), eng = this.data.engineeringProfile;
         target = ACTIONS[action] ? ACTIONS[action](eng, d.id || (action === 'course' ? this.data.courseId : ''), this.data.ownerProfile) : d.view ? account(d.view, d.id ? '&id=' + encodeURIComponent(d.id) : '') : '';
-        if (!this.data.loggedIn && (LOGIN_ONLY.includes(action) || (d.view && ['profile', 'messages', 'orders', 'personal-performance'].includes(d.view)))) target = account('login', '&return=' + encodeURIComponent(target));
+        if (!this.data.loggedIn && (['learning','resources','course'].includes(action)||LOGIN_ONLY.includes(action) || (d.view && ['profile', 'messages', 'orders', 'personal-performance'].includes(d.view)))) target = account('login', '&return=' + encodeURIComponent(target));
       }
       if (target) wx.navigateTo({ url: target });
     }

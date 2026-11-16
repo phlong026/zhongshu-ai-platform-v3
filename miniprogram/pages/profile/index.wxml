@@ -1,2 +1,2 @@
 <import src="./profile.wxml"/>
-<template is="profile" data="{{loggedIn,name,role,company,avatar,unread,progress,courseImage,courseTitle,entries,showStoreServices,ownerProfile,managementEntries}}"/>
+<template is="profile" data="{{loggedIn,name,role,company,identityText,identityOrganization,identityRole,learningAvailable,learningLabel,avatar,unread,progress,courseImage,courseTitle,entries,showStoreServices,ownerProfile,managementEntries}}"/>

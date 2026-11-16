@@ -126,14 +126,14 @@ ok('platPerformance：money 指标 display 带 ¥', (() => {
 console.log('[3] 页面接入与降级路径（静态扫描）');
 const tasksSrc = read('miniprogram/pages/admin/tasks/index.js');
 ok('tasks 页 API 分流（refreshOnline）', tasksSrc.includes('refreshOnline'));
-ok('tasks 页六动作分流', ['create', 'reassign', 'manual', 'initialize', 'archive', 'revise']
+ok('tasks 页保留五项办理动作，删除批量建议生成', ['create', 'reassign', 'manual', 'archive', 'revise']
   .every(a => tasksSrc.includes("P.perform('" + a + "'")));
-ok('tasks 页 busy 门禁（六动作 this.busy）', (tasksSrc.match(/this\.busy = true/g) || []).length >= 5
-  && (tasksSrc.match(/finally \{ this\.busy = false; \}/g) || []).length >= 5);
-ok('tasks 页幂等键贯穿（idem: 传参+R3 上下文绑定）', tasksSrc.includes('idem: form.idempotencyKey')
-  && tasksSrc.includes("'performance-task-reassign:'") && tasksSrc.includes('this.archiveKeyCtx')
-  && tasksSrc.includes('this.reviseKeyCtx') && tasksSrc.includes('this.manualKeyCtx'));
-ok('tasks 页成员真源（loadMembers）', tasksSrc.includes('P.loadMembers()') && tasksSrc.includes('orgApi'));
+ok('tasks 页五项动作 busy 门禁', (tasksSrc.match(/this\.busy = true/g) || []).length >= 5
+  && (tasksSrc.match(/finally \{ this\.busy = false;/g) || []).length >= 5);
+ok('tasks 页幂等键绑定实际请求正文及岗位会话', tasksSrc.includes('P.taskPayload(action, payload)')
+  && tasksSrc.includes('http.currentPostId()') && tasksSrc.includes('http.sessionGeneration()')
+  && ['create','reassign','manual','archive','revise'].every(action=>tasksSrc.includes("this.commandKey('"+action+"'")));
+ok('tasks 页成员真源（loadMembers）', tasksSrc.includes('P.loadMembers()'));
 ok('tasks 页 API 态类型表切换（P.TYPES）', tasksSrc.includes('types: P.TYPES'));
 const commissionSrc = read('miniprogram/pages/admin/commission/index.js');
 ok('commission 页 API 身份（apiPost.roleCode——Codex P1-2）', commissionSrc.includes('P.apiPost()')

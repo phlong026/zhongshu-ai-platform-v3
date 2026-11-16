@@ -6,3 +6,16 @@
 .profile-page{font-weight:400;line-height:40rpx;letter-spacing:0}.profile-page button{font-family:inherit}.section-title{font-weight:700;line-height:40rpx}
 .profile-name,.quick-card .count{font-weight:700}.course-title{font-weight:500;line-height:40rpx}.course-status{line-height:34rpx}.service-row{font-size:var(--zs-font-emphasis);line-height:40rpx}
 .profile-page.profile-nested{min-height:100vh;padding-bottom:calc(140rpx + env(safe-area-inset-bottom))}
+
+.profile-role{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.profile-card{height:auto;min-height:192rpx;padding:28rpx 24rpx;gap:22rpx;box-sizing:border-box}
+.profile-avatar,.guest-avatar{width:112rpx;height:112rpx;margin-right:0;border:4rpx solid #f6efe7;box-sizing:border-box}
+.profile-name-row{display:flex;align-items:center;gap:14rpx;min-width:0;margin-bottom:6rpx}
+.profile-name-row .profile-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:32rpx;line-height:44rpx}
+.profile-role-label{flex-shrink:0;padding:0 12rpx;border-radius:8rpx;background:#f5ede3;color:var(--zs-brand);font-size:var(--zs-font-caption);line-height:34rpx}
+.profile-organization{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;white-space:normal;font-size:var(--zs-font-meta);line-height:34rpx;color:var(--zs-text-3)}
+.profile-action{display:flex;align-items:center;flex-shrink:0;gap:12rpx;margin-left:auto;white-space:nowrap}
+.profile-action .profile-link{margin:0;font-size:var(--zs-font-meta);line-height:34rpx}
+.profile-action .chevron{position:static;flex-shrink:0}
+.profile-card>.login-link{flex-shrink:0;margin-right:0;padding:10rpx 20rpx}

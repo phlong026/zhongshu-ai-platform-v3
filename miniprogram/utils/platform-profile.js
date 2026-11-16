@@ -30,4 +30,13 @@ function maskPhone(phone) {
   return s.length >= 7 ? s.slice(0, 3) + '****' + s.slice(-4) : s;
 }
 
-module.exports = { normalizeNickname, mergeProfile, maskPhone };
+/** 组织正式名称为“品牌-省市-区县-负责人”；姓名已在上一行显示，副标题省去重复姓名。 */
+function compactIdentity(company, role) {
+  const raw = String(company || '').trim();
+  const parts = raw.split(/\s*[-－—·]\s*/).filter(Boolean);
+  const organization = parts.length >= 4 ? [parts[0],parts[1]+parts[2].split(parts[0]).join('').replace(/[区县市]$/,'')].join(' · ') : raw;
+  const shortRole = { '门店负责人': '负责人', '财务专员': '财务', '工程人员': '工程', '设计行政': '设计' }[role] || role || '';
+  return [organization, shortRole].filter(Boolean).join(' · ');
+}
+
+module.exports = { normalizeNickname, mergeProfile, maskPhone, compactIdentity };

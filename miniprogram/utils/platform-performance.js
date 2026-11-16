@@ -20,7 +20,7 @@ const orgApi = require('../api/org');
 
 /** 任务类型标签（后端合法集；financeReviews 不建——19 §九） */
 const TYPES = [
-  { id: 'manual', label: '手动任务', unit: '', manual: true },
+  { id: 'manual', label: '自定义任务', unit: '', manual: true },
   { id: 'auto:collectionsAmount', label: '回款金额', unit: '元', money: true },
   { id: 'auto:contract', label: '签约金额', unit: '元', money: true },
   { id: 'auto:completedNodes', label: '完成节点', unit: '个' },
@@ -345,6 +345,22 @@ async function loadTasks(period, view, memberUserId) {
   return (data || []).map(taskView);
 }
 
+// 请求正文与幂等指纹共用同一序列化，避免显示字段或数字格式变化产生不同判断。
+function taskPayload(action, p) {
+  switch (action) {
+    case 'create': return {
+      period: p.period, title: p.title, assigneeUserId: String(p.assigneeId),
+      assigneeName: p.assigneeName || '', assigneeDept: p.assigneeDept || 'business',
+      type: p.type, targetCents: p.type === 'manual' ? 0 : toTargetRaw(p.type, p.target), due: p.due
+    };
+    case 'reassign': return { assigneeUserId: String(p.assigneeUserId), assigneeName: p.assigneeName || '' };
+    case 'manual': return { note: p.note, photos: (p.photos || []).filter(x => typeof x === 'string' && x.indexOf('wxfile') !== 0 && x.indexOf('http') !== 0) };
+    case 'archive': return { period: p.period, note: p.note || '月度绩效任务归档' };
+    case 'revise': return { period: p.period, note: p.note || '原业务事实变化后重新冻结' };
+    default: throw new Error('未知任务操作');
+  }
+}
+
 /**
  * 写动作在线编排（payload.idem 显式幂等键贯穿——Codex P1-10）。
  * 全部 id 保持字符串（禁 Number()——Codex P1-7）；错误抛原始对象由页面 errorText 展示。
@@ -354,22 +370,21 @@ async function perform(action, payload) {
   const key = p.idem;
   switch (action) {
     case 'create':
-      return api.tasks.create({
-        period: p.period, title: p.title, assigneeUserId: String(p.assigneeId),
-        assigneeName: p.assigneeName || '', assigneeDept: p.assigneeDept || 'business',
-        type: p.type, targetCents: toTargetRaw(p.type, p.target), due: p.due
-      }, key);
-    case 'reassign':
-      return api.tasks.reassign(String(p.id), String(p.assigneeUserId), p.assigneeName, key);
-    case 'manual':
-      return api.tasks.completeManual(String(p.id), p.note,
-        (p.photos || []).filter(x => typeof x === 'string' && x.indexOf('wxfile') !== 0 && x.indexOf('http') !== 0), key);
+      return api.tasks.create(taskPayload(action, p), key);
+    case 'reassign': {
+      const body = taskPayload(action, p);
+      return api.tasks.reassign(String(p.id), body.assigneeUserId, body.assigneeName, key);
+    }
+    case 'manual': {
+      const body = taskPayload(action, p);
+      return api.tasks.completeManual(String(p.id), body.note, body.photos, key);
+    }
     case 'initialize':
       return api.tasks.initializePrevious(p.period, key);
     case 'archive':
-      return api.tasks.archive(p.period, p.note || '月度绩效任务归档', key);
+      return api.tasks.archive(p.period, taskPayload(action, p).note, key);
     case 'revise':
-      return api.tasks.revise(p.period, p.note || '原业务事实变化后重新冻结', key);
+      return api.tasks.revise(p.period, taskPayload(action, p).note, key);
     case 'policy':
       return api.commission.policy(String(p.projectId), toTargetRaw('auto:collectionsAmount', p.amount),
         String(p.assigneeUserId), p.assigneeName,
@@ -399,5 +414,5 @@ module.exports = {
   toTargetCents: toTargetRaw, safeParse,
   online, apiPost, errorText, taskView, archiveView, memberView, loadMembers,
   commissionRowView, loadCommission, platPerformance,
-  api, loadTasks, perform
+  api, loadTasks, taskPayload, perform
 };
