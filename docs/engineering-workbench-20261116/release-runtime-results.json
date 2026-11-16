@@ -1,0 +1,66 @@
+{
+  "result": "passed",
+  "mode": "official WeChat automator; production AppID; unauthenticated runtime",
+  "checkedAt": "2026-11-16T09:00:38.181Z",
+  "routes": [
+    {
+      "name": "首页",
+      "requestedRoute": "/pages/home/index",
+      "actualRoute": "pages/home/index",
+      "navigationError": "",
+      "consoleEvents": [
+        {
+          "type": "info",
+          "args": [
+            "Lazy code loading is enabled. Only injecting required components."
+          ]
+        }
+      ],
+      "exceptions": []
+    },
+    {
+      "name": "工程工作台",
+      "requestedRoute": "/pages/engineering/index",
+      "actualRoute": "pages/account/index",
+      "navigationError": "",
+      "consoleEvents": [],
+      "exceptions": []
+    },
+    {
+      "name": "工程项目",
+      "requestedRoute": "/pages/build/projects/index",
+      "actualRoute": "pages/account/index",
+      "navigationError": "",
+      "consoleEvents": [],
+      "exceptions": []
+    },
+    {
+      "name": "项目工作台",
+      "requestedRoute": "/pages/build/home/index",
+      "actualRoute": "pages/profile/index",
+      "navigationError": "",
+      "consoleEvents": [],
+      "exceptions": []
+    },
+    {
+      "name": "我的",
+      "requestedRoute": "/pages/profile/index",
+      "actualRoute": "pages/profile/index",
+      "navigationError": "",
+      "consoleEvents": [],
+      "exceptions": []
+    }
+  ],
+  "consoleEventCount": 1,
+  "exceptionCount": 0,
+  "projectWarningCount": 0,
+  "consoleEvents": [
+    {
+      "type": "info",
+      "args": [
+        "Lazy code loading is enabled. Only injecting required components."
+      ]
+    }
+  ],
+  "exceptions": []
+}

@@ -1,0 +1,12 @@
+{
+  "result": "passed",
+  "mode": "isolated native WeChat renderer; mocked requests",
+  "checks": [
+    "原生四指标单击跳转对应筛选",
+    "多项目右下角显示更多可展开",
+    "顶部新增和增项入口打开表单",
+    "材料入口和项目材料详情原生跳转成功",
+    "无项目页面不显示查看项目或显示更多"
+  ],
+  "errors": []
+}
