@@ -13,8 +13,25 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** HiFly 数字人提交/轮询形状断言（16a A1：create_by_tts、状态 1/2/3/4、video_Url 拼写怪癖；零真实外呼）。 */
 class HiflyOralClientTest {
+    @Test
+    void officialRootLevelVideoResultCompletesWithPlayableUrl() {
+        var transport=new ContentProviderTransport.Scripted(ContentProviderTransport.json(200,
+                "{\"code\":0,\"status\":3,\"video_Url\":\"https://cdn.example/official.mp4\",\"duration\":62}",0));
+        var result=new HiflyOralClient(config(),transport,null).poll("official-task",ProviderCallAudit.NONE);
+        assertThat(result.status()).isEqualTo("DONE");
+        assertThat(result.videoUrl()).isEqualTo("https://cdn.example/official.mp4");
+        assertThat(result.durationSec()).isEqualTo(62);
+    }
 
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    @Test void completionWithoutPlayableUrlRemainsPendingVerification() {
+        for(String url:java.util.List.of("","javascript:alert(1)","not-a-video-url")) {
+            var transport=new ContentProviderTransport.Scripted(ContentProviderTransport.json(200,
+                    "{\"code\":0,\"status\":3,\"video_Url\":\""+url+"\"}",0));
+            assertThat(new HiflyOralClient(config(),transport,null).poll("task",ProviderCallAudit.NONE).status()).isEqualTo("UNKNOWN");
+        }
+    }
 
     private static ContentProviderProperties.Hifly config() {
         ContentProviderProperties.Hifly config = new ContentProviderProperties.Hifly();

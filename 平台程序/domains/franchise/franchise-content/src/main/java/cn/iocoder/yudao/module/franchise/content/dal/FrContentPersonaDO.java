@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -20,13 +22,30 @@ public class FrContentPersonaDO {
     private Long id;
     private Long companyId;
     private String name;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String who;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String sell;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String audience;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String cta;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String ipType;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String track;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String differentiator;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String expressionStyle;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String audienceNeeds;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String factualBackground;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String sampleScript;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String forbiddenClaims;
     private Boolean enabled;
     private Long authorUserId;
     private OffsetDateTime createTime;

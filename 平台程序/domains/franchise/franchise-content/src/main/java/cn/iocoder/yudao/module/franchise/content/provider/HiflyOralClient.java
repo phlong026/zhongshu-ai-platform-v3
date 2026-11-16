@@ -152,13 +152,24 @@ public class HiflyOralClient implements OralVideoPort {
             throw new ContentProviderException.Rejection(vendorMessage(code, envelope), response.status(),
                     String.valueOf(code));
         }
-        JsonNode data = envelope.path("data");
+        JsonNode nested = envelope.get("data");
+        JsonNode data = nested != null && nested.isObject() ? nested : envelope;
         // vendor 拼写怪癖：video_Url；兼容常规 video_url（hifly.py:613-614）
         String videoUrl = data.path("video_Url").asText(data.path("video_url").asText(null));
         JsonNode duration = data.get("duration");
         record(audit, "video/task", "OK", null, latency);
-        return new Snapshot(vendorStatus(data.path("status")),
+        String status = vendorStatus(data.path("status"));
+        if ("DONE".equals(status) && !usableVideoUrl(videoUrl)) status = "UNKNOWN";
+        return new Snapshot(status,
                 videoUrl, duration != null && duration.isNumber() ? duration.asInt() : null);
+    }
+
+    private static boolean usableVideoUrl(String value) {
+        if (value == null || value.isBlank()) return false;
+        try {
+            var uri = java.net.URI.create(value);
+            return uri.getHost() != null && ("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()));
+        } catch (IllegalArgumentException e) { return false; }
     }
 
     // ---------------- 公共 ----------------

@@ -18,6 +18,11 @@ public interface OrgPointPort {
 
     /** 预扣；返回 operationId。只按业务权限和公司积分余额准入。 */
     long reserve(ReserveCommand command);
+    /** 核对用户确认价格后才允许预扣。 */
+    default long reserveConfirmed(ReserveCommand command,long confirmedCredits) {
+        throw new IllegalArgumentException("当前积分实现不支持确认价格预扣");
+    }
+
 
     /** 按 operation 结算（按原快照换算实收，退差 max(N-M,0)）。 */
     Settlement settle(long operationId, long actualQuantity);

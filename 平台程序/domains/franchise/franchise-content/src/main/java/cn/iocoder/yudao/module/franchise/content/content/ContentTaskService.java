@@ -45,6 +45,8 @@ import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentEr
  */
 @Service
 public class ContentTaskService {
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ContentCloneService clones;
 
     private static final Logger log = LoggerFactory.getLogger(ContentTaskService.class);
     /** 总轮询窗 2h 超窗转人工（A2.6；provider 层单任务连续轮询 5s×1080≈1.5h 由 client 内部控制）。 */
@@ -100,10 +102,15 @@ public class ContentTaskService {
             return requireOwned(post.orgId(), replay.get().getAggregateId());
         }
         FrContentTaskDO task = switch (kind) {
-            case "digital" -> createDigital(post.orgId(), post.userId(),
-                    str(body.get("voice")), str(body.get("text")), str(body.get("avatar")),
-                    str(body.get("title")),
-                    body.get("subtitle") == null ? null : castSubtitle(body.get("subtitle")));
+            case "digital" -> {
+                if(clones==null)throw exception(INPUT_INVALID);
+                ContentCloneService.DigitalSelection selection;
+                try {
+                    selection=clones.select(post,Long.parseLong(String.valueOf(body.get("avatarCloneId"))),Long.parseLong(String.valueOf(body.get("voiceCloneId"))));
+                } catch(NumberFormatException e) { throw exception(INPUT_INVALID); }
+                yield createDigital(post.orgId(),post.userId(),selection.voice(),str(body.get("text")),selection.avatar(),str(body.get("title")),
+                        body.get("subtitle")==null?null:castSubtitle(body.get("subtitle")));
+            }
             case "ai_video" -> createAiVideo(post.orgId(), post.userId(),
                     str(body.get("description")),
                     body.get("references") == null ? List.of() : castRefs(body.get("references")),

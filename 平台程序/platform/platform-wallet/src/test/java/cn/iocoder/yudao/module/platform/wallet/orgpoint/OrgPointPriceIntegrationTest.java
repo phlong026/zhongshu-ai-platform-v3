@@ -173,4 +173,17 @@ class OrgPointPriceIntegrationTest extends PlatformPgIntegrationTest {
         assertThatThrownBy(() -> prices.publish("copy", 1_000_000L, 1_000_000_001L, "admin"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void clonePricingHasNoInventedDefaultAndConfirmedPriceRejectsChangesBeforeReserve() {
+        assertThatThrownBy(() -> orgPoint.quoteCredits("avatar_clone", 1)).isInstanceOf(IllegalArgumentException.class);
+        prices.publish("avatar_clone", 5_000_000L, 1, "admin-1");
+        assertThat(orgPoint.quoteCredits("avatar_clone", 1)).isEqualTo(5);
+        prices.publish("avatar_clone", 6_000_000L, 1, "admin-1");
+        var command = new OrgPointPort.ReserveCommand("clone:confirmed", ORG, 9L, null, "avatar_clone", 1, "content-clone", 1L);
+        assertThatThrownBy(() -> orgPoint.reserveConfirmed(command, 5)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(orgPoint.findAccount(ORG).balance()).isEqualTo(1000);
+        orgPoint.reserveConfirmed(command, 6);
+        assertThat(orgPoint.findAccount(ORG).balance()).isEqualTo(994);
+    }
 }

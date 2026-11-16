@@ -80,6 +80,11 @@ public class ContentPersonaController {
         view.put("ipType", row.getIpType() == null ? "" : row.getIpType());
         view.put("track", row.getTrack() == null ? "" : row.getTrack());
         view.put("differentiator", row.getDifferentiator() == null ? "" : row.getDifferentiator());
+        view.put("expressionStyle", row.getExpressionStyle() == null ? "" : row.getExpressionStyle());
+        view.put("audienceNeeds", row.getAudienceNeeds() == null ? "" : row.getAudienceNeeds());
+        view.put("factualBackground", row.getFactualBackground() == null ? "" : row.getFactualBackground());
+        view.put("sampleScript", row.getSampleScript() == null ? "" : row.getSampleScript());
+        view.put("forbiddenClaims", row.getForbiddenClaims() == null ? "" : row.getForbiddenClaims());
         view.put("enabled", row.getEnabled() == null || row.getEnabled());
         return view;
     }

@@ -164,9 +164,20 @@ public class OrgPointService implements OrgPointPort {
 
     @Override
     public long reserve(ReserveCommand command) {
+        return reserveWithConfirmation(command,null);
+    }
+
+    @Override
+    public long reserveConfirmed(ReserveCommand command,long confirmedCredits) {
+        return reserveWithConfirmation(command,confirmedCredits);
+    }
+
+    private long reserveWithConfirmation(ReserveCommand command,Long confirmedCredits) {
         PriceSpec spec = resolvePrice(command.subject());
+        if(confirmedCredits!=null&&spec.priceMicros()<=0)throw exception(OrgPointErrors.ORG_PRICE_CONFLICT);
         long quantity = Math.max(command.quantity(), 1);
         long n = creditsFor(spec, quantity);
+        if(confirmedCredits!=null&&confirmedCredits!=n)throw exception(OrgPointErrors.ORG_PRICE_CONFLICT);
         return tx.execute(status -> {
             lockAccount(command.orgId());
             OrgPointAccountRow account = findAccount(command.orgId());

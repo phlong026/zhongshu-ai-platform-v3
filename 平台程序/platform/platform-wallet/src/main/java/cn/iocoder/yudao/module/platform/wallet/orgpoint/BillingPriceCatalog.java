@@ -43,12 +43,17 @@ public final class BillingPriceCatalog {
             "ai_prompt", "提示词调用", Unit.CALL, 1_000_000L, "v1", 1);
     public static final Subject NOTE_POLISH = new Subject(
             "note_polish", "笔记润色", Unit.CALL, 1_000_000L, "v1", 1);
+    // 制作价格必须由平台配置；0 仅表示尚未定价，quote/reserve 会拒绝，不能免费外呼。
+    public static final Subject AVATAR_CLONE = new Subject(
+            "avatar_clone", "数字分身制作", Unit.CALL, 0L, "unconfigured", 1);
+    public static final Subject VOICE_CLONE = new Subject(
+            "voice_clone", "声音克隆", Unit.CALL, 0L, "unconfigured", 1);
 
     private static final Map<String, Subject> SUBJECTS = new LinkedHashMap<>();
 
     static {
         for (Subject subject : new Subject[]{LINK_RESOLUTION, COPY, ASR, DIGITAL, AI_VIDEO_768P,
-                AI_VIDEO_2K, AI_FLAT, AI_ELEVATION, BUDGET_ESTIMATE, AI_PROMPT, NOTE_POLISH}) {
+                AI_VIDEO_2K, AI_FLAT, AI_ELEVATION, BUDGET_ESTIMATE, AI_PROMPT, NOTE_POLISH, AVATAR_CLONE, VOICE_CLONE}) {
             SUBJECTS.put(subject.key(), subject);
         }
     }
