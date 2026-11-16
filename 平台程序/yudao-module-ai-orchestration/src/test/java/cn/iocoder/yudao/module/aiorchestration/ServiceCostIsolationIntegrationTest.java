@@ -40,7 +40,7 @@ class ServiceCostIsolationIntegrationTest {
             }
             ds.setUrl("jdbc:postgresql://127.0.0.1:55445/prelaunch_service_cost");
         } else {
-            container = new PostgreSQLContainer<>("postgres:17-alpine");
+            container = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
             container.start();
             ds.setUrl(container.getJdbcUrl());
             ds.setUsername(container.getUsername());

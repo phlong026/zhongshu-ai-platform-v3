@@ -44,4 +44,7 @@ public class ContentCloneController {
     @PostMapping("/clones/{id}/refresh")
     @PreAuthorize("@post.has('"+ContentPermissions.QUERY+"')")
     public CommonResult<Map<String,Object>> refresh(@PathVariable("id") long id) {return success(clones.refresh(posts.require(),id));}
+    @PutMapping("/clones/{id}/default")
+    @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"')")
+    public CommonResult<Map<String,Object>> setDefault(@PathVariable("id") long id) {return success(clones.setDefault(posts.require(),id));}
 }

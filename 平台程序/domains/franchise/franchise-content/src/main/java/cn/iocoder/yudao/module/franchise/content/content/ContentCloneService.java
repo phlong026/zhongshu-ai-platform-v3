@@ -55,8 +55,19 @@ public class ContentCloneService {
     }
     public List<Map<String,Object>> list(PostSnapshot post,long persona) {
         requirePersona(post.orgId(),persona,false);
+        Set<Long> defaults=new HashSet<>(jdbc.queryForList("SELECT clone_id FROM fr_content_clone_default WHERE company_id=? AND persona_id=?",Long.class,post.orgId(),persona));
         return jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND persona_id=? ORDER BY id DESC",mapper,post.orgId(),persona)
-                .stream().map(this::view).toList();
+                .stream().map(row->view(row,defaults.contains(row.id()))).toList();
+    }
+    public Map<String,Object> setDefault(PostSnapshot post,long id) {
+        if(!Set.of("sales-lead","boss","owner").contains(post.roleCode()))throw invalid("当前岗位不能设置人物默认资源");
+        return tx.execute(status->{
+            CloneRow row=require(post.orgId(),id);requirePersona(post.orgId(),row.persona(),true);
+            if(!usable(row))throw invalid("只能将已就绪并完成结算的分身或声音设为默认");
+            jdbc.update("INSERT INTO fr_content_clone_default(company_id,persona_id,kind,clone_id,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(company_id,persona_id,kind) DO UPDATE SET clone_id=EXCLUDED.clone_id,updated_by=EXCLUDED.updated_by,update_time=now()",
+                    post.orgId(),row.persona(),row.kind(),row.id(),post.userId());
+            return view(row,true);
+        });
     }
     private CloneRow require(long company,long id) {
         return jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND id=?",mapper,company,id).stream().findFirst().orElseThrow(()->invalid("分身或声音不存在或无权使用"));
@@ -133,9 +144,16 @@ public class ContentCloneService {
         return new DigitalSelection(a.persona(),a.resource(),v.resource());
     }
     public Map<String,Object> view(CloneRow row) {
+        boolean selected=Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_content_clone_default WHERE company_id=? AND persona_id=? AND kind=? AND clone_id=?)",Boolean.class,row.company(),row.persona(),row.kind(),row.id()));
+        return view(row,selected);
+    }
+    private static boolean usable(CloneRow row) {
+        return "READY".equals(row.status())&&"SETTLED".equals(row.billing())&&row.resource()!=null&&!row.resource().isBlank();
+    }
+    private Map<String,Object> view(CloneRow row,boolean selected) {
         var view=new LinkedHashMap<String,Object>();
         view.put("id",String.valueOf(row.id()));view.put("personaId",String.valueOf(row.persona()));view.put("kind",row.kind());view.put("title",row.title());
-        view.put("status",row.status());view.put("ready","READY".equals(row.status())&&"SETTLED".equals(row.billing()));
+        view.put("status",row.status());view.put("ready",usable(row));view.put("isDefault",selected&&usable(row));
         view.put("failureReason",row.failure()==null?"":row.failure());
         // 供应商试听短链仅供当前页使用，不作为声音永久标识。
         view.put("demoUrl",row.demo()==null?"":row.demo());

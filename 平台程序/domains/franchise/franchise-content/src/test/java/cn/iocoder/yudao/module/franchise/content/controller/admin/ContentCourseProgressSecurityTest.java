@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.biz.infra.logger.ApiErrorLogCommonApi;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
 import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentCourseProgressDO;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -77,13 +78,35 @@ class ContentCourseProgressSecurityTest {
                 when(currentPost.find()).thenReturn(Optional.of(post));
                 when(currentPost.require()).thenReturn(post);
 
-                mvc.perform(get("/franchise/content/course-progress").param("courseId", "course-1"))
+                mvc.perform(get("/franchise/content/course-progress"))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.code").value(0));
             }
         });
 
-        verify(drafts, times(13)).courseProgress(ORG, USER, "course-1");
+        verify(drafts, times(13)).courseProgress(ORG, USER, null);
+    }
+
+    @Test
+    void financeListOmitsOtherRoleHistoryWhileKeepingOwnTraining() {
+        PostSnapshot finance = new PostSnapshot(11L, USER, ORG, "store", "finance", null, false, Set.of());
+        when(currentPost.require()).thenReturn(finance);
+        when(drafts.courseProgress(ORG, USER, null)).thenReturn(List.of(
+                new FrContentCourseProgressDO().setCourseId("ai-video").setChapterIndex(0),
+                new FrContentCourseProgressDO().setCourseId("finance").setChapterIndex(1)));
+        context.run(ctx -> mvc(ctx).perform(get("/franchise/content/course-progress"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].courseId").value("finance")));
+        verify(drafts).courseProgress(ORG, USER, null);
+    }
+
+    @Test
+    void engineerCannotRequestSalesTrainingEvenByDirectApiLink() {
+        PostSnapshot engineer = new PostSnapshot(11L, USER, ORG, "store", "engineer", null, false, Set.of());
+        when(currentPost.require()).thenReturn(engineer);
+        context.run(ctx -> mvc(ctx).perform(get("/franchise/content/course-progress").param("courseId", "ai-video"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(403)));
+        verify(drafts, never()).courseProgress(anyLong(), anyLong(), any());
     }
 
     @Test

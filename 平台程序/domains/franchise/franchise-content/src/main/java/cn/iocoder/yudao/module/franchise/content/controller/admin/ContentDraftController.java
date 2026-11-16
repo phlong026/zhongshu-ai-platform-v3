@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.content.controller.admin;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
+import cn.iocoder.yudao.module.franchise.content.content.CourseAccess;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentCourseProgressDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentVideoDraftDO;
@@ -95,6 +96,8 @@ public class ContentDraftController {
     @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
     public CommonResult<Map<String, Object>> completeChapter(@RequestBody Map<String, Object> body) {
         PostSnapshot post = post();
+        CourseAccess.requireChapter(post.roleCode(), String.valueOf(body.get("courseId")),
+                Integer.parseInt(String.valueOf(body.get("chapterIndex"))));
         drafts.completeChapter(post.orgId(), post.userId(),
                 String.valueOf(body.get("courseId")),
                 Integer.parseInt(String.valueOf(body.get("chapterIndex"))));
@@ -106,8 +109,9 @@ public class ContentDraftController {
     public CommonResult<List<Map<String, Object>>> courseProgress(@RequestParam(required = false) String courseId) {
         // 学习记录是员工个人数据，不授予内容业务权限；有效任职与本人/org 边界由 CurrentPost 权威提供。
         PostSnapshot post = post();
+        if (courseId != null) CourseAccess.require(post.roleCode(), courseId);
         List<FrContentCourseProgressDO> rows = drafts.courseProgress(post.orgId(), post.userId(), courseId);
-        return success(rows.stream().map(row -> Map.<String, Object>of(
+        return success(rows.stream().filter(row -> CourseAccess.allows(post.roleCode(), row.getCourseId())).map(row -> Map.<String, Object>of(
                 "courseId", row.getCourseId(),
                 "chapterIndex", row.getChapterIndex(),
                 "completedAt", row.getCompletedAt() == null ? "" : row.getCompletedAt().toString())).toList());

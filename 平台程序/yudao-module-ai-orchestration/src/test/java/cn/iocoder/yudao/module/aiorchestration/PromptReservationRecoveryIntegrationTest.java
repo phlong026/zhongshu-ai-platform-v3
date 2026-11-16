@@ -21,7 +21,7 @@ class PromptReservationRecoveryIntegrationTest {
             ds.setUrl("jdbc:postgresql://127.0.0.1:55445/postgres");ds.setUsername("dev_fixture");var admin=new JdbcTemplate(ds);
             if(admin.queryForObject("SELECT count(*) FROM pg_database WHERE datname='prelaunch_prompt'",Integer.class)==0)admin.execute("CREATE DATABASE prelaunch_prompt");
             ds.setUrl("jdbc:postgresql://127.0.0.1:55445/prelaunch_prompt");
-        } else {container=new PostgreSQLContainer<>("postgres:17-alpine");container.start();ds.setUrl(container.getJdbcUrl());ds.setUsername(container.getUsername());ds.setPassword(container.getPassword());}
+        } else {container=cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");container.start();ds.setUrl(container.getJdbcUrl());ds.setUsername(container.getUsername());ds.setPassword(container.getPassword());}
         Flyway.configure().dataSource(ds).locations("classpath:db/migration/platform","classpath:db/migration/commerce","classpath:db/migration/ai-orchestration").load().migrate();
         jdbc=new JdbcTemplate(ds);var tx=new DataSourceTransactionManager(ds);points=new PointAccountService(ds,tx);var ledger=new PointLedgerPortAdapter(points);
         var events=new JdbcReliableEventPort(ds);orch=new AiJobOrchestrationService(ds,tx,events,null,null);

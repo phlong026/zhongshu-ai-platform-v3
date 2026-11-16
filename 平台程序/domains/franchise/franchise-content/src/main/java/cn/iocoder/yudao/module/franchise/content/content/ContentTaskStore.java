@@ -146,6 +146,17 @@ public class ContentTaskStore {
     /** UNKNOWN 人工核验单语句 CAS；互斥结论只能有一个进入账务终态。 */
     public boolean manualVerify(long id, long companyId, long operatorUserId, long operatorPostId,
                                 String decision, Long actualUnits, String reason, String evidence, String key) {
+        return manualVerifyInternal(id,companyId,operatorUserId,operatorPostId,decision,actualUnits,reason,evidence,key);
+    }
+
+    /** 平台核验无员工岗位；显式记录NULL，不伪造老板任职。调用方必须校验平台权限。 */
+    public boolean manualVerifyAsPlatform(long id,long companyId,long operatorUserId,String decision,Long actualUnits,
+                                         String reason,String evidence,String key) {
+        return manualVerifyInternal(id,companyId,operatorUserId,null,decision,actualUnits,reason,evidence,key);
+    }
+
+    private boolean manualVerifyInternal(long id,long companyId,long operatorUserId,Long operatorPostId,
+                                         String decision,Long actualUnits,String reason,String evidence,String key) {
         boolean delivered = "DELIVERED".equals(decision);
         return jdbcTemplate.update(
                 "UPDATE fr_content_task SET status=?, pool_terminal_intent=?, failed_reason=?, complete_time=now(), "
@@ -153,7 +164,8 @@ public class ContentTaskStore {
                         + "manual_verify_evidence=?, manual_verify_operator_user_id=?, manual_verify_operator_post_id=?, "
                         + "manual_verify_idempotency_key=?, manual_verified_at=now() "
                         + "WHERE id=? AND company_id=? AND status='SUBMISSION_UNCERTAIN' "
-                        + "AND pool_biz_key IS NOT NULL AND manual_verify_decision IS NULL",
+                        + "AND pool_biz_key IS NOT NULL AND manual_verify_decision IS NULL"
+                        + (operatorPostId==null?" AND provider_task_id IS NULL":""),
                 delivered ? "SUCCEEDED" : "FAILED", delivered ? "SETTLE" : "RELEASE",
                 delivered ? null : clip(reason), decision, actualUnits, clip(reason), clipEvidence(evidence),
                 operatorUserId, operatorPostId, key, id, companyId) == 1;
