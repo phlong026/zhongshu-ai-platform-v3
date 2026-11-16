@@ -1,0 +1,310 @@
+{
+  "version": "1.0.20261116.6",
+  "mode": "real authenticated boss account; original released source; normal live GET requests; no mocks or account mutation",
+  "startedAt": "2026-11-16T04:16:09.936Z",
+  "account": {
+    "role": "boss",
+    "orgType": "store",
+    "orgName": "合家美宅-江西南昌-高新区合家美宅-裴火荣",
+    "postOrganizationFingerprint": "620b8f9af1b289f14c9ac1c0796e98c55d3de479a4a2bc4227cb6eadf600299c"
+  },
+  "verifiedSourceFiles": 725,
+  "comparisons": [
+    {
+      "key": "business-due",
+      "label": "今日待跟进",
+      "bossHome": 1,
+      "otherHome": 1,
+      "unit": "人",
+      "match": true
+    },
+    {
+      "key": "business-appointments",
+      "label": "预约到店",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "人",
+      "match": true
+    },
+    {
+      "key": "business-commission",
+      "label": "委托金额",
+      "bossHome": "0",
+      "otherHome": "0",
+      "unit": "元",
+      "match": true
+    },
+    {
+      "key": "business-commission-unit",
+      "label": "委托金额单位",
+      "bossHome": "元",
+      "otherHome": "元",
+      "unit": "",
+      "match": true
+    },
+    {
+      "key": "engineering-all",
+      "label": "全部项目／我的项目",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "个",
+      "match": true
+    },
+    {
+      "key": "engineering-pending",
+      "label": "待开工",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "个",
+      "match": true
+    },
+    {
+      "key": "engineering-delivery",
+      "label": "待交付",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "个",
+      "match": true
+    },
+    {
+      "key": "engineering-active",
+      "label": "在建／进行中",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "个",
+      "match": true
+    },
+    {
+      "key": "engineering-work-在建",
+      "label": "工程工作台：在建",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "个",
+      "match": true
+    },
+    {
+      "key": "engineering-work-待开工",
+      "label": "工程工作台：待开工",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "个",
+      "match": true
+    },
+    {
+      "key": "engineering-work-待交付",
+      "label": "工程工作台：待交付",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "个",
+      "match": true
+    },
+    {
+      "key": "engineering-work-全部",
+      "label": "工程工作台：全部项目",
+      "bossHome": 0,
+      "otherHome": 0,
+      "unit": "个",
+      "match": true
+    },
+    {
+      "key": "business-all-customers",
+      "label": "全部客户（对照完整客户列表）",
+      "bossHome": 1,
+      "otherHome": 1,
+      "unit": "人",
+      "match": true
+    }
+  ],
+  "findings": [
+    {
+      "key": "business-card-set",
+      "status": "different-layout",
+      "detail": "同一老板账号的业务页展示设计委托和获客漏斗，未展示与老板首页相同的四张指标卡；全部客户需另行对照客户列表。"
+    },
+    {
+      "key": "engineering-active-definition",
+      "status": "different-definition",
+      "bossHome": "在建 = IN_PROGRESS",
+      "engineeringOverview": "进行中 = IN_PROGRESS + READY_DELIVER",
+      "currentlyDifferent": false,
+      "delta": 0,
+      "readyToDeliver": 0
+    }
+  ],
+  "bossHomeBefore": {
+    "business": [
+      {
+        "key": "due",
+        "label": "今日待跟进",
+        "value": 1,
+        "unit": "人"
+      },
+      {
+        "key": "appointments",
+        "label": "预约到店",
+        "value": 0,
+        "unit": "人"
+      },
+      {
+        "key": "commission",
+        "label": "委托",
+        "value": "0",
+        "unit": "元"
+      },
+      {
+        "key": "all",
+        "label": "全部客户",
+        "value": 1,
+        "unit": "人"
+      }
+    ],
+    "engineering": [
+      {
+        "label": "在建",
+        "value": 0,
+        "filter": "在建",
+        "key": "在建",
+        "unit": "个"
+      },
+      {
+        "label": "待开工",
+        "value": 0,
+        "filter": "待开工",
+        "key": "待开工",
+        "unit": "个"
+      },
+      {
+        "label": "待交付",
+        "value": 0,
+        "filter": "待交付",
+        "key": "待交付",
+        "unit": "个"
+      },
+      {
+        "label": "全部项目",
+        "value": 0,
+        "filter": "全部",
+        "key": "全部",
+        "unit": "个"
+      }
+    ],
+    "period": "2026-11"
+  },
+  "businessHome": {
+    "commission": {
+      "value": "0",
+      "unit": "元"
+    },
+    "due": 1,
+    "appointments": 0,
+    "commissionCount": 0,
+    "displayedOtherMetrics": {
+      "leads": 0,
+      "following": 0,
+      "converted": 0,
+      "conversion": null
+    },
+    "allCustomersCardPresent": false
+  },
+  "engineeringOverview": {
+    "projectCount": 0,
+    "activeCount": 0,
+    "pendingCount": 0,
+    "deliveryCount": 0
+  },
+  "engineeringWorkHome": [
+    {
+      "label": "在建",
+      "value": 0,
+      "filter": "在建"
+    },
+    {
+      "label": "待开工",
+      "value": 0,
+      "filter": "待开工"
+    },
+    {
+      "label": "待交付",
+      "value": 0,
+      "filter": "待交付"
+    },
+    {
+      "label": "全部项目",
+      "value": 0,
+      "filter": "全部"
+    }
+  ],
+  "customerList": {
+    "totalLoaded": 1,
+    "allPagesLoaded": true
+  },
+  "bossHomeAfter": {
+    "business": [
+      {
+        "key": "due",
+        "label": "今日待跟进",
+        "value": 1,
+        "unit": "人"
+      },
+      {
+        "key": "appointments",
+        "label": "预约到店",
+        "value": 0,
+        "unit": "人"
+      },
+      {
+        "key": "commission",
+        "label": "委托",
+        "value": "0",
+        "unit": "元"
+      },
+      {
+        "key": "all",
+        "label": "全部客户",
+        "value": 1,
+        "unit": "人"
+      }
+    ],
+    "engineering": [
+      {
+        "label": "在建",
+        "value": 0,
+        "filter": "在建",
+        "key": "在建",
+        "unit": "个"
+      },
+      {
+        "label": "待开工",
+        "value": 0,
+        "filter": "待开工",
+        "key": "待开工",
+        "unit": "个"
+      },
+      {
+        "label": "待交付",
+        "value": 0,
+        "filter": "待交付",
+        "key": "待交付",
+        "unit": "个"
+      },
+      {
+        "label": "全部项目",
+        "value": 0,
+        "filter": "全部",
+        "key": "全部",
+        "unit": "个"
+      }
+    ],
+    "period": "2026-11"
+  },
+  "dataChangedDuringAudit": false,
+  "result": "values-match-with-definition-differences",
+  "completedAt": "2026-11-16T04:16:28.305Z",
+  "exceptions": [],
+  "apiBaseEvidence": {
+    "compiledDefault": "https://platform.zszhj.com/admin-api",
+    "storageOverride": "",
+    "hasTestFixture": false,
+    "route": "pages/admin/home/index"
+  }
+}

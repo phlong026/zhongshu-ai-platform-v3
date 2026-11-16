@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: cn.iocoder.yudao.module.platform.operations.OperationsIntegrationTest
+-------------------------------------------------------------------------------
+Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 240.5 s -- in cn.iocoder.yudao.module.platform.operations.OperationsIntegrationTest

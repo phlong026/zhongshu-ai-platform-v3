@@ -1,0 +1,24 @@
+{
+  "baselineSha256": "e98391ae7cb39edcad706eb22cdee7533854f60bf9838706434235658f4e4a63",
+  "candidateSha256": "cdf5e8d1d36196c48b3ad605f093adba3a8758891696357f454f48140ba584b7",
+  "moduleSha256": "3eceba44784438618af3184e34c2dee7fc32e9fdb118e87a80b359454835f4f5",
+  "outerEntriesChanged": [
+    "BOOT-INF/lib/yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+    "BOOT-INF/lib/yudao-platform-operations-2026.08-SNAPSHOT.jar"
+  ],
+  "storeClassesChanged": [
+    "cn/iocoder/yudao/module/franchise/content/content/ContentTaskStore.class"
+  ],
+  "allOtherEntriesIdentical": true,
+  "newDatabaseMigrations": [
+    "20261116.730"
+  ],
+  "previousJar": "/opt/zhongshu-platform-b-integration/release/platform-operations-20261116-e98391ae7cb3.jar",
+  "currentJar": "/opt/zhongshu-platform-b-integration/release/platform-operations-20261116-cdf5e8d1d361.jar",
+  "unitFile": "/etc/systemd/system/zhongshu-platform-b-integration.service.d/95-design-migration-20261116.conf",
+  "unitBackup": "/opt/zhongshu-platform-b-integration/release/operations-unit-before-cdf5e8d1d361.conf",
+  "migrationLog": "/opt/zhongshu-platform-b-integration/release/operations-migration-cdf5e8d1d361.log",
+  "pid": "694747",
+  "health": "UP",
+  "serviceAUnchanged": true
+}

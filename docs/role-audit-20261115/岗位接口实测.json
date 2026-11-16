@@ -1,0 +1,256 @@
+[
+  {
+    "orgId": "123",
+    "role": "sales",
+    "path": "/franchise/customers?pageNo=1&pageSize=20",
+    "code": 0,
+    "message": "",
+    "count": 1
+  },
+  {
+    "orgId": "123",
+    "role": "sales",
+    "path": "/franchise/commissions?pageNo=1&pageSize=20",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "sales",
+    "path": "/franchise/content/tasks",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "sales",
+    "path": "/franchise/design/cases/styles",
+    "code": 0,
+    "message": "",
+    "count": 10
+  },
+  {
+    "orgId": "123",
+    "role": "sales",
+    "path": "/platform/todos",
+    "code": 0,
+    "message": "",
+    "count": null
+  },
+  {
+    "orgId": "123",
+    "role": "engineer",
+    "path": "/franchise/engineering/projects",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "engineer",
+    "path": "/franchise/performance/tasks?period=2026-11&scope=mine",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "engineer",
+    "path": "/platform/todos",
+    "code": 0,
+    "message": "",
+    "count": null
+  },
+  {
+    "orgId": "123",
+    "role": "finance",
+    "path": "/franchise/finance/receipts",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "finance",
+    "path": "/franchise/finance/payments",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "finance",
+    "path": "/franchise/finance/payables",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "finance",
+    "path": "/franchise/finance/refunds",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "finance",
+    "path": "/franchise/finance/projects",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "finance",
+    "path": "/platform/todos",
+    "code": 0,
+    "message": "",
+    "count": null
+  },
+  {
+    "orgId": "123",
+    "role": "boss",
+    "path": "/platform/org/staff?orgId=123",
+    "code": 0,
+    "message": "",
+    "count": 4
+  },
+  {
+    "orgId": "123",
+    "role": "boss",
+    "path": "/platform/org/teams?orgId=123",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "boss",
+    "path": "/franchise/performance/goals?period=2026-11",
+    "code": 0,
+    "message": "",
+    "count": null
+  },
+  {
+    "orgId": "123",
+    "role": "boss",
+    "path": "/franchise/performance/tasks?period=2026-11&scope=company",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "123",
+    "role": "boss",
+    "path": "/platform/todos",
+    "code": 0,
+    "message": "",
+    "count": null
+  },
+  {
+    "orgId": "122",
+    "role": "hq-design-admin",
+    "path": "/franchise/commissions?pageNo=1&pageSize=20",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "122",
+    "role": "hq-design-admin",
+    "path": "/franchise/design/cases/styles",
+    "code": 0,
+    "message": "",
+    "count": 10
+  },
+  {
+    "orgId": "122",
+    "role": "hq-design-admin",
+    "path": "/platform/todos",
+    "code": 0,
+    "message": "",
+    "count": null
+  },
+  {
+    "orgId": "122",
+    "role": "finance",
+    "path": "/franchise/finance/receipts",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "122",
+    "role": "finance",
+    "path": "/franchise/finance/payments",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "122",
+    "role": "finance",
+    "path": "/franchise/finance/payables",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "122",
+    "role": "finance",
+    "path": "/franchise/finance/design-fees",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "122",
+    "role": "finance",
+    "path": "/platform/todos",
+    "code": 0,
+    "message": "",
+    "count": null
+  },
+  {
+    "orgId": "122",
+    "role": "boss",
+    "path": "/platform/org/staff?orgId=122",
+    "code": 0,
+    "message": "",
+    "count": 4
+  },
+  {
+    "orgId": "122",
+    "role": "boss",
+    "path": "/platform/org/teams?orgId=122",
+    "code": 0,
+    "message": "",
+    "count": 0
+  },
+  {
+    "orgId": "122",
+    "role": "boss",
+    "path": "/platform/todos",
+    "code": 0,
+    "message": "",
+    "count": null
+  },
+  {
+    "orgId": "123",
+    "role": "sales",
+    "path": "/franchise/finance/receipts",
+    "code": 403,
+    "negativePermissionCase": true
+  },
+  {
+    "orgId": "123",
+    "role": "engineer",
+    "path": "/platform/org/staff?orgId=123",
+    "code": 403,
+    "negativePermissionCase": true
+  }
+]

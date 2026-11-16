@@ -1,0 +1,7 @@
+{
+  "previous": "web-pricing-20261116-0d43825ac836",
+  "current": "web-pricing-20261116-b184b7e22268",
+  "archiveSha256": "b184b7e2226893fadb3cf505ccc2715453e363d5b279349ad2382fcd4f74f1bb",
+  "rollback": "sudo ln -sfn web-pricing-20261116-0d43825ac836 /opt/zhongshu-platform-b-integration/release/web-current",
+  "indexSha256": "74e7641ef95be6ed70b552e06b6298cf413735c13f848ba93a0c0bbedc221a30"
+}

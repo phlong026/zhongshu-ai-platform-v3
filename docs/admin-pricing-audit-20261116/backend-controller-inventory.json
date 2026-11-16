@@ -1,0 +1,1975 @@
+{
+  "note": "源码盘点，不代表接口已部署或已完成全流程验收",
+  "controllers": [
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/FranchiseOnboardController.java",
+      "pathExpression": [
+        "\"/platform/org\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/franchise-preview\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/franchise-onboard\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:org:onboard')\"",
+        "\"@ss.hasPermission('platform:org:onboard')\""
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/MyPostController.java",
+      "pathExpression": [
+        "\"/platform/posts\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/mine\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/current-context\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/OrgAccountAdminController.java",
+      "pathExpression": [
+        "\"/platform/org/directory/{orgId}/account\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": ""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/reset-password\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:org:onboard') && @ss.hasPermission('system:user:update-password')\""
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/OrgDirectoryController.java",
+      "pathExpression": [
+        "\"/platform/org/directory\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": ""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}/members\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}/points\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}/ledger\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}/generations\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}/audits\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{orgId}/lifecycle\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:org:onboard')\"",
+        "\"@ss.hasPermission('platform:org:onboard') && @ss.hasRole('super_admin')\""
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/OrgOnboardController.java",
+      "pathExpression": [
+        "\"/platform/org\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/onboard\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:org:onboard')\""
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffAccountOnboardController.java",
+      "pathExpression": [
+        "\"/platform/org\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/staff-accounts\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('platform:org:manage')\""
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffImportController.java",
+      "pathExpression": [
+        "\"/platform/org/staff-import\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/precheck\""
+        },
+        {
+          "verb": "POST",
+          "expression": ""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\""
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffOrgAdminController.java",
+      "pathExpression": [
+        "\"/platform/org\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/teams\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/post-templates\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/teams\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/staff\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/staff\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/posts\""
+        },
+        {
+          "verb": "DELETE",
+          "expression": "\"/posts/{postId}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/staff-status\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/staff-handover\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/staff-emergency-revoke\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/handover-pending\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('platform:org:query')\"",
+        "\"@post.has('platform:org:query')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:query')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:query')\""
+      ]
+    },
+    {
+      "file": "platform/platform-identity/src/main/java/cn/iocoder/yudao/module/platform/identity/controller/admin/PlatformAuthController.java",
+      "pathExpression": [
+        "\"/platform/auth\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/login-policy\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/account/matches\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/account/login\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/wechat-bind\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/wechat-login\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/sms/send\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/sms/login\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "platform/platform-identity/src/main/java/cn/iocoder/yudao/module/platform/identity/controller/admin/StaffWechatBindingController.java",
+      "pathExpression": [
+        "\"/platform/staff-wechat\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/binding-events/page\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + PlatformIdentityPermissions.BINDING_QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/controller/admin/StaffProfileController.java",
+      "pathExpression": [
+        "\"/platform/profile\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/mine\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/mine\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/admin/WalletConfigurationController.java",
+      "pathExpression": [
+        "\"/admin-api/platform/ops\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/recharge-plans\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/recharge-plans/{id}\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/audit\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/anomalies/{id}/reviews\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/anomalies/{id}/reviews\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:wallet:plan:update')\"",
+        "\"@ss.hasPermission('platform:wallet:plan:update')\"",
+        "\"@ss.hasPermission('platform:ops:audit:query')\"",
+        "\"@ss.hasPermission('platform:wallet:anomaly:query')\"",
+        "\"@ss.hasPermission('platform:wallet:anomaly:review')\""
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/admin/WalletOperationsController.java",
+      "pathExpression": [
+        "\"/admin-api/platform/ops\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/wallets\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/wallet-summary\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/recharge-plans\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/recharge-orders\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/ledger\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/anomalies\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:wallet:query')\"",
+        "\"@ss.hasPermission('platform:wallet:query')\"",
+        "\"@ss.hasPermission('platform:wallet:plan:query')\"",
+        "\"@ss.hasPermission('platform:wallet:order:query')\"",
+        "\"@ss.hasPermission('platform:wallet:ledger:query')\"",
+        "\"@ss.hasPermission('platform:wallet:anomaly:query')\""
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/controller/admin/WalletController.java",
+      "pathExpression": [
+        "\"/platform/wallet\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/recharge-orders\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/recharge-orders/{id}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/recharge-orders\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/recharge-orders/{id}/pay-params\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/account\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/ledger\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/recharge-plans\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('platform:wallet:read')\"",
+        "\"@post.has('platform:wallet:read')\"",
+        "\"@post.has('platform:wallet:recharge')\"",
+        "\"@post.has('platform:wallet:recharge')\"",
+        "\"@post.has('platform:wallet:read')\"",
+        "\"@post.has('platform:wallet:read')\"",
+        "\"@post.has('platform:wallet:recharge')\""
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/export/FinanceExportController.java",
+      "pathExpression": [
+        "\"/franchise/finance\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/exports\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('franchise:fin:query')\""
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/orgpoint/OrgPointHeadquartersController.java",
+      "pathExpression": [
+        "\"/admin-api/platform/org-points\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/companies\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}/summary\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}/ledger\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{orgId}/credits\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{orgId}/adjustments\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/adjustments/{id}/review\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{orgId}/adjustments\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/prices\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/prices\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:org-point:query')\"",
+        "\"@ss.hasPermission('platform:org-point:query')\"",
+        "\"@ss.hasPermission('platform:org-point:query')\"",
+        "\"@ss.hasRole('super_admin')\"",
+        "\"@ss.hasPermission('platform:org-point:adjustment:submit')\"",
+        "\"@ss.hasPermission('platform:org-point:adjustment:review')\"",
+        "\"@ss.hasPermission('platform:org-point:query')\"",
+        "\"@ss.hasPermission('platform:org-point:price:query')\"",
+        "\"@ss.hasPermission('platform:org-point:price:update')\""
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/orgpoint/OrgPointPricingController.java",
+      "pathExpression": [
+        "\"/admin-api/platform/org-points\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/price-history\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:org-point:price:query')\""
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/WalletXpayNotifyController.java",
+      "pathExpression": [],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "PATH"
+        },
+        {
+          "verb": "POST",
+          "expression": "PATH"
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "platform/platform-workflow/src/main/java/cn/iocoder/yudao/module/platform/workflow/controller/admin/PlatformMessageController.java",
+      "pathExpression": [
+        "\"/platform/messages\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": ""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/unread-count\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/read\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/read-all\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "platform/platform-workflow/src/main/java/cn/iocoder/yudao/module/platform/workflow/controller/admin/PlatformTodoController.java",
+      "pathExpression": [
+        "\"/platform/todos\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": ""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "domains/franchise/franchise-asset/src/main/java/cn/iocoder/yudao/module/franchise/asset/controller/admin/AssetAccessController.java",
+      "pathExpression": [
+        "\"/franchise/assets\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/upload-tickets\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{assetId}/complete\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{assetId}/download-tickets\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "domains/franchise/franchise-asset/src/main/java/cn/iocoder/yudao/module/franchise/asset/controller/admin/AssetContentController.java",
+      "pathExpression": [
+        "\"/franchise/assets\""
+      ],
+      "methods": [
+        {
+          "verb": "PUT",
+          "expression": "\"/{assetId}/content\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{assetId}/content\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "domains/franchise/franchise-asset/src/main/java/cn/iocoder/yudao/module/franchise/asset/controller/admin/CommissionFileAccessController.java",
+      "pathExpression": [
+        "\"/franchise/commissions/{commissionId}/dispatches/{dispatchSeq}/files/{slot}\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/download-tickets\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "domains/franchise/franchise-commission/src/main/java/cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController.java",
+      "pathExpression": [
+        "\"/franchise\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/customers/{customerId}/commission-context\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/customers/{customerId}/commission\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/commissions\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/commissions/{id}\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/commissions/{id}/handover-receivers\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/commissions/{id}/fee-decision\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/commissions/{id}/commands/{action}\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('franchise:commission:submit')\"",
+        "\"@post.has('franchise:commission:query')\"",
+        "\"@post.has('franchise:commission:query')\"",
+        "\"@post.has('franchise:commission:fee-decide')\"",
+        "\"@post.has('franchise:commission:submit') or @post.has('franchise:commission:design'"
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-commission/src/main/java/cn/iocoder/yudao/module/franchise/commission/controller/admin/DesignPolicyController.java",
+      "pathExpression": [
+        "\"/franchise/design-policies\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/current\""
+        },
+        {
+          "verb": "POST",
+          "expression": ""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('franchise:design-policy:manage')\"",
+        "\"@post.has('franchise:design-policy:manage')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-commission/src/main/java/cn/iocoder/yudao/module/franchise/commission/controller/admin/DesignPricingController.java",
+      "pathExpression": [
+        "\"/franchise/design-pricing-policies\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/current\""
+        },
+        {
+          "verb": "POST",
+          "expression": ""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentAssetController.java",
+      "pathExpression": [
+        "\"/franchise/content/assets\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/upload-tickets\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"{assetId}/complete\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"{assetId}/download-tickets\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentCloneController.java",
+      "pathExpression": [
+        "\"/franchise/content\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/clones/quote\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/personas/{personaId}/clones\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/personas/{personaId}/clones\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/clones/{id}/refresh\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\"+ContentPermissions.QUERY+\"')\"",
+        "\"@post.has('\"+ContentPermissions.QUERY+\"')\"",
+        "\"@post.has('\"+ContentPermissions.PERSONA+\"')\"",
+        "\"@post.has('\"+ContentPermissions.QUERY+\"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentDraftController.java",
+      "pathExpression": [
+        "\"/franchise/content\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/drafts\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/drafts/{id}/status\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/video-draft\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/video-draft\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/course-progress\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/course-progress\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentFakeDevController.java",
+      "pathExpression": [
+        "\"/platform/dev/content-fake\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/outcome\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPersonaController.java",
+      "pathExpression": [
+        "\"/franchise/content/personas\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": ""
+        },
+        {
+          "verb": "POST",
+          "expression": ""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"{id}\""
+        },
+        {
+          "verb": "DELETE",
+          "expression": "\"{id}\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + ContentPermissions.PERSONA + \"')\"",
+        "\"@post.has('\" + ContentPermissions.PERSONA + \"')\"",
+        "\"@post.has('\" + ContentPermissions.PERSONA + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPublicationController.java",
+      "pathExpression": [
+        "\"/franchise/content\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/publications\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/publications\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/publications/{id}/verify\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/publications/{id}/link\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/publications/{id}/fail\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/growth/summary\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentScriptController.java",
+      "pathExpression": [
+        "\"/franchise/content\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/links/parse\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/scripts/extract\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/scripts/optimize\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/scripts\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/scripts/{id}\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentTaskController.java",
+      "pathExpression": [
+        "\"/franchise/content/tasks\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": ""
+        },
+        {
+          "verb": "GET",
+          "expression": ""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"{id}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"{id}/manual-verification\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"{id}/manual-verification\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"{id}/save-work\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"{id}/result-url-status\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + ContentPermissions.VERIFY + \"')\"",
+        "\"@post.has('\" + ContentPermissions.VERIFY + \"')\"",
+        "\"@post.has('\" + ContentPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + ContentPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/controller/admin/CustomerController.java",
+      "pathExpression": [
+        "\"/franchise/customers\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": ""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/owner-options\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/transfer-candidates\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{id}\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/{id}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/follows\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/schemes\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/transfer\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('franchise:customer:query')\"",
+        "\"@post.has('franchise:customer:query')\"",
+        "\"@post.has('franchise:customer:transfer')\"",
+        "\"@post.has('franchise:customer:query')\"",
+        "\"@post.has('franchise:customer:write')\"",
+        "\"@post.has('franchise:customer:write')\"",
+        "\"@post.has('franchise:customer:write')\"",
+        "\"@post.has('franchise:customer:transfer')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/controller/admin/LeadController.java",
+      "pathExpression": [
+        "\"/franchise/leads\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": ""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/pending\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/link\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/invalid\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('franchise:lead:capture')\"",
+        "\"@post.has('franchise:lead:handle')\"",
+        "\"@post.has('franchise:lead:handle')\"",
+        "\"@post.has('franchise:lead:handle')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/controller/admin/LeadImportController.java",
+      "pathExpression": [
+        "\"/franchise/lead-import\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/precheck\""
+        },
+        {
+          "verb": "POST",
+          "expression": ""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('franchise:lead:handle')\"",
+        "\"@post.has('franchise:lead:handle')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/admin/DesignOperationsController.java",
+      "pathExpression": [
+        "\"/admin-api/platform/ops\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/design-prices\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/design-prices/active\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/design-costs\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:design:price:query')\"",
+        "\"@ss.hasPermission('platform:design:price:query')\"",
+        "\"@ss.hasPermission('platform:design:cost:query')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/admin/DesignPriceAdminController.java",
+      "pathExpression": [
+        "\"/admin-api/platform/ops/design-prices\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": ""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/{id}\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@ss.hasPermission('platform:design:price:update')\"",
+        "\"@ss.hasPermission('platform:design:price:update')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/controller/admin/DesignAccessController.java",
+      "pathExpression": [
+        "\"/franchise/design\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/cases\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/cases/styles\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/cases/{caseId}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/cases/{caseId}/assets/{assetId}/download-tickets\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/cases/{caseId}/favorite\""
+        },
+        {
+          "verb": "DELETE",
+          "expression": "\"/cases/{caseId}/favorite\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/favorites\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/assets/upload-tickets\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/assets/{assetId}/complete\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/assets/{assetId}/download-tickets\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/projects\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/projects\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/projects/{projectId}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/projects/{projectId}/flat-jobs\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/projects/{projectId}/elevation-jobs\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/ai-jobs/{jobId}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/ai-jobs/{jobId}/cancellation-requests\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/note-polish\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/projects/{projectId}/flat-selections\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/projects/{projectId}/elevation-selections\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/projects/{projectId}/result-versions\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/projects/{projectId}/revision-requests\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/budget/rule-info\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/projects/{projectId}/budget-estimates\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/projects/{projectId}/save-to-customer\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + DesignPermissions.USE + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/controller/admin/DesignFlowController.java",
+      "pathExpression": [
+        "\"/franchise/design\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/flow\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/flow-price\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/flow-upload-ticket\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\"+DesignPermissions.USE+\"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngClosureController.java",
+      "pathExpression": [
+        "\"/franchise/engineering\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/deliver\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/settle\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/archive\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{id}/settle-summary\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngCollectionController.java",
+      "pathExpression": [
+        "\"/franchise/engineering\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/{id}/collections\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/collections\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/dunning\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{id}/followups\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + EngineeringPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.COLLECT + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngExpenseController.java",
+      "pathExpression": [
+        "\"/franchise/engineering\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/expenses\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/expenses/{expenseId}/terms\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/expenses/{expenseId}/revise\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/expenses/{expenseId}/cancel\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{id}/expenses\""
+        }
+      ],
+      "securityExpressions": []
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngMaterialController.java",
+      "pathExpression": [
+        "\"/franchise/engineering\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/materials\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/materials/{materialId}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/supplies/{supplyId}/terms\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/supplies/{supplyId}/arrival\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/supplies/arrival-correction\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/movements\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/material-followups\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{id}/materials/summary\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.TERMS + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngPlanController.java",
+      "pathExpression": [
+        "\"/franchise/engineering\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/prepare\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/start\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/{id}/plan\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/plan/reschedule\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{id}/plan/history\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/nodes/{nodeId}/complete\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/nodes/{nodeId}/reopen\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/nodes/{nodeId}/correct\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngProjectController.java",
+      "pathExpression": [
+        "\"/franchise/engineering\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/projects\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/projects\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{id}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/manager\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/{id}/site-records\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/{id}/site-records\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/site-records/{recordId}/correct\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + EngineeringPermissions.WRITE + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-finance/src/main/java/cn/iocoder/yudao/module/franchise/finance/controller/admin/FinanceController.java",
+      "pathExpression": [
+        "\"/franchise/finance\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/receipts/page\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/payments/page\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/refunds/page\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/payables/page\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/abnormal-funds/page\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/receipts\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/receipts\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/receipts/{id}/revision\""
+        },
+        {
+          "verb": "DELETE",
+          "expression": "\"/receipts/{id}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/receipts/{id}/void-pending\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/revisions\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/payables\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/payables\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/payments\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/payments\""
+        },
+        {
+          "verb": "DELETE",
+          "expression": "\"/payments/{id}\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/refunds\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/refunds\""
+        },
+        {
+          "verb": "DELETE",
+          "expression": "\"/refunds/{id}\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/expense-refunds\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/abnormal-funds\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/abnormal-funds\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/abnormal-funds/{id}/link\""
+        },
+        {
+          "verb": "DELETE",
+          "expression": "\"/abnormal-funds/{id}\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/reconciliation\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/bank-flows\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/bank-confirms\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/projects\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/design-fees\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/projects/{projectId}/ledger\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/project-accounts/{projectId}\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/design-fee-progress\""
+        },
+        {
+          "verb": "POST",
+          "expression": "value = \"/files\", consumes = MediaType.MULTIPART_FORM_DATA_VALUE"
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/files/{id}\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.REFUND_VOID + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.PAYMENT_VOID + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.REFUND_VOID + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.REFUND_VOID + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.REGISTER + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\"",
+        "\"@post.has('\" + FinPermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-org/src/main/java/cn/iocoder/yudao/module/franchise/org/controller/admin/CompanyPointController.java",
+      "pathExpression": [
+        "\"/franchise/company-points\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/activate\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/summary\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/my-usage\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/ledger\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/operations\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/member-permissions\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/member-permissions/{userId}\""
+        },
+        {
+          "verb": "DELETE",
+          "expression": "\"/member-permissions/{userId}\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\"",
+        "\"@post.has('platform:org:manage')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-org/src/main/java/cn/iocoder/yudao/module/franchise/org/controller/admin/WalletSessionController.java",
+      "pathExpression": [
+        "\"/platform/wallet\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/session\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('platform:org:manage')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfCommissionController.java",
+      "pathExpression": [
+        "\"/franchise/performance\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/commission/rows\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/commission/policy\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/commission/release\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/commission/reconcile\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + PerformancePermissions.COMMISSION + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.COMMISSION + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.COMMISSION + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.COMMISSION + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfCommissionExportController.java",
+      "pathExpression": [
+        "\"/franchise/performance\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/commission/export\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + PerformancePermissions.COMMISSION + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfCycleController.java",
+      "pathExpression": [
+        "\"/franchise/performance\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/cycles/submit\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/cycles/review\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/cycles/appeal-resolve\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/cycles\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + PerformancePermissions.QUERY + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.MANAGE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.MANAGE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfDashboardController.java",
+      "pathExpression": [
+        "\"/franchise/performance\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/dashboard\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + PerformancePermissions.OPERATE + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfGoalController.java",
+      "pathExpression": [
+        "\"/franchise/performance\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/goals\""
+        },
+        {
+          "verb": "PUT",
+          "expression": "\"/goals\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + PerformancePermissions.QUERY + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.MANAGE + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfOperatingController.java",
+      "pathExpression": [
+        "\"/franchise/performance\""
+      ],
+      "methods": [
+        {
+          "verb": "GET",
+          "expression": "\"/operating/analytics\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/operating/snapshot\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/operating/snapshots\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/operating/reconcile\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/operating/reconciliations\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + PerformancePermissions.OPERATE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.OPERATE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.OPERATE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.OPERATE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.OPERATE + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfTaskController.java",
+      "pathExpression": [
+        "\"/franchise/performance\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/tasks\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/tasks\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/tasks/summary\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/tasks/{id}/reassign\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/tasks/{id}/manual-complete\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/tasks/initialize-previous\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/tasks/archive\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/tasks/archive/revise\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/tasks/archives\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('\" + PerformancePermissions.MANAGE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.QUERY + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.QUERY + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.MANAGE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.QUERY + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.MANAGE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.MANAGE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.MANAGE + \"')\"",
+        "\"@post.has('\" + PerformancePermissions.QUERY + \"')\""
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-sales/src/main/java/cn/iocoder/yudao/module/franchise/sales/controller/admin/SalesController.java",
+      "pathExpression": [
+        "\"/franchise/sales\""
+      ],
+      "methods": [
+        {
+          "verb": "POST",
+          "expression": "\"/requirements\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/requirements\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/quotes\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/quotes\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/quotes/{quoteId}/export-sheet\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/contracts\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/contracts\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/contracts/{contractId}/sign\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/contracts/{contractId}/void\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/stages/{stageId}/collect\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/contracts/{contractId}/stage-summary\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/schemes/{schemeId}/promote\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/deliveries\""
+        },
+        {
+          "verb": "POST",
+          "expression": "\"/deliveries/{deliveryId}/advance\""
+        },
+        {
+          "verb": "GET",
+          "expression": "\"/deliveries\""
+        }
+      ],
+      "securityExpressions": [
+        "\"@post.has('franchise:sale:write')\"",
+        "\"@post.has('franchise:sale:query')\"",
+        "\"@post.has('franchise:sale:write')\"",
+        "\"@post.has('franchise:sale:query')\"",
+        "\"@post.has('franchise:sale:query')\"",
+        "\"@post.has('franchise:sale:write')\"",
+        "\"@post.has('franchise:sale:query')\"",
+        "\"@post.has('franchise:sale:write')\"",
+        "\"@post.has('franchise:sale:write')\"",
+        "\"@post.has('franchise:sale:collect')\"",
+        "\"@post.has('franchise:sale:query')\"",
+        "\"@post.has('franchise:sale:write')\"",
+        "\"@post.has('franchise:sale:write')\"",
+        "\"@post.has('franchise:sale:write')\"",
+        "\"@post.has('franchise:sale:query')\""
+      ]
+    }
+  ]
+}

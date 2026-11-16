@@ -1,0 +1,67 @@
+{
+  "version": "1.0.20261116.6",
+  "appid": "wxe584f6fad7b54487",
+  "baselineVersion": "1.0.20261116.4",
+  "completedAt": "2026-11-16T11:51:00+08:00",
+  "timezone": "Asia/Shanghai",
+  "tool": "WeChat DevTools official CLI",
+  "uploadStatus": "success-official-cli",
+  "previewStatus": "success-official-cli",
+  "checks": {
+    "command": "npm run check",
+    "result": "passed",
+    "tapTests": 295
+  },
+  "validatedFiles": 725,
+  "changedFiles": [
+    {
+      "path": "miniprogram/pages/admin/home/index.wxml",
+      "sha256": "fd3e01348aa2c878562bdcfafd5437a766fbbc40d8c3bc96b208cb88d3ac080e"
+    },
+    {
+      "path": "miniprogram/pages/admin/home/index.wxss",
+      "sha256": "107a086cf9d86cc2851e803825f8a1719822aec850033d49b2cc3a48bc08b7be"
+    },
+    {
+      "path": "miniprogram/pages/admin/owner-page.js",
+      "sha256": "59215bb7fe9cfa8976cc705e831a0323ce4e4535a5f54c44337f0012ca429d7b"
+    },
+    {
+      "path": "miniprogram/pages/build/home/index.js",
+      "sha256": "3f0965e7a41d16c6f2b6775166e8b8d7d01895c72b129fd92684ea53dfd8d6c1"
+    },
+    {
+      "path": "miniprogram/pages/business/index.js",
+      "sha256": "b4f5d74d4c6e5592136379613ff3584076dfa670c1413f14ed3beac9c8efa172"
+    },
+    {
+      "path": "miniprogram/utils/platform-crm.js",
+      "sha256": "2f2037ae9b1858d3884c7d72ba2ff9152dba4eef182685c5efa338e1134b41b8"
+    },
+    {
+      "path": "miniprogram/utils/platform-engineering.js",
+      "sha256": "675af11c69612b6065c2894e51c41eae327eeb2efd9a0054df476dcf5df937f2"
+    },
+    {
+      "path": "miniprogram/utils/platform-owner-home.js",
+      "sha256": "0cf440cf9c2a52b6fdd2ef1bd43e98ecc24aeb785996bd571fc485951aafa834"
+    }
+  ],
+  "compiledBytes": 6947953,
+  "mainPackageBytes": 1844593,
+  "apiBase": "https://platform.zszhj.com/admin-api",
+  "sourceStatus": "released 1.0.20261116.4 plus verified boss-home changes; no new Git commit",
+  "trialVersionStatus": "active-user-confirmed",
+  "trialStatusReason": "用户在本聊天明确确认已将 1.0.20261116.6 设为体验版；未另行通过微信后台独立核验。",
+  "priorRestrictionRecord": "docs/boss-profile-20261116/体验版上传记录.md",
+  "formalRelease": false,
+  "phoneUat": "pending",
+  "previewCode": "qa/boss-home-release-20261116/phone-preview.png",
+  "uploadLogSha256": "fd61ee2b4d8d42831c823d040d948101519b2e96b4b343fdac04c27359298067",
+  "checkLogSha256": "1dca656d7d47f602397084db68f2e6b1aeea2ebfc11027fa8c7dfedcf347f9ba",
+  "trialActivationEvidence": {
+    "source": "user confirmation in current chat",
+    "confirmedAt": "2026-11-16T11:55:28+08:00",
+    "version": "1.0.20261116.6"
+  }
+}

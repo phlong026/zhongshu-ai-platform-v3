@@ -1,0 +1,34 @@
+{
+  "organizations": [
+    {
+      "orgId": 122,
+      "status": "DELETED"
+    },
+    {
+      "orgId": 123,
+      "status": "DELETED"
+    },
+    {
+      "orgId": 124,
+      "status": "DELETED"
+    }
+  ],
+  "testUser150Deleted": true,
+  "closedOrganizationPostsRejected": true,
+  "remainingCurrentUserOrgIds": [
+    120
+  ],
+  "passwordReset": {
+    "orgId": 124,
+    "userId": 150,
+    "newPasswordLogin": true,
+    "oldPasswordRejected": true,
+    "oldAccessRevoked": true,
+    "oldRefreshRevoked": true,
+    "ownerCannotReset": true,
+    "idempotent": true,
+    "bcryptCost": 10,
+    "auditRows": 1,
+    "passwordAbsentFromAccessLogs": true
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "desktop": {
+    "actionHeight": 32,
+    "cellOverflow": 0,
+    "documentWidth": 1255,
+    "tableScroll": 925,
+    "tableViewport": 925,
+    "viewport": 1255
+  },
+  "narrow": {
+    "cards": "block",
+    "documentWidth": 390,
+    "overflowingValues": 0,
+    "table": "none",
+    "viewport": 390
+  }
+}

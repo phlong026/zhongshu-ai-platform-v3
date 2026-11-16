@@ -1,0 +1,1248 @@
+{
+  "desktop": [
+    {
+      "name": "组织钱包",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-ops/wallets"
+    },
+    {
+      "name": "充值套餐",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 1,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-ops/plans"
+    },
+    {
+      "name": "充值订单",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-ops/orders"
+    },
+    {
+      "name": "积分流水",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-ops/ledger"
+    },
+    {
+      "name": "支付异常核对",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-ops/anomalies"
+    },
+    {
+      "name": "设计能力定价",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-ops/design-prices"
+    },
+    {
+      "name": "设计调用成本",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 20,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-ops/design-costs"
+    },
+    {
+      "name": "配置审计",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 1,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-ops/audit"
+    },
+    {
+      "name": "用户管理",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 7,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/system/user"
+    },
+    {
+      "name": "角色管理",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 10,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/system/role"
+    },
+    {
+      "name": "部门管理",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 2,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/system/dept"
+    },
+    {
+      "name": "操作日志",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 10,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/system/log/operate-log"
+    },
+    {
+      "name": "登录日志",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 10,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/system/log/login-log"
+    },
+    {
+      "name": "访问日志",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/infra/log/api-access-log"
+    },
+    {
+      "name": "错误日志",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 10,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/infra/log/api-error-log"
+    },
+    {
+      "name": "配置管理",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/infra/config"
+    },
+    {
+      "name": "文件配置",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 1,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/infra/file/file-config"
+    },
+    {
+      "name": "文件列表",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 1105,
+          "viewport": 1105,
+          "width": 1105
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/infra/file/file"
+    },
+    {
+      "name": "工作台",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 2,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/index"
+    },
+    {
+      "name": "定价管理",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 13,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-pricing"
+    },
+    {
+      "name": "任务与积分核对",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-task-ops"
+    },
+    {
+      "name": "组织管理",
+      "pageScroll": 1366,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 2,
+          "scroll": 1032,
+          "viewport": 1032,
+          "width": 1032
+        }
+      ],
+      "width": 1366,
+      "url": "https://platform.zszhj.com/admin/platform-org/onboard"
+    }
+  ],
+  "medium": [
+    {
+      "name": "组织钱包",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-ops/wallets"
+    },
+    {
+      "name": "充值套餐",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 1,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-ops/plans"
+    },
+    {
+      "name": "充值订单",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-ops/orders"
+    },
+    {
+      "name": "积分流水",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-ops/ledger"
+    },
+    {
+      "name": "支付异常核对",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 0,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-ops/anomalies"
+    },
+    {
+      "name": "设计能力定价",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-ops/design-prices"
+    },
+    {
+      "name": "设计调用成本",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 20,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-ops/design-costs"
+    },
+    {
+      "name": "配置审计",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 1,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-ops/audit"
+    },
+    {
+      "name": "用户管理",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 7,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/system/user"
+    },
+    {
+      "name": "角色管理",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/system/role"
+    },
+    {
+      "name": "部门管理",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 2,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/system/dept"
+    },
+    {
+      "name": "操作日志",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/system/log/operate-log"
+    },
+    {
+      "name": "登录日志",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 10,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/system/log/login-log"
+    },
+    {
+      "name": "访问日志",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/infra/log/api-access-log"
+    },
+    {
+      "name": "错误日志",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/infra/log/api-error-log"
+    },
+    {
+      "name": "配置管理",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/infra/config"
+    },
+    {
+      "name": "文件配置",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 1,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/infra/file/file-config"
+    },
+    {
+      "name": "文件列表",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 742,
+          "viewport": 742,
+          "width": 742
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/infra/file/file"
+    },
+    {
+      "name": "工作台",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": false,
+          "rows": 2,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/index"
+    },
+    {
+      "name": "定价管理",
+      "pageScroll": 1004,
+      "tables": [],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-pricing"
+    },
+    {
+      "name": "任务与积分核对",
+      "pageScroll": 1004,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 684,
+          "viewport": 684,
+          "width": 684
+        }
+      ],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-task-ops"
+    },
+    {
+      "name": "组织管理",
+      "pageScroll": 1004,
+      "tables": [],
+      "width": 1004,
+      "url": "https://platform.zszhj.com/admin/platform-org/onboard"
+    }
+  ],
+  "narrow": [
+    {
+      "name": "组织钱包",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-ops/wallets"
+    },
+    {
+      "name": "充值套餐",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 1,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-ops/plans"
+    },
+    {
+      "name": "充值订单",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-ops/orders"
+    },
+    {
+      "name": "积分流水",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-ops/ledger"
+    },
+    {
+      "name": "支付异常核对",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-ops/anomalies"
+    },
+    {
+      "name": "设计能力定价",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-ops/design-prices"
+    },
+    {
+      "name": "设计调用成本",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 20,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-ops/design-costs"
+    },
+    {
+      "name": "配置审计",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 1,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-ops/audit"
+    },
+    {
+      "name": "用户管理",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 7,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/system/user"
+    },
+    {
+      "name": "角色管理",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/system/role"
+    },
+    {
+      "name": "部门管理",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 2,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/system/dept"
+    },
+    {
+      "name": "操作日志",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/system/log/operate-log"
+    },
+    {
+      "name": "登录日志",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/system/log/login-log"
+    },
+    {
+      "name": "访问日志",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/infra/log/api-access-log"
+    },
+    {
+      "name": "错误日志",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 10,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/infra/log/api-error-log"
+    },
+    {
+      "name": "配置管理",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/infra/config"
+    },
+    {
+      "name": "文件配置",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 1,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/infra/file/file-config"
+    },
+    {
+      "name": "文件列表",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 329,
+          "viewport": 329,
+          "width": 329
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/infra/file/file"
+    },
+    {
+      "name": "工作台",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 2,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/index"
+    },
+    {
+      "name": "定价管理",
+      "pageScroll": 390,
+      "tables": [],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-pricing"
+    },
+    {
+      "name": "任务与积分核对",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-task-ops"
+    },
+    {
+      "name": "组织管理",
+      "pageScroll": 390,
+      "tables": [],
+      "width": 390,
+      "url": "https://platform.zszhj.com/admin/platform-org/onboard"
+    }
+  ],
+  "details": [
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 375,
+          "bodyWidth": 375,
+          "cellOverflow": 0,
+          "width": 390
+        }
+      ],
+      "name": "组织概览",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 375,
+          "bodyWidth": 375,
+          "cellOverflow": 0,
+          "width": 390
+        }
+      ],
+      "name": "成员与岗位",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 375,
+          "bodyWidth": 375,
+          "cellOverflow": 0,
+          "width": 390
+        }
+      ],
+      "name": "能力开通",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 375,
+          "bodyWidth": 375,
+          "cellOverflow": 0,
+          "width": 390
+        }
+      ],
+      "name": "积分账户",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 390,
+          "bodyWidth": 390,
+          "cellOverflow": 0,
+          "width": 390
+        }
+      ],
+      "name": "生成记录",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 390,
+          "bodyWidth": 390,
+          "cellOverflow": 0,
+          "width": 390
+        }
+      ],
+      "name": "操作记录",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 319,
+          "bodyWidth": 319,
+          "cellOverflow": 0,
+          "width": 366
+        }
+      ],
+      "name": "新增用户",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 334,
+          "bodyWidth": 334,
+          "cellOverflow": 0,
+          "width": 366
+        }
+      ],
+      "name": "新增角色管理",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 334,
+          "bodyWidth": 334,
+          "cellOverflow": 0,
+          "width": 366
+        }
+      ],
+      "name": "新增部门管理",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 334,
+          "bodyWidth": 334,
+          "cellOverflow": 0,
+          "width": 366
+        }
+      ],
+      "name": "新增配置管理",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 334,
+          "bodyWidth": 334,
+          "cellOverflow": 0,
+          "width": 366
+        }
+      ],
+      "name": "新增文件配置",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 334,
+          "bodyWidth": 334,
+          "cellOverflow": 0,
+          "width": 366
+        }
+      ],
+      "name": "调整价格",
+      "width": 390
+    },
+    {
+      "name": "调价记录",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 0,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 319,
+          "bodyWidth": 319,
+          "cellOverflow": 0,
+          "width": 366
+        }
+      ],
+      "name": "编辑充值套餐",
+      "width": 390
+    },
+    {
+      "dialogs": [
+        {
+          "bodyScroll": 334,
+          "bodyWidth": 334,
+          "cellOverflow": 0,
+          "width": 366
+        }
+      ],
+      "name": "登录日志详情",
+      "width": 390
+    },
+    {
+      "name": "任务核对全部记录",
+      "pageScroll": 390,
+      "tables": [
+        {
+          "cellOverflows": 0,
+          "recordMode": true,
+          "rows": 15,
+          "scroll": 302,
+          "viewport": 302,
+          "width": 302
+        }
+      ],
+      "width": 390
+    }
+  ],
+  "interactionChecks": {
+    "rowSelectionAndClearing": true,
+    "loginLogPaginationTwoThenOne": true,
+    "openedFormsSubmitted": false
+  },
+  "finalUserPage": {
+    "name": "用户管理-最终版",
+    "pageScroll": 1366,
+    "tables": [
+      {
+        "cellOverflows": 0,
+        "recordMode": false,
+        "rows": 7,
+        "scroll": 1105,
+        "viewport": 1105,
+        "width": 1105
+      }
+    ],
+    "width": 1366
+  }
+}

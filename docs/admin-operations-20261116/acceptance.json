@@ -1,0 +1,60 @@
+{
+  "backendIntegrationTests": 17,
+  "frontendTests": 51,
+  "frontendTypecheck": "passed",
+  "productionBuild": "passed",
+  "liveChecks": [
+    "synthetic reserve fixtures preserve 64-bit IDs and real ledger balance",
+    "browser profile save persisted contacts and retained login account",
+    "new organization defaults to all capabilities closed",
+    "capability update replay is idempotent; stale and reused conflicting requests return 409",
+    "wrong tenant denied without invalidating original administrator session",
+    "organization pending reserves are excluded from displayed consumption",
+    "browser closed capabilities and persisted version 2",
+    "owner transfer revoked only original boss, preserved target sales and other organization boss, retained login alias",
+    "DELIVERED succeeded after capability closure and original author removal; replay produced one terminal",
+    "NOT_DELIVERED succeeded after capability closure and original author removal; replay produced one terminal",
+    "SYNC_TERMINAL succeeded after capability closure and original author removal; replay produced one terminal",
+    "settled consumption excludes reserves and refunds; account matches ledger"
+  ],
+  "cleanup": {
+    "archivedOrganizations": [
+      125,
+      126
+    ],
+    "disabledUsers": [
+      152,
+      153
+    ],
+    "balance": "0",
+    "inFlight": "0",
+    "preservedSettlement": "2",
+    "testLoginNamesReleased": true,
+    "testMobilesReleased": true,
+    "disposablePostgresRemoved": true,
+    "testSshTunnelStopped": true,
+    "temporaryDatabasePasswordRemoved": true
+  },
+  "postCleanupChecks": [
+    {
+      "orgId": 125,
+      "archived": true
+    },
+    {
+      "orgId": 126,
+      "archived": true
+    },
+    {
+      "formalOrgId": 120,
+      "balance": "93",
+      "enabledCapabilities": 11
+    },
+    {
+      "formalOrgId": 121,
+      "balance": "100",
+      "enabledCapabilities": 11
+    }
+  ],
+  "remainingTestAnomalies": 0,
+  "supplierGenerationCalls": 0
+}

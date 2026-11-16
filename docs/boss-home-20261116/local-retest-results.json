@@ -1,0 +1,197 @@
+{
+  "version": "1.0.20261116.6",
+  "result": "passed",
+  "mode": "native WeChat renderer; isolated test data; no real-account verification",
+  "checks": [
+    {
+      "name": "今日待办标题正确，业务工程各一排四卡，初始均收起",
+      "result": "passed"
+    },
+    {
+      "name": "全部八个指标卡均可点击展开空态，再次点击收起",
+      "result": "passed"
+    },
+    {
+      "name": "经营账本Tab互斥切换，账本四项单行且保留金额精度",
+      "result": "passed"
+    },
+    {
+      "name": "135客户、125笔委托完整分页统计，工程全部项目包含已交付和已归档",
+      "result": "passed",
+      "evidence": {
+        "business": [
+          {
+            "key": "due",
+            "label": "今日待跟进",
+            "value": 3,
+            "unit": "人"
+          },
+          {
+            "key": "appointments",
+            "label": "预约到店",
+            "value": 1,
+            "unit": "人"
+          },
+          {
+            "key": "commission",
+            "label": "委托",
+            "value": "1.25",
+            "unit": "万元"
+          },
+          {
+            "key": "all",
+            "label": "全部客户",
+            "value": 135,
+            "unit": "人"
+          }
+        ],
+        "engineering": [
+          {
+            "label": "在建",
+            "value": 1,
+            "filter": "在建"
+          },
+          {
+            "label": "待开工",
+            "value": 1,
+            "filter": "待开工"
+          },
+          {
+            "label": "待交付",
+            "value": 1,
+            "filter": "待交付"
+          },
+          {
+            "label": "全部项目",
+            "value": 5,
+            "filter": "全部"
+          }
+        ]
+      }
+    },
+    {
+      "name": "有数据时逐卡展开对应明细、切换与独立收起，超八条提供查看全部",
+      "result": "passed"
+    },
+    {
+      "name": "实际打开业务首页和工程首页，同一组数据的四项数字与单位逐一一致",
+      "result": "passed"
+    },
+    {
+      "name": "业务、工程接口分别失败时不误报为零、不影响另一模块，点击重新加载可恢复",
+      "result": "passed"
+    },
+    {
+      "name": "加载中保留四张卡片和加载提示，响应后更新为实际数字",
+      "result": "passed"
+    }
+  ],
+  "geometry": [
+    {
+      "id": "",
+      "dataset": {
+        "key": "due",
+        "module": "business"
+      },
+      "left": 26.80000114440918,
+      "right": 109.5000057220459,
+      "top": 446,
+      "bottom": 528.5999984741211,
+      "width": 82.70000457763672,
+      "height": 82.5999984741211
+    },
+    {
+      "id": "",
+      "dataset": {
+        "key": "appointments",
+        "module": "business"
+      },
+      "left": 111.5,
+      "right": 194.20000457763672,
+      "top": 446,
+      "bottom": 528.5999984741211,
+      "width": 82.70000457763672,
+      "height": 82.5999984741211
+    },
+    {
+      "id": "",
+      "dataset": {
+        "key": "commission",
+        "module": "business"
+      },
+      "left": 196.1999969482422,
+      "right": 278.9000015258789,
+      "top": 446,
+      "bottom": 528.5999984741211,
+      "width": 82.70000457763672,
+      "height": 82.5999984741211
+    },
+    {
+      "id": "",
+      "dataset": {
+        "key": "all",
+        "module": "business"
+      },
+      "left": 280.8999938964844,
+      "right": 363.5999984741211,
+      "top": 446,
+      "bottom": 528.5999984741211,
+      "width": 82.70000457763672,
+      "height": 82.5999984741211
+    },
+    {
+      "id": "",
+      "dataset": {
+        "key": "在建",
+        "module": "engineering"
+      },
+      "left": 26.80000114440918,
+      "right": 109.5000057220459,
+      "top": 619.2000122070312,
+      "bottom": 701.8000106811523,
+      "width": 82.70000457763672,
+      "height": 82.5999984741211
+    },
+    {
+      "id": "",
+      "dataset": {
+        "key": "待开工",
+        "module": "engineering"
+      },
+      "left": 111.5,
+      "right": 194.20000457763672,
+      "top": 619.2000122070312,
+      "bottom": 701.8000106811523,
+      "width": 82.70000457763672,
+      "height": 82.5999984741211
+    },
+    {
+      "id": "",
+      "dataset": {
+        "key": "待交付",
+        "module": "engineering"
+      },
+      "left": 196.1999969482422,
+      "right": 278.9000015258789,
+      "top": 619.2000122070312,
+      "bottom": 701.8000106811523,
+      "width": 82.70000457763672,
+      "height": 82.5999984741211
+    },
+    {
+      "id": "",
+      "dataset": {
+        "key": "全部",
+        "module": "engineering"
+      },
+      "left": 280.8999938964844,
+      "right": 363.5999984741211,
+      "top": 619.2000122070312,
+      "bottom": 701.8000106811523,
+      "width": 82.70000457763672,
+      "height": 82.5999984741211
+    }
+  ],
+  "exceptions": [],
+  "sourceVerification": "source-verification.json"
+}

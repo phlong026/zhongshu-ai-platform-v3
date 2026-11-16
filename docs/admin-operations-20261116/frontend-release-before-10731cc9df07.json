@@ -1,0 +1,7 @@
+{
+  "previous": "web-operations-20261116-f416ad7d482e",
+  "current": "web-operations-20261116-33098d2950b8",
+  "archiveSha256": "33098d2950b8c081f86de0b9468fe961ed5c86c8ade851e1172ebd08fb368148",
+  "rollback": "sudo ln -sfn web-operations-20261116-f416ad7d482e /opt/zhongshu-platform-b-integration/release/web-current",
+  "indexSha256": "8bbe8f880c2b2b3af993157b776290cde9df29c812de9d5372a10af0ba5f8593"
+}

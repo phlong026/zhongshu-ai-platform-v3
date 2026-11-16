@@ -1,0 +1,401 @@
+[
+  {
+    "step": 10,
+    "path": "platform-ops/wallets",
+    "title": "历史组织钱包",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tableCount": 1,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "step": 11,
+    "path": "platform-ops/plans",
+    "title": "历史充值套餐",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tableCount": 1,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "step": 12,
+    "path": "platform-ops/design-prices",
+    "title": "历史设计能力定价",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tableCount": 1,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "step": 13,
+    "path": "platform-ops/orders",
+    "title": "历史充值订单",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tableCount": 1,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "step": 14,
+    "path": "platform-ops/ledger",
+    "title": "历史钱包流水",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tableCount": 1,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "step": 15,
+    "path": "platform-ops/anomalies",
+    "title": "支付异常核对",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tableCount": 1,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "step": 16,
+    "path": "platform-ops/design-costs",
+    "title": "设计调用成本",
+    "alerts": [],
+    "clippedControls": [],
+    "nativeScrollTables": [
+      {
+        "native": true,
+        "scrollWidth": 1800,
+        "width": 1104
+      }
+    ],
+    "rootOverflow": false,
+    "tableCount": 1,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "step": 17,
+    "path": "platform-ops/audit",
+    "title": "配置审计",
+    "alerts": [],
+    "clippedControls": [],
+    "nativeScrollTables": [
+      {
+        "native": true,
+        "scrollWidth": 1500,
+        "width": 1104
+      }
+    ],
+    "rootOverflow": false,
+    "tableCount": 1,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "step": 20,
+    "path": "system/user",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 9,
+        "scrollWidth": 1225,
+        "width": 975
+      }
+    ],
+    "text": "合家美宅-江西南昌-高新区合家美宅-裴火荣\n合家美宅-江西南昌-青山湖合家美宅-荣先生\n用户名称\n手机号码\n状态\n请选择用户状态\n创建时间\n-\n搜索\n重置\n新增\n导入\n导出\n批量删除\n\t\n用户编号\n\t\n用户名称\n\t\n用户昵称\n\t\n部门\n\t\n手机号码\n\t\n状态\n\t\n创建时间\n\t\n操作\n\t\n149\n\t\n1800018800",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 21,
+    "path": "system/dept",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1178,
+        "width": 1178
+      }
+    ],
+    "text": "部门名称\n部门状态\n请选择部门状态\n搜索\n重置\n新增\n展开/折叠\n批量删除\n\t\n部门名称\n\t\n负责人\n\t\n排序\n\t\n状态\n\t\n创建时间\n\t\n操作\n\t\n合家美宅-江西南昌-高新区合家美宅-裴火荣\n\t\n\t\n0\n\t\n开启\n\t\n2026-11-15 21:12:48\n\t\n修改\n删除\n\n\n\t\n合家美宅-江西南昌-青山湖合家美宅-",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 22,
+    "path": "system/role",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1178,
+        "width": 1178
+      }
+    ],
+    "text": "角色名称\n角色标识\n状态\n请选择状态\n创建时间\n-\n搜索\n重置\n新增\n导出\n批量删除\n\t\n角色编号\n\t\n角色名称\n\t\n角色类型\n\t\n角色标识\n\t\n显示顺序\n\t\n备注\n\t\n状态\n\t\n创建时间\n\t\n操作\n\t\n1\n\t\n超级管理员\n\t\n内置\n\t\nsuper_admin\n\t\n1\n\t\n超级管理员\n\t\n开启\n\t\n2021-01-05",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 23,
+    "path": "system/log/operate-log",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1178,
+        "width": 1178
+      }
+    ],
+    "text": "操作人\n请输入操作人员\n操作模块\n操作名\n操作内容\n操作时间\n-\n业务编号\n搜索\n重置\n导出\n日志编号\n\t\n操作人\n\t\n操作模块\n\t\n操作名\n\t\n操作内容\n\t\n操作时间\n\t\n业务编号\n\t\n操作 IP\n\t\n操作\n10\n\t\n裴火荣\n\t\nSYSTEM 用户\n\t\n删除用户\n\t\n删除了用户【联调验收】\n\t\n2026-11-15 ",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 24,
+    "path": "system/log/login-log",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1178,
+        "width": 1178
+      }
+    ],
+    "text": "用户名称\n登录地址\n登录日期\n-\n搜索\n重置\n导出\n日志编号\n\t\n登录类型\n\t\n用户名称\n\t\n登录地址\n\t\n浏览器\n\t\n登陆结果\n\t\n登录日期\n\t\n操作\n51\n\t\n账号登录\n\t\nbadmin\n\t\n124.223.61.18\n\t\nPython-urllib/3.14\n\t\n成功\n\t\n2026-11-15 23:42:21\n",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 25,
+    "path": "infra/config",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1178,
+        "width": 1178
+      }
+    ],
+    "text": "参数名称\n参数键名\n系统内置\n请选择系统内置\n创建时间\n-\n搜索\n重置\n新增\n批量删除\n导出\n\t\n参数主键\n\t\n参数分类\n\t\n参数名称\n\t\n参数键名\n\t\n参数键值\n\t\n是否可见\n\t\n系统内置\n\t\n备注\n\t\n创建时间\n\t\n操作\n暂无数据",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 26,
+    "path": "infra/file/file",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1178,
+        "width": 1178
+      }
+    ],
+    "text": "文件路径\n文件类型\n创建时间\n-\n搜索\n重置\n上传文件\n批量删除\n\t\n文件名\n\t\n文件路径\n\t\nURL\n\t\n文件大小\n\t\n文件类型\n\t\n文件内容\n\t\n上传时间\n\t\n操作\n暂无数据",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 27,
+    "path": "infra/file/file-config",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1178,
+        "width": 1178
+      }
+    ],
+    "text": "配置名\n存储器\n请选择存储器\n创建时间\n-\n搜索\n重置\n新增\n批量删除\n\t\n编号\n\t\n配置名\n\t\n存储器\n\t\n备注\n\t\n主配置\n\t\n创建时间\n\t\n操作\n\t\n36\n\t\nB platform profile files\n\t\n数据库\n\t\nB-owned database storage; initializes missin",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 28,
+    "path": "infra/log/api-access-log",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 10,
+        "scrollWidth": 1930,
+        "width": 1178
+      }
+    ],
+    "text": "用户编号\n用户类型\n请选择用户类型\n应用名\n请求时间\n-\n执行时长\n结果码\n搜索\n重置\n导出\n日志编号\n\t\n用户编号\n\t\n用户类型\n\t\n应用名\n\t\n请求方法\n\t\n请求地址\n\t\n请求时间\n\t\n执行时长\n\t\n操作结果\n\t\n操作模块\n\t\n操作名\n\t\n操作类型\n\t\n操作\n15315\n\t\n145\n\t\n管理员\n\t\nyudao-pl",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 29,
+    "path": "infra/log/api-error-log",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 10,
+        "scrollWidth": 1340,
+        "width": 1178
+      }
+    ],
+    "text": "用户编号\n用户类型\n请选择用户类型\n应用名\n请求路径\n异常时间\n-\n处理状态\n请选择处理状态\n搜索\n重置\n导出\n日志编号\n\t\n用户编号\n\t\n用户类型\n\t\n应用名\n\t\n请求方法\n\t\n请求地址\n\t\n异常发生时间\n\t\n异常名\n\t\n处理状态\n\t\n操作\n10\n\t\n145\n\t\n管理员\n\t\nyudao-platform-server",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 18,
+    "path": "platform-org/onboard",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1104,
+        "width": 1104
+      }
+    ],
+    "text": "组织管理\n已开通组织\n加盟门店开通\n其他组织开通\n搜索\n组织类型\n全部\n包含已删除\n查询\n重置\n开通组织\n组织名称\n\t\n类型\n\t\n老板姓名\n\t\n手机号\n\t\n登录账号\n\t\n状态\n\t\n操作\n合家美宅-江西南昌-青山湖合家美宅-荣先生\n\t\n加盟门店\n\t\n荣先生\n\t\n18105033828\n\t\nhjmz-jxnc-qingsh",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 30,
+    "path": "platform-org-points",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 9,
+        "scrollWidth": 890,
+        "width": 814
+      },
+      {
+        "barHeight": 0,
+        "scrollWidth": 0,
+        "width": 0
+      },
+      {
+        "barHeight": 0,
+        "scrollWidth": 0,
+        "width": 0
+      }
+    ],
+    "text": "公司积分池\n重新加载\n公司\n合家美宅-江西南昌-高新区合家美宅-裴火荣\n100 积分\n组织 120\n合家美宅-江西南昌-青山湖合家美宅-荣先生\n100 积分\n组织 121\n添加积分\n当前可用\n100\n在途预扣\n0\n本月已使用\n0\n账户状态\n正常\n积分流水\n积分调整记录\n业务价格\n时间\n\t\n类型\n\t\n业务科目\n\t\n可用积",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 31,
+    "path": "index",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1104,
+        "width": 1104
+      }
+    ],
+    "text": "总部运营工作台\n开通新组织\n已开通组织 2\n查看全部\n组织名称\n\t\n老板姓名\n\t\n手机号\n\t\n登录账号\n\t\n操作\n合家美宅-江西南昌-青山湖合家美宅-荣先生\n\t\n荣先生\n\t\n18105033828\n\t\nhjmz-jxnc-qingshanhuhejiameizhai\n\t\n详情\n\n\n合家美宅-江西南昌-高新区合家美宅-裴",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "step": 33,
+    "path": "platform-pricing",
+    "alerts": [],
+    "clippedControls": [],
+    "rootOverflow": false,
+    "tables": [
+      {
+        "barHeight": 0,
+        "scrollWidth": 1240,
+        "width": 1240
+      },
+      {
+        "barHeight": 0,
+        "scrollWidth": 0,
+        "width": 0
+      }
+    ],
+    "text": "定价管理\n\n统一管理 AI 能力收费，按积分结算\n\n刷新价格\nAI 能力定价\n调价记录\n其他价格与成本\n全部能力\n视频生成\n数字人与声音\n文案与语音\n设计与预算\n仅看待配置\n\n共 3 项能力\n\n业务能力\n\t\n单价\n\t\n最低收费\n\t\n状态\n\t\n价格版本\n\t\n操作\n数字人口播视频\n\n使用数字人和声音合成口播视频，按视频秒数",
+    "viewport": [
+      1440,
+      900
+    ]
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "previous": "web-org-directory-20261115-2308",
+  "current": "web-pricing-20261116-5c4a76e7fbd8",
+  "archiveSha256": "5c4a76e7fbd8acfb095fd867d51e52f961d390cb4eef09b84721092f69b16dc1",
+  "rollback": "sudo ln -sfn web-org-directory-20261115-2308 /opt/zhongshu-platform-b-integration/release/web-current"
+}

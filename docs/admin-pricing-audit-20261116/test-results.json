@@ -1,0 +1,36 @@
+{
+  "frontend": {
+    "tests": 47,
+    "passed": 47,
+    "failed": 0,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "backend": [
+    {
+      "name": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPricingSecurityTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.603"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPricingPgIntegrationTest",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "9.923"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPriceIntegrationTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "68.65"
+    }
+  ],
+  "database": "Isolated temporary PostgreSQL, no production price writes"
+}

@@ -1,0 +1,49 @@
+[
+  {
+    "page": "organization-capabilities",
+    "saveButton": {
+      "bottom": 788.0499877929688,
+      "left": 26,
+      "right": 141.5999984741211,
+      "top": 756.0499877929688
+    },
+    "scrollWidth": 390,
+    "width": 390
+  },
+  {
+    "dialogs": [
+      {
+        "bodyScrollWidth": 311,
+        "bodyWidth": 311,
+        "width": 358.3999938964844
+      }
+    ],
+    "page": "organization-profile-edit",
+    "scrollWidth": 390,
+    "width": 390
+  },
+  {
+    "labelWidths": [
+      108,
+      108,
+      108,
+      108,
+      108,
+      108,
+      108,
+      108,
+      108,
+      108,
+      108
+    ],
+    "organizationLink": {
+      "scrollWidth": 186,
+      "width": 186
+    },
+    "page": "task-reconciliation-detail",
+    "scrollWidth": 390,
+    "summaryScrollWidth": 320,
+    "summaryWidth": 320,
+    "width": 390
+  }
+]

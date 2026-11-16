@@ -1,0 +1,23 @@
+{
+  "baselineSha256": "414c13d43b77dae61f8381fe9010df5906e11876b8adb2856659fda54455f2af",
+  "candidateSha256": "6aaab00cbb9c35fecbac28664aba30c55b63c133d4ac8c93fe1d7ae1aad5f472",
+  "outerEntriesChanged": [
+    "BOOT-INF/lib/platform-wallet-2026.08-SNAPSHOT.jar"
+  ],
+  "classEntriesChanged": [
+    "cn/iocoder/yudao/module/platform/wallet/orgpoint/BillingPriceCatalog$Subject.class",
+    "cn/iocoder/yudao/module/platform/wallet/orgpoint/BillingPriceCatalog$Unit.class",
+    "cn/iocoder/yudao/module/platform/wallet/orgpoint/BillingPriceCatalog.class",
+    "cn/iocoder/yudao/module/platform/wallet/orgpoint/OrgPointPricingController$History.class",
+    "cn/iocoder/yudao/module/platform/wallet/orgpoint/OrgPointPricingController.class"
+  ],
+  "allOtherEntriesIdentical": true,
+  "previousJar": "/opt/zhongshu-platform-b-integration/release/platform-login-20261116-414c13d4.jar",
+  "currentJar": "/opt/zhongshu-platform-b-integration/release/platform-pricing-20261116-6aaab00c.jar",
+  "unitFile": "/etc/systemd/system/zhongshu-platform-b-integration.service.d/90-login-20261116.conf",
+  "unitBackup": "/opt/zhongshu-platform-b-integration/release/pricing-unit-before-6aaab00c.conf",
+  "pid": "304265",
+  "health": "UP",
+  "unitChange": "Only the jar path was replaced",
+  "newDatabaseMigrations": 0
+}

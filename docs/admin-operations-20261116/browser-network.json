@@ -1,0 +1,30 @@
+[
+  {
+    "path": "/admin-api/platform/operations/organizations/125/profile",
+    "status": 200
+  },
+  {
+    "path": "/admin-api/platform/org/directory?keyword=ukhckxd&orgType=&pageNo=1&pageSize=20&includeDeleted=false",
+    "status": 200
+  },
+  {
+    "path": "/admin-api/platform/org/directory/125/points",
+    "status": 200
+  },
+  {
+    "path": "/admin-api/platform/org/directory/125/members?pageNo=1&pageSize=20",
+    "status": 200
+  },
+  {
+    "path": "/admin-api/platform/operations/organizations/125/capabilities",
+    "status": 200
+  },
+  {
+    "path": "/admin-api/platform/operations/organizations/125/capabilities",
+    "status": 200
+  },
+  {
+    "path": "/admin-api/platform/operations/organizations/125/capabilities",
+    "status": 200
+  }
+]
