@@ -1,0 +1,1596 @@
+{
+  "phase": "source snapshot; not runtime verification",
+  "frontendCommit": "6a485c994be1dd8ccdd731ecca3f6e16d52d7a88",
+  "candidateSourceDigest": "a10b7fda9d5e5be87d4fb9e3c04a7ec0aad07bb47ca3b33fb9f13a4b81bd9b7d",
+  "routeCount": 55,
+  "routes": [
+    {
+      "route": "pages/home/index",
+      "package": "main",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/home/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "learnPlatform",
+        "login"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/business/index",
+      "package": "main",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/business/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "closePanel",
+        "continueSalesCreation",
+        "continueSalesCustomer",
+        "goTab",
+        "loadPlatformHome",
+        "openAction",
+        "openBossLink",
+        "openPlatformTodo",
+        "openSalesMetric",
+        "openSalesShortcut",
+        "retryPlatformTodos",
+        "search",
+        "submitPanel"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/engineering/index",
+      "package": "main",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/engineering/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "closePanel",
+        "goTab",
+        "openAction",
+        "openPlatformTodo",
+        "retryPlatformTodos",
+        "submitPanel"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/management/index",
+      "package": "main",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/management/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "goHome",
+        "identity"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/profile/index",
+      "package": "main",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/profile/index.wxml",
+        "miniprogram/pages/profile/profile.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "logout",
+        "open"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/customers/index",
+      "package": "main",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/customers/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "act",
+        "call",
+        "goLogin",
+        "more",
+        "open",
+        "register",
+        "retryPlatform",
+        "search",
+        "selectTab"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/design/index",
+      "package": "design-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/design/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "catalogImageError",
+        "loadMoreCatalog",
+        "open",
+        "openCatalog",
+        "openCatalogCase",
+        "retryCatalog",
+        "retryCatalogCover"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/workflow/commission/index",
+      "package": "business-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/workflow/commission/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "admin",
+        "dispatch",
+        "handover",
+        "policy",
+        "pricing",
+        "projects",
+        "receive",
+        "submit"
+      ],
+      "handlers": [
+        "check",
+        "chooseFile",
+        "chooseManager",
+        "closePreview",
+        "completeBudget",
+        "decideFee",
+        "input",
+        "loadMoreProjects",
+        "openFeedback",
+        "openMetric",
+        "openTask",
+        "preview",
+        "returnPacket",
+        "searchProjects",
+        "selectProjectFilter",
+        "submit"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/workflow/quote-export/index",
+      "package": "business-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/workflow/quote-export/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "exportImage",
+        "exportPdf",
+        "generate",
+        "openSettings",
+        "preview",
+        "sharePdf"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/workflow/explore/index",
+      "package": "business-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/workflow/explore/index.wxml",
+        "miniprogram/pages/workflow/budget-result.wxml"
+      ],
+      "literalViewCandidates": [
+        "ai-config",
+        "ai-facade",
+        "budget",
+        "budget-result",
+        "case",
+        "facade-result",
+        "inspiration",
+        "plan-result",
+        "project",
+        "projects",
+        "search"
+      ],
+      "handlers": [
+        "addReference",
+        "budgetShowForm",
+        "calculate",
+        "cancelJob",
+        "caseTab",
+        "chooseReference",
+        "closeSheet",
+        "continueBudget",
+        "continueFacade",
+        "favorite",
+        "filterPick",
+        "generate",
+        "go",
+        "input",
+        "loadMoreProjects",
+        "noop",
+        "notePolish",
+        "openCase",
+        "openProject",
+        "openSearch",
+        "pick",
+        "platCaseImageError",
+        "platCoverError",
+        "platDimensionInput",
+        "platFilterPick",
+        "platFormPickPicker",
+        "platLoadMore",
+        "platLoadStyles",
+        "platOpenCase",
+        "platRetryCaseImages",
+        "platRetryCases",
+        "platRetryCover",
+        "platRevision",
+        "platSearch",
+        "platSearchInput",
+        "preview",
+        "refreshJob",
+        "register",
+        "removeReference",
+        "resumeAction",
+        "save",
+        "saveCustomer",
+        "saveImage",
+        "searchDimension",
+        "searchInput",
+        "searchPlans",
+        "selectCandidate",
+        "selectFloor",
+        "toggleExterior",
+        "useCase",
+        "viewCustomer",
+        "{{adjustHandler}}",
+        "{{continueHandler}}"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/workflow/index",
+      "package": "business-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/workflow/index.wxml",
+        "miniprogram/pages/workflow/budget-result.wxml"
+      ],
+      "literalViewCandidates": [
+        "ai-config",
+        "ai-facade",
+        "ai-results",
+        "arrival",
+        "budget",
+        "budget-result",
+        "case",
+        "case-plan",
+        "commission",
+        "contract",
+        "customer",
+        "customers",
+        "delivery",
+        "facade-candidates",
+        "facade-config",
+        "facade-result",
+        "inspiration",
+        "progress",
+        "requirement",
+        "result",
+        "search",
+        "transfer"
+      ],
+      "handlers": [
+        "addRequirement",
+        "applySearch",
+        "budgetShowForm",
+        "budgetShowResult",
+        "caseTab",
+        "chooseCustomer",
+        "closeModal",
+        "closePreview",
+        "contractDate",
+        "contractInput",
+        "customerTab",
+        "date",
+        "exportPlatformQuote",
+        "exteriorChange",
+        "favorite",
+        "floorTab",
+        "go",
+        "input",
+        "loadMoreProgressRecords",
+        "modal",
+        "noop",
+        "openCase",
+        "openContractForm",
+        "pick",
+        "planSelect",
+        "platCollect",
+        "platCollectInput",
+        "platCollectPick",
+        "platCollectSubmit",
+        "platformAdvanceDelivery",
+        "platformContractSign",
+        "platformContractVoid",
+        "platformCreateDelivery",
+        "platformPromote",
+        "previewFile",
+        "previewImage",
+        "requirement",
+        "retryPlatform",
+        "retryRequirements",
+        "save",
+        "saveAlbum",
+        "searchCases",
+        "searchCustomers",
+        "secondary",
+        "select",
+        "setFilter",
+        "submit",
+        "toggle",
+        "toggleCustomer",
+        "toggleProgressRecords",
+        "transferMode",
+        "upload",
+        "{{adjustHandler}}",
+        "{{continueHandler}}",
+        "{{link.url?",
+        "{{modal===",
+        "{{platformMode?"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/build/index",
+      "package": "engineering-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/build/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "archive",
+        "boss",
+        "collection",
+        "documents",
+        "materials",
+        "new",
+        "node",
+        "overview",
+        "prepare",
+        "projects",
+        "schedule",
+        "start",
+        "supply"
+      ],
+      "handlers": [
+        "chooseProject",
+        "closeModal",
+        "exportPlan",
+        "filter",
+        "go",
+        "input",
+        "materialFilter",
+        "materialMode",
+        "modalSubmit",
+        "more",
+        "noop",
+        "openOperating",
+        "pick",
+        "preview",
+        "primary",
+        "search",
+        "secondary",
+        "sendPlan",
+        "tab",
+        "taskAccess",
+        "toggle",
+        "upload",
+        "{{canPrepare?",
+        "{{item.savedFile?"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/build/home/index",
+      "package": "engineering-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/build/home/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "openEngineering",
+        "openPlatformTodo",
+        "openStat",
+        "retryLoad",
+        "retryPlatformTodos"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/build/projects/index",
+      "package": "engineering-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/build/projects/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "cancelCreate",
+        "clear",
+        "createInput",
+        "filter",
+        "home",
+        "more",
+        "open",
+        "openCreate",
+        "pickCreateFloors",
+        "pickCreateParent",
+        "search",
+        "showProjects",
+        "submitCreate"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/build/materials/index",
+      "package": "engineering-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/build/materials/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "home",
+        "retry"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/build/record/index",
+      "package": "engineering-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/build/record/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "archive",
+        "collection",
+        "delivery",
+        "documents",
+        "expenses",
+        "funding",
+        "material",
+        "materials",
+        "node",
+        "overview",
+        "payables",
+        "payments",
+        "prepare",
+        "project",
+        "settlement"
+      ],
+      "handlers": [
+        "addLine",
+        "applyTemplate",
+        "cancelCorrection",
+        "closeSamplePreview",
+        "expenseMode",
+        "go",
+        "importPlan",
+        "input",
+        "jumpNodeSection",
+        "lineInput",
+        "nodeInput",
+        "operating",
+        "perform",
+        "pickArrival",
+        "pickEngineer",
+        "pickNode",
+        "pickPurpose",
+        "pickSite",
+        "pickTemplate",
+        "preview",
+        "previewAsset",
+        "supplyPick",
+        "toggle",
+        "togglePlan",
+        "upload",
+        "useSampleFile",
+        "zoomSampleImage"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/account/sales/index",
+      "package": "account-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/account/sales/index.wxml",
+        "miniprogram/pages/profile/profile.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "logout",
+        "open"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/account/index",
+      "package": "account-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/account/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "access",
+        "agreement",
+        "api-members",
+        "binding",
+        "cancel",
+        "course",
+        "delivery",
+        "devices",
+        "dispatch",
+        "help",
+        "identity",
+        "learning",
+        "login",
+        "messages",
+        "order",
+        "orders",
+        "plan",
+        "policy",
+        "privacy",
+        "procure",
+        "procurement",
+        "product",
+        "profile",
+        "purchase",
+        "purchases",
+        "request",
+        "resource",
+        "selection",
+        "service",
+        "services"
+      ],
+      "handlers": [
+        "addMember",
+        "backHome",
+        "backToConsent",
+        "beginWechatBinding",
+        "clearDefaultAccount",
+        "closeLoginConsent",
+        "closeModal",
+        "closePaymentReceipt",
+        "confirmEmergency",
+        "confirmHandover",
+        "confirmLoginConsent",
+        "confirmModal",
+        "confirmPurchase",
+        "continueAfterBindError",
+        "continueCourse",
+        "copyStaffAccount",
+        "expand",
+        "favorite",
+        "favorites",
+        "findAccounts",
+        "go",
+        "input",
+        "lesson",
+        "logoutApi",
+        "noop",
+        "notice",
+        "onChooseAvatar",
+        "openCourse",
+        "openPurchaseProject",
+        "orderAction",
+        "photo",
+        "pickCancel",
+        "pickHandoverLeaver",
+        "pickHandoverTarget",
+        "pickMemberField",
+        "pickProject",
+        "previewDelivery",
+        "previewPlan",
+        "previewResource",
+        "read",
+        "readAll",
+        "readLoginDocument",
+        "reassignRow",
+        "removePhoto",
+        "retryWechatBind",
+        "revokeRow",
+        "saveProfile",
+        "search",
+        "selectAccount",
+        "selectApiPost",
+        "selectLoginMode",
+        "selectRole",
+        "submitFeedback",
+        "submitProcure",
+        "submitRequest",
+        "switchRole",
+        "tab",
+        "toggle",
+        "toggleActiveRow",
+        "toggleConsent",
+        "togglePasswordVisibility",
+        "toggleRememberDefault",
+        "toggleWechatBinding",
+        "wechatLogin",
+        "{{passwordChangeRequired?"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "data",
+        "finance",
+        "staff",
+        "todos"
+      ],
+      "handlers": [
+        "closeModal",
+        "confirm",
+        "go",
+        "home",
+        "input",
+        "monthChange",
+        "noop",
+        "pick",
+        "pickDate",
+        "preview",
+        "rowAction",
+        "search",
+        "secondary",
+        "select",
+        "submit",
+        "tab",
+        "toggle",
+        "toggleRole",
+        "upload",
+        "useSampleFile"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/home/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/home/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "copyFrLink",
+        "go",
+        "month",
+        "openPlatformTodo",
+        "retryHome",
+        "retryPlatformTodos"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/finance/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/finance/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "go",
+        "month"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/performance/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/performance/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "departmentFilter",
+        "go",
+        "month",
+        "openSource",
+        "togglePerson"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/tasks/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/tasks/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "archive",
+        "member",
+        "mine",
+        "team"
+      ],
+      "handlers": [
+        "archive",
+        "beginManual",
+        "beginReassign",
+        "cancelManual",
+        "cancelReassign",
+        "choosePhotos",
+        "completeManual",
+        "evidenceNote",
+        "field",
+        "initializePrevious",
+        "loadReusableTasks",
+        "month",
+        "openSource",
+        "removePhoto",
+        "revise",
+        "selectAssignee",
+        "selectType",
+        "setTaskMode",
+        "submitReassign",
+        "submitTask",
+        "tab",
+        "useReusableTask"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/profile/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/profile/index.wxml",
+        "miniprogram/pages/profile/profile.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "logout",
+        "open"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/detail/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/detail/index.wxml",
+        "miniprogram/pages/admin/performance/settings.wxml",
+        "miniprogram/pages/admin/management-settings.wxml"
+      ],
+      "literalViewCandidates": [
+        "approvals",
+        "company",
+        "handover",
+        "metric",
+        "payable",
+        "payables",
+        "receivable",
+        "receivables",
+        "rules",
+        "settings",
+        "targets"
+      ],
+      "handlers": [
+        "assignmentChange",
+        "clear",
+        "companyInput",
+        "copyReminder",
+        "go",
+        "goalFieldInput",
+        "loadMore",
+        "markHandover",
+        "month",
+        "openDesignPolicy",
+        "openReminderFile",
+        "rulesInput",
+        "saveAssignments",
+        "saveCompany",
+        "savePerformanceGoals",
+        "saveRules",
+        "search"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/finance-desk/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/finance-desk/index.wxml",
+        "miniprogram/pages/admin/finance-desk/finance-home.wxml"
+      ],
+      "literalViewCandidates": [
+        "desk",
+        "flows",
+        "partner",
+        "partners",
+        "project",
+        "projects",
+        "statement",
+        "tasks"
+      ],
+      "handlers": [
+        "back",
+        "cancelDesignReceipt",
+        "cancelRegister",
+        "clear",
+        "confirmBankFlow",
+        "copyFrLink",
+        "designReceiptInput",
+        "designReceiptVoucher",
+        "dismissVoidNotice",
+        "filter",
+        "financeMonth",
+        "go",
+        "home",
+        "loadDesignFees",
+        "loadMoreLedger",
+        "month",
+        "moreDesignFees",
+        "moreFinanceProjects",
+        "moreProjectLedger",
+        "openCorrection",
+        "openDesignPayment",
+        "openDesignReceipt",
+        "openFinanceShortcut",
+        "openPaymentVoid",
+        "openRegister",
+        "openRevision",
+        "paySourceRow",
+        "pick",
+        "reconcileBook",
+        "registerInput",
+        "registerPick",
+        "registerUpload",
+        "retryPlatformFinance",
+        "retryPlatformTodos",
+        "revisionInput",
+        "search",
+        "segment",
+        "submitDesignReceipt",
+        "submitRegister",
+        "submitRevision"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/operations/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/operations/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "costs",
+        "credit",
+        "desk",
+        "direct",
+        "expenses",
+        "funds",
+        "intercompany",
+        "payables",
+        "payroll",
+        "receivables"
+      ],
+      "handlers": [
+        "add",
+        "closeSamplePreview",
+        "editExpense",
+        "go",
+        "input",
+        "installment",
+        "installmentStage",
+        "month",
+        "perform",
+        "pick",
+        "previewFile",
+        "project",
+        "remove",
+        "toggle",
+        "upload",
+        "useSampleFile"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/commission/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/commission/index.wxml",
+        "miniprogram/pages/admin/collection-commission.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "commissionAction",
+        "commissionInput",
+        "commissionPay",
+        "commissionProject",
+        "commissionStaff",
+        "commissionToggle",
+        "commissionUpload"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/admin/brief/index",
+      "package": "management-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/admin/brief/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "archive",
+        "month",
+        "retry"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/growth/index",
+      "package": "growth-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/growth/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "capture",
+        "content",
+        "home",
+        "lead"
+      ],
+      "handlers": [
+        "goCustomer",
+        "home",
+        "input",
+        "onlineInvalidateLead",
+        "onlineLinkLead",
+        "open",
+        "perform",
+        "pick",
+        "registerConsultation"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/studio/index",
+      "package": "studio-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/studio/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "completed",
+        "detail",
+        "digital",
+        "failed",
+        "generating",
+        "library",
+        "publish",
+        "receipt",
+        "recent",
+        "records",
+        "remix",
+        "result",
+        "tasks",
+        "works"
+      ],
+      "handlers": [
+        "advancePublication",
+        "audition",
+        "changeActor",
+        "changeCover",
+        "changeDigitalPersona",
+        "changeIp",
+        "changeRecordFilter",
+        "changeTaskFilter",
+        "changeVoice",
+        "clearTitle",
+        "closeSheet",
+        "copyPublishedUrl",
+        "editResult",
+        "editScript",
+        "generateDigital",
+        "inputCustomIp",
+        "inputEdit",
+        "inputOptimization",
+        "inputOriginal",
+        "inputPublicationAccount",
+        "inputPublishText",
+        "inputPublishedUrl",
+        "inputRequirement",
+        "inputTags",
+        "inputTitle",
+        "makeDigital",
+        "moreSettings",
+        "noop",
+        "openCharacters",
+        "openOptimization",
+        "openRecent",
+        "openRecord",
+        "openTasks",
+        "openWork",
+        "optimizeScript",
+        "playVideo",
+        "previewLibrary",
+        "publishResult",
+        "refreshData",
+        "refreshRecords",
+        "refreshTasks",
+        "regenerate",
+        "registerConsultation",
+        "returnHome",
+        "returnRecords",
+        "returnToList",
+        "savePublicationLink",
+        "saveResult",
+        "saveScript",
+        "selectAccount",
+        "selectCover",
+        "submitPublish",
+        "switchAccount",
+        "switchRewrite",
+        "taskAction",
+        "{{sheet==="
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/studio/characters/index",
+      "package": "studio-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/studio/characters/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "audition",
+        "chooseKind",
+        "cloneTitle",
+        "close",
+        "consent",
+        "createClone",
+        "edit",
+        "enabled",
+        "input",
+        "load",
+        "loadClones",
+        "openDigital",
+        "refreshClone",
+        "save",
+        "search",
+        "uploadClone",
+        "use",
+        "useDigital"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/creation/index",
+      "package": "creation-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/creation/index.wxml"
+      ],
+      "literalViewCandidates": [
+        "failed"
+      ],
+      "handlers": [
+        "allRecent",
+        "chooseMode",
+        "closeSheet",
+        "editRecent",
+        "extract",
+        "inputEditor",
+        "inputLink",
+        "noop",
+        "openEditor",
+        "openShortcut",
+        "paste",
+        "saveDraft"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/ai-video/index",
+      "package": "ai-video-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/ai-video/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "changeParameter",
+        "chooseFrame",
+        "closeLibrary",
+        "generate",
+        "help",
+        "inputDescription",
+        "noop",
+        "openLibraryButton",
+        "optimize",
+        "removeReference",
+        "returnToTasks",
+        "selectAsset",
+        "switchMode",
+        "uploadReferences"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/wallet/recharge/index",
+      "package": "wallet-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/wallet/recharge/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "openCompanyPoints",
+        "returnWorkbench"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "pages/wallet/records/index",
+      "package": "wallet-workflow",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/pages/wallet/records/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "openCompanyPoints",
+        "returnWorkbench"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/library/index",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/library/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "onDimensionClear",
+        "onDimensionInput",
+        "onDimensionSearch",
+        "onFilterChange",
+        "onSearch",
+        "openDetail",
+        "retry",
+        "selectSource"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/library/detail",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/library/detail.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "imageError",
+        "previewLibraryImage",
+        "retryDetail",
+        "retryImage",
+        "selectTab",
+        "toggleFavorite",
+        "useHouse"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/ai-design/index",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/ai-design/index.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "applyNoteEditor",
+        "chooseElevImage",
+        "chooseImage",
+        "chooseReference",
+        "clearElevRef",
+        "clearElevRefCase",
+        "closeNoteEditor",
+        "closeReferencePreview",
+        "confirmReferenceCandidate",
+        "findReferenceCandidates",
+        "generate",
+        "noop",
+        "onDepthInput",
+        "onDraftNoteInput",
+        "onDrawingChange",
+        "onElevAccent",
+        "onElevFloor",
+        "onElevNoteInput",
+        "onElevRoof",
+        "onElevStyle",
+        "onElevWall",
+        "onEntranceChange",
+        "onFaceWidthInput",
+        "onFamilyChange",
+        "onFloorChange",
+        "onLayoutChange",
+        "onNoteInput",
+        "onReferenceBasisChange",
+        "openNoteEditor",
+        "openReferenceCandidate",
+        "polishNote",
+        "previewReferenceImage",
+        "referenceImageError",
+        "retryQuote",
+        "selectCount",
+        "selectElevCount",
+        "selectElevOrientation",
+        "selectElevResolution",
+        "selectLine",
+        "selectOrientation",
+        "selectReferencePlan",
+        "selectResolution",
+        "toggleElevAdvanced"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/ai-design/generating",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/ai-design/generating.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "cancel",
+        "candidateImageError",
+        "continueLater",
+        "leavePage",
+        "nextStep",
+        "previewCandidateImage",
+        "regenerate",
+        "retryCandidateImage",
+        "retryCandidates",
+        "selectCandidate"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/ai-design/result",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/ai-design/result.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "adjust",
+        "budget",
+        "loadGenerationOptions",
+        "loadImages",
+        "loadVersions",
+        "previewCurrentImage",
+        "publish",
+        "save",
+        "saveToAlbum",
+        "selectVersionImage"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/profile/records",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/profile/records.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "confirmDelete",
+        "more",
+        "open",
+        "previewCover",
+        "retry",
+        "swipeEnd",
+        "swipeStart"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/profile/record",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/profile/record.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "budgetHistory",
+        "editResubmitNote",
+        "load",
+        "openVersion",
+        "previewCandidate",
+        "previewSelected",
+        "renameProject",
+        "resubmit",
+        "resumeDesign"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/quick",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/quick.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "choose",
+        "edit",
+        "floor",
+        "generate",
+        "history",
+        "importProject",
+        "load",
+        "loadCatalog",
+        "loadProjects",
+        "moreDrafts",
+        "newDraft",
+        "quantity",
+        "region",
+        "renameDraft",
+        "resolveLocal",
+        "save",
+        "switchDraft"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/input",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/input.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "configuration",
+        "confirmReimport",
+        "generate",
+        "history",
+        "load",
+        "loadCatalog",
+        "modify",
+        "openMyProjects",
+        "selectProject"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/parameters",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/parameters.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "addRegion",
+        "copyFootprint",
+        "load",
+        "onAreaInput",
+        "onFloorChange",
+        "onQuantityInput",
+        "onRegionChange",
+        "openMyPrices",
+        "prefillQuantities",
+        "restore",
+        "revert",
+        "save"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/body",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/body.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "chooseOption",
+        "closeItem",
+        "keepSheet",
+        "load",
+        "openItem",
+        "parameters",
+        "revert",
+        "save"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/body-detail",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/body-detail.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "back",
+        "expand",
+        "load",
+        "toggleExact"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/exterior",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/exterior.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "chooseOption",
+        "closeItem",
+        "keepSheet",
+        "load",
+        "openItem",
+        "parameters",
+        "revert",
+        "save"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/exterior-detail",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/exterior-detail.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "back",
+        "expand",
+        "load",
+        "toggleExact"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/result",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/result.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "adjust",
+        "archive",
+        "detail",
+        "exportImage",
+        "history",
+        "load",
+        "save",
+        "toggleExact"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/quote",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/quote.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "load",
+        "toggleExact"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/history",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/history.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "filter",
+        "goAiDesign",
+        "goMyProjects",
+        "more",
+        "open",
+        "retry"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/budget/prices",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/budget/prices.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "addRegion",
+        "cancelEdit",
+        "confirmEdit",
+        "onPriceInput",
+        "onRegionChange",
+        "reset",
+        "retry",
+        "startEdit"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "route": "design-migration/pages/customer/archive",
+      "package": "design-migration",
+      "templateExists": true,
+      "templateFiles": [
+        "miniprogram/design-migration/pages/customer/archive.wxml"
+      ],
+      "literalViewCandidates": [],
+      "handlers": [
+        "choose",
+        "input",
+        "more",
+        "save",
+        "search"
+      ],
+      "runtimeStatus": "NOT_RUN"
+    }
+  ],
+  "limits": "Literal view candidates include legacy/unreachable views. Imports/includes are followed; dynamic components and server states require live enumeration."
+}

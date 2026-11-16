@@ -1,0 +1,24 @@
+{
+  "phase": "source-frozen-before-independent-audit",
+  "createdAt": "2026-11-16T05:45:15.119214+08:00",
+  "frontend": {
+    "path": "E:\\众墅之家AI赋能平台V3版",
+    "commit": "6a485c994be1dd8ccdd731ecca3f6e16d52d7a88",
+    "source": {
+      "files": 529,
+      "sha256": "75db08a46621deab261aa7ecf61f9f9fdae603793e5671a451a32f3027f79200"
+    }
+  },
+  "backend": {
+    "path": "E:\\众墅之家AI赋能平台V3版-后端",
+    "commit": "d5162552ba1ee4f8244806b39a30c54e0ec5bffb",
+    "source": {
+      "files": 3750,
+      "sha256": "b49596ca7dfc9946c62b6949f5a66d11c38a85ba2966bd58f2c03fc2aa7d5070"
+    }
+  },
+  "project": "E:\\众墅之家AI赋能平台V3版\\.tools\\business-system-audit-20261116\\run-20261116-054514",
+  "evidenceDirectory": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514",
+  "reportDirectory": "E:\\众墅之家AI赋能平台V3版\\docs\\business-system-audit-20261116\\run-20261116-054514",
+  "previousWork": "all three source-writing chats completed; earlier test results are not counted as current audit evidence"
+}

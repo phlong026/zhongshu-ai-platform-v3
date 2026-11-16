@@ -1,0 +1,119 @@
+{
+  "scope": "local native DevTools; before final catalogue UI-only error patch; HTTP telemetry is a sampled window, not full-run coverage",
+  "tabRenderedTaps": 12,
+  "tabPassed": 12,
+  "sdkRouteAck": {
+    "n": 12,
+    "medianMs": 715.0,
+    "p95Ms": 790,
+    "maxMs": 790
+  },
+  "matchedNavigationCallbacks": {
+    "n": 12,
+    "medianMs": 1108.0,
+    "p95Ms": 1278,
+    "maxMs": 1278
+  },
+  "realHttp": {
+    "n": 54,
+    "medianMs": 32.0,
+    "p95Ms": 219,
+    "maxMs": 2241
+  },
+  "realHttpSuccess": {
+    "n": 48,
+    "medianMs": 31.5,
+    "p95Ms": 65,
+    "maxMs": 91
+  },
+  "requestCount": 54,
+  "unsuccessfulSampledRequests": [
+    {
+      "path": "/franchise/design/cases",
+      "route": "pages/design/index",
+      "businessCode": 1112100010,
+      "ms": 347
+    },
+    {
+      "path": "/franchise/design/cases",
+      "route": "pages/design/index",
+      "businessCode": 1112100010,
+      "ms": 216
+    },
+    {
+      "path": "/franchise/design/cases",
+      "route": "pages/design/index",
+      "businessCode": 1112100010,
+      "ms": 194
+    },
+    {
+      "path": "/franchise/design/cases",
+      "route": "pages/design/index",
+      "businessCode": 1112100010,
+      "ms": 199
+    },
+    {
+      "path": "/franchise/design/cases",
+      "route": "pages/design/index",
+      "businessCode": 1112100010,
+      "ms": 2241
+    },
+    {
+      "path": "/franchise/design/flow",
+      "route": "design-migration/pages/library/index",
+      "businessCode": 1112100010,
+      "ms": 219
+    }
+  ],
+  "profilePointsRequests": [
+    {
+      "path": "/franchise/company-points/summary",
+      "method": "GET",
+      "route": "pages/profile/index",
+      "startedAt": 1794785182777,
+      "phase": "final-real-local",
+      "transport": "real-local-http",
+      "elapsedMs": 26,
+      "httpStatus": 200,
+      "businessCode": 0
+    },
+    {
+      "path": "/franchise/company-points/my-usage?page=1&size=1",
+      "method": "GET",
+      "route": "pages/profile/index",
+      "startedAt": 1794785182780,
+      "phase": "final-real-local",
+      "transport": "real-local-http",
+      "elapsedMs": 25,
+      "httpStatus": 200,
+      "businessCode": 0
+    },
+    {
+      "path": "/franchise/company-points/summary",
+      "method": "GET",
+      "route": "pages/profile/index",
+      "startedAt": 1794785199450,
+      "phase": "final-real-local",
+      "transport": "real-local-http",
+      "elapsedMs": 23,
+      "httpStatus": 200,
+      "businessCode": 0
+    },
+    {
+      "path": "/franchise/company-points/my-usage?page=1&size=1",
+      "method": "GET",
+      "route": "pages/profile/index",
+      "startedAt": 1794785199453,
+      "phase": "final-real-local",
+      "transport": "real-local-http",
+      "elapsedMs": 21,
+      "httpStatus": 200,
+      "businessCode": 0
+    }
+  ],
+  "fpsMeasured": false,
+  "registeredRoutes": 55,
+  "observedRoutes": 17,
+  "observedCandidateRows": 31,
+  "candidateRowsIncludingOneRuntimeView": 211
+}

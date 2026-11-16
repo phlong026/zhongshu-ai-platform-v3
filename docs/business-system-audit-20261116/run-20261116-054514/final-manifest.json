@@ -1,0 +1,101 @@
+{
+  "createdAt": "2026-11-16T07:50:44.431985+08:00",
+  "phase": "ten confirmed fixes; real local-B partial acceptance complete; matching A/Design and real WeChat/phone acceptance pending",
+  "miniProgramSourceFiles": 872,
+  "changedMiniProgramFiles": [
+    "api/company-points.js",
+    "api/franchise/crm.js",
+    "design-migration/pages/library/index.js",
+    "design-migration/pages/library/index.wxml",
+    "pages/business/index.js",
+    "pages/creation/index.js",
+    "pages/customers/index.js",
+    "pages/customers/index.wxss",
+    "pages/workflow/quote-export/index.js",
+    "utils/creation-link-draft.js",
+    "utils/platform-crm.js"
+  ],
+  "nativeAfterCopyMatchesSource": true,
+  "realLocalBCopyMatchesSource": true,
+  "sha256FileMapDigest": "346a73b9df1cd8a0e094e5121d352b7aaab03bd2b530ef5f1997e4ae79fe4605",
+  "changedFileHashes": {
+    "api/company-points.js": {
+      "before": "915aefd776a01f5f7e3820d1bd037f32e6cb6ee9ad8ae0c11b4876e1ab4f9d5f",
+      "after": "e9ec155a5979ba47a14f1064963fe457ee04417ff8b6928cf8aa32cdb0f81f50"
+    },
+    "api/franchise/crm.js": {
+      "before": "4b90e47b9efa8653495a5587d438fd0bac286278fabc1ae08f51fa115cc82cd7",
+      "after": "da00e2f11c97cbeac2aac550d8ef7e632e7287fc2832d1de30fcde5ef0b3e92b"
+    },
+    "design-migration/pages/library/index.js": {
+      "before": "cc21adce431ad6c536f658f98104cb55be5287f5e522c4f52a43a4f8615d7ea7",
+      "after": "5807156f304ba9a08baf91de65b755a921bf1fe2251561c49556fee8531bbf43"
+    },
+    "design-migration/pages/library/index.wxml": {
+      "before": "99d11c44d271f70cde32f5a7b22aa14b00ace2cee1a79a8735f4b19f6a845dfe",
+      "after": "987a50ba49ecdea4a7aec63450431aa3409877f807584ae0278d34d9c3e06934"
+    },
+    "pages/business/index.js": {
+      "before": "6d6066a9a3c674c45a1c5851adab4713b0640f738ae69ebbe425a7a8e8f05274",
+      "after": "98dab829d8f9a74473306a1724c6358d0e4e19506916eb36c8a0b7654ade2321"
+    },
+    "pages/creation/index.js": {
+      "before": "7cb2e4ee38be0a281dbfad4b608ea12126f2d00c7fef5a9e9b791f25949b90e4",
+      "after": "1608d6396df7aed3c0b857cb19b6c7bfc9dc21e49ea2cf41a09d1b52ffe1ef93"
+    },
+    "pages/customers/index.js": {
+      "before": "d3ca479423414be1eff514d6e1f6bf2fd597797626105fa3045598482b90199b",
+      "after": "35a6a7c2f7a4c5f89ba90b04d24ff35a3ac2d32f6bf1ad5c810da29f858ef138"
+    },
+    "pages/customers/index.wxss": {
+      "before": "220cfcbfbd8195e80376c9cc5742b8c8ab5879ce27f810dea7c350f4c4c54a07",
+      "after": "e43625fb0f7f50d24efef393c4ea0a09af8ad83d65d82d707bdb74dcbab2dafa"
+    },
+    "pages/workflow/quote-export/index.js": {
+      "before": "88d5c574307745459e2ada87a35366d44337626ff5146d050698e71f582ad48a",
+      "after": "8af64690c247a8aedffcb7011e43d8ed5a480e248738d5debecd8aa64a7f5905"
+    },
+    "utils/creation-link-draft.js": {
+      "before": null,
+      "after": "c77f433028d27948f2d3e200b97145896393bf73641fde6c5ab876e70e5dc832"
+    },
+    "utils/platform-crm.js": {
+      "before": "aa3c93faf4ca963dab4d097a91029eaf06bd27a5ebd8176394676d848f8080dd",
+      "after": "e82a5823c9a7174c74a366478b13d4b4da9070d28a626b50af2a395718d91424"
+    }
+  },
+  "productAppId": "wxe584f6fad7b54487",
+  "nativeAuditAppId": "touristappid",
+  "privateTestPostgres": "127.0.0.1:55439, isolated cluster",
+  "realLocalB": {
+    "api": "127.0.0.1:18086",
+    "redis": "127.0.0.1:56389",
+    "securityMock": false,
+    "realAuthAndDatabase": true,
+    "onlyWechatSmsProvidersStubbed": true
+  },
+  "logs": [
+    "backend-api-build.log",
+    "backend-api-final-build.log",
+    "backend-region-after.log",
+    "backend-region-before.log",
+    "baseline-check.log",
+    "catalog-error-before.log",
+    "catalog-filter-before.log",
+    "creation-tab-before.log",
+    "export-backend-after.log",
+    "export-backend-before.log",
+    "export-frontend-before.log",
+    "frontend-check-after.log",
+    "frontend-final-check.log",
+    "points-before.log",
+    "regressions-before.log",
+    "regressions-final.log"
+  ],
+  "backendFilesChangedByThisAudit": {
+    "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/dal/CustomerMapper.java": "de02eae225e3e621b181fa833cd36caff585760f57a7ea9c94253490d941c999",
+    "domains/franchise/franchise-crm/src/test/java/cn/iocoder/yudao/module/franchise/crm/CrmIntegrationTest.java": "0300b2814b91d50ce07b639d905fcdbafbc13e86a20041b0ab036909adfc42b3",
+    "domains/franchise/franchise-sales/src/main/java/cn/iocoder/yudao/module/franchise/sales/SaleQuoteService.java": "e2c50ffabaaa7eba162996d3d86dfae681dbb63bce20b610ce1a6e39a22a11c0",
+    "domains/franchise/franchise-sales/src/test/java/cn/iocoder/yudao/module/franchise/sales/SaleQuoteBudgetIntegrationTest.java": "3ef891d98ac7ef58805d07b9304cf72a194737bc0c88726bb0471fba3e978ff0"
+  }
+}

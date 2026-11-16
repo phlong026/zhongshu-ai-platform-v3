@@ -1,0 +1,278 @@
+[
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\01-guest-home.png",
+    "scope": "public UI; visitor AppID"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\02-real-login-entry.png",
+    "scope": "public login UI; real policy API"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\03-login-empty-validation.png",
+    "scope": "public empty-form validation"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\05-fixture-before-customers.png",
+    "scope": "controlled: false partial totals"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\06-fixture-before-cross-page-search.png",
+    "scope": "controlled: search did not query server"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\07-fixture-before-search-skips-page-one.png",
+    "scope": "controlled: search starts at page two"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\09-fixture-after-cross-page-search.png",
+    "scope": "controlled: search fixed"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\10-fixture-after-region-search.png",
+    "scope": "controlled: province result retained; before layout fix"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\13-fixture-final-customer-filter-layout.png",
+    "scope": "controlled: final readable filters"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\14-fixture-creation-tab.png",
+    "scope": "controlled: creation entry only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\17-fixture-final-home-tab.png",
+    "scope": "controlled: home Tab and summary"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\18-fixture-final-points-card.png",
+    "scope": "controlled: points card, one request pair"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\19-fixture-final-design-empty.png",
+    "scope": "controlled: valid empty case catalogue"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\20-fixture-help-entry.png",
+    "scope": "controlled: feedback explicitly unavailable"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\30-local-b-real-login.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\31-local-b-account-match.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\32-local-b-login-consent.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\33-local-b-first-password-change.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\34-local-b-authenticated-home.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\35-local-b-real-customer-page.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\36-local-b-real-cross-page-search.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\37-local-b-real-province-search.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\38-local-b-follow-current-state.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\39-local-b-real-follow-modal.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\40-local-b-empty-follow-validation.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\41-local-b-follow-saved.png",
+    "scope": "missing next-visit-date validation; NOT saved successfully"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\42-local-b-follow-persisted.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\43-local-b-follow-history.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\44-local-b-edit-customer.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\45-local-b-customer-edit-saved.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\46-local-b-register-customer.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\47-local-b-register-result.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\48-local-b-customer-demand-entry.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\49-local-b-demand-saved.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\50-local-b-budget-entry-observation.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\51-local-b-quote-result.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\52-local-b-budget-export.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\53-local-b-export-fixed.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\54-local-b-tab-input-before-fix.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\55-local-b-tab-input-after-fix.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\56-local-b-real-profile.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\57-local-b-real-home.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\58-local-b-library.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\59-local-b-tasks.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\60-local-b-characters.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\61-local-b-publish-records.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\62-local-b-design-dependency-error.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\63-local-b-ai-config.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\64-local-b-elevation-config.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\65-local-b-inspiration-dependency.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\66-local-b-budget-config.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\67-local-b-inspiration-error-fixed.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\68-local-b-inspiration-retry.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\69-local-b-personal-profile.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\70-local-b-messages.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\71-local-b-identity.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\72-local-b-my-tasks.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\73-local-b-course.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\74-local-b-real-help.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\75-local-b-digital-entry.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\76-local-b-ai-video-entry.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\77-local-b-commission-entry.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\78-local-b-contract-gate.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\79-local-b-delivery-gate.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\80-local-b-contract-create-form.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\81-local-b-contract-record-saved.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\82-local-b-delivery-after-contract.png",
+    "scope": "real local B or explicitly shown configuration/precondition; scope is the pictured state only"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\quote-export-native-full.png",
+    "scope": "before fixes: date and configuration absent"
+  },
+  {
+    "file": "E:\\众墅之家AI赋能平台V3版\\qa\\business-system-audit-20261116\\run-20261116-054514\\quote-export-native-after.png",
+    "scope": "after fixes: actual unchanged canvas output, date/config/amount visually verified"
+  }
+]

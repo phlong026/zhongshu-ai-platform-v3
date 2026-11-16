@@ -1,0 +1,47 @@
+{
+  "passed": true,
+  "checks": [
+    "五级地址逐级选择",
+    "保存包含村级地址",
+    "客户详情回显",
+    "编辑地址保留村级字段",
+    "300px键盘预留区域内输入框及按钮可见"
+  ],
+  "keyboardRects": [
+    {
+      "id": "",
+      "dataset": {},
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 134,
+      "bottom": 449,
+      "width": 390.3999938964844,
+      "height": 315
+    },
+    {
+      "id": "",
+      "dataset": {
+        "field": "customer-summary-field",
+        "key": "summary"
+      },
+      "left": 18,
+      "right": 372.3999938964844,
+      "top": 356,
+      "bottom": 449,
+      "width": 354.3999938964844,
+      "height": 93
+    },
+    {
+      "id": "",
+      "dataset": {},
+      "left": 0,
+      "right": 390.3999938964844,
+      "top": 449,
+      "bottom": 544,
+      "width": 390.3999938964844,
+      "height": 95
+    }
+  ],
+  "errors": [],
+  "requestCount": 8
+}

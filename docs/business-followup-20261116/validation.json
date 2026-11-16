@@ -1,0 +1,72 @@
+{
+  "status": "completed-locally",
+  "changes": {
+    "customerRegistration": [
+      "客户姓名、电话、五级地址至村、详细地址、来源、跟进概要",
+      "地址逐级联动、保存与编辑回显",
+      "键盘预留空间及表单内部滚动",
+      "列表仅保留右上角登记入口"
+    ],
+    "business": [
+      "平台待办改为今日待办",
+      "取消待办正文框体，保留办理入口"
+    ],
+    "creation": [
+      "人物库",
+      "素材库",
+      "我的作品",
+      "任务中心"
+    ],
+    "digitalHuman": {
+      "featureRetained": true,
+      "mockDataRemoved": true,
+      "multipleResourcesPerPersona": true,
+      "defaultScope": "每个人物的口播分身和克隆声音分别设置默认",
+      "defaultsUsedForNewGeneration": true,
+      "temporarySelectionAllowed": true,
+      "pendingRetriesKeepOriginalResourceIds": true
+    }
+  },
+  "validation": {
+    "npmCheck": {
+      "passed": true,
+      "tests": 462,
+      "log": ".tools/business-followup-all-check.log"
+    },
+    "crmBackend": {
+      "passed": true,
+      "tests": 59,
+      "log": ".tools/customer-address-backend-final.log"
+    },
+    "cloneBackend": {
+      "passed": true,
+      "tests": 30,
+      "log": ".tools/digital-defaults-backend-test.log"
+    },
+    "nativePageResults": [
+      "docs/customer-registration-20261116/native-results.json",
+      "docs/business-followup-20261116/native-results.json",
+      "docs/business-followup-20261116/digital-defaults-native-results.json"
+    ],
+    "nativeFixtureIsolated": true,
+    "keyboardVerification": "模拟300px键盘预留区域的布局检查，未做真机键盘测试",
+    "paidAiGenerationPerformed": false
+  },
+  "release": {
+    "thisChangeUploaded": false,
+    "thisBackendDeployed": false,
+    "requiredBackendMigrations": [
+      "V20261116.925__crm_customer_address.sql",
+      "V20261116.926__content_clone_defaults.sql"
+    ],
+    "previousUploadReceipt": "docs/creation-fixes-20261116/live/frontend-upload.json",
+    "previousUploadedVersion": "1.0.20261116.1503",
+    "previousReceiptExperienceVersionSwitched": false,
+    "explanation": "现有上传记录标记未切换体验版；仅根据本地回执判断，未登录微信后台核实当前线上版本。"
+  },
+  "addressCatalog": {
+    "datasetVersion": "2023-06-30",
+    "scope": "离线乡镇及村级行政区划数据",
+    "manifest": "../众墅之家AI赋能平台V3版-后端/平台程序/domains/franchise/franchise-crm/src/main/resources/crm-regions/source.json"
+  }
+}

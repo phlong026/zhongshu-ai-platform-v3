@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "checks": [
+    "多个分身和声音并存；分别设置默认，原资源保留",
+    "生成页自动带出默认资源，提交使用默认分身和声音的准确编号"
+  ],
+  "errors": [],
+  "fixture": true,
+  "paidGeneration": false
+}

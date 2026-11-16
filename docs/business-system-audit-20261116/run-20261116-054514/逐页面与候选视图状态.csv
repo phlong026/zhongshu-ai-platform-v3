@@ -1,0 +1,212 @@
+﻿route,view_candidate,status,evidence,limits
+pages/home/index,,PUBLIC_UI_ONLY,01-guest-home.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/business/index,,REAL_LOCAL_B_SUMMARY_AND_TABS,57-local-b-real-home.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/engineering/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/management/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/profile/index,,REAL_LOCAL_B_ENTRY_POINTS_UNOPENED,56-local-b-real-profile.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/customers/index,,REAL_LOCAL_B_SEARCH_REGION_PAGINATION,35-local-b-real-customer-page.png;36-local-b-real-cross-page-search.png;37-local-b-real-province-search.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/design/index,,REAL_LOCAL_B_CASE_SERVICE_BLOCKED,62-local-b-design-dependency-error.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,admin,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,dispatch,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,handover,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,policy,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,pricing,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,projects,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,receive,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,submit,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/commission/index,progress,REAL_LOCAL_B_HQ_CONFIG_BLOCKED,77-local-b-commission-entry.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/quote-export/index,,REAL_LOCAL_B_CANVAS_EXPORT_VISUALLY_VERIFIED,quote-export-native-full.png;quote-export-native-after.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,ai-config,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,ai-facade,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,budget,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,budget-result,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,case,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,facade-result,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,inspiration,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,plan-result,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,project,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,projects,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/explore/index,search,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,ai-config,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,ai-facade,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,ai-results,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,arrival,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,budget,REAL_LOCAL_B_REFERENCE_QUOTE_SAVED,50-local-b-budget-entry-observation.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,budget-result,REAL_LOCAL_B_FROZEN_QUOTE_READ,51-local-b-quote-result.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,case,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,case-plan,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,commission,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,contract,REAL_LOCAL_B_WAIT_SIGN_CONTRACT_SAVED,78-local-b-contract-gate.png;80-local-b-contract-create-form.png;81-local-b-contract-record-saved.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,customer,REAL_LOCAL_B_EDIT_FOLLOW_HISTORY,39-local-b-real-follow-modal.png;42-local-b-follow-persisted.png;43-local-b-follow-history.png;45-local-b-customer-edit-saved.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,customers,REAL_LOCAL_B_REGISTERED_CUSTOMER,46-local-b-register-customer.png;47-local-b-register-result.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,delivery,REAL_LOCAL_B_SIGNED_CONTRACT_PRECONDITION,79-local-b-delivery-gate.png;82-local-b-delivery-after-contract.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,facade-candidates,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,facade-config,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,facade-result,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,inspiration,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,progress,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,requirement,REAL_LOCAL_B_REQUIREMENT_VERSION_SAVED,48-local-b-customer-demand-entry.png;49-local-b-demand-saved.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,result,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,search,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/workflow/index,transfer,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,archive,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,boss,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,collection,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,documents,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,materials,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,new,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,node,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,overview,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,prepare,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,projects,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,schedule,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,start,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/index,supply,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/home/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/projects/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/materials/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,archive,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,collection,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,delivery,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,documents,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,expenses,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,funding,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,material,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,materials,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,node,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,overview,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,payables,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,payments,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,prepare,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,project,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/build/record/index,settlement,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/sales/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,,NOT_CLICKED,,Only named views have evidence; no default-view pass is claimed
+pages/account/index,access,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,agreement,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,api-members,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,binding,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,cancel,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,course,REAL_LOCAL_UI_COURSE_CONTENT_PENDING,73-local-b-course.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,delivery,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,devices,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,dispatch,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,help,REAL_LOCAL_UI_FEEDBACK_DISABLED,74-local-b-real-help.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,identity,REAL_LOCAL_B_READ_ONLY_ENTRY,71-local-b-identity.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,learning,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,login,REAL_LOCAL_B_LOGIN_CONSENT_FIRST_PASSWORD_CHANGE,30-local-b-real-login.png;31-local-b-account-match.png;32-local-b-login-consent.png;33-local-b-first-password-change.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,messages,REAL_LOCAL_B_EMPTY_READ_ONLY,70-local-b-messages.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,order,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,orders,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,plan,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,policy,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,privacy,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,procure,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,procurement,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,product,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,profile,REAL_LOCAL_B_READ_ONLY_ENTRY,69-local-b-personal-profile.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,purchase,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,purchases,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,request,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,resource,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,selection,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,service,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/account/index,services,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/index,data,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/index,finance,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/index,staff,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/index,todos,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/home/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/performance/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/tasks/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/tasks/index,archive,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/tasks/index,member,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/tasks/index,mine,REAL_LOCAL_B_EMPTY_MY_TASKS,72-local-b-my-tasks.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/tasks/index,team,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/profile/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,approvals,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,company,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,handover,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,metric,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,payable,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,payables,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,receivable,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,receivables,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,rules,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,settings,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/detail/index,targets,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,desk,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,flows,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,partner,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,partners,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,project,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,projects,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,statement,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/finance-desk/index,tasks,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,costs,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,credit,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,desk,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,direct,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,expenses,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,funds,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,intercompany,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,payables,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,payroll,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/operations/index,receivables,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/commission/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/admin/brief/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/growth/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/growth/index,capture,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/growth/index,content,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/growth/index,home,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/growth/index,lead,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,completed,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,detail,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,digital,REAL_LOCAL_B_PERSONA_PRECONDITION,75-local-b-digital-entry.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,failed,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,generating,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,library,REAL_LOCAL_UI_BUILTIN_ASSETS_ONLY,58-local-b-library.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,publish,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,receipt,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,recent,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,records,REAL_LOCAL_B_EMPTY_READ_ONLY,61-local-b-publish-records.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,remix,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,result,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,tasks,REAL_LOCAL_B_EMPTY_READ_ONLY,59-local-b-tasks.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/index,works,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/studio/characters/index,,REAL_LOCAL_B_EMPTY_PERSONAS_SALES_READ_ONLY,60-local-b-characters.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/creation/index,,REAL_LOCAL_UI_TABS_AND_TEMP_INPUT,54-local-b-tab-input-before-fix.png;55-local-b-tab-input-after-fix.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/creation/index,failed,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/ai-video/index,,REAL_LOCAL_B_DRAFT_ENTRY_ONLY,76-local-b-ai-video-entry.png,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/wallet/recharge/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+pages/wallet/records/index,,NOT_CLICKED,,Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated
+design-migration/pages/library/index,,REAL_LOCAL_B_ERROR_AND_RETRY_VERIFIED,65-local-b-inspiration-dependency.png;67-local-b-inspiration-error-fixed.png;68-local-b-inspiration-retry.png,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/library/detail,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/ai-design/index,,REAL_LOCAL_B_FLAT_ELEVATION_CONFIG_ONLY,63-local-b-ai-config.png;64-local-b-elevation-config.png,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/ai-design/generating,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/ai-design/result,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/profile/records,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/profile/record,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/quick,,REAL_LOCAL_B_DESIGN_DEPENDENCY_BLOCKED,66-local-b-budget-config.png,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/input,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/parameters,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/body,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/body-detail,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/exterior,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/exterior-detail,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/result,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/quote,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/history,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/budget/prices,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"
+design-migration/pages/customer/archive,,DEPENDENCY_BLOCKED_NOT_CLICKED,,"Literal candidate only; actual reachability and server-state combinations not exhaustively enumerated; remaining data-dependent states require matched A/Design plus published case, pricebook or generated artifacts"

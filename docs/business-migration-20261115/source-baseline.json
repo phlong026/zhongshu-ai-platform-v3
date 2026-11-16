@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-15",
+  "purpose": "业务模块迁移源码对照基线；不含凭据、用户资料或媒体",
+  "sources": [
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\index.js",
+      "sha256": "b53ee46289326473f29ee017f7821633550e53b6f842fd658933ce3e2bee9b3d",
+      "bytes": 5759
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\library\\detail.js",
+      "sha256": "1981fa4ce946ad6c8a02d5a44970856c3d5c3ee8cc21928316c53a0b91a131a8",
+      "bytes": 8249
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\index.js",
+      "sha256": "b2b8473f0b7409f75a6a7bd8863b07d4da1a0b5bfbba3dfe46dfa386c321f13f",
+      "bytes": 42448
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\design-inputs.js",
+      "sha256": "0f0e90c8dce8fd157172a5646ade60fbd22dda0896559cda13e189a17e442e6c",
+      "bytes": 5638
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\generation-options.js",
+      "sha256": "af087e06ee60eb50a808f95ecc1d2360f2798ed026da7accbac61199724717e7",
+      "bytes": 1522
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\ai-design\\result.js",
+      "sha256": "64c632686c7bc10c25eb9fceb8d87bbb99098ae44bb8deb3e2271aeaf94ed18e",
+      "bytes": 10057
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quick.js",
+      "sha256": "15b18a19883f6db277e59ade07fae8164e6d05c427ebb7880dc6c2c8a1615535",
+      "bytes": 19800
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\pages\\budget\\quick.wxml",
+      "sha256": "c96a9001b3734b14df0ab0d5509ce9ad1d7176cfdc8e349e6d27e2bba0992238",
+      "bytes": 6051
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\budget-draft.js",
+      "sha256": "7a48ce9fbcfc28f53595163d2e602525909a27794b0ecb917d63b1dee3663c9b",
+      "bytes": 9298
+    },
+    {
+      "path": "E:\\众墅之家设计平台\\zhongshu-home-design-miniprogram\\前端程序\\miniprogram\\utils\\api.js",
+      "sha256": "7d5a285a715abb8a5862de8c4ae0fee159c6cb8c60c39baecd3ef7897f56e642",
+      "bytes": 16157
+    },
+    {
+      "path": "E:\\众墅之家爆款短视频创作\\xiangshu-video-replica-\\client\\src\\CharacterLibrary.tsx",
+      "sha256": "3760ddf414817db4c10378b1c6cd4bec6af3423f6adc2c4fdef690daba859c8d",
+      "bytes": 46169
+    },
+    {
+      "path": "E:\\众墅之家爆款短视频创作\\xiangshu-video-replica-\\client\\src\\api.ts",
+      "sha256": "a277f97d975c81a390b43e2ac6f61778fdf910bdce6915a9b6cd626c71d36472",
+      "bytes": 310110
+    },
+    {
+      "path": "E:\\众墅之家爆款短视频创作\\xiangshu-video-replica-\\server\\app\\oral.py",
+      "sha256": "26514813f038580504f0328968324ad39b474c9c3335cf3632c9a7cf0069ea85",
+      "bytes": 88332
+    },
+    {
+      "path": "E:\\众墅之家爆款短视频创作\\xiangshu-video-replica-\\server\\app\\hifly.py",
+      "sha256": "8e9ee23e091b081e37d02584225b538735d9654e72ba042bccae143c7a4867da",
+      "bytes": 27052
+    }
+  ]
+}

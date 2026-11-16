@@ -1,0 +1,760 @@
+[
+  {
+    "route": "pages/home/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: PUBLIC_UI_ONLY",
+    "evidence": "01-guest-home.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 53,
+    "possibleHttpCalls": 7,
+    "candidateFiles": [
+      "miniprogram/api/auth.js"
+    ]
+  },
+  {
+    "route": "pages/business/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_SUMMARY_AND_TABS",
+    "evidence": "57-local-b-real-home.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 66,
+    "possibleHttpCalls": 64,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/commission.js",
+      "miniprogram/api/franchise/content.js",
+      "miniprogram/api/franchise/crm.js",
+      "miniprogram/api/todos.js",
+      "miniprogram/pages/business/index.js"
+    ]
+  },
+  {
+    "route": "pages/engineering/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 64,
+    "possibleHttpCalls": 70,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/todos.js",
+      "miniprogram/pages/engineering/index.js"
+    ]
+  },
+  {
+    "route": "pages/management/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 54,
+    "possibleHttpCalls": 7,
+    "candidateFiles": [
+      "miniprogram/api/auth.js"
+    ]
+  },
+  {
+    "route": "pages/profile/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_ENTRY_POINTS_UNOPENED",
+    "evidence": "56-local-b-real-profile.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 59,
+    "possibleHttpCalls": 42,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/content.js",
+      "miniprogram/pages/profile/profile-page.js"
+    ]
+  },
+  {
+    "route": "pages/customers/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_SEARCH_REGION_PAGINATION",
+    "evidence": "35-local-b-real-customer-page.png;36-local-b-real-cross-page-search.png;37-local-b-real-province-search.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 8,
+    "possibleHttpCalls": 17,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/crm.js"
+    ]
+  },
+  {
+    "route": "pages/design/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_CASE_SERVICE_BLOCKED",
+    "evidence": "62-local-b-design-dependency-error.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 7,
+    "possibleHttpCalls": 32,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/design.js"
+    ]
+  },
+  {
+    "route": "pages/workflow/commission/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_HQ_CONFIG_BLOCKED",
+    "evidence": "77-local-b-commission-entry.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 62,
+    "possibleHttpCalls": 45,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/commission.js",
+      "miniprogram/pages/workflow/commission/index.js",
+      "miniprogram/utils/commission-assets.js"
+    ]
+  },
+  {
+    "route": "pages/workflow/quote-export/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_CANVAS_EXPORT_VISUALLY_VERIFIED",
+    "evidence": "quote-export-native-after.png;quote-export-native-full.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 58,
+    "possibleHttpCalls": 8,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/pages/workflow/quote-export/index.js"
+    ]
+  },
+  {
+    "route": "pages/workflow/explore/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 61,
+    "possibleHttpCalls": 64,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/crm.js",
+      "miniprogram/api/franchise/design.js"
+    ]
+  },
+  {
+    "route": "pages/workflow/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_EDIT_FOLLOW_HISTORY; REAL_LOCAL_B_FROZEN_QUOTE_READ; REAL_LOCAL_B_REFERENCE_QUOTE_SAVED; REAL_LOCAL_B_REGISTERED_CUSTOMER; REAL_LOCAL_B_REQUIREMENT_VERSION_SAVED; REAL_LOCAL_B_SIGNED_CONTRACT_PRECONDITION; REAL_LOCAL_B_WAIT_SIGN_CONTRACT_SAVED",
+    "evidence": "39-local-b-real-follow-modal.png;42-local-b-follow-persisted.png;43-local-b-follow-history.png;45-local-b-customer-edit-saved.png;46-local-b-register-customer.png;47-local-b-register-result.png;48-local-b-customer-demand-entry.png;49-local-b-demand-saved.png;50-local-b-budget-entry-observation.png;51-local-b-quote-result.png;78-local-b-contract-gate.png;79-local-b-delivery-gate.png;80-local-b-contract-create-form.png;81-local-b-contract-record-saved.png;82-local-b-delivery-after-contract.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 61,
+    "possibleHttpCalls": 42,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/crm.js",
+      "miniprogram/api/franchise/sales.js",
+      "miniprogram/api/org.js"
+    ]
+  },
+  {
+    "route": "pages/build/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 10,
+    "possibleHttpCalls": 68,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js"
+    ]
+  },
+  {
+    "route": "pages/build/home/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 64,
+    "possibleHttpCalls": 70,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/todos.js",
+      "miniprogram/pages/build/home/index.js"
+    ]
+  },
+  {
+    "route": "pages/build/projects/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 60,
+    "possibleHttpCalls": 68,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js"
+    ]
+  },
+  {
+    "route": "pages/build/materials/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 4,
+    "possibleHttpCalls": 0,
+    "candidateFiles": []
+  },
+  {
+    "route": "pages/build/record/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 63,
+    "possibleHttpCalls": 69,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/pages/build/record/index.js"
+    ]
+  },
+  {
+    "route": "pages/account/sales/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 1,
+    "possibleHttpCalls": 0,
+    "candidateFiles": []
+  },
+  {
+    "route": "pages/account/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_EMPTY_READ_ONLY; REAL_LOCAL_B_LOGIN_CONSENT_FIRST_PASSWORD_CHANGE; REAL_LOCAL_B_READ_ONLY_ENTRY; REAL_LOCAL_UI_COURSE_CONTENT_PENDING; REAL_LOCAL_UI_FEEDBACK_DISABLED",
+    "evidence": "30-local-b-real-login.png;31-local-b-account-match.png;32-local-b-login-consent.png;33-local-b-first-password-change.png;69-local-b-personal-profile.png;70-local-b-messages.png;71-local-b-identity.png;73-local-b-course.png;74-local-b-real-help.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 63,
+    "possibleHttpCalls": 58,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/content.js",
+      "miniprogram/api/org.js",
+      "miniprogram/pages/account/index.js"
+    ]
+  },
+  {
+    "route": "pages/admin/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 1,
+    "possibleHttpCalls": 0,
+    "candidateFiles": []
+  },
+  {
+    "route": "pages/admin/home/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 72,
+    "possibleHttpCalls": 104,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/franchise/performance.js",
+      "miniprogram/api/org.js",
+      "miniprogram/api/todos.js",
+      "miniprogram/pages/admin/owner-page.js"
+    ]
+  },
+  {
+    "route": "pages/admin/finance/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 72,
+    "possibleHttpCalls": 104,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/franchise/performance.js",
+      "miniprogram/api/org.js",
+      "miniprogram/api/todos.js",
+      "miniprogram/pages/admin/owner-page.js"
+    ]
+  },
+  {
+    "route": "pages/admin/performance/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 72,
+    "possibleHttpCalls": 104,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/franchise/performance.js",
+      "miniprogram/api/org.js",
+      "miniprogram/api/todos.js",
+      "miniprogram/pages/admin/owner-page.js"
+    ]
+  },
+  {
+    "route": "pages/admin/tasks/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_EMPTY_MY_TASKS",
+    "evidence": "72-local-b-my-tasks.png",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 59,
+    "possibleHttpCalls": 102,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/franchise/performance.js",
+      "miniprogram/api/org.js"
+    ]
+  },
+  {
+    "route": "pages/admin/profile/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 1,
+    "possibleHttpCalls": 0,
+    "candidateFiles": []
+  },
+  {
+    "route": "pages/admin/detail/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 72,
+    "possibleHttpCalls": 104,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/franchise/performance.js",
+      "miniprogram/api/org.js",
+      "miniprogram/api/todos.js",
+      "miniprogram/pages/admin/owner-page.js"
+    ]
+  },
+  {
+    "route": "pages/admin/finance-desk/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 67,
+    "possibleHttpCalls": 55,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/performance.js",
+      "miniprogram/api/todos.js",
+      "miniprogram/pages/admin/finance-desk/index.js"
+    ]
+  },
+  {
+    "route": "pages/admin/operations/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 1,
+    "possibleHttpCalls": 0,
+    "candidateFiles": []
+  },
+  {
+    "route": "pages/admin/commission/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 61,
+    "possibleHttpCalls": 102,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/franchise/performance.js",
+      "miniprogram/api/org.js"
+    ]
+  },
+  {
+    "route": "pages/admin/brief/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Only explicitly evidenced business-facing states exercised; downstream role changes, financial transitions and handoff are not fully accepted",
+    "staticDependencyCount": 12,
+    "possibleHttpCalls": 102,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/engineering.js",
+      "miniprogram/api/franchise/performance.js",
+      "miniprogram/api/org.js"
+    ]
+  },
+  {
+    "route": "pages/growth/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 57,
+    "possibleHttpCalls": 50,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/content.js",
+      "miniprogram/api/franchise/crm.js"
+    ]
+  },
+  {
+    "route": "pages/studio/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_EMPTY_READ_ONLY; REAL_LOCAL_B_PERSONA_PRECONDITION; REAL_LOCAL_UI_BUILTIN_ASSETS_ONLY",
+    "evidence": "58-local-b-library.png;59-local-b-tasks.png;61-local-b-publish-records.png;75-local-b-digital-entry.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 58,
+    "possibleHttpCalls": 40,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/content.js"
+    ]
+  },
+  {
+    "route": "pages/studio/characters/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_EMPTY_PERSONAS_SALES_READ_ONLY",
+    "evidence": "60-local-b-characters.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 58,
+    "possibleHttpCalls": 62,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/content.js"
+    ]
+  },
+  {
+    "route": "pages/creation/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_UI_TABS_AND_TEMP_INPUT",
+    "evidence": "54-local-b-tab-input-before-fix.png;55-local-b-tab-input-after-fix.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 59,
+    "possibleHttpCalls": 40,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/franchise/content.js"
+    ]
+  },
+  {
+    "route": "pages/ai-video/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_DRAFT_ENTRY_ONLY",
+    "evidence": "76-local-b-ai-video-entry.png",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 61,
+    "possibleHttpCalls": 62,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/finance.js",
+      "miniprogram/api/franchise/content.js"
+    ]
+  },
+  {
+    "route": "pages/wallet/recharge/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 55,
+    "possibleHttpCalls": 7,
+    "candidateFiles": [
+      "miniprogram/api/auth.js"
+    ]
+  },
+  {
+    "route": "pages/wallet/records/index",
+    "status": "NOT_CLICKED",
+    "evidence": "",
+    "notes": "Real isolated B login and six native writes verified; full production, paid generation, real WeChat and downstream handoff remain unverified",
+    "staticDependencyCount": 55,
+    "possibleHttpCalls": 7,
+    "candidateFiles": [
+      "miniprogram/api/auth.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/library/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_ERROR_AND_RETRY_VERIFIED",
+    "evidence": "65-local-b-inspiration-dependency.png;67-local-b-inspiration-error-fixed.png;68-local-b-inspiration-retry.png",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 15,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/library/detail",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 15,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/ai-design/index",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_FLAT_ELEVATION_CONFIG_ONLY",
+    "evidence": "63-local-b-ai-config.png;64-local-b-elevation-config.png",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 22,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/ai-design/generating",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 21,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/ai-design/result",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 21,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/profile/records",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 16,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/profile/record",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 22,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/quick",
+    "status": "PARTIAL_NATIVE_OBSERVATION: REAL_LOCAL_B_DESIGN_DEPENDENCY_BLOCKED",
+    "evidence": "66-local-b-budget-config.png",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 18,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/input",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 16,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/parameters",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 15,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/body",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 16,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/body-detail",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 17,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/exterior",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 16,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/exterior-detail",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 17,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/result",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 18,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/quote",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 18,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/history",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 17,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/budget/prices",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 13,
+    "possibleHttpCalls": 118,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/utils/api.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  },
+  {
+    "route": "design-migration/pages/customer/archive",
+    "status": "DEPENDENCY_BLOCKED_NOT_CLICKED",
+    "evidence": "",
+    "notes": "19 migrated routes: local B identity available; matched A/Design, pricebook, cases and generated artifacts still required for remaining states",
+    "staticDependencyCount": 16,
+    "possibleHttpCalls": 49,
+    "candidateFiles": [
+      "miniprogram/api/auth.js",
+      "miniprogram/api/company-points.js",
+      "miniprogram/api/franchise/crm.js",
+      "miniprogram/api/franchise/design.js",
+      "miniprogram/design-migration/pages/customer/archive.js",
+      "miniprogram/design-migration/utils/request.js"
+    ]
+  }
+]

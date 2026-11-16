@@ -1,0 +1,124 @@
+{
+  "checkedAt": "2026-11-16T00:02:02.7488784+08:00",
+  "scope": "Local implementation and source comparison; not production acceptance",
+  "deployed": false,
+  "uploadedToWeChat": false,
+  "realProviderCalls": false,
+  "actualPointsConsumed": false,
+  "sourceBaseline": {
+    "file": "source-baseline.json",
+    "unchanged": true,
+    "files": 14
+  },
+  "frontend": {
+    "fullCheck": {
+      "status": "passed",
+      "command": "npm run check",
+      "artifact": {
+        "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\frontend-final.log",
+        "bytes": 41303,
+        "sha256": "8143b90942750834994ad2d2e545d8161e3d9111e97de70a4d15e7408f2536f8"
+      }
+    },
+    "focused": {
+      "status": "passed",
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0,
+      "command": "npm run check:business-migration",
+      "artifact": {
+        "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\frontend-focused-final.log",
+        "bytes": 4537,
+        "sha256": "7860adc421a2c8ad04ad72d9be523c09a08d850ed8869ec421309a653f8739f4"
+      }
+    },
+    "native": {
+      "status": "passed",
+      "testGroups": 3,
+      "allHttpMocked": true,
+      "isolatedTouristAppId": true,
+      "includesRealUploadOrProviderCall": false,
+      "result": {
+        "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\native-results.json",
+        "bytes": 326,
+        "sha256": "42153a19e02fe67cfca75aab7231f9a6cc734a15450a8ee97214fb1f554576c8"
+      },
+      "screenshots": [
+        {
+          "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\native-characters.png",
+          "bytes": 72948,
+          "sha256": "90261b14333a2c33b484575e836019c76019276dbdb86cc8e0619eb334879247"
+        },
+        {
+          "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\native-digital.png",
+          "bytes": 59416,
+          "sha256": "a680c2d6b7bf8f4ac9f7e9b499813ff447287f3076506085ce6dd0049d4b513c"
+        },
+        {
+          "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\native-design-catalog.png",
+          "bytes": 169043,
+          "sha256": "e6bceaf9235c64663e6e2841930f7de6ac50e5f851cd82c0f8ebc1cf325155b8"
+        }
+      ]
+    }
+  },
+  "backend": {
+    "initialFocused": {
+      "status": "passed_before_final_increment",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "realIsolatedPostgreSql": true,
+      "artifact": {
+        "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\business-migration-backend-tests.log",
+        "bytes": 70846,
+        "sha256": "aac45813c51aa95d25dbda2b0723012888a4a34828357f03cda03fb809d1dc04"
+      }
+    },
+    "finalCompilationAndUnit": {
+      "status": "passed",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "tests": "ContentTaskDigitalCloneTest,HiflyCloneClientTest,ContentAssetIsolationTest,HiflyOralClientTest",
+      "artifact": {
+        "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\backend-final-unit-tests.log",
+        "bytes": 48920,
+        "sha256": "0f6be8da6954f2d83a6cecf501e4cda53f1ed9c08e71ff7948cc2ffec345734d"
+      }
+    },
+    "finalDatabase": {
+      "status": "not_completed",
+      "reason": "PostgreSQL connection read timeout during test schema initialization; later Docker/Testcontainers initialization stalled",
+      "newUndoTestsCompiledButNotExecuted": 2,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\backend-final-tests-local.log",
+          "bytes": 95998,
+          "sha256": "0d151b255398b9f70a2936d6b57f04287c8aff66b604664edc96092bcda3c0ce"
+        },
+        {
+          "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\backend-final-focused-tests.log",
+          "bytes": 58460,
+          "sha256": "d35bdff8d42c011fadcb26b65083eaa70d0ca82576e18a33d68c5e73faa813fa"
+        },
+        {
+          "path": "C:\\Users\\Administrator\\.codex\\artifacts\\business-migration-20261115\\backend-content-final-tests.log",
+          "bytes": 46740,
+          "sha256": "ec1bdb5f261ebcaee487af7d6af2ec0101bc72c1967ff84028fd77ca2520efb8"
+        }
+      ]
+    }
+  },
+  "designMigration": {
+    "fullyEquivalent": false,
+    "requirements": "../业务模块迁移需求与差异验收_20261115.md",
+    "remaining": [
+      "Versioned case references and source filter",
+      "Plane candidate confirmation and resume contract",
+      "Independent facade inputs and optional advanced configuration",
+      "Durable generation price confirmation and actual refund values",
+      "Independent itemized regional budget drafts, history and quotes"
+    ]
+  }
+}

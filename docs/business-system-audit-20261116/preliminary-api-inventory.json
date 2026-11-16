@@ -1,0 +1,3364 @@
+{
+  "phase": "preflight; candidate expressions and annotations only; not endpoint parity verdict",
+  "frontendCalls": [
+    {
+      "file": "miniprogram/api/auth.js",
+      "line": 45,
+      "expression": "return http.get('/platform/posts/mine');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/auth.js",
+      "line": 59,
+      "expression": "return http.post('/platform/auth/account/matches', { query: String(query || '').trim() });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/auth.js",
+      "line": 66,
+      "expression": "return http.post('/platform/auth/account/login', payload);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/auth.js",
+      "line": 71,
+      "expression": "return http.post('/platform/auth/wechat-bind', { appid: appId(), loginCode });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/auth.js",
+      "line": 76,
+      "expression": "return http.post('/platform/auth/sms/send', { mobile });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/auth.js",
+      "line": 81,
+      "expression": "return http.post('/platform/auth/sms/login', { mobile, captcha });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/auth.js",
+      "line": 159,
+      "expression": "function loginPolicy() { return http.get('/platform/auth/login-policy'); }",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/company-points.js",
+      "line": 28,
+      "expression": "return guarded(() => http.get(BASE + '/summary'));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/company-points.js",
+      "line": 37,
+      "expression": "return guarded(() => http.get(BASE + '/my-usage?' + query.join('&')));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 25,
+      "expression": "return http.get('/franchise/finance/receipts', status ? { status } : undefined);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 30,
+      "expression": "return http.get('/franchise/finance/payments', status ? { status } : undefined);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 35,
+      "expression": "return http.get('/franchise/finance/payables', status ? { status } : undefined);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 40,
+      "expression": "return http.get('/franchise/finance/refunds');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 45,
+      "expression": "return http.post('/franchise/finance/receipts', body, { 'Idempotency-Key': idemKey || genIdemKey('receipt') });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 50,
+      "expression": "return http.post('/franchise/finance/payments', body, { 'Idempotency-Key': idemKey || genIdemKey('payment') });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 55,
+      "expression": "return http.post('/franchise/finance/refunds', body, { 'Idempotency-Key': idemKey || genIdemKey('refund') });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 60,
+      "expression": "return http.post('/franchise/finance/expense-refunds', body, { 'Idempotency-Key': idemKey || genIdemKey('expense-refund') });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 65,
+      "expression": "return http.post('/franchise/finance/payables', body, { 'Idempotency-Key': idemKey || genIdemKey('payable') });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 70,
+      "expression": "return http.del('/franchise/finance/refunds/' + id, { reason },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 78,
+      "expression": "return http.del('/franchise/finance/payments/' + id, { reason },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 84,
+      "expression": "return http.get('/franchise/finance/reconciliation', { month });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 89,
+      "expression": "return http.post('/franchise/finance/bank-confirms', { bankFlowId, receiptId },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 95,
+      "expression": "return http.get('/franchise/finance/bank-flows', { status: '待匹配' });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 100,
+      "expression": "return http.get('/franchise/finance/project-accounts/' + projectId);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 103,
+      "expression": "return http.get('/franchise/finance/design-fees', { pageNo, pageSize });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 106,
+      "expression": "return http.get('/franchise/finance/projects/' + projectId + '/ledger', { pageNo, pageSize });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 109,
+      "expression": "return http.get('/franchise/finance/projects', { pageNo, pageSize, keyword });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 138,
+      "expression": "const ticket = await http.post('/franchise/assets/upload-tickets',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 145,
+      "expression": "const completed = await http.post('/franchise/assets/' + assetId + '/complete');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 235,
+      "expression": "return http.post('/franchise/finance/receipts/' + receiptId + '/revision',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "line": 241,
+      "expression": "return http.get('/franchise/finance/revisions', { receiptId });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 9,
+      "expression": "return http.get('/platform/org/teams', { orgId });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 14,
+      "expression": "return http.get('/platform/org/staff', { orgId });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 19,
+      "expression": "return http.post('/platform/org/staff', payload);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 24,
+      "expression": "return http.post('/platform/org/staff-accounts', payload);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 29,
+      "expression": "return http.post('/platform/org/posts', payload);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 34,
+      "expression": "return http.del('/platform/org/posts/' + postId);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 39,
+      "expression": "return http.post('/platform/org/staff-status', { userId, active });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 44,
+      "expression": "return http.post('/platform/org/staff-handover', payload);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 49,
+      "expression": "return http.post('/platform/org/staff-emergency-revoke', payload);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/org.js",
+      "line": 54,
+      "expression": "return http.get('/platform/org/handover-pending', { orgId });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/todos.js",
+      "line": 8,
+      "expression": "return http.get('/platform/todos');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/wallet.js",
+      "line": 69,
+      "expression": "return http.request('POST', '/platform/wallet/session', null,",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/wallet.js",
+      "line": 121,
+      "expression": "return http.request(method, path, data, headers, { skipSessionGuard: true, base: walletBase() });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 12,
+      "expression": "current: () => http.get('/franchise/design-policies/current'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 14,
+      "expression": "save: (data) => http.post('/franchise/design-policies', data)",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 18,
+      "expression": "context: customerId => http.get('/franchise/customers/' + customerId + '/commission-context'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 19,
+      "expression": "receivers: id => http.get('/franchise/commissions/' + id + '/handover-receivers'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 20,
+      "expression": "downloadTicket: (id, seq, slot) => http.post('/franchise/commissions/' + id + '/dispatches/' + seq + '/files/' + slot + '/download-tickets'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 23,
+      "expression": "http.post('/franchise/customers/' + customerId + '/commission', data, keyHeader(idempotencyKey)),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 26,
+      "expression": "http.get('/franchise/commissions', Object.assign({ pageNo, pageSize }, keyword ? { keyword } : {})),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 28,
+      "expression": "get: (id) => http.get('/franchise/commissions/' + id),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 31,
+      "expression": "http.post('/franchise/commissions/' + id + '/fee-decision', data, keyHeader(idempotencyKey)),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 37,
+      "expression": "http.post('/franchise/commissions/' + id + '/commands/' + action, data, keyHeader(idempotencyKey))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 41,
+      "expression": "current: () => http.get('/franchise/design-pricing-policies/current'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/commission.js",
+      "line": 42,
+      "expression": "save: (data, idempotencyKey) => http.post('/franchise/design-pricing-policies', data, keyHeader(idempotencyKey))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 15,
+      "expression": "parse: (url, key) => http.post('/franchise/content/links/parse', { url }, idem(key, 'link'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 20,
+      "expression": "extract: (data, key) => http.post('/franchise/content/scripts/extract', data, idem(key, 'asr')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 22,
+      "expression": "optimize: (data, key) => http.post('/franchise/content/scripts/optimize', data, idem(key, 'copy')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 24,
+      "expression": "page: (taskId) => http.get('/franchise/content/scripts', taskId ? { taskId } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 25,
+      "expression": "get: (id) => http.get('/franchise/content/scripts/' + id)",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 30,
+      "expression": "create: (data, key) => http.post('/franchise/content/tasks', data, idem(key, 'task')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 32,
+      "expression": "page: (status) => http.get('/franchise/content/tasks', status ? { status } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 34,
+      "expression": "get: (id) => http.get('/franchise/content/tasks/' + id),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 36,
+      "expression": "saveWork: (id, title, key) => http.post('/franchise/content/tasks/' + id + '/save-work', title ? { title } : {}, idem(key, 'save-work')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 38,
+      "expression": "resultUrlStatus: (id) => http.get('/franchise/content/tasks/' + id + '/result-url-status')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 43,
+      "expression": "works: () => http.get('/franchise/content/drafts'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 45,
+      "expression": "updateStatus: (workId, status, key) => http.put('/franchise/content/drafts/' + workId + '/status', { status }, idem(key, 'work-status')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 47,
+      "expression": "videoDraft: () => http.get('/franchise/content/video-draft'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 49,
+      "expression": "saveVideoDraft: (data) => http.put('/franchise/content/video-draft', data),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 52,
+      "expression": "http.post('/franchise/content/course-progress', { courseId, chapterIndex }, idem(key, 'chapter')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 55,
+      "expression": "http.get('/franchise/content/course-progress', courseId ? { courseId } : undefined)",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 60,
+      "expression": "uploadTicket: (data) => http.post('/franchise/content/assets/upload-tickets', data),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 62,
+      "expression": "complete: (assetId) => http.post('/franchise/content/assets/' + assetId + '/complete'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 64,
+      "expression": "downloadUrl: (assetId) => http.post('/franchise/content/assets/' + assetId + '/download-tickets')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 69,
+      "expression": "page: () => http.get('/franchise/content/personas'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 70,
+      "expression": "create: (data) => http.post('/franchise/content/personas', data),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 71,
+      "expression": "update: (id, data) => http.put('/franchise/content/personas/' + id, data),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 72,
+      "expression": "remove: (id) => http.del('/franchise/content/personas/' + id)",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 77,
+      "expression": "create: (data, key) => http.post('/franchise/content/publications', data, idem(key, 'pub')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 79,
+      "expression": "page: (status) => http.get('/franchise/content/publications', status ? { status } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 81,
+      "expression": "verify: (id, key) => http.post('/franchise/content/publications/' + id + '/verify', {}, idem(key, 'pub-verify')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 83,
+      "expression": "link: (id, publishedUrl, key) => http.post('/franchise/content/publications/' + id + '/link', { publishedUrl }, idem(key, 'pub-link')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 85,
+      "expression": "fail: (id, reason, key) => http.post('/franchise/content/publications/' + id + '/fail', reason ? { reason } : {}, idem(key, 'pub-fail'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 90,
+      "expression": "summary: () => http.get('/franchise/content/growth/summary')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 94,
+      "expression": "quote: kind => http.get('/franchise/content/clones/quote', { kind }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 95,
+      "expression": "list: personaId => http.get('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 96,
+      "expression": "create: (personaId, data, key) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones', data, idem(key, 'clone')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/content.js",
+      "line": 97,
+      "expression": "refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {})",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 9,
+      "expression": "capture: (data, idempotencyKey) => http.post('/franchise/leads', data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 11,
+      "expression": "pending: () => http.get('/franchise/leads/pending'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 13,
+      "expression": "link: (id, revision, idempotencyKey) => http.post('/franchise/leads/' + id + '/link', { revision }, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 15,
+      "expression": "invalidate: (id, note, revision, idempotencyKey) => http.post('/franchise/leads/' + id + '/invalid', { note, revision }, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined)",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 21,
+      "expression": "http.get('/franchise/customers', keyword ? { pageNo, pageSize, keyword } : { pageNo, pageSize }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 23,
+      "expression": "get: (id) => http.get('/franchise/customers/' + id),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 26,
+      "expression": "http.put('/franchise/customers/' + id, data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 29,
+      "expression": "http.post('/franchise/customers/' + id + '/follows', data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 32,
+      "expression": "http.post('/franchise/customers/' + id + '/schemes', data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/crm.js",
+      "line": 35,
+      "expression": "http.post('/franchise/customers/' + id + '/transfer', data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined)",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 11,
+      "expression": "page: (params) => http.get('/franchise/design/cases', params),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 13,
+      "expression": "styles: () => http.get('/franchise/design/cases/styles'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 15,
+      "expression": "detail: (caseId) => http.get('/franchise/design/cases/' + encodeURIComponent(caseId)),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 17,
+      "expression": "downloadUrl: (caseId, assetId) => http.post('/franchise/design/cases/' + encodeURIComponent(caseId) + '/assets/' + encodeURIComponent(assetId) + '/download-tickets'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 19,
+      "expression": "favorite: (caseId) => http.put('/franchise/design/cases/' + caseId + '/favorite'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 20,
+      "expression": "unfavorite: (caseId) => http.del('/franchise/design/cases/' + caseId + '/favorite'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 22,
+      "expression": "favorites: (cursor, limit) => http.get('/franchise/design/favorites', { cursor: cursor || undefined, limit: limit || 20 })",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 27,
+      "expression": "uploadTicket: (data) => http.post('/franchise/design/assets/upload-tickets', data),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 29,
+      "expression": "complete: (assetId) => http.post('/franchise/design/assets/' + assetId + '/complete'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 31,
+      "expression": "downloadUrl: (assetId) => http.post('/franchise/design/assets/' + assetId + '/download-tickets')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 36,
+      "expression": "create: (data, key) => http.post('/franchise/design/projects', data, idem(key, 'proj')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 38,
+      "expression": "list: (params) => http.get('/franchise/design/projects', params),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 40,
+      "expression": "detail: (projectId, jobId) => http.get('/franchise/design/projects/' + projectId, jobId ? { jobId } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 42,
+      "expression": "createFlatJob: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/flat-jobs', data, idem(key, 'flat')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 44,
+      "expression": "createElevationJob: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/elevation-jobs', data, idem(key, 'elev')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 46,
+      "expression": "aiJob: (jobId) => http.get('/franchise/design/ai-jobs/' + jobId),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 48,
+      "expression": "cancelJob: (jobId) => http.post('/franchise/design/ai-jobs/' + jobId + '/cancellation-requests', {}),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 50,
+      "expression": "notePolish: (data) => http.post('/franchise/design/note-polish', data),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 52,
+      "expression": "selectFlat: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/flat-selections', data),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 54,
+      "expression": "selectElevation: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/elevation-selections', data),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 56,
+      "expression": "resultVersions: (projectId) => http.get('/franchise/design/projects/' + projectId + '/result-versions'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 58,
+      "expression": "revision: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/revision-requests', data, idem(key, 'rev')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 60,
+      "expression": "saveToCustomer: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/save-to-customer', data, idem(key, 'save'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 66,
+      "expression": "http.get('/franchise/design/budget/rule-info', { regionCode, structureType, materialGrade }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/design.js",
+      "line": 68,
+      "expression": "estimate: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/budget-estimates', data, idem(key, 'budget'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 16,
+      "expression": "create: (data, key) => http.post('/franchise/engineering/projects', data, idem(key, 'create')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 18,
+      "expression": "page: (status) => http.get('/franchise/engineering/projects', status ? { status } : undefined),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 20,
+      "expression": "get: (id) => http.get('/franchise/engineering/' + id),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 23,
+      "expression": "http.post('/franchise/engineering/' + id + '/manager', { engineerUserId, note: note || '' }, idem(key, 'manager'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 28,
+      "expression": "prepare: (id, data, key) => http.post('/franchise/engineering/' + id + '/prepare', data, idem(key, 'prepare')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 30,
+      "expression": "start: (id, data, key) => http.post('/franchise/engineering/' + id + '/start', data, idem(key, 'start')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 32,
+      "expression": "save: (id, nodes, key) => http.put('/franchise/engineering/' + id + '/plan', { nodes }, idem(key, 'plan')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 34,
+      "expression": "reschedule: (id, data, key) => http.post('/franchise/engineering/' + id + '/plan/reschedule', data, idem(key, 'shift')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 36,
+      "expression": "history: (id) => http.get('/franchise/engineering/' + id + '/plan/history'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 39,
+      "expression": "http.post('/franchise/engineering/' + id + '/nodes/' + nodeId + '/complete', data, idem(key, 'node')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 42,
+      "expression": "http.post('/franchise/engineering/' + id + '/nodes/' + nodeId + '/reopen', { reason }, idem(key, 'reopen')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 45,
+      "expression": "http.post('/franchise/engineering/' + id + '/nodes/' + nodeId + '/correct', data, idem(key, 'correct'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 50,
+      "expression": "submit: (id, data, key) => http.post('/franchise/engineering/' + id + '/materials', data, idem(key, 'mplan')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 53,
+      "expression": "http.put('/franchise/engineering/materials/' + materialId, { quantity, reason }, idem(key, 'madj')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 56,
+      "expression": "http.post('/franchise/engineering/supplies/' + supplyId + '/terms', data, idem(key, 'terms')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 59,
+      "expression": "http.post('/franchise/engineering/supplies/' + supplyId + '/arrival', data, idem(key, 'arrive')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 62,
+      "expression": "http.post('/franchise/engineering/supplies/arrival-correction', { receiptId, actual, reason }, idem(key, 'acorr')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 64,
+      "expression": "movement: (id, data, key) => http.post('/franchise/engineering/' + id + '/movements', data, idem(key, 'move')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 67,
+      "expression": "http.post('/franchise/engineering/' + id + '/material-followups', { materialPlanId, promiseDate, note }, idem(key, 'mfollow')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 69,
+      "expression": "summary: (id, materialPlanId) => http.get('/franchise/engineering/' + id + '/materials/summary',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 72,
+      "expression": "expenseRegister: (id, data, key) => http.post('/franchise/engineering/' + id + '/expenses', data, idem(key, 'expense')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 74,
+      "expression": "expenseTerms: (expenseId, data, key) => http.post('/franchise/engineering/expenses/' + expenseId + '/terms', data, idem(key, 'expense-terms')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 76,
+      "expression": "expenseRevise: (expenseId, data, key) => http.post('/franchise/engineering/expenses/' + expenseId + '/revise', data, idem(key, 'expense-revise')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 79,
+      "expression": "http.post('/franchise/engineering/expenses/' + expenseId + '/cancel', { reason }, idem(key, 'expense-cancel')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 81,
+      "expression": "expenseList: (id) => http.get('/franchise/engineering/' + id + '/expenses'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 87,
+      "expression": "http.post('/franchise/engineering/' + id + '/site-records', { nodeId, note, fileAssetIds, occurredAt }, idem(key, 'site')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 90,
+      "expression": "http.post('/franchise/engineering/site-records/' + recordId + '/correct', { note, fileAssetIds, reason }, idem(key, 'scorr')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 91,
+      "expression": "list: (id) => http.get('/franchise/engineering/' + id + '/site-records')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 96,
+      "expression": "page: (id) => http.get('/franchise/engineering/' + id + '/collections'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 98,
+      "expression": "register: (id, data, key) => http.post('/franchise/engineering/' + id + '/collections', data, idem(key, 'collect')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 101,
+      "expression": "http.post('/franchise/engineering/' + id + '/dunning', { stage, promiseDate, note }, idem(key, 'dunning')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 103,
+      "expression": "followups: (id) => http.get('/franchise/engineering/' + id + '/followups')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 108,
+      "expression": "deliver: (id, data, key) => http.post('/franchise/engineering/' + id + '/deliver', data, idem(key, 'deliver')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 110,
+      "expression": "settle: (id, data, key) => http.post('/franchise/engineering/' + id + '/settle', data, idem(key, 'settle')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 112,
+      "expression": "archive: (id, key) => http.post('/franchise/engineering/' + id + '/archive', {}, idem(key, 'archive')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 114,
+      "expression": "settleSummary: (id) => http.get('/franchise/engineering/' + id + '/settle-summary')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 120,
+      "expression": "http.post('/franchise/assets/upload-tickets', { assetType, mimeType, sizeBytes, sha256 }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 121,
+      "expression": "complete: (assetId) => http.post('/franchise/assets/' + assetId + '/complete'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/engineering.js",
+      "line": 123,
+      "expression": "downloadTicket: (assetId) => http.post('/franchise/assets/' + assetId + '/download-tickets', {})",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 15,
+      "expression": "get: (period) => http.get('/franchise/performance/goals', { period }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 17,
+      "expression": "save: (data, key) => http.put('/franchise/performance/goals', data, idem(key, 'goal'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 22,
+      "expression": "create: (data, key) => http.post('/franchise/performance/tasks', data, idem(key, 'create')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 24,
+      "expression": "list: (period, scope, dept, userId) => http.get('/franchise/performance/tasks', {",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 28,
+      "expression": "summary: (period) => http.get('/franchise/performance/tasks/summary', { period }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 31,
+      "expression": "http.post('/franchise/performance/tasks/' + id + '/reassign', { assigneeUserId, assigneeName: assigneeName || '' }, idem(key, 'reassign')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 34,
+      "expression": "http.post('/franchise/performance/tasks/' + id + '/manual-complete', { note, photos: photos || [] }, idem(key, 'manual')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 37,
+      "expression": "http.post('/franchise/performance/tasks/initialize-previous', { period }, idem(key, 'init')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 39,
+      "expression": "archive: (period, note, key) => http.post('/franchise/performance/tasks/archive', { period, note }, idem(key, 'archive')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 41,
+      "expression": "revise: (period, note, key) => http.post('/franchise/performance/tasks/archive/revise', { period, note }, idem(key, 'revise')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 43,
+      "expression": "archives: (period) => http.get('/franchise/performance/tasks/archives', { period })",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 49,
+      "expression": "http.post('/franchise/performance/cycles/submit', { period, userId, note }, idem(key, 'csubmit')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 52,
+      "expression": "http.post('/franchise/performance/cycles/review', { period, userId, approve, note: note || '' }, idem(key, 'creview')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 55,
+      "expression": "http.post('/franchise/performance/cycles/appeal-resolve',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 58,
+      "expression": "list: (period) => http.get('/franchise/performance/cycles', { period })",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 63,
+      "expression": "rows: () => http.get('/franchise/performance/commission/rows'),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 66,
+      "expression": "http.post('/franchise/performance/commission/policy',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 70,
+      "expression": "http.post('/franchise/performance/commission/release', { projectId, stage }, idem(key, 'release')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 73,
+      "expression": "http.post('/franchise/performance/commission/reconcile', { projectId, stage, evidenceRef, note }, idem(key, 'reconcile'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 78,
+      "expression": "analytics: (period) => http.get('/franchise/performance/operating/analytics', { period }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 80,
+      "expression": "snapshot: (period, note, key) => http.post('/franchise/performance/operating/snapshot', { period, note }, idem(key, 'snap')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 82,
+      "expression": "snapshots: (period) => http.get('/franchise/performance/operating/snapshots', { period }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 84,
+      "expression": "reconcile: (period, key) => http.post('/franchise/performance/operating/reconcile', { period }, idem(key, 'mreconcile')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/performance.js",
+      "line": 86,
+      "expression": "reconciliations: () => http.get('/franchise/performance/operating/reconciliations')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 11,
+      "expression": "create: (data, key) => http.post('/franchise/sales/requirements', data, idem(key, 'req')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 13,
+      "expression": "list: (customerId) => http.get('/franchise/sales/requirements', { customerId })",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 18,
+      "expression": "promote: (schemeId, key) => http.post('/franchise/sales/schemes/' + schemeId + '/promote', {}, idem(key, 'promote'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 23,
+      "expression": "create: (data, key) => http.post('/franchise/sales/quotes', data, idem(key, 'quote')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 25,
+      "expression": "list: (customerId) => http.get('/franchise/sales/quotes', { customerId }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 27,
+      "expression": "exportSheet: (quoteId) => http.get('/franchise/sales/quotes/' + quoteId + '/export-sheet')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 32,
+      "expression": "create: (data, key) => http.post('/franchise/sales/contracts', data, idem(key, 'contract')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 34,
+      "expression": "list: (customerId) => http.get('/franchise/sales/contracts', { customerId }),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 36,
+      "expression": "sign: (contractId, data, key) => http.post('/franchise/sales/contracts/' + contractId + '/sign', data, idem(key, 'sign')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 38,
+      "expression": "void: (contractId, data, key) => http.post('/franchise/sales/contracts/' + contractId + '/void', data, idem(key, 'void'))",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 43,
+      "expression": "collect: (stageId, data, key) => http.post('/franchise/sales/stages/' + stageId + '/collect', data, idem(key, 'collect')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 45,
+      "expression": "summary: (contractId) => http.get('/franchise/sales/contracts/' + contractId + '/stage-summary')",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 50,
+      "expression": "create: (data, key) => http.post('/franchise/sales/deliveries', data, idem(key, 'delivery')),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 52,
+      "expression": "advance: (deliveryId, node, key) => http.post('/franchise/sales/deliveries/' + deliveryId + '/advance', { node }, idem(key, 'dv-' + node)),",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/api/franchise/sales.js",
+      "line": 54,
+      "expression": "get: (contractId) => http.get('/franchise/sales/deliveries', { contractId })",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 19,
+      "expression": "return http.post(BASE + '/auth/wechat-login', { code: wxCode });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 25,
+      "expression": "return http.get(BASE + '/access-grant', undefined, options);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 45,
+      "expression": "return http.post(BASE + '/access-code-redemptions', body);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 51,
+      "expression": "return http.get(BASE + '/profile');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 69,
+      "expression": "return http.get(BASE + '/support-entry');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 79,
+      "expression": "return http.get(BASE + '/home');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 87,
+      "expression": "return http.get(BASE + '/cases/recommendation?floorCount=' + encodeURIComponent(floorCount) + '&area=' + encodeURIComponent(area));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 99,
+      "expression": "return http.get(BASE + '/cases/generation-candidates' + (qs ? '?' + qs : ''));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 105,
+      "expression": "return http.get(BASE + '/cases/' + encodeURIComponent(caseId) + '/generation-candidate?caseVersionId=' + encodeURIComponent(caseVersionId));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 115,
+      "expression": "return http.get(BASE + '/cases' + (qs ? '?' + qs : ''));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 121,
+      "expression": "return http.get(BASE + '/cases/' + caseId);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 127,
+      "expression": "return http.put(BASE + '/cases/' + caseId + '/favorite');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 133,
+      "expression": "return http.del(BASE + '/cases/' + caseId + '/favorite');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 139,
+      "expression": "return http.get(BASE + '/favorites?cursor=' + (cursor || '') + '&limit=' + (limit || 20));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 149,
+      "expression": "return http.get(BASE + '/design-projects?limit=' + (limit || 20) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 157,
+      "expression": "return http.del(BASE + '/design-projects/' + encodeURIComponent(projectId));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 171,
+      "expression": "return http.get(BASE + '/submissions?limit=' + (limit || 20) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 177,
+      "expression": "return http.get(BASE + '/submissions/' + encodeURIComponent(id) + (reviewRound == null ? '' : '?reviewRound=' + encodeURIComponent(reviewRound)));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 187,
+      "expression": "return http.post(BASE + '/submissions/' + encodeURIComponent(id) + '/resubmissions', body, { 'Idempotency-Key': key });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 193,
+      "expression": "return http.get(BASE + '/recharge-orders?pageNo=' + (pageNo || 1) + '&pageSize=' + (pageSize || 20));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 199,
+      "expression": "return http.get(BASE + '/point-ledger?pageNo=' + (pageNo || 1) + '&pageSize=' + (pageSize || 20));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 205,
+      "expression": "return http.post(BASE + '/ai-design/note-polish', { note: note, line: line || 'FLAT' });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 211,
+      "expression": "return http.post(BASE + '/design-projects', body || null, idemKey ? { 'Idempotency-Key': idemKey } : undefined);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 217,
+      "expression": "return http.get(BASE + '/design-projects/' + projectId + (jobId ? '?jobId=' + jobId : ''));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 223,
+      "expression": "return http.get(BASE + '/generation-price-quotes?stage=' + encodeURIComponent(stage) + '&count=' + count + '&resolution=' + encodeURIComponent(resolution || '4K'));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 229,
+      "expression": "return http.post(BASE + '/design-projects/' + projectId + '/flat-jobs',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 237,
+      "expression": "return http.post(BASE + '/design-projects/' + projectId + '/flat-selections',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 245,
+      "expression": "return http.post(BASE + '/design-projects/' + projectId + '/elevation-jobs',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 253,
+      "expression": "return http.post(BASE + '/design-projects/' + projectId + '/elevation-selections',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 261,
+      "expression": "return http.post(BASE + '/design-projects/' + projectId + '/revision-requests',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 269,
+      "expression": "return http.get(BASE + '/design-projects/' + projectId + '/result-versions');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 275,
+      "expression": "return http.get(BASE + '/ai-jobs/' + jobId);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 281,
+      "expression": "return http.post(BASE + '/ai-jobs/' + jobId + '/cancellation-requests');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 291,
+      "expression": "return http.get(BASE + '/recharge-plans');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 305,
+      "expression": "return http.post(BASE + '/recharge-orders?planId=' + planId, null, headers);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 311,
+      "expression": "return http.get(BASE + '/recharge-orders/' + orderId);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 321,
+      "expression": "return http.get(BASE + '/recharge-orders/' + orderId + '/pay-params', headers);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 327,
+      "expression": "return http.get(BASE + '/point-account');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 337,
+      "expression": "return http.get(BASE + '/messages?cursor=' + encodeURIComponent(cursor || '') + '&limit=' + (limit || 20)",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 343,
+      "expression": "getMessageCounts: function () { return http.get(BASE + '/messages/counts'); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 345,
+      "expression": "getMessageTarget: function (id) { return http.get(BASE + '/messages/' + encodeURIComponent(id) + '/target'); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 349,
+      "expression": "return http.get(BASE + '/messages/unread-count');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 355,
+      "expression": "return http.post(BASE + '/messages/' + messageId + '/read-receipts');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 365,
+      "expression": "return http.post(BASE + '/design-migration/assets/upload-tickets',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 373,
+      "expression": "return http.post(BASE + '/design-migration/assets/' + assetId + '/complete');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 379,
+      "expression": "return http.post(BASE + '/design-migration/assets/' + assetId + '/download-tickets');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 385,
+      "expression": "return http.post(BASE + '/design-migration/assets/' + encodeURIComponent(assetId) + '/downloads', { ticket: ticket });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 407,
+      "expression": "createBudgetDraft: function (key) { return http.post(BASE + '/budget-drafts', {}, { 'Idempotency-Key': key }); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 409,
+      "expression": "getBudgetDrafts: function (cursor) { return http.get(BASE + '/budget-drafts?limit=20' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '')); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 411,
+      "expression": "getBudgetDraft: function (id) { return http.get(BASE + '/budget-drafts/' + encodeURIComponent(id)); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 413,
+      "expression": "saveBudgetDraft: function (id, expectedVersion, state) { return http.put(BASE + '/budget-drafts/' + encodeURIComponent(id), { expectedVersion, state }); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 415,
+      "expression": "renameBudgetDraft: function (id, name) { return http.put(BASE + '/budget-drafts/' + encodeURIComponent(id) + '/name', { name }); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 419,
+      "expression": "return http.post(BASE + '/budget-drafts/' + encodeURIComponent(id) + '/import', { expectedVersion, projectId, resultVersionId: resultVersionId || null });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 423,
+      "expression": "createIndependentBudget: function (id, body, key) { return http.post(BASE + '/budget-drafts/' + encodeURIComponent(id) + '/estimates', body, { 'Idempotency-Key': key }); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 429,
+      "expression": "return http.get(BASE + '/budget-estimates/independent?savedOnly=' + (q.savedOnly !== false) + '&limit=20'",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 435,
+      "expression": "getIndependentBudgetQuotes: function (id) { return http.get(BASE + '/budget-estimates/' + encodeURIComponent(id) + '/quotes'); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 439,
+      "expression": "return http.get(BASE + '/budget-estimates/' + encodeURIComponent(budgetId) + '/quotes/' + encodeURIComponent(quoteId));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 445,
+      "expression": "return http.get(BASE + '/design-projects/' + encodeURIComponent(projectId) + '/budget-inputs'",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 453,
+      "expression": "return http.get(BASE + '/budget/regions');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 461,
+      "expression": "return http.get(BASE + '/budget/my-regions');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 467,
+      "expression": "return http.post(BASE + '/budget/my-regions', { name: name });",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 473,
+      "expression": "return http.get(BASE + '/budget/options?regionCode=' + encodeURIComponent(regionCode));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 481,
+      "expression": "return http.get(BASE + '/budget/my-prices?regionCode=' + encodeURIComponent(regionCode));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 491,
+      "expression": "return http.put(BASE + '/budget/my-prices/' + encodeURIComponent(optionId) + '?regionCode=' + encodeURIComponent(regionCode), body);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 497,
+      "expression": "return http.del(BASE + '/budget/my-prices/' + encodeURIComponent(optionId) + '?regionCode=' + encodeURIComponent(regionCode));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 503,
+      "expression": "return http.post(BASE + '/design-projects/' + encodeURIComponent(projectId) + '/budget-estimates/itemized',",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 511,
+      "expression": "return http.get(BASE + '/budget-point-quotes');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 517,
+      "expression": "return http.get(BASE + '/budget-estimates/' + encodeURIComponent(budgetId)",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 525,
+      "expression": "return http.post(BASE + '/budget-estimates/' + encodeURIComponent(budgetId) + '/save', {},",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 539,
+      "expression": "return http.get(BASE + '/design-projects/' + encodeURIComponent(projectId) + '/budget-estimates?' + params.join('&'));",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 545,
+      "expression": "return http.get(BASE + '/design-projects/' + encodeURIComponent(projectId) + '/budget-quotes');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 555,
+      "expression": "return http.post(BASE + '/design-projects/' + projectId + '/publication-validations', data || null);",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 561,
+      "expression": "return http.post(BASE + '/design-projects/' + projectId + '/submissions', data,",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 575,
+      "expression": "return http.get(BASE + '/privacy-consents');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 579,
+      "expression": "listPrivacyRequests: function () { return http.get(BASE + '/privacy-requests'); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 581,
+      "expression": "createPrivacyDownloadTicket: function (id) { return http.post(BASE + '/privacy-requests/' + encodeURIComponent(id) + '/download-tickets'); },",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 593,
+      "expression": "return http.post(BASE + '/data-export-requests');",
+      "runtimeStatus": "NOT_RUN"
+    },
+    {
+      "file": "miniprogram/design-migration/utils/api.js",
+      "line": 599,
+      "expression": "return http.post(BASE + '/account-closure-requests');",
+      "runtimeStatus": "NOT_RUN"
+    }
+  ],
+  "backendControllers": [
+    {
+      "file": "domains/franchise/franchise-asset/src/main/java/cn/iocoder/yudao/module/franchise/asset/controller/admin/AssetAccessController.java",
+      "mappings": [
+        {
+          "line": 24,
+          "annotation": "@RequestMapping(\"/franchise/assets\")"
+        },
+        {
+          "line": 36,
+          "annotation": "@PostMapping(\"/upload-tickets\")"
+        },
+        {
+          "line": 42,
+          "annotation": "@PostMapping(\"/{assetId}/complete\")"
+        },
+        {
+          "line": 48,
+          "annotation": "@PostMapping(\"/{assetId}/download-tickets\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-asset/src/main/java/cn/iocoder/yudao/module/franchise/asset/controller/admin/AssetContentController.java",
+      "mappings": [
+        {
+          "line": 24,
+          "annotation": "@RequestMapping(\"/franchise/assets\")"
+        },
+        {
+          "line": 35,
+          "annotation": "@PutMapping(\"/{assetId}/content\")"
+        },
+        {
+          "line": 47,
+          "annotation": "@GetMapping(\"/{assetId}/content\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-asset/src/main/java/cn/iocoder/yudao/module/franchise/asset/controller/admin/CommissionFileAccessController.java",
+      "mappings": [
+        {
+          "line": 19,
+          "annotation": "@RequestMapping(\"/franchise/commissions/{commissionId}/dispatches/{dispatchSeq}/files/{slot}\")"
+        },
+        {
+          "line": 29,
+          "annotation": "@PostMapping(\"/download-tickets\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-commission/src/main/java/cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController.java",
+      "mappings": [
+        {
+          "line": 45,
+          "annotation": "@RequestMapping(\"/franchise\")"
+        },
+        {
+          "line": 89,
+          "annotation": "@GetMapping(\"/customers/{customerId}/commission-context\")"
+        },
+        {
+          "line": 98,
+          "annotation": "@PostMapping(\"/customers/{customerId}/commission\")"
+        },
+        {
+          "line": 110,
+          "annotation": "@GetMapping(\"/commissions\")"
+        },
+        {
+          "line": 121,
+          "annotation": "@GetMapping(\"/commissions/{id}\")"
+        },
+        {
+          "line": 127,
+          "annotation": "@GetMapping(\"/commissions/{id}/handover-receivers\")"
+        },
+        {
+          "line": 132,
+          "annotation": "@PostMapping(\"/commissions/{id}/fee-decision\")"
+        },
+        {
+          "line": 141,
+          "annotation": "@PostMapping(\"/commissions/{id}/commands/{action}\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-commission/src/main/java/cn/iocoder/yudao/module/franchise/commission/controller/admin/DesignPolicyController.java",
+      "mappings": [
+        {
+          "line": 27,
+          "annotation": "@RequestMapping(\"/franchise/design-policies\")"
+        },
+        {
+          "line": 42,
+          "annotation": "@GetMapping(\"/current\")"
+        },
+        {
+          "line": 49,
+          "annotation": "@PostMapping"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-commission/src/main/java/cn/iocoder/yudao/module/franchise/commission/controller/admin/DesignPricingController.java",
+      "mappings": [
+        {
+          "line": 9,
+          "annotation": "@RequestMapping(\"/franchise/design-pricing-policies\")"
+        },
+        {
+          "line": 14,
+          "annotation": "@GetMapping(\"/current\")"
+        },
+        {
+          "line": 16,
+          "annotation": "@PostMapping"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentAssetController.java",
+      "mappings": [
+        {
+          "line": 26,
+          "annotation": "@RequestMapping(\"/franchise/content/assets\")"
+        },
+        {
+          "line": 52,
+          "annotation": "@PostMapping(\"/upload-tickets\")"
+        },
+        {
+          "line": 65,
+          "annotation": "@PostMapping(\"{assetId}/complete\")"
+        },
+        {
+          "line": 77,
+          "annotation": "@PostMapping(\"{assetId}/download-tickets\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentCloneController.java",
+      "mappings": [
+        {
+          "line": 13,
+          "annotation": "@RequestMapping(\"/franchise/content\")"
+        },
+        {
+          "line": 19,
+          "annotation": "@GetMapping(\"/clones/quote\")"
+        },
+        {
+          "line": 22,
+          "annotation": "@GetMapping(\"/personas/{personaId}/clones\")"
+        },
+        {
+          "line": 25,
+          "annotation": "@PostMapping(\"/personas/{personaId}/clones\")"
+        },
+        {
+          "line": 30,
+          "annotation": "@PostMapping(\"/clones/{id}/refresh\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentDraftController.java",
+      "mappings": [
+        {
+          "line": 26,
+          "annotation": "@RequestMapping(\"/franchise/content\")"
+        },
+        {
+          "line": 39,
+          "annotation": "@GetMapping(\"/drafts\")"
+        },
+        {
+          "line": 54,
+          "annotation": "@PutMapping(\"/drafts/{id}/status\")"
+        },
+        {
+          "line": 64,
+          "annotation": "@GetMapping(\"/video-draft\")"
+        },
+        {
+          "line": 85,
+          "annotation": "@PutMapping(\"/video-draft\")"
+        },
+        {
+          "line": 94,
+          "annotation": "@PostMapping(\"/course-progress\")"
+        },
+        {
+          "line": 107,
+          "annotation": "@GetMapping(\"/course-progress\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentFakeDevController.java",
+      "mappings": [
+        {
+          "line": 25,
+          "annotation": "@RequestMapping(\"/platform/dev/content-fake\")"
+        },
+        {
+          "line": 28,
+          "annotation": "@PostMapping(\"/outcome\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPersonaController.java",
+      "mappings": [
+        {
+          "line": 25,
+          "annotation": "@RequestMapping(\"/franchise/content/personas\")"
+        },
+        {
+          "line": 38,
+          "annotation": "@GetMapping"
+        },
+        {
+          "line": 46,
+          "annotation": "@PostMapping"
+        },
+        {
+          "line": 54,
+          "annotation": "@PutMapping(\"{id}\")"
+        },
+        {
+          "line": 63,
+          "annotation": "@DeleteMapping(\"{id}\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPublicationController.java",
+      "mappings": [
+        {
+          "line": 26,
+          "annotation": "@RequestMapping(\"/franchise/content\")"
+        },
+        {
+          "line": 41,
+          "annotation": "@PostMapping(\"/publications\")"
+        },
+        {
+          "line": 51,
+          "annotation": "@GetMapping(\"/publications\")"
+        },
+        {
+          "line": 60,
+          "annotation": "@PostMapping(\"/publications/{id}/verify\")"
+        },
+        {
+          "line": 68,
+          "annotation": "@PostMapping(\"/publications/{id}/link\")"
+        },
+        {
+          "line": 78,
+          "annotation": "@PostMapping(\"/publications/{id}/fail\")"
+        },
+        {
+          "line": 88,
+          "annotation": "@GetMapping(\"/growth/summary\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentScriptController.java",
+      "mappings": [
+        {
+          "line": 27,
+          "annotation": "@RequestMapping(\"/franchise/content\")"
+        },
+        {
+          "line": 42,
+          "annotation": "@PostMapping(\"/links/parse\")"
+        },
+        {
+          "line": 53,
+          "annotation": "@PostMapping(\"/scripts/extract\")"
+        },
+        {
+          "line": 68,
+          "annotation": "@PostMapping(\"/scripts/optimize\")"
+        },
+        {
+          "line": 79,
+          "annotation": "@GetMapping(\"/scripts\")"
+        },
+        {
+          "line": 102,
+          "annotation": "@GetMapping(\"/scripts/{id}\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentTaskController.java",
+      "mappings": [
+        {
+          "line": 31,
+          "annotation": "@RequestMapping(\"/franchise/content/tasks\")"
+        },
+        {
+          "line": 50,
+          "annotation": "@PostMapping"
+        },
+        {
+          "line": 61,
+          "annotation": "@GetMapping"
+        },
+        {
+          "line": 75,
+          "annotation": "@GetMapping(\"{id}\")"
+        },
+        {
+          "line": 83,
+          "annotation": "@PostMapping(\"{id}/manual-verification\")"
+        },
+        {
+          "line": 100,
+          "annotation": "@GetMapping(\"{id}/manual-verification\")"
+        },
+        {
+          "line": 129,
+          "annotation": "@PostMapping(\"{id}/save-work\")"
+        },
+        {
+          "line": 140,
+          "annotation": "@GetMapping(\"{id}/result-url-status\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/controller/admin/CustomerController.java",
+      "mappings": [
+        {
+          "line": 33,
+          "annotation": "@RequestMapping(\"/franchise/customers\")"
+        },
+        {
+          "line": 61,
+          "annotation": "@GetMapping"
+        },
+        {
+          "line": 86,
+          "annotation": "@GetMapping(\"/owner-options\")"
+        },
+        {
+          "line": 93,
+          "annotation": "@GetMapping(\"/transfer-candidates\")"
+        },
+        {
+          "line": 101,
+          "annotation": "@GetMapping(\"/{id}\")"
+        },
+        {
+          "line": 108,
+          "annotation": "@PutMapping(\"/{id}\")"
+        },
+        {
+          "line": 117,
+          "annotation": "@PostMapping(\"/{id}/follows\")"
+        },
+        {
+          "line": 125,
+          "annotation": "@PostMapping(\"/{id}/schemes\")"
+        },
+        {
+          "line": 134,
+          "annotation": "@PostMapping(\"/{id}/transfer\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/controller/admin/LeadController.java",
+      "mappings": [
+        {
+          "line": 23,
+          "annotation": "@RequestMapping(\"/franchise/leads\")"
+        },
+        {
+          "line": 42,
+          "annotation": "@PostMapping"
+        },
+        {
+          "line": 50,
+          "annotation": "@GetMapping(\"/pending\")"
+        },
+        {
+          "line": 57,
+          "annotation": "@PostMapping(\"/{id}/link\")"
+        },
+        {
+          "line": 65,
+          "annotation": "@PostMapping(\"/{id}/invalid\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-crm/src/main/java/cn/iocoder/yudao/module/franchise/crm/controller/admin/LeadImportController.java",
+      "mappings": [
+        {
+          "line": 34,
+          "annotation": "@RequestMapping(\"/franchise/lead-import\")"
+        },
+        {
+          "line": 59,
+          "annotation": "@PostMapping(\"/precheck\")"
+        },
+        {
+          "line": 68,
+          "annotation": "@PostMapping"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/admin/DesignOperationsController.java",
+      "mappings": [
+        {
+          "line": 15,
+          "annotation": "@RequestMapping(\"/admin-api/platform/ops\")"
+        },
+        {
+          "line": 19,
+          "annotation": "@GetMapping(\"/design-prices\")"
+        },
+        {
+          "line": 25,
+          "annotation": "@GetMapping(\"/design-prices/active\")"
+        },
+        {
+          "line": 31,
+          "annotation": "@GetMapping(\"/design-costs\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/admin/DesignPriceAdminController.java",
+      "mappings": [
+        {
+          "line": 12,
+          "annotation": "@RequestMapping(\"/admin-api/platform/ops/design-prices\")"
+        },
+        {
+          "line": 16,
+          "annotation": "@PostMapping"
+        },
+        {
+          "line": 21,
+          "annotation": "@PutMapping(\"/{id}\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-design/src/main/java/cn/iocoder/yudao/module/franchise/design/controller/admin/DesignAccessController.java",
+      "mappings": [
+        {
+          "line": 37,
+          "annotation": "@RequestMapping(\"/franchise/design\")"
+        },
+        {
+          "line": 50,
+          "annotation": "@GetMapping(\"/cases\")"
+        },
+        {
+          "line": 65,
+          "annotation": "@GetMapping(\"/cases/styles\")"
+        },
+        {
+          "line": 71,
+          "annotation": "@GetMapping(\"/cases/{caseId}\")"
+        },
+        {
+          "line": 78,
+          "annotation": "@PostMapping(\"/cases/{caseId}/assets/{assetId}/download-tickets\")"
+        },
+        {
+          "line": 85,
+          "annotation": "@PutMapping(\"/cases/{caseId}/favorite\")"
+        },
+        {
+          "line": 93,
+          "annotation": "@DeleteMapping(\"/cases/{caseId}/favorite\")"
+        },
+        {
+          "line": 101,
+          "annotation": "@GetMapping(\"/favorites\")"
+        },
+        {
+          "line": 114,
+          "annotation": "@PostMapping(\"/assets/upload-tickets\")"
+        },
+        {
+          "line": 122,
+          "annotation": "@PostMapping(\"/assets/{assetId}/complete\")"
+        },
+        {
+          "line": 129,
+          "annotation": "@PostMapping(\"/assets/{assetId}/download-tickets\")"
+        },
+        {
+          "line": 141,
+          "annotation": "@PostMapping(\"/projects\")"
+        },
+        {
+          "line": 153,
+          "annotation": "@GetMapping(\"/projects\")"
+        },
+        {
+          "line": 171,
+          "annotation": "@GetMapping(\"/projects/{projectId}\")"
+        },
+        {
+          "line": 183,
+          "annotation": "@PostMapping(\"/projects/{projectId}/flat-jobs\")"
+        },
+        {
+          "line": 199,
+          "annotation": "@PostMapping(\"/projects/{projectId}/elevation-jobs\")"
+        },
+        {
+          "line": 212,
+          "annotation": "@GetMapping(\"/ai-jobs/{jobId}\")"
+        },
+        {
+          "line": 218,
+          "annotation": "@PostMapping(\"/ai-jobs/{jobId}/cancellation-requests\")"
+        },
+        {
+          "line": 228,
+          "annotation": "@PostMapping(\"/note-polish\")"
+        },
+        {
+          "line": 242,
+          "annotation": "@PostMapping(\"/projects/{projectId}/flat-selections\")"
+        },
+        {
+          "line": 252,
+          "annotation": "@PostMapping(\"/projects/{projectId}/elevation-selections\")"
+        },
+        {
+          "line": 271,
+          "annotation": "@GetMapping(\"/projects/{projectId}/result-versions\")"
+        },
+        {
+          "line": 282,
+          "annotation": "@PostMapping(\"/projects/{projectId}/revision-requests\")"
+        },
+        {
+          "line": 299,
+          "annotation": "@GetMapping(\"/budget/rule-info\")"
+        },
+        {
+          "line": 312,
+          "annotation": "@PostMapping(\"/projects/{projectId}/budget-estimates\")"
+        },
+        {
+          "line": 336,
+          "annotation": "@PostMapping(\"/projects/{projectId}/save-to-customer\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngClosureController.java",
+      "mappings": [
+        {
+          "line": 23,
+          "annotation": "@RequestMapping(\"/franchise/engineering\")"
+        },
+        {
+          "line": 36,
+          "annotation": "@PostMapping(\"/{id}/deliver\")"
+        },
+        {
+          "line": 47,
+          "annotation": "@PostMapping(\"/{id}/settle\")"
+        },
+        {
+          "line": 56,
+          "annotation": "@PostMapping(\"/{id}/archive\")"
+        },
+        {
+          "line": 64,
+          "annotation": "@GetMapping(\"/{id}/settle-summary\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngCollectionController.java",
+      "mappings": [
+        {
+          "line": 25,
+          "annotation": "@RequestMapping(\"/franchise/engineering\")"
+        },
+        {
+          "line": 40,
+          "annotation": "@GetMapping(\"/{id}/collections\")"
+        },
+        {
+          "line": 48,
+          "annotation": "@PostMapping(\"/{id}/collections\")"
+        },
+        {
+          "line": 58,
+          "annotation": "@PostMapping(\"/{id}/dunning\")"
+        },
+        {
+          "line": 67,
+          "annotation": "@GetMapping(\"/{id}/followups\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngExpenseController.java",
+      "mappings": [
+        {
+          "line": 36,
+          "annotation": "@RequestMapping(\"/franchise/engineering\")"
+        },
+        {
+          "line": 65,
+          "annotation": "@PostMapping(\"/{id}/expenses\")"
+        },
+        {
+          "line": 76,
+          "annotation": "@PostMapping(\"/expenses/{expenseId}/terms\")"
+        },
+        {
+          "line": 85,
+          "annotation": "@PostMapping(\"/expenses/{expenseId}/revise\")"
+        },
+        {
+          "line": 93,
+          "annotation": "@PostMapping(\"/expenses/{expenseId}/cancel\")"
+        },
+        {
+          "line": 103,
+          "annotation": "@GetMapping(\"/{id}/expenses\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngMaterialController.java",
+      "mappings": [
+        {
+          "line": 27,
+          "annotation": "@RequestMapping(\"/franchise/engineering\")"
+        },
+        {
+          "line": 42,
+          "annotation": "@PostMapping(\"/{id}/materials\")"
+        },
+        {
+          "line": 53,
+          "annotation": "@PutMapping(\"/materials/{materialId}\")"
+        },
+        {
+          "line": 62,
+          "annotation": "@PostMapping(\"/supplies/{supplyId}/terms\")"
+        },
+        {
+          "line": 73,
+          "annotation": "@PostMapping(\"/supplies/{supplyId}/arrival\")"
+        },
+        {
+          "line": 86,
+          "annotation": "@PostMapping(\"/supplies/arrival-correction\")"
+        },
+        {
+          "line": 97,
+          "annotation": "@PostMapping(\"/{id}/movements\")"
+        },
+        {
+          "line": 107,
+          "annotation": "@PostMapping(\"/{id}/material-followups\")"
+        },
+        {
+          "line": 117,
+          "annotation": "@GetMapping(\"/{id}/materials/summary\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngPlanController.java",
+      "mappings": [
+        {
+          "line": 24,
+          "annotation": "@RequestMapping(\"/franchise/engineering\")"
+        },
+        {
+          "line": 37,
+          "annotation": "@PostMapping(\"/{id}/prepare\")"
+        },
+        {
+          "line": 48,
+          "annotation": "@PostMapping(\"/{id}/start\")"
+        },
+        {
+          "line": 58,
+          "annotation": "@PutMapping(\"/{id}/plan\")"
+        },
+        {
+          "line": 66,
+          "annotation": "@PostMapping(\"/{id}/plan/reschedule\")"
+        },
+        {
+          "line": 76,
+          "annotation": "@GetMapping(\"/{id}/plan/history\")"
+        },
+        {
+          "line": 83,
+          "annotation": "@PostMapping(\"/{id}/nodes/{nodeId}/complete\")"
+        },
+        {
+          "line": 94,
+          "annotation": "@PostMapping(\"/{id}/nodes/{nodeId}/reopen\")"
+        },
+        {
+          "line": 103,
+          "annotation": "@PostMapping(\"/{id}/nodes/{nodeId}/correct\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-engineering/src/main/java/cn/iocoder/yudao/module/franchise/engineering/controller/admin/EngProjectController.java",
+      "mappings": [
+        {
+          "line": 26,
+          "annotation": "@RequestMapping(\"/franchise/engineering\")"
+        },
+        {
+          "line": 48,
+          "annotation": "@PostMapping(\"/projects\")"
+        },
+        {
+          "line": 60,
+          "annotation": "@GetMapping(\"/projects\")"
+        },
+        {
+          "line": 67,
+          "annotation": "@GetMapping(\"/{id}\")"
+        },
+        {
+          "line": 74,
+          "annotation": "@PostMapping(\"/{id}/manager\")"
+        },
+        {
+          "line": 86,
+          "annotation": "@PostMapping(\"/{id}/site-records\")"
+        },
+        {
+          "line": 97,
+          "annotation": "@GetMapping(\"/{id}/site-records\")"
+        },
+        {
+          "line": 104,
+          "annotation": "@PostMapping(\"/site-records/{recordId}/correct\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-finance/src/main/java/cn/iocoder/yudao/module/franchise/finance/controller/admin/FinanceController.java",
+      "mappings": [
+        {
+          "line": 69,
+          "annotation": "@RequestMapping(\"/franchise/finance\")"
+        },
+        {
+          "line": 112,
+          "annotation": "@GetMapping(\"/receipts/page\")"
+        },
+        {
+          "line": 131,
+          "annotation": "@GetMapping(\"/payments/page\")"
+        },
+        {
+          "line": 148,
+          "annotation": "@GetMapping(\"/refunds/page\")"
+        },
+        {
+          "line": 167,
+          "annotation": "@GetMapping(\"/payables/page\")"
+        },
+        {
+          "line": 180,
+          "annotation": "@GetMapping(\"/abnormal-funds/page\")"
+        },
+        {
+          "line": 231,
+          "annotation": "@PostMapping(\"/receipts\")"
+        },
+        {
+          "line": 245,
+          "annotation": "@GetMapping(\"/receipts\")"
+        },
+        {
+          "line": 252,
+          "annotation": "@PostMapping(\"/receipts/{id}/revision\")"
+        },
+        {
+          "line": 266,
+          "annotation": "@DeleteMapping(\"/receipts/{id}\")"
+        },
+        {
+          "line": 275,
+          "annotation": "@PostMapping(\"/receipts/{id}/void-pending\")"
+        },
+        {
+          "line": 291,
+          "annotation": "@GetMapping(\"/revisions\")"
+        },
+        {
+          "line": 307,
+          "annotation": "@GetMapping(\"/payables\")"
+        },
+        {
+          "line": 314,
+          "annotation": "@PostMapping(\"/payables\")"
+        },
+        {
+          "line": 329,
+          "annotation": "@GetMapping(\"/payments\")"
+        },
+        {
+          "line": 336,
+          "annotation": "@PostMapping(\"/payments\")"
+        },
+        {
+          "line": 351,
+          "annotation": "@DeleteMapping(\"/payments/{id}\")"
+        },
+        {
+          "line": 361,
+          "annotation": "@GetMapping(\"/refunds\")"
+        },
+        {
+          "line": 377,
+          "annotation": "@PostMapping(\"/refunds\")"
+        },
+        {
+          "line": 392,
+          "annotation": "@DeleteMapping(\"/refunds/{id}\")"
+        },
+        {
+          "line": 402,
+          "annotation": "@PostMapping(\"/expense-refunds\")"
+        },
+        {
+          "line": 421,
+          "annotation": "@GetMapping(\"/abnormal-funds\")"
+        },
+        {
+          "line": 436,
+          "annotation": "@PostMapping(\"/abnormal-funds\")"
+        },
+        {
+          "line": 453,
+          "annotation": "@PostMapping(\"/abnormal-funds/{id}/link\")"
+        },
+        {
+          "line": 463,
+          "annotation": "@DeleteMapping(\"/abnormal-funds/{id}\")"
+        },
+        {
+          "line": 473,
+          "annotation": "@GetMapping(\"/reconciliation\")"
+        },
+        {
+          "line": 483,
+          "annotation": "@GetMapping(\"/bank-flows\")"
+        },
+        {
+          "line": 490,
+          "annotation": "@PostMapping(\"/bank-confirms\")"
+        },
+        {
+          "line": 504,
+          "annotation": "@GetMapping(\"/projects\")"
+        },
+        {
+          "line": 513,
+          "annotation": "@GetMapping(\"/design-fees\")"
+        },
+        {
+          "line": 521,
+          "annotation": "@GetMapping(\"/projects/{projectId}/ledger\")"
+        },
+        {
+          "line": 530,
+          "annotation": "@GetMapping(\"/project-accounts/{projectId}\")"
+        },
+        {
+          "line": 538,
+          "annotation": "@GetMapping(\"/design-fee-progress\")"
+        },
+        {
+          "line": 547,
+          "annotation": "@PostMapping(value = \"/files\", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)"
+        },
+        {
+          "line": 555,
+          "annotation": "@GetMapping(\"/files/{id}\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-org/src/main/java/cn/iocoder/yudao/module/franchise/org/controller/admin/CompanyPointController.java",
+      "mappings": [
+        {
+          "line": 19,
+          "annotation": "@RequestMapping(\"/franchise/company-points\")"
+        },
+        {
+          "line": 27,
+          "annotation": "@PostMapping(\"/activate\")"
+        },
+        {
+          "line": 34,
+          "annotation": "@GetMapping(\"/summary\")"
+        },
+        {
+          "line": 40,
+          "annotation": "@GetMapping(\"/my-usage\")"
+        },
+        {
+          "line": 49,
+          "annotation": "@GetMapping(\"/ledger\")"
+        },
+        {
+          "line": 61,
+          "annotation": "@GetMapping(\"/operations\")"
+        },
+        {
+          "line": 70,
+          "annotation": "@GetMapping(\"/member-permissions\")"
+        },
+        {
+          "line": 77,
+          "annotation": "@PutMapping(\"/member-permissions/{userId}\")"
+        },
+        {
+          "line": 87,
+          "annotation": "@DeleteMapping(\"/member-permissions/{userId}\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-org/src/main/java/cn/iocoder/yudao/module/franchise/org/controller/admin/WalletSessionController.java",
+      "mappings": [
+        {
+          "line": 30,
+          "annotation": "@RequestMapping(\"/platform/wallet\")"
+        },
+        {
+          "line": 39,
+          "annotation": "@PostMapping(\"/session\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfCommissionController.java",
+      "mappings": [
+        {
+          "line": 24,
+          "annotation": "@RequestMapping(\"/franchise/performance\")"
+        },
+        {
+          "line": 37,
+          "annotation": "@GetMapping(\"/commission/rows\")"
+        },
+        {
+          "line": 44,
+          "annotation": "@PostMapping(\"/commission/policy\")"
+        },
+        {
+          "line": 60,
+          "annotation": "@PostMapping(\"/commission/release\")"
+        },
+        {
+          "line": 70,
+          "annotation": "@PostMapping(\"/commission/reconcile\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfCommissionExportController.java",
+      "mappings": [
+        {
+          "line": 42,
+          "annotation": "@RequestMapping(\"/franchise/performance\")"
+        },
+        {
+          "line": 51,
+          "annotation": "@GetMapping(\"/commission/export\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfCycleController.java",
+      "mappings": [
+        {
+          "line": 24,
+          "annotation": "@RequestMapping(\"/franchise/performance\")"
+        },
+        {
+          "line": 37,
+          "annotation": "@PostMapping(\"/cycles/submit\")"
+        },
+        {
+          "line": 47,
+          "annotation": "@PostMapping(\"/cycles/review\")"
+        },
+        {
+          "line": 57,
+          "annotation": "@PostMapping(\"/cycles/appeal-resolve\")"
+        },
+        {
+          "line": 69,
+          "annotation": "@GetMapping(\"/cycles\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfDashboardController.java",
+      "mappings": [
+        {
+          "line": 25,
+          "annotation": "@RequestMapping(\"/franchise/performance\")"
+        },
+        {
+          "line": 34,
+          "annotation": "@GetMapping(\"/dashboard\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfGoalController.java",
+      "mappings": [
+        {
+          "line": 23,
+          "annotation": "@RequestMapping(\"/franchise/performance\")"
+        },
+        {
+          "line": 36,
+          "annotation": "@GetMapping(\"/goals\")"
+        },
+        {
+          "line": 43,
+          "annotation": "@PutMapping(\"/goals\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfOperatingController.java",
+      "mappings": [
+        {
+          "line": 24,
+          "annotation": "@RequestMapping(\"/franchise/performance\")"
+        },
+        {
+          "line": 37,
+          "annotation": "@GetMapping(\"/operating/analytics\")"
+        },
+        {
+          "line": 44,
+          "annotation": "@PostMapping(\"/operating/snapshot\")"
+        },
+        {
+          "line": 53,
+          "annotation": "@GetMapping(\"/operating/snapshots\")"
+        },
+        {
+          "line": 60,
+          "annotation": "@PostMapping(\"/operating/reconcile\")"
+        },
+        {
+          "line": 68,
+          "annotation": "@GetMapping(\"/operating/reconciliations\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-performance/src/main/java/cn/iocoder/yudao/module/franchise/performance/controller/admin/PerfTaskController.java",
+      "mappings": [
+        {
+          "line": 24,
+          "annotation": "@RequestMapping(\"/franchise/performance\")"
+        },
+        {
+          "line": 37,
+          "annotation": "@PostMapping(\"/tasks\")"
+        },
+        {
+          "line": 50,
+          "annotation": "@GetMapping(\"/tasks\")"
+        },
+        {
+          "line": 60,
+          "annotation": "@GetMapping(\"/tasks/summary\")"
+        },
+        {
+          "line": 67,
+          "annotation": "@PostMapping(\"/tasks/{id}/reassign\")"
+        },
+        {
+          "line": 77,
+          "annotation": "@PostMapping(\"/tasks/{id}/manual-complete\")"
+        },
+        {
+          "line": 88,
+          "annotation": "@PostMapping(\"/tasks/initialize-previous\")"
+        },
+        {
+          "line": 96,
+          "annotation": "@PostMapping(\"/tasks/archive\")"
+        },
+        {
+          "line": 105,
+          "annotation": "@PostMapping(\"/tasks/archive/revise\")"
+        },
+        {
+          "line": 114,
+          "annotation": "@GetMapping(\"/tasks/archives\")"
+        }
+      ]
+    },
+    {
+      "file": "domains/franchise/franchise-sales/src/main/java/cn/iocoder/yudao/module/franchise/sales/controller/admin/SalesController.java",
+      "mappings": [
+        {
+          "line": 44,
+          "annotation": "@RequestMapping(\"/franchise/sales\")"
+        },
+        {
+          "line": 82,
+          "annotation": "@PostMapping(\"/requirements\")"
+        },
+        {
+          "line": 93,
+          "annotation": "@GetMapping(\"/requirements\")"
+        },
+        {
+          "line": 107,
+          "annotation": "@PostMapping(\"/quotes\")"
+        },
+        {
+          "line": 121,
+          "annotation": "@GetMapping(\"/quotes\")"
+        },
+        {
+          "line": 128,
+          "annotation": "@GetMapping(\"/quotes/{quoteId}/export-sheet\")"
+        },
+        {
+          "line": 143,
+          "annotation": "@PostMapping(\"/contracts\")"
+        },
+        {
+          "line": 161,
+          "annotation": "@GetMapping(\"/contracts\")"
+        },
+        {
+          "line": 182,
+          "annotation": "@PostMapping(\"/contracts/{contractId}/sign\")"
+        },
+        {
+          "line": 194,
+          "annotation": "@PostMapping(\"/contracts/{contractId}/void\")"
+        },
+        {
+          "line": 211,
+          "annotation": "@PostMapping(\"/stages/{stageId}/collect\")"
+        },
+        {
+          "line": 225,
+          "annotation": "@GetMapping(\"/contracts/{contractId}/stage-summary\")"
+        },
+        {
+          "line": 234,
+          "annotation": "@PostMapping(\"/schemes/{schemeId}/promote\")"
+        },
+        {
+          "line": 249,
+          "annotation": "@PostMapping(\"/deliveries\")"
+        },
+        {
+          "line": 266,
+          "annotation": "@PostMapping(\"/deliveries/{deliveryId}/advance\")"
+        },
+        {
+          "line": 283,
+          "annotation": "@GetMapping(\"/deliveries\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/FranchiseOnboardController.java",
+      "mappings": [
+        {
+          "line": 25,
+          "annotation": "@RequestMapping(\"/platform/org\")"
+        },
+        {
+          "line": 50,
+          "annotation": "@PostMapping(\"/franchise-preview\")"
+        },
+        {
+          "line": 58,
+          "annotation": "@PostMapping(\"/franchise-onboard\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/MyPostController.java",
+      "mappings": [
+        {
+          "line": 31,
+          "annotation": "@RequestMapping(\"/platform/posts\")"
+        },
+        {
+          "line": 64,
+          "annotation": "@GetMapping(\"/mine\")"
+        },
+        {
+          "line": 79,
+          "annotation": "@GetMapping(\"/current-context\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/OrgAccountAdminController.java",
+      "mappings": [
+        {
+          "line": 15,
+          "annotation": "@RequestMapping(\"/platform/org/directory/{orgId}/account\")"
+        },
+        {
+          "line": 19,
+          "annotation": "@GetMapping"
+        },
+        {
+          "line": 24,
+          "annotation": "@PostMapping(\"/reset-password\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/OrgDirectoryController.java",
+      "mappings": [
+        {
+          "line": 24,
+          "annotation": "@RequestMapping(\"/platform/org/directory\")"
+        },
+        {
+          "line": 29,
+          "annotation": "@GetMapping"
+        },
+        {
+          "line": 39,
+          "annotation": "@GetMapping(\"/{orgId}\")"
+        },
+        {
+          "line": 44,
+          "annotation": "@GetMapping(\"/{orgId}/members\")"
+        },
+        {
+          "line": 49,
+          "annotation": "@GetMapping(\"/{orgId}/points\")"
+        },
+        {
+          "line": 51,
+          "annotation": "@GetMapping(\"/{orgId}/ledger\")"
+        },
+        {
+          "line": 56,
+          "annotation": "@GetMapping(\"/{orgId}/generations\")"
+        },
+        {
+          "line": 61,
+          "annotation": "@GetMapping(\"/{orgId}/audits\")"
+        },
+        {
+          "line": 67,
+          "annotation": "@PostMapping(\"/{orgId}/lifecycle\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/OrgOnboardController.java",
+      "mappings": [
+        {
+          "line": 29,
+          "annotation": "@RequestMapping(\"/platform/org\")"
+        },
+        {
+          "line": 46,
+          "annotation": "@PostMapping(\"/onboard\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffAccountOnboardController.java",
+      "mappings": [
+        {
+          "line": 22,
+          "annotation": "@RequestMapping(\"/platform/org\")"
+        },
+        {
+          "line": 28,
+          "annotation": "@PostMapping(\"/staff-accounts\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffImportController.java",
+      "mappings": [
+        {
+          "line": 36,
+          "annotation": "@RequestMapping(\"/platform/org/staff-import\")"
+        },
+        {
+          "line": 56,
+          "annotation": "@PostMapping(\"/precheck\")"
+        },
+        {
+          "line": 65,
+          "annotation": "@PostMapping"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-authz/src/main/java/cn/iocoder/yudao/module/platform/authz/controller/admin/StaffOrgAdminController.java",
+      "mappings": [
+        {
+          "line": 56,
+          "annotation": "@RequestMapping(\"/platform/org\")"
+        },
+        {
+          "line": 118,
+          "annotation": "@GetMapping(\"/teams\")"
+        },
+        {
+          "line": 129,
+          "annotation": "@GetMapping(\"/post-templates\")"
+        },
+        {
+          "line": 141,
+          "annotation": "@PostMapping(\"/teams\")"
+        },
+        {
+          "line": 152,
+          "annotation": "@GetMapping(\"/staff\")"
+        },
+        {
+          "line": 171,
+          "annotation": "@PostMapping(\"/staff\")"
+        },
+        {
+          "line": 185,
+          "annotation": "@PostMapping(\"/posts\")"
+        },
+        {
+          "line": 197,
+          "annotation": "@DeleteMapping(\"/posts/{postId}\")"
+        },
+        {
+          "line": 208,
+          "annotation": "@PostMapping(\"/staff-status\")"
+        },
+        {
+          "line": 243,
+          "annotation": "@PostMapping(\"/staff-handover\")"
+        },
+        {
+          "line": 252,
+          "annotation": "@PostMapping(\"/staff-emergency-revoke\")"
+        },
+        {
+          "line": 261,
+          "annotation": "@GetMapping(\"/handover-pending\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-identity/src/main/java/cn/iocoder/yudao/module/platform/identity/controller/admin/PlatformAuthController.java",
+      "mappings": [
+        {
+          "line": 41,
+          "annotation": "@RequestMapping(\"/platform/auth\")"
+        },
+        {
+          "line": 54,
+          "annotation": "@GetMapping(\"/login-policy\")"
+        },
+        {
+          "line": 58,
+          "annotation": "@PostMapping(\"/account/matches\")"
+        },
+        {
+          "line": 68,
+          "annotation": "@PostMapping(\"/account/login\")"
+        },
+        {
+          "line": 84,
+          "annotation": "@PostMapping(\"/wechat-bind\")"
+        },
+        {
+          "line": 92,
+          "annotation": "@PostMapping(\"/wechat-login\")"
+        },
+        {
+          "line": 108,
+          "annotation": "@PostMapping(\"/sms/send\")"
+        },
+        {
+          "line": 116,
+          "annotation": "@PostMapping(\"/sms/login\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-identity/src/main/java/cn/iocoder/yudao/module/platform/identity/controller/admin/StaffWechatBindingController.java",
+      "mappings": [
+        {
+          "line": 27,
+          "annotation": "@RequestMapping(\"/platform/staff-wechat\")"
+        },
+        {
+          "line": 34,
+          "annotation": "@GetMapping(\"/binding-events/page\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-org/src/main/java/cn/iocoder/yudao/module/platform/org/controller/admin/StaffProfileController.java",
+      "mappings": [
+        {
+          "line": 28,
+          "annotation": "@RequestMapping(\"/platform/profile\")"
+        },
+        {
+          "line": 42,
+          "annotation": "@GetMapping(\"/mine\")"
+        },
+        {
+          "line": 48,
+          "annotation": "@PutMapping(\"/mine\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/WalletXpayNotifyController.java",
+      "mappings": [
+        {
+          "line": 35,
+          "annotation": "@GetMapping(PATH)"
+        },
+        {
+          "line": 49,
+          "annotation": "@PostMapping(PATH)"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/admin/WalletConfigurationController.java",
+      "mappings": [
+        {
+          "line": 13,
+          "annotation": "@RequestMapping(\"/admin-api/platform/ops\")"
+        },
+        {
+          "line": 20,
+          "annotation": "@PostMapping(\"/recharge-plans\")"
+        },
+        {
+          "line": 25,
+          "annotation": "@PutMapping(\"/recharge-plans/{id}\")"
+        },
+        {
+          "line": 30,
+          "annotation": "@GetMapping(\"/audit\")"
+        },
+        {
+          "line": 36,
+          "annotation": "@GetMapping(\"/anomalies/{id}/reviews\")"
+        },
+        {
+          "line": 42,
+          "annotation": "@PostMapping(\"/anomalies/{id}/reviews\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/admin/WalletOperationsController.java",
+      "mappings": [
+        {
+          "line": 15,
+          "annotation": "@RequestMapping(\"/admin-api/platform/ops\")"
+        },
+        {
+          "line": 20,
+          "annotation": "@GetMapping(\"/wallets\")"
+        },
+        {
+          "line": 27,
+          "annotation": "@GetMapping(\"/wallet-summary\")"
+        },
+        {
+          "line": 32,
+          "annotation": "@GetMapping(\"/recharge-plans\")"
+        },
+        {
+          "line": 38,
+          "annotation": "@GetMapping(\"/recharge-orders\")"
+        },
+        {
+          "line": 45,
+          "annotation": "@GetMapping(\"/ledger\")"
+        },
+        {
+          "line": 52,
+          "annotation": "@GetMapping(\"/anomalies\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/controller/admin/WalletController.java",
+      "mappings": [
+        {
+          "line": 31,
+          "annotation": "@RequestMapping(\"/platform/wallet\")"
+        },
+        {
+          "line": 55,
+          "annotation": "@GetMapping(\"/recharge-orders\")"
+        },
+        {
+          "line": 64,
+          "annotation": "@GetMapping(\"/recharge-orders/{id}\")"
+        },
+        {
+          "line": 71,
+          "annotation": "@PostMapping(\"/recharge-orders\")"
+        },
+        {
+          "line": 78,
+          "annotation": "@PostMapping(\"/recharge-orders/{id}/pay-params\")"
+        },
+        {
+          "line": 86,
+          "annotation": "@GetMapping(\"/account\")"
+        },
+        {
+          "line": 93,
+          "annotation": "@GetMapping(\"/ledger\")"
+        },
+        {
+          "line": 102,
+          "annotation": "@GetMapping(\"/recharge-plans\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/export/FinanceExportController.java",
+      "mappings": [
+        {
+          "line": 39,
+          "annotation": "@RequestMapping(\"/franchise/finance\")"
+        },
+        {
+          "line": 48,
+          "annotation": "@PostMapping(\"/exports\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/orgpoint/OrgPointHeadquartersController.java",
+      "mappings": [
+        {
+          "line": 18,
+          "annotation": "@RequestMapping(\"/admin-api/platform/org-points\")"
+        },
+        {
+          "line": 26,
+          "annotation": "@GetMapping(\"/companies\")"
+        },
+        {
+          "line": 32,
+          "annotation": "@GetMapping(\"/{orgId}/summary\")"
+        },
+        {
+          "line": 38,
+          "annotation": "@GetMapping(\"/{orgId}/ledger\")"
+        },
+        {
+          "line": 51,
+          "annotation": "@PostMapping(\"/{orgId}/credits\")"
+        },
+        {
+          "line": 65,
+          "annotation": "@PostMapping(\"/{orgId}/adjustments\")"
+        },
+        {
+          "line": 71,
+          "annotation": "@PutMapping(\"/adjustments/{id}/review\")"
+        },
+        {
+          "line": 77,
+          "annotation": "@GetMapping(\"/{orgId}/adjustments\")"
+        },
+        {
+          "line": 83,
+          "annotation": "@GetMapping(\"/prices\")"
+        },
+        {
+          "line": 89,
+          "annotation": "@PostMapping(\"/prices\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-wallet/src/main/java/cn/iocoder/yudao/module/platform/wallet/orgpoint/OrgPointPricingController.java",
+      "mappings": [
+        {
+          "line": 27,
+          "annotation": "@RequestMapping(\"/admin-api/platform/org-points\")"
+        },
+        {
+          "line": 41,
+          "annotation": "@GetMapping(\"/price-history\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-workflow/src/main/java/cn/iocoder/yudao/module/platform/workflow/controller/admin/PlatformMessageController.java",
+      "mappings": [
+        {
+          "line": 29,
+          "annotation": "@RequestMapping(\"/platform/messages\")"
+        },
+        {
+          "line": 35,
+          "annotation": "@GetMapping"
+        },
+        {
+          "line": 43,
+          "annotation": "@GetMapping(\"/unread-count\")"
+        },
+        {
+          "line": 49,
+          "annotation": "@PostMapping(\"/{id}/read\")"
+        },
+        {
+          "line": 55,
+          "annotation": "@PostMapping(\"/read-all\")"
+        }
+      ]
+    },
+    {
+      "file": "platform/platform-workflow/src/main/java/cn/iocoder/yudao/module/platform/workflow/controller/admin/PlatformTodoController.java",
+      "mappings": [
+        {
+          "line": 21,
+          "annotation": "@RequestMapping(\"/platform/todos\")"
+        },
+        {
+          "line": 29,
+          "annotation": "@GetMapping"
+        }
+      ]
+    }
+  ]
+}
