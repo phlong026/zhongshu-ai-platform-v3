@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.platform.identity.enums.PlatformIdentityErrorCodes.*;
 
@@ -36,6 +35,8 @@ public class StaffWechatLoginServiceImpl implements StaffWechatLoginService {
     private TokenIssuer tokenIssuer;
     @Resource
     private StaffWechatBindingService bindingService;
+    @Resource
+    private StaffWechatBindingCommitService bindingCommitService;
 
     @Override
     public WechatLoginResult login(String appid, String loginCode, String phoneCode) {
@@ -71,11 +72,17 @@ public class StaffWechatLoginServiceImpl implements StaffWechatLoginService {
             throw exception(STAFF_PHONE_AMBIGUOUS);
         }
         long userId = candidates.get(0).userId();
+        Long postId = staffPostService.listActivePosts(userId).stream()
+                .map(cn.iocoder.yudao.module.platform.org.dal.StaffPostDO::getId)
+                .sorted().findFirst().orElseThrow(() -> exception(STAFF_NOT_ENROLLED));
         try {
-            bindingService.bind(appid, openid, userId, mobile);
-        } catch (DuplicateKeyException e) { // 同一微信或同一员工被并发绑定
-            log.warn("[login][appid={} userId={}] 并发绑定冲突", appid, userId);
-            throw exception(STATE_VERSION_CONFLICT);
+            // 老板、负责人及员工共用手机号自动识别；短事务内复核手机号、账号与任职，防止匹配后资料被修改。
+            bindingCommitService.commit(appid, openid, userId, mobile, postId);
+        } catch (DuplicateKeyException e) {
+            WechatBindingDO winner = bindingMapper.selectActive(appid, openid);
+            if (winner == null || !winner.getUserId().equals(userId)) {
+                throw exception(WECHAT_BINDING_CONFLICT);
+            }
         }
         log.info("[login][appid={} userId={} mobile={}] 员工微信绑定", appid, userId, mask(mobile));
         return issue(userId);

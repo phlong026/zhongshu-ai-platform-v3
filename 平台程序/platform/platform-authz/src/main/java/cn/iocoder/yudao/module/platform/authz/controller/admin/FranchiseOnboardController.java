@@ -27,6 +27,11 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 public class FranchiseOnboardController {
     @Resource private FranchiseOnboardService service;
 
+    @org.springframework.web.bind.annotation.ExceptionHandler(IllegalArgumentException.class)
+    public CommonResult<Object> invalidNaming(IllegalArgumentException error) {
+        return CommonResult.error(400,error.getMessage());
+    }
+
     public record PreviewRequest(@NotBlank @Size(max=40) String brand,
                                  @NotBlank @Size(max=40) String province,
                                  @NotBlank @Size(max=40) String city,

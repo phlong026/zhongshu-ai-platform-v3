@@ -231,7 +231,7 @@ public class StaffPostServiceImpl implements StaffPostService {
         }
         OrgUnitDO org = orgUnitMapper.selectById(post.getOrgId());
         PostTemplateDO template = postTemplateMapper.selectById(post.getRoleCode());
-        if (org == null || !org.isActive() || template == null) {
+        if (org == null || !org.isActive() || template == null || systemDirectory.deptUnavailable(org.getDeptId())) {
             return Optional.empty();
         }
         boolean lead = Boolean.TRUE.equals(template.getLead());

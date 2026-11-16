@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.platform.authz.service;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
+import cn.iocoder.yudao.module.platform.org.AccountDisplay;
 import cn.iocoder.yudao.module.platform.org.InitialAccountPassword;
 import cn.iocoder.yudao.module.platform.org.MemberRolePolicy;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -35,7 +36,7 @@ public class StaffAccountOnboardService {
     public record Result(long postId, long userId, String name, String mobile, boolean active,
                          String roleCode, Long teamId, String teamName, String createTime,
                          String accountId, String orgName, String loginName, List<String> aliases,
-                         String initialPassword, boolean reusedUser) {
+                         String initialPassword, boolean reusedUser, String roleName, String shortOrgName) {
         @Override public String toString() {
             return "StaffAccountResult[postId=" + postId + ", userId=" + userId + ", loginName=" + loginName + "]";
         }
@@ -57,7 +58,8 @@ public class StaffAccountOnboardService {
         long tenant = TenantContextHolder.getRequiredTenantId();
         units.lockOrgKeyForOnboard("franchise-mobile:" + tenant + ":" + mobile);
         Parent parent = parent(tenant, orgId);
-        units.lockOrgKeyForOnboard("franchise-login:" + tenant + ":" + parent.loginName());
+        // 同租户所有门店共用短登录名空间；连带数字姓名与重名序号也必须串行分配。
+        units.lockOrgKeyForOnboard("franchise-staff-login:" + tenant);
         posts.revalidateActivePost(operatorUserId, operatorPostId);
         Long userId = requestedUserId == null ? directory.userIdByMobile(mobile) : requestedUserId;
         if (userId != null) {
@@ -67,14 +69,16 @@ public class StaffAccountOnboardService {
             if (!directory.userUsable(userId)) throw exception(STAFF_GLOBAL_RESUME_FORBIDDEN);
         }
         boolean reusedUser = userId != null;
-        String initial = reusedUser ? null : InitialAccountPassword.generate();
+        List<Existing> existing = userId == null ? List.of() : jdbc.query(
+                "SELECT account_id,login_name,org_name FROM pf_franchise_account WHERE tenant_id=? AND org_id=? AND user_id=?",
+                (rs, row) -> new Existing(rs.getString(1), rs.getString(2), rs.getString(3)), tenant, orgId, userId);
+        String loginName = existing.isEmpty() ? availableLogin(tenant, person.pinyin()) : existing.get(0).loginName();
+        String initial = reusedUser ? null : InitialAccountPassword.forStaffLogin(loginName);
         if (userId == null) userId = directory.createUserWithPassword(person.name(), mobile, orgId, initial);
         long postId = posts.assignPostInOrg(userId, orgId, roleCode, teamId, operatorUserId);
-        List<Existing> existing = jdbc.query("SELECT account_id,login_name,org_name FROM pf_franchise_account WHERE tenant_id=? AND org_id=? AND user_id=?",
-                (rs, row) -> new Existing(rs.getString(1), rs.getString(2), rs.getString(3)), tenant, orgId, userId);
         Existing account;
         if (existing.isEmpty()) {
-            String login = availableLogin(tenant, parent.loginName() + "-" + person.pinyin());
+            String login = loginName;
             account = new Existing(UUID.randomUUID().toString(), login, parent.orgName());
             jdbc.update("""
                     INSERT INTO pf_franchise_account(account_id,tenant_id,org_id,user_id,login_name,org_name,owner_name,account_type,
@@ -85,6 +89,8 @@ public class StaffAccountOnboardService {
             var aliases = new LinkedHashSet<String>();
             aliases.add(login);
             aliases.add(login.startsWith("hjmz-") ? login.substring(5) : login);
+            aliases.add(parent.loginName()); aliases.add(parent.loginName().replaceFirst("^hjmz-", ""));
+            aliases.add(parent.orgName());
             aliases.add(person.pinyin()); aliases.add(person.initials()); aliases.add(person.name().toLowerCase(Locale.ROOT));
             for (String alias : aliases) jdbc.update("INSERT INTO pf_franchise_account_alias(tenant_id,account_id,alias) VALUES (?,?,?)",
                     tenant, account.accountId(), alias.toLowerCase(Locale.ROOT));
@@ -96,9 +102,10 @@ public class StaffAccountOnboardService {
         var user = directory.usersByIds(List.of(userId)).stream().findFirst().orElseThrow(() -> exception(USER_NOT_FOUND));
         List<String> aliases = jdbc.queryForList("SELECT alias FROM pf_franchise_account_alias WHERE tenant_id=? AND account_id=? ORDER BY alias",
                 String.class, tenant, account.accountId());
+        AccountDisplay display = AccountDisplay.of(user.name(), roleCode, parent.brand(), parent.province(), parent.city(), parent.area(), account.orgName());
         return new Result(postId, userId, user.name(), mobile, true, roleCode, teamId, directory.deptName(teamId),
                 post.getCreateTime() == null ? "" : post.getCreateTime().toString(), account.accountId(), account.orgName(),
-                account.loginName(), aliases, initial, reusedUser);
+                account.loginName(), aliases, initial, reusedUser, display.roleName(), display.shortOrgName());
     }
 
     private Parent parent(long tenant, long orgId) {
@@ -110,9 +117,10 @@ public class StaffAccountOnboardService {
     }
 
     private String availableLogin(long tenant, String base) {
-        if (base.length() > 94) throw new IllegalArgumentException("员工账号拼音过长，请联系总部配置简称");
+        if (base.length() > 61) throw new IllegalArgumentException("员工账号拼音过长，请联系总部配置简称");
         for (int suffix = 1; suffix <= 10000; suffix++) {
-            String candidate = base + (suffix == 1 ? "" : "-" + suffix);
+            String candidate = base + (suffix == 1 ? "" : suffix);
+            if (candidate.length() > 61) throw new IllegalArgumentException("员工账号拼音过长，请联系总部配置简称");
             Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM pf_franchise_account WHERE tenant_id=? AND login_name=?",
                     Integer.class, tenant, candidate);
             if (count != null && count == 0) return candidate;

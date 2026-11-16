@@ -18,10 +18,7 @@ public final class AccountPasswordRules {
     }
 
     public static boolean validNewPassword(String value) {
-        if (value == null || value.length() < 10 || value.length() > 64
-                || !validBcryptInput(value)) return false;
-        return value.chars().anyMatch(c -> c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z')
-                && value.chars().anyMatch(c -> c >= '0' && c <= '9');
+        return value != null && value.length() >= 6 && value.length() <= 64 && validBcryptInput(value);
     }
 
     public static boolean validBcryptInput(String value) {

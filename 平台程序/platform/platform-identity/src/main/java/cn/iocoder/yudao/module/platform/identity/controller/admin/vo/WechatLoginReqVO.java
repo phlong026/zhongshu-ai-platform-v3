@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import cn.iocoder.yudao.module.platform.identity.LoginPolicy;
 
 @Schema(description = "小程序员工微信登录 Request VO")
 @Data
@@ -23,4 +24,6 @@ public class WechatLoginReqVO {
     @Size(max = 128)
     private String phoneCode;
 
+    private Integer loginVersion;
+    private LoginPolicy.Consent consent;
 }

@@ -12,6 +12,9 @@ import cn.iocoder.yudao.module.platform.identity.wechat.WechatStaffClient;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.dal.StaffPostDO;
 import cn.iocoder.yudao.module.platform.test.PlatformPgIntegrationTest;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.junit.jupiter.api.AfterEach;
 import jakarta.annotation.Resource;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +37,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-@Import({StaffWechatLoginServiceImpl.class, StaffWechatBindingServiceImpl.class, StaffWechatLoginIntegrationTest.Config.class})
+@Import({StaffWechatLoginServiceImpl.class, StaffWechatBindingServiceImpl.class, StaffWechatBindingCommitService.class, StaffWechatLoginIntegrationTest.Config.class})
 @TestPropertySource(properties = {
         "platform.identity.wechat.apps[0].appid=wx-staff",
         "platform.identity.wechat.apps[0].secret=unused-in-this-test"
@@ -49,6 +52,7 @@ class StaffWechatLoginIntegrationTest extends PlatformPgIntegrationTest {
     static class Config {
     }
 
+    @Resource private JdbcTemplate jdbc;
     @Resource
     private StaffWechatLoginService loginService;
     @Resource
@@ -71,6 +75,7 @@ class StaffWechatLoginIntegrationTest extends PlatformPgIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        TenantContextHolder.setTenantId(1L);
         openid = "openid-" + IDS.incrementAndGet();
         userId = IDS.incrementAndGet();
         mobile = "139" + String.format("%08d", IDS.incrementAndGet() % 100_000_000);
@@ -210,12 +215,40 @@ class StaffWechatLoginIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
+    void concurrentFirstPhoneLoginsBindOnlyOnceAndBothSucceed() throws Exception {
+        enrolledStaff(userId, mobile);
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        when(wechat.phoneNumber(APP, "concurrent-phone")).thenAnswer(invocation -> {
+            ready.countDown();
+            if (!ready.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Second login did not reach phone exchange");
+            return mobile;
+        });
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<WechatLoginResult> login = () -> {
+                TenantContextHolder.setTenantId(1L);
+                try { return loginService.login(APP, "login-code", "concurrent-phone"); }
+                finally { TenantContextHolder.clear(); }
+            };
+            var first=pool.submit(login);var second=pool.submit(login);
+            assertThat(first.get(15, java.util.concurrent.TimeUnit.SECONDS).userId()).isEqualTo(userId);
+            assertThat(second.get(15, java.util.concurrent.TimeUnit.SECONDS).userId()).isEqualTo(userId);
+            assertThat(bindingMapper.selectList(WechatBindingDO::getUserId, userId)).hasSize(1);
+            assertThat(events()).hasSize(2); // 每个组织一条首次绑定审计，不发生重复换绑。
+        } finally { pool.shutdownNow(); }
+    }
+
+    @Test
     void bindingEntitiesAreTenantIgnored() {
         assertThat(WechatBindingDO.class.isAnnotationPresent(TenantIgnore.class)).isTrue();
         assertThat(WechatBindingEventDO.class.isAnnotationPresent(TenantIgnore.class)).isTrue();
     }
 
+    @AfterEach
+    void clearTenant() { TenantContextHolder.clear(); }
+
     private void enrolledStaff(long id, String phone) {
+        jdbc.update("INSERT INTO system_users(id,username,nickname,mobile,password,status,deleted,tenant_id) VALUES (?,?,?,?,'unused-wechat-test-hash',0,0,1)", id, "wechat-test-"+id, "微信测试", phone);
         StaffAccount account = new StaffAccount(id, phone, true);
         when(accounts.findByMobile(phone)).thenReturn(List.of(account));
         when(accounts.find(id)).thenReturn(Optional.of(account));

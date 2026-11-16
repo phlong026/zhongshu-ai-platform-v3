@@ -208,6 +208,13 @@ public class YudaoSystemDirectory implements SystemDirectory {
     }
 
     @Override
+    public boolean deptUnavailable(Long deptId) {
+        if (deptId == null) return true;
+        DeptDO dept = deptService.getDept(deptId);
+        return dept == null || !CommonStatusEnum.ENABLE.getStatus().equals(dept.getStatus());
+    }
+
+    @Override
     public java.util.List<Long> findRootDeptIdsByName(String name) {
         if (name == null || name.isBlank()) {
             return java.util.List.of();

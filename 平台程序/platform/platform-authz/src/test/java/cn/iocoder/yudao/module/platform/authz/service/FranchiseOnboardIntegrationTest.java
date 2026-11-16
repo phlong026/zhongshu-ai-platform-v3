@@ -150,8 +150,8 @@ class FranchiseOnboardIntegrationTest extends PlatformPgIntegrationTest {
         var employee = staffAccounts.open(boss.orgId(), null, "张三", "13900100001", "sales", null,
                 boss.adminUserId(), boss.postId());
         assertThat(employee.userId()).isNotEqualTo(boss.adminUserId());
-        assertThat(employee.loginName()).isEqualTo("hjmz-jxnc-gaoxin-zhangsan");
-        assertThat(employee.initialPassword()).hasSize(16);
+        assertThat(employee.loginName()).isEqualTo("zhangsan");
+        assertThat(employee.initialPassword()).isEqualTo("zhangsan123");
         assertThat(employee.orgName()).isEqualTo(boss.orgName());
         assertThat(employee.aliases()).contains("zhangsan", "zs");
         assertThat(employee.toString()).doesNotContain(employee.initialPassword());

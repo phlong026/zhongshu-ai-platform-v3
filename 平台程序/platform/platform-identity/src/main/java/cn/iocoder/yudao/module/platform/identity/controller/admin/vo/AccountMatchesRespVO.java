@@ -18,5 +18,9 @@ public class AccountMatchesRespVO {
         private String loginName;
         private String orgName;
         private String ownerName;
+        private String personName;
+        private String roleCode;
+        private String roleName;
+        private String shortOrgName;
     }
 }

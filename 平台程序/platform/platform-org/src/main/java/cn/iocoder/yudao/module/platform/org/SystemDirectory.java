@@ -69,6 +69,9 @@ public interface SystemDirectory {
     /** 部门名称；不存在返回空串 */
     String deptName(Long deptId);
 
+    /** 不支持部门状态的测试目录默认可用；生产目录必须检查部门存在及启用状态。 */
+    default boolean deptUnavailable(Long deptId) { return false; }
+
     /** 按名称查根层级部门编号（M01-T06 组织开通幂等查重用）；无匹配返回空列表 */
     java.util.List<Long> findRootDeptIdsByName(String name);
 

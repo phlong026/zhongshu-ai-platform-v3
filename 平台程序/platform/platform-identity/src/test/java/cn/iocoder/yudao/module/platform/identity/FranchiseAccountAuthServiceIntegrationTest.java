@@ -72,11 +72,11 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
 
     private static final AtomicLong IDS = new AtomicLong(System.nanoTime() % 100_000_000L + 900_000_000L);
     private static final BCryptPasswordEncoder BCRYPT = new BCryptPasswordEncoder(10);
-    private static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
+    private static final GenericContainer<?> REDIS = cn.iocoder.yudao.module.platform.test.TestNativeService.container("redis:7-alpine")
             .withExposedPorts(6379);
 
     static {
-        REDIS.start();
+        if (System.getProperty("platform.test.redis.address") == null) REDIS.start();
     }
 
     @TestConfiguration
@@ -85,7 +85,8 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         @Bean(destroyMethod = "destroy")
         RedissonConnectionFactory accountLoginRedisConnectionFactory() {
             Config config = new Config();
-            config.useSingleServer().setAddress("redis://127.0.0.1:" + REDIS.getMappedPort(6379));
+            String externalRedis = System.getProperty("platform.test.redis.address");
+            config.useSingleServer().setAddress(externalRedis == null ? "redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379) : externalRedis);
             return new RedissonConnectionFactory(config);
         }
 
@@ -316,17 +317,95 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
                 boss.adminUserId(), boss.postId());
         assertThat(employee.userId()).isNotEqualTo(boss.adminUserId());
         assertThat(employee.orgName()).isEqualTo(boss.orgName());
+        assertThat(employee.loginName()).isEqualTo("zhangsan");
+        assertThat(employee.initialPassword()).isEqualTo("zhangsan123");
         FranchiseAccountAuthService.LoginResult employeeInitial = service.login(
                 employee.accountId(), employee.initialPassword(), null);
         assertThat(employeeInitial.requirePasswordChange()).isTrue();
         assertThat(employeeInitial.token()).isNull();
         FranchiseAccountAuthService.LoginResult employeeLogin = service.login(
-                employee.accountId(), employee.initialPassword(), "StaffSecure2026");
+                employee.accountId(), employee.initialPassword(), "654321");
         assertThat(employeeLogin.userId()).isEqualTo(employee.userId());
         assertThat(employeeLogin.preferredPostId()).isEqualTo(employee.postId());
         var employeePost = staffPostService.findActivePost(employee.userId(), employee.postId()).orElseThrow();
         assertThat(employeePost.orgId()).isEqualTo(boss.orgId());
         assertThat(employeePost.roleCode()).isEqualTo("journey-sales");
+        String savedPassword = loadUser(employee.userId()).getPassword();
+        when(wechat.openid("wx-franchise-flow", "employee-bind-code")).thenReturn("openid-employee-flow");
+        explicitBindingService.bind("wx-franchise-flow", "employee-bind-code", employee.userId());
+        when(wechat.openid("wx-franchise-flow", "employee-login-code")).thenReturn("openid-employee-flow");
+        assertThat(wechatLoginService.login("wx-franchise-flow", "employee-login-code", null).userId()).isEqualTo(employee.userId());
+        assertThat(service.login(employee.accountId(), "654321", null).userId()).isEqualTo(employee.userId());
+        var reused = staffAccountOnboardService.open(boss.orgId(), employee.userId(), "张三", "13900108881", "journey-sales", null, boss.adminUserId(), boss.postId());
+        assertThat(reused.accountId()).isEqualTo(employee.accountId());assertThat(reused.initialPassword()).isNull();
+        assertThat(loadUser(employee.userId()).getPassword()).isEqualTo(savedPassword);
+    }
+
+    @Test
+    void concurrentSameNamesAcrossStoresHaveUniqueAccountsAndMatchingPasswords() throws Exception {
+        var first = franchiseOnboardService.onboard("合家美宅", "江西", "南昌", "东湖", "甲", "13800107880", null, null, "", 9L);
+        var second = franchiseOnboardService.onboard("合家美宅", "江西", "南昌", "西湖", "乙", "13800107881", null, null, "", 9L);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
+        try {
+            List<Future<StaffAccountOnboardService.Result>> futures = new ArrayList<>();
+            for (int n = 0; n < 2; n++) {
+                final int index = n;
+                futures.add(pool.submit(() -> {
+                    TenantContextHolder.setTenantId(tenantId);
+                    try {
+                        ready.countDown(); start.await(); var boss = index == 0 ? first : second;
+                        return staffAccountOnboardService.open(boss.orgId(), null, "李丽", "1390010788" + index, "journey-sales", null, boss.adminUserId(), boss.postId());
+                    } finally { TenantContextHolder.clear(); }
+                }));
+            }
+            ready.await(); start.countDown();var results = List.of(futures.get(0).get(), futures.get(1).get());
+            assertThat(results).extracting(StaffAccountOnboardService.Result::loginName).containsExactlyInAnyOrder("lili", "lili2");
+            for (var result : results) {
+                assertThat(result.initialPassword()).isEqualTo(result.loginName() + "123");
+                assertThat(BCRYPT.matches(result.initialPassword(), loadUser(result.userId()).getPassword())).isTrue();
+                assertThat(service.login(result.accountId(), result.initialPassword(), null).requirePasswordChange()).isTrue();
+            }
+            var collision = staffAccountOnboardService.open(first.orgId(), null, "lili2", "13900107882", "journey-sales", null, first.adminUserId(), first.postId());
+            assertThat(collision.loginName()).isEqualTo("lili22");assertThat(collision.initialPassword()).isEqualTo("lili22123");
+            assertThat(service.matches("李丽").items()).hasSize(2);
+        } finally { pool.shutdownNow(); }
+    }
+
+    @Test
+    void bossAndEmployeeCanFirstUseWechatPhoneWithoutPasswordOrManualBinding() {
+        var boss = franchiseOnboardService.onboard("合家美宅", "江西", "南昌", "自动识别店", "老板", "13800107891", null, null, "", 9L);
+        var employee = staffAccountOnboardService.open(boss.orgId(), null, "李丽", "13900107891", "journey-sales", null, boss.adminUserId(), boss.postId());
+        for (var account : List.of(
+                new Object[]{boss.accountId(), boss.adminUserId(), "13800107891", boss.initialPassword()},
+                new Object[]{employee.accountId(), employee.userId(), "13900107891", employee.initialPassword()})) {
+            String id=(String)account[0], phone=(String)account[2], initial=(String)account[3]; long user=(Long)account[1];
+            String code="auto-phone-"+user, openid="auto-openid-"+user;
+            when(wechat.openid("wx-franchise-flow", code)).thenReturn(openid);
+            when(wechat.phoneNumber("wx-franchise-flow", code)).thenReturn(phone);
+            String passwordBefore=loadUser(user).getPassword();
+            assertThat(wechatLoginService.login("wx-franchise-flow", code, null).needPhone()).isTrue();
+            var first=wechatLoginService.login("wx-franchise-flow", code, code);
+            assertThat(first.userId()).isEqualTo(user);assertThat(first.token()).isNotNull();
+            assertThat(bindingMapper.selectActive("wx-franchise-flow", openid).getUserId()).isEqualTo(user);
+            assertThat(loadUser(user).getPassword()).isEqualTo(passwordBefore);
+            assertThat(wechatLoginService.login("wx-franchise-flow", code, null).userId()).isEqualTo(user);
+            verify(wechat,times(1)).phoneNumber("wx-franchise-flow", code);
+            assertThat(service.login(id, initial, null).requirePasswordChange()).isTrue();
+            assertThat(service.login(id, initial, "123456").userId()).isEqualTo(user);
+            assertThat(wechatLoginService.login("wx-franchise-flow", code, null).userId()).isEqualTo(user);
+        }
+    }
+
+    @Test
+    void accountSearchReturnsPersonRoleAndStructuredShortOrganization() {
+        var account = createAccount(tenantId, IDS.incrementAndGet(), "peihuorong", 0, "ACTIVE", false);
+        jdbc.update("UPDATE system_users SET nickname='裴火荣' WHERE id=?", account.userId());
+        jdbc.update("UPDATE pf_staff_post SET role_code='boss' WHERE id=?", account.postId());
+        jdbc.update("UPDATE pf_franchise_account SET area='高新区合家美宅',org_name='合家美宅-江西南昌-高新区合家美宅-裴火荣' WHERE account_id=?", account.accountId());
+        var result = service.matches("peihuorong").items().get(0);
+        assertThat(result.personName()).isEqualTo("裴火荣");assertThat(result.roleName()).isEqualTo("老板");
+        assertThat(result.shortOrgName()).isEqualTo("合家美宅 · 江西南昌高新区");assertThat(result.accountId()).isEqualTo(account.accountId());
     }
 
     @Test
@@ -467,13 +546,13 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
 
     static final class JdbcDirectory implements SystemDirectory, StaffAccountDirectory {
         private final JdbcTemplate jdbc;
-        private final AtomicLong deptIds = new AtomicLong(IDS.incrementAndGet());
-        private final AtomicLong userIds = new AtomicLong(IDS.incrementAndGet());
-        private final Map<Long, Long> deptParents = new HashMap<>();
-        private final Map<Long, String> deptNames = new HashMap<>();
-        private final Map<Long, Long> deptTenants = new HashMap<>();
-        private final Map<Long, Set<Long>> userRoles = new HashMap<>();
-        final Map<String, Long> roleIdsByCode = new HashMap<>();
+        private final AtomicLong deptIds = IDS;
+        private final AtomicLong userIds = IDS;
+        private final Map<Long, Long> deptParents = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<Long, String> deptNames = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<Long, Long> deptTenants = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<Long, Set<Long>> userRoles = new java.util.concurrent.ConcurrentHashMap<>();
+        final Map<String, Long> roleIdsByCode = new java.util.concurrent.ConcurrentHashMap<>();
 
         JdbcDirectory(JdbcTemplate jdbc) {
             this.jdbc = jdbc;

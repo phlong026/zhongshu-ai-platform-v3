@@ -19,7 +19,7 @@ class AccessCodeMaskIntegrationTest {
             ds.setUrl("jdbc:postgresql://127.0.0.1:55445/postgres");ds.setUsername("dev_fixture");var admin=new JdbcTemplate(ds);
             if(admin.queryForObject("SELECT count(*) FROM pg_database WHERE datname='prelaunch_codes'",Integer.class)==0)admin.execute("CREATE DATABASE prelaunch_codes");
             ds.setUrl("jdbc:postgresql://127.0.0.1:55445/prelaunch_codes");
-        }else{container=new PostgreSQLContainer<>("postgres:17-alpine");container.start();ds.setUrl(container.getJdbcUrl());ds.setUsername(container.getUsername());ds.setPassword(container.getPassword());}
+        }else{container=cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");container.start();ds.setUrl(container.getJdbcUrl());ds.setUsername(container.getUsername());ds.setPassword(container.getPassword());}
         Flyway.configure().dataSource(ds).locations("classpath:db/migration/identity").load().migrate();jdbc=new JdbcTemplate(ds);
         service=new AccessCodeService(ds,new DataSourceTransactionManager(ds),null,null);controller=new AccessCodeAdminController();
         ReflectionTestUtils.setField(controller,"accessCodeService",service);

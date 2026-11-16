@@ -25,6 +25,8 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import cn.iocoder.yudao.module.platform.identity.LoginPolicy;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,6 +51,10 @@ public class PlatformAuthController {
     @Resource
     private StaffWechatExplicitBindingService explicitBindingService;
 
+    @GetMapping("/login-policy")
+    @PermitAll
+    public CommonResult<LoginPolicy.Policy> loginPolicy() { return success(LoginPolicy.current()); }
+
     @PostMapping("/account/matches")
     @PermitAll
     @ApiAccessLog(requestEnable = false, responseEnable = false)
@@ -56,7 +62,7 @@ public class PlatformAuthController {
     public CommonResult<AccountMatchesRespVO> accountMatches(@Valid @RequestBody AccountMatchReqVO req) {
         FranchiseAccountAuthService.MatchResult result = franchiseAccountAuthService.matches(req.getQuery());
         return success(new AccountMatchesRespVO(result.items().stream().map(item -> new AccountMatchesRespVO.Item(
-                item.accountId(), item.loginName(), item.orgName(), item.ownerName())).toList(), result.hasMore()));
+                item.accountId(), item.loginName(), item.orgName(), item.ownerName(), item.personName(), item.roleCode(), item.roleName(), item.shortOrgName())).toList(), result.hasMore()));
     }
 
     @PostMapping("/account/login")
@@ -64,6 +70,7 @@ public class PlatformAuthController {
     @ApiAccessLog(requestEnable = false, responseEnable = false)
     @Operation(summary = "加盟商账号密码登录；初始密码首次使用时强制修改")
     public CommonResult<AccountLoginRespVO> accountLogin(@Valid @RequestBody AccountLoginReqVO req) {
+        LoginPolicy.require(req.getConsent(), req.getLoginVersion());
         FranchiseAccountAuthService.LoginResult result = franchiseAccountAuthService.login(
                 req.getAccountId(), req.getPassword(), req.getNewPassword());
         AccountLoginRespVO resp = new AccountLoginRespVO().setRequirePasswordChange(result.requirePasswordChange())
@@ -83,9 +90,11 @@ public class PlatformAuthController {
     }
 
     @PostMapping("/wechat-login")
+    @ApiAccessLog(requestEnable = false, responseEnable = false)
     @PermitAll
     @Operation(summary = "小程序员工微信登录")
     public CommonResult<WechatLoginRespVO> wechatLogin(@Valid @RequestBody WechatLoginReqVO req) {
+        LoginPolicy.require(req.getConsent(), req.getLoginVersion());
         WechatLoginResult result = staffWechatLoginService.login(req.getAppid(), req.getLoginCode(), req.getPhoneCode());
         WechatLoginRespVO resp = new WechatLoginRespVO().setNeedPhone(result.needPhone()).setUserId(result.userId());
         if (result.token() != null) {

@@ -22,8 +22,9 @@ public interface PlatformIdentityErrorCodes {
     ErrorCode SMS_SERVICE_UNAVAILABLE = new ErrorCode(1_104_000_010, "短信服务暂不可用，请稍后重试");
     ErrorCode ACCOUNT_CREDENTIAL_INVALID = new ErrorCode(1_104_000_011, "账号或密码不正确");
     ErrorCode ACCOUNT_LOGIN_LOCKED = new ErrorCode(1_104_000_012, "密码连续错误次数过多，请15分钟后再试");
-    ErrorCode ACCOUNT_NEW_PASSWORD_INVALID = new ErrorCode(1_104_000_013, "新密码需为10至64位且同时包含英文字母和数字");
+    ErrorCode ACCOUNT_NEW_PASSWORD_INVALID = new ErrorCode(1_104_000_013, "新密码需为6至64位，且与初始密码不同");
     ErrorCode WECHAT_ALREADY_BOUND_OTHER = new ErrorCode(1_104_000_014, "该微信已绑定其他账号，请先联系管理员处理");
     ErrorCode WECHAT_BINDING_CONFLICT = new ErrorCode(1_104_000_015, "微信绑定状态已变化，请重试");
 
+    ErrorCode LOGIN_CONSENT_REQUIRED = new ErrorCode(1_104_000_016, "请阅读并同意当前版本的用户协议和隐私政策");
 }

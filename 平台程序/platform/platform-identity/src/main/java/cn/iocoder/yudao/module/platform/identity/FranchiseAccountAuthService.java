@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.platform.identity;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.platform.org.AccountDisplay;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
@@ -35,13 +36,13 @@ public class FranchiseAccountAuthService {
     private static final BCryptPasswordEncoder STRONG_ENCODER = new BCryptPasswordEncoder(10);
     private static final String ACTIVE_ACCOUNT_SELECT = """
             SELECT a.account_id,a.org_id,a.user_id,a.login_name,a.org_name,a.owner_name,
-              valid_post.preferred_post_id
+              valid_post.preferred_post_id,valid_post.role_code,u.nickname,a.brand,a.province,a.city,a.area
             FROM pf_franchise_account a
             JOIN system_users u ON u.id=a.user_id AND u.tenant_id=a.tenant_id AND u.status=0 AND u.deleted=0
             JOIN pf_org_unit org ON org.dept_id=a.org_id AND org.kind='ORG' AND org.status='ACTIVE'
-            JOIN LATERAL (SELECT MIN(p.id) AS preferred_post_id FROM pf_staff_post p
-              WHERE p.user_id=a.user_id AND p.org_id=a.org_id AND p.status='ACTIVE') valid_post
-              ON valid_post.preferred_post_id IS NOT NULL
+            JOIN LATERAL (SELECT p.id AS preferred_post_id,p.role_code FROM pf_staff_post p
+              WHERE p.user_id=a.user_id AND p.org_id=a.org_id AND p.status='ACTIVE'
+              ORDER BY p.id LIMIT 1) valid_post ON TRUE
             """;
     private static final DefaultRedisScript<Long> RECORD_FAILURE_SCRIPT = new DefaultRedisScript<>("""
             local count = redis.call('INCR', KEYS[1])
@@ -59,15 +60,18 @@ public class FranchiseAccountAuthService {
     @Resource private TokenIssuer tokenIssuer;
     @Resource private StringRedisTemplate redis;
 
-    public record AccountMatch(String accountId, String loginName, String orgName, String ownerName) {}
+    public record AccountMatch(String accountId, String loginName, String orgName, String ownerName,
+                               String personName, String roleCode, String roleName, String shortOrgName) {}
     public record MatchResult(List<AccountMatch> items, boolean hasMore) {}
     public record LoginResult(boolean requirePasswordChange, Long userId, TokenIssuer.IssuedToken token,
                               Long preferredPostId, String accountId, String loginName, String orgName) {}
     private record AccountRow(String accountId, long orgId, long userId, String loginName, String orgName,
-                              String ownerName, long preferredPostId) {}
+                              String ownerName, long preferredPostId, AccountDisplay display) {}
     private static final RowMapper<AccountRow> ACCOUNT_ROW_MAPPER = (rs, row) -> new AccountRow(
             rs.getString("account_id"), rs.getLong("org_id"), rs.getLong("user_id"), rs.getString("login_name"),
-            rs.getString("org_name"), rs.getString("owner_name"), rs.getLong("preferred_post_id"));
+            rs.getString("org_name"), rs.getString("owner_name"), rs.getLong("preferred_post_id"),
+            AccountDisplay.of(rs.getString("nickname") == null || rs.getString("nickname").isBlank() ? rs.getString("owner_name") : rs.getString("nickname"),
+                    rs.getString("role_code"), rs.getString("brand"), rs.getString("province"), rs.getString("city"), rs.getString("area"), rs.getString("org_name")));
 
     public MatchResult matches(String query) {
         String normalized = AccountPasswordRules.normalizeQuery(query);
@@ -98,7 +102,7 @@ public class FranchiseAccountAuthService {
 
     private static MatchResult matchResult(List<AccountRow> rows) {
         List<AccountMatch> visible = rows.stream().limit(MATCH_LIMIT)
-                .map(row -> new AccountMatch(row.accountId(), row.loginName(), row.orgName(), row.ownerName())).toList();
+                .map(row -> new AccountMatch(row.accountId(), row.loginName(), row.orgName(), row.ownerName(), row.display().personName(), row.display().roleCode(), row.display().roleName(), row.display().shortOrgName())).toList();
         return new MatchResult(visible, rows.size() > MATCH_LIMIT);
     }
 

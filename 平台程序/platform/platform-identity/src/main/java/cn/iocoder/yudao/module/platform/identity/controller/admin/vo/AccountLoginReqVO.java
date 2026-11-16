@@ -4,15 +4,18 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import cn.iocoder.yudao.module.platform.identity.LoginPolicy;
 
 @Data
 public class AccountLoginReqVO {
-    @NotBlank(message = "请选择加盟商账号")
-    @Pattern(regexp = "[0-9a-fA-F-]{36}", message = "加盟商账号标识不正确")
+    @NotBlank(message = "请选择登录账号")
+    @Pattern(regexp = "[0-9a-fA-F-]{36}", message = "登录账号标识不正确")
     private String accountId;
     @NotBlank(message = "请输入密码")
     @Size(max = 72, message = "密码过长")
     private String password;
     @Size(max = 64, message = "新密码过长")
     private String newPassword;
+    private Integer loginVersion;
+    private LoginPolicy.Consent consent;
 }

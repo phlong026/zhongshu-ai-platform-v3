@@ -48,7 +48,10 @@ class SmsCaptchaServiceRedisIntegrationTest {
         redis.afterPropertiesSet();
         service = new SmsCaptchaService();
         ReflectionTestUtils.setField(service, "redis", redis);
-        ReflectionTestUtils.setField(service, "smsClient", mock(SmsClient.class));
+        // Exercise Redis throttling with an available fake sender; never send real SMS.
+        SmsClient sender = mock(SmsClient.class);
+        org.mockito.Mockito.when(sender.available()).thenReturn(true);
+        ReflectionTestUtils.setField(service, "smsClient", sender);
     }
 
     @AfterEach

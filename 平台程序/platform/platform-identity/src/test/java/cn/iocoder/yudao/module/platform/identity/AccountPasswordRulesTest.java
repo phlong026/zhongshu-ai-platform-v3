@@ -7,19 +7,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AccountPasswordRulesTest {
 
     @Test
-    void acceptsTenToSixtyFourCharactersWithLettersAndDigits() {
-        assertThat(AccountPasswordRules.validNewPassword("NewSecret2026")).isTrue();
-        assertThat(AccountPasswordRules.validNewPassword("中文Password123")).isTrue();
+    void acceptsSixToSixtyFourCharactersWithoutCompositionRequirements() {
+        for (String password : new String[]{"123456", "abcdef", "abc123", "lili123", "lili2123", "a".repeat(64),
+                "NewSecret2026", "中文Password123", "只有中文密码123456"}) {
+            assertThat(AccountPasswordRules.validNewPassword(password)).as(password).isTrue();
+        }
     }
 
     @Test
-    void rejectsWeakOversizedAndBcryptTruncatedPasswords() {
-        assertThat(AccountPasswordRules.validNewPassword("short12")).isFalse();
-        assertThat(AccountPasswordRules.validNewPassword("onlylettersxx")).isFalse();
-        assertThat(AccountPasswordRules.validNewPassword("1234567890")).isFalse();
-        assertThat(AccountPasswordRules.validNewPassword("只有中文密码123456")).isFalse();
-        assertThat(AccountPasswordRules.validNewPassword("中".repeat(25) + "a1")).isFalse();
-        assertThat(AccountPasswordRules.validNewPassword("a1" + "x".repeat(63))).isFalse();
+    void rejectsPasswordsOutsideLengthAndBcryptLimits() {
+        for (String password : new String[]{null, "", "12345", "a".repeat(65), "中".repeat(25) + "a1"}) {
+            assertThat(AccountPasswordRules.validNewPassword(password)).as(password).isFalse();
+        }
+        assertThat(AccountPasswordRules.validNewPassword("中".repeat(24))).isTrue();
         assertThat(AccountPasswordRules.validBcryptInput("中".repeat(25))).isFalse();
     }
 
