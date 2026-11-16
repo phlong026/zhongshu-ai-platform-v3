@@ -3,6 +3,9 @@
  * 序列化事实：nextVisitDate=[年,月,日]；createTime/lastFollowAt=毫秒；Long 超出 ±(2^53-1) 为字符串（ID 一律不透明值）。
  */
 const http = require('../http');
+const regions = {
+  children: parentCode => http.get('/franchise/crm/regions', parentCode ? { parentCode } : undefined)
+};
 
 const leads = {
   /** 登记客资：{name,phone,need,source} → {leadId, customerId, result: CREATED|LINKED|LINK_REQUIRED} */
@@ -16,7 +19,7 @@ const leads = {
 };
 
 const customers = {
-  /** 分页列表；keyword 按称呼或手机号（空关键词不传参——undefined 会被工具端序列化成字面量） */
+  /** 分页列表；keyword 按称呼、手机号、省市（空关键词不传参——undefined 会被工具端序列化成字面量） */
   page: (pageNo, pageSize, keyword) =>
     http.get('/franchise/customers', keyword ? { pageNo, pageSize, keyword } : { pageNo, pageSize }),
   /** 详情（含跟进与方案版本；follows createTime ASC、schemes kind,version ASC） */
@@ -35,4 +38,4 @@ const customers = {
     http.post('/franchise/customers/' + id + '/transfer', data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined)
 };
 
-module.exports = { leads, customers };
+module.exports = { leads, customers, regions };

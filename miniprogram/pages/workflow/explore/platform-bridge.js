@@ -25,6 +25,7 @@ module.exports = function attach(page, deps) {
   page.platUseCase = function (e) { // 灵感库→立面参考（facade 保留；plan D20 隐藏入口）
     const c = this.data.platCase;
     if (this.data.platCaseLoading || !this.data.platCaseVerified || !c || !c.id) return;
+    if (!c.canDesign) return this.platFail(c.designUnavailableReason);
     const kind = this.data.pickingRef || 'facade';
     this.setData({ 'form.referenceCaseId': c.id, pickingRef: '' });
     this.platShow(kind === 'plan' ? 'ai-config' : 'ai-facade');
@@ -55,7 +56,7 @@ module.exports = function attach(page, deps) {
     if (reset) this.setData({ platProjCursor: '', platProjects: [], platProjLoading: true });
     else this.setData({ platProjLoading: true });
     api.projects.list(params).then(res => {
-      if (!reset && this.platStale(gen, sg)) return;
+      if (this.platStale(gen, sg)) return;
       const rows = (res && res.list || []).map(PF.projectRow);
       this.setData({ platProjects: reset ? rows : (this.data.platProjects || []).concat(rows),
         platProjCursor: (res && res.nextCursor) || '', platProjLoading: false });
@@ -77,6 +78,9 @@ module.exports = function attach(page, deps) {
     api.projects.detail(id, p2.latestJobId).then(detail => {
       if (this.platStale(gen, sg)) return;
       const resume = detail.resumeAction || '';
+      this.__platProjectId = String(id);
+      this.__platJobId = String(detail.latestJobId || p2.latestJobId || '');
+      this.__platKind = detail.line === 'ELEVATION' || resume === 'SELECT_ELEVATION' ? 'facade' : 'plan';
       const candidates = PF.candidateRows(detail.candidates);
       this.setData({ platProjectDetail: Object.assign({}, p2, { resumeAction: resume,
         status: detail.latestJobStatus || p2.jobStatus, requirements: detail.requirements || null }) });
@@ -268,14 +272,16 @@ module.exports = function attach(page, deps) {
     if (!id) { this.setData({ platformErr: '未指定户型，请返回灵感库选择' }); return; }
     id = String(id);
     this.setData({ platCase: summary || { id }, platCaseVerified: false, platCaseImages: [], caseTabs: [], caseTab: 0, platCaseFav: false,
+      platFavoriteLoading: true, platFavoriteSaving: false, platFavoriteError: false,
       platCaseLoading: true, platCaseImageLoading: true, platCaseImagesError: false, platformErr: '' });
     this.platShow('case');
     const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
     api.cases.detail(id).then(detail => {
       if (this.platStale(gen, sg)) return;
-      const ids = [detail.coverAssetId].concat(detail.floorPlanAssetIds || []).filter(Boolean).map(String);
+      const drawings = PF.caseDrawings(detail), ids = drawings.map(item => item.assetId);
       this.setData({ platCase: PF.caseRow(detail), platCaseVerified: true, platCaseAssetIds: ids, platCaseLoading: false,
-        caseTabs: ids.map((asset, index) => index === 0 ? '封面' : '图纸' + index) });
+        caseTabs: drawings.map(item => item.label) });
+      this.platLoadFavorite(id, gen, sg);
       return PF.loadCaseCovers(ids.map(asset => ({ id, coverAssetId: asset })),
         (caseId, assetId) => api.cases.downloadUrl(caseId, assetId), () => !this.platStale(gen, sg)).then(rows => {
           if (this.platStale(gen, sg)) return;
@@ -308,18 +314,47 @@ module.exports = function attach(page, deps) {
     return Promise.all(ids.map(read));
   };
   page.platCaseTab = function (e) { this.setData({ caseTab: Number(e.currentTarget.dataset.index) }); };
+  page.platLoadFavorite = async function (id, gen = this.__platGen, sg = http.sessionGeneration()) {
+    this.setData({ platFavoriteLoading: true, platFavoriteError: false });
+    let cursor = '', favorite = false;
+    const seen = new Set();
+    try {
+      do {
+        const response = await api.cases.favorites(cursor, 50);
+        if (this.platStale(gen, sg) || !this.data.platCase || String(this.data.platCase.id) !== String(id)) return;
+        if (!response || !Array.isArray(response.list)) throw Error('收藏状态读取失败');
+        favorite = response.list.some(row => String(row.caseId == null ? row.id : row.caseId) === String(id));
+        cursor = response.nextCursor || '';
+        if (cursor && seen.has(cursor)) throw Error('收藏分页异常，请重试');
+        seen.add(cursor);
+      } while (cursor && !favorite);
+      this.setData({ platCaseFav: favorite, platFavoriteLoading: false });
+    } catch (error) {
+      if (!this.platStale(gen, sg) && !this.platHandle401(error, sg)) this.setData({ platFavoriteLoading: false, platFavoriteError: true });
+    }
+  };
   page.platFavorite = function () {
     const c = this.data.platCase; if (!c) return;
+    if (this.data.platFavoriteLoading || this.data.platFavoriteSaving) return;
+    if (this.data.platFavoriteError) return this.platLoadFavorite(c.id);
+    const gen = this.__platGen, sg = http.sessionGeneration(), next = !this.data.platCaseFav;
     const key = this.data.platCaseFav ? 'unfavorite' : 'favorite';
-    api.cases[key](c.id).then(() => {
-      this.setData({ platCaseFav: !this.data.platCaseFav });
+    this.setData({ platFavoriteSaving: true });
+    return api.cases[key](c.id).then(saved => {
+      if (this.platStale(gen, sg) || this.data.platCase.id !== c.id) return;
+      if (saved !== true) throw Error('收藏未保存，请重试');
+      this.setData({ platCaseFav: next, platFavoriteSaving: false });
       wx.showToast({ title: this.data.platCaseFav ? '已收藏' : '已取消收藏', icon: 'none' });
-    }).catch(err => { if (!(err && err.code === 401)) wx.showToast({ title: PF.errorMessageDesign(err), icon: 'none' }); });
+    }).catch(err => {
+      if (this.platStale(gen, sg)) return;
+      this.setData({ platFavoriteSaving: false, platFavoriteError: true });
+      if (!(err && err.code === 401)) wx.showToast({ title: PF.errorMessageDesign(err), icon: 'none' });
+    });
   };
 
   // ---- AI 生成链（R9 → R12/R13 → R14 轮询 → R11 → R15/R16）----
   page.platProjectFingerprint = function (f) {
-    return [f.width, f.depth, f.floors, f.style || '', f.note || '', f.referenceCaseId || '', (f.referenceAssetIds || []).map(String).join(',')].join('|');
+    return JSON.stringify([f.width, f.depth, f.floors, f.style || '', f.note || '', f.entranceOrientation || '', f.family || '', f.courtyardLayout || '', f.drawingType || '', f.referenceCaseId || '', (f.referenceAssetIds || []).map(String)]);
   };
   page.platGenerate = function (kind) {
     if (this.data.busy) return;
@@ -328,7 +363,6 @@ module.exports = function attach(page, deps) {
     if (inputs.error) return this.platFail(inputs.error);
     if (!['1', '2', '4'].includes(String(f.count))) return this.platFail('请核对候选数量');
     if (!['2K', '4K'].includes(f.resolution)) return this.platFail('请核对清晰度');
-    if (kind === 'facade' && !String(f.palette || '').trim()) return this.platFail('请填写外观主色调');
     if (kind === 'facade' && !PF.roofCode(f.roof)) return this.platFail('请选择屋顶形式');
     // 需求参数变化 → 旧项目（旧 requirementInputs/幂等键）作废：重置项目/候选/预算状态，防 409 与错参数生成
     const fp = this.platProjectFingerprint(f);
@@ -485,7 +519,7 @@ module.exports = function attach(page, deps) {
     const line = this.data.kind === 'facade' ? 'ELEVATION' : 'FLAT';
     const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
     this.setData({ busy: true });
-    api.notePolish({ note, line }).then(res => {
+    api.projects.notePolish({ note, line }).then(res => {
       if (this.platStale(gen, sg)) return;
       this.setData({ busy: false, 'form.note': res.polished || note });
       wx.showToast({ title: '已优化需求说明', icon: 'success' });

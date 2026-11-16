@@ -2,10 +2,12 @@ const Job=require('../../utils/organization');
 const {routeValue,fail}=require('../../utils/view-container');
 const PF=require('../../utils/platform-crm'),http=require('../../api/http');
 const V=require('./views');
+// 与 utils/platform-design 的 DESIGN_ROLES 保持一致，仅用于控制客户跟进页的设计入口展示。
+const DESIGN_ROLES=['sales','sales-lead','hq-design-admin'];
 Object.assign(V.titles,{'money-review':'老板金额审批','task-access':'任务动作授权'});
 Page({
  data:{view:'customers',title:'我的客户',customer:null,form:{},sections:[],modal:'',keyword:'',filter:'全部',filters:['全部','待跟进','跟进中','已到店'],filteredCustomers:[],caseTab:0,selectedPlan:0,floor:0,activeCustomerTab:0,showAllProgressRecords:false,requirements:['三代同住','4间卧室','一层老人房'],foundationOptions:['独立基础','条形基础','桩基础'],structureOptions:['框架结构','砖混结构'],roofOptions:['坡屋顶','平屋顶'],styleOptions:['全部风格','新中式','现代简约'],orientationOptions:['南','东','西','北'],resolutionOptions:['2K','4K'],countOptions:['1','2','4'],aspectOptions:['横图','竖图'],methodOptions:['电话','微信','到店'],nextOptions:['电话联系','微信联系','到店沟通'],sourceOptions:['视频号咨询','抖音咨询','朋友介绍','到店咨询','其他'],provinceOptions:['湖北省','广东省','浙江省','其他'],cityOptions:['武汉市','宜昌市','襄阳市','黄冈市','麻城市','红安县','武穴市','蕲春县','罗田县','英山县','黄梅县','团风县','浠水县','其他'],managerOptions:['李经理','王经理'],platformMode:false,platformStatus:'',platformError:'',requirementsStatus:'',requirementsError:'',customerTabs:['概况','跟进','项目进度'],showSizeBlock:false,todayStr:'',requirementStyles:['现代简约','新中式'],error:'',busy:false,preview:null,designFlow:false,selectingCustomer:false,facadeStyleOptions:['新中式','现代简约']},
- onLoad(options={}){this.options=options;this.__post=null;this.__postKey='';this.__cmdKeys={};
+ onLoad(options={}){this.initFormKeyboard();this.options=options;this.__post=null;this.__postKey='';this.__cmdKeys={};
   const post=(()=>{try{const auth=require('../../api/auth');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
   if(PF.pageMode(http.token(),post)!=='api'){// 纯 API 态门禁：无平台会话不进本地演示，回登录页
    const q=Object.keys(options).filter(k=>options[k]).map(k=>k+'='+encodeURIComponent(options[k])).join('&');
@@ -29,7 +31,8 @@ Page({
   return true;
  },
  retryPlatform(){this.refresh();},
- onUnload(){this.__unloaded=true;},
+ onUnload(){this.__unloaded=true;if(this.__keyboardHandler&&wx.offKeyboardHeightChange)wx.offKeyboardHeightChange(this.__keyboardHandler);},
+ onHide(){this.setData({keyboardInset:0});},
  platformSession(){try{const auth=require('../../api/auth');return http.token()?auth.currentApiPost():null;}catch(e){return null;}},
  platformLoad(options,post){
   this.__post=post;this.__pf=PF;this.__http=http;this.__crmApi=this.__crmApi||require('../../api/franchise/crm');
@@ -41,7 +44,7 @@ Page({
   let view=requested?(requested==='arrival'?'customer':requested):'customer';
   if(view==='budget-result')view='budget';// 结果为页面内态；深链直达回参数页
   if(view!=='customers'&&!this.id)view='customers';
-  this.setData({platformMode:true,view,title:V.titles[view]||'客户工作区',transferMode:0,customer:null,sections:[],form:{},modal:'',error:'',busy:false,blocked:null,customerTabs:['概况','跟进'],activeCustomerTab:0,todayStr:PF.today(),role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode),saleWrite:PF.can(post,'saleWrite')});
+  this.setData({platformMode:true,view,title:V.titles[view]||'客户工作区',transferMode:0,customer:null,sections:[],form:{},modal:'',error:'',busy:false,blocked:null,customerTabs:['概况','跟进'],activeCustomerTab:0,todayStr:PF.today(),role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode),saleWrite:PF.can(post,'saleWrite'),canDesign:DESIGN_ROLES.includes(post.roleCode)});
   // 加载统一由 onShow→refresh 触发（onLoad→onShow 连续生命周期，避免重复请求）
   if(options.modal&&view==='customers')this.openModal(options.modal);
  },
@@ -134,12 +137,13 @@ Page({
  platformSubmitRegister(){
   const f=this.data.form,fail=msg=>this.setData({error:msg,busy:false});
   const name=String(f.name||'').trim();
-  if(!name||name.length>64)return fail('请填写客户称呼（64字以内）');
+  if(!name||name.length>64)return fail('请填写客户姓名（64字以内）');
   if(!PF.validPhone(f.phone))return fail('请输入11位有效手机号');
   const summary=String(f.summary||'').trim();
   if(!summary||summary.length>500)return fail('请填写需求摘要（500字以内）');
   const source=String(f.source||'').trim();
   if(!source||source.length>64)return fail('请选择获客来源');
+  const addressError=PF.addressError(f,true);if(addressError)return fail(addressError);
   const key=this.platformCommand('capture');
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   this.setData({busy:true,error:''});
@@ -172,8 +176,9 @@ Page({
  platformSubmitEdit(){
   const f=this.data.form,c=this.data.customer,fail=msg=>this.setData({error:msg,busy:false});
   const name=String(f.name||'').trim();
-  if(!name||name.length>64)return fail('请填写客户称呼（64字以内）');
-  if(!PF.within(f.wechat,64)||!PF.within(f.province,32)||!PF.within(f.city,32)||!PF.within(f.summary,500))return fail('填写内容超过长度限制');
+  if(!name||name.length>64)return fail('请填写客户姓名（64字以内）');
+  if(!PF.within(f.wechat,64)||!PF.within(f.summary,500))return fail('填写内容超过长度限制');
+  const addressError=PF.addressError(f,false);if(addressError)return fail(addressError);
   const key=this.platformCommand('update');
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   this.setData({busy:true,error:''});
@@ -624,11 +629,67 @@ Page({
  deny(){this.setData({platformStatus:'degraded',platformError:'当前岗位暂无「'+(V.titles[this.data.view]||'客户业务')+'」办理权限',customer:null,sections:[],form:{},filteredCustomers:[],modal:''});// API 态权限不足落错误态，不跳 demo 引导
  },
  go(e){const d=e.currentTarget.dataset;if(!d.view)return;if(['receipt-supplement','pay-supplement'].includes(d.view))return require('../../utils/page-navigation').open('/pages/admin/index?view='+d.view+'&id='+encodeURIComponent(d.record));this.openView(d.view,false,null,d.record||'');},
+ openDesignTool(e){
+  const tool=e.currentTarget.dataset.tool;
+  if(!tool)return;
+  if(!this.data.platformMode){
+   const demo={inspiration:'inspiration',ai:'ai-config',budget:'budget',commission:'request'};
+   return this.openView(demo[tool],false,null);
+  }
+  if(tool==='commission')return this.openView('commission',false,null);
+  const routes={inspiration:'/design-migration/pages/library/index',ai:'/design-migration/pages/ai-design/index?line=FLAT',budget:'/design-migration/pages/budget/quick'};
+  if(routes[tool])require('../../utils/page-navigation').open(routes[tool]);
+ },
  navTap(e){const url=e.currentTarget.dataset.url;if(url)require('../../utils/page-navigation').open(url);},
  openView(view,replace=false,id,record=''){if(view==='commission')return require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id||this.id||''));if(view==='ai-facade')view='facade-config';if(!['customers','customer','arrival','transfer','requirement','budget','contract','delivery','progress'].includes(view)){require('../../utils/page-navigation').open('/pages/workflow/explore/index');return wx.showToast({title:'请在设计页办理',icon:'none'});}if(view==='arrival')view='customer';const target=id||this.id||'';if(view==='customers'&&!target)return this.platformBlocked('customers');return require('../../utils/page-navigation').open('/pages/workflow/index?view='+view+(view!=='customers'?'&id='+encodeURIComponent(target):''),{replace});},
- openModal(name){this.__cmdKeys={};if(name==='register')return this.setData({form:{name:'',phone:'',source:'视频号咨询',summary:''},modal:'register',error:''});if(name==='edit'){const c=this.data.customer;if(!c)return;return this.setData({form:{name:c.name,phone:c.phone,wechat:c.wechat,source:c.source,province:c.province,city:c.city,summary:c.summary},modal:'edit',error:''});}if(name==='follow'){if(!this.data.canFollow)return this.fail('当前岗位不能办理该客户');return this.setData({form:Object.assign({},this.data.form,{followContent:'',appointment:''}),modal:'follow',error:''});}return this.setData({modal:'',error:''});},
+ openModal(name){if(this.data.busy)return;this.prepareFormSheet();this.__cmdKeys={};if(name==='register')return this.setData({form:{name:'',phone:'',source:'',summary:'',province:'',city:'',district:'',town:'',village:'',regionCode:'',addressDetail:''},modal:'register',error:''});if(name==='edit'){const c=this.data.customer;if(!c)return;return this.setData({form:{name:c.name,phone:c.phone,wechat:c.wechat,source:c.source,...PF.addressPayload(c),summary:c.summary},modal:'edit',error:''});}if(name==='follow'){if(!this.data.canFollow)return this.fail('当前岗位不能办理该客户');return this.setData({form:Object.assign({},this.data.form,{followContent:'',appointment:''}),modal:'follow',error:''});}return this.setData({modal:'',error:''});},
+ initFormKeyboard(){
+  this.__keyboardHandler=event=>this.formKeyboardChanged(event);
+  if(wx.onKeyboardHeightChange)wx.onKeyboardHeightChange(this.__keyboardHandler);
+ },
+ prepareFormSheet(){
+  const info=wx.getWindowInfo?wx.getWindowInfo():wx.getSystemInfoSync?wx.getSystemInfoSync():{windowHeight:700};
+  this.__formWindowHeight=info.windowHeight;
+  this.__formTopInset=info.statusBarHeight?info.statusBarHeight+44:12;
+  this.__focusedFormField='';
+  this.setData({keyboardInset:0,sheetHeight:Math.round(info.windowHeight*.9),sheetFocusTarget:'',sheetScrollTop:0});
+ },
+ formKeyboardChanged(event){
+  if(!this.data.modal)return;
+  const height=Math.max(0,Number(event.height)||0),base=this.__formWindowHeight||700;
+  const info=wx.getWindowInfo?wx.getWindowInfo():{windowHeight:base};
+  const resized=Math.max(0,base-info.windowHeight);
+  this.setData({keyboardInset:Math.max(0,height-resized),sheetHeight:Math.max(160,Math.min(Math.round(base*.9),base-height-(this.__formTopInset||12)))},()=>this.revealFormField());
+ },
+ formFieldFocus(event){
+  this.__focusedFormField=event.detail?.manual?'customer-address-manual':event.currentTarget.dataset.field||'customer-address-field';
+  this.revealFormField();
+ },
+ formFieldBlur(){this.__focusedFormField='';},
+ revealFormField(){
+  const target=this.__focusedFormField;if(!target)return;
+  if(target==='customer-address-manual'){
+   const component=this.selectComponent('#customer-address');
+   if(component)component.measureManualField(field=>{
+    if(!field||this.__focusedFormField!==target)return;
+    this.createSelectorQuery().select('.sheet-fields').boundingClientRect(view=>{
+     if(!view)return;
+     const delta=field.bottom>view.bottom-12?field.bottom-view.bottom+12:field.top<view.top+12?field.top-view.top-12:0;
+     if(delta)this.setData({sheetScrollTop:Math.max(0,(this.__sheetScrollTop||0)+delta)});
+    }).exec();
+   });
+   return;
+  }
+  this.setData({sheetFocusTarget:''},()=>this.setData({sheetFocusTarget:target}));
+ },
+ sheetScrolled(event){this.__sheetScrollTop=event.detail.scrollTop;},
+ customerAddressChanged(event){
+  if(this.data.busy)return;
+  const values={error:''};Object.entries(PF.addressPayload(event.detail.value)).forEach(([key,value])=>{values['form.'+key]=value;});
+  this.setData(values);this.saveDraft();
+ },
  modal(e){this.openModal(e.currentTarget.dataset.modal);},
- closeModal(){this.setData({modal:'',error:''});},
+ closeModal(){if(this.data.busy)return;if(wx.hideKeyboard)wx.hideKeyboard();this.setData({modal:'',error:'',keyboardInset:0,sheetFocusTarget:''});},
  noop(){},
  input(e){const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:e.detail.value,error:''});this.saveDraft();},
  pick(e){const {key,options}=e.currentTarget.dataset;const values=e.currentTarget.dataset.values||this.data[options];this.setData({['form.'+key]:values?values[Number(e.detail.value)]:e.detail.value,error:''});this.saveDraft();},

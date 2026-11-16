@@ -1,6 +1,6 @@
 // 设计工作流（灵感库/AI 平面/AI 立面/快速预算）：纯平台态（token+design:use 三岗），demo 分支已移除。
 const titles={inspiration:'灵感库',search:'平面检索',case:'灵感详情','ai-config':'AI平面','ai-facade':'AI立面',budget:'快速预算','plan-result':'平面方案','facade-result':'立面方案','budget-result':'预算结果'};
-Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',styles:['全部风格','新中式','现代简约'],filterStyle:'全部风格',floorFilters:['全部层数','一层','二层','三层'],floorFilter:'全部层数',caseTab:0,floor:0,styleOptions:['新中式','现代简约'],countOptions:['1','2','4'],resolutions:['2K','4K'],busy:false,error:'',sheet:false,pickingRef:'',platformMode:false,platformErr:'',platCases:[],platStyles:[],platFilter:{},platCursor:'',platLoading:false,platCase:null,platCaseImages:[],platCaseFav:false,platResult:null,platResultVersionId:'',platBudget:null,platRule:null,platPolling:false,platPollTip:'',saleDesign:false,materialOptions:[['WHITE_STUCCO','白墙涂料'],['GREY_STONE','灰石'],['WHITE_COAT','白色涂层']],colorOptions:[['DEEP_WOOD','深木'],['WARM_GREY','暖灰'],['BLACK','黑']],orientationPlatOptions:[['PORTRAIT','竖图'],['LANDSCAPE','横图']],entranceOptions:[['SOUTH','朝南'],['NORTH','朝北'],['EAST','朝东'],['WEST','朝西']],familyOptions:['2室1厅1卫','3室1厅1卫','3室2厅2卫','4室2厅2卫','5室2厅3卫','6室3厅3卫'],courtyardOptions:[['','AI 智能安排'],['SIHEYUAN','四合院'],['FRONT_BACK_YARD','前后院'],['FRONT_YARD_SCREEN','前院影壁'],['COMPACT','紧凑布局']],drawingOptions:[['TOP_VIEW','俯视图'],['COLOR_PLAN','彩色平面'],['CAD_LINE','CAD 线稿'],['AXONOMETRIC','轴测图'],['BIRD_EYE','鸟瞰图']],platProgress:0,platStatusText:'',platAccepted:0,platRefCount:0,platCancelResult:null,platProjects:[],platProjCursor:'',platProjLoading:false,platProjectDetail:null,platProjectCandidates:[],platProjectResultImage:'',platProjectResultVersion:null,structurePlatOptions:[['BRICK','砖混'],['FRAME','框架'],['STEEL','钢结构']],roofPlatOptions:['坡屋顶','平屋顶'],gradePlatOptions:[['A','A 档'],['B','B 档'],['C','C 档']],saveCustomers:[]},
+Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',styles:['全部风格','新中式','现代简约'],filterStyle:'全部风格',floorFilters:['全部层数','一层','二层','三层'],floorFilter:'全部层数',caseTab:0,floor:0,styleOptions:['新中式','现代简约'],countOptions:['1','2','4'],resolutions:['2K','4K'],busy:false,error:'',sheet:false,pickingRef:'',platformMode:false,platformErr:'',platCases:[],platStyles:[],platFilter:{},platCursor:'',platLoading:false,platCase:null,platCaseImages:[],platCaseFav:false,platResult:null,platResultVersionId:'',platBudget:null,platRule:null,platPolling:false,platPollTip:'',saleDesign:false,materialOptions:[['WHITE_STUCCO','白墙涂料'],['GREY_STONE','灰石'],['WHITE_COAT','白色涂层']],colorOptions:[['DEEP_WOOD','深木'],['WARM_GREY','暖灰'],['BLACK','黑']],orientationPlatOptions:[['PORTRAIT','竖图'],['LANDSCAPE','横图']],entranceOptions:[['SOUTH','朝南'],['NORTH','朝北'],['EAST','朝东'],['WEST','朝西']],familyOptions:['2室1厅1卫','3室2厅1卫','3室2厅2卫','4室2厅2卫','5室3厅2卫','6室3厅3卫'],courtyardOptions:[['','AI 智能安排'],['SIHEYUAN','四合院'],['FRONT_BACK_YARD','前后院'],['FRONT_YARD_SCREEN','前院影壁'],['COMPACT','紧凑布局']],drawingOptions:[['TOP_VIEW','俯视图'],['COLOR_PLAN','彩色平面'],['CAD_LINE','CAD 线稿'],['AXONOMETRIC','轴测图'],['BIRD_EYE','鸟瞰图']],platProgress:0,platStatusText:'',platAccepted:0,platRefCount:0,platCancelResult:null,platProjects:[],platProjCursor:'',platProjLoading:false,platProjectDetail:null,platProjectCandidates:[],platProjectResultImage:'',platProjectResultVersion:null,structurePlatOptions:[['BRICK','砖混'],['FRAME','框架'],['STEEL','钢结构']],roofPlatOptions:['坡屋顶','平屋顶'],gradePlatOptions:[['A','A 档'],['B','B 档'],['C','C 档']],saveCustomers:[]},
  onLoad(o){this.options=o||{};
   // 纯平台态门禁：token+design:use 三岗 → API 态；无会话回登录页（不进本地 demo）
   const http=(()=>{try{return require('../../../api/http');}catch(e){return null;}})();
@@ -9,6 +9,11 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
   const token=http?http.token():'';
   if(!token){const params=[];if(o&&o.view)params.push('view='+encodeURIComponent(o.view));if(o&&o.id)params.push('id='+encodeURIComponent(o.id));const q=params.length?'?'+params.join('&'):'';return wx.redirectTo({url:'/pages/account/index?view=login&return='+encodeURIComponent('/pages/workflow/explore/index'+q)});}
   if(!post||PFD.pageMode(token,post)!=='api')return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('设计赋能')});
+  const migrated={inspiration:'library/index',search:'library/index',case:'library/detail', 'ai-config':'ai-design/index','ai-facade':'ai-design/index',budget:'budget/quick',projects:'profile/records?type=projects'};
+  if(migrated[o.view||'inspiration']) {
+   const target='/design-migration/pages/'+migrated[o.view||'inspiration']+(o.view==='case'?'?id='+encodeURIComponent(o.id||''):o.view==='ai-config'?'?line=FLAT':o.view==='ai-facade'?'?line=ELEVATION':'');
+   return wx.redirectTo({url:target});
+  }
   this.__post=post;this.__postKey=String(post.postId);this.__http=http;
   this.platformMode=true;// 实例属性：handler 分流依据（data.platformMode 供 wxml）
   require('./platform-bridge')(this,{PF:PFD,http,api:require('../../../api/franchise/design')});
@@ -18,11 +23,12 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
  platOnLoadInit(o){
   const v=titles[o.view]?o.view:'inspiration';
   const kind=v.startsWith('facade')||v==='ai-facade'?'facade':v.startsWith('budget')||v==='budget'?'budget':'plan';
-  this.setData({view:v,title:titles[v]||'灵感库',kind,form:{},platCases:[],platStyles:[],platFilter:{},platCursor:''});// 表单读写全在页面 state（demo 会话预填随 S 层移除）
+  this.setData({view:v,title:titles[v]||'灵感库',kind,form:{count:'2',resolution:'2K',orientation:'LANDSCAPE',floors:'2',style:'新中式',roof:'坡屋顶',material:'WHITE_STUCCO',color:'DEEP_WOOD',family:'5室3厅2卫',entranceOrientation:'SOUTH',drawingType:'TOP_VIEW'},platCases:[],platStyles:[],platFilter:{},platCursor:''});// 表单读写全在页面 state（demo 会话预填随 S 层移除）
   if(['inspiration','search'].includes(v))this.platLoadCases(true);
   if(v==='case')this.platLoadCase(o.id);
   if(v==='budget')this.platLoadRule();
  },
+ onReachBottom(){if(['inspiration','search'].includes(this.data.view))this.platLoadMore();else if(this.data.view==='projects'&&!this.data.platProjLoading)this.loadMoreProjects();},
  onUnload(){if(this.platOnUnload)this.platOnUnload();},
  onShow(){if(!this.platformMode||typeof this.platTeardown!=='function')return;const post=(()=>{try{const auth=require('../../../api/auth');const http=require('../../../api/http');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();if(!post||String(post.postId)!==String(this.__postKey||'')){this.platTeardown();return;}},
  run(fn){this.setData({error:''});try{return fn();}catch(e){this.setData({error:e.message});return null;}},

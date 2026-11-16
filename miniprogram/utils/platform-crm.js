@@ -87,7 +87,7 @@ function customerRow(c, ctx) {
   const lastDate = toDate(c.lastFollowAt);
   const name = c.name || '';
   const phoneText = c.phone ? maskPhone(c.phone) : (c.wechat || '暂无联系方式');
-  const searchText = [c.name, c.phone, c.city, c.summary].filter(Boolean).join(' ');
+  const searchText = [c.name, c.phone, c.province, c.city, c.district, c.town, c.village, c.addressDetail].filter(Boolean).join(' ');
   let cue, cueTone = '', rank, sortKey;
   if (canW && appointment && appointment < day) {
     cue = '逾期 ' + daysBetween(appointment, day) + ' 天'; cueTone = 'tone-danger'; rank = 0; sortKey = appointment;
@@ -141,6 +141,57 @@ function tabFilter(rows, tab, ctx) {
   return rows;
 }
 
+// 业务首页与老板首页共用全量分页及统计口径；列表预览的条数不影响指标。
+async function loadSummaryRows(fetchPage, isStale, label) {
+  const pageSize = 100, limit = 10000, result = [];
+  let expectedTotal = null;
+  for (let pageNo = 1; pageNo <= Math.ceil(limit / pageSize); pageNo++) {
+    if (isStale()) throw { silent: true };
+    const response = await fetchPage(pageNo, pageSize);
+    if (isStale()) throw { silent: true };
+    const rows = response && Array.isArray(response.list) ? response.list : null;
+    const total = Number(response && response.total);
+    if (!rows || !Number.isInteger(total) || total < 0) throw new Error(label + '汇总分页返回无效');
+    if (total > limit) throw new Error(label + '记录超过' + limit + '条，汇总暂不可用');
+    if (expectedTotal === null) expectedTotal = total;
+    else if (total !== expectedTotal) throw new Error(label + '汇总期间总数变化，请重试');
+    if (rows.length > pageSize || result.length + rows.length > expectedTotal) throw new Error(label + '汇总分页数据异常');
+    if (rows.length === 0 && result.length < expectedTotal) throw new Error(label + '汇总分页存在空洞，请重试');
+    result.push(...rows);
+    if (result.length === expectedTotal) return result;
+    if (rows.length < pageSize) throw new Error(label + '汇总分页不完整，请重试');
+  }
+  throw new Error(label + '汇总超出安全分页范围');
+}
+
+function homeSummary(customers, commissions, post, day) {
+  day = day || today();
+  const rows = (customers || []).map(c => customerRow(c, { today: day, canWrite: can(post, 'write') }));
+  const monthRows = (commissions || []).filter(row => {
+    const date = toDate(row.createTime || row.date || row.submittedAt);
+    return date && date.slice(0, 7) === day.slice(0, 7);
+  });
+  const yuan = Math.round(monthRows.reduce((total, row) => total + (Number(
+    row.totalCents != null ? row.totalCents : row.amountCents != null ? row.amountCents : row.commissionCents
+  ) || 0), 0) / 100);
+  const commission = yuan >= 10000
+    ? { value: String(Math.round(yuan / 100) / 100), unit: '万元' }
+    : { value: yuan.toLocaleString('en-US'), unit: '元' };
+  // 统计待跟进客户不受老板的只读权限影响，客户原单仍按 canFollow 控制办理权限。
+  const due = tabFilter(rows.map(row => ({ ...row, canFollow: true })), 'due', { today: day });
+  const upcoming = tabFilter(rows, 'appointments', { today: day });
+  return {
+    rows, monthRows, commission, due, upcoming,
+    overdue: rows.filter(row => row.appointment && row.appointment < day),
+    metrics: [
+      { key: 'due', label: '今日待跟进', value: due.length, unit: '人' },
+      { key: 'appointments', label: '预约到店', value: upcoming.length, unit: '人' },
+      { key: 'commission', label: '委托', value: commission.value, unit: commission.unit },
+      { key: 'all', label: '全部客户', value: rows.length, unit: '人' }
+    ]
+  };
+}
+
 /**
  * 详情映射（CustomerDetail → 工作区渲染模型，键与 workflow wxml view=customer 块对齐）。
  * 尺寸回退链：PLAN > FACADE > BUDGET，同 kind 取 version 最大；缺任一尺寸跳下一优先级。
@@ -172,6 +223,9 @@ function detailView(detail, ctx) {
     customer: {
       id, name: c.name || '', phone: c.phone || '', wechat: c.wechat || '',
       source: c.source || '', province: c.province || '', city: c.city || '',
+      district: c.district || '', town: c.town || '', village: c.village || '',
+      regionCode: c.regionCode || '', addressDetail: c.addressDetail || '',
+      address: [c.province,c.city,c.district,c.town,c.village,c.addressDetail].filter(Boolean).join(' '),
       summary: c.summary || '', status,
       width: size ? size.width : '', depth: size ? size.depth : '', floors: size ? size.floors : '',
       ownerUserId: c.ownerUserId == null ? '' : String(c.ownerUserId),
@@ -201,13 +255,29 @@ function commandKey(action) {
 
 /* ---- 写命令 payload 构造（§六；前端输入约束拦截由页面调用这些函数前完成） ---- */
 
-/** 登记客户：{name,phone,need,source}（need=需求摘要；wechat/地区不采集） */
+const ADDRESS_FIELDS = ['province','city','district','town','village','regionCode','addressDetail'];
+function addressPayload(form) {
+  return ADDRESS_FIELDS.reduce((result,key)=>{result[key]=String(form[key]||'').trim();return result;},{});
+}
+function addressError(form, required) {
+  const address=addressPayload(form);
+  if(ADDRESS_FIELDS.some(key=>address[key].length>(key==='addressDetail'?200:key==='regionCode'?12:64)))return '地址内容超过长度限制';
+  if(required||address.regionCode||address.district||address.town||address.village){
+    if(!address.province||!address.city||!address.district||!address.town)return '请选择地址至乡镇／街道';
+    if(!address.village)return '请选择或填写村／社区';
+    if(!/^(\d{9}|\d{12})$/.test(address.regionCode))return '请重新选择乡镇／街道和村／社区';
+  }
+  return '';
+}
+
+/** 登记客户：需求摘要与五级地址随客资一起保存。 */
 function capturePayload(form) {
   return {
     name: String(form.name || '').trim(),
     phone: String(form.phone || '').trim(),
     need: String(form.summary || '').trim(),
-    source: String(form.source || '').trim()
+    source: String(form.source || '').trim(),
+    ...addressPayload(form)
   };
 }
 
@@ -218,6 +288,7 @@ function updatePayload(form, revision) {
     wechat: String(form.wechat || '').trim(),
     province: String(form.province || '').trim(),
     city: String(form.city || '').trim(),
+    ...addressPayload(form),
     summary: String(form.summary || '').trim(),
     revision
   };
@@ -372,10 +443,10 @@ function errorMessage(err, action) {
   const map = {
     '1110000000': '客户不存在或已转移，请刷新列表',
     '1110000001': '当前岗位不能办理该客户',
-    '1110000003': '请填写称呼、11位手机号、需求和来源',
+    '1110000003': '请检查客户姓名、11位手机号、地址、需求和来源',
     '1110000004': '已有该手机号客资待关联，请由负责人处理',
     '1110000009': '预约日期不能早于今天',
-    '1110000010': '请检查客户资料（称呼必填、长度不超限）',
+    '1110000010': '请检查客户姓名与地址，填写内容不能超长',
     '1110000011': '请填写方案名称与有效尺寸',
     '1110000012': '接手人须为本组织在岗业务人员',
     '1099000001': '数据已更新，请刷新后重试',
@@ -394,8 +465,8 @@ function errorMessage(err, action) {
 
 module.exports = {
   CRM_ROLES, pageMode, can, collectError, toDate, dateToArray, today, maskPhone, statusText,
-  customerRow, sortRows, tabFilter, latestSchemeSize, detailView,
-  commandKey, capturePayload, updatePayload, followPayload, transferPayload,
+  customerRow, sortRows, tabFilter, loadSummaryRows, homeSummary, latestSchemeSize, detailView,
+  commandKey, capturePayload, updatePayload, addressPayload, addressError, followPayload, transferPayload,
   validPhone, within, errorMessage,
   // P2 交易流（契约=docs/backend-parity/12）
   toCents, compileQuoteItems, requirementRow, quoteRow, contractRow, deliveryView, DELIVERY_NODES, errorMessageSales

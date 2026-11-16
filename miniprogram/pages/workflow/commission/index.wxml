@@ -3,13 +3,14 @@
  <brand-header wx:if="{{view==='admin'||view==='projects'}}" branded divider="{{true}}" title="{{title}}"/>
  <business-header wx:else title="{{title}}"/>
  <view class="commission-body">
-  <view wx:if="{{error && !(primary||canReturn)}}" class="commission-error" role="alert">{{error}}</view>
+  <view wx:if="{{error && view!=='admin' && !(primary||canReturn)}}" class="commission-error" role="alert">{{error}}</view>
   <block wx:if="{{view==='admin'}}">
    <view class="admin-greeting"><text>你好，{{adminName}}</text><text class="hint">{{adminDate}}</text></view>
    <view class="admin-metrics"><button wx:for="{{metrics}}" wx:key="label" class="admin-metric" data-filter="{{item.filter}}" bindtap="openMetric"><view class="admin-metric-top"><image src="{{item.icon}}" mode="aspectFit"/><view class="chevron"/></view><text class="admin-metric-label">{{item.label}}</text><view><text class="admin-metric-value">{{item.value}}</text><text class="admin-metric-unit"> 项</text></view></button></view>
    <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">今日待办 {{taskCount}}</text><button class="text-link" data-filter="全部" bindtap="openMetric">查看全部<view class="chevron"/></button></view>
+    <text wx:if="{{error}}" class="commission-error">{{error}}</text><text wx:elif="{{platformStatus==='loading'}}" class="hint">待办加载中…</text>
     <button wx:for="{{tasks}}" wx:key="id" class="admin-list-row" data-url="{{item.actionUrl}}" bindtap="openTask"><view class="admin-list-copy"><text class="admin-list-name">{{item.name}}</text><text class="hint">{{item.company}} · {{item.detail}}</text></view><text class="{{item.primary?'commission-primary admin-primary':'admin-light-action'}}">{{item.action}}</text><view wx:if="{{!item.primary}}" class="chevron"/></button>
-    <view wx:if="{{!tasks.length}}" class="sales-empty">今日暂无设计待办</view>
+    <view wx:if="{{!tasks.length&&platformStatus==='ready'}}" class="sales-empty">今日暂无设计待办</view>
    </view>
    <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">最近办理</text></view>
     <button wx:for="{{recent}}" wx:key="id" class="admin-list-row" data-url="{{item.url}}" bindtap="openTask"><view class="admin-initial">{{item.initial}}</view><view class="admin-list-copy"><text class="admin-list-name">{{item.name}}</text><text class="hint">{{item.recentWhen}} · {{item.recentText}}</text></view><text class="admin-light-action">查看记录</text><view class="chevron"/></button>

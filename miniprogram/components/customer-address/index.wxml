@@ -1,0 +1,14 @@
+<view class="address-fields">
+  <view wx:for="{{rows}}" wx:key="key" class="address-row">
+    <text class="address-label">{{item.label}}</text>
+    <picker class="address-picker" range="{{item.options}}" range-key="name" value="{{item.index}}" disabled="{{disabled||item.disabled||item.loading}}" data-level="{{index}}" bindchange="choose">
+      <view class="address-control {{!item.selected?'address-placeholder':''}}"><text>{{item.loading?'加载中…':item.selected||item.placeholder}}</text><text class="address-arrow">⌄</text></view>
+    </picker>
+  </view>
+  <view wx:if="{{manualVillage}}" class="address-row">
+    <text class="address-label">村／社区名称</text>
+    <input class="address-manual" value="{{value.village}}" placeholder="请填写实际村／社区" maxlength="64" disabled="{{disabled}}" adjust-position="{{false}}" cursor-spacing="24" bindfocus="focus" bindblur="blur" bindinput="manual"/>
+  </view>
+  <text wx:if="{{manualVillage}}" class="address-note">该乡镇暂无村／社区选项，请填写名称。</text>
+  <view wx:if="{{error}}" class="address-error"><text>{{error}}</text><button bindtap="retry" size="mini" disabled="{{disabled}}">重试</button></view>
+</view>

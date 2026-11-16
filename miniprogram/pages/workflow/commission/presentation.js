@@ -396,7 +396,8 @@ function workbench(list) {
   const metrics = [
     { label: '设计与修改', value: counts[Status.designing] + counts[Status.modifying], filter: '设计与修改', icon: '/assets/home-design-icon.png' },
     { label: Status.pay, value: counts[Status.pay], filter: Status.pay, icon: '/assets/money.png' },
-    { label: Status.dispatch, value: counts[Status.dispatch], filter: Status.dispatch, icon: '/assets/contract.png' }
+    { label: Status.dispatch, value: counts[Status.dispatch], filter: Status.dispatch, icon: '/assets/contract.png' },
+    { label: '全部项目', value: rows.length, filter: '全部', icon: '/assets/folder.png' }
   ];
   return { rows, counts, tasks, taskCount: actionable.length, recent, metrics, filters: FILTERS.map(label => ({ label, count: counts[label] })) };
 }

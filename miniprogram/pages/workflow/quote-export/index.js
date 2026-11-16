@@ -19,7 +19,7 @@ Page({
    if(mainTotal!==data.mainTotal||decorTotal!==data.decorTotal)return this.setData({error:'报价分项与小计不一致，请核对后再导出',allowed:false});
    if(mainTotal+decorTotal+(insurance||0)+(management||0)!==total)return this.setData({error:'报价分项与总价不一致，请核对后再导出',allowed:false});
    if(main.length+decor.length>14)return this.setData({error:'分项超出打印模板容量，请整理报价分项',allowed:false});
-   const doc={kind:'budget',version:data.version,date:data.date||'',name:data.name||'',phone:data.phone||'',projectId:this.quoteId,address:data.address||'',form:S.clean({}),width:data.width==null?'':String(data.width),depth:data.depth==null?'':String(data.depth),area:data.area==null?'':String(data.area),floors:data.floors==null?'':String(data.floors),main,decor,mainTotal,decorTotal,insurance,management,total,title:'建造参考预算',basis:data.basis||'前期预算，非施工结算依据',demo:false,priceVersion:data.priceVersion||''};
+   const doc={kind:'budget',version:data.version,date:data.date||'',name:data.name||'',phone:data.phone||'',projectId:this.quoteId,address:data.address||'',form:S.clean(data.form||{}),width:data.width==null?'':String(data.width),depth:data.depth==null?'':String(data.depth),area:data.area==null?'':String(data.area),floors:data.floors==null?'':String(data.floors),main,decor,mainTotal,decorTotal,insurance,management,total,title:'建造参考预算',basis:data.basis||'前期预算，非施工结算依据',demo:false,priceVersion:data.priceVersion||''};
    this.doc=doc;this.setData({form:doc.form,label:doc.title+' V'+doc.version,total:S.money(doc.total),allowed:true,error:''});
    if(this.ready)this.generate();
   }).catch(err=>{

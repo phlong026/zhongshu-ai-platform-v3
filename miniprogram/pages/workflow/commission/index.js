@@ -37,7 +37,7 @@ Page({ ...makeFormHandlers(),
   failState(message) {
     this.action = ''; this.nextView = ''; this.initialized = false; this.__list = null;
     this.setData({ canFeeDecide: false, canFeedback: false, managerOptions: [] });
-    this.setData({ platformStatus: 'degraded', error: message, customer: null, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, form: {}, fields: [], preview: null, primary: '', canReturn: false, budgetCard: false, isComplete: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null });
+    this.setData({ platformStatus: 'degraded', error: message, customer: null, rows: [], tasks: [], taskCount: 0, metrics: this.view==='admin'&&this.post()&&this.__post&&this.__post.roleCode==='hq-design-admin'?Presentation.workbench([]).metrics.map(m=>({...m,value:'—'})):[], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, form: {}, fields: [], preview: null, primary: '', canReturn: false, budgetCard: false, isComplete: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null });
   },
   refresh(reset = false) {
     const post = this.post();
@@ -46,6 +46,7 @@ Page({ ...makeFormHandlers(),
     if (this.__identity && this.__identity !== identity) {
       this.action = ''; this.nextView = ''; this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, primary: '', canReturn: false, canFeeDecide: false, canFeedback: false, managerOptions: [] });
     }
+    if(this.__identity!==identity)this.homeProfileName='';
     this.__identity = identity;
     this.__post = post;
     if (!this.id && !this.customerId && !['admin', 'projects', 'policy', 'pricing'].includes(this.view)) {
@@ -60,14 +61,16 @@ Page({ ...makeFormHandlers(),
   async refreshWorkbench(alive) {
     const actor = this.actor();
     if (actor.role !== 'hq-design-admin' || actor.orgType !== 'headquarters') return this.failState('当前岗位无设计行政权限');
+    if(this.view==='admin')this.setData({view:'admin',tasks:[],taskCount:0,recent:[],adminName:this.homeProfileName||actor.name||this.__post.name||'设计同事',adminDate:Presentation.dateLabel(),metrics:Presentation.workbench([]).metrics.map(m=>({...m,value:'—'}))});
     this.setData({ platformStatus: 'loading', error: '' });
+    http.get('/platform/profile/mine').then(profile=>{if(alive()&&!this.disposed&&profile&&profile.nickname){this.homeProfileName=profile.nickname;this.setData({adminName:profile.nickname});}}).catch(()=>{});
     try {
       const res = await API.commissions.page(1, 100);
       if (!alive() || this.disposed) return;
       this.__list = ((res && res.list) || []).map(Presentation.normalize);
       const wb = Presentation.workbench(this.__list);
       if (this.view === 'admin') {
-        this.setData({ title: '首页', view: 'admin', platformStatus: 'ready', error: '', primary: '', tasks: wb.tasks, taskCount: wb.taskCount, metrics: wb.metrics, recent: wb.recent, projectFilters: wb.filters, adminName: actor.name || this.__post.name || '', adminDate: Presentation.dateLabel() });
+        this.setData({ title: '首页', view: 'admin', platformStatus: 'ready', error: '', primary: '', tasks: wb.tasks, taskCount: wb.taskCount, metrics: wb.metrics, recent: wb.recent, projectFilters: wb.filters, adminName: this.homeProfileName || actor.name || this.__post.name || '设计同事', adminDate: Presentation.dateLabel() });
       } else {
         this.setData({ title: '项目', view: 'projects', platformStatus: 'ready', error: '', primary: '', projectFilters: wb.filters });
         this.renderAdminProjects(true);
