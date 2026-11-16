@@ -30,7 +30,7 @@ import static org.mockito.Mockito.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BudgetProjectInputsT10ContractTest {
     @Container
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private JdbcTemplate jdbc;
     private DesignProjectService projects;
     private final AiJobPort jobs = mock(AiJobPort.class);

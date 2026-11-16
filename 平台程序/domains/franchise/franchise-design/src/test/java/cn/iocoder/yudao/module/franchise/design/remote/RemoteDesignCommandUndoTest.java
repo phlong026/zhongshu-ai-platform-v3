@@ -28,7 +28,7 @@ import static org.awaitility.Awaitility.await;
 /** Executes the actual forward/undo SQL on PostgreSQL; no mocked accounting or DDL. */
 @Testcontainers
 class RemoteDesignCommandUndoTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    @Container static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private static final String UNDO = "db/migration-undo/franchise-design-remote/";
     private static final String U925 = UNDO + "V20261111.925__undo_remote_design_commands.sql";
     private SimpleDriverDataSource source;

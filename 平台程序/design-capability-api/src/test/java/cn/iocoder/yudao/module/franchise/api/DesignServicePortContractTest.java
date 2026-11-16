@@ -25,6 +25,7 @@ class DesignServicePortContractTest {
     void allMethodNamesParametersAndReturnsRemainCompatible() {
         Set<String> expected = Set.of(
                 "createProject(long,DesignProjectCreate,Actor):ProjectCreated",
+                "designFlow(long,cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall,Actor):Object",
                 "listProjects(long,String,int):ProjectPageView",
                 "getProject(long,long,Long):ProjectDetailView",
                 "getAiJob(long,long):AiJobView",
@@ -66,7 +67,7 @@ class DesignServicePortContractTest {
                 "ProjectListItem(projectId:long,sourceType:String,refCaseId:Long,stage:String,status:String,name:String,createTime:String)",
                 "ProjectPageView(list:List<ProjectListItem>,nextCursor:String)",
                 "ProjectDetailView(fields:Map<String,Object>)",
-                "AiJobView(jobId:long,status:String,requestedCount:int,acceptedCount:int,progress:int,phase:String,allowedActions:List<String>)",
+                "AiJobView(jobId:long,status:String,requestedCount:int,acceptedCount:int,progress:int,phase:String,allowedActions:List<String>,projectId:String,imageOptions:Map<String,String>,unitPointCost:Long,totalPointCost:Long,refundedPointCost:Long,netPointCost:Long,createdAt:String,finishedAt:String)",
                 "ResultVersionView(versionId:long,version:long,superseded:boolean,selectedFlatAssetId:Long,selectedElevationAssetId:Long,configSnapshotJson:String,createTime:String)",
                 "FlatJobCreate(count:int,resolution:String,orientation:String,idempotencyKey:String)",
                 "ElevationJobCreate(count:int,resolution:String,orientation:String,styleCode:String,roofType:String,material:String,color:String,idempotencyKey:String)",
@@ -75,7 +76,7 @@ class DesignServicePortContractTest {
                 "RevisionCreate(reason:String,configUpdates:Map<String,Object>,count:Integer,resolution:String,orientation:String,idempotencyKey:String)",
                 "RevisionSubmitted(requestId:long,newJobId:long,replayed:boolean)",
                 "SchemeRef(resultVersionId:Long,flatCandidateIds:List<Long>,selectedFlatAssetId:Long,selectedElevationAssetId:Long,configSnapshotJson:String,estimateId:Long,totalLowCents:Long,totalHighCents:Long,estimateArea:Integer)",
-                "CaseQuery(styleCode:String,floorCount:Integer,faceWidth:BigDecimal,depth:BigDecimal,keyword:String,cursor:String,limit:int)",
+                "CaseQuery(styleCode:String,floorCount:Integer,faceWidth:BigDecimal,depth:BigDecimal,keyword:String,cursor:String,limit:int,sourceType:String,minArea:Integer,maxArea:Integer)",
                 "StyleOption(code:String,label:String)",
                 "CasePage(list:List<Map<String,Object>>,nextCursor:String)",
                 "CaseDetailView(fields:Map<String,Object>)",

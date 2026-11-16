@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 /** Interleave committed mapping revocation between real PG short transactions; storage/moderation are simulated. */
 @Testcontainers
 class CapabilityUploadRevocationTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    @Container static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private JdbcTemplate jdbc;
     private AssetService assets;
     private CapabilityReceiptStore receipts;

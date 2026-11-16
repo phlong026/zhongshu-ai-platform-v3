@@ -24,7 +24,7 @@ class ProviderUnlimitedModerationIntegrationTest {
 
     @Test
     void zeroDailyLimitStillSendsEveryRequestAndIncrementsUsage() throws Exception {
-        try (var postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.15-alpine"))
+        try (var postgres = cn.iocoder.yudao.module.platform.test.TestPostgres.database(DockerImageName.parse("postgres:16.15-alpine"))
                 .withDatabaseName("design_provider").withUsername("owner").withPassword("test-password")) {
             postgres.start();
             Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())

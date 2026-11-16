@@ -55,7 +55,7 @@ class DesignRequirementInputsT15ContractTest {
     private static final int ERR_BUDGET_INPUT = 1_071_000_100;
 
     @Container
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>(
+    static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database(
             DockerImageName.parse("postgres:17-alpine"))
             .withDatabaseName("zhongshu_design")
             .withUsername("zhongshu")

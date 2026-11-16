@@ -35,7 +35,7 @@ class DesignOrgPointChargeIntegrationTest {
 
     @BeforeAll
     void database() throws Exception {
-        container = new PostgreSQLContainer<>("postgres:17-alpine");
+        container = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
         container.start();
         dataSource = new SimpleDriverDataSource();
         dataSource.setDriverClass(org.postgresql.Driver.class);
@@ -206,6 +206,40 @@ class DesignOrgPointChargeIntegrationTest {
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE type IN ('SETTLE','RELEASE')", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=21", Long.class)).isEqualTo(reservedBalance);
+    }
+
+    @Test
+    void companyPriceVersionMustBeReconfirmedEvenIfTheNewPriceHasTheSameCreditAmount() {
+        var quote=points.quotePrice("ai_flat",2);
+        var call=new cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall("POST","/design-projects/71/flat-jobs",java.util.Map.of(),java.util.Map.of("count",2,"companyPrice",java.util.Map.of("subject",quote.subject(),"quantity",quote.quantity(),"credits",quote.credits(),"priceVersion",quote.priceVersion())),"price-confirmation");
+        var accepted=transaction.execute(status->charges.quote(actor,Operation.FLOW_FLAT_JOB,call));
+        prices.publish("ai_flat",quote.credits()/2,1,"updated-price-version");
+        assertThatThrownBy(()->transaction.execute(status->charges.quote(actor,Operation.FLOW_FLAT_JOB,call)))
+                .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,e->assertThat(e.getCode()).isEqualTo(1072000016));
+        assertThatThrownBy(()->transaction.executeWithoutResult(status->charges.reserve(201,actor,accepted)))
+                .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,e->assertThat(e.getCode()).isEqualTo(1072000016));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE type='RESERVE'",Long.class)).isZero();
+    }
+
+    @Test
+    void jobPointProjectionReadsTheActualCompanyReserveAndPartialRefundAndKeepsTenantScope() throws Exception {
+        jdbc.execute("CREATE TABLE IF NOT EXISTS pf_org_unit(dept_id bigint PRIMARY KEY,org_id bigint,kind varchar(8),status varchar(16))");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS system_dept(id bigint PRIMARY KEY,tenant_id bigint,status int,deleted int)");
+        jdbc.update("INSERT INTO pf_org_unit VALUES(21,21,'ORG','ACTIVE'),(22,22,'ORG','ACTIVE') ON CONFLICT DO NOTHING");
+        jdbc.update("INSERT INTO system_dept VALUES(21,31,0,0),(22,31,0,0) ON CONFLICT(id) DO UPDATE SET tenant_id=31");
+        var mapper=new com.fasterxml.jackson.databind.ObjectMapper();
+        var payload=new FlatJob(71,new DesignServicePort.FlatJobCreate(2,"2K","LANDSCAPE","projection"));
+        var price=transaction.execute(status->charges.quote(actor,Operation.CREATE_FLAT_JOB,payload));
+        long command=insertCommand("projection",mapper.writeValueAsString(price),"SUCCEEDED",91L,false);
+        transaction.executeWithoutResult(status->charges.reserve(command,actor,price));
+        var store=new cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignCommandStore(dataSource,new DataSourceTransactionManager(dataSource),mapper,org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.org.FranchiseCommands.class),charges);
+        var pending=store.jobPointView("B",actor,91);assertThat(pending.get("totalPointCost")).isEqualTo(price.maximumPoints());assertThat(pending.get("netPointCost")).isNull();assertThat(pending.get("billingFinalized")).isEqualTo(false);
+        prices.publish("ai_flat",9000000,1,"next-price");
+        transaction.executeWithoutResult(status->charges.settle(command,actor,price,settlement(2,true,1)));
+        var finished=store.jobPointView("B",actor,91);assertThat(finished.get("refundedPointCost")).isEqualTo(price.maximumPoints()/2);assertThat(finished.get("netPointCost")).isEqualTo(price.maximumPoints()/2);assertThat(finished.get("billingFinalized")).isEqualTo(true);
+        assertThat(store.jobPointView("other-caller",actor,91).get("totalPointCost")).isNull();
+        assertThat(store.jobPointView("B",new PostSnapshot(41,51,22,"store","owner",null,false,Set.of()),91).get("totalPointCost")).isNull();
+        jdbc.update("UPDATE system_dept SET tenant_id=32 WHERE id=21");assertThat(store.jobPointView("B",actor,91).get("totalPointCost")).isNull();
     }
 
     private Settlement settlement(long version, boolean terminal, int valid) {

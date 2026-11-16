@@ -12,6 +12,8 @@ import java.util.Optional;
 /** Full typed dispatcher. Consumer-priced adapter methods are unreachable for every paid operation. */
 @Slf4j
 public class DesignCapabilityProvider {
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private CaseReferenceImportPort caseReferences;
     private final DesignServicePort design;
     private final cn.iocoder.yudao.module.design.asset.AssetService assets;
     private final CapabilityOrganizationMapping organizations;
@@ -47,8 +49,13 @@ public class DesignCapabilityProvider {
             return new Reply<>(0, "", billing.settlement(scope(principal, request, null), ((Job) request.payload()).jobId()), null, false);
         }
         organizations.authorize(principal, request.payload());
+        if(request.payload() instanceof cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall flow && flow.operation()!=route)throw CapabilityException.forbidden();
         if (!route.requiresReceipt(request.payload())) {
             return new Reply<>(0, "", dispatch(principal, request, null), null, false);
+        }
+        if(request.payload() instanceof cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall flow
+                && route==Operation.FLOW_WRITE && flow.path().equals("/design-projects") && "CASE_REFERENCE".equals(flow.text("sourceType"))) {
+            return referenceProject(principal,request,receipts.claim(request));
         }
         if (route.paid() || route == Operation.COMPLETE_UPLOAD) return external(principal, request);
         return receipts.executeAtomic(request, receiptId -> {
@@ -91,6 +98,9 @@ public class DesignCapabilityProvider {
         Request<?> original = receipts.storedRequest(lease.receipt());
         organizations.authorize(principal, original.payload());
         try {
+            if(original.payload() instanceof cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall flow
+                    && original.operation()==Operation.FLOW_WRITE && flow.path().equals("/design-projects") && "CASE_REFERENCE".equals(flow.text("sourceType")))
+                return referenceProject(principal,original,lease).receipt();
             if (query.operation() == Operation.COMPLETE_UPLOAD) {
                 return completeUpload(principal, original, lease).receipt();
             } else if (query.operation().paid()) {
@@ -132,6 +142,22 @@ public class DesignCapabilityProvider {
             receipts.unknown(lease, failure);
         }
         return receipts.query(principal.callerAppId(), principal.orgId(), query);
+    }
+    private Reply<Object> referenceProject(ServicePrincipal principal,Request<?> request,CapabilityReceiptStore.Lease lease) {
+        if(lease.receipt().status()==ReceiptStatus.SUCCEEDED)return new Reply<>(0,"",lease.receipt().result(),lease.receipt(),true);
+        if(lease.receipt().status()==ReceiptStatus.FAILED)return new Reply<>(lease.receipt().errorCode(),lease.receipt().errorMessage(),null,lease.receipt(),true);
+        if(!lease.acquired())return pending(lease.receipt());
+        try {
+            if(caseReferences==null)throw new IllegalStateException("Reference import is not configured");
+            var prepared=caseReferences.prepare(principal.serviceAccountId(),(cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)request.payload());
+            return receipts.completePrepared(lease,key->{organizations.lockCurrent(principal);return design.designFlow(principal.serviceAccountId(),prepared.withKey("cap:"+key),request.actor());});
+        } catch(RuntimeException error) {
+            // No project transaction has committed; explicit authoritative input/grant denials may be replayed.
+            if(error instanceof cn.iocoder.yudao.framework.common.exception.ServiceException rejection && java.util.Set.of(400,403,1099000001,1071000003).contains(rejection.getCode())) {
+                return receipts.resolveFailure(lease,()->java.util.Optional.of(new ServiceDesignBillingPort.Rejection(rejection.getCode(),rejection.getMessage()))).orElseThrow();
+            }
+            receipts.unknown(lease,error);throw new CapabilityException(503,1_112_100_002,"参考案例同步结果待核实，请使用原请求重试");
+        }
     }
 
     private Reply<Object> completeUpload(ServicePrincipal principal, Request<?> request, CapabilityReceiptStore.Lease lease) {
@@ -196,6 +222,8 @@ public class DesignCapabilityProvider {
         long owner = principal.serviceAccountId();
         Object payload = request.payload();
         return switch (request.operation()) {
+            case FLOW_READ,FLOW_WRITE -> design.designFlow(owner,((cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload).withKey("cap-"+receiptId),request.actor());
+            case FLOW_FLAT_JOB,FLOW_ELEVATION_JOB,FLOW_REVISION,FLOW_BUDGET -> throw new IllegalStateException("Design flow requires service billing");
             case CREATE_PROJECT -> {
                 var command = (DesignServicePort.DesignProjectCreate) payload;
                 yield design.createProject(owner, new DesignServicePort.DesignProjectCreate(command.sourceType(),

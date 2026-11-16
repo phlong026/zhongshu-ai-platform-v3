@@ -4,6 +4,10 @@ import java.util.Set;
 
 /** 业务附件契约。默认方法仅用于融合模式兼容；平台实现必须使用显式组织及操作者上下文。 */
 public interface AssetAccessPort {
+    record ContentMetadata(String mimeType, String sha256, long sizeBytes) { }
+    default ContentMetadata contentMetadata(Actor actor, long assetId) {
+        throw new IllegalArgumentException("内容素材元数据通道尚未配置");
+    }
     record Actor(long orgId, long serviceAccountId, long userId, long postId) { }
     record UploadTicketView(long assetId, String uploadUrl) { }
     record AssetCompleted(long assetId, String uploadStatus, String rejectedReason) { }

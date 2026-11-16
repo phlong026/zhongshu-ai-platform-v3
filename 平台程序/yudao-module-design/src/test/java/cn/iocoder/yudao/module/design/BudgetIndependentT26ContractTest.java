@@ -29,7 +29,7 @@ import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.BUDGET_QUO
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BudgetIndependentT26ContractTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    @Container static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private SimpleDriverDataSource ds;
     private DataSourceTransactionManager manager;
     private JdbcTemplate jdbc;

@@ -23,6 +23,11 @@ public interface CustomerSchemePort {
      */
     SchemeSaved saveScheme(PostSnapshot post, long customerId, SchemeSave command);
 
+    /** 仅供设计能力边界读取并验证后的 ITEMIZED_V1 快照；宽深可缺省、部分预算总额必须为空。 */
+    default SchemeSaved saveItemizedBudgetSnapshot(PostSnapshot post,long customerId,SchemeSave command) {
+        throw new UnsupportedOperationException("Verified itemized budget archive unavailable");
+    }
+
     /** 回写前置（§五校验顺序①）：CRM 对象权限校验（canWrite），先于 design 侧引用校验执行 */
     void requireWritable(PostSnapshot post, long customerId);
 

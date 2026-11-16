@@ -52,6 +52,12 @@ import static cn.iocoder.yudao.module.franchise.api.FranchiseDesignErrorCodes.SC
 @ConditionalOnProperty(prefix = "platform.legacy-design-bridge", name = "enabled",
         havingValue = "true", matchIfMissing = true)
 public class FranchiseDesignAdapter implements DesignServicePort {
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private cn.iocoder.yudao.module.design.capability.OriginalDesignFlow originalFlow;
+    @Override public Object designFlow(long owner,cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall call,Actor actor) {
+        if(originalFlow==null)throw new IllegalStateException("Original design flow is not configured");
+        return originalFlow.invoke(owner,call);
+    }
 
     private static final List<String> ALLOWED_ACTIONS_WHITELIST = List.of(
             "VIEW", "CREATE_FLAT_JOB", "SELECT_FLAT", "CREATE_ELEVATION_JOB", "SELECT_ELEVATION",
@@ -163,8 +169,12 @@ public class FranchiseDesignAdapter implements DesignServicePort {
         if (job.userId() != serviceAccountId) {
             throw exception(RESOURCE_FORBIDDEN);
         }
+        var row=jdbcTemplate.queryForMap("SELECT COALESCE(input_snapshot->'imageOptions'->>'resolution','2K') AS resolution,COALESCE(input_snapshot->'imageOptions'->>'orientation',CASE WHEN phase='FLAT' THEN 'PORTRAIT' ELSE 'LANDSCAPE' END) AS orientation,create_time,(SELECT max(create_time) FROM ai_job_settlement s WHERE s.job_id=j.id AND s.deleted=false) AS finished_at FROM ai_job j WHERE id=? AND user_id=?",jobId,serviceAccountId);
+        var image=new java.util.LinkedHashMap<String,String>();
+        image.put("resolution",String.valueOf(row.get("resolution")));image.put("orientation",String.valueOf(row.get("orientation")));
         return new AiJobView(job.jobId(), job.status(), job.requestedCount(), job.acceptedCount(),
-                job.progress(), job.phase(), List.of("VIEW", "POLL_JOB"));
+                job.progress(), job.phase(), List.of("CREATED","QUEUED","RUNNING","VALIDATING").contains(job.status())?List.of("CANCEL"):List.of(),job.projectRef(),image,
+                null,null,null,null,row.get("create_time")==null?null:((java.sql.Timestamp)row.get("create_time")).toInstant().toString(),row.get("finished_at")==null?null:((java.sql.Timestamp)row.get("finished_at")).toInstant().toString());
     }
 
     @Override
@@ -412,8 +422,8 @@ public class FranchiseDesignAdapter implements DesignServicePort {
 
     @Override
     public CasePage listCases(CaseQuery query) {
-        var page = caseCatalogService.listPublishedCases(null, query.styleCode(), query.floorCount(),
-                null, null, query.faceWidth(), query.depth(), query.keyword(), query.cursor(), query.limit());
+        var page = caseCatalogService.listPublishedCases(query.sourceType(), query.styleCode(), query.floorCount(),
+                query.minArea(), query.maxArea(), query.faceWidth(), query.depth(), query.keyword(), query.cursor(), query.limit());
         return new CasePage(page.list().stream().map(FranchiseDesignAdapter::toCaseMap).collect(Collectors.toList()),
                 page.nextCursor());
     }

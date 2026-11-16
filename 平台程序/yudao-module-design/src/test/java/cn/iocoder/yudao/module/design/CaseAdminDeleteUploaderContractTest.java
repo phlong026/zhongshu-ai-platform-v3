@@ -39,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CaseAdminDeleteUploaderContractTest {
 
     @Container
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>(DockerImageName.parse("postgres:17-alpine"))
+    static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database(DockerImageName.parse("postgres:17-alpine"))
             .withDatabaseName("zhongshu_design")
             .withUsername("zhongshu")
             .withPassword("zhongshu");

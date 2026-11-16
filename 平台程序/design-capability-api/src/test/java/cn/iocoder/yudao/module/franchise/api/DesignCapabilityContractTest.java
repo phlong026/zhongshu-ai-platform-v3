@@ -82,13 +82,13 @@ class DesignCapabilityContractTest {
     }
 
     @Test
-    void everyRemotePortMethodHasExactlyOneFixedPostAction() {
+    void everyRemotePortMethodHasFixedPostActions() {
         Set<String> expected = Arrays.stream(DesignServicePort.class.getDeclaredMethods())
                 .map(java.lang.reflect.Method::getName).filter(name -> !name.equals("validateAsset"))
                 .collect(Collectors.toSet());
         Set<String> actual = Arrays.stream(Operation.values()).map(Operation::portMethod)
                 .filter(name -> name != null).collect(Collectors.toSet());
-        assertEquals(24, expected.size());
+        assertEquals(25, expected.size());
         assertEquals(expected, actual);
         assertEquals(Operation.values().length, Arrays.stream(Operation.values()).map(Operation::path).distinct().count());
         for (Operation action : Operation.values()) {

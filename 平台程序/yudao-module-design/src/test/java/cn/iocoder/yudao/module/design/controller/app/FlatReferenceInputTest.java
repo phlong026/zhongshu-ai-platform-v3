@@ -14,9 +14,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.*;
 
-/** 平面纯文生图：API 层必须在建项目/扣点前拒绝参考案例和手绘草图。 */
-class FlatReferenceDisabledTest {
+/** Case versions, image ownership and sketch validity remain enforced by the original domain. */
+class FlatReferenceInputTest {
 
     private AppDesignProjectController controller(DesignProjectService service) {
         var controller = new AppDesignProjectController();
@@ -28,13 +31,16 @@ class FlatReferenceDisabledTest {
     }
 
     @Test
-    void flatCaseReferenceAndSketchAreRejectedBeforeProjectCreation() {
+    void flatCaseVersionAndSketchReachTheOriginalDomainValidation() {
         var service = mock(DesignProjectService.class);
+        when(service.createProjectWithKey(anyLong(),anyString(),any(),any(),any(),any(),anyString(),any()))
+                .thenThrow(new ServiceException(1_071_000_008,"参考素材的版本或授权不可用"));
         var controller = controller(service);
 
         var caseReference = new AppDesignProjectCreateReqVO();
         caseReference.setSourceType("CASE_REFERENCE");
         caseReference.setRefCaseId("11");
+        caseReference.setRefCaseVersionId("21");
         caseReference.setLine("FLAT");
         assertThatThrownBy(() -> controller.createProject(caseReference, "Bearer fixture"))
                 .isInstanceOfSatisfying(ServiceException.class,
@@ -48,6 +54,7 @@ class FlatReferenceDisabledTest {
                 .isInstanceOfSatisfying(ServiceException.class,
                         error -> assertThat(error.getCode()).isEqualTo(1_071_000_008));
 
-        verifyNoInteractions(service);
+        verify(service).createProjectWithKey(eq(901L),eq("CASE_REFERENCE"),eq(11L),isNull(),any(),isNull(),eq("FLAT"),eq(21L));
+        verify(service).createProjectWithKey(eq(901L),eq("SELF_UPLOAD"),isNull(),eq(12L),any(),isNull(),eq("FLAT"),isNull());
     }
 }

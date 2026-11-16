@@ -70,6 +70,14 @@ class PublicCaseCatalogClientTest {
     }
 
     @Test
+    void generationCandidatesUseTheExplicitPublicAliasesWithoutAConsumerCredential() throws Exception {
+        AtomicReference<String> paths=new AtomicReference<>("");
+        start(exchange->{paths.updateAndGet(value->value+exchange.getRequestURI().getPath()+"\n");assertEquals(null,exchange.getRequestHeaders().getFirst("Authorization"));assertEquals("1",exchange.getRequestHeaders().getFirst("tenant-id"));reply(exchange,200,"{\"code\":0,\"data\":{}}");});
+        var client=client(Duration.ofSeconds(2),4096);client.generation("/cases/generation-candidates",Map.of("floorCount","2"));client.generation("/cases/19/generation-candidate",Map.of("caseVersionId","29"));
+        assertEquals("/app-api/design/v1/cases/public-generation-candidates\n/app-api/design/v1/cases/19/public-generation-candidate\n",paths.get());
+    }
+
+    @Test
     void usesOnlyFixedReadPaths() throws Exception {
         AtomicReference<String> paths = new AtomicReference<>("");
         start(exchange -> {

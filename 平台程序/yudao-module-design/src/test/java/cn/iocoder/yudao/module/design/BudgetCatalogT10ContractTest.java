@@ -41,7 +41,7 @@ import static cn.iocoder.yudao.module.design.enums.ErrorCodeConstants.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BudgetCatalogT10ContractTest {
     @Container
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private JdbcTemplate jdbc;
     private SimpleDriverDataSource ds;
     private BudgetCatalogService catalog;

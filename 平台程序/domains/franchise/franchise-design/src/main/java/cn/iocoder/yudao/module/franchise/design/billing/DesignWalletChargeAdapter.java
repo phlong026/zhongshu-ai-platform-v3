@@ -87,11 +87,23 @@ public class DesignWalletChargeAdapter implements RemoteDesignChargePort {
             String subject = subject(operation);
             int quantity = quantity(operation, payload);
             long maximum = points.quoteCredits(subject, quantity);
+            String version=null;
+            if(payload instanceof cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall call) {
+                var quoted=points.quotePrice(subject,quantity);
+                Object raw=call.body().get("companyPrice");
+                if(raw==null && call.body().get("priceConfirmation") instanceof java.util.Map<?,?> confirmation)raw=confirmation.get("companyPrice");
+                if(!(raw instanceof java.util.Map<?,?> expected)||!subject.equals(expected.get("subject"))
+                        ||!String.valueOf(quantity).equals(String.valueOf(expected.get("quantity")))
+                        ||!String.valueOf(quoted.credits()).equals(String.valueOf(expected.get("credits")))
+                        ||!quoted.priceVersion().equals(expected.get("priceVersion")))
+                    throw new cn.iocoder.yudao.framework.common.exception.ServiceException(1072000016,"计价规则已更新，请重新确认价格");
+                maximum=quoted.credits();version=quoted.priceVersion();
+            }
             boolean generation = generation(operation);
             // OrgPoint reserve owns the authoritative price/version snapshot. The command snapshot only freezes
             // routing and requested quantity, so this domain never recreates an independent price ledger.
             return new PlatformPriceSnapshot(subject, 1, 0, 0, 0, maximum,
-                    generation ? quantity : 0, 0, generation ? 0 : 1);
+                    generation ? quantity : 0, 0, generation ? 0 : 1,version);
         });
     }
 
@@ -101,9 +113,10 @@ public class DesignWalletChargeAdapter implements RemoteDesignChargePort {
         execute("reserve:" + commandId, () -> {
             String subject = validateSnapshot(snapshot);
             String bizKey = bizKey(commandId, subject);
-            long operationId = points.reserve(new OrgPointPort.ReserveCommand(
+            var reserve=new OrgPointPort.ReserveCommand(
                     bizKey, actor.orgId(), actor.userId(), actor.postId(), subject,
-                    reservedQuantity(snapshot), REF_TYPE, commandId));
+                    reservedQuantity(snapshot), REF_TYPE, commandId);
+            long operationId=snapshot.companyPriceVersion()==null?points.reserve(reserve):points.reserveConfirmed(reserve,snapshot.maximumPoints(),snapshot.companyPriceVersion());
             points.bindOperation(ORIGIN, actor.orgId(), actor.userId(), actor.postId(),
                     REF_TYPE, commandId, subject, operationId, bizKey);
             if (binding(commandId, actor, subject) != operationId) {
@@ -188,6 +201,7 @@ public class DesignWalletChargeAdapter implements RemoteDesignChargePort {
 
     private static int quantity(Operation operation, Object payload) {
         int value = switch (operation) {
+            case FLOW_FLAT_JOB,FLOW_ELEVATION_JOB,FLOW_REVISION -> ((cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload).count();
             case CREATE_FLAT_JOB -> ((FlatJob) payload).command().count();
             case CREATE_ELEVATION_JOB -> ((ElevationJob) payload).command().count();
             case CREATE_REVISION_REQUEST -> ((Revision) payload).command().count() == null
@@ -202,16 +216,16 @@ public class DesignWalletChargeAdapter implements RemoteDesignChargePort {
 
     private static String subject(Operation operation) {
         return switch (operation) {
-            case CREATE_FLAT_JOB -> "ai_flat";
-            case CREATE_ELEVATION_JOB, CREATE_REVISION_REQUEST -> "ai_elevation";
-            case CREATE_BUDGET_ESTIMATE -> "budget_estimate";
+            case CREATE_FLAT_JOB,FLOW_FLAT_JOB -> "ai_flat";
+            case CREATE_ELEVATION_JOB, CREATE_REVISION_REQUEST,FLOW_ELEVATION_JOB,FLOW_REVISION -> "ai_elevation";
+            case CREATE_BUDGET_ESTIMATE,FLOW_BUDGET -> "budget_estimate";
             case NOTE_POLISH -> "note_polish";
             default -> throw new IllegalArgumentException("Unsupported billable operation: " + operation);
         };
     }
 
     private static boolean generation(Operation operation) {
-        return operation == Operation.CREATE_FLAT_JOB || operation == Operation.CREATE_ELEVATION_JOB
+        return operation==Operation.FLOW_FLAT_JOB || operation==Operation.FLOW_ELEVATION_JOB || operation==Operation.FLOW_REVISION || operation == Operation.CREATE_FLAT_JOB || operation == Operation.CREATE_ELEVATION_JOB
                 || operation == Operation.CREATE_REVISION_REQUEST;
     }
 

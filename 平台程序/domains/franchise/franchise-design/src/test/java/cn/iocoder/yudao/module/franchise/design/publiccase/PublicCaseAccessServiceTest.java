@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 class PublicCaseAccessServiceTest {
 
     @Container
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
 
     private HttpServer server;
     private JdbcTemplate jdbc;
@@ -90,7 +90,7 @@ class PublicCaseAccessServiceTest {
     }
 
     @Test
-    void publicReadsHideUnavailableDesignWithActionFromListsAndDetail() {
+    void publicReadsPreserveAuthoritativeDesignWithActionFromListsAndDetail() {
         handler = exchange -> {
             try {
                 assertThat(exchange.getRequestMethod()).isEqualTo("GET");
@@ -121,10 +121,10 @@ class PublicCaseAccessServiceTest {
 
         assertThat(page.nextCursor()).isEqualTo("a-next");
         assertThat(page.list().get(0)).containsEntry("caseId", "7")
-                .containsEntry("allowedActions", java.util.List.of("VIEW", "FAVORITE"));
+                .containsEntry("allowedActions", java.util.List.of("VIEW", "DESIGN_WITH", "FAVORITE"));
         assertThat(styles).containsExactly(new DesignServicePort.StyleOption("MODERN", "现代"));
         assertThat(detail.fields()).containsEntry("caseId", "7")
-                .containsEntry("allowedActions", java.util.List.of("FAVORITE"));
+                .containsEntry("allowedActions", java.util.List.of("FAVORITE", "DESIGN_WITH"));
     }
 
     @Test
@@ -160,7 +160,7 @@ class PublicCaseAccessServiceTest {
         assertThat(otherEmployee.list()).extracting(item -> item.get("caseId")).containsExactly("8");
         assertThat(otherOrganization.list()).extracting(item -> item.get("caseId")).containsExactly("9");
         assertThat(otherTenant.list()).extracting(item -> item.get("caseId")).containsExactly("10");
-        assertThat(first.list().get(0)).containsEntry("allowedActions", java.util.List.of("FAVORITE"));
+        assertThat(first.list().get(0)).containsEntry("allowedActions", java.util.List.of("FAVORITE", "DESIGN_WITH"));
     }
 
     @Test

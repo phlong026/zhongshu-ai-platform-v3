@@ -64,7 +64,7 @@ public class CapabilityOrganizationMapping implements CallerOrganizationResolver
                     request.callerAppId(), request.orgId(), query.operation().name(), query.requestKey());
         } else if (request.operation() == Operation.GET_SETTLEMENT && request.payload() instanceof Job job) {
             rows = jdbc.queryForList("SELECT DISTINCT tenant_id,service_account_id FROM design_capability_receipt WHERE caller_app_id=? AND org_id=? AND job_id=? "
-                            + "AND operation IN ('CREATE_FLAT_JOB','CREATE_ELEVATION_JOB','CREATE_REVISION_REQUEST') AND state='SUCCEEDED'",
+                            + "AND operation IN ('CREATE_FLAT_JOB','CREATE_ELEVATION_JOB','CREATE_REVISION_REQUEST','FLOW_FLAT_JOB','FLOW_ELEVATION_JOB','FLOW_REVISION') AND state='SUCCEEDED'",
                     request.callerAppId(), request.orgId(), job.jobId());
         } else {
             return resolve(request.callerAppId(), request.orgId());

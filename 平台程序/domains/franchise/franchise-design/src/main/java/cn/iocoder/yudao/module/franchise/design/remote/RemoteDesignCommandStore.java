@@ -27,6 +27,45 @@ public class RemoteDesignCommandStore {
     private final CapabilityJson json;
     private final FranchiseCommands audit;
     private final RemoteDesignChargePort charges;
+    /** Same net-generation definition as the original project history, using B's company ledger. */
+    public Map<Long,Long> projectPointsSpent(String caller,PostSnapshot post,java.util.Set<Long> projectIds) {
+        if(projectIds.isEmpty())return Map.of();
+        if(projectIds.size()>50||projectIds.stream().anyMatch(id->id==null||id<=0))throw new IllegalArgumentException("Invalid project billing query");
+        String placeholders=String.join(",",java.util.Collections.nCopies(projectIds.size(),"?"));
+        String project="CASE WHEN c.operation LIKE 'FLOW_%' THEN split_part(c.payload_json->>'path','/',3) ELSE c.payload_json->>'projectId' END";
+        var parameters=new java.util.ArrayList<Object>(List.of(caller,tenant(post),post.orgId()));
+        projectIds.forEach(id->parameters.add(String.valueOf(id)));
+        var values=new LinkedHashMap<Long,Long>();projectIds.forEach(id->values.put(id,0L));
+        jdbc.query("SELECT "+project+" AS project_id,SUM(-r.available_delta-t.refund) AS spent,"
+                +"bool_or(t.events>1 OR t.refund<0 OR t.refund > -r.available_delta) AS invalid "
+                +"FROM fr_design_remote_command c JOIN org_point_ledger r ON r.org_id=c.org_id AND r.ref_type='design_command' AND r.ref_id=c.command_id AND r.type='RESERVE' "
+                +"CROSS JOIN LATERAL(SELECT count(*) AS events,COALESCE(SUM(l.available_delta),0) AS refund FROM org_point_ledger l WHERE l.org_id=c.org_id AND l.operation_id=r.operation_id AND l.type IN ('SETTLE','RELEASE'))t "
+                +"WHERE c.caller_app_id=? AND c.tenant_id=? AND c.org_id=? AND c.price_snapshot IS NOT NULL "
+                +"AND c.operation IN ('FLOW_FLAT_JOB','FLOW_ELEVATION_JOB','FLOW_REVISION','CREATE_FLAT_JOB','CREATE_ELEVATION_JOB','CREATE_REVISION_REQUEST') "
+                +"AND "+project+" IN ("+placeholders+") GROUP BY "+project,
+                rs->{if(rs.getBoolean("invalid"))throw new IllegalStateException("Invalid company project settlement");values.put(Long.parseLong(rs.getString("project_id")),rs.getLong("spent"));},parameters.toArray());
+        return values;
+    }
+    public java.util.Map<String,Object> jobPointView(String caller,PostSnapshot post,long jobId) {
+        var view=new java.util.LinkedHashMap<String,Object>();
+        view.put("totalPointCost",null);view.put("unitPointCost",null);view.put("refundedPointCost",null);view.put("netPointCost",null);view.put("billingFinalized",false);
+        var rows=jdbc.queryForList("SELECT command_id,price_snapshot FROM fr_design_remote_command WHERE caller_app_id=? AND tenant_id=? AND org_id=? AND job_id=? AND price_snapshot IS NOT NULL AND state='SUCCEEDED' ORDER BY command_id LIMIT 1",caller,tenant(post),post.orgId(),jobId);
+        if(rows.isEmpty())return view;
+        long command=((Number)rows.get(0).get("command_id")).longValue();
+        var reserved=jdbc.queryForList("SELECT operation_id,available_delta FROM org_point_ledger WHERE org_id=? AND ref_type='design_command' AND ref_id=? AND type='RESERVE'",post.orgId(),command);
+        if(reserved.size()!=1)return view;
+        long total=Math.negateExact(((Number)reserved.get(0).get("available_delta")).longValue());
+        var terminal=jdbc.queryForList("SELECT available_delta FROM org_point_ledger WHERE org_id=? AND operation_id=? AND type IN ('SETTLE','RELEASE')",post.orgId(),reserved.get(0).get("operation_id"));
+        PlatformPriceSnapshot price=json.read(rows.get(0).get("price_snapshot").toString(),PlatformPriceSnapshot.class);
+        view.put("totalPointCost",total);
+        view.put("unitPointCost",price.requestedImageCount()>0&&total%price.requestedImageCount()==0?total/price.requestedImageCount():null);
+        if(terminal.size()==1) {
+            long refund=((Number)terminal.get(0).get("available_delta")).longValue();
+            if(refund<0||refund>total)throw new IllegalStateException("Invalid company point settlement");
+            view.put("refundedPointCost",refund);view.put("netPointCost",total-refund);view.put("billingFinalized",true);
+        }
+        return view;
+    }
 
     public RemoteDesignCommandStore(DataSource source, PlatformTransactionManager transactions, ObjectMapper mapper,
                                    FranchiseCommands audit, RemoteDesignChargePort charges) {

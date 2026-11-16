@@ -159,7 +159,7 @@ public class CapabilityReceiptStore {
     }
 
     private Reply<Object> finish(Map<String, Object> row, Object result, boolean replayed) {
-        Long jobId = result instanceof DesignServicePort.JobSubmitted job ? job.jobId()
+        Long jobId = result instanceof cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall.Accepted accepted ? Long.valueOf(accepted.jobId()) : result instanceof DesignServicePort.JobSubmitted job ? job.jobId()
                 : result instanceof DesignServicePort.RevisionSubmitted revision ? revision.newJobId()
                 : result instanceof DesignServicePort.AiJobView job ? job.jobId() : null;
         jdbc.update("UPDATE design_capability_receipt SET state='SUCCEEDED',result_json=?::jsonb,job_id=?, "

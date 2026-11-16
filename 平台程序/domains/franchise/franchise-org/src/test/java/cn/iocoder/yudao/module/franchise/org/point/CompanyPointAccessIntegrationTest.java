@@ -51,7 +51,7 @@ class CompanyPointAccessIntegrationTest {
 
     @BeforeAll
     void database() throws Exception {
-        container = new PostgreSQLContainer<>("postgres:17-alpine");
+        container = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
         container.start();
         SimpleDriverDataSource dataSource = new SimpleDriverDataSource();
         dataSource.setDriverClass(org.postgresql.Driver.class);

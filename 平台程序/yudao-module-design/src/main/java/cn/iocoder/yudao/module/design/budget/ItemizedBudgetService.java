@@ -48,6 +48,7 @@ public class ItemizedBudgetService {
     private final AuditPort audit;
     private final BudgetPriceResolver prices;
     private final cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort usagePricing;
+    private boolean originalDesignRules;
 
     @org.springframework.beans.factory.annotation.Autowired
     public ItemizedBudgetService(DataSource dataSource, PlatformTransactionManager transactionManager,
@@ -68,6 +69,12 @@ public class ItemizedBudgetService {
     }
 
     public record SaveResult(String budgetId, boolean saved) {}
+    public ItemizedBudgetService(DataSource source,PlatformTransactionManager manager,DesignProjectService projects,AuditPort audit,boolean originalDesignRules) {
+        this(source,manager,projects,audit,null);this.originalDesignRules=originalDesignRules;
+    }
+    private BudgetInputs.Resolved resolveInputs(Map<String,Object> imported,Map<String,Object> overrides,BudgetInputs.FormulaProfile profile) {
+        return originalDesignRules?OriginalBudgetRules.resolve(imported,overrides):BudgetInputs.resolve(imported,overrides,profile);
+    }
     /** Internal paging references: the controller expands them through the old/new explicit public projections. */
     public record HistoryRef(String budgetId, String model) {}
     private record Request(Long resultVersionId, Map<String, Object> overrides, List<Long> optionIds,
@@ -108,7 +115,7 @@ public class ItemizedBudgetService {
             requestBody.put("usageConfirmation",body.get("usageConfirmation"));
             if (body.containsKey("expectedPriceVersion")) requestBody.put("expectedPriceVersion", body.get("expectedPriceVersion"));
             // New independent drafts use the workbook formula; historical project budgets stay LEGACY unless explicit.
-            requestBody.put("calculationProfile","EXCEL_V1");
+            requestBody.put("calculationProfile",originalDesignRules?"LEGACY":"EXCEL_V1");
             return createSnapshot(userId,null,parseRequest(requestBody),key,fingerprint,draft);
         });
     }
@@ -188,8 +195,8 @@ public class ItemizedBudgetService {
                 : new DesignProjectService.BudgetInputSnapshot(BudgetInputs.readJson(draft.get("imported_inputs").toString()),
                     JsonUtils.parseObject(draft.get("source_snapshot_ids").toString(),new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {}));
         if (request.requirementSnapshotIds() != null && !request.requirementSnapshotIds().equals(imported.requirementSnapshotIds())) throw exception(STATE_VERSION_CONFLICT);
-        BudgetInputs.Resolved original = BudgetInputs.resolve(imported.inputs(), Map.of(), request.profile());
-        BudgetInputs.Resolved current = BudgetInputs.resolve(imported.inputs(), request.overrides(), request.profile());
+        BudgetInputs.Resolved original = resolveInputs(imported.inputs(), Map.of(), request.profile());
+        BudgetInputs.Resolved current = resolveInputs(imported.inputs(), request.overrides(), request.profile());
         Object regionCode = current.values().get("regionCode");
         if (!(regionCode instanceof String selectedRegion) || selectedRegion.isBlank()) throw exception(BUDGET_INPUT_INVALID);
         // 统一取价解析器：平台地区基准/覆盖价；自定义地区配置价，未保存配置时武汉兜底（显式标记）。
@@ -226,7 +233,7 @@ public class ItemizedBudgetService {
             if (!region.custom() && effective.userPriced()) userPriced = true;
             if (effective.unitPriceCents() == null && "CUSTOM_TEMPLATE".equals(item.get("source"))) throw exception(BUDGET_INPUT_INVALID);
             Long baseUnitPriceCents = effective.unitPriceCents();
-            var quantity = BudgetCalculator.resolveQuantity(current, (String) option.get("unit"), (String) option.get("quantity_source"), (String) option.get("quantity_key"));
+            var quantity = originalDesignRules?OriginalBudgetRules.resolveQuantity(current,(String)option.get("unit"),(String)option.get("quantity_source"),(String)option.get("quantity_key")):BudgetCalculator.resolveQuantity(current, (String) option.get("unit"), (String) option.get("quantity_source"), (String) option.get("quantity_key"));
             var coefficient = BudgetFormula.quantityCoefficient(current, (String) item.get("code"), (String) option.get("code"), (String) option.get("quantity_source"), quantity.source());
             String effectiveQuantity = BudgetFormula.scaleQuantity(quantity.value(), coefficient);
             // 用户价（覆盖/配置）视为该选项的最终单价，不再叠加公式系数；平台基准价仍按公式规则计算。
@@ -287,7 +294,7 @@ public class ItemizedBudgetService {
         // Persist deterministic item and line order independently of client selection array order.
         frozen.sort(Comparator.comparingInt((FrozenLine line) -> ((Number) itemIndex.get(Long.parseLong(line.input().itemId())).get("sort_order")).intValue())
                 .thenComparing(line -> Long.parseLong(line.input().itemId())).thenComparing(line -> line.input().lineId()));
-        BudgetCalculator.Result calculated = BudgetCalculator.calculate(current, frozen.stream().map(FrozenLine::input).toList());
+        BudgetCalculator.Result calculated = originalDesignRules?OriginalBudgetRules.calculate(current,frozen.stream().map(FrozenLine::input).toList()):BudgetCalculator.calculate(current, frozen.stream().map(FrozenLine::input).toList());
         long budgetId = IdWorker.getId(), revisionId = IdWorker.getId();
         String createdAt = measuredAt.toInstant().toString();
         Map<String, Object> header = draft == null ? projectHeader(projectId, request.resultVersionId()) : Map.of("projectName",draft.get("name"),"schemeName",draft.get("source_project_id")==null?"独立填写参数":"导入本人项目参数副本");
@@ -330,8 +337,9 @@ public class ItemizedBudgetService {
         pricingProfile.put("pricingBasis", pricingBasis);
         pricingProfile.put("source", region.custom() ? "USER_PROFILE" : (userPriced ? "USER_OVERRIDE" : "PLATFORM"));
         var inputSummary = new LinkedHashMap<String, Object>(current.publicValues());
-        inputSummary.put("calculationProfile", current.profile().name());
         inputSummary.put("pricingProfile", pricingProfile);
+        if (!originalDesignRules) {
+        inputSummary.put("calculationProfile", current.profile().name());
         var quote = BudgetCalculator.quoteSummary(calculated);
         var quoteSummary = new LinkedHashMap<String, Object>();
         quoteSummary.put("bodySubtotalCents", quote.bodySubtotalCents());
@@ -342,6 +350,7 @@ public class ItemizedBudgetService {
         quoteSummary.put("managementFeeRate", quote.managementFeeRate().toPlainString());
         quoteSummary.put("grandTotalCents", quote.grandTotalCents());
         inputSummary.put("quoteSummary", quoteSummary);
+        }
         AppItemizedBudgetRespVO response = new AppItemizedBudgetRespVO(String.valueOf(budgetId), String.valueOf(revisionId), MODEL,
                 projectId == null ? null : String.valueOf(projectId), (String) header.get("projectName"), request.resultVersionId() == null ? null : request.resultVersionId().toString(),
                 (String) header.get("schemeName"), region.name(), inputSummary, calculated.completeness(), calculated.pricedSubtotalCents(),
@@ -411,7 +420,7 @@ public class ItemizedBudgetService {
     }
 
     private Map<String, Object> requireBudget(long userId, long budgetId, boolean lock) {
-        if (userId <= 0 || budgetId <= 0) throw exception(RESOURCE_FORBIDDEN);
+        if (userId == 0 || budgetId <= 0) throw exception(RESOURCE_FORBIDDEN);
         if (lock && drafts != null) drafts.requireActive(userId);
         var rows = jdbc.queryForList("SELECT id, project_id, draft_id, result_version_id, model, saved FROM budget_estimate WHERE tenant_id = 0 AND id = ? AND user_id = ? AND deleted = FALSE" + (lock ? " FOR UPDATE" : ""), budgetId, userId);
         if (rows.isEmpty()) throw exception(RESOURCE_FORBIDDEN);
@@ -426,7 +435,7 @@ public class ItemizedBudgetService {
     }
 
     private void requireProject(long userId, long projectId, Long versionId, boolean lock) {
-        if (userId <= 0 || projectId <= 0) throw exception(RESOURCE_FORBIDDEN);
+        if (userId == 0 || projectId <= 0) throw exception(RESOURCE_FORBIDDEN);
         projects.getProject(projectId, userId).orElseThrow(() -> exception(RESOURCE_FORBIDDEN));
         var rows = jdbc.queryForList("SELECT id FROM design_project WHERE tenant_id = 0 AND id = ? AND user_id = ? AND deleted = FALSE" + (lock ? " FOR SHARE" : ""), projectId, userId);
         if (rows.isEmpty()) throw exception(RESOURCE_FORBIDDEN);
@@ -478,13 +487,13 @@ public class ItemizedBudgetService {
                 .result(AuditEventMessage.AuditResult.SUCCESS).tenantId(0L).detail(detail).build());
     }
 
-    private static Request parseRequest(Map<String, Object> body) {
+    private Request parseRequest(Map<String, Object> body) {
         if (body == null || !Set.of("resultVersionId", "inputOverrides", "optionIds", "requirementSnapshotIds", "usageConfirmation", "calculationProfile", "expectedPriceVersion").containsAll(body.keySet())) throw exception(BUDGET_INPUT_INVALID);
         Long resultVersionId = body.get("resultVersionId") == null ? null : BudgetInputs.positiveId(string(body.get("resultVersionId")));
         Map<String, Object> overrides = body.get("inputOverrides") == null ? Map.of() : object(body.get("inputOverrides"));
-        BudgetInputs.FormulaProfile profile = parseProfile(body.get("calculationProfile"));
+        BudgetInputs.FormulaProfile profile = originalDesignRules?BudgetInputs.FormulaProfile.LEGACY:parseProfile(body.get("calculationProfile"));
         // Validate override whitelist/decimal representation independently from persisted project input.
-        BudgetInputs.resolve(Map.of(), overrides, profile);
+        resolveInputs(Map.of(), overrides, profile);
         if (!(body.get("optionIds") instanceof List<?> options) || options.size() > 100) throw exception(BUDGET_INPUT_INVALID);
         List<Long> ids = new ArrayList<>();
         for (Object id : options) ids.add(BudgetInputs.positiveId(string(id)));

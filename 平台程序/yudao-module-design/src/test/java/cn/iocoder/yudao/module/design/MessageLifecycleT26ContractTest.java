@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.*;
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MessageLifecycleT26ContractTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    @Container static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private JdbcTemplate jdbc;
     private SimpleDriverDataSource ds;
     private DataSourceTransactionManager manager;

@@ -72,6 +72,13 @@ public final class PublicCaseCatalogClient {
     public JsonNode listStyles() {
         return get(Endpoint.STYLES, CASES_PATH + "/styles");
     }
+    public JsonNode generation(String path,Map<String,String> parameters) {
+        if(!path.equals("/cases/generation-candidates")&&!path.matches("/cases/[1-9][0-9]*/generation-candidate")&&!path.equals("/cases/recommendation"))throw new IllegalArgumentException("Invalid generation catalog route");
+        Set<String> allowed=Set.of("floorCount","faceWidth","depth","dimensionBasis","caseVersionId","area");
+        var query=new ArrayList<String>();parameters.forEach((key,value)->{if(!allowed.contains(key))throw new IllegalArgumentException("Invalid generation query");query.add(encode(key)+"="+encode(value));});
+        String sourcePath=path.replace("/generation-candidates","/public-generation-candidates").replace("/generation-candidate","/public-generation-candidate");
+        return get(Endpoint.DETAIL,"/app-api/design/v1"+sourcePath+(query.isEmpty()?"":"?"+String.join("&",query)));
+    }
 
     public JsonNode getCase(long caseId) {
         return getCase(caseId, settings.requestTimeout);
@@ -95,7 +102,9 @@ public final class PublicCaseCatalogClient {
         JsonNode detail = getCase(caseId);
         String id = String.valueOf(assetId);
         boolean member = id.equals(detail.path("coverAssetId").asText());
+        member |= id.equals(detail.path("elevationAssetId").asText());
         for (JsonNode image : detail.path("floorPlanAssetIds")) member |= id.equals(image.asText());
+        for (JsonNode image : detail.path("floorPlans")) member |= id.equals(image.path("assetId").asText());
         if (!String.valueOf(caseId).equals(detail.path("caseId").asText()) || !member) {
             throw new PublicCaseCatalogException("图片不属于当前公开案例",403,false,false);
         }

@@ -61,7 +61,7 @@ public class BudgetAccountPriceService {
 
     /** 逐项并列基准价与本人覆盖价；只开放标准目录项，自定义模板项维持后台补价流程。 */
     public AppMyPriceRespVO.Items listPrices(long accountId, String regionCode) {
-        if (accountId <= 0) throw exception(RESOURCE_FORBIDDEN);
+        if (accountId == 0) throw exception(RESOURCE_FORBIDDEN);
         var region = region(regionCode, accountId);
         var rows = standardRows(accountId, number(region, "id"), (String) region.get("code"), null);
         LinkedHashMap<Long, AppMyPriceRespVO.Group> groups = new LinkedHashMap<>();
@@ -75,7 +75,7 @@ public class BudgetAccountPriceService {
 
     /** 设置本人覆盖价；upsert 天然幂等，同账号同选项并发由部分唯一索引兜底成单条 ACTIVE。 */
     public AppMyPriceRespVO upsert(long accountId, String regionCode, long optionId, Map<String, Object> body) {
-        if (accountId <= 0) throw exception(RESOURCE_FORBIDDEN);
+        if (accountId == 0) throw exception(RESOURCE_FORBIDDEN);
         var region = region(regionCode, accountId);
         long regionId = number(region, "id");
         if (body == null || !Set.of("unitPriceCents", "reason").containsAll(body.keySet()) || !body.containsKey("unitPriceCents")) {
@@ -119,7 +119,7 @@ public class BudgetAccountPriceService {
 
     /** 恢复默认：置 REMOVED 保留历史；无覆盖时幂等成功。 */
     public AppMyPriceRespVO reset(long accountId, String regionCode, long optionId) {
-        if (accountId <= 0) throw exception(RESOURCE_FORBIDDEN);
+        if (accountId == 0) throw exception(RESOURCE_FORBIDDEN);
         var region = region(regionCode, accountId);
         long regionId = number(region, "id");
         var previous = activeOverride(accountId, regionCode, optionId);
@@ -139,7 +139,7 @@ public class BudgetAccountPriceService {
 
     /** 管理端只读查询：某账号的覆盖历史（含已恢复的 REMOVED 行），无任何干预入口。 */
     public PageResult<AdminAccountPrice> pageByAccount(long accountId, String regionCode, int pageNo, int pageSize) {
-        if (accountId <= 0 || pageNo < 1 || pageSize < 1 || pageSize > 100) throw exception(BUDGET_ACCOUNT_PRICE_INVALID);
+        if (accountId == 0 || pageNo < 1 || pageSize < 1 || pageSize > 100) throw exception(BUDGET_ACCOUNT_PRICE_INVALID);
         // 审计查历史：只要求地区真实存在，不要求启用（停用地区的历史覆盖价仍须可追溯）
         String validatedRegionCode = existingRegionCode(regionCode);
         Long total = jdbc.queryForObject("SELECT count(*) FROM budget_account_price WHERE tenant_id = 0 AND account_id = ? "

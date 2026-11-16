@@ -15,14 +15,16 @@ import java.util.List;
  * </ul>
  */
 public interface OrgPointPort {
+    record PriceQuote(String subject,long quantity,long credits,String priceVersion) { }
+    default PriceQuote quotePrice(String subject,long quantity) { throw new IllegalStateException("Confirmed company price is unavailable"); }
+    default long reserveConfirmed(ReserveCommand command,long credits,String priceVersion) { throw new IllegalStateException("Versioned company price is unavailable"); }
 
     /** 预扣；返回 operationId。只按业务权限和公司积分余额准入。 */
     long reserve(ReserveCommand command);
-    /** 核对用户确认价格后才允许预扣。 */
-    default long reserveConfirmed(ReserveCommand command,long confirmedCredits) {
+    /** 确认价格的制作命令；实现必须按同一份价格快照核对并预扣。 */
+    default long reserveConfirmed(ReserveCommand command, long confirmedCredits) {
         throw new IllegalArgumentException("当前积分实现不支持确认价格预扣");
     }
-
 
     /** 按 operation 结算（按原快照换算实收，退差 max(N-M,0)）。 */
     Settlement settle(long operationId, long actualQuantity);

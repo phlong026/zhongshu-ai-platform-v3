@@ -46,29 +46,36 @@ public final class RemoteReferenceReader {
             AssetAccessPort assets,
             AssetAccessPort.Actor actor) {
         List<Long> ids = referenceIds(command.requirementInputs());
-        if (ids.isEmpty()) return command;
-        if (!"ELEVATION".equals(command.line())
+        Long sketch=command.sketchAssetId();
+        if (ids.isEmpty() && sketch==null) return command;
+        if ((!ids.isEmpty()&&!"ELEVATION".equals(command.line()))
                 || !Set.of("SELF_UPLOAD", "CASE_REFERENCE").contains(command.sourceType())
-                || command.sketchAssetId() != null) throw failure("参考图仅支持自传立面项目");
+                || (sketch!=null&&!"FLAT".equals(command.line()))) throw failure("参考图片线路不匹配");
         uploader.requireReady();
         // 全部图片先授权及校验，再开始任何远程操作；最多3张，与现有需求验证一致。
         var content = new ArrayList<AssetAccessPort.ReferenceContent>();
         for (long id : ids) content.add(assets.readDesignReference(actor, id));
+        var sketchContent=sketch==null?null:assets.readDesignReference(actor,sketch);
+        if(sketchContent!=null&&sketchContent.bytes().length>(10<<20))throw failure("草图不能超过10MB");
         var mapped = new ArrayList<String>();
         for (int i = 0; i < ids.size(); i++)
             mapped.add(String.valueOf(mirror(post, ids.get(i), content.get(i))));
-        var inputs = new LinkedHashMap<>(command.requirementInputs());
-        inputs.put("referenceAssetIds", List.copyOf(mapped));
+        var inputs = new LinkedHashMap<>(command.requirementInputs()==null?Map.of():command.requirementInputs());
+        if(!ids.isEmpty())inputs.put("referenceAssetIds", List.copyOf(mapped));
+        Long mappedSketch=sketch==null?null:mirror(post,sketch,sketchContent,"USER_SKETCH");
         return new DesignServicePort.DesignProjectCreate(
                 command.sourceType(),
                 command.refCaseId(),
-                null,
+                mappedSketch,
                 inputs,
                 command.line(),
                 command.idempotencyKey());
     }
 
     private long mirror(PostSnapshot post, long id, AssetAccessPort.ReferenceContent content) {
+        return mirror(post,id,content,"DESIGN_REFERENCE");
+    }
+    private long mirror(PostSnapshot post, long id, AssetAccessPort.ReferenceContent content,String assetType) {
         long tenant = remote.tenant(post);
         var lease =
                 mirrors.claim(
@@ -82,7 +89,7 @@ public final class RemoteReferenceReader {
                                 content.sha256()));
         if (lease.acceptedId() != null) return lease.acceptedId();
         try {
-            var ticket = ticket(post, lease, content);
+            var ticket = ticket(post, lease, content,assetType);
             if (lease.recovery()) {
                 var completed = complete(post, lease, ticket.assetId());
                 if (accepted(completed, ticket.assetId())) {
@@ -92,7 +99,7 @@ public final class RemoteReferenceReader {
                 if (!"REJECTED".equals(completed.uploadStatus()))
                     throw failure("参考图校验中，请稍后使用原业务键重试");
                 lease = mirrors.restart(lease);
-                ticket = ticket(post, lease, content);
+                ticket = ticket(post, lease, content,assetType);
             }
             mirrors.renew(lease);
             uploader.put(ticket.uploadUrl(), content.bytes(), content.mimeType());
@@ -107,14 +114,14 @@ public final class RemoteReferenceReader {
     }
 
     private DesignServicePort.UploadTicketView ticket(
-            PostSnapshot p, ReferenceMirrorStore.Lease l, AssetAccessPort.ReferenceContent c) {
+            PostSnapshot p, ReferenceMirrorStore.Lease l, AssetAccessPort.ReferenceContent c,String assetType) {
         var ticket =
                 remote.<DesignServicePort.UploadTicketView>call(
                         p,
                         Operation.CREATE_UPLOAD_TICKET,
                         "reference:" + l.attempt() + ":ticket",
                         new DesignServicePort.UploadTicketCreate(
-                                "DESIGN_REFERENCE", c.mimeType(), c.bytes().length, c.sha256()));
+                                assetType, c.mimeType(), c.bytes().length, c.sha256()));
         if (ticket == null || ticket.assetId() <= 0) throw failure("设计服务上传票据无效");
         return ticket;
     }

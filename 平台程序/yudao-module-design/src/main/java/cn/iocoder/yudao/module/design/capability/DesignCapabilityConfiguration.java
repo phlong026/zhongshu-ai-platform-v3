@@ -79,6 +79,8 @@ public class DesignCapabilityConfiguration {
             billing.requireReady();
             var jdbc = new JdbcTemplate(source);
             jdbc.queryForObject("SELECT count(*) FROM design_capability_receipt WHERE false", Long.class);
+              jdbc.queryForObject("SELECT count(*) FROM design_capability_case_image WHERE false", Long.class);
+              jdbc.queryForObject("SELECT count(*) FROM design_capability_case_mirror WHERE false", Long.class);
             Long protectedConsumerIds = jdbc.queryForObject("SELECT count(*) FROM pg_constraint WHERE conrelid='account'::regclass "
                     + "AND conname='ck_account_consumer_namespace' AND convalidated=true", Long.class);
             if (protectedConsumerIds == null || protectedConsumerIds != 1) {

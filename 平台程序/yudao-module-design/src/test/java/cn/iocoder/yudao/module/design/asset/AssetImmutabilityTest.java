@@ -27,10 +27,10 @@ import static org.assertj.core.api.Assertions.*;
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AssetImmutabilityTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    @Container static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     // MinIO 官方已下架 Docker Hub 仓库（minio/minio 于 2026-09-11~14 删除，quay.io 于 2026-09-24 起要求鉴权），
     // 改用社区重建镜像 pgsty/minio（同源镜像、匿名可拉、行为一致）。
-    @Container static final GenericContainer<?> MINIO = new GenericContainer<>("pgsty/minio:RELEASE.2026-08-04T00-00-00Z")
+    @Container static final GenericContainer<?> MINIO = cn.iocoder.yudao.module.platform.test.TestNativeService.container("pgsty/minio:RELEASE.2026-08-04T00-00-00Z")
             .withExposedPorts(9000).withEnv("MINIO_ROOT_USER", "localtester")
             .withEnv("MINIO_ROOT_PASSWORD", "local-test-only-password").withCommand("server", "/data")
             .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000));

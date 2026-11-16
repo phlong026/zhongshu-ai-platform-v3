@@ -24,6 +24,10 @@ import java.util.Optional;
 @Service
 @ConditionalOnProperty(name = "zhongshu.design.capability.enabled", havingValue = "true")
 public class DurableServiceDesignBilling implements ServiceDesignBillingPort {
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private cn.iocoder.yudao.module.design.capability.OriginalDesignFlow originalFlow;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private cn.iocoder.yudao.module.design.capability.CaseReferenceImportPort caseReferences;
     private final PlatformCostPort costs;
     private final DesignProjectService projects;
     private final BudgetService budgets;
@@ -51,6 +55,7 @@ public class DurableServiceDesignBilling implements ServiceDesignBillingPort {
             throw new IllegalStateException("SERVICE_PREPARATION_MUST_RUN_OUTSIDE_TRANSACTION");
         }
         validate(operation,payload);
+        refreshReferences(scope,operation,payload);
         var preparation=costs.prepare(subject(scope),product(operation,payload),count(operation,payload),fingerprint(operation,payload));
         if (operation==Operation.NOTE_POLISH && preparation.resultJson()==null) {
             if (!"PREPARED".equals(preparation.state())) {
@@ -80,6 +85,7 @@ public class DurableServiceDesignBilling implements ServiceDesignBillingPort {
         if (preparation.isEmpty()) return allowDispatch ? Optional.of(prepare(scope,operation,payload)) : Optional.empty();
         var stored=preparation.get();
         if (!allowDispatch && "PREPARED".equals(stored.state())) return Optional.empty();
+        if (allowDispatch) refreshReferences(scope,operation,payload);
         if (operation==Operation.NOTE_POLISH && stored.resultJson()==null) {
             if ("PREPARED".equals(stored.state())) return allowDispatch ? Optional.of(prepare(scope,operation,payload)) : Optional.empty();
             if ("EXTERNAL_FAILED".equals(stored.state()) || "REJECTED".equals(stored.state())) {
@@ -119,6 +125,36 @@ public class DurableServiceDesignBilling implements ServiceDesignBillingPort {
         costs.requirePrepared(subject(scope),prepared.preparationId(),fingerprint);
         String taskKey="svc:"+prepared.preparationId();
         return switch (operation) {
+            case FLOW_FLAT_JOB,FLOW_ELEVATION_JOB,FLOW_REVISION -> {
+                var call=(cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload;
+                if(caseReferences!=null&&operation==Operation.FLOW_ELEVATION_JOB)call=caseReferences.mapped(scope.serviceAccountId(),call);
+                long project=call.resourceId();long job;
+                if(operation==Operation.FLOW_FLAT_JOB)job=projects.createFlatJob(scope.serviceAccountId(),project,call.count(),taskKey,null,
+                        GenerationImageOptions.normalize("FLAT",call.text("resolution"),call.text("orientation"))).jobId();
+                else if(operation==Operation.FLOW_ELEVATION_JOB) {
+                    var config=new LinkedHashMap<String,Object>();
+                    if(call.body().get("requirementInputs") instanceof java.util.Map<?,?> inputs) {
+                        inputs.forEach((name,value)->config.put(String.valueOf(name),value));
+                        config.putIfAbsent("referenceAssetIds",java.util.List.of());
+                        config.put("referenceCaseId",call.body().get("refCaseId")==null?"":String.valueOf(call.body().get("refCaseId")));
+                    }
+                    for(String name:java.util.List.of("styleCode","roofType","material","color","prompt"))if(call.text(name)!=null&&!call.text(name).isBlank())config.put(name,call.text(name));
+                    config.put("count",call.count());
+                    job=projects.createElevationJob(scope.serviceAccountId(),project,call.count(),taskKey,config,null,
+                            GenerationImageOptions.normalize("ELEVATION",call.text("resolution"),call.text("orientation"))).jobId();
+                } else {
+                    var options=GenerationImageOptions.normalize("ELEVATION",call.text("resolution"),call.text("orientation"));
+                    @SuppressWarnings("unchecked") var updates=(java.util.Map<String,Object>)call.body().get("configUpdates");
+                    job=projects.createRevisionRequestReceipt(scope.serviceAccountId(),project,call.text("reason"),updates,call.count(),taskKey,null,options.resolution(),options.orientation()).newJobId();
+                }
+                yield new cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall.Accepted(String.valueOf(project),String.valueOf(job),java.util.List.of("POLL_JOB"));
+            }
+            case FLOW_BUDGET -> {
+                if(originalFlow==null)throw new IllegalStateException("Original itemized budget service is unavailable");
+                Object result=originalFlow.invoke(scope.serviceAccountId(),((cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload).withKey(taskKey));
+                costs.finishUsage(prepared.preparationId(),write(result));
+                yield result;
+            }
             case CREATE_FLAT_JOB -> {
                 FlatJob input=(FlatJob)payload;
                 var cmd=input.command();
@@ -201,9 +237,21 @@ public class DurableServiceDesignBilling implements ServiceDesignBillingPort {
     }
     private static void validate(Operation operation,Object payload) {
         if (!operation.paid() || !operation.payloadType().isInstance(payload)) throw new IllegalArgumentException("Invalid billable operation payload");
+        if(payload instanceof cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall call && call.operation()!=operation)throw new IllegalArgumentException("Mismatched design flow billing");
+    }
+    private void refreshReferences(ServiceScope scope,Operation operation,Object payload) {
+        if(caseReferences==null)return;
+        if(payload instanceof cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall flow && operation!=Operation.FLOW_BUDGET) {
+            if(operation==Operation.FLOW_ELEVATION_JOB&&flow.body().containsKey("refCaseId")) {
+                if(flow.body().get("refCaseId")!=null)caseReferences.prepare(scope.serviceAccountId(),flow);
+            } else caseReferences.refreshProject(scope.serviceAccountId(),flow.resourceId());
+        } else if(payload instanceof FlatJob flat)caseReferences.refreshProject(scope.serviceAccountId(),flat.projectId());
+        else if(payload instanceof ElevationJob elev)caseReferences.refreshProject(scope.serviceAccountId(),elev.projectId());
+        else if(payload instanceof Revision revision)caseReferences.refreshProject(scope.serviceAccountId(),revision.projectId());
     }
     private static int count(Operation operation,Object payload) {
         return switch (operation) {
+            case FLOW_FLAT_JOB,FLOW_ELEVATION_JOB,FLOW_REVISION -> ((cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload).count();
             case CREATE_FLAT_JOB -> ((FlatJob)payload).command().count();
             case CREATE_ELEVATION_JOB -> ((ElevationJob)payload).command().count();
             case CREATE_REVISION_REQUEST -> ((Revision)payload).command().count()==null?2:((Revision)payload).command().count();
@@ -212,6 +260,9 @@ public class DurableServiceDesignBilling implements ServiceDesignBillingPort {
     }
     private static String product(Operation operation,Object payload) {
         return switch (operation) {
+            case FLOW_FLAT_JOB -> "FLAT:"+GenerationImageOptions.normalize("FLAT",((cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload).text("resolution"),((cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload).text("orientation")).resolution();
+            case FLOW_ELEVATION_JOB,FLOW_REVISION -> "ELEVATION:"+GenerationImageOptions.normalize("ELEVATION",((cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload).text("resolution"),((cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall)payload).text("orientation")).resolution();
+            case FLOW_BUDGET -> "BUDGET_ESTIMATE";
             case CREATE_FLAT_JOB -> "FLAT:"+GenerationImageOptions.normalize("FLAT",((FlatJob)payload).command().resolution(),((FlatJob)payload).command().orientation()).resolution();
             case CREATE_ELEVATION_JOB -> "ELEVATION:"+GenerationImageOptions.normalize("ELEVATION",((ElevationJob)payload).command().resolution(),((ElevationJob)payload).command().orientation()).resolution();
             case CREATE_REVISION_REQUEST -> "ELEVATION:"+GenerationImageOptions.normalize("ELEVATION",((Revision)payload).command().resolution(),((Revision)payload).command().orientation()).resolution();

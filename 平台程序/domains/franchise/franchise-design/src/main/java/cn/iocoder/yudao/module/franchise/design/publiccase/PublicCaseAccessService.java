@@ -78,6 +78,8 @@ public final class PublicCaseAccessService implements AutoCloseable {
     public DesignServicePort.CasePage listCases(PostSnapshot post, DesignServicePort.CaseQuery query) {
         validatePageLimit(query.limit());
         Map<String, String> parameters = new LinkedHashMap<>();
+        put(parameters,"sourceType",query.sourceType());
+        put(parameters,"minArea",query.minArea());put(parameters,"maxArea",query.maxArea());
         put(parameters, "styleCode", query.styleCode());
         put(parameters, "floorCount", query.floorCount());
         put(parameters, "faceWidth", query.faceWidth());
@@ -116,6 +118,9 @@ public final class PublicCaseAccessService implements AutoCloseable {
 
     public DesignServicePort.CaseDetailView getCaseDetail(PostSnapshot post, long caseId) {
         return new DesignServicePort.CaseDetailView(detail(tenant(), post, caseId, null));
+    }
+    public Object generation(PostSnapshot post,String path,Map<String,String> query) {
+        return fromCatalog(tenant(),post,false,()->catalog.generation(path,query));
     }
 
     public void favoriteCase(PostSnapshot post, long caseId) {
@@ -172,13 +177,8 @@ public final class PublicCaseAccessService implements AutoCloseable {
         return hideUnavailableActions(fields);
     }
 
-    /** B cannot materialize A's case assets yet, so it must not advertise that action as available. */
+    /** Preserve A's authoritative action list. Generation separately revalidates the version and entitlement. */
     private static Map<String, Object> hideUnavailableActions(Map<String, Object> fields) {
-        Object actions = fields.get("allowedActions");
-        if (!(actions instanceof List<?> values)) return fields;
-        fields.put("allowedActions", values.stream()
-                .filter(action -> !"DESIGN_WITH".equals(action))
-                .toList());
         return fields;
     }
 

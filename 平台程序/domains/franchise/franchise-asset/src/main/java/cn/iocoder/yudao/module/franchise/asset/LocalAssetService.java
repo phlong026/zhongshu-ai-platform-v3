@@ -390,6 +390,14 @@ public class LocalAssetService implements AssetAccessPort {
         if (updated != 1) throw exception(RESOURCE_FORBIDDEN);
     }
 
+    @Override public ContentMetadata contentMetadata(Actor actor, long id) {
+        long tenant = authorize(actor);
+        Asset row = accepted(tenant, actor, id);
+        requireChannel(actor, row.type());
+        if (!"CONTENT_ASSET".equals(row.type())) throw exception(RESOURCE_FORBIDDEN);
+        return new ContentMetadata(row.mime(), row.sha(), row.size());
+    }
+
     @Override public String assetTypeOf(Actor actor, long id) {
         Asset row = load(authorize(actor), actor, id);
         return row == null ? null : row.type();

@@ -34,7 +34,7 @@ import static org.mockito.Mockito.*;
 /** Real project/receipt/ownership persistence; external AI is a test double, not a live channel test. */
 @Testcontainers
 class DesignCapabilityProviderTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    @Container static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private DesignCapabilityProvider provider;
     private CapabilityOrganizationMapping mapping;
     private CapabilityReceiptStore receipts;
@@ -43,6 +43,8 @@ class DesignCapabilityProviderTest {
     private TransactionTemplate tx;
     private ServicePrincipal first;
     private ServicePrincipal second;
+    private AiJobPort jobPort;
+    private FranchiseDesignAdapter adapter;
 
     @BeforeEach void setup() {
         var source = new SimpleDriverDataSource(new org.postgresql.Driver(), PG.getJdbcUrl(), PG.getUsername(), PG.getPassword());
@@ -64,8 +66,9 @@ class DesignCapabilityProviderTest {
         second = mapping.resolve("platform", 11);
         var projects = new DesignProjectService(source, transactions, mock(AiJobPort.class), mock(AssetService.class),
                 null, null, new CapabilityServiceAccountGuard(source));
-        var adapter = new FranchiseDesignAdapter(projects, new CaseCatalogService(source, transactions), mock(AssetService.class),
-                mock(BudgetService.class), mock(AiJobPort.class), null, null,
+        jobPort=mock(AiJobPort.class);
+        adapter = new FranchiseDesignAdapter(projects, new CaseCatalogService(source, transactions), mock(AssetService.class),
+                mock(BudgetService.class), jobPort, null, null,
                 new StaticListableBeanFactory().getBeanProvider(UsagePricingPort.class), transactions, source);
         receipts = new CapabilityReceiptStore(source, transactions, new ObjectMapper());
         billing = mock(ServiceDesignBillingPort.class);
@@ -77,6 +80,41 @@ class DesignCapabilityProviderTest {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(principal, null, "SERVICE"));
         return provider.invoke(principal, action, new Request<>(principal.callerAppId(), principal.orgId(),
                 new DesignServicePort.Actor(5, 6, "DESIGNER"), action, key, UUID.randomUUID().toString(), payload));
+    }
+
+    @Test void historicalJobSpecsUseTheOriginalPhaseDefaultsAndExplicitSpecsRemainUnchanged() {
+        long owner=first.serviceAccountId();
+        jdbc.execute("ALTER TABLE ai_job ADD COLUMN IF NOT EXISTS input_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb");
+        jdbc.update("INSERT INTO ai_job(id,user_id,project_ref,phase,requested_count,output_prefix,tenant_id,input_snapshot) VALUES(101,?,'61','FLAT',2,'test/legacy',?,'{}')",owner,first.tenantId());
+        var job=mock(AiJobPort.JobView.class);when(job.jobId()).thenReturn(101L);when(job.userId()).thenReturn(owner);when(job.phase()).thenReturn("FLAT");when(job.status()).thenReturn("SUCCEEDED");when(job.projectRef()).thenReturn("61");when(job.requestedCount()).thenReturn(2);
+        when(jobPort.getJob(101)).thenReturn(java.util.Optional.of(job));
+        assertThat(adapter.getAiJob(owner,101).imageOptions()).containsEntry("resolution","2K").containsEntry("orientation","PORTRAIT");
+        assertThat(adapter.getAiJob(owner,101).createdAt()).endsWith("Z");
+        when(job.status()).thenReturn("CREATED");assertThat(adapter.getAiJob(owner,101).allowedActions()).contains("CANCEL");
+        jdbc.update("UPDATE ai_job SET phase='ELEVATION' WHERE id=101");
+        when(job.phase()).thenReturn("ELEVATION");
+        assertThat(adapter.getAiJob(owner,101).imageOptions()).containsEntry("orientation","LANDSCAPE");
+        jdbc.update("UPDATE ai_job SET input_snapshot='{\"imageOptions\":{\"resolution\":\"4K\",\"orientation\":\"PORTRAIT\"}}' WHERE id=101");
+        assertThat(adapter.getAiJob(owner,101).imageOptions()).containsEntry("resolution","4K").containsEntry("orientation","PORTRAIT");
+        assertThatThrownBy(()->adapter.getAiJob(second.serviceAccountId(),101)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+    }
+
+    @Test void originalBudgetDraftRoundTripUsesAValidStableSourceKeyAndReplaysItsReceipt() {
+        var source=jdbc.getDataSource();var manager=new DataSourceTransactionManager(source);
+        var drafts=new cn.iocoder.yudao.module.design.budget.BudgetDraftService(source,manager,mock(DesignProjectService.class),new CapabilityServiceAccountGuard(source));
+        var port=mock(DesignServicePort.class);
+        when(port.designFlow(anyLong(),any(),any())).thenAnswer(invocation->{
+            cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall call=invocation.getArgument(1);
+            return drafts.create(invocation.getArgument(0),call.idempotencyKey());
+        });
+        org.springframework.test.util.ReflectionTestUtils.setField(provider,"design",port);
+        var payload=new cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall("POST","/budget-drafts",Map.of(),Map.of(),"source-request");
+        var firstReply=invoke(first,Operation.FLOW_WRITE,"source-budget",payload);
+        var secondReply=invoke(first,Operation.FLOW_WRITE,"source-budget",payload);
+        com.fasterxml.jackson.databind.JsonNode firstResult=new ObjectMapper().valueToTree(firstReply.result());
+        assertThat(firstResult).isEqualTo(new ObjectMapper().valueToTree(secondReply.result()));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM budget_draft",Long.class)).isEqualTo(1);
+        verify(port,times(1)).designFlow(anyLong(),any(),any());verifyNoInteractions(billing);
     }
 
     @Test void realProjectWriteReceiptAndReadAreScopedAndDoNotProvisionConsumerIdentity() {

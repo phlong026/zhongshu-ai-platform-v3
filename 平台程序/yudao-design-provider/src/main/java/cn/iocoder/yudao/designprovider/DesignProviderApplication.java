@@ -66,6 +66,7 @@ import java.util.Arrays;
         ProviderRuntimeAuthSmokeController.class,
         ProviderPlatformAuthSmokeController.class,
         ProviderAiJobInternalController.class, ProviderPromptEventService.class, ProviderOutputTicketService.class,
+        PublishedCaseReferenceImporter.class,
         RuntimeCallTraceInternalController.class,
         ProviderDesignJobDriver.class})
 @EnableScheduling

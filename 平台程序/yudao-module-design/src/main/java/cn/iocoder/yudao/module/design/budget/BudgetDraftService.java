@@ -81,7 +81,7 @@ public class BudgetDraftService {
         });
     }
     public Map<String,Object> require(long user,long id,boolean lock) {
-        if (user<=0 || id<=0) throw exception(RESOURCE_FORBIDDEN);
+        if (user == 0 || id<=0) throw exception(RESOURCE_FORBIDDEN);
         var rows=jdbc.queryForList("SELECT * FROM budget_draft WHERE tenant_id=0 AND user_id=? AND id=? AND deleted=FALSE"+(lock?" FOR UPDATE":""),user,id);
         if(rows.isEmpty()) throw exception(RESOURCE_FORBIDDEN);
         return rows.get(0);

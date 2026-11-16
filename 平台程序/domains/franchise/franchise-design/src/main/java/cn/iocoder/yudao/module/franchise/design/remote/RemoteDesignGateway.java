@@ -46,6 +46,8 @@ public class RemoteDesignGateway {
     }
 
     public long tenant(PostSnapshot post) { return commands.tenant(post); }
+    public java.util.Map<String,Object> jobPointView(PostSnapshot post,long jobId){return commands.jobPointView(callerAppId,post,jobId);}
+    public java.util.Map<Long,Long> projectPointsSpent(PostSnapshot post,java.util.Set<Long> ids){return commands.projectPointsSpent(callerAppId,post,ids);}
 
     public <T> T call(PostSnapshot post, Operation operation, String requestKey, Object payload) {
         try (var permit = admission.enter(post.orgId())) {

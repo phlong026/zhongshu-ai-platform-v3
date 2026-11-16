@@ -9,6 +9,12 @@ public final class DesignCapabilityContract {
     private DesignCapabilityContract() { }
 
     public enum Operation {
+        FLOW_READ("designFlow", DesignFlowCall.class, Object.class, false, false),
+        FLOW_WRITE("designFlow", DesignFlowCall.class, Object.class, true, false),
+        FLOW_FLAT_JOB("designFlow", DesignFlowCall.class, Object.class, true, true),
+        FLOW_ELEVATION_JOB("designFlow", DesignFlowCall.class, Object.class, true, true),
+        FLOW_REVISION("designFlow", DesignFlowCall.class, Object.class, true, true),
+        FLOW_BUDGET("designFlow", DesignFlowCall.class, Object.class, true, true),
         CREATE_PROJECT("createProject", DesignServicePort.DesignProjectCreate.class, DesignServicePort.ProjectCreated.class, true, false),
         LIST_PROJECTS("listProjects", Page.class, DesignServicePort.ProjectPageView.class, false, false),
         GET_PROJECT("getProject", Project.class, DesignServicePort.ProjectDetailView.class, true, false),
@@ -117,7 +123,10 @@ public final class DesignCapabilityContract {
     /** B snapshots its own prices before first dispatch. Values use B's integer wallet points. */
     public record PlatformPriceSnapshot(String priceId, long version, long promptUnitPoints,
                                         long imageUnitPoints, long usageUnitPoints, long maximumPoints,
-                                        int requestedImageCount, long requestedPromptUnits, long requestedUsageUnits) {
+                                        int requestedImageCount, long requestedPromptUnits, long requestedUsageUnits,String companyPriceVersion) {
+        public PlatformPriceSnapshot(String priceId,long version,long prompt,long image,long usage,long maximum,int count,long promptCount,long usageCount) {
+            this(priceId,version,prompt,image,usage,maximum,count,promptCount,usageCount,null);
+        }
         public PlatformPriceSnapshot {
             requireText(priceId, 120, "priceId");
             if (version <= 0 || promptUnitPoints < 0 || imageUnitPoints < 0 || usageUnitPoints < 0 || maximumPoints < 0

@@ -85,7 +85,7 @@ class CosObjectStorageAdapterContractTest {
     private static final String BUCKET = "zhongshu-private-test";
 
     @Container
-    static final GenericContainer<?> MINIO = new GenericContainer<>(DockerImageName.parse(MINIO_IMAGE))
+    static final GenericContainer<?> MINIO = cn.iocoder.yudao.module.platform.test.TestNativeService.container(DockerImageName.parse(MINIO_IMAGE))
             .withExposedPorts(9000)
             .withEnv("MINIO_ROOT_USER", ROOT_USER)
             .withEnv("MINIO_ROOT_PASSWORD", ROOT_PASSWORD)

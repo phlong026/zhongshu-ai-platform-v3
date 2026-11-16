@@ -20,6 +20,9 @@ import java.util.Map;
  * </ul>
  */
 public interface DesignServicePort {
+    default Object designFlow(long serviceAccountId, cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall call, Actor actor) {
+        throw new IllegalStateException("Design flow migration is not configured");
+    }
 
     /** B 端操作者快照（审计留痕用；服务账号是纯技术占位，操作者身份以 Actor 追溯） */
     record Actor(long actorUserId, long actorPostId, String actorRoleCode) {
@@ -85,7 +88,11 @@ public interface DesignServicePort {
     }
 
     record AiJobView(long jobId, String status, int requestedCount, int acceptedCount, int progress,
-                     String phase, List<String> allowedActions) {
+                     String phase, List<String> allowedActions,String projectId,Map<String,String> imageOptions,
+                     Long unitPointCost,Long totalPointCost,Long refundedPointCost,Long netPointCost,String createdAt,String finishedAt) {
+        public AiJobView(long jobId,String status,int requestedCount,int acceptedCount,int progress,String phase,List<String> actions) {
+            this(jobId,status,requestedCount,acceptedCount,progress,phase,actions,null,null,null,null,null,null,null,null);
+        }
     }
 
     record ResultVersionView(long versionId, long version, boolean superseded, Long selectedFlatAssetId,
@@ -138,7 +145,13 @@ public interface DesignServicePort {
     CasePage listFavorites(long serviceAccountId, String cursor, int limit);
 
     record CaseQuery(String styleCode, Integer floorCount, BigDecimal faceWidth, BigDecimal depth,
-                     String keyword, String cursor, int limit) {
+                     String keyword, String cursor, int limit,String sourceType,Integer minArea,Integer maxArea) {
+        public CaseQuery(String styleCode,Integer floorCount,BigDecimal faceWidth,BigDecimal depth,String keyword,String cursor,int limit,String sourceType) {
+            this(styleCode,floorCount,faceWidth,depth,keyword,cursor,limit,sourceType,null,null);
+        }
+        public CaseQuery(String styleCode,Integer floorCount,BigDecimal faceWidth,BigDecimal depth,String keyword,String cursor,int limit) {
+            this(styleCode,floorCount,faceWidth,depth,keyword,cursor,limit,null);
+        }
     }
 
     record StyleOption(String code, String label) {

@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.*;
 @Testcontainers
 class RemoteDesignCommandStoreTest {
     @Container
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private JdbcTemplate jdbc;
     private RemoteDesignCommandStore store;
     private RemoteDesignChargePort charges;
@@ -85,6 +85,31 @@ class RemoteDesignCommandStoreTest {
         var builder = new org.springframework.http.converter.json.Jackson2ObjectMapperBuilder();
         configuration.ldtEpochMillisCustomizer().customize(builder);
         return builder.build().registerModule(configuration.timestampSupportModuleBean());
+    }
+
+    @Test
+    void projectHistoryUsesActualCompanyNetAcrossJobsAndRefundsWithoutCrossingScope() throws Exception {
+        jdbc.execute("CREATE TABLE org_point_ledger(org_id bigint,operation_id bigint,ref_type text,ref_id bigint,type text,available_delta bigint)");
+        projectCharge("b-test",1,10,Operation.FLOW_FLAT_JOB,Map.of("path","/design-projects/100/flat-jobs"),4,0L);
+        projectCharge("b-test",1,10,Operation.CREATE_ELEVATION_JOB,Map.of("projectId","100"),6,3L);
+        projectCharge("b-test",1,10,Operation.FLOW_REVISION,Map.of("path","/design-projects/200/revision-requests"),6,null);
+        projectCharge("b-test",1,10,Operation.FLOW_BUDGET,Map.of("path","/design-projects/100/budget-estimates/itemized"),1,0L);
+        projectCharge("other-caller",1,10,Operation.FLOW_FLAT_JOB,Map.of("path","/design-projects/100/flat-jobs"),1000,0L);
+        projectCharge("b-test",2,10,Operation.FLOW_FLAT_JOB,Map.of("path","/design-projects/100/flat-jobs"),2000,0L);
+        projectCharge("b-test",1,20,Operation.FLOW_FLAT_JOB,Map.of("path","/design-projects/100/flat-jobs"),4000,0L);
+        assertThat(store.projectPointsSpent("b-test",post,Set.of(100L,200L,999L)))
+                .containsExactlyInAnyOrderEntriesOf(Map.of(100L,7L,200L,6L,999L,0L));
+        jdbc.update("UPDATE org_point_ledger SET available_delta=7 WHERE org_id=10 AND type='SETTLE' AND available_delta=3");
+        assertThatThrownBy(()->store.projectPointsSpent("b-test",post,Set.of(100L)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Invalid company project settlement");
+    }
+
+    private void projectCharge(String caller,long tenant,long org,Operation operation,Map<String,Object> payload,long reserved,Long refund) throws Exception {
+        long command=jdbc.queryForObject("INSERT INTO fr_design_remote_command(caller_app_id,tenant_id,org_id,operation,request_key,fingerprint,actor_json,payload_json,state,price_snapshot) "
+                +"VALUES(?,?,?,?,?,?,?::jsonb,?::jsonb,'SUCCEEDED','{\"maximumPoints\":99999}'::jsonb) RETURNING command_id",Long.class,
+                caller,tenant,org,operation.name(),java.util.UUID.randomUUID().toString(),"a".repeat(64),consumerMapper().writeValueAsString(post),consumerMapper().writeValueAsString(payload));
+        jdbc.update("INSERT INTO org_point_ledger VALUES(?,?,'design_command',?,'RESERVE',?)",org,command,command,-reserved);
+        if(refund!=null)jdbc.update("INSERT INTO org_point_ledger VALUES(?,?,'design_command',?,'SETTLE',?)",org,command,command,refund);
     }
 
     @Test

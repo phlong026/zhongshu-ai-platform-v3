@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.*;
 @Testcontainers
 class CapabilityReceiptStoreTest {
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
+    static final PostgreSQLContainer<?> POSTGRES = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private CapabilityReceiptStore store;
     private JdbcTemplate jdbc;
 
@@ -70,6 +70,15 @@ class CapabilityReceiptStoreTest {
             assertThat(jdbc.queryForObject("SELECT count(*) FROM capability_test_business", Integer.class)).isEqualTo(1);
             assertThat(jdbc.queryForObject("SELECT count(*) FROM design_capability_receipt", Integer.class)).isEqualTo(1);
         } finally { pool.shutdownNow(); }
+    }
+
+    @Test void migratedJobReceiptRetainsTheJobIdForCompanySettlementAndRecovery() {
+        var call=new cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall("POST","/design-projects/21/flat-jobs",Map.of(),Map.of("count",2),"flow-job");
+        var request=new Request<>("platform",10,new DesignServicePort.Actor(1,2,"DESIGNER"),Operation.FLOW_FLAT_JOB,"flow-job","nonce1",call);
+        store.executeAtomic(request,()->new cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall.Accepted("21","61",java.util.List.of("CANCEL")));
+        var recovered=store.query("platform",10,new ReceiptQuery(Operation.FLOW_FLAT_JOB,"flow-job"));
+        assertThat(recovered.jobId()).isEqualTo(61L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM design_capability_receipt WHERE job_id=61",Integer.class)).isEqualTo(1);
     }
 
     @Test

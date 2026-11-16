@@ -23,7 +23,7 @@ import static org.mockito.Mockito.when;
 class ProviderPromptEventServiceTest {
     @Test
     void dispatchedThenFirstUnknownUsesRealCostStateAndAcksExactReceipt() throws Exception {
-        try (var postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.15-alpine"))
+        try (var postgres = cn.iocoder.yudao.module.platform.test.TestPostgres.database(DockerImageName.parse("postgres:16.15-alpine"))
                 .withDatabaseName("provider_prompt_state").withUsername("owner").withPassword("test-password")) {
             postgres.start();
             var dataSource = new org.postgresql.ds.PGSimpleDataSource();
@@ -159,7 +159,7 @@ class ProviderPromptEventServiceTest {
 
     @Test
     void exactAckReplayIsDurableConcurrentAndConflictsFailClosed() throws Exception {
-        try (var postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.15-alpine"))
+        try (var postgres = cn.iocoder.yudao.module.platform.test.TestPostgres.database(DockerImageName.parse("postgres:16.15-alpine"))
                 .withDatabaseName("provider_prompt_receipt").withUsername("owner").withPassword("test-password")) {
             postgres.start();
             Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())

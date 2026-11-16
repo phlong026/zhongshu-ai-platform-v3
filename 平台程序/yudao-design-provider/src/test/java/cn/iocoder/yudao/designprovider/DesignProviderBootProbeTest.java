@@ -18,9 +18,9 @@ class DesignProviderBootProbeTest {
 
     @Test
     void migratedDatabaseAndRedisStillFailClosedWithoutServiceCostPrices() throws Exception {
-        try (var postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.15-alpine"))
+        try (var postgres = cn.iocoder.yudao.module.platform.test.TestPostgres.database(DockerImageName.parse("postgres:16.15-alpine"))
                 .withDatabaseName("design_provider").withUsername("owner").withPassword("test-password");
-             var redis = new GenericContainer<>(DockerImageName.parse("redis:7.4.11-alpine")).withExposedPorts(6379)
+             var redis = cn.iocoder.yudao.module.platform.test.TestNativeService.container(DockerImageName.parse("redis:7.4.11-alpine")).withExposedPorts(6379)
                      .withCommand("redis-server", "--user", "default", "off", "--user", "design_provider_app",
                              "on", ">redis-test-password", "~*", "&*", "+@all")) {
             postgres.start();

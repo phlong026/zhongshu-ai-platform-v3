@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LegacyAssetReferenceFallbackTest {
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
+    static final PostgreSQLContainer<?> POSTGRES = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     private static LegacyAssetAccessAdapter bridge;
 
     @BeforeAll

@@ -69,11 +69,6 @@ public class AppDesignProjectController {
         String sourceType = req.getSourceType() == null ? "SELF_UPLOAD" : req.getSourceType();
         String line = req.getLine() == null ? "FLAT" : req.getLine();
         Long sketchAssetId = parseIdOrNull(req.getSketchAssetId());
-        // 平面生成已改为纯文生图：新 FLAT 项目不再接受案例参考或手绘草图。
-        // 立面线路仍允许 CASE_REFERENCE 参考图，不受此限制。
-        if ("FLAT".equals(line) && ("CASE_REFERENCE".equals(sourceType) || sketchAssetId != null)) {
-            throw exception(FLAT_REFERENCE_DISABLED);
-        }
         long projectId = designProjectService.createProjectWithKey(userId, sourceType,
                 parseIdOrNull(req.getRefCaseId()), sketchAssetId,
                 req.getRequirementInputs(), requestKey, line,

@@ -13,7 +13,7 @@ import org.testcontainers.junit.jupiter.*;
 @Testcontainers
 class ReferenceMirrorStoreTest {
     @Container
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
 
     SimpleDriverDataSource ds;
     JdbcTemplate jdbc;

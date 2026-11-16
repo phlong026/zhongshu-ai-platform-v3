@@ -192,6 +192,25 @@ public class AssetService {
         }
         return ticket.assetId();
     }
+    /** Provider-only public-case import; persist the input identity before storage or moderation. */
+    public long importPublishedCaseImage(long owner,String requestKey,String mime,byte[] content) {
+        if(requestKey==null||!requestKey.matches("[A-Za-z0-9_-]{1,120}"))throw exception(ASSET_VALIDATION_FAILED);
+        long id=txTemplate.execute(status->{
+            accountStatePort.requireActiveForWrite(owner);
+            jdbcTemplate.queryForObject("SELECT pg_advisory_xact_lock(?,?)",Object.class,Long.hashCode(owner),requestKey.hashCode());
+            var rows=jdbcTemplate.queryForList("SELECT asset_id FROM design_capability_case_image WHERE owner_id=? AND request_key=?",Long.class,owner,requestKey);
+            if(!rows.isEmpty())return rows.get(0);
+            var ticket=createUploadTicket(owner,"CASE_IMAGE",mime,content.length,sha256Hex(content));
+            jdbcTemplate.update("INSERT INTO design_capability_case_image(owner_id,request_key,asset_id) VALUES(?,?,?)",owner,requestKey,ticket.assetId());
+            return ticket.assetId();
+        });
+        var current=load(id);
+        if(!sha256Hex(content).equalsIgnoreCase(current.sha256()))throw exception(ASSET_VALIDATION_FAILED);
+        if("ACCEPTED".equals(current.uploadStatus()))return id;
+        storage.putObject(current.objectKey(),content);
+        if(!"ACCEPTED".equals(completeUpload(owner,id)))throw new ServiceException(1_071_000_001,"参考图尚未通过校验，请稍后使用原请求重试");
+        return id;
+    }
 
     /** 把固化到资产行的机器可读拒绝原因翻译成管理员可读的提示；未知原因原样透出。 */
     private String friendlyRejectReason(String reason) {

@@ -58,7 +58,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DesignProjectP5ContractTest {
 
     @Container
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>(
+    static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database(
             DockerImageName.parse("postgres:17-alpine"))
             .withDatabaseName("zhongshu_design")
             .withUsername("zhongshu")
