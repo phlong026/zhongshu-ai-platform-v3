@@ -53,7 +53,7 @@ Page({
     try {
       const response = await api.personas.page();
       if (!guard() || !this.alive()) return;
-      const rows = P.rowsOf(response).filter(r => r && r.id != null).map(r => Object.assign({}, r, { id: String(r.id), expressionStyle:String(r.expressionStyle==null?r.differentiator||'':r.expressionStyle),enabled: r.enabled !== false }));
+      const rows = P.rowsOf(response).filter(r => r && r.id != null && r.mock!==true && r.demo!==true).map(r => Object.assign({}, r, { id: String(r.id), expressionStyle:String(r.expressionStyle==null?r.differentiator||'':r.expressionStyle),enabled: r.enabled !== false }));
       this.setData({ rows, digitalPeople: rows.filter(row => row.enabled), loading: false }); this.filter();
       if(this.data.digitalPersona){const selected=rows.find(r=>r.id===this.data.digitalPersona.id);if(selected)this.setData({digitalPersona:selected,canManage:this.canEditPersona(selected),canUseDigital:selected.enabled&&this.readyPair()});else {this.setData({digitalPersona:null,cloneRows:[],canUseDigital:false});this.showView('home');}}
       return rows;
@@ -150,7 +150,7 @@ Page({
   async loadClones() {
     const person=this.data.digitalPersona;if(!person)return;
     const guard=http.requestGuard('character-clones');this.setData({cloneLoading:true,cloneError:''});
-    try{const rows=await api.clones.list(person.id);if(guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id){this.setData({cloneRows:P.rowsOf(rows).filter(r=>r&&r.id!=null).map(r=>({...r,id:String(r.id)})),cloneLoading:false});this.setData({canUseDigital:person.enabled&&this.readyPair()});this.scheduleRefresh();}}
+    try{const rows=await api.clones.list(person.id);if(guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id){this.setData({cloneRows:P.rowsOf(rows).filter(r=>r&&r.id!=null&&r.mock!==true&&r.demo!==true).map(r=>({...r,id:String(r.id)})),cloneLoading:false});this.setData({canUseDigital:person.enabled&&this.readyPair()});this.scheduleRefresh();}}
     catch(e){if(guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id)this.setData({cloneLoading:false,cloneError:P.degradeMessage(e)});}
   },
   async loadQuote() {
@@ -160,6 +160,18 @@ Page({
   },
   chooseKind(e) {this.openDigital(e);},
   readyPair() {return this.data.cloneRows.some(r=>r.ready&&r.kind==='AVATAR')&&this.data.cloneRows.some(r=>r.ready&&r.kind==='VOICE');},
+  async setDefaultClone(e) {
+    if(!this.data.canManage||!this.alive()||this.data.cloneBusy||this.data.cloneLoading||this.data.cloneRetry)return;
+    const person=this.data.digitalPersona,id=String(e.currentTarget.dataset.id);
+    const row=this.data.cloneRows.find(row=>String(row.id)===id);
+    if(!person||!person.enabled||!row||!row.ready||row.isDefault)return;
+    const guard=http.requestGuard('clone-default');this.setData({cloneBusy:true,cloneError:''});
+    try{
+      await api.clones.setDefault(id);
+      if(!guard()||!this.alive()||this.data.digitalPersona?.id!==person.id)return;
+      this.setData({cloneBusy:false});await this.loadClones();
+    }catch(error){if(guard()&&this.alive()&&this.data.digitalPersona?.id===person.id)this.setData({cloneBusy:false,cloneError:P.degradeMessage(error)});}
+  },
   stopRefresh() {if(this.__refreshTimer)clearTimeout(this.__refreshTimer);this.__refreshTimer=null;},
   scheduleRefresh() {this.stopRefresh();if(this.__hidden||this.data.view!=='resources'||!this.data.cloneRows.some(r=>['SUBMITTING','RUNNING'].includes(r.status)||(r.status==='READY'&&!r.ready)))return;this.__refreshTimer=setTimeout(()=>this.refreshAll(),8000);},
   async refreshAll() {

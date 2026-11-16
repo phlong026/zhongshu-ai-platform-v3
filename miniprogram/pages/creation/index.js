@@ -9,10 +9,10 @@ link: '', sheet: '', editorText: '', draft: null, assets,
 extracting: false, extractStage: '', parseProgress: 0, extractError: '',
 modes:[{id:'remix',title:'爆款二创',subtitle:'参考视频改写',icon:'video-filled'},{id:'digital',title:'数字人口播',subtitle:'文案生成口播',icon:'person-filled'},{id:'ai',title:'AI视频',subtitle:'文字图片成片',icon:'home-video-icon'}],
 shortcuts: [
+{ key: 'characters', title: '人物库', icon: 'works', iconPath: '/assets/person-filled.png' },
 { key: 'library', title: '素材库', icon: 'folder' },
-{ key: 'tasks', title: '任务中心', icon: 'tasks' },
-{ key: 'characters', title: '人物库', icon: 'works' },
-{ key: 'records', title: '发布记录', icon: 'publish' }
+{ key: 'works', title: '我的作品', icon: 'works' },
+{ key: 'tasks', title: '任务中心', icon: 'tasks' }
 ],
 recent: []
 },

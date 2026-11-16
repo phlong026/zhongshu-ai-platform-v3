@@ -31,16 +31,27 @@ const state = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : init
 state.tasks = Array.isArray(state.tasks) ? state.tasks.filter(Boolean) : [];
 state.works = Array.isArray(state.works) ? state.works.filter(Boolean) : [];
 state.records = Array.isArray(state.records) ? state.records.filter(Boolean) : [];
+// Discard only explicitly marked demo records and the old built-in task identities.
+const demoIds=['task-progress','task-complete','task-retry','record-success','record-processing','record-verify','record-failed'];
+const isDemo=row=>row.demo===true||row.mock===true||demoIds.includes(String(row.id));
+const demoRows=state.tasks.concat(state.works).filter(isDemo);
+const demoTaskIds=state.tasks.filter(isDemo).map(row=>row.id);
+const demoScripts=demoRows.map(row=>row.script).filter(Boolean);
+state.tasks=state.tasks.filter(row=>!isDemo(row));
+state.works=state.works.filter(row=>!isDemo(row)&&!demoTaskIds.includes(row.taskId));
+state.records=state.records.filter(row=>!isDemo(row)&&!demoTaskIds.includes(row.taskId));
+
 state.title = typeof state.title === 'string' ? state.title : title;
 state.original = typeof state.original === 'string' ? state.original : original;
 state.script = typeof state.script === 'string' ? state.script : '';
 state.rewriteHistory = Array.isArray(state.rewriteHistory) ? state.rewriteHistory.filter(Boolean) : [];
+if(!state.scriptEdited&&!state.rewriteHistory.some(row=>row.online===true)&&demoScripts.includes(state.script))state.script='';
 if(!state.scriptEdited&&!state.rewriteHistory?.length&&(state.script===state.original||raw?.version<3&&state.script===script))state.script='';
 state.publishDrafts = state.publishDrafts && typeof state.publishDrafts === 'object' ? state.publishDrafts : {};
 if (state.publishDraft && state.publishDraft.workId && !state.publishDrafts[state.publishDraft.workId]) state.publishDrafts[state.publishDraft.workId] = clone(state.publishDraft);
 delete state.publishDraft;
 state.version = 3;state._scope=storageKey();
-state.tasks = state.tasks.map(task => Object.assign({}, task, { kind: task.kind || 'digital', script: typeof task.script === 'string' ? task.script : (['task-progress', 'task-complete', 'task-retry'].includes(task.id) ? script : ''), configuration: task.configuration || {} }));
+state.tasks = state.tasks.map(task => Object.assign({}, task, { kind: task.kind || 'digital', script: typeof task.script === 'string' ? task.script : '', configuration: task.configuration || {} }));
 state.works = state.works.map(work => {
 const task = state.tasks.find(item => item.id === work.taskId);
 return Object.assign({}, work, { kind: work.kind || (task && task.kind) || '', image: work.image || imageFor(task || {}) });
@@ -104,10 +115,6 @@ if (draft.description && state.tasks.some(task => task.id === taskId)) list.push
 });
 state.works.forEach(work => list.push({ id: work.id, taskId: work.taskId, title: work.title, badge: '已保存', image: work.image, action: '查看结果', updatedAt: work.savedAt || 0 }));
 list.sort((a, b) => b.updatedAt - a.updatedAt);
-if (!list.length) {
-const example = state.tasks.find(task => task.id === 'task-complete');
-if (example) list.push({ id: 'example-result', taskId: example.id, title: example.title, badge: '视频已生成', image: imageFor(example), action: '查看结果' });
-}
 return list;
 }
 function restoreManualDraft() {

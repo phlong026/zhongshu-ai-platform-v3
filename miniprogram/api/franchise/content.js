@@ -96,6 +96,7 @@ const clones = {
   quote: kind => http.get('/franchise/content/clones/quote', { kind }),
   list: personaId => http.get('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones'),
   create: (personaId, data, key) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones', data, idem(key, 'clone')),
-  refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {})
+  refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {}),
+  setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {})
 };
 module.exports = { links, scripts, tasks, drafts, assets, personas, clones, publications, growth };

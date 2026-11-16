@@ -2,7 +2,7 @@
   <view class="workbench-header"><brand-header divider="{{true}}" title="内容创作" /></view>
   <view class="content center-body">
     <view class="section remix-card">
-      <view class="section-heading"><text class="section-title">视频创作</text><button class="text-link" data-key="works" bindtap="openShortcut">我的作品<view class="chevron" /></button></view>
+      <view class="section-heading"><text class="section-title">视频创作</text></view>
       <view class="creation-modes"><button wx:for="{{modes}}" wx:key="id" class="creation-mode {{item.id==='remix'?'selected':''}}" data-mode="{{item.id}}" bindtap="chooseMode"><image src="/assets/{{item.icon}}.png" mode="aspectFit"/><text>{{item.title}}</text><text class="creation-mode-hint">{{item.subtitle}}</text></button></view>
       <view class="section-heading remix-heading"><text class="section-title">爆款文案二创</text></view>
       <text class="hint remix-subtitle">粘贴参考视频链接，改成自己的表达。</text>
@@ -11,7 +11,7 @@
       <text wx:if="{{extractError}}" class="sales-note">{{extractError}}</text>
       <button class="manual-link" bindtap="openEditor">没有链接？手动写文案<view class="chevron" /></button>
     </view>
-    <view class="section creation-tools"><view class="section-heading"><text class="section-title">创作工具</text></view><view class="shortcuts"><button wx:for="{{shortcuts}}" wx:key="key" class="shortcut" data-key="{{item.key}}" bindtap="openShortcut"><image src="/assets/creation-{{item.icon}}.png" mode="aspectFit" /><text>{{item.title}}</text></button></view></view>
+    <view class="section creation-tools"><view class="section-heading"><text class="section-title">创作工具</text></view><view class="shortcuts"><button wx:for="{{shortcuts}}" wx:key="key" class="shortcut" data-key="{{item.key}}" bindtap="openShortcut"><image src="{{item.iconPath||'/assets/creation-'+item.icon+'.png'}}" mode="aspectFit" /><text>{{item.title}}</text></button></view></view>
     <view class="section recent-card"><view class="section-heading"><text class="section-title">最近创作</text><button class="text-link" bindtap="allRecent">查看全部<view class="chevron" /></button></view><view wx:for="{{recent}}" wx:key="id" class="recent-row"><image class="recent-cover" src="{{item.image}}" mode="aspectFill" /><view class="recent-copy"><text class="recent-title">{{item.title}}</text><text class="hint">{{item.badge}}</text><text wx:if="{{item.updatedText}}" class="hint">{{item.updatedText}}</text></view><button class="recent-action" data-id="{{item.id}}" data-task="{{item.taskId}}" bindtap="editRecent">{{item.action}}<view class="chevron" /></button></view><view wx:if="{{!recent.length}}" class="sales-empty">开始创作后，草稿和作品会保存在这里。</view></view>
     
   </view>

@@ -17,8 +17,8 @@ view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rew
 ipOptions: ['不指定人物'], personaOptions: [{id:'',name:'不指定人物'}], selectedPersonaId: '', requirement: '',digitalSubmitting:false,digitalRetry:false,
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
 tasks: [], records: [], works: [], libraryAssets: assets, publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
-publishText: '想把二层乡墅住得舒适，先从家人的日常出发。\n采光、动线和通风，才是住得舒服的关键。',
-tags: '#乡墅设计  #农村建房', cover: '/assets/studio-publication-cover.jpg', workId: '', saved: false,
+publishText: '',
+tags: '', cover: '', workId: '', saved: false,
 actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
 },
 onLoad(options) {
@@ -26,7 +26,7 @@ if(!studio.guard())return;this.__closed=false;this.actorScope=studio.scope();thi
 const view = titles[options.view] ? options.view : 'remix';
 this.options = options;
 const state = studio.read();
-this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: state.title, taskId: options.task || 'task-complete', recordId: options.record || 'record-success', workId: options.work || '' });
+this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: state.title, taskId: options.task || '', recordId: options.record || '', workId: options.work || '' });
 if(view==='digital')this.restoreDigitalAttempt();
 if (view === 'result' && options.task) {
 if (http.token()) return this.loadApiResult(options.task); // 在线任务：直取后端详情（不回落本地演示任务）
@@ -153,7 +153,7 @@ return timeline;
 },
 /** 后端 TaskView → 本地任务形状（ID 一律不透明字符串；progress 用区间示意） */
 mapApiTask(task) {
-if (!task || task.id == null || task.id === '') return null;
+if (!task || task.id == null || task.id === '' || task.mock===true || task.demo===true) return null;
 const kind = task.kind === 'ai_video' ? 'ai' : 'digital';
 const view = P.taskView(task.status);
 const text = String((task.result && (task.result.text || task.result.script)) || '').trim();
@@ -308,15 +308,17 @@ this.go('digital',this.data.selectedPersonaId?'&persona='+encodeURIComponent(thi
 },
 restoreDigitalAttempt() {
 const attempt=wx.getStorageSync(studio.scopedKey('zs-digital-attempt'));
-this.__digitalAttempt=attempt&&attempt.key&&attempt.payload?attempt:null;
+const payload=attempt&&attempt.payload;
+this.__digitalAttempt=attempt&&attempt.key&&payload&&payload.avatarCloneId&&payload.voiceCloneId&&typeof payload.text==='string'&&attempt.mock!==true&&attempt.demo!==true?attempt:null;
+if(!this.__digitalAttempt)this.setData({digitalRetry:false});
 if(this.__digitalAttempt){const {payload,personaId}=attempt,state=studio.read();state.script=payload.text;state.title=payload.title;studio.write(state);this.setData({digitalRetry:true,digitalPersonaId:personaId||'',script:payload.text,title:payload.title,scriptLength:payload.text.length});}
 },
-inputDigitalScript(e) {if(this.data.digitalSubmitting||this.data.digitalRetry)return;const text=e.detail.value,state=studio.read();state.script=text;studio.write(state);this.setData({script:text,scriptLength:text.length,estimatedSeconds:Math.ceil(text.replace(/\s/g,'').length/4),operationError:''});},
+inputDigitalScript(e) {if(this.data.digitalSubmitting||this.data.digitalRetry)return;const text=e.detail.value,state=studio.read();state.script=text;state.scriptEdited=true;studio.write(state);this.setData({script:text,scriptLength:text.length,estimatedSeconds:Math.ceil(text.replace(/\s/g,'').length/4),operationError:''});},
 async loadDigitalProfiles(preferred) {
 const guard=http.requestGuard('digital-personas'),scope=this.actorScope;
-this.setData({digitalLoading:true,operationError:'',actor:'',voice:'',avatarCloneId:'',voiceCloneId:'',avatarOptions:[],voiceOptions:[]});
+this.setData({digitalLoading:true,operationError:'',digitalPersonas:[],digitalPersonaId:'',actor:'',voice:'',avatarCloneId:'',voiceCloneId:'',avatarOptions:[],voiceOptions:[]});
 try{
-const rows=P.rowsOf(await contentApi.personas.page()).filter(r=>r&&r.enabled!==false&&r.id!=null).map(r=>({id:String(r.id),name:String(r.name||'未命名人物')}));
+const rows=P.rowsOf(await contentApi.personas.page()).filter(r=>r&&r.enabled!==false&&r.id!=null&&r.mock!==true&&r.demo!==true).map(r=>({id:String(r.id),name:String(r.name||'未命名人物')}));
 if(this.__closed||!guard()||scope!==studio.scope())return;
 const attempt=this.__digitalAttempt;
 const saved=attempt?{personaId:attempt.personaId,avatarId:attempt.payload.avatarCloneId,voiceId:attempt.payload.voiceCloneId}:studio.read().digitalSelection||{};
@@ -331,19 +333,22 @@ async loadDigitalClones(personaId,saved={}) {
 const guard=http.requestGuard('digital-clones'),scope=this.actorScope;
 this.setData({digitalLoading:true,operationError:'',avatarOptions:[],voiceOptions:[],avatarCloneId:'',voiceCloneId:'',actor:'',voice:''});
 try{
-const rows=P.rowsOf(await contentApi.clones.list(personaId)).filter(r=>r&&r.ready);
+const rows=P.rowsOf(await contentApi.clones.list(personaId)).filter(r=>r&&r.ready&&r.id!=null&&r.mock!==true&&r.demo!==true);
 if(this.__closed||!guard()||scope!==studio.scope()||this.data.digitalPersonaId!==personaId)return;
 const avatars=rows.filter(r=>r.kind==='AVATAR'),voices=rows.filter(r=>r.kind==='VOICE');
-const a=avatars.find(r=>String(r.id)===String(saved.avatarId))||(!this.__digitalAttempt&&avatars[0]),v=voices.find(r=>String(r.id)===String(saved.voiceId))||(!this.__digitalAttempt&&voices[0]);
-this.setData({digitalLoading:false,avatarOptions:avatars,voiceOptions:voices,avatarCloneId:a?String(a.id):'',voiceCloneId:v?String(v.id):'',actor:a?a.title:'',voice:v?v.title:'',operationError:!a||!v?'请在人物库准备同一人物名下已就绪的数字分身和克隆声音':''});
+// Pending paid submissions keep their exact snapshot; fresh generation prefers server defaults.
+const choose=(options,id)=>this.__digitalAttempt?options.find(r=>String(r.id)===String(id)):
+  options.find(r=>r.isDefault===true)||options.find(r=>String(r.id)===String(id))||options[0];
+const a=choose(avatars,saved.avatarId),v=choose(voices,saved.voiceId);
+this.setData({digitalLoading:false,avatarOptions:avatars,voiceOptions:voices,avatarCloneId:a?String(a.id):'',voiceCloneId:v?String(v.id):'',actor:a?a.title:'',voice:v?v.title:'',actorIsDefault:!!(a&&a.isDefault),voiceIsDefault:!!(v&&v.isDefault),operationError:!a||!v?'请在人物库准备同一人物名下已就绪的数字分身和克隆声音':''});
 this.persistDigitalSelection();
 }catch(e){if(!this.__closed&&guard()&&scope===studio.scope())this.setData({digitalLoading:false,operationError:P.degradeMessage(e)});}
 },
 persistDigitalSelection(){if(this.actorScope!==studio.scope())return;const state=studio.read();state.digitalSelection={personaId:this.data.digitalPersonaId,avatarId:this.data.avatarCloneId,voiceId:this.data.voiceCloneId};studio.write(state);},
 changeActor() {if(this.__generating||this.data.digitalRetry)return; this.setData({ sheet: 'actor', sheetTitle: '选择数字分身' }); },
-selectActor(e) {if(this.__generating||this.data.digitalRetry)return; const item=this.data.avatarOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({actor:item.title,avatarCloneId:String(item.id),sheet:''});this.persistDigitalSelection();} },
+selectActor(e) {if(this.__generating||this.data.digitalRetry)return; const item=this.data.avatarOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({actor:item.title,avatarCloneId:String(item.id),actorIsDefault:!!item.isDefault,sheet:''});this.persistDigitalSelection();} },
 changeVoice() {if(this.__generating||this.data.digitalRetry)return; this.setData({ sheet: 'voice', sheetTitle: '选择克隆声音' }); },
-selectVoice(e) {if(this.__generating||this.data.digitalRetry)return; const item=this.data.voiceOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({voice:item.title,voiceCloneId:String(item.id),sheet:''});this.persistDigitalSelection();} },
+selectVoice(e) {if(this.__generating||this.data.digitalRetry)return; const item=this.data.voiceOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({voice:item.title,voiceCloneId:String(item.id),voiceIsDefault:!!item.isDefault,sheet:''});this.persistDigitalSelection();} },
 audition() {
 const selected=this.data.voiceOptions.find(r=>String(r.id)===String(this.data.voiceCloneId));
 if(!selected||!selected.demoUrl)return wx.showToast({title:'暂无可用试听音频，请在人物库刷新状态',icon:'none'});
@@ -454,6 +459,7 @@ wx.redirectTo({ url: '/pages/studio/index?view=tasks' });
 return;
 }
 const mapped=this.mapApiTask(task);
+if(!mapped)throw Error('任务结果不可用');
 mapped.status='completed';mapped.progress=100;
 this.setData({ activeTask: mapped, saved: false, invalidMessage: '' });
 // 成片直链过期探测（best-effort）：expired 时展示失效文案，提示重新保存生成新链接
@@ -477,7 +483,7 @@ editResult() {
 const state = studio.read(); const task = this.data.activeTask;
 if (!task) { this.refreshData(); return; }
 if (task.kind === 'ai') wx.navigateTo({ url: '/pages/ai-video/index?task=' + encodeURIComponent(task.id) });
-else { state.script = task.script || ''; state.title = task.title; delete state.editorBuffer; studio.write(state); this.go('digital'); }
+else { state.script = task.script || ''; state.scriptEdited=true; state.title = task.title; delete state.editorBuffer; studio.write(state); this.go('digital'); }
 },
 selectAccount(e) { this.setData({ selectedAccount: Number(e.currentTarget.dataset.index), sheet: '' }); },
 switchAccount() { this.setData({ sheet: 'accounts', sheetTitle: '更换账号' }); },
