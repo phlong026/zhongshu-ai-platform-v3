@@ -2,7 +2,12 @@
   "version": "1.0.20261116.1608",
   "appid": "wxe584f6fad7b54487",
   "source": "C:/Users/Administrator/.codex/artifacts/creation-self-ip-20261116/release",
-  "trialActivation": "pending",
+  "trialActivation": {
+    "status": "user-confirmed",
+    "version": "1.0.20261116.1608",
+    "confirmedAt": "2026-11-16T16:12:16.071659+08:00",
+    "independentlyObserved": false
+  },
   "mergedLoginVersion": "1.0.20261116.12",
   "baseCreationVersion": "1.0.20261116.1503",
   "uploadedAt": "2026-11-16T16:10:44.605181+08:00",
