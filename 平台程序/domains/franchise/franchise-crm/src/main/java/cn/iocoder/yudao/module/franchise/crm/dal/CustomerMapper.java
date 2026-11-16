@@ -42,7 +42,11 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
         LambdaQueryWrapperX<CustomerDO> query = new LambdaQueryWrapperX<>();
         visibility.accept(query);
         if (keyword != null && !keyword.isBlank()) {
-            query.and(q -> q.like(CustomerDO::getName, keyword.trim()).or().like(CustomerDO::getPhone, keyword.trim()));
+            String term = keyword.trim();
+            query.and(q -> q.like(CustomerDO::getName, term).or().like(CustomerDO::getPhone, term)
+                    .or().like(CustomerDO::getProvince, term).or().like(CustomerDO::getCity, term)
+                    .or().like(CustomerDO::getDistrict, term).or().like(CustomerDO::getTown, term)
+                    .or().like(CustomerDO::getVillage, term).or().like(CustomerDO::getAddressDetail, term));
         }
         query.eqIfPresent(CustomerDO::getStatus, status);
         query.eqIfPresent(CustomerDO::getOwnerUserId, ownerUserId);

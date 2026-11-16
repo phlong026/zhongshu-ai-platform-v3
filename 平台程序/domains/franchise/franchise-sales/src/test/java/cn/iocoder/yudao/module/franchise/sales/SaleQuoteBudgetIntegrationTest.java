@@ -129,6 +129,37 @@ class SaleQuoteBudgetIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     private int budgetCount() { return jdbc.queryForObject("SELECT count(*) FROM fr_customer_scheme WHERE customer_id=? AND kind='BUDGET'", Integer.class, customer); }
+    @Test void quoteExportUsesShanghaiCalendarDateAtTheUtcBoundary() {
+        var quote = as(() -> quotes.create(sales, command("12", "audit-date"), key()));
+        jdbc.update("UPDATE fr_sale_quote SET create_time=? WHERE id=?",
+                java.time.OffsetDateTime.parse("2026-11-15T15:59:59Z"), quote.getId());
+        assertThat(as(() -> quotes.exportSheet(sales, quote.getId())).get("date")).isEqualTo("2026-11-15");
+        jdbc.update("UPDATE fr_sale_quote SET create_time=? WHERE id=?",
+                java.time.OffsetDateTime.parse("2026-11-15T16:00:00Z"), quote.getId());
+        assertThat(as(() -> quotes.exportSheet(sales, quote.getId())).get("date")).isEqualTo("2026-11-16");
+    }
+
+    @Test void exportRecoversRecordedConfigurationFromFrozenRows() {
+        var quote = quoteWithLabels("基础 · 独立基础", "结构 · 框架结构");
+        assertThat(as(() -> quotes.exportSheet(sales, quote.getId())).get("form"))
+                .isEqualTo(Map.of("foundation", "独立基础", "structure", "框架结构"));
+    }
+
+    @Test void exportDoesNotGuessConfigurationFromMissingOrConflictingRows() {
+        var quote = quoteWithLabels("基础 · 独立基础", "基础 · 筏板基础", "未知结构");
+        assertThat(as(() -> quotes.exportSheet(sales, quote.getId())).get("form")).isEqualTo(Map.of());
+    }
+
+    private SaleQuoteDO quoteWithLabels(String... labels) {
+        var base = command("12", "audit-configuration");
+        List<Map<String,Object>> rows = java.util.Arrays.stream(labels).map(label ->
+                (Map<String,Object>) new java.util.LinkedHashMap<String,Object>(Map.of(
+                        "label", label, "quantity", 1, "unitPriceCents", 100))).toList();
+        return as(() -> quotes.create(sales, new SaleQuoteService.QuoteCommand(customer, null,
+                Map.of("main", rows, "decor", List.of(), "insuranceCents", 0, "managementCents", 0),
+                base.priceVersion(), base.address(), base.width(), base.depth(), base.floors(), base.area()), key()));
+    }
+
     private SaleQuoteService.QuoteCommand command(String width, String version) {
         var row = new java.util.LinkedHashMap<String,Object>(Map.of("label","主体","quantity",1,"unitPriceCents",100000));
         return new SaleQuoteService.QuoteCommand(customer, null,

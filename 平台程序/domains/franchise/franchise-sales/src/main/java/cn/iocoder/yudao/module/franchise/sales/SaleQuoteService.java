@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,7 @@ import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorC
  */
 @Service
 public class SaleQuoteService {
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     public record QuoteCommand(long customerId, Long schemeId, Map<String, Object> items,
                                String priceVersion, String address,
@@ -147,7 +149,8 @@ public class SaleQuoteService {
         Map<String, Object> sheet = new LinkedHashMap<>();
         sheet.put("kind", "budget");
         sheet.put("version", quote.getId());
-        sheet.put("date", quote.getCreateTime() == null ? null : quote.getCreateTime().toLocalDate().toString());
+        sheet.put("date", quote.getCreateTime() == null ? null
+                : quote.getCreateTime().atZoneSameInstant(BUSINESS_ZONE).toLocalDate().toString());
         sheet.put("name", quote.getCustomerName());
         sheet.put("phone", quote.getCustomerPhone());
         sheet.put("address", quote.getAddress());
@@ -159,6 +162,7 @@ public class SaleQuoteService {
         Map<String, Object> items = JsonUtils.parseObject(quote.getItems(), Map.class);
         // 行 Map 原样返回（含 qtyText/unitText 展示字段——S1-20b 显式透传契约，勿改为显式建模）
         sheet.put("main", items.get("main"));
+        sheet.put("form", exportRecordedConfiguration(items));
         sheet.put("decor", items.get("decor"));
         sheet.put("mainTotal", sumGroup(items, "main"));
         sheet.put("decorTotal", sumGroup(items, "decor"));
@@ -170,6 +174,25 @@ public class SaleQuoteService {
         }
         sheet.put("basis", "前期预算，非施工结算依据");
         return sheet;
+    }
+
+    private static Map<String, String> exportRecordedConfiguration(Map<String, Object> items) {
+        Map<String, String> form = new LinkedHashMap<>();
+        if (items.get("main") instanceof List<?> rows) {
+            exportRecordedChoice(form, "foundation", "基础 · ", rows,
+                    List.of("筏板基础", "独立基础", "桩基础", "条形基础"));
+            exportRecordedChoice(form, "structure", "结构 · ", rows,
+                    List.of("砖混结构", "框剪结构", "框架结构"));
+        }
+        return form;
+    }
+
+    // Exact recorded labels only. Unknown or conflicting historical rows remain unselected.
+    private static void exportRecordedChoice(Map<String, String> form, String key, String prefix,
+                                             List<?> rows, List<String> choices) {
+        List<String> recorded = choices.stream().filter(choice -> rows.stream().anyMatch(row ->
+                row instanceof Map<?, ?> values && (prefix + choice).equals(values.get("label")))).toList();
+        if (recorded.size() == 1) form.put(key, recorded.get(0));
     }
 
     private static long sumGroup(Map<String, Object> items, String group) {

@@ -32,6 +32,13 @@ public class LeadDO {
     private String phone;
     private String need;
     private String source;
+    private String province;
+    private String city;
+    private String district;
+    private String town;
+    private String village;
+    private String regionCode;
+    private String addressDetail;
     private String status;
     private String conversion;
     private Long customerId;

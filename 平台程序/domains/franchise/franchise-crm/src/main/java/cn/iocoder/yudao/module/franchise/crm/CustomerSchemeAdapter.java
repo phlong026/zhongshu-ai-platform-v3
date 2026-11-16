@@ -47,6 +47,11 @@ public class CustomerSchemeAdapter implements CustomerSchemePort {
         customerService.requireWritable(post, customerId);
     }
 
+    @Override public SchemeSaved saveItemizedBudgetSnapshot(PostSnapshot post,long customerId,SchemeSave c) {
+        var saved=customerService.saveItemizedBudgetSnapshot(post,customerId,new CustomerService.SchemeSaveCommand(c.kind(),c.title(),c.payload(),c.width(),c.depth(),c.floors(),c.area(),c.totalCents(),c.designProjectId()));
+        return new SchemeSaved(saved.getId(),saved.getVersion());
+    }
+
     @Override
     public void requireAccessible(PostSnapshot post, long customerId) {
         // 交易流对象校验（板块 B）：存在+同组织，不收窄岗位（boss/finance 均过——SalesAccess 契约）

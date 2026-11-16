@@ -19,21 +19,25 @@ public interface CrmRespVos {
 
     record Lead(long id, String name, String phone, String need, String source, String status,
                 String conversion, Long customerId, long registrarUserId, String note,
-                long revision, OffsetDateTime createTime) {
+                long revision, OffsetDateTime createTime, String province, String city, String district, String town,
+                String village, String regionCode, String addressDetail) {
         public static Lead of(LeadDO lead) {
             return new Lead(lead.getId(), lead.getName(), lead.getPhone(), lead.getNeed(), lead.getSource(),
                     lead.getStatus(), lead.getConversion(), lead.getCustomerId(), lead.getRegistrarUserId(),
-                    lead.getNote(), lead.getRevision(), lead.getCreateTime());
+                    lead.getNote(), lead.getRevision(), lead.getCreateTime(),lead.getProvince(),lead.getCity(),
+                    lead.getDistrict(),lead.getTown(),lead.getVillage(),lead.getRegionCode(),lead.getAddressDetail());
         }
     }
 
     record Customer(long id, String name, String phone, String wechat, String source, String province,
                     String city, String summary, String status, long ownerUserId, LocalDate nextVisitDate,
-                    OffsetDateTime lastFollowAt, long revision, OffsetDateTime createTime) {
+                    OffsetDateTime lastFollowAt, long revision, OffsetDateTime createTime,
+                    String district, String town, String village, String regionCode, String addressDetail) {
         public static Customer of(CustomerDO c) {
             return new Customer(c.getId(), c.getName(), c.getPhone(), c.getWechat(), c.getSource(),
                     c.getProvince(), c.getCity(), c.getSummary(), c.getStatus(), c.getOwnerUserId(),
-                    c.getNextVisitDate(), c.getLastFollowAt(), c.getRevision(), c.getCreateTime());
+                    c.getNextVisitDate(), c.getLastFollowAt(), c.getRevision(), c.getCreateTime(),
+                    c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail());
         }
     }
 

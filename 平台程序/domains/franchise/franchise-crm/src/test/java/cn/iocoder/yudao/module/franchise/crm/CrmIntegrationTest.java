@@ -238,6 +238,21 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(salesA2, () -> customers.listWritableWithBudget(salesA2))).extracting(CustomerDO::getId).doesNotContain(id);
     }
 
+    @Test
+    void verifiedItemizedBudgetKeepsAnIncompleteNullTotalAndProtectsCustomerOwnership() {
+        long id=capture(salesA1,phone()).customerId();
+        var partial=new CustomerService.SchemeSaveCommand("BUDGET","  分项预算  ","{\"itemizedBudget\":{\"model\":\"ITEMIZED_V1\",\"completeness\":\"INCOMPLETE\",\"totalCents\":null}}",null,null,2,new BigDecimal("240"),null,null);
+        var saved=as(salesA1,()->customers.saveItemizedBudgetSnapshot(salesA1,id,partial));
+        assertThat(saved.getTotalCents()).isNull();assertThat(saved.getWidth()).isNull();assertThat(saved.getDepth()).isNull();assertThat(saved.getTitle()).isEqualTo("分项预算");
+        assertThat(as(salesA1,()->customers.latestScheme(id,"BUDGET")).getPayload()).contains("INCOMPLETE");
+        assertError(()->as(otherStoreSales,()->customers.saveItemizedBudgetSnapshot(otherStoreSales,id,partial)),CUSTOMER_NOT_FOUND);
+        assertError(()->as(salesA2,()->customers.saveItemizedBudgetSnapshot(salesA2,id,partial)),CUSTOMER_NOT_FOUND);
+        var mismatch=new CustomerService.SchemeSaveCommand("BUDGET","分项预算",partial.payload(),null,null,2,new BigDecimal("240"),0L,null);
+        assertError(()->as(salesA1,()->customers.saveItemizedBudgetSnapshot(salesA1,id,mismatch)),SCHEME_INVALID);
+        var complete=new CustomerService.SchemeSaveCommand("BUDGET","分项预算","{\"itemizedBudget\":{\"model\":\"ITEMIZED_V1\",\"completeness\":\"COMPLETE\",\"totalCents\":6800000}}",null,null,2,new BigDecimal("240"),6800000L,null);
+        var second=as(salesA1,()->customers.saveItemizedBudgetSnapshot(salesA1,id,complete));assertThat(second.getVersion()).isEqualTo(2);assertThat(second.getTotalCents()).isEqualTo(6800000L);
+    }
+
     // ===================== 责任转交 =====================
 
     @Test
@@ -384,6 +399,61 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     // ===================== 工具 =====================
+
+    @Test
+    void regionKeywordSearchKeepsTheOriginalOwnerAndOrganizationScope() {
+        long mine = capture(salesA1, phone()).customerId();
+        long colleague = capture(salesA2, phone()).customerId();
+        long anotherStore = capture(otherStoreSales, phone()).customerId();
+        UpdateCommand region = new UpdateCommand("地区检索客户", "", "湖北省", "宜昌市", "测试地区搜索");
+        as(salesA1, () -> customers.update(salesA1, mine, region, 1, null));
+        as(salesA2, () -> customers.update(salesA2, colleague, region, 1, null));
+        as(otherStoreSales, () -> customers.update(otherStoreSales, anotherStore, region, 1, null));
+
+        assertThat(as(salesA1, () -> customers.page(salesA1, page(), "宜昌")).getList())
+                .extracting(CustomerDO::getId).containsExactly(mine);
+        assertThat(as(boss, () -> customers.page(boss, page(), "湖北")).getList())
+                .extracting(CustomerDO::getId).contains(mine, colleague).doesNotContain(anotherStore);
+        assertThat(as(salesA1, () -> customers.page(salesA1, page(), "不存在的地区")).getList()).isEmpty();
+    }
+
+    @Test
+    void capturePersistsTheFullAddressAndSamePhoneKeepsTheOriginalAddress() {
+        var address=CrmRegionsTest.address();
+        String phone=phone();
+        var input=new CaptureCommand("地址客户",phone,"建两层","朋友介绍",address.province(),address.city(),
+                address.district(),address.town(),address.village(),address.regionCode(),address.addressDetail());
+        var created=as(salesA1,()->leads.capture(salesA1,input,"address-"+phone));
+        var saved=as(salesA1,()->customers.get(salesA1,created.customerId()).customer());
+        assertThat(saved.getRegionCode()).isEqualTo(address.regionCode());
+        assertThat(saved.getTown()).isEqualTo(address.town());
+        assertThat(saved.getVillage()).isEqualTo(address.village());
+        assertThat(saved.getAddressDetail()).isEqualTo(address.addressDetail());
+        assertThat(as(salesA1,()->customers.page(salesA1,page(),address.village())).getList())
+                .extracting(CustomerDO::getId).contains(saved.getId());
+        var linked=as(salesA2,()->leads.capture(salesA2,new CaptureCommand("地址客户",phone,"新需求","到店咨询",
+                address.province(),address.city(),address.district(),address.town(),address.village(),address.regionCode(),"另一处地址"),null));
+        assertThat(linked.customerId()).isEqualTo(saved.getId());
+        assertThat(as(salesA1,()->customers.get(salesA1,saved.getId()).customer()).getAddressDetail()).isEqualTo(address.addressDetail());
+        assertThat(as(salesA1,()->leads.capture(salesA1,input,"address-"+phone)).customerId()).isEqualTo(saved.getId());
+    }
+
+    @Test
+    void editChangesTheDetailedAddressAndOldClientsDoNotEraseSavedVillage() {
+        var address=CrmRegionsTest.address();
+        var created=as(salesA1,()->leads.capture(salesA1,new CaptureCommand("编辑地址",phone(),"两层","朋友介绍",
+                address.province(),address.city(),address.district(),address.town(),address.village(),address.regionCode(),address.addressDetail()),null));
+        var edited=as(salesA1,()->customers.update(salesA1,created.customerId(),new UpdateCommand("编辑地址",null,
+                address.province(),address.city(),"三层",address.district(),address.town(),address.village(),address.regionCode(),"二组8号"),1,null));
+        assertThat(edited.customer().getAddressDetail()).isEqualTo("二组8号");
+        var legacy=as(salesA1,()->customers.update(salesA1,created.customerId(),new UpdateCommand("姓名修改",null,
+                address.province(),address.city(),"三层"),2,null));
+        assertThat(legacy.customer().getVillage()).isEqualTo(address.village());
+        assertThat(legacy.customer().getAddressDetail()).isEqualTo("二组8号");
+        var response=cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.CrmRespVos.Customer.of(legacy.customer());
+        assertThat(response.regionCode()).isEqualTo(address.regionCode());
+        assertThat(response.addressDetail()).isEqualTo("二组8号");
+    }
 
     private CaptureResult capture(PostSnapshot post, String phone) {
         return as(post, () -> leads.capture(post, new CaptureCommand("陈先生", phone, "两层乡墅，先了解方案和费用", "视频号咨询"), null));

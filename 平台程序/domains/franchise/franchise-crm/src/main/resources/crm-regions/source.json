@@ -1,0 +1,38 @@
+{
+  "source": "https://github.com/modood/Administrative-divisions-of-China",
+  "revision": "c49d495b40ac73eb1a66f6eeae5f8fd10696f035",
+  "dataDate": "2023-06-30",
+  "license": "WTFPL",
+  "files": [
+    {
+      "name": "provinces",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/c49d495b40ac73eb1a66f6eeae5f8fd10696f035/dist/provinces.csv",
+      "sha256": "b17e76dab634e24e0f56021f15737c0a526dc7f0c4e39d21abeba5a8668383cd",
+      "rows": 31
+    },
+    {
+      "name": "cities",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/c49d495b40ac73eb1a66f6eeae5f8fd10696f035/dist/cities.csv",
+      "sha256": "a9c818e8a5120189173668b40882ce8bf59a7ec2b057c49d7a724a04bec727f2",
+      "rows": 342
+    },
+    {
+      "name": "areas",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/c49d495b40ac73eb1a66f6eeae5f8fd10696f035/dist/areas.csv",
+      "sha256": "169b8d99654c28cbd285e771e00688837f77af8d50c2b703592146388d2a99ab",
+      "rows": 2978
+    },
+    {
+      "name": "streets",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/c49d495b40ac73eb1a66f6eeae5f8fd10696f035/dist/streets.csv",
+      "sha256": "831dc1c483079cee166717118e57f4b69ef6212c699dbd4bff868b59513ac14b",
+      "rows": 41352
+    },
+    {
+      "name": "villages",
+      "url": "https://raw.githubusercontent.com/modood/Administrative-divisions-of-China/c49d495b40ac73eb1a66f6eeae5f8fd10696f035/dist/villages.csv",
+      "sha256": "31a824829aeef7b472fced6a3f9f8321cbd9fb26661052be98904f9763ec88ce",
+      "rows": 620573
+    }
+  ]
+}

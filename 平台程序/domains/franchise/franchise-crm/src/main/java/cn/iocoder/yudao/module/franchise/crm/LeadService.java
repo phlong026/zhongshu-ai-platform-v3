@@ -37,7 +37,13 @@ public class LeadService {
     /** 登记结果：CREATED 新建客户；LINKED 关联到登记人可见的原客户；LINK_REQUIRED 等负责人关联 */
     public enum CaptureOutcome { CREATED, LINKED, LINK_REQUIRED }
 
-    public record CaptureCommand(String name, String phone, String need, String source) {
+    public record CaptureCommand(String name, String phone, String need, String source,
+                                 String province, String city, String district, String town, String village,
+                                 String regionCode, String addressDetail) {
+        public CaptureCommand(String name, String phone, String need, String source) {
+            this(name,phone,need,source,null,null,null,null,null,null,null);
+        }
+        CrmAddress address() { return CrmAddress.normalize(province,city,district,town,village,regionCode,addressDetail); }
     }
 
     public record CaptureResult(long leadId, Long customerId, CaptureOutcome outcome) {
@@ -69,6 +75,7 @@ public class LeadService {
         LeadDO lead = new LeadDO().setId(IdWorker.getId()).setCompanyId(post.orgId()).setTeamId(post.teamId())
                 .setName(input.name()).setPhone(input.phone()).setNeed(input.need()).setSource(input.source())
                 .setRegistrarUserId(post.userId()).setRegistrarPostId(post.postId()).setRevision(1L);
+        input.address().apply(lead);
         CustomerDO existing = customerMapper.selectByPhone(input.phone());
         try {
             if (existing == null) {
@@ -159,13 +166,15 @@ public class LeadService {
                 || StrUtil.isBlank(need) || need.length() > 500 || StrUtil.isBlank(source) || source.length() > 64) {
             throw exception(LEAD_INPUT_INVALID);
         }
-        return new CaptureCommand(name, phone, need, source);
+        var address=c.address();
+        return new CaptureCommand(name,phone,need,source,address.province(),address.city(),address.district(),
+                address.town(),address.village(),address.regionCode(),address.addressDetail());
     }
 
     private static CustomerDO newCustomer(PostSnapshot post, CaptureCommand input, long leadId) {
-        return new CustomerDO().setId(IdWorker.getId()).setCompanyId(post.orgId()).setTeamId(post.teamId())
+        return input.address().apply(new CustomerDO().setId(IdWorker.getId()).setCompanyId(post.orgId()).setTeamId(post.teamId())
                 .setOwnerUserId(post.userId()).setName(input.name()).setPhone(input.phone()).setSource(input.source())
-                .setSummary(input.need()).setStatus(CustomerDO.STATUS_REGISTERED).setOriginLeadId(leadId).setRevision(1L);
+                .setSummary(input.need()).setStatus(CustomerDO.STATUS_REGISTERED).setOriginLeadId(leadId).setRevision(1L));
     }
 
     private LeadDO requireLead(long leadId) {

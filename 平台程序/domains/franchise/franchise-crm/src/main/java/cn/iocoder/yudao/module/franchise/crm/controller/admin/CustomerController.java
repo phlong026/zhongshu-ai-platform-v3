@@ -49,10 +49,14 @@ public class CustomerController {
                               String province, String city, String summary, String status,
                               long ownerUserId, String ownerName, java.time.LocalDate nextVisitDate,
                               java.time.OffsetDateTime lastFollowAt, long revision,
-                              java.time.OffsetDateTime createTime) {
+                              java.time.OffsetDateTime createTime, String district, String town, String village, String regionCode, String addressDetail) {
     }
 
-    public record UpdateReq(String name, String wechat, String province, String city, String summary, long revision) {
+    public record UpdateReq(String name, String wechat, String province, String city, String summary, long revision,
+                            String district, String town, String village, String regionCode, String addressDetail) {
+        public UpdateReq(String name,String wechat,String province,String city,String summary,long revision) {
+            this(name,wechat,province,city,summary,revision,null,null,null,null,null);
+        }
     }
 
     public record TransferReq(long targetUserId, String reason, long revision) {
@@ -80,7 +84,7 @@ public class CustomerController {
                 c.getId(), c.getName(), c.getPhone(), c.getWechat(), c.getSource(), c.getProvince(),
                 c.getCity(), c.getSummary(), c.getStatus(), c.getOwnerUserId(),
                 ownerNames.getOrDefault(c.getOwnerUserId(), ""), c.getNextVisitDate(), c.getLastFollowAt(),
-                c.getRevision(), c.getCreateTime())).toList(), result.getTotal()));
+                c.getRevision(), c.getCreateTime(),c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail())).toList(), result.getTotal()));
     }
 
     @GetMapping("/owner-options")
@@ -110,7 +114,7 @@ public class CustomerController {
     @PreAuthorize("@post.has('franchise:customer:write')")
     public CommonResult<CustomerDetail> update(@PathVariable long id, @RequestBody UpdateReq req,
                                        @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
-        UpdateCommand command = new UpdateCommand(req.name(), req.wechat(), req.province(), req.city(), req.summary());
+        UpdateCommand command = new UpdateCommand(req.name(),req.wechat(),req.province(),req.city(),req.summary(),req.district(),req.town(),req.village(),req.regionCode(),req.addressDetail());
         return success(CustomerDetail.of(customerService.update(currentPost.require(), id, command, req.revision(), key)));
     }
 

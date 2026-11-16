@@ -31,6 +31,11 @@ public class CustomerDO {
     private String source;
     private String province;
     private String city;
+    private String district;
+    private String town;
+    private String village;
+    private String regionCode;
+    private String addressDetail;
     private String summary;
     private String status;
     private Long originLeadId;

@@ -48,7 +48,11 @@ public class CustomerService {
     public record FollowCommand(String note, LocalDate nextVisitDate) {
     }
 
-    public record UpdateCommand(String name, String wechat, String province, String city, String summary) {
+    public record UpdateCommand(String name, String wechat, String province, String city, String summary,
+                                String district, String town, String village, String regionCode, String addressDetail) {
+        public UpdateCommand(String name, String wechat, String province, String city, String summary) {
+            this(name,wechat,province,city,summary,null,null,null,null,null);
+        }
     }
 
     public record SchemeCommand(String kind, String title, String payload, BigDecimal width, BigDecimal depth,
@@ -223,14 +227,23 @@ public class CustomerService {
 
     @Transactional(rollbackFor = Exception.class)
     public Detail update(PostSnapshot post, long customerId, UpdateCommand command, long revision, String idempotencyKey) {
-        requireWritable(post, customerId);
+        CustomerDO customer = requireWritable(post, customerId);
         UpdateCommand input = normalize(command);
+        boolean replaceAddress = command.district()!=null || command.town()!=null || command.village()!=null
+                || command.regionCode()!=null || command.addressDetail()!=null
+                || !java.util.Objects.equals(input.province(),customer.getProvince())
+                || !java.util.Objects.equals(input.city(),customer.getCity());
         if (commands.replayed(post, idempotencyKey, input).isEmpty()) {
             Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> u
                     .set(CustomerDO::getName, input.name())
                     .set(CustomerDO::getWechat, input.wechat())
                     .set(CustomerDO::getProvince, input.province())
                     .set(CustomerDO::getCity, input.city())
+                    .set(replaceAddress, CustomerDO::getDistrict, input.district())
+                    .set(replaceAddress, CustomerDO::getTown, input.town())
+                    .set(replaceAddress, CustomerDO::getVillage, input.village())
+                    .set(replaceAddress, CustomerDO::getRegionCode, input.regionCode())
+                    .set(replaceAddress, CustomerDO::getAddressDetail, input.addressDetail())
                     .set(CustomerDO::getSummary, input.summary())));
             commands.record(post, AGGREGATE, customerId, revision + 1, "customer-update", input, idempotencyKey);
         }
@@ -270,6 +283,30 @@ public class CustomerService {
      */
     @Transactional(rollbackFor = Exception.class)
     public CustomerSchemeDO saveSchemeInternal(PostSnapshot post, long customerId, SchemeSaveCommand command) {
+        return saveSchemeSnapshot(post,customerId,command,false);
+    }
+
+    /** Internal-only verified itemized snapshot; public manual scheme validation is unchanged. */
+    @Transactional(rollbackFor=Exception.class)
+    public CustomerSchemeDO saveItemizedBudgetSnapshot(PostSnapshot post,long customerId,SchemeSaveCommand command) {
+        return saveSchemeSnapshot(post,customerId,command,true);
+    }
+
+    private static SchemeSaveCommand normalizeItemizedSnapshot(SchemeSaveCommand command) {
+        if(!CustomerSchemeDO.KIND_BUDGET.equals(command.kind()))throw exception(SCHEME_INVALID);
+        var validated=normalizeInternal(new SchemeSaveCommand("PLAN",command.title(),command.payload(),command.width(),command.depth(),command.floors(),command.area(),command.totalCents(),command.designProjectId()));
+        com.fasterxml.jackson.databind.JsonNode root;
+        try {root=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(command.payload(),com.fasterxml.jackson.databind.JsonNode.class);}
+        catch(RuntimeException invalid){throw exception(SCHEME_INVALID);}
+        if(root==null)throw exception(SCHEME_INVALID);
+        var snapshot=root.path("itemizedBudget");
+        if(!snapshot.path("model").asText().equals("ITEMIZED_V1")||!Set.of("COMPLETE","INCOMPLETE").contains(snapshot.path("completeness").asText())
+                ||snapshot.path("completeness").asText().equals("COMPLETE")!= (validated.totalCents()!=null)
+                ||(validated.totalCents()!=null&&!snapshot.path("totalCents").asText().equals(validated.totalCents().toString())))throw exception(SCHEME_INVALID);
+        return new SchemeSaveCommand("BUDGET",validated.title(),validated.payload(),validated.width(),validated.depth(),validated.floors(),validated.area(),validated.totalCents(),validated.designProjectId());
+    }
+
+    private CustomerSchemeDO saveSchemeSnapshot(PostSnapshot post,long customerId,SchemeSaveCommand command,boolean itemized) {
         CustomerDO customer = customerMapper.lockById(customerId);
         if (customer == null || !CustomerAccess.canRead(post, customer) && !CustomerAccess.canWrite(post, customer)) {
             throw exception(CUSTOMER_NOT_FOUND);
@@ -277,7 +314,7 @@ public class CustomerService {
         if (!CustomerAccess.canWrite(post, customer)) {
             throw exception(CUSTOMER_FORBIDDEN);
         }
-        SchemeSaveCommand input = normalizeInternal(command);
+        SchemeSaveCommand input=itemized?normalizeItemizedSnapshot(command):normalizeInternal(command);
         CustomerSchemeDO latest = schemeMapper.selectLatest(customerId, input.kind());
         CustomerSchemeDO scheme = new CustomerSchemeDO().setCompanyId(post.orgId()).setCustomerId(customerId)
                 .setKind(input.kind()).setVersion(latest == null ? 1 : latest.getVersion() + 1)
@@ -404,11 +441,13 @@ public class CustomerService {
         String province = StrUtil.trimToNull(c.province());
         String city = StrUtil.trimToNull(c.city());
         String summary = StrUtil.trimToNull(c.summary());
-        if (StrUtil.isBlank(name) || name.length() > 64 || tooLong(wechat, 64) || tooLong(province, 32)
-                || tooLong(city, 32) || tooLong(summary, 500)) {
+        if (StrUtil.isBlank(name) || name.length() > 64 || tooLong(wechat, 64) || tooLong(province, 64)
+                || tooLong(city, 64) || tooLong(summary, 500)) {
             throw exception(CUSTOMER_INPUT_INVALID);
         }
-        return new UpdateCommand(name, wechat, province, city, summary);
+        var address=CrmAddress.normalize(province,city,c.district(),c.town(),c.village(),c.regionCode(),c.addressDetail());
+        return new UpdateCommand(name,wechat,address.province(),address.city(),summary,address.district(),
+                address.town(),address.village(),address.regionCode(),address.addressDetail());
     }
 
     private static SchemeCommand normalize(SchemeCommand c) {
