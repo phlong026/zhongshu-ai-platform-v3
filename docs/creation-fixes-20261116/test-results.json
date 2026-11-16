@@ -164,7 +164,7 @@
       "sha256": "01CF50B234216CCCB17E8D194E2F895BF150C7B068AAD4DA44B4435E2F4875B3"
     }
   ],
-  "updatedAt": "2026-11-16T15:05:36.2922330+08:00",
+  "updatedAt": "2026-11-16T15:14:14.447096+08:00",
   "paidProviderRequestsAsOf": "2026-11-16T14:32:21+08:00",
   "liveDeployment": {
     "initialPriceCredits": {
@@ -187,7 +187,12 @@
     "migrationCount": 95,
     "frontendVersion": "1.0.20261116.1503",
     "directUploadContract": "live/direct-upload-contract.json",
-    "uploadReceipt": "live/frontend-upload.json"
+    "uploadReceipt": "live/frontend-upload.json",
+    "experienceVersion": "1.0.20261116.1503",
+    "experienceVersionSwitched": true,
+    "requestDomainConfigured": true,
+    "wechatConfigurationSource": "user_confirmation",
+    "wechatConfigurationConfirmedAt": "2026-11-16T15:14:14.447096+08:00"
   },
   "livePhone": {
     "fixture": false,
@@ -198,6 +203,7 @@
     "apiKey": "backend only",
     "productionStorageFallback": false,
     "backendStores": "metadata and provider file id",
-    "requestDomainVerified": false
+    "requestDomainVerified": false,
+    "requestDomainStatus": "configured; user confirmed"
   }
 }

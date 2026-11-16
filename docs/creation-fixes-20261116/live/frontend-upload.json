@@ -63,11 +63,17 @@
   },
   "fixture": false,
   "formalPublish": false,
-  "experienceVersionSwitched": false,
+  "experienceVersionSwitched": true,
   "requiredRequestDomain": "https://upload.hifly.cc",
   "domainConfigurationVerified": false,
   "backendReceipt": "direct-deployment-verified.json",
   "releaseProject": "C:\\Users\\Administrator\\.codex\\artifacts\\creation-flow-20261116\\live-native",
   "releaseChecks": "npm run check passed in frozen publish tree",
-  "workspaceCheck": "current workspace has an unrelated customer-session test failure; that changed customer code is excluded from publish tree"
+  "workspaceCheck": "current workspace has an unrelated customer-session test failure; that changed customer code is excluded from publish tree",
+  "experienceVersionSource": "user_confirmation",
+  "requestDomainConfigured": true,
+  "domainConfigurationSource": "user_confirmation",
+  "userConfirmedAt": "2026-11-16T15:14:14.447096+08:00",
+  "independentlyVerifiedInWechatConsole": false,
+  "physicalPhoneTest": "deferred by user"
 }
