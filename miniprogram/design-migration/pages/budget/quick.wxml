@@ -1,5 +1,5 @@
 <view class="v12-page quick-budget" wx:if="{{accessReady}}">
-  <v12-navbar title="独立快速预算" show-back show-brand="{{false}}" />
+  <v12-navbar title="快速预算" show-back show-brand="{{false}}" />
   <view class="card" wx:if="{{loading}}"><v12-state status="loading" text="正在读取本人预算草稿…" card="{{false}}" /></view>
   <view class="card error" wx:if="{{error}}"><text>{{error}}</text><button wx:if="{{!draft}}" bindtap="load" disabled="{{busy}}">重试</button></view>
   <block wx:if="{{draft}}">
@@ -16,41 +16,41 @@
     </view>
     <view class="card">
       <text class="section-title">基础参数</text>
-      <picker range="{{regionNames}}" bindchange="region" disabled="{{busy}}"><view class="parameter"><text>建造地区</text><text>{{regionName}} ▾</text></view></picker>
+      <picker range="{{regionNames}}" value="{{regionIndex}}" bindchange="region" disabled="{{busy || localConflict}}"><view class="parameter"><text>建造地区</text><view class="picker-value"><text>{{regionName}}</text><t-icon name="chevron-right" size="16px" color="#a89a8c" /></view></view></picker>
       <view class="grid-2">
         <view class="field"><text class="field-label">面宽（米）</text><input type="digit" maxlength="20" value="{{overrides.faceWidth || ''}}" data-field="faceWidth" bindinput="edit" disabled="{{busy}}" placeholder="如 12" aria-label="面宽" /></view>
         <view class="field"><text class="field-label">进深（米）</text><input type="digit" maxlength="20" value="{{overrides.depth || ''}}" data-field="depth" bindinput="edit" disabled="{{busy}}" placeholder="如 15" aria-label="进深" /></view>
       </view>
       <view class="grid-2">
         <view class="field"><text class="field-label">占地面积（㎡）</text><input type="digit" maxlength="20" value="{{overrides.footprintArea || ''}}" data-field="footprintArea" bindinput="edit" disabled="{{busy}}" placeholder="留空按面宽×进深" aria-label="占地面积" /></view>
-        <view class="field"><text class="field-label">建筑层数</text><picker range="{{floorNames}}" bindchange="floor" disabled="{{busy}}"><view class="field-picker">{{values.floorCount ? values.floorCount + '层' : '请选择'}} ▾</view></picker></view>
+        <view class="field"><text class="field-label">建筑层数</text><picker range="{{floorNames}}" value="{{floorIndex}}" bindchange="floor" disabled="{{busy || localConflict}}"><view class="field-picker"><text>{{values.floorCount ? values.floorCount + '层' : '请选择'}}</text><t-icon name="chevron-down" size="14px" color="#a89a8c" /></view></picker></view>
       </view>
-      <view class="parameter"><text>建筑面积（㎡）</text><input type="digit" maxlength="20" value="{{overrides.buildingArea || ''}}" data-field="buildingArea" bindinput="edit" disabled="{{busy}}" placeholder="留空按占地×层数" aria-label="建筑面积" /></view>
-      <text class="hint" wx:if="{{!overrides.buildingArea && values.buildingArea}}">未填写时按 {{values.buildingArea}} ㎡ 计算建筑面积</text>
+      <view class="parameter"><text>建筑面积（㎡）</text><input type="digit" maxlength="20" value="{{overrides.buildingArea || ''}}" data-field="buildingArea" bindinput="edit" disabled="{{busy || localConflict}}" placeholder="{{values.buildingArea || '自动计算'}}" aria-label="建筑面积" /></view>
       <view class="parameter"><text>屋顶面积（㎡）</text><input type="digit" maxlength="20" value="{{overrides.roofArea || ''}}" data-field="roofArea" bindinput="edit" disabled="{{busy}}" placeholder="未知可留空" aria-label="屋顶面积" /></view>
     </view>
     <view class="card">
-      <text class="section-title">核定工程量（可留空）</text>
+      <text class="section-title">工程量<text class="section-optional">（选填）</text></text>
       <view class="parameter" wx:for="{{quantityRows}}" wx:key="code"><text>{{item.label}}（{{item.unit}}）</text><input type="digit" maxlength="20" value="{{item.value}}" data-code="{{item.code}}" bindinput="quantity" disabled="{{busy}}" placeholder="待核定" aria-label="{{item.label}}" /></view>
     </view>
     <view class="card">
-      <text class="section-title">预算配置</text>
+      <view class="section-head"><text class="section-title">预算配置</text><button wx:if="{{values.regionCode}}" class="text-action" bindtap="openPrices" disabled="{{busy}}">当地单价 <t-icon name="chevron-right" size="14px" color="#8b4818" /></button></view>
       <text wx:if="{{!values.regionCode}}" class="notice">请先选择建造地区</text><text wx:if="{{catalogLoading}}">正在读取本地区配置…</text>
       <view wx:if="{{catalogError}}" class="error"><text>{{catalogError}}</text><button bindtap="loadCatalog" disabled="{{busy}}">重试配置</button></view>
       <view class="config-grid">
         <view class="config-cell" wx:for="{{configCells}}" wx:key="key">
           <text class="config-label">{{item.label}}</text>
-          <picker range="{{item.range}}" value="{{item.index}}" data-key="{{item.key}}" bindchange="choose" disabled="{{busy}}">
-            <view class="config-value {{item.index === 0 ? 'empty' : ''}}">{{item.range[item.index]}} ▾</view>
+          <picker range="{{item.range}}" value="{{item.index}}" data-key="{{item.key}}" bindchange="choose" disabled="{{busy || localConflict}}">
+            <view class="config-value {{item.index === 0 ? 'empty' : ''}}"><text>{{item.range[item.index]}}</text><t-icon name="chevron-down" size="14px" color="#a89a8c" /></view>
           </picker>
         </view>
       </view>
     </view>
-    <view class="card">
-      <text class="section-title">可选：导入本人项目参数</text>
-      <button wx:if="{{!projectsLoaded || projectCursor}}" bindtap="loadProjects" disabled="{{busy}}">{{projectsLoaded ? '读取更多项目' : '读取我的项目'}}</button>
-      <picker wx:if="{{projects.length}}" range="{{projectNames}}" bindchange="importProject" disabled="{{busy}}"><view class="parameter"><text>选择要导入的项目</text><text>选择 ▾</text></view></picker>
+    <view class="secondary-actions"><button class="text-action" bindtap="toggleImport" disabled="{{busy || localConflict}}">导入项目参数 <t-icon name="{{showImport ? 'chevron-up' : 'chevron-down'}}" size="14px" color="#8b4818" /></button><button class="text-action" bindtap="history" disabled="{{busy}}">预算历史 <t-icon name="chevron-right" size="14px" color="#8b4818" /></button></view>
+    <view wx:if="{{showImport}}" class="card import-card">
+      <picker wx:if="{{projects.length}}" range="{{projectNames}}" bindchange="importProject" disabled="{{busy || localConflict}}"><view class="parameter"><text>选择项目</text><t-icon name="chevron-right" size="16px" color="#a89a8c" /></view></picker>
+      <text wx:elif="{{projectsLoaded}}" class="muted">暂无可导入的项目</text>
+      <button wx:if="{{!projectsLoaded || projectCursor}}" class="text-action" bindtap="loadProjects" loading="{{busy}}" disabled="{{busy || localConflict}}">{{projectsLoaded ? '更多项目' : '加载项目'}}</button>
     </view>
-    <view class="footer"><view class="actions"><button bindtap="save" disabled="{{busy}}">保存草稿</button><button class="primary" bindtap="generate" loading="{{busy}}" disabled="{{busy || localConflict || !catalogReady}}">测算预算</button></view><button class="history" bindtap="history" disabled="{{busy}}">查看本人独立预算历史</button><text>草稿保存不收费；测算前将确认现行公司积分价格。</text></view>
+    <view class="footer"><view class="actions"><button class="secondary" bindtap="save" disabled="{{busy || localConflict}}">保存草稿</button><button class="primary" bindtap="generate" loading="{{busy}}" disabled="{{busy || localConflict || !catalogReady}}">测算预算</button></view></view>
   </block>
 </view>

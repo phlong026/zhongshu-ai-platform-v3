@@ -1,0 +1,866 @@
+{
+  "status": "passed",
+  "http": "mocked B APIs; no live AI or points",
+  "media": "local test images only for native full-image rendering",
+  "results": [
+    "灵感库旧入口、来源筛选、游标加载到末页",
+    "详情全部楼层图、全图比例、收藏与授权动作",
+    "AI平面独立入口、原默认规格、公司报价及草图上传审核",
+    "AI立面独立入口、可选配置及参考图上传审核",
+    "部分成功、候选读取及实际公司积分退款",
+    "不可变结果版本、读取出图规格、保存至客户",
+    "独立预算草稿、地区与基础参数、报价确认、缺价总额为空",
+    "缺价预算按冻结快照保存至客户，保留空总额",
+    "独立预算历史入口与冻结版本读取",
+    "首页文案清理、分类接口全量展示、四层筛选、自定义风格及预算配置与按钮尺寸"
+  ],
+  "requests": [
+    {
+      "route": "/franchise/design/cases/styles",
+      "method": "GET",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/cases",
+        "query": {
+          "limit": "10",
+          "sourceType": "COMPANY"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/501/assets/601/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/502/assets/601/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/cases",
+        "query": {
+          "cursor": "page-2",
+          "limit": "10",
+          "sourceType": "COMPANY"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/503/assets/601/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/cases",
+        "query": {
+          "limit": "10",
+          "sourceType": "AI"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/501/assets/601/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/502/assets/601/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/cases/501",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/favorites",
+        "query": {
+          "limit": "50"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/501/assets/601/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/501/assets/604/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/501/assets/602/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/501/assets/603/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "PUT",
+        "path": "/cases/501/favorite",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/styles",
+      "method": "GET",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/company-points/summary",
+      "method": "GET",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-price",
+      "method": "GET",
+      "body": {
+        "subject": "ai_flat",
+        "quantity": 2
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-price",
+      "method": "GET",
+      "body": {
+        "subject": "ai_flat",
+        "quantity": 2
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-price",
+      "method": "GET",
+      "body": {
+        "subject": "ai_flat",
+        "quantity": 2
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-upload-ticket",
+      "method": "POST",
+      "body": {
+        "assetType": "USER_SKETCH",
+        "mimeType": "image/jpeg",
+        "sizeBytes": "22508",
+        "sha256": "6ae502024b0e7d9eb956dd708364797ad224a5f37aa11f4d293881f9a4a0dec5"
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "",
+      "method": "PUT",
+      "body": {},
+      "headers": {
+        "Content-Type": "image/jpeg"
+      }
+    },
+    {
+      "route": "/franchise/design/assets/710/complete",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/styles",
+      "method": "GET",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/company-points/summary",
+      "method": "GET",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-price",
+      "method": "GET",
+      "body": {
+        "subject": "ai_elevation",
+        "quantity": 1
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-price",
+      "method": "GET",
+      "body": {
+        "subject": "ai_elevation",
+        "quantity": 1
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-price",
+      "method": "GET",
+      "body": {
+        "subject": "ai_elevation",
+        "quantity": 1
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-upload-ticket",
+      "method": "POST",
+      "body": {
+        "assetType": "DESIGN_REFERENCE",
+        "mimeType": "image/jpeg",
+        "sizeBytes": "22508",
+        "sha256": "6ae502024b0e7d9eb956dd708364797ad224a5f37aa11f4d293881f9a4a0dec5"
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "",
+      "method": "PUT",
+      "body": {},
+      "headers": {
+        "Content-Type": "image/jpeg"
+      }
+    },
+    {
+      "route": "/franchise/design/assets/711/complete",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-ai-jobs/71",
+      "method": "GET",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/design-projects/61",
+        "query": {
+          "jobId": "71"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/assets/602/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/design-projects/61/result-versions",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/assets/602/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/customers",
+      "method": "GET",
+      "body": {
+        "pageNo": 1,
+        "pageSize": 20
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/projects/61/save-to-customer",
+      "method": "POST",
+      "body": {
+        "customerId": "701",
+        "kind": "PLAN",
+        "resultVersionId": "81"
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99",
+        "Idempotency-Key": "archive-1794824222535-0c1igmckl6"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-drafts",
+        "query": {
+          "limit": "20"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget/regions",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget/my-regions",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "POST",
+        "path": "/budget-drafts",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99",
+        "Idempotency-Key": "draft-1794824225039-276ogxcjb0"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget/options",
+        "query": {
+          "regionCode": "WUHAN"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "PUT",
+        "path": "/budget-drafts/179482417473",
+        "query": {},
+        "body": {
+          "expectedVersion": 1,
+          "state": {
+            "inputOverrides": {
+              "regionCode": "WUHAN",
+              "footprintArea": "120",
+              "floorCount": 2,
+              "roofArea": "120"
+            },
+            "optionIds": []
+          }
+        }
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "PUT",
+        "path": "/budget-drafts/179482417473",
+        "query": {},
+        "body": {
+          "expectedVersion": 2,
+          "state": {
+            "inputOverrides": {
+              "regionCode": "WUHAN",
+              "footprintArea": "120",
+              "floorCount": 2,
+              "roofArea": "120"
+            },
+            "optionIds": [
+              "200"
+            ]
+          }
+        }
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-price",
+      "method": "GET",
+      "body": {
+        "subject": "budget_estimate",
+        "quantity": 1
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "POST",
+        "path": "/budget-drafts/179482417473/estimates",
+        "query": {},
+        "body": {
+          "expectedVersion": 3,
+          "companyPrice": {
+            "subject": "budget_estimate",
+            "quantity": 1,
+            "credits": 7,
+            "priceVersion": "native-price-v1"
+          }
+        }
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99",
+        "Idempotency-Key": "ind-budget-1794824240723-pl1e3jdnr3"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901/quotes",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/customers",
+      "method": "GET",
+      "body": {
+        "pageNo": 1,
+        "pageSize": 20
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-budget-archive",
+      "method": "POST",
+      "body": {
+        "customerId": "701",
+        "budgetId": "901",
+        "revisionId": "902"
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99",
+        "Idempotency-Key": "archive-1794824249120-kg15dfeznw"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901/quotes",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/independent",
+        "query": {
+          "savedOnly": "true",
+          "limit": "20",
+          "draftId": "179482417473"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases",
+      "method": "GET",
+      "body": {
+        "limit": 10
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/501/assets/601/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/cases/502/assets/601/download-tickets",
+      "method": "POST",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-mocked-1794824174729",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/__design_parity_trace",
+      "method": "GET",
+      "body": {}
+    }
+  ]
+}

@@ -1,19 +1,18 @@
 <view class="page design-page workbench-page sales-page">
   <view class="workbench-header"><brand-header divider="{{true}}" title="AI设计" /></view>
   <view class="content">
-    <view class="design-hero"><image class="design-hero-picture" src="/pages/design/assets/biz-case-1.jpg" mode="aspectFill"/><view class="design-hero-veil"/><view class="design-hero-copy"><view class="design-hero-title"><text>把建房想法</text><text>变成方案</text></view><view class="design-hero-description"><text>从需求到平面、立面</text><text>与预算参考</text></view><button wx:if="{{entranceEnabled}}" class="primary" data-view="ai-config" bindtap="open">开始AI设计</button></view></view>
-    <view wx:if="{{entranceEnabled}}" class="design-quick"><button wx:for="{{entries}}" wx:key="view" class="design-entry" data-view="{{item.view}}" bindtap="open"><image src="/assets/{{item.icon}}.png" mode="aspectFit"/><view><text>{{item.title}}</text><text class="hint">{{item.hint}}</text></view><view class="chevron"/></button></view>
+    <view class="design-hero"><image class="design-hero-picture" src="/pages/design/assets/biz-case-1.jpg" mode="aspectFill"/><view class="design-hero-veil"/><view class="design-hero-copy"><view class="design-hero-title"><text>把建房想法</text><text>变成方案</text></view><button wx:if="{{entranceEnabled}}" class="primary" data-view="ai-config" bindtap="open">开始AI设计</button></view></view>
+    <view wx:if="{{entranceEnabled}}" class="design-quick"><button wx:for="{{entries}}" wx:key="view" class="design-entry" data-view="{{item.view}}" bindtap="open"><image src="/assets/{{item.icon}}.png" mode="aspectFit"/><view><text>{{item.title}}</text></view><view class="chevron"/></button></view>
     <text wx:if="{{!entranceEnabled}}" class="sales-note">请使用平台账号登录后使用 AI 设计，当前入口已停用。</text>
-    <text wx:if="{{entranceEnabled}}" class="sales-note">先浏览灵感、生成方案或测算预算，选定后可关联客户保存。</text>
     <view wx:if="{{entranceEnabled}}" class="design-catalog">
-      <view class="section-heading design-catalog-heading"><view><text class="section-title">户型灵感</text><text class="hint">来自 AI 设计户型库</text></view><button class="text-link" bindtap="openCatalog">查看全部 <view class="chevron"/></button></view>
+      <view class="section-heading design-catalog-heading"><view><text class="section-title">户型灵感</text></view><button class="text-link" bindtap="openCatalog">查看全部 <view class="chevron"/></button></view>
       <view wx:if="{{catalogLoading&&!catalogCases.length}}" class="design-catalog-state"><text>正在加载户型资料…</text></view>
       <view wx:elif="{{catalogError&&!catalogCases.length}}" class="design-catalog-state design-catalog-error"><text>{{catalogError}}</text><button class="outline" bindtap="retryCatalog">重新加载</button></view>
       <view wx:elif="{{catalogLoaded&&!catalogCases.length}}" class="design-catalog-state"><text>暂无已发布户型，稍后再来看看。</text><button class="outline" bindtap="retryCatalog">刷新</button></view>
       <view wx:else class="design-cases-grid">
         <button wx:for="{{catalogCases}}" wx:key="id" class="design-case" data-id="{{item.id}}" bindtap="openCatalogCase">
           <view class="design-case-media">
-            <image wx:if="{{item.coverUrl}}" src="{{item.coverUrl}}" mode="aspectFit" data-id="{{item.id}}" binderror="catalogImageError"/>
+            <image wx:if="{{item.coverUrl}}" src="{{item.coverUrl}}" mode="aspectFit" lazy-load data-id="{{item.id}}" binderror="catalogImageError"/>
             <view wx:elif="{{item.coverLoading}}" class="design-cover-state">图片加载中…</view>
             <view wx:elif="{{!item.coverAssetId}}" class="design-cover-state">暂无封面</view>
             <view wx:else class="design-cover-state design-cover-retry" role="button" aria-label="重新加载户型封面" data-id="{{item.id}}" catchtap="retryCatalogCover">封面加载失败，点击重试</view>

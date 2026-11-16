@@ -19,6 +19,10 @@ function libraryHarness() {
       if (id.endsWith('/context')) return { getApp: () => ({}) };
       if (id.endsWith('/access')) return { protectedPage: value => { definition = value; } };
       if (id.endsWith('/format')) return { styleLabel: () => '现代' };
+      if (id.endsWith('/case-classifications')) return {
+        styles: () => Promise.resolve([{ label: '现代', code: 'MODERN' }]),
+        floors: () => [{ label: '一层', count: 1 }, { label: '二层', count: 2 }]
+      };
       if (id.endsWith('/request')) return { captureSession: () => generation, isSameSession: expected => expected === generation };
       if (id.endsWith('/api')) return { listCases: params => { calls.push(params); return replies.shift()(); } };
       throw Error('Unexpected dependency ' + id);

@@ -820,3 +820,12 @@ page {
   margin-top: 16rpx;
   background: #fffdf8;
 }
+/* Compact forms: all choices remain visible on narrow screens. */
+.ai-content { padding-top: 24rpx; }
+.mode-tabs { margin-top: 0; }
+.chips-wrap { flex-wrap: wrap; gap: 14rpx; margin-top: 20rpx; }
+.chips-wrap .chip { flex-shrink: 0; padding: 14rpx 22rpx; }
+.card-head { gap: 16rpx; flex-wrap: wrap; }
+.sec-tip { font-size: 23rpx; }
+.style-error { padding-top: 16rpx; color: #a23f34; font-size: 24rpx; }
+.settings-head { margin-bottom: 20rpx; }

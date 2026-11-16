@@ -16,13 +16,16 @@ protectedPage({
   data: { draft: null, draftRows: [], draftNames: [], draftCursor: null, loading: false, busy: false, error: '', notice: '', storageError: '',
     values: {}, overrides: {}, regions: [], regionNames: [], regionName: '请选择', floorNames: Array.from({ length: 20 }, (_, i) => (i + 1) + '层'),
     quantityRows: [], configCells: [], catalogReady: false, catalogLoading: false, catalogError: '', dirty: false, localConflict: false,
-    projects: [], projectNames: [], projectCursor: null, projectsLoaded: false },
+    projects: [], projectNames: [], projectCursor: null, projectsLoaded: false, showImport: false, regionIndex: 0, floorIndex: 0 },
   onLoad(options) {
     this._requestedId = options.draftId == null ? null : drafts.id(options.draftId);
     if (options.draftId != null && !this._requestedId) { this.setData({ error: '草稿编号无效' }); return; }
     this.load();
   },
-  onShow() { if (this._scope && this._scope !== drafts.sessionScope()) this.load(); },
+  onShow() {
+    if (this._scope && this._scope !== drafts.sessionScope()) this.load();
+    else if (this.data.draft && !this.data.busy) this.loadCatalog();
+  },
   onUnload() { this._seq = (this._seq || 0) + 1; this._scope = null; },
   current(seq) {
     if (seq !== this._seq) return false;
@@ -36,7 +39,7 @@ protectedPage({
   resetContext() {
     this._conflictingLocal = null; this._catalog = []; this._catalogRegion = null;
     this.setData({ draft: null, draftRows: [], draftNames: [], draftCursor: null, values: {}, overrides: {}, quantityRows: [], configCells: [],
-      projects: [], projectNames: [], projectCursor: null, projectsLoaded: false, regions: [], regionNames: [], regionName: '请选择',
+      projects: [], projectNames: [], projectCursor: null, projectsLoaded: false, showImport: false, regions: [], regionNames: [], regionName: '请选择',
       dirty: false, localConflict: false, storageError: '', notice: '', catalogReady: false, catalogLoading: false, catalogError: '' });
   },
   canReplaceDraft() {
@@ -117,12 +120,18 @@ protectedPage({
     const configCells = [];
     (this._catalog || []).forEach(item => selection.groupChoices(item, { selections: d.state.optionIds }).forEach(group => {
       configCells.push({ key: item.itemId + '|' + group.name, itemId: item.itemId, group: group.name,
-        label: (item.name ? item.name + ' · ' : '') + group.label,
+        label: group.label === '配置选项' ? item.name
+          : item.code === 'DOORS_WINDOWS' && group.name === 'DOOR' ? '入户门'
+          : item.code === 'DOORS_WINDOWS' && group.name === 'WINDOW' ? '窗户'
+          : ['LIGHTING', 'WATERPROOF_LIGHTNING'].includes(item.code) ? group.label
+          : item.name === group.label ? item.name : [item.name, group.label].filter(Boolean).join(' · '),
         range: ['暂不选择'].concat(group.options.map(option => option.displayLabel)),
         optionIds: group.options.map(option => option.optionId),
         index: Math.max(0, group.options.findIndex(option => option.selected) + 1) });
     }));
     this.setData({ values, overrides, regionName: region ? region.name : '请选择',
+      regionIndex: Math.max(0, this.data.regions.findIndex(r => r.code === values.regionCode)),
+      floorIndex: Math.max(0, Number(values.floorCount || 1) - 1),
       quantityRows: QUANTITIES.map(([code, label, unit]) => ({ code, label, unit, value: quantities[code] || '' })),
       configCells });
   },
@@ -217,6 +226,15 @@ protectedPage({
     try { await this.saveCurrent(); if (this.current(seq)) wx.showToast({ title: '草稿已保存', icon: 'success' }); }
     catch (e) { if (this.current(seq)) this.setData({ error: view.errorText(e) }); }
     finally { if (this.current(seq)) this.setData({ busy: false }); }
+  },
+  toggleImport() {
+    if (!this.current(this._seq) || this.data.busy || this.data.localConflict) return;
+    this.setData({ showImport: !this.data.showImport });
+    if (this.data.showImport && !this.data.projectsLoaded) return this.loadProjects();
+  },
+  openPrices() {
+    if (!this.current(this._seq) || this.data.busy || !this.data.values.regionCode) return;
+    wx.navigateTo({ url: '/design-migration/pages/budget/prices?regionCode=' + encodeURIComponent(this.data.values.regionCode) });
   },
   async loadProjects() {
     if (!this.current(this._seq) || this.data.busy || (this.data.projectsLoaded && !this.data.projectCursor)) return;

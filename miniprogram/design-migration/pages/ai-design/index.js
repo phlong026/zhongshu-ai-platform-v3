@@ -9,6 +9,7 @@ const sha256 = require('../../utils/sha256');
 const designInputs = require('../../utils/design-inputs');
 const generationOptions = require('../../utils/generation-options');
 const attempts = require('../../utils/generation-attempt');
+const classifications = require('../../utils/case-classifications');
 const flatDefaults = generationOptions.selection('FLAT');
 const elevDefaults = generationOptions.selection('ELEVATION');
 const NOTE_SUGGESTIONS = ['老人房设在一楼', '客餐厅朝南', '厨房设在一楼', '保留露台', '增加储物空间'];
@@ -110,7 +111,7 @@ protectedPage({
     resolution: flatDefaults.resolution, orientation: flatDefaults.orientation, outputPixels: flatDefaults.outputPixels,
     // ---- 立面线路状态 ----
     elevRefCase: null, elevRefs: [],
-    elevStyles: ELEV_STYLES, elevStyleCode: 'NEW_CHINESE', elevStyleLabel: styleLabel('NEW_CHINESE'),
+    elevStyles: [], styleError: '', elevStyleCode: 'NEW_CHINESE', elevStyleLabel: styleLabel('NEW_CHINESE'),
     floorChips: designInputs.FLOOR_OPTIONS, elevFloorIndex: 1,
     elevRoofs: ELEV_ROOFS, elevWalls: ELEV_WALLS, elevAccents: ELEV_ACCENTS,
     elevRoof: 'GABLE_ROOF', elevWall: 'WHITE_STUCCO', elevAccent: 'DEEP_WOOD',
@@ -124,6 +125,7 @@ protectedPage({
     resolutions: generationOptions.RESOLUTIONS, orientations: generationOptions.orientations(flatDefaults.resolution)
   },
   onLoad(options) {
+    this.loadStyles();
     if(options && ['FLAT','ELEVATION'].includes(options.line))getDesignApp().globalData.aiLine=options.line;
     try {
       const saved = attempts.read('initial-flat');
@@ -215,6 +217,17 @@ protectedPage({
     }
     this.refreshPoints();
     require('../../utils/generation-price').refresh(this, line === 'ELEVATION' ? 'ELEVATION' : 'FLAT');
+  },
+  loadStyles() {
+    const session = http.captureSession(), seq = this._styleSeq = (this._styleSeq || 0) + 1;
+    this.setData({ styleError: '' });
+    return classifications.styles().then(styles => {
+      if (seq !== this._styleSeq || !http.isSameSession(session)) return;
+      const selected = styles.find(row => row.code === this.data.elevStyleCode);
+      this.setData({ elevStyles: styles, elevStyleLabel: selected ? selected.label : this.data.elevStyleLabel });
+    }).catch(() => {
+      if (seq === this._styleSeq && http.isSameSession(session)) this.setData({ styleError: '风格加载失败，点击重试' });
+    });
   },
   applyRefCase(refCase) {
     const patch = { refCase: refCase, refCaseAuto: false };
@@ -369,7 +382,7 @@ protectedPage({
     if (typeof clearTimeout === 'function') clearTimeout(this._autoCaseTimer);
     this.setData({ candidateLoading: false, candidatePreviewLoading: false, candidateConfirming: false, previewCandidate: null });
   },
-  onUnload() { this.onHide(); },
+  onUnload() { this._styleSeq = (this._styleSeq || 0) + 1; this.onHide(); },
   // ---- 默认参考案例（定稿 7.1-10）：层数一致优先、建筑面积接近；手选的案例永远优先 ----
   scheduleAutoCase() {
     if (this._candidateFlowActive) { this.invalidateReferenceResults(); return; }
@@ -494,7 +507,12 @@ protectedPage({
   onLayoutChange(e) { this.setData({ layoutIndex: Number(e.detail.value) }); },
   onDrawingChange(e) { this.setData({ drawingIndex: Number(e.currentTarget.dataset.index) }); },
   // ---- 立面细部选择 ----
-  onElevStyle(e) { const code = e.currentTarget.dataset.code || ''; this.setData({ elevStyleCode: code, elevStyleLabel: styleLabel(code) }); },
+  onElevStyle(e) {
+    const code = e.currentTarget.dataset.code || '';
+    const style = this.data.elevStyles.find(row => row.code === code);
+    if (code && !style) return;
+    this.setData({ elevStyleCode: code, elevStyleLabel: style ? style.label : '' });
+  },
   onElevFloor(e) { this.setData({ elevFloorIndex: Number(e.currentTarget.dataset.index) }); },
   onElevRoof(e) { this.setData({ elevRoof: e.currentTarget.dataset.code, elevAdvancedTouched: true }); },
   onElevWall(e) { this.setData({ elevWall: e.currentTarget.dataset.code, elevAdvancedTouched: true }); },

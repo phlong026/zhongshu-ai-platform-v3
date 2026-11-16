@@ -34,3 +34,25 @@
 .case-copy { padding: 20rpx; }
 .case-copy text { display: block; font-size: $v12-font-lg; font-weight: 600; }
 .case-copy text + text { margin-top: 8rpx; color: $v12-text-2; font-size: $v12-font-sm; font-weight: 400; }
+
+/* Fit full API-driven categories without clipping their labels. */
+.library-content { padding-top: 24rpx; }
+.search { margin-top: 0; }
+.filters { padding: 24rpx; }
+.filters > .filter-row { align-items: flex-start; gap: 16rpx; }
+.filters > .filter-row > .filter-label { width: 100rpx; flex-shrink: 0; line-height: 64rpx; }
+.filter-pills { min-width: 0; gap: 12rpx; }
+.filter-pills text { box-sizing: border-box; padding: 12rpx 20rpx; line-height: 40rpx; font-size: 24rpx; }
+.dimension-inputs { min-width: 0; gap: 12rpx; }
+.dimension-field { min-width: 0; padding: 0 12rpx; }
+.filters > .classification-error { display: block; color: #a23f34; font-size: 24rpx; margin-top: 12rpx; }
+.case-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.case-copy { padding: 18rpx 16rpx; }
+.case-copy text { line-height: 1.5; overflow-wrap: anywhere; }
+.cover-state { height: 220rpx; display: flex; align-items: center; justify-content: center; background: #f0eae0; font-size: 24rpx; color: #8d7b68; }
+.cover-retry { color: #8b4818; }
+@media (max-width: 350px) {
+  .filters > .filter-row { flex-direction: column; gap: 10rpx; }
+  .filters > .filter-row > .filter-label { width: auto; line-height: 1.4; }
+  .filter-pills, .dimension-inputs { width: 100%; }
+}

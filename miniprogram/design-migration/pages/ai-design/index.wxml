@@ -1,8 +1,6 @@
 <view class="v12-page" wx:if="{{accessReady}}">
   <v12-navbar title="AI设计" show-back />
   <view class="v12-content v12-content--tab ai-content">
-    <text class="page-title">AI设计</text>
-    <text class="page-subtitle">从宅基地信息到平面、立面方案</text>
 
     <view class="mode-tabs">
       <view role="button" class="{{line === 'FLAT' ? 'active' : ''}}" data-line="FLAT" bindtap="selectLine">平面方案</view>
@@ -15,7 +13,7 @@
         <view class="card-head"><text class="card-title">宅基地信息</text></view>
         <view class="case-strip" wx:if="{{refCase}}">
           <text class="case-strip-text">参考案例：<text class="case-name">{{refCase.title}}</text>{{refCaseText ? ' · ' + refCaseText : ''}}{{refCaseAuto ? '（按层数与面积自动匹配）' : ''}}</text>
-          <view role="button" class="case-change" bindtap="findReferenceCandidates">更换参考</view>
+          <view role="button" class="case-change" bindtap="chooseReference">更换参考</view>
         </view>
         <view class="size-row">
           <view><text>面宽</text><input type="digit" value="{{faceWidth}}" bindinput="onFaceWidthInput" placeholder="如 12.6" /><text>m</text></view>
@@ -35,48 +33,11 @@
         </picker>
       </view>
 
-      <view class="v12-card form-card case-match">
-        <view class="card-head"><view class="card-title-wrap"><text class="card-title">参考案例</text><text class="card-title-sub">（选填）</text></view></view>
-        <picker mode="selector" range="{{referenceBases}}" range-key="label" value="{{referenceBasisIndex}}" bindchange="onReferenceBasisChange" disabled="{{creating || pendingGeneration}}">
-          <view class="form-row"><text>查询尺寸口径</text><view>{{referenceBases[referenceBasisIndex].label}} <t-icon name="chevron-right" size="16px" /></view></view>
-        </picker>
-        <view class="case-match-actions">
-          <view role="button" class="case-match-search" aria-disabled="{{creating || pendingGeneration || candidateLoading}}" bindtap="findReferenceCandidates">{{candidateLoading ? '正在查找…' : '查找参考案例'}}</view>
-          <view role="button" class="case-match-library" bindtap="chooseReference">浏览户型库</view>
-        </view>
-        <text class="case-match-notice">最多展示 5 个真实授权案例。查询和预览不收取生成费用。</text>
-        <text wx:if="{{candidateNotice}}" class="case-match-notice">{{candidateNotice}}</text>
-        <text wx:if="{{candidateError}}" class="case-match-error">{{candidateError}}</text>
-        <text wx:if="{{candidateSearched && !caseCandidates.length}}" class="case-match-notice">当前没有可用参考案例，可调整已确认的条件后重新查询。</text>
-        <view wx:for="{{caseCandidates}}" wx:key="caseVersionId" class="case-match-result">
-          <view class="case-match-details"><text class="case-match-title">{{item.title}}</text><text>{{item.floorCount}} 层 · {{item.buildingArea}} ㎡</text><text>{{item.sizeText}}</text></view>
-          <view role="button" class="case-match-preview-link" data-index="{{index}}" bindtap="openReferenceCandidate">预览图纸</view>
-        </view>
-        <text wx:if="{{candidatePreviewLoading}}" class="case-match-notice">正在核验参考版本和图纸授权…</text>
-        <view wx:if="{{previewCandidate}}" class="case-match-preview">
-          <view class="card-head"><text class="case-match-title">{{previewCandidate.title}}</text><view role="button" class="case-match-preview-link" bindtap="closeReferencePreview">关闭</view></view>
-          <text class="case-match-notice">{{previewCandidate.sizeText}} · 案例版本 {{previewCandidate.version}}</text>
-          <scroll-view scroll-x class="chips-scroll">
-            <view class="chips chips-nowrap">
-              <view role="button" wx:for="{{previewCandidate.floorPlans}}" wx:for-item="plan" wx:key="assetId" class="chip {{previewPlanIndex === index ? 'chip-on' : ''}}" data-index="{{index}}" bindtap="selectReferencePlan">{{plan.label}}</view>
-            </view>
-          </scroll-view>
-          <image wx:if="{{previewCandidate.floorPlans[previewPlanIndex].url}}" class="case-match-plan" src="{{previewCandidate.floorPlans[previewPlanIndex].url}}" mode="aspectFit" bindtap="previewReferenceImage" binderror="referenceImageError" />
-          <text wx:if="{{previewCandidate.floorPlans[previewPlanIndex].status === 'loading'}}" class="case-match-notice">正在加载图纸…</text>
-          <view role="button" wx:if="{{previewCandidate.floorPlans[previewPlanIndex].status === 'error'}}" class="case-match-error" data-index="{{previewPlanIndex}}" bindtap="selectReferencePlan">图纸加载失败，点击重试</view>
-          <text class="case-match-notice">选择只更新参考案例，已填写的尺寸、层数和补充需求会保留。</text>
-          <view role="button" class="v12-primary-button" aria-disabled="{{candidateConfirming || creating || pendingGeneration}}" bindtap="confirmReferenceCandidate">{{candidateConfirming ? '正在确认…' : '确认使用这个参考'}}</view>
-        </view>
-      </view>
-
       <view class="v12-card form-card">
         <view class="card-head"><text class="card-title">图纸类型</text><text class="sec-tip">已选：{{drawingTypes[drawingIndex].label}}</text></view>
-        <scroll-view scroll-x class="chips-scroll">
-          <view class="chips chips-nowrap">
+        <view class="chips chips-wrap">
             <view role="button" wx:for="{{drawingTypes}}" wx:key="code" class="chip {{drawingIndex === index ? 'chip-on' : ''}}" data-index="{{index}}" bindtap="onDrawingChange">{{item.label}}</view>
-          </view>
-        </scroll-view>
-        <view class="sec-hint">制式表达（墙体 / 门窗 / 家具 / 尺寸标注 / 指北针）与负面约束由系统默认，无需选择</view>
+        </view>
       </view>
 
       <view class="v12-card form-card">
@@ -98,13 +59,13 @@
       </view>
 
       <view class="v12-card generation-settings">
-        <view class="settings-head"><text class="card-title">出图设置</text><text class="settings-pixels">{{outputPixels}}</text></view>
+        <view class="settings-head"><text class="card-title">出图设置</text></view>
         <view class="opt-label">清晰度</view>
         <view class="segbar">
           <view role="button" class="seg {{resolution === '2K' ? 'seg-on' : ''}}" data-value="2K" bindtap="selectResolution">2K · 清晰出图</view>
           <view role="button" class="seg {{resolution === '4K' ? 'seg-on' : ''}}" data-value="4K" bindtap="selectResolution">4K · 高清细节</view>
         </view>
-        <view class="opt-label"><text>画面方向</text><text class="opt-val">{{outputPixels}}</text></view>
+        <view class="opt-label"><text>画面方向</text></view>
         <view class="segbar">
           <view role="button" class="seg {{orientation === 'LANDSCAPE' ? 'seg-on' : ''}}" data-value="LANDSCAPE" bindtap="selectOrientation"><view class="ori-frame"></view>横屏 16:9</view>
           <view role="button" class="seg {{orientation === 'PORTRAIT' ? 'seg-on' : ''}}" data-value="PORTRAIT" bindtap="selectOrientation"><view class="ori-frame ori-portrait"></view>竖屏 9:16</view>
@@ -141,18 +102,15 @@
             <view role="button" aria-label="移除户型库参考案例" class="ref-slot-del" catchtap="clearElevRefCase">×</view>
           </view>
         </view>
-        <view class="sec-hint">喜欢的外观案例或照片，生成时作为参考；不选则由 AI 按风格自由发挥</view>
       </view>
 
       <view class="v12-card form-card">
-        <view class="card-head"><text class="card-title">选个风格<text class="card-title-sub">（可选）</text></text><text class="sec-tip">已选：{{elevStyleCode ? elevStyleLabel : '不指定'}}</text></view>
-        <scroll-view scroll-x class="chips-scroll">
-          <view class="chips chips-nowrap">
+        <view class="card-head"><text class="card-title">建筑风格<text class="card-title-sub">（可选）</text></text><text class="sec-tip">已选：{{elevStyleCode ? elevStyleLabel : '不指定'}}</text></view>
+        <view wx:if="{{styleError}}" class="style-error" role="button" bindtap="loadStyles">{{styleError}}</view>
+        <view class="chips chips-wrap">
             <view role="button" class="chip {{!elevStyleCode ? 'chip-on' : ''}}" data-code="" bindtap="onElevStyle">不指定</view>
             <view role="button" wx:for="{{elevStyles}}" wx:key="code" class="chip {{elevStyleCode === item.code ? 'chip-on' : ''}}" data-code="{{item.code}}" bindtap="onElevStyle">{{item.label}}</view>
-          </view>
-        </scroll-view>
-        <view class="sec-hint">此处风格仅作用于立面，与平面方案互不影响</view>
+        </view>
       </view>
 
       <view class="v12-card form-card">
@@ -203,13 +161,13 @@
       </view>
 
       <view class="v12-card generation-settings">
-        <view class="settings-head"><text class="card-title">出图设置</text><text class="settings-pixels">{{elevOutputPixels}}</text></view>
+        <view class="settings-head"><text class="card-title">出图设置</text></view>
         <view class="opt-label">清晰度</view>
         <view class="segbar">
           <view role="button" class="seg {{elevResolution === '2K' ? 'seg-on' : ''}}" data-value="2K" bindtap="selectElevResolution">2K · 清晰出图</view>
           <view role="button" class="seg {{elevResolution === '4K' ? 'seg-on' : ''}}" data-value="4K" bindtap="selectElevResolution">4K · 高清细节</view>
         </view>
-        <view class="opt-label"><text>画面方向</text><text class="opt-val">{{elevOutputPixels}}</text></view>
+        <view class="opt-label"><text>画面方向</text></view>
         <view class="segbar">
           <view role="button" class="seg {{elevOrientation === 'LANDSCAPE' ? 'seg-on' : ''}}" data-value="LANDSCAPE" bindtap="selectElevOrientation"><view class="ori-frame"></view>横屏 16:9</view>
           <view role="button" class="seg {{elevOrientation === 'PORTRAIT' ? 'seg-on' : ''}}" data-value="PORTRAIT" bindtap="selectElevOrientation"><view class="ori-frame ori-portrait"></view>竖屏 9:16</view>

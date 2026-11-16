@@ -1,23 +1,21 @@
 <view class="v12-page" wx:if="{{accessReady}}">
   <v12-navbar title="灵感库" show-back />
   <view class="v12-content v12-content--tab library-content">
-    <text class="page-title">户型库</text>
-    <text class="page-subtitle">发现适合中国家庭的乡墅方案</text>
     <view class="search"><t-icon name="search" size="20px" color="#a89a8c" /><input placeholder="搜索户型名称、风格或面积" value="{{keyword}}" bindinput="onSearch" /></view>
     <view class="source-tabs"><view class="{{source === 0 ? 'active' : ''}}" data-index="0" bindtap="selectSource">公司案例</view><view class="{{source === 1 ? 'active' : ''}}" data-index="1" bindtap="selectSource">AI案例</view></view>
     <view class="v12-card filters">
-      <view><text>建筑风格</text><view class="filter-pills"><text wx:for="{{styleOptions}}" wx:key="code" class="{{filters.styleCode === item.code ? 'selected' : ''}}" data-key="styleCode" data-value="{{item.code}}" bindtap="onFilterChange">{{item.label}}</text></view></view>
-      <view><text>建筑层数</text><view class="filter-pills"><text wx:for="{{floorOptions}}" wx:key="label" class="{{filters.floorCount === item.count ? 'selected' : ''}}" data-key="floorCount" data-value="{{item.count}}" bindtap="onFilterChange">{{item.label}}</text></view></view>
-      <view><text>尺度筛选</text><view class="dimension-inputs">
+      <view class="filter-row"><text class="filter-label">建筑风格</text><view class="filter-pills"><text wx:for="{{styleOptions}}" wx:key="code" class="{{filters.styleCode === item.code ? 'selected' : ''}}" data-key="styleCode" data-value="{{item.code}}" bindtap="onFilterChange">{{item.label}}</text></view></view>
+      <view wx:if="{{classificationError}}" class="classification-error" role="button" bindtap="loadClassifications">{{classificationError}}</view>
+      <view class="filter-row"><text class="filter-label">建筑层数</text><view class="filter-pills"><text wx:for="{{floorOptions}}" wx:key="label" class="{{filters.floorCount === item.count ? 'selected' : ''}}" data-key="floorCount" data-value="{{item.count}}" bindtap="onFilterChange">{{item.label}}</text></view></view>
+      <view class="filter-row"><text class="filter-label">尺度筛选</text><view class="dimension-inputs">
         <view class="dimension-field"><input type="digit" placeholder="面宽 如13" value="{{filters.faceWidth}}" bindinput="onDimensionInput" bindblur="onDimensionSearch" bindconfirm="onDimensionSearch" data-key="faceWidth" /><text class="dimension-unit">m</text><text wx:if="{{filters.faceWidth}}" class="dimension-clear" data-key="faceWidth" bindtap="onDimensionClear">×</text></view>
         <view class="dimension-field"><input type="digit" placeholder="进深 如12" value="{{filters.depth}}" bindinput="onDimensionInput" bindblur="onDimensionSearch" bindconfirm="onDimensionSearch" data-key="depth" /><text class="dimension-unit">m</text><text wx:if="{{filters.depth}}" class="dimension-clear" data-key="depth" bindtap="onDimensionClear">×</text></view>
       </view></view>
-      <view class="dimension-hint"><text>按 ±1m 检索：输入 13 可找到面宽 12~14m 的户型；未标注尺寸的户型不参与此项筛选</text></view>
     </view>
     <view class="sort-row"><text wx:if="{{!cases.length && loading}}">正在加载方案…</text><text wx:elif="{{!cases.length && error}}">方案尚未加载成功</text><text wx:else>已加载 {{visibleCases.length}} 套方案</text><view>面积从小到大 <t-icon name="chevron-down" size="16px" color="#786858" /></view></view>
     <view class="case-grid">
       <view class="v12-card case-card" wx:for="{{visibleCases}}" wx:key="id" bindtap="openDetail" data-id="{{item.id}}">
-        <view class="image-wrap"><image src="{{item.image}}" mode="aspectFit" lazy-load /><text>{{item.tag}}</text></view>
+        <view class="image-wrap"><image wx:if="{{item.image}}" src="{{item.image}}" mode="aspectFit" lazy-load data-id="{{item.id}}" binderror="imageError" /><view wx:elif="{{item.imageLoading}}" class="cover-state">图片加载中…</view><view wx:elif="{{item.imageError}}" class="cover-state cover-retry" role="button" data-id="{{item.id}}" catchtap="retryCover">点击重试</view><view wx:else class="cover-state">暂无封面</view><text wx:if="{{item.tag}}">{{item.tag}}</text></view>
         <view class="case-copy"><text>{{item.title}}</text><text>{{item.meta}}</text></view>
       </view>
     </view>
