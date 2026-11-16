@@ -6,6 +6,7 @@
 const TOKEN_KEY = 'zs-api-token-v1';
 const POST_KEY = 'zs-api-post-v1';
 const TENANT_KEY = 'zs-api-tenant-v1';
+const RESUME_KEY = 'zs-api-resume-v1';
 // 基址单源 config/env.js（B 独立公网域名）；storage `zs-api-base` 仅在开发者工具作本地联调覆写。
 // 未配置任何基址时显式失败，绝不静默回落 127.0.0.1 之类的本地地址。
 const DEFAULT_BASE = require('../config/env').API_BASE;
@@ -18,13 +19,28 @@ let unauthorizedHandler = null;
 let postInvalidHandler = null;
 let postInvalidRecovering = false; // 恢复流进行中：并发岗位失效去抖，恢复完成由 auth.recoverPostInvalid 复位
 let sessionGen = 0; // 会话代次：saveSession/clearSession 时 +1；401 处理前校验，防旧请求 401 清掉新会话
+let transientToken = null;
+let transientResume = null;
+let refreshFlight = null;
+
+function expiryMillis(value) {
+  if (typeof value === 'number') return value < 1e12 ? value * 1000 : value;
+  if (!value) return 0;
+  const text = String(value).replace(' ', 'T');
+  const parsed = Date.parse(/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?$/.test(text) ? text + '+08:00' : text);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function resumeCredentials() {
+  return transientToken !== null ? transientResume : wx.getStorageSync(RESUME_KEY);
+}
 
 function base() {
   return (runtimeBase.devtoolsStorage('zs-api-base') || DEFAULT_BASE).replace(/\/$/, '');
 }
 
 function token() {
-  return wx.getStorageSync(TOKEN_KEY) || '';
+  return transientToken !== null ? transientToken : (wx.getStorageSync(TOKEN_KEY) || '');
 }
 
 function currentPostId() {
@@ -36,14 +52,31 @@ function tenantId() {
 }
 
 function saveSession(next) {
-  if (next.token) wx.setStorageSync(TOKEN_KEY, next.token);
+  if (next.token) {
+    transientToken = null;
+    transientResume = null;
+    wx.removeStorageSync(RESUME_KEY);
+    const credentials = next.refreshToken && next.userId !== undefined
+      ? { refreshToken: next.refreshToken, userId: next.userId, expiresAt: expiryMillis(next.expiresTime) } : null;
+    if (next.remember === false) {
+      wx.removeStorageSync(TOKEN_KEY);
+      transientToken = next.token;
+      transientResume = credentials;
+    } else {
+      wx.setStorageSync(TOKEN_KEY, next.token);
+      if (credentials) wx.setStorageSync(RESUME_KEY, credentials);
+    }
+  }
   if (next.postId !== undefined) wx.setStorageSync(POST_KEY, next.postId);
   if (next.tenantId !== undefined) wx.setStorageSync(TENANT_KEY, String(next.tenantId));
   sessionGen += 1;
 }
 
 function clearSession() {
+  transientToken = null;
+  transientResume = null;
   wx.removeStorageSync(TOKEN_KEY);
+  wx.removeStorageSync(RESUME_KEY);
   wx.removeStorageSync(POST_KEY);
   sessionGen += 1;
 }
@@ -114,12 +147,90 @@ function handleUnauthorized(requestSessionGen, opts, reject) {
   }
 }
 
+// 复用后端已有的 30 天刷新凭据；正文表单传输，不把凭据放进 URL，也不保存密码。
+function refreshSession(generation) {
+  const credentials = resumeCredentials();
+  if (generation !== sessionGen || !credentials || !credentials.refreshToken || !token()) {
+    return Promise.reject({ code: 401, silent: true, message: '旧会话请求已忽略' });
+  }
+  if (refreshFlight && refreshFlight.generation === generation) return refreshFlight.promise;
+  // 切岗会改变代次。同一刷新凭据的旧请求结束后再续期，避免两个服务端续期相互吊销令牌。
+  if (refreshFlight && refreshFlight.refreshToken === credentials.refreshToken) {
+    return refreshFlight.promise.catch(() => {}).then(() => refreshSession(generation));
+  }
+  const flight = { generation, refreshToken: credentials.refreshToken };
+  flight.promise = new Promise((resolve, reject) => {
+    wx.request({
+      url: base() + '/system/auth/refresh-token',
+      method: 'POST',
+      data: 'refreshToken=' + encodeURIComponent(credentials.refreshToken),
+      timeout: TIMEOUT,
+      header: { 'content-type': 'application/x-www-form-urlencoded', 'tenant-id': tenantId() },
+      success(res) {
+        if (generation !== sessionGen) return reject({ code: 401, silent: true, message: '旧会话请求已忽略' });
+        const body = res.data;
+        const result = body && body.data;
+        if (res.statusCode >= 200 && res.statusCode < 300 && body && body.code === 0
+            && result && result.accessToken && result.refreshToken
+            && String(result.userId) === String(credentials.userId)) {
+          // 同一用户续期不改变岗位或会话代次；退出、切岗、换账号会使在途续期作废。
+          const next = { refreshToken: result.refreshToken, userId: result.userId, expiresAt: expiryMillis(result.expiresTime) };
+          if (transientToken !== null) { transientToken = result.accessToken; transientResume = next; }
+          else { wx.setStorageSync(TOKEN_KEY, result.accessToken); wx.setStorageSync(RESUME_KEY, next); }
+          resolve();
+          return;
+        }
+        const code = body && body.code !== undefined ? body.code : res.statusCode;
+        if (res.statusCode >= 500 || res.statusCode === 429 || Number(code) >= 500 && Number(code) < 600) {
+          reject({ code, message: '自动登录暂未完成，请稍后重试' });
+          return;
+        }
+        handleUnauthorized(generation, null, reject);
+      },
+      fail() { reject(generation === sessionGen ? { code: -1, message: '网络异常，请稍后重试' } : { code: 401, silent: true }); }
+    });
+  }).finally(() => { if (refreshFlight === flight) refreshFlight = null; });
+  refreshFlight = flight;
+  return flight.promise;
+}
+
+function canResume(opts) {
+  return !(opts && (opts.skipSessionGuard || opts.skipRefresh || opts.base)) && !!token() && !!resumeCredentials();
+}
+
+function resumeBeforeRequest(opts) {
+  const saved = resumeCredentials();
+  return canResume(opts) && !(opts && opts.resumed) && saved.expiresAt && saved.expiresAt <= Date.now() + 30000;
+}
+
+function retryUnauthorized(generation, sentToken, opts, retry, resolve, reject) {
+  if (generation === sessionGen && canResume(opts) && !(opts && opts.resumed)) {
+    const ready = sentToken !== token() ? Promise.resolve() : refreshSession(generation);
+    ready.then(() => {
+      if (generation !== sessionGen) throw { code: 401, silent: true, message: '旧会话请求已忽略' };
+      return retry(Object.assign({}, opts, { resumed: true }));
+    }).then(resolve, reject);
+    return;
+  }
+  handleUnauthorized(generation, opts, reject);
+}
+
 function request(method, path, data, extraHeader, opts) {
   const requestSessionGen = sessionGen;
+  // 登录与公开查询不依赖旧账号，也不能触发旧账号续登抢占新登录。
+  if (/^\/platform\/auth\/(login-policy|account\/matches|account\/login|wechat-login|sms\/send|sms\/login)$/.test(path)
+      || path === '/system/auth/refresh-token') opts = Object.assign({}, opts, { skipRefresh: true, skipSessionGuard: true, anonymous: true });
   const baseUrl = (opts && opts.base ? opts.base : base());
   if (!baseUrl) {
     return Promise.reject({ code: -1, message: 'API 基址未配置：请在 config/env.js 填入生产域名，或经 storage zs-api-base 覆写联调地址' });
   }
+  if (resumeBeforeRequest(opts)) return refreshSession(requestSessionGen).then(() => {
+    if (requestSessionGen !== sessionGen) throw { code: 401, silent: true, message: '旧会话请求已忽略' };
+    return request(method, path, data, extraHeader, Object.assign({}, opts, { resumed: true }));
+  });
+  const sentToken = opts && opts.anonymous ? '' : token();
+  const unauthorized = (resolve, reject) => retryUnauthorized(requestSessionGen, sentToken, opts,
+    next => request(method, path, data, extraHeader, next), resolve, reject);
   return new Promise((resolve, reject) => {
     wx.request({
       url: baseUrl + path,
@@ -128,19 +239,19 @@ function request(method, path, data, extraHeader, opts) {
       timeout: TIMEOUT,
       header: Object.assign(
         { 'content-type': 'application/json', 'tenant-id': tenantId() },
-        token() ? { Authorization: 'Bearer ' + token() } : {},
-        currentPostId() ? { 'X-Post-Id': currentPostId() } : {},
+        sentToken ? { Authorization: 'Bearer ' + sentToken } : {},
+        !(opts && opts.anonymous) && currentPostId() ? { 'X-Post-Id': currentPostId() } : {},
         extraHeader || {}
       ),
       success(res) {
         if (res.statusCode === 401) {
-          handleUnauthorized(requestSessionGen, opts, reject);
+          unauthorized(resolve, reject);
           return;
         }
         const body = res.data;
         // M02-T01/I02：后端认证入口以 HTTP200+body.code=401 返回认证失败（未设 HTTP 状态码）——与 HTTP401 同契约处理
         if (body && body.code === 401) {
-          handleUnauthorized(requestSessionGen, opts, reject);
+          unauthorized(resolve, reject);
           return;
         }
         // M02-T01/I05：岗位失效（token 仍有效）——触发恢复流回调刷新任职；钱包域与旧会话不触发
@@ -178,11 +289,18 @@ function request(method, path, data, extraHeader, opts) {
  * 后端：POST /infra/file/upload（multipart，字段 file；formData.directory 可选），data 返回 URL 字符串。
  * 401/body401 与 request 同契约处理；响应体为 JSON 字符串须显式解析。
  */
-function upload(path, filePath, formData) {
+function upload(path, filePath, formData, opts) {
   const requestSessionGen = sessionGen;
   if (!base()) {
     return Promise.reject({ code: -1, message: 'API 基址未配置：请在 config/env.js 填入生产域名，或经 storage zs-api-base 覆写联调地址' });
   }
+  if (resumeBeforeRequest(opts)) return refreshSession(requestSessionGen).then(() => {
+    if (requestSessionGen !== sessionGen) throw { code: 401, silent: true, message: '旧会话请求已忽略' };
+    return upload(path, filePath, formData, { resumed: true });
+  });
+  const sentToken = token();
+  const unauthorized = (resolve, reject) => retryUnauthorized(requestSessionGen, sentToken, opts,
+    next => upload(path, filePath, formData, next), resolve, reject);
   return new Promise((resolve, reject) => {
     wx.uploadFile({
       url: base() + path,
@@ -197,13 +315,13 @@ function upload(path, filePath, formData) {
       ),
       success(res) {
         if (res.statusCode === 401) {
-          handleUnauthorized(requestSessionGen, null, reject);
+          unauthorized(resolve, reject);
           return;
         }
         let body = null;
         try { body = typeof res.data === 'string' ? JSON.parse(res.data) : res.data; } catch (e) { body = null; }
         if (body && body.code === 401) {
-          handleUnauthorized(requestSessionGen, null, reject);
+          unauthorized(resolve, reject);
           return;
         }
         if (res.statusCode >= 200 && res.statusCode < 300 && body && body.code === 0) {

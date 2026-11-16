@@ -147,6 +147,24 @@
     ],
     "include": []
   },
+  "watchOptions": {
+    "ignore": [
+      ".git/**/*",
+      ".tools/**/*",
+      ".worktrees/**/*",
+      ".playwright-mcp/**/*",
+      "branding/**/*",
+      "deliverables/**/*",
+      "docs/**/*",
+      "node_modules/**/*",
+      "qa/**/*",
+      "scripts/**/*",
+      "server/**/*",
+      "效果图/**/*",
+      "众墅之家_业务小程序全流程效果图_V1.2_20261010/**/*",
+      "众墅之家_业务小程序页面_V1.0_20261010/**/*"
+    ]
+  },
   "condition": {
     "miniprogram": {
       "list": [

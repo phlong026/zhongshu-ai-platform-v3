@@ -26,3 +26,10 @@ scripts/.m08t01-sandbox.js
 
 # 后端测试/服务误生成日志（LOG_FILE 变量未定义时 logback 用它当字面文件名）
 LOG_FILE_IS_UNDEFINED
+
+# 本机交付包（方案、压缩包、二维码等现场产物）
+deliverables/
+
+# Python 运行缓存
+__pycache__/
+*.py[cod]

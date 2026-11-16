@@ -39,7 +39,8 @@
     {
       "pages": [
         "sales/index",
-        "index"
+        "index",
+        "training/index"
       ],
       "root": "pages/account",
       "name": "account-workflow"
@@ -97,6 +98,31 @@
         "recharge/index",
         "records/index"
       ]
+    },
+    {
+      "root": "design-migration",
+      "name": "design-migration",
+      "pages": [
+        "pages/library/index",
+        "pages/library/detail",
+        "pages/ai-design/index",
+        "pages/ai-design/generating",
+        "pages/ai-design/result",
+        "pages/profile/records",
+        "pages/profile/record",
+        "pages/budget/quick",
+        "pages/budget/input",
+        "pages/budget/parameters",
+        "pages/budget/body",
+        "pages/budget/body-detail",
+        "pages/budget/exterior",
+        "pages/budget/exterior-detail",
+        "pages/budget/result",
+        "pages/budget/quote",
+        "pages/budget/history",
+        "pages/budget/prices",
+        "pages/customer/archive"
+      ]
     }
   ],
   "window": {
@@ -133,12 +159,6 @@
         "text": "我的"
       }
     ]
-  },
-  "usingComponents": {
-    "brand-header": "/components/brand-header/index",
-    "action-panel": "/components/action-panel/index",
-    "login-guide": "/components/login-guide/index",
-    "point-asset-card": "/components/point-asset-card/index"
   },
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
