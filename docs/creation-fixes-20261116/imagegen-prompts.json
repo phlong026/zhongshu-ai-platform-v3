@@ -1,0 +1,25 @@
+{
+  "tool": "built-in image_gen.imagegen",
+  "reference": "Existing V3 mini program screenshot and original Xiangshu IP positioning screen",
+  "versions": [
+    {
+      "version": 1,
+      "status": "superseded by user IP positioning direction",
+      "prompts": [
+        {
+          "name": "人物库与人物资料",
+          "prompt": "Use case: ui-mockup. Create a crisp high-fidelity Chinese WeChat mini program UI review board, landscape 16:9, ideally 3840x2160, containing FOUR equally sized realistic mobile screens side by side with ample clear readable typography. Reference image is ONLY the style reference: warm ivory background #faf8f4, white rounded cards, warm brown #824019 controls, charcoal headings, muted gray explanatory labels, iOS status bar, WeChat top capsule, modest airy utilitarian business UI. Match this restrained existing app style, not a flashy redesign. Main heading outside phones: “人物库 · 主页面与资料流程”. Small footer outside phones: “效果图示意 · 人物与状态为示例 · 当前源码的表单为同页展开”. Never imply real service success or a real customer. Screen 1 labeled “01 人物库 · 空状态”. Header “人物库”, top two permanently visible large cards “口播分身 / 上传人物视频” and “语音克隆 / 上传MP3样本”; search “搜索人物名称、身份或方向”, brown outline button “新增人物”, white empty card “暂无人物”, hint “先新增人物，再制作分身和声音”. Screen 2 labeled “02 新增人物”. Header “人物库”, card heading “新增人物”, hint “保存后继续制作口播分身”, visible elegant form fields “人物名称（必填）” example “示例顾问”; “身份与经历” example “乡村建房顾问”; “主营业务” “自建房咨询与设计”; “目标客户” “计划返乡建房的家庭”; “引导行动” “留言沟通建房需求”; “人物类型”, “内容方向”, “人物特色”; small enabled toggle “允许选用”; footer buttons “取消”“保存人物”. Screen 3 labeled “03 人物库 · 已有人物”. Header 人物库, same top feature cards, search and 新增人物; one card for “示例顾问” with badge “可选用”, identity and business lines and three buttons “分身与声音”“编辑”“用于文案二创”; no profile photos use understated generic outline person symbol. Screen 4 labeled “04 普通业务员 · 空状态”. Same header and two feature cards remain visible, search, no new person button. Info card “暂无可用人物”, explanation “请联系公司管理员或业务负责人新增人物并制作资源，完成后可在这里选用。”, bottom small text “当前账号可选用公司共享人物”. All four screens are clean, readable, consistent. No API paths, no invented prices, no claim screenshots of production, no busy watermarks, no decorative hero photos."
+        },
+        {
+          "name": "分身声音制作与口播选用",
+          "prompt": "Use case: ui-mockup. Create a crisp high-fidelity Chinese WeChat mini program review board, landscape 16:9, ideally 3840x2160, FOUR mobile screens side by side. Use attached screenshot only as STYLE REFERENCE: warm ivory #faf8f4 background, white rounded cards, warm brown #824019 buttons, gray labels, dark clear Chinese sans typography, WeChat native header capsule, iOS status bar. Keep the style of the existing business miniapp. Heading outside phones: “人物库 · 分身、声音与口播选用”. Footer outside phones: “效果图示意 · 示例状态不代表真实制作成功 · 积分以服务端实时报价为准”. Screen 1 label “05 口播分身”. WeChat header 人物库. White section card “示例顾问 · 数字分身与声音”, picker “所属人物：示例顾问”, segment buttons “口播分身”（selected brown）and “语音克隆”. Form label 资源名称 example “示例顾问分身”; large upload area with a simple video outline icon “上传MP4人物视频”; supporting text “本平台单文件≤50MB，视频要求待接口校验”; checkbox and wrapped text “我确认素材属于本人或已获得当事人授权”; price line “制作积分：以实时报价为准”; primary bottom button “确认制作”. Screen 2 label “06 语音克隆”. Header 人物库. Same persona picker and segment 语音克隆 selected. Form “资源名称” example “示例顾问声音”; outline audio icon upload area “选择MP3声音样本”, constraints “建议按飞影要求准备：5秒–3分钟，≤20MB”; small amber note “当前代码限制仍需对齐”; same authorization checkbox and price line and 确认制作 button. Screen 3 label “07 资源状态”. Header 人物库. white card 示例顾问 · 数字分身与声音. Separate tidy resource rows: “数字分身 · 示例顾问分身” with subtle green badge “已就绪（示例）”, “克隆声音 · 示例顾问声音” with green badge “已就绪（示例）” and a visible small “试听声音” button. Also an amber subtle status example row “其他任务 · 制作中（示例）”. Buttons “刷新资源列表” and “刷新状态”. Brown primary button “用于数字人口播”. Small note “仅可选用同一人物名下已就绪的分身与声音”. Screen 4 label “08 数字人口播”. Native header 数字人口播. White card 选择人物 picker 示例顾问. Rows 选择数字分身 示例顾问分身 and 选择克隆声音 示例顾问声音 with 试听. White card 口播文案 textarea example “准备在老家建房，先把预算和家人的居住需求想清楚。” Primary bottom button “生成口播视频”. Small explanatory line “提交后在任务中心查看进度，完成后保存作品”. Don't invent thumbnails of real people; use neutral simple silhouette placeholders. No fabricated prices or real success receipts. Accurate Chinese text, no API secrets or technical endpoint strings inside product UI."
+        }
+      ]
+    },
+    {
+      "version": 2,
+      "status": "current visual proposal; not implemented",
+      "promptFile": "imagegen-prompts-v2.json"
+    }
+  ]
+}

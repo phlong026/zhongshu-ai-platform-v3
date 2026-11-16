@@ -1,0 +1,39 @@
+{
+  "capturedAt": "2026-11-16T08:15:55.535Z",
+  "version": "1.0.20261116.1608",
+  "mode": "actual published WXML and page logic; isolated test person and HTTP responses",
+  "testPerson": "测试本人",
+  "resourcesReady": false,
+  "realDeviceTest": false,
+  "productionWrites": false,
+  "requests": [
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/clones/quote",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/clones/quote",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    }
+  ]
+}

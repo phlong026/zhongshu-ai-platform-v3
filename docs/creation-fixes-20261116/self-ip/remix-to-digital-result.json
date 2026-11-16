@@ -1,0 +1,31 @@
+{
+  "version": "1.0.20261116.1608",
+  "passed": true,
+  "mode": "published WXML and actual makeDigital button; isolated rewritten text/person HTTP fixture",
+  "copiedScriptExactly": true,
+  "copiedPersonaExactly": true,
+  "productionWrites": false,
+  "realDeviceTest": false,
+  "requests": [
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/scripts/optimize",
+      "method": "POST"
+    },
+    {
+      "route": "/franchise/content/personas",
+      "method": "GET"
+    },
+    {
+      "route": "/franchise/content/personas/90071992547409930/clones",
+      "method": "GET"
+    }
+  ]
+}
