@@ -7,10 +7,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.math.BigDecimal;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 
 @RestController
+@Tag(name="组织积分")
 @ConditionalOnProperty(name = "platform.legacy-design-bridge.enabled", havingValue = "false")
 @RequestMapping("/admin-api/platform/org-points")
 public class OrgPointHeadquartersController {
@@ -41,6 +44,20 @@ public class OrgPointHeadquartersController {
     }
 
     public record SubmitAdjustment(long delta, String reason, String requestKey) { }
+    public record DirectCredit(BigDecimal credits,String reason,String requestKey) {
+        public DirectCredit(long credits,String reason,String requestKey) { this(BigDecimal.valueOf(credits),reason,requestKey); }
+    }
+
+    @PostMapping("/{orgId}/credits")
+    @PreAuthorize("@ss.hasRole('super_admin')")
+    public CommonResult<OrgPointHeadquartersService.DirectCredit> creditDirectly(@PathVariable long orgId,@RequestBody DirectCredit body) {
+        final long amount;
+        try { amount=body.credits().longValueExact(); }
+        catch(ArithmeticException | NullPointerException invalid) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,"增加积分必须为正整数且不超过余额上限");
+        }
+        return success(service.creditDirectly(actor(),orgId,amount,body.reason(),body.requestKey()));
+    }
     public record ReviewAdjustment(boolean approve, String comment) { }
     public record PublishPrice(String subject, long priceMicros, long minCharge, String reason,
                                String requestKey) { }

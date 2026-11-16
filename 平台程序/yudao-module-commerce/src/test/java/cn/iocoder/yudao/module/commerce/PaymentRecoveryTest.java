@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.*;
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PaymentRecoveryTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:17-alpine");
+    @Container static final PostgreSQLContainer<?> PG = cn.iocoder.yudao.module.platform.test.TestPostgres.database("postgres:17-alpine");
     SimpleDriverDataSource ds; JdbcTemplate jdbc; PointAccountService points; RechargePaymentService payment;
     Channel channel; long plan;
     static class Channel extends StubPaymentPortAdapter {

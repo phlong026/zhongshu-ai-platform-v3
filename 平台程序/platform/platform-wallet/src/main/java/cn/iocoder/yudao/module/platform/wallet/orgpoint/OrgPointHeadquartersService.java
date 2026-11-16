@@ -40,6 +40,41 @@ public class OrgPointHeadquartersService {
     public record CompanyPool(long orgId, String name, String status, Long balance, Long inFlight) { }
     public record Adjustment(long id, long orgId, long delta, String reason, String status,
                              long makerId, Long checkerId, String checkerComment, Long resultBalance) { }
+    public record DirectCredit(String id, String beforeBalance, String afterBalance, String credits) { }
+
+    /** 平台超管直接增加积分；明确授权开户、原子记账、同请求重放返回原回执。 */
+    public DirectCredit creditDirectly(long actorId, long orgId, long credits, String reason, String requestKey) {
+        requireText(reason,512);
+        requireText(requestKey,128);
+        if (credits <= 0) throw bad("增加积分必须为正整数");
+        return required(() -> {
+            Scope scope=lockHeadquartersActor(actorId);
+            requireSuperAdministrator(actorId,scope.tenantId());
+            requireActiveStore(scope.tenantId(),orgId);
+            String hash=DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of("direct-credit",orgId,actorId,credits,reason)));
+            jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,917))",requestKey);
+            var old=jdbc.queryForList("SELECT id,request_hash,delta,result_balance,status FROM org_point_hq_adjustment WHERE request_key=?",requestKey);
+            if(!old.isEmpty()){
+                var row=old.get(0);
+                if(!hash.equals(row.get("request_hash")) || !"EXECUTED".equals(row.get("status"))) throw conflict();
+                long after=((Number)row.get("result_balance")).longValue();
+                return new DirectCredit(row.get("id").toString(),Long.toString(Math.subtractExact(after,credits)),Long.toString(after),Long.toString(credits));
+            }
+            points.ensurePool(orgId);
+            long lockedBalance=jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=? FOR UPDATE",Long.class,orgId);
+            try { Math.addExact(lockedBalance,credits); }
+            catch(ArithmeticException overflow) { throw bad("积分数量超过余额上限"); }
+            long id=IdWorker.getId();
+            long after=points.adjustBalance(orgId,credits,"hq-direct-credit:"+id,reason,actorId).balance();
+            long before=Math.subtractExact(after,credits);
+            jdbc.update("""
+                    INSERT INTO org_point_hq_adjustment(id,org_id,delta,reason,request_key,request_hash,
+                        status,maker_id,checker_id,checker_comment,result_balance)
+                    VALUES(?,?,?,?,?,?,'EXECUTED',?,?,?,?)
+                    """,id,orgId,credits,reason,requestKey,hash,actorId,actorId,"平台超级管理员直接增加积分",after);
+            return new DirectCredit(Long.toString(id),Long.toString(before),Long.toString(after),Long.toString(credits));
+        });
+    }
 
     public List<CompanyPool> companies(long actorId) {
         return required(() -> {
@@ -189,8 +224,24 @@ public class OrgPointHeadquartersService {
                 WHERE su.id=? AND su.tenant_id=? AND su.status=0 AND su.deleted=0 AND d.tenant_id=?
                 FOR SHARE OF su,sp,ou,d
                 """, (rs, i) -> 1, actorId, tenantId, tenantId);
-        if (allowed.isEmpty()) throw forbidden();
+        if (allowed.isEmpty()) {
+            // 平台超管已有显式积分管理权限；组织已关闭/删除时不依赖历史总部岗位。
+            // 普通门店老板仍须走上面的总部身份校验，控制器另行校验具体积分权限。
+            requireSuperAdministrator(actorId,tenantId);
+        }
         return new Scope(tenantId);
+    }
+
+    private void requireSuperAdministrator(long actorId,long tenantId) {
+            var administrators = jdbc.queryForList("""
+                    SELECT su.id FROM system_users su
+                    JOIN system_user_role ur ON ur.user_id=su.id AND ur.tenant_id=su.tenant_id AND ur.deleted=0
+                    JOIN system_role r ON r.id=ur.role_id AND r.tenant_id=su.tenant_id
+                         AND r.code='super_admin' AND r.status=0 AND r.deleted=0
+                    WHERE su.id=? AND su.tenant_id=? AND su.status=0 AND su.deleted=0
+                    FOR SHARE OF su,ur,r
+                    """, actorId, tenantId);
+            if (administrators.isEmpty()) throw forbidden();
     }
 
     private void requireActiveStore(long tenantId, long orgId) {

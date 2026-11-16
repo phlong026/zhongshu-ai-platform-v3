@@ -164,20 +164,28 @@ public class OrgPointService implements OrgPointPort {
 
     @Override
     public long reserve(ReserveCommand command) {
-        return reserveWithConfirmation(command,null);
+        return reserveWithConfirmation(command, null);
     }
 
     @Override
-    public long reserveConfirmed(ReserveCommand command,long confirmedCredits) {
-        return reserveWithConfirmation(command,confirmedCredits);
+    public long reserveConfirmed(ReserveCommand command, long confirmedCredits) {
+        return reserveWithConfirmation(command, confirmedCredits);
     }
 
-    private long reserveWithConfirmation(ReserveCommand command,Long confirmedCredits) {
+    private long reserveWithConfirmation(ReserveCommand command, Long confirmedCredits) {
+        return reserveWithConfirmation(command,confirmedCredits,null);
+    }
+    @Override public long reserveConfirmed(ReserveCommand command,long credits,String priceVersion) {
+        if(priceVersion==null || priceVersion.isBlank())throw exception(OrgPointErrors.ORG_PRICE_CONFLICT);
+        return reserveWithConfirmation(command,credits,priceVersion);
+    }
+    private long reserveWithConfirmation(ReserveCommand command, Long confirmedCredits,String priceVersion) {
         PriceSpec spec = resolvePrice(command.subject());
-        if(confirmedCredits!=null&&spec.priceMicros()<=0)throw exception(OrgPointErrors.ORG_PRICE_CONFLICT);
+        if(priceVersion!=null&&!priceVersion.equals(spec.versionText()))throw exception(OrgPointErrors.ORG_PRICE_CONFLICT);
+        if (confirmedCredits != null && spec.priceMicros() <= 0) throw exception(OrgPointErrors.ORG_PRICE_CONFLICT);
         long quantity = Math.max(command.quantity(), 1);
         long n = creditsFor(spec, quantity);
-        if(confirmedCredits!=null&&confirmedCredits!=n)throw exception(OrgPointErrors.ORG_PRICE_CONFLICT);
+        if (confirmedCredits != null && confirmedCredits != n) throw exception(OrgPointErrors.ORG_PRICE_CONFLICT);
         return tx.execute(status -> {
             lockAccount(command.orgId());
             OrgPointAccountRow account = findAccount(command.orgId());
@@ -485,6 +493,10 @@ public class OrgPointService implements OrgPointPort {
     @Override
     public long quoteCredits(String subject, long quantity) {
         return creditsFor(resolvePrice(subject), Math.max(quantity, 1));
+    }
+    @Override public OrgPointPort.PriceQuote quotePrice(String subject,long quantity) {
+        PriceSpec spec=resolvePrice(subject);
+        return new OrgPointPort.PriceQuote(subject,Math.max(quantity,1),creditsFor(spec,Math.max(quantity,1)),spec.versionText());
     }
 
     @Override

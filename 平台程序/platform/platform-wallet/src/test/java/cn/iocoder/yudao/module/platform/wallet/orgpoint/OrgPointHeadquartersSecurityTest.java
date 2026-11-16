@@ -17,7 +17,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 class OrgPointHeadquartersSecurityTest {
-    public static class PermissionGate { public boolean hasPermission(String permission) { return false; } }
+    public static class PermissionGate {
+        public boolean hasPermission(String permission) { return false; }
+        public boolean hasRole(String role) { return false; }
+    }
     @Configuration(proxyBeanMethods = false) @EnableMethodSecurity static class Security { }
 
     private final PermissionGate ss = mock(PermissionGate.class);
@@ -30,6 +33,23 @@ class OrgPointHeadquartersSecurityTest {
             .withBean(OrgPointHeadquartersController.class);
 
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
+
+    @Test void onlySuperAdministratorCanCreditDirectly() {
+        authenticate();
+        when(ss.hasPermission("platform:org-point:adjustment:submit")).thenReturn(true);
+        try(MockedStatic<SecurityFrameworkUtils> security=mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            context.run(ctx->{
+                var controller=ctx.getBean(OrgPointHeadquartersController.class);
+                assertThatThrownBy(()->controller.creditDirectly(7L,new OrgPointHeadquartersController.DirectCredit(3,"测试","direct-key"))).isInstanceOf(AccessDeniedException.class);
+                when(ss.hasRole("super_admin")).thenReturn(true);
+                controller.creditDirectly(7L,new OrgPointHeadquartersController.DirectCredit(3,"测试","direct-key"));
+                verify(service).creditDirectly(99L,7L,3,"测试","direct-key");
+                assertThatThrownBy(()->controller.creditDirectly(7L,new OrgPointHeadquartersController.DirectCredit(new java.math.BigDecimal("1.5"),"测试","fractional")))
+                        .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+            });
+        }
+    }
 
     @Test
     void legacyModeDoesNotLoadHeadquartersCompanyPointController() {

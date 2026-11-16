@@ -6,7 +6,7 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 final class OrgPointErrors {
 
     static final ErrorCode ORG_NOT_ENABLED =
-            new ErrorCode(1_072_000_010, "公司未开通设计能力，请联系平台开通");
+            new ErrorCode(1_072_000_010, "公司尚未开通积分账户，请联系平台开通");
     static final ErrorCode ORG_POINT_INSUFFICIENT =
             new ErrorCode(1_072_000_011, "公司积分池余额不足，请联系管理员充值");
     // 保留历史错误码空位 012，避免将旧额度语义重用为其他错误。

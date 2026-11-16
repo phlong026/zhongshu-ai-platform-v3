@@ -32,6 +32,8 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
     @BeforeEach
     void setup() {
         jdbc = new JdbcTemplate(dataSource);
+        jdbc.execute("ALTER TABLE system_role ADD COLUMN IF NOT EXISTS deleted smallint DEFAULT 0");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS system_user_role(id bigint PRIMARY KEY,user_id bigint,role_id bigint,tenant_id bigint,deleted smallint DEFAULT 0)");
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS system_users(
                   id BIGINT PRIMARY KEY, username VARCHAR(30) NOT NULL, nickname VARCHAR(30) NOT NULL,
@@ -54,6 +56,40 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    private void makeSuperAdministrator(long userId) {
+        long role=IdWorker.getId();
+        jdbc.update("INSERT INTO system_role(id,code,name,status,deleted,tenant_id) VALUES(?,'super_admin','超管',0,0,?)",role,TENANT);
+        jdbc.update("INSERT INTO system_user_role(id,user_id,role_id,tenant_id) VALUES(?,?,?,?)",IdWorker.getId(),userId,role,TENANT);
+    }
+
+    @Test void superAdministratorCreditsImmediatelyAndReplaysWithoutDoubleCredit() {
+        makeSuperAdministrator(maker);
+        var first=service.creditDirectly(maker,store,12,"联调赠分","direct:test");
+        assertThat(first.beforeBalance()).isEqualTo("0");
+        assertThat(first.afterBalance()).isEqualTo("12");
+        assertThat(service.creditDirectly(maker,store,12,"联调赠分","direct:test")).isEqualTo(first);
+        assertThat(points.findAccount(store).balance()).isEqualTo(12);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM org_point_ledger WHERE org_id=?",Long.class,store)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT status FROM org_point_hq_adjustment WHERE request_key='direct:test'",String.class)).isEqualTo("EXECUTED");
+        assertThatThrownBy(()->service.creditDirectly(maker,store,13,"联调赠分","direct:test")).hasMessageContaining("冲突");
+    }
+
+    @Test void directCreditRequiresSuperAdministratorAndPositiveAmount() {
+        assertThatThrownBy(()->service.creditDirectly(maker,store,2,"测试","direct:denied")).hasMessageContaining("权限范围");
+        assertThatThrownBy(()->service.creditDirectly(maker,store,0,"测试","direct:zero")).hasMessageContaining("正整数");
+        assertThatThrownBy(()->service.creditDirectly(maker,store,-1,"测试","direct:negative")).hasMessageContaining("正整数");
+        assertThat(points.findAccount(store).balance()).isZero();
+    }
+
+    @Test void superAdministratorWithoutHeadquartersCanOpenPoolAndCredit() {
+        long administrator=actor(store,"平台超管");
+        makeSuperAdministrator(administrator);
+        long target=org("store","未开通积分门店");
+        var receipt=service.creditDirectly(administrator,target,3,"首次添加","direct:initial");
+        assertThat(receipt.beforeBalance()).isEqualTo("0");
+        assertThat(receipt.afterBalance()).isEqualTo("3");
+    }
 
     @Test
     void adjustmentRequiresDifferentReviewerAndIsIdempotent() {
