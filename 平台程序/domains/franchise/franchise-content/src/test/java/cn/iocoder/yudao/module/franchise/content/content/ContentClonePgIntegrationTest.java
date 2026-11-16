@@ -27,6 +27,8 @@ class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc=new JdbcTemplate(dataSource);jdbc.execute("TRUNCATE fr_content_digital_clone,fr_content_hifly_upload");
         personas=mock(ContentPersonaService.class);points=mock(OrgPointPort.class);
         when(personas.list(33)).thenReturn(List.of(new FrContentPersonaDO().setId(21L).setEnabled(true),new FrContentPersonaDO().setId(23L).setEnabled(false)));
+        when(personas.requireWritable(eq(post),eq(21L))).thenReturn(new FrContentPersonaDO().setId(21L).setEnabled(true));
+        when(personas.requireWritable(eq(post),eq(23L))).thenReturn(new FrContentPersonaDO().setId(23L).setEnabled(false));
         when(points.reserveConfirmed(any(),eq(5L))).thenReturn(555L);
         properties=new ContentProviderProperties();properties.getHifly().setApiKey("test-key");
         for(long id:new long[]{101,102})jdbc.update("INSERT INTO fr_content_hifly_upload(id,company_id,persona_id,author_user_id,author_post_id,kind,provider_file_id,mime_type,size_bytes,declared_sha256,status,expires_at) VALUES(?,33,21,22,11,?,?,?,100,?,'UPLOADED',now()+interval '1 hour')",id,id==101?"AVATAR":"VOICE","file-"+id,id==101?"video/mp4":"audio/mpeg","a".repeat(64));

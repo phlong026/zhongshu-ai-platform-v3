@@ -25,7 +25,7 @@ public class ContentCloneUploadService {
     }
     private static ServiceException invalid(String message){return new ServiceException(1_114_000_001,message);}
     private void persona(PostSnapshot post,long id) {
-        if(personas.list(post.orgId()).stream().noneMatch(p->p.getId()==id&&Boolean.TRUE.equals(p.getEnabled())))throw invalid("人物不存在、已停用或无权使用");
+        if(!Boolean.TRUE.equals(personas.requireWritable(post,id).getEnabled()))throw invalid("人物不存在、已停用或无权使用");
     }
     private static void media(String kind,String mime,long size,String sha) {
         if(!"AVATAR".equals(kind)&&!"VOICE".equals(kind))throw invalid("请选择分身或声音");

@@ -62,7 +62,7 @@ public class ContentCloneService {
         return jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND id=?",mapper,company,id).stream().findFirst().orElseThrow(()->invalid("分身或声音不存在或无权使用"));
     }
     public Map<String,Object> create(PostSnapshot post,long persona,String kind,String title,long source,String consent,String key,long credits) {
-        subject(kind); requirePersona(post.orgId(),persona,true);
+        subject(kind); personas.requireWritable(post,persona); requirePersona(post.orgId(),persona,true);
         String clean=title==null?"":title.trim();
         if(clean.isEmpty()||clean.length()>20||key==null||key.isBlank()||key.length()>100||credits<1)throw invalid("请填写20字内的名称，并确认制作价格");
         if(!CONSENT_VERSION.equals(consent))throw invalid("请确认本人素材或已获授权，允许在本公司制作和使用分身、声音");

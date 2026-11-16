@@ -25,6 +25,8 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc=new JdbcTemplate(dataSource);jdbc.execute("TRUNCATE fr_content_digital_clone,fr_content_hifly_upload");
         personas=mock(ContentPersonaService.class);
         when(personas.list(33)).thenReturn(List.of(new FrContentPersonaDO().setId(21L).setEnabled(true),new FrContentPersonaDO().setId(23L).setEnabled(false)));
+        when(personas.requireWritable(eq(post),eq(21L))).thenReturn(new FrContentPersonaDO().setId(21L).setEnabled(true));
+        when(personas.requireWritable(eq(post),eq(23L))).thenReturn(new FrContentPersonaDO().setId(23L).setEnabled(false));
     }
     ContentCloneUploadService service(ContentProviderTransport transport) {
         var config=new ContentProviderProperties();config.getHifly().setApiKey("server-only-key");

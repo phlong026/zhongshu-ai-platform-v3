@@ -40,33 +40,39 @@ public class ContentPersonaController {
     @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
     public CommonResult<List<Map<String, Object>>> list() {
         PostSnapshot post = post();
-        return success(personas.list(post.orgId()).stream().map(ContentPersonaController::view).toList());
+        return success(personas.list(post.orgId()).stream().map(row -> view(row, post)).toList());
     }
 
     @PostMapping
     @Operation(summary = "新建人设")
-    @PreAuthorize("@post.has('" + ContentPermissions.PERSONA + "')")
+    @PreAuthorize("@post.has('" + ContentPermissions.PERSONA + "','" + ContentPermissions.PERSONA_SELF + "')")
     public CommonResult<Map<String, Object>> create(@RequestBody Map<String, Object> body) {
         PostSnapshot post = post();
-        return success(view(personas.create(post.orgId(), post.userId(), body)));
+        return success(view(personas.create(post, body), post));
     }
 
     @PutMapping("{id}")
     @Operation(summary = "更新人设（不影响已生成产物——产物持快照）")
-    @PreAuthorize("@post.has('" + ContentPermissions.PERSONA + "')")
+    @PreAuthorize("@post.has('" + ContentPermissions.PERSONA + "','" + ContentPermissions.PERSONA_SELF + "')")
     public CommonResult<Map<String, Object>> update(@PathVariable("id") Long id,
                                                     @RequestBody Map<String, Object> body) {
         PostSnapshot post = post();
-        return success(view(personas.update(post.orgId(), id, body)));
+        return success(view(personas.update(post, id, body), post));
     }
 
     @DeleteMapping("{id}")
     @Operation(summary = "删除人设（软删）")
-    @PreAuthorize("@post.has('" + ContentPermissions.PERSONA + "')")
+    @PreAuthorize("@post.has('" + ContentPermissions.PERSONA + "','" + ContentPermissions.PERSONA_SELF + "')")
     public CommonResult<Map<String, Object>> delete(@PathVariable("id") Long id) {
         PostSnapshot post = post();
-        personas.delete(post.orgId(), id);
+        personas.delete(post, id);
         return success(Map.of("ok", true));
+    }
+
+    static Map<String, Object> view(FrContentPersonaDO row, PostSnapshot post) {
+        Map<String, Object> view = view(row);
+        view.put("canManage", ContentPersonaService.canManage(post, row));
+        return view;
     }
 
     static Map<String, Object> view(FrContentPersonaDO row) {

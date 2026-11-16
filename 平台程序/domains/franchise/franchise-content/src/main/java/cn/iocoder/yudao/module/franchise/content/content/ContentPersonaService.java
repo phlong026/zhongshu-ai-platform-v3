@@ -10,9 +10,13 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.INPUT_INVALID;
+import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.CONTENT_FORBIDDEN;
 
 /**
  * 人设组织库（D-1.5-10）：sales-lead/boss/owner 维护、sales 选用；
@@ -25,6 +29,37 @@ public class ContentPersonaService {
 
     public ContentPersonaService(FrContentPersonaMapper personas) {
         this.personas = personas;
+    }
+
+    public static boolean canCreate(PostSnapshot post) {
+        return post != null && Set.of("sales", "sales-lead", "boss", "owner").contains(post.roleCode());
+    }
+
+    public static boolean canManage(PostSnapshot post, FrContentPersonaDO row) {
+        return canCreate(post) && row != null && Objects.equals(row.getCompanyId(), post.orgId())
+                && (Set.of("sales-lead", "boss", "owner").contains(post.roleCode())
+                || Objects.equals(row.getAuthorUserId(), post.userId()));
+    }
+
+    public FrContentPersonaDO requireWritable(PostSnapshot post, long personaId) {
+        FrContentPersonaDO row = require(post.orgId(), personaId);
+        if (!canManage(post, row)) throw exception(CONTENT_FORBIDDEN);
+        return row;
+    }
+
+    public FrContentPersonaDO create(PostSnapshot post, Map<String, Object> body) {
+        if (!canCreate(post)) throw exception(CONTENT_FORBIDDEN);
+        return create(post.orgId(), post.userId(), body);
+    }
+
+    public FrContentPersonaDO update(PostSnapshot post, long personaId, Map<String, Object> body) {
+        requireWritable(post, personaId);
+        return update(post.orgId(), personaId, body);
+    }
+
+    public void delete(PostSnapshot post, long personaId) {
+        requireWritable(post, personaId);
+        delete(post.orgId(), personaId);
     }
 
     /** 显式选择必须仍有效；不可因停用、删除或跨组织而静默生成未指定人物的内容。 */
