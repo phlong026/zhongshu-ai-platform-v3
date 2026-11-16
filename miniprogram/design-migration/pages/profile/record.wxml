@@ -1,0 +1,53 @@
+<view class="v12-page" wx:if="{{accessReady}}">
+  <v12-navbar title="{{title}}" show-back show-brand="{{false}}" />
+  <view class="records-content">
+    <view wx:if="{{loading}}" class="record-empty"><v12-state status="loading" text="正在读取…" card="{{false}}" /></view>
+    <view wx:elif="{{error}}" class="v12-card record-empty"><v12-state status="error" text="{{error}}" action-text="重试" bind:action="load" card="{{false}}" /></view>
+    <block wx:elif="{{loaded}}">
+      <view wx:if="{{canResume}}" class="v12-primary-button record-cta" bindtap="resumeDesign" role="button">{{nextLabel || '继续设计'}}</view>
+      <view wx:if="{{selectedImages.length}}" class="v12-card record-card">
+        <text class="record-title">已选方案</text>
+        <view class="selected-grid">
+          <view wx:for="{{selectedImages}}" wx:key="assetId" class="selected-cell" catchtap="previewSelected" data-url="{{item.url}}" role="button" aria-label="{{item.label}}{{item.url ? '，点击放大' : ''}}">
+            <image wx:if="{{item.url}}" class="selected-img" src="{{item.url}}" mode="aspectFit" lazy-load />
+            <view wx:else class="selected-img candidate-loading"><text>加载中…</text></view>
+            <text class="ai-tag">AI生成</text>
+            <text class="selected-label">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{requirementRows.length}}" class="v12-card record-card">
+        <text class="record-title">设计需求</text>
+        <view class="record-fields req"><view wx:for="{{requirementRows}}" wx:key="label"><text class="label">{{item.label}}</text><text>{{item.value}}</text></view></view>
+      </view>
+      <view wx:if="{{jobView}}" class="v12-card record-card">
+        <text class="record-title">生成任务</text>
+        <text class="record-hint">{{jobView.statusText}} · 进度 {{jobView.progress}}%</text>
+        <view class="progress"><i style="width: {{jobView.progress}}%;"></i></view>
+      </view>
+      <view wx:if="{{candidates.length}}" class="v12-card record-card">
+        <text class="record-title">已生成方案（{{candidates.length}}）</text>
+        <text wx:if="{{candidateHint}}" class="record-hint">{{candidateHint}}</text>
+        <view class="candidate-grid">
+          <view wx:for="{{candidates}}" wx:key="candidateId" class="candidate-cell" catchtap="previewCandidate" data-url="{{item.url}}" role="button" aria-label="{{item.name}}{{item.url ? '，点击放大' : ''}}">
+            <image wx:if="{{item.url}}" class="candidate-img" src="{{item.url}}" mode="aspectFit" lazy-load />
+            <view wx:else class="candidate-img candidate-loading"><text>方案图加载中…</text></view>
+            <text class="ai-tag">AI生成</text>
+            <text class="candidate-name">{{item.name}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="v12-card record-card record-fields"><view wx:for="{{fields}}" wx:key="label"><text class="label">{{item.label}}</text><text>{{item.value}}</text></view></view>
+      <view wx:if="{{canResubmit}}" class="v12-card record-card">
+        <text class="record-title">修改后重新提交</text>
+        <text class="record-hint">请根据审核意见补充说明。本次重提沿用上方投稿的方案，不替换图纸。</text>
+        <textarea class="resubmit-note" value="{{resubmitNote}}" bindinput="editResubmitNote" maxlength="512" disabled="{{submitting}}" placeholder="填写修改说明" aria-label="修改说明" adjust-position />
+        <text wx:if="{{submitError}}" class="record-hint">{{submitError}}</text>
+        <button class="record-button" loading="{{submitting}}" disabled="{{submitting}}" bindtap="resubmit">重新提交审核</button>
+      </view>
+      <view wx:for="{{versions}}" wx:key="id" class="v12-card record-card" data-id="{{item.id}}" bindtap="openVersion" role="button" aria-label="{{'查看' + item.title}}"><view class="record-top"><text class="record-title">{{item.title}}</text><t-icon name="chevron-right" size="20px" color="#a89a8c" /></view><text class="record-hint">{{item.hint}}</text><text class="record-hint">{{item.time}}</text></view>
+      <view wx:if="{{!versions.length && !versionId}}" class="v12-card record-empty"><v12-state status="empty" text="尚未形成最终方案版本。" card="{{false}}" /></view>
+      <view class="record-actions"><button wx:if="{{versionId}}" class="record-button" bindtap="openVersion">查看投稿方案</button><button wx:if="{{!versionId && projectId}}" class="record-button" bindtap="renameProject">重命名方案</button><button class="record-button" bindtap="budgetHistory">查看已保存预算</button></view>
+    </block>
+  </view>
+</view>

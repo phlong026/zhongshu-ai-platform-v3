@@ -1,0 +1,10 @@
+{
+  "navigationStyle": "custom",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "v12-navbar": "/design-migration/components/v12-navbar/index",
+    "v12-state": "/design-migration/components/v12-state/index",
+    "t-icon": "/design-migration/components/icon/index"
+  }
+}

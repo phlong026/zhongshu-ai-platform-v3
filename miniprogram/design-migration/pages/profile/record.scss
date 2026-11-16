@@ -1,0 +1,24 @@
+@import './records.scss';
+
+.resubmit-note { box-sizing: border-box; width: 100%; min-height: 180rpx; margin: 20rpx 0; padding: 20rpx; background: $v12-surface-alt; border-radius: $v12-radius-sm; font-size: $v12-font-lg; }
+/* UX 整改：下一步引导 + 需求参数 + 候选图直出 */
+.record-cta { margin-bottom: 24rpx; }
+.record-fields.req { margin-top: 20rpx; }
+.record-fields.req > view { padding: 12rpx 0; border-bottom: 1rpx solid $v12-gold-bg; }
+.record-fields.req > view:last-child { border-bottom: 0; }
+.record-fields.req .label { display: block; color: $v12-text-3; font-size: $v12-font-sm; }
+.record-fields.req > view > text:last-child { display: block; margin-top: 4rpx; font-size: $v12-font-md; line-height: 1.55; overflow-wrap: anywhere; }
+.progress { height: 12rpx; margin-top: 16rpx; border-radius: $v12-radius-sm; background: $v12-surface-alt; overflow: hidden; }
+.progress i { display: block; height: 100%; border-radius: $v12-radius-sm; background: linear-gradient(90deg, $v12-primary-deep, $v12-gold-deep); transition: width .5s ease; }
+.candidate-grid { margin-top: 20rpx; display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; }
+.candidate-img { width: 100%; height: 260rpx; border-radius: $v12-radius-sm; border: 1rpx solid $v12-divider; background: $v12-surface-alt; }
+.candidate-loading { display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.candidate-loading text { color: $v12-text-3; font-size: $v12-font-body; }
+
+/* 已选方案双图（立面/平面）与候选命名（详情页丰富化 2026-10-05） */
+.selected-grid { margin-top: 20rpx; display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; }
+.selected-img { width: 100%; height: 320rpx; border-radius: $v12-radius-sm; border: 1rpx solid $v12-divider; background: $v12-surface-alt; box-sizing: border-box; }
+.selected-label { display: block; margin-top: 8rpx; text-align: center; color: $v12-text-2; font-size: $v12-font-sm; }
+.candidate-name { display: block; margin-top: 8rpx; text-align: center; color: $v12-text-2; font-size: $v12-font-sm; }
+
+.ai-tag { position: absolute; left: 12rpx; top: 12rpx; z-index: 1; padding: 4rpx 14rpx; border-radius: 999rpx; background: rgba(60, 47, 34, .55); color: #fff; font-size: 22rpx; }

@@ -1,0 +1,26 @@
+@import './shared.scss';
+
+.prices-page { padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
+.prices-card { margin-top: 20rpx; padding: 8rpx 28rpx; }
+.prices-hint { padding: 20rpx 0 24rpx; color: $v12-primary-deep; font-size: $v12-font-sm; }
+.prices-group { margin-top: 20rpx; padding: 28rpx 28rpx 12rpx; }
+.prices-head { padding-bottom: 8rpx; }
+.price-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; min-height: 128rpx; padding: 24rpx 0; border-bottom: 1rpx solid $v12-divider; box-sizing: border-box; }
+.price-row:last-child { border-bottom: 0; }
+.price-copy { flex: 1; min-width: 0; }
+.price-label { display: block; font-size: $v12-font-lg; line-height: 1.4; word-break: break-all; }
+.price-unit { color: $v12-text-3; font-size: $v12-font-body; }
+.price-mine { display: block; margin-top: 8rpx; color: $v12-primary-deep; font-size: $v12-font-md; font-weight: 600; word-break: break-all; }
+.price-reason { font-size: $v12-font-sm; font-weight: 400; color: $v12-gold-deep; }
+.price-actions { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 16rpx; padding-top: 8rpx; }
+.muted-action { color: $v12-text-3; }
+.price-editor { display: flex; align-items: center; gap: 20rpx; }
+.price-editor input { width: 300rpx; padding: 16rpx 20rpx; border: 1rpx solid $v12-gold; border-radius: $v12-radius-sm; background: $v12-surface; font-size: $v12-font-lg; text-align: right; box-sizing: border-box; }
+
+/* 自定义地区：行内标签 + 新增入口（与基础参数页同口径，2026-10-05） */
+.parameter-row { min-height: 96rpx; display: flex; align-items: center; justify-content: space-between; gap: 20rpx; border-bottom: 1rpx solid $v12-divider; font-size: $v12-font-lg; }
+.parameter-row > text { flex-shrink: 0; }
+.last-row { border-bottom: 0; }
+.input-value { display: flex; align-items: center; justify-content: flex-end; gap: 20rpx; min-width: 0; }
+.region-tag { flex-shrink: 0; padding: 2rpx 14rpx; border-radius: $v12-radius-full; border: 1rpx solid $v12-brand; color: $v12-brand; font-size: $v12-font-xs; }
+.add-region-label { color: $v12-brand; font-size: $v12-font-md; }

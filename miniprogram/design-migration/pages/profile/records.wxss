@@ -1,0 +1,323 @@
+@import "/design-migration/styles/base.wxss";
+@charset "UTF-8";
+page {
+  min-height: 100%;
+  background: #f7f4ee;
+  color: #2f2925;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+}
+
+.v12-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #f7f4ee;
+  color: #2f2925;
+}
+
+.v12-content {
+  padding: 0 32rpx 48rpx;
+  box-sizing: border-box;
+}
+
+.v12-content--tab {
+  padding-bottom: calc(148rpx + env(safe-area-inset-bottom));
+}
+
+.v12-card {
+  box-sizing: border-box;
+  border: 1rpx solid rgba(232, 222, 209, 0.72);
+  border-radius: 24rpx;
+  background: #fffdf8;
+  box-shadow: 0 10rpx 30rpx rgba(72, 49, 32, 0.07);
+}
+
+.v12-primary-button,
+.v12-secondary-button,
+.v12-disabled-button {
+  width: 100%;
+  height: 92rpx;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  font-size: 32rpx;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.v12-primary-button::after,
+.v12-secondary-button::after,
+.v12-disabled-button::after {
+  border: 0;
+}
+
+.v12-primary-button--md,
+.v12-secondary-button--md,
+.v12-disabled-button--md {
+  height: 80rpx;
+  font-size: 28rpx;
+}
+
+.v12-primary-button--sm,
+.v12-secondary-button--sm,
+.v12-disabled-button--sm {
+  height: 68rpx;
+  font-size: 28rpx;
+}
+
+.v12-primary-button[disabled] {
+  color: #ffffff;
+  background: #cfc5ba;
+  box-shadow: none;
+}
+
+.v12-secondary-button[disabled] {
+  color: #a89a8c;
+  border-color: #cfc5ba;
+}
+
+.v12-primary-button {
+  color: #ffffff;
+  background: linear-gradient(100deg, #8b4818, #7b5532);
+  box-shadow: 0 10rpx 24rpx rgba(106, 59, 27, 0.14);
+}
+
+.v12-secondary-button {
+  color: #6a3b1b;
+  border: 2rpx solid #6a3b1b;
+  background: #fffdf8;
+}
+
+.v12-disabled-button {
+  color: #ffffff;
+  background: #cfc5ba;
+}
+
+.v12-section-title {
+  display: block;
+  color: #2f2925;
+  font-size: 34rpx;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.v12-muted {
+  color: #786858;
+}
+
+.v12-fixed-action {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: rgba(255, 253, 248, 0.98);
+  border-top: 1rpx solid #e8ded1;
+}
+
+.v12-safe-bottom {
+  height: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 350px) {
+  .v12-content {
+    padding-left: 24rpx;
+    padding-right: 24rpx;
+  }
+  .v12-primary-button, .v12-secondary-button {
+    font-size: 28rpx;
+  }
+}
+.records-content {
+  padding: 24rpx 32rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.record-top, .record-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.record-card {
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 滑动删除（UX 2026-10）：卡片左滑/右滑露出底部红色删除按钮；卡片上滑时右移露位 */
+.record-swipe {
+  position: relative;
+  margin-bottom: 24rpx;
+}
+
+.record-swipe .record-card {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0;
+  transition: transform 0.22s ease;
+}
+
+.record-swipe .record-card.swiped {
+  transform: translateX(-140rpx);
+}
+
+.record-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 128rpx;
+  border-radius: 24rpx;
+  background: #b45545;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+}
+
+.record-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.record-top t-icon {
+  flex-shrink: 0;
+}
+
+.record-hint {
+  display: block;
+  color: #a89a8c;
+  font-size: 24rpx;
+  margin: 20rpx 0;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.record-bottom {
+  align-items: flex-start;
+  font-size: 24rpx;
+  color: #a89a8c;
+  flex-wrap: wrap;
+}
+
+.record-status {
+  color: #7b5532;
+}
+
+.record-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: #7b5532;
+  background: #f4f0e9;
+  border-radius: 12rpx;
+  flex-shrink: 0;
+}
+
+.record-button::after {
+  border: 0;
+}
+
+.record-empty {
+  padding: 48rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28rpx;
+  text-align: center;
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: #a89a8c;
+}
+
+.record-footer {
+  padding: 24rpx 0;
+  text-align: center;
+  font-size: 24rpx;
+  color: #a89a8c;
+}
+
+.record-footer .record-button {
+  margin: auto;
+}
+
+.record-fields > view {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #e8ded1;
+  font-size: 26rpx;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.record-fields text {
+  display: block;
+}
+
+.record-fields .label {
+  color: #a89a8c;
+  margin-bottom: 8rpx;
+}
+
+.record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  margin-top: 24rpx;
+}
+
+/* UX 整改：项目行封面缩略图 + 进行中状态 */
+.record-body {
+  display: flex;
+  align-items: stretch;
+  gap: 24rpx;
+}
+
+.record-body .record-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.record-cover {
+  width: 168rpx;
+  height: 168rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+  border: 1rpx solid #e8ded1;
+  background: #f4f0e9;
+}
+
+.record-cover image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+}
+
+.record-cover-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.record-cover-text {
+  font-size: 22rpx;
+  color: #a89a8c;
+}
+
+.record-status.living {
+  color: #b9690b;
+}

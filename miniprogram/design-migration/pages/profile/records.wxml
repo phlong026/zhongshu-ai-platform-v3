@@ -1,0 +1,25 @@
+<view class="v12-page" wx:if="{{accessReady}}">
+  <v12-navbar title="{{title}}" show-back show-brand="{{false}}" />
+  <view class="records-content">
+    <view wx:for="{{rows}}" wx:key="id" class="record-swipe">
+      <view wx:if="{{canDelete}}" class="record-delete" data-id="{{item.id}}" catchtap="confirmDelete" role="button" aria-label="删除{{item.title}}">删除</view>
+      <view class="v12-card record-card {{swipedId === item.id ? 'swiped' : ''}}" role="button" aria-label="{{item.title + '，' + item.status}}" data-id="{{item.id}}"
+        bindtap="open" bindlongpress="confirmDelete" bindtouchstart="swipeStart" bindtouchend="swipeEnd">
+        <view class="record-body">
+          <view class="record-cover {{item.coverUrl ? '' : 'record-cover-empty'}}">
+            <image wx:if="{{item.coverUrl}}" src="{{item.coverUrl}}" mode="aspectFit" lazy-load catchtap="previewCover" data-url="{{item.coverUrl}}" aria-label="放大查看封面" role="button" />
+            <text wx:else class="record-cover-text">暂无图片</text>
+          </view>
+          <view class="record-info">
+            <view class="record-top"><text class="record-title">{{item.title}}</text><t-icon name="chevron-right" size="20px" color="#a89a8c" /></view>
+            <text class="record-hint">{{item.hint}}</text>
+            <view class="record-bottom"><text class="record-status {{item.jobStatus ? 'living' : ''}}">{{item.status}}</text><text>{{item.time}}</text></view>
+          </view>
+        </view>
+      </view>
+    </view>
+    <v12-state wx:if="{{error}}" status="error" text="{{error}}" action-text="重试" bind:action="retry" />
+    <v12-state wx:elif="{{!loading && !rows.length}}" status="empty" icon="file" text="{{emptyText}}" />
+    <view class="record-footer"><text wx:if="{{loading}}">正在读取…</text><button wx:elif="{{hasMore && !error}}" class="record-button" bindtap="more">加载更多</button><text wx:elif="{{rows.length && !error}}">已显示全部记录</text></view>
+  </view>
+</view>

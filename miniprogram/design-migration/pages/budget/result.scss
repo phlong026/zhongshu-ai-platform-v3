@@ -1,0 +1,19 @@
+@import './read.scss';
+
+.quote-card { margin-top: 24rpx; padding: 32rpx; border: 2rpx solid rgba(168, 91, 22, .2); }
+.quote-title-row, .quote-basis { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; }
+.quote-badge { padding: 8rpx 16rpx; border-radius: $v12-radius-full; color: $v12-white; background: $v12-primary-deep; font-size: $v12-font-sm; }
+.quote-amount { margin: 12rpx 0 16rpx; color: $v12-primary-deep; font-size: 54rpx; font-weight: 700; }
+.quote-basis { margin-bottom: 16rpx; color: $v12-text-2; font-size: $v12-font-body; }
+.quote-loading { padding: 16rpx 8rpx; color: $v12-text-2; font-size: $v12-font-body; text-align: center; }
+.action-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24rpx; }
+.action-grid.cols-1 { grid-template-columns: 1fr; }
+.secondary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 24rpx; margin-top: 24rpx; }
+/* 待补说明合并卡：替代原先警告块+免责块两段堆叠 */
+.result-note-card { margin-top: 24rpx; padding: 28rpx; border: 1rpx solid $v12-gold-bg; background: $v12-warning-bg; }
+.note-head { display: flex; align-items: center; gap: 12rpx; color: $v12-gold-deep; font-size: $v12-font-md; font-weight: 600; }
+.note-text { display: block; margin-top: 12rpx; color: $v12-gold-deep; font-size: $v12-font-sm; line-height: 1.6; }
+.note-chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx; }
+.note-chip { padding: 6rpx 20rpx; border-radius: $v12-radius-full; border: 1rpx solid rgba(168, 91, 22, .35); color: $v12-gold-deep; background: $v12-white; font-size: $v12-font-sm; }
+.note-disclaimer { display: block; margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid rgba(168, 91, 22, .18); color: $v12-text-3; font-size: $v12-font-xs; line-height: 1.6; }
+.share-canvas { position: fixed; left: 2000rpx; top: 0; width: 375px; height: 600px; }

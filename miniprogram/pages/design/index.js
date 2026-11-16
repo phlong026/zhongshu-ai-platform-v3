@@ -20,6 +20,7 @@ Page({
     ],
     entranceEnabled: false,
     catalogCases: [],
+    catalogCursor: '',
     catalogLoading: false,
     catalogLoaded: false,
     catalogError: ''
@@ -48,30 +49,38 @@ Page({
     return !this.__catalogUnloaded && generation === this.__catalogGeneration &&
       sessionGeneration === http.sessionGeneration() && !!post && String(post.postId) === String(postId);
   },
-  loadCatalog() {
+  loadCatalog(reset = true) {
     const post = currentPost();
     if (!allowed(post)) return;
-    const generation = (this.__catalogGeneration || 0) + 1;
-    this.__catalogGeneration = generation;
+    if (!reset && (this.data.catalogLoading || !this.data.catalogCursor)) return;
+    if (reset) this.__catalogGeneration = (this.__catalogGeneration || 0) + 1;
+    const generation = this.__catalogGeneration;
+    const request = this.__catalogRequest = (this.__catalogRequest || 0) + 1;
     const sessionGeneration = http.sessionGeneration();
     const postId = String(post.postId);
     const alive = () => this.catalogAlive(generation, sessionGeneration, postId);
-    this.setData({ catalogLoading: true, catalogLoaded: false, catalogError: '', catalogCases: [] });
-    api.cases.page({ limit: 4 }).then(result => {
-      if (!alive()) return;
-      const rows = (result && result.list || []).slice(0, 4).map(PF.caseRow).map(row => Object.assign({}, row, {
+    this.setData(Object.assign({ catalogLoading: true, catalogError: '' }, reset ? { catalogLoaded: false, catalogCases: [], catalogCursor: '' } : {}));
+    const params = { limit: 10 };
+    if (!reset) params.cursor = this.data.catalogCursor;
+    return api.cases.page(params).then(result => {
+      if (!alive() || request !== this.__catalogRequest) return;
+      if (params.cursor && result && result.nextCursor === params.cursor) throw Error('户型分页暂不可用，请刷新后重试');
+      const existing = reset ? [] : this.data.catalogCases;
+      const rows = (result && result.list || []).map(PF.caseRow).filter(row => !existing.some(item => item.id === row.id)).map(row => Object.assign({}, row, {
         coverLoading: !!row.coverAssetId, coverError: !row.coverAssetId, coverUrl: ''
       }));
-      this.setData({ catalogCases: rows, catalogLoading: false, catalogLoaded: true });
+      this.setData({ catalogCases: existing.concat(rows), catalogCursor: (result && result.nextCursor) || '', catalogLoading: false, catalogLoaded: true });
       return PF.loadCaseCovers(rows, (caseId, assetId) => api.cases.downloadUrl(caseId, assetId), alive).then(covered => {
-        if (alive()) this.setData({ catalogCases: covered });
+        if (alive()) this.setData({ catalogCases: this.data.catalogCases.map(row => covered.find(item => item.id === row.id) || row) });
       });
     }).catch(error => {
-      if (!alive()) return;
+      if (!alive() || request !== this.__catalogRequest) return;
       this.setData({ catalogLoading: false, catalogLoaded: true, catalogError: PF.errorMessageDesign(error) });
     });
   },
-  retryCatalog() { this.loadCatalog(); },
+  retryCatalog() { this.loadCatalog(!this.data.catalogCases.length); },
+  loadMoreCatalog() { return this.loadCatalog(false); },
+  onReachBottom() { if (this.data.catalogCursor && !this.data.catalogLoading) this.loadMoreCatalog(); },
   catalogImageError(e) {
     const id = String(e.currentTarget.dataset.id);
     this.setData({ catalogCases: (this.data.catalogCases || []).map(row => String(row.id) === id ?

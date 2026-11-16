@@ -1,0 +1,784 @@
+@import "/design-migration/styles/base.wxss";
+@charset "UTF-8";
+page {
+  min-height: 100%;
+  background: #f7f4ee;
+  color: #2f2925;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+}
+
+.v12-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #f7f4ee;
+  color: #2f2925;
+}
+
+.v12-content {
+  padding: 0 32rpx 48rpx;
+  box-sizing: border-box;
+}
+
+.v12-content--tab {
+  padding-bottom: calc(148rpx + env(safe-area-inset-bottom));
+}
+
+.v12-card {
+  box-sizing: border-box;
+  border: 1rpx solid rgba(232, 222, 209, 0.72);
+  border-radius: 24rpx;
+  background: #fffdf8;
+  box-shadow: 0 10rpx 30rpx rgba(72, 49, 32, 0.07);
+}
+
+.v12-primary-button,
+.v12-secondary-button,
+.v12-disabled-button {
+  width: 100%;
+  height: 92rpx;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  font-size: 32rpx;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.v12-primary-button::after,
+.v12-secondary-button::after,
+.v12-disabled-button::after {
+  border: 0;
+}
+
+.v12-primary-button--md,
+.v12-secondary-button--md,
+.v12-disabled-button--md {
+  height: 80rpx;
+  font-size: 28rpx;
+}
+
+.v12-primary-button--sm,
+.v12-secondary-button--sm,
+.v12-disabled-button--sm {
+  height: 68rpx;
+  font-size: 28rpx;
+}
+
+.v12-primary-button[disabled] {
+  color: #ffffff;
+  background: #cfc5ba;
+  box-shadow: none;
+}
+
+.v12-secondary-button[disabled] {
+  color: #a89a8c;
+  border-color: #cfc5ba;
+}
+
+.v12-primary-button {
+  color: #ffffff;
+  background: linear-gradient(100deg, #8b4818, #7b5532);
+  box-shadow: 0 10rpx 24rpx rgba(106, 59, 27, 0.14);
+}
+
+.v12-secondary-button {
+  color: #6a3b1b;
+  border: 2rpx solid #6a3b1b;
+  background: #fffdf8;
+}
+
+.v12-disabled-button {
+  color: #ffffff;
+  background: #cfc5ba;
+}
+
+.v12-section-title {
+  display: block;
+  color: #2f2925;
+  font-size: 34rpx;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.v12-muted {
+  color: #786858;
+}
+
+.v12-fixed-action {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: rgba(255, 253, 248, 0.98);
+  border-top: 1rpx solid #e8ded1;
+}
+
+.v12-safe-bottom {
+  height: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 350px) {
+  .v12-content {
+    padding-left: 24rpx;
+    padding-right: 24rpx;
+  }
+  .v12-primary-button, .v12-secondary-button {
+    font-size: 28rpx;
+  }
+}
+.budget-page {
+  padding: 0 32rpx calc(190rpx + env(safe-area-inset-bottom));
+  background: #f7f4ee;
+  color: #2f2925;
+}
+
+.budget-page > v12-navbar {
+  display: block;
+  margin: 0 -32rpx;
+}
+
+.budget-card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  box-sizing: border-box;
+}
+
+.auto-note {
+  min-height: 82rpx;
+  margin-top: 24rpx;
+  padding: 12rpx 24rpx;
+  border-radius: 16rpx;
+  background: #fdf5e9;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  color: #b9690b;
+  font-size: 24rpx;
+  box-sizing: border-box;
+}
+
+.auto-note > text:first-of-type {
+  flex: 1;
+}
+
+.source-tag {
+  flex-shrink: 0;
+  padding: 4rpx 12rpx;
+  border: 1rpx solid #c8a679;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.budget-page .text-action {
+  display: inline-flex;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  color: #8b4818;
+  background: transparent;
+  border: 0;
+  line-height: 1.6;
+  border-radius: 0;
+  font-size: 26rpx;
+}
+
+.text-action::after, .budget-primary::after {
+  border: 0;
+}
+
+.text-action[disabled] {
+  background: transparent;
+  color: #a89a8c;
+}
+
+.budget-page .text-action.source-tag {
+  flex-shrink: 0;
+  padding: 4rpx 12rpx;
+  border: 1rpx solid #c8a679;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+}
+
+.round-icon {
+  width: 74rpx;
+  height: 74rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f4f0e9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.explanation {
+  margin-top: 28rpx;
+  padding: 32rpx 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.muted {
+  display: block;
+  margin-top: 12rpx;
+  color: #a89a8c;
+  font-size: 24rpx;
+  line-height: 1.65;
+}
+
+/* 填写说明增强块：多行条目逐行展示（parameters / prices 专用，单行说明页不受影响） */
+.explanation.help-card {
+  align-items: flex-start;
+}
+
+.help-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.help-items {
+  margin-top: 8rpx;
+}
+
+.help-item {
+  position: relative;
+  display: block;
+  padding-left: 28rpx;
+  margin-top: 10rpx;
+  color: #786858;
+  font-size: 22rpx;
+  line-height: 1.7;
+}
+
+.help-item::before {
+  content: "";
+  position: absolute;
+  left: 6rpx;
+  top: 50%;
+  width: 8rpx;
+  height: 8rpx;
+  margin-top: -4rpx;
+  border-radius: 50%;
+  background: #6a3b1b;
+}
+
+.budget-footer {
+  position: fixed;
+  left: 40rpx;
+  right: 40rpx;
+  bottom: calc(22rpx + env(safe-area-inset-bottom));
+  z-index: 80;
+}
+
+.footer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 24rpx;
+}
+
+.budget-page .budget-primary {
+  width: 100%;
+  height: 92rpx;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 16rpx;
+  background: linear-gradient(100deg, #8b4818, #7b5532);
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10rpx 24rpx rgba(106, 59, 27, 0.14);
+}
+
+.budget-page .budget-secondary {
+  width: 100%;
+  height: 92rpx;
+  margin: 0;
+  padding: 0;
+  border: 2rpx solid #6a3b1b;
+  border-radius: 16rpx;
+  background: #fffdf8;
+  color: #6a3b1b;
+  font-size: 32rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.budget-secondary[disabled] {
+  color: #a89a8c;
+  background: #f4f0e9;
+}
+
+.budget-primary[disabled] {
+  color: #ffffff;
+  background: #cfc5ba;
+}
+
+.footer-hint {
+  display: block;
+  margin-bottom: 12rpx;
+  color: #a89a8c;
+  font-size: 22rpx;
+  text-align: center;
+  background: #f7f4ee;
+}
+
+/* 只保留卡片外框的留白；态内部（文字层级、重试按钮）由 v12-state 组件自带，
+   组件有样式隔离，页面选择器穿不进去，留着也是死规则。 */
+.state-card {
+  margin-top: 28rpx;
+  padding: 36rpx;
+}
+
+.inline-warning {
+  margin-top: 20rpx;
+  padding: 20rpx 24rpx;
+  background: #fdf5e9;
+  border-radius: 16rpx;
+  color: #b9690b;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.inline-warning .text-action {
+  margin-left: 12rpx;
+}
+
+/* 角标提示符：标题行内的小徽标（替代独立提醒横幅） */
+.section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+}
+
+.count-badge {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: #f4f0e9;
+  color: #786858;
+  font-size: 20rpx;
+  white-space: nowrap;
+}
+
+.result-footnote {
+  display: block;
+  margin: 16rpx 0;
+  text-align: center;
+  font-size: 20rpx;
+  color: #a89a8c;
+}
+
+/* 纵向弹性布局：内容不足一屏时把 .result-actions 压到页面底部（UX 整改：按钮太靠上） */
+.budget-read-page {
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+.result-hero {
+  position: relative;
+  margin-top: 20rpx;
+  min-height: 265rpx;
+  padding: 32rpx;
+  overflow: hidden;
+  border-radius: 24rpx;
+  background: #fdf5e9;
+  box-sizing: border-box;
+}
+
+.budget-sketch {
+  position: absolute;
+  right: 0;
+  bottom: 5rpx;
+  width: 305rpx;
+  height: 225rpx;
+}
+
+.amount-label, .scheme-name, .hero-amount {
+  position: relative;
+  z-index: 1;
+}
+
+.amount-label {
+  display: block;
+  color: #8b4818;
+  font-size: 28rpx;
+}
+
+.hero-amount {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin: 16rpx 0;
+  color: #8b4818;
+}
+
+.amount-number {
+  font-size: 82rpx;
+  line-height: 1.1;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.amount-number.exact-number {
+  font-size: 52rpx;
+}
+
+.amount-unit {
+  font-size: 26rpx;
+}
+
+.scheme-name {
+  display: block;
+  max-width: 62%;
+  font-size: 26rpx;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.budget-page .precision-action {
+  display: block;
+  width: 100%;
+  padding: 12rpx 4rpx;
+  font-size: 20rpx;
+  text-align: right;
+  color: #786858;
+}
+
+.result-section {
+  margin-top: 20rpx;
+  padding: 32rpx;
+}
+
+.summary-row, .detail-group-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  min-height: 130rpx;
+  border-bottom: 1rpx solid #e8ded1;
+}
+
+.summary-row:last-child, .detail-group:last-child .detail-group-row {
+  border-bottom: 0;
+}
+
+.summary-copy {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  line-height: 1.4;
+}
+
+.summary-copy > text {
+  display: block;
+}
+
+.row-description {
+  display: block;
+  margin-top: 4rpx;
+  color: #a89a8c;
+  font-size: 22rpx;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.row-price {
+  max-width: 220rpx;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 28rpx;
+  word-break: break-all;
+}
+
+.row-price .row-description {
+  font-size: 20rpx;
+}
+
+.result-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 28rpx;
+}
+
+.result-cell {
+  width: 50%;
+  min-height: 125rpx;
+  padding: 16rpx 16rpx;
+  box-sizing: border-box;
+}
+
+.result-cell:nth-child(odd) {
+  border-right: 1rpx solid #e8ded1;
+}
+
+.result-cell:nth-child(-n+2) {
+  border-bottom: 1rpx solid #e8ded1;
+}
+
+.result-cell > text {
+  display: block;
+  color: #786858;
+  font-size: 24rpx;
+}
+
+.result-cell > text + text {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #2f2925;
+  word-break: break-all;
+}
+
+.result-note {
+  margin-top: 24rpx;
+  line-height: 1.55;
+}
+
+.result-actions {
+  margin: auto 12rpx 0;
+  padding-top: 40rpx;
+  text-align: center;
+}
+
+.result-actions > .text-action {
+  display: block;
+  margin: 24rpx auto 0;
+}
+
+.result-actions > .history-link {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+}
+
+.save-error {
+  display: block;
+  padding-bottom: 16rpx;
+  font-size: 24rpx;
+  color: #b45545;
+}
+
+.missing-name {
+  display: block;
+  margin-top: 8rpx;
+}
+
+.custom-tag {
+  display: inline-block;
+  margin-left: 12rpx;
+  border: 1rpx solid #c8a679;
+  border-radius: 8rpx;
+  padding: 0 8rpx;
+  font-size: 20rpx;
+  color: #8b4818;
+  vertical-align: middle;
+}
+
+.line-details {
+  padding: 16rpx 0 20rpx 96rpx;
+  border-bottom: 1rpx solid #e8ded1;
+}
+
+.line-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 8rpx 0;
+  font-size: 22rpx;
+  color: #786858;
+}
+
+.line-quantity {
+  color: #a89a8c;
+  font-size: 20rpx;
+}
+
+.line-detail > text:first-child {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.line-detail > text:last-child {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.exterior-read .detail-group-row {
+  min-height: 112rpx;
+}
+
+.explanation-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #e8ded1;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #786858;
+}
+
+.explanation-row:last-child {
+  border-bottom: 0;
+}
+
+.explanation-row > text:first-child {
+  flex-shrink: 0;
+}
+
+.explanation-row > text:last-child {
+  text-align: right;
+}
+
+@media (max-width: 350px) {
+  .summary-row, .detail-group-row {
+    gap: 12rpx;
+  }
+  .summary-copy {
+    font-size: 28rpx;
+  }
+  .row-price {
+    font-size: 26rpx;
+    max-width: 180rpx;
+  }
+  .amount-number {
+    font-size: 70rpx;
+  }
+}
+.quote-card {
+  margin-top: 24rpx;
+  padding: 32rpx;
+  border: 2rpx solid rgba(168, 91, 22, 0.2);
+}
+
+.quote-title-row, .quote-basis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.quote-badge {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  color: #ffffff;
+  background: #8b4818;
+  font-size: 22rpx;
+}
+
+.quote-amount {
+  margin: 12rpx 0 16rpx;
+  color: #8b4818;
+  font-size: 54rpx;
+  font-weight: 700;
+}
+
+.quote-basis {
+  margin-bottom: 16rpx;
+  color: #786858;
+  font-size: 24rpx;
+}
+
+.quote-loading {
+  padding: 16rpx 8rpx;
+  color: #786858;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 24rpx;
+}
+
+.action-grid.cols-1 {
+  grid-template-columns: 1fr;
+}
+
+.secondary-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24rpx;
+  margin-top: 24rpx;
+}
+
+/* 待补说明合并卡：替代原先警告块+免责块两段堆叠 */
+.result-note-card {
+  margin-top: 24rpx;
+  padding: 28rpx;
+  border: 1rpx solid #f5e5d0;
+  background: #fdf5e9;
+}
+
+.note-head {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  color: #b9690b;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.note-text {
+  display: block;
+  margin-top: 12rpx;
+  color: #b9690b;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.note-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.note-chip {
+  padding: 6rpx 20rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(168, 91, 22, 0.35);
+  color: #b9690b;
+  background: #ffffff;
+  font-size: 22rpx;
+}
+
+.note-disclaimer {
+  display: block;
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(168, 91, 22, 0.18);
+  color: #a89a8c;
+  font-size: 20rpx;
+  line-height: 1.6;
+}
+
+.share-canvas {
+  position: fixed;
+  left: 2000rpx;
+  top: 0;
+  width: 375px;
+  height: 600px;
+}

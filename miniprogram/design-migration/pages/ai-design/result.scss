@@ -1,0 +1,39 @@
+@import '../../styles/v12-theme.scss';
+
+/* 纵向弹性布局：内容不足一屏时把动作区压到页面底部（UX 整改：按钮太靠上） */
+.result-page { padding: 28rpx 32rpx 44rpx; display: flex; flex-direction: column; }
+.result-page > v12-navbar { margin: -28rpx -32rpx 0; }
+.success-banner { height: 102rpx; margin-top: 20rpx; padding: 0 28rpx; display: flex; align-items: center; gap: 20rpx; }
+.success-banner text { font-size: $v12-font-xl; }
+.success-banner span { margin-left: auto; padding: 8rpx 20rpx; border: 1rpx solid $v12-gold; border-radius: $v12-radius-xs; color: $v12-primary-deep; font-size: $v12-font-body; }
+.result-tabs { height: 100rpx; display: flex; }
+.result-tabs view { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; color: $v12-text-2; font-size: $v12-font-lg; }
+.result-tabs .active { color: $v12-primary-deep; font-weight: 600; }
+.result-tabs .active::after { content: ''; position: absolute; bottom: 0; width: 48rpx; height: 4rpx; background: $v12-primary-deep; }
+.result-main { overflow: hidden; }
+.image-wrap { position: relative; }
+.image-wrap image { width: 100%; height: 466rpx; display: block; }
+.image-wrap text { position: absolute; right: 18rpx; top: 18rpx; padding: 8rpx 16rpx; border-radius: $v12-radius-xs; background: rgba(50,50,50,.55); color: $v12-white; font-size: $v12-font-sm; }
+.image-wrap .image-zoom-hint { right: auto; top: auto; bottom: 16rpx; left: 16rpx; background: rgba(50,50,50,.38); font-size: $v12-font-xs; }
+.result-copy { padding: 28rpx 40rpx; }
+.result-copy text { display: block; font-size: $v12-font-lg; }
+.result-copy text + text { margin-top: 12rpx; color: $v12-secondary-text; font-size: $v12-font-body; }
+.files { margin-top: 24rpx; padding: 20rpx 28rpx; }
+.files > text { font-size: $v12-font-lg; }
+.files > view { height: 68rpx; display: flex; align-items: center; gap: 24rpx; border-bottom: 1rpx solid $v12-divider; }
+.files > view:last-child { border: 0; }
+.files > view text { flex: 1; font-size: $v12-font-md; }
+.result-actions { margin: auto 0 0; padding-top: 24rpx; display: grid; grid-template-columns: 1fr 1fr; gap: 28rpx; }
+.result-actions .disabled { opacity: .45; }
+.tool-row { margin-top: 20rpx; display: grid; gap: 16rpx; }
+.tool-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.tool-row.cols-1 { grid-template-columns: 1fr; }
+.tool-row view { height: 76rpx; border: 1rpx solid $v12-divider; border-radius: $v12-radius-md; background: $v12-surface; display: flex; align-items: center; justify-content: center; gap: 12rpx; font-size: $v12-font-sm; }
+
+/* AI 生成内容免责脚注：随图展示（2026-10-11 从输入页顶横幅迁移至此——免责应贴着 AI 产出物） */
+.ai-footnote { margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid $v12-divider; display: flex; align-items: center; justify-content: center; gap: 8rpx; }
+.ai-footnote text { font-size: $v12-font-xs; color: $v12-text-3; }
+
+.version-images { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
+.version-images button { flex: 1; margin: 0; font-size: 26rpx; }
+.version-images .active { color: #7b5532; background: #f4ece3; }

@@ -18,7 +18,7 @@ const COLOR_OPTIONS = [['DEEP_WOOD', '深木'], ['WARM_GREY', '暖灰'], ['BLACK
 const ORIENTATION_OPTIONS = [['PORTRAIT', '竖图'], ['LANDSCAPE', '横图']]; // 平面缺省 PORTRAIT、立面缺省 LANDSCAPE（不传走后端默认）
 // 对齐旧版基准（api.zszhj.com）平面表单四项输入（后端需求白名单键已在）
 const ENTRANCE_OPTIONS = [['SOUTH', '朝南'], ['NORTH', '朝北'], ['EAST', '朝东'], ['WEST', '朝西']];
-const FAMILY_OPTIONS = [['2室1厅1卫', '2室1厅1卫'], ['3室1厅1卫', '3室1厅1卫'], ['3室2厅2卫', '3室2厅2卫'], ['4室2厅2卫', '4室2厅2卫'], ['5室2厅3卫', '5室2厅3卫'], ['6室3厅3卫', '6室3厅3卫']];
+const FAMILY_OPTIONS = [['2室1厅1卫', '2室1厅1卫'], ['3室2厅1卫', '3室2厅1卫'], ['3室2厅2卫', '3室2厅2卫'], ['4室2厅2卫', '4室2厅2卫'], ['5室3厅2卫', '5室3厅2卫'], ['6室3厅3卫', '6室3厅3卫']];
 const COURTYARD_OPTIONS = [['', 'AI 智能安排'], ['SIHEYUAN', '四合院'], ['FRONT_BACK_YARD', '前后院'], ['FRONT_YARD_SCREEN', '前院影壁'], ['COMPACT', '紧凑布局']];
 const DRAWING_OPTIONS = [['TOP_VIEW', '俯视图'], ['COLOR_PLAN', '彩色平面'], ['CAD_LINE', 'CAD 线稿'], ['AXONOMETRIC', '轴测图'], ['BIRD_EYE', '鸟瞰图']];
 const STRUCTURE_OPTIONS = [['BRICK', '砖混'], ['FRAME', '框架'], ['STEEL', '钢结构']];
@@ -59,8 +59,26 @@ function caseRow(c) {
     floorCount: parameters.floorCount, buildingArea: parameters.buildingArea, faceWidth: parameters.faceWidth, depth: parameters.depth,
     versionId: c.caseVersionId == null ? '' : String(c.caseVersionId), version: c.version,
     coverAssetId: c.coverAssetId || null, description: c.description || '',
+    canDesign: Array.isArray(c.allowedActions) && c.allowedActions.includes('DESIGN_WITH'),
+    designUnavailableReason: c.designUnavailableReason || '该案例暂无可用的设计参考授权',
     coverUrl: '', coverLoading: !!c.coverAssetId, coverError: false
   };
+}
+
+/** 封面、独立立面和所有楼层平面都保留；同一资产只展示一次。 */
+function caseDrawings(detail) {
+  const drawings = [], seen = new Set();
+  const add = (assetId, label) => {
+    if (assetId == null || assetId === '') return;
+    const id = String(assetId);
+    if (seen.has(id)) return;
+    seen.add(id); drawings.push({ assetId: id, label });
+  };
+  add(detail.coverAssetId, String(detail.coverAssetId) === String(detail.elevationAssetId) ? '立面效果' : '封面');
+  add(detail.elevationAssetId, '立面效果');
+  const plans = Array.isArray(detail.floorPlans) && detail.floorPlans.length ? detail.floorPlans : (detail.floorPlanAssetIds || []).map(assetId => ({ assetId }));
+  plans.forEach((plan, index) => add(plan.assetId, detail.sourceType !== 'AI' && plan.floorNo != null ? plan.floorNo + '层平面' : plans.length === 1 ? '平面方案' : '平面图' + (index + 1)));
+  return drawings;
 }
 
 /** 公开案例短链只留在当前页面；单批最多三张并取，避免为列表同时请求二十张图片。 */
@@ -130,6 +148,7 @@ function projectRow(p) {
     projectId: String(p.projectId != null ? p.projectId : p.id),
     name: p.name || '未命名方案',
     jobStatus: p.jobStatus || '',
+    latestJobId: p.latestJobId == null ? '' : String(p.latestJobId),
     resumeAction: p.resumeAction || '',
     resumeText: RESUME_TEXT[p.resumeAction] || '',
     coverAssetId: p.coverAssetId || null,
@@ -207,6 +226,6 @@ module.exports = {
   ENTRANCE_OPTIONS, FAMILY_OPTIONS, COURTYARD_OPTIONS, DRAWING_OPTIONS,
   styleCode, roofCode,
   POLL_INTERVAL_MS, POLL_MAX_MS, pollDecision, STILL_RUNNING_MESSAGE, STATUS_TEXT, smoothProgress, estimateText,
-  caseRow, loadCaseCovers, projectRow, RESUME_TEXT, ruleInfoView, estimateView, candidateRows, resultVersionRow,
+  caseRow, caseDrawings, loadCaseCovers, projectRow, RESUME_TEXT, ruleInfoView, estimateView, candidateRows, resultVersionRow,
   estimateBody, requirementInputs, errorMessageDesign
 };

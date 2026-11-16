@@ -1,0 +1,53 @@
+@import '../../styles/v12-tokens.scss';
+
+:host { display: block; }
+
+.navbar-spacer { width: 100%; }
+
+.navbar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 150;
+  box-sizing: border-box;
+  background: rgba(247, 244, 238, 0.98);
+}
+
+.navbar-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 32rpx;
+  box-sizing: border-box;
+}
+
+.navbar-left {
+  position: absolute;
+  left: 32rpx;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  z-index: 2;
+}
+
+.brand-logo { width: 188rpx; height: auto; }
+
+.navbar-title {
+  width: 100%;
+  padding: 0 176rpx;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: $v12-font-title;
+  line-height: 1.2;
+  font-weight: 600;
+  color: $v12-text-1;
+}
+
+.back-button {
+  width: 64rpx;
+  height: 64rpx;
+  margin-left: -20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

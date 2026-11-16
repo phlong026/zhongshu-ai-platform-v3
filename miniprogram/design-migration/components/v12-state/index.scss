@@ -1,0 +1,55 @@
+@import '../../styles/v12-tokens.scss';
+
+:host { display: block; }
+
+// 卡片背景复刻页面级 .v12-card，使组件在样式隔离下自带一致外观，无需依赖页面 wxss。
+.v12-state {
+  box-sizing: border-box;
+  padding: 48rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+  text-align: center;
+}
+
+.v12-state--card {
+  border: 1rpx solid rgba(232, 222, 209, 0.72);
+  border-radius: $v12-radius-lg;
+  background: $v12-surface;
+  box-shadow: 0 10rpx 30rpx rgba(72, 49, 32, 0.07);
+}
+
+.v12-state__icon { margin-bottom: 8rpx; color: $v12-text-2; }
+
+.v12-state__text {
+  font-size: $v12-font-lg;
+  line-height: 1.6;
+  font-weight: 500;
+  color: $v12-text-2;
+  overflow-wrap: anywhere;
+}
+
+.v12-state__hint {
+  font-size: $v12-font-body;
+  line-height: 1.6;
+  color: $v12-secondary-text;
+  overflow-wrap: anywhere;
+}
+
+// 动作按钮复刻页面级 .record-button 的浅色胶囊样式。
+.v12-state__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin: 8rpx 0 0;
+  padding: 0 32rpx;
+  font-size: $v12-font-md;
+  line-height: 1.5;
+  color: $v12-primary-brown;
+  background: $v12-surface-alt;
+  border-radius: $v12-radius-sm;
+}
+
+.v12-state__action::after { border: 0; }

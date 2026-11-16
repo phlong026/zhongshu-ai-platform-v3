@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "t-icon": "/design-migration/components/icon/index"
+  }
+}

@@ -1,0 +1,134 @@
+page {
+  min-height: 100%;
+  background: #f7f4ee;
+  color: #2f2925;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+}
+
+.v12-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #f7f4ee;
+  color: #2f2925;
+}
+
+.v12-content {
+  padding: 0 32rpx 48rpx;
+  box-sizing: border-box;
+}
+
+.v12-content--tab {
+  padding-bottom: calc(148rpx + env(safe-area-inset-bottom));
+}
+
+.v12-card {
+  box-sizing: border-box;
+  border: 1rpx solid rgba(232, 222, 209, 0.72);
+  border-radius: 24rpx;
+  background: #fffdf8;
+  box-shadow: 0 10rpx 30rpx rgba(72, 49, 32, 0.07);
+}
+
+.v12-primary-button,
+.v12-secondary-button,
+.v12-disabled-button {
+  width: 100%;
+  height: 92rpx;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  font-size: 32rpx;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.v12-primary-button::after,
+.v12-secondary-button::after,
+.v12-disabled-button::after {
+  border: 0;
+}
+
+.v12-primary-button--md,
+.v12-secondary-button--md,
+.v12-disabled-button--md {
+  height: 80rpx;
+  font-size: 28rpx;
+}
+
+.v12-primary-button--sm,
+.v12-secondary-button--sm,
+.v12-disabled-button--sm {
+  height: 68rpx;
+  font-size: 28rpx;
+}
+
+.v12-primary-button[disabled] {
+  color: #ffffff;
+  background: #cfc5ba;
+  box-shadow: none;
+}
+
+.v12-secondary-button[disabled] {
+  color: #a89a8c;
+  border-color: #cfc5ba;
+}
+
+.v12-primary-button {
+  color: #ffffff;
+  background: linear-gradient(100deg, #8b4818, #7b5532);
+  box-shadow: 0 10rpx 24rpx rgba(106, 59, 27, 0.14);
+}
+
+.v12-secondary-button {
+  color: #6a3b1b;
+  border: 2rpx solid #6a3b1b;
+  background: #fffdf8;
+}
+
+.v12-disabled-button {
+  color: #ffffff;
+  background: #cfc5ba;
+}
+
+.v12-section-title {
+  display: block;
+  color: #2f2925;
+  font-size: 34rpx;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.v12-muted {
+  color: #786858;
+}
+
+.v12-fixed-action {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: rgba(255, 253, 248, 0.98);
+  border-top: 1rpx solid #e8ded1;
+}
+
+.v12-safe-bottom {
+  height: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 350px) {
+  .v12-content {
+    padding-left: 24rpx;
+    padding-right: 24rpx;
+  }
+  .v12-primary-button, .v12-secondary-button {
+    font-size: 28rpx;
+  }
+}

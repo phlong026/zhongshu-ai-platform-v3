@@ -1,0 +1,2 @@
+@import "/design-migration/styles/base.wxss";
+.archive-hint{display:block;color:#786858;line-height:1.7;margin-bottom:30rpx}.search{display:flex;gap:16rpx;margin:24rpx 0}.search input{flex:1;background:white;padding:20rpx;border-radius:16rpx}.search button{font-size:26rpx;margin:0}.customer{display:flex;justify-content:space-between;padding:28rpx;background:white;margin:16rpx 0;border:2rpx solid transparent;border-radius:20rpx}.customer.selected{border-color:#7b5532;background:#f6ebdd}.archive-error{display:block;color:#a53620;margin:20rpx 0}

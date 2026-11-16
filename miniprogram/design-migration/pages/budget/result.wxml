@@ -1,0 +1,54 @@
+<view class="v12-page budget-page budget-read-page" wx:if="{{accessReady}}">
+  <v12-navbar title="参考预算" show-back show-brand="{{false}}" />
+  <view class="budget-card state-card" wx:if="{{loading || error}}"><v12-state status="{{loading ? 'loading' : 'error'}}" text="{{loading ? '正在读取预算…' : error}}" action-text="{{loading ? '' : '重试'}}" bind:action="load" card="{{false}}" /></view>
+  <block wx:elif="{{estimate}}">
+    <view class="result-hero">
+      <image class="budget-sketch" src="/design-migration/assets/v12/budget-sketch.jpg" mode="aspectFit" />
+      <text class="amount-label">{{amountLabel}}</text>
+      <view class="hero-amount" bindtap="toggleExact"><text class="amount-number {{exact ? 'exact-number' : ''}}">{{amountText}}</text><text class="amount-unit">{{amountUnit}}</text></view>
+      <text class="scheme-name">{{estimate.projectName}}{{estimate.schemeName ? ' · ' + estimate.schemeName : ''}}</text>
+    </view>
+    <button class="text-action precision-action" bindtap="toggleExact">{{exact ? '按万元展示' : '查看精确金额'}} · {{exactText}}</button>
+    <view class="budget-card quote-card" wx:if="{{quote}}">
+      <view class="quote-title-row"><text class="section-title">正式报价 · V{{quote.quoteVersion}}</text><text class="quote-badge">已发布</text></view>
+      <text class="amount-label">最终报价</text>
+      <view class="quote-amount"><text>{{quoteAmountText}}</text><text class="amount-unit">{{quoteAmountUnit}}</text></view>
+      <view class="quote-basis"><text>系统测算 {{quoteCalculatedText}}</text><text>调价 {{quoteAdjustmentText}}</text></view>
+      <text class="row-description">{{quote.disclaimer}}</text>
+    </view>
+    <view class="inline-warning" wx:elif="{{quoteStatusText}}"><text>{{quoteStatusText}}</text></view>
+    <view class="quote-loading" wx:if="{{quoteLoading}}">正在核对正式报价…</view>
+    <view class="quote-loading" wx:if="{{quoteError}}">正式报价暂时无法读取：{{quoteError}}</view>
+    <view class="budget-card result-section" wx:if="{{!legacy}}">
+      <text class="section-title">预算构成</text>
+      <view class="summary-row" wx:for="{{categoryRows}}" wx:key="code" data-category="{{item.code}}" bindtap="detail" role="button" aria-label="查看{{item.name}}明细">
+        <view class="round-icon"><t-icon name="{{item.icon}}" size="24px" color="#7b5532" /></view>
+        <view class="summary-copy"><text>{{item.name}}</text><text class="row-description">{{item.description}}</text></view>
+        <view class="row-price"><text>{{item.amountText}}</text><text class="row-description" wx:if="{{item.incomplete}}">待补齐</text></view>
+        <t-icon name="chevron-right" size="16px" color="#a89a8c" />
+      </view>
+    </view>
+    <view class="budget-card result-section"><text class="section-title">{{legacy ? '历史测算依据' : '方案概况'}}</text><view class="result-grid"><view wx:for="{{basis}}" wx:key="label" class="result-cell"><text>{{item.label}}</text><text>{{item.value}}</text></view></view></view>
+    <view class="budget-card result-note-card" wx:if="{{warningText || estimate.missingItems.length || estimate.disclaimer}}">
+      <view class="note-head"><t-icon name="info-circle-filled" size="20px" color="#b9690b" /><text>预算说明</text></view>
+      <text class="note-text" wx:if="{{warningText}}">{{warningText}}</text>
+      <view class="note-chips" wx:if="{{estimate.missingItems.length}}"><text class="note-chip" wx:for="{{estimate.missingItems}}" wx:key="*this">{{item}}</text></view>
+      <text class="note-text" wx:if="{{estimate.warnings.length}}">部分参数需要复核，请联系预算管理员核定。</text>
+      <text class="note-disclaimer">{{estimate.disclaimer || '本预算为前期参考，最终金额以正式报价单为准'}}</text>
+    </view>
+    <view class="result-actions">
+      <text class="save-error" wx:if="{{saveError}}">{{saveError}}</text>
+      <view wx:if="{{!legacy}}" class="action-grid {{estimate.completeness === 'COMPLETE' ? 'cols-2' : 'cols-1'}}">
+        <button class="budget-primary" loading="{{saving}}" disabled="{{saving || estimate.saved}}" bindtap="save">{{estimate.saved ? '已保存到项目预算' : '保存预算单'}}</button>
+        <button wx:if="{{estimate.completeness === 'COMPLETE'}}" class="budget-secondary share-export" loading="{{exporting}}" disabled="{{exporting}}" bindtap="exportImage">保存预算图</button>
+      </view>
+      <text class="row-description" wx:else>区间测算仅作历史查询，不支持分项保存。</text>
+      <view class="secondary-actions">
+        <button wx:if="{{!legacy}}" class="budget-secondary" bindtap="archive">保存至客户</button>
+        <button class="budget-secondary" bindtap="adjust" aria-label="重新测算当前方案">重新测算</button>
+        <button class="budget-secondary" bindtap="history" aria-label="查看项目预算历史">预算历史</button>
+      </view>
+    </view>
+    <canvas type="2d" id="budgetCanvas" class="share-canvas"></canvas>
+  </block>
+</view>

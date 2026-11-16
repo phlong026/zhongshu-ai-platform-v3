@@ -1,0 +1,19 @@
+<view class="v12-page result-page" wx:if="{{accessReady}}">
+  <v12-navbar title="方案结果" show-back show-brand="{{false}}" />
+  <view wx:if="{{loading}}" class="v12-card result-main">正在读取方案…</view>
+  <view wx:elif="{{error}}" class="v12-card result-main"><text>{{error}}</text><button bindtap="loadVersions">重试</button></view>
+  <block wx:elif="{{latest}}">
+  <view class="v12-card success-banner"><t-icon name="check-circle-filled" size="24px" color="#49745c" /><text>AI设计方案已完成</text><text>{{versionLabel || '版本确认中'}}</text></view>
+  <view class="v12-card result-main">
+    <view wx:if="{{resultImages.length > 1}}" class="version-images" aria-label="本版本包含的方案图">
+      <button wx:for="{{resultImages}}" wx:key="key" data-key="{{item.key}}" bindtap="selectVersionImage" class="{{activeImageKey === item.key ? 'active' : ''}}">查看{{item.label}}</button>
+    </view>
+    <view class="image-wrap"><image wx:if="{{imageUrl}}" src="{{imageUrl}}" mode="aspectFit" catchtap="previewCurrentImage" data-url="{{imageUrl}}" /><text wx:if="{{imageUrl}}">AI生成</text><text wx:if="{{!imageUrl}}" class="plan-placeholder">{{imageError ? '本版本图片暂不可用' : '方案图加载中'}}</text><text wx:if="{{imageUrl}}" class="image-zoom-hint">点击图片可放大</text></view>
+    <view class="result-copy"><text>{{imageLabel}}</text><text>第 {{latest ? latest.version : '—'}} 版结果 · {{specLabel}}</text></view>
+    <view class="ai-footnote"><t-icon name="info-circle" size="14px" color="#a89a8c" /><text>本方案图由 AI 生成，仅供设计参考，不作为施工依据</text></view>
+  </view>
+  <view wx:if="{{imageError}}" class="v12-card result-main"><text>{{imageError}}</text><button bindtap="loadImages">重试图片</button></view>
+  <view class="result-actions"><view wx:if="{{canRegenerate && !readOnly && optionsError}}" class="v12-secondary-button" bindtap="loadGenerationOptions">重试读取出图规格</view><view wx:elif="{{canRegenerate && !readOnly}}" class="v12-secondary-button {{!optionsReady ? 'disabled' : ''}}" aria-disabled="{{!optionsReady}}" bindtap="adjust">{{optionsReady ? '按本版规格重新生成' : '历史规格未记录，暂不能按原规格重绘'}}</view><view class="v12-secondary-button {{imageUrl ? '' : 'disabled'}}" aria-disabled="{{!imageUrl}}" bindtap="saveToAlbum">保存方案</view><view class="v12-primary-button" bindtap="budget">生成预算</view></view>
+  <view class="tool-row {{readOnly ? 'cols-1' : 'cols-2'}}"><view bindtap="save"><t-icon name="bookmark" size="24px" color="#7b5532" /><text>公司方案</text></view><view wx:if="{{!readOnly}}" bindtap="publish"><t-icon name="home" size="24px" color="#7b5532" /><text>保存至客户</text></view></view>
+  </block>
+</view>

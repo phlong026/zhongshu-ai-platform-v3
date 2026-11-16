@@ -1,0 +1,22 @@
+<view class="v12-page budget-page budget-read-page" wx:if="{{accessReady}}">
+  <v12-navbar title="正式报价" show-back show-brand="{{false}}" />
+  <view class="budget-card state-card" wx:if="{{loading || error}}"><v12-state status="{{loading ? 'loading' : 'error'}}" text="{{loading ? '正在读取报价…' : error}}" action-text="{{loading ? '' : '重试'}}" bind:action="load" card="{{false}}" /></view>
+  <block wx:elif="{{quote}}">
+    <view class="budget-card quote-card">
+      <view class="quote-title-row"><text class="section-title">正式报价 · V{{quote.quoteVersion}}</text><text class="quote-badge">{{quote.status === 'WITHDRAWN' ? '已撤回' : '已发布'}}</text></view>
+      <text class="quote-state">{{statusText}}</text>
+      <text class="amount-label">{{quote.status === 'WITHDRAWN' ? '历史报价金额' : '本版本报价'}}</text>
+      <view class="quote-amount" bindtap="toggleExact"><text>{{quoteAmountText}}</text><text class="amount-unit">{{quoteAmountUnit}}</text></view>
+      <button class="text-action precision-action" bindtap="toggleExact">{{exact ? '按万元展示' : '查看精确金额'}} · {{quoteExactText}}</button>
+      <view class="quote-basis"><text>系统测算 {{quoteCalculatedText}}</text><text>调价 {{quoteAdjustmentText}}</text></view>
+      <text class="row-description">{{quote.projectName}}{{quote.schemeName ? ' · ' + quote.schemeName : ''}}</text>
+      <text class="row-description">发布时间 {{publishedAt || '—'}}</text>
+      <text class="row-description" wx:if="{{withdrawnAt}}">撤回时间 {{withdrawnAt}}</text>
+    </view>
+    <view class="budget-card result-section" wx:for="{{groups}}" wx:key="itemId" wx:for-item="group">
+      <view class="quote-title-row"><text class="section-title">{{group.publicName}}</text><text>{{group.amountText}}</text></view>
+      <view class="quote-line" wx:for="{{group.lines}}" wx:key="lineId"><text>{{item.optionLabel || '明细项'}}</text><text>{{item.amountText}}</text></view>
+    </view>
+    <view class="budget-card result-note-card"><text class="note-text">{{quote.status === 'WITHDRAWN' ? '该报价已撤回，不应作为当前有效报价使用。' : '本页展示消息所对应的报价版本。'}}</text><text class="note-disclaimer">{{quote.disclaimer}}</text></view>
+  </block>
+</view>

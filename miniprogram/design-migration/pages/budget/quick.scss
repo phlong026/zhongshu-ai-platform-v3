@@ -1,0 +1,41 @@
+.quick-budget { padding-bottom: 44rpx; }
+.card { background: #fff; border: 1rpx solid #eee5d9; border-radius: 22rpx; padding: 26rpx; margin: 0 24rpx 22rpx; }
+.section-title { display: block; font-size: 30rpx; font-weight: 600; margin-bottom: 18rpx; }
+.parameter { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14rpx; padding: 22rpx 0; border-bottom: 1rpx solid #eee8e1; font-size: 27rpx; }
+.parameter input { flex: 1; min-width: 190rpx; max-width: 320rpx; text-align: right; }
+.muted, .notice { display: block; font-size: 24rpx; line-height: 1.7; color: #827567; margin-top: 12rpx; overflow-wrap: anywhere; }
+.notice { color: #916226; }
+.error { color: #a23f34; line-height: 1.7; overflow-wrap: anywhere; }
+.toolbar, .actions { display: flex; align-items: center; gap: 16rpx; flex-wrap: wrap; }
+.toolbar picker { flex: 1; min-width: 260rpx; }
+.draft-selector { font-size: 24rpx; overflow-wrap: anywhere; }
+button { font-size: 26rpx; white-space: normal; }
+.footer { padding: 0 24rpx; text-align: center; font-size: 23rpx; color: #827567; }
+.actions button { flex: 1; min-width: 210rpx; }
+.primary { background: #7b5532; color: #fff; }
+.history { margin: 18rpx 0; }
+
+/* 头部：可改名的预算项目名 */
+.head-card { padding: 24rpx 26rpx 18rpx; }
+.name-row { display: flex; align-items: center; gap: 16rpx; }
+.name-input { flex: 1; min-width: 0; font-size: 34rpx; font-weight: 600; color: #3c2f23; padding: 8rpx 0; border-bottom: 2rpx solid #eee5d9; }
+.name-placeholder { color: #b6a894; font-weight: 600; }
+.draft-selector { flex-shrink: 0; font-size: 24rpx; color: #7b5532; background: #f6efe4; border-radius: 999rpx; padding: 10rpx 20rpx; }
+.meta-row { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; margin-top: 14rpx; }
+.meta-text { font-size: 23rpx; color: #827567; }
+.meta-row .ghost { font-size: 23rpx; line-height: 1.9; color: #7b5532; background: none; border: 1rpx solid #d9c9b2; border-radius: 999rpx; padding: 0 22rpx; }
+
+/* 基础参数：两列字段 */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 22rpx; }
+.field { display: flex; flex-direction: column; gap: 8rpx; padding: 18rpx 0; border-bottom: 1rpx solid #eee8e1; }
+.field-label { font-size: 24rpx; color: #827567; }
+.field input { font-size: 28rpx; color: #3c2f23; min-height: 44rpx; }
+.field-picker { font-size: 28rpx; color: #3c2f23; min-height: 44rpx; display: flex; align-items: center; }
+.hint { display: block; font-size: 23rpx; color: #a89a8c; padding: 10rpx 0 0; }
+
+/* 预算配置：每两项一排的下拉 */
+.config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx 22rpx; margin-top: 6rpx; }
+.config-cell { display: flex; flex-direction: column; gap: 10rpx; min-width: 0; }
+.config-label { font-size: 24rpx; color: #827567; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.config-value { box-sizing: border-box; width: 100%; font-size: 26rpx; color: #3c2f23; background: #faf6ef; border: 1rpx solid #eee5d9; border-radius: 14rpx; padding: 16rpx 18rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.config-value.empty { color: #b6a894; }
