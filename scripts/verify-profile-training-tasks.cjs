@@ -7,6 +7,15 @@ const Learning = require('../miniprogram/utils/learning-catalog');
 const Profile = require('../miniprogram/utils/platform-profile');
 const flush = async () => { for (let n=0;n<15;n++) await new Promise(resolve=>setImmediate(resolve)); };
 const allText = nodes => nodes.map(n => (n.text || '') + allText(n.children)).join('');
+const flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children)]);
+const hasClass = (node, name) => String(node.attrs?.class || '').split(/\s+/).includes(name);
+const franchiseCourses = {
+  boss: ['ai-video','sales','engineering','finance','design','management'],
+  owner: ['ai-video','sales','engineering','finance','design','management'],
+  sales: ['ai-video','sales'], 'sales-lead': ['ai-video','sales'],
+  engineer: ['engineering'], 'project-manager': ['engineering'],
+  finance: ['finance'], 'finance-lead': ['finance']
+};
 
 async function setup(role, handler=()=>undefined) {
   const runtime=await connect(),auth=require('../miniprogram/api/auth');
@@ -38,12 +47,13 @@ test('所有岗位课程和资料使用同一规则，未知身份不显示课�
   assert.deepEqual(Learning.coursesFor('finance').map(c=>c.id),['finance']);
   assert.deepEqual(Learning.coursesFor('engineer').map(c=>c.id),['engineering']);
   assert.deepEqual(Learning.coursesFor('boss').map(c=>c.id),Learning.courses.map(c=>c.id));
-  assert.deepEqual(Learning.coursesFor('owner').map(c=>c.id),['management']);
+  assert.deepEqual(Learning.coursesFor('owner').map(c=>c.id),Learning.courses.map(c=>c.id));
+  assert.deepEqual(Object.keys(franchiseCourses).sort(),[...require('../miniprogram/utils/organization').templates.store].sort());
   assert.deepEqual(Learning.coursesFor('unknown'),[]);
 });
 
-test('老板课程列表、全部课程详情和资料均开放，首页继续学习仍推荐管理课',async()=>{
-  const env=await setup('boss');
+for(const role of ['boss','owner']) test(role+'课程列表、全部课程详情和资料均开放，首页继续学习仍推荐管理课',async()=>{
+  const env=await setup(role);
   let page=await env.open('/pages/profile/index');
   assert.equal(page.data.courseId,'management');
   page=await env.open('/pages/account/index?view=learning');
@@ -69,6 +79,50 @@ test('课程列表、继续学习和直达详情均受当前岗位约束',async(
   assert.ok(!allText(nodes).includes('AI短视频获客实战'));
   page=await env.open('/pages/account/index?view=resource&id=script');assert.equal(page.data.learningDenied,true);
   page=await env.open('/pages/profile/index');assert.equal(page.data.courseId,'finance');
+});
+
+for(const [role,expected] of Object.entries(franchiseCourses)) test(role+'我的模块顺序不变，保留加盟商服务与岗位学习，详情和资料遵守同一权限',async()=>{
+  const env=await setup(role),profile=await env.open('/pages/profile/index');
+  assert.equal(profile.data.showStoreServices,true);
+  assert.equal(profile.data.learningAvailable,true);
+  assert.equal(profile.data.courseId,['boss','owner'].includes(role)?'management':expected[0]);
+  const nodes=render(path.resolve(__dirname,'../miniprogram/pages/profile/index.wxml'),profile.data);
+  const content=flatten(nodes).find(node=>hasClass(node,'content'));
+  const modules=content.children.filter(node=>node.tag!=='#text').map(node=>node.tag==='point-asset-card'?node.tag:
+    ['profile-card','quick-card','owner-management','academy-section','franchise-section','service-section','profile-logout'].find(name=>hasClass(node,name)));
+  assert.deepEqual(modules,['profile-card','point-asset-card','quick-card','service-section',...(['boss','owner'].includes(role)?['owner-management']:[]),'academy-section','franchise-section','service-section','profile-logout']);
+  const services=flatten(nodes).find(node=>hasClass(node,'franchise-section'));
+  assert.deepEqual(flatten(services.children).filter(node=>node.attrs?.['data-action']).map(node=>node.attrs['data-action']),['services','selection']);
+  assert.ok(allText(nodes).includes('学习培训')&&allText(nodes).includes('加盟商服务'));
+  let page=await env.open('/pages/account/index?view=learning');
+  assert.deepEqual(page.data.filteredCourses.map(course=>course.id),expected);
+  assert.deepEqual(page.data.filteredResources.map(resource=>resource.courseId),Learning.resources.filter(resource=>expected.includes(resource.courseId)).map(resource=>resource.courseId));
+  for(const course of Learning.courses){
+    const allowed=expected.includes(course.id);
+    page=await env.open('/pages/account/index?view=course&id='+course.id);
+    assert.equal(page.data.learningDenied,!allowed,role+': '+course.id);
+    assert.equal(page.data.currentCourse?.id||null,allowed?course.id:null);
+    assert.equal(page.data.chapters.length,allowed?course.lessons:0);
+    page=await env.open('/pages/account/index?view=resource&id='+course.resourceId);
+    assert.equal(page.data.learningDenied,!allowed,role+': '+course.resourceId);
+    assert.equal(page.data.resource?.id||null,allowed?course.resourceId:null);
+  }
+});
+
+test('门店负责人切换到财务后现有页面立即收窄课程，切回负责人恢复全部课程',async()=>{
+  const env=await setup('owner');
+  const profile=await env.open('/pages/profile/index'),list=await env.open('/pages/account/index?view=learning'),detail=await env.open('/pages/account/index?view=course&id=ai-video');
+  const financePost={...env.post,postId:'post-finance',roleCode:'finance'};
+  env.auth.savePosts([env.post,financePost]);
+  for(const role of ['finance','owner']){
+    env.auth.switchPost('post-'+role);
+    profile.onShow();list.onShow();detail.onShow();await flush();
+    assert.equal(profile.data.showStoreServices,true);assert.equal(profile.data.learningAvailable,true);
+    assert.equal(profile.data.courseId,role==='owner'?'management':'finance');
+    assert.deepEqual(list.data.filteredCourses.map(course=>course.id),franchiseCourses[role]);
+    assert.equal(detail.data.learningDenied,role==='finance');
+    assert.equal(detail.data.currentCourse?.id||null,role==='owner'?'ai-video':null);
+  }
 });
 
 test('未登录的我的页展示培训课程，课程入口登录后再访问且不加载个人进度',async()=>{

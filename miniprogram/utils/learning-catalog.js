@@ -28,7 +28,7 @@ const roleCourses = {
   sales: ['ai-video', 'sales'], 'sales-lead': ['ai-video', 'sales'],
   engineer: ['engineering'], 'project-manager': ['engineering'],
   finance: ['finance'], 'finance-lead': ['finance'],
-  'hq-design-admin': ['design'], boss: courses.map(course => course.id), owner: ['management'],
+  'hq-design-admin': ['design'], boss: courses.map(course => course.id), owner: courses.map(course => course.id),
   'hq-operations': ['ai-video'], 'hq-operations-lead': ['ai-video']
 };
 const canStudy = (role, id) => (roleCourses[role] || []).includes(id);
