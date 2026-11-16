@@ -1,0 +1,66 @@
+{
+  "recordedAt": "2026-11-16T15:23:52.407078+08:00",
+  "deployed": true,
+  "backendTests": 83,
+  "frontendTests": 346,
+  "browserAcceptance": {
+    "passed": true,
+    "title": "管理后台 - 资料库",
+    "menus": "工作台\n组织与权限\n课程培训\n课程管理\n资料库\n运营与积分\n定价与套餐\n系统与审计",
+    "categoryCreateVerified": true,
+    "categoryRenameWithMaterialVerified": true,
+    "categoryDeleteMovesMaterialVerified": true,
+    "downloadedBytes": 48,
+    "downloadMatchesOriginal": true,
+    "syntheticCategoryRemoved": true,
+    "syntheticMaterialCategoryRestored": true
+  },
+  "live": {
+    "checkedAtUtc": "2026-11-16T07:22:00.768452+00:00",
+    "health": "UP",
+    "jar": "/opt/zhongshu-platform-b-integration/release/platform-training-categories-20261116-7aebb2d2a25c.jar",
+    "jarSha256": "7aebb2d2a25c9f451467e8efa44ef2dd02b2013b683259db8ea558c7ab2ae3d9",
+    "pid": "968500",
+    "web": "/opt/zhongshu-platform-b-integration/release/web-training-categories-20261116-3e1a4e7f30c1",
+    "publicIndexSha256": "c1f1d144fbe1dcc2e7c204795aa6c6c3a83160f1bdcad92ca16b1bfed8660b32",
+    "documentAndLoadingTitle": "管理后台",
+    "migration": "20261116.925",
+    "activeCategories": 7,
+    "activeMaterials": 10,
+    "temporaryCategoryRemoved": true,
+    "sampleMaterialCategoryRestored": true,
+    "oldAcceptanceOrgRowsArchived": 2,
+    "temporaryRolesRemaining": 0,
+    "protectedServicesUnchanged": true
+  },
+  "frontend": {
+    "previous": "web-training-categories-20261116-64cf679a2538",
+    "current": "web-training-categories-20261116-3e1a4e7f30c1",
+    "archiveSha256": "3e1a4e7f30c1e00e9fe087939344dc2a538cf46ee7df8fd42b3fe4e1dffb353c",
+    "indexSha256": "c1f1d144fbe1dcc2e7c204795aa6c6c3a83160f1bdcad92ca16b1bfed8660b32",
+    "existingHashedAssetsPreserved": 4109,
+    "publicIndexVerified": true,
+    "pdfResourcesVerified": [
+      {
+        "path": "assets/pdf.worker.min-CIqJB0yW.mjs",
+        "contentType": "application/javascript",
+        "bytes": 1271915
+      },
+      {
+        "path": "training-pdf/wasm/jbig2.wasm",
+        "contentType": "application/wasm",
+        "bytes": 103671
+      },
+      {
+        "path": "training-pdf/cmaps/Adobe-Japan1-UCS2.bcmap",
+        "contentType": "application/octet-stream",
+        "bytes": 40951
+      },
+      {
+        "path": "training-pdf/standard_fonts/FoxitDingbats.pfb",
+        "contentType": "application/octet-stream",
+        "bytes": 29513
+      }
+    ]
+  }
+}

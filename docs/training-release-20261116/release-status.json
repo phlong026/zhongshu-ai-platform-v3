@@ -1,0 +1,59 @@
+{
+  "recordedAt": "2026-11-16T14:50:44.219650+08:00",
+  "backendProductionDeployed": true,
+  "adminProductionDeployed": true,
+  "materialEditDeleteVerified": true,
+  "storageBucket": "zhongshu-training-1397776231",
+  "miniProgram": {
+    "uploadedVersion": "1.0.20261116.9",
+    "developmentUploadSucceeded": true,
+    "mainPackageBytes": 1847241,
+    "totalPackageBytes": 7468870,
+    "urlCheckEnabled": true,
+    "formalReviewAndPublicationCompleted": false,
+    "physicalDeviceAcceptanceCompleted": false,
+    "nativeAutomationVerified": false,
+    "liveJavaScriptApiAdapterChecks": 8
+  },
+  "tests": {
+    "backend": 79,
+    "adminFrontend": 344,
+    "miniProgramTap": 299,
+    "productionHttpFinalChecks": 22,
+    "materialCrudChecks": 9,
+    "newVersionRevisionChecks": 4
+  },
+  "live": {
+    "health": "UP",
+    "jar": "/opt/zhongshu-platform-b-integration/release/platform-creation-20261116-0b2384e1b829.jar",
+    "jarSha256": "0b2384e1b829996e2de215e4a834b0861dc392647e9528cbe65932ccdd6b49cd",
+    "pid": "948049",
+    "web": "/opt/zhongshu-platform-b-integration/release/web-training-management-20261116-a75397ba9a26",
+    "publicIndexSha256": "08958a825f5cd91c33ed53e241de0f615d9be8ad1b705c71dec1505b37b5bfce",
+    "trainingClassesPreserved": true,
+    "migrations": [
+      "20261116.731",
+      "20261116.732",
+      "20261116.733"
+    ],
+    "protectedServicePids": {
+      "zhongshu.service": "610417",
+      "zhongshu-runtime.service": "2802088",
+      "zhongshu-platform-b-integration-provider.service": "637776"
+    },
+    "qaCleanup": {
+      "temporaryUsersDisabled": 2,
+      "temporaryPostsRevoked": 3,
+      "temporaryRolesRemaining": 0,
+      "temporarySessionsRevoked": true,
+      "syntheticCourseArchived": true,
+      "originalCloudFilesRetained": true
+    }
+  },
+  "notes": [
+    "Formal training assets have not been supplied; uploaded sample files are explicitly labeled deployment acceptance fixtures.",
+    "Phone acceptance deferred by user.",
+    "Browser local-file selection blocked by extension file-access setting.",
+    "Local preview 48089 restart rejected by automatic approval: blocked by policy."
+  ]
+}
