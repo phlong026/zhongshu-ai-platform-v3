@@ -1,0 +1,33 @@
+{
+  "deployedAt": 1794887702.7406335,
+  "basePid": "1334124",
+  "baseJar": "/opt/zhongshu-platform-b-integration/release/platform-business-repair-20261116-2a4f5ee39094.jar",
+  "pid": "2014612",
+  "jar": "/opt/zhongshu-platform-b-integration/release/platform-hifly-compat-20261117-9ceb43b8a4c2.jar",
+  "sha256": "9ceb43b8a4c28107d307f80777cbd3e7863e10bf3d24044f413b96e4a5eb705d",
+  "health": "UP",
+  "changedBootEntries": [
+    "BOOT-INF/lib/yudao-domain-franchise-content-2026.08-SNAPSHOT.jar"
+  ],
+  "changedContentEntries": [
+    "cn/iocoder/yudao/module/franchise/content/content/ContentCloneService.class",
+    "cn/iocoder/yudao/module/franchise/content/content/ContentCloneUploadService.class",
+    "cn/iocoder/yudao/module/franchise/content/content/ContentTaskService.class",
+    "cn/iocoder/yudao/module/franchise/content/provider/HiflyCloneClient$Result.class",
+    "cn/iocoder/yudao/module/franchise/content/provider/HiflyCloneClient$UploadGrant.class",
+    "cn/iocoder/yudao/module/franchise/content/provider/HiflyCloneClient.class",
+    "cn/iocoder/yudao/module/franchise/content/provider/HiflyOralClient.class",
+    "cn/iocoder/yudao/module/franchise/content/provider/HiflyErrors.class"
+  ],
+  "otherModulesPreserved": true,
+  "databaseMigration": false,
+  "backup": "/tmp/hifly-compat-20261117/before-deploy.dump",
+  "backupSha256": "ba1caed9d3fca9a0c4ead260ee821ab5411b75ebaa4cd12f05918ea7c6c95869",
+  "override": "/etc/systemd/system/zhongshu-platform-b-integration.service.d/zzzzzzz-business-repair-20261116.conf",
+  "publicLoginPolicy": {
+    "http": 200,
+    "code": 0
+  },
+  "noMediaUploaded": true,
+  "physicalTest": "deferred by user"
+}

@@ -1,0 +1,36 @@
+{
+  "recordedAt": "2026-11-17T11:30:26.5199793+08:00",
+  "officialDocumentation": "https://api.hifly.cc/hifly.html",
+  "probe": "create_upload_url only; no media bytes or clone/video creation",
+  "results": [
+    {
+      "extension": "mov",
+      "contentType": "video/mov",
+      "host": "upload.hifly.cc",
+      "http": 200,
+      "fileIdReceived": true
+    },
+    {
+      "extension": "m4a",
+      "contentType": "audio/m4a",
+      "host": "upload.hifly.cc",
+      "http": 200,
+      "fileIdReceived": true
+    },
+    {
+      "extension": "wav",
+      "contentType": "audio/wav",
+      "host": "upload.hifly.cc",
+      "http": 200,
+      "fileIdReceived": true
+    }
+  ],
+  "sha256Regression": {
+    "tests": 6,
+    "failures": 0,
+    "reproduced": true,
+    "published": false,
+    "localFix": true
+  },
+  "physicalTest": false
+}

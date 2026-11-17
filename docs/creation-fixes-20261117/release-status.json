@@ -1,0 +1,111 @@
+{
+  "version": "1.0.20261117.1159",
+  "appid": "wxe584f6fad7b54487",
+  "baseline": "1.0.20261117.1052",
+  "fixture": false,
+  "frontendCommit": "5fe43838",
+  "backendCommit": "ae2cf55d",
+  "trialActivation": {
+    "status": "user-confirmed",
+    "confirmedAt": "2026-11-17T12:04:30.653699+08:00",
+    "independentlyObserved": false
+  },
+  "uploaded": true,
+  "officialCliExitCode": 0,
+  "recordedAt": "2026-11-17T12:04:30.653699+08:00",
+  "size": {
+    "total": 7706991,
+    "packages": [
+      {
+        "name": "TOTAL",
+        "size": 7706991
+      },
+      {
+        "name": "main",
+        "size": 1916019
+      },
+      {
+        "name": "/design-migration/",
+        "size": 512151
+      },
+      {
+        "name": "/pages/account/",
+        "size": 1080599
+      },
+      {
+        "name": "/pages/admin/",
+        "size": 468023
+      },
+      {
+        "name": "/pages/ai-video/",
+        "size": 19326
+      },
+      {
+        "name": "/pages/build/",
+        "size": 1025901
+      },
+      {
+        "name": "/pages/creation/",
+        "size": 8151
+      },
+      {
+        "name": "/pages/design/",
+        "size": 236687
+      },
+      {
+        "name": "/pages/growth/",
+        "size": 18688
+      },
+      {
+        "name": "/pages/studio/",
+        "size": 398095
+      },
+      {
+        "name": "/pages/wallet/",
+        "size": 12451
+      },
+      {
+        "name": "/pages/workflow/",
+        "size": 2010900
+      }
+    ]
+  },
+  "backendTests": {
+    "tests": 163,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "database": "disposable PostgreSQL 17"
+  },
+  "frontendChecks": {
+    "frozenReleaseFullCheck": "PASS",
+    "creationFlowBeforeLargeDigestCase": 54,
+    "newDigestAndFormatTests": 8,
+    "largeDigestBytes": 524288000,
+    "independentHashComparison": "PASS"
+  },
+  "mediaStorage": "phone binary PUT directly to Hifly; B stores metadata only",
+  "videoMaxBytes": 524288000,
+  "voiceMaxBytes": 20971520,
+  "physicalTest": "deferred by user",
+  "realMediaProduction": "not performed",
+  "formalRelease": false,
+  "changedRuntimePaths": [
+    "api/finance.js",
+    "pages/studio/characters/index.js",
+    "pages/studio/characters/index.wxml",
+    "utils/clone-media.js",
+    "utils/hifly-upload.js"
+  ],
+  "addedRuntimePaths": [
+    "utils/sha256-stream.js"
+  ],
+  "runtimeSha256": {
+    "api/finance.js": "f3348bb622b57f93fc0faa9483f89fa42bf248142b1e3a692d3a8bdd94a3ae49",
+    "pages/studio/characters/index.js": "d437b457e49c005199af3c77cac3e46c0e657fd3e9d48d6c30993b437c76014f",
+    "pages/studio/characters/index.wxml": "4bfa78e7317401eebf0dac062a952ab140ba79c98fdb3273deb4d1da7b7d3472",
+    "utils/clone-media.js": "b8561a140db1b95fd9e7edead7e44fea3cc12616aa14a675661e689f788f87a1",
+    "utils/hifly-upload.js": "9481ffe8eea8adf3a3742a905151b0a124969bbc3f0c3cdd04cff89a6d66b804",
+    "utils/sha256-stream.js": "56df69d5ec4bbd8ea551a2c82eda237f9ae7465eafa612ab47d4d77bbeb79d73"
+  }
+}
