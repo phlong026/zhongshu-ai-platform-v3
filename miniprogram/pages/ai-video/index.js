@@ -4,13 +4,15 @@ const P=require('../../utils/platform-content');       // 内容域纯函数层�
 const contentApi=require('../../api/franchise/content');
 const http=require('../../api/http');
 const media=require('../../utils/content-media');
+const textResize = require('../../utils/creation-text-resize');
 Page({
+...textResize.handlers,
 data: {
-mode: 'frames', description: '', firstFrame: '', lastFrame: '', references: [], assets, libraryOpen: false, libraryTarget: '', editingTaskId: '', invalidMessage: '', draftStatus:'',
+mode: 'frames', description: '', firstFrame: '', lastFrame: '', references: [], assets, libraryOpen: false, libraryTarget: '', editingTaskId: '', invalidMessage: '', draftStatus:'',durationInput:'8',durationError:'',
 parameters: [
-{ key: 'resolution', label: '分辨率', options: ['768P', '1080P', '720P'], value: 0 },
-{ key: 'duration', label: '时长', options: ['8 秒', '5 秒', '10 秒'], value: 0 },
-{ key: 'ratio', label: '画面比例', options: ['9:16', '16:9', '1:1'], value: 0 },
+{ key: 'resolution', label: '分辨率', options: ['768P', '2K'], value: 0 },
+{ key: 'duration', label: '时长', value: '8 秒' },
+{ key: 'ratio', label: '画面比例', options: ['9:16', '16:9', '21:9', '4:3', '1:1', '3:4', '自动'], value: 0 },
 { key: 'count', label: '生成数量', options: ['1 个'], value: 0 }
 ]
 },
@@ -29,8 +31,9 @@ if (draft) {
 let parameters;
 try { parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters); }
 catch(error){this.setData({draftStatus:error.message});parameters=this.data.parameters;}
-this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', references: draft.references || [], parameters });
+this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', references: draft.references || [], parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value)) });
 }
+this.syncRatio();
 if(http.token())this.restoreRemoteDraft();
 },
 restoreRemoteDraft() {
@@ -43,7 +46,8 @@ this.__draft=require('./video-draft').create({key,storage:wx,storageKey,initialD
   applyForm:draft=>{
     const parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters);
     this.setData({mode:draft.mode==='reference'?'reference':'frames',description:String(draft.description||''),
-      firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',references:Array.isArray(draft.references)?draft.references.filter(r=>r.path):[],parameters});
+      firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',references:Array.isArray(draft.references)?draft.references.filter(r=>r.path):[],parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value))});
+    this.syncRatio();
   },
   api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>{
     const payload={draftKey:key,revision:draft.revision,mode:draft.mode,description:draft.description,parameters:draft.parameters};
@@ -64,11 +68,17 @@ retryDraft(){
   if(this.__draft.conflicted())return wx.showActionSheet({itemList:['保留当前填写','使用云端草稿'],success:result=>this.__draft.resolve(result.tapIndex===0).catch(e=>this.setData({draftStatus:e.message}))});
   this.__draft.start().then(()=>this.__draft.save()).catch(()=>{});
 },
-switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode }); },
+syncRatio() { this.setData({ratioAutomatic:this.data.mode==='frames'?!!(this.data.firstFrame||this.data.lastFrame):this.data.references.some(r=>r.type==='image'||r.type==='video')}); },
+switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode });this.syncRatio(); },
 inputDescription(e) { this.setData({ description: e.detail.value }); },
+inputDuration(e) {
+const value=String(e.detail.value||''),valid=/^\d+$/.test(value)&&Number(value)>=4&&Number(value)<=15;
+this.setData({durationInput:value,durationError:valid?'':'请输入 4–15 的整数秒'});
+if(valid){const index=this.data.parameters.findIndex(p=>p.key==='duration');this.setData({['parameters['+index+'].value']:Number(value)+' 秒'});}
+},
 changeParameter(e) {
 const index = Number(e.currentTarget.dataset.index), value = Number(e.detail.value), parameter = this.data.parameters[index];
-if (parameter && Number.isInteger(value) && value >= 0 && value < parameter.options.length) this.setData({ ['parameters[' + index + '].value']: value });
+if (parameter && parameter.options && Number.isInteger(value) && value >= 0 && value < parameter.options.length) this.setData({ ['parameters[' + index + '].value']: value });
 },
 chooseFrame(e) {
 const target = e.currentTarget.dataset.target;
@@ -76,9 +86,9 @@ const itemList = ['从手机添加', '从素材库选择'];
 if (this.data[target]) itemList.push('移除图片');
 wx.showActionSheet({ itemList, success: ({ tapIndex }) => {
 if (tapIndex === 1) this.openLibrary(target);
-else if (tapIndex === 2) this.setData({ [target]: '' });
+else if (tapIndex === 2) {this.setData({ [target]: '' });this.syncRatio();}
 else wx.chooseMedia({ count: 1, mediaType: ['image'], sourceType: ['album', 'camera'], success: async result => {
-try { this.setData({ [target]: await persistMedia(result.tempFiles[0].tempFilePath) }); this.saveDraft(); } catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
+try { this.setData({ [target]: await persistMedia(result.tempFiles[0].tempFilePath) });this.syncRatio(); this.saveDraft(); } catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
 }, fail: this.mediaFailure });
 } });
 },
@@ -106,15 +116,16 @@ for (const item of items) {
 if (next.length >= 12 || next.filter(ref => ref.type === item.type).length >= (item.type === 'image' ? 8 : 3)) continue;
 if (!next.some(ref => ref.path === item.path)) next.push(item);
 }
-this.setData({ references: next });
+this.setData({ references: next });this.syncRatio();
 },
-removeReference(e) { this.setData({ references: this.data.references.filter(item => item.id !== e.currentTarget.dataset.id) }); },
+removeReference(e) { this.setData({ references: this.data.references.filter(item => item.id !== e.currentTarget.dataset.id) });this.syncRatio(); },
 openLibraryButton() { this.openLibrary('references'); },
 openLibrary(target) { this.setData({ libraryOpen: true, libraryTarget: target }); },
 selectAsset(e) {
 const asset = assets.find(item => item.id === e.currentTarget.dataset.id);
 if (this.data.libraryTarget === 'references') this.addReferences([asset]);
 else this.setData({ [this.data.libraryTarget]: asset.path });
+this.syncRatio();
 this.closeLibrary();
 },
 closeLibrary() { this.setData({ libraryOpen: false }); },
@@ -127,6 +138,7 @@ wx.showToast({ title: '提示词智能优化暂未开通，请手动调整画面
 },
 generate() {
 if (this.data.invalidMessage) return;
+if(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToast({ title: '请先添加参考素材', icon: 'none' }); return; }
 this.saveDraft();
@@ -135,11 +147,15 @@ wx.showToast({ title: '请先登录后端账号后再生成视频', icon: 'none'
 },
 async generateOnline() {
 if(this.data.generating)return;
+if(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 const sessionAlive=http.sessionGuard(),scope=this.actorScope;
 const alive=()=>sessionAlive()&&scope===studio.scope();
 this.setData({generating:true});
 try {
 const mapped = P.mapVideoParameters(this.data.parameters);
+const hasVisual=this.data.mode==='frames'?!!(this.data.firstFrame||this.data.lastFrame):this.data.references.some(r=>r.type==='image'||r.type==='video');
+if(hasVisual)mapped.ratio='adaptive';
+else if(mapped.ratio==='adaptive')throw Error('纯文生视频请选择具体画面比例');
 const payload = { kind: 'ai_video', description: this.data.description.trim(), resolution: mapped.resolution, duration: mapped.duration, ratio: mapped.ratio };
 const inputs=this.data.mode==='reference'
   ? this.data.references.map(item=>({path:item.path,role:{image:'reference_image',video:'reference_video',audio:'reference_audio'}[item.type],name:item.name}))

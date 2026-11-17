@@ -21,6 +21,7 @@
 .parameter-select { display: flex; align-items: center; justify-content: space-between; padding: 12rpx 16rpx; min-height: 44px; border: 1rpx solid var(--creation-border); border-radius: 16rpx; background: var(--creation-bg); font-size:var(--zs-font-emphasis); gap: 8rpx; }
 .parameter-select image { width: 24rpx; height: 20rpx; flex-shrink: 0; }
 .generate-button { margin-top: 24rpx; }
+.duration-input input{flex:1;min-width:0;width:100%;font-size:var(--zs-font-emphasis)}.parameter-note{display:block;margin-top:16rpx;color:var(--creation-muted);font-size:var(--zs-font-meta);line-height:1.6}.parameter-error{color:#bd4838}
 
 .reference-upload { margin-top: 16rpx; min-height: 248rpx; padding: 24rpx 8rpx; border: 1rpx dashed #c5b8a8; border-radius: 16rpx; background: var(--creation-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
 .library-button { border: 1rpx solid var(--creation-brand); border-radius: 16rpx; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 16rpx; font-size:var(--zs-font-emphasis); margin-top: 16rpx; padding: 12rpx; width: 100%; }
