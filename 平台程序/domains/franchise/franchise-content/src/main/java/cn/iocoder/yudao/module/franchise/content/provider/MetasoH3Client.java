@@ -253,9 +253,10 @@ public class MetasoH3Client implements VideoGenerationPort {
         if (hasFrames && hasReference) {
             throw new ContentProviderException.Rejection("首尾帧与参考素材不能混用", 422, null);
         }
-        if (!hasFrames && "adaptive".equals(request.ratio())) {
-            // T2V/R2V 禁 adaptive：无首尾帧时供应商无法推导比例（对标 ProviderRequestContractError）
-            throw new ContentProviderException.Rejection("仅含首尾帧时可使用自适应比例，请选择具体画幅", 422, null);
+        boolean hasVisual = request.media() != null && request.media().stream()
+                .anyMatch(ref -> FRAME_ROLES.contains(ref.role()) || Set.of("reference_image", "reference_video").contains(ref.role()));
+        if (!hasVisual && "adaptive".equals(request.ratio())) {
+            throw new ContentProviderException.Rejection("无图片或视频参考时请选择具体画幅", 422, null);
         }
     }
 
@@ -286,7 +287,10 @@ public class MetasoH3Client implements VideoGenerationPort {
         payload.put("resolution", request.resolution());
         payload.put("duration", request.durationSeconds());
         // 含首尾帧强制 adaptive（后端归一，F11）
-        payload.put("ratio", hasFrames ? "adaptive" : request.ratio());
+        boolean hasVisual = hasFrames || request.media() != null && request.media().stream()
+                .anyMatch(ref -> Set.of("reference_image", "reference_video").contains(ref.role()));
+        payload.put("ratio", hasVisual ? "adaptive" : request.ratio());
+        payload.put("fast_mode", false);
         return payload;
     }
 
