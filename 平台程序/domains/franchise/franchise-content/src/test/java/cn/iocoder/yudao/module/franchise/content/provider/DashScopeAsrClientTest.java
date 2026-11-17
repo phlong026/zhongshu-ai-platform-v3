@@ -11,6 +11,27 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** DashScope Fun-ASR 双端点分流/提交即持久化/恢复轮询形状断言（16a A1，零真实外呼）。 */
 class DashScopeAsrClientTest {
 
+    @Test
+    void infersKnownFormatsWithoutMislabelingDouyinUrls() {
+        assertThat(DashScopeAsrClient.flashFormat("https://cdn.example/video.MP4?signature=private")).isEqualTo("mp4");
+        assertThat(DashScopeAsrClient.flashFormat("https://cdn.example/audio.mp3")).isEqualTo("mp3");
+        assertThat(DashScopeAsrClient.flashFormat("https://sf6-cdn-tos.douyinstatic.com/obj/tos-cn-ve-15/opaque")).isNull();
+    }
+
+    @Test
+    void shortDouyinMediaWithoutExtensionUsesAsyncDetectionAndPersistsTask() {
+        ContentProviderTransport.Scripted transport = new ContentProviderTransport.Scripted(
+                ContentProviderTransport.json(200, "{\"output\":{\"task_id\":\"asr-douyin\"}}", 5),
+                ContentProviderTransport.json(200, "{\"output\":{\"task_status\":\"SUCCEEDED\",\"results\":[{\"subtask_status\":\"SUCCEEDED\",\"transcription_url\":\"https://oss.example/r.json\"}]}}", 5),
+                ContentProviderTransport.json(200, "{\"transcripts\":[{\"text\":\"农村建房原声\"}]}", 5));
+        List<String> ids = new ArrayList<>();
+        AsrPort.Transcript result = new DashScopeAsrClient(config(), transport, null).transcribe(
+                new AsrPort.AsrCall("https://sf6-cdn-tos.douyinstatic.com/obj/tos-cn-ve-15/opaque", 17.137, null, ids::add, ProviderCallAudit.NONE));
+        assertThat(result.text()).isEqualTo("农村建房原声");
+        assertThat(ids).containsExactly("asr-douyin");
+        assertThat(transport.calls.get(0).url()).endsWith("/api/v1/services/audio/asr/transcription");
+    }
+
     private static ContentProviderProperties.DashScope config() {
         ContentProviderProperties.DashScope config = new ContentProviderProperties.DashScope();
         config.setApiKey("sk-test");
@@ -51,7 +72,8 @@ class DashScopeAsrClientTest {
 
         String body = new String(transport.calls.get(0).body(), java.nio.charset.StandardCharsets.UTF_8);
         assertThat(body).contains("\"input_audio\":{\"data\":\"data:audio/mp4;base64,QUJD\"}");
-        assertThat(body).contains("\"parameters\":{\"format\":\"m4a\",\"sample_rate\":\"16000\"}");
+        assertThat(body).contains("\"type\":\"input_audio\"", "\"parameters\":{\"format\":\"m4a\"}");
+        assertThat(body).doesNotContain("sample_rate");
     }
 
     @Test
