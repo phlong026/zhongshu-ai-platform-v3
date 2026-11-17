@@ -64,14 +64,16 @@ public class ContentDraftController {
     @GetMapping("/video-draft")
     @Operation(summary = "视频草稿（一人一份）")
     @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
-    public CommonResult<Map<String, Object>> videoDraft() {
+    public CommonResult<Map<String, Object>> videoDraft(@RequestParam(value="draftKey",defaultValue="new") String draftKey) {
         PostSnapshot post = post();
-        FrContentVideoDraftDO row = drafts.videoDraft(post.orgId(), post.userId());
+        FrContentVideoDraftDO row = drafts.videoDraft(post.orgId(), post.userId(),draftKey);
         if (row == null) {
-            return success(Map.of("exists", false));
+            return success(Map.of("exists", false,"revision",0L));
         }
         return success(Map.of(
                 "exists", true,
+                "revision",row.getRevision(),
+                "draftKey",row.getDraftKey(),
                 "mode", row.getMode(),
                 "description", row.getDescription() == null ? "" : row.getDescription(),
                 "firstFrameAssetId", row.getFirstFrameAssetId() == null ? 0L : row.getFirstFrameAssetId(),
@@ -79,7 +81,7 @@ public class ContentDraftController {
                 "parameters", row.getParameters() == null ? Map.of()
                         : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(row.getParameters(), Map.class),
                 "references", row.getReferenceMedia() == null ? Map.of()
-                        : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(row.getReferenceMedia(), Map.class)));
+                        : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(row.getReferenceMedia(), Object.class)));
     }
 
     @PutMapping("/video-draft")
@@ -88,7 +90,7 @@ public class ContentDraftController {
     public CommonResult<Map<String, Object>> saveVideoDraft(@RequestBody Map<String, Object> body) {
         PostSnapshot post = post();
         FrContentVideoDraftDO row = drafts.saveVideoDraft(post.orgId(), post.userId(), body);
-        return success(Map.of("id", row.getId(), "mode", row.getMode()));
+        return success(Map.of("id", row.getId(), "mode", row.getMode(),"revision",row.getRevision()));
     }
 
     @PostMapping("/course-progress")

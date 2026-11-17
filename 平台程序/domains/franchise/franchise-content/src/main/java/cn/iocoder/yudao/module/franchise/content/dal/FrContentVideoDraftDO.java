@@ -18,6 +18,8 @@ public class FrContentVideoDraftDO {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
+    private String draftKey;
+    private Long revision;
     private Long companyId;
     private Long authorUserId;
     private String mode;
