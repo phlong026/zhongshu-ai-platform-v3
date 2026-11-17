@@ -1,1 +1,1 @@
-{"navigationStyle":"custom","usingComponents":{"owner-header":"../owner-header/index"},"navigationBarTitleText":"项目回款提成"}
+{"navigationStyle":"custom","usingComponents":{"brand-header":"../../../components/brand-header/index"},"navigationBarTitleText":"项目回款提成"}

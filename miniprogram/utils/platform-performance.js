@@ -266,12 +266,7 @@ async function loadCommission() {
     return {
       id: '', projectId: pid, project: nameByProject[pid], totalText: '—', assigneeUserId: '',
       assignee: '', version: 0, noPolicy: true,
-      stages: ['start', 'topping'].map(stage => ({
-        stage, label: stage === 'topping' ? '封顶款' : '开工款', status: '待足额到账',
-        payableId: '', reviewDue: false, requiredText: '—', receivedText: '—', amountText: '—',
-        paidText: '—', outstandingText: '—', canRelease: false, canPay: false, canReconcile: false,
-        reason: '请先由老板确认本项目提成规则。'
-      }))
+      stages: []
     };
   });
 }

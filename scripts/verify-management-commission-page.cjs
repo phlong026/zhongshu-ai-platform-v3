@@ -46,8 +46,23 @@ assert.equal(flat(nodes).filter(node => node.attrs?.bindtap === 'commissionPay')
 assert(!/\d+(?:\.\d+)?分/.test(text({ children:nodes })), '产品页面金额不得显示整数分实现细节');
 
 const source = require('node:fs').readFileSync('miniprogram/pages/admin/commission/index.js','utf8');
-assert(source.includes("['boss','owner','finance','finance-lead']"));
-assert(source.includes("actor.role === 'boss'"));
-assert(source.includes("O.has(actor.role, 'finance')"));
 assert(!/setData\([^)]*(state|book|receipts|payments|phone)/s.test(source), '页面不得把完整账簿、收付款或电话传入 setData');
-console.log('PASS 提成独立页面：老板编辑、门店负责人只读、财务生成及原单付款入口');
+nodes=render(file,{...base,actor:{role:'finance'},canEditPolicy:false,commissionRows:[{projectId:'unset-1',project:'待设置项目',noPolicy:true,stages:[]}]});
+const unsetText=text({children:nodes});
+assert(unsetText.includes('待设置'));
+assert(!unsetText.includes('待足额到账')&&!unsetText.includes('固定总额')&&!unsetText.includes('阶段应收'));
+assert.equal(controls(nodes,'commission-release').length,0);
+
+(async()=>{
+ let definition,role='finance',returned;
+ const P={online:()=>true,apiPost:()=>({roleCode:role,orgId:'org-1'}),loadCommission:async()=>base.commissionRows,loadMembers:async()=>[{id:'sales-1',name:'业务甲',roleCode:'sales'}]};
+ require('node:vm').runInNewContext(source,{Page:d=>definition=d,require:p=>p.includes('page-navigation')?{back:v=>returned=v}:p.includes('platform-performance')?P:p.includes('clone')?v=>structuredClone(v):{},wx:{showToast(){}},console});
+ for(role of ['boss','owner','finance','finance-lead']){
+  const page={...definition,data:{...definition.data},setData(v){Object.assign(this.data,v);}};
+  page.onLoad({from:'finance-profile'});await page.refreshOnline();
+  assert.equal(page.data.canEditPolicy,role==='boss');
+  assert.equal(page.data.actor.role,role);
+  if(role==='finance'){assert.equal(page.data.returnLabel,'返回我的');page.returnToOrigin();assert.equal(returned.fallback,'/pages/admin/finance-desk/index?view=profile');}
+ }
+ console.log('PASS 提成页面：未设置规则不伪造阶段，四岗位权限、金额呈现及返回来源验证');
+})().catch(e=>{console.error(e);process.exitCode=1;});

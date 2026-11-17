@@ -3,3 +3,7 @@
 .journey-label .journey-muted{display:inline}.journey .journey-contract>.fin-text{min-height:76rpx;line-height:44rpx}
 
 .book-balance-heading{display:flex;align-items:center;justify-content:space-between}.book-balance-heading>.fin-text{padding:0 8rpx;font-size:24rpx;min-height:48rpx}.journey .book-transaction-meta{font-size:25rpx;line-height:36rpx}
+
+/* Native inputs center their text within the fixed height; picker views retain their padding. */
+.journey input.journey-input{display:block;padding:0 20rpx;height:84rpx;line-height:84rpx}
+.journey input.journey-amount-input{height:94rpx;line-height:94rpx}

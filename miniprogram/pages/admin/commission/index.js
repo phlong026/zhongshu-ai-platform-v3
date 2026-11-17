@@ -8,7 +8,8 @@ const clean = () => ({ ready:false, error:'', busy:false, actor:{}, canEditPolic
 
 Page({
   data:clean(),
-  onLoad(options = {}) { this.options = options; this.selectedProjectId = options.id || ''; },
+  onLoad(options = {}) { this.options = options; this.selectedProjectId = options.id || ''; this.setData({returnLabel:options.from==='finance-profile'?'返回我的':'返回上一页'}); },
+  returnToOrigin() { if(!this.data.busy) return N.back({fallback:['finance','finance-lead'].includes(P.apiPost()?.roleCode)?'/pages/admin/finance-desk/index?view=profile':undefined}); },
   onShow() { this.refresh(); 
   },
   refresh() {
