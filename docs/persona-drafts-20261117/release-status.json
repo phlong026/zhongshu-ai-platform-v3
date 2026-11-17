@@ -1,0 +1,99 @@
+{
+  "baseline": "1.0.20261117.1159",
+  "frontendCommit": "dbff62f8",
+  "backendCommit": "2f90f66d",
+  "fixture": false,
+  "changedRuntimePaths": [
+    "pages/studio/characters/index.js",
+    "pages/studio/characters/index.wxml",
+    "pages/studio/characters/index.wxss"
+  ],
+  "addedRuntimePaths": [
+    "pages/studio/characters/draft-api.js",
+    "pages/studio/characters/profile-draft.js"
+  ],
+  "removedRuntimePaths": [],
+  "unrelatedRuntimeFilesPreserved": true,
+  "runtimeSha256": {
+    "pages/studio/characters/index.js": "2c74af9913da3ae7aaaed7584ff25c3214fc98dc7fefd8c902d0c74e87ba30c6",
+    "pages/studio/characters/index.wxml": "e95003ef059d79571f11d467833490a0a475fd33da0e75fbec3892e3c688d1b2",
+    "pages/studio/characters/index.wxss": "1e85bdeae3a915499ca6ba75cb3ea32d2f2f7e578243f6e0f297aaa9e56a4b34",
+    "pages/studio/characters/draft-api.js": "ddf417ced6657c66bf670ce8deab110b12bf1014f7844aa314d39683f7fd0038",
+    "pages/studio/characters/profile-draft.js": "1de1405d8861da6b594d749e54e40859b2703929ca38e20f37d919c40b78ba58"
+  },
+  "frontendFullCheck": "PASS",
+  "frontendFocusedTests": 52,
+  "backendContentTests": 169,
+  "physicalTest": "deferred by user",
+  "version": "1.0.20261117.1241",
+  "appid": "wxe584f6fad7b54487",
+  "uploadStatus": "prepared",
+  "trialActivation": {
+    "status": "pending-user-action",
+    "independentlyObserved": false
+  },
+  "uploaded": true,
+  "officialCliExitCode": 0,
+  "uploadedAt": "2026-11-17T12:45:56.245323+08:00",
+  "uploadSize": {
+    "total": 7715279,
+    "packages": [
+      {
+        "name": "TOTAL",
+        "size": 7715279
+      },
+      {
+        "name": "main",
+        "size": 1916019
+      },
+      {
+        "name": "/design-migration/",
+        "size": 512151
+      },
+      {
+        "name": "/pages/account/",
+        "size": 1080599
+      },
+      {
+        "name": "/pages/admin/",
+        "size": 468023
+      },
+      {
+        "name": "/pages/ai-video/",
+        "size": 19326
+      },
+      {
+        "name": "/pages/build/",
+        "size": 1025901
+      },
+      {
+        "name": "/pages/creation/",
+        "size": 8151
+      },
+      {
+        "name": "/pages/design/",
+        "size": 236687
+      },
+      {
+        "name": "/pages/growth/",
+        "size": 18688
+      },
+      {
+        "name": "/pages/studio/",
+        "size": 406383
+      },
+      {
+        "name": "/pages/wallet/",
+        "size": 12451
+      },
+      {
+        "name": "/pages/workflow/",
+        "size": 2010900
+      }
+    ]
+  },
+  "backendHealth": "UP",
+  "backendJarSha256": "b47e44a91bae88da3df36fed3f8228a01f5c25a802622db2461feed028e84602",
+  "databaseMigration": "20261117.945",
+  "formalRelease": false
+}

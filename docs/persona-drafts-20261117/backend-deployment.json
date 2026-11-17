@@ -1,0 +1,40 @@
+{
+  "deployedAt": 1794890670.987596,
+  "frontendCommit": "dbff62f8",
+  "backendCommit": "2f90f66d",
+  "basePid": "2056326",
+  "baseJar": "/opt/zhongshu-platform-b-integration/release/platform-persona-drafts-rollback-20261117-3685b484b6ee.jar",
+  "pid": "2057766",
+  "jar": "/opt/zhongshu-platform-b-integration/release/platform-persona-drafts-20261117-b47e44a91bae.jar",
+  "sha256": "b47e44a91bae88da3df36fed3f8228a01f5c25a802622db2461feed028e84602",
+  "health": "UP",
+  "changedBootEntries": [
+    "BOOT-INF/lib/yudao-domain-franchise-content-2026.08-SNAPSHOT.jar"
+  ],
+  "changedContentEntries": [
+    "cn/iocoder/yudao/module/franchise/content/enums/FranchiseContentErrorCodes.class",
+    "cn/iocoder/yudao/module/franchise/content/content/ContentPersonaDraftService$Draft.class",
+    "cn/iocoder/yudao/module/franchise/content/content/ContentPersonaDraftService.class",
+    "cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPersonaDraftController$Publish.class",
+    "cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPersonaDraftController$Save.class",
+    "cn/iocoder/yudao/module/franchise/content/controller/admin/ContentPersonaDraftController.class",
+    "db/migration-undo/franchise/V20261117.945__undo_content_persona_drafts.sql"
+  ],
+  "otherModulesPreserved": true,
+  "databaseMigration": "20261117.945",
+  "appRoleDraftReadWrite": "PASS, transaction rolled back",
+  "backup": "/tmp/persona-drafts-release-20261117-r4/before-deploy.dump",
+  "backupSha256": "5d1c0cc249b0231d04976415a0682bbabfbf3ef76b9cfc1ea6b5b9d9dafd06e9",
+  "rollbackJar": "/opt/zhongshu-platform-b-integration/release/platform-persona-drafts-rollback-20261117-3685b484b6ee.jar",
+  "rollbackSha256": "3685b484b6ee6741bfeb2027beee5e4b19e3339c6027e576c3494027f648e39f",
+  "publicLoginPolicy": {
+    "http": 200,
+    "code": 0
+  },
+  "anonymousDraftAccess": {
+    "http": 200,
+    "code": 401
+  },
+  "physicalTest": "deferred by user",
+  "realMediaProduction": false
+}
