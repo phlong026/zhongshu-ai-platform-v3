@@ -1,0 +1,59 @@
+{
+  "size": {
+    "total": 7952619,
+    "packages": [
+      {
+        "name": "TOTAL",
+        "size": 7952619
+      },
+      {
+        "name": "main",
+        "size": 1906957
+      },
+      {
+        "name": "/design-migration/",
+        "size": 523819
+      },
+      {
+        "name": "/pages/account/",
+        "size": 1099518
+      },
+      {
+        "name": "/pages/admin/",
+        "size": 579429
+      },
+      {
+        "name": "/pages/ai-video/",
+        "size": 27868
+      },
+      {
+        "name": "/pages/build/",
+        "size": 1033111
+      },
+      {
+        "name": "/pages/creation/",
+        "size": 9012
+      },
+      {
+        "name": "/pages/design/",
+        "size": 241035
+      },
+      {
+        "name": "/pages/growth/",
+        "size": 18872
+      },
+      {
+        "name": "/pages/studio/",
+        "size": 475640
+      },
+      {
+        "name": "/pages/wallet/",
+        "size": 12451
+      },
+      {
+        "name": "/pages/workflow/",
+        "size": 2024907
+      }
+    ]
+  }
+}

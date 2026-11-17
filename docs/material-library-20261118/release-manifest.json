@@ -1,0 +1,17 @@
+{
+  "release": "20261118-0105",
+  "frontendCommit": "d956d40ad3bc8d8e0d952d907fa0d4683bb946ab",
+  "backendCommit": "ee7f20ff986b4fe0cc45d50b2e38c52a3d840a46",
+  "jarSha256": "82b48e5c8387f379d0361929ae407f9f514b4c465b6af6c17383c33e81e5784f",
+  "miniSha256": "5f92f141f7f30ee03aa6551852a79ff48dd2cd9cd0a1a2669341a5d9808006b3",
+  "archiveSha256": "67202ffebd108175fe8b8b1e96c044d028601ecf5a6024bab619278c55c692ba",
+  "migrations": [
+    "20261118.963"
+  ],
+  "wechatVersion": "1.0.20261118.0105",
+  "reviewFixes": [
+    "task-assets-before-reservation",
+    "paged-cover-requests",
+    "cancel-hidden-preview"
+  ]
+}

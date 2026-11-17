@@ -15,3 +15,5 @@
 验证：前端6条、后端19条（真实PostgreSQL与资产读取回归）、原生9条、完整npm检查、服务打包、B产物边界和微信预览编译通过。供应商和积分接口无新增调用。截图与fixture目录仅用于验证，不进入生产小程序包。
 
 接口：GET /franchise/content/material-library；POST /upload-tickets、/{id}/complete、/{id}/download-tickets；PUT /{id}；DELETE /{id}。
+
+最终部署：20261118-0105，前端d956d40a、后端ee7f20ff；微信开发版1.0.20261118.0105。已保留同期发布的Web管理端布局，不覆盖其他服务。评审修复和撤回过程见review-fixes.md及withdrawal.json，最新回执见release-status.json。

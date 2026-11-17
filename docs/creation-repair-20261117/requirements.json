@@ -271,6 +271,32 @@
         "extract-restart-native-result.json",
         "verify-business-module-migration.cjs"
       ]
+    },
+    {
+      "id": "M01",
+      "requirement": "已确认素材库第一版：个人/公司分类、真实上传、搜索分页、预览、管理",
+      "status": "completed",
+      "commits": [
+        "d70c3ac0",
+        "94dbfe45"
+      ],
+      "verification": [
+        "../material-library-20261118/native-result.json",
+        "../../design-qa.md"
+      ]
+    },
+    {
+      "id": "M02",
+      "requirement": "素材任务授权先于扣点，分页封面延迟与隐藏页面迟到预览修复",
+      "status": "completed",
+      "commits": [
+        "d956d40a",
+        "ee7f20ff"
+      ],
+      "verification": [
+        "../material-library-20261118/review-fixes.md",
+        "../material-library-20261118/server-verification.json"
+      ]
     }
   ],
   "validation": {
@@ -284,12 +310,13 @@
       "物理手机键盘与系统相册权限需实机验收；开发工具已验证布局、媒体播放与实际PNG生成"
     ],
     "resultDeliveryTests": 11,
-    "restartNative": "extract-restart-native-result.json"
-  },
-  "pendingNewDesign": {
-    "id": "M01",
-    "requirement": "素材库重新设计效果图，用户确认后再改代码",
-    "status": "awaiting-design-selection",
-    "implementationStarted": false
+    "restartNative": "extract-restart-native-result.json",
+    "materialLibrary": {
+      "frontendTests": 9,
+      "backendTests": 159,
+      "nativeTests": 10,
+      "release": "20261118-0105",
+      "oldReleaseWithdrawn": "20261118-0045"
+    }
   }
 }
