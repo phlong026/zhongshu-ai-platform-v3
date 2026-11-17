@@ -10,3 +10,50 @@ test('server filtering, opaque task IDs, pagination and current-action revalidat
 test('all-read uses server snapshot, refreshes counts and preserves pending work',async()=>{const originals={get:H.get,post:H.post,token:H.token,guard:H.requestGuard};let request;H.token=()=> 'test';H.requestGuard=()=>()=>true;H.post=async(url,body)=>{request={url,body};return {updated:3}};H.get=async()=>({items:[],unread:1,pending:4,snapshotAt:'2026-11-17T12:01:00+08:00'});try{const p=page();p.__messagesSnapshot='2026-11-17T12:00:00+08:00';await P.readAll.call(p);assert.equal(request.body.through,'2026-11-17T12:00:00+08:00');assert.equal(p.data.messagePending,4);assert.equal(p.apiUnread,1);assert.equal(p.data.messageBusy,false);}finally{Object.assign(H,{get:originals.get,post:originals.post,token:originals.token,requestGuard:originals.guard})}});
 
 test('late message-open response cannot navigate after leaving the page',async()=>{const oldPost=H.post,oldGuard=H.requestGuard,oldOpen=N.open;let release,opened=false;H.post=()=>new Promise(r=>{release=r});H.requestGuard=()=>()=>true;N.open=()=>{opened=true};try{const p=page();p.__messagesGen=1;p.apiMessages=[C.row(message('99'))];const run=P.read.call(p,p.apiMessages[0]);p.__messagesGen++;release(message('99',{read:true,actionPath:'/pages/workflow/index?view=customer&id=1'}));await run;assert.equal(opened,false);assert.equal(p.apiMessages[0].read,false);}finally{H.post=oldPost;H.requestGuard=oldGuard;N.open=oldOpen;}});
+function accountLifecycle(){
+  const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+  let account;
+  const code=fs.readFileSync(path.join(__dirname,'../miniprogram/pages/account/index.js'),'utf8');
+  vm.runInNewContext(code,{Page:definition=>{account=definition;},require:id=>id==='./platform-messages-page'?P:{}});
+  return account;
+}
+for(const event of ['onUnload','onHide'])test('message action after '+event+' does not update data or navigate',async()=> {
+  const originals={post:H.post,guard:H.requestGuard,open:N.open};
+  const p=page();p.data.view='messages';p.cancelLoginFlow=()=>{};let resolve,navigations=0,writes=0;
+  const update=p.setData.bind(p);p.setData=patch=>{writes++;update(patch);};
+  H.requestGuard=()=>()=>true;H.post=()=>new Promise(r=>{resolve=r;});N.open=()=>{navigations++;};
+  try{
+    const pending=P.read.call(p,message('99'),true);
+    accountLifecycle()[event].call(p);const before=writes;
+    resolve(message('99',{read:true,actionPath:'/pages/studio/index?view=tasks'}));
+    await pending;
+    assert.equal(writes,before);assert.equal(navigations,0);
+  }finally{H.post=originals.post;H.requestGuard=originals.guard;N.open=originals.open;}
+});
+test('filter change drops stale detail and does not clear a newer action busy state',async()=> {
+  const originals={get:H.get,post:H.post,token:H.token,guard:H.requestGuard};
+  const p=page(),requests=[];
+  H.token=()=> 'test';H.requestGuard=()=>()=>true;
+  H.get=async()=>({items:[message('100')],unread:1});
+  H.post=()=>new Promise(r=>requests.push(r));
+  try{
+    const older=P.read.call(p,message('99'),false);
+    await P.change.call(p,{messageMode:'UNREAD'});
+    assert.equal(p.data.messageBusy,false);
+    const newer=P.read.call(p,message('100'),false);
+    requests[0](message('99',{read:true}));await older;
+    assert.equal(p.data.messageDetail,null);assert.equal(p.data.messageBusy,true);
+    requests[1](message('100',{read:true}));await newer;
+    assert.equal(p.data.messageDetail.id,'100');assert.equal(p.data.messageBusy,false);
+  }finally{H.get=originals.get;H.post=originals.post;H.token=originals.token;H.requestGuard=originals.guard;}
+});
+test('an invalidated request guard releases busy without opening a message',async()=> {
+  const originals={post:H.post,guard:H.requestGuard};
+  const p=page();let resolve,alive=true;
+  H.requestGuard=()=>()=>alive;H.post=()=>new Promise(r=>{resolve=r;});
+  try{
+    const pending=P.read.call(p,message('99'),false);
+    alive=false;resolve(message('99',{read:true}));await pending;
+    assert.equal(p.data.messageDetail,undefined);assert.equal(p.data.messageBusy,false);
+  }finally{H.post=originals.post;H.requestGuard=originals.guard;}
+});
