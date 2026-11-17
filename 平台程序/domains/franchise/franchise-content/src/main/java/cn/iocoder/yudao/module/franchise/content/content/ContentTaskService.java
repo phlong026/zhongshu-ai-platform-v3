@@ -47,6 +47,8 @@ import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentEr
 public class ContentTaskService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ContentCloneService clones;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ContentTaskAssetService taskAssets;
 
     private static final Logger log = LoggerFactory.getLogger(ContentTaskService.class);
     /** 总轮询窗 2h 超窗转人工（A2.6；provider 层单任务连续轮询 5s×1080≈1.5h 由 client 内部控制）。 */
@@ -156,10 +158,16 @@ public class ContentTaskService {
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public FrContentTaskDO createAsr(long companyId, long authorUserId, Long assetId, String sourceUrl,
                                      String mediaSha256, Double durationSec, FrContentTaskDO cached) {
+        if((assetId==null)==(sourceUrl==null||sourceUrl.isBlank()))throw exception(INPUT_INVALID);
+        var checked=assetId==null?null:authorizeAssets(companyId,authorUserId,List.of(assetId));
+        // Never trust caller-supplied hashes to select another user's transcription cache.
+        mediaSha256=checked==null?null:checked.metadata().get(assetId).sha256();
+        if(cached!=null&&(mediaSha256==null||!mediaSha256.equals(cached.getInputSha256())))cached=null;
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("assetId", assetId);
         input.put("sourceUrl", sourceUrl);
         input.put("durationSec", durationSec);
+        if(checked!=null)input.put(ContentTaskAssetService.SNAPSHOT_KEY,checked.snapshot());
         if (cached != null) {
             orgPoint.assertSubjectAllowed(companyId, authorUserId, ContentBillingCatalog.ASR.key());
             long id = ContentTaskStore.newId();
@@ -228,9 +236,30 @@ public class ContentTaskService {
         input.put("resolution", "2K".equals(resolution) ? "2K" : "768P");
         input.put("duration", durationSeconds);
         input.put("ratio", ratio);
+        var ids=new java.util.LinkedHashSet<Long>();
+        if(references!=null)for(var reference:references) {
+            if(reference==null)throw exception(INPUT_INVALID);
+            for(String key:List.of("assetId","coverId","coverAssetId")) {
+                Object value=reference.get(key);
+                if(value!=null&&!String.valueOf(value).isBlank()) {
+                    try {ids.add(Long.parseLong(String.valueOf(value)));}catch(NumberFormatException e){throw exception(INPUT_INVALID);}
+                }
+            }
+        }
+        if(!ids.isEmpty())input.put(ContentTaskAssetService.SNAPSHOT_KEY,authorizeAssets(companyId,authorUserId,ids).snapshot());
         long id = ContentTaskStore.newId();
         String poolKey = reservePool(companyId, authorUserId, subject, durationSeconds, id);
         return insertWithPoolKey(id, companyId, authorUserId, "ai_video", input, null, poolKey, durationSeconds);
+    }
+
+    private ContentTaskAssetService.Checked authorizeAssets(long company,long user,java.util.Collection<Long> ids) {
+        if(taskAssets==null)throw exception(CONTENT_FORBIDDEN);
+        return taskAssets.authorize(company,user,ids);
+    }
+
+    /** Called before looking up shared ASR cache, including a cache-hit path. */
+    public String authorizedAsrSha(long company,long user,Long assetId) {
+        return assetId==null?null:authorizeAssets(company,user,List.of(assetId)).metadata().get(assetId).sha256();
     }
 
     private FrContentTaskDO insert(long id, long companyId, long authorUserId, String kind,
@@ -413,7 +442,7 @@ public class ContentTaskService {
 
     private void submitAsr(FrContentTaskDO task, ProviderCallAudit audit) {
         Map<String, Object> input = JsonUtils.parseObject(task.getInputSnapshot(), Map.class);
-        String audioUrl = resolveMediaUrl(task.getCompanyId(), input.get("assetId"), input.get("sourceUrl"));
+        String audioUrl = resolveMediaUrl(task, input.get("assetId"), input.get("sourceUrl"));
         Double durationSec = input.get("durationSec") == null ? null
                 : Double.parseDouble(String.valueOf(input.get("durationSec")));
         beginDispatch(task);
@@ -486,7 +515,7 @@ public class ContentTaskService {
             for (Object ref : refs) {
                 if (ref instanceof Map<?, ?> refMap) {
                     String role = String.valueOf(refMap.get("role"));
-                    String url = resolveMediaUrl(task.getCompanyId(), refMap.get("assetId"), refMap.get("url"));
+                    String url = resolveMediaUrl(task, refMap.get("assetId"), refMap.get("url"));
                     media.add(new VideoGenerationPort.MediaRef(role, url,
                             refMap.get("name") == null ? null : String.valueOf(refMap.get("name"))));
                 }
@@ -510,11 +539,10 @@ public class ContentTaskService {
     }
 
     /** 素材地址解析：assetId 优先（基-1 签名 URL，生产=COS），否则原样透传 sourceUrl。 */
-    private String resolveMediaUrl(long companyId, Object assetId, Object sourceUrl) {
+    private String resolveMediaUrl(FrContentTaskDO task, Object assetId, Object sourceUrl) {
         if (assetId != null && !String.valueOf(assetId).isBlank()) {
-            AssetAccessPort.DownloadUrlView view = assets.createTaskDownloadUrl(companyId,
-                    Long.parseLong(String.valueOf(assetId)), "CONTENT_ASSET");
-            return view.downloadUrl();
+            if(taskAssets==null)throw new ContentProviderException.Rejection("任务素材授权通道暂不可用",403,"MATERIAL_AUTH_UNAVAILABLE");
+            return taskAssets.download(task,Long.parseLong(String.valueOf(assetId)));
         }
         if (sourceUrl != null && !String.valueOf(sourceUrl).isBlank()) {
             return String.valueOf(sourceUrl);

@@ -88,6 +88,7 @@ public class ContentScriptService {
                 || (assetId != null && (sourceUrl != null && !sourceUrl.isBlank()))) {
             throw exception(INPUT_INVALID); // assetId 与 sourceUrl 二选一
         }
+        mediaSha256=tasks.authorizedAsrSha(companyId,userId,assetId);
         FrContentTaskDO cached = mediaSha256 == null ? null
                 : taskMapper.selectSucceededBySha(companyId, "asr", mediaSha256);
         FrContentTaskDO task = tasks.createAsr(companyId, userId, assetId, sourceUrl, mediaSha256, durationSec, cached);

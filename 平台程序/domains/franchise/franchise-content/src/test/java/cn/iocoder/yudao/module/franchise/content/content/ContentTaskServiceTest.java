@@ -105,7 +105,7 @@ class ContentTaskServiceTest {
                 null, null, new ContentProviderProperties(), orgPoint);
 
         service.createLinkParse(100L, 7L, "https://example/video");
-        service.createAsr(100L, 7L, 1L, null, "sha-1", 10.0, null);
+        service.createAsr(100L, 7L, null, "https://media.example/audio.mp3", null, 10.0, null);
         service.createCopy(100L, 7L, "原文", null, null, null);
         service.createDigital(100L, 7L, "voice", "口播", "avatar", null, null);
         service.createAiVideo(100L, 7L, "乡墅", List.of(), "768P", 8, "16:9");
@@ -196,6 +196,10 @@ class ContentTaskServiceTest {
         FrContentTaskDO inserted = task("asr", "{}", null).setStatus("QUEUED");
         when(store.insert(anyLong(), eq(100L), eq(7L), eq("asr"), anyString(), eq("sha-1"))).thenReturn(inserted);
 
+        var gate=mock(ContentTaskAssetService.class);
+        when(gate.authorize(eq(100L),eq(7L),any())).thenReturn(new ContentTaskAssetService.Checked(java.util.Map.of(),java.util.Map.of(5L,new AssetAccessPort.ContentMetadata("audio/mpeg","sha-1",10))));
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"taskAssets",gate);
+        cached.setInputSha256("sha-1");
         service.createAsr(100L, 7L, 5L, null, "sha-1", 10.0, cached);
 
         verify(orgPoint).assertSubjectAllowed(100L, 7L, "asr");
@@ -315,8 +319,9 @@ class ContentTaskServiceTest {
         FrContentTaskDO failed = task("ai_video", task.getInputSnapshot(), null)
                 .setStatus("FAILED").setPoolBizKey("content:9:ai_video_768p");
         when(store.claim(9L)).thenReturn(true);
-        when(assets.createTaskDownloadUrl(100L, 5L, "CONTENT_ASSET"))
-                .thenThrow(new IllegalArgumentException("本地素材校验失败"));
+        var gate=mock(ContentTaskAssetService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"taskAssets",gate);
+        when(gate.download(task,5L)).thenThrow(new IllegalArgumentException("本地素材校验失败"));
         when(store.failBeforeDispatch(eq(9L), eq(100L), anyString())).thenReturn(true);
         when(store.byId(100L, 9L)).thenReturn(failed);
         when(orgPoint.releaseByBizKey("content:9:ai_video_768p")).thenReturn(settlement());

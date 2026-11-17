@@ -13,6 +13,11 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import cn.iocoder.yudao.module.franchise.content.dal.*;
+import cn.iocoder.yudao.module.franchise.content.provider.*;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import org.springframework.test.util.ReflectionTestUtils;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 
 @Import({ContentMaterialService.class, ContentMaterialVisibility.class})
 class ContentMaterialPgIntegrationTest extends FranchisePgIntegrationTest {
@@ -88,5 +93,55 @@ class ContentMaterialPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(list(alice,"PERSONAL","ALL","",1)).isEmpty();service.complete(alice,id);
         assertThat(list(alice,"PERSONAL","ALL","",1)).hasSize(1);
         verify(assets,times(1)).createUploadTicket(any(AssetAccessPort.Actor.class),anyString(),anyString(),anyLong(),anyString());
+    }
+
+    @Test void privateAssetsAndCoversAreRejectedBeforeQueueReserveCacheOrProvider() {
+        long main=upload(alice,"私人视频","video/mp4","PERSONAL");service.complete(alice,main);
+        var cover=body("私有封面","image/png","PERSONAL");cover.put("coverOf",Long.toString(main));
+        long coverId=Long.parseLong((String)service.upload(alice,cover).get("assetId"));service.complete(alice,coverId);
+        when(assets.contentMetadata(any(AssetAccessPort.Actor.class),anyLong())).thenAnswer(call->{
+            visibility.requireReadable(1,call.getArgument(0),call.getArgument(1));return new AssetAccessPort.ContentMetadata("video/mp4","a".repeat(64),1024);
+        });
+        var active=new java.util.concurrent.atomic.AtomicReference<>(bob);
+        var gate=new ContentTaskAssetService(()->Optional.of(active.get()),accounts,assets);
+        var store=new ContentTaskStore(jdbc);long taskCount=jdbc.queryForObject("SELECT count(*) FROM fr_content_task WHERE company_id=101",Long.class);var points=mock(OrgPointPort.class);var video=mock(VideoGenerationPort.class);var asr=mock(AsrPort.class);
+        var commands=mock(FranchiseCommands.class);
+        var tasks=new ContentTaskService(store,null,null,asr,null,null,video,assets,commands,new ContentProviderProperties(),points);
+        ReflectionTestUtils.setField(tasks,"taskAssets",gate);
+        Map<String,Object> request=new HashMap<>(Map.of("kind","ai_video","description","乡墅","duration",5,"resolution","768P","ratio","16:9"));
+        request.put("references",List.of(Map.of("role","first_frame","assetId",Long.toString(main))));
+        request.put(ContentTaskAssetService.SNAPSHOT_KEY,Map.of("assets",List.of(Map.of("assetId",Long.toString(main)))));
+        assertThatThrownBy(()->tasks.createFromPost(bob,request,"private-main")).isInstanceOf(RuntimeException.class);
+        request.put("references",List.of(Map.of("role","first_frame","assetId",Long.toString(coverId))));
+        assertThatThrownBy(()->tasks.createFromPost(bob,request,"private-cover")).isInstanceOf(RuntimeException.class);
+        var taskMapper=mock(FrContentTaskMapper.class);var scriptJdbc=mock(JdbcTemplate.class);
+        var scripts=new ContentScriptService(tasks,mock(FrContentScriptMapper.class),taskMapper,mock(ContentPersonaService.class),scriptJdbc,commands);
+        assertThatThrownBy(()->scripts.extract(bob,main,null,5.0,"a".repeat(64),"private-asr")).isInstanceOf(RuntimeException.class);
+        verifyNoInteractions(points,video,asr,taskMapper,scriptJdbc);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_task WHERE company_id=101",Long.class)).isEqualTo(taskCount);
+        verify(assets,never()).createTaskDownloadUrl(anyLong(),anyLong(),anyString());
+
+        when(assets.createTaskDownloadUrl(anyLong(),anyLong(),eq("CONTENT_ASSET"))).thenReturn(new AssetAccessPort.DownloadUrlView("https://storage.example/verified",100L));
+        active.set(alice);
+        var own=tasks.createFromPost(alice,request,"author-video");
+        assertThat(gate.download(store.byId(101,own.getId()),coverId)).isEqualTo("https://storage.example/verified");
+        assertThatThrownBy(()->gate.download(own,main)).isInstanceOf(ContentProviderException.Rejection.class);
+        service.update(alice,main,Map.of("visibility","COMPANY"));active.set(bob);
+        var shared=tasks.createFromPost(bob,request,"shared-video");assertThat(gate.download(shared,coverId)).isNotBlank();
+        var sharedAsr=scripts.extract(bob,main,null,5.0,"forged-client-sha","shared-asr");
+        assertThat(sharedAsr.getInputSha256()).isEqualTo("a".repeat(64));
+        assertThat(gate.download(sharedAsr,main)).isNotBlank();
+        verify(points,times(3)).reserve(any());
+        // Existing authorized tasks continue after sharing is withdrawn; new submissions cannot.
+        service.update(alice,main,Map.of("visibility","PERSONAL"));assertThat(gate.download(sharedAsr,main)).isNotBlank();
+        assertThatThrownBy(()->scripts.extract(bob,main,null,5.0,"a".repeat(64),"after-unshare")).isInstanceOf(RuntimeException.class);
+        verify(points,times(3)).reserve(any());
+        var forged=new FrContentTaskDO().setId(shared.getId()).setCompanyId(102L).setAuthorUserId(22L).setInputSnapshot(shared.getInputSnapshot());
+        assertThatThrownBy(()->gate.download(forged,coverId)).isInstanceOf(ContentProviderException.Rejection.class);
+        var legacy=new FrContentTaskDO().setId(9L).setCompanyId(101L).setAuthorUserId(22L).setInputSnapshot("{\"assetId\":"+main+"}");
+        assertThatThrownBy(()->gate.download(legacy,main)).isInstanceOf(ContentProviderException.Rejection.class);
+        tasks.submitOne(store.byId(101,own.getId()));tasks.submitOne(store.byId(101,shared.getId()));
+        verify(video,times(2)).submit(any(),any(),any());verifyNoInteractions(asr);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_task WHERE company_id=101",Long.class)).isEqualTo(taskCount+3);
     }
 }

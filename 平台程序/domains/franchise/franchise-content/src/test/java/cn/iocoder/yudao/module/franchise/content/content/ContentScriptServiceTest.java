@@ -32,9 +32,10 @@ class ContentScriptServiceTest {
         FrContentTaskDO hit = new FrContentTaskDO().setId(2L).setCompanyId(100L).setAuthorUserId(7L)
                 .setKind("asr").setStatus("SUCCEEDED").setEngine("cache")
                 .setResultSnapshot("{\"text\":\"缓存转写\",\"durationSec\":30}");
-        when(tasks.createAsr(100L, 7L, null, "https://cdn/a.mp4", "sha-1", 30.0, cached)).thenReturn(hit);
+        when(tasks.authorizedAsrSha(100L,7L,5L)).thenReturn("sha-1");
+        when(tasks.createAsr(100L, 7L, 5L, null, "sha-1", 30.0, cached)).thenReturn(hit);
 
-        service.extract(100L, 7L, null, "https://cdn/a.mp4", 30.0, "sha-1");
+        service.extract(100L, 7L, 5L, null, 30.0, "client-hash-is-ignored");
 
         verify(jdbc, atLeastOnce()).update(startsWith("INSERT INTO fr_content_script"), any(Object[].class));
         verify(jdbc, atLeastOnce()).update(startsWith("UPDATE fr_content_script SET duration_seconds"),
