@@ -125,6 +125,8 @@ protectedPage({
     resolutions: generationOptions.RESOLUTIONS, orientations: generationOptions.orientations(flatDefaults.resolution)
   },
   onLoad(options) {
+    this._sourceCustomer = options.customerId || '';
+    this._sourceScope = require('../../utils/budget-draft').sessionScope();
     this.loadStyles();
     if(options && ['FLAT','ELEVATION'].includes(options.line))getDesignApp().globalData.aiLine=options.line;
     try {
@@ -617,7 +619,7 @@ protectedPage({
     this.closeReferencePreview();
     this._candidateSeq = (this._candidateSeq || 0) + 1;
     this.setData({ candidateLoading: false });
-    this.setData({ creating: true });
+    this.setData({ creating: true, creatingText: '正在确认报价…' });
     const refCase = this.data.refCase;
     // 全量上送需求输入（尺寸/朝向/层数/家庭需求/院落布局/图纸类型/补充需求），后端冻结进需求快照供 AI 提示词使用
     const built = designInputs.buildRequirementInputs(0, this.data);
@@ -643,7 +645,7 @@ protectedPage({
   generateElevation(slot) {
     const count = this.data.elevCount;
     const imageOptions = generationOptions.selection('ELEVATION', { resolution: this.data.elevResolution, orientation: this.data.elevOrientation });
-    this.setData({ creating: true });
+    this.setData({ creating: true, creatingText: '正在确认报价…' });
     const built = designInputs.buildRequirementInputs(1, {
       floorIndex: this.data.elevFloorIndex, note: this.data.elevNote,
       referenceAssetIds: this.data.elevRefs.map(r => r.assetId),
@@ -696,10 +698,22 @@ protectedPage({
         imageOptions: { resolution: imageOptions.resolution, orientation: imageOptions.orientation } }, spec.payloadExtra));
     } catch (error) { self.setData({ creating: false }); wx.showToast({ title: error.msg || '无法保存生成请求', icon: 'none' }); return; }
     this._lastAttemptKey = attempt.key;
+    const openAccepted = () => {
+      attempts.assertCurrent(attempt);
+      self.setData({ creating: true, creatingText: '任务已创建，正在打开进度…' });
+      const url = spec.redirectUrl + '&projectId=' + encodeURIComponent(attempt.projectId) + '&jobId=' + encodeURIComponent(attempt.jobId);
+      return new Promise(resolve => wx.redirectTo({ url,
+        success: () => { attempts.complete(slot, attempt); self._lastAttemptKey = null; resolve(); },
+        fail: () => { self.setData({ creating: false, pendingGeneration: true }); wx.showToast({title:'任务已创建，点击继续查看进度',icon:'none'}); resolve(); }
+      }));
+    };
+    if (attempt.jobId && attempt.projectId) return openAccepted();
     let confirmedPrice;
     const priceRequest = attempt.confirmedPrice ? Promise.resolve(attempt.confirmedPrice)
       : require('../../utils/generation-price').confirm(spec.stage, spec.count, '', { resolution: imageOptions.resolution });
     return priceRequest.then(function (price) {
+      attempts.assertCurrent(attempt);
+      self.setData({ creatingText: '正在创建设计项目…' });
       confirmedPrice = price;
       attempt.confirmedPrice = price; attempts.save(slot, attempt);
       if (attempt.projectId) return { projectId: attempt.projectId };
@@ -711,18 +725,20 @@ protectedPage({
       const projectId = project && project.projectId;
       if (!projectId) throw { msg: '创建设计项目失败' };
       attempt.projectId = projectId; attempts.save(slot, attempt);
+      if (self._sourceScope === require('../../utils/budget-draft').sessionScope()) require('../../utils/customer-context').bind('project', projectId, self._sourceCustomer);
       getDesignApp().globalData.projectId = projectId;
       getDesignApp().globalData.resultVersionId = null;
       attempts.submitted(slot, attempt);
+      self.setData({ creatingText: '正在提交生成任务…' });
       return spec.createJob(projectId, confirmedPrice, attempt).then(function (job) {
         attempts.assertCurrent(attempt);
-        attempts.complete(slot, attempt);
-        self._lastAttemptKey = null;
+        if (!job || !job.jobId) throw {msg:'任务编号未确认，请重试读取同一任务'};
+        attempt.jobId = job.jobId; attempts.save(slot, attempt);
         self._recoveringAttempt = false; self.setData({ pendingGeneration: false });
         if (spec.stage === 'ELEVATION') self._resumeElevationProjectId = null;
         if (spec.afterAccepted) spec.afterAccepted();
         getDesignApp().globalData.jobId = job.jobId;
-        wx.redirectTo({ url: spec.redirectUrl });
+        return openAccepted();
       });
     }).catch(function (err) {
       try {
