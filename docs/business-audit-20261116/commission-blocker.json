@@ -1,0 +1,10 @@
+{
+  "hasContext": true,
+  "hasBudget": false,
+  "hasFeeOffer": false,
+  "allowedActions": [],
+  "hasCustomerName": false,
+  "primary": "",
+  "budgetCard": false,
+  "error": ""
+}

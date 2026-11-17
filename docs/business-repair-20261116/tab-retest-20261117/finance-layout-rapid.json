@@ -1,0 +1,792 @@
+{
+  "started": 1794848541531,
+  "samples": [
+    {
+      "t": 44,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 69,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 162,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 194,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 235,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 261,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 301,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 320,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 455,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 480,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 516,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 546,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 577,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 609,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 640,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 675,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 704,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 739,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 774,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 808,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 839,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 870,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 900,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 931,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": true,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 1036,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 844
+    },
+    {
+      "t": 1189,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1223,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1254,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1285,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1346,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1376,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1409,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1441,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1474,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1508,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1541,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1574,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1608,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1674,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1706,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1729,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1767,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1797,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1825,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1859,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1889,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1936,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1997,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2060,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2120,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2151,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2178,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2211,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2243,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2274,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2320,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2475,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2505,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2535,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2566,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2597,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2628,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2659,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2690,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2735,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2753,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2791,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2822,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2859,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2890,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 2920,
+      "route": "pages/profile/index",
+      "view": "",
+      "stale": true,
+      "width": 390.3999938964844,
+      "height": 1085
+    },
+    {
+      "t": 3025,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1046.800048828125
+    },
+    {
+      "t": 3116,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3206,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3234,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3275,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3305,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3336,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3364,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3396,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3425,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3458,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3489,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3525,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3558,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3591,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3619,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3657,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3688,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3719,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3744,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3777,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3809,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3841,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3875,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3917,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3943,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    },
+    {
+      "t": 3968,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1108.300048828125
+    }
+  ],
+  "duration": 20000,
+  "inflight": true,
+  "done": true
+}

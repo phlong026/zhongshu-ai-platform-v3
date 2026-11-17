@@ -1,0 +1,28 @@
+<view class="page engineering-page workbench-page engineering-live">
+  <view class="workbench-header"><brand-header id="engineering-workbench-header" divider="{{true}}" account-font="{{true}}" title="{{deskTitle||'工程工作台'}}" /></view>
+  <view class="content guest-content">
+  <block wx:if="{{guest}}">
+    <login-guide title="工程工作台" description="在建项目、施工计划、材料到货与节点验收按岗位授权开放，登录后查看本人工作台。" />
+  </block>
+  <workbench-denied wx:elif="{{!canWork}}" title="{{active?'当前岗位无工程办理权限':'登录后查看工程工作台'}}" lines="{{['当前身份：'+(roleLabel||'访客'),'工程办理按工程人员、工程负责人及管理岗位授权开放。请返回本人工作台办理岗位事项。']}}" home-title="{{homeTitle||''}}" active="{{active}}" bind:home="goTab" bind:identity="openAction"/><block wx:else>
+    <view class="engineering-greeting"><text>你好，{{homeName}}</text></view>
+    <view class="section"><view class="section-heading"><text class="section-title">项目总览</text><button class="guest-section-link" data-action="projects" bindtap="openAction">全部项目<image src="/pages/engineering/assets/arrow.png" mode="aspectFit"/></button></view>
+      <view class="eng-shortcuts">
+        <button data-action="projects" bindtap="openAction" hover-class="pressed"><image src="/pages/engineering/assets/folder.png" mode="aspectFit"/><view><text class="eng-shortcut-label">我的项目</text><view class="eng-shortcut-number">{{projectCount}}<text>个</text></view></view></button>
+        <button data-action="active" bindtap="openAction" hover-class="pressed"><image src="/pages/engineering/assets/helmet.png" mode="aspectFit"/><view><text class="eng-shortcut-label">在建</text><view class="eng-shortcut-number">{{activeCount}}<text>个</text></view></view></button>
+        <button data-action="pending" bindtap="openAction" hover-class="pressed"><image src="/pages/engineering/assets/calendar.png" mode="aspectFit"/><view><text class="eng-shortcut-label">待开工</text><view class="eng-shortcut-number">{{pendingCount}}<text>个</text></view></view></button>
+        <button data-action="delivery" bindtap="openAction" hover-class="pressed"><image src="/pages/engineering/assets/tasks.png" mode="aspectFit"/><view><text class="eng-shortcut-label">待交付</text><view class="eng-shortcut-number">{{deliveryCount}}<text>个</text></view></view></button>
+      </view>
+    </view>
+    <view class="section guest-todos"><view class="section-heading"><text class="section-title">今日待办</text></view>
+      <text wx:if="{{platformTodos&&platformTodos.warning}}" class="hint">{{platformTodos.warning}}</text>
+      <block wx:if="{{!platformTodos||platformTodos.status==='loading'}}"><text class="hint">待办加载中…</text></block>
+      <block wx:elif="{{platformTodos.status==='degraded'}}"><text class="hint">{{platformTodos.message||'待办暂时无法加载'}}</text><button class="guest-section-link" bindtap="retryPlatformTodos">重新加载<image src="/pages/engineering/assets/arrow.png" mode="aspectFit"/></button></block>
+      <block wx:elif="{{platformTodos.status==='partial-empty'}}"><text class="hint">已加载部分暂无待办</text><button class="guest-section-link" bindtap="retryPlatformTodos">重新加载<image src="/pages/engineering/assets/arrow.png" mode="aspectFit"/></button></block>
+      <block wx:elif="{{platformTodos.status==='ready'&&platformTodos.rows.length===0}}"><text class="hint">暂无待办</text></block>
+      <block wx:else><view wx:for="{{platformTodos.rows}}" wx:key="key" class="guest-project {{item.clickable?'':'pt-row-disabled'}}"><button class="guest-project-name" data-path="{{item.path}}" data-clickable="{{item.clickable}}" bindtap="openPlatformTodo"><text>{{item.title}}</text><image src="/pages/engineering/assets/arrow-muted.png" mode="aspectFit"/></button><text class="hint">{{item.typeLabel}} · {{item.actionHint}}</text></view></block>
+    </view>
+    <view class="section guest-shortcuts"><view class="section-heading"><text class="section-title">快捷操作</text></view><view class="guest-shortcut-grid"><button wx:for="{{tools}}" wx:key="title" data-action="{{item.action}}" bindtap="openAction" hover-class="pressed"><image src="/pages/engineering/assets/{{item.icon}}.png" mode="aspectFit"/><text class="guest-shortcut-title">{{item.title}}</text></button></view></view>
+  </block></view>
+</view>
+<action-panel workbench="{{true}}" id="dashboard-action-panel" panel="{{panel}}" bindclose="closePanel" bindsubmit="submitPanel" />

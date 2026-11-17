@@ -1,0 +1,4358 @@
+[
+  {
+    "n": 0,
+    "label": "finance-sequential",
+    "indices": [
+      16
+    ],
+    "clickMs": 9,
+    "firstMs": 897,
+    "totalMs": 1758,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 1,
+    "label": "finance-sequential",
+    "indices": [
+      17
+    ],
+    "clickMs": 7,
+    "firstMs": 888,
+    "totalMs": 1769,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 2,
+    "label": "finance-sequential",
+    "indices": [
+      16
+    ],
+    "clickMs": 8,
+    "firstMs": 879,
+    "totalMs": 1750,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 3,
+    "label": "finance-sequential",
+    "indices": [
+      4
+    ],
+    "clickMs": 11,
+    "firstMs": 964,
+    "totalMs": 1832,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 4,
+    "label": "finance-sequential",
+    "indices": [
+      17
+    ],
+    "clickMs": 10,
+    "firstMs": 1050,
+    "totalMs": 1944,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 5,
+    "label": "finance-sequential",
+    "indices": [
+      16
+    ],
+    "clickMs": 7,
+    "firstMs": 936,
+    "totalMs": 1805,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 6,
+    "label": "finance-sequential",
+    "indices": [
+      17
+    ],
+    "clickMs": 8,
+    "firstMs": 891,
+    "totalMs": 1789,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 7,
+    "label": "finance-sequential",
+    "indices": [
+      4
+    ],
+    "clickMs": 11,
+    "firstMs": 978,
+    "totalMs": 1884,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 8,
+    "label": "finance-sequential",
+    "indices": [
+      16
+    ],
+    "clickMs": 10,
+    "firstMs": 1048,
+    "totalMs": 1934,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 4,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 4,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 9,
+    "label": "finance-sequential",
+    "indices": [
+      17
+    ],
+    "clickMs": 10,
+    "firstMs": 911,
+    "totalMs": 1781,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 4,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 4,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 10,
+    "label": "finance-rapid",
+    "indices": [
+      4,
+      17
+    ],
+    "clickMs": 14,
+    "firstMs": 1046,
+    "totalMs": 1958,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "loading",
+      "instance": 5,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 5,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 11,
+    "label": "finance-rapid",
+    "indices": [
+      4,
+      16
+    ],
+    "clickMs": 11,
+    "firstMs": 1099,
+    "totalMs": 2041,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "loading",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 12,
+    "label": "finance-rapid",
+    "indices": [
+      17,
+      4
+    ],
+    "clickMs": 19,
+    "firstMs": 978,
+    "totalMs": 1881,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 13,
+    "label": "finance-rapid",
+    "indices": [
+      16,
+      17
+    ],
+    "clickMs": 10,
+    "firstMs": 1024,
+    "totalMs": 1918,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 17,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 14,
+    "label": "finance-rapid",
+    "indices": [
+      4,
+      17,
+      16
+    ],
+    "clickMs": 14,
+    "firstMs": 1077,
+    "totalMs": 1980,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "loading",
+      "instance": 8,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 8,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 15,
+    "label": "finance-rapid",
+    "indices": [
+      17,
+      4,
+      16,
+      17
+    ],
+    "clickMs": 16,
+    "firstMs": 1083,
+    "totalMs": 1979,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "loading",
+      "instance": 9,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 9,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 16,
+    "label": "finance-rapid",
+    "indices": [
+      4,
+      16,
+      4
+    ],
+    "clickMs": 13,
+    "firstMs": 963,
+    "totalMs": 1831,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 17,
+    "label": "finance-rapid",
+    "indices": [
+      16,
+      17,
+      16
+    ],
+    "clickMs": 12,
+    "firstMs": 1116,
+    "totalMs": 1986,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 16,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 10,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 16,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 10,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 18,
+    "label": "finance-rapid",
+    "indices": [
+      4,
+      17,
+      4,
+      16
+    ],
+    "clickMs": 4,
+    "firstMs": 898,
+    "totalMs": 1758,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 16,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 10,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 16,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 10,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 19,
+    "label": "finance-rapid",
+    "indices": [
+      17,
+      4,
+      17
+    ],
+    "clickMs": 4,
+    "firstMs": 902,
+    "totalMs": 1790,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 17,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 10,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 17,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 10,
+      "keyword": "",
+      "filter": ""
+    },
+    "converged": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 10,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 20,
+    "label": "sales-cold-warm",
+    "indices": [
+      5
+    ],
+    "clickMs": 11,
+    "firstMs": 1058,
+    "settledMs": 1203,
+    "totalMs": 2093,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 21,
+    "label": "sales-cold-warm",
+    "indices": [
+      6
+    ],
+    "clickMs": 10,
+    "firstMs": 993,
+    "settledMs": 1414,
+    "totalMs": 2309,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 22,
+    "label": "sales-cold-warm",
+    "indices": [
+      7
+    ],
+    "clickMs": 12,
+    "firstMs": 1148,
+    "settledMs": 1299,
+    "totalMs": 2172,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 23,
+    "label": "sales-cold-warm",
+    "indices": [
+      4
+    ],
+    "clickMs": 11,
+    "firstMs": 996,
+    "settledMs": 1323,
+    "totalMs": 2236,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 24,
+    "label": "sales-cold-warm",
+    "indices": [
+      1
+    ],
+    "clickMs": 17,
+    "firstMs": 944,
+    "settledMs": 946,
+    "totalMs": 1828,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 25,
+    "label": "sales-cold-warm",
+    "indices": [
+      5
+    ],
+    "clickMs": 9,
+    "firstMs": 914,
+    "settledMs": 916,
+    "totalMs": 1789,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 26,
+    "label": "sales-cold-warm",
+    "indices": [
+      6
+    ],
+    "clickMs": 10,
+    "firstMs": 947,
+    "settledMs": 949,
+    "totalMs": 1832,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 27,
+    "label": "sales-cold-warm",
+    "indices": [
+      7
+    ],
+    "clickMs": 8,
+    "firstMs": 926,
+    "settledMs": 928,
+    "totalMs": 1817,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 28,
+    "label": "sales-cold-warm",
+    "indices": [
+      4
+    ],
+    "clickMs": 8,
+    "firstMs": 927,
+    "settledMs": 929,
+    "totalMs": 1812,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 29,
+    "label": "sales-cold-warm",
+    "indices": [
+      1
+    ],
+    "clickMs": 9,
+    "firstMs": 902,
+    "settledMs": 904,
+    "totalMs": 1811,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 30,
+    "label": "sales-warm",
+    "indices": [
+      5
+    ],
+    "clickMs": 10,
+    "firstMs": 913,
+    "settledMs": 915,
+    "totalMs": 1780,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 31,
+    "label": "sales-warm",
+    "indices": [
+      7
+    ],
+    "clickMs": 8,
+    "firstMs": 932,
+    "settledMs": 935,
+    "totalMs": 1823,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 32,
+    "label": "sales-warm",
+    "indices": [
+      6
+    ],
+    "clickMs": 9,
+    "firstMs": 919,
+    "settledMs": 923,
+    "totalMs": 1821,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 33,
+    "label": "sales-warm",
+    "indices": [
+      1
+    ],
+    "clickMs": 10,
+    "firstMs": 922,
+    "settledMs": 924,
+    "totalMs": 1789,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 34,
+    "label": "sales-warm",
+    "indices": [
+      4
+    ],
+    "clickMs": 10,
+    "firstMs": 967,
+    "settledMs": 969,
+    "totalMs": 1851,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 35,
+    "label": "sales-warm",
+    "indices": [
+      7
+    ],
+    "clickMs": 9,
+    "firstMs": 896,
+    "settledMs": 898,
+    "totalMs": 1785,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 36,
+    "label": "sales-warm",
+    "indices": [
+      1
+    ],
+    "clickMs": 8,
+    "firstMs": 900,
+    "settledMs": 903,
+    "totalMs": 1771,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 37,
+    "label": "sales-warm",
+    "indices": [
+      6
+    ],
+    "clickMs": 10,
+    "firstMs": 947,
+    "settledMs": 950,
+    "totalMs": 1833,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 38,
+    "label": "sales-warm",
+    "indices": [
+      5
+    ],
+    "clickMs": 8,
+    "firstMs": 909,
+    "settledMs": 910,
+    "totalMs": 1785,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 39,
+    "label": "sales-warm",
+    "indices": [
+      4
+    ],
+    "clickMs": 9,
+    "firstMs": 927,
+    "settledMs": 929,
+    "totalMs": 1826,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 40,
+    "label": "sales-rapid",
+    "indices": [
+      5,
+      6,
+      7,
+      4,
+      1
+    ],
+    "clickMs": 9,
+    "firstMs": 907,
+    "settledMs": 908,
+    "totalMs": 1825,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 41,
+    "label": "sales-rapid",
+    "indices": [
+      6,
+      7,
+      6
+    ],
+    "clickMs": 10,
+    "firstMs": 921,
+    "settledMs": 923,
+    "totalMs": 1806,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 42,
+    "label": "sales-rapid",
+    "indices": [
+      4,
+      5,
+      4
+    ],
+    "clickMs": 8,
+    "firstMs": 916,
+    "settledMs": 918,
+    "totalMs": 1817,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 43,
+    "label": "sales-rapid",
+    "indices": [
+      7,
+      5,
+      6,
+      7
+    ],
+    "clickMs": 11,
+    "firstMs": 910,
+    "settledMs": 912,
+    "totalMs": 1805,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 44,
+    "label": "sales-rapid",
+    "indices": [
+      1,
+      4,
+      1
+    ],
+    "clickMs": 14,
+    "firstMs": 1005,
+    "settledMs": 1007,
+    "totalMs": 1889,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 45,
+    "label": "sales-rapid",
+    "indices": [
+      5,
+      7,
+      5
+    ],
+    "clickMs": 11,
+    "firstMs": 908,
+    "settledMs": 911,
+    "totalMs": 1788,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 46,
+    "label": "sales-rapid",
+    "indices": [
+      6,
+      1,
+      4,
+      6
+    ],
+    "clickMs": 9,
+    "firstMs": 917,
+    "settledMs": 919,
+    "totalMs": 1801,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 47,
+    "label": "sales-rapid",
+    "indices": [
+      7,
+      4,
+      7
+    ],
+    "clickMs": 9,
+    "firstMs": 932,
+    "settledMs": 938,
+    "totalMs": 1814,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 48,
+    "label": "sales-rapid",
+    "indices": [
+      1,
+      5,
+      6,
+      1
+    ],
+    "clickMs": 10,
+    "firstMs": 930,
+    "settledMs": 931,
+    "totalMs": 1798,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 49,
+    "label": "sales-rapid",
+    "indices": [
+      4,
+      7,
+      5,
+      4
+    ],
+    "clickMs": 10,
+    "firstMs": 913,
+    "settledMs": 915,
+    "totalMs": 1797,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 50,
+    "label": "sales-state-retention",
+    "indices": [
+      7
+    ],
+    "clickMs": 9,
+    "firstMs": 927,
+    "settledMs": 933,
+    "totalMs": 1798,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 51,
+    "label": "sales-state-retention",
+    "indices": [
+      1
+    ],
+    "clickMs": 9,
+    "firstMs": 926,
+    "settledMs": 928,
+    "totalMs": 1809,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 52,
+    "label": "sales-state-retention",
+    "indices": [
+      5
+    ],
+    "clickMs": 10,
+    "firstMs": 907,
+    "settledMs": 910,
+    "totalMs": 1811,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 53,
+    "label": "sales-filter-retention",
+    "indices": [
+      6
+    ],
+    "clickMs": 20,
+    "firstMs": 911,
+    "settledMs": 914,
+    "totalMs": 1831,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 54,
+    "label": "sales-filter-retention",
+    "indices": [
+      1
+    ],
+    "clickMs": 8,
+    "firstMs": 957,
+    "settledMs": 959,
+    "totalMs": 1866,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 55,
+    "label": "sales-filter-retention",
+    "indices": [
+      7
+    ],
+    "clickMs": 9,
+    "firstMs": 895,
+    "settledMs": 900,
+    "totalMs": 1759,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "visited"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "visited"
+    }
+  },
+  {
+    "n": 56,
+    "label": "sales-final-sequential",
+    "indices": [
+      5
+    ],
+    "clickMs": 10,
+    "firstMs": 905,
+    "settledMs": 908,
+    "totalMs": 1788,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 57,
+    "label": "sales-final-sequential",
+    "indices": [
+      1
+    ],
+    "clickMs": 10,
+    "firstMs": 932,
+    "settledMs": 935,
+    "totalMs": 1825,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 58,
+    "label": "sales-final-sequential",
+    "indices": [
+      6
+    ],
+    "clickMs": 7,
+    "firstMs": 909,
+    "settledMs": 912,
+    "totalMs": 1797,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 59,
+    "label": "sales-final-sequential",
+    "indices": [
+      4
+    ],
+    "clickMs": 9,
+    "firstMs": 959,
+    "settledMs": 962,
+    "totalMs": 1853,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 60,
+    "label": "sales-final-sequential",
+    "indices": [
+      7
+    ],
+    "clickMs": 8,
+    "firstMs": 904,
+    "settledMs": 906,
+    "totalMs": 1777,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 61,
+    "label": "sales-final-sequential",
+    "indices": [
+      1
+    ],
+    "clickMs": 10,
+    "firstMs": 945,
+    "settledMs": 947,
+    "totalMs": 1814,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 15,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 62,
+    "label": "sales-final-sequential",
+    "indices": [
+      5
+    ],
+    "clickMs": 9,
+    "firstMs": 900,
+    "settledMs": 903,
+    "totalMs": 1791,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 63,
+    "label": "sales-final-sequential",
+    "indices": [
+      6
+    ],
+    "clickMs": 9,
+    "firstMs": 922,
+    "settledMs": 924,
+    "totalMs": 1863,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 64,
+    "label": "sales-final-sequential",
+    "indices": [
+      7
+    ],
+    "clickMs": 8,
+    "firstMs": 918,
+    "settledMs": 920,
+    "totalMs": 1796,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 13,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 65,
+    "label": "sales-final-sequential",
+    "indices": [
+      4
+    ],
+    "clickMs": 8,
+    "firstMs": 949,
+    "settledMs": 952,
+    "totalMs": 1855,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 14,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 66,
+    "label": "finance-final-rapid",
+    "indices": [
+      4,
+      17
+    ],
+    "clickMs": 13,
+    "firstMs": 1091,
+    "settledMs": 2640,
+    "totalMs": 3531,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": true,
+      "pending": 17,
+      "error": "",
+      "financeStatus": "",
+      "instance": 16,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 17,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 67,
+    "label": "finance-final-rapid",
+    "indices": [
+      4,
+      16
+    ],
+    "clickMs": 14,
+    "firstMs": 1166,
+    "settledMs": 1636,
+    "totalMs": 2515,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 18,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 18,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 68,
+    "label": "finance-final-rapid",
+    "indices": [
+      17,
+      4
+    ],
+    "clickMs": 21,
+    "firstMs": 964,
+    "settledMs": 966,
+    "totalMs": 1861,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 16,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 16,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 69,
+    "label": "finance-final-rapid",
+    "indices": [
+      16,
+      17
+    ],
+    "clickMs": 10,
+    "firstMs": 1128,
+    "settledMs": 1418,
+    "totalMs": 2333,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 17,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 19,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 19,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 70,
+    "label": "finance-final-rapid",
+    "indices": [
+      4,
+      17,
+      16
+    ],
+    "clickMs": 12,
+    "firstMs": 1055,
+    "settledMs": 1654,
+    "totalMs": 2553,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "loading",
+      "instance": 20,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 20,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 71,
+    "label": "finance-final-rapid",
+    "indices": [
+      17,
+      4,
+      16,
+      17
+    ],
+    "clickMs": 18,
+    "firstMs": 1098,
+    "settledMs": 1676,
+    "totalMs": 2566,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "loading",
+      "instance": 21,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 21,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 72,
+    "label": "finance-final-rapid",
+    "indices": [
+      4,
+      16,
+      4
+    ],
+    "clickMs": 12,
+    "firstMs": 947,
+    "settledMs": 950,
+    "totalMs": 1831,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 16,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 16,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 73,
+    "label": "finance-final-rapid",
+    "indices": [
+      16,
+      17,
+      16
+    ],
+    "clickMs": 10,
+    "firstMs": 1103,
+    "settledMs": 1398,
+    "totalMs": 2349,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "pending": 16,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 22,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 22,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 74,
+    "label": "finance-final-rapid",
+    "indices": [
+      4,
+      17,
+      4,
+      16
+    ],
+    "clickMs": 11,
+    "firstMs": 1092,
+    "settledMs": 1613,
+    "totalMs": 2484,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "loading",
+      "instance": 23,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 23,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 75,
+    "label": "finance-final-rapid",
+    "indices": [
+      17,
+      4,
+      17
+    ],
+    "clickMs": 16,
+    "firstMs": 1041,
+    "settledMs": 1663,
+    "totalMs": 2556,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "loading",
+      "instance": 24,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 24,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 76,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      4,
+      17
+    ],
+    "clickMs": 27,
+    "firstMs": 927,
+    "settledMs": 930,
+    "totalMs": 1786,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 77,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      4,
+      16
+    ],
+    "clickMs": 26,
+    "firstMs": 894,
+    "settledMs": 896,
+    "totalMs": 1762,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 78,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      17,
+      4
+    ],
+    "clickMs": 28,
+    "firstMs": 925,
+    "settledMs": 927,
+    "totalMs": 1770,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 79,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      16,
+      17
+    ],
+    "clickMs": 11,
+    "firstMs": 897,
+    "settledMs": 899,
+    "totalMs": 1779,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 80,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      4,
+      17,
+      16
+    ],
+    "clickMs": 30,
+    "firstMs": 936,
+    "settledMs": 938,
+    "totalMs": 1789,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 81,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      17,
+      4,
+      16,
+      17
+    ],
+    "clickMs": 34,
+    "firstMs": 915,
+    "settledMs": 917,
+    "totalMs": 1779,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 82,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      4,
+      16,
+      4
+    ],
+    "clickMs": 37,
+    "firstMs": 941,
+    "settledMs": 943,
+    "totalMs": 1843,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 83,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      16,
+      17,
+      16
+    ],
+    "clickMs": 15,
+    "firstMs": 865,
+    "settledMs": 870,
+    "totalMs": 1729,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 84,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      4,
+      17,
+      4,
+      16
+    ],
+    "clickMs": 38,
+    "firstMs": 906,
+    "settledMs": 908,
+    "totalMs": 1752,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 85,
+    "label": "finance-no-remount-rapid",
+    "indices": [
+      17,
+      4,
+      17
+    ],
+    "clickMs": 30,
+    "firstMs": 892,
+    "settledMs": 894,
+    "totalMs": 1778,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 86,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      16
+    ],
+    "clickMs": 8,
+    "firstMs": 926,
+    "settledMs": 929,
+    "totalMs": 1792,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 87,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      4
+    ],
+    "clickMs": 23,
+    "firstMs": 935,
+    "settledMs": 938,
+    "totalMs": 1847,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 88,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      17
+    ],
+    "clickMs": 8,
+    "firstMs": 894,
+    "settledMs": 898,
+    "totalMs": 1756,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 89,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      16
+    ],
+    "clickMs": 7,
+    "firstMs": 879,
+    "settledMs": 881,
+    "totalMs": 1768,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 90,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      17
+    ],
+    "clickMs": 11,
+    "firstMs": 863,
+    "settledMs": 866,
+    "totalMs": 1744,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 91,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      4
+    ],
+    "clickMs": 24,
+    "firstMs": 921,
+    "settledMs": 923,
+    "totalMs": 1823,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 92,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      16
+    ],
+    "clickMs": 7,
+    "firstMs": 890,
+    "settledMs": 893,
+    "totalMs": 1775,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 93,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      17
+    ],
+    "clickMs": 6,
+    "firstMs": 884,
+    "settledMs": 886,
+    "totalMs": 1735,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 94,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      4
+    ],
+    "clickMs": 21,
+    "firstMs": 907,
+    "settledMs": 909,
+    "totalMs": 1798,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 95,
+    "label": "finance-no-remount-sequential",
+    "indices": [
+      17
+    ],
+    "clickMs": 7,
+    "firstMs": 857,
+    "settledMs": 859,
+    "totalMs": 1720,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 96,
+    "label": "finance-filter-retention",
+    "indices": [
+      16
+    ],
+    "clickMs": 8,
+    "firstMs": 888,
+    "settledMs": 890,
+    "totalMs": 1765,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 97,
+    "label": "finance-filter-retention",
+    "indices": [
+      4
+    ],
+    "clickMs": 19,
+    "firstMs": 897,
+    "settledMs": 899,
+    "totalMs": 1784,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 98,
+    "label": "finance-filter-retention",
+    "indices": [
+      17
+    ],
+    "clickMs": 9,
+    "firstMs": 874,
+    "settledMs": 876,
+    "totalMs": 1759,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "验收筛选1117",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 1,
+      "keyword": "验收筛选1117",
+      "filter": ""
+    }
+  },
+  {
+    "n": 99,
+    "label": "final-source-sales",
+    "indices": [
+      5,
+      6,
+      7,
+      4,
+      1
+    ],
+    "clickMs": 12,
+    "firstMs": 1074,
+    "settledMs": 1294,
+    "totalMs": 2193,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 100,
+    "label": "final-source-sales",
+    "indices": [
+      5
+    ],
+    "clickMs": 7,
+    "firstMs": 868,
+    "settledMs": 870,
+    "totalMs": 1735,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 2,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 101,
+    "label": "final-source-sales",
+    "indices": [
+      6
+    ],
+    "clickMs": 10,
+    "firstMs": 1011,
+    "settledMs": 1161,
+    "totalMs": 2038,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 102,
+    "label": "final-source-sales",
+    "indices": [
+      7
+    ],
+    "clickMs": 10,
+    "firstMs": 1051,
+    "settledMs": 1154,
+    "totalMs": 2028,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 4,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 4,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 103,
+    "label": "final-source-sales",
+    "indices": [
+      4
+    ],
+    "clickMs": 8,
+    "firstMs": 1011,
+    "settledMs": 1199,
+    "totalMs": 2061,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 5,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 5,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 104,
+    "label": "final-source-sales",
+    "indices": [
+      1
+    ],
+    "clickMs": 7,
+    "firstMs": 896,
+    "settledMs": 898,
+    "totalMs": 1762,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 105,
+    "label": "final-source-sales",
+    "indices": [
+      7,
+      5,
+      6
+    ],
+    "clickMs": 10,
+    "firstMs": 879,
+    "settledMs": 880,
+    "totalMs": 1764,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 3,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 106,
+    "label": "final-source-sales",
+    "indices": [
+      4
+    ],
+    "clickMs": 7,
+    "firstMs": 897,
+    "settledMs": 899,
+    "totalMs": 1771,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 5,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 5,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 107,
+    "label": "final-source-sales",
+    "indices": [
+      7
+    ],
+    "clickMs": 6,
+    "firstMs": 913,
+    "settledMs": 915,
+    "totalMs": 1787,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 4,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 4,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 108,
+    "label": "final-source-sales",
+    "indices": [
+      1
+    ],
+    "clickMs": 8,
+    "firstMs": 898,
+    "settledMs": 900,
+    "totalMs": 1780,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 1,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 109,
+    "label": "final-source-finance",
+    "indices": [
+      16
+    ],
+    "clickMs": 25,
+    "firstMs": 885,
+    "settledMs": 887,
+    "totalMs": 1763,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 110,
+    "label": "final-source-finance",
+    "indices": [
+      17
+    ],
+    "clickMs": 6,
+    "firstMs": 882,
+    "settledMs": 884,
+    "totalMs": 1758,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 111,
+    "label": "final-source-finance",
+    "indices": [
+      4,
+      17
+    ],
+    "clickMs": 20,
+    "firstMs": 879,
+    "settledMs": 880,
+    "totalMs": 1726,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 112,
+    "label": "final-source-finance",
+    "indices": [
+      4,
+      16
+    ],
+    "clickMs": 19,
+    "firstMs": 900,
+    "settledMs": 902,
+    "totalMs": 1751,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 113,
+    "label": "final-source-finance",
+    "indices": [
+      17,
+      4
+    ],
+    "clickMs": 20,
+    "firstMs": 895,
+    "settledMs": 897,
+    "totalMs": 1748,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 114,
+    "label": "final-source-finance",
+    "indices": [
+      16,
+      17
+    ],
+    "clickMs": 9,
+    "firstMs": 894,
+    "settledMs": 896,
+    "totalMs": 1744,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 115,
+    "label": "final-source-finance",
+    "indices": [
+      4,
+      17,
+      16
+    ],
+    "clickMs": 23,
+    "firstMs": 892,
+    "settledMs": 893,
+    "totalMs": 1757,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 116,
+    "label": "final-source-finance",
+    "indices": [
+      17,
+      4,
+      16,
+      17
+    ],
+    "clickMs": 27,
+    "firstMs": 893,
+    "settledMs": 895,
+    "totalMs": 1740,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 117,
+    "label": "final-source-finance",
+    "indices": [
+      4,
+      16,
+      4
+    ],
+    "clickMs": 28,
+    "firstMs": 919,
+    "settledMs": 923,
+    "totalMs": 1798,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 118,
+    "label": "final-source-finance",
+    "indices": [
+      17
+    ],
+    "clickMs": 5,
+    "firstMs": 857,
+    "settledMs": 859,
+    "totalMs": 1707,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 6,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 119,
+    "label": "console-check-finance",
+    "indices": [
+      4,
+      17
+    ],
+    "clickMs": 24,
+    "firstMs": 913,
+    "settledMs": 915,
+    "totalMs": 1788,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 120,
+    "label": "console-check-finance",
+    "indices": [
+      16
+    ],
+    "clickMs": 6,
+    "firstMs": 864,
+    "settledMs": 866,
+    "totalMs": 1744,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 121,
+    "label": "console-check-finance",
+    "indices": [
+      4
+    ],
+    "clickMs": 17,
+    "firstMs": 894,
+    "settledMs": 896,
+    "totalMs": 1782,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "profile",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 122,
+    "label": "console-check-finance",
+    "indices": [
+      17
+    ],
+    "clickMs": 6,
+    "firstMs": 869,
+    "settledMs": 871,
+    "totalMs": 1785,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "selected": 17,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 123,
+    "label": "console-check-finance",
+    "indices": [
+      16
+    ],
+    "clickMs": 9,
+    "firstMs": 920,
+    "settledMs": 922,
+    "totalMs": 1780,
+    "first": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "selected": 16,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "ready",
+      "instance": 7,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 124,
+    "label": "console-check-sales",
+    "indices": [
+      5
+    ],
+    "clickMs": 9,
+    "firstMs": 1007,
+    "settledMs": 1146,
+    "totalMs": 2015,
+    "first": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 8,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/home/index",
+      "view": "",
+      "selected": 5,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 8,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 125,
+    "label": "console-check-sales",
+    "indices": [
+      6
+    ],
+    "clickMs": 9,
+    "firstMs": 990,
+    "settledMs": 1125,
+    "totalMs": 2040,
+    "first": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 9,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/engineering/index",
+      "view": "",
+      "selected": 6,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 9,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 126,
+    "label": "console-check-sales",
+    "indices": [
+      7
+    ],
+    "clickMs": 9,
+    "firstMs": 923,
+    "settledMs": 1161,
+    "totalMs": 2076,
+    "first": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 10,
+      "keyword": "",
+      "filter": "all"
+    },
+    "settled": {
+      "route": "pages/management/index",
+      "view": "",
+      "selected": 7,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 10,
+      "keyword": "",
+      "filter": "all"
+    }
+  },
+  {
+    "n": 127,
+    "label": "console-check-sales",
+    "indices": [
+      4
+    ],
+    "clickMs": 8,
+    "firstMs": 997,
+    "settledMs": 1191,
+    "totalMs": 2082,
+    "first": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": true,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/profile/index",
+      "view": "",
+      "selected": 4,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 11,
+      "keyword": "",
+      "filter": ""
+    }
+  },
+  {
+    "n": 128,
+    "label": "console-check-sales",
+    "indices": [
+      1
+    ],
+    "clickMs": 8,
+    "firstMs": 897,
+    "settledMs": 899,
+    "totalMs": 1761,
+    "first": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    },
+    "settled": {
+      "route": "pages/business/index",
+      "view": "",
+      "selected": 1,
+      "navigating": false,
+      "error": "",
+      "financeStatus": "",
+      "instance": 12,
+      "keyword": "",
+      "filter": ""
+    }
+  }
+]

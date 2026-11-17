@@ -1,0 +1,19 @@
+{
+  "customerId": "2122372741998936065",
+  "commissionId": "2122373070203224066",
+  "originalBudgetId": "2122322719232090113",
+  "reusedBudget": true,
+  "receipt": {
+    "number": "SIM-2122373070203224066-V1",
+    "commissionId": "2122373070203224066",
+    "submissionVersion": 1,
+    "customerName": "财务消息验收1117",
+    "amountCents": 240000,
+    "status": "PAID",
+    "channel": "WECHAT",
+    "paidAt": 1794848169979,
+    "simulated": true,
+    "storeFinanceConfigured": true,
+    "headquartersFinanceConfigured": true
+  }
+}

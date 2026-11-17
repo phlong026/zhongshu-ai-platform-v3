@@ -1,0 +1,1556 @@
+[
+  {
+    "file": "000-first.png",
+    "variance": 593.91,
+    "nearWhiteRatio": 0.6838,
+    "nearBlank": false
+  },
+  {
+    "file": "000-settled.png",
+    "variance": 593.91,
+    "nearWhiteRatio": 0.6838,
+    "nearBlank": false
+  },
+  {
+    "file": "001-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "001-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "002-first.png",
+    "variance": 593.91,
+    "nearWhiteRatio": 0.6838,
+    "nearBlank": false
+  },
+  {
+    "file": "002-settled.png",
+    "variance": 593.91,
+    "nearWhiteRatio": 0.6838,
+    "nearBlank": false
+  },
+  {
+    "file": "003-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "003-settled.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "004-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "004-settled.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "005-first.png",
+    "variance": 593.91,
+    "nearWhiteRatio": 0.6838,
+    "nearBlank": false
+  },
+  {
+    "file": "005-settled.png",
+    "variance": 593.91,
+    "nearWhiteRatio": 0.6838,
+    "nearBlank": false
+  },
+  {
+    "file": "006-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "006-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "007-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "007-settled.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "008-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "008-settled.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "009-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "009-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "010-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "010-settled.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "011-first.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "011-settled.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "012-first.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "012-settled.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "013-first.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "013-settled.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "014-first.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "014-settled.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "015-first.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "015-settled.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "016-first.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "016-settled.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "017-first.png",
+    "variance": 4164.67,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "017-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "018-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "018-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "019-converged.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "019-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "019-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "020-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "020-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "021-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "021-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "022-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "022-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "023-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "023-settled.png",
+    "variance": 4154.13,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "024-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "024-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "025-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "025-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "026-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "026-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "027-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "027-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "028-first.png",
+    "variance": 4154.13,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "028-settled.png",
+    "variance": 4154.13,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "029-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "029-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "030-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "030-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "031-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "031-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "032-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "032-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "033-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "033-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "034-first.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "034-settled.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "035-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "035-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "036-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "036-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "037-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "037-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "038-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "038-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "039-first.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "039-settled.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "040-first.png",
+    "variance": 691.69,
+    "nearWhiteRatio": 0.7918,
+    "nearBlank": false
+  },
+  {
+    "file": "040-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "041-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "041-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "042-first.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "042-settled.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "043-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "043-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "044-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "044-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "045-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "045-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "046-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "046-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "047-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "047-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "048-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "048-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "049-first.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "049-settled.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "050-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "050-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "051-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "051-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "052-first.png",
+    "variance": 2747.09,
+    "nearWhiteRatio": 0.5428,
+    "nearBlank": false
+  },
+  {
+    "file": "052-settled.png",
+    "variance": 2747.09,
+    "nearWhiteRatio": 0.5428,
+    "nearBlank": false
+  },
+  {
+    "file": "053-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "053-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "054-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "054-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "055-first.png",
+    "variance": 468.69,
+    "nearWhiteRatio": 0.2106,
+    "nearBlank": false
+  },
+  {
+    "file": "055-settled.png",
+    "variance": 468.69,
+    "nearWhiteRatio": 0.2106,
+    "nearBlank": false
+  },
+  {
+    "file": "056-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "056-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "057-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "057-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "058-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "058-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "059-first.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "059-settled.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "060-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "060-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "061-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "061-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "062-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "062-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "063-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "063-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "064-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "064-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "065-first.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "065-settled.png",
+    "variance": 4154.24,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "066-first.png",
+    "variance": 0.0,
+    "nearWhiteRatio": 1.0,
+    "nearBlank": true
+  },
+  {
+    "file": "066-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "067-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "067-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "068-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "068-settled.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "069-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "069-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "070-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "070-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "071-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "071-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "072-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "072-settled.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "073-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "073-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "074-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "074-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "075-first.png",
+    "variance": 4164.78,
+    "nearWhiteRatio": 0.6286,
+    "nearBlank": false
+  },
+  {
+    "file": "075-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "076-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "076-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "077-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "077-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "078-first.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "078-settled.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "079-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "079-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "080-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "080-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "081-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "081-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "082-first.png",
+    "variance": 4150.84,
+    "nearWhiteRatio": 0.6281,
+    "nearBlank": false
+  },
+  {
+    "file": "082-settled.png",
+    "variance": 4150.84,
+    "nearWhiteRatio": 0.6281,
+    "nearBlank": false
+  },
+  {
+    "file": "083-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "083-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "084-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "084-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "085-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "085-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "086-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "086-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "087-first.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "087-settled.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "088-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "088-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "089-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "089-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "090-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "090-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "091-first.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "091-settled.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "092-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "092-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "093-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "093-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "094-first.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "094-settled.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "095-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "095-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "096-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "096-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "097-first.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "097-settled.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "098-first.png",
+    "variance": 1024.91,
+    "nearWhiteRatio": 0.6332,
+    "nearBlank": false
+  },
+  {
+    "file": "098-settled.png",
+    "variance": 1024.91,
+    "nearWhiteRatio": 0.6332,
+    "nearBlank": false
+  },
+  {
+    "file": "099-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "099-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "100-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "100-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "101-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "101-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "102-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "102-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "103-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "103-settled.png",
+    "variance": 4154.13,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "104-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "104-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "105-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "105-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "106-first.png",
+    "variance": 4154.13,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "106-settled.png",
+    "variance": 4154.13,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "107-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "107-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "108-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "108-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "109-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "109-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "110-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "110-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "111-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "111-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "112-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "112-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "113-first.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "113-settled.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "114-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "114-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "115-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "115-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "116-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "116-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "117-first.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "117-settled.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "118-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "118-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "119-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "119-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "120-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "120-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "121-first.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "121-settled.png",
+    "variance": 4150.85,
+    "nearWhiteRatio": 0.6282,
+    "nearBlank": false
+  },
+  {
+    "file": "122-first.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "122-settled.png",
+    "variance": 1011.19,
+    "nearWhiteRatio": 0.6322,
+    "nearBlank": false
+  },
+  {
+    "file": "123-first.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "123-settled.png",
+    "variance": 803.11,
+    "nearWhiteRatio": 0.6714,
+    "nearBlank": false
+  },
+  {
+    "file": "124-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "124-settled.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "125-first.png",
+    "variance": 2721.46,
+    "nearWhiteRatio": 0.5416,
+    "nearBlank": false
+  },
+  {
+    "file": "125-settled.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "126-first.png",
+    "variance": 2084.19,
+    "nearWhiteRatio": 0.1822,
+    "nearBlank": false
+  },
+  {
+    "file": "126-settled.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "127-first.png",
+    "variance": 722.92,
+    "nearWhiteRatio": 0.6343,
+    "nearBlank": false
+  },
+  {
+    "file": "127-settled.png",
+    "variance": 4154.13,
+    "nearWhiteRatio": 0.5561,
+    "nearBlank": false
+  },
+  {
+    "file": "128-first.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  },
+  {
+    "file": "128-settled.png",
+    "variance": 637.94,
+    "nearWhiteRatio": 0.7893,
+    "nearBlank": false
+  }
+]

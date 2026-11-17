@@ -1,0 +1,51 @@
+{
+  "runs": 129,
+  "screenshots": 259,
+  "blankBeforeFix": [
+    "066-first.png"
+  ],
+  "postFixCases": 53,
+  "postFixFrames": 106,
+  "postFixBlank": 0,
+  "postFixFinalTargetErrors": 0,
+  "finalSourceCases": 30,
+  "finalSourceFrames": 60,
+  "layout": [
+    {
+      "file": "finance-layout-final-source.json",
+      "samples": 598,
+      "validSamples": 598,
+      "zeroLayout": 0
+    },
+    {
+      "file": "finance-layout-no-remount.json",
+      "samples": 742,
+      "validSamples": 742,
+      "zeroLayout": 0
+    },
+    {
+      "file": "finance-layout-rapid.json",
+      "samples": 98,
+      "validSamples": 96,
+      "zeroLayout": 0
+    },
+    {
+      "file": "finance-layout-sequential.json",
+      "samples": 157,
+      "validSamples": 157,
+      "zeroLayout": 0
+    },
+    {
+      "file": "sales-layout-first.json",
+      "samples": 565,
+      "validSamples": 557,
+      "zeroLayout": 0
+    },
+    {
+      "file": "sales-layout-rapid.json",
+      "samples": 588,
+      "validSamples": 583,
+      "zeroLayout": 0
+    }
+  ]
+}

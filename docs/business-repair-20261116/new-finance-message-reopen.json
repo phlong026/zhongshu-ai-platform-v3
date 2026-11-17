@@ -1,0 +1,17 @@
+{
+  "messages": [
+    {
+      "id": "2122373169243324418",
+      "type": "业务",
+      "title": "设计费模拟支付已完成",
+      "description": "模拟支付凭据，仅知会，不计入实际收支",
+      "date": "2026-11-17 00:56",
+      "read": true,
+      "route": "commission-payment",
+      "objectId": "2122373070203224066"
+    }
+  ],
+  "unread": 0,
+  "apiUnread": 0,
+  "error": ""
+}

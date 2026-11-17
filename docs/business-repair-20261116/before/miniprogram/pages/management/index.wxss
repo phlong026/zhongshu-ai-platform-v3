@@ -1,0 +1,4 @@
+@import "../../styles/workbench.wxss";
+
+.management-page { background: #fcfbf8; }
+.management-page .content { padding: 22rpx 29rpx 0; }

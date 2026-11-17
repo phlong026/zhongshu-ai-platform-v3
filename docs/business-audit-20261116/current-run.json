@@ -1,0 +1,340 @@
+{
+  "captures": [
+    {
+      "name": "01-reopened",
+      "route": "pages/account/index",
+      "query": {
+        "view": "login"
+      },
+      "view": "login",
+      "errors": {},
+      "stack": [
+        "pages/account/index"
+      ]
+    },
+    {
+      "name": "02-business-home",
+      "route": "pages/business/index",
+      "query": {},
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/business/index"
+      ]
+    },
+    {
+      "name": "04-design",
+      "route": "pages/design/index",
+      "errors": {},
+      "stack": [
+        "pages/business/index",
+        "pages/design/index"
+      ]
+    },
+    {
+      "name": "05-design-stable",
+      "route": "pages/design/index",
+      "errors": {},
+      "stack": [
+        "pages/business/index",
+        "pages/design/index"
+      ]
+    },
+    {
+      "name": "06-customers",
+      "route": "pages/customers/index",
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index"
+      ]
+    },
+    {
+      "name": "07-customers-appointments",
+      "route": "pages/customers/index",
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index"
+      ]
+    },
+    {
+      "name": "08-customers-visited",
+      "route": "pages/customers/index",
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index"
+      ]
+    },
+    {
+      "name": "09-customer-detail",
+      "route": "pages/workflow/index",
+      "view": "customer",
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index"
+      ]
+    },
+    {
+      "name": "10-customer-follow",
+      "route": "pages/workflow/index",
+      "view": "customer",
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index"
+      ]
+    },
+    {
+      "name": "11-follow-form",
+      "route": "pages/workflow/index",
+      "view": "customer",
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index"
+      ]
+    },
+    {
+      "name": "12-commission-entry",
+      "route": "pages/workflow/commission/index",
+      "view": "submit",
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index",
+        "pages/workflow/commission/index"
+      ]
+    },
+    {
+      "name": "13-ai-config",
+      "route": "design-migration/pages/ai-design/index",
+      "errors": {},
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index",
+        "design-migration/pages/ai-design/index"
+      ]
+    },
+    {
+      "name": "14-ai-elevation",
+      "route": "design-migration/pages/ai-design/index",
+      "errors": {},
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index",
+        "design-migration/pages/ai-design/index"
+      ]
+    },
+    {
+      "name": "15-ai-bottom",
+      "route": "design-migration/pages/ai-design/index",
+      "errors": {},
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index",
+        "design-migration/pages/ai-design/index"
+      ]
+    },
+    {
+      "name": "16-library",
+      "route": "design-migration/pages/library/index",
+      "errors": {},
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index",
+        "design-migration/pages/library/index"
+      ]
+    },
+    {
+      "name": "17-case-detail",
+      "route": "design-migration/pages/library/detail",
+      "errors": {},
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index",
+        "design-migration/pages/library/detail"
+      ]
+    },
+    {
+      "name": "18-case-drawings",
+      "route": "design-migration/pages/library/detail",
+      "errors": {},
+      "stack": [
+        "pages/business/index",
+        "pages/customers/index",
+        "pages/workflow/index",
+        "design-migration/pages/library/detail"
+      ]
+    },
+    {
+      "name": "20-style-horizontal",
+      "route": "design-migration/pages/library/index",
+      "errors": {},
+      "stack": [
+        "design-migration/pages/library/index"
+      ]
+    },
+    {
+      "name": "21-style-scrolled",
+      "route": "design-migration/pages/library/index",
+      "errors": {},
+      "stack": [
+        "design-migration/pages/library/index"
+      ]
+    },
+    {
+      "name": "22-style-selection",
+      "route": "design-migration/pages/library/index",
+      "errors": {},
+      "stack": [
+        "design-migration/pages/library/index"
+      ]
+    },
+    {
+      "name": "tab-design-customers-stable",
+      "route": "pages/customers/index",
+      "errors": {},
+      "status": "ready",
+      "stack": [
+        "pages/customers/index"
+      ]
+    },
+    {
+      "name": "tab-customers-creation-stable",
+      "route": "pages/creation/index",
+      "errors": {},
+      "stack": [
+        "pages/creation/index"
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "route": "pages/business/index",
+      "selector": "button[data-action=\"remix\"]",
+      "at": 1794832505833
+    },
+    {
+      "route": "pages/creation/index",
+      "control": "Tab",
+      "index": 6,
+      "via": "Element.tap",
+      "at": 1794832552192
+    },
+    {
+      "route": "pages/design/index",
+      "control": "Tab",
+      "index": 7,
+      "via": "Element.tap",
+      "at": 1794832569317
+    },
+    {
+      "route": "pages/customers/index",
+      "selector": "button[data-tab=\"appointments\"]",
+      "at": 1794832573045
+    },
+    {
+      "route": "pages/customers/index",
+      "selector": "button[data-tab=\"visited\"]",
+      "at": 1794832574838
+    },
+    {
+      "route": "pages/customers/index",
+      "selector": "button[data-tab=\"all\"]",
+      "at": 1794832576623
+    },
+    {
+      "route": "pages/customers/index",
+      "selector": ".customer-list-row",
+      "at": 1794832577546
+    },
+    {
+      "route": "pages/workflow/index",
+      "selector": "button[data-index=\"1\"]",
+      "at": 1794832596832
+    },
+    {
+      "route": "pages/workflow/index",
+      "selector": "button[data-modal=\"follow\"]",
+      "at": 1794832599472
+    },
+    {
+      "route": "pages/workflow/index",
+      "selector": ".sheet .close",
+      "at": 1794832610165
+    },
+    {
+      "route": "pages/workflow/index",
+      "selector": "button[data-tool=\"commission\"]",
+      "at": 1794832611088
+    },
+    {
+      "route": "pages/workflow/index",
+      "selector": "button[data-tool=\"ai\"]",
+      "at": 1794832625965
+    },
+    {
+      "route": "design-migration/pages/ai-design/index",
+      "selector": "[data-line=\"ELEVATION\"]",
+      "at": 1794832640763
+    },
+    {
+      "route": "pages/workflow/index",
+      "selector": "button[data-tool=\"inspiration\"]",
+      "at": 1794832648207
+    },
+    {
+      "route": "design-migration/pages/library/index",
+      "selector": ".case-card",
+      "at": 1794832666617
+    },
+    {
+      "route": "design-migration/pages/library/index",
+      "selector": ".style-scroll [data-value=\"FRENCH\"]",
+      "at": 1794832745042
+    },
+    {
+      "control": "Tab",
+      "via": "Element.tap",
+      "index": 7,
+      "id": "design-workspace-nav",
+      "at": 1794832765502
+    },
+    {
+      "control": "Tab",
+      "via": "Element.tap",
+      "index": 5,
+      "id": "customers-workspace-nav",
+      "at": 1794832774799
+    }
+  ],
+  "logs": [
+    {
+      "at": 1794832570056,
+      "type": "warn",
+      "args": [
+        "[Component] property \"activeIndex\" of \"custom-tab-bar/index\" received type-uncompatible value: expected <Number> but got non-number value. Used 0 instead."
+      ]
+    }
+  ],
+  "exceptions": []
+}

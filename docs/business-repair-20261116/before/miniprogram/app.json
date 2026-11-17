@@ -1,0 +1,165 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/business/index",
+    "pages/engineering/index",
+    "pages/management/index",
+    "pages/profile/index",
+    "pages/customers/index"
+  ],
+  "subPackages": [
+    {
+      "root": "pages/design",
+      "name": "design-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/workflow",
+      "name": "business-workflow",
+      "pages": [
+        "commission/index",
+        "quote-export/index",
+        "explore/index",
+        "index"
+      ]
+    },
+    {
+      "root": "pages/build",
+      "name": "engineering-workflow",
+      "pages": [
+        "index",
+        "home/index",
+        "projects/index",
+        "materials/index",
+        "record/index"
+      ]
+    },
+    {
+      "pages": [
+        "sales/index",
+        "index",
+        "training/index"
+      ],
+      "root": "pages/account",
+      "name": "account-workflow"
+    },
+    {
+      "pages": [
+        "index",
+        "home/index",
+        "finance/index",
+        "performance/index",
+        "tasks/index",
+        "profile/index",
+        "detail/index",
+        "finance-desk/index",
+        "operations/index",
+        "commission/index",
+        "brief/index"
+      ],
+      "root": "pages/admin",
+      "name": "management-workflow"
+    },
+    {
+      "root": "pages/growth",
+      "name": "growth-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/studio",
+      "name": "studio-workflow",
+      "pages": [
+        "index",
+        "characters/index"
+      ]
+    },
+    {
+      "root": "pages/creation",
+      "name": "creation-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/ai-video",
+      "name": "ai-video-workflow",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/wallet",
+      "name": "wallet-workflow",
+      "pages": [
+        "recharge/index",
+        "records/index"
+      ]
+    },
+    {
+      "root": "design-migration",
+      "name": "design-migration",
+      "pages": [
+        "pages/library/index",
+        "pages/library/detail",
+        "pages/ai-design/index",
+        "pages/ai-design/generating",
+        "pages/ai-design/result",
+        "pages/profile/records",
+        "pages/profile/record",
+        "pages/budget/quick",
+        "pages/budget/input",
+        "pages/budget/parameters",
+        "pages/budget/body",
+        "pages/budget/body-detail",
+        "pages/budget/exterior",
+        "pages/budget/exterior-detail",
+        "pages/budget/result",
+        "pages/budget/quote",
+        "pages/budget/history",
+        "pages/budget/prices",
+        "pages/customer/archive"
+      ]
+    }
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "众墅之家",
+    "backgroundColor": "#faf8f4",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#7d8085",
+    "selectedColor": "#75451f",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/business/index",
+        "text": "业务"
+      },
+      {
+        "pagePath": "pages/engineering/index",
+        "text": "工程"
+      },
+      {
+        "pagePath": "pages/management/index",
+        "text": "管理"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

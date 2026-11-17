@@ -1,0 +1,51 @@
+{
+  "customerId": "2122322030611197954",
+  "draft": {
+    "id": "2122322218516078594",
+    "version": 2
+  },
+  "budgetId": "2122322719232090113",
+  "revisionId": "2122322719232090114",
+  "commissionId": "2122323731334361089",
+  "videoTaskId": "2122325817308540930",
+  "simulation": {
+    "amountCents": 240000,
+    "status": "PAID",
+    "channel": "ALIPAY",
+    "number": "SIM-2122323731334361089-V1"
+  },
+  "pointsBefore": 75,
+  "pointsConfirmedUsed": 2,
+  "videoExpectedCost": 1,
+  "pointsAfter": 73,
+  "pointsInFlight": 0,
+  "workId": "2122328070807429121",
+  "workReadback": true,
+  "repeatSaveSameWork": true,
+  "videoMessageRead": true,
+  "simulationFundsIncludedInActualLedger": false,
+  "engineeringProjectId": "2122359811450437633",
+  "commissionStatus": "ACCEPTED",
+  "handoverVersion": 2,
+  "returnAndResubmitVerified": true,
+  "engineeringFileDownloads": 4,
+  "acceptedMessageRead": true,
+  "financeNotificationCase": {
+    "customerId": "2122372741998936065",
+    "commissionId": "2122373070203224066",
+    "messageId": "2122373169243324418",
+    "channel": "WECHAT",
+    "financeUserId": 159,
+    "readPersisted": true,
+    "duplicateMessages": 0,
+    "newPointsUsed": 0
+  },
+  "tabRetest": {
+    "cases": 129,
+    "frames": 259,
+    "blankFrameBeforeFix": "066-first.png",
+    "postFixCases": 53,
+    "postFixFrames": 106,
+    "postFixBlankFrames": 0
+  }
+}

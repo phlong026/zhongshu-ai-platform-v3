@@ -1,0 +1,12 @@
+<view wx:if="{{simulationPhase}}" class="cashier-mask" catchtouchmove="paymentSheetNoop" catchtap="paymentSheetNoop">
+ <view class="cashier-sheet {{paymentChannel==='ALIPAY'?'cashier-alipay':'cashier-wechat'}}" catchtap="paymentSheetNoop">
+  <view class="cashier-top"><view class="cashier-brand"><view class="payment-logo {{paymentChannel==='ALIPAY'?'payment-logo-alipay':'payment-logo-wechat'}}"><image src="assets/{{paymentChannel==='ALIPAY'?'alipay.png':'wechat-pay.png'}}"/></view><text>{{paymentChannel==='ALIPAY'?'支付宝':'微信支付'}}</text><text class="cashier-badge">模拟</text></view><button wx:if="{{!busy}}" class="cashier-close" bindtap="cancelSimulationPayment" aria-label="关闭模拟收银台">×</button></view>
+  <block wx:if="{{simulationPhase==='confirm'}}">
+   <text class="cashier-merchant">{{paymentMerchant}}</text><text class="cashier-amount">{{paymentOrder.amountText}}</text><text class="cashier-customer">{{paymentOrder.customerName}} · 设计服务费</text>
+   <view class="cashier-funding"><text>付款方式</text><text>模拟账户<text class="cashier-funding-note"> · 不扣款</text></text></view>
+   <button class="cashier-confirm" bindtap="confirmSimulationPayment">确认付款</button><button class="cashier-cancel" bindtap="cancelSimulationPayment">取消支付</button>
+  </block>
+  <view wx:elif="{{simulationPhase==='processing'}}" class="cashier-state"><view class="cashier-spinner"/><text class="cashier-state-title">{{simulationChecking?'正在核对付款结果':'支付处理中'}}</text><text class="cashier-state-note">模拟支付 · 不发生真实扣款</text></view>
+  <view wx:else class="cashier-state"><view class="cashier-state-icon">{{simulationPhase==='unknown'?'…':'!'}}</view><text class="cashier-state-title">{{simulationPhase==='unknown'?'付款结果待确认':'支付未完成'}}</text><text class="cashier-state-note" role="alert">{{simulationError}}</text><button class="cashier-confirm" bindtap="retrySimulationPayment">{{simulationUncertain?'查询付款结果':'重新支付'}}</button><button class="cashier-cancel" bindtap="cancelSimulationPayment">返回订单</button></view>
+ </view>
+</view>

@@ -1,0 +1,237 @@
+{
+  "status": 200,
+  "code": 0,
+  "msg": "",
+  "data": {
+    "id": "2122359811450437633",
+    "name": "验收客户1116 · 武汉乡墅",
+    "customer": "验收客户1116",
+    "city": "武汉市",
+    "area": 240,
+    "floors": 2,
+    "sourceType": "HANDOVER",
+    "sourceCommissionId": "2122323731334361089",
+    "parentProjectId": null,
+    "managerUserId": 158,
+    "managerName": "验收工程接收",
+    "assignedEngineerUserId": 158,
+    "status": "PENDING_START",
+    "drawingVersion": "QA-V1",
+    "actualStartAt": null,
+    "preparedAt": null,
+    "preparedNote": null,
+    "preparedWorkers": null,
+    "phone": "19900061116",
+    "contractTotalCents": 0,
+    "firstCents": 0,
+    "contractVersion": null,
+    "contractDate": null,
+    "contractAssetId": null,
+    "documents": [
+      {
+        "id": "2122359811467214849",
+        "name": "正式设计成果",
+        "kind": "DOCUMENT",
+        "version": "QA-V1",
+        "fileRef": "{\"assetId\":\"2122358475122581504\",\"slot\":\"RESULT\",\"name\":\"正式设计成果\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}"
+      },
+      {
+        "id": "2122359811475603458",
+        "name": "正式施工图",
+        "kind": "DRAWING",
+        "version": "QA-V1",
+        "fileRef": "{\"assetId\":\"2122358499193692160\",\"slot\":\"DRAWING\",\"name\":\"正式施工图\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}"
+      },
+      {
+        "id": "2122359811475603459",
+        "name": "线下专业审核依据",
+        "kind": "DOCUMENT",
+        "version": "QA-V1",
+        "fileRef": "{\"assetId\":\"2122358539459010560\",\"slot\":\"REVIEW\",\"name\":\"专业审核依据\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}"
+      },
+      {
+        "id": "2122359811479797762",
+        "name": "客户确认凭据",
+        "kind": "DOCUMENT",
+        "version": "QA-V1",
+        "fileRef": "{\"assetId\":\"2122358843441192960\",\"slot\":\"CONFIRMATION\",\"name\":\"客户确认凭据\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}"
+      },
+      {
+        "id": "2122359811479797763",
+        "name": "电子交底",
+        "kind": "DOCUMENT",
+        "version": "QA-V1",
+        "fileRef": "{\"name\":\"电子交底记录\",\"text\":\"系统验收补件：已补现场交通与材料进场说明，按原QA-V1样本验证；不安排任何真实施工。\"}"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "2122359811509157890",
+        "nodeIndex": 1,
+        "name": "开工准备",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811513352193",
+        "nodeIndex": 2,
+        "name": "施工准备",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811517546498",
+        "nodeIndex": 3,
+        "name": "主材确认",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811517546499",
+        "nodeIndex": 4,
+        "name": "基础工程",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811521740802",
+        "nodeIndex": 5,
+        "name": "1层主体",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811525935106",
+        "nodeIndex": 6,
+        "name": "2层主体",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811530129409",
+        "nodeIndex": 7,
+        "name": "封顶验收",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": "TOPPING",
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811534323713",
+        "nodeIndex": 8,
+        "name": "屋面施工",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811538518017",
+        "nodeIndex": 9,
+        "name": "外墙包柱、内外粉",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811538518018",
+        "nodeIndex": 10,
+        "name": "门窗安装",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811542712321",
+        "nodeIndex": 11,
+        "name": "外墙涂料、文化石",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811542712322",
+        "nodeIndex": 12,
+        "name": "收尾工程",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      },
+      {
+        "id": "2122359811546906625",
+        "nodeIndex": 13,
+        "name": "竣工验收",
+        "startDate": null,
+        "endDate": null,
+        "status": "PENDING",
+        "milestone": null,
+        "completedAt": null,
+        "corrections": null,
+        "reopenHistory": null
+      }
+    ],
+    "siteRecords": [],
+    "closure": {
+      "deliveredAt": null,
+      "recipient": null,
+      "deliverNote": null,
+      "fileAssetId": null,
+      "ownerAssetId": null,
+      "settledAt": null,
+      "settleNote": null,
+      "archivedAt": null
+    }
+  }
+}

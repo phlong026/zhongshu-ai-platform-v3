@@ -1,0 +1,27 @@
+{
+  "repeat": {
+    "code": 1111000002,
+    "msg": "委托当前状态不允许该操作，请刷新"
+  },
+  "pointsBefore": {
+    "orgId": 120,
+    "balance": 73,
+    "inFlight": 0,
+    "status": "ACTIVE",
+    "month": "2026-11",
+    "monthUsedTotal": 27
+  },
+  "pointsAfter": {
+    "orgId": 120,
+    "balance": 73,
+    "inFlight": 0,
+    "status": "ACTIVE",
+    "month": "2026-11",
+    "monthUsedTotal": 27
+  },
+  "cumulativeAuditPoints": 2,
+  "malformedProbe": {
+    "code": 1111000006,
+    "msg": "请填写需求说明与交付范围，并引用最近一版参考预算"
+  }
+}

@@ -1,0 +1,165 @@
+[
+  {
+    "n": 0,
+    "round": 0,
+    "target": "pages/engineering/index",
+    "route": "pages/engineering/index",
+    "error": "",
+    "sampleMs": 910
+  },
+  {
+    "n": 1,
+    "round": 0,
+    "target": "pages/management/index",
+    "route": "pages/management/index",
+    "error": "",
+    "sampleMs": 985
+  },
+  {
+    "n": 2,
+    "round": 0,
+    "target": "pages/profile/index",
+    "route": "pages/management/index",
+    "error": "",
+    "sampleMs": 876
+  },
+  {
+    "n": 3,
+    "round": 0,
+    "target": "pages/business/index",
+    "route": "pages/business/index",
+    "error": "",
+    "sampleMs": 1034
+  },
+  {
+    "n": 4,
+    "round": 0,
+    "target": "pages/home/index",
+    "route": "pages/business/index",
+    "error": "",
+    "sampleMs": 906
+  },
+  {
+    "n": 5,
+    "round": 1,
+    "target": "pages/engineering/index",
+    "route": "pages/engineering/index",
+    "error": "",
+    "sampleMs": 890
+  },
+  {
+    "n": 6,
+    "round": 1,
+    "target": "pages/management/index",
+    "route": "pages/management/index",
+    "error": "",
+    "sampleMs": 889
+  },
+  {
+    "n": 7,
+    "round": 1,
+    "target": "pages/profile/index",
+    "route": "pages/profile/index",
+    "error": "",
+    "sampleMs": 914
+  },
+  {
+    "n": 8,
+    "round": 1,
+    "target": "pages/business/index",
+    "route": "pages/business/index",
+    "error": "",
+    "sampleMs": 929
+  },
+  {
+    "n": 9,
+    "round": 1,
+    "target": "pages/home/index",
+    "route": "pages/home/index",
+    "error": "",
+    "link": "Tab切换验收草稿，测试后恢复",
+    "sampleMs": 881
+  },
+  {
+    "n": 10,
+    "round": 2,
+    "target": "pages/engineering/index",
+    "route": "pages/engineering/index",
+    "error": "",
+    "sampleMs": 886
+  },
+  {
+    "n": 11,
+    "round": 2,
+    "target": "pages/management/index",
+    "route": "pages/management/index",
+    "error": "",
+    "sampleMs": 882
+  },
+  {
+    "n": 12,
+    "round": 2,
+    "target": "pages/profile/index",
+    "route": "pages/profile/index",
+    "error": "",
+    "sampleMs": 942
+  },
+  {
+    "n": 13,
+    "round": 2,
+    "target": "pages/business/index",
+    "route": "pages/business/index",
+    "error": "",
+    "sampleMs": 909
+  },
+  {
+    "n": 14,
+    "round": 2,
+    "target": "pages/home/index",
+    "route": "pages/home/index",
+    "error": "",
+    "link": "Tab切换验收草稿，测试后恢复",
+    "sampleMs": 898
+  },
+  {
+    "n": 15,
+    "round": 3,
+    "target": "pages/engineering/index",
+    "route": "pages/engineering/index",
+    "error": "",
+    "sampleMs": 913
+  },
+  {
+    "n": 16,
+    "round": 3,
+    "target": "pages/management/index",
+    "route": "pages/management/index",
+    "error": "",
+    "sampleMs": 884
+  },
+  {
+    "n": 17,
+    "round": 3,
+    "target": "pages/profile/index",
+    "route": "pages/profile/index",
+    "error": "",
+    "sampleMs": 931
+  },
+  {
+    "n": 18,
+    "round": 3,
+    "target": "pages/business/index",
+    "route": "pages/business/index",
+    "error": "",
+    "sampleMs": 910
+  },
+  {
+    "n": 19,
+    "round": 3,
+    "target": "pages/home/index",
+    "route": "pages/home/index",
+    "error": "",
+    "link": "Tab切换验收草稿，测试后恢复",
+    "sampleMs": 865
+  }
+]

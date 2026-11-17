@@ -1,14 +1,16 @@
 // 设计委托页（API 态）：数据源 /franchise/commissions、/franchise/design-policies。
-// 模拟支付、sample-files 假文件与本地动作机已下线；委托费用按授权规则执行，到账由财务实收登记。
+// 新面积计价委托使用后端模拟订单；历史首尾款保留真实财务流程，成果仍引用实际资产。
 const Nav = require('../../../utils/page-navigation');
 const Money = require('../../../utils/money');
 const http = require('../../../api/http');
 const auth = require('../../../api/auth');
 const API = require('../../../api/franchise/commission');
 const Presentation = require('./presentation');
+const Brief=require('./design-brief');
 const { makeFormHandlers } = require('../../../utils/view-container');
 
 const copy = v => JSON.parse(JSON.stringify(v === undefined ? null : v));
+const paymentView = order => order?{...order,amountText:order.amountCents==null?'':Money.money(order.amountCents),timeText:require('../../../utils/platform-messages').formatTime(order.paidAt)}:null;
 // 写命令幂等键：cm-{动作}-{16位随机hex}（对齐 pages/workflow/index.js 的 __cmdKeys 先例，域前缀区分）
 const commandKey = action => {
   let hex = '';
@@ -16,18 +18,19 @@ const commandKey = action => {
   return 'cm-' + action + '-' + hex;
 };
 
-Page({ ...makeFormHandlers(),
-  data: { title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null },
+Page({
+  ...require('./payment-flow')({http,commissions:API.commissions,paymentView}), ...makeFormHandlers(),
+  data: { designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentMerchant:'' },
   onLoad(options) {
     this.disposed = false; this.options = options || {}; this.customerId = options.customerId || ''; this.id = options.commissionId || options.id || '';
     if (!this.customerId && options.view === 'submit' && !options.commissionId) { this.customerId = this.id; this.id = ''; }
     this.__byCustomer = !!this.customerId;
     let view = options.view || 'progress';
-    // 模拟支付/体验收据视图随支付链路下线，历史深链一律回落进度态
-    if (['pay', 'paid', 'created'].includes(view)) view = 'progress';
+    if (view==='paid') view='receipt';
+    if (view==='created') view='progress';
     this.view = view; this.initialized = false; // 加载统一由 onShow→refresh 触发，避免冷启动重复请求
   },
-  onShow() { this.refresh(false); },
+  onShow() { return this.refresh(false); },
   onUnload() { this.disposed = true; },
   /** 在线岗位：无 token 或无后端岗位时页面整体进入登录引导错误态 */
   post() { try { return http.token() ? auth.currentApiPost() : null; } catch (e) { return null; } },
@@ -36,7 +39,7 @@ Page({ ...makeFormHandlers(),
   dropCmdKey(action) { if (this.__cmdKeys) delete this.__cmdKeys[action]; },
   failState(message) {
     this.action = ''; this.nextView = ''; this.initialized = false; this.__list = null;
-    this.setData({ canFeeDecide: false, canFeedback: false, managerOptions: [] });
+    this.__briefScope='';this.setData({ designBriefEnabled:false,designBrief:{},briefSummary:'',orderCustomer:{},paymentOrder:null,simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',canFeeDecide: false, canFeedback: false, managerOptions: [] });
     this.setData({ platformStatus: 'degraded', error: message, customer: null, rows: [], tasks: [], taskCount: 0, metrics: this.view==='admin'&&this.post()&&this.__post&&this.__post.roleCode==='hq-design-admin'?Presentation.workbench([]).metrics.map(m=>({...m,value:'—'})):[], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, form: {}, fields: [], preview: null, primary: '', canReturn: false, budgetCard: false, isComplete: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null });
   },
   refresh(reset = false) {
@@ -44,7 +47,7 @@ Page({ ...makeFormHandlers(),
     if (!post) return this.failState('请先登录后端账号');
     const identity = String(post.postId) + ':' + http.sessionGeneration();
     if (this.__identity && this.__identity !== identity) {
-      this.action = ''; this.nextView = ''; this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, primary: '', canReturn: false, canFeeDecide: false, canFeedback: false, managerOptions: [] });
+      this.action = ''; this.nextView = ''; this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',primary: '', canReturn: false, canFeeDecide: false, canFeedback: false, managerOptions: [] });
     }
     if(this.__identity!==identity)this.homeProfileName='';
     this.__identity = identity;
@@ -53,9 +56,15 @@ Page({ ...makeFormHandlers(),
       return this.failState('缺少委托或客户编号，请从客户或项目列表进入');
     }
     const alive = http.requestGuard('commission');
+    if (this.view === 'receipt') return this.refreshReceipt(alive);
     if (this.view === 'admin' || this.view === 'projects') return this.refreshWorkbench(alive);
     if (this.view === 'policy' || this.view === 'pricing') return this.refreshRules(alive, reset);
     return this.refreshCommission(alive, reset);
+  },
+  async refreshReceipt(alive){
+    this.setData({title:'模拟支付凭据',view:'receipt',platformStatus:'loading',error:'',primary:'',fields:[],rows:[],designBriefEnabled:false,customer:null,paymentOrder:null});
+    try{const order=await API.commissions.simulatedReceipt(this.id);if(!alive()||this.disposed)return;this.setData({platformStatus:'ready',paymentOrder:paymentView(order),customer:{name:order.customerName}});}
+    catch(e){if(alive()&&!this.disposed)this.setData({platformStatus:'degraded',error:Presentation.errorMessage(e)});}
   },
   // ---- 设计行政工作台（首页/项目）：commissions.page → 工作台视图 ----
   async refreshWorkbench(alive) {
@@ -115,6 +124,17 @@ Page({ ...makeFormHandlers(),
         const context = await API.commissions.context(this.customerId);
         if (!alive() || this.disposed) return;
         this.__context = context;
+        if(this.view==='submit'&&context.commissionId&&!(context.allowedActions||[]).includes('commission-submit')){
+          this.id=String(context.commissionId);this.__byCustomer=false;this.initialized=false;
+          this.view=context.commission&&context.commission.simulatedPayment&&context.commission.simulatedPayment.status==='PENDING'?'pay':'progress';
+        }
+        if(!context.customerName&&!(context.allowedActions||[]).includes('commission-submit')){
+          const detail=await require('../../../api/franchise/crm').customers.get(this.customerId);
+          if(!alive()||this.disposed)return;
+          const customer=detail&&detail.customer||{};
+          context.customerName=customer.name;context.city=customer.city;context.customerInfo={name:customer.name,phone:customer.phone,address:[customer.province,customer.city,customer.district,customer.town,customer.village,customer.addressDetail].filter(Boolean).join(' ')};
+          if(context.canPrepareBudget===undefined)context.canPrepareBudget=String(customer.ownerUserId)===String(this.__post.userId)&&['sales','sales-lead'].includes(this.__post.roleCode);
+        }
         this.id = context.commissionId ? String(context.commissionId) : '';
         res = context.commission;
         if (!res) res = { customerId: context.customerId, allowedActions: context.allowedActions || [], request: context.latestBudget ? { basis: context.latestBudget } : null,
@@ -131,6 +151,12 @@ Page({ ...makeFormHandlers(),
     }
     if (!alive() || this.disposed) return;
     const c = Presentation.normalize(res || {});
+    if(this.__context){c.name=c.name||this.__context.customerName||'';c.city=c.city||this.__context.city||'';}
+    if (!c.name && this.view === 'submit' && this.__byCustomer && this.options.customerName) {
+      let name = String(this.options.customerName);
+      try { name = decodeURIComponent(name); } catch (e) { /* A plain display name may contain a literal percent sign. */ }
+      c.name = name;
+    }
     if (this.view === 'submit' && this.__context) {
       c.request = { ...(c.request || {}), basis: this.__context.latestBudget || null };
       const offer = this.__context.feeOffer;
@@ -140,7 +166,9 @@ Page({ ...makeFormHandlers(),
     this.customerId = c.id || this.customerId;
     this.__commission = c;
     const view = this.view, actor = this.actor();
-    const n = Presentation.stateOf(c);
+    const n = view === 'submit' && this.__context && !this.__context.commissionId
+      ? { state: '待发起委托', owner: '经办业务', view: 'submit', actionable: true }
+      : Presentation.stateOf(c);
     const action = Presentation.actionFor(view);
     const can = !!action && Presentation.canDo(c, view, actor);
     const basis = c.request && c.request.basis;
@@ -151,34 +179,67 @@ Page({ ...makeFormHandlers(),
     if (budgetChanged) { form = { ...form, __budgetVersion: basis && basis.version, __pricingVersion: currentQuote && currentQuote.pricingVersion, __mode: c.fee && c.fee.mode, scope: currentQuote ? currentQuote.scope : form.scope, checked: false }; this.dropCmdKey('commission-submit'); }
     this.initialized = true;
     const fields = Presentation.fieldsFor(c, view, can);
-    const rows = Presentation.rowsFor(c, n);
+    const rows = Presentation.rowsFor(c, n).filter(row=>!(Brief.snapshot(c.request)&&row.label==='设计需求'));
     if (view === 'handover' && can) {
       try {
         const staff = await API.commissions.receivers(this.id);
         if (!alive() || this.disposed) return;
         this.__receivers = staff.filter(p => p.active !== false && ['engineer', 'project-manager'].includes(p.roleCode) && String(p.userId) !== String(this.__post.userId));
         this.setData({ managerOptions: this.__receivers.map(p => ({ id: String(p.userId), label: p.name || String(p.userId) })) });
+        const selected = this.data.managerOptions.find(p => p.id === String(form.managerUserId || ''));
+        form = { ...form, managerUserId: selected ? selected.id : '', managerName: selected ? selected.label : '' };
       } catch (e) { if (!alive() || this.disposed) return; this.setData({ error: '工程接收人加载失败：' + Presentation.errorMessage(e) }); }
     }
-    const labels = { submit: '提交设计委托', feedback: '提交修改意见', complete: '设计完成', dispatch: '上传并下发成果', handover: c.handover ? '补充后移交给工程' : '移交给工程', receive: '确认接收' };
+    const labels = { pay:'立即支付',submit: '提交设计委托', feedback: '提交修改意见', complete: '设计完成', dispatch: '上传并下发成果', handover: c.handover ? '补充后移交给工程' : '移交给工程', receive: '确认接收' };
     this.action = can ? action : '';
     this.nextView = !can && n.actionable && n.view !== view && Presentation.actionFor(n.view) ? n.view : '';
     this.setData({
-      title: ({ submit: '设计委托', progress: '委托与交付', feedback: '登记修改意见', handover: '成果与移交', complete: '设计办理', dispatch: '下发设计成果', receive: '业务资料接收' })[view] || '委托与交付',
+      title: ({ pay:'设计费支付',submit: '设计委托', progress: '委托与交付', feedback: '登记修改意见', handover: '成果与移交', complete: '设计办理', dispatch: '下发设计成果', receive: '业务资料接收' })[view] || '委托与交付',
       view, platformStatus: 'ready', error: preservedError,
       customer: c.id || c.name ? { id: c.id, projectId: c.projectId, name: c.name, city: c.city, revision: c.revision } : null,
-      form, fields, rows,
+      form, fields:view==='pay'?[]:fields, rows,
+      paymentOrder:paymentView(c.simulatedPayment),
+      paymentChannel:this.data.paymentChannel||'WECHAT',
       canFeeDecide: c.allowedActions.includes('fee-decide'),
       canFeedback: view !== 'feedback' && c.allowedActions.includes('commission-feedback'),
+      canPrepareBudget:view==='submit'&&!!this.__context&&this.__context.canPrepareBudget===true,
+      submitBlockedReason:view==='submit'&&!can?( !basis?'请先完成参考预算，再发起设计委托':!currentQuote?'当前设计费报价未就绪，请联系管理员':'当前账号暂不能提交本次委托，请联系经办业务或管理员'):'',
       budgetReady: !!basis, budgetBasis: basis,
       budgetNotice: budgetChanged ? '参考预算已更新，请核对本版尺寸、需求和范围后重新勾选确认。' : view === 'submit' ? this.data.budgetNotice : '',
       pricingQuote: Presentation.quoteOf(c),
-      primary: can ? (view === 'submit' && !basis ? '先完成参考预算' : labels[view]) : this.nextView ? '继续办理' : '',
-      budgetCard: view === 'submit' && can,
+      primary: can ? (view === 'submit' && !basis ? '先完成参考预算' : labels[view]) : this.nextView ? (this.nextView==='pay'?'去模拟支付':'继续办理') : '',
+      budgetCard:view==='submit',
       canReturn: can && view === 'receive',
       isComplete: !!c.acceptance
     });
+    this.prepareBrief(c,view,can);
   },
+  prepareBrief(c,view,can){
+    const frozen=Brief.snapshot(c.request),context=this.__context||{},client=view==='submit'?(context.customerInfo||frozen&&frozen.customer||{}):(frozen&&frozen.customer||context.customerInfo||{});
+    const enabled=view==='submit'?(can&&!!context.customerInfo):!!frozen;
+    const key=[this.__post?.userId,this.__post?.orgId,this.customerId].join(':');
+    this.setData({orderCustomer:client,designBriefEnabled:enabled});
+    if(!enabled)return;
+    if(view!=='submit'||this.__briefScope!==key){
+      this.__briefScope=key;
+      let local;try{local=wx.getStorageSync('zs-commission-brief:'+key);}catch(e){}
+      const inherited=Brief.inherit({...context,customerName:context.customerName||c.name},local&&local.schemaVersion===1?local:frozen);
+      const brief=view==='submit'?inherited.brief:frozen;
+      this.setData({designBrief:brief,briefSections:Brief.sections(brief),briefSummary:Brief.summary(brief),submitPreview:false,expandedBrief:0,showCustomerPhone:this.__post.roleCode!=='hq-design-admin'});
+    }
+  },
+  updateBrief(key,value,toggle){
+    if(this.data.busy||this.view!=='submit')return;
+    const brief=Brief.edit(this.data.designBrief,key,value,toggle);
+    this.setData({designBrief:brief,briefSections:Brief.sections(brief),briefSummary:Brief.summary(brief),submitPreview:false,'form.checked':false,briefStorageError:''});
+    this.dropCmdKey('commission-submit');
+    try{wx.setStorageSync('zs-commission-brief:'+this.__briefScope,brief);}catch(e){this.setData({briefStorageError:'需求未能暂存，请在离开前完成提交'});}
+  },
+  briefInput(e){this.updateBrief(e.currentTarget.dataset.key,e.detail.value,false);},
+  briefChoice(e){this.updateBrief(e.currentTarget.dataset.key,e.currentTarget.dataset.value,true);},
+  toggleBrief(e){const index=Number(e.currentTarget.dataset.index);this.setData({expandedBrief:this.data.expandedBrief===index?-1:index});},
+  togglePaymentDetails(){this.setData({paymentDetails:!this.data.paymentDetails});},
+  editBrief(){this.setData({submitPreview:false,'form.checked':false});},
   renderAdminProjects(reset = false) {
     if (reset) this.projectLimit = 20;
     const page = Presentation.paginate(this.__list || [], this.data.keyword, this.data.projectFilter, this.projectLimit || 20);
@@ -256,18 +317,20 @@ Page({ ...makeFormHandlers(),
       this.dropCmdKey('fee-decide-' + approve); this.setData({ busy: false }); this.refresh(true);
     } catch(e) { if (alive()) this.setData({ busy: false, error: Presentation.errorMessage(e) }); }
   },
-  completeBudget() { if (this.data.busy || this.view !== 'submit' || this.action !== 'commission-submit') return; Nav.open('/pages/workflow/index?view=budget&id=' + encodeURIComponent(this.customerId)); },
+  completeBudget() { if (this.data.busy || this.view !== 'submit' || !this.data.canPrepareBudget) return; Nav.open('/pages/workflow/index?view=budget&id=' + encodeURIComponent(this.customerId)); },
   /** 命令 payload：表单 → 后端字段（金额统一转分，内部键剔除） */
   commandPayload(action) {
     const f = this.data.form;
     const assetId = file => file && file.assetId ? String(file.assetId) : undefined;
     if (action === 'commission-submit') {
-      const text = String(f.text || '').trim(), scope = String(f.scope || '').trim();
+      const briefError=this.data.designBriefEnabled?Brief.error(this.data.designBrief):'';if(briefError)throw Error(briefError);
+      const summary=this.data.designBriefEnabled?Brief.summary(this.data.designBrief):String(f.text || '').trim();
+      const text=summary.length>2000&&this.data.designBriefEnabled?summary.slice(0,1950)+'\n完整需求见结构化委托单':summary,scope = String(f.scope || '').trim();
       if (!text) throw Error('请填写客户设计需求');
       if (!scope) throw Error('请填写本次交付范围');
       if (!f.checked) throw Error('请勾选确认已核对需求、尺寸来源、交付范围及费用约定');
       if (!f.__budgetVersion) throw Error('请先完成有效参考预算');
-      const payload = { mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
+      const payload = { ...(f.__mode==='AREA_FULL'?{paymentMode:'SIMULATION'}:{}),...(this.data.designBriefEnabled?{designBrief:this.data.designBrief}:{}), mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
       if (f.__mode === 'AREA_FULL') payload.feeRuleVersion = f.__pricingVersion;
       else if (f.__mode === 'LEGACY_SPLIT') {
         payload.totalCents = Money.parseCents(f.total);
@@ -328,6 +391,10 @@ Page({ ...makeFormHandlers(),
     await API.policies.save({ scope, recipient, totalCents, firstCents, active: f.active !== false });
   },
   async submit() {
+    if(this.view==='pay'&&this.action==='commission-simulate-pay')return this.simulatePayment();
+    if(this.action==='commission-submit'&&this.data.designBriefEnabled&&!this.data.submitPreview){
+      try{const message=Brief.error(this.data.designBrief);if(message)throw Error(message);this.setData({submitPreview:true,error:''});wx.pageScrollTo({scrollTop:0,duration:0});}catch(e){const message=e.message;const index=/项目|朝向|入口/.test(message)?0:/常住人口/.test(message)?1:2;this.setData({error:message,expandedBrief:index});}return;
+    }
     if (this.data.busy) return;
     if (this.nextView) return Nav.open(Presentation.url(this.id, this.nextView));
     this.setData({ busy: true, error: '' });
@@ -348,9 +415,11 @@ Page({ ...makeFormHandlers(),
           const id = result && (result.commissionId || (result.commission && result.commission.id));
           if (!id) throw Error('委托响应缺少真实编号，请刷新客户委托核对后再办理');
           this.id = String(id);
+          try{wx.removeStorageSync('zs-commission-brief:'+this.__briefScope);}catch(e){}
+          this.__briefScope='';
         }
         this.dropCmdKey(action);
-        this.action = ''; this.nextView = ''; this.view = 'progress'; this.initialized = false;
+        this.action = ''; this.nextView = ''; this.view = result&&result.simulatedPayment&&result.simulatedPayment.status==='PENDING'?'pay':'progress'; this.initialized = false;
         this.setData({ busy: false });
         this.refresh(true);
         wx.pageScrollTo({ scrollTop: 0, duration: 0 });
@@ -367,6 +436,9 @@ Page({ ...makeFormHandlers(),
       if (this.view === 'submit') { this.__submitFailure = Presentation.errorMessage(e); this.refresh(false); }
     }
   },
+  showProgress(){if(this.data.busy)return;this.view='progress';this.refresh(true);wx.pageScrollTo({scrollTop:0,duration:0});},
+  choosePayment(e){if(this.data.busy||this.data.simulationPhase||this.data.simulationUncertain)return;const value=e.currentTarget.dataset.channel;if(['WECHAT','ALIPAY'].includes(value)&&value!==this.data.paymentChannel){this.dropCmdKey('simulate-pay');this.setData({paymentChannel:value});}},
+  simulatePayment(){return this.openSimulationPayment();},
   async returnPacket() {
     if (this.data.busy) return;
     const action = 'packet-return';

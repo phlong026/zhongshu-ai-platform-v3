@@ -1,0 +1,151 @@
+{
+  "at": "2026-11-16T12:40:09.424Z",
+  "mode": "live navigation; no submit/save/generate/publish/payment buttons",
+  "pages": [
+    {
+      "name": "23-profile",
+      "url": "/pages/profile/index",
+      "route": "design-migration/pages/library/index",
+      "errors": {},
+      "loading": false,
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "24-messages",
+      "url": "/pages/account/index?view=messages",
+      "route": "pages/account/index",
+      "view": "messages",
+      "errors": {},
+      "busy": false,
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "25-performance",
+      "url": "/pages/admin/tasks/index?view=mine",
+      "route": "pages/admin/tasks/index",
+      "view": "mine",
+      "errors": {},
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "26-learning",
+      "url": "/pages/account/index?view=learning",
+      "route": "pages/account/training/index",
+      "errors": {},
+      "loading": false,
+      "busy": false,
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "27-privacy",
+      "url": "/pages/account/index?view=privacy",
+      "route": "pages/account/index",
+      "view": "privacy",
+      "errors": {},
+      "busy": false,
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "28-help",
+      "url": "/pages/account/index?view=help",
+      "route": "pages/account/index",
+      "view": "help",
+      "errors": {},
+      "busy": false,
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "29-characters",
+      "url": "/pages/studio/characters/index",
+      "route": "pages/studio/characters/index",
+      "view": "home",
+      "errors": {},
+      "loading": false,
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "30-remix",
+      "url": "/pages/studio/index?view=remix",
+      "route": "pages/studio/index",
+      "view": "remix",
+      "errors": {},
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "31-digital",
+      "url": "/pages/studio/index?view=digital",
+      "route": "pages/studio/index",
+      "view": "digital",
+      "errors": {
+        "operationError": "请在人物库准备同一人物名下已就绪的数字分身和克隆声音"
+      },
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "32-materials",
+      "url": "/pages/studio/index?view=library",
+      "route": "pages/studio/index",
+      "view": "library",
+      "errors": {},
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "33-works",
+      "url": "/pages/studio/index?view=works",
+      "route": "pages/studio/index",
+      "view": "works",
+      "errors": {},
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "34-tasks",
+      "url": "/pages/studio/index?view=tasks",
+      "route": "pages/studio/index",
+      "view": "tasks",
+      "errors": {},
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "35-records",
+      "url": "/pages/studio/index?view=records",
+      "route": "pages/studio/index",
+      "view": "records",
+      "errors": {},
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "36-ai-video",
+      "url": "/pages/ai-video/index",
+      "route": "pages/ai-video/index",
+      "errors": {},
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "37-budget",
+      "url": "/design-migration/pages/budget/quick",
+      "route": "design-migration/pages/budget/quick",
+      "errors": {},
+      "loading": false,
+      "busy": false,
+      "budgetDraftPresent": true
+    },
+    {
+      "name": "38-budget-history",
+      "url": "/design-migration/pages/budget/history",
+      "route": "design-migration/pages/budget/history",
+      "errors": {},
+      "loading": false,
+      "budgetDraftPresent": false
+    },
+    {
+      "name": "39-ai-style",
+      "url": "/design-migration/pages/ai-design/index?line=ELEVATION",
+      "route": "design-migration/pages/ai-design/index",
+      "line": "ELEVATION",
+      "errors": {},
+      "budgetDraftPresent": false
+    }
+  ],
+  "console": [],
+  "exceptions": []
+}
