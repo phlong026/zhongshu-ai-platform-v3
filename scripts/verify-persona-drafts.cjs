@@ -13,7 +13,7 @@ function setup(options={}){
   let remote={exists:false,revision:0,form:{}};
   const api={draft:async()=>clone(remote),saveDraft:async(key,data)=>{writes.push(clone(data));if(data.revision!==remote.revision)throw{code:1114000009};remote={exists:true,revision:remote.revision+1,form:clone(data.form)};return clone(remote);},publishDraft:async()=>({id:'101'}),...options.api};
   const storage={getStorageSync:k=>disk.get(k),setStorageSync:(k,v)=>disk.set(k,clone(v)),removeStorageSync:k=>disk.delete(k)};
-  const draft=Draft.create({api,storage,storageKey:options.key||'user-1:new',key:'new',form:{name:'',who:'',enabled:true},valid:()=>valid,delay:100000,onForm:x=>shown=x,onStatus:x=>statuses.push(x),onLock:x=>locked=x});
+  const draft=Draft.create({api,storage,storageKey:options.key||'user-1:new',key:options.personaKey||'new',basePersonaVersion:options.basePersonaVersion,form:{name:'',who:'',enabled:true},valid:()=>valid,delay:100000,onForm:x=>shown=x,onStatus:x=>statuses.push(x),onLock:x=>locked=x});
   return{draft,disk,writes,statuses,api,get shown(){return shown},get locked(){return locked},remote:x=>{remote=x},invalidate:()=>valid=false};
 }
 test('input persists synchronously, cloud sync keeps partial fields, reopening restores both pages',async()=>{
@@ -80,4 +80,41 @@ test('an older editor response cannot overwrite a reopened editor local cache',a
   const next=setup({disk:h.disk});await next.draft.start();next.draft.change({name:'张工',who:'重新打开后的新填写',enabled:true});
   response.resolve({revision:1});await run;
   assert.equal(h.disk.get('user-1:new').form.who,'重新打开后的新填写');next.draft.stop();
+});
+
+test('unresolved conflict survives reopen and never schedules an upload',async()=>{
+  const disk=new Map([['user-1:new',{schema:2,form:{name:'local'},revision:1,dirty:true}]]);
+  const h=setup({disk});h.remote({exists:true,revision:2,form:{name:'cloud'}});
+  await h.draft.start();assert.equal(h.draft.conflicted(),true);assert.equal(disk.get('user-1:new').revision,1);h.draft.stop();
+  const reopened=setup({disk,api:h.api});await reopened.draft.start();await assert.rejects(reopened.draft.flush());
+  assert.equal(reopened.draft.conflicted(),true);assert.equal(h.writes.length,0);
+  await reopened.draft.resolve(false);assert.equal(reopened.shown.name,'cloud');reopened.draft.stop();
+});
+test('keep-local must confirm again when cloud advances after the conflict prompt',async()=>{
+  const h=setup({disk:new Map([['user-1:new',{schema:2,form:{name:'local'},revision:1,dirty:true}]])});
+  h.remote({exists:true,revision:2,form:{name:'cloud2'}});await h.draft.start();
+  h.remote({exists:true,revision:3,form:{name:'cloud3'}});
+  await assert.rejects(h.draft.resolve(true));assert.equal(h.writes.length,0);assert.equal(h.draft.conflicted(),true);
+  await h.draft.resolve(true);assert.equal(h.writes[0].revision,3);h.draft.stop();
+});
+test('conflict returned by save is cached before closing',async()=>{
+  const h=setup();await h.draft.start();h.draft.change({name:'local'});
+  h.remote({exists:true,revision:1,form:{name:'cloud'}});await assert.rejects(h.draft.flush());
+  assert.equal(h.disk.get('user-1:new').conflict,true);assert.equal(h.disk.get('user-1:new').revision,0);h.draft.stop();
+});
+test('legacy dirty caches cannot silently use an already-rebased revision',async()=>{
+  const h=setup({disk:new Map([['user-1:new',{form:{name:'old'},revision:2,dirty:true}]])});
+  h.remote({exists:true,revision:2,form:{name:'cloud'}});await h.draft.start();await assert.rejects(h.draft.flush());assert.equal(h.writes.length,0);h.draft.stop();
+});
+test('official publication conflict is editable and adopting current official content rebases explicitly',async()=>{
+  let cloud={exists:true,revision:1,form:{name:'my draft'},basePersonaVersion:0,personaVersion:1,personaForm:{name:'published by colleague'}};
+  const calls=[];const h=setup({personaKey:'42',basePersonaVersion:0,api:{draft:async()=>clone(cloud),saveDraft:async(k,b)=>{calls.push(b);return{revision:b.revision+1};}}});
+  await h.draft.start();assert.equal(h.draft.conflicted(),true);assert.equal(h.shown.name,'my draft');
+  await h.draft.resolve(false);assert.equal(h.shown.name,'published by colleague');assert.equal(calls[0].basePersonaVersion,1);assert.equal(calls[0].rebase,true);h.draft.stop();
+});
+
+test('unknown existing-person publication can retry its original revision after reopening',async()=>{
+  const disk=new Map([['user-1:new',{schema:2,form:{name:'published'},revision:1,dirty:false,pending:1,basePersonaVersion:0}]]);
+  const h=setup({disk,personaKey:'42',api:{draft:async()=>({exists:false,revision:2,form:{},personaVersion:1,publishedRevision:1,publishedPersonaId:'42'}),publishDraft:async(k,r)=>{assert.equal(r,1);return{id:'42'};}}});
+  await h.draft.start();assert.equal(h.draft.conflicted(),false);assert.equal((await h.draft.publish()).id,'42');
 });
