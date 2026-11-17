@@ -63,11 +63,13 @@ this.setData({extracting:true,extractStage:'解析链接中',parseProgress:0,ext
 const wait=async (res,phase)=>{
 if(!alive())throw {cancelled:true};
 if(!res||!res.taskId)throw Error('解析任务创建失败，请稍后重试');
+linkDraft.remember(scope,this.actorSessionGeneration,attempt,phase,res.taskId);
 const poll=this.__parsePoll=P.pollTask(String(res.taskId),{onTick:task=>{if(alive())this.setData({parseProgress:P.progressOf(task.status)});}});
 const task=await poll;
 if(this.__parsePoll===poll)this.__parsePoll=null;
 if(!alive())throw {cancelled:true};
 const view=P.taskView(task.status);
+if(view==='failed'&&P.saveFailure(task))throw Error('转写已完成，文案保存失败。点击重试仅恢复保存，不会再次转写或扣积分。');
 if(view==='failed')linkDraft.failed(scope,this.actorSessionGeneration,attempt,phase,()=>'extract-'+Date.now()+'-'+Math.floor(Math.random()*1e8));
 if(view!=='completed')throw Error(view==='failed'?'文案提取失败：'+(task.failedReason||'请稍后重试'):'任务结果待核实，请在任务中心查看，勿重复提交');
 return task;
@@ -80,7 +82,17 @@ if(!sourceUrl)throw Error('未解析到可转写的音视频，请重新复制�
 this.setData({extractStage:'提取文案中',parseProgress:0});
 const payload={sourceUrl};
 if(Number(media.durationMs)>0)payload.durationSec=Number(media.durationMs)/1000;
-const task=await wait(await P.api.scripts.extract(payload,attempt.asrKey),'asr');
+let submitted;
+if(attempt.taskIds.asr){
+ const original=await P.api.tasks.get(attempt.taskIds.asr);
+ if(!alive())throw {cancelled:true};
+ if(P.saveFailure(original)){
+  this.setData({extractStage:'正在恢复文案保存'});
+  await P.api.tasks.retrySave(attempt.taskIds.asr);
+ }
+ submitted={taskId:attempt.taskIds.asr};
+}else submitted=await P.api.scripts.extract(payload,attempt.asrKey);
+const task=await wait(submitted,'asr');
 const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
 if(!text)throw Error('未提取到口播文案，可手动填写');
 const state=studio.read();

@@ -32,6 +32,8 @@ const tasks = {
   page: (status) => http.get('/franchise/content/tasks', status ? { status } : undefined),
   /** 任务详情（轮询）：{id,kind,status,provider,providerTaskId,engine,model,resultUrl,failedReason,result} */
   get: (id) => http.get('/franchise/content/tasks/' + id),
+  /** 只恢复原任务的本地文案保存，服务端不重新生成或计费。 */
+  retrySave: id => http.post('/franchise/content/tasks/' + encodeURIComponent(id) + '/retry-save', {}),
   /** 任务→作品（一任务一件，重复返既有）→ {workId,kind,status}；幂等键由调用方生成存 this（重试复用） */
   saveWork: (id, title, key) => http.post('/franchise/content/tasks/' + id + '/save-work', title ? { title } : {}, idem(key, 'save-work')),
   /** 成片直链 HEAD 过期探测 → {expired,message}（expired=true 时展示失效文案） */

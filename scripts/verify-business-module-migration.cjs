@@ -11,6 +11,8 @@ const plain = value => JSON.parse(JSON.stringify(value));
 
 function harness(file, api = {}, role = 'sales-lead') {
   if(file==='studio/characters/index.js')api={...api,personas:require('./persona-draft-fixture.cjs')(api.personas)};
+  delete require.cache[require.resolve('../miniprogram/utils/creation-link-draft')];
+  const linkDraft=require('../miniprogram/utils/creation-link-draft');
   let page, scope = 'post-1', generation = 1;
   const seq = {}, storage = new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
@@ -38,7 +40,7 @@ function harness(file, api = {}, role = 'sales-lead') {
       if(name.endsWith('/task-display'))return require('../miniprogram/pages/studio/task-display');
       if (name.endsWith('/utils/studio')) return studio;
       if (name.endsWith('/utils/creation')) return { assets: [] };
-      if (name.endsWith('/utils/creation-link-draft')) return require('../miniprogram/utils/creation-link-draft');
+      if (name.endsWith('/utils/creation-link-draft')) return linkDraft;
       if (name.endsWith('/utils/platform-content')) return utility;
       if (name.endsWith('/api/http')) return http;
       if (name.endsWith('/api/auth')) return { currentApiPost: () => ({ postId: scope, roleCode: role }) };
@@ -440,4 +442,26 @@ test('task filter switches and account changes reject late task list responses',
  second.resolve([{id:'2',kind:'digital',status:'SUCCEEDED'}]);await b;
  first.resolve([{id:'1',kind:'digital',status:'RUNNING'}]);await a;
  assert.deepEqual(plain(h.page.data.tasks.map(t=>t.id)),['2']);
+});
+
+test('ASR success plus exhausted save retries restores the same task without new transcription or charge',async()=>{
+ let creates=0,charges=0,retries=0,saveState='FAILED';const keys=[];
+ const parsed={id:'parse',kind:'link_parse',status:'SUCCEEDED',result:{videoUrl:'https://media.example/audio'}};
+ const task=()=>({id:'asr',kind:'asr',generationStatus:'SUCCEEDED',status:saveState==='READY'?'SUCCEEDED':'FAILED',resultState:saveState,saveRetryable:saveState==='FAILED',result:{text:'只转写一次的文案'}});
+ const h=harness('creation/index.js',{
+  links:{parse:async()=>({taskId:'parse'})},scripts:{extract:async(body,key)=>{keys.push(key);creates++;charges++;return{taskId:'asr'};}},
+  tasks:{get:async id=>{assert.equal(id,'asr');return task();},retrySave:async id=>{assert.equal(id,'asr');retries++;if(retries===1)throw Error('save endpoint temporarily unavailable');saveState='READY';return task();}},
+  poll:async id=>id==='parse'?parsed:task()
+ });
+ h.page.data.link='https://v.example/save-failure';await h.page.extract();assert.match(h.page.data.extractError,/保存失败/);
+ const key=h.page.__extractAttempt.asrKey;
+ await h.page.extract();assert.equal(h.navigations.length,0);
+ await h.page.extract();assert.equal(h.page.__extractAttempt.asrKey,key);assert.equal(creates,1);assert.equal(charges,1);assert.equal(retries,2);
+ assert.equal(h.state.original,'只转写一次的文案');assert.equal(h.state.extraction.taskId,'asr');assert.equal(h.navigations.length,1);
+});
+test('task center retries local save on the original task instead of offering new generation',async()=>{
+ const calls=[],task={id:'81',kind:'asr',status:'FAILED',generationStatus:'SUCCEEDED',resultState:'FAILED',saveRetryable:true,result:{text:'已完成转写'}};
+ const h=harness('studio/index.js',{tasks:{page:async()=>[task],retrySave:async id=>calls.push(id)}});
+ h.page.data.view='tasks';await h.page.syncApiTasks();assert.equal(h.page.data.tasks[0].stageLabel,'生成完成，保存失败');
+ await h.page.taskAction(event({id:'81'}));assert.deepEqual(calls,['81']);
 });

@@ -170,7 +170,7 @@ const text = String((task.result && (task.result.text || task.result.script)) ||
 return {
 id: String(task.id), apiTask: true, kind, ...result,
 title: text ? text.split('\n')[0].slice(0, 28) : (String(task.title || '').trim() || studio.kindLabel(kind) + '任务'),
-status: view, statusText:task.statusText||'', stageLabel:TaskDisplay.stage(task.status), saved: false,
+status: view, saveRetryable:P.saveFailure(task), statusText:task.statusText||'', stageLabel:P.saveFailure(task)?'生成完成，保存失败':TaskDisplay.stage(task.status), saved: false,
 script: text, failedReason: String(task.failedReason || ''), resultUrl: result.resultUrl,
 configuration: {}, image: TaskDisplay.icon(task.kind), kindLabel: result.kindLabel
 };
@@ -432,9 +432,22 @@ const shown = this.data.tasks.find(task => task.id === id);
 if (!shown) { wx.showToast({ title: '任务不存在或已清理', icon: 'none' }); return; }
 // 在线任务：云端执行，不做本地「标记完成」
 if (shown.status === 'generating') { wx.showModal({ title: '任务进度', content: (shown.stageLabel||'正在处理')+'，任务在云端执行，可稍后刷新查看。', showCancel: false, confirmColor: '#824019' }); return; }
+if (shown.saveRetryable) return this.retryTaskSave(id);
 if (shown.status === 'failed') { wx.showModal({ title: '生成失败', content: shown.failedReason || '生成失败，请重新创建任务。', showCancel: false, confirmColor: '#824019' }); return; }
 if (shown.status === 'uncertain') { wx.showModal({ title: '结果确认中', content: '任务提交结果暂不确定，请稍后在任务中心刷新查看。', showCancel: false, confirmColor: '#824019' }); return; }
 this.go('result', '&task=' + encodeURIComponent(id));
+},
+async retryTaskSave(id) {
+ if(this.__retryingSave)return;
+ const alive=http.requestGuard('studio-retry-save'),scope=this.actorScope;
+ this.__retryingSave=true;
+ try {
+  await contentApi.tasks.retrySave(id);
+  if(!alive()||this.__closed||scope!==studio.scope())return;
+  wx.showToast({title:'正在恢复保存，不会再次扣点',icon:'none'});
+  await this.syncApiTasks();
+ }catch(e){if(alive()&&!this.__closed&&scope===studio.scope())wx.showToast({title:P.degradeMessage(e),icon:'none'});}
+ finally{this.__retryingSave=false;}
 },
 refreshTasks() { return this.syncApiTasks(); },
 playVideo() {

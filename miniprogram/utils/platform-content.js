@@ -1,5 +1,10 @@
 const api = require('../api/franchise/content');
 
+// Older servers expose only resultState. A local save failure must never become a new paid generation.
+function saveFailure(task) {
+  return !!task && (task.saveRetryable === true || (task.resultState === 'FAILED'
+    && (task.generationStatus === 'SUCCEEDED' || (!task.generationStatus && task.status === 'FAILED'))));
+}
 function taskView(status) {
   switch (status) {
     case 'SUCCEEDED': return 'completed';
@@ -158,7 +163,7 @@ function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxCo
 
 module.exports = {
   api,
-  taskView, progressOf, mapResolution, mapDuration, mapRatio, mapVideoParameters, restoreVideoParameters,
+  saveFailure, taskView, progressOf, mapResolution, mapDuration, mapRatio, mapVideoParameters, restoreVideoParameters,
   mapReferences, shareLinkUrl, validateShareLink, validatePublicationForm, validatePublishedUrl,
   degradeMessage, rowsOf, pollTask
 };

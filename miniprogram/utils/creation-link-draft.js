@@ -16,15 +16,19 @@ function attempt(scope, generation, url, createKey) {
   const value = current(scope, generation);
   if (!value.attempt || value.attempt.url !== url) {
     const key = createKey();
-    value.attempt = Object.freeze({ url, parseKey: key + '-parse', asrKey: key + '-asr' });
+    value.attempt = Object.freeze({ url, parseKey: key + '-parse', asrKey: key + '-asr', taskIds: {} });
   }
   return value.attempt;
 }
-// 仅明确 FAILED 才允许下次点击创建新任务；超时/未知沿用幂等键，避免重复扣费。
+// 仅供应商明确 FAILED 才允许下次点击创建新任务；保存失败必须恢复原任务。超时/未知沿用幂等键，避免重复扣费。
 function failed(scope, generation, previous, phase, createKey) {
   if (!draft || draft.scope !== scope || draft.generation !== generation || draft.attempt !== previous) return;
   const key = createKey();
   draft.attempt = Object.freeze({ url: previous.url,
-    parseKey: phase === 'parse' ? key + '-parse' : previous.parseKey, asrKey: key + '-asr' });
+    parseKey: phase === 'parse' ? key + '-parse' : previous.parseKey, asrKey: key + '-asr', taskIds: phase === 'parse' ? {} : { parse: previous.taskIds.parse } });
 }
-module.exports = { read, write, attempt, failed };
+function remember(scope, generation, previous, phase, taskId) {
+  if (!draft || draft.scope !== scope || draft.generation !== generation || draft.attempt !== previous) return;
+  previous.taskIds[phase] = String(taskId);
+}
+module.exports = { read, write, attempt, failed, remember };
