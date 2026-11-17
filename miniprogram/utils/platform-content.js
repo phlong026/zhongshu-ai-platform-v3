@@ -31,7 +31,7 @@ function mapResolution(v3Label) {
 
 /** F11：v3 时长选项（'8 秒'）→ 4-15 整数秒 */
 function mapDuration(v3Label) {
-  const match = /^(\d+)\s*秒$/.exec(String(v3Label || ''));
+  const match = /^(\d+)\s*(?:秒)?$/.exec(String(v3Label || ''));
   const seconds = match ? Number(match[1]) : 8;
   return Math.min(15, Math.max(4, seconds));
 }
@@ -52,6 +52,28 @@ function mapVideoParameters(parameters) {
     duration: mapDuration(pick('duration')),
     ratio: mapRatio(pick('ratio'))
   };
+}
+
+/** Cloud seconds/values and legacy option-index arrays share one restoration path. */
+function restoreVideoParameters(raw, template) {
+  return template.map(parameter=>{
+    let value;
+    if(Array.isArray(raw)){
+      const saved=raw.find(item=>item&&item.key===parameter.key);
+      if(saved)value=typeof saved.value==='number'&&Array.isArray(saved.options)?saved.options[saved.value]:saved.value;
+    }else if(raw&&typeof raw==='object')value=raw[parameter.key];
+    if(value==null||value==='')return {...parameter,value:0};
+    if(parameter.key==='duration'){
+      const match=/^(\d+)\s*(?:秒)?$/.exec(String(value));
+      if(!match)throw Error('草稿时长无效，请重新选择');
+      value=Number(match[1])+' 秒';
+    }
+    if(parameter.key==='resolution'&&value==='2K')value='1080P';
+    if(parameter.key==='count'&&value===1)value='1 个';
+    const index=parameter.options.indexOf(value);
+    if(index<0)throw Error('草稿'+parameter.label+'不受支持，请重新选择');
+    return {...parameter,value:index};
+  });
 }
 
 /** 本地参考素材 {type:image|video|audio,...} → 后端 references [{role,name}]（image 需用途名） */
@@ -152,7 +174,7 @@ function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxCo
 
 module.exports = {
   api,
-  taskView, progressOf, mapResolution, mapDuration, mapRatio, mapVideoParameters,
+  taskView, progressOf, mapResolution, mapDuration, mapRatio, mapVideoParameters, restoreVideoParameters,
   mapReferences, shareLinkUrl, validateShareLink, validatePublicationForm, validatePublishedUrl,
   degradeMessage, rowsOf, pollTask
 };

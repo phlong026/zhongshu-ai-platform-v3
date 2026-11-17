@@ -87,7 +87,7 @@ Page({
     const key=id||'new',storageKey=studio.scopedKey('zs-persona-draft:'+String(http.tenantId())+':'+post.orgId+':'+post.userId+':'+key);
     const valid=()=>!!http.token()&&scope===studio.scope()&&generation===http.sessionGeneration();
     let draft;
-    draft=Draft.create({api:DraftApi(http),storage:wx,storageKey,key,form,valid,
+    draft=Draft.create({api:DraftApi(http),storage:wx,storageKey,key,form,valid,basePersonaVersion:(this.data.rows.find(row=>row.id===id)||{}).version,
       onForm:value=>{if(this.__draft===draft&&this.data.editing&&!this.__closed){this.setData({form:value});this.styleTags(value.expressionStyle);}},
       onStatus:text=>{if(this.__draft===draft&&!this.__closed)this.setData({draftStatus:text});},
       onLock:value=>{if(this.__draft===draft&&!this.__closed)this.setData({draftConfirming:value});}});

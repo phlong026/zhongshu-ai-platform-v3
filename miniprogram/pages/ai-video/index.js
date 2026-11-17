@@ -6,7 +6,7 @@ const http=require('../../api/http');
 const media=require('../../utils/content-media');
 Page({
 data: {
-mode: 'frames', description: '', firstFrame: '', lastFrame: '', references: [], assets, libraryOpen: false, libraryTarget: '', editingTaskId: '', invalidMessage: '',
+mode: 'frames', description: '', firstFrame: '', lastFrame: '', references: [], assets, libraryOpen: false, libraryTarget: '', editingTaskId: '', invalidMessage: '', draftStatus:'',
 parameters: [
 { key: 'resolution', label: '分辨率', options: ['768P', '1080P', '720P'], value: 0 },
 { key: 'duration', label: '时长', options: ['8 秒', '5 秒', '10 秒'], value: 0 },
@@ -15,7 +15,7 @@ parameters: [
 ]
 },
 onLoad(options) {
-if(!studio.guard())return;this.actorScope=studio.scope();
+if(!studio.guard())return;this.actorScope=studio.scope();this.__draftSession=http.sessionGuard();
 let draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').videoDraft));
 if (options && options.task) {
 const state = studio.read();
@@ -24,48 +24,46 @@ if (!task) { this.setData({ invalidMessage: '任务不存在或已清理，请�
 this.setData({ editingTaskId: task.id });
 draft = (state.videoTaskDrafts || {})[task.id] || Object.assign({}, task.configuration, { description: task.script });
 }
+this.__legacyDraft=!!draft&&!this.data.editingTaskId;
 if (draft) {
-const parameters = this.data.parameters.map(parameter => {
-const saved = (draft.parameters || []).find(item => item.key === parameter.key);
-const value = saved ? (typeof saved.value === 'number' ? (saved.options || parameter.options)[saved.value] : saved.value) : parameter.options[0];
-return Object.assign({}, parameter, { value: Math.max(0, parameter.options.indexOf(value)) });
-});
+let parameters;
+try { parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters); }
+catch(error){this.setData({draftStatus:error.message});parameters=this.data.parameters;}
 this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', references: draft.references || [], parameters });
-} else if (http.token()) this.restoreRemoteDraft(); // 在线：无本地草稿时回读云端视频草稿（best-effort）
+}
+if(http.token())this.restoreRemoteDraft();
 },
-/** 云端视频草稿回读：仅恢复可展示字段（描述/模式/H3 参数→v3 选项）；素材引用缺字节路径不复原 */
 restoreRemoteDraft() {
-contentApi.drafts.videoDraft().then(remote => {
-if (this.data.invalidMessage || !remote || !remote.exists || this.data.description) return;
-const remoteParams = remote.parameters;
-const pick = key => {
-if (remoteParams && typeof remoteParams === 'object' && !Array.isArray(remoteParams)) return remoteParams[key];
-const hit = (Array.isArray(remoteParams) ? remoteParams : []).find(item => item && item.key === key);
-return hit ? hit.value : '';
-};
-const parameters = this.data.parameters.map(parameter => Object.assign({}, parameter, { value: Math.max(0, parameter.options.indexOf(pick(parameter.key) || parameter.options[0])) }));
-this.setData({ mode: remote.mode === 'reference' ? 'reference' : 'frames', description: String(remote.description || ''), parameters });
-}).catch(() => {}); // 失败静默：沿用本地空草稿
+if(this.__draft)return this.__draft.start().catch(()=>{});
+const key=this.data.editingTaskId?'task:'+this.data.editingTaskId:'new';
+const scope=this.actorScope,storageKey=studio.scopedKey('zs-video-draft-v2:'+key);
+this.__draft=require('./video-draft').create({key,storage:wx,storageKey,initialDirty:this.__legacyDraft,
+  valid:()=>this.__draftSession()&&scope===studio.scope(),
+  getForm:()=>{const {mode,description,firstFrame,lastFrame,references,parameters}=this.data;return{mode,description,firstFrame,lastFrame,references,parameters:P.mapVideoParameters(parameters)};},
+  applyForm:draft=>{
+    const parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters);
+    this.setData({mode:draft.mode==='reference'?'reference':'frames',description:String(draft.description||''),
+      firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',references:Array.isArray(draft.references)?draft.references.filter(r=>r.path):[],parameters});
+  },
+  api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>{
+    const payload={draftKey:key,revision:draft.revision,mode:draft.mode,description:draft.description,parameters:draft.parameters};
+    if(draft.references.length)payload.references=P.mapReferences(draft.references);
+    return contentApi.drafts.saveVideoDraft(payload);
+  }},onStatus:draftStatus=>this.setData({draftStatus})});
+return this.__draft.start().catch(()=>{});
 },
 onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope())wx.redirectTo({url:"/pages/ai-video/index"});},
 onHide() { this.saveDraft(); },
-onUnload() { this.saveDraft(); },
+onUnload() { this.saveDraft();if(this.__draft)this.__draft.stop(); },
 saveDraft() {
-	if(!studio.allowed()||this.actorScope!==studio.scope())return;
-	if (this.data.invalidMessage) return;
-	const { mode, description, firstFrame, lastFrame, references, parameters } = this.data;
-	const draft = { mode, description, firstFrame, lastFrame, references, parameters, updatedAt: Date.now() };
-	if (this.data.editingTaskId) {
-	const state = studio.read(); state.videoTaskDrafts = state.videoTaskDrafts || {}; state.videoTaskDrafts[this.data.editingTaskId] = draft; studio.write(state);
-	} else wx.setStorageSync(studio.scopedKey(require('../../utils/storage-keys').videoDraft), draft);
-	// 在线：草稿同步云端（best-effort，失败静默降级本地；首尾帧本批无上传通道，不同步媒体）
-	if (http.token()) {
-	const mapped = P.mapVideoParameters(parameters);
-	const payload = { mode, description, parameters: mapped };
-	if (mode === 'reference' && references.length) payload.references = P.mapReferences(references);
-	contentApi.drafts.saveVideoDraft(payload).catch(() => {});
-	}
-	},
+  if(!studio.allowed()||this.actorScope!==studio.scope()||this.data.invalidMessage)return;
+  if(this.__draft)return this.__draft.save().catch(()=>{});
+},
+retryDraft(){
+  if(!this.__draft)return;
+  if(this.__draft.conflicted())return wx.showActionSheet({itemList:['保留当前填写','使用云端草稿'],success:result=>this.__draft.resolve(result.tapIndex===0).catch(e=>this.setData({draftStatus:e.message}))});
+  this.__draft.start().then(()=>this.__draft.save()).catch(()=>{});
+},
 switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode }); },
 inputDescription(e) { this.setData({ description: e.detail.value }); },
 changeParameter(e) {

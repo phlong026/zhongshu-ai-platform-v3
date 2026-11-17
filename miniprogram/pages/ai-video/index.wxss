@@ -33,3 +33,5 @@
 .reference-item { width: 144rpx; font-size:var(--zs-font-meta); overflow-wrap: anywhere; }
 .reference-item image { width: 144rpx; height: 96rpx; border-radius: 16rpx; }
 .reference-item button { color: var(--creation-brand); font-size:var(--zs-font-body); min-height: 44px; width: 100%; }
+
+.video-draft-status{padding:20rpx 28rpx;color:#824019;background:#fff4e8;font-size:24rpx;}

@@ -163,7 +163,7 @@ const text = String((task.result && (task.result.text || task.result.script)) ||
 return {
 id: String(task.id), apiTask: true, kind, ...result,
 title: text ? text.split('\n')[0].slice(0, 28) : (String(task.title || '').trim() || studio.kindLabel(kind) + '任务'),
-status: view, progress: P.progressOf(task.status), saved: false,
+status: view, statusText:task.statusText||'', progress: P.progressOf(task.status), saved: false,
 script: text, failedReason: String(task.failedReason || ''), resultUrl: result.resultUrl,
 configuration: {}, image: studio.imageFor({ kind }), kindLabel: result.kindLabel
 };
@@ -183,7 +183,7 @@ contentDropKey(action) { if (this.__contentKeys) delete this.__contentKeys[actio
 patchTaskProgress(taskId, status) {
 if (this.data.view !== 'tasks') return;
 const index = (this.data.tasks || []).findIndex(t => t.id === taskId);
-if (index >= 0) this.setData({ ['tasks[' + index + '].progress']: P.progressOf(status), ['tasks[' + index + '].status']: P.taskView(status) });
+if (index >= 0) this.setData({ ['tasks[' + index + '].progress']: P.progressOf(status), ['tasks[' + index + '].status']: P.taskView(status), ['tasks[' + index + '].statusText']: status==='ARCHIVING'?'生成完成，保存中':'' });
 },
 switchRewrite(e) { this.setData({ rewriteMode: Number(e.currentTarget.dataset.index) }); },
 changeIp(e) { const ipIndex=Number(e.detail.value),item=this.data.personaOptions[ipIndex];if(item)this.setData({ipIndex,selectedPersonaId:item.id,operationError:''}); },
