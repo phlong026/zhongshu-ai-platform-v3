@@ -16,5 +16,6 @@ public interface FranchiseContentErrorCodes {
     ErrorCode CONTENT_PROVIDER_UNAVAILABLE = new ErrorCode(1_114_000_006, "内容生成服务暂不可用，请稍后重试或联系管理员");
     ErrorCode TASK_VERIFICATION_CONFLICT = new ErrorCode(1_114_000_007, "任务已核验或幂等键已被其他核验使用");
     ErrorCode TASK_POOL_FACT_MISSING = new ErrorCode(1_114_000_008, "积分池资金事实缺失，请暂停处理并联系管理员");
+    ErrorCode PERSONA_DRAFT_CONFLICT = new ErrorCode(1_114_000_009, "定位草稿已在另一处更新，请选择保留当前填写或使用云端草稿");
 
 }
