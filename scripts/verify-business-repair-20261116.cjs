@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const Result=require('../miniprogram/utils/content-task-result');
+const Result=require('../miniprogram/pages/studio/content-task-result');
 const Brief=require('../miniprogram/pages/workflow/commission/design-brief');
 const Commission=require('../miniprogram/pages/workflow/commission/presentation');
 

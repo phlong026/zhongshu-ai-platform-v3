@@ -3,7 +3,10 @@ const studio = require('./studio');
 const P=require('./platform-content');       // 内容域纯函数层（阶段 1.5）
 const http=require('../api/http');
 const linkDraft=require('./creation-link-draft');
+const keyboard=require('./creation-keyboard');
+const textResize = require('./creation-text-resize');
 module.exports=()=>({
+...textResize.handlers,
 data: {
 link: '', sheet: '', editorText: '', draft: null, assets,
 extracting: false, extractStage: '', parseProgress: 0, extractError: '',
@@ -27,8 +30,10 @@ onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.ac
 const draft = wx.getStorageSync(studio.scopedKey(require('./storage-keys').creationDraft)) || null;
 const recent = studio.recentItems(studio.read()).slice(0, 2).map(item=>({...item,updatedText:item.updatedAt?studio.formatTime(item.updatedAt):''}));
 this.setData({ draft, recent });
+if(this.data.sheet==='editor')keyboard.open(this);
 },
-onUnload() { this.__closed=true; if (this.__parsePoll && this.__parsePoll.cancel) this.__parsePoll.cancel(); },
+onHide() { keyboard.stop(this); },
+onUnload() { keyboard.stop(this);this.__closed=true; if (this.__parsePoll && this.__parsePoll.cancel) this.__parsePoll.cancel(); },
 inputLink(e) { this.setData({ link: linkDraft.write(this.actorScope,this.actorSessionGeneration,e.detail.value), extractError: '' }); },
 chooseMode(e){const mode=e.currentTarget.dataset.mode;if(mode==='digital')wx.navigateTo({url:'/pages/studio/index?view=digital'});else if(mode==='ai')this.startVideo();},
 paste() {
@@ -55,7 +60,7 @@ const alive=()=>!this.__closed&&requestAlive()&&scope===studio.scope();
 this.__extractAttempt=linkDraft.attempt(scope,this.actorSessionGeneration,url,()=>'extract-'+Date.now()+'-'+Math.floor(Math.random()*1e8));
 const attempt=this.__extractAttempt;
 this.setData({extracting:true,extractStage:'解析链接中',parseProgress:0,extractError:''});
-const wait=async res=>{
+const wait=async (res,phase)=>{
 if(!alive())throw {cancelled:true};
 if(!res||!res.taskId)throw Error('解析任务创建失败，请稍后重试');
 const poll=this.__parsePoll=P.pollTask(String(res.taskId),{onTick:task=>{if(alive())this.setData({parseProgress:P.progressOf(task.status)});}});
@@ -63,18 +68,19 @@ const task=await poll;
 if(this.__parsePoll===poll)this.__parsePoll=null;
 if(!alive())throw {cancelled:true};
 const view=P.taskView(task.status);
+if(view==='failed')linkDraft.failed(scope,this.actorSessionGeneration,attempt,phase,()=>'extract-'+Date.now()+'-'+Math.floor(Math.random()*1e8));
 if(view!=='completed')throw Error(view==='failed'?'文案提取失败：'+(task.failedReason||'请稍后重试'):'任务结果待核实，请在任务中心查看，勿重复提交');
 return task;
 };
 try{
-const parsed=await wait(await P.api.links.parse(url,attempt.parseKey));
+const parsed=await wait(await P.api.links.parse(url,attempt.parseKey),'parse');
 const media=parsed.result||{};
 const sourceUrl=[media.audioUrl,media.videoUrl].map(value=>String(value||'').trim()).find(value=>/^https?:\/\//i.test(value));
 if(!sourceUrl)throw Error('未解析到可转写的音视频，请重新复制链接或手动填写文案');
 this.setData({extractStage:'提取文案中',parseProgress:0});
 const payload={sourceUrl};
 if(Number(media.durationMs)>0)payload.durationSec=Number(media.durationMs)/1000;
-const task=await wait(await P.api.scripts.extract(payload,attempt.asrKey));
+const task=await wait(await P.api.scripts.extract(payload,attempt.asrKey),'asr');
 const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
 if(!text)throw Error('未提取到口播文案，可手动填写');
 const state=studio.read();
@@ -96,7 +102,9 @@ const draft = this.data.draft;
 const stored = wx.getStorageSync(studio.scopedKey(require('./storage-keys').creationDraft)) || draft;
 this.getTabBar?.()?.setData({hidden:true});
 this.setData({ sheet: 'editor', sheetTitle: '手动写文案', editorText: stored ? (typeof stored.workingText === 'string' ? stored.workingText : stored.text || '') : '' });
+keyboard.open(this);
 },
+editorKeyboardChange(e) { keyboard.update(this,e); },
 editRecent(e) {
 const item = this.data.recent.find(row => row.id === e.currentTarget.dataset.id);
 if (!item) return;
@@ -117,6 +125,7 @@ const previous = wx.getStorageSync(studio.scopedKey(require('./storage-keys').cr
 const draft = { text, rewrittenText: previous.text === text ? previous.rewrittenText || '' : '', updatedAt: Date.now() };
 wx.setStorageSync(studio.scopedKey(require('./storage-keys').creationDraft), draft);
 this.setData({ draft, sheet: '' });
+keyboard.close(this);this.getTabBar?.()?.setData({hidden:false});
 const state = studio.read(); delete state.editorBuffer;
 state.original = text; state.script = draft.rewrittenText; state.title = text.split('\n')[0].slice(0, 28); delete state.extraction;state.rewriteHistory=[];studio.write(state);
 wx.navigateTo({ url: '/pages/studio/index?view=remix' });
@@ -128,6 +137,6 @@ if (item) wx.navigateTo({ url: item.key==='characters'?'/pages/studio/characters
 },
 allRecent() { wx.navigateTo({ url: '/pages/studio/index?view=recent' }); },
 previewAsset(e) { wx.previewImage({ current: e.currentTarget.dataset.path, urls: assets.map(asset => asset.path) }); },
-closeSheet() { this.getTabBar?.()?.setData({hidden:false});this.setData({ sheet: '' }); this.onShow(); },
+closeSheet() { keyboard.close(this);this.getTabBar?.()?.setData({hidden:false});this.setData({ sheet: '' }); this.onShow(); },
 noop() {}
 });

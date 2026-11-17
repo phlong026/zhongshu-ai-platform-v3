@@ -45,3 +45,7 @@ button:active{ opacity: .78; }
 .creation-empty { padding: 48rpx 24rpx; font-size:var(--zs-font-emphasis); line-height: 44rpx; color: var(--creation-muted); text-align: center; }
 .creation-empty .studio-outline, .creation-empty .creation-primary { width: 100%; margin-top: 24rpx; }
 .creation-page .empty { color: var(--creation-muted); font-size:var(--zs-font-body); line-height: 40rpx; padding: 32rpx 24rpx; }
+@import './creation-text-resize.wxss';
+
+.creation-editor-sheet{display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;max-height:none}.creation-editor-sheet .creation-sheet-header,.creation-editor-sheet .creation-sheet-text,.creation-editor-sheet>button{flex-shrink:0}.creation-editor-sheet .creation-sheet-input{box-sizing:border-box;min-height:48px;flex:1;max-height:none;width:100%;margin:12rpx 0}.creation-editor-sheet.keyboard-open{padding-bottom:16rpx}.creation-editor-sheet .creation-sheet-text{margin-top:0}.creation-editor-sheet .creation-sheet-button,.creation-editor-sheet .sheet-confirm{margin-top:12rpx;min-height:44px}
+.creation-editor-sheet.keyboard-open .creation-sheet-text{display:none}.creation-editor-sheet.keyboard-open .text-resize-footer,.creation-editor-sheet.keyboard-open .text-resize-grip{height:28px;min-height:28px}
