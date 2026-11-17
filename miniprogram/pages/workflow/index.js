@@ -639,7 +639,7 @@ Page({
   }
   if(tool==='commission')return this.openView('commission',false,null);
   const routes={inspiration:'/design-migration/pages/library/index',ai:'/design-migration/pages/ai-design/index?line=FLAT',budget:'/design-migration/pages/budget/quick'};
-  if(routes[tool])require('../../utils/page-navigation').open(routes[tool]);
+  if(routes[tool])require('../../utils/page-navigation').open(routes[tool]+(this.id?(routes[tool].includes('?')?'&':'?')+'customerId='+encodeURIComponent(this.id):''));
  },
  navTap(e){const url=e.currentTarget.dataset.url;if(url)require('../../utils/page-navigation').open(url);},
  openView(view,replace=false,id,record=''){if(view==='commission')return require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id||this.id||''));if(view==='ai-facade')view='facade-config';if(!['customers','customer','arrival','transfer','requirement','budget','contract','delivery','progress'].includes(view)){require('../../utils/page-navigation').open('/pages/workflow/explore/index');return wx.showToast({title:'请在设计页办理',icon:'none'});}if(view==='arrival')view='customer';const target=id||this.id||'';if(view==='customers'&&!target)return this.platformBlocked('customers');return require('../../utils/page-navigation').open('/pages/workflow/index?view='+view+(view!=='customers'?'&id='+encodeURIComponent(target):''),{replace});},

@@ -18,7 +18,23 @@ protectedPage({
     if (!this._budget && (!this._project || !this._version)) {
       this.setData({ error: '方案编号无效，请返回结果页重新进入' }); return;
     }
-    this.load(true);
+    if (this.data.forCommission && id(q.customerId)) this.inheritCustomer(q.customerId);
+    else this.load(true);
+  },
+  async inheritCustomer(customerId) {
+    this.setData({loading:true,error:''});
+    try {
+      const detail = await crm.customers.get(customerId);
+      if (!this.current()) return;
+      const customer = detail && detail.customer;
+      if (!customer || String(customer.id) !== customerId) throw Error('客户信息未确认');
+      this.setData({rows:[customer],rowCount:1,selected:customerId,loading:false});
+      return this.save();
+    } catch(e) {
+      if (!this.current()) return;
+      this.setData({loading:false,error:'原客户暂不可用，请重新选择委托客户'});
+      return this.load(true);
+    }
   },
   onUnload() { this._token = null; },
   current() { return session.isSameSession(this._token); },
