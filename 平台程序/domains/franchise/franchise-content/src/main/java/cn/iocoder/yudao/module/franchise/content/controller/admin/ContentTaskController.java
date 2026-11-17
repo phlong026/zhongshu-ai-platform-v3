@@ -159,13 +159,18 @@ public class ContentTaskController {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", task.getId());
         view.put("kind", task.getKind());
-        view.put("status", task.getStatus());
+        // Media is usable as soon as link_parse succeeds, even while its optional caption is saving.
+        boolean needsScript = java.util.Set.of("copy","asr").contains(task.getKind());
+        boolean pending = needsScript && "SUCCEEDED".equals(task.getStatus()) && !"READY".equals(task.getResultState());
+        view.put("status", pending ? ("FAILED".equals(task.getResultState()) ? "FAILED" : "ARCHIVING") : task.getStatus());
+        view.put("resultState", task.getResultState()==null?"PENDING":task.getResultState());
+        view.put("statusText", pending ? ("FAILED".equals(task.getResultState())?"生成完成，保存失败":"生成完成，保存中") : "");
         view.put("provider", task.getProvider() == null ? "" : task.getProvider());
         view.put("providerTaskId", task.getProviderTaskId() == null ? "" : task.getProviderTaskId());
         view.put("engine", task.getEngine() == null ? "" : task.getEngine());
         view.put("model", task.getModel() == null ? "" : task.getModel());
         view.put("resultUrl", task.getResultUrl() == null ? "" : task.getResultUrl());
-        view.put("failedReason", task.getFailedReason() == null ? "" : task.getFailedReason());
+        view.put("failedReason", pending && task.getResultError()!=null ? task.getResultError() : task.getFailedReason() == null ? "" : task.getFailedReason());
         view.put("result", task.getResultSnapshot() == null ? Map.of()
                 : JsonUtils.parseObject(task.getResultSnapshot(), Map.class));
         return view;

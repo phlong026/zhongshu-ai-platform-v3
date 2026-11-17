@@ -124,6 +124,55 @@ class FinRefundThreeDirectionIntegrationTest extends FranchisePgIntegrationTest 
         assertThat(activeRefunded(receiptId)).isZero(); // 余额随状态回补
     }
 
+    @Test
+    void correctionRejectsForeignTxnOwnersAndRollsBackThenCanRetry() {
+        long receipt = newReceipt(1_000_000L, FinReceiptService.STATUS_REGISTERED, null);
+        long old = as(financeA, () -> refundService.register(financeA, idem(),
+                new FinRefundService.RegisterCommand(receipt, 100L, "old", LocalDate.of(2026,11,2), "ORIGINAL", null, null)));
+        asRun(financeA, () -> refundService.void_(financeA, old, "correct"));
+        for (String type : List.of("receipt", "refund", "expense-refund")) {
+            long foreignId = "refund".equals(type) ? old + 999 : old;
+            String txn = "FOREIGN-" + type;
+            jdbc.update("INSERT INTO fr_fin_txn_no(id,company_id,txn_no,owner_type,owner_id,closed) VALUES(?,?,?,?,?,false)",
+                    SEQ.incrementAndGet(), store.orgId(), txn, type, foreignId);
+            String key = idem();
+            var cmd = new FinRefundService.RegisterCommand(receipt,100L,"correct",LocalDate.of(2026,11,2),txn,null,old);
+            assertError(() -> as(financeA, () -> refundService.register(financeA,key,cmd)), TXN_NO_OCCUPIED);
+            assertThat(jdbc.queryForObject("SELECT owner_id FROM fr_fin_txn_no WHERE company_id=? AND txn_no=?",Long.class,store.orgId(),txn)).isEqualTo(foreignId);
+            assertThat(jdbc.queryForObject("SELECT replaced_by_id FROM fr_fin_refund WHERE id=?",Long.class,old)).isNull();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_refund WHERE receipt_id=?",Long.class,receipt)).isEqualTo(1);
+        }
+        var cmd = new FinRefundService.RegisterCommand(receipt,100L,"correct",LocalDate.of(2026,11,2),"ORIGINAL",null,old);
+        String key = idem();
+        long replacement = as(financeA, () -> refundService.register(financeA,key,cmd));
+        assertThat(as(financeA, () -> refundService.register(financeA,key,cmd))).isEqualTo(replacement);
+        assertThat(jdbc.queryForObject("SELECT owner_id FROM fr_fin_txn_no WHERE company_id=? AND txn_no='ORIGINAL'",Long.class,store.orgId())).isEqualTo(replacement);
+    }
+
+    @Test
+    void concurrentSameNumberCorrectionsHaveOneWinnerAndNoOrphans() throws Exception {
+        long receipt = newReceipt(1_000_000L, FinReceiptService.STATUS_REGISTERED, null);
+        long old = as(financeA, () -> refundService.register(financeA, idem(),
+                new FinRefundService.RegisterCommand(receipt,100L,"old",LocalDate.of(2026,11,2),"RACE",null,null)));
+        asRun(financeA, () -> refundService.void_(financeA,old,"correct"));
+        var gate = new CountDownLatch(1); var pool = Executors.newFixedThreadPool(2);
+        try {
+            var results = new ArrayList<Future<Boolean>>();
+            for (int i=0;i<2;i++) results.add(pool.submit(() -> {
+                gate.await();
+                try { as(financeA, () -> refundService.register(financeA,idem(),
+                    new FinRefundService.RegisterCommand(receipt,100L,"new",LocalDate.of(2026,11,2),"RACE",null,old))); return true; }
+                catch (ServiceException e) { return false; }
+            }));
+            gate.countDown(); int winners=0;
+            for(var result:results) if(result.get(10,java.util.concurrent.TimeUnit.SECONDS)) winners++;
+            assertThat(winners).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_refund WHERE receipt_id=?",Long.class,receipt)).isEqualTo(2);
+            assertThat(jdbc.queryForObject("SELECT owner_id FROM fr_fin_txn_no WHERE company_id=? AND txn_no='RACE'",Long.class,store.orgId()))
+                .isEqualTo(jdbc.queryForObject("SELECT replaced_by_id FROM fr_fin_refund WHERE id=?",Long.class,old));
+        } finally { pool.shutdownNow(); }
+    }
+
     // ========== expense 方向（批次#33 修复后语义） ==========
 
     @Test

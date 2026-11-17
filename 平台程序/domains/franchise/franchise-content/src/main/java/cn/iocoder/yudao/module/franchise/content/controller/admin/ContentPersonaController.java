@@ -78,6 +78,7 @@ public class ContentPersonaController {
     static Map<String, Object> view(FrContentPersonaDO row) {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", row.getId());
+        view.put("version", row.getVersion());
         view.put("name", row.getName());
         view.put("who", row.getWho() == null ? "" : row.getWho());
         view.put("sell", row.getSell() == null ? "" : row.getSell());

@@ -38,6 +38,7 @@ public class ContentTaskStore {
                 .setCompanyId(rs.getLong("company_id"))
                 .setAuthorUserId(rs.getLong("author_user_id"))
                 .setKind(rs.getString("kind"))
+                .setResultState(rs.getString("result_state")).setResultError(rs.getString("result_error"))
                 .setInputSnapshot(rs.getString("input_snapshot"))
                 .setResultSnapshot(rs.getString("result_snapshot"))
                 .setInputSha256(rs.getString("input_sha256"))

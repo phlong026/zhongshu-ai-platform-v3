@@ -30,6 +30,8 @@ public class FrContentTaskDO {
     private String engine;
     private String model;
     private String status;
+    private String resultState;
+    private String resultError;
     private String failedReason;
     /** 公司积分池预扣键；任务终态后可据此幂等恢复结算。 */
     private String poolBizKey;

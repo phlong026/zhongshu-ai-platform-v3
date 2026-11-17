@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.INPUT_INVALID;
+import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.PERSONA_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.CONTENT_FORBIDDEN;
 
 /**
@@ -97,7 +98,7 @@ public class ContentPersonaService {
             throw exception(INPUT_INVALID);
         }
         FrContentPersonaDO row = new FrContentPersonaDO()
-                .setId(IdWorker.getId())
+                .setId(IdWorker.getId()).setVersion(0L)
                 .setCompanyId(companyId)
                 .setAuthorUserId(userId)
                 .setName(name)
@@ -120,6 +121,7 @@ public class ContentPersonaService {
 
     public FrContentPersonaDO update(long companyId, long personaId, Map<String, Object> body) {
         FrContentPersonaDO row = require(companyId, personaId);
+        long expected = requireUpdateVersion(body.get("version"));
         if (body.containsKey("name")) {
             String name = text(body.get("name"), 64);
             if (name == null) {
@@ -140,8 +142,25 @@ public class ContentPersonaService {
         if (body.containsKey("sampleScript")) row.setSampleScript(profileText(body.get("sampleScript"), 2000));
         if (body.containsKey("forbiddenClaims")) row.setForbiddenClaims(profileText(body.get("forbiddenClaims"), 600));
         if (body.containsKey("enabled")) row.setEnabled(Boolean.parseBoolean(String.valueOf(body.get("enabled"))));
-        personas.updateById(row);
+        row.setVersion(expected + 1);
+        int count = personas.update(row, new LambdaQueryWrapper<FrContentPersonaDO>()
+                .eq(FrContentPersonaDO::getCompanyId, companyId).eq(FrContentPersonaDO::getId, personaId)
+                .eq(FrContentPersonaDO::getDeleted, false).eq(FrContentPersonaDO::getVersion, expected));
+        if (count != 1) throw exception(PERSONA_VERSION_CONFLICT);
         return row;
+    }
+
+    private static long requireUpdateVersion(Object value) {
+        // Missing versions must not turn an old editor into a last-write-wins update.
+        if (value == null) throw exception(PERSONA_VERSION_CONFLICT);
+        if (!(value instanceof Number)) throw exception(INPUT_INVALID);
+        try {
+            long version = new java.math.BigDecimal(value.toString()).longValueExact();
+            if (version < 0 || version >= 9_007_199_254_740_990L) throw exception(INPUT_INVALID);
+            return version;
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw exception(INPUT_INVALID);
+        }
     }
 
     public void delete(long companyId, long personaId) {
@@ -175,7 +194,7 @@ public class ContentPersonaService {
         return prompt.toString();
     }
 
-    private static Map<String, Object> snapshotMap(FrContentPersonaDO row) {
+    static Map<String, Object> snapshotMap(FrContentPersonaDO row) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("name", row.getName());
         snapshot.put("who", row.getWho());
