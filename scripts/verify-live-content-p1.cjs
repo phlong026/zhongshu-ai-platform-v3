@@ -16,6 +16,7 @@ function loadPage(relativePath, modules) {
       showModal() {}, setClipboardData() {}, reLaunch() {}
     },
     require(id) {
+      if(id==='../../utils/content-task-result')return require('../miniprogram/utils/content-task-result');
       if (Object.prototype.hasOwnProperty.call(modules, id)) return modules[id];
       throw new Error('Unexpected require: ' + id);
     },

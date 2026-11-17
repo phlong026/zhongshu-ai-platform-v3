@@ -31,6 +31,7 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
   };
   const source = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
   const modules = {
+    '../../utils/content-task-result':require('../miniprogram/utils/content-task-result'),
     '../../utils/studio': studio,
     '../../utils/creation': { unavailable() {}, assets: [] },
     '../../utils/platform-content': {

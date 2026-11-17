@@ -1,6 +1,7 @@
 const studio = require('../../utils/studio');
 const { assets } = require('../../utils/creation');
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：七态映射/校验/降级）
+const TaskResult=require('../../utils/content-task-result');
 const contentApi=P.api;                                 // /franchise/content/** 契约层
 const http=require('../../api/http');
 const titles = { remix: '文案二创', digital: '数字人口播', tasks: '任务中心', result: '视频结果', publish: '手动发布登记', receipt:'登记发布链接', records: '发布记录', detail: '发布详情', works: '我的作品', library: '素材库', recent: '全部创作' };
@@ -12,7 +13,8 @@ failed: { label: '失败', icon: 'error', tone: 'red', action: '查看原因', n
 scheduled: { label: '待发布', icon: 'clock', tone: 'warm', action: '查看进度' }
 };
 Page({
-data: { 
+data: {
+resultLoading:false,resultSaving:false,resultError:'',resultUrlNote:'',
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
 ipOptions: ['不指定人物'], personaOptions: [{id:'',name:'不指定人物'}], selectedPersonaId: '', requirement: '',digitalSubmitting:false,digitalRetry:false,
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
@@ -154,15 +156,16 @@ return timeline;
 /** 后端 TaskView → 本地任务形状（ID 一律不透明字符串；progress 用区间示意） */
 mapApiTask(task) {
 if (!task || task.id == null || task.id === '' || task.mock===true || task.demo===true) return null;
-const kind = task.kind === 'ai_video' ? 'ai' : 'digital';
+const result=TaskResult.describe(task);if(!result)return null;
+const kind=task.kind==='ai_video'?'ai':task.kind==='digital'?'digital':'remix';
 const view = P.taskView(task.status);
 const text = String((task.result && (task.result.text || task.result.script)) || '').trim();
 return {
-id: String(task.id), apiTask: true, kind,
+id: String(task.id), apiTask: true, kind, ...result,
 title: text ? text.split('\n')[0].slice(0, 28) : (String(task.title || '').trim() || studio.kindLabel(kind) + '任务'),
 status: view, progress: P.progressOf(task.status), saved: false,
-script: text, failedReason: String(task.failedReason || ''), resultUrl: String(task.resultUrl || ''),
-configuration: {}, image: studio.imageFor({ kind }), kindLabel: studio.kindLabel(kind)
+script: text, failedReason: String(task.failedReason || ''), resultUrl: result.resultUrl,
+configuration: {}, image: studio.imageFor({ kind }), kindLabel: result.kindLabel
 };
 },
 go(view, query) {
@@ -431,45 +434,50 @@ const task=this.data.activeTask;
 if(task&&task.apiTask&&task.resultUrl){if(this.data.view==='result')wx.createVideoContext('digital-result',this).play();else if(wx.previewMedia)wx.previewMedia({sources:[{url:task.resultUrl,type:'video'}]});return;}
 wx.showToast({title:'暂无可播放视频',icon:'none'});
 },
-videoError(){this.setData({operationError:'视频加载失败，请刷新任务结果'});},
+videoError(){this.setData({'activeTask.videoReady':false,resultError:'视频暂不可播放，请重试读取成果'});},
 attempt(action) { try { this.setData({operationError:''});return action(); } catch (error) { const message=error.message||'操作未完成，请重试';this.setData({operationError:message});wx.showToast({ title: message, icon: 'none' }); return null; } },
 saveResult() { return this.saveApiResult(false); }, // 任务全部在线：保存走 save-work 幂等通道
 publishResult() { return this.saveApiResult(true); },
 /** 在线任务→作品：save-work 幂等（重复返既有），成功后可去发布；幂等键重试复用 */
-saveApiResult(publish) {
-contentApi.tasks.saveWork(this.data.taskId, '', this.contentKey('save-work:' + this.data.taskId)).then(res => {
-this.contentDropKey('save-work:' + this.data.taskId);
-const workId=String((res&&res.workId)||this.data.taskId);
-this.setData({ workId, saved: true, 'activeTask.saved': true });
-wx.showToast({ title: '已保存到我的作品' });
-if (publish) this.go('publish', '&work=' + encodeURIComponent(workId));
-}).catch(error => {
-const message=P.degradeMessage(error);
-this.setData({ operationError: message });
-wx.showToast({ title: message, icon: 'none' });
-});
+async saveApiResult(publish) {
+const task=this.data.activeTask;
+if(this.data.resultSaving)return;
+if(!task||task.outputType!=='video'||!task.videoReady){this.setData({resultError:'请先读取可用的视频成果'});return;}
+const alive=http.requestGuard('studio-save-result'),scope=this.actorScope;
+this.setData({resultSaving:true,resultError:''});
+try{
+ const res=await contentApi.tasks.saveWork(this.data.taskId, '', this.contentKey('save-work:'+this.data.taskId));
+ if(!alive()||this.__closed||scope!==studio.scope())return;
+ if(!res||!res.workId)throw Error('作品保存结果缺少编号，请重试');
+ this.contentDropKey('save-work:'+this.data.taskId);
+ this.setData({workId:String(res.workId),saved:true,'activeTask.saved':true});
+ if(publish)this.go('publish','&work='+encodeURIComponent(res.workId));
+ else wx.showToast({title:'已保存到我的作品'});
+}catch(e){if(alive()&&!this.__closed)this.setData({resultError:P.degradeMessage(e)});}
+finally{if(alive()&&!this.__closed)this.setData({resultSaving:false});}
 },
-/** 在线任务结果页：tasks.get 直取；未完成回任务中心 */
-loadApiResult(taskId) {
-contentApi.tasks.get(taskId).then(task => {
-const view=P.taskView(task&&task.status);
-if(view!=='completed'){
-wx.showToast({ title: view==='generating' ? '任务尚未完成，请先查看进度' : '任务未成功完成，请在任务中心查看', icon: 'none' });
-wx.redirectTo({ url: '/pages/studio/index?view=tasks' });
-return;
-}
-const mapped=this.mapApiTask(task);
-if(!mapped)throw Error('任务结果不可用');
-mapped.status='completed';mapped.progress=100;
-this.setData({ activeTask: mapped, saved: false, invalidMessage: '' });
-// 成片直链过期探测（best-effort）：expired 时展示失效文案，提示重新保存生成新链接
-contentApi.tasks.resultUrlStatus(taskId).then(state=>{
-if(state&&state.expired&&this.data.view==='result')this.setData({resultUrlNote:'成片链接已过期，重新保存作品可获取新链接'});
-}).catch(()=>{});
-}).catch(() => {
-wx.showToast({ title: '任务不存在或已清理', icon: 'none' });
-wx.redirectTo({ url: '/pages/studio/index?view=tasks' });
-});
+retryResult(){return this.loadApiResult(this.data.taskId);},
+useTextResult(){
+ const task=this.data.activeTask;if(!task||task.outputType!=='text'||!task.resultText)return;
+ const state=studio.read();state.original=task.resultText;state.script=task.taskKind==='copy'?task.resultText:'';
+ state.title=task.resultText.split('\n')[0].slice(0,28);delete state.editorBuffer;studio.write(state);this.go('remix');
+},
+async loadApiResult(taskId) {
+ const seq=this.__resultSeq=(this.__resultSeq||0)+1,alive=http.requestGuard('studio-result'),scope=this.actorScope;
+ const current=()=>seq===this.__resultSeq&&alive()&&!this.__closed&&this.data.view==='result'&&scope===studio.scope();
+ this.setData({resultLoading:true,resultError:'',resultUrlNote:'',activeTask:null});
+ try{
+  const task=await contentApi.tasks.get(taskId);if(!current())return;
+  if(P.taskView(task&&task.status)!=='completed')throw Error('任务尚未成功完成，请在任务中心查看状态');
+  const mapped=this.mapApiTask(task);if(!mapped)throw Error('暂不支持此任务类型');
+  this.setData({activeTask:mapped,saved:false,invalidMessage:'',pageTitle:mapped.kindLabel+'结果'});
+  if(mapped.outputType==='video'){
+   if(!mapped.videoReady)throw Error('任务已完成，但视频成果尚不可读取，请重试或联系管理员');
+   const state=await contentApi.tasks.resultUrlStatus(taskId);if(!current())return;
+   if(state&&state.expired)this.setData({'activeTask.videoReady':false,'activeTask.resultUrl':'',resultError:state.message||'视频链接已过期，请联系管理员恢复成果'});
+  }
+ }catch(e){if(current()&&!e.silent)this.setData({resultError:P.degradeMessage(e)});}
+ finally{if(current())this.setData({resultLoading:false});}
 },
 /** 在线作品回读：drafts.works 找标题/文案（best-effort，失败沿用当前表单值） */
 loadApiWork(workId) {
