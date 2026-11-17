@@ -205,7 +205,7 @@ class LegacyPlatformCrmCustomerInterceptorTest {
         customerProxy.addAdvice(new TransactionInterceptor(txManager, new AnnotationTransactionAttributeSource()));
 
         leadController = new LeadController((LeadService) leadProxy.getProxy(), identity);
-        customerController = new CustomerController((CustomerService) customerProxy.getProxy(), identity);
+        customerController = new CustomerController((CustomerService) customerProxy.getProxy(), identity, mock(cn.iocoder.yudao.module.platform.org.SystemDirectory.class));
         leadMvc = build(leadController);
         customerMvc = build(customerController);
     }

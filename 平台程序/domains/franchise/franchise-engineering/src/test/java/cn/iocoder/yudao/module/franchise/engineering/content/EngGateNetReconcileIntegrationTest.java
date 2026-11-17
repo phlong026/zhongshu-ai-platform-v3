@@ -150,6 +150,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     @Resource
     private EngPlanService planService;
     @Resource
+    private EngCollectionService collectionService;
+    @Resource
     private EngTodoProvider todoProvider;
     @Resource
     private SaleContractService contracts;
@@ -162,6 +164,7 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
 
     private Store store;
     private PostSnapshot engineer;
+    private PostSnapshot finance;
     private long projectId;
     private long customerId;
     private long signStageId;
@@ -170,6 +173,7 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     void setUpProjectWithRealContract() {
         store = fixture.store();
         engineer = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        finance = fixture.post(engineer.orgId(), "finance", null);
         // 客户 + 真实合同（68 万：40/18/10）并签约
         customerId = IDS.incrementAndGet();
         jdbc.update("INSERT INTO fr_customer (id, company_id, owner_user_id, name, phone, source, status, create_time, update_time) "
@@ -199,15 +203,27 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void collectionSummaryFollowsContractChangesIncludingTail() {
+        long contractId = jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id=?",Long.class,projectId);
+        asRun(finance, () -> contracts.changeAmounts(finance,contractId,
+                new SaleContractService.ContractChange(41_000_000L,18_000_000L,10_000_000L,500_000L,null,"已确认增项"),idem()));
+        var summary=as(finance,()->collectionService.summary(finance,projectId));
+        assertThat(summary).hasSize(4);
+        assertThat(as(finance,()->planService.termAmount(finance,projectId,SIGN_AFTER))).isEqualTo(41_000_000L);
+        assertThat(summary.stream().mapToLong(s->((Number)s.get("expectedCents")).longValue()).sum()).isEqualTo(69_500_000L);
+        assertThat(summary.stream().filter(s->SIGN_AFTER.equals(s.get("stage"))).findFirst().orElseThrow().get("expectedCents")).isEqualTo(41_000_000L);
+        assertThat(summary.stream().filter(s->"tail".equals(s.get("stage"))).findFirst().orElseThrow().get("remainingCents")).isEqualTo(500_000L);
+    }
+
+    @Test
     void refundReopensStartGateAndShortfallTodoFlows() {
         // 收满 40 万：门槛过（不抛）
-        as(engineer, () -> contracts.collect(engineer, signStageId,
+        as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(40_000_000L, "bank", txn(), LocalDate.now()), idem()));
         asRun(engineer, () -> planService.requireStartGate(engineer, projectId));
         assertThat(gateShortfallTodo(engineer)).isNull();
-        // R1 P2-2 互补态一：真链收款不经工程留痕——旧催收投影（eng-collect，留痕口径）在列，
-        // 新投影（gate-shortfall，净口径）不在——证明新投影是净额维度而非旧投影复制品
-        assertThat(engCollectTodo(engineer)).as("旧催收投影在列（留痕未登记）").isNotNull();
+        // 业务已收齐时，工程催收和资金门槛都从统一实收读取，不再重复催收。
+        assertThat(engCollectTodo(engineer)).as("统一款项已收齐，不重复催收").isNull();
         assertThat(gateShortfallTodo(engineer)).isNull();
 
         // 退款 10 万（真 fr_fin_refund 行，替代链未闭合）：净 30<40 → 门槛重新不足
@@ -219,10 +235,9 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                 IDS.incrementAndGet(), receiptId, store.orgId(), engineer.userId());
         assertError(() -> asRun(engineer, () -> planService.requireStartGate(engineer, projectId)), GATE_NOT_MET);
 
-        // R1 P2-2 互补态二：退款回缺后两投影并存——旧投影金额不变（留痕行不删），
-        // 新投影金额=净缺口，证明退款回缺由新投影接住
-        assertThat(engCollectTodo(engineer)).as("旧催收投影仍在").isNotNull();
-        assertThat(engCollectTodo(engineer).amountCents()).isEqualTo(40_000_000L);
+        // 退款后催收及门槛都显示同一净缺口。
+        assertThat(engCollectTodo(engineer)).as("退款后恢复催收").isNotNull();
+        assertThat(engCollectTodo(engineer).amountCents()).isEqualTo(10_000_000L);
         // 门槛不足待办：owner 可见（缺口=10 万）、非 owner 不可见
         TodoItem shortfall = gateShortfallTodo(engineer);
         assertThat(shortfall).as("退款回缺后门槛待办出现").isNotNull();
@@ -231,17 +246,16 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(gateShortfallTodo(otherEngineer)).as("非 owner 不可见").isNull();
 
         // 补收 10 万：待办消失 + 门禁放行（不撤任何事实——项目从未被改状态）
-        as(engineer, () -> contracts.collect(engineer, signStageId,
+        as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(10_000_000L, "bank", txn(), LocalDate.now()), idem()));
         asRun(engineer, () -> planService.requireStartGate(engineer, projectId));
         assertThat(gateShortfallTodo(engineer)).as("补收后待办消失").isNull();
-        // R1 P2-2 互补态三：净额足额后新投影恒无；旧催收投影仍独立在列（留痕口径不变）
-        assertThat(engCollectTodo(engineer)).as("旧催收投影独立于净口径").isNotNull();
+        assertThat(engCollectTodo(engineer)).as("补收后催收消失").isNull();
     }
 
     @Test
     void singleCountStructureOneReceiptOneStage() {
-        as(engineer, () -> contracts.collect(engineer, signStageId,
+        as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(25_000_000L, "bank", txn(), LocalDate.now()), idem()));
         long receiptId = jdbc.queryForObject(
                 "SELECT receipt_id FROM fr_sale_stage_receipt WHERE stage_id = ?", Long.class, signStageId);

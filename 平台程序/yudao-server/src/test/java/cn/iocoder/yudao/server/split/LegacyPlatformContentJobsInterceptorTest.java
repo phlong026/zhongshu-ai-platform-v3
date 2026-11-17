@@ -144,7 +144,7 @@ class LegacyPlatformContentJobsInterceptorTest {
         var taskService = new ContentTaskService(taskStore, quota,
                 mock(LinkParsePort.class), mock(AsrPort.class), mock(ScriptRewritePort.class),
                 mock(OralVideoPort.class), mock(VideoGenerationPort.class),
-                mock(AssetAccessPort.class), commands, new ContentProviderProperties());
+                mock(AssetAccessPort.class), commands, new ContentProviderProperties(), mock(cn.iocoder.yudao.module.franchise.api.OrgPointPort.class));
 
         var snapshot = new PostSnapshot(5111L, USER_ID, ORG_ID, "HEADQUARTERS", "boss", null, true, Set.of());
         CurrentPost currentPost = () -> Optional.of(snapshot);

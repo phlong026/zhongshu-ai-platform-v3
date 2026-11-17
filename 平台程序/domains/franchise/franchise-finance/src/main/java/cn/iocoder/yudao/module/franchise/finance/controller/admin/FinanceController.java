@@ -235,6 +235,7 @@ public class FinanceController {
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody ReceiptRegisterCommand cmd) {
         PostSnapshot post = currentPost.require();
+        if((cmd.sourceType()==null||"manual".equals(cmd.sourceType())) && cmd.sourceRef()!=null && cmd.sourceRef().startsWith("employee-recovery:"))throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorCodes.FIN_SOURCE_FORBIDDEN);
         long id = receiptService.register(post, idempotencyKey, new FinReceiptService.RegisterCommand(
                 cmd.sourceType(), cmd.sourceRef(), cmd.name(), cmd.amountCents() == null ? 0 : cmd.amountCents(),
                 cmd.receivedDate(), cmd.method(), cmd.transactionNo(), cmd.voucherFileId(),
@@ -340,12 +341,15 @@ public class FinanceController {
                                                              @Valid @RequestBody PaymentCommand cmd) {
         long id = paymentService.register(currentPost.require(), idempotencyKey, new FinPaymentService.PaymentCommand(
                 cmd.payableId(), cmd.amountCents() == null ? 0 : cmd.amountCents(),
-                cmd.payDate(), cmd.transactionNo(), cmd.voucherFileId()));
+                cmd.payDate(), cmd.transactionNo(), cmd.voucherFileId(), cmd.fundingType(), cmd.payerUserId(), cmd.payerName(), cmd.accountName()));
         return success(Map.of("paymentId", id));
     }
 
     public record PaymentCommand(Long payableId, Long amountCents, LocalDate payDate,
-                                 String transactionNo, Long voucherFileId) {
+                                 String transactionNo, Long voucherFileId, String fundingType, Long payerUserId, String payerName, String accountName) {
+        public PaymentCommand(Long payableId,Long amountCents,LocalDate payDate,String transactionNo,Long voucherFileId) {
+            this(payableId,amountCents,payDate,transactionNo,voucherFileId,"COMPANY",null,null,null);
+        }
     }
 
     @DeleteMapping("/payments/{id}")
@@ -408,12 +412,13 @@ public class FinanceController {
         long id = refundService.registerExpense(currentPost.require(), idempotencyKey,
                 new FinRefundService.ExpenseRefundCommand(cmd.paymentId(),
                         cmd.amountCents() == null ? 0 : cmd.amountCents(), cmd.reason(), cmd.date(),
-                        cmd.transactionNo(), cmd.voucherFileId(), cmd.replacesId()));
+                        cmd.transactionNo(), cmd.voucherFileId(), cmd.replacesId(),cmd.fundingType()));
         return success(Map.of("refundId", id));
     }
 
     public record ExpenseRefundCommand(@NotNull Long paymentId, @NotNull Long amountCents, String reason, LocalDate date,
-                                       String transactionNo, Long voucherFileId, Long replacesId) {
+                                       String transactionNo, Long voucherFileId, Long replacesId,String fundingType) {
+        public ExpenseRefundCommand(Long paymentId,Long amountCents,String reason,LocalDate date,String transactionNo,Long voucherFileId,Long replacesId){this(paymentId,amountCents,reason,date,transactionNo,voucherFileId,replacesId,null);}
     }
 
     // ===== 异常资金登记（M08-T08/R05：独立留痕不凑平，不进有效账；日期待核单列待归月） =====
@@ -532,7 +537,10 @@ public class FinanceController {
     @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
     public CommonResult<FinProjectAccountService.ProjectAccount> projectAccount(@PathVariable("projectId") long projectId) {
         PostSnapshot post = currentPost.require();
-        return success(accountService.projectAccount(post.orgId(), projectId));
+        var legacy=accountService.projectAccount(post.orgId(), projectId);
+        var summary=projectLedger.page(post.orgId(),projectId,1,1).summary();
+        return success(new FinProjectAccountService.ProjectAccount(projectId,legacy.receivableRegistered(),
+                summary.receivedCents(),summary.refundedCents(),summary.paidCents()-summary.expenseRefundedCents()));
     }
 
     @GetMapping("/design-fee-progress")

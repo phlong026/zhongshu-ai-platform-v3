@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.Objects;
 
@@ -53,7 +54,9 @@ public class CommissionService implements DesignFeeProgressApi {
 
     public record SubmitCommand(String text, String scope, String attachment, BigDecimal total, BigDecimal first,
                                 String recipient, Integer budgetVersion, Integer planVersion, Integer facadeVersion,
-                                boolean confirmed, String mode, Integer feeRuleVersion, Long attachmentAssetId) {
+                                boolean confirmed, String mode, Integer feeRuleVersion, Long attachmentAssetId, java.util.Map<String,Object> designBrief, String paymentMode) {
+        public SubmitCommand(String text,String scope,String attachment,BigDecimal total,BigDecimal first,String recipient,Integer budgetVersion,Integer planVersion,Integer facadeVersion,boolean confirmed,String mode,Integer feeRuleVersion,Long attachmentAssetId,java.util.Map<String,Object> designBrief){this(text,scope,attachment,total,first,recipient,budgetVersion,planVersion,facadeVersion,confirmed,mode,feeRuleVersion,attachmentAssetId,designBrief,null);}
+        public SubmitCommand(String text,String scope,String attachment,BigDecimal total,BigDecimal first,String recipient,Integer budgetVersion,Integer planVersion,Integer facadeVersion,boolean confirmed,String mode,Integer feeRuleVersion,Long attachmentAssetId){this(text,scope,attachment,total,first,recipient,budgetVersion,planVersion,facadeVersion,confirmed,mode,feeRuleVersion,attachmentAssetId,null);}
         public SubmitCommand(String text,String scope,String attachment,BigDecimal total,BigDecimal first,String recipient,
                              Integer budgetVersion,Integer planVersion,Integer facadeVersion,boolean confirmed) {
             this(text,scope,attachment,total,first,recipient,budgetVersion,planVersion,facadeVersion,confirmed,"LEGACY_SPLIT",null,null);
@@ -79,7 +82,7 @@ public class CommissionService implements DesignFeeProgressApi {
                          List<CommissionProgressDO> progress, List<CommissionHandoverDO> handovers,
                          ApprovalDO feeApproval, List<String> allowedActions, String displayStatus,
                          cn.iocoder.yudao.module.franchise.api.DesignFeeSettlementPort.Settlement settlement,
-                         List<CommissionManifestService.Manifest> dispatches) {
+                         List<CommissionManifestService.Manifest> dispatches, CommissionSimulatedPayments.Order simulatedPayment) {
     }
 
     private final CommissionMapper commissionMapper;
@@ -96,13 +99,14 @@ public class CommissionService implements DesignFeeProgressApi {
     private final CommissionAccess access;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.DesignFeeSettlementPort settlement;
     @jakarta.annotation.Resource private DesignPricingService pricing;
+    @jakarta.annotation.Resource private CommissionSimulatedPayments simulatedPayments;
     @jakarta.annotation.Resource private CommissionManifestService manifests;
     @jakarta.annotation.Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public record FeeOffer(String mode,Integer ruleVersion,BigDecimal area,Long rateCents,long totalCents,
                            long firstCents,long tailCents,String scope,String recipient) { }
     public record Context(long customerId,Long commissionId,CustomerSchemeDO latestBudget,FeeOffer feeOffer,
-                          Detail commission,List<String> allowedActions) { }
+                          Detail commission,List<String> allowedActions,String customerName,String city,boolean canPrepareBudget,java.util.Map<String,Object> customerInfo,java.util.Map<String,String> schemeBasis) { }
 
     public Context context(PostSnapshot post,long customerId) {
         CustomerDO customer=customerMapper.selectById(customerId);
@@ -119,7 +123,49 @@ public class CommissionService implements DesignFeeProgressApi {
                     legacy.getTotalCents(),legacy.getFirstCents(),legacy.getTotalCents()-legacy.getFirstCents(),legacy.getScope(),legacy.getRecipient());
         }
         boolean writable=CustomerAccess.canWrite(post,customer) && budget!=null && (c==null || CommissionDO.STATUS_FEE_RETURNED.equals(c.getStatus()));
-        return new Context(customerId,c==null?null:c.getId(),budget,offer,c==null?null:detail(post,c),writable?List.of("commission-submit"):List.of());
+        return new Context(customerId,c==null?null:c.getId(),budget,offer,c==null?null:detail(post,c),writable?List.of("commission-submit"):List.of(),customer.getName(),customer.getCity(),CustomerAccess.canWrite(post,customer),CommissionBrief.customerInfo(customer),schemeBasis(customerId,budget));
+    }
+    private java.util.Map<String,String> schemeBasis(long customerId,CustomerSchemeDO budget) {
+        var result=new java.util.LinkedHashMap<String,String>();
+        if(budget==null)return result;
+        for(String kind:List.of(CustomerSchemeDO.KIND_PLAN,CustomerSchemeDO.KIND_FACADE)){
+            var s=matchingScheme(customerId,budget,kind);
+            if(s==null||s.getPayload()==null)continue;
+            result.put(kind,s.getPayload());
+        }
+        return result;
+    }
+    private CustomerSchemeDO matchingScheme(long customerId,CustomerSchemeDO budget,String kind){
+        var s=customerService.latestScheme(customerId,kind);if(s==null||budget==null)return null;
+        boolean same=budget.getDesignProjectId()!=null&&java.util.Objects.equals(budget.getDesignProjectId(),s.getDesignProjectId());
+        if(!same&&budget.getDesignProjectId()==null&&s.getWidth()!=null&&s.getDepth()!=null&&s.getFloors()!=null)
+            same=budget.getWidth()!=null&&budget.getDepth()!=null&&s.getWidth().compareTo(budget.getWidth())==0&&s.getDepth().compareTo(budget.getDepth())==0&&s.getFloors().equals(budget.getFloors());
+        return same?s:null;
+    }
+    public CommissionSimulatedPayments.Order simulatedPayment(CommissionDO c){return simulatedPayments.read(c);}
+    public boolean readyToComplete(CommissionDO c){var order=simulatedPayments.read(c);return order!=null?order.paid():settlement(c).readyToComplete();}
+    public boolean readyToDispatch(CommissionDO c){var order=simulatedPayments.read(c);return order!=null?order.paid():settlement(c).readyToDispatch();}
+    public record SimulatePayCommand(String channel,boolean confirmed) { }
+    @Transactional(rollbackFor=Exception.class)
+    public Detail simulatePay(PostSnapshot post,long commissionId,SimulatePayCommand input,String key){
+        var c=requireWritable(post,commissionId);
+        key=commandLock(post,key);
+        if(replayed(post,key,input,commissionId,"commission-simulate-pay"))return get(post,commissionId);
+        if(input==null||!input.confirmed())throw exception(SUBMISSION_INPUT_INVALID);
+        requireState(c,CommissionDO.STATUS_DESIGNING);
+        if(simulatedPayments.read(c)==null)throw exception(COMMISSION_STATE_INVALID);
+        simulatedPayments.pay(c,input.channel(),post);
+        Revisions.requireUpdated(commissionMapper.updateByRevision(commissionId,c.getRevision(),u->u.set(CommissionDO::getStatus,c.getStatus())));
+        commands.record(post,AGGREGATE,commissionId,c.getRevision()+1,"commission-simulate-pay",input,key);
+        return get(post,commissionId);
+    }
+    public CommissionSimulatedPayments.Order paymentReceipt(PostSnapshot post,long commissionId){
+        var c=commissionMapper.selectById(commissionId);
+        boolean finance=c!=null&&Set.of(FranchiseRoles.FINANCE,FranchiseRoles.FINANCE_LEAD).contains(post.roleCode())&&(post.orgId()==c.getCompanyId()||post.orgId()==c.getDesignOrgId());
+        if(c==null||!finance&&!access.canRead(post,c))throw exception(COMMISSION_NOT_FOUND);
+        var order=simulatedPayments.read(c);
+        if(order==null)throw exception(COMMISSION_NOT_FOUND);
+        return access.isDesignAdminOf(post,c)?order.designView():order;
     }
     public cn.iocoder.yudao.module.franchise.api.DesignFeeSettlementPort.Settlement settlement(CommissionDO c) {
         return settlement.read(c.getId(),c.getSubmissionVersion());
@@ -209,7 +255,7 @@ public class CommissionService implements DesignFeeProgressApi {
             submissions = submissions.stream().map(s -> cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(s,CommissionSubmissionDO.class))
                     .map(s -> s.setTotalCents(null).setFirstCents(null)
                     .setRecipient(null).setPolicyId(null).setPolicyVersion(null)
-                    .setRateCents(null).setPricingVersion(null)).toList();
+                    .setRateCents(null).setPricingVersion(null).setSchemeSnapshot(CommissionBrief.forDesign(s.getSchemeSnapshot()))).toList();
         }
         ApprovalDO approval = approvalService.latest(FranchiseRoles.DOMAIN, SUBJECT_TYPE, commission.getId()).orElse(null);
         if(designAdmin && approval!=null) {
@@ -217,7 +263,7 @@ public class CommissionService implements DesignFeeProgressApi {
         }
         return new Detail(commission, submissions, progressMapper.selectByCommission(commission.getId()),
                 handoverMapper.selectByCommission(commission.getId()), approval,
-                allowedActions(post, commission), displayStatus(commission),designAdmin?null:settlement(commission),manifests.list(commission.getId()));
+                allowedActions(post, commission), displayStatus(commission),designAdmin||simulatedPayments.read(commission)!=null?null:settlement(commission),manifests.list(commission.getId()),designAdmin&&simulatedPayments.read(commission)!=null?simulatedPayments.read(commission).designView():simulatedPayments.read(commission));
     }
 
     // ===================== 命令 =====================
@@ -247,6 +293,9 @@ public class CommissionService implements DesignFeeProgressApi {
             throw exception(SUBMISSION_BUDGET_REQUIRED);
         }
         if(!java.util.Objects.equals(input.budgetVersion(),budget.getVersion())) throw exception(SUBMISSION_VERSION_STALE);
+        var plan=matchingScheme(customerId,budget,CustomerSchemeDO.KIND_PLAN);
+        var facade=matchingScheme(customerId,budget,CustomerSchemeDO.KIND_FACADE);
+        if(input.planVersion()!=null&&(plan==null||!input.planVersion().equals(plan.getVersion()))||input.facadeVersion()!=null&&(facade==null||!input.facadeVersion().equals(facade.getVersion())))throw exception(SUBMISSION_VERSION_STALE);
         boolean areaFull="AREA_FULL".equals(input.mode());
         if(!areaFull) jdbc.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(?,0))) s",Integer.class,"design-policy:"+post.orgId());
         var areaPolicy=areaFull?pricing.current(designOrgId):null;
@@ -288,7 +337,7 @@ public class CommissionService implements DesignFeeProgressApi {
                 .setMode(input.mode()).setPricingVersion(areaFull?areaPolicy.version():null)
                 .setRateCents(areaFull?areaPolicy.rateCents():null).setAttachmentAssetId(input.attachmentAssetId())
                 .setText(input.text()).setScope(input.scope()).setAttachment(input.attachment())
-                .setBudgetVersion(budget.getVersion()).setPlanVersion(input.planVersion()).setFacadeVersion(input.facadeVersion())
+                .setBudgetVersion(budget.getVersion()).setPlanVersion(plan==null?null:plan.getVersion()).setFacadeVersion(facade==null?null:facade.getVersion())
                 .setWidth(budget.getWidth()).setDepth(budget.getDepth()).setFloors(budget.getFloors()).setArea(budget.getArea())
                 .setSchemeSnapshot(schemeSnapshot(customerId, input))
                 .setTotalCents(totalCents).setFirstCents(firstCents).setRecipient(areaFull?areaPolicy.recipient():input.recipient())
@@ -299,7 +348,8 @@ public class CommissionService implements DesignFeeProgressApi {
             submission.setPolicyId(policy.getId()).setPolicyVersion(policy.getVersion());
         }
         submissionMapper.insert(submission);
-        if(standard) settlement.ensureInitialPayable(commission.getId(),commission.getSubmissionVersion(),post);
+        if("SIMULATION".equals(input.paymentMode()))simulatedPayments.create(commission,totalCents);
+        else if(standard) settlement.ensureInitialPayable(commission.getId(),commission.getSubmissionVersion(),post);
 
         if (exception) {
             approvalService.submit(new ApprovalRequest(FranchiseRoles.DOMAIN, post.orgId(), SUBJECT_TYPE,
@@ -350,7 +400,7 @@ public class CommissionService implements DesignFeeProgressApi {
             throw exception(COMMISSION_FORBIDDEN);
         }
         requireState(commission, CommissionDO.STATUS_DESIGNING);
-        if (!settlement.lockAndRead(commissionId,commission.getSubmissionVersion(),post).readyToComplete()) {
+        if (!(simulatedPayments.read(commission)!=null?readyToComplete(commission):settlement.lockAndRead(commissionId,commission.getSubmissionVersion(),post).readyToComplete())) {
             throw exception(FIRST_PAYMENT_NOT_READY);
         }
         String note = progressNote(command.note(), command.confirmed());
@@ -360,7 +410,7 @@ public class CommissionService implements DesignFeeProgressApi {
             long revision = commission.getRevision();
             Revisions.requireUpdated(commissionMapper.updateByRevision(commissionId, revision, u -> u
                     .set(CommissionDO::getStatus, CommissionDO.STATUS_DESIGN_COMPLETED)));
-            settlement.ensureTailPayable(commissionId,commission.getSubmissionVersion(),post);
+            if(simulatedPayments.read(commission)==null)settlement.ensureTailPayable(commissionId,commission.getSubmissionVersion(),post);
             commands.record(post, AGGREGATE, commissionId, revision + 1, "design-complete", command, idempotencyKey);
         }
         return get(post, commissionId);
@@ -376,7 +426,7 @@ public class CommissionService implements DesignFeeProgressApi {
             throw exception(COMMISSION_FORBIDDEN);
         }
         requireState(commission, CommissionDO.STATUS_DESIGN_COMPLETED);
-        if (!settlement.lockAndRead(commissionId,commission.getSubmissionVersion(),post).readyToDispatch()) {
+        if (!(simulatedPayments.read(commission)!=null?readyToDispatch(commission):settlement.lockAndRead(commissionId,commission.getSubmissionVersion(),post).readyToDispatch())) {
             throw exception(TAIL_PAYMENT_NOT_READY);
         }
         String note = progressNote(command.note(), command.confirmed());
@@ -570,8 +620,9 @@ public class CommissionService implements DesignFeeProgressApi {
                 || attachment != null) {
             throw exception(SUBMISSION_INPUT_INVALID);
         }
+        if(c.paymentMode()!=null&&(!"SIMULATION".equals(c.paymentMode())||!"AREA_FULL".equals(mode)))throw exception(SUBMISSION_INPUT_INVALID);
         return new SubmitCommand(text, scope, attachment, c.total(), c.first(), recipient,
-                c.budgetVersion(), c.planVersion(), c.facadeVersion(), true,mode,c.feeRuleVersion(),c.attachmentAssetId());
+                c.budgetVersion(), c.planVersion(), c.facadeVersion(), true,mode,c.feeRuleVersion(),c.attachmentAssetId(),CommissionBrief.validate(c.designBrief()),c.paymentMode());
     }
 
     private String schemeSnapshot(long customerId, SubmitCommand input) {
@@ -579,11 +630,21 @@ public class CommissionService implements DesignFeeProgressApi {
         appendScheme(snapshot, customerId, CustomerSchemeDO.KIND_BUDGET);
         appendScheme(snapshot, customerId, CustomerSchemeDO.KIND_PLAN);
         appendScheme(snapshot, customerId, CustomerSchemeDO.KIND_FACADE);
+        if(input.designBrief()!=null){
+            var brief=new java.util.LinkedHashMap<String,Object>(input.designBrief());
+            brief.put("customer",CommissionBrief.customerInfo(customerMapper.selectById(customerId)));
+            var budget=customerService.latestScheme(customerId,CustomerSchemeDO.KIND_BUDGET);
+            brief.put("budgetVersion",budget.getVersion());
+            brief.put("buildingArea",budget.getArea());brief.put("width",budget.getWidth());brief.put("depth",budget.getDepth());brief.put("floors",budget.getFloors());
+            if(snapshot.length()>1)snapshot.append(',');
+            snapshot.append("\"designBrief\":").append(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(brief));
+        }
         return snapshot.append("}").toString();
     }
 
     private void appendScheme(StringBuilder snapshot, long customerId, String kind) {
         CustomerSchemeDO scheme = customerService.latestScheme(customerId, kind);
+        if(!CustomerSchemeDO.KIND_BUDGET.equals(kind))scheme=matchingScheme(customerId,customerService.latestScheme(customerId,CustomerSchemeDO.KIND_BUDGET),kind);
         if (scheme != null) {
             if (snapshot.length() > 1) {
                 snapshot.append(',');
@@ -611,13 +672,15 @@ public class CommissionService implements DesignFeeProgressApi {
 
     /** 显示状态：存储状态 + 首尾款进度（文案与小程序 sales-flow.js next() 一致） */
     public String displayStatus(CommissionDO commission) {
+        var simulated=simulatedPayments.read(commission);
+        if(simulated!=null&&!simulated.paid())return "待模拟付款登记";
         return switch (commission.getStatus()) {
             case CommissionDO.STATUS_FEE_PENDING -> "费用待老板审批";
             case CommissionDO.STATUS_FEE_RETURNED -> "费用被退回，待修改重提";
-            case CommissionDO.STATUS_DESIGNING -> !settlement(commission).readyToComplete()
+            case CommissionDO.STATUS_DESIGNING -> !readyToComplete(commission)
                     ? "设计中 · 设计费办理中" : "设计中";
             case CommissionDO.STATUS_DESIGN_COMPLETED -> {
-                yield settlement(commission).readyToDispatch()?"设计已完成":"设计已完成 · 设计费待付足并核收";
+                yield readyToDispatch(commission)?"设计已完成":"设计已完成 · 设计费待付足并核收";
             }
             case CommissionDO.STATUS_DISPATCHED -> "成果已下发，待收图移交";
             case CommissionDO.STATUS_HANDOVER_SUBMITTED -> "移交待工程接收";
@@ -638,11 +701,13 @@ public class CommissionService implements DesignFeeProgressApi {
         if (CommissionDO.STATUS_FEE_PENDING.equals(status) && FranchiseRoles.atStore(post) && FranchiseRoles.isBoss(post)) {
             actions.add("fee-decide");
         }
+        var simulated=simulatedPayments.read(commission);
+        if(writable&&simulated!=null&&!simulated.paid())actions.add("commission-simulate-pay");
         boolean designAdmin = access.isDesignAdminOf(post, commission);
-        if (CommissionDO.STATUS_DESIGNING.equals(status) && designAdmin && settlement(commission).readyToComplete()) {
+        if (CommissionDO.STATUS_DESIGNING.equals(status) && designAdmin && readyToComplete(commission)) {
             actions.add("design-complete");
         }
-        if (CommissionDO.STATUS_DESIGN_COMPLETED.equals(status) && designAdmin && settlement(commission).readyToDispatch()) {
+        if (CommissionDO.STATUS_DESIGN_COMPLETED.equals(status) && designAdmin && readyToDispatch(commission)) {
             actions.add("design-dispatch");
         }
         if (CommissionDO.STATUS_DISPATCHED.equals(status) && writable) {

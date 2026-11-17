@@ -22,6 +22,11 @@ public class FinPaymentDO {
     private Long payableId;
     private Long projectId;
     private Long companyId;
+    private String fundingType;
+    private Long payerUserId;
+    private String payerName;
+    private String accountName;
+
     private Long amountCents;
     /** M10-T05/R1：待关联现金金额（超出应付剩余额度的已核实部分；reconcile 后转正） */
     private Long pendingLinkCents;

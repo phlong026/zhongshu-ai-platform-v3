@@ -19,6 +19,9 @@ export interface FinancePage<T> {
 
 /** 实收收款单（FinReceiptDO） */
 export interface ReceiptRow {
+  bookId?: string
+  category?: string
+  accountName?: string
   id: string
   companyId: string
   projectId: string | null
@@ -41,6 +44,9 @@ export interface ReceiptRow {
 
 /** 付款单（FinPaymentDO） */
 export interface PaymentRow {
+  fundingType?: 'COMPANY' | 'EMPLOYEE'
+  payerName?: string
+  accountName?: string
   id: string
   payableId: string | null
   projectId: string | null
@@ -59,6 +65,7 @@ export interface PaymentRow {
 
 /** 退款单（FinRefundDO，含更正链字段——仅退款具备） */
 export interface RefundRow {
+  fundingType?: 'COMPANY' | 'EMPLOYEE'
   id: string
   receiptId: string | null
   refundDirection: string
@@ -77,8 +84,12 @@ export interface RefundRow {
   voidedAt: string | null
 }
 
-/** 应付单（FinPayableDO——无到期日/业务日期字段） */
+/** 应付单（FinPayableDO，含可选发生日及约定付款日） */
 export interface PayableRow {
+  bookId?: string
+  category?: string
+  businessDate?: string
+  dueDate?: string
   id: string
   projectId: string | null
   stage: string | null

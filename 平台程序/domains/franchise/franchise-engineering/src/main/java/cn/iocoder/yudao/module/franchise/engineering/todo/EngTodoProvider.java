@@ -75,6 +75,11 @@ public class EngTodoProvider implements TodoProvider {
             // 仅提示补收，不撤任何施工/交付事实（门禁只拦动作）。
             // R1 P3：期款行整表读取一次，投影段与催收段共用（未开工项目量级有限，登记边界）
             java.util.List<FrEngCollectionTermDO> terms = collectionTerms.selectByProject(post.orgId(), project.getId());
+            Long currentContractId=project.getSaleContractId()!=null?project.getSaleContractId():project.getCustomerId()==null?null:unifiedStages.activeContractId(post,project.getCustomerId());
+            if(currentContractId!=null){
+                var current=unifiedStages.stageBalances(post,currentContractId);
+                if(current!=null&&!current.isEmpty())terms=current.stream().filter(b->!"tail".equals(b.stage())).map(b->new FrEngCollectionTermDO().setStage(b.stage()).setAmountCents(b.expectedCents())).toList();
+            }
             if (project.getActualStartAt() == null) {
                 FrEngCollectionTermDO signTerm = terms.stream()
                         .filter(t -> FrEngCollectionTermDO.STAGE_SIGN_AFTER.equals(t.getStage()))
@@ -105,7 +110,7 @@ public class EngTodoProvider implements TodoProvider {
                 if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(term.getStage()) && !toppingDone) {
                     continue; // 封顶款待封顶完成后进入待办（收款侧前置的同向派生）
                 }
-                long confirmed = collections.selectByProject(post.orgId(), project.getId()).stream()
+                long confirmed = currentContractId!=null?unifiedStages.stageCollectedCents(post,currentContractId,term.getStage()):collections.selectByProject(post.orgId(), project.getId()).stream()
                         .filter(c -> term.getStage().equals(c.getStage()))
                         .mapToLong(FrEngCollectionDO::getAmountCents).sum();
                 long remaining = term.getAmountCents() - confirmed;

@@ -27,6 +27,9 @@ public final class BudgetPriceResolver {
     /** 自定义地区的默认基准地区（产品口径：武汉公布价）。 */
     public static final String BASELINE_REGION_CODE = "WUHAN";
     private final JdbcTemplate jdbc;
+    private AiDesignBaselineSource baselineSource;
+
+    public void setBaselineSource(AiDesignBaselineSource source) { baselineSource = source; }
 
     public BudgetPriceResolver(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
@@ -193,6 +196,11 @@ public final class BudgetPriceResolver {
     }
 
     private Price published(long regionId, long optionId, Instant at, String source) {
+        if (baselineSource != null) {
+            String region = jdbc.queryForObject("SELECT code FROM budget_region WHERE tenant_id = 0 AND id = ? AND deleted = FALSE", String.class, regionId);
+            var price = baselineSource.published(region, at).get(optionId);
+            return price == null ? new Price(null, source, null, null, null, null, null, null, null, null) : price.asPrice(source);
+        }
         var rows = jdbc.queryForList("SELECT id, unit_price_cents, free_reason, version, effective_at, expires_at FROM budget_item_price "
                 + "WHERE tenant_id = 0 AND region_id = ? AND option_id = ? AND status = 'PUBLISHED' AND deleted = FALSE "
                 + "AND effective_at <= ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY id LIMIT 2",

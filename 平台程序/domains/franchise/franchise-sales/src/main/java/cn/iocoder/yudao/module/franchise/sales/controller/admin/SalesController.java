@@ -170,6 +170,7 @@ public class SalesController {
                     Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
                     row.put("contract", c);
                     row.put("stages", contracts.stageSummary(post, c.getId()));
+                    row.put("declarations", contracts.contractCollectionDeclarations(post, c.getId()));
                     return row;
                 })
                 .toList();
@@ -202,10 +203,28 @@ public class SalesController {
         return success(Map.of("contractId", contract.getId(), "status", contract.getStatus()));
     }
 
+    @GetMapping("/financial-stages") @PreAuthorize("@post.has('franchise:fin:query')")
+    public CommonResult<?> financialStages(){return success(contracts.financialStages(post()));}
+    @PostMapping("/stages/{stage}/allocate-receipt/{receipt}") @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<?> allocate(@PathVariable long stage,@PathVariable long receipt,@RequestHeader("Idempotency-Key") String key){contracts.allocateReceipt(post(),stage,receipt,key);return success(true);}
+    @PostMapping("/contracts/{id}/change-amounts") @PreAuthorize("@post.has('franchise:sale:write') or @post.has('franchise:fin:register')")
+    public CommonResult<?> changeAmounts(@PathVariable long id,@RequestHeader("Idempotency-Key") String key,@RequestBody SaleContractService.ContractChange cmd){contracts.changeAmounts(post(),id,cmd,key);return success(true);}
+
+    @GetMapping("/collection-declarations")
+    @PreAuthorize("@post.has('franchise:fin:query')")
+    public CommonResult<?> declarations(){return success(contracts.collectionDeclarations(post()));}
+    public record DeclarationReturn(String reason){}
+    @PostMapping("/collection-declarations/{id}/return") @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<?> returnDeclaration(@PathVariable long id,@RequestHeader("Idempotency-Key") String key,@RequestBody DeclarationReturn cmd){contracts.returnDeclaration(post(),id,cmd.reason(),key);return success(true);}
+    @PostMapping("/collection-declarations/{id}/confirm")
+    @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<?> confirmDeclaration(@PathVariable long id,@RequestHeader("Idempotency-Key") String key){return success(contracts.confirmDeclaration(post(),id,key));}
+
     // ========== 回款（R11，collect） ==========
 
     /** M06-T04：分笔核销（amountCents 必填>0，≤期剩余可收额） */
-    public record CollectReq(Long amountCents, String method, String transactionNo, LocalDate receivedDate) {
+    public record CollectReq(Long amountCents, String method, String transactionNo, LocalDate receivedDate,Long voucherFileId,String accountName) {
+        public CollectReq(Long amountCents,String method,String transactionNo,LocalDate receivedDate){this(amountCents,method,transactionNo,receivedDate,null,null);}
     }
 
     @PostMapping("/stages/{stageId}/collect")
@@ -219,7 +238,7 @@ public class SalesController {
             throw exception(new cn.iocoder.yudao.framework.common.exception.ErrorCode(400, "amountCents 必填且大于 0"));
         }
         return success(contracts.collect(post(), stageId, new SaleContractService.CollectCommand(
-                req.amountCents(), req.method(), req.transactionNo(), req.receivedDate()), idem));
+                req.amountCents(), req.method(), req.transactionNo(), req.receivedDate(),req.voucherFileId(),req.accountName()), idem));
     }
 
     @GetMapping("/contracts/{contractId}/stage-summary")

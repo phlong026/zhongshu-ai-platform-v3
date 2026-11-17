@@ -53,8 +53,8 @@ public class FinRefundService {
     }
 
     /** M08-T08：支出退回命令（供应商/劳务方退回材料/劳务款，冲减已付现金）；replacesId 走更正链（R2 P1-3） */
-    public record ExpenseRefundCommand(long paymentId, long amountCents, String reason, LocalDate date,
-                                       String transactionNo, Long voucherFileId, Long replacesId) {
+    public record ExpenseRefundCommand(long paymentId,long amountCents,String reason,LocalDate date,String transactionNo,Long voucherFileId,Long replacesId,String fundingType) {
+        public ExpenseRefundCommand(long paymentId,long amountCents,String reason,LocalDate date,String transactionNo,Long voucherFileId,Long replacesId){this(paymentId,amountCents,reason,date,transactionNo,voucherFileId,replacesId,null);}
     }
 
     @Transactional
@@ -158,8 +158,11 @@ public class FinRefundService {
         if (identity != null && cmd.replacesId() == null) {
             throw exception(TXN_NO_OCCUPIED);
         }
+        String returnedTo=cmd.fundingType()==null?(payment.getFundingType()==null?"COMPANY":payment.getFundingType()):cmd.fundingType();
+        if(!java.util.Set.of("COMPANY","EMPLOYEE").contains(returnedTo) || ("EMPLOYEE".equals(returnedTo) && !"EMPLOYEE".equals(payment.getFundingType())))throw exception(FIN_SOURCE_FORBIDDEN);
         FinRefundDO refund = new FinRefundDO()
                 .setPaymentId(cmd.paymentId()).setCompanyId(post.orgId())
+                .setFundingType(returnedTo)
                 .setAmountCents(cmd.amountCents()).setStatus("已核实")
                 .setReason(cmd.reason()).setOperatorUserId(post.userId())
                 .setDate(cmd.date()).setTransactionNo(txn)

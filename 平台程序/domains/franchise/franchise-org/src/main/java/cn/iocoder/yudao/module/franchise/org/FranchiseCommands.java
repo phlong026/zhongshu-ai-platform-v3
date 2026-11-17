@@ -24,6 +24,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 public class FranchiseCommands {
 
     private final CommandLog commandLog;
+    @jakarta.annotation.Resource private org.springframework.context.ApplicationEventPublisher events;
 
     public FranchiseCommands(CommandLog commandLog) {
         this.commandLog = commandLog;
@@ -82,6 +83,7 @@ public class FranchiseCommands {
                 || !event.getAggregateType().equals(aggregateType))) {
             throw exception(STATE_VERSION_CONFLICT);
         }
+        if(events!=null) events.publishEvent(new FranchiseCommandRecorded(event));
     }
 
     private static String scopedKey(PostSnapshot post, String key) {

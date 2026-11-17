@@ -62,11 +62,18 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
         }
         var result = collectService.collect(post, stageRow.getId(),
                 new SaleContractService.CollectCommand(input.amountCents(), input.method(),
-                        input.transactionNo(), input.occurredAt()),
+                        input.transactionNo(), input.occurredAt(),input.fileAssetId(),null),
                 "eng-unified:" + contractId + ":" + stage + ":" + input.transactionNo());
         return new StageCollectResult(((Number) result.get("receiptId")).longValue(),
                 ((Number) result.getOrDefault("collectedCents", 0)).longValue(),
                 String.valueOf(result.get("stageStatus")),
                 Boolean.TRUE.equals(result.get("replayed")));
+    }
+
+    @Override
+    public java.util.List<StageBalance> stageBalances(PostSnapshot post, long contractId) {
+        return collectService.stageSummary(post, contractId).stream().map(row -> new StageBalance(
+                String.valueOf(row.get("stage")), ((Number)row.get("amountCents")).longValue(),
+                ((Number)row.get("collectedCents")).longValue())).toList();
     }
 }

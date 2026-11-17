@@ -21,7 +21,7 @@ import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertE
 import static cn.iocoder.yudao.module.franchise.commission.enums.FranchiseCommissionErrorCodes.*;
 
 /** Real PG transactions/settlement; only asset transport and engineer projection are explicit boundary stubs. */
-@Import({CommissionService.class,CommissionAccess.class,CommissionQueryAdapter.class,CommissionManifestService.class,
+@Import({CommissionSimulatedPayments.class,CommissionService.class,CommissionAccess.class,CommissionQueryAdapter.class,CommissionManifestService.class,
         DesignPricingService.class,DesignFeeSettlementAdapter.class,DesignFinanceLocks.class,CommissionOrgScope.class,
         FranchiseCommands.class,CommandLogImpl.class,ApprovalServiceImpl.class,CustomerService.class,LeadService.class,
         CrmOrgScope.class,CommissionDeliverableAccessAdapter.class,HandoverService.class,SixRoleCommissionIntegrationTest.Config.class})
@@ -151,6 +151,34 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertError(()->as(newEngineer,()->grants.requireReadable(newEngineer,id,2,CommissionDeliverableAccessPort.Slot.RESULT)),COMMISSION_FORBIDDEN);
         assertThat(as(sales,()->grants.requireReadable(sales,id,1,CommissionDeliverableAccessPort.Slot.DRAWING)).assetId()).isEqualTo(102);
         assertThat(jdbc.queryForObject("SELECT drawing_asset_id FROM fr_commission_dispatch_manifest WHERE commission_id=? AND dispatch_seq=1",Long.class,id)).isEqualTo(102);
+    }
+    @Test void simulatedPaymentFreezesFactsIsIdempotentAndNeverCreatesActualFinance(){
+        var store=fixture.store();var sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
+        var design=fixture.post(fixture.headquarters(),"hq-design-admin",null);
+        var finance=fixture.post(store.orgId(),"finance",null);var hqFinance=fixture.post(design.orgId(),"finance",null);
+        var outsider=fixture.post(fixture.store().orgId(),"finance",null);
+        long customer=as(sales,()->leads.capture(sales,new LeadService.CaptureCommand("模拟支付验收",String.valueOf(15000000000L+Math.abs(UUID.randomUUID().getLeastSignificantBits()%800000000L)),"建房","验收"),null).customerId());
+        var budget=as(sales,()->customers.saveScheme(sales,customer,new CustomerService.SchemeCommand("BUDGET","预算","{}",BigDecimal.TEN,BigDecimal.TEN,2,new BigDecimal("200"),123456L),null));
+        var policy=as(design,()->pricing.save(design,new DesignPricingService.Save(100,"方案图纸","总部设计",true),key()));
+        var brief=new java.util.LinkedHashMap<String,Object>();brief.put("projectName","验收自建房");brief.put("orientation","南");brief.put("entranceAligned","一致");brief.put("householdMembers","5");brief.put("rooms",java.util.List.of("卧室"));brief.put("customer",java.util.Map.of("phone","伪造电话"));brief.put("buildingArea",99999);
+        var input=new CommissionService.SubmitCommand("完整需求","方案图纸",null,null,null,null,budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,brief,"SIMULATION");
+        var detail=as(sales,()->commissions.submit(sales,customer,input,key()));long id=detail.commission().getId();
+        assertThat(detail.simulatedPayment().amountCents()).isEqualTo(20000);
+        assertThat(detail.allowedActions()).contains("commission-simulate-pay");
+        assertThat(detail.submissions().get(0).getSchemeSnapshot()).doesNotContain("伪造电话","99999");
+        assertError(()->as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("完成",true),key())),FIRST_PAYMENT_NOT_READY);
+        assertError(()->as(outsider,()->commissions.paymentReceipt(outsider,id)),COMMISSION_NOT_FOUND);
+        String payKey=key();var pay=new CommissionService.SimulatePayCommand("WECHAT",true);
+        var paid=as(sales,()->commissions.simulatePay(sales,id,pay,payKey));
+        var again=as(sales,()->commissions.simulatePay(sales,id,pay,payKey));
+        assertThat(again.commission().getRevision()).isEqualTo(paid.commission().getRevision());
+        assertThat(as(finance,()->commissions.paymentReceipt(finance,id)).paid()).isTrue();
+        assertThat(as(hqFinance,()->commissions.paymentReceipt(hqFinance,id)).paid()).isTrue();
+        assertThat(as(design,()->commissions.get(design,id)).allowedActions()).contains("design-complete");
+        assertThat(as(design,()->commissions.get(design,id)).submissions().get(0).getSchemeSnapshot()).doesNotContain("\"phone\"","123456");
+        assertError(()->as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("ALIPAY",true),key())),COMMISSION_STATE_INVALID);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE customer_id=?",Long.class,customer)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_simulated_order WHERE commission_id=?",Long.class,id)).isEqualTo(1);
     }
     private static String key() { return UUID.randomUUID().toString(); }
     private <T> T as(PostSnapshot post,java.util.function.Supplier<T> action) { currentPost.use(post);try{return action.get();}finally{currentPost.clear();} }

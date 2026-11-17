@@ -625,6 +625,8 @@ public class EngMaterialService {
                     : BigDecimal.valueOf(s.getUnitPriceCents()).multiply(m.getQuantity())
                             .setScale(0, java.math.RoundingMode.HALF_UP).longValueExact()
                             + (s.getFreightCents() == null ? 0 : s.getFreightCents());
+            if(s!=null && s.getPayableId()!=null){var financial=jdbcTemplate.queryForList("SELECT total_cents FROM fr_fin_payable WHERE id=? AND company_id=?",Long.class,s.getPayableId(),post.orgId());if(!financial.isEmpty())total=financial.get(0);}
+
             long paid = s == null || s.getPayableId() == null ? 0 : paidByPayable.getOrDefault(s.getPayableId(), 0L);
             boolean cancelled = FrEngMaterialDO.STATUS_CANCELLED.equals(m.getStatus());
             Map<String, Object> line = new LinkedHashMap<>();

@@ -18,6 +18,10 @@ public interface UnifiedStageAccountPort {
     /** 期次累计实收（分；Σ 该期全部分笔 = 已收-退回的净口径由 sales 侧保证） */
     long stageCollectedCents(PostSnapshot post, long contractId, String stage);
 
+    /** 当前合同约定和净实收，包含变更新增的尾款。 */
+    default java.util.List<StageBalance> stageBalances(PostSnapshot post, long contractId) { return java.util.List.of(); }
+    record StageBalance(String stage, long expectedCents, long collectedCents) {}
+
     /** 按期分笔收款（转调 sales 收款链：限额/幂等/审计/资金登记全在统一侧） */
     StageCollectResult collectStage(PostSnapshot post, long contractId, String stage, CollectInput input);
 

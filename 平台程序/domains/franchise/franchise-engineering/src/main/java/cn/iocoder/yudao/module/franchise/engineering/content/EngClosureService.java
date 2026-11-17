@@ -129,6 +129,9 @@ public class EngClosureService {
                         + unifiedStages.stageCollectedCents(post, uContractId, "CAP_DONE")
                 : collections.selectByProject(post.orgId(), projectId).stream()
                         .mapToLong(FrEngCollectionDO::getAmountCents).sum();
+        if(uContractId!=null){
+            expectedTotal=jdbcTemplate.queryForObject("SELECT COALESCE(sum(amount_cents),0) FROM fr_sale_payment_stage WHERE contract_id=? AND company_id=? AND NOT deleted AND NOT after_delivery",Long.class,uContractId,post.orgId());
+        }
         if (received < expectedTotal) {
             throw exception(GATE_NOT_MET); // 全累计收款门禁（operations.js rank：delivery 前全收齐）
         }
@@ -232,22 +235,24 @@ public class EngClosureService {
                     || s.getUnitPriceCents() == 0) {
                 continue;
             }
-            materialsTotal += BigDecimal.valueOf(s.getUnitPriceCents()).multiply(material.getQuantity())
-                    .setScale(0, java.math.RoundingMode.HALF_UP).longValueExact()
-                    + (s.getFreightCents() == null ? 0 : s.getFreightCents());
+            long originalTotal=BigDecimal.valueOf(s.getUnitPriceCents()).multiply(material.getQuantity()).setScale(0,java.math.RoundingMode.HALF_UP).longValueExact()+(s.getFreightCents()==null?0:s.getFreightCents());
+            var financial=s.getPayableId()==null?java.util.List.<Long>of():jdbcTemplate.queryForList("SELECT total_cents FROM fr_fin_payable WHERE id=? AND company_id=?",Long.class,s.getPayableId(),post.orgId());
+            materialsTotal+=financial.isEmpty()?originalTotal:financial.get(0);
             materialsPaid += s.getPayableId() == null ? 0 : paidByPayable.getOrDefault(s.getPayableId(), 0L);
         }
         List<Map<String, Object>> stages = new java.util.ArrayList<>();
         long receivedTotal = 0;
-        for (String stage : List.of(FrEngCollectionTermDO.STAGE_SIGN_AFTER, FrEngCollectionTermDO.STAGE_BASE_DONE,
-                FrEngCollectionTermDO.STAGE_CAP_DONE)) {
-            long expected = collectionTerms.selectByProject(post.orgId(), projectId).stream()
+        Long summaryContractId=project.getSaleContractId()!=null?project.getSaleContractId():project.getCustomerId()==null?null:unifiedStages.activeContractId(post,project.getCustomerId());
+        var balances=summaryContractId==null?List.<cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance>of():unifiedStages.stageBalances(post,summaryContractId);
+        var stageNames=balances==null||balances.isEmpty()?List.of(FrEngCollectionTermDO.STAGE_SIGN_AFTER,FrEngCollectionTermDO.STAGE_BASE_DONE,FrEngCollectionTermDO.STAGE_CAP_DONE):balances.stream().map(cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance::stage).toList();
+        for (String stage : stageNames) {
+            var current=balances==null?null:balances.stream().filter(b->stage.equals(b.stage())).findFirst().orElse(null);
+            long expected = current!=null?current.expectedCents():collectionTerms.selectByProject(post.orgId(), projectId).stream()
                     .filter(t -> stage.equals(t.getStage())).mapToLong(FrEngCollectionTermDO::getAmountCents)
                     .findFirst().orElse(0L);
             long confirmed;
             // M07-T06/R2 P1-1：统一余额贯穿读侧——有统一合同时期累计经统一端口；无合同回退工程留痕行
-            Long uContractId = project.getCustomerId() == null ? null
-                    : unifiedStages.activeContractId(post, project.getCustomerId());
+            Long uContractId = summaryContractId;
             if (uContractId != null) {
                 confirmed = unifiedStages.stageCollectedCents(post, uContractId, stage);
             } else {

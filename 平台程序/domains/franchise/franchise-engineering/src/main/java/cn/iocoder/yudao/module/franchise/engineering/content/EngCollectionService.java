@@ -87,13 +87,18 @@ public class EngCollectionService {
         // M07-T06：三期遍历（存量两期值经迁移已映射；RUN 期旧值兼容保留遍历不删）
         // M07-T06/R2 P1-1：统一余额贯穿读侧——有统一合同时期累计经统一端口（fr_sale_stage_receipt 净口径）；
         // 无合同（存量）回退工程留痕行累计
-        Long unifiedContractId = project.getCustomerId() == null ? null
-                : unifiedStages.activeContractId(post, project.getCustomerId());
-        for (String stage : List.of(FrEngCollectionTermDO.STAGE_SIGN_AFTER, FrEngCollectionTermDO.STAGE_BASE_DONE,
-                FrEngCollectionTermDO.STAGE_CAP_DONE)) {
-            long expected = terms.stream().filter(t -> stage.equals(t.getStage()))
+        Long unifiedContractId = project.getSaleContractId() != null ? project.getSaleContractId()
+                : project.getCustomerId() == null ? null : unifiedStages.activeContractId(post, project.getCustomerId());
+        var balances = unifiedContractId == null ? List.<cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance>of()
+                : unifiedStages.stageBalances(post, unifiedContractId);
+        var currentStages = balances == null || balances.isEmpty() ? List.of(FrEngCollectionTermDO.STAGE_SIGN_AFTER,
+                FrEngCollectionTermDO.STAGE_BASE_DONE, FrEngCollectionTermDO.STAGE_CAP_DONE)
+                : balances.stream().map(cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance::stage).toList();
+        for (String stage : currentStages) {
+            var current = balances == null ? null : balances.stream().filter(b -> stage.equals(b.stage())).findFirst().orElse(null);
+            long expected = current != null ? current.expectedCents() : terms.stream().filter(t -> stage.equals(t.getStage()))
                     .mapToLong(FrEngCollectionTermDO::getAmountCents).findFirst().orElse(0L);
-            long confirmed = unifiedContractId != null
+            long confirmed = current != null ? current.collectedCents() : unifiedContractId != null
                     ? unifiedStages.stageCollectedCents(post, unifiedContractId, stage)
                     : rows.stream().filter(c -> stage.equals(c.getStage()))
                             .mapToLong(FrEngCollectionDO::getAmountCents).sum();
@@ -227,6 +232,7 @@ public class EngCollectionService {
         var unified = unifiedStages.collectStage(post, contractId, stage,
                 new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.CollectInput(
                         amount, "bank", StrUtil.trim(cmd.transactionNo()), date, cmd.fileAssetId()));
+        if("PENDING_CONFIRMATION".equals(unified.stageStatus())) return Map.of("receiptId",0,"stageStatus","PENDING_CONFIRMATION","replayed",unified.replayed());
         // 工程留痕行：引用统一 receiptId（不参与余额累计——读侧经统一端口）
         FrEngCollectionDO collection = new FrEngCollectionDO().setCompanyId(post.orgId())
                 .setProjectId(projectId).setStage(stage).setAmountCents(amount)

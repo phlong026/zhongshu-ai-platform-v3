@@ -20,6 +20,11 @@ public class FinReceiptDO {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private Long companyId;
+    private Long bookId;
+    private String category;
+    private String accountName;
+    private String counterparty;
+
     private Long projectId;
     private Long customerId;
     private String sourceType;

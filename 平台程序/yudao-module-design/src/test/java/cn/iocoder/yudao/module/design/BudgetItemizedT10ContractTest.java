@@ -268,6 +268,15 @@ class BudgetItemizedT10ContractTest {
     }
 
     @Test
+    void validatedSiteDimensionsAreIncludedInTheFrozenPublicBudgetSnapshot() {
+        var request = body();
+        request.put("inputOverrides", Map.of("faceWidth", "12", "depth", "10"));
+        JsonNode result = create(request, "commission-site-dimensions");
+        assertThat(result.path("inputSummary").path("faceWidth").asText()).isEqualTo("12");
+        assertThat(result.path("inputSummary").path("depth").asText()).isEqualTo("10");
+    }
+
+    @Test
     void explicitWindowQuantityOverridesTheSingleAreaCoefficient() {
         var value = inputs();
         @SuppressWarnings("unchecked") var quantities = new LinkedHashMap<>((Map<String, Object>) value.get("quantities"));

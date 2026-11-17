@@ -24,3 +24,12 @@ zhongshu.design.asset.moderation.biz-type=REPLACE
 
 # No daily business quota; production preflight requires this explicit value.
 zhongshu.design.asset.moderation.daily-limit=0
+
+# Reads the ORIGINAL AI-design admin GET /design/v1/budget/prices with design:budget:query.
+# Mount a rotating, read-only service access token. Keep it outside the repo and miniapp.
+zhongshu.design.budget-source.enabled=true
+zhongshu.design.budget-source.base-url=https://api.zszhj.com
+zhongshu.design.budget-source.tenant-id=1
+zhongshu.design.budget-source.token-file=/run/credentials/design-budget-source-token
+# Preferred: dedicated OAuth password/refresh client for the approved readonly service account.
+zhongshu.design.budget-source.credentials-file=${CREDENTIALS_DIRECTORY}/source-budget-reader.json

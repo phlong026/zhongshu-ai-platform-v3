@@ -61,12 +61,12 @@ public class PerfOperatingService {
         // expense=供应商/劳务退回（资金回流，冲减支出）——expense 行不得再计入流出统计
         long paid = jdbc.queryForObject(
                 "SELECT (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_payment WHERE company_id = ? "
-                        + "AND status = '已核实' AND pay_date >= ?::date AND pay_date < ?::date) "
+                        + "AND status = '已核实' AND funding_type='COMPANY' AND pay_date >= ?::date AND pay_date < ?::date) "
                         + "+ (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_refund WHERE company_id = ? "
                         + "AND status = '已核实' AND replaced_by_id IS NULL AND refund_direction = 'client' "
                         + "AND date >= ?::date AND date < ?::date) "
                         + "- (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_refund WHERE company_id = ? "
-                        + "AND status = '已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' "
+                        + "AND status = '已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' AND funding_type='COMPANY' "
                         + "AND date >= ?::date AND date < ?::date)",
                 Long.class, post.orgId(), period + "-01", nextMonth(period),
                 post.orgId(), period + "-01", nextMonth(period),
@@ -191,12 +191,12 @@ public class PerfOperatingService {
                     + "WHERE company_id=? AND status='已登记' AND received_date >= ?::date AND received_date < ?::date", p);
             // M08-T08/R1 P1：趋势支出同 reconcile 口径——client 退款流出计入，expense 退回回流冲减
             long paid = monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_payment "
-                    + "WHERE company_id=? AND status='已核实' AND pay_date >= ?::date AND pay_date < ?::date", p)
+                    + "WHERE company_id=? AND status='已核实' AND funding_type='COMPANY' AND pay_date >= ?::date AND pay_date < ?::date", p)
                     + monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
                     + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'client' "
                     + "AND date >= ?::date AND date < ?::date", p)
                     - monthSum(org, "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
-                    + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' "
+                    + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' AND funding_type='COMPANY' "
                     + "AND date >= ?::date AND date < ?::date", p);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("period", p);
@@ -215,38 +215,23 @@ public class PerfOperatingService {
                         + "GROUP BY source_type ORDER BY cents DESC", org, asOfDate));
         report.put("paidComposition", jdbc.queryForList(
                 "SELECT 'payment' AS kind, COALESCE(SUM(amount_cents),0) AS cents FROM fr_fin_payment "
-                        + "WHERE company_id=? AND status='已核实' AND pay_date <= ?::date UNION ALL "
+                        + "WHERE company_id=? AND status='已核实' AND funding_type='COMPANY' AND pay_date <= ?::date UNION ALL "
                         + "SELECT 'refund', COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
                         + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'client' "
                         + "AND date <= ?::date UNION ALL "
                         // R3 P2：expense 回流按减项语义返回负值——构成项合计=净支出（与 trend/reconcile 同口径）
                         + "SELECT 'expense-refund', -COALESCE(SUM(amount_cents),0) FROM fr_fin_refund "
-                        + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' "
+                        + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' AND funding_type='COMPANY' "
                         + "AND date <= ?::date",
                 org, asOfDate, org, asOfDate, org, asOfDate));
         // 应收=工程两期未收合计；应付=finance 未付合计
-        long receivable = jdbc.queryForObject(
-                "SELECT COALESCE(SUM((SELECT COALESCE(SUM(c.amount_cents),0) FROM fr_eng_collection c "
-                        + "WHERE c.company_id=t.company_id AND c.project_id=t.project_id AND c.stage=t.stage)),0) "
-                        + "FROM fr_eng_collection_term t WHERE t.company_id = ?", Long.class, org);
-        long totalTerms = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(amount_cents),0) FROM fr_eng_collection_term WHERE company_id=?",
-                Long.class, org);
-        // M10-T04/R1 P1-6：collected 按业务日期 occurred_at 截止（历史补录进正确月份——
-        // 与 trend 的 received_date 口径一致）；fr_eng_collection.occurred_at DATE NOT NULL
-        long collected = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(amount_cents),0) FROM fr_eng_collection WHERE company_id=? "
-                        + "AND occurred_at <= ?::date", Long.class, org, asOfDate);
-        // M10-T04/R1 P1-7：应付余额按 as_of 截止（11 月付款不减少 10 月余额）
-        // M10-T05/R2 P1-4：有效付款口径=Σ(amount-pending_link_cents)——PENDING_LINK 超额不冲减应付
-        long payableOutstanding = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(total_cents - COALESCE((SELECT SUM(p.amount_cents - COALESCE(p.pending_link_cents,0)) "
-                        + "FROM fr_fin_payment p "
-                        + "WHERE p.payable_id = q.id AND p.status='已核实' AND p.pay_date <= DATE '" + asOfDate + "'),0)),0) "
-                        + "FROM fr_fin_payable q WHERE q.company_id=?",
-                Long.class, org);
+        var receiptBalances=receiptBalances(org,asOfDate);var paymentBalances=paymentBalances(org,asOfDate);
+        long totalTerms=receiptBalances.stream().mapToLong(r->((Number)r.get("amount_cents")).longValue()).sum();
+        long collected=receiptBalances.stream().mapToLong(r->((Number)r.get("collected_cents")).longValue()).sum();
+        long receivable=receiptBalances.stream().mapToLong(r->Math.max(0,((Number)r.get("amount_cents")).longValue()-((Number)r.get("collected_cents")).longValue())).sum();
+        long payableOutstanding=paymentBalances.stream().mapToLong(r->Math.max(0,((Number)r.get("due")).longValue())).sum();
         Map<String, Object> totals = new LinkedHashMap<>();
-        totals.put("receivableCents", Math.max(0, totalTerms - collected));
+        totals.put("receivableCents", receivable);
         totals.put("payableOutstandingCents", Math.max(0, payableOutstanding));
         totals.put("collectionRate", totalTerms == 0 ? null : (double) collected / totalTerms);
         // 资金覆盖=近6月净流入合计/未付应付
@@ -265,43 +250,31 @@ public class PerfOperatingService {
             return m0;
         };
         Map<String, Long> receivableAging = emptyBuckets.get();
-        jdbc.query("SELECT t.stage, t.amount_cents - COALESCE((SELECT SUM(c.amount_cents) FROM fr_eng_collection c "
-                        + "WHERE c.company_id = t.company_id AND c.project_id = t.project_id AND c.stage = t.stage "
-                        + "AND c.occurred_at <= DATE '" + asOfDate + "'), 0) AS due, "
-                        + "t.project_id FROM fr_eng_collection_term t WHERE t.company_id = ?",
-                rs -> {
-                    long due = rs.getLong("due");
-                    if (due <= 0) return;
-                    LocalDate ref = jdbc.queryForObject(
-                            "SELECT COALESCE(MAX(occurred_at), DATE '1900-01-01') FROM fr_eng_collection "
-                                    + "WHERE company_id = ? AND project_id = ? AND stage = ? AND occurred_at <= DATE '"
-                                    + asOfDate + "'",
-                            LocalDate.class, org, rs.getLong("project_id"), rs.getString("stage"));
-                    bucketize(receivableAging, due, ref, today);
-                }, org);
-        Map<String, Long> payableAging = emptyBuckets.get();
-        jdbc.query("SELECT q.id, q.total_cents - COALESCE((SELECT SUM(p.amount_cents - COALESCE(p.pending_link_cents,0)) "
-                        + "FROM fr_fin_payment p "
-                        + "WHERE p.payable_id = q.id AND p.status = '已核实' AND p.pay_date <= DATE '" + asOfDate + "'), 0) AS due, "
-                        + "COALESCE(MAX(CASE WHEN pay.pay_date <= DATE '" + asOfDate + "' THEN pay.pay_date END), DATE '1900-01-01') AS last_pay "
-                        + "FROM fr_fin_payable q "
-                        + "LEFT JOIN fr_fin_payment pay ON pay.payable_id = q.id AND pay.status = '已核实' "
-                        + "WHERE q.company_id = ? GROUP BY q.id, q.total_cents",
-                rs -> {
-                    long due = rs.getLong("due");
-                    if (due <= 0) return;
-                    bucketize(payableAging, due, rs.getDate("last_pay") == null ? null
-                            : rs.getDate("last_pay").toLocalDate(), today);
-                }, org);
+        for(var row:receiptBalances){long due=Math.max(0,((Number)row.get("amount_cents")).longValue()-((Number)row.get("collected_cents")).longValue());if(due>0)bucketize(receivableAging,due,row.get("due_date")==null?null:((java.sql.Date)row.get("due_date")).toLocalDate(),today);}
+        Map<String,Long> payableAging=emptyBuckets.get();
+        for(var row:paymentBalances){long due=((Number)row.get("due")).longValue();if(due>0)bucketize(payableAging,due,row.get("due_date")==null?null:((java.sql.Date)row.get("due_date")).toLocalDate(),today);}
         report.put("receivableAging", receivableAging);
         report.put("payableAging", payableAging);
-        receivable = 0; // suppress unused
         // M10-T04/R1 P1-8：签名=完整 report JSON 的 SHA 摘要——覆盖全部报表依赖（构成/账龄/截面），
         // 历史修订改变任一维度都会生成新版本（旧按月分桶签名漏构成/账龄变更）
         report.put("sourceSignature", PerfSupport.signature(
                 java.util.List.of(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(report))));
         return report;
     }
+
+    private List<Map<String,Object>> receiptBalances(long org,String asOf){return jdbc.queryForList("""
+        SELECT s.amount_cents,s.due_date,
+          COALESCE((SELECT sum(r.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f WHERE f.receipt_id=r.id AND f.status='已核实' AND f.date<=?::date),0))
+          FROM fr_sale_stage_receipt x JOIN fr_fin_receipt r ON r.id=x.receipt_id AND r.company_id=x.company_id WHERE x.stage_id=s.id AND x.company_id=s.company_id AND r.status='已登记' AND r.received_date<=?::date),0) collected_cents
+        FROM fr_sale_payment_stage s JOIN fr_sale_contract c ON c.id=s.contract_id AND c.company_id=s.company_id WHERE s.company_id=? AND c.status='SIGNED' AND NOT c.deleted AND NOT s.deleted AND c.signed_date<=?::date
+        """,asOf,asOf,org,asOf);}
+    private List<Map<String,Object>> paymentBalances(long org,String asOf){return jdbc.queryForList("""
+        SELECT q.due_date,
+         CASE WHEN q.source_type='reimbursement' THEN COALESCE((SELECT m.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f WHERE f.payment_id=m.id AND f.status='已核实' AND f.funding_type='EMPLOYEE' AND f.date<=?::date),0) FROM fr_fin_payment m WHERE m.id::text=q.source_ref AND m.company_id=q.company_id AND m.status='已核实'),0) ELSE q.total_cents END
+         -COALESCE((SELECT sum(LEAST(p.amount_cents-COALESCE(p.pending_link_cents,0),p.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f WHERE f.payment_id=p.id AND f.status='已核实' AND f.date<=?::date),0))) FROM fr_fin_payment p WHERE p.payable_id=q.id AND p.company_id=q.company_id AND p.status='已核实' AND p.pay_date<=?::date),0)
+         +CASE WHEN q.source_type='reimbursement' THEN COALESCE((SELECT sum(r.amount_cents) FROM fr_fin_receipt r WHERE r.company_id=q.company_id AND r.source_ref='employee-recovery:'||q.id AND r.status='已登记' AND r.received_date<=?::date),0) ELSE 0 END AS due
+         FROM fr_fin_payable q WHERE q.company_id=? AND COALESCE(q.business_date,q.create_time::date)<=?::date
+        """,asOf,asOf,asOf,asOf,org,asOf);}
 
     /** 账龄入桶（基准日=该笔款项最近一次收付日；无日期=未约定桶） */
     private static void bucketize(Map<String, Long> buckets, long due, LocalDate ref, LocalDate today) {

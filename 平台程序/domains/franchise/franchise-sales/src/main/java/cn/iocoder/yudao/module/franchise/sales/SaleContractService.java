@@ -30,6 +30,7 @@ import static cn.iocoder.yudao.module.franchise.sales.dal.SaleContractDO.STATUS_
 import static cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageDO.STATUS_PAID;
 import static cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageDO.STATUS_PENDING;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.CONTRACT_DUPLICATE;
+import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.REFERENCE_INVALID;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.CONTRACT_NOT_SIGNED;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.STAGE_ALREADY_PAID;
 import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.STAGE_AMOUNT_EXCEED;
@@ -62,7 +63,8 @@ public class SaleContractService {
     /**
      * M06-T04 分笔核销命令：amountCents 为本笔金额（可小于期约定额；Σ分笔 ≤ 期额）。
      */
-    public record CollectCommand(long amountCents, String method, String transactionNo, LocalDate receivedDate) {
+    public record CollectCommand(long amountCents, String method, String transactionNo, LocalDate receivedDate,Long voucherFileId,String accountName) {
+        public CollectCommand(long amountCents,String method,String transactionNo,LocalDate receivedDate){this(amountCents,method,transactionNo,receivedDate,null,null);}
     }
 
     private final SaleContractMapper contracts;
@@ -238,6 +240,7 @@ public class SaleContractService {
      * 存量整期核销经迁移落为 SETTLED+首笔关联行，由「收满拒绝」兜底。
      */
     public Map<String, Object> collect(PostSnapshot post, long stageId, CollectCommand cmd, String idempotencyKey) {
+        if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode())) return declareCollection(post,stageId,cmd,idempotencyKey);
         String clientKey = FranchiseCommandKeys.normalize(idempotencyKey);
         String token = "sale-collect:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(clientKey);
         var scope = new FranchiseCommandKeys.PostKeyScope("franchise", post.userId());
@@ -249,6 +252,7 @@ public class SaleContractService {
         canonical.put("method", nullSafe(cmd.method()));
         canonical.put("txn", nullSafe(cmd.transactionNo()));
         canonical.put("date", cmd.receivedDate() == null ? "" : cmd.receivedDate().toString());
+        if(cmd.voucherFileId()!=null)canonical.put("voucherFileId",cmd.voucherFileId());if(cmd.accountName()!=null)canonical.put("accountName",cmd.accountName());
         long fingerprint = canonical.hashCode();
         return txTemplate.execute(status -> {
             jdbcTemplate.queryForMap("SELECT pg_advisory_xact_lock(?)",
@@ -303,7 +307,7 @@ public class SaleContractService {
                     contract.getCustomerId(),
                     "sale:" + contract.getId() + ":" + stage.getStage() + ":" + IdWorker.getId(),
                     customerName(contract) + "·" + stageLabel(stage.getStage()) + "回款",
-                    cmd.amountCents(), cmd.method(), cmd.transactionNo(), effectiveDate);
+                    cmd.amountCents(), cmd.method(), cmd.transactionNo(), effectiveDate,cmd.voucherFileId(),cmd.accountName());
             var saved = businessReceipts.registerBusinessReceipt(post, cmd2);
             // ⑧分笔关联 + 期状态推进（R2 P1：SETTLED 补收保持 SETTLED——存量行 paid_* 非空，
             // 转 OPEN 违反 CHECK；仅 PENDING/OPEN 流转状态）
@@ -338,6 +342,118 @@ public class SaleContractService {
      * 净额 = Σ有效分笔 - Σ已核实退款（fr_fin_refund，替代链 closed 行不计——replaced_by_id IS NULL）。
      * 「退回减已付现金、不因退款自动减合同额；资金门槛按已核实净实收」。
      */
+    /** 业务/工程提交到账线索；资金事实只在财务确认时产生。 */
+    public Map<String,Object> declareCollection(PostSnapshot post,long stageId,CollectCommand cmd,String key) {
+        return txTemplate.execute(status -> {
+            String token="sale-declare:"+cn.hutool.crypto.digest.DigestUtil.sha256Hex(FranchiseCommandKeys.normalize(key));
+            jdbcTemplate.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(?,0))) s",Integer.class,post.orgId()+":"+token);
+            var input=new java.util.LinkedHashMap<String,Object>();input.put("stageId",stageId);input.put("command",cmd);
+            var prior=commands.replayed(post,token,input);
+            if(prior.isPresent())return Map.of("receiptId",0,"declarationId",prior.get().getAggregateId(),"stageStatus","PENDING_CONFIRMATION","replayed",true);
+            var row=stages.selectById(stageId);
+            if(row==null || row.getCompanyId()!=post.orgId() || Boolean.TRUE.equals(row.getDeleted()))throw exception(STAGE_ALREADY_PAID);
+            requireSIGNED(contracts.lockById(row.getContractId()));
+            if(cmd.amountCents()<=0 || cmd.receivedDate()==null || cmd.receivedDate().isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))))throw exception(STAGE_AMOUNT_INVALID);
+            jdbcTemplate.update("UPDATE fr_sale_collection_declaration SET status='SUPERSEDED' WHERE company_id=? AND stage_id=? AND applicant_user_id=? AND status='RETURNED'",post.orgId(),stageId,post.userId());
+            long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+            jdbcTemplate.update("INSERT INTO fr_sale_collection_declaration(id,company_id,stage_id,amount_cents,method,transaction_no,received_date,applicant_user_id,voucher_file_id,account_name) VALUES(?,?,?,?,?,?,?,?,?,?)",id,post.orgId(),stageId,cmd.amountCents(),cmd.method(),cmd.transactionNo(),cmd.receivedDate(),post.userId(),cmd.voucherFileId(),cmd.accountName());
+            commands.record(post,"sale-collection-declaration",id,1,"sale-collection-declare",input,token);
+            return Map.of("receiptId",0,"declarationId",id,"stageStatus","PENDING_CONFIRMATION","replayed",false);
+        });
+    }
+    public java.util.List<Map<String,Object>> financialStages(PostSnapshot post) {
+        return jdbcTemplate.queryForList("""
+            SELECT s.id::text,s.contract_id::text,c.customer_id::text,customer.name AS customer_name,
+              s.stage,s.amount_cents,s.due_date,s.after_delivery,
+              COALESCE((SELECT sum(r.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f WHERE f.receipt_id=r.id AND f.status='已核实'),0)) FROM fr_sale_stage_receipt x JOIN fr_fin_receipt r ON r.id=x.receipt_id AND r.company_id=x.company_id WHERE x.stage_id=s.id AND x.company_id=s.company_id AND r.status='已登记'),0) AS collected_cents
+            FROM fr_sale_payment_stage s JOIN fr_sale_contract c ON c.id=s.contract_id AND c.company_id=s.company_id LEFT JOIN fr_customer customer ON customer.id=c.customer_id AND customer.company_id=c.company_id
+            WHERE s.company_id=? AND c.status='SIGNED' AND NOT c.deleted AND NOT s.deleted ORDER BY c.id,s.id
+            """,post.orgId());
+    }
+    public record ContractChange(long signAfterCents,long baseDoneCents,long capDoneCents,long tailCents,LocalDate tailDueDate,String reason){}
+    public void changeAmounts(PostSnapshot post,long contractId,ContractChange cmd,String key){
+        txTemplate.executeWithoutResult(status->{
+            keyGuard(post,key);
+            var input=Map.of("contractId",contractId,"change",cmd);
+            if(commands.replayed(post,key,input).isPresent())return;
+            var c=contracts.lockById(contractId);if(c==null || c.getCompanyId()!=post.orgId())throw exception(REFERENCE_INVALID);requireSIGNED(c);
+            if(cmd.reason()==null || cmd.reason().isBlank() || cmd.signAfterCents()<0 || cmd.baseDoneCents()<0 || cmd.capDoneCents()<0 || cmd.tailCents()<0)throw exception(STAGE_AMOUNT_INVALID);
+            long total=Math.addExact(Math.addExact(cmd.signAfterCents(),cmd.baseDoneCents()),Math.addExact(cmd.capDoneCents(),cmd.tailCents()));if(total<=0)throw exception(STAGE_AMOUNT_INVALID);
+            String[] names={"SIGN_AFTER","BASE_DONE","CAP_DONE","tail"};long[] values={cmd.signAfterCents(),cmd.baseDoneCents(),cmd.capDoneCents(),cmd.tailCents()};
+            for(int i=0;i<names.length;i++){
+                // SQL锁合同后修改所有期次，与collect同一合同锁序。
+                int updated=jdbcTemplate.update("UPDATE fr_sale_payment_stage SET amount_cents=?,due_date=?,after_delivery=?,deleted=false WHERE contract_id=? AND company_id=? AND stage=?",values[i],i==3?cmd.tailDueDate():null,i==3,contractId,post.orgId(),names[i]);
+                if(updated==0 && values[i]>0){var row=new SalePaymentStageDO().setId(com.baomidou.mybatisplus.core.toolkit.IdWorker.getId()).setCompanyId(post.orgId()).setCustomerId(c.getCustomerId()).setContractId(contractId).setStage(names[i]).setAmountCents(values[i]).setStatus("PENDING").setDeleted(false);stages.insert(row);if(i==3)jdbcTemplate.update("UPDATE fr_sale_payment_stage SET after_delivery=true,due_date=? WHERE id=?",cmd.tailDueDate(),row.getId());}
+            }
+            contracts.updateById(new SaleContractDO().setId(contractId).setTotalCents(total).setFirstCents(cmd.signAfterCents()).setRevision(c.getRevision()+1));
+            long revision=jdbcTemplate.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='sale-contract' AND aggregate_id=?",Long.class,contractId);
+            commands.record(post,"sale-contract",contractId,revision,"sale-contract-change",input,key);
+        });
+    }
+    private void keyGuard(PostSnapshot post,String key){commands.requireIdempotencyKey(key);jdbcTemplate.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(?,0))) s",Integer.class,post.orgId()+":"+key);}
+    /** 前期已到账定金认领到一期；只新增关联，不再创建实收。 */
+    public void allocateReceipt(PostSnapshot post,long stageId,long receiptId,String key){
+        txTemplate.executeWithoutResult(status->{
+            keyGuard(post,key);var input=Map.of("stageId",stageId,"receiptId",receiptId);
+            if(commands.replayed(post,key,input).isPresent())return;
+            var peek=stages.selectById(stageId);if(peek==null||peek.getCompanyId()!=post.orgId())throw exception(REFERENCE_INVALID);
+            var c=contracts.lockById(peek.getContractId());requireSIGNED(c);var stage=stages.lockById(stageId);
+            var rows=jdbcTemplate.queryForList("SELECT * FROM fr_fin_receipt WHERE id=? AND company_id=? FOR UPDATE",receiptId,post.orgId());
+            if(rows.isEmpty())throw exception(REFERENCE_INVALID);var r=rows.get(0);
+            if(!"manual".equals(r.get("source_type"))||!"已登记".equals(r.get("status"))||r.get("source_ref")!=null)throw exception(REFERENCE_INVALID);
+            if(r.get("customer_id")!=null && ((Number)r.get("customer_id")).longValue()!=c.getCustomerId())throw exception(REFERENCE_INVALID);
+            long gross=((Number)r.get("amount_cents")).longValue();
+            long refunded=jdbcTemplate.queryForObject("SELECT COALESCE(sum(amount_cents),0) FROM fr_fin_refund WHERE receipt_id=? AND status='已核实'",Long.class,receiptId);
+            if(gross-refunded<=0 || gross-refunded>stage.getAmountCents()-stageCollectedInTx(stageId))throw exception(STAGE_AMOUNT_EXCEED);
+            if(jdbcTemplate.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE receipt_id=?",Long.class,receiptId)>0)throw exception(STAGE_ALREADY_PAID);
+            stageReceipts.insert(new SaleStageReceiptDO().setCompanyId(post.orgId()).setContractId(c.getId()).setStageId(stageId).setReceiptId(receiptId).setAmountCents(gross));
+            jdbcTemplate.update("UPDATE fr_fin_receipt SET customer_id=?,source_type='business',source_ref=? WHERE id=? AND company_id=?",c.getCustomerId(),"sale-allocation:"+c.getId()+":"+stageId+":"+receiptId,receiptId,post.orgId());
+            long net=stageCollectedInTx(stageId);
+            jdbcTemplate.update("UPDATE fr_sale_payment_stage SET status=? WHERE id=?", "SETTLED".equals(stage.getStatus())||net>=stage.getAmountCents()?"SETTLED":"OPEN",stageId);
+            commands.record(post,"sale-receipt-allocation",receiptId,1,"sale-receipt-allocation",input,key);
+        });
+    }
+
+    public java.util.List<Map<String,Object>> contractCollectionDeclarations(PostSnapshot post, long contractId) {
+        return jdbcTemplate.queryForList("""
+            SELECT d.id::text,d.stage_id::text,d.amount_cents,d.received_date,d.transaction_no,d.status,d.return_reason
+            FROM fr_sale_collection_declaration d
+            JOIN fr_sale_payment_stage s ON s.id=d.stage_id AND s.company_id=d.company_id
+            WHERE d.company_id=? AND s.contract_id=? AND d.applicant_user_id=?
+              AND d.status IN ('PENDING','RETURNED') ORDER BY d.id DESC
+            """,post.orgId(),contractId,post.userId());
+    }
+    public java.util.List<Map<String,Object>> collectionDeclarations(PostSnapshot post) {
+        return jdbcTemplate.queryForList("""
+            SELECT d.id::text,d.stage_id::text,d.amount_cents,d.received_date,d.transaction_no,d.status,d.return_reason,
+              d.account_name,d.voucher_file_id::text,s.contract_id::text,s.stage,c.customer_id::text,customer.name AS customer_name
+            FROM fr_sale_collection_declaration d
+            JOIN fr_sale_payment_stage s ON s.id=d.stage_id AND s.company_id=d.company_id
+            JOIN fr_sale_contract c ON c.id=s.contract_id AND c.company_id=s.company_id
+            LEFT JOIN fr_customer customer ON customer.id=c.customer_id AND customer.company_id=c.company_id
+            WHERE d.company_id=? AND d.status='PENDING' ORDER BY d.received_date,d.id
+            """,post.orgId());
+    }
+    public void returnDeclaration(PostSnapshot post,long id,String reason,String key){
+        if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode()) || reason==null||reason.isBlank()||reason.length()>500)throw exception(REFERENCE_INVALID);
+        txTemplate.executeWithoutResult(status->{keyGuard(post,key);var input=Map.of("id",id,"reason",reason);if(commands.replayed(post,key,input).isPresent())return;
+            int updated=jdbcTemplate.update("UPDATE fr_sale_collection_declaration SET status='RETURNED',return_reason=? WHERE id=? AND company_id=? AND status='PENDING'",reason,id,post.orgId());
+            if(updated!=1)throw exception(REFERENCE_INVALID);
+            commands.record(post,"sale-collection-declaration",id,2,"sale-collection-return",input,key);
+        });
+    }
+    public Map<String,Object> confirmDeclaration(PostSnapshot post,long id,String key) {
+        if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode()))throw exception(REFERENCE_INVALID);
+        return txTemplate.execute(status -> {
+            var rows=jdbcTemplate.queryForList("SELECT * FROM fr_sale_collection_declaration WHERE id=? AND company_id=? FOR UPDATE",id,post.orgId());
+            if(rows.isEmpty())throw exception(REFERENCE_INVALID);var d=rows.get(0);
+            if("CONFIRMED".equals(d.get("status")))return Map.of("receiptId",d.get("receipt_id"),"replayed",true);
+            if(!"PENDING".equals(d.get("status")))throw exception(REFERENCE_INVALID);
+            var result=collect(post,((Number)d.get("stage_id")).longValue(),new CollectCommand(((Number)d.get("amount_cents")).longValue(),(String)d.get("method"),(String)d.get("transaction_no"),((java.sql.Date)d.get("received_date")).toLocalDate(),(Long)d.get("voucher_file_id"),(String)d.get("account_name")),key);
+            jdbcTemplate.update("UPDATE fr_sale_collection_declaration SET status='CONFIRMED',receipt_id=? WHERE id=?",result.get("receiptId"),id);return result;
+        });
+    }
+
     public long stageCollected(PostSnapshot post, long stageId) {
         Long net = jdbcTemplate.queryForObject(
                 "SELECT COALESCE(SUM(r.amount_cents), 0) - COALESCE((SELECT SUM(g.amount_cents) "

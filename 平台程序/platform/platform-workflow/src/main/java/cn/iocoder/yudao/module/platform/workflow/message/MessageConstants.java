@@ -20,7 +20,7 @@ public interface MessageConstants {
     String ROUTE_DESIGN_DISPATCH = "design-dispatch";
     String ROUTE_DESIGN_PROGRESS = "design-progress";
     Set<String> ROUTES = Set.of(ROUTE_CUSTOMER, ROUTE_COURSE, ROUTE_PERSONAL_PERFORMANCE,
-            ROUTE_PRIVACY, ROUTE_DESIGN_DISPATCH, ROUTE_DESIGN_PROGRESS);
+            ROUTE_PRIVACY, ROUTE_DESIGN_DISPATCH, ROUTE_DESIGN_PROGRESS, "content-task", "commission", "commission-payment");
 
     /** 发送方域格式（登记表见 11 文档 §五.2，本期生产域=空） */
     String SENDER_DOMAIN_PATTERN = "[a-z][a-z0-9-]{0,31}";

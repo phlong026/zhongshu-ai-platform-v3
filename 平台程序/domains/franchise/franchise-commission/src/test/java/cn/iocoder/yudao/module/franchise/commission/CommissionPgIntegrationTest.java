@@ -14,7 +14,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.franchise.commission.enums.FranchiseCommissionErrorCodes.COMMISSION_STATE_INVALID;
 
 /** Legacy state-machine regressions now use real net settlement; only external asset bytes are stubbed. */
-@Import({DesignPricingService.class,CommissionManifestService.class,CommissionQueryAdapter.class,
+@Import({CommissionSimulatedPayments.class,DesignPricingService.class,CommissionManifestService.class,CommissionQueryAdapter.class,
         DesignFeeSettlementAdapter.class,DesignFinanceLocks.class,CommissionPgIntegrationTest.Boundaries.class})
 abstract class CommissionPgIntegrationTest extends FranchisePgIntegrationTest {
     @TestConfiguration static class Boundaries {

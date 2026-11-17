@@ -112,6 +112,7 @@ public class FinReceiptService {
             name = "设计" + cmd.designStage().toUpperCase(java.util.Locale.ROOT) + " · " + (name==null?"核收":name);
         } else {
             companyId = post.orgId();
+            if(projectId!=null && !Boolean.TRUE.equals(designJdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_eng_project WHERE id=? AND company_id=?)",Boolean.class,projectId,companyId))) throw exception(ORG_MISMATCH);
         }
         BusinessDateGuard.requireValid(cmd.receivedDate()); // M08-T05/R04：日期必填拒未来
         requireVoucherAsset(post, cmd.voucherFileId()); // M5 R2 P1-2：基-1 引用校验（21 号 V3）
@@ -276,14 +277,8 @@ public class FinReceiptService {
                                                                             String idempotencyKey,
                                                                             BusinessReceiptPort.BusinessReceipt cmd) {
         String idemKey = "biz-receipt:" + cmd.sourceRef();
-        var replayed = commands.replayed(post, idemKey,
-                Map.of("sourceRef", cmd.sourceRef(), "amountCents", cmd.amountCents(), "name", cmd.name(),
-                        "method", cmd.method() == null ? "bank" : cmd.method(),
-                        "transactionNo", cmd.transactionNo() == null ? "" : cmd.transactionNo(),
-                        "customerId", cmd.customerId()));
-        if (replayed.isPresent()) {
-            return new BusinessReceiptPort.BusinessReceiptSaved(replayed.get().getAggregateId(), true);
-        }
+        // 兼容既有命令摘要；完整资金内容仍在下方原收据上复核。
+        commands.replayed(post,idemKey,Map.of("sourceRef",cmd.sourceRef(),"amountCents",cmd.amountCents(),"customerId",cmd.customerId()));
         // source_ref 查重（唯一索引兜底并发；同事务 SELECT，禁异常后重查）
         var existing = receiptMapper.selectList(new LambdaQueryWrapperX<FinReceiptDO>()
                 .eq(FinReceiptDO::getSourceType, "business")
@@ -301,8 +296,10 @@ public class FinReceiptService {
             return new BusinessReceiptPort.BusinessReceiptSaved(prior.getId(), true);
         }
         requireTxnNoFree(post.orgId(), cmd.transactionNo(), null);
+        requireVoucherAsset(post,cmd.voucherFileId());
         FinReceiptDO receipt = new FinReceiptDO()
                 .setCompanyId(post.orgId()).setCustomerId(cmd.customerId())
+                .setVoucherFileId(cmd.voucherFileId()).setAccountName(cmd.accountName())
                 .setSourceType("business").setSourceRef(cmd.sourceRef()).setName(cmd.name())
                 .setAmountCents(cmd.amountCents()).setStatus(STATUS_REGISTERED)
                 .setReceivedDate(cmd.receivedDate()).setRegisteredAt(OffsetDateTime.now())

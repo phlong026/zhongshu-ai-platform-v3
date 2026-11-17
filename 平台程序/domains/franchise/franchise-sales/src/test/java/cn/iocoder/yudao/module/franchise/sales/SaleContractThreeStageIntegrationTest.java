@@ -127,12 +127,81 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     private Store store;
     private PostSnapshot salesA1;
     private PostSnapshot boss;
+    private PostSnapshot finance;
 
     @BeforeEach
     void organization() {
         store = fixture.store();
         salesA1 = fixture.post(store.orgId(), SALES, store.salesTeamA());
         boss = fixture.post(store.orgId(), BOSS, null);
+        finance = fixture.post(store.orgId(), "finance", null);
+    }
+
+    @Test
+    void depositAllocationUsesTheExistingReceiptOnly(){
+        long customerId=newCustomer();var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
+        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
+        long receipt=PHONES.incrementAndGet();
+        jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,source_type,name,amount_cents,status,received_date,revision_version,registrar_user_id) VALUES(?,?,'manual','前期定金',20000,'已登记',CURRENT_DATE,1,?)",receipt,finance.orgId(),finance.userId());
+        String key=idem();long stage=stageIdOf(c.getId(),"SIGN_AFTER");
+        as(finance,()->{contracts.allocateReceipt(finance,stage,receipt,key);return true;});
+        as(finance,()->{contracts.allocateReceipt(finance,stage,receipt,key);return true;});
+        assertThat(contracts.stageCollected(finance,stage)).isEqualTo(20000);
+        assertThat(jdbc.queryForObject("SELECT source_type FROM fr_fin_receipt WHERE id=?",String.class,receipt)).isEqualTo("business");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id=?",Long.class,finance.orgId())).isEqualTo(1);
+    }
+
+    @Test
+    void returnedDeclarationCannotBeConfirmedAndCanBeResubmitted(){
+        long customerId=newCustomer();var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
+        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
+        long stage=stageIdOf(c.getId(),"SIGN_AFTER");var cmd=new SaleContractService.CollectCommand(10000,"bank",txn(),java.time.LocalDate.now());
+        long declaration=((Number)as(salesA1,()->contracts.collect(salesA1,stage,cmd,idem())).get("declarationId")).longValue();
+        contracts.returnDeclaration(finance,declaration,"补充实际到账信息",idem());
+        assertThat(contracts.contractCollectionDeclarations(salesA1,c.getId())).hasSize(1);
+        assertThat(contracts.contractCollectionDeclarations(salesA1,c.getId()).get(0).get("return_reason")).isEqualTo("补充实际到账信息");
+        assertThat(contracts.contractCollectionDeclarations(finance,c.getId())).isEmpty();
+        assertThatThrownBy(()->contracts.confirmDeclaration(finance,declaration,idem())).isInstanceOf(ServiceException.class);
+        as(salesA1,()->contracts.collect(salesA1,stage,cmd,idem()));
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_sale_collection_declaration WHERE id=?",String.class,declaration)).isEqualTo("SUPERSEDED");
+        assertThat(contracts.stageCollected(finance,stage)).isZero();
+    }
+
+    @Test
+    void salesDeclarationDoesNotCollectUntilFinanceConfirms(){
+        long customerId=newCustomer();
+        var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
+        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
+        long stage=stageIdOf(c.getId(),"SIGN_AFTER");String key=idem();
+        var cmd=new SaleContractService.CollectCommand(50000,"bank",txn(),java.time.LocalDate.now(),null,"公司银行");
+        var declaration=as(salesA1,()->contracts.collect(salesA1,stage,cmd,key));
+        assertThat(declaration.get("stageStatus")).isEqualTo("PENDING_CONFIRMATION");
+        assertThat(contracts.stageCollected(finance,stage)).isZero();
+        assertThat(as(salesA1,()->contracts.collect(salesA1,stage,cmd,key)).get("declarationId")).isEqualTo(declaration.get("declarationId"));
+        long id=((Number)declaration.get("declarationId")).longValue();
+        var pending=contracts.collectionDeclarations(finance).stream().filter(r->String.valueOf(id).equals(r.get("id"))).findFirst().orElseThrow();
+        assertThat(pending.get("customer_name")).isEqualTo("陈先生");
+        assertThat(pending.get("customer_id")).isEqualTo(String.valueOf(customerId));
+        assertThat(pending.get("account_name")).isEqualTo("公司银行");
+        assertThat(pending.get("transaction_no")).isEqualTo(cmd.transactionNo());
+        assertThat(contracts.financialStages(finance)).anySatisfy(r->{
+            assertThat(r.get("id")).isEqualTo(String.valueOf(stage));
+            assertThat(r.get("customer_id")).isEqualTo(String.valueOf(customerId));
+            assertThat(r.get("customer_name")).isEqualTo("陈先生");
+        });
+        as(finance,()->contracts.confirmDeclaration(finance,id,idem()));
+        assertThat(contracts.stageCollected(finance,stage)).isEqualTo(50000);
+        as(finance,()->contracts.confirmDeclaration(finance,id,idem()));
+        assertThat(contracts.stageCollected(finance,stage)).isEqualTo(50000);
+    }
+    @Test
+    void confirmedChangeAddsAfterDeliveryTailWithoutCopyingReceipts(){
+        long customerId=newCustomer();var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
+        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
+        contracts.changeAmounts(finance,c.getId(),new SaleContractService.ContractChange(80000,0,0,30000,java.time.LocalDate.now().plusMonths(1),"业主确认增项及尾款约定"),idem());
+        assertThat(contracts.financialStages(finance)).anySatisfy(r->{assertThat(r.get("stage")).isEqualTo("tail");assertThat(r.get("after_delivery")).isEqualTo(true);});
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_sale_contract WHERE id=?",Long.class,c.getId())).isEqualTo(110000);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE contract_id=?",Long.class,c.getId())).isZero();
     }
 
     // ========== 三期创建 ==========
@@ -211,13 +280,13 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
 
         // 第一笔 25 万：PENDING→OPEN
-        var first = as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        var first = as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(25_000_000L, "bank", txn(), java.time.LocalDate.now()), idem()));
         assertThat(first.get("stageStatus")).isEqualTo("OPEN");
         assertThat(((Number) first.get("collectedCents")).longValue()).isEqualTo(25_000_000L);
 
         // 第二笔 15 万收满：→SETTLED
-        var second = as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        var second = as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(15_000_000L, "bank", txn(), java.time.LocalDate.now()), idem()));
         assertThat(second.get("stageStatus")).isEqualTo("SETTLED");
 
@@ -242,9 +311,9 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
 
         // 首笔 30 万后，第二笔 11 万超剩余 10 万 → 拒绝且不落资金/关联行
-        as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(30_000_000L, "bank", txn(), java.time.LocalDate.now()), idem()));
-        assertError(() -> as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        assertError(() -> as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(11_000_000L, "bank", txn(), java.time.LocalDate.now()), idem())),
                 STAGE_AMOUNT_EXCEED);
         assertThat(jdbc.queryForObject(
@@ -259,11 +328,11 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
                 customerId, 68_000_000L, 40_000_000L, 18_000_000L, 10_000_000L), idem()));
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
         // 0 元拒绝（STAGE_AMOUNT_INVALID 先于未签订校验——实现顺序：金额校验在 requireSIGNED 前）
-        assertError(() -> as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        assertError(() -> as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(0L, "bank", txn(), java.time.LocalDate.now()), idem())),
                 STAGE_AMOUNT_INVALID);
         // 未签订拒绝（WAIT_SIGN 不可核销——M06-T02 语义前置）
-        assertError(() -> as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        assertError(() -> as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(10_000_000L, "bank", txn(), java.time.LocalDate.now()), idem())),
                 CONTRACT_NOT_SIGNED);
         assertThat(stageStatus(created.getId(), "SIGN_AFTER")).isEqualTo("PENDING");
@@ -279,10 +348,10 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
                         revisionOf(created.getId()), idem()));
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
         // 一次收满 → SETTLED
-        as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(30_000_000L, "bank", txn(), java.time.LocalDate.now()), idem()));
         // 再收 → 拒绝（收满），且不产生新资金行
-        assertError(() -> as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        assertError(() -> as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(1_000_000L, "bank", txn(), java.time.LocalDate.now()), idem())),
                 STAGE_ALREADY_PAID);
         assertThat(jdbc.queryForObject(
@@ -301,15 +370,15 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         String key = idem();
         var cmd = new SaleContractService.CollectCommand(25_000_000L, "bank", txn(), java.time.LocalDate.now());
 
-        var first = as(salesA1, () -> contracts.collect(salesA1, signStageId, cmd, key));
+        var first = as(finance, () -> contracts.collect(finance, signStageId, cmd, key));
         // 同键同内容重试：返回同一 receiptId（R1 P1：replay/record 规范化输入一致）
-        var retry = as(salesA1, () -> contracts.collect(salesA1, signStageId, cmd, key));
+        var retry = as(finance, () -> contracts.collect(finance, signStageId, cmd, key));
         assertThat(retry.get("replayed")).isEqualTo(true);
         assertThat(((Number) retry.get("receiptId")).longValue())
                 .isEqualTo(((Number) first.get("receiptId")).longValue());
         // 同键异内容：键复用拒绝（金额不同）
         var mutated = new SaleContractService.CollectCommand(26_000_000L, "bank", txn(), java.time.LocalDate.now());
-        assertThatThrownBy(() -> as(salesA1, () -> contracts.collect(salesA1, signStageId, mutated, key)))
+        assertThatThrownBy(() -> as(finance, () -> contracts.collect(finance, signStageId, mutated, key)))
                 .isInstanceOf(ServiceException.class)
                 .extracting(e -> ((ServiceException) e).getCode())
                 .isEqualTo(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode());
@@ -329,7 +398,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
                 new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
                 revisionOf(created.getId()), idem()));
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
-        as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(30_000_000L, "bank", txn(), java.time.LocalDate.now()), idem()));
         assertThat(stageStatus(created.getId(), "SIGN_AFTER")).isEqualTo("SETTLED");
 
@@ -344,7 +413,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         // R3 P2：分两笔补收——首笔后断言仍 SETTLED 且 paid_* 保持原值（检出 wasSettled 删除故障：
         // 若删，首笔后转 OPEN 违反 paid_* 非空 CHECK 直接报错，测试即红）
         long firstBackfill = 5_000_000L;
-        var backfill1 = as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        var backfill1 = as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(firstBackfill, "bank", txn(), java.time.LocalDate.now()), idem()));
         assertThat(backfill1.get("stageStatus")).isEqualTo("SETTLED"); // 首笔补收后仍 SETTLED（wasSettled 路径）
         assertThat(jdbc.queryForObject("SELECT status FROM fr_sale_payment_stage WHERE id = ?",
@@ -356,7 +425,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
 
         // 第二笔补收后净累计=期额（补收完成）
         long secondBackfill = 5_000_000L;
-        var backfill2 = as(salesA1, () -> contracts.collect(salesA1, signStageId,
+        var backfill2 = as(finance, () -> contracts.collect(finance, signStageId,
                 new SaleContractService.CollectCommand(secondBackfill, "bank", txn(), java.time.LocalDate.now()), idem()));
         assertThat(backfill2.get("stageStatus")).isEqualTo("SETTLED");
         // 净累计核对：3000 万（净）+500 万+500 万 = 4000 万？——净口径=毛额-退款：毛 4000 万-退款 1000 万=3000 万=期额
@@ -387,7 +456,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         as(salesA1, () -> contracts.sign(salesA1, created.getId(),
                 new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
                         revisionOf(created.getId()), idem()));
-        as(salesA1, () -> contracts.collect(salesA1, stageIdOf(created.getId(), "SIGN_AFTER"),
+        as(finance, () -> contracts.collect(finance, stageIdOf(created.getId(), "SIGN_AFTER"),
                 new SaleContractService.CollectCommand(25_000_000L, "bank", txn(), java.time.LocalDate.now()), idem()));
 
         var summary = as(boss, () -> contracts.stageSummary(boss, created.getId()));

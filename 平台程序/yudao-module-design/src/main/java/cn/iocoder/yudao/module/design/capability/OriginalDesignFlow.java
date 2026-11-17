@@ -44,6 +44,8 @@ public class OriginalDesignFlow {
         // Service billing is performed by the durable capability receipt; a consumer wallet must never run here.
         estimates=new ItemizedBudgetService(source,transactions,projects,audit,true);
         new DirectFieldAccessor(estimates).setPropertyValue("drafts",drafts);
+        var baseline = context.getBeanProvider(AiDesignBaselineSource.class).getIfAvailable();
+        if (baseline != null) estimates.setBaselineSource(baseline);
     }
     private <T> T controller(T controller,long owner) {
         var access=new DirectFieldAccessor(controller);
