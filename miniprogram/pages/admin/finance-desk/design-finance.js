@@ -1,3 +1,5 @@
+const BookView=require('../../../utils/finance-workbench-view');
+const {day:financeDay}=require('../../../utils/finance-date');
 const http = require('../../../api/http');
 const Money = require('../../../utils/money');
 const Finance = require('../../../utils/platform-finance');
@@ -30,8 +32,8 @@ function attach(page, api) {
       const rows = progress.filter(row => !keyword || [row.id, row.name, row.projectId, row.sourceRef].join(' ').toLowerCase().includes(keyword)).map(row => ({
         id: String(row.id), name: row.name || ('原单 ' + row.id), status: row.status,
         amountText: '¥' + yuan(tab === 'payables' ? row.remainingCents : row.amountCents), subtitle: row.sourceRef || '',
-        dateText: row.dueDate || row.receivedDate || '日期待核', detail: tab === 'payables' ? '累计应付 ¥' + yuan(row.totalCents) + ' · 已付 ¥' + yuan(row.paidCents) : '待登记原单',
-        payableId: tab === 'payables' ? String(row.id) : '', canPay: tab === 'payables' && row.canPay }));
+        dateText: row.dueDate || row.businessDate || row.receivedDate || '日期待核', detail: tab === 'payables' ? '累计应付 ¥' + yuan(row.totalCents) + ' · 已付 ¥' + yuan(row.paidCents) : '待登记原单',
+        canAdjust:!['design','reimbursement'].includes(row.sourceType),payableId: tab === 'payables' ? String(row.id) : '', canPay: tab === 'payables' && row.canPay }));
       this.setData({ rows, ready: true });
     } catch (e) { if (alive() && !this.__disposed) this.setData({ platformNotice: e.message || e.msg || '原单列表加载失败' }); }
   };
@@ -59,7 +61,14 @@ function attach(page, api) {
     const pageNo = append ? (this.designFeePage || 1) + 1 : 1;
     this.setData({ designFeeStatus: 'loading', designFeeError: '' });
     try {
-      const result = await api.designFees(pageNo, 20);
+      let result = await api.designFees(pageNo, 20);
+      const messageId=this.options?.messageType==='design_fee'?String(this.options.messageObject||''):'';
+      if(messageId&&!append){
+        let batch=result,n=pageNo,found=batch.list.find(r=>String(r.payableId)===messageId);
+        while(!found&&n*20<batch.total){batch=await api.designFees(++n,20);if(!alive()||this.__disposed)return;found=batch.list.find(r=>String(r.payableId)===messageId);}
+        result={list:found?[found]:[],total:found?1:0};
+        if(!found)this.setData({designFeeError:'该设计款项已变更或当前岗位不可查看，请返回消息中心刷新'});
+      }
       if (!alive() || this.__disposed) return;
       this.designFeePage = pageNo;
       const rows = result.list.map(row => ({ ...row, key: row.commissionId + ':' + row.submissionVersion + ':' + row.stage,
@@ -75,7 +84,7 @@ function attach(page, api) {
     if (!row || !row.canPay) return;
     this.openRegister({ currentTarget: { dataset: { type: 'payment' } } });
     this.setData({ view: 'flows', flowTab: 'ledger', 'registerForm.payableId': String(row.payableId),
-      'registerForm.payableIdLabel': '委托 ' + row.commissionId + ' V' + row.submissionVersion + ' ' + row.stage,
+      'registerForm.allowEmployee':true,'registerForm.payableIdLabel': '委托 ' + row.commissionId + ' V' + row.submissionVersion + ' ' + row.stage,
       'registerForm.amount': yuan(Math.max(0, row.expectedCents - row.storePaidNetCents)), 'registerForm.payDate': today() });
   };
   page.openDesignReceipt = function (e) {
@@ -123,8 +132,9 @@ function attach(page, api) {
       const result = await api.projectLedger(id, pageNo, 20);
       if (!alive() || this.__disposed || String(this.id) !== id || (this.canLoadProjectLedger && !this.canLoadProjectLedger())) return;
       this.projectLedgerPage = pageNo;
-      const entries = result.entries.list.map(r => ({ ...r, key: r.type + ':' + r.id, typeLabel: ({RECEIVABLE:'合同应收',PAYABLE:'应付登记',PAYMENT:'付款',RECEIPT:'收款',REFUND:'收款退款',EXPENSE_REFUND:'支出退回'})[r.type] || '账目', amountText: yuan(r.amountCents) }));
-      this.setData({ ledgerProjectLoading: false, projectLedgerSummary: Object.keys(result.summary).map(key => ({ key, label: { receivableCents: '合同应收', receivedCents: '实收', refundedCents: '退款', paidCents: '实付', expenseRefundedCents: '支出退回', payableCents: '应付' }[key] || key, value: yuan(result.summary[key]) })), projectLedgerEntries: append ? (this.data.projectLedgerEntries || []).concat(entries) : entries, projectLedgerTotal: result.entries.total });
+      const s=result.summary;
+      const entries=result.entries.list.map(r=>({...r,key:r.type+':'+r.id,typeLabel:({RECEIVABLE:'合同应收',PAYABLE:'费用',PAYMENT:'付款',ADVANCE:'员工垫付',RECEIPT:'收款',REFUND:'退款',EXPENSE_REFUND:'支出退回'})[r.type]||'费用',amountText:BookView.money(r.amountCents),dateText:financeDay(r.occurredOn),tone:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'income':'expense',sign:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'+':['PAYMENT','REFUND','ADVANCE'].includes(r.type)?'−':''}));
+      this.setData({ledgerProjectLoading:false,projectBookName:result.projectName||'项目账本',projectBookNet:BookView.money(Number(s.receivedCents)+Number(s.expenseRefundedCents)-Number(s.paidCents)-Number(s.refundedCents)),projectLedgerSummary:[{key:'received',label:'累计收款',value:BookView.money(s.receivedCents)},{key:'paid',label:'累计付款',value:BookView.money(s.paidCents)},{key:'contract',label:'合同金额',value:BookView.money(s.receivableCents)},{key:'cost',label:'费用金额',value:BookView.money(s.payableCents)}],projectLedgerEntries:append?(this.data.projectLedgerEntries||[]).concat(entries):entries,projectLedgerTotal:result.entries.total});
     } catch (e) { if (alive() && !this.__disposed && (!this.canLoadProjectLedger || this.canLoadProjectLedger())) this.setData({ ledgerProjectLoading: false, ledgerProjectError: e.message || e.msg || '项目账加载失败' }); }
   };
   page.moreProjectLedger = function () { if ((this.data.projectLedgerEntries || []).length < this.data.projectLedgerTotal) this.loadProjectLedger(true); };

@@ -829,3 +829,7 @@ page {
 .sec-tip { font-size: 23rpx; }
 .style-error { padding-top: 16rpx; color: #a23f34; font-size: 24rpx; }
 .settings-head { margin-bottom: 20rpx; }
+
+/* Building styles stay on a single horizontal row. */
+.style-pills { white-space: nowrap; }
+.style-pills .chip { flex-shrink: 0; }

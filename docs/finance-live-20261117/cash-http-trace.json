@@ -1,0 +1,86 @@
+[
+  {
+    "method": "POST",
+    "path": "/franchise/sales/collection-declarations/2122585092047478785/confirm",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/sales/collection-declarations/2122585092047478785/confirm",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/receipts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/engineering/supplies/2122585092563378178/terms",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/payables",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 1102000022
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/workbench/reimbursements",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/engineering/2122584063843213313/materials/summary",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/performance/operating/analytics",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/workbench/ledger",
+    "status": 200,
+    "code": 0
+  }
+]

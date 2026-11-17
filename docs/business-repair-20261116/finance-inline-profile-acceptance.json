@@ -1,0 +1,15 @@
+{
+  "profileAndMessageReturn": true,
+  "instanceRetained": true,
+  "profile": {
+    "route": "pages/admin/finance-desk/index",
+    "view": "profile",
+    "selected": 4,
+    "navigating": false,
+    "error": "",
+    "financeStatus": "ready",
+    "instance": 1,
+    "keyword": "",
+    "filter": ""
+  }
+}

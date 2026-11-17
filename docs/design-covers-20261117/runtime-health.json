@@ -1,0 +1,7 @@
+{
+  "services": {
+    "zhongshu.service": "active",
+    "zhongshu-platform-b-integration.service": "active",
+    "zhongshu-platform-b-integration-provider.service": "active"
+  }
+}

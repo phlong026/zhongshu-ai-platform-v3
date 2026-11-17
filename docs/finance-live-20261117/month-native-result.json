@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "checks": [
+    "native button opens sheet",
+    "draft does not reload",
+    "cancel preserves period",
+    "reopen resets draft",
+    "confirm reloads selected month",
+    "year navigation",
+    "task count preserved",
+    "restored 2026-11"
+  ]
+}

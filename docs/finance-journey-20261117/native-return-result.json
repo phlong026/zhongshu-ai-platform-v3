@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "checks": [
+    "receipt mode keeps original project and return keeps cost tab",
+    "home receipt returns home",
+    "new book form returns list",
+    "contract adjustment returns owner collections",
+    "deposit allocation returns owner collections",
+    "active bottom book tab exits deep form without orphan form",
+    "employee advance refund retains original payment and returns employee tab"
+  ]
+}

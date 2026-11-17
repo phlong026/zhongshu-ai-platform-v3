@@ -2,7 +2,7 @@ const Access=require('../../utils/access');
 const auth=require('../../api/auth');
 const http=require('../../api/http');
 const O=require('../../utils/organization');
-Page({
+require('../../utils/sales-native-tab').register('creation', {
  data:{roles:[{name:'业务',description:'内容获客 · 客户跟进',icon:'team'},{name:'工程',description:'节点管理 · 项目交付',icon:'home-engineer-icon'},{name:'财务',description:'收支办理 · 账目协同',icon:'money'},{name:'门店负责人',description:'团队协作 · 经营掌握',icon:'home-chart-icon'}],steps:[{name:'创作获客',icon:'home-video-icon'},{name:'客户经营',icon:'team'},{name:'工程交付',icon:'home-engineer-icon'},{name:'财务协同',icon:'money'}]},
  onShow(){
   const seq=this.__resumeSeq=(this.__resumeSeq||0)+1;

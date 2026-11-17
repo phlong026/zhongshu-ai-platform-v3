@@ -16,6 +16,8 @@ qa/
 账号归档.txt
 .DS_Store
 .worktrees/
+# 本机联调运行副本及整理检查日志
+.codex-runtime/
 # 开发者工具以 miniprogram/ 为项目根打开时自动生成的本地副产物（正式配置在根目录 project.config.json）
 miniprogram/project.config.json
 # Playwright MCP 浏览器工具自动输出（console log / 页面快照）

@@ -1,0 +1,81 @@
+{
+  "baseline": {
+    "unit": "zhongshu-platform-b-integration-provider.service",
+    "pid": "1129325",
+    "jar": "/opt/zhongshu-platform-b-integration/release/provider-production-20261116-7014ddcdbb35.jar",
+    "sha256": "7014ddcdbb3589aedae88f4d00df1c0e7ba14da6d35d0d206e8f9721882457b7"
+  },
+  "candidate": "/tmp/codex-design-ui-deploy-20261116/candidate-provider.jar",
+  "candidateSha256": "8952618e939726bf0d2f7219adedce41b8732f9032cae44b6d557147be66357f",
+  "changedModule": "BOOT-INF/lib/yudao-module-design-2026.08-SNAPSHOT.jar",
+  "changedClassEntries": [
+    "cn/iocoder/yudao/module/design/budget/BudgetAccountPriceService$AdminAccountPrice.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetAccountPriceService.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetCatalogService$ItemBuilder.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetCatalogService$PriceGapItem.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetCatalogService$PriceValues.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetCatalogService$RegionPriceGap.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetCatalogService.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceBookService$1.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceBookService$PriceBook.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceBookService$Region.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceBookService$Snapshot.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceBookService$SnapshotPrice.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceBookService$VersionView.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceBookService.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceProfileService$CopyResult.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceProfileService$OptionRow.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceProfileService.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceResolver$Price.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceResolver$Region.class",
+    "cn/iocoder/yudao/module/design/budget/BudgetPriceResolver.class",
+    "cn/iocoder/yudao/module/design/budget/ItemizedBudgetService$1.class",
+    "cn/iocoder/yudao/module/design/budget/ItemizedBudgetService$AccountOverride.class",
+    "cn/iocoder/yudao/module/design/budget/ItemizedBudgetService$FrozenLine.class",
+    "cn/iocoder/yudao/module/design/budget/ItemizedBudgetService$HistoryRef.class",
+    "cn/iocoder/yudao/module/design/budget/ItemizedBudgetService$Request.class",
+    "cn/iocoder/yudao/module/design/budget/ItemizedBudgetService$SaveResult.class",
+    "cn/iocoder/yudao/module/design/budget/ItemizedBudgetService.class",
+    "cn/iocoder/yudao/module/design/capability/OriginalDesignFlow.class",
+    "cn/iocoder/yudao/module/design/budget/AiDesignBaselineSource.class",
+    "cn/iocoder/yudao/module/design/budget/AiDesignBaselineSource$Published.class",
+    "cn/iocoder/yudao/module/design/budget/AiDesignBaselineSource$Key.class",
+    "cn/iocoder/yudao/module/design/budget/AiDesignBaselineSource$Token.class"
+  ],
+  "sourceFiles": [
+    {
+      "path": "budget/AiDesignBaselineSource.java",
+      "sha256": "7d4309e7250529199789a6686b1105c3832073d9181900a6227a4820c83becf5"
+    },
+    {
+      "path": "budget/BudgetAccountPriceService.java",
+      "sha256": "eada480b79baafe14d30eafc33d1fb9a7f88efb6c58c4331427179e0d082b1ba"
+    },
+    {
+      "path": "budget/BudgetCatalogService.java",
+      "sha256": "76b67bb0d9fd286f77fbc50cb659573965413dc0b5faf7888de60ca0e3a16134"
+    },
+    {
+      "path": "budget/BudgetPriceBookService.java",
+      "sha256": "313cd9b185ed3b51a9a45b858cd36014de506fe5549549f139a6fc513c7f2853"
+    },
+    {
+      "path": "budget/BudgetPriceProfileService.java",
+      "sha256": "686b921d45d15ef460b5ff413bc069f98137a49103aa216b41163ea061988d21"
+    },
+    {
+      "path": "budget/BudgetPriceResolver.java",
+      "sha256": "3a7757d72c830b841e8c08025fb0afb20275ab695976b8d46b3d37396dfafefe"
+    },
+    {
+      "path": "budget/ItemizedBudgetService.java",
+      "sha256": "d9b82764a50c63f4c2a46641b66c311836b2a2529cb42b260b1013df772734b2"
+    },
+    {
+      "path": "capability/OriginalDesignFlow.java",
+      "sha256": "277afcda2781e7dade449eba45c8470e2ca45d0731e8a29a364e7fabb66ca1c6"
+    }
+  ],
+  "allOtherEntriesIdentical": true,
+  "schemaChanges": false
+}

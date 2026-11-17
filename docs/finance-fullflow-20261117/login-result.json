@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "checks": [
+    "empty credentials blocked",
+    "account found through actual account lookup",
+    "password login and consent",
+    "finance role entered"
+  ],
+  "path": "pages/admin/finance-desk/index"
+}

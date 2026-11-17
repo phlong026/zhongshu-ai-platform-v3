@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "listCount": 10,
+  "covers": [
+    {
+      "caseId": "2112123885294055425",
+      "assetId": "2112124039677997058",
+      "http": 200,
+      "bytes": 78222,
+      "contentType": "image/jpeg;charset=UTF-8",
+      "seconds": 0.09
+    },
+    {
+      "caseId": "2111380030663786497",
+      "assetId": "2111380265674833922",
+      "http": 200,
+      "bytes": 83108,
+      "contentType": "image/jpeg;charset=UTF-8",
+      "seconds": 0.08
+    }
+  ],
+  "wrongCaseDenied": true,
+  "anonymousDenied": true
+}

@@ -207,6 +207,17 @@ protectedPage({
       this.setData({ line: app.globalData.aiLine });
       app.globalData.aiLine = null;
     }
+    const entry = app.globalData.caseDesignEntry;
+    if (entry && !this._recoveringAttempt) {
+      app.globalData.caseDesignEntry = null;
+      const values = require('../../utils/case-entry').parameters(entry), patch = {};
+      if(values.faceWidth)patch.faceWidth=values.faceWidth;
+      if(values.depth)patch.depth=values.depth;
+      const floor=designInputs.FLOOR_OPTIONS.findIndex(o=>o.count===values.floorCount);
+      if(floor>=0){patch.floorIndex=floor;patch.elevFloorIndex=floor;}
+      if(entry.styleCode){patch.elevStyleCode=entry.styleCode;patch.elevStyleLabel=styleLabel(entry.styleCode);}
+      this.setData(patch);
+    }
     const line = this.data.line;
     // 户型库选择的参考案例按当前线路归位：平面=参考案例行，立面=参考图卡
     const picked = this._recoveringAttempt ? null : app.globalData.refCase;

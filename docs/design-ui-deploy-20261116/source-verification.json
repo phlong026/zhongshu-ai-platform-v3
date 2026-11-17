@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "classificationCount": 10,
+  "classificationExactMatch": true,
+  "budgetOptionCount": 34,
+  "baselineComparedOptions": 34,
+  "baselineExactMatch": true,
+  "sourceAuthenticationTokensCreatedByB": 1,
+  "sourceApi": "https://api.zszhj.com/admin-api/design/v1/budget/prices",
+  "companyPointQuote": 1,
+  "priceVersion": "v1",
+  "at": "2026-11-16T11:43:38.670524+00:00"
+}

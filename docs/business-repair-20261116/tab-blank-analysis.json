@@ -1,0 +1,602 @@
+[
+  {
+    "file": "tab-000-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7264.33,
+    "blank": false
+  },
+  {
+    "file": "tab-000-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-001-first.png",
+    "whiteRatio": 0.4968,
+    "variance": 2737.02,
+    "blank": false
+  },
+  {
+    "file": "tab-001-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-002-first.png",
+    "whiteRatio": 0.4681,
+    "variance": 12922.8,
+    "blank": false
+  },
+  {
+    "file": "tab-002-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12896.03,
+    "blank": false
+  },
+  {
+    "file": "tab-003-first.png",
+    "whiteRatio": 0.62,
+    "variance": 1761.88,
+    "blank": false
+  },
+  {
+    "file": "tab-003-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-004-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-004-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-005-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-005-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-006-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-006-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-007-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12884.84,
+    "blank": false
+  },
+  {
+    "file": "tab-007-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12896.03,
+    "blank": false
+  },
+  {
+    "file": "tab-008-first.png",
+    "whiteRatio": 0.62,
+    "variance": 1761.88,
+    "blank": false
+  },
+  {
+    "file": "tab-008-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-009-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-009-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-010-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-010-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-011-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-011-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-012-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12892.2,
+    "blank": false
+  },
+  {
+    "file": "tab-012-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12896.03,
+    "blank": false
+  },
+  {
+    "file": "tab-013-first.png",
+    "whiteRatio": 0.62,
+    "variance": 1761.88,
+    "blank": false
+  },
+  {
+    "file": "tab-013-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-014-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-014-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-015-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7278.79,
+    "blank": false
+  },
+  {
+    "file": "tab-015-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-016-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-016-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-017-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12891.24,
+    "blank": false
+  },
+  {
+    "file": "tab-017-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12896.03,
+    "blank": false
+  },
+  {
+    "file": "tab-018-first.png",
+    "whiteRatio": 0.62,
+    "variance": 1761.88,
+    "blank": false
+  },
+  {
+    "file": "tab-018-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-019-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9927.32,
+    "blank": false
+  },
+  {
+    "file": "tab-019-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-020-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7264.33,
+    "blank": false
+  },
+  {
+    "file": "tab-020-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-021-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-021-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-022-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12890.92,
+    "blank": false
+  },
+  {
+    "file": "tab-022-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12895.71,
+    "blank": false
+  },
+  {
+    "file": "tab-023-first.png",
+    "whiteRatio": 0.6766,
+    "variance": 2173.9,
+    "blank": false
+  },
+  {
+    "file": "tab-023-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-024-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-024-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-025-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-025-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-026-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-026-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-027-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12890.92,
+    "blank": false
+  },
+  {
+    "file": "tab-027-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12895.71,
+    "blank": false
+  },
+  {
+    "file": "tab-028-first.png",
+    "whiteRatio": 0.6766,
+    "variance": 2173.9,
+    "blank": false
+  },
+  {
+    "file": "tab-028-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-029-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-029-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-030-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7264.33,
+    "blank": false
+  },
+  {
+    "file": "tab-030-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-031-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-031-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-032-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12895.71,
+    "blank": false
+  },
+  {
+    "file": "tab-032-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12895.71,
+    "blank": false
+  },
+  {
+    "file": "tab-033-first.png",
+    "whiteRatio": 0.6766,
+    "variance": 2173.9,
+    "blank": false
+  },
+  {
+    "file": "tab-033-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-034-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9927.32,
+    "blank": false
+  },
+  {
+    "file": "tab-034-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-035-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7278.79,
+    "blank": false
+  },
+  {
+    "file": "tab-035-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-036-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-036-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-037-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12887.92,
+    "blank": false
+  },
+  {
+    "file": "tab-037-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12895.71,
+    "blank": false
+  },
+  {
+    "file": "tab-038-first.png",
+    "whiteRatio": 0.6766,
+    "variance": 2173.9,
+    "blank": false
+  },
+  {
+    "file": "tab-038-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-039-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-039-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-040-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7264.33,
+    "blank": false
+  },
+  {
+    "file": "tab-040-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-041-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-041-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-042-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12890.92,
+    "blank": false
+  },
+  {
+    "file": "tab-042-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12895.71,
+    "blank": false
+  },
+  {
+    "file": "tab-043-first.png",
+    "whiteRatio": 0.6766,
+    "variance": 2173.9,
+    "blank": false
+  },
+  {
+    "file": "tab-043-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-044-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-044-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-045-first.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-045-settled.png",
+    "whiteRatio": 0.1547,
+    "variance": 7282.6,
+    "blank": false
+  },
+  {
+    "file": "tab-046-first.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.47,
+    "blank": false
+  },
+  {
+    "file": "tab-046-settled.png",
+    "whiteRatio": 0.4221,
+    "variance": 2668.45,
+    "blank": false
+  },
+  {
+    "file": "tab-047-first.png",
+    "whiteRatio": 0.4683,
+    "variance": 12891.88,
+    "blank": false
+  },
+  {
+    "file": "tab-047-settled.png",
+    "whiteRatio": 0.4683,
+    "variance": 12895.71,
+    "blank": false
+  },
+  {
+    "file": "tab-048-first.png",
+    "whiteRatio": 0.6766,
+    "variance": 2173.9,
+    "blank": false
+  },
+  {
+    "file": "tab-048-settled.png",
+    "whiteRatio": 0.6765,
+    "variance": 2173.91,
+    "blank": false
+  },
+  {
+    "file": "tab-049-first.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  },
+  {
+    "file": "tab-049-settled.png",
+    "whiteRatio": 0.4974,
+    "variance": 9932.49,
+    "blank": false
+  }
+]

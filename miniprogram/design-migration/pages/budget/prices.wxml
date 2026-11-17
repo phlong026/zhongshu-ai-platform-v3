@@ -9,7 +9,7 @@
   </view>
   <view wx:if="{{loading}}" class="budget-card state-card">正在读取单价…</view>
   <view wx:elif="{{error}}" class="budget-card state-card"><text>{{error}}</text><button class="text-action" bindtap="retry">重试</button></view>
-  <block wx:elif="{{groups.length}}">
+  <block wx:elif="{{groupCount}}">
     <view class="budget-card prices-group" wx:for="{{groups}}" wx:key="itemId">
       <view class="prices-head"><text class="section-title">{{item.itemName}}</text></view>
       <view class="price-row {{editOptionId === option.optionId ? 'editing' : ''}}" wx:for="{{item.options}}" wx:for-item="option" wx:key="optionId">
@@ -21,9 +21,14 @@
         </view>
         <view class="price-actions">
           <view wx:if="{{editOptionId === option.optionId}}" class="price-editor">
-            <input type="digit" value="{{inputValue}}" focus placeholder="元/{{option.unitLabel}}" maxlength="12" bindinput="onPriceInput" aria-label="单价" />
-            <button class="text-action" data-option-id="{{option.optionId}}" bindtap="confirmEdit" disabled="{{saving}}" loading="{{saving}}">保存</button>
-            <button class="text-action" bindtap="cancelEdit">取消</button>
+            <view class="price-field">
+              <input class="price-input" type="digit" value="{{inputValue}}" focus placeholder="请输入单价" placeholder-class="price-placeholder" maxlength="12" cursor-spacing="24" bindinput="onPriceInput" aria-label="{{option.label}}单价，元每{{option.unitLabel}}" />
+              <text class="price-input-unit">元/{{option.unitLabel}}</text>
+            </view>
+            <view class="price-edit-actions">
+              <button class="text-action price-cancel" bindtap="cancelEdit" disabled="{{saving}}">取消</button>
+              <button class="text-action price-save" data-option-id="{{option.optionId}}" bindtap="confirmEdit" disabled="{{saving}}" loading="{{saving}}">保存</button>
+            </view>
           </view>
           <block wx:else>
             <button class="text-action" data-option-id="{{option.optionId}}" bindtap="startEdit" aria-label="调整{{option.label}}单价">{{option.overridden ? '修改' : '调整'}}</button>

@@ -50,6 +50,8 @@ protectedPage({
           depth: parameters.depth,
           floorCount: parameters.floorCount,
           buildingArea: parameters.buildingArea,
+          styleCode: parameters.styleCode, regionCode: parameters.regionCode,
+          footprintArea: parameters.footprintArea, roofArea: parameters.roofArea,
           coverAssetId: detail.coverAssetId,
           floorPlanAssetIds: detail.floorPlanAssetIds || [],
           elevationAssetId: detail.elevationAssetId
@@ -73,18 +75,17 @@ protectedPage({
     }))).map(item => Object.assign(item, { url: '', status: item.assetId ? 'loading' : 'missing' }));
     const hero = { assetId: detail.coverAssetId, url: '', status: detail.coverAssetId ? 'loading' : 'missing' };
     this.setData({ drawings, hero, tab: 0 });
-    this.loadImage('hero', hero.assetId, sequence);
-    drawings.forEach((item, index) => this.loadImage('drawings[' + index + ']', item.assetId, sequence));
+    if(drawings[0])this.loadImage('drawings[0]',drawings[0].assetId,sequence);
   },
   updateImage(path, patch) {
     if (path === 'hero') return this.setData({ hero: Object.assign({}, this.data.hero, patch) });
     const match = /^drawings\[(\d+)\]$/.exec(path);
     if (match) this.setData({ drawings: this.data.drawings.map((item, index) => index === Number(match[1]) ? Object.assign({}, item, patch) : item) });
   },
-  loadImage(path, assetId, sequence) {
+  loadImage(path, assetId, sequence, force = false) {
     if (!assetId) return;
     this.updateImage(path, { status: 'loading' });
-    return assets.fetchCaseAssetDataUrl(this._caseId,assetId).then(url => {
+    return assets.fetchCaseAssetDataUrl(this._caseId,assetId,{version:this.data.caseDetail.caseVersionId,rendition:'PREVIEW',force}).then(url => {
       if (this.current() && sequence === this._detailSequence)
         this.updateImage(path, { url, status: 'ready' });
     }).catch(() => {
@@ -118,12 +119,17 @@ protectedPage({
       else self.setData({ favorite: false, favoriteLoading: false });
     }).catch(function () { if (self.current()) self.setData({ favoriteLoading: false, favoriteError: true }); });
   },
-  selectTab(e) { this.setData({ tab: Number(e.currentTarget.dataset.index) }); },
-  // 封面/图纸点击放大（数据 URL 在 utils/assets 内落盘后预览）
-  previewLibraryImage(e) {
-    const kind = e.currentTarget.dataset.kind;
-    const url = kind === 'hero' ? this.data.hero && this.data.hero.url : this.data.drawings && this.data.drawings[this.data.tab] && this.data.drawings[this.data.tab].url;
-    if (url) assets.previewImages([url], url);
+  selectTab(e) {
+    const tab=Number(e.currentTarget.dataset.index),item=this.data.drawings[tab];if(!item)return;
+    this.setData({tab});if(!item.url)this.loadImage('drawings['+tab+']',item.assetId,this._detailSequence);
+  },
+  previewLibraryImage() {
+    const item=this.data.drawings[this.data.tab];if(!item||!item.assetId||this._previewLoading)return;
+    this._previewLoading=true;wx.showLoading({title:'加载高清图'});
+    return assets.fetchCaseAssetDataUrl(this._caseId,item.assetId,{version:this.data.caseDetail.caseVersionId,rendition:'ORIGINAL'})
+      .then(url=>{if(this.current())assets.previewImages([url],url);})
+      .catch(()=>{if(this.current())wx.showToast({title:'高清图加载失败，请重试',icon:'none'});})
+      .finally(()=>{this._previewLoading=false;wx.hideLoading();});
   },
   toggleFavorite() {
     const detail = this.data.caseDetail;
@@ -142,20 +148,17 @@ protectedPage({
     }).then(function () { if (self.current()) self.setData({ favoriteSaving: false }); });
   },
   useHouse() {
-    const detail = this.data.caseDetail;
-    if (!this.current() || !detail) return;
-    if (!detail.canDesign) { wx.showToast({ title: detail.designUnavailableReason, icon: 'none' }); return; }
-    // switchTab 无法携带 query，经全局数据传递实际案例版本；提交时再校验该版本及授权。
-    getDesignApp().globalData.refCase = {
-      caseId: detail.id,
-      caseVersionId: detail.caseVersionId,
-      dimensionBasis: detail.dimensionBasis,
-      title: detail.title,
-      faceWidth: detail.faceWidth,
-      depth: detail.depth,
-      floorCount: detail.floorCount,
-      buildingArea: detail.buildingArea
-    };
-    navigation.switchTab({ url: '/design-migration/pages/ai-design/index' });
+    const detail=this.data.caseDetail;if(!this.current()||!detail)return;
+    if(!detail.canDesign){wx.showToast({title:detail.designUnavailableReason,icon:'none'});return;}
+    const app=getDesignApp();
+    app.globalData.refCase={caseId:detail.id,caseVersionId:detail.caseVersionId,dimensionBasis:detail.dimensionBasis,title:detail.title,coverUrl:this.data.drawings[0]&&this.data.drawings[0].url,...require('../../utils/case-entry').parameters(detail)};
+    app.globalData.caseDesignEntry={...app.globalData.refCase,styleCode:detail.styleCode};
+    app.globalData.aiLine=this.data.tab===0?'ELEVATION':'FLAT';
+    wx.navigateTo({url:'/design-migration/pages/ai-design/index?line='+app.globalData.aiLine});
+  },
+  quickBudget() {
+    const detail=this.data.caseDetail;if(!this.current()||!detail)return;
+    getDesignApp().globalData.budgetCaseEntry={caseId:detail.id,caseVersionId:detail.caseVersionId,title:detail.title,values:require('../../utils/case-entry').parameters(detail)};
+    wx.navigateTo({url:'/design-migration/pages/budget/quick?fromCase=1'});
   }
 });

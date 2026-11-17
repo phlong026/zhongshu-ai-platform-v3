@@ -58,6 +58,7 @@
     <view wx:if="{{view!=='archive'}}" class="list-head"><text>{{view==='team'?'组织任务':'绩效进展详情'}}</text><text>{{taskCount}} 项</text></view>
     <view wx:if="{{view!=='archive' && !rows.length}}" class="card"><empty-state message="本月暂无绩效任务"/></view>
     <view wx:if="{{view!=='archive'}}" wx:for="{{rows}}" wx:key="id" class="card task-card">
+      <text wx:if="{{messageTaskId===item.id}}" class="hint">消息关联任务</text>
       <view class="task-top"><view class="task-copy"><text class="task-title">{{item.title}}</text><text class="meta">{{item.assigneeName}} · {{item.typeLabel}} · 截止 {{item.due}}</text></view><text class="status {{item.status==='已完成'?'done':''}}">{{item.status}}</text></view>
       <view class="facts"><view><text>目标</text><text>{{item.targetText}}</text></view><view><text>已完成</text><text>{{item.collectedText}}</text></view></view>
       <view wx:if="{{item.sources.length}}" class="sources"><button wx:for="{{item.sources}}" wx:key="id" data-url="{{item.url}}" bindtap="openSource"><view class="source-copy"><text>{{item.name}}</text><text>{{item.date}}{{item.amountText?' · '+item.amountText:''}}</text></view><text>查看原单</text></button></view>

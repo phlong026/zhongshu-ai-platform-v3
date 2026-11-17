@@ -98,6 +98,7 @@
           </view>
           <view wx:if="{{elevRefCase}}" class="ref-slot">
             <image wx:if="{{elevRefCase.coverUrl}}" src="{{elevRefCase.coverUrl}}" mode="aspectFit" />
+            <view wx:else class="ref-slot-pending"><text>已选户型</text></view>
             <text class="ref-slot-tag">户型库 · {{elevRefCase.title}}</text>
             <view role="button" aria-label="移除户型库参考案例" class="ref-slot-del" catchtap="clearElevRefCase">×</view>
           </view>
@@ -107,14 +108,17 @@
       <view class="v12-card form-card">
         <view class="card-head"><text class="card-title">建筑风格<text class="card-title-sub">（可选）</text></text><text class="sec-tip">已选：{{elevStyleCode ? elevStyleLabel : '不指定'}}</text></view>
         <view wx:if="{{styleError}}" class="style-error" role="button" bindtap="loadStyles">{{styleError}}</view>
-        <view class="chips chips-wrap">
+        <scroll-view class="chips-scroll style-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+          <view class="chips chips-nowrap style-pills">
             <view role="button" class="chip {{!elevStyleCode ? 'chip-on' : ''}}" data-code="" bindtap="onElevStyle">不指定</view>
             <view role="button" wx:for="{{elevStyles}}" wx:key="code" class="chip {{elevStyleCode === item.code ? 'chip-on' : ''}}" data-code="{{item.code}}" bindtap="onElevStyle">{{item.label}}</view>
-        </view>
+          </view>
+        </scroll-view>
       </view>
 
       <view class="v12-card form-card">
         <view class="card-head"><text class="card-title">建筑条件</text></view>
+        <text wx:if="{{elevRefCase}}" class="case-strip-text">参考户型：{{elevRefCase.faceWidth || '—'}} × {{elevRefCase.depth || '—'}} m · {{elevRefCase.buildingArea || '—'}}㎡</text>
         <view class="adv-group"><text class="adv-label">层数</text>
           <view class="chips">
             <view role="button" wx:for="{{floorChips}}" wx:key="label" class="chip {{elevFloorIndex === index ? 'chip-on' : ''}}" data-index="{{index}}" bindtap="onElevFloor">{{item.label}}</view>

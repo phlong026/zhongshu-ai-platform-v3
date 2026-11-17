@@ -1,0 +1,1264 @@
+{
+  "started": 1794848511291,
+  "samples": [
+    {
+      "t": 33,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 79,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 110,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 134,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 171,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 202,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 232,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 263,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 293,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 325,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 356,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 387,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 418,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 449,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 480,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 513,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 546,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 580,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 613,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 646,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 680,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 710,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 741,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 771,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 801,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 833,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 878,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 938,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 999,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1030,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1060,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1091,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1121,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1168,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1229,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1249,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1281,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1313,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1346,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1380,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1413,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1444,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1474,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1506,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1546,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1580,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1613,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1644,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1674,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1700,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1737,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 1767,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1792,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1829,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1890,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1935,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1954,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 1997,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2022,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2059,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2081,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2114,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2147,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2180,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2212,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2243,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2274,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2313,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2346,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2380,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2412,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2433,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2475,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2497,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2530,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2568,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2598,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2626,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2660,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2691,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2767,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2785,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2830,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2849,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2892,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2922,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2952,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 2980,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3013,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3045,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3075,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3107,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3138,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3169,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3213,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3233,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3265,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3297,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3329,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3364,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3397,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3430,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3462,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3493,
+      "route": "pages/admin/finance-desk/index",
+      "view": "flows",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3522,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1033.5999755859375
+    },
+    {
+      "t": 3569,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3618,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3649,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3695,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3713,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3756,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3780,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3818,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3847,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3880,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3912,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3941,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 3973,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4004,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4035,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4066,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4096,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4130,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4163,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4193,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4230,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4264,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4297,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4329,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4360,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4392,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4423,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4453,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4516,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4546,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4577,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4623,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4648,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4685,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4714,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4747,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4778,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4809,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4832,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4864,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4897,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4930,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4962,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 4993,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 5030,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 5063,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 5097,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 5130,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 5162,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 5194,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 5224,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    },
+    {
+      "t": 5255,
+      "route": "pages/admin/finance-desk/index",
+      "view": "desk",
+      "stale": false,
+      "width": 390.3999938964844,
+      "height": 1105.800048828125
+    }
+  ],
+  "duration": 10000,
+  "inflight": true,
+  "done": true
+}

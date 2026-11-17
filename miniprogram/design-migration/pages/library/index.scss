@@ -56,3 +56,9 @@
   .filters > .filter-row > .filter-label { width: auto; line-height: 1.4; }
   .filter-pills, .dimension-inputs { width: 100%; }
 }
+
+/* Keep building styles on one horizontally scrollable row. */
+.style-scroll { flex: 1; width: 0; min-width: 0; white-space: nowrap; }
+.filter-pills.style-pills { display: inline-flex; flex-wrap: nowrap; width: max-content; padding: 2rpx 0 6rpx; }
+.style-pills text { flex-shrink: 0; }
+@media (max-width: 350px) { .style-scroll { flex: none; width: 100%; } }

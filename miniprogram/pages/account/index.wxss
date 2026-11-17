@@ -1,3 +1,4 @@
+@import "./message-center.wxss";
 @import "./layout.wxss";
 @import "./typography.wxss";
 .captcha-btn{flex-shrink:0;margin-left:16rpx;padding:0 20rpx;line-height:56rpx;min-height:56rpx;font-size:var(--zs-font-caption);color:#9b7b5e;background:#f4ede3;border-radius:10rpx}.captcha-btn.is-disabled{color:#b9ac9e}

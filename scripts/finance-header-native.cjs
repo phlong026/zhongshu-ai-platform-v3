@@ -1,0 +1,26 @@
+const a=require('miniprogram-automator'),fs=require('fs'),assert=require('assert/strict');
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+const root='C:/Users/Administrator/.codex/artifacts/finance-joint-20261117/run1/',out='docs/finance-header-20261117';
+fs.mkdirSync(out,{recursive:true});
+(async()=>{const m=await a.connect({wsEndpoint:'ws://127.0.0.1:9973'});let p;const checks=[];
+ try{
+  const actors=JSON.parse(fs.readFileSync(root+'actors.json','utf8')),h=JSON.parse(fs.readFileSync(root+'handles.json','utf8')),x=JSON.parse(fs.readFileSync(root+'journey-handles.json','utf8'));
+  const auth=async role=>m.evaluate(v=>{wx.setStorageSync('zs-api-base','http://127.0.0.1:18091/admin-api');wx.setStorageSync('zs-api-token-v1',v.token);wx.setStorageSync('zs-api-post-v1',String(v.postId));wx.setStorageSync('zs-api-posts-v1',v.posts);wx.setStorageSync('zs-api-tenant-v1','1');},actors[role]);
+  const nav=async url=>{const expected=new URL('http://local'+url).searchParams.get('view')||'desk';for(let i=0;i<3;i++){p=await m.reLaunch(url);await pause(1800);if(await m.evaluate(()=>getCurrentPages().slice(-1)[0].data.view)===expected)break;}await m.evaluate(()=>wx.pageScrollTo({scrollTop:0,duration:0}));await pause(180);p=await m.currentPage();};
+  const click=async text=>{p=await m.currentPage();for(const b of await p.$$('button'))if((await b.text()).trim()===text){await b.tap();await pause(400);return;}const head=await p.$('#finance-page-header');if(head)for(const b of await head.$$('button'))if((await b.text()).trim()===text){await b.tap();await pause(400);return;}throw Error('Missing button '+text);};
+  const shot=async name=>{await m.screenshot({path:out+'/'+name+'.png'});console.log('captured',name);};
+  const header=async(title,back)=>{const c=await p.$('#finance-page-header');assert.ok(c);assert.equal(await(await c.$('.action-title')).text(),title);assert.equal((await(await c.$('.action-back')).text()).trim(),back);assert.equal((await c.$$('.brand')).length,0);assert.equal((await p.$$('.journey-form>.journey-title')).length,0);assert.equal((await p.$$('.book-form>.fin-heading')).length,0);assert.equal((await p.$$('.journey-back')).length,0);assert.ok((await(await c.$('.action-back image')).offset()).left>=12,'返回箭头需要页面边距');checks.push(title+'：单层导航、无重复品牌标题、返回入口可用');};
+  const book='/pages/admin/finance-desk/index?view=book&bookScope=project%3A'+h.project.id;
+  await auth('finance');await nav(book);await click('登记付款');await(await p.$('picker[data-field="payableId"]')).trigger('change',{value:0});await pause(250);await header('登记付款','返回项目账本');await shot('01-payment');await click('没有原单，补记其他支出 ›');await header('补记其他支出','返回项目账本');await shot('02-manual');await click('返回项目账本');assert.equal(await m.evaluate(()=>getCurrentPages().slice(-1)[0].data.bookScope),'project:'+h.project.id);
+  await click('登记收款');await header('登记收款','返回项目账本');await shot('03-receipt');await click('返回项目账本');await click('员工往来');await click('办理报销');await header('办理报销','返回项目账本');await shot('04-reimbursement');await click('返回项目账本');assert.equal(await m.evaluate(()=>getCurrentPages().slice(-1)[0].data.bookFlowTab),'employee');
+  await click('垫付明细');await pause(250);await click('登记支出退回');await header('登记支出退回','返回项目账本');await shot('05-refund');await click('返回项目账本');
+  await nav('/pages/admin/finance-desk/index?view=projects');await click('新建账本');await header('新建账本','返回上一页');await shot('06-new-book');await click('返回上一页');
+  await nav('/pages/admin/finance-desk/index?view=flows&tab=receivables');await click('合同金额变更');await header('合同金额变更','返回上一页');await shot('07-contract');await click('返回上一页');await click('抵扣已有定金');await header('抵扣定金','返回上一页');await click('返回上一页');
+  await nav('/pages/admin/finance-desk/index?view=flows&tab=ledger');await(await p.$('.book-transaction[data-key="p-'+x.manualPaymentId+'"]')).tap();await pause(350);await click('补充说明或凭据');await header('补充资料','返回上一页');await shot('08-supplement');await click('返回上一页');
+  await nav('/pages/admin/finance-desk/index');await click('收款登记');await header('登记收款','返回财务首页');await click('返回财务首页');assert.equal(await m.evaluate(()=>getCurrentPages().slice(-1)[0].data.view),'desk');await shot('09-home');
+  await nav('/pages/admin/finance-desk/index?view=projects');const listHeader=await p.$('#finance-page-header');assert.ok(await listHeader.$('.brand'));assert.equal((await listHeader.$$('.action-back')).length,0);checks.push('账本列表保留品牌导航');await shot('10-books');
+  await auth('boss');await nav('/pages/admin/finance-desk/index?view=project&id='+h.project.id);const bossHeader=await p.$('#finance-page-header');assert.ok(await bossHeader.$('.brand'));assert.equal((await bossHeader.$$('.action-back')).length,0);assert.equal(await m.evaluate(()=>getCurrentPages().slice(-1)[0].data.projectLedgerReadOnly),true);checks.push('老板只读账本保留原导航和只读权限');
+  await auth('finance');await nav(book);await click('登记付款');await(await p.$('picker[data-field="payableId"]')).trigger('change',{value:0});await pause(250);
+  fs.writeFileSync(out+'/native-result.json',JSON.stringify({passed:true,checks,renderer:'微信开发者工具原生模拟器；没有写入资金记录'},null,2));
+ }finally{m.disconnect();}
+})().then(()=>process.exit(0),e=>{console.error(e.stack);process.exit(1)});

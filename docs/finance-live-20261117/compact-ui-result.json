@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "shots": [
+    {
+      "name": "30-project-book-compact",
+      "tabHeight": 37,
+      "activeBackground": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "name": "31-company-book-compact",
+      "tabHeight": 37,
+      "activeBackground": "rgba(0, 0, 0, 0)"
+    }
+  ],
+  "checks": [
+    "compact project controls",
+    "compact company controls",
+    "transparent text tabs",
+    "cost switch",
+    "employee switch",
+    "cash switch"
+  ]
+}

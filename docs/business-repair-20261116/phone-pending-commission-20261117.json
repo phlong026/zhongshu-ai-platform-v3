@@ -1,0 +1,44 @@
+{
+  "phase": "paid-by-user-on-phone",
+  "financeUserId": 159,
+  "financeUnreadBefore": 0,
+  "createdByAgent": true,
+  "paymentPerformedByAgent": false,
+  "customerName": "真机待支付验收1117",
+  "customerId": "2122517499622817794",
+  "businessUserId": 154,
+  "existingBudgetId": "2122322719232090113",
+  "existingRevisionId": "2122322719232090114",
+  "commissionId": "2122517547425300481",
+  "order": {
+    "number": "SIM-2122517547425300481-V1",
+    "commissionId": "2122517547425300481",
+    "submissionVersion": 1,
+    "customerName": "真机待支付验收1117",
+    "amountCents": 240000,
+    "status": "PAID",
+    "channel": "WECHAT",
+    "paidAt": 1794882624665,
+    "simulated": true,
+    "storeFinanceConfigured": true,
+    "headquartersFinanceConfigured": true
+  },
+  "pointsBefore": 73,
+  "pointsAfter": 73,
+  "newPointsUsed": 0,
+  "userConfirmedPhonePayment": true,
+  "agentDidNotPay": true,
+  "financeUnreadAfterUserPay": 1,
+  "financeNotifications": [
+    {
+      "id": "2122517682658050050",
+      "type": "BUSINESS",
+      "route": "commission-payment",
+      "objectId": "2122517547425300481",
+      "title": "设计费模拟支付已完成",
+      "description": "模拟支付凭据，仅知会，不计入实际收支",
+      "read": false,
+      "createTime": 1794882624665
+    }
+  ]
+}

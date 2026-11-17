@@ -4,7 +4,7 @@
     <view class="search"><t-icon name="search" size="20px" color="#a89a8c" /><input placeholder="搜索户型名称、风格或面积" value="{{keyword}}" bindinput="onSearch" /></view>
     <view class="source-tabs"><view class="{{source === 0 ? 'active' : ''}}" data-index="0" bindtap="selectSource">公司案例</view><view class="{{source === 1 ? 'active' : ''}}" data-index="1" bindtap="selectSource">AI案例</view></view>
     <view class="v12-card filters">
-      <view class="filter-row"><text class="filter-label">建筑风格</text><view class="filter-pills"><text wx:for="{{styleOptions}}" wx:key="code" class="{{filters.styleCode === item.code ? 'selected' : ''}}" data-key="styleCode" data-value="{{item.code}}" bindtap="onFilterChange">{{item.label}}</text></view></view>
+      <view class="filter-row"><text class="filter-label">建筑风格</text><scroll-view class="style-scroll" scroll-x enhanced show-scrollbar="{{false}}"><view class="filter-pills style-pills"><text wx:for="{{styleOptions}}" wx:key="code" class="{{filters.styleCode === item.code ? 'selected' : ''}}" data-key="styleCode" data-value="{{item.code}}" bindtap="onFilterChange">{{item.label}}</text></view></scroll-view></view>
       <view wx:if="{{classificationError}}" class="classification-error" role="button" bindtap="loadClassifications">{{classificationError}}</view>
       <view class="filter-row"><text class="filter-label">建筑层数</text><view class="filter-pills"><text wx:for="{{floorOptions}}" wx:key="label" class="{{filters.floorCount === item.count ? 'selected' : ''}}" data-key="floorCount" data-value="{{item.count}}" bindtap="onFilterChange">{{item.label}}</text></view></view>
       <view class="filter-row"><text class="filter-label">尺度筛选</text><view class="dimension-inputs">
@@ -12,15 +12,15 @@
         <view class="dimension-field"><input type="digit" placeholder="进深 如12" value="{{filters.depth}}" bindinput="onDimensionInput" bindblur="onDimensionSearch" bindconfirm="onDimensionSearch" data-key="depth" /><text class="dimension-unit">m</text><text wx:if="{{filters.depth}}" class="dimension-clear" data-key="depth" bindtap="onDimensionClear">×</text></view>
       </view></view>
     </view>
-    <view class="sort-row"><text wx:if="{{!cases.length && loading}}">正在加载方案…</text><text wx:elif="{{!cases.length && error}}">方案尚未加载成功</text><text wx:else>已加载 {{visibleCases.length}} 套方案</text><view>面积从小到大 <t-icon name="chevron-down" size="16px" color="#786858" /></view></view>
+    <view class="sort-row"><text wx:if="{{!caseCount && loading}}">正在加载方案…</text><text wx:elif="{{!caseCount && error}}">方案尚未加载成功</text><text wx:else>已加载 {{visibleCount}} 套方案</text><view>面积从小到大 <t-icon name="chevron-down" size="16px" color="#786858" /></view></view>
     <view class="case-grid">
-      <view class="v12-card case-card" wx:for="{{visibleCases}}" wx:key="id" bindtap="openDetail" data-id="{{item.id}}">
+      <view class="v12-card case-card case-cover-watch" wx:for="{{visibleCases}}" wx:key="id" bindtap="openDetail" data-id="{{item.id}}">
         <view class="image-wrap"><image wx:if="{{item.image}}" src="{{item.image}}" mode="aspectFit" lazy-load data-id="{{item.id}}" binderror="imageError" /><view wx:elif="{{item.imageLoading}}" class="cover-state">图片加载中…</view><view wx:elif="{{item.imageError}}" class="cover-state cover-retry" role="button" data-id="{{item.id}}" catchtap="retryCover">点击重试</view><view wx:else class="cover-state">暂无封面</view><text wx:if="{{item.tag}}">{{item.tag}}</text></view>
         <view class="case-copy"><text>{{item.title}}</text><text>{{item.meta}}</text></view>
       </view>
     </view>
     <v12-state wx:if="{{loading}}" status="loading" text="正在加载方案…" card="{{false}}" />
     <v12-state wx:elif="{{error}}" id="library-load-error" status="error" text="{{error}}" action-text="重新加载" bind:action="retry" card="{{false}}" />
-    <v12-state wx:elif="{{loaded && !visibleCases.length}}" status="empty" icon="search" text="没有符合筛选条件的方案，换个筛选看看" card="{{false}}" />
+    <v12-state wx:elif="{{loaded && !visibleCount}}" status="empty" icon="search" text="没有符合筛选条件的方案，换个筛选看看" card="{{false}}" />
   </view>
 </view>

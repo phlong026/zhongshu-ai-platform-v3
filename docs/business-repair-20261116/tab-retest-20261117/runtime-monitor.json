@@ -1,0 +1,25 @@
+{
+  "exceptions": [],
+  "console": [],
+  "networkFailures": [],
+  "httpErrors": [],
+  "requestsObserved": 55,
+  "logs": [
+    {
+      "level": "info",
+      "text": "[system]"
+    },
+    {
+      "level": "info",
+      "text": "[system]"
+    },
+    {
+      "level": "info",
+      "text": "Lazy code loading is enabled. Only injecting required components."
+    },
+    {
+      "level": "info",
+      "text": "[Component] property \"title\" of \"components/brand-header/index\" received type-uncompatible value: expected <String> but get null value. Use empty string instead."
+    }
+  ]
+}

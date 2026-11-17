@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "project": {
+    "received_cents": 10200000,
+    "paid_cents": 1246000,
+    "refunded_cents": 10000,
+    "expense_refunded_cents": 5000,
+    "committed_cents": 1376000,
+    "outstanding_cents": 135000,
+    "receivable_cents": 49810000
+  },
+  "companyDaily": {
+    "received_cents": 0,
+    "paid_cents": 8600,
+    "refunded_cents": 0,
+    "expense_refunded_cents": 0,
+    "committed_cents": 8600,
+    "outstanding_cents": 0,
+    "receivable_cents": 0
+  },
+  "ownerNetCollectedCents": 10190000,
+  "procurement": {
+    "totalCents": 50000,
+    "paidCents": 15000,
+    "remainingCents": 35000
+  },
+  "employee": {
+    "advancedCents": 240000,
+    "reimbursedCents": 140000,
+    "remainingCents": 100000
+  },
+  "companyCashNetCents": 8940400,
+  "bossMatchesFinance": true,
+  "eachNativeCommandCreatedOneRecord": true,
+  "writeDeniedRoles": [
+    "sales",
+    "engineer",
+    "boss"
+  ],
+  "realBankTransfers": 0
+}

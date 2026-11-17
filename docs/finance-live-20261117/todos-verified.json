@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "domain": "fr-fin-workbench",
+      "key": "fr-fin-workbench:reimburse:2122585390925193220",
+      "title": "联调业务 · 设计费报销",
+      "status": "待报销",
+      "amountCents": 140000,
+      "actionable": true,
+      "webUrl": null,
+      "appPath": "/pages/admin/finance-desk/index?view=reimbursements",
+      "since": null
+    }
+  ],
+  "actionableCount": 1,
+  "failedDomains": []
+}

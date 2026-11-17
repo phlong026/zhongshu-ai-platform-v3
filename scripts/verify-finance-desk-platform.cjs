@@ -337,7 +337,7 @@ main().then(() => {
   ok(actions.includes('openRevision') && actions.includes('submitRevision')
       && actions.includes('baseRevisionVersion'),
     'F2 修订入口/提交（openRevision/submitRevision）');
-  const wxml = read('miniprogram/pages/admin/finance-desk/index.wxml');
+  const wxml = read('miniprogram/pages/admin/finance-desk/index.wxml')+read('miniprogram/pages/admin/finance-desk/receipt-revision.wxml');
   ok(wxml.includes('bindtap="openRevision"') && wxml.includes("registerType==='revision'")
       && wxml.includes('submitRevision'),
     'F2 wxml 修订按钮+弹层（收款行+revision 卡）');
@@ -382,7 +382,7 @@ main().then(() => {
   ok(financeSrc.includes("idemKey || ('fin-revision-'"),
     'AC2 修复后的 fallback 表达式存在');
   // ---- R2 P2-8 / F2 历史契约：wxml 三态绑定 ----
-  const deskWxml = read('miniprogram/pages/admin/finance-desk/index.wxml');
+  const deskWxml = read('miniprogram/pages/admin/finance-desk/index.wxml')+read('miniprogram/pages/admin/finance-desk/receipt-revision.wxml');
   ok(deskWxml.includes("revisionHistory.status==='loading'") && deskWxml.includes("revisionHistory.status==='failed'")
       && deskWxml.includes("revisionHistory.status==='ready'"),
     'F2 修订历史三态绑定（loading/failed/ready+empty）');

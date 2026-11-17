@@ -1,0 +1,266 @@
+[
+  {
+    "name": "customer",
+    "url": "/pages/workflow/index?view=customer&id=2122322030611197954",
+    "route": "pages/workflow/index",
+    "view": "customer",
+    "title": "客户工作区",
+    "errors": {},
+    "platformStatus": "ready"
+  },
+  {
+    "name": "commission",
+    "url": "/pages/workflow/commission/index?view=progress&commissionId=2122323731334361089",
+    "route": "pages/workflow/commission/index",
+    "view": "progress",
+    "title": "委托与交付",
+    "errors": {},
+    "platformStatus": "ready"
+  },
+  {
+    "name": "payment",
+    "url": "/pages/workflow/commission/index?view=pay&commissionId=2122323731334361089",
+    "route": "pages/workflow/commission/index",
+    "view": "pay",
+    "title": "设计费支付",
+    "errors": {},
+    "platformStatus": "ready"
+  },
+  {
+    "name": "receipt",
+    "url": "/pages/workflow/commission/index?view=receipt&commissionId=2122323731334361089",
+    "route": "pages/workflow/commission/index",
+    "view": "receipt",
+    "title": "模拟支付凭据",
+    "errors": {},
+    "platformStatus": "ready"
+  },
+  {
+    "name": "messages",
+    "url": "/pages/account/index?view=messages",
+    "route": "pages/account/index",
+    "view": "messages",
+    "title": "消息中心",
+    "errors": {}
+  },
+  {
+    "name": "performance",
+    "url": "/pages/admin/tasks/index?view=mine",
+    "route": "pages/admin/tasks/index",
+    "view": "mine",
+    "title": "当前成员 · 我的绩效",
+    "errors": {}
+  },
+  {
+    "name": "learning",
+    "url": "/pages/account/training/index",
+    "route": "pages/account/training/index",
+    "title": "学习中心",
+    "errors": {},
+    "loading": false
+  },
+  {
+    "name": "privacy",
+    "url": "/pages/account/index?view=privacy",
+    "route": "pages/account/index",
+    "view": "privacy",
+    "title": "账号与隐私",
+    "errors": {}
+  },
+  {
+    "name": "help",
+    "url": "/pages/account/index?view=help",
+    "route": "pages/account/index",
+    "view": "help",
+    "title": "帮助与反馈",
+    "errors": {}
+  },
+  {
+    "name": "characters",
+    "url": "/pages/studio/characters/index",
+    "route": "pages/studio/characters/index",
+    "view": "home",
+    "title": "人物库",
+    "errors": {},
+    "loading": false
+  },
+  {
+    "name": "remix",
+    "url": "/pages/studio/index?view=remix",
+    "route": "pages/studio/index",
+    "view": "remix",
+    "title": "文案二创",
+    "errors": {}
+  },
+  {
+    "name": "digital",
+    "url": "/pages/studio/index?view=digital",
+    "route": "pages/studio/index",
+    "view": "digital",
+    "title": "数字人口播",
+    "errors": {
+      "operationError": "请在人物库准备同一人物名下已就绪的数字分身和克隆声音"
+    }
+  },
+  {
+    "name": "materials",
+    "url": "/pages/studio/index?view=library",
+    "route": "pages/studio/index",
+    "view": "library",
+    "title": "素材库",
+    "errors": {}
+  },
+  {
+    "name": "works",
+    "url": "/pages/studio/index?view=works",
+    "route": "pages/studio/index",
+    "view": "works",
+    "title": "我的作品",
+    "errors": {}
+  },
+  {
+    "name": "tasks",
+    "url": "/pages/studio/index?view=tasks",
+    "route": "pages/studio/index",
+    "view": "tasks",
+    "title": "任务中心",
+    "errors": {}
+  },
+  {
+    "name": "records",
+    "url": "/pages/studio/index?view=records",
+    "route": "pages/studio/index",
+    "view": "records",
+    "title": "发布记录",
+    "errors": {}
+  },
+  {
+    "name": "ai-video",
+    "url": "/pages/ai-video/index",
+    "route": "pages/ai-video/index",
+    "errors": {}
+  },
+  {
+    "name": "budget",
+    "url": "/design-migration/pages/budget/quick?draftId=2122322218516078594",
+    "route": "design-migration/pages/budget/quick",
+    "errors": {},
+    "loading": false
+  },
+  {
+    "name": "budget-result",
+    "url": "/design-migration/pages/budget/result?budgetId=2122322719232090113&revisionId=2122322719232090114",
+    "route": "design-migration/pages/budget/result",
+    "title": "参考预算",
+    "errors": {},
+    "loading": false
+  },
+  {
+    "name": "budget-history",
+    "url": "/design-migration/pages/budget/history",
+    "route": "design-migration/pages/budget/history",
+    "errors": {},
+    "loading": false
+  },
+  {
+    "name": "ai-flat",
+    "url": "/design-migration/pages/ai-design/index",
+    "route": "design-migration/pages/ai-design/index",
+    "errors": {}
+  },
+  {
+    "name": "ai-elevation",
+    "url": "/design-migration/pages/ai-design/index?line=ELEVATION",
+    "route": "design-migration/pages/ai-design/index",
+    "errors": {}
+  },
+  {
+    "name": "inspiration",
+    "url": "/design-migration/pages/library/index",
+    "route": "design-migration/pages/library/index",
+    "errors": {},
+    "loading": false
+  },
+  {
+    "name": "copy-result",
+    "url": "/pages/studio/index?view=result&task=2122250190320689154",
+    "route": "pages/studio/index",
+    "view": "result",
+    "title": "文案改写结果",
+    "errors": {},
+    "resultType": "text"
+  },
+  {
+    "name": "asr-result",
+    "url": "/pages/studio/index?view=result&task=2122250104563949570",
+    "route": "pages/studio/index",
+    "view": "result",
+    "title": "语音转写结果",
+    "errors": {},
+    "resultType": "text"
+  },
+  {
+    "name": "parsed-source",
+    "url": "/pages/studio/index?view=result&task=2122250082078285826",
+    "route": "pages/studio/index",
+    "view": "result",
+    "title": "链接解析结果",
+    "errors": {},
+    "resultType": "source"
+  },
+  {
+    "name": "case-detail",
+    "url": "library card tap",
+    "route": "design-migration/pages/library/detail",
+    "errors": {},
+    "detailError": false,
+    "drawings": 2
+  },
+  {
+    "name": "case-drawing",
+    "url": "detail drawing tab tap",
+    "route": "design-migration/pages/library/detail",
+    "errors": {},
+    "detailError": false,
+    "drawings": 2
+  },
+  {
+    "name": "customer-follow",
+    "url": "customer tab tap",
+    "route": "pages/workflow/index",
+    "view": "customer",
+    "errors": {}
+  },
+  {
+    "name": "follow-form",
+    "url": "follow dialog button tap",
+    "route": "pages/workflow/index",
+    "view": "customer",
+    "errors": {}
+  },
+  {
+    "name": "commission-resume",
+    "url": "existing customer commission entry",
+    "route": "pages/workflow/commission/index",
+    "view": "progress",
+    "errors": {}
+  },
+  {
+    "name": "customers-due",
+    "url": "customer filter tab tap",
+    "route": "pages/management/index",
+    "errors": {}
+  },
+  {
+    "name": "customers-appointments",
+    "url": "customer filter tab tap",
+    "route": "pages/management/index",
+    "errors": {}
+  },
+  {
+    "name": "customers-visited",
+    "url": "customer filter tab tap",
+    "route": "pages/management/index",
+    "errors": {}
+  }
+]

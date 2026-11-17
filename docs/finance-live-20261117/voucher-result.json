@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "fixture": "book icon as test-only attachment; not a financial voucher",
+  "uploadAccepted": true,
+  "supplementRecorded": true,
+  "authorizedDownload": true,
+  "downloadPixelsSame": true,
+  "imageMetadataStrippedByExistingScanner": true
+}

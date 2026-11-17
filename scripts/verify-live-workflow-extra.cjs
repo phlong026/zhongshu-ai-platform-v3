@@ -125,6 +125,8 @@ const commission = loadPage('miniprogram/pages/workflow/commission/index.js', {
   '../../../api/auth': commissionAuth,
   '../../../api/franchise/commission': commissionApi,
   './presentation': require(path.join(root,'miniprogram/pages/workflow/commission/presentation.js')),
+  './design-brief': require(path.join(root,'miniprogram/pages/workflow/commission/design-brief.js')),
+  './payment-flow': require(path.join(root,'miniprogram/pages/workflow/commission/payment-flow.js')),
   '../../../utils/organization': { apiContext: post => ({ role: post.roleCode, orgType: post.orgType, name: post.name || '' }) },
   '../../../utils/view-container': { makeFormHandlers: () => ({}) }
 }, { redirectTo: options => redirects.push(options.url) });

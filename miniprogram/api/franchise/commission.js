@@ -15,6 +15,8 @@ const policies = {
 };
 
 const commissions = {
+  simulatePay: (id,data,key) => http.post('/franchise/commissions/'+id+'/simulated-payment',data,keyHeader(key)),
+  simulatedReceipt: id => http.get('/franchise/commissions/'+id+'/simulated-payment-receipt'),
   context: customerId => http.get('/franchise/customers/' + customerId + '/commission-context'),
   receivers: id => http.get('/franchise/commissions/' + id + '/handover-receivers'),
   downloadTicket: (id, seq, slot) => http.post('/franchise/commissions/' + id + '/dispatches/' + seq + '/files/' + slot + '/download-tickets'),

@@ -1,0 +1,15 @@
+{
+  "before": {
+    "count": 1,
+    "preview": 1,
+    "focus": 1
+  },
+  "after": {
+    "month": "2026-10",
+    "count": 0,
+    "preview": 0,
+    "focus": 1,
+    "todoStatus": "ready",
+    "todoRows": 1
+  }
+}

@@ -1,3 +1,13 @@
+<block wx:if="{{action}}">
+ <view class="action-spacer zs-theme" style="height:calc({{statusHeight}}px + 96rpx)"/>
+ <view class="header header-action zs-theme {{accountFont?'account-font':''}}" style="padding-top:{{statusHeight}}px">
+  <view class="action-row">
+   <button class="action-back" bindtap="returnToOrigin" disabled="{{busy}}" aria-label="{{returnLabel}}"><image src="/assets/creation-back.png" mode="aspectFit"/><text>{{returnLabel}}</text></button>
+   <text class="action-title">{{title}}</text><view/>
+  </view>
+ </view>
+</block>
+<block wx:else>
 <view wx:if="{{showNavigation}}" class="subpage-spacer zs-theme" style="height:calc({{statusHeight}}px + 87rpx)"/><view class="header zs-theme {{home ? 'header-home' : ''}} {{accountFont?'account-font':''}} {{showNavigation?'header-subpage subpage-shell':''}}" style="padding-top: {{statusHeight}}px;">
   <view class="nav-row {{showNavigation?'subpage-nav':''}}">
     <block wx:if="{{showNavigation}}"><button class="subpage-back" bindtap="back" aria-label="返回上一页"><image class="back-icon" src="/assets/creation-back.png" mode="aspectFit"/></button><button class="return-home" bindtap="workbench" aria-label="返回工作台">工作台</button></block>
@@ -6,3 +16,4 @@
     <view wx:if="{{title}}" class="heading {{showNavigation?'subpage-title':''}}"><text class="title">{{title}}</text><text wx:if="{{subtitle}}" class="subtitle">{{subtitle}}</text></view>
   </view>
 </view>
+</block>

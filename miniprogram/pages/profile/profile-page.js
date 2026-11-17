@@ -81,9 +81,8 @@ module.exports = function (tabIndex) {
         name: apiLoggedIn ? (apiPost.name || s.profile.name) : s.profile.name, avatar: s.profile.avatar,
         role,
         company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
-        unread: M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, this.apiUnread || 0), progress: { completed: 0, total:course?course.lessons:0, percent: 0 }
+        unread: apiLoggedIn ? (this.apiUnread || 0) : M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, 0), progress: { completed: 0, total:course?course.lessons:0, percent: 0 }
       });
-      // API 未读数（基-2）：有会话才拉，回来合计刷新（11 文档 §十）
       // 课程进度代次守卫（Codex R2 P2）：递增移到 token 检查外——退出/换会话（无新请求）也使旧挂起响应失效
       this.__courseGen = (this.__courseGen || 0) + 1; const courseGen = this.__courseGen;
       if (http.token()) {
@@ -98,16 +97,15 @@ module.exports = function (tabIndex) {
           this.setData({ name: profile.name, avatar: profile.avatar });
         }).catch(() => {});
         const unreadAlive = http.requestGuard('unread');
-        http.get('/platform/messages/unread-count').then(r => {
+        http.get('/platform/messages/center/summary').then(r => {
           if (!unreadAlive()) return;
           this.apiUnread = (r && r.count) || 0;
-          const fresh = A.load();
-          this.setData({ unread: M.totalUnread(A.scoped(fresh, fresh.messages).filter(x => !x.read).length, this.apiUnread) });
-        }).catch(() => {});
+          this.setData({ unread: this.apiUnread });
+        }).catch(() => {if(unreadAlive())this.setData({unread:'—',unreadError:'消息未能加载，请进入消息中心重试'});});
         const training=require('../../api/training'),identity=training.identity();
         training.courses('').then(rows => {
           if (courseGen !== this.__courseGen||identity!==training.identity()) return;
-          const available=rows||[],next=available.find(c=>c.completed>0&&c.percent<100)||available.find(c=>['boss','owner'].includes(apiPost.roleCode)&&c.category==='经营管理')||available[0];
+          const available=Array.isArray(rows)?rows:Array.isArray(rows&&rows.list)?rows.list:[],next=available.find(c=>c.completed>0&&c.percent<100)||available.find(c=>['boss','owner'].includes(apiPost.roleCode)&&c.category==='经营管理')||available[0];
           this.setData({learningAvailable:true,learningLoading:false,learningLabel:next?next.category+'培训':'',courseId:next?next.id:'',courseTitle:next?next.title:'',courseImage:next?A.courseImage:'',progress:{completed:next?next.completed:0,total:next?next.lessons:0,percent:next?next.percent:0}});
           if(next&&next.coverVersionId)training.ticket(next.id,next.coverVersionId,'poster').then(t=>{if(courseGen===this.__courseGen&&identity===training.identity())this.setData({courseImage:training.url(t)});}).catch(()=>{});
         }).catch(() => { if(courseGen===this.__courseGen&&identity===training.identity())this.setData({learningLoading:false,learningError:'课程未能加载，请进入课程中心重试'}); });

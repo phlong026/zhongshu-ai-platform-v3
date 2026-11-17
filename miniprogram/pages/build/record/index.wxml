@@ -40,7 +40,7 @@
      </view>
      <button class="eng-outline" data-key="termsFile" bindtap="upload">{{fileNames.termsFile||'上传实际采购凭据'}}</button>
      <button wx:if="{{form.termsFile}}" class="eng-link" data-file="{{form.termsFile}}" bindtap="preview">预览采购凭据</button>
-     <button class="eng-outline eng-submit" data-action="material-terms" bindtap="perform" disabled="{{busy}}">保存付款信息，交财务办理</button>
+     <button class="eng-outline eng-submit" data-action="material-terms" bindtap="perform" disabled="{{busy}}">保存采购金额</button>
     </view>
    </block>
    <view wx:if="{{view==='funding'&&node}}" class="eng-section"><text class="eng-name">{{node.name}} · {{node.status}}</text><text class="eng-muted">计划 {{node.start}} 至 {{node.end}}</text><text class="eng-muted">施工、验收、材料和资金均关联本节点</text><button wx:if="{{view==='funding'}}" class="eng-link" data-url="{{nodeRecordUrl}}" bindtap="go">返回本节点记录</button></view>

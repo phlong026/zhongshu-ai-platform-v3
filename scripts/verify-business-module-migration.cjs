@@ -24,11 +24,14 @@ function harness(file, api = {}, role = 'sales-lead') {
     navigateTo: ({ url }) => navigations.push(url), redirectTo: ({ url }) => navigations.push(url),
     showToast: ({ title }) => toasts.push(title), showLoading() {}, hideLoading() {}, pageScrollTo() {}, nextTick(fn) { fn(); }
   };
-  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages', file), 'utf8'), {
+  const source=file==='creation/index.js'?fs.readFileSync(path.resolve(__dirname,'../miniprogram/utils/sales-creation-page.js'),'utf8').replace('module.exports=()=>({','Page({'):fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages', file), 'utf8');
+  vm.runInNewContext(source, {
     Page: value => { page = value; }, wx, setTimeout: (fn,ms) => {const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,
     require(name) {
       if(name==='./draft-api')return ()=>api.personas;
       if(name==='./profile-draft')return require('../miniprogram/pages/studio/characters/profile-draft');
+      if(name.startsWith('./'))name='../../utils/'+name.slice(2);
+      if(name.endsWith('/utils/content-task-result'))return require('../miniprogram/utils/content-task-result');
       if (name.endsWith('/utils/studio')) return studio;
       if (name.endsWith('/utils/creation')) return { assets: [] };
       if (name.endsWith('/utils/creation-link-draft')) return require('../miniprogram/utils/creation-link-draft');

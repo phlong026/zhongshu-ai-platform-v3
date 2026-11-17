@@ -1,0 +1,32 @@
+[
+  {
+    "method": "POST",
+    "path": "/franchise/sales/stages/2122584062962409475/collect",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/receipts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/sales/collection-declarations",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/engineering/2122584063843213313/materials",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/engineering/2122584063843213313/materials/summary",
+    "status": 200,
+    "code": 0
+  }
+]

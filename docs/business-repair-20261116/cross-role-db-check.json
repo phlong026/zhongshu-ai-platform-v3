@@ -1,0 +1,206 @@
+{
+  "newFinanceNotification": [
+    {
+      "id": 2122373070291304450,
+      "user_id": 154,
+      "org_id": 120,
+      "title": "设计委托已提交",
+      "route": "commission",
+      "object_id": 2122373070203224066,
+      "read": false
+    },
+    {
+      "id": 2122373169243324418,
+      "user_id": 159,
+      "org_id": 120,
+      "title": "设计费模拟支付已完成",
+      "route": "commission-payment",
+      "object_id": 2122373070203224066,
+      "read": true
+    },
+    {
+      "id": 2122373169247518722,
+      "user_id": 145,
+      "org_id": 118,
+      "title": "设计费模拟支付已完成",
+      "route": "commission-payment",
+      "object_id": 2122373070203224066,
+      "read": false
+    },
+    {
+      "id": 2122373169247518723,
+      "user_id": 154,
+      "org_id": 120,
+      "title": "设计费模拟支付已完成",
+      "route": "commission",
+      "object_id": 2122373070203224066,
+      "read": false
+    },
+    {
+      "id": 2122373169247518724,
+      "user_id": 157,
+      "org_id": 118,
+      "title": "设计费模拟支付已完成",
+      "route": "commission",
+      "object_id": 2122373070203224066,
+      "read": false
+    }
+  ],
+  "newFinanceOrder": [
+    {
+      "commission_id": 2122373070203224066,
+      "submission_version": 1,
+      "status": "PAID",
+      "channel": "WECHAT",
+      "amount_cents": 240000
+    }
+  ],
+  "newFinancePayEvents": [
+    {
+      "count": 1
+    }
+  ],
+  "newFinanceActualPayables": [
+    {
+      "count": 0
+    }
+  ],
+  "newFinanceActualReceipts": [
+    {
+      "count": 0
+    }
+  ],
+  "uniqueProject": [
+    {
+      "id": 2122359811450437633,
+      "company_id": 120,
+      "source_commission_id": 2122323731334361089,
+      "manager_user_id": 158,
+      "status": "PENDING_START"
+    }
+  ],
+  "handoverVersions": [
+    {
+      "version": 1,
+      "status": "RETURNED",
+      "manager_user_id": 158,
+      "decided_by_user_id": 158
+    },
+    {
+      "version": 2,
+      "status": "ACCEPTED",
+      "manager_user_id": 158,
+      "decided_by_user_id": 158
+    }
+  ],
+  "messages": [
+    {
+      "user_id": 154,
+      "org_id": 120,
+      "title": "设计委托已提交",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 145,
+      "org_id": 118,
+      "title": "设计费模拟支付已完成",
+      "route": "commission-payment",
+      "read": false
+    },
+    {
+      "user_id": 154,
+      "org_id": 120,
+      "title": "设计费模拟支付已完成",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 154,
+      "org_id": 120,
+      "title": "设计已完成",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 145,
+      "org_id": 118,
+      "title": "设计已完成",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 157,
+      "org_id": 118,
+      "title": "设计已完成",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 154,
+      "org_id": 120,
+      "title": "设计成果已下发",
+      "route": "commission",
+      "read": true
+    },
+    {
+      "user_id": 154,
+      "org_id": 120,
+      "title": "业务资料待工程接收",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 158,
+      "org_id": 120,
+      "title": "业务资料待工程接收",
+      "route": "commission",
+      "read": true
+    },
+    {
+      "user_id": 154,
+      "org_id": 120,
+      "title": "工程移交资料待补充",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 154,
+      "org_id": 120,
+      "title": "业务资料待工程接收",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 158,
+      "org_id": 120,
+      "title": "业务资料待工程接收",
+      "route": "commission",
+      "read": false
+    },
+    {
+      "user_id": 154,
+      "org_id": 120,
+      "title": "工程已接收业务资料",
+      "route": "commission",
+      "read": true
+    }
+  ],
+  "actualPayables": [
+    {
+      "count": 0
+    }
+  ],
+  "actualReceipts": [
+    {
+      "count": 0
+    }
+  ],
+  "simulation": [
+    {
+      "count": 1,
+      "status": "PAID",
+      "amount_cents": 240000
+    }
+  ]
+}

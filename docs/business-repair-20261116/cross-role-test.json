@@ -1,0 +1,28 @@
+{
+  "commissionId": "2122323731334361089",
+  "dispatchFiles": {
+    "recipient": "验收客户1116经办业务",
+    "drawingVersion": "QA-V1",
+    "note": "系统验收：平台上传三份PDF样本，均标记不用于施工；不代表专业设计成果。",
+    "checked": true,
+    "resultFile": {
+      "assetId": "2122358475122581504",
+      "name": "验收样本-设计成果.pdf",
+      "mimeType": "application/pdf",
+      "size": 2844
+    },
+    "drawingFile": {
+      "assetId": "2122358499193692160",
+      "name": "验收样本-施工图.pdf",
+      "mimeType": "application/pdf",
+      "size": 2853
+    },
+    "reviewFile": {
+      "assetId": "2122358539459010560",
+      "name": "验收样本-审核依据.pdf",
+      "mimeType": "application/pdf",
+      "size": 2854
+    }
+  },
+  "qaOnly": true
+}

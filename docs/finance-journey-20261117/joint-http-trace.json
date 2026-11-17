@@ -1,0 +1,89 @@
+[
+  {
+    "method": "GET",
+    "path": "/franchise/finance/workbench/ledger",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/workbench/ledger",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/sales/contracts/2122584062962409474/stage-summary",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/engineering/2122584063843213313/materials/summary",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/workbench/reimbursements",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/projects/2122584063843213313/ledger",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/performance/operating/analytics",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/receipts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/finance/refunds",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/sales/collection-declarations",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 403,
+    "role": "sales"
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 403,
+    "role": "engineer"
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/finance/payments",
+    "status": 200,
+    "code": 403,
+    "role": "boss"
+  }
+]

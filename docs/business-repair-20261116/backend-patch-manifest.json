@@ -1,0 +1,110 @@
+{
+  "BOOT-INF/lib/yudao-domain-franchise-org-2026.08-SNAPSHOT.jar": [
+    {
+      "name": "cn/iocoder/yudao/module/franchise/org/FranchiseCommands.class",
+      "patch": "0/cn/iocoder/yudao/module/franchise/org/FranchiseCommands.class",
+      "sha256": "bc26faca799fc080e624a671e74a86fd4084059b47b74526d1ca5498096bc9ee"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/org/FranchiseCommandRecorded.class",
+      "patch": "0/cn/iocoder/yudao/module/franchise/org/FranchiseCommandRecorded.class",
+      "sha256": "11bbe63c5b72a76d2008542edcf23fad820a125b0bd56567a3b5ba7673059425"
+    }
+  ],
+  "BOOT-INF/lib/yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar": [
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/CommissionService.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/CommissionService.class",
+      "sha256": "306b37e2f17d9bb4ae4e55fff73750ce84f69ed3358cf57064863daf3c7e7be2"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/CommissionService$Context.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/CommissionService$Context.class",
+      "sha256": "b635ea91a1c6e45736963c2291291f32bc18333a2db16a3833275653a5cd43ef"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/CommissionService$SubmitCommand.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/CommissionService$SubmitCommand.class",
+      "sha256": "88fa65bc37eda3f982fa9043f9a7d0d240f02ecc61daccaa474d97e20b73c1bb"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/CommissionService$Detail.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/CommissionService$Detail.class",
+      "sha256": "39a7683b87ff31bb832125210e938aefdd5ffc7cbff57873c5c807393b5c3b6c"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/CommissionService$SimulatePayCommand.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/CommissionService$SimulatePayCommand.class",
+      "sha256": "04e05bf84cc95dfc39591dceef29f195d14766ed0491c15f018c30d91148313a"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/CommissionBrief.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/CommissionBrief.class",
+      "sha256": "c9694dcc8270459ff111cd255d9a8e892fda8b9b70c9ef4abcd65c126a81b2f1"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/CommissionSimulatedPayments.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/CommissionSimulatedPayments.class",
+      "sha256": "1367bed84164a07a8991b3e0a68b80cafb8cc65636ebc60f754a05f82679133f"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/CommissionSimulatedPayments$Order.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/CommissionSimulatedPayments$Order.class",
+      "sha256": "4c4e5e161db6c7220dc38594cae7475304eb5353ce17fe0ba64caaba625ba4f1"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/FranchiseTodoProvider.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/FranchiseTodoProvider.class",
+      "sha256": "40cb023f61ade44c15b62659158c1028d04f1b0a68fadc8f0fc6a9edaa0f22ff"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController.class",
+      "sha256": "ab8bef9bb43d52dac2d4835eeefba2220308a840dd1264a0558bbea94cd7ea1f"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController$ContextResp.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController$ContextResp.class",
+      "sha256": "3649a4b176c2e0e8219b0e1152435f2f2b06dc6a7856d7f267ca3476f28f7fe0"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController$SubmitReq.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController$SubmitReq.class",
+      "sha256": "b31346982cf83552bebdd986eea0b484248cc639369e81919815a08a472584fa"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController$SimulatedPayReq.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/controller/admin/CommissionController$SimulatedPayReq.class",
+      "sha256": "91ef174fde4f200e61d40485cdb8323ae9dbba97498204a1e3688c4c784411c8"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/commission/controller/admin/vo/CommissionRespVos$CommissionDetail.class",
+      "patch": "1/cn/iocoder/yudao/module/franchise/commission/controller/admin/vo/CommissionRespVos$CommissionDetail.class",
+      "sha256": "bd6ff1df5fc412c585bf5d4a1f19d81a1327da5e90b8a12b0bc2a62ffabc7324"
+    },
+    {
+      "name": "db/migration/franchise/V20261116.942__commission_simulated_payment.sql",
+      "patch": "1/db/migration/franchise/V20261116.942__commission_simulated_payment.sql",
+      "sha256": "65cd3015046a8d932f99f2075e75adeb8e89214a3e3c3fe9ae72266038e0f6b0"
+    }
+  ],
+  "BOOT-INF/lib/yudao-platform-workflow-2026.08-SNAPSHOT.jar": [
+    {
+      "name": "cn/iocoder/yudao/module/platform/workflow/message/MessageConstants.class",
+      "patch": "2/cn/iocoder/yudao/module/platform/workflow/message/MessageConstants.class",
+      "sha256": "5981650da1326d884e53d7b2bdf9c6fd310105ecd7b9ed8e092f0f813ce795af"
+    },
+    {
+      "name": "db/migration/pf/V20261116.941__business_message_delivery.sql",
+      "patch": "2/db/migration/pf/V20261116.941__business_message_delivery.sql",
+      "sha256": "4220ebdf28e873c3a5900ba6ea7d4ec8b9dd4bfa21c221da109dcb4ec47fa6aa"
+    }
+  ],
+  "BOOT-INF/classes": [
+    {
+      "name": "cn/iocoder/yudao/platformserver/wiring/FranchiseBusinessMessages.class",
+      "patch": "3/cn/iocoder/yudao/platformserver/wiring/FranchiseBusinessMessages.class",
+      "sha256": "6cf7ee4020dd37d171d36adfd47dd308adac62842b30481c042c64f270dc589e"
+    }
+  ]
+}

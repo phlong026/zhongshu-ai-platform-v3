@@ -1,0 +1,12 @@
+{
+  "events": [],
+  "errors": [],
+  "points": {
+    "orgId": 120,
+    "balance": 73,
+    "inFlight": 0,
+    "status": "ACTIVE",
+    "month": "2026-11",
+    "monthUsedTotal": 27
+  }
+}

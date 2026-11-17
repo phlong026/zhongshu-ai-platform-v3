@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
+const pageSource = page => fs.readFileSync(path.join(root,'miniprogram',...(page==='creation'?['utils','sales-creation-page.js']:['pages',page,'index.js'])),'utf8');
 const api = require('../miniprogram/api/franchise/content');
 const P = require('../miniprogram/utils/platform-content');
 assert.equal(typeof global.wx, 'undefined', '契约层顶层不得触碰 wx（纯函数可直 require）');
@@ -222,7 +223,7 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   assert.match(studioSrc, /showLoading\(\{title:'提交生成任务'/, 'studio showLoading 应缩短为提交阶段');
   assert.match(studioSrc, /onUnload\(\)[\s\S]{0,200}__digitalPoll[\s\S]{0,80}\.cancel\(\)/, 'studio onUnload 未终止任务轮询');
   assert.match(studioSrc, /patchTaskProgress/, 'studio 缺任务中心轮询进度回填');
-  const creationSrc2 = fs.readFileSync(path.join(root, 'miniprogram/pages/creation/index.js'), 'utf8');
+  const creationSrc2 = pageSource('creation');
   assert.doesNotMatch(creationSrc2, /showLoading\(\{title:'解析链接中'/, 'creation showLoading 不得覆盖全程轮询');
   assert.match(creationSrc2, /this\.setData\(\{extracting:true/, 'creation 提交开始即进入按钮忙碌态');
   assert.match(creationSrc2, /onUnload\(\)[\s\S]{0,120}__parsePoll[\s\S]{0,80}\.cancel\(\)/, 'creation onUnload 未终止解析轮询');
@@ -236,8 +237,8 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   // ===== 四页接线静态扫描：require platform-content 或 content api =====
   const PAGES = ['creation', 'studio', 'ai-video', 'growth'];
   for (const page of PAGES) {
-    const source = fs.readFileSync(path.join(root, 'miniprogram/pages', page, 'index.js'), 'utf8');
-    assert.match(source, /require\((['"])[.\/]*utils\/platform-content\1\)|require\((['"])[.\/]*api\/franchise\/content\2\)/,
+    const source = pageSource(page);
+    assert.match(source, /require\((['"])[.\/]*(?:utils\/)?platform-content\1\)|require\((['"])[.\/]*api\/franchise\/content\2\)/,
       page + ' 页未接线内容域契约层');
     // 在线判定与降级兜底同在：http.token() 分流 + degradeMessage 兜底
     assert.match(source, /http\.token\(\)/, page + ' 页缺在线判定 http.token()');
@@ -249,7 +250,7 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   assert.match(studioSource, /publications\.link\(/, 'studio 页发布链接未接 publications.link');
   assert.match(studioSource, /1_114_000_003/, '重复链接错误码未处理');
   assert.match(studioSource, /tasks\.page\(\)/, '任务中心未接 tasks.page');
-  const creationSource = fs.readFileSync(path.join(root, 'miniprogram/pages/creation/index.js'), 'utf8');
+  const creationSource = pageSource('creation');
   assert.match(creationSource, /links\.parse\(/, 'creation 页未接 links.parse');
   const videoSource = fs.readFileSync(path.join(root, 'miniprogram/pages/ai-video/index.js'), 'utf8');
   assert.match(videoSource, /kind:\s*'ai_video'/, 'ai-video 页未接 ai_video 任务创建');

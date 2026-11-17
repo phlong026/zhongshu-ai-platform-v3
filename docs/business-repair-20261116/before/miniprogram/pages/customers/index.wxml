@@ -1,0 +1,24 @@
+<view class="page customers-page workbench-page sales-page">
+  <view class="workbench-header"><brand-header wx:if="{{isBossView}}" back="{{true}}" divider="{{true}}" title="客户" /><brand-header wx:else divider="{{true}}" title="客户" /></view>
+  <view class="content">
+    <view class="section customer-overview">
+      <view class="section-heading"><text class="section-title">{{isBossView?'本店客户':isLead?'客户管理':'我的客户'}}</text><button wx:if="{{canRegister}}" class="primary" bindtap="register">＋ 登记客户</button></view>
+      <view class="sales-search customer-search"><image src="/assets/search.png" mode="aspectFit" /><input placeholder="搜索姓名、手机号或地区" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
+      <view class="customer-work-filters customer-tabs"><button wx:for="{{tabs}}" wx:key="key" class="customer-day-button {{tab===item.key?'active':''}}" data-tab="{{item.key}}" bindtap="selectTab"><text>{{item.label}}</text><view wx:if="{{item.dot}}" class="sales-stat-dot" aria-label="有逾期回访"/></button></view>
+      <view wx:for="{{visibleCustomers}}" wx:key="id" class="customer-list-row" data-id="{{item.id}}" bindtap="open">
+        <view class="customer-initial">{{item.initial}}</view>
+        <view class="customer-row-copy">
+          <view class="customer-row-heading"><text>{{item.name}}</text><text class="sales-badge">{{item.stageName}}</text><text class="customer-cue {{item.cueTone}}">{{item.cue}}</text></view>
+          <text class="hint">{{item.brief}}</text>
+          <view class="customer-row-foot"><text class="customer-next">{{item.detail}}</text><button wx:if="{{item.hasPhone}}" class="customer-call" data-id="{{item.id}}" catchtap="call" aria-label="拨打{{item.name}}电话"><image src="/assets/phone.png" mode="aspectFit" /></button><button class="outline customer-action" data-id="{{item.id}}" catchtap="act">{{item.canFollow?'写跟进':'看记录'}}</button></view>
+        </view>
+      </view>
+      <view wx:if="{{platformMode&&platformStatus==='loading'}}" class="sales-empty">正在加载客户…</view>
+      <view wx:elif="{{platformMode&&platformStatus==='degraded'}}" class="sales-empty">加载失败：{{platformError}}<button class="outline customer-action" style="margin-top:16rpx" bindtap="retryPlatform">重试</button><button wx:if="{{authError}}" class="outline customer-action" style="margin:16rpx 0 0 16rpx" bindtap="goLogin">重新登录</button></view>
+      <view wx:elif="{{(!platformMode||platformStatus==='ready')&&!filteredCustomers.length}}" class="sales-empty">{{emptyText}}</view>
+      <button wx:if="{{hasMore}}" class="sales-footer-link" bindtap="more">查看更多客户<view class="chevron" /></button>
+      <text wx:elif="{{tab==='due'&&filteredCustomers.length&&!keyword}}" class="sales-note customer-list-end">今天的跟进就这 {{filteredCustomers.length}} 位</text>
+    </view>
+  </view>
+</view>
+<workspace-nav id="customers-workspace-nav" active-index="{{navigationIndex}}" nested />

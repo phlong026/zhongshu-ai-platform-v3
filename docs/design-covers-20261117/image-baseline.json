@@ -1,0 +1,44 @@
+[
+  {
+    "caseId": "2112123885294055425",
+    "assetId": "2112124039677997058",
+    "ticketCode": 0,
+    "exchangeCode": 0,
+    "domain": "zhongshu-design-assets-1397776231.cos.ap-shanghai.myqcloud.com",
+    "pathSuffix": "24039677997058/074807ae-993c-47cd-b5ea-7d456c5de51a.jpg",
+    "queryKeys": [
+      "X-Amz-Algorithm",
+      "X-Amz-Date",
+      "X-Amz-SignedHeaders",
+      "X-Amz-Credential",
+      "X-Amz-Expires",
+      "X-Amz-Signature"
+    ],
+    "expiresInSeconds": 300,
+    "imageHttp": 200,
+    "contentType": "image/jpeg",
+    "bytes": 2579329,
+    "magic": "ffd8ffe000104a4649460001"
+  },
+  {
+    "caseId": "2111380030663786497",
+    "assetId": "2111380265674833922",
+    "ticketCode": 0,
+    "exchangeCode": 0,
+    "domain": "zhongshu-design-assets-1397776231.cos.ap-shanghai.myqcloud.com",
+    "pathSuffix": "80265674833922/0e0c905a-2399-4b8c-9241-e97e398dee9c.png",
+    "queryKeys": [
+      "X-Amz-Algorithm",
+      "X-Amz-Date",
+      "X-Amz-SignedHeaders",
+      "X-Amz-Credential",
+      "X-Amz-Expires",
+      "X-Amz-Signature"
+    ],
+    "expiresInSeconds": 300,
+    "imageHttp": 200,
+    "contentType": "image/png",
+    "bytes": 4516732,
+    "magic": "89504e470d0a1a0a0000000d"
+  }
+]

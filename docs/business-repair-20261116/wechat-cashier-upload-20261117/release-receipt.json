@@ -1,0 +1,73 @@
+{
+  "version": "1.0.20261117.1052",
+  "appid": "wxe584f6fad7b54487",
+  "sourceFiles": 905,
+  "sourceSha256": "f04da02b0591b1e6a90e108092906931f17239bbc7ed3a20f329ce3df5489d25",
+  "paymentMode": "SIMULATION",
+  "uploaded": true,
+  "officialCliExitCode": 0,
+  "sourceUnchanged": true,
+  "previewSameSource": true,
+  "package": {
+    "size": {
+      "total": 7698245,
+      "packages": [
+        {
+          "name": "TOTAL",
+          "size": 7698245
+        },
+        {
+          "name": "main",
+          "size": 1907748
+        },
+        {
+          "name": "/design-migration/",
+          "size": 512151
+        },
+        {
+          "name": "/pages/account/",
+          "size": 1080599
+        },
+        {
+          "name": "/pages/admin/",
+          "size": 468023
+        },
+        {
+          "name": "/pages/ai-video/",
+          "size": 19326
+        },
+        {
+          "name": "/pages/build/",
+          "size": 1025901
+        },
+        {
+          "name": "/pages/creation/",
+          "size": 8151
+        },
+        {
+          "name": "/pages/design/",
+          "size": 236687
+        },
+        {
+          "name": "/pages/growth/",
+          "size": 18688
+        },
+        {
+          "name": "/pages/studio/",
+          "size": 397620
+        },
+        {
+          "name": "/pages/wallet/",
+          "size": 12451
+        },
+        {
+          "name": "/pages/workflow/",
+          "size": 2010900
+        }
+      ]
+    }
+  },
+  "regressionTestsPassed": 27,
+  "realPaymentProviderConnected": false,
+  "newOrderPaidByAgent": false
+}

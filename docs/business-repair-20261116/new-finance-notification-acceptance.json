@@ -1,0 +1,29 @@
+{
+  "customerId": "2122372741998936065",
+  "commissionId": "2122373070203224066",
+  "message": {
+    "id": "2122373169243324418",
+    "type": "BUSINESS",
+    "route": "commission-payment",
+    "objectId": "2122373070203224066",
+    "title": "设计费模拟支付已完成",
+    "description": "模拟支付凭据，仅知会，不计入实际收支",
+    "read": true,
+    "createTime": 1794848169979
+  },
+  "unreadBefore": 1,
+  "unreadAfter": 0,
+  "receipt": {
+    "number": "SIM-2122373070203224066-V1",
+    "commissionId": "2122373070203224066",
+    "submissionVersion": 1,
+    "customerName": "财务消息验收1117",
+    "amountCents": 240000,
+    "status": "PAID",
+    "channel": "WECHAT",
+    "paidAt": 1794848169979,
+    "simulated": true,
+    "storeFinanceConfigured": true,
+    "headquartersFinanceConfigured": true
+  }
+}

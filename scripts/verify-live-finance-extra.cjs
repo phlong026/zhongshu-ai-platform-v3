@@ -43,6 +43,7 @@ function loadFinanceDesk({ profile = { nickname: '王财务' }, orgName = '武�
   const sandbox = {
     Page(definition) { page = definition; },
     require(request) {
+      if (request === '../../../utils/finance-workbench-view') return require('../miniprogram/utils/finance-workbench-view');
       if (request === '../../../utils/finance-desk') return { url: (view, id, extra = {}) => '/pages/admin/finance-desk/index?view=' + view + (extra.tab ? '&tab=' + extra.tab : '') };
       if (request === '../../../api/auth') return { currentApiPost: () => ({ postId: '9', roleCode: 'finance', orgType: 'store', orgName }) };
       if (request === '../../../api/finance') return financeApi;
@@ -65,7 +66,7 @@ function loadFinanceDesk({ profile = { nickname: '王财务' }, orgName = '武�
   page.setData = patch => {
     for (const [key, value] of Object.entries(patch)) setPath(page.data, key, value);
   };
-  return { page, calls };
+  return { page, calls, financeApi };
 }
 
 async function flush() {
@@ -76,7 +77,7 @@ async function flush() {
 test('zero-value finance metrics render as 0.00 without changing generic money or positive amount validation', () => {
   const PF = loadPlatformFinance();
   assert.equal(PF.yuan(0), '');
-  assert.deepEqual(PF.metrics([], [], [], '2026-11'), { received: '0.00', paid: '0.00', refunded: '0.00' });
+  assert.deepEqual(PF.metrics([], [], [], '2026-11'), { received: '0.00', paid: '0.00', refunded: '0.00',expenseReturned:'0.00',net:'0.00' });
   assert.equal(PF.toCents('0'), null);
   assert.equal(PF.toCents('-1'), null);
   assert.equal(PF.toCents('0.01'), 1);
@@ -101,7 +102,7 @@ test('non-empty records outside the current valid scope still render current-mon
     ],
     '2026-11'
   );
-  assert.deepEqual(metrics, { received: '0.00', paid: '0.00', refunded: '0.00' });
+  assert.deepEqual(metrics, { received: '0.00', paid: '0.00', refunded: '0.00',expenseReturned:'300.00',net:'300.00' });
 });
 
 test('empty API desk keeps real registration shortcuts and loads the profile nickname', async () => {
@@ -117,14 +118,19 @@ test('empty API desk keeps real registration shortcuts and loads the profile nic
   assert.equal(page.data.view, 'flows', '快捷登记应先进入包含登记表单的收支视图');
   assert.equal(page.data.flowTab, 'ledger');
   await flush();
-  assert.deepEqual(page.data.platformFinance.metrics, { received: '0.00', paid: '0.00', refunded: '0.00' });
+  assert.deepEqual(page.data.platformFinance.metrics, { received: '0.00', paid: '0.00', refunded: '0.00',expenseReturned:'0.00',net:'0.00' });
   assert.equal(page.data.deskHome.name, '王财务');
   assert.deepEqual(calls, ['/platform/profile/mine']);
 });
 
-test('profile failure keeps the explicit organization-name fallback', async () => {
+test('profile failure keeps a finance greeting without using the company as a person', async () => {
   const { page } = loadFinanceDesk({ profile: new Error('offline'), orgName: '武汉旗舰店' });
   page.loadPlatformFinance();
   await flush();
-  assert.equal(page.data.deskHome.name, '武汉旗舰店');
+  assert.equal(page.data.deskHome.name, '财务同事');
+});
+
+test('failed finance requests preserve unknown metrics instead of turning them into zero',async()=>{
+ const {page,financeApi}=loadFinanceDesk();financeApi.receipts=()=>Promise.reject(new Error('offline'));page.loadPlatformFinance();await flush();
+ assert.equal(page.data.platformFinance.status,'degraded');assert.deepEqual(Array.from(page.data.deskHome.metrics.slice(0,3),r=>r.value),['—','—','—']);
 });

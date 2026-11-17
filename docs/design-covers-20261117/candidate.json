@@ -1,0 +1,23 @@
+{
+  "baseline": {
+    "unit": "zhongshu-platform-b-integration.service",
+    "pid": "2057766",
+    "jar": "/opt/zhongshu-platform-b-integration/release/platform-persona-drafts-20261117-b47e44a91bae.jar",
+    "sha256": "b47e44a91bae88da3df36fed3f8228a01f5c25a802622db2461feed028e84602"
+  },
+  "candidate": "/tmp/codex-design-covers-20261117/candidate-platform.jar",
+  "sha256": "fd4a384c041e6c225f2b4ac9d0eedbc9115b13d40f8675c8f9475e600eff33ce",
+  "module": "BOOT-INF/lib/yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+  "sourceFiles": [
+    {
+      "name": "cn/iocoder/yudao/module/franchise/design/publiccase/PublicCaseImageService.java",
+      "sha256": "ef0393a57fb5c4b305bed97c2d6a4028a5f9b78178141df05231a25d725394a5"
+    },
+    {
+      "name": "cn/iocoder/yudao/module/franchise/design/controller/admin/DesignCaseImageController.java",
+      "sha256": "05c9a71d5eb77d0d50115d545d1c2dc0de47e70e37de91323f7862469b24e1e2"
+    }
+  ],
+  "unrelatedJarEntriesUnchanged": true,
+  "databaseMigrations": false
+}

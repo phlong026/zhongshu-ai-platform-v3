@@ -1,0 +1,25 @@
+{
+  "exceptions": [],
+  "console": [
+    {
+      "text": ""
+    }
+  ],
+  "logs": [
+    {
+      "level": "info",
+      "text": "[system]"
+    },
+    {
+      "level": "info",
+      "text": "[system]"
+    },
+    {
+      "level": "info",
+      "text": "Lazy code loading is enabled. Only injecting required components."
+    }
+  ],
+  "failures": [],
+  "requestsObserved": 132,
+  "httpErrors": []
+}

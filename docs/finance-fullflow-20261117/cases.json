@@ -1,0 +1,740 @@
+[
+  {
+    "name": "前期账本流程异常",
+    "passed": false,
+    "message": "Missing button 口径"
+  },
+  {
+    "name": "首页快捷流水进入实际收支",
+    "passed": true
+  },
+  {
+    "name": "流水、业主收款、待付事项、对账四标签切换",
+    "passed": true
+  },
+  {
+    "name": "账本四种分类可切换",
+    "passed": true
+  },
+  {
+    "name": "前期客户账本新建、空名称拦截",
+    "passed": true
+  },
+  {
+    "name": "账目口径可打开关闭",
+    "passed": true
+  },
+  {
+    "name": "前期定金登记、必填拦截、真实附件上传、成功查看原记录",
+    "passed": true,
+    "screenshot": "03-deposit-success.png"
+  },
+  {
+    "name": "账本收款修订金额及原因、零金额拦截、返回原账本",
+    "passed": true
+  },
+  {
+    "name": "前期账本关联工程，已登记资金随项目归集",
+    "passed": true
+  },
+  {
+    "name": "项目账本合同回款入口",
+    "passed": true,
+    "screenshot": "06-contract-link.png",
+    "state": {
+      "view": "collection",
+      "error": "",
+      "form": {
+        "supplyOptions": [],
+        "supplyId": null,
+        "supplyLabel": "",
+        "date": "2026-11-17",
+        "note": "",
+        "file": null,
+        "files": [],
+        "nodeId": "2122631375181201410",
+        "nodes": [
+          {
+            "id": "2122631375181201410",
+            "nodeIndex": 1,
+            "name": "开工准备",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115970",
+            "nodeIndex": 2,
+            "name": "施工准备",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115971",
+            "nodeIndex": 3,
+            "name": "主材确认",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115972",
+            "nodeIndex": 4,
+            "name": "基础工程",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224833",
+            "nodeIndex": 5,
+            "name": "1层主体",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224834",
+            "nodeIndex": 6,
+            "name": "2层主体",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224835",
+            "nodeIndex": 7,
+            "name": "封顶验收",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "topping",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224836",
+            "nodeIndex": 8,
+            "name": "屋面施工",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139393",
+            "nodeIndex": 9,
+            "name": "外墙包柱、内外粉",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139394",
+            "nodeIndex": 10,
+            "name": "门窗安装",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139395",
+            "nodeIndex": 11,
+            "name": "外墙涂料、文化石",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139396",
+            "nodeIndex": 12,
+            "name": "收尾工程",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139397",
+            "nodeIndex": 13,
+            "name": "竣工验收",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          }
+        ],
+        "lines": [
+          {
+            "name": "",
+            "spec": "",
+            "quantity": "",
+            "unit": "包"
+          }
+        ],
+        "due": "2026-11-17",
+        "stage": "start",
+        "transaction": "",
+        "amount": "",
+        "total": "",
+        "first": "",
+        "receiver": "",
+        "recipient": "",
+        "noMaterials": false,
+        "adjustReason": "",
+        "correctId": "",
+        "correctActual": "",
+        "correctReason": "",
+        "siteId": "",
+        "siteNote": "",
+        "siteFile": null,
+        "siteReason": "",
+        "nodeDate": "2026-11-17",
+        "nodeNote": "",
+        "nodeFile": null,
+        "nodeReason": "",
+        "promiseDate": ""
+      },
+      "busy": false
+    }
+  },
+  {
+    "name": "项目账本材料采购入口",
+    "passed": true,
+    "screenshot": "07-material-link.png",
+    "state": {
+      "view": "materials",
+      "error": "",
+      "form": {
+        "supplyOptions": [],
+        "supplyId": null,
+        "supplyLabel": "",
+        "date": "2026-11-17",
+        "note": "",
+        "file": null,
+        "files": [],
+        "nodeId": "2122631375181201410",
+        "nodes": [
+          {
+            "id": "2122631375181201410",
+            "nodeIndex": 1,
+            "name": "开工准备",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115970",
+            "nodeIndex": 2,
+            "name": "施工准备",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115971",
+            "nodeIndex": 3,
+            "name": "主材确认",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115972",
+            "nodeIndex": 4,
+            "name": "基础工程",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224833",
+            "nodeIndex": 5,
+            "name": "1层主体",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224834",
+            "nodeIndex": 6,
+            "name": "2层主体",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224835",
+            "nodeIndex": 7,
+            "name": "封顶验收",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "topping",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224836",
+            "nodeIndex": 8,
+            "name": "屋面施工",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139393",
+            "nodeIndex": 9,
+            "name": "外墙包柱、内外粉",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139394",
+            "nodeIndex": 10,
+            "name": "门窗安装",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139395",
+            "nodeIndex": 11,
+            "name": "外墙涂料、文化石",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139396",
+            "nodeIndex": 12,
+            "name": "收尾工程",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139397",
+            "nodeIndex": 13,
+            "name": "竣工验收",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          }
+        ],
+        "lines": [
+          {
+            "name": "",
+            "spec": "",
+            "quantity": "",
+            "unit": "包"
+          }
+        ],
+        "due": "2026-11-17",
+        "stage": "start",
+        "transaction": "",
+        "amount": "",
+        "total": "",
+        "first": "",
+        "receiver": "",
+        "recipient": "",
+        "noMaterials": false,
+        "adjustReason": "",
+        "correctId": "",
+        "correctActual": "",
+        "correctReason": "",
+        "siteId": "",
+        "siteNote": "",
+        "siteFile": null,
+        "siteReason": "",
+        "nodeDate": "2026-11-17",
+        "nodeNote": "",
+        "nodeFile": null,
+        "nodeReason": "",
+        "promiseDate": ""
+      },
+      "busy": false
+    }
+  },
+  {
+    "name": "项目账本工程费用入口",
+    "passed": true,
+    "screenshot": "08-expense-link.png",
+    "state": {
+      "view": "expenses",
+      "error": "",
+      "form": {
+        "supplyOptions": [],
+        "supplyId": null,
+        "supplyLabel": "",
+        "date": "2026-11-17",
+        "note": "",
+        "file": null,
+        "files": [],
+        "nodeId": "2122631375181201410",
+        "nodes": [
+          {
+            "id": "2122631375181201410",
+            "nodeIndex": 1,
+            "name": "开工准备",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115970",
+            "nodeIndex": 2,
+            "name": "施工准备",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115971",
+            "nodeIndex": 3,
+            "name": "主材确认",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375244115972",
+            "nodeIndex": 4,
+            "name": "基础工程",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224833",
+            "nodeIndex": 5,
+            "name": "1层主体",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224834",
+            "nodeIndex": 6,
+            "name": "2层主体",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224835",
+            "nodeIndex": 7,
+            "name": "封顶验收",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "topping",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375311224836",
+            "nodeIndex": 8,
+            "name": "屋面施工",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139393",
+            "nodeIndex": 9,
+            "name": "外墙包柱、内外粉",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139394",
+            "nodeIndex": 10,
+            "name": "门窗安装",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139395",
+            "nodeIndex": 11,
+            "name": "外墙涂料、文化石",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139396",
+            "nodeIndex": 12,
+            "name": "收尾工程",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          },
+          {
+            "id": "2122631375374139397",
+            "nodeIndex": 13,
+            "name": "竣工验收",
+            "start": "",
+            "end": "",
+            "status": "待开工",
+            "milestone": "",
+            "completedAt": null,
+            "corrections": null,
+            "reopenHistory": null
+          }
+        ],
+        "lines": [
+          {
+            "name": "",
+            "spec": "",
+            "quantity": "",
+            "unit": "包"
+          }
+        ],
+        "due": "2026-11-17",
+        "stage": "start",
+        "transaction": "",
+        "amount": "",
+        "total": "",
+        "first": "",
+        "receiver": "",
+        "recipient": "",
+        "noMaterials": false,
+        "adjustReason": "",
+        "correctId": "",
+        "correctActual": "",
+        "correctReason": "",
+        "siteId": "",
+        "siteNote": "",
+        "siteFile": null,
+        "siteReason": "",
+        "nodeDate": "2026-11-17",
+        "nodeNote": "",
+        "nodeFile": null,
+        "nodeReason": "",
+        "promiseDate": "",
+        "purposeCode": "LABOR"
+      },
+      "busy": false
+    }
+  },
+  {
+    "name": "首页到账待办直达原申报，退回必须说明原因，完成后返回首页",
+    "passed": true,
+    "screenshot": "10-owner-confirm.png"
+  },
+  {
+    "name": "业务补充后财务确认到账，仅生成一笔实收",
+    "passed": true,
+    "screenshot": "12-owner-confirmed.png"
+  },
+  {
+    "name": "前期定金抵扣合同款，不重复增加实收",
+    "passed": true
+  },
+  {
+    "name": "合同增项及尾款同步，变更依据必填",
+    "passed": true
+  },
+  {
+    "name": "项目合同回款登记，项目与期次预选，未来日期拦截",
+    "passed": true
+  },
+  {
+    "name": "客户退款沿原收款登记，超过余额拦截，返回原账本",
+    "passed": true,
+    "screenshot": "13-client-refund.png"
+  },
+  {
+    "name": "业务合同与财务净收26000元一致，合同总额305000元",
+    "passed": true
+  },
+  {
+    "name": "付款报销流程异常",
+    "passed": false,
+    "message": "Missing button[data-id=\"undefined\"]"
+  },
+  {
+    "name": "工程材料计划由财务补采购金额，真实凭据上传，自动生成原采购应付",
+    "passed": true
+  },
+  {
+    "name": "材料公司付款400元，禁止工程垫付及超付",
+    "passed": true
+  },
+  {
+    "name": "正在办理直达原采购，剩余600元续付后结清",
+    "passed": true,
+    "screenshot": "16-material-remaining.png"
+  },
+  {
+    "name": "采购退回100元并据实结算900元，沿原付款与原应付闭环",
+    "passed": true
+  },
+  {
+    "name": "设计费待办直达原单，业务垫付2400元自动生成员工报销",
+    "passed": true,
+    "screenshot": "17-design-advance.png"
+  },
+  {
+    "name": "设计费分次报销1000及1400元，项目费用不重复计入",
+    "passed": true
+  },
+  {
+    "name": "已报销后退至员工，生成应归还600元，归还入公司账并拦截超额",
+    "passed": true
+  },
+  {
+    "name": "原设计约定未变，退款后的600元沿原单由公司支付，员工往来结清",
+    "passed": true
+  },
+  {
+    "name": "费用与更正流程异常",
+    "passed": false,
+    "message": "Missing input[data-key=\"expenseName\"]"
+  }
+]

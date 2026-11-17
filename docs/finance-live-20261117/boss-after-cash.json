@@ -1,0 +1,84 @@
+{
+  "trend": [
+    {
+      "period": "2026-06",
+      "incomeCents": 0,
+      "paidCents": 0,
+      "netCents": 0
+    },
+    {
+      "period": "2026-07",
+      "incomeCents": 0,
+      "paidCents": 0,
+      "netCents": 0
+    },
+    {
+      "period": "2026-08",
+      "incomeCents": 0,
+      "paidCents": 0,
+      "netCents": 0
+    },
+    {
+      "period": "2026-09",
+      "incomeCents": 0,
+      "paidCents": 0,
+      "netCents": 0
+    },
+    {
+      "period": "2026-10",
+      "incomeCents": 0,
+      "paidCents": 0,
+      "netCents": 0
+    },
+    {
+      "period": "2026-11",
+      "incomeCents": 10000000,
+      "paidCents": 1100000,
+      "netCents": 8900000
+    }
+  ],
+  "incomeComposition": [
+    {
+      "kind": "business",
+      "cents": 10000000
+    }
+  ],
+  "paidComposition": [
+    {
+      "kind": "payment",
+      "cents": 1100000
+    },
+    {
+      "kind": "refund",
+      "cents": 0
+    },
+    {
+      "kind": "expense-refund",
+      "cents": 0
+    }
+  ],
+  "totals": {
+    "receivableCents": 50000000,
+    "payableOutstandingCents": 140000,
+    "collectionRate": 0.16666666666666666,
+    "net6MonthsCents": 8900000,
+    "coverage": 63.57142857142857
+  },
+  "receivableAging": {
+    "notDue": 0,
+    "d1_30": 0,
+    "d31_60": 0,
+    "d61_90": 0,
+    "d90Plus": 0,
+    "undated": 50000000
+  },
+  "payableAging": {
+    "notDue": 0,
+    "d1_30": 0,
+    "d31_60": 0,
+    "d61_90": 0,
+    "d90Plus": 0,
+    "undated": 140000
+  },
+  "sourceSignature": "aca6901276a26872ddfd5afb388e4ad01e761931932d08662836e381c396c7ad"
+}

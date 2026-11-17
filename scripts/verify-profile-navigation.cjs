@@ -216,7 +216,7 @@ test('我的页未读数响应带会话守卫：换会话后迟到响应不回�
   reset('sales');
   const page = show('/pages/profile/index');
   settleNavigation();
-  const unreadReq = requests.filter(r => r.url.endsWith('/platform/messages/unread-count')).at(-1);
+  const unreadReq = requests.filter(r => r.url.endsWith('/platform/messages/center/summary')).at(-1);
   assert.ok(unreadReq, '未读数请求已发出');
   http.saveSession({ token: 'profile-navigation-fixture-next', postId: '42' }); // 新会话代次
   unreadReq.success({ statusCode: 200, data: { code: 0, data: { count: 7 } } });

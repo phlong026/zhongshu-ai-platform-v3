@@ -1,0 +1,7 @@
+<view class="page management-page workbench-page">
+  <view class="workbench-header"><brand-header id="management-workbench-header" divider="{{true}}" account-font="{{true}}" title="{{deskTitle}}"/></view>
+  <view class="content">
+    <login-guide wx:if="{{guest||!loggedIn}}" title="管理工作台" description="经营数据、财务收支、团队绩效与组织管理按岗位授权开放，登录后查看本人工作台。"/>
+    <workbench-denied wx:else title="请使用对应工作身份查看管理功能" lines="{{['当前身份：'+(role||'未授权'),'团队经营数据、财务汇总和管理审批按岗位授权开放。本人客户及移交进度请在对应工作台查看。']}}" home-title="{{homeTitle||''}}" active="{{active}}" login-label="选择有效工作身份" bind:home="goHome" bind:identity="identity"/>
+  </view>
+</view>

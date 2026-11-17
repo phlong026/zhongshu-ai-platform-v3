@@ -1,0 +1,163 @@
+{
+  "status": 200,
+  "code": 0,
+  "msg": "",
+  "data": {
+    "commission": {
+      "id": "2122323731334361089",
+      "customerId": "2122322030611197954",
+      "customerName": "验收客户1116",
+      "status": "ACCEPTED",
+      "submissionVersion": 1,
+      "dispatchSeq": 1,
+      "dispatchedSchemeVersion": "Pnull/B1/Fnull",
+      "dispatchedSubmissionVersion": 1,
+      "handoverVersion": 2,
+      "firstReadyAt": null,
+      "tailPaidAt": null,
+      "tailReadyAt": null,
+      "revision": 8,
+      "createTime": 1794836383024,
+      "updateTime": 1794844985233
+    },
+    "submissions": [
+      {
+        "id": "2122323731388887041",
+        "commissionId": "2122323731334361089",
+        "version": 1,
+        "text": "项目与朝向\n项目名称：验收预算1116\n房屋朝向：南\n主要入口与房屋朝向：一致\n\n家庭结构\n常住人口：5\n家庭成员：有老人\n\n必备房间\n房间配置：客厅、餐厅、厨房、卧室\n卧室：4\n\n风格与参考\n喜欢的风格：现代",
+        "scope": "R03 TEST ONLY 设计成果、施工图与审核依据",
+        "attachment": null,
+        "budgetVersion": 1,
+        "planVersion": null,
+        "facadeVersion": null,
+        "width": 12,
+        "depth": 10,
+        "floors": 2,
+        "area": 240,
+        "schemeSnapshot": "{\"BUDGET\":{\"operation\":\"itemized-budget-save\",\"input\":{\"customerId\":\"2122322030611197954\",\"budgetId\":\"2122322719232090113\",\"revisionId\":\"2122322719232090114\"},\"kind\":\"BUDGET\",\"itemizedBudget\":{\"budgetId\":\"2122322719232090113\",\"revisionId\":\"2122322719232090114\",\"model\":\"ITEMIZED_V1\",\"projectId\":null,\"projectName\":\"验收预算1116\",\"resultVersionId\":null,\"schemeName\":\"独立填写参数\",\"regionName\":\"武汉市\",\"inputSummary\":{\"depth\":\"10\",\"roofArea\":\"120\",\"faceWidth\":\"12\",\"floorCount\":2,\"regionCode\":\"WUHAN\",\"buildingArea\":\"240\",\"footprintArea\":\"120\",\"pricingProfile\":{\"custom\":false,\"source\":\"PLATFORM\",\"regionCode\":\"WUHAN\",\"regionName\":\"武汉市\",\"pricingBasis\":\"PLATFORM\"}},\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":42870000,\"totalCents\":42870000,\"categoryTotals\":{\"BODY\":32400000,\"EXTERIOR\":10470000},\"items\":[{\"itemId\":\"207001\",\"itemCode\":\"FOUNDATION\",\"category\":\"BODY\",\"publicName\":\"地基基础\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":6240000,\"amountCents\":6240000,\"lines\":[{\"lineId\":\"2122322719160786945\",\"optionLabel\":\"条形基础\",\"status\":\"PRICED\",\"amountCents\":6240000,\"quantity\":\"120\",\"unit\":\"SQM\"}]},{\"itemId\":\"207002\",\"itemCode\":\"STRUCTURE\",\"category\":\"BODY\",\"publicName\":\"主体结构\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":20400000,\"amountCents\":20400000,\"lines\":[{\"lineId\":\"2122322719169175554\",\"optionLabel\":\"砖混结构\",\"status\":\"PRICED\",\"amountCents\":20400000,\"quantity\":\"240\",\"unit\":\"SQM\"}]},{\"itemId\":\"207003\",\"itemCode\":\"ROOF\",\"category\":\"BODY\",\"publicName\":\"屋面结构\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":5760000,\"amountCents\":5760000,\"lines\":[{\"lineId\":\"2122322719173369858\",\"optionLabel\":\"木屋面\",\"status\":\"PRICED\",\"amountCents\":5760000,\"quantity\":\"120\",\"unit\":\"SQM\"}]},{\"itemId\":\"207004\",\"itemCode\":\"DECORATION\",\"category\":\"EXTERIOR\",\"publicName\":\"装饰构件\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":2880000,\"amountCents\":2880000,\"lines\":[{\"lineId\":\"2122322719177564162\",\"optionLabel\":\"现代\",\"status\":\"PRICED\",\"amountCents\":2880000,\"quantity\":\"240\",\"unit\":\"SQM\"}]},{\"itemId\":\"207005\",\"itemCode\":\"DOORS_WINDOWS\",\"category\":\"EXTERIOR\",\"publicName\":\"门窗\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":3600000,\"amountCents\":3600000,\"lines\":[{\"lineId\":\"2122322719181758466\",\"optionLabel\":\"全铝门\",\"status\":\"PRICED\",\"amountCents\":1800000,\"quantity\":\"1\",\"unit\":\"HOUSEHOLD\"},{\"lineId\":\"2122322719185952770\",\"optionLabel\":\"1.4壁厚\",\"status\":\"PRICED\",\"amountCents\":1800000,\"quantity\":\"40\",\"unit\":\"SQM\"}]},{\"itemId\":\"207006\",\"itemCode\":\"WALL_PAINT\",\"category\":\"EXTERIOR\",\"publicName\":\"外墙漆\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":2040000,\"amountCents\":2040000,\"lines\":[{\"lineId\":\"2122322719190147074\",\"optionLabel\":\"真石漆\",\"status\":\"PRICED\",\"amountCents\":2040000,\"quantity\":\"240\",\"unit\":\"SQM\"}]},{\"itemId\":\"207007\",\"itemCode\":\"CULTURE_STONE\",\"category\":\"EXTERIOR\",\"publicName\":\"文化石\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":240000,\"amountCents\":240000,\"lines\":[{\"lineId\":\"2122322719194341377\",\"optionLabel\":\"页岩陶粒\",\"status\":\"PRICED\",\"amountCents\":240000,\"quantity\":\"20\",\"unit\":\"METER\"}]},{\"itemId\":\"207008\",\"itemCode\":\"LIGHTING\",\"category\":\"EXTERIOR\",\"publicName\":\"灯具\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":540000,\"amountCents\":540000,\"lines\":[{\"lineId\":\"2122322719198535681\",\"optionLabel\":\"灯带\",\"status\":\"PRICED\",\"amountCents\":180000,\"quantity\":\"30\",\"unit\":\"METER\"},{\"lineId\":\"2122322719202729985\",\"optionLabel\":\"壁灯\",\"status\":\"PRICED\",\"amountCents\":360000,\"quantity\":\"6\",\"unit\":\"PIECE\"}]},{\"itemId\":\"207009\",\"itemCode\":\"WATERPROOF_LIGHTNING\",\"category\":\"EXTERIOR\",\"publicName\":\"防水防雷\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":670000,\"amountCents\":670000,\"lines\":[{\"lineId\":\"2122322719206924290\",\"optionLabel\":\"雨虹防水\",\"status\":\"PRICED\",\"amountCents\":170000,\"quantity\":\"20\",\"unit\":\"SQM\"},{\"lineId\":\"2122322719206924291\",\"optionLabel\":\"防雷\",\"status\":\"PRICED\",\"amountCents\":500000,\"quantity\":\"1\",\"unit\":\"SET\"}]},{\"itemId\":\"207010\",\"itemCode\":\"INSURANCE\",\"category\":\"EXTERIOR\",\"publicName\":\"保险\",\"source\":\"STANDARD\",\"completeness\":\"COMPLETE\",\"pricedSubtotalCents\":500000,\"amountCents\":500000,\"lines\":[{\"lineId\":\"2122322719211118593\",\"optionLabel\":\"保险\",\"status\":\"PRICED\",\"amountCents\":500000,\"quantity\":\"1\",\"unit\":\"SET\"}]}],\"missingItems\":[],\"warnings\":[],\"disclaimer\":\"仅供参考，不构成报价或结算依据；未计价项目须补充核定后另行确认\",\"createdAt\":\"2026-11-16T13:35:41.698059Z\",\"saved\":false,\"draftId\":\"2122322218516078594\"}},\"designBrief\":{\"schemaVersion\":1,\"projectName\":\"验收预算1116\",\"orientation\":\"南\",\"entranceAligned\":\"一致\",\"householdMembers\":\"5\",\"householdTags\":[\"有老人\"],\"rooms\":[\"客厅\",\"餐厅\",\"厨房\",\"卧室\"],\"livingUses\":[],\"kitchenTypes\":[],\"specialRooms\":[],\"painPoints\":[],\"expectations\":[],\"styleRefs\":[\"现代\"],\"specialNeeds\":\"\",\"entranceDirection\":\"南\",\"bedrooms\":\"4\",\"customer\":{\"id\":\"2122322030611197954\",\"name\":\"验收客户1116\",\"address\":\"湖北省 武汉市 江夏区 纸坊街道 宁安社区居委会 系统验收示例地址，不安排施工\",\"phone\":\"19900061116\"},\"budgetVersion\":1,\"buildingArea\":240.00,\"width\":12.00,\"depth\":10.00,\"floors\":2}}",
+        "totalCents": 240000,
+        "firstCents": 0,
+        "recipient": "隔离联调设计收款主体",
+        "authKind": "STANDARD",
+        "policyVersion": null,
+        "submittedByUserId": 154,
+        "createTime": 1794836383024,
+        "mode": "AREA_FULL",
+        "rateCents": 1000,
+        "pricingVersion": 1,
+        "attachmentAssetId": null
+      }
+    ],
+    "progress": [
+      {
+        "id": "2122358406052413441",
+        "commissionId": "2122323731334361089",
+        "kind": "COMPLETE",
+        "seq": 1,
+        "note": "系统验收：仅完成样本准备，非真实设计审核；不用于施工。",
+        "recipient": null,
+        "feedbackStatus": null,
+        "dispatchSeq": null,
+        "actorUserId": 157,
+        "createTime": 1794844650153
+      },
+      {
+        "id": "2122358580225081345",
+        "commissionId": "2122323731334361089",
+        "kind": "DISPATCH",
+        "seq": 1,
+        "note": "系统验收：平台上传三份PDF样本，均标记不用于施工；不代表专业设计成果。",
+        "recipient": "验收客户1116经办业务",
+        "feedbackStatus": null,
+        "dispatchSeq": null,
+        "actorUserId": 157,
+        "createTime": 1794844691686
+      }
+    ],
+    "handovers": [
+      {
+        "id": "2122359552582189058",
+        "commissionId": "2122323731334361089",
+        "version": 2,
+        "dispatchSeq": 1,
+        "resultFile": "{\"assetId\":\"2122358475122581504\",\"slot\":\"RESULT\",\"name\":\"正式设计成果\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}",
+        "drawingFile": "{\"assetId\":\"2122358499193692160\",\"slot\":\"DRAWING\",\"name\":\"正式施工图\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}",
+        "reviewFile": "{\"assetId\":\"2122358539459010560\",\"slot\":\"REVIEW\",\"name\":\"专业审核依据\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}",
+        "confirmationFile": "{\"assetId\":\"2122358843441192960\",\"slot\":\"CONFIRMATION\",\"name\":\"客户确认凭据\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}",
+        "drawingVersion": "QA-V1",
+        "frozenSchemeVersion": "Pnull/B1/Fnull",
+        "confirmationDate": [
+          2026,
+          11,
+          16
+        ],
+        "note": "系统验收补件：已补现场交通与材料进场说明，按原QA-V1样本验证；不安排任何真实施工。",
+        "managerUserId": 158,
+        "status": "ACCEPTED",
+        "decisionNote": null,
+        "decidedByUserId": 158,
+        "decidedAt": 1794844985231,
+        "submittedByUserId": 154,
+        "createTime": 1794844923505
+      },
+      {
+        "id": "2122358900460191745",
+        "commissionId": "2122323731334361089",
+        "version": 1,
+        "dispatchSeq": 1,
+        "resultFile": "{\"assetId\":\"2122358475122581504\",\"slot\":\"RESULT\",\"name\":\"正式设计成果\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}",
+        "drawingFile": "{\"assetId\":\"2122358499193692160\",\"slot\":\"DRAWING\",\"name\":\"正式施工图\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}",
+        "reviewFile": "{\"assetId\":\"2122358539459010560\",\"slot\":\"REVIEW\",\"name\":\"专业审核依据\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}",
+        "confirmationFile": "{\"assetId\":\"2122358843441192960\",\"slot\":\"CONFIRMATION\",\"name\":\"客户确认凭据\",\"dispatchSeq\":1,\"commissionId\":\"2122323731334361089\"}",
+        "drawingVersion": "QA-V1",
+        "frozenSchemeVersion": "Pnull/B1/Fnull",
+        "confirmationDate": [
+          2026,
+          11,
+          16
+        ],
+        "note": "系统验收首包：现场交通交底待补充；本包仅供软件测试，不安排施工。",
+        "managerUserId": 158,
+        "status": "RETURNED",
+        "decisionNote": "系统验收退回：请补充现场交通与材料进场说明，保留原QA-V1成果。",
+        "decidedByUserId": 158,
+        "decidedAt": 1794844824453,
+        "submittedByUserId": 154,
+        "createTime": 1794844768022
+      }
+    ],
+    "feeApproval": null,
+    "allowedActions": [],
+    "displayStatus": "工程已接收",
+    "commissionId": "2122323731334361089",
+    "settlement": null,
+    "dispatches": [
+      {
+        "commissionId": "2122323731334361089",
+        "dispatchSeq": 1,
+        "submissionVersion": 1,
+        "designOrgId": 118,
+        "resultAssetId": "2122358475122581504",
+        "drawingAssetId": "2122358499193692160",
+        "reviewAssetId": "2122358539459010560",
+        "drawingVersion": "QA-V1",
+        "actorUserId": 157,
+        "createTime": 1794844691686
+      }
+    ],
+    "simulatedPayment": {
+      "number": "SIM-2122323731334361089-V1",
+      "commissionId": "2122323731334361089",
+      "submissionVersion": 1,
+      "customerName": "验收客户1116",
+      "amountCents": 240000,
+      "status": "PAID",
+      "channel": "ALIPAY",
+      "paidAt": 1794836445419,
+      "simulated": true,
+      "storeFinanceConfigured": true,
+      "headquartersFinanceConfigured": true
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "at": "2026-11-16T11:42:51.519861+00:00",
+  "baseline": {
+    "unit": "zhongshu-platform-b-integration-provider.service",
+    "pid": "1203095",
+    "jar": "/opt/zhongshu-platform-b-integration/release/provider-design-ui-20261116-690da04b1c0a.jar",
+    "sha256": "690da04b1c0ac3b3fbc5bd51b2b70829b63395e6ac92a90b47b64078feb517ad"
+  },
+  "jar": "/opt/zhongshu-platform-b-integration/release/provider-design-ui-20261116-8952618e9397.jar",
+  "sha256": "8952618e939726bf0d2f7219adedce41b8732f9032cae44b6d557147be66357f",
+  "dropIn": "/etc/systemd/system/zhongshu-platform-b-integration-provider.service.d/zz-production-20261116.conf",
+  "dropInSha256": "140e07da774af9d29b09647477aadcd6f04cd95bbbcd319a570836bb228ca71c",
+  "databaseMigrations": false,
+  "status": "deployed",
+  "pid": "1212514",
+  "health": "UP",
+  "sourceCredentialMounted": true,
+  "aPidUnchanged": true,
+  "bPidUnchanged": true
+}

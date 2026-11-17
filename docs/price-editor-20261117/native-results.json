@@ -1,0 +1,46 @@
+{
+  "status": "passed",
+  "network": "mocked price fixtures; no production price mutation",
+  "layout": {
+    "input": {
+      "width": 249.46250915527344,
+      "height": 45
+    },
+    "field": {
+      "width": 330.3999938964844,
+      "height": 49
+    },
+    "copy": {
+      "width": 330.3999938964844,
+      "height": 41.60000228881836
+    },
+    "save": {
+      "width": 74,
+      "height": 44
+    },
+    "cancel": {
+      "width": 74,
+      "height": 44
+    },
+    "inputOffset": {
+      "left": 40.79999923706055,
+      "top": 317
+    },
+    "copyOffset": {
+      "left": 30,
+      "top": 263.3999938964844
+    },
+    "saveOffset": {
+      "left": 286.3999938964844,
+      "top": 374
+    }
+  },
+  "checks": [
+    "input at least 44px high without vertical padding",
+    "full-width editor below intact project copy",
+    "save and cancel targets at least 44px",
+    "1234.56 submits exactly 123456 cents",
+    "cancel preserves saved price",
+    "long project names remain readable"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "before": "2026-10",
+  "after": {
+    "selectedMonth": "2026-10",
+    "flowTab": "ledger",
+    "view": "flows"
+  }
+}

@@ -441,8 +441,18 @@ page {
 }
 
 .price-unit {
+  display: inline-block;
+  white-space: nowrap;
   color: #a89a8c;
   font-size: 24rpx;
+}
+
+.price-copy .row-description {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #786858;
 }
 
 .price-mine {
@@ -473,21 +483,110 @@ page {
   color: #a89a8c;
 }
 
-.price-editor {
-  display: flex;
-  align-items: center;
+.price-row.editing {
+  flex-direction: column;
+  align-items: stretch;
   gap: 20rpx;
 }
 
-.price-editor input {
-  width: 300rpx;
-  padding: 16rpx 20rpx;
-  border: 1rpx solid #c8a679;
+.price-row.editing .price-copy {
+  flex: none;
+  width: 100%;
+}
+
+.price-row.editing .price-actions {
+  width: 100%;
+  padding-top: 0;
+  align-items: stretch;
+}
+
+.price-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20rpx;
+  width: 100%;
+  min-width: 0;
+}
+
+.price-field {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  width: 100%;
+  height: 96rpx;
+  min-height: 48px;
+  padding: 0 20rpx;
+  border: 2rpx solid #c8a679;
   border-radius: 12rpx;
   background: #fffdf8;
-  font-size: 28rpx;
-  text-align: right;
   box-sizing: border-box;
+}
+
+.prices-page .price-field input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  height: 88rpx;
+  min-height: 44px;
+  line-height: normal;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 32rpx;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.price-placeholder {
+  color: #a89a8c;
+  font-size: 28rpx;
+}
+
+.price-input-unit {
+  flex-shrink: 0;
+  color: #786858;
+  font-size: 24rpx;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.price-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16rpx;
+  width: 100%;
+}
+
+.prices-page .price-edit-actions .text-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 144rpx;
+  height: 80rpx;
+  min-height: 44px;
+  padding: 0 28rpx;
+  border-radius: 12rpx;
+  line-height: 1.4;
+  box-sizing: border-box;
+  font-size: 26rpx;
+}
+
+.prices-page .price-edit-actions .price-cancel {
+  background: #f4f0e9;
+  color: #786858;
+}
+
+.prices-page .price-edit-actions .price-save {
+  background: #8b4818;
+  color: #ffffff;
+}
+
+.prices-page .price-edit-actions .text-action[disabled] {
+  opacity: 0.6;
 }
 
 /* 自定义地区：行内标签 + 新增入口（与基础参数页同口径，2026-10-05） */

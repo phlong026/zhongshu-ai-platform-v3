@@ -1,0 +1,1689 @@
+[
+  {
+    "file": "finance-home.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:for=\"{{desk.metrics}}\" wx:key=\"label\" class=\"fin-home-metric {{item.tone}}\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "finance-home.wxml",
+    "event": [
+      "retryPlatformTodos"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"retryPlatformTodos\">"
+  },
+  {
+    "file": "finance-home.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:for=\"{{desk.previewTasks}}\" wx:key=\"key\" class=\"fin-task\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "finance-home.wxml",
+    "event": [
+      "openFinanceShortcut"
+    ],
+    "control": "<button class=\"fin-shortcut\" wx:for=\"{{desk.shortcuts}}\" wx:key=\"label\" data-type=\"{{item.type}}\" data-url=\"{{item.url}}\" bindtap=\"openFinanceShortcut\">"
+  },
+  {
+    "file": "finance-home.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-text\" data-url=\"{{desk.focusUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "finance-home.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:for=\"{{desk.focus}}\" wx:key=\"id\" class=\"fin-link-row\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "loadDesignFees"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"loadDesignFees\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openDesignPayment"
+    ],
+    "control": "<button wx:if=\"{{item.canPay}}\" class=\"fin-outline\" data-key=\"{{item.key}}\" bindtap=\"openDesignPayment\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openDesignReceipt"
+    ],
+    "control": "<button wx:if=\"{{payment.canReceive}}\" class=\"fin-outline\" data-key=\"{{item.key}}\" data-payment-id=\"{{payment.paymentId}}\" bindtap=\"openDesignReceipt\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "moreDesignFees"
+    ],
+    "control": "<button wx:if=\"{{designFeeRows.length<designFeeTotal}}\" class=\"fin-text\" bindtap=\"moreDesignFees\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "cancelDesignReceipt"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"cancelDesignReceipt\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "designReceiptInput"
+    ],
+    "control": "<input class=\"fin-input\" type=\"digit\" data-field=\"amount\" bindinput=\"designReceiptInput\" value=\"{{designReceiptForm.amount}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "designReceiptInput"
+    ],
+    "control": "<picker mode=\"date\" data-field=\"receivedDate\" bindchange=\"designReceiptInput\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "designReceiptInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"transactionNo\" bindinput=\"designReceiptInput\" value=\"{{designReceiptForm.transactionNo}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "designReceiptVoucher"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"designReceiptVoucher\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "submitDesignReceipt"
+    ],
+    "control": "<button class=\"fin-primary\" loading=\"{{designReceiptBusy}}\" disabled=\"{{designReceiptBusy}}\" bindtap=\"submitDesignReceipt\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "search"
+    ],
+    "control": "<input class=\"fin-search-input\" value=\"{{keyword}}\" bindinput=\"search\" placeholder=\"{{view==='partners'?'搜索加盟商或项目':view==='projects'?'搜索客户、项目或进度':'搜索客户、项目或原单'}}\" confirm-type=\"search\" maxlength=\"80\" aria-label=\"搜索财务原单\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "clear"
+    ],
+    "control": "<button wx:if=\"{{keyword}}\" class=\"fin-clear\" bindtap=\"clear\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "month"
+    ],
+    "control": "<picker wx:else mode=\"date\" fields=\"month\" value=\"{{period}}\" bindchange=\"month\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"fin-segment {{view==='flows'&&flowTab==='ledger'?'selected':''}}\" data-tab=\"ledger\" bindtap=\"segment\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"fin-segment {{view==='flows'&&flowTab==='receivables'?'selected':''}}\" data-tab=\"receivables\" bindtap=\"segment\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"fin-segment {{view==='flows'&&flowTab==='payables'?'selected':''}}\" data-tab=\"payables\" bindtap=\"segment\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"fin-segment {{view==='flows'&&flowTab==='reconcile'?'selected':''}}\" data-tab=\"reconcile\" bindtap=\"segment\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"fin-segment {{view!=='flows'?'selected':''}}\" data-tab=\"books\" bindtap=\"segment\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "retryPlatformFinance"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"retryPlatformFinance\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "dismissVoidNotice"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"dismissVoidNotice\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "bankPick"
+    ],
+    "control": "<picker range=\"{{platformRegister.pendingReceipts}}\" range-key=\"label\" data-flow-id=\"{{item.id}}\" bindchange=\"bankPick\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "confirmBankSubmit"
+    ],
+    "control": "<button class=\"fin-outline\" data-flow-id=\"{{item.id}}\" bindtap=\"confirmBankSubmit\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openFinanceSupplement"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{item.id}}\" data-kind=\"{{item.sourceKind}}\" bindtap=\"openFinanceSupplement\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openRevision"
+    ],
+    "control": "<button wx:if=\"{{item.category==='收款'}}\" class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openRevision\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openCorrection"
+    ],
+    "control": "<button wx:if=\"{{refundVoidable&&item.sourceKind==='refund'&&item.status==='已核实'}}\" class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openCorrection\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openPaymentVoid"
+    ],
+    "control": "<button wx:if=\"{{item.canVoid}}\" class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openPaymentVoid\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "loadMoreLedger"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"loadMoreLedger\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-shortcut\" data-type=\"receipt\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-shortcut\" data-type=\"payment\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-shortcut\" data-type=\"refund\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-shortcut\" data-type=\"expense-refund\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-shortcut\" data-type=\"payable\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "cancelRegister"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"cancelRegister\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" type=\"digit\" data-field=\"amount\" bindinput=\"registerInput\" value=\"{{registerForm.amount}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"name\" bindinput=\"registerInput\" value=\"{{registerForm.name}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker range=\"{{['bank','cash','other']}}\" data-field=\"method\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"transactionNo\" bindinput=\"registerInput\" value=\"{{registerForm.transactionNo}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker mode=\"date\" data-field=\"receivedDate\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerUpload"
+    ],
+    "control": "<button class=\"fin-text\" data-field=\"voucher\" bindtap=\"registerUpload\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openWorkbenchEntry"
+    ],
+    "control": "<button class=\"fin-text\" data-type=\"expense\" bindtap=\"openWorkbenchEntry\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerPick"
+    ],
+    "control": "<picker range=\"{{platformRegister.payables}}\" range-key=\"label\" data-field=\"payableId\" bindchange=\"registerPick\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"accountName\" bindinput=\"registerInput\" value=\"{{registerForm.accountName}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker range=\"{{['公司支付','业务个人垫付设计费']}}\" data-field=\"fundingType\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerPick"
+    ],
+    "control": "<picker range=\"{{workbenchStaff}}\" range-key=\"name\" data-field=\"payerUserId\" bindchange=\"registerPick\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker mode=\"date\" data-field=\"payDate\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"transactionNo\" bindinput=\"registerInput\" value=\"{{registerForm.transactionNo}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerUpload"
+    ],
+    "control": "<button class=\"fin-text\" data-field=\"voucher\" bindtap=\"registerUpload\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerPick"
+    ],
+    "control": "<picker range=\"{{platformRegister.refundable}}\" range-key=\"label\" data-field=\"receiptId\" bindchange=\"registerPick\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"reason\" bindinput=\"registerInput\" value=\"{{registerForm.reason}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker mode=\"date\" data-field=\"date\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker range=\"{{['沿用原出资人','公司账户','原垫付员工']}}\" data-field=\"refundFundingType\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerPick"
+    ],
+    "control": "<picker range=\"{{platformRegister.expenseRefundable}}\" range-key=\"label\" data-field=\"paymentId\" bindchange=\"registerPick\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"reason\" bindinput=\"registerInput\" value=\"{{registerForm.reason}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker mode=\"date\" data-field=\"date\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"transactionNo\" bindinput=\"registerInput\" value=\"{{registerForm.transactionNo}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"recipient\" bindinput=\"registerInput\" value=\"{{registerForm.recipient}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"stage\" bindinput=\"registerInput\" value=\"{{registerForm.stage}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"agreementRef\" bindinput=\"registerInput\" value=\"{{registerForm.agreementRef}}\"/>"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "submitRegister"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"submitRegister\" loading=\"{{registerBusy}}\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "copyFrLink"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"copyFrLink\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "reconcileBook"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"reconcileBook\" loading=\"{{busy}}\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "pick"
+    ],
+    "control": "<picker data-type=\"status\" range=\"{{statusOptions}}\" bindchange=\"pick\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "pick"
+    ],
+    "control": "<picker wx:else data-type=\"category\" range=\"{{categoryOptions}}\" bindchange=\"pick\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "pick"
+    ],
+    "control": "<picker data-type=\"sort\" range=\"{{['到期优先','金额优先','最新优先']}}\" bindchange=\"pick\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "clear"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"clear\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:if=\"{{item.url}}\" class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "assignPayableBook"
+    ],
+    "control": "<button wx:for=\"{{rows}}\" wx:key=\"id\" wx:if=\"{{flowTab==='payables'}}\" class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"assignPayableBook\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "openPayableAdjustment"
+    ],
+    "control": "<button wx:for=\"{{rows}}\" wx:key=\"id\" wx:if=\"{{flowTab==='payables'&&item.canAdjust}}\" class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openPayableAdjustment\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "paySourceRow"
+    ],
+    "control": "<button wx:for=\"{{rows}}\" wx:key=\"id\" wx:if=\"{{item.canPay}}\" class=\"fin-outline\" data-id=\"{{item.id}}\" bindtap=\"paySourceRow\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "clear"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"clear\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "filter"
+    ],
+    "control": "<button wx:for=\"{{filters}}\" wx:key=\"id\" class=\"fin-chip {{filter===item.id?'selected':''}}\" data-filter=\"{{item.id}}\" bindtap=\"filter\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "clear"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"clear\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "back"
+    ],
+    "control": "<button class=\"fin-back\" bindtap=\"back\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "home"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"home\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button data-url=\"{{detail.contractUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button data-url=\"{{detail.payablesUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:if=\"{{detail.settlementUrl}}\" data-url=\"{{detail.settlementUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:for=\"{{detail.settlement.blockers}}\" wx:key=\"key\" class=\"fin-link-row\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-outline\" data-url=\"{{detail.settlement.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-link-row\" data-url=\"{{detail.sourceUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "back"
+    ],
+    "control": "<button class=\"fin-back\" bindtap=\"back\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "home"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"home\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:if=\"{{item.canOpen}}\" class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "back"
+    ],
+    "control": "<button class=\"fin-back\" bindtap=\"back\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "home"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"home\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:if=\"{{item.url}}\" class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:if=\"{{item.url}}\" class=\"fin-outline\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:if=\"{{statement.evidenceUrl}}\" class=\"fin-outline\" data-url=\"{{statement.evidenceUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:if=\"{{statement.primary}}\" class=\"fin-primary\" data-url=\"{{statement.primary.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:for=\"{{rows}}\" wx:key=\"key\" class=\"fin-task\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "home"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"home\">"
+  },
+  {
+    "file": "index.wxml",
+    "event": [
+      "home"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"home\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "changeReceiptMode"
+    ],
+    "control": "<button class=\"{{wbForm.receiptMode!=='other'?'selected':''}}\" data-mode=\"contract\" bindtap=\"changeReceiptMode\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "changeReceiptMode"
+    ],
+    "control": "<button class=\"{{wbForm.receiptMode==='other'?'selected':''}}\" data-mode=\"other\" bindtap=\"changeReceiptMode\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "journeyPick"
+    ],
+    "control": "<picker range=\"{{journeyScopes}}\" range-key=\"name\" data-field=\"scope\" bindchange=\"journeyPick\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "journeyPick"
+    ],
+    "control": "<picker range=\"{{journeyStages}}\" range-key=\"label\" data-field=\"stageId\" bindchange=\"journeyPick\" disabled=\"{{!wbForm.scope}}\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "openJourneyDeclaration"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openJourneyDeclaration\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"journey-input {{journeyErrorField==='name'?'invalid':''}}\" data-field=\"name\" value=\"{{wbForm.name}}\" bindinput=\"wbInput\" maxlength=\"160\" placeholder=\"{{wbForm.type==='receipt'?'如：前期定金':'如：现场运输费'}}\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "journeyPick"
+    ],
+    "control": "<picker range=\"{{journeyCategories}}\" data-field=\"category\" bindchange=\"journeyPick\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"journey-input journey-amount-input {{journeyErrorField==='amount'?'invalid':''}}\" type=\"digit\" data-field=\"amount\" value=\"{{wbForm.amount}}\" bindinput=\"wbInput\" placeholder=\"0.00\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"journey-input\" data-field=\"counterparty\" value=\"{{wbForm.counterparty}}\" bindinput=\"wbInput\" placeholder=\"{{wbForm.type==='receipt'?'填写付款人或单位':'填写实际收款人或单位'}}\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<picker range=\"{{['公司支付','员工已垫付']}}\" data-field=\"fundingType\" bindchange=\"wbInput\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbPick"
+    ],
+    "control": "<picker wx:if=\"{{wbForm.fundingType==='EMPLOYEE'}}\" range=\"{{workbenchStaff}}\" range-key=\"name\" data-field=\"payerUserId\" bindchange=\"wbPick\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<picker mode=\"date\" value=\"{{wbForm.date}}\" data-field=\"date\" bindchange=\"wbInput\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "journeyPick"
+    ],
+    "control": "<picker range=\"{{journeyAccounts}}\" data-field=\"account\" bindchange=\"journeyPick\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"journey-input\" data-field=\"accountName\" value=\"{{wbForm.accountName}}\" bindinput=\"wbInput\" placeholder=\"选择常用账户或直接填写\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"journey-input\" data-field=\"transactionNo\" value=\"{{wbForm.transactionNo}}\" bindinput=\"wbInput\" placeholder=\"银行或支付平台的交易流水号\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "wbVoucher"
+    ],
+    "control": "<button class=\"journey-voucher\" bindtap=\"wbVoucher\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "submitJourneyEntry"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"submitJourneyEntry\" loading=\"{{wbBusy}}\" disabled=\"{{wbBusy}}\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "journeyChoosePayable"
+    ],
+    "control": "<picker range=\"{{journeyPaymentOptions}}\" range-key=\"label\" data-field=\"payableId\" bindchange=\"journeyChoosePayable\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "openWorkbenchEntry"
+    ],
+    "control": "<button class=\"journey-inline-link\" data-type=\"expense\" bindtap=\"openWorkbenchEntry\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker range=\"{{['公司支付','业务已垫付设计费']}}\" data-field=\"fundingType\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerPick"
+    ],
+    "control": "<picker wx:if=\"{{registerForm.fundingType==='EMPLOYEE'}}\" range=\"{{workbenchStaff}}\" range-key=\"name\" data-field=\"payerUserId\" bindchange=\"registerPick\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "journeyChooseRefund"
+    ],
+    "control": "<picker range=\"{{journeyRefundOptions}}\" range-key=\"label\" bindchange=\"journeyChooseRefund\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker range=\"{{['原付款方','公司账户','原垫付员工']}}\" data-field=\"refundFundingType\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"journey-input journey-amount-input\" type=\"digit\" data-field=\"amount\" value=\"{{registerForm.amount}}\" bindinput=\"registerInput\" placeholder=\"0.00\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "journeyPick"
+    ],
+    "control": "<picker range=\"{{journeyAccounts}}\" data-field=\"account\" bindchange=\"journeyPick\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"journey-input\" data-field=\"accountName\" value=\"{{registerForm.accountName}}\" bindinput=\"registerInput\" placeholder=\"选择常用账户或直接填写\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"journey-input\" data-field=\"reason\" value=\"{{registerForm.reason}}\" bindinput=\"registerInput\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<picker mode=\"date\" value=\"{{registerType==='payment'?registerForm.payDate:registerForm.date}}\" data-field=\"{{registerType==='payment'?'payDate':'date'}}\" bindchange=\"registerInput\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerInput"
+    ],
+    "control": "<input class=\"journey-input\" data-field=\"transactionNo\" value=\"{{registerForm.transactionNo}}\" bindinput=\"registerInput\" placeholder=\"银行或支付平台的交易流水号\"/>"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "registerUpload"
+    ],
+    "control": "<button class=\"journey-voucher\" bindtap=\"registerUpload\">"
+  },
+  {
+    "file": "journey-forms.wxml",
+    "event": [
+      "submitJourneyRegister"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"submitJourneyRegister\" loading=\"{{registerBusy}}\" disabled=\"{{registerBusy}}\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "viewJourneyResult"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"viewJourneyResult\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "closeFinanceEntry"
+    ],
+    "control": "<button class=\"fin-outline\" bindtap=\"closeFinanceEntry\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openJourneyVoucher"
+    ],
+    "control": "<button wx:if=\"{{journeyDeclaration.voucher_file_id}}\" class=\"fin-outline\" bindtap=\"openJourneyVoucher\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "confirmCollectionDeclaration"
+    ],
+    "control": "<button class=\"fin-primary\" data-id=\"{{journeyDeclaration.id}}\" bindtap=\"confirmCollectionDeclaration\" loading=\"{{wbBusy}}\" disabled=\"{{wbBusy}}\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "returnCollectionDeclaration"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{journeyDeclaration.id}}\" bindtap=\"returnCollectionDeclaration\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "back"
+    ],
+    "control": "<button wx:if=\"{{view==='book'}}\" class=\"journey-back\" bindtap=\"back\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "recoverEmployee"
+    ],
+    "control": "<button wx:if=\"{{item.remaining<0}}\" class=\"fin-outline\" data-id=\"{{item.id}}\" bindtap=\"recoverEmployee\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openEmployeeAdvance"
+    ],
+    "control": "<button wx:if=\"{{journeyEnabled}}\" class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openEmployeeAdvance\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:for=\"{{journeyProgress}}\" wx:key=\"id\" class=\"fin-card journey-progress\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:for=\"{{rows}}\" wx:key=\"key\" class=\"fin-card journey-progress\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"book-tab {{flowTab==='ledger'?'selected':''}}\" data-tab=\"ledger\" bindtap=\"segment\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"book-tab {{flowTab==='receivables'?'selected':''}}\" data-tab=\"receivables\" bindtap=\"segment\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"book-tab {{flowTab==='payables'?'selected':''}}\" data-tab=\"payables\" bindtap=\"segment\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"book-tab {{flowTab==='reconcile'?'selected':''}}\" data-tab=\"reconcile\" bindtap=\"segment\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "retryPlatformFinance"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"retryPlatformFinance\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "search"
+    ],
+    "control": "<input value=\"{{keyword}}\" bindinput=\"search\" placeholder=\"搜索项目、对方或用途\"/>"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "clear"
+    ],
+    "control": "<button wx:if=\"{{keyword}}\" class=\"fin-text\" bindtap=\"clear\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "changeCashDirection"
+    ],
+    "control": "<button class=\"{{!journeyDirection||journeyDirection==='all'?'active':''}}\" data-direction=\"all\" bindtap=\"changeCashDirection\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "changeCashDirection"
+    ],
+    "control": "<button class=\"{{journeyDirection==='in'?'active':''}}\" data-direction=\"in\" bindtap=\"changeCashDirection\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "changeCashDirection"
+    ],
+    "control": "<button class=\"{{journeyDirection==='out'?'active':''}}\" data-direction=\"out\" bindtap=\"changeCashDirection\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openJourneyCash"
+    ],
+    "control": "<button wx:for=\"{{journeyCashRows}}\" wx:key=\"key\" class=\"book-transaction\" data-key=\"{{item.key}}\" bindtap=\"openJourneyCash\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "segment"
+    ],
+    "control": "<button class=\"fin-text\" data-tab=\"reconcile\" bindtap=\"segment\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-primary\" data-type=\"receipt\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-outline\" data-type=\"payment\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "dismissVoidNotice"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"dismissVoidNotice\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openJourneyDeclaration"
+    ],
+    "control": "<button wx:for=\"{{journeyDeclarations}}\" wx:key=\"id\" class=\"fin-card journey-progress\" data-id=\"{{item.id}}\" bindtap=\"openJourneyDeclaration\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "bankPick"
+    ],
+    "control": "<picker range=\"{{platformRegister.pendingReceipts}}\" range-key=\"label\" data-flow-id=\"{{item.id}}\" bindchange=\"bankPick\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "confirmBankSubmit"
+    ],
+    "control": "<button class=\"fin-outline\" data-flow-id=\"{{item.id}}\" bindtap=\"confirmBankSubmit\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-text\" data-type=\"receipt\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openReceiptAllocation"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openReceiptAllocation\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openContractChange"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{item.contract_id}}\" bindtap=\"openContractChange\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-text\" data-type=\"payable\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "payJourneyRow"
+    ],
+    "control": "<button class=\"fin-primary\" data-id=\"{{item.id}}\" bindtap=\"payJourneyRow\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "openPayableAdjustment"
+    ],
+    "control": "<button wx:if=\"{{item.canAdjust}}\" class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openPayableAdjustment\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "assignPayableBook"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"assignPayableBook\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "reconcileBook"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"reconcileBook\" loading=\"{{busy}}\" disabled=\"{{reconciliation.status!=='ready'||busy}}\">"
+  },
+  {
+    "file": "journey.wxml",
+    "event": [
+      "copyFrLink"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"copyFrLink\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "createFinanceBook"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"createFinanceBook\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "search"
+    ],
+    "control": "<input value=\"{{keyword}}\" bindinput=\"search\" placeholder=\"搜索项目或账本\" maxlength=\"80\"/>"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "clear"
+    ],
+    "control": "<button wx:if=\"{{keyword}}\" class=\"fin-text\" bindtap=\"clear\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "changeBookListTab"
+    ],
+    "control": "<button class=\"book-tab {{!bookListTab||bookListTab==='all'?'selected':''}}\" data-tab=\"all\" bindtap=\"changeBookListTab\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "changeBookListTab"
+    ],
+    "control": "<button class=\"book-tab {{bookListTab==='project'?'selected':''}}\" data-tab=\"project\" bindtap=\"changeBookListTab\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "changeBookListTab"
+    ],
+    "control": "<button class=\"book-tab {{bookListTab==='book'?'selected':''}}\" data-tab=\"book\" bindtap=\"changeBookListTab\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "changeBookListTab"
+    ],
+    "control": "<button class=\"book-tab {{bookListTab==='company'?'selected':''}}\" data-tab=\"company\" bindtap=\"changeBookListTab\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "loadFinanceProjects"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"loadFinanceProjects\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button wx:for=\"{{financeProjects}}\" wx:key=\"id\" class=\"fin-card book-list-item\" data-url=\"{{item.url}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "createFinanceBook"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"createFinanceBook\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "linkFinanceBook"
+    ],
+    "control": "<button wx:if=\"{{canLinkBook}}\" class=\"fin-text\" bindtap=\"linkFinanceBook\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "loadBookLedger"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"loadBookLedger\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "showBookCalculation"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"showBookCalculation\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openWorkbenchEntry"
+    ],
+    "control": "<button class=\"fin-primary\" data-type=\"receipt\" bindtap=\"openWorkbenchEntry\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openRegister"
+    ],
+    "control": "<button class=\"fin-outline\" data-type=\"payment\" bindtap=\"openRegister\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-text\" data-url=\"{{bookCollectionUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-text\" data-url=\"{{bookMaterialsUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-text\" data-url=\"{{bookExpensesUrl}}\" bindtap=\"go\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "changeBookFlowTab"
+    ],
+    "control": "<button class=\"book-tab {{bookFlowTab==='cash'?'selected':''}}\" data-tab=\"cash\" bindtap=\"changeBookFlowTab\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "changeBookFlowTab"
+    ],
+    "control": "<button class=\"book-tab {{bookFlowTab==='cost'?'selected':''}}\" data-tab=\"cost\" bindtap=\"changeBookFlowTab\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "changeBookFlowTab"
+    ],
+    "control": "<button class=\"book-tab {{bookFlowTab==='employee'?'selected':''}}\" data-tab=\"employee\" bindtap=\"changeBookFlowTab\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openBookEntry"
+    ],
+    "control": "<button wx:if=\"{{bookFlowTab!=='employee'}}\" wx:for=\"{{bookEntries}}\" wx:key=\"key\" class=\"book-transaction\" data-key=\"{{item.key}}\" bindtap=\"openBookEntry\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "recoverEmployee"
+    ],
+    "control": "<button wx:if=\"{{item.remaining<0}}\" class=\"fin-outline\" data-id=\"{{item.id}}\" bindtap=\"recoverEmployee\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openEmployeeAdvance"
+    ],
+    "control": "<button wx:if=\"{{journeyEnabled}}\" class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openEmployeeAdvance\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-text\" data-url=\"/pages/build/record/index?id={{id}}&view=collection\" bindtap=\"go\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-text\" data-url=\"/pages/build/record/index?id={{id}}&view=materials\" bindtap=\"go\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "go"
+    ],
+    "control": "<button class=\"fin-text\" data-url=\"/pages/build/record/index?id={{id}}&view=expenses\" bindtap=\"go\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "moreProjectLedger"
+    ],
+    "control": "<button wx:if=\"{{projectLedgerEntries.length<projectLedgerTotal}}\" class=\"fin-text\" bindtap=\"moreProjectLedger\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "closeBookEntry"
+    ],
+    "control": "<view class=\"book-detail-mask\" bindtap=\"closeBookEntry\"/>"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "closeBookEntry"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"closeBookEntry\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "refundBookEntry"
+    ],
+    "control": "<button wx:if=\"{{bookEntryDetail.canRefund}}\" class=\"fin-outline\" bindtap=\"refundBookEntry\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openRevision"
+    ],
+    "control": "<button wx:if=\"{{bookEntryDetail.canRevise}}\" class=\"fin-text\" data-id=\"{{bookEntryDetail.key}}\" bindtap=\"openRevision\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openPaymentVoid"
+    ],
+    "control": "<button wx:if=\"{{bookEntryDetail.canVoid}}\" class=\"fin-text\" data-id=\"{{bookEntryDetail.key}}\" bindtap=\"openPaymentVoid\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openCorrection"
+    ],
+    "control": "<button wx:if=\"{{bookEntryDetail.canCorrect}}\" class=\"fin-text\" data-id=\"{{bookEntryDetail.key}}\" bindtap=\"openCorrection\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openBookVoucher"
+    ],
+    "control": "<button wx:if=\"{{bookEntryDetail.voucher_file_id}}\" class=\"fin-outline\" bindtap=\"openBookVoucher\">"
+  },
+  {
+    "file": "project-books.wxml",
+    "event": [
+      "openFinanceSupplement"
+    ],
+    "control": "<button wx:if=\"{{bookEntryDetail.type!=='PAYABLE'}}\" class=\"fin-text\" data-id=\"{{bookEntryDetail.id}}\" data-kind=\"{{bookEntryDetail.type==='RECEIPT'?'receipt':bookEntryDetail.type==='PAYMENT'||bookEntryDetail.type==='ADVANCE'?'payment':'refund'}}\" bindtap=\"openFinanceSupplement\">"
+  },
+  {
+    "file": "receipt-revision.wxml",
+    "event": [
+      "cancelRegister"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"cancelRegister\">"
+  },
+  {
+    "file": "receipt-revision.wxml",
+    "event": [
+      "revisionInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"amount\" bindinput=\"revisionInput\" value=\"{{revisionForm.amount}}\"/>"
+  },
+  {
+    "file": "receipt-revision.wxml",
+    "event": [
+      "revisionInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"note\" bindinput=\"revisionInput\" value=\"{{revisionForm.note}}\"/>"
+  },
+  {
+    "file": "receipt-revision.wxml",
+    "event": [
+      "submitRevision"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"submitRevision\" disabled=\"{{revisionBusy}}\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "confirmCollectionDeclaration"
+    ],
+    "control": "<button class=\"fin-outline\" disabled=\"{{wbBusy}}\" data-id=\"{{item.id}}\" bindtap=\"confirmCollectionDeclaration\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "returnCollectionDeclaration"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"returnCollectionDeclaration\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "openContractChange"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{item.contract_id}}\" bindtap=\"openContractChange\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "openReceiptAllocation"
+    ],
+    "control": "<button class=\"fin-text\" data-id=\"{{item.id}}\" bindtap=\"openReceiptAllocation\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "recoverEmployee"
+    ],
+    "control": "<button wx:if=\"{{item.remaining<0}}\" class=\"fin-outline\" data-id=\"{{item.id}}\" bindtap=\"recoverEmployee\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "cancelWorkbench"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"cancelWorkbench\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"name\" value=\"{{wbForm.name}}\" bindinput=\"wbInput\" maxlength=\"160\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbPick"
+    ],
+    "control": "<picker range=\"{{allocationReceipts}}\" range-key=\"label\" data-field=\"receiptId\" bindchange=\"wbPick\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" type=\"digit\" data-field=\"signAfter\" value=\"{{wbForm.signAfter}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" type=\"digit\" data-field=\"baseDone\" value=\"{{wbForm.baseDone}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" type=\"digit\" data-field=\"capDone\" value=\"{{wbForm.capDone}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" type=\"digit\" data-field=\"tail\" value=\"{{wbForm.tail}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<picker mode=\"date\" data-field=\"tailDueDate\" bindchange=\"wbInput\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" type=\"digit\" data-field=\"amount\" value=\"{{wbForm.amount}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<picker mode=\"date\" data-field=\"dueDate\" bindchange=\"wbInput\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"reason\" value=\"{{wbForm.reason}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbPick"
+    ],
+    "control": "<picker range=\"{{workbenchBooks}}\" range-key=\"name\" data-field=\"scope\" bindchange=\"wbPick\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbPick"
+    ],
+    "control": "<picker range=\"{{financialStages}}\" range-key=\"label\" data-field=\"stageId\" bindchange=\"wbPick\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbPick"
+    ],
+    "control": "<picker range=\"{{workbenchBooks}}\" range-key=\"name\" data-field=\"scope\" bindchange=\"wbPick\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"category\" value=\"{{wbForm.category}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" type=\"digit\" data-field=\"amount\" value=\"{{wbForm.amount}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<picker mode=\"date\" data-field=\"date\" value=\"{{wbForm.date}}\" bindchange=\"wbInput\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<picker range=\"{{['公司支付','员工垫付']}}\" data-field=\"fundingType\" bindchange=\"wbInput\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbPick"
+    ],
+    "control": "<picker range=\"{{workbenchStaff}}\" range-key=\"name\" data-field=\"payerUserId\" bindchange=\"wbPick\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"counterparty\" value=\"{{wbForm.counterparty}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" placeholder=\"如：公司银行账户、公司微信、现金\" data-field=\"accountName\" value=\"{{wbForm.accountName}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbInput"
+    ],
+    "control": "<input class=\"fin-input\" data-field=\"transactionNo\" value=\"{{wbForm.transactionNo}}\" bindinput=\"wbInput\"/>"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbVoucher"
+    ],
+    "control": "<button class=\"fin-text\" bindtap=\"wbVoucher\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "wbVoucher"
+    ],
+    "control": "<button wx:if=\"{{wbForm.type==='supplement'}}\" class=\"fin-text\" bindtap=\"wbVoucher\">"
+  },
+  {
+    "file": "workbench.wxml",
+    "event": [
+      "submitWorkbench"
+    ],
+    "control": "<button class=\"fin-primary\" bindtap=\"submitWorkbench\" loading=\"{{wbBusy}}\" disabled=\"{{wbBusy}}\">"
+  }
+]

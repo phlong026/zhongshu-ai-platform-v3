@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "checks": [
+    "owner declaration confirmation",
+    "procurement partial payment",
+    "partial design reimbursement",
+    "manual company expense",
+    "client refund from original receipt",
+    "supplier return from original payment",
+    "supplement is visible in same record",
+    "return after each success"
+  ],
+  "syntheticLocalData": true,
+  "ids": {
+    "baseline": {
+      "received_cents": 10100000,
+      "paid_cents": 1186000,
+      "refunded_cents": 0,
+      "expense_refunded_cents": 0,
+      "committed_cents": 1326000,
+      "outstanding_cents": 140000,
+      "receivable_cents": 49900000
+    },
+    "declarationId": "2122610730062008321",
+    "supplyId": "2122610730636627970",
+    "payableId": "2122610731148333057",
+    "reimbursementId": "2122585390925193220",
+    "receiptId": "2122611910511038465",
+    "paymentId": "2122612078790709250",
+    "reimbursePaymentId": "2122612129122357249",
+    "manualPaymentId": "2122612190153674754",
+    "customerRefundId": "2122612253105983490",
+    "supplierRefundId": "2122612311771713537"
+  }
+}

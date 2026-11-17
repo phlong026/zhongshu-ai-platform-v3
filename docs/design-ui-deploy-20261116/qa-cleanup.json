@@ -1,0 +1,17 @@
+{
+  "at": "2026-11-16T11:44:56.839966+00:00",
+  "userId": 156,
+  "userDisabled": true,
+  "postRevoked": true,
+  "temporaryRoleLinkRevoked": true,
+  "oauthAccessAndRefreshRemaining": 0,
+  "logoutCallsSucceeded": 1,
+  "ownCacheKeysRemoved": 1,
+  "revokedSessionBusinessCode": 401,
+  "financialLedgerAndFrozenAcceptanceRecordsPreserved": true,
+  "testCustomerName": "设计上线验收（非真实客户）",
+  "credentialFilesDeleted": [
+    "qa-credentials.json",
+    "qa-session.json"
+  ]
+}

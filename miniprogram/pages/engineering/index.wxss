@@ -101,3 +101,5 @@
 .engineering-live .eng-shortcuts>button{padding:24rpx 14rpx;border:0;border-bottom:1rpx solid var(--zs-line);justify-content:flex-start}
 .engineering-live .eng-shortcuts>button:nth-child(odd){border-right:1rpx solid var(--zs-line)}
 .engineering-live .eng-shortcuts>button:nth-child(n+3){border-bottom:0}
+
+@import "../../styles/sales-design.wxss";

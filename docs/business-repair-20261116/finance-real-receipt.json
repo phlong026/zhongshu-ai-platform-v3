@@ -1,0 +1,18 @@
+{
+  "status": 200,
+  "code": 0,
+  "msg": "",
+  "data": {
+    "number": "SIM-2122323731334361089-V1",
+    "commissionId": "2122323731334361089",
+    "submissionVersion": 1,
+    "customerName": "验收客户1116",
+    "amountCents": 240000,
+    "status": "PAID",
+    "channel": "ALIPAY",
+    "paidAt": 1794836445419,
+    "simulated": true,
+    "storeFinanceConfigured": true,
+    "headquartersFinanceConfigured": true
+  }
+}

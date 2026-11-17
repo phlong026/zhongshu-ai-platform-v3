@@ -1,0 +1,19 @@
+const a=require('miniprogram-automator'),assert=require('assert/strict'),fs=require('fs');const pause=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{const m=await a.connect({wsEndpoint:'ws://127.0.0.1:9973'});const root='C:/Users/Administrator/.codex/artifacts/finance-joint-20261117/run1/';try{const h=JSON.parse(fs.readFileSync(root+'handles.json','utf8'));let p=await m.reLaunch('/pages/admin/finance-desk/index?view=projects');await pause(1500);
+ const state=()=>m.evaluate(()=>{const d=getCurrentPages().slice(-1)[0].data;return {view:d.view,wbForm:d.wbForm,wbError:d.wbError,bookEntries:d.bookEntries,bookName:d.bookName,books:d.financeProjects};});
+ const button=async text=>{for(const e of await p.$$('button'))if((await e.text()).trim()===text)return e;throw Error('Missing button '+text);};
+ const click=async text=>{await(await button(text)).tap();await pause(200);};
+ const input=async(field,value)=>{const e=await p.$('input[data-field="'+field+'"]');assert.ok(e,field);await e.input(value);await pause(90);};
+ // Visit filters and search using real controls.
+ await click('项目');assert.equal((await state()).books.length,1);await click('全部');const search=await p.$('.book-search input');await search.input('张先生');await pause(400);assert.ok((await state()).books.length>=1);await click('清空');await pause(400);
+ let s=await state(),book=s.books.find(b=>b.scope===h.earlyBookScope);
+ if(!book){await click('新建账本');await input('name','张先生前期账·联调');await m.screenshot({path:'docs/finance-live-20261117/13-new-book-form.png'});await click('保存登记');await pause(900);s=await state();assert.equal(s.wbForm,null,s.wbError);book=s.books.find(b=>b.name==='张先生前期账·联调');assert.ok(book);h.earlyBookScope=book.scope;fs.writeFileSync(root+'handles.json',JSON.stringify(h,null,2));}
+ await(await p.$('button[data-url="'+book.url+'"]')).tap();await pause(1000);p=await m.currentPage();assert.equal((await state()).view,'book');
+ for(const spec of [{label:'登记收款',name:'前期定金补记·联调',amount:'1000.00',counterparty:'张先生',shot:'14-receipt-form'},{label:'登记付款',name:'现场运输费·联调',amount:'860.00',counterparty:'运输商',shot:'15-expense-form'}]){
+  await click(spec.label);await input('name',spec.name);await input('amount',spec.amount);await input('counterparty',spec.counterparty);await input('accountName','公司银行');await m.screenshot({path:'docs/finance-live-20261117/'+spec.shot+'.png'});await click('保存登记');await pause(1100);s=await state();assert.equal(s.wbForm,null,s.wbError);
+ }
+ await m.evaluate(()=>{wx.pageScrollTo({scrollTop:0,duration:0})});await pause(150);await m.screenshot({path:'docs/finance-live-20261117/16-early-book.png'});
+ await click('关联工程');const picker=await p.$('picker[data-field="scope"]');const index=await m.evaluate(id=>getCurrentPages().slice(-1)[0].data.workbenchBooks.findIndex(b=>b.scope==='project:'+id),h.project.id);await picker.trigger('change',{value:index});await click('保存登记');await pause(1000);assert.equal((await state()).wbForm,null);
+ p=await m.reLaunch('/pages/admin/finance-desk/index?view=book&bookScope=project:'+h.project.id);await pause(1200);await click('费用明细');await pause(150);await m.screenshot({path:'docs/finance-live-20261117/17-project-costs.png'});assert.equal((await state()).bookEntries.length,3);await click('员工往来');await m.screenshot({path:'docs/finance-live-20261117/18-project-employee.png'});await click('收支流水');const row=(await p.$$('.book-transaction'))[0];await row.tap();await pause(200);await m.screenshot({path:'docs/finance-live-20261117/19-entry-detail.png'});await click('关闭');
+ fs.writeFileSync('docs/finance-live-20261117/books-native-result.json',JSON.stringify({passed:true,checks:['scope filters','search','new early book','receipt via UI','expense via UI','link early book to project','cost excludes reimbursement','employee tab','cash tab','entry detail']},null,2));console.log('10 native book checks passed');
+ }finally{m.disconnect();}})().catch(e=>{console.error(e.stack);process.exitCode=1});

@@ -1,0 +1,15 @@
+{
+  "taps": [
+    4,
+    17
+  ],
+  "expected": {
+    "route": "pages/admin/finance-desk/index",
+    "view": "flows"
+  },
+  "observed": {
+    "route": "pages/profile/index",
+    "navigating": false,
+    "pending": null
+  }
+}

@@ -1,0 +1,62 @@
+<wxs src="../../../utils/tone.wxs" module="st"/>
+<view class="commission-page {{view==='admin'||view==='projects'?'commission-admin sales-page workbench-page':''}}">
+ <brand-header wx:if="{{view==='admin'||view==='projects'}}" branded divider="{{true}}" title="{{title}}"/>
+ <business-header wx:else title="{{title}}"/>
+ <view class="commission-body">
+  <view wx:if="{{error && view!=='admin' && !(primary||canReturn)}}" class="commission-error" role="alert">{{error}}</view>
+  <block wx:if="{{view==='admin'}}">
+   <view class="admin-greeting"><text>你好，{{adminName}}</text><text class="hint">{{adminDate}}</text></view>
+   <view class="admin-metrics"><button wx:for="{{metrics}}" wx:key="label" class="admin-metric" data-filter="{{item.filter}}" bindtap="openMetric"><view class="admin-metric-top"><image src="{{item.icon}}" mode="aspectFit"/><view class="chevron"/></view><text class="admin-metric-label">{{item.label}}</text><view><text class="admin-metric-value">{{item.value}}</text><text class="admin-metric-unit"> 项</text></view></button></view>
+   <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">今日待办 {{taskCount}}</text><button class="text-link" data-filter="全部" bindtap="openMetric">查看全部<view class="chevron"/></button></view>
+    <text wx:if="{{error}}" class="commission-error">{{error}}</text><text wx:elif="{{platformStatus==='loading'}}" class="hint">待办加载中…</text>
+    <button wx:for="{{tasks}}" wx:key="id" class="admin-list-row" data-url="{{item.actionUrl}}" bindtap="openTask"><view class="admin-list-copy"><text class="admin-list-name">{{item.name}}</text><text class="hint">{{item.company}} · {{item.detail}}</text></view><text class="{{item.primary?'commission-primary admin-primary':'admin-light-action'}}">{{item.action}}</text><view wx:if="{{!item.primary}}" class="chevron"/></button>
+    <view wx:if="{{!tasks.length&&platformStatus==='ready'}}" class="sales-empty">今日暂无设计待办</view>
+   </view>
+   <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">最近办理</text></view>
+    <button wx:for="{{recent}}" wx:key="id" class="admin-list-row" data-url="{{item.url}}" bindtap="openTask"><view class="admin-initial">{{item.initial}}</view><view class="admin-list-copy"><text class="admin-list-name">{{item.name}}</text><text class="hint">{{item.recentWhen}} · {{item.recentText}}</text></view><text class="admin-light-action">查看记录</text><view class="chevron"/></button>
+    <view wx:if="{{!recent.length}}" class="sales-empty">完成设计或登记下发后，可在这里查看本人最近办理。</view>
+   </view>
+  </block>
+  <block wx:elif="{{view==='projects'}}">
+   <view class="admin-search"><image src="/assets/search.png" mode="aspectFit"/><input value="{{keyword}}" bindinput="searchProjects" placeholder="搜索客户、项目、加盟商或经办业务" confirm-type="search"/></view>
+   <view wx:if="{{projectFilter==='设计与修改'}}" class="admin-combined-filter">当前筛选：设计中与修改中</view>
+   <view class="admin-filters"><button wx:for="{{projectFilters}}" wx:key="label" class="{{projectFilter===item.label?'active':''}}" data-filter="{{item.label}}" bindtap="selectProjectFilter"><text>{{item.label}}</text><text>{{item.count}}</text></button></view>
+   <view class="admin-project-list"><button wx:for="{{projectRows}}" wx:key="id" class="admin-project-row" data-url="{{item.url}}" bindtap="openTask"><view class="admin-project-main"><view class="admin-project-heading"><text>{{item.name}}<text wx:if="{{item.city}}" class="hint"> · {{item.city}}</text></text><text class="admin-status {{item.tone}}">{{item.status}}</text></view><text class="hint">{{item.company}} · 经办{{item.owner}}</text><text class="hint">{{item.detail}}</text></view><view class="chevron"/></button><view wx:if="{{!projectRows.length}}" class="sales-empty">没有符合当前条件的项目。</view></view><button wx:if="{{projectHasMore}}" class="admin-load-more" bindtap="loadMoreProjects">加载更多（已显示 {{projectRows.length}} / {{projectTotal}}）</button>
+  </block>
+  <block wx:else>
+   <view wx:if="{{customer}}" class="commission-card commission-summary"><view class="commission-summary-top"><text class="commission-heading">{{customer.name}}</text><text class="commission-chip {{st.tone(rows[0].value)}}">{{rows[0].value||(isComplete?'业务移交完成':'办理中')}}</text></view><text class="commission-muted">{{customer.city}}<text wx:if="{{rows[1].value}}"> · 当前办理：{{rows[1].value}}</text></text></view>
+   <view wx:if="{{rows.length}}" class="commission-card"><view wx:for="{{rows}}" wx:key="index" wx:if="{{index>1||view==='policy'||view==='pricing'}}" class="commission-row"><text class="commission-muted commission-key">{{item.label}}</text><button wx:if="{{item.file}}" class="commission-file" data-index="{{index}}" bindtap="preview">{{item.value}}</button><text wx:else class="commission-value">{{item.value}}</text></view></view>
+   <view wx:if="{{budgetCard}}" class="commission-card commission-budget">
+    <text class="commission-heading">本项目预算依据</text>
+    <text wx:if="{{budgetReady}}" class="commission-muted">参考预算 V{{budgetBasis.version}} · {{budgetBasis.width}}m × {{budgetBasis.depth}}m · {{budgetBasis.floors}}层 · {{budgetBasis.area}}㎡</text>
+    <block wx:else><text class="commission-muted">当前客户尚无有效参考预算，请先完成预算，再提交设计委托。</text><button class="commission-secondary commission-budget-action" bindtap="completeBudget">先去补齐预算</button></block>
+    <text wx:if="{{budgetNotice&&!form.checked}}" class="commission-muted">{{budgetNotice}}</text>
+   </view>
+   <view wx:if="{{view==='submit'&&pricingQuote}}" class="commission-card commission-pricing-quote">
+    <view class="commission-section-title"><text class="commission-heading">自动计算设计费</text></view>
+    <view class="commission-row"><text class="commission-muted commission-key">预算建筑面积</text><text class="commission-value">{{pricingQuote.area}}㎡</text></view>
+    <view class="commission-row"><text class="commission-muted commission-key">总部设计单价</text><text class="commission-value">¥ {{pricingQuote.rateText}}/㎡</text></view>
+    <view class="commission-row"><text class="commission-muted commission-key">一次性设计费</text><text class="commission-value commission-amount">¥ {{pricingQuote.amountText}}</text></view>
+    <view class="commission-row"><text class="commission-muted commission-key">交付范围</text><text class="commission-value">{{pricingQuote.scope}}</text></view>
+    <view class="commission-row"><text class="commission-muted commission-key">收款主体</text><text class="commission-value">{{pricingQuote.recipient}}</text></view>
+   </view>
+   <view wx:if="{{fields.length}}" class="commission-card">
+    <view wx:for="{{fields}}" wx:key="key" class="commission-field">
+     <text wx:if="{{item.kind!=='check'}}" class="commission-label">{{item.label}}</text>
+     <textarea wx:if="{{item.kind==='textarea'}}" value="{{form[item.key]}}" data-key="{{item.key}}" bindinput="input" auto-height maxlength="3000" placeholder="请填写{{item.label}}"/>
+     <view wx:elif="{{item.kind==='file'}}"><view wx:if="{{!item.locked}}" class="commission-file-actions"><button class="commission-upload" data-key="{{item.key}}" bindtap="chooseFile">{{form[item.key]?'重新选择实际文件':'选择实际文件'}}</button></view><text wx:if="{{item.locked}}" class="commission-muted">总部设计已下发，本次移交不可替换</text><button wx:if="{{form[item.key]}}" class="commission-file" data-key="{{item.key}}" bindtap="preview">{{form[item.key].name}} · 点击预览</button></view>
+     <checkbox-group wx:elif="{{item.kind==='check'}}" data-key="{{item.key}}" bindchange="check"><label class="commission-check"><checkbox value="yes" checked="{{form[item.key]}}" color="#824019"/><text>{{item.label}}</text></label></checkbox-group>
+     <picker wx:elif="{{item.kind==='date'}}" mode="date" value="{{form[item.key]}}" data-key="{{item.key}}" bindchange="input"><view class="commission-input">{{form[item.key]||'请选择日期'}}</view></picker>
+     <picker wx:elif="{{item.kind==='manager'}}" range="{{managerOptions}}" range-key="label" bindchange="chooseManager"><view class="commission-input">{{form.managerName||'请选择另一位有效工程人员'}}<text wx:if="{{!managerOptions.length}}">（暂无，需配置不同员工）</text></view></picker>
+     <view wx:elif="{{item.locked}}" class="commission-input commission-locked">{{form[item.key]}}</view>
+     <input wx:else value="{{form[item.key]}}" type="{{item.kind==='money'?'digit':'text'}}" data-key="{{item.key}}" bindinput="input" placeholder="请填写{{item.label}}"/>
+    </view>
+   </view>
+   <button wx:if="{{canFeedback}}" class="commission-secondary" bindtap="openFeedback">登记客户修改意见</button>
+   <view wx:if="{{canFeeDecide}}" class="commission-card"><text class="commission-heading">历史费用例外审批</text><text class="commission-muted">需由另一位门店老板核对；同员工切换老板岗不能批准本人申请。</text><textarea value="{{form.feeNote}}" data-key="feeNote" bindinput="input" placeholder="审批说明 / 退回原因"/><view class="commission-actions"><button class="commission-secondary" data-approve="false" disabled="{{busy}}" bindtap="decideFee">退回修改</button><button class="commission-primary" data-approve="true" disabled="{{busy}}" bindtap="decideFee">批准本版费用</button></view></view>
+   <view wx:if="{{primary||canReturn}}" class="commission-action-panel"><view wx:if="{{error}}" class="commission-error" role="alert">{{error}}</view><view class="commission-actions"><button wx:if="{{canReturn}}" class="commission-secondary" bindtap="returnPacket">退回补充</button><button wx:if="{{primary}}" class="commission-primary" loading="{{busy}}" disabled="{{busy}}" bindtap="submit">{{primary}}</button></view></view>
+  </block>
+ </view>
+ <view wx:if="{{preview}}" class="commission-mask" bindtap="closePreview"><view class="commission-card"><text class="commission-heading">{{preview.name}}</text><text class="commission-value">{{preview.text}}</text><button class="commission-primary" bindtap="closePreview">关闭预览</button></view></view>
+</view>
+<custom-tab-bar wx:if="{{view==='admin'||view==='projects'}}" active-index="{{view==='projects'?20:19}}" nested="{{true}}"/>

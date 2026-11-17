@@ -19,13 +19,15 @@ module.exports = function attach(page, financeApi, PF) {
     target.__financeBusyOwner = null; target.setData({ busy: false, ...patch }); return true;
   };
   page.openRegister = function (e) {
+    if (this.data.registerBusy || this.data.wbBusy || this.data.busy) return;
     const type = e.currentTarget.dataset.type;
     if (!['receipt', 'payment', 'refund', 'expense-refund', 'payable'].includes(type)) return;
     this.registerIdem = null; // M08-T04：新开表单换新键
-    const form = {};
+    const form = {payDate:require('../../../utils/account').localDate(),receivedDate:require('../../../utils/account').localDate()};
     // M08-T05/R04：退款/支出退回均预填真实今日（日期必填——picker 显示实际值，用户可改；不冒充已填）
     if (type === 'expense-refund' || type === 'refund') form.date = require('../../../utils/account').localDate();
-    this.setData({ registerType: type, registerForm: form, registerError: '' });
+    this.wbGeneration = (this.wbGeneration || 0) + 1;
+    this.setData({ wbForm: null, wbError: '', bookEntryDetail:null, registerType: type, registerForm: form, registerError: '' });
   };
   page.cancelRegister = function () {
     this.registerIdem = null; // M08-T04：放弃表单换新键
@@ -36,19 +38,20 @@ module.exports = function attach(page, financeApi, PF) {
   };
   page.registerInput = function (e) {
     const field = e.currentTarget.dataset.field;
-    const value = field === 'method' ? ['bank', 'cash', 'other'][Number(e.detail.value)] : e.detail.value;
+    const value = field === 'method' ? ['bank', 'cash', 'other'][Number(e.detail.value)] : field === 'refundFundingType' ? [undefined,'COMPANY','EMPLOYEE'][Number(e.detail.value)] : field === 'fundingType' ? ['COMPANY','EMPLOYEE'][Number(e.detail.value)] : e.detail.value;
     this.setData({ ['registerForm.' + field]: value });
   };
   page.registerPick = function (e) {
     const field = e.currentTarget.dataset.field;
     const idx = Number(e.detail.value);
+    if(field==='payerUserId'){const row=(this.data.workbenchStaff||[])[idx];if(row)this.setData({'registerForm.payerUserId':row.id,'registerForm.payerName':row.name});return;}
     const reg = this.data.platformRegister || {};
     const options = field === 'payableId' ? (reg.payables || [])
       : field === 'paymentId' ? (reg.expenseRefundable || [])
       : (reg.refundable || []);
     const choice = options[idx];
     if (!choice) return;
-    this.setData({ ['registerForm.' + field]: choice.id, ['registerForm.' + field + 'Label']: choice.label });
+    this.setData({ ['registerForm.' + field]: choice.id, ['registerForm.' + field + 'Label']: choice.label,...(field==='payableId'?{'registerForm.allowEmployee':['design','manual'].includes(choice.sourceType),'registerForm.fundingType':'COMPANY'}:{}) });
   };
   page.registerUpload = function () {
     wx.chooseMessageFile({ count: 1, type: 'file', extension: ['pdf', 'png', 'jpg', 'jpeg'],
@@ -124,7 +127,7 @@ module.exports = function attach(page, financeApi, PF) {
     } else if (type === 'payment') {
       if (!form.payableId) return fail('请选择关联应付');
       body = { payableId: String(form.payableId), amountCents: amount, // M08-T07：雪花串逐字一致（Number 截断 >2^53）
-        payDate: form.payDate || undefined, transactionNo: (form.transactionNo || '').trim() || undefined };
+        accountName:form.accountName,fundingType: form.fundingType || 'COMPANY', payerUserId: form.payerUserId, payerName: form.payerName, payDate: form.payDate || undefined, transactionNo: (form.transactionNo || '').trim() || undefined };
       call = financeApi.registerPayment;
     } else if (type === 'refund') {
       if (!form.receiptId) return fail('请选择关联收款');
@@ -143,7 +146,7 @@ module.exports = function attach(page, financeApi, PF) {
       const src = (reg.expenseRefundable || []).find(r => String(r.id) === String(form.paymentId));
       if (src && amount > src.refundableCents) return fail('超过该付款单剩余可退回金额，请刷新余额');
       // R2 P1：日期兜底真实今日（picker 预填后仍防清空提交）；更正链携 replacesId
-      body = { paymentId: String(form.paymentId), amountCents: amount, reason: (form.reason || '').trim(),
+      body = { fundingType:form.refundFundingType, paymentId: String(form.paymentId), amountCents: amount, reason: (form.reason || '').trim(),
         date: form.date || require('../../../utils/account').localDate(),
         transactionNo: (form.transactionNo || '').trim() || undefined,
         replacesId: form.replacesId ? String(form.replacesId) : undefined };
@@ -168,10 +171,12 @@ module.exports = function attach(page, financeApi, PF) {
       : Promise.resolve());
     withVoucher
       .then(() => { if (!alive()) return; return call(body, idem); })
-      .then(() => {
+      .then(result => {
         if (!alive()) return; // 身份/代次过期不得清理新表单
-        wx.showToast({ title: '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();
+        if(this.financeEntrySaved)this.financeEntrySaved(type,form,result);
+        wx.showToast({ title: '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();if(this.loadWorkbench)this.loadWorkbench();
         if (this.loadDesignFees) this.loadDesignFees();
+        if(this.refreshFinanceTasks)this.refreshFinanceTasks();
       })
       .catch(err => { if (alive()) this.setData({ registerError: PF.errorMessage(err) }); })
       .finally(() => { if (alive()) this.setData({ registerBusy: false }); });

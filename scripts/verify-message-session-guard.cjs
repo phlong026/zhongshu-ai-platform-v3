@@ -25,7 +25,7 @@ const assert = require('node:assert/strict');
   };
   const holdHandler = data => { const h = options => { holds.push({ resolve: d => options.success({ statusCode: 200, data: { code: 0, data: d } }), data }); }; handlers.push(h); };
   const replyHandler = data => { handlers.push(options => options.success({ statusCode: 200, data: { code: 0, data } })); };
-  const MSG = (id, title) => [{ id, type: 'BUSINESS', title, description: '', read: false, route: '', objectId: null, createTime: '2026-11-01T09:00:00+08:00' }];
+  const MSG = (id, title) => ({items:[{ id, type: 'BUSINESS', title, description: '', read: false, route: '', objectId: null, createTime: '2026-11-01T09:00:00+08:00' }],unread:2,pending:0,snapshotAt:'2026-11-17T09:00:00+08:00'});
   const ID_A = '9007199254740999002', ID_B = '9007199254740999001';
 
   const http = require('../miniprogram/api/http');
@@ -54,7 +54,6 @@ const assert = require('node:assert/strict');
   holdHandler(MSG(ID_A, 'A-消息'));           // 列表#1（A 数据，挂起）
   page.syncApiMessages();
   replyHandler(MSG(ID_B, 'B-消息'));           // 列表#2（B 数据，即时）
-  replyHandler({ count: 2 });                  // B 链的 unread
   page.syncApiMessages();
   await wait(30);
   ok((page.apiMessages || []).some(m => m.title === 'B-消息'), '后发起的 B 刷新已应用');
@@ -72,7 +71,6 @@ const assert = require('node:assert/strict');
   auth.savePosts([{ postId: 11, roleCode: 'sales', orgType: 'store' }]);
   http.saveSession({ postId: 11 });
   replyHandler(MSG(ID_B, 'B-消息'));
-  replyHandler({ count: 2 });
   page.syncApiMessages();
   await wait(30);
   ok((page.apiMessages || []).some(m => m.title === 'B-消息'), 'B 会话消息应用');

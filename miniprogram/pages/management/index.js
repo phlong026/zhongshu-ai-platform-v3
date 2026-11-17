@@ -2,7 +2,7 @@
 // workbench; guests see the login guide and unrelated roles see an empty state.
 const X = require('../../utils/access');
 
-Page({
+require('../../utils/sales-native-tab').register('customers', {
   data: { allowed: false, loggedIn: false, role: '', guest: false, active: false, homeTitle: '', deskTitle: '管理工作台' },
   onShow() {
     // 联合调试修复（2026-11-08）：路由必须先走 API 岗位——纯 API 登录（微信一键/短信）下

@@ -1,3 +1,4 @@
+const {day:financeDay}=require('./finance-date');
 /**
  * 平台财务视图模型（纯函数，零 wx/Storage 依赖——隔离验收依赖此约束）。
  * 五态判定 + 台账合并 + 指标聚合 + 登记表单映射 + 封存入口过滤。
@@ -23,7 +24,7 @@ function shortcuts(headquarters) {
   const entry = (label, type) => ({ label, type, icon: '/assets/money.png', url: '' });
   return headquarters
     ? [entry('确认到账', 'receipt'), entry('退款登记', 'refund'), ledger]
-    : [entry('收款登记', 'receipt'), entry('付款登记', 'payment'), entry('应付登记', 'payable'), ledger];
+    : [entry('收款登记', 'receipt'), entry('付款登记', 'payment'), entry('报销办理', 'reimbursement'), ledger];
 }
 
 /** 登记金额：元字符串 → 分（严格十进制，拒绝逗号/超两位小数/科学计数法/非正数/超上限；非法 → null） */
@@ -41,27 +42,27 @@ function toCents(input) {
  * 不进入月度过滤与指标净额；核实补正后经修订链填入真实日期即回归月度。
  * M08-T08：退款按方向分流——client=客户退款（流出−）；expense=支出退回（供应商/劳务回流+）。 */
 function ledgerRows(receipts, payments, refunds, month) {
-  const monthOf = r => String(r.receivedDate || r.payDate || r.date || '').slice(0, 7);
+  const monthOf = r => financeDay(r.receivedDate || r.payDate || r.date).slice(0, 7);
   const rows = [];
   for (const r of receipts || []) {
     if (r.status !== '已登记') continue;
-    const date = r.receivedDate || '待归月';
+    const date = financeDay(r.receivedDate) || '待归月';
     rows.push({ key: 'r-' + r.id, type: '收款', sign: '+', name: r.name, amountCents: r.amountCents,
       date, pendingDate: !r.receivedDate, status: r.status, id: r.id,
       revisionVersion: r.revisionVersion });
   }
   for (const p of payments || []) {
     if (p.status !== '已核实') continue;
-    const date = p.payDate || '待归月';
-    rows.push({ key: 'p-' + p.id, type: '付款', sign: '−', name: '付款', amountCents: p.amountCents,
+    const date = financeDay(p.payDate) || '待归月';
+    rows.push({ key: 'p-' + p.id, type: p.fundingType === 'EMPLOYEE' ? '员工垫付' : '付款', sign: '−', name: '付款', amountCents: p.amountCents,
       date, pendingDate: !p.payDate, status: p.status, id: p.id });
   }
   for (const rf of refunds || []) {
     if (rf.status !== '已核实') continue;
     const expense = rf.refundDirection === 'expense';
-    const date = rf.date || '待归月';
+    const date = financeDay(rf.date) || '待归月';
     rows.push({ key: 'f-' + rf.id, type: expense ? '支出退回' : '退款', sign: expense ? '+' : '−',
-      name: expense ? '支出退回' : '客户退款', amountCents: rf.amountCents,
+      name: expense ? (rf.fundingType==='EMPLOYEE'?'退回员工个人':'支出退回') : '客户退款', amountCents: rf.amountCents,
       date, pendingDate: !rf.date, status: rf.status, id: rf.id });
   }
   const filtered = month ? rows.filter(r => monthOf(r) === month) : rows;
@@ -72,18 +73,19 @@ function ledgerRows(receipts, payments, refunds, month) {
  * 单列待归月，不进已核实月度净额（与 ledgerRows 的 monthOf 语义一致）。
  * M08-T08：refunded 只计 client 方向——expense 支出退回是付款回流，不属于对客退款统计。 */
 function metrics(receipts, payments, refunds, month) {
-  const inMonth = (r, field) => !!month && String(r[field] || '').slice(0, 7) === month; // month 空串护栏（Codex R1 边界）
+  const inMonth = (r, field) => !!month && financeDay(r[field]).slice(0, 7) === month; // month 空串护栏（Codex R1 边界）
   const received = (receipts || []).filter(r => r.status === '已登记' && inMonth(r, 'receivedDate'))
     .reduce((a, r) => a + (r.amountCents || 0), 0);
-  const paid = (payments || []).filter(p => p.status === '已核实' && inMonth(p, 'payDate'))
+  const paid = (payments || []).filter(p => p.status === '已核实' && p.fundingType !== 'EMPLOYEE' && inMonth(p, 'payDate'))
     .reduce((a, p) => a + (p.amountCents || 0), 0);
   const refunded = (refunds || []).filter(r => r.status === '已核实' && r.refundDirection !== 'expense' && inMonth(r, 'date'))
     .reduce((a, r) => a + (r.amountCents || 0), 0);
-  const metricYuan = cents => cents === 0 ? '0.00' : yuan(cents);
+  const expenseReturned = (refunds || []).filter(r => r.status === '已核实' && r.refundDirection === 'expense' && r.fundingType !== 'EMPLOYEE' && inMonth(r, 'date')).reduce((a,r)=>a+(r.amountCents||0),0);
+  const metricYuan = cents => (cents / 100).toFixed(2);
   return {
     received: metricYuan(received),
     paid: metricYuan(paid),
-    refunded: metricYuan(refunded)
+    refunded: metricYuan(refunded), expenseReturned: metricYuan(expenseReturned), net: metricYuan(received + expenseReturned - paid - refunded)
   };
 }
 
@@ -117,7 +119,7 @@ function payableProgress(payables, payments, refunds) {
     const pending = payment.pendingLinkCents == null ? 0 : cents(payment.pendingLinkCents, '待关联', true);
     if (pending > amount) throw new Error('付款待关联金额超过付款金额，请刷新重试');
     const payableId = String(payment.payableId);
-    activePayments.set(paymentId, { payableId });
+    activePayments.set(paymentId, { payableId, pendingRemaining:pending });
     paidByPayable.set(payableId, (paidByPayable.get(payableId) || 0) + amount - pending);
   }
   for (const refund of refunds) {
@@ -128,11 +130,17 @@ function payableProgress(payables, payments, refunds) {
     const payment = activePayments.get(paymentId);
     if (!payment) continue;
     const amount = cents(refund.amountCents, '支出退回', false);
-    paidByPayable.set(payment.payableId, (paidByPayable.get(payment.payableId) || 0) - amount);
+    const returnedUnallocated=Math.min(amount,payment.pendingRemaining);
+    payment.pendingRemaining-=returnedUnallocated;
+    paidByPayable.set(payment.payableId, (paidByPayable.get(payment.payableId) || 0) - (amount-returnedUnallocated));
   }
   return payables.map(payable => {
     if (!payable || payable.id == null) throw new Error('应付数据缺少编号，请刷新重试');
-    const totalCents = cents(payable.totalCents, '应付', false);
+    let totalCents = cents(payable.totalCents, '应付', true);
+    if(payable.sourceType==='reimbursement'){
+      const origin=allPayments.get(String(payable.sourceRef));
+      totalCents=origin&&origin.status==='已核实'?origin.amountCents-(refunds||[]).filter(r=>r.status==='已核实'&&r.refundDirection==='expense'&&r.fundingType==='EMPLOYEE'&&String(r.paymentId)===String(origin.id)).reduce((n,r)=>n+r.amountCents,0):0;
+    }
     const paidCents = paidByPayable.get(String(payable.id)) || 0;
     const remainingCents = Math.max(0, totalCents - paidCents);
     return { ...payable, totalCents, paidCents, remainingCents,

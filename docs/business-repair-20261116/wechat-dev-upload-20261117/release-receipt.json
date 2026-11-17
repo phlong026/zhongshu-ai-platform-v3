@@ -1,0 +1,71 @@
+{
+  "version": "1.0.20261117.0926",
+  "appid": "wxe584f6fad7b54487",
+  "channel": "WeChat developer version",
+  "uploaded": true,
+  "officialCliResult": "upload success / exit 0",
+  "sourceFiles": 901,
+  "sourceSha256": "7de9ce0c7f15387a1f19a7303d9432cc8288ce0008f1ea2280409ce4aedb00b1",
+  "sourceUnchangedAfterUpload": true,
+  "previewSameSourceAndPackageSizes": true,
+  "paymentMode": "SIMULATION",
+  "uploadPackage": {
+    "size": {
+      "total": 7627170,
+      "packages": [
+        {
+          "name": "TOTAL",
+          "size": 7627170
+        },
+        {
+          "name": "main",
+          "size": 1907748
+        },
+        {
+          "name": "/design-migration/",
+          "size": 512151
+        },
+        {
+          "name": "/pages/account/",
+          "size": 1080599
+        },
+        {
+          "name": "/pages/admin/",
+          "size": 468023
+        },
+        {
+          "name": "/pages/ai-video/",
+          "size": 19326
+        },
+        {
+          "name": "/pages/build/",
+          "size": 1025901
+        },
+        {
+          "name": "/pages/creation/",
+          "size": 8151
+        },
+        {
+          "name": "/pages/design/",
+          "size": 236687
+        },
+        {
+          "name": "/pages/growth/",
+          "size": 18688
+        },
+        {
+          "name": "/pages/studio/",
+          "size": 397620
+        },
+        {
+          "name": "/pages/wallet/",
+          "size": 12451
+        },
+        {
+          "name": "/pages/workflow/",
+          "size": 1939825
+        }
+      ]
+    }
+  }
+}

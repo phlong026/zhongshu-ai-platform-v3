@@ -412,33 +412,57 @@ test('用户名连续输入仅在停顿后匹配最后一次输入，短查询�
  assert.deepEqual(queries,['peihuorong']);assert.equal(env.page.data.matchBusy,false);
 });
 
-test('用户名唯一匹配时自动选中，匹配本身不触发账号登录', async () => {
- const clock=matchingClock();let logins=0;
- const account={accountId:'one',loginName:'peihuorong',personName:'裴火荣',roleName:'老板'};
- const env=createPage({...clock,auth:{accountMatches:async()=>({items:[account]}),accountLogin:async()=>{logins++;}}});
- typeAccount(env,'裴火荣');clock.advance(300);await flush();
- assert.equal(env.page.data.selectedAccount.accountId,'one');assert.equal(logins,0);
+for(const account of [
+ {accountId:'boss',loginName:'hjmz-jxnc-gaoxinquhejiameizhai',personName:'裴火荣',roleName:'老板',query:'裴火'},
+ {accountId:'sales',loginName:'lili',personName:'李丽',roleName:'业务员',query:'li'}
+])test('部分用户名唯一匹配后补全完整用户名，不重复匹配或触发登录：'+account.roleName, async () => {
+ const clock=matchingClock(),queries=[];let logins=0;
+ const env=createPage({...clock,auth:{accountMatches:async q=>{queries.push(q);return{items:[account]};},accountLogin:async()=>{logins++;}}});
+ typeAccount(env,account.query);clock.advance(300);await flush();
+ assert.equal(env.page.data.selectedAccount.accountId,account.accountId);
+ assert.equal(env.page.data.form.accountQuery,account.loginName);
+ clock.advance(500);await flush();assert.deepEqual(queries,[account.query]);assert.equal(logins,0);
  assert.equal(env.saved.length,0);assert.equal(env.navigated.length,0);
 });
 
 test('用户名多个匹配由用户选择，未选择不能登录，选择后使用对应账号', async () => {
  const clock=matchingClock();let submitted;
  const env=createPage({...clock,auth:{accountMatches:async()=>({items:[{accountId:'a',loginName:'lili'},{accountId:'b',loginName:'lili2'}]}),accountLogin:async id=>{submitted=id;return{accessToken:'token',userId:7};}}});
- typeAccount(env,'lili');clock.advance(300);await flush();
+ typeAccount(env,'li');clock.advance(300);await flush();
  assert.equal(env.page.data.accountMatches.length,2);assert.equal(env.page.data.selectedAccount,null);
+ assert.equal(env.page.data.form.accountQuery,'li');
  env.page.data.form.password='123456';env.page.accountLogin();assert.equal(submitted,undefined);
  env.page.selectAccount({currentTarget:{dataset:{accountId:'b'}}});
+ assert.equal(env.page.data.form.accountQuery,'lili2');assert.equal(env.page.data.form.password,'');
  env.page.data.form.password='123456';env.page.accountLogin();await flush();await flush();
  assert.equal(submitted,'b');assert.equal(env.saved.length,1);
+});
+
+test('切换候选同步补全用户名，修改补全结果后清除原账号和密码并重新匹配', async () => {
+ const clock=matchingClock(),queries=[];
+ const accounts=[{accountId:'a',loginName:'lili'},{accountId:'b',loginName:'lili2'}];
+ const env=createPage({...clock,auth:{accountMatches:async q=>{queries.push(q);return{items:accounts};}}});
+ typeAccount(env,'li');clock.advance(300);await flush();
+ env.page.selectAccount({currentTarget:{dataset:{accountId:'b'}}});
+ assert.equal(env.page.data.form.accountQuery,'lili2');
+ env.page.data.form.password='old-password';
+ env.page.selectAccount({currentTarget:{dataset:{accountId:'a'}}});
+ assert.equal(env.page.data.form.accountQuery,'lili');assert.equal(env.page.data.form.password,'');
+ clock.advance(500);await flush();assert.deepEqual(queries,['li']);
+ env.page.data.form.password='other-password';typeAccount(env,'lil');
+ assert.equal(env.page.data.selectedAccount,null);assert.equal(env.page.data.form.password,'');
+ assert.equal(env.page.data.accountMatches.length,0);assert.equal(env.page.data.form.accountQuery,'lil');
+ clock.advance(300);await flush();assert.deepEqual(queries,['li','lil']);
+ assert.equal(env.page.data.selectedAccount,null);assert.equal(env.page.data.form.accountQuery,'lil');
 });
 
 test('旧用户名匹配响应晚于新响应时，不能覆盖新选择', async () => {
  const clock=matchingClock(),first=deferred(),second=deferred();
  const env=createPage({...clock,auth:{accountMatches:q=>q==='first'?first.promise:second.promise}});
  typeAccount(env,'first');clock.advance(300);typeAccount(env,'second');clock.advance(300);
- second.resolve({items:[{accountId:'second',loginName:'second'}]});await flush();
+ second.resolve({items:[{accountId:'second',loginName:'second-full'}]});await flush();
  first.resolve({items:[{accountId:'first',loginName:'first'}]});await flush();
- assert.equal(env.page.data.selectedAccount.accountId,'second');assert.equal(env.page.data.form.accountQuery,'second');
+ assert.equal(env.page.data.selectedAccount.accountId,'second');assert.equal(env.page.data.form.accountQuery,'second-full');
 });
 
 test('清空用户名取消待执行匹配，并清除候选、选择和旧密码', async () => {

@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "at": "2026-11-16T11:44:55.236463+00:00",
+  "health": "UP",
+  "servicesActive": [
+    "zhongshu.service",
+    "zhongshu-platform-b-integration.service",
+    "zhongshu-platform-b-integration-provider.service"
+  ],
+  "budgetId": "2122294524072026113",
+  "revisionId": "2122294524072026114",
+  "customerId": "2122293242514903041",
+  "customerName": "设计上线验收（非真实客户）",
+  "commissionId": "2122294644603621377",
+  "commissionStatus": "DESIGNING",
+  "submissionCount": 1,
+  "budgetVersion": 2,
+  "dimensions": {
+    "width": 12,
+    "depth": 10,
+    "floors": 2,
+    "area": 240
+  },
+  "budgetTotalCents": 42870000,
+  "designFeeCents": 240000,
+  "feeRateCents": 1000,
+  "feeRuleVersion": 1,
+  "savedIdempotencyReplay": true,
+  "archiveRevisionExactMatch": true,
+  "commissionFrozenRevisionExactMatch": true,
+  "paymentCents": 0,
+  "receiptCents": 0,
+  "testEstimates": 2,
+  "companyPointCost": 2,
+  "httpMocked": false
+}

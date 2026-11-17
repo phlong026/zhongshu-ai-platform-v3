@@ -1,3 +1,5 @@
+<block wx:if="{{salesNative}}"><include src="../../templates/sales-customers.wxml"/></block>
+<block wx:else>
 <view class="page management-page workbench-page">
   <view class="workbench-header"><brand-header id="management-workbench-header" divider="{{true}}" account-font="{{true}}" title="{{deskTitle}}"/></view>
   <view class="content">
@@ -5,3 +7,5 @@
     <workbench-denied wx:else title="请使用对应工作身份查看管理功能" lines="{{['当前身份：'+(role||'未授权'),'团队经营数据、财务汇总和管理审批按岗位授权开放。本人客户及移交进度请在对应工作台查看。']}}" home-title="{{homeTitle||''}}" active="{{active}}" login-label="选择有效工作身份" bind:home="goHome" bind:identity="identity"/>
   </view>
 </view>
+
+</block>
