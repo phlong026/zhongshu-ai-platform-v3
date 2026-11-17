@@ -10,6 +10,11 @@ import java.util.Locale;
  */
 public interface CommissionQueryPort {
 
+    /** Only IDs already authorized by the CRM query may be passed; company scope is mandatory. */
+    default java.util.Map<Long, String> customerDesignStatuses(long companyId, java.util.Collection<Long> customerIds) {
+        return java.util.Map.of();
+    }
+
     /** 按委托编号取当前提交版本的费用视图；不存在返回 null */
     CommissionFeeView findCurrentFee(long commissionId);
 

@@ -67,6 +67,17 @@ public class CustomerService {
     public record TransferCommand(long targetUserId, String reason) {
     }
 
+    @jakarta.annotation.Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.CommissionQueryPort> commissionQueries;
+
+    private void enrichDesignStatus(PostSnapshot post, List<CustomerDO> rows) {
+        if (rows.isEmpty()) return;
+        var commissionQuery = commissionQueries.getIfAvailable();
+        if (commissionQuery == null) return;
+        Map<Long, String> states = commissionQuery.customerDesignStatuses(post.orgId(), rows.stream().map(CustomerDO::getId).toList());
+        rows.forEach(row -> row.setDesignStatus(states.get(row.getId())));
+    }
+
     private final CustomerMapper customerMapper;
     private final CustomerFollowMapper followMapper;
     private final CustomerSchemeMapper schemeMapper;
@@ -88,17 +99,22 @@ public class CustomerService {
 
     public Detail get(PostSnapshot post, long customerId) {
         CustomerDO customer = requireReadable(post, customerId);
+        enrichDesignStatus(post, List.of(customer));
         return new Detail(customer, followMapper.selectByCustomer(customerId), schemeMapper.selectByCustomer(customerId));
     }
 
     public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword) {
-        return customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword);
+        PageResult<CustomerDO> result = customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword);
+        enrichDesignStatus(post, result.getList());
+        return result;
     }
 
     /** Web 客资表格：在可见范围内追加状态/负责人筛选。 */
     public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword,
                                        String status, Long ownerUserId) {
-        return customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword, status, ownerUserId);
+        PageResult<CustomerDO> result = customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword, status, ownerUserId);
+        enrichDesignStatus(post, result.getList());
+        return result;
     }
 
     /** 负责人筛选名册：可见范围内出现过的负责人（含已停用账号，历史客资仍需按原负责人筛）。 */

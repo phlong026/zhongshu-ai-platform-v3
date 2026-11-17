@@ -32,12 +32,12 @@ public interface CrmRespVos {
     record Customer(long id, String name, String phone, String wechat, String source, String province,
                     String city, String summary, String status, long ownerUserId, LocalDate nextVisitDate,
                     OffsetDateTime lastFollowAt, long revision, OffsetDateTime createTime,
-                    String district, String town, String village, String regionCode, String addressDetail) {
+                    String district, String town, String village, String regionCode, String addressDetail, String designStatus) {
         public static Customer of(CustomerDO c) {
             return new Customer(c.getId(), c.getName(), c.getPhone(), c.getWechat(), c.getSource(),
                     c.getProvince(), c.getCity(), c.getSummary(), c.getStatus(), c.getOwnerUserId(),
                     c.getNextVisitDate(), c.getLastFollowAt(), c.getRevision(), c.getCreateTime(),
-                    c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail());
+                    c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail(),c.getDesignStatus());
         }
     }
 
