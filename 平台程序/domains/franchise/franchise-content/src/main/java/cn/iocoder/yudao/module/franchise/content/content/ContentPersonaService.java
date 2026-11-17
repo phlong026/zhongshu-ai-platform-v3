@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.INPUT_INVALID;
+import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.PERSONA_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.CONTENT_FORBIDDEN;
 
 /**
@@ -97,7 +98,7 @@ public class ContentPersonaService {
             throw exception(INPUT_INVALID);
         }
         FrContentPersonaDO row = new FrContentPersonaDO()
-                .setId(IdWorker.getId())
+                .setId(IdWorker.getId()).setVersion(0L)
                 .setCompanyId(companyId)
                 .setAuthorUserId(userId)
                 .setName(name)
@@ -140,7 +141,12 @@ public class ContentPersonaService {
         if (body.containsKey("sampleScript")) row.setSampleScript(profileText(body.get("sampleScript"), 2000));
         if (body.containsKey("forbiddenClaims")) row.setForbiddenClaims(profileText(body.get("forbiddenClaims"), 600));
         if (body.containsKey("enabled")) row.setEnabled(Boolean.parseBoolean(String.valueOf(body.get("enabled"))));
-        personas.updateById(row);
+        long expected = body.get("version") == null ? row.getVersion() : ((Number) body.get("version")).longValue();
+        row.setVersion(expected + 1);
+        int count = personas.update(row, new LambdaQueryWrapper<FrContentPersonaDO>()
+                .eq(FrContentPersonaDO::getCompanyId, companyId).eq(FrContentPersonaDO::getId, personaId)
+                .eq(FrContentPersonaDO::getDeleted, false).eq(FrContentPersonaDO::getVersion, expected));
+        if (count != 1) throw exception(PERSONA_VERSION_CONFLICT);
         return row;
     }
 
@@ -175,7 +181,7 @@ public class ContentPersonaService {
         return prompt.toString();
     }
 
-    private static Map<String, Object> snapshotMap(FrContentPersonaDO row) {
+    static Map<String, Object> snapshotMap(FrContentPersonaDO row) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("name", row.getName());
         snapshot.put("who", row.getWho());

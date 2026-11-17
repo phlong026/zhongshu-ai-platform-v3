@@ -18,4 +18,6 @@ public interface FranchiseContentErrorCodes {
     ErrorCode TASK_POOL_FACT_MISSING = new ErrorCode(1_114_000_008, "积分池资金事实缺失，请暂停处理并联系管理员");
     ErrorCode PERSONA_DRAFT_CONFLICT = new ErrorCode(1_114_000_009, "定位草稿已在另一处更新，请选择保留当前填写或使用云端草稿");
 
+    ErrorCode PERSONA_VERSION_CONFLICT = new ErrorCode(1_114_000_010, "正式人物已更新，草稿已保留，请核对最新人物后重新确认");
+    ErrorCode VIDEO_DRAFT_CONFLICT = new ErrorCode(1_114_000_011, "视频草稿已在另一处更新，本机内容已保留，请重新核对");
 }

@@ -39,7 +39,7 @@ class ContentPersonaDraftPgIntegrationTest extends FranchisePgIntegrationTest {
         String key=colleague.getId().toString();
         assertThatThrownBy(()->drafts.get(me(),key)).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(()->drafts.save(me(),key,0,Map.of("name","越权"))).isInstanceOf(RuntimeException.class);
-        assertThat(drafts.save(post(88,33,"sales"),key,0,Map.of("name","同事本人"))).isNotNull();
+        assertThat(drafts.save(post(88,33,"sales"),key,0,Map.of("name","同事本人"),0L,false)).isNotNull();
         assertThat(drafts.get(post(99,33,"boss"),key).exists()).isFalse();
         for(String role:List.of("finance","engineering","guest"))
             assertThatThrownBy(()->drafts.save(post(77,33,role),"new",0,Map.of())).isInstanceOf(RuntimeException.class);
@@ -70,7 +70,7 @@ class ContentPersonaDraftPgIntegrationTest extends FranchisePgIntegrationTest {
     @Test void confirmingAnEditUpdatesTheSamePersonAndAllowsClearingSupplement(){
         var person=personas.create(me(),Map.of("name","张工","who","乡墅顾问","sampleScript","旧口播"));
         String key=person.getId().toString();
-        drafts.save(me(),key,0,Map.of("name","张工","who","","sampleScript",""));
+        drafts.save(me(),key,0,Map.of("name","张工","who","","sampleScript",""),0L,false);
         assertThat(personas.list(33).get(0).getSampleScript()).isEqualTo("旧口播");
         var saved=drafts.publish(me(),key,1);
         assertThat(saved.getId()).isEqualTo(person.getId());
@@ -91,4 +91,43 @@ class ContentPersonaDraftPgIntegrationTest extends FranchisePgIntegrationTest {
             assertThat(accepted).isEqualTo(1);assertThat(drafts.get(me(),"new").revision()).isEqualTo(2);
         }finally{pool.shutdownNow();}
     }
+    @Test void twoEditorsCannotPublishOverAnotherOfficialVersionAndDraftSurvives() {
+        var person=personas.create(me(),Map.of("name","original"));String key=person.getId().toString();
+        var boss=post(99,33,"boss");
+        drafts.save(me(),key,0,Map.of("name","first"),0L,false);
+        drafts.save(boss,key,0,Map.of("name","second"),0L,false);
+        assertThat(drafts.publish(me(),key,1).getVersion()).isEqualTo(1);
+        assertThatThrownBy(()->drafts.publish(boss,key,1)).hasMessageContaining("正式人物已更新");
+        assertThat(drafts.get(boss,key).form()).containsEntry("name","second");
+        assertThat(personas.requireWritable(boss,person.getId()).getName()).isEqualTo("first");
+        drafts.save(boss,key,1,Map.of("name","second edited"),0L,false);
+        assertThatThrownBy(()->drafts.publish(boss,key,2)).hasMessageContaining("正式人物已更新");
+        drafts.save(boss,key,2,Map.of("name","confirmed"),1L,true);
+        assertThat(drafts.publish(boss,key,3).getName()).isEqualTo("confirmed");
+    }
+    @Test void baselineComesFromReadAndLegacyDraftCannotBeBlindlyPublished() {
+        var person=personas.create(me(),Map.of("name","original"));String key=person.getId().toString();
+        var read=drafts.get(me(),key);assertThat(read.personaVersion()).isZero();
+        personas.update(me(),person.getId(),Map.of("name","latest"));
+        drafts.save(me(),key,0,Map.of("name","old edit"),read.personaVersion(),false);
+        assertThatThrownBy(()->drafts.publish(me(),key,1)).hasMessageContaining("正式人物已更新");
+        jdbc.update("UPDATE fr_content_persona_draft SET base_persona_version=NULL WHERE draft_key=?",key);
+        assertThatThrownBy(()->drafts.publish(me(),key,1)).hasMessageContaining("正式人物已更新");
+        assertThatThrownBy(()->drafts.save(me(),key,1,Map.of("name","stale confirmation"),0L,true)).hasMessageContaining("正式人物已更新");
+        assertThat(drafts.get(me(),key).form()).containsEntry("name","old edit");
+    }
+    @Test void simultaneousPublicationsFromDifferentUsersHaveOneWinner() throws Exception {
+        var person=personas.create(me(),Map.of("name","original"));String key=person.getId().toString();
+        var boss=post(99,33,"boss");drafts.save(me(),key,0,Map.of("name","one"),0L,false);drafts.save(boss,key,0,Map.of("name","two"),0L,false);
+        var gate=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+        try {
+            var results=new ArrayList<Future<Boolean>>();
+            for(var actor:List.of(me(),boss))results.add(pool.submit(()->{gate.await();try{drafts.publish(actor,key,1);return true;}catch(cn.iocoder.yudao.framework.common.exception.ServiceException e){return false;}}));
+            gate.countDown();int won=0;for(var result:results)if(result.get(10,TimeUnit.SECONDS))won++;
+            assertThat(won).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_persona_draft WHERE form IS NOT NULL",Integer.class)).isEqualTo(1);
+            assertThat(personas.requireWritable(me(),person.getId()).getVersion()).isEqualTo(1);
+        }finally{pool.shutdownNow();}
+    }
+
 }
