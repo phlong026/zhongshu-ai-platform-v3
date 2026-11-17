@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "errors": [],
+  "scope": "隔离微信开发者工具；本地视频和音频真实播放；接口夹具验证四次独立创建，无付费调用",
+  "screens": 7,
+  "avatarCount": 2,
+  "voiceCount": 2,
+  "returnedWithMaterial": true
+}

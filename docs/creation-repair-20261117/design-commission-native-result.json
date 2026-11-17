@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "errors": [],
+  "recentTasks": 3,
+  "featuredCases": 4,
+  "exported": true,
+  "scope": "隔离接口夹具；微信原生 Canvas 实际生成 PNG；相册写入由夹具代收，未改写真实业务"
+}
