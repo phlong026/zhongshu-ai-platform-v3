@@ -20,6 +20,7 @@ public class FrContentPersonaDO {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
+    private Long version;
     private Long companyId;
     private String name;
     @TableField(updateStrategy = FieldStrategy.ALWAYS)

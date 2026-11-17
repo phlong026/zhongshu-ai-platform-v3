@@ -114,13 +114,12 @@ public class FinRefundService {
             }
         }
         if (txn != null && identity == null) {
-            txnNoMapper.insert(new FinTxnNoDO().setCompanyId(post.orgId()).setTxnNo(txn)
+            try { txnNoMapper.insert(new FinTxnNoDO().setCompanyId(post.orgId()).setTxnNo(txn)
                     .setOwnerType("refund").setOwnerId(refund.getId()).setClosed(false)
-                    .setCreateTime(OffsetDateTime.now()));
+                    .setCreateTime(OffsetDateTime.now())); }
+            catch (org.springframework.dao.DuplicateKeyException occupied) { throw exception(TXN_NO_OCCUPIED); }
         } else if (txn != null && cmd.replacesId() != null) {
-            // 同号更正：身份行 owner 原子切换到新记录
-            identity.setOwnerType("refund").setOwnerId(refund.getId());
-            txnNoMapper.updateById(identity);
+            transferIdentity(post.orgId(), txn, "refund", cmd.replacesId(), refund.getId());
         }
         commands.record(post, "fin-refund", refund.getId(), 1, "fin-refund-register", cmd, idempotencyKey);
         log.info("[register][companyId={} refund={} receipt={} amount={} replaces={}]",
@@ -188,21 +187,24 @@ public class FinRefundService {
             }
         }
         if (txn != null && identity == null) {
-            txnNoMapper.insert(new FinTxnNoDO().setCompanyId(post.orgId()).setTxnNo(txn)
+            try { txnNoMapper.insert(new FinTxnNoDO().setCompanyId(post.orgId()).setTxnNo(txn)
                     .setOwnerType("expense-refund").setOwnerId(refund.getId()).setClosed(false)
-                    .setCreateTime(OffsetDateTime.now()));
+                    .setCreateTime(OffsetDateTime.now())); }
+            catch (org.springframework.dao.DuplicateKeyException occupied) { throw exception(TXN_NO_OCCUPIED); }
         } else if (txn != null && cmd.replacesId() != null) {
-            // 同号更正：身份行必须原属被替代记录，owner 原子切换到新记录（不释放流水号供任意复用）
-            if (!cmd.replacesId().equals(identity.getOwnerId())) {
-                throw exception(TXN_NO_OCCUPIED);
-            }
-            identity.setOwnerType("expense-refund").setOwnerId(refund.getId());
-            txnNoMapper.updateById(identity);
+            transferIdentity(post.orgId(), txn, "expense-refund", cmd.replacesId(), refund.getId());
         }
         commands.record(post, "fin-expense-refund", refund.getId(), 1, "fin-expense-refund", cmd, idempotencyKey);
         log.info("[registerExpense][companyId={} refund={} payment={} amount={} replaces={}]",
                 post.orgId(), refund.getId(), cmd.paymentId(), cmd.amountCents(), cmd.replacesId());
         return refund.getId();
+    }
+
+    private void transferIdentity(long companyId, String txn, String type, long original, long replacement) {
+        // 原归属类型和记录同时匹配；失败会回滚新退款及替代权。
+        if (txnNoMapper.transfer(companyId, txn, type, original, replacement) != 1) {
+            throw exception(TXN_NO_OCCUPIED);
+        }
     }
 
     /** 作废（finance-lead/boss/owner；void_reason 必填；重复作废无二次效果）；余额随状态回补 */

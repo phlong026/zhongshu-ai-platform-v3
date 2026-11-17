@@ -32,20 +32,20 @@ class ContentIpProfilePgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(loaded.getFactualBackground()).isEqualTo("已核实的从业资料");
         assertThat(loaded.getSampleScript()).contains("先讲清预算");
         assertThat(loaded.getForbiddenClaims()).contains("保证零增项");
-        personas.update(33,person.getId(),Map.of("who","乡墅顾问"));
+        personas.update(33,person.getId(),Map.of("version",loaded.getVersion(),"who","乡墅顾问"));
         assertThat(personas.list(33).get(0).getAudienceNeeds()).isEqualTo("预算和采光");
         assertThat(personas.list(34)).isEmpty();
         assertThatThrownBy(()->personas.snapshotOf(34,person.getId())).isInstanceOf(RuntimeException.class);
     }
     @Test void clearingSupplementActuallyClearsDatabaseAndRejectsOversizedInput(){
         var person=personas.create(33,77,profile());
-        personas.update(33,person.getId(),Map.of("sampleScript","", "forbiddenClaims"," ","who","","sell","","audience",""));
+        var updated=personas.update(33,person.getId(),Map.of("version",person.getVersion(),"sampleScript","", "forbiddenClaims"," ","who","","sell","","audience",""));
         assertThat(personas.list(33).get(0).getSampleScript()).isNull();
         assertThat(personas.list(33).get(0).getForbiddenClaims()).isNull();
         assertThat(personas.list(33).get(0).getWho()).isNull();
         assertThat(personas.list(33).get(0).getSell()).isNull();
         assertThat(personas.list(33).get(0).getAudience()).isNull();
-        assertThatThrownBy(()->personas.update(33,person.getId(),Map.of("audienceNeeds","x".repeat(601)))).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(()->personas.update(33,person.getId(),Map.of("version",updated.getVersion(),"audienceNeeds","x".repeat(601)))).isInstanceOf(RuntimeException.class);
         assertThat(personas.list(33).get(0).getAudienceNeeds()).isEqualTo("预算和采光");
     }
     @Test void rewritingReceivesIpFieldsAndKeepsHistoricalSnapshotAfterProfileChanges(){
@@ -60,12 +60,12 @@ class ContentIpProfilePgIntegrationTest extends FranchisePgIntegrationTest {
         String frozen=jdbc.queryForObject("SELECT persona_snapshot::text FROM fr_content_script WHERE task_id=?",String.class,task.getId());
         assertThat(frozen).contains("预算和采光","已核实的从业资料","全网最低");
         assertThat(before.promptText()).contains("不编造资质","不得移植为本人事实","禁用表达");
-        personas.update(33,person.getId(),Map.of("audienceNeeds","抗震与动线"));
+        personas.update(33,person.getId(),Map.of("version",person.getVersion(),"audienceNeeds","抗震与动线"));
         assertThat(jdbc.queryForObject("SELECT persona_snapshot::text FROM fr_content_script WHERE task_id=?",String.class,task.getId())).isEqualTo(frozen);
         assertThat(personas.snapshotOf(33,person.getId()).snapshotJson()).contains("抗震与动线");
     }
     @Test void selectedDisabledPersonCannotSilentlyFallBackToNoPersona(){
-        var person=personas.create(33,77,profile());personas.update(33,person.getId(),Map.of("enabled",false));
+        var person=personas.create(33,77,profile());personas.update(33,person.getId(),Map.of("version",person.getVersion(),"enabled",false));
         assertThatThrownBy(()->personas.snapshotOf(33,person.getId())).isInstanceOf(RuntimeException.class);
         assertThat(personas.snapshotOf(33,null)).isNull();
     }

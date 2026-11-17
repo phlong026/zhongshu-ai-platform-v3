@@ -26,25 +26,49 @@ public class ContentPersonaDraftService {
         this.jdbc=jdbc; this.personas=personas;
     }
     public record Draft(boolean exists, long revision, Map<String,Object> form,
-                        Long publishedRevision, Long publishedPersonaId) {}
+                        Long publishedRevision, Long publishedPersonaId, Long basePersonaVersion,
+                        Long personaVersion, Map<String,Object> personaForm) {}
 
     public Draft get(PostSnapshot post, String key) {
         authorize(post,key);
         var rows=jdbc.queryForList("SELECT * FROM fr_content_persona_draft WHERE company_id=? AND user_id=? AND draft_key=?",
                 post.orgId(),post.userId(),key);
-        return rows.isEmpty()?new Draft(false,0,Map.of(),null,null):view(rows.get(0));
+        Draft stored=rows.isEmpty()?new Draft(false,0,Map.of(),null,null,null,null,Map.of()):view(rows.get(0));
+        if ("new".equals(key)) return stored;
+        var person=personas.requireWritable(post,Long.parseLong(key));
+        var form=ContentPersonaService.snapshotMap(person);
+        form.replaceAll((k,v)->v==null?"":v); form.put("enabled",person.getEnabled());
+        return new Draft(stored.exists(),stored.revision(),stored.form(),stored.publishedRevision(),stored.publishedPersonaId(),
+                stored.basePersonaVersion(),person.getVersion(),form);
     }
 
     @Transactional
     public Draft save(PostSnapshot post, String key, long revision, Map<String,Object> form) {
+        return save(post,key,revision,form,null,false);
+    }
+
+    @Transactional
+    public Draft save(PostSnapshot post, String key, long revision, Map<String,Object> form, Long baseVersion, boolean rebase) {
         authorize(post,key); checkRevision(revision);
+        if (baseVersion != null) checkRevision(baseVersion);
         Map<String,Object> clean=validate(form);
         ensure(post,key);
+        var current=jdbc.queryForMap("SELECT * FROM fr_content_persona_draft WHERE company_id=? AND user_id=? AND draft_key=? FOR UPDATE",
+                post.orgId(),post.userId(),key);
+        Long base=number(current.get("base_persona_version"));
+        if (!"new".equals(key)) {
+            if (current.get("form")==null || rebase) {
+                if (baseVersion==null) throw exception(PERSONA_VERSION_CONFLICT);
+                if (rebase && !baseVersion.equals(personas.requireWritable(post,Long.parseLong(key)).getVersion()))
+                    throw exception(PERSONA_VERSION_CONFLICT);
+                base=baseVersion;
+            } else if (baseVersion!=null && !baseVersion.equals(base)) throw exception(PERSONA_VERSION_CONFLICT);
+        }
         int count=jdbc.update("""
                 UPDATE fr_content_persona_draft SET form=CAST(? AS jsonb),revision=revision+1,
-                    published_revision=NULL,published_persona_id=NULL,updated_at=now()
+                    published_revision=NULL,published_persona_id=NULL,base_persona_version=?,updated_at=now()
                 WHERE company_id=? AND user_id=? AND draft_key=? AND revision=?
-                """,JsonUtils.toJsonString(clean),post.orgId(),post.userId(),key,revision);
+                """,JsonUtils.toJsonString(clean),base,post.orgId(),post.userId(),key,revision);
         if(count!=1)throw exception(PERSONA_DRAFT_CONFLICT);
         return get(post,key);
     }
@@ -61,7 +85,12 @@ public class ContentPersonaDraftService {
         if(draft.publishedRevision()!=null&&draft.publishedRevision()==revision)
             return personas.requireWritable(post,draft.publishedPersonaId());
         if(!draft.exists()||draft.revision()!=revision)throw exception(PERSONA_DRAFT_CONFLICT);
-        var person="new".equals(key)?personas.create(post,draft.form()):personas.update(post,Long.parseLong(key),draft.form());
+        var body=new LinkedHashMap<>(draft.form());
+        if (!"new".equals(key)) {
+            if (draft.basePersonaVersion()==null) throw exception(PERSONA_VERSION_CONFLICT);
+            body.put("version",draft.basePersonaVersion());
+        }
+        var person="new".equals(key)?personas.create(post,body):personas.update(post,Long.parseLong(key),body);
         jdbc.update("""
                 UPDATE fr_content_persona_draft SET form=NULL,revision=revision+1,
                     published_revision=?,published_persona_id=?,updated_at=now()
@@ -98,7 +127,7 @@ public class ContentPersonaDraftService {
         Object form=row.get("form");
         return new Draft(form!=null,((Number)row.get("revision")).longValue(),
                 form==null?Map.of():JsonUtils.parseObject(form.toString(),Map.class),
-                number(row.get("published_revision")),number(row.get("published_persona_id")));
+                number(row.get("published_revision")),number(row.get("published_persona_id")),number(row.get("base_persona_version")),null,Map.of());
     }
     private Long number(Object value){return value==null?null:((Number)value).longValue();}
 }

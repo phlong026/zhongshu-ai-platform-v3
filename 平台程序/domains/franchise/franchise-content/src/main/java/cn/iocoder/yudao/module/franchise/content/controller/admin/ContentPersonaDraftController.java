@@ -17,7 +17,7 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 public class ContentPersonaDraftController {
     @Resource private CurrentPost currentPost;
     @Resource private ContentPersonaDraftService drafts;
-    public record Save(@NotNull @PositiveOrZero Long revision, @NotNull Map<String,Object> form) {}
+    public record Save(@NotNull @PositiveOrZero Long revision, @NotNull Map<String,Object> form, @PositiveOrZero Long basePersonaVersion, boolean rebase) {}
     public record Publish(@NotNull @PositiveOrZero Long revision) {}
     @GetMapping("{key}")
     @PreAuthorize("@post.has('franchise:content:persona','franchise:content:persona:self')")
@@ -27,7 +27,7 @@ public class ContentPersonaDraftController {
     @PutMapping("{key}")
     @PreAuthorize("@post.has('franchise:content:persona','franchise:content:persona:self')")
     public CommonResult<ContentPersonaDraftService.Draft> save(@PathVariable("key") String key,@Valid @RequestBody Save body) {
-        return success(drafts.save(currentPost.require(),key,body.revision(),body.form()));
+        return success(drafts.save(currentPost.require(),key,body.revision(),body.form(),body.basePersonaVersion(),body.rebase()));
     }
     @PostMapping("{key}/publish")
     @PreAuthorize("@post.has('franchise:content:persona','franchise:content:persona:self')")

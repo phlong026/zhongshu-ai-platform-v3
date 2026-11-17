@@ -144,11 +144,12 @@ public class ContentScriptService {
     /** copy 任务成功后补写 optimized_text/engine/model。 */
     public void recordOptimizeResult(FrContentTaskDO task, String optimizedText,
                                      String engine, String model) {
-        jdbcTemplate.update(
+        int written = jdbcTemplate.update(
                 "UPDATE fr_content_script SET optimized_text = ?, engine = ?, model = ?, duration_seconds = ?, "
                         + "update_time = now() WHERE company_id = ? AND task_id = ?",
                 optimizedText, engine, model,
                 ContentBillingCatalog.oralSeconds(optimizedText), task.getCompanyId(), task.getId());
+        if (written != 1) throw new IllegalStateException("改写脚本记录不存在或不唯一");
     }
 
     /** ASR/解析任务成功后落脚本行（source_type=link|upload，raw_text=上游文案/转写）。 */
@@ -171,7 +172,8 @@ public class ContentScriptService {
                 "INSERT INTO fr_content_script (id, company_id, author_user_id, task_id, source_type, source_url, "
                         + "platform, raw_text, requirement, persona_id, persona_snapshot, prompt_snapshot) "
                         + "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb) "
-                        + "WHERE NOT EXISTS (SELECT 1 FROM fr_content_script WHERE task_id = ?)",
+                        + "WHERE NOT EXISTS (SELECT 1 FROM fr_content_script WHERE task_id = ?) "
+                        + "ON CONFLICT (task_id) WHERE task_id IS NOT NULL DO NOTHING",
                 IdWorker.getId(), companyId, userId, taskId,
                 sourceType == null ? "manual" : sourceType, sourceUrl, platform,
                 rawText, requirement, personaId, personaSnapshotJson, promptSnapshotJson, taskId);

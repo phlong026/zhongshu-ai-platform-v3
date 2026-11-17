@@ -48,7 +48,7 @@ public class ContentDraftService {
     /** 任务→作品：SUCCEEDED 任务可转作品；task_kind→draft_kind 映射（digital/ai_video 同名，其余 remix）。 */
     public FrContentDraftDO saveWork(long companyId, long userId, long taskId, String title) {
         FrContentTaskDO task = tasks.requireOwned(companyId, taskId);
-        if (!"SUCCEEDED".equals(task.getStatus())) {
+        if (!"SUCCEEDED".equals(task.getStatus()) || (java.util.Set.of("copy","asr","link_parse").contains(task.getKind()) && !"READY".equals(task.getResultState()))) {
             throw exception(WORK_INVALID);
         }
         FrContentDraftDO existing = drafts.selectByTask(taskId);
@@ -110,33 +110,46 @@ public class ContentDraftService {
 
     // ---------------- 视频草稿（一人一份 upsert） ----------------
 
-    public FrContentVideoDraftDO videoDraft(long companyId, long userId) {
+    public FrContentVideoDraftDO videoDraft(long companyId, long userId) { return videoDraft(companyId,userId,"new"); }
+
+    public FrContentVideoDraftDO videoDraft(long companyId, long userId, String key) {
+        checkVideoKey(companyId,userId,key);
         return videoDrafts.selectOne(new LambdaQueryWrapper<FrContentVideoDraftDO>()
-                .eq(FrContentVideoDraftDO::getAuthorUserId, userId).last("LIMIT 1"));
+                .eq(FrContentVideoDraftDO::getCompanyId,companyId).eq(FrContentVideoDraftDO::getAuthorUserId,userId)
+                .eq(FrContentVideoDraftDO::getDraftKey,key));
     }
 
+    @org.springframework.transaction.annotation.Transactional(rollbackFor=Exception.class)
     public FrContentVideoDraftDO saveVideoDraft(long companyId, long userId, Map<String, Object> body) {
-        String mode = body.get("mode") == null ? "frames" : String.valueOf(body.get("mode"));
-        if (!"frames".equals(mode) && !"reference".equals(mode)) {
-            throw exception(INPUT_INVALID);
-        }
-        FrContentVideoDraftDO existing = videoDraft(companyId, userId);
-        long id = existing == null ? IdWorker.getId() : existing.getId();
-        String parameters = body.get("parameters") == null ? null : JsonUtils.toJsonString(body.get("parameters"));
-        String referenceMedia = body.get("references") == null ? null : JsonUtils.toJsonString(body.get("references"));
-        jdbcTemplate.update(
-                "INSERT INTO fr_content_video_draft (id, company_id, author_user_id, mode, description, "
-                        + "first_frame_asset_id, last_frame_asset_id, parameters, reference_media) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb)) "
-                        + "ON CONFLICT (author_user_id) DO UPDATE SET mode = EXCLUDED.mode, "
-                        + "description = EXCLUDED.description, first_frame_asset_id = EXCLUDED.first_frame_asset_id, "
-                        + "last_frame_asset_id = EXCLUDED.last_frame_asset_id, parameters = EXCLUDED.parameters, "
-                        + "reference_media = EXCLUDED.reference_media, update_time = now()",
-                id, companyId, userId, mode,
-                body.get("description") == null ? null : String.valueOf(body.get("description")),
-                longOrNull(body.get("firstFrameAssetId")), longOrNull(body.get("lastFrameAssetId")),
-                parameters, referenceMedia);
-        return videoDraft(companyId, userId);
+        String key=String.valueOf(body.getOrDefault("draftKey","new"));
+        checkVideoKey(companyId,userId,key);
+        Object value=body.get("revision");
+        if(!(value instanceof Number n)||n.longValue()<0||n.longValue()>=9_007_199_254_740_990L||n.doubleValue()!=n.longValue())throw exception(INPUT_INVALID);
+        long revision=((Number)value).longValue();
+        String mode=String.valueOf(body.getOrDefault("mode","frames"));
+        if(!java.util.Set.of("frames","reference").contains(mode))throw exception(INPUT_INVALID);
+        jdbcTemplate.update("INSERT INTO fr_content_video_draft(id,company_id,author_user_id,draft_key,mode) VALUES(?,?,?,?,'frames') "
+                +"ON CONFLICT(company_id,author_user_id,draft_key) DO NOTHING",IdWorker.getId(),companyId,userId,key);
+        var existing=videoDraft(companyId,userId,key);
+        String parameters=body.containsKey("parameters")?JsonUtils.toJsonString(body.get("parameters")):existing.getParameters();
+        String refs=body.containsKey("references")?JsonUtils.toJsonString(body.get("references")):existing.getReferenceMedia();
+        int changed=jdbcTemplate.update("UPDATE fr_content_video_draft SET mode=?,description=?,first_frame_asset_id=?,last_frame_asset_id=?, "
+                +"parameters=CAST(? AS jsonb),reference_media=CAST(? AS jsonb),revision=revision+1,update_time=now() "
+                +"WHERE company_id=? AND author_user_id=? AND draft_key=? AND revision=?",mode,body.get("description"),
+                body.containsKey("firstFrameAssetId")?longOrNull(body.get("firstFrameAssetId")):existing.getFirstFrameAssetId(),
+                body.containsKey("lastFrameAssetId")?longOrNull(body.get("lastFrameAssetId")):existing.getLastFrameAssetId(),
+                parameters,refs,companyId,userId,key,revision);
+        if(changed!=1)throw exception(cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.VIDEO_DRAFT_CONFLICT);
+        return videoDraft(companyId,userId,key);
+    }
+
+    private void checkVideoKey(long companyId,long userId,String key) {
+        if("new".equals(key))return;
+        if(key==null||!key.matches("task:[1-9][0-9]{0,18}"))throw exception(INPUT_INVALID);
+        try {
+            var task=tasks.requireOwned(companyId,Long.parseLong(key.substring(5)));
+            if(task.getAuthorUserId()!=userId||!"ai_video".equals(task.getKind()))throw exception(TASK_NOT_FOUND);
+        } catch(NumberFormatException e){throw exception(INPUT_INVALID);}
     }
 
     // ---------------- 课程进度 ----------------
