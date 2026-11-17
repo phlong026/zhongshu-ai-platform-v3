@@ -75,6 +75,28 @@ test('media-only link continues through ASR with actual source URL and keeps sou
   assert.equal(h.state.original, '转写完整文案'); assert.equal(h.state.extraction.sourceTitle, '原视频');
 });
 
+for (const mediaField of ['videoUrl', 'audioUrl']) {
+  test(`empty captions and optional caption save failures do not block ${mediaField} transcription`, async () => {
+    for (const resultState of ['PENDING', 'FAILED', 'READY']) {
+      for (const caption of [undefined, null, '', '   ']) {
+        const extracted = [], sourceUrl = 'https://media.example/source';
+        const h = harness('creation/index.js', {
+          links: { parse: async () => ({ taskId: 'parse' }) },
+          scripts: { extract: async body => { extracted.push(plain(body)); return { taskId: 'asr' }; } },
+          poll: async id => id === 'parse'
+            ? { id, status: 'SUCCEEDED', resultState, result: { [mediaField]: sourceUrl, ...(caption === undefined ? {} : { text: caption }) } }
+            : { id, status: 'SUCCEEDED', resultState: 'READY', result: { text: '实际口播转写结果' } }
+        });
+        h.page.data.link = 'https://v.example/video'; await h.page.extract();
+        assert.deepEqual(extracted, [{ sourceUrl }]);
+        assert.deepEqual(h.calls, [['poll', 'parse'], ['poll', 'asr']]);
+        assert.equal(h.state.original, '实际口播转写结果');
+        assert.equal(h.page.data.extractError, ''); assert.equal(h.navigations.length, 1);
+      }
+    }
+  });
+}
+
 const shareTitle = '乡村自建房 花钱最凶的六点 # 泸州自建房# 乡村自建房别墅# 乡村自建房';
 const userShare = '7.64 f@o.qr QkC:/ :6pm 08/03 ' + shareTitle + String.raw`  https\://v.douyin.com/Tldsyq0f8lY/ 复制此链接，打开Dou音搜索，直接观看视频！`;
 
