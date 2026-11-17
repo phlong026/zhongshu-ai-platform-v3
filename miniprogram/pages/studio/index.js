@@ -1,5 +1,5 @@
 const studio = require('../../utils/studio');
-const { assets } = require('../../utils/creation');
+const MaterialLibrary = require('./material-library');
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：七态映射/校验/降级）
 const TaskResult=require('./content-task-result');
 const TaskDisplay=require('./task-display');
@@ -17,12 +17,14 @@ scheduled: { label: '待发布', icon: 'clock', tone: 'warm', action: '查看进
 const textResize = require('../../utils/creation-text-resize');
 Page({
 ...textResize.handlers,
+...MaterialLibrary.handlers,
 data: {
+...MaterialLibrary.data,
 resultLoading:false,resultSaving:false,resultError:'',resultUrlNote:'',
 view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
 ipOptions: ['不指定人物'], personaOptions: [{id:'',name:'不指定人物'}], selectedPersonaId: '', requirement: '',digitalSubmitting:false,digitalRetry:false,
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
-taskCount:0,tasks: [], records: [], works: [], libraryAssets: assets, publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',tasksLoading:false,worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
+taskCount:0,tasks: [], records: [], works: [],  publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',tasksLoading:false,worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
 publishText: '',
 tags: '', cover: '', workId: '', saved: false,
 actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
@@ -61,8 +63,8 @@ if(http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} 
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
 onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if(this.data.sheet==='editor')keyboard.open(this);if (this.options) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);
   },
-onHide() { keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
-onUnload() { keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.destroy();if(this.data.digitalSubmitting)wx.hideLoading(); this.__closed=true; this.persistEditor(); if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); }, // 终止任务轮询（防 UI 长时间占锁）
+onHide() { if(this.data.view==='library')this.materialHide(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
+onUnload() { if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); if(this.data.view==='library')this.materialUnload(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.destroy();if(this.data.digitalSubmitting)wx.hideLoading(); this.__closed=true; this.persistEditor(); }, // 终止任务轮询（防 UI 长时间占锁）
 persistEditor() {
 if(!studio.allowed()||this.actorScope!==studio.scope())return;
 if(this.data.view==='receipt'&&!this.data.receiptSaved&&['publishing','verify'].includes(this.data.detail&&this.data.detail.status)){const state=studio.read();state.publicationLinkDrafts=state.publicationLinkDrafts||{};state.publicationLinkDrafts[this.data.recordId]=this.data.publishedUrlInput;studio.write(state);}
@@ -83,6 +85,7 @@ if (['remix', 'digital'].includes(this.data.view)) { // 编辑器文案（草稿
 const state = studio.read();
 this.setData({ title: state.title, original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), scriptLength: state.script.length, estimatedSeconds: Math.ceil(state.script.replace(/\s/g, '').length / 4), extraction: state.extraction || null, rewriteVersion: (state.rewriteHistory[state.rewriteHistory.length - 1] || {}).version || 0 });
 }
+if (this.data.view === 'library') this.materialInit();
 if (this.data.view === 'tasks') this.syncApiTasks();
 if (this.data.view === 'works') this.syncApiWorks();
 if (this.data.view === 'records') this.syncApiRecords();
@@ -650,7 +653,7 @@ else if (item.id === 'video-draft') wx.navigateTo({ url: '/pages/ai-video/index'
 else if (item.editTask) wx.navigateTo({ url: '/pages/ai-video/index?task=' + encodeURIComponent(item.editTask) });
 else this.go('result', '&task=' + encodeURIComponent(item.taskId));
 },
-previewLibrary(e) { wx.previewImage({ current: e.currentTarget.dataset.path, urls: assets.map(asset => asset.path) }); },
+
 closeSheet() { if (this.data.sheet === 'editor') { keyboard.close(this);wx.showToast({ title: '编辑内容已暂存，可继续编辑', icon: 'none' }); }this.setData({ sheet: '' }); },
 noop() {}
 });

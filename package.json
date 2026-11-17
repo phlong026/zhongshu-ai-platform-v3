@@ -140,7 +140,8 @@
     "check:account-login": "node scripts/verify-account-login.cjs && node scripts/verify-login-dual-channel.cjs && node --test scripts/verify-account-login-behavior.cjs scripts/verify-remember-session.cjs",
     "check:design-migration:native": "node scripts/verify-design-migration-native.cjs",
     "check:creation-flow": "node --test scripts/verify-business-module-migration.cjs scripts/verify-creation-media.cjs scripts/verify-hifly-direct-upload.cjs scripts/verify-sha256-realms.cjs scripts/verify-hifly-formats.cjs",
-    "check:creation-repair": "node --test scripts/verify-creation-input-preview.cjs scripts/verify-clone-multiple-preview.cjs scripts/verify-design-recent.cjs scripts/verify-design-commission-repair.cjs scripts/verify-design-ui.cjs scripts/verify-pr-design-recovery.cjs"
+    "check:creation-repair": "node --test scripts/verify-creation-input-preview.cjs scripts/verify-clone-multiple-preview.cjs scripts/verify-design-recent.cjs scripts/verify-design-commission-repair.cjs scripts/verify-design-ui.cjs scripts/verify-pr-design-recovery.cjs",
+    "check:material-library": "node --test scripts/verify-material-library.cjs"
   },
   "devDependencies": {
     "miniprogram-automator": "0.13.0",

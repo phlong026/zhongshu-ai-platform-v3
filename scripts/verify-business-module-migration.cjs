@@ -31,6 +31,7 @@ function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
   vm.runInNewContext(source, {
     Page: value => { page = value; }, wx, setTimeout: (fn,ms) => {const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,
     require(name) {
+      if(name==='./material-library')return {data:{},handlers:{}};
       if(name.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
       if(name.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if(name==='./content-task-result')return require('../miniprogram/pages/studio/content-task-result');

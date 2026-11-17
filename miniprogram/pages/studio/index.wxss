@@ -1,3 +1,4 @@
+@import './material-library.wxss';
 @import '../../styles/creation.wxss';
 .studio-card { padding: var(--zs-space-card); margin-bottom: var(--zs-space-section); }
 .studio-heading { display: flex; align-items: center; gap: 16rpx; min-height: 48rpx; font-size:var(--zs-font-title); line-height: 46rpx; font-weight: 600; margin-bottom: 16rpx; }

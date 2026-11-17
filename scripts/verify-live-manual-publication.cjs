@@ -31,6 +31,7 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
   };
   const source = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
   const modules = {
+    './material-library':{data:{},handlers:{}},
     './task-display':require('../miniprogram/pages/studio/task-display'),
     './content-task-result':require('../miniprogram/pages/studio/content-task-result'),
     '../../utils/studio': studio,

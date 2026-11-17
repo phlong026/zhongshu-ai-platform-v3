@@ -16,6 +16,7 @@ function loadPage(relativePath, modules) {
       showModal() {}, setClipboardData() {}, reLaunch() {}
     },
     require(id) {
+      if(id==='./material-library')return {data:{},handlers:{}};
       if(id==='../../utils/creation-keyboard')return require('../miniprogram/utils/creation-keyboard');
       if(id==='../../utils/creation-text-resize')return require('../miniprogram/utils/creation-text-resize');
       if(id==='./content-task-result')return require('../miniprogram/pages/studio/content-task-result');
