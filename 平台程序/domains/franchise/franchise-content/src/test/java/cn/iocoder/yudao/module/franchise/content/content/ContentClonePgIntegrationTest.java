@@ -108,8 +108,8 @@ class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
             jdbc.update("UPDATE fr_content_hifly_upload SET size_bytes=? WHERE id=102",size);
             assertThatThrownBy(()->create(service,"VOICE","size-"+size)).hasMessageContaining("20MB");
         }
-        jdbc.update("UPDATE fr_content_hifly_upload SET size_bytes=? WHERE id=101",50L*1024*1024+1);
-        assertThatThrownBy(()->create(service,"AVATAR","large-video")).hasMessageContaining("50MB");
+        jdbc.update("UPDATE fr_content_hifly_upload SET size_bytes=? WHERE id=101",500L*1024*1024+1);
+        assertThatThrownBy(()->create(service,"AVATAR","large-video")).hasMessageContaining("500MB");
         verifyNoInteractions(points);assertThat(transport.calls).isEmpty();
     }
     @Test void rejectedReserveRollsBackCloneIntentAndNeverDispatches() {

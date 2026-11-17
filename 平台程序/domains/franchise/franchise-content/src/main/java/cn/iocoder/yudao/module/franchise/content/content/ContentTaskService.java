@@ -198,6 +198,8 @@ public class ContentTaskService {
         if (text == null || text.isBlank() || voice == null || voice.isBlank() || avatar == null || avatar.isBlank()) {
             throw exception(INPUT_INVALID);
         }
+        try {cn.iocoder.yudao.module.franchise.content.provider.HiflyOralClient.validateInput(text,subtitle);}
+        catch(ContentProviderException.Rejection error){throw new cn.iocoder.yudao.framework.common.exception.ServiceException(INPUT_INVALID.getCode(),error.getMessage());}
         int seconds = ContentBillingCatalog.oralSeconds(text);
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("voice", voice);

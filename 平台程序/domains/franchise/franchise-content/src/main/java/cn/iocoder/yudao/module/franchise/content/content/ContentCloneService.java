@@ -97,7 +97,7 @@ public class ContentCloneService {
             String task=provider.createByFile(kind,clean,uploaded.fileId(),new ProviderCallAudit(post.orgId(),id));
             jdbc.update("UPDATE fr_content_digital_clone SET provider_task_id=?,status='RUNNING',update_time=now() WHERE id=? AND status='SUBMITTING'",task,id);
         } catch(ContentProviderException.Rejection|ContentProviderException.Unavailable e) {
-            jdbc.update("UPDATE fr_content_digital_clone SET status='FAILED',failure_reason=?,update_time=now() WHERE id=?", "制作未受理，请检查素材或服务配置",id);
+            jdbc.update("UPDATE fr_content_digital_clone SET status='FAILED',failure_reason=?,update_time=now() WHERE id=?", e.getMessage(),id);
         } catch(RuntimeException e) {
             jdbc.update("UPDATE fr_content_digital_clone SET status='UNKNOWN',failure_reason=?,update_time=now() WHERE id=?", "提交结果待核实，请勿重复制作，请联系管理员核查",id);
         }

@@ -142,4 +142,17 @@ class HiflyOralClientTest {
                 .hasMessageContaining("数字人口播服务尚未配置");
     }
 
+
+    @Test void officialSubtitleCoordinatesAreSentAndOldAliasesStayCompatible() throws Exception {
+        for(var subtitles:java.util.List.of(Map.<String,Object>of("st_pos_x",60,"st_pos_y",900),Map.<String,Object>of("st_x",60,"st_y",900))){
+            var t=new ContentProviderTransport.Scripted(ContentProviderTransport.json(200,"{\"code\":0,\"task_id\":\"ok\"}",0));
+            new HiflyOralClient(config(),t,null).createByTts(new OralVideoPort.TtsRequest("v","测试","a","测试",subtitles,null,ProviderCallAudit.NONE));
+            var body=JSON.readTree(t.calls.get(0).body());assertThat(body.path("st_pos_x").asInt()).isEqualTo(60);assertThat(body.path("st_pos_y").asInt()).isEqualTo(900);assertThat(body.has("st_x")).isFalse();assertThat(body.has("st_y")).isFalse();
+        }
+    }
+    @Test void malformedTextAndConflictingCoordinatesNeverCallProvider(){
+        var t=new ContentProviderTransport.Scripted();var client=new HiflyOralClient(config(),t,null);
+        assertThatThrownBy(()->client.createByTts(new OralVideoPort.TtsRequest("v","<b>测试</b>","a","测试",null,null,ProviderCallAudit.NONE))).hasMessageContaining("HTML");
+        assertThatThrownBy(()->HiflyOralClient.validateInput("测试",Map.of("st_x",1,"st_pos_x",2))).hasMessageContaining("冲突");assertThat(t.calls).isEmpty();
+    }
 }

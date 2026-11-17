@@ -29,21 +29,7 @@ public class HiflyOralClient implements OralVideoPort {
     private static final int MAX_TEXT_CHARS = 10_000;
     private static final Set<String> SUBTITLE_KEYS = Set.of(
             "st_show", "st_font_name", "st_font_size", "st_width", "st_height",
-            "st_x", "st_y", "st_primary_color", "st_outline_color");
-
-    /** 常见 vendor 业务码→中性文案（对标 hifly._VENDOR_CODE_MESSAGES，不出现供应商名） */
-    private static final Map<Integer, String> VENDOR_MESSAGES = Map.ofEntries(
-            Map.entry(11, "数字人接口参数校验未通过，请检查提交内容"),
-            Map.entry(14, "数字人接口未找到对应资源"),
-            Map.entry(1001, "数字人任务并发已达上限，请稍后重试"),
-            Map.entry(1002, "数字人服务余额不足，请联系管理员"),
-            Map.entry(1005, "当前服务套餐不支持该能力"),
-            Map.entry(1006, "当前服务套餐权限不足"),
-            Map.entry(1009, "声音克隆数量已达套餐上限"),
-            Map.entry(1011, "该素材未通过数字人服务合规校验"),
-            Map.entry(1013, "声音克隆被限制，请稍后重试"),
-            Map.entry(1015, "数字人任务提交数已达上限，请稍后重试"),
-            Map.entry(2003, "数字人服务未正确配置，请联系管理员"));
+            "st_pos_x", "st_pos_y", "st_primary_color", "st_outline_color");
 
     private final ContentProviderProperties.Hifly config;
     private final ContentProviderTransport transport;
@@ -68,6 +54,7 @@ public class HiflyOralClient implements OralVideoPort {
         if (text.length() > MAX_TEXT_CHARS) {
             throw new ContentProviderException.Rejection("口播文案超出 10000 字上限，请精简后提交", 422, null);
         }
+        validateInput(text, request.subtitle());
         ObjectNode payload = JSON.createObjectNode();
         payload.put("voice", request.voice());
         payload.put("text", text);
@@ -75,7 +62,7 @@ public class HiflyOralClient implements OralVideoPort {
         payload.put("title", clip(request.title(), MAX_TITLE_CHARS));
         payload.put("aigc_flag", 1);
         if (request.subtitle() != null) {
-            for (Map.Entry<String, Object> entry : request.subtitle().entrySet()) {
+            for (Map.Entry<String, Object> entry : normalizeSubtitle(request.subtitle()).entrySet()) {
                 if (!SUBTITLE_KEYS.contains(entry.getKey())) {
                     throw new ContentProviderException.Rejection("字幕参数包含不支持的字段：" + entry.getKey(), 422, null);
                 }
@@ -139,6 +126,7 @@ public class HiflyOralClient implements OralVideoPort {
             record(audit, "video/task", "HTTP_" + response.status(), null, latency);
             throw new ContentProviderException.Unavailable("数字人口播服务凭据无效或无权限，请联系管理员");
         }
+        if(response.status()<200||response.status()>=300)throw new ContentProviderException.Unavailable("制作状态查询暂不可用，请稍后重试");
         JsonNode envelope;
         try {
             envelope = JSON.readTree(response.body());
@@ -191,6 +179,7 @@ public class HiflyOralClient implements OralVideoPort {
             record(audit, endpoint, "HTTP_" + response.status(), null, latency);
             throw new ContentProviderException.Unavailable("数字人口播服务凭据无效或无权限，请联系管理员");
         }
+        if(response.status()<200||response.status()>=300)throw new ContentProviderException.Uncertain("制作提交结果待核实，请勿重复提交");
         JsonNode envelope;
         try {
             envelope = JSON.readTree(response.body());
@@ -224,13 +213,31 @@ public class HiflyOralClient implements OralVideoPort {
     }
 
     private static String vendorMessage(int code, JsonNode envelope) {
-        String known = VENDOR_MESSAGES.get(code);
-        if (known != null) {
-            return known;
-        }
-        String raw = envelope.path("message").asText(envelope.path("msg").asText(""));
-        String composed = "数字人服务返回错误 " + code + "：" + raw;
-        return composed.length() <= 200 ? composed : composed.substring(0, 200);
+        return HiflyErrors.message(code);
+    }
+
+    public static void validateInput(String text,Map<String,Object> subtitle) {
+        if(text==null||text.isBlank()||text.length()>MAX_TEXT_CHARS)throw new ContentProviderException.Rejection("口播文案须为1至10000字",422,null);
+        if(java.util.regex.Pattern.compile("<\\s*/?\\s*[A-Za-z][^>]*>").matcher(text).find())throw new ContentProviderException.Rejection("口播文案不支持HTML标签，请使用纯文字",422,null);
+        normalizeSubtitle(subtitle);
+    }
+    private static Map<String,Object> normalizeSubtitle(Map<String,Object> source) {
+        Map<String,Object> normalized=new LinkedHashMap<>();if(source==null)return normalized;
+        source.forEach((key,value)->{
+            String field="st_x".equals(key)?"st_pos_x":"st_y".equals(key)?"st_pos_y":key;
+            if(!SUBTITLE_KEYS.contains(field)||value==null)throw new ContentProviderException.Rejection("字幕参数不支持："+key,422,null);
+            if(normalized.containsKey(field)&&!String.valueOf(normalized.get(field)).equals(String.valueOf(value)))throw new ContentProviderException.Rejection("字幕坐标参数冲突",422,null);
+            Object checked=value;
+            if(field.equals("st_font_name")){if(!(value instanceof String)||String.valueOf(value).isBlank())throw new ContentProviderException.Rejection("字幕字体名称无效",422,null);}
+            else if(field.endsWith("color")){if(!(value instanceof String)||!String.valueOf(value).matches("#[0-9a-fA-F]{6}"))throw new ContentProviderException.Rejection("字幕颜色须为#RRGGBB",422,null);}
+            else {
+                String raw=value instanceof Boolean flag?(flag?"1":"0"):String.valueOf(value);
+                long number;try{number=Long.parseLong(raw);}catch(NumberFormatException error){throw new ContentProviderException.Rejection("字幕数值参数须为整数",422,null);}
+                if(number<0||number>Integer.MAX_VALUE||field.equals("st_show")&&number>1||!field.startsWith("st_pos_")&&!field.equals("st_show")&&number==0)throw new ContentProviderException.Rejection("字幕数值参数超出范围",422,null);
+                checked=(int)number;
+            }
+            normalized.put(field,checked);
+        });return normalized;
     }
 
     private static String clip(String value, int max) {

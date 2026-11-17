@@ -79,8 +79,8 @@ class ContentTaskServiceTest {
                 .thenReturn(inserted);
         ContentTaskService service = new ContentTaskService(store, legacyDailyUsage, null, null, null, null, null,
                 null, null, new ContentProviderProperties(), orgPoint);
-        // 超长文案的预估秒数可超过旧日配额；现在唯一门槛是公司池。
-        String longScript = "乡墅内容".repeat(6000);
+        // 官方10000字以内的文案仍可超过旧日配额；预估秒数由公司池承担。
+        String longScript = "乡墅内容".repeat(2250);
 
         service.createDigital(100L, 7L, "voice", longScript, "avatar", null, null);
 
@@ -551,4 +551,13 @@ class ContentTaskServiceTest {
         verifyNoInteractions(orgPoint);
     }
 
+
+    @Test void invalidDigitalTextAndSubtitleCannotReservePoints() {
+        var store=mock(ContentTaskStore.class);var quota=mock(ContentQuotaService.class);var points=mock(OrgPointPort.class);
+        var service=new ContentTaskService(store,quota,null,null,null,null,null,null,null,new ContentProviderProperties(),points);
+        for(String text:java.util.List.of("<p>测试</p>","字".repeat(10001)))
+            assertThatThrownBy(()->service.createDigital(100L,7L,"v",text,"a","测试",null)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThatThrownBy(()->service.createDigital(100L,7L,"v","文案","a","测试",java.util.Map.of("st_pos_x",-1))).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        verifyNoInteractions(points,store);
+    }
 }

@@ -11,7 +11,7 @@ public interface OralVideoPort {
 
     Snapshot poll(String providerTaskId, ProviderCallAudit audit);
 
-    /** subtitle=平铺字幕参数（st_show/st_font_name/st_font_size/st_width/st_height/st_x/st_y/st_primary_color/st_outline_color）。 */
+    /** subtitle=平铺字幕参数（st_show/st_font_name/st_font_size/st_width/st_height/st_pos_x/st_pos_y/st_primary_color/st_outline_color）。 */
     record TtsRequest(String voice, String text, String avatar, String title,
                       Map<String, Object> subtitle, Consumer<String> onCreated, ProviderCallAudit audit) {
     }

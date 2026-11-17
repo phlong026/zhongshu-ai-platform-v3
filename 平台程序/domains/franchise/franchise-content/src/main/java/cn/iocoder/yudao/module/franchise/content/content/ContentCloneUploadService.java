@@ -30,15 +30,22 @@ public class ContentCloneUploadService {
     private static void media(String kind,String mime,long size,String sha) {
         if(!"AVATAR".equals(kind)&&!"VOICE".equals(kind))throw invalid("请选择分身或声音");
         boolean video="AVATAR".equals(kind);
-        if(!(video?"video/mp4":"audio/mpeg").equals(mime))throw invalid(video?"请上传MP4人物视频":"请上传MP3声音样本");
-        if(size<=0||size>(video?50L:20L)*1024*1024)throw invalid(video?"人物视频须在50MB以内":"声音样本须在20MB以内");
+        String extension=extension(mime);
+        if(extension==null || (video?!Set.of("mp4","mov").contains(extension):!Set.of("mp3","m4a","wav").contains(extension)))throw invalid(video?"请上传MP4或MOV人物视频（H.264编码）":"请上传MP3、M4A或WAV声音样本");
+        if(size<=0||size>(video?500L:20L)*1024*1024)throw invalid(video?"人物视频须在500MB以内":"声音样本须在20MB以内");
         if(sha==null||!sha.matches("[a-fA-F0-9]{64}"))throw invalid("素材校验信息无效，请重新选择");
+    }
+    private static String extension(String mime) {
+        if(mime==null)return null;
+        return switch(mime) {case "video/mp4"->"mp4";case "video/mov","video/quicktime"->"mov";case "audio/mpeg","audio/mp3"->"mp3";case "audio/m4a","audio/mp4","audio/x-m4a"->"m4a";case "audio/wav","audio/x-wav","audio/wave"->"wav";default->null;};
     }
     public Map<String,Object> issue(PostSnapshot post,long persona,String kind,String mime,long size,String sha) {
         persona(post,persona);media(kind,mime,size,sha);
         if(properties.getProvider()!=ContentProviderProperties.ProviderMode.REAL||!provider.configured())throw invalid("数字人制作服务尚未配置");
         long id=IdWorker.getId();
-        var grant=provider.uploadGrant("AVATAR".equals(kind)?"mp4":"mp3",new ProviderCallAudit(post.orgId(),id));
+        HiflyCloneClient.UploadGrant grant;
+        try{grant=provider.uploadGrant(extension(mime),new ProviderCallAudit(post.orgId(),id));}
+        catch(ContentProviderException error){throw invalid(error.getMessage());}
         if(("AVATAR".equals(kind))!=grant.contentType().startsWith("video/"))throw invalid("素材上传类型不匹配，请重试");
         Instant expires=Instant.now().plusSeconds(900);
         jdbc.update("INSERT INTO fr_content_hifly_upload(id,company_id,persona_id,author_user_id,author_post_id,kind,provider_file_id,mime_type,size_bytes,declared_sha256,status,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,'ISSUED',?)",
@@ -59,7 +66,7 @@ public class ContentCloneUploadService {
     public Uploaded requireUploaded(PostSnapshot post,long persona,long id,String kind) {
         var row=owned(post,id);
         if(((Number)row.get("persona_id")).longValue()!=persona)throw invalid("请使用当前人物的素材");
-        if(!kind.equals(row.get("kind")))throw invalid("AVATAR".equals(kind)?"请上传MP4人物视频":"请上传MP3声音样本");
+        if(!kind.equals(row.get("kind")))throw invalid("AVATAR".equals(kind)?"请上传MP4或MOV人物视频":"请上传MP3、M4A或WAV声音样本");
         if(!"UPLOADED".equals(row.get("status")))throw invalid("素材尚未上传完成");
         media(kind,(String)row.get("mime_type"),((Number)row.get("size_bytes")).longValue(),(String)row.get("declared_sha256"));
         return new Uploaded(id,(String)row.get("provider_file_id"),(String)row.get("declared_sha256"));

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.content.provider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
+import java.util.Set;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
@@ -19,14 +20,16 @@ public class HiflyCloneClient {
         this.config = config; this.transport = transport; this.recorder = recorder;
     }
     public boolean configured() { return !config.getApiKey().isBlank(); }
+    private static final Map<String,Set<String>> MIME=Map.of("mp4",Set.of("video/mp4"),"mov",Set.of("video/mov","video/quicktime"),"mp3",Set.of("audio/mp3","audio/mpeg"),"m4a",Set.of("audio/m4a","audio/mp4","audio/x-m4a"),"wav",Set.of("audio/wav","audio/x-wav","audio/wave"));
     public UploadGrant uploadGrant(String extension,ProviderCallAudit audit) {
+        if(!MIME.containsKey(extension))throw new ContentProviderException.Unavailable("素材格式不支持");
         JsonNode data=call("POST","tool/create_upload_url",Map.of("file_extension",extension),audit);
         String url=data.path("upload_url").asText(""),type=data.path("content_type").asText(""),file=data.path("file_id").asText("");
         try {
             var uri=java.net.URI.create(url);
             if(!"https".equalsIgnoreCase(uri.getScheme())||!"upload.hifly.cc".equalsIgnoreCase(uri.getHost())
                     ||uri.getRawUserInfo()!=null||uri.getPort()!=-1||file.isBlank()||file.length()>200
-                    ||!("video/mp4".equals(type)||"audio/mpeg".equals(type)||"audio/mp3".equals(type)))throw new IllegalArgumentException();
+                    ||!MIME.get(extension).contains(type))throw new IllegalArgumentException();
         }catch(RuntimeException e){throw new ContentProviderException.Unavailable("素材直传通道暂不可用，请稍后重试");}
         return new UploadGrant(url,type,file);
     }
@@ -64,13 +67,15 @@ public class HiflyCloneClient {
             var response = transport.exchange(method, config.getBaseUrl() + "/api/v2/hifly/" + path,
                     Map.of("Authorization", "Bearer " + config.getApiKey(), "Content-Type", "application/json"),
                     body == null ? null : JSON.writeValueAsBytes(body), config.getTimeoutSeconds());
+            if(response.status()==401||response.status()==403)throw new ContentProviderException.Unavailable("数字人服务凭据无效或无权限，请联系管理员");
+            if(response.status()<200||response.status()>=300)throw new IllegalStateException("HTTP error");
             JsonNode envelope = JSON.readTree(response.body());
             JsonNode code = envelope == null ? null : envelope.get("code");
             // 官方直传凭证成功回包没有code；其他接口仍必须提供明确业务回执。
             if ((code == null && !"tool/create_upload_url".equals(path)) || (code != null && !code.isIntegralNumber())) throw new IllegalStateException("missing business receipt");
             if (code != null && code.asInt() != 0) {
                 outcome = "REJECTED";
-                throw new ContentProviderException.Rejection("数字人制作未受理，请检查素材、服务权限或联系管理员", response.status(), code.asText());
+                throw new ContentProviderException.Rejection(HiflyErrors.message(code.asInt()), response.status(), code.asText());
             }
             if (response.status() < 200 || response.status() >= 300) throw new IllegalStateException("invalid HTTP receipt");
             outcome = "OK";

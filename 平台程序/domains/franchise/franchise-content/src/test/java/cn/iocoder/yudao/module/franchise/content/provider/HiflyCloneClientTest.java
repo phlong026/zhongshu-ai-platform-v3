@@ -57,4 +57,23 @@ class HiflyCloneClientTest {
         var transport=new ContentProviderTransport.Scripted(ContentProviderTransport.json(200,"{\"code\":0,\"data\":{\"status\":3}}",0));
         assertThat(client(transport).poll("VOICE","a",ProviderCallAudit.NONE).status()).isEqualTo("UNKNOWN");
     }
+
+    @Test void everyOfficialFormatRetainsItsExactSignedMime() {
+        for(var entry:java.util.Map.of("mp4","video/mp4","mov","video/mov","mp3","audio/mp3","m4a","audio/m4a","wav","audio/wav").entrySet()){
+            var transport=new ContentProviderTransport.Scripted(ContentProviderTransport.json(200,"{\"upload_url\":\"https://upload.hifly.cc/test\",\"content_type\":\""+entry.getValue()+"\",\"file_id\":\"file-1\"}",0));
+            assertThat(client(transport).uploadGrant(entry.getKey(),ProviderCallAudit.NONE).contentType()).isEqualTo(entry.getValue());
+        }
+    }
+    @Test void knownCredentialsAndMediaFailuresAreDefinitiveButServerFailureIsUncertain(){
+        for(int status:java.util.List.of(401,403)){
+            var t=new ContentProviderTransport.Scripted(ContentProviderTransport.json(status,"{}",0));
+            assertThatThrownBy(()->client(t).createByFile("VOICE","测试","file",ProviderCallAudit.NONE)).isInstanceOf(ContentProviderException.Unavailable.class).hasMessageContaining("凭据");
+        }
+        for(int code:java.util.List.of(2011,2012,2013,2014,2015,1013)){
+            var t=new ContentProviderTransport.Scripted(ContentProviderTransport.json(200,"{\"code\":"+code+"}",0));
+            assertThatThrownBy(()->client(t).createByFile("VOICE","测试","file",ProviderCallAudit.NONE)).isInstanceOf(ContentProviderException.Rejection.class).hasFieldOrPropertyWithValue("vendorCode",String.valueOf(code));
+        }
+        var t=new ContentProviderTransport.Scripted(ContentProviderTransport.json(503,"{\"code\":0,\"task_id\":\"bad\"}",0));
+        assertThatThrownBy(()->client(t).createByFile("VOICE","测试","file",ProviderCallAudit.NONE)).isInstanceOf(ContentProviderException.Uncertain.class);
+    }
 }
