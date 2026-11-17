@@ -33,3 +33,8 @@ test('first submission opens its exact job; retrying a failed navigation never c
  assert.match(h.routes[0],/projectId=42&jobId=71/);assert.equal(h.result().stored.jobId,'71');
  h.ok();await h.page.submitAttempt(h.spec);assert.deepEqual(h.result(),{creates:1,jobs:1,quotes:1,stored:null});assert.equal(h.routes.length,2);
 });
+
+test('accepted work remains resumable when the user has already left the design form',async()=>{
+ const h=generation();h.page._candidateClosed=true;await h.page.submitAttempt(h.spec);assert.equal(h.routes.length,0);assert.equal(h.result().stored.jobId,'71');assert.equal(h.page.data.creating,false);
+ h.page._candidateClosed=false;h.ok();await h.page.submitAttempt(h.spec);assert.equal(h.result().jobs,1);assert.equal(h.routes.length,1);
+});

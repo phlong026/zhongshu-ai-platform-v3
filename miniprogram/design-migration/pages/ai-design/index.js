@@ -700,11 +700,12 @@ protectedPage({
     this._lastAttemptKey = attempt.key;
     const openAccepted = () => {
       attempts.assertCurrent(attempt);
+      if (self._candidateClosed) { self.setData({creating:false,pendingGeneration:true}); return Promise.resolve(); }
       self.setData({ creating: true, creatingText: '任务已创建，正在打开进度…' });
       const url = spec.redirectUrl + '&projectId=' + encodeURIComponent(attempt.projectId) + '&jobId=' + encodeURIComponent(attempt.jobId);
       return new Promise(resolve => wx.redirectTo({ url,
-        success: () => { attempts.complete(slot, attempt); self._lastAttemptKey = null; resolve(); },
-        fail: () => { self.setData({ creating: false, pendingGeneration: true }); wx.showToast({title:'任务已创建，点击继续查看进度',icon:'none'}); resolve(); }
+        success: () => { try { attempts.complete(slot, attempt); self._lastAttemptKey = null; } catch(e) { /* Session changed. */ } resolve(); },
+        fail: () => { try { attempts.assertCurrent(attempt); self.setData({ creating: false, pendingGeneration: true }); if(!self._candidateClosed)wx.showToast({title:'任务已创建，点击继续查看进度',icon:'none'}); } catch(e) { /* Session changed. */ } resolve(); }
       }));
     };
     if (attempt.jobId && attempt.projectId) return openAccepted();
