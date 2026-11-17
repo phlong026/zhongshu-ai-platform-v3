@@ -1,0 +1,8 @@
+# Byte-for-byte source fixtures are checked against the recorded source SHA-256.
+scripts/fixtures/design-source/api.js text eol=crlf
+scripts/fixtures/design-source/budget-selection.js text eol=lf
+scripts/fixtures/design-source/budget-view.js text eol=lf
+scripts/fixtures/design-source/design-inputs.js text eol=lf
+scripts/fixtures/design-source/format.js text eol=crlf
+scripts/fixtures/design-source/generation-options.js text eol=lf
+miniprogram/pages/build/vendor/xlsx.mini.min.js text eol=lf

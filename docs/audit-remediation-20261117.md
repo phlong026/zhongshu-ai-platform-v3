@@ -28,3 +28,12 @@ Windows 新工作区自动转换换行符会影响固定摘要测试。测试前
 用户已确认平面灵感图片问题解决，本次未再修改封面实现。修改测试前已核对其他工作区：主工作区正在调整页面测试的加载方式，本分支仅追加空简介回归用例，保留其原工作区修改。
 
 新增两项实际页面方法测试，分别遍历视频/音频 URL、简介缺失/null/空字符串/纯空白、可选简介 PENDING/FAILED/READY 状态，确认仍发起 ASR，并且最终展示口播转写结果。`node --test scripts/verify-business-module-migration.cjs` **39 项全通过**，完整 `npm run check` 再次通过。后端状态契约由配套 PR #9 的 MockMvc 和真实 PostgreSQL 测试验证。本次只追加测试与说明，未发布小程序，也未进行真机验收。
+
+
+## PR #10 合并冲突与 CI
+
+已核对所有登记工作区后合入 `main c5a0a9a0`。任务映射同时保留主线的文本/视频成果类型和本分支的保存状态；`npm run check` 同时保留主线新增的设计、财务、业务测试与本分支的视频草稿测试。合并后的完整本地检查通过。其他工作区的未提交业务修改未混入本分支。
+
+新增 `.github/workflows/frontend-ci.yml`：面向 main 的 PR、main 推送及手动触发，使用 Ubuntu 24.04 / Node 24，执行锁定依赖安装 `npm ci` 和完整 `npm run check`。工作流只读仓库、不发布小程序。同一 PR 的新提交取消旧运行；Actions 依赖固定到已核对的提交。
+
+`.gitattributes` 复用增长/存储整改工作区已经列出的源文件换行规则，确保 Windows 与 Linux 按既有 SHA-256 清单读到相同字节，不改摘要期望值或跳过测试。
