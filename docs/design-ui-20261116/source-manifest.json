@@ -1,0 +1,63 @@
+{
+  "files": [
+    {
+      "path": "miniprogram/pages/design/index.wxml",
+      "sha256": "165396c3e8ac91e68796d022b5cfed872d47ec29a99b80e9c16bd930c004e7d5"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/library/index.js",
+      "sha256": "64a16be2943cb436807142e761b7396ea451ff85a1097e386777cab851bda7fb"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/library/index.wxml",
+      "sha256": "5df2c50011738008034923db50df5033d32a4746d92fe28036ecdb13c67d9199"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/ai-design/index.js",
+      "sha256": "a0bd563208cf13f3e83081037a188c9f06658063aeda7013d3872e03461c3248"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/ai-design/index.wxml",
+      "sha256": "f7390488e55e7e742255a87fed3cf848249d4f0f1aada894c0b8d53e37f79046"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/budget/quick.js",
+      "sha256": "ce67ce66b18720d6bcfcf00d31ff24e3091ec387495dbf27508f342b381689b0"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/budget/quick.wxml",
+      "sha256": "8022c499753e022103fbf2f05e998451aab336f20522be72f5573338890356c2"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/budget/result.js",
+      "sha256": "0a21be01669b644da03434b241c32e2475a97172686b9ed3037d91e33542ee67"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/budget/result.wxml",
+      "sha256": "23eb10199a1862d1ed032d9a2c224726ec72c42c6c9de78073610294bd74fc8b"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/customer/archive.js",
+      "sha256": "eec11c7de526ab985c8269cae4f912015be072ff049b83880345d20112f9b6dc"
+    },
+    {
+      "path": "miniprogram/design-migration/pages/customer/archive.wxml",
+      "sha256": "e3f06ae9c518fa1db1eff811c33dd8ad504100fea3e90d1714a6a9fb6c066dec"
+    },
+    {
+      "path": "miniprogram/pages/workflow/commission/index.js",
+      "sha256": "2cd5a709851aabc168c0ed8bf5ae5664c11d43ffa1feedc8515976270f4d08f2"
+    }
+  ],
+  "checks": {
+    "mainCheck": "passed",
+    "relatedRegressionTests": 57,
+    "sourceBackendTests": 11,
+    "originalPriceRead": "passed",
+    "originalPriceWriteDenied": 403,
+    "budgetResultNativeScenarios": 6,
+    "budgetResultNative": "passed"
+  },
+  "published": false,
+  "nativeEnvironment": "isolated WeChat developer-tools project; mock UI APIs, real source pricing checked independently"
+}

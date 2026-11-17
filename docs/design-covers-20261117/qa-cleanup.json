@@ -1,0 +1,19 @@
+{
+  "at": "2026-11-17T08:40:42.492259+00:00",
+  "userId": 160,
+  "userDisabled": true,
+  "postRevoked": true,
+  "temporaryRoleLinkRevoked": true,
+  "oauthAccessAndRefreshRemaining": 0,
+  "logoutCallsSucceeded": 1,
+  "ownCacheKeysRemoved": 1,
+  "revokedSessionBusinessCode": 401,
+  "financialLedgerAndFrozenAcceptanceRecordsPreserved": true,
+  "testCustomerCreated": false,
+  "paidGenerationCreated": false,
+  "pointsCharged": 0,
+  "credentialFilesDeleted": [
+    "qa-credentials.json",
+    "qa-session.json"
+  ]
+}

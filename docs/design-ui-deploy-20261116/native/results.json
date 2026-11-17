@@ -1,0 +1,62 @@
+{
+  "status": "passed",
+  "network": "real production APIs; no HTTP mocks",
+  "results": [
+    {
+      "check": "live-classifications",
+      "count": 10,
+      "cases": 10
+    },
+    {
+      "check": "live-baseline-price-page",
+      "options": 34
+    },
+    {
+      "check": "live-budget-customer-commission",
+      "commissionId": "2122294644603621377",
+      "customerId": "2122293242514903041",
+      "budgetId": "2122294524072026113",
+      "revisionId": "2122294524072026114",
+      "budgetTotalCents": 42870000,
+      "budgetArea": 240,
+      "rows": [
+        {
+          "label": "当前进度",
+          "value": "设计中 · 设计费办理中"
+        },
+        {
+          "label": "当前办理",
+          "value": "平台设计"
+        },
+        {
+          "label": "交付范围",
+          "value": "R03 TEST ONLY 设计成果、施工图与审核依据"
+        },
+        {
+          "label": "费用执行",
+          "value": "费用按授权规则执行；到账登记由财务在财务工作台办理"
+        },
+        {
+          "label": "设计服务总额",
+          "value": "¥ 2,400.00"
+        },
+        {
+          "label": "总部实际收款方",
+          "value": "隔离联调设计收款主体"
+        },
+        {
+          "label": "一次性设计费到账",
+          "value": "应付 ¥2,400.00 · 门店净付 ¥0.00 · 平台净收 ¥0.00"
+        },
+        {
+          "label": "设计需求",
+          "value": "系统上线全流程验收（非真实业务），请勿跟进、安排设计或收款。仅验证预算归档和设计委托流程。"
+        },
+        {
+          "label": "尺寸依据",
+          "value": "预算 V2 · 12m × 10m · 2层 · 240㎡"
+        }
+      ]
+    }
+  ]
+}

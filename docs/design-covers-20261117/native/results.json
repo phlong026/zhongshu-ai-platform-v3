@@ -1,0 +1,49 @@
+{
+  "status": "passed",
+  "network": "real B APIs and real image downloads; no HTTP mock",
+  "results": [
+    {
+      "check": "visible-only-covers",
+      "initialLoaded": 8,
+      "afterScroll": 10,
+      "total": 10
+    },
+    {
+      "check": "persistent-thumbnail-files",
+      "files": 10,
+      "bytes": 756211
+    },
+    {
+      "check": "elevation-ai-parameters",
+      "caseId": "2112123885294055425",
+      "faceWidth": "17.8",
+      "depth": "13",
+      "floorCount": 1,
+      "buildingArea": "30"
+    },
+    {
+      "check": "floor-plan-ai-parameters",
+      "caseId": "2112123885294055425",
+      "faceWidth": "17.8",
+      "depth": "13",
+      "floorCount": 1,
+      "buildingArea": "30"
+    },
+    {
+      "check": "favorite-saved-and-restored",
+      "original": false
+    },
+    {
+      "check": "new-budget-case-parameters",
+      "draftId": "2122610560268886017",
+      "faceWidth": "17.8",
+      "depth": "13",
+      "floorCount": 1,
+      "buildingArea": "30"
+    },
+    {
+      "check": "return-with-expired-cache-refetches",
+      "refreshed": 2
+    }
+  ]
+}

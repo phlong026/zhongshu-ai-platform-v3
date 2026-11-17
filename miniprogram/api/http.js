@@ -73,6 +73,7 @@ function saveSession(next) {
 }
 
 function clearSession() {
+  try { require('../utils/design-case-images').clear(); } catch (_) { /* Cache cleanup is best effort. */ }
   transientToken = null;
   transientResume = null;
   wx.removeStorageSync(TOKEN_KEY);

@@ -143,6 +143,26 @@
       {
         "value": "assets/studio-warning.png",
         "type": "file"
+      },
+      {
+        "type": "file",
+        "value": "assets/home-partner.jpg"
+      },
+      {
+        "type": "file",
+        "value": "assets/ruler.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/cube.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/avatar-li.jpg"
+      },
+      {
+        "type": "file",
+        "value": "assets/graduate.png"
       }
     ],
     "include": []

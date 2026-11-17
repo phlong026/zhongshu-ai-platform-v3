@@ -59,8 +59,8 @@ function requestHarness(){let generation=1,token='b-token';const calls=[];const 
  return {m,calls,http,design,change:()=>generation++,logout:()=>token=''};
 }
 test('公开案例和自有结果即使图片编号相同也使用各自来源的下载接口',async()=>{
- const h=requestHarness();const api=helper(current,'api',{'./request':h.m});const a=helper(current,'assets',{'./api':api,'./request':h.m,'../../api/franchise/design':h.design});
- assert.equal(await a.fetchCaseAssetDataUrl('501','602'),'https://images.example.test/501/602');
+ const h=requestHarness();const api=helper(current,'api',{'./request':h.m});const a=helper(current,'assets',{'./api':api,'./request':h.m,'../../api/franchise/design':h.design,'../../utils/design-case-images':{load:(c,a)=>Promise.resolve('wxfile://case-cache/'+c+'/'+a)}});
+ assert.equal(await a.fetchCaseAssetDataUrl('501','602'),'wxfile://case-cache/501/602');
  assert.equal(await a.fetchAssetDataUrl('602'),'https://provider.example.test/602');
 });
 test('实际资源API保持原路径，上传票据、审核完成与结果下载均进入B资源适配',async()=>{

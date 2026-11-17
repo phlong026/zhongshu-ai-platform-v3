@@ -8,10 +8,11 @@ const http = require('../../utils/request');
 const assets = require('../../utils/assets');
 const format = require('../../utils/format');
 const classifications = require('../../utils/case-classifications');
+const coverImages = require('../../../utils/design-case-images');
 
 protectedPage({
   data: {
-    cases: [], visibleCases: [], cursor: null, hasMore: true, loading: false, loaded: false, error: '',
+    cases: [], visibleCases: [], visibleCount: 0, caseCount: 0, cursor: null, hasMore: true, loading: false, loaded: false, error: '',
     keyword: '', source: 0,
     filters: { sourceType: 'COMPANY', styleCode: '', floorCount: null, faceWidth: '', depth: '' },
     styleOptions: [{ label: '全部', code: '' }], classificationError: '',
@@ -31,7 +32,8 @@ protectedPage({
         this.setData({ classificationError: '风格加载失败，点击重试' });
     });
   },
-  onUnload() { this._unloaded = true; this._listSeq = (this._listSeq || 0) + 1; },
+  onShow() { if(this.data.cases.length) this.watchCovers(); },
+  onUnload() { this.__caseImageObserver?.disconnect(); this._unloaded = true; this._listSeq = (this._listSeq || 0) + 1; },
   onReachBottom() { if (this.data.hasMore && !this.data.loading && !this.data.error) this.loadPage(false); },
   retry() { return this.loadPage(this._retryReset !== false); },
   loadPage(reset) {
@@ -43,7 +45,7 @@ protectedPage({
     const current = () => seq === self._listSeq && !self._unloaded && (http.isSameSession ? http.isSameSession(session) : session === http.getToken());
     const cursor = reset ? null : this.data.cursor;
     self.setData(Object.assign({ loading: true, error: '' }, reset
-      ? { cases: [], visibleCases: [], cursor: null, hasMore: true, loaded: false } : {}));
+      ? { cases: [], visibleCases: [], visibleCount: 0, caseCount: 0, cursor: null, hasMore: true, loaded: false } : {}));
     const filters = this.data.filters;
     const faceWidth = parseFloat(filters.faceWidth);
     const depth = parseFloat(filters.depth);
@@ -64,7 +66,7 @@ protectedPage({
         return {
           id: c.caseId, title: c.title, area: c.buildingArea,
           floors: c.floorCount, style: c.styleCode, tag: tag,
-          coverAssetId: c.coverAssetId, image: '', imageLoading: !!c.coverAssetId, imageError: false,
+          coverAssetId: c.coverAssetId, versionId: c.caseVersionId || c.version || '', image: '', imageLoading: !!c.coverAssetId, imageError: false,
           meta: (c.buildingArea ? c.buildingArea + '㎡' : '') + (c.floorCount ? ' · ' + c.floorCount + '层' : '') + (tag ? ' · ' + tag : '')
         };
       });
@@ -75,24 +77,8 @@ protectedPage({
         loading: false, loaded: true, error: ''
       });
       self.refreshVisible();
-      let nextCover = 0;
-      const loadCover = function () {
-        if (!current() || nextCover >= newCases.length) return Promise.resolve();
-        const i = nextCover++, item = newCases[i];
-        if (!item.coverAssetId) return loadCover();
-        return assets.fetchCaseAssetDataUrl(item.id,item.coverAssetId).then(function (url) {
-          // 回调期间可能已切换筛选/翻页：仅在索引仍有效且同一封面时回写
-          if (!current()) return;
-          const coverTarget = self.data.cases[startIndex + i];
-          if (!coverTarget || coverTarget.id !== item.id || coverTarget.coverAssetId !== item.coverAssetId) return;
-          const cases = self.data.cases.map((row, index) => index === startIndex + i ? Object.assign({}, row, { image: url, imageLoading: false }) : row);
-          self.setData({ cases });
-          self.refreshVisible();
-        }).catch(function () {
-          if (current()) self.updateCover(item.id, { imageLoading: false, imageError: true });
-        }).then(loadCover);
-      };
-      return Promise.all(Array.from({ length: Math.min(3, newCases.length) }, loadCover));
+      self.watchCovers();
+
     }).catch(function (error) {
       if (!current()) return;
       self.setData({ loading: false, error: String(error && (error.msg || error.message) || '方案加载失败，请重试') });
@@ -110,26 +96,34 @@ protectedPage({
         || (c.tag || '').indexOf(keyword) >= 0
         || String(c.area || '').indexOf(keyword) >= 0;
     });
-    this.setData({ visibleCases: visible });
+    this.setData({ visibleCases: visible, visibleCount: visible.length, caseCount: cases.length });
   },
   updateCover(id, patch) {
     this.setData({ cases: this.data.cases.map(row => row.id === id ? Object.assign({}, row, patch) : row) });
     this.refreshVisible();
   },
-  imageError(e) { this.updateCover(e.currentTarget.dataset.id, { image: '', imageLoading: false, imageError: true }); },
-  retryCover(e) {
-    const id = e.currentTarget.dataset.id, row = this.data.cases.find(item => item.id === id);
-    if (!row || !row.coverAssetId || row.imageLoading) return;
-    const seq = this._listSeq, session = http.captureSession();
-    const current = () => !this._unloaded && seq === this._listSeq && http.isSameSession(session);
-    this.updateCover(id, { imageLoading: true, imageError: false });
-    return assets.fetchCaseAssetDataUrl(id, row.coverAssetId).then(url => {
-      if (current()) this.updateCover(id, { image: url, imageLoading: false });
-    }).catch(() => { if (current()) this.updateCover(id, { imageLoading: false, imageError: true }); });
+  watchCovers() {
+    coverImages.watch(this,'.case-cover-watch',this.data.visibleCases,row=>this.loadCover(row));
   },
+  loadCover(row,force=false) {
+    if(!row || !row.coverAssetId || (this._coverFlights && this._coverFlights.has(row.id)) || (!force && row.image && Date.now()-row.imageLoadedAt<coverImages.FRESH_MS))return;
+    const seq=this._listSeq,session=http.captureSession();
+    const current=()=>!this._unloaded&&seq===this._listSeq&&http.isSameSession(session);
+    this._coverFlights=this._coverFlights||new Set();this._coverFlights.add(row.id);
+    this.updateCover(row.id,{imageLoading:true,imageError:false});
+    return assets.fetchCaseAssetDataUrl(row.id,row.coverAssetId,{rendition:'COVER',version:row.versionId,force}).then(url=>{
+      if(current())this.updateCover(row.id,{image:url,imageLoading:false,imageError:false,imageLoadedAt:Date.now()});
+    }).catch(()=>{if(current())this.updateCover(row.id,{image:'',imageLoading:false,imageError:true});}).finally(()=>this._coverFlights.delete(row.id));
+  },
+  imageError(e) {
+    const row=this.data.cases.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(!row)return;
+    this.updateCover(row.id,{image:'',imageLoading:false,imageError:true});
+    if(!row.imageRetried){this.updateCover(row.id,{imageRetried:true});return this.loadCover(row,true);}
+  },
+  retryCover(e) { return this.loadCover(this.data.cases.find(r=>String(r.id)===String(e.currentTarget.dataset.id)),true); },
   onSearch(e) {
     this.setData({ keyword: e.detail.value });
-    this.refreshVisible();
+    this.refreshVisible(); this.watchCovers();
   },
   selectSource(e) {
     const index = Number(e.currentTarget.dataset.index);

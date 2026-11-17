@@ -2,10 +2,8 @@
   <v12-navbar title="户型详情" show-back show-brand="{{false}}" />
   <view wx:if="{{detailError}}" class="image-state"><text>案例加载失败</text><button size="mini" bindtap="retryDetail">重新加载</button></view>
   <block wx:elif="{{caseDetail}}">
-  <image wx:if="{{hero.status === 'ready'}}" class="detail-hero" src="{{hero.url}}" mode="aspectFit" data-index="hero" binderror="imageError" catchtap="previewLibraryImage" data-kind="hero" />
-  <view wx:else class="detail-hero image-state"><text>{{hero.status === 'loading' ? '封面加载中…' : hero.status === 'error' ? '封面加载失败' : '暂无封面图'}}</text><button wx:if="{{hero.status === 'error'}}" size="mini" data-index="hero" bindtap="retryImage">重试</button></view>
   <view class="detail-summary">
-    <text class="detail-title">{{caseDetail.title || '加载中…'}}</text>
+    <view class="detail-title-row"><text class="detail-title">{{caseDetail.title || '加载中…'}}</text><button class="favorite" bindtap="toggleFavorite" loading="{{favoriteSaving}}" disabled="{{favoriteSaving || favoriteLoading}}" aria-label="{{favorite ? '取消收藏' : '收藏户型'}}"><t-icon name="{{favorite ? 'star-filled' : 'star'}}" size="22px" color="#7b5532" /><text>{{favoriteLoading ? '确认中' : favoriteError ? '重试收藏' : favorite ? '已收藏' : '收藏'}}</text></button></view>
     <text class="detail-source">{{caseDetail.sourceLabel || '公司案例'}}</text>
     <text class="detail-meta">{{caseDetail.meta || '参数加载中'}}</text>
   </view>
@@ -17,8 +15,8 @@
   </view>
   <view wx:if="{{!caseDetail.canDesign}}" class="design-unavailable">{{caseDetail.designUnavailableReason}}</view>
   <view class="detail-action">
-    <view class="favorite" bindtap="toggleFavorite" role="button"><t-icon name="{{favorite ? 'star-filled' : 'star'}}" size="24px" color="#7b5532" /><text>{{favoriteSaving ? '保存中…' : favoriteLoading ? '确认中…' : favoriteError ? '重试收藏' : favorite ? '已收藏' : '收藏'}}</text></view>
-    <button class="v12-primary-button v12-primary-button--md" disabled="{{!caseDetail.canDesign}}" bindtap="useHouse">{{caseDetail.canDesign ? '用此户型设计' : '暂不可用于设计'}}</button>
+    <button class="v12-primary-button v12-primary-button--md" disabled="{{!caseDetail.canDesign}}" bindtap="useHouse">AI设计</button>
+    <button class="budget-action" bindtap="quickBudget">快速预算</button>
   </view>
   </block>
   <view wx:else class="image-state">案例加载中…</view>

@@ -1,0 +1,427 @@
+{
+  "status": "passed",
+  "http": "mocked B APIs; no actual commission or paid operation",
+  "results": [
+    "预算小计、删冗余文字、分类图标、四个底部操作及保存预算",
+    "发送至客户：标题与说明清理、客户选择、固定预算版本归档",
+    "发起设计委托：先归档所选客户预算，随后进入现有委托表单，不自动提交",
+    "四个标签中的预算历史进入原历史列表",
+    "重新测算返回原草稿，不创建另一套预算",
+    "完整预算保留预算图导出入口"
+  ],
+  "requests": [
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-drafts",
+        "query": {
+          "limit": "20"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget/regions",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget/my-regions",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "POST",
+        "path": "/budget-drafts",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99",
+        "Idempotency-Key": "draft-1794826985122-6w43mkw3d3"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901/quotes",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "POST",
+        "path": "/budget-estimates/901/save",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99",
+        "Idempotency-Key": "budget-save-1794826996795-31mx0mvrnm"
+      }
+    },
+    {
+      "route": "/franchise/customers",
+      "method": "GET",
+      "body": {
+        "pageNo": 1,
+        "pageSize": 20
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-budget-archive",
+      "method": "POST",
+      "body": {
+        "customerId": "701",
+        "budgetId": "901",
+        "revisionId": "902"
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99",
+        "Idempotency-Key": "archive-1794827000929-eole60pwlp"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901/quotes",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/customers",
+      "method": "GET",
+      "body": {
+        "pageNo": 1,
+        "pageSize": 20
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow-budget-archive",
+      "method": "POST",
+      "body": {
+        "customerId": "701",
+        "budgetId": "901",
+        "revisionId": "902"
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99",
+        "Idempotency-Key": "archive-1794827000929-eole60pwlp"
+      }
+    },
+    {
+      "route": "/franchise/customers/701/commission-context",
+      "method": "GET",
+      "body": {},
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901/quotes",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/independent",
+        "query": {
+          "savedOnly": "true",
+          "limit": "20",
+          "draftId": "179482698418"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901/quotes",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-drafts",
+        "query": {
+          "limit": "20"
+        },
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget/regions",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget/my-regions",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-drafts/179482698418",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/__design_ui_complete",
+      "method": "GET",
+      "body": {},
+      "headers": {}
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/franchise/design/flow",
+      "method": "POST",
+      "body": {
+        "method": "GET",
+        "path": "/budget-estimates/901/quotes",
+        "query": {},
+        "body": {}
+      },
+      "headers": {
+        "content-type": "application/json",
+        "tenant-id": "1",
+        "Authorization": "Bearer native-test-session",
+        "X-Post-Id": "99"
+      }
+    },
+    {
+      "route": "/__design_parity_trace",
+      "method": "GET",
+      "body": {},
+      "headers": {}
+    }
+  ]
+}

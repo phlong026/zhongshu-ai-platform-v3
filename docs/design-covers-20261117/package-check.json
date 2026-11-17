@@ -1,0 +1,19 @@
+{
+  "result": "passed",
+  "resourceReferences": 378,
+  "totalBytes": 8297725,
+  "packages": {
+    "main": 2095059,
+    "design-migration": 725645,
+    "pages/account": 1086633,
+    "pages/admin": 569857,
+    "pages/ai-video": 20447,
+    "pages/build": 1062822,
+    "pages/creation": 7471,
+    "pages/design": 237100,
+    "pages/growth": 20521,
+    "pages/studio": 414874,
+    "pages/wallet": 14902,
+    "pages/workflow": 2042394
+  }
+}

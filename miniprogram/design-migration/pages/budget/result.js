@@ -17,6 +17,12 @@ const page = Object.assign(budgetPage(), {
     return { title: '我的乡墅参考预算约' + wan(estimate.totalCents) + '万 · 众墅之家', path: '/pages/home/index' };
   },
   exportImage() { share.exportBudgetImage(this); },
+  commission() {
+    if (!this.current() || !this.data.estimate || this.data.legacy || this.data.saving) return;
+    const revision = this.data.estimate.revisionId || this._revisionId;
+    wx.navigateTo({ url: '/design-migration/pages/customer/archive?budgetId=' + this._budgetId
+      + (revision ? '&revisionId=' + revision : '') + '&next=commission' });
+  },
   archive(){if(this.current()&&this.data.estimate&&!this.data.legacy){const revision=this.data.estimate.revisionId||this._revisionId;wx.navigateTo({url:'/design-migration/pages/customer/archive?budgetId='+this._budgetId+(revision?'&revisionId='+revision:'')});}}
 });
 protectedPage(page);

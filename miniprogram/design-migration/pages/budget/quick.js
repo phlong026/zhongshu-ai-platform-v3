@@ -17,7 +17,9 @@ protectedPage({
     values: {}, overrides: {}, regions: [], regionNames: [], regionName: '请选择', floorNames: Array.from({ length: 20 }, (_, i) => (i + 1) + '层'),
     quantityRows: [], configCells: [], catalogReady: false, catalogLoading: false, catalogError: '', dirty: false, localConflict: false,
     projects: [], projectNames: [], projectCursor: null, projectsLoaded: false, showImport: false, regionIndex: 0, floorIndex: 0 },
-  onLoad(options) {
+  onLoad(options = {}) {
+    this._caseEntry=options.fromCase==='1'?getDesignApp().globalData.budgetCaseEntry:null;
+    if(this._caseEntry)getDesignApp().globalData.budgetCaseEntry=null;
     this._requestedId = options.draftId == null ? null : drafts.id(options.draftId);
     if (options.draftId != null && !this._requestedId) { this.setData({ error: '草稿编号无效' }); return; }
     this.load();
@@ -62,7 +64,8 @@ protectedPage({
       const regions = platform.concat(mine.map(r => ({ ...r, custom: true })));
       this.setData({ regions, regionNames: regions.map(r => r.name), loading: false });
       this.applyRows(rows);
-      if (this._requestedId) await this.openDraft(this._requestedId);
+      if (this._caseEntry) await this.newDraft();
+      else if (this._requestedId) await this.openDraft(this._requestedId);
       else if (rows.length) await this.openDraft(rows[0].draftId);
       else await this.newDraft();
     } catch (e) { if (this.current(seq)) this.setData({ loading: false, error: view.errorText(e) }); }
@@ -86,6 +89,13 @@ protectedPage({
       const response = await api.createBudgetDraft(requestKey);
       if (!this.current(seq)) return;
       this.acceptDraft(response, false); wx.removeStorageSync(pendingKey);
+      if (this._caseEntry) {
+        const entry=this._caseEntry;this._caseEntry=null;
+        const values={...entry.values};
+        if(values.regionCode&&!this.data.regions.some(r=>r.code===values.regionCode))delete values.regionCode;
+        const draft={...this.data.draft,state:{...this.data.draft.state,inputOverrides:{...this.data.draft.state.inputOverrides,...values},optionIds:[]}};
+        this.setData({draft,dirty:true,notice:'已带入户型参数：'+entry.title+'，请核对建造地区及工程量。'});this.render();this.persist();this.loadCatalog();
+      }
       this.applyRows([response, ...this.data.draftRows.filter(d => d.draftId !== response.draftId)]);
     } catch (e) { if (this.current(seq)) this.setData({ error: view.errorText(e) }); }
     finally { if (this.current(seq)) this.setData({ busy: false }); }

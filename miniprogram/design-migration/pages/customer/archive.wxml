@@ -1,8 +1,11 @@
-<view class="v12-page" wx:if="{{accessReady}}"><v12-navbar title="保存至客户" show-back /><view class="v12-content">
-  <text class="archive-hint">选择您有办理权限的客户，将当前方案或预算保存为客户档案版本。</text>
-  <view class="search"><input value="{{keyword}}" bindinput="input" bindconfirm="search" placeholder="客户姓名或手机号"/><button bindtap="search" disabled="{{loading}}">查询</button></view>
-  <text wx:if="{{error}}" class="archive-error">{{error}}</text>
-  <view wx:for="{{rows}}" wx:key="id" data-id="{{item.id}}" bindtap="choose" class="customer {{selected===item.id+''?'selected':''}}"><text>{{item.name}}</text><text>{{item.phone}}</text></view>
-  <text wx:if="{{!loading&&!rows.length}}">暂无符合条件的客户</text><button wx:if="{{hasMore}}" bindtap="more" loading="{{loading}}">加载更多</button>
-  <button class="v12-primary-button" bindtap="save" disabled="{{!selected||busy||saved}}" loading="{{busy}}">{{saved?'已保存至客户':'保存当前版本'}}</button>
-</view></view>
+<view class="v12-page archive-page" wx:if="{{accessReady}}">
+  <v12-navbar title="{{forCommission ? '选择委托客户' : '发送至客户'}}" show-back />
+  <view class="v12-content">
+    <view class="search"><input value="{{keyword}}" bindinput="input" bindconfirm="search" placeholder="客户姓名或手机号" /><button bindtap="search" disabled="{{loading}}">查询</button></view>
+    <text wx:if="{{error}}" class="archive-error">{{error}}</text>
+    <view wx:for="{{rows}}" wx:key="id" data-id="{{item.id}}" bindtap="choose" class="customer {{selected === item.id + '' ? 'selected' : ''}}" role="button" aria-label="选择客户{{item.name}}"><view class="customer-info"><text class="customer-name">{{item.name}}</text><text class="customer-phone">{{item.phone}}</text></view><view class="customer-check">{{selected === item.id + '' ? '✓' : ''}}</view></view>
+    <text wx:if="{{!loading && !rowCount}}" class="archive-empty">暂无符合条件的客户</text>
+    <button wx:if="{{hasMore}}" class="more-customers" bindtap="more" loading="{{loading}}">加载更多</button>
+    <view class="archive-footer"><button class="v12-primary-button" bindtap="save" disabled="{{!selected || busy || (saved && !forCommission)}}" loading="{{busy}}">{{forCommission ? (saved ? '继续设计委托' : '下一步：设计委托') : (saved ? '已发送至客户' : '发送至客户')}}</button></view>
+  </view>
+</view>
