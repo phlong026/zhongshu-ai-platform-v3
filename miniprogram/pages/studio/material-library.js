@@ -48,7 +48,7 @@ const handlers = {
   async loadMaterials(more) {
     if (!alive(this) || (more === true && this.data.materialLoading)) return;
     more = more === true;
-    const seq=this.__materialSeq=(this.__materialSeq||0)+1;
+    const seq=more?this.__materialSeq:(this.__materialSeq=(this.__materialSeq||0)+1);
     const valid=()=>alive(this)&&seq===this.__materialSeq;
     const page=more?this.data.materialPage+1:1;
     this.setData(Object.assign({materialLoading:true,materialError:''},more?{}:{materialItems:[],materialPage:0,materialTotal:0}));
@@ -64,9 +64,14 @@ const handlers = {
         while (next<rows.length && valid()) {
           const row=rows[next++], id=row.type==='image'?row.id:row.coverId;
           if (!id) continue;
-          const index=items.findIndex(item=>item.id===row.id);
-          try {const url=await source(this,id,valid);if(valid())this.setData({['materialItems['+index+'].coverUrl']:url});}
-          catch(e) {if(valid())this.setData({['materialItems['+index+'].coverError']:true});}
+          const patchCover=patch=>{
+            if(!valid())return;
+            const index=this.data.materialItems.findIndex(item=>item.id===row.id);
+            if(index<0)return;
+            const changes={};Object.keys(patch).forEach(key=>{changes['materialItems['+index+'].'+key]=patch[key];});this.setData(changes);
+          };
+          try {const url=await source(this,id,valid);patchCover({coverUrl:url,coverError:false});}
+          catch(e) {patchCover({coverError:true});}
         }
       }));
     } catch(e) {if(valid())this.setData({materialLoading:false,materialError:message(e)});}
@@ -108,7 +113,7 @@ const handlers = {
     if(this.data.materialPreview&&this.data.materialPreview.type==='video'){try{wx.createVideoContext('material-video',this).stop();}catch(e){}}
     this.setData({materialPreview:null,materialPreviewUrl:'',materialPreviewError:'',materialPreviewLoading:false,previewAudioError:'',previewAudioPlaying:false});
   },
-  materialHide() {if(this.__materialAudio)this.__materialAudio.pause();if(this.data.materialPreview&&this.data.materialPreview.type==='video'){try{wx.createVideoContext('material-video',this).pause();}catch(e){}}},
+  materialHide() {this.closeMaterialPreview();},
   materialUnload() {clearTimeout(this.__materialSearch);this.__materialSeq=(this.__materialSeq||0)+1;this.closeMaterialPreview();},
   async manageMaterial(item) {
     if(this.data.materialBusy||!alive(this))return;

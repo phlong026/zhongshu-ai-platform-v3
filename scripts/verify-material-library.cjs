@@ -54,3 +54,24 @@ test('manage mode blocks changes to other authors and invokes owner commands',as
 test('storage recovery never crosses the active account scope',async()=>{
   const store=new Map([['zs-material-pending-v1:tenant2-org2-user2',{id:'other',name:'私有素材'}]]);const h=harness({store});await h.page.materialInit();assert.equal(h.page.data.materialPending,false);
 });
+test('load more does not invalidate delayed first-page covers and updates both pages by ID',async()=>{
+  const downloads=new Map();const h=harness({get:async(path,q)=>({items:[{id:String(q.page),name:'图片'+q.page,mimeType:'image/jpeg'}],total:2}),post:path=>new Promise(resolve=>downloads.set(path.split('/').at(-2),resolve))});
+  const first=h.page.loadMaterials();await flush();assert.equal(h.page.data.materialLoading,false);
+  const second=h.page.materialMore();await flush();assert.equal(h.page.data.materialItems.length,2);
+  downloads.get('2')({downloadUrl:'https://cos.example/2.jpg'});await second;
+  downloads.get('1')({downloadUrl:'https://cos.example/1.jpg'});await first;
+  assert.equal(h.page.data.materialItems[0].coverUrl,'https://cos.example/1.jpg');assert.equal(h.page.data.materialItems[1].coverUrl,'https://cos.example/2.jpg');
+});
+for(const type of ['audio','image'])test('hidden page ignores delayed '+type+' preview and can reopen after return',async()=>{
+  let resolve;const h=harness({post:()=>new Promise(r=>resolve=r)});let previews=0,players=0;
+  h.wx.previewImage=o=>{previews++;o.success({});};h.wx.createInnerAudioContext=()=>{players++;throw Error('background playback');};
+  h.page.setData({materialItems:[{id:'1',name:'素材',type}]});const pending=h.page.openMaterial(event('1'));h.page.materialHide();
+  resolve({downloadUrl:'https://cos.example/media'});await pending;assert.equal(previews,0);assert.equal(players,0);assert.equal(h.page.data.materialPreview,null);
+  // A fresh foreground request may open again; old responses never revive themselves.
+  if(type==='image'){const next=h.page.openMaterial(event('1'));resolve({downloadUrl:'https://cos.example/media'});await next;assert.equal(previews,1);}
+  else {
+    h.wx.createInnerAudioContext=()=>{players++;let playing;return {onCanplay(){},onPlay(fn){playing=fn;},onPause(){},onEnded(){},onTimeUpdate(){},onError(){},play(){playing();},destroy(){},seek(){}};};
+    const next=h.page.openMaterial(event('1'));resolve({downloadUrl:'https://cos.example/media'});await next;
+    assert.equal(players,1);assert.equal(h.page.data.previewAudioPlaying,true);h.page.closeMaterialPreview();
+  }
+});

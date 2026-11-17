@@ -9,7 +9,8 @@
     "video explicit close returns to list",
     "audio inline player",
     "manage mode",
-    "file upload and acknowledged save"
+    "file upload and acknowledged save",
+    "hidden page rejects delayed audio and image previews"
   ],
   "errors": [],
   "rects": [

@@ -54,6 +54,18 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  await mp.evaluate(()=>{wx.showActionSheet=o=>o.success({tapIndex:0});wx.chooseMedia=o=>o.success({tempFiles:[{tempFilePath:wx.env.USER_DATA_PATH+'/material-house.jpg'}]});});
  await invoke('materialChooseUpload');await until(async()=>(await page.data()).materialItems?.[0]?.id==='799','upload completed');
  assert.equal((await page.data()).materialUploadPhase,'上传完成');assert.equal((await page.data()).materialPending,false);await mp.screenshot({path:path.join(output,'06-upload-complete.png')});
- const result={route:page.path,checks:['two-column layout','real API list contract','category filter','company scope empty','search and clear','video explicit close returns to list','audio inline player','manage mode','file upload and acknowledged save'],errors,rects};
+ await mp.evaluate(()=>{
+   const f=globalThis.__materialFixture;f.pending=[];f.previewCount=0;f.playerCount=0;f.savedRequest=wx.request;f.savedPreview=wx.previewImage;f.savedAudio=wx.createInnerAudioContext;
+   wx.request=o=>{if(String(o.url).includes('/material-library/')&&String(o.url).endsWith('/download-tickets')){f.pending.push(()=>f.savedRequest(o));return {abort(){}};}return f.savedRequest(o);};
+   wx.previewImage=o=>{f.previewCount++;return f.savedPreview(o);};wx.createInnerAudioContext=()=>{f.playerCount++;return f.savedAudio();};
+ });
+ for(const id of ['705','701']) {
+   await invoke('openMaterial',{currentTarget:{dataset:{id}}});await invoke('onHide');
+   await mp.evaluate(()=>{globalThis.__materialFixture.pending.splice(0).forEach(f=>f());});await sleep(120);
+   assert.equal((await page.data()).materialPreview,null);
+ }
+ assert.deepEqual(await mp.evaluate(()=>({previews:globalThis.__materialFixture.previewCount,players:globalThis.__materialFixture.playerCount})),{previews:0,players:0});
+ await mp.evaluate(()=>{const f=globalThis.__materialFixture;wx.request=f.savedRequest;wx.previewImage=f.savedPreview;wx.createInnerAudioContext=f.savedAudio;});
+ const result={route:page.path,checks:['two-column layout','real API list contract','category filter','company scope empty','search and clear','video explicit close returns to list','audio inline player','manage mode','file upload and acknowledged save','hidden page rejects delayed audio and image previews'],errors,rects};
  fs.writeFileSync(path.join(output,'native-result.json'),JSON.stringify(result,null,2));assert.equal(errors.length,0,errors.join('\n'));await mp.disconnect();console.log(JSON.stringify({passed:result.checks.length,output}));
 })().catch(e=>{console.error(e);process.exit(1)});
