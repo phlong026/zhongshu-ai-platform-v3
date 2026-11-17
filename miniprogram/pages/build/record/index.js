@@ -118,10 +118,10 @@ Page({
     this.__idemKeys[idemId]=cached;
    }
    try{
-    await P.perform(action,String(this.id),f0,node||this.data.node,cached.key);
+    const result=await P.perform(action,String(this.id),f0,node||this.data.node,cached.key);
     if(!alive())return;
     delete this.__idemKeys[idemId]; // 成功后释放；失败保留，同目标同内容重试复用同键（指纹匹配时）
-    wx.showToast({title:'已在线保存',icon:'success'});
+    wx.showToast({title:result&&result.stageStatus==='PENDING_CONFIRMATION'?'已提交，待财务核实':'已在线保存',icon:result&&result.stageStatus==='PENDING_CONFIRMATION'?'none':'success'});
     // Codex R1 P2-1：费用登记成功后清空表单（防旧名称/金额残留一键重复计成本）
     if(action==='expense-register')this.setData({'form.expenseName':'','form.expenseAmount':'','form.note':''});
     await this.refreshOnline(true);

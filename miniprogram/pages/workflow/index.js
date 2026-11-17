@@ -447,9 +447,10 @@ Page({
   // R1：合同页渲染源=salesContracts（progressContracts 是另一视图）——两处都查，取首个命中
   const ctx=(this.data.salesContracts||[]).concat(this.data.progressContracts||[])
    .flatMap(c=>c.stages||[]).find(st=>String(st.id)===String(stageId))||{};
+  const returned=(this.data.salesContracts||[]).flatMap(c=>c.declarations||[]).find(d=>d.id===String(e.currentTarget.dataset.declarationId)&&d.status==='RETURNED');
   return this.setData({modal:'collect',error:'',collectStageId:stageId,
    collectStageText:(ctx.stageText||'期款')+' · 剩余可收 ¥'+(ctx.balanceText||ctx.amountText||'0'),
-   collectForm:{method:'bank',transactionNo:'',receivedDate:PF.today(),amount:(ctx.balanceText||ctx.amountText||'')}});
+   collectForm:{method:'bank',transactionNo:returned?.transactionNo||'',receivedDate:returned?.date||PF.today(),amount:returned?.amountText||(ctx.balanceText||ctx.amountText||'')}});
  },
  platCollectInput(e){const key=e.currentTarget.dataset.key;this.setData({['collectForm.'+key]:e.detail.value,error:''});},
  platCollectPick(e){const values=['bank','cash'];this.setData({['collectForm.method']:values[Number(e.detail.value)]||'bank',error:''});},
@@ -463,10 +464,10 @@ Page({
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   this.setData({busy:true,error:''});
   // M06-T02 分笔：amountCents=本次回款金额（≤期剩余可收额，后端限额裁决）
-  this.platformSalesApi().stages.collect(stageId,{amountCents:PF.toCents(form.amount),method:form.method,transactionNo:(form.transactionNo||'').trim()||undefined,receivedDate:form.receivedDate||undefined},key).then(()=>{
+  this.platformSalesApi().stages.collect(stageId,{amountCents:PF.toCents(form.amount),method:form.method,transactionNo:(form.transactionNo||'').trim()||undefined,receivedDate:form.receivedDate||undefined},key).then((result)=>{
    if(this.stale(gen,sessionGen,postKey))return;
    this.platformDropCommandFor('collect',stageId);this.setData({busy:false,modal:'',error:''});
-   wx.showToast({title:'已办理回款',icon:'none'});
+   wx.showToast({title:result&&result.stageStatus==='PENDING_CONFIRMATION'?'已提交，待财务核实':'已核实回款',icon:'none'});
    this.loadPlatformContract();
   }).catch(err2=>{
    if(this.handle401(err2,sessionGen))return;
@@ -720,4 +721,3 @@ Page({
   if(modal==='follow')return this.platformSubmitFollow();
  },
 });
-

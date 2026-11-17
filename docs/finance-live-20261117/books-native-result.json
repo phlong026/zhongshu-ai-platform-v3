@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "checks": [
+    "scope filters",
+    "search",
+    "new early book",
+    "receipt via UI",
+    "expense via UI",
+    "link early book to project",
+    "cost excludes reimbursement",
+    "employee tab",
+    "cash tab",
+    "entry detail"
+  ]
+}

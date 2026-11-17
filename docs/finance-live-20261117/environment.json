@@ -1,0 +1,33 @@
+{
+  "api": "http://127.0.0.1:18091/admin-api",
+  "data": "isolated PostgreSQL, actual application HTTP",
+  "actors": {
+    "boss": {
+      "userId": 146,
+      "postId": "2122579045790490626",
+      "orgId": 118
+    },
+    "sales": {
+      "userId": 147,
+      "postId": "2122579048076386306",
+      "orgId": 118
+    },
+    "engineer": {
+      "userId": 148,
+      "postId": "2122579049624084481",
+      "orgId": 118
+    },
+    "finance": {
+      "userId": 149,
+      "postId": "2122579051171782658",
+      "orgId": 118
+    },
+    "finance-lead": {
+      "userId": 150,
+      "postId": "2122579052648177666",
+      "orgId": 118
+    }
+  },
+  "paidAiCalls": 0,
+  "realTransfers": 0
+}

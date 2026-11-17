@@ -1,0 +1,50 @@
+{
+  "passed": true,
+  "checks": [
+    "single form after switching to manual",
+    "payment return to original project",
+    "receipt return to original project",
+    "reimbursement return retains employee tab",
+    "progress all opens progress",
+    "month keeps pending tasks"
+  ],
+  "state": {
+    "view": "desk",
+    "ready": true,
+    "enabled": true,
+    "error": "",
+    "wbForm": null,
+    "registerType": "",
+    "bookScope": "",
+    "result": null,
+    "counts": {
+      "tasks": 1,
+      "preview": 1,
+      "progress": 1,
+      "cash": 0
+    },
+    "metrics": [
+      {
+        "label": "已登记收款",
+        "value": "0.00",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+      },
+      {
+        "label": "已登记付款",
+        "value": "0.00",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+      },
+      {
+        "label": "收支净额",
+        "value": "0.00",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+      },
+      {
+        "label": "待办事项",
+        "value": 1,
+        "taskMetric": true,
+        "url": "/pages/admin/finance-desk/index?view=tasks"
+      }
+    ]
+  }
+}

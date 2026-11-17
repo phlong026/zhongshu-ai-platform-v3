@@ -1,0 +1,26 @@
+[
+  {
+    "method": "GET",
+    "path": "/franchise/finance/workbench/ledger",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/sales/stages/2122584062962409475/collect",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/engineering/2122584063843213313/materials",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/engineering/supplies/2122610730636627970/terms",
+    "status": 200,
+    "code": 0
+  }
+]

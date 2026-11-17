@@ -1,0 +1,32 @@
+[
+  {
+    "method": "POST",
+    "path": "/franchise/leads",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/sales/contracts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/sales/contracts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/sales/contracts/2122584062962409474/sign",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/engineering/projects",
+    "status": 200,
+    "code": 0
+  }
+]

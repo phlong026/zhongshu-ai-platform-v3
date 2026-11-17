@@ -1,0 +1,128 @@
+[
+  {
+    "method": "POST",
+    "path": "/system/auth/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/org/franchise-onboard",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/auth/login-policy",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/auth/account/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/posts/mine",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/org/staff-accounts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/auth/login-policy",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/auth/account/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/posts/mine",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/org/staff-accounts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/auth/login-policy",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/auth/account/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/posts/mine",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/org/staff-accounts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/auth/login-policy",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/auth/account/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/posts/mine",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/org/staff-accounts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/auth/login-policy",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/auth/account/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/posts/mine",
+    "status": 200,
+    "code": 0
+  }
+]

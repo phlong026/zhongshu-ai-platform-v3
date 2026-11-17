@@ -1,0 +1,32 @@
+[
+  {
+    "method": "GET",
+    "path": "/platform/auth/login-policy",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/platform/auth/account/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/platform/posts/mine",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/franchise/sales/contracts",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/franchise/engineering/2122631373566394369/materials",
+    "status": 200,
+    "code": 0
+  }
+]

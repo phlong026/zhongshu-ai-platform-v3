@@ -1,0 +1,95 @@
+{
+  "entries": [
+    {
+      "id": "2122585391315263490",
+      "type": "PAYMENT",
+      "date": 1794844800000,
+      "amount_cents": 100000,
+      "name": "设计费报销",
+      "category": "员工往来",
+      "source_ref": "2122585390925193218",
+      "status": "已核实"
+    },
+    {
+      "id": "2122585390925193220",
+      "type": "PAYABLE",
+      "date": 1794844800000,
+      "amount_cents": 240000,
+      "name": "设计费报销",
+      "category": "员工往来",
+      "source_ref": "2122585390925193218",
+      "status": "进行中"
+    },
+    {
+      "id": "2122585390925193218",
+      "type": "ADVANCE",
+      "date": 1794844800000,
+      "amount_cents": 240000,
+      "name": "FULL",
+      "category": "设计",
+      "source_ref": "11180001:1:FULL",
+      "status": "已核实"
+    },
+    {
+      "id": "2122585390669340674",
+      "type": "PAYMENT",
+      "date": 1794844800000,
+      "amount_cents": 600000,
+      "name": "engineering",
+      "category": null,
+      "source_ref": null,
+      "status": "已核实"
+    },
+    {
+      "id": "2122585390476402689",
+      "type": "PAYMENT",
+      "date": 1794844800000,
+      "amount_cents": 400000,
+      "name": "engineering",
+      "category": null,
+      "source_ref": null,
+      "status": "已核实"
+    },
+    {
+      "id": "2122585265251262466",
+      "type": "RECEIPT",
+      "date": 1794844800000,
+      "amount_cents": 10000000,
+      "name": "张先生·财务联调·签约后回款",
+      "category": null,
+      "source_ref": "sale:2122584062962409474:SIGN_AFTER:2122585265188347906",
+      "status": "已登记"
+    },
+    {
+      "id": "2122585363003711489",
+      "type": "PAYABLE",
+      "date": null,
+      "amount_cents": 1000000,
+      "name": "engineering",
+      "category": null,
+      "source_ref": null,
+      "status": "进行中"
+    },
+    {
+      "id": "11180003",
+      "type": "PAYABLE",
+      "date": null,
+      "amount_cents": 240000,
+      "name": "FULL",
+      "category": "设计",
+      "source_ref": "11180001:1:FULL",
+      "status": "进行中"
+    }
+  ],
+  "scope": "project:2122584063843213313",
+  "summary": {
+    "received_cents": 10000000,
+    "paid_cents": 1100000,
+    "refunded_cents": 0,
+    "expense_refunded_cents": 0,
+    "committed_cents": 1240000,
+    "outstanding_cents": 140000,
+    "receivable_cents": 50000000
+  },
+  "truncated": false
+}

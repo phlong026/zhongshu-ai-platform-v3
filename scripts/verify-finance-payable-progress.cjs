@@ -53,7 +53,8 @@ function designFinanceHarness(api) {
   };
   vm.runInNewContext(fs.readFileSync(financeFile, 'utf8'), {
     module,
-    require(request) { return request.endsWith('/api/http') ? http : realRequire(request); },
+    require(request) {
+      if (request === '../../../utils/finance-workbench-view') return require('../miniprogram/utils/finance-workbench-view'); return request.endsWith('/api/http') ? http : realRequire(request); },
     wx: { showToast() {} }
   }, { filename: financeFile });
   const page = {
@@ -84,6 +85,7 @@ function financeDeskHarness(data) {
   vm.runInNewContext(source, {
     Page(definition) { page = definition; },
     require(request) {
+      if (request === '../../../utils/finance-workbench-view') return require('../miniprogram/utils/finance-workbench-view');
       if (request === '../../../utils/finance-desk') return { url: () => '' };
       if (request === '../../../utils/access') return { context: () => ({}) };
       if (request === '../../../utils/page-navigation') return {};
@@ -114,7 +116,7 @@ test('payable progress derives exact net paid without relying on paidCents from 
   const data = financeRows();
   const rows = PF.payableProgress(data.payables, data.payments, data.refunds);
   assert.deepEqual(rows.map(row => ({ id: row.id, paid: row.paidCents, remaining: row.remainingCents })), [
-    { id: '9007199254740991', paid: 5000, remaining: 16000 },
+    { id: '9007199254740991', paid: 7000, remaining: 14000 },
     { id: '9007199254740992', paid: 4000, remaining: 5000 }
   ]);
 });
@@ -154,8 +156,8 @@ test('payables source rows load payments and refunds once and show registration 
   await page.loadFinanceSourceRows();
   assert.deepEqual(calls.sort(), ['payables', 'payments', 'refunds']);
   assert.equal(page.data.rows[0].canPay, true);
-  assert.equal(page.data.rows[0].amountText, '¥160.00');
-  assert.match(page.data.rows[0].detail, /已付 ¥50\.00/);
+  assert.equal(page.data.rows[0].amountText, '¥140.00');
+  assert.match(page.data.rows[0].detail, /已付 ¥70\.00/);
 });
 
 test('source rows preserve their error state and late-session guard when supporting finance facts fail or arrive late', async () => {
@@ -188,10 +190,10 @@ test('full finance payable picker uses the same net progress and excludes fully 
   assert.deepEqual(page.data.platformRegister.payables.map(row => ({
     id: row.id, paid: row.paidCents, remaining: row.remainingCents
   })), [
-    { id: '9007199254740991', paid: 5000, remaining: 16000 },
+    { id: '9007199254740991', paid: 7000, remaining: 14000 },
     { id: '9007199254740992', paid: 4000, remaining: 5000 }
   ]);
-  assert.match(page.data.platformRegister.payables[0].label, /未付 ¥160\.00/);
+  assert.match(page.data.platformRegister.payables[0].label, /未付 ¥140\.00/);
 
   const completed = financeDeskHarness({
     payables: [{ id: 'full', name: '已结清原单', status: '进行中', totalCents: 21000 }],

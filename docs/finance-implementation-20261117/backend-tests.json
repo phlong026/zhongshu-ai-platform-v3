@@ -1,0 +1,79 @@
+[
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.engineering.content.EngClosurePayloadTest",
+    "Tests": 1,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.engineering.content.EngGateNetReconcileIntegrationTest",
+    "Tests": 2,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.engineering.content.EngGuardTest",
+    "Tests": 7,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.engineering.content.EngLaborExpenseIntegrationTest",
+    "Tests": 4,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.engineering.content.EngMaterialAndPlanGuardIntegrationTest",
+    "Tests": 16,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.finance.FinancePageMapperIntegrationTest",
+    "Tests": 8,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.finance.FinReconciliationIntegrationTest",
+    "Tests": 3,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.finance.FinRefundThreeDirectionIntegrationTest",
+    "Tests": 11,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.finance.FinWorkbenchIntegrationTest",
+    "Tests": 7,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.performance.content.PerfFinanceWorkbenchIntegrationTest",
+    "Tests": 1,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  },
+  {
+    "Suite": "cn.iocoder.yudao.module.franchise.sales.SaleContractThreeStageIntegrationTest",
+    "Tests": 15,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0
+  }
+]

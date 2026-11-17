@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "financeMetrics": [
+    "101,000.00",
+    "11,860.00",
+    "89,140.00",
+    1
+  ],
+  "bossReadOnly": {
+    "readonly": true,
+    "net": "89,140.00",
+    "metrics": [
+      {
+        "key": "received",
+        "label": "累计收款",
+        "value": "101,000.00"
+      },
+      {
+        "key": "paid",
+        "label": "累计付款",
+        "value": "11,860.00"
+      },
+      {
+        "key": "contract",
+        "label": "合同金额",
+        "value": "600,000.00"
+      },
+      {
+        "key": "cost",
+        "label": "费用金额",
+        "value": "13,260.00"
+      }
+    ],
+    "name": "张先生乡墅·财务联调",
+    "error": ""
+  },
+  "roles": [
+    "sales",
+    "engineer",
+    "finance",
+    "boss"
+  ],
+  "renderer": "WeChat developer tools native simulator, not physical phone"
+}

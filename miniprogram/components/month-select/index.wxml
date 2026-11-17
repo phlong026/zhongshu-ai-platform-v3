@@ -1,0 +1,29 @@
+<button class="month-select-button month-trigger" hover-class="month-trigger-pressed" aria-label="选择统计月份，当前{{displayValue}}" bindtap="open">
+ <view class="month-pill {{visible?'month-pill-open':''}}">
+  <image class="month-calendar" src="/assets/icons/month-calendar.svg" mode="aspectFit"/>
+  <text class="month-value">{{displayValue}}</text>
+  <image class="month-chevron {{visible?'month-chevron-open':''}}" src="/assets/creation-chevron-muted.png" mode="aspectFit"/>
+ </view>
+</button>
+<block wx:if="{{visible}}">
+ <view class="month-overlay" catchtouchmove="preventMove">
+  <view class="month-mask" bindtap="cancel"/>
+  <view class="month-sheet" role="dialog" aria-modal="true" aria-label="选择月份">
+   <view class="month-handle"/>
+   <view class="month-toolbar">
+    <button class="month-select-button month-cancel" hover-class="month-action-pressed" bindtap="cancel">取消</button>
+    <text class="month-title">选择月份</text>
+    <button class="month-select-button month-confirm" hover-class="month-action-pressed" bindtap="confirm">确定</button>
+   </view>
+   <view class="month-year-row">
+    <button class="month-select-button month-year-arrow" aria-label="上一年" disabled="{{year<=minYear}}" data-step="-1" bindtap="changeYear"><image class="month-arrow-left" src="/assets/creation-chevron-muted.png" mode="aspectFit"/></button>
+    <text class="month-year">{{year}}年</text>
+    <button class="month-select-button month-year-arrow" aria-label="下一年" disabled="{{year>=maxYear}}" data-step="1" bindtap="changeYear"><image src="/assets/creation-chevron-muted.png" mode="aspectFit"/></button>
+   </view>
+   <view class="month-grid">
+    <button wx:for="{{months}}" wx:key="value" class="month-select-button month-cell {{item.selected?'month-cell-selected':''}}" hover-class="month-cell-pressed" aria-label="{{year}}年{{item.label}}{{item.selected?'，已选择':''}}" data-value="{{item.value}}" bindtap="choose"><text>{{item.label}}</text><icon wx:if="{{item.selected}}" type="success_no_circle" size="13" color="#fff"/></button>
+   </view>
+   <text class="month-caption">按所选月份查看收支，待办事项持续保留</text>
+  </view>
+ </view>
+</block>

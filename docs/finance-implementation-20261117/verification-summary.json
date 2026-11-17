@@ -1,0 +1,9 @@
+{
+  "backend": "75 passed",
+  "frontend": "25 passed",
+  "legacyAssertions": "56 passed",
+  "platformCompile": "passed",
+  "pcTypecheck": "passed",
+  "nativeVisual": "not verified: automation timeout",
+  "production": "not deployed"
+}

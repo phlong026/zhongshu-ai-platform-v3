@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "cashReceivedCents": 10100000,
+  "companyPaidCents": 1186000,
+  "netCents": 8914000,
+  "projectCostCents": 1326000,
+  "employeeAdvancedCents": 240000,
+  "employeeReimbursedCents": 100000,
+  "employeeRemainingCents": 140000,
+  "materialPaidCents": 1000000,
+  "materialRemainingCents": 0,
+  "contractOutstandingCents": 49900000,
+  "linkedEarlyBookSameSummary": true,
+  "depositAllocationDidNotCreateCash": true,
+  "physicalPhoneTested": false
+}
