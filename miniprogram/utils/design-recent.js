@@ -7,10 +7,10 @@ function row(p,j={}){
  const id=String(p.projectId||''),jobId=String(j.jobId||p.jobId||''),status=j.status||p.jobStatus||'',stage=(j.phase||p.stage)==='ELEVATION'?'ELEVATION':'FLAT';
  const count=Number(j.requestedCount||p.requestedCount),accepted=Number(j.acceptedCount),resolution=(j.imageOptions||p.imageOptions||p).resolution||'';
  const metadata=[time(j.createdAt||p.createdAt||p.createTime),count>0?count+'张':'',resolution].filter(Boolean).join(' · ');
- return {id,jobId,stage,title:(p.name||'独立方案')+' · '+(stage==='ELEVATION'?'AI立面':'AI平面'),metadata,
+ return {id,jobId,stage,resumeAction:p.resumeAction||'',title:(p.name||'独立方案')+' · '+(stage==='ELEVATION'?'AI立面':'AI平面'),metadata,
   status,statusText:labels[status]||'待确认',running:active.includes(status),tone:active.includes(status)?'warm':['SUCCEEDED','PARTIALLY_SUCCEEDED'].includes(status)?'green':['FAILED','CANCELLED'].includes(status)?'red':'muted',
   progress:count>0&&Number.isFinite(accepted)?'已生成 '+accepted+'/'+count+' 张':'',count:count>0?count:0,
-  action:active.includes(status)?'查看进度':status==='FAILED'?'查看原因':['SUCCEEDED','PARTIALLY_SUCCEEDED'].includes(status)?'查看结果':'查看详情',
+  action:['SELECT_FLAT','SELECT_ELEVATION'].includes(p.resumeAction)?'选择新方案':active.includes(status)?'查看进度':status==='FAILED'?'查看原因':['SUCCEEDED','PARTIALLY_SUCCEEDED'].includes(status)?'查看结果':'查看详情',
   resultVersionId:p.resultVersionId?String(p.resultVersionId):'',coverAssetId:p.coverAssetId||p.selectedElevationAssetId||p.selectedFlatAssetId||'',coverUrl:'',icon:stage==='ELEVATION'?'/assets/house.png':'/assets/plan-file.png'};
 }
 function stop(page){page.__recentHidden=true;page.__recentSequence=(page.__recentSequence||0)+1;if(page.__recentTimer)clearTimeout(page.__recentTimer);page.__recentTimer=null;}
@@ -40,7 +40,7 @@ async function load(page){
 function open(page,e){
  const r=page.data.recentTasks.find(r=>r.id===String(e.currentTarget.dataset.id));if(!r||!http.token())return;
  let url='/design-migration/pages/profile/record?type=projects&id='+encodeURIComponent(r.id);
- if(r.resultVersionId&&!r.running&&['SUCCEEDED','PARTIALLY_SUCCEEDED'].includes(r.status))url='/design-migration/pages/ai-design/result?projectId='+encodeURIComponent(r.id)+'&resultVersionId='+encodeURIComponent(r.resultVersionId);
+ if(r.resumeAction==='VIEW_RESULT'&&r.resultVersionId)url='/design-migration/pages/ai-design/result?projectId='+encodeURIComponent(r.id)+'&resultVersionId='+encodeURIComponent(r.resultVersionId);
  else if(r.jobId)url='/design-migration/pages/ai-design/generating?projectId='+encodeURIComponent(r.id)+'&jobId='+encodeURIComponent(r.jobId)+'&stage='+(r.stage==='ELEVATION'?'elevation':'plane')+(r.count?'&count='+r.count:'');
  wx.navigateTo({url,fail:()=>wx.showToast({title:'页面未打开，请重试',icon:'none'})});
 }
