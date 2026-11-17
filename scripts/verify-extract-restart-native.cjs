@@ -25,14 +25,16 @@ const phase=process.argv[2],sleep=ms=>new Promise(r=>setTimeout(r,ms)),timer=set
   };
   setTimeout(()=>wx.reLaunch({url:'/pages/creation/index'}),50);
  },phase);
- await sleep(2200);
+ for(let i=0;i<24;i++){await sleep(500);if(await mp.evaluate(()=>getCurrentPages().slice(-1)[0]?.route==='pages/creation/index'&&typeof getCurrentPages().slice(-1)[0]?.inputLink==='function'))break;}
+ assert.ok(await mp.evaluate(()=>typeof getCurrentPages().slice(-1)[0]?.inputLink==='function'),'creation page must finish loading');
  await mp.evaluate(async()=>{const p=getCurrentPages().slice(-1)[0];p.inputLink({detail:{value:'https://v.douyin.com/isolated-restart-review'}});await p.extractOnline();return true;});
  await sleep(800);
  const counts=await mp.evaluate(()=>wx.getStorageSync('isolated-extract-restart-review'));
  assert.equal(counts.transcriptions,1);assert.equal(counts.charges,1);assert.equal(counts.parses,1);assert.equal(counts.retries,phase==='resume'?1:0);
  if(phase==='create')assert.match(await mp.evaluate(()=>getCurrentPages().slice(-1)[0].data.extractError),/保存失败/);
  else {
-  assert.equal((await mp.currentPage()).path,'pages/studio/index');
+  for(let i=0;i<24;i++){await sleep(500);if(await mp.evaluate(()=>getCurrentPages().slice(-1)[0]?.route==='pages/studio/index'))break;}
+  assert.equal(await mp.evaluate(()=>getCurrentPages().slice(-1)[0]?.route),'pages/studio/index');
   await mp.screenshot({path:path.resolve('docs/creation-repair-20261117/24-重启后恢复原转写任务.png')});
   fs.writeFileSync('docs/creation-repair-20261117/extract-restart-native-result.json',JSON.stringify({passed:true,runtimeRestarted:true,...counts,scope:'微信开发者工具重启运行时、保留本地存储；隔离接口和积分计数，未调用供应商'},null,2));
  }

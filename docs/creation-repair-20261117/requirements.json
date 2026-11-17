@@ -32,7 +32,7 @@
     },
     {
       "id": "C01",
-      "requirement": "预算提交委托自动继承来源客户，无来源则选择",
+      "requirement": "预算带入来源客户，无来源则选择；归档前核对客户并明确确认",
       "status": "verified",
       "commits": [
         "f8724eb7"
@@ -198,16 +198,79 @@
     {
       "id": "REL01",
       "requirement": "逐项验证与功能提交、前后端PR",
-      "status": "pending-release",
+      "status": "verified",
       "commits": [],
-      "verification": []
+      "verification": [
+        "release-status.json"
+      ]
     },
     {
       "id": "REL02",
       "requirement": "服务器前后端部署、小程序上传及上线回读",
-      "status": "pending-release",
+      "status": "verified",
       "commits": [],
-      "verification": []
+      "verification": [
+        "release-status.json"
+      ]
+    },
+    {
+      "id": "P2-01",
+      "requirement": "跨客户续提不得改变首次任务来源，归档前核对客户",
+      "status": "verified",
+      "commits": [
+        "e54185df"
+      ],
+      "verification": [
+        "verify-pr-design-recovery.cjs",
+        "23-预算归档前核对客户.png"
+      ]
+    },
+    {
+      "id": "P2-02",
+      "requirement": "已受理任务在报价失败时仍能恢复原任务，不再次扣点",
+      "status": "verified",
+      "commits": [
+        "d38149ff"
+      ],
+      "verification": [
+        "verify-pr-design-recovery.cjs"
+      ]
+    },
+    {
+      "id": "P2-03",
+      "requirement": "重生成未选图时最近任务进入本次候选，确认后查看新版本",
+      "status": "verified",
+      "commits": [
+        "64a5ee79"
+      ],
+      "verification": [
+        "verify-design-recent.cjs"
+      ]
+    },
+    {
+      "id": "P2-04",
+      "requirement": "转写成功但保存失败只在原任务重试本地保存",
+      "status": "verified",
+      "commits": [
+        "9e16d794",
+        "6cc15888"
+      ],
+      "verification": [
+        "verify-business-module-migration.cjs",
+        "ContentResultDeliveryPgIntegrationTest"
+      ]
+    },
+    {
+      "id": "P2-05",
+      "requirement": "重启后同链接恢复持久化原任务，按账号组织隔离，存储失败停止付费提交",
+      "status": "verified",
+      "commits": [
+        "904a8c84"
+      ],
+      "verification": [
+        "extract-restart-native-result.json",
+        "verify-business-module-migration.cjs"
+      ]
     }
   ],
   "validation": {
@@ -219,6 +282,14 @@
     "limitations": [
       "未重复调用付费生成接口",
       "物理手机键盘与系统相册权限需实机验收；开发工具已验证布局、媒体播放与实际PNG生成"
-    ]
+    ],
+    "resultDeliveryTests": 11,
+    "restartNative": "extract-restart-native-result.json"
+  },
+  "pendingNewDesign": {
+    "id": "M01",
+    "requirement": "素材库重新设计效果图，用户确认后再改代码",
+    "status": "awaiting-design-selection",
+    "implementationStarted": false
   }
 }

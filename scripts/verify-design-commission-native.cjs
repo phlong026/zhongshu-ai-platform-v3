@@ -8,7 +8,7 @@ const out=path.resolve('docs/creation-repair-20261117'),sleep=ms=>new Promise(r=
   const request=wx.request;wx.request=o=>{
    let data;const url=o.url,body=o.data||{};
    if(url.endsWith('/franchise/design/flow')){
-    const rows=[{projectId:'501',name:'张先生',stage:'FLAT',jobId:'601'},{projectId:'502',name:'李先生',stage:'ELEVATION',jobId:'602',resultVersionId:'702'},{projectId:'503',name:'独立方案',stage:'FLAT',jobId:'603'}];
+    const rows=[{projectId:'501',name:'张先生',stage:'FLAT',jobId:'601'},{projectId:'502',name:'李先生',stage:'ELEVATION',jobId:'602',resultVersionId:'702',resumeAction:'VIEW_RESULT'},{projectId:'503',name:'独立方案',stage:'FLAT',jobId:'603'}];
     data=body.path==='/design-projects'?{list:rows}:rows.find(r=>body.path.endsWith('/'+r.projectId));
    }else if(url.includes('/franchise/design/flow-ai-jobs/')){const id=url.split('/').pop();data={jobId:id,status:id==='601'?'RUNNING':id==='602'?'SUCCEEDED':'FAILED',requestedCount:2,acceptedCount:id==='601'?1:id==='602'?2:0,createdAt:'2026-11-17T14:32:00+08:00',imageOptions:{resolution:'2K'}};}
    else if(url.includes('/franchise/design/cases'))data={list:Array.from({length:12},(_,i)=>({caseId:String(i+1),title:['田园一层4室2厅','新中式二层三室两厅','现代雅居','庭院别墅'][i%4],faceWidth:12,depth:15,floorCount:2})),nextCursor:'more'};
@@ -25,6 +25,20 @@ const out=path.resolve('docs/creation-repair-20261117'),sleep=ms=>new Promise(r=
  const texts=await Promise.all((await page.$$('.resource-actions button')).map(el=>el.text()));
  assert((await (await page.$('.resource-create-card')).size()).height>85,'creation card must show icon, title and description');
  assert.equal(texts.length,2);assert(texts[0].includes('创建口播分身'));assert(texts[1].includes('克隆声音'));assert((await page.data()).canCreate);await mp.screenshot({path:path.join(out,'20-创建口播分身入口.png')});
+ await mp.evaluate(()=>{
+  globalThis.__archiveCalls=0;const request=wx.request;
+  wx.request=o=>{let data;
+   if(o.url.endsWith('/franchise/customers/701'))data={customer:{id:'701',name:'张先生',phone:'138****6288'}};
+   else if(o.url.endsWith('/franchise/design/flow-budget-archive')){globalThis.__archiveCalls++;data={schemeId:'801',version:1};}
+   else return request(o);
+   setTimeout(()=>o.success({statusCode:200,data:{code:0,data}}),10);return{abort(){}};
+  };
+  setTimeout(()=>wx.reLaunch({url:'/design-migration/pages/customer/archive?budgetId=901&revisionId=902&next=commission&customerId=701'}),40);return true;
+ });await sleep(2500);assert.equal(await mp.evaluate(()=>getCurrentPages().slice(-1)[0].data.selected),'701');
+ assert.equal(await mp.evaluate(()=>globalThis.__archiveCalls),0,'carried customer must not be archived before confirmation');
+ await mp.screenshot({path:path.join(out,'23-预算归档前核对客户.png')});
+ await mp.evaluate(async()=>{await getCurrentPages().slice(-1)[0].save();return true;});await sleep(500);
+ assert.equal(await mp.evaluate(()=>globalThis.__archiveCalls),1,'confirmation archives exactly once');
  await mp.evaluate(()=>{setTimeout(()=>wx.reLaunch({url:'/pages/workflow/commission/index?view=submit&customerId=701'}),40);return true;});await sleep(1400);
  await mp.evaluate(()=>{
   const p=getCurrentPages().slice(-1)[0];p.__commission={commissionId:'501',status:'DESIGNING',allowedActions:[],feedbacks:[],request:{version:1,scope:'建筑平面、立面及施工图'}};
@@ -34,6 +48,6 @@ const out=path.resolve('docs/creation-repair-20261117'),sleep=ms=>new Promise(r=
  await mp.evaluate(async()=>{await getCurrentPages().slice(-1)[0].exportOrderImage();return true;});await sleep(300);
  const png=await mp.evaluate(()=>{if(!globalThis.__exportedOrder)return null;return wx.getFileSystemManager().readFileSync(globalThis.__exportedOrder,'base64');});assert(png,'real canvas export produced an image');
  fs.writeFileSync(path.join(out,'22-设计委托单实际导出.png'),Buffer.from(png,'base64'));
- fs.writeFileSync(path.join(out,'design-commission-native-result.json'),JSON.stringify({passed:!errors.length,errors,recentTasks:3,featuredCases:4,exported:true,scope:'隔离接口夹具；微信原生 Canvas 实际生成 PNG；相册写入由夹具代收，未改写真实业务'},null,2));
+ fs.writeFileSync(path.join(out,'design-commission-native-result.json'),JSON.stringify({passed:!errors.length,errors,recentTasks:3,featuredCases:4,customerConfirmedBeforeArchive:true,exported:true,scope:'隔离接口夹具；微信原生 Canvas 实际生成 PNG；相册写入由夹具代收，未改写真实业务'},null,2));
  assert.equal(errors.length,0,errors.join('\n'));await mp.disconnect();clearTimeout(timer);console.log('passed: recent tasks, cover layout, clone entry, commission native PNG export');
 })().catch(e=>{clearTimeout(timer);console.error(e.stack);process.exit(1);});
