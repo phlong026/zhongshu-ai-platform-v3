@@ -28,6 +28,7 @@
    <include src="./simulated-payment.wxml"/>
    <view wx:if="{{rows.length&&view!=='pay'&&view!=='submit'}}" class="commission-card"><view wx:for="{{rows}}" wx:key="index" wx:if="{{index>1||view==='policy'||view==='pricing'}}" class="commission-row"><text class="commission-muted commission-key">{{item.label}}</text><button wx:if="{{item.file}}" class="commission-file" data-index="{{index}}" bindtap="preview">{{item.value}}</button><text wx:else class="commission-value">{{item.value}}</text></view></view>
    <block wx:if="{{view==='submit'||designBriefEnabled&&view!=='pay'}}"><include src="./design-brief.wxml"/></block>
+   <include src="./order-sheet.wxml"/>
    <view wx:if="{{budgetCard&&!budgetReady}}" class="commission-card commission-budget">
     <text class="commission-heading">本项目预算依据</text>
     <text wx:if="{{budgetReady}}" class="commission-muted">参考预算 V{{budgetBasis.version}} · {{budgetBasis.width}}m × {{budgetBasis.depth}}m · {{budgetBasis.floors}}层 · {{budgetBasis.area}}㎡</text>

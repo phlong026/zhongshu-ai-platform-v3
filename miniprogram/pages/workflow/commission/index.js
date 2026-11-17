@@ -20,7 +20,7 @@ const commandKey = action => {
 
 Page({
   ...require('./payment-flow')({http,commissions:API.commissions,paymentView}), ...makeFormHandlers(),
-  data: { designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentMerchant:'' },
+  data: { exporting:false,orderSheet:null,hasOrderSheet:false, designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentMerchant:'' },
   onLoad(options) {
     this.disposed = false; this.options = options || {}; this.customerId = options.customerId || ''; this.id = options.commissionId || options.id || '';
     if (!this.customerId && options.view === 'submit' && !options.commissionId) { this.customerId = this.id; this.id = ''; }
@@ -39,7 +39,7 @@ Page({
   dropCmdKey(action) { if (this.__cmdKeys) delete this.__cmdKeys[action]; },
   failState(message) {
     this.action = ''; this.nextView = ''; this.initialized = false; this.__list = null;
-    this.__briefScope='';this.setData({ designBriefEnabled:false,designBrief:{},briefSummary:'',orderCustomer:{},paymentOrder:null,simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',canFeeDecide: false, canFeedback: false, managerOptions: [] });
+    this.__briefScope='';this.setData({ orderSheet:null,hasOrderSheet:false,exporting:false,designBriefEnabled:false,designBrief:{},briefSummary:'',orderCustomer:{},paymentOrder:null,simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',canFeeDecide: false, canFeedback: false, managerOptions: [] });
     this.setData({ platformStatus: 'degraded', error: message, customer: null, rows: [], tasks: [], taskCount: 0, metrics: this.view==='admin'&&this.post()&&this.__post&&this.__post.roleCode==='hq-design-admin'?Presentation.workbench([]).metrics.map(m=>({...m,value:'—'})):[], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, form: {}, fields: [], preview: null, primary: '', canReturn: false, budgetCard: false, isComplete: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null });
   },
   refresh(reset = false) {
@@ -213,6 +213,7 @@ Page({
       isComplete: !!c.acceptance
     });
     this.prepareBrief(c,view,can);
+    this.refreshOrderSheet();
   },
   prepareBrief(c,view,can){
     const frozen=Brief.snapshot(c.request),context=this.__context||{},client=view==='submit'?(context.customerInfo||frozen&&frozen.customer||{}):(frozen&&frozen.customer||context.customerInfo||{});
@@ -228,6 +229,11 @@ Page({
       this.setData({designBrief:brief,briefSections:Brief.sections(brief),briefSummary:Brief.summary(brief),submitPreview:false,expandedBrief:0,showCustomerPhone:this.__post.roleCode!=='hq-design-admin'});
     }
   },
+  refreshOrderSheet(){
+    const c=this.__commission||{};
+    this.setData({hasOrderSheet:!!(this.data.designBriefEnabled||c.request),orderSheet:require('./order-sheet').model(this.data,c,Presentation.stateOf(c).state)});
+  },
+  exportOrderImage(){return require('./order-sheet').exportImage(this);},
   updateBrief(key,value,toggle){
     if(this.data.busy||this.view!=='submit')return;
     const brief=Brief.edit(this.data.designBrief,key,value,toggle);
@@ -393,7 +399,7 @@ Page({
   async submit() {
     if(this.view==='pay'&&this.action==='commission-simulate-pay')return this.simulatePayment();
     if(this.action==='commission-submit'&&this.data.designBriefEnabled&&!this.data.submitPreview){
-      try{const message=Brief.error(this.data.designBrief);if(message)throw Error(message);this.setData({submitPreview:true,error:''});wx.pageScrollTo({scrollTop:0,duration:0});}catch(e){const message=e.message;const index=/项目|朝向|入口/.test(message)?0:/常住人口/.test(message)?1:2;this.setData({error:message,expandedBrief:index});}return;
+      try{const message=Brief.error(this.data.designBrief);if(message)throw Error(message);this.setData({submitPreview:true,error:''});this.refreshOrderSheet();wx.pageScrollTo({scrollTop:0,duration:0});}catch(e){const message=e.message;const index=/项目|朝向|入口/.test(message)?0:/常住人口/.test(message)?1:2;this.setData({error:message,expandedBrief:index});}return;
     }
     if (this.data.busy) return;
     if (this.nextView) return Nav.open(Presentation.url(this.id, this.nextView));
