@@ -32,6 +32,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** A real B database and Redis, with the entire application eagerly wired and no mocked business beans. */
 class PlatformBootIntegrationTest {
 
+    @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods = false)
+    static class TestRedisPool {
+        @org.springframework.context.annotation.Bean
+        org.redisson.spring.starter.RedissonAutoConfigurationCustomizer smallIntegrationPool() {
+            // Real authenticated Redis is sufficient with a small pool in a single-client boot test.
+            return config -> {
+                config.setThreads(2).setNettyThreads(2);
+                config.useSingleServer().setConnectionMinimumIdleSize(1).setConnectionPoolSize(4)
+                        .setSubscriptionConnectionMinimumIdleSize(1).setSubscriptionConnectionPoolSize(2);
+            };
+        }
+    }
+
     @TempDir
     Path temporaryDirectory;
 
@@ -79,7 +92,7 @@ class PlatformBootIntegrationTest {
                     "--spring.flyway.password=owner-test-password",
                     "--platform.bootstrap.admin-username-file=" + usernameFile,
                     "--platform.bootstrap.admin-password-file=" + passwordFile});
-            SpringApplication api = new SpringApplication(YudaoPlatformServerApplication.class);
+            SpringApplication api = new SpringApplication(YudaoPlatformServerApplication.class, TestRedisPool.class);
             api.setAdditionalProfiles("pg", "local");
             List<String> options = new ArrayList<>(List.of(
                     externalConfiguration(false),
@@ -106,7 +119,7 @@ class PlatformBootIntegrationTest {
                     "--zhongshu.franchise.asset.storage-root=" + temporaryDirectory.resolve("assets"),
                     "--zhongshu.content.provider=real",
                     "--zhongshu.content.task-sweep-enabled=false"));
-            SpringApplication missingPublicCaseOrigin = new SpringApplication(YudaoPlatformServerApplication.class);
+            SpringApplication missingPublicCaseOrigin = new SpringApplication(YudaoPlatformServerApplication.class, TestRedisPool.class);
             missingPublicCaseOrigin.setAdditionalProfiles("pg", "local");
             assertThatThrownBy(() -> missingPublicCaseOrigin.run(options.toArray(String[]::new)))
                     .hasStackTraceContaining("zhongshu.design.public-cases.origin is required");
