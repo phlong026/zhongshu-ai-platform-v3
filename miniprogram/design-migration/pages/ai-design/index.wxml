@@ -76,7 +76,7 @@
         </view>
         <view class="settings-footer">
           <view class="cost-summary"><text>本次费用</text><b>{{priceText || '正在获取报价…'}}</b><text>余额 {{points}} 公司积分</text><text role="button" wx:if="{{quoteError}}" class="quote-retry" bindtap="retryQuote">重新获取报价</text></view>
-          <view role="button" class="v12-primary-button generate-button {{!quoteReady || creating || candidateConfirming ? 'disabled' : ''}}" aria-disabled="{{!quoteReady || creating || candidateConfirming}}" bindtap="generate">{{creating ? creatingText : candidateConfirming ? '正在确认参考…' : pendingGeneration ? '继续上次生成' : '生成平面方案'}}</view>
+          <view role="button" class="v12-primary-button generate-button {{(!acceptedGeneration && (!quoteReady || candidateConfirming)) || creating ? 'disabled' : ''}}" aria-disabled="{{(!acceptedGeneration && (!quoteReady || candidateConfirming)) || creating}}" bindtap="generate">{{creating ? creatingText : candidateConfirming ? '正在确认参考…' : pendingGeneration ? '继续上次生成' : '生成平面方案'}}</view>
         </view>
       </view>
     </block>
@@ -182,7 +182,7 @@
         </view>
         <view class="settings-footer">
           <view class="cost-summary"><text>本次费用</text><b>{{priceText || '正在获取报价…'}}</b><text>余额 {{points}} 公司积分</text><text role="button" wx:if="{{quoteError}}" class="quote-retry" bindtap="retryQuote">重新获取报价</text></view>
-          <view role="button" class="v12-primary-button generate-button {{!quoteReady || creating ? 'disabled' : ''}}" aria-disabled="{{!quoteReady || creating}}" bindtap="generate">{{creating ? creatingText : pendingGeneration ? '继续上次生成' : '生成立面方案'}}</view>
+          <view role="button" class="v12-primary-button generate-button {{(!acceptedGeneration && !quoteReady) || creating ? 'disabled' : ''}}" aria-disabled="{{(!acceptedGeneration && !quoteReady) || creating}}" bindtap="generate">{{creating ? creatingText : pendingGeneration ? '继续上次生成' : '生成立面方案'}}</view>
         </view>
       </view>
     </block>

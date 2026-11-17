@@ -26,3 +26,11 @@ test('legacy attempts without provenance cannot acquire customer B during recove
  h.accept();await h.page.submitAttempt(h.spec);assert.equal(h.context.read('project','42'),'');
 });
 module.exports={harness};
+
+test('accepted job opens through the real button handler after navigation failure and failed quote reload',async()=>{
+ const h=harness();h.accept();await h.page.submitAttempt(h.spec);
+ const saved=h.attempts.read(h.spec.slot);assert.equal(saved.jobId,'71');assert.equal(h.page.data.acceptedGeneration,true);
+ h.page.recoverAttempt(saved);h.page.data.quoteReady=false;h.page.data.faceWidth='invalid';h.page.data.candidateConfirming=true;
+ h.navigate();await h.page.generate();
+ assert.deepEqual(h.counts,{projects:1,jobs:1,quotes:1});assert.equal(h.routes.length,2);assert.equal(h.routes[0],h.routes[1]);assert.equal(h.attempts.read(h.spec.slot),null);
+});
