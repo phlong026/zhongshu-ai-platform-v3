@@ -64,6 +64,7 @@ function harness(options = {}) {
     Page(value) { definition = value; },
     Promise,
     require(name) {
+      if(name==='./design-recent')return {load(){},stop(){},open(){}};
       if (name==='./design-case-images') return {FRESH_MS:300000, watch:(_page,_selector,rows,visit)=>rows.slice(0,4).forEach(visit), load:(caseId,assetId)=>api.cases.downloadUrl(caseId,assetId).then(r=>r.downloadUrl)};
       if (name.endsWith('/api/auth')) return { currentApiPost: () => post };
       if (name.endsWith('/api/http')) return http;
@@ -89,13 +90,13 @@ const rows = [1, 2, 3, 4, 5].map(n => ({
   faceWidth: 12, depth: 15, floorCount: 2
 }));
 
-test('authorized design home renders every row and only downloads the first visible covers', async () => {
+test('design home requests and renders at most four cases even if the API ignores the limit', async () => {
   const h = harness({ pageResult: Promise.resolve({ list: rows, nextCursor: 'next' }) });
   h.page.onShow();
   assert.equal(h.page.data.catalogLoading, true);
   await flush(); await flush();
-  assert.equal(JSON.stringify(h.requests), JSON.stringify([{ limit: 10 }]));
-  assert.equal(h.page.data.catalogCases.length, 5);
+  assert.equal(JSON.stringify(h.requests), JSON.stringify([{ limit: 4 }]));
+  assert.equal(h.page.data.catalogCases.length, 4);
   assert.equal(h.downloads.length, 4);
   assert.match(h.page.data.catalogCases[0].coverUrl, /^https:\/\/image\.example\//);
   assert.equal(h.page.data.catalogError, '');
@@ -180,25 +181,14 @@ test('home cards use the canonical direct case route and expose image failure re
 });
 
 
-test('home reaches the second page, deduplicates rows, and stops at the end', async () => {
-  const h = harness({pageResult: params => Promise.resolve(params.cursor ? {list: rows.slice(3), nextCursor: null} : {list: rows.slice(0, 4), nextCursor: 'next'})});
-  h.page.onShow(); await flush(); await flush();
-  h.page.onReachBottom(); await flush(); await flush();
-  assert.deepEqual(Array.from(h.page.data.catalogCases, r => r.id), ['1','2','3','4','5']);
-  assert.equal(h.requests[1].cursor, 'next');
-  h.page.onReachBottom(); assert.equal(h.requests.length, 2);
+test('home does not append the catalog and keeps a route to the complete library', async () => {
+  const h=harness({pageResult:Promise.resolve({list:rows,nextCursor:'next'})});
+  h.page.onShow();await flush();await flush();
+  assert.equal(h.page.data.catalogCases.length,4);assert.equal(h.page.data.catalogCursor,'');
+  assert.equal(h.page.onReachBottom,undefined);assert.equal(h.page.loadMoreCatalog,undefined);
+  await h.page.loadCatalog(false);assert.equal(h.requests.length,1);
+  h.page.openCatalog();assert.deepEqual(h.navigations,['/pages/workflow/explore/index?view=inspiration']);
 });
-
-test('failed next page keeps previous cases and retries the same cursor', async () => {
-  let fails = true;
-  const h = harness({pageResult: params => !params.cursor ? Promise.resolve({list: rows.slice(0,2), nextCursor:'next'}) : fails ? Promise.reject(Error('网络暂不可用')) : Promise.resolve({list: rows.slice(2), nextCursor:null})});
-  h.page.onShow(); await flush(); await flush();
-  h.page.loadMoreCatalog(); await flush();
-  assert.equal(h.page.data.catalogCases.length,2); assert.equal(h.page.data.catalogCursor,'next');
-  fails = false; h.page.retryCatalog(); await flush(); await flush();
-  assert.equal(h.requests[2].cursor,'next'); assert.equal(h.page.data.catalogCases.length,5);
-});
-
 
 test('a slow cover does not hold back another card that is already ready', async () => {
   const slow=deferred();
