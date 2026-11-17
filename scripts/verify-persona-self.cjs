@@ -1,11 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 function setup(role='sales',people=[]) {
-  let definition;const calls=[];let rows=people;
+  let definition;const calls=[],storage=new Map();let rows=people;
   const api={personas:{page:async()=>rows,create:async body=>{calls.push(['create',body]);const row={...body,id:'101',canManage:true};rows.push(row);return row;},update:async()=>calls.push(['update'])},clones:{list:async()=>[],quote:async()=>({available:true,credits:5})}};
-  const modules={api,auth:{currentApiPost:()=>({roleCode:role})},http:{token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>true},studio:{guard:()=>true,scope:()=>role,scopedKey:k=>k},platform:{rowsOf:r=>r,degradeMessage:e=>e.message}};
+  api.personas=require('./persona-draft-fixture.cjs')(api.personas);
+  const modules={api,auth:{currentApiPost:()=>({roleCode:role,orgId:'1',userId:'2'})},http:{tenantId:()=>1,token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>true},studio:{guard:()=>true,scope:()=>role,scopedKey:k=>k},platform:{rowsOf:r=>r,degradeMessage:e=>e.message}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.js'),'utf8'),{
-    require:p=>p.includes('api/franchise')?modules.api:p.endsWith('/auth')?modules.auth:p.endsWith('/http')?modules.http:p.endsWith('/studio')?modules.studio:modules.platform,
-    Page:p=>definition=p,wx:{pageScrollTo(){},getStorageSync(){},showToast(){}},setTimeout,clearTimeout
+    require:p=>p==='./draft-api'?()=>modules.api.personas:p==='./profile-draft'?require('../miniprogram/pages/studio/characters/profile-draft'):p.includes('api/franchise')?modules.api:p.endsWith('/auth')?modules.auth:p.endsWith('/http')?modules.http:p.endsWith('/studio')?modules.studio:modules.platform,
+    Page:p=>definition=p,wx:{pageScrollTo(){},getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),removeStorageSync:k=>storage.delete(k),showToast(){}},setTimeout,clearTimeout
   });
   const page={...definition,data:structuredClone(definition.data),setData(next){for(const [key,value] of Object.entries(next)){const parts=key.split('.');let obj=this.data;for(const p of parts.slice(0,-1))obj=obj[p];obj[parts.at(-1)]=value;}}};
   page.onLoad();page.onShow();return {page,calls};
@@ -28,4 +29,15 @@ test('sales cannot edit or start cloning a colleague, and clone entry starts a n
 test('company managers retain access, unrelated roles cannot add IPs',async()=>{
   for(const role of ['boss','owner','sales-lead']){const {page}=setup(role,[{id:'202',name:'同事',enabled:true}]);await page.load();page.edit(event('202'));assert.equal(page.data.view,'edit');}
   const {page}=setup('finance');await page.load();assert.equal(page.data.canCreate,false);page.edit(event(''));assert.equal(page.data.view,'home');
+});
+test('typing, style tags and supplement share one persistent draft across closing and reopening',async()=>{
+  const {page}=setup();await page.load();page.edit(event(''));await page.__draft.start();
+  const input=(key,value)=>page.input({currentTarget:{dataset:{key}},detail:{value}});
+  input('who','本地乡墅顾问');page.toggleStyle({currentTarget:{dataset:{value:'专业'}}});
+  page.supplement();input('audienceNeeds','预算、布局和施工避坑');await page.__draft.flush();
+  assert.equal(page.data.draftStatus,'草稿已自动保存');page.back();page.close();
+  page.edit(event(''));await page.__draft.start();
+  assert.equal(page.data.form.name,'');assert.equal(page.data.form.who,'本地乡墅顾问');
+  assert.equal(page.data.form.expressionStyle,'专业');assert.equal(page.data.form.audienceNeeds,'预算、布局和施工避坑');
+  assert.equal(page.data.expressionTags[0].selected,true);page.onUnload();
 });

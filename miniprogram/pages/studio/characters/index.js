@@ -3,28 +3,30 @@ const http = require('../../../api/http');
 const auth = require('../../../api/auth');
 const studio = require('../../../utils/studio');
 const P = require('../../../utils/platform-content');
+const Draft = require('./profile-draft');
+const DraftApi = require('./draft-api');
 const FIELDS = [
-  { key: 'name', label: '姓名', max: 64, required: true },
-  { key: 'who', label: '身份', max: 200 },
-  { key: 'sell', label: '服务范围', max: 500, multiline: true },
-  { key: 'audience', label: '目标人群', max: 200 },
-  { key: 'expressionStyle', label: '表达特点', max: 500 }
+  { key: 'name', label: '姓名', max: 64, required: true, example:'例如：张工' },
+  { key: 'who', label: '身份', max: 200, example:'例如：泸州乡墅设计师' },
+  { key: 'sell', label: '服务范围', max: 500, multiline: true, example:'例如：自建房设计、施工与预算规划' },
+  { key: 'audience', label: '目标人群', max: 200, example:'例如：准备回乡建房的家庭' },
+  { key: 'expressionStyle', label: '表达特点', max: 500, example:'例如：专业、通俗、不过度承诺' }
 ];
 const EXTRA = [
-  { key: 'audienceNeeds', label: '客户关注', max: 600 },
-  { key: 'factualBackground', label: '真实资料', max: 2000 },
-  { key: 'sampleScript', label: '代表口播', max: 2000 },
-  { key: 'forbiddenClaims', label: '禁用表达', max: 600 }
+  { key: 'audienceNeeds', label: '客户关注', max: 600, example:'例如：预算怎么分配、户型是否实用、施工如何避坑' },
+  { key: 'factualBackground', label: '真实资料', max: 2000, example:'例如：已核实的本地项目、服务或资质（注明来源）' },
+  { key: 'sampleScript', label: '代表口播', max: 2000, example:'例如：回乡建房，先把预算和家人的需求想清楚。' },
+  { key: 'forbiddenClaims', label: '禁用表达', max: 600, example:'例如：不承诺最低价、不保证固定工期、不虚构案例' }
 ];
 const LEGACY = ['cta', 'ipType', 'track', 'differentiator'];
 const TITLES = { home:'人物库', edit:'新增人物', supplement:'补充定位', detail:'人物详情', avatar:'口播分身', voice:'语音克隆', resources:'人物资源' };
 const emptyForm = () => Object.assign({ enabled: true }, ...FIELDS.concat(EXTRA).map(f => ({ [f.key]: '' })));
 
 Page({
-  data: { view:'home',pageTitle:'人物库',rows: [], filtered: [], keyword: '', loading: false, saving: false, error: '', editing: false, editId: '', form: {}, fields: FIELDS, extraFields:EXTRA, canCreate:false, canManage: false,canUseDigital:false,cloneFileName:'',cloneUploadStatus:'',
+  data: { view:'home',pageTitle:'人物库',rows: [], filtered: [], keyword: '', loading: false, saving: false, error: '', editing: false, editId: '', form: {}, fields: FIELDS, extraFields:EXTRA, canCreate:false, canManage: false,canUseDigital:false,cloneFileName:'',cloneUploadStatus:'',draftStatus:'',draftConfirming:false,
     digitalPersona: null, digitalPeople: [], digitalPersonIndex: 0, cloneEntryKind: '', cloneRows: [], cloneLoading: false, cloneBusy: false, cloneError: '', cloneKind: 'AVATAR', cloneTitle: '', cloneUploadId: '', cloneConsented: false, cloneQuote: null, cloneRetry: false,expressionTags:[],profileExpanded:false,
     cloneStatus: { SUBMITTING:'提交确认中', RUNNING:'制作中', READY:'已就绪', FAILED:'制作失败', UNKNOWN:'结果待核实' } },
-  onLoad() { if (!studio.guard()) return; this.__closed=false;this.__scope = studio.scope();this.__generation=http.sessionGeneration(); },
+  onLoad() { if (!studio.guard()) return; this.__closed=false;this.__scope = studio.scope();this.__generation=http.sessionGeneration();this.__draftNetwork=e=>{if(e.isConnected&&this.__draft&&this.alive())this.__draft.flush().catch(()=>{});};if(wx.onNetworkStatusChange)wx.onNetworkStatusChange(this.__draftNetwork); },
   onShow() {
     if (!studio.guard()) return;
     const post = auth.currentApiPost();
@@ -33,12 +35,14 @@ Page({
     this.__scope = studio.scope();
     this.__generation=http.sessionGeneration();
     this.setData({ canCreate: !!post && ['sales','sales-lead','boss','owner'].includes(post.roleCode), canManage: this.canEditPersona(this.data.digitalPersona) });
+    if(this.__draft&&!this.data.editing){this.__draft.stop();this.__draft=null;}
+    if(this.__draft&&this.data.editing)this.__draft.flush().catch(()=>{});
     // 素材选择会触发 onShow，不能清空尚未保存的定位或制作表单。
     if(!this.data.editing&&!this.data.cloneBusy)this.load();
     if(this.data.digitalPersona&&!this.data.cloneBusy)this.loadClones();
   },
-  onUnload() { this.__closed = true;this.stopRefresh(); if(this.__audio)this.__audio.destroy(); },
-  onHide() {this.__hidden=true;this.stopRefresh(); if(this.__audio)this.__audio.stop(); },
+  onUnload() {this.flushDraft(true);this.__closed = true;this.stopRefresh();if(wx.offNetworkStatusChange&&this.__draftNetwork)wx.offNetworkStatusChange(this.__draftNetwork); if(this.__audio)this.__audio.destroy(); },
+  onHide() {this.flushDraft();this.__hidden=true;this.stopRefresh(); if(this.__audio)this.__audio.stop(); },
   alive() { return !this.__closed && !!http.token() && this.__scope === studio.scope()&&this.__generation===http.sessionGeneration(); },
   showView(view) {this.stopRefresh();this.setData({view,pageTitle:view==='edit'&&this.data.editId?'编辑定位':TITLES[view],error:''});if(wx.pageScrollTo)wx.pageScrollTo({scrollTop:0,duration:0});},
   back() {if(this.data.saving||this.data.cloneBusy)return;if(this.data.view==='supplement')return this.showView('edit');if(this.data.view==='edit')return this.close();this.__cloneAttempt=null;this.setData({cloneRetry:false});this.showView(this.data.view==='detail'?'home':this.data.digitalPersona?'detail':'home');},
@@ -75,16 +79,39 @@ Page({
     this.setData({ editing: true, editId: id, form, error: '' });
     this.styleTags(form.expressionStyle);
     this.showView('edit');
+    this.openDraft(id,form);
+  },
+  openDraft(id,form) {
+    if(this.__draft)this.__draft.stop();
+    const post=auth.currentApiPost(),scope=studio.scope(),generation=http.sessionGeneration();
+    const key=id||'new',storageKey=studio.scopedKey('zs-persona-draft:'+String(http.tenantId())+':'+post.orgId+':'+post.userId+':'+key);
+    const valid=()=>!!http.token()&&scope===studio.scope()&&generation===http.sessionGeneration();
+    let draft;
+    draft=Draft.create({api:DraftApi(http),storage:wx,storageKey,key,form,valid,
+      onForm:value=>{if(this.__draft===draft&&this.data.editing&&!this.__closed){this.setData({form:value});this.styleTags(value.expressionStyle);}},
+      onStatus:text=>{if(this.__draft===draft&&!this.__closed)this.setData({draftStatus:text});},
+      onLock:value=>{if(this.__draft===draft&&!this.__closed)this.setData({draftConfirming:value});}});
+    this.__draft=draft;this.setData({draftStatus:'',draftConfirming:false});draft.start().catch(()=>{});
+  },
+  changedDraft() {if(this.__draft)this.__draft.change(this.data.form);},
+  flushDraft(stop) {if(this.__draft){const draft=this.__draft;draft.flush().catch(()=>{});if(stop)draft.stop();}},
+  async retryDraft() {
+    const draft=this.__draft;if(!draft||this.data.saving||this.data.draftConfirming)return;
+    if(draft.conflicted())return wx.showActionSheet({itemList:['保留当前填写','使用云端草稿'],success:result=>{
+      if(this.__draft===draft&&this.alive())draft.resolve(result.tapIndex===0).catch(e=>this.setData({error:P.degradeMessage(e)}));}});
+    try {await draft.flush();}catch(e){if(this.alive())this.setData({error:P.degradeMessage(e)});}
   },
   input(e) {
+    if(this.data.saving||this.data.draftConfirming)return;
     const key = e.currentTarget.dataset.key;
     if (FIELDS.concat(EXTRA).some(f => f.key === key)) this.setData({ ['form.' + key]: e.detail.value,error:'' });
     if(key==='expressionStyle')this.styleTags(e.detail.value);
+    this.changedDraft();
   },
   styleTags(value) {const values=String(value||'').split(/[、，,；;\s]+/).filter(Boolean);this.setData({expressionTags:['专业','通俗','不过度承诺'].map(label=>({label,selected:values.includes(label)}))});},
-  toggleStyle(e) {if(this.data.saving)return;const value=e.currentTarget.dataset.value;if(!['专业','通俗','不过度承诺'].includes(value))return;const values=String(this.data.form.expressionStyle||'').split(/[、，,；;\s]+/).filter(Boolean);const next=values.includes(value)?values.filter(v=>v!==value):values.concat(value);const text=next.join('、');if(text.length<=500){this.setData({'form.expressionStyle':text});this.styleTags(text);}},
-  enabled(e) { this.setData({ 'form.enabled': !!e.detail.value }); },
-  close() { if (!this.data.saving) { this.__pendingCloneKind=null; this.setData({ editing: false, form: {}, editId: '', error: '' });this.showView(this.data.digitalPersona?'detail':'home'); } },
+  toggleStyle(e) {if(this.data.saving||this.data.draftConfirming)return;const value=e.currentTarget.dataset.value;if(!['专业','通俗','不过度承诺'].includes(value))return;const values=String(this.data.form.expressionStyle||'').split(/[、，,；;\s]+/).filter(Boolean);const next=values.includes(value)?values.filter(v=>v!==value):values.concat(value);const text=next.join('、');if(text.length<=500){this.setData({'form.expressionStyle':text});this.styleTags(text);this.changedDraft();}},
+  enabled(e) {if(this.data.saving||this.data.draftConfirming)return;this.setData({ 'form.enabled': !!e.detail.value });this.changedDraft();},
+  close() { if (!this.data.saving) {this.flushDraft(true);this.__draft=null;this.__pendingCloneKind=null;this.setData({ editing: false, form: {}, editId: '', error: '',draftStatus:'',draftConfirming:false });this.showView(this.data.digitalPersona?'detail':'home'); } },
   async save() {
     if (!this.alive() || this.data.saving || (this.data.editId ? !this.canEditPersona(this.data.rows.find(row=>row.id===this.data.editId)) : !this.data.canCreate)) return;
     const body = { enabled: !!this.data.form.enabled };
@@ -97,9 +124,12 @@ Page({
     const guard = http.requestGuard('character-save');
     this.setData({ saving: true, error: '' });
     try {
-      const saved = this.data.editId ? await api.personas.update(this.data.editId, body) : await api.personas.create(body);
+      if(!this.__draft)throw Error('请重新打开定位编辑页');
+      if(!this.data.draftConfirming)this.__draft.change(body);
+      const saved = await this.__draft.publish();
       if (!guard() || !this.alive()) return;
       if(!saved||saved.id==null)throw Error('保存结果待确认，请刷新人物库');
+      this.__draft=null;
       this.setData({ saving: false, editing: false, form: {}, editId: '',digitalPersona:{...saved,id:String(saved.id),enabled:saved.enabled!==false},canManage:this.canEditPersona(saved) });
       this.showView('detail');
       const rows=await this.load();

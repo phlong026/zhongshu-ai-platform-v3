@@ -10,11 +10,12 @@ const event = (key, value) => ({ currentTarget: { dataset: key }, detail: { valu
 const plain = value => JSON.parse(JSON.stringify(value));
 
 function harness(file, api = {}, role = 'sales-lead') {
+  if(file==='studio/characters/index.js')api={...api,personas:require('./persona-draft-fixture.cjs')(api.personas)};
   let page, scope = 'post-1', generation = 1;
   const seq = {}, storage = new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
   const studio = { title: '', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
-  const http = { token: () => 'token', sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
+  const http = { tenantId:()=>1,token: () => 'token', sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
   const utility = { ...P, api, pollTask: async id => {
     calls.push(['poll', id]); return api.poll ? api.poll(id) : { id, status: 'SUCCEEDED', result: { text: '原视频完整文案' } };
   } };
@@ -26,6 +27,8 @@ function harness(file, api = {}, role = 'sales-lead') {
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages', file), 'utf8'), {
     Page: value => { page = value; }, wx, setTimeout: (fn,ms) => {const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,
     require(name) {
+      if(name==='./draft-api')return ()=>api.personas;
+      if(name==='./profile-draft')return require('../miniprogram/pages/studio/characters/profile-draft');
       if (name.endsWith('/utils/studio')) return studio;
       if (name.endsWith('/utils/creation')) return { assets: [] };
       if (name.endsWith('/utils/creation-link-draft')) return require('../miniprogram/utils/creation-link-draft');
