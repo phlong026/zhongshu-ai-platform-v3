@@ -90,4 +90,47 @@ class ContentResultDeliveryPgIntegrationTest extends FranchisePgIntegrationTest 
         long video=success("ai_video","{}");results.deliver(33,video);
         assertThat(jdbc.queryForObject("SELECT result_attempts FROM fr_content_task WHERE id=?",Integer.class,video)).isZero();
     }
+    @Test void exhaustedSaveRetryRecoversOriginalAsrWithoutAnotherProviderCallOrCharge() {
+        var provider=org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.content.provider.AsrPort.class);
+        org.mockito.Mockito.when(provider.transcribe(org.mockito.ArgumentMatchers.any())).thenReturn(
+            new cn.iocoder.yudao.module.franchise.content.provider.AsrPort.Transcript("已转写的原始文案",5.0));
+        var points=org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.api.OrgPointPort.class);
+        jdbc.execute("CREATE TABLE IF NOT EXISTS org_point_ledger (id BIGINT PRIMARY KEY,operation_id BIGINT,biz_key VARCHAR(160),type VARCHAR(16))");
+        org.mockito.Mockito.when(points.settleByBizKey(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyLong())).thenAnswer(call->{
+            jdbc.update("INSERT INTO org_point_ledger(id,biz_key,type) VALUES(?,?,'CONSUME')",ContentTaskStore.newId(),call.getArgument(0));
+            return new cn.iocoder.yudao.module.franchise.api.OrgPointPort.Settlement(777,1,0,false);
+        });
+        var service=new ContentTaskService(store,null,null,provider,null,null,null,null,commands,
+            new cn.iocoder.yudao.module.franchise.content.provider.ContentProviderProperties(),points);
+        var task=service.createAsr(33,77,null,"https://media.example/audio",null,5.0,null);
+        service.submitOne(task);
+        long id=task.getId();assertThat(store.byId(33,id).getStatus()).isEqualTo("SUCCEEDED");
+        String snapshot=store.byId(33,id).getResultSnapshot();
+        jdbc.execute("CREATE FUNCTION reject_asr_save() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated script save outage'; END $$");
+        jdbc.execute("CREATE TRIGGER reject_asr_save BEFORE INSERT ON fr_content_script FOR EACH ROW EXECUTE FUNCTION reject_asr_save()");
+        try {
+            for(int i=0;i<5;i++) {
+                assertThatThrownBy(()->results.deliver(33,id)).isInstanceOf(RuntimeException.class);
+                results.failed(33,id);jdbc.update("UPDATE fr_content_task SET result_retry_after=now() WHERE id=?",id);
+            }
+        } finally {jdbc.execute("DROP TRIGGER reject_asr_save ON fr_content_script");jdbc.execute("DROP FUNCTION reject_asr_save()");}
+        assertThat(store.byId(33,id).getResultState()).isEqualTo("FAILED");
+        assertThatThrownBy(()->results.retrySave(34,77,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThatThrownBy(()->results.retrySave(33,78,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(results.retrySave(33,77,id).getResultState()).isEqualTo("PENDING");
+        results.retrySave(33,77,id);results.deliver(33,id);results.retrySave(33,77,id);results.deliver(33,id);
+        assertThat(store.byId(33,id).getResultState()).isEqualTo("READY");
+        assertThat(store.byId(33,id).getResultSnapshot()).isEqualTo(snapshot);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_script WHERE task_id=?",Integer.class,id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE biz_key=?",Integer.class,task.getPoolBizKey())).isEqualTo(1);
+        org.mockito.Mockito.verify(provider,org.mockito.Mockito.times(1)).transcribe(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(points,org.mockito.Mockito.times(1)).reserve(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(points,org.mockito.Mockito.times(1)).settleByBizKey(task.getPoolBizKey(),1);
+        org.mockito.Mockito.verifyNoMoreInteractions(provider,points);
+    }
+    @Test void retrySaveCannotRestartProviderFailuresOrOtherKinds() {
+        long failed=success("asr","{}");jdbc.update("UPDATE fr_content_task SET status='FAILED' WHERE id=?",failed);
+        assertThatThrownBy(()->results.retrySave(33,77,failed)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        long video=success("ai_video","{}");assertThatThrownBy(()->results.retrySave(33,77,video)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+    }
 }
