@@ -60,3 +60,10 @@ mvn -pl domains/franchise/franchise-content -am test '-Dtest=*Content*Test,Diadi
 ```
 
 本次补修没有新增迁移；测试使用专用本地 PostgreSQL 和模拟供应商，不调用线上/付费接口。尚未部署，未进行 iOS/安卓真机验收。
+
+
+## PR #9 持续集成
+
+新增 `.github/workflows/backend-ci.yml`：面向 backend-main 的 PR、backend-main 推送及手动触发，使用 Ubuntu 24.04 / Java 17 和独立 PostgreSQL 17 服务。先构建并安装 reactor 依赖，再对财务、内容两个模块执行完整 `verify`（含全部供应商模拟测试），要求测试存在，并上传 Surefire 报告。每个测试 JVM 使用原有 TestPostgres 机制创建、销毁独立数据库；测试不接入生产数据、供应商凭据或付费服务。
+
+工作流只有仓库读取权限，不部署服务；同一 PR 的新提交取消旧运行，Actions 依赖固定到已核对的提交。保留现有 real-acceptance 默认排除规则；没有为本次整改用例添加跳过条件。
