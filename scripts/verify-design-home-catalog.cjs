@@ -31,6 +31,7 @@ function harness(options = {}) {
       page(params) { requests.push(params); return typeof pageResult === 'function' ? pageResult(params) : pageResult; },
       downloadUrl(caseId, assetId) {
         downloads.push([String(caseId), String(assetId)]);
+        if (options.download) return options.download(caseId,assetId);
         if (options.downloadError) return Promise.reject(options.downloadError);
         return Promise.resolve({ downloadUrl: 'https://image.example/' + assetId });
       }
@@ -58,15 +59,16 @@ function harness(options = {}) {
     token: () => token,
     sessionGeneration: () => sessionGeneration
   };
-  const source = fs.readFileSync(path.join(ROOT, 'miniprogram/pages/design/index.js'), 'utf8');
+  const source = fs.readFileSync(path.join(ROOT, 'miniprogram/utils/sales-design-page.js'), 'utf8').replace('module.exports=()=>({','Page({');
   vm.runInNewContext(source, {
     Page(value) { definition = value; },
     Promise,
     require(name) {
+      if (name==='./design-case-images') return {FRESH_MS:300000, watch:(_page,_selector,rows,visit)=>rows.slice(0,4).forEach(visit), load:(caseId,assetId)=>api.cases.downloadUrl(caseId,assetId).then(r=>r.downloadUrl)};
       if (name.endsWith('/api/auth')) return { currentApiPost: () => post };
       if (name.endsWith('/api/http')) return http;
       if (name.endsWith('/api/franchise/design')) return api;
-      if (name.endsWith('/utils/platform-design')) return PF;
+      if (name==='./platform-design'||name.endsWith('/utils/platform-design')) return PF;
       throw new Error('unexpected require: ' + name);
     },
     wx: { navigateTo({ url }) { navigations.push(url); } }
@@ -87,14 +89,14 @@ const rows = [1, 2, 3, 4, 5].map(n => ({
   faceWidth: 12, depth: 15, floorCount: 2
 }));
 
-test('authorized design home loads every row in its first catalog page', async () => {
+test('authorized design home renders every row and only downloads the first visible covers', async () => {
   const h = harness({ pageResult: Promise.resolve({ list: rows, nextCursor: 'next' }) });
   h.page.onShow();
   assert.equal(h.page.data.catalogLoading, true);
   await flush(); await flush();
   assert.equal(JSON.stringify(h.requests), JSON.stringify([{ limit: 10 }]));
   assert.equal(h.page.data.catalogCases.length, 5);
-  assert.equal(h.downloads.length, 5);
+  assert.equal(h.downloads.length, 4);
   assert.match(h.page.data.catalogCases[0].coverUrl, /^https:\/\/image\.example\//);
   assert.equal(h.page.data.catalogError, '');
 });
@@ -169,7 +171,7 @@ test('home cards use the canonical direct case route and expose image failure re
   h.page.data.catalogCases = [{ id: 'case 1', coverAssetId: 'asset-1' }];
   h.page.openCatalogCase({ currentTarget: { dataset: { id: 'case 1' } } });
   assert.equal(h.navigations[0], '/pages/workflow/explore/index?view=case&id=case%201');
-  const wxml = fs.readFileSync(path.join(ROOT, 'miniprogram/pages/design/index.wxml'), 'utf8');
+  const wxml = fs.readFileSync(path.join(ROOT, 'miniprogram/templates/sales-design.wxml'), 'utf8');
   assert.match(wxml, /catalogCases/);
   assert.match(wxml, /retryCatalog/);
   assert.match(wxml, /retryCatalogCover/);
@@ -196,3 +198,17 @@ test('failed next page keeps previous cases and retries the same cursor', async 
   fails = false; h.page.retryCatalog(); await flush(); await flush();
   assert.equal(h.requests[2].cursor,'next'); assert.equal(h.page.data.catalogCases.length,5);
 });
+
+
+test('a slow cover does not hold back another card that is already ready', async () => {
+  const slow=deferred();
+  const h=harness({pageResult:Promise.resolve({list:rows.slice(0,2)}),download:(_caseId,assetId)=>String(assetId)==='101'?slow.promise:Promise.resolve({downloadUrl:'wxfile://fast-cover'})});
+  h.page.onShow();await flush();await flush();
+  assert.equal(h.page.data.catalogCases[0].coverUrl,'');
+  assert.equal(h.page.data.catalogCases[1].coverUrl,'wxfile://fast-cover');
+  slow.resolve({downloadUrl:'wxfile://slow-cover'});await flush();
+  assert.equal(h.page.data.catalogCases[0].coverUrl,'wxfile://slow-cover');
+});
+
+
+test('an image component error retries only once automatically',async()=>{const h=harness();h.page.onShow();await flush();h.page.data.catalogCases=[{id:'9',coverAssetId:'109',coverUrl:'wxfile://bad',coverLoading:false}];const event={currentTarget:{dataset:{id:'9'}}};h.page.catalogImageError(event);await flush();h.page.catalogImageError(event);await flush();assert.equal(h.downloads.length,1);assert.equal(h.page.data.catalogCases[0].coverError,true);});

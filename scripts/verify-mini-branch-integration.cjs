@@ -8,7 +8,8 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('老板入口保留当前在线客户与工程路由', async () => {
   const home = read('miniprogram/pages/admin/home/index.wxml');
-  const customers = read('miniprogram/pages/customers/index.js');
+  const customers = read('miniprogram/utils/sales-customers-page.js');
+  assert.match(read('miniprogram/pages/customers/index.js'),/compatibility\('customers',make\)/);
   const projects = read('miniprogram/pages/build/projects/index.js');
 
   assert.match(home, /data-url="\/pages\/customers\/index"/);

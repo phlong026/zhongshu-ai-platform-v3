@@ -1,6 +1,6 @@
 const { createDashboard } = require('../../utils/dashboard');
 const PTPage = require('../../utils/platform-todos-page');
-Page(createDashboard(2, {
+require('../../utils/sales-native-tab').register('design', createDashboard(2, {
 data: { panel: null, deskTitle: '工程工作台', roleLabel: '', homeName: '', active: false, projectCount: 0, activeCount: 0, pendingCount: 0, deliveryCount: 0, todoCount: 0, platformTodos: null, tools: [{ title: '我的项目', icon: 'folder', action: 'projects' }, { title: '施工计划', icon: 'calendar', action: 'schedule' }, { title: '材料计划', icon: 'material', action: 'materials' }, { title: '节点款项', icon: 'tasks', action: 'payments' }] },
 onLoad() { PTPage.init(this); },
 // 工程 tab：工程岗重定向到工程首页；其余岗位（老板等）走平台 API 态——项目计数 + 平台待办，无本地演示数据。

@@ -1,3 +1,5 @@
+<block wx:if="{{salesNative}}"><include src="../../templates/sales-design.wxml"/></block>
+<block wx:else>
 <view class="page engineering-page workbench-page engineering-live">
   <view class="workbench-header"><brand-header id="engineering-workbench-header" divider="{{true}}" account-font="{{true}}" title="{{deskTitle||'工程工作台'}}" /></view>
   <view class="content guest-content">
@@ -26,3 +28,5 @@
   </block></view>
 </view>
 <action-panel workbench="{{true}}" id="dashboard-action-panel" panel="{{panel}}" bindclose="closePanel" bindsubmit="submitPanel" />
+
+</block>

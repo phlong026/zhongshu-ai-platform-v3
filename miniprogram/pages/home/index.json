@@ -1,1 +1,9 @@
-{ "navigationBarTitleText": "众墅之家", "disableScroll": true, "usingComponents": { "brand-header": "/components/brand-header/index" } }
+{
+  "navigationBarTitleText": "众墅之家",
+  "disableScroll": true,
+  "usingComponents": {
+    "brand-header": "/components/brand-header/index",
+    "creation-header": "/components/creation-header/index",
+    "workspace-nav": "/custom-tab-bar/index"
+  }
+}

@@ -16,6 +16,7 @@ function libraryHarness() {
     wx: { showToast() {} },
     require(id) {
       if (id.endsWith('/navigation') || id.endsWith('/assets')) return {};
+      if (id.endsWith('/design-case-images')) return { watch() {} };
       if (id.endsWith('/context')) return { getApp: () => ({}) };
       if (id.endsWith('/access')) return { protectedPage: value => { definition = value; } };
       if (id.endsWith('/format')) return { styleLabel: () => '现代' };
@@ -75,7 +76,7 @@ test('catalog failure from an old session cannot overwrite the current page', as
 function creationHarness() {
   const state = { scope: 'creation-test-' + (++creationHarnessId), generation: 1 }, requests = [];
   let definition, clipboard;
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'miniprogram/pages/creation/index.js'), 'utf8'), {
+  vm.runInNewContext(require('./page-definition-source.cjs')(root,'miniprogram/pages/creation/index.js'), {
     Page(value) { definition = value; }, Date, Math, Promise,
     wx: { getStorageSync() {}, showToast() {}, getClipboardData(options) { clipboard = options; } },
     require(id) {
@@ -155,7 +156,7 @@ test('quote export uses recorded server configuration for its document options',
 function load(file, modules, session) {
   let definition, nextTimer = 0;
   const timers = new Map();
-  vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), {
+  vm.runInNewContext(require('./page-definition-source.cjs')(root,file), {
     Page: value => { definition = value; },
     require(id) { if (id in modules) return modules[id]; throw Error('Unexpected dependency: ' + id); },
     wx: {}, console, Date, Promise,
