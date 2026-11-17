@@ -140,6 +140,8 @@ protectedPage({
     if (options && options.caseId) return; // 由 onShow 统一读全局参考案例
   },
   recoverAttempt(saved) {
+    // Missing legacy provenance remains unknown; never borrow the current entry's customer.
+    this._sourceCustomer = saved.sourceCustomerId || require('../../utils/customer-context').read('project', saved.projectId) || '';
     const body = saved.payload.body, inputs = body.requirementInputs || {};
     const imageOptions = saved.payload.imageOptions;
     const refCase = body.sourceType === 'CASE_REFERENCE' ? { caseId: body.refCaseId } : null;
@@ -695,7 +697,7 @@ protectedPage({
     let attempt;
     try {
       attempt = attempts.begin(slot, Object.assign({ body: body, line: spec.stage, count: spec.count,
-        imageOptions: { resolution: imageOptions.resolution, orientation: imageOptions.orientation } }, spec.payloadExtra));
+        imageOptions: { resolution: imageOptions.resolution, orientation: imageOptions.orientation } }, spec.payloadExtra), self._sourceScope === require('../../utils/budget-draft').sessionScope() ? self._sourceCustomer : '');
     } catch (error) { self.setData({ creating: false }); wx.showToast({ title: error.msg || '无法保存生成请求', icon: 'none' }); return; }
     this._lastAttemptKey = attempt.key;
     const openAccepted = () => {
@@ -726,7 +728,7 @@ protectedPage({
       const projectId = project && project.projectId;
       if (!projectId) throw { msg: '创建设计项目失败' };
       attempt.projectId = projectId; attempts.save(slot, attempt);
-      if (self._sourceScope === require('../../utils/budget-draft').sessionScope()) require('../../utils/customer-context').bind('project', projectId, self._sourceCustomer);
+      require('../../utils/customer-context').bind('project', projectId, attempt.sourceCustomerId);
       getDesignApp().globalData.projectId = projectId;
       getDesignApp().globalData.resultVersionId = null;
       attempts.submitted(slot, attempt);

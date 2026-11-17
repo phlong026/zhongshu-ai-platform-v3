@@ -95,9 +95,10 @@ test('账号变更后的归档响应不打开旧客户的委托',async()=>{
  const w=deferred(),h=archive({post:()=>w.promise});await selectCommission(h);const run=h.page.save();h.changeSession();w.resolve({schemeId:'801',version:1});await run;assert.equal(h.navigations.length,0);assert.equal(h.page.data.saved,false);
 });
 
-test('从客户预算进入直接校验、归档并带入原客户，无需再次选择',async()=>{
+test('从客户预算进入预选原客户，用户核对确认前不得归档',async()=>{
  const h=archive();h.page.onLoad({budgetId:'901',revisionId:'902',next:'commission',customerId:'701'});await flush();await flush();
- assert.equal(h.calls.length,1);assert.equal(h.calls[0].body.customerId,'701');assert.equal(h.navigations.length,1);assert.match(h.navigations[0],/customerId=701/);
+ assert.equal(h.calls.length,0);assert.equal(h.navigations.length,0);assert.equal(h.page.data.selected,'701');
+ await h.page.save();assert.equal(h.calls.length,1);assert.equal(h.calls[0].body.customerId,'701');assert.equal(h.navigations.length,1);assert.match(h.navigations[0],/customerId=701/);
 });
 test('原客户不可访问时回到选择列表，不误归档给列表第一人',async()=>{
  const h=archive({customer:false});h.page.onLoad({budgetId:'901',next:'commission',customerId:'702'});await flush();

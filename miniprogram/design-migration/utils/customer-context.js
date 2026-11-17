@@ -6,6 +6,8 @@ function read(kind, id) {
 }
 function bind(kind, id, customerId) {
  if (!drafts.sessionScope() || !drafts.id(String(id || '')) || !drafts.id(String(customerId || ''))) return;
+ // A recovered project/budget retains its original customer even when entered from another customer.
+ if (read(kind,id)) return;
  try { wx.setStorageSync(key(kind,id), String(customerId)); } catch(e) { /* Explicit route still carries this context. */ }
 }
 function suffix(customerId) { return drafts.id(String(customerId || '')) ? '&customerId=' + encodeURIComponent(customerId) : ''; }

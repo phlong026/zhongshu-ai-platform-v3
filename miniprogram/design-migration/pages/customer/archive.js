@@ -29,7 +29,7 @@ protectedPage({
       const customer = detail && detail.customer;
       if (!customer || String(customer.id) !== customerId) throw Error('客户信息未确认');
       this.setData({rows:[customer],rowCount:1,selected:customerId,loading:false});
-      return this.save();
+      // Carry the verified customer, but archive only after the user confirms this screen.
     } catch(e) {
       if (!this.current()) return;
       this.setData({loading:false,error:'原客户暂不可用，请重新选择委托客户'});
