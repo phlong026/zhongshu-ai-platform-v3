@@ -108,7 +108,7 @@ class ContentPersonaDraftPgIntegrationTest extends FranchisePgIntegrationTest {
     @Test void baselineComesFromReadAndLegacyDraftCannotBeBlindlyPublished() {
         var person=personas.create(me(),Map.of("name","original"));String key=person.getId().toString();
         var read=drafts.get(me(),key);assertThat(read.personaVersion()).isZero();
-        personas.update(me(),person.getId(),Map.of("name","latest"));
+        personas.update(me(),person.getId(),Map.of("version",read.personaVersion(),"name","latest"));
         drafts.save(me(),key,0,Map.of("name","old edit"),read.personaVersion(),false);
         assertThatThrownBy(()->drafts.publish(me(),key,1)).hasMessageContaining("正式人物已更新");
         jdbc.update("UPDATE fr_content_persona_draft SET base_persona_version=NULL WHERE draft_key=?",key);
