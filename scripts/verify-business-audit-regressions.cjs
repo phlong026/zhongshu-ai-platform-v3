@@ -78,9 +78,11 @@ test('catalog failure from an old session cannot overwrite the current page', as
 function creationHarness() {
   const state = { scope: 'creation-test-' + (++creationHarnessId), generation: 1 }, requests = [];
   let definition, clipboard;
+  const storage=new Map(),wx={getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),showToast(){},getClipboardData(options){clipboard=options;}};
+  const cache={exports:{}};vm.runInNewContext(fs.readFileSync(path.join(root,'miniprogram/utils/creation-link-draft.js'),'utf8'),{module:cache,require:p=>require('../miniprogram/utils/'+p.slice(2)),wx,Uint8Array,unescape,encodeURIComponent});
   vm.runInNewContext(require('./page-definition-source.cjs')(root,'miniprogram/pages/creation/index.js'), {
     Page(value) { definition = value; }, Date, Math, Promise,
-    wx: { getStorageSync() {}, showToast() {}, getClipboardData(options) { clipboard = options; } },
+    wx,
     require(id) {
       if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
       if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
@@ -88,8 +90,9 @@ function creationHarness() {
       if (id === '../../utils/studio') return { guard: () => true, scope: () => state.scope,
         scopedKey: key => key, read: () => ({}), recentItems: () => [] };
       if (id === '../../utils/storage-keys') return { creationDraft: 'test-draft' };
-      if (id === '../../utils/creation-link-draft') return require('../miniprogram/utils/creation-link-draft');
-      if (id === '../../api/http') return { token: () => 'test-session', sessionGeneration: () => state.generation,
+      if (id === '../../utils/creation-link-draft') return cache.exports;
+      if (id === '../../api/auth') return {currentApiPost:()=>({postId:state.scope,userId:'77',orgId:'33'})};
+      if (id === '../../api/http') return { tenantId:()=>1, token: () => 'test-session', sessionGeneration: () => state.generation,
         requestGuard: () => () => true };
       if (id === '../../utils/platform-content') return {
         shareLinkUrl: require('../miniprogram/utils/platform-content').shareLinkUrl,
@@ -115,7 +118,7 @@ test('creation Tab recreation preserves typed link and original extraction idemp
   assert.equal(h.requests[1].key, h.requests[0].key);
 });
 
-test('creation temporary link and request key expire on session or identity change', () => {
+test('creation temporary input clears on session or identity change', () => {
   const h = creationHarness(), page = h.page();
   page.inputLink({ detail: { value: 'https://example.test/private-one' } });
   h.state.generation++; page.onShow();

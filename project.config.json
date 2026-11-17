@@ -163,6 +163,10 @@
       {
         "type": "file",
         "value": "assets/graduate.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/studio-publication-cover.jpg"
       }
     ],
     "include": []

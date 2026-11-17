@@ -9,12 +9,11 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 const event = (key, value) => ({ currentTarget: { dataset: key }, detail: { value } });
 const plain = value => JSON.parse(JSON.stringify(value));
 
-function harness(file, api = {}, role = 'sales-lead') {
+function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
   if(file==='studio/characters/index.js')api={...api,personas:require('./persona-draft-fixture.cjs')(api.personas)};
-  delete require.cache[require.resolve('../miniprogram/utils/creation-link-draft')];
-  const linkDraft=require('../miniprogram/utils/creation-link-draft');
+  let linkDraft;
   let page, scope = 'post-1', generation = 1;
-  const seq = {}, storage = new Map(), navigations = [], toasts = [], calls = [];
+  const seq = {}, storage = persistence.storage || new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
   const studio = { title: '', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
   const http = { tenantId:()=>1,token: () => 'token', sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
@@ -26,6 +25,8 @@ function harness(file, api = {}, role = 'sales-lead') {
     navigateTo: ({ url }) => navigations.push(url), redirectTo: ({ url }) => navigations.push(url),
     showToast: ({ title }) => toasts.push(title), showLoading() {}, hideLoading() {}, pageScrollTo() {}, nextTick(fn) { fn(); }
   };
+  const draftModule={exports:{}};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/utils/creation-link-draft'),'utf8'),{module:draftModule,require:p=>require('../miniprogram/utils/'+p.slice(2)),wx,Uint8Array,unescape,encodeURIComponent});linkDraft=draftModule.exports;
   const source=file==='creation/index.js'?fs.readFileSync(path.resolve(__dirname,'../miniprogram/utils/sales-creation-page.js'),'utf8').replace('module.exports=()=>({','Page({'):fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages', file), 'utf8');
   vm.runInNewContext(source, {
     Page: value => { page = value; }, wx, setTimeout: (fn,ms) => {const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,
@@ -43,7 +44,7 @@ function harness(file, api = {}, role = 'sales-lead') {
       if (name.endsWith('/utils/creation-link-draft')) return linkDraft;
       if (name.endsWith('/utils/platform-content')) return utility;
       if (name.endsWith('/api/http')) return http;
-      if (name.endsWith('/api/auth')) return { currentApiPost: () => ({ postId: scope, roleCode: role }) };
+      if (name.endsWith('/api/auth')) return { currentApiPost: () => ({ postId: scope, roleCode: role,orgId:persistence.orgId||'33',userId:persistence.userId||'77' }) };
       if (name.endsWith('/api/franchise/content')) return api;
       if (name.endsWith('/utils/storage-keys')) return { creationDraft: 'creation-draft' };
       if (name.endsWith('/utils/page-navigation')) return { open: url => navigations.push(url) };
@@ -464,4 +465,33 @@ test('task center retries local save on the original task instead of offering ne
  const h=harness('studio/index.js',{tasks:{page:async()=>[task],retrySave:async id=>calls.push(id)}});
  h.page.data.view='tasks';await h.page.syncApiTasks();assert.equal(h.page.data.tasks[0].stageLabel,'生成完成，保存失败');
  await h.page.taskAction(event({id:'81'}));assert.deepEqual(calls,['81']);
+});
+
+test('restarting the mini-program restores save-failed ASR by account and organization without parsing or billing again',async()=>{
+ const storage=new Map();let creates=0,charges=0,parses=0,saved=false,retries=0;
+ const task=()=>({id:'restart-asr',kind:'asr',generationStatus:'SUCCEEDED',status:saved?'SUCCEEDED':'FAILED',resultState:saved?'READY':'FAILED',result:{text:'重启后恢复的转写文案'}});
+ const api={links:{parse:async()=>{parses++;return{taskId:'parse'};}},scripts:{extract:async()=>{creates++;charges++;return{taskId:'restart-asr'};}},tasks:{get:async id=>{assert.equal(id,'restart-asr');return task();},retrySave:async id=>{assert.equal(id,'restart-asr');retries++;saved=true;}},poll:async id=>id==='parse'?{status:'SUCCEEDED',result:{audioUrl:'https://media.example/no-hash'}}:task()};
+ const first=harness('creation/index.js',api,'sales',{storage});first.page.data.link='https://v.example/restart';await first.page.extract();
+ const key=first.page.__extractAttempt.asrKey;assert.match(first.page.data.extractError,/保存失败/);
+ const reopened=harness('creation/index.js',api,'sales',{storage});reopened.page.data.link='复制链接 https://v.example/restart';await reopened.page.extract();
+ assert.equal(reopened.page.__extractAttempt.asrKey,key);assert.equal(reopened.state.original,'重启后恢复的转写文案');
+ assert.deepEqual({creates,charges,parses,retries},{creates:1,charges:1,parses:1,retries:1});
+ for(const identity of [{orgId:'34'},{userId:'78'}]){
+  const other=harness('creation/index.js',api,'sales',{storage,...identity});other.page.data.link='https://v.example/restart';await other.page.extract();
+  assert.notEqual(other.page.__extractAttempt.asrKey,key);
+ }
+ assert.equal(creates,3);assert.equal(retries,1,'other account/org must not retry this owner task');
+});
+test('restart after lost ASR creation response replays persisted request key, not a new paid operation',async()=>{
+ const storage=new Map(),requests=new Set();let responseLost=true,charges=0;
+ const api={links:{parse:async()=>({taskId:'parse'})},scripts:{extract:async(body,key)=>{if(!requests.has(key)){requests.add(key);charges++;}if(responseLost)throw Error('response lost after acceptance');return{taskId:'asr'};}},poll:async id=>({id,status:'SUCCEEDED',result:id==='parse'?{videoUrl:'https://media.example/a'}:{text:'已受理原任务'}})};
+ const first=harness('creation/index.js',api,'sales',{storage});first.page.data.link='https://v.example/lost';await first.page.extract();responseLost=false;
+ const second=harness('creation/index.js',api,'sales',{storage});second.page.data.link='https://v.example/lost';await second.page.extract();
+ assert.equal(requests.size,1);assert.equal(charges,1);assert.equal(second.state.original,'已受理原任务');
+});
+test('unreadable or unwritable recovery storage blocks paid extraction instead of silently replacing keys',async()=>{
+ for(const method of ['getStorageSync','setStorageSync']){
+  let creates=0;const h=harness('creation/index.js',{links:{parse:async()=>{creates++;}}});h.wx[method]=()=>{throw Error('storage unavailable');};
+  h.page.data.link='https://v.example/storage';await h.page.extract();assert.equal(creates,0);assert.match(h.page.data.extractError,/任务记录/);assert.equal(h.page.data.extracting,false);
+ }
 });

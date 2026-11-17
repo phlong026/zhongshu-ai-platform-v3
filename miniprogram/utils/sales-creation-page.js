@@ -57,8 +57,7 @@ if(!url)return;
 if(scope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration())return;
 const requestAlive=http.requestGuard('creation-extract');
 const alive=()=>!this.__closed&&requestAlive()&&scope===studio.scope();
-this.__extractAttempt=linkDraft.attempt(scope,this.actorSessionGeneration,url,()=>'extract-'+Date.now()+'-'+Math.floor(Math.random()*1e8));
-const attempt=this.__extractAttempt;
+let attempt;
 this.setData({extracting:true,extractStage:'解析链接中',parseProgress:0,extractError:''});
 const wait=async (res,phase)=>{
 if(!alive())throw {cancelled:true};
@@ -75,15 +74,14 @@ if(view!=='completed')throw Error(view==='failed'?'文案提取失败：'+(task.
 return task;
 };
 try{
-const parsed=await wait(await P.api.links.parse(url,attempt.parseKey),'parse');
-const media=parsed.result||{};
-const sourceUrl=[media.audioUrl,media.videoUrl].map(value=>String(value||'').trim()).find(value=>/^https?:\/\//i.test(value));
-if(!sourceUrl)throw Error('未解析到可转写的音视频，请重新复制链接或手动填写文案');
-this.setData({extractStage:'提取文案中',parseProgress:0});
-const payload={sourceUrl};
-if(Number(media.durationMs)>0)payload.durationSec=Number(media.durationMs)/1000;
-let submitted;
+const post=require('../api/auth').currentApiPost();
+const identity=post&&[http.tenantId(),post.orgId,post.userId,post.postId];
+if(!identity||identity.some(v=>v==null||String(v)===''))throw Error('账号和组织信息未确认，请重新登录后继续');
+attempt=this.__extractAttempt=linkDraft.attempt(scope,this.actorSessionGeneration,url,
+ ()=>'extract-'+Date.now()+'-'+Math.floor(Math.random()*1e8),identity.map(String).join(':'));
+let submitted,media={};
 if(attempt.taskIds.asr){
+ this.setData({extractStage:'正在读取原转写任务'});
  const original=await P.api.tasks.get(attempt.taskIds.asr);
  if(!alive())throw {cancelled:true};
  if(P.saveFailure(original)){
@@ -91,7 +89,16 @@ if(attempt.taskIds.asr){
   await P.api.tasks.retrySave(attempt.taskIds.asr);
  }
  submitted={taskId:attempt.taskIds.asr};
-}else submitted=await P.api.scripts.extract(payload,attempt.asrKey);
+}else{
+ const parsed=await wait(await P.api.links.parse(url,attempt.parseKey),'parse');
+ media=parsed.result||{};
+ const sourceUrl=[media.audioUrl,media.videoUrl].map(value=>String(value||'').trim()).find(value=>/^https?:\/\//i.test(value));
+ if(!sourceUrl)throw Error('未解析到可转写的音视频，请重新复制链接或手动填写文案');
+ this.setData({extractStage:'提取文案中',parseProgress:0});
+ const payload={sourceUrl};
+ if(Number(media.durationMs)>0)payload.durationSec=Number(media.durationMs)/1000;
+ submitted=await P.api.scripts.extract(payload,attempt.asrKey);
+}
 const task=await wait(submitted,'asr');
 const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
 if(!text)throw Error('未提取到口播文案，可手动填写');
