@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.franchise.content.content;
 
-import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,7 +8,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -26,14 +24,14 @@ public class ContentTaskJob {
 
     private final ContentTaskStore store;
     private final ContentTaskService tasks;
-    private final ContentScriptService scripts;
     private final boolean enabled;
+    private final ContentTaskResultService results;
 
-    public ContentTaskJob(ContentTaskStore store, ContentTaskService tasks, ContentScriptService scripts,
+    public ContentTaskJob(ContentTaskStore store, ContentTaskService tasks, ContentTaskResultService results,
                           @Value("${zhongshu.content.task-sweep-enabled:false}") boolean enabled) {
         this.store = store;
         this.tasks = tasks;
-        this.scripts = scripts;
+        this.results = results;
         this.enabled = enabled;
     }
 
@@ -43,6 +41,7 @@ public class ContentTaskJob {
             return;
         }
         try {
+            recoverResults();
             submitQueued();
             pollInFlight();
             timeoutOverdue();
@@ -99,39 +98,15 @@ public class ContentTaskJob {
         }
     }
 
-    /** SUCCEEDED 收尾：脚本行落库（幂等——已有 task_id 行则跳过）。 */
-    private void settleIfSucceeded(FrContentTaskDO task) {
-        FrContentTaskDO fresh = store.byId(task.getCompanyId(), task.getId());
-        if (fresh == null || !"SUCCEEDED".equals(fresh.getStatus())) {
-            return;
-        }
-        Map<String, Object> result = fresh.getResultSnapshot() == null ? Map.of()
-                : JsonUtils.parseObject(fresh.getResultSnapshot(), Map.class);
-        try {
-            switch (fresh.getKind()) {
-                case "copy" -> scripts.recordOptimizeResult(fresh,
-                        String.valueOf(result.get("text")),
-                        String.valueOf(result.get("engine")),
-                        fresh.getModel());
-                case "asr" -> scripts.recordExtractedScript(fresh, "upload", null, null,
-                        String.valueOf(result.get("text")),
-                        result.get("durationSec") == null ? null
-                                : (int) Double.parseDouble(String.valueOf(result.get("durationSec"))));
-                case "link_parse" -> {
-                    String text = String.valueOf(result.get("text"));
-                    if (!text.isBlank()) {
-                        scripts.recordExtractedScript(fresh, "link",
-                                String.valueOf(result.get("videoUrl")),
-                                String.valueOf(result.get("platform")), text, null);
-                    }
-                }
-                default -> {
-                    // digital/ai_video 无脚本行
-                }
-            }
-        } catch (RuntimeException e) {
-            log.warn("content task {} settle failed: {}", fresh.getId(), e.getMessage());
+    private void recoverResults() {
+        for(var row:results.pending())deliver(((Number)row.get("company_id")).longValue(),((Number)row.get("id")).longValue());
+    }
+    private void settleIfSucceeded(FrContentTaskDO task) { deliver(task.getCompanyId(),task.getId()); }
+    private void deliver(long companyId,long id) {
+        try { results.deliver(companyId,id); }
+        catch(RuntimeException e) {
+            results.failed(companyId,id);
+            log.warn("content task {} result delivery failed",id,e);
         }
     }
-
 }
