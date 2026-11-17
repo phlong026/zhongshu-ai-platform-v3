@@ -29,12 +29,16 @@ public class ContentTaskResultService {
         FrContentTaskDO task=store.byId(companyId,id);
         Map<?,?> result=task.getResultSnapshot()==null?Map.of():JsonUtils.parseObject(task.getResultSnapshot(),Map.class);
         Object value=result.get("text");
-        if(!(value instanceof String text)||text.isBlank())throw new IllegalStateException("生成结果缺少有效文案");
+        String text=value instanceof String s&&!s.isBlank()?s:null;
+        // Link parsing produces media; its optional post caption is not an ASR transcript.
+        if(!"link_parse".equals(task.getKind())&&text==null)throw new IllegalStateException("生成结果缺少有效文案");
         switch(task.getKind()) {
             case "copy" -> scripts.recordOptimizeResult(task,text,text(result.get("engine")),task.getModel());
             case "asr" -> scripts.recordExtractedScript(task,"upload",null,null,text,
                 result.get("durationSec")==null?null:(int)Double.parseDouble(result.get("durationSec").toString()));
-            case "link_parse" -> scripts.recordExtractedScript(task,"link",text(result.get("videoUrl")),text(result.get("platform")),text,null);
+            case "link_parse" -> {
+                if(text!=null)scripts.recordExtractedScript(task,"link",text(result.get("videoUrl")),text(result.get("platform")),text,null);
+            }
             default -> {return;}
         }
         jdbc.update("UPDATE fr_content_task SET result_state='READY',result_error=NULL WHERE id=? AND company_id=?",id,companyId);

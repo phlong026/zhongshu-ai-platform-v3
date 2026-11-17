@@ -159,7 +159,8 @@ public class ContentTaskController {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", task.getId());
         view.put("kind", task.getKind());
-        boolean needsScript = java.util.Set.of("copy","asr","link_parse").contains(task.getKind());
+        // Media is usable as soon as link_parse succeeds, even while its optional caption is saving.
+        boolean needsScript = java.util.Set.of("copy","asr").contains(task.getKind());
         boolean pending = needsScript && "SUCCEEDED".equals(task.getStatus()) && !"READY".equals(task.getResultState());
         view.put("status", pending ? ("FAILED".equals(task.getResultState()) ? "FAILED" : "ARCHIVING") : task.getStatus());
         view.put("resultState", task.getResultState()==null?"PENDING":task.getResultState());
