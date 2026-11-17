@@ -6,7 +6,7 @@ module.exports = function({ http, commissions, paymentView, delay = () => new Pr
     return () => session() && !page.disposed && page.view === 'pay' && String(page.id) === id && page.data.paymentOrder?.number === number;
   }
   function validate(page, order) {
-    if (!order || String(order.commissionId) !== String(page.id) || order.number !== page.data.paymentOrder.number || !['PENDING','PAID'].includes(order.status)) throw Error('付款结果暂不可用，请稍后查询');
+    if (!order || String(order.commissionId) !== String(page.id) || order.number !== page.data.paymentOrder.number || !['PENDING','PAID'].includes(order.status)) throw Error('登记结果暂不可用，请稍后查询');
     return order;
   }
   function paid(page, order) {
@@ -23,7 +23,7 @@ module.exports = function({ http, commissions, paymentView, delay = () => new Pr
     cancelSimulationPayment() {
       if(this.data.busy)return;
       const uncertain=this.data.simulationUncertain;
-      this.setData({simulationPhase:'',simulationError:'',paymentNotice:uncertain?'付款结果待确认，请先查询':'已取消，可继续支付原订单'});
+      this.setData({simulationPhase:'',simulationError:'',paymentNotice:uncertain?'登记结果待确认，请先查询':'已取消，可继续登记原订单'});
     },
     paymentSheetNoop() {},
     async confirmSimulationPayment() {
@@ -36,10 +36,10 @@ module.exports = function({ http, commissions, paymentView, delay = () => new Pr
       try {
         const order=validate(this,await commissions.simulatedReceipt(id));await visible;if(!alive())return;
         if(order.status==='PAID')return paid(this,order);
-        this.setData({busy:false,simulationPhase:'failed',simulationUncertain:false,simulationError:failure?.message || failure?.msg || '付款未完成，请重试'});
+        this.setData({busy:false,simulationPhase:'failed',simulationUncertain:false,simulationError:failure?.message || failure?.msg || '付款登记未完成，请重试'});
       } catch(error) {
         await visible;if(!alive())return;
-        this.setData({busy:false,simulationPhase:'unknown',simulationUncertain:true,simulationError:'暂时无法确认付款结果，请先查询订单'});
+        this.setData({busy:false,simulationPhase:'unknown',simulationUncertain:true,simulationError:'暂时无法确认登记结果，请先查询订单'});
       }
     },
     retrySimulationPayment() {
@@ -54,9 +54,9 @@ module.exports = function({ http, commissions, paymentView, delay = () => new Pr
       try {
         const order=validate(this,await commissions.simulatedReceipt(id));if(!alive())return;
         if(order.status==='PAID')return paid(this,order);
-        this.setData({paymentOrder:paymentView(order),busy:false,simulationPhase:'confirm',simulationUncertain:false,simulationError:'',paymentNotice:'订单仍待支付'});
+        this.setData({paymentOrder:paymentView(order),busy:false,simulationPhase:'confirm',simulationUncertain:false,simulationError:'',paymentNotice:'订单仍待登记'});
       } catch(error) {
-        if(alive())this.setData({busy:false,simulationPhase:'unknown',simulationUncertain:true,simulationError:'暂时无法确认付款结果，请稍后查询'});
+        if(alive())this.setData({busy:false,simulationPhase:'unknown',simulationUncertain:true,simulationError:'暂时无法确认登记结果，请稍后查询'});
       }
     }
   };

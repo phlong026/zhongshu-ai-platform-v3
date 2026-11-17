@@ -1,0 +1,8 @@
+{
+  "platform": "devtools",
+  "model": "iPhone 12/13 (Pro)",
+  "screenWidth": 390,
+  "screenHeight": 844,
+  "SDKVersion": "3.17.4",
+  "scope": "按用户要求在微信开发者工具中验收页面与真实隔离后端；非物理手机"
+}

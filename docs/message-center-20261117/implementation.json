@@ -1,0 +1,436 @@
+{
+  "phase": "小程序站内通知第一版",
+  "status": "代码完成，独立环境验证，未发布生产",
+  "channels": [
+    "小程序消息中心",
+    "我的页未读角标"
+  ],
+  "eventCount": 61,
+  "events": [
+    {
+      "event": "customer-create",
+      "title": "客户已分配",
+      "module": "customer",
+      "route": "customer"
+    },
+    {
+      "event": "customer-follow",
+      "title": "客户跟进已记录",
+      "module": "customer",
+      "route": "customer"
+    },
+    {
+      "event": "customer-transfer",
+      "title": "客户负责人已变更",
+      "module": "customer",
+      "route": "customer"
+    },
+    {
+      "event": "commission-submit",
+      "title": "设计委托已提交",
+      "module": "design",
+      "route": "commission"
+    },
+    {
+      "event": "commission-fee-decide",
+      "title": "委托费用审批已更新",
+      "module": "design",
+      "route": "commission"
+    },
+    {
+      "event": "commission-feedback",
+      "title": "收到客户修改意见",
+      "module": "design",
+      "route": "commission"
+    },
+    {
+      "event": "design-complete",
+      "title": "设计已完成",
+      "module": "design",
+      "route": "commission"
+    },
+    {
+      "event": "design-dispatch",
+      "title": "正式图纸已下发",
+      "module": "design",
+      "route": "commission"
+    },
+    {
+      "event": "packet-submit",
+      "title": "业务资料待工程接收",
+      "module": "engineering",
+      "route": "commission"
+    },
+    {
+      "event": "packet-receive",
+      "title": "工程已接收业务资料",
+      "module": "engineering",
+      "route": "commission"
+    },
+    {
+      "event": "packet-return",
+      "title": "工程移交资料待补充",
+      "module": "engineering",
+      "route": "commission"
+    },
+    {
+      "event": "commission-simulate-pay",
+      "title": "设计费模拟支付已完成",
+      "module": "finance",
+      "route": "commission-payment"
+    },
+    {
+      "event": "sale-collection-declare",
+      "title": "收款资料待财务核实",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "sale-collection-return",
+      "title": "收款资料待补充",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-receipt-register",
+      "title": "收款登记已完成",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-receipt-register-business",
+      "title": "业务收款已确认",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-payment-register",
+      "title": "付款已登记",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-payable-register",
+      "title": "新增应付款项",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "design-payable-created",
+      "title": "设计费用待办理",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-payable-adjust",
+      "title": "应付款项已调整",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-refund-register",
+      "title": "客户退款已登记",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-expense-refund",
+      "title": "支出退回已登记",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-employee-recovery",
+      "title": "员工归还款已登记",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-bank-confirm",
+      "title": "到账核对已完成",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-abnormal-fund-register",
+      "title": "资金异常待核对",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-payment-void",
+      "title": "付款记录已作废",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "design-receipt-void",
+      "title": "设计收款记录已作废",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-receipt-revision",
+      "title": "收款记录已更正",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "fin-refund-void",
+      "title": "退款记录已作废",
+      "module": "finance",
+      "route": "finance"
+    },
+    {
+      "event": "sale-contract-create",
+      "title": "合同已建立",
+      "module": "customer",
+      "route": "sales-contract"
+    },
+    {
+      "event": "sale-contract-sign",
+      "title": "合同已签订",
+      "module": "customer",
+      "route": "sales-contract"
+    },
+    {
+      "event": "sale-contract-change",
+      "title": "合同金额已调整",
+      "module": "customer",
+      "route": "sales-contract"
+    },
+    {
+      "event": "eng-project-manager",
+      "title": "工程负责人已变更",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-start",
+      "title": "项目已开工",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-prepare",
+      "title": "开工准备已记录",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-plan-reschedule",
+      "title": "施工计划已调整",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-node-complete",
+      "title": "施工节点已完成",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-node-reopen",
+      "title": "施工节点已撤回",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-node-correct",
+      "title": "施工节点已更正",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-deliver",
+      "title": "工程已交付",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-settle",
+      "title": "项目结算已登记",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-archive",
+      "title": "项目已归档",
+      "module": "engineering",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-material-terms",
+      "title": "材料采购付款依据已登记",
+      "module": "material",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-material-adjust",
+      "title": "材料需求已调整",
+      "module": "material",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-material-followup",
+      "title": "材料到货需跟进",
+      "module": "material",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-supply-quality",
+      "title": "材料质量处置已更新",
+      "module": "material",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-reship-receive",
+      "title": "材料补发已到货",
+      "module": "material",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-supply-arrival",
+      "title": "材料到货已登记",
+      "module": "material",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-arrival-correct",
+      "title": "到货数量已更正",
+      "module": "material",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-material-movement",
+      "title": "材料去向已登记",
+      "module": "material",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-expense-terms",
+      "title": "工程费用付款依据已登记",
+      "module": "finance",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-expense-revise",
+      "title": "工程费用已调整",
+      "module": "finance",
+      "route": "engineering"
+    },
+    {
+      "event": "eng-collect",
+      "title": "工程收款状态已更新",
+      "module": "finance",
+      "route": "engineering"
+    },
+    {
+      "event": "perf-task-create",
+      "title": "新绩效任务已派发",
+      "module": "performance",
+      "route": "personal-performance"
+    },
+    {
+      "event": "perf-task-reassign",
+      "title": "绩效任务已改派",
+      "module": "performance",
+      "route": "personal-performance"
+    },
+    {
+      "event": "perf-task-manual-complete",
+      "title": "绩效任务完成说明已提交",
+      "module": "performance",
+      "route": "personal-performance"
+    },
+    {
+      "event": "perf-cycle-submit",
+      "title": "绩效待复核",
+      "module": "performance",
+      "route": "personal-performance"
+    },
+    {
+      "event": "perf-cycle-review",
+      "title": "绩效复核结果已更新",
+      "module": "performance",
+      "route": "personal-performance"
+    },
+    {
+      "event": "perf-cycle-appeal-resolve",
+      "title": "绩效申诉处理结果已更新",
+      "module": "performance",
+      "route": "personal-performance"
+    },
+    {
+      "event": "perf-commission-release",
+      "title": "提成应付已生成",
+      "module": "performance",
+      "route": "personal-performance"
+    },
+    {
+      "event": "perf-commission-reconcile",
+      "title": "提成核对已完成",
+      "module": "performance",
+      "route": "personal-performance"
+    }
+  ],
+  "responsibilities": [
+    {
+      "module": "客户与合同",
+      "recipients": "客户负责人；需要费用审批时通知本组织管理者",
+      "rule": "本人日常新建及跟进不重复通知自己；当前归属变化后重新鉴权"
+    },
+    {
+      "module": "设计委托",
+      "recipients": "客户负责人、总部设计岗、费用审批管理者",
+      "rule": "按当前委托业务状态产生待办；模拟支付信息仅知会"
+    },
+    {
+      "module": "工程与材料",
+      "recipients": "指定工程接收人、当前工程负责人、相关客户负责人及财务",
+      "rule": "材料事项以工程负责人为主；涉及收付款的变化通知财务"
+    },
+    {
+      "module": "收支与报销",
+      "recipients": "本组织财务、实际垫付员工、相关项目及客户负责人",
+      "rule": "办理入口根据当前岗位和业务原单状态重新核对"
+    },
+    {
+      "module": "绩效",
+      "recipients": "任务责任人、周期复核管理者、提成相关财务",
+      "rule": "复用现有待办；任务链接定位消息关联任务"
+    },
+    {
+      "module": "内容创作",
+      "recipients": "任务发起人",
+      "rule": "完成或失败结果通知；积分退款以实际流水为准"
+    }
+  ],
+  "stateRules": [
+    "未读和业务待办是两种状态",
+    "阅读及全部已读不完成业务",
+    "全部已读只作用于当前用户和当前组织的已送达快照",
+    "迟到的历史事件按实际送达时间保护，不被此前的全部已读清除",
+    "消息保存事件信息；当前办理入口重新计算",
+    "旧消息仅补充有明确原单关系的业务名称，并标注历史补充说明",
+    "换岗或注销后丢弃旧请求响应",
+    "不从本地演示记录生成在线通知"
+  ],
+  "limits": [
+    "未发布到生产环境",
+    "未接入微信订阅消息、企业微信或短信",
+    "学习和系统分类保留已有消息；本次没有新建课程任务、考试或服务订单通知业务",
+    "原生截图为微信开发者工具模拟器，并非物理真机"
+  ],
+  "verification": {
+    "backend": "16 项真实 PostgreSQL 测试通过；Flyway 在独立数据库迁移通过",
+    "frontend": "npm run check 完整回归通过；消息中心专项及换岗请求守卫通过",
+    "native": "真实后端通知 → 详情 → 待办 → 原应付单原生页面验证通过",
+    "closedLoop": "真实业务接口验证 6 项闭环：新通知、已读与待办分离、付款后移除、历史金额、未读新增、幂等去重"
+  },
+  "releaseOrder": [
+    "执行后端 V20261117.946__message_center_context.sql 迁移",
+    "部署含 /platform/messages/center 接口的后端",
+    "发布小程序更新"
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "path": "pages/admin/finance-desk/index",
+  "query": {
+    "view": "flows",
+    "tab": "payables",
+    "messageType": "fin_payable",
+    "messageObject": "2122638673219928066",
+    "bookScope": ""
+  },
+  "view": "flows",
+  "journeyEnabled": true,
+  "workbenchError": "",
+  "registerForm": {
+    "payDate": "2026-11-17",
+    "receivedDate": "2026-11-17",
+    "payableId": "2122638673219928066",
+    "payableIdLabel": "消息中心验收 · 门窗采购",
+    "amount": "1280.00",
+    "allowEmployee": false,
+    "fundingType": "COMPANY",
+    "reimbursement": false,
+    "scope": "project:2122584063843213313",
+    "scopeLabel": "张先生乡墅·财务联调",
+    "name": "消息中心验收 · 门窗采购"
+  },
+  "journeyPayables": [
+    {
+      "id": "2122641296631250946",
+      "canPay": false
+    },
+    {
+      "id": "2122638673219928066",
+      "canPay": true
+    },
+    {
+      "id": "190117003",
+      "canPay": true
+    },
+    {
+      "id": "2122612190027845633",
+      "canPay": false
+    },
+    {
+      "id": "2122610731148333057",
+      "canPay": true
+    },
+    {
+      "id": "2122590787442442242",
+      "canPay": false
+    },
+    {
+      "id": "2122585390925193220",
+      "canPay": true
+    },
+    {
+      "id": "2122585363003711489",
+      "canPay": false
+    },
+    {
+      "id": "11180003",
+      "canPay": false
+    }
+  ],
+  "platformFinance": "ready"
+}

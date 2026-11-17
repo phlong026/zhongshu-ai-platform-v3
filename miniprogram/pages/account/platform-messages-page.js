@@ -29,7 +29,7 @@ async function sync(append=false){
 }
 async function read(m,navigate=true){
   if(this.data.messageBusy)return;
-  const alive=http.requestGuard('messages-read');this.setData({messageBusy:true,messageError:''});
+  const session=http.requestGuard('messages-read'),gen=this.__messagesGen||0,alive=()=>session()&&gen===(this.__messagesGen||0);this.setData({messageBusy:true,messageError:''});
   try{
     const raw=await http.post(BASE+'/open',{id:String(m.id)});if(!alive())return;
     const latest=C.row(raw);if(!latest)throw Error('消息数据格式不正确');
@@ -43,12 +43,12 @@ async function read(m,navigate=true){
 }
 async function readAll(){
   if(this.data.messageBusy||!http.token()||!this.__messagesSnapshot)return;
-  const alive=http.requestGuard('messages-read-all');this.setData({messageBusy:true,messageError:''});
-  try{await http.post(BASE+'/read-all',{through:this.__messagesSnapshot});if(alive())await sync.call(this);}
+  const session=http.requestGuard('messages-read-all'),gen=this.__messagesGen||0,alive=()=>session()&&gen===(this.__messagesGen||0);this.setData({messageBusy:true,messageError:''});
+  try{await http.post(BASE+'/read-all',{through:this.__messagesSnapshot});if(alive()){this.setData({messageBusy:false});await sync.call(this);}}
   catch(e){if(alive()&&!e.silent)this.setData({messageError:e.message||e.msg||'已读状态保存失败，请重试'});}
   finally{if(alive())this.setData({messageBusy:false});}
 }
-function change(patch){this.__messagesGen=(this.__messagesGen||0)+1;this.apiMessages=[];this.setData({...patch,messageHasMore:false,messageDetail:null});this.filter();return sync.call(this);}
+function change(patch){this.__messagesGen=(this.__messagesGen||0)+1;this.apiMessages=[];this.setData({...patch,messageHasMore:false,messageDetail:null,messageBusy:false});this.filter();return sync.call(this);}
 function details(e){const id=String(e.currentTarget.dataset.id),m=(this.apiMessages||[]).find(x=>x.id===id);if(m)return read.call(this,m,false);return this.read(e);}
 function action(e){const id=String(e.currentTarget.dataset.id),m=(this.apiMessages||[]).find(x=>x.id===id);if(m)return read.call(this,m,true);return this.read(e);}
 module.exports={sync,read,readAll,target,change,details,action};

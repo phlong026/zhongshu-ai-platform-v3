@@ -8,7 +8,7 @@
  </view>
 </block>
 <block wx:else>
-<view wx:if="{{showNavigation}}" class="subpage-spacer zs-theme" style="height:calc({{statusHeight}}px + 87rpx)"/><view class="header zs-theme {{home ? 'header-home' : ''}} {{accountFont?'account-font':''}} {{showNavigation?'header-subpage subpage-shell':''}}" style="padding-top: {{statusHeight}}px;">
+<view wx:if="{{showNavigation||fixed}}" class="subpage-spacer zs-theme" style="height:calc({{statusHeight}}px + {{home&&!showNavigation?76:87}}rpx)"/><view class="header zs-theme {{home ? 'header-home' : ''}} {{accountFont?'account-font':''}} {{showNavigation?'header-subpage subpage-shell':''}} {{fixed?'header-fixed':''}}" style="padding-top: {{statusHeight}}px;">
   <view class="nav-row {{showNavigation?'subpage-nav':''}}">
     <block wx:if="{{showNavigation}}"><button class="subpage-back" bindtap="back" aria-label="返回上一页"><image class="back-icon" src="/assets/creation-back.png" mode="aspectFit"/></button><button class="return-home" bindtap="workbench" aria-label="返回工作台">工作台</button></block>
     <image wx:else class="brand" src="/assets/brand.png" mode="aspectFit" />

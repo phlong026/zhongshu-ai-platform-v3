@@ -1,0 +1,403 @@
+{
+  "passed": true,
+  "unit": "分",
+  "checks": [
+    {
+      "name": "项目账本 received_cents",
+      "actual": 2682000,
+      "expected": 2682000,
+      "passed": true
+    },
+    {
+      "name": "项目账本 paid_cents",
+      "actual": 515000,
+      "expected": 515000,
+      "passed": true
+    },
+    {
+      "name": "项目账本 refunded_cents",
+      "actual": 21000,
+      "expected": 21000,
+      "passed": true
+    },
+    {
+      "name": "项目账本 expense_refunded_cents",
+      "actual": 10000,
+      "expected": 10000,
+      "passed": true
+    },
+    {
+      "name": "项目账本 committed_cents",
+      "actual": 445000,
+      "expected": 445000,
+      "passed": true
+    },
+    {
+      "name": "项目账本 outstanding_cents",
+      "actual": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "项目账本 receivable_cents",
+      "actual": 27899000,
+      "expected": 27899000,
+      "passed": true
+    },
+    {
+      "name": "项目公司现金结余",
+      "actual": 2156000,
+      "expected": 2156000,
+      "passed": true
+    },
+    {
+      "name": "财务与老板 receivedCents",
+      "actual": 2682000,
+      "expected": 2682000,
+      "passed": true
+    },
+    {
+      "name": "财务与老板 paidCents",
+      "actual": 515000,
+      "expected": 515000,
+      "passed": true
+    },
+    {
+      "name": "财务与老板 refundedCents",
+      "actual": 21000,
+      "expected": 21000,
+      "passed": true
+    },
+    {
+      "name": "财务与老板 expenseRefundedCents",
+      "actual": 10000,
+      "expected": 10000,
+      "passed": true
+    },
+    {
+      "name": "财务与老板 payableCents",
+      "actual": 445000,
+      "expected": 445000,
+      "passed": true
+    },
+    {
+      "name": "兼容接口实收不漏合同回款",
+      "actual": 2682000,
+      "expected": 2682000,
+      "passed": true
+    },
+    {
+      "name": "兼容接口退款",
+      "actual": 21000,
+      "expected": 21000,
+      "passed": true
+    },
+    {
+      "name": "兼容接口净已付",
+      "actual": 505000,
+      "expected": 505000,
+      "passed": true
+    },
+    {
+      "name": "销售合同含增项总额",
+      "actual": 30500000,
+      "expected": 30500000,
+      "passed": true
+    },
+    {
+      "name": "销售净收，含两轮UI各10元",
+      "actual": 2601000,
+      "expected": 2601000,
+      "passed": true
+    },
+    {
+      "name": "工程合同期次含尾款",
+      "actual": 4,
+      "expected": 4,
+      "passed": true
+    },
+    {
+      "name": "工程应收与销售一致",
+      "actual": 30500000,
+      "expected": 30500000,
+      "passed": true
+    },
+    {
+      "name": "工程净收与销售一致",
+      "actual": 2601000,
+      "expected": 2601000,
+      "passed": true
+    },
+    {
+      "name": "员工报销与归还结清",
+      "actual": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "全公司现金增量等于原项目结余减办公86元，加界面补测账本结余",
+      "actual": 2148100,
+      "expected": 2148100,
+      "passed": true
+    },
+    {
+      "name": "误录付款仅撤销一次",
+      "actual": "已作废",
+      "expected": "已作废",
+      "passed": true
+    },
+    {
+      "name": "原退款和第一次修订均已作废",
+      "actual": 2,
+      "expected": 2,
+      "passed": true
+    },
+    {
+      "name": "最后退款替代链唯一有效",
+      "actual": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "sales 不可代财务付款",
+      "actual": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "engineer 不可代财务付款",
+      "actual": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "boss 不可代财务付款",
+      "actual": 403,
+      "expected": 403,
+      "passed": true
+    }
+  ],
+  "project": {
+    "received_cents": 2682000,
+    "paid_cents": 515000,
+    "refunded_cents": 21000,
+    "expense_refunded_cents": 10000,
+    "committed_cents": 445000,
+    "outstanding_cents": 0,
+    "receivable_cents": 27899000
+  },
+  "projectNet": 2156000,
+  "boss": {
+    "receivableCents": 30500000,
+    "receivedCents": 2682000,
+    "refundedCents": 21000,
+    "paidCents": 515000,
+    "expenseRefundedCents": 10000,
+    "payableCents": 445000
+  },
+  "legacy": {
+    "projectId": "2122631373566394369",
+    "receivableRegistered": 0,
+    "receivedConfirmed": 2682000,
+    "refundedNet": 21000,
+    "paidConfirmed": 505000
+  },
+  "sales": [
+    {
+      "stageId": "2122631372421349377",
+      "stage": "SIGN_AFTER",
+      "label": "签约后",
+      "amountCents": 10000000,
+      "collectedCents": 2601000,
+      "grossCents": 2622000,
+      "refundedCents": 21000,
+      "balanceCents": 7399000,
+      "status": "OPEN"
+    },
+    {
+      "stageId": "2122631372421349378",
+      "stage": "BASE_DONE",
+      "label": "基础完成后",
+      "amountCents": 10000000,
+      "collectedCents": 0,
+      "grossCents": 0,
+      "refundedCents": 0,
+      "balanceCents": 10000000,
+      "status": "PENDING"
+    },
+    {
+      "stageId": "2122631372421349379",
+      "stage": "CAP_DONE",
+      "label": "封顶后",
+      "amountCents": 10000000,
+      "collectedCents": 0,
+      "grossCents": 0,
+      "refundedCents": 0,
+      "balanceCents": 10000000,
+      "status": "PENDING"
+    },
+    {
+      "stageId": "2122635275988779010",
+      "stage": "tail",
+      "label": "尾款",
+      "amountCents": 500000,
+      "collectedCents": 0,
+      "grossCents": 0,
+      "refundedCents": 0,
+      "balanceCents": 500000,
+      "status": "PENDING"
+    }
+  ],
+  "engineering": {
+    "records": [],
+    "stages": [
+      {
+        "stage": "SIGN_AFTER",
+        "expectedCents": 10000000,
+        "confirmedCents": 2601000,
+        "remainingCents": 7399000,
+        "due": null,
+        "purpose": "工程预收款"
+      },
+      {
+        "stage": "BASE_DONE",
+        "expectedCents": 10000000,
+        "confirmedCents": 0,
+        "remainingCents": 10000000,
+        "due": null,
+        "purpose": "基础完成款"
+      },
+      {
+        "stage": "CAP_DONE",
+        "expectedCents": 10000000,
+        "confirmedCents": 0,
+        "remainingCents": 10000000,
+        "due": null,
+        "purpose": "工程尾款"
+      },
+      {
+        "stage": "tail",
+        "expectedCents": 500000,
+        "confirmedCents": 0,
+        "remainingCents": 500000,
+        "due": null,
+        "purpose": "工程预收款"
+      }
+    ]
+  },
+  "settlement": {
+    "projectId": "2122631373566394369",
+    "materialsTotalCents": 90000,
+    "materialsPaidCents": 90000,
+    "materialsRemainingCents": 0,
+    "expensesTotalCents": 60000,
+    "expensesPaidCents": 60000,
+    "expensesRemainingCents": 0,
+    "collectionStages": [
+      {
+        "stage": "SIGN_AFTER",
+        "expectedCents": 10000000,
+        "confirmedCents": 2601000,
+        "remainingCents": 7399000
+      },
+      {
+        "stage": "BASE_DONE",
+        "expectedCents": 10000000,
+        "confirmedCents": 0,
+        "remainingCents": 10000000
+      },
+      {
+        "stage": "CAP_DONE",
+        "expectedCents": 10000000,
+        "confirmedCents": 0,
+        "remainingCents": 10000000
+      },
+      {
+        "stage": "tail",
+        "expectedCents": 500000,
+        "confirmedCents": 0,
+        "remainingCents": 500000
+      }
+    ],
+    "collectionTotalCents": 2601000
+  },
+  "materials": {
+    "projectId": "2122631373566394369",
+    "plans": [
+      {
+        "materialPlanId": "2122631376973422592",
+        "lines": [
+          {
+            "materialId": "2122631376976363522",
+            "name": "全流程验收·砌筑材料",
+            "spec": "标准批次",
+            "unit": "批",
+            "quantity": 1.0,
+            "requiredDate": [
+              2026,
+              11,
+              18
+            ],
+            "cancelled": false,
+            "termsLocked": true,
+            "received": 0,
+            "remaining": 1.0,
+            "paymentStatus": "已付清",
+            "supplyId": "2122631376976363523",
+            "payableId": "2122637145092276225",
+            "supplier": "全流程验收建材商",
+            "totalCents": 90000,
+            "paidCents": 90000,
+            "remainingCents": 0
+          }
+        ],
+        "arrival": "待到货",
+        "totalCents": 90000,
+        "paidCents": 90000,
+        "remainingCents": 0
+      }
+    ]
+  },
+  "employee": {
+    "payable_id": "2122637475603431427",
+    "project_id": "2122631373566394369",
+    "book_id": null,
+    "recipient": "联调业务",
+    "stage": "设计费报销",
+    "origin_payment_id": "2122637475540516865",
+    "eligible_cents": 180000,
+    "reimbursed_cents": 240000,
+    "recovered_cents": 60000,
+    "pay_date": 1794844800000,
+    "payer_name": "联调业务",
+    "origin_status": "已核实"
+  },
+  "company": {
+    "grossReceipts": 12884000,
+    "companyPayments": 1779300,
+    "clientRefunds": 31200,
+    "companyExpenseReturns": 15000,
+    "net": 11088500
+  },
+  "baseline": {
+    "grossReceipts": 10200000,
+    "companyPayments": 1254600,
+    "clientRefunds": 10000,
+    "companyExpenseReturns": 5000,
+    "net": 8940400
+  },
+  "permissions": [
+    {
+      "role": "sales",
+      "code": 403
+    },
+    {
+      "role": "engineer",
+      "code": 403
+    },
+    {
+      "role": "boss",
+      "code": 403
+    }
+  ]
+}

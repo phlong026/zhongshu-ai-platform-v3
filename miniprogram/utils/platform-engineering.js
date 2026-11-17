@@ -73,8 +73,8 @@ function nodeRows(nodes) {
 function stagesView(stages, urlOf) {
   // M07-T02：三期映射（SIGN_AFTER 签约后/BASE_DONE 基础完成后/CAP_DONE 封顶后；存量 START/TOPPING 兼容）
   const STAGE_NAME = { SIGN_AFTER: '签约后期款', BASE_DONE: '基础完成后期款', CAP_DONE: '封顶后期款',
-    START: '开工款', TOPPING: '封顶款' };
-  const STAGE_URL = { SIGN_AFTER: 'start', BASE_DONE: 'base', CAP_DONE: 'topping', START: 'start', TOPPING: 'topping' };
+    START: '开工款', TOPPING: '封顶款', tail:'交付尾款' };
+  const STAGE_URL = { SIGN_AFTER: 'start', BASE_DONE: 'base', CAP_DONE: 'topping', START: 'start', TOPPING: 'topping', tail:'tail' };
   return (stages || []).map(s => {
     const expected = centsText(s.expectedCents), confirmed = centsText(s.confirmedCents), remaining = centsText(s.remainingCents);
     return {
@@ -692,7 +692,7 @@ function recordView(bundle, ctx) {
   return {
     p, form, fields, actions, fileNames: {},
     // M07-T02：期次行补 collection 跳转（BASE_DONE 收款入口；stage 已是 STAGE_URL 归一值 start/base/topping）
-    installments: data.installments.map(i => ({ ...i, url: base + 'collection&stage=' + i.stage })),
+    installments: data.installments.map(i => ({ ...i, url: i.stage==='tail' ? (financeRole?'/pages/admin/finance-desk/index?view=flows&tab=receivables':'') : base + 'collection&stage=' + i.stage })),
     plans, settle: data.settle,
     // R2 P1-4：现场记录透出（后端 detail.siteRecords——JSONB 文本解析；site-correct 更正入口数据源）
     siteRecords: (d.siteRecords || []).filter(r => String(r.node_id) === String((node && node.id) || '')).map(r => {

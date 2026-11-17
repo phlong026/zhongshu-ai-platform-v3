@@ -97,13 +97,13 @@ function attach(page, api) {
   page.designReceiptInput = function (e) { this.setData({ ['designReceiptForm.' + e.currentTarget.dataset.field]: e.detail.value }); };
   page.cancelDesignReceipt = function () { this.__designReceipt = null; this.setData({ designReceiptForm: null, designReceiptBusy: false }); };
   page.designReceiptVoucher = function () {
-    const ctx = this.__designReceipt, alive = http.sessionGuard();
-    wx.chooseMessageFile({ count: 1, type: 'file', extension: ['pdf', 'png', 'jpg', 'jpeg'], success: r => {
-      if (!alive() || ctx !== this.__designReceipt || this.__disposed) return;
-      const file = r.tempFiles[0];
-      if (file.size > 20 * 1024 * 1024) return this.setData({ designReceiptError: '凭证不能超过20MB' });
-      this.setData({ 'designReceiptForm.voucherPath': file.path, 'designReceiptForm.voucherName': file.name });
-    } });
+    if (this.data.designReceiptBusy || !this.__designReceipt) return;
+    const ctx = this.__designReceipt, session = http.sessionGuard();
+    const selection = this.__voucherSelection = (this.__voucherSelection || 0) + 1;
+    const alive = () => session() && ctx === this.__designReceipt && !this.__disposed && selection === this.__voucherSelection;
+    return require('../../../utils/finance-voucher').selectVoucher({ alive }).then(file => {
+      if (file && alive()) this.setData({ 'designReceiptForm.voucherPath': file.path, 'designReceiptForm.voucherName': file.name, designReceiptError: '' });
+    }).catch(error => { if (alive()) this.setData({ designReceiptError: error.message }); });
   };
   page.submitDesignReceipt = async function () {
     if (this.data.designReceiptBusy || !this.__designReceipt) return;
@@ -113,7 +113,7 @@ function attach(page, api) {
     this.setData({ designReceiptBusy: true, designReceiptError: '' });
     try {
       const body = receiptBody(ctx.row, ctx.payment, form);
-      if (form.voucherPath) body.voucherFileId = await api.uploadVoucher(form.voucherPath);
+      if (form.voucherPath) body.voucherFileId = await api.uploadVoucher(form.voucherPath, form.voucherName);
       if (!alive()) return;
       await api.registerReceipt(body, ctx.idem);
       if (!alive()) return;

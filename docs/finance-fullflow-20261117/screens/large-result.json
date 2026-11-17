@@ -1,0 +1,451 @@
+{
+  "passed": true,
+  "system": {
+    "brand": "devtools",
+    "model": "iPhone 15 Pro Max",
+    "system": "iOS 10.0.1",
+    "platform": "devtools",
+    "benchmarkLevel": -1,
+    "pixelRatio": 3,
+    "screenWidth": 430,
+    "screenHeight": 932,
+    "windowWidth": 430,
+    "windowHeight": 932,
+    "statusBarHeight": 54,
+    "safeArea": {
+      "top": 54,
+      "left": 0,
+      "right": 430,
+      "bottom": 898,
+      "width": 430,
+      "height": 844
+    },
+    "language": "zh_CN",
+    "version": "8.0.5",
+    "fontSizeSetting": 16,
+    "SDKVersion": "3.17.4",
+    "host": {
+      "env": "WeChat"
+    },
+    "enableDebug": false,
+    "mode": "default",
+    "deviceOrientation": "portrait",
+    "bluetoothEnabled": true,
+    "locationEnabled": true,
+    "wifiEnabled": true,
+    "albumAuthorized": true,
+    "cameraAuthorized": true,
+    "locationAuthorized": true,
+    "microphoneAuthorized": true,
+    "notificationAuthorized": true,
+    "notificationAlertAuthorized": true,
+    "notificationBadgeAuthorized": true,
+    "notificationSoundAuthorized": true,
+    "phoneCalendarAuthorized": true,
+    "bluetoothAuthorized": true,
+    "locationReducedAccuracy": true,
+    "devicePixelRatio": 3
+  },
+  "checks": [
+    {
+      "name": "实际模拟器机型、首页六位金额与指标卡边界",
+      "passed": true,
+      "model": "iPhone 15 Pro Max",
+      "width": 430,
+      "height": 932
+    },
+    {
+      "name": "收款金额输入、滚动至提交按钮、返回原项目费用标签",
+      "passed": true
+    },
+    {
+      "name": "付款与补记支出入口、提交按钮完整显示、返回原项目费用标签",
+      "passed": true
+    },
+    {
+      "name": "设计费报销原单、提交按钮、返回报销列表",
+      "passed": true
+    },
+    {
+      "name": "退款沿原收款进入、提交按钮、返回原账本",
+      "passed": true
+    },
+    {
+      "name": "键盘高度事件中返回账本，底部导航恢复，项目与标签保留",
+      "passed": true,
+      "method": "模拟器键盘事件回调检查，不代表手机系统键盘"
+    },
+    {
+      "name": "老板只读账本金额与财务一致",
+      "passed": true
+    },
+    {
+      "name": "工程采购待办直达原应付350元、提交按钮无遮挡、返回财务首页",
+      "passed": true
+    },
+    {
+      "name": "项目账本金额与最后一条流水可见，不被底部导航遮挡",
+      "passed": true
+    },
+    {
+      "name": "账本滚动后顶部导航固定，流水不再穿过微信胶囊区域",
+      "passed": true
+    },
+    {
+      "name": "首页快捷办理与正在办理可滚动到达",
+      "passed": true
+    }
+  ],
+  "screens": [
+    "large-home.png",
+    "large-book.png",
+    "large-receipt-top.png",
+    "large-receipt-bottom.png",
+    "large-payment-top.png",
+    "large-expense-bottom.png",
+    "large-reimbursement-top.png",
+    "large-reimbursement-bottom.png",
+    "large-refund-top.png",
+    "large-refund-bottom.png",
+    "large-project-return.png",
+    "large-boss-book.png",
+    "large-purchase-top.png",
+    "large-purchase-bottom.png",
+    "large-book-bottom.png",
+    "large-home-bottom.png"
+  ],
+  "geometry": {
+    "home": {
+      ".fin-home-metric": [
+        {
+          "id": "",
+          "dataset": {
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+          },
+          "left": 28.80000114440918,
+          "right": 215.20001029968262,
+          "top": 172.8000030517578,
+          "bottom": 241.60000610351562,
+          "width": 186.40000915527344,
+          "height": 68.80000305175781
+        },
+        {
+          "id": "",
+          "dataset": {
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+          },
+          "left": 215.1999969482422,
+          "right": 401.6000061035156,
+          "top": 172.8000030517578,
+          "bottom": 241.60000610351562,
+          "width": 186.40000915527344,
+          "height": 68.80000305175781
+        },
+        {
+          "id": "",
+          "dataset": {
+            "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+          },
+          "left": 28.80000114440918,
+          "right": 215.20001029968262,
+          "top": 241.60000610351562,
+          "bottom": 309.6000061035156,
+          "width": 186.40000915527344,
+          "height": 68
+        },
+        {
+          "id": "",
+          "dataset": {
+            "url": "/pages/admin/finance-desk/index?view=tasks"
+          },
+          "left": 215.1999969482422,
+          "right": 401.6000061035156,
+          "top": 241.60000610351562,
+          "bottom": 309.6000061035156,
+          "width": 186.40000915527344,
+          "height": 68
+        }
+      ],
+      ".fin-home-value": []
+    },
+    "receipt-bottom": {
+      ".journey-form .fin-primary": [
+        {
+          "id": "",
+          "dataset": {},
+          "left": 32.79999923706055,
+          "right": 397.6000175476074,
+          "top": 704.2000122070312,
+          "bottom": 752.2000122070312,
+          "width": 364.8000183105469,
+          "height": 48
+        }
+      ],
+      ".journey-voucher": [
+        {
+          "id": "",
+          "dataset": {},
+          "left": 32.79999923706055,
+          "right": 397.6000175476074,
+          "top": 644.4000244140625,
+          "bottom": 691.200023651123,
+          "width": 364.8000183105469,
+          "height": 46.79999923706055
+        }
+      ],
+      "#finance-desk-nav": [
+        {
+          "id": "finance-desk-nav",
+          "dataset": {},
+          "left": 0,
+          "right": 0,
+          "top": 811,
+          "bottom": 811,
+          "width": 0,
+          "height": 0
+        }
+      ]
+    },
+    "expense-bottom": {
+      ".journey-form .fin-primary": [
+        {
+          "id": "",
+          "dataset": {},
+          "left": 32.79999923706055,
+          "right": 397.6000175476074,
+          "top": 704.2000122070312,
+          "bottom": 752.2000122070312,
+          "width": 364.8000183105469,
+          "height": 48
+        }
+      ],
+      ".journey-voucher": [
+        {
+          "id": "",
+          "dataset": {},
+          "left": 32.79999923706055,
+          "right": 397.6000175476074,
+          "top": 644.4000244140625,
+          "bottom": 691.200023651123,
+          "width": 364.8000183105469,
+          "height": 46.79999923706055
+        }
+      ],
+      "#finance-desk-nav": [
+        {
+          "id": "finance-desk-nav",
+          "dataset": {},
+          "left": 0,
+          "right": 0,
+          "top": 811,
+          "bottom": 811,
+          "width": 0,
+          "height": 0
+        }
+      ]
+    },
+    "reimbursement-bottom": {
+      ".journey-form .fin-primary": [
+        {
+          "id": "",
+          "dataset": {},
+          "left": 32.79999923706055,
+          "right": 397.6000175476074,
+          "top": 704,
+          "bottom": 752,
+          "width": 364.8000183105469,
+          "height": 48
+        }
+      ],
+      ".journey-voucher": [
+        {
+          "id": "",
+          "dataset": {},
+          "left": 32.79999923706055,
+          "right": 397.6000175476074,
+          "top": 613.2000122070312,
+          "bottom": 660.0000114440918,
+          "width": 364.8000183105469,
+          "height": 46.79999923706055
+        }
+      ],
+      "#finance-desk-nav": [
+        {
+          "id": "finance-desk-nav",
+          "dataset": {},
+          "left": 0,
+          "right": 0,
+          "top": 810.7999877929688,
+          "bottom": 810.7999877929688,
+          "width": 0,
+          "height": 0
+        }
+      ]
+    },
+    "refund-bottom": {
+      ".journey-form .fin-primary": [
+        {
+          "id": "",
+          "dataset": {},
+          "left": 32.79999923706055,
+          "right": 397.6000175476074,
+          "top": 704.4000244140625,
+          "bottom": 752.4000244140625,
+          "width": 364.8000183105469,
+          "height": 48
+        }
+      ],
+      ".journey-voucher": [
+        {
+          "id": "",
+          "dataset": {},
+          "left": 32.79999923706055,
+          "right": 397.6000175476074,
+          "top": 613.6000366210938,
+          "bottom": 660.4000358581543,
+          "width": 364.8000183105469,
+          "height": 46.79999923706055
+        }
+      ],
+      "#finance-desk-nav": [
+        {
+          "id": "finance-desk-nav",
+          "dataset": {},
+          "left": 0,
+          "right": 0,
+          "top": 811.2000122070312,
+          "bottom": 811.2000122070312,
+          "width": 0,
+          "height": 0
+        }
+      ]
+    },
+    "homeText": [
+      {
+        "left": 34.79999923706055,
+        "top": 182.8000030517578,
+        "width": 173.60000610351562,
+        "height": 20,
+        "right": 208.40000534057617
+      },
+      {
+        "left": 34.79999923706055,
+        "top": 202.8000030517578,
+        "width": 173.60000610351562,
+        "height": 28,
+        "right": 208.40000534057617
+      },
+      {
+        "left": 221.1999969482422,
+        "top": 182.8000030517578,
+        "width": 174.40000915527344,
+        "height": 20,
+        "right": 395.6000061035156
+      },
+      {
+        "left": 221.1999969482422,
+        "top": 202.8000030517578,
+        "width": 174.40000915527344,
+        "height": 28,
+        "right": 395.6000061035156
+      },
+      {
+        "left": 34.79999923706055,
+        "top": 251.60000610351562,
+        "width": 173.60000610351562,
+        "height": 20,
+        "right": 208.40000534057617
+      },
+      {
+        "left": 34.79999923706055,
+        "top": 271.6000061035156,
+        "width": 173.60000610351562,
+        "height": 28,
+        "right": 208.40000534057617
+      },
+      {
+        "left": 221.1999969482422,
+        "top": 251.60000610351562,
+        "width": 174.40000915527344,
+        "height": 20,
+        "right": 395.6000061035156
+      },
+      {
+        "left": 221.1999969482422,
+        "top": 271.6000061035156,
+        "width": 174.40000915527344,
+        "height": 28,
+        "right": 395.6000061035156
+      }
+    ],
+    "purchaseButton": {
+      "id": "",
+      "dataset": {},
+      "left": 32.79999923706055,
+      "right": 397.6000175476074,
+      "top": 703.7999877929688,
+      "bottom": 751.7999877929688,
+      "width": 364.8000183105469,
+      "height": 48
+    },
+    "bookMoney": [
+      {
+        "id": "",
+        "dataset": {},
+        "left": 29.80000114440918,
+        "right": 208.70001029968262,
+        "top": 372,
+        "bottom": 400.3999996185303,
+        "width": 178.90000915527344,
+        "height": 28.399999618530273
+      },
+      {
+        "id": "",
+        "dataset": {},
+        "left": 221.6999969482422,
+        "right": 400.6000061035156,
+        "top": 372,
+        "bottom": 400.3999996185303,
+        "width": 178.90000915527344,
+        "height": 28.399999618530273
+      },
+      {
+        "id": "",
+        "dataset": {},
+        "left": 29.80000114440918,
+        "right": 208.70001029968262,
+        "top": 440.3999938964844,
+        "bottom": 468.79999351501465,
+        "width": 178.90000915527344,
+        "height": 28.399999618530273
+      },
+      {
+        "id": "",
+        "dataset": {},
+        "left": 221.6999969482422,
+        "right": 400.6000061035156,
+        "top": 440.3999938964844,
+        "bottom": 468.79999351501465,
+        "width": 178.90000915527344,
+        "height": 28.399999618530273
+      }
+    ],
+    "scrolledHeader": {
+      "id": "",
+      "dataset": {},
+      "left": 0,
+      "right": 430.3999938964844,
+      "top": 0,
+      "bottom": 103,
+      "width": 430.3999938964844,
+      "height": 103
+    }
+  },
+  "unchangedAmounts": {
+    "company": 110885,
+    "project": 21560,
+    "projectCost": 4450,
+    "mobileBook": 7
+  },
+  "scope": "真实开发者工具机型切换；仅读取与取消表单，没有新增财务登记"
+}

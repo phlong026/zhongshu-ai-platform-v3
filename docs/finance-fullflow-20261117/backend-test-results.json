@@ -1,0 +1,56 @@
+[
+  {
+    "name": "cn.iocoder.yudao.module.franchise.sales.SaleContractThreeStageIntegrationTest",
+    "tests": "15",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "13.844",
+    "timestamp": null
+  },
+  {
+    "name": "cn.iocoder.yudao.module.franchise.engineering.content.EngGateNetReconcileIntegrationTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "10.321",
+    "timestamp": null
+  },
+  {
+    "name": "cn.iocoder.yudao.module.franchise.engineering.content.EngLaborExpenseIntegrationTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.768",
+    "timestamp": null
+  },
+  {
+    "name": "cn.iocoder.yudao.module.franchise.engineering.content.EngMaterialAndPlanGuardIntegrationTest",
+    "tests": "16",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "10.099",
+    "timestamp": null
+  },
+  {
+    "name": "cn.iocoder.yudao.module.franchise.finance.FinWorkbenchIntegrationTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "11.067",
+    "timestamp": null
+  },
+  {
+    "name": "cn.iocoder.yudao.module.franchise.finance.controller.admin.FinancePageHttpContractTest",
+    "tests": "42",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "7.42",
+    "timestamp": null
+  }
+]

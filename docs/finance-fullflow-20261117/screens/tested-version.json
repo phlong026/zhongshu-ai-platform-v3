@@ -1,0 +1,26 @@
+{
+  "capturedAt": "2026-11-17T20:16:03+08:00",
+  "files": [
+    {
+      "file": "miniprogram/components/brand-header/index.js",
+      "sha256": "c066c0b30db02c7ffb2fe25e138a51f20ca1098567bb2301a6a5257990454abf",
+      "previewMatches": true
+    },
+    {
+      "file": "miniprogram/components/brand-header/index.wxml",
+      "sha256": "b075e6554201e76e9ca759fe93ac3a165bed4d8c46d845d5563c7cd8b405cf45",
+      "previewMatches": true
+    },
+    {
+      "file": "miniprogram/components/brand-header/index.wxss",
+      "sha256": "ee1b52cf2625fccd9885a7e7b5766b400a057a9b15cb789b87dac800b1789b08",
+      "previewMatches": true
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/index.wxml",
+      "sha256": "da9bad4f5030f2cdb71daba0780bd1b054694d7833640b877130d35daea86844",
+      "previewMatches": true
+    }
+  ],
+  "scope": "本轮4个应用文件的实际预览一致性；历史其他文件见主报告指纹"
+}

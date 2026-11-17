@@ -235,7 +235,7 @@ function commissionRowView(row, roleCode, projectName) {
       canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.paidCents || 0) > 0),
       reason: stage.reviewDue ? '原收款已变化，未付部分暂停；已付差额只待人工核对，不代表已追回。'
         : !stage.eligible ? '阶段款尚未收齐，暂不能发放。'
-        : stage.payableId ? '应付已生成，请到财务工作台办理付款。' : '阶段款已足额，可由财务生成本期应付。'
+        : stage.payableId ? '应付已生成，请到财务工作台登记付款。' : '阶段款已足额，可由财务生成本期应付。'
     }))
   };
 }

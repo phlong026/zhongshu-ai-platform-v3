@@ -10,7 +10,7 @@
     <button class="ops-check" bindtap="commissionToggle">{{commissionForm.checked?'☑':'☐'}} 已核对项目、固定总额、归属人和依据</button>
     <button class="owner-primary owner-save commission-save" data-action="commission-policy" bindtap="commissionAction" loading="{{busy}}" disabled="{{busy}}">保存提成规则</button>
   </view>
-  <view wx:else class="owner-card"><view class="owner-heading"><text>项目回款提成</text><text class="owner-badge">只读</text></view><text class="owner-note">老板确认提成，财务在阶段款收齐后办理付款。</text></view>
+  <view wx:else class="owner-card"><view class="owner-heading"><text>项目回款提成</text><text class="owner-badge">只读</text></view><text class="owner-note">老板确认提成，财务在阶段款收齐后登记付款。</text></view>
   <view wx:for="{{commissionRows}}" wx:key="id" class="owner-card">
     <view class="owner-heading"><text>{{item.project}}</text></view>
     <text class="owner-name">固定总额 {{item.totalText}} · 归属 {{item.assignee}}</text>

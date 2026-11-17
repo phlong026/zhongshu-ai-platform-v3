@@ -8,6 +8,7 @@ const yuan = n => (Number(n || 0) / 100).toFixed(2);
 const base = '/franchise/finance/workbench';
 module.exports = function (page, api) {
   page.loadWorkbench = async function () {
+    this.__messageWorkbenchReady=false;
     const alive = http.requestGuard('fin-workbench');
     this.setData({ workbenchError: '' });
     try {
@@ -18,6 +19,7 @@ module.exports = function (page, api) {
       this.setData({ allocationReceipts:receipts.filter(r=>r.status==='已登记'&&r.sourceType==='manual'&&!r.sourceRef).map(r=>({...r,label:r.name+' · ¥'+yuan(r.amountCents)})),financialStages: stages.map(r=>({...r,label: (r.customer_name||"合同收款")+" · "+({SIGN_AFTER:"签约后",BASE_DONE:"基础完成",CAP_DONE:"封顶后",tail:"交付尾款"}[r.stage]||r.stage)+" · 待收 ¥"+BookView.money(Math.max(0,Number(r.amount_cents)-Number(r.collected_cents)))})),workbenchBooks: books, reimbursementRows: rows, workbenchStaff: staff, collectionDeclarations: declarations.map(r=>({...r,amount:yuan(r.amount_cents)})),
         'deskHome.focus': rows.filter(r => r.remaining !== 0).map(r => ({ id: r.id, name: r.payer_name + ' · '+r.stage,
           amount: '¥' + BookView.money(r.remaining), status: r.remaining < 0 ? '员工应归还公司' : Number(r.reimbursed_cents) > 0 ? '部分报销' : '待报销', url: '/pages/admin/finance-desk/index?view=reimbursements' })) });
+      this.__messageWorkbenchReady=true;
       if(this.refreshJourney)this.refreshJourney();if (this.data.view === 'projects') this.loadFinanceProjects();if(this.data.view==='book'&&this.data.bookEntryRows)this.updateBookEmployees();
     } catch (e) { if (alive() && !this.__disposed) this.setData({ workbenchError: e.message || e.msg || '账本及报销加载失败' }); }
   };
@@ -102,12 +104,15 @@ module.exports = function (page, api) {
   };
   page.cancelWorkbench = function () { if (this.data.wbBusy) return; this.wbGeneration = (this.wbGeneration || 0) + 1; this.setData({ wbForm: null, wbError: '' }); };
   page.wbVoucher = function () {
-    const alive = http.sessionGuard(), generation = this.wbGeneration;
-    wx.chooseMessageFile({ count: 1, type: 'file', extension: ['pdf','jpg','png','jpeg'], success: r => {
-      if (!alive() || this.__disposed || generation !== this.wbGeneration) return;
-      const f = r.tempFiles[0]; if (f.size > 20 * 1024 * 1024) return this.setData({ wbError: '凭据不能超过20MB' });
-      this.setData({ 'wbForm.voucherPath': f.path, 'wbForm.voucherName': f.name,'wbForm.voucherFileId':null });
-    } });
+    if (this.data.wbBusy || !this.data.wbForm) return;
+    const session = http.sessionGuard(), generation = this.wbGeneration;
+    const selection = this.__voucherSelection = (this.__voucherSelection || 0) + 1;
+    const context = () => { const f = this.data.wbForm || {}; return JSON.stringify([f.type,f.scope,f.id,f.recordId,f.sourceType,f.sourceId,f.payableId,f.stageId,f.receiptId]); };
+    const original = context();
+    const alive = () => session() && !this.__disposed && generation === this.wbGeneration && selection === this.__voucherSelection && context() === original;
+    return require('../../../utils/finance-voucher').selectVoucher({ alive }).then(file => {
+      if (file && alive()) this.setData({ 'wbForm.voucherPath': file.path, 'wbForm.voucherName': file.name, 'wbForm.voucherFileId': null, wbError: '' });
+    }).catch(error => { if (alive()) this.setData({ wbError: error.message }); });
   };
   page.submitWorkbench = async function () {
     if (this.data.wbBusy || !this.data.wbForm) return;
@@ -147,7 +152,7 @@ module.exports = function (page, api) {
       }
       this.setData({ wbBusy: true, wbError: '' });
       if (f.voucherPath) {
-        body.voucherFileId=f.voucherFileId||await api.uploadVoucher(f.voucherPath);
+        body.voucherFileId=f.voucherFileId||await api.uploadVoucher(f.voucherPath, f.voucherName);
         if(alive())this.setData({'wbForm.voucherFileId':body.voucherFileId});
       }
       if (!alive()) return;
@@ -157,7 +162,7 @@ module.exports = function (page, api) {
       if(this.financeEntrySaved)this.financeEntrySaved(f.type,f,result);
       this.setData({ wbForm: null }); this.loadWorkbench(); this.loadPlatformFinance();
       if (this.data.view === 'book') this.loadBookLedger();if(this.data.view==='projects')this.loadFinanceProjects();
-      wx.showToast({ title: '已登记' });wx.pageScrollTo({scrollTop:0,duration:0});if(this.refreshFinanceTasks)this.refreshFinanceTasks();
+      wx.showToast({ title: ['payment','expense'].includes(f.type) ? '付款登记完成' : '已登记' });wx.pageScrollTo({scrollTop:0,duration:0});if(this.refreshFinanceTasks)this.refreshFinanceTasks();
     } catch (e) { if (alive()) this.setData({ wbError: e.message || e.msg || '登记失败，请重试' }); }
     finally { if (alive()) this.setData({ wbBusy: false }); }
   };

@@ -66,7 +66,7 @@ function receiptWaiting(c){
 }
 // Workbench batches already have current records; avoid reading all customers once per row.
 function nextRecord(c){
- const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='',meta={})=>({state,owner,view,actionable,label:view==='pay'?'去支付':view==='submit'?'提交设计委托':view==='handover'?'移交给工程':view==='receive'?'核对接收':view==='complete'?'登记设计完成':view==='dispatch'?'下发设计成果':'查看进度',...(detail?{detail}:{}),...meta});
+ const f=c.businessFlow||{},r=(state,owner,view,actionable=false,detail='',meta={})=>({state,owner,view,actionable,label:view==='pay'?'登记付款':view==='submit'?'提交设计委托':view==='handover'?'移交给工程':view==='receive'?'核对接收':view==='complete'?'登记设计完成':view==='dispatch'?'下发设计成果':'查看进度',...(detail?{detail}:{}),...meta});
  if(!is(c))return r(Status.submit,'经办业务','submit',true);
  if(c.acceptance)return r('业务移交完成','已完成','progress');
  if(c.handover?.status==='returned')return r(Status.handover,'经办业务','handover',true,'',{roleState:'移交资料待补充'});
@@ -152,7 +152,7 @@ function transition(b,action,input,at=new Date().toISOString()){
  flow.lastCommand={action,input:f,at,actorId:a.staffId};return n;
 }
 function validate(b,n,action){const cmd=n.businessFlow?.lastCommand;X.assert(cmd?.action===action&&cmd.actorId===X.context().staffId,'业务事件来源不一致');const expected=transition(b,action,cmd.input,cmd.at);X.assert(same(expected,n),'该动作不能改写其他业务字段或历史记录');}
-function run(id,action,input,revision){return require('./business').write(id,n=>Object.assign(n,transition(n,action,input)),({ 'commission-pay':'体验设计费模拟支付成功','commission-submit':'提交设计委托','commission-feedback':'登记线下修改意见','design-complete':'线下设计完成','design-dispatch':'正式成果已下发','packet-submit':'提交成果与移交','packet-return':'移交资料退回','packet-receive':'业务资料接收完成'})[action],action,revision);}
+function run(id,action,input,revision){return require('./business').write(id,n=>Object.assign(n,transition(n,action,input)),({ 'commission-pay':'体验设计费付款登记完成（模拟）','commission-submit':'提交设计委托','commission-feedback':'登记线下修改意见','design-complete':'线下设计完成','design-dispatch':'正式成果已下发','packet-submit':'提交成果与移交','packet-return':'移交资料退回','packet-receive':'业务资料接收完成'})[action],action,revision);}
 function packageRows(c){const p=c.businessFlow?.packet;if(!p)return [];return [['design','正式设计成果',p.resultFile],['drawing','正式施工图',p.drawingFile],['review','线下专业审核依据',p.reviewFile],['confirmation','客户确认凭据',p.confirmationFile],['brief','电子交底',{name:'电子交底记录',text:p.note}]].map(([key,label,f])=>({key,label,version:p.drawingVersion,ready:file(f),file:copy(f),summary:key==='confirmation'?p.confirmationDate:'',view:''}));}
 // Each next step inherits the event that made it actionable, not the customer's creation order.
 function triggeredAt(c, view) {

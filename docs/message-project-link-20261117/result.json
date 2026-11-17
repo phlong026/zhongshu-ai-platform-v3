@@ -1,0 +1,29 @@
+{
+  "passed": true,
+  "renderer": "微信开发者工具原生模拟器",
+  "environment": "隔离测试库，既有工程接收完成消息",
+  "commissionId": "900117401",
+  "projectId": "2122651225739984898",
+  "apiChecks": [
+    {
+      "role": "engineer",
+      "messageId": "2122651225995837443",
+      "actionLabel": "查看工程项目",
+      "actionPath": "/pages/build/record/index?view=overview&id=2122651225739984898",
+      "projectId": "2122651225739984898"
+    },
+    {
+      "role": "sales",
+      "messageId": "2122651225995837442",
+      "actionLabel": "",
+      "actionPath": "",
+      "projectId": "2122651225739984898"
+    }
+  ],
+  "nativeChecks": [
+    "消息列表按钮为查看工程项目",
+    "消息详情按钮为查看工程项目",
+    "实际点击进入对应项目总览，项目编号一致"
+  ],
+  "projectName": "王先生·业务通知验收 · 乡墅"
+}

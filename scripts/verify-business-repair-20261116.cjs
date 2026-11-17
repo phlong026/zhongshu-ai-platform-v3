@@ -80,7 +80,7 @@ test('message refresh and reads update the visible unread count independently of
  const p={...definition,studyRole:()=>'',data:{view:'messages',state:{messages:[{id:'local',type:'系统',read:false}],favorites:[]},category:'全部',messageTab:'全部'},apiMessages:[{id:'123',type:'业务',read:false}],apiUnread:52,setData(patch){Object.assign(this.data,patch)}};
  p.filter();assert.equal(p.data.unread,52);p.data.messageTab='系统';p.filter();assert.equal(p.data.unread,52);assert.equal(p.data.messages[0].id,'123');
  p.apiUnread=0;p.apiMessages[0].read=true;p.filter();assert.equal(p.data.unread,0);
- loggedIn=false;p.filter();assert.equal(p.data.unread,1);assert.equal(p.data.messages[0].id,'local');p.data.state.messages[0].read=true;p.filter();assert.equal(p.data.unread,0);
+ loggedIn=false;p.filter();assert.equal(p.data.unread,0);assert.equal(p.data.messages.length,0,'signed-out inbox does not revive demo notifications');p.data.state.messages[0].read=true;p.filter();assert.equal(p.data.unread,0);
 });
 test('message failure is an error state, not a successful empty list',async()=>{
  const {api,p}=messages(http(async()=>{throw Error('服务不可用')}));await api.sync.call(p);
@@ -131,5 +131,5 @@ test('read-only customer cannot navigate through the budget write entry',async()
 });
 test('returning from budget to an existing pending commission resumes its original payment',async()=>{
  const detail={commission:{id:'200',customerId:'100',customerName:'验收客户',status:'DESIGNING',submissionVersion:1},submissions:[],allowedActions:['commission-simulate-pay'],simulatedPayment:{status:'PENDING',amountCents:240000}};
- const {p}=commission(true,{commissionId:'200',commission:detail});await p.onShow();assert.equal(p.id,'200');assert.equal(p.data.view,'pay');assert.equal(p.action,'commission-simulate-pay');assert.equal(p.data.primary,'立即支付');
+ const {p}=commission(true,{commissionId:'200',commission:detail});await p.onShow();assert.equal(p.id,'200');assert.equal(p.data.view,'pay');assert.equal(p.action,'commission-simulate-pay');assert.equal(p.data.primary,'登记付款');
 });

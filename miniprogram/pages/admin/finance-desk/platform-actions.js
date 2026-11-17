@@ -54,15 +54,15 @@ module.exports = function attach(page, financeApi, PF) {
     this.setData({ ['registerForm.' + field]: choice.id, ['registerForm.' + field + 'Label']: choice.label,...(field==='payableId'?{'registerForm.allowEmployee':['design','manual'].includes(choice.sourceType),'registerForm.fundingType':'COMPANY'}:{}) });
   };
   page.registerUpload = function () {
-    wx.chooseMessageFile({ count: 1, type: 'file', extension: ['pdf', 'png', 'jpg', 'jpeg'],
-      success: result => {
-        const f = result.tempFiles[0];
-        if (f.size > 20 * 1024 * 1024) return this.setData({ registerError: '凭证超过 20MB' });
-        wx.saveFile({ tempFilePath: f.path,
-          success: saved => this.setData({ 'registerForm.voucherPath': saved.savedFilePath,
-            'registerForm.voucherName': f.name, registerError: '' }),
-          fail: () => this.setData({ registerError: '凭证保存失败，请重试' }) });
-      } });
+    if (this.data.registerBusy || !this.data.registerType) return;
+    const session = httpApi.sessionGuard(), generation = this.wbGeneration, sequence = this._registerSeq;
+    const selection = this.__voucherSelection = (this.__voucherSelection || 0) + 1;
+    const context = () => { const f = this.data.registerForm || {}; return JSON.stringify([this.data.registerType,f.payableId,f.receiptId,f.paymentId,f.scope]); };
+    const original = context();
+    const alive = () => session() && !this.__disposed && generation === this.wbGeneration && sequence === this._registerSeq && selection === this.__voucherSelection && context() === original;
+    return require('../../../utils/finance-voucher').selectVoucher({ alive }).then(file => {
+      if (file && alive()) this.setData({ 'registerForm.voucherPath': file.path, 'registerForm.voucherName': file.name, registerError: '' });
+    }).catch(error => { if (alive()) this.setData({ registerError: error.message }); });
   };
   page.bankPick = function (e) {
     const flowId = e.currentTarget.dataset.flowId;
@@ -167,14 +167,14 @@ module.exports = function attach(page, financeApi, PF) {
     const sessionAlive = httpApi.sessionGuard();
     const alive = () => sessionAlive() && !this.__disposed && seq === this._registerSeq;
     const withVoucher = (form.voucherPath
-      ? financeApi.uploadVoucher(form.voucherPath).then(assetId => { body.voucherFileId = assetId; })
+      ? financeApi.uploadVoucher(form.voucherPath, form.voucherName).then(assetId => { body.voucherFileId = assetId; })
       : Promise.resolve());
     withVoucher
       .then(() => { if (!alive()) return; return call(body, idem); })
       .then(result => {
         if (!alive()) return; // 身份/代次过期不得清理新表单
         if(this.financeEntrySaved)this.financeEntrySaved(type,form,result);
-        wx.showToast({ title: '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();if(this.loadWorkbench)this.loadWorkbench();
+        wx.showToast({ title: type === 'payment' ? '付款登记完成' : ['refund', 'expense-refund'].includes(type) ? '退款登记完成' : '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();if(this.loadWorkbench)this.loadWorkbench();
         if (this.loadDesignFees) this.loadDesignFees();
         if(this.refreshFinanceTasks)this.refreshFinanceTasks();
       })
@@ -198,6 +198,7 @@ module.exports = function attach(page, financeApi, PF) {
       content: '原记录 ¥' + yuanText + ' 将作废留痕（撤销仅纠正误录），随后打开更正表单，提交后经替代关系锁定更正链。',
       success: res => {
         if (!res.confirm) return;
+        if (this.data.journeyEnabled && this.rememberEntryOrigin) this.rememberEntryOrigin();
         const busyToken = beginBusy(this); if (!busyToken) return;
         financeApi.voidRefund(refundId, '更正重登', financeApi.idemKey('refund-void'))
           .then(() => {
@@ -205,14 +206,17 @@ module.exports = function attach(page, financeApi, PF) {
             this.registerIdem = null; // 新表单换新键
             this._registerSeq = (this._registerSeq || 0) + 1; // R3 P2-1：更正接管使挂起旧登记回调过期
             const today = require('../../../utils/account').localDate();
+            const source=(this.__journeyCash||[]).find(r=>r.sourceKind===(isExpense?'payment':'receipt')&&String(r.id)===String(isExpense?row.paymentId:row.receiptId));
+            const sourceLabel=source?source.projectName+' · '+source.name:isExpense?'原付款':'原收款';
+            const originalDate=require('../../../utils/finance-date').day(row.date)||today;
             const form = isExpense
-              ? { paymentId: row.paymentId, paymentIdLabel: '原付款单 #' + row.paymentId,
-                  amount: yuanText, reason: row.reason || '', date: row.date || today,
+              ? { paymentId: row.paymentId, paymentIdLabel: sourceLabel,
+                  amount: yuanText, reason: row.reason || '', date: originalDate,
                   transactionNo: row.transactionNo || '', replacesId: row.id }
-              : { receiptId: row.receiptId, receiptIdLabel: '原收款 #' + row.receiptId,
-                  amount: yuanText, reason: row.reason || '', date: row.date || today,
+              : { receiptId: row.receiptId, receiptIdLabel: sourceLabel,
+                  amount: yuanText, reason: row.reason || '', date: originalDate,
                   transactionNo: row.transactionNo || '', replacesId: row.id };
-            if (!finishBusy(this, busyToken, { registerType: type, registerForm: form, registerError: '' })) return;
+            if (!finishBusy(this, busyToken, { registerType: type, registerForm: form, registerError: '',bookEntryDetail:null,journeyResult:null,wbForm:null })) return;
             this.loadPlatformFinance();
           })
           .catch(err => finishBusy(this, busyToken, { registerError: PF.errorMessage(err) }));
@@ -263,9 +267,11 @@ module.exports = function attach(page, financeApi, PF) {
           .then(() => {
             if (!stillSame()) return drop();
             // 作废释放额度：台账行已消失，联动提示说明应付余额恢复（刷新后不再出现该笔）
-            if (!finishBusy(this, busyToken, { voidNotice: PF.voidNoticeText(row) })) return;
+            if (!finishBusy(this, busyToken, { voidNotice: PF.voidNoticeText(row),bookEntryDetail:null })) return;
             wx.showToast({ title: '付款已撤销', icon: 'none' });
             this.loadPlatformFinance();
+            if(this.loadWorkbench)this.loadWorkbench();
+            if(this.data.view==='book'&&this.loadBookLedger)this.loadBookLedger();
           })
           .catch(err => {
             if (!stillSame()) return drop();

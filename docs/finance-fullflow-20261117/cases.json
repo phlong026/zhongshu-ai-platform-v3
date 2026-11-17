@@ -735,6 +735,105 @@
   {
     "name": "费用与更正流程异常",
     "passed": false,
-    "message": "Missing input[data-key=\"expenseName\"]"
+    "message": "correction must close original detail overlay\n\ntrue !== false\n"
+  },
+  {
+    "name": "工程登记劳务费用并挂接应付，由财务付款",
+    "passed": true
+  },
+  {
+    "name": "项目零星支出与公司日常支出分账登记，完成后返回原账本",
+    "passed": true
+  },
+  {
+    "name": "系统外待付费用登记、结算调整、账本归属和付款闭环",
+    "passed": true
+  },
+  {
+    "name": "流水补充说明与实际上传凭据，空内容拦截，原记录可回看",
+    "passed": true
+  },
+  {
+    "name": "更正遮罩问题复现，关闭详情后完成本次210元更正",
+    "passed": true
+  },
+  {
+    "name": "财务负责人更正退款，原记录作废留痕，按210元重登",
+    "passed": true
+  },
+  {
+    "name": "财务负责人撤销误录付款，留痕并恢复应付余额",
+    "passed": true
+  },
+  {
+    "name": "修复复测：业务原生页面申报→财务退回→合同页显示原因→预填原金额重新提交→财务确认",
+    "passed": true,
+    "screenshot": "24-sales-return-fixed.png"
+  },
+  {
+    "name": "修复复测：退款更正不再被旧详情遮挡，成功后返回原项目账本",
+    "passed": true,
+    "screenshot": "25-correction-fixed.png"
+  },
+  {
+    "name": "误录付款撤销后将原误录费用调整为零，无残留待付",
+    "passed": true
+  },
+  {
+    "name": "修复及导航复测异常",
+    "passed": false,
+    "message": "Cannot read properties of null (reading 'tap')"
+  },
+  {
+    "name": "月份弹层取消与确认、YYYY-MM显示、历史月零值与待办独立",
+    "passed": true,
+    "screenshot": "26-month-picker.png"
+  },
+  {
+    "name": "账本搜索与流水搜索、清空筛选可用",
+    "passed": true
+  },
+  {
+    "name": "月末对账可核对净实收并留痕；电脑入口给出配置提示",
+    "passed": true
+  },
+  {
+    "name": "财务我的页面与工作台导航可达",
+    "passed": true
+  },
+  {
+    "name": "首页四个指标入口逐个打开，均到达对应业务列表",
+    "passed": true
+  },
+  {
+    "name": "首页全部快捷办理逐项可达",
+    "passed": true
+  },
+  {
+    "name": "底部项目账本导航进入账本列表",
+    "passed": true
+  },
+  {
+    "name": "收付款取消返回保留原项目及费用标签",
+    "passed": true
+  },
+  {
+    "name": "最终四端验收异常",
+    "passed": false,
+    "message": "Missing button 登记付款"
+  },
+  {
+    "name": "工程端四期应收、净实收与财务一致，材料结算及已付同步",
+    "passed": true
+  },
+  {
+    "name": "老板账本只读，与财务项目结余21560元一致",
+    "passed": true,
+    "screenshot": "38-boss-final.png"
+  },
+  {
+    "name": "更正表单日期统一YYYY-MM-DD，原收款展示项目与用途而非长编号",
+    "passed": true,
+    "screenshot": "25-correction-fixed.png"
   }
 ]
