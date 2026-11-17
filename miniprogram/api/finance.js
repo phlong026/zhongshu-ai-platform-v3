@@ -169,8 +169,17 @@ function sha256Hex(ascii) {
   ];
   var rotr = function (x, n) { return (x >>> n) | (x << (32 - n)); };
   var binaryString = typeof ascii === 'string';
-  var bytes = binaryString ? null : ascii instanceof ArrayBuffer ? new Uint8Array(ascii)
-    : ArrayBuffer.isView(ascii) ? new Uint8Array(ascii.buffer, ascii.byteOffset, ascii.byteLength) : null;
+  var bytes = null;
+  if (!binaryString) {
+    if (ArrayBuffer.isView(ascii)) bytes = new Uint8Array(ascii.buffer, ascii.byteOffset, ascii.byteLength);
+    else {
+      try {
+        // 原生品牌检查兼容跨环境ArrayBuffer。
+        ArrayBuffer.prototype.slice.call(ascii, 0, 0);
+        bytes = new Uint8Array(ascii);
+      } catch (error) { /* 下方统一报告非法输入 */ }
+    }
+  }
   if (!binaryString && !bytes) throw new TypeError('SHA-256 需要二进制字节');
   var length = binaryString ? ascii.length : bytes.byteLength;
   // 有界字节数组避免大文件展开成 JavaScript 数字数组。

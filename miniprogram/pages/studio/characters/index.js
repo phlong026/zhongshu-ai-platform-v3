@@ -21,7 +21,7 @@ const TITLES = { home:'人物库', edit:'新增人物', supplement:'补充定位
 const emptyForm = () => Object.assign({ enabled: true }, ...FIELDS.concat(EXTRA).map(f => ({ [f.key]: '' })));
 
 Page({
-  data: { view:'home',pageTitle:'人物库',rows: [], filtered: [], keyword: '', loading: false, saving: false, error: '', editing: false, editId: '', form: {}, fields: FIELDS, extraFields:EXTRA, canCreate:false, canManage: false,canUseDigital:false,cloneFileName:'',
+  data: { view:'home',pageTitle:'人物库',rows: [], filtered: [], keyword: '', loading: false, saving: false, error: '', editing: false, editId: '', form: {}, fields: FIELDS, extraFields:EXTRA, canCreate:false, canManage: false,canUseDigital:false,cloneFileName:'',cloneUploadStatus:'',
     digitalPersona: null, digitalPeople: [], digitalPersonIndex: 0, cloneEntryKind: '', cloneRows: [], cloneLoading: false, cloneBusy: false, cloneError: '', cloneKind: 'AVATAR', cloneTitle: '', cloneUploadId: '', cloneConsented: false, cloneQuote: null, cloneRetry: false,expressionTags:[],profileExpanded:false,
     cloneStatus: { SUBMITTING:'提交确认中', RUNNING:'制作中', READY:'已就绪', FAILED:'制作失败', UNKNOWN:'结果待核实' } },
   onLoad() { if (!studio.guard()) return; this.__closed=false;this.__scope = studio.scope();this.__generation=http.sessionGeneration(); },
@@ -189,13 +189,13 @@ Page({
     const alive=()=>guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person&&this.data.cloneKind===kind;
     const chosen=async file=>{
       if(!alive())return;
-      this.setData({cloneBusy:true,cloneError:''});
-      try{const path=file.tempFilePath||file.path;if(kind==='VOICE')await require('../../../utils/clone-media').checkVoice(path,file.size,alive);else if(Number(file.duration)>0&&(Number(file.duration)<5||Number(file.duration)>1800))throw Error('人物视频须为5秒至30分钟');const id=await require('../../../utils/hifly-upload')(path,kind,person,alive);if(alive())this.setData({cloneUploadId:id,cloneFileName:file.name||'素材已上传',cloneConsented:false});}
+      this.setData({cloneBusy:true,cloneError:'',cloneUploadStatus:'正在检查素材…'});
+      try{const path=file.tempFilePath||file.path;if(kind==='VOICE')await require('../../../utils/clone-media').checkVoice(path,file.size,alive);else await require('../../../utils/clone-media').checkVideo(path,file.size,alive);const id=await require('../../../utils/hifly-upload')(path,kind,person,alive,{...file,onProgress:status=>{if(alive())this.setData({cloneUploadStatus:status});}});if(alive())this.setData({cloneUploadId:id,cloneFileName:file.name||'素材已上传',cloneConsented:false});}
       catch(e){if(alive()&&!e.cancelled)this.setData({cloneError:P.degradeMessage(e)});}
-      finally{if(alive())this.setData({cloneBusy:false});}
+      finally{if(alive())this.setData({cloneBusy:false,cloneUploadStatus:''});}
     };
-    if(kind==='AVATAR')wx.chooseMedia({count:1,mediaType:['video'],sourceType:['album','camera'],maxDuration:60,success:r=>chosen(r.tempFiles[0])});
-    else wx.chooseMessageFile({count:1,type:'file',extension:['mp3'],success:r=>chosen(r.tempFiles[0])});
+    if(kind==='AVATAR')wx.showActionSheet({itemList:['从相册选择或拍摄','从聊天选择MP4/MOV文件'],success:r=>{if(r.tapIndex===0)wx.chooseMedia({count:1,mediaType:['video'],sourceType:['album','camera'],compressed:false,maxDuration:60,success:r=>chosen(r.tempFiles[0])});else wx.chooseMessageFile({count:1,type:'file',extension:['mp4','mov'],success:r=>chosen(r.tempFiles[0])});}});
+    else wx.chooseMessageFile({count:1,type:'file',extension:['mp3','m4a','wav'],success:r=>chosen(r.tempFiles[0])});
   },
   async createClone() {
     if(!this.data.canManage||!this.alive()||this.data.cloneBusy||!this.data.digitalPersona)return;
