@@ -44,7 +44,7 @@ const drafts = {
   /** 作品状态 draft|saved；幂等键由调用方生成存 this（重试复用） */
   updateStatus: (workId, status, key) => http.put('/franchise/content/drafts/' + workId + '/status', { status }, idem(key, 'work-status')),
   /** 视频草稿（一人一份；无则 {exists:false}） */
-  videoDraft: () => http.get('/franchise/content/video-draft'),
+  videoDraft: (draftKey='new') => http.get('/franchise/content/video-draft', {draftKey}),
   /** 保存视频草稿（upsert）{mode,description?,firstFrameAssetId?,lastFrameAssetId?,parameters?,references?} */
   saveVideoDraft: (data) => http.put('/franchise/content/video-draft', data),
   /** 课程章节完成（幂等）；幂等键由调用方生成存 this（重试复用） */
