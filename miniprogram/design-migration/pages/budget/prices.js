@@ -34,7 +34,7 @@ function toView(data) {
 protectedPage({
   data: {
     loading: false, error: '', regions: [], regionNames: [], regionIndex: -1, regionCode: '',
-    groups: [], overriddenCount: 0,
+    groups: [], groupCount: 0, overriddenCount: 0,
     editOptionId: null, inputValue: '', saving: false, resetting: false
   },
   onLoad(options) {
@@ -56,7 +56,7 @@ protectedPage({
     Promise.all([api.getBudgetRegions(), api.listMyRegions().catch(() => [])]).then(([platform, mine]) => {
       if (!this.current() || seq !== this._loadSeq) return;
       const regions = platform.concat((mine || []).map(item => Object.assign({ custom: true }, item)));
-      if (!regions.length) { this.setData({ loading: false, groups: [], error: '暂无可用地区：可新增自定义地区，或等待平台配置基准价格。' }); return; }
+      if (!regions.length) { this.setData({ loading: false, groups: [], groupCount: 0, error: '暂无可用地区：可新增自定义地区，或等待平台配置基准价格。' }); return; }
       const names = regions.map(item => item.name);
       let index = regions.findIndex(item => item.code === (this.data.regionCode || this._initialRegion || regions[0].code));
       if (index < 0) index = 0;
@@ -101,7 +101,7 @@ protectedPage({
       if (!this.current(regionCode) || seq !== this._priceSeq) return false;
       if (!data || data.regionCode !== regionCode) throw { msg: '单价返回地区不一致，请重试' };
       const groups = toView(data);
-      this.setData({ loading: false, groups, overriddenCount: groups.reduce((sum, g) => sum + g.options.filter(o => o.overridden).length, 0) });
+      this.setData({ loading: false, groups, groupCount: groups.length, overriddenCount: groups.reduce((sum, g) => sum + g.options.filter(o => o.overridden).length, 0) });
       return true;
     }).catch(error => {
       if (!this.current(regionCode) || seq !== this._priceSeq) return false;
