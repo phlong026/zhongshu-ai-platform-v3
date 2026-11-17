@@ -67,7 +67,7 @@ assert.equal(P.progressOf('RUNNING'), 63);
 assert.equal(P.progressOf('ARCHIVING'), 63);
 
 // ===== F11 mapResolution：v3 三档 → H3 两档（1080P→2K、720P→768P）=====
-assert.equal(P.mapResolution('1080P'), '2K');
+assert.equal(P.mapResolution('2K'), '2K');
 assert.equal(P.mapResolution('768P'), '768P');
 assert.equal(P.mapResolution('720P'), '768P');
 assert.equal(P.mapResolution(''), '768P', '空值兜底 768P');
@@ -87,12 +87,12 @@ assert.equal(P.mapDuration('abc'), 8, '非法输入缺省 8 秒');
 assert.equal(P.mapRatio('9:16'), '9:16');
 assert.equal(P.mapRatio('16:9'), '16:9');
 assert.equal(P.mapRatio('1:1'), '1:1');
-assert.equal(P.mapRatio('4:3'), '16:9');
+assert.equal(P.mapRatio('4:3'), '4:3');
 assert.equal(P.mapRatio(''), '16:9');
 
 // ===== mapVideoParameters：v3 参数组 → H3 请求参数；数量恒 1 不上送 =====
 assert.deepEqual(P.mapVideoParameters([
-  { key: 'resolution', value: '1080P' }, { key: 'duration', value: '8 秒' }, { key: 'ratio', value: '9:16' }, { key: 'count', value: '1 个' }
+  { key: 'resolution', value: '2K' }, { key: 'duration', value: '8 秒' }, { key: 'ratio', value: '9:16' }, { key: 'count', value: '1 个' }
 ]), { resolution: '2K', duration: 8, ratio: '9:16' }, 'F11 映射且无 count 键');
 assert.deepEqual(P.mapVideoParameters([]), { resolution: '768P', duration: 8, ratio: '16:9' }, '空参数组缺省值');
 assert.deepEqual(P.mapVideoParameters(null), { resolution: '768P', duration: 8, ratio: '16:9' }, 'null 安全');

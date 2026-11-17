@@ -41,3 +41,8 @@ test('typing, style tags and supplement share one persistent draft across closin
   assert.equal(page.data.form.expressionStyle,'专业');assert.equal(page.data.form.audienceNeeds,'预算、布局和施工避坑');
   assert.equal(page.data.expressionTags[0].selected,true);page.onUnload();
 });
+
+test('资源空列表中可从只读同事切换到创建本人分身',async()=>{
+ const {page}=setup('sales',[{id:'202',name:'同事',enabled:true,canManage:false}]);await page.load();page.detail(event('202'));
+ assert.equal(page.data.canManage,false);page.addClone({currentTarget:{dataset:{kind:'AVATAR'}}});assert.equal(page.data.view,'edit');assert.equal(page.data.editId,'');
+});

@@ -20,4 +20,11 @@ function attempt(scope, generation, url, createKey) {
   }
   return value.attempt;
 }
-module.exports = { read, write, attempt };
+// 仅明确 FAILED 才允许下次点击创建新任务；超时/未知沿用幂等键，避免重复扣费。
+function failed(scope, generation, previous, phase, createKey) {
+  if (!draft || draft.scope !== scope || draft.generation !== generation || draft.attempt !== previous) return;
+  const key = createKey();
+  draft.attempt = Object.freeze({ url: previous.url,
+    parseKey: phase === 'parse' ? key + '-parse' : previous.parseKey, asrKey: key + '-asr' });
+}
+module.exports = { read, write, attempt, failed };

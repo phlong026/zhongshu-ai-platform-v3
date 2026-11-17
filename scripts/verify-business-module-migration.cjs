@@ -14,7 +14,7 @@ function harness(file, api = {}, role = 'sales-lead') {
   let page, scope = 'post-1', generation = 1;
   const seq = {}, storage = new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
-  const studio = { title: '', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
+  const studio = { title: '', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
   const http = { tenantId:()=>1,token: () => 'token', sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
   const utility = { ...P, api, pollTask: async id => {
     calls.push(['poll', id]); return api.poll ? api.poll(id) : { id, status: 'SUCCEEDED', result: { text: '原视频完整文案' } };
@@ -28,10 +28,14 @@ function harness(file, api = {}, role = 'sales-lead') {
   vm.runInNewContext(source, {
     Page: value => { page = value; }, wx, setTimeout: (fn,ms) => {const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,
     require(name) {
+      if(name.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(name.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
+      if(name==='./content-task-result')return require('../miniprogram/pages/studio/content-task-result');
       if(name==='./draft-api')return ()=>api.personas;
       if(name==='./profile-draft')return require('../miniprogram/pages/studio/characters/profile-draft');
       if(name.startsWith('./'))name='../../utils/'+name.slice(2);
-      if(name.endsWith('/utils/content-task-result'))return require('../miniprogram/utils/content-task-result');
+      if(name.endsWith('/utils/content-task-result'))return require('../miniprogram/pages/studio/content-task-result');
+      if(name.endsWith('/task-display'))return require('../miniprogram/pages/studio/task-display');
       if (name.endsWith('/utils/studio')) return studio;
       if (name.endsWith('/utils/creation')) return { assets: [] };
       if (name.endsWith('/utils/creation-link-draft')) return require('../miniprogram/utils/creation-link-draft');
@@ -224,7 +228,7 @@ for (const kind of ['AVATAR', 'VOICE']) {
     assert.equal(h.page.data.digitalPersona, null);
     h.page.input(event({ key: 'name' }, '新人物')); await h.page.save(); await flush();
     assert.equal(h.page.data.digitalPersona.id, '90071992547409930'); assert.equal(h.page.data.cloneKind, kind);
-    assert.equal(h.page.data.cloneTitle, '新人物'); assert.equal(h.page.data.editing, false);
+    assert.equal(h.page.data.cloneTitle, '新人物 · '+(kind==='AVATAR'?'视频分身':'克隆声音')+' 1'); assert.equal(h.page.data.editing, false);
     assert.deepEqual(quotes, [kind]); assert.deepEqual(listed, ['90071992547409930']);
   });
 }
@@ -420,4 +424,20 @@ test('setting a default reloads authoritative rows and preserves the other resou
   assert.deepEqual(requests,['33']);assert.equal(h.page.data.cloneRows.find(r=>r.id==='33').isDefault,true);
   assert.equal(h.page.data.cloneRows.find(r=>r.id==='31').isDefault,false);assert.equal(h.page.data.cloneRows.find(r=>r.id==='32').isDefault,true);
   h.page.data.canManage=false;await h.page.setDefaultClone(event({id:'31'}));assert.equal(requests.length,1);
+});
+
+
+test('task center hides explicit test records but retains real text and video tasks without fake progress',async()=>{
+ const rows=[{id:'1',kind:'digital',status:'SUCCEEDED',provider:'fake'},{id:'2',kind:'digital',status:'RUNNING',mock:true},{id:'task-complete',kind:'digital',status:'SUCCEEDED'},{id:'3',kind:'asr',status:'SUCCEEDED',provider:'dashscope',result:{text:'真实转写 mock 示例'}},{id:'4',kind:'ai_video',status:'RUNNING',provider:'metaso'}];
+ const h=harness('studio/index.js',{tasks:{page:async()=>rows}});h.page.data.view='tasks';await h.page.syncApiTasks();
+ assert.deepEqual(plain(h.page.data.tasks.map(t=>t.id)),['3','4']);
+ assert.equal(h.page.data.tasks[0].outputType,'text');assert.equal(h.page.data.tasks[1].stageLabel,'正在处理');
+ assert.equal(h.page.data.tasks[1].progress,undefined);assert.match(h.page.data.tasks[1].image,/video-filled/);
+});
+test('task filter switches and account changes reject late task list responses',async()=>{
+ const first=deferred(),second=deferred();let n=0;const h=harness('studio/index.js',{tasks:{page:()=>++n===1?first.promise:second.promise}});h.page.data.view='tasks';
+ const a=h.page.syncApiTasks();h.page.data.taskFilter=2;const b=h.page.syncApiTasks();
+ second.resolve([{id:'2',kind:'digital',status:'SUCCEEDED'}]);await b;
+ first.resolve([{id:'1',kind:'digital',status:'RUNNING'}]);await a;
+ assert.deepEqual(plain(h.page.data.tasks.map(t=>t.id)),['2']);
 });

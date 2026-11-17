@@ -19,7 +19,7 @@ test('an unaccepted upload cannot create a usable asset and stale sessions never
   const rejected=uploadHarness({status:'PENDING'});await assert.rejects(rejected.run(),/尚未通过校验/);
   const stale=uploadHarness({alive:()=>false});await assert.rejects(stale.run(),e=>e.cancelled===true);assert.equal(stale.calls.length,0);
 });
-function voiceHarness(duration,alive=()=>true){let callback,destroyed=false,played=false;const audio={duration,onCanplay:fn=>callback=fn,onError(){},destroy(){destroyed=true;},play(){played=true;},set src(_){queueMicrotask(()=>callback());}};const context={module:{exports:{}},setTimeout,clearTimeout,wx:{createInnerAudioContext:()=>audio}};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram/utils/clone-media.js'),'utf8'),context);return {run:()=>context.module.exports.checkVoice('/local/voice.mp3',1024,alive),destroyed:()=>destroyed,played:()=>played};}
+function voiceHarness(duration,alive=()=>true){let callback,destroyed=false,played=false;const audio={duration,onCanplay:fn=>callback=fn,onError(){},destroy(){destroyed=true;},play(){played=true;},set src(_){queueMicrotask(()=>callback());}};const context={module:{exports:{}},setTimeout,clearTimeout,wx:{createInnerAudioContext:()=>audio}};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram/pages/studio/characters/clone-media.js'),'utf8'),context);return {run:()=>context.module.exports.checkVoice('/local/voice.mp3',1024,alive),destroyed:()=>destroyed,played:()=>played};}
 test('voice duration accepts 5 seconds through 3 minutes without playback and destroys its reader',async()=>{
   for(const duration of [5,60,180]){const h=voiceHarness(duration);await h.run();assert.equal(h.destroyed(),true);assert.equal(h.played(),false);}
 });

@@ -1,10 +1,5 @@
-/**
- * 内容创作获客纯函数层（阶段 1.5，16 文档 §七 v3 接入）：
- * 七态映射 / v3 参数→H3 值域映射（F11）/ 表单校验 / 降级文案。零 wx 依赖，可被 verify 脚本静态断言。
- */
 const api = require('../api/franchise/content');
 
-/** 后端任务七态 → 页面展示态（utils/studio.js 三态语义对齐 + uncertain 专用展示） */
 function taskView(status) {
   switch (status) {
     case 'SUCCEEDED': return 'completed';
@@ -15,7 +10,6 @@ function taskView(status) {
   }
 }
 
-/** 生成中/未知的进度展示值（后端无百分比，用区间进度示意） */
 function progressOf(status) {
   const view = taskView(status);
   if (view === 'completed') return 100;
@@ -23,25 +17,21 @@ function progressOf(status) {
   return status === 'QUEUED' ? 10 : status === 'SUBMITTING' ? 30 : 63;
 }
 
-/** F11：v3 分辨率选项 → H3 值域（H3 仅 768P/2K 两档；1080P→2K、720P→768P） */
 function mapResolution(v3Label) {
-  if (v3Label === '1080P') return '2K';
-  return '768P'; // 768P 与 720P 都归 768P
+  return v3Label === '2K' ? '2K' : '768P';
 }
 
-/** F11：v3 时长选项（'8 秒'）→ 4-15 整数秒 */
 function mapDuration(v3Label) {
   const match = /^(\d+)\s*(?:秒)?$/.exec(String(v3Label || ''));
   const seconds = match ? Number(match[1]) : 8;
   return Math.min(15, Math.max(4, seconds));
 }
 
-/** F11：比例 9:16/16:9/1:1 原样透传（含首尾帧时后端归一 adaptive，前端不感知） */
 function mapRatio(v3Label) {
-  return ['9:16', '16:9', '1:1'].includes(v3Label) ? v3Label : '16:9';
+  if(v3Label==='自动')return 'adaptive';
+  return ['adaptive', '21:9', '16:9', '4:3', '1:1', '3:4', '9:16'].includes(v3Label) ? v3Label : '16:9';
 }
 
-/** v3 参数组 [{key,value}] → H3 请求参数 {resolution,duration,ratio}（数量恒 1 不上送） */
 function mapVideoParameters(parameters) {
   const pick = key => {
     const found = (parameters || []).find(item => item.key === key);
@@ -54,7 +44,6 @@ function mapVideoParameters(parameters) {
   };
 }
 
-/** Cloud seconds/values and legacy option-index arrays share one restoration path. */
 function restoreVideoParameters(raw, template) {
   return template.map(parameter=>{
     let value;
@@ -62,13 +51,19 @@ function restoreVideoParameters(raw, template) {
       const saved=raw.find(item=>item&&item.key===parameter.key);
       if(saved)value=typeof saved.value==='number'&&Array.isArray(saved.options)?saved.options[saved.value]:saved.value;
     }else if(raw&&typeof raw==='object')value=raw[parameter.key];
-    if(value==null||value==='')return {...parameter,value:0};
+    if(value==null||value==='')return {...parameter,value:parameter.options?0:parameter.value};
     if(parameter.key==='duration'){
       const match=/^(\d+)\s*(?:秒)?$/.exec(String(value));
-      if(!match)throw Error('草稿时长无效，请重新选择');
+      if(!match||Number(match[1])<4||Number(match[1])>15)throw Error('草稿时长须为 4–15 秒，请重新填写');
       value=Number(match[1])+' 秒';
+      if(!parameter.options)return {...parameter,value};
     }
-    if(parameter.key==='resolution'&&value==='2K')value='1080P';
+    if(parameter.key==='resolution'){
+      if(value==='1080P'&&parameter.options.includes('2K'))value='2K';
+      if(value==='2K'&&!parameter.options.includes('2K'))value='1080P';
+      if(value==='720P')value='768P';
+    }
+    if(parameter.key==='ratio'&&value==='adaptive')value='自动';
     if(parameter.key==='count'&&value===1)value='1 个';
     const index=parameter.options.indexOf(value);
     if(index<0)throw Error('草稿'+parameter.label+'不受支持，请重新选择');
@@ -76,7 +71,6 @@ function restoreVideoParameters(raw, template) {
   });
 }
 
-/** 本地参考素材 {type:image|video|audio,...} → 后端 references [{role,name}]（image 需用途名） */
 function mapReferences(references) {
   return (references || []).map((item, index) => ({
     role: { image: 'reference_image', video: 'reference_video', audio: 'reference_audio' }[item.type] || 'reference_image',
@@ -84,14 +78,12 @@ function mapReferences(references) {
   }));
 }
 
-/** 从整段分享内容取出链接，兼容复制内容中的 https\://、https:\/\/ 和句尾标点。 */
 function shareLinkUrl(link) {
   const value = String(link || '').replace(/\\([:/])/g, '$1');
   const match = value.match(/https?:\/\/[^\s<>"'“”‘’]+/i);
   return match ? match[0].replace(/[.,;:!?，。；：！？、)）\]】}》]+$/, '') : '';
 }
 
-/** 分享链接校验（creation 页入口）：抖音/小红书 http(s) 链接 */
 function validateShareLink(link) {
   const value = String(link || '').trim();
   if (!value) return '请先粘贴视频分享链接';
@@ -99,7 +91,6 @@ function validateShareLink(link) {
   return '';
 }
 
-/** 发布表单校验（对齐后端 INPUT_INVALID 语义；定时≥1 分钟由后端终判，前端同款预判） */
 function validatePublicationForm(form, now) {
   if (!String(form.title || '').trim()) return '请填写标题';
   if (!String(form.publishText || '').trim()) return '请填写发布文案';
@@ -111,7 +102,6 @@ function validatePublicationForm(form, now) {
   return '';
 }
 
-/** 回执链接校验（对齐 studio.normalizePublishedUrl 语义） */
 function validatePublishedUrl(value) {
   const url = String(value || '').trim();
   if (!url) return '请填写发布后的作品链接';
@@ -121,7 +111,6 @@ function validatePublishedUrl(value) {
   return '';
 }
 
-/** 错误文案：后端不可达时只提示网络态，不声称已回落本机演示内容 */
 function degradeMessage(error) {
   if (String(error && error.code) === '1072000010') return '公司尚未开通积分账户，请联系公司管理员或平台开通后使用创作功能';
   const message = String((error && (error.message || error.errMsg)) || '');
@@ -129,7 +118,6 @@ function degradeMessage(error) {
   return message || '操作未完成，请稍后重试';
 }
 
-/** 列表响应形状归一：数组 | {items:[]} | {list:[]} → 数组（分页包装差异容忍，非法形状回空） */
 function rowsOf(rows) {
   if (Array.isArray(rows)) return rows;
   if (rows && Array.isArray(rows.items)) return rows.items;
@@ -137,10 +125,6 @@ function rowsOf(rows) {
   return [];
 }
 
-/** 任务轮询（页面通用）：intervalMs 间隔拉取直至终态或超时；onTick 每次回调。
- * 连续网络错容忍 maxConsecutiveErrors 次（默认 2，第 3 次整体 reject），错误路径同样受 timeoutMs 约束；
- * 返回 promise 挂 cancel() 取消钩子（页面 onUnload 终止轮询，防 UI 长时间占锁）——
- * 取消以 {cancelled:true} reject，调用方 catch 按 error.cancelled 静默。既有调用（只传 taskId/选项对象）兼容。 */
 function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxConsecutiveErrors = 2 } = {}) {
   let cancelled = false, rejectRef = null;
   const promise = new Promise((resolve, reject) => {

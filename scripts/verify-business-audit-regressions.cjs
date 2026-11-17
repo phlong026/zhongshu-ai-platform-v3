@@ -15,6 +15,8 @@ function libraryHarness() {
   vm.runInNewContext(fs.readFileSync(path.join(root, 'miniprogram/design-migration/pages/library/index.js'), 'utf8'), {
     wx: { showToast() {} },
     require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (id.endsWith('/navigation') || id.endsWith('/assets')) return {};
       if (id.endsWith('/design-case-images')) return { watch() {} };
       if (id.endsWith('/context')) return { getApp: () => ({}) };
@@ -80,6 +82,8 @@ function creationHarness() {
     Page(value) { definition = value; }, Date, Math, Promise,
     wx: { getStorageSync() {}, showToast() {}, getClipboardData(options) { clipboard = options; } },
     require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (id === '../../utils/creation') return { assets: {} };
       if (id === '../../utils/studio') return { guard: () => true, scope: () => state.scope,
         scopedKey: key => key, read: () => ({}), recentItems: () => [] };
@@ -140,6 +144,8 @@ test('quote export uses recorded server configuration for its document options',
   vm.runInNewContext(fs.readFileSync(path.join(root, 'miniprogram/pages/workflow/quote-export/index.js'), 'utf8'), {
     Page: value => { definition = value; },
     require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (id === './sheet') return sheet;
       if (id === './render' || id === './pdf') return {};
       if (id === '../../../api/http') return { get: async () => snapshot };
@@ -158,7 +164,9 @@ function load(file, modules, session) {
   const timers = new Map();
   vm.runInNewContext(require('./page-definition-source.cjs')(root,file), {
     Page: value => { definition = value; },
-    require(id) { if (id in modules) return modules[id]; throw Error('Unexpected dependency: ' + id); },
+    require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize"); if (id in modules) return modules[id]; throw Error('Unexpected dependency: ' + id); },
     wx: {}, console, Date, Promise,
     setTimeout(fn) { const id = ++nextTimer; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); }
