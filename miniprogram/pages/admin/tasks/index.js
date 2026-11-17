@@ -30,7 +30,7 @@ function taskRows(rows, staff) {
 }
 
 Page({
-  data: { 
+  data: {
     ready: false, error: '', view: 'mine', title: '绩效任务', myName: '', memberStaffId:'', period: '', periodEnd: '', tabs: [], rows: [], taskCount: 0, goalRows: [], staff: [], types: P.TYPES,
     form: {}, assigneeIndex: 0, typeIndex: 0, previous: null, reassignTask: null, evidenceTask: null,
     evidence: { note: '', photos: [] }, archive: null,
@@ -38,6 +38,7 @@ Page({
     reusableTasks: [], reuseBusy: false, reuseError: '', reusePeriod: '', reuseLoaded: false
   },
   onLoad(options) {
+    this.messageTaskId=/^\d+$/.test(String(options.messageTask||''))?String(options.messageTask):'';
     this.requestedView = options.view || '';
     this.initialMemberStaffId = options.view === 'member' ? String(options.person || '') : '';
     this.requestedMemberStaffId = this.initialMemberStaffId;
@@ -46,7 +47,7 @@ Page({
     this.resetTaskForm();
     this.refresh();
   },
-  onShow() { if (this.data.ready) this.refresh(); 
+  onShow() { if (this.data.ready) this.refresh();
   },
   onUnload() { this.reuseGeneration = (this.reuseGeneration || 0) + 1; },
   resetTaskForm() {
@@ -109,6 +110,7 @@ Page({
       const archive = view === 'archive' ? P.archiveView(await P.api.tasks.archives(period)) : null;
       if(!alive())return;
       const rows = taskRows(raw, staff);
+      if(this.messageTaskId)rows.sort((a,b)=>Number(String(b.id)===this.messageTaskId)-Number(String(a.id)===this.messageTaskId));
       const myName = this.data.myName || '当前成员';
       const title = view === 'mine' ? myName + ' · 我的绩效' : view === 'member' ? myName + ' · 绩效目标'
         : view === 'archive' ? '绩效任务归档' : '团队绩效任务';
@@ -125,7 +127,7 @@ Page({
         goalRows: ['mine', 'member'].includes(view) ? rows : [],
         canArchive: view === 'team' && raw.length > 0,
         staff, archive: archive ? this.displayArchive(archive, staff) : null,
-        platPerf: true
+        messageTaskId:this.messageTaskId||'',platPerf: true
       });
       wx.setNavigationBarTitle({ title });
     } catch (error) {
