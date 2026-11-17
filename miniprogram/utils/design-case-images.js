@@ -86,14 +86,14 @@ function load(caseId, assetId, options = {}) {
 function watch(page, selector, rows, visit) {
   if (page.__caseImageObserver) page.__caseImageObserver.disconnect();
   const start = () => {
-    if (typeof wx.createIntersectionObserver !== 'function') { rows.slice(0,4).forEach(visit); return; }
+    if (typeof wx.createIntersectionObserver !== 'function') { rows.forEach(visit); return; }
     try {
       const observer = wx.createIntersectionObserver(page,{observeAll:true});
       page.__caseImageObserver = observer;
       observer.relativeToViewport({bottom:240,top:120}).observe(selector, entry => {
         if (entry.intersectionRatio > 0) { const row = rows.find(r => String(r.id) === String(entry.dataset.id)); if (row) visit(row); }
       });
-    } catch (_) { rows.slice(0,4).forEach(visit); }
+    } catch (_) { rows.forEach(visit); }
   };
   if (wx.nextTick) wx.nextTick(start); else Promise.resolve().then(start);
 }

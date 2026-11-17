@@ -27,28 +27,41 @@ async function sync(append=false){
     this.setData({messageStatus:'ready',messageHasMore:!!response.hasMore,messagePending:Number(response.pending)||0,messagePartial:response.failedDomains&&response.failedDomains.length?'部分业务待办暂未加载，请稍后重试':''});this.filter();
   }catch(e){if(current()&&!e.silent)this.setData({messageStatus:'error',messageError:e.message||e.msg||'消息加载失败，请重试'});}
 }
+function invalidateAction(page,update=true){
+  page.__messageAction=null;
+  if(update&&page.data.messageBusy)page.setData({messageBusy:false});
+}
+function beginAction(page,domain){
+  const alive=http.requestGuard(domain),op={};
+  page.__messageAction=op;
+  page.setData({messageBusy:true,messageError:''});
+  return {
+    current:()=>page.__messageAction===op&&alive(),
+    finish:()=>{if(page.__messageAction===op)invalidateAction(page);}
+  };
+}
 async function read(m,navigate=true){
   if(this.data.messageBusy)return;
-  const alive=http.requestGuard('messages-read');this.setData({messageBusy:true,messageError:''});
+  const {current,finish}=beginAction(this,'messages-read');
   try{
-    const raw=await http.post(BASE+'/open',{id:String(m.id)});if(!alive())return;
+    const raw=await http.post(BASE+'/open',{id:String(m.id)});if(!current())return;
     const latest=C.row(raw);if(!latest)throw Error('消息数据格式不正确');
     this.apiMessages=(this.apiMessages||[]).map(r=>r.id===latest.id?latest:r);
     if(!m.read&&!String(m.id).startsWith('todo:'))this.apiUnread=Math.max(0,(this.apiUnread||0)-1);
     this.filter();
     if(navigate&&latest.actionPath){this.setData({messageDetail:null});Nav.open(target(latest));}
     else this.setData({messageDetail:latest});
-  }catch(e){if(alive()&&!e.silent)this.setData({messageError:e.message||e.msg||'事项状态已变化，请刷新消息后重试'});}
-  finally{if(alive())this.setData({messageBusy:false});}
+  }catch(e){if(current()&&!e.silent)this.setData({messageError:e.message||e.msg||'事项状态已变化，请刷新消息后重试'});}
+  finally{finish();}
 }
 async function readAll(){
   if(this.data.messageBusy||!http.token()||!this.__messagesSnapshot)return;
-  const alive=http.requestGuard('messages-read-all');this.setData({messageBusy:true,messageError:''});
-  try{await http.post(BASE+'/read-all',{through:this.__messagesSnapshot});if(alive())await sync.call(this);}
-  catch(e){if(alive()&&!e.silent)this.setData({messageError:e.message||e.msg||'已读状态保存失败，请重试'});}
-  finally{if(alive())this.setData({messageBusy:false});}
+  const {current,finish}=beginAction(this,'messages-read-all');
+  try{await http.post(BASE+'/read-all',{through:this.__messagesSnapshot});if(current())await sync.call(this);}
+  catch(e){if(current()&&!e.silent)this.setData({messageError:e.message||e.msg||'已读状态保存失败，请重试'});}
+  finally{finish();}
 }
-function change(patch){this.__messagesGen=(this.__messagesGen||0)+1;this.apiMessages=[];this.setData({...patch,messageHasMore:false,messageDetail:null});this.filter();return sync.call(this);}
+function change(patch){invalidateAction(this);this.__messagesGen=(this.__messagesGen||0)+1;this.apiMessages=[];this.setData({...patch,messageHasMore:false,messageDetail:null});this.filter();return sync.call(this);}
 function details(e){const id=String(e.currentTarget.dataset.id),m=(this.apiMessages||[]).find(x=>x.id===id);if(m)return read.call(this,m,false);return this.read(e);}
 function action(e){const id=String(e.currentTarget.dataset.id),m=(this.apiMessages||[]).find(x=>x.id===id);if(m)return read.call(this,m,true);return this.read(e);}
-module.exports={sync,read,readAll,target,change,details,action};
+module.exports={invalidateAction,sync,read,readAll,target,change,details,action};
