@@ -13,7 +13,8 @@ const idem = (key, action) => (key
 
 const projects = {
   /** 手工新建/增项（查重=同组织未归档项目名唯一 1_115_000_008）{name,customer,city,phone?,floors?,area?,parentProjectId?} */
-  create: (data, key) => http.post('/franchise/engineering/projects', data, idem(key, 'create')),
+  supportsContractFiling: () => http.get('/franchise/engineering/projects/contract-filing'),
+  create: (data, key) => http.post('/franchise/engineering/projects/contract-filing', data, idem(key, 'create')),
   /** 列表（?status=；工程岗仅本人，财务线全量） */
   pageChunk(status,keyword,page,pageSize) {
     return http.get('/franchise/engineering/projects',{status:status||undefined,keyword:keyword||undefined,page,pageSize});

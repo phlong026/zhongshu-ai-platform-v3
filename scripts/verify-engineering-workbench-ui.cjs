@@ -14,16 +14,28 @@ const flat = nodes => nodes.flatMap(node => [node, ...flat(node.children)]);
 const content = node => (node.text || '') + node.children.map(content).join('');
 const rendered = (file, data) => flat(render(path.resolve(__dirname, '../miniprogram', file), data));
 
-async function setup(role = 'engineer') {
+async function setup(role = 'engineer', supportsFiling = true) {
   const runtime = await connect();
   const auth = require('../miniprogram/api/auth');
   const post = { postId: 'workbench-ui-' + role, orgId: 'ui-test', orgType: 'store', roleCode: role };
   auth.saveLogin({ accessToken: 'isolated-ui-test' }); auth.savePosts([post]); auth.switchPost(post.postId);
   let projects = rows;
   const writes = [];
+  const filingRequests = [];
   wx.request = options => {
     const url = new URL(options.url).pathname.replace('/admin-api', '');
     let data = [];
+    if (url === '/franchise/engineering/projects/contract-filing') {
+      if (!supportsFiling) return setImmediate(() => options.success({ statusCode: 404, data: {} }));
+      if (options.method === 'GET') data = true;
+      else {
+        filingRequests.push(options.data);
+        if (!options.data.independent && options.data.phone !== '13900008158') {
+          return setImmediate(() => options.success({statusCode:200,data:{code:1115000001,msg:'未找到对应销售合同，请选择独立建档'}}));
+        }
+        data = rows[0];
+      }
+    }
     if (url === '/platform/profile/mine') data = { nickname: '工程同事' };
     else if (url === '/platform/todos') data = { items: [], failedDomains: [], actionableCount: 0 };
     else if (url === '/franchise/engineering/projects') data = projects;
@@ -34,8 +46,36 @@ async function setup(role = 'engineer') {
     if (options.method !== 'GET') writes.push(options.url);
     setImmediate(() => options.success({ statusCode: 200, data: { code: 0, data } }));
   };
-  return { runtime, writes, projects(value) { projects = value; }, async open(url) { await runtime.callWxMethod('reLaunch', { url }); await flush(); return runtime.currentPage(); } };
+  return { runtime, writes, filingRequests, projects(value) { projects = value; }, async open(url) { await runtime.callWxMethod('reLaunch', { url }); await flush(); return runtime.currentPage(); } };
 }
+
+test('旧后端可浏览工程列表，缺少合同建档能力时不展示入口也不能提交', async () => {
+  const h = await setup('engineer', false);
+  const page = await h.open('/pages/build/projects/index');
+  assert.equal(current().data.cards.length, 3);
+  assert.equal(await page.$('.eng-create-entry'), null);
+  await current().openCreate();
+  await current().submitCreateOnline();
+  assert.deepEqual(h.writes, []);
+});
+
+test('未匹配合同保留建档表单，只有用户主动选择时才提交独立建档', async () => {
+  const h = await setup();
+  const page = await h.open('/pages/build/projects/index');
+  await (await page.$('.eng-create-entry')).tap();
+  const form = current();
+  form.setData({'createForm.name':'陈家乡墅','createForm.phone':'13900008157'});
+  await form.submitCreateOnline();
+  assert.match(form.data.error,/选择独立建档/);
+  assert.equal(form.data.creating,true);
+  assert.equal(form.data.createForm.name,'陈家乡墅');
+  assert.equal(h.filingRequests[0].independent,undefined);
+  form.toggleIndependent({detail:{value:true}});
+  await form.submitCreateOnline();
+  assert.equal(h.filingRequests[1].independent,true);
+  assert.equal(h.filingRequests[1].name,'陈家乡墅');
+  assert.ok(h.writes.every(url=>url.endsWith('/projects/contract-filing')));
+});
 
 test('工程首页四张指标卡实际点击进入对应项目筛选，最近项目随数量显示入口', async () => {
   const h = await setup();

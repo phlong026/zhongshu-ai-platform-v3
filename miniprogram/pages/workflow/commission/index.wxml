@@ -49,6 +49,9 @@
      <button class="commission-secondary" disabled="{{busy||platformStatus!=='ready'}}" bindtap="chooseFormalCommission">选择正式委托</button>
     </view>
    </view>
+   <view wx:if="{{view==='receive'&&canReturn&&form.transferRequired}}" class="commission-card">
+    <checkbox-group data-key="confirmManagerTransfer" bindchange="check"><label class="commission-check"><checkbox value="yes" checked="{{form.confirmManagerTransfer}}" disabled="{{busy}}" color="#824019"/><text>我确认接任原工程，成为负责人及指派工程师</text></label></checkbox-group>
+   </view>
    <view wx:if="{{fields.length}}" class="commission-card">
     <view wx:for="{{fields}}" wx:key="key" wx:if="{{!(view==='submit'&&designBriefEnabled&&(item.key==='text'||pricingQuote&&(item.key==='scope'||item.key==='recipient')||item.kind==='check'&&!submitPreview))}}" class="commission-field">
      <text wx:if="{{item.kind!=='check'}}" class="commission-label">{{item.label}}</text>
