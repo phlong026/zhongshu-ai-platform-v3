@@ -90,12 +90,43 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(((Map<?,?>)november.get("receivableAging")).get("undated")).isEqualTo(50000L);
  }
 
+ @Test @org.springframework.transaction.annotation.Transactional
+ void laterVoidKeepsPriorMonthTermsAndDoesNotReviveTheEngineeringCopy(){
+  createTables();
+  var actor=fixture.post(fixture.store().orgId(),"finance",null);
+  long org=actor.orgId();
+  jdbc.update("""
+      INSERT INTO fr_sale_contract(id,company_id,customer_id,status,signed_date)
+      VALUES(201,?,1001,'VOIDED','2026-10-01'),(202,?,1002,'VOIDED','2026-10-02')
+      """,org,org);
+  jdbc.update("""
+      INSERT INTO pf_command_event(domain,aggregate_type,aggregate_id,org_id,revision,command,occurred_at)
+      VALUES ('franchise','fr-sale-contract',201,?,2,'sale-contract-sign','2026-10-01 10:00:00+08'),
+      ('franchise','fr-sale-contract',201,?,4,'sale-contract-void','2026-11-01 00:01:00+08'),
+      ('franchise','fr-sale-contract',202,?,2,'sale-contract-void','2026-11-01 00:01:00+08')
+      """,org,org,org);
+  jdbc.update("""
+      INSERT INTO fr_sale_payment_stage(id,company_id,contract_id,amount_cents,deleted)
+      VALUES(301,?,201,120000,true),(302,?,202,440000,true),(303,?,201,90000,true)
+      """,org,org,org);
+  jdbc.update("""
+      INSERT INTO fr_sale_stage_before_change VALUES
+      (?,301,3,'2026-11-01',100000,NULL,false),(?,303,3,'2026-11-01',0,NULL,true)
+      """,org,org);
+  jdbc.update("INSERT INTO fr_eng_project VALUES(101,?,201,1001)",org);
+  jdbc.update("INSERT INTO fr_eng_collection_term VALUES(?,101,'START',50000,'2026-10-02 00:00:00+08')",org);
+  var service=new PerfOperatingService(null,null,null,jdbc);
+  assertThat(((Map<?,?>)service.analytics(actor,"2026-10").get("totals")).get("receivableCents")).isEqualTo(100000L);
+  assertThat(((Map<?,?>)service.analytics(actor,"2026-11").get("totals")).get("receivableCents")).isEqualTo(0L);
+ }
+
  private void createTables(){
   // Transaction-local temporary contract tables prevent older fixtures in the shared database from changing this test.
   jdbc.execute("CREATE TEMP TABLE fr_fin_receipt(id bigint,company_id bigint,amount_cents bigint,status text,received_date date,source_type text,source_ref text,name text,registrar_user_id bigint)");
   jdbc.execute("CREATE TEMP TABLE fr_fin_payment(id bigint,company_id bigint,payable_id bigint,amount_cents bigint,pending_link_cents bigint,status text,pay_date date,funding_type text,operator_user_id bigint)");
   jdbc.execute("CREATE TEMP TABLE fr_fin_refund(id bigint,company_id bigint,receipt_id bigint,payment_id bigint,amount_cents bigint,status text,date date,replaced_by_id bigint,refund_direction text,funding_type text)");
   jdbc.execute("CREATE TEMP TABLE fr_fin_payable(id bigint,company_id bigint,total_cents bigint,source_type text,source_ref text,business_date date,create_time timestamptz default now(),due_date date,recipient text)");
+  jdbc.execute("CREATE TEMP TABLE pf_command_event(domain text,aggregate_type text,aggregate_id bigint,org_id bigint,revision bigint,command text,occurred_at timestamptz)");
   jdbc.execute("CREATE TEMP TABLE fr_sale_contract(id bigint,company_id bigint,customer_id bigint,status text,deleted boolean default false,signed_date date)");
   jdbc.execute("CREATE TEMP TABLE fr_sale_payment_stage(id bigint,company_id bigint,contract_id bigint,amount_cents bigint,deleted boolean default false,due_date date)");
   jdbc.execute("CREATE TEMP TABLE fr_sale_stage_receipt(company_id bigint,contract_id bigint,stage_id bigint,receipt_id bigint)");

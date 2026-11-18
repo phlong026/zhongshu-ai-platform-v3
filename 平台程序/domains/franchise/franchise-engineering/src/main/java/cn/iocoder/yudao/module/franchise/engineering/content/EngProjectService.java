@@ -295,14 +295,12 @@ public class EngProjectService {
         if (StrUtil.isNotBlank(status)) {
             wrapper.eq(FrEngProjectDO::getStatus, status);
         }
-        boolean full = isFinanceOrAbove(post);
+        if (!isFinanceOrAbove(post)) {
+            wrapper.and(owner -> owner.eq(FrEngProjectDO::getManagerUserId, post.userId())
+                    .or().eq(FrEngProjectDO::getAssignedEngineerUserId, post.userId()));
+        }
         List<Map<String, Object>> rows = new ArrayList<>();
         for (FrEngProjectDO p : projects.selectList(wrapper)) {
-            boolean own = post.userId() == p.getManagerUserId()
-                    || (p.getAssignedEngineerUserId() != null && post.userId() == p.getAssignedEngineerUserId());
-            if (!(full || own)) {
-                continue; // 工程岗仅见本人工程（蓝本 allowed=同公司+负责人/财务）
-            }
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", p.getId());
             row.put("name", p.getName());
@@ -312,10 +310,8 @@ public class EngProjectService {
             row.put("managerUserId", p.getManagerUserId());
             row.put("actualStartAt", p.getActualStartAt());
             row.put("sourceType", p.getSourceType());
-            if (full || own) {
-                row.put("contractTotalCents", p.getContractTotalCents());
-                row.put("firstCents", p.getFirstCents());
-            }
+            row.put("contractTotalCents", p.getContractTotalCents());
+            row.put("firstCents", p.getFirstCents());
             rows.add(row);
         }
         return rows;

@@ -21,6 +21,19 @@ class PublicCaseImageServiceTest {
     @Test void originalKeepsExactBytes() throws Exception {
         byte[] input=png();assertArrayEquals(input,PublicCaseImageService.render(input,"ORIGINAL").bytes());
     }
+    @Test void webpSupportsAllThreeRenditions() throws Exception {
+        // A 2048 × 1024 lossless WebP, kept inline so the fixture is independent of the JDK's writers.
+        byte[] input=java.util.Base64.getDecoder().decode(
+            "UklGRnwAAABXRUJQVlA4THAAAAAv/8f/AAdQ0HoUqv8BgUCyv/oARfQ/4z//+c9//vOf//znP//5z3/+85///Oc///nPf/7zn//85z//+c9//vOf//znP//5z3/+85///Oc///nPf/7zn//85z//+c9//vOf//znP//5z3/+85///N8B");
+        for (var expected:java.util.Map.of("COVER",640,"PREVIEW",1800).entrySet()) {
+            var image=PublicCaseImageService.render(input,expected.getKey());
+            assertEquals("image/jpeg",image.contentType());
+            assertEquals(expected.getValue().intValue(),ImageIO.read(new ByteArrayInputStream(image.bytes())).getWidth());
+        }
+        var original=PublicCaseImageService.render(input,"ORIGINAL");
+        assertEquals("image/webp",original.contentType());
+        assertArrayEquals(input,original.bytes());
+    }
     @Test void stalledBodyTimesOutAfterHeadersAndTheNextImageCanLoad() throws Exception {
         var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
         var pool = java.util.concurrent.Executors.newCachedThreadPool();

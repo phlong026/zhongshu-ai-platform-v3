@@ -63,3 +63,54 @@ jobs:
           path: '平台程序/domains/franchise/*/target/surefire-reports/'
           retention-days: 7
           if-no-files-found: warn
+
+  release-regression:
+    name: Release regressions (PostgreSQL and Redis)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: '平台程序/**/pom.xml'
+      - name: Test release paths and package the platform server
+        run: >-
+          mvn -B -ntp -f 平台程序/pom.xml
+          -pl yudao-platform-server -am
+          -Dtest=SixRoleCommissionIntegrationTest,PerfFinanceWorkbenchIntegrationTest,FranchiseBusinessMessagesTest,MessageCenterReadSnapshotIntegrationTest,FranchiseAccountAuthServiceIntegrationTest,StaffWechatLoginIntegrationTest,TrainingIntegrationTest,EngMaterialAndPlanGuardIntegrationTest,PublicCaseImageServiceTest,DesignAccessPublicCaseRoutingTest,FileServiceImplTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Dplatform.test.jdbc.url=jdbc:postgresql://127.0.0.1:5432/postgres
+          -Dplatform.test.jdbc.username=postgres
+          -Dplatform.test.jdbc.password=postgres
+          -Dplatform.test.redis.address=redis://127.0.0.1:6379
+          package
+      - name: Upload release regression reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: backend-release-regression-reports
+          path: '平台程序/**/target/surefire-reports/'
+          retention-days: 7
+          if-no-files-found: warn

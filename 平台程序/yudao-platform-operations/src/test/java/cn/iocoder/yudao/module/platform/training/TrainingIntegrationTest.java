@@ -69,7 +69,15 @@ class TrainingIntegrationTest extends PlatformPgIntegrationTest {
     @Test void chunkRetryResumeAndWholeHashAreVerified()throws Exception{
         byte[] bytes=new byte[TrainingFiles.CHUNK+7];Arrays.fill(bytes,(byte)1);var input=new Upload("断点续传","AI短视频获客",null,"large.pdf",bytes.length,TrainingFiles.digest(bytes),id());var u=files.begin(input);String id=u.get("id").toString();
         files.part(id,0,new ByteArrayInputStream(Arrays.copyOfRange(bytes,0,TrainingFiles.CHUNK)));files.part(id,0,new ByteArrayInputStream(Arrays.copyOfRange(bytes,0,TrainingFiles.CHUNK)));assertThat(files.upload(id).get("parts")).isEqualTo(List.of(0));assertThat(files.begin(input).get("id")).isEqualTo(id);
-        assertThatThrownBy(()->files.finish(id)).isInstanceOf(ServiceException.class);files.part(id,1,new ByteArrayInputStream(Arrays.copyOfRange(bytes,TrainingFiles.CHUNK,bytes.length)));files.finish(id);assertThat(files.finish(id).get("state")).isEqualTo("COMPLETE");assertThat(Files.readAllBytes(files.path(files.version(u.get("version_id").toString(),1).get("original_key").toString()))).isEqualTo(bytes);
+        assertThatThrownBy(()->files.finish(id)).isInstanceOf(ServiceException.class);files.part(id,1,new ByteArrayInputStream(Arrays.copyOfRange(bytes,TrainingFiles.CHUNK,bytes.length)));files.finish(id);assertThat(files.finish(id).get("state")).isEqualTo("COMPLETE");
+        assertThat(Files.exists(files.path("uploads/"+id+"/0.part"))).isFalse();
+        // Recreate a part left by an interrupted cleanup. The scheduled pass must remove it.
+        var stalePart=files.path("uploads/"+id+"/0.part");
+        Files.createDirectories(stalePart.getParent());
+        Files.write(stalePart,new byte[]{1});
+        files.cleanupCompletedParts();
+        assertThat(Files.exists(stalePart)).isFalse();
+        assertThat(Files.readAllBytes(files.path(files.version(u.get("version_id").toString(),1).get("original_key").toString()))).isEqualTo(bytes);
     }
     @Test void uploadRejectsCrossUserWrongHashSizeAndContent()throws Exception{
         var u=files.begin(new Upload("错误校验","AI短视频获客",null,"sample.pdf",4,"0".repeat(64),id()));String uid=u.get("id").toString();assertThatThrownBy(()->files.part(uid,0,new ByteArrayInputStream(new byte[5]))).isInstanceOf(ServiceException.class);files.part(uid,0,new ByteArrayInputStream(new byte[4]));assertThatThrownBy(()->files.finish(uid)).isInstanceOf(ServiceException.class);student();assertThatThrownBy(()->files.upload(uid)).isInstanceOf(ServiceException.class);

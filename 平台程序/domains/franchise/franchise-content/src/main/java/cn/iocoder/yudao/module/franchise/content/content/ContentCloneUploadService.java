@@ -13,6 +13,7 @@ import java.util.*;
 /** 只管理飞影文件编号；客户端持短期签名凭证直接PUT，平台不接收媒体字节。 */
 @Service
 public class ContentCloneUploadService {
+    private static final long DIRECT_UPLOAD_LIMIT = 20L * 1024 * 1024;
     private final JdbcTemplate jdbc;
     private final ContentPersonaService personas;
     private final ContentProviderProperties properties;
@@ -41,6 +42,7 @@ public class ContentCloneUploadService {
     }
     public Map<String,Object> issue(PostSnapshot post,long persona,String kind,String mime,long size,String sha) {
         persona(post,persona);media(kind,mime,size,sha);
+        if(size>DIRECT_UPLOAD_LIMIT)throw invalid("素材须在20MB以内，请压缩后重试");
         if(properties.getProvider()!=ContentProviderProperties.ProviderMode.REAL||!provider.configured())throw invalid("数字人制作服务尚未配置");
         long id=IdWorker.getId();
         HiflyCloneClient.UploadGrant grant;
@@ -58,10 +60,14 @@ public class ContentCloneUploadService {
     }
     public Map<String,Object> complete(PostSnapshot post,long id) {
         var row=owned(post,id);persona(post,((Number)row.get("persona_id")).longValue());
-        if("UPLOADED".equals(row.get("status")))return Map.of("uploadId",String.valueOf(id),"status","UPLOADED");
-        int changed=jdbc.update("UPDATE fr_content_hifly_upload SET status='UPLOADED',completed_at=now() WHERE id=? AND company_id=? AND author_user_id=? AND status='ISSUED' AND expires_at>now()",id,post.orgId(),post.userId());
-        if(changed!=1)throw invalid("上传凭证已过期，请重新上传");
-        return Map.of("uploadId",String.valueOf(id),"status","UPLOADED");
+        if(!"UPLOADED".equals(row.get("status"))) {
+            int changed=jdbc.update("UPDATE fr_content_hifly_upload SET status='UPLOADED',completed_at=now() WHERE id=? AND company_id=? AND author_user_id=? AND status='ISSUED' AND expires_at>now()",id,post.orgId(),post.userId());
+            if(changed==0 && !"UPLOADED".equals(owned(post,id).get("status"))) {
+                throw invalid("上传凭证已过期，请重新上传");
+            }
+        }
+        // UPLOADED is the client's transfer receipt. Hifly confirms processing via the clone task.
+        return Map.of("uploadId",String.valueOf(id),"status","UPLOADED","providerStatus","UNVERIFIED");
     }
     public Uploaded requireUploaded(PostSnapshot post,long persona,long id,String kind) {
         var row=owned(post,id);

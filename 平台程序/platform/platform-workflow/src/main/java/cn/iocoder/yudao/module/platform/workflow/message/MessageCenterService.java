@@ -11,6 +11,7 @@ import java.time.OffsetDateTime;
 import java.util.*;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.platform.workflow.enums.PlatformWorkflowErrorCodes.MESSAGE_NOT_FOUND;
+import static cn.iocoder.yudao.module.platform.workflow.enums.PlatformWorkflowErrorCodes.MESSAGE_SNAPSHOT_EXPIRED;
 
 /** Organization-scoped inbox. Reading messages never completes or mutates business tasks. */
 @Service
@@ -100,14 +101,21 @@ public class MessageCenterService {
     }
 
     public int readAll(PostSnapshot post, OffsetDateTime through) {
-        if (through == null) return 0;
-        return jdbc.update("""
-            UPDATE pf_message m SET read=TRUE,read_time=COALESCE(m.read_time,now())
-            FROM pf_message_read_snapshot s
-            WHERE s.user_id=? AND s.org_id=? AND s.snapshot_at=? AND s.expires_at>clock_timestamp()
-                AND m.user_id=s.user_id AND m.org_id=s.org_id AND NOT m.read
-                AND m.id=ANY(s.message_ids)
-            """, post.userId(), post.orgId(), through);
+        if (through == null) throw exception(MESSAGE_SNAPSHOT_EXPIRED);
+        Integer updated = jdbc.queryForObject("""
+            WITH snapshot AS (
+                SELECT user_id,org_id,message_ids FROM pf_message_read_snapshot
+                WHERE user_id=? AND org_id=? AND snapshot_at=? AND expires_at>clock_timestamp()
+            ), updated AS (
+                UPDATE pf_message m SET read=TRUE,read_time=COALESCE(m.read_time,now())
+                FROM snapshot s WHERE m.user_id=s.user_id AND m.org_id=s.org_id AND NOT m.read
+                    AND m.id=ANY(s.message_ids)
+                RETURNING m.id
+            )
+            SELECT CASE WHEN EXISTS (SELECT 1 FROM snapshot) THEN (SELECT count(*)::int FROM updated) END
+            """, Integer.class, post.userId(), post.orgId(), through);
+        if (updated == null) throw exception(MESSAGE_SNAPSHOT_EXPIRED);
+        return updated;
     }
     private Map<String,Object> message(PostSnapshot post,Map<String,Object> raw,List<TodoItem> work) {
         Map<String,Object> row=new LinkedHashMap<>();

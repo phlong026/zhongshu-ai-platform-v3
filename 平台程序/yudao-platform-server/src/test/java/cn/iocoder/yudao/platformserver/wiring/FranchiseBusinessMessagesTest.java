@@ -106,7 +106,8 @@ class FranchiseBusinessMessagesTest {
         assertThat(center.unread(current)).isEqualTo(1);
         assertThatThrownBy(()->center.open(current,"2")).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         var snapshot=OffsetDateTime.parse(page.snapshotAt());
-        assertThat(center.readAll(post(10,2,"sales"),snapshot)).isZero();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> center.readAll(post(10,2,"sales"),snapshot))
+                .hasMessage("消息列表已过期，请刷新后重试");
         assertThat(center.readAll(current,snapshot)).isEqualTo(1);
         assertThat(center.unread(post(10,2,"sales"))).isEqualTo(1);
         assertThat(center.unread(post(20,1,"sales"))).isEqualTo(1);

@@ -54,6 +54,22 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         for(var other:List.of(new PostSnapshot(12L,99L,33L,"store","boss",null,false,Set.of()),new PostSnapshot(12L,22L,34L,"store","boss",null,false,Set.of())))
             assertThatThrownBy(()->service.complete(other,id)).hasMessageContaining("无权使用");
     }
+    @Test void concurrentConfirmationsShareTheClientReceipt() throws Exception {
+        var service=service(grants());
+        long id=issue(service);
+        var start=new java.util.concurrent.CountDownLatch(1);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var first=pool.submit(()->{start.await();return service.complete(post,id);});
+            var second=pool.submit(()->{start.await();return service.complete(post,id);});
+            start.countDown();
+            assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS))
+                .isEqualTo(second.get(5,java.util.concurrent.TimeUnit.SECONDS))
+                .containsEntry("providerStatus","UNVERIFIED");
+        } finally {
+            pool.shutdownNow();
+        }
+    }
     @Test void invalidMediaAndInactivePersonNeverRequestVendorCredentials() {
         var transport=new ContentProviderTransport.Scripted();var service=service(transport);
         for(long size:new long[]{0,20L*1024*1024+1})assertThatThrownBy(()->service.issue(post,21,"VOICE","audio/mpeg",size,sha)).hasMessageContaining("20MB");

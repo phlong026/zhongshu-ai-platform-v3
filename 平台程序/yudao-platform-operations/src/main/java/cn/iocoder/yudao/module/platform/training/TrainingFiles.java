@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.PlatformTransactionManager;
 import java.io.*;
 import java.nio.file.*;
@@ -22,6 +24,7 @@ import static cn.iocoder.yudao.module.platform.training.TrainingModel.*;
 /** Private, persistent chunk storage. No file is ever exposed through the public infra file API. */
 @Service
 public class TrainingFiles {
+    private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(TrainingFiles.class);
     static final int CHUNK=4*1024*1024;
     private static final Set<String> VIDEO=Set.of("mp4","mov","m4v","avi","mkv");
     private static final Set<String> AUDIO=Set.of("mp3","m4a");
@@ -100,7 +103,11 @@ public class TrainingFiles {
     public Map<String,Object> finish(String uploadId){
         var a=guard.require();
         tx.executeWithoutResult(status->{
-            var rows=jdbc.queryForList("SELECT u.*,v.size_bytes,v.sha256,v.extension FROM pf_training_upload u JOIN pf_training_material_version v ON v.id=u.version_id JOIN pf_training_material m ON m.id=v.material_id AND m.tenant_id=v.tenant_id WHERE m.deleted_at IS NULL AND u.id=? AND u.tenant_id=? AND u.actor_id=? FOR UPDATE OF u",uploadId,a.tenantId(),a.userId());check(!rows.isEmpty(),"上传任务不存在");var u=rows.get(0);if("COMPLETE".equals(u.get("state")))return;
+            var rows=jdbc.queryForList("SELECT u.*,v.size_bytes,v.sha256,v.extension FROM pf_training_upload u JOIN pf_training_material_version v ON v.id=u.version_id JOIN pf_training_material m ON m.id=v.material_id AND m.tenant_id=v.tenant_id WHERE m.deleted_at IS NULL AND u.id=? AND u.tenant_id=? AND u.actor_id=? FOR UPDATE OF u",uploadId,a.tenantId(),a.userId());check(!rows.isEmpty(),"上传任务不存在");var u=rows.get(0);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { cleanupCompletedParts(uploadId); }
+            });
+            if("COMPLETE".equals(u.get("state")))return;
             int count=((Number)u.get("chunk_count")).intValue();check(jdbc.queryForObject("SELECT COUNT(*) FROM pf_training_upload_part WHERE upload_id=?",Integer.class,uploadId)==count,"还有分片尚未上传");
             String version=u.get("version_id").toString(),key="versions/"+version+"/source."+u.get("extension");Path file=path(key);
             try{
@@ -113,6 +120,42 @@ public class TrainingFiles {
             }catch(ServiceException e){throw e;}catch(Exception e){throw new ServiceException(500,"合并文件失败，请重试");}
         });return upload(uploadId);
     }
+    @Scheduled(fixedDelayString="${training.chunk-cleanup-delay-ms:60000}")
+    public void cleanupCompletedParts() {
+        Path uploads=path("uploads");
+        if (!Files.isDirectory(uploads,LinkOption.NOFOLLOW_LINKS)) return;
+        try (var directories=Files.newDirectoryStream(uploads)) {
+            for (Path directory:directories) {
+                if (Files.isDirectory(directory,LinkOption.NOFOLLOW_LINKS)) {
+                    cleanupCompletedParts(directory.getFileName().toString());
+                }
+            }
+        } catch(IOException e) {
+            LOG.warn("Could not scan training upload parts",e);
+        }
+    }
+
+    private void cleanupCompletedParts(String uploadId) {
+        try {
+            var completed=jdbc.queryForList("""
+                SELECT v.original_key,u.chunk_count
+                FROM pf_training_upload u JOIN pf_training_material_version v
+                    ON v.id=u.version_id AND v.tenant_id=u.tenant_id
+                WHERE u.id=? AND u.state='COMPLETE' AND v.original_key IS NOT NULL
+                """,uploadId);
+            if (completed.isEmpty()) return;
+            var upload=completed.get(0);
+            if (!Files.isRegularFile(path((String)upload.get("original_key")),LinkOption.NOFOLLOW_LINKS)) return;
+            Path directory=path("uploads/"+uploadId);
+            int count=((Number)upload.get("chunk_count")).intValue();
+            for (int part=0;part<count;part++) Files.deleteIfExists(directory.resolve(part+".part"));
+            try { Files.deleteIfExists(directory); }
+            catch(DirectoryNotEmptyException e) { /* An in-flight write cleans up its own temporary file. */ }
+        } catch(IOException | RuntimeException e) {
+            LOG.warn("Could not reclaim completed training upload parts for {}",uploadId,e);
+        }
+    }
+
     public Map<String,Object> materials(String keyword,String category,int page){
         var a=guard.require();check(page>0&&page<=10000,"页码无效");check(keyword==null||keyword.length()<=100,"关键词过长");
         String from=" FROM pf_training_material m JOIN pf_training_material_version v ON v.material_id=m.id AND v.tenant_id=m.tenant_id WHERE m.deleted_at IS NULL AND m.tenant_id=? AND m.name ILIKE ? AND (?='' OR m.category=?)";

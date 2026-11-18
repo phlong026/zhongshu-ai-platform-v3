@@ -102,15 +102,25 @@ public class ContentMaterialService {
         if (!keyword.isBlank()) { where+=" AND name ILIKE ? ESCAPE '!'"; args.add("%"+keyword.trim().replace("!","!!").replace("%","!%").replace("_","!_")+"%"); }
         Long total=jdbc.queryForObject("SELECT count(*) FROM fr_content_material WHERE"+where,Long.class,args.toArray());
         args.add(20);args.add((page-1)*20);
-        var rows=jdbc.queryForList("SELECT * FROM fr_content_material WHERE"+where+" ORDER BY created_at DESC,asset_id DESC LIMIT ? OFFSET ?",args.toArray());
+        var rows=jdbc.queryForList("""
+            SELECT material.*, cover.asset_id AS cover_id
+            FROM (SELECT * FROM fr_content_material WHERE """+where+"""
+                ORDER BY created_at DESC,asset_id DESC LIMIT ? OFFSET ?) material
+            LEFT JOIN LATERAL (
+                SELECT c.asset_id FROM fr_content_material c
+                WHERE c.parent_asset_id=material.asset_id AND c.tenant_id=material.tenant_id
+                    AND c.company_id=material.company_id AND c.state='READY' AND c.removed=FALSE
+                ORDER BY c.created_at DESC,c.asset_id DESC LIMIT 1
+            ) cover ON true
+            ORDER BY material.created_at DESC,material.asset_id DESC
+            """,args.toArray());
         var items=rows.stream().map(row->{
             Map<String,Object> item=new LinkedHashMap<>();
             long id=((Number)row.get("asset_id")).longValue();
             item.put("id",Long.toString(id));item.put("name",row.get("name"));item.put("mimeType",row.get("mime_type"));
             item.put("sizeBytes",row.get("size_bytes"));item.put("durationSec",row.get("duration_sec"));item.put("visibility",row.get("visibility"));
             item.put("createdAt",row.get("created_at").toString());item.put("canManage",((Number)row.get("author_user_id")).longValue()==p.userId());
-            var covers=jdbc.queryForList("SELECT asset_id FROM fr_content_material WHERE parent_asset_id=? AND tenant_id=? AND company_id=? AND state='READY' AND removed=FALSE ORDER BY created_at DESC,asset_id DESC LIMIT 1",Long.class,id,tenant(),p.orgId());
-            item.put("coverId",covers.isEmpty()?"":Long.toString(covers.get(0)));
+            item.put("coverId",Objects.toString(row.get("cover_id"),""));
             return item;
         }).toList();
         return Map.of("items",items,"total",total==null?0:total,"page",page,"pageSize",20);
