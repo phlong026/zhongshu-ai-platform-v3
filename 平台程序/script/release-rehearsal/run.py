@@ -12,6 +12,8 @@ import tarfile
 import tempfile
 import urllib.request
 import zipfile
+import time
+from offline_images import write_offline_images
 
 if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
     raise SystemExit("Requires a disposable GitHub-hosted runner")
@@ -123,7 +125,12 @@ shutil.copytree(current/"deploy/platform",package/"deploy/platform")
 run("git","-C",mini,"archive","-o",scratch/"mini.tar","HEAD","--","miniprogram","project.config.json")
 with tarfile.open(scratch/"mini.tar") as archive:
     archive.extractall(package/"wechat-project",filter="data")
-manifest = {"frontendCommit":run("git","-C",mini,"rev-parse","HEAD"),"backendCommit":run("git","rev-parse","HEAD"),
+compose_model = json.loads(run("docker","compose","-f",current/"deploy/platform/compose.yaml",
+                               "config","--no-interpolate","--format","json"))
+offline_refs = { "library/postgres":compose_model["services"]["postgres-b"]["image"],
+                 "library/redis":compose_model["services"]["redis-b"]["image"],"paired":ref }
+write_offline_images(package/"offline-images",offline_refs)
+manifest = {"images":offline_refs,"frontendCommit":run("git","-C",mini,"rev-parse","HEAD"),"backendCommit":run("git","rev-parse","HEAD"),
             "priorSourceCommit":run("git","-C",old,"rev-parse","HEAD"),
             "imageId":run("docker","image","inspect","--format","{{.Id}}",ref),
             "files":{p.relative_to(package).as_posix():sha(p) for p in sorted(package.rglob("*")) if p.is_file()}}
@@ -143,8 +150,14 @@ assert run("docker","run","--rm","--network","none","--entrypoint","sha256sum",r
 # The page harness imports the actual unpacked files via this sibling path.
 tests = unpacked/"wechat-project/scripts"
 tests.mkdir()
-shutil.copyfile(mini/"scripts/verify-finance-journey.cjs",tests/"verify-finance-journey.cjs")
-run("node","--test",tests/"verify-finance-journey.cjs",capture=False)
+for name in ("verify-finance-journey.cjs","role-page-runtime.cjs"):
+    shutil.copyfile(mini/"scripts"/name,tests/name)
+subprocess.run(["npm","ci","--ignore-scripts","--no-audit","--no-fund"],cwd=mini,check=True)
+shutil.copytree(mini/"node_modules/sax",tests.parent/"node_modules/sax")
+# The repository and its checkout are absent from the sandbox. All source and
+# relative fs reads resolve inside the verified, unpacked delivery project.
+run("docker","run","--rm","--network","none","--volume",str(tests.parent)+":/work:ro",
+    "--workdir","/work","node:24-alpine","node","--test","scripts/verify-finance-journey.cjs",capture=False)
 record("paymentRecoveryPage","passed")
 
 shutil.copytree(old/"deploy/platform",deploy)
@@ -245,4 +258,41 @@ ops(newenv,"rollback","--image",oldref,"--schema-compatible")
 confirm_running(oldref)
 assert redis("GET","r4:marker")=="118" and query("SELECT balance FROM org_point_account WHERE org_id=118;")=="100"
 record("postUpgradeRollback",True)
+# New daemon with no source registry, external network or inherited Docker store.
+# Only fixture credentials and unpacked delivery files are mounted into it.
+offline=lab/"offline"
+shutil.copytree(unpacked/"deploy/platform",offline)
+daemon="paired-empty-engine"
+run("docker","pull","docker:28-dind")
+run("docker","pull","python:3.12-alpine")
+run("docker","run","-d","--name",daemon,"--privileged","--network","none",
+    "-e","DOCKER_TLS_CERTDIR=","--volume",str(offline)+":"+str(offline)+":ro",
+    "--volume",str(keys)+":"+str(keys)+":ro","--volume",str(newenv)+":"+str(newenv)+":ro",
+    "docker:28-dind","dockerd","--host=unix:///var/run/docker.sock","--registry-mirror=http://127.0.0.1:5000")
+def fresh(*args):
+    return run("docker","exec",daemon,"docker",*args)
+for attempt in range(60):
+    try:
+        fresh("info","--format","{{.ServerVersion}}")
+        break
+    except subprocess.CalledProcessError:
+        time.sleep(1)
+assert not fresh("image","ls","-aq")
+assert not fresh("ps","-aq")
+run("docker","run","-d","--name","paired-offline-mirror","--network","container:"+daemon,
+    "--volume",str(unpacked)+":/delivery:ro","python:3.12-alpine","python3",
+    "/delivery/deploy/platform/offline-registry.py","/delivery/offline-images")
+for pinned in offline_refs.values():
+    fresh("pull","--platform","linux/amd64",pinned)
+    fresh("image","inspect",pinned)
+base=("compose","--env-file",str(newenv),"-f",str(offline/"compose.yaml"))
+fresh(*base,"up","-d","--pull","never","--wait","postgres-b","redis-b")
+fresh(*base,"-f",str(offline/"compose.migrate.yaml"),"run","--rm","--no-deps","--pull","never","api")
+run("docker","exec","-i",daemon,"docker","exec","-i","zhongshu-platform-b-postgres-b-1",
+    "sh","-ec",'export PGPASSWORD="$(cat /run/secrets/pg_owner_password)"; exec psql -X -h 127.0.0.1 -U platform_owner -d zhongshu_platform_b -v ON_ERROR_STOP=1',
+    data=(offline/"postgres-policy.sql").read_bytes())
+fresh(*base,"up","-d","--pull","never","--no-deps","--wait","--wait-timeout","180","api")
+assert fresh("inspect","--format","{{.Config.Image}} {{.State.Health.Status}}","zhongshu-platform-b-api-1")==ref+" healthy"
+assert fresh("exec","zhongshu-platform-b-api-1","sha256sum","/opt/platform/app.jar").split()[0]==sha(unpacked/"platform.jar")
+record("offlineEmptyEngine",{"initialImages":0,"externalNetwork":"none","digests":offline_refs,"api":"healthy"})
 (delivery/"acceptance.json").write_text(json.dumps(evidence,indent=2)+"\n")
