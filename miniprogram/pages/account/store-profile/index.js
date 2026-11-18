@@ -15,7 +15,10 @@ Page({
       const profile = await http.get(endpoint);
       if (alive() && this.generation === generation) this.setData({ profile, loading: false });
     } catch (e) {
-      if (alive() && this.generation === generation) this.setData({ loading: false, error: e.message || '资料加载失败' });
+      if (!alive() || this.generation !== generation) return;
+      const message = e.message || '资料加载失败';
+      const routeMissing = Number(e.code) === 404 && /请求地址不存在/.test(message);
+      this.setData({ loading: false, error: routeMissing ? '当前服务尚未开通加盟商资料维护，请在服务更新后重新载入。' : message });
     }
   },
   edit(e) {
