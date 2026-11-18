@@ -195,14 +195,13 @@ public class HandoverService {
                         : CommissionDO.STATUS_HANDOVER_RETURNED)));
         if (accept) {
             // 阶段 2（D-4）：接收成功同事务建档工程档案（内部 Port，幂等由 (company, source_commission_id) 兜底）
-            engineering.receiveFromHandover(post, handoverCommand(post, commission, handover, command.confirmManagerTransfer()));
+            engineering.receiveFromHandover(post, handoverCommand(post, commission, handover));
         }
         commands.record(post, CommissionService.AGGREGATE, commissionId, revision + 1, commandName, command, idempotencyKey);
     }
 
     /** 组装建档数据：客户称呼/城市/电话随客户行，面积/层数取最新预算方案（v3 蓝本 basis 口径） */
-    private EngineeringPort.HandoverProject handoverCommand(PostSnapshot post, CommissionDO commission, CommissionHandoverDO handover,
-                                                          boolean confirmManagerTransfer) {
+    private EngineeringPort.HandoverProject handoverCommand(PostSnapshot post, CommissionDO commission, CommissionHandoverDO handover) {
         CustomerDO customer = customerMapper.selectById(commission.getCustomerId());
         // R1 P1/R2：面积/层数按「下发冻结的实际提交版本」取参数（dispatch_seq=下发次数≠提交次数；
         // V1 下发后保存未确认 V2 预算不得进档案）；无对应提交（存量/异常）时 fallback 最新预算
@@ -233,7 +232,7 @@ public class HandoverService {
                         new EngineeringPort.HandoverDocument("线下专业审核依据", handover.getReviewFile(), "DOCUMENT", drawingVersion),
                         new EngineeringPort.HandoverDocument("客户确认凭据", handover.getConfirmationFile(), "DOCUMENT", drawingVersion),
                         new EngineeringPort.HandoverDocument("电子交底", briefFile, "DOCUMENT", drawingVersion)),
-                handover.getNote(), saleContractId, handover.getFrozenSchemeVersion(), confirmManagerTransfer);
+                handover.getNote(), saleContractId, handover.getFrozenSchemeVersion());
     }
 
     /** 接收人：同组织有效工程线任职（engineer / project-manager，sales-flow.js:106），且不是提交人本人 */

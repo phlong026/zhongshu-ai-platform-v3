@@ -26,7 +26,7 @@ public interface EngineeringPort {
     record HandoverProject(long commissionId, Long customerId, String customerName, String city, String phone,
                            BigDecimal area, Integer floors, long managerUserId,
                            String drawingVersion, String drawingFile, List<HandoverDocument> documents,
-                           String note, Long saleContractId, String frozenSchemeVersion, boolean confirmManagerTransfer) {
+                           String note, Long saleContractId, String frozenSchemeVersion) {
     }
 
     /** fileRef=JSON 引用（{name,url}），由 commission 移交包原样带入 */

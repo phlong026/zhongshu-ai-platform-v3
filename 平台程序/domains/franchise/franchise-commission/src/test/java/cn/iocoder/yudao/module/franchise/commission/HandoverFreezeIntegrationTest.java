@@ -19,6 +19,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,7 +115,8 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
     }
 
     @Test
-    void receivingAnotherEngineersManualProjectRequiresExplicitTransfer() {
+    @org.junit.jupiter.api.Timeout(90)
+    void receivingAnotherEngineersManualProjectRequiresExplicitTransfer() throws Exception {
         var original = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
         long customer = customerWithDispatchedDesign("P1/B1/F1");
         insertSignedContract(customer);
@@ -122,27 +125,91 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
         var command = new cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.CreateCommand(
                 "陈家乡墅","陈先生","武汉",phone,null,2,null);
         long project = ((Number)as(original, () -> engProjects.create(original,command,idem())).get("id")).longValue();
+        long siteRecord = IDS.incrementAndGet();
+        jdbc.update("INSERT INTO fr_eng_site_record(id,company_id,project_id,occurred_at,note,author_user_id) VALUES(?,?,?,CURRENT_DATE,?,?)",
+                siteRecord,store.orgId(),project,"保留原现场记录",original.userId());
+        // Assigned engineers can handle site work, but only the manager can transfer ownership.
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?", engineer.userId(), project);
         as(salesA1, () -> handovers.submit(salesA1,commission,packet(1,"P1/B1/F1",engineer.userId()),idem()));
         String receiveKey = idem();
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> as(engineer, () -> handovers.receive(engineer,commission,
-                new HandoverService.DecisionCommand(null,true),receiveKey))).hasMessageContaining("确认接任");
+                new HandoverService.DecisionCommand(null,true),receiveKey))).hasMessageContaining("联系现负责人");
         assertThat(jdbc.queryForObject("SELECT status FROM fr_commission WHERE id=?",String.class,commission))
                 .isEqualTo(CommissionDO.STATUS_HANDOVER_SUBMITTED);
         assertThat(jdbc.queryForObject("SELECT status FROM fr_commission_handover WHERE commission_id=?",String.class,commission))
                 .isEqualTo("PENDING");
         assertThat(jdbc.queryForObject("SELECT source_commission_id FROM fr_eng_project WHERE id=?",Long.class,project)).isNull();
-        var transfer = new HandoverService.DecisionCommand(null,true,true);
-        as(engineer, () -> handovers.receive(engineer,commission,transfer,receiveKey));
+        var oldClient = new HandoverService.DecisionCommand(null,true,true);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> as(engineer, () -> handovers.receive(engineer,commission,oldClient,receiveKey)))
+                .hasMessageContaining("联系现负责人");
+        var approve = new cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.ManagerCommand(engineer.userId(), "同意合同工程转交");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> as(engineer, () -> engProjects.changeManager(engineer,project,approve,idem())))
+                .isInstanceOf(ServiceException.class);
+        var transfer = new HandoverService.DecisionCommand(null,true);
+        String pairedClient = System.getProperty("franchise.handover.client");
+        if (pairedClient != null) {
+            receiveThroughMiniProgram(pairedClient, original, commission, project, receiveKey);
+        } else {
+            as(original, () -> engProjects.changeManager(original,project,approve,idem()));
+            assertThat(jdbc.queryForObject("SELECT status FROM fr_commission_handover WHERE commission_id=?",String.class,commission)).isEqualTo("PENDING");
+            as(engineer, () -> handovers.receive(engineer,commission,transfer,receiveKey));
+        }
         as(engineer, () -> handovers.receive(engineer,commission,transfer,receiveKey));
         assertThat(as(engineer, () -> engProjects.list(engineer,null))).extracting(row -> row.get("id")).contains(project);
         assertThat(as(original, () -> engProjects.list(original,null))).extracting(row -> row.get("id")).doesNotContain(project);
+        assertThat(jdbc.queryForObject("SELECT note FROM fr_eng_site_record WHERE id=? AND project_id=?",
+                String.class, siteRecord, project)).isEqualTo("保留原现场记录");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='packet-receive' AND actor_user_id=?",
+                Long.class,commission,engineer.userId())).isEqualTo(1);
         var increment = new cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.CreateCommand(
                 "陈家增项","陈先生","武汉",phone,null,1,project);
         assertThat(as(engineer, () -> engProjects.create(engineer,increment,idem())).get("parentProjectId")).isEqualTo(project);
         assertThat(jdbc.queryForObject("""
-                SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-project-handover-transfer'
+                SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-project-manager' AND actor_user_id=(payload::jsonb->>'fromUserId')::bigint
                 AND (payload::jsonb->>'fromUserId')::bigint=? AND (payload::jsonb->>'toUserId')::bigint=?
                 """,Long.class,project,original.userId(),engineer.userId())).isEqualTo(1);
+    }
+
+    private void receiveThroughMiniProgram(String client, PostSnapshot owner, long commission, long project, String key) throws Exception {
+        var commissionApi = new cn.iocoder.yudao.module.franchise.commission.controller.admin.CommissionController(commissions, handovers, currentPost);
+        var projectApi = new cn.iocoder.yudao.module.franchise.engineering.controller.admin.EngProjectController();
+        org.springframework.test.util.ReflectionTestUtils.setField(projectApi, "currentPost", currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(projectApi, "projects", engProjects);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(commissionApi, projectApi).build();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var process = new ProcessBuilder("node",client,Long.toString(commission),Long.toString(project),
+                Long.toString(engineer.userId()),key).redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        try (var requests = process.inputReader(java.nio.charset.StandardCharsets.UTF_8);
+             var replies = process.outputWriter(java.nio.charset.StandardCharsets.UTF_8)) {
+            for (String actor : List.of("receiver","owner","receiver")) {
+                var request = json.readTree(java.util.Objects.requireNonNull(requests.readLine(), "小程序提前退出"));
+                assertThat(request.get("actor").asText()).isEqualTo(actor);
+                currentPost.use(actor.equals("owner") ? owner : engineer);
+                String response;
+                try {
+                    var result = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post(request.get("path").asText()).contentType("application/json")
+                            .header("Idempotency-Key",request.get("key").asText()).content(request.get("body").toString())).andReturn();
+                    assertThat(result.getResponse().getStatus()).isEqualTo(200);
+                    response = result.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+                } catch (jakarta.servlet.ServletException error) {
+                    if (!(error.getCause() instanceof ServiceException failure)) throw error;
+                    response = json.writeValueAsString(Map.of("code",failure.getCode(),"msg",failure.getMessage()));
+                } finally {
+                    currentPost.clear();
+                }
+                replies.write(response);
+                replies.newLine();
+                replies.flush();
+                if (actor.equals("owner")) {
+                    assertThat(jdbc.queryForObject("SELECT status FROM fr_commission_handover WHERE commission_id=?",String.class,commission)).isEqualTo("PENDING");
+                }
+            }
+            assertThat(process.waitFor(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(process.exitValue()).isZero();
+        } finally {
+            process.destroyForcibly();
+        }
     }
 
     @Test

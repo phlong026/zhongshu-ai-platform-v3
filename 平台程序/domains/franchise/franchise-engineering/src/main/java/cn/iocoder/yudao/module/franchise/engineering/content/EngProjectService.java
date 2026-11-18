@@ -213,16 +213,6 @@ public class EngProjectService {
                                     long managerUserId, String drawingVersion, String drawingFile,
                                     List<Map<String, String>> documentRows,
                                     Long saleContractId, String frozenSchemeVersion) {
-        return receiveFromHandover(post, commissionId, customerId, customerName, city, phone, area, floors,
-                managerUserId, drawingVersion, drawingFile, documentRows, saleContractId, frozenSchemeVersion, false);
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    public long receiveFromHandover(PostSnapshot post, long commissionId, Long customerId, String customerName,
-                                    String city, String phone, BigDecimal area, Integer floors,
-                                    long managerUserId, String drawingVersion, String drawingFile,
-                                    List<Map<String, String>> documentRows, Long saleContractId,
-                                    String frozenSchemeVersion, boolean confirmManagerTransfer) {
         if (saleContractId != null) {
             jdbcTemplate.queryForList("SELECT id FROM fr_sale_contract WHERE company_id=? AND id=? FOR UPDATE",
                     Long.class, post.orgId(), saleContractId);
@@ -239,29 +229,20 @@ public class EngProjectService {
                     || !java.util.Objects.equals(manual.getCustomerId(), customerId)) {
                 throw exception(ENGINEERING_INPUT_INVALID, "销售合同已关联其他工程或已归档，请核对移交档案");
             }
-            boolean transfer = manual.getManagerUserId() != managerUserId;
-            if (transfer && (!confirmManagerTransfer || post.userId() != managerUserId)) {
+            if (manual.getManagerUserId() != managerUserId) {
                 throw exception(HANDOVER_TRANSFER_REQUIRED, manual.getName());
             }
-            long revision = manual.getRevision();
-            Revisions.requireUpdated(projects.updateByRevision(linked, revision, u -> u
-                    .set(FrEngProjectDO::getSourceCommissionId, commissionId)
-                    .set(transfer, FrEngProjectDO::getManagerUserId, managerUserId)
-                    .set(transfer, FrEngProjectDO::getAssignedEngineerUserId, managerUserId)));
-            if (transfer) {
-                var audit = new LinkedHashMap<String, Object>();
-                audit.put("commissionId", commissionId);
-                audit.put("fromUserId", manual.getManagerUserId());
-                audit.put("fromAssignedEngineerUserId", manual.getAssignedEngineerUserId());
-                audit.put("toUserId", managerUserId);
-                commands.record(post, AGGREGATE, linked, revision + 1, "eng-project-handover-transfer", audit, null);
-            }
+            Revisions.requireUpdated(projects.updateByRevision(linked, manual.getRevision(), u -> u
+                    .set(FrEngProjectDO::getSourceCommissionId, commissionId)));
             existing = List.of(manual);
         }
         if (!existing.isEmpty()) {
             // 重复回调：刷新交底资料（不动负责人/现场记录——蓝本「工程经办人、已签施工合同和现场记录由工程维护」）；
             // R1 P2：合同关联只补全不为改写（原 NULL 本次有值才补）；冻结版本变更留刷新事件供追溯
-            FrEngProjectDO project = existing.get(0);
+            FrEngProjectDO project = projects.lockById(existing.get(0).getId());
+            if (project.getManagerUserId() != managerUserId) {
+                throw exception(HANDOVER_TRANSFER_REQUIRED, project.getName());
+            }
             // R2：合同补全用 NULL 条件原子更新（先读后写实体更新在并发回调下后写覆盖先写，违反「只补全不改写」）
             boolean contractBackfill = project.getSaleContractId() == null && saleContractId != null;
             if (FrEngProjectDO.SOURCE_MANUAL.equals(project.getSourceType())) {
@@ -381,6 +362,7 @@ public class EngProjectService {
             return detail(post, projectId);
         }
         requireOwned(post, projectId, "project");
+        if (project.getManagerUserId() != post.userId()) throw exception(ENGINEERING_FORBIDDEN);
         // 在岗工程线（engineer / project-manager——HandoverService.requireManager 同款口径，F1 继承）
         List<StaffPostDO> engineers = staffPosts.listActivePostsInOrg(post.orgId(), FranchiseRoles.ENGINEER);
         List<StaffPostDO> managers = staffPosts.listActivePostsInOrg(post.orgId(), FranchiseRoles.PROJECT_MANAGER);
