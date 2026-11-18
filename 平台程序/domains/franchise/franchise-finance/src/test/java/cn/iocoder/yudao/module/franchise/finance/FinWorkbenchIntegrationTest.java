@@ -129,6 +129,89 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThatThrownBy(()->workbench.register(post,"bad-voucher",cmd)).isInstanceOf(RuntimeException.class);
   assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE company_id=?",Long.class,post.orgId())).isZero();
  }
+ @Resource org.springframework.transaction.PlatformTransactionManager transactions;
+
+ @Test void sameAdvanceSerializesRefundRecoveryReimbursementAndVoid() throws Exception {
+  LocalDate today = LocalDate.now();
+  long advance = workbench.register(post,"adv",new FinWorkbenchService.EntryCommand("company","expense","材料采购","材料",10000,today,"供应商","员工个人账户",null,null,"EMPLOYEE",post.userId(),"经办人"));
+  long debt = Long.parseLong((String)workbench.reimbursements(post.orgId()).get(0).get("payable_id"));
+  var initialPay = new FinPaymentService.PaymentCommand(debt,8000,today,null,null);
+  payments.register(post,"first-pay",initialPay);
+  refunds.registerExpense(post,"first-refund",new FinRefundService.ExpenseRefundCommand(advance,3000,"退材料款",today,null,null,null,"EMPLOYEE"));
+  var extraRefund = new FinRefundService.ExpenseRefundCommand(advance,1000,"退运费",today,null,null,null,"EMPLOYEE");
+  var recovery = new FinWorkbenchService.Recovery(1000,today,"工程结算户",null,null);
+  var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+  var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+  try {
+   // 归还事务持有报销应付行时，让另一连接按正常退款路径进入锁等待。
+   long refundId = overlapAtDebt(debt, tx, pool,
+           () -> refunds.registerExpense(post,"extra-refund",extraRefund),
+           () -> workbench.recoverEmployee(post,debt,"cash-back",recovery));
+   assertThat(refunds.registerExpense(post,"extra-refund",extraRefund)).isEqualTo(refundId);
+   long recoveryId=workbench.recoverEmployee(post,debt,"cash-back",recovery);
+   assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id=? AND source_ref=?",
+     Integer.class,post.orgId(),"employee-recovery:"+debt)).isOne();
+   assertThat(recoveryId).isPositive();
+   // 先撤销新增退回，再让原退回的作废与报销同时办理。
+   refunds.void_(post,refundId,"退回登记更正");
+   refunds.void_(post,refundId,"退回登记更正");
+   long previous=jdbc.queryForObject("SELECT id FROM fr_fin_refund WHERE payment_id=? AND status='已核实'",Long.class,advance);
+   // 一部分报销退还公司，形成 500 分的可报销余额。
+   long paidId=payments.register(post,"first-pay",initialPay);
+   refunds.registerExpense(post,"reimb-refund",new FinRefundService.ExpenseRefundCommand(paidId,500,"报销退还",today,null,null,null,"COMPANY"));
+   var partial = new FinPaymentService.PaymentCommand(debt,500,today,null,null);
+   overlapAtDebt(debt, tx, pool,
+           () -> { refunds.void_(post,previous,"供应商重新结算"); return null; },
+           () -> payments.register(post,"reimburse-in-parallel",partial));
+   assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,debt)).isEqualTo("进行中");
+   var balance = new FinPaymentService.PaymentCommand(debt,3000,today,null,null);
+   long tail=payments.register(post,"final-reimbursement",balance);
+   assertThat(payments.register(post,"final-reimbursement",balance)).isEqualTo(tail);
+   assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,debt)).isEqualTo("已结清");
+   var book=workbench.reimbursements(post.orgId()).get(0);
+   assertThat(((Number)book.get("eligible_cents")).longValue()).isEqualTo(10000);
+   assertThat(((Number)book.get("reimbursed_cents")).longValue()-((Number)book.get("recovered_cents")).longValue()).isEqualTo(10000);
+   // 撤销最后一笔报销时，原垫付又收到部分退款。两笔有效操作均须提交。
+   var rebate = new FinRefundService.ExpenseRefundCommand(advance,1000,"最终折让",today,null,null,null,"EMPLOYEE");
+   long rebateId=overlapAtDebt(debt, tx, pool,
+           () -> refunds.registerExpense(post,"final-rebate",rebate),
+           () -> payments.void_(post,tail,"报销更正"));
+   assertThat(refunds.registerExpense(post,"final-rebate",rebate)).isEqualTo(rebateId);
+   var reopened=workbench.reimbursements(post.orgId()).get(0);
+   assertThat(((Number)reopened.get("eligible_cents")).longValue()).isEqualTo(9000);
+   assertThat(((Number)reopened.get("reimbursed_cents")).longValue()-((Number)reopened.get("recovered_cents")).longValue()).isEqualTo(7000);
+   assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,debt)).isEqualTo("进行中");
+   assertThatThrownBy(() -> payments.void_(post,advance,"已报销")).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+  } finally {pool.shutdownNow();}
+ }
+
+ private <T> T overlapAtDebt(long debt, org.springframework.transaction.support.TransactionTemplate tx,
+                             java.util.concurrent.ExecutorService pool, java.util.concurrent.Callable<T> concurrent,
+                             Runnable holderAction) throws Exception {
+  var pending=tx.execute(status -> {
+   int pid=jdbc.queryForObject("SELECT pg_backend_pid()",Integer.class);
+   jdbc.queryForObject("SELECT id FROM fr_fin_payable WHERE id=? FOR UPDATE",Long.class,debt);
+   var future=pool.submit(concurrent);
+   waitForDatabaseWaiter(pid, future);
+   holderAction.run();
+   return future;
+  });
+  return pending.get(10,java.util.concurrent.TimeUnit.SECONDS);
+ }
+
+ private void waitForDatabaseWaiter(int pid, java.util.concurrent.Future<?> future) {
+  long deadline = System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(8);
+  while(System.nanoTime()<deadline) {
+   if (future.isDone()) {
+    try { future.get(); } catch (Exception error) { throw new AssertionError("并发业务已失败", error); }
+    throw new AssertionError("并发写入没有等待同一张应付单");
+   }
+   if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND ?=ANY(pg_blocking_pids(pid)))",Boolean.class,pid))) return;
+   java.util.concurrent.locks.LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(10));
+  }
+  throw new AssertionError("并发业务未进入数据库锁等待");
+ }
+
  @Test void employeeAdvanceReimbursementAndRefundDoNotDoubleCash(){
   long q=payments.registerPayable(post,"design-q",new FinPaymentService.PayableCommand(post.orgId(),null,"FULL",240000,"平台","设计依据"));
   jdbc.update("UPDATE fr_fin_payable SET source_type='design',source_ref=?,category='设计' WHERE id=?","123:1:FULL",q);

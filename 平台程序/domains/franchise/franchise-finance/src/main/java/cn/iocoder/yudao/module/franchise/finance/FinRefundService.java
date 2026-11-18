@@ -142,6 +142,7 @@ public class FinRefundService {
         BusinessDateGuard.requireValid(cmd.date());
         designLocks.payment(cmd.paymentId());
         if(designLocks.designPayment(cmd.paymentId())) receiptService.requireVoucherAsset(post,cmd.voucherFileId());
+        paymentMapper.lockSettlementPayables(post.orgId(), cmd.paymentId());
         FinPaymentDO payment = paymentMapper.lockById(cmd.paymentId());
         if (payment == null) throw exception(PAYMENT_NOT_FOUND_EXPENSE);
         if (payment.getCompanyId() != post.orgId()) throw exception(ORG_MISMATCH);
@@ -227,8 +228,12 @@ public class FinRefundService {
             idempotencyKey=commands.requireIdempotencyKey(idempotencyKey); designLocks.command(post,idempotencyKey);
             if(commands.replayed(post,idempotencyKey,java.util.Map.of("refundId",refundId,"reason",reason)).isPresent()) return;
             if(refund.getPaymentId()!=null) designLocks.payment(refund.getPaymentId()); else designLocks.receipt(refund.getReceiptId());
-            refund=refundMapper.lockById(refundId);
         }
+        if (refund.getPaymentId() != null) {
+            paymentMapper.lockSettlementPayables(post.orgId(), refund.getPaymentId());
+            paymentMapper.lockById(refund.getPaymentId());
+        }
+        if (design || refund.getPaymentId() != null) refund = refundMapper.lockById(refundId);
         if ("已作废".equals(refund.getStatus())) {
             return; // 幂等：重复作废无二次效果
         }
