@@ -19,6 +19,26 @@ public class CommissionSimulatedPayments {
     }
     private final JdbcTemplate jdbc;
     public CommissionSimulatedPayments(JdbcTemplate jdbc){this.jdbc=jdbc;}
+    private Set<Long> simulationOrgIds = Set.of();
+
+    @org.springframework.beans.factory.annotation.Value("${franchise.commission.simulation-org-ids:}")
+    void configureSimulationOrganizations(String ids) {
+        simulationOrgIds = Arrays.stream(ids.split(",")).map(String::trim).filter(id -> !id.isEmpty())
+                .map(Long::valueOf).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    boolean allowed(long storeId, long designOrgId) {
+        return simulationOrgIds.contains(storeId) && simulationOrgIds.contains(designOrgId);
+    }
+
+    boolean blocked(CommissionDO commission) {
+        return !allowed(commission.getCompanyId(), commission.getDesignOrgId())
+                && Boolean.TRUE.equals(jdbc.queryForObject("""
+                    SELECT EXISTS(SELECT 1 FROM fr_commission_simulated_order
+                        WHERE commission_id=? AND submission_version=?)
+                    """, Boolean.class, commission.getId(), commission.getSubmissionVersion()));
+    }
+
     public Order read(CommissionDO c){
         return jdbc.query("SELECT o.*,EXISTS(SELECT 1 FROM pf_staff_post p WHERE p.org_id=o.company_id AND p.status='ACTIVE' AND p.role_code IN('finance','finance-lead')) AS store_finance,EXISTS(SELECT 1 FROM pf_staff_post p WHERE p.org_id=o.design_org_id AND p.status='ACTIVE' AND p.role_code IN('finance','finance-lead')) AS headquarters_finance FROM fr_commission_simulated_order o WHERE commission_id=? AND submission_version=?",
             (r,n)->new Order(r.getString("order_number"),c.getId(),c.getSubmissionVersion(),c.getCustomerName(),r.getLong("amount_cents"),r.getString("status"),r.getString("channel"),r.getObject("paid_at",OffsetDateTime.class),true,r.getBoolean("store_finance"),r.getBoolean("headquarters_finance")),c.getId(),c.getSubmissionVersion()).stream().findFirst().orElse(null);

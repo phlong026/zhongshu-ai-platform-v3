@@ -70,6 +70,26 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(((Number)settled.get("paid_cents")).longValue()).isEqualTo(86000);
   assertThat(((Number)settled.get("committed_cents")).longValue()).isEqualTo(86000);
  }
+ @Test void voidingAnUnreimbursedAdvanceClosesTheDebtAndRestoresOnlySupplierBalance(){
+  long q=payments.registerPayable(post,"supplier",new FinPaymentService.PayableCommand(post.orgId(),null,"材料",100000,"供应商","采购"));
+  long book=workbench.createBook(post,"advance-book",new FinWorkbenchService.BookCommand("垫付项目"));
+  long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,?,'ACTIVE')",project,post.orgId(),"工程项目");
+  workbench.linkProject(post,book,project,"advance-project");
+  jdbc.update("UPDATE fr_fin_payable SET source_type='manual', book_id=?,project_id=? WHERE id=?",book,project,q);
+  long advance=payments.register(post,"supplier-advance",new FinPaymentService.PaymentCommand(q,30000,LocalDate.now(),null,null,"EMPLOYEE",post.userId(),"经办员工",null));
+  var reimbursement=workbench.reimbursements(post.orgId()).get(0);
+  long reimbursementId=Long.parseLong((String)reimbursement.get("payable_id"));
+  payments.void_(post,advance,"原垫付登记有误");
+  payments.void_(post,advance,"原垫付登记有误");
+  assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,reimbursementId)).isEqualTo("已作废");
+  assertThat(workbench.reimbursements(post.orgId())).isEmpty();
+  assertThatThrownBy(()->payments.register(post,"void-reimbursement",new FinPaymentService.PaymentCommand(reimbursementId,1,LocalDate.now(),null,null))).isInstanceOf(RuntimeException.class);
+  for(String scope:java.util.List.of("project:"+project,"book:"+book)){
+   var summary=(Map<?,?>)workbench.ledger(post.orgId(),scope).get("summary");
+   assertThat(((Number)summary.get("outstanding_cents")).longValue()).isEqualTo(100000);
+  }
+ }
  @Test void supplierReturnAdjustsObligationWithoutNewCash(){
   long q=payments.registerPayable(post,"purchase",new FinPaymentService.PayableCommand(post.orgId(),null,"材料",1000000,"供应商","采购依据"));
   long paid=payments.register(post,"purchase-paid",new FinPaymentService.PaymentCommand(q,1000000,LocalDate.now(),"buy-"+q,null));

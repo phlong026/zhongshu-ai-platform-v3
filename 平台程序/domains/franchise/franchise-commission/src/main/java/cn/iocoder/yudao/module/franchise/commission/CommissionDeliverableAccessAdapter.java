@@ -17,9 +17,11 @@ public class CommissionDeliverableAccessAdapter implements CommissionDeliverable
     private final CommissionHandoverMapper handovers;
     private final CommissionAccess access;
     private final EngineeringProjectContextPort engineering;
+    private final CommissionSimulatedPayments simulations;
     public CommissionDeliverableAccessAdapter(JdbcTemplate jdbc,CommissionMapper commissions,CommissionHandoverMapper handovers,
-                                              CommissionAccess access,EngineeringProjectContextPort engineering) {
-        this.jdbc=jdbc;this.commissions=commissions;this.handovers=handovers;this.access=access;this.engineering=engineering;
+                                              CommissionAccess access,EngineeringProjectContextPort engineering,
+                                              CommissionSimulatedPayments simulations) {
+        this.jdbc=jdbc;this.commissions=commissions;this.handovers=handovers;this.access=access;this.engineering=engineering;this.simulations=simulations;
     }
     @Override public DeliverableRef requireReadable(PostSnapshot actor,long commissionId,int dispatchSeq,Slot slot) {
         CommissionDO c=commissions.selectById(commissionId);
@@ -39,6 +41,7 @@ public class CommissionDeliverableAccessAdapter implements CommissionDeliverable
                 && (packets.stream().anyMatch(h->h.getManagerUserId()==actor.userId())
                 || project!=null && (Long.valueOf(actor.userId()).equals(project.managerUserId()) || Long.valueOf(actor.userId()).equals(project.assignedEngineerUserId())));
         if(!storeParticipant && !designParticipant && !engineer) throw exception(COMMISSION_FORBIDDEN);
+        if(simulations.blocked(c)) throw exception(SIMULATION_FORBIDDEN);
         if(slot==Slot.CONFIRMATION) {
             if(!current) throw exception(COMMISSION_FORBIDDEN);
             var packet=packets.stream().filter(h->h.getConfirmationAssetId()!=null).findFirst().orElseThrow(()->exception(HANDOVER_NOT_FOUND));

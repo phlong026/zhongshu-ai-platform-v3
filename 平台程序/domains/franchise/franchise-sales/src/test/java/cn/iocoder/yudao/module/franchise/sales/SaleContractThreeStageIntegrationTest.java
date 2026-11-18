@@ -202,6 +202,14 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(contracts.financialStages(finance)).anySatisfy(r->{assertThat(r.get("stage")).isEqualTo("tail");assertThat(r.get("after_delivery")).isEqualTo(true);});
         assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_sale_contract WHERE id=?",Long.class,c.getId())).isEqualTo(110000);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE contract_id=?",Long.class,c.getId())).isZero();
+        assertThat(jdbc.queryForObject("""
+            SELECT h.amount_cents FROM fr_sale_stage_before_change h JOIN fr_sale_payment_stage s ON s.id=h.stage_id
+            WHERE s.contract_id=? AND s.stage='SIGN_AFTER'
+            """,Long.class,c.getId())).isEqualTo(100000);
+        assertThat(jdbc.queryForObject("""
+            SELECT h.deleted FROM fr_sale_stage_before_change h JOIN fr_sale_payment_stage s ON s.id=h.stage_id
+            WHERE s.contract_id=? AND s.stage='tail'
+            """,Boolean.class,c.getId())).isTrue();
     }
 
     // ========== 三期创建 ==========

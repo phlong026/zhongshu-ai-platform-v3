@@ -42,6 +42,10 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
     @Resource AssetAccessPort assets;
     @Resource CommissionDeliverableAccessPort grants;
     @Resource HandoverService handovers;
+    @Resource CommissionSimulatedPayments simulations;
+
+    @org.junit.jupiter.api.AfterEach
+    void resetSimulationScope() { simulations.configureSimulationOrganizations(""); }
 
     @Test void areaSubmissionFreezesPriceRejectsStaleAndRequiresBothLiveNets() {
         var store=fixture.store();
@@ -162,6 +166,12 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         var policy=as(design,()->pricing.save(design,new DesignPricingService.Save(100,"方案图纸","总部设计",true),key()));
         var brief=new java.util.LinkedHashMap<String,Object>();brief.put("projectName","验收自建房");brief.put("orientation","南");brief.put("entranceAligned","一致");brief.put("householdMembers","5");brief.put("rooms",java.util.List.of("卧室"));brief.put("customer",java.util.Map.of("phone","伪造电话"));brief.put("buildingArea",99999);
         var input=new CommissionService.SubmitCommand("完整需求","方案图纸",null,null,null,null,budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,brief,"SIMULATION");
+        assertThat(as(sales,()->commissions.context(sales,customer)).feeOffer().simulationAllowed()).isFalse();
+        assertError(()->as(sales,()->commissions.submit(sales,customer,input,key())),SIMULATION_FORBIDDEN);
+        simulations.configureSimulationOrganizations(Long.toString(store.orgId()));
+        assertError(()->as(sales,()->commissions.submit(sales,customer,input,key())),SIMULATION_FORBIDDEN);
+        simulations.configureSimulationOrganizations(store.orgId()+","+design.orgId());
+        assertThat(as(sales,()->commissions.context(sales,customer)).feeOffer().simulationAllowed()).isTrue();
         var detail=as(sales,()->commissions.submit(sales,customer,input,key()));long id=detail.commission().getId();
         assertThat(detail.simulatedPayment().amountCents()).isEqualTo(20000);
         assertThat(detail.allowedActions()).contains("commission-simulate-pay");
@@ -179,6 +189,12 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertError(()->as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("ALIPAY",true),key())),COMMISSION_STATE_INVALID);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE customer_id=?",Long.class,customer)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_simulated_order WHERE commission_id=?",Long.class,id)).isEqualTo(1);
+        as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("演练完成",true),key()));
+        simulations.configureSimulationOrganizations("");
+        var dispatch=new CommissionService.DispatchCommand("演练下发","测试经办",true,"V1",1L,2L,3L);
+        assertError(()->as(design,()->commissions.dispatch(design,id,dispatch,key())),TAIL_PAYMENT_NOT_READY);
+        assertThat(as(design,()->commissions.get(design,id)).allowedActions()).doesNotContain("design-dispatch");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_dispatch_manifest WHERE commission_id=?",Long.class,id)).isZero();
     }
     private static String key() { return UUID.randomUUID().toString(); }
     private <T> T as(PostSnapshot post,java.util.function.Supplier<T> action) { currentPost.use(post);try{return action.get();}finally{currentPost.clear();} }

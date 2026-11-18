@@ -157,6 +157,7 @@ public class FinPaymentService {
             .mapToLong(p->Math.max(0,refundMapper.selectActiveByPayment(p.getId()).stream().mapToLong(r->r.getAmountCents()).sum()-(p.getPendingLinkCents()==null?0:p.getPendingLinkCents()))).sum();
         long effectiveTotal=payable.getTotalCents();
         if("reimbursement".equals(payable.getSourceType())) {
+            if ("已作废".equals(payable.getStatus())) throw exception(PAYABLE_NOT_FOUND);
             // 原垫付行锁串行化报销与退款；公司报销不再结算平台费用。
             long originId=Long.parseLong(payable.getSourceRef());
             var origin=paymentMapper.lockById(originId);
@@ -223,6 +224,14 @@ public class FinPaymentService {
             if(commands.replayed(post,idempotencyKey,input).isPresent()) return;
             designLocks.payment(paymentId);
         }
+        var existing = paymentMapper.selectById(paymentId);
+        if (existing != null && existing.getCompanyId() == post.orgId() && "EMPLOYEE".equals(existing.getFundingType())) {
+            // Match the reimbursement write path: lock its payable before locking the advance.
+            jdbc.queryForList("""
+                SELECT id FROM fr_fin_payable
+                WHERE company_id=? AND source_type='reimbursement' AND source_ref=? FOR UPDATE
+                """, post.orgId(), String.valueOf(paymentId));
+        }
         FinPaymentDO payment = paymentMapper.lockById(paymentId);
         if (payment == null) {
             throw exception(PAYMENT_NOT_FOUND);
@@ -240,6 +249,12 @@ public class FinPaymentService {
         if(designLocks.designPayment(paymentId) && designLocks.hasNetDesignReceipts(paymentId)) throw exception(PAYMENT_HAS_DESIGN_RECEIPT);
         paymentMapper.updateById(new FinPaymentDO().setId(paymentId).setStatus("已作废")
                 .setVoidByUserId(post.userId()).setVoidReason(reason).setVoidedAt(OffsetDateTime.now()));
+        if ("EMPLOYEE".equals(payment.getFundingType())) {
+            jdbc.update("""
+                UPDATE fr_fin_payable SET status='已作废',update_time=now()
+                WHERE company_id=? AND source_type='reimbursement' AND source_ref=? AND status<>'已作废'
+                """, post.orgId(), String.valueOf(paymentId));
+        }
         if(design) commands.record(post,"fin-payment",paymentId,2,"fin-payment-void",java.util.Map.of("paymentId",paymentId,"reason",reason),idempotencyKey);
         log.info("[void][companyId={} payment={} by={} reason={}]", post.orgId(), paymentId, post.userId(), reason);
     }
