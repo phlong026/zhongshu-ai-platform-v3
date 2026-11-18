@@ -88,4 +88,9 @@ function isStale(error) {
   return !!error && error.code === STALE;
 }
 
-module.exports = { STALE, fingerprint, isStale, summary, myUsage, formatCredits };
+function packages() { return read(BASE + '/simulated-packages'); }
+function purchase(plan, key) {
+  return guarded(() => http.post(BASE + '/simulated-purchases', { planId: plan.id, version: plan.version }, { 'Idempotency-Key': key }));
+}
+
+module.exports = { packages, purchase, STALE, fingerprint, isStale, summary, myUsage, formatCredits };

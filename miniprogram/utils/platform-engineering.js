@@ -80,7 +80,7 @@ function stagesView(stages, urlOf) {
   return (stages || []).map(s => {
     const expected = centsText(s.expectedCents), confirmed = centsText(s.confirmedCents), remaining = centsText(s.remainingCents);
     return {
-      stage: STAGE_URL[s.stage] || 'start',
+      stage: STAGE_URL[s.stage] || 'start', stageId: s.stageId ? String(s.stageId) : '',
       name: STAGE_NAME[s.stage] || s.stage,
       expected, confirmed, remaining, due: dateOf(s.due),
       expectedText: expected, confirmedText: confirmed, remainingText: remaining,
@@ -379,6 +379,7 @@ async function perform(action, id, form, node, key) {
         f.siteFile ? [await uploadVoucher(f.siteFile.path, 'ENG_SITE_PHOTO')] : [],
         f.siteReason || f.reason, key);
     case 'collect':
+      if (f.stage === 'tail') throw new Error('请从财务工作台办理交付尾款');
       return api.collections.register(id, {
         stage: f.stage === 'topping' ? 'CAP_DONE' : f.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER',
         amount: yuan(f, 'amount', '收款金额'),
@@ -387,6 +388,7 @@ async function perform(action, id, form, node, key) {
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'FIN_VOUCHER')
       }, key);
     case 'dunning':
+      if (f.stage === 'tail') throw new Error('请从财务工作台办理交付尾款');
       return api.collections.dunning(id, f.stage === 'topping' ? 'CAP_DONE' : f.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER',
         f.promiseDate || null, String(f.note || '').trim(), key);
     case 'material-plan': {
@@ -742,7 +744,7 @@ function recordView(bundle, ctx) {
   return {
     p, form, fields, actions, fileNames: {},
     // M07-T02：期次行补 collection 跳转（BASE_DONE 收款入口；stage 已是 STAGE_URL 归一值 start/base/topping）
-    installments: data.installments.map(i => ({ ...i, url: base + 'collection&stage=' + i.stage })),
+    installments: data.installments.map(i => ({ ...i, url: i.stage === 'tail' && financeRole ? '/pages/admin/finance-desk/index?view=flows' + (i.stageId ? '&homeStage=' + encodeURIComponent(i.stageId) : '') : base + 'collection&stage=' + i.stage })),
     plans: view === 'materials' && opts.nodeId ? plans.filter(r=>r.nodeId===String(opts.nodeId)) : plans, settle: data.settle,
     // R2 P1-4：现场记录透出（后端 detail.siteRecords——JSONB 文本解析；site-correct 更正入口数据源）
     siteRecords: (d.siteRecords || []).filter(r => String(r.node_id) === String((node && node.id) || '')).map(r => {

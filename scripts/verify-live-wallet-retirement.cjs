@@ -79,3 +79,28 @@ for (const base of pages) {
 }
 
 console.log('旧个人钱包退役：2 个注册入口行为通过');
+
+async function verifyCompanyPackage() {
+  let spec, modal, attempts=0;
+  const store=new Map(), bodies=[];
+  const api={fingerprint:()=> '1:2',isStale:()=>false,formatCredits:String,
+    packages:async()=>[{id:'101',version:'4',name:'体验',priceFen:990,basePoints:100,bonusPoints:20}],
+    purchase:async(plan,key)=>{bodies.push(JSON.stringify([plan,key]));if(++attempts===1)throw {code:-1,message:'网络中断'};return {id:'888',priceFen:990,points:120};}};
+  const wx={showModal(o){modal=o;},getStorageSync:k=>store.get(k),setStorageSync:(k,v)=>store.set(k,v),removeStorageSync:k=>store.delete(k)};
+  const file=path.join(root,'miniprogram/pages/wallet/packages/index.js');
+  vm.runInNewContext(fs.readFileSync(file,'utf8'),{wx,Page:p=>{spec=p;},require:n=>{
+    if(n.endsWith('company-points'))return api;
+    if(n.endsWith('/auth'))return {currentApiPost:()=>({orgId:1,userId:7})};
+    if(n.endsWith('/http'))return {currentPostId:()=>2,token:()=>true,tenantId:()=>1};
+    if(n.endsWith('/finance'))return {idemKey:()=> 'test-package-key'};
+    throw Error(n);
+  }});
+  const p=pageInstance(spec);await p.onShow();
+  const e={currentTarget:{dataset:{id:'101'}}};p.choose(e);modal.success({confirm:false});
+  assert.equal(attempts,0);p.choose(e);await modal.success({confirm:true});
+  assert.equal(store.size,1);
+  p.onUnload();const restored=pageInstance(spec);await restored.onShow();await restored.confirmPending();
+  assert.equal(bodies.length,2);assert.equal(bodies[0],bodies[1]);assert.equal(restored.data.receipt.credited,'120');assert.equal(store.size,0);
+  console.log('PASS 公司套餐确认、取消、断网后重开原单与积分回执');
+}
+verifyCompanyPackage().catch(e=>{console.error(e);process.exitCode=1;});

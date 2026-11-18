@@ -65,7 +65,7 @@ Page({
     if (member) this.setData({ commissionStaffIndex:index, 'commissionForm.assignee':member.id, error:'' });
   },
   commissionInput(event) { this.setData({ [(this.data.commissionReview?'commissionReview.':'commissionForm.') + event.currentTarget.dataset.key]:event.detail.value, error:'' }); },
-  cancelCommissionReview(){if(!this.data.busy)this.setData({commissionReview:null,error:''});},
+  cancelCommissionReview(){if(!this.data.busy){this.__pick=null;this.setData({commissionReview:null,evidenceUploading:false,error:''});}},
   commissionToggle() { this.setData({ 'commissionForm.checked':!this.data.commissionForm.checked, error:'' }); },
   onUnload(){this.__disposed=true;},
   async commissionUpload() {
@@ -73,7 +73,7 @@ Page({
     const review=this.data.commissionReview, pick=this.__pick={};
     const target=review?'commissionReview.file':'commissionForm.file';
     const alive=()=>!this.__disposed && session() && http.currentPostId()===post && this.__pick===pick &&
-      this.selectedProjectId===project && this.data.commissionReview===review;
+      this.selectedProjectId===project && !!this.data.commissionReview===!!review && (!review || (this.data.commissionReview.projectId===review.projectId && this.data.commissionReview.stage===review.stage));
     try {
       const file=await selectVoucher({alive});
       if(!file||!alive())return;
@@ -99,7 +99,7 @@ Page({
   async commissionAction(event) {
     if (this.data.busy||this.data.evidenceUploading) return;
     const data = event.currentTarget.dataset, action = data.action;
-    if(action==='commission-reconcile'&&!data.confirmed){this.setData({commissionReview:{projectId:data.id,stage:data.stage,note:'',file:null},error:''});wx.pageScrollTo({scrollTop:0,duration:0});return;}
+    if(action==='commission-reconcile'&&!data.confirmed){this.__pick=null;this.setData({commissionReview:{projectId:data.id,stage:data.stage,note:'',file:null},error:''});wx.pageScrollTo({scrollTop:0,duration:0});return;}
     const id = data.id || this.selectedProjectId;
     const form = clone(action==='commission-reconcile'?this.data.commissionReview:this.data.commissionForm);
     if (data.stage) form.stage = data.stage;

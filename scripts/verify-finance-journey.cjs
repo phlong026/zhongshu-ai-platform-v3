@@ -7,7 +7,7 @@ function harness(){const dir=path.resolve('miniprogram/pages/admin/finance-desk'
  function attach(name){const file=path.join(dir,name+'.js'),real=createRequire(file),mod={exports:{}};vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:mod,require:n=>n.endsWith('/api/http')?http:n.endsWith('/api/auth')?auth:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:real(n),wx,console});return mod.exports;}
  const api={revisions:async()=>[],idemKey:()=> 'sticky-key',registerPayment:async(body,key)=>{calls.push({body,key});return {paymentId:'p-new'}},uploadVoucher:async()=> 'voucher'};
  const page={data:{view:'book',title:'项目账本',flowTab:'ledger',journeyEnabled:true,bookScope:'project:9007199254740999',bookName:'张先生乡墅',bookFlowTab:'employee',workbenchBooks:books,financialStages:stages,collectionDeclarations:[],reimbursementRows:[{id:'reim',payable_id:'reim',project_id:'9007199254740999',payer_name:'业务甲',stage:'设计费报销',remaining:140000,eligible_cents:240000,reimbursed_cents:100000,pay_date:'2026-11-17'}],platformRegister:{payables:[],refundable:[],expenseRefundable:[]}},options:{view:'book',bookScope:'project:9007199254740999'},__financeFacts:facts,setData(patch){for(const[k,v]of Object.entries(patch)){let d=this.data;const bits=k.replace(/\[(\d+)\]/g,'.$1').split('.');for(const f of bits.slice(0,-1))d=d[f]||(d[f]={});d[bits.at(-1)]=v}},loadPlatformFinance(){},refresh(){},syncPlatformTasks(){},loadDesignFees(){},paySourceRow(){},openBookEntry(){}};
- attach('platform-actions')(page,api,PF);attach('workbench')(page,api);page.installWorkbenchActions();page.loadWorkbench=()=>{};attach('journey')(page,api);page.refreshJourney();return {page,calls,http};}
+ attach('platform-actions')(page,api,PF);attach('workbench')(page,api);page.installWorkbenchActions();page.loadWorkbench=()=>{};attach('journey')(page,api);page.refreshJourney();return {page,calls,http,api,wx};}
 const event=(type,extra={})=>({currentTarget:{dataset:{type,...extra}}});
 test('task targets retain original records and display remaining payment instead of full agreement',()=>{const {page}=harness();page.data.journeyPayables=[{id:'123',canPay:true,projectName:'张先生乡墅',name:'设计费',remainingText:'600.00',paidCents:180000}];assert.equal(page.financeTaskTarget('fr-design-fin:123').row.id,'123');const card=page.presentFinanceTask({key:'fr-design-fin:123'});assert.equal(card.name,'张先生乡墅 · 设计费');assert.equal(card.amount,'¥600.00');assert.equal(card.status,'部分付款');assert.equal(page.financeTaskTarget('fr-design-fin:123:other'),null);});
 test('home task opens original payment and returns to home; completed task never opens an empty form',()=>{const {page}=harness();page.data.view='desk';page.data.journeyPayables=[{id:'123',canPay:true,remainingCents:60000,totalCents:240000,paidCents:180000,label:'设计费',scope:'company',projectName:'公司日常账'}];page.openFinanceTask(event('',{key:'fr-design-fin:123'}));assert.equal(page.data.registerForm.payableId,'123');assert.equal(page.data.journeyReturnLabel,'返回财务首页');page.closeFinanceEntry();assert.equal(page.data.view,'desk');page.data.journeyPayables[0].canPay=false;page.openFinanceTask(event('',{key:'fr-design-fin:123'}));assert.equal(page.data.registerType,'');assert.equal(page.data.view,'desk');});
@@ -74,4 +74,37 @@ test('commission task distinguishes payable, partly paid, and on hold',()=>{
  page.__financeFacts.payments=[{id:'222',payableId:'321',amountCents:100,status:'已核实',fundingType:'COMPANY'}];
  page.refreshJourney();assert.equal(status(),'部分付款');
  page.__commissionStages[0].reviewDue=true;page.refreshJourney();assert.match(status(),/核对/);
+});
+
+test('payment accepted before hide is confirmed by its original ID even before the delayed response',async()=>{
+ const {page,api,http}=harness();
+ let release, uploads=0, writes=0, lookups=0;
+ api.uploadVoucher=async()=>{uploads++;return '667788';};
+ api.registerPayment=(body,key)=>{writes++;assert.equal(key,'sticky-key');assert.equal(body.voucherFileId,'667788');return new Promise(resolve=>{release=resolve;});};
+ page.openRegister(event('payment'));
+ Object.assign(page.data.registerForm,{amount:'10',accountName:'公司',payDate:'2026-11-17',payableId:'A',voucherPath:'local-a'});
+ const first=page.submitJourneyRegister();
+ await new Promise(setImmediate);
+ page.__financeHidden=true;page.__registerValidation=null;page._registerSeq++;
+ assert.equal(page.data.paymentPending,true);
+ page.__financeHidden=false;
+ http.get=async(path,args)=>{assert.equal(path,'/franchise/finance/payments/registration-result');assert.equal(args.key,'sticky-key');lookups++;return {paymentId:'725'};};
+ await page.resumePayment();
+ assert.equal(page.data.journeyResult.id,'725');
+ release({paymentId:'725'});await first;
+ assert.deepEqual([uploads,writes,lookups],[1,1,1]);
+ assert.equal(page.data.registerBusy,false);
+});
+
+test('unknown payment outcome retries the frozen body and key, including its uploaded voucher',async()=>{
+ const {page,api,http}=harness(); const bodies=[];let uploads=0;
+ api.uploadVoucher=async()=>String(++uploads);
+ api.registerPayment=async(body,key)=>{bodies.push(JSON.stringify({body,key}));if(bodies.length===1)throw {code:-1};return {paymentId:'808'};};
+ http.get=async()=>({});
+ page.openRegister(event('payment'));
+ Object.assign(page.data.registerForm,{amount:'12',accountName:'公司',payDate:'2026-11-17',payableId:'A',voucherPath:'local'});
+ await page.submitJourneyRegister();assert.equal(page.data.paymentPending,true);
+ page.data.registerForm.amount='25';await page.retryPendingPayment();
+ assert.equal(uploads,1);assert.equal(bodies.length,2);assert.equal(bodies[0],bodies[1]);
+ assert.equal(page.data.journeyResult.id,'808');
 });

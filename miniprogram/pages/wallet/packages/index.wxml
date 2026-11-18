@@ -1,0 +1,19 @@
+<view class="packages">
+ <text wx:if="{{error}}" class="feedback">{{error}}</text>
+ <view wx:if="{{receipt}}" class="panel">
+  <text class="title">模拟支付成功</text><text>{{receipt.name}} · ¥{{receipt.price}}</text>
+  <text>公司积分已增加 {{receipt.credited}}</text><text>订单号 {{receipt.id}}</text>
+ </view>
+ <view wx:if="{{pending}}" class="panel">
+  <text class="title">原单结果待确认</text><text>{{pending.plan.name}} · ¥{{pending.plan.price}}</text>
+  <button loading="{{busy}}" disabled="{{busy}}" bindtap="confirmPending">核验原模拟付款</button>
+ </view>
+ <block wx:else>
+  <view wx:for="{{plans}}" wx:key="id" class="panel">
+   <text class="title">{{item.name}}</text><text>基础 {{item.base}} 积分，赠送 {{item.bonus}} 积分</text>
+   <button data-id="{{item.id}}" disabled="{{busy}}" bindtap="choose">模拟支付 ¥{{item.price}}</button>
+  </view>
+  <text wx:if="{{!busy && !error && !plans.length}}">当前公司暂无可模拟支付的套餐</text>
+ </block>
+ <button wx:if="{{error && !pending}}" disabled="{{busy}}" bindtap="refresh">刷新套餐</button>
+</view>

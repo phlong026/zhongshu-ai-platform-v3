@@ -6,6 +6,7 @@ const httpApi = require('../../../api/http');
 const authApi = require('../../../api/auth');
 
 module.exports = function attach(page, financeApi, PF) {
+  require('./payment-recovery')(page, financeApi, httpApi, authApi, wx, PF);
   const beginBusy = target => {
     if (typeof target.beginFinanceBusy === 'function') return target.beginFinanceBusy();
     if (target.data.busy) return null;
@@ -30,6 +31,7 @@ module.exports = function attach(page, financeApi, PF) {
     this.setData({ wbForm: null, wbError: '', bookEntryDetail:null, registerType: type, registerForm: form, registerError: '' });
   };
   page.cancelRegister = function () {
+    if (this.data.paymentPending) return;
     this.registerIdem = null; // M08-T04：放弃表单换新键
     this._registerSeq = (this._registerSeq || 0) + 1; // R3 P2-1：取消使挂起中的旧登记回调过期（不清新表单/不复位新操作）
     this._correctionCtx = null; // M08-T08 批次#34：放弃更正即清上下文
@@ -171,16 +173,20 @@ module.exports = function attach(page, financeApi, PF) {
       ? financeApi.uploadVoucher(form.voucherPath, form.voucherName).then(assetId => { body.voucherFileId = assetId; })
       : Promise.resolve());
     return withVoucher
-      .then(() => { if (!alive()) return; return call(body, idem); })
+      .then(() => {
+        if (!alive()) return;
+        if (type === 'payment') return this.dispatchPreparedPayment(body, idem, form);
+        return call(body, idem);
+      })
       .then(result => {
-        if (!alive()) return; // 身份/代次过期不得清理新表单
+        if (type === 'payment' || !alive()) return; // 身份/代次过期不得清理新表单
         if(this.financeEntrySaved)this.financeEntrySaved(type,form,result);
         wx.showToast({ title: type === 'payment' ? '付款登记完成' : ['refund', 'expense-refund'].includes(type) ? '退款登记完成' : '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();if(this.loadWorkbench)this.loadWorkbench();
         if (this.loadDesignFees) this.loadDesignFees();
         if(this.refreshFinanceTasks)this.refreshFinanceTasks();
       })
       .catch(err => { if (alive()) this.setData({ registerError: PF.errorMessage(err) }); })
-      .finally(() => { if (alive()) this.setData({ registerBusy: false }); });
+      .finally(() => { if (alive() && !this.data.paymentPending) this.setData({ registerBusy: false }); });
   };
 
   // ===================== M08-T08 批次#34：更正链双端（作废→重登携 replacesId 走 CAS 替代） =====================

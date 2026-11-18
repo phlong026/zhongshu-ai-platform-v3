@@ -26,7 +26,9 @@ Component({
   },
 
   methods: {
+    openPackages() { wx.navigateTo({url:'/pages/wallet/packages/index'}); },
     refresh() {
+      this.setData({purchaseAvailable:false});
       const platformLoggedIn = !!(wx.getStorageSync(http.TOKEN_KEY) || '');
       if (!platformLoggedIn) {
         this.setData({ visible: false });
@@ -67,6 +69,9 @@ Component({
         };
         if (summary.status === 'ACTIVE') {
           this.setData(Object.assign(values, { state: 'ready', balanceLabel: '可用余额' }));
+          if (points.packages) points.packages().then(plans => {
+            if (loadId === this.__loadId && plans.length) this.setData({ purchaseAvailable:true });
+          }).catch(() => {});
           return;
         }
         if (summary.status === 'SUSPENDED') {

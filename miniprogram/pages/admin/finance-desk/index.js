@@ -33,11 +33,11 @@ Page({
   // 身份变化使旧锁owner与登记代次同时失效；旧Promise只能清自己的token，不能覆盖新岗位状态。
   this.__financeBusyOwner=null;this.bankConfirmIdem=null;this.bankConfirmIdemCtx=null;
   this.wbGeneration=(this.wbGeneration||0)+1;this.setData({wbForm:null,wbBusy:false,workbenchBooks:[],reimbursementRows:[],workbenchStaff:[],collectionDeclarations:[],financialStages:[],bookResult:null,bookEntries:[],bookSummary:[],bookScope:''});this.registerIdem=null;this._registerSeq=(this._registerSeq||0)+1;this._correctionCtx=null;
-  this.__financeFacts=null;this.__journeyCash=null;this.__entryOrigin=null;this.__entryOptions=null;this.setData({journeyEnabled:false,journeyResult:null,journeyChoice:null,journeyCashRows:[],journeyPayables:[],journeyDeclaration:null,platformFinance:null,platformRegister:null,reconciliation:null,deskHome:null,busy:false,designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false});
+  this.__financeFacts=null;this.__journeyCash=null;this.__entryOrigin=null;this.__entryOptions=null;this.setData({journeyEnabled:false,journeyResult:null,journeyChoice:null,journeyCashRows:[],journeyPayables:[],journeyDeclaration:null,platformFinance:null,platformRegister:null,reconciliation:null,deskHome:null,busy:false,designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false,paymentPending:false,paymentRetry:false,paymentNotice:''});
   return true;
  },
  onShow(){
-  this.__disposed=false;if(!this.__designFinance){require('./design-finance')(this,financeApi);this.__designFinance=true;}
+  this.__disposed=false;this.__financeHidden=false;if(!this.__designFinance){require('./design-finance')(this,financeApi);this.__designFinance=true;}
   require('../../../utils/finance-keyboard').start(this);
   const activePost=auth.currentApiPost();this.setData({hq:!!activePost&&activePost.orgType==='headquarters',company:activePost&&activePost.orgName||''});
   const financeIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.syncFinanceIdentity(financeIdentity);
@@ -53,6 +53,7 @@ Page({
   this.setData({projectLedgerReadOnly:false});
   if(this.data.view==='project'&&activePost&&['finance','finance-lead'].includes(activePost.roleCode)){this.options={...this.options,view:'book',bookScope:'project:'+this.id};this.setData({view:'book'});}
   if(!this.__platformActions)require('./platform-actions')(this,financeApi,PF),this.__platformActions=true;if(!this.__workbench){require('./workbench')(this,financeApi);this.__workbench=true;}this.installWorkbenchActions();if(!this.__journey){require('./journey')(this,financeApi);this.__journey=true;}this.setData({journeyEnabled:activePost&&activePost.orgType==='store'&&['finance','finance-lead'].includes(activePost.roleCode)&&this.options.messageType!=='design_fee'});
+  this.resumePayment();
   if(!this.__ptSyncHook){const rawSetData=this.setData.bind(this);this.setData=(obj,cb)=>{rawSetData(obj,()=>{if(obj&&obj.platformTodos)this.syncPlatformTasks();if(cb)cb();});};this.__ptSyncHook=true;} // 平台待办到达后同步 tasks 视图行与工作台预览
   this.loadWorkbench();
   this.loadPlatformFinance(); // M+：先置 platformApiMode，本地分支按态跳过（财务岗不再触达本地账簿）
@@ -65,7 +66,7 @@ Page({
   if(this.data.platformApiMode&&this.data.view==='book')this.loadBookLedger();
   PTPage.refresh(this,false);this.syncPlatformTasks();
   },
- onHide(){this.__registerValidation=null;this._registerSeq=(this._registerSeq||0)+1;if(this.data.registerBusy)this.setData({registerBusy:false});require('../../../utils/finance-keyboard').stop(this);},
+ onHide(){this.__financeHidden=true;this.__registerValidation=null;this._registerSeq=(this._registerSeq||0)+1;if(this.data.registerBusy&&!this.data.paymentPending)this.setData({registerBusy:false});require('../../../utils/finance-keyboard').stop(this);},
  onUnload(){this.__disposed=true;require('../../../utils/finance-keyboard').stop(this);},
  showFinanceProfile(){
   this.setData({view:'profile',ready:true,title:'我的',platformApiMode:true,error:''});

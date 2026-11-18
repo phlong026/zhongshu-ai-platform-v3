@@ -4,6 +4,7 @@
 <import src="./finance-home.wxml"/>
 <import src="../../profile/profile.wxml"/>
 <view class="fin-page">
+ <view wx:if="{{paymentNotice}}" class="journey-source"><text>{{paymentNotice}}</text><button wx:if="{{paymentPending}}" disabled="{{!paymentRetry}}" bindtap="retryPendingPayment">核验原单并重试</button></view>
 
  <block wx:if="{{view==='profile'&&ready}}"><template is="profile" data="{{loggedIn,name,role,company,identityText,identityOrganization,identityRole,learningAvailable,learningLabel,avatar,unread,progress,courseImage,courseTitle,entries,showStoreServices,ownerProfile,managementEntries,nested:true}}"/></block>
  <block wx:elif="{{view==='desk'&&ready}}"><template is="financeHome" data="{{desk:deskHome,platformFinance:platformFinance,platformTodos:platformTodos}}"/></block>
