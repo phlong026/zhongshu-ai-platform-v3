@@ -38,3 +38,21 @@ test('accepted work remains resumable when the user has already left the design 
  const h=generation();h.page._candidateClosed=true;await h.page.submitAttempt(h.spec);assert.equal(h.routes.length,0);assert.equal(h.result().stored.jobId,'71');assert.equal(h.page.data.creating,false);
  h.page._candidateClosed=false;h.ok();await h.page.submitAttempt(h.spec);assert.equal(h.result().jobs,1);assert.equal(h.routes.length,1);
 });
+
+test('the commission sends simulation only after explicit opt-in with server authorization',()=>{
+ let page;
+ vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/workflow/commission/index.js'),'utf8'),{
+  Page:value=>{page=value;},
+  require:id=>id==='./payment-flow'?()=>({}):id.endsWith('/view-container')?{makeFormHandlers:()=>({})}:{}
+ });
+ const form={__mode:'AREA_FULL',__budgetVersion:1,__pricingVersion:2,text:'建房需求',scope:'设计方案',checked:true};
+ const ctx={data:{form},__context:{feeOffer:{simulationAllowed:false}}};
+ const payload=()=>page.commandPayload.call(ctx,'commission-submit');
+ assert.equal(payload().paymentMode,undefined);
+ form.testPayment=true;
+ assert.equal(payload().paymentMode,undefined);
+ ctx.__context.feeOffer.simulationAllowed=true;
+ assert.equal(payload().paymentMode,'SIMULATION');
+ form.testPayment=false;
+ assert.equal(payload().paymentMode,undefined);
+});
