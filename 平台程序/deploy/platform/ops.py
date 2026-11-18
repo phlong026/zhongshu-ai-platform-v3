@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 import same_host_storage as same_host
 
 DIRECTORY = Path(__file__).resolve().parent
@@ -233,7 +234,7 @@ def inspect_scope(base, model, require_frozen=False, previous_api_image=None):
     demand(ids, "No B containers found")
     containers = json.loads(run(["docker", "inspect", *ids], context="Inspect B containers"))
     seen = set()
-    legacy_api = False
+    legacy_api = None
     for container in containers:
         service = container.get("Config", {}).get("Labels", {}).get("com.docker.compose.service")
         demand(service in model["services"] and service not in seen, "Unexpected or duplicate B service container")
@@ -249,7 +250,8 @@ def inspect_scope(base, model, require_frozen=False, previous_api_image=None):
             mounts = expected["services"]["api"]["volumes"]
             mounts[:] = [m for m in mounts if not (m.get("type") == "volume" and m.get("source") == "asset-spool"
                                                    and m.get("target") == "/var/lib/platform/asset-spool")]
-            legacy_api = True
+            legacy_api = container["Id"]
+            demand(re.fullmatch(r"[0-9a-f]{64}", legacy_api), "Invalid inspected previous API identity")
         validate_container(container, service, expected)
         if require_frozen and service == "api":
             demand(not container.get("State", {}).get("Running"), "Stop only B API before this operation")
@@ -443,9 +445,16 @@ def main():
         if legacy_api:
             # No replacement took place. Restart exactly the inspected container;
             # recreating it from the candidate model would change its mounts.
-            run(base + ["start", "--wait", "--wait-timeout", "180", "api"],
-                context="Restart the verified previous API", timeout=210)
-            return
+            run(["docker", "start", legacy_api], context="Restart the verified previous API")
+            deadline = time.monotonic() + 180
+            while time.monotonic() < deadline:
+                status = run(["docker", "inspect", "--format", "{{.State.Status}} {{.State.Health.Status}}", legacy_api],
+                             context="Check previous API readiness").decode().strip()
+                if status == "running healthy":
+                    return
+                demand(status == "running starting", f"Previous API recovery failed ({status})")
+                time.sleep(2)
+            raise RuntimeError("Previous API did not become healthy within 180 seconds")
         os.environ["PLATFORM_API_IMAGE"] = args.image
         run(base + ["up", "-d", "--no-deps", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "180", "api"],
             context="Replace only B API image", timeout=210)
