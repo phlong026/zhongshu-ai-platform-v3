@@ -33,7 +33,7 @@ Page({
   if(!alive()||h.currentPostId()!==post||this.__disposed||this.__inactive)return;
   // 父项目选项固定在线：listCards(在线列表缓存)，本地演示快照分支已下线
   const projects=P.listCards(rows).map(p=>({id:p.id,name:p.name}));
-  this.setData({creating:true,error:'',parentOptions:[{id:'',name:'不关联，新建独立项目'}].concat(projects),createForm:{name:'',customer:'',city:'',phone:'',floors:'2',area:'',parentIndex:0}});},
+  this.setData({creating:true,error:'',parentOptions:[{id:'',name:'新建主项目'}].concat(projects),createForm:{name:'',customer:'',city:'',phone:'',floors:'2',area:'',parentIndex:0,independent:false}});},
  cancelCreate(){this.setData({creating:false,error:''});},
  createInput(e){const d=e.currentTarget.dataset;this.setData({['createForm.'+d.key]:e.detail.value,error:''});},
  toggleIndependent(e){this.setData({'createForm.independent':e.detail.value});},
@@ -58,10 +58,11 @@ Page({
    const readOnly=navCtx?['boss','owner'].includes(navCtx.role):Access.isBoss(a);
    const tabKey=readOnly?'owner-engineering':this.data.destination==='materials'?'materials':'projects';
    const navigationIndex=((navCtx&&Job.roles[navCtx.role]?Job.navigation(navCtx):Job.navigation(a)).tabs.find(tab=>tab.key===tabKey)?.index)??8;
-   this.setData({allowed:true,readOnly,navigationIndex,incoming:[],tasks:[],taskCount:0,error:'',loading:false,platEng:true,
-    // 新建入口对齐 856 write=engineer/project-manager 口径 + v3 全局 isBoss 惯例
-    canCreate:!!navCtx&&(['boss','owner'].includes(navCtx.role)||Job.has(navCtx.role,'engineer'))});
+   this.setData({allowed:true,readOnly,navigationIndex,incoming:[],tasks:[],taskCount:0,error:'',loading:false,platEng:true});
    this.applyProjectFilters();
+   const mayCreate=!!navCtx&&(['boss','owner'].includes(navCtx.role)||Job.has(navCtx.role,'engineer'));
+   const supported=mayCreate && await P.api.projects.supportsContractFiling().catch(()=>false);
+   if(alive())this.setData({canCreate:supported===true});
   }catch(e){if(!alive())return; // 失败：错误态+空列表（不白屏、不回落本地数据），平台错误以 toast 保留
    const msg=P.errorText(e&&e.data?e.data:e);
    if(next){this.setData({error:msg});return;}
@@ -71,16 +72,20 @@ Page({
   }
  },
  async submitCreateOnline(){ // API 态新建（查重 1_115_000_008 → 文案提示）
-  if(this.data.busy)return;const h=require('../../../api/http'),current=h.sessionGuard(),post=h.currentPostId();
+  if(this.data.busy||!this.data.creating)return;
+  if(!this.data.canCreate){this.setData({error:'当前无法使用合同建档，请刷新后重试'});return;}
+  const h=require('../../../api/http'),current=h.sessionGuard(),post=h.currentPostId();
   const alive=()=>current()&&!this.__disposed&&!this.__inactive&&String(h.currentPostId())===String(post);
   this.setData({busy:true});
   try{
    const f=this.data.createForm,parent=this.data.parentOptions[Number(f.parentIndex)||0];
    const created=await P.api.projects.create({name:f.name,customer:f.customer,city:f.city,phone:f.phone||undefined,floors:Number(f.floors)||2,area:f.area?Number(f.area):undefined,parentProjectId:parent&&parent.id?String(parent.id):undefined,independent:!f.parentIndex&&f.independent===true?true:undefined});
-   if(!alive())return;this.setData({creating:false,busy:false});
+   if(!alive())return;
+   if(!created||!created.id)throw Error('未收到工程编号，请刷新项目列表核对');
+   this.setData({creating:false,busy:false});
    wx.showToast({title:'项目已创建',icon:'success'});
    navigate({url:'/pages/build/record/index?id='+encodeURIComponent(String(created.id))+'&view=prepare'});
-  }catch(e){if(!alive())return;this.setData({busy:false});wx.showToast({title:P.errorText(e.data||e),icon:'none'});}
+  }catch(e){if(!alive())return;this.setData({busy:false,error:P.errorText(e.data||e)});}
  },
  home(){wx.switchTab({url:'/pages/engineering/index'});}
 });

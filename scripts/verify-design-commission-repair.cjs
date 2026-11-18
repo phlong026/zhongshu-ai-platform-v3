@@ -59,13 +59,14 @@ test('the commission sends simulation only after explicit opt-in with server aut
  assert.equal(payload().paymentMode,undefined);
 });
 
-function commissionPage(postSubmit) {
+function commissionPage(postSubmit, postCommand) {
  let definition;
  const offer={mode:'AREA_FULL',ruleVersion:2,scope:'设计方案',totalCents:1000,simulationPaymentMode:'TEST_SIMULATION'};
  const api={commissions:{
    context:async()=>({customerId:'7',customerName:'张工',allowedActions:['commission-submit'],
      latestBudget:{version:1},feeOffer:{...offer}}),
    submit:postSubmit,
+   command:postCommand,
  }};
  const presentation=require('../miniprogram/pages/workflow/commission/presentation');
  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/workflow/commission/index.js'),'utf8'),{
@@ -89,6 +90,30 @@ function commissionPage(postSubmit) {
    form:{__mode:'AREA_FULL',__budgetVersion:1,__pricingVersion:2,text:'建房需求',scope:'设计方案',checked:true,testPayment:true}};
  return {page,withdraw:()=>{delete offer.simulationPaymentMode;}};
 }
+test('接收人单独勾选接任后才能转交原工程',async()=>{
+ const calls=[];
+ const {page}=commissionPage(null,async(id,action,payload,key)=>{
+  calls.push({id,action,payload,key});
+  if(!payload.confirmManagerTransfer)throw {code:1115000011,message:'合同已关联陈家乡墅，请确认接任'};
+  return {};
+ });
+ page.view='receive';page.id='8001';page.action='packet-receive';
+ page.data.form={checked:true};
+ await page.submit();
+ assert.equal(page.view,'receive');
+ assert.match(page.data.error,/陈家乡墅/);
+ assert.equal(page.data.form.transferRequired,true);
+ assert.equal(page.data.form.confirmManagerTransfer,false);
+ await page.submit();
+ assert.equal(calls.length,1);
+ page.check({currentTarget:{dataset:{key:'confirmManagerTransfer'}},detail:{value:['yes']}});
+ await page.submit();
+ assert.equal(calls.length,2);
+ assert.equal(calls[0].payload.confirmManagerTransfer,undefined);
+ assert.equal(calls[1].payload.confirmManagerTransfer,true);
+ assert.equal(calls[1].key,calls[0].key);
+ assert.equal(page.view,'progress');
+});
 test('withdrawal invalidates consent and formal submission requires a new explicit choice',async()=>{
  const calls=[];
  const {page,withdraw}=commissionPage(async (...call)=>{calls.push(call);return {commissionId:'8'};});
