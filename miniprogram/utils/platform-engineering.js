@@ -194,7 +194,7 @@ function projectView(detail) {
       try { const parsed = typeof d.fileRef === 'string' ? JSON.parse(d.fileRef) : d.fileRef; if (parsed && typeof parsed === 'object') ref = parsed; } catch (error) { /* 历史文本没有可授权字节。 */ }
       return {name:d.name, file:{name:ref.name || d.name, ...(ref.text ? {text:String(ref.text)} : {}), ...(ref.assetId ? {assetId:String(ref.assetId)} : {}),
         ...(ref.commissionId && ref.dispatchSeq && ref.slot ? {commissionId:String(ref.commissionId),dispatchSeq:Number(ref.dispatchSeq),slot:ref.slot} : {})}, date:''};
-    }).concat(detail.contractAssetId ? [{name:'已签工程合同',file:{name:'已签工程合同.pdf',assetId:String(detail.contractAssetId)},date:dateOf(detail.contractDate)}] : []),
+    }).concat(detail.contractAssetId ? [{name:'工程合同附件',file:{name:'工程合同附件',assetId:String(detail.contractAssetId)},date:dateOf(detail.contractDate)}] : []),
     status: statusView(detail.status), statusRaw: detail.status,
     stageText: statusView(detail.status)
   };

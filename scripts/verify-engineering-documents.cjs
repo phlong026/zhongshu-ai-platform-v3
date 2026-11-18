@@ -12,7 +12,9 @@ test('engineering handover preserves the immutable dispatch scope and actual ass
 });
 test('engineering contract is a real asset document; missing legacy bytes do not get a fake URL',()=>{
   const view=projectView({id:'99',managerName:'张工程',contractAssetId:'456',documents:[{name:'旧资料',fileRef:'invalid legacy text'}],nodes:[]});
-  assert.equal(view.documents.find(d=>d.name==='已签工程合同').file.assetId,'456');
+  const attachment = view.documents.find(d => d.name === '工程合同附件');
+  assert.equal(attachment.file.assetId, '456');
+  assert.equal(attachment.file.name, '工程合同附件');
   assert.equal(view.manager,'张工程');
   assert.equal(view.documents.find(d=>d.name==='旧资料').file.path,undefined);
 });

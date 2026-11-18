@@ -36,6 +36,7 @@ Page({
   this.setData({creating:true,error:'',parentOptions:[{id:'',name:'不关联，新建独立项目'}].concat(projects),createForm:{name:'',customer:'',city:'',phone:'',floors:'2',area:'',parentIndex:0}});},
  cancelCreate(){this.setData({creating:false,error:''});},
  createInput(e){const d=e.currentTarget.dataset;this.setData({['createForm.'+d.key]:e.detail.value,error:''});},
+ toggleIndependent(e){this.setData({'createForm.independent':e.detail.value});},
  pickCreateFloors(e){this.setData({'createForm.floors':['1','2','3','4','5'][Number(e.detail.value)]});},
  pickCreateParent(e){this.setData({'createForm.parentIndex':Number(e.detail.value)});},
  submitCreate(){if(!P.online()){wx.showToast({title:'请先登录后端账号',icon:'none'});return;}return this.submitCreateOnline();},
@@ -75,7 +76,7 @@ Page({
   this.setData({busy:true});
   try{
    const f=this.data.createForm,parent=this.data.parentOptions[Number(f.parentIndex)||0];
-   const created=await P.api.projects.create({name:f.name,customer:f.customer,city:f.city,phone:f.phone||undefined,floors:Number(f.floors)||2,area:f.area?Number(f.area):undefined,parentProjectId:parent&&parent.id?String(parent.id):undefined});
+   const created=await P.api.projects.create({name:f.name,customer:f.customer,city:f.city,phone:f.phone||undefined,floors:Number(f.floors)||2,area:f.area?Number(f.area):undefined,parentProjectId:parent&&parent.id?String(parent.id):undefined,independent:!f.parentIndex&&f.independent===true?true:undefined});
    if(!alive())return;this.setData({creating:false,busy:false});
    wx.showToast({title:'项目已创建',icon:'success'});
    navigate({url:'/pages/build/record/index?id='+encodeURIComponent(String(created.id))+'&view=prepare'});
