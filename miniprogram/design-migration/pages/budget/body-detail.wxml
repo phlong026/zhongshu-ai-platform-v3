@@ -16,7 +16,6 @@
     </view>
     <view class="budget-card result-section" wx:if="{{category === 'BODY'}}"><text class="section-title">项目说明</text><view class="explanation-row" wx:for="{{groups}}" wx:key="itemId"><text>{{item.publicName}}</text><text>{{item.explanation}}</text></view></view>
     <view class="inline-warning" wx:if="{{warningText}}">{{warningText}}</view>
-    <text class="result-footnote">明细仅展示项目金额，计价规则不对外展示</text>
     <view class="result-actions"><button class="budget-primary" bindtap="back">返回预算</button></view>
   </block>
 </view>

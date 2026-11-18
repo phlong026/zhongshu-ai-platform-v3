@@ -1,0 +1,20 @@
+/* 2026-11-18 四岗位首页图稿：共用背景、标题层级、卡片边距。 */
+.business-page.sales-page,.engineering-home,.fin-home,.home-page{background:#f7f5f1;color:#191713;min-height:100vh}
+.business-page.sales-page.sales-page .section,.engineering-home .eng-section,.fin-home .fin-card{margin:0 0 22rpx;border:0;border-radius:24rpx;box-shadow:none;background:#fff;padding:22rpx 24rpx}
+.business-page.sales-page.sales-page .platform-todos-section,.engineering-home .home-todo-shell,.fin-home .home-todo-shell{background:transparent;padding:0;margin-bottom:22rpx}
+.business-page.sales-page.sales-page .business-todo-content{padding:0}.business-page.sales-page.sales-page .platform-todos-section .hint{padding:16rpx;display:block}
+.business-page.sales-page.sales-page .section-heading,.engineering-home .eng-heading,.fin-home .fin-heading,.home-section-heading{display:flex;align-items:center;justify-content:space-between;padding:0 12rpx;margin:0 0 16rpx;min-height:48rpx;gap:12rpx}
+.business-page.sales-page.sales-page .section-title,.engineering-home .eng-heading>text,.fin-home .fin-title,.home-section-heading>text{font-size:34rpx;line-height:48rpx;font-weight:700;color:#111;letter-spacing:.3rpx}
+.business-page.sales-page.sales-page .sales-recent{padding:0;background:transparent}.business-page.sales-page.sales-page .sales-recent-row{background:#fff;border-radius:24rpx;margin:0;padding:22rpx;min-height:164rpx;border:0;box-sizing:border-box;gap:20rpx}.business-page.sales-page.sales-page .sales-recent-row+.sales-recent-row{margin-top:12rpx}.business-page.sales-page.sales-page .sales-person-initial{width:86rpx;height:86rpx;border-radius:50%;background:#f7f0e6;color:#8b522b;font-size:36rpx;flex-shrink:0}.business-page.sales-page.sales-page .sales-recent-copy>text:first-child{font-size:29rpx;font-weight:650}.business-page.sales-page.sales-page .sales-recent-copy .hint{font-size:24rpx;margin-top:8rpx}.business-page.sales-page.sales-page .sales-recent-action{display:none}.business-page.sales-page.sales-page .sales-recent-row>image{width:246rpx;height:140rpx;border-radius:14rpx}.business-page.sales-page.sales-page .sales-empty{background:#fff;border-radius:24rpx;color:#92877a;padding:28rpx;font-size:25rpx}
+
+/* Scope the shared geometry to the four role dashboards. Cards grow with their data. */
+.wb-root .wb-content.wb-content { box-sizing:border-box;padding:20rpx 24rpx calc(150rpx + env(safe-area-inset-bottom)); }
+.wb-root .wb-content .wb-greeting {display:flex;align-items:center;min-height:72rpx;margin:0;padding:0 12rpx 16rpx;box-sizing:border-box}
+.wb-root .wb-content .wb-greeting text:first-child {display:block;margin:0;font-size:34rpx;line-height:48rpx;font-weight:700;letter-spacing:0}
+.owner-page.home-page .wb-content .wb-todos {background:transparent;border:0;padding:0;margin:0 0 22rpx}
+.wb-root .wb-content .wb-tools {background:transparent;padding:0;border:0;margin:0 0 22rpx}
+.wb-root .wb-tools .sales-home-tools,.wb-root .wb-tools .eng-tools,.wb-root .wb-tools .fin-shortcuts {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#fff;border-radius:24rpx;padding:16rpx 8rpx;gap:0}
+.wb-root .wb-tools .fin-shortcuts-three {grid-template-columns:repeat(3,minmax(0,1fr))}
+.business-page.sales-page .wb-tools .sales-home-tools button,.wb-root .wb-tools .eng-shortcut,.wb-root .wb-tools .fin-shortcut {display:flex;align-items:center;justify-content:flex-start;flex-direction:column;min-width:0;min-height:100rpx;background:transparent;margin:0;padding:0 4rpx;gap:8rpx;border:0;font-size:25rpx;line-height:36rpx}
+.business-page.sales-page .wb-tools .sales-home-tools button image,.wb-root .wb-tools .eng-tool-icon,.wb-root .wb-tools .fin-shortcut image {width:64rpx;height:64rpx;box-sizing:border-box;border-radius:50%;background:#f8f3ec;padding:12rpx;margin:0}
+.wb-root .wb-tools .eng-tool-icon image {width:40rpx;height:40rpx}

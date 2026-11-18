@@ -58,7 +58,7 @@ test('LIVE-03 growth summary aggregates backend status maps and accepts per-publ
       perPublication: [{ id: 91, title: '庭院实拍', leads: 4, converted: 2 }]
     }) } },
     '../../api/franchise/crm': {},
-    '../../api/http': { token() { return 'fixture-token'; } },
+    '../../api/http': { token() { return 'fixture-token'; }, requestGuard: () => () => true },
     '../../utils/view-container': { makeFormHandlers() { return {}; } }
   });
   const page = instantiate(growthDefinition, { view: 'home', published: [], publishedNames: [] });

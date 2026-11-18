@@ -62,9 +62,9 @@ const commission = {
   /** 对账行（每策略×两阶段五态状态机+paid/outstanding/reviewDue） */
   rows: () => http.get('/franchise/performance/commission/rows'),
   /** 提成规则（幂等；严格 boss——owner 持码越界 000；已有 release 硬锁 004） */
-  policy: (projectId, totalCents, assigneeUserId, assigneeName, evidenceRef, note, key) =>
+  policy: (projectId, totalCents, assigneeUserId, assigneeName, evidenceRef, note, key, amounts = {}) =>
     http.post('/franchise/performance/commission/policy',
-      { projectId, totalCents, assigneeUserId, assigneeName: assigneeName || '', evidenceRef, note }, idem(key, 'policy')),
+      { projectId, totalCents, assigneeUserId, assigneeName: assigneeName || '', evidenceRef, note, ...amounts }, idem(key, 'policy')),
   /** 生成提成应付（幂等；finance 族；净实收足额 007；agreementRef=perf-commission 兜底标识） */
   release: (projectId, stage, key) =>
     http.post('/franchise/performance/commission/release', { projectId, stage }, idem(key, 'release')),

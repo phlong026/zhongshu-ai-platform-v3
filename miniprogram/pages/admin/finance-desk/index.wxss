@@ -1,3 +1,4 @@
+
 @import '../../../styles/project-books.wxss';
 @import '../../../styles/finance-desk.wxss';
 @import '../../../styles/profile.wxss';
@@ -18,3 +19,9 @@
 .fin-home-intro{align-items:center;padding-bottom:12rpx}.fin-home-greeting{margin-bottom:0}.fin-home-intro>view{min-width:0;flex:1}.fin-home-intro month-select{flex-shrink:0}
 
 @import '../../../styles/finance-journey.wxss';
+.fin-home .fin-home-shortcuts,.fin-home .fin-home-progress{background:transparent;padding:0}.fin-home .fin-shortcuts{background:#fff;padding:14rpx;border-radius:24rpx;gap:14rpx}.fin-home .fin-shortcut{background:#f8f5f0;border-radius:14rpx;padding:10rpx 4rpx;font-size:24rpx;gap:6rpx;min-height:94rpx}.fin-home .fin-shortcut image{width:40rpx;height:40rpx}.fin-home .fin-link-row{background:#fff;padding:22rpx;border-radius:22rpx;margin-bottom:12rpx}.fin-home .fin-name{font-size:28rpx;font-weight:650}.fin-home .fin-muted{font-size:24rpx}.fin-home .fin-home-empty{background:#fff;border-radius:24rpx;padding:28rpx;min-height:110rpx}.fin-home .fin-home-empty image{display:none}.fin-home .fin-home-empty text{font-size:25rpx;color:#92877a}
+.fin-source-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8rpx 16rpx;margin-top:10rpx}
+.fin-source-actions button{margin:0;min-height:64rpx}
+@import "../../../styles/role-home.wxss";
+
+.fin-home .fin-shortcut{background:transparent}

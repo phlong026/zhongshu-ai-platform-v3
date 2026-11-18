@@ -74,20 +74,20 @@ const fiveStates = [
   { name: 'reviewDue→待人工核对', stage: { status: 'x', reviewDue: true, eligible: true, payableId: 1 }, expect: { canRelease: false, canPay: false, canReconcile: true, reasonContains: '人工核对' } },
   { name: '未足额→不可发放', stage: { status: 'x', reviewDue: false, eligible: false, payableId: null }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '尚未收齐' } },
   { name: '可生成应付', stage: { status: 'x', reviewDue: false, eligible: true, payableId: null }, expect: { canRelease: true, canPay: false, canReconcile: false, reasonContains: '本期应付' } },
-  { name: '待付款（应付已生成）', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9 }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '财务工作台' } },
+  { name: '待付款（应付已生成）', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9 }, expect: { canRelease: false, canPay: true, canReconcile: false, reasonContains: '财务工作台' } },
   { name: '已付清', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9, paidCents: 10000, amountCents: 10000, outstandingCents: 0 }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '财务工作台' } }
 ];
 let matrixOk = true;
 for (const state of fiveStates) {
   for (const role of ['boss', 'finance', 'owner']) {
     const v = P.commissionRowView({ policyId: 1, projectId: 7, totalCents: 20000, assigneeUserId: 9,
-      assigneeName: '张', version: 1, stages: [{ stage: 'START', label: '开工款', ...state.stage }] }, role, '项目甲');
+      assigneeName: '张', version: 1, stages: [{ stage: 'START', label: '开工款', amountCents:10000,outstandingCents:10000,...state.stage }] }, role, '项目甲');
     const st = v.stages[0];
     const finance = role === 'finance';
     const boss = role === 'boss';
     const want = {
       canRelease: !!(state.expect.canRelease && finance),
-      canPay: false, // API 态恒 false（Codex P1-8：付款走财务工作台）
+      canPay: !!(state.expect.canPay && finance), // 进入财务工作台的原应付
       canReconcile: !!(state.expect.canReconcile && boss)
     };
     if (st.canRelease !== want.canRelease || st.canPay !== want.canPay || st.canReconcile !== want.canReconcile
@@ -97,7 +97,7 @@ for (const state of fiveStates) {
     }
   }
 }
-ok('提成五态×三角色按钮矩阵（12 组合，canPay 恒 false）', matrixOk);
+ok('提成五态×三角色按钮矩阵（15 组合，退款核对时禁付）', matrixOk);
 ok('commissionRowView：assigneeUserId 字符串保留（Codex P1-6）', (() => {
   // 后端 JSON 返回的 Long 是十进制字符串；用字符串模拟（JS number 字面量在本测试文件解析时就已丢精度）
   const v = P.commissionRowView({ policyId: 1, projectId: 7, totalCents: 1, assigneeUserId: '9223372036854775806',

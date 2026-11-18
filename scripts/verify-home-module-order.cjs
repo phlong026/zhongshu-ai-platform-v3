@@ -8,7 +8,7 @@ const hasClass = (node, name) => String(node.attrs?.class || '').split(/\s+/).in
 const text = node => (node.text || '') + node.children.map(text).join('');
 const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve)); };
 
-test('所有已开放岗位的实际首页固定为问候、四卡、待办，切岗使用本人姓名', async () => {
+test('所有已开放岗位的实际首页固定为问候、岗位概览、待办，切岗使用本人姓名', async () => {
   const runtime = await connect();
   const auth = require('../miniprogram/api/auth');
   const organization = require('../miniprogram/utils/organization');
@@ -50,26 +50,20 @@ test('所有已开放岗位的实际首页固定为问候、四卡、待办，�
     const greeting = nodes.find(n => hasClass(n, greetingClass));
     assert.ok(greeting, nickname + ' greeting exists');
     assert.ok(text(greeting).includes(nickname), nickname + ' shows authenticated profile name');
-    const metrics = nodes.filter(n => hasClass(n, metricClass));
-    const topMetrics = roleCode === 'boss' || roleCode === 'owner' ? metrics.slice(0, 4) : metrics;
-    assert.equal(topMetrics.length, 4, nickname + ' has four cards');
-    const lastMetric = nodes.indexOf(topMetrics.at(-1));
-    assert.ok(nodes.indexOf(greeting) < nodes.indexOf(topMetrics[0]), nickname + ' greets before cards');
-    const todo = nodes.find(n => hasClass(n, todoClass) && /平台待办|待办事项|今日待办/.test(text(n)));
-    assert.ok(todo, nickname + ' todo module exists even when empty');
-    assert.ok(lastMetric < nodes.indexOf(todo), nickname + ' cards precede todos');
-    if (roleCode === 'boss' || roleCode === 'owner') {
-      assert.equal(page.data.desk.home.cards.length, 4);
-      assert.equal(metrics.length, 4, '经营区只显示四个指标，已删除工程与财务统计');
-      assert.equal(page.data.desk.home.business.metrics.length, 4);
-      assert.equal(page.data.desk.home.engineering.metrics.length, 4);
-      assert.ok(!text({children:nodes}).includes('工程与财务统计'));
+    const overview=nodes.find(n=>n.tag==='home-overview');
+    const todo=nodes.find(n=>n.tag==='todo-preview' || (hasClass(n,todoClass) && /今日待办|待办事项|待办加载中/.test(text(n))));
+    assert.ok(todo,nickname+' todo module');
+    let first,last;
+    if ((orgType==='headquarters' && roleCode.startsWith('finance')) || roleCode==='hq-design-admin') {
+      const cards=nodes.filter(n=>hasClass(n,metricClass));assert.equal(cards.length,4,nickname+' headquarters cards');
+      first=cards[0];last=cards.at(-1);
+      if(roleCode.startsWith('finance'))assert.ok(!text(last).includes('¥'),'task count is not money');
+    } else {
+      assert.ok(overview,nickname+' shared overview');
+      const expected=roleCode.startsWith('sales')?'business':['boss','owner'].includes(roleCode)?'owner':roleCode.startsWith('finance')?'finance':'engineering';
+      assert.equal(overview.attrs.role,expected);first=last=overview;
     }
-    if (roleCode.startsWith('finance')) {
-      assert.equal(page.data.deskHome.metrics[3].taskMetric, true);
-      assert.equal(page.data.deskHome.metrics[3].value, page.data.deskHome.taskCount);
-      assert.ok(!text(topMetrics[3]).includes('¥'), 'task count is not displayed as money');
-    }
+    assert.ok(nodes.indexOf(greeting)<nodes.indexOf(first) && nodes.indexOf(last)<nodes.indexOf(todo),nickname+' greeting → overview → todos');
   }
   // The owner's engineering tab uses a separate overview page rather than the engineer home.
   const boss={postId:'boss-engineering',orgId:'store',orgType:'store',roleCode:'boss'};
@@ -84,19 +78,17 @@ test('所有已开放岗位的实际首页固定为问候、四卡、待办，�
   assert.ok(nodes.indexOf(hello)<nodes.indexOf(grid)&&nodes.indexOf(grid)<nodes.indexOf(todo));
 });
 
-test('业务、老板及财务待办的加载、失败、空态保持在四卡之后', () => {
-  const owner = require('../miniprogram/utils/platform-owner-home').view({ name: '王五', period: '2026-11' });
-  const specs = [
-    ['pages/business/index.wxml', { isSalesHome: true, salesName: '王五', commission: {}, salesShortcuts: [] }, 'sales-stat'],
-    ['pages/admin/home/index.wxml', { ready: true, desk: owner, homeFinanceTab: 'operating' }, 'home-six-item'],
-    ['pages/admin/finance-desk/index.wxml', { view: 'desk', ready: true, deskHome: { name: '王五', metrics: Array.from({ length: 4 }, (_, i) => ({ label: '指标' + i, value: 0 })), previewTasks: [] }, platformFinance: { status: 'loading' } }, 'fin-home-metric']
-  ];
-  for (const [file, data, metricClass] of specs) for (const status of ['loading', 'degraded', 'partial-empty', 'ready']) {
-    const nodes = flatten(render(path.resolve(__dirname, '../miniprogram', file), { ...data, guest: false, platformTodos: { status, rows: [], count: 0 } }));
-    const cards = nodes.filter(n => hasClass(n, metricClass)).slice(0, 4);
-    assert.equal(cards.length, 4, file + ' keeps four cards in ' + status);
-    const message = nodes.find(n => n.tag === '#text' && /待办加载中|待办暂时无法|已加载部分暂无待办|暂无今日待办|暂无平台待办|暂无待办|当前暂无需本人/.test(n.text));
-    assert.ok(message, file + ' exposes ' + status);
-    assert.ok(nodes.indexOf(cards[3]) < nodes.indexOf(message), file + ' state stays after cards');
+test('空待办、加载和失败分别显示，岗位概览始终可见', () => {
+  const owner=require('../miniprogram/utils/platform-owner-home').view({name:'李明',period:'2026-11'});
+  const cases=[['business/index',{isSalesHome:true,salesName:'李明',salesShortcuts:[]}],['admin/home/index',{ready:true,desk:owner}],['admin/finance-desk/index',{ready:true,view:'desk',deskHome:{name:'陈晨',hq:false,tasks:[]},platformFinance:{status:'ready'}}]];
+  for(const [file,data] of cases)for(const status of ['loading','degraded','partial-empty','ready']){
+    const nodes=flatten(render(path.resolve(__dirname,'../miniprogram/pages',file+'.wxml'),{...data,guest:false,platformTodos:{status,rows:[],count:0}}));
+    const top=nodes.find(n=>n.tag==='home-overview');assert.ok(top,file+' overview');
+    const preview=nodes.find(n=>n.tag==='todo-preview');
+    if(status==='ready'){assert.ok(preview,file+' empty preview');assert.ok(nodes.indexOf(preview)>nodes.indexOf(top));}
+    else {assert.equal(preview,undefined,file+' no false empty state in '+status);
+      const msg=nodes.find(n=>n.tag==='#text'&&/待办加载中|待办暂时无法|已加载部分暂无待办/.test(n.text));
+      assert.ok(msg && nodes.indexOf(msg)>nodes.indexOf(top),file+' '+status);
+    }
   }
 });

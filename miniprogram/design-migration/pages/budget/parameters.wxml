@@ -12,12 +12,12 @@
       <text wx:if="{{errors.roofArea}}" class="field-error">{{errors.roofArea}}</text>
       <picker range="{{regionNames}}" value="{{regionIndex < 0 ? 0 : regionIndex}}" bindchange="onRegionChange" disabled="{{!regions.length}}"><view class="parameter-row"><text>建造地区</text><view class="input-value"><text class="region-name">{{regionName}}</text><text wx:if="{{regionCustom}}" class="region-tag">自定义</text><t-icon name="chevron-right" size="16px" color="#a89a8c" /></view></view></picker>
       <text wx:if="{{errors.regionCode}}" class="field-error">{{errors.regionCode}}</text>
-      <view class="parameter-row add-region" bindtap="addRegion" role="button" aria-label="新增自定义地区"><text class="add-region-label">＋ 新增自定义地区</text><view class="input-value"><text class="add-region-hint">在「我的当地单价」里按当地行情填写</text></view></view>
+      <view class="parameter-row add-region" bindtap="addRegion" role="button" aria-label="新增自定义地区"><text class="add-region-label">＋ 新增自定义地区</text></view>
       <view class="parameter-row last-row prices-entry" bindtap="openMyPrices" role="button" aria-label="我的当地单价"><text>我的当地单价</text><view class="input-value"><text class="region-name">按当地成本调价</text><t-icon name="chevron-right" size="16px" color="#a89a8c" /></view></view>
     </view>
     <view class="budget-card parameters-card">
       <view class="parameters-head"><text class="section-title">工程量（选填）</text><button class="text-action" bindtap="prefillQuantities" aria-label="按经验值预填工程量">按经验值预填</button></view>
-      <text class="quantities-hint">AI 方案不含工程量时，预算只能出到"待核定"；填了这几项即可算出完整总价，随时可改。</text>
+      <text class="quantities-hint">缺少工程量的项目将标为「待核定」。</text>
       <view class="parameter-row"><text>入户门樘数</text><view class="input-value"><input type="number" value="{{quantities.DOOR_HOUSEHOLDS}}" placeholder="未填" maxlength="6" data-key="DOOR_HOUSEHOLDS" bindinput="onQuantityInput" aria-label="入户门樘数" /><text class="unit">樘</text></view></view>
       <view class="parameter-row"><text>文化石长度</text><view class="input-value"><input type="digit" value="{{quantities.CULTURE_STONE_LENGTH}}" placeholder="未填" maxlength="20" data-key="CULTURE_STONE_LENGTH" bindinput="onQuantityInput" aria-label="文化石长度" /><text class="unit">m</text></view></view>
       <view class="parameter-row"><text>洗墙灯长度</text><view class="input-value"><input type="digit" value="{{quantities.LIGHTING_WASHER_LENGTH}}" placeholder="未填" maxlength="20" data-key="LIGHTING_WASHER_LENGTH" bindinput="onQuantityInput" aria-label="洗墙灯长度" /><text class="unit">m</text></view></view>
@@ -26,8 +26,7 @@
     </view>
     <view wx:if="{{!regions.length}}" class="inline-warning"><text>{{regionsError || '暂无可用地区：可新增自定义地区，或等待平台配置。'}}</text><button class="text-action" bindtap="load">重试</button></view>
     <view wx:if="{{storageError}}" class="inline-warning">{{storageError}}</view>
-    <view wx:if="{{needsReview}}" class="inline-warning">项目实际建筑面积与当前参数存在差异，已保留项目原值，请管理员复核。</view>
-    <view class="explanation help-card"><view class="round-icon"><t-icon name="info-circle" size="32px" color="#7b5532" /></view><view class="help-copy"><text class="section-title">填写说明</text><view class="help-items"><text class="help-item">占地面积用于地基基础等项目测算</text><text class="help-item">屋顶面积用于屋面结构测算，平屋顶点「同占地」快速填充</text><text class="help-item">建造地区决定平台基准价，可在「我的当地单价」按当地行情调价</text></view></view></view>
+    <view wx:if="{{needsReview}}" class="inline-warning">面积不一致，已保留项目原值，请管理员复核。</view>
     <view class="budget-footer"><text class="footer-hint">修改自动保存，不影响已保存的预算</text><view class="footer-actions"><button class="budget-secondary" bindtap="revert" disabled="{{saving}}">撤销本次修改</button><button class="budget-primary" bindtap="save" disabled="{{saving || !regions.length}}" loading="{{saving}}">完成</button></view></view>
   </block>
 </view>

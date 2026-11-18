@@ -17,7 +17,9 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
     loading=(async()=>{
       try{
         const remote=await api.read(key);check();if(stopped)return;
-        if(!Number.isSafeInteger(Number(remote.revision)))throw Error('视频草稿读取失败');
+        // Older stores have a single unversioned draft. Never write a per-task draft into it.
+        if(remote && typeof remote.exists==='boolean' && remote.revision==null){status('云端暂不可同步，草稿仅存本机');return;}
+        if(remote.revision==null||!Number.isSafeInteger(Number(remote.revision))||Number(remote.revision)<0)throw Error('视频草稿读取失败');
         observed=Number(remote.revision);
         const edited=signature(getForm())!==initial;
         if(conflict||((dirty||edited)&&remote.exists&&revision!==observed))conflict=true;
@@ -47,7 +49,7 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
   async function resolve(useLocal){
     check();if(flight)await flight.catch(()=>{});
     const before=signature(getForm()),remote=await api.read(key);check();if(stopped)return;
-    const next=Number(remote.revision);if(!Number.isSafeInteger(next))throw Error('视频草稿读取失败');
+    const next=Number(remote.revision);if(remote.revision==null||!Number.isSafeInteger(next)||next<0)throw Error('云端暂不可同步，草稿仅存本机');
     if(useLocal&&observed!==next){observed=next;conflict=true;cache();status('云端再次更新，请重新确认');throw Error('云端再次更新，请重新确认');}
     if(!useLocal&&before!==signature(getForm()))throw Error('填写内容已变化，请再次选择');
     revision=next;observed=next;ready=true;conflict=false;

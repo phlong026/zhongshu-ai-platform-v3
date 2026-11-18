@@ -7,3 +7,4 @@
 /* Native inputs center their text within the fixed height; picker views retain their padding. */
 .journey input.journey-input{display:block;padding:0 20rpx;height:84rpx;line-height:84rpx}
 .journey input.journey-amount-input{height:94rpx;line-height:94rpx}
+.journey-row.journey-amount-end{justify-content:flex-end}

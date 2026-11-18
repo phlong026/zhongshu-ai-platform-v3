@@ -459,6 +459,12 @@ page {
   padding: 36rpx 32rpx 12rpx;
 }
 
+.category-icon {
+  display: block;
+  width: 44rpx;
+  height: 44rpx;
+}
+
 .config-row {
   min-height: 128rpx;
   display: flex;

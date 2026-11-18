@@ -591,7 +591,7 @@ this.setData({detail:null,receiptLoading:false,invalidMessage:P.degradeMessage(e
 },
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
 refreshRecords() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
-registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.contentId)wx.navigateTo({url:'/pages/growth/index?view=capture&contentId='+encodeURIComponent(record.contentId)});},
+registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.contentId)wx.navigateTo({url:'/pages/growth/index?view=capture&publicationId='+encodeURIComponent(record.contentId)});},
 inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:'',receiptSaved:false});},
 receiptWriteError(){
 if(this.data.receiptLoading)return '发布记录加载中，请稍候';

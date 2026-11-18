@@ -29,7 +29,7 @@ Page({
  },
  syncFinanceIdentity(financeIdentity){
   if(this.__financeIdentity===financeIdentity)return false;
-  this.__financeIdentity=financeIdentity;this.__messageSourceOpened=false;this.__designReceipt=null;this.__financeLoadedIdentity='';this.__workbenchLoadedIdentity='';
+  this.__financeIdentity=financeIdentity;this.__messageSourceOpened=false;this.__homeStageOpened=false;this.__designReceipt=null;this.__financeLoadedIdentity='';this.__workbenchLoadedIdentity='';
   // 身份变化使旧锁owner与登记代次同时失效；旧Promise只能清自己的token，不能覆盖新岗位状态。
   this.__financeBusyOwner=null;this.bankConfirmIdem=null;this.bankConfirmIdemCtx=null;
   this.wbGeneration=(this.wbGeneration||0)+1;this.setData({wbForm:null,wbBusy:false,workbenchBooks:[],reimbursementRows:[],workbenchStaff:[],collectionDeclarations:[],financialStages:[],bookResult:null,bookEntries:[],bookSummary:[],bookScope:''});this.registerIdem=null;this._registerSeq=(this._registerSeq||0)+1;this._correctionCtx=null;
@@ -84,9 +84,9 @@ Page({
   const view=this.data.view;
   if(view!=='tasks'&&view!=='desk')return;
   const st=this.data.platformTodos||{rows:[]};
-  const rows=(st.rows||[]).map(r=>({key:r.key,name:r.title,amount:String(r.amount||'').replace(/\B(?=(\d{3})+(?!\d))/g,','),status:r.actionHint||'',label:r.clickable?'去办理':'查看',url:r.path||'',icon:'/assets/management-receipt.jpg',...(this.presentFinanceTask?this.presentFinanceTask(r):null)}));
+  const rows=(st.rows||[]).map(r=>({key:r.key,name:r.title,clickable:r.clickable,amount:String(r.amount||'').replace(/\B(?=(\d{3})+(?!\d))/g,','),status:r.actionHint||'',label:r.clickable?'去办理':'查看',url:r.path||'',icon:'/assets/management-receipt.jpg',...(this.presentFinanceTask?this.presentFinanceTask(r):null)}));
   if(view==='tasks')return this.setData({ready:true,error:'',title:views.tasks,rows,tasks:rows,allCount:rows.length,taskCount:rows.length,platformNotice:st.status==='degraded'||st.status==='partial-empty'?(st.message||'待办暂时无法加载，请下拉重试'):''});
-  this.setData({'deskHome.previewTasks':rows.slice(0,3),'deskHome.taskCount':rows.length,'deskHome.metrics[3].value':rows.length});
+  this.setData({'deskHome.tasks':rows,'deskHome.previewTasks':rows.slice(0,3),'deskHome.taskCount':rows.length,'deskHome.metrics[3].value':rows.length});
  },
  renderPlatformShell(){ // M+：平台 API 态渲染——本地账簿/项目/加盟商分支全部跳过；无平台接口的视图显示空态提示
   const view=this.data.view;

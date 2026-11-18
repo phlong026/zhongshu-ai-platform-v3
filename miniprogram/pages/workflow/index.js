@@ -37,6 +37,7 @@ Page({
  platformLoad(options,post){
   this.__post=post;this.__pf=PF;this.__http=http;this.__crmApi=this.__crmApi||require('../../api/franchise/crm');
   this.__postKey=String(post.postId);this.id=routeValue(options.id)||'';
+  this.homeContract=routeValue(options.contractId)||'';
   const requested=(options.view==='ai-facade'?'facade-config':options.view)||'';
   if(requested==='commission')return require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(this.id),{replace:true});
   const allowed=['customers','customer','arrival','transfer','requirement','budget','budget-result','contract','delivery','progress'];
@@ -342,7 +343,8 @@ Page({
   api.contracts.list(this.id).then(rows=>{
    if(this.stale(gen,sessionGen,postKey))return;
    const cards=(rows||[]).map(r=>PF.contractRow(r));
-   this.setData({salesContracts:cards,contractsHasActive:cards.some(c=>c.status!=='VOIDED')});// WXML 不支持方法调用，标志位在 JS 算
+   const visible=this.homeContract?cards.filter(c=>String(c.id)===this.homeContract):cards;
+   this.setData({salesContracts:visible,contractsError:this.homeContract&&!visible.length?'对应合同已变更，请返回刷新指标明细':'',contractsHasActive:cards.some(c=>c.status!=='VOIDED')});// WXML 不支持方法调用，标志位在 JS 算
   }).catch(err=>{
    if(this.handle401(err,sessionGen))return;
    if(this.stale(gen,sessionGen,postKey))return;

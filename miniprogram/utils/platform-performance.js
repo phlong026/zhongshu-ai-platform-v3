@@ -202,7 +202,7 @@ async function loadMembers() {
 // ===================== 提成视图适配 =====================
 
 /**
- * 提成对账行视图（assigneeUserId 字符串保留——Codex P1-6；API 态 canPay=false——
+ * 提成对账行视图（assigneeUserId 字符串保留；可付款阶段直达原应付——
  * 付款走财务工作台在线流程 M5 接管，不跳本地付款页 Codex P1-8）。
  */
 function commissionRowView(row, roleCode, projectName) {
@@ -229,8 +229,8 @@ function commissionRowView(row, roleCode, projectName) {
       amountText: centsText(stage.amountCents),
       paidText: centsText(stage.paidCents),
       outstandingText: centsText(stage.outstandingCents),
-      canRelease: finance && stage.eligible && !stage.payableId,
-      canPay: false,
+      canRelease: finance && stage.amountCents > 0 && stage.eligible && !stage.payableId,
+      canPay: finance && !!stage.payableId && !stage.reviewDue && stage.eligible && stage.outstandingCents > 0,
       // M10-T05/R2 P2：已付差额核对入口（paid>0 即使净额不足也可核对——后端已付留痕路径）
       canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.paidCents || 0) > 0),
       reason: stage.reviewDue ? '原收款已变化，未付部分暂停；已付差额只待人工核对，不代表已追回。'
@@ -384,7 +384,7 @@ async function perform(action, payload) {
       return api.commission.policy(String(p.projectId), toTargetRaw('auto:collectionsAmount', p.amount),
         String(p.assigneeUserId), p.assigneeName,
         typeof p.evidenceRef === 'string' ? p.evidenceRef : JSON.stringify(p.evidenceRef || { name: '提成确认凭据' }),
-        p.note, key);
+        p.note, key, {signAfterCents:toTargetRaw('auto:collectionsAmount',p.signAfter),baseDoneCents:toTargetRaw('auto:collectionsAmount',p.baseDone),capDoneCents:toTargetRaw('auto:collectionsAmount',p.capDone)});
     case 'release':
       // M10-T05：三期期次映射（BASE_DONE→BASE_DONE；CAP_DONE→CAP_DONE；存量 start→SIGN_AFTER）
       const releaseStage = p.stage === 'topping' ? 'CAP_DONE'

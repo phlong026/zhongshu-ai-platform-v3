@@ -1,1 +1,10 @@
-{"navigationStyle":"custom","usingComponents":{"owner-header":"../owner-header/index","owner-nav":"../owner-nav/index","custom-tab-bar":"/custom-tab-bar/index","list-row":"../../../components/list-row/index"}}
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "owner-header": "../owner-header/index",
+    "owner-nav": "../owner-nav/index",
+    "custom-tab-bar": "/custom-tab-bar/index",
+    "list-row": "../../../components/list-row/index",
+    "todo-preview": "/components/todo-preview/index"
+  }
+}

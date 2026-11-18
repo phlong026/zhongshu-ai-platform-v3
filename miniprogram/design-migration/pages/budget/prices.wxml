@@ -37,7 +37,7 @@
         </view>
       </view>
     </view>
-    <view class="explanation help-card"><view class="round-icon"><t-icon name="info-circle" size="32px" color="#7b5532" /></view><view class="help-copy"><text class="section-title">填写说明</text><view class="help-items"><text class="help-item">单价按各项目计价单位填写，最多两位小数</text><text class="help-item">保存后新生成的预算即按当地单价计算</text><text class="help-item">已保存的预算与平台报价不受影响</text><text class="help-item">单价仅对当前账号生效，不影响他人与平台基准价</text></view></view></view>
+    <text class="muted">单价最多两位小数，仅用于本人新预算。已保存预算与平台报价不变。</text>
   </block>
   <view wx:elif="{{!loading && !error}}" class="budget-card state-card"><text>当前地区暂无可配置的预算项目</text></view>
 </view>

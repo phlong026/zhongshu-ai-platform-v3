@@ -1,7 +1,7 @@
 const V=require('./finance-workbench-view');
 const {day}=require('./finance-date');
 const PF=require('./platform-finance');
-const stageName=s=>({SIGN_AFTER:'签约款',BASE_DONE:'基础完成款',CAP_DONE:'封顶款',tail:'交付尾款',FULL:'设计费',FIRST:'设计首款',TAIL:'设计尾款',engineering:'材料采购',engineering_expense:'工程费用'}[s]||s||'其他费用');
+const stageName=s=>({SIGN_AFTER:'签约款',BASE_DONE:'基础完成款',CAP_DONE:'封顶款',tail:'交付尾款',performance:'项目回款提成',FULL:'设计费',FIRST:'设计首款',TAIL:'设计尾款',engineering:'材料采购',engineering_expense:'工程费用'}[s]||s||'其他费用');
 const scopeOf=r=>r.projectId||r.project_id?'project:'+String(r.projectId||r.project_id):r.bookId||r.book_id?'book:'+String(r.bookId||r.book_id):'company';
 function context(row,books,stages=[]){
  let scope=scopeOf(row);

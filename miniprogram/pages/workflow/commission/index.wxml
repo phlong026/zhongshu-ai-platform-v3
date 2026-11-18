@@ -7,9 +7,9 @@
   <block wx:if="{{view==='admin'}}">
    <view class="admin-greeting"><text>你好，{{adminName}}</text><text class="hint">{{adminDate}}</text></view>
    <view class="admin-metrics"><button wx:for="{{metrics}}" wx:key="label" class="admin-metric" data-filter="{{item.filter}}" bindtap="openMetric"><view class="admin-metric-top"><image src="{{item.icon}}" mode="aspectFit"/><view class="chevron"/></view><text class="admin-metric-label">{{item.label}}</text><view><text class="admin-metric-value">{{item.value}}</text><text class="admin-metric-unit"> 项</text></view></button></view>
-   <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">今日待办 {{taskCount}}</text><button class="text-link" data-filter="全部" bindtap="openMetric">查看全部<view class="chevron"/></button></view>
+   <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">今日待办</text></view>
     <text wx:if="{{error}}" class="commission-error">{{error}}</text><text wx:elif="{{platformStatus==='loading'}}" class="hint">待办加载中…</text>
-    <button wx:for="{{tasks}}" wx:key="id" class="admin-list-row" data-url="{{item.actionUrl}}" bindtap="openTask"><view class="admin-list-copy"><text class="admin-list-name">{{item.name}}</text><text class="hint"><text wx:if="{{item.company}}">{{item.company}} · </text>{{item.detail}}</text></view><text class="{{item.primary?'commission-primary admin-primary':'admin-light-action'}}">{{item.action}}</text><view wx:if="{{!item.primary}}" class="chevron"/></button>
+    <todo-preview id="today-todos" rows="{{tasks}}" bind:activate="openTask"/>
     <view wx:if="{{!tasks.length&&platformStatus==='ready'}}" class="sales-empty">今日暂无设计待办</view>
    </view>
    <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">最近办理</text></view>
@@ -42,12 +42,19 @@
     <text class="commission-muted">{{pricingQuote.scope}} · {{pricingQuote.recipient}}</text>
     <checkbox-group wx:if="{{simulationAllowed}}" data-key="testPayment" bindchange="check"><label class="commission-check"><checkbox value="yes" checked="{{form.testPayment}}" disabled="{{busy}}" color="#824019"/><text>使用模拟付款（测试演练）</text></label></checkbox-group>
    </view>
+   <view wx:if="{{view==='submit'&&paymentChoiceRequired}}" class="commission-card">
+    <text class="commission-error" role="alert">模拟付款资格已变化。请重试演练，或选择正式委托后重新勾选确认。</text>
+    <view class="commission-actions">
+     <button wx:if="{{!simulationAllowed}}" class="commission-secondary" disabled="{{busy||platformStatus==='loading'}}" bindtap="retryCommissionSimulation">重新检查演练资格</button>
+     <button class="commission-secondary" disabled="{{busy||platformStatus!=='ready'}}" bindtap="chooseFormalCommission">选择正式委托</button>
+    </view>
+   </view>
    <view wx:if="{{fields.length}}" class="commission-card">
     <view wx:for="{{fields}}" wx:key="key" wx:if="{{!(view==='submit'&&designBriefEnabled&&(item.key==='text'||pricingQuote&&(item.key==='scope'||item.key==='recipient')||item.kind==='check'&&!submitPreview))}}" class="commission-field">
      <text wx:if="{{item.kind!=='check'}}" class="commission-label">{{item.label}}</text>
      <textarea wx:if="{{item.kind==='textarea'}}" value="{{form[item.key]}}" data-key="{{item.key}}" bindinput="input" auto-height maxlength="3000" placeholder="请填写{{item.label}}"/>
      <view wx:elif="{{item.kind==='file'}}"><view wx:if="{{!item.locked}}" class="commission-file-actions"><button class="commission-upload" data-key="{{item.key}}" bindtap="chooseFile">{{form[item.key]?'重新选择实际文件':'选择实际文件'}}</button></view><text wx:if="{{item.locked}}" class="commission-muted">总部设计已下发，本次移交不可替换</text><button wx:if="{{form[item.key]}}" class="commission-file" data-key="{{item.key}}" bindtap="preview">{{form[item.key].name}} · 点击预览</button></view>
-     <checkbox-group wx:elif="{{item.kind==='check'}}" data-key="{{item.key}}" bindchange="check"><label class="commission-check"><checkbox value="yes" checked="{{form[item.key]}}" color="#824019"/><text>{{item.label}}</text></label></checkbox-group>
+     <checkbox-group wx:elif="{{item.kind==='check'}}" data-key="{{item.key}}" bindchange="check"><label class="commission-check"><checkbox value="yes" checked="{{form[item.key]}}" disabled="{{busy||paymentChoiceRequired}}" color="#824019"/><text>{{item.label}}</text></label></checkbox-group>
      <picker wx:elif="{{item.kind==='date'}}" mode="date" value="{{form[item.key]}}" data-key="{{item.key}}" bindchange="input"><view class="commission-input">{{form[item.key]||'请选择日期'}}</view></picker>
      <picker wx:elif="{{item.kind==='manager'}}" range="{{managerOptions}}" range-key="label" bindchange="chooseManager"><view class="commission-input">{{form.managerName||'请选择另一位有效工程人员'}}<text wx:if="{{!managerOptions.length}}">（暂无，需配置不同员工）</text></view></picker>
      <view wx:elif="{{item.locked}}" class="commission-input commission-locked">{{form[item.key]}}</view>
@@ -56,7 +63,7 @@
    </view>
    <button wx:if="{{canFeedback}}" class="commission-secondary" bindtap="openFeedback">登记客户修改意见</button>
    <view wx:if="{{canFeeDecide}}" class="commission-card"><text class="commission-heading">历史费用例外审批</text><text class="commission-muted">需由另一位门店老板核对；同员工切换老板岗不能批准本人申请。</text><textarea value="{{form.feeNote}}" data-key="feeNote" bindinput="input" placeholder="审批说明 / 退回原因"/><view class="commission-actions"><button class="commission-secondary" data-approve="false" disabled="{{busy}}" bindtap="decideFee">退回修改</button><button class="commission-primary" data-approve="true" disabled="{{busy}}" bindtap="decideFee">批准本版费用</button></view></view>
-   <view wx:if="{{primary||canReturn}}" class="commission-action-panel"><view wx:if="{{error}}" class="commission-error" role="alert">{{error}}</view><view class="commission-actions"><button wx:if="{{canReturn}}" class="commission-secondary" bindtap="returnPacket">退回补充</button><button wx:if="{{primary}}" class="commission-primary" loading="{{busy}}" disabled="{{busy}}" bindtap="submit">{{view==='pay'&&simulationUncertain?'查询登记结果':view==='submit'&&designBriefEnabled?(submitPreview?'确认提交委托':'预览委托单'):primary}}</button></view></view>
+   <view wx:if="{{primary||canReturn}}" class="commission-action-panel"><view wx:if="{{error}}" class="commission-error" role="alert">{{error}}</view><view class="commission-actions"><button wx:if="{{canReturn}}" class="commission-secondary" bindtap="returnPacket">退回补充</button><button wx:if="{{primary}}" class="commission-primary" loading="{{busy}}" disabled="{{busy||paymentChoiceRequired||view==='submit'&&platformStatus!=='ready'}}" bindtap="submit">{{view==='pay'&&simulationUncertain?'查询登记结果':view==='submit'&&designBriefEnabled?(submitPreview?'确认提交委托':'预览委托单'):primary}}</button></view></view>
   </block>
  </view>
  <view wx:if="{{preview}}" class="commission-mask" bindtap="closePreview"><view class="commission-card"><text class="commission-heading">{{preview.name}}</text><text class="commission-value">{{preview.text}}</text><button class="commission-primary" bindtap="closePreview">关闭预览</button></view></view>

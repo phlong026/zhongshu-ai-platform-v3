@@ -62,7 +62,9 @@ function nodeRows(nodes) {
   return (nodes || []).map(n => ({
     id: String(n.id), nodeIndex: n.nodeIndex, name: n.name,
     start: dateOf(n.startDate), end: dateOf(n.endDate),
-    status: nodeStatusView(n.status), milestone: n.milestone === 'TOPPING' ? 'topping' : '',
+    status: nodeStatusView(n.status), milestone: n.milestone === 'TOPPING' ? 'topping' : n.milestone === 'START' ? 'start' : '',
+    baselineEnd:dateOf(n.baselineEndDate),deviationDays:n.deviationDays,delayReason:n.delayReason||'',delayOwnerUserId:String(n.delayOwnerUserId||''),delayOwnerName:n.delayOwnerName||'',recoveryDate:dateOf(n.recoveryDate),recoveryAction:n.recoveryAction||'',delayHistory:parseJsonList(n.delayHistory),
+    pace:n.deviationDays==null?'':n.deviationDays>0?(n.status==='DONE'?'延期完成 ':'延期 ')+n.deviationDays+'天':n.status==='DONE'?(n.deviationDays<0?'提前 '+Math.abs(n.deviationDays)+'天':'按期完成'):'按计划',
     completedAt: dateOf(n.completedAt), corrections: n.corrections, reopenHistory: n.reopenHistory
   }));
 }
@@ -83,7 +85,8 @@ function stagesView(stages, urlOf) {
       expected, confirmed, remaining, due: dateOf(s.due),
       expectedText: expected, confirmedText: confirmed, remainingText: remaining,
       settled: (s.confirmedCents || 0) >= (s.expectedCents || 0) && (s.expectedCents || 0) > 0,
-      status: (s.expectedCents || 0) > 0 && (s.remainingCents || 0) <= 0 ? '已收齐' : '待财务登记收款',
+      collectible: Number(s.expectedCents) > 0 && Number(s.remainingCents) > 0,
+      status: s.expectedCents === 0 ? '未约定收款' : (s.expectedCents || 0) > 0 && (s.remainingCents || 0) <= 0 ? '已收齐' : (s.confirmedCents || 0) > 0 ? '部分收款' : '待财务登记收款',
       url: urlOf ? urlOf(STAGE_URL[s.stage] || 'start') : ''
     };
   });
@@ -92,11 +95,11 @@ function stagesView(stages, urlOf) {
 /** 材料计划单汇总视图（到货/付款派生态 → 蓝本中文） */
 function plansView(summary) {
   return (summary && summary.plans || []).map(planRow => ({
-    id: String(planRow.materialPlanId), nodeId: '', due: '',
+    id: String(planRow.materialPlanId), nodeId: String(planRow.nodeId || (planRow.lines || [])[0]?.nodeId || ''), due: '',
     // R2 P1-3：供应事项 id（行级 lines[].supplyId 聚合——arrival 提交路径 /supplies/{supplyId}/arrival）
     supplyId: (planRow.lines || []).map(l => l.supplyId).filter(Boolean)[0] || null,
     arrival: planRow.arrival, payment: paymentText(planRow),
-    known: true, complete: planRow.arrival === '已验收齐全',
+    known: (planRow.lines || []).filter(l => !l.cancelled).every(l => l.totalCents > 0), complete: planRow.arrival === '已验收齐全',
     total: planRow.totalCents || 0, paid: planRow.paidCents || 0,
     remaining: planRow.remainingCents || 0,
     totalText: centsText(planRow.totalCents), paidText: centsText(planRow.paidCents),
@@ -108,6 +111,8 @@ function plansView(summary) {
       requiredDate: dateOf(l.requiredDate), cancelled: !!l.cancelled,
       supplyId: l.supplyId ? String(l.supplyId) : '',
       supplier: l.supplier || '', paymentStatus: l.paymentStatus || '',
+      payableId: l.payableId ? String(l.payableId) : '',
+      receipts: l.receipts || [],
       // 对照版按仍有效的付款事实锁定，退款净额为零不解锁；缺投影时关闭编辑。
       locked: l.termsLocked !== false,
       termsEditable: l.termsLocked === false && !l.cancelled && !!l.supplyId
@@ -183,11 +188,11 @@ function projectView(detail) {
       prepared: detail.preparedAt ? { note: detail.preparedNote || '', workers: detail.preparedWorkers } : null
     },
     actualStart: detail.actualStartAt ? { date: dateOf(detail.actualStartAt) } : null,
-    plan: { version: 0, nodes: nodes.map(n => ({ ...n, id: n.id.replace(/^\D+/, ''), start: n.start || '', end: n.end || '' })) },
+    plan: { version: 0, nodes: nodes.map(n => ({ ...n, id: n.id, start: n.start || '', end: n.end || '' })) },
     documents: (detail.documents || []).map(d => {
       let ref = {};
       try { const parsed = typeof d.fileRef === 'string' ? JSON.parse(d.fileRef) : d.fileRef; if (parsed && typeof parsed === 'object') ref = parsed; } catch (error) { /* 历史文本没有可授权字节。 */ }
-      return {name:d.name, file:{name:ref.name || d.name, ...(ref.assetId ? {assetId:String(ref.assetId)} : {}),
+      return {name:d.name, file:{name:ref.name || d.name, ...(ref.text ? {text:String(ref.text)} : {}), ...(ref.assetId ? {assetId:String(ref.assetId)} : {}),
         ...(ref.commissionId && ref.dispatchSeq && ref.slot ? {commissionId:String(ref.commissionId),dispatchSeq:Number(ref.dispatchSeq),slot:ref.slot} : {})}, date:''};
     }).concat(detail.contractAssetId ? [{name:'已签工程合同',file:{name:'已签工程合同.pdf',assetId:String(detail.contractAssetId)},date:dateOf(detail.contractDate)}] : []),
     status: statusView(detail.status), statusRaw: detail.status,
@@ -294,7 +299,7 @@ function idemFingerprint(action, form) {
     'material-terms': l => ({ id: l.id, supplyId: l.supplyId, supplier: l.supplier, unitPrice: l.unitPrice, freight: l.freight }),
     'material-plan': l => ({ name: l.name, spec: l.spec, unit: l.unit, quantity: l.quantity })
   };
-  const FP_NODES = n => ({ nodeIndex: n.nodeIndex || n.index, name: n.name, startDate: n.start, endDate: n.end });
+  const FP_NODES = n => ({ nodeIndex: n.nodeIndex ?? n.index, name: n.name, startDate: n.start, endDate: n.end });
   return JSON.stringify(form || {}, (k, v) => {
     if (k === 'supplyOptions' || k === 'supplyLabel') return undefined; // 展示选项/标签（服务端回流）
     if (k === 'lines') {
@@ -336,9 +341,14 @@ async function perform(action, id, form, node, key) {
         baseDone: stageAmount('baseDone'),
         capDone: stageAmount('capDone'),
         contractAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING'),
-        note: f.note, workers: f.workers || ''
+        note: f.note, workers: f.workers || '',
+        nodes: (f.nodes || []).map(n => ({nodeIndex:Number(n.nodeIndex ?? n.index),name:n.name,startDate:dateOf(n.start),endDate:dateOf(n.end)}))
       }, key);
     }
+    case 'delay':
+      return api.progress.save(id,node.id,{reason:f.delayReason,ownerUserId:f.delayOwnerUserId,recoveryDate:f.recoveryDate,action:f.recoveryAction},key);
+    case 'camera-save':
+      return api.cameras.save(id,{cameraId:f.cameraId||null,name:f.cameraName,location:f.cameraLocation,url:f.cameraUrl||'',enabled:f.cameraEnabled!==false},key);
     case 'start':
       return api.plan.start(id, { date: dateStr, note: f.note || '',
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING') }, key);
@@ -382,7 +392,7 @@ async function perform(action, id, form, node, key) {
     case 'material-plan': {
       const lines = (f.lines || []).filter(l => String(l.name || '').trim());
       return api.materials.submit(id, {
-        nodeId: node && node.id, due: f.due,
+        nodeId: f.nodeId || (node && node.id), due: f.due,
         lines: lines.map(l => ({ name: l.name, spec: l.spec || '', unit: l.unit, quantity: Number(l.quantity) }))
       }, key);
     }
@@ -505,7 +515,7 @@ function listCards(rows) {
       contractTotal: r.contractTotalCents != null ? r.contractTotalCents / 100 : null,
       image: '/pages/build/assets/house.jpg', area: r.area == null ? '' : r.area, floors: r.floors == null ? '' : r.floors,
       date: '', pace: '',
-      progress: done ? 100 : (status === '待开工' ? 0 : -1), // -1=列表行无节点数据不可知（wxml 护栏隐藏进度条）
+      progress: Number(r.totalNodes)>0 ? Math.round(Number(r.completedNodes||0)*100/Number(r.totalNodes)) : done ? 100 : (status === '待开工' ? 0 : -1),
       next: !started ? '核查开工条件' : done ? '交付资料与款项收尾' : '现场检查与节点验收',
       canFunds: false,
       url: '/pages/build/record/index?id=' + encodeURIComponent(String(r.id)) + '&view=overview'
@@ -514,7 +524,16 @@ function listCards(rows) {
 }
 
 /** 页面 field 构造（record 页同款形状，纯函数内联） */
-const viewField = (key, label, type) => ({ key, label, type });
+const viewField = (key, label, type) => ({ key, label: ({
+  '已签工程合同总额（元）':'合同总额（元）','签约后（元，大于 0）':'签约后款（元）',
+  '基础完成后（元，≥0，未约定填 0）':'基础完成款（元）','封顶后（元，≥0，未约定填 0）':'封顶款（元）',
+  '现场、班组和开工准备记录':'开工准备情况','收款流水或凭据编号':'收款凭据编号',
+  '催收情况说明（选填）':'催收备注（选填）','确认到货的供应事项':'到货材料',
+  '结算说明（收付款与成本核对情况）':'结算核对记录',
+  '交付凭据（jpg/png/pdf，业主签收同文件）':'交付凭据（含业主签收）'
+})[label] || label.replace('（jpg/png/pdf）',''), type,
+  placeholder: ({signAfter:'金额须大于 0',baseDone:'未约定填 0',capDone:'未约定填 0'})[key] || '' });
+const parseJsonList = raw => { try { const value=typeof raw==='string'?JSON.parse(raw):raw;return Array.isArray(value)?value:[]; } catch (_) { return []; } };
 
 /**
  * record 页全量视图构造（A1：在线数据源按离线 wxml 同构出 fields/actions/form 与各区块键）。
@@ -534,9 +553,11 @@ function recordView(bundle, ctx) {
   const base = '/pages/build/record/index?id=' + encodeURIComponent(String(d.id)) + '&view=';
   const p = data.p;
   const nodes = p.plan.nodes;
-  const node = (opts.nodeId && nodes.find(n => n.id === String(opts.nodeId)))
+  const materialNodeId = data.plans.find(r => r.id === String(opts.planId || ''))?.nodeId;
+  const node = (view === 'start' && nodes.find(n => n.milestone === 'start'))
+    || ((opts.nodeId || materialNodeId) && nodes.find(n => n.id === String(opts.nodeId || materialNodeId)))
     || nodes.find(n => n.status !== '已完成') || nodes[nodes.length - 1] || null;
-  const own = !!opts.writeRole;
+  const own = !!opts.writeRole && (!opts.userId || [String(d.managerUserId),String(d.assignedEngineerUserId)].includes(String(opts.userId)));
   const financeRole = !!opts.financeRole; // M07-T04 批次#36：在线收款登记（856 collect 码=finance 系）
   const delivery = p.delivery, settlement = p.settlement, archived = p.archived;
   const toppingReached = nodes.some(n => n.milestone === 'topping' && n.status === '已完成');
@@ -560,24 +581,33 @@ function recordView(bundle, ctx) {
         .map(l => ({ id: String(l.supplyId), label: l.name + ' · 余 ' + l.remainingQty + l.unit })),
       supplyId: null, supplyLabel: '', // R5 P1-1：WXML 禁方法调用——label 预计算（wcc find() 编译失败教训）
       date: form.date || today, note: '', file: null, files: [],
-      nodeId: node && node.id, nodes: nodes.map(n => ({ ...n })),
+      nodeId: (view==='materials'&&node?.milestone==='start'?nodes.find(n=>n.milestone!=='start'):node)?.id, nodes: nodes.map(n => ({ ...n })),
       lines: [{ name: '', spec: '', quantity: '', unit: '包' }], due: form.due || today,
       stage, transaction: '', amount: '', total: '', first: '', receiver: '', recipient: '',
       noMaterials: false, adjustReason: '', correctId: '', correctActual: '', correctReason: '',
       siteId: '', siteNote: '', siteFile: null, siteReason: '',
       nodeDate: (node && node.completedAt) || today, nodeNote: '', nodeFile: null, nodeReason: '',
+      delayReason:node?.delayReason||'',delayOwnerUserId:node?.delayOwnerUserId||String(d.managerUserId||''),delayOwnerName:node?.delayOwnerName||p.manager,recoveryDate:node?.recoveryDate||today,recoveryAction:node?.recoveryAction||'',
       promiseDate: ''
     };
+    if (view === 'prepare') {
+      form.total = d.contractTotalCents ? String(d.contractTotalCents / 100) : '';
+      for (const [key,stageCode] of [['signAfter','SIGN_AFTER'],['baseDone','BASE_DONE'],['capDone','CAP_DONE']]) {
+        const term = (bundle.collections?.stages || []).find(s => s.stage === stageCode);
+        form[key] = term && term.expectedCents != null ? String(term.expectedCents / 100) : '';
+      }
+      if (!form.total && (bundle.collections?.stages || []).some(s=>s.expectedCents>0)) form.total=String((bundle.collections.stages||[]).reduce((sum,s)=>sum+Number(s.expectedCents||0),0)/100);
+    }
   }
 
   let fields = [], actions = [];
   if (view === 'collection') {
     // M07-T04 批次#36/R1 P1-4：在线收款登记恢复（finance 系岗——856 collect 码；封顶门禁后端裁决）
-    if (financeRole && part && !part.settled && (stage !== 'topping' || toppingReached)) {
+    if (financeRole && part && part.collectible && (stage !== 'topping' || toppingReached)) {
       fields = [viewField('amount', '本次收款金额（元）', 'digit'), viewField('date', '收款日期', 'date'),
         viewField('transaction', '收款流水或凭据编号'), viewField('file', '收款凭据（jpg/png/pdf）', 'file')];
       actions = [{ action: 'collect', label: '登记实际收款' }];
-    } else if (own && part && part.status !== '已收齐' && (stage !== 'topping' || toppingReached)) {
+    } else if (own && part && part.collectible && (stage !== 'topping' || toppingReached)) {
       fields = [viewField('promiseDate', '业主承诺付款日（选填）', 'date'), viewField('note', '催收情况说明（选填）', 'textarea')];
       actions = [{ action: 'dunning', label: '登记已催收' }];
     }
@@ -596,16 +626,22 @@ function recordView(bundle, ctx) {
     ];
     // M07-T04 批次#36：凭据门禁已摘——恢复在线提交入口（状态门禁与本地分支一致：own+未归档+未开工；后端拒绝开工后修改）
     if (own && !archived && !p.actualStart) actions = [{ action: 'prepare', label: '提交开工准备' }]; // R1 P2-7：适配字段名（projectView 映射为 actualStart 对象）
+    else fields = [];
   } else if (view === 'start') {
     // R1 P1-4：实际开工记录恢复（own；开工后后端拒绝修改）
-    if (own && !archived && !p.actualStart) {
+    if (own && !archived && !p.actualStart && d.preparedAt && nodes.every(n=>n.start&&n.end) && data.installments.some(i=>i.stage==='start'&&i.settled)) {
       fields = [viewField('date', '实际开工日期', 'date'), viewField('note', '现场情况', 'textarea'),
         viewField('file', '开工凭据（jpg/png/pdf）', 'file')];
       actions = [{ action: 'start', label: '记录实际开工' }];
     }
-  } else if (view === 'node' && node) {
+  } else if (view === 'delay' && node) {
+    if(own && !archived && !delivery && node.status!=='已完成' && node.deviationDays>0){
+      fields=[viewField('delayReason','延期原因','textarea'),viewField('delayOwnerUserId','处理责任人','handler'),viewField('recoveryDate','预计完成日期','date'),viewField('recoveryAction','处理措施','textarea')];
+      actions=[{action:'delay',label:'保存处理记录'}];
+    }
+  } else if (view === 'node' && node && node.milestone !== 'start') {
     // R1 P1-4：节点完成/更正/重开恢复（own；完成态切换表单）
-    if (own && !archived && !delivery && node.status !== '已完成') {
+    if (own && !archived && !delivery && p.actualStart && node.status !== '已完成' && nodes.find(n=>n.status!=='已完成')?.id===node.id) {
       fields = [viewField('date', '节点完成日期', 'date'), viewField('note', '节点完成情况', 'textarea'),
         viewField('file', '节点完成凭据（jpg/png/pdf）', 'file'), viewField('noMaterials', '本节点材料无需到场', 'check')];
       // R2 P1-4：现场记录创建恢复（多张照片，perform site→api.site.create）
@@ -614,6 +650,13 @@ function recordView(bundle, ctx) {
       fields = [viewField('nodeDate', '正确完成日期', 'date'), viewField('nodeNote', '正确节点情况', 'textarea'),
         viewField('nodeFile', '正确凭据（jpg/png/pdf）', 'file'), viewField('nodeReason', '更正原因', 'textarea')];
       actions = [{ action: 'node-correct', label: '更正节点记录' }];
+      const index = nodes.findIndex(n => n.id === node.id);
+      const nextId = nodes[index + 1]?.id;
+      if (!nodes.slice(index + 1).some(n => n.status === '已完成')
+        && !(d.siteRecords || []).some(r => String(r.node_id) === nextId)
+        && !(node.milestone === 'topping' && (bundle.collections?.records || []).some(c => c.stage === 'CAP_DONE'))) {
+        actions.push({ action: 'node-reopen', label: '撤回节点完成' });
+      }
     }
   } else if (view === 'delivery') {
     // R1 P1-4：工程交付恢复（own；门禁=全节点+材料齐+全累计收款，后端裁决）
@@ -623,7 +666,7 @@ function recordView(bundle, ctx) {
       actions = [{ action: 'deliver', label: '登记工程交付' }];
     }
   } else if (view === 'project') {
-    if (own && !archived) actions = [{ action: 'plan', label: '保存施工计划' }];
+    if (own && !delivery && !archived) actions = [{ action: 'plan', label: '保存施工计划' }];
   } else if (view === 'materials') {
     if (own && !delivery && (!opts.nodeId || (node && node.status !== '已完成'))) {
       fields = [viewField('due', '需到场日期', 'date'), viewField('note', '材料说明（选填）', 'textarea')];
@@ -686,14 +729,20 @@ function recordView(bundle, ctx) {
   const links = [['项目记录与计划', 'project'], ['项目资料', 'documents'], ['材料计划', 'materials'], ['项目收付款', 'payments'],
     ['交付与归档', delivery ? 'archive' : 'delivery'], ...(delivery ? [['项目结算', 'settlement']] : [])]
     .map(([label, v]) => ({ label, url: base + v }));
-  const next = !delivery && current ? { title: current.name + '待记录', url: base + 'node&nodeId=' + encodeURIComponent(current.id) }
+  const next = archived ? null
+    : !d.preparedAt ? { title: '填写开工准备与施工计划', url: base + 'prepare' }
+    : !p.actualStart && nodes.some(n=>!n.start || !n.end) ? {title:'补全施工计划日期',url:base+'project'}
+    : !p.actualStart && data.installments.some(i=>i.stage==='start'&&!i.settled) ? {title:'跟进签约后期款',url:base+'collection&stage=start'}
+    : !p.actualStart ? {title:'记录实际开工',url:base+'start'}
+    : !delivery && current ? { title: current.name + '待记录', url: base + 'node&nodeId=' + encodeURIComponent(current.id) }
+    : !delivery ? {title:'核对工程交付',url:base+'delivery'}
     : delivery && !settlement ? { title: '确认项目结算', url: base + 'settlement' }
     : settlement && !archived ? { title: '归档项目资料', url: base + 'archive' } : null;
   return {
     p, form, fields, actions, fileNames: {},
     // M07-T02：期次行补 collection 跳转（BASE_DONE 收款入口；stage 已是 STAGE_URL 归一值 start/base/topping）
     installments: data.installments.map(i => ({ ...i, url: i.stage==='tail' ? (financeRole?'/pages/admin/finance-desk/index?view=flows&tab=receivables':'') : base + 'collection&stage=' + i.stage })),
-    plans, settle: data.settle,
+    plans: view === 'materials' && opts.nodeId ? plans.filter(r=>r.nodeId===String(opts.nodeId)) : plans, settle: data.settle,
     // R2 P1-4：现场记录透出（后端 detail.siteRecords——JSONB 文本解析；site-correct 更正入口数据源）
     siteRecords: (d.siteRecords || []).filter(r => String(r.node_id) === String((node && node.id) || '')).map(r => {
       let files = [];
@@ -719,23 +768,47 @@ function recordView(bundle, ctx) {
     expenseTarget: form.expenseName || '',
     purposes: [{ code: 'LABOR', label: '劳务' }, { code: 'TRAVEL', label: '差旅' }, { code: 'OTHER', label: '其它' }],
     purposeLabel: ({ LABOR: '劳务', TRAVEL: '差旅', OTHER: '其它' })[form.purposeCode] || '劳务',
-    docs: p.documents, events: [],
-    nodeRows: nodes.map(n => ({ ...n, pace: '', url: base + 'node&nodeId=' + encodeURIComponent(n.id) })),
-    nodePlans: [], nodeMoney: null, inspections: [], arrivals: [],
-    pending: [], waiting: [], engineers: [], engineerIndex: 0, templates: [], templateIndex: 0,
+    docs: p.documents, events: [
+      ...(d.sourceCommissionId ? [{id:'handover',title:'业务移交建档 · 委托 '+d.sourceCommissionId,time:d.drawingVersion||'',by:p.manager}] : []),
+      ...(d.preparedAt ? [{id:'prepare',title:'开工准备已保存',time:dateOf(d.preparedAt),by:p.manager}] : []),
+      ...(p.actualStart ? [{id:'start',title:'实际开工已记录',time:p.actualStart.date,by:p.manager}] : []),
+      ...nodes.filter(n=>n.status==='已完成').map(n=>({id:'node-'+n.id,title:n.name+'已完成',time:n.completedAt,by:p.manager})),
+      ...(delivery ? [{id:'deliver',title:'工程已交付 · '+delivery.recipient,time:delivery.date,by:p.manager}] : []),
+      ...(settlement ? [{id:'settle',title:'项目已确认结算',time:settlement.date,by:p.manager}] : []),
+      ...(archived ? [{id:'archive',title:'项目资料已归档',time:dateOf(d.closure.archivedAt),by:p.manager}] : [])
+    ],
+    nodeRows: nodes.map(n => ({ ...n, url: base + (n.milestone==='start'?'start':'node&nodeId='+encodeURIComponent(n.id)), delayUrl:base+'delay&nodeId='+encodeURIComponent(n.id) })),
+    cameraUrl:base+'cameras', delayUrl:node?base+'delay&nodeId='+encodeURIComponent(node.id):'',
+    startBlocked:!p.actualStart&&!actions.length&&view==='start'?(next?.title||'请先确认签约后期款'):'',
+    startPrerequisiteUrl:next?.url&&next.url!==base+'start'?next.url:base+'collection&stage=start',
+    canManageCameras:own&&!archived&&!delivery,
+    handlers:opts.handlers||[], cameras:opts.cameras||[], cameraError:opts.cameraError||'',
+    delayHistory:(node?.delayHistory||[]).map((r,i)=>({...r,id:String(i),recordedAt:timestampDate(r.recordedAt),recoveryDate:dateOf(r.recoveryDate),ownerName:r.ownerName||(opts.handlers||[]).find(h=>String(h.id)===String(r.ownerUserId))?.name||'原责任人'})),
+    nodePlans: plans.filter(r=>r.nodeId===node?.id),
+    nodeMoney: node ? (()=>{const rows=plans.filter(r=>r.nodeId===node.id),sum=k=>rows.reduce((n,r)=>n+Number(r[k]||0),0);return {known:rows.every(r=>r.known),plannedText:centsText(sum('total')),committedText:centsText(sum('total')),paidText:centsText(sum('paid')),remainingText:centsText(sum('remaining')),expenses:[]};})() : null,
+    inspections: (d.siteRecords || []).filter(r=>r.completion&&String(r.node_id)===node?.id).map(r=>({id:String(r.id),date:timestampDate(r.occurred_at),result:r.note||'已完成',person:p.manager,file:{assetId:parseJsonList(r.file_asset_ids)[0]}})),
+    arrivals: (plan?.lines || []).flatMap(l=>(l.receipts||[]).map(r=>({id:String(r.id),materialName:l.name,unit:l.unit,date:dateOf(r.occurredAt),actual:r.actualQuantity,note:r.transactionNo||'',qualityText:r.qualified?'合格实收':'实收待质检处理',file:r.fileAssetId?{assetId:String(r.fileAssetId)}:null,corrections:parseJsonList(r.corrections),canCorrect:own&&!delivery&&!!r.id}))),
+    pending: own && !archived ? [
+      ...(!delivery?nodes.filter(n=>n.status!=='已完成'&&n.deviationDays>0).map(n=>({id:'delay-'+n.id,title:n.name+'延期'+n.deviationDays+'天',status:n.delayOwnerName,url:base+'delay&nodeId='+encodeURIComponent(n.id)})):[]),
+      ...(next ? [{ id: 'next', title: next.title, url: next.url }] : []),
+      ...(!delivery ? plans.filter(r => r.lines.some(l => Number(l.remainingQty) > 0)).map(r => ({
+        id: 'material-' + r.id, title: '材料到货待核对', status: nodes.find(n => n.id === r.nodeId)?.name || '', url: r.url
+      })) : [])
+    ] : [], waiting: [], engineers: [], engineerIndex: 0, templates: [], templateIndex: 0,
     links, next,
     node: node || null, plan: plan || null,
-    nodeIndex: Math.max(0, nodes.findIndex(n => n.id === (form.nodeId || (node && node.id)))),
+    materialNodes:nodes.filter(n=>n.milestone!=='start'),
+    nodeIndex: Math.max(0, (view==='materials'?nodes.filter(n=>n.milestone!=='start'):nodes).findIndex(n => n.id === (form.nodeId || (node && node.id)))),
     nodeMaterialUrl: node ? base + 'materials&nodeId=' + encodeURIComponent(node.id) : '',
     nodeFundingUrl: node ? base + 'funding&nodeId=' + encodeURIComponent(node.id) : '',
     nodeRecordUrl: node ? base + 'node&nodeId=' + encodeURIComponent(node.id) : '',
-    nodeUrl: current ? base + 'node&nodeId=' + encodeURIComponent(current.id) : base + (delivery ? 'archive' : 'delivery'),
+    nodeUrl: current ? base + (current.milestone==='start'?'start':'node&nodeId='+encodeURIComponent(current.id)) : base + (delivery ? 'archive' : 'delivery'),
     settlementUrl: base + 'settlement',
     paceDone: nodes.filter(n => n.status === '已完成').length, paceTotal: nodes.length,
-    paceOverdue: nodes.filter(n => n.status !== '已完成' && n.end && today && n.end < today).length,
+    paceOverdue: nodes.filter(n => n.status !== '已完成' && n.deviationDays>0).length,
     stage, stageText: p.stageText, partLabel: stage === 'base' ? '基础完成后期款'
       : stage === 'topping' ? '封顶后期款' : '签约后期款',
-    own, canPay: false, finance: false, // 收款登记/采购金额为凭据类动作，随 COS 批开放
+    own, canPay: false, finance: financeRole,
     canAdjust: own && !delivery && !!plan,
     canTerms: (opts.termsRole == null ? financeRole : !!opts.termsRole) && !archived && !!plan && plan.lines.some(l => l.termsEditable),
     termsLocked: !!plan && !plan.lines.some(l => l.termsEditable),

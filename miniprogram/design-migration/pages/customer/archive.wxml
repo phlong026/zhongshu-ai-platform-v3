@@ -2,7 +2,7 @@
   <v12-navbar title="{{forCommission ? '核对委托客户' : '发送至客户'}}" show-back />
   <view class="v12-content">
     <text wx:if="{{forCommission}}" class="archive-notice">请核对客户姓名和手机号，确认后将本次预算归档并进入设计委托。</text>
-    <view class="search"><input value="{{keyword}}" bindinput="input" bindconfirm="search" placeholder="客户姓名或手机号" /><button bindtap="search" disabled="{{loading}}">查询</button></view>
+    <view class="search"><input value="{{keyword}}" bindinput="input" bindconfirm="search" placeholder="客户姓名或手机号" /><button bindtap="search" disabled="{{busy}}">查询</button></view>
     <text wx:if="{{error}}" class="archive-error">{{error}}</text>
     <view wx:for="{{rows}}" wx:key="id" data-id="{{item.id}}" bindtap="choose" class="customer {{selected === item.id + '' ? 'selected' : ''}}" role="button" aria-label="选择客户{{item.name}}"><view class="customer-info"><text class="customer-name">{{item.name}}</text><text class="customer-phone">{{item.phone}}</text></view><view class="customer-check">{{selected === item.id + '' ? '✓' : ''}}</view></view>
     <text wx:if="{{!loading && !rowCount}}" class="archive-empty">暂无符合条件的客户</text>

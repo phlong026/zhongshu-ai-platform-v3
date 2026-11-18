@@ -45,6 +45,15 @@ const plan = {
     http.post('/franchise/engineering/' + id + '/nodes/' + nodeId + '/correct', data, idem(key, 'correct'))
 };
 
+const progress = {
+  handlers: id => http.get('/franchise/engineering/'+id+'/progress/handlers'),
+  save: (id,nodeId,data,key) => http.post('/franchise/engineering/'+id+'/nodes/'+nodeId+'/delay',data,idem(key,'delay'))
+};
+const cameras = {
+  list: id => http.get('/franchise/engineering/'+id+'/cameras'),
+  save: (id,data,key) => http.post('/franchise/engineering/'+id+'/cameras',data,idem(key,'camera')),
+  playback: (id,cameraId) => http.get('/franchise/engineering/'+id+'/cameras/'+cameraId+'/playback')
+};
 const materials = {
   /** 材料计划登记（每次提交一个计划单分组 → materialPlanId） */
   submit: (id, data, key) => http.post('/franchise/engineering/' + id + '/materials', data, idem(key, 'mplan')),
@@ -209,4 +218,4 @@ async function uploadVoucher(filePath, assetType) {
   return assetId;
 }
 
-module.exports = { projects, plan, materials, site, collections, closure, assets, uploadVoucher, base64ToBinary };
+module.exports = { projects, plan, progress, cameras, materials, site, collections, closure, assets, uploadVoucher, base64ToBinary };

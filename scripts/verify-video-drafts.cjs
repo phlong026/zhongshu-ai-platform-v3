@@ -39,6 +39,14 @@ test('a failed load preserves typing locally without cloud writes',async()=>{
   const h=harness({read:async()=>{throw Error('offline');}});await tick();h.page.inputDescription({detail:{value:'offline edit'}});h.page.onHide();await tick();
   assert.equal(h.writes.length,0);assert.equal(h.disk.get('actor:zs-video-draft-v2:new').form.description,'offline edit');
 });
+test('an unversioned service keeps a task edit on this device and never overwrites a shared draft',async()=>{
+  for(const legacy of [{exists:false},{exists:true,revision:null,description:'other draft'}]){
+    const h=harness({read:async()=>legacy,task:'101'});await tick();
+    assert.match(h.page.data.draftStatus,/仅存本机/);h.page.inputDescription({detail:{value:'现场取景'}});
+    h.page.onHide();await tick();assert.equal(h.writes.length,0);
+    assert.equal(h.disk.get('actor:zs-video-draft-v2:task:101').form.description,'现场取景');
+  }
+});
 test('parameter-only edits during a slow load are preserved with a conflict',async()=>{
   const read=later(),h=harness({read:()=>read.promise});h.page.inputDuration({detail:{value:'9'}});
   read.resolve({exists:true,revision:2,description:'remote',parameters:{duration:10}});await tick();h.page.onHide();

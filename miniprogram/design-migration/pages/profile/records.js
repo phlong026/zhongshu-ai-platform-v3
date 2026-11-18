@@ -13,7 +13,7 @@ protectedPage({
     this._type = ['projects','favorites'].includes(options.type) ? options.type : null;
     if (!this._type) { this.setData({ error: '记录类型无效，请从「我的」重新进入' }); return; }
     this.setData({ title: options.from==='tasks'&&this._type==='projects'?'设计任务':view.titles[this._type], canDelete: this._type === 'projects',
-      emptyText: ({ projects: '还没有方案，完成设计后会自动保留在这里', submissions: '还没有投稿，可从已完成的方案提交审核', favorites: '还没有收藏，去户型详情收藏喜欢的设计', orders: '还没有充值订单', points: '还没有点数变动，充值或生成后会记录在这里' })[this._type] });
+      emptyText: ({ projects: options.from === 'tasks' ? '暂无设计任务' : '暂无方案', submissions: '还没有投稿，可从已完成的方案提交审核', favorites: '暂无收藏户型', orders: '还没有充值订单', points: '还没有点数变动，充值或生成后会记录在这里' })[this._type] });
   },
   onShow() { if (this._type) this.reload(); },
   onUnload() { this._seq = (this._seq || 0) + 1; this._token = null; },
@@ -54,7 +54,12 @@ protectedPage({
       this._cursor = response.nextCursor || null; this._page = pageNo + 1;
       this.setData({ rows, hasMore: more, loading: false });
       if (type === 'projects') this.loadCovers(rows);
-    }).catch(error => { if (this.current(seq)) this.setData({ loading: false, error: view.errorText(error) }); });
+    }).catch(error => {
+      if (!this.current(seq)) return;
+      const code = String(error && error.code);
+      const message = code === '401' ? '请重新登录' : code === '403' ? '当前岗位没有查看权限' : `${this.data.title}暂时无法加载`;
+      this.setData({ loading: false, error: message });
+    });
   },
   // 封面缩略图：逐行经下载票据换 data URL；行序以 id 定位，避免并发回写错位
   loadCovers(rows) {

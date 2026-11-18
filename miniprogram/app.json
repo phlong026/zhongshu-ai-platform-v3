@@ -33,7 +33,8 @@
         "home/index",
         "projects/index",
         "materials/index",
-        "record/index"
+        "record/index",
+        "issues/index"
       ]
     },
     {
@@ -50,6 +51,7 @@
         "index",
         "home/index",
         "finance/index",
+        "department/index",
         "performance/index",
         "tasks/index",
         "profile/index",
@@ -74,7 +76,8 @@
       "name": "studio-workflow",
       "pages": [
         "index",
-        "characters/index"
+        "characters/index",
+        "characters/transfer"
       ]
     },
     {
@@ -122,6 +125,13 @@
         "pages/budget/history",
         "pages/budget/prices",
         "pages/customer/archive"
+      ]
+    },
+    {
+      "root": "pages/home-metrics",
+      "name": "home-metrics",
+      "pages": [
+        "index","record"
       ]
     }
   ],

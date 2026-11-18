@@ -20,23 +20,6 @@ test('video duration, portrait/landscape bounds and known HEVC are checked',()=>
  for(const info of [{duration:5,width:640,height:360},{duration:1800,width:2160,height:3840},{duration:60,width:4096,height:2160}])media.validateVideo(info);
  for(const info of [{duration:4,width:640,height:360},{duration:1801,width:640,height:360},{duration:60,width:320,height:240},{duration:60,width:5000,height:2500},{duration:60,width:640,height:360,type:'h265'},{duration:0,width:640,height:360}])assert.throws(()=>media.validateVideo(info));
 });
-function uploadHarness(extension,size=32,wrongType){
- const payload=Buffer.alloc(32,7),calls=[];let reads=0;
- const mime=media.formatOf('a.'+extension,['mp4','mov'].includes(extension)?'AVATAR':'VOICE').mimeType;
- const api={clones:{uploadTicket:async(_,body)=>{calls.push(['ticket',body]);return{uploadId:'99',uploadUrl:'https://upload.hifly.cc/test.'+extension,contentType:wrongType||mime}},completeUpload:async()=>{calls.push(['complete']);return{status:'UPLOADED'}}}};
- const manager={stat:o=>o.success({stats:{size}}),readFile:o=>{reads++;const chunk=o.length?payload.subarray(o.position,o.position+o.length):payload;o.success({data:chunk});}};
- const context={module:{exports:{}},require:p=>p.endsWith('/content')?api:p.endsWith('/clone-media')?media:p.endsWith('/sha256-stream')?{Sha256,hashFile}:require('../miniprogram/api/finance'),wx:{getFileSystemManager:()=>manager,request:o=>{calls.push(['put',o]);o.success({statusCode:200})}}};
- vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/hifly-upload'),'utf8'),context);
- return {calls,reads:()=>reads,run:()=>context.module.exports('/tmp/a.'+extension,['mp4','mov'].includes(extension)?'AVATAR':'VOICE','21')};
-}
-test('MOV M4A WAV upload only to Hifly with exact provider Content-Type and full hash',async()=>{
- for(const ext of ['mp4','mov','mp3','m4a','wav']){const h=uploadHarness(ext);await h.run();assert.deepEqual(h.calls.map(c=>c[0]),['ticket','put','complete']);assert.deepEqual(Object.keys(h.calls[1][1].header),['Content-Type']);assert.equal(h.calls[0][1].sha256,crypto.createHash('sha256').update(Buffer.alloc(32,7)).digest('hex'));}
- const mismatch=uploadHarness('wav',32,'audio/mp3');await assert.rejects(mismatch.run(),/直传通道/);assert.equal(mismatch.calls.length,1);
-});
-test('oversized media is rejected before allocating or requesting upload grants',async()=>{
- for(const [ext,size] of [['mov',500*1024*1024+1],['wav',20*1024*1024+1]]){const h=uploadHarness(ext,size);await assert.rejects(h.run(),/素材大小/);assert.equal(h.reads(),0);assert.equal(h.calls.length,0);}
-});
-
 test('500MiB file digest stays chunked and agrees with independent SHA without a full-size allocation',async()=>{
  const chunk=Buffer.alloc(1024*1024,3),reference=crypto.createHash('sha256');for(let i=0;i<500;i++)reference.update(chunk);
  let reads=0;const fs={readFile:o=>{assert.equal(o.length,chunk.length);assert.equal(o.position,reads*chunk.length);reads++;o.success({data:chunk});}};

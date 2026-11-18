@@ -1,1 +1,9 @@
-{"usingComponents": {"custom-tab-bar": "/custom-tab-bar/index", "stat-grid": "../../../components/stat-grid/index", "brand-header": "/components/brand-header/index"}}
+{
+  "usingComponents": {
+    "custom-tab-bar": "/custom-tab-bar/index",
+    "stat-grid": "../../../components/stat-grid/index",
+    "brand-header": "/components/brand-header/index",
+    "todo-preview": "/components/todo-preview/index",
+    "home-overview": "/components/home-overview/index"
+  }
+}

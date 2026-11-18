@@ -5,7 +5,7 @@ const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约到店�
 const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约到店客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'}; // M04-T05：API 态到店口径入口说明
 module.exports=()=>({
  data:{keyword:'',tab:'all',tabs:[],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10,platformMode:false,platformStatus:'',platformError:'',authError:false},
- onLoad(o){if(['due','appointments'].includes(o.focus))this.setData({tab:o.focus});},
+ onLoad(o={}){this.setData({intent:o.intent==='commission'?'commission':''});if(['due','appointments'].includes(o.focus))this.setData({tab:o.focus});},
  onUnload(){this.__unloaded=true;this.cancelSearch();},
  cancelSearch(){if(this.__searchTimer){clearTimeout(this.__searchTimer);this.__searchTimer=null;}},
  onShow(){
@@ -90,9 +90,9 @@ module.exports=()=>({
  },
  register(){if(this.data.canRegister)wx.navigateTo({url:'/pages/workflow/index?view=customers&modal=register'});},
  open(e){const id=e.currentTarget.dataset.id;
-  if(this.data.customers.some(c=>String(c.id)===String(id)))wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});},
+  if(this.data.customers.some(c=>String(c.id)===String(id)))wx.navigateTo({url:this.data.intent==='commission'&&this.data.canRegister?'/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id):'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});},
  act(e){const row=this.data.customers.find(c=>String(c.id)===String(e.currentTarget.dataset.id));
-  if(row)wx.navigateTo({url:row.url});},
+  if(row){if(this.data.intent==='commission'&&this.data.canRegister)return this.open(e);wx.navigateTo({url:row.url});}},
  call(e){const dial=(this.data.customers.find(c=>String(c.id)===String(e.currentTarget.dataset.id))||{}).dial;
   if(!/^1\d{10}$/.test(dial||''))return wx.showToast({title:'该号码不可拨打',icon:'none'});wx.makePhoneCall({phoneNumber:dial,fail(){}});},
 });

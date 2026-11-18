@@ -3,7 +3,9 @@
     "workspace-nav": "/custom-tab-bar/index",
     "brand-header": "/components/brand-header/index",
     "point-asset-card": "/components/point-asset-card/index",
-    "month-select": "/components/month-select/index"
+    "month-select": "/components/month-select/index",
+    "todo-preview": "/components/todo-preview/index",
+    "home-overview": "/components/home-overview/index"
   },
   "navigationBarTitleText": "财务工作台"
 }

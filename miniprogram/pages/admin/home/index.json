@@ -1,1 +1,9 @@
-{"usingComponents":{"owner-header":"../owner-header/index","owner-nav":"../owner-nav/index","empty-state":"../../../components/empty-state/index"}}
+{
+  "usingComponents": {
+    "brand-header": "/components/brand-header/index",
+    "owner-nav": "../owner-nav/index",
+    "empty-state": "../../../components/empty-state/index",
+    "todo-preview": "/components/todo-preview/index",
+    "home-overview": "/components/home-overview/index"
+  }
+}

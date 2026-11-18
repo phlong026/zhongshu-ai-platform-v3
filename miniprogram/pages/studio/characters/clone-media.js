@@ -31,7 +31,7 @@ if(!width||!height)throw Error('无法读取视频分辨率，请更换视频');
 if(Math.min(width,height)<360||Math.max(width,height)>4096||Math.min(width,height)>2160)throw Error('人物视频分辨率须为360p至4K');
 }
 async function checkVideo(path,size,alive=()=>true){
-if(Number(size)>500*1024*1024)throw Error('人物视频须在500MB以内');
+if(Number(size)>20*1024*1024)throw Error('人物视频须在20MB以内，请压缩后重试');
 if(typeof wx.getVideoInfo!=='function')throw Error('当前微信版本无法读取视频信息，请更新微信后重试');
 const info=await new Promise((resolve,reject)=>wx.getVideoInfo({src:path,success:resolve,fail:()=>reject(Error('无法读取视频，请选择MP4或MOV文件'))}));
 if(!alive())throw {cancelled:true};validateVideo(info);return info;

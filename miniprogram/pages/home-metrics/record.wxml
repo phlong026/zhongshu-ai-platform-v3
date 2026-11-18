@@ -1,0 +1,7 @@
+<brand-header title="{{title}}" back="{{true}}"/>
+<view class="detail-page"><view wx:if="{{row}}" class="detail-summary">
+  <text class="detail-heading">{{row.title}}</text><view class="detail-number">¥{{row.original}}</view>
+  <text class="detail-note">状态　{{row.status}}</text><text class="detail-note">单号　{{row.id}}</text>
+  <text class="detail-note">业务日期　{{row.date||'未约定'}}</text><text class="detail-note">{{row.description}}</text>
+  <text class="record-count">本指标计入金额　¥{{row.metricAmount}}</text>
+</view><text wx:elif="{{error}}" class="error">{{error}}</text><text wx:else class="empty">正在读取原单…</text></view>

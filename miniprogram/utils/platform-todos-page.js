@@ -45,7 +45,7 @@ function retry(page) {
 }
 
 function open(page, e) {
-  const d = e.currentTarget.dataset;
+  const d = e.detail && e.detail.item || e.currentTarget.dataset;
   if (String(d.clickable) !== 'true') return;
   nav.open(d.path);
 }
