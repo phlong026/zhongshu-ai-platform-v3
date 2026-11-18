@@ -81,7 +81,7 @@
   <view class="card login-card">
    <view class="seg"><button wx:for="{{['账号密码登录','微信一键登录']}}" wx:key="*this" class="{{loginMode===(index===0?'account':'wechat')?'active':''}}" data-mode="{{index===0?'account':'wechat'}}" bindtap="selectLoginMode">{{item}}</button></view>
    <block wx:if="{{loginMode==='account'}}">
-    <view class="row inset account-search"><text class="label">账号</text><input class="grow" maxlength="100" placeholder="姓名或用户名" value="{{form.accountQuery}}" data-key="accountQuery" bindinput="input" confirm-type="search" bindconfirm="findAccounts"/></view>
+    <view class="row inset account-search"><text class="label">账号</text><input class="grow" maxlength="100" placeholder="姓名、用户名或门店全名" value="{{form.accountQuery}}" data-key="accountQuery" bindinput="input" confirm-type="search" bindconfirm="findAccounts"/></view>
     <text wx:if="{{matchBusy}}" class="hint">匹配中…</text>
     <text wx:if="{{accountMatchesHasMore}}" class="warn">结果较多，请补充名称</text>
     <view wx:if="{{accountMatches.length>1}}" class="account-match-list"><text class="hint">选择账号</text><button wx:for="{{accountMatches}}" wx:key="accountId" class="account-match {{selectedAccount.accountId===item.accountId?'selected-option':''}}" data-account-id="{{item.accountId}}" data-handler="selectAccount" bindtap="selectAccount"><view class="grow"><text class="strong">{{item.personName||item.ownerName||item.loginName}}<text wx:if="{{item.roleName}}"> · {{item.roleName}}</text></text><text wx:if="{{item.shortOrgName}}" class="hint">{{item.shortOrgName}}</text></view><text class="brown">{{selectedAccount.accountId===item.accountId?'●':'○'}}</text></button></view>

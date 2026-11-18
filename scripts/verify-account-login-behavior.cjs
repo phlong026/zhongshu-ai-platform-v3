@@ -404,6 +404,18 @@ function matchingClock() {
 }
 function typeAccount(env,value){env.page.input({currentTarget:{dataset:{key:'accountQuery'}},detail:{value}});}
 
+test('登录页原样检索含空格和括号的店名，单字全名可按键盘搜索', async () => {
+ const clock=matchingClock(),queries=[];
+ const env=createPage({...clock,auth:{accountMatches:async query=>{
+  queries.push(query);return{items:[{accountId:'boss',loginName:'hjmz-qingsong'}]};
+ }}});
+ typeAccount(env,'青松 建房（南宁店）');clock.advance(300);await flush();
+ assert.equal(env.page.data.selectedAccount.accountId,'boss');
+ typeAccount(env,'青');env.page.findAccounts();await flush();
+ assert.equal(env.page.data.selectedAccount.accountId,'boss');
+ assert.deepEqual(queries,['青松 建房（南宁店）','青']);
+});
+
 test('用户名连续输入仅在停顿后匹配最后一次输入，短查询不请求接口', async () => {
  const clock=matchingClock(),queries=[];const env=createPage({...clock,auth:{accountMatches:async q=>{queries.push(q);return{items:[]};}}});
  typeAccount(env,'p');clock.advance(500);assert.equal(queries.length,0);
