@@ -440,7 +440,7 @@ public class SaleContractService {
 
     public java.util.List<Map<String,Object>> contractCollectionDeclarations(PostSnapshot post, long contractId) {
         return jdbcTemplate.queryForList("""
-            SELECT d.id::text,d.stage_id::text,d.amount_cents,d.received_date,d.transaction_no,d.status,d.return_reason
+            SELECT d.id::text,d.stage_id::text,d.amount_cents,d.received_date,d.transaction_no,d.method,d.account_name,d.status,d.return_reason
             FROM fr_sale_collection_declaration d
             JOIN fr_sale_payment_stage s ON s.id=d.stage_id AND s.company_id=d.company_id
             WHERE d.company_id=? AND s.contract_id=? AND d.applicant_user_id=?

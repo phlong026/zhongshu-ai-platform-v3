@@ -155,11 +155,12 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     void returnedDeclarationCannotBeConfirmedAndCanBeResubmitted(){
         long customerId=newCustomer();var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
         as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
-        long stage=stageIdOf(c.getId(),"SIGN_AFTER");var cmd=new SaleContractService.CollectCommand(10000,"bank",txn(),java.time.LocalDate.now());
+        long stage=stageIdOf(c.getId(),"SIGN_AFTER");var cmd=new SaleContractService.CollectCommand(10000,"bank",txn(),java.time.LocalDate.now(),null,"公司对公户");
         long declaration=((Number)as(salesA1,()->contracts.collect(salesA1,stage,cmd,idem())).get("declarationId")).longValue();
         contracts.returnDeclaration(finance,declaration,"补充实际到账信息",idem());
         assertThat(contracts.contractCollectionDeclarations(salesA1,c.getId())).hasSize(1);
-        assertThat(contracts.contractCollectionDeclarations(salesA1,c.getId()).get(0).get("return_reason")).isEqualTo("补充实际到账信息");
+        assertThat(contracts.contractCollectionDeclarations(salesA1,c.getId()).get(0))
+                .containsEntry("return_reason","补充实际到账信息").containsEntry("account_name","公司对公户").containsEntry("method","bank");
         assertThat(contracts.contractCollectionDeclarations(finance,c.getId())).isEmpty();
         assertThatThrownBy(()->contracts.confirmDeclaration(finance,declaration,idem())).isInstanceOf(ServiceException.class);
         as(salesA1,()->contracts.collect(salesA1,stage,cmd,idem()));
