@@ -266,13 +266,17 @@ public class PerfOperatingService {
     private List<Map<String,Object>> receiptBalances(long org, String asOf) {
         return jdbc.queryForList("""
             WITH cutoff AS (SELECT ?::bigint AS org, ?::date AS day),
+            signed_contracts AS (
+                SELECT c.id,c.company_id,c.customer_id
+                FROM cutoff d JOIN fr_sale_contract c ON c.company_id=d.org AND c.status='SIGNED'
+                    AND NOT c.deleted AND c.signed_date<=d.day
+            ),
             sale_terms AS (
                 SELECT s.id,s.company_id,s.contract_id,
                     CASE WHEN h.stage_id IS NULL THEN s.amount_cents ELSE h.amount_cents END AS amount_cents,
                     CASE WHEN h.stage_id IS NULL THEN s.due_date ELSE h.due_date END AS due_date
                 FROM cutoff d
-                JOIN fr_sale_contract c ON c.company_id=d.org AND c.status='SIGNED'
-                    AND NOT c.deleted AND c.signed_date<=d.day
+                JOIN signed_contracts c ON c.company_id=d.org
                 JOIN fr_sale_payment_stage s ON s.contract_id=c.id AND s.company_id=c.company_id
                 LEFT JOIN LATERAL (
                     SELECT h.stage_id,h.amount_cents,h.due_date,h.deleted
@@ -294,7 +298,10 @@ public class PerfOperatingService {
             legacy_projects AS (
                 SELECT p.id,p.company_id
                 FROM cutoff d JOIN fr_eng_project p ON p.company_id=d.org
-                WHERE NOT EXISTS (SELECT 1 FROM sale_terms s WHERE s.contract_id=p.sale_contract_id)
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM signed_contracts c WHERE c.company_id=p.company_id
+                      AND (c.id=p.sale_contract_id OR (p.sale_contract_id IS NULL AND c.customer_id=p.customer_id))
+                )
                   AND NOT EXISTS (
                       SELECT 1 FROM fr_eng_collection x
                       JOIN fr_sale_stage_receipt a ON a.receipt_id=x.receipt_id AND a.company_id=x.company_id

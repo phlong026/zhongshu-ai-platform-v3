@@ -12,6 +12,9 @@ import static cn.iocoder.yudao.module.franchise.commission.enums.FranchiseCommis
 /** Persisted simulation receipts never enter the actual finance ledger. */
 @Component
 public class CommissionSimulatedPayments {
+    static final String HISTORICAL_REVIEW_AGGREGATE = "commission-historical-settlement";
+    static final String HISTORICAL_REVIEW_COMMAND = "commission-historical-settlement-prepare";
+
     public record Order(String number,long commissionId,int submissionVersion,String customerName,
                         Long amountCents,String status,String channel,OffsetDateTime paidAt,boolean simulated,boolean storeFinanceConfigured,boolean headquartersFinanceConfigured) {
         public boolean paid(){return "PAID".equals(status);}
@@ -32,11 +35,24 @@ public class CommissionSimulatedPayments {
     }
 
     boolean blocked(CommissionDO commission) {
+        return blocked(commission, commission.getSubmissionVersion());
+    }
+
+    boolean blocked(CommissionDO commission, int submissionVersion) {
         return !allowed(commission.getCompanyId(), commission.getDesignOrgId())
                 && Boolean.TRUE.equals(jdbc.queryForObject("""
                     SELECT EXISTS(SELECT 1 FROM fr_commission_simulated_order
                         WHERE commission_id=? AND submission_version=?)
-                    """, Boolean.class, commission.getId(), commission.getSubmissionVersion()));
+                    """, Boolean.class, commission.getId(), submissionVersion));
+    }
+
+    boolean reviewedForSettlement(CommissionDO commission) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM pf_command_event
+                WHERE domain='franchise' AND aggregate_type=? AND command=?
+                  AND org_id=? AND aggregate_id=? AND revision=?)
+            """, Boolean.class, HISTORICAL_REVIEW_AGGREGATE, HISTORICAL_REVIEW_COMMAND,
+                commission.getCompanyId(), commission.getId(), commission.getSubmissionVersion()));
     }
 
     public Order read(CommissionDO c){

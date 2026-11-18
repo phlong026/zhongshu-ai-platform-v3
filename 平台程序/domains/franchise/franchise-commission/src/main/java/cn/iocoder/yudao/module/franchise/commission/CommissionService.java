@@ -107,8 +107,11 @@ public class CommissionService implements DesignFeeProgressApi {
         return simulatedPayments.allowed(commission.getCompanyId(), commission.getDesignOrgId());
     }
 
+    private static final String LEGACY_SIMULATION = "SIMULATION";
+    private static final String TEST_SIMULATION = "TEST_SIMULATION";
+
     public record FeeOffer(String mode,Integer ruleVersion,BigDecimal area,Long rateCents,long totalCents,
-                           long firstCents,long tailCents,String scope,String recipient,boolean simulationAllowed) { }
+                           long firstCents,long tailCents,String scope,String recipient,String simulationPaymentMode) { }
     public record Context(long customerId,Long commissionId,CustomerSchemeDO latestBudget,FeeOffer feeOffer,
                           Detail commission,List<String> allowedActions,String customerName,String city,boolean canPrepareBudget,java.util.Map<String,Object> customerInfo,java.util.Map<String,String> schemeBasis) { }
 
@@ -121,11 +124,11 @@ public class CommissionService implements DesignFeeProgressApi {
         long designOrgId = soleHeadquarters();
         var policy=pricing.current(designOrgId);
         if(policy!=null && budget!=null && budget.getArea()!=null) offer=new FeeOffer("AREA_FULL",policy.version(),budget.getArea(),policy.rateCents(),
-                DesignPricingService.totalCents(budget.getArea(),policy.rateCents()),0,0,policy.scope(),policy.recipient(),simulatedPayments.allowed(customer.getCompanyId(),designOrgId));
+                DesignPricingService.totalCents(budget.getArea(),policy.rateCents()),0,0,policy.scope(),policy.recipient(),simulatedPayments.allowed(customer.getCompanyId(),designOrgId)?TEST_SIMULATION:null);
         else {
             var legacy=policyOf(post.orgId());
             if(legacy!=null) offer=new FeeOffer("LEGACY_SPLIT",legacy.getVersion(),budget==null?null:budget.getArea(),null,
-                    legacy.getTotalCents(),legacy.getFirstCents(),legacy.getTotalCents()-legacy.getFirstCents(),legacy.getScope(),legacy.getRecipient(),false);
+                    legacy.getTotalCents(),legacy.getFirstCents(),legacy.getTotalCents()-legacy.getFirstCents(),legacy.getScope(),legacy.getRecipient(),null);
         }
         boolean writable=CustomerAccess.canWrite(post,customer) && budget!=null && (c==null || CommissionDO.STATUS_FEE_RETURNED.equals(c.getStatus()));
         return new Context(customerId,c==null?null:c.getId(),budget,offer,c==null?null:detail(post,c),writable?List.of("commission-submit"):List.of(),customer.getName(),customer.getCity(),CustomerAccess.canWrite(post,customer),CommissionBrief.customerInfo(customer),schemeBasis(customerId,budget));
@@ -151,16 +154,54 @@ public class CommissionService implements DesignFeeProgressApi {
         return simulationAllowed(c) ? simulatedPayments.read(c) : null;
     }
 
-    void requireSimulationScope(CommissionDO commission) {
-        if (simulatedPayments.blocked(commission)) throw exception(SIMULATION_FORBIDDEN);
+    void requireHistoricalSettlement(PostSnapshot actor, CommissionDO commission) {
+        if (simulatedPayments.blocked(commission) && (!simulatedPayments.reviewedForSettlement(commission)
+                || !settlement.lockAndRead(commission.getId(),commission.getSubmissionVersion(),actor).readyToDispatch())) {
+            throw exception(HISTORICAL_SETTLEMENT_REQUIRED);
+        }
     }
+
+    private boolean pendingHistoricalReview(CommissionDO commission) {
+        return simulatedPayments.blocked(commission) && !simulatedPayments.reviewedForSettlement(commission);
+    }
+
     public boolean readyToComplete(CommissionDO c) {
-        var order = simulatedPayments.read(c);
-        return order == null ? settlement(c).readyToComplete() : simulationAllowed(c) && order.paid();
+        var order = simulatedPayment(c);
+        return order == null ? !pendingHistoricalReview(c) && settlement(c).readyToComplete() : order.paid();
     }
+
     public boolean readyToDispatch(CommissionDO c) {
-        var order = simulatedPayments.read(c);
-        return order == null ? settlement(c).readyToDispatch() : simulationAllowed(c) && order.paid();
+        var order = simulatedPayment(c);
+        return order == null ? !pendingHistoricalReview(c) && settlement(c).readyToDispatch() : order.paid();
+    }
+
+    public record HistoricalSettlementCommand(int submissionVersion, String reviewNote) { }
+
+    /** Start the normal finance workflow for one reviewed historical order. */
+    @Transactional(rollbackFor=Exception.class)
+    public void prepareHistoricalSettlement(PostSnapshot actor, long commissionId,
+                                           HistoricalSettlementCommand command, String key) {
+        var commission = commissionMapper.selectById(commissionId);
+        if (commission == null || commission.getCompanyId() != actor.orgId()
+                || !FranchiseRoles.atStore(actor) || !FranchiseRoles.FINANCE_LEAD.equals(actor.roleCode())) {
+            throw exception(COMMISSION_FORBIDDEN);
+        }
+        String note = command == null ? null : StrUtil.trimToNull(command.reviewNote());
+        if (command == null || command.submissionVersion() != commission.getSubmissionVersion()
+                || note == null || note.length() > 500 || !simulatedPayments.blocked(commission)) {
+            throw exception(COMMISSION_STATE_INVALID);
+        }
+
+        key = commandLock(actor, key);
+        var input = new HistoricalSettlementCommand(command.submissionVersion(), note);
+        String action = CommissionSimulatedPayments.HISTORICAL_REVIEW_COMMAND;
+        if (replayed(actor, key, input, commissionId, action)) return;
+        settlement.ensureInitialPayable(commissionId, command.submissionVersion(), actor);
+        // The payable's stage lock also serializes the review event for this version.
+        if (!simulatedPayments.reviewedForSettlement(commission)) {
+            commands.record(actor,CommissionSimulatedPayments.HISTORICAL_REVIEW_AGGREGATE,commissionId,
+                    command.submissionVersion(),action,input,key);
+        }
     }
     public record SimulatePayCommand(String channel,boolean confirmed) { }
     @Transactional(rollbackFor=Exception.class)
@@ -279,9 +320,11 @@ public class CommissionService implements DesignFeeProgressApi {
         if(designAdmin && approval!=null) {
             approval=cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(approval,ApprovalDO.class).setAmountCents(null);
         }
+        var simulated = simulatedPayment(commission);
         return new Detail(commission, submissions, progressMapper.selectByCommission(commission.getId()),
-                handoverMapper.selectByCommission(commission.getId()), approval,
-                allowedActions(post, commission), displayStatus(commission),designAdmin||simulatedPayments.read(commission)!=null?null:settlement(commission),manifests.list(commission.getId()),designAdmin&&simulatedPayments.read(commission)!=null?simulatedPayments.read(commission).designView():simulatedPayments.read(commission));
+                handoverMapper.selectByCommission(commission.getId()), approval, allowedActions(post, commission),
+                displayStatus(commission), designAdmin || simulated != null ? null : settlement(commission),
+                manifests.list(commission.getId()), designAdmin && simulated != null ? simulated.designView() : simulated);
     }
 
     // ===================== 命令 =====================
@@ -305,7 +348,9 @@ public class CommissionService implements DesignFeeProgressApi {
             throw exception(COMMISSION_ALREADY_EXISTS);
         }
         long designOrgId = soleHeadquarters();
-        boolean simulation = "SIMULATION".equals(input.paymentMode());
+        // Older clients put SIMULATION on every area-based request. Keep the original
+        // command fingerprint for retry, but only the versioned opt-in creates a test order.
+        boolean simulation = TEST_SIMULATION.equals(input.paymentMode());
         if (simulation && !simulatedPayments.allowed(post.orgId(), designOrgId)) throw exception(SIMULATION_FORBIDDEN);
         jdbc.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(?,0))) s",Integer.class,"design-pricing:"+designOrgId);
         CustomerSchemeDO budget = customerService.latestScheme(customerId, CustomerSchemeDO.KIND_BUDGET);
@@ -420,7 +465,9 @@ public class CommissionService implements DesignFeeProgressApi {
             throw exception(COMMISSION_FORBIDDEN);
         }
         requireState(commission, CommissionDO.STATUS_DESIGNING);
-        if (!(simulatedPayments.read(commission)!=null?readyToComplete(commission):settlement.lockAndRead(commissionId,commission.getSubmissionVersion(),post).readyToComplete())) {
+        var simulated = simulatedPayment(commission);
+        if (!(simulated == null ? !pendingHistoricalReview(commission)
+                && settlement.lockAndRead(commissionId,commission.getSubmissionVersion(),post).readyToComplete() : simulated.paid())) {
             throw exception(FIRST_PAYMENT_NOT_READY);
         }
         String note = progressNote(command.note(), command.confirmed());
@@ -430,7 +477,7 @@ public class CommissionService implements DesignFeeProgressApi {
             long revision = commission.getRevision();
             Revisions.requireUpdated(commissionMapper.updateByRevision(commissionId, revision, u -> u
                     .set(CommissionDO::getStatus, CommissionDO.STATUS_DESIGN_COMPLETED)));
-            if(simulatedPayments.read(commission)==null)settlement.ensureTailPayable(commissionId,commission.getSubmissionVersion(),post);
+            if(simulated==null)settlement.ensureTailPayable(commissionId,commission.getSubmissionVersion(),post);
             commands.record(post, AGGREGATE, commissionId, revision + 1, "design-complete", command, idempotencyKey);
         }
         return get(post, commissionId);
@@ -446,7 +493,9 @@ public class CommissionService implements DesignFeeProgressApi {
             throw exception(COMMISSION_FORBIDDEN);
         }
         requireState(commission, CommissionDO.STATUS_DESIGN_COMPLETED);
-        if (!(simulatedPayments.read(commission)!=null?readyToDispatch(commission):settlement.lockAndRead(commissionId,commission.getSubmissionVersion(),post).readyToDispatch())) {
+        var simulated = simulatedPayment(commission);
+        if (!(simulated == null ? !pendingHistoricalReview(commission)
+                && settlement.lockAndRead(commissionId,commission.getSubmissionVersion(),post).readyToDispatch() : simulated.paid())) {
             throw exception(TAIL_PAYMENT_NOT_READY);
         }
         String note = progressNote(command.note(), command.confirmed());
@@ -484,7 +533,7 @@ public class CommissionService implements DesignFeeProgressApi {
         if(replayed(post,idempotencyKey,command,commissionId,"commission-feedback")) return get(post,commissionId);
         CommissionDO commission = requireWritable(post, commissionId);
         requireState(commission, CommissionDO.STATUS_DISPATCHED);
-        requireSimulationScope(commission);
+        requireHistoricalSettlement(post, commission);
         String note = StrUtil.trim(command.note());
         if (StrUtil.isBlank(note) || note.length() > 500) {
             throw exception(FEEDBACK_INPUT_INVALID);
@@ -641,7 +690,10 @@ public class CommissionService implements DesignFeeProgressApi {
                 || attachment != null) {
             throw exception(SUBMISSION_INPUT_INVALID);
         }
-        if(c.paymentMode()!=null&&(!"SIMULATION".equals(c.paymentMode())||!"AREA_FULL".equals(mode)))throw exception(SUBMISSION_INPUT_INVALID);
+        if (c.paymentMode()!=null && (!"AREA_FULL".equals(mode)
+                || !Set.of(LEGACY_SIMULATION,TEST_SIMULATION).contains(c.paymentMode()))) {
+            throw exception(SUBMISSION_INPUT_INVALID);
+        }
         return new SubmitCommand(text, scope, attachment, c.total(), c.first(), recipient,
                 c.budgetVersion(), c.planVersion(), c.facadeVersion(), true,mode,c.feeRuleVersion(),c.attachmentAssetId(),CommissionBrief.validate(c.designBrief()),c.paymentMode());
     }
@@ -693,8 +745,10 @@ public class CommissionService implements DesignFeeProgressApi {
 
     /** 显示状态：存储状态 + 首尾款进度（文案与小程序 sales-flow.js next() 一致） */
     public String displayStatus(CommissionDO commission) {
-        var simulated=simulatedPayments.read(commission);
-        if(simulated!=null&&!simulationAllowed(commission))return "历史模拟委托 · 暂停办理";
+        if (simulatedPayments.blocked(commission) && !readyToDispatch(commission)) {
+            return "历史模拟委托 · 待正式结算";
+        }
+        var simulated=simulatedPayment(commission);
         if(simulated!=null&&!simulated.paid())return "待模拟付款登记";
         return switch (commission.getStatus()) {
             case CommissionDO.STATUS_FEE_PENDING -> "费用待老板审批";
@@ -723,8 +777,8 @@ public class CommissionService implements DesignFeeProgressApi {
         if (CommissionDO.STATUS_FEE_PENDING.equals(status) && FranchiseRoles.atStore(post) && FranchiseRoles.isBoss(post)) {
             actions.add("fee-decide");
         }
-        var simulated=simulatedPayments.read(commission);
-        if (simulated != null && !simulationAllowed(commission)) return List.of();
+        if (simulatedPayments.blocked(commission) && !readyToDispatch(commission)) return List.of();
+        var simulated=simulatedPayment(commission);
         if(writable&&simulated!=null&&!simulated.paid())actions.add("commission-simulate-pay");
         boolean designAdmin = access.isDesignAdminOf(post, commission);
         if (CommissionDO.STATUS_DESIGNING.equals(status) && designAdmin && readyToComplete(commission)) {
