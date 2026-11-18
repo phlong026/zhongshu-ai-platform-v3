@@ -18,7 +18,7 @@ function harness({index=0, type='audio/mp3', url='https://upload.hifly.cc/test',
   }}
   const module={exports:{}}
   vm.runInNewContext(source,{module,require:()=>api,wx,Date})
-  return {events, run:kind=>module.exports(kind,'7',()=>valid)}
+  return {events, run:(kind,progress)=>module.exports(kind,'7',()=>valid,progress)}
 }
 test('all supported formats transfer only the signed grant to the embedded picker', async()=>{
   for(const [kind,index,type,extension] of [['VOICE',0,'audio/mp3','mp3'],['VOICE',1,'audio/mp4','m4a'],['VOICE',2,'audio/x-wav','wav'],['AVATAR',0,'video/mp4','mp4'],['AVATAR',1,'video/quicktime','mov']]){
@@ -41,7 +41,11 @@ test('cancellation, role change and oversized receipts cannot confirm a file',as
   }
 })
 test('a lost receipt response reuses the original key and frozen digest',async()=>{
-  const h=harness({retry:true});await h.run('VOICE');assert.deepEqual(h.events[2],h.events[3])
+  const h=harness({retry:true}), phases=[]
+  await h.run('VOICE',(phase,status)=>phases.push([phase,status,h.events.length]))
+  assert.deepEqual(h.events[2],h.events[3])
+  assert.deepEqual(phases.map(p=>[p[0],p[2]]),[[1,0],[2,1],[3,2],[3,3]])
+  assert.match(phases.at(-1)[1],/重新确认/)
 })
 
 test('the upload and read-only replay routes receive separate payloads and expire on session change',()=>{

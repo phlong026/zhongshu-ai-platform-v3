@@ -33,17 +33,19 @@ test('editor clears keyboard insets and compensates only the unresized viewport'
   for(const base of [568,667,844]){const x=keyboard.layout(base,base,320);assert.ok(x.editorSheetHeight+320<=base);}
 });
 function setup(){
-  let definition,chosen,resolveUpload,rejectUpload,onProgress;const callbacks=[],patches=[];let active=true;
+  let definition,chosen,resolveUpload,rejectUpload,onProgress,timer,now=1000;const callbacks=[],patches=[];let active=true;
   const wx={showActionSheet:o=>o.success({tapIndex:0}),chooseMedia:o=>{chosen=o.success;},previewMedia:()=>{throw Error('必须使用可返回的页内预览');},createVideoContext:id=>({pause:()=>callbacks.push([id,'pause']),stop:()=>callbacks.push([id,'stop'])}),pageScrollTo(){},getStorageSync(){},removeStorageSync(){}};
   const http={token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>active,sessionGuard:()=>()=>active};
   wx.navigateTo=opt=>opt.success({eventChannel:{emit:(event,source)=>callbacks.push([opt.url,event,source])}});
   const modules={};
-  const upload=(kind,person,alive)=>{return new Promise((resolve,reject)=>{resolveUpload=resolve;rejectUpload=reject;});};
-  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.js'),'utf8'),{Page:p=>definition=p,wx,setInterval:()=>1,clearInterval(){},setTimeout,clearTimeout,
-    require:p=>p.endsWith('/http')?http:p.endsWith('/studio')?{scope:()=>1}:p.endsWith('/clone-media')?{checkVideo:async()=>({duration:18,width:1080,height:1920})}:p.endsWith('/hifly-upload')?upload:p.endsWith('/platform-content')?{degradeMessage:e=>e.message}:modules});
+  const upload=(kind,person,alive,progress)=>{onProgress=progress;return new Promise((resolve,reject)=>{resolveUpload=resolve;rejectUpload=reject;});};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.js'),'utf8'),{Page:p=>definition=p,wx,Date:class extends Date {static now(){return now;}},
+    setInterval(fn){timer=fn;return 1;},clearInterval(){timer=null;},setTimeout,clearTimeout,
+    require:p=>p.endsWith('/http')?http:p.endsWith('/studio')?{scope:()=>1,guard:()=>true}:p.endsWith('/auth')?{currentApiPost:()=>null}:p.endsWith('/clone-media')?{checkVideo:async()=>({duration:18,width:1080,height:1920})}:p.endsWith('/hifly-upload')?upload:p.endsWith('/platform-content')?{degradeMessage:e=>e.message}:modules});
   const page={...definition,data:structuredClone(definition.data),__scope:1,__generation:1,setData(p){Object.assign(this.data,p);patches.push(p);}};
   Object.assign(page.data,{canManage:true,digitalPersona:{id:'42'},cloneKind:'AVATAR',cloneQuote:{available:true},cloneUploadId:'old',cloneConsented:true});
-  return {page,patches,callbacks, resolve:()=>resolveUpload({id:'new-upload',name:'person.mp4',size:1048576,preview:{uploadId:'new-upload'}}),reject:()=>rejectUpload(Error('上传中断')),inactive:()=>active=false};
+  return {page,patches,callbacks,advance:ms=>{now+=ms;timer?.();},running:()=>!!timer,phase:(n,text)=>onProgress(n,text),
+    resolve:()=>resolveUpload({id:'new-upload',name:'person.mp4',size:1048576,preview:{uploadId:'new-upload'}}),reject:()=>rejectUpload(Error('上传中断')),inactive:()=>active=false};
 }
 test('return from the embedded picker requires a new consent for the new file',async()=>{
   const h=setup();const done=h.page.uploadClone();
@@ -60,10 +62,25 @@ test('return from the embedded picker requires a new consent for the new file',a
 test('failed replacement cannot submit the previous file',async()=>{
   const h=setup();const done=h.page.uploadClone();h.reject();await done;
   assert.equal(h.page.data.cloneUploadId,'');assert.match(h.page.data.cloneError,/上传中断/);
+  assert.equal(h.running(),false);
+});
+test('waiting for a receipt shows the real phase and elapsed wall time, including a return from the picker',async()=>{
+  const h=setup(),done=h.page.uploadClone();
+  assert.equal(h.page.data.cloneUploadPhase,0);
+  h.phase(2,'网页直传');h.page.__hidden=true;h.advance(6200);
+  h.phase(3,'正在确认上传回执…');
+  h.page.canEditPersona=()=>true;h.page.onShow();
+  assert.equal(h.page.data.cloneUploadElapsed,6);
+  assert.equal(h.page.data.cloneUploadPhase,3);assert.match(h.page.data.cloneUploadStatus,/确认上传回执/);
+  h.advance(2300);assert.equal(h.page.data.cloneUploadElapsed,8);
+  h.resolve();await done;
+  assert.equal(h.running(),false);assert.equal(h.page.data.cloneUploading,false);
+  h.advance(9000);assert.equal(h.page.data.cloneUploadElapsed,8);
 });
 test('returning after an account switch cannot restore previous media',async()=>{
   const h=setup();const done=h.page.uploadClone();h.inactive();const count=h.patches.length;h.resolve();await done;
   assert.equal(h.patches.length,count);
+  assert.equal(h.running(),false);
 });
 test('both native and compatibility manual editors use explicit keyboard avoidance and a bounded input',()=>{
   for(const file of ['templates/sales-creation.wxml','pages/creation/index.wxml','pages/studio/index.wxml']){
