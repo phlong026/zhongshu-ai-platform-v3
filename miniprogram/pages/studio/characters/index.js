@@ -35,7 +35,7 @@ Page({
     if (!studio.guard()) return;
     const post = auth.currentApiPost();
     this.__hidden=false;
-    if(this.__scope!==studio.scope()||this.__generation!==http.sessionGeneration()) {this.resetAudioPreview();this.stopUploadClock();this.stopRefresh();this.__cloneAttempt=null;this.__pendingCloneKind=null;if(this.__audio)this.__audio.destroy();this.setData({view:'home',pageTitle:'人物库',rows:[],filtered:[],editing:false,form:{},editId:'',digitalPersona:null,digitalPeople:[],cloneEntryKind:'',cloneRows:[],visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneBusy:false,cloneError:'',cloneRetry:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneUploadId:'',cloneFileName:'',cloneFileMeta:'',clonePreviewError:'',cloneConsented:false});}
+    if(this.__scope!==studio.scope()||this.__generation!==http.sessionGeneration()) {this.__clonePreview=null;this.resetAudioPreview();this.stopUploadClock();this.stopRefresh();this.__cloneAttempt=null;this.__pendingCloneKind=null;if(this.__audio)this.__audio.destroy();this.setData({view:'home',pageTitle:'人物库',rows:[],filtered:[],editing:false,form:{},editId:'',digitalPersona:null,digitalPeople:[],cloneEntryKind:'',cloneRows:[],visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneBusy:false,cloneError:'',cloneRetry:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneUploadId:'',canReplayUpload:false,cloneFileName:'',cloneFileMeta:'',clonePreviewError:'',cloneConsented:false});}
     this.__scope = studio.scope();
     this.__generation=http.sessionGeneration();
     this.setData({ canCreate: !!post && ['sales','sales-lead','boss','owner'].includes(post.roleCode), canManage: this.canEditPersona(this.data.digitalPersona) });
@@ -175,8 +175,8 @@ Page({
     const id=e.currentTarget.dataset.id||this.data.digitalPersona&&this.data.digitalPersona.id;
     const row=this.data.rows.find(r=>r.id===String(id));if(!row)return;
     const kind=['AVATAR','VOICE'].includes(e.currentTarget.dataset.kind)?e.currentTarget.dataset.kind:'AVATAR';
-    this.resetAudioPreview();this.__cloneTitleAuto=true;
-    this.setData({digitalPersona:row,canManage:this.canEditPersona(row),digitalPersonIndex:Math.max(0,this.data.digitalPeople.findIndex(person=>person.id===row.id)),cloneEntryKind:kind,cloneRows:[],visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneKind:kind,cloneTitle:(row.name.slice(0,9)+' · '+(kind==='AVATAR'?'视频分身':'克隆声音')+' 1'),cloneUploadId:'',cloneConsented:false,cloneQuote:null,cloneRetry:false,cloneError:'',cloneFileName:'',cloneUploadStatus:'',cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneFileMeta:'',clonePreviewError:'',cloneCreatedNotice:''});
+    this.__clonePreview=null;this.resetAudioPreview();this.__cloneTitleAuto=true;
+    this.setData({digitalPersona:row,canManage:this.canEditPersona(row),digitalPersonIndex:Math.max(0,this.data.digitalPeople.findIndex(person=>person.id===row.id)),cloneEntryKind:kind,cloneRows:[],visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneKind:kind,cloneTitle:(row.name.slice(0,9)+' · '+(kind==='AVATAR'?'视频分身':'克隆声音')+' 1'),cloneUploadId:'',canReplayUpload:false,cloneConsented:false,cloneQuote:null,cloneRetry:false,cloneError:'',cloneFileName:'',cloneUploadStatus:'',cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneFileMeta:'',clonePreviewError:'',cloneCreatedNotice:''});
     const attempt=wx.getStorageSync(studio.scopedKey('zs-clone-attempt:'+row.id));
     this.__cloneAttempt=attempt&&attempt.key&&attempt.body?attempt:null;
     if(this.__cloneAttempt){const body=attempt.body;this.setData({cloneKind:body.kind,cloneTitle:body.title,cloneUploadId:body.sourceUploadId||'',cloneConsented:true,cloneRetry:true});}
@@ -225,17 +225,29 @@ Page({
     const guard=http.requestGuard('clone-upload');
     const alive=()=>guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person&&this.data.cloneKind===kind;
     this.resetAudioPreview();
-    this.setData({cloneBusy:true,cloneUploading:true,cloneError:'',cloneUploadId:'',cloneConsented:false,
+    this.__clonePreview = null;
+    this.setData({cloneBusy:true,cloneUploading:true,cloneError:'',cloneUploadId:'',canReplayUpload:false,cloneConsented:false,
       cloneFileName:'',cloneFileMeta:'',cloneVideoPath:'',cloneAudioPath:'',cloneVideoPoster:'',cloneUploadStatus:'准备直传飞影…'});
     try {
       const uploaded=await require('./hifly-upload')(kind,person,alive);
-      if(alive()) this.setData({cloneUploadId:uploaded.id,cloneFileName:uploaded.name,
-        cloneFileMeta:(uploaded.size/1024/1024).toFixed(1)+' MiB',cloneUploadStatus:'客户端已上传'});
+      if(alive()) {
+        this.__clonePreview = uploaded.preview;
+        this.setData({cloneUploadId:uploaded.id,cloneFileName:uploaded.name,canReplayUpload:!!uploaded.preview,
+          cloneFileMeta:(uploaded.size/1024/1024).toFixed(1)+' MiB',cloneUploadStatus:'客户端已上传'});
+      }
     } catch (error) {
       if(alive()) this.setData({cloneError:error.cancelled?'':P.degradeMessage(error),cloneUploadStatus:''});
     } finally {
       if(alive()) this.setData({cloneBusy:false,cloneUploading:false});
     }
+  },
+  replayUpload() {
+    const source = this.__clonePreview;
+    if (!source || !this.alive() || this.data.cloneBusy || source.uploadId !== this.data.cloneUploadId) return;
+    const session = http.sessionGuard();
+    wx.navigateTo({url:'/pages/studio/characters/transfer?mode=replay',
+      success:r => { if (session() && this.__clonePreview === source) r.eventChannel.emit('preview',source); },
+      fail:() => { if (session()) this.setData({cloneError:'回放页未能打开，请重试'}); }});
   },
   startUploadClock(alive) {this.stopUploadClock();const start=Date.now();this.__uploadTimer=setInterval(()=>{if(!alive())return this.stopUploadClock();this.setData({cloneUploadElapsed:Math.floor((Date.now()-start)/1000)});},1000);},
   stopUploadClock() {if(this.__uploadTimer)clearInterval(this.__uploadTimer);this.__uploadTimer=null;},
@@ -266,7 +278,7 @@ Page({
       const created=await api.clones.create(person,attempt.body,attempt.key);
       if(!guard()||!this.alive())return;
       wx.removeStorageSync(studio.scopedKey('zs-clone-attempt:'+person));this.__cloneAttempt=null;
-      this.pauseAudioPreview();this.setData({cloneUploadId:'',cloneFileName:'',cloneConsented:false,cloneRetry:false,cloneBusy:false,resourceFilter:attempt.body.kind,cloneCreatedNotice:created&&created.status==='FAILED'?'制作未成功，请查看资源状态':'已提交“'+attempt.body.title+'”，可继续新增资源'});this.showView('resources');this.loadClones();
+      this.__clonePreview=null;this.pauseAudioPreview();this.setData({cloneUploadId:'',canReplayUpload:false,cloneFileName:'',cloneConsented:false,cloneRetry:false,cloneBusy:false,resourceFilter:attempt.body.kind,cloneCreatedNotice:created&&created.status==='FAILED'?'制作未成功，请查看资源状态':'已提交“'+attempt.body.title+'”，可继续新增资源'});this.showView('resources');this.loadClones();
     }catch(e){if(guard()&&this.alive()){
       // 明确的本地拒绝尚未外呼，可修改后重提；网络未知保留完整原请求以安全回读。
       if([1072000010,1072000011,1072000013,1072000015,1072000016,1114000001,403].includes(Number(e.code))){wx.removeStorageSync(studio.scopedKey('zs-clone-attempt:'+person));this.__cloneAttempt=null;this.setData({cloneRetry:false});this.loadQuote();}

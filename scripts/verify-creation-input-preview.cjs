@@ -35,20 +35,27 @@ test('editor clears keyboard insets and compensates only the unresized viewport'
 function setup(){
   let definition,chosen,resolveUpload,rejectUpload,onProgress;const callbacks=[],patches=[];let active=true;
   const wx={showActionSheet:o=>o.success({tapIndex:0}),chooseMedia:o=>{chosen=o.success;},previewMedia:()=>{throw Error('必须使用可返回的页内预览');},createVideoContext:id=>({pause:()=>callbacks.push([id,'pause']),stop:()=>callbacks.push([id,'stop'])}),pageScrollTo(){},getStorageSync(){},removeStorageSync(){}};
-  const http={token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>active};
+  const http={token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>active,sessionGuard:()=>()=>active};
+  wx.navigateTo=opt=>opt.success({eventChannel:{emit:(event,source)=>callbacks.push([opt.url,event,source])}});
   const modules={};
   const upload=(kind,person,alive)=>{return new Promise((resolve,reject)=>{resolveUpload=resolve;rejectUpload=reject;});};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.js'),'utf8'),{Page:p=>definition=p,wx,setInterval:()=>1,clearInterval(){},setTimeout,clearTimeout,
     require:p=>p.endsWith('/http')?http:p.endsWith('/studio')?{scope:()=>1}:p.endsWith('/clone-media')?{checkVideo:async()=>({duration:18,width:1080,height:1920})}:p.endsWith('/hifly-upload')?upload:p.endsWith('/platform-content')?{degradeMessage:e=>e.message}:modules});
   const page={...definition,data:structuredClone(definition.data),__scope:1,__generation:1,setData(p){Object.assign(this.data,p);patches.push(p);}};
   Object.assign(page.data,{canManage:true,digitalPersona:{id:'42'},cloneKind:'AVATAR',cloneQuote:{available:true},cloneUploadId:'old',cloneConsented:true});
-  return {page,patches, resolve:()=>resolveUpload({id:'new-upload',name:'person.mp4',size:1048576}),reject:()=>rejectUpload(Error('上传中断')),inactive:()=>active=false};
+  return {page,patches,callbacks, resolve:()=>resolveUpload({id:'new-upload',name:'person.mp4',size:1048576,preview:{uploadId:'new-upload'}}),reject:()=>rejectUpload(Error('上传中断')),inactive:()=>active=false};
 }
 test('return from the embedded picker requires a new consent for the new file',async()=>{
   const h=setup();const done=h.page.uploadClone();
   assert.equal(h.page.data.cloneUploadId,'');assert.equal(h.page.data.cloneConsented,false);
   h.resolve();await done;assert.equal(h.page.data.cloneUploadId,'new-upload');assert.equal(h.page.data.cloneFileName,'person.mp4');
   assert.equal(h.page.data.cloneUploading,false);
+  h.page.replayUpload();
+  assert.deepEqual(h.callbacks.at(-1),['/pages/studio/characters/transfer?mode=replay','preview',{uploadId:'new-upload'}]);
+  const count=h.callbacks.length;
+  h.page.data.cloneUploadId='other';h.page.replayUpload();
+  h.page.data.cloneUploadId='new-upload';h.page.__closed=true;h.page.replayUpload();
+  assert.equal(h.callbacks.length,count);
 });
 test('failed replacement cannot submit the previous file',async()=>{
   const h=setup();const done=h.page.uploadClone();h.reject();await done;

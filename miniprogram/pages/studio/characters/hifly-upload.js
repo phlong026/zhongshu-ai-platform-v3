@@ -32,6 +32,9 @@ async function upload(kind, persona, alive) {
   }
   if (!alive()) throw {cancelled:true}
   if (result?.status !== 'UPLOADED' || String(result.uploadId) !== record.uploadId) throw Error('上传回执尚未确认')
-  return {id:record.uploadId, name:record.name, size:record.sizeBytes}
+  const preview = {uploadId:record.uploadId, name:record.name, extension,
+    sizeBytes:record.sizeBytes, sha256:record.sha256,
+    previewKey:/^[a-f0-9]{32}$/.test(record.previewKey) ? record.previewKey : ''}
+  return {id:record.uploadId, name:record.name, size:record.sizeBytes, preview}
 }
 module.exports = upload
