@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.franchise.performance.content;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.franchise.api.PerformancePayablePort;
+import cn.iocoder.yudao.module.franchise.api.CommissionPaymentReviewPort;
+import cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionPolicyDO;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionPolicyMapper;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionReleaseDO;
@@ -31,7 +33,7 @@ import static cn.iocoder.yudao.module.franchise.performance.enums.FranchisePerfo
  * 合计−fr_fin_refund（关联已核实）；对账状态机五态（F15）。
  */
 @Service
-public class PerfCommissionService {
+public class PerfCommissionService implements CommissionPaymentReviewPort {
 
     public static final String AGGREGATE = "fr-perf-commission";
 
@@ -100,9 +102,10 @@ public class PerfCommissionService {
             // 无存量事件：新请求继续 canonical 流程
         }
         if (totalCents <= 0 || totalCents > 10_000_000_000L || assigneeUserId <= 0
-                || StrUtil.isBlank(evidenceRef) || StrUtil.isBlank(note)) {
+                || StrUtil.isBlank(evidenceRef) || (StrUtil.isBlank(note) && !evidenceRef.stripLeading().startsWith("{"))) {
             throw exception(PERF_INPUT_INVALID, "请填写提成总额、在岗归属人、凭据与说明");
         }
+        var proof=resolveVoucher(post,evidenceRef,note);
         FrPerfCommissionPolicyDO current = policies.selectByProject(post.orgId(), projectId);
         // R2 P2-17：policy 行锁前置（硬锁检查与 release 竞争窗口互斥——先锁再查 release）
         if (current != null) {
@@ -125,6 +128,12 @@ public class PerfCommissionService {
         long signAfter = signAfterCents;
         long baseDone = baseDoneCents;
         long topping = capDoneCents;
+        if (signAfter==0 && baseDone==0 && topping==0 && evidenceRef.stripLeading().startsWith("{")) {
+            if(proof.installments()==null) throw exception(PERF_INPUT_INVALID,"请在员工网页「经营看板 → 旧版提成凭据」填写三期金额，使用规则保存凭据码");
+            signAfter=proof.installments()[0];
+            baseDone=proof.installments()[1];
+            topping=proof.installments()[2];
+        }
         if (signAfter < 0 || baseDone < 0 || topping < 0) {
             throw exception(PERF_INPUT_INVALID, "三期提成金额须为不小于 0 的数字");
         }
@@ -140,7 +149,7 @@ public class PerfCommissionService {
                     + "VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,now(),now())",
                     policyRowId, post.orgId(), projectId, totalCents, assigneeUserId,
                     member.name(), signAfter, topping, baseDone,
-                    StrUtil.trim(evidenceRef), StrUtil.trim(note), post.userId());
+                    proof.id(), proof.note(), post.userId());
         } else {
             String history = JsonUtil.append(current.getHistory(), Map.of(
                     "version", current.getVersion(), "totalCents", current.getTotalCents(),
@@ -151,7 +160,7 @@ public class PerfCommissionService {
                     .setAssigneeName(member.name())
                     .setStartCents(signAfter).setToppingCents(topping).setBaseDoneCents(baseDone)
                     .setVersion(current.getVersion() + 1)
-                    .setEvidenceRef(StrUtil.trim(evidenceRef)).setNote(StrUtil.trim(note)));
+                    .setEvidenceRef(proof.id()).setNote(proof.note()));
             JsonUtil.updateJsonb(jdbc, "fr_perf_commission_policy", Map.of("history", history),
                     current.getId(), post.orgId());
             policyRowId = current.getId();
@@ -259,14 +268,15 @@ public class PerfCommissionService {
             throw exception(COMMISSION_NOT_ELIGIBLE,
                     "退款、冲正或更正后净实收仍未足额，" + ("START".equals(stageKey) ? "开工款" : "封顶款"));
         }
-        if (StrUtil.isBlank(evidenceRef) || StrUtil.isBlank(note)) {
+        if (StrUtil.isBlank(evidenceRef) || (StrUtil.isBlank(note) && !evidenceRef.stripLeading().startsWith("{"))) {
             throw exception(PERF_INPUT_INVALID, "请上传人工核对依据并填写说明");
         }
         Map<String, Object> record = new LinkedHashMap<>();
+        var proof=resolveVoucher(post,evidenceRef,note);
         record.put("previousReceiptSignature", rel.getReceiptSignature());
         record.put("receiptSignature", facts.signature);
-        record.put("evidenceRef", StrUtil.trim(evidenceRef));
-        record.put("note", StrUtil.trim(note));
+        record.put("evidenceRef", proof.id());
+        record.put("note", proof.note());
         record.put("actorUserId", post.userId());
         record.put("at", String.valueOf(java.time.OffsetDateTime.now()));
         // M10-T05：已付留痕核对记录差额（正=少付待补、负=超付异常；无自动扣薪——仅立账展示）
@@ -293,6 +303,40 @@ public class PerfCommissionService {
 
     // ===================== 净实收与对账视图 =====================
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
+
+    record Voucher(String id, String note, long[] installments) {}
+    private static final java.util.regex.Pattern LEGACY_PROOF = java.util.regex.Pattern.compile(
+            "\\s*\\[凭据#([1-9][0-9]{0,18})(?: 分期 ([0-9]{1,11})/([0-9]{1,11})/([0-9]{1,11}))?\\]$");
+    private static final String LEGACY_HELP="请更新小程序，或登录员工网页，在「经营看板 → 旧版提成凭据」上传文件，把生成的凭据码粘贴到小程序的依据说明末尾，再提交。";
+
+    static Voucher parseVoucher(String reference, String note) {
+        long[] installments=null;
+        if(reference!=null && reference.stripLeading().startsWith("{")) {
+            var marker=LEGACY_PROOF.matcher(StrUtil.nullToEmpty(note).trim());
+            if (!marker.find()) throw exception(PERF_INPUT_INVALID,LEGACY_HELP);
+            reference=marker.group(1);
+            if(marker.group(2)!=null) installments=new long[]{Long.parseLong(marker.group(2)),Long.parseLong(marker.group(3)),Long.parseLong(marker.group(4))};
+            note=note.trim().substring(0,marker.start()).trim();
+            if (note.isEmpty()) throw exception(PERF_INPUT_INVALID,"请在凭据码前填写本次办理说明");
+        }
+        long id;
+        try { id=Long.parseLong(reference); }
+        catch(NumberFormatException error) { throw exception(PERF_INPUT_INVALID,"请上传有效的提成凭据"); }
+        if (id <= 0 || note == null || note.isBlank()) throw exception(PERF_INPUT_INVALID,"请上传有效的提成凭据并填写说明");
+        return new Voucher(Long.toString(id), note.trim(), installments);
+    }
+
+    private Voucher resolveVoucher(PostSnapshot post, String reference, String note) {
+        var voucher = parseVoucher(reference, note);
+        var actor=new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(post.orgId(),
+                serviceAccounts.requireServiceAccount(post.orgId()),post.userId(),post.postId());
+        if(!assets.validateReference(actor,Long.parseLong(voucher.id()),java.util.Set.of("FIN_VOUCHER")))
+            throw exception(PERF_INPUT_INVALID,"请上传当前组织可用的财务凭据");
+        return voucher;
+    }
+
     record StageFacts(String stage, long required, long received, boolean eligible,
                       String signature, List<Long> receiptIds) {
     }
@@ -313,10 +357,8 @@ public class PerfCommissionService {
                 "SELECT amount_cents FROM fr_eng_collection_term WHERE company_id = ? AND project_id = ? AND stage = ?",
                 Long.class, post.orgId(), projectId, engStage);
         long required = termRows.isEmpty() ? 0 : termRows.get(0);
-        Long customerId = jdbc.queryForObject(
-                "SELECT customer_id FROM fr_eng_project WHERE id = ?", Long.class, projectId);
-        Long contractId = customerId == null ? null
-                : unifiedStages.activeContractId(post, customerId);
+        Long contractId = jdbc.queryForObject("SELECT " + UnifiedStageAccountPort.PROJECT_CONTRACT
+                + " FROM fr_eng_project p WHERE p.company_id=? AND p.id=?", Long.class, post.orgId(), projectId);
         long received;
         List<Long> receiptIds = new ArrayList<>();
         List<String> signatureParts = new ArrayList<>();
@@ -327,6 +369,11 @@ public class PerfCommissionService {
             received = balance.map(row -> row.collectedCents()).orElse(0L);
             signatureParts.add("required:" + required);
             signatureParts.add("unified:" + contractId + ":" + engStage + ":" + received);
+            // 补收会恢复原净额，仍须以累计退款区分两次足额到账。无退款沿用历史签名。
+            long refunded = balance.map(row -> row.refundedCents()).orElse(0L);
+            if (refunded > 0) {
+                signatureParts.add("refunded:" + refunded);
+            }
         } else {
             signatureParts.add("required:" + required);
             List<Map<String, Object>> collectionRows = jdbc.queryForList(
@@ -442,6 +489,7 @@ public class PerfCommissionService {
         view.put("totalCents", policy.getTotalCents());
         view.put("assigneeUserId", policy.getAssigneeUserId());
         view.put("assigneeName", policy.getAssigneeName());
+        view.put("evidenceRef", policy.getEvidenceRef());
         view.put("version", policy.getVersion());
         List<Map<String, Object>> stages = new ArrayList<>();
         for (String stage : List.of(FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER, FrPerfCommissionReleaseDO.STAGE_BASE_DONE,
@@ -458,9 +506,7 @@ public class PerfCommissionService {
                         "SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_payment "
                                 + "WHERE payable_id = ? AND status = '已核实'", Long.class, rel.getPayableId());
             }
-            boolean reviewDue = rel != null && (!facts.eligible
-                    || !sameStageSignature(facts.signature, rel.getReceiptSignature())
-                    || !Objects.equals(rel.getPolicyVersion(), policy.getVersion()));
+            boolean reviewDue = rel != null && needsReview(facts, rel, policy.getVersion());
             String status;
             if (amount <= 0) {
                 status = "未约定"; // R2 P2-9：0=未约定期优先显示（无 release、金额及已付均为零时不显示已付清）
@@ -508,6 +554,41 @@ public class PerfCommissionService {
         }
         view.put("stages", stages);
         return view;
+    }
+
+    private boolean needsReview(StageFacts facts, FrPerfCommissionReleaseDO release, Integer policyVersion) {
+        if (!facts.eligible || !Objects.equals(release.getPolicyVersion(), policyVersion)) return true;
+        String saved = release.getReceiptSignature();
+        if (sameStageSignature(facts.signature, saved)) return false;
+        if (!LegacyCommissionReview.possible(facts.signature, saved)) return true;
+        String proof = jdbc.queryForObject("SELECT (" + LegacyCommissionReview.EVIDENCE
+                        + ") FROM fr_perf_commission_release r WHERE r.company_id=? AND r.id=?",
+                String.class, release.getCompanyId(), release.getId());
+        return !LegacyCommissionReview.covers(facts.signature, saved, proof);
+    }
+
+    @Override
+    @Transactional
+    public void requirePayable(PostSnapshot post, long payableId) {
+        var release = releases.lockByPayable(post.orgId(), payableId);
+        if (release == null) throw exception(COMMISSION_RELEASE_INVALID);
+        var policy = requirePolicy(post, release.getProjectId());
+        String stage = requireStage(release.getStage());
+        // Serialise with finance refund registration, including refunds on engineering-only receipts.
+        jdbc.queryForList("""
+            SELECT f.id FROM fr_fin_receipt f WHERE f.company_id=? AND f.id IN (
+                SELECT c.receipt_id FROM fr_eng_collection c WHERE c.company_id=? AND c.project_id=? AND c.stage=?
+                UNION ALL SELECT sr.receipt_id FROM fr_eng_project p JOIN fr_sale_payment_stage s
+                ON s.company_id=p.company_id AND s.contract_id=
+            """ + UnifiedStageAccountPort.PROJECT_CONTRACT + """
+                JOIN fr_sale_stage_receipt sr ON sr.stage_id=s.id AND sr.company_id=s.company_id
+                WHERE p.company_id=? AND p.id=? AND s.stage=?
+            ) ORDER BY f.id FOR UPDATE
+            """, Long.class, post.orgId(), post.orgId(), release.getProjectId(), stage,
+                post.orgId(), release.getProjectId(), stage);
+        if (needsReview(stageFacts(post, release.getProjectId(), stage), release, policy.getVersion())) {
+            throw exception(COMMISSION_NOT_ELIGIBLE, "回款或提成规则已变化，请先由老板核对原应付");
+        }
     }
 
     /** P1-5：归属人本组织在岗校验（SystemDirectory 真源） */

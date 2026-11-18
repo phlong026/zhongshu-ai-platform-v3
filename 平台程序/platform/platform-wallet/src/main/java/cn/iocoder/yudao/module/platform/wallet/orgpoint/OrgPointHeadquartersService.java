@@ -37,7 +37,7 @@ public class OrgPointHeadquartersService {
         this.headquartersTenantId = headquartersTenantId;
     }
 
-    public record CompanyPool(long orgId, String name, String status, Long balance, Long inFlight) { }
+    public record CompanyPool(long orgId, String name, String status, Long balance, Long inFlight, String simulatedReceiptFen, String simulatedPoints) { }
     public record Adjustment(long id, long orgId, long delta, String reason, String status,
                              long makerId, Long checkerId, String checkerComment, Long resultBalance) { }
     public record DirectCredit(String id, String beforeBalance, String afterBalance, String credits) { }
@@ -80,18 +80,20 @@ public class OrgPointHeadquartersService {
         return required(() -> {
             Scope scope = lockHeadquartersActor(actorId);
             return jdbc.query("""
-                    SELECT u.org_id,d.name,a.status,a.balance,
+                    SELECT u.org_id,d.name,a.status,a.balance,COALESCE(MAX(paid.fen),0) AS simulated_fen,
+                           COALESCE(MAX(paid.points),0) AS simulated_points,
                            COALESCE(SUM(CASE WHEN r.type='RESERVE' AND t.operation_id IS NULL
                                   THEN -r.available_delta ELSE 0 END),0) AS in_flight
                     FROM pf_org_unit u JOIN system_dept d ON d.id=u.dept_id
                     LEFT JOIN org_point_account a ON a.org_id=u.org_id
+                    LEFT JOIN (SELECT org_id,sum(price_fen) AS fen,sum(test_points) AS points FROM org_point_simulated_purchase GROUP BY org_id) paid ON paid.org_id=u.org_id
                     LEFT JOIN org_point_ledger r ON r.org_id=u.org_id AND r.type='RESERVE'
                     LEFT JOIN org_point_ledger t ON t.operation_id=r.operation_id AND t.type IN ('SETTLE','RELEASE')
                     WHERE u.kind='ORG' AND u.org_type='store' AND u.status='ACTIVE'
                       AND d.status=0 AND d.deleted=0 AND d.tenant_id=?
                     GROUP BY u.org_id,d.name,a.status,a.balance ORDER BY u.org_id
                     """, (rs, i) -> new CompanyPool(rs.getLong("org_id"), rs.getString("name"),
-                    rs.getString("status"), (Long) rs.getObject("balance"), rs.getLong("in_flight")), scope.tenantId());
+                    rs.getString("status"), (Long) rs.getObject("balance"), rs.getLong("in_flight"),rs.getString("simulated_fen"),rs.getString("simulated_points")), scope.tenantId());
         });
     }
 

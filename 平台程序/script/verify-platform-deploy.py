@@ -66,6 +66,18 @@ class DeploymentChecks(unittest.TestCase):
         source.write_text(json.dumps(model))
         return self.parse(source)
 
+    def test_private_training_volume_requires_explicit_configuration(self):
+        options = {"PLATFORM_TRAINING_PRIVATE_VOLUME": "1"}
+        command = ["docker", "compose", "--env-file", "/dev/null", "-f", str(DEPLOY / "compose.yaml"),
+                   *self.ops.training_overlay(options), "config", "--format", "json"]
+        model = json.loads(subprocess.check_output(command, env=self.env))
+        self.ops.validate_model(model, options)
+        with self.assertRaises(ValueError):
+            self.ops.validate_model(model)
+        model["volumes"]["training-private"]["external"] = True
+        with self.assertRaises(ValueError):
+            self.ops.validate_model(model, options)
+
     def test_01_real_compose_parser_and_policy(self):
         self.ops.validate_model(self.model)
         self.assertEqual(self.model["name"], "zhongshu-platform-b")
@@ -76,6 +88,19 @@ class DeploymentChecks(unittest.TestCase):
         ):
             with self.subTest(service=service):
                 self.assertEqual(self.model["services"][service]["tmpfs"], expected)
+
+    def test_spool_mount_is_private_fixed_and_required(self):
+        for change in (
+            lambda m: m["volumes"]["asset-spool"].update(external=True),
+            lambda m: m["volumes"]["asset-spool"].update(driver_opts={"device": "/other"}),
+            lambda m: m["services"]["api"].update(volumes=[x for x in m["services"]["api"]["volumes"] if x["type"] == "bind"]),
+            lambda m: next(x for x in m["services"]["api"]["volumes"] if x["type"] == "volume").update(target="/other"),
+            lambda m: m["services"]["redis-b"]["volumes"].append({"type": "volume", "source": "asset-spool", "target": "/uploads"}),
+        ):
+            model = copy.deepcopy(self.model)
+            change(model)
+            with self.assertRaises(ValueError):
+                self.ops.validate_model(model)
 
     def test_02_missing_configuration_fails_closed(self):
         for key in ("PLATFORM_API_IMAGE", *self.ops.SECRET_VARIABLES):

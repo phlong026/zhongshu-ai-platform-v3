@@ -70,6 +70,20 @@ class FranchiseOnboardIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
+    void districtSelectionProjectsAnOpenedStoreAndRejectsMismatchedCity() {
+        assertThat(service.districts("北京市", "市辖区")).extracting(FranchiseOnboardService.District::code).contains("110101");
+        assertThat(service.districts("湖北省", "省直辖县级行政区划")).extracting(FranchiseOnboardService.District::code).contains("429004");
+        var store = service.onboardWithDistrict("众墅之家", "浙江省", "杭州市", "科技园", "陈明",
+                "13900100121", null, null, "", 9L, "330110");
+        assertThat(jdbc.queryForObject("SELECT region_code FROM pf_store_location WHERE account_id=?", String.class,
+                store.accountId())).isEqualTo("330110");
+        assertThatThrownBy(() -> service.onboardWithDistrict("众墅之家", "浙江省", "杭州市", "工业园", "李明",
+                "13900100122", null, null, "", 9L, "110101")).hasMessageContaining("不匹配");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_store_location WHERE tenant_id=?", Integer.class,
+                TenantContextHolder.getRequiredTenantId())).isEqualTo(1);
+    }
+
+    @Test
     void opensSingleUserAndOnlyReturnsInitialPasswordOnce() {
         var first = open("李忠", "13800100001");
         assertThat(first.loginName()).isEqualTo("hjmz-jxnc-gaoxin");

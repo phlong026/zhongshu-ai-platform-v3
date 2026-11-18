@@ -21,7 +21,7 @@ public class AssetContentScanner {
     private static final int MAX_DIMENSION = 10_000;
 
     /** A null rejection accepts the file. Non-images keep their original, verified contents. */
-    String scan(String mime, Path original, Path sanitized) throws IOException {
+    String scan(String mime, Path original, Path sanitized,long outputLimit) throws IOException {
         byte[] prefix;
         try (var input = Files.newInputStream(original)) {
             prefix = input.readNBytes(68);
@@ -47,12 +47,30 @@ public class AssetContentScanner {
             } finally {
                 reader.dispose();
             }
-            try {
-                return ImageIO.write(image, "image/jpeg".equals(mime) ? "jpg" : "png", sanitized.toFile())
-                        ? null : "DECODE: 图片重编码失败";
+            try (var out=new CappedImageOutput(sanitized,outputLimit)) {
+                try {
+                    return ImageIO.write(image, "image/jpeg".equals(mime) ? "jpg" : "png", out)
+                            ? null : "DECODE: 图片重编码失败";
+                } catch (IOException error) {
+                    if (out.full) return "SANITIZED_SIZE_LIMIT";
+                    throw error;
+                }
             } finally {
                 image.flush();
             }
+        }
+    }
+
+    private static final class CappedImageOutput extends javax.imageio.stream.FileImageOutputStream {
+        private final long limit;
+        private boolean full;
+        CappedImageOutput(Path path,long limit) throws IOException { super(path.toFile()); this.limit=limit; }
+        private void check(int length) throws IOException {
+            if(getStreamPosition()>limit-length) { full=true; throw new IOException("Sanitized image too large"); }
+        }
+        @Override public void write(int value) throws IOException { check(1); super.write(value); }
+        @Override public void write(byte[] bytes,int offset,int length) throws IOException {
+            check(length); super.write(bytes,offset,length);
         }
     }
 

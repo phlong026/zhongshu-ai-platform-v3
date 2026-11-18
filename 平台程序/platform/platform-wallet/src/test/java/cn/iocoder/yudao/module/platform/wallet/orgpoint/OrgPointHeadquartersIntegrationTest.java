@@ -43,8 +43,8 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
         OrgPointPriceService prices = new OrgPointPriceService(dataSource, transactionManager);
         points = new OrgPointService(dataSource, transactionManager, (AuditPort) message -> 0L, prices);
         service = new OrgPointHeadquartersService(dataSource, transactionManager, points, prices, TENANT);
-        jdbc.execute("TRUNCATE org_point_hq_price_request,org_point_price_audit,org_point_hq_adjustment,org_point_ledger,"
-                + "org_point_account,org_point_subject_price");
+        jdbc.execute("TRUNCATE org_point_hq_price_request,org_point_price_audit,org_point_hq_adjustment,org_point_simulation_review, org_point_ledger,"
+                + "org_point_account,org_point_subject_price,org_point_simulated_purchase");
         jdbc.update("INSERT INTO pf_org_type(code,domain,name) VALUES('headquarters','test','总部'),('store','test','门店') ON CONFLICT DO NOTHING");
         jdbc.update("INSERT INTO pf_post_template(role_code,domain,org_types) VALUES('hq-admin','test','headquarters') ON CONFLICT DO NOTHING");
         long headquarters = org("headquarters", "测试总部");
@@ -61,6 +61,36 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
         long role=IdWorker.getId();
         jdbc.update("INSERT INTO system_role(id,code,name,status,deleted,tenant_id) VALUES(?,'super_admin','超管',0,0,?)",role,TENANT);
         jdbc.update("INSERT INTO system_user_role(id,user_id,role_id,tenant_id) VALUES(?,?,?,?)",IdWorker.getId(),userId,role,TENANT);
+    }
+
+    @Test void explicitSimulatedPackageCreditsOnceAndReportsSimulatedReceipts() throws Exception {
+        long plan=IdWorker.getId();
+        jdbc.update("INSERT INTO pf_recharge_plan(id,tenant_id,name,price_fen,base_points,bonus_points,status) VALUES (?,?,'体验套餐',990,100,20,'ACTIVE')",plan,TENANT);
+        points.configurePurchaseOrgs(Long.toString(store));
+        assertThat(points.simulatedPackages(TENANT,store)).anyMatch(p->p.id().equals(Long.toString(plan)));
+        assertThat(points.simulatedPackages(TENANT,store+1)).isEmpty();
+        var task=new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand("package-check:"+plan,store,maker,null,"digital",300,"content_task",plan);
+        assertThatThrownBy(()->points.reserve(task)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(()->points.purchaseSimulated(TENANT,store,maker,51,plan,2,"changed-plan")).isInstanceOf(RuntimeException.class);
+        assertThat(points.findAccount(store).balance()).isZero();
+        var workers=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var start=new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.Callable<String> pay=()->{start.await();return points.purchaseSimulated(TENANT,store,maker,51,plan,1,"same-payment").id();};
+            var a=workers.submit(pay);var b=workers.submit(pay);start.countDown();
+            assertThat(a.get(10,java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(b.get(10,java.util.concurrent.TimeUnit.SECONDS));
+        } finally { workers.shutdownNow(); }
+        assertThat(points.findAccount(store).balance()).isZero();
+        assertThat(jdbc.queryForObject("SELECT sum(test_points) FROM org_point_simulated_purchase WHERE org_id=?", Long.class, store)).isEqualTo(120L);
+        assertThat(service.companies(maker)).filteredOn(c->c.orgId()==store).extracting(c->c.simulatedReceiptFen()).containsExactly("990");
+        assertThat(service.ledger(maker,store,1,20)).filteredOn(l->"SIMULATED_PACKAGE".equals(l.type())).isEmpty();
+        points.configurePurchaseOrgs("");
+        assertThat(points.purchaseSimulated(TENANT,store,maker,51,plan,1,"same-payment").points()).isEqualTo(120);
+        assertThatThrownBy(()->points.purchaseSimulated(TENANT,store,maker,51,plan,1,"another-order")).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(()->points.reserve(task)).isInstanceOf(RuntimeException.class);
+        points.adjustBalance(store,120,"formal-"+plan,"正式调增",maker);
+        points.reserve(task);
+        assertThat(points.findAccount(store).balance()).isEqualTo(105);
     }
 
     @Test void superAdministratorCreditsImmediatelyAndReplaysWithoutDoubleCredit() {

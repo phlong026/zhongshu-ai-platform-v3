@@ -1,0 +1,8 @@
+services:
+  api:
+    volumes:
+      - training-private:/var/lib/platform/training-private
+    environment:
+      TRAINING_STORAGE_ROOT: /var/lib/platform/training-private
+volumes:
+  training-private: {}

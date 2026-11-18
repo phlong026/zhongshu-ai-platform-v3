@@ -45,7 +45,15 @@ public class FranchiseOnboardController {
                                  @NotBlank @Size(max=20) String adminName,
                                  @NotBlank @Pattern(regexp="1\\d{10}") String adminMobile,
                                  @Size(max=80) String areaPinyin, @Size(max=80) String ownerPinyin,
-                                 @Size(max=500) String remark) { }
+                                 @Size(max=500) String remark, @Pattern(regexp="[0-9]{6}") String districtCode) { }
+
+    @org.springframework.web.bind.annotation.GetMapping("/franchise-districts")
+    @PreAuthorize("@ss.hasPermission('platform:org:onboard')")
+    public CommonResult<java.util.List<FranchiseOnboardService.District>> districts(
+            @org.springframework.web.bind.annotation.RequestParam String province,
+            @org.springframework.web.bind.annotation.RequestParam String city) {
+        return success(service.districts(province,city));
+    }
 
     @PostMapping("/franchise-preview")
     @Operation(summary = "预览加盟商名称与可用账号；最终账号以正式开通响应为准")
@@ -60,7 +68,7 @@ public class FranchiseOnboardController {
     @PreAuthorize("@ss.hasPermission('platform:org:onboard')")
     @ApiAccessLog(requestEnable = false, responseEnable = false)
     public CommonResult<FranchiseOnboardService.Result> onboard(@Valid @RequestBody OnboardRequest req) {
-        return success(service.onboard(req.brand(), req.province(), req.city(), req.area(), req.adminName(), req.adminMobile(),
-                req.areaPinyin(), req.ownerPinyin(), req.remark(), SecurityFrameworkUtils.getLoginUserId()));
+        return success(service.onboardWithDistrict(req.brand(), req.province(), req.city(), req.area(), req.adminName(), req.adminMobile(),
+                req.areaPinyin(), req.ownerPinyin(), req.remark(), SecurityFrameworkUtils.getLoginUserId(),req.districtCode()));
     }
 }

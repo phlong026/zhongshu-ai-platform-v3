@@ -24,7 +24,7 @@ services:
     pids_limit: 256
     tmpfs: ["/tmp:size=128m,mode=1777"]
     environment:
-      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp -Dplatform.asset.spool-dir=/var/lib/platform/asset-spool -Dplatform.asset.spool-max-bytes=402653184
       PF_DESIGN_PUBLIC_CASES_ORIGIN: ${PF_DESIGN_PUBLIC_CASES_ORIGIN:-}
     command:
       - --spring.profiles.active=pg,prod
@@ -46,6 +46,7 @@ services:
     ports:
       - "127.0.0.1:48081:48080"
     volumes:
+      - asset-spool:/var/lib/platform/asset-spool
       - type: bind
         source: ./runtime.properties
         target: /etc/platform/runtime.properties
@@ -158,6 +159,7 @@ networks:
     driver: bridge
 
 volumes:
+  asset-spool: {}
   pgdata:
     name: zhongshu-platform-b_pgdata
   redisdata:

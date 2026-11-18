@@ -32,6 +32,17 @@ public class CompanyPointAccess {
         this.tx = new TransactionTemplate(transactionManager);
     }
 
+    public List<OrgPointPort.PackagePlan> simulatedPackages(PostSnapshot post) {
+        return tx.execute(status -> points.simulatedPackages(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),lockActive(post).orgId()));
+    }
+
+    public OrgPointPort.PackageReceipt purchase(PostSnapshot post,long plan,long version,String key) {
+        return tx.execute(status -> {
+            var active=lockActive(post);
+            return points.purchaseSimulated(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),active.orgId(),active.userId(),active.postId(),plan,version,key);
+        });
+    }
+
     /** 老板开通零余额积分池；赠点、调点仍由总部专用运维能力处理。 */
     public OrgPointPort.PoolSummary activate(PostSnapshot post) {
         return tx.execute(status -> {

@@ -39,11 +39,11 @@ public class MyPostController {
     private SystemDirectory systemDirectory;
 
     public record StaffPost(long postId, long userId, long orgId, String orgName, String orgType, String roleCode,
-                            Long teamId, boolean lead) {
+                            Long teamId, boolean lead, List<String> permissions) {
 
-        public static StaffPost of(PostSnapshot snapshot, String orgName) {
+        public static StaffPost of(PostSnapshot snapshot, String orgName, List<String> permissions) {
             return new StaffPost(snapshot.postId(), snapshot.userId(), snapshot.orgId(), orgName, snapshot.orgType(),
-                    snapshot.roleCode(), snapshot.teamId(), snapshot.lead());
+                    snapshot.roleCode(), snapshot.teamId(), snapshot.lead(),permissions);
         }
     }
 
@@ -72,7 +72,7 @@ public class MyPostController {
         Map<Long, String> names = new HashMap<>();
         return success(posts.stream()
                 .flatMap(post -> staffPostService.findActivePost(userId, post.getId()).stream())
-                .map(post -> StaffPost.of(post, names.computeIfAbsent(post.orgId(), this::orgName)))
+                .map(post -> StaffPost.of(post, names.computeIfAbsent(post.orgId(), this::orgName), mapPermissions(post)))
                 .toList());
     }
 
@@ -84,11 +84,16 @@ public class MyPostController {
         List<String> permissions = WEB_CAPABILITIES.stream()
                 .filter(permission -> systemDirectory.roleHasPermission(post.roleCode(), permission))
                 .toList();
-        return success(new PostContext(StaffPost.of(post, orgName(post.orgId())), permissions,
+        return success(new PostContext(StaffPost.of(post, orgName(post.orgId()),mapPermissions(post)), permissions,
                 post.managedTeamIds()));
     }
 
     private String orgName(long orgId) {
         return Objects.requireNonNullElse(systemDirectory.deptName(orgId), "");
+    }
+    private List<String> mapPermissions(PostSnapshot post) {
+        String permission=cn.iocoder.yudao.module.platform.authz.service.FranchiseMapService.READ_ALL;
+        return "headquarters".equals(post.orgType()) && systemDirectory.roleHasPermission(post.roleCode(),permission)
+                ? List.of(permission) : List.of();
     }
 }

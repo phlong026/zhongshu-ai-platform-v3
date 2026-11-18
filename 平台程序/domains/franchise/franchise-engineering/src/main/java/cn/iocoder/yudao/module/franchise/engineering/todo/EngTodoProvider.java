@@ -53,7 +53,7 @@ public class EngTodoProvider implements TodoProvider {
     @Override
     public List<TodoItem> list(PostSnapshot post) {
         List<TodoItem> todos = new ArrayList<>();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
         for (FrEngProjectDO project : projects.selectList(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<FrEngProjectDO>()
                         .eq(FrEngProjectDO::getCompanyId, post.orgId())

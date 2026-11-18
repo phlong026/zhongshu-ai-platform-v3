@@ -47,6 +47,7 @@ public class FinPaymentService {
     private cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoMapper transactionNumbers;
     @Resource private FinTransactionIdentityGuard transactionIdentity;
     @Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Resource private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.CommissionPaymentReviewPort> commissionReviews;
 
     public record PayableCommand(long companyId, Long projectId, String stage, long totalCents,
                                  String recipient, String agreementRef) {
@@ -57,6 +58,18 @@ public class FinPaymentService {
         public PaymentCommand(long payableId,long amountCents,LocalDate payDate,String transactionNo,Long voucherFileId) {
             this(payableId,amountCents,payDate,transactionNo,voucherFileId,"COMPANY",null,null,null);
         }
+    }
+
+    @Transactional
+    public java.util.Map<String,String> registrationResult(PostSnapshot post, String key) {
+        key = commands.requireIdempotencyKey(key);
+        designLocks.command(post, key);
+        String scoped="franchise:"+post.userId()+":"+key;
+        var ids=jdbc.queryForList("""
+                SELECT aggregate_id FROM pf_command_event WHERE domain='franchise' AND command='fin-payment-register'
+                   AND aggregate_type='fin-payment' AND org_id=? AND actor_user_id=? AND actor_post_id=? AND idempotency_key=?
+                """,Long.class,post.orgId(),post.userId(),post.postId(),scoped);
+        return ids.isEmpty() ? java.util.Map.of("state","NOT_REGISTERED") : java.util.Map.of("paymentId",Long.toString(ids.get(0)));
     }
 
     private record LegacyPaymentCommand(long payableId,long amountCents,LocalDate payDate,String transactionNo,Long voucherFileId) {}
@@ -135,6 +148,13 @@ public class FinPaymentService {
         if (payable == null || payable.getCompanyId() != post.orgId()) {
             throw exception(PAYABLE_NOT_FOUND);
         }
+        if ("已作废".equals(payable.getStatus())) throw exception(PAYABLE_VOIDED);
+        if ("performance".equals(payable.getStage()) && payable.getAgreementRef() != null
+                && payable.getAgreementRef().startsWith("perf-commission:")) {
+            var review = commissionReviews.getIfAvailable();
+            if (review == null) throw exception(FIN_SOURCE_FORBIDDEN);
+            review.requirePayable(post, payable.getId());
+        }
         if(cmd.amountCents()<=0) throw exception(PAYMENT_EXCEED_PAYABLE);
         String funding=cmd.fundingType()==null?"COMPANY":cmd.fundingType();
         if(!java.util.Set.of("COMPANY","EMPLOYEE").contains(funding)) throw exception(FIN_SOURCE_FORBIDDEN);
@@ -157,7 +177,6 @@ public class FinPaymentService {
             .mapToLong(p->Math.max(0,refundMapper.selectActiveByPayment(p.getId()).stream().mapToLong(r->r.getAmountCents()).sum()-(p.getPendingLinkCents()==null?0:p.getPendingLinkCents()))).sum();
         long effectiveTotal=payable.getTotalCents();
         if("reimbursement".equals(payable.getSourceType())) {
-            if ("已作废".equals(payable.getStatus())) throw exception(PAYABLE_NOT_FOUND);
             // 原垫付行锁串行化报销与退款；公司报销不再结算平台费用。
             long originId=Long.parseLong(payable.getSourceRef());
             var origin=paymentMapper.lockById(originId);

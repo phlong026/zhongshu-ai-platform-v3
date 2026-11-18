@@ -39,6 +39,7 @@ public class SalePaymentStageDO {
     private Long contractId;
     private String stage;
     private Long amountCents;
+    private java.time.LocalDate dueDate;
     private String status;
     private Long paidReceiptId;
     private OffsetDateTime paidAt;

@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 import same_host_storage as same_host
 
 DIRECTORY = Path(__file__).resolve().parent
@@ -55,11 +56,19 @@ def validate_model(model, same_host_values=None):
     demand(set(model.get("networks", {})) == {"private"}, "Only the B private network is allowed")
     for name, network in model["networks"].items():
         demand(network.get("name") == f"{PROJECT}_{name}" and not network.get("external"), "Shared network refused")
-    expected_volumes = {"pgdata", "redisdata"}
+    expected_volumes = {"pgdata", "redisdata", "asset-spool"}
+    training_enabled = bool(training_overlay(same_host_values))
+    if training_enabled:
+        expected_volumes.add("training-private")
     demand(set(model.get("volumes", {})) == expected_volumes, "Unexpected data volumes")
     for name, volume in model["volumes"].items():
         demand(volume.get("name") == f"{PROJECT}_{name}" and not volume.get("external"), "Shared volume refused")
-    same_host.validate_compose_volumes(model, same_host_values, expected_volumes)
+    spool = model["volumes"]["asset-spool"]
+    demand(spool.get("driver", "local") == "local" and not spool.get("driver_opts"), "Only a private local spool volume is allowed")
+    if training_enabled:
+        training = model["volumes"]["training-private"]
+        demand(training.get("driver", "local") == "local" and not training.get("driver_opts"), "Only a private local training volume is allowed")
+    same_host.validate_compose_volumes(model, same_host_values, {"pgdata", "redisdata"})
     allowed_binds = {
         "api": {"/etc/platform/runtime.properties": "runtime.properties"},
         "postgres-b": {"/docker-entrypoint-initdb.d/10-platform.sh": "postgres-init.sh", "/etc/platform/pg_hba.conf": "pg_hba.conf"},
@@ -84,14 +93,22 @@ def validate_model(model, same_host_values=None):
         demand(service.get("healthcheck", {}).get("test") and not service["healthcheck"].get("disable"), "Healthcheck required")
         actual_secrets = {item["source"]: item.get("target", item["source"]).removeprefix("/run/secrets/") for item in service.get("secrets", [])}
         demand(actual_secrets == expected_secrets[name], "Secret mounts violate role separation")
+        required_mount = {"api": ("asset-spool", "/var/lib/platform/asset-spool"),
+                          "postgres-b": ("pgdata", "/var/lib/postgresql/data"), "redis-b": ("redisdata", "/data")}[name]
+        actual_volumes = []
         actual_binds = {}
         for mount in service.get("volumes", []):
             if mount["type"] == "bind":
                 demand(mount.get("read_only"), "Writable host bind refused")
                 actual_binds[mount["target"]] = Path(mount["source"]).resolve()
             else:
-                expected = ("pgdata", "/var/lib/postgresql/data") if name == "postgres-b" else ("redisdata", "/data")
-                demand(name != "api" and (mount["source"], mount["target"]) == expected, "Unexpected persistent mount")
+                demand(mount["type"] == "volume" and not mount.get("read_only")
+                       and not mount.get("volume", {}).get("subpath"), "Unexpected persistent mount")
+                actual_volumes.append((mount["source"], mount["target"]))
+        allowed_volumes = [required_mount]
+        if name == "api" and training_enabled:
+            allowed_volumes.append(("training-private", "/var/lib/platform/training-private"))
+        demand(sorted(actual_volumes) == sorted(allowed_volumes), "Unexpected persistent mount")
         demand(actual_binds == {target: DIRECTORY / file for target, file in allowed_binds[name].items()}, "Unexpected host file mount")
         if name != "api":
             demand(not service.get("ports"), "Database ports must not be published")
@@ -183,10 +200,16 @@ def run(command, *, context, timeout=60, input_data=None, stdout=None, stdin=Non
     return result.stdout
 
 
+def training_overlay(values):
+    mode = values.get("PLATFORM_TRAINING_PRIVATE_VOLUME", "0")
+    demand(mode in ("0", "1"), "Invalid private training volume setting")
+    return ["-f", str(DIRECTORY / "compose.training.yaml")] if mode == "1" else []
+
+
 def compose_base(env_file, values=None):
     values = same_host.env_values(env_file) if values is None else values
     return ["docker", "compose", "--project-name", PROJECT, "--env-file", str(env_file),
-            "-f", str(DIRECTORY / "compose.yaml"), *same_host.compose_overlay(values)]
+            "-f", str(DIRECTORY / "compose.yaml"), *same_host.compose_overlay(values), *training_overlay(values)]
 
 
 def load_model(env_file, values=None):
@@ -201,29 +224,47 @@ def load_model(env_file, values=None):
         same_host.validate_host(values)
     model = json.loads(run(compose_base(env_file, values) + ["config", "--format", "json"],
                            context="Parse B Compose", timeout=30))
-    validate_model(model, values if enabled else {})
+    validate_model(model, values)
     validate_secret_files(model)
     return model
 
 
-def inspect_scope(base, model, require_frozen=False):
+def inspect_scope(base, model, require_frozen=False, previous_api_image=None):
     ids = run(["docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={PROJECT}"], context="Inspect B project").decode().split()
     demand(ids, "No B containers found")
     containers = json.loads(run(["docker", "inspect", *ids], context="Inspect B containers"))
     seen = set()
+    legacy_api = None
     for container in containers:
         service = container.get("Config", {}).get("Labels", {}).get("com.docker.compose.service")
         demand(service in model["services"] and service not in seen, "Unexpected or duplicate B service container")
         seen.add(service)
-        validate_container(container, service, model)
+        expected = model
+        if previous_api_image and service == "api" and not any(
+                mount.get("Destination") == "/var/lib/platform/asset-spool" for mount in container.get("Mounts", [])):
+            demand(require_frozen and not container["State"]["Running"], "Legacy API must be stopped")
+            previous_id = run(["docker", "image", "inspect", "--format", "{{.Id}}", previous_api_image],
+                              context="Verify previous immutable API image").decode().strip()
+            demand(previous_id and container.get("Image") == previous_id, "Legacy API image differs from pinned digest")
+            expected = copy.deepcopy(model)
+            mounts = expected["services"]["api"]["volumes"]
+            mounts[:] = [m for m in mounts if not (m.get("type") == "volume" and m.get("source") == "asset-spool"
+                                                   and m.get("target") == "/var/lib/platform/asset-spool")]
+            legacy_api = container["Id"]
+            demand(re.fullmatch(r"[0-9a-f]{64}", legacy_api), "Invalid inspected previous API identity")
+        validate_container(container, service, expected)
         if require_frozen and service == "api":
             demand(not container.get("State", {}).get("Running"), "Stop only B API before this operation")
         if service in ("postgres-b", "redis-b"):
             demand(container.get("State", {}).get("Health", {}).get("Status") == "healthy", f"{service} is not healthy")
     demand({"postgres-b", "redis-b"} <= seen, "B database containers are missing")
     volume_items = []
-    for kind, names in (("volume", ("pgdata", "redisdata")), ("network", ("private",))):
+    for kind, names in (("volume", tuple(model["volumes"])), ("network", ("private",))):
         for name in names:
+            if legacy_api and kind == "volume" and name == "asset-spool":
+                existing = run(["docker", "volume", "ls", "--format", "{{.Name}}"], context="Inventory B spool volumes")
+                if f"{PROJECT}_{name}" not in existing.decode().splitlines():
+                    continue
             item = json.loads(run(["docker", kind, "inspect", f"{PROJECT}_{name}"], context=f"Inspect B {kind}"))[0]
             labels = item.get("Labels") or {}
             demand(labels.get("com.docker.compose.project") == PROJECT
@@ -231,6 +272,7 @@ def inspect_scope(base, model, require_frozen=False):
             if kind == "volume":
                 volume_items.append(item)
     same_host.validate_actual_volumes_against_model(volume_items, model)
+    return legacy_api
 
 
 def pg(base, arguments, **kwargs):
@@ -256,17 +298,28 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def backup(base, directory):
+def backup(base, directory, model):
     directory.mkdir(mode=0o700, parents=False, exist_ok=False)
     # A failure leaves an incomplete directory without manifest; it cannot pass restore validation.
     with (directory / "postgres.dump").open("xb") as stream:
         pg(base, ["pg_dump", "-h", "127.0.0.1", "-U", "platform_owner", "-d", DATABASE,
                   "--format=custom", "--no-owner", "--no-privileges"], stdout=stream)
-    redis_script = ('export REDISCLI_AUTH="$(cat /run/secrets/redis_backup_password)"; '
-                    'exec redis-cli --no-auth-warning --user platform_backup --rdb /dev/stdout')
-    with (directory / "redis.rdb").open("xb") as stream:
-        run(base + ["exec", "-T", "redis-b", "sh", "-ec", redis_script],
-            context="B Redis snapshot", timeout=1800, stdout=stream)
+    # redis-cli truncates the replication EOF marker and fsyncs the result.
+    # Docker exec transports stdout over a pipe, so give the client a regular external backup file.
+    snapshot = directory / "redis.rdb"
+    snapshot.touch(mode=0o600, exist_ok=False)
+    redis_id = run(base + ["ps", "-q", "redis-b"], context="Find inspected B Redis").decode().strip()
+    demand(re.fullmatch(r"[0-9a-f]{12,64}", redis_id), "Expected one running B Redis container")
+    secret = Path(model["secrets"]["redis_backup_password"]["file"]).resolve()
+    script = ('export REDISCLI_AUTH="$(cat /run/secrets/redis_backup_password)"; '
+              'redis-cli --no-auth-warning --user platform_backup --rdb /snapshot.rdb; '
+              'exec redis-check-rdb /snapshot.rdb >/dev/null')
+    run(["docker", "run", "--rm", "--pull", "never", "--read-only", "--cap-drop", "ALL",
+         "--security-opt", "no-new-privileges", "--user", f"{os.getuid()}:{os.getgid()}", "--group-add", "20000",
+         "--network", f"container:{redis_id}",
+         "--mount", f"type=bind,src={secret},dst=/run/secrets/redis_backup_password,readonly",
+         "--mount", f"type=bind,src={snapshot},dst=/snapshot.rdb", "--entrypoint", "sh",
+         model["services"]["redis-b"]["image"], "-ec", script], context="B Redis snapshot and validation", timeout=1800)
     manifest = {"project": PROJECT, "database": DATABASE, "writes_frozen": True,
                 "files": {name: sha256(directory / name) for name in ("postgres.dump", "redis.rdb")}}
     (directory / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -333,7 +386,7 @@ def migration_command(base, model):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("config", "policy", "backup", "restore", "migrate", "rollback"))
+    parser.add_argument("action", choices=("config", "policy", "backup", "restore", "migrate", "start", "rollback"))
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-target")
@@ -341,6 +394,7 @@ def main():
     parser.add_argument("--backup-dir", type=Path)
     parser.add_argument("--confirm-sha256")
     parser.add_argument("--image")
+    parser.add_argument("--previous-api-image", help="Immutable digest of the frozen pre-spool API")
     parser.add_argument("--schema-compatible", action="store_true")
     args = parser.parse_args()
     require_confirmation(args.action, execute=args.execute, target=args.confirm_target, frozen=args.writes_frozen)
@@ -363,13 +417,18 @@ def main():
     if args.action == "rollback":
         validate_image(args.image)
         demand(args.schema_compatible, "Confirm previous image is compatible with current B schema/data using --schema-compatible")
+    if args.previous_api_image:
+        demand(args.action in ("backup", "migrate", "start", "restore", "rollback"), "Unsupported pre-spool operation")
+        validate_image(args.previous_api_image)
+        if args.action == "rollback":
+            demand(args.image == args.previous_api_image, "Legacy recovery requires the inspected previous image digest")
     if not args.execute:
         logging.warning("PLAN ONLY: %s for %s; no Docker daemon call or mutation", args.action, TARGET)
         return
-    inspect_scope(base, model, require_frozen=True)
+    legacy_api = inspect_scope(base, model, require_frozen=True, previous_api_image=args.previous_api_image)
     logging.warning("Executing explicitly confirmed B operation: %s", args.action)
     if args.action == "backup":
-        backup(base, args.backup_dir)
+        backup(base, args.backup_dir, model)
     elif args.action == "restore":
         restore(base, args.backup_dir)
     elif args.action == "policy":
@@ -377,8 +436,25 @@ def main():
     elif args.action == "migrate":
         migration_command(base, model)
         enforce_database_policy(base)
+    elif args.action == "start":
+        run(base + ["up", "-d", "--no-deps", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "180", "api"],
+            context="Start upgraded B API", timeout=210)
+        inspect_scope(base, model)
     elif args.action == "rollback":
         run(["docker", "image", "inspect", args.image], context="Verify preloaded rollback image")
+        if legacy_api:
+            # No replacement took place. Restart exactly the inspected container;
+            # recreating it from the candidate model would change its mounts.
+            run(["docker", "start", legacy_api], context="Restart the verified previous API")
+            deadline = time.monotonic() + 180
+            while time.monotonic() < deadline:
+                status = run(["docker", "inspect", "--format", "{{.State.Status}} {{.State.Health.Status}}", legacy_api],
+                             context="Check previous API readiness").decode().strip()
+                if status == "running healthy":
+                    return
+                demand(status == "running starting", f"Previous API recovery failed ({status})")
+                time.sleep(2)
+            raise RuntimeError("Previous API did not become healthy within 180 seconds")
         os.environ["PLATFORM_API_IMAGE"] = args.image
         run(base + ["up", "-d", "--no-deps", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "180", "api"],
             context="Replace only B API image", timeout=210)

@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * P0 批2：五类账表 selectPage 的真实 PG 回归（Testcontainers PG17 + 本域 Flyway 迁移）。
  * 覆盖逐表组合筛选、日期口径、组织隔离、分页 total/list，以及旧 selectByCompany 未分页语义不变。
  */
+@org.springframework.context.annotation.Import({cn.iocoder.yudao.module.franchise.org.FranchiseCommands.class,cn.iocoder.yudao.module.platform.command.CommandLogImpl.class})
 class FinancePageMapperIntegrationTest extends FranchisePgIntegrationTest {
 
     private static final AtomicLong SEQ = new AtomicLong(9_400_000_000L + System.nanoTime() % 500_000_000L);
@@ -50,6 +51,26 @@ class FinancePageMapperIntegrationTest extends FranchisePgIntegrationTest {
         var post = fixture.post(orgId, FINANCE, null);
         userId = post.userId();
         currentPost.use(post);
+    }
+
+    @Resource private cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands;
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void paymentConfirmationReturnsOnlyThisPostsCommittedCommand() {
+        var post=currentPost.require();
+        long payment=SEQ.incrementAndGet();
+        var service=new FinPaymentService();
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"designLocks",new DesignFinanceLocks(jdbc));
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"jdbc",jdbc);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"commands",commands);
+        var key="payment-confirm-"+payment;
+        assertThat(service.registrationResult(post,key)).containsOnlyKeys("state").containsEntry("state","NOT_REGISTERED");
+        commands.record(post,"fin-payment",payment,1,"fin-payment-register",java.util.Map.of("payableId",1),key);
+        assertThat(service.registrationResult(post,key)).containsOnlyKeys("paymentId").containsEntry("paymentId",Long.toString(payment));
+        var other=new cn.iocoder.yudao.module.platform.org.PostSnapshot(post.postId()+1,post.userId(),post.orgId(),post.orgType(),post.roleCode(),null,false,java.util.Set.of());
+        assertThat(service.registrationResult(other,key)).containsOnlyKeys("state").containsEntry("state","NOT_REGISTERED");
+        assertThat(service.registrationResult(fixture.post(fixture.store().orgId(),FINANCE,null),key)).containsOnlyKeys("state").containsEntry("state","NOT_REGISTERED");
     }
 
     private static PageParam page(int pageNo, int pageSize) {
@@ -277,6 +298,22 @@ class FinancePageMapperIntegrationTest extends FranchisePgIntegrationTest {
                 id, receiptId, paymentId, orgId, status, reason, userId, direction, date, txnNo,
                 "已作废".equals(status) ? java.time.OffsetDateTime.now() : null);
         return id;
+    }
+
+    @Test @org.springframework.transaction.annotation.Transactional
+    void visibleEngineeringNamesAreSearchedBeforeCountAndPage() {
+        jdbc.execute("CREATE TEMP TABLE fr_eng_expense(company_id bigint,payable_id bigint,name text)");
+        jdbc.execute("CREATE TEMP TABLE fr_eng_supply(company_id bigint,payable_id bigint,material_id bigint)");
+        jdbc.execute("CREATE TEMP TABLE fr_eng_material(id bigint,company_id bigint,name text)");
+        long a=newPayable("进行中",301L,"供应商","A"), b=newPayable("进行中",301L,"供应商","B");
+        jdbc.update("UPDATE fr_fin_payable SET stage='engineering' WHERE id IN (?,?)",a,b);
+        jdbc.update("INSERT INTO fr_eng_expense VALUES(?,?,'工地吊装租赁')",orgId,a);
+        jdbc.update("INSERT INTO fr_eng_material VALUES(99,?,'工地吊装机械')",orgId);
+        jdbc.update("INSERT INTO fr_eng_supply VALUES(?,?,99)",orgId,b);
+        var first=payableMapper.selectPage(page(1,1),orgId,null,null,"工地吊装");
+        var second=payableMapper.selectPage(page(2,1),orgId,null,null,"工地吊装");
+        assertThat(first.getTotal()).isEqualTo(2);
+        assertThat(List.of(first.getList().get(0).getName(),second.getList().get(0).getName())).containsExactlyInAnyOrder("工地吊装租赁","工地吊装机械");
     }
 
     private long newPayable(String status, Long projectId, String recipient, String agreementRef) {

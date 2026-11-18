@@ -29,7 +29,8 @@ class FranchiseAccountNamingTest {
 
     @Test
     void validatesNamesAndPinyinInsteadOfSilentlyInventingAliases() {
-        assertThatThrownBy(() -> naming.describe("其他品牌", "江西", "南昌", "高新", "李忠", null, null))
+        assertThat(naming.describe("众墅之家", "江西", "南昌", "高新", "李忠", null, null).baseLogin()).startsWith("zszj-");
+        assertThatThrownBy(() -> naming.describe("含 空格", "江西", "南昌", "高新", "李忠", null, null))
                 .hasMessageContaining("品牌");
         assertThatThrownBy(() -> naming.describe("合家美宅", "江西", "南昌", "", "李忠", null, null))
                 .hasMessageContaining("片区");

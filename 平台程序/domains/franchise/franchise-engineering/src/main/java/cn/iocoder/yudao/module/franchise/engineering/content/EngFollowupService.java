@@ -92,7 +92,7 @@ public class EngFollowupService {
         if (expected - confirmed <= 0) {
             throw exception(ENGINEERING_INPUT_INVALID, "本期款项已收齐，无需催收登记");
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
         if (cmd.promiseDate() != null && cmd.promiseDate().isBefore(today)) {
             throw exception(ENGINEERING_INPUT_INVALID, "承诺付款日须为今天或之后的日期");
         }
@@ -140,7 +140,7 @@ public class EngFollowupService {
         if (StrUtil.isBlank(cmd.note())) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写本次催到货联系说明");
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
         if (cmd.promiseDate() != null && cmd.promiseDate().isBefore(today)) {
             throw exception(ENGINEERING_INPUT_INVALID, "承诺到货日须为今天或之后的日期");
         }

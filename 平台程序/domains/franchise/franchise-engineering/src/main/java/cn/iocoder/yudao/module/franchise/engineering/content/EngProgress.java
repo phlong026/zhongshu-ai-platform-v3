@@ -6,6 +6,10 @@ import java.time.temporal.ChronoUnit;
 
 /** Baseline stays fixed when the recovery plan changes. Positive = late; negative = early. */
 public final class EngProgress {
+    static LocalDate today() { return businessDate(java.time.Clock.systemUTC()); }
+    static LocalDate businessDate(java.time.Clock clock) {
+        return LocalDate.now(clock.withZone(java.time.ZoneId.of("Asia/Shanghai")));
+    }
     private EngProgress() { }
     public static Integer deviationDays(FrEngPlanNodeDO node, LocalDate today) {
         LocalDate end = node.getBaselineEndDate() == null ? node.getEndDate() : node.getBaselineEndDate();

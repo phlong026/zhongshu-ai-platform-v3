@@ -6,6 +6,8 @@ export interface CompanyPool {
   orgId: string
   name: string
   status: string | null
+  simulatedReceiptFen?: string
+  simulatedPoints?: string
   balance: Int64 | null
   inFlight: Int64
 }

@@ -334,6 +334,12 @@ public class FinanceController {
         return success(paymentMapper.selectByCompany(currentPost.require().orgId(), status));
     }
 
+    @GetMapping("/payments/registration-result")
+    @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
+    public CommonResult<Map<String,String>> paymentResult(@RequestParam("key") String key) {
+        return success(paymentService.registrationResult(currentPost.require(),key));
+    }
+
     @PostMapping("/payments")
     @Operation(summary = "付款登记（登记即已核实；I-2 累计校验）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")

@@ -43,6 +43,27 @@ public class FranchiseOnboardService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public Result onboardWithDistrict(String brand,String province,String city,String area,String owner,String mobile,
+                                      String areaPinyin,String ownerPinyin,String remark,long operator,String districtCode) {
+        var result=onboard(brand,province,city,area,owner,mobile,areaPinyin,ownerPinyin,remark,operator);
+        if (districtCode!=null && !districtCode.isBlank()) {
+            int updated=jdbc.update("""
+                    UPDATE pf_franchise_account a SET map_district_code=r.code FROM pf_map_region r
+                    WHERE a.tenant_id=? AND a.account_id=? AND r.code=? AND pf_map_matches_city(r,a.province,a.city)
+                    """,TenantContextHolder.getRequiredTenantId(),result.accountId(),districtCode);
+            if(updated!=1) throw new IllegalArgumentException("所选地图区县与门店省市不匹配");
+        }
+        return result;
+    }
+
+    public record District(String code,String name) {}
+    public List<District> districts(String province,String city) {
+        return jdbc.query("""
+                SELECT code,district_name FROM pf_map_region r WHERE pf_map_matches_city(r,?,?) ORDER BY code
+                """,(r,i)->new District(r.getString(1),r.getString(2)),province,city);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public Result onboard(String brand, String province, String city, String area, String owner, String mobile,
                           String areaPinyin, String ownerPinyin, String remark, long operator) {
         var description = naming.describe(brand, province, city, area, owner, areaPinyin, ownerPinyin);

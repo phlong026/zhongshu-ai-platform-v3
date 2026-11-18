@@ -9,6 +9,12 @@ import java.util.List;
 @Mapper
 public interface SaleContractMapper extends BaseMapperX<SaleContractDO> {
 
+    @org.apache.ibatis.annotations.Select(cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.SIGNED_CONTRACT
+            + "AND k.company_id=#{company} AND k.customer_id=#{customer}"
+            + cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.LATEST_CONTRACT)
+    Long signedContractId(@org.apache.ibatis.annotations.Param("company") long company,
+                          @org.apache.ibatis.annotations.Param("customer") long customer);
+
     default SaleContractDO selectActiveByCustomer(Long customerId) {
         List<SaleContractDO> rows = selectList(new LambdaQueryWrapperX<SaleContractDO>()
                 .eq(SaleContractDO::getCustomerId, customerId)

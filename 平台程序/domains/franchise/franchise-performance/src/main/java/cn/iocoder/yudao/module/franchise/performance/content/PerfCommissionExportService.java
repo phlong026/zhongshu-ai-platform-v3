@@ -361,18 +361,23 @@ public class PerfCommissionExportService {
     private static String batchSql(String placeholders) {
         String stage = "CASE r.stage WHEN 'START' THEN 'SIGN_AFTER' "
                 + "WHEN 'TOPPING' THEN 'CAP_DONE' ELSE r.stage END";
+        String required = "COALESCE(CASE WHEN contract.id IS NOT NULL THEN sale_stage.amount_cents ELSE term.amount_cents END, 0)";
         return "SELECT p.id AS policy_id, p.assignee_user_id, p.assignee_name, "
                 + "p.update_time AS policy_update_time, p.total_cents, p.start_cents, p.base_done_cents, "
                 + "p.topping_cents, p.version AS current_version, r.project_id, r.stage, r.policy_version, "
                 + "r.receipt_signature, fp.total_cents AS payable_cents, "
+                + "CASE WHEN unified.refunded > 0 AND r.receipt_signature NOT LIKE '%|refunded:%' "
+                + "AND jsonb_typeof(r.reconciliations->-1)='object' THEN (" + LegacyCommissionReview.EVIDENCE
+                + ") END AS legacy_review, "
                 + "COALESCE((SELECT SUM(pm.amount_cents) FROM fr_fin_payment pm "
                 + "WHERE pm.payable_id = r.payable_id AND pm.status = '已核实'), 0) AS paid_cents, "
-                + "COALESCE(term.amount_cents, 0) AS fact_required, "
+                + required + " AS fact_required, "
                 + "CASE WHEN contract.id IS NOT NULL THEN COALESCE(unified.received, 0) "
                 + "ELSE COALESCE(engineering.received, 0) END AS fact_received, "
-                + "'required:' || COALESCE(term.amount_cents, 0) || "
+                + "'required:' || " + required + " || "
                 + "CASE WHEN contract.id IS NOT NULL THEN '|unified:' || contract.id || ':' || " + stage
                 + " || ':' || COALESCE(unified.received, 0) "
+                + " || CASE WHEN unified.refunded > 0 THEN '|refunded:' || unified.refunded ELSE '' END "
                 + "ELSE COALESCE('|' || engineering.signature_parts, '') END AS fact_signature "
                 + "FROM fr_perf_commission_release r "
                 + "LEFT JOIN fr_perf_commission_policy p "
@@ -382,13 +387,12 @@ public class PerfCommissionExportService {
                 + "AND project.company_id = r.company_id "
                 + "LEFT JOIN fr_eng_collection_term term ON term.project_id = r.project_id "
                 + "AND term.company_id = r.company_id AND term.stage = " + stage + " "
-                + "LEFT JOIN LATERAL (SELECT c.id FROM fr_sale_contract c "
-                + "WHERE c.company_id = r.company_id AND c.customer_id = project.customer_id "
-                + "AND c.status = 'SIGNED' LIMIT 1) contract ON TRUE "
+                + "LEFT JOIN LATERAL (SELECT " + cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.PROJECT_CONTRACT
+                + " AS id FROM fr_eng_project p WHERE p.id=project.id AND p.company_id=r.company_id) contract ON TRUE "
                 + "LEFT JOIN fr_sale_payment_stage sale_stage ON sale_stage.company_id = r.company_id "
                 + "AND sale_stage.contract_id = contract.id AND sale_stage.stage = " + stage + " "
                 + "LEFT JOIN LATERAL (SELECT COALESCE(SUM(sr.amount_cents), 0) "
-                + "- COALESCE(SUM(refund.refunded), 0) AS received "
+                + "- COALESCE(SUM(refund.refunded), 0) AS received, COALESCE(SUM(refund.refunded), 0) AS refunded "
                 + "FROM fr_sale_stage_receipt sr LEFT JOIN LATERAL ("
                 + "SELECT COALESCE(SUM(g.amount_cents), 0) AS refunded FROM fr_fin_refund g "
                 + "WHERE g.company_id = r.company_id AND g.receipt_id = sr.receipt_id "
@@ -415,8 +419,8 @@ public class PerfCommissionExportService {
             return true;
         }
         return release.factRequired() <= 0 || release.factReceived() < release.factRequired()
-                || !PerfCommissionService.sameStageSignature(
-                        release.factSignature(), release.receiptSignature());
+                || !(PerfCommissionService.sameStageSignature(release.factSignature(), release.receiptSignature())
+                    || LegacyCommissionReview.covers(release.factSignature(), release.receiptSignature(), release.legacyReview()));
     }
 
     private static boolean anyStageUnagreed(MonthRelease release) {
@@ -464,7 +468,8 @@ public class PerfCommissionExportService {
                     rs.getLong("project_id"), rs.getString("stage"),
                     rs.getObject("policy_version", Integer.class), rs.getString("receipt_signature"),
                     rs.getObject("payable_cents", Long.class), rs.getLong("paid_cents"),
-                    rs.getLong("fact_required"), rs.getLong("fact_received"), rs.getString("fact_signature"));
+                    rs.getLong("fact_required"), rs.getLong("fact_received"), rs.getString("fact_signature"),
+                    rs.getString("legacy_review"));
 
             current.acceptName(release.assigneeName(), release.policyUpdateTime());
             long amount = release.payableCents() != null
@@ -544,7 +549,7 @@ public class PerfCommissionExportService {
                                 long baseDoneCents, long toppingCents, Integer currentVersion,
                                 long projectId, String stage, Integer policyVersion,
                                 String receiptSignature, Long payableCents, long paidCents,
-                                long factRequired, long factReceived, String factSignature) {
+                                long factRequired, long factReceived, String factSignature, String legacyReview) {
     }
 
     private record EmployeeRow(long employeeId, String employeeName, int projectCount, long totalCents,

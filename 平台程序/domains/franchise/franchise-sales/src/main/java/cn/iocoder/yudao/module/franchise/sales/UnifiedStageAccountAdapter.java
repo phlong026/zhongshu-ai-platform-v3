@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.franchise.sales;
 
 import cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort;
-import cn.iocoder.yudao.module.franchise.sales.dal.SaleContractDO;
 import cn.iocoder.yudao.module.franchise.sales.dal.SaleContractMapper;
 import cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageDO;
 import cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageMapper;
@@ -34,12 +33,7 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
 
     @Override
     public Long activeContractId(PostSnapshot post, long customerId) {
-        SaleContractDO active = contracts.selectActiveByCustomer(customerId);
-        if (active == null || active.getCompanyId() != post.orgId()
-                || !SaleContractDO.STATUS_SIGNED.equals(active.getStatus())) {
-            return null;
-        }
-        return active.getId();
+        return contracts.signedContractId(post.orgId(), customerId);
     }
 
     @Override
@@ -74,6 +68,8 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
     public java.util.List<StageBalance> stageBalances(PostSnapshot post, long contractId) {
         return collectService.stageSummary(post, contractId).stream().map(row -> new StageBalance(
                 String.valueOf(row.get("stage")), ((Number)row.get("amountCents")).longValue(),
-                ((Number)row.get("collectedCents")).longValue())).toList();
+                ((Number)row.get("collectedCents")).longValue(),
+                (java.time.LocalDate) row.get("dueDate"), ((Number) row.get("stageId")).longValue(),
+                ((Number) row.get("refundedCents")).longValue())).toList();
     }
 }

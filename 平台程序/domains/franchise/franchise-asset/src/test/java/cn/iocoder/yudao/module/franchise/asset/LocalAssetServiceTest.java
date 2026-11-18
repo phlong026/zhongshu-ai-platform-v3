@@ -106,6 +106,29 @@ class LocalAssetServiceTest {
         assertThat(java.nio.file.Files.mismatch(file,dir.resolve("objects").resolve(key))).isEqualTo(-1);
     }
 
+    @Test void stagingCapacityIsReusableAfterFailure(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        var pool=new AssetSpool(dir,100);
+        try(var first=pool.reserve(75);var file=first.file()){
+            assertThatThrownBy(()->pool.reserve(26)).isInstanceOf(AssetSpool.CapacityBusy.class);
+            try(var additional=pool.reserve(25)) { assertThatThrownBy(()->pool.reserve(1)).isInstanceOf(AssetSpool.CapacityBusy.class); }
+        }
+        try(var retry=pool.reserve(100);var file=retry.file()){ assertThat(file.path).exists(); }
+        try(var entries=java.nio.file.Files.list(dir)){ assertThat(entries.map(p->p.getFileName().toString())).containsExactly(".asset-spool.lock"); }
+        var retained=java.nio.file.Files.write(dir.resolve("unrelated.bin"),new byte[30]);
+        var orphan=java.nio.file.Files.write(dir.resolve("fr-asset-v2-777.tmp"),new byte[60]);
+        var restarted=new AssetSpool(dir,100);
+        restarted.recover();
+        assertThat(orphan).doesNotExist();
+        assertThat(retained).hasSize(30);
+        assertThatThrownBy(()->restarted.reserve(71)).isInstanceOf(AssetSpool.CapacityBusy.class);
+        try(var lease=restarted.reserve(70);var live=lease.file()) {
+            var another=new AssetSpool(dir,100);
+            another.recover();
+            assertThatThrownBy(()->another.reserve(1)).isInstanceOf(AssetSpool.CapacityBusy.class);
+            assertThat(live.path).exists();
+        }
+    }
+
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
@@ -175,6 +198,17 @@ class LocalAssetServiceTest {
         assertThat(service.readDownload(ACTOR, id, token).bytes()).isEqualTo(PDF);
         assertThatThrownBy(() -> service.readDownload(ACTOR, id, token)).isInstanceOf(RuntimeException.class);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_asset_download_ticket WHERE consumed_at IS NOT NULL", Integer.class)).isEqualTo(1);
+    }
+
+    @Test void acceptedFinanceEvidenceCanBeOpenedByAnotherFinancePost() throws Exception {
+        long id=pending(PDF);
+        service.completeUpload(ACTOR,id);
+        current=new PostSnapshot(27,98,33,"store","finance-lead",null,false,Set.of());
+        var other=new Actor(33,777,98,27);
+        String ticket=service.createDownloadUrl(other,id).downloadUrl();
+        assertThat(service.readDownload(other,id,tokenOf(ticket)).bytes()).isEqualTo(PDF);
+        current=new PostSnapshot(27,98,33,"store","sales",null,false,Set.of());
+        assertThatThrownBy(()->service.createDownloadUrl(other,id)).isInstanceOf(RuntimeException.class);
     }
 
     @Test

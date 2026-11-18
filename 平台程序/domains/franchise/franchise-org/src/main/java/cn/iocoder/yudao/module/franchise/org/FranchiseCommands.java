@@ -9,6 +9,7 @@ import cn.hutool.crypto.digest.DigestUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
@@ -55,6 +56,15 @@ public class FranchiseCommands {
                 throw exception(IDEMPOTENCY_KEY_REUSED);
             }
             return existing;
+        });
+    }
+
+    public Optional<CommandEventDO> previous(PostSnapshot post, String key, String command, long aggregateId) {
+        if (StrUtil.isBlank(key)) return Optional.empty();
+        return commandLog.findByIdempotencyKey(scopedKey(post,key)).map(event -> {
+            if (!Objects.equals(event.getOrgId(),post.orgId()) || !command.equals(event.getCommand())
+                    || !Objects.equals(event.getAggregateId(),aggregateId)) throw exception(IDEMPOTENCY_KEY_REUSED);
+            return event;
         });
     }
 

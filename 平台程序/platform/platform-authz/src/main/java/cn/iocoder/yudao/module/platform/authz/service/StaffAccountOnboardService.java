@@ -88,8 +88,8 @@ public class StaffAccountOnboardService {
                     parent.province(), parent.city(), parent.area(), parent.areaPinyin(), person.pinyin(), operatorUserId);
             var aliases = new LinkedHashSet<String>();
             aliases.add(login);
-            aliases.add(login.startsWith("hjmz-") ? login.substring(5) : login);
-            aliases.add(parent.loginName()); aliases.add(parent.loginName().replaceFirst("^hjmz-", ""));
+            aliases.add(parent.loginName());
+            aliases.add(parent.loginName().substring(parent.loginName().indexOf('-') + 1));
             aliases.add(parent.orgName());
             aliases.add(person.pinyin()); aliases.add(person.initials()); aliases.add(person.name().toLowerCase(Locale.ROOT));
             for (String alias : aliases) jdbc.update("INSERT INTO pf_franchise_account_alias(tenant_id,account_id,alias) VALUES (?,?,?)",

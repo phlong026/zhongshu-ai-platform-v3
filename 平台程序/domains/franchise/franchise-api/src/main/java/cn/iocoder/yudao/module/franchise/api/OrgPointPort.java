@@ -52,6 +52,13 @@ public interface OrgPointPort {
                        String month, long monthUsedTotal) {
     }
 
+    record PackagePlan(String id,String version,String name,long priceFen,long basePoints,long bonusPoints) {}
+    record PackageReceipt(String id,String planId,String version,String name,long priceFen,long points) {}
+    default List<PackagePlan> simulatedPackages(long tenantId,long orgId) { return List.of(); }
+    default PackageReceipt purchaseSimulated(long tenantId,long orgId,long actor,long post, long planId,long version,String key) {
+        throw new IllegalStateException("模拟套餐未开放");
+    }
+
     record LedgerEntry(long id, Long operationId, String type, String subject, Long actorUserId,
                        long availableDelta, String billingMonth, String refType, Long refId,
                        String note, java.time.Instant createTime) {

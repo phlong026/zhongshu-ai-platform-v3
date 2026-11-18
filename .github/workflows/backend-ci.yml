@@ -95,11 +95,13 @@ jobs:
           java-version: '17'
           cache: maven
           cache-dependency-path: '平台程序/**/pom.xml'
+      - name: Validate delivered B Compose and reject unreviewed mounts
+        run: python3 -I 平台程序/script/verify-platform-deploy.py
       - name: Test release paths and package the platform server
         run: >-
           mvn -B -ntp -f 平台程序/pom.xml
           -pl yudao-platform-server -am
-          -Dtest=SixRoleCommissionIntegrationTest,PerfFinanceWorkbenchIntegrationTest,FranchiseBusinessMessagesTest,MessageCenterReadSnapshotIntegrationTest,FranchiseAccountAuthServiceIntegrationTest,StaffWechatLoginIntegrationTest,TrainingIntegrationTest,EngMaterialAndPlanGuardIntegrationTest,PublicCaseImageServiceTest,DesignAccessPublicCaseRoutingTest,FileServiceImplTest,LocalAssetServiceTest,CosObjectStorageAdapterTest,LocalAssetWiringTest,EngProgressCameraIntegrationTest,EngProgressTest,PerfCommissionUnifiedBalanceTest,ContentTaskResultSweepTest
+          -Dtest=OrgPointHeadquartersIntegrationTest,SixRoleCommissionIntegrationTest,PerfFinanceWorkbenchIntegrationTest,CrmIntegrationTest,PerfCommissionExportPgIntegrationTest,FranchiseBusinessMessagesTest,MessageCenterReadSnapshotIntegrationTest,FranchiseAccountAuthServiceIntegrationTest,StaffWechatLoginIntegrationTest,TrainingIntegrationTest,EngMaterialAndPlanGuardIntegrationTest,PublicCaseImageServiceTest,DesignAccessPublicCaseRoutingTest,FileServiceImplTest,LocalAssetServiceTest,CosObjectStorageAdapterTest,LocalAssetWiringTest,EngProgressCameraIntegrationTest,EngProgressTest,PerfCommissionUnifiedBalanceTest,ContentTaskResultSweepTest,OrgPointFlywayUpgradeIntegrationTest
           -Dsurefire.failIfNoSpecifiedTests=false
           -Dplatform.test.jdbc.url=jdbc:postgresql://127.0.0.1:5432/postgres
           -Dplatform.test.jdbc.username=postgres

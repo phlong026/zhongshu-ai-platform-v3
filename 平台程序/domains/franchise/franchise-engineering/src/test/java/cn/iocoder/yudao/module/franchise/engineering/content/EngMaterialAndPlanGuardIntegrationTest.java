@@ -538,7 +538,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         jdbc.update("""
             INSERT INTO fr_eng_project(id,company_id,source_type,manager_user_id,assigned_engineer_user_id,
               name,author_user_id,update_time)
-            SELECT ?+n,?,'MANUAL',?,CASE WHEN n<=21 THEN ? END,'测试工程-'||n,?,
+            SELECT ?+n,?,'MANUAL',?,CASE WHEN n<=51 THEN ? END,'测试工程-'||n,?,
                    now()+n*interval '1 second'
             FROM generate_series(1,20000) AS n
             """,base,store.orgId(),another.userId(),engineer.userId(),another.userId());
@@ -547,12 +547,41 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
             VALUES(?,?,'MANUAL',?,'其他组织工程',?)
             """,base+20001,otherStore.orgId(),engineer.userId(),engineer.userId());
         var visible=as(engineer,()->projectService.list(engineer,"PENDING_START"));
-        assertThat(visible).hasSize(22);
+        assertThat(visible).hasSize(52);
+        var calls=new java.util.concurrent.atomic.AtomicInteger();
+        var counted=new JdbcTemplate(jdbc.getDataSource()) {
+            @Override public java.util.List<java.util.Map<String,Object>> queryForList(String sql,Object... args) {
+                calls.incrementAndGet(); return super.queryForList(sql,args);
+            }
+        };
+        var listOnly=new EngProjectService(null,null,null,null,null,null,null,null,null,counted,null);
+        assertThat(listOnly.list(engineer,"PENDING_START",1,1)).hasSize(1);
+        assertThat(calls.getAndSet(0)).isEqualTo(1);
+        assertThat(listOnly.list(engineer,"PENDING_START",1,50)).hasSize(50);
+        assertThat(calls.get()).isEqualTo(1);
+        assertThat(as(engineer,()->projectService.list(engineer,"PENDING_START",1,20))).isEqualTo(visible.subList(0,20));
+        assertThat(as(engineer,()->projectService.list(engineer,"PENDING_START",2,20))).isEqualTo(visible.subList(20,40));
         assertThat(visible.subList(0,20)).extracting(row->((Number)row.get("id")).longValue())
-                .containsExactlyElementsOf(java.util.stream.LongStream.iterate(base+21,id->id-1).limit(20).boxed().toList());
-        assertThat(visible.subList(20,22)).extracting(row->row.get("id")).containsExactly(base+1,projectId);
+                .containsExactlyElementsOf(java.util.stream.LongStream.iterate(base+51,id->id-1).limit(20).boxed().toList());
+        assertThat(visible.subList(50,52)).extracting(row->row.get("id")).containsExactly(base+1,projectId);
         jdbc.update("DELETE FROM fr_eng_project WHERE id>? AND id<=? AND company_id IN (?,?)",
                 base,base+20001,store.orgId(),otherStore.orgId());
+    }
+
+    @Test
+    void actingEngineerRemainsOnTimelineAfterManagerChanges() {
+        var replacement=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+        var acting=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+        jdbc.update("""
+            INSERT INTO pf_command_event(domain,aggregate_type,aggregate_id,org_id,revision,command,
+                 actor_user_id,actor_post_id,actor_role_code,payload,payload_hash,id)
+            VALUES('franchise','fr-eng-project',?,?,91,'eng-start',?,?,'engineer','{}','test',?)
+            """,projectId,store.orgId(),acting.userId(),acting.postId(),IDS.incrementAndGet());
+        var before=(java.util.Map<?,?>)as(engineer,()->projectService.detail(engineer,projectId)).get("timelineActors");
+        assertThat(before.get("eng-start")).isNotNull();
+        jdbc.update("UPDATE fr_eng_project SET manager_user_id=?,assigned_engineer_user_id=? WHERE id=?",replacement.userId(),engineer.userId(),projectId);
+        var after=as(engineer,()->projectService.detail(engineer,projectId));
+        assertThat(after.get("timelineActors")).isEqualTo(before);
     }
 
     private long insertProject() {

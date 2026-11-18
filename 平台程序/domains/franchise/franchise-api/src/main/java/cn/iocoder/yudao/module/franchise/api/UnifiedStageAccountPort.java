@@ -12,6 +12,19 @@ import java.time.LocalDate;
  */
 public interface UnifiedStageAccountPort {
 
+    String SIGNED_CONTRACT = "SELECT k.id FROM fr_sale_contract k WHERE NOT k.deleted AND k.status='SIGNED' ";
+    String LATEST_CONTRACT = " ORDER BY k.id DESC LIMIT 1";
+    String PROJECT_CONTRACT = "COALESCE(p.sale_contract_id,(" + SIGNED_CONTRACT
+            + "AND k.company_id=p.company_id AND k.customer_id=p.customer_id" + LATEST_CONTRACT + "))";
+
+    String STAGE_NET = """
+        SELECT x.stage_id, x.company_id, SUM(x.amount_cents - COALESCE((
+            SELECT SUM(g.amount_cents) FROM fr_fin_refund g
+            WHERE g.receipt_id=x.receipt_id AND g.status='已核实' AND g.replaced_by_id IS NULL
+        ),0))::bigint AS collected
+        FROM fr_sale_stage_receipt x GROUP BY x.company_id,x.stage_id
+        """;
+
     /** 客户当前活跃（SIGNED）统一合同编号；无则 null（工程收款将拒绝——I05 规则从严） */
     Long activeContractId(PostSnapshot post, long customerId);
 
@@ -20,7 +33,17 @@ public interface UnifiedStageAccountPort {
 
     /** 当前合同约定和净实收，包含变更新增的尾款。 */
     default java.util.List<StageBalance> stageBalances(PostSnapshot post, long contractId) { return java.util.List.of(); }
-    record StageBalance(String stage, long expectedCents, long collectedCents) {}
+    record StageBalance(String stage, long expectedCents, long collectedCents, LocalDate dueDate, Long stageId, long refundedCents) {
+        public StageBalance(String stage, long expectedCents, long collectedCents, LocalDate dueDate, Long stageId) {
+            this(stage, expectedCents, collectedCents, dueDate, stageId, 0);
+        }
+        public StageBalance(String stage, long expectedCents, long collectedCents, long refundedCents) {
+            this(stage, expectedCents, collectedCents, null, null, refundedCents);
+        }
+        public StageBalance(String stage,long expectedCents,long collectedCents) {
+            this(stage,expectedCents,collectedCents,null,null);
+        }
+    }
 
     /** 按期分笔收款（转调 sales 收款链：限额/幂等/审计/资金登记全在统一侧） */
     StageCollectResult collectStage(PostSnapshot post, long contractId, String stage, CollectInput input);
