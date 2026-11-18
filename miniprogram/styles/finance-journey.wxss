@@ -8,3 +8,4 @@
 .journey input.journey-input{display:block;padding:0 20rpx;height:84rpx;line-height:84rpx}
 .journey input.journey-amount-input{height:94rpx;line-height:94rpx}
 .journey-row.journey-amount-end{justify-content:flex-end}
+.journey-row .journey-source-reference{min-width:0;max-width:70%;text-align:right;overflow-wrap:anywhere;word-break:break-all}

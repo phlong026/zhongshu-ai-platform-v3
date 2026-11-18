@@ -26,10 +26,13 @@ function cashRows(facts,books,stages,role){
   const q=source||{},key=({receipt:'r-',payment:'p-',refund:'f-'})[sourceKind]+raw.id;
   const refundDir=sourceKind==='refund'?(raw.refundDirection==='expense'?'expense':'client'):'';
   const returned=(facts.refunds||[]).filter(f=>f.status==='已核实'&&String(sourceKind==='receipt'?f.receiptId:f.paymentId)===String(raw.id)&&(sourceKind==='receipt'?f.refundDirection!=='expense':f.refundDirection==='expense')).reduce((n,f)=>n+Number(f.amountCents),0);
+  const receiptRefund=sourceKind==='receipt'&&returned>0
+   ? (returned===Number(raw.amountCents)?'全额已退':'已退')+' ¥'+V.money(returned) : '';
   rows.push({...raw,...context(q,books,stages),id:String(raw.id),key,type,sourceKind,label:type==='RECEIPT'?'收款':type==='PAYMENT'?'付款':refundDir==='expense'?'支出退回':'客户退款',
    date:day(date),sign,tone:sign==='+'?'income':'expense',name,amount:V.money(raw.amountCents),amount_cents:raw.amountCents,
-   counterparty:q.recipient||q.counterparty||'',source_type:q.sourceType,sourceLabel:q.category||stageName(q.stage)||(q.sourceType==='business'?'合同回款':'其他'),
-   account_name:raw.accountName||'',transaction_no:raw.transactionNo||'',voucher_file_id:raw.voucherFileId,statusText:'已登记',funding_type:raw.fundingType||'COMPANY',
+   counterparty:q.recipient||q.counterparty||'',source_type:q.sourceType,
+   sourceLabel:q.category||(q.stage?stageName(q.stage):q.sourceType==='business'?'合同回款':type==='RECEIPT'?'其他收款':refundDir==='client'?'客户退款':'其他费用'),
+   account_name:raw.accountName||'',transaction_no:raw.transactionNo||'',voucher_file_id:raw.voucherFileId,statusText:receiptRefund||'已登记',funding_type:raw.fundingType||'COMPANY',
    canRefund:['receipt','payment'].includes(sourceKind)&&Number(raw.amountCents)>returned,refundableCents:Math.max(0,Number(raw.amountCents)-returned),
    canRevise:sourceKind==='receipt'&&q.sourceType==='manual',canVoid:PF.canVoidPayment(role,sourceKind,raw.status),canCorrect:sourceKind==='refund'&&role==='finance-lead',category:type==='RECEIPT'?'收款':type==='PAYMENT'?'付款':refundDir==='expense'?'支出退回':'退款'});
  };
@@ -45,4 +48,26 @@ function cashRows(facts,books,stages,role){
  return rows.sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id,undefined,{numeric:true}));
 }
 function filterCash(rows,{month='',keyword='',direction='all',scope=''}={}){const word=keyword.trim().toLowerCase();return rows.filter(r=>(!month||r.date.slice(0,7)===month)&&(!scope||r.scope===scope)&&(direction==='all'||(direction==='in'?r.sign==='+':r.sign!=='+' ))&&(!word||[r.name,r.projectName,r.counterparty,r.transaction_no].join(' ').toLowerCase().includes(word)));}
-module.exports={stageName,scopeOf,context,payableRows,cashRows,filterCash};
+function refundOptions(sources,cashRows,sourceKind) {
+ const byId=new Map(cashRows.filter(row=>row.sourceKind===sourceKind).map(row=>[row.id,row]));
+ const labels=new Map(),suffixes=new Map();
+ const options=sources.filter(source=>source.refundableCents>0).map(source=>{
+  const row=byId.get(String(source.id));
+  const label=row?[row.projectName,row.name,'可退 ¥'+V.money(source.refundableCents)].join(' · '):source.label;
+  const transaction=String(row?.transaction_no||source.transactionNo||'').trim();
+  const suffix=transaction.slice(-8);
+  labels.set(label,(labels.get(label)||0)+1);
+  suffixes.set(label+'|'+suffix,(suffixes.get(label+'|'+suffix)||0)+1);
+  return {...source,label,sourceName:row?.name||source.label,transaction,suffix};
+ });
+ return options.map(option=>{
+  const {transaction,suffix,...source}=option;
+  let label=source.label;
+  if(labels.get(label)>1) {
+   const ref=suffix&&suffixes.get(label+'|'+suffix)===1?'流水尾号 '+suffix:'原单 '+source.id;
+   label=ref+' · '+label;
+  }
+  return {...source,label,referenceLabel:transaction?'原流水号':'原单号',reference:transaction||String(source.id)};
+ });
+}
+module.exports={stageName,scopeOf,context,payableRows,cashRows,filterCash,refundOptions};

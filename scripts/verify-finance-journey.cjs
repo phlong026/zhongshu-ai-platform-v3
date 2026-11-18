@@ -1,5 +1,27 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm'),{createRequire}=require('module'),path=require('path');
 const J=require('../miniprogram/utils/finance-journey-view'),V=require('../miniprogram/utils/finance-workbench-view'),PF=require('../miniprogram/utils/platform-finance');
+test('contract receipts and their refunds show their source as contract collections',()=>{
+ const source={id:'raw',sourceType:'business',status:'已登记',amountCents:5000};
+ const refund={id:'ret',receiptId:source.id,status:'已核实',refundDirection:'client',amountCents:5000};
+ const rows=J.cashRows({receipts:[source],refunds:[refund]},[],[],'finance');
+ assert.equal(rows.length,2);assert.ok(rows.every(row=>row.sourceLabel==='合同回款'));
+ assert.equal(rows.find(row=>row.id==='raw').statusText,'全额已退 ¥50.00');
+ const partial=J.cashRows({receipts:[source],refunds:[{...refund,amountCents:1000}]},[],[],'finance');
+ assert.equal(partial.find(row=>row.id==='raw').statusText,'已退 ¥10.00');
+});
+test('same-day identical refund choices distinguish original transactions and support missing or colliding references',()=>{
+ const sources=['101','102','103','104','105'].map(id=>({id,refundableCents:id==='105'?0:5000}));
+ const transactions=['BANK-111111-1','BANK-111111-2','','ALT-111111-2',''];
+ const cash=sources.map(({id},i)=>({id,sourceKind:'receipt',projectName:'测试乡墅',name:'签约款',transaction_no:transactions[i]}));
+ const options=J.refundOptions(sources,cash,'receipt');
+ assert.equal(options.length,4);
+ assert.equal(new Set(options.map(row=>row.label)).size,4);
+ assert.match(options[0].label,/^流水尾号 111111-1/);
+ assert.match(options[1].label,/^原单 102/);
+ assert.equal(options[1].reference,'BANK-111111-2');
+ assert.deepEqual([options[2].referenceLabel,options[2].reference],['原单号','103']);
+ assert.match(options[3].label,/^原单 104/);
+});
 const facts={receipts:[{id:'r',status:'已登记',amountCents:100000,sourceType:'business',sourceRef:'sale:c:SIGN_AFTER:r',name:'业主首款',receivedDate:'2026-11-17'}],payables:[{id:'q',projectId:'9007199254740999',stage:'engineering',totalCents:50000,recipient:'材料商',status:'进行中'},{id:'d',projectId:'9007199254740999',stage:'FULL',sourceType:'design',totalCents:240000,status:'进行中'}],payments:[{id:'p',payableId:'q',status:'已核实',amountCents:20000,payDate:'2026-11-17',fundingType:'COMPANY'},{id:'personal',payableId:'d',status:'已核实',amountCents:240000,payDate:'2026-11-17',fundingType:'EMPLOYEE'}],refunds:[{id:'return',status:'已核实',paymentId:'p',refundDirection:'expense',fundingType:'COMPANY',amountCents:5000,date:'2026-11-17'},{id:'personal-return',status:'已核实',paymentId:'personal',refundDirection:'expense',fundingType:'EMPLOYEE',amountCents:10000,date:'2026-11-17'}]};
 const books=[{scope:'company',name:'公司日常账'},{scope:'project:9007199254740999',name:'张先生乡墅'}],stages=[{id:'s',contract_id:'c',project_id:'9007199254740999',customer_name:'张先生',stage:'SIGN_AFTER',amount_cents:200000,collected_cents:100000}];
 function harness(){const dir=path.resolve('miniprogram/pages/admin/finance-desk'),http={currentPostId:()=>123,get:async()=>({entries:[]}),requestGuard:()=>()=>true,sessionGuard:()=>()=>true,post:async()=>({id:'new-record'})},auth={currentApiPost:()=>({roleCode:'finance',orgType:'store'})};let calls=[];

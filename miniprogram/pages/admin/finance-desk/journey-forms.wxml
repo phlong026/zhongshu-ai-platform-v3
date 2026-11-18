@@ -33,7 +33,11 @@
  </block>
  <block wx:else>
   <view id="jf-source" class="journey-field"><text class="journey-label">{{registerType==='refund'?'原收款':'原付款'}}<text class="journey-required"> *</text></text><picker range="{{journeyRefundOptions}}" range-key="label" bindchange="journeyChooseRefund"><view class="journey-input">{{registerType==='refund'?(registerForm.receiptIdLabel||'选择原收款'):(registerForm.paymentIdLabel||'选择原付款')}}<image src="/assets/creation-chevron-muted.png"/></view></picker></view>
-  <view wx:if="{{journeyRefund}}" class="journey-source"><view class="journey-row"><text>原金额</text><text>¥{{journeyRefund.originalText}}</text></view><view class="journey-row"><text>剩余可退</text><text class="journey-money">¥{{journeyRefund.remainingText}}</text></view></view>
+  <view wx:if="{{journeyRefund}}" class="journey-source">
+   <view class="journey-row"><text>{{journeyRefund.referenceLabel}}</text><text selectable class="journey-source-reference">{{journeyRefund.reference}}</text></view>
+   <view class="journey-row"><text>原金额</text><text>¥{{journeyRefund.originalText}}</text></view>
+   <view class="journey-row"><text>剩余可退</text><text class="journey-money">¥{{journeyRefund.remainingText}}</text></view>
+  </view>
   <view wx:if="{{registerType==='expense-refund'}}" class="journey-field"><text class="journey-label">实际退回至</text><picker range="{{['原付款方','公司账户','原垫付员工']}}" data-field="refundFundingType" bindchange="registerInput"><view class="journey-input">{{registerForm.refundFundingType==='COMPANY'?'公司账户':registerForm.refundFundingType==='EMPLOYEE'?'原垫付员工':'原付款方'}}</view></picker></view>
  </block>
  <block wx:if="{{registerType!=='payment'||registerForm.payableId}}">

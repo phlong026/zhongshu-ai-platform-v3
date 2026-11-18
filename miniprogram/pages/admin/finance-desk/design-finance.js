@@ -134,7 +134,22 @@ function attach(page, api) {
       this.projectLedgerPage = pageNo;
       const s=result.summary;
       const entries=result.entries.list.map(r=>({...r,key:r.type+':'+r.id,typeLabel:({RECEIVABLE:'合同应收',PAYABLE:'费用',PAYMENT:'付款',ADVANCE:'员工垫付',RECEIPT:'收款',REFUND:'退款',EXPENSE_REFUND:'支出退回'})[r.type]||'费用',amountText:BookView.money(r.amountCents),dateText:financeDay(r.occurredOn),tone:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'income':'expense',sign:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'+':['PAYMENT','REFUND','ADVANCE'].includes(r.type)?'−':''}));
-      this.setData({ledgerProjectLoading:false,projectBookName:result.projectName||'项目账本',projectBookNet:BookView.money(Number(s.receivedCents)+Number(s.expenseRefundedCents)-Number(s.paidCents)-Number(s.refundedCents)),projectLedgerSummary:[{key:'received',label:'累计收款',value:BookView.money(s.receivedCents)},{key:'paid',label:'累计付款',value:BookView.money(s.paidCents)},{key:'contract',label:'合同金额',value:BookView.money(s.receivableCents)},{key:'cost',label:'费用金额',value:BookView.money(s.payableCents)}],projectLedgerEntries:append?(this.data.projectLedgerEntries||[]).concat(entries):entries,projectLedgerTotal:result.entries.total});
+      const metrics = [
+        {key:'received',label:'累计收款',value:BookView.money(s.receivedCents)},
+        {key:'paid',label:'累计付款',value:BookView.money(s.paidCents)}
+      ];
+      if (s.refundedCents > 0 || s.expenseRefundedCents > 0) {
+        metrics.push({key:'refunded',label:'收款退款',value:BookView.money(s.refundedCents)},
+          {key:'returned',label:'支出退回',value:BookView.money(s.expenseRefundedCents)});
+      }
+      metrics.push({key:'contract',label:'合同金额',value:BookView.money(s.receivableCents)},
+        {key:'cost',label:'项目费用',value:BookView.money(s.payableCents)});
+      this.setData({
+        ledgerProjectLoading:false, projectBookName:result.projectName||'项目账本',
+        projectBookNet:BookView.money(Number(s.receivedCents)+Number(s.expenseRefundedCents)-Number(s.paidCents)-Number(s.refundedCents)),
+        projectLedgerSummary:metrics, projectLedgerEntries:append?(this.data.projectLedgerEntries||[]).concat(entries):entries,
+        projectLedgerTotal:result.entries.total
+      });
     } catch (e) { if (alive() && !this.__disposed && (!this.canLoadProjectLedger || this.canLoadProjectLedger())) this.setData({ ledgerProjectLoading: false, ledgerProjectError: e.message || e.msg || '项目账加载失败' }); }
   };
   page.moreProjectLedger = function () { if ((this.data.projectLedgerEntries || []).length < this.data.projectLedgerTotal) this.loadProjectLedger(true); };

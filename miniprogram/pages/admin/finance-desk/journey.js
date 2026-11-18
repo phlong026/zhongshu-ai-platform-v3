@@ -95,7 +95,7 @@ module.exports=function(page,api){
   const options=(this.data.journeyPayables||[]).filter(r=>r.canPay&&r.sourceType!=='reimbursement'&&(!scope||r.scope===scope));
   const raw=this.data.platformRegister||{},refund=this.data.registerType==='expense-refund';
   const refunds=(refund?raw.expenseRefundable:raw.refundable)||[];
-  const refundOptions=refunds.filter(r=>r.refundableCents>0).map(r=>{const cash=(this.__journeyCash||[]).find(c=>c.sourceKind===(refund?'payment':'receipt')&&c.id===String(r.id));return {...r,label:cash?cash.projectName+' · '+cash.name+' · 可退 ¥'+V.money(r.refundableCents):r.label};});
+  const refundOptions=J.refundOptions(refunds,this.__journeyCash||[],refund?'payment':'receipt');
   const selected=refundOptions.find(r=>String(r.id)===String(refund?form.paymentId:form.receiptId));
   this.setData({journeyPaymentOptions:options,journeyPayment:q||null,journeyRefundOptions:refundOptions,journeyRefund:selected?{...selected,originalText:V.money(selected.amountCents),remainingText:V.money(selected.refundableCents)}:null,journeyRegisterTitle:form.reimbursement?'办理报销':this.data.registerType==='payment'?'登记付款':refund?'登记退款（支出退回）':'登记退款'});
  };
@@ -159,7 +159,7 @@ module.exports=function(page,api){
   try{const result=await http.get('/franchise/finance/workbench/ledger',{scope:employee.scope});if(!alive()||this.__disposed||this.data.bookEntryDetail?.key!==detail.key)return;const original=(result.entries||[]).find(r=>r.type==='ADVANCE'&&String(r.id)===String(payment.id));if(original)this.setData({bookEntryDetail:{...detail,...V.bookRows([original])[0]}});}catch(error){if(alive()&&this.data.bookEntryDetail?.key===detail.key)wx.showToast({title:'补充资料暂未加载，可稍后重试',icon:'none'});}
  };
  page.paySourceRow=function(e){return this.data.journeyEnabled?this.payJourneyRow(e):paySource.call(this,e);};
- page.journeyChooseRefund=function(e){const r=this.data.journeyRefundOptions[Number(e.detail.value)];if(!r)return;const field=this.data.registerType==='expense-refund'?'paymentId':'receiptId';this.setData({['registerForm.'+field]:String(r.id),['registerForm.'+field+'Label']:r.label});this.syncJourneyForm();};
+ page.journeyChooseRefund=function(e){const r=this.data.journeyRefundOptions[Number(e.detail.value)];if(!r)return;const field=this.data.registerType==='expense-refund'?'paymentId':'receiptId';this.setData({['registerForm.'+field]:String(r.id),['registerForm.'+field+'Label']:r.sourceName});this.syncJourneyForm();};
  page.changeCashDirection=function(e){this.setData({journeyDirection:e.currentTarget.dataset.direction});this.refreshJourney();};
  page.openJourneyCash=async function(e){const r=(this.__journeyCash||[]).find(r=>r.key===e.currentTarget.dataset.key);if(!r)return;this.setData({bookEntryDetail:r});if(r.scope.startsWith('contract:'))return;const alive=http.requestGuard('journey-entry-detail');try{const result=await http.get('/franchise/finance/workbench/ledger',{scope:r.scope});if(!alive()||this.__disposed||this.data.bookEntryDetail?.key!==r.key)return;const detail=(result.entries||[]).find(x=>String(x.id)===r.id&&x.type===r.type);if(detail)this.setData({bookEntryDetail:{...r,note:detail.note,voucher_file_id:detail.voucher_file_id||r.voucher_file_id}});}catch(e){if(alive()&&this.data.bookEntryDetail?.key===r.key)wx.showToast({title:'补充资料暂未加载，可稍后重试',icon:'none'});}};
  const bookEntry=page.openBookEntry;
