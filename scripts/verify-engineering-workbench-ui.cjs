@@ -77,18 +77,29 @@ test('未匹配合同保留建档表单，只有用户主动选择时才提交�
   assert.ok(h.writes.every(url=>url.endsWith('/projects/contract-filing')));
 });
 
-test('工程首页四张指标卡实际点击进入对应项目筛选，最近项目随数量显示入口', async () => {
+test('工程概览指标进入对应月份的工程明细，最近项目随数量显示入口', async () => {
   const h = await setup();
-  for (const filter of ['在建', '待开工', '待交付', '全部']) {
-    const home = await h.open('/pages/build/home/index');
-    assert.equal(current().data.eng.projectCount, 3);
-    const card = await home.$('stat-grid button[data-filter="' + filter + '"]');
-    assert.ok(card);
-    await card.tap(); await flush();
-    assert.equal(current().route, 'pages/build/projects/index');
-    assert.equal(current().data.filter, filter);
-    assert.equal(current().data.cards.length, filter === '全部' ? 3 : 1);
-    if (filter !== '全部') assert.equal(current().data.cards[0].status, filter);
+  const home = await h.open('/pages/build/home/index');
+  assert.ok(await home.$('home-overview[role="engineering"]'));
+  const file = require.resolve('../miniprogram/components/home-overview/index.js');
+  let overview;
+  require('node:vm').runInNewContext(require('node:fs').readFileSync(file, 'utf8'), {
+    Component: value => { overview = value; }, require: require('node:module').createRequire(file)
+  });
+  const metrics = ['overdueNodes', 'materials', 'rectifications', 'projectDue'];
+  const board = require('../miniprogram/utils/home-metrics').view('engineering', {
+    metrics: Object.fromEntries(metrics.map(key => [key, {total: 1, cents: 0}]))
+  });
+  for (const key of metrics) {
+    const page = await h.runtime.mountFixture({
+      file: file.replace(/\.js$/, '.wxml'), data: {role: 'engineering', month: '2026-10', board},
+      methods: {properties: {role: 'engineering'}, metric: overview.methods.metric}
+    });
+    await (await page.$('button[data-key="' + key + '"]')).tap(); await flush();
+    assert.equal(current().route, 'pages/home-metrics/index');
+    assert.equal(current().role, 'engineering');
+    assert.equal(current().key, key);
+    assert.equal(current().data.period, '2026-10');
   }
   for (const count of [0, 1, 3]) {
     h.projects(rows.slice(0, count));
@@ -169,11 +180,22 @@ test('老板工程总览的四卡跳转与统计口径一致', async () => {
   }
 });
 
-test('各工作台待办统一标题并去掉右侧说明；积分卡正常态无底部说明且异常态仍可重试', () => {
+test('工作台显示对应岗位的待办标题，积分卡异常态仍可重试', () => {
   const files = ['pages/build/home/index.wxml', 'pages/engineering/index.wxml', 'pages/business/index.wxml', 'pages/admin/home/index.wxml'];
   for (const file of files) {
     const source = require('node:fs').readFileSync(path.resolve(__dirname, '../miniprogram', file), 'utf8');
-    assert.ok(source.includes('今日待办'), file);
+    if (file === 'pages/engineering/index.wxml') assert.match(source, />今日待办</);
+    else {
+      const tag = source.match(/<todo-preview\b[^>]*\/>/)[0];
+      assert.match(tag, /appearance="home"/);
+      const definition = {};
+      const fs = require('node:fs');
+      require('node:vm').runInNewContext(fs.readFileSync(require.resolve('../miniprogram/components/todo-preview/index.js'), 'utf8'),
+        {Component: value => Object.assign(definition, value)});
+      const title = tag.match(/\btitle="([^"]+)"/)?.[1] || definition.properties.title.value;
+      const heading = rendered('components/todo-preview/index.wxml', {appearance:'home', title});
+      assert.ok(heading.some(node => node.text === (file.includes('admin/home') ? '待我决策' : '今日待办')), file);
+    }
     assert.ok(!source.includes('platformTodos.count'), file);
   }
   for (const state of ['ready', 'suspended', 'empty', 'error']) {
