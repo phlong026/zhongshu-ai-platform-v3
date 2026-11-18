@@ -224,30 +224,46 @@ function commissionRowView(row, roleCode, projectName) {
     assignee: row.assigneeName,
     version: row.version,
     evidenceId:/^\d+$/.test(row.evidenceRef||'')?row.evidenceRef:'',
-    stages: (row.stages || []).map(stage => ({
-      // M10-T05：三期映射（SIGN_AFTER→start/BASE_DONE→base/CAP_DONE→topping；存量 START/TOPPING 兼容）
-      stage: stage.stage === 'SIGN_AFTER' || stage.stage === 'START' ? 'start'
-        : stage.stage === 'BASE_DONE' ? 'base' : 'topping',
-      label: stage.label,
-      status: stage.status,
-      payableId: stage.payableId == null ? '' : String(stage.payableId),
-      evidenceIds:reviewEvidenceIds(stage.reconciliations),
-      reviewDue: stage.reviewDue,
-      eligible: stage.eligible,
-      requiredText: centsText(stage.requiredCents),
-      receivedText: centsText(stage.receivedCents),
-      amountText: centsText(stage.amountCents),
-      paidText: centsText(stage.paidCents),
-      outstandingText: centsText(stage.outstandingCents),
-      canRelease: finance && stage.amountCents > 0 && stage.eligible && !stage.payableId,
-      canPay: finance && !!stage.payableId && !stage.reviewDue && stage.eligible && stage.outstandingCents > 0,
-      // M10-T05/R2 P2：已付差额核对入口（paid>0 即使净额不足也可核对——后端已付留痕路径）
-      canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.paidCents || 0) > 0),
-      reason: stage.reviewDue ? (stage.eligible ? '阶段款已补齐，待老板人工核对。' : '回款有变动，未付提成暂停。')
-        : !stage.eligible ? '阶段款尚未收齐，暂不能发放。'
-        : stage.payableId && stage.outstandingCents === 0 ? ''
-        : stage.payableId ? '应付已生成，请到财务工作台登记付款。' : '阶段款已足额，可由财务生成本期应付。'
-    }))
+    stages: (row.stages || []).map(stage => {
+      const settled = !!stage.payableId && stage.amountCents > 0 && stage.paidCents === stage.amountCents;
+      const gapText = centsText(stage.requiredCents == null || stage.receivedCents == null
+        ? null : Math.max(0, stage.requiredCents - stage.receivedCents));
+      const reviewedRefund = settled && stage.reviewDue === false
+        && (stage.settledReviewCurrent === true || stage.eligible === false);
+      let reason;
+      if (settled) {
+        reason = stage.reviewDue ? '回款有变动，已付提成保留待老板核对。'
+          : reviewedRefund && !stage.eligible ? '业主待补回款 ' + gapText : '';
+      } else if (stage.reviewDue) {
+        reason = stage.eligible ? '阶段款已补齐，待老板人工核对。' : '回款有变动，未付提成暂停。';
+      } else if (!stage.eligible) {
+        reason = '阶段款尚未收齐，暂不能发放。';
+      } else {
+        reason = stage.payableId ? '应付已生成，请到财务工作台登记付款。' : '阶段款已足额，可由财务生成本期应付。';
+      }
+      return {
+        // M10-T05：三期映射（SIGN_AFTER→start/BASE_DONE→base/CAP_DONE→topping；存量 START/TOPPING 兼容）
+        stage: stage.stage === 'SIGN_AFTER' || stage.stage === 'START' ? 'start'
+          : stage.stage === 'BASE_DONE' ? 'base' : 'topping',
+        label: stage.label,
+        status: settled && stage.reviewDue ? '已付清 · 待核对' : reviewedRefund ? '已付清 · 已核对' : stage.status,
+        payableId: stage.payableId == null ? '' : String(stage.payableId),
+        evidenceIds:reviewEvidenceIds(stage.reconciliations),
+        reviewDue: stage.reviewDue,
+        eligible: stage.eligible,
+        requiredText: centsText(stage.requiredCents),
+        receivedText: centsText(stage.receivedCents),
+        amountText: centsText(stage.amountCents),
+        paidText: centsText(stage.paidCents),
+        settled, gapText, diffText: centsText(stage.paidDiffCents),
+        outstandingText: centsText(stage.outstandingCents),
+        canRelease: finance && stage.amountCents > 0 && stage.eligible && !stage.payableId,
+        canPay: finance && !!stage.payableId && !stage.reviewDue && stage.eligible && stage.outstandingCents > 0,
+        // M10-T05/R2 P2：已付差额核对入口（paid>0 即使净额不足也可核对——后端已付留痕路径）
+        canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.paidCents || 0) > 0),
+        reason
+      };
+    })
   };
 }
 

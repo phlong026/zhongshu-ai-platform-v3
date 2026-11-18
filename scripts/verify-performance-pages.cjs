@@ -98,6 +98,22 @@ for (const state of fiveStates) {
   }
 }
 ok('提成五态×三角色按钮矩阵（15 组合，退款核对时禁付）', matrixOk);
+ok('已付清且已核对的提成补收后保留核对标记，历史未核对期显示已付清', (() => {
+  const stage = {stage:'SIGN_AFTER',payableId:'1',amountCents:15000,paidCents:15000,
+    outstandingCents:0,eligible:true,requiredCents:100000,receivedCents:100000,reviewDue:false,status:'已付清'};
+  const view = reviewed => P.commissionRowView({stages:[{...stage,settledReviewCurrent:reviewed}]},'boss','项目').stages[0];
+  const result = view(true);
+  return result.status === '已付清 · 已核对' && !result.reason && !result.canReconcile && view(false).status === '已付清';
+})());
+ok('付清后退款：回款缺口、提成支付差额及核对前后入口', (() => {
+  const stage = {stage:'SIGN_AFTER', payableId:'123', amountCents:15000, paidCents:15000,
+    paidDiffCents:0, outstandingCents:0, eligible:false, requiredCents:100000, receivedCents:80000};
+  const view = (role, reviewDue) => P.commissionRowView({stages:[{...stage,reviewDue}]},role,'项目').stages[0];
+  const pending = view('boss',true), done = view('boss',false), finance = view('finance',true);
+  return pending.status === '已付清 · 待核对' && pending.canReconcile && pending.gapText === '¥ 200'
+    && pending.diffText === '¥ 0' && done.status === '已付清 · 已核对' && !done.canReconcile
+    && !finance.canPay && !finance.canRelease && !finance.canReconcile;
+})());
 ok('commissionRowView：assigneeUserId 字符串保留（Codex P1-6）', (() => {
   // 后端 JSON 返回的 Long 是十进制字符串；用字符串模拟（JS number 字面量在本测试文件解析时就已丢精度）
   const v = P.commissionRowView({ policyId: 1, projectId: 7, totalCents: 1, assigneeUserId: '9223372036854775806',

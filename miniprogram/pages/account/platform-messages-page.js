@@ -5,7 +5,7 @@ const BASE='/platform/messages/center';
 const TYPES={业务:'BUSINESS',学习:'LEARNING',系统:'SYSTEM'};
 function target(m) {
   if(m.actionPath){
-    if(!/^\/pages\/(workflow(?:\/commission)?|build\/(record|materials)|admin\/(finance-desk|tasks)|account(?:\/training)?|studio)\/index\?/.test(m.actionPath))throw Error('此消息的业务入口暂不可用');
+    if(!/^\/pages\/(workflow(?:\/commission)?|build\/(record|materials)|admin\/(finance-desk|tasks|commission)|account(?:\/training)?|studio)\/index\?/.test(m.actionPath))throw Error('此消息的业务入口暂不可用');
     return m.actionPath;
   }
   throw Error('此事项当前无可办理入口，请查看消息详情');

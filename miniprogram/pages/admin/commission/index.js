@@ -10,7 +10,13 @@ const clean = () => ({ ready:false, error:'', busy:false, actor:{}, canEditPolic
 
 Page({
   data:clean(),
-  onLoad(options = {}) { this.options = options; this.selectedProjectId = options.id || ''; this.setData({returnLabel:options.from==='finance-profile'?'返回我的':'返回上一页'}); },
+  onLoad(options = {}) {
+    this.options = options;
+    this.selectedProjectId = options.id || '';
+    const stage = {SIGN_AFTER:'start',BASE_DONE:'base',CAP_DONE:'topping'}[options.reviewStage];
+    if (stage && options.id) this.reviewRequest = {projectId:options.id, stage};
+    this.setData({returnLabel:options.from==='finance-profile'?'返回我的':'返回上一页'});
+  },
   returnToOrigin() { if(!this.data.busy) return N.back({fallback:['finance','finance-lead'].includes(P.apiPost()?.roleCode)?'/pages/admin/finance-desk/index?view=profile':undefined}); },
   onShow() { this.refresh(); 
   },
@@ -47,6 +53,11 @@ Page({
           signAfter:selected?.stages.find(s=>s.stage==='start')?.amountText.replace(/[¥,\s]/g,'')||'',baseDone:selected?.stages.find(s=>s.stage==='base')?.amountText.replace(/[¥,\s]/g,'')||'',capDone:selected?.stages.find(s=>s.stage==='topping')?.amountText.replace(/[¥,\s]/g,'')||'',assignee: selected ? selected.assigneeUserId : (staff[staffIndex] ? staff[staffIndex].id : '') },
         platPerf: true
       });
+      if (this.reviewRequest) {
+        const {projectId, stage} = this.reviewRequest;
+        this.reviewRequest = null;
+        if (!this.openCommissionReview(projectId, stage)) wx.showToast({title:'当前没有可办理的提成核对',icon:'none'});
+      }
     } catch (error) {
       if(!alive())return;
       const msg = P.errorText(error);
@@ -96,22 +107,24 @@ Page({
       else wx.openDocument({filePath:file.tempFilePath,fileType:'pdf'});
     }catch(e){if(alive())this.fail(e.message||'凭据打开失败');}
   },
-  async commissionAction(event) {
-    if (this.data.busy||this.data.evidenceUploading) return;
-    const data = event.currentTarget.dataset, action = data.action;
-    if (action === 'commission-reconcile' && !data.confirmed) {
-      const project = this.data.commissionRows.find(row => row.projectId === String(data.id));
-      const stage = project?.stages.find(row => row.stage === data.stage);
-      if (!stage?.canReconcile) return;
-      this.__pick = null;
+  openCommissionReview(projectId, stageKey) {
+      const project = this.data.commissionRows.find(row => row.projectId === String(projectId));
+      const stage = project?.stages.find(row => row.stage === stageKey);
+      if (!stage?.canReconcile) return false;
       this.setData({ commissionReview: {
-        projectId: data.id, stage: data.stage, projectName: project.project, label: stage.label,
+        projectId: project.projectId, stage: stage.stage, projectName: project.project, label: stage.label,
         received: stage.receivedText, outstanding: stage.outstandingText, eligible: stage.eligible,
+        gapText: stage.gapText, agreedText: stage.amountText, paidText: stage.paidText,
+        diffText: stage.diffText, settled: stage.settled,
         note: '', file: null
       }, error: '' });
       wx.pageScrollTo({scrollTop:0,duration:0});
-      return;
-    }
+      return true;
+  },
+  async commissionAction(event) {
+    if (this.data.busy||this.data.evidenceUploading) return;
+    const data = event.currentTarget.dataset, action = data.action;
+    if (action === 'commission-reconcile' && !data.confirmed) return this.openCommissionReview(data.id, data.stage);
     const id = data.id || this.selectedProjectId;
     const form = clone(action==='commission-reconcile'?this.data.commissionReview:this.data.commissionForm);
     if (data.stage) form.stage = data.stage;
