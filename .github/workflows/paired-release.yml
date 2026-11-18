@@ -37,7 +37,7 @@ jobs:
           node-version: '24'
       - name: Build paired release and pre-spool baseline
         env:
-          FRONTEND_REV: 843c742fc9daf3c21832e47e4d24c58d6da95ce9
+          FRONTEND_REV: 78cde5e3490ad43b81666cffaea6839c9404175e
           PREVIOUS_REV: ee7f20ff986b4fe0cc45d50b2e38c52a3d840a46
         run: |
           git worktree add --detach "$RUNNER_TEMP/previous" "$PREVIOUS_REV"

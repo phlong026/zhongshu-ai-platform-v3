@@ -127,7 +127,7 @@ with tarfile.open(scratch/"mini.tar") as archive:
     archive.extractall(package/"wechat-project",filter="data")
 fixtures = package / "acceptance" / "wechat"
 (fixtures / "scripts").mkdir(parents=True)
-for name in ("verify-finance-journey.cjs", "role-page-runtime.cjs"):
+for name in ("verify-finance-journey.cjs", "role-page-runtime.cjs", "verify-performance-pages.cjs"):
     shutil.copyfile(mini / "scripts" / name, fixtures / "scripts" / name)
 subprocess.run(["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"], cwd=mini, check=True)
 shutil.copytree(mini / "node_modules" / "sax", fixtures / "node_modules" / "sax")
@@ -159,8 +159,10 @@ run("docker","run","--rm","--network","none",
     "--volume",str(unpacked/"wechat-project/miniprogram")+":/work/miniprogram:ro",
     "--volume",str(fixtures/"scripts")+":/work/scripts:ro",
     "--volume",str(fixtures/"node_modules")+":/work/node_modules:ro",
-    "--workdir","/work","node:24-alpine","node","--test","scripts/verify-finance-journey.cjs",capture=False)
+    "--workdir","/work","node:24-alpine","node","--test","scripts/verify-finance-journey.cjs",
+    "scripts/verify-performance-pages.cjs",capture=False)
 record("paymentRecoveryPage","passed")
+record("commissionRoleStates","passed")
 
 shutil.copytree(old/"deploy/platform",deploy)
 variables = {}
@@ -175,7 +177,8 @@ for name in ("platform-identity-content.properties.example","platform-cos.proper
         if "=" in line and not line.startswith("#"):
             k,v=line.split("=",1)
             settings[k]=secrets.token_hex(16) if "REPLACE" in v else v
-settings.update({"platform.identity.wechat.provider":"real","platform.identity.wechat.apps[0].appid":"wx0000000000000118",
+settings.update({"zhongshu.org-point.headquarters-tenant-id":"1",
+                 "platform.identity.wechat.provider":"real","platform.identity.wechat.apps[0].appid":"wx0000000000000118",
                  "platform.identity.sms.provider":"real","platform.identity.sms.sdk-app-id":"1400000000","platform.identity.sms.template-id":"123456",
                  "zhongshu.content.provider":"real","zhongshu.content.task-sweep-enabled":"true","zhongshu.franchise.asset.storage.provider":"cos",
                  "zhongshu.franchise.asset.storage.cos.endpoint":"https://assets.example.invalid","zhongshu.franchise.asset.storage.cos.bucket":"rehearsal-1234567890",

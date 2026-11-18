@@ -363,6 +363,11 @@ public class PerfCommissionService {
             received = balance.map(row -> row.collectedCents()).orElse(0L);
             signatureParts.add("required:" + required);
             signatureParts.add("unified:" + contractId + ":" + engStage + ":" + received);
+            // 补收会恢复原净额，仍须以累计退款区分两次足额到账。无退款沿用历史签名。
+            long refunded = balance.map(row -> row.refundedCents()).orElse(0L);
+            if (refunded > 0) {
+                signatureParts.add("refunded:" + refunded);
+            }
         } else {
             signatureParts.add("required:" + required);
             List<Map<String, Object>> collectionRows = jdbc.queryForList(

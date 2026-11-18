@@ -189,6 +189,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_payment_stage ("
                 + "id bigint PRIMARY KEY, company_id bigint NOT NULL, contract_id bigint NOT NULL,"
                 + "stage varchar(16) NOT NULL)");
+        jdbc.execute("ALTER TABLE fr_sale_payment_stage ADD COLUMN IF NOT EXISTS amount_cents bigint");
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_stage_receipt ("
                 + "id bigint PRIMARY KEY, company_id bigint NOT NULL, stage_id bigint NOT NULL,"
                 + "receipt_id bigint NOT NULL, amount_cents bigint NOT NULL)");
@@ -457,8 +458,8 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 + "VALUES (?,?,'SIGN_AFTER',10000)", orgId, project);
         jdbc.update("INSERT INTO fr_sale_contract (id,company_id,customer_id,status) VALUES (?,?,?,'SIGNED')",
                 contract, orgId, customer);
-        jdbc.update("INSERT INTO fr_sale_payment_stage (id,company_id,contract_id,stage) "
-                + "VALUES (?,?,?,'SIGN_AFTER')", saleStage, orgId, contract);
+        jdbc.update("INSERT INTO fr_sale_payment_stage (id,company_id,contract_id,stage,amount_cents) "
+                + "VALUES (?,?,?,'SIGN_AFTER',10000)", saleStage, orgId, contract);
         jdbc.update("INSERT INTO fr_sale_stage_receipt (id,company_id,stage_id,receipt_id,amount_cents) "
                 + "VALUES (?,?,?,?,12000)", nextId(), orgId, saleStage, receipt);
         jdbc.update("INSERT INTO fr_fin_refund (company_id,receipt_id,amount_cents,status,replaced_by_id) "
@@ -470,6 +471,10 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                         + "VALUES (?,?,?,?, 'SIGN_AFTER',?,1,?,'[]'::jsonb,?,?::timestamptz)",
                 nextId(), orgId, policy, project, payable, signature, post.userId(), "2026-11-15 10:00:00");
 
+        // 净额已补回，原签名仍需核对。老板保存新签名后恢复。
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
+        jdbc.update("UPDATE fr_perf_commission_release SET receipt_signature=? WHERE project_id=? AND company_id=?",
+                signature + "|refunded:2000", project, orgId);
         assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
         jdbc.update("INSERT INTO fr_fin_refund (company_id,receipt_id,amount_cents,status,replaced_by_id) "
                 + "VALUES (?,?,1,'已核实',NULL)", orgId, receipt);

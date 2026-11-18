@@ -31,7 +31,13 @@ public interface UnifiedStageAccountPort {
 
     /** 当前合同约定和净实收，包含变更新增的尾款。 */
     default java.util.List<StageBalance> stageBalances(PostSnapshot post, long contractId) { return java.util.List.of(); }
-    record StageBalance(String stage, long expectedCents, long collectedCents, LocalDate dueDate, Long stageId) {
+    record StageBalance(String stage, long expectedCents, long collectedCents, LocalDate dueDate, Long stageId, long refundedCents) {
+        public StageBalance(String stage, long expectedCents, long collectedCents, LocalDate dueDate, Long stageId) {
+            this(stage, expectedCents, collectedCents, dueDate, stageId, 0);
+        }
+        public StageBalance(String stage, long expectedCents, long collectedCents, long refundedCents) {
+            this(stage, expectedCents, collectedCents, null, null, refundedCents);
+        }
         public StageBalance(String stage,long expectedCents,long collectedCents) {
             this(stage,expectedCents,collectedCents,null,null);
         }

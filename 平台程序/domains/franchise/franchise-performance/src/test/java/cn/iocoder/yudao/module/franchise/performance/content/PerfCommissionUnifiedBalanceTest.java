@@ -22,10 +22,17 @@ class PerfCommissionUnifiedBalanceTest {
         var full=service.stageFacts(post,7,"SIGN_AFTER");
         assertThat(full.required()).isEqualTo(100000);
         assertThat(full.eligible()).isTrue();
-        when(account.stageBalances(post,9L)).thenReturn(List.of(new UnifiedStageAccountPort.StageBalance("SIGN_AFTER",100000,90000)));
+        when(account.stageBalances(post,9L)).thenReturn(List.of(new UnifiedStageAccountPort.StageBalance("SIGN_AFTER",100000,90000,10000)));
         var refund=service.stageFacts(post,7,"SIGN_AFTER");
         assertThat(refund.received()).isEqualTo(90000);
         assertThat(refund.eligible()).isFalse();
         assertThat(refund.signature()).isNotEqualTo(full.signature());
+        when(account.stageBalances(post,9L)).thenReturn(List.of(new UnifiedStageAccountPort.StageBalance("SIGN_AFTER",100000,100000,10000)));
+        var recovered = service.stageFacts(post,7,"SIGN_AFTER");
+        assertThat(recovered.eligible()).isTrue();
+        assertThat(PerfCommissionService.sameStageSignature(recovered.signature(), full.signature())).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(recovered.signature(), refund.signature())).isFalse();
+        assertThat(PerfCommissionService.sameStageSignature(recovered.signature(), service.stageFacts(post,7,"SIGN_AFTER").signature())).isTrue();
+        assertThat(full.signature()).isEqualTo("required:100000|unified:9:SIGN_AFTER:100000");
     }
 }

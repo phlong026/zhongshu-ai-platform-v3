@@ -361,18 +361,20 @@ public class PerfCommissionExportService {
     private static String batchSql(String placeholders) {
         String stage = "CASE r.stage WHEN 'START' THEN 'SIGN_AFTER' "
                 + "WHEN 'TOPPING' THEN 'CAP_DONE' ELSE r.stage END";
+        String required = "COALESCE(CASE WHEN contract.id IS NOT NULL THEN sale_stage.amount_cents ELSE term.amount_cents END, 0)";
         return "SELECT p.id AS policy_id, p.assignee_user_id, p.assignee_name, "
                 + "p.update_time AS policy_update_time, p.total_cents, p.start_cents, p.base_done_cents, "
                 + "p.topping_cents, p.version AS current_version, r.project_id, r.stage, r.policy_version, "
                 + "r.receipt_signature, fp.total_cents AS payable_cents, "
                 + "COALESCE((SELECT SUM(pm.amount_cents) FROM fr_fin_payment pm "
                 + "WHERE pm.payable_id = r.payable_id AND pm.status = '已核实'), 0) AS paid_cents, "
-                + "COALESCE(term.amount_cents, 0) AS fact_required, "
+                + required + " AS fact_required, "
                 + "CASE WHEN contract.id IS NOT NULL THEN COALESCE(unified.received, 0) "
                 + "ELSE COALESCE(engineering.received, 0) END AS fact_received, "
-                + "'required:' || COALESCE(term.amount_cents, 0) || "
+                + "'required:' || " + required + " || "
                 + "CASE WHEN contract.id IS NOT NULL THEN '|unified:' || contract.id || ':' || " + stage
                 + " || ':' || COALESCE(unified.received, 0) "
+                + " || CASE WHEN unified.refunded > 0 THEN '|refunded:' || unified.refunded ELSE '' END "
                 + "ELSE COALESCE('|' || engineering.signature_parts, '') END AS fact_signature "
                 + "FROM fr_perf_commission_release r "
                 + "LEFT JOIN fr_perf_commission_policy p "
@@ -388,7 +390,7 @@ public class PerfCommissionExportService {
                 + "LEFT JOIN fr_sale_payment_stage sale_stage ON sale_stage.company_id = r.company_id "
                 + "AND sale_stage.contract_id = contract.id AND sale_stage.stage = " + stage + " "
                 + "LEFT JOIN LATERAL (SELECT COALESCE(SUM(sr.amount_cents), 0) "
-                + "- COALESCE(SUM(refund.refunded), 0) AS received "
+                + "- COALESCE(SUM(refund.refunded), 0) AS received, COALESCE(SUM(refund.refunded), 0) AS refunded "
                 + "FROM fr_sale_stage_receipt sr LEFT JOIN LATERAL ("
                 + "SELECT COALESCE(SUM(g.amount_cents), 0) AS refunded FROM fr_fin_refund g "
                 + "WHERE g.company_id = r.company_id AND g.receipt_id = sr.receipt_id "
