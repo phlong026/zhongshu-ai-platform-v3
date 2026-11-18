@@ -1,0 +1,12 @@
+<brand-header title="加盟商资料" divider="{{true}}"/>
+<view class="store-page">
+  <text wx:if="{{loading}}">正在读取加盟商资料…</text>
+  <view wx:if="{{profile}}" class="store-form">
+    <label>加盟商名称<input value="{{profile.name}}" maxlength="30" data-field="name" bindinput="edit" disabled="{{saving}}"/></label>
+    <label>老板姓名<input value="{{profile.ownerName}}" maxlength="20" data-field="ownerName" bindinput="edit" disabled="{{saving||!profile.editOwnerName}}"/></label>
+    <label>门店地址<input value="{{profile.address}}" maxlength="200" data-field="address" bindinput="edit" disabled="{{saving}}" placeholder="填写门店地址"/></label>
+    <button type="primary" loading="{{saving}}" disabled="{{saving||stale}}" bindtap="save">保存资料</button>
+  </view>
+  <view wx:if="{{error}}" class="store-error">{{error}}</view>
+  <button wx:if="{{!loading&&(!profile||stale)}}" bindtap="load">重新载入</button>
+</view>

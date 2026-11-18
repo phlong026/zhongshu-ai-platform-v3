@@ -1,0 +1,6 @@
+.store-page{padding:32rpx 28rpx 60rpx;color:var(--zs-text-2);font-size:28rpx}
+.store-form{padding:8rpx 28rpx 32rpx;border-radius:24rpx;background:white}
+.store-form label{display:block;padding:24rpx 0 18rpx;border-bottom:1rpx solid var(--zs-line);font-size:26rpx}
+.store-form input{padding-top:12rpx;min-height:64rpx;color:var(--zs-text-1);font-size:32rpx}
+.store-form button{margin-top:32rpx;background:var(--zs-brand-press);border-radius:18rpx}
+.store-error{margin:24rpx 0;color:#a54230}
