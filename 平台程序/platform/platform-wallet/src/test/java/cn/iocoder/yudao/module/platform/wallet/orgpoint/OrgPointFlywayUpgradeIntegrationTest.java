@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.springframework.test.context.TestPropertySource(properties = "platform.test.extra-flyway-locations=,classpath:db/migration/platform-wallet")
 class OrgPointFlywayUpgradeIntegrationTest extends PlatformPgIntegrationTest {
 
     private static final String LOCATION = "db/migration/platform-wallet/";
