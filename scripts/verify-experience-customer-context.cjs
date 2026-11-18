@@ -38,6 +38,36 @@ function loadPage(platformCrm = CRM) {
   return definition;
 }
 
+test('sales collection resubmits the returned method and edited account and starts new declarations with defaults', async () => {
+  const page = harness().page;
+  const stageId = '101';
+  const row = CRM.contractRow({contract:{id:'9'},stages:[{id:stageId,stage:'SIGN_AFTER',amountCents:5000}],
+    declarations:[{id:'201',stage_id:stageId,status:'RETURNED',amount_cents:5000,method:'cash',account_name:'公司现金',received_date:'2026-11-18'}]});
+  page.setData({canCollect:true,salesContracts:[row]});
+  page.platCollect({currentTarget:{dataset:{stageId,declarationId:'201'}}});
+  assert.equal(page.data.collectForm.accountName,'公司现金');
+  assert.equal(page.data.collectForm.method,'cash');
+  const submitted = [];
+  page.__crmSales.stages = { collect: async (id, body) => {
+    submitted.push({ id, ...body });
+    return { stageStatus: 'PENDING_CONFIRMATION' };
+  } };
+  page.loadPlatformContract = () => {};
+  page.platCollectInput({currentTarget:{dataset:{key:'accountName'}},detail:{value:' 公司备用金 '}});
+  page.platCollectSubmit();
+  await flush();
+  assert.equal(submitted.length, 1);
+  assert.equal(submitted[0].id, stageId);
+  assert.equal(submitted[0].accountName, '公司备用金');
+  assert.equal(submitted[0].method, 'cash');
+  assert.equal(submitted[0].amountCents, 5000);
+  page.platCollect({currentTarget:{dataset:{stageId:'102',declarationId:'201'}}});
+  assert.equal(page.data.collectForm.accountName,'');
+  page.platCollect({currentTarget:{dataset:{stageId}}});
+  assert.equal(page.data.collectForm.accountName,'');
+  assert.equal(page.data.collectForm.method,'bank');
+});
+
 function harness(options = {}) {
   const platformCrm = options.platformCrm || CRM;
   const definition = loadPage(platformCrm);

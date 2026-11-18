@@ -388,7 +388,7 @@ function contractRow(row) {
     id: String(c.id), status: c.status, statusText: SALE_STATUS_TEXT[c.status] || c.status || '',
     totalText: c.totalCents != null ? (c.totalCents / 100).toFixed(2) : '',
     signedDate: toDate(c.signedDate), revision: c.revision,
-    declarations: (row.declarations || []).map(d => ({id:String(d.id),stageId:String(d.stage_id),amountText:(Number(d.amount_cents)/100).toFixed(2),date:toDate(d.received_date),status:d.status,reason:d.return_reason||'',transactionNo:d.transaction_no||''})),
+    declarations: (row.declarations || []).map(d => ({id:String(d.id),stageId:String(d.stage_id),amountText:(Number(d.amount_cents)/100).toFixed(2),date:toDate(d.received_date),status:d.status,reason:d.return_reason||'',transactionNo:d.transaction_no||'',method:d.method,accountName:d.account_name||''})),
     stages: (row.stages || []).map(s => ({
       id: String(s.stageId != null ? s.stageId : s.id), stage: s.stage,
       stageText: s.label || STAGE_TEXT[s.stage] || s.stage,
