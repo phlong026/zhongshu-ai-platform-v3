@@ -1,0 +1,59 @@
+name: Paired release rehearsal
+on:
+  pull_request:
+    branches: [backend-main]
+    paths:
+      - '.github/workflows/paired-release.yml'
+      - '平台程序/deploy/platform/**'
+      - '平台程序/script/release-rehearsal/**'
+      - '平台程序/platform/platform-wallet/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paired-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: '平台程序/**/pom.xml'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Build paired release and pre-spool baseline
+        env:
+          FRONTEND_REV: 843c742fc9daf3c21832e47e4d24c58d6da95ce9
+          PREVIOUS_REV: ee7f20ff986b4fe0cc45d50b2e38c52a3d840a46
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/previous" "$PREVIOUS_REV"
+          git worktree add --detach "$RUNNER_TEMP/mini" "$FRONTEND_REV"
+          mvn -B -ntp -f "$RUNNER_TEMP/previous/平台程序/pom.xml" -pl yudao-platform-server -am -Dmaven.test.skip=true package > "$RUNNER_TEMP/old-build.log" || { tail -60 "$RUNNER_TEMP/old-build.log"; exit 1; }
+          mvn -B -ntp -f 平台程序/pom.xml -pl yudao-platform-server -am -Dmaven.test.skip=true package > "$RUNNER_TEMP/build.log" || { tail -60 "$RUNNER_TEMP/build.log"; exit 1; }
+          cd 平台程序/admin-ui
+          npx --yes pnpm@11.19.0 install --frozen-lockfile
+          node node_modules/vite/bin/vite.js build --mode layout-release
+      - name: Verify immutable package, failed migration recovery and healthy rollbacks
+        run: python3 平台程序/script/release-rehearsal/run.py
+      - name: Store verified package and evidence
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: paired-release
+          path: ${{ runner.temp }}/delivery/
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
