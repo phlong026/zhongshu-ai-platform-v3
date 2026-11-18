@@ -7,7 +7,8 @@ RUN javac --release 17 Healthcheck.java CapabilitySmoke.java
 
 FROM eclipse-temurin:17.0.17_10-jre-jammy@sha256:03c5b280ad53c041741552f231f5b65d97be39ca74fa4c7c1c9ace7f42cc3c9e
 WORKDIR /opt/platform
-RUN groupadd --gid 10001 platform && useradd --uid 10001 --gid 10001 --no-create-home platform
+RUN groupadd --gid 10001 platform && useradd --uid 10001 --gid 10001 --no-create-home platform \
+    && install -d -m 0700 -o 10001 -g 10001 /var/lib/platform/asset-spool
 COPY --chown=10001:10001 yudao-platform-server/target/yudao-platform-server.jar ./app.jar
 COPY --from=health --chown=10001:10001 /health/Healthcheck.class ./health/Healthcheck.class
 COPY --from=health --chown=10001:10001 /health/CapabilitySmoke.class ./smoke/CapabilitySmoke.class

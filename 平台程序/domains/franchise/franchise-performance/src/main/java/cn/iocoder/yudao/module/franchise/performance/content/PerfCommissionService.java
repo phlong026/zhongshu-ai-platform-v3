@@ -103,6 +103,7 @@ public class PerfCommissionService {
                 || StrUtil.isBlank(evidenceRef) || StrUtil.isBlank(note)) {
             throw exception(PERF_INPUT_INVALID, "请填写提成总额、在岗归属人、凭据与说明");
         }
+        requireVoucher(post,evidenceRef);
         FrPerfCommissionPolicyDO current = policies.selectByProject(post.orgId(), projectId);
         // R2 P2-17：policy 行锁前置（硬锁检查与 release 竞争窗口互斥——先锁再查 release）
         if (current != null) {
@@ -263,6 +264,7 @@ public class PerfCommissionService {
             throw exception(PERF_INPUT_INVALID, "请上传人工核对依据并填写说明");
         }
         Map<String, Object> record = new LinkedHashMap<>();
+        requireVoucher(post,evidenceRef);
         record.put("previousReceiptSignature", rel.getReceiptSignature());
         record.put("receiptSignature", facts.signature);
         record.put("evidenceRef", StrUtil.trim(evidenceRef));
@@ -292,6 +294,19 @@ public class PerfCommissionService {
     }
 
     // ===================== 净实收与对账视图 =====================
+
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
+
+    private void requireVoucher(PostSnapshot post,String reference) {
+        long id;
+        try { id=Long.parseLong(reference); }
+        catch(NumberFormatException error) { throw exception(PERF_INPUT_INVALID,"请上传有效的提成凭据"); }
+        var actor=new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(post.orgId(),
+                serviceAccounts.requireServiceAccount(post.orgId()),post.userId(),post.postId());
+        if(id<=0 || !assets.validateReference(actor,id,java.util.Set.of("FIN_VOUCHER")))
+            throw exception(PERF_INPUT_INVALID,"请上传当前组织可用的财务凭据");
+    }
 
     record StageFacts(String stage, long required, long received, boolean eligible,
                       String signature, List<Long> receiptIds) {
@@ -442,6 +457,7 @@ public class PerfCommissionService {
         view.put("totalCents", policy.getTotalCents());
         view.put("assigneeUserId", policy.getAssigneeUserId());
         view.put("assigneeName", policy.getAssigneeName());
+        view.put("evidenceRef", policy.getEvidenceRef());
         view.put("version", policy.getVersion());
         List<Map<String, Object>> stages = new ArrayList<>();
         for (String stage : List.of(FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER, FrPerfCommissionReleaseDO.STAGE_BASE_DONE,

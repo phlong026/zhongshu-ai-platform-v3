@@ -279,6 +279,22 @@ class FinancePageMapperIntegrationTest extends FranchisePgIntegrationTest {
         return id;
     }
 
+    @Test @org.springframework.transaction.annotation.Transactional
+    void visibleEngineeringNamesAreSearchedBeforeCountAndPage() {
+        jdbc.execute("CREATE TEMP TABLE fr_eng_expense(company_id bigint,payable_id bigint,name text)");
+        jdbc.execute("CREATE TEMP TABLE fr_eng_supply(company_id bigint,payable_id bigint,material_id bigint)");
+        jdbc.execute("CREATE TEMP TABLE fr_eng_material(id bigint,company_id bigint,name text)");
+        long a=newPayable("进行中",301L,"供应商","A"), b=newPayable("进行中",301L,"供应商","B");
+        jdbc.update("UPDATE fr_fin_payable SET stage='engineering' WHERE id IN (?,?)",a,b);
+        jdbc.update("INSERT INTO fr_eng_expense VALUES(?,?,'工地吊装租赁')",orgId,a);
+        jdbc.update("INSERT INTO fr_eng_material VALUES(99,?,'工地吊装机械')",orgId);
+        jdbc.update("INSERT INTO fr_eng_supply VALUES(?,?,99)",orgId,b);
+        var first=payableMapper.selectPage(page(1,1),orgId,null,null,"工地吊装");
+        var second=payableMapper.selectPage(page(2,1),orgId,null,null,"工地吊装");
+        assertThat(first.getTotal()).isEqualTo(2);
+        assertThat(List.of(first.getList().get(0).getName(),second.getList().get(0).getName())).containsExactlyInAnyOrder("工地吊装租赁","工地吊装机械");
+    }
+
     private long newPayable(String status, Long projectId, String recipient, String agreementRef) {
         long id = SEQ.incrementAndGet();
         jdbc.update("INSERT INTO fr_fin_payable (id, company_id, project_id, stage, total_cents, recipient, status, agreement_ref) "

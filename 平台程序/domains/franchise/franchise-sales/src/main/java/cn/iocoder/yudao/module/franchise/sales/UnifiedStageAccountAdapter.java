@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.franchise.sales;
 
 import cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort;
-import cn.iocoder.yudao.module.franchise.sales.dal.SaleContractDO;
 import cn.iocoder.yudao.module.franchise.sales.dal.SaleContractMapper;
 import cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageDO;
 import cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageMapper;
@@ -34,12 +33,7 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
 
     @Override
     public Long activeContractId(PostSnapshot post, long customerId) {
-        SaleContractDO active = contracts.selectActiveByCustomer(customerId);
-        if (active == null || active.getCompanyId() != post.orgId()
-                || !SaleContractDO.STATUS_SIGNED.equals(active.getStatus())) {
-            return null;
-        }
-        return active.getId();
+        return contracts.signedContractId(post.orgId(), customerId);
     }
 
     @Override

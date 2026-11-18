@@ -12,6 +12,9 @@ import java.time.LocalDate;
  */
 public interface UnifiedStageAccountPort {
 
+    String SIGNED_CONTRACT = "SELECT k.id FROM fr_sale_contract k WHERE NOT k.deleted AND k.status='SIGNED' ";
+    String LATEST_CONTRACT = " ORDER BY k.id DESC LIMIT 1";
+
     /** 客户当前活跃（SIGNED）统一合同编号；无则 null（工程收款将拒绝——I05 规则从严） */
     Long activeContractId(PostSnapshot post, long customerId);
 

@@ -48,6 +48,9 @@ public class LocalAssetService implements AssetAccessPort {
     private static final Map<String, Long> MAX_BYTES = Map.of(
             "FIN_VOUCHER", 20L << 20, "ENG_DRAWING", 30L << 20, "ENG_SITE_PHOTO", 10L << 20,
             "CONTRACT_ATTACHMENT", 20L << 20, "CONTENT_ASSET", 50L << 20, "DESIGN_REFERENCE", 20L << 20, "DESIGN_DELIVERABLE", 20L << 20);
+    private final AssetSpool spool = new AssetSpool(java.nio.file.Path.of(System.getProperty("platform.asset.spool-dir",
+            java.nio.file.Path.of(System.getProperty("user.home"),".zhongshu","asset-spool").toString())),
+            Long.getLong("platform.asset.spool-max-bytes",384L << 20));
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final ObjectStoragePort storage;
@@ -119,7 +122,7 @@ public class LocalAssetService implements AssetAccessPort {
         requireChannel(actor, asset.type());
         if (!"PENDING".equals(asset.status())) throw exception(RESOURCE_FORBIDDEN);
         if (!validUploadTicket(tenant, actor, id, token)) throw exception(RESOURCE_FORBIDDEN);
-        try (var file = new AssetUploadFile()) {
+        try (var reservation = spool.reserve(asset.size()); var file = reservation.file()) {
             var received = file.copy(input, asset.size());
             if (received.size() != asset.size() || !asset.sha().equals(received.sha())) throw invalid("上传大小或摘要不匹配");
             int consumed = db("consume-upload", id, () -> jdbc.update("UPDATE fr_asset_upload_ticket SET consumed_at=CURRENT_TIMESTAMP"
@@ -140,6 +143,8 @@ public class LocalAssetService implements AssetAccessPort {
                         hash(token), id, tenant, actor.orgId()));
                 throw invalid("对象写入失败，请重试上传");
             }
+        } catch (AssetSpool.CapacityBusy e) {
+            throw invalid("暂存空间繁忙，请使用原上传票据重试");
         } catch (IOException e) {
             log.warn("B asset upload read failed tenant={} org={} asset={} error={}", tenant, actor.orgId(), id, e.getClass().getSimpleName());
             throw invalid("上传读取失败，请重新申请票据");
@@ -175,7 +180,10 @@ public class LocalAssetService implements AssetAccessPort {
             return updated;
         }));
         if (claimed != 1) throw invalid("资产正在校验，请稍后重试");
-        try (var raw = new AssetUploadFile(); var sanitized = new AssetUploadFile()) {
+        boolean image = original.mime().startsWith("image/");
+        long outputLimit = image ? MAX_BYTES.get(original.type()) : 0;
+        try (var reservation=spool.reserve(original.size()+outputLimit);
+             var raw=reservation.file(); var sanitized=image ? reservation.file() : null) {
             String rejection = null;
             AssetUploadFile.Integrity verified = null;
             if (!storage.existsWithSize(original.uploadKey(), original.size())) rejection = "SIZE_MISMATCH";
@@ -186,8 +194,7 @@ public class LocalAssetService implements AssetAccessPort {
                 if (verified.size() != original.size()) rejection = "SIZE_MISMATCH";
                 else if (!original.sha().equals(verified.sha())) rejection = "SHA256_MISMATCH";
             }
-            if (rejection == null) rejection = scanner.scan(original.mime(), raw.path, sanitized.path);
-            boolean image = original.mime().startsWith("image/");
+            if (rejection == null) rejection = scanner.scan(original.mime(), raw.path, image ? sanitized.path : null, outputLimit);
             if (rejection == null && image) {
                 long limit = MAX_BYTES.get(original.type());
                 verified = sanitized.integrity(limit);

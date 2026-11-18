@@ -289,38 +289,45 @@ public class EngProjectService {
     // ===================== 读 =====================
 
     public List<Map<String, Object>> list(PostSnapshot post, String status) {
-        var wrapper = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<FrEngProjectDO>()
-                .eq(FrEngProjectDO::getCompanyId, post.orgId())
-                .orderByDesc(FrEngProjectDO::getUpdateTime);
-        if (StrUtil.isNotBlank(status)) {
-            wrapper.eq(FrEngProjectDO::getStatus, status);
+        return list(post, status, null, 50);
+    }
+
+    public List<Map<String,Object>> list(PostSnapshot post, String status, Integer page, int size) {
+        return list(post,status,page,size,null);
+    }
+
+    public List<Map<String,Object>> list(PostSnapshot post,String status,Integer page,int size,String keyword) {
+        if (page != null && (page < 1 || size < 1 || size > 100)) throw exception(ENGINEERING_INPUT_INVALID);
+        var args = new ArrayList<Object>();
+        String where = "p.company_id=?";
+        args.add(post.orgId());
+        if (StrUtil.isNotBlank(status)) { where += " AND p.status=?"; args.add(status); }
+        if (keyword!=null && !keyword.isBlank()) {
+            where += " AND (strpos(lower(p.name),lower(?))>0 OR strpos(lower(p.customer_name),lower(?))>0"
+                    +" OR strpos(lower(p.city),lower(?))>0)";
+            args.add(keyword.trim()); args.add(keyword.trim()); args.add(keyword.trim());
         }
         if (!isFinanceOrAbove(post)) {
-            wrapper.and(owner -> owner.eq(FrEngProjectDO::getManagerUserId, post.userId())
-                    .or().eq(FrEngProjectDO::getAssignedEngineerUserId, post.userId()));
+            where += " AND (p.manager_user_id=? OR p.assigned_engineer_user_id=?)";
+            args.add(post.userId()); args.add(post.userId());
         }
-        List<Map<String, Object>> rows = new ArrayList<>();
-        for (FrEngProjectDO p : projects.selectList(wrapper)) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", p.getId());
-            row.put("name", p.getName());
-            row.put("customer", p.getCustomerName());
-            row.put("city", p.getCity());
-            row.put("area", p.getArea());
-            row.put("floors", p.getFloors());
-            var progressNodes = planNodes.selectByProject(post.orgId(), p.getId());
-            row.put("totalNodes", progressNodes.size());
-            row.put("completedNodes", progressNodes.stream()
-                    .filter(n -> FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus())).count());
-            row.put("status", p.getStatus());
-            row.put("managerUserId", p.getManagerUserId());
-            row.put("actualStartAt", p.getActualStartAt());
-            row.put("sourceType", p.getSourceType());
-            row.put("contractTotalCents", p.getContractTotalCents());
-            row.put("firstCents", p.getFirstCents());
-            rows.add(row);
-        }
-        return rows;
+        String paging = "";
+        if (page != null) { paging = " LIMIT ? OFFSET ?"; args.add(size); args.add((page-1L)*size); }
+        String sql = "WITH selected AS (SELECT p.* FROM fr_eng_project p WHERE " + where
+                + " ORDER BY p.update_time DESC,p.id DESC" + paging + """
+                ), counts AS (
+                    SELECT n.project_id,count(*) total,count(*) FILTER (WHERE n.status='DONE') completed
+                    FROM fr_eng_plan_node n JOIN selected p ON p.company_id=n.company_id AND p.id=n.project_id
+                    GROUP BY n.project_id
+                )
+                SELECT p.id,p.name,p.customer_name AS customer,p.city,p.area,p.floors,p.status,
+                       p.manager_user_id AS "managerUserId",p.actual_start_at AS "actualStartAt",
+                       p.source_type AS "sourceType",p.contract_total_cents AS "contractTotalCents",
+                       p.first_cents AS "firstCents",COALESCE(c.total,0)::int AS "totalNodes",
+                       COALESCE(c.completed,0)::int AS "completedNodes"
+                FROM selected p LEFT JOIN counts c ON c.project_id=p.id ORDER BY p.update_time DESC,p.id DESC
+                """;
+        return jdbcTemplate.queryForList(sql,args.toArray());
     }
 
     /** 详情聚合（档案+计划+材料汇总+收款汇总+尾段，按身份脱敏 D-13/F11） */
@@ -383,11 +390,29 @@ public class EngProjectService {
         }).toList());
         // R2 P1-4：现场记录透出（批次#36 在线 site/site-correct 链数据源；corrections/file_asset_ids 原样 JSONB 文本）
         view.put("siteRecords", jdbcTemplate.queryForList(
-                "SELECT id, node_id, occurred_at, note, completion, "
+                "SELECT id, node_id, occurred_at, note, completion, author_user_id::text, "
                         + "file_asset_ids::text AS file_asset_ids, corrections::text AS corrections "
                         + "FROM fr_eng_site_record WHERE company_id = ? AND project_id = ? "
                         + "ORDER BY occurred_at DESC, id DESC",
                 post.orgId(), projectId));
+        var actors = jdbcTemplate.queryForList("""
+                SELECT DISTINCT ON (command, COALESCE(payload::jsonb->>'nodeId','')) command,
+                       payload::jsonb->>'nodeId' AS node, actor_user_id AS actor
+                FROM pf_command_event WHERE domain='franchise' AND org_id=? AND aggregate_type=?
+                  AND aggregate_id=? AND command IN ('eng-project-from-handover','eng-prepare','eng-start',
+                      'eng-node-complete','eng-deliver','eng-settle','eng-archive')
+                ORDER BY command,COALESCE(payload::jsonb->>'nodeId',''),revision DESC
+                """,post.orgId(),AGGREGATE,projectId);
+        var actorIds=actors.stream().map(r->((Number)r.get("actor")).longValue()).distinct().toList();
+        var names=new java.util.HashMap<Long,String>();
+        if(!actorIds.isEmpty()) systemDirectory.usersByIds(actorIds).forEach(u->names.put(u.userId(),u.name()));
+        var timelineActors=new java.util.HashMap<String,String>();
+        for(var r:actors) {
+            long actor=((Number)r.get("actor")).longValue();
+            String key=r.get("command")+(r.get("node")==null?"":":"+r.get("node"));
+            timelineActors.put(key,java.util.Objects.requireNonNullElse(names.get(actor),"经办人 "+actor));
+        }
+        view.put("timelineActors",timelineActors);
         if (closure != null) {
             Map<String, Object> c = new LinkedHashMap<>();
             c.put("deliveredAt", closure.getDeliveredAt());
@@ -415,7 +440,7 @@ public class EngProjectService {
         row.put("milestone", n.getMilestone());
         row.put("completedAt", n.getCompletedAt());
         row.put("baselineEndDate", n.getBaselineEndDate());
-        row.put("deviationDays", EngProgress.deviationDays(n, LocalDate.now()));
+        row.put("deviationDays", EngProgress.deviationDays(n, EngProgress.today()));
         row.put("delayReason", n.getDelayReason());
         row.put("delayOwnerUserId", n.getDelayOwnerUserId());
         row.put("recoveryDate", n.getRecoveryDate());

@@ -49,6 +49,8 @@ public class CustomerService {
         public FollowCommand(String note,LocalDate nextVisitDate){this(note,nextVisitDate,null,null);}
     }
 
+    private record FollowRequest(long customerId,FollowCommand follow) {}
+
     public record UpdateCommand(String name, String wechat, String province, String city, String summary,
                                 String district, String town, String village, String regionCode, String addressDetail) {
         public UpdateCommand(String name, String wechat, String province, String city, String summary) {
@@ -226,23 +228,40 @@ public class CustomerService {
         CustomerDO customer = requireWritable(post, customerId);
         String kind=command.contactKind()==null?"FOLLOW":command.contactKind();
         if(!Set.of("FOLLOW","VISIT").contains(kind)) throw exception(VISIT_DATE_INVALID);
-        LocalDate occurred=command.occurredOn()==null?LocalDate.now():command.occurredOn();
-        if(occurred.isAfter(LocalDate.now())||occurred.isBefore(LocalDate.of(2000,1,1))) throw exception(VISIT_DATE_INVALID);
-        FollowCommand input = new FollowCommand(CrmInputs.note(command.note()), command.nextVisitDate(),kind,occurred);
-        if (commands.replayed(post, idempotencyKey, input).isEmpty()) {
-            if (input.nextVisitDate() != null && input.nextVisitDate().isBefore(LocalDate.now())) {
-                throw exception(VISIT_DATE_INVALID);
+        FollowCommand input = new FollowCommand(CrmInputs.note(command.note()), command.nextVisitDate(),kind,command.occurredOn());
+        var fingerprint = new FollowRequest(customerId,input);
+        var previous = commands.previous(post,idempotencyKey,"customer-follow",customerId);
+        if (previous.isPresent()) {
+            var event = previous.get();
+            // Older clients omitted occurredOn; previous servers hashed their local date into the command.
+            Object legacy = null;
+            if (!cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(event.getPayload(),Map.class).containsKey("follow")) {
+                var original=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(event.getPayload(),FollowCommand.class);
+                legacy=input;
+                if (input.occurredOn()==null && original.occurredOn()!=null && event.getOccurredAt()!=null) {
+                    var instant=event.getOccurredAt().toInstant();
+                    if (java.util.List.of(java.time.ZoneId.systemDefault(),java.time.ZoneId.of("Asia/Shanghai"),java.time.ZoneOffset.UTC)
+                            .stream().anyMatch(zone -> instant.atZone(zone).toLocalDate().equals(original.occurredOn()))) {
+                        legacy=new FollowCommand(input.note(),input.nextVisitDate(),kind,original.occurredOn());
+                    }
+                }
             }
-            followMapper.insert(new CustomerFollowDO().setCompanyId(post.orgId()).setCustomerId(customerId)
-                    .setNote(input.note()).setNextVisitDate(input.nextVisitDate()).setContactKind(kind).setOccurredOn(occurred)
-                    .setAuthorUserId(post.userId()).setAuthorPostId(post.postId()));
-            long revision = customer.getRevision();
-            Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> u
-                    .set(CustomerDO::getStatus, CustomerDO.STATUS_FOLLOWING)
-                    .set(CustomerDO::getLastFollowAt, OffsetDateTime.now())
-                    .set(CustomerDO::getNextVisitDate, input.nextVisitDate())));
-            commands.record(post, AGGREGATE, customerId, revision + 1, "customer-follow", input, idempotencyKey);
+            commands.replayed(post,idempotencyKey,fingerprint,legacy);
+            return get(post,customerId);
         }
+        LocalDate today=LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        LocalDate occurred=input.occurredOn()==null?today:input.occurredOn();
+        if(occurred.isAfter(today)||occurred.isBefore(LocalDate.of(2000,1,1))) throw exception(VISIT_DATE_INVALID);
+        if (input.nextVisitDate() != null && input.nextVisitDate().isBefore(today)) throw exception(VISIT_DATE_INVALID);
+        followMapper.insert(new CustomerFollowDO().setCompanyId(post.orgId()).setCustomerId(customerId)
+                .setNote(input.note()).setNextVisitDate(input.nextVisitDate()).setContactKind(kind).setOccurredOn(occurred)
+                .setAuthorUserId(post.userId()).setAuthorPostId(post.postId()));
+        long revision = customer.getRevision();
+        Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> u
+                .set(CustomerDO::getStatus, CustomerDO.STATUS_FOLLOWING)
+                .set(CustomerDO::getLastFollowAt, OffsetDateTime.now())
+                .set(CustomerDO::getNextVisitDate, input.nextVisitDate())));
+        commands.record(post, AGGREGATE, customerId, revision + 1, "customer-follow", fingerprint, idempotencyKey);
         return get(post, customerId);
     }
 

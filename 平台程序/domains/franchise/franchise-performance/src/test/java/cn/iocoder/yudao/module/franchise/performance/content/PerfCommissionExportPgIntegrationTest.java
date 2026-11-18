@@ -84,16 +84,23 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
     @TestConfiguration
     static class Config {
-        static final OperateLogCommonApi AUDIT = mock(OperateLogCommonApi.class);
+
 
         @Bean
         OperateLogCommonApi operateLogCommonApi() {
-            return AUDIT;
+            return mock(OperateLogCommonApi.class);
         }
 
         @Bean
         PerformancePayablePort performancePayablePort() {
             return mock(PerformancePayablePort.class);
+        }
+
+        @Bean cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets() {
+            return mock(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+        }
+        @Bean cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort accounts() {
+            return mock(cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort.class);
         }
 
         @Bean
@@ -123,6 +130,9 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         }
     }
 
+    @Resource private OperateLogCommonApi auditApi;
+    @Resource private cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets;
+    @Resource private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort accounts;
     @Resource
     private PerfCommissionExportService exportService;
     @Resource
@@ -140,7 +150,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        reset(Config.AUDIT);
+        reset(auditApi);
         orgId = fixture.store().orgId();
         otherOrgId = fixture.store().orgId();
         post = fixture.post(orgId, "finance", null);
@@ -225,7 +235,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 String.valueOf(empB), "李四", "1", "200.00", "200.00", "0.00", "200.00", "0", "0", "1");
 
         ArgumentCaptor<OperateLogCreateReqDTO> captor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
-        verify(Config.AUDIT, times(2)).createOperateLog(captor.capture());
+        verify(auditApi, times(2)).createOperateLog(captor.capture());
         OperateLogCreateReqDTO audit = captor.getAllValues().get(1);
         assertThat(audit.getUserId()).isEqualTo(post.userId());
         assertThat(audit.getBizId()).isEqualTo(orgId);
@@ -240,7 +250,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
     @Test
     void auditAttemptFailureWritesZeroBytes() {
         doThrow(new IllegalStateException("audit unavailable"))
-                .when(Config.AUDIT).createOperateLog(any());
+                .when(auditApi).createOperateLog(any());
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
         IllegalStateException error = catchThrowableOfType(
@@ -270,7 +280,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
         assertThat(error).hasMessageContaining("client disconnected");
         ArgumentCaptor<OperateLogCreateReqDTO> captor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
-        verify(Config.AUDIT).createOperateLog(captor.capture());
+        verify(auditApi).createOperateLog(captor.capture());
         assertThat(captor.getValue().getAction()).contains("状态=attempt").doesNotContain("状态=success");
     }
 
@@ -314,7 +324,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         try (Connection connection = dataSource.getConnection()) {
             SingleConnectionDataSource single = new SingleConnectionDataSource(connection, true);
             PerfCommissionExportService service = new PerfCommissionExportService(
-                    new JdbcTemplate(single), Config.AUDIT);
+                    new JdbcTemplate(single), auditApi);
 
             setSessionTimeZone(connection, "UTC");
             assertThat(showSessionTimeZone(connection)).contains("UTC");
@@ -340,7 +350,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(parse(lines.get(0))).containsExactlyElementsOf(PerfCommissionExportService.header());
 
         ArgumentCaptor<OperateLogCreateReqDTO> captor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
-        verify(Config.AUDIT, times(2)).createOperateLog(captor.capture());
+        verify(auditApi, times(2)).createOperateLog(captor.capture());
         assertThat(captor.getAllValues().get(1).getAction()).contains("状态=success", "行数=0");
     }
 
@@ -510,7 +520,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(error.getCode()).isEqualTo(500);
         assertThat(error.getMessage()).isEqualTo("提成规则数据不完整，导出已中止，请联系管理员核对");
         assertThat(error.getMessage()).doesNotContain(String.valueOf(missingPolicyId));
-        verify(Config.AUDIT, never()).createOperateLog(any());
+        verify(auditApi, never()).createOperateLog(any());
     }
 
     @Test
@@ -548,7 +558,10 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
             long policy = insertPolicy(orgId, project, 100_000, 40_000, 30_000, 30_000, employee, "核对员工");
             release(orgId, project, policy, stage, expectedCents, null, "2026-11-06 10:00:00");
 
-            commissions.reconcile(boss, project, stage, "evidence-" + stage, "note-" + stage, "idem-" + stage);
+            org.mockito.Mockito.when(accounts.requireServiceAccount(orgId)).thenReturn(777L);
+            var actor=new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(orgId,777L,boss.userId(),boss.postId());
+            org.mockito.Mockito.when(assets.validateReference(actor,project,java.util.Set.of("FIN_VOUCHER"))).thenReturn(true);
+            commissions.reconcile(boss, project, stage, Long.toString(project), "note-" + stage, "idem-" + stage);
 
             String json = jdbc.queryForObject(
                     "SELECT reconciliations FROM fr_perf_commission_release "
@@ -577,7 +590,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(text.substring(1).split("\r\n")).hasSize(50_001); // 表头 + 5 万员工行
 
         ArgumentCaptor<OperateLogCreateReqDTO> captor = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
-        verify(Config.AUDIT, times(2)).createOperateLog(captor.capture());
+        verify(auditApi, times(2)).createOperateLog(captor.capture());
         assertThat(captor.getAllValues().get(1).getAction()).contains("状态=success", "行数=50000");
 
         // 第 50001 名员工 → 前置上限失败
@@ -609,7 +622,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
             return invocation.callRealMethod();
         }).when(spyJdbc).query(anyString(), any(RowCallbackHandler.class), any(Object[].class));
         PerfCommissionExportService service = new PerfCommissionExportService(
-                spyJdbc, Config.AUDIT);
+                spyJdbc, auditApi);
 
         PostSnapshot owner = postFor(bulkOrg);
         PerfCommissionExportService.ExportPlan plan = service.prepare(owner, MONTH);
@@ -641,7 +654,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
             return invocation.callRealMethod();
         }).when(spyJdbc).query(anyString(), any(RowCallbackHandler.class), any(Object[].class));
         PerfCommissionExportService service = new PerfCommissionExportService(
-                spyJdbc, Config.AUDIT);
+                spyJdbc, auditApi);
 
         PostSnapshot owner = postFor(bulkOrg);
         PerfCommissionExportService.ExportPlan plan = service.prepare(owner, MONTH);
@@ -651,7 +664,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
         assertThat(error).isNotNull().hasMessageContaining("second batch down");
         ArgumentCaptor<OperateLogCreateReqDTO> audit = ArgumentCaptor.forClass(OperateLogCreateReqDTO.class);
-        verify(Config.AUDIT).createOperateLog(audit.capture());
+        verify(auditApi).createOperateLog(audit.capture());
         assertThat(audit.getValue().getAction()).contains("状态=attempt").doesNotContain("状态=success");
         List<List<String>> written = bodyRows(output.toByteArray());
         assertThat(written).hasSize(500); // 第一批 500 行；第二批（第 501 行）未写出
@@ -670,7 +683,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(error).isNotNull();
         assertThat(error.getCode()).isEqualTo(500);
         assertThat(error.getMessage()).contains("5000");
-        verify(Config.AUDIT, never()).createOperateLog(any());
+        verify(auditApi, never()).createOperateLog(any());
     }
 
     /**
@@ -685,7 +698,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
         RecordingDataSource recording = new RecordingDataSource(dataSource);
         PerfCommissionExportService service = new PerfCommissionExportService(
-                recording, Config.AUDIT);
+                recording, auditApi);
         PostSnapshot owner = postFor(bulkOrg);
         PerfCommissionExportService.ExportPlan plan = service.prepare(owner, MONTH);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -704,7 +717,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         insertBulkWithPayables(bulkOrg, 96_100_000_000L, 96_200_000_000L, userBase, 501);
 
         RecordingDataSource recording = new RecordingDataSource(dataSource);
-        PerfCommissionExportService service = new PerfCommissionExportService(recording, Config.AUDIT);
+        PerfCommissionExportService service = new PerfCommissionExportService(recording, auditApi);
 
         PostSnapshot owner = postFor(bulkOrg);
         PerfCommissionExportService.ExportPlan plan = service.prepare(owner, MONTH);

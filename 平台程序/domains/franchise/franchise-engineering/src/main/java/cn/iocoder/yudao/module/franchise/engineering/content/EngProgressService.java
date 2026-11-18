@@ -37,14 +37,15 @@ public class EngProgressService {
         payload.put("ownerUserId",cmd.ownerUserId());payload.put("recoveryDate",cmd.recoveryDate());payload.put("action",cmd.action());
         if(commands.replayed(post,key,payload).isPresent())return projects.detail(post,projectId);
         var node=nodes.selectByProject(post.orgId(),projectId).stream().filter(n->n.getId()==nodeId).findFirst().orElseThrow(()->exception(ENGINEERING_INPUT_INVALID));
-        if(!EngProgress.overdue(node,LocalDate.now()))throw exception(ENGINEERING_INPUT_INVALID,"仅未完成的延期节点需要登记处理");
+        LocalDate today=EngProgress.today();
+        if(!EngProgress.overdue(node,today))throw exception(ENGINEERING_INPUT_INVALID,"仅未完成的延期节点需要登记处理");
         if(cmd.reason()==null||cmd.reason().isBlank()||cmd.reason().length()>1000||cmd.action()==null||cmd.action().isBlank()||cmd.action().length()>1000)
             throw exception(ENGINEERING_INPUT_INVALID,"请填写延期原因和处理措施（各不超过1000字）");
         if(cmd.ownerUserId()==null||(!Objects.equals(cmd.ownerUserId(),project.getManagerUserId())&&!Objects.equals(cmd.ownerUserId(),project.getAssignedEngineerUserId())))
             throw exception(ENGINEERING_INPUT_INVALID,"请选择本项目负责人或指定工程师");
-        if(cmd.recoveryDate()==null||cmd.recoveryDate().isBefore(LocalDate.now()))throw exception(ENGINEERING_INPUT_INVALID,"预计完成日期不能早于今天");
+        if(cmd.recoveryDate()==null||cmd.recoveryDate().isBefore(today))throw exception(ENGINEERING_INPUT_INVALID,"预计完成日期不能早于今天");
         payload.put("recordedAt",java.time.OffsetDateTime.now().toString());payload.put("actorUserId",post.userId());
-        payload.put("deviationDays",EngProgress.deviationDays(node,LocalDate.now()));
+        payload.put("deviationDays",EngProgress.deviationDays(node,today));
         payload.put("ownerName",directory.usersByIds(List.of(cmd.ownerUserId())).stream().map(SystemDirectory.UserBrief::name).filter(Objects::nonNull).findFirst().orElse(""));
         String history=EngPlanService.JsonList.append(node.getDelayHistory(),payload);
         jdbc.update("UPDATE fr_eng_plan_node SET delay_reason=?,delay_owner_user_id=?,recovery_date=?,recovery_action=?,delay_history=CAST(? AS jsonb),update_time=now() WHERE id=? AND company_id=? AND project_id=?",

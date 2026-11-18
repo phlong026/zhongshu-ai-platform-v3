@@ -13,8 +13,8 @@ import java.util.HexFormat;
 final class AssetUploadFile implements AutoCloseable {
     final Path path;
 
-    AssetUploadFile() throws IOException {
-        path = Files.createTempFile("fr-asset-", ".tmp");
+    AssetUploadFile(Path directory) throws IOException {
+        path = Files.createTempFile(directory,"fr-asset-", ".tmp");
     }
 
     record Integrity(long size, String sha) {}

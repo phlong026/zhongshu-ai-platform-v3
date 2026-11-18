@@ -23,6 +23,11 @@ class EngProgressTest {
         var day=LocalDate.of(2026,11,18);var n=new FrEngPlanNodeDO().setStatus("PENDING");assertThat(EngProgress.deviationDays(n,day)).isNull();
         n.setEndDate(day.plusDays(5)).setBaselineEndDate(day.minusDays(4));assertThat(EngProgress.deviationDays(n,day)).isEqualTo(4);
     }
+    @Test void shanghaiMidnightOnUtcServer() {
+        var midnight=java.time.Instant.parse("2026-10-31T16:00:00Z");
+        assertThat(EngProgress.businessDate(java.time.Clock.fixed(midnight,java.time.ZoneOffset.UTC))).isEqualTo(LocalDate.of(2026,11,1));
+        assertThat(EngProgress.businessDate(java.time.Clock.fixed(midnight.minusSeconds(1),java.time.ZoneOffset.UTC))).isEqualTo(LocalDate.of(2026,10,31));
+    }
     @Test void genericCameraUrlValidation(){
         EngCameraService.validateUrl("");EngCameraService.validateUrl("https://camera.example.com/live.m3u8?token=123");
         for(String url:java.util.List.of("rtsp://camera/live","http://camera/live.m3u8","https://user:pass@camera/live.m3u8","https://camera/live.mp4","javascript:alert(1)"))assertThatThrownBy(()->EngCameraService.validateUrl(url)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);

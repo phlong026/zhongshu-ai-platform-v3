@@ -204,6 +204,22 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(replay.customer().getRevision()).isEqualTo(2L);
     }
 
+    @jakarta.annotation.Resource private org.springframework.jdbc.core.JdbcTemplate followJdbc;
+
+    @Test
+    void oldDefaultDateCanReplayAcrossMidnightButChangedContentCannot() {
+        long id=capture(salesA1,phone()).customerId();
+        var command=new FollowCommand("回访",null);
+        as(salesA1,()->customers.follow(salesA1,id,command,"cross-day"));
+        var yesterday=LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).minusDays(1);
+        String old=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(new FollowCommand("回访",null,"FOLLOW",yesterday));
+        followJdbc.update("UPDATE pf_command_event SET occurred_at=?,payload=?,payload_hash=? WHERE aggregate_id=? AND command='customer-follow'",
+                java.sql.Timestamp.from(yesterday.atTime(12,0).atZone(java.time.ZoneId.of("Asia/Shanghai")).toInstant()),
+                old,cn.hutool.crypto.digest.DigestUtil.sha256Hex(old),id);
+        assertThat(as(salesA1,()->customers.follow(salesA1,id,command,"cross-day")).follows()).hasSize(1);
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->as(salesA1,()->customers.follow(salesA1,id,new FollowCommand("不同内容",null),"cross-day"))).isInstanceOf(RuntimeException.class);
+    }
+
     @Test
     void editingWithAStaleRevisionIsRejected() {
         long id = capture(salesA1, phone()).customerId();

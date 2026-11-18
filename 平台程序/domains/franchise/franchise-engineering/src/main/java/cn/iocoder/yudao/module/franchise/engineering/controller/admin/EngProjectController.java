@@ -60,8 +60,10 @@ public class EngProjectController {
     @GetMapping("/projects")
     @Operation(summary = "工程列表（?status=；工程岗仅本人，财务线全量）")
     @PreAuthorize("@post.has('" + EngineeringPermissions.QUERY + "')")
-    public CommonResult<List<Map<String, Object>>> list(@RequestParam(required = false) String status) {
-        return success(projects.list(post(), status));
+    public CommonResult<List<Map<String, Object>>> list(@RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer page, @RequestParam(defaultValue="50") int pageSize,
+            @RequestParam(required=false) String keyword) {
+        return success(projects.list(post(), status, page, pageSize, keyword));
     }
 
     @GetMapping("/{id}")
