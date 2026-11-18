@@ -19,6 +19,16 @@ public interface FinPayableMapper extends BaseMapperX<FinPayableDO> {
 
     default FinPayableDO lockById(Long id) { return selectOne(new LambdaQueryWrapperX<FinPayableDO>().eq(FinPayableDO::getId, id).last("FOR UPDATE")); }
 
+    /** 与结清触发器同序：先按 ID 锁原应付及派生报销应付，再锁付款或退回流水。 */
+    @org.apache.ibatis.annotations.Select("""
+            SELECT q.id FROM fr_fin_payable q JOIN fr_fin_payment m ON m.company_id=q.company_id
+            WHERE m.company_id=#{org} AND m.id=#{payment}
+              AND (q.id=m.payable_id OR (q.source_type='reimbursement' AND q.source_ref=m.id::text))
+            ORDER BY q.id FOR UPDATE OF q
+            """)
+    List<Long> lockBillsForPayment(@org.apache.ibatis.annotations.Param("org") long org,
+                                   @org.apache.ibatis.annotations.Param("payment") long payment);
+
     default List<FinPayableDO> selectByCompany(Long companyId, String status) {
         return withEngineeringNames(selectList(new LambdaQueryWrapperX<FinPayableDO>()
                 .eq(FinPayableDO::getCompanyId, companyId)

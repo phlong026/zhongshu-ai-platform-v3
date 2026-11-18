@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.franchise.finance;
 
 import cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentMapper;
+import cn.iocoder.yudao.module.franchise.finance.dal.FinPayableMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinReceiptMapper;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinRefundDO;
@@ -47,6 +48,8 @@ public class FinRefundService {
     private FranchiseCommands commands;
     @Resource
     private FinPaymentMapper paymentMapper;
+    @Resource
+    private FinPayableMapper payableMapper;
 
     public record RegisterCommand(long receiptId, long amountCents, String reason, LocalDate date,
                                   String transactionNo, Long voucherFileId, Long replacesId) {
@@ -142,6 +145,7 @@ public class FinRefundService {
         BusinessDateGuard.requireValid(cmd.date());
         designLocks.payment(cmd.paymentId());
         if(designLocks.designPayment(cmd.paymentId())) receiptService.requireVoucherAsset(post,cmd.voucherFileId());
+        payableMapper.lockBillsForPayment(post.orgId(), cmd.paymentId());
         FinPaymentDO payment = paymentMapper.lockById(cmd.paymentId());
         if (payment == null) throw exception(PAYMENT_NOT_FOUND_EXPENSE);
         if (payment.getCompanyId() != post.orgId()) throw exception(ORG_MISMATCH);
@@ -227,8 +231,9 @@ public class FinRefundService {
             idempotencyKey=commands.requireIdempotencyKey(idempotencyKey); designLocks.command(post,idempotencyKey);
             if(commands.replayed(post,idempotencyKey,java.util.Map.of("refundId",refundId,"reason",reason)).isPresent()) return;
             if(refund.getPaymentId()!=null) designLocks.payment(refund.getPaymentId()); else designLocks.receipt(refund.getReceiptId());
-            refund=refundMapper.lockById(refundId);
         }
+        if (refund.getPaymentId() != null) payableMapper.lockBillsForPayment(post.orgId(), refund.getPaymentId());
+        refund = refundMapper.lockById(refundId);
         if ("已作废".equals(refund.getStatus())) {
             return; // 幂等：重复作废无二次效果
         }
