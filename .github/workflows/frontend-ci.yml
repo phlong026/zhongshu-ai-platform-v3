@@ -29,3 +29,5 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Run all automated mini program checks
         run: npm run check
+      - name: Check integrated workbenches and package limits
+        run: npm run check:role-homes && npm run check:packages
