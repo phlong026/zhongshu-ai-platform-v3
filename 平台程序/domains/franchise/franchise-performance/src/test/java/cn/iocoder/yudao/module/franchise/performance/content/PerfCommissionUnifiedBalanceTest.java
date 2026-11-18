@@ -10,6 +10,40 @@ import static org.mockito.Mockito.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PerfCommissionUnifiedBalanceTest {
+    @Test void repayingOnlyTheReviewedShortfallPreservesTheSettledCommission() {
+        String stage = "required:100000|unified:9:SIGN_AFTER:";
+        String reviewed = stage + "80000|refunded:30000";
+        String paidUp = stage + "100000|refunded:30000";
+        assertThat(PerfCommissionService.needsReceiptReview(true, paidUp, reviewed, 15000, 15000, "15000")).isFalse();
+        assertThat(PerfCommissionService.needsReceiptReview(false, stage + "90000|refunded:30000", reviewed, 15000, 15000, "15000")).isFalse();
+        // 即使再退款后的净额仍高于当初核对的净额，也须重新核对。
+        assertThat(PerfCommissionService.needsReceiptReview(false, stage + "90000|refunded:40000", reviewed, 15000, 15000, "15000")).isTrue();
+        assertThat(PerfCommissionService.needsReceiptReview(true, paidUp, reviewed, 15000, 10000, "10000")).isTrue();
+        assertThat(PerfCommissionService.needsReceiptReview(true, paidUp, reviewed, 15000, 15000, null)).isTrue();
+        for (String changed : List.of(paidUp.replace("unified:9:", "unified:99:"), paidUp.replace("required:100000", "required:110000"),
+                stage + "100001|refunded:30000", stage + "70000|refunded:30000", "invalid")) {
+            assertThat(PerfCommissionService.needsReceiptReview(true, changed, reviewed, 15000, 15000, "15000")).isTrue();
+        }
+    }
+
+    @Test void engineeringRecoveryRequiresRetainingEveryReviewedReceiptAndRefund() {
+        String reviewed = "required:100000|c:1:100000:20000";
+        String recovered = reviewed + "|c:2:20000:0";
+        assertThat(PerfCommissionService.needsReceiptReview(true, recovered, reviewed, 15000, 15000, "15000")).isFalse();
+        for (String changed : List.of(reviewed + "|c:2:22000:2000", recovered.replace("c:1:", "c:3:"),
+                recovered.replace("100000:20000", "100000:25000"))) {
+            assertThat(PerfCommissionService.needsReceiptReview(false, changed, reviewed, 15000, 15000, "15000")).isTrue();
+        }
+    }
+    @Test void paidInFullReviewClosesOnlyForTheSameReceiptsAndReviewedPayment() {
+        String current = "required:100000|unified:9:SIGN_AFTER:80000|refunded:30000";
+        String earlier = "required:100000|unified:9:SIGN_AFTER:88000|refunded:22000";
+        assertThat(PerfCommissionService.needsReceiptReview(false, current, current, 15000, 15000, "15000")).isFalse();
+        assertThat(PerfCommissionService.needsReceiptReview(false, current, earlier, 15000, 15000, "15000")).isTrue();
+        assertThat(PerfCommissionService.needsReceiptReview(false, current, current, 15000, 15000, null)).isTrue();
+        assertThat(PerfCommissionService.needsReceiptReview(false, current, current, 15000, 15000, "10000")).isTrue();
+        assertThat(PerfCommissionService.needsReceiptReview(false, current, current, 15000, 10000, "10000")).isTrue();
+    }
     @Test void unifiedExpectedAndNetAmountsOverrideMissingOrStaleEngineeringTerms() {
         var jdbc=mock(JdbcTemplate.class);
         var account=mock(UnifiedStageAccountPort.class);

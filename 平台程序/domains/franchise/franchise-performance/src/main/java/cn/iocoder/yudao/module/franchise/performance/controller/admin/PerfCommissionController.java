@@ -42,7 +42,7 @@ public class PerfCommissionController {
     }
 
     @PostMapping("/commission/policy")
-    @Operation(summary = "提成规则（幂等；M10-T07 三期：baseDoneCents 基础完成后≥0 默认 0；Σ三期=total 由服务校验；已有 release 硬锁 004）")
+    @Operation(summary = "保存项目提成规则", description = "校验三期金额合计，基础期默认零。生成应付后锁定原规则，重复提交按幂等键处理。")
     @PreAuthorize("@post.has('" + PerformancePermissions.COMMISSION + "')")
     public CommonResult<Map<String, Object>> policy(@RequestBody Map<String, Object> body,
                                                     @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
@@ -58,7 +58,7 @@ public class PerfCommissionController {
     }
 
     @PostMapping("/commission/release")
-    @Operation(summary = "生成提成应付（幂等；服务层 finance 族；净实收足额 007；agreementRef 兜底标识）")
+    @Operation(summary = "生成项目提成应付", description = "财务按阶段净实收办理，重复请求返回原应付。")
     @PreAuthorize("@post.has('" + PerformancePermissions.COMMISSION + "')")
     public CommonResult<Map<String, Object>> release(@RequestBody Map<String, Object> body,
                                                      @RequestHeader(value = "Idempotency-Key", required = false) String idem) {

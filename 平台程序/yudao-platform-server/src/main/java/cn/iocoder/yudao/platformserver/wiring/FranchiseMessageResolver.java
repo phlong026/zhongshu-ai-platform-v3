@@ -135,6 +135,9 @@ public class FranchiseMessageResolver implements MessageCenterResolver {
             project(c,facts.one("fr_eng_project",query.get("id")));row.put("module",path.contains("material")?"material":"engineering");row.put("actionLabel","办理项目事项");
         } else if(path.startsWith("/pages/workflow/index")&&query.containsKey("id")){
             customer(c,facts.one("fr_customer",query.get("id")));row.put("module","customer");row.put("actionLabel",path.contains("view=contract")?"办理合同事项":"跟进客户");
+        } else if(key.startsWith("commission-review:")){
+            project(c,facts.one("fr_eng_project",query.get("id")));
+            row.put("module","performance");row.put("actionLabel","核对本期提成");
         } else if(todo.domain().contains("perf")){
             row.put("module","performance");row.put("actionLabel","办理绩效事项");
             var task=facts.one("fr_perf_task",lastId(key));c.put("taskName",first(task,"title"));field(c,"截止日期",first(task,"due"));

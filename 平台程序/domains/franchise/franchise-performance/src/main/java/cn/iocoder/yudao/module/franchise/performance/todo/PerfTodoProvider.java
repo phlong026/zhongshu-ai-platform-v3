@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.franchise.performance.todo;
 
+import cn.iocoder.yudao.module.franchise.performance.content.PerfCommissionService;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfTaskArchiveMapper;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfTaskDO;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfTaskMapper;
@@ -18,10 +19,12 @@ public class PerfTodoProvider implements TodoProvider {
 
     private final FrPerfTaskMapper tasks;
     private final FrPerfTaskArchiveMapper archives;
+    private final PerfCommissionService commissions;
 
-    public PerfTodoProvider(FrPerfTaskMapper tasks, FrPerfTaskArchiveMapper archives) {
+    public PerfTodoProvider(FrPerfTaskMapper tasks, FrPerfTaskArchiveMapper archives, PerfCommissionService commissions) {
         this.tasks = tasks;
         this.archives = archives;
+        this.commissions = commissions;
     }
 
     @Override
@@ -51,6 +54,7 @@ public class PerfTodoProvider implements TodoProvider {
                         task.getCreateTime()));
             }
         }
+        todos.addAll(commissions.reviewTodos(post));
         return todos;
     }
 }

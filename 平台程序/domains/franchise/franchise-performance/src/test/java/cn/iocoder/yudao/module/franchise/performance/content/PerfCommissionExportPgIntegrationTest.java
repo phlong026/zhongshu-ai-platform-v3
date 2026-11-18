@@ -539,6 +539,59 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("INSERT INTO fr_fin_refund (company_id,receipt_id,amount_cents,status,replaced_by_id) "
                 + "VALUES (?,?,1,'已核实',NULL)", orgId, receipt);
         assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
+        payment(payable, 10_000, "已核实");
+        jdbc.update("UPDATE fr_perf_commission_release SET receipt_signature=?, "
+                        + "reconciliations=jsonb_build_array(jsonb_build_object('paidCents',10000)) WHERE project_id=? AND company_id=?",
+                "required:10000|unified:" + contract + ":SIGN_AFTER:9999|refunded:2101", project, orgId);
+        jdbc.update("INSERT INTO fr_sale_stage_receipt (id,company_id,stage_id,receipt_id,amount_cents) VALUES (?,?,?,?,1)",
+                nextId(), orgId, saleStage, nextId());
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
+    }
+
+    @Test
+    void settledRefundCreatesOneBossTaskAndOneReviewEvenAcrossStalePages() {
+        long project = nextId(), receipt = nextId(), payable = payableId();
+        long policy = insertPolicy(orgId, project, 10_000, 10_000, 0, 0, 981L, "提成归属员工");
+        release(orgId, project, policy, "SIGN_AFTER", 10_000, payable, "2026-11-16 10:00:00");
+        jdbc.update("UPDATE fr_eng_collection SET receipt_id=? WHERE project_id=? AND company_id=?",
+                receipt, project, orgId);
+        payment(payable, 10_000, "已核实");
+        PostSnapshot boss = fixture.post(orgId, "boss", null);
+        currentPost.use(boss);
+        assertThat(commissions.reviewTodos(boss)).isEmpty();
+        jdbc.update("INSERT INTO fr_fin_refund (company_id,receipt_id,amount_cents,status,replaced_by_id) "
+                + "VALUES (?,?,1,'已核实',NULL)", orgId, receipt);
+        var pending = commissions.reviewTodos(boss);
+        assertThat(pending).hasSize(1);
+        assertThat(pending.get(0).key()).isEqualTo("commission-review:" + project + ":SIGN_AFTER");
+        assertThat(commissions.reviewTodos(boss)).isEqualTo(pending);
+        assertThat(commissions.reviewTodos(post)).isEmpty();
+        long voucher = nextId();
+        org.mockito.Mockito.when(accounts.requireServiceAccount(orgId)).thenReturn(777L);
+        var actor = new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(orgId,777L,boss.userId(),boss.postId());
+        org.mockito.Mockito.when(assets.validateReference(actor,voucher,java.util.Set.of("FIN_VOUCHER"))).thenReturn(true);
+        commissions.reconcile(boss, project, "SIGN_AFTER", Long.toString(voucher), "已核对第二次退款", "refund-review");
+        commissions.reconcile(boss, project, "SIGN_AFTER", Long.toString(voucher), "旧页面再次提交", "stale-refund-review");
+        assertThat(commissions.reviewTodos(boss)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT jsonb_array_length(reconciliations) FROM fr_perf_commission_release "
+                + "WHERE company_id=? AND payable_id=?", Integer.class, orgId, payable)).isEqualTo(1);
+    }
+
+    @Test
+    void bossReviewQueueReadsOnlyThisStoreInOneQueryForFiveHundredOneStages() {
+        long own = fixture.store().orgId(), other = fixture.store().orgId();
+        long projectBase = 97_200_000_000L;
+        insertBulkWithPayables(own, 97_100_000_000L, projectBase, 97_000_000L, 501);
+        insertBulkWithPayables(other, 97_300_000_000L, 97_400_000_000L, 97_500_000L, 3);
+        jdbc.update("UPDATE fr_perf_commission_release SET policy_version=0 WHERE company_id IN (?,?)", own, other);
+        RecordingDataSource recording = new RecordingDataSource(dataSource);
+        var service = new PerfCommissionService(null, null, null, null, new JdbcTemplate(recording), null, null);
+        var items = service.reviewTodos(fixture.post(own, "boss", null));
+        assertThat(recording.totalQueries()).isEqualTo(1);
+        assertThat(items).hasSize(501);
+        for (int i = 1; i <= 501; i++) {
+            assertThat(items.get(i - 1).key()).isEqualTo("commission-review:" + (projectBase + i) + ":SIGN_AFTER");
+        }
     }
 
     @Test
