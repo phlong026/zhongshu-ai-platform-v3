@@ -215,8 +215,8 @@ function detailView(detail, ctx) {
   const c = detail.customer || {};
   const size = latestSchemeSize(detail.schemes);
   const follows = (detail.follows || []).slice().reverse().map(f => ({
-    kind: 'api', method: '', result: '',
-    date: toDate(f.createTime), appointment: f.nextVisitDate ? toDate(f.nextVisitDate) : '',
+    kind: 'api', method: f.contactKind==='VISIT'?'实际接待':f.contactKind==='FOLLOW'?'普通跟进':'', result: '',
+    date: toDate(f.occurredOn||f.createTime), appointment: f.nextVisitDate ? toDate(f.nextVisitDate) : '',
     content: f.note || '', note: f.note || ''
   }));
   const status = customerStatus(c);
@@ -300,7 +300,8 @@ function updatePayload(form, revision) {
 function followPayload(form) {
   return {
     note: String(form.followContent || '').trim(),
-    nextVisitDate: dateToArray(form.appointment)
+    nextVisitDate: dateToArray(form.appointment),
+    contactKind:form.contactKind==='VISIT'?'VISIT':'FOLLOW',occurredOn:dateToArray(form.occurredOn||today())
   };
 }
 

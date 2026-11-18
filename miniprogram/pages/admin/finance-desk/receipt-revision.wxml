@@ -1,8 +1,8 @@
 <template name="receiptRevision">
-    <view class="fin-card"><view wx:if="{{!compactHeader}}" class="fin-heading"><text class="fin-title">修订收款金额（全留痕）</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
+    <view class="fin-card"><view wx:if="{{!compactHeader}}" class="fin-heading"><text class="fin-title">修订收款金额</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
      <view class="fin-form-row"><text class="fin-muted">原金额</text><text class="fin-input">{{revisionForm.originAmount}}</text></view>
      <view class="fin-form-row"><text class="fin-muted">新金额</text><input cursor-spacing="24" class="fin-input" data-field="amount" bindinput="revisionInput" value="{{revisionForm.amount}}"/></view>
-     <view class="fin-form-row"><text class="fin-muted">修订说明（留痕）</text><input cursor-spacing="24" class="fin-input" data-field="note" bindinput="revisionInput" value="{{revisionForm.note}}"/></view>
+     <view class="fin-form-row"><text class="fin-muted">修订原因</text><input cursor-spacing="24" class="fin-input" data-field="note" bindinput="revisionInput" value="{{revisionForm.note}}"/></view>
      <text wx:if="{{registerError}}" class="fin-error">{{registerError}}</text><button class="fin-primary" bindtap="submitRevision" disabled="{{revisionBusy}}">提交修订</button>
      <view wx:if="{{revisionHistory}}" class="fin-form-row" style="margin-top:12rpx"><text class="fin-muted">修订历史</text>
       <text wx:if="{{revisionHistory.status==='loading'}}" class="fin-muted">加载中…</text>

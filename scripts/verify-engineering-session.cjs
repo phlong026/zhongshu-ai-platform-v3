@@ -12,7 +12,7 @@ function fixture(file,P){
   const wx={showToast:x=>notices.push(x),switchTab:()=>{},navigateTo:()=>{}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram',file),'utf8'),{
     Page:x=>{spec=x;},wx,
-    require:name=>name.endsWith('/platform-engineering')?P:name.endsWith('/api/http')?http:name.endsWith('/api/auth')?auth:name.endsWith('/organization')?org:name.endsWith('/access')?{context:()=>({}),isBoss:()=>false}:name.endsWith('/view-container')?{makeFormHandlers:()=>({})}:name.endsWith('/account')?{localDate:()=> '2026-11-15'}:name.endsWith('/sample-files')?{release:()=>true}:{},
+    require:name=>name.endsWith('/platform-engineering')?P:name.endsWith('/api/franchise/engineering')?{cameras:{list:async()=>[],playback:(...args)=>P.playback(...args)},progress:{handlers:async()=>[]}}:name.endsWith('/api/http')?http:name.endsWith('/api/auth')?auth:name.endsWith('/organization')?org:name.endsWith('/access')?{context:()=>({}),isBoss:()=>false}:name.endsWith('/view-container')?{makeFormHandlers:()=>({})}:name.endsWith('/account')?{localDate:()=> '2026-11-15'}:name.endsWith('/sample-files')?{release:()=>true}:{},
     getApp:()=>({globalData:{}}),Date,Math,Promise
   });
   const page=Object.assign({},spec,{data:structuredClone(spec.data),setData(o){Object.assign(this.data,o);}});
@@ -58,6 +58,46 @@ test('new engineering identity clears the previous draft and action state before
   f.page.data.p={id:'A'};f.page.data.form={note:'A private'};f.page.data.actions=['save'];f.page.__idemKeys={old:'A'};
   f.switchPost();f.page.onShow();
   assert.equal(f.page.data.p,null);assert.deepEqual(Object.keys(f.page.data.form),[]);assert.equal(f.page.data.actions.length,0);assert.equal(Object.keys(f.page.__idemKeys).length,0);
+});
+
+test('schedule row switches preserve unsaved dates and opaque START identifiers',()=>{
+  const f=fixture('pages/build/record/index.js',{}),p=f.page;
+  p.data.form={nodes:[{id:'-9007199254740993',start:'2026-11-20',end:'2026-11-20'}]};
+  const click=id=>p.togglePlanNode({currentTarget:{dataset:{id}}});
+  click('-9007199254740993');assert.equal(p.data.planEditorId,'-9007199254740993');
+  click('9007199254740999');assert.equal(p.data.form.nodes[0].start,'2026-11-20');
+  click('9007199254740999');assert.equal(p.data.planEditorId,'');
+});
+
+test('role changes collapse expanded history and close the previous schedule editor',()=>{
+  const f=fixture('pages/build/record/index.js',{}),p=f.page;p.id='1';p.refresh=()=>{};p.onShow();
+  p.data.expanded={events:true,progress:true};p.data.planEditorId='old-node';f.switchPost();p.onShow();
+  assert.equal(Object.keys(p.data.expanded).length,0);assert.equal(p.data.planEditorId,'');
+});
+
+test('progress preview follows current work, keeps every row and shows latest events first',async()=>{
+  const rows=Array.from({length:13},(_,i)=>({id:String(i),status:i<8?'已完成':'待开工'}));
+  const events=[{id:'handover'},{id:'start'},{id:'delivery'},{id:'archive'}];
+  const P={loadProject:async()=>({}),recordView:()=>({p:{id:'1'},nodeRows:rows,events,paceDone:8}),errorText:e=>e.message};
+  const f=fixture('pages/build/record/index.js',P);f.page.id='1';await f.page.refreshOnline();
+  assert.equal(f.page.data.nodeRows.length,13);
+  assert.equal(f.page.data.nodeRows.filter(n=>n.preview).map(n=>n.id).join(','),'8,9,10');
+  assert.equal(f.page.data.events[0].id,'archive');assert.equal(events[0].id,'handover');
+  assert.equal(f.page.data.progressPercent,62);
+  rows.forEach(n=>n.status='已完成');await f.page.refreshOnline();
+  assert.equal(f.page.data.nodeRows.filter(n=>n.preview).map(n=>n.id).join(','),'10,11,12');
+});
+
+test('camera authorization arriving after role switch cannot expose the previous stream',async()=>{
+  const a=deferred(),f=fixture('pages/build/record/index.js',{playback:()=>a.promise,errorText:e=>e.message});f.page.id='1';
+  const request=f.page.playCamera({currentTarget:{dataset:{id:'A'}}});f.switchPost();f.page.data.playbackUrl='new-role-state';
+  a.resolve({url:'https://private.example/live.m3u8'});await request;assert.equal(f.page.data.playbackUrl,'new-role-state');
+});
+test('last selected camera wins and leaving the page clears its playback URL',async()=>{
+  const a=deferred(),b=deferred();let n=0;const f=fixture('pages/build/record/index.js',{playback:()=>++n===1?a.promise:b.promise,errorText:e=>e.message});f.page.id='1';
+  const first=f.page.playCamera({currentTarget:{dataset:{id:'A'}}}),second=f.page.playCamera({currentTarget:{dataset:{id:'B'}}});
+  b.resolve({url:'https://camera.example/b.m3u8'});await second;a.resolve({url:'https://camera.example/a.m3u8'});await first;
+  assert.equal(f.page.data.playbackUrl,'https://camera.example/b.m3u8');f.page.onHide();assert.equal(f.page.data.playbackUrl,'');
 });
 
 test('a file-picker callback from the previous post cannot populate the new draft',()=>{

@@ -14,22 +14,21 @@
       </view>
     </view>
     <view wx:if="{{customRows.length}}" class="budget-card category-card custom-card">
-      <view class="category-head"><text class="section-title">补充预算项</text><text class="item-hint">按需选择</text></view>
+      <view class="category-head"><text class="section-title">补充预算项</text></view>
       <view wx:for="{{customRows}}" wx:key="itemId" class="selection-row" data-id="{{item.itemId}}" bindtap="openItem" role="button" aria-label="{{item.name}}配置">
         <t-icon name="{{item.complete ? 'check-circle-filled' : 'circle'}}" size="24px" color="{{item.complete ? '#49745c' : '#b6b4b0'}}" />
-        <view class="selection-copy"><text class="item-name">{{item.name}}</text><text class="item-hint">补充项目</text></view>
+        <view class="selection-copy"><text class="item-name">{{item.name}}</text></view>
         <view class="selection-value"><text>{{item.selectedLabel}}</text><text wx:if="{{item.pendingPrice}}" class="selection-warning">待补价</text></view>
         <t-icon name="chevron-right" size="16px" color="#a89a8c" />
       </view>
     </view>
-    <view wx:if="{{category === 'BODY'}}" class="budget-card explanation"><view class="round-icon"><t-icon name="file" size="32px" color="#7b5532" /></view><view><text class="section-title">配置说明</text><text class="muted">选项只用于匹配当地预算标准</text></view></view>
-    <view wx:if="{{pendingPriceCount}}" class="inline-warning">已选配置中有 {{pendingPriceCount}} 项待补价，预算尚未完整，可稍后补齐。</view>
-    <view class="budget-footer"><text class="footer-hint">修改自动保存，可撤销本次修改</text><view class="footer-actions"><button class="budget-secondary" bindtap="revert">撤销本次修改</button><button class="budget-primary" bindtap="save">完成</button></view></view>
+    <view wx:if="{{pendingPriceCount}}" class="inline-warning">{{pendingPriceCount}} 项待补价，预算未计全。</view>
+    <view class="budget-footer"><text class="footer-hint">修改自动保存</text><view class="footer-actions"><button class="budget-secondary" bindtap="revert">撤销本次修改</button><button class="budget-primary" bindtap="save">完成</button></view></view>
   </block>
   <view wx:if="{{activeItem}}" class="picker-mask" bindtap="closeItem">
     <view class="picker-sheet" catchtap="keepSheet">
       <view class="picker-heading"><text class="section-title">{{activeItem.name}}</text><button class="close-picker text-action" bindtap="closeItem" aria-label="关闭"><t-icon name="close" size="24px" color="#a89a8c" /></button></view>
-      <text class="muted">{{activeGroups.length > 1 ? '直接点选各组内容，同一组只选择一项' : '点击选项即可完成选择'}}</text>
+      <text wx:if="{{activeGroups.length > 1}}" class="muted">每组限选一项</text>
       <text wx:if="{{storageError}}" class="inline-warning">{{storageError}}</text>
       <scroll-view scroll-y class="picker-content">
         <view wx:for="{{activeGroups}}" wx:for-item="group" wx:key="name" class="group-row">

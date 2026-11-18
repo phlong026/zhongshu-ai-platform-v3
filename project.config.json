@@ -165,6 +165,10 @@
         "value": "assets/graduate.png"
       },
       {
+        "value": "assets/target.png",
+        "type": "file"
+      },
+      {
         "type": "file",
         "value": "assets/studio-publication-cover.jpg"
       }

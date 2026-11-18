@@ -73,10 +73,28 @@ assert.match(known.alerts[1].url, /view=costs.*id=project-late/, '单项目成�
 assert.match(known.alerts[2].note, /未来7天应付.*可用现金.*缺口/);
 assert.match(known.alerts[2].url, /view=payables/, '现金覆盖不足应下钻原应付事项');
 
-const fs = require('node:fs');
-const page = fs.readFileSync(require('node:path').join(__dirname,'../miniprogram/pages/admin/finance/index.wxml'),'utf8');
-assert(page.includes('desk.business.levels'), '经营页应渲染三层模型');
-assert(page.includes('desk.business.alerts'), '经营页应渲染预警中心');
-assert(!page.includes('class="biz-metrics"'), '旧的跨层指标宫格应退役，避免与三层重复');
+// The retained model above and the online finance page have different data sources.
+const {render} = require('./role-page-runtime.cjs');
+const {view} = require('../miniprogram/utils/platform-owner-home');
+const template = require('node:path').join(__dirname, '../miniprogram/pages/admin/finance/index.wxml');
+function renderedText(operating) {
+  const desk = view({period:'2026-11', post:{roleCode:'boss'}, operating});
+  const textOf = nodes => nodes.map(node => (node.text || '') + textOf(node.children)).join(' ');
+  return textOf(render(template, {desk, ready:true}));
+}
 
-console.log('PASS 老板经营页三层、材料首卡与三类定稿预警');
+const online = renderedText({
+  trend:[{period:'2026-10',incomeCents:900,paidCents:200,netCents:700},
+         {period:'2026-11',incomeCents:123456,paidCents:45000,netCents:78456}],
+  totals:{receivableCents:100000,payableOutstandingCents:80000,collectionRate:0.625},
+  incomeComposition:[{kind:'design',cents:23456}],
+  paidComposition:[{kind:'expense-refund',cents:-500}],
+  receivableAging:{d1_30:6900},payableAging:{undated:8100}
+});
+for (const label of ['本月实收','¥1,234.56','62.5%','近 6 个月收支趋势','¥9.00','收支构成','设计服务','¥234.56','支出退回','-¥5.00','逾期 1-30 天','¥69.00','未约定日期','¥81.00']) {
+  assert.ok(online.includes(label), '经营页面缺少对应的线上数据或栏目：' + label);
+}
+const unavailable = renderedText(null);
+assert.match(unavailable, /经营分析暂不可用/);
+assert.doesNotMatch(unavailable, /¥0\.00|近 6 个月收支趋势/);
+console.log('PASS 历史经营模型的三层与预警；在线经营页的金额、趋势、构成、账龄与不可用态');

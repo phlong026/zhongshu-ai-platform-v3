@@ -9,7 +9,7 @@ const view = require('../../utils/record-view');
 const generationOptions = require('../../utils/generation-options');
 
 protectedPage({
-  data: { versions: [], latest: null, versionLabel: '', imageLabel: '', imageUrl: '', loading: false, error: '', imageError: '', readOnly: false, canRegenerate: false,
+  data: { projectName: '', planFacts: [], versions: [], latest: null, versionLabel: '', imageLabel: '', imageUrl: '', loading: false, error: '', imageError: '', readOnly: false, canRegenerate: false,
     resolution: '', orientation: '', outputPixels: '', specLabel: '历史规格未记录', resultImages: [], activeImageKey: '', optionsReady: false, optionsError: false },
   onLoad(options) {
     this._projectId = view.id(options.projectId || getDesignApp().globalData.projectId);
@@ -31,7 +31,7 @@ protectedPage({
   },
   loadVersions() {
     const seq = this._seq = (this._seq || 0) + 1; this._token = http.captureSession ? http.captureSession() : http.getToken();
-    this.setData({ loading: false, error: '', latest: null, versions: [], imageUrl: '', imageError: '',
+    this.setData({ projectName: '', planFacts: [], loading: false, error: '', latest: null, versions: [], imageUrl: '', imageError: '',
       resolution: '', orientation: '', outputPixels: '', specLabel: '历史规格未记录', resultImages: [], activeImageKey: '', optionsReady: false, optionsError: false });
     if (!this._projectId || this._invalidVersion || !this._token) { this.setData({ error: '方案信息无效，请从「我的方案」重新进入' }); return; }
     this.setData({ loading: true });
@@ -44,8 +44,45 @@ protectedPage({
       if (!selected || !view.id(selected.versionId)) throw Error('该方案版本不可用或尚未完成');
       this.setData({ versions: list, latest: selected, loading: false, versionLabel: '版本 v' + selected.version,
         readOnly: selected.superseded === true });
-      return Promise.all([this.loadImages(), this.loadGenerationOptions()]);
+      this.loadPlanInfo(seq, selected.versionId);
+      return this.loadImages();
     }).catch(error => { if (this.current(seq)) this.setData({ loading: false, error: view.errorText(error) }); });
+  },
+  loadPlanInfo(seq, versionId) {
+    api.getProject(this._projectId).then(project => {
+      if (this.current(seq) && project && project.projectId === this._projectId) {
+        this.setData({ projectName: project.name || '' });
+      }
+    }).catch(() => {});
+    api.getBudgetInputs(this._projectId, versionId).then(snapshot => {
+      if (!this.current(seq) || !snapshot || snapshot.projectId !== this._projectId || snapshot.resultVersionId !== versionId) return;
+      const input = snapshot.importedValues || {};
+      const fields = [['faceWidth', '面宽', ' m'], ['depth', '进深', ' m'], ['floorCount', '建筑层数', ' 层'],
+        ['footprintArea', '占地面积', ' ㎡'], ['buildingArea', '建筑面积', ' ㎡']];
+      const planFacts = fields.filter(([key]) => Number(input[key]) > 0)
+        .slice(0, 3).map(([key, label, unit]) => ({ label, value: input[key] + unit }));
+      this.setData({ planFacts });
+    }).catch(() => {});
+  },
+  imageFailed(event) {
+    if (this.current(this._seq) && event.currentTarget.dataset.url === this.data.imageUrl) {
+      this.setData({ imageUrl: '', imageError: '图纸暂时无法显示' });
+    }
+  },
+  moreActions() {
+    if (!this.current(this._seq) || !this.data.latest) return;
+    const seq = this._seq;
+    const actions = [{ label: '公司方案', run: () => this.save() }];
+    if (!this.data.readOnly) actions.push({ label: '保存至客户', run: () => this.publish() });
+    if (!this.data.readOnly && this.data.canRegenerate && this.data.optionsReady) {
+      actions.push({ label: '按本版规格重新生成', run: () => this.adjust() });
+    }
+    if (!this.data.readOnly && this.data.canRegenerate && this.data.optionsError) {
+      actions.push({ label: '重试读取出图规格', run: () => this.loadGenerationOptions() });
+    }
+    wx.showActionSheet({ itemList: actions.map(item => item.label), success: result => {
+      if (this.current(seq) && actions[result.tapIndex]) actions[result.tapIndex].run();
+    } });
   },
   loadGenerationOptions() {
     if (!this.current(this._seq) || !this.data.latest) return;
@@ -97,7 +134,8 @@ protectedPage({
     if (!this.current(this._seq)) return;
     const url = this.data.imageUrl;
     if (!url) { wx.showToast({ title: '方案图还没加载好', icon: 'none' }); return; }
-    const filePromise = /^data:/.test(url) ? assets.toPreviewable(url)
+    const filePromise = /^(wxfile:|https?:\/\/tmp\/)/.test(url) ? Promise.resolve(url)
+      : /^data:/.test(url) ? assets.toPreviewable(url)
       : new Promise((resolve, reject) => wx.downloadFile({ url, success: r => r.statusCode === 200 ? resolve(r.tempFilePath) : reject(new Error('图片下载失败')), fail: () => reject(new Error('图片下载失败')) }));
     filePromise.then(path => new Promise((resolve, reject) => wx.saveImageToPhotosAlbum({ filePath: path, success: resolve, fail: reject })))
       .then(() => wx.showToast({ title: '已保存到相册', icon: 'success' }))

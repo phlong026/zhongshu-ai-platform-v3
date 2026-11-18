@@ -35,8 +35,6 @@ assert.deepEqual(calls.shift(), { title: '保存失败', icon: 'none' });
 delete global.wx;
 
 const inputPages = [
-  'miniprogram/pages/admin/index.js',
-  'miniprogram/pages/admin/operations/index.js',
   'miniprogram/pages/build/record/index.js',
   'miniprogram/pages/growth/index.js',
   'miniprogram/pages/workflow/commission/index.js'
@@ -47,7 +45,7 @@ for (const file of inputPages) {
   assert(!/input\(e\)\{this\.setData\(\{\['form\.'\+e\.currentTarget\.dataset\.key\]:e\.detail\.value,error:''\}\);\}/.test(source), `${file} 不应保留同构 input`);
 }
 
-for (const file of ['miniprogram/pages/account/index.js', 'miniprogram/pages/build/index.js', 'miniprogram/pages/workflow/index.js']) {
+for (const file of ['miniprogram/pages/account/index.js', 'miniprogram/pages/workflow/index.js']) {
   const source = read(file);
   assert(source.includes('fail'), `${file} 应复用通用 fail`);
   assert(!/fail\(message\)\{this\.setData\(\{error:message,busy:false\}\);wx\.showToast/.test(source), `${file} 不应保留同构 fail`);
@@ -59,7 +57,48 @@ assert(!ownerSource.includes('const routeValue = value =>'), '老板容器不应
 
 const recordSource = read('miniprogram/pages/build/record/index.js');
 assert(recordSource.includes('lineInput(e)'), '数组行输入特例必须保留');
-const operationsTemplate = read('miniprogram/pages/admin/operations/index.wxml');
-assert(operationsTemplate.includes('bindchange="input"'), '日期 picker 仍沿用页面 input 契约');
+const recordTemplate = read('miniprogram/pages/build/record/index.wxml');
+assert.match(recordTemplate, /<picker\b[^>]*mode="date"[^>]*bindchange="input"/, '工程办理的日期选择仍沿用通用 input');
+
+// These legacy entries now dispatch to the active pages that own the forms.
+let definition;
+let token = 'test-session';
+const redirects = [];
+global.Page = config => { definition = config; };
+global.wx = {
+  redirectTo: ({url}) => redirects.push(url),
+  getStorageSync: key => key === 'zs-api-token-v1' ? token : ''
+};
+for (const [file, cases] of [
+  ['admin/index', [
+    [{view:'staff'}, '/pages/account/index?view=api-members'],
+    [{view:'pay'}, '/pages/admin/finance-desk/index?view=flows&tab=payables'],
+    [{view:'operating'}, '/pages/admin/home/index?view=operating']
+  ]],
+  ['admin/operations/index', [
+    [{view:'receivables'}, '/pages/admin/finance-desk/index?view=projects'],
+    [{view:'payroll'}, '/pages/admin/tasks/index'],
+    [{view:'costs'}, '/pages/admin/home/index?view=operating']
+  ]],
+  ['build/index', [
+    [{view:'materials'}, '/pages/build/projects/index?destination=materials'],
+    [{view:'inspection', id:'p1', nodeId:'n2'}, '/pages/build/record/index?view=node&id=p1&nodeId=n2']
+  ]]
+]) {
+  require('../miniprogram/pages/' + file);
+  for (const [options, expected] of cases) {
+    definition.onLoad(options);
+    assert.deepEqual(redirects.splice(0), [expected], file + ' 应转到对应办理页');
+  }
+  if (file === 'build/index') {
+    token = '';
+    definition.onLoad.call(page, {id:'p1'});
+    assert.deepEqual(calls.pop(), {missing:true,error:'请先登录后端账号'});
+    assert.equal(redirects.length, 0);
+    token = 'test-session';
+  }
+}
+delete global.Page;
+delete global.wx;
 
 console.log('PASS B6-3：安全解码、通用输入、失败处理已收敛，页面特例保持独立');

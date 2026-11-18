@@ -273,7 +273,7 @@ Page({
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
     return true;
   },
-  openTask(e) { Nav.open(e.currentTarget.dataset.url); },
+  openTask(e) { const item=e.detail&&e.detail.item||e.currentTarget.dataset; Nav.open(item.actionUrl||item.url); },
   check(e) {
     if (this.data.busy) return;
     const key = e.currentTarget.dataset.key, checked = e.detail.value.length > 0;

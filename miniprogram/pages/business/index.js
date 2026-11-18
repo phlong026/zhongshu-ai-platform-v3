@@ -9,7 +9,7 @@ const loadSummaryRows=CRM.loadSummaryRows;
 const definition=createDashboard(1, {
 data: { panel: null, keyword: '', customers: [], filteredCustomers: [],
 platCustomers: [], platCommissions: [], platGrowth: null, platformStatus: '', platformError: '', platformTodos: null,
-salesShortcuts: [{ title: '登记客户', icon: 'person-filled', action: 'customer' }, { title: '内容创作', icon: 'video-filled', action: 'remix' }, { title: 'AI设计', icon: 'home-design-icon', action: 'aiDesign', url: '/pages/design/index' }, { title: '快速预算', icon: 'contract', action: 'quickBudget', url: '/pages/workflow/explore/index?view=budget' }],
+salesShortcuts: [{ title: '登记客户', icon: 'person-filled', action: 'customer' }, { title: '内容创作', icon: 'video-filled', action: 'remix' }, { title: '方案预算', icon: 'home-design-icon', action: 'quickBudget', url: '/pages/workflow/explore/index?view=budget' }, { title: '提交委托', icon: 'contract', action: 'commission', url: '/pages/customers/index?intent=commission' }],
 creation: [{ title: '爆款二创', icon: 'fire', action: 'remix' }, { title: '数字人口播', icon: 'person-filled', action: 'digital' }, { title: 'AI视频', icon: 'video-filled', action: 'video' }]
 },
 onLoad() { PTPage.init(this); },

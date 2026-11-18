@@ -220,12 +220,12 @@ ok(/this\.loadPlatformFinance\(\)/.test(actionsJs.split('page.openPaymentVoid')[
 const deskWxml = read('miniprogram/pages/admin/finance-desk/index.wxml');
 eq(deskWxml.split('bindtap="openPaymentVoid"').length - 1, 1, '撤销按钮唯一（台账行模板）');
 ok(deskWxml.includes("wx:if=\"{{item.canVoid}}\""), '撤销按钮按行权限位显示');
-ok(deskWxml.includes('大表核对请用 Web /fr/finance'), 'Web 协同提示文案');
+ok(deskWxml.includes('电脑端对账'), '用业务名称标记电脑端入口');
 const hintAt = deskWxml.indexOf('fin-card fin-web-hint');
 const reconcileCardAt = deskWxml.indexOf("<view wx:if=\"{{flowTab==='reconcile'}}\" class=\"fin-card\">");
 ok(reconcileCardAt >= 0, 'reconcile tab 月末对账卡存在');
 ok(hintAt >= 0 && hintAt < reconcileCardAt, 'Web 协同提示卡位于 reconcile tab 顶部（月末对账操作卡之前）');
-ok(deskWxml.slice(hintAt, reconcileCardAt).includes('大表核对请用 Web /fr/finance'), '提示文案在提示卡内');
+ok(deskWxml.slice(hintAt, reconcileCardAt).includes('bindtap="copyFrLink"') && deskWxml.slice(hintAt, reconcileCardAt).includes('在电脑浏览器登录查看'), '提示卡提供可点击的复制入口和登录说明');
 ok(deskWxml.includes('fin-void-notice') && deskWxml.includes('voidNotice'), '联动提示卡渲染');
 
 const appJson = JSON.parse(read('miniprogram/app.json'));
@@ -251,8 +251,8 @@ for (const [file, source] of [['brief/index.wxml', briefWxml], ['finance-desk/in
   ok(bindings.every(expr => !/[A-Za-z_$][\w$]*\s*\(/.test(expr)), 'WXML 绑定无方法调用（wcc 实编红线）：' + file);
   ok(source.indexOf('.find(') < 0 && source.indexOf('.map(') < 0, 'WXML 无 find()/map() 插值：' + file);
 }
-const homeWxml = read('miniprogram/pages/admin/home/index.wxml');
-ok(homeWxml.includes('/pages/admin/brief/index'), '老板首页挂载经营简报入口');
+const operatingWxml = read('miniprogram/pages/admin/finance/index.wxml');
+ok(/data-url="\/pages\/admin\/brief\/index\?period=\{\{desk.period\}\}" bindtap="go"/.test(operatingWxml), '经营页按所选月份打开简报');
 
 // ===================== F. Web 协同链接（P1 §5.4：两处复制动作 + 无凭据） =====================
 const FrLink = require('../miniprogram/utils/fr-web-link');
@@ -405,7 +405,7 @@ eq(clipboard.length, clipboardBefore, '未配置主机时不写入剪贴板');
 ok(toasts.slice(toastsBefore).every(title => /未配置/.test(String(title))), '未配置主机时提示配置入口');
 ok(read('miniprogram/config/env.js').includes("FR_HOST: ''"), '集中配置项 FR_HOST 默认留空（无硬编码生产域名）');
 eq(deskWxml.split('bindtap="copyFrLink"').length - 1, 1, 'finance-desk reconcile 顶部复制按钮唯一');
-ok(homeWxml.includes('bindtap="copyFrLink"'), 'admin/home 挂载复制动作');
+ok(read('miniprogram/pages/admin/finance-desk/journey.wxml').includes('bindtap="copyFrLink">在电脑端核对'), '门店财务对账页也可复制电脑入口');
 
 // ===================== G. 归档迟到回调上下文守卫（P2-1，VM） =====================
 (async () => {

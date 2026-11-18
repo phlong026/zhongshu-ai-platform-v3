@@ -6,24 +6,24 @@
     <image class="home-hero-image" src="/assets/home-hero.jpg" mode="aspectFill" />
     <view class="home-hero-copy">
       <text class="home-brand-title">众墅之家</text><text class="home-platform-title">AI赋能平台</text>
-      <text class="home-hero-slogan">一套平台，连接门店经营</text><text class="home-hero-description">从内容获客，到项目交付</text>
+      <text class="home-hero-description">从内容获客，到项目交付</text>
       <button class="home-hero-button" bindtap="learnPlatform">了解平台 <view class="chevron" /></button>
     </view>
   </view>
   <view class="home-content">
     <view id="home-platform-roles" class="home-roles">
-      <view class="section-heading"><text class="home-title">四类岗位，在一个平台协同</text></view>
+      <view class="section-heading"><text class="home-title">岗位工作台</text></view>
       <view class="home-role-grid"><view wx:for="{{roles}}" wx:key="name" class="home-role"><view class="home-role-icon"><image src="/assets/{{item.icon}}.png" mode="aspectFit" /></view><view class="home-role-copy"><text class="home-role-name">{{item.name}}</text><text class="home-role-description">{{item.description}}</text></view></view></view>
     </view>
     <view class="ai-section">
-      <view class="section-heading"><text class="home-title">AI赋能，贯穿业务全程</text></view>
+      <view class="section-heading"><text class="home-title">AI 工具</text></view>
       <view class="ai-cards">
-        <button class="ai-card" bindtap="login" aria-label="登录后使用内容创作"><image class="ai-picture" src="/assets/home-video.jpg" mode="aspectFill" /><view class="ai-caption"><text class="ai-title">创作赋能</text><text class="ai-desc">让内容更易产出</text><view class="chevron" /></view></button>
-        <button class="ai-card" bindtap="login" aria-label="登录后使用辅助设计"><image class="ai-picture" src="/assets/home-design.jpg" mode="aspectFill" /><view class="ai-caption"><text class="ai-title">设计赋能</text><text class="ai-desc">让方案更好沟通</text><view class="chevron" /></view></button>
+        <button class="ai-card" bindtap="login" aria-label="登录后使用内容创作"><image class="ai-picture" src="/assets/home-video.jpg" mode="aspectFill" /><view class="ai-caption"><text class="ai-title">内容创作</text><view class="chevron" /></view></button>
+        <button class="ai-card" bindtap="login" aria-label="登录后使用辅助设计"><image class="ai-picture" src="/assets/home-design.jpg" mode="aspectFill" /><view class="ai-caption"><text class="ai-title">辅助设计</text><view class="chevron" /></view></button>
       </view>
     </view>
-    <view class="home-flow"><view class="section-heading"><text class="home-title">从获客到交付，全流程协同</text></view><view class="home-flow-steps"><view wx:for="{{steps}}" wx:key="name" class="home-flow-step"><view class="home-flow-icon"><image src="/assets/{{item.icon}}.png" mode="aspectFit" /></view><text>{{item.name}}</text><view wx:if="{{index<steps.length-1}}" class="home-flow-arrow">→</view></view></view></view>
-    <view class="home-login-banner"><view><text class="home-login-title">每个岗位，都有自己的工作台</text><text class="home-login-description">登录后，体验更完整的AI协同能力</text></view><button class="home-login-button" bindtap="login">立即登录 <view class="chevron" /></button></view>
+    <view class="home-flow"><view class="section-heading"><text class="home-title">业务流程</text></view><view class="home-flow-steps"><view wx:for="{{steps}}" wx:key="name" class="home-flow-step"><view class="home-flow-icon"><image src="/assets/{{item.icon}}.png" mode="aspectFit" /></view><text>{{item.name}}</text><view wx:if="{{index<steps.length-1}}" class="home-flow-arrow">→</view></view></view></view>
+    <view class="home-login-banner"><view><text class="home-login-title">我的工作台</text></view><button class="home-login-button" bindtap="login">立即登录 <view class="chevron" /></button></view>
   </view>
 </view>
 

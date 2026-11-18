@@ -1,11 +1,26 @@
 <template name="collection-commission">
-  <view wx:if="{{canEditPolicy}}" class="owner-card">
+  <view wx:if="{{commissionReview}}" class="owner-card">
+    <view class="owner-heading"><text>核对退款后的提成</text></view>
+    <text class="owner-note">记录已付事实及处理依据，不自动追回提成。</text>
+    <textarea class="ops-field ops-note" data-key="note" value="{{commissionReview.note}}" placeholder="填写退款影响及处理意见" bindinput="commissionInput"/>
+    <button class="owner-outline" bindtap="commissionUpload">{{commissionReview.file?'已选择：'+commissionReview.file.name:'上传核对依据'}}</button>
+    <button class="owner-primary owner-save" data-action="commission-reconcile" data-confirmed="{{true}}" data-id="{{commissionReview.projectId}}" data-stage="{{commissionReview.stage}}" bindtap="commissionAction" loading="{{busy}}" disabled="{{busy}}">保存核对记录</button>
+    <button class="owner-link" bindtap="cancelCommissionReview">取消核对</button>
+  </view>
+  <view wx:elif="{{canEditPolicy}}" class="owner-card">
     <view class="owner-heading"><text>设置提成</text></view>
-    <text class="owner-note">确认提成总额与归属人，阶段款收齐后由财务办理。</text>
+    <text class="owner-note">老板确认绩效调整后的提成金额，阶段款收齐后由财务登记付款。</text>
     <picker range="{{commissionProjects}}" range-key="name" value="{{commissionProjectIndex}}" bindchange="commissionProject"><view class="ops-field">项目：{{commissionProjects[commissionProjectIndex].name||'请选择项目'}}</view></picker>
     <picker range="{{commissionStaff}}" range-key="name" value="{{commissionStaffIndex}}" bindchange="commissionStaff"><view class="ops-field">提成归属：{{commissionStaff[commissionStaffIndex].name||'请选择在岗人员'}}</view></picker>
+    <text class="commission-label">绩效确认后的提成总额（元）</text>
     <input class="ops-field" type="digit" data-key="amount" value="{{commissionForm.amount}}" placeholder="已确认提成总额（元）" bindinput="commissionInput"/>
-    <textarea class="ops-field ops-note" data-key="note" value="{{commissionForm.note}}" placeholder="确认依据及说明" bindinput="commissionInput"/>
+    <text class="commission-label">签约后提成（元）</text>
+    <input class="ops-field" type="digit" data-key="signAfter" value="{{commissionForm.signAfter}}" placeholder="签约后提成（元，未约定填0）" bindinput="commissionInput"/>
+    <text class="commission-label">基础完成后提成（元）</text>
+    <input class="ops-field" type="digit" data-key="baseDone" value="{{commissionForm.baseDone}}" placeholder="基础完成后提成（元，未约定填0）" bindinput="commissionInput"/>
+    <text class="commission-label">封顶后提成（元）</text>
+    <input class="ops-field" type="digit" data-key="capDone" value="{{commissionForm.capDone}}" placeholder="封顶后提成（元，未约定填0）" bindinput="commissionInput"/>
+    <textarea class="ops-field ops-note" data-key="note" value="{{commissionForm.note}}" placeholder="绩效调整依据及最终金额说明" bindinput="commissionInput"/>
     <button class="owner-outline" bindtap="commissionUpload">{{commissionForm.file?'已选择：'+commissionForm.file.name:'上传提成确认依据'}}</button>
     <button class="ops-check" bindtap="commissionToggle">{{commissionForm.checked?'☑':'☐'}} 已核对项目、固定总额、归属人和依据</button>
     <button class="owner-primary owner-save commission-save" data-action="commission-policy" bindtap="commissionAction" loading="{{busy}}" disabled="{{busy}}">保存提成规则</button>

@@ -218,7 +218,12 @@ function rowsFor(c, n) {
   if (c.settlement) (c.settlement.stages || []).forEach(stage => rows.push({ label: stage.stage === 'FULL' ? '一次性设计费到账' : stage.stage === 'FIRST' ? '首款到账' : '尾款到账', value: '应付 ¥' + money(stage.expectedCents) + ' · 门店净付 ¥' + money(stage.storePaidNetCents) + ' · 平台净收 ¥' + money(stage.headquartersNetCents) }));
   if (c.request) {
     rows.push({ label: '设计需求', value: c.request.text });
-    if (basis) rows.push({ label: '尺寸依据', value: '预算 V' + basis.version + ' · ' + basis.width + 'm × ' + basis.depth + 'm · ' + basis.floors + '层 · ' + basis.area + '㎡' });
+    if (basis) {
+      const dimensions = [basis.version ? '预算 V' + basis.version : '',
+        basis.width && basis.depth ? basis.width + 'm × ' + basis.depth + 'm' : '',
+        basis.floors ? basis.floors + '层' : '', basis.area ? basis.area + '㎡' : ''].filter(Boolean);
+      if (dimensions.length) rows.push({ label: '尺寸依据', value: dimensions.join(' · ') });
+    }
     const att = c.request.attachment;
     if (att) rows.push({ label: '需求附件', value: att.name, file: att });
   }
@@ -404,7 +409,7 @@ function workbench(list) {
   FILTERS.forEach(label => { counts[label] = label === '全部' ? rows.length : rows.filter(r => r.status === label).length; });
   const byRecency = rows.slice().sort((a, b) => String(b.recentAt || '').localeCompare(String(a.recentAt || '')));
   const actionable = byRecency.filter(r => r.actionable);
-  const tasks = actionable.slice(0, 3).map((r, index) => ({ ...r, url: r.actionUrl, primary: index === 0 }));
+  const tasks = actionable.map((r, index) => ({ ...r, url: r.actionUrl, primary: index === 0 }));
   const recent = byRecency.filter(r => r.recentAt).slice(0, 5);
   const metrics = [
     { label: '设计与修改', value: counts[Status.designing] + counts[Status.modifying], filter: '设计与修改', icon: '/assets/home-design-icon.png' },

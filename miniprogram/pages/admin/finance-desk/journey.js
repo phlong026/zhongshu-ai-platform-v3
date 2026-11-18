@@ -35,12 +35,13 @@ module.exports=function(page,api){
  };
  page.presentFinanceTask=function(task){
   if(!this.data.journeyEnabled)return null;const target=this.financeTaskTarget(task.key);if(!target)return null;const {kind,row}=target;
-  return {name:kind==='employee'?row.payer_name+' · '+row.stage:row.projectName+' · '+row.name,amount:'¥'+(kind==='declaration'?row.amountText:row.remainingText),status:kind==='declaration'?'核实到账':kind==='employee'?row.state:row.paidCents>0?'部分付款':'待付款'};
+  return {name:kind==='employee'?row.payer_name+' · '+row.stage:row.projectName+' · '+row.name,amount:'¥'+(kind==='declaration'?row.amountText:row.remainingText),status:kind==='declaration'?'核实到账':kind==='employee'?row.state:row.holdReason||(row.paidCents>0?'部分付款':'待付款'),clickable:kind!=='payable'||row.canPay};
  };
  page.openFinanceTask=function(e){
+  if(e.detail&&e.detail.item)e={currentTarget:{dataset:e.detail.item}};
   if(!this.data.journeyEnabled)return this.go(e);const target=this.financeTaskTarget(e.currentTarget.dataset.key||e.currentTarget.dataset.id);if(!target)return this.go(e);
   if(this.data.wbBusy||this.data.registerBusy||this.data.busy)return;
-  if(target.kind==='payable'&&!target.row.canPay||target.kind==='employee'&&target.row.remaining===0){wx.showToast({title:'该事项已办结',icon:'none'});this.loadWorkbench();this.loadPlatformFinance();return;}
+  if(target.kind==='payable'&&!target.row.canPay||target.kind==='employee'&&target.row.remaining===0){wx.showToast({title:target.row.holdReason||'该事项已办结',icon:'none'});this.loadWorkbench();this.loadPlatformFinance();return;}
   this.rememberEntryOrigin();if(this.data.view==='desk')this.setData({view:'flows',flowTab:target.kind==='declaration'?'receivables':'payables'});
   const event={currentTarget:{dataset:{id:target.row.id}}};
   if(target.kind==='employee')return target.row.remaining<0?this.recoverEmployee(event):this.reimburseEmployee(event);
@@ -52,7 +53,7 @@ module.exports=function(page,api){
  page.refreshJourney=function(){
   if(!this.data.journeyEnabled)return;
   const books=this.data.workbenchBooks||[],stages=(this.data.financialStages||[]).map(s=>({...s,project_id:s.project_id||books.find(b=>String(b.sale_contract_id)===String(s.contract_id))?.project_id})),facts=this.__financeFacts;
-  const payables=facts?J.payableRows(facts,books,stages):[];
+  const payables=facts?J.payableRows(facts,books,stages).map(q=>{if(q.sourceType!=='performance'&&q.stage!=='performance'&&!String(q.agreementRef||'').startsWith('perf-commission:'))return q;const stage=(this.__commissionStages||[]).find(s=>String(s.payableId)===q.id),hold=!stage||stage.reviewDue||!stage.eligible;return {...q,sourceType:'performance',name:stage?.label||'项目回款提成',label:(stage?.label||'项目回款提成')+' · '+q.counterparty+' · 待付 ¥'+q.remainingText,canPay:q.canPay&&!hold,canAdjust:false,commissionHold:hold&&q.remainingCents>0,holdReason:stage?'回款已变化，请由老板核对提成':'提成状态未能核实，请刷新重试'};}):[];
   const cash=facts?J.cashRows(facts,books,stages,auth.currentApiPost()?.roleCode):[];
   this.__journeyCash=cash;
   const month=this.data.flowScope==='all'?'':this.data.selectedMonth||this.data.platformFinance?.month||today().slice(0,7);
@@ -63,12 +64,19 @@ module.exports=function(page,api){
   const declarations=(this.data.collectionDeclarations||[]).map(r=>({...r,...J.context({project_id:r.project_id,sourceRef:'sale:'+r.contract_id},books,stages),name:(r.customer_name||'业主')+' · '+J.stageName(r.stage),amountText:V.money(r.amount_cents),date:day(r.received_date)}));
   const progress=[...reimbursements.filter(r=>r.remaining!==0).map(r=>({id:'employee:'+r.id,name:r.payer_name+' · '+r.stage,projectName:r.projectName,amount:'¥'+r.remainingText,status:r.remaining<0?'待员工归还':Number(r.reimbursed_cents)>0?'部分报销':'待报销',url:'/pages/admin/finance-desk/index?view=reimbursements'})),...payables.filter(r=>r.canPay&&r.sourceType!=='reimbursement'&&r.paidCents>0).map(r=>({id:'payable:'+r.id,name:r.name,projectName:r.projectName,amount:'¥'+r.remainingText,status:'部分付款',url:'/pages/admin/finance-desk/index?view=flows&tab=payables'})),...declarations.map(r=>({id:'declaration:'+r.id,name:r.name,projectName:r.projectName,amount:'¥'+r.amountText,status:'待核实到账',url:'/pages/admin/finance-desk/index?view=flows&tab=receivables'}))];
   const accounts=[...new Set([...(facts?.payments||[]),...(facts?.receipts||[])].map(r=>r.accountName).filter(Boolean))];
-  this.setData({journeyCashRows:filtered,journeyCashTotal:filtered.length,journeyTotals:{incoming:V.money(incoming),outgoing:V.money(outgoing),net:V.money(incoming-outgoing)},journeyPeriod:month||'全部月份',journeyPayables:payables,journeyPayableCount:payables.filter(r=>r.canPay).length,journeyReimbursements:reimbursements,journeyDeclarations:declarations,journeyProgress:progress,journeyAccounts:[...new Set([...accounts,'公司银行账户','公司微信','现金'])],journeyCategories:['材料','人工','运输','设计','差旅','办公','其他费用'],financialStages:stages.map(s=>({...s,stageName:J.stageName(s.stage),remainingText:V.money(Math.max(0,Number(s.amount_cents)-Number(s.collected_cents)))})),'deskHome.focus':progress.slice(0,3),'deskHome.focusUrl':'/pages/admin/finance-desk/index?view=progress'});
+  this.setData({journeyCashRows:filtered,journeyCashTotal:filtered.length,journeyTotals:{incoming:V.money(incoming),outgoing:V.money(outgoing),net:V.money(incoming-outgoing)},journeyPeriod:month||'全部月份',journeyPayables:payables,journeyPayableCount:payables.filter(r=>r.canPay||r.commissionHold).length,journeyReimbursements:reimbursements,journeyDeclarations:declarations,journeyProgress:progress,journeyAccounts:[...new Set([...accounts,'公司银行账户','公司微信','现金'])],journeyCategories:['材料','人工','运输','设计','差旅','办公','其他费用'],financialStages:stages.map(s=>({...s,stageName:J.stageName(s.stage),remainingText:V.money(Math.max(0,Number(s.amount_cents)-Number(s.collected_cents)))})),'deskHome.focus':progress.slice(0,3),'deskHome.focusUrl':'/pages/admin/finance-desk/index?view=progress'});
   // Existing correction/void handlers operate on the same original IDs and permission flags.
   this.ledgerSource=cash.map(r=>({...r,id:r.key,amountText:r.sign+'¥'+r.amount}));
   this.syncJourneyForm();
   if(this.syncPlatformTasks)this.syncPlatformTasks();
   this.openMessageSource();
+  const homeStage=String((this.options||{}).homeStage||'');
+  if(/^\d+$/.test(homeStage)&&!this.__homeStageOpened&&this.__messageWorkbenchReady&&this.__financeFacts){
+   this.__homeStageOpened=true;
+   const stage=(this.data.financialStages||[]).find(s=>String(s.id)===homeStage);
+   if(stage&&Number(stage.amount_cents)>Number(stage.collected_cents))this.collectJourneyStage({currentTarget:{dataset:{id:homeStage}}});
+   else this.setData({workbenchError:'该期款项已收齐或原单已变化，请核对最新记录'});
+  }
  };
  page.syncJourneyForm=function(){
   if(!this.data.journeyEnabled)return;
@@ -95,7 +103,7 @@ module.exports=function(page,api){
  page.openRegister=function(e){
   if(!this.data.journeyEnabled)return open.call(this,e);
   if(this.data.registerBusy||this.data.wbBusy||this.data.busy)return;
-  this.rememberEntryOrigin();this.setData({journeyResult:null,journeyDeclaration:null,journeyErrorField:''});
+  this.rememberEntryOrigin();this.setData({journeyResult:null,journeyDeclaration:null,journeyErrorField:'',...(this.options?.from==='commission'?{journeyReturnLabel:'返回项目提成'}:{})});
   const result=open.call(this,e);this.syncJourneyForm();wx.pageScrollTo({scrollTop:0,duration:0});return result;
  };
  const entry=page.openWorkbenchEntry;
@@ -115,6 +123,7 @@ module.exports=function(page,api){
   cancelRegister.call(this);cancelWorkbench.call(this);
   const origin=this.__entryOrigin,scroll=this.__entryScroll||0;if(this.__entryOptions)this.options={...this.__entryOptions};this.__entryOrigin=null;this.__entryOptions=null;
   this.setData({...(origin||{}),journeyResult:null,journeyDeclaration:null,bookEntryDetail:null,journeyErrorField:''});
+  if(this.options?.from==='commission')return require('../../../utils/page-navigation').back({skipLocal:true,fallback:'/pages/admin/commission/index'});
   this.refresh();if(this.data.view==='desk')this.syncPlatformTasks();wx.pageScrollTo({scrollTop:scroll,duration:0});
  };
  page.changeReceiptMode=function(e){const mode=e.currentTarget.dataset.mode;if(this.data.wbBusy)return;const f=this.data.wbForm||{},keep=mode==='other'?!String(f.scope||'').startsWith('contract:'):String(f.scope||'').startsWith('project:')||String(f.scope||'').startsWith('contract:');this.setData({'wbForm.receiptMode':mode,'wbForm.stageId':'','wbForm.stageLabel':'','wbForm.name':'','wbForm.scope':keep?f.scope:'','wbForm.scopeLabel':keep?f.scopeLabel:'',wbError:'',journeyErrorField:''});this.syncJourneyForm();};
@@ -170,13 +179,16 @@ module.exports=function(page,api){
  page.showBookCalculation=function(){wx.showModal({title:'账目口径',content:'收支结余＝公司累计收款＋支出退回－累计付款－客户退款。项目费用包括已登记的待付费用和员工垫付；报销只结清员工往来，不重复计入项目费用。',showCancel:false});};
  const submit=page.submitRegister,submitEntry=page.submitWorkbench;
  page.journeyInvalid=function(field,message,manual){this.setData({journeyErrorField:field,[manual?'wbError':'registerError']:message});wx.pageScrollTo({selector:'#jf-'+field,duration:200});};
- page.submitJourneyRegister=function(){
+ page.submitJourneyRegister=async function(){
   const f=this.data.registerForm||{},type=this.data.registerType;
   if(type==='payment'&&!f.payableId)return this.journeyInvalid('source','请选择待付款事项');
   const amount=PF.toCents(f.amount);if(!amount)return this.journeyInvalid('amount','请输入大于0的金额，最多两位小数');
   const remaining=f.reimbursement?this.data.journeyReimbursement?.remaining:this.data.journeyPayment?.remainingCents;
   if(type==='payment'&&remaining!=null&&amount>remaining)return this.journeyInvalid('amount','本次金额超过待付余额');
   if(type==='payment'&&!String(f.accountName||'').trim())return this.journeyInvalid('account','请选择或填写实际付款账户');
+  if(type==='payment'&&this.data.journeyPayment?.sourceType==='performance'){
+   try{const rows=await http.get('/franchise/performance/commission/rows'),stage=rows.flatMap(r=>r.stages||[]).find(s=>String(s.payableId)===String(f.payableId));if(!stage||stage.reviewDue||!stage.eligible)return this.journeyInvalid('source','回款或提成状态已变化，请返回由老板核对');}catch(e){return this.journeyInvalid('source','提成状态未能核实，请重试');}
+  }
   const date=type==='payment'?f.payDate:f.date;if(!date||date>today())return this.journeyInvalid('date','请选择实际发生日期，不能晚于今天');
   if(type!=='payment'&&!String(f.reason||'').trim())return this.journeyInvalid('reason','请填写退回原因');
   this.setData({journeyErrorField:'',registerError:''});return submit.call(this);

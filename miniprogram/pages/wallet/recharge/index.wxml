@@ -6,9 +6,7 @@
       <text class="retired-copy">积分由公司统一管理，个人充值暂未开放。</text>
     </view>
     <view class="notes">
-      <text>· 旧个人钱包余额与充值记录不会迁入公司积分池</text>
-      <text>· 公司积分按当前工作身份使用，由公司统一管理</text>
-      <text>· 可在“我的”页面查看公司可用余额和本人本月使用量</text>
+      <text>旧钱包余额和充值记录不迁入公司积分池。</text>
     </view>
     <view class="retired-actions">
       <button class="paybar-btn retired-primary" bindtap="openCompanyPoints">{{loggedIn?'查看公司积分':'登录后查看公司积分'}}</button>

@@ -1,41 +1,9 @@
-<template name="homeMetricDetail">
-  <block wx:for="{{section.panels}}" wx:for-item="panel" wx:key="key">
-    <view wx:if="{{expanded===panel.key}}" class="home-detail">
-      <view class="home-detail-heading"><text>{{panel.title}}</text><button class="home-collapse" data-module="{{module}}" data-key="{{panel.key}}" bindtap="toggleHomeMetric" aria-label="收起{{panel.title}}">收起<view class="home-chevron expanded"/></button></view>
-      <button wx:for="{{panel.rows}}" wx:for-item="row" wx:key="key" class="home-detail-row" data-url="{{row.url}}" bindtap="go" hover-class="pressed"><view class="owner-grow"><text class="owner-name">{{row.name}}</text><text class="owner-muted">{{row.detail}}</text></view><text wx:if="{{row.amount}}" class="home-detail-amount">{{row.amount}}</text><image class="owner-arrow" src="/assets/creation-chevron.png"/></button>
-      <view wx:if="{{!panel.rows.length}}" class="home-detail-empty">{{panel.emptyText}}</view>
-      <button wx:if="{{panel.hasMore}}" class="home-detail-more" data-url="{{panel.url}}" bindtap="go">查看全部 {{panel.total}} 条<image class="owner-arrow" src="/assets/creation-chevron.png"/></button>
-    </view>
-  </block>
-</template>
-<view class="owner-page home-page">
-  <owner-header title="首页"/>
-  <view class="owner-content">
-    <view wx:if="{{error}}" class="owner-error"><text>{{error}}</text><button class="owner-link" bindtap="retryHome">重新加载</button></view>
-    <block wx:if="{{ready}}">
-      <view class="owner-hello"><text class="owner-title">你好，{{desk.name}}</text></view>
-      <view class="owner-card home-finance-card">
-        <view class="home-finance-heading">
-          <view class="home-finance-tabs" role="tablist" aria-label="经营与账本"><button class="home-finance-tab {{homeFinanceTab!=='ledger'?'selected':''}}" role="tab" aria-selected="{{homeFinanceTab!=='ledger'}}" data-tab="operating" bindtap="switchHomeFinanceTab">经营</button><button class="home-finance-tab {{homeFinanceTab==='ledger'?'selected':''}}" role="tab" aria-selected="{{homeFinanceTab==='ledger'}}" data-tab="ledger" bindtap="switchHomeFinanceTab">账本</button></view>
-          <picker mode="date" fields="month" value="{{desk.period}}" bindchange="month" aria-label="选择经营账本月份"><view class="home-period">{{desk.periodLabel}}<image class="owner-arrow owner-select-icon" src="/assets/creation-chevron.png"/></view></picker>
-        </view>
-        <view wx:if="{{homeFinanceTab!=='ledger'}}" class="home-six"><button wx:for="{{desk.home.cards}}" wx:key="key" class="home-six-item" data-action="{{item.action}}" data-url="{{item.url}}" bindtap="go" hover-class="pressed"><text class="home-six-label">{{item.label}}</text><text class="home-six-value {{item.value.length>7?'compact':''}}">{{item.value}}<text class="owner-unit">{{item.unit}}</text></text></button></view>
-        <view wx:else class="home-ledger-stats"><view class="home-ledger-stat"><text class="home-ledger-k">已收</text><text class="home-ledger-v {{desk.ledger.inTotal.length>8?'compact':''}}">{{desk.ledger.inTotal}}</text></view><view class="home-ledger-stat"><text class="home-ledger-k">已付</text><text class="home-ledger-v {{desk.ledger.payTotal.length>8?'compact':''}}">{{desk.ledger.payTotal}}</text></view><view class="home-ledger-stat"><text class="home-ledger-k">待收</text><text class="home-ledger-v {{desk.ledger.receivableTotal.length>8?'compact':''}}">{{desk.ledger.receivableTotal}}</text></view><view class="home-ledger-stat"><text class="home-ledger-k">待付</text><text class="home-ledger-v {{desk.ledger.payableTotal.length>8?'compact':''}}">{{desk.ledger.payableTotal}}</text></view></view>
-      </view>
-      <view wx:if="{{platformTodos&&platformTodos.status!=='idle'}}" class="owner-card home-todos"><view class="owner-heading"><text>今日待办</text></view><text wx:if="{{platformTodos.warning}}" class="owner-muted pt-warning">{{platformTodos.warning}}</text><block wx:if="{{platformTodos.status==='loading'}}"><text class="owner-muted">待办加载中…</text></block><block wx:elif="{{platformTodos.status==='degraded'}}"><text class="owner-muted">{{platformTodos.message||'待办暂时无法加载'}}</text><button class="pt-retry" bindtap="retryPlatformTodos">重新加载</button></block><block wx:elif="{{platformTodos.status==='ready'&&platformTodos.rows.length===0}}"><text class="owner-muted">暂无待办</text></block><block wx:elif="{{platformTodos.status==='partial-empty'}}"><text class="owner-muted">已加载部分暂无待办</text><button class="pt-retry" bindtap="retryPlatformTodos">重新加载</button></block><block wx:else><button wx:for="{{platformTodos.rows}}" wx:key="key" class="pt-row {{item.clickable?'':'pt-row-disabled'}}" data-path="{{item.path}}" data-clickable="{{item.clickable}}" bindtap="openPlatformTodo" hover-class="pressed"><view class="pt-copy"><text class="pt-title">{{item.title}}</text><text class="pt-meta">{{item.typeLabel}} · {{item.actionHint}}</text></view><text wx:if="{{item.amount}}" class="pt-amount">{{item.amount}}</text></button></block></view>
-      <view class="owner-card home-business">
-        <view class="owner-heading"><text>业务</text><button class="owner-link" data-url="/pages/customers/index" bindtap="go">客户与跟进<image class="owner-arrow" src="/assets/creation-chevron.png"/></button></view>
-        <view class="home-counts"><button wx:for="{{desk.home.business.metrics}}" wx:key="key" class="home-metric {{expandedBusiness===item.key?'selected':''}}" disabled="{{!desk.home.business.available}}" aria-label="{{item.label}} {{item.value}}{{item.unit}}" aria-expanded="{{expandedBusiness===item.key}}" data-module="business" data-key="{{item.key}}" bindtap="toggleHomeMetric" hover-class="pressed"><text class="home-metric-label">{{item.label}}</text><text class="home-metric-value {{item.value.length>7?'compact':''}}">{{item.value}}<text class="owner-unit">{{item.unit}}</text></text><view class="home-chevron {{expandedBusiness===item.key?'expanded':''}}"/></button></view>
-        <view wx:if="{{!desk.home.business.available}}" class="home-module-state"><text>{{desk.home.business.message}}</text><button wx:if="{{!desk.home.business.loading}}" class="home-retry" bindtap="refreshHomeModules">重新加载</button></view>
-        <template is="homeMetricDetail" data="{{section:desk.home.business,expanded:expandedBusiness,module:'business'}}"/>
-      </view>
-      <view class="owner-card home-engineering">
-        <view class="owner-heading"><text>工程</text><button class="owner-link" data-url="/pages/build/projects/index" bindtap="go">工程项目<image class="owner-arrow" src="/assets/creation-chevron.png"/></button></view>
-        <view class="home-counts"><button wx:for="{{desk.home.engineering.metrics}}" wx:key="key" class="home-metric {{expandedEngineering===item.key?'selected':''}}" disabled="{{!desk.home.engineering.available}}" aria-label="{{item.label}} {{item.value}}{{item.unit}}" aria-expanded="{{expandedEngineering===item.key}}" data-module="engineering" data-key="{{item.key}}" bindtap="toggleHomeMetric" hover-class="pressed"><text class="home-metric-label">{{item.label}}</text><text class="home-metric-value">{{item.value}}<text class="owner-unit">{{item.unit}}</text></text><view class="home-chevron {{expandedEngineering===item.key?'expanded':''}}"/></button></view>
-        <view wx:if="{{!desk.home.engineering.available}}" class="home-module-state"><text>{{desk.home.engineering.message}}</text><button wx:if="{{!desk.home.engineering.loading}}" class="home-retry" bindtap="refreshHomeModules">重新加载</button></view>
-        <template is="homeMetricDetail" data="{{section:desk.home.engineering,expanded:expandedEngineering,module:'engineering'}}"/>
-      </view>
-    </block>
-  </view>
-  <owner-nav id="owner-navigation" active="home"/>
+<view class="wb-root owner-page home-page">
+ <brand-header branded divider account-font title="老板工作台"/>
+ <view class="owner-content wb-content">
+  <view class="owner-hello wb-greeting"><text class="owner-title">你好，{{desk.name||'同事'}}</text></view>
+  <home-overview id="role-overview" role="owner" period="{{desk.period}}" bind:monthchange="month"/>
+  <view class="home-todo-section wb-todos"><text wx:if="{{platformTodos.warning}}" class="owner-muted">{{platformTodos.warning}}</text><todo-preview wx:if="{{platformTodos.status==='ready'||platformTodos.status==='partial'||platformTodos.rows.length}}" appearance="home" title="待我决策" id="today-todos" rows="{{platformTodos.rows}}" scope="{{platformTodos.postKey}}" bind:activate="openPlatformTodo"/><text wx:if="{{platformTodos.status==='loading'}}" class="owner-muted">待办加载中…</text><view wx:if="{{platformTodos.status==='degraded'||platformTodos.status==='partial-empty'}}" class="home-error"><text>{{platformTodos.message||'待办暂时无法完整加载'}}</text><button bindtap="retryPlatformTodos">重新加载</button></view></view>
+  <view class="home-project-section"><view class="home-section-heading"><text>重点项目</text><button data-url="/pages/build/projects/index" bindtap="go">全部<image src="/assets/creation-chevron.png"/></button></view><view class="home-project-card"><button wx:for="{{desk.home.engineering.sites}}" wx:key="key" class="home-project-row" data-url="{{item.url}}" bindtap="go"><image class="home-project-photo" src="{{item.image}}" mode="aspectFill"/><view><text>{{item.name}}</text><text>{{item.stage}}</text><text wx:if="{{item.date}}">开工 {{item.date}}</text></view><image class="home-arrow" src="/assets/creation-chevron.png"/></button><text wx:if="{{!desk.home.engineering.sites.length}}" class="home-empty">{{desk.home.engineering.message||'当前暂无在办项目'}}</text></view></view>
+ </view><owner-nav id="owner-navigation" active="home"/>
 </view>

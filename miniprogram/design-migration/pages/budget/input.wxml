@@ -1,11 +1,10 @@
 <view class="v12-page budget-page" wx:if="{{accessReady}}">
   <v12-navbar title="快速预算" show-back show-brand="{{false}}" />
   <view wx:if="{{noProject}}" class="budget-card state-card">
-    <text class="section-title">请先选择设计项目</text>
-    <text class="muted">预算基于已生成的AI设计方案测算，请从已有设计项目进入。</text>
+    <text class="section-title">请选择已生成的方案</text>
     <view class="state-actions">
-      <button class="text-action" bindtap="openMyProjects">从我的方案选择已有项目</button>
-      <button class="text-action" bindtap="selectProject">前往 AI 设计新建方案</button>
+      <button class="text-action" bindtap="openMyProjects">选择已有方案</button>
+      <button class="text-action" bindtap="selectProject">新建 AI 方案</button>
     </view>
   </view>
   <view wx:elif="{{loading || error}}" class="budget-card state-card"><v12-state status="{{loading ? 'loading' : 'error'}}" text="{{loading ? '正在导入项目参数…' : error}}" action-text="{{loading ? '' : '重新加载'}}" bind:action="load" card="{{false}}" /></view>
@@ -25,17 +24,17 @@
     </view>
     <view class="budget-card config-card">
       <text class="section-title">预算配置</text>
-      <view class="config-row" bindtap="configuration" data-category="BODY" role="button" aria-label="主体类配置"><view class="round-icon"><t-icon name="home" size="24px" color="#7b5532" /></view><view class="config-copy"><text>主体类</text><text>地基基础 · 主体结构 · 屋面结构</text></view><text class="config-status {{bodyCount === 3 ? 'config-complete' : ''}}">{{bodyCount}}/3 已选</text><t-icon name="chevron-right" size="16px" color="#a89a8c" /></view>
-      <view class="config-row" bindtap="configuration" data-category="EXTERIOR" role="button" aria-label="外装类配置"><view class="round-icon"><t-icon name="archway" size="24px" color="#7b5532" /></view><view class="config-copy"><text>外装类</text><text>装饰构件 · 门窗 · 外墙漆等</text></view><text class="config-status {{exteriorCount === 7 ? 'config-complete' : ''}}">{{exteriorCount}}/7 已选</text><t-icon name="chevron-right" size="16px" color="#a89a8c" /></view>
+      <view class="config-row" bindtap="configuration" data-category="BODY" role="button" aria-label="主体类配置"><view class="round-icon"><image class="category-icon" src="/assets/house.png" mode="aspectFit" /></view><view class="config-copy"><text>主体类</text><text>地基基础 · 主体结构 · 屋面结构</text></view><text class="config-status {{bodyCount === 3 ? 'config-complete' : ''}}">{{bodyCount}}/3 已选</text><t-icon name="chevron-right" size="16px" color="#a89a8c" /></view>
+      <view class="config-row" bindtap="configuration" data-category="EXTERIOR" role="button" aria-label="外装类配置"><view class="round-icon"><image class="category-icon" src="/assets/home-design-icon.png" mode="aspectFit" /></view><view class="config-copy"><text>外装类</text><text>装饰构件 · 门窗 · 外墙漆等</text></view><text class="config-status {{exteriorCount === 7 ? 'config-complete' : ''}}">{{exteriorCount}}/7 已选</text><t-icon name="chevron-right" size="16px" color="#a89a8c" /></view>
       <text wx:if="{{customCount}}" class="muted">另选{{customCount}}项补充预算项</text>
     </view>
     <view wx:if="{{catalogLoading}}" class="inline-warning">正在同步地区可选配置…</view>
     <view wx:if="{{catalogError}}" class="inline-warning"><text>{{catalogError}}</text><button class="text-action" bindtap="loadCatalog">重试</button></view>
     <view wx:if="{{selectionNotice}}" class="inline-warning">{{selectionNotice}}</view>
-    <view wx:if="{{pendingPriceCount}}" class="inline-warning">已选配置中有 {{pendingPriceCount}} 项待补价，预算尚未完整，可稍后补齐。</view>
-    <view wx:if="{{importConflict}}" class="inline-warning">方案参数已更新，点击下方「重新导入当前参数」获取最新值。</view>
+    <view wx:if="{{pendingPriceCount}}" class="inline-warning">{{pendingPriceCount}} 项待补价，预算未计全。</view>
+    <view wx:if="{{importConflict}}" class="inline-warning">方案参数有更新，可重新导入。</view>
     <view wx:if="{{importError}}" class="inline-warning">{{importError}}</view>
-    <view wx:if="{{reimporting}}" class="inline-warning">正在读取最新参数，读取成功后自动更新…</view>
+    <view wx:if="{{reimporting}}" class="inline-warning">正在更新参数…</view>
     <view class="context-note"><text>{{sourceLabel}}</text><view class="budget-history-links"><button class="text-action legacy-link" bindtap="confirmReimport" disabled="{{creating || loading || catalogLoading || reimporting}}">重新导入</button><button class="text-action legacy-link" bindtap="history">预算历史</button></view></view>
     <view class="budget-footer"><text wx:if="{{generateError}}" class="footer-error">{{generateError}}</text><text class="footer-hint">{{disabledReason || '参数或配置未齐时，生成的是待补齐的参考预算'}}</text><button class="budget-primary" bindtap="generate" disabled="{{!canGenerate || creating || loading || catalogLoading || reimporting}}" loading="{{creating}}">{{creating ? '正在生成预算' : '生成参考预算'}}</button></view>
   </block>

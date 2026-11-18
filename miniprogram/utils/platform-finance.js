@@ -24,7 +24,7 @@ function shortcuts(headquarters) {
   const entry = (label, type) => ({ label, type, icon: '/assets/money.png', url: '' });
   return headquarters
     ? [entry('确认到账', 'receipt'), entry('登记退款', 'refund'), ledger]
-    : [entry('收款登记', 'receipt'), entry('登记付款', 'payment'), entry('报销办理', 'reimbursement'), ledger];
+    : [entry('收款登记', 'receipt'), entry('付款登记', 'payment'), entry('报销办理', 'reimbursement'), ledger];
 }
 
 /** 登记金额：元字符串 → 分（严格十进制，拒绝逗号/超两位小数/科学计数法/非正数/超上限；非法 → null） */

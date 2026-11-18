@@ -29,9 +29,11 @@ test('the selected month survives loading and the picker reloads the actual sele
 });
 test('home keeps confirmed module order and a single month selector',()=>{
  const s=fs.readFileSync('miniprogram/pages/admin/finance-desk/finance-home.wxml','utf8');
- const markers=['fin-home-intro','fin-home-summary','今日待办','常用快捷办理','正在办理'].map(x=>s.indexOf(x));
+ const markers=['fin-home-intro','<home-overview','id="today-todos"','常用办理','正在办理'].map(x=>s.indexOf(x));
+ assert.match(s,/<todo-preview\b(?=[^>]*id="today-todos")(?=[^>]*appearance="home")[^>]*>/);
  assert.ok(markers.every((n,i)=>n>=0&&(!i||n>markers[i-1])));assert.ok(!s.includes('平台账簿'));assert.ok(!s.includes('本月'));assert.equal((s.match(/<month-select /g)||[]).length,1);assert.ok(s.includes('bind:change="financeMonth"'));
  assert.equal(PF.shortcuts(false)[2].label,'报销办理');
+ assert.ok(s.includes('wx:if="{{!desk.hq}}" role="finance"'));assert.ok(s.includes('wx:if="{{desk.hq}}"'));assert.ok(s.includes('bind:monthchange="financeMonth"'));
 });
 test('manual entry retries reuse command and uploaded voucher without creating another fact',async()=>{
  const source=fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js','utf8'),module={exports:{}};

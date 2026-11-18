@@ -11,11 +11,6 @@ page{--sales-brand:var(--business-brand);--sales-paper:var(--business-paper);--s
 .sales-page.sales-page .outline{display:inline-flex;align-items:center;justify-content:center;gap:8rpx;min-height:72rpx;height:auto;line-height:36rpx;padding:12rpx 22rpx;border:1rpx solid var(--sales-brand);border-radius:14rpx;font-size:var(--zs-font-body);font-weight:500;flex-shrink:0;background:var(--zs-card);color:var(--sales-brand)}
 .sales-page.sales-page .text-link{display:inline-flex;align-items:center;gap:10rpx;min-height:60rpx;font-size:var(--zs-font-meta);font-weight:400;line-height:36rpx;color:var(--sales-brand);padding:0}
 .sales-page.sales-page .chevron{border-color:var(--sales-brand)}
-.sales-page .sales-stats{display:flex;padding:22rpx 0 10rpx}
-.sales-page .sales-stat{flex:1;min-width:0;text-align:center;border-right:1rpx solid var(--sales-line)}
-.sales-page .sales-stat:last-child{border-right:0}
-.sales-page .sales-stat-value{display:block;color:var(--sales-brand);font-size:var(--zs-font-heading);font-weight:600;line-height:52rpx}
-.sales-page .sales-stat-label{display:block;font-size:var(--zs-font-meta);line-height:38rpx;color:var(--sales-muted)}
 .sales-page .sales-search{display:flex;align-items:center;gap:18rpx;min-height:80rpx;background:var(--sales-paper);border:2rpx solid var(--zs-card);border-radius:42rpx;padding:12rpx 22rpx}
 .sales-page .sales-search>image{width:32rpx;height:32rpx;flex-shrink:0}
 .sales-page .sales-search>input{flex:1;min-width:0;height:48rpx;font-size:var(--zs-font-emphasis);line-height:42rpx}

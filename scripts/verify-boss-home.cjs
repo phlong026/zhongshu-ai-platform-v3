@@ -91,39 +91,29 @@ test('老板指标使用业务、工程首页的同一统计函数和全量接�
   assert.deepEqual(getCurrentPages().at(-1).data.eng.stats, engineering.counts);
 });
 
-test('经营账本互斥切换，每排四卡，旧模块和顶部说明已移除', async () => {
-  const h = await setup(), page = await h.runtime.currentPage();
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-six-item')).length, 4);
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-ledger-stat')).length, 0);
-  await (await page.$('.home-finance-tab[data-tab="ledger"]')).tap();
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-six-item')).length, 0);
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-ledger-stat')).length, 4);
-  await (await page.$('.home-finance-tab[data-tab="operating"]')).tap();
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-six-item')).length, 4);
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-metric')).length, 8);
-  const visible = render(file,h.page.data).map(text).join('');
-  for (const removed of ['本月','当前业务','当前工程','工程与财务统计','经营简报','在浏览器打开','财务实收','不应显示的门店名称']) assert.ok(!visible.includes(removed), removed);
+async function ownerOverviewFixture(h) {
+  const mod=path.resolve(__dirname,'../miniprogram/components/home-overview/index');
+  let def;const previous=global.Component;
+  try {global.Component=d=>{def=d;};delete require.cache[require.resolve(mod)];require(mod);}finally{global.Component=previous;delete require.cache[require.resolve(mod)];}
+  const Home=require('../miniprogram/utils/home-metrics');const facts=Object.fromEntries(Object.keys(Home.labels).map(k=>[k,{total:2,cents:350000}]));
+  assert.ok(h.nodes().some(n=>n.tag==='home-overview'&&n.attrs.role==='owner'));
+  return h.runtime.mountFixture({file:mod+'.wxml',data:{role:'owner',tab:'operating',month:'2026-11',board:Home.view('owner',{metrics:facts})},methods:{switchTab:def.methods.switchTab,metric(e){return def.methods.metric.call({...this,properties:{role:'owner'}},e);}}});
+}
+
+test('经营与账本切换对应指标，工程交付和资金关注持续可见',async()=>{
+  const h=await setup(), p=await ownerOverviewFixture(h);
+  assert.ok(await p.$('[data-key="signed"]'));assert.equal(await p.$('[data-key="net"]'),null);
+  await(await p.$('[data-tab="ledger"]')).tap();assert.ok(await p.$('[data-key="net"]'));assert.equal(await p.$('[data-key="signed"]'),null);
+  for(const k of ['building','delivered','attention','dueReceipt','soonPayable'])assert.ok(await p.$('[data-key="'+k+'"]'),k);
+  await(await p.$('[data-tab="operating"]')).tap();assert.ok(await p.$('[data-key="signed"]'));
 });
 
-test('点击真实指标按钮向下展开、切换、收起，两个模块可独立展开', async () => {
-  const h = await setup(), page = await h.runtime.currentPage();
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-detail')).length, 0);
-  await (await page.$('.home-metric[data-module="business"][data-key="due"]')).tap();
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-detail')).length, 1);
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-detail-row')).length, 3);
-  await (await page.$('.home-metric[data-module="business"][data-key="appointments"]')).tap();
-  assert.equal(h.page.data.expandedBusiness, 'appointments');
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-detail-row')).length, 1);
-  await (await page.$('.home-metric[data-module="engineering"][data-key="在建"]')).tap();
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-detail')).length, 2);
-  await (await page.$('.home-collapse[data-module="business"]')).tap();
-  assert.equal(h.page.data.expandedBusiness, '');
-  assert.equal(h.page.data.expandedEngineering, '在建');
-  await (await page.$('.home-metric[data-module="engineering"][data-key="在建"]')).tap();
-  assert.equal(h.nodes().filter(node => hasClass(node,'home-detail')).length, 0);
+test('经营指标打开所选月份及岗位的明细',async()=>{
+  const h=await setup(),p=await ownerOverviewFixture(h);await(await p.$('[data-key="signed"]')).tap();await flush();
+  const detail=getCurrentPages().at(-1);assert.equal(detail.route,'pages/home-metrics/index');assert.equal(detail.role,'owner');assert.equal(detail.data.key,'signed');assert.equal(detail.data.period,'2026-11');
 });
 
-test('失败不冒充零，业务与工程及绩效接口独立，空数据可展开', async () => {
+test('失败不冒充零，业务与工程及绩效接口独立，重点项目有空态', async () => {
   const h = await setup();
   h.failure('business',true); await h.page.refreshHomeModules(); await flush();
   assert.ok(h.page.data.desk.home.business.metrics.every(row => row.value === '—'));
@@ -141,8 +131,7 @@ test('失败不冒充零，业务与工程及绩效接口独立，空数据可�
   await h.page.refreshHomeModules(); await flush();
   assert.ok(h.page.data.desk.home.business.metrics.every(row => Number(row.value) === 0));
   assert.ok(h.page.data.desk.home.engineering.metrics.every(row => row.value === 0));
-  h.page.toggleHomeMetric({currentTarget:{dataset:{module:'business',key:'due'}}});
-  assert.ok(h.nodes().filter(node => hasClass(node,'home-detail-empty')).some(node => text(node).includes('暂无待跟进客户')));
+  const empty=h.nodes().find(n=>hasClass(n,'home-empty'));assert.ok(empty);assert.equal(text(empty), '当前没有工程项目');
 });
 
 test('换月只影响经营账本；换岗与迟到响应不会恢复旧模块内容', async () => {

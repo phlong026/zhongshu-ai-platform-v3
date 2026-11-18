@@ -2,10 +2,10 @@
  <business-header id="subpage-header" title="报价单导出"/>
  <view class="export-content">
 
-  <view class="export-summary"><text class="export-title">{{label||'报价单'}}</text><text class="export-total">¥ {{total}}</text><text class="export-hint">按客户基本信息、主体工程、装饰工程及费用汇总生成。</text></view>
+  <view class="export-summary"><text class="export-title">{{label||'报价单'}}</text><text class="export-total">¥ {{total}}</text></view>
   <view wx:if="{{error}}" class="export-error">{{error}}<button wx:if="{{albumDenied}}" bindtap="openSettings">开启相册权限</button></view>
-  <view wx:if="{{label}}" class="export-card"><button class="export-refresh" loading="{{busy}}" disabled="{{busy}}" bindtap="generate">刷新报价单预览</button></view>
-  <view wx:if="{{image}}" class="export-card"><view class="export-card-title">A4 报价单预览</view><image class="quote-sheet-preview" src="{{image}}" mode="widthFix" bindtap="preview"/><text class="export-hint">点击可放大查看，图片和PDF使用同一份表格。</text></view>
+  <view wx:if="{{label}}" class="export-card"><button class="export-refresh" loading="{{busy}}" disabled="{{busy}}" bindtap="generate">刷新预览</button></view>
+  <view wx:if="{{image}}" class="export-card"><view class="export-card-title">A4 报价单预览</view><image class="quote-sheet-preview" src="{{image}}" mode="widthFix" bindtap="preview"/><text class="export-hint">点图放大</text></view>
   <view wx:if="{{label}}" class="export-actions"><button class="export-png" loading="{{busy}}" disabled="{{busy||!allowed}}" bindtap="exportImage">导出图片</button><button class="export-pdf" loading="{{busy}}" disabled="{{busy||!allowed}}" bindtap="exportPdf">导出 PDF</button></view>
   <button wx:if="{{pdfFile&&allowed}}" class="export-share" bindtap="sharePdf">发送已生成的 PDF</button>
  </view>

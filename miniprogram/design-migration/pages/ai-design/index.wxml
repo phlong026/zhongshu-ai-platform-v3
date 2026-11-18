@@ -144,7 +144,7 @@
               <view role="button" wx:for="{{elevAccents}}" wx:key="code" class="chip {{elevAccent === item.code ? 'chip-on' : ''}}" data-code="{{item.code}}" bindtap="onElevAccent">{{item.label}}</view>
             </view>
           </view>
-          <view class="sec-hint">不动高级选项时，屋顶与材质由所选风格智能决定</view>
+          <view class="sec-hint">屋顶与材质默认随风格搭配</view>
         </block>
       </view>
 

@@ -3,7 +3,7 @@ const Files = require('../../../utils/sample-files');
 const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（提成在线；无 token/失败一律错误态，不回落本地演示）
 
 const clone = require('../../../utils/clone');
-const blankForm = () => ({ amount:'', assignee:'', note:'', file:null, checked:false, expectedVersion:0 });
+const blankForm = () => ({ amount:'', signAfter:'',baseDone:'',capDone:'',assignee:'', note:'', file:null, checked:false, expectedVersion:0 });
 const clean = () => ({ ready:false, error:'', busy:false, actor:{}, canEditPolicy:false, commissionRows:[], commissionProjects:[], commissionProjectIndex:0, commissionStaff:[], commissionStaffIndex:0, commissionForm:blankForm() });
 
 Page({
@@ -39,7 +39,7 @@ Page({
         commissionStaff: staff, commissionStaffIndex: staffIndex,
         commissionForm: { ...blankForm(), amount: selected && selected.totalText !== '—'
           ? selected.totalText.replace(/[¥,]/g, '') : '',
-          assignee: selected ? selected.assigneeUserId : (staff[staffIndex] ? staff[staffIndex].id : '') },
+          signAfter:selected?.stages.find(s=>s.stage==='start')?.amountText.replace(/[¥,\s]/g,'')||'',baseDone:selected?.stages.find(s=>s.stage==='base')?.amountText.replace(/[¥,\s]/g,'')||'',capDone:selected?.stages.find(s=>s.stage==='topping')?.amountText.replace(/[¥,\s]/g,'')||'',assignee: selected ? selected.assigneeUserId : (staff[staffIndex] ? staff[staffIndex].id : '') },
         platPerf: true
       });
     } catch (error) {
@@ -58,7 +58,8 @@ Page({
     const index = Number(event.detail.value), member = this.data.commissionStaff[index];
     if (member) this.setData({ commissionStaffIndex:index, 'commissionForm.assignee':member.id, error:'' });
   },
-  commissionInput(event) { this.setData({ ['commissionForm.' + event.currentTarget.dataset.key]:event.detail.value, error:'' }); },
+  commissionInput(event) { this.setData({ [(this.data.commissionReview?'commissionReview.':'commissionForm.') + event.currentTarget.dataset.key]:event.detail.value, error:'' }); },
+  cancelCommissionReview(){if(!this.data.busy)this.setData({commissionReview:null,error:''});},
   commissionToggle() { this.setData({ 'commissionForm.checked':!this.data.commissionForm.checked, error:'' }); },
   commissionUpload() {
     wx.showActionSheet({ itemList:Files.items(['选择实际凭据','使用参考凭据']), success:result => {
@@ -66,14 +67,16 @@ Page({
         if (!this.data.actor.demo) return this.fail('当前账号请上传实际凭据');
         return this.setData({ 'commissionForm.file':{ name:'项目提成确认参考凭据.pdf', sample:true }, error:'' });
       }
-      wx.chooseMessageFile({ count:1, type:'file', success:result => { const file=result.tempFiles[0]; wx.saveFile({ tempFilePath:file.path, success:saved => this.setData({ 'commissionForm.file':{ name:file.name, path:saved.savedFilePath }, error:'' }), fail:() => this.fail('凭据未保存，请重新上传') }); } });
+      const target=this.data.commissionReview?'commissionReview.file':'commissionForm.file';
+      wx.chooseMessageFile({ count:1, type:'file', success:result => { const file=result.tempFiles[0]; wx.saveFile({ tempFilePath:file.path, success:saved => this.setData({ [target]:{ name:file.name, path:saved.savedFilePath }, error:'' }), fail:() => this.fail('凭据未保存，请重新上传') }); } });
     } });
   },
   async commissionAction(event) {
     if (this.data.busy) return;
     const data = event.currentTarget.dataset, action = data.action;
+    if(action==='commission-reconcile'&&!data.confirmed){this.setData({commissionReview:{projectId:data.id,stage:data.stage,note:'',file:null},error:''});wx.pageScrollTo({scrollTop:0,duration:0});return;}
     const id = data.id || this.selectedProjectId;
-    const form = clone(this.data.commissionForm);
+    const form = clone(action==='commission-reconcile'?this.data.commissionReview:this.data.commissionForm);
     if (data.stage) form.stage = data.stage;
     if (data.version !== undefined) form.expectedVersion = Number(data.version);
     if (P.online() && ['commission-policy', 'commission-release', 'commission-reconcile'].includes(action)) {
@@ -81,18 +84,24 @@ Page({
         this.setData({ busy: true, error: '' });
         const person = this.data.commissionStaff[this.data.commissionStaffIndex] || {};
         if (action === 'commission-policy') {
+          const fields=['amount','signAfter','baseDone','capDone'];
+          if(fields.some(k=>!/^\d+(\.\d{1,2})?$/.test(String(form[k]).trim())))throw {msg:'请填写总额及三期金额，未约定期填0'};
+          const cents=k=>Math.round(Number(form[k])*100);
+          if(cents('amount')<=0||cents('signAfter')+cents('baseDone')+cents('capDone')!==cents('amount'))throw {msg:'三期提成之和须等于提成总额'};
+          if(!form.checked||!form.note.trim()||!form.file)throw {msg:'请填写绩效调整依据、上传凭据并确认核对'};
           // R3：键绑定项目上下文（切项目换键——防跨项目旧键死锁）
           if (!this.policyKey || this.policyKeyCtx !== String(id)) {
             this.policyKey = 'perf-policy:' + id + ':' + Date.now();
             this.policyKeyCtx = String(id);
           }
-          await P.perform('policy', { projectId: id, amount: form.amount, assigneeUserId: person.id,
+          await P.perform('policy', { projectId: id, amount: form.amount, signAfter:form.signAfter,baseDone:form.baseDone,capDone:form.capDone,assigneeUserId: person.id,
             assigneeName: person.name, evidenceRef: form.file, note: form.note, idem: this.policyKey });
           this.policyKey = null; this.policyKeyCtx = null; // 成功废弃
         } else if (action === 'commission-release') {
           await P.perform('release', { projectId: id, stage: form.stage,
             idem: 'perf-release:' + id + ':' + form.stage });
         } else {
+          if(!form?.note?.trim()||!form.file)throw {msg:'请上传核对依据并填写说明'};
           // R3：键绑定项目+阶段上下文
           const reconcileCtx = String(id) + ':' + form.stage;
           if (!this.reconcileKey || this.reconcileKeyCtx !== reconcileCtx) {
@@ -103,7 +112,7 @@ Page({
             idem: this.reconcileKey });
           this.reconcileKey = null; this.reconcileKeyCtx = null; // 成功废弃
         }
-        this.refresh();
+        this.setData({commissionReview:null});this.refresh();
         wx.showToast({ title: action === 'commission-policy' ? '提成规则已保存' : action === 'commission-release' ? '提成应付已生成' : '人工核对已记录', icon: 'none' });
       } catch (error) { this.fail(P.errorText(error)); }
       finally { this.setData({ busy: false }); }
@@ -111,6 +120,6 @@ Page({
     }
     this.fail('请先登录后端账号');
   },
-  commissionPay(event) { const id=event.currentTarget.dataset.payable; if (id) N.open('/pages/admin/finance-desk/index?view=flows&tab=payables'); },
+  commissionPay(event) { const id=String(event.currentTarget.dataset.payable||''); const stage=this.data.commissionRows.flatMap(r=>r.stages).find(s=>s.payableId===id);if(stage?.canPay) N.open('/pages/admin/finance-desk/index?view=flows&tab=payables&messageType=fin_payable&messageObject='+encodeURIComponent(id)+'&from=commission'); },
   fail(error) { this.setData({ error }); wx.showToast({ title:error, icon:'none' }); wx.pageScrollTo?.({ scrollTop:0, duration:150 }); }
 });
