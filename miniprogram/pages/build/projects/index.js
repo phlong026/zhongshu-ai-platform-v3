@@ -76,11 +76,18 @@ Page({
   this.setData({busy:true});
   try{
    const f=this.data.createForm,parent=this.data.parentOptions[Number(f.parentIndex)||0];
-   const created=await P.api.projects.create({name:f.name,customer:f.customer,city:f.city,phone:f.phone||undefined,floors:Number(f.floors)||2,area:f.area?Number(f.area):undefined,parentProjectId:parent&&parent.id?String(parent.id):undefined,independent:!f.parentIndex&&f.independent===true?true:undefined});
-   if(!alive())return;this.setData({creating:false,busy:false});
+   const parentProjectId=parent&&parent.id?String(parent.id):undefined;
+   const created=await P.api.projects.create({
+    name:f.name,customer:f.customer,city:f.city,phone:f.phone||undefined,
+    floors:Number(f.floors)||2,area:f.area?Number(f.area):undefined,
+    parentProjectId,independent:parentProjectId?undefined:f.independent===true
+   });
+   if(!alive())return;this.setData({creating:false,busy:false,error:''});
    wx.showToast({title:'项目已创建',icon:'success'});
    navigate({url:'/pages/build/record/index?id='+encodeURIComponent(String(created.id))+'&view=prepare'});
-  }catch(e){if(!alive())return;this.setData({busy:false});wx.showToast({title:P.errorText(e.data||e),icon:'none'});}
+  }catch(e){if(!alive())return;const cause=e.data||e;
+   const missingRoute=!this.data.createForm.parentIndex&&(Number(cause.code)===404||Number(e.statusCode)===404);
+   this.setData({busy:false,error:missingRoute?'当前服务尚未开通合同建档，请更新服务后重试':P.errorText(cause)});}
  },
  home(){wx.switchTab({url:'/pages/engineering/index'});}
 });

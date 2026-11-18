@@ -15,7 +15,7 @@
         <view class="record-field"><text>项目名称</text><input placeholder="填写项目或增项名称" value="{{createForm.name}}" data-key="name" bindinput="createInput"/></view>
         <view class="record-field"><text>客户称呼</text><input placeholder="填写客户姓名" value="{{createForm.customer}}" data-key="customer" bindinput="createInput"/></view>
         <view class="record-field"><text>所在城市</text><input placeholder="填写所在城市" value="{{createForm.city}}" data-key="city" bindinput="createInput"/></view>
-        <view class="record-field"><text>联系电话（选填）</text><input type="number" placeholder="已签约客户请填建档手机号" value="{{createForm.phone}}" data-key="phone" bindinput="createInput"/></view>
+        <view class="record-field"><text>联系电话{{createForm.parentIndex || createForm.independent ? "（选填）" : "（签约手机号）"}}</text><input type="number" placeholder="已签约客户请填建档手机号" value="{{createForm.phone}}" data-key="phone" bindinput="createInput"/></view>
         <view wx:if="{{!createForm.parentIndex}}" class="record-field"><text>独立建档（无对应销售合同）</text><switch checked="{{createForm.independent}}" bindchange="toggleIndependent"/></view>
         <picker range="{{['1','2','3','4','5']}}" value="{{createForm.floors-1}}" bindchange="pickCreateFloors"><view class="record-field">建筑层数：{{createForm.floors}} 层</view></picker>
         <view class="record-field"><text>建筑面积㎡（选填）</text><input type="digit" placeholder="填写建筑面积" value="{{createForm.area}}" data-key="area" bindinput="createInput"/></view>
