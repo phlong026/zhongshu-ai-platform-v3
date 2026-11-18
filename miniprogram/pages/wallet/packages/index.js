@@ -34,7 +34,7 @@ Page({
     if (!plan) return;
     const generation = this.generation, session = api.fingerprint();
     this.setData({ busy: true, error: '' });
-    wx.showModal({ title: '确认模拟支付', content: plan.name + '，模拟收款 ¥' + plan.price + '。公司积分将增加基础 ' + plan.base + ' 和赠送 ' + plan.bonus + '，微信不会扣款。',
+    wx.showModal({ title: '确认模拟支付', content: plan.name + '，模拟收款 ¥' + plan.price + '。测试积分仅供演练，将增加基础 ' + plan.base + ' 和赠送 ' + plan.bonus + '，微信不会扣款。',
       confirmText: '模拟支付',
       success: res => {
         if (generation !== this.generation || session !== api.fingerprint()) return;

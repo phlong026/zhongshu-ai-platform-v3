@@ -108,3 +108,17 @@ test('unknown payment outcome retries the frozen body and key, including its upl
  assert.equal(uploads,1);assert.equal(bodies.length,2);assert.equal(bodies[0],bodies[1]);
  assert.equal(page.data.journeyResult.id,'808');
 });
+
+test('definitive refusal after timeout releases only after the server confirms absence',async()=>{
+ const {page,api,http}=harness(); let writes=0,offline=false;
+ api.registerPayment=async()=>{writes++;if(writes===1)throw {code:-1};offline=true;throw {code:1102000050,message:'应付已作废'};};
+ http.get=async()=>{if(offline)throw Error('offline');return {state:'NOT_REGISTERED'};};
+ page.openRegister(event('payment'));
+ Object.assign(page.data.registerForm,{amount:'12',accountName:'公司',payDate:'2026-11-17',payableId:'A'});
+ await page.submitJourneyRegister();await page.retryPendingPayment();
+ assert.equal(writes,2);assert.equal(page.data.paymentPending,true);
+ offline=false;await page.retryPendingPayment();
+ assert.equal(page.data.paymentPending,false);assert.equal(page.data.registerBusy,false);
+ assert.match(page.data.paymentNotice,/作废/);assert.equal(writes,2);
+ page.openRegister(event('payment'));assert.equal(page.data.registerType,'payment');
+});

@@ -1,5 +1,6 @@
 calendar-days icon: Lucide, ISC license. https://lucide.dev/license
 Source: https://github.com/lucide-icons/lucide/blob/main/icons/calendar-days.svg
+map-pin.svg uses the same Lucide license. Source: https://github.com/lucide-icons/lucide/blob/main/icons/map-pin.svg
 ISC License
 
 Copyright (c) 2026 Lucide Icons and Contributors

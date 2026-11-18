@@ -33,6 +33,10 @@
   "packOptions": {
     "ignore": [
       {
+        "value": "api/wallet.js",
+        "type": "file"
+      },
+      {
         "value": "assets/manifest.json",
         "type": "file"
       },

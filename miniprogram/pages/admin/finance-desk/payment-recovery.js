@@ -26,13 +26,33 @@ module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
     page.refreshFinanceTasks?.();
     return true;
   };
+  const reject = (key, entry) => {
+    if (!current(key, entry)) return;
+    remove(key);
+    page.registerIdem = null;
+    page.setData({ registerBusy: false, paymentPending: false, paymentRetry: false,
+      registerError: entry.rejection, paymentNotice: entry.rejection });
+  };
   const send = (key, entry) => {
     if (entry.flight) return entry.flight;
     entry.notice = '付款请求已发送，正在确认登记结果';
     entry.flight = api.registerPayment(entry.body, entry.idem).then(result => {
       entry.result = result;
-    }, err => { entry.error = err; }).finally(() => {
+    }, err => {
+      entry.error = err;
+      // Financial business errors are terminal for this frozen request. A lookup
+      // serialized with registration must still establish whether it committed.
+      const code = Number(err.code);
+      if ((code >= 1000000000 && code < 2000000000) || code === 400 || code === 422) {
+        entry.rejection = PF.errorMessage(err);
+        wx.setStorageSync?.(key, { body: entry.body, idem: entry.idem,
+          form: entry.form, rejection: entry.rejection });
+      }
+    }).finally(() => {
       entry.flight = null;
+      if (entry.rejection && pending.get(key) === entry && !entry.page?.__disposed && !entry.page?.__financeHidden) {
+        return entry.page?.resumePayment();
+      }
       entry.page?.showPaymentState(key, entry);
     });
     display(key, entry);
@@ -40,13 +60,6 @@ module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
   };
   page.showPaymentState = (key, entry) => {
     if (!current(key, entry) || confirm(key, entry, entry.result)) return;
-    if (Number(entry.error?.code) >= 1000000000 && !entry.uncertain) {
-      remove(key);
-      page.registerIdem = null;
-      page.setData({ registerBusy: false, paymentPending: false, paymentRetry: false,
-        paymentNotice: '', registerError: PF.errorMessage(entry.error) });
-      return;
-    }
     if (entry.error) {
       entry.uncertain = true;
       entry.notice = '付款结果待确认，请核验原单';
@@ -64,12 +77,16 @@ module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
     }
     entry.page = page;
     if (confirm(key, entry, entry.result)) return;
-    if (entry.error && !entry.uncertain && Number(entry.error.code) >= 1000000000) return page.showPaymentState(key, entry);
     display(key, entry);
     const check = entry.check = {};
     try {
       const result = await http.get('/franchise/finance/payments/registration-result', { key: entry.idem });
       if (!current(key, entry) || entry.check !== check || confirm(key, entry, result)) return;
+      if (entry.rejection && result?.state === 'NOT_REGISTERED' && !entry.flight) return reject(key, entry);
+      if (entry.rejection) {
+        entry.notice = '付款被拒绝，仍需核验原单';
+        return display(key, entry);
+      }
       if (retry === true && !entry.flight) {
         entry.uncertain = true;
         entry.error = null;

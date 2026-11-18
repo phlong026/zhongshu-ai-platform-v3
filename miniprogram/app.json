@@ -41,7 +41,8 @@
       "pages": [
         "sales/index",
         "index",
-        "training/index"
+        "training/index",
+        "store-map/index"
       ],
       "root": "pages/account",
       "name": "account-workflow"

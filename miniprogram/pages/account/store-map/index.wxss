@@ -1,0 +1,23 @@
+.map-page{padding:24rpx 24rpx calc(32rpx + env(safe-area-inset-bottom))}
+.scope,.regions,.region,.list-head,.store{display:flex;align-items:center}
+.scope,.list-head{justify-content:space-between;gap:16rpx}
+.scope{margin:0 4rpx 20rpx;color:var(--zs-text-3);font-size:24rpx}
+.scope-title,.list-head>text{color:var(--zs-ink);font-weight:600;font-size:32rpx}
+.regions,.stores,.legend,.map-message{background:white;border-radius:18rpx}
+.regions{margin-bottom:14rpx}
+.regions picker{min-width:0;flex:1}
+.region{height:84rpx;justify-content:center;gap:10rpx;padding:0 10rpx;font-size:26rpx}
+.region text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.region .chevron{transform:rotate(135deg);margin-top:-6rpx}
+.region.disabled{color:var(--zs-text-3)}
+.map{width:100%;height:42vh;min-height:350rpx;border-radius:18rpx;overflow:hidden}
+.legend{white-space:nowrap;margin-top:14rpx;width:100%}
+.brand{display:inline-flex;align-items:center;gap:8rpx;border-radius:10rpx;padding:14rpx 16rpx;margin:8rpx 4rpx;font-size:25rpx}
+.brand.active{background:#f5ebe0;color:var(--zs-brand-press);font-weight:600}
+.dot{display:inline-block;flex:none;width:16rpx;height:16rpx;border-radius:50%}
+.stores{margin-top:18rpx;padding:22rpx}
+.list-head button,.more,.map-message button{color:var(--zs-brand-press);padding:12rpx;font-size:26rpx}
+.store{gap:16rpx;padding:22rpx 0;align-items:baseline;border-bottom:1rpx solid var(--zs-line)}
+.name,.address{display:block}.name{font-weight:600}.address{margin-top:6rpx;color:var(--zs-text-3);font-size:24rpx}
+.map-message{text-align:center;padding:48rpx 20rpx;color:var(--zs-text-3)}
+.more,.map-message button{margin:12rpx auto 0}
