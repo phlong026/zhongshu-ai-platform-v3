@@ -34,7 +34,8 @@ global.wx = {
 const http = require('../miniprogram/api/http');
 const auth = require('../miniprogram/api/auth');
 const account = require('../miniprogram/utils/account');
-for (const route of ['/pages/profile/index', '/pages/admin/profile/index', '/pages/account/sales/index']) {
+const storeProfileRoute = '/pages/account/store-profile/index';
+for (const route of ['/pages/profile/index', '/pages/admin/profile/index', '/pages/account/sales/index', storeProfileRoute]) {
   require(path.join(__dirname, '../miniprogram', route + '.js'));
   definitions.set(route, registeredPage);
 }
@@ -88,6 +89,96 @@ function settleNavigation() {
   assert.equal(transitions.length, 0, 'profile navigation did not settle within 12 transitions');
   return pages.at(-1);
 }
+
+const originalStore = { orgId: '7', name: '青松建房', ownerName: '方明', address: '', version: 4, editOwnerName: true };
+function profileRequest(method) {
+  const req = requests.shift();
+  assert.equal(req?.method, method);
+  assert.ok(req.url.endsWith('/platform/org/store-profile'));
+  return req;
+}
+function reply(req, data, code = 0, msg = '') {
+  req.success({ statusCode: 200, data: { code, data: structuredClone(data), msg } });
+}
+function editProfile(page, field, value) {
+  page.edit({ currentTarget: { dataset: { field } }, detail: { value } });
+}
+
+test('加盟商资料切回保留草稿，重名后可改名重试，版本过期才需重载', async () => {
+  reset('boss');
+  const page = show(storeProfileRoute);
+  reply(profileRequest('GET'), originalStore);
+  await new Promise(resolve => setImmediate(resolve));
+  editProfile(page, 'name', '重名门店');
+  page.onHide();
+  page.onShow();
+  assert.equal(requests.length, 0);
+  assert.equal(page.data.profile.name, '重名门店');
+  const address = '南宁市青秀区青松路8号';
+  editProfile(page, 'address', address);
+  const rejected = page.save();
+  reply(profileRequest('PUT'), null, 1101000025, '组织名称已被使用，请更换名称');
+  await rejected;
+  assert.equal(page.data.stale, false);
+  assert.equal(page.data.saving, false);
+  assert.match(page.data.error, /更换名称/);
+  assert.equal(page.data.profile.address, address);
+
+  const name = '青松 建房（南宁店）';
+  editProfile(page, 'name', name);
+  const retry = page.save();
+  const put = profileRequest('PUT');
+  assert.deepEqual(put.data, { orgId: '7', version: 4, ownerName: '方明', name, address });
+  page.onHide();
+  reply(put, { ...originalStore, name, address, version: 5 });
+  await retry;
+  page.onShow();
+  assert.equal(page.data.profile.version, 5);
+  assert.equal(page.data.saving, false);
+  assert.equal(auth.currentApiPost().orgName, name);
+  assert.equal(requests.length, 0);
+
+  editProfile(page, 'address', '过期草稿');
+  const conflict = page.save();
+  reply(profileRequest('PUT'), null, 409, '资料已变更，请重新载入');
+  await conflict;
+  page.onHide();
+  page.onShow();
+  assert.equal(page.data.stale, true);
+  assert.match(page.data.error, /重新载入/);
+  await page.save();
+  assert.equal(requests.length, 0);
+  const reload = page.load();
+  reply(profileRequest('GET'), { ...originalStore, name, address, version: 6 });
+  await reload;
+  assert.equal(page.data.stale, false);
+  assert.equal(page.data.profile.address, address);
+  assert.equal(page.data.profile.version, 6);
+});
+
+test('切换门店立即清空草稿，旧身份的保存结果不能覆盖新门店', async () => {
+  reset('boss');
+  const page = show(storeProfileRoute);
+  reply(profileRequest('GET'), originalStore);
+  await new Promise(resolve => setImmediate(resolve));
+  editProfile(page, 'address', '原门店草稿');
+  const saving = page.save();
+  const oldPut = profileRequest('PUT');
+  page.onHide();
+  auth.switchPost('43');
+  const switched = page.onShow();
+  assert.equal(page.data.profile, null);
+  const newGet = profileRequest('GET');
+  assert.equal(newGet.header['X-Post-Id'], '43');
+  const otherStore = { ...originalStore, orgId: '8', name: '柳州门店', address: '柳州', version: 1 };
+  reply(newGet, otherStore);
+  await switched;
+  reply(oldPut, { ...originalStore, name: '旧店回包', version: 5 });
+  await saving;
+  assert.deepEqual(page.data.profile, otherStore);
+  assert.notEqual(auth.apiPosts()[0].orgName, '旧店回包');
+  assert.deepEqual(toasts, []);
+});
 
 const roles = [
   ['boss', '老板'], ['owner', '门店负责人'], ['sales', '业务员'], ['sales-lead', '业务负责人'],

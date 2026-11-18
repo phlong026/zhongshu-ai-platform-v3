@@ -270,7 +270,24 @@ Page({
    this.findAccounts();
   },300);
  },
- findAccounts(){if(this.data.loginBusy)return;const query=(this.data.form.accountQuery||'').trim();if(query.length<2)return this.fail('请输入至少2个字或字母进行查找');const generation=this.cancelLoginFlow({clearSensitive:true}),seq=this.accountMatchSeq;this.setData({matchBusy:true,accountMatches:[],accountMatchesHasMore:false,selectedAccount:null,error:''});auth.accountMatches(query).then(result=>{if(!this.loginFlowCurrent(generation)||seq!==this.accountMatchSeq)return;const items=(result&&result.items||[]).filter(Boolean),hasMore=!!(result&&result.hasMore),selected=items.length===1&&!hasMore?items[0]:null;const patch={matchBusy:false,accountMatches:items,accountMatchesHasMore:hasMore,selectedAccount:selected,error:items.length?'':'未找到账号，请核对名称或联系管理员'};if(selected&&selected.loginName)patch['form.accountQuery']=selected.loginName;this.setData(patch);}).catch(e=>{if(!this.loginFlowCurrent(generation)||seq!==this.accountMatchSeq||e&&e.silent)return;this.setData({matchBusy:false});this.fail(e.message||'账号查找失败，请重试');});},
+ findAccounts(){
+  if(this.data.loginBusy)return;
+  const query=(this.data.form.accountQuery||'').trim();
+  if(!query)return this.fail('请输入姓名、用户名或门店全名');
+  const generation=this.cancelLoginFlow({clearSensitive:true}),seq=this.accountMatchSeq;
+  this.setData({matchBusy:true,accountMatches:[],accountMatchesHasMore:false,selectedAccount:null,error:''});
+  auth.accountMatches(query).then(result=>{
+   if(!this.loginFlowCurrent(generation)||seq!==this.accountMatchSeq)return;
+   const items=(result&&result.items||[]).filter(Boolean),hasMore=!!(result&&result.hasMore);
+   const selected=items.length===1&&!hasMore?items[0]:null;
+   const patch={matchBusy:false,accountMatches:items,accountMatchesHasMore:hasMore,selectedAccount:selected,error:items.length?'':'未找到账号，请核对名称或联系管理员'};
+   if(selected&&selected.loginName)patch['form.accountQuery']=selected.loginName;
+   this.setData(patch);
+  }).catch(e=>{
+   if(!this.loginFlowCurrent(generation)||seq!==this.accountMatchSeq||e&&e.silent)return;
+   this.setData({matchBusy:false});this.fail(e.message||'账号查找失败，请重试');
+  });
+ },
  selectAccount(e){const accountId=String(e.currentTarget.dataset.accountId),selected=(this.data.accountMatches||[]).find(item=>String(item.accountId)===accountId);if(!selected)return;this.cancelLoginFlow({clearSensitive:true});const patch={selectedAccount:selected,error:''};if(selected.loginName)patch['form.accountQuery']=selected.loginName;this.setData(patch);},
  toggleRememberDefault(){this.setData({rememberDefault:!this.data.rememberDefault});},
  clearDefaultAccount(){this.cancelLoginFlow({clearSensitive:true});auth.logout();AccountLogin.clearDefault();const selected=this.data.selectedAccount,wasDefault=this.data.defaultAccount&&selected&&String(this.data.defaultAccount.accountId)===String(selected.accountId);this.setData({defaultAccount:null,selectedAccount:wasDefault?null:selected,'form.accountQuery':wasDefault?'':this.data.form.accountQuery||''});},

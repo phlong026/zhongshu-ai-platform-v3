@@ -4,18 +4,24 @@ const endpoint = '/platform/org/store-profile';
 
 Page({
   data: { profile: null, loading: true, saving: false, error: '', stale: false },
-  onShow() { this.load(); },
-  onHide() { this.generation++; },
+  onShow() {
+    this.visible = true;
+    if (this.session !== http.sessionGeneration()) return this.load();
+  },
+  onHide() { this.visible = false; },
   onUnload() { this.generation++; },
+  isCurrent(generation) {
+    return this.session === http.sessionGeneration() && this.generation === generation;
+  },
   async load() {
     const generation = this.generation = (this.generation || 0) + 1;
-    const alive = http.sessionGuard();
+    this.session = http.sessionGeneration();
     this.setData({ profile: null, loading: true, saving: false, stale: false, error: '' });
     try {
       const profile = await http.get(endpoint);
-      if (alive() && this.generation === generation) this.setData({ profile, loading: false });
+      if (this.isCurrent(generation)) this.setData({ profile, loading: false });
     } catch (e) {
-      if (!alive() || this.generation !== generation) return;
+      if (!this.isCurrent(generation)) return;
       const message = e.message || '资料加载失败';
       const routeMissing = Number(e.code) === 404 && /请求地址不存在/.test(message);
       this.setData({ loading: false, error: routeMissing ? '当前服务尚未开通加盟商资料维护，请在服务更新后重新载入。' : message });
@@ -28,20 +34,21 @@ Page({
     }
   },
   async save() {
+    if (this.session !== http.sessionGeneration()) return this.load();
     const profile = this.data.profile;
     if (!profile || this.data.saving || this.data.stale) return;
     const { orgId, version, name, ownerName, address } = profile;
     if (!name.trim() || !ownerName.trim()) { this.setData({ error: '请填写加盟商名称和老板姓名' }); return; }
-    const generation = this.generation, alive = http.sessionGuard();
+    const generation = this.generation;
     this.setData({ saving: true, error: '' });
     try {
       const saved = await http.put(endpoint, { orgId, version, name, ownerName, address });
-      if (!alive() || generation !== this.generation) return;
+      if (!this.isCurrent(generation)) return;
       auth.savePosts(auth.apiPosts().map(post => String(post.orgId) === String(saved.orgId) ? { ...post, orgName: saved.name } : post));
       this.setData({ profile: saved, saving: false });
-      wx.showToast({ title: '资料已保存' });
+      if (this.visible) wx.showToast({ title: '资料已保存' });
     } catch (e) {
-      if (alive() && generation === this.generation) this.setData({ saving: false, stale: Number(e.code) === 409, error: e.message || '保存失败，请重试' });
+      if (this.isCurrent(generation)) this.setData({ saving: false, stale: Number(e.code) === 409, error: e.message || '保存失败，请重试' });
     }
   }
 });
