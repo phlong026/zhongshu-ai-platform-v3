@@ -66,6 +66,18 @@ class DeploymentChecks(unittest.TestCase):
         source.write_text(json.dumps(model))
         return self.parse(source)
 
+    def test_private_training_volume_requires_explicit_configuration(self):
+        options = {"PLATFORM_TRAINING_PRIVATE_VOLUME": "1"}
+        command = ["docker", "compose", "--env-file", "/dev/null", "-f", str(DEPLOY / "compose.yaml"),
+                   *self.ops.training_overlay(options), "config", "--format", "json"]
+        model = json.loads(subprocess.check_output(command, env=self.env))
+        self.ops.validate_model(model, options)
+        with self.assertRaises(ValueError):
+            self.ops.validate_model(model)
+        model["volumes"]["training-private"]["external"] = True
+        with self.assertRaises(ValueError):
+            self.ops.validate_model(model, options)
+
     def test_01_real_compose_parser_and_policy(self):
         self.ops.validate_model(self.model)
         self.assertEqual(self.model["name"], "zhongshu-platform-b")

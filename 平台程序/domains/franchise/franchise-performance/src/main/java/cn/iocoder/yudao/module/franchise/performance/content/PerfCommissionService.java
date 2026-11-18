@@ -306,12 +306,12 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
 
-    private record Voucher(String id, String note, long[] installments) {}
+    record Voucher(String id, String note, long[] installments) {}
     private static final java.util.regex.Pattern LEGACY_PROOF = java.util.regex.Pattern.compile(
             "\\s*\\[凭据#([1-9][0-9]{0,18})(?: 分期 ([0-9]{1,11})/([0-9]{1,11})/([0-9]{1,11}))?\\]$");
     private static final String LEGACY_HELP="请更新小程序，或登录员工网页，在「经营看板 → 旧版提成凭据」上传文件，把生成的凭据码粘贴到小程序的依据说明末尾，再提交。";
 
-    private Voucher resolveVoucher(PostSnapshot post,String reference,String note) {
+    static Voucher parseVoucher(String reference, String note) {
         long[] installments=null;
         if(reference!=null && reference.stripLeading().startsWith("{")) {
             var marker=LEGACY_PROOF.matcher(StrUtil.nullToEmpty(note).trim());
@@ -324,11 +324,17 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
         long id;
         try { id=Long.parseLong(reference); }
         catch(NumberFormatException error) { throw exception(PERF_INPUT_INVALID,"请上传有效的提成凭据"); }
+        if (id <= 0 || note == null || note.isBlank()) throw exception(PERF_INPUT_INVALID,"请上传有效的提成凭据并填写说明");
+        return new Voucher(Long.toString(id), note.trim(), installments);
+    }
+
+    private Voucher resolveVoucher(PostSnapshot post, String reference, String note) {
+        var voucher = parseVoucher(reference, note);
         var actor=new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(post.orgId(),
                 serviceAccounts.requireServiceAccount(post.orgId()),post.userId(),post.postId());
-        if(id<=0 || !assets.validateReference(actor,id,java.util.Set.of("FIN_VOUCHER")))
+        if(!assets.validateReference(actor,Long.parseLong(voucher.id()),java.util.Set.of("FIN_VOUCHER")))
             throw exception(PERF_INPUT_INVALID,"请上传当前组织可用的财务凭据");
-        return new Voucher(Long.toString(id),note.trim(),installments);
+        return voucher;
     }
 
     record StageFacts(String stage, long required, long received, boolean eligible,

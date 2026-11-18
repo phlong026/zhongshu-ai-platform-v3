@@ -512,6 +512,20 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 "note","原退款及补收已核实","evidenceRef","123")),project,orgId);
         assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
         commissions.requirePayable(post,payable);
+        // The 0105 client sends local file metadata and the employee-web voucher code in its note.
+        String originalReference = "{\"name\":\"proof.png\",\"path\":\"wxfile://saved/proof.png\"}";
+        String auditUpdate = "UPDATE pf_command_event SET payload=? WHERE aggregate_type='fr-perf-commission' "
+                + "AND org_id=? AND aggregate_id=(SELECT id FROM fr_perf_commission_release WHERE company_id=? AND project_id=?)";
+        for (String oldNote : List.of("原退款及补收已核实 [凭据#124]", "另一笔退款 [凭据#123]", "原退款及补收已核实 [凭据#]")) {
+            jdbc.update(auditUpdate,JsonUtils.toJsonString(Map.of("projectId",project,"stage","SIGN_AFTER",
+                    "note",oldNote,"evidenceRef",originalReference)),orgId,orgId,project);
+            assertThatThrownBy(() -> commissions.requirePayable(post,payable)).isInstanceOf(ServiceException.class);
+            assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
+        }
+        jdbc.update(auditUpdate,JsonUtils.toJsonString(Map.of("projectId",project,"stage","SIGN_AFTER",
+                "note","原退款及补收已核实 [凭据#123]","evidenceRef",originalReference)),orgId,orgId,project);
+        commissions.requirePayable(post,payable);
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
         // A later equal refund and compensating receipt must block the same old review.
         jdbc.update("INSERT INTO fr_fin_refund(company_id,receipt_id,amount_cents,status,create_time,update_time) "
                 + "VALUES(?,?,100,'已核实','2026-11-17T10:00:00Z','2026-11-17T10:00:00Z')",orgId,receipt);

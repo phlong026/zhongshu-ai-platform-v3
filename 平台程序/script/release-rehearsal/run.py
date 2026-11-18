@@ -50,7 +50,9 @@ def sha(path):
 
 
 def compose(env, *args):
-    return run("docker", "compose", "--env-file", env, "-f", deploy / "compose.yaml", *args)
+    training = deploy / "compose.training.yaml"
+    overlay = ("-f", training) if training.is_file() else ()
+    return run("docker", "compose", "--env-file", env, "-f", deploy / "compose.yaml", *overlay, *args)
 
 
 def ops(env, action, *args):
@@ -105,7 +107,7 @@ def expect_migration_failure(env, prev):
 
 
 def fixture_env(path, digest, variables):
-    path.write_text("PLATFORM_API_IMAGE="+digest+"\nPF_DESIGN_PUBLIC_CASES_ORIGIN=https://cases.example.invalid\n"
+    path.write_text("PLATFORM_API_IMAGE="+digest+"\nPLATFORM_TRAINING_PRIVATE_VOLUME=1\nPF_DESIGN_PUBLIC_CASES_ORIGIN=https://cases.example.invalid\n"
                     +"".join(f"{name}={file}\n" for name,file in variables.items()))
     path.chmod(0o600)
 
@@ -204,8 +206,20 @@ for service in ("postgres-b","redis-b"):
     run("docker","pull",model["services"][service]["image"])
 compose(oldenv,"up","-d","--wait","postgres-b","redis-b")
 ops(oldenv,"migrate")
+shutil.copyfile(unpacked/"deploy/platform/compose.training.yaml", deploy/"compose.training.yaml")
+compose(oldenv,"create","--no-deps","api")
+training_root="/var/lib/platform/training-private"
+run("docker","run","--rm","--network","none","--read-only","--user","0:0",
+    "--mount","type=volume,src=zhongshu-platform-b_training-private,dst=/private",
+    "--entrypoint","sh",oldref,"-ec","chown 10001:10001 /private && chmod 0700 /private")
 compose(oldenv,"up","-d","--no-deps","--wait","--wait-timeout","180","api")
 confirm_running(oldref)
+api_container="zhongshu-platform-b-api-1"
+def check_training():
+    assert run("docker","inspect","--format","{{.HostConfig.ReadonlyRootfs}}",api_container)=="true"
+    assert run("docker","exec",api_container,"cat",training_root+"/paired-storage-marker")=="paired-private"
+run("docker","exec",api_container,"sh","-ec",'umask 077; echo paired-private > "$TRAINING_STORAGE_ROOT/paired-storage-marker"')
+check_training()
 original=run("docker","inspect","--format","{{.Id}}","zhongshu-platform-b-api-1")
 assert "asset-spool" not in run("docker","inspect","--format","{{json .Mounts}}","zhongshu-platform-b-api-1")
 query("""INSERT INTO org_point_account(id,org_id,balance) VALUES(118,118,205);
@@ -239,6 +253,7 @@ ops(newenv,"rollback","--image",oldref,"--previous-api-image",oldref,"--schema-c
 confirm_running(oldref)
 assert query("SELECT balance FROM org_point_account WHERE org_id=118;")=="205" and redis("GET","r4:marker")=="118"
 record("restoredOldDataAndAPI",True)
+check_training()
 compose(oldenv,"stop","api")
 expect_migration_failure(newenv,oldref)
 query("INSERT INTO org_point_simulation_review VALUES(810,105,3,205,'fixture finance','rehearsal authorization',now());")
@@ -249,6 +264,7 @@ query("UPDATE org_point_simulation_review SET reviewed_ledger_count=4 WHERE sour
 ops(newenv,"migrate","--previous-api-image",oldref)
 ops(newenv,"start","--previous-api-image",oldref)
 confirm_running(ref)
+check_training()
 assert query("SELECT balance FROM org_point_account WHERE org_id=118;")=="100"
 assert query("SELECT test_points FROM org_point_simulated_purchase WHERE org_id=118;")=="105"
 record("reviewedLegacy",{"issued":120,"reservedThenSpent":15,"formalRecharge":100,"formalRemaining":100,"testRemaining":105})
@@ -268,6 +284,8 @@ ops(newenv,"rollback","--image",oldref,"--schema-compatible")
 confirm_running(oldref)
 assert redis("GET","r4:marker")=="118" and query("SELECT balance FROM org_point_account WHERE org_id=118;")=="100"
 record("postUpgradeRollback",True)
+check_training()
+record("trainingPrivateVolumeSurvivedRollback",True)
 # New daemon with no source registry, external network or inherited Docker store.
 # Only fixture credentials and unpacked delivery files are mounted into it.
 offline=lab/"offline"
@@ -301,7 +319,7 @@ else:
 for pinned in offline_refs.values():
     fresh("pull","--platform","linux/amd64",pinned)
     fresh("image","inspect",pinned)
-base=("compose","--env-file",str(newenv),"-f",str(offline/"compose.yaml"))
+base=("compose","--env-file",str(newenv),"-f",str(offline/"compose.yaml"),"-f",str(offline/"compose.training.yaml"))
 fresh(*base,"up","-d","--pull","never","--wait","postgres-b","redis-b")
 fresh(*base,"-f",str(offline/"compose.migrate.yaml"),"run","--rm","--no-deps","--pull","never","api")
 run("docker","exec","-i",daemon,"docker","exec","-i","zhongshu-platform-b-postgres-b-1",

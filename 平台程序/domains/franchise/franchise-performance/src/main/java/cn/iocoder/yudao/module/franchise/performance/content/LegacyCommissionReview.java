@@ -56,8 +56,7 @@ final class LegacyCommissionReview {
             String proof = review.required("evidenceRef").asText("");
             String note = review.required("note").asText("");
             OffsetDateTime reviewed = OffsetDateTime.parse(review.required("at").asText());
-            return !proof.isBlank() && !note.isBlank() && proof.equals(command.required("evidenceRef").asText())
-                    && note.equals(command.required("note").asText())
+            return matchesVoucher(proof, note, command.required("evidenceRef"), command.required("note"))
                     && data.required("project").asText().equals(command.required("projectId").asText())
                     && data.required("stage").asText().equals(command.required("stage").asText())
                     && saved.equals(review.required("receiptSignature").asText())
@@ -65,6 +64,18 @@ final class LegacyCommissionReview {
                     && reviewed.isAfter(OffsetDateTime.parse(data.required("latestFact").asText()))
                     && !reviewed.isAfter(OffsetDateTime.parse(data.required("eventAt").asText()).plusNanos(999));
         } catch (java.io.IOException | IllegalArgumentException | java.time.DateTimeException error) {
+            return false;
+        }
+    }
+
+    private static boolean matchesVoucher(String proof, String note, JsonNode submittedProof, JsonNode submittedNote) {
+        if (proof.isBlank() || note.isBlank() || !submittedProof.isTextual() || !submittedNote.isTextual()) return false;
+        // Older servers saved both input strings verbatim after trimming.
+        if (proof.equals(submittedProof.textValue().trim()) && note.equals(submittedNote.textValue().trim())) return true;
+        try {
+            var voucher = PerfCommissionService.parseVoucher(submittedProof.textValue(), submittedNote.textValue());
+            return proof.equals(voucher.id()) && note.equals(voucher.note());
+        } catch (cn.iocoder.yudao.framework.common.exception.ServiceException invalidVoucher) {
             return false;
         }
     }

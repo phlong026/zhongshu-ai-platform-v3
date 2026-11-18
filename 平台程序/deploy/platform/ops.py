@@ -56,11 +56,17 @@ def validate_model(model, same_host_values=None):
     for name, network in model["networks"].items():
         demand(network.get("name") == f"{PROJECT}_{name}" and not network.get("external"), "Shared network refused")
     expected_volumes = {"pgdata", "redisdata", "asset-spool"}
+    training_enabled = bool(training_overlay(same_host_values))
+    if training_enabled:
+        expected_volumes.add("training-private")
     demand(set(model.get("volumes", {})) == expected_volumes, "Unexpected data volumes")
     for name, volume in model["volumes"].items():
         demand(volume.get("name") == f"{PROJECT}_{name}" and not volume.get("external"), "Shared volume refused")
     spool = model["volumes"]["asset-spool"]
     demand(spool.get("driver", "local") == "local" and not spool.get("driver_opts"), "Only a private local spool volume is allowed")
+    if training_enabled:
+        training = model["volumes"]["training-private"]
+        demand(training.get("driver", "local") == "local" and not training.get("driver_opts"), "Only a private local training volume is allowed")
     same_host.validate_compose_volumes(model, same_host_values, {"pgdata", "redisdata"})
     allowed_binds = {
         "api": {"/etc/platform/runtime.properties": "runtime.properties"},
@@ -98,7 +104,10 @@ def validate_model(model, same_host_values=None):
                 demand(mount["type"] == "volume" and not mount.get("read_only")
                        and not mount.get("volume", {}).get("subpath"), "Unexpected persistent mount")
                 actual_volumes.append((mount["source"], mount["target"]))
-        demand(actual_volumes == [required_mount], "Unexpected persistent mount")
+        allowed_volumes = [required_mount]
+        if name == "api" and training_enabled:
+            allowed_volumes.append(("training-private", "/var/lib/platform/training-private"))
+        demand(sorted(actual_volumes) == sorted(allowed_volumes), "Unexpected persistent mount")
         demand(actual_binds == {target: DIRECTORY / file for target, file in allowed_binds[name].items()}, "Unexpected host file mount")
         if name != "api":
             demand(not service.get("ports"), "Database ports must not be published")
@@ -190,10 +199,16 @@ def run(command, *, context, timeout=60, input_data=None, stdout=None, stdin=Non
     return result.stdout
 
 
+def training_overlay(values):
+    mode = values.get("PLATFORM_TRAINING_PRIVATE_VOLUME", "0")
+    demand(mode in ("0", "1"), "Invalid private training volume setting")
+    return ["-f", str(DIRECTORY / "compose.training.yaml")] if mode == "1" else []
+
+
 def compose_base(env_file, values=None):
     values = same_host.env_values(env_file) if values is None else values
     return ["docker", "compose", "--project-name", PROJECT, "--env-file", str(env_file),
-            "-f", str(DIRECTORY / "compose.yaml"), *same_host.compose_overlay(values)]
+            "-f", str(DIRECTORY / "compose.yaml"), *same_host.compose_overlay(values), *training_overlay(values)]
 
 
 def load_model(env_file, values=None):
@@ -208,7 +223,7 @@ def load_model(env_file, values=None):
         same_host.validate_host(values)
     model = json.loads(run(compose_base(env_file, values) + ["config", "--format", "json"],
                            context="Parse B Compose", timeout=30))
-    validate_model(model, values if enabled else {})
+    validate_model(model, values)
     validate_secret_files(model)
     return model
 
