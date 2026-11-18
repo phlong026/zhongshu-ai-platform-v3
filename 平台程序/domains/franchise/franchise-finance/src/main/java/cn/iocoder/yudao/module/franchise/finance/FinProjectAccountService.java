@@ -45,10 +45,10 @@ public class FinProjectAccountService {
         List<FinPaymentDO> projectPayments = paymentMapper.selectList(new LambdaQueryWrapperX<FinPaymentDO>()
                 .eq(FinPaymentDO::getCompanyId, companyId).eq(FinPaymentDO::getProjectId, projectId)
                 .eq(FinPaymentDO::getStatus, "已核实"));
-        long paid = projectPayments.stream().mapToLong(FinPaymentService::amount).sum();
+        long paid = projectPayments.stream().filter(p -> !"EMPLOYEE".equals(p.getFundingType())).mapToLong(FinPaymentService::amount).sum();
         // M08-T08/R2 P1：支出退回冲减已付现金——该项目付款单的已核实退回（expense 行 payment_id 非空、
         // receipt_id 必空，828 CHECK 保证按 payment_id 聚合天然只含支出退回）
-        List<Long> paymentIds = projectPayments.stream().map(FinPaymentDO::getId).toList();
+        List<Long> paymentIds = projectPayments.stream().filter(p -> !"EMPLOYEE".equals(p.getFundingType())).map(FinPaymentDO::getId).toList();
         long expenseRefunded = paymentIds.isEmpty() ? 0 : refundMapper.selectList(new LambdaQueryWrapperX<FinRefundDO>()
                         .in(FinRefundDO::getPaymentId, paymentIds).eq(FinRefundDO::getStatus, "已核实"))
                 .stream().mapToLong(FinProjectAccountService::refundCents).sum();

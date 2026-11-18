@@ -22,14 +22,15 @@ public class ContentCloneController {
     @PostMapping("/personas/{personaId}/clone-upload-tickets")
     @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
     public CommonResult<Map<String,Object>> upload(@PathVariable("personaId") long id,@RequestBody Upload body) {
-        return success(uploads.issue(posts.require(),id,body.kind(),body.mimeType(),body.sizeBytes(),body.sha256()));
+        var post=posts.require();clones.assertAccess(post,body.kind());
+        return success(uploads.issue(post,id,body.kind(),body.mimeType(),body.sizeBytes(),body.sha256()));
     }
     @PostMapping("/clone-uploads/{id}/complete")
     @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
     public CommonResult<Map<String,Object>> complete(@PathVariable("id") long id) {return success(uploads.complete(posts.require(),id));}
     @GetMapping("/clones/quote")
     @PreAuthorize("@post.has('"+ContentPermissions.QUERY+"')")
-    public CommonResult<Map<String,Object>> quote(@RequestParam("kind") String kind) {posts.require();return success(clones.quote(kind));}
+    public CommonResult<Map<String,Object>> quote(@RequestParam("kind") String kind) {return success(clones.quote(posts.require(),kind));}
     @GetMapping("/personas/{personaId}/clones")
     @PreAuthorize("@post.has('"+ContentPermissions.QUERY+"')")
     public CommonResult<List<Map<String,Object>>> list(@PathVariable("personaId") long id) {return success(clones.list(posts.require(),id));}

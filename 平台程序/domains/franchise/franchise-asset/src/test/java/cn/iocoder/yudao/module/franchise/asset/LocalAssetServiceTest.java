@@ -42,6 +42,21 @@ class LocalAssetServiceTest {
     private boolean ownerMappingActive;
 
     @Test
+    void contentVisibilityPolicyIsEnforcedByEveryPublicAssetRead() throws Exception {
+        current = new PostSnapshot(11, 22, 33, "store", "sales", null, false, Set.of());
+        byte[] png = png();
+        var ticket = service.createUploadTicket(ACTOR, "CONTENT_ASSET", "image/png", png.length, sha(png));
+        String token = ticket.uploadUrl().substring(ticket.uploadUrl().indexOf("token=") + 6);
+        service.receiveUpload(ACTOR, ticket.assetId(), token, new ByteArrayInputStream(png));
+        service.completeUpload(ACTOR, ticket.assetId());
+        service.setVisibilityPolicies(java.util.List.of((tenant, actor, id) -> { throw new IllegalStateException("private material"); }));
+        assertThatThrownBy(() -> service.createDownloadUrl(ACTOR,ticket.assetId())).hasMessageContaining("private material");
+        assertThatThrownBy(() -> service.validateReference(ACTOR,ticket.assetId(),Set.of("CONTENT_ASSET"))).hasMessageContaining("private material");
+        assertThatThrownBy(() -> service.assetTypeOf(ACTOR,ticket.assetId())).hasMessageContaining("private material");
+        assertThatThrownBy(() -> service.contentMetadata(ACTOR,ticket.assetId())).hasMessageContaining("private material");
+    }
+
+    @Test
     void designReferenceStaysInBStorageAndUsesTheDesignRoleChannel() throws Exception {
         current = new PostSnapshot(11L, 22L, 33L, "store", "hq-design-admin", null, false, Set.of());
         byte[] png = png();

@@ -42,6 +42,7 @@
     />
 
     <template v-else>
+      <ProjectWorkbench />
       <!-- 月度对账汇总卡（MonthReconciliation 8 分量，金额单位：分） -->
       <div class="recon-grid" v-loading="reconLoading">
         <div class="recon-cell">
@@ -335,6 +336,8 @@
               </el-table-column>
               <el-table-column prop="linkStatus" label="关联状态" width="100" />
               <el-table-column prop="payDate" label="付款日期" width="110" />
+              <el-table-column label="实际出资" width="120"><template #default="{row}">{{ row.fundingType==='EMPLOYEE'?'员工个人垫付':'公司支付' }}</template></el-table-column>
+              <el-table-column prop="payerName" label="垫付人" width="120" />
               <el-table-column prop="projectId" label="项目" width="140" show-overflow-tooltip />
               <el-table-column
                 prop="transactionNo"
@@ -722,6 +725,7 @@
 </template>
 
 <script setup lang="ts">
+import ProjectWorkbench from './ProjectWorkbench.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'

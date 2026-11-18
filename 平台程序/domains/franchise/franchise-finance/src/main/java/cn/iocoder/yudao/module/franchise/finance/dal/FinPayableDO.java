@@ -20,6 +20,11 @@ public class FinPayableDO {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private Long companyId;
+    private Long bookId;
+    private String category;
+    private LocalDate businessDate;
+    private LocalDate dueDate;
+
     private Long projectId;
     private String stage;
     private Long totalCents;

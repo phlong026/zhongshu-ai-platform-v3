@@ -53,8 +53,13 @@ public class FinPaymentService {
     }
 
     public record PaymentCommand(long payableId, long amountCents, LocalDate payDate,
-                                 String transactionNo, Long voucherFileId) {
+                                 String transactionNo, Long voucherFileId, String fundingType, Long payerUserId, String payerName, String accountName) {
+        public PaymentCommand(long payableId,long amountCents,LocalDate payDate,String transactionNo,Long voucherFileId) {
+            this(payableId,amountCents,payDate,transactionNo,voucherFileId,"COMPANY",null,null,null);
+        }
     }
+
+    private record LegacyPaymentCommand(long payableId,long amountCents,LocalDate payDate,String transactionNo,Long voucherFileId) {}
 
     public record EngineeringPayableUpdateCommand(long payableId,long projectId,String sourceRef,
                                                   String recipient,long totalCents,String basis) {}
@@ -95,6 +100,8 @@ public class FinPaymentService {
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
         }
+        if(cmd.totalCents()<=0 || cn.hutool.core.util.StrUtil.isBlank(cmd.recipient())) throw exception(PAYMENT_EXCEED_PAYABLE);
+        if(cmd.projectId()!=null && !Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_eng_project WHERE id=? AND company_id=?)",Boolean.class,cmd.projectId(),post.orgId()))) throw exception(ORG_MISMATCH);
         FinPayableDO payable = new FinPayableDO()
                 .setCompanyId(post.orgId()).setProjectId(cmd.projectId()).setStage(cmd.stage())
                 .setTotalCents(cmd.totalCents()).setRecipient(cmd.recipient())
@@ -109,7 +116,9 @@ public class FinPaymentService {
     public long register(PostSnapshot post, String idempotencyKey, PaymentCommand cmd) {
         idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
         designLocks.command(post,idempotencyKey);
-        var replayed = commands.replayed(post, idempotencyKey, cmd);
+        Object fingerprint=(cmd.fundingType()==null || "COMPANY".equals(cmd.fundingType())) && cmd.payerUserId()==null && cmd.payerName()==null && cmd.accountName()==null
+            ?new LegacyPaymentCommand(cmd.payableId(),cmd.amountCents(),cmd.payDate(),cmd.transactionNo(),cmd.voucherFileId()):cmd;
+        var replayed = commands.replayed(post, idempotencyKey, fingerprint);
         if (replayed.isPresent()) {
             return replayed.get().getAggregateId();
         }
@@ -126,6 +135,13 @@ public class FinPaymentService {
         if (payable == null || payable.getCompanyId() != post.orgId()) {
             throw exception(PAYABLE_NOT_FOUND);
         }
+        if(cmd.amountCents()<=0) throw exception(PAYMENT_EXCEED_PAYABLE);
+        String funding=cmd.fundingType()==null?"COMPANY":cmd.fundingType();
+        if(!java.util.Set.of("COMPANY","EMPLOYEE").contains(funding)) throw exception(FIN_SOURCE_FORBIDDEN);
+        if("EMPLOYEE".equals(funding)) {
+            if(!java.util.Set.of("design","manual").contains(String.valueOf(payable.getSourceType())) || cmd.payerUserId()==null || cn.hutool.core.util.StrUtil.isBlank(cmd.payerName())
+                || !Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM pf_staff_post WHERE org_id=? AND user_id=? AND status='ACTIVE')",Boolean.class,post.orgId(),cmd.payerUserId()))) throw exception(FIN_SOURCE_FORBIDDEN);
+        }
         String transactionNo=FinReceiptService.normalize(cmd.transactionNo());
         transactionIdentity.requireNoPayment(post.orgId(),transactionNo);
         if(transactionNo!=null && transactionNumbers.find(post.orgId(),transactionNo)!=null) {
@@ -137,17 +153,30 @@ public class FinPaymentService {
                 .mapToLong(p -> amount(p) - (p.getPendingLinkCents() == null ? 0 : p.getPendingLinkCents())).sum();
         // M10-T05/R1 P1-4：超余额部分转「已核待关联现金」独立异常留痕（不拒绝——真实资金留痕优先，
         // 不绕有效账上限：有效账只计额度内部分；reconcile 后可转正）
-        long overCents = Math.max(0, paid + cmd.amountCents() - payable.getTotalCents());
+        long expenseRefunded=paymentMapper.selectActiveByPayable(cmd.payableId()).stream()
+            .mapToLong(p->Math.max(0,refundMapper.selectActiveByPayment(p.getId()).stream().mapToLong(r->r.getAmountCents()).sum()-(p.getPendingLinkCents()==null?0:p.getPendingLinkCents()))).sum();
+        long effectiveTotal=payable.getTotalCents();
+        if("reimbursement".equals(payable.getSourceType())) {
+            // 原垫付行锁串行化报销与退款；公司报销不再结算平台费用。
+            long originId=Long.parseLong(payable.getSourceRef());
+            var origin=paymentMapper.lockById(originId);
+            if(origin==null || !"已核实".equals(origin.getStatus()) || origin.getCompanyId()!=post.orgId()) throw exception(PAYABLE_NOT_FOUND);
+            effectiveTotal=origin.getAmountCents()-refundMapper.selectActiveByPayment(originId).stream().filter(r->"EMPLOYEE".equals(r.getFundingType())).mapToLong(r->r.getAmountCents()).sum();
+            long recovered=jdbc.queryForObject("SELECT COALESCE(sum(amount_cents),0) FROM fr_fin_receipt WHERE company_id=? AND source_ref=? AND status='已登记'",Long.class,post.orgId(),"employee-recovery:"+payable.getId());
+            paid-=recovered;
+            if(cmd.amountCents()>effectiveTotal-paid+expenseRefunded) throw exception(PAYMENT_EXCEED_PAYABLE);
+        }
+        long overCents = Math.max(0, paid-expenseRefunded + cmd.amountCents() - effectiveTotal);
         if("design".equals(payable.getSourceType())) {
-            long expenseRefunded=paymentMapper.selectActiveByPayable(cmd.payableId()).stream()
-                    .flatMap(p->refundMapper.selectActiveByPayment(p.getId()).stream()).mapToLong(r->r.getAmountCents()).sum();
             overCents=Math.max(0,paid-expenseRefunded+cmd.amountCents()-payable.getTotalCents());
             if(cmd.amountCents()<=0 || overCents>0) throw exception(PAYMENT_EXCEED_PAYABLE);
         }
+        overCents=Math.min(cmd.amountCents(),overCents);
         long linkedCents = cmd.amountCents() - overCents;
         FinPaymentDO payment = new FinPaymentDO()
                 .setPayableId(cmd.payableId()).setProjectId(payable.getProjectId()).setCompanyId(post.orgId())
                 .setAmountCents(cmd.amountCents()).setStatus("已核实")
+                .setFundingType(funding).setPayerUserId(cmd.payerUserId()).setPayerName(cmd.payerName()).setAccountName(cmd.accountName())
                 .setPendingLinkCents(overCents)
                 .setLinkStatus(overCents > 0 ? "PENDING_LINK" : "LINKED")
                 .setPayDate(cmd.payDate()).setOperatorUserId(post.userId())
@@ -164,7 +193,14 @@ public class FinPaymentService {
                 throw exception(TXN_NO_OCCUPIED);
             }
         }
-        commands.record(post, "fin-payment", payment.getId(), 1, "fin-payment-register", cmd, idempotencyKey);
+        if("EMPLOYEE".equals(funding)) {
+            FinPayableDO reimbursement=new FinPayableDO().setCompanyId(post.orgId()).setProjectId(payable.getProjectId())
+                .setBookId(payable.getBookId()).setCategory("员工往来").setStage("design".equals(payable.getSourceType())?"设计费报销":payable.getStage()+"报销").setTotalCents(cmd.amountCents())
+                .setRecipient(cmd.payerName()).setStatus("进行中").setSourceType("reimbursement").setSourceRef(String.valueOf(payment.getId()))
+                .setBusinessDate(cmd.payDate()).setAgreementRef("原设计费垫付 "+payment.getId());
+            payableMapper.insert(reimbursement);
+        }
+        commands.record(post, "fin-payment", payment.getId(), 1, "fin-payment-register", fingerprint, idempotencyKey);
         log.info("[register][companyId={} payment={} payable={} amount={}]", post.orgId(), payment.getId(), cmd.payableId(), cmd.amountCents());
         return payment.getId();
     }
@@ -197,6 +233,7 @@ public class FinPaymentService {
         if ("已作废".equals(payment.getStatus())) {
             return; // 幂等
         }
+        if("EMPLOYEE".equals(payment.getFundingType()) && Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_fin_payable q JOIN fr_fin_payment m ON m.payable_id=q.id WHERE q.company_id=? AND q.source_type='reimbursement' AND q.source_ref=? AND m.status='已核实')",Boolean.class,post.orgId(),String.valueOf(paymentId)))) throw exception(PAYMENT_HAS_ACTIVE_REFUND);
         if (!refundMapper.selectActiveByPayment(paymentId).isEmpty()) {
             throw exception(PAYMENT_HAS_ACTIVE_REFUND); // 先作废退回记录，再作废付款
         }

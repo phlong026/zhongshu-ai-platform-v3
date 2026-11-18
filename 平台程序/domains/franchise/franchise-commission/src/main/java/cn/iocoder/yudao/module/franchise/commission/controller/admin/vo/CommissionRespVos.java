@@ -91,13 +91,13 @@ public interface CommissionRespVos {
                             List<Handover> handovers, Approval feeApproval, List<String> allowedActions,
                             String displayStatus,long commissionId,
                             cn.iocoder.yudao.module.franchise.api.DesignFeeSettlementPort.Settlement settlement,
-                            List<cn.iocoder.yudao.module.franchise.commission.CommissionManifestService.Manifest> dispatches) {
+                            List<cn.iocoder.yudao.module.franchise.commission.CommissionManifestService.Manifest> dispatches,cn.iocoder.yudao.module.franchise.commission.CommissionSimulatedPayments.Order simulatedPayment) {
         public static CommissionDetail of(Detail d) {
             return new CommissionDetail(Commission.of(d.commission()),
                     d.submissions().stream().map(Submission::of).toList(),
                     d.progress().stream().map(Progress::of).toList(),
                     d.handovers().stream().map(Handover::of).toList(),
-                    Approval.of(d.feeApproval()), d.allowedActions(), d.displayStatus(),d.commission().getId(),d.settlement(),d.dispatches());
+                    Approval.of(d.feeApproval()), d.allowedActions(), d.displayStatus(),d.commission().getId(),d.settlement(),d.dispatches(),d.simulatedPayment());
         }
     }
 

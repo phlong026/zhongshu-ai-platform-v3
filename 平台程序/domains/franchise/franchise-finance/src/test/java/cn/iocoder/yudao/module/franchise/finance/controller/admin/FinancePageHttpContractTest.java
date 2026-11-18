@@ -199,6 +199,22 @@ class FinancePageHttpContractTest {
     }
 
     @Test
+    void legacyProjectAccountIncludesContractReceiptsFromUnifiedLedger() {
+        context.run(ctx -> {
+            var old=ctx.getBean(FinProjectAccountService.class);
+            var ledger=ctx.getBean(cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.class);
+            when(old.projectAccount(FINANCE.orgId(),9L)).thenReturn(new FinProjectAccountService.ProjectAccount(9L,100L,200L,0L,300L));
+            when(ledger.page(FINANCE.orgId(),9L,1,1)).thenReturn(new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Ledger(
+                    new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Summary(30000L,26000L,210L,5150L,100L,4450L),
+                    new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(),0L),"项目"));
+            mvc(ctx).perform(get("/franchise/finance/project-accounts/9")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.receivedConfirmed").value(26000))
+                    .andExpect(jsonPath("$.data.refundedNet").value(210))
+                    .andExpect(jsonPath("$.data.paidConfirmed").value(5050));
+        });
+    }
+
+    @Test
     void paymentsPageReturnsPagedResult() {
         context.run(ctx -> mvc(ctx).perform(get("/franchise/finance/payments/page")
                         .param("pageNo", "1").param("pageSize", "10"))

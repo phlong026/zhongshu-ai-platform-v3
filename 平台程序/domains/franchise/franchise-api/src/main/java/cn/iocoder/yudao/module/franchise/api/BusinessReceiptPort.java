@@ -18,7 +18,8 @@ public interface BusinessReceiptPort {
     BusinessReceiptSaved replayBySourceRef(PostSnapshot post, String sourceRef);
 
     record BusinessReceipt(long customerId, String sourceRef, String name, long amountCents,
-                           String method, String transactionNo, LocalDate receivedDate) {
+                           String method, String transactionNo, LocalDate receivedDate,Long voucherFileId,String accountName) {
+        public BusinessReceipt(long customerId,String sourceRef,String name,long amountCents,String method,String transactionNo,LocalDate receivedDate){this(customerId,sourceRef,name,amountCents,method,transactionNo,receivedDate,null,null);}
     }
 
     record BusinessReceiptSaved(long receiptId, boolean replayed) {

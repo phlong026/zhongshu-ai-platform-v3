@@ -38,6 +38,8 @@ public class CustomerDO {
     private String addressDetail;
     private String summary;
     private String status;
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private String designStatus;
     private Long originLeadId;
     private LocalDate nextVisitDate;
     private OffsetDateTime lastFollowAt;

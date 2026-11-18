@@ -69,7 +69,9 @@ public class DashScopeAsrClient implements AsrPort {
                 return resume(call.existingTaskId(), call.audit());
             }
             validateAudioInput(call.audioUrl());
-            boolean flash = usesFlash(call.durationSec());
+            // CDN links often have no extension. Never label an unknown MP3/MP4 as M4A;
+            // the file transcription endpoint detects the actual media format.
+            boolean flash = usesFlash(call.durationSec()) && flashFormat(call.audioUrl()) != null;
             if (flash) {
                 return flashTranscribe(call, call.audit());
             }
@@ -92,6 +94,17 @@ public class DashScopeAsrClient implements AsrPort {
                 && durationSec <= Math.min(config.getFlashThresholdSeconds(), 300.0);
     }
 
+    static String flashFormat(String source) {
+        if (source == null) return null;
+        if (source.startsWith(DATA_PREFIX)) return "m4a";
+        String path;
+        try { path = URI.create(source).getPath(); } catch (IllegalArgumentException error) { return null; }
+        if (path == null) return null;
+        int dot = path.lastIndexOf('.');
+        String format = dot < 0 ? "" : path.substring(dot + 1).toLowerCase(Locale.ROOT);
+        return java.util.Set.of("aac","amr","avi","flac","flv","m4a","mkv","mov","mp3","mp4","mpeg","ogg","opus","wav","webm","wma","wmv").contains(format) ? format : null;
+    }
+
     // ---------------- Flash 同步 ----------------
 
     private Transcript flashTranscribe(AsrCall call, ProviderCallAudit audit) throws InterruptedException {
@@ -99,8 +112,10 @@ public class DashScopeAsrClient implements AsrPort {
         payload.put("model", config.getFlashModel());
         ObjectNode message = payload.putObject("input").putArray("messages").addObject();
         message.put("role", "user");
-        message.putArray("content").addObject().putObject("input_audio").put("data", call.audioUrl());
-        payload.putObject("parameters").put("format", "m4a").put("sample_rate", "16000");
+        ObjectNode content = message.putArray("content").addObject();
+        content.put("type", "input_audio");
+        content.putObject("input_audio").put("data", call.audioUrl());
+        payload.putObject("parameters").put("format", flashFormat(call.audioUrl()));
 
         String url = config.getBaseUrl() + "/api/v1/services/aigc/multimodal-generation/generation";
         Map<String, String> headers = new LinkedHashMap<>();

@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentTaskService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentTaskResultService;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskMapper;
@@ -36,6 +37,8 @@ public class ContentTaskController {
     private CurrentPost currentPost;
     @Resource
     private ContentTaskService tasks;
+    @Resource
+    private ContentTaskResultService results;
     @Resource
     private ContentDraftService drafts;
     @Resource
@@ -126,6 +129,14 @@ public class ContentTaskController {
         }
     }
 
+    @PostMapping("{id}/retry-save")
+    @Operation(summary = "重试已生成文案的本地保存（原任务、不转写、不扣点）")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Map<String, Object>> retrySave(@PathVariable("id") Long id) {
+        PostSnapshot post=post();
+        return success(viewOf(results.retrySave(post.orgId(),post.userId(),id)));
+    }
+
     @PostMapping("{id}/save-work")
     @Operation(summary = "任务→作品（一任务一件，重复返既有）")
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
@@ -163,6 +174,8 @@ public class ContentTaskController {
         boolean needsScript = java.util.Set.of("copy","asr").contains(task.getKind());
         boolean pending = needsScript && "SUCCEEDED".equals(task.getStatus()) && !"READY".equals(task.getResultState());
         view.put("status", pending ? ("FAILED".equals(task.getResultState()) ? "FAILED" : "ARCHIVING") : task.getStatus());
+        view.put("generationStatus", task.getStatus());
+        view.put("saveRetryable", pending && "FAILED".equals(task.getResultState()));
         view.put("resultState", task.getResultState()==null?"PENDING":task.getResultState());
         view.put("statusText", pending ? ("FAILED".equals(task.getResultState())?"生成完成，保存失败":"生成完成，保存中") : "");
         view.put("provider", task.getProvider() == null ? "" : task.getProvider());

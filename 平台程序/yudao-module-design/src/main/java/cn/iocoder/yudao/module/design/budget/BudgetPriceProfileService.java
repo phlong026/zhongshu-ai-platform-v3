@@ -42,6 +42,12 @@ public class BudgetPriceProfileService {
     private final BudgetPriceResolver prices;
     private final BudgetPriceBookService priceBooks;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setBaselineSource(AiDesignBaselineSource source) {
+        prices.setBaselineSource(source);
+        priceBooks.setBaselineSource(source);
+    }
+
     public BudgetPriceProfileService(DataSource dataSource, PlatformTransactionManager transactionManager, AuditPort auditPort) {
         jdbc = new JdbcTemplate(dataSource);
         tx = new TransactionTemplate(transactionManager);

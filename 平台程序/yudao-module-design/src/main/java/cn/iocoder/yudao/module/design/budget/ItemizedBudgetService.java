@@ -50,6 +50,11 @@ public class ItemizedBudgetService {
     private final cn.iocoder.yudao.module.infra.zhongshu.api.UsagePricingPort usagePricing;
     private boolean originalDesignRules;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setBaselineSource(AiDesignBaselineSource source) {
+        prices.setBaselineSource(source);
+    }
+
     @org.springframework.beans.factory.annotation.Autowired
     public ItemizedBudgetService(DataSource dataSource, PlatformTransactionManager transactionManager,
                                 DesignProjectService projects, AuditPort audit,
@@ -337,6 +342,10 @@ public class ItemizedBudgetService {
         pricingProfile.put("pricingBasis", pricingBasis);
         pricingProfile.put("source", region.custom() ? "USER_PROFILE" : (userPriced ? "USER_OVERRIDE" : "PLATFORM"));
         var inputSummary = new LinkedHashMap<String, Object>(current.publicValues());
+        // Preserve the validated site dimensions for the downstream customer/commission snapshot.
+        for (String dimension : List.of("faceWidth", "depth")) {
+            if (current.values().get(dimension) != null) inputSummary.put(dimension, current.values().get(dimension));
+        }
         inputSummary.put("pricingProfile", pricingProfile);
         if (!originalDesignRules) {
         inputSummary.put("calculationProfile", current.profile().name());

@@ -55,6 +55,12 @@ public class LocalAssetService implements AssetAccessPort {
     private final CurrentPost posts;
     private final StoreServiceAccountPort accounts;
     private final CommissionDeliverableAccessPort deliverables;
+    private java.util.List<cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort> visibilityPolicies = java.util.List.of();
+
+    @Autowired(required = false)
+    public void setVisibilityPolicies(java.util.List<cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort> policies) {
+        this.visibilityPolicies = java.util.List.copyOf(policies);
+    }
 
     public LocalAssetService(DataSource dataSource, PlatformTransactionManager transactions,
                              ObjectStoragePort storage, AssetContentScanner scanner,
@@ -446,12 +452,16 @@ public class LocalAssetService implements AssetAccessPort {
     }
 
     private Asset load(long tenant, Actor actor, long id) {
-        return db("load", id, () -> jdbc.query("SELECT * FROM fr_asset WHERE id=? AND tenant_id=? AND org_id=?"
+        Asset row = db("load", id, () -> jdbc.query("SELECT * FROM fr_asset WHERE id=? AND tenant_id=? AND org_id=?"
                         + " AND service_account_id=? AND deleted=FALSE", (rs, i) -> new Asset(rs.getLong("id"), rs.getLong("tenant_id"),
                         rs.getLong("org_id"), rs.getLong("service_account_id"), rs.getLong("creator_user_id"), rs.getLong("creator_post_id"),
                         rs.getString("asset_type"), rs.getString("declared_mime"), rs.getLong("size_bytes"), rs.getString("sha256"),
                         rs.getString("upload_key"), rs.getString("object_key"), rs.getString("upload_status"), rs.getString("rejected_reason"),
                         rs.getString("validation_token")), id, tenant, actor.orgId(), actor.serviceAccountId()).stream().findFirst().orElse(null));
+        if (row != null && "CONTENT_ASSET".equals(row.type())) {
+            for (var policy : visibilityPolicies) policy.requireReadable(tenant, actor, id);
+        }
+        return row;
     }
 
     private <T> T db(String operation, long id, Supplier<T> action) {

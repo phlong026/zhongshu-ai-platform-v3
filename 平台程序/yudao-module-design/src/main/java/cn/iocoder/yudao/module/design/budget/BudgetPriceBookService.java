@@ -29,6 +29,9 @@ public class BudgetPriceBookService {
     private static final int MAX_NOTE = 200;
 
     private final JdbcTemplate jdbc;
+    private AiDesignBaselineSource baselineSource;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setBaselineSource(AiDesignBaselineSource source) { baselineSource = source; }
     private final TransactionTemplate tx;
     private final AuditPort auditPort;
 
@@ -50,6 +53,15 @@ public class BudgetPriceBookService {
 
     /** 最新版本；不存在则按当前生效价自动建立 v1（地区首次使用/测试种子）。 */
     public Snapshot latest(String regionCode) {
+        if (baselineSource != null) return tx.execute(status -> {
+            Region locked = region(regionCode, true);
+            Map<Long, SnapshotPrice> current = currentItems(locked.id());
+            var rows = latestRow(locked.id());
+            Snapshot previous = rows.isEmpty() ? new Snapshot(0, 0, null, null, null, Map.of()) : snapshot(rows.get(0));
+            if (!dirty(previous, current)) return previous;
+            // Only an immutable history for user configurations; the baseline always comes from A's API.
+            return createVersion(locked, previous.version() + 1, "AI设计后台发布价", current, 0L);
+        });
         Region region = region(regionCode, false);
         var rows = latestRow(region.id());
         if (!rows.isEmpty()) return snapshot(rows.get(0));
@@ -155,6 +167,13 @@ public class BudgetPriceBookService {
     }
 
     private Map<Long, SnapshotPrice> currentItems(long regionId) {
+        if (baselineSource != null) {
+            String code = jdbc.queryForObject("SELECT code FROM budget_region WHERE tenant_id = 0 AND id = ? AND deleted = FALSE", String.class, regionId);
+            Map<Long, SnapshotPrice> sourced = new LinkedHashMap<>();
+            baselineSource.published(code, java.time.Instant.now()).forEach((option, price) -> sourced.put(option,
+                new SnapshotPrice(price.cents(), price.version(), String.valueOf(price.priceId()))));
+            return sourced;
+        }
         Map<Long, SnapshotPrice> result = new LinkedHashMap<>();
         var rows = jdbc.queryForList("SELECT id, option_id, unit_price_cents, version FROM budget_item_price "
                 + "WHERE tenant_id = 0 AND region_id = ? AND status = 'PUBLISHED' AND deleted = FALSE "

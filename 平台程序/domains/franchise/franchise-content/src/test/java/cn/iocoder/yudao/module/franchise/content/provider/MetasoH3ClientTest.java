@@ -48,6 +48,7 @@ class MetasoH3ClientTest {
         assertThat(body.path("model").asText()).isEqualTo("MiniMax-H3");
         assertThat(body.path("resolution").asText()).isEqualTo("768P");
         assertThat(body.path("duration").asInt()).isEqualTo(8);
+        assertThat(body.path("fast_mode").asBoolean()).isFalse();
         // 含首尾帧时 ratio 后端归一 adaptive（F11/D-1.5-6）
         assertThat(body.path("ratio").asText()).isEqualTo("adaptive");
         JsonNode content = body.path("content");
@@ -80,9 +81,9 @@ class MetasoH3ClientTest {
         assertThat(content.get(2).path("type").asText()).isEqualTo("video_url");
         assertThat(content.get(2).path("video_url").path("url").asText()).isEqualTo("https://c/v.mp4");
         assertThat(content.get(3).path("type").asText()).isEqualTo("audio_url");
-        // T2V/R2V 无首尾帧：ratio 原样透传
+        // 参考视频/图片和首尾帧均按素材自适应。
         assertThat(JSON.readTree(new String(transport.calls.get(0).body(), StandardCharsets.UTF_8))
-                .path("ratio").asText()).isEqualTo("9:16");
+                .path("ratio").asText()).isEqualTo("adaptive");
     }
 
     @Test
@@ -93,7 +94,7 @@ class MetasoH3ClientTest {
         assertThatThrownBy(() -> client.submit(new VideoGenerationPort.H3Request(
                         "文本", List.of(), "768P", 8, "adaptive"), null, ProviderCallAudit.NONE))
                 .isInstanceOf(ContentProviderException.Rejection.class)
-                .hasMessageContaining("仅含首尾帧时可使用自适应比例");
+                .hasMessageContaining("无图片或视频参考时请选择具体画幅");
         // 时长越界
         assertThatThrownBy(() -> client.submit(new VideoGenerationPort.H3Request(
                         "文本", List.of(), "768P", 3, "16:9"), null, ProviderCallAudit.NONE))

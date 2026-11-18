@@ -51,7 +51,8 @@ public class SalesTodoProvider implements TodoProvider {
                             "合同待签 · 客户#" + c.getCustomerId(), "待签订", c.getTotalCents(), true, null,
                             "/pages/workflow/index?view=contract&id=" + c.getCustomerId(), c.getCreateTime())));
         }
-        if (isCollectPost) {
+        // 财务办理到账核实由 CollectionDeclarationTodoProvider 提供，未发生收款的合同阶段保留在应收查询。
+        if (isCollectPost && !java.util.Set.of(FranchiseRoles.FINANCE, FranchiseRoles.FINANCE_LEAD).contains(post.roleCode())) {
             boolean financePost = FranchiseRoles.FINANCE.equals(post.roleCode())
                     || FranchiseRoles.FINANCE_LEAD.equals(post.roleCode());
             stages.selectOwingByOrg(post.orgId()).stream()

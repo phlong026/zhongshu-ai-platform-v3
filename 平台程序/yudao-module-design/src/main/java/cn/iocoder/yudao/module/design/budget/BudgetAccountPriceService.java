@@ -47,6 +47,9 @@ public class BudgetAccountPriceService {
             + "OR (a.region_scope = 'GLOBAL' AND a.region_code = '')) "
             + "ORDER BY CASE WHEN a.region_scope = 'PLATFORM' THEN 0 ELSE 1 END, a.id LIMIT 1) a ON TRUE ";
     private final JdbcTemplate jdbc;
+    private AiDesignBaselineSource baselineSource;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setBaselineSource(AiDesignBaselineSource source) { baselineSource = source; }
     private final TransactionTemplate tx;
     private final AuditPort auditPort;
 
@@ -161,13 +164,31 @@ public class BudgetAccountPriceService {
     }
 
     private List<Map<String, Object>> standardRows(long accountId, long regionId, String regionCode, Long optionId) {
-        var args = new ArrayList<Object>(List.of(regionId, accountId, regionCode));
+        String select = PRICE_SELECT;
+        var args = new ArrayList<Object>();
+        if (baselineSource == null) args.add(regionId);
+        else {
+            select = select.replace("p.unit_price_cents AS baseline_cents, p.version AS baseline_version, ", "NULL::bigint AS baseline_cents, NULL::integer AS baseline_version, ");
+            int from = select.indexOf("LEFT JOIN LATERAL (SELECT p.unit_price_cents");
+            int end = select.indexOf("LEFT JOIN LATERAL (SELECT a.*");
+            select = select.substring(0, from) + select.substring(end);
+        }
+        args.add(accountId); args.add(regionCode);
         String filter = "WHERE i.tenant_id = 0 AND i.source = 'STANDARD' AND i.enabled = TRUE AND i.public_selectable = TRUE AND i.deleted = FALSE";
         if (optionId != null) {
             filter += " AND o.id = ?";
             args.add(optionId);
         }
-        return jdbc.queryForList(PRICE_SELECT + filter + " ORDER BY i.sort_order, i.id, o.sort_order, o.id", args.toArray());
+        var rows = jdbc.queryForList(select + filter + " ORDER BY i.sort_order, i.id, o.sort_order, o.id", args.toArray());
+        if (baselineSource == null) return rows;
+        var published = baselineSource.published(regionCode, java.time.Instant.now());
+        return rows.stream().map(original -> {
+            Map<String, Object> row = new LinkedHashMap<>(original);
+            var baseline = published.get(number(row, "option_id"));
+            row.put("baseline_cents", baseline == null ? null : baseline.cents());
+            row.put("baseline_version", baseline == null ? null : baseline.version());
+            return row;
+        }).toList();
     }
 
     private AppMyPriceRespVO myPrice(long accountId, long regionId, String regionCode, long optionId) {

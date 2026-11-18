@@ -109,10 +109,15 @@ public class FranchiseTodoProvider implements TodoProvider {
             String key = Long.toString(commission.getId());
             OffsetDateTime since = commission.getUpdateTime();
             String customer = commission.getCustomerName();
-            if(commission.getDispatchSeq()!=null && !commissions.settlement(commission).readyToDispatch()) {
+            if(commission.getDispatchSeq()!=null && !commissions.readyToDispatch(commission)) {
                 items.add(item("design-finance-anomaly:"+key+":"+commission.getSubmissionVersion(),
                         "「"+customer+"」下发后设计资金净额不足，请核对退款/退回",commission.getStatus(),null,
                         false,commissionPage(commission.getId(), "progress"),since));
+            }
+            var simulated=commissions.simulatedPayment(commission);
+            if(simulated!=null&&!simulated.paid()){
+                if(access.canWrite(post,commission))items.add(item("simulation-pay:"+key+":"+commission.getSubmissionVersion(),"「"+customer+"」委托待模拟付款登记","SIMULATION_PENDING",null,true,commissionPage(commission.getId(),"pay"),since));
+                continue;
             }
             switch (commission.getStatus()) {
                 case CommissionDO.STATUS_FEE_PENDING -> {
@@ -136,7 +141,7 @@ public class FranchiseTodoProvider implements TodoProvider {
                 }
                 case CommissionDO.STATUS_DESIGNING -> {
                     if (designAdminLine && access.isDesignAdminOf(post, commission)
-                            && commissions.settlement(commission).readyToComplete()) {
+                            && commissions.readyToComplete(commission)) {
                         items.add(item("design-complete:" + key + ":" + commission.getSubmissionVersion(),
                                 "「" + customer + "」首款已就绪，确认设计完成", "DESIGNING", null,
                                 true, commissionPage(commission.getId(), "complete"), since));
@@ -144,11 +149,11 @@ public class FranchiseTodoProvider implements TodoProvider {
                 }
                 case CommissionDO.STATUS_DESIGN_COMPLETED -> {
                     if (designAdminLine && access.isDesignAdminOf(post, commission)
-                            && commissions.settlement(commission).readyToDispatch()) {
+                            && commissions.readyToDispatch(commission)) {
                         items.add(item("design-dispatch:" + key + ":" + commission.getSubmissionVersion(),
                                 "「" + customer + "」尾款已就绪，下发成果", "DESIGN_COMPLETED", null,
                                 true, commissionPage(commission.getId(), "dispatch"), since));
-                    } else if (!commissions.settlement(commission).readyToDispatch() && access.canWrite(post, commission)) {
+                    } else if (!commissions.readyToDispatch(commission) && access.canWrite(post, commission)) {
                         items.add(item("tail-follow:" + key, "「" + customer + "」设计已完成，跟进尾款支付",
                                 "DESIGN_COMPLETED", null, true, commissionPage(commission.getId(), "progress"), since));
                     }

@@ -74,8 +74,8 @@ public class EngineeringLedgerQueryAdapter implements EngineeringLedgerQueryPort
                         .in(FinRefundDO::getPaymentId,rows.stream().map(FinPaymentDO::getId).toList())
                         .eq(FinRefundDO::getCompanyId,post.orgId())
                         .eq(FinRefundDO::getStatus,"已核实"));
-                var paymentSources=new HashMap<Long,Long>();rows.forEach(p->paymentSources.put(p.getId(),p.getPayableId()));
-                returned.forEach(r->result.merge(paymentSources.get(r.getPaymentId()),-r.getAmountCents(),Long::sum));
+                var returnedByPayment=new HashMap<Long,Long>();returned.forEach(r->returnedByPayment.merge(r.getPaymentId(),r.getAmountCents(),Long::sum));
+                rows.forEach(p->result.merge(p.getPayableId(),-Math.max(0,returnedByPayment.getOrDefault(p.getId(),0L)-(p.getPendingLinkCents()==null?0:p.getPendingLinkCents())),Long::sum));
             }
         }
         // 应付本身不存在的入参以 0 出现（调用方区分「无应付」用 payableId==null 判断）

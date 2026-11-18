@@ -47,6 +47,8 @@ class ContentTaskResultHttpContractTest {
             var task=new FrContentTaskDO().setId(123L).setKind(kind).setStatus("SUCCEEDED").setResultState(state);
             endpoint(task).perform(get("/franchise/content/tasks/123"))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.generationStatus").value("SUCCEEDED"))
+                    .andExpect(jsonPath("$.data.saveRetryable").value("FAILED".equals(state)))
                     .andExpect(jsonPath("$.data.status").value(switch(state){case "PENDING"->"ARCHIVING";case "FAILED"->"FAILED";default->"SUCCEEDED";}));
         }
     }

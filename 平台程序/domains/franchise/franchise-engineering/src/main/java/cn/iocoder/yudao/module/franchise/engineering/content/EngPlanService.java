@@ -279,6 +279,11 @@ public class EngPlanService {
     }
 
     long termAmount(PostSnapshot post, long projectId, String stage) {
+        Long contractId=resolveContractId(post,projectId);
+        if(contractId!=null){
+            var current=unifiedStages.stageBalances(post,contractId);
+            if(current!=null)for(var balance:current)if(stage.equals(balance.stage()))return balance.expectedCents();
+        }
         return collectionTerms.selectByProject(post.orgId(), projectId).stream()
                 .filter(t -> stage.equals(t.getStage())).mapToLong(FrEngCollectionTermDO::getAmountCents)
                 .findFirst().orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "请等待合同及两期收款约定确认"));

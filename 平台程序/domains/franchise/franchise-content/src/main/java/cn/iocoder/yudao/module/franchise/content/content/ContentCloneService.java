@@ -47,8 +47,12 @@ public class ContentCloneService {
         var persona=personas.list(company).stream().filter(p->Objects.equals(p.getId(),id)).findFirst().orElseThrow(()->invalid("人物不存在或无权使用"));
         if (enabled && Boolean.FALSE.equals(persona.getEnabled())) throw invalid("人物已停用，请先启用后使用");
     }
-    public Map<String,Object> quote(String kind) {
-        subject(kind);
+    public void assertAccess(PostSnapshot post,String kind) {
+        points.assertSubjectAllowed(post.orgId(),post.userId(),subject(kind));
+    }
+    public Map<String,Object> quote(PostSnapshot post,String kind) {
+        try { assertAccess(post,kind); }
+        catch (ServiceException e) { return Map.of("available",false,"message",e.getMessage()); }
         if (properties.getProvider()!=ContentProviderProperties.ProviderMode.REAL || !provider.configured()) return Map.of("available",false,"message","数字人制作服务尚未配置，请联系平台");
         try { return Map.of("available",true,"credits",points.quoteCredits(subject(kind),1),"consentVersion",CONSENT_VERSION); }
         catch (IllegalArgumentException e) { return Map.of("available",false,"message","该制作功能尚未配置积分价格，请联系平台"); }

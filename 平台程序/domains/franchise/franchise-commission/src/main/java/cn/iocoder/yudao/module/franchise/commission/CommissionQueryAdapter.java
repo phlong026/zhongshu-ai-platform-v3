@@ -23,6 +23,18 @@ public class CommissionQueryAdapter implements CommissionQueryPort {
     private CommissionMapper commissionMapper;
 
     @Override
+    public java.util.Map<Long, String> customerDesignStatuses(long companyId, java.util.Collection<Long> customerIds) {
+        if (customerIds == null || customerIds.isEmpty()) return java.util.Map.of();
+        java.util.Map<Long, String> statuses = new java.util.HashMap<>();
+        for (CommissionDO row : commissionMapper.selectList(new LambdaQueryWrapperX<CommissionDO>()
+                .eq(CommissionDO::getCompanyId, companyId).in(CommissionDO::getCustomerId, customerIds))) {
+            if (row.getSubmissionVersion() != null && row.getSubmissionVersion() > 0 && row.getStatus() != null)
+                statuses.put(row.getCustomerId(), row.getStatus());
+        }
+        return statuses;
+    }
+
+    @Override
     public CommissionFeeView findCurrentFee(long commissionId) {
         Optional<CommissionSubmissionDO> latest = submissionMapper.selectList(
                         new LambdaQueryWrapperX<CommissionSubmissionDO>()

@@ -148,7 +148,7 @@ class LegacyPlatformContentOpsInterceptorTest {
                 mock(VideoGenerationPort.class),
                 mock(AssetAccessPort.class),
                 mock(cn.iocoder.yudao.module.franchise.org.FranchiseCommands.class),
-                new cn.iocoder.yudao.module.franchise.content.provider.ContentProviderProperties());
+                new cn.iocoder.yudao.module.franchise.content.provider.ContentProviderProperties(), mock(cn.iocoder.yudao.module.franchise.api.OrgPointPort.class));
 
         taskController = new ContentTaskController();
         ReflectionTestUtils.setField(taskController, "currentPost", currentPost);

@@ -59,9 +59,16 @@ public class CommissionController {
     public record SubmitReq(String text, String scope, String attachment, java.math.BigDecimal total,
                             java.math.BigDecimal first, String recipient, Integer budgetVersion,
                             Integer planVersion, Integer facadeVersion, boolean confirmed,
-                            String mode,Integer feeRuleVersion,Long totalCents,Long firstCents,Long attachmentAssetId) {
+                            String mode,Integer feeRuleVersion,Long totalCents,Long firstCents,Long attachmentAssetId,java.util.Map<String,Object> designBrief,String paymentMode) {
     }
 
+    public record SimulatedPayReq(String channel,boolean confirmed) { }
+    @PostMapping("/commissions/{commissionId}/simulated-payment")
+    public CommonResult<CommissionDetail> simulatePay(@PathVariable long commissionId,@RequestBody SimulatedPayReq req,@RequestHeader("Idempotency-Key") String key){
+        return success(CommissionDetail.of(commissionService.simulatePay(currentPost.require(),commissionId,new CommissionService.SimulatePayCommand(req.channel(),req.confirmed()),key)));
+    }
+    @GetMapping("/commissions/{commissionId}/simulated-payment-receipt")
+    public CommonResult<cn.iocoder.yudao.module.franchise.commission.CommissionSimulatedPayments.Order> simulatedReceipt(@PathVariable long commissionId){return success(commissionService.paymentReceipt(currentPost.require(),commissionId));}
     public record FeeDecisionReq(boolean approve, String note) {
     }
 
@@ -85,14 +92,14 @@ public class CommissionController {
     public record BudgetView(int version,java.math.BigDecimal width,java.math.BigDecimal depth,Integer floors,
                              java.math.BigDecimal area,String payload) { }
     public record ContextResp(long customerId,Long commissionId,BudgetView latestBudget,
-                              CommissionService.FeeOffer feeOffer,CommissionDetail commission,java.util.List<String> allowedActions) { }
+                              CommissionService.FeeOffer feeOffer,CommissionDetail commission,java.util.List<String> allowedActions,String customerName,String city,boolean canPrepareBudget,java.util.Map<String,Object> customerInfo,java.util.Map<String,String> schemeBasis) { }
     @GetMapping("/customers/{customerId}/commission-context")
     public CommonResult<ContextResp> context(@PathVariable long customerId) {
         var c=commissionService.context(currentPost.require(),customerId);
         var budget=c.latestBudget();
         var view=budget==null?null:new BudgetView(budget.getVersion(),budget.getWidth(),budget.getDepth(),budget.getFloors(),budget.getArea(),budget.getPayload());
         return success(new ContextResp(c.customerId(),c.commissionId(),view,c.feeOffer(),
-                c.commission()==null?null:CommissionDetail.of(c.commission()),c.allowedActions()));
+                c.commission()==null?null:CommissionDetail.of(c.commission()),c.allowedActions(),c.customerName(),c.city(),c.canPrepareBudget(),c.customerInfo(),c.schemeBasis()));
     }
 
     @PostMapping("/customers/{customerId}/commission")
@@ -103,7 +110,7 @@ public class CommissionController {
         return success(CommissionDetail.of(commissionService.submit(currentPost.require(), customerId,
                 new SubmitCommand(req.text(), req.scope(), req.attachment(), req.totalCents()==null?req.total():java.math.BigDecimal.valueOf(req.totalCents(),2),
                         req.firstCents()==null?req.first():java.math.BigDecimal.valueOf(req.firstCents(),2), req.recipient(),
-                        req.budgetVersion(), req.planVersion(), req.facadeVersion(), req.confirmed(),req.mode(),req.feeRuleVersion(),req.attachmentAssetId()), key)));
+                        req.budgetVersion(), req.planVersion(), req.facadeVersion(), req.confirmed(),req.mode(),req.feeRuleVersion(),req.attachmentAssetId(),req.designBrief(),req.paymentMode()), key)));
     }
 
     public record CommissionSummary(Commission commission,long commissionId,String displayStatus,java.util.List<String> allowedActions) { }
