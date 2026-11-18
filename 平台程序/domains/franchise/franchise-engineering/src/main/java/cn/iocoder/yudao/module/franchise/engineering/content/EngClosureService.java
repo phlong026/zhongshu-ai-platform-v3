@@ -223,12 +223,13 @@ public class EngClosureService {
                 || post.userId() == project.getManagerUserId()
                 || (project.getAssignedEngineerUserId() != null
                         && post.userId() == project.getAssignedEngineerUserId());
+        var supplyRows = supplies.selectByProject(post.orgId(), projectId);
         Map<Long, Long> paidByPayable = ledger.paidCentsByPayableIds(post,
-                supplies.selectByProject(post.orgId(), projectId).stream()
+                supplyRows.stream()
                         .map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull).toList());
         long materialsTotal = 0;
         long materialsPaid = 0;
-        for (FrEngSupplyDO s : supplies.selectByProject(post.orgId(), projectId)) {
+        for (FrEngSupplyDO s : supplyRows) {
             var material = materials.selectById(s.getMaterialId());
             if (material == null || cn.iocoder.yudao.module.franchise.engineering.dal.FrEngMaterialDO
                     .STATUS_CANCELLED.equals(material.getStatus()) || s.getUnitPriceCents() == null
@@ -278,13 +279,23 @@ public class EngClosureService {
             view.put("materialsRemainingCents", Math.max(0, materialsTotal - materialsPaid));
             // M09-T04：直接费用真实汇总——Σ已确认费用（成本口径）；已付=经应付清偿的现金（付款不重计成本）；
             // 退回减已付现金不改已确认费用；无公共费用分摊
-            var expenseRows = expenses.selectByProject(post.orgId(), projectId).stream()
-                    .filter(e -> FrEngExpenseDO.STATUS_REGISTERED.equals(e.getStatus())).toList();
-            long expensesTotal = expenseRows.stream()
-                    .mapToLong(FrEngExpenseDO::getAmountCents).sum();
-            long expensesPaid = ledger.paidCentsByPayableIds(post,
-                    expenseRows.stream().map(FrEngExpenseDO::getPayableId)
-                            .filter(java.util.Objects::nonNull).toList()).values().stream()
+            var financeCosts = new java.util.HashMap<>(ledger.projectCostAmounts(post, projectId));
+            supplyRows.stream().map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull)
+                    .forEach(financeCosts::remove);
+            var expenseIds = new java.util.HashSet<Long>();
+            long expensesTotal = 0;
+            for (FrEngExpenseDO expense : expenses.selectByProject(post.orgId(), projectId)) {
+                Long id = expense.getPayableId();
+                Long financialAmount = id == null ? null : financeCosts.remove(id);
+                if (FrEngExpenseDO.STATUS_REGISTERED.equals(expense.getStatus())) {
+                    expensesTotal += financialAmount == null ? expense.getAmountCents() : financialAmount;
+                    if (id != null) expenseIds.add(id);
+                }
+            }
+            // 剩余原单由财务直接登记或划入项目账，原单已计成本，无需复制一张工程费用单。
+            expensesTotal += financeCosts.values().stream().mapToLong(Long::longValue).sum();
+            expenseIds.addAll(financeCosts.keySet());
+            long expensesPaid = ledger.paidCentsByPayableIds(post, expenseIds).values().stream()
                     .mapToLong(Long::longValue).sum();
             view.put("expensesTotalCents", expensesTotal);
             view.put("expensesPaidCents", expensesPaid);

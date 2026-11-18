@@ -53,7 +53,8 @@ public class EngProjectController {
         PostSnapshot post = post();
         var cmd = new EngProjectService.CreateCommand(
                 str(body.get("name")), str(body.get("customer")), str(body.get("city")), str(body.get("phone")),
-                decimal(body.get("area")), integer(body.get("floors")), longOrNull(body.get("parentProjectId")));
+                decimal(body.get("area")), integer(body.get("floors")), longOrNull(body.get("parentProjectId")),
+                Boolean.TRUE.equals(body.get("independent")));
         return success(projects.create(post, cmd, requireIdem(idem)));
     }
 

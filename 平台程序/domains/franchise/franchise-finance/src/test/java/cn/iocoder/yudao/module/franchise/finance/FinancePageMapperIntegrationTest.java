@@ -189,6 +189,23 @@ class FinancePageMapperIntegrationTest extends FranchisePgIntegrationTest {
     // ===== 应付：status + projectId + keyword；DO 无到期日字段，签名不含任何日期参数 =====
 
     @Test
+    void settledPayableReopensForReturnsAndVoidsWithoutCountingUnallocatedCash() {
+        long bill = newPayable("进行中", 301L, "基础工程队", "合同费用");
+        long payment = SEQ.incrementAndGet();
+        jdbc.update("""
+                INSERT INTO fr_fin_payment(id,payable_id,company_id,amount_cents,status,operator_user_id,pending_link_cents,link_status)
+                VALUES(?,?,?,12000,'已核实',?,2000,'PENDING_LINK')
+                """, payment, bill, orgId, userId);
+        assertThat(payableMapper.selectById(bill).getStatus()).isEqualTo("已结清");
+        long returned = newRefund("expense", null, payment, "已核实", LocalDate.now(), null, "退还费用");
+        assertThat(payableMapper.selectById(bill).getStatus()).isEqualTo("进行中");
+        jdbc.update("UPDATE fr_fin_refund SET status='已作废',voided_at=now() WHERE id=?", returned);
+        assertThat(payableMapper.selectById(bill).getStatus()).isEqualTo("已结清");
+        jdbc.update("UPDATE fr_fin_payment SET status='已作废',voided_at=now() WHERE id=?", payment);
+        assertThat(payableMapper.selectById(bill).getStatus()).isEqualTo("进行中");
+    }
+
+    @Test
     void payablesPageFiltersByStatusProjectAndKeyword() {
         long inA = newPayable("进行中", 301L, "材料供应商甲", "AG-A");
         newPayable("已结清", 301L, "材料供应商乙", "AG-B");

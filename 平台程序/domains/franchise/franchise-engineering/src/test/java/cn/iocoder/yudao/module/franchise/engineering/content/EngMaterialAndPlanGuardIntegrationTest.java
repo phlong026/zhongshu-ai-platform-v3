@@ -162,8 +162,9 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         @Bean
         cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort engineeringLedgerQueryPort(
                 cn.iocoder.yudao.module.franchise.finance.dal.FinPaymentMapper payments,
-                cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper refunds) {
-            return new cn.iocoder.yudao.module.franchise.finance.EngineeringLedgerQueryAdapter(payments,refunds);
+                cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper refunds, JdbcTemplate jdbc) {
+            return new cn.iocoder.yudao.module.franchise.finance.EngineeringLedgerQueryAdapter(payments, refunds,
+                    new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService(jdbc));
         }
     }
 
@@ -210,6 +211,28 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     // ========== M07-T01：材料幂等 ==========
+
+    @Test
+    void financeOnlyProjectCostIsIncludedAndItsEngineeringReferenceDoesNotDoubleCount() {
+        long payable = IDS.incrementAndGet();
+        jdbc.update("""
+                INSERT INTO fr_fin_payable(id,company_id,project_id,stage,total_cents,recipient)
+                VALUES(?,?,?,'施工图深化',600000,'设计工作室')
+                """, payable, engineer.orgId(), projectId);
+        jdbc.update("""
+                INSERT INTO fr_fin_payment(id,payable_id,company_id,project_id,amount_cents,operator_user_id)
+                VALUES(?,?,?,?,460000,?)
+                """, IDS.incrementAndGet(),payable,engineer.orgId(),projectId,engineer.userId());
+        var financeOnly = as(engineer, () -> closuresService.settleSummary(engineer,projectId));
+        assertThat(financeOnly).containsEntry("expensesTotalCents",600000L)
+                .containsEntry("expensesPaidCents",460000L).containsEntry("expensesRemainingCents",140000L);
+        jdbc.update("""
+                INSERT INTO fr_eng_expense(id,company_id,project_id,name,purpose,amount_cents,payable_id,author_user_id)
+                VALUES(?,?,?,'施工图深化','OTHER',600000,?,?)
+                """,IDS.incrementAndGet(),engineer.orgId(),projectId,payable,engineer.userId());
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer,projectId)))
+                .containsAllEntriesOf(financeOnly);
+    }
 
     @Test
     void threeStagePrepareAlignsWithUnifiedContract() {
