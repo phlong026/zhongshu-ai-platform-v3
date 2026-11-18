@@ -25,6 +25,23 @@ public class ContentCloneController {
         var post=posts.require();clones.assertAccess(post,body.kind());
         return success(uploads.issue(post,id,body.kind(),body.mimeType(),body.sizeBytes(),body.sha256()));
     }
+    public record FileFormat(String kind,String mimeType) {}
+    public record FileReceipt(long sizeBytes,String sha256) {}
+
+    @PostMapping("/personas/{personaId}/clone-file-tickets")
+    @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
+    public CommonResult<Map<String,Object>> fileTicket(@PathVariable("personaId") long id,@RequestBody FileFormat body) {
+        var post=posts.require();
+        clones.assertAccess(post,body.kind());
+        return success(uploads.prepareFileUpload(post,id,body.kind(),body.mimeType()));
+    }
+
+    @PostMapping("/clone-uploads/{id}/file-receipt")
+    @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
+    public CommonResult<Map<String,Object>> fileReceipt(@PathVariable("id") long id,@RequestBody FileReceipt body) {
+        return success(uploads.completeFileUpload(posts.require(),id,body.sizeBytes(),body.sha256()));
+    }
+
     @PostMapping("/clone-uploads/{id}/complete")
     @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
     public CommonResult<Map<String,Object>> complete(@PathVariable("id") long id) {return success(uploads.complete(posts.require(),id));}

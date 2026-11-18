@@ -84,6 +84,23 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->service.complete(post,id)).hasMessageContaining("过期");
         assertThat(jdbc.queryForObject("SELECT status FROM fr_content_hifly_upload",String.class)).isEqualTo("ISSUED");
     }
+    @Test void browserReceiptsRequireTheOriginalPostAndFreezeTheExactFile() throws Exception {
+        var service=service(grants());
+        long id=Long.parseLong((String)service.prepareFileUpload(post,21,"VOICE","audio/mpeg").get("uploadId"));
+        assertThatThrownBy(()->service.complete(post,id)).hasMessageContaining("过期");
+        var changedPost=new PostSnapshot(12L,22L,33L,"store","sales",null,false,Set.of());
+        assertThatThrownBy(()->service.completeFileUpload(changedPost,id,100,sha)).hasMessageContaining("岗位");
+        assertThatThrownBy(()->service.completeFileUpload(post,id,21L<<20,sha));
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var a=pool.submit(()->service.completeFileUpload(post,id,100,sha));
+            var b=pool.submit(()->service.completeFileUpload(post,id,100,sha));
+            assertThat(a.get()).isEqualTo(b.get()).containsEntry("providerStatus","UNVERIFIED");
+        } finally { pool.shutdownNow(); }
+        assertThatThrownBy(()->service.completeFileUpload(post,id,101,sha)).hasMessageContaining("变化");
+        assertThat(service.requireUploaded(post,21,id,"VOICE").sha256()).isEqualTo(sha);
+    }
+
     String undo() throws Exception {
         try(var input=getClass().getResourceAsStream("/db/migration-undo/franchise/V20261116.924__undo_fr_content_hifly_direct_upload.sql")){return new String(Objects.requireNonNull(input).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);}
     }

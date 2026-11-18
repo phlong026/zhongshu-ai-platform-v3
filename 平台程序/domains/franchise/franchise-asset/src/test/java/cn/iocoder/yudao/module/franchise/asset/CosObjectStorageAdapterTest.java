@@ -39,6 +39,6 @@ class CosObjectStorageAdapterTest {
     void noReadOrWriteMayEscapeBusinessObjectPrefix() {
         var storage = new CosObjectStorageAdapter(mock(S3Client.class), mock(S3Presigner.class), "private-test", 1000);
         assertThatThrownBy(() -> storage.getObject("uploads/design/5.png")).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> storage.putObject("franchise/../design/5.png", new byte[1])).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> storage.putObject("franchise/../design/5.png", java.nio.file.Path.of("unused"))).isInstanceOf(IllegalArgumentException.class);
     }
 }

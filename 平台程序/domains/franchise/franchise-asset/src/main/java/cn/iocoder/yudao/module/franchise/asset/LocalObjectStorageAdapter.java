@@ -46,11 +46,11 @@ public class LocalObjectStorageAdapter implements ObjectStoragePort {
     }
 
     @Override
-    public void putObject(String key, byte[] content) {
+    public void putObject(String key, Path content) {
         try {
             Path path = resolve(key);
             Files.createDirectories(path.getParent());
-            Files.write(path, content);
+            Files.copy(content, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) { throw failure("write", key, e); }
     }
 

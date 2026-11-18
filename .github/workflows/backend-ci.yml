@@ -99,7 +99,7 @@ jobs:
         run: >-
           mvn -B -ntp -f 平台程序/pom.xml
           -pl yudao-platform-server -am
-          -Dtest=SixRoleCommissionIntegrationTest,PerfFinanceWorkbenchIntegrationTest,FranchiseBusinessMessagesTest,MessageCenterReadSnapshotIntegrationTest,FranchiseAccountAuthServiceIntegrationTest,StaffWechatLoginIntegrationTest,TrainingIntegrationTest,EngMaterialAndPlanGuardIntegrationTest,PublicCaseImageServiceTest,DesignAccessPublicCaseRoutingTest,FileServiceImplTest
+          -Dtest=SixRoleCommissionIntegrationTest,PerfFinanceWorkbenchIntegrationTest,FranchiseBusinessMessagesTest,MessageCenterReadSnapshotIntegrationTest,FranchiseAccountAuthServiceIntegrationTest,StaffWechatLoginIntegrationTest,TrainingIntegrationTest,EngMaterialAndPlanGuardIntegrationTest,PublicCaseImageServiceTest,DesignAccessPublicCaseRoutingTest,FileServiceImplTest,LocalAssetServiceTest,CosObjectStorageAdapterTest,LocalAssetWiringTest
           -Dsurefire.failIfNoSpecifiedTests=false
           -Dplatform.test.jdbc.url=jdbc:postgresql://127.0.0.1:5432/postgres
           -Dplatform.test.jdbc.username=postgres
@@ -114,3 +114,23 @@ jobs:
           path: '平台程序/**/target/surefire-reports/'
           retention-days: 7
           if-no-files-found: warn
+
+  upload-web:
+    name: File-backed browser upload
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: 平台程序/admin-ui
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - name: Install locked admin dependencies
+        run: npx --yes pnpm@11.19.0 install --frozen-lockfile
+      - name: Test file streaming and build the embedded page
+        run: |
+          node --test src/clone-upload/transfer.test.mjs
+          VITE_BASE_PATH=/admin/ npm run build:prod
+          test -s dist/clone-upload.html

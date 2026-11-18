@@ -29,13 +29,18 @@ public class ContentCloneUploadService {
         if(!Boolean.TRUE.equals(personas.requireWritable(post,id).getEnabled()))throw invalid("人物不存在、已停用或无权使用");
     }
     private static void media(String kind,String mime,long size,String sha) {
+        validateFormat(kind,mime);
+        boolean video="AVATAR".equals(kind);
+        if(size<=0||size>(video?500L:20L)*1024*1024)throw invalid(video?"人物视频须在500MB以内":"声音样本须在20MB以内");
+        if(sha==null||!sha.matches("[a-fA-F0-9]{64}"))throw invalid("素材校验信息无效，请重新选择");
+    }
+    private static void validateFormat(String kind, String mime) {
         if(!"AVATAR".equals(kind)&&!"VOICE".equals(kind))throw invalid("请选择分身或声音");
         boolean video="AVATAR".equals(kind);
         String extension=extension(mime);
         if(extension==null || (video?!Set.of("mp4","mov").contains(extension):!Set.of("mp3","m4a","wav").contains(extension)))throw invalid(video?"请上传MP4或MOV人物视频（H.264编码）":"请上传MP3、M4A或WAV声音样本");
-        if(size<=0||size>(video?500L:20L)*1024*1024)throw invalid(video?"人物视频须在500MB以内":"声音样本须在20MB以内");
-        if(sha==null||!sha.matches("[a-fA-F0-9]{64}"))throw invalid("素材校验信息无效，请重新选择");
     }
+
     private static String extension(String mime) {
         if(mime==null)return null;
         return switch(mime) {case "video/mp4"->"mp4";case "video/mov","video/quicktime"->"mov";case "audio/mpeg","audio/mp3"->"mp3";case "audio/m4a","audio/mp4","audio/x-m4a"->"m4a";case "audio/wav","audio/x-wav","audio/wave"->"wav";default->null;};
@@ -43,15 +48,25 @@ public class ContentCloneUploadService {
     public Map<String,Object> issue(PostSnapshot post,long persona,String kind,String mime,long size,String sha) {
         persona(post,persona);media(kind,mime,size,sha);
         if(size>DIRECT_UPLOAD_LIMIT)throw invalid("素材须在20MB以内，请压缩后重试");
+        return grant(post,persona,kind,mime,size,sha.toLowerCase(Locale.ROOT),"ISSUED");
+    }
+
+    public Map<String,Object> prepareFileUpload(PostSnapshot post,long persona,String kind,String mime) {
+        persona(post,persona);
+        validateFormat(kind,mime);
+        return grant(post,persona,kind,mime,null,null,"AWAITING_FILE");
+    }
+
+    private Map<String,Object> grant(PostSnapshot post,long persona,String kind,String mime,Long size,String sha,String status) {
         if(properties.getProvider()!=ContentProviderProperties.ProviderMode.REAL||!provider.configured())throw invalid("数字人制作服务尚未配置");
         long id=IdWorker.getId();
         HiflyCloneClient.UploadGrant grant;
         try{grant=provider.uploadGrant(extension(mime),new ProviderCallAudit(post.orgId(),id));}
         catch(ContentProviderException error){throw invalid(error.getMessage());}
-        if(("AVATAR".equals(kind))!=grant.contentType().startsWith("video/"))throw invalid("素材上传类型不匹配，请重试");
+        if(!extension(mime).equals(extension(grant.contentType())))throw invalid("素材上传类型不匹配，请重试");
         Instant expires=Instant.now().plusSeconds(900);
-        jdbc.update("INSERT INTO fr_content_hifly_upload(id,company_id,persona_id,author_user_id,author_post_id,kind,provider_file_id,mime_type,size_bytes,declared_sha256,status,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,'ISSUED',?)",
-                id,post.orgId(),persona,post.userId(),post.postId(),kind,grant.fileId(),mime,size,sha.toLowerCase(Locale.ROOT),Timestamp.from(expires));
+        jdbc.update("INSERT INTO fr_content_hifly_upload(id,company_id,persona_id,author_user_id,author_post_id,kind,provider_file_id,mime_type,size_bytes,declared_sha256,status,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                id,post.orgId(),persona,post.userId(),post.postId(),kind,grant.fileId(),mime,size,sha,status,Timestamp.from(expires));
         return Map.of("uploadId",String.valueOf(id),"uploadUrl",grant.url(),"contentType",grant.contentType(),"expiresAt",expires.toEpochMilli());
     }
     private Map<String,Object> owned(PostSnapshot post,long id) {
@@ -67,8 +82,32 @@ public class ContentCloneUploadService {
             }
         }
         // UPLOADED is the client's transfer receipt. Hifly confirms processing via the clone task.
+        return receipt(id);
+    }
+    public Map<String,Object> completeFileUpload(PostSnapshot post,long id,long size,String sha) {
+        var row=owned(post,id);
+        if (((Number)row.get("author_post_id")).longValue()!=post.postId()) throw invalid("请使用发起上传的岗位");
+        persona(post,((Number)row.get("persona_id")).longValue());
+        media((String)row.get("kind"),(String)row.get("mime_type"),size,sha);
+        if(size>DIRECT_UPLOAD_LIMIT) throw invalid("素材须在20MB以内，请压缩后重试");
+        String digest=sha.toLowerCase(Locale.ROOT);
+        int changed=jdbc.update("""
+                UPDATE fr_content_hifly_upload SET size_bytes=?,declared_sha256=?,status='UPLOADED',completed_at=now()
+                 WHERE id=? AND company_id=? AND author_user_id=? AND author_post_id=?
+                   AND status='AWAITING_FILE' AND expires_at>now()
+                """,size,digest,id,post.orgId(),post.userId(),post.postId());
+        if(changed==0) {
+            var existing=owned(post,id);
+            if(!"UPLOADED".equals(existing.get("status")) || !digest.equals(existing.get("declared_sha256"))
+                    || ((Number)existing.get("size_bytes")).longValue()!=size) throw invalid("上传凭证过期或文件已变化");
+        }
+        return receipt(id);
+    }
+
+    private static Map<String,Object> receipt(long id) {
         return Map.of("uploadId",String.valueOf(id),"status","UPLOADED","providerStatus","UNVERIFIED");
     }
+
     public Uploaded requireUploaded(PostSnapshot post,long persona,long id,String kind) {
         var row=owned(post,id);
         if(((Number)row.get("persona_id")).longValue()!=persona)throw invalid("请使用当前人物的素材");

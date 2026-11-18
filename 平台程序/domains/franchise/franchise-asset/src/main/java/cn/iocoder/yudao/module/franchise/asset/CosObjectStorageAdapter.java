@@ -170,7 +170,7 @@ public class CosObjectStorageAdapter implements ObjectStoragePort {
      * {@code application/octet-stream} 会覆盖客户端直传时设置的形象 MIME，导致后续预签名 GET 内联展示异常。
      */
     @Override
-    public void putObject(String objectKey, byte[] content) {
+    public void putObject(String objectKey, java.nio.file.Path content) {
         requireKey(objectKey);
         if (content == null) {
             throw new IllegalArgumentException("putObject 内容不能为空 key=" + objectKey);
@@ -178,7 +178,7 @@ public class CosObjectStorageAdapter implements ObjectStoragePort {
         try {
             s3.putObject(PutObjectRequest.builder()
                             .bucket(bucket).key(objectKey).contentType(contentTypeFromKey(objectKey)).build(),
-                    RequestBody.fromBytes(content));
+                    RequestBody.fromFile(content));
         } catch (S3Exception e) {
             throw classify("putObject", objectKey, e);
         } catch (ApiCallTimeoutException | ApiCallAttemptTimeoutException e) {
