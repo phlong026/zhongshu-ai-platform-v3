@@ -74,22 +74,27 @@ public class FranchiseAccountAuthService {
                     rs.getString("role_code"), rs.getString("brand"), rs.getString("province"), rs.getString("city"), rs.getString("area"), rs.getString("org_name")));
 
     public MatchResult matches(String query) {
-        String normalized = AccountPasswordRules.normalizeQuery(query);
-        if (normalized == null) return new MatchResult(List.of(), false);
+        String displayName = query == null ? "" : query.trim();
+        if (displayName.isBlank() || displayName.length() > 100 || displayName.indexOf('\0') >= 0) {
+            return new MatchResult(List.of(), false);
+        }
+        String normalized = AccountPasswordRules.normalizeQuery(displayName);
         long tenantId = TenantContextHolder.getRequiredTenantId();
-        List<AccountRow> formal = jdbc.query(ACTIVE_ACCOUNT_SELECT
-                        + " WHERE a.tenant_id=? AND a.login_name=? ORDER BY a.login_name LIMIT 1",
-                ACCOUNT_ROW_MAPPER, tenantId, normalized);
-        if (!formal.isEmpty()) return matchResult(formal);
+        if (normalized != null) {
+            List<AccountRow> formal = jdbc.query(ACTIVE_ACCOUNT_SELECT
+                            + " WHERE a.tenant_id=? AND a.login_name=? ORDER BY a.login_name LIMIT 1",
+                    ACCOUNT_ROW_MAPPER, tenantId, normalized);
+            if (!formal.isEmpty()) return matchResult(formal);
+        }
 
         List<AccountRow> exactAliases = jdbc.query(ACTIVE_ACCOUNT_SELECT + """
-                        WHERE a.tenant_id=? AND ((a.account_type='BOSS' AND lower(a.org_name)=?)
-                          OR lower(a.owner_name)=? OR EXISTS (SELECT 1 FROM pf_franchise_account_alias exact_alias
+                        WHERE a.tenant_id=? AND ((a.account_type='BOSS' AND lower(a.org_name)=lower(?))
+                          OR lower(a.owner_name)=lower(?) OR EXISTS (SELECT 1 FROM pf_franchise_account_alias exact_alias
                           WHERE exact_alias.tenant_id=a.tenant_id AND exact_alias.account_id=a.account_id
                             AND exact_alias.alias=?))
                         ORDER BY a.login_name LIMIT 21
-                        """, ACCOUNT_ROW_MAPPER, tenantId, normalized, normalized, normalized);
-        if (!exactAliases.isEmpty()) return matchResult(exactAliases);
+                        """, ACCOUNT_ROW_MAPPER, tenantId, displayName, displayName, normalized);
+        if (normalized == null || !exactAliases.isEmpty()) return matchResult(exactAliases);
 
         List<AccountRow> rows = jdbc.query(ACTIVE_ACCOUNT_SELECT + """
                         WHERE a.tenant_id=? AND (a.login_name LIKE ? OR EXISTS (

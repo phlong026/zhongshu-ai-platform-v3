@@ -79,4 +79,14 @@ class LoginConsentControllerTest {
                 .andExpect(jsonPath("$.data.items[0].personName").value("李丽")).andExpect(jsonPath("$.data.items[0].roleName").value("业务员"))
                 .andExpect(jsonPath("$.data.items[0].shortOrgName").value("合家美宅 · 江西南昌高新区"));
     }
+
+    @Test void acceptsFullStoreNamesForExactMatching() throws Exception {
+        for (String name : List.of("青松 建房（南宁店）", "青")) {
+            when(account.matches(name)).thenReturn(new FranchiseAccountAuthService.MatchResult(List.of(), false));
+            mvc.perform(post("/platform/auth/account/matches").contentType(MediaType.APPLICATION_JSON)
+                            .content(new ObjectMapper().writeValueAsString(Map.of("query", name))))
+                    .andExpect(jsonPath("$.code").value(0));
+            verify(account).matches(name);
+        }
+    }
 }
