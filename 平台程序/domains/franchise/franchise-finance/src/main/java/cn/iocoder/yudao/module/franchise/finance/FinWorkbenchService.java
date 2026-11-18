@@ -222,8 +222,10 @@ public class FinWorkbenchService {
         var input=Map.of("payableId",id,"recovery",cmd);var prior=commands.replayed(post,key,input);if(prior.isPresent())return prior.get().getAggregateId();
         var qs=jdbc.queryForList("SELECT * FROM fr_fin_payable WHERE id=? AND company_id=? AND source_type='reimbursement' FOR UPDATE",id,post.orgId());
         if(qs.isEmpty())throw exception(ORG_MISMATCH);var q=qs.get(0);
+        if ("已作废".equals(q.get("status"))) throw exception(PAYABLE_VOIDED);
         jdbc.queryForList("SELECT id FROM fr_fin_payment WHERE id::text=? AND company_id=? FOR UPDATE",q.get("source_ref"),post.orgId());
-        var row=reimbursements(post.orgId()).stream().filter(r->String.valueOf(id).equals(r.get("payable_id"))).findFirst().orElseThrow();
+        var row=reimbursements(post.orgId()).stream().filter(r->String.valueOf(id).equals(r.get("payable_id")))
+                .findFirst().orElseThrow(() -> exception(PAYABLE_NOT_FOUND));
         long recoverable=((Number)row.get("reimbursed_cents")).longValue()-((Number)row.get("eligible_cents")).longValue()-((Number)row.get("recovered_cents")).longValue();
         if(cmd.amountCents()<=0 || cmd.amountCents()>recoverable || cmd.accountName()==null || cmd.accountName().isBlank())throw exception(PAYMENT_EXCEED_PAYABLE);
         long receipt=receipts.register(post,"recover-"+cn.hutool.crypto.digest.DigestUtil.sha256Hex(key),new FinReceiptService.RegisterCommand("manual","employee-recovery:"+id,"员工归还 · "+q.get("recipient"),cmd.amountCents(),cmd.date(),"other",cmd.transactionNo(),cmd.voucherFileId(),(Long)q.get("project_id"),null,null,null));

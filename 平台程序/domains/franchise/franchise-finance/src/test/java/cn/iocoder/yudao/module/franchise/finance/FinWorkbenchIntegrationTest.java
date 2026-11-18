@@ -9,6 +9,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.*;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.FINANCE;
 
@@ -84,6 +89,8 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   payments.void_(post,advance,"原垫付登记有误");
   assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,reimbursementId)).isEqualTo("已作废");
   assertThat(workbench.reimbursements(post.orgId())).isEmpty();
+  assertThatThrownBy(() -> workbench.recoverEmployee(post,reimbursementId,"void-recovery",
+      new FinWorkbenchService.Recovery(1,LocalDate.now(),"银行",null,null))).hasMessageContaining("应付已作废");
   assertThatThrownBy(()->payments.register(post,"void-reimbursement",new FinPaymentService.PaymentCommand(reimbursementId,1,LocalDate.now(),null,null))).isInstanceOf(RuntimeException.class);
   for(String scope:java.util.List.of("project:"+project,"book:"+book)){
    var summary=(Map<?,?>)workbench.ledger(post.orgId(),scope).get("summary");
@@ -150,5 +157,66 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
     .noneMatch(item->item.key().contains(":reimburse:"));
   assertThat(((Number)workbench.reimbursements(post.orgId()).get(0).get("recovered_cents")).longValue()).isEqualTo(50000);
   assertThatThrownBy(()->workbench.recoverEmployee(post,reimbursement,"extra-recovery",new FinWorkbenchService.Recovery(1,LocalDate.now(),"现金",null,null))).isInstanceOf(RuntimeException.class);
+ }
+
+ @RepeatedTest(3)
+ void concurrentAdvanceRefundRecoveryVoidAndSettlementAgreeWithNetCash() throws Exception {
+  var day = LocalDate.now();
+  long advance = workbench.register(post,"advance",new FinWorkbenchService.EntryCommand("company","expense",
+      "差旅","差旅",10000,day,"车队","个人账户",null,null,"EMPLOYEE",post.userId(),"经办员工"));
+  long bill = Long.parseLong((String)workbench.reimbursements(post.orgId()).get(0).get("payable_id"));
+  long supplier = jdbc.queryForObject("SELECT payable_id FROM fr_fin_payment WHERE id=?",Long.class,advance);
+  payments.register(post,"initial-reimbursement",new FinPaymentService.PaymentCommand(bill,10000,day,null,null));
+  long employeeRefund = refunds.registerExpense(post,"first-refund",new FinRefundService.ExpenseRefundCommand(
+      advance,3000,"退给员工",day,null,null,null,"EMPLOYEE"));
+  long companyRefund = refunds.registerExpense(post,"company-refund",new FinRefundService.ExpenseRefundCommand(
+      advance,200,"退给公司",day,null,null,null,"COMPANY"));
+
+  Runnable recover = () -> workbench.recoverEmployee(post,bill,"recover",
+      new FinWorkbenchService.Recovery(1000,day,"银行","recovery-"+advance,null));
+  Runnable refund = () -> refunds.registerExpense(post,"second-refund",new FinRefundService.ExpenseRefundCommand(
+      advance,500,"退给员工",day,"refund-"+advance,null,null,"EMPLOYEE"));
+  Runnable refresh = () -> jdbc.queryForList("SELECT fr_fin_refresh_payment_bills(?,?,?)",post.orgId(),advance,supplier);
+  Runnable voidAdvance = () -> assertThatThrownBy(() -> payments.void_(post,advance,"作废原垫付"))
+      .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class)
+      .hasMessageContaining("请先作废退回记录");
+  Runnable reimburse = () -> payments.register(post,"reimburse-rest",
+      new FinPaymentService.PaymentCommand(bill,500,day,"reimburse-"+advance,null));
+  concurrently(refund,recover,refund,recover,voidAdvance,refresh,
+      () -> assertThatThrownBy(reimburse::run).hasMessageContaining("累计付款超出应付金额"),
+      () -> refunds.void_(post,companyRefund,"更正退回"));
+  var debt = workbench.reimbursements(post.orgId()).get(0);
+  assertThat(((Number)debt.get("eligible_cents")).longValue()).isEqualTo(6500);
+  assertThat(((Number)debt.get("recovered_cents")).longValue()).isEqualTo(1000);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_refund WHERE payment_id=? AND status='已核实'",Long.class,advance)).isEqualTo(2);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE source_ref=?",Long.class,"employee-recovery:"+bill)).isEqualTo(1);
+  assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,bill)).isEqualTo("已结清");
+
+  refunds.void_(post,employeeRefund,"更正退回");
+  assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,bill)).isEqualTo("进行中");
+  concurrently(reimburse,reimburse,voidAdvance,refresh,() -> refunds.registerExpense(post,"company-return",
+      new FinRefundService.ExpenseRefundCommand(advance,100,"退给公司",day,null,null,null,"COMPANY")));
+  debt = workbench.reimbursements(post.orgId()).get(0);
+  long net = ((Number)debt.get("reimbursed_cents")).longValue()-((Number)debt.get("recovered_cents")).longValue();
+  assertThat(net).isEqualTo(9500).isEqualTo(((Number)debt.get("eligible_cents")).longValue());
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE payable_id=?",Long.class,bill)).isEqualTo(2);
+  assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,bill)).isEqualTo("已结清");
+  assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,supplier)).isEqualTo("进行中");
+ }
+
+ private void concurrently(Runnable... operations) throws Exception {
+  var pool = Executors.newFixedThreadPool(operations.length);
+  var start = new CyclicBarrier(operations.length);
+  var results = new ArrayList<Future<?>>();
+  try {
+   for (var operation : operations) results.add(pool.submit(() -> {
+    start.await(10,TimeUnit.SECONDS);
+    operation.run();
+    return null;
+   }));
+   for (var result : results) result.get(30,TimeUnit.SECONDS);
+  } finally {
+   pool.shutdownNow();
+  }
  }
 }

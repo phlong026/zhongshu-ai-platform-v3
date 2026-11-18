@@ -45,7 +45,13 @@ public class EngProjectController {
         return idem.trim();
     }
 
-    @PostMapping("/projects")
+    @GetMapping("/projects/contract-filing")
+    @PreAuthorize("@post.has('" + EngineeringPermissions.WRITE + "')")
+    public CommonResult<Boolean> supportsContractFiling() {
+        return success(true);
+    }
+
+    @PostMapping({"/projects", "/projects/contract-filing"})
     @Operation(summary = "手工新建/增项建档（查重=同组织未归档项目名唯一 008）")
     @PreAuthorize("@post.has('" + EngineeringPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> create(@RequestBody Map<String, Object> body,

@@ -163,7 +163,7 @@ public class EngProjectService {
                       WHERE c.company_id=? AND c.name=? AND s.status='SIGNED' AND NOT s.deleted)
                     """, Boolean.class, org, customer));
             if (signedName) throw exception(ENGINEERING_INPUT_INVALID, "有同名签约客户，请核对建档手机号；无关工程可选择独立建档");
-            return;
+            throw exception(ENGINEERING_INPUT_INVALID, "未找到对应销售合同，请核对客户手机号或选择独立建档");
         }
         ProjectCustomer matched = matches.get(0);
         if (!customer.equals(matched.name())) {
@@ -174,7 +174,9 @@ public class EngProjectService {
                 SELECT id FROM fr_sale_contract WHERE company_id=? AND customer_id=? AND status='SIGNED'
                   AND NOT deleted FOR UPDATE
                 """, Long.class, org, matched.id());
-        if (contracts.isEmpty()) return;
+        if (contracts.isEmpty()) {
+            throw exception(ENGINEERING_INPUT_INVALID, "该客户没有已签销售合同，如需继续请选择独立建档");
+        }
         long contractId = contracts.get(0);
         if (contractProject(org, contractId) != null) {
             throw exception(ENGINEERING_INPUT_INVALID, "该销售合同已关联工程，请打开已有工程或新建增项");
@@ -211,6 +213,16 @@ public class EngProjectService {
                                     long managerUserId, String drawingVersion, String drawingFile,
                                     List<Map<String, String>> documentRows,
                                     Long saleContractId, String frozenSchemeVersion) {
+        return receiveFromHandover(post, commissionId, customerId, customerName, city, phone, area, floors,
+                managerUserId, drawingVersion, drawingFile, documentRows, saleContractId, frozenSchemeVersion, false);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public long receiveFromHandover(PostSnapshot post, long commissionId, Long customerId, String customerName,
+                                    String city, String phone, BigDecimal area, Integer floors,
+                                    long managerUserId, String drawingVersion, String drawingFile,
+                                    List<Map<String, String>> documentRows, Long saleContractId,
+                                    String frozenSchemeVersion, boolean confirmManagerTransfer) {
         if (saleContractId != null) {
             jdbcTemplate.queryForList("SELECT id FROM fr_sale_contract WHERE company_id=? AND id=? FOR UPDATE",
                     Long.class, post.orgId(), saleContractId);
@@ -221,13 +233,30 @@ public class EngProjectService {
             throw exception(ENGINEERING_INPUT_INVALID, "该委托与合同已关联不同工程，请核对移交档案");
         }
         if (linked != null && existing.isEmpty()) {
-                int adopted = jdbcTemplate.update("""
-                        UPDATE fr_eng_project SET source_commission_id=?,update_time=now()
-                        WHERE id=? AND company_id=? AND customer_id=? AND source_type='MANUAL'
-                          AND source_commission_id IS NULL AND status<>'ARCHIVED'
-                        """, commissionId, linked, post.orgId(), customerId);
-                if (adopted == 0) throw exception(ENGINEERING_INPUT_INVALID, "销售合同已关联其他工程或已归档，请核对移交档案");
-                existing = List.of(projects.lockById(linked));
+            FrEngProjectDO manual = projects.lockById(linked);
+            if (manual == null || !FrEngProjectDO.SOURCE_MANUAL.equals(manual.getSourceType())
+                    || manual.getSourceCommissionId() != null || FrEngProjectDO.STATUS_ARCHIVED.equals(manual.getStatus())
+                    || !java.util.Objects.equals(manual.getCustomerId(), customerId)) {
+                throw exception(ENGINEERING_INPUT_INVALID, "销售合同已关联其他工程或已归档，请核对移交档案");
+            }
+            boolean transfer = manual.getManagerUserId() != managerUserId;
+            if (transfer && (!confirmManagerTransfer || post.userId() != managerUserId)) {
+                throw exception(HANDOVER_TRANSFER_REQUIRED, manual.getName());
+            }
+            long revision = manual.getRevision();
+            Revisions.requireUpdated(projects.updateByRevision(linked, revision, u -> u
+                    .set(FrEngProjectDO::getSourceCommissionId, commissionId)
+                    .set(transfer, FrEngProjectDO::getManagerUserId, managerUserId)
+                    .set(transfer, FrEngProjectDO::getAssignedEngineerUserId, managerUserId)));
+            if (transfer) {
+                var audit = new LinkedHashMap<String, Object>();
+                audit.put("commissionId", commissionId);
+                audit.put("fromUserId", manual.getManagerUserId());
+                audit.put("fromAssignedEngineerUserId", manual.getAssignedEngineerUserId());
+                audit.put("toUserId", managerUserId);
+                commands.record(post, AGGREGATE, linked, revision + 1, "eng-project-handover-transfer", audit, null);
+            }
+            existing = List.of(manual);
         }
         if (!existing.isEmpty()) {
             // 重复回调：刷新交底资料（不动负责人/现场记录——蓝本「工程经办人、已签施工合同和现场记录由工程维护」）；

@@ -243,14 +243,7 @@ public class FinPaymentService {
             if(commands.replayed(post,idempotencyKey,input).isPresent()) return;
             designLocks.payment(paymentId);
         }
-        var existing = paymentMapper.selectById(paymentId);
-        if (existing != null && existing.getCompanyId() == post.orgId() && "EMPLOYEE".equals(existing.getFundingType())) {
-            // Match the reimbursement write path: lock its payable before locking the advance.
-            jdbc.queryForList("""
-                SELECT id FROM fr_fin_payable
-                WHERE company_id=? AND source_type='reimbursement' AND source_ref=? FOR UPDATE
-                """, post.orgId(), String.valueOf(paymentId));
-        }
+        payableMapper.lockBillsForPayment(post.orgId(), paymentId);
         FinPaymentDO payment = paymentMapper.lockById(paymentId);
         if (payment == null) {
             throw exception(PAYMENT_NOT_FOUND);

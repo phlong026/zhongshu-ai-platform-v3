@@ -174,7 +174,7 @@ public class CommissionController {
             case "packet-return" -> handoverService.returnPacket(post, id,
                     new DecisionCommand(str(body, "reason"), false), key);
             case "packet-receive" -> handoverService.receive(post, id,
-                    new DecisionCommand(null, bool(body, "confirmed")), key);
+                    new DecisionCommand(null, bool(body, "confirmed"), bool(body, "confirmManagerTransfer")), key);
             default -> throw exception(COMMISSION_STATE_INVALID);
         };
         return success(CommissionDetail.of(result));
