@@ -31,6 +31,8 @@ import java.util.function.Supplier;
 @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
         name = "platform.legacy-design-bridge.enabled", havingValue = "false")
 public class RechargePaymentService {
+    @org.springframework.beans.factory.annotation.Value(WalletRecoveryJob.ENABLED)
+    private boolean recoveryEnabled = true;
 
     public record OrderResponse(String id, String orderNo, String status, String creditState,
                                 long priceFen, long basePoints, long bonusPoints, Instant createTime) {
@@ -40,7 +42,7 @@ public class RechargePaymentService {
                          long bindingId, long planId, String orderNo, String appid, String openid,
                          String channel, String offerId, int environment, long priceFen, long basePoints,
                          long bonusPoints, String productId, String paymentState, String creditState,
-                         String requestHash, Instant createTime) {
+                         String requestHash, Instant createTime, boolean company, long planVersion) {
         PaymentPort.OrderIdentity identity() {
             return new PaymentPort.OrderIdentity(tenantId, walletId, id, orderNo, channel, appid, offerId,
                     environment, openid, priceFen);
@@ -88,6 +90,16 @@ public class RechargePaymentService {
     }
 
     public OrderResponse createOrder(long planId, String key) {
+        return createOrder(planId,key,null);
+    }
+
+    public OrderResponse createCompanyOrder(String planId, String key, long version) {
+        if (version < 1) throw WalletException.invalidRequest();
+        requireCompanyRecovery();
+        return createOrder(parseId(planId),key,version);
+    }
+
+    private OrderResponse createOrder(long planId, String key, Long version) {
         requireChannel();
         PointAccountService.requireText(key, 128);
         return transaction("createOrder", () -> {
@@ -95,6 +107,7 @@ public class RechargePaymentService {
             var payer = requirePayer(wallet);
             String hash = DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of(wallet.tenantId(), wallet.id(),
                     wallet.actorId(), wallet.postId(), planId, payer.bindingId(), properties.getAppid(), payer.openid())));
+            if (version != null) hash = DigestUtil.sha256Hex("COMPANY:"+version+":"+hash);
             var replay = jdbc.query("SELECT * FROM pf_recharge_order WHERE tenant_id = ? AND wallet_id = ? AND idempotency_key = ?",
                     (rs, row) -> readOrder(rs), wallet.tenantId(), wallet.id(), key);
             if (!replay.isEmpty()) {
@@ -103,6 +116,20 @@ public class RechargePaymentService {
             }
             var plans = jdbc.queryForList("SELECT * FROM pf_recharge_plan WHERE tenant_id = ? AND id = ? AND status = 'ACTIVE' FOR SHARE",
                     wallet.tenantId(), planId);
+            if (version != null) {
+                if (plans.isEmpty() || ((Number)plans.get(0).get("version")).longValue()!=version)
+                    throw new ServiceException(409,"套餐已调整，请重新选择");
+                requireActiveCompany(wallet.orgId());
+                closeUnquotedOrders(wallet);
+                if (Boolean.TRUE.equals(jdbc.queryForObject("""
+                        SELECT EXISTS(SELECT 1 FROM pf_recharge_order o WHERE o.tenant_id=? AND org_id=? AND actor_id=? AND post_id=?
+                          AND credit_target='COMPANY' AND ((payment_state IN ('CREATED','PENDING','UNKNOWN') AND EXISTS
+                            (SELECT 1 FROM pf_recharge_plan p WHERE p.tenant_id=o.tenant_id AND p.id=o.plan_id
+                             AND p.status='ACTIVE' AND p.version=(o.plan_snapshot->>'version')::bigint))
+                          OR (payment_state='SUCCEEDED' AND credit_state='PENDING')))
+                        """,Boolean.class,wallet.tenantId(),wallet.orgId(),wallet.actorId(),wallet.postId())))
+                    throw new ServiceException(409,"已有待处理的充值订单，请刷新");
+            }
             if (plans.isEmpty()) throw WalletException.planUnavailable();
             var plan = plans.get(0);
             String productId = (String) plan.get("wx_product_id");
@@ -114,14 +141,14 @@ public class RechargePaymentService {
             int inserted = jdbc.update("""
                     INSERT INTO pf_recharge_order (id, tenant_id, wallet_id, org_id, actor_id, post_id, binding_id,
                         order_no, plan_id, plan_snapshot, price_fen, base_points, bonus_points,
-                        payer_appid, payer_openid, channel, offer_id, environment, idempotency_key, request_hash)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?, ?, 'XPAY', ?, ?, ?, ?)
+                        payer_appid, payer_openid, channel, offer_id, environment, idempotency_key, request_hash,credit_target)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?, ?, 'XPAY', ?, ?, ?, ?,?)
                     ON CONFLICT DO NOTHING
                     """, id, wallet.tenantId(), wallet.id(), wallet.orgId(), wallet.actorId(), wallet.postId(), payer.bindingId(),
                     "PFW" + id, planId, JsonUtils.toJsonString(Map.of("name", plan.get("name"), "version", plan.get("version"),
                             "priceFen", plan.get("price_fen"), "basePoints", base, "bonusPoints", bonus, "wxProductId", productId)),
                     plan.get("price_fen"), base, bonus, properties.getAppid(), payer.openid(), properties.getOfferId(),
-                    properties.getEnvironment(), key, hash);
+                    properties.getEnvironment(), key, hash,version==null?"WALLET":"COMPANY");
             if (inserted != 1) throw WalletException.conflict();
             return order(wallet.tenantId(), wallet.id(), id).response();
         });
@@ -149,7 +176,12 @@ public class RechargePaymentService {
     }
 
     public Map<String, String> payParams(String id, String code, String attemptKey) {
+        return payParams(id,code,attemptKey,false);
+    }
+
+    public Map<String, String> payParams(String id, String code, String attemptKey, boolean company) {
         requireNoTransaction();
+        if (company) requireCompanyRecovery();
         PaymentPort port = requireChannel();
         PointAccountService.requireText(code, 512);
         PointAccountService.requireText(attemptKey, 128);
@@ -158,6 +190,8 @@ public class RechargePaymentService {
             var wallet = scope.require();
             var payer = requirePayer(wallet);
             var order = order(wallet.tenantId(), wallet.id(), orderId);
+            if (order.company()!=company) throw WalletException.unavailable();
+            requireCurrentQuote(order);
             requireOriginalPayer(wallet, payer, order);
             requirePayable(order);
             var attempts = jdbc.queryForList("""
@@ -198,6 +232,7 @@ public class RechargePaymentService {
                 var wallet = scope.require();
                 var payer = requirePayer(wallet);
                 var currentOrder = order(wallet.tenantId(), wallet.id(), orderId);
+                requireCurrentQuote(currentOrder);
                 requireOriginalPayer(wallet, payer, currentOrder);
                 requirePayable(currentOrder);
                 int updated = jdbc.update("""
@@ -271,27 +306,65 @@ public class RechargePaymentService {
             long facts = jdbc.queryForObject("SELECT count(*) FROM pf_payment_transaction WHERE tenant_id = ? AND wallet_id = ? AND order_id = ?",
                     Long.class, tenantId, walletId, orderId);
             if (facts != 1) throw WalletException.invalidState();
-            long base = points.credit(order.wallet(), "RECHARGE_BASE_CREDIT", order.basePoints(), "RECHARGE", Long.toString(orderId),
-                    "recharge:" + orderId + ":base", "充值基础点");
-            Long bonus = order.bonusPoints() == 0 ? null : points.credit(order.wallet(), "RECHARGE_BONUS_CREDIT", order.bonusPoints(),
-                    "RECHARGE", Long.toString(orderId), "recharge:" + orderId + ":bonus", "充值赠送点");
-            jdbc.update("""
-                    INSERT INTO pf_recharge_credit (id, tenant_id, wallet_id, order_id, base_points, bonus_points, ledger_base_id, ledger_bonus_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, IdWorker.getId(), tenantId, walletId, orderId, order.basePoints(), order.bonusPoints(), base, bonus);
+            if (order.company()) {
+                CompanyRechargeLedger.change(jdbc,order,"COMPANY_RECHARGE",orderId,Math.addExact(order.basePoints(),order.bonusPoints()));
+            } else {
+                long base = points.credit(order.wallet(), "RECHARGE_BASE_CREDIT", order.basePoints(), "RECHARGE", Long.toString(orderId),
+                        "recharge:" + orderId + ":base", "充值基础点");
+                Long bonus = order.bonusPoints() == 0 ? null : points.credit(order.wallet(), "RECHARGE_BONUS_CREDIT", order.bonusPoints(),
+                        "RECHARGE", Long.toString(orderId), "recharge:" + orderId + ":bonus", "充值赠送点");
+                jdbc.update("""
+                        INSERT INTO pf_recharge_credit (id, tenant_id, wallet_id, order_id, base_points, bonus_points, ledger_base_id, ledger_bonus_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, IdWorker.getId(), tenantId, walletId, orderId, order.basePoints(), order.bonusPoints(), base, bonus);
+            }
             jdbc.update("UPDATE pf_recharge_order SET credit_state = 'CREDITED', update_time = now() WHERE tenant_id = ? AND wallet_id = ? AND id = ?",
                     tenantId, walletId, orderId);
             return true;
         });
     }
 
+    boolean companyPaymentsEnabled() {
+        return recoveryEnabled && channelEnabled();
+    }
+
+    private void requireCompanyRecovery() {
+        if (!recoveryEnabled) throw new ServiceException(503, "公司积分支付暂未开放");
+    }
+
+    private boolean channelEnabled() {
+        return properties.isEnabled() && "FEN".equals(properties.getPaidFeeUnit()) && ports.getIfAvailable()!=null
+                && properties.getAppid()!=null && !properties.getAppid().isBlank()
+                && properties.getOfferId()!=null && !properties.getOfferId().isBlank();
+    }
+
     PaymentPort requireChannel() {
-        if (!properties.isEnabled() || !"FEN".equals(properties.getPaidFeeUnit()) || ports.getIfAvailable() == null
-                || properties.getAppid() == null || properties.getAppid().isBlank()
-                || properties.getOfferId() == null || properties.getOfferId().isBlank()) {
+        if (!channelEnabled()) {
             throw new ServiceException(503, "支付通道尚未启用");
         }
         return ports.getObject();
+    }
+
+    private void requireActiveCompany(long orgId) {
+        if (jdbc.queryForList("SELECT id FROM org_point_account WHERE org_id=? AND status='ACTIVE' FOR SHARE",Long.class,orgId).isEmpty())
+            throw new ServiceException(409,"当前公司积分池未启用");
+    }
+
+    private void requireCurrentQuote(OrderSnapshot order) {
+        if (!order.company()) return;
+        requireActiveCompany(order.orgId());
+        if (jdbc.queryForList("SELECT id FROM pf_recharge_plan WHERE tenant_id=? AND id=? AND version=? AND status='ACTIVE' FOR SHARE",
+                Long.class,order.tenantId(),order.planId(),order.planVersion()).isEmpty())
+            throw new ServiceException(409,"套餐已调整，请重新选择");
+    }
+
+    private void closeUnquotedOrders(WalletScope.Wallet wallet) {
+        jdbc.update("""
+                UPDATE pf_recharge_order o SET payment_state='CLOSED',update_time=now()
+                WHERE tenant_id=? AND wallet_id=? AND actor_id=? AND post_id=? AND credit_target='COMPANY'
+                AND payment_state='CREATED' AND NOT EXISTS (SELECT 1 FROM pf_recharge_plan p WHERE p.tenant_id=o.tenant_id
+                  AND p.id=o.plan_id AND p.status='ACTIVE' AND p.version=(o.plan_snapshot->>'version')::bigint)
+                """,wallet.tenantId(),wallet.id(),wallet.actorId(),wallet.postId());
     }
 
     void lockWallet(long tenantId, long walletId) {
@@ -398,6 +471,7 @@ public class RechargePaymentService {
                 rs.getString("payer_appid"), rs.getString("payer_openid"), rs.getString("channel"), rs.getString("offer_id"),
                 rs.getInt("environment"), rs.getLong("price_fen"), rs.getLong("base_points"), rs.getLong("bonus_points"),
                 (String) snapshot.get("wxProductId"), rs.getString("payment_state"), rs.getString("credit_state"),
-                rs.getString("request_hash"), rs.getTimestamp("create_time").toInstant());
+                rs.getString("request_hash"), rs.getTimestamp("create_time").toInstant(),"COMPANY".equals(rs.getString("credit_target")),
+                ((Number)snapshot.getOrDefault("version",0)).longValue());
     }
 }

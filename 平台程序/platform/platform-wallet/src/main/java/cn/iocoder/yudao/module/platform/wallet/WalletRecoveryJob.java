@@ -30,7 +30,8 @@ public class WalletRecoveryJob {
     private final RefundPaymentService refunds;
     private final WechatXPayProperties properties;
     private final ObjectProvider<PaymentPort> ports;
-    @Value("${platform.wallet.recovery.enabled:false}") private boolean enabled;
+    static final String ENABLED = "${platform.wallet.recovery.enabled:${platform.wallet.payment.enabled:false}}";
+    @Value(ENABLED) private boolean enabled;
 
     public WalletRecoveryJob(DataSource source, PlatformTransactionManager manager, RechargePaymentService payment,
                              RefundPaymentService refunds, WechatXPayProperties properties, ObjectProvider<PaymentPort> ports) {

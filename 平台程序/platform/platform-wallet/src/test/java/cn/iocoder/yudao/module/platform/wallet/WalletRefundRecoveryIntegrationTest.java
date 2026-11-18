@@ -86,6 +86,24 @@ class WalletRefundRecoveryIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
+    void companyRefundReservesOnceRestoresOnFailureAndSettlesOnceOnSuccess() {
+        jdbc.update("UPDATE pf_recharge_order SET credit_target='COMPANY' WHERE id=?", orderId);
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)", IdWorker.getId(), wallet.orgId());
+        paidAndCredited();
+        var first = refunds.requestRefund(orderId, "company-first", 0);
+        assertThat(refunds.requestRefund(orderId, "company-first", 0).id()).isEqualTo(first.id());
+        for (int attempt = 0; attempt < 2; attempt++)
+            refunds.processRefundFact(tenant, wallet.id(), orderId, fact(first, "FAILED", 7));
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?", Long.class, wallet.orgId())).isEqualTo(20);
+        var second = refunds.requestRefund(orderId, "company-second", 0);
+        for (int attempt = 0; attempt < 2; attempt++)
+            refunds.processRefundFact(tenant, wallet.id(), orderId, fact(second, "SUCCEEDED", 8));
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?", Long.class, wallet.orgId())).isEqualTo(8);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE org_id=?", Long.class, wallet.orgId())).isEqualTo(4);
+        balance(0, 0);
+    }
+
+    @Test
     void insufficientPointsCauseZeroExternalRefundsAndNoPlaceholder() {
         paidAndCredited();
         tx.executeWithoutResult(status -> points.reserve(wallet, 1));
@@ -509,7 +527,7 @@ class WalletRefundRecoveryIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     private PaymentPort.ChannelRefundResult fact(RefundPaymentService.RefundResponse refund, String state, int status) {
-        return new PaymentPort.ChannelRefundResult(state, "PFW" + orderId, refund.refundNo(), "wx-refund-" + orderId, 100L, "FEN", 1, status);
+        return new PaymentPort.ChannelRefundResult(state, "PFW" + orderId, refund.refundNo(), "wx-refund-" + refund.id(), 100L, "FEN", 1, status);
     }
 
     private PaymentPort.ChannelRefundResult externalFact() {

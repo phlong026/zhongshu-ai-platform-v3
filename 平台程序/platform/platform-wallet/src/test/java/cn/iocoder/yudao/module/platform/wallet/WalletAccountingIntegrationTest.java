@@ -384,6 +384,46 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
                 new PaymentFactValidator(), properties, beans.getBeanProvider(PaymentPort.class));
     }
 
+    @Test
+    void companyPoolCreditsOnceAndKeepsHistoricWalletSeparate() {
+        var payment = paymentService();
+        long planId = paymentFixture();
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)",IdWorker.getId(),post.orgId());
+        var order = payment.createCompanyOrder(Long.toString(planId),"company-check",1);
+        assertThat(payment.createCompanyOrder(Long.toString(planId),"company-check",1).id()).isEqualTo(order.id());
+        long walletId=jdbc.queryForObject("SELECT id FROM pf_wallet WHERE org_id=?",Long.class,post.orgId());
+        var fact=new PaymentPort.ChannelQueryResult("SUCCEEDED",order.orderNo(),"XPAY","wallet-app","wallet-offer",0,
+                "openid-"+post.userId(),"fixture-"+order.id(),100L,"FEN",java.time.Instant.now(),0);
+        for(int i=0;i<2;i++) {
+            payment.processPaymentFact(tenant,walletId,Long.parseLong(order.id()),fact);
+            payment.fulfillOrder(tenant,walletId,Long.parseLong(order.id()));
+        }
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?",Long.class,post.orgId())).isEqualTo(20);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE org_id=? AND type='COMPANY_RECHARGE'",Long.class,post.orgId())).isOne();
+        assertBalance(0,0,0);
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfSystemProperty(named="franchise.ui.runner",matches=".+")
+    void miniProgramToSpringControllersOverHttp() throws Exception {
+        long planId=paymentFixture();
+        var provider=mock(PaymentPort.class);
+        when(provider.createPrepay(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new PaymentPort.PrepayResult(java.util.Map.of("signData","fixture","signature","fixture","paySig","fixture","mode","short_series_goods")));
+        var payment=paymentService(provider);
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)",IdWorker.getId(),post.orgId());
+        PostSnapshot peer=createPost(), other=createPost();
+        current.set(post);
+        var pool = new cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointService(dataSource, transactionManager,
+                mock(cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort.class),
+                new cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPriceService(dataSource, transactionManager));
+        assertThat(pool.summary(post.orgId()).balance()).isEqualTo(8);
+        new CompanyServicesHttpFixture(jdbc,transactionManager,scope,payment,provider,current,tenant,post,peer,other)
+                .run(planId,System.getProperty("franchise.ui.runner"));
+        assertThat(pool.summary(post.orgId()).balance()).isEqualTo(20);
+        assertThat(pool.summary(post.orgId()).monthUsedTotal()).isZero();
+    }
+
     private long paymentFixture() {
         jdbc.execute("CREATE TABLE IF NOT EXISTS pf_wechat_binding (id BIGINT PRIMARY KEY, appid VARCHAR(64), openid VARCHAR(128), user_id BIGINT, mobile_hash CHAR(64), status VARCHAR(16))");
         jdbc.execute("ALTER TABLE system_role ADD COLUMN IF NOT EXISTS deleted SMALLINT NOT NULL DEFAULT 0");

@@ -68,8 +68,8 @@ public class RefundPaymentService {
             long busy = jdbc.queryForObject("SELECT count(*) FROM pf_refund_order WHERE tenant_id = ? AND wallet_id = ? AND order_id = ? AND channel_state <> 'FAILED'",
                     Long.class, wallet.tenantId(), wallet.id(), orderId);
             if (busy != 0) throw WalletException.conflict();
-            points.reserve(wallet, Math.addExact(order.basePoints(), order.bonusPoints()));
             long id = IdWorker.getId();
+            reserveRefund(order,id);
             String no = "PFR" + id;
             String token = UUID.randomUUID().toString();
             jdbc.update("""
@@ -167,15 +167,19 @@ public class RefundPaymentService {
             String pointState = (String) row.get("point_state");
             long total = Math.addExact(order.basePoints(), order.bonusPoints());
             if (succeeded && !"RESERVED".equals(pointState) && "CREDITED".equals(order.creditState())) {
-                long available = jdbc.queryForObject("SELECT available_points FROM pf_point_account WHERE tenant_id = ? AND wallet_id = ? FOR UPDATE",
-                        Long.class, tenantId, walletId);
-                boolean frozen = Boolean.TRUE.equals(jdbc.queryForObject("SELECT spending_frozen FROM pf_wallet WHERE tenant_id = ? AND id = ?", Boolean.class, tenantId, walletId));
+                long available = order.company()
+                        ? jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=? FOR UPDATE",Long.class,order.orgId())
+                        : jdbc.queryForObject("SELECT available_points FROM pf_point_account WHERE tenant_id = ? AND wallet_id = ? FOR UPDATE",Long.class,tenantId,walletId);
+                boolean frozen = order.company()
+                        ? !Boolean.TRUE.equals(jdbc.queryForObject("SELECT status='ACTIVE' FROM org_point_account WHERE org_id=?",Boolean.class,order.orgId()))
+                        : Boolean.TRUE.equals(jdbc.queryForObject("SELECT spending_frozen FROM pf_wallet WHERE tenant_id = ? AND id = ?", Boolean.class, tenantId, walletId));
                 if (available >= total && !frozen) {
-                    points.reserve(order.wallet(), total);
+                    reserveRefund(order,((Number)row.get("id")).longValue());
                     pointState = "RESERVED";
                 } else {
                     pointState = "DEBT";
-                    jdbc.update("UPDATE pf_wallet SET spending_frozen = TRUE, update_time = now() WHERE tenant_id = ? AND id = ?", tenantId, walletId);
+                    if (order.company()) jdbc.update("UPDATE org_point_account SET status='SUSPENDED',version=version+1,update_time=now() WHERE org_id=?",order.orgId());
+                    else jdbc.update("UPDATE pf_wallet SET spending_frozen = TRUE, update_time = now() WHERE tenant_id = ? AND id = ?", tenantId, walletId);
                     jdbc.update("INSERT INTO pf_payment_anomaly_audit (id, tenant_id, wallet_id, order_id, anomaly_type, detail) VALUES (?, ?, ?, ?, 'REFUND_POINT_DEBT', '外部退款已到账，积分不足，冻结支出待追偿')",
                             IdWorker.getId(), tenantId, walletId, orderId);
                     log.warn("[walletRefund][tenant={} wallet={} order={}] 外部退款积分不足，已冻结支出", tenantId, walletId, orderId);
@@ -208,7 +212,11 @@ public class RefundPaymentService {
             if (!"RESERVED".equals(row.get("point_state"))) return null;
             String state = (String) row.get("channel_state");
             if ("SUCCEEDED".equals(state)) reverse(order, row);
-            else if ("FAILED".equals(state)) points.releaseReserve(order.wallet(), Math.addExact(order.basePoints(), order.bonusPoints()));
+            else if ("FAILED".equals(state)) {
+                long total=Math.addExact(order.basePoints(),order.bonusPoints());
+                if (order.company()) CompanyRechargeLedger.change(jdbc,order,"COMPANY_REFUND_RELEASE",((Number)row.get("id")).longValue(),total);
+                else points.releaseReserve(order.wallet(),total);
+            }
             else return null;
             jdbc.update("""
                     UPDATE pf_refund_order SET point_state = ?, update_time = now()
@@ -218,7 +226,15 @@ public class RefundPaymentService {
         });
     }
 
+    private void reserveRefund(RechargePaymentService.OrderSnapshot order,long refundId) {
+        long total=Math.addExact(order.basePoints(),order.bonusPoints());
+        if (order.company()) CompanyRechargeLedger.change(jdbc,order,"COMPANY_REFUND_HOLD",refundId,-total);
+        else points.reserve(order.wallet(),total);
+    }
+
     private void reverse(RechargePaymentService.OrderSnapshot order, Map<String, Object> row) {
+        // The company pool's available balance was debited at reservation. The refund row records final settlement.
+        if (order.company()) return;
         String id = row.get("id").toString();
         points.consumeReserve(order.wallet(), "REFUND_BASE_REVERSAL", order.basePoints(), "REFUND", id,
                 "refund:" + id + ":base", "整单退款基础点冲正");

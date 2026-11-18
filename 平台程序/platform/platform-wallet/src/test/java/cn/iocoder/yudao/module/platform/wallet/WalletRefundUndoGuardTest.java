@@ -52,6 +52,23 @@ class WalletRefundUndoGuardTest extends PlatformPgIntegrationTest {
     }
 
     @Test
+    void companyRechargeUpgradePreservesHistoricalOrdersAndGuardsRollback() throws Exception {
+        order();
+        String forward = "db/migration/platform-wallet/V20261118.994__company_recharge.sql";
+        String rollback = "db/migration-undo/platform-wallet/V20261118.994__undo_company_recharge.sql";
+        String undo = new org.springframework.core.io.ClassPathResource(rollback).getContentAsString(StandardCharsets.UTF_8);
+        execute(connection, new org.springframework.core.io.ClassPathResource(forward).getContentAsString(StandardCharsets.UTF_8));
+        assertThat(value(connection, "SELECT credit_target FROM pf_recharge_order WHERE id=55")).isEqualTo("WALLET");
+        execute(connection, "UPDATE pf_recharge_order SET credit_target='COMPANY' WHERE id=55");
+        assertThatThrownBy(() -> execute(connection, "BEGIN;" + undo + "COMMIT;")).isInstanceOf(SQLException.class);
+        execute(connection, "ROLLBACK");
+        assertThat(value(connection, "SELECT credit_target FROM pf_recharge_order WHERE id=55")).isEqualTo("COMPANY");
+        execute(connection, "UPDATE pf_recharge_order SET credit_target='WALLET' WHERE id=55");
+        execute(connection, "BEGIN;" + undo + "COMMIT;");
+        assertThat(value(connection, "SELECT count(*)::text FROM pf_recharge_order WHERE id=55")).isEqualTo("1");
+    }
+
+    @Test
     void nonEmptyRefundMustRefuseAndPreserveDataAndSchema() throws Exception {
         order();
         refund("UNKNOWN", "NULL", "NULL");
