@@ -4,10 +4,11 @@
   <ContentWrap>
     <!-- 搜索工作栏 -->
     <el-form
-      class="-mb-15px"
+      class="admin-filters"
       :model="queryParams"
       ref="queryFormRef"
       :inline="true"
+      label-position="top"
       label-width="68px"
     >
       <el-form-item label="用户名称" prop="username">
@@ -57,17 +58,34 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table native-scrollbar v-loading="loading" :data="list">
-      <el-table-column label="日志编号" align="center" prop="id" />
-      <el-table-column label="登录类型" align="center" prop="logType">
+    <el-table
+      native-scrollbar
+      max-height="max(280px, calc(100dvh - 330px))"
+      v-loading="loading"
+      :data="list"
+    >
+      <el-table-column label="日志编号" align="center" prop="id" min-width="110" />
+      <el-table-column label="登录类型" align="center" prop="logType" min-width="130">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.SYSTEM_LOGIN_TYPE" :value="scope.row.logType" />
         </template>
       </el-table-column>
-      <el-table-column label="用户名称" align="center" prop="username" width="180" />
+      <el-table-column
+        label="用户名称"
+        align="center"
+        prop="username"
+        width="180"
+        show-overflow-tooltip
+      />
       <el-table-column label="登录地址" align="center" prop="userIp" width="180" />
-      <el-table-column label="浏览器" align="center" prop="userAgent" />
-      <el-table-column label="登陆结果" align="center" prop="result">
+      <el-table-column
+        label="浏览器"
+        align="center"
+        prop="userAgent"
+        min-width="260"
+        show-overflow-tooltip
+      />
+      <el-table-column label="登陆结果" align="center" prop="result" min-width="130">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.SYSTEM_LOGIN_RESULT" :value="scope.row.result" />
         </template>
@@ -79,7 +97,7 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="操作" align="center">
+      <el-table-column label="操作" align="center" fixed="right" width="150">
         <template #default="scope">
           <el-button
             link

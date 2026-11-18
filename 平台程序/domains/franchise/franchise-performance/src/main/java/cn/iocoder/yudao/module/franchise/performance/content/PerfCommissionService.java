@@ -320,11 +320,15 @@ public class PerfCommissionService {
         long received;
         List<Long> receiptIds = new ArrayList<>();
         List<String> signatureParts = new ArrayList<>();
-        signatureParts.add("required:" + required);
         if (contractId != null) {
-            received = unifiedStages.stageCollectedCents(post, contractId, engStage);
+            var balance = unifiedStages.stageBalances(post, contractId).stream()
+                    .filter(row -> engStage.equals(row.stage())).findFirst();
+            required = balance.map(row -> row.expectedCents()).orElse(0L);
+            received = balance.map(row -> row.collectedCents()).orElse(0L);
+            signatureParts.add("required:" + required);
             signatureParts.add("unified:" + contractId + ":" + engStage + ":" + received);
         } else {
+            signatureParts.add("required:" + required);
             List<Map<String, Object>> collectionRows = jdbc.queryForList(
                     "SELECT id, amount_cents, receipt_id FROM fr_eng_collection "
                             + "WHERE company_id = ? AND project_id = ? AND stage = ? ORDER BY id",

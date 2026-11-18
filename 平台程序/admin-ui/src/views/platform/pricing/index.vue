@@ -62,6 +62,7 @@
         </div>
         <el-table
           native-scrollbar
+          max-height="max(300px, calc(100dvh - 360px))"
           class="pricing-table"
           v-loading="loading"
           :data="filtered"
@@ -117,7 +118,7 @@
       </el-tab-pane>
       <el-tab-pane label="调价记录" name="history">
         <p class="pricing-note">显示最近 200 条价格版本记录。</p>
-        <el-form inline @submit.prevent="loadHistory">
+        <el-form inline label-position="top" @submit.prevent="loadHistory">
           <el-form-item label="业务能力"
             ><el-select
               v-model="historySubject"
@@ -139,13 +140,14 @@
         <el-alert v-if="historyError" :title="historyError" type="error" :closable="false" />
         <el-table
           native-scrollbar
+          max-height="max(300px, calc(100dvh - 360px))"
           v-else
           v-loading="historyLoading"
           :data="history"
           empty-text="暂无调价记录，当前使用系统基准价格"
           scrollbar-always-on
         >
-          <el-table-column prop="label" label="能力" min-width="180" />
+          <el-table-column prop="label" label="能力" min-width="200" show-overflow-tooltip />
           <el-table-column label="单价" min-width="150"
             ><template #default="{ row }"
               >{{ formatMicros(row.priceMicros) }} 积分 / {{ unitLabel(row.unit) }}</template
@@ -160,13 +162,18 @@
               row.status === 'ACTIVE' ? '生效中' : '已替换'
             }}</template></el-table-column
           >
-          <el-table-column prop="operatorName" label="操作人" min-width="130" />
+          <el-table-column
+            prop="operatorName"
+            label="操作人"
+            min-width="150"
+            show-overflow-tooltip
+          />
           <el-table-column label="发布时间" min-width="180"
             ><template #default="{ row }">{{
               displayTime(row.effectiveAt)
             }}</template></el-table-column
           >
-          <el-table-column prop="reason" label="变更原因" min-width="220" />
+          <el-table-column prop="reason" label="变更原因" min-width="260" show-overflow-tooltip />
         </el-table>
       </el-tab-pane>
       <el-tab-pane label="其他价格与成本" name="other">

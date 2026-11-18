@@ -22,6 +22,8 @@ public class CustomerFollowDO {
     private Long companyId;
     private Long customerId;
     private String note;
+    private String contactKind;
+    private LocalDate occurredOn;
     private LocalDate nextVisitDate;
     private Long authorUserId;
     private Long authorPostId;

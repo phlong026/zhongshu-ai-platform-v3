@@ -4,10 +4,11 @@
   <!-- 搜索 -->
   <ContentWrap>
     <el-form
-      class="-mb-15px"
+      class="admin-filters"
       :model="queryParams"
       ref="queryFormRef"
       :inline="true"
+      label-position="top"
       label-width="68px"
     >
       <el-form-item label="参数名称" prop="name">
@@ -89,24 +90,60 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table native-scrollbar v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
+    <el-table
+      native-scrollbar
+      max-height="max(280px, calc(100dvh - 330px))"
+      v-loading="loading"
+      :data="list"
+      @selection-change="handleRowCheckboxChange"
+    >
       <el-table-column type="selection" width="55" />
-      <el-table-column label="参数主键" align="center" prop="id" />
-      <el-table-column label="参数分类" align="center" prop="category" />
-      <el-table-column label="参数名称" align="center" prop="name" :show-overflow-tooltip="true" />
-      <el-table-column label="参数键名" align="center" prop="key" :show-overflow-tooltip="true" />
-      <el-table-column label="参数键值" align="center" prop="value" />
-      <el-table-column label="是否可见" align="center" prop="visible">
+      <el-table-column label="参数主键" align="center" prop="id" min-width="110" />
+      <el-table-column
+        label="参数分类"
+        align="center"
+        prop="category"
+        min-width="140"
+        show-overflow-tooltip
+      />
+      <el-table-column
+        label="参数名称"
+        align="center"
+        prop="name"
+        :show-overflow-tooltip="true"
+        min-width="200"
+      />
+      <el-table-column
+        label="参数键名"
+        align="center"
+        prop="key"
+        :show-overflow-tooltip="true"
+        min-width="240"
+      />
+      <el-table-column
+        label="参数键值"
+        align="center"
+        prop="value"
+        min-width="260"
+        show-overflow-tooltip
+      />
+      <el-table-column label="是否可见" align="center" prop="visible" min-width="100">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.INFRA_BOOLEAN_STRING" :value="scope.row.visible" />
         </template>
       </el-table-column>
-      <el-table-column label="系统内置" align="center" prop="type">
+      <el-table-column label="系统内置" align="center" prop="type" min-width="120">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.INFRA_CONFIG_TYPE" :value="scope.row.type" />
         </template>
       </el-table-column>
-      <el-table-column label="备注" align="center" prop="remark" :show-overflow-tooltip="true" />
+      <el-table-column
+        label="备注"
+        align="center"
+        prop="remark"
+        :show-overflow-tooltip="true"
+        min-width="240"
+      />
       <el-table-column
         label="创建时间"
         align="center"
@@ -114,7 +151,7 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="操作" align="center">
+      <el-table-column label="操作" align="center" fixed="right" width="150">
         <template #default="scope">
           <el-button
             link

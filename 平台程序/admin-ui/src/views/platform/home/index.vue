@@ -142,14 +142,15 @@
     <!-- 快捷入口 -->
     <div class="zs-table-card quick-row">
       <span class="quick-row__title">快捷入口</span>
-      <el-tag
+      <el-button
         v-for="entry in quickEntries"
         :key="entry.path"
         class="quick-tag"
+        plain
         @click="router.push(entry.path)"
       >
         {{ entry.title }}
-      </el-tag>
+      </el-button>
     </div>
   </div>
 </template>
@@ -555,25 +556,30 @@ onMounted(load)
 .organization-card {
   margin-bottom: 20px;
 }
+
 .organization-card-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
 }
+
 .organization-card-heading h2 {
   margin: 0;
   font-size: 18px;
 }
+
 .organization-card-heading h2 span {
   margin-left: 8px;
-  color: var(--el-text-color-secondary);
   font-size: 15px;
   font-weight: 400;
+  color: var(--el-text-color-secondary);
 }
+
 .legacy-statistics {
   margin-bottom: 20px;
 }
+
 .zs-page-header {
   display: flex;
   align-items: center;
@@ -626,7 +632,10 @@ onMounted(load)
 }
 
 .quick-tag {
-  cursor: pointer;
+  height: auto;
+  min-height: 36px;
+  margin-left: 0;
+  white-space: normal;
 }
 
 @media (width <= 768px) {

@@ -7,8 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 公司进度计划模板（代码常量，表化留阶段 3）：《合家美宅进度计划表》一级计划（12 类节点），
- * 主体层按项目层数展开（1-5 层钳制，缺省 2）后 13-17 节点；模板只定节点结构与顺序，
+ * 公司进度计划模板：正式开工里程碑 +《合家美宅进度计划表》一级计划（12 类施工节点）。
+ * 主体层按项目层数展开（1-5 层钳制，缺省 2）后共 13-17 节点；模板只定节点结构与顺序，
  * 工期日期由工程人员逐项填写（或 Excel 导入走 v3 解析后 PUT plan）。
  * 规则来源：engineering-records.js:16-28（recordFlow 唯一基准）。
  */
@@ -37,6 +37,7 @@ public final class EngTemplate {
     public static List<NodeDraft> buildNodes(Integer floors) {
         int n = Math.max(1, Math.min(5, floors == null ? 2 : floors));
         List<NodeDraft> rows = new ArrayList<>();
+        rows.add(new NodeDraft(1, "正式开工", "START"));
         for (Stage stage : TEMPLATE) {
             if (stage.perFloor()) {
                 for (int i = 1; i <= n; i++) {

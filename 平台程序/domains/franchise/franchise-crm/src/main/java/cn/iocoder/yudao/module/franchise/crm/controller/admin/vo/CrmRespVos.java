@@ -42,22 +42,22 @@ public interface CrmRespVos {
     }
 
     record Follow(long id, long customerId, String note, LocalDate nextVisitDate, long authorUserId,
-                  OffsetDateTime createTime) {
+                  OffsetDateTime createTime,String contactKind,LocalDate occurredOn) {
         public static Follow of(CustomerFollowDO f) {
             return new Follow(f.getId(), f.getCustomerId(), f.getNote(), f.getNextVisitDate(),
-                    f.getAuthorUserId(), f.getCreateTime());
+                    f.getAuthorUserId(), f.getCreateTime(),f.getContactKind(),f.getOccurredOn());
         }
     }
 
     record Scheme(long id, long customerId, String kind, int version, String title, String payload,
                   java.math.BigDecimal width, java.math.BigDecimal depth, Integer floors,
                   java.math.BigDecimal area, Long totalCents, long authorUserId, OffsetDateTime createTime,
-                  String stage) {
+                  String stage,OffsetDateTime confirmedAt,String confirmationNote) {
         public static Scheme of(CustomerSchemeDO s) {
             String stage = "formal".equals(s.getStage()) ? "formal" : "reference";
             return new Scheme(s.getId(), s.getCustomerId(), s.getKind(), s.getVersion(), s.getTitle(),
                     s.getPayload(), s.getWidth(), s.getDepth(), s.getFloors(), s.getArea(),
-                    s.getTotalCents(), s.getAuthorUserId(), s.getCreateTime(), stage);
+                    s.getTotalCents(), s.getAuthorUserId(), s.getCreateTime(), stage,s.getConfirmedAt(),s.getConfirmationNote());
         }
     }
 

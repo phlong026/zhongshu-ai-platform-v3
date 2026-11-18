@@ -22,7 +22,7 @@ public class EngineeringPayableAdapter implements EngineeringPayablePort {
     @Override
     public long registerPayable(PostSnapshot post, PayableCommand cmd) {
         FinPaymentService.PayableCommand finCmd = new FinPaymentService.PayableCommand(
-                post.orgId(), cmd.sourceProjectId(), "engineering", cmd.amountCents(),
+                post.orgId(), cmd.sourceProjectId(), cmd.sourceRef().startsWith("engineering-expense:") ? "engineering_expense" : "engineering", cmd.amountCents(),
                 cmd.supplier(), cmd.basis());
         return payments.registerPayable(post, "eng-payable:" + cmd.sourceRef(), finCmd);
     }

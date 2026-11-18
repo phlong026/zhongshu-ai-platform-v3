@@ -1,15 +1,17 @@
-// 后台通用布局：字段换行，宽表按记录展示，弹窗头尾始终可访问。
+// 后台通用布局：保留各表字段列宽，宽表局部滚动，弹窗头尾始终可访问。
 .admin-content {
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
   container-type: inline-size;
+  padding: clamp(12px, 1.3vw, 20px);
 
   .zs-page {
     box-sizing: border-box;
     min-width: 0;
     max-width: 100%;
-    padding: clamp(12px, 2vw, 28px);
+    padding: 0;
+    min-height: 0;
   }
 
   :is(.zs-table-card, .el-card, .el-tabs, .el-tab-pane, .el-form-item__content) {
@@ -89,8 +91,13 @@
     .cell {
       line-height: 1.6;
       white-space: normal;
-      overflow-wrap: anywhere;
-      text-overflow: clip;
+      word-break: normal;
+      overflow-wrap: normal;
+      text-overflow: ellipsis;
+    }
+
+    .cell.el-tooltip {
+      white-space: nowrap;
     }
 
     .el-scrollbar__bar.is-horizontal {
@@ -221,136 +228,20 @@
   }
 }
 
-// Fit data to its container; never hide a column or shorten the underlying value.
-.admin-fit-table {
-  container-type: inline-size;
-
-  .el-table__header,
-  .el-table__body,
-  .el-table__footer {
-    width: 100% !important;
-    table-layout: fixed;
+// Tables keep Element Plus column sizing and fixed columns. Long content is
+// intentionally expanded in a tooltip or detail, rather than widening every row.
+:is(.admin-content, .el-dialog, .el-drawer) {
+  .el-table .el-table__cell {
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
-  colgroup col {
-    width: auto !important;
-  }
-  colgroup col[data-admin-selection] {
-    width: 42px !important;
-  }
-  .el-table__empty-block {
-    width: 100% !important;
-    min-width: 0;
-  }
-  .el-table-fixed-column--left,
-  .el-table-fixed-column--right {
-    position: static !important;
-    box-shadow: none !important;
-    &::before {
-      display: none;
-    }
-  }
-  .cell {
-    width: auto !important;
-    max-width: 100%;
-    box-sizing: border-box;
-    min-width: 0;
-    white-space: normal !important;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-    text-overflow: clip;
-  }
-  .cell > :is(div, span) {
-    max-width: 100%;
-  }
-  .cell .flex {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .el-button {
-    max-width: 100%;
-    height: auto;
-    min-height: 28px;
-    white-space: normal;
-  }
-  .el-button > span {
+  .admin-cell-wrap {
     white-space: normal;
     overflow-wrap: anywhere;
   }
-  .el-button + .el-button {
-    margin-left: 0;
-  }
-  .el-image,
-  img {
-    max-width: 100%;
-    object-fit: contain;
-  }
-  :is(.el-input, .el-input-number, .el-select) {
-    max-width: 100%;
-    min-width: 0;
-  }
-}
-.admin-table-records {
-  .el-table__header-wrapper:not(:has(th[data-admin-control])) {
-    display: none;
-  }
-  .el-table__header,
-  .el-table__body,
-  .el-table__footer {
-    display: block;
-  }
-  colgroup {
-    display: none;
-  }
-  thead,
-  tbody {
-    display: block;
-    width: 100%;
-  }
-  .el-table__header tr {
-    display: flex;
-    flex-wrap: wrap;
-  }
-  .el-table__header th {
-    display: none;
-  }
-  .el-table__header th[data-admin-control] {
-    display: block;
-    flex: 0 1 auto;
-  }
-  .el-table__body tr {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 16px;
-    padding: 12px;
-    margin-bottom: 12px;
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: 8px;
-  }
-  .el-table__body td {
-    display: block;
-    width: auto !important;
-    min-width: 0;
-    padding: 10px 0;
-    text-align: left;
-    border-bottom: 0;
-    &::before {
-      display: block;
-      margin: 0 12px 4px;
-      font-size: 13px;
-      color: var(--el-text-color-secondary);
-      content: attr(data-admin-label);
-    }
-    .cell {
-      text-align: left;
-    }
-  }
-  .el-table__body td.admin-spanning-cell {
-    grid-column: 1 / -1;
-  }
-  @container (width < 480px) {
-    .el-table__body tr {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  .admin-cell-code {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 }
 :is(.admin-content, .el-dialog, .el-drawer) {
@@ -388,7 +279,7 @@
     overflow-wrap: anywhere;
   }
 }
-@container (max-width: 1200px) {
+@container (max-width: 1000px) {
   .admin-content .admin-split-layout > .el-col {
     max-width: 100%;
     flex: 0 0 100%;
@@ -419,5 +310,42 @@
   :is(.el-dialog, .el-drawer) .el-form .el-row > .el-col {
     flex: 0 0 100%;
     max-width: 100%;
+  }
+}
+
+// 搜索字段对齐，按钮单独成行，避免无标签按钮挤入输入区。
+.admin-content .admin-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 12px 16px;
+  .el-form-item {
+    display: block;
+    min-width: 0;
+    margin: 0;
+  }
+  .el-form-item:last-child {
+    grid-column: 1 / -1;
+  }
+  .el-form-item__label {
+    height: auto;
+    padding: 0;
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+  .el-form-item__content > :is(.el-input, .el-select, .el-date-editor) {
+    width: 100% !important;
+  }
+}
+:is(.el-dialog, .el-drawer) .admin-detail-summary .el-descriptions__table {
+  table-layout: auto;
+}
+
+// 小屏宽表随表体滚动，避免多按钮操作列遮住业务字段。
+@media (width <= 600px) {
+  .admin-content .el-table:not(.training-compact-table) .el-table-fixed-column--right {
+    position: static !important;
+    &::before {
+      display: none;
+    }
   }
 }

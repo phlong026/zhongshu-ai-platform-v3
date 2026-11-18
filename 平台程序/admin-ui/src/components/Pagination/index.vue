@@ -6,22 +6,26 @@
     v-model:page-size="pageSize"
     :background="true"
     :page-sizes="[10, 20, 30, 50, 100]"
-    :pager-count="pagerCount"
+    :pager-count="compact ? Math.min(pagerCount, 5) : pagerCount"
     :total="total"
     :small="isSmall"
-    class="float-right mb-15px mt-15px"
-    layout="total, sizes, prev, pager, next, jumper"
+    class="admin-pagination"
+    :layout="
+      compact ? 'total, prev, pager, next, sizes' : 'total, sizes, prev, pager, next, jumper'
+    "
     @size-change="handleSizeChange"
     @current-change="handleCurrentChange"
   />
 </template>
 <script lang="ts" setup>
 import { computed, watchEffect } from 'vue'
+import { useMediaQuery } from '@vueuse/core'
 import { useAppStore } from '@/store/modules/app'
 
 defineOptions({ name: 'Pagination' })
 
 // 此处解决了当全局size为small的时候分页组件样式太大的问题
+const compact = useMediaQuery('(max-width: 600px)')
 const appStore = useAppStore()
 const layoutCurrentSize = computed(() => appStore.currentSize)
 const isSmall = ref<boolean>(layoutCurrentSize.value === 'small')
@@ -85,3 +89,18 @@ const handleCurrentChange = (val) => {
   emit('pagination', { page: val, limit: pageSize.value })
 }
 </script>
+
+<style scoped>
+.admin-pagination {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+  margin: 16px 0 0;
+}
+
+@media (width <= 600px) {
+  .admin-pagination {
+    justify-content: flex-start;
+  }
+}
+</style>

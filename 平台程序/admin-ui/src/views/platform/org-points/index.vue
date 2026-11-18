@@ -81,18 +81,38 @@
 
           <el-tabs v-model="activeTab" class="content-card">
             <el-tab-pane label="积分流水" name="ledger">
-              <el-table native-scrollbar :data="ledger" empty-text="暂无积分流水">
+              <el-table
+                native-scrollbar
+                max-height="max(280px, calc(100dvh - 410px))"
+                :data="ledger"
+                empty-text="暂无积分流水"
+              >
                 <el-table-column prop="createTime" label="时间" min-width="170">
                   <template #default="{ row }">{{ adminDateTime(row.createTime) }}</template>
                 </el-table-column>
                 <el-table-column prop="type" label="类型" width="110">
                   <template #default="{ row }">{{ ledgerTypeText(row.type) }}</template>
                 </el-table-column>
-                <el-table-column prop="subject" label="业务科目" min-width="140" />
-                <el-table-column prop="availableDelta" label="可用积分变动" min-width="140">
+                <el-table-column
+                  prop="subject"
+                  label="业务科目"
+                  min-width="140"
+                  show-overflow-tooltip
+                />
+                <el-table-column
+                  prop="availableDelta"
+                  label="可用积分变动"
+                  min-width="150"
+                  align="right"
+                >
                   <template #default="{ row }">{{ formatInteger(row.availableDelta) }}</template>
                 </el-table-column>
-                <el-table-column prop="actorUserId" label="使用人编号" min-width="150" />
+                <el-table-column
+                  prop="actorUserId"
+                  label="使用人编号"
+                  min-width="150"
+                  show-overflow-tooltip
+                />
                 <el-table-column prop="note" label="说明" min-width="180" show-overflow-tooltip />
               </el-table>
             </el-tab-pane>
@@ -106,17 +126,37 @@
                   >提交调点申请</el-button
                 >
               </div>
-              <el-table native-scrollbar :data="adjustments" empty-text="暂无调点申请">
-                <el-table-column prop="id" label="申请编号" min-width="180" />
+              <el-table
+                native-scrollbar
+                max-height="max(280px, calc(100dvh - 410px))"
+                :data="adjustments"
+                empty-text="暂无调点申请"
+              >
+                <el-table-column prop="id" label="申请编号" min-width="180" show-overflow-tooltip />
                 <el-table-column prop="delta" label="积分变动" width="120">
                   <template #default="{ row }">{{ formatInteger(row.delta) }}</template>
                 </el-table-column>
-                <el-table-column prop="reason" label="申请原因" min-width="180" />
-                <el-table-column prop="makerId" label="提交人" min-width="150" />
+                <el-table-column
+                  prop="reason"
+                  label="申请原因"
+                  min-width="180"
+                  show-overflow-tooltip
+                />
+                <el-table-column
+                  prop="makerId"
+                  label="提交人"
+                  min-width="150"
+                  show-overflow-tooltip
+                />
                 <el-table-column prop="status" label="状态" width="110">
                   <template #default="{ row }">{{ adjustmentStatusText(row.status) }}</template>
                 </el-table-column>
-                <el-table-column prop="checkerId" label="复核人" min-width="150" />
+                <el-table-column
+                  prop="checkerId"
+                  label="复核人"
+                  min-width="150"
+                  show-overflow-tooltip
+                />
                 <el-table-column v-if="canReview" label="操作" width="150" fixed="right">
                   <template #default="{ row }">
                     <el-button
@@ -140,15 +180,30 @@
                   >打开统一定价管理</el-button
                 >
               </div>
-              <el-table native-scrollbar :data="prices" empty-text="暂无业务价格">
+              <el-table
+                native-scrollbar
+                max-height="max(280px, calc(100dvh - 410px))"
+                :data="prices"
+                empty-text="暂无业务价格"
+              >
                 <el-table-column prop="label" label="能力" min-width="160" />
-                <el-table-column prop="subject" label="科目" min-width="150" />
+                <el-table-column
+                  prop="subject"
+                  label="科目"
+                  min-width="150"
+                  show-overflow-tooltip
+                />
                 <el-table-column prop="unit" label="计量单位" width="110" />
                 <el-table-column label="单价（积分）" min-width="130">
                   <template #default="{ row }">{{ formatMicros(row.priceMicros) }}</template>
                 </el-table-column>
                 <el-table-column prop="minCharge" label="最低收费" width="120" />
-                <el-table-column prop="versionText" label="版本" min-width="120" />
+                <el-table-column
+                  prop="versionText"
+                  label="版本"
+                  min-width="120"
+                  show-overflow-tooltip
+                />
                 <el-table-column prop="configured" label="来源" width="110">
                   <template #default="{ row }">{{
                     row.configured ? '总部配置' : '系统基准'
@@ -743,13 +798,15 @@ onMounted(loadAll)
 
 .pool-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   gap: 16px;
   min-height: 520px;
 }
 
 .company-card {
+  max-height: max(360px, calc(100dvh - 190px));
   padding: 14px;
+  overflow-y: auto;
 }
 
 .section-title {
@@ -776,6 +833,8 @@ onMounted(loadAll)
 }
 
 .company-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-weight: 600;
   color: #282728;
 }
@@ -818,6 +877,7 @@ onMounted(loadAll)
 }
 
 .summary-card strong {
+  overflow-wrap: anywhere;
   font-size: 22px;
   color: #282728;
 }
@@ -841,9 +901,28 @@ onMounted(loadAll)
   border-radius: 12px;
 }
 
-@media (width <= 960px) {
+@media (width <= 1180px) {
   .pool-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .company-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    max-height: 240px;
+  }
+
+  .section-title {
+    flex-basis: 100%;
+    margin-bottom: 0;
+  }
+
+  .company-item {
+    flex: 1 1 240px;
+    width: auto;
+    margin-bottom: 0;
   }
 
   .summary-grid {

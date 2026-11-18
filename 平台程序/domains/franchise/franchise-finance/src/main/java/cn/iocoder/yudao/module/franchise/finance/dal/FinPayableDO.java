@@ -27,6 +27,8 @@ public class FinPayableDO {
 
     private Long projectId;
     private String stage;
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private String name;
     private Long totalCents;
     private String recipient;
     private String status;

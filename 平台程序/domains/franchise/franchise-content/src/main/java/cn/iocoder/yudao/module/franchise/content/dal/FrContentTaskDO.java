@@ -23,6 +23,11 @@ public class FrContentTaskDO {
     private String kind;
     private String inputSnapshot;
     private String resultSnapshot;
+    /** 本地结果持久化独立于生成和计费终态；失败只重试保存。 */
+    private String resultState;
+    private Integer resultAttempts;
+    private OffsetDateTime resultRetryAfter;
+    private String resultError;
     private String inputSha256;
     private String provider;
     private String providerTaskId;
@@ -30,8 +35,6 @@ public class FrContentTaskDO {
     private String engine;
     private String model;
     private String status;
-    private String resultState;
-    private String resultError;
     private String failedReason;
     /** 公司积分池预扣键；任务终态后可据此幂等恢复结算。 */
     private String poolBizKey;

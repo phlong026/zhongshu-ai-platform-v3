@@ -83,6 +83,7 @@ class ContentOrgPointPgIntegrationTest {
         // 本契约只需内容/账本表；权限菜单种子属于完整应用迁移测试的责任。
         jdbc.execute(contentPoolMigration.substring(0, contentPoolMigration.indexOf("-- 人工账务核验权限")));
         executeResource("db/migration/franchise/V20261117.961__content_result_delivery.sql");
+        executeResource("db/migration/franchise/V20261118.972__content_result_delivery.sql");
     }
 
     @AfterAll

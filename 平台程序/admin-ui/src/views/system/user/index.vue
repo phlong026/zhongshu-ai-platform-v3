@@ -14,10 +14,11 @@
       <!-- 搜索 -->
       <ContentWrap>
         <el-form
-          class="-mb-15px"
+          class="admin-filters"
           :model="queryParams"
           ref="queryFormRef"
           :inline="true"
+          label-position="top"
           label-width="68px"
         >
           <el-form-item label="用户名称" prop="username">
@@ -104,7 +105,13 @@
         </el-form>
       </ContentWrap>
       <ContentWrap>
-        <el-table native-scrollbar v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
+        <el-table
+          native-scrollbar
+          max-height="max(280px, calc(100dvh - 330px))"
+          v-loading="loading"
+          :data="list"
+          @selection-change="handleRowCheckboxChange"
+        >
           <el-table-column type="selection" width="55" />
           <el-table-column label="用户编号" align="center" key="id" prop="id" min-width="90" />
           <el-table-column
@@ -126,11 +133,11 @@
             align="center"
             key="deptName"
             prop="deptName"
-            min-width="260"
+            min-width="230"
             :show-overflow-tooltip="true"
           />
           <el-table-column label="手机号码" align="center" prop="mobile" width="120" />
-          <el-table-column label="状态" key="status">
+          <el-table-column label="状态" key="status" min-width="140">
             <template #default="scope">
               <el-switch
                 v-model="scope.row.status"
@@ -148,7 +155,7 @@
             :formatter="dateFormatter"
             width="180"
           />
-          <el-table-column label="操作" align="center" width="160">
+          <el-table-column label="操作" align="center" width="160" fixed="right">
             <template #default="scope">
               <div class="flex items-center justify-center">
                 <el-button

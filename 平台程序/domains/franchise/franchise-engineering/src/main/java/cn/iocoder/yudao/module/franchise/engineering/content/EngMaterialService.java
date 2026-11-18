@@ -112,7 +112,7 @@ public class EngMaterialService {
         FrEngPlanNodeDO node = planNodes.selectByProject(post.orgId(), projectId).stream()
                 .filter(n -> n.getId() == cmd.nodeId()).findFirst()
                 .orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "请选择本项目的施工节点"));
-        if (FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus())) {
+        if ("START".equals(node.getMilestone()) || FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus())) {
             throw exception(ENGINEERING_INPUT_INVALID, "请选择未完成的施工节点");
         }
         if (cmd.due() == null) {
@@ -357,6 +357,7 @@ public class EngMaterialService {
             planService.requireValidAsset(post, resolutionAssetId,
                     java.util.Set.of("ENG_SITE_PHOTO"), "质检处置"); // -1 必拒（validateReference 不存在）
             FrEngSupplyReceiptDO receipt = requireReceipt(post, cmd.qualityResolution());
+            if (!java.util.Objects.equals(receipt.getSupplyId(), supply.getId())) throw exception(ENGINEERING_INPUT_INVALID, "收货批次与供货单不符");
             resolveQuality(post, receipt, cmd.qualityResolution());
             commands.record(post, AGGREGATE, supply.getProjectId(),
                 projectService.bumpRevision(post, projectService.requireProject(post, supply.getProjectId())),
@@ -420,10 +421,11 @@ public class EngMaterialService {
         row.put("result", "更换后合格");
         row.put("note", note);
         row.put("fileAssetId", fileAssetId instanceof Number n ? n.longValue() : Long.parseLong(String.valueOf(fileAssetId)));
-        jdbcTemplate.update("UPDATE fr_eng_supply_receipt SET quality_resolution = CAST(? AS jsonb), "
-                        + "update_time = now() WHERE id = ? AND company_id = ?",
+        int updated = jdbcTemplate.update("UPDATE fr_eng_supply_receipt SET quality_resolution = CAST(? AS jsonb), "
+                        + "update_time = now() WHERE id = ? AND company_id = ? AND quality_resolution->>'result' IS DISTINCT FROM '更换后合格'",
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(row),
                 receipt.getId(), post.orgId());
+        if (updated != 1) throw exception(ENGINEERING_INPUT_INVALID, "该批次已处置");
     }
 
     private Map<String, Object> newReceipt(PostSnapshot post, FrEngSupplyDO supply, ArrivalCommand cmd,
@@ -631,6 +633,7 @@ public class EngMaterialService {
             boolean cancelled = FrEngMaterialDO.STATUS_CANCELLED.equals(m.getStatus());
             Map<String, Object> line = new LinkedHashMap<>();
             line.put("materialId", m.getId());
+            line.put("nodeId", String.valueOf(m.getNodeId()));
             line.put("name", m.getName());
             line.put("spec", m.getSpec());
             line.put("unit", m.getUnit());
@@ -644,6 +647,18 @@ public class EngMaterialService {
             line.put("paymentStatus", cancelled ? "已取消"
                     : total == 0 ? "待记录采购金额" : paid >= total ? "已付清" : paid > 0 ? "部分已付" : "待付款");
             if (full) {
+                line.put("receipts", receipts.stream().map(r -> {
+                    Map<String, Object> receipt = new LinkedHashMap<>();
+                    receipt.put("id", String.valueOf(r.getId()));
+                    receipt.put("actualQuantity", r.getActualQuantity());
+                    receipt.put("quality", r.getQuality());
+                    receipt.put("qualified", EngGuard.qualityPassed(r));
+                    receipt.put("occurredAt", r.getOccurredAt());
+                    receipt.put("transactionNo", r.getTransactionNo());
+                    receipt.put("fileAssetId", r.getFileAssetId());
+                    receipt.put("corrections", r.getCorrections());
+                    return receipt;
+                }).toList());
                 line.put("supplyId", s == null ? null : s.getId());
                 line.put("payableId",s==null || s.getPayableId()==null?null:String.valueOf(s.getPayableId()));
                 line.put("supplier", s == null ? "" : StrUtil.nullToEmpty(s.getSupplier()));

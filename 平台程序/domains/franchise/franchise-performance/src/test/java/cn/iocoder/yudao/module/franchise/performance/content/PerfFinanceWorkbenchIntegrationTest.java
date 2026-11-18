@@ -9,6 +9,7 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  @Resource JdbcTemplate jdbc;
  @Test @org.springframework.transaction.annotation.Transactional
  void bossCashDebtAndAgingUseTheSameEffectiveFacts(){
+  // 事务回滚时清理临时表，避免不同测试的跨域表结构相互影响。
   createTables();
   var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId(),id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,amount_cents,status,received_date,source_type,name,registrar_user_id) VALUES(?,?,1000000,'已登记','2026-11-10','business','业主款',?)",id,org,actor.userId());

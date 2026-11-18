@@ -198,7 +198,7 @@ public class FranchiseMessageResolver implements MessageCenterResolver {
         }
         if(route.equals("engineering")){
             var project=facts.one("fr_eng_project",id);
-            return number(project.get("company_id"))==p.orgId()&&(financial(p)||number(project.get("manager_user_id"))==p.userId()||customerAllowed(p,facts.one("fr_customer",project.get("customer_id"))));
+            return number(project.get("company_id"))==p.orgId()&&(financial(p)||number(project.get("manager_user_id"))==p.userId()||number(project.get("assigned_engineer_user_id"))==p.userId()||customerAllowed(p,facts.one("fr_customer",project.get("customer_id"))));
         }
         if(route.equals("finance")){
             if(financial(p))return true;
@@ -223,6 +223,7 @@ public class FranchiseMessageResolver implements MessageCenterResolver {
     private static boolean financial(PostSnapshot p){return Set.of("finance","finance-lead","boss","owner").contains(p.roleCode());}
     private static boolean matches(TodoItem t,String route,long id,Map<String,Object> c){
         var q=params(t.appPath());
+        if(route.equals("engineering")&&"eng-progress-overdue".equals(c.get("eventCode")))return t.key().equals("fr-eng:delay:"+text(c.get("nodeId")));
         if(route.startsWith("commission"))return number(q.get("commissionId"))==id;
         if(route.equals("customer"))return text(t.appPath()).contains("view=customer")&&number(q.get("id"))==id;
         if(route.equals("finance")&&t.key().startsWith("fr-sale-finance:"))return text(c.get("sourceTable")).equals("fr_sale_collection_declaration")&&lastId(t.key())==id;

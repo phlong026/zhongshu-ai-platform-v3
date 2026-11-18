@@ -306,6 +306,12 @@ public class EngProjectService {
             row.put("name", p.getName());
             row.put("customer", p.getCustomerName());
             row.put("city", p.getCity());
+            row.put("area", p.getArea());
+            row.put("floors", p.getFloors());
+            var progressNodes = planNodes.selectByProject(post.orgId(), p.getId());
+            row.put("totalNodes", progressNodes.size());
+            row.put("completedNodes", progressNodes.stream()
+                    .filter(n -> FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus())).count());
             row.put("status", p.getStatus());
             row.put("managerUserId", p.getManagerUserId());
             row.put("actualStartAt", p.getActualStartAt());
@@ -363,7 +369,18 @@ public class EngProjectService {
             row.put("fileRef", d.getFileRef());
             return row;
         }).toList());
-        view.put("nodes", nodes.stream().map(EngProjectService::nodeView).toList());
+        var progressOwners = new java.util.LinkedHashSet<Long>();
+        if (project.getManagerUserId() != null) progressOwners.add(project.getManagerUserId());
+        nodes.stream().map(FrEngPlanNodeDO::getDelayOwnerUserId).filter(java.util.Objects::nonNull).forEach(progressOwners::add);
+        var progressNames = new java.util.HashMap<Long,String>();
+        systemDirectory.usersByIds(new java.util.ArrayList<>(progressOwners)).forEach(u -> progressNames.put(u.userId(),java.util.Objects.toString(u.name(),"")));
+        view.put("nodes", nodes.stream().map(n -> {
+            var row=nodeView(n);
+            Long owner=n.getDelayOwnerUserId()==null?project.getManagerUserId():n.getDelayOwnerUserId();
+            row.put("delayOwnerName", progressNames.getOrDefault(owner,""));
+            row.put("delayOwnerUserId", owner);
+            return row;
+        }).toList());
         // R2 P1-4：现场记录透出（批次#36 在线 site/site-correct 链数据源；corrections/file_asset_ids 原样 JSONB 文本）
         view.put("siteRecords", jdbcTemplate.queryForList(
                 "SELECT id, node_id, occurred_at, note, completion, "
@@ -397,6 +414,13 @@ public class EngProjectService {
         row.put("status", n.getStatus());
         row.put("milestone", n.getMilestone());
         row.put("completedAt", n.getCompletedAt());
+        row.put("baselineEndDate", n.getBaselineEndDate());
+        row.put("deviationDays", EngProgress.deviationDays(n, LocalDate.now()));
+        row.put("delayReason", n.getDelayReason());
+        row.put("delayOwnerUserId", n.getDelayOwnerUserId());
+        row.put("recoveryDate", n.getRecoveryDate());
+        row.put("recoveryAction", n.getRecoveryAction());
+        row.put("delayHistory", n.getDelayHistory());
         row.put("corrections", n.getCorrections());
         row.put("reopenHistory", n.getReopenHistory());
         return row;

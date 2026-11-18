@@ -7,8 +7,9 @@
     <el-form
       ref="queryFormRef"
       :inline="true"
+      label-position="top"
       :model="queryParams"
-      class="-mb-15px"
+      class="admin-filters"
       label-width="68px"
     >
       <el-form-item label="角色名称" prop="name">
@@ -94,19 +95,43 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table native-scrollbar v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
+    <el-table
+      native-scrollbar
+      max-height="max(280px, calc(100dvh - 330px))"
+      v-loading="loading"
+      :data="list"
+      @selection-change="handleRowCheckboxChange"
+    >
       <el-table-column type="selection" width="55" />
-      <el-table-column align="center" label="角色编号" prop="id" />
-      <el-table-column align="center" label="角色名称" prop="name" />
-      <el-table-column label="角色类型" align="center" prop="type">
+      <el-table-column align="center" label="角色编号" prop="id" min-width="110" />
+      <el-table-column
+        align="center"
+        label="角色名称"
+        prop="name"
+        min-width="200"
+        show-overflow-tooltip
+      />
+      <el-table-column label="角色类型" align="center" prop="type" min-width="120">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.SYSTEM_ROLE_TYPE" :value="scope.row.type" />
         </template>
       </el-table-column>
-      <el-table-column align="center" label="角色标识" prop="code" />
-      <el-table-column align="center" label="显示顺序" prop="sort" />
-      <el-table-column align="center" label="备注" prop="remark" />
-      <el-table-column align="center" label="状态" prop="status">
+      <el-table-column
+        align="center"
+        label="角色标识"
+        prop="code"
+        min-width="180"
+        show-overflow-tooltip
+      />
+      <el-table-column align="center" label="显示顺序" prop="sort" min-width="90" />
+      <el-table-column
+        align="center"
+        label="备注"
+        prop="remark"
+        min-width="240"
+        show-overflow-tooltip
+      />
+      <el-table-column align="center" label="状态" prop="status" min-width="100">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
         </template>
@@ -118,7 +143,7 @@
         prop="createTime"
         width="180"
       />
-      <el-table-column :width="300" align="center" label="操作">
+      <el-table-column :width="300" align="center" label="操作" fixed="right">
         <template #default="scope">
           <el-button
             v-hasPermi="['system:role:update']"

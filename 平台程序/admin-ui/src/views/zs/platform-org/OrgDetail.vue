@@ -29,8 +29,10 @@
     <el-alert v-if="summaryError" :title="summaryError" type="error" :closable="false" />
     <el-tabs v-model="tab" @tab-change="changeTab">
       <el-tab-pane label="组织概览" name="overview">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="组织名称">{{ organization.orgName }}</el-descriptions-item>
+        <el-descriptions :column="summaryColumns" :label-width="110" border>
+          <el-descriptions-item label="组织名称" :span="summaryColumns">{{
+            organization.orgName
+          }}</el-descriptions-item>
           <el-descriptions-item label="所属品牌">{{
             organization.brand || '—'
           }}</el-descriptions-item>
@@ -41,22 +43,40 @@
           <el-descriptions-item label="手机号">{{
             organization.mobile || '未设置'
           }}</el-descriptions-item>
-          <el-descriptions-item label="登录账号">
+          <el-descriptions-item label="登录账号" :span="summaryColumns">
             {{ organization.loginName || '未设置' }}
             <el-button v-if="organization.loginName" link type="primary" @click="copyAccount"
               >复制</el-button
             >
           </el-descriptions-item>
-          <el-descriptions-item label="查找简称">{{
-            current.aliases.filter(a => a.length <= 24).slice(0, 3).join('、') || '—'
+          <el-descriptions-item label="查找简称" :span="summaryColumns">{{
+            current.aliases
+              .filter((a) => a.length <= 24)
+              .slice(0, 3)
+              .join('、') || '—'
           }}</el-descriptions-item>
           <el-descriptions-item label="开通时间">{{
             date(organization.createdAt)
           }}</el-descriptions-item>
-          <el-descriptions-item label="备注">{{ organization.remark || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="备注" :span="summaryColumns">{{
+            organization.remark || '—'
+          }}</el-descriptions-item>
         </el-descriptions>
-        <OrganizationProfilePanel v-if="canManage" :org-id="organization.orgId" @updated="profileUpdated" />
-        <ResetAccountPassword :key="String(organization.accountId)+organization.ownerName" v-if="organization.orgType === 'store' && organization.status !== 'DELETED' && organization.accountId" :org-id="organization.orgId" :org-name="organization.orgName" />
+        <OrganizationProfilePanel
+          v-if="canManage"
+          :org-id="organization.orgId"
+          @updated="profileUpdated"
+        />
+        <ResetAccountPassword
+          :key="String(organization.accountId) + organization.ownerName"
+          v-if="
+            organization.orgType === 'store' &&
+            organization.status !== 'DELETED' &&
+            organization.accountId
+          "
+          :org-id="organization.orgId"
+          :org-name="organization.orgName"
+        />
         <section v-if="canManage" class="organization-actions">
           <h3>组织状态</h3>
           <p>{{
@@ -78,7 +98,11 @@
       </el-tab-pane>
       <el-tab-pane label="成员与岗位" name="members" />
       <el-tab-pane v-if="canManage" label="能力开通" name="capabilities">
-        <OrganizationCapabilityPanel v-if="tab==='capabilities'" :org-id="organization.orgId" :status="organization.status" />
+        <OrganizationCapabilityPanel
+          v-if="tab === 'capabilities'"
+          :org-id="organization.orgId"
+          :status="organization.status"
+        />
       </el-tab-pane>
       <el-tab-pane label="积分账户" name="points">
         <DirectCreditControl
@@ -91,7 +115,15 @@
         />
       </el-tab-pane>
       <el-tab-pane label="生成记录" name="generations">
-        <el-button v-if="canManage" link type="primary" @click="$router.push({path:'/platform-task-ops',query:{orgId:organization.orgId}})">查看本组织任务与积分核对</el-button>
+        <el-button
+          v-if="canManage"
+          link
+          type="primary"
+          @click="
+            $router.push({ path: '/platform-task-ops', query: { orgId: organization.orgId } })
+          "
+          >查看本组织任务与积分核对</el-button
+        >
       </el-tab-pane>
       <el-tab-pane label="操作记录" name="audits" />
     </el-tabs>
@@ -109,7 +141,12 @@
           }}</template></el-table-column
         >
       </el-table>
-      <el-table native-scrollbar v-else-if="tab === 'generations'" :data="tableRows" empty-text="暂无生成记录">
+      <el-table
+        native-scrollbar
+        v-else-if="tab === 'generations'"
+        :data="tableRows"
+        empty-text="暂无生成记录"
+      >
         <el-table-column label="生成时间" min-width="170"
           ><template #default="{ row }">{{ date(row.create_time) }}</template></el-table-column
         >
@@ -127,7 +164,12 @@
         >
         <el-table-column prop="error" label="失败原因" min-width="200" show-overflow-tooltip />
       </el-table>
-      <el-table native-scrollbar v-else-if="tab === 'audits'" :data="tableRows" empty-text="暂无操作记录">
+      <el-table
+        native-scrollbar
+        v-else-if="tab === 'audits'"
+        :data="tableRows"
+        empty-text="暂无操作记录"
+      >
         <el-table-column label="时间" min-width="170"
           ><template #default="{ row }">{{ date(row.create_time) }}</template></el-table-column
         >
@@ -204,6 +246,7 @@
 </template>
 
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core'
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
@@ -212,7 +255,10 @@ import ResetAccountPassword from './ResetAccountPassword.vue'
 import { formatInteger } from '@/views/platform/org-points/int64'
 import OrganizationProfilePanel from './OrganizationProfilePanel.vue'
 import OrganizationCapabilityPanel from './OrganizationCapabilityPanel.vue'
-import { getOrganizationOperationsAudit,type OrganizationProfile } from '@/api/platform/organizationOperations'
+import {
+  getOrganizationOperationsAudit,
+  type OrganizationProfile
+} from '@/api/platform/organizationOperations'
 import {
   changeOrganizationState,
   getOrganizationPoints,
@@ -234,6 +280,8 @@ const region = computed(
 const points = ref<Record<string, string | null>>({})
 const memberTotal = ref<number | null>(null)
 const summaryError = ref('')
+const wideSummary = useMediaQuery('(min-width: 760px)')
+const summaryColumns = computed(() => (wideSummary.value ? 2 : 1))
 const tab = ref('overview')
 const tableTab = computed(() => ['members', 'points', 'generations', 'audits'].includes(tab.value))
 const tableRows = ref<Record<string, any>[]>([])
@@ -252,11 +300,28 @@ const errorText = (e: any) => e?.msg || e?.message || '加载失败，请重试'
 const integer = (v: string | number | null | undefined) => (v == null ? '—' : formatInteger(v))
 const date = (v: string) => (v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '—')
 const actionName = (v: string) =>
-  ({ close: '关闭组织', reopen: '启用组织', delete: '删除组织', restore: '恢复组织', 'reset-password': '重置登录密码',profile:'维护组织资料',capabilities:'设置组织能力','owner-transfer':'老板交接','task-review':'核对任务积分' })[v] || v
+  ({
+    close: '关闭组织',
+    reopen: '启用组织',
+    delete: '删除组织',
+    restore: '恢复组织',
+    'reset-password': '重置登录密码',
+    profile: '维护组织资料',
+    capabilities: '设置组织能力',
+    'owner-transfer': '老板交接',
+    'task-review': '核对任务积分'
+  })[v] || v
 const statusName = (v: string) =>
   ({ ACTIVE: '正常', DISABLED: '已关闭', DELETED: '已删除' })[v] || v
 const ledgerType = (v: string) =>
-  ({ RESERVE: '预扣', SETTLE: '结算', RELEASE: '退回', ADJUST: '积分调整', MANUAL_ADJUST: '人工调整', GRANT: '赠送' })[v] || v
+  ({
+    RESERVE: '预扣',
+    SETTLE: '结算',
+    RELEASE: '退回',
+    ADJUST: '积分调整',
+    MANUAL_ADJUST: '人工调整',
+    GRANT: '赠送'
+  })[v] || v
 const generationStatus = (v: string) =>
   ({
     SUCCEEDED: '成功',
@@ -310,11 +375,14 @@ async function loadTable(section: string) {
   tableLoading.value = true
   tableError.value = ''
   try {
-    const result = section === 'audits' && canManage.value ? await getOrganizationOperationsAudit(organization.value.orgId,page.value) : await getOrganizationSection(
-      organization.value.orgId,
-      (section === 'points' ? 'ledger' : section) as 'members',
-      page.value
-    )
+    const result =
+      section === 'audits' && canManage.value
+        ? await getOrganizationOperationsAudit(organization.value.orgId, page.value)
+        : await getOrganizationSection(
+            organization.value.orgId,
+            (section === 'points' ? 'ledger' : section) as 'members',
+            page.value
+          )
     if (expected === generation) {
       tableRows.value = result.list
       tableTotal.value = result.total
@@ -334,8 +402,8 @@ async function copyAccount() {
   }
 }
 function profileUpdated(profile: OrganizationProfile) {
-  current.value={...current.value,organization:profile.organization}
-  emit('changed',current.value)
+  current.value = { ...current.value, organization: profile.organization }
+  emit('changed', current.value)
   void loadSummary()
 }
 function prepare(value: string) {
@@ -373,72 +441,97 @@ onMounted(loadSummary)
 .org-detail {
   padding: 0 6px 24px;
 }
+
 .detail-header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
+
 .detail-header h2 {
-  font-size: 22px;
   margin: 0 0 12px;
+  font-size: 22px;
   line-height: 1.5;
 }
+
 .detail-type {
   margin-left: 12px;
   color: var(--el-text-color-secondary);
 }
+
 .detail-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
+
 .detail-stats > div {
-  padding: 18px;
+  padding: 14px 16px;
   background: var(--el-fill-color-light);
   border-radius: 10px;
 }
+
 .detail-stats span {
   display: block;
-  color: var(--el-text-color-secondary);
   font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
+
 .detail-stats strong {
   display: block;
   margin-top: 8px;
   font-size: 24px;
 }
+
 .organization-actions {
-  margin-top: 32px;
   padding-top: 20px;
+  margin-top: 24px;
   border-top: 1px solid var(--el-border-color);
 }
+
 .organization-actions h3 {
   font-size: 16px;
 }
+
 .organization-actions p {
-  color: var(--el-text-color-secondary);
   font-size: 14px;
+  color: var(--el-text-color-secondary);
 }
+
 .section-pagination {
   margin-top: 20px;
   justify-content: flex-end;
 }
+
 .action-form {
   margin-top: 20px;
 }
+
+:deep(.el-descriptions__table) {
+  table-layout: auto;
+}
+
 :deep(.el-descriptions__content) {
   overflow-wrap: anywhere;
 }
-:deep(.el-descriptions__label) { width: 110px; white-space: nowrap; }
+
+:deep(.el-descriptions__label) {
+  width: 110px;
+  white-space: nowrap;
+}
+
 :deep(.embedded-points) {
   padding: 0;
 }
+
 :deep(.embedded-points .pool-layout) {
   display: block;
 }
-@media (max-width: 600px) {
+
+@media (width <= 600px) {
   .detail-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
   .detail-header h2 {
     font-size: 19px;
   }

@@ -4,10 +4,11 @@
   <ContentWrap>
     <!-- 搜索工作栏 -->
     <el-form
-      class="-mb-15px"
+      class="admin-filters"
       :model="queryParams"
       ref="queryFormRef"
       :inline="true"
+      label-position="top"
       label-width="68px"
     >
       <el-form-item label="操作人" prop="userId">
@@ -91,12 +92,35 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table native-scrollbar v-loading="loading" :data="list">
+    <el-table
+      native-scrollbar
+      max-height="max(280px, calc(100dvh - 330px))"
+      v-loading="loading"
+      :data="list"
+    >
       <el-table-column label="日志编号" align="center" prop="id" width="100" />
-      <el-table-column label="操作人" align="center" prop="userName" width="120" />
+      <el-table-column
+        label="操作人"
+        align="center"
+        prop="userName"
+        width="120"
+        show-overflow-tooltip
+      />
       <el-table-column label="操作模块" align="center" prop="type" width="120" />
-      <el-table-column label="操作名" align="center" prop="subType" width="160" />
-      <el-table-column label="操作内容" align="center" prop="action" />
+      <el-table-column
+        label="操作名"
+        align="center"
+        prop="subType"
+        width="160"
+        show-overflow-tooltip
+      />
+      <el-table-column
+        label="操作内容"
+        align="center"
+        prop="action"
+        min-width="260"
+        show-overflow-tooltip
+      />
       <el-table-column
         label="操作时间"
         align="center"
@@ -104,7 +128,13 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="业务编号" align="center" prop="bizId" width="120" />
+      <el-table-column
+        label="业务编号"
+        align="center"
+        prop="bizId"
+        width="120"
+        show-overflow-tooltip
+      />
       <el-table-column label="操作 IP" align="center" prop="userIp" width="120" />
       <el-table-column label="操作" align="center" fixed="right" width="60">
         <template #default="scope">

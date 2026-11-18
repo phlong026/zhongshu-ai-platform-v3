@@ -28,13 +28,14 @@
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="directory-error" />
     <el-table
       class="directory-table"
+      max-height="max(280px, calc(100dvh - 350px))"
       native-scrollbar
       v-loading="loading"
       :data="rows"
       row-key="orgId"
       empty-text="暂无符合条件的组织"
     >
-      <el-table-column prop="orgName" label="组织名称" min-width="140" />
+      <el-table-column prop="orgName" label="组织名称" min-width="260" show-overflow-tooltip />
       <el-table-column label="类型" width="88">
         <template #default="{ row }">{{ typeName(row.orgType) }}</template>
       </el-table-column>
@@ -42,7 +43,7 @@
         <template #default="{ row }">{{ row.ownerName || '未设置' }}</template>
       </el-table-column>
       <el-table-column prop="mobile" label="手机号" width="122" />
-      <el-table-column prop="loginName" label="登录账号" min-width="140" />
+      <el-table-column prop="loginName" label="登录账号" min-width="230" show-overflow-tooltip />
       <el-table-column label="状态" width="78">
         <template #default="{ row }">
           <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">
@@ -50,7 +51,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="64">
+      <el-table-column label="操作" width="80" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" link @click="openDetail(row.orgId)">详情</el-button>
         </template>
@@ -191,59 +192,72 @@ onMounted(async () => {
   min-width: 0;
   container-type: inline-size;
 }
+
 .directory-filters {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(250px, 300px);
-  gap: 12px 20px;
+  grid-template-columns: minmax(240px, 1fr) 190px auto auto;
+  gap: 12px;
   margin-bottom: 18px;
 }
+
 .directory-filters :deep(.el-form-item) {
   min-width: 0;
   margin: 0;
 }
+
 .directory-filters :deep(.el-form-item__content) {
   min-width: 0;
   flex: 1;
 }
+
 .directory-actions :deep(.el-form-item__content) {
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
 }
+
 .directory-actions :deep(.el-button + .el-button) {
   margin-left: 0;
 }
+
 .directory-table :deep(.cell) {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
   line-height: 22px;
+  word-break: normal;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
+
 .directory-table :deep(.el-table__cell) {
   padding: 12px 0;
   vertical-align: top;
 }
+
 .directory-cards {
   display: none;
 }
+
 .directory-org-card {
   padding: 16px;
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 8px;
 }
+
 .directory-org-card + .directory-org-card {
   margin-top: 12px;
 }
+
 .directory-card-heading {
   display: flex;
   align-items: flex-start;
   gap: 12px;
 }
+
 .directory-card-heading strong {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
 .directory-org-card dl {
   display: grid;
   grid-template-columns: 70px minmax(0, 1fr);
@@ -251,26 +265,33 @@ onMounted(async () => {
   margin: 16px 0 0;
   font-size: 14px;
 }
+
 .directory-org-card dt {
   color: var(--el-text-color-secondary);
 }
+
 .directory-org-card dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
-@container (width < 720px) {
+
+@container (width < 900px) {
   .directory-table {
     display: none;
   }
+
   .directory-cards {
     display: block;
   }
+
   .directory-filters {
     grid-template-columns: minmax(0, 1fr);
   }
+
   .directory-actions :deep(.el-form-item__content) {
     justify-content: flex-start;
   }
+
   .directory-pagination {
     justify-content: flex-start;
     flex-wrap: wrap;
@@ -282,9 +303,11 @@ onMounted(async () => {
   margin-top: 20px;
   justify-content: flex-end;
 }
+
 .directory-error {
   margin-bottom: 16px;
 }
+
 .copy-account {
   margin-left: 12px;
 }

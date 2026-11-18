@@ -4,10 +4,11 @@
   <ContentWrap>
     <!-- 搜索工作栏 -->
     <el-form
-      class="-mb-15px"
+      class="admin-filters"
       :model="queryParams"
       ref="queryFormRef"
       :inline="true"
+      label-position="top"
       label-width="68px"
     >
       <el-form-item label="用户编号" prop="userId">
@@ -96,17 +97,34 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table native-scrollbar v-loading="loading" :data="list">
-      <el-table-column label="日志编号" align="center" prop="id" />
-      <el-table-column label="用户编号" align="center" prop="userId" />
-      <el-table-column label="用户类型" align="center" prop="userType">
+    <el-table
+      native-scrollbar
+      max-height="max(280px, calc(100dvh - 330px))"
+      v-loading="loading"
+      :data="list"
+    >
+      <el-table-column label="日志编号" align="center" prop="id" min-width="110" />
+      <el-table-column label="用户编号" align="center" prop="userId" min-width="130" />
+      <el-table-column label="用户类型" align="center" prop="userType" min-width="140">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.USER_TYPE" :value="scope.row.userType" />
         </template>
       </el-table-column>
-      <el-table-column label="应用名" align="center" prop="applicationName" width="200" />
+      <el-table-column
+        label="应用名"
+        align="center"
+        prop="applicationName"
+        width="200"
+        show-overflow-tooltip
+      />
       <el-table-column label="请求方法" align="center" prop="requestMethod" width="80" />
-      <el-table-column label="请求地址" align="center" prop="requestUrl" width="180" />
+      <el-table-column
+        label="请求地址"
+        align="center"
+        prop="requestUrl"
+        width="180"
+        show-overflow-tooltip
+      />
       <el-table-column
         label="异常发生时间"
         align="center"
@@ -114,8 +132,14 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="异常名" align="center" prop="exceptionName" width="180" />
-      <el-table-column label="处理状态" align="center" prop="processStatus">
+      <el-table-column
+        label="异常名"
+        align="center"
+        prop="exceptionName"
+        width="180"
+        show-overflow-tooltip
+      />
+      <el-table-column label="处理状态" align="center" prop="processStatus" min-width="120">
         <template #default="scope">
           <dict-tag
             :type="DICT_TYPE.INFRA_API_ERROR_LOG_PROCESS_STATUS"
@@ -123,7 +147,7 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="200">
+      <el-table-column label="操作" align="center" width="200" fixed="right">
         <template #default="scope">
           <el-button
             link

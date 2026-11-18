@@ -52,50 +52,60 @@
           ><el-button @click="reset">重置</el-button></div
         >
       </el-form>
-      <el-table native-scrollbar :data="rows" v-loading="loading" empty-text="暂无符合条件的记录">
-        <el-table-column prop="org_name" label="组织" min-width="190" />
-        <el-table-column label="任务 / 能力" min-width="210"
-          ><template #default="{ row }"
-            ><div>{{ row.subject_label }}</div
-            ><span class="secondary">{{ row.task_id || row.operation_id }}</span></template
-          ></el-table-column
-        >
-        <el-table-column prop="actor_name" label="操作人" min-width="110" />
-        <el-table-column label="生成状态" min-width="130"
-          ><template #default="{ row }">{{ state(row.task_status) }}</template></el-table-column
-        >
-        <el-table-column label="账务 / 核对" min-width="170"
-          ><template #default="{ row }"
-            ><div>{{ billing(row.billing_state) }}</div
-            ><span class="secondary">{{ caseLabel(row.case_status) }}</span></template
-          ></el-table-column
-        >
-        <el-table-column label="核对提示" min-width="160"
-          ><template #default="{ row }"
+      <el-table
+        native-scrollbar
+        :data="rows"
+        v-loading="loading"
+        row-key="task_key"
+        :max-height="useWideSummary ? 'max(240px, calc(100dvh - 400px))' : undefined"
+        empty-text="暂无符合条件的记录"
+      >
+        <el-table-column prop="org_name" label="组织" min-width="190" show-overflow-tooltip />
+        <el-table-column label="任务 / 能力" min-width="210">
+          <template #default="{ row }">
+            <div>{{ row.subject_label }}</div>
+            <button
+              class="task-id secondary"
+              :title="'复制任务编号：' + (row.task_id || row.operation_id)"
+              @click="copyTaskId(row)"
+              >{{ row.task_id || row.operation_id }}</button
+            >
+          </template>
+        </el-table-column>
+        <el-table-column prop="actor_name" label="操作人" width="80" show-overflow-tooltip />
+        <el-table-column label="生成状态" min-width="130">
+          <template #default="{ row }">{{ state(row.task_status) }}</template>
+        </el-table-column>
+        <el-table-column label="账务 / 积分" min-width="230">
+          <template #default="{ row }">
+            <div
+              >{{ billing(row.billing_state) }}
+              <span class="secondary">· {{ caseLabel(row.case_status) }}</span></div
+            >
+            <div class="point-summary secondary"
+              ><span>预扣 {{ integer(row.requested) }}</span
+              ><span>已扣 {{ integer(row.charged) }}</span
+              ><span>已退 {{ integer(row.refunded) }}</span></div
+            >
+          </template>
+        </el-table-column>
+        <el-table-column label="核对提示" min-width="140">
+          <template #default="{ row }"
             ><el-tag :type="row.anomaly === 'NONE' ? 'info' : 'warning'">{{
               anomaly(row.anomaly)
             }}</el-tag></template
-          ></el-table-column
-        >
-        <el-table-column label="预扣" min-width="100" align="right"
-          ><template #default="{ row }">{{ integer(row.requested) }}</template></el-table-column
-        >
-        <el-table-column label="已扣" min-width="100" align="right"
-          ><template #default="{ row }">{{ integer(row.charged) }}</template></el-table-column
-        >
-        <el-table-column label="已退" min-width="100" align="right"
-          ><template #default="{ row }">{{ integer(row.refunded) }}</template></el-table-column
-        >
-        <el-table-column label="预扣时间" min-width="175"
-          ><template #default="{ row }">{{ date(row.create_time) }}</template></el-table-column
-        >
-        <el-table-column label="操作" width="90" fixed="right"
-          ><template #default="{ row }"
+          >
+        </el-table-column>
+        <el-table-column label="预扣时间" width="175">
+          <template #default="{ row }">{{ date(row.create_time) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="80" fixed="right">
+          <template #default="{ row }"
             ><el-button link type="primary" @click="openTask(row.task_key)"
               >详情</el-button
             ></template
-          ></el-table-column
-        >
+          >
+        </el-table-column>
       </el-table>
       <el-pagination
         class="pagination"
@@ -116,8 +126,8 @@
       <div v-loading="detailLoading">
         <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
         <template v-if="detail">
-          <el-descriptions :column="1" border class="task-summary">
-            <el-descriptions-item label="组织"
+          <el-descriptions :column="summaryColumns" :label-width="108" border class="task-summary">
+            <el-descriptions-item label="组织" :span="summaryColumns"
               ><el-button class="organization-link" link type="primary" @click="openOrganization">{{
                 detail.task.org_name
               }}</el-button></el-descriptions-item
@@ -128,7 +138,7 @@
             <el-descriptions-item label="任务编号">{{
               detail.task.task_id || '未关联到生成任务'
             }}</el-descriptions-item>
-            <el-descriptions-item label="业务号">{{
+            <el-descriptions-item label="业务号" :span="summaryColumns">{{
               detail.task.biz_key || '未记录'
             }}</el-descriptions-item>
             <el-descriptions-item label="操作人">{{ detail.task.actor_name }}</el-descriptions-item>
@@ -151,9 +161,12 @@
             <el-descriptions-item label="核对提示">{{
               anomaly(detail.task.anomaly)
             }}</el-descriptions-item>
-            <el-descriptions-item v-if="detail.task.task_error" label="失败原因">{{
-              detail.task.task_error
-            }}</el-descriptions-item>
+            <el-descriptions-item
+              v-if="detail.task.task_error"
+              label="失败原因"
+              :span="summaryColumns"
+              >{{ detail.task.task_error }}</el-descriptions-item
+            >
           </el-descriptions>
           <div class="review-actions">
             <el-button v-if="detail.task.can_review" @click="prepare('WAITING_EXTERNAL')"
@@ -275,6 +288,7 @@
 </template>
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
+import { useMediaQuery } from '@vueuse/core'
 import {
   getOperationsTasks,
   getOperationsTask,
@@ -293,6 +307,16 @@ import { getSubjectPrices } from '@/api/platform/orgPoints'
 import OrgDetail from '@/views/zs/platform-org/OrgDetail.vue'
 import { formatInteger, formatMicros } from '@/views/platform/org-points/int64'
 import { operationsError, useOperationsMutation } from './mutation'
+const useWideSummary = useMediaQuery('(min-width: 760px)')
+const summaryColumns = computed(() => (useWideSummary.value ? 2 : 1))
+async function copyTaskId(row: TaskRow) {
+  try {
+    await navigator.clipboard.writeText(String(row.task_id || row.operation_id || ''))
+    ElMessage.success('任务编号已复制')
+  } catch {
+    ElMessage.warning('请在详情中选中编号后复制')
+  }
+}
 const route = useRoute(),
   filters = reactive({
     orgId: undefined as number | undefined,
@@ -598,30 +622,35 @@ onMounted(async () => {
 </script>
 <style scoped>
 .task-summary :deep(.el-descriptions__table) {
-  table-layout: fixed;
   width: 100%;
+  table-layout: auto;
 }
+
 .task-summary :deep(.el-descriptions__label) {
   width: 108px;
   min-width: 108px;
   word-break: keep-all;
   overflow-wrap: normal;
 }
+
 .task-summary :deep(.el-descriptions__content) {
   overflow-wrap: anywhere;
-  word-break: break-word;
+  word-break: normal;
 }
+
 .organization-link {
-  max-width: 100%;
   height: auto;
-  white-space: normal;
-  text-align: left;
+  max-width: 100%;
   line-height: 1.5;
+  text-align: left;
+  white-space: normal;
 }
+
 .organization-link :deep(span) {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
 .task-detail-heading {
   display: flex;
   flex: 1;
@@ -630,81 +659,130 @@ onMounted(async () => {
   gap: 12px;
   min-width: 0;
 }
+
 .task-detail-heading h2 {
   margin: 0;
   font-size: 16px;
   font-weight: 500;
   line-height: 1.5;
 }
+
 .filters {
   display: grid;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
-  gap: 0 16px;
+  gap: 0 12px;
 }
+
+.filters :deep(.el-form-item) {
+  margin-bottom: 12px;
+}
+
+.filters :deep(.el-form-item__label) {
+  padding-bottom: 4px;
+}
+
 .filters :deep(.el-select) {
   width: 100%;
 }
+
 .filter-actions {
   grid-column: 1/-1;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin: 0 0 20px;
+  margin: 0 0 12px;
 }
+
 .filter-actions :deep(.el-button) {
   margin-left: 0;
 }
+
 .secondary {
-  color: var(--el-text-color-secondary);
   font-size: 12px;
   line-height: 1.7;
+  color: var(--el-text-color-secondary);
   overflow-wrap: anywhere;
 }
+
 .pagination {
-  margin-top: 20px;
-  justify-content: flex-end;
   max-width: 100%;
+  margin-top: 20px;
   overflow-x: auto;
+  justify-content: flex-end;
 }
+
 .review-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   margin: 20px 0;
 }
+
 .review-actions :deep(.el-button) {
-  margin-left: 0;
   height: auto;
   min-height: 32px;
+  margin-left: 0;
   white-space: normal;
 }
+
 .history-item {
   padding: 14px 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
   overflow-wrap: anywhere;
 }
+
 .history-item p {
   margin: 8px 0 0;
 }
+
 :deep(.el-alert) {
   margin-bottom: 16px;
 }
-:deep(.el-table .cell) {
-  overflow-wrap: anywhere;
+
+.task-id {
+  display: block;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  font-variant-numeric: tabular-nums;
 }
+
+.task-id:hover {
+  color: var(--el-color-primary);
+}
+
+.task-id:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+.point-summary {
+  display: flex;
+  gap: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 :deep(.el-descriptions__content) {
   overflow-wrap: anywhere;
 }
-@media (max-width: 1100px) {
+
+@media (width <= 1100px) {
   .filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (max-width: 600px) {
+
+@media (width <= 600px) {
   .filters {
     grid-template-columns: 1fr;
   }
+
   .pagination {
     justify-content: flex-start;
   }
