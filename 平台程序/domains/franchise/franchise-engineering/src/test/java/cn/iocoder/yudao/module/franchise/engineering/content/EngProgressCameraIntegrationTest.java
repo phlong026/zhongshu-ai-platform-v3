@@ -93,15 +93,16 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->plans.reopenNode(engineer,projectId,node(1),"调整",key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
     }
     @Test void delayPersistsOwnerHistoryAndBaselineAcrossPlanChanges(){
-        plans.savePlan(engineer,projectId,input(today.minusDays(3)),key());
-        var cmd=new EngProgressService.DelayCommand("连续降雨",engineer.userId(),today.plusDays(2),"排水后增加班组");
+        LocalDate businessDate = EngProgress.today();
+        plans.savePlan(engineer,projectId,input(businessDate.minusDays(3)),key());
+        var cmd=new EngProgressService.DelayCommand("连续降雨",engineer.userId(),businessDate.plusDays(2),"排水后增加班组");
         String key=key();progress.save(engineer,projectId,node(2),cmd,key);progress.save(engineer,projectId,node(2),cmd,key);
         assertThat(jdbc.queryForObject("SELECT jsonb_array_length(delay_history) FROM fr_eng_plan_node WHERE id=?",Integer.class,node(2))).isEqualTo(1);
-        assertThatThrownBy(()->progress.save(engineer,projectId,node(2),new EngProgressService.DelayCommand("降雨",99999L,today,"排水"),key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
-        plans.savePlan(engineer,projectId,input(today.plusDays(1)),key());
-        assertThat(jdbc.queryForObject("SELECT baseline_end_date FROM fr_eng_plan_node WHERE id=?",LocalDate.class,node(2))).isEqualTo(today.minusDays(3));
+        assertThatThrownBy(()->progress.save(engineer,projectId,node(2),new EngProgressService.DelayCommand("降雨",99999L,businessDate,"排水"),key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        plans.savePlan(engineer,projectId,input(businessDate.plusDays(1)),key());
+        assertThat(jdbc.queryForObject("SELECT baseline_end_date FROM fr_eng_plan_node WHERE id=?",LocalDate.class,node(2))).isEqualTo(businessDate.minusDays(3));
         assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:delay:"+node(2))&&t.title().contains("延期3天"));
-        jdbc.update("UPDATE fr_eng_plan_node SET status='DONE',completed_at=? WHERE id=?",today,node(2));
+        jdbc.update("UPDATE fr_eng_plan_node SET status='DONE',completed_at=? WHERE id=?",businessDate,node(2));
         assertThat(todos.list(engineer)).noneMatch(t->t.key().equals("fr-eng:delay:"+node(2)));
         assertThat(jdbc.queryForObject("SELECT delay_reason FROM fr_eng_plan_node WHERE id=?",String.class,node(2))).isEqualTo("连续降雨");
     }
