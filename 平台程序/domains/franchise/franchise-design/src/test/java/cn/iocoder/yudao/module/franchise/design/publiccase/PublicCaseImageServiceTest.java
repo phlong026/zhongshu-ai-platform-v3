@@ -21,6 +21,45 @@ class PublicCaseImageServiceTest {
     @Test void originalKeepsExactBytes() throws Exception {
         byte[] input=png();assertArrayEquals(input,PublicCaseImageService.render(input,"ORIGINAL").bytes());
     }
+    @Test void stalledBodyTimesOutAfterHeadersAndTheNextImageCanLoad() throws Exception {
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
+        var pool = java.util.concurrent.Executors.newCachedThreadPool();
+        var stalled = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        server.setExecutor(pool);
+        server.createContext("/slow", exchange -> {
+            try (exchange) {
+                exchange.sendResponseHeaders(200,2);
+                exchange.getResponseBody().write(1);
+                exchange.getResponseBody().flush();
+                stalled.countDown();
+                try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            }
+        });
+        server.createContext("/next", exchange -> {
+            try (exchange) {
+                exchange.sendResponseHeaders(200,1);
+                exchange.getResponseBody().write(42);
+            }
+        });
+        server.start();
+        try {
+            var client = java.net.http.HttpClient.newHttpClient();
+            String origin = "http://127.0.0.1:"+server.getAddress().getPort();
+            assertTimeoutPreemptively(java.time.Duration.ofSeconds(4), () -> {
+                assertThrows(java.net.http.HttpTimeoutException.class, () -> PublicCaseImageService.download(
+                        client,java.net.URI.create(origin+"/slow"),java.time.Duration.ofSeconds(1)));
+                assertEquals(0,stalled.getCount(),"timeout should occur after the body starts");
+                assertArrayEquals(new byte[]{42},PublicCaseImageService.download(
+                        client,java.net.URI.create(origin+"/next"),java.time.Duration.ofSeconds(1)));
+            });
+        } finally {
+            release.countDown();
+            server.stop(0);
+            pool.shutdownNow();
+        }
+    }
+
     @Test void errorBodiesAndUnapprovedOriginsAreRejected() throws Exception {
         assertThrows(IOException.class,()->PublicCaseImageService.render("{\"code\":401}".getBytes(),"COVER"));
         var service=new PublicCaseImageService();

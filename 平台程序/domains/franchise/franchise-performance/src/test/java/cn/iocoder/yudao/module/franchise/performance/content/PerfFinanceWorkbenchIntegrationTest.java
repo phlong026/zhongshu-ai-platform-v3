@@ -9,14 +9,7 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  @Resource JdbcTemplate jdbc;
  @Test @org.springframework.transaction.annotation.Transactional
  void bossCashDebtAndAgingUseTheSameEffectiveFacts(){
-  // Transaction-local temporary contract tables prevent older fixtures in the shared database from changing this test.
-  jdbc.execute("CREATE TEMP TABLE fr_fin_receipt(id bigint,company_id bigint,amount_cents bigint,status text,received_date date,source_type text,source_ref text,name text,registrar_user_id bigint)");
-  jdbc.execute("CREATE TEMP TABLE fr_fin_payment(id bigint,company_id bigint,payable_id bigint,amount_cents bigint,pending_link_cents bigint,status text,pay_date date,funding_type text,operator_user_id bigint)");
-  jdbc.execute("CREATE TEMP TABLE fr_fin_refund(id bigint,company_id bigint,receipt_id bigint,payment_id bigint,amount_cents bigint,status text,date date,replaced_by_id bigint,refund_direction text,funding_type text)");
-  jdbc.execute("CREATE TEMP TABLE fr_fin_payable(id bigint,company_id bigint,total_cents bigint,source_type text,source_ref text,business_date date,create_time timestamptz default now(),due_date date,recipient text)");
-  jdbc.execute("CREATE TEMP TABLE fr_sale_contract(id bigint,company_id bigint,status text,deleted boolean default false,signed_date date)");
-  jdbc.execute("CREATE TEMP TABLE fr_sale_payment_stage(id bigint,company_id bigint,contract_id bigint,amount_cents bigint,deleted boolean default false,due_date date)");
-  jdbc.execute("CREATE TEMP TABLE fr_sale_stage_receipt(company_id bigint,contract_id bigint,stage_id bigint,receipt_id bigint)");
+  createTables();
   var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId(),id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,amount_cents,status,received_date,source_type,name,registrar_user_id) VALUES(?,?,1000000,'已登记','2026-11-10','business','业主款',?)",id,org,actor.userId());
   jdbc.update("INSERT INTO fr_sale_contract(id,company_id,status,signed_date) VALUES(?,?,'SIGNED','2026-11-01')",id,org);
@@ -32,5 +25,52 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(((Number)trend.get(trend.size()-1).get("paidCents")).longValue()).isEqualTo(100000);
   assertThat(((Number)((Map<?,?>)report.get("receivableAging")).get("undated")).longValue()).isEqualTo(100000);
   assertThat(((Number)((Map<?,?>)report.get("payableAging")).get("undated")).longValue()).isEqualTo(140000);
+ }
+ @Test @org.springframework.transaction.annotation.Transactional
+ void legacyProjectsAndVersionedSaleTermsReconcileWithoutDoubleCounting(){
+  createTables();
+  var actor=fixture.post(fixture.store().orgId(),"finance",null);
+  long org=actor.orgId(),contract=100,stage=101,tail=102,legacy=103,converted=104;
+  jdbc.update("INSERT INTO fr_sale_contract(id,company_id,status,signed_date) VALUES(?,?,'SIGNED','2026-10-01')",contract,org);
+  jdbc.update("INSERT INTO fr_sale_payment_stage(id,company_id,contract_id,amount_cents,due_date) VALUES(?,?,?,120000,'2026-12-20'),(?,?,?,20000,'2026-12-01')",stage,org,contract,tail,org,contract);
+  jdbc.update("INSERT INTO fr_sale_stage_before_change VALUES(?,?,2,'2026-11-04',100000,'2026-10-10',false),(?,?,2,'2026-11-04',0,NULL,true)",org,stage,org,tail);
+  jdbc.update("INSERT INTO fr_eng_project VALUES(?,?,NULL),(?,?,?)",legacy,org,converted,org,contract);
+  jdbc.update("INSERT INTO fr_eng_collection_term VALUES(?,?,'START',50000,'2026-10-02 00:00:00+08'),(?,?,'START',100000,'2026-10-02 00:00:00+08')",org,legacy,org,converted);
+  jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,amount_cents,status,received_date,source_type) VALUES(1,?,25000,'已登记','2026-10-12','business'),(2,?,10000,'已登记','2026-10-14','engineering'),(3,?,20000,'已登记','2026-11-12','business')",org,org,org);
+  jdbc.update("INSERT INTO fr_sale_stage_receipt VALUES(?,?,?,1),(?,?,?,3)",org,contract,stage,org,contract,stage);
+  jdbc.update("INSERT INTO fr_eng_collection VALUES(?,?,'START',25000,1,'2026-10-12'),(?,?,'START',10000,2,'2026-10-14'),(?,?,'START',5000,NULL,'2026-10-16')",org,converted,org,legacy,org,legacy);
+  jdbc.update("INSERT INTO fr_fin_refund(company_id,receipt_id,amount_cents,status,date,refund_direction) VALUES(?,2,2000,'已核实','2026-10-20','client')",org);
+
+  var service=new PerfOperatingService(null,null,null,jdbc);
+  var october=service.analytics(actor,"2026-10");
+  var oldTotals=(Map<?,?>)october.get("totals");
+  assertThat(oldTotals.get("receivableCents")).isEqualTo(112000L);
+  assertThat(oldTotals.get("collectedCents")).isEqualTo(38000L);
+  assertThat(oldTotals.get("collectionRate")).isEqualTo(38000d/150000);
+  assertThat(((Map<?,?>)october.get("receivableAging")).get("d1_30")).isEqualTo(75000L);
+  assertThat(((Map<?,?>)october.get("receivableAging")).get("undated")).isEqualTo(37000L);
+
+  var november=service.analytics(actor,"2026-11");
+  var newTotals=(Map<?,?>)november.get("totals");
+  assertThat(newTotals.get("receivableCents")).isEqualTo(132000L);
+  assertThat(newTotals.get("collectedCents")).isEqualTo(58000L);
+  assertThat(newTotals.get("collectionRate")).isEqualTo(58000d/190000);
+  assertThat(((Map<?,?>)november.get("receivableAging")).get("notDue")).isEqualTo(95000L);
+  assertThat(service.analytics(actor,"2026-10").get("totals")).isEqualTo(oldTotals);
+ }
+
+ private void createTables(){
+  // Transaction-local temporary contract tables prevent older fixtures in the shared database from changing this test.
+  jdbc.execute("CREATE TEMP TABLE fr_fin_receipt(id bigint,company_id bigint,amount_cents bigint,status text,received_date date,source_type text,source_ref text,name text,registrar_user_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_fin_payment(id bigint,company_id bigint,payable_id bigint,amount_cents bigint,pending_link_cents bigint,status text,pay_date date,funding_type text,operator_user_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_fin_refund(id bigint,company_id bigint,receipt_id bigint,payment_id bigint,amount_cents bigint,status text,date date,replaced_by_id bigint,refund_direction text,funding_type text)");
+  jdbc.execute("CREATE TEMP TABLE fr_fin_payable(id bigint,company_id bigint,total_cents bigint,source_type text,source_ref text,business_date date,create_time timestamptz default now(),due_date date,recipient text)");
+  jdbc.execute("CREATE TEMP TABLE fr_sale_contract(id bigint,company_id bigint,status text,deleted boolean default false,signed_date date)");
+  jdbc.execute("CREATE TEMP TABLE fr_sale_payment_stage(id bigint,company_id bigint,contract_id bigint,amount_cents bigint,deleted boolean default false,due_date date)");
+  jdbc.execute("CREATE TEMP TABLE fr_sale_stage_receipt(company_id bigint,contract_id bigint,stage_id bigint,receipt_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_sale_stage_before_change(company_id bigint,stage_id bigint,contract_revision bigint,effective_on date,amount_cents bigint,due_date date,deleted boolean)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_project(id bigint,company_id bigint,sale_contract_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_collection_term(company_id bigint,project_id bigint,stage text,amount_cents bigint,create_time timestamptz)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_collection(company_id bigint,project_id bigint,stage text,amount_cents bigint,receipt_id bigint,occurred_at date)");
  }
 }

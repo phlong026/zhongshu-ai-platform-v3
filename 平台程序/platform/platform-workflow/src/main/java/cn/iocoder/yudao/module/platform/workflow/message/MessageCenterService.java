@@ -31,8 +31,8 @@ public class MessageCenterService {
                        List<String> failedDomains,String snapshotAt) { }
 
     public Page list(PostSnapshot post, Query query) {
-        String snapshotAt=OffsetDateTime.now().toString();
         TodoList work=visibleWork(post);
+        OffsetDateTime snapshot = query.beforeId() == null ? captureReadSnapshot(post) : null;
         int limit=query.limit()==null?30:Math.max(1,Math.min(100,query.limit()));
         List<Map<String,Object>> items;
         boolean more=false;String cursor="";
@@ -59,7 +59,8 @@ public class MessageCenterService {
             for(var row:rows.subList(0,Math.min(limit,rows.size())))items.add(message(post,row,work.items()));
             if(!items.isEmpty())cursor=text(items.get(items.size()-1).get("id"));
         }
-        return new Page(items,unread(post),work.actionableCount(),more,cursor,work.failedDomains(),snapshotAt);
+        return new Page(items,unread(post),work.actionableCount(),more,cursor,work.failedDomains(),
+                snapshot == null ? null : snapshot.toString());
     }
     private TodoList visibleWork(PostSnapshot post){
         TodoList all=todos.list(post);
@@ -81,12 +82,32 @@ public class MessageCenterService {
         if(rows.isEmpty())throw exception(MESSAGE_NOT_FOUND);
         var item=message(post,rows.get(0),work.items());
         jdbc.update("UPDATE pf_message SET read=TRUE,read_time=COALESCE(read_time,now()) WHERE id=? AND user_id=? AND org_id=? AND read=FALSE",numeric,post.userId(),post.orgId());
-        item.put("read",true);return item;
+        item.put("read",true);
+        item.put("unread",unread(post));
+        return item;
     }
-    public int readAll(PostSnapshot post,OffsetDateTime through) {
-        OffsetDateTime cutoff=through==null?OffsetDateTime.now():through;
-        if(cutoff.isAfter(OffsetDateTime.now()))cutoff=OffsetDateTime.now();
-        return jdbc.update("UPDATE pf_message SET read=TRUE,read_time=COALESCE(read_time,now()) WHERE user_id=? AND org_id=? AND read=FALSE AND received_at<=?",post.userId(),post.orgId(),cutoff);
+    private OffsetDateTime captureReadSnapshot(PostSnapshot post) {
+        jdbc.update("DELETE FROM pf_message_read_snapshot WHERE expires_at<=clock_timestamp()");
+        return jdbc.queryForObject("""
+            INSERT INTO pf_message_read_snapshot (user_id,org_id,snapshot_at,message_ids)
+            SELECT ?,?,clock_timestamp(),COALESCE(array_agg(id),'{}'::bigint[])
+            FROM pf_message WHERE user_id=? AND org_id=? AND read=FALSE
+            ON CONFLICT (user_id,org_id,snapshot_at) DO UPDATE SET
+                message_ids=pf_message_read_snapshot.message_ids
+            RETURNING snapshot_at
+            """, (rs, row) -> rs.getObject(1, OffsetDateTime.class),
+            post.userId(), post.orgId(), post.userId(), post.orgId());
+    }
+
+    public int readAll(PostSnapshot post, OffsetDateTime through) {
+        if (through == null) return 0;
+        return jdbc.update("""
+            UPDATE pf_message m SET read=TRUE,read_time=COALESCE(m.read_time,now())
+            FROM pf_message_read_snapshot s
+            WHERE s.user_id=? AND s.org_id=? AND s.snapshot_at=? AND s.expires_at>clock_timestamp()
+                AND m.user_id=s.user_id AND m.org_id=s.org_id AND NOT m.read
+                AND m.id=ANY(s.message_ids)
+            """, post.userId(), post.orgId(), through);
     }
     private Map<String,Object> message(PostSnapshot post,Map<String,Object> raw,List<TodoItem> work) {
         Map<String,Object> row=new LinkedHashMap<>();

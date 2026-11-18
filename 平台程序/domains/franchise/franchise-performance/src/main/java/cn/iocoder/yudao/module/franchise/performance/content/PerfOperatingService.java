@@ -224,7 +224,7 @@ public class PerfOperatingService {
                         + "WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' AND funding_type='COMPANY' "
                         + "AND date <= ?::date",
                 org, asOfDate, org, asOfDate, org, asOfDate));
-        // 应收=工程两期未收合计；应付=finance 未付合计
+        // 应收按期次汇总：统一销售合同优先，未迁移项目使用工程约定。
         var receiptBalances=receiptBalances(org,asOfDate);var paymentBalances=paymentBalances(org,asOfDate);
         long totalTerms=receiptBalances.stream().mapToLong(r->((Number)r.get("amount_cents")).longValue()).sum();
         long collected=receiptBalances.stream().mapToLong(r->((Number)r.get("collected_cents")).longValue()).sum();
@@ -232,6 +232,7 @@ public class PerfOperatingService {
         long payableOutstanding=paymentBalances.stream().mapToLong(r->Math.max(0,((Number)r.get("due")).longValue())).sum();
         Map<String, Object> totals = new LinkedHashMap<>();
         totals.put("receivableCents", receivable);
+        totals.put("collectedCents", collected);
         totals.put("payableOutstandingCents", Math.max(0, payableOutstanding));
         totals.put("collectionRate", totalTerms == 0 ? null : (double) collected / totalTerms);
         // 资金覆盖=近6月净流入合计/未付应付
@@ -262,12 +263,65 @@ public class PerfOperatingService {
         return report;
     }
 
-    private List<Map<String,Object>> receiptBalances(long org,String asOf){return jdbc.queryForList("""
-        SELECT s.amount_cents,s.due_date,
-          COALESCE((SELECT sum(r.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f WHERE f.receipt_id=r.id AND f.status='已核实' AND f.date<=?::date),0))
-          FROM fr_sale_stage_receipt x JOIN fr_fin_receipt r ON r.id=x.receipt_id AND r.company_id=x.company_id WHERE x.stage_id=s.id AND x.company_id=s.company_id AND r.status='已登记' AND r.received_date<=?::date),0) collected_cents
-        FROM fr_sale_payment_stage s JOIN fr_sale_contract c ON c.id=s.contract_id AND c.company_id=s.company_id WHERE s.company_id=? AND c.status='SIGNED' AND NOT c.deleted AND NOT s.deleted AND c.signed_date<=?::date
-        """,asOf,asOf,org,asOf);}
+    private List<Map<String,Object>> receiptBalances(long org, String asOf) {
+        return jdbc.queryForList("""
+            WITH cutoff AS (SELECT ?::bigint AS org, ?::date AS day),
+            sale_terms AS (
+                SELECT s.id,s.company_id,s.contract_id,
+                    CASE WHEN h.stage_id IS NULL THEN s.amount_cents ELSE h.amount_cents END AS amount_cents,
+                    CASE WHEN h.stage_id IS NULL THEN s.due_date ELSE h.due_date END AS due_date
+                FROM cutoff d
+                JOIN fr_sale_contract c ON c.company_id=d.org AND c.status='SIGNED'
+                    AND NOT c.deleted AND c.signed_date<=d.day
+                JOIN fr_sale_payment_stage s ON s.contract_id=c.id AND s.company_id=c.company_id
+                LEFT JOIN LATERAL (
+                    SELECT h.stage_id,h.amount_cents,h.due_date,h.deleted
+                    FROM fr_sale_stage_before_change h
+                    WHERE h.company_id=s.company_id AND h.stage_id=s.id AND h.effective_on>d.day
+                    ORDER BY h.effective_on,h.contract_revision LIMIT 1
+                ) h ON true
+                WHERE NOT COALESCE(h.deleted,s.deleted)
+            ),
+            receipts AS (
+                SELECT r.id,r.company_id,r.amount_cents-COALESCE((
+                    SELECT sum(f.amount_cents) FROM fr_fin_refund f
+                    WHERE f.company_id=r.company_id AND f.receipt_id=r.id AND f.status='已核实'
+                      AND f.replaced_by_id IS NULL AND f.date<=d.day
+                ),0) AS collected_cents
+                FROM cutoff d JOIN fr_fin_receipt r ON r.company_id=d.org
+                    AND r.status='已登记' AND r.received_date<=d.day
+            ),
+            legacy_projects AS (
+                SELECT p.id,p.company_id
+                FROM cutoff d JOIN fr_eng_project p ON p.company_id=d.org
+                WHERE NOT EXISTS (SELECT 1 FROM sale_terms s WHERE s.contract_id=p.sale_contract_id)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM fr_eng_collection x
+                      JOIN fr_sale_stage_receipt a ON a.receipt_id=x.receipt_id AND a.company_id=x.company_id
+                      JOIN sale_terms s ON s.id=a.stage_id AND s.company_id=a.company_id
+                      WHERE x.project_id=p.id AND x.company_id=p.company_id
+                        AND x.occurred_at<=d.day
+                  )
+            )
+            SELECT s.amount_cents,s.due_date,COALESCE((
+                SELECT sum(r.collected_cents) FROM fr_sale_stage_receipt a
+                JOIN receipts r ON r.id=a.receipt_id AND r.company_id=a.company_id
+                WHERE a.stage_id=s.id AND a.company_id=s.company_id
+            ),0) AS collected_cents
+            FROM sale_terms s
+            UNION ALL
+            SELECT t.amount_cents,NULL::date AS due_date,COALESCE((
+                SELECT sum(CASE WHEN x.receipt_id IS NULL THEN x.amount_cents ELSE r.collected_cents END)
+                FROM fr_eng_collection x
+                LEFT JOIN receipts r ON r.id=x.receipt_id AND r.company_id=x.company_id
+                WHERE x.company_id=t.company_id AND x.project_id=t.project_id AND x.stage=t.stage
+                  AND x.occurred_at<=d.day
+            ),0) AS collected_cents
+            FROM cutoff d JOIN legacy_projects p ON p.company_id=d.org
+            JOIN fr_eng_collection_term t ON t.project_id=p.id AND t.company_id=p.company_id
+            WHERE (t.create_time AT TIME ZONE 'Asia/Shanghai')::date<=d.day
+            """, org, asOf);
+    }
     private List<Map<String,Object>> paymentBalances(long org,String asOf){return jdbc.queryForList("""
         SELECT q.due_date,
          CASE WHEN q.source_type='reimbursement' THEN COALESCE((SELECT m.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f WHERE f.payment_id=m.id AND f.status='已核实' AND f.funding_type='EMPLOYEE' AND f.date<=?::date),0) FROM fr_fin_payment m WHERE m.id::text=q.source_ref AND m.company_id=q.company_id AND m.status='已核实'),0) ELSE q.total_cents END

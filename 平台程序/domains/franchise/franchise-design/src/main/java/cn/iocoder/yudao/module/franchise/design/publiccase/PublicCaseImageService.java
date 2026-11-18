@@ -10,9 +10,11 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.URI;
 import java.net.http.*;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.*;
+import java.util.concurrent.Flow.Subscription;
 
 /** Bounded image delivery on the mini-program's existing API domain. No signed upstream URLs in the client. */
 @Service
@@ -39,14 +41,7 @@ public class PublicCaseImageService {
         }
         if (!permits.tryAcquire()) throw new IOException("Image delivery is busy; retry shortly");
         try {
-            HttpResponse<InputStream> response = client.send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(15)).GET().build(), HttpResponse.BodyHandlers.ofInputStream());
-            byte[] bytes;
-            try (InputStream input = response.body()) {
-                if (response.statusCode() != 200) throw new IOException("Image upstream HTTP " + response.statusCode());
-                if (response.headers().firstValueAsLong("Content-Length").orElse(0) > MAX_BYTES) throw new IOException("Image exceeds size limit");
-                bytes = input.readNBytes(MAX_BYTES + 1);
-            }
-            if (bytes.length > MAX_BYTES) throw new IOException("Image exceeds size limit");
+            byte[] bytes = download(client, uri, Duration.ofSeconds(15));
             Image image = render(bytes, rendition);
             if (!"ORIGINAL".equals(rendition)) synchronized (cache) {
                 Cached previous = cache.put(key, new Cached(image, System.currentTimeMillis() + 300_000));
@@ -56,6 +51,67 @@ public class PublicCaseImageService {
             }
             return image;
         } finally { permits.release(); }
+    }
+
+    static byte[] download(HttpClient client, URI uri, Duration timeout) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder(uri).timeout(timeout).GET().build();
+        var download = client.sendAsync(request, headers -> {
+            IOException invalid = null;
+            if (headers.statusCode() != 200) {
+                invalid = new IOException("Image upstream HTTP " + headers.statusCode());
+            } else if (headers.headers().firstValueAsLong("Content-Length").orElse(0) > MAX_BYTES) {
+                invalid = new IOException("Image exceeds size limit");
+            }
+            return new BoundedBody(invalid);
+        });
+        try {
+            return download.get(timeout.toNanos(), TimeUnit.NANOSECONDS).body();
+        } catch (TimeoutException e) {
+            download.cancel(true);
+            throw new HttpTimeoutException("Image download timed out");
+        } catch (InterruptedException e) {
+            download.cancel(true);
+            throw e;
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof IOException failure) throw failure;
+            throw new IOException("Image download failed", e.getCause());
+        }
+    }
+
+    private static final class BoundedBody implements HttpResponse.BodySubscriber<byte[]> {
+        private final HttpResponse.BodySubscriber<byte[]> delegate = HttpResponse.BodySubscribers.ofByteArray();
+        private final IOException invalidHeaders;
+        private Subscription subscription;
+        private long size;
+
+        private BoundedBody(IOException invalidHeaders) {
+            this.invalidHeaders = invalidHeaders;
+        }
+
+        @Override public CompletionStage<byte[]> getBody() { return delegate.getBody(); }
+
+        @Override public void onSubscribe(Subscription subscription) {
+            this.subscription = subscription;
+            if (invalidHeaders == null) {
+                delegate.onSubscribe(subscription);
+            } else {
+                subscription.cancel();
+                delegate.onError(invalidHeaders);
+            }
+        }
+
+        @Override public void onNext(List<ByteBuffer> buffers) {
+            for (ByteBuffer buffer : buffers) size += buffer.remaining();
+            if (size > MAX_BYTES) {
+                subscription.cancel();
+                delegate.onError(new IOException("Image exceeds size limit"));
+            } else {
+                delegate.onNext(buffers);
+            }
+        }
+
+        @Override public void onError(Throwable failure) { delegate.onError(failure); }
+        @Override public void onComplete() { delegate.onComplete(); }
     }
 
     static Image render(byte[] bytes, String rendition) throws IOException {

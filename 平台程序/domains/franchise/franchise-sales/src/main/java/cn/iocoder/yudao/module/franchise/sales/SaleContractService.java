@@ -379,11 +379,35 @@ public class SaleContractService {
             var c=contracts.lockById(contractId);if(c==null || c.getCompanyId()!=post.orgId())throw exception(REFERENCE_INVALID);requireSIGNED(c);
             if(cmd.reason()==null || cmd.reason().isBlank() || cmd.signAfterCents()<0 || cmd.baseDoneCents()<0 || cmd.capDoneCents()<0 || cmd.tailCents()<0)throw exception(STAGE_AMOUNT_INVALID);
             long total=Math.addExact(Math.addExact(cmd.signAfterCents(),cmd.baseDoneCents()),Math.addExact(cmd.capDoneCents(),cmd.tailCents()));if(total<=0)throw exception(STAGE_AMOUNT_INVALID);
-            String[] names={"SIGN_AFTER","BASE_DONE","CAP_DONE","tail"};long[] values={cmd.signAfterCents(),cmd.baseDoneCents(),cmd.capDoneCents(),cmd.tailCents()};
-            for(int i=0;i<names.length;i++){
-                // SQL锁合同后修改所有期次，与collect同一合同锁序。
-                int updated=jdbcTemplate.update("UPDATE fr_sale_payment_stage SET amount_cents=?,due_date=?,after_delivery=?,deleted=false WHERE contract_id=? AND company_id=? AND stage=?",values[i],i==3?cmd.tailDueDate():null,i==3,contractId,post.orgId(),names[i]);
-                if(updated==0 && values[i]>0){var row=new SalePaymentStageDO().setId(com.baomidou.mybatisplus.core.toolkit.IdWorker.getId()).setCompanyId(post.orgId()).setCustomerId(c.getCustomerId()).setContractId(contractId).setStage(names[i]).setAmountCents(values[i]).setStatus("PENDING").setDeleted(false);stages.insert(row);if(i==3)jdbcTemplate.update("UPDATE fr_sale_payment_stage SET after_delivery=true,due_date=? WHERE id=?",cmd.tailDueDate(),row.getId());}
+            String[] names = {"SIGN_AFTER", "BASE_DONE", "CAP_DONE", "tail"};
+            long[] values = {cmd.signAfterCents(), cmd.baseDoneCents(), cmd.capDoneCents(), cmd.tailCents()};
+            LocalDate effectiveOn = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            long contractRevision = c.getRevision() + 1;
+            for (int i = 0; i < names.length; i++) {
+                LocalDate dueDate = i == 3 ? cmd.tailDueDate() : null;
+                // 保存本次生效前的期次。合同锁与收款、变更使用同一顺序。
+                jdbcTemplate.update("""
+                    INSERT INTO fr_sale_stage_before_change
+                        (company_id,stage_id,contract_revision,effective_on,amount_cents,due_date,deleted)
+                    SELECT company_id,id,?,?,amount_cents,due_date,deleted
+                    FROM fr_sale_payment_stage WHERE contract_id=? AND company_id=? AND stage=?
+                    """,contractRevision,effectiveOn,contractId,post.orgId(),names[i]);
+                int updated = jdbcTemplate.update("""
+                    UPDATE fr_sale_payment_stage SET amount_cents=?,due_date=?,after_delivery=?,deleted=false
+                    WHERE contract_id=? AND company_id=? AND stage=?
+                    """,values[i],dueDate,i==3,contractId,post.orgId(),names[i]);
+                if (updated == 0 && values[i] > 0) {
+                    long stageId = IdWorker.getId();
+                    stages.insert(new SalePaymentStageDO().setId(stageId).setCompanyId(post.orgId())
+                            .setCustomerId(c.getCustomerId()).setContractId(contractId).setStage(names[i])
+                            .setAmountCents(values[i]).setStatus("PENDING").setDeleted(false));
+                    if (i == 3) jdbcTemplate.update("UPDATE fr_sale_payment_stage SET after_delivery=true,due_date=? WHERE id=?", dueDate, stageId);
+                    jdbcTemplate.update("""
+                        INSERT INTO fr_sale_stage_before_change
+                            (company_id,stage_id,contract_revision,effective_on,amount_cents,deleted)
+                        VALUES (?,?,?,?,0,true)
+                        """,post.orgId(),stageId,contractRevision,effectiveOn);
+                }
             }
             contracts.updateById(new SaleContractDO().setId(contractId).setTotalCents(total).setFirstCents(cmd.signAfterCents()).setRevision(c.getRevision()+1));
             long revision=jdbcTemplate.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='sale-contract' AND aggregate_id=?",Long.class,contractId);
