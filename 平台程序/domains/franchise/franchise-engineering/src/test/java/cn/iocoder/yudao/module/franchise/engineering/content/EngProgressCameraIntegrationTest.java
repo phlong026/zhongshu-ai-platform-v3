@@ -33,7 +33,7 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         var store=fixture.store();engineer=fixture.post(store.orgId(),"engineer",store.engineeringTeam());currentPost.use(engineer);
         EngMaterialAndPlanGuardIntegrationTest.Config.CONTRACT_STAGES=null;
         EngMaterialAndPlanGuardIntegrationTest.Config.STAGE_COLLECTED_MAP.clear();
-        projectId=((Number)projects.create(engineer,new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("30"),1,null),key()).get("id")).longValue();
+        projectId=((Number)projects.create(engineer,new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("30"),1,null,true),key()).get("id")).longValue();
         jdbc.execute("CREATE TABLE IF NOT EXISTS eng_test_asset (id BIGINT PRIMARY KEY,asset_type VARCHAR(64),accepted BOOLEAN,org_id BIGINT)");
     }
     @Test void manualProjectLinksSignedIdentityOnceAndHandoverReusesTheSameProject() {
@@ -43,6 +43,12 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
                 INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status)
                 VALUES(?,?,?,'郭宁','13900008158','到店','FOLLOWING')
                 """, customer, engineer.orgId(), engineer.userId());
+        for (String phone : List.of("", "13900008157", "13900008158")) {
+            var unsigned = new EngProjectService.CreateCommand("郭宁庭院", "郭宁", "武汉", phone, null, 2, null);
+            assertThatThrownBy(() -> projects.create(engineer, unsigned, key())).hasMessageContaining("独立建档");
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=? AND name='郭宁庭院'",
+                Long.class,engineer.orgId())).isZero();
         jdbc.update("""
                 INSERT INTO fr_sale_contract(id,company_id,customer_id,total_cents,first_cents,status,author_user_id)
                 VALUES(?,?,?,100000,30000,'SIGNED',?)
@@ -54,6 +60,9 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         long id = ((Number)project.get("id")).longValue();
         assertThat(projects.create(engineer, cmd, createKey).get("id")).isEqualTo(id);
         assertThat(project).containsEntry("customerId",customer).containsEntry("saleContractId",contract);
+        var independent = projects.create(engineer, new EngProjectService.CreateCommand(
+                "郭宁独立工程","郭宁","武汉","13900008158",null,2,null,true),key());
+        assertThat(independent).containsEntry("saleContractId",null).containsEntry("customerId",null);
         var duplicate = new EngProjectService.CreateCommand("另一工程","郭宁","武汉","13900008158",null,1,null);
         assertThatThrownBy(() -> projects.create(engineer, duplicate, key())).hasMessageContaining("已关联工程");
         long commission = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();

@@ -35,6 +35,6 @@ public class EngineeringPortImpl implements EngineeringPort {
         return projects.receiveFromHandover(post, command.commissionId(), command.customerId(),
                 command.customerName(), command.city(), command.phone(), command.area(), command.floors(),
                 command.managerUserId(), command.drawingVersion(), command.drawingFile(), documentRows,
-                command.saleContractId(), command.frozenSchemeVersion());
+                command.saleContractId(), command.frozenSchemeVersion(), command.confirmManagerTransfer());
     }
 }

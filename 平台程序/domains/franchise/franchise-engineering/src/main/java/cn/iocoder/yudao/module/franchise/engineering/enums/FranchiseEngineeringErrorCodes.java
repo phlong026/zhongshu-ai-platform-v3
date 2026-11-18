@@ -20,5 +20,7 @@ public interface FranchiseEngineeringErrorCodes {
     ErrorCode PROJECT_DUPLICATE = new ErrorCode(1_115_000_008, "同名项目已存在，请从项目列表继续办理");
     ErrorCode CLOSURE_ORDER_INVALID = new ErrorCode(1_115_000_009, "尾段顺序不正确（交付→结算→归档）");
     ErrorCode MANAGER_INVALID = new ErrorCode(1_115_000_010, "负责人不在岗或岗位不符，请重新选择本公司在岗工程人员");
+    ErrorCode HANDOVER_TRANSFER_REQUIRED = new ErrorCode(1_115_000_011,
+            "合同已关联工程「{}」，现由他人负责。请确认接任该工程负责人后再接收，或退回移交。");
 
 }

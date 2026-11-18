@@ -113,6 +113,39 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
     }
 
     @Test
+    void receivingAnotherEngineersManualProjectRequiresExplicitTransfer() {
+        var original = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
+        long customer = customerWithDispatchedDesign("P1/B1/F1");
+        insertSignedContract(customer);
+        long commission = commissionIdOf(customer);
+        String phone = jdbc.queryForObject("SELECT phone FROM fr_customer WHERE id=?",String.class,customer);
+        var command = new cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.CreateCommand(
+                "陈家乡墅","陈先生","武汉",phone,null,2,null);
+        long project = ((Number)as(original, () -> engProjects.create(original,command,idem())).get("id")).longValue();
+        as(salesA1, () -> handovers.submit(salesA1,commission,packet(1,"P1/B1/F1",engineer.userId()),idem()));
+        String receiveKey = idem();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> as(engineer, () -> handovers.receive(engineer,commission,
+                new HandoverService.DecisionCommand(null,true),receiveKey))).hasMessageContaining("确认接任");
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_commission WHERE id=?",String.class,commission))
+                .isEqualTo(CommissionDO.STATUS_HANDOVER_SUBMITTED);
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_commission_handover WHERE commission_id=?",String.class,commission))
+                .isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("SELECT source_commission_id FROM fr_eng_project WHERE id=?",Long.class,project)).isNull();
+        var transfer = new HandoverService.DecisionCommand(null,true,true);
+        as(engineer, () -> handovers.receive(engineer,commission,transfer,receiveKey));
+        as(engineer, () -> handovers.receive(engineer,commission,transfer,receiveKey));
+        assertThat(as(engineer, () -> engProjects.list(engineer,null))).extracting(row -> row.get("id")).contains(project);
+        assertThat(as(original, () -> engProjects.list(original,null))).extracting(row -> row.get("id")).doesNotContain(project);
+        var increment = new cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.CreateCommand(
+                "陈家增项","陈先生","武汉",phone,null,1,project);
+        assertThat(as(engineer, () -> engProjects.create(engineer,increment,idem())).get("parentProjectId")).isEqualTo(project);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-project-handover-transfer'
+                AND (payload::jsonb->>'fromUserId')::bigint=? AND (payload::jsonb->>'toUserId')::bigint=?
+                """,Long.class,project,original.userId(),engineer.userId())).isEqualTo(1);
+    }
+
+    @Test
     void feedbackThenNewDispatchResubmitKeepsVersionHistory() {
         long customerId = customerWithDispatchedDesign("P1/B1/F1");
         long commissionId = commissionIdOf(customerId);
