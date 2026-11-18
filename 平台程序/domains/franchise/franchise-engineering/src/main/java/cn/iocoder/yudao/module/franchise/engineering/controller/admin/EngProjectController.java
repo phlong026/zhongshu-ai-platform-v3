@@ -45,7 +45,7 @@ public class EngProjectController {
         return idem.trim();
     }
 
-    @PostMapping("/projects")
+    @PostMapping({"/projects", "/projects/manual"})
     @Operation(summary = "手工新建/增项建档（查重=同组织未归档项目名唯一 008）")
     @PreAuthorize("@post.has('" + EngineeringPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> create(@RequestBody Map<String, Object> body,

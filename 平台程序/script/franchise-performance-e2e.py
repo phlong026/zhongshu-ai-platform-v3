@@ -123,7 +123,7 @@ def build_engineering(boss, sales, engineer, finance):
     返回 (project_id, topping_receipt_id)。"""
     asset = upload_asset(engineer, sales, 'ENG_DRAWING')
     proj = act(engineer, 'POST', '/franchise/engineering/projects',
-               {'name': '绩效工程-' + run, 'customer': '吴先生', 'city': '武汉', 'floors': 2, 'area': 300},
+               {'name': '绩效工程-' + run, 'customer': '吴先生', 'city': '武汉', 'floors': 2, 'independent': True, 'area': 300},
                idem='pe-proj-' + run)
     pid = int(proj['id'])
     prepared = act(engineer, 'POST', f'/franchise/engineering/{pid}/prepare',

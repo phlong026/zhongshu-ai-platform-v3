@@ -157,13 +157,7 @@ public class EngProjectService {
                 SELECT c.id,c.name FROM fr_customer c WHERE c.company_id=? AND c.phone=? FOR UPDATE
                 """, (rs, i) -> new ProjectCustomer(rs.getLong("id"), rs.getString("name")), org, phone);
         if (matches.isEmpty()) {
-            boolean signedName = Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
-                    SELECT EXISTS(SELECT 1 FROM fr_customer c JOIN fr_sale_contract s
-                      ON s.company_id=c.company_id AND s.customer_id=c.id
-                      WHERE c.company_id=? AND c.name=? AND s.status='SIGNED' AND NOT s.deleted)
-                    """, Boolean.class, org, customer));
-            if (signedName) throw exception(ENGINEERING_INPUT_INVALID, "有同名签约客户，请核对建档手机号；无关工程可选择独立建档");
-            return;
+            throw exception(ENGINEERING_INPUT_INVALID, "未找到匹配的签约客户，请核对姓名和建档手机号，或勾选独立建档");
         }
         ProjectCustomer matched = matches.get(0);
         if (!customer.equals(matched.name())) {
@@ -174,7 +168,9 @@ public class EngProjectService {
                 SELECT id FROM fr_sale_contract WHERE company_id=? AND customer_id=? AND status='SIGNED'
                   AND NOT deleted FOR UPDATE
                 """, Long.class, org, matched.id());
-        if (contracts.isEmpty()) return;
+        if (contracts.isEmpty()) {
+            throw exception(ENGINEERING_INPUT_INVALID, "该客户没有已签销售合同，请先完成签约，或勾选独立建档");
+        }
         long contractId = contracts.get(0);
         if (contractProject(org, contractId) != null) {
             throw exception(ENGINEERING_INPUT_INVALID, "该销售合同已关联工程，请打开已有工程或新建增项");
@@ -220,19 +216,26 @@ public class EngProjectService {
         if (linked != null && !existing.isEmpty() && !linked.equals(existing.get(0).getId())) {
             throw exception(ENGINEERING_INPUT_INVALID, "该委托与合同已关联不同工程，请核对移交档案");
         }
-        if (linked != null && existing.isEmpty()) {
+        if (linked != null || !existing.isEmpty()) {
+            long projectId = linked != null ? linked : existing.get(0).getId();
+            FrEngProjectDO project = projects.lockById(projectId);
+            if (project == null || project.getCompanyId() != post.orgId()) {
+                throw exception(ENGINEERING_INPUT_INVALID, "关联工程已变更，请重新核对移交档案");
+            }
+            if (!java.util.Objects.equals(project.getManagerUserId(), managerUserId)) {
+                throw exception(ENGINEERING_INPUT_INVALID,
+                        "接收人与原工程负责人不一致，请原负责人在工程档案中确认变更负责人后，再接收移交");
+            }
+            if (existing.isEmpty()) {
                 int adopted = jdbcTemplate.update("""
                         UPDATE fr_eng_project SET source_commission_id=?,update_time=now()
                         WHERE id=? AND company_id=? AND customer_id=? AND source_type='MANUAL'
                           AND source_commission_id IS NULL AND status<>'ARCHIVED'
-                        """, commissionId, linked, post.orgId(), customerId);
+                        """, commissionId, projectId, post.orgId(), customerId);
                 if (adopted == 0) throw exception(ENGINEERING_INPUT_INVALID, "销售合同已关联其他工程或已归档，请核对移交档案");
-                existing = List.of(projects.lockById(linked));
-        }
-        if (!existing.isEmpty()) {
+            }
             // 重复回调：刷新交底资料（不动负责人/现场记录——蓝本「工程经办人、已签施工合同和现场记录由工程维护」）；
             // R1 P2：合同关联只补全不为改写（原 NULL 本次有值才补）；冻结版本变更留刷新事件供追溯
-            FrEngProjectDO project = existing.get(0);
             // R2：合同补全用 NULL 条件原子更新（先读后写实体更新在并发回调下后写覆盖先写，违反「只补全不改写」）
             boolean contractBackfill = project.getSaleContractId() == null && saleContractId != null;
             if (FrEngProjectDO.SOURCE_MANUAL.equals(project.getSourceType())) {

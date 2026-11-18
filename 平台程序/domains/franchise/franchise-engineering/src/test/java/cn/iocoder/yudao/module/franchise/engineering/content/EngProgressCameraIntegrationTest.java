@@ -33,7 +33,7 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         var store=fixture.store();engineer=fixture.post(store.orgId(),"engineer",store.engineeringTeam());currentPost.use(engineer);
         EngMaterialAndPlanGuardIntegrationTest.Config.CONTRACT_STAGES=null;
         EngMaterialAndPlanGuardIntegrationTest.Config.STAGE_COLLECTED_MAP.clear();
-        projectId=((Number)projects.create(engineer,new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("30"),1,null),key()).get("id")).longValue();
+        projectId=((Number)projects.create(engineer,new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("30"),1,null,true),key()).get("id")).longValue();
         jdbc.execute("CREATE TABLE IF NOT EXISTS eng_test_asset (id BIGINT PRIMARY KEY,asset_type VARCHAR(64),accepted BOOLEAN,org_id BIGINT)");
     }
     @Test void manualProjectLinksSignedIdentityOnceAndHandoverReusesTheSameProject() {
@@ -43,6 +43,16 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
                 INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status)
                 VALUES(?,?,?,'郭宁','13900008158','到店','FOLLOWING')
                 """, customer, engineer.orgId(), engineer.userId());
+        var unsigned = new EngProjectService.CreateCommand("郭宁独栋", "郭宁", "武汉", "13900008158", null, 2, null);
+        assertThatThrownBy(() -> projects.create(engineer, unsigned, key())).hasMessageContaining("独立建档");
+        var unknown = new EngProjectService.CreateCommand("新客户工程", "刘宁", "武汉", "13800001957", null, 2, null);
+        assertThatThrownBy(() -> projects.create(engineer, unknown, key())).hasMessageContaining("独立建档");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=? AND name IN (?,?)",
+                Integer.class, engineer.orgId(), unsigned.name(), unknown.name())).isZero();
+        var independent = new EngProjectService.CreateCommand("明确独立工程", "郭宁", "武汉", "13900008158", null, 2, null, true);
+        var separate = projects.create(engineer, independent, key());
+        assertThat(separate.get("customerId")).isNull();
+        assertThat(separate.get("saleContractId")).isNull();
         jdbc.update("""
                 INSERT INTO fr_sale_contract(id,company_id,customer_id,total_cents,first_cents,status,author_user_id)
                 VALUES(?,?,?,100000,30000,'SIGNED',?)

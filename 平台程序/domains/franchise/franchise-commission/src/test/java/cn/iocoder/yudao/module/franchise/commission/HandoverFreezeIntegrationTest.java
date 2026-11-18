@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService;
 
 /**
  * M06-T03：统一合同关联的冻结移交及指定工程接收——真实 commission→engineering 全链
@@ -82,6 +84,42 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
         assertThat(frozenSchemeVersion(commissionIdOf(customerId))).isEqualTo("P1/B1/F1");
         assertThat(detail.submissions()).isNotEmpty();
         // 委托行 handoverVersion 已指向新包（contractId 关联断言在 receive 用例——档案建立时落列）
+    }
+
+    @Test
+    void nominatedEngineerReceivesOriginalProjectOnlyAfterRecordedManagerChange() {
+        PostSnapshot original = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
+        long customer = customerWithDispatchedDesign("P1/B1/F1");
+        insertSignedContract(customer);
+        long commission = commissionIdOf(customer);
+        String phone = jdbc.queryForObject("SELECT phone FROM fr_customer WHERE id=?", String.class, customer);
+        var create = new EngProjectService.CreateCommand(
+                "陈先生庭院", "陈先生", "武汉", phone, null, 2, null);
+        long id = ((Number)as(original, () -> engProjects.create(original, create, idem())).get("id")).longValue();
+        as(salesA1, () -> handovers.submit(salesA1, commission, packet(1, "P1/B1/F1", engineer.userId()), idem()));
+        String receiveKey = idem();
+        var decision = new HandoverService.DecisionCommand("", true);
+        assertThatThrownBy(() ->
+                as(engineer, () -> handovers.receive(engineer, commission, decision, receiveKey)))
+                .hasMessageContaining("变更负责人");
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_commission WHERE id=?", String.class, commission))
+                .isEqualTo("HANDOVER_SUBMITTED");
+        assertThat(jdbc.queryForObject("SELECT source_commission_id FROM fr_eng_project WHERE id=?", Long.class, id)).isNull();
+        as(original, () -> engProjects.changeManager(original, id,
+                new EngProjectService.ManagerCommand(
+                        engineer.userId(), "确认移交庭院项目"), idem()));
+        as(engineer, () -> handovers.receive(engineer, commission, decision, receiveKey));
+        as(engineer, () -> handovers.receive(engineer, commission, decision, receiveKey));
+        assertThat(as(engineer, () -> engProjects.list(engineer, null))).extracting(row -> row.get("id")).contains(id);
+        assertThat(as(original, () -> engProjects.list(original, null))).extracting(row -> row.get("id")).doesNotContain(id);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE id=? AND source_commission_id=? " +
+                "AND manager_user_id=? AND assigned_engineer_user_id=?", Integer.class, id, commission, engineer.userId(), engineer.userId())).isOne();
+        // Owner-only increment creation proves the receiver can continue work on the original project.
+        var increment = new EngProjectService.CreateCommand(
+                "陈先生庭院围墙", "陈先生", "武汉", phone, null, 1, id);
+        assertThat(as(engineer, () -> engProjects.create(engineer, increment, idem())).get("parentProjectId")).isEqualTo(id);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-project-manager'",
+                Integer.class, id)).isOne();
     }
 
     @Test
