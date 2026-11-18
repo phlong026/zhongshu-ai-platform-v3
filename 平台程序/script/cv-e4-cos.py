@@ -114,7 +114,7 @@ def main():
                 {'name': 'E4-COS 业主', 'phone': '139' + run_ts[-8:], 'need': '乡墅', 'source': 'E4'},
                 token=sales['token'], post_id=sales['post'])
     project_id = call('POST', '/franchise/engineering/projects',
-                      {'name': 'E4-COS-' + run_ts, 'customer': '陈', 'city': '武汉'},
+                      {'name': 'E4-COS-' + run_ts, 'customer': '陈', 'city': '武汉', 'independent': True},
                       token=engineer['token'], post_id=engineer['post'],
                       headers={'Idempotency-Key': 'e4-cos-' + run_ts})['id']
     detail = call('GET', f'/franchise/engineering/{project_id}',
