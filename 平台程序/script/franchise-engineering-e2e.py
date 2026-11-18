@@ -152,7 +152,7 @@ def main():
         {'name': 'sales-' + run, 'customer': '陈', 'city': '武汉'}, expect_code=403)
     manual = act(engineer_b, 'POST', '/franchise/engineering/projects',
                  {'name': 'B手工-' + run, 'customer': '李四', 'city': '黄石',
-                  'phone': '13900002222', 'floors': 2, 'area': 320},
+                  'phone': '13900002222', 'floors': 2, 'independent': True, 'area': 320},
                  idem='e2e-manual-' + run)
     manual_id = manual['id']
     # owner 校验：A 操作 B 的工程 → 000

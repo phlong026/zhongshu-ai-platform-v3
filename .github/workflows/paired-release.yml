@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      FRONTEND_REV: 1fa1d2bb2397628b0fc42cd315fe9a17989c2df6
+      FRONTEND_REV: 3ef76827ffb9459fca40cf7e7de69f4a36a7d7dd
       BACKEND_REV: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
