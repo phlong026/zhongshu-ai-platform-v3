@@ -18,4 +18,6 @@
 .profile-action{display:flex;align-items:center;flex-shrink:0;gap:12rpx;margin-left:auto;white-space:nowrap}
 .profile-action .profile-link{margin:0;font-size:var(--zs-font-meta);line-height:34rpx}
 .profile-action .chevron{position:static;flex-shrink:0}
+.franchise-section .two-grid + .two-grid{margin-top:12rpx}
+.franchise-section .tile{min-width:0;gap:16rpx}
 .profile-card>.login-link{flex-shrink:0;margin-right:0;padding:10rpx 20rpx}

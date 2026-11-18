@@ -1,0 +1,16 @@
+<brand-header title="门店地图" back="{{true}}"/>
+<view class="map-page">
+  <view wx:if="{{loading}}" class="map-message">正在加载门店落位…</view>
+  <view wx:elif="{{error}}" class="map-message"><text>{{error}}</text><button bindtap="load">重新加载</button></view>
+  <block wx:else>
+    <view class="scope"><text class="scope-title">{{admin?'各品牌门店':brandName||'本品牌门店'}}</text></view>
+    <view class="regions"><picker wx:for="{{pickers}}" wx:key="key" range="{{item.choices}}" range-key="name" value="{{item.index}}" disabled="{{item.disabled}}" data-index="{{index}}" bindchange="changeRegion"><view class="region {{item.disabled?'disabled':''}}"><text>{{item.choices[item.index].name}}</text><view class="chevron"/></view></picker></view>
+    <map id="stores" class="map" latitude="{{latitude}}" longitude="{{longitude}}" scale="{{scale}}" include-points="{{includePoints}}" markers="{{markers}}" bindupdated="fitMarkers" bindmarkertap="selectMarker" bindcallouttap="selectMarker" />
+    <scroll-view wx:if="{{admin&&brands.length>1}}" class="legend" scroll-x><button wx:for="{{brands}}" wx:key="id" class="brand {{selectedBrand===item.id?'active':''}}" data-id="{{item.id}}" bindtap="changeBrand"><text wx:if="{{item.id}}" class="dot" style="background:{{item.color}}"/>{{item.name}}</button></scroll-view>
+    <view class="stores"><view class="list-head"><text>{{pinned?'该点门店':'区域门店'}} · {{total}} 家</text><button wx:if="{{pinned}}" bindtap="showAll">查看本区域全部</button></view>
+      <view wx:for="{{rows}}" wx:key="id" class="store"><text class="dot" style="background:{{item.color}}"/><view><text class="name">{{item.name}}</text><text class="address">{{item.brandName}} · {{item.provinceName}} {{item.cityName}} {{item.districtName}}</text><text wx:if="{{item.locationPrecision==='district'}}" class="address">按区县中心显示</text><text wx:if="{{item.locationPrecision==='city'}}" class="address">按城市中心显示</text><text wx:if="{{item.latitude==null||item.longitude==null}}" class="address">位置待补充</text></view></view>
+      <view wx:if="{{!total}}" class="map-message">当前范围暂无门店落位</view>
+      <button wx:if="{{total>rows.length}}" class="more" bindtap="more">查看更多门店</button>
+    </view>
+  </block>
+</view>

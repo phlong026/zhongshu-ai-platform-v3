@@ -11,6 +11,7 @@
       <text class="asset-unit">本人本月使用</text>
     </view>
   </view>
+  <button wx:if="{{state==='ready' && purchaseAvailable}}" class="asset-retry" bindtap="openPackages">模拟积分套餐</button>
   <view wx:if="{{state==='suspended'}}" class="asset-feedback asset-warning">
     <text>公司积分账户已暂停，请联系管理员</text><button class="asset-retry" bindtap="retry">重新加载</button>
   </view>

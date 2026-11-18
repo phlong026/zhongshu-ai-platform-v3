@@ -8,3 +8,12 @@ test('首页换月与换岗的迟到响应不能覆盖当前指标',async()=>{co
 
 test('材料和待接收入口定位原供货事项与接收办理',()=>{const h=model();assert.equal(require('../miniprogram/pages/home-metrics/source-url')({source_type:'material',source_id:'23',project_id:'12'},'engineering'),'/pages/build/record/index?id=12&view=material&homeSupply=23');assert.ok(require('../miniprogram/pages/home-metrics/source-url')({source_type:'handover',source_id:'45',customer_id:'6'},'engineering').endsWith('view=receive'));});
 test('提交委托先选择真实客户，普通客户入口不受影响',()=>{let mod={exports:{}},urls=[];vm.runInNewContext(fs.readFileSync('miniprogram/utils/sales-customers-page.js','utf8'),{module:mod,require:()=>({}),wx:{navigateTo:o=>urls.push(o.url)}});const p=mod.exports();p.setData=function(v){Object.assign(this.data,v);};p.data.customers=[{id:'7'}];p.data.canRegister=true;const e={currentTarget:{dataset:{id:'7'}}};p.onLoad({intent:'commission'});p.open(e);assert.equal(urls.pop(),'/pages/workflow/commission/index?view=submit&customerId=7');p.onLoad({});p.open(e);assert.equal(urls.pop(),'/pages/workflow/index?view=customer&id=7');});
+
+test('home opens start registration and the original tail installment',()=>{
+ const route=require('../miniprogram/pages/home-metrics/source-url');
+ const start=route({project_id:'7',source_type:'node',milestone:'START',source_id:'200'},'engineering','nextNodes','2026-11','engineer');
+ assert.match(start,/id=7&view=start$/);
+ const row={project_id:'7',source_type:'project-receivable',stage_code:'tail',stage_id:'81'};
+ assert.match(route(row,'owner','projectDue','2026-11','boss'),/view=collection&stage=tail$/);
+ assert.match(route(row,'finance','projectDue','2026-11','finance'),/homeStage=81$/);
+});

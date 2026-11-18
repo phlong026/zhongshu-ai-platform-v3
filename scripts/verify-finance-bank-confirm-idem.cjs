@@ -27,6 +27,7 @@ async function main() {
   http.currentPostId = () => post.postId;
   auth.currentApiPost = () => post;
   global.wx = {
+    getStorageSync() { return undefined; },
     toasts: [],
     showToast(options) { this.toasts.push(options); },
     showModal(options) { options.success({ confirm: true, content: '跨岗位撤销原因足够长' }); }

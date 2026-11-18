@@ -75,7 +75,7 @@ const fiveStates = [
   { name: '未足额→不可发放', stage: { status: 'x', reviewDue: false, eligible: false, payableId: null }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '尚未收齐' } },
   { name: '可生成应付', stage: { status: 'x', reviewDue: false, eligible: true, payableId: null }, expect: { canRelease: true, canPay: false, canReconcile: false, reasonContains: '本期应付' } },
   { name: '待付款（应付已生成）', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9 }, expect: { canRelease: false, canPay: true, canReconcile: false, reasonContains: '财务工作台' } },
-  { name: '已付清', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9, paidCents: 10000, amountCents: 10000, outstandingCents: 0 }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '财务工作台' } }
+  { name: '已付清', stage: { status: 'x', reviewDue: false, eligible: true, payableId: 9, paidCents: 10000, amountCents: 10000, outstandingCents: 0 }, expect: { canRelease: false, canPay: false, canReconcile: false, reasonContains: '' } }
 ];
 let matrixOk = true;
 for (const state of fiveStates) {
@@ -91,7 +91,7 @@ for (const state of fiveStates) {
       canReconcile: !!(state.expect.canReconcile && boss)
     };
     if (st.canRelease !== want.canRelease || st.canPay !== want.canPay || st.canReconcile !== want.canReconcile
-      || !st.reason.includes(state.expect.reasonContains)) {
+      || (state.expect.reasonContains ? !st.reason.includes(state.expect.reasonContains) : st.reason !== '')) {
       matrixOk = false;
       console.log('    偏差：', state.name, role, JSON.stringify({ got: { canRelease: st.canRelease, canPay: st.canPay, canReconcile: st.canReconcile, reason: st.reason }, want }));
     }

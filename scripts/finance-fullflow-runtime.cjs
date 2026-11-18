@@ -2,7 +2,7 @@ const a=require('miniprogram-automator'),fs=require('fs'),assert=require('assert
 const root='C:/Users/Administrator/.codex/artifacts/finance-joint-20261117/run1/',out='docs/finance-fullflow-20261117/';
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 module.exports=async function(){
- const m=await a.connect({wsEndpoint:'ws://127.0.0.1:9973'});let p=await m.currentPage(),role='finance';
+ const m=await a.connect({wsEndpoint:process.env.FINANCE_DEVTOOLS_WS || 'ws://127.0.0.1:9973'});let p=await m.currentPage(),role='finance';
  const x=JSON.parse(fs.readFileSync(root+'fullflow-handles.json','utf8')),actors=JSON.parse(fs.readFileSync(root+'actors.json','utf8'));
  const casesFile=out+'cases.json',cases=fs.existsSync(casesFile)?JSON.parse(fs.readFileSync(casesFile,'utf8')):[];
  const save=()=>fs.writeFileSync(root+'fullflow-handles.json',JSON.stringify(x,null,2));

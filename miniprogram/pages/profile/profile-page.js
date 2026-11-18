@@ -6,6 +6,7 @@ const M = require('../../utils/platform-messages');
 const http = require('../../api/http');
 const Learning = require('../../utils/learning-catalog');
 const Profile = require('../../utils/platform-profile');
+const { canViewAllStores } = require('../../utils/store-map-access');
 
 const TEAM = { 'sales-lead': ['业务团队', 'business-team'], 'project-manager': ['工程团队', 'engineering-team'], 'finance-lead': ['财务管理', 'finance-team'], owner: ['门店团队与交接', 'staff'] };
 const account = (view, extra = '') => '/pages/account/index?view=' + view + extra;
@@ -14,12 +15,14 @@ const ACTIONS = {
   performance: (engineering, id, owner) => '/pages/admin/tasks/index?view=' + (owner ? 'team' : 'mine'),
   identity: () => account('identity'), help: () => account('help'), privacy: () => account('privacy'), policy: () => account('policy'), agreement: () => account('agreement'),
   services: () => account('services'), selection: () => account('selection'),
+  storeMap: () => '/pages/account/store-map/index',
+  academy: () => account('learning', '&entry=academy'),
   learning: eng => account('learning', eng ? '&category=' + encodeURIComponent('工程') : ''),
   resources: eng => account('learning', '&tab=' + encodeURIComponent('资料') + (eng ? '&category=' + encodeURIComponent('工程') : '')),
   course: (eng, id) => account('course', id ? '&id=' + encodeURIComponent(id) : '')
 };
 // actions that need a signed-in account
-const LOGIN_ONLY = ['profile', 'messages', 'performance'];
+const LOGIN_ONLY = ['profile', 'messages', 'performance', 'storeMap', 'academy'];
 
 // Keep one entry per company setting; task access stays in the profile quick card.
 function managementEntries(a) {
@@ -76,6 +79,7 @@ module.exports = function (tabIndex) {
         identityText:Profile.compactIdentity(company,role),identityOrganization:Profile.compactIdentity(company,''),identityRole:Profile.compactIdentity('',role),learningAvailable:apiLoggedIn?true:!!course,learningLoading:apiLoggedIn,learningError:'',learningLabel:apiLoggedIn?'':course?course.category+'培训':'',
         engineeringProfile, courseId:course?course.id:'',courseTitle:course?course.name:'',courseImage:course?course.image:'',
         loggedIn, showStoreServices: !loggedIn || actor.orgType === 'store',
+        showAdminMap: canViewAllStores(apiPost),
         entries: entries(actor),
         ownerProfile, managementEntries: managementEntries(actor),
         name: apiLoggedIn ? (apiPost.name || s.profile.name) : s.profile.name, avatar: s.profile.avatar,

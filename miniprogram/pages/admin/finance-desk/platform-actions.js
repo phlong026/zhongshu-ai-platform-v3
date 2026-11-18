@@ -6,6 +6,7 @@ const httpApi = require('../../../api/http');
 const authApi = require('../../../api/auth');
 
 module.exports = function attach(page, financeApi, PF) {
+  require('./payment-recovery')(page, financeApi, httpApi, authApi, wx, PF);
   const beginBusy = target => {
     if (typeof target.beginFinanceBusy === 'function') return target.beginFinanceBusy();
     if (target.data.busy) return null;
@@ -30,6 +31,7 @@ module.exports = function attach(page, financeApi, PF) {
     this.setData({ wbForm: null, wbError: '', bookEntryDetail:null, registerType: type, registerForm: form, registerError: '' });
   };
   page.cancelRegister = function () {
+    if (this.data.paymentPending) return;
     this.registerIdem = null; // M08-T04：放弃表单换新键
     this._registerSeq = (this._registerSeq || 0) + 1; // R3 P2-1：取消使挂起中的旧登记回调过期（不清新表单/不复位新操作）
     this._correctionCtx = null; // M08-T08 批次#34：放弃更正即清上下文
@@ -108,11 +110,11 @@ module.exports = function attach(page, financeApi, PF) {
       .catch(err => { if (ownsBusy(this, busyToken) && stillSameScope()) wx.showToast({ title: PF.errorMessage(err), icon: 'none' }); })
       .finally(() => finishBusy(this, busyToken));
   };
-  page.submitRegister = function () {
+  page.submitRegister = function (snapshot) {
     // R1 P2-1：更正作废挂起中（busy）同样不许发起新登记——双向互斥防表单互相覆盖
     if (this.data.registerBusy || this.data.busy) return;
-    const type = this.data.registerType;
-    const form = this.data.registerForm || {};
+    const type = snapshot?.form ? snapshot.type : this.data.registerType;
+    const form = snapshot?.form || { ...this.data.registerForm };
     const fail = msg => this.setData({ registerError: msg });
     const amount = PF.toCents(form.amount);
     if (!amount) return fail('请输入正确的金额（最多两位小数）');
@@ -164,22 +166,27 @@ module.exports = function attach(page, financeApi, PF) {
     if (!this.registerIdem) this.registerIdem = financeApi.idemKey(type);
     const idem = this.registerIdem;
     const seq = this._registerSeq = (this._registerSeq || 0) + 1; // R1 P2-1：代次戳——旧登记回调不得覆盖后续更正表单
-    const sessionAlive = httpApi.sessionGuard();
-    const alive = () => sessionAlive() && !this.__disposed && seq === this._registerSeq;
+    const sessionAlive = httpApi.sessionGuard(), post = httpApi.currentPostId(), generation = this.wbGeneration;
+    const alive = () => sessionAlive() && httpApi.currentPostId() === post && !this.__disposed &&
+      seq === this._registerSeq && generation === this.wbGeneration;
     const withVoucher = (form.voucherPath
       ? financeApi.uploadVoucher(form.voucherPath, form.voucherName).then(assetId => { body.voucherFileId = assetId; })
       : Promise.resolve());
-    withVoucher
-      .then(() => { if (!alive()) return; return call(body, idem); })
+    return withVoucher
+      .then(() => {
+        if (!alive()) return;
+        if (type === 'payment') return this.dispatchPreparedPayment(body, idem, form);
+        return call(body, idem);
+      })
       .then(result => {
-        if (!alive()) return; // 身份/代次过期不得清理新表单
+        if (type === 'payment' || !alive()) return; // 身份/代次过期不得清理新表单
         if(this.financeEntrySaved)this.financeEntrySaved(type,form,result);
         wx.showToast({ title: type === 'payment' ? '付款登记完成' : ['refund', 'expense-refund'].includes(type) ? '退款登记完成' : '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();if(this.loadWorkbench)this.loadWorkbench();
         if (this.loadDesignFees) this.loadDesignFees();
         if(this.refreshFinanceTasks)this.refreshFinanceTasks();
       })
       .catch(err => { if (alive()) this.setData({ registerError: PF.errorMessage(err) }); })
-      .finally(() => { if (alive()) this.setData({ registerBusy: false }); });
+      .finally(() => { if (alive() && !this.data.paymentPending) this.setData({ registerBusy: false }); });
   };
 
   // ===================== M08-T08 批次#34：更正链双端（作废→重登携 replacesId 走 CAS 替代） =====================

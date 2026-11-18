@@ -205,6 +205,13 @@ async function loadMembers() {
  * 提成对账行视图（assigneeUserId 字符串保留；可付款阶段直达原应付——
  * 付款走财务工作台在线流程 M5 接管，不跳本地付款页 Codex P1-8）。
  */
+function reviewEvidenceIds(records) {
+  try {
+    const list=typeof records==='string'?JSON.parse(records):records;
+    return Array.isArray(list)?[...new Set(list.map(r=>r.evidenceRef).filter(id=>/^\d+$/.test(id)))]:[];
+  } catch { return []; }
+}
+
 function commissionRowView(row, roleCode, projectName) {
   const finance = roleCode === 'finance' || roleCode === 'finance-lead';
   const actualBoss = roleCode === 'boss';
@@ -216,6 +223,7 @@ function commissionRowView(row, roleCode, projectName) {
     assigneeUserId: String(row.assigneeUserId == null ? '' : row.assigneeUserId),
     assignee: row.assigneeName,
     version: row.version,
+    evidenceId:/^\d+$/.test(row.evidenceRef||'')?row.evidenceRef:'',
     stages: (row.stages || []).map(stage => ({
       // M10-T05：三期映射（SIGN_AFTER→start/BASE_DONE→base/CAP_DONE→topping；存量 START/TOPPING 兼容）
       stage: stage.stage === 'SIGN_AFTER' || stage.stage === 'START' ? 'start'
@@ -223,7 +231,9 @@ function commissionRowView(row, roleCode, projectName) {
       label: stage.label,
       status: stage.status,
       payableId: stage.payableId == null ? '' : String(stage.payableId),
+      evidenceIds:reviewEvidenceIds(stage.reconciliations),
       reviewDue: stage.reviewDue,
+      eligible: stage.eligible,
       requiredText: centsText(stage.requiredCents),
       receivedText: centsText(stage.receivedCents),
       amountText: centsText(stage.amountCents),
@@ -233,8 +243,9 @@ function commissionRowView(row, roleCode, projectName) {
       canPay: finance && !!stage.payableId && !stage.reviewDue && stage.eligible && stage.outstandingCents > 0,
       // M10-T05/R2 P2：已付差额核对入口（paid>0 即使净额不足也可核对——后端已付留痕路径）
       canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.paidCents || 0) > 0),
-      reason: stage.reviewDue ? '原收款已变化，未付部分暂停；已付差额只待人工核对，不代表已追回。'
+      reason: stage.reviewDue ? (stage.eligible ? '阶段款已补齐，待老板人工核对。' : '回款有变动，未付提成暂停。')
         : !stage.eligible ? '阶段款尚未收齐，暂不能发放。'
+        : stage.payableId && stage.outstandingCents === 0 ? ''
         : stage.payableId ? '应付已生成，请到财务工作台登记付款。' : '阶段款已足额，可由财务生成本期应付。'
     }))
   };

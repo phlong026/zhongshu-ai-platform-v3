@@ -53,7 +53,7 @@ module.exports=function(page,api){
  page.refreshJourney=function(){
   if(!this.data.journeyEnabled)return;
   const books=this.data.workbenchBooks||[],stages=(this.data.financialStages||[]).map(s=>({...s,project_id:s.project_id||books.find(b=>String(b.sale_contract_id)===String(s.contract_id))?.project_id})),facts=this.__financeFacts;
-  const payables=facts?J.payableRows(facts,books,stages).map(q=>{if(q.sourceType!=='performance'&&q.stage!=='performance'&&!String(q.agreementRef||'').startsWith('perf-commission:'))return q;const stage=(this.__commissionStages||[]).find(s=>String(s.payableId)===q.id),hold=!stage||stage.reviewDue||!stage.eligible;return {...q,sourceType:'performance',name:stage?.label||'项目回款提成',label:(stage?.label||'项目回款提成')+' · '+q.counterparty+' · 待付 ¥'+q.remainingText,canPay:q.canPay&&!hold,canAdjust:false,commissionHold:hold&&q.remainingCents>0,holdReason:stage?'回款已变化，请由老板核对提成':'提成状态未能核实，请刷新重试'};}):[];
+  const payables=facts?J.payableRows(facts,books,stages).map(q=>{if(q.sourceType!=='performance'&&q.stage!=='performance'&&!String(q.agreementRef||'').startsWith('perf-commission:'))return q;const stage=(this.__commissionStages||[]).find(s=>String(s.payableId)===q.id),hold=!stage||stage.reviewDue||!stage.eligible;return {...q,sourceType:'performance',name:stage?.label||'项目回款提成',label:(stage?.label||'项目回款提成')+' · '+q.counterparty+' · 待付 ¥'+q.remainingText,canPay:q.canPay&&!hold,canAdjust:false,commissionHold:hold&&q.remainingCents>0,holdReason:hold&&q.remainingCents>0?(!stage?'提成状态未能核实，请刷新重试':stage.reviewDue?'回款已变化，请由老板核对提成':'阶段回款尚未达到付款条件'):''};}):[];
   const cash=facts?J.cashRows(facts,books,stages,auth.currentApiPost()?.roleCode):[];
   this.__journeyCash=cash;
   const month=this.data.flowScope==='all'?'':this.data.selectedMonth||this.data.platformFinance?.month||today().slice(0,7);
@@ -180,18 +180,24 @@ module.exports=function(page,api){
  const submit=page.submitRegister,submitEntry=page.submitWorkbench;
  page.journeyInvalid=function(field,message,manual){this.setData({journeyErrorField:field,[manual?'wbError':'registerError']:message});wx.pageScrollTo({selector:'#jf-'+field,duration:200});};
  page.submitJourneyRegister=async function(){
-  const f=this.data.registerForm||{},type=this.data.registerType;
+  if(this.data.registerBusy||this.data.busy||!this.data.registerType)return;
+  const type=this.data.registerType, f={...this.data.registerForm};
+  const session=http.sessionGuard(), generation=this.wbGeneration, sequence=this._registerSeq;
+  const post=http.currentPostId(), attempt=this.__registerValidation={};
+  const alive=()=>this.__registerValidation===attempt && session() && http.currentPostId()===post &&
+    !this.__disposed && this.wbGeneration===generation && this._registerSeq===sequence &&
+    this.data.registerType===type && JSON.stringify(this.data.registerForm)===JSON.stringify(f);
   if(type==='payment'&&!f.payableId)return this.journeyInvalid('source','请选择待付款事项');
   const amount=PF.toCents(f.amount);if(!amount)return this.journeyInvalid('amount','请输入大于0的金额，最多两位小数');
   const remaining=f.reimbursement?this.data.journeyReimbursement?.remaining:this.data.journeyPayment?.remainingCents;
   if(type==='payment'&&remaining!=null&&amount>remaining)return this.journeyInvalid('amount','本次金额超过待付余额');
   if(type==='payment'&&!String(f.accountName||'').trim())return this.journeyInvalid('account','请选择或填写实际付款账户');
   if(type==='payment'&&this.data.journeyPayment?.sourceType==='performance'){
-   try{const rows=await http.get('/franchise/performance/commission/rows'),stage=rows.flatMap(r=>r.stages||[]).find(s=>String(s.payableId)===String(f.payableId));if(!stage||stage.reviewDue||!stage.eligible)return this.journeyInvalid('source','回款或提成状态已变化，请返回由老板核对');}catch(e){return this.journeyInvalid('source','提成状态未能核实，请重试');}
+   try{const rows=await http.get('/franchise/performance/commission/rows'),stage=rows.flatMap(r=>r.stages||[]).find(s=>String(s.payableId)===String(f.payableId));if(!alive())return;if(!stage||stage.reviewDue||!stage.eligible)return this.journeyInvalid('source','回款或提成状态已变化，请返回由老板核对');}catch(e){if(alive())return this.journeyInvalid('source','提成状态未能核实，请重试');return;}
   }
   const date=type==='payment'?f.payDate:f.date;if(!date||date>today())return this.journeyInvalid('date','请选择实际发生日期，不能晚于今天');
   if(type!=='payment'&&!String(f.reason||'').trim())return this.journeyInvalid('reason','请填写退回原因');
-  this.setData({journeyErrorField:'',registerError:''});return submit.call(this);
+  this.setData({journeyErrorField:'',registerError:''});return submit.call(this,{type,form:f});
  };
  page.submitJourneyEntry=function(){
   const f=this.data.wbForm||{},contract=f.type==='receipt'&&f.receiptMode!=='other';

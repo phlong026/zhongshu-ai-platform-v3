@@ -1,5 +1,7 @@
 const N = require('../../../utils/page-navigation');
-const Files = require('../../../utils/sample-files');
+const http = require('../../../api/http');
+const finance = require('../../../api/finance');
+const {selectVoucher} = require('../../../utils/finance-voucher');
 const P = require('../../../utils/platform-performance'); // 阶段 3 API 态（提成在线；无 token/失败一律错误态，不回落本地演示）
 
 const clone = require('../../../utils/clone');
@@ -17,7 +19,9 @@ Page({
     this.setData({ ...clean(), error: '请先登录后端账号' });
   },
   async refreshOnline() { // API 态：身份=API 岗位（Codex P1-2）；项目=工程域∪已有规则（P1-5）；选人=org 真源（P1-3）
-    const post = P.apiPost();
+    const post = P.apiPost(), session=http.sessionGuard(), requested=http.currentPostId();
+    const generation=this.__refresh=(this.__refresh||0)+1;
+    const alive=()=>session()&&!this.__disposed&&http.currentPostId()===requested&&generation===this.__refresh;
     if (!post) return this.setData({ ...clean(), error: '请先登录后端账号', ready: true });
     try {
       const [view, members] = await Promise.all([
@@ -26,6 +30,7 @@ Page({
           || ['finance', 'finance-lead', 'sales', 'sales-lead', 'engineer', 'project-manager'].includes(m.roleCode)))
           .catch(() => [])
       ]);
+      if(!alive())return;
       const projects = view.map(row => ({ id: row.projectId, name: row.project }));
       if (!projects.some(row => row.id === this.selectedProjectId)) this.selectedProjectId = projects[0]?.id || '';
       const selected = view.find(row => row.projectId === this.selectedProjectId);
@@ -43,6 +48,7 @@ Page({
         platPerf: true
       });
     } catch (error) {
+      if(!alive())return;
       const msg = P.errorText(error);
       this.setData({ ...clean(), error: msg, ready: true });
       wx.showToast({ title: msg, icon: 'none' });
@@ -59,22 +65,53 @@ Page({
     if (member) this.setData({ commissionStaffIndex:index, 'commissionForm.assignee':member.id, error:'' });
   },
   commissionInput(event) { this.setData({ [(this.data.commissionReview?'commissionReview.':'commissionForm.') + event.currentTarget.dataset.key]:event.detail.value, error:'' }); },
-  cancelCommissionReview(){if(!this.data.busy)this.setData({commissionReview:null,error:''});},
+  cancelCommissionReview(){if(!this.data.busy){this.__pick=null;this.setData({commissionReview:null,evidenceUploading:false,error:''});}},
   commissionToggle() { this.setData({ 'commissionForm.checked':!this.data.commissionForm.checked, error:'' }); },
-  commissionUpload() {
-    wx.showActionSheet({ itemList:Files.items(['选择实际凭据','使用参考凭据']), success:result => {
-      if (result.tapIndex === 1) {
-        if (!this.data.actor.demo) return this.fail('当前账号请上传实际凭据');
-        return this.setData({ 'commissionForm.file':{ name:'项目提成确认参考凭据.pdf', sample:true }, error:'' });
-      }
-      const target=this.data.commissionReview?'commissionReview.file':'commissionForm.file';
-      wx.chooseMessageFile({ count:1, type:'file', success:result => { const file=result.tempFiles[0]; wx.saveFile({ tempFilePath:file.path, success:saved => this.setData({ [target]:{ name:file.name, path:saved.savedFilePath }, error:'' }), fail:() => this.fail('凭据未保存，请重新上传') }); } });
-    } });
+  onUnload(){this.__disposed=true;},
+  async commissionUpload() {
+    const session=http.sessionGuard(), post=http.currentPostId(), project=this.selectedProjectId;
+    const review=this.data.commissionReview, pick=this.__pick={};
+    const target=review?'commissionReview.file':'commissionForm.file';
+    const alive=()=>!this.__disposed && session() && http.currentPostId()===post && this.__pick===pick &&
+      this.selectedProjectId===project && !!this.data.commissionReview===!!review && (!review || (this.data.commissionReview.projectId===review.projectId && this.data.commissionReview.stage===review.stage));
+    try {
+      const file=await selectVoucher({alive});
+      if(!file||!alive())return;
+      this.setData({evidenceUploading:true,[target]:null});
+      const assetId=await finance.uploadVoucher(file.path,file.name);
+      if(alive())this.setData({[target]:{name:file.name,assetId:String(assetId)},error:''});
+    } catch(e){if(alive())this.fail(e.message||'凭据上传失败');}
+    finally{if(!this.__disposed&&this.__pick===pick)this.setData({evidenceUploading:false});}
+  },
+  async openCommissionEvidence(event){
+    const id=event.currentTarget.dataset.id;
+    if(!/^\d+$/.test(String(id)))return;
+    const session=http.sessionGuard(),post=http.currentPostId(),alive=()=>!this.__disposed&&session()&&http.currentPostId()===post;
+    try {
+      const ticket=await http.post('/franchise/assets/'+id+'/download-tickets');
+      if(!alive())return;
+      const file=await require('../../../utils/b-asset-download').downloadTicketFile({http,downloadUrl:ticket.downloadUrl,alive,label:'核对凭据'});
+      if(!alive())return;
+      if(/^image\//.test(file.contentType))wx.previewImage({urls:[file.tempFilePath]});
+      else wx.openDocument({filePath:file.tempFilePath,fileType:'pdf'});
+    }catch(e){if(alive())this.fail(e.message||'凭据打开失败');}
   },
   async commissionAction(event) {
-    if (this.data.busy) return;
+    if (this.data.busy||this.data.evidenceUploading) return;
     const data = event.currentTarget.dataset, action = data.action;
-    if(action==='commission-reconcile'&&!data.confirmed){this.setData({commissionReview:{projectId:data.id,stage:data.stage,note:'',file:null},error:''});wx.pageScrollTo({scrollTop:0,duration:0});return;}
+    if (action === 'commission-reconcile' && !data.confirmed) {
+      const project = this.data.commissionRows.find(row => row.projectId === String(data.id));
+      const stage = project?.stages.find(row => row.stage === data.stage);
+      if (!stage?.canReconcile) return;
+      this.__pick = null;
+      this.setData({ commissionReview: {
+        projectId: data.id, stage: data.stage, projectName: project.project, label: stage.label,
+        received: stage.receivedText, outstanding: stage.outstandingText, eligible: stage.eligible,
+        note: '', file: null
+      }, error: '' });
+      wx.pageScrollTo({scrollTop:0,duration:0});
+      return;
+    }
     const id = data.id || this.selectedProjectId;
     const form = clone(action==='commission-reconcile'?this.data.commissionReview:this.data.commissionForm);
     if (data.stage) form.stage = data.stage;
@@ -95,7 +132,7 @@ Page({
             this.policyKeyCtx = String(id);
           }
           await P.perform('policy', { projectId: id, amount: form.amount, signAfter:form.signAfter,baseDone:form.baseDone,capDone:form.capDone,assigneeUserId: person.id,
-            assigneeName: person.name, evidenceRef: form.file, note: form.note, idem: this.policyKey });
+            assigneeName: person.name, evidenceRef: form.file.assetId, note: form.note, idem: this.policyKey });
           this.policyKey = null; this.policyKeyCtx = null; // 成功废弃
         } else if (action === 'commission-release') {
           await P.perform('release', { projectId: id, stage: form.stage,
@@ -108,7 +145,7 @@ Page({
             this.reconcileKey = 'perf-reconcile:' + reconcileCtx + ':' + Date.now();
             this.reconcileKeyCtx = reconcileCtx;
           }
-          await P.perform('reconcile', { projectId: id, stage: form.stage, evidenceRef: form.file, note: form.note,
+          await P.perform('reconcile', { projectId: id, stage: form.stage, evidenceRef: form.file.assetId, note: form.note,
             idem: this.reconcileKey });
           this.reconcileKey = null; this.reconcileKeyCtx = null; // 成功废弃
         }

@@ -395,7 +395,8 @@ function contractRow(row) {
       amountText: s.amountCents != null ? (s.amountCents / 100).toFixed(2) : '',
       collectedText: s.collectedCents != null ? (s.collectedCents / 100).toFixed(2) : '',
       balanceText: s.balanceCents != null ? (s.balanceCents / 100).toFixed(2) : '',
-      status: s.status, statusText: STAGE_STATUS_TEXT[s.status] || s.status || '',
+      status: s.status, statusText: s.refundedCents > 0 && s.balanceCents > 0
+        ? '退款待补收' : STAGE_STATUS_TEXT[s.status] || s.status || '',
       // M06-T02 契约冻结（R1）：owing 只信 stageSummary 的 balanceCents（后端 list 已换 summary；
       // 缺字段=旧结构/部署不同步，保守不可收——前后端须同版本发布，登记 18 号）
       owing: s.balanceCents != null && s.balanceCents > 0,
