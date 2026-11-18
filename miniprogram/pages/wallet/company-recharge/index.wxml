@@ -1,0 +1,26 @@
+<brand-header title="公司积分充值" back="{{true}}"/>
+<view class="recharge">
+  <view wx:if="{{company}}" class="company"><text>充值到公司积分池</text><text class="company-name">{{company}}</text></view>
+  <view wx:if="{{loading}}" class="panel message">正在读取充值套餐…</view>
+  <view wx:elif="{{error}}" class="panel message"><text>{{error}}</text><button class="retry" bindtap="retry">重新加载</button></view>
+  <block wx:else>
+    <view wx:if="{{order}}" class="panel">
+      <text class="heading">{{order.label}}</text><text class="summary">{{order.amount}} · {{order.credits}} 积分</text>
+      <text class="minor">订单号 {{order.id}}</text>
+      <button wx:if="{{order.canPay&&enabled}}" class="primary" disabled="{{busy}}" loading="{{busy}}" bindtap="checkout">继续支付原订单 {{order.amount}}</button>
+      <text wx:if="{{order.quoteExpired}}" class="minor">套餐已调整，如已付款，原订单会在微信确认后到账。</text>
+      <button wx:if="{{order.quoteExpired||order.status==='CREDITED'||order.status==='CLOSED'||order.status==='FAILED'}}" class="retry" bindtap="dismissOrder">返回套餐</button>
+      <button wx:if="{{order.status==='PROCESSING'||order.status==='PAID'}}" class="retry" bindtap="retry">刷新订单状态</button>
+    </view>
+    <view wx:elif="{{!hasPlans}}" class="panel message"><text>{{enabled||browseOnly?'暂无可购买的充值套餐':reason}}</text><button class="retry" bindtap="retry">刷新套餐</button></view>
+    <view wx:else class="panel">
+      <text class="heading">{{browseOnly?'充值套餐':'选择充值套餐'}}</text>
+      <view class="plans"><button wx:for="{{plans}}" wx:key="id" class="plan {{selected.id===item.id?'selected':''}}" data-id="{{item.id}}" bindtap="choose" disabled="{{busy||browseOnly}}">
+        <text class="plan-name">{{item.name}}</text><text class="price">{{item.amount}}</text><text class="minor">到账 {{item.credits}} 积分</text>
+      </button></view>
+      <text wx:if="{{browseOnly}}" class="note">{{reason}}</text>
+      <button wx:else class="primary" disabled="{{!selected||busy}}" loading="{{busy}}" bindtap="checkout">{{selected?'确认充值 '+selected.amount:'请选择套餐'}}</button>
+    </view>
+    <text wx:if="{{note}}" class="note">{{note}}</text>
+  </block>
+</view>

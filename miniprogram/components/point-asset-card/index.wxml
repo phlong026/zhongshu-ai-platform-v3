@@ -1,5 +1,5 @@
 <view wx:if="{{visible}}" class="asset-card">
-  <view class="asset-head"><text class="asset-label">公司积分</text><text class="asset-status">{{state==='loading'?'更新中':''}}</text></view>
+  <view class="asset-head"><text class="asset-label">公司积分</text><text class="asset-status">{{state==='loading'?'更新中':''}}</text><button wx:if="{{hasPost}}" class="asset-recharge" bindtap="openRecharge">充值</button></view>
   <view class="asset-metrics">
     <view class="asset-metric">
       <text class="asset-num">{{balanceText}}</text>

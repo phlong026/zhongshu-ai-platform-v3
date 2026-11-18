@@ -29,14 +29,16 @@ Component({
     openPackages() { wx.navigateTo({url:'/pages/wallet/packages/index'}); },
     refresh() {
       this.setData({purchaseAvailable:false});
-      const platformLoggedIn = !!(wx.getStorageSync(http.TOKEN_KEY) || '');
+      const loadId = this.__loadId = (this.__loadId || 0) + 1;
+      const platformLoggedIn = !!http.token();
       if (!platformLoggedIn) {
-        this.setData({ visible: false });
+        this.setData({ visible: false, hasPost: false });
         return;
       }
       if (!http.currentPostId()) {
         this.setData({
           visible: true,
+          hasPost: false,
           state: 'empty',
           balanceText: '--',
           usedText: '--',
@@ -46,9 +48,9 @@ Component({
         });
         return;
       }
-      const loadId = this.__loadId = (this.__loadId || 0) + 1;
       this.setData({
         visible: true,
+        hasPost: true,
         state: 'loading',
         balanceText: '--',
         usedText: '--',
@@ -96,6 +98,10 @@ Component({
           errorMessage: '积分信息加载失败，请稍后重试'
         });
       });
+    },
+
+    openRecharge() {
+      if (http.token() && http.currentPostId()) wx.navigateTo({ url: '/pages/wallet/company-recharge/index' });
     },
 
     retry() {
