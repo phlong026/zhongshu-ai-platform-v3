@@ -27,14 +27,24 @@ public class FinProjectLedgerService {
     }
 
     /** 汇总与明细始终使用相同范围，前置设计费用沿工程真实来源委托，不回填虚构project_id。 */
-    private static final String SCOPE="""
-        WITH project AS (SELECT id,company_id,source_commission_id,sale_contract_id FROM fr_eng_project WHERE id=? AND company_id=?),
+    private static final String PROJECT = "WITH project AS (SELECT id,company_id,source_commission_id,sale_contract_id FROM fr_eng_project WHERE id=? AND company_id=?), ";
+    private static final String PAYABLES = """
+        payables AS (SELECT p.* FROM fr_fin_payable p JOIN project x ON p.company_id=x.company_id
+          WHERE NOT p.deleted AND (p.book_id IN(SELECT id FROM fr_fin_book WHERE company_id=x.company_id AND project_id=x.id) OR p.project_id=x.id OR (p.project_id IS NULL AND p.book_id IS NULL AND p.source_type='design' AND split_part(p.source_ref,':',1)=x.source_commission_id::text) OR (p.project_id IS NULL AND p.book_id IS NULL AND p.source_type='reimbursement' AND EXISTS(SELECT 1 FROM fr_fin_payment m JOIN fr_fin_payable b ON b.id=m.payable_id AND b.company_id=m.company_id WHERE m.id::text=p.source_ref AND m.company_id=x.company_id AND b.source_type='design' AND split_part(b.source_ref,':',1)=x.source_commission_id::text))))
+        """;
+    public java.util.Map<Long,Long> costAmounts(long org, long projectId) {
+        var costs = new java.util.LinkedHashMap<Long,Long>();
+        jdbc.query(PROJECT + PAYABLES + " SELECT id,total_cents FROM payables WHERE source_type IS DISTINCT FROM 'reimbursement' AND status<>'已作废'",
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> costs.put(rs.getLong(1), rs.getLong(2)), projectId, org);
+        return costs;
+    }
+    private static final String SCOPE=PROJECT + """
         expected_stages AS (SELECT s.id,s.company_id,s.contract_id,s.stage,s.amount_cents,s.status,c.signed_date
           FROM project x JOIN fr_sale_contract c ON c.id=x.sale_contract_id AND c.company_id=x.company_id AND c.status='SIGNED' AND NOT c.deleted
           JOIN fr_sale_payment_stage s ON s.contract_id=c.id AND s.company_id=c.company_id
           WHERE NOT s.deleted AND s.amount_cents>0 AND s.stage IN('SIGN_AFTER','BASE_DONE','CAP_DONE','tail')),
-        payables AS (SELECT p.* FROM fr_fin_payable p JOIN project x ON p.company_id=x.company_id
-          WHERE p.book_id IN(SELECT id FROM fr_fin_book WHERE company_id=x.company_id AND project_id=x.id) OR p.project_id=x.id OR (p.project_id IS NULL AND p.book_id IS NULL AND p.source_type='design' AND split_part(p.source_ref,':',1)=x.source_commission_id::text) OR (p.project_id IS NULL AND p.book_id IS NULL AND p.source_type='reimbursement' AND EXISTS(SELECT 1 FROM fr_fin_payment m JOIN fr_fin_payable b ON b.id=m.payable_id AND b.company_id=m.company_id WHERE m.id::text=p.source_ref AND m.company_id=x.company_id AND b.source_type='design' AND split_part(b.source_ref,':',1)=x.source_commission_id::text))),
+        """ + PAYABLES + """
+        ,
         payments AS (SELECT m.*,p.source_ref ledger_source_ref FROM fr_fin_payment m JOIN project x ON m.company_id=x.company_id
           LEFT JOIN fr_fin_payable p ON p.id=m.payable_id AND p.company_id=x.company_id
           WHERE m.status='已核实' AND (m.project_id=x.id OR m.payable_id IN(SELECT id FROM payables))),

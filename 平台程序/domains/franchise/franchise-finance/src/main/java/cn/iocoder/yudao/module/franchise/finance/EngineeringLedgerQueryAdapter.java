@@ -23,11 +23,18 @@ public class EngineeringLedgerQueryAdapter implements EngineeringLedgerQueryPort
 
     private final FinPaymentMapper paymentMapper;
     private final FinRefundMapper refunds;
+    private final FinProjectLedgerService projectLedger;
 
     public EngineeringLedgerQueryAdapter(FinPaymentMapper paymentMapper,
-            FinRefundMapper refunds) {
+            FinRefundMapper refunds, FinProjectLedgerService projectLedger) {
+        this.projectLedger = projectLedger;
         this.paymentMapper = paymentMapper;
         this.refunds=refunds;
+    }
+
+    @Override
+    public Map<Long, Long> projectCostAmounts(PostSnapshot post, long projectId) {
+        return projectLedger.costAmounts(post.orgId(), projectId);
     }
 
     @Override

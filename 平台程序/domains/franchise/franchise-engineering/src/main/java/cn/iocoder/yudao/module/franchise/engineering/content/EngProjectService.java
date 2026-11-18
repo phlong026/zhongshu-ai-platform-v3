@@ -77,7 +77,11 @@ public class EngProjectService {
     }
 
     public record CreateCommand(String name, String customer, String city, String phone,
-                                BigDecimal area, Integer floors, Long parentProjectId) {
+                                BigDecimal area, Integer floors, Long parentProjectId, boolean independent) {
+        public CreateCommand(String name, String customer, String city, String phone, BigDecimal area,
+                             Integer floors, Long parentProjectId) {
+            this(name,customer,city,phone,area,floors,parentProjectId,false);
+        }
     }
 
     public record ManagerCommand(long engineerUserId, String note) {
@@ -121,6 +125,9 @@ public class EngProjectService {
                 .setCity(city).setArea(cmd.area()).setFloors(floors).setName(name)
                 .setStatus(FrEngProjectDO.STATUS_PENDING_START)
                 .setRevision(1L).setAuthorUserId(post.userId());
+        if (parent == null && !cmd.independent()) {
+            linkSignedContract(post.orgId(), project, customer, phone);
+        }
         projects.insert(project);
         if (parent != null) {
             // 增项带入原项目图纸与客户/城市（蓝本 create()）
@@ -144,6 +151,46 @@ public class EngProjectService {
         return detail(post, project.getId());
     }
 
+    /** 手工主工程只接收同门店、姓名和完整手机号均匹配的已签合同。增项不重复承接主合同。 */
+    private void linkSignedContract(long org, FrEngProjectDO project, String customer, String phone) {
+        var matches = jdbcTemplate.query("""
+                SELECT c.id,c.name FROM fr_customer c WHERE c.company_id=? AND c.phone=? FOR UPDATE
+                """, (rs, i) -> new ProjectCustomer(rs.getLong("id"), rs.getString("name")), org, phone);
+        if (matches.isEmpty()) {
+            boolean signedName = Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                    SELECT EXISTS(SELECT 1 FROM fr_customer c JOIN fr_sale_contract s
+                      ON s.company_id=c.company_id AND s.customer_id=c.id
+                      WHERE c.company_id=? AND c.name=? AND s.status='SIGNED' AND NOT s.deleted)
+                    """, Boolean.class, org, customer));
+            if (signedName) throw exception(ENGINEERING_INPUT_INVALID, "有同名签约客户，请核对建档手机号；无关工程可选择独立建档");
+            return;
+        }
+        ProjectCustomer matched = matches.get(0);
+        if (!customer.equals(matched.name())) {
+            throw exception(ENGINEERING_INPUT_INVALID, "客户姓名与该手机号的档案不一致，请核对");
+        }
+        project.setCustomerId(matched.id());
+        var contracts = jdbcTemplate.queryForList("""
+                SELECT id FROM fr_sale_contract WHERE company_id=? AND customer_id=? AND status='SIGNED'
+                  AND NOT deleted FOR UPDATE
+                """, Long.class, org, matched.id());
+        if (contracts.isEmpty()) return;
+        long contractId = contracts.get(0);
+        if (contractProject(org, contractId) != null) {
+            throw exception(ENGINEERING_INPUT_INVALID, "该销售合同已关联工程，请打开已有工程或新建增项");
+        }
+        project.setSaleContractId(contractId);
+    }
+
+    private record ProjectCustomer(long id, String name) {}
+
+    private Long contractProject(long org, long contractId) {
+        return jdbcTemplate.queryForList("""
+                SELECT id FROM fr_eng_project WHERE company_id=? AND sale_contract_id=?
+                ORDER BY id LIMIT 1
+                """, Long.class, org, contractId).stream().findFirst().orElse(null);
+    }
+
     private static Map<String, Object> normalizeCreate(CreateCommand cmd) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("name", cmd.name());
@@ -153,6 +200,7 @@ public class EngProjectService {
         m.put("area", cmd.area() == null ? null : cmd.area().toPlainString());
         m.put("floors", cmd.floors());
         m.put("parentProjectId", cmd.parentProjectId());
+        if (cmd.independent()) m.put("independent", true);
         return m;
     }
 
@@ -163,19 +211,51 @@ public class EngProjectService {
                                     long managerUserId, String drawingVersion, String drawingFile,
                                     List<Map<String, String>> documentRows,
                                     Long saleContractId, String frozenSchemeVersion) {
+        if (saleContractId != null) {
+            jdbcTemplate.queryForList("SELECT id FROM fr_sale_contract WHERE company_id=? AND id=? FOR UPDATE",
+                    Long.class, post.orgId(), saleContractId);
+        }
         List<FrEngProjectDO> existing = projects.selectByCommission(post.orgId(), commissionId);
+        Long linked = saleContractId == null ? null : contractProject(post.orgId(), saleContractId);
+        if (linked != null && !existing.isEmpty() && !linked.equals(existing.get(0).getId())) {
+            throw exception(ENGINEERING_INPUT_INVALID, "该委托与合同已关联不同工程，请核对移交档案");
+        }
+        if (linked != null && existing.isEmpty()) {
+                int adopted = jdbcTemplate.update("""
+                        UPDATE fr_eng_project SET source_commission_id=?,update_time=now()
+                        WHERE id=? AND company_id=? AND customer_id=? AND source_type='MANUAL'
+                          AND source_commission_id IS NULL AND status<>'ARCHIVED'
+                        """, commissionId, linked, post.orgId(), customerId);
+                if (adopted == 0) throw exception(ENGINEERING_INPUT_INVALID, "销售合同已关联其他工程或已归档，请核对移交档案");
+                existing = List.of(projects.lockById(linked));
+        }
         if (!existing.isEmpty()) {
             // 重复回调：刷新交底资料（不动负责人/现场记录——蓝本「工程经办人、已签施工合同和现场记录由工程维护」）；
             // R1 P2：合同关联只补全不为改写（原 NULL 本次有值才补）；冻结版本变更留刷新事件供追溯
             FrEngProjectDO project = existing.get(0);
             // R2：合同补全用 NULL 条件原子更新（先读后写实体更新在并发回调下后写覆盖先写，违反「只补全不改写」）
             boolean contractBackfill = project.getSaleContractId() == null && saleContractId != null;
-            jdbcTemplate.update(
-                    "UPDATE fr_eng_project SET city = ?, phone = ?, area = ?, floors = ?, drawing_version = ?, "
-                            + "sale_contract_id = COALESCE(sale_contract_id, ?), update_time = now() "
-                            + "WHERE id = ? AND company_id = ?",
-                    city, phone, area, floors, drawingVersion, saleContractId, project.getId(), post.orgId());
-            refreshDocuments(post, project.getId(), documentRows);
+            if (FrEngProjectDO.SOURCE_MANUAL.equals(project.getSourceType())) {
+                jdbcTemplate.update("""
+                        UPDATE fr_eng_project SET drawing_version=COALESCE(?,drawing_version),
+                            sale_contract_id=COALESCE(sale_contract_id,?),update_time=now()
+                        WHERE company_id=? AND id=?
+                        """, drawingVersion,saleContractId,post.orgId(),project.getId());
+                if (documentRows != null) {
+                    var prior = documents.selectByProject(post.orgId(), project.getId());
+                    for (var row : documentRows) {
+                        boolean recorded = prior.stream().anyMatch(d -> java.util.Objects.equals(d.getFileRef(), row.get("fileRef"))
+                                && java.util.Objects.equals(d.getName(), row.get("name"))
+                                && java.util.Objects.equals(d.getVersion(), row.get("version")));
+                        if (!recorded) insertDocument(post, project.getId(), row);
+                    }
+                }
+            } else {
+                jdbcTemplate.update("UPDATE fr_eng_project SET city=?,phone=?,area=?,floors=?,drawing_version=?,"
+                                + "sale_contract_id=COALESCE(sale_contract_id,?),update_time=now() WHERE id=? AND company_id=?",
+                        city,phone,area,floors,drawingVersion,saleContractId,project.getId(),post.orgId());
+                refreshDocuments(post, project.getId(), documentRows);
+            }
             // revision 取新雪花 id：refresh 与首建不同命令链，不走 aggregate 版本递增（避免与首建 revision=1 冲突）
             commands.record(post, AGGREGATE, project.getId(), com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),
                     "eng-project-handover-refresh",
@@ -212,11 +292,14 @@ public class EngProjectService {
     private void refreshDocuments(PostSnapshot post, long projectId, List<Map<String, String>> rows) {
         jdbcTemplate.update("DELETE FROM fr_eng_document WHERE company_id = ? AND project_id = ?", post.orgId(), projectId);
         for (Map<String, String> row : rows) {
-            documents.insert(new FrEngDocumentDO().setCompanyId(post.orgId()).setProjectId(projectId)
-                    .setName(row.get("name")).setFileRef(row.get("fileRef"))
-                    .setKind(row.getOrDefault("kind", FrEngDocumentDO.KIND_DOCUMENT))
-                    .setVersion(row.get("version")));
+            insertDocument(post, projectId, row);
         }
+    }
+
+    private void insertDocument(PostSnapshot post, long projectId, Map<String,String> row) {
+        documents.insert(new FrEngDocumentDO().setCompanyId(post.orgId()).setProjectId(projectId)
+                .setName(row.get("name")).setFileRef(row.get("fileRef"))
+                .setKind(row.getOrDefault("kind", FrEngDocumentDO.KIND_DOCUMENT)).setVersion(row.get("version")));
     }
 
     /** 两入口共用的模板初始化：v1 快照（TEMPLATE）+ 当前节点行（日期留空待填） */
@@ -363,6 +446,8 @@ public class EngProjectService {
             view.put("phone", project.getPhone());
             view.put("contractTotalCents", project.getContractTotalCents());
             view.put("firstCents", project.getFirstCents());
+            view.put("saleContractId", project.getSaleContractId());
+            view.put("customerId", project.getCustomerId());
             view.put("contractVersion", project.getContractVersion());
             view.put("contractDate", project.getContractDate());
             view.put("contractAssetId", project.getContractAssetId());

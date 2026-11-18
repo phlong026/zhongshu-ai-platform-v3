@@ -12,6 +12,9 @@ import java.util.Map;
  */
 public interface EngineeringLedgerQueryPort {
 
+    /** 项目归属的财务成本原单，以应付编号去重，报销冲销往来单单列。 */
+    default Map<Long,Long> projectCostAmounts(PostSnapshot post, long projectId) { return Map.of(); }
+
     /** 单个应付的有效付款减有效支出退回净额（分）；应付不存在返回 0，不用于条款锁定 */
     long paidCents(PostSnapshot post, long payableId);
 

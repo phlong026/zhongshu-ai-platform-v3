@@ -149,6 +149,14 @@ public class EngPlanService {
                 : saleContracts.findStageAmounts(post, project.getCustomerId());
         Long currentContractId = project.getCustomerId() == null ? null
                 : saleContracts.findActiveSignedId(post, project.getCustomerId());
+        if (project.getSaleContractId() == null && currentContractId != null) {
+            jdbcTemplate.queryForList("SELECT id FROM fr_sale_contract WHERE id=? AND company_id=? FOR UPDATE",
+                    Long.class, currentContractId, post.orgId());
+            boolean used = Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                    SELECT EXISTS(SELECT 1 FROM fr_eng_project WHERE company_id=? AND sale_contract_id=? AND id<>?)
+                    """, Boolean.class, post.orgId(),currentContractId,projectId));
+            if (used) throw exception(ENGINEERING_INPUT_INVALID,"销售合同已关联其他工程，请核对本次开工准备");
+        }
         if (project.getSaleContractId() != null && currentContractId != null
                 && project.getSaleContractId().longValue() != currentContractId.longValue()) {
             throw exception(ENGINEERING_INPUT_INVALID,

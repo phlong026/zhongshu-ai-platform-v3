@@ -36,6 +36,32 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         projectId=((Number)projects.create(engineer,new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("30"),1,null),key()).get("id")).longValue();
         jdbc.execute("CREATE TABLE IF NOT EXISTS eng_test_asset (id BIGINT PRIMARY KEY,asset_type VARCHAR(64),accepted BOOLEAN,org_id BIGINT)");
     }
+    @Test void manualProjectLinksSignedIdentityOnceAndHandoverReusesTheSameProject() {
+        long customer = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        long contract = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("""
+                INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status)
+                VALUES(?,?,?,'郭宁','13900008158','到店','FOLLOWING')
+                """, customer, engineer.orgId(), engineer.userId());
+        jdbc.update("""
+                INSERT INTO fr_sale_contract(id,company_id,customer_id,total_cents,first_cents,status,author_user_id)
+                VALUES(?,?,?,100000,30000,'SIGNED',?)
+                """, contract, engineer.orgId(), customer, engineer.userId());
+        var cmd = new EngProjectService.CreateCommand("郭宁庭院", "郭宁", "武汉", "13900008158",
+                new BigDecimal("120"), 2, null);
+        String createKey = key();
+        var project = projects.create(engineer, cmd, createKey);
+        long id = ((Number)project.get("id")).longValue();
+        assertThat(projects.create(engineer, cmd, createKey).get("id")).isEqualTo(id);
+        assertThat(project).containsEntry("customerId",customer).containsEntry("saleContractId",contract);
+        var duplicate = new EngProjectService.CreateCommand("另一工程","郭宁","武汉","13900008158",null,1,null);
+        assertThatThrownBy(() -> projects.create(engineer, duplicate, key())).hasMessageContaining("已关联工程");
+        long commission = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        long reused = projects.receiveFromHandover(engineer, commission, customer, "郭宁", "武汉", "13900008158",
+                new BigDecimal("120"), 2, engineer.userId(), "V1", "", List.of(), contract, "V1");
+        assertThat(reused).isEqualTo(id);
+    }
+
     List<EngPlanService.NodeInput> input(LocalDate first){
         var rows=jdbc.queryForList("SELECT node_index,name FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",projectId);
         var result=new ArrayList<EngPlanService.NodeInput>();
