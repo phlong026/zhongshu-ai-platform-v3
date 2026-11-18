@@ -1,0 +1,102 @@
+{
+  "verifiedOn": "2026-11-18 Asia/Shanghai",
+  "frontendTestedCommit": "da9af2c42ef18d6b7be7ed5e4982309e0a43a318",
+  "backendTestedCommit": "5e598f977d2ce934453fd75917a9c5fc6d7d29a2",
+  "backendJarSha256": "2acfcfa06f2e200e549a25b734607409e0b46c27585d704f31236fdee4cc1451",
+  "oldClient": {
+    "source": "B server release 20261118-0105 archived mini-program.tar.gz",
+    "sha256": "5f92f141f7f30ee03aa6551852a79ff48dd2cd9cd0a1a2669341a5d9808006b3",
+    "wechatProductionVersionAttested": false
+  },
+  "commissionAcceptance": {
+    "environment": "candidate JAR over loopback HTTP with authenticated sales post and disposable PostgreSQL/Redis; original page payload builder and original API wrapper from each source tree",
+    "scope": "submission payload, server settlement, command replay; no device or real payment",
+    "cases": [
+      {
+        "name": "old-formal",
+        "mode": "SIMULATION",
+        "payables": 1,
+        "simulated": 0,
+        "replaySameId": true
+      },
+      {
+        "name": "new-formal",
+        "mode": "FORMAL",
+        "payables": 1,
+        "simulated": 0,
+        "replaySameId": true
+      },
+      {
+        "name": "old-in-test-org",
+        "mode": "SIMULATION",
+        "payables": 1,
+        "simulated": 0,
+        "replaySameId": true
+      },
+      {
+        "name": "new-formal-in-test-org",
+        "mode": "FORMAL",
+        "payables": 1,
+        "simulated": 0,
+        "replaySameId": true
+      },
+      {
+        "name": "new-simulation",
+        "mode": "TEST_SIMULATION",
+        "payables": 0,
+        "simulated": 1,
+        "replaySameId": true
+      },
+      {
+        "name": "capability-withdrawal",
+        "revokedCreatedCommissions": 0,
+        "afterExplicitFormal": "1 payable / 0 simulated"
+      }
+    ]
+  },
+  "historicalSimulation": {
+    "productionReadOnlyAt": "2026-11-18T14:14:53+08:00",
+    "orders": 5,
+    "currentVersion": 5,
+    "priorVersion": 0,
+    "awaitingDispatch": 4,
+    "handoverAccepted": 1,
+    "awaitingHandover": 0,
+    "ordersWithFormalPayable": 0,
+    "ordersWithFinanceReview": 0,
+    "storePaidNetCents": 0,
+    "headOfficeReceivedNetCents": 0,
+    "recovery": "Deferred for finance evidence; no production order was modified",
+    "isolatedRegression": "SixRoleCommissionIntegrationTest.historicalDeliveryRequiresPerOrderRealSettlementBeforeAccessAndHandover"
+  },
+  "uploadBrowser": {
+    "runtime": "desktop Edge, built admin static page; vendor transport and WeChat navigation bridge intercepted",
+    "results": [
+      {
+        "format": "wav",
+        "sourceBytes": 20971520,
+        "fullFileReadsInJS": 0,
+        "puts": 2,
+        "digestMatches": true,
+        "firstResponse": 503,
+        "retryResponse": 200
+      },
+      {
+        "format": "mp4",
+        "sourceBytes": 3644,
+        "fullFileReadsInJS": 0,
+        "puts": 2,
+        "digestMatches": true,
+        "firstResponse": 503,
+        "retryResponse": 200
+      }
+    ],
+    "providerReadyVerified": false,
+    "realDeviceRun": false
+  },
+  "wechatDeveloperToolsPreview": {
+    "totalBytes": 8046781,
+    "mainBytes": 1915833,
+    "published": false
+  }
+}
