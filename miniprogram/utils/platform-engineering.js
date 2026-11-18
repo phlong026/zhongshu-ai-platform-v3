@@ -489,7 +489,7 @@ async function perform(action, id, form, node, key) {
     case 'archive':
       return api.closure.archive(id, key);
     case 'project':
-      return api.projects.changeManager(id, Number(f.engineerId), f.note || '', key);
+      return api.projects.changeManager(id, String(f.engineerId), f.note || '', key);
     case 'plan': {
       const nodes = (f.nodes || []).map(n => ({
         nodeIndex: Number(n.nodeIndex || n.index || 0), name: n.name,
