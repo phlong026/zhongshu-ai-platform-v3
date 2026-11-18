@@ -218,31 +218,24 @@ Page({
   },
   cloneTitle(e) {if(!this.data.cloneRetry){this.__cloneTitleAuto=false;this.setData({cloneTitle:e.detail.value});}},
   consent(e) {this.setData({cloneConsented:e.detail.value.includes('authorized')});},
-  uploadClone() {
+  async uploadClone() {
     if(!this.data.canManage||this.data.cloneBusy||this.data.cloneRetry||!this.data.digitalPersona)return;
     if(!this.data.cloneQuote||!this.data.cloneQuote.available)return this.setData({cloneError:this.data.cloneQuote&&this.data.cloneQuote.message||'正在检查制作服务，请稍后重试'});
     const kind=this.data.cloneKind,person=this.data.digitalPersona.id;
     const guard=http.requestGuard('clone-upload');
     const alive=()=>guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person&&this.data.cloneKind===kind;
-    const chosen=async file=>{
-      if(!file||!alive())return;
-      const path=file.tempFilePath||file.path;
-      this.resetAudioPreview();
-      this.setData({cloneBusy:true,cloneUploading:true,cloneError:'',cloneUploadId:'',cloneConsented:false,cloneUploadStatus:'正在检查素材…',cloneUploadPhase:0,cloneUploadElapsed:0,
-        cloneFileName:file.name||(kind==='AVATAR'?'人物视频':'声音样本'),cloneVideoPath:kind==='AVATAR'?path:'',cloneAudioPath:kind==='VOICE'?path:'',cloneVideoPoster:file.thumbTempFilePath||'',cloneFileMeta:'',clonePreviewError:''});
-      this.startUploadClock(alive);
-      try{
-        const media=require('./clone-media');
-        if(kind==='VOICE'){const info=await media.checkVoice(path,file.size,alive);if(alive())this.setData({cloneFileMeta:(info&&info.duration?Math.round(info.duration)+'秒':'')+(Number(file.size)>0?' · '+(file.size/1024/1024).toFixed(1)+'MB':'')});}
-        else {const info=await media.checkVideo(path,file.size,alive);if(alive())this.setData({cloneFileMeta:Math.round(info.duration)+'秒 · '+info.width+' × '+info.height+(Number(file.size)>0?' · '+(file.size/1024/1024).toFixed(1)+'MB':'')});}
-        const id=await require('./hifly-upload')(path,kind,person,alive,{...file,onProgress:status=>{if(alive())this.setData({cloneUploadStatus:status,cloneUploadPhase:status.includes('确认')?3:status.includes('上传素材')?2:1});}});
-        if(alive())this.setData({cloneUploadId:id,cloneUploadStatus:'上传完成',cloneUploadPhase:4});
-      }
-      catch(e){if(alive()&&!e.cancelled)this.setData({cloneError:P.degradeMessage(e),cloneUploadStatus:'上传未完成，请重新上传'});}
-      finally{this.stopUploadClock();if(alive())this.setData({cloneBusy:false,cloneUploading:false});}
-    };
-    if(kind==='AVATAR')wx.showActionSheet({itemList:['从相册选择或拍摄','从聊天选择MP4/MOV文件'],success:r=>{if(r.tapIndex===0)wx.chooseMedia({count:1,mediaType:['video'],sourceType:['album','camera'],compressed:false,maxDuration:60,success:r=>chosen(r.tempFiles[0])});else wx.chooseMessageFile({count:1,type:'file',extension:['mp4','mov'],success:r=>chosen(r.tempFiles[0])});}});
-    else wx.chooseMessageFile({count:1,type:'file',extension:['mp3','m4a','wav'],success:r=>chosen(r.tempFiles[0])});
+    this.resetAudioPreview();
+    this.setData({cloneBusy:true,cloneUploading:true,cloneError:'',cloneUploadId:'',cloneConsented:false,
+      cloneFileName:'',cloneFileMeta:'',cloneVideoPath:'',cloneAudioPath:'',cloneVideoPoster:'',cloneUploadStatus:'准备直传飞影…'});
+    try {
+      const uploaded=await require('./hifly-upload')(kind,person,alive);
+      if(alive()) this.setData({cloneUploadId:uploaded.id,cloneFileName:uploaded.name,
+        cloneFileMeta:(uploaded.size/1024/1024).toFixed(1)+' MiB',cloneUploadStatus:'客户端已上传'});
+    } catch (error) {
+      if(alive()) this.setData({cloneError:error.cancelled?'':P.degradeMessage(error),cloneUploadStatus:''});
+    } finally {
+      if(alive()) this.setData({cloneBusy:false,cloneUploading:false});
+    }
   },
   startUploadClock(alive) {this.stopUploadClock();const start=Date.now();this.__uploadTimer=setInterval(()=>{if(!alive())return this.stopUploadClock();this.setData({cloneUploadElapsed:Math.floor((Date.now()-start)/1000)});},1000);},
   stopUploadClock() {if(this.__uploadTimer)clearInterval(this.__uploadTimer);this.__uploadTimer=null;},

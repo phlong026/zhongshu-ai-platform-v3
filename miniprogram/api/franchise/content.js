@@ -93,6 +93,8 @@ const growth = {
 };
 
 const clones = {
+  fileTicket: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-file-tickets', data),
+  fileReceipt: (id, data) => http.post('/franchise/content/clone-uploads/' + encodeURIComponent(id) + '/file-receipt', data),
   uploadTicket: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-upload-tickets', data),
   completeUpload: id => http.post('/franchise/content/clone-uploads/' + encodeURIComponent(id) + '/complete', {}),
   quote: kind => http.get('/franchise/content/clones/quote', { kind }),

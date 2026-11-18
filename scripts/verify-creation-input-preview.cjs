@@ -37,31 +37,26 @@ function setup(){
   const wx={showActionSheet:o=>o.success({tapIndex:0}),chooseMedia:o=>{chosen=o.success;},previewMedia:()=>{throw Error('必须使用可返回的页内预览');},createVideoContext:id=>({pause:()=>callbacks.push([id,'pause']),stop:()=>callbacks.push([id,'stop'])}),pageScrollTo(){},getStorageSync(){},removeStorageSync(){}};
   const http={token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>active};
   const modules={};
-  const upload=(path,kind,person,alive,file)=>{onProgress=file.onProgress;return new Promise((resolve,reject)=>{resolveUpload=resolve;rejectUpload=reject;});};
+  const upload=(kind,person,alive)=>{return new Promise((resolve,reject)=>{resolveUpload=resolve;rejectUpload=reject;});};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.js'),'utf8'),{Page:p=>definition=p,wx,setInterval:()=>1,clearInterval(){},setTimeout,clearTimeout,
     require:p=>p.endsWith('/http')?http:p.endsWith('/studio')?{scope:()=>1}:p.endsWith('/clone-media')?{checkVideo:async()=>({duration:18,width:1080,height:1920})}:p.endsWith('/hifly-upload')?upload:p.endsWith('/platform-content')?{degradeMessage:e=>e.message}:modules});
   const page={...definition,data:structuredClone(definition.data),__scope:1,__generation:1,setData(p){Object.assign(this.data,p);patches.push(p);}};
   Object.assign(page.data,{canManage:true,digitalPersona:{id:'42'},cloneKind:'AVATAR',cloneQuote:{available:true},cloneUploadId:'old',cloneConsented:true});
-  return {page,patches,callbacks,pick:()=>chosen({tempFiles:[{tempFilePath:'/local/person.mp4',thumbTempFilePath:'/local/poster.jpg',size:1048576}]}),
-    resolve:()=>resolveUpload('new-upload'),reject:()=>rejectUpload(Error('上传中断')),progress:s=>onProgress(s),inactive:()=>active=false};
+  return {page,patches, resolve:()=>resolveUpload({id:'new-upload',name:'person.mp4',size:1048576}),reject:()=>rejectUpload(Error('上传中断')),inactive:()=>active=false};
 }
-test('selected video is immediately playable and upload becomes completed only on server acknowledgement',async()=>{
-  const h=setup();h.page.uploadClone();const result=h.pick();await new Promise(r=>setImmediate(r));
-  assert.equal(h.page.data.cloneVideoPath,'/local/person.mp4');assert.equal(h.page.data.cloneUploadId,'');assert.equal(h.page.data.cloneUploading,true);
-  h.progress('正在上传素材…');assert.equal(h.page.data.cloneUploadPhase,2);
-  h.page.previewCloneVideo();assert.equal(h.page.data.clonePreviewOpen,true);
-  h.page.closeClonePreview();assert.equal(h.page.data.clonePreviewOpen,false);assert.equal(h.page.data.cloneVideoPath,'/local/person.mp4');
-  assert.deepEqual(h.callbacks,[['clone-source-video','pause'],['clone-preview-player','stop']]);
-  h.resolve();await result;
-  assert.equal(h.page.data.cloneUploadId,'new-upload');assert.equal(h.page.data.cloneUploadStatus,'上传完成');assert.equal(h.page.data.cloneUploading,false);
-  assert.match(h.page.data.cloneFileMeta,/18秒/);assert.equal(h.page.data.cloneConsented,false);
+test('return from the embedded picker requires a new consent for the new file',async()=>{
+  const h=setup();const done=h.page.uploadClone();
+  assert.equal(h.page.data.cloneUploadId,'');assert.equal(h.page.data.cloneConsented,false);
+  h.resolve();await done;assert.equal(h.page.data.cloneUploadId,'new-upload');assert.equal(h.page.data.cloneFileName,'person.mp4');
+  assert.equal(h.page.data.cloneUploading,false);
 });
-test('failed replacement cannot submit an older receipt and retains local preview for checking',async()=>{
-  const h=setup();h.page.uploadClone();const result=h.pick();await new Promise(r=>setImmediate(r));h.reject();await result;
-  assert.equal(h.page.data.cloneUploadId,'');assert.equal(h.page.data.cloneVideoPath,'/local/person.mp4');assert.match(h.page.data.cloneError,/上传中断/);
+test('failed replacement cannot submit the previous file',async()=>{
+  const h=setup();const done=h.page.uploadClone();h.reject();await done;
+  assert.equal(h.page.data.cloneUploadId,'');assert.match(h.page.data.cloneError,/上传中断/);
 });
-test('late upload and progress callbacks cannot expose previous account material',async()=>{
-  const h=setup();h.page.uploadClone();const result=h.pick();await new Promise(r=>setImmediate(r));h.inactive();const count=h.patches.length;h.progress('正在确认上传结果…');h.resolve();await result;assert.equal(h.patches.length,count);
+test('returning after an account switch cannot restore previous media',async()=>{
+  const h=setup();const done=h.page.uploadClone();h.inactive();const count=h.patches.length;h.resolve();await done;
+  assert.equal(h.patches.length,count);
 });
 test('both native and compatibility manual editors use explicit keyboard avoidance and a bounded input',()=>{
   for(const file of ['templates/sales-creation.wxml','pages/creation/index.wxml','pages/studio/index.wxml']){

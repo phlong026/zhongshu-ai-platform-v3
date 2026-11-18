@@ -74,7 +74,8 @@
       "name": "studio-workflow",
       "pages": [
         "index",
-        "characters/index"
+        "characters/index",
+        "characters/transfer"
       ]
     },
     {
