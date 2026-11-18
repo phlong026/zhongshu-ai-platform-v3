@@ -14,6 +14,7 @@ import urllib.request
 import zipfile
 import time
 from offline_images import write_offline_images
+from web_entries import verify_web_entries
 
 if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
     raise SystemExit("Requires a disposable GitHub-hosted runner")
@@ -157,6 +158,7 @@ for field, variable in (("frontendCommit","FRONTEND_REV"), ("backendCommit","BAC
         raise ValueError(f"Unpacked {field} differs from the pinned release revision")
     record(field, manifest[field])
 assert all(sha(unpacked/name)==digest for name,digest in manifest["files"].items())
+record("adminWebEntryAssets",verify_web_entries(unpacked/"web"))
 record("packageSha256",sha(bundle))
 (delivery/"SHA256SUMS").write_text(sha(bundle)+"  "+bundle.name+"\n")
 run("docker","load","-i",unpacked/"api-image.tar")
