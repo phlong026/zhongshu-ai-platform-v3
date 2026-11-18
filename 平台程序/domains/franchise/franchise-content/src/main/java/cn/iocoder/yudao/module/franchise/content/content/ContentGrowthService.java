@@ -49,7 +49,7 @@ public class ContentGrowthService {
 
         // 按发布记录维度：每条 published 的客资数
         List<Map<String, Object>> perPublication = jdbcTemplate.queryForList(
-                "SELECT p.id, p.title, p.published_url, COUNT(l.id) AS leads, "
+                "SELECT p.id::text AS id, p.title, p.published_url, COUNT(l.id) AS leads, "
                         + "SUM(CASE WHEN l.status IN ('LINKED','CONVERTED') THEN 1 ELSE 0 END) AS converted "
                         + "FROM fr_content_publication p "
                         + "LEFT JOIN fr_lead l ON l.company_id = p.company_id "

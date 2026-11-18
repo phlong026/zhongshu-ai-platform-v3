@@ -13,22 +13,22 @@ class EngTemplateTest {
     @Test
     void buildsTwelveCategoryPlanWithFloorExpansion() {
         List<EngTemplate.NodeDraft> nodes = EngTemplate.buildNodes(2);
-        assertThat(nodes).hasSize(13); // 11 固定类 + 2 层主体（蓝本 nodes() :17）
-        assertThat(nodes.get(0).name()).isEqualTo("开工准备");
-        assertThat(nodes.get(4).name()).isEqualTo("1层主体");
-        assertThat(nodes.get(5).name()).isEqualTo("2层主体");
-        assertThat(nodes.get(6).name()).isEqualTo("封顶验收");
-        assertThat(nodes.get(6).milestone()).isEqualTo("TOPPING");
-        assertThat(nodes.get(12).name()).isEqualTo("竣工验收");
+        assertThat(nodes).hasSize(14); // 11 固定类 + 2 层主体（蓝本 nodes() :17）
+        assertThat(nodes.get(0).name()).isEqualTo("正式开工");
+        assertThat(nodes.get(5).name()).isEqualTo("1层主体");
+        assertThat(nodes.get(6).name()).isEqualTo("2层主体");
+        assertThat(nodes.get(7).name()).isEqualTo("封顶验收");
+        assertThat(nodes.get(7).milestone()).isEqualTo("TOPPING");
+        assertThat(nodes.get(13).name()).isEqualTo("竣工验收");
     }
 
     @Test
     void clampsFloorsToOneToFive() {
-        assertThat(EngTemplate.buildNodes(null)).hasSize(13); // 缺省 2 层
-        assertThat(EngTemplate.buildNodes(0)).hasSize(12);   // 钳制 1 层
-        assertThat(EngTemplate.buildNodes(1)).hasSize(12);
-        assertThat(EngTemplate.buildNodes(5)).hasSize(16);
-        assertThat(EngTemplate.buildNodes(9)).hasSize(16);
+        assertThat(EngTemplate.buildNodes(null)).hasSize(14); // 缺省 2 层
+        assertThat(EngTemplate.buildNodes(0)).hasSize(13);   // 钳制 1 层
+        assertThat(EngTemplate.buildNodes(1)).hasSize(13);
+        assertThat(EngTemplate.buildNodes(5)).hasSize(17);
+        assertThat(EngTemplate.buildNodes(9)).hasSize(17);
     }
 
     @Test

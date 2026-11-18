@@ -14,6 +14,7 @@ public interface PlatformWorkflowErrorCodes {
     ErrorCode APPROVER_NOT_QUALIFIED = new ErrorCode(1_102_000_003, "当前身份无权审批该事项");
     ErrorCode APPROVAL_NOTE_REQUIRED = new ErrorCode(1_102_000_004, "请填写审批意见");
 
+    ErrorCode MESSAGE_SNAPSHOT_EXPIRED = new ErrorCode(1_105_000_001, "消息列表已过期，请刷新后重试");
     ErrorCode MESSAGE_NOT_FOUND = new ErrorCode(1_105_000_000, "消息不存在或无权访问");
 
 }

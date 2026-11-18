@@ -24,24 +24,44 @@
         </el-form-item>
       </el-form>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" />
-      <el-table native-scrollbar v-else v-loading="loading" :data="rows" :row-key="rowKey" empty-text="暂无记录">
+      <el-table
+        native-scrollbar
+        v-else
+        v-loading="loading"
+        :data="rows"
+        :row-key="rowKey"
+        max-height="max(280px, calc(100dvh - 320px))"
+        empty-text="暂无记录"
+      >
         <el-table-column
-          v-for="column in section?.columns"
+          v-for="column in visibleColumns"
           :key="column[0]"
           :prop="column[0]"
           :label="column[1]"
-          min-width="150"
+          :min-width="columnWidth(column[0])"
+          :align="numericColumn(column[0]) ? 'right' : 'left'"
           show-overflow-tooltip
         >
           <template #default="{ row }">{{ displayValue(column[0], row[column[0]]) }}</template>
         </el-table-column>
         <el-table-column
+          v-if="!['plans', 'design-prices', 'anomalies'].includes(resource)"
+          label="操作"
+          width="80"
+          fixed="right"
+        >
+          <template #default="{ row }"
+            ><el-button link type="primary" @click="costDetail = row">详情</el-button></template
+          >
+        </el-table-column>
+        <el-table-column
           v-if="resource === 'plans' || resource === 'design-prices' || resource === 'anomalies'"
           label="操作"
           fixed="right"
-          width="150"
+          width="210"
         >
           <template #default="{ row }">
+            <el-button link type="primary" @click="costDetail = row">详情</el-button>
             <el-button
               v-if="resource === 'plans' && canPlanWrite"
               type="primary"
@@ -77,6 +97,37 @@
         @size-change="search"
       />
     </div>
+    <el-drawer
+      :model-value="!!costDetail"
+      :title="`${section?.title || '记录'}详情`"
+      size="min(860px, 100vw)"
+      destroy-on-close
+      @close="costDetail = undefined"
+    >
+      <dl v-if="costDetail" class="cost-detail-grid">
+        <div
+          v-for="column in section?.columns"
+          :key="column[0]"
+          :class="{
+            'cost-detail-wide': [
+              'operation',
+              'beforeJson',
+              'afterJson',
+              'reason',
+              'detail'
+            ].includes(column[0])
+          }"
+        >
+          <dt>{{ column[1] }}</dt
+          ><dd>
+            <pre v-if="['beforeJson', 'afterJson'].includes(column[0])">{{
+              prettyRecord(costDetail[column[0]])
+            }}</pre
+            ><template v-else>{{ displayValue(column[0], costDetail[column[0]]) }}</template></dd
+          >
+        </div>
+      </dl>
+    </el-drawer>
     <el-dialog
       v-model="planVisible"
       :title="editingPlanId ? '编辑充值套餐' : '新增充值套餐'"
@@ -204,7 +255,12 @@
         :closable="false"
       />
       <el-alert v-if="reviewError" :title="reviewError" type="error" :closable="false" />
-      <el-table native-scrollbar :data="reviews" v-loading="reviewLoading" empty-text="暂无核对说明">
+      <el-table
+        native-scrollbar
+        :data="reviews"
+        v-loading="reviewLoading"
+        empty-text="暂无核对说明"
+      >
         <el-table-column prop="actorId" label="操作人编号" width="190" /><el-table-column
           prop="note"
           label="核对说明"
@@ -389,7 +445,7 @@ sections.audit = {
     ['resourceType', '配置类型'],
     ['resourceId', '配置编号'],
     ['resourceVersion', '配置版本'],
-    ['action', '操作'],
+    ['action', '操作类型'],
     ['actorId', '操作人编号'],
     ['reason', '变更原因'],
     ['beforeJson', '变更前'],
@@ -402,6 +458,15 @@ const displayValue = (field: string, value: unknown) => {
     return field.endsWith('CostMicros') ? '未取得成本事实' : '—'
   if (typeof value === 'boolean') return value ? '是' : '否'
   if (field.endsWith('Time') || field.endsWith('At')) return adminDateTime(value)
+  if (field === 'operation') {
+    const operations: Record<string, string> = {
+      FLOW_BUDGET: '快速预算',
+      FLOW_WRITE: '方案资料保存',
+      FLOW_ELEVATION_JOB: 'AI 立面方案',
+      FLOW_FLAT_JOB: 'AI 平面方案'
+    }
+    return operations[String(value)] || String(value)
+  }
   const labels: Record<string, string> = {
     UNAVAILABLE: '未取得成本事实',
     RECORDED: '已有成本事实',
@@ -430,6 +495,46 @@ const organizationFilter = computed(
   () => !['plans', 'design-prices', 'audit'].includes(resource.value)
 )
 const section = computed(() => sections[resource.value])
+const costDetail = ref<Record<string, unknown>>()
+const costListFields = new Set([
+  'id',
+  'orgId',
+  'operation',
+  'status',
+  'costState',
+  'chargedCostMicros',
+  'createTime'
+])
+const visibleColumns = computed(() =>
+  resource.value === 'design-costs'
+    ? section.value.columns.filter(([field]) => costListFields.has(field))
+    : resource.value === 'audit'
+      ? section.value.columns.filter(([field]) => auditListFields.has(field))
+      : section.value?.columns || []
+)
+const auditListFields = new Set(['id', 'resourceType', 'action', 'actorId', 'reason', 'createTime'])
+const prettyRecord = (value: unknown) => {
+  if (value == null) return '—'
+  try {
+    return JSON.stringify(typeof value === 'string' ? JSON.parse(value) : value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+const numericColumn = (field: string) =>
+  /(?:Points|Fen|Micros|After)$/.test(field) || field === 'delta'
+const columnWidth = (field: string) => {
+  if (field.endsWith('Time') || field.endsWith('At')) return 180
+  if (field === 'id') return resource.value === 'design-costs' ? 110 : 190
+  if (['orgId', 'version', 'settlementVersion', 'resourceVersion'].includes(field)) return 110
+  if (field.endsWith('Id')) return 190
+  if (field === 'action') return 100
+  if (field === 'operation') return 180
+  if (['name', 'reason', 'detail', 'beforeJson', 'afterJson'].includes(field)) return 240
+  if (numericColumn(field) || field === 'costState') return 170
+  if (['status', 'active', 'audited'].includes(field)) return 100
+  return 150
+}
 const rows = ref<unknown[]>([])
 const total = ref(0)
 const pageNo = ref(1)
@@ -697,6 +802,7 @@ watch(
   () => route.path,
   () => {
     orgId.value = ''
+    costDetail.value = undefined
     planVisible.value = false
     priceVisible.value = false
     reviewVisible.value = false
@@ -711,3 +817,49 @@ onBeforeUnmount(() => {
   reviewVisible.value = false
 })
 </script>
+
+<style scoped>
+.cost-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 0;
+}
+
+.cost-detail-grid > div {
+  min-width: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.cost-detail-grid dt {
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.cost-detail-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-detail-grid pre {
+  padding: 12px;
+  margin: 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+  background: var(--el-fill-color-light);
+  overflow-wrap: anywhere;
+}
+
+.cost-detail-wide {
+  grid-column: 1 / -1;
+}
+
+@media (width <= 600px) {
+  .cost-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

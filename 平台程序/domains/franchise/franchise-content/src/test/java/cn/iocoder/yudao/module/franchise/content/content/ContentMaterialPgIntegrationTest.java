@@ -85,6 +85,30 @@ class ContentMaterialPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->service.upload(alice,body("name","image/svg+xml","PERSONAL"))).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(()->service.download(alice,99999)).isInstanceOf(RuntimeException.class);
     }
+    @Test void fullPageCoverLookupUsesTheSameNumberOfSqlStatementsAsOneItem() throws Exception {
+        Map<String,String> expected=new HashMap<>();
+        for (int i=0;i<20;i++) {
+            long id=upload(alice,"视频-"+i,"video/mp4","PERSONAL");service.complete(alice,id);
+            var body=body("封面-"+i,"image/png","PERSONAL");body.put("coverOf",Long.toString(id));
+            long coverId=Long.parseLong((String)service.upload(alice,body).get("assetId"));service.complete(alice,coverId);
+            expected.put(Long.toString(id),Long.toString(coverId));
+        }
+        var source=mock(javax.sql.DataSource.class);
+        var realSource=jdbc.getDataSource();
+        when(source.getConnection()).thenAnswer(call->realSource.getConnection());
+        var counted=new ContentMaterialService(source,assets,accounts);
+        var full=(List<?>)counted.page(alice,"PERSONAL","ALL","",1).get("items");
+        assertThat(full).hasSize(20);
+        for (Object row:full) {
+            var item=(Map<?,?>)row;
+            assertThat(item.get("coverId")).isEqualTo(expected.get(item.get("id")));
+        }
+        verify(source,times(2)).getConnection();
+        clearInvocations(source);
+        assertThat((List<?>)counted.page(alice,"PERSONAL","ALL","视频-19",1).get("items")).hasSize(1);
+        verify(source,times(2)).getConnection();
+    }
+
     @Test void failedValidationNeverAppearsAndRetryCompletesSameEntry() {
         long id=upload(alice,"图.png","image/png","PERSONAL");
         when(assets.completeUpload(any(AssetAccessPort.Actor.class),eq(id))).thenThrow(new IllegalArgumentException("暂时失败"))

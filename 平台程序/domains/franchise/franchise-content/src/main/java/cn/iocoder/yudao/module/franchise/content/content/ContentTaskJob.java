@@ -41,13 +41,18 @@ public class ContentTaskJob {
             return;
         }
         try {
-            recoverResults();
             submitQueued();
             pollInFlight();
             timeoutOverdue();
             reconcilePendingPool();
         } catch (RuntimeException e) {
             log.warn("content task sweep failed: {}", e.getMessage());
+        }
+        // 恢复已成功但尚未保存的任务，包括进程重启和缓存命中；不依赖本轮提交/轮询。
+        try {
+            deliverPendingResults();
+        } catch (RuntimeException e) {
+            log.warn("content result delivery sweep failed: {}", e.getMessage());
         }
     }
 
@@ -68,7 +73,6 @@ public class ContentTaskJob {
         for (FrContentTaskDO task : queued) {
             try {
                 tasks.submitOne(task);
-                settleIfSucceeded(task); // 同步任务（link_parse/Flash ASR/copy）提交相即终态，当场收尾
             } catch (RuntimeException e) {
                 log.warn("content task {} submit crashed: {}", task.getId(), e.getMessage());
             }
@@ -80,7 +84,6 @@ public class ContentTaskJob {
         for (FrContentTaskDO task : inFlight) {
             try {
                 tasks.pollOne(task);
-                settleIfSucceeded(task);
             } catch (RuntimeException e) {
                 log.warn("content task {} poll crashed: {}", task.getId(), e.getMessage());
             }
@@ -98,15 +101,21 @@ public class ContentTaskJob {
         }
     }
 
-    private void recoverResults() {
-        for(var row:results.pending())deliver(((Number)row.get("company_id")).longValue(),((Number)row.get("id")).longValue());
-    }
-    private void settleIfSucceeded(FrContentTaskDO task) { deliver(task.getCompanyId(),task.getId()); }
-    private void deliver(long companyId,long id) {
-        try { results.deliver(companyId,id); }
-        catch(RuntimeException e) {
-            results.failed(companyId,id);
-            log.warn("content task {} result delivery failed",id,e);
+    /** 每个结果独立事务；局部保存失败不阻塞下一条，也不重投生成任务。 */
+    private void deliverPendingResults() {
+        for (var row : results.pending()) {
+            long companyId = ((Number) row.get("company_id")).longValue();
+            long id = ((Number) row.get("id")).longValue();
+            try {
+                results.deliver(companyId, id);
+            } catch (RuntimeException e) {
+                log.warn("content task {} result delivery failed: {}", id, e.getMessage());
+                try {
+                    results.failed(companyId, id);
+                } catch (RuntimeException deferError) {
+                    log.warn("content task {} result retry scheduling failed: {}", id, deferError.getMessage());
+                }
+            }
         }
     }
 }

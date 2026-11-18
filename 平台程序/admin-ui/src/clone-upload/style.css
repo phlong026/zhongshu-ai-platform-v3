@@ -1,0 +1,10 @@
+* { box-sizing: border-box }
+body { margin: 0; color: #35251d; background: #faf8f5; font: 16px/1.55 system-ui, sans-serif }
+main { max-width: 36rem; margin: auto; padding: 28px 20px }
+h1 { font-size: 24px }
+input, video, audio, button { display: block; width: 100%; margin-top: 16px }
+video { max-height: 48vh; background: #181512 }
+[hidden] { display: none }
+button { min-height: 46px; border: 0; border-radius: 8px; background: #824019; color: white; font: inherit }
+button:disabled { opacity: .5 }
+#status { min-height: 1.55em }

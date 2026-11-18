@@ -3,10 +3,11 @@
   <!-- 搜索 -->
   <ContentWrap>
     <el-form
-      class="-mb-15px"
+      class="admin-filters"
       :model="queryParams"
       ref="queryFormRef"
       :inline="true"
+      label-position="top"
       label-width="68px"
     >
       <el-form-item label="文件路径" prop="path">
@@ -59,11 +60,35 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table native-scrollbar v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
+    <el-table
+      native-scrollbar
+      max-height="max(280px, calc(100dvh - 330px))"
+      v-loading="loading"
+      :data="list"
+      @selection-change="handleRowCheckboxChange"
+    >
       <el-table-column type="selection" width="55" />
-      <el-table-column label="文件名" align="center" prop="name" :show-overflow-tooltip="true" />
-      <el-table-column label="文件路径" align="center" prop="path" :show-overflow-tooltip="true" />
-      <el-table-column label="URL" align="center" prop="url" :show-overflow-tooltip="true" />
+      <el-table-column
+        label="文件名"
+        align="center"
+        prop="name"
+        :show-overflow-tooltip="true"
+        min-width="200"
+      />
+      <el-table-column
+        label="文件路径"
+        align="center"
+        prop="path"
+        :show-overflow-tooltip="true"
+        min-width="260"
+      />
+      <el-table-column
+        label="URL"
+        align="center"
+        prop="url"
+        :show-overflow-tooltip="true"
+        min-width="260"
+      />
       <el-table-column
         label="文件大小"
         align="center"
@@ -72,7 +97,13 @@
         :formatter="fileSizeFormatter"
       />
       <el-table-column label="文件类型" align="center" prop="type" width="180px" />
-      <el-table-column label="文件内容" align="center" prop="url" width="110px">
+      <el-table-column
+        label="文件内容"
+        align="center"
+        prop="url"
+        width="110px"
+        show-overflow-tooltip
+      >
         <template #default="{ row }">
           <el-image
             v-if="row.type.includes('image')"
@@ -111,7 +142,7 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="操作" align="center">
+      <el-table-column label="操作" align="center" fixed="right" width="150">
         <template #default="scope">
           <el-button link type="primary" @click="copyToClipboard(scope.row.url)">
             复制链接

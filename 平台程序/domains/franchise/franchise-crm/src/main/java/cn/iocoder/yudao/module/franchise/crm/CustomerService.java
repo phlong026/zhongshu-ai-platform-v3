@@ -45,7 +45,8 @@ public class CustomerService {
     public record Detail(CustomerDO customer, List<CustomerFollowDO> follows, List<CustomerSchemeDO> schemes) {
     }
 
-    public record FollowCommand(String note, LocalDate nextVisitDate) {
+    public record FollowCommand(String note, LocalDate nextVisitDate, String contactKind, LocalDate occurredOn) {
+        public FollowCommand(String note,LocalDate nextVisitDate){this(note,nextVisitDate,null,null);}
     }
 
     public record UpdateCommand(String name, String wechat, String province, String city, String summary,
@@ -223,13 +224,17 @@ public class CustomerService {
     @Transactional(rollbackFor = Exception.class)
     public Detail follow(PostSnapshot post, long customerId, FollowCommand command, String idempotencyKey) {
         CustomerDO customer = requireWritable(post, customerId);
-        FollowCommand input = new FollowCommand(CrmInputs.note(command.note()), command.nextVisitDate());
+        String kind=command.contactKind()==null?"FOLLOW":command.contactKind();
+        if(!Set.of("FOLLOW","VISIT").contains(kind)) throw exception(VISIT_DATE_INVALID);
+        LocalDate occurred=command.occurredOn()==null?LocalDate.now():command.occurredOn();
+        if(occurred.isAfter(LocalDate.now())||occurred.isBefore(LocalDate.of(2000,1,1))) throw exception(VISIT_DATE_INVALID);
+        FollowCommand input = new FollowCommand(CrmInputs.note(command.note()), command.nextVisitDate(),kind,occurred);
         if (commands.replayed(post, idempotencyKey, input).isEmpty()) {
             if (input.nextVisitDate() != null && input.nextVisitDate().isBefore(LocalDate.now())) {
                 throw exception(VISIT_DATE_INVALID);
             }
             followMapper.insert(new CustomerFollowDO().setCompanyId(post.orgId()).setCustomerId(customerId)
-                    .setNote(input.note()).setNextVisitDate(input.nextVisitDate())
+                    .setNote(input.note()).setNextVisitDate(input.nextVisitDate()).setContactKind(kind).setOccurredOn(occurred)
                     .setAuthorUserId(post.userId()).setAuthorPostId(post.postId()));
             long revision = customer.getRevision();
             Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> u
@@ -239,6 +244,22 @@ public class CustomerService {
             commands.record(post, AGGREGATE, customerId, revision + 1, "customer-follow", input, idempotencyKey);
         }
         return get(post, customerId);
+    }
+
+    public record BudgetConfirmation(long schemeId,String note) {}
+    @Transactional(rollbackFor=Exception.class)
+    public Detail confirmBudget(PostSnapshot post,long customerId,BudgetConfirmation input,String key) {
+        var customer=customerMapper.lockById(customerId);
+        if(customer==null||!CustomerAccess.canWrite(post,customer)) throw exception(CUSTOMER_FORBIDDEN);
+        if(StrUtil.isBlank(input.note())||input.note().length()>500) throw exception(SCHEME_INVALID);
+        if(commands.replayed(post,key,input).isPresent()) return get(post,customerId);
+        var budget=latestScheme(customerId,"BUDGET");
+        if(budget==null||budget.getId()!=input.schemeId()||budget.getConfirmedAt()!=null) throw exception(SCHEME_INVALID);
+        schemeMapper.updateById(new CustomerSchemeDO().setId(budget.getId()).setConfirmedAt(OffsetDateTime.now()).setConfirmedByUserId(post.userId()).setConfirmationNote(input.note().trim()));
+        long revision=customer.getRevision();
+        Revisions.requireUpdated(customerMapper.updateByRevision(customerId,revision,u->{}));
+        commands.record(post,AGGREGATE,customerId,revision+1,"customer-budget-confirm",input,key);
+        return get(post,customerId);
     }
 
     @Transactional(rollbackFor = Exception.class)

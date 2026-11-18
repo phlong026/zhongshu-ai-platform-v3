@@ -108,6 +108,22 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(cash).containsEntry("counterparty","运输商").containsEntry("account_name","公司账户").containsEntry("source_type","manual").containsEntry("funding_type","COMPANY").containsEntry("note","运输收据已核对");
   assertThat(rows.stream().filter(row->"PAYMENT".equals(row.get("type"))).count()).isEqualTo(1);
  }
+ @Test void historicalEngineeringExpenseKeepsItsNameWithoutChangingCashOrCrossingOrganizations(){
+  jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_expense(company_id bigint,payable_id bigint,name text)");
+  jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_supply(company_id bigint,payable_id bigint,material_id bigint)");
+  jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_material(id bigint,company_id bigint,name text)");
+  long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,?,'ACTIVE')",project,post.orgId(),"周建军乡墅");
+  long q=payments.registerPayable(post,"historical-labor",new FinPaymentService.PayableCommand(post.orgId(),project,"engineering",350000,"兴业劳务班组","施工费用"));
+  jdbc.update("INSERT INTO fr_eng_expense(company_id,payable_id,name) VALUES(?,?,?)",post.orgId(),q,"场地排水与围挡人工");
+  jdbc.update("INSERT INTO fr_eng_expense(company_id,payable_id,name) VALUES(?,?,?)",post.orgId()+10000,q,"其他组织费用");
+  payments.register(post,"historical-labor-paid",new FinPaymentService.PaymentCommand(q,350000,LocalDate.now(),"labor-"+q,null));
+  var ledger=workbench.ledger(post.orgId(),"project:"+project);
+  @SuppressWarnings("unchecked") var entries=(java.util.List<Map<String,Object>>)ledger.get("entries");
+  assertThat(entries.stream().filter(e->"PAYMENT".equals(e.get("type"))).toList()).hasSize(1).allSatisfy(e->assertThat(e).containsEntry("name","场地排水与围挡人工"));
+  assertThat(((Number)((Map<?,?>)ledger.get("summary")).get("paid_cents")).longValue()).isEqualTo(350000);
+  assertThat(jdbc.queryForObject("SELECT stage FROM fr_fin_payable WHERE id=?",String.class,q)).isEqualTo("engineering");
+ }
  @Test void failedPaymentRollsBackItsNewPayable(){
   var cmd=new FinWorkbenchService.EntryCommand("company","expense","租车","租赁",10000,LocalDate.now(),"租赁商","现金",null,999999999L);
   assertThatThrownBy(()->workbench.register(post,"bad-voucher",cmd)).isInstanceOf(RuntimeException.class);

@@ -2,10 +2,8 @@
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useAppStore } from '@/store/modules/app'
 import { Footer } from '@/layout/components/Footer'
-import { useAdminTableLayout } from '@/hooks/web/useAdminTableLayout'
 
 defineOptions({ name: 'AppView' })
-useAdminTableLayout()
 
 const appStore = useAppStore()
 

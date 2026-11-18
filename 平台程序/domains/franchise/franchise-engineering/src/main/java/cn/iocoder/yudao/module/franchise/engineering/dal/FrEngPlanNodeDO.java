@@ -30,6 +30,12 @@ public class FrEngPlanNodeDO {
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;
+    private LocalDate baselineEndDate;
+    private String delayReason;
+    private Long delayOwnerUserId;
+    private LocalDate recoveryDate;
+    private String recoveryAction;
+    private String delayHistory;
     private String status;
     private String milestone;
     private Long responsibleUserId;

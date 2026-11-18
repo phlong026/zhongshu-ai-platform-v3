@@ -54,6 +54,22 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         for(var other:List.of(new PostSnapshot(12L,99L,33L,"store","boss",null,false,Set.of()),new PostSnapshot(12L,22L,34L,"store","boss",null,false,Set.of())))
             assertThatThrownBy(()->service.complete(other,id)).hasMessageContaining("无权使用");
     }
+    @Test void concurrentConfirmationsShareTheClientReceipt() throws Exception {
+        var service=service(grants());
+        long id=issue(service);
+        var start=new java.util.concurrent.CountDownLatch(1);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var first=pool.submit(()->{start.await();return service.complete(post,id);});
+            var second=pool.submit(()->{start.await();return service.complete(post,id);});
+            start.countDown();
+            assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS))
+                .isEqualTo(second.get(5,java.util.concurrent.TimeUnit.SECONDS))
+                .containsEntry("providerStatus","UNVERIFIED");
+        } finally {
+            pool.shutdownNow();
+        }
+    }
     @Test void invalidMediaAndInactivePersonNeverRequestVendorCredentials() {
         var transport=new ContentProviderTransport.Scripted();var service=service(transport);
         for(long size:new long[]{0,20L*1024*1024+1})assertThatThrownBy(()->service.issue(post,21,"VOICE","audio/mpeg",size,sha)).hasMessageContaining("20MB");
@@ -68,6 +84,23 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->service.complete(post,id)).hasMessageContaining("过期");
         assertThat(jdbc.queryForObject("SELECT status FROM fr_content_hifly_upload",String.class)).isEqualTo("ISSUED");
     }
+    @Test void browserReceiptsRequireTheOriginalPostAndFreezeTheExactFile() throws Exception {
+        var service=service(grants());
+        long id=Long.parseLong((String)service.prepareFileUpload(post,21,"VOICE","audio/mpeg").get("uploadId"));
+        assertThatThrownBy(()->service.complete(post,id)).hasMessageContaining("过期");
+        var changedPost=new PostSnapshot(12L,22L,33L,"store","sales",null,false,Set.of());
+        assertThatThrownBy(()->service.completeFileUpload(changedPost,id,100,sha)).hasMessageContaining("岗位");
+        assertThatThrownBy(()->service.completeFileUpload(post,id,21L<<20,sha));
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var a=pool.submit(()->service.completeFileUpload(post,id,100,sha));
+            var b=pool.submit(()->service.completeFileUpload(post,id,100,sha));
+            assertThat(a.get()).isEqualTo(b.get()).containsEntry("providerStatus","UNVERIFIED");
+        } finally { pool.shutdownNow(); }
+        assertThatThrownBy(()->service.completeFileUpload(post,id,101,sha)).hasMessageContaining("变化");
+        assertThat(service.requireUploaded(post,21,id,"VOICE").sha256()).isEqualTo(sha);
+    }
+
     String undo() throws Exception {
         try(var input=getClass().getResourceAsStream("/db/migration-undo/franchise/V20261116.924__undo_fr_content_hifly_direct_upload.sql")){return new String(Objects.requireNonNull(input).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);}
     }

@@ -80,6 +80,32 @@ class LocalAssetServiceTest {
                 .isEqualTo("DESIGN_REFERENCE");
     }
 
+    @Test
+    void maximumSizeVideoIsPublishedFromDiskWithItsOriginalDigest(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        var blobs=new LocalObjectStorageAdapter(dir.resolve("objects").toString());
+        configureStorage(blobs);
+        current = new PostSnapshot(11,22,33,"store","sales",null,false,Set.of());
+        var file=dir.resolve("video.mp4");
+        int size=50<<20;
+        try(var source=new java.io.RandomAccessFile(file.toFile(),"rw")) {
+            source.setLength(size);
+            source.seek(4); source.writeBytes("ftyp");
+        }
+        String hash;
+        var digest=MessageDigest.getInstance("SHA-256");
+        try(var input=new java.security.DigestInputStream(java.nio.file.Files.newInputStream(file),digest)) {
+            input.transferTo(java.io.OutputStream.nullOutputStream()); hash=HexFormat.of().formatHex(digest.digest());
+        }
+        var ticket=service.createUploadTicket(ACTOR,"CONTENT_ASSET","video/mp4",size,hash);
+        try(var input=java.nio.file.Files.newInputStream(file)) {
+            service.receiveUpload(ACTOR,ticket.assetId(),ticket.uploadUrl().split("token=")[1],input);
+        }
+        assertThat(service.completeUpload(ACTOR,ticket.assetId()).uploadStatus()).isEqualTo("ACCEPTED");
+        assertThat(service.completeUpload(ACTOR,ticket.assetId()).uploadStatus()).isEqualTo("ACCEPTED");
+        var key=jdbc.queryForObject("SELECT object_key FROM fr_asset WHERE id=?",String.class,ticket.assetId());
+        assertThat(java.nio.file.Files.mismatch(file,dir.resolve("objects").resolve(key))).isEqualTo(-1);
+    }
+
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
@@ -102,8 +128,13 @@ class LocalAssetServiceTest {
         storage = new MemoryStorage();
         current = POST;
         ownerMappingActive = true;
+        configureStorage(storage);
+    }
+
+    private void configureStorage(ObjectStoragePort adapter) {
+        var ds=java.util.Objects.requireNonNull(jdbc.getDataSource());
         CurrentPost posts = () -> Optional.ofNullable(current);
-        service = new LocalAssetService(ds, new DataSourceTransactionManager(ds), storage,
+        service = new LocalAssetService(ds, new DataSourceTransactionManager(ds), adapter,
                 new AssetContentScanner(), posts, new cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort() {
                     public long requireServiceAccount(long org) {
                         if (current == null || current.orgId() != org) throw new ServiceAccountInactiveException(org);
@@ -355,6 +386,10 @@ class LocalAssetServiceTest {
             return values.containsKey(key) && values.get(key).length == size;
         }
         public InputStream getObject(String key) { return new ByteArrayInputStream(values.get(key)); }
-        public void putObject(String key, byte[] value) { values.put(key, value.clone()); if (onPut != null) onPut.run(); }
+        public void putObject(String key, java.nio.file.Path file) {
+            try { putObject(key, java.nio.file.Files.readAllBytes(file)); }
+            catch (java.io.IOException ex) { throw new java.io.UncheckedIOException(ex); }
+        }
+        void putObject(String key, byte[] value) { values.put(key, value.clone()); if (onPut != null) onPut.run(); }
     }
 }

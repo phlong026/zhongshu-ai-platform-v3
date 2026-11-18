@@ -96,7 +96,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String url = randomString();
         AtomicReference<String> pathRef = new AtomicReference<>();
         when(client.upload(same(content), argThat(path -> {
-            assertTrue(path.matches(directory + "/\\d{8}/\\d+/" + name + ".jpg"));
+            assertTrue(path.matches(directory + "/\\d{8}/[0-9a-f-]{36}/" + name + ".jpg"));
             pathRef.set(path);
             return true;
         }), eq(type))).thenReturn(url);
@@ -128,7 +128,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String url = randomString();
         AtomicReference<String> pathRef = new AtomicReference<>();
         when(client.upload(same(content), argThat(path -> {
-            assertTrue(path.matches("\\d{8}/\\d+/6318848e882d8a7e7e82789d87608f684ee52d41966bfc8cad3ce15aad2b970e\\.jpg"));
+            assertTrue(path.matches("\\d{8}/[0-9a-f-]{36}/6318848e882d8a7e7e82789d87608f684ee52d41966bfc8cad3ce15aad2b970e\\.jpg"));
             pathRef.set(path);
             return true;
         }), eq(type))).thenReturn(url);
@@ -272,6 +272,27 @@ public class FileServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void sameNamedUploadsKeepIndependentDownloadContent() throws Exception {
+        FileClient client=mock(FileClient.class);
+        when(fileConfigService.getMasterFileClient()).thenReturn(client);
+        when(client.getId()).thenReturn(10L);
+        when(fileConfigService.getFileClient(10L)).thenReturn(client);
+        var objects=new java.util.HashMap<String,byte[]>();
+        when(client.upload(any(),anyString(),anyString())).thenAnswer(call->{
+            String path=call.getArgument(1);
+            objects.put(path,call.getArgument(0));
+            return path;
+        });
+        when(client.getContent(anyString())).thenAnswer(call->objects.get(call.getArgument(0)));
+
+        String first=fileService.createFile(new byte[]{1},"proof.pdf","finance","application/pdf");
+        String second=fileService.createFile(new byte[]{2},"proof.pdf","finance","application/pdf");
+        assertNotEquals(first,second);
+        assertArrayEquals(new byte[]{1},fileService.getFileContent(10L,fileMapper.selectOne(FileDO::getUrl,first).getPath()));
+        assertArrayEquals(new byte[]{2},fileService.getFileContent(10L,fileMapper.selectOne(FileDO::getUrl,second).getPath()));
+    }
+
+    @Test
     public void testGenerateUploadPath_AllEnabled() {
         // 准备参数
         String name = "test.jpg";
@@ -283,10 +304,10 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String path = fileService.generateUploadPath(name, directory);
 
         // 断言
-        // 格式为：avatar/yyyyMMdd/{时间戳+随机数}/test.jpg
+        // 格式为：avatar/yyyyMMdd/{UUID}/test.jpg
         assertTrue(path.startsWith(directory + "/"));
         // 包含日期格式：8 位数字，如 20240517
-        assertTrue(path.matches(directory + "/\\d{8}/\\d+/test\\.jpg"));
+        assertTrue(path.matches(directory + "/\\d{8}/[0-9a-f-]{36}/test\\.jpg"));
     }
 
     @Test
@@ -319,9 +340,9 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String path = fileService.generateUploadPath(name, directory);
 
         // 断言
-        // 格式为：avatar/{时间戳+随机数}/test.jpg
+        // 格式为：avatar/{UUID}/test.jpg
         assertTrue(path.startsWith(directory + "/"));
-        assertTrue(path.matches(directory + "/\\d+/test\\.jpg"));
+        assertTrue(path.matches(directory + "/[0-9a-f-]{36}/test\\.jpg"));
     }
 
     @Test
@@ -352,9 +373,9 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String path = fileService.generateUploadPath(name, directory);
 
         // 断言
-        // 格式为：avatar/yyyyMMdd/{时间戳+随机数}/test
+        // 格式为：avatar/yyyyMMdd/{UUID}/test
         assertTrue(path.startsWith(directory + "/"));
-        assertTrue(path.matches(directory + "/\\d{8}/\\d+/test"));
+        assertTrue(path.matches(directory + "/\\d{8}/[0-9a-f-]{36}/test"));
     }
 
     @Test
@@ -369,8 +390,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String path = fileService.generateUploadPath(name, directory);
 
         // 断言
-        // 格式为：yyyyMMdd/{时间戳+随机数}/test.jpg
-        assertTrue(path.matches("\\d{8}/\\d+/test\\.jpg"));
+        // 格式为：yyyyMMdd/{UUID}/test.jpg
+        assertTrue(path.matches("\\d{8}/[0-9a-f-]{36}/test\\.jpg"));
     }
 
     @Test
@@ -386,8 +407,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String path = fileService.generateUploadPath(name, directory);
 
         // 断言
-        // 格式为：avatar/yyyyMMdd/test_{时间戳+随机数}.jpg
-        assertTrue(path.matches(directory + "/\\d{8}/test_\\d+\\.jpg"));
+        // 格式为：avatar/yyyyMMdd/test_{UUID}.jpg
+        assertTrue(path.matches(directory + "/\\d{8}/test_[0-9a-f-]{36}\\.jpg"));
     }
 
     @Test
@@ -403,8 +424,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String path = fileService.generateUploadPath(name, directory);
 
         // 断言
-        // 格式为：avatar/test_{时间戳+随机数}.jpg
-        assertTrue(path.matches(directory + "/test_\\d+\\.jpg"));
+        // 格式为：avatar/test_{UUID}.jpg
+        assertTrue(path.matches(directory + "/test_[0-9a-f-]{36}\\.jpg"));
     }
 
     @Test
@@ -420,8 +441,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String path = fileService.generateUploadPath(name, directory);
 
         // 断言
-        // 格式为：avatar/yyyyMMdd/test_{时间戳+随机数}
-        assertTrue(path.matches(directory + "/\\d{8}/test_\\d+"));
+        // 格式为：avatar/yyyyMMdd/test_{UUID}
+        assertTrue(path.matches(directory + "/\\d{8}/test_[0-9a-f-]{36}"));
     }
 
     @Test
@@ -458,8 +479,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String path = fileService.generateUploadPath(name, directory);
 
         // 断言
-        // 格式为：yyyyMMdd/{时间戳+随机数}/test.jpg
-        assertTrue(path.matches("\\d{8}/\\d+/test\\.jpg"));
+        // 格式为：yyyyMMdd/{UUID}/test.jpg
+        assertTrue(path.matches("\\d{8}/[0-9a-f-]{36}/test\\.jpg"));
     }
 
 }

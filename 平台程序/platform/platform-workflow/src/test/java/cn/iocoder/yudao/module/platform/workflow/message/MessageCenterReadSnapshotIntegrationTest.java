@@ -38,9 +38,14 @@ class MessageCenterReadSnapshotIntegrationTest extends PlatformPgIntegrationTest
             assertThat(page.items()).extracting(row->row.get("id")).containsExactly(Long.toString(id));
             var cutoff=OffsetDateTime.parse(page.snapshotAt());
             connection.commit();
-            assertThat(service.readAll(otherOrg,cutoff)).isZero();
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.readAll(otherOrg,cutoff))
+                .hasMessage("消息列表已过期，请刷新后重试");
             assertThat(service.readAll(post,cutoff)).isEqualTo(1);
             assertThat(service.readAll(post,cutoff)).isZero();
+            jdbc.update("UPDATE pf_message_read_snapshot SET expires_at=? WHERE user_id=? AND org_id=? AND snapshot_at=?",
+                OffsetDateTime.now().minusMinutes(1),post.userId(),post.orgId(),cutoff);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.readAll(post,cutoff))
+                .hasMessage("消息列表已过期，请刷新后重试");
             assertThat(jdbc.queryForObject("SELECT read FROM pf_message WHERE id=?",Boolean.class,id)).isTrue();
             assertThat(jdbc.queryForObject("SELECT read FROM pf_message WHERE id=?",Boolean.class,id-1)).isFalse();
             assertThat(jdbc.queryForObject("SELECT read FROM pf_message WHERE id=?",Boolean.class,id+2)).isFalse();

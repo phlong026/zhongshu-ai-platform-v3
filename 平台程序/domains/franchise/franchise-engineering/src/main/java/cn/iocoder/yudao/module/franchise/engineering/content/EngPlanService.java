@@ -256,9 +256,17 @@ public class EngPlanService {
         projectService.projects().updateById(new FrEngProjectDO().setId(projectId)
                 .setActualStartAt(startDate));
         project.setActualStartAt(startDate); // 内存 DO 同步（recalcStatus 派生依赖）
-        FrEngPlanNodeDO first = nodes.get(0);
-        planNodes.updateById(new FrEngPlanNodeDO().setId(first.getId())
-                .setStatus(FrEngPlanNodeDO.STATUS_IN_PROGRESS));
+        for (FrEngPlanNodeDO n : nodes) {
+            if ("START".equals(n.getMilestone())) {
+                planNodes.updateById(new FrEngPlanNodeDO().setId(n.getId()).setStatus("DONE")
+                        .setCompletedAt(startDate).setResponsibleUserId(post.userId()));
+                jdbcTemplate.update("INSERT INTO fr_eng_site_record(id,company_id,project_id,node_id,occurred_at,note,completion,result,review_mode,file_asset_ids,author_user_id) VALUES(?,?,?,?,?,?,TRUE,'PASS','SINGLE_PERSON_RECORD',CAST(? AS jsonb),?)",
+                        cn.hutool.core.util.IdUtil.getSnowflakeNextId(),post.orgId(),projectId,n.getId(),startDate,
+                        StrUtil.blankToDefault(cmd.note(),"正式开工"),JsonList.of(cmd.fileAssetId()),post.userId());
+            }
+        }
+        nodes.stream().filter(n -> !"START".equals(n.getMilestone()) && !"DONE".equals(n.getStatus())).findFirst()
+                .ifPresent(n -> planNodes.updateById(new FrEngPlanNodeDO().setId(n.getId()).setStatus("IN_PROGRESS")));
         projectService.recalcStatus(post, project); // 唯一真相：actualStart 已回内存，派生 IN_PROGRESS 落库
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
                 "eng-start", payload, idempotencyKey);
@@ -350,7 +358,9 @@ public class EngPlanService {
             if (in.startDate() == null || in.endDate() == null || in.endDate().isBefore(in.startDate())) {
                 throw exception(PLAN_INVALID);
             }
-            if (prevEnd != null && !in.startDate().isAfter(prevEnd)) {
+            boolean followsStart = i > 0 && "START".equals(nodes.get(i - 1).getMilestone());
+            if ("START".equals(node.getMilestone()) && !in.startDate().equals(in.endDate())) throw exception(PLAN_INVALID);
+            if (prevEnd != null && (followsStart ? in.startDate().isBefore(prevEnd) : !in.startDate().isAfter(prevEnd))) {
                 throw exception(PLAN_INVALID); // 节点日期不可重叠
             }
             prevEnd = in.endDate();
@@ -367,8 +377,9 @@ public class EngPlanService {
                 continue;
             }
             planNodes.updateById(new FrEngPlanNodeDO().setId(node.getId())
-                    .setName(StrUtil.blankToDefault(in.name(), node.getName()))
+                    .setName("START".equals(node.getMilestone()) ? "正式开工" : StrUtil.blankToDefault(in.name(), node.getName()))
                     .setStartDate(in.startDate()).setEndDate(in.endDate()));
+            jdbcTemplate.update("UPDATE fr_eng_plan_node SET baseline_end_date=COALESCE(baseline_end_date,?) WHERE id=? AND company_id=?",in.endDate(),node.getId(),post.orgId());
         }
     }
 
@@ -468,6 +479,7 @@ public class EngPlanService {
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
         FrEngPlanNodeDO node = nodes.stream().filter(n -> n.getId() == nodeId).findFirst()
                 .orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID));
+        if ("START".equals(node.getMilestone())) throw exception(ENGINEERING_INPUT_INVALID,"请通过正式开工入口记录开工");
         FrEngPlanNodeDO current = EngGuard.currentNode(nodes);
         if (project.getActualStartAt() == null || current == null || node.getId() != current.getId()) {
             throw exception(ENGINEERING_INPUT_INVALID, "请从当前施工节点继续记录");
@@ -586,6 +598,7 @@ public class EngPlanService {
 
     /** 蓝本 reopenBlock（:36）：最近完成+下一节点无记录+topping 未收封顶款；null=可撤回 */
     private String reopenBlock(PostSnapshot post, long projectId, List<FrEngPlanNodeDO> nodes, FrEngPlanNodeDO node) {
+        if ("START".equals(node.getMilestone())) return "正式开工记录不能按施工节点撤回";
         if (!FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus())) {
             return "请选择已完成的施工节点";
         }
@@ -627,7 +640,7 @@ public class EngPlanService {
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
         FrEngPlanNodeDO node = nodes.stream().filter(n -> n.getId() == nodeId).findFirst()
                 .orElseThrow(() -> exception(NODE_ACTION_INVALID));
-        if (!FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus()) || cmd.completedAt() == null
+        if ("START".equals(node.getMilestone()) || !FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus()) || cmd.completedAt() == null
                 || StrUtil.isBlank(cmd.reason()) || StrUtil.isBlank(cmd.note()) || cmd.fileAssetId() == null) {
             throw exception(NODE_ACTION_INVALID);
         }

@@ -3,7 +3,6 @@ package cn.iocoder.yudao.module.infra.service.file;
 import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.lang.Assert;
-import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
@@ -23,6 +22,7 @@ import lombok.SneakyThrows;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 import static cn.hutool.core.date.DatePattern.PURE_DATE_PATTERN;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -45,10 +45,9 @@ public class FileServiceImpl implements FileService {
     /**
      * 上传文件的后缀，是否启用
      *
-     * 算法：当前时间戳（毫秒）+ 5 位随机数；目的是保证文件的唯一性，避免覆盖
-     * 定制：可按需调整成 UUID、或者其他方式
+     * 使用 UUID 隔离同名文件，保留原文件名用于下载。
      */
-    static boolean PATH_SUFFIX_TIMESTAMP_ENABLE = false;
+    static boolean PATH_SUFFIX_TIMESTAMP_ENABLE = true;
     /**
      * 后缀是否作为上级目录
      *
@@ -117,8 +116,7 @@ public class FileServiceImpl implements FileService {
         }
         String suffix = null;
         if (PATH_SUFFIX_TIMESTAMP_ENABLE) {
-            // 5 位随机数，避免同一毫秒内的重复
-            suffix = String.valueOf(System.currentTimeMillis()) + RandomUtil.randomInt(10000, 100000);
+            suffix = UUID.randomUUID().toString();
         }
 
         // 2.1 先拼接 suffix 后缀

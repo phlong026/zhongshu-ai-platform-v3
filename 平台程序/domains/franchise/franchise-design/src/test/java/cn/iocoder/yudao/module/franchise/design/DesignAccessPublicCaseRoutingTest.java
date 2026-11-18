@@ -24,6 +24,31 @@ import static org.mockito.Mockito.when;
 class DesignAccessPublicCaseRoutingTest {
 
     @Test
+    void customerLinkedProjectBeyondFiftyPagesCanStillBeFound() {
+        var schemes=mock(CustomerSchemePort.class);
+        var service=org.mockito.Mockito.spy(new DesignAccessService(mock(DesignServicePort.class), schemes,
+                mock(StoreServiceAccountPort.class), mock(FranchiseCommands.class), mock(CurrentPost.class),
+                mock(PlatformTransactionManager.class), mock(DataSource.class)));
+        var post=new PostSnapshot(1001,101,10,"STORE","DESIGNER",null,false,Set.of());
+        when(schemes.listDesignProjectIds(post,42L)).thenReturn(List.of(125L,124L));
+        org.mockito.Mockito.doAnswer(call->{
+            String cursor=call.getArgument(1);
+            long projectId=cursor==null?180L:Long.parseLong(cursor)-1;
+            return new DesignServicePort.ProjectPageView(List.of(
+                    new DesignServicePort.ProjectListItem(projectId,null,null,null,null,null,null)),
+                    projectId<=124?null:Long.toString(projectId));
+        }).when(service).listProjects(org.mockito.ArgumentMatchers.eq(post),org.mockito.ArgumentMatchers.nullable(String.class),
+                org.mockito.ArgumentMatchers.eq(50));
+
+        var first=service.listProjectsForCustomer(post,42L,null,1);
+        org.assertj.core.api.Assertions.assertThat(first.get("nextCursor")).isEqualTo("125");
+        var second=service.listProjectsForCustomer(post,42L,"125",1);
+        org.assertj.core.api.Assertions.assertThat(second.get("list")).isEqualTo(List.of(
+                new DesignServicePort.ProjectListItem(124L,null,null,null,null,null,null)));
+        org.assertj.core.api.Assertions.assertThat(second.get("nextCursor")).isNull();
+    }
+
+    @Test
     void remoteModeRoutesEveryCatalogAndFavoriteOperationToBLocalAccess() {
         DesignServicePort legacy = mock(DesignServicePort.class);
         var service = new DesignAccessService(legacy, mock(CustomerSchemePort.class),

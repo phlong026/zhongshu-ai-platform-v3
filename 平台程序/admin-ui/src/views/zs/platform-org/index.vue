@@ -169,7 +169,13 @@
               readonly
               class="manual-copy"
             />
-            <el-alert v-if="!franchiseResult.reusedOrg" title="新组织尚未开通 AI 能力，请在“组织列表 → 详情 → 能力开通”中设置。" type="info" :closable="false" class="result-alert" />
+            <el-alert
+              v-if="!franchiseResult.reusedOrg"
+              title="新组织尚未开通 AI 能力，请在“组织列表 → 详情 → 能力开通”中设置。"
+              type="info"
+              :closable="false"
+              class="result-alert"
+            />
           </div>
         </el-tab-pane>
 
@@ -507,12 +513,14 @@ onBeforeUnmount(handleDeactivated)
 .onboard-card {
   max-width: 920px;
 }
+
 .onboard-card--directory {
   max-width: none;
 }
 
 .onboard-form {
   max-width: 680px;
+  min-width: 0;
   padding-top: 18px;
 }
 
@@ -537,6 +545,7 @@ onBeforeUnmount(handleDeactivated)
   background: #fbf5ec;
   border: 1px solid #eadccf;
   border-radius: 10px;
+  box-sizing: border-box;
 }
 
 .preview-panel.is-error {
@@ -620,6 +629,35 @@ onBeforeUnmount(handleDeactivated)
   .credential-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (width <= 600px) {
+  .onboard-form :deep(.el-form-item) {
+    display: block;
+  }
+
+  .onboard-form :deep(.el-form-item__label) {
+    display: block;
+    width: auto !important;
+    height: auto;
+    margin-bottom: 8px;
+    line-height: 1.5;
+    text-align: left;
+  }
+
+  .onboard-form :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
+
+  .credential-card {
+    padding: 14px;
+  }
+
+  .preview-panel > div {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-bottom: 8px;
   }
 }
 </style>

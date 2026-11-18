@@ -26,10 +26,12 @@ public class SalesTodoProvider implements TodoProvider {
 
     private final SaleContractMapper contracts;
     private final SalePaymentStageMapper stages;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
-    public SalesTodoProvider(SaleContractMapper contracts, SalePaymentStageMapper stages) {
+    public SalesTodoProvider(SaleContractMapper contracts, SalePaymentStageMapper stages, org.springframework.jdbc.core.JdbcTemplate jdbc) {
         this.contracts = contracts;
         this.stages = stages;
+        this.jdbc = jdbc;
     }
 
     @Override
@@ -43,12 +45,15 @@ public class SalesTodoProvider implements TodoProvider {
         boolean isWritePost = FranchiseRoles.has(post, FranchiseRoles.SALES) || FranchiseRoles.isBoss(post);
         boolean isCollectPost = isWritePost
                 || FranchiseRoles.FINANCE.equals(post.roleCode()) || FranchiseRoles.FINANCE_LEAD.equals(post.roleCode());
+        java.util.Map<Long,String> names = new java.util.HashMap<>();
+        if (isWritePost) jdbc.queryForList("SELECT id,name FROM fr_customer WHERE company_id=?", post.orgId())
+                .forEach(row -> names.put(((Number)row.get("id")).longValue(), String.valueOf(row.get("name"))));
         if (isWritePost) {
             contracts.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<SaleContractDO>()
                             .eq(SaleContractDO::getCompanyId, post.orgId())
                             .eq(SaleContractDO::getStatus, STATUS_WAIT_SIGN))
                     .forEach(c -> items.add(new TodoItem(DOMAIN, DOMAIN + ":contract-sign:" + c.getId(),
-                            "合同待签 · 客户#" + c.getCustomerId(), "待签订", c.getTotalCents(), true, null,
+                            "合同待签 · " + names.getOrDefault(c.getCustomerId(), "客户资料待补充"), "待签订", c.getTotalCents(), true, null,
                             "/pages/workflow/index?view=contract&id=" + c.getCustomerId(), c.getCreateTime())));
         }
         // 财务办理到账核实由 CollectionDeclarationTodoProvider 提供，未发生收款的合同阶段保留在应收查询。
@@ -65,7 +70,7 @@ public class SalesTodoProvider implements TodoProvider {
                                 : "/pages/workflow/index?view=contract&id=" + s.getCustomerId();
                         items.add(new TodoItem(DOMAIN, DOMAIN + ":stage-pending:" + s.getId(),
                                 "回款待收 · " + stageLabel(s.getStage())
-                                        + " · 客户#" + s.getCustomerId(),
+                                        + " · " + names.getOrDefault(s.getCustomerId(), "客户资料待补充"),
                                 "待收款", s.getAmountCents(), true, null, appPath, s.getCreateTime()));
                     });
         }

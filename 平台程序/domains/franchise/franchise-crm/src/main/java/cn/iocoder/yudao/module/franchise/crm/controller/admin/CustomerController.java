@@ -135,6 +135,13 @@ public class CustomerController {
                 customerService.saveScheme(currentPost.require(), id, req, key)));
     }
 
+    @PostMapping("/{id}/budget-confirmation")
+    @PreAuthorize("@post.has('franchise:customer:write')")
+    public CommonResult<CustomerDetail> confirmBudget(@PathVariable long id,@RequestBody CustomerService.BudgetConfirmation req,
+            @RequestHeader(value=IDEMPOTENCY_HEADER) String key) {
+        return success(CustomerDetail.of(customerService.confirmBudget(currentPost.require(),id,req,key)));
+    }
+
     @PostMapping("/{id}/transfer")
     @Operation(summary = "责任转交（人员变动时由老板或业务负责人办理）")
     @PreAuthorize("@post.has('franchise:customer:transfer')")

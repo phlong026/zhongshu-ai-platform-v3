@@ -1,6 +1,17 @@
 <template>
-  <Dialog v-model="dialogVisible" :max-height="500" :scroll="true" title="详情" width="800">
-    <el-descriptions :column="1" border>
+  <Dialog
+    v-model="dialogVisible"
+    :max-height="500"
+    :scroll="true"
+    title="访问日志详情"
+    width="min(1040px,96vw)"
+  >
+    <el-descriptions
+      :column="summaryColumns"
+      :label-width="110"
+      class="admin-detail-summary"
+      border
+    >
       <el-descriptions-item label="日志主键" min-width="120">
         {{ detailData.id }}
       </el-descriptions-item>
@@ -17,22 +28,22 @@
       <el-descriptions-item label="用户 IP">
         {{ detailData.userIp }}
       </el-descriptions-item>
-      <el-descriptions-item label="用户 UA">
+      <el-descriptions-item label="请求耗时">{{ detailData.duration }} ms</el-descriptions-item>
+      <el-descriptions-item label="用户 UA" :span="summaryColumns">
         {{ detailData.userAgent }}
       </el-descriptions-item>
-      <el-descriptions-item label="请求信息">
+      <el-descriptions-item label="请求信息" :span="summaryColumns">
         {{ detailData.requestMethod }} {{ detailData.requestUrl }}
       </el-descriptions-item>
-      <el-descriptions-item label="请求参数">
+      <el-descriptions-item label="请求参数" :span="summaryColumns">
         {{ detailData.requestParams }}
       </el-descriptions-item>
-      <el-descriptions-item label="请求结果">
+      <el-descriptions-item label="请求结果" :span="summaryColumns">
         {{ detailData.responseBody }}
       </el-descriptions-item>
-      <el-descriptions-item label="请求时间">
+      <el-descriptions-item label="请求时间" :span="summaryColumns">
         {{ formatDate(detailData.beginTime) }} ~ {{ formatDate(detailData.endTime) }}
       </el-descriptions-item>
-      <el-descriptions-item label="请求耗时">{{ detailData.duration }} ms</el-descriptions-item>
       <el-descriptions-item label="操作结果">
         <div v-if="detailData.resultCode === 0">正常</div>
         <div v-else-if="detailData.resultCode > 0">
@@ -53,6 +64,9 @@
 </template>
 
 <script lang="ts" setup>
+import { useMediaQuery } from '@vueuse/core'
+const wideSummary = useMediaQuery('(min-width: 760px)')
+const summaryColumns = computed(() => (wideSummary.value ? 2 : 1))
 import { DICT_TYPE } from '@/utils/dict'
 import { formatDate } from '@/utils/formatTime'
 import * as ApiAccessLog from '@/api/infra/apiAccessLog'

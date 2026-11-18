@@ -16,6 +16,9 @@ import java.time.OffsetDateTime;
 @Data
 @Accessors(chain = true)
 public class CustomerSchemeDO {
+    private OffsetDateTime confirmedAt;
+    private Long confirmedByUserId;
+    private String confirmationNote;
 
     public static final String KIND_BUDGET = "BUDGET";
     public static final String KIND_PLAN = "PLAN";

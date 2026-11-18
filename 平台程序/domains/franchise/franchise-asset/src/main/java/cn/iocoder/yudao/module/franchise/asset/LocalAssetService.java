@@ -119,31 +119,30 @@ public class LocalAssetService implements AssetAccessPort {
         requireChannel(actor, asset.type());
         if (!"PENDING".equals(asset.status())) throw exception(RESOURCE_FORBIDDEN);
         if (!validUploadTicket(tenant, actor, id, token)) throw exception(RESOURCE_FORBIDDEN);
-        byte[] bytes;
-        try {
-            bytes = input.readNBytes(Math.toIntExact(asset.size()) + 1);
+        try (var file = new AssetUploadFile()) {
+            var received = file.copy(input, asset.size());
+            if (received.size() != asset.size() || !asset.sha().equals(received.sha())) throw invalid("上传大小或摘要不匹配");
+            int consumed = db("consume-upload", id, () -> jdbc.update("UPDATE fr_asset_upload_ticket SET consumed_at=CURRENT_TIMESTAMP"
+                            + " WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=? AND user_id=? AND post_id=?"
+                            + " AND upload_mode='PROXY' AND consumed_at IS NULL AND expires_at>CURRENT_TIMESTAMP", hash(token), id, tenant,
+                    actor.orgId(), actor.userId(), actor.postId()));
+            if (consumed != 1) throw exception(RESOURCE_FORBIDDEN);
+            try {
+                storage.putObject(asset.uploadKey(), file.path);
+                db("finish-upload", id, () -> jdbc.update("UPDATE fr_asset_upload_ticket SET completed_at=CURRENT_TIMESTAMP"
+                        + " WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=? AND consumed_at IS NOT NULL",
+                        hash(token), id, tenant, actor.orgId()));
+            } catch (RuntimeException e) {
+                log.warn("B asset upload write failed tenant={} org={} asset={} error={}", tenant, actor.orgId(), id, e.getClass().getSimpleName());
+                // 写入失败不把未就绪字节送进完整性审查。重试仍必须原票据、原操作者且未过期。
+                db("release-upload", id, () -> jdbc.update("UPDATE fr_asset_upload_ticket SET consumed_at=NULL"
+                        + " WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=? AND completed_at IS NULL",
+                        hash(token), id, tenant, actor.orgId()));
+                throw invalid("对象写入失败，请重试上传");
+            }
         } catch (IOException e) {
             log.warn("B asset upload read failed tenant={} org={} asset={} error={}", tenant, actor.orgId(), id, e.getClass().getSimpleName());
             throw invalid("上传读取失败，请重新申请票据");
-        }
-        if (bytes.length != asset.size() || !asset.sha().equals(hash(bytes))) throw invalid("上传大小或摘要不匹配");
-        int consumed = db("consume-upload", id, () -> jdbc.update("UPDATE fr_asset_upload_ticket SET consumed_at=CURRENT_TIMESTAMP"
-                        + " WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=? AND user_id=? AND post_id=?"
-                        + " AND upload_mode='PROXY' AND consumed_at IS NULL AND expires_at>CURRENT_TIMESTAMP", hash(token), id, tenant,
-                actor.orgId(), actor.userId(), actor.postId()));
-        if (consumed != 1) throw exception(RESOURCE_FORBIDDEN);
-        try {
-            storage.putObject(asset.uploadKey(), bytes);
-            db("finish-upload", id, () -> jdbc.update("UPDATE fr_asset_upload_ticket SET completed_at=CURRENT_TIMESTAMP"
-                    + " WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=? AND consumed_at IS NOT NULL",
-                    hash(token), id, tenant, actor.orgId()));
-        } catch (RuntimeException e) {
-            log.warn("B asset upload write failed tenant={} org={} asset={} error={}", tenant, actor.orgId(), id, e.getClass().getSimpleName());
-            // 写入失败不把未就绪字节送进完整性审查。重试仍必须原票据、原操作者且未过期。
-            db("release-upload", id, () -> jdbc.update("UPDATE fr_asset_upload_ticket SET consumed_at=NULL"
-                    + " WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=? AND completed_at IS NULL",
-                    hash(token), id, tenant, actor.orgId()));
-            throw invalid("对象写入失败，请重试上传");
         }
     }
 
@@ -176,43 +175,39 @@ public class LocalAssetService implements AssetAccessPort {
             return updated;
         }));
         if (claimed != 1) throw invalid("资产正在校验，请稍后重试");
-        try {
+        try (var raw = new AssetUploadFile(); var sanitized = new AssetUploadFile()) {
             String rejection = null;
-            byte[] bytes = null;
+            AssetUploadFile.Integrity verified = null;
             if (!storage.existsWithSize(original.uploadKey(), original.size())) rejection = "SIZE_MISMATCH";
             if (rejection == null) {
-                try (InputStream input = storage.getObject(original.uploadKey())) {
-                    bytes = input.readNBytes(Math.toIntExact(MAX_BYTES.get(original.type())) + 1);
+                try (var input = storage.getObject(original.uploadKey())) {
+                    verified = raw.copy(input, original.size());
                 }
-                if (bytes.length != original.size()) rejection = "SIZE_MISMATCH";
-                else if (!original.sha().equals(hash(bytes))) rejection = "SHA256_MISMATCH";
+                if (verified.size() != original.size()) rejection = "SIZE_MISMATCH";
+                else if (!original.sha().equals(verified.sha())) rejection = "SHA256_MISMATCH";
             }
-            String scanResult = rejection;
-            if (rejection == null) {
-                var report = scanner.scan(original.mime(), bytes);
-                if (!report.passed()) rejection = String.join(";", report.failures());
-                else {
-                    bytes = report.sanitizedContent();
-                    if (bytes.length > MAX_BYTES.get(original.type())) rejection = "SANITIZED_SIZE_LIMIT";
-                }
-                scanResult = rejection == null ? "PASSED:integrity,magic,pixel,metadata,malware-marker" : rejection;
+            if (rejection == null) rejection = scanner.scan(original.mime(), raw.path, sanitized.path);
+            boolean image = original.mime().startsWith("image/");
+            if (rejection == null && image) {
+                long limit = MAX_BYTES.get(original.type());
+                verified = sanitized.integrity(limit);
+                if (verified.size() > limit) rejection = "SANITIZED_SIZE_LIMIT";
             }
-            // 客户端上传 URL 永远只能写 uploadKey，验证后的字节使用独立随机 key。
             String acceptedKey = null;
             if (rejection == null) {
                 acceptedKey = "franchise/" + tenant + "/" + actor.orgId() + "/accepted/" + id + "/" + validation + extension(original.mime());
-                storage.putObject(acceptedKey, bytes);
+                storage.putObject(acceptedKey, image ? sanitized.path : raw.path);
             }
             String finalReason = truncate(rejection, 1024);
-            String finalScan = truncate(scanResult, 2048);
+            String finalScan = rejection == null ? "PASSED:integrity,magic,pixel,metadata,malware-marker" : truncate(rejection, 2048);
             String finalKey = acceptedKey;
-            byte[] accepted = bytes;
+            AssetUploadFile.Integrity accepted = verified;
             String finalStatus = rejection == null ? "ACCEPTED" : "REJECTED";
             int changed = db("finish-validation", id, () -> tx.execute(status -> {
                 int updated = jdbc.update("UPDATE fr_asset SET upload_status=?,object_key=?,accepted_size_bytes=?,accepted_sha256=?,"
                                 + "rejected_reason=?,scan_result=?,validation_token=NULL,update_time=CURRENT_TIMESTAMP"
                                 + " WHERE id=? AND tenant_id=? AND org_id=? AND upload_status='VALIDATING' AND validation_token=?",
-                        finalStatus, finalKey, finalKey == null ? null : accepted.length, finalKey == null ? null : hash(accepted),
+                        finalStatus, finalKey, finalKey == null ? null : accepted.size(), finalKey == null ? null : accepted.sha(),
                         finalReason, finalScan, id, tenant, actor.orgId(), validation);
                 if (updated == 1) jdbc.update("UPDATE fr_asset_upload_ticket SET consumed_at=COALESCE(consumed_at,CURRENT_TIMESTAMP)"
                         + " WHERE asset_id=? AND tenant_id=? AND org_id=?", id, tenant, actor.orgId());

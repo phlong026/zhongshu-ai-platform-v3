@@ -177,19 +177,18 @@ public class DesignAccessService {
     public Map<String, Object> listProjectsForCustomer(PostSnapshot post, long customerId, String cursor, int limit) {
         Set<Long> linked = new HashSet<>(customerAccessible(() -> customerSchemes.listDesignProjectIds(post, customerId)));
         List<DesignServicePort.ProjectListItem> collected = new java.util.ArrayList<>();
+        Set<String> seenCursors = new HashSet<>();
         String pageCursor = cursor;
-        int guard = 0;
-        while (guard++ < 50) {
+        while (collected.size() <= limit && !linked.isEmpty()) {
+            if (!seenCursors.add(pageCursor)) throw new IllegalStateException("设计项目分页游标未推进");
             var page = listProjects(post, pageCursor, Math.max(limit, 50));
             for (var item : page.list()) {
-                if (linked.contains(item.projectId())) {
+                if (linked.remove(item.projectId())) {
                     collected.add(item);
+                    if (collected.size() > limit) break;
                 }
             }
-            if (page.nextCursor() == null || page.list().isEmpty()) {
-                pageCursor = null;
-                break;
-            }
+            if (page.nextCursor() == null || page.nextCursor().isBlank()) break;
             pageCursor = page.nextCursor();
         }
         Map<String, Object> result = new LinkedHashMap<>();

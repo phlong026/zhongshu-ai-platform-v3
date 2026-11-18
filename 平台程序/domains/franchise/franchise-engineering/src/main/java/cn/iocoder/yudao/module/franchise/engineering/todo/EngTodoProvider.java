@@ -65,6 +65,16 @@ public class EngTodoProvider implements TodoProvider {
                 continue;
             }
             List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), project.getId());
+            for (var n : nodes) {
+                if (cn.iocoder.yudao.module.franchise.engineering.content.EngProgress.overdue(n,today)
+                        && !java.util.Set.of("DELIVERED","SETTLED","ARCHIVED").contains(project.getStatus())) {
+                    int days=cn.iocoder.yudao.module.franchise.engineering.content.EngProgress.deviationDays(n,today);
+                    todos.add(new TodoItem(domain(),"fr-eng:delay:"+n.getId(),
+                            n.getName()+"延期"+days+"天 · "+project.getName(),
+                            n.getRecoveryDate()!=null&&n.getRecoveryDate().isBefore(today)?"恢复计划已逾期":"施工延期",null,true,null,
+                            "/pages/build/record/index?id="+project.getId()+"&view=delay&nodeId="+n.getId(),project.getCreateTime()));
+                }
+            }
             boolean toppingDone = nodes.stream().anyMatch(n ->
                     FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone())
                             && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()));
@@ -123,7 +133,7 @@ public class EngTodoProvider implements TodoProvider {
                     due = toppingDue;
                 } else if (FrEngCollectionTermDO.STAGE_BASE_DONE.equals(term.getStage())) {
                     due = nodes.stream()
-                            .filter(n -> !FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone())
+                            .filter(n -> !FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()) && !"START".equals(n.getMilestone())
                                     && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()))
                             .map(FrEngPlanNodeDO::getEndDate).findFirst().orElse(null);
                 } else {

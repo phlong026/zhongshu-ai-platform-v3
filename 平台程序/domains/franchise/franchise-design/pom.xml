@@ -22,6 +22,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.13.1</version>
+        </dependency>
+        <dependency>
             <groupId>cn.iocoder.boot</groupId>
             <artifactId>platform-wallet</artifactId>
             <version>${revision}</version>

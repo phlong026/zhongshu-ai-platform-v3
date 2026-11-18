@@ -116,7 +116,7 @@ public class EngCollectionService {
                 due = toppingDue;
             } else if (FrEngCollectionTermDO.STAGE_BASE_DONE.equals(stage)) {
                 due = nodes.stream()
-                        .filter(n -> !FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone())
+                        .filter(n -> !FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()) && !"START".equals(n.getMilestone())
                                 && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()))
                         .map(FrEngPlanNodeDO::getEndDate).findFirst().orElse(null);
             } else {

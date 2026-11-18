@@ -2,10 +2,11 @@
   <!-- 搜索工作栏 -->
   <ContentWrap>
     <el-form
-      class="-mb-15px"
+      class="admin-filters"
       :model="queryParams"
       ref="queryFormRef"
       :inline="true"
+      label-position="top"
       label-width="68px"
     >
       <el-form-item label="部门名称" prop="name">
@@ -61,7 +62,9 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table native-scrollbar
+    <el-table
+      native-scrollbar
+      max-height="max(280px, calc(100dvh - 330px))"
       v-loading="loading"
       :data="list"
       row-key="id"
@@ -70,14 +73,14 @@
       @selection-change="handleRowCheckboxChange"
     >
       <el-table-column type="selection" width="55" />
-      <el-table-column prop="name" label="部门名称" />
-      <el-table-column prop="leader" label="负责人">
+      <el-table-column prop="name" label="部门名称" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="leader" label="负责人" min-width="140" show-overflow-tooltip>
         <template #default="scope">
           {{ userList.find((user) => user.id === scope.row.leaderUserId)?.nickname }}
         </template>
       </el-table-column>
-      <el-table-column prop="sort" label="排序" />
-      <el-table-column prop="status" label="状态">
+      <el-table-column prop="sort" label="排序" min-width="90" />
+      <el-table-column prop="status" label="状态" min-width="100">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
         </template>
@@ -89,7 +92,7 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="操作" align="center">
+      <el-table-column label="操作" align="center" fixed="right" width="150">
         <template #default="scope">
           <el-button
             link

@@ -13,7 +13,7 @@ public interface ObjectStoragePort {
     java.io.InputStream getObject(String objectKey);
 
     /** 服务端写对象；已审核内容必须写入客户端无写权限的独立不可变 key。 */
-    void putObject(String objectKey, byte[] content);
+    void putObject(String objectKey, java.nio.file.Path file);
 
     /** 短期下载 URL */
     String presignDownloadUrl(String objectKey, long ttlSeconds);

@@ -4,10 +4,11 @@
   <!-- 搜索 -->
   <ContentWrap>
     <el-form
-      class="-mb-15px"
+      class="admin-filters"
       :model="queryParams"
       ref="queryFormRef"
       :inline="true"
+      label-position="top"
       label-width="68px"
     >
       <el-form-item label="配置名" prop="name">
@@ -71,17 +72,35 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table native-scrollbar v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
+    <el-table
+      native-scrollbar
+      max-height="max(280px, calc(100dvh - 330px))"
+      v-loading="loading"
+      :data="list"
+      @selection-change="handleRowCheckboxChange"
+    >
       <el-table-column type="selection" width="55" />
-      <el-table-column label="编号" align="center" prop="id" />
-      <el-table-column label="配置名" align="center" prop="name" />
-      <el-table-column label="存储器" align="center" prop="storage">
+      <el-table-column label="编号" align="center" prop="id" min-width="110" />
+      <el-table-column
+        label="配置名"
+        align="center"
+        prop="name"
+        min-width="200"
+        show-overflow-tooltip
+      />
+      <el-table-column label="存储器" align="center" prop="storage" min-width="130">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.INFRA_FILE_STORAGE" :value="scope.row.storage" />
         </template>
       </el-table-column>
-      <el-table-column label="备注" align="center" prop="remark" />
-      <el-table-column label="主配置" align="center" prop="primary">
+      <el-table-column
+        label="备注"
+        align="center"
+        prop="remark"
+        min-width="240"
+        show-overflow-tooltip
+      />
+      <el-table-column label="主配置" align="center" prop="primary" min-width="100">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.INFRA_BOOLEAN_STRING" :value="scope.row.master" />
         </template>
@@ -93,7 +112,7 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="操作" align="center" width="240px">
+      <el-table-column label="操作" align="center" width="240px" fixed="right">
         <template #default="scope">
           <el-button
             link

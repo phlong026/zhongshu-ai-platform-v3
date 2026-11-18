@@ -2,14 +2,16 @@
   <section class="profile-panel" v-loading="loading">
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <template v-if="profile">
-      <el-descriptions :column="1" border>
+      <el-descriptions :column="summaryColumns" :label-width="110" border>
         <el-descriptions-item label="联系人">{{
           profile.contactName || '未设置'
         }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{
           profile.contactMobile || '未设置'
         }}</el-descriptions-item>
-        <el-descriptions-item label="地址">{{ profile.address || '未设置' }}</el-descriptions-item>
+        <el-descriptions-item label="地址" :span="summaryColumns">{{
+          profile.address || '未设置'
+        }}</el-descriptions-item>
         <el-descriptions-item label="老板微信">{{
           profile.wechatBound ? '已有微信绑定' : '暂无微信绑定'
         }}</el-descriptions-item>
@@ -181,6 +183,9 @@
   </section>
 </template>
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core'
+const wideSummary = useMediaQuery('(min-width: 760px)')
+const summaryColumns = computed(() => (wideSummary.value ? 2 : 1))
 import { ElMessage } from 'element-plus'
 import {
   getOrganizationProfile,
@@ -388,37 +393,45 @@ watch(
 .profile-panel {
   margin: 20px 0;
 }
+
 .actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 16px;
 }
+
 .actions :deep(.el-button) {
   margin-left: 0;
 }
+
 .edit-form {
   margin-top: 20px;
 }
+
 .region-fields {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
+
 .hint {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  line-height: 1.6;
   margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
   overflow-wrap: anywhere;
 }
+
 :deep(.el-alert) {
   margin-bottom: 12px;
 }
+
 :deep(.el-descriptions__content) {
   overflow-wrap: anywhere;
 }
-@media (max-width: 560px) {
+
+@media (width <= 560px) {
   .region-fields {
     grid-template-columns: 1fr;
   }

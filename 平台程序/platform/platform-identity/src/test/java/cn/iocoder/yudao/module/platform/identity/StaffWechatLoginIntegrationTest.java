@@ -75,6 +75,7 @@ class StaffWechatLoginIntegrationTest extends PlatformPgIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        FranchiseAccountAuthServiceIntegrationTest.createSystemUsersIfAbsent(jdbc);
         TenantContextHolder.setTenantId(1L);
         openid = "openid-" + IDS.incrementAndGet();
         userId = IDS.incrementAndGet();

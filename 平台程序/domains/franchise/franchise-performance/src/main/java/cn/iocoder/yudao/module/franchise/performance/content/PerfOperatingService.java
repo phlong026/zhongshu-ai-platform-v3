@@ -263,20 +263,36 @@ public class PerfOperatingService {
         return report;
     }
 
+    // A recorded signing date and dated cash corrections can affect past months. Contract
+    // changes take effect on their recorded business day and voids on the command day.
+    // Once a project moves to sales terms, voiding those terms does not revive legacy debt.
     private List<Map<String,Object>> receiptBalances(long org, String asOf) {
         return jdbc.queryForList("""
             WITH cutoff AS (SELECT ?::bigint AS org, ?::date AS day),
-            signed_contracts AS (
-                SELECT c.id,c.company_id,c.customer_id
-                FROM cutoff d JOIN fr_sale_contract c ON c.company_id=d.org AND c.status='SIGNED'
+            signed_history AS (
+                SELECT c.id,c.company_id,c.customer_id,
+                    (v.occurred_at AT TIME ZONE 'Asia/Shanghai')::date AS void_date
+                FROM cutoff d JOIN fr_sale_contract c ON c.company_id=d.org
                     AND NOT c.deleted AND c.signed_date<=d.day
+                LEFT JOIN LATERAL (
+                    SELECT e.revision,e.occurred_at FROM pf_command_event e
+                    WHERE c.status='VOIDED' AND e.domain='franchise' AND e.aggregate_type='fr-sale-contract'
+                      AND e.aggregate_id=c.id AND e.org_id=c.company_id AND e.command='sale-contract-void'
+                    ORDER BY e.revision LIMIT 1
+                ) v ON true
+                WHERE c.status='SIGNED' OR (v.revision IS NOT NULL AND EXISTS (
+                    SELECT 1 FROM pf_command_event e
+                    WHERE e.domain='franchise' AND e.aggregate_type='fr-sale-contract'
+                      AND e.aggregate_id=c.id AND e.org_id=c.company_id AND e.command='sale-contract-sign'
+                      AND e.revision<v.revision
+                ))
             ),
             sale_terms AS (
                 SELECT s.id,s.company_id,s.contract_id,
                     CASE WHEN h.stage_id IS NULL THEN s.amount_cents ELSE h.amount_cents END AS amount_cents,
                     CASE WHEN h.stage_id IS NULL THEN s.due_date ELSE h.due_date END AS due_date
                 FROM cutoff d
-                JOIN signed_contracts c ON c.company_id=d.org
+                JOIN signed_history c ON c.company_id=d.org AND (c.void_date IS NULL OR c.void_date>d.day)
                 JOIN fr_sale_payment_stage s ON s.contract_id=c.id AND s.company_id=c.company_id
                 LEFT JOIN LATERAL (
                     SELECT h.stage_id,h.amount_cents,h.due_date,h.deleted
@@ -284,7 +300,8 @@ public class PerfOperatingService {
                     WHERE h.company_id=s.company_id AND h.stage_id=s.id AND h.effective_on>d.day
                     ORDER BY h.effective_on,h.contract_revision LIMIT 1
                 ) h ON true
-                WHERE NOT COALESCE(h.deleted,s.deleted)
+                -- Voiding only soft-deletes pending stages. Prior months use the stage before that deletion.
+                WHERE NOT COALESCE(h.deleted, CASE WHEN c.void_date IS NOT NULL THEN false ELSE s.deleted END)
             ),
             receipts AS (
                 SELECT r.id,r.company_id,r.amount_cents-COALESCE((
@@ -299,7 +316,7 @@ public class PerfOperatingService {
                 SELECT p.id,p.company_id
                 FROM cutoff d JOIN fr_eng_project p ON p.company_id=d.org
                 WHERE NOT EXISTS (
-                    SELECT 1 FROM signed_contracts c WHERE c.company_id=p.company_id
+                    SELECT 1 FROM signed_history c WHERE c.company_id=p.company_id
                       AND (c.id=p.sale_contract_id OR (p.sale_contract_id IS NULL AND c.customer_id=p.customer_id))
                 )
                   AND NOT EXISTS (

@@ -1,6 +1,11 @@
 <template>
-  <Dialog v-model="dialogVisible" title="详情" width="800">
-    <el-descriptions :column="1" border>
+  <Dialog v-model="dialogVisible" title="登录日志详情" width="min(1040px,96vw)">
+    <el-descriptions
+      :column="summaryColumns"
+      :label-width="110"
+      class="admin-detail-summary"
+      border
+    >
       <el-descriptions-item label="日志编号" min-width="120">
         {{ detailData.id }}
       </el-descriptions-item>
@@ -13,7 +18,7 @@
       <el-descriptions-item label="登录地址">
         {{ detailData.userIp }}
       </el-descriptions-item>
-      <el-descriptions-item label="浏览器">
+      <el-descriptions-item label="浏览器" :span="summaryColumns">
         {{ detailData.userAgent }}
       </el-descriptions-item>
       <el-descriptions-item label="登陆结果">
@@ -26,6 +31,9 @@
   </Dialog>
 </template>
 <script lang="ts" setup>
+import { useMediaQuery } from '@vueuse/core'
+const wideSummary = useMediaQuery('(min-width: 760px)')
+const summaryColumns = computed(() => (wideSummary.value ? 2 : 1))
 import { DICT_TYPE } from '@/utils/dict'
 import { formatDate } from '@/utils/formatTime'
 import * as LoginLogApi from '@/api/system/loginLog'

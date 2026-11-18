@@ -528,6 +528,33 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
 
     // ========== 辅助 ==========
 
+    @Resource private EngProjectService projectService;
+
+    @Test
+    void largeOrganizationListFiltersManagerAndAssignedEngineerBeforeReturningRows() {
+        var another=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+        var otherStore=fixture.store();
+        long base=IDS.addAndGet(22000);
+        jdbc.update("""
+            INSERT INTO fr_eng_project(id,company_id,source_type,manager_user_id,assigned_engineer_user_id,
+              name,author_user_id,update_time)
+            SELECT ?+n,?,'MANUAL',?,CASE WHEN n<=21 THEN ? END,'测试工程-'||n,?,
+                   now()+n*interval '1 second'
+            FROM generate_series(1,20000) AS n
+            """,base,store.orgId(),another.userId(),engineer.userId(),another.userId());
+        jdbc.update("""
+            INSERT INTO fr_eng_project(id,company_id,source_type,manager_user_id,name,author_user_id)
+            VALUES(?,?,'MANUAL',?,'其他组织工程',?)
+            """,base+20001,otherStore.orgId(),engineer.userId(),engineer.userId());
+        var visible=as(engineer,()->projectService.list(engineer,"PENDING_START"));
+        assertThat(visible).hasSize(22);
+        assertThat(visible.subList(0,20)).extracting(row->((Number)row.get("id")).longValue())
+                .containsExactlyElementsOf(java.util.stream.LongStream.iterate(base+21,id->id-1).limit(20).boxed().toList());
+        assertThat(visible.subList(20,22)).extracting(row->row.get("id")).containsExactly(base+1,projectId);
+        jdbc.update("DELETE FROM fr_eng_project WHERE id>? AND id<=? AND company_id IN (?,?)",
+                base,base+20001,store.orgId(),otherStore.orgId());
+    }
+
     private long insertProject() {
         long id = IDS.incrementAndGet();
         jdbc.update("INSERT INTO fr_eng_project (id, company_id, customer_id, customer_name, name, status, "
