@@ -59,12 +59,19 @@ class OrgPointFlywayUpgradeIntegrationTest extends PlatformPgIntegrationTest {
                 + "type INT,sort INT,parent_id BIGINT,path TEXT,icon TEXT,component TEXT,component_name TEXT,"
                 + "status INT,visible BOOLEAN,keep_alive BOOLEAN,always_show BOOLEAN,creator TEXT,updater TEXT)");
 
+        // This historical snapshot includes the order fields used by the later company recharge migration.
+        jdbc.execute("CREATE TABLE " + schema + ".pf_recharge_order (id bigint PRIMARY KEY, tenant_id bigint,"
+                + "org_id bigint, actor_id bigint, post_id bigint, create_time timestamptz)");
+        jdbc.update("INSERT INTO " + schema + ".pf_recharge_order(id) VALUES (7)");
+
         Flyway current = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema)
                 // 测试 schema 只模拟 911~914 的历史；更早且低于当前版本的迁移按已忽略处理。
                 .ignoreMigrationPatterns("*:ignored")
                 .locations("classpath:" + LOCATION).load();
-        assertThat(current.migrate().migrationsExecuted).isEqualTo(4);
+        assertThat(current.migrate().migrationsExecuted).isEqualTo(5);
         current.validate();
+        assertThat(jdbc.queryForObject("SELECT credit_target FROM " + schema
+                + ".pf_recharge_order WHERE id=7", String.class)).isEqualTo("WALLET");
         assertThat(jdbc.queryForObject("SELECT balance FROM " + schema
                 + ".org_point_account WHERE org_id=7", Long.class)).isEqualTo(99L);
         assertThat(jdbc.queryForObject("SELECT monthly_credits FROM " + schema
