@@ -6,6 +6,9 @@ import org.junit.jupiter.api.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.core.io.ClassPathResource;
+import java.time.OffsetDateTime;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.*;
@@ -26,6 +29,8 @@ class FranchiseBusinessMessagesTest {
         jdbc.execute("CREATE TABLE pf_message_delivery_checkpoint(event_id bigint PRIMARY KEY); CREATE TABLE pf_message_center_activation(activated_at timestamptz); INSERT INTO pf_message_center_activation VALUES(now()-interval '1 hour')");
         jdbc.execute("CREATE TABLE fr_commission_simulated_order(commission_id bigint,submission_version int,status text)");
         jdbc.execute("INSERT INTO pf_business_message_activation VALUES (now()-interval '1 hour'); INSERT INTO pf_org_unit VALUES(1,'ACTIVE'),(2,'ACTIVE'),(3,'DISABLED'); INSERT INTO pf_staff_post VALUES(10,1,'sales','ACTIVE'),(20,2,'hq-design-admin','ACTIVE'),(30,1,'engineer','REVOKED'),(40,3,'sales','ACTIVE'); INSERT INTO fr_customer VALUES(100,1,10,'验收客户')");
+        new ResourceDatabasePopulator(new ClassPathResource(
+                "db/migration/pf/V20261118.964__message_read_snapshots.sql")).execute(ds);
         service = new FranchiseBusinessMessages(jdbc);
     }
     FranchiseCommandRecorded event(long id,String type,long object,String command) {
@@ -96,18 +101,31 @@ class FranchiseBusinessMessagesTest {
     @Test void inboxReadAndSummaryAreScopedToCurrentOrganizationAndUser(){
         jdbc.execute("INSERT INTO pf_message(id,user_id,org_id,type,route,object_id,title) VALUES(1,10,1,'SYSTEM','privacy',1,'本公司'),(2,10,2,'SYSTEM','privacy',1,'其他公司'),(3,20,1,'SYSTEM','privacy',1,'其他用户')");
         var center=center(java.util.List.of());var current=post(10,1,"sales");
-        assertThat(center.list(current,query("ALL","",30,null)).items()).hasSize(1);
+        var page=center.list(current,query("ALL","",30,null));
+        assertThat(page.items()).hasSize(1);
         assertThat(center.unread(current)).isEqualTo(1);
         assertThatThrownBy(()->center.open(current,"2")).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
-        assertThat(center.readAll(current,null)).isEqualTo(1);
+        var snapshot=OffsetDateTime.parse(page.snapshotAt());
+        assertThat(center.readAll(post(10,2,"sales"),snapshot)).isZero();
+        assertThat(center.readAll(current,snapshot)).isEqualTo(1);
         assertThat(center.unread(post(10,2,"sales"))).isEqualTo(1);
         assertThat(center.unread(post(20,1,"sales"))).isEqualTo(1);
     }
     @Test void allReadDoesNotConsumeNewlyDeliveredOldEventsAndNeverCompletesBusinessTasks(){
-        jdbc.execute("INSERT INTO pf_message(id,user_id,org_id,type,route,object_id,title,create_time,received_at) VALUES(1,10,1,'SYSTEM','privacy',1,'旧消息',now()-interval '1 day',now()-interval '1 hour'),(2,10,1,'SYSTEM','privacy',1,'补投旧事件',now()-interval '1 day',now()+interval '1 hour')");
+        jdbc.execute("""
+            INSERT INTO pf_message(id,user_id,org_id,type,route,object_id,title,create_time,received_at)
+            VALUES(2,10,1,'SYSTEM','privacy',1,'旧消息',now()-interval '1 day',now()-interval '1 hour')
+            """);
         var task=new cn.iocoder.yudao.module.platform.workflow.TodoItem("fr-perf","perf-manual:9","凭证待提交","pending",null,true,null,"/pages/admin/tasks/index?view=mine",java.time.OffsetDateTime.now());
         var center=center(java.util.List.of(task));var p=post(10,1,"sales");
-        assertThat(center.readAll(p,java.time.OffsetDateTime.now())).isEqualTo(1);
+        var snapshot=OffsetDateTime.parse(center.list(p,query("ALL","",30,null)).snapshotAt());
+        // The late insert has both a lower ID and timestamps preceding the snapshot.
+        jdbc.execute("""
+            INSERT INTO pf_message(id,user_id,org_id,type,route,object_id,title,create_time,received_at)
+            VALUES(1,10,1,'SYSTEM','privacy',1,'补投旧事件',now()-interval '2 days',now()-interval '1 day')
+            """);
+        assertThat(center.readAll(p,snapshot)).isEqualTo(1);
+        assertThat(jdbc.queryForList("SELECT id FROM pf_message WHERE NOT read",Long.class)).containsExactly(1L);
         assertThat(center.unread(p)).isEqualTo(1);
         assertThat(center.list(p,query("PENDING","",30,null)).items()).hasSize(1);
         assertThat(center.open(p,"todo:perf-manual:9")).containsEntry("actionable",true);

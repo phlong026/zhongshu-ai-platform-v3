@@ -104,7 +104,7 @@ public class HandoverService {
                 && !CommissionDO.STATUS_HANDOVER_RETURNED.equals(commission.getStatus())) {
             throw exception(COMMISSION_STATE_INVALID);
         }
-        commissionService.requireSimulationScope(commission);
+        commissionService.requireHistoricalSettlement(post, commission);
         PacketCommand input = normalize(command, commission);
         var manifest=manifests.require(commissionId,input.dispatchSeq());
         if(input.confirmationAssetId()==null) throw exception(HANDOVER_INPUT_INVALID);
@@ -175,7 +175,7 @@ public class HandoverService {
         if (!access.isHandoverManager(post, commission.getCompanyId(), handover.getManagerUserId())) {
             throw exception(HANDOVER_DECISION_FORBIDDEN);
         }
-        if (accept) commissionService.requireSimulationScope(commission);
+        if (accept) commissionService.requireHistoricalSettlement(post, commission);
         String reason = StrUtil.trim(command.reason());
         if (accept ? !command.confirmed() : StrUtil.isBlank(reason) || reason.length() > 500) {
             throw exception(accept ? HANDOVER_DECISION_FORBIDDEN : HANDOVER_RETURN_REASON_REQUIRED);

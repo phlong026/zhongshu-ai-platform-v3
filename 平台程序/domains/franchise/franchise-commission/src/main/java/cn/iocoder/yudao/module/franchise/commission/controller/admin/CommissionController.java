@@ -69,6 +69,16 @@ public class CommissionController {
     }
     @GetMapping("/commissions/{commissionId}/simulated-payment-receipt")
     public CommonResult<cn.iocoder.yudao.module.franchise.commission.CommissionSimulatedPayments.Order> simulatedReceipt(@PathVariable long commissionId){return success(commissionService.paymentReceipt(currentPost.require(),commissionId));}
+    @PostMapping("/commissions/{id}/historical-settlement")
+    @Operation(summary = "发起历史模拟委托的正式财务结算")
+    @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<Boolean> prepareHistoricalSettlement(@PathVariable long id,
+            @RequestBody CommissionService.HistoricalSettlementCommand command,
+            @RequestHeader(IDEMPOTENCY_HEADER) String key) {
+        commissionService.prepareHistoricalSettlement(currentPost.require(), id, command, key);
+        return success(true);
+    }
+
     public record FeeDecisionReq(boolean approve, String note) {
     }
 
