@@ -213,16 +213,29 @@ def load_model(env_file, values=None):
     return model
 
 
-def inspect_scope(base, model, require_frozen=False):
+def inspect_scope(base, model, require_frozen=False, previous_api_image=None):
     ids = run(["docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={PROJECT}"], context="Inspect B project").decode().split()
     demand(ids, "No B containers found")
     containers = json.loads(run(["docker", "inspect", *ids], context="Inspect B containers"))
     seen = set()
+    legacy_api = False
     for container in containers:
         service = container.get("Config", {}).get("Labels", {}).get("com.docker.compose.service")
         demand(service in model["services"] and service not in seen, "Unexpected or duplicate B service container")
         seen.add(service)
-        validate_container(container, service, model)
+        expected = model
+        if previous_api_image and service == "api" and not any(
+                mount.get("Destination") == "/var/lib/platform/asset-spool" for mount in container.get("Mounts", [])):
+            demand(require_frozen and not container["State"]["Running"], "Legacy API must be stopped")
+            previous_id = run(["docker", "image", "inspect", "--format", "{{.Id}}", previous_api_image],
+                              context="Verify previous immutable API image").decode().strip()
+            demand(previous_id and container.get("Image") == previous_id, "Legacy API image differs from pinned digest")
+            expected = copy.deepcopy(model)
+            mounts = expected["services"]["api"]["volumes"]
+            mounts[:] = [m for m in mounts if not (m.get("type") == "volume" and m.get("source") == "asset-spool"
+                                                   and m.get("target") == "/var/lib/platform/asset-spool")]
+            legacy_api = True
+        validate_container(container, service, expected)
         if require_frozen and service == "api":
             demand(not container.get("State", {}).get("Running"), "Stop only B API before this operation")
         if service in ("postgres-b", "redis-b"):
@@ -231,6 +244,10 @@ def inspect_scope(base, model, require_frozen=False):
     volume_items = []
     for kind, names in (("volume", tuple(model["volumes"])), ("network", ("private",))):
         for name in names:
+            if legacy_api and kind == "volume" and name == "asset-spool":
+                existing = run(["docker", "volume", "ls", "--format", "{{.Name}}"], context="Inventory B spool volumes")
+                if f"{PROJECT}_{name}" not in existing.decode().splitlines():
+                    continue
             item = json.loads(run(["docker", kind, "inspect", f"{PROJECT}_{name}"], context=f"Inspect B {kind}"))[0]
             labels = item.get("Labels") or {}
             demand(labels.get("com.docker.compose.project") == PROJECT
@@ -340,7 +357,7 @@ def migration_command(base, model):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("config", "policy", "backup", "restore", "migrate", "rollback"))
+    parser.add_argument("action", choices=("config", "policy", "backup", "restore", "migrate", "start", "rollback"))
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-target")
@@ -348,6 +365,7 @@ def main():
     parser.add_argument("--backup-dir", type=Path)
     parser.add_argument("--confirm-sha256")
     parser.add_argument("--image")
+    parser.add_argument("--previous-api-image", help="Immutable digest of the frozen pre-spool API")
     parser.add_argument("--schema-compatible", action="store_true")
     args = parser.parse_args()
     require_confirmation(args.action, execute=args.execute, target=args.confirm_target, frozen=args.writes_frozen)
@@ -370,10 +388,13 @@ def main():
     if args.action == "rollback":
         validate_image(args.image)
         demand(args.schema_compatible, "Confirm previous image is compatible with current B schema/data using --schema-compatible")
+    if args.previous_api_image:
+        demand(args.action in ("backup", "migrate", "start"), "Pre-spool transition only applies to backup, migrate and start")
+        validate_image(args.previous_api_image)
     if not args.execute:
         logging.warning("PLAN ONLY: %s for %s; no Docker daemon call or mutation", args.action, TARGET)
         return
-    inspect_scope(base, model, require_frozen=True)
+    inspect_scope(base, model, require_frozen=True, previous_api_image=args.previous_api_image)
     logging.warning("Executing explicitly confirmed B operation: %s", args.action)
     if args.action == "backup":
         backup(base, args.backup_dir)
@@ -384,6 +405,10 @@ def main():
     elif args.action == "migrate":
         migration_command(base, model)
         enforce_database_policy(base)
+    elif args.action == "start":
+        run(base + ["up", "-d", "--no-deps", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "180", "api"],
+            context="Start upgraded B API", timeout=210)
+        inspect_scope(base, model)
     elif args.action == "rollback":
         run(["docker", "image", "inspect", args.image], context="Verify preloaded rollback image")
         os.environ["PLATFORM_API_IMAGE"] = args.image

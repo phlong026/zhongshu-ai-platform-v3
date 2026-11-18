@@ -81,7 +81,7 @@ public class OrgPointService implements OrgPointPort {
 
     private java.util.Set<Long> simulatedPurchaseOrgs=java.util.Set.of();
 
-    @org.springframework.beans.factory.annotation.Value("${platform.company-points.simulation-org-ids:${franchise.commission.simulation-org-ids:}}")
+    @org.springframework.beans.factory.annotation.Value("${platform.company-points.simulation-org-ids:}")
     void configurePurchaseOrgs(String ids) {
         simulatedPurchaseOrgs=java.util.Arrays.stream(ids.split(",")).map(String::trim).filter(s->!s.isEmpty())
                 .map(Long::valueOf).collect(java.util.stream.Collectors.toUnmodifiableSet());
@@ -98,9 +98,10 @@ public class OrgPointService implements OrgPointPort {
         String bizKey="package-sim:"+tenantId+":"+orgId+":"+actor+":"+post+":"+key;
         return tx.execute(status->{
             lockAccount(orgId);
-            var prior=findByBizKey(bizKey);
-            if(prior!=null) {
-                var receipt=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(prior.priceSnapshot(),PackageReceipt.class);
+            var prior = jdbc.query("SELECT receipt FROM org_point_simulated_purchase WHERE org_id=? AND biz_key=?",
+                    (rs, row) -> cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(rs.getString(1), PackageReceipt.class), orgId, bizKey);
+            if (!prior.isEmpty()) {
+                var receipt = prior.get(0);
                 if(!receipt.planId().equals(Long.toString(planId)) || !receipt.version().equals(Long.toString(version))) throw exception(ORG_POINT_REPLAY_CONFLICT);
                 return receipt;
             }
@@ -114,9 +115,11 @@ public class OrgPointService implements OrgPointPort {
             var plan=plans.get(0);
             long credits=Math.addExact(plan.basePoints(),plan.bonusPoints()), id=IdWorker.getId();
             var receipt=new PackageReceipt(Long.toString(id),plan.id(),plan.version(),plan.name(),plan.priceFen(),credits);
-            jdbc.update("UPDATE org_point_account SET balance=balance+?,version=version+1,update_time=now() WHERE org_id=?",credits,orgId);
-            insertLedger(new LedgerInsert(orgId,null,bizKey,java.time.Instant.now(),"SIMULATED_PACKAGE",null,actor,post,
-                    credits,null,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(receipt),"RECHARGE_PLAN",planId,"套餐模拟收款 · "+plan.name()));
+            jdbc.update("""
+                    INSERT INTO org_point_simulated_purchase(id,tenant_id,org_id,biz_key,price_fen,test_points,receipt)
+                    VALUES (?,?,?,?,?,?,?::jsonb)
+                    """, id,tenantId,orgId,bizKey,plan.priceFen(),credits,
+                    cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(receipt));
             return receipt;
         });
     }

@@ -66,6 +66,7 @@
           </div>
           <div class="summary-grid">
             <div class="summary-card">
+              <span>测试积分 {{ selectedCompany?.simulatedPoints || 0 }}</span>
               <span>套餐模拟收款（元）</span><strong>{{ simulatedYuan }}</strong>
             </div>
             <div class="summary-card">

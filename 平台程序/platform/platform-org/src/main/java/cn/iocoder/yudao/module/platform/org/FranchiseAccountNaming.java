@@ -40,9 +40,9 @@ public class FranchiseAccountNaming {
         public List<String> aliases(String loginName) {
             Set<String> aliases = new LinkedHashSet<>();
             aliases.add(loginName);
-            aliases.add(loginName.substring("hjmz-".length()));
+            aliases.add(loginName.substring(loginName.indexOf('-') + 1));
             aliases.add(baseLogin);
-            aliases.add(baseLogin.substring("hjmz-".length()));
+            aliases.add(baseLogin.substring(baseLogin.indexOf('-') + 1));
             aliases.add(regionCode + "-" + areaPinyin + "-" + ownerPinyin);
             aliases.add(regionCode + "-" + areaInitials + "-" + ownerInitials);
             aliases.add(ownerPinyin);
@@ -62,7 +62,7 @@ public class FranchiseAccountNaming {
 
     public Description describe(String brand, String province, String city, String area, String ownerName,
                                 String areaOverride, String ownerOverride) {
-        if (!"合家美宅".equals(brand)) throw new IllegalArgumentException("请选择已配置的品牌");
+        brand = clean(brand, "品牌", 40);
         String p = trimSuffix(clean(province, "省份", 30), "特别行政区", "维吾尔自治区", "壮族自治区", "回族自治区", "自治区", "省", "市");
         String c = trimSuffix(clean(city, "城市", 30), "自治州", "地区", "市");
         if (List.of("北京", "上海", "天津", "重庆").contains(p) && ("市辖区".equals(city) || "县".equals(c))) c = p;
@@ -76,7 +76,7 @@ public class FranchiseAccountNaming {
         String ownerPinyin = pinyinOrOverride(owner, ownerOverride);
         String orgName = brand + "-" + p + (p.equals(c) ? "" : c) + "-" + a + "-" + owner;
         if (orgName.length() > 30) throw new IllegalArgumentException("加盟商名称超过30字，请精简门店片区名称");
-        String baseLogin = "hjmz-" + regionCode + "-" + areaPinyin;
+        String baseLogin = initials(brand) + "-" + regionCode + "-" + areaPinyin;
         if (baseLogin.length() + ownerPinyin.length() + 5 > 100) throw new IllegalArgumentException("账号拼音过长，请精简片区拼音");
         return new Description(brand, p, c, a, owner, orgName, baseLogin, regionCode,
                 areaPinyin, ownerPinyin, correctedInitials(a, areaOverride), correctedInitials(owner, ownerOverride));

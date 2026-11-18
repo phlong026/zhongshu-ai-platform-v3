@@ -23,7 +23,7 @@
             class="onboard-form"
           >
             <el-form-item label="所属品牌" prop="brand">
-              <el-input v-model="franchiseForm.brand" disabled />
+              <el-input v-model.trim="franchiseForm.brand" maxlength="40" :disabled="submitting" placeholder="请输入加盟品牌全称" />
             </el-form-item>
             <el-form-item label="省市" prop="areaPath">
               <el-cascader
@@ -39,7 +39,14 @@
               />
               <div v-if="areaError" class="field-error">地区加载失败，请刷新页面重试</div>
             </el-form-item>
-            <el-form-item label="区县 / 门店片区" prop="area">
+            <el-form-item label="地图区县" prop="districtCode">
+              <el-select v-model="franchiseForm.districtCode" filterable :disabled="submitting || !districts.length" placeholder="先选省市，再选地图区县" @change="selectDistrict">
+                <el-option v-for="item in districts" :key="item.code" :label="item.name" :value="item.code" />
+              </el-select>
+              <button v-if="districtError" type="button" @click="loadDistricts">区县加载失败，重新加载</button>
+              <span v-else-if="franchiseForm.areaPath?.length === 2 && !districtLoading && !districts.length">暂无区县坐标，开通后门店会显示在列表中</span>
+            </el-form-item>
+            <el-form-item label="门店片区" prop="area">
               <el-input
                 v-model="franchiseForm.area"
                 :disabled="submitting"
@@ -232,6 +239,7 @@ import { getAreaTree } from '@/api/system/area'
 import OrgDirectory from './OrgDirectory.vue'
 import {
   onboardFranchise,
+  getFranchiseDistricts,
   onboardOrg,
   previewFranchise,
   type FranchiseOnboardResult,
@@ -274,6 +282,7 @@ const areaProps = { label: 'name', value: 'id', children: 'children', emitPath: 
 const franchiseForm = reactive({
   brand: '合家美宅',
   areaPath: [] as number[],
+  districtCode: '',
   province: '',
   city: '',
   area: '',
@@ -292,7 +301,7 @@ const legacyForm = reactive({
 })
 
 const franchiseRules: FormRules = {
-  brand: [{ required: true, message: '请选择所属品牌', trigger: 'blur' }],
+  brand: [{ required: true, message: '请输入所属品牌', trigger: 'blur' }],
   areaPath: [
     {
       validator: (_rule, value: number[], callback) =>
@@ -300,6 +309,14 @@ const franchiseRules: FormRules = {
       trigger: 'change'
     }
   ],
+  districtCode: [{
+    validator: (_rule, value, done) => {
+      if (districtError.value || districtLoading.value) done(new Error('请等待地图区县加载完成'))
+      else if (districts.value.length && !value) done(new Error('请选择地图区县'))
+      else done()
+    },
+    trigger: 'change'
+  }],
   area: [{ required: true, message: '请填写区县或门店片区', trigger: 'blur' }],
   adminName: [{ required: true, message: '请填写老板姓名', trigger: 'blur' }],
   adminMobile: [
@@ -358,6 +375,7 @@ function schedulePreview() {
   previewError.value = ''
   previewLoading.value = false
   if (
+    !franchiseForm.brand.trim() ||
     !names.province ||
     !names.city ||
     !franchiseForm.area.trim() ||
@@ -400,6 +418,7 @@ async function submitFranchise() {
   const generation = submitGuard.next()
   const payload = {
     ...buildPreviewPayload(franchiseForm),
+    districtCode: franchiseForm.districtCode || undefined,
     adminMobile: franchiseForm.adminMobile.trim(),
     remark: franchiseForm.remark.trim() || undefined
   }
@@ -468,9 +487,42 @@ async function loadAreas() {
   }
 }
 
+const districts = ref<{code: string; name: string}[]>([])
+const districtError = ref(false)
+const districtLoading = ref(false)
+let districtGeneration = 0
+let previousDistrictName = ''
+async function loadDistricts() {
+  const generation = ++districtGeneration
+  if (previousDistrictName && franchiseForm.area === previousDistrictName) franchiseForm.area = ''
+  previousDistrictName = ''
+  franchiseForm.districtCode = ''
+  districts.value = []
+  districtError.value = false
+  const names = findAreaNames(areaTree.value, franchiseForm.areaPath)
+  districtLoading.value = !!names.city
+  if (!names.city) return
+  try {
+    const rows = await getFranchiseDistricts(names.province,names.city)
+    if (generation === districtGeneration) districts.value = rows
+  } catch {
+    if (generation === districtGeneration) districtError.value = true
+  } finally {
+    if (generation === districtGeneration) districtLoading.value = false
+  }
+}
+function selectDistrict(code: string) {
+  const district = districts.value.find(item => item.code === code)
+  if (!district) return
+  if (!franchiseForm.area.trim() || franchiseForm.area === previousDistrictName) franchiseForm.area = district.name
+  previousDistrictName = district.name
+}
+watch(() => franchiseForm.areaPath?.join(','), loadDistricts)
+
 watch(
   () => [
     franchiseForm.areaPath?.join(',') || '',
+    franchiseForm.brand,
     franchiseForm.area,
     franchiseForm.adminName,
     franchiseForm.areaPinyin,

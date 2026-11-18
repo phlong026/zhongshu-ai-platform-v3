@@ -80,12 +80,15 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
             var a=workers.submit(pay);var b=workers.submit(pay);start.countDown();
             assertThat(a.get(10,java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(b.get(10,java.util.concurrent.TimeUnit.SECONDS));
         } finally { workers.shutdownNow(); }
-        assertThat(points.findAccount(store).balance()).isEqualTo(120);
+        assertThat(points.findAccount(store).balance()).isZero();
+        assertThat(jdbc.queryForObject("SELECT sum(test_points) FROM org_point_simulated_purchase WHERE org_id=?", Long.class, store)).isEqualTo(120L);
         assertThat(service.companies(maker)).filteredOn(c->c.orgId()==store).extracting(c->c.simulatedReceiptFen()).containsExactly("990");
-        assertThat(service.ledger(maker,store,1,20)).filteredOn(l->"SIMULATED_PACKAGE".equals(l.type())).hasSize(1);
+        assertThat(service.ledger(maker,store,1,20)).filteredOn(l->"SIMULATED_PACKAGE".equals(l.type())).isEmpty();
         points.configurePurchaseOrgs("");
         assertThat(points.purchaseSimulated(TENANT,store,maker,51,plan,1,"same-payment").points()).isEqualTo(120);
         assertThatThrownBy(()->points.purchaseSimulated(TENANT,store,maker,51,plan,1,"another-order")).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(()->points.reserve(task)).isInstanceOf(RuntimeException.class);
+        points.adjustBalance(store,120,"formal-"+plan,"正式调增",maker);
         points.reserve(task);
         assertThat(points.findAccount(store).balance()).isEqualTo(105);
     }

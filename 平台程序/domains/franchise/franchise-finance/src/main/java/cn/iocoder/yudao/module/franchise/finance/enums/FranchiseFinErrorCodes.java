@@ -32,6 +32,7 @@ public interface FranchiseFinErrorCodes {
     ErrorCode ABNORMAL_DIRECTION_INVALID = new ErrorCode(1_102_000_036, "异常资金方向不合法");
     ErrorCode PAYMENT_HAS_ACTIVE_REFUND = new ErrorCode(1_102_000_037, "该付款存在有效支出退回，请先作废退回记录");
     ErrorCode RECONCILIATION_MONTH_INVALID = new ErrorCode(1_102_000_038, "对账月份格式不合法（须为 YYYY-MM）");
+    ErrorCode PAYABLE_VOIDED = new ErrorCode(1_102_000_050, "应付已作废，付款未登记");
     ErrorCode PAYABLE_NOT_FOUND = new ErrorCode(1_102_000_013, "应付记录不存在");
     ErrorCode BANK_FLOW_NOT_FOUND = new ErrorCode(1_102_000_014, "银行流水不存在");
     ErrorCode BANK_FLOW_TAKEN = new ErrorCode(1_102_000_015, "该银行流水已被确认入账");

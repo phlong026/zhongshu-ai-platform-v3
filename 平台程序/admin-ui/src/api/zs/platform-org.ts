@@ -36,9 +36,12 @@ export interface FranchisePreviewResult {
 }
 
 export interface FranchiseOnboardPayload extends FranchisePreviewPayload {
+  districtCode?: string
   adminMobile: string
   remark?: string
 }
+export const getFranchiseDistricts = (province: string, city: string): Promise<{code: string; name: string}[]> =>
+  request.get({url: '/platform/org/franchise-districts', params: {province, city}})
 
 export interface FranchiseOnboardResult extends OnboardResult, FranchisePreviewResult {
   reusedUser: boolean

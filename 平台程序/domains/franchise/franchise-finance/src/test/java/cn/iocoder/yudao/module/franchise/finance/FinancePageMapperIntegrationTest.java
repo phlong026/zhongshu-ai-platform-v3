@@ -56,19 +56,21 @@ class FinancePageMapperIntegrationTest extends FranchisePgIntegrationTest {
     @Resource private cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands;
 
     @Test
+    @org.springframework.transaction.annotation.Transactional
     void paymentConfirmationReturnsOnlyThisPostsCommittedCommand() {
         var post=currentPost.require();
         long payment=SEQ.incrementAndGet();
         var service=new FinPaymentService();
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"designLocks",new DesignFinanceLocks(jdbc));
         org.springframework.test.util.ReflectionTestUtils.setField(service,"jdbc",jdbc);
         org.springframework.test.util.ReflectionTestUtils.setField(service,"commands",commands);
         var key="payment-confirm-"+payment;
-        assertThat(service.registrationResult(post,key)).isEmpty();
+        assertThat(service.registrationResult(post,key)).containsOnlyKeys("state").containsEntry("state","NOT_REGISTERED");
         commands.record(post,"fin-payment",payment,1,"fin-payment-register",java.util.Map.of("payableId",1),key);
         assertThat(service.registrationResult(post,key)).containsOnlyKeys("paymentId").containsEntry("paymentId",Long.toString(payment));
         var other=new cn.iocoder.yudao.module.platform.org.PostSnapshot(post.postId()+1,post.userId(),post.orgId(),post.orgType(),post.roleCode(),null,false,java.util.Set.of());
-        assertThat(service.registrationResult(other,key)).isEmpty();
-        assertThat(service.registrationResult(fixture.post(fixture.store().orgId(),FINANCE,null),key)).isEmpty();
+        assertThat(service.registrationResult(other,key)).containsOnlyKeys("state").containsEntry("state","NOT_REGISTERED");
+        assertThat(service.registrationResult(fixture.post(fixture.store().orgId(),FINANCE,null),key)).containsOnlyKeys("state").containsEntry("state","NOT_REGISTERED");
     }
 
     private static PageParam page(int pageNo, int pageSize) {
