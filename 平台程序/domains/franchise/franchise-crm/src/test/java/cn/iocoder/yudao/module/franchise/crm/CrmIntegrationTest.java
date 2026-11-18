@@ -180,7 +180,7 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     @Test
     void followingMovesToFollowingAndSchedulesARevisit() {
         long id = capture(salesA1, phone()).customerId();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
 
         assertError(() -> as(salesA1, () -> customers.follow(salesA1, id, new FollowCommand("约时间", today.minusDays(1)), null)),
                 VISIT_DATE_INVALID);
