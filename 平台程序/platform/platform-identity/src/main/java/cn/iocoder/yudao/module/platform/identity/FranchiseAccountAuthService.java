@@ -83,11 +83,12 @@ public class FranchiseAccountAuthService {
         if (!formal.isEmpty()) return matchResult(formal);
 
         List<AccountRow> exactAliases = jdbc.query(ACTIVE_ACCOUNT_SELECT + """
-                        WHERE a.tenant_id=? AND EXISTS (SELECT 1 FROM pf_franchise_account_alias exact_alias
+                        WHERE a.tenant_id=? AND ((a.account_type='BOSS' AND lower(a.org_name)=?)
+                          OR lower(a.owner_name)=? OR EXISTS (SELECT 1 FROM pf_franchise_account_alias exact_alias
                           WHERE exact_alias.tenant_id=a.tenant_id AND exact_alias.account_id=a.account_id
-                            AND exact_alias.alias=?)
+                            AND exact_alias.alias=?))
                         ORDER BY a.login_name LIMIT 21
-                        """, ACCOUNT_ROW_MAPPER, tenantId, normalized);
+                        """, ACCOUNT_ROW_MAPPER, tenantId, normalized, normalized, normalized);
         if (!exactAliases.isEmpty()) return matchResult(exactAliases);
 
         List<AccountRow> rows = jdbc.query(ACTIVE_ACCOUNT_SELECT + """
