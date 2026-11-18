@@ -22,16 +22,18 @@ protectedPage({
     else this.load(true);
   },
   async inheritCustomer(customerId) {
+    const request = this._listRequest = (this._listRequest || 0) + 1;
+    const current = () => this.current() && request === this._listRequest;
     this.setData({loading:true,error:''});
     try {
       const detail = await crm.customers.get(customerId);
-      if (!this.current()) return;
+      if (!current()) return;
       const customer = detail && detail.customer;
       if (!customer || String(customer.id) !== customerId) throw Error('客户信息未确认');
       this.setData({rows:[customer],rowCount:1,selected:customerId,loading:false});
       // Carry the verified customer, but archive only after the user confirms this screen.
     } catch(e) {
-      if (!this.current()) return;
+      if (!current()) return;
       this.setData({loading:false,error:'原客户暂不可用，请重新选择委托客户'});
       return this.load(true);
     }
@@ -42,27 +44,36 @@ protectedPage({
   search() { return this.load(true); },
   more() { return this.load(false); },
   async load(reset) {
-    if (!this.current() || this.data.loading) return;
-    const page = reset ? 1 : (this._page || 1) + 1;
+    if (!this.current() || this.data.busy || (!reset && (this.data.loading || !this.data.hasMore))) return;
+    const request = this._listRequest = (this._listRequest || 0) + 1;
+    const current = () => this.current() && request === this._listRequest;
+    const page = reset ? 1 : this._page + 1;
+    if (reset) {
+      this._query = this.data.keyword.trim();
+      this._savedCustomer = null;
+      this.setData({ rows: [], rowCount: 0, hasMore: false, selected: '', saved: false });
+    }
     this.setData({ loading: true, error: '' });
     try {
-      const result = await crm.customers.page(page, 20, this.data.keyword.trim());
-      if (!this.current()) return;
+      const result = await crm.customers.page(page, 20, this._query);
+      if (!current()) return;
       const rows = reset ? result.list || [] : this.data.rows.concat(result.list || []);
       this._page = page;
       this.setData({ rows, rowCount: rows.length, hasMore: page * 20 < Number(result.total), loading: false });
     } catch (e) {
-      if (this.current()) this.setData({ loading: false, error: e.msg || e.message || '客户读取失败，请重试' });
+      if (current()) this.setData({ loading: false, error: e.msg || e.message || '客户读取失败，请重试' });
     }
   },
   choose(e) {
-    if (!this.data.busy) {
+    const selected = String(e.currentTarget.dataset.id);
+    if (this.current() && !this.data.busy && this.data.rows.some(row => String(row.id) === selected)) {
       this._savedCustomer = null;
-      this.setData({ selected: String(e.currentTarget.dataset.id), saved: false, error: '' });
+      this.setData({ selected, saved: false, error: '' });
     }
   },
   async save() {
-    if (!this.current() || this.data.busy || !id(this.data.selected)) return;
+    if (!this.current() || this.data.busy || !id(this.data.selected)
+        || !this.data.rows.some(row => String(row.id) === this.data.selected)) return;
     if (this.data.saved) { if (this.data.forCommission) this.openCommission(); return; }
     const customer = this.data.selected;
     const body = this._budget ? { customerId: customer, budgetId: this._budget, revisionId: this._revision }

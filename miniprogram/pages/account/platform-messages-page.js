@@ -66,13 +66,22 @@ async function read(m,navigate=true){
   finally{finish();}
 }
 async function readAll(){
-  if(this.data.messageBusy||!http.token()||!this.__messagesSnapshot)return;
+  if(this.data.messageBusy||!http.token())return;
+  if(!this.__messagesSnapshot){
+    this.setData({messageError:'消息列表已过期，请刷新后重试'});
+    return;
+  }
   const {current,finish}=beginAction(this,'messages-read-all');
   try{
     await http.post(BASE+'/read-all',{through:this.__messagesSnapshot});
     if(current())await sync.call(this);
   }
-  catch(e){if(current()&&!e.silent)this.setData({messageError:e.message||e.msg||'已读状态保存失败，请重试'});}
+  catch(e){
+    if(current()&&!e.silent){
+      if(Number(e.code)===1105000001)this.__messagesSnapshot=null;
+      this.setData({messageError:e.message||e.msg||'已读状态保存失败，请重试'});
+    }
+  }
   finally{finish();}
 }
 function change(patch){this.apiMessages=[];this.setData({...patch,messageHasMore:false,messageDetail:null});this.filter();return sync.call(this);}

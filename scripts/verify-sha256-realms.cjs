@@ -13,7 +13,7 @@ test('native file buffers from another JS context hash their complete bytes',()=
 test('Hifly upload uses the real hash implementation across file API realms',async()=>{
   const bytes=vm.runInNewContext('new Uint8Array([97,98,99]).buffer'),calls=[];
   const api={clones:{uploadTicket:async(_,body)=>{calls.push(body);return{uploadId:'1',uploadUrl:'https://upload.hifly.cc/test.mp3',contentType:'audio/mp3'}},completeUpload:async()=>({status:'UPLOADED'})}};
-  const context={module:{exports:{}},require:name=>name.endsWith('/finance')?finance():name.endsWith('/clone-media')?require('../miniprogram/pages/studio/characters/clone-media'):name.endsWith('/sha256-stream')?require('../miniprogram/utils/sha256-stream'):api,wx:{getFileSystemManager:()=>({readFile:o=>o.success({data:bytes})}),request:o=>o.success({statusCode:200})}};
+  const context={module:{exports:{}},require:name=>name.endsWith('/finance')?finance():name.endsWith('/clone-media')?require('../miniprogram/pages/studio/characters/clone-media'):name.endsWith('/sha256-stream')?require('../miniprogram/utils/sha256-stream'):api,wx:{getFileSystemManager:()=>({stat:o=>o.success({stats:{size:bytes.byteLength}}),readFile:o=>o.success({data:bytes})}),request:o=>o.success({statusCode:200})}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/hifly-upload.js'),'utf8'),context);
   assert.equal(await context.module.exports('/test.mp3','VOICE','person'),'1');
   assert.equal(calls[0].sha256,crypto.createHash('sha256').update('abc').digest('hex'));

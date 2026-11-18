@@ -8,6 +8,8 @@ const path = require('path');
   assert(app.subPackages.some(pkg => pkg.root === 'pages/design' && pkg.pages.includes('index')));
   const { connect, render } = require('./role-page-runtime.cjs');
   const runtime = await connect();
+  const appContext = getApp();
+  global.getApp = () => appContext;
   const config = require('../project.config.json');
   const excluded = new Set(config.packOptions.ignore.filter(rule => rule.type === 'file').map(rule => rule.value));
   const owner = file => app.subPackages.find(pkg => file.startsWith(pkg.root + '/'))?.root || 'main';
@@ -51,11 +53,18 @@ const path = require('path');
   const dpage = getCurrentPages().at(-1);
   dpage.onShow();
   assert.equal(dpage.data.entranceEnabled, true, 'sales 岗授权态入口可用');
+  const targets = {
+    inspiration: { route: 'design-migration/pages/library/index' },
+    'ai-config': { route: 'design-migration/pages/ai-design/index', line: 'FLAT' },
+    'ai-facade': { route: 'design-migration/pages/ai-design/index', line: 'ELEVATION' },
+    budget: { route: 'design-migration/pages/budget/quick' }
+  };
   for (const entry of dpage.data.entries) {
     dpage.open({ currentTarget: { dataset: { view: entry.view } } });
     const target = getCurrentPages().at(-1);
-    assert.equal(target.route, 'pages/workflow/explore/index', entry.view + ' 入口跳转目标');
-    assert.equal(target.data.view, entry.view, entry.view + ' 目标视图参数透传');
+    const expected = targets[entry.view];
+    assert.equal(target.route, expected.route, entry.view + ' 入口跳转目标');
+    if (expected.line) assert.equal(target.data.line, expected.line, entry.view + ' 设计类型透传');
   }
   assert(dpage.data.entries.length === 4, '四入口完整');
   console.log(JSON.stringify({ ...report, renderedImages: imageChecks }, null, 2));

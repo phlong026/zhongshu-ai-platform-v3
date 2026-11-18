@@ -11,6 +11,7 @@ let captureError;
 let customerReadError;
 let captureImpl;
 let customerReadImpl;
+let summaryImpl=async()=>({perPublication:[]});
 let sessionGeneration = 1;
 let currentPost = { postId: 'post-sales-a', orgType: 'store', roleCode: 'sales' };
 const navigations = [];
@@ -42,9 +43,15 @@ function requirePage(name) {
   if (name === '../../utils/organization') return { has: () => true };
   if (name === '../../utils/growth') return { load: () => ({ contents: [], leads: [] }) };
   if (name === '../../utils/platform-content') return { degradeMessage: error => error.message || String(error) };
-  if (name === '../../api/franchise/content') return { growth: { summary: async () => ({}) } };
+  if (name === '../../api/franchise/content') return { growth: { summary: () => summaryImpl() } };
   if (name === '../../api/franchise/crm') return crm;
-  if (name === '../../api/http') return { token: () => 'test-token', sessionGeneration: () => sessionGeneration };
+  if (name === '../../api/http') return {
+    token: () => 'test-token', sessionGeneration: () => sessionGeneration,
+    requestGuard: () => {
+      const generation=sessionGeneration, postId=currentPost.postId;
+      return () => generation===sessionGeneration&&postId===currentPost.postId;
+    }
+  };
   if (name === '../../utils/view-container') return { makeFormHandlers: () => ({}) };
   if (name === '../../api/auth') return { currentApiPost: () => currentPost };
   throw new Error('Unexpected module: ' + name);
@@ -69,7 +76,12 @@ function page() {
   const instance = {
     ...definition,
     data: JSON.parse(JSON.stringify(definition.data)),
-    setData(patch) { Object.assign(this.data, patch); },
+    setData(patch) {
+      for(const [key,value] of Object.entries(patch)){
+        if(key.startsWith('form.'))this.data.form[key.slice(5)]=value;
+        else this.data[key]=value;
+      }
+    },
     refresh() {}
   };
   instance.data.published = [];
@@ -261,6 +273,40 @@ async function submit(response, readError, requestError) {
   instance.refresh = definition.refresh;
   instance.refresh();
   assert.equal(instance.data.content, null, 'capture 页没有内容对象时必须传 null，不向渲染层传 undefined');
+
+  const pendingSummary=deferred();
+  const publicationId='90071992547409931';
+  summaryImpl=()=>pendingSummary.promise;
+  instance=page();
+  instance.refresh=definition.refresh;
+  instance.onLoad({view:'capture',publicationId});
+  instance.onShow();
+  let sentSource;
+  captureImpl=async body=>{sentSource=body.source;return {result:'CREATED',customerId:'from-publication'};};
+  const form={...instance.data.form,name:'作品客资',phone:'13812345678',need:'真实来访'};
+  instance.captureOnline(form);
+  assert.equal(sentSource,undefined,'待核对的作品不能静默记为直接来访');
+  pendingSummary.resolve({perPublication:[{id:publicationId,title:'正式发布'}]});
+  await settle();
+  assert.equal(instance.data.publishedIndex,1);
+  instance.captureOnline(form);
+  await settle();
+  assert.equal(sentSource,'内容发布:'+publicationId);
+
+  const staleSummary=deferred();
+  summaryImpl=()=>staleSummary.promise;
+  instance=page();
+  instance.refresh=definition.refresh;
+  instance.onLoad({view:'capture',publicationId});
+  instance.onShow();
+  sessionGeneration++;
+  currentPost={postId:'post-sales-c',orgType:'store',roleCode:'sales'};
+  summaryImpl=async()=>({perPublication:[]});
+  instance.onShow();
+  staleSummary.resolve({perPublication:[{id:publicationId,title:'旧岗位作品'}]});
+  await settle();
+  assert.equal(instance.data.published.length,0);
+  assert.equal(instance.data.form.contentId,'');
 
   console.log('PASS CREATED 登记后进入 customerId 对应客户工作区');
   console.log('PASS LINKED 仅在当前岗位可读时进入客户工作区');

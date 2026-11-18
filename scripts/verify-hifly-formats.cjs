@@ -34,7 +34,7 @@ test('MOV M4A WAV upload only to Hifly with exact provider Content-Type and full
  const mismatch=uploadHarness('wav',32,'audio/mp3');await assert.rejects(mismatch.run(),/直传通道/);assert.equal(mismatch.calls.length,1);
 });
 test('oversized media is rejected before allocating or requesting upload grants',async()=>{
- for(const [ext,size] of [['mov',500*1024*1024+1],['wav',20*1024*1024+1]]){const h=uploadHarness(ext,size);await assert.rejects(h.run(),/素材大小/);assert.equal(h.reads(),0);assert.equal(h.calls.length,0);}
+ for(const [ext,size] of [['mov',20*1024*1024+1],['wav',20*1024*1024+1]]){const h=uploadHarness(ext,size);await assert.rejects(h.run(),/素材大小/);assert.equal(h.reads(),0);assert.equal(h.calls.length,0);}
 });
 
 test('500MiB file digest stays chunked and agrees with independent SHA without a full-size allocation',async()=>{

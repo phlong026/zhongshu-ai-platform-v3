@@ -20,7 +20,7 @@ const commandKey = action => {
 
 Page({
   ...require('./payment-flow')({http,commissions:API.commissions,paymentView}), ...makeFormHandlers(),
-  data: { exporting:false,orderSheet:null,hasOrderSheet:false, designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentMerchant:'' },
+  data: { exporting:false,orderSheet:null,hasOrderSheet:false, designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,paymentMerchant:'' },
   onLoad(options) {
     this.disposed = false; this.options = options || {}; this.customerId = options.customerId || ''; this.id = options.commissionId || options.id || '';
     if (!this.customerId && options.view === 'submit' && !options.commissionId) { this.customerId = this.id; this.id = ''; }
@@ -39,7 +39,7 @@ Page({
   dropCmdKey(action) { if (this.__cmdKeys) delete this.__cmdKeys[action]; },
   failState(message) {
     this.action = ''; this.nextView = ''; this.initialized = false; this.__list = null;
-    this.__briefScope='';this.setData({ orderSheet:null,hasOrderSheet:false,exporting:false,designBriefEnabled:false,designBrief:{},briefSummary:'',orderCustomer:{},paymentOrder:null,simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',canFeeDecide: false, canFeedback: false, managerOptions: [] });
+    this.__briefScope='';this.setData({ orderSheet:null,hasOrderSheet:false,exporting:false,designBriefEnabled:false,designBrief:{},briefSummary:'',orderCustomer:{},paymentOrder:null,simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,canFeeDecide: false, canFeedback: false, managerOptions: [] });
     this.setData({ platformStatus: 'degraded', error: message, customer: null, rows: [], tasks: [], taskCount: 0, metrics: this.view==='admin'&&this.post()&&this.__post&&this.__post.roleCode==='hq-design-admin'?Presentation.workbench([]).metrics.map(m=>({...m,value:'—'})):[], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, form: {}, fields: [], preview: null, primary: '', canReturn: false, budgetCard: false, isComplete: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null });
   },
   refresh(reset = false) {
@@ -47,7 +47,7 @@ Page({
     if (!post) return this.failState('请先登录后端账号');
     const identity = String(post.postId) + ':' + http.sessionGeneration();
     if (this.__identity && this.__identity !== identity) {
-      this.action = ''; this.nextView = ''; this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',primary: '', canReturn: false, canFeeDecide: false, canFeedback: false, managerOptions: [] });
+      this.action = ''; this.nextView = ''; this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,primary: '', canReturn: false, canFeeDecide: false, canFeedback: false, managerOptions: [] });
     }
     if(this.__identity!==identity)this.homeProfileName='';
     this.__identity = identity;
@@ -177,6 +177,10 @@ Page({
     let form = (reset || !this.initialized) ? Presentation.formInit(c, view) : this.data.form;
     // 参考预算更新后保留已填内容，但确认勾选必须对本版重做
     if (budgetChanged) { form = { ...form, __budgetVersion: basis && basis.version, __pricingVersion: currentQuote && currentQuote.pricingVersion, __mode: c.fee && c.fee.mode, scope: currentQuote ? currentQuote.scope : form.scope, checked: false }; this.dropCmdKey('commission-submit'); }
+    const simulationAllowed = view === 'submit' && can && this.__context?.feeOffer?.simulationPaymentMode === 'TEST_SIMULATION';
+    const simulationWithdrawn = view === 'submit' && this.data.form.testPayment === true && !simulationAllowed;
+    const paymentChoiceRequired = view === 'submit' && (simulationWithdrawn || this.data.paymentChoiceRequired);
+    if (paymentChoiceRequired) form = { ...form, testPayment: false, checked: false };
     this.initialized = true;
     const fields = Presentation.fieldsFor(c, view, can);
     const rows = Presentation.rowsFor(c, n).filter(row=>!(Brief.snapshot(c.request)&&row.label==='设计需求'));
@@ -198,7 +202,7 @@ Page({
       view, platformStatus: 'ready', error: preservedError,
       customer: c.id || c.name ? { id: c.id, projectId: c.projectId, name: c.name, city: c.city, revision: c.revision } : null,
       form, fields:view==='pay'?[]:fields, rows,
-      simulationAllowed: view === 'submit' && can && this.__context?.feeOffer?.simulationPaymentMode === 'TEST_SIMULATION',
+      simulationAllowed, paymentChoiceRequired,
       paymentOrder:paymentView(c.simulatedPayment),
       paymentChannel:this.data.paymentChannel||'WECHAT',
       canFeeDecide: c.allowedActions.includes('fee-decide'),
@@ -270,7 +274,21 @@ Page({
     return true;
   },
   openTask(e) { Nav.open(e.currentTarget.dataset.url); },
-  check(e) { this.setData({ ['form.' + e.currentTarget.dataset.key]: e.detail.value.length > 0, error: '' }); },
+  check(e) {
+    if (this.data.busy) return;
+    const key = e.currentTarget.dataset.key, checked = e.detail.value.length > 0;
+    if (key === 'testPayment') return this.chooseCommissionPayment(checked);
+    if (key === 'checked' && this.data.paymentChoiceRequired) return;
+    this.setData({ ['form.' + key]: checked, error: '' });
+  },
+  chooseCommissionPayment(testPayment) {
+    if (this.view !== 'submit' || this.data.busy || this.data.platformStatus !== 'ready'
+        || (testPayment && !this.data.simulationAllowed)) return;
+    this.dropCmdKey('commission-submit');
+    this.setData({ 'form.testPayment': testPayment, 'form.checked': false, paymentChoiceRequired: false, error: '' });
+  },
+  chooseFormalCommission() { this.chooseCommissionPayment(false); },
+  retryCommissionSimulation() { return this.refresh(false); },
   chooseManager(e) { const p = (this.data.managerOptions || [])[Number(e.detail.value)]; if (p) this.setData({ 'form.managerUserId': p.id, 'form.managerName': p.label }); },
   chooseFile(e) {
     if (this.data.busy) return;
@@ -337,7 +355,11 @@ Page({
       if (!scope) throw Error('请填写本次交付范围');
       if (!f.checked) throw Error('请勾选确认已核对需求、尺寸来源、交付范围及费用约定');
       if (!f.__budgetVersion) throw Error('请先完成有效参考预算');
-      const payload = { ...(f.__mode==='AREA_FULL' && f.testPayment === true && this.__context?.feeOffer?.simulationPaymentMode === 'TEST_SIMULATION' ? {paymentMode:'TEST_SIMULATION'} : {}),...(this.data.designBriefEnabled?{designBrief:this.data.designBrief}:{}), mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
+      if (this.data.paymentChoiceRequired || (f.testPayment === true
+          && (f.__mode !== 'AREA_FULL' || this.__context?.feeOffer?.simulationPaymentMode !== 'TEST_SIMULATION'))) {
+        throw Error('模拟付款资格已变化，请重新选择付款方式');
+      }
+      const payload = { ...(f.testPayment === true ? {paymentMode:'TEST_SIMULATION'} : {}),...(this.data.designBriefEnabled?{designBrief:this.data.designBrief}:{}), mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
       if (f.__mode === 'AREA_FULL') payload.feeRuleVersion = f.__pricingVersion;
       else if (f.__mode === 'LEGACY_SPLIT') {
         payload.totalCents = Money.parseCents(f.total);
@@ -399,6 +421,13 @@ Page({
   },
   async submit() {
     if(this.view==='pay'&&this.action==='commission-simulate-pay')return this.simulatePayment();
+    if (this.action === 'commission-submit') {
+      if (this.data.busy || this.data.platformStatus !== 'ready' || this.data.paymentChoiceRequired) return;
+      if (this.data.form.testPayment && this.__context?.feeOffer?.simulationPaymentMode !== 'TEST_SIMULATION') {
+        this.setData({ 'form.checked': false, 'form.testPayment': false, paymentChoiceRequired: true, simulationAllowed: false });
+        return;
+      }
+    }
     if(this.action==='commission-submit'&&this.data.designBriefEnabled&&!this.data.submitPreview){
       try{const message=Brief.error(this.data.designBrief);if(message)throw Error(message);this.setData({submitPreview:true,error:''});this.refreshOrderSheet();wx.pageScrollTo({scrollTop:0,duration:0});}catch(e){const message=e.message;const index=/项目|朝向|入口/.test(message)?0:/常住人口/.test(message)?1:2;this.setData({error:message,expandedBrief:index});}return;
     }
@@ -439,8 +468,11 @@ Page({
       this.refresh(true);
     } catch (e) {
       if (!alive()) return;
-      this.setData({ error: Presentation.errorMessage(e), busy: false });
-      if (this.view === 'submit') { this.__submitFailure = Presentation.errorMessage(e); this.refresh(false); }
+      const simulationRejected = this.view === 'submit' && this.data.form.testPayment && Number(e?.code) === 1111000022;
+      const error = simulationRejected ? '' : Presentation.errorMessage(e);
+      this.setData({ error, busy: false, ...(simulationRejected
+        ? { 'form.checked': false, 'form.testPayment': false, paymentChoiceRequired: true, simulationAllowed: false } : {}) });
+      if (this.view === 'submit') { this.__submitFailure = error; return this.refresh(false); }
     }
   },
   showProgress(){if(this.data.busy)return;this.view='progress';this.refresh(true);wx.pageScrollTo({scrollTop:0,duration:0});},

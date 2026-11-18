@@ -88,3 +88,21 @@ test('load-more and opening the original order can complete in either request or
     H.get=originals.get;H.post=originals.post;H.token=originals.token;H.requestGuard=originals.guard;N.open=originals.open;
   }
 });
+
+test('expired bulk-read asks for an explicit refresh and leaves newer messages alone',async()=>{
+  const originals={get:H.get,post:H.post,token:H.token,requestGuard:H.requestGuard};
+  let refreshes=0,posts=0;
+  H.token=()=> 'test';H.requestGuard=()=>()=>true;
+  H.get=async()=>{refreshes++;return {items:[],unread:1};};
+  H.post=async()=>{posts++;throw {code:1105000001,message:'消息列表已过期，请刷新后重试'};};
+  try {
+    const p=page();
+    p.__messagesSnapshot='2026-11-17T12:00:00+08:00';
+    await P.readAll.call(p);
+    await P.readAll.call(p);
+    assert.equal(posts,1);
+    assert.equal(refreshes,0);
+    assert.match(p.data.messageError,/刷新后重试/);
+    assert.equal(p.data.messageBusy,false);
+  } finally {Object.assign(H,originals);}
+});
