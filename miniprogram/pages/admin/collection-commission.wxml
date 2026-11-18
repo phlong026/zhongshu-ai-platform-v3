@@ -1,7 +1,9 @@
 <template name="collection-commission">
   <view wx:if="{{commissionReview}}" class="owner-card">
     <view class="owner-heading"><text>核对退款后的提成</text></view>
-    <text class="owner-note">记录已付事实及处理依据，不自动追回提成。</text>
+    <view class="commission-project-heading">{{commissionReview.projectName}} · {{commissionReview.label}}</view>
+    <view class="commission-collection"><text>净回款 {{commissionReview.received}}</text><text>未付提成 {{commissionReview.outstanding}}</text></view>
+    <text class="owner-note">{{commissionReview.eligible?'核对后，财务可按原应付余额办理。':'本期回款尚未补齐，保存后继续暂停付款。'}}</text>
     <textarea class="ops-field ops-note" data-key="note" value="{{commissionReview.note}}" placeholder="填写退款影响及处理意见" bindinput="commissionInput"/>
     <button class="owner-outline" bindtap="commissionUpload">{{commissionReview.file?'已选择：'+commissionReview.file.name:'上传核对依据'}}</button>
     <button class="owner-primary owner-save" data-action="commission-reconcile" data-confirmed="{{true}}" data-id="{{commissionReview.projectId}}" data-stage="{{commissionReview.stage}}" bindtap="commissionAction" loading="{{busy}}" disabled="{{busy}}">保存核对记录</button>

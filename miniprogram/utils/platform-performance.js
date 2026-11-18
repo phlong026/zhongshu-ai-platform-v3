@@ -233,6 +233,7 @@ function commissionRowView(row, roleCode, projectName) {
       payableId: stage.payableId == null ? '' : String(stage.payableId),
       evidenceIds:reviewEvidenceIds(stage.reconciliations),
       reviewDue: stage.reviewDue,
+      eligible: stage.eligible,
       requiredText: centsText(stage.requiredCents),
       receivedText: centsText(stage.receivedCents),
       amountText: centsText(stage.amountCents),
@@ -242,8 +243,9 @@ function commissionRowView(row, roleCode, projectName) {
       canPay: finance && !!stage.payableId && !stage.reviewDue && stage.eligible && stage.outstandingCents > 0,
       // M10-T05/R2 P2：已付差额核对入口（paid>0 即使净额不足也可核对——后端已付留痕路径）
       canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.paidCents || 0) > 0),
-      reason: stage.reviewDue ? '原收款已变化，未付部分暂停；已付差额只待人工核对，不代表已追回。'
+      reason: stage.reviewDue ? (stage.eligible ? '阶段款已补齐，待老板人工核对。' : '回款有变动，未付提成暂停。')
         : !stage.eligible ? '阶段款尚未收齐，暂不能发放。'
+        : stage.payableId && stage.outstandingCents === 0 ? ''
         : stage.payableId ? '应付已生成，请到财务工作台登记付款。' : '阶段款已足额，可由财务生成本期应付。'
     }))
   };

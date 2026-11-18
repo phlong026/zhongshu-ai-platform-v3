@@ -99,7 +99,19 @@ Page({
   async commissionAction(event) {
     if (this.data.busy||this.data.evidenceUploading) return;
     const data = event.currentTarget.dataset, action = data.action;
-    if(action==='commission-reconcile'&&!data.confirmed){this.__pick=null;this.setData({commissionReview:{projectId:data.id,stage:data.stage,note:'',file:null},error:''});wx.pageScrollTo({scrollTop:0,duration:0});return;}
+    if (action === 'commission-reconcile' && !data.confirmed) {
+      const project = this.data.commissionRows.find(row => row.projectId === String(data.id));
+      const stage = project?.stages.find(row => row.stage === data.stage);
+      if (!stage?.canReconcile) return;
+      this.__pick = null;
+      this.setData({ commissionReview: {
+        projectId: data.id, stage: data.stage, projectName: project.project, label: stage.label,
+        received: stage.receivedText, outstanding: stage.outstandingText, eligible: stage.eligible,
+        note: '', file: null
+      }, error: '' });
+      wx.pageScrollTo({scrollTop:0,duration:0});
+      return;
+    }
     const id = data.id || this.selectedProjectId;
     const form = clone(action==='commission-reconcile'?this.data.commissionReview:this.data.commissionForm);
     if (data.stage) form.stage = data.stage;
