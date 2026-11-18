@@ -15,6 +15,13 @@ import java.util.concurrent.*;
 public final class AssetSpoolContainerProbe {
     public static void main(String[] args) throws Exception {
         Path work=Path.of(args[0]), spool=Path.of(System.getProperty("platform.asset.spool-dir"));
+        if(args.length>1 && "interrupt".equals(args[1])) {
+            var lease=new AssetSpool(spool,384L<<20).reserve(50L<<20);
+            var snapshot=lease.file();
+            try(var input=Files.newInputStream(work.resolve("1.mp4"))) { snapshot.copy(input,50L<<20); }
+            System.out.println("INTERRUPTED_BYTES="+Files.size(snapshot.path));
+            Runtime.getRuntime().halt(37);
+        }
         var db=new DriverManagerDataSource(System.getenv("PROBE_JDBC_URL"),"postgres","");
         var jdbc=new JdbcTemplate(db);
         var barrier=new CyclicBarrier(3,()->{
@@ -36,6 +43,7 @@ public final class AssetSpoolContainerProbe {
         var actor=new Actor(33,777,22,11);
         var service=new LocalAssetService(db,new DataSourceTransactionManager(db),blobs,
                 new AssetContentScanner(),()->Optional.of(post),org->777L);
+        service.recoverSpool();
         var pool=Executors.newFixedThreadPool(3);
         try {
             var jobs=new ArrayList<Future<String>>();
@@ -56,7 +64,7 @@ public final class AssetSpoolContainerProbe {
                 }));
             }
             for(var job:jobs)System.out.println("ACCEPTED_SHA256="+job.get(180,TimeUnit.SECONDS));
-            try(var files=Files.list(spool)){if(files.findAny().isPresent())throw new AssertionError("Residual file");}
+            try(var files=Files.list(spool)){if(files.anyMatch(p->!p.getFileName().toString().equals(".asset-spool.lock")))throw new AssertionError("Residual file");}
             System.out.println("CONCURRENT_BYTES=157286400 RESIDUAL_FILES=0");
         }finally{pool.shutdownNow();}
     }

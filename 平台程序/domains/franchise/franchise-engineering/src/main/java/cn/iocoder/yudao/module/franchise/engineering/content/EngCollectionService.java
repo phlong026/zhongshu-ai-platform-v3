@@ -122,6 +122,9 @@ public class EngCollectionService {
             } else {
                 due = startDue;
             }
+            if (current!=null) row.put("stageId",current.stageId());
+            if (current!=null && current.dueDate()!=null) due=current.dueDate();
+            else if ("tail".equals(stage)) due=null;
             row.put("due", due);
             row.put("purpose", purposeOf(stage));
             stages.add(row);

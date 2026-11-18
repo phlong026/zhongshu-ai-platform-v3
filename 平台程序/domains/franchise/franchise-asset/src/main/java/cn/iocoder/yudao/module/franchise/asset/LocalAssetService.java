@@ -51,6 +51,9 @@ public class LocalAssetService implements AssetAccessPort {
     private final AssetSpool spool = new AssetSpool(java.nio.file.Path.of(System.getProperty("platform.asset.spool-dir",
             java.nio.file.Path.of(System.getProperty("user.home"),".zhongshu","asset-spool").toString())),
             Long.getLong("platform.asset.spool-max-bytes",384L << 20));
+    @jakarta.annotation.PostConstruct
+    void recoverSpool() throws java.io.IOException { spool.recover(); }
+
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final ObjectStoragePort storage;

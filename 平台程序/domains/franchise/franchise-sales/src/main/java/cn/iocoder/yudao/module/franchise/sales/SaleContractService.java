@@ -479,28 +479,13 @@ public class SaleContractService {
     }
 
     public long stageCollected(PostSnapshot post, long stageId) {
-        Long net = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(r.amount_cents), 0) - COALESCE((SELECT SUM(g.amount_cents) "
-                        + "FROM fr_fin_refund g JOIN fr_sale_stage_receipt r2 ON r2.receipt_id = g.receipt_id "
-                        + "WHERE r2.stage_id = ? AND g.status = '已核实' "
-                        + "AND g.replaced_by_id IS NULL), 0) "
-                        + "FROM fr_sale_stage_receipt r "
-                        + "WHERE r.stage_id = ?",
-                Long.class, stageId, stageId);
-        return net;
+        return stageCollectedInTx(stageId);
     }
 
-    /** collect 事务内净口径（同 stageCollected SQL——Σ分笔-Σ已核实退款） */
     private long stageCollectedInTx(long stageId) {
-        Long net = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(r.amount_cents), 0) - COALESCE((SELECT SUM(g.amount_cents) "
-                        + "FROM fr_fin_refund g JOIN fr_sale_stage_receipt r2 ON r2.receipt_id = g.receipt_id "
-                        + "WHERE r2.stage_id = ? AND g.status = '已核实' "
-                        + "AND g.replaced_by_id IS NULL), 0) "
-                        + "FROM fr_sale_stage_receipt r "
-                        + "WHERE r.stage_id = ?",
-                Long.class, stageId, stageId);
-        return net;
+        return jdbcTemplate.queryForObject("SELECT COALESCE((SELECT collected FROM ("
+                + cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.STAGE_NET
+                + ") amounts WHERE stage_id=?),0)",Long.class,stageId);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -524,6 +509,7 @@ public class SaleContractService {
             long collected = stageCollected(post, stage.getId()); // 净口径（gross-refunded）
             Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
             row.put("stageId", stage.getId());
+            row.put("dueDate",stage.getDueDate());
             row.put("stage", stage.getStage());
             row.put("label", stageLabel(stage.getStage()));
             row.put("amountCents", stage.getAmountCents());

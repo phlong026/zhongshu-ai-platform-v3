@@ -113,7 +113,20 @@ class LocalAssetServiceTest {
             try(var additional=pool.reserve(25)) { assertThatThrownBy(()->pool.reserve(1)).isInstanceOf(AssetSpool.CapacityBusy.class); }
         }
         try(var retry=pool.reserve(100);var file=retry.file()){ assertThat(file.path).exists(); }
-        try(var entries=java.nio.file.Files.list(dir)){ assertThat(entries).isEmpty(); }
+        try(var entries=java.nio.file.Files.list(dir)){ assertThat(entries.map(p->p.getFileName().toString())).containsExactly(".asset-spool.lock"); }
+        var retained=java.nio.file.Files.write(dir.resolve("unrelated.bin"),new byte[30]);
+        var orphan=java.nio.file.Files.write(dir.resolve("fr-asset-v2-777.tmp"),new byte[60]);
+        var restarted=new AssetSpool(dir,100);
+        restarted.recover();
+        assertThat(orphan).doesNotExist();
+        assertThat(retained).hasSize(30);
+        assertThatThrownBy(()->restarted.reserve(71)).isInstanceOf(AssetSpool.CapacityBusy.class);
+        try(var lease=restarted.reserve(70);var live=lease.file()) {
+            var another=new AssetSpool(dir,100);
+            another.recover();
+            assertThatThrownBy(()->another.reserve(1)).isInstanceOf(AssetSpool.CapacityBusy.class);
+            assertThat(live.path).exists();
+        }
     }
 
     @BeforeEach

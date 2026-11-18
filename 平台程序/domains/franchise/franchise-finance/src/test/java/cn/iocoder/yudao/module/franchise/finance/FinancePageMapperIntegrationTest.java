@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * P0 批2：五类账表 selectPage 的真实 PG 回归（Testcontainers PG17 + 本域 Flyway 迁移）。
  * 覆盖逐表组合筛选、日期口径、组织隔离、分页 total/list，以及旧 selectByCompany 未分页语义不变。
  */
+@org.springframework.context.annotation.Import({cn.iocoder.yudao.module.franchise.org.FranchiseCommands.class,cn.iocoder.yudao.module.platform.command.CommandLogImpl.class})
 class FinancePageMapperIntegrationTest extends FranchisePgIntegrationTest {
 
     private static final AtomicLong SEQ = new AtomicLong(9_400_000_000L + System.nanoTime() % 500_000_000L);
@@ -50,6 +51,24 @@ class FinancePageMapperIntegrationTest extends FranchisePgIntegrationTest {
         var post = fixture.post(orgId, FINANCE, null);
         userId = post.userId();
         currentPost.use(post);
+    }
+
+    @Resource private cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands;
+
+    @Test
+    void paymentConfirmationReturnsOnlyThisPostsCommittedCommand() {
+        var post=currentPost.require();
+        long payment=SEQ.incrementAndGet();
+        var service=new FinPaymentService();
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"jdbc",jdbc);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"commands",commands);
+        var key="payment-confirm-"+payment;
+        assertThat(service.registrationResult(post,key)).isEmpty();
+        commands.record(post,"fin-payment",payment,1,"fin-payment-register",java.util.Map.of("payableId",1),key);
+        assertThat(service.registrationResult(post,key)).containsOnlyKeys("paymentId").containsEntry("paymentId",Long.toString(payment));
+        var other=new cn.iocoder.yudao.module.platform.org.PostSnapshot(post.postId()+1,post.userId(),post.orgId(),post.orgType(),post.roleCode(),null,false,java.util.Set.of());
+        assertThat(service.registrationResult(other,key)).isEmpty();
+        assertThat(service.registrationResult(fixture.post(fixture.store().orgId(),FINANCE,null),key)).isEmpty();
     }
 
     private static PageParam page(int pageNo, int pageSize) {

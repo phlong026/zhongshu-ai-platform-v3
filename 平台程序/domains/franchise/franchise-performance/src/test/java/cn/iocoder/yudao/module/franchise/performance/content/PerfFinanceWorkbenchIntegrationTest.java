@@ -128,6 +128,8 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   jdbc.execute("SET LOCAL TIME ZONE 'UTC'");
   jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,name text,summary text,create_time timestamptz)");
   jdbc.execute("ALTER TABLE fr_eng_project ADD name text");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,project_id bigint,milestone text,status text,node_index int,start_date date,end_date date)");
+  jdbc.execute("ALTER TABLE fr_sale_stage_receipt ADD amount_cents bigint");
   jdbc.execute("ALTER TABLE fr_sale_payment_stage ADD customer_id bigint, ADD stage text");
   jdbc.execute("ALTER TABLE fr_fin_receipt ADD customer_id bigint, ADD project_id bigint, ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint");
   jdbc.execute("ALTER TABLE fr_fin_payable ADD project_id bigint, ADD customer_id bigint, ADD stage text, ADD deleted boolean DEFAULT false");
@@ -141,17 +143,19 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   jdbc.update("INSERT INTO fr_sale_payment_stage(id,company_id,customer_id,contract_id,amount_cents,due_date,stage) VALUES(31,?,1,10,850,'2020-01-01','CAP_DONE'),(32,?,1,20,500,'2020-01-01','tail')",org,org);
   jdbc.update("""
       INSERT INTO fr_fin_receipt(id,company_id,customer_id,project_id,amount_cents,status,received_date,source_type,source_ref)
-      VALUES(41,?,1,11,300,'已登记','2026-11-01','business','sale:20'),(42,?,NULL,11,200,'已登记','2026-11-01','manual','employee-recovery:7')
-      """,org,org);
-  jdbc.update("INSERT INTO fr_fin_refund(id,company_id,receipt_id,amount_cents,status,date,refund_direction) VALUES(51,?,41,40,'已核实','2026-11-02','client'),(52,?,42,50,'已核实','2026-11-02','client')",org,org);
+      VALUES(41,?,1,11,300,'已登记','2026-11-01','business','sale:20'),(42,?,NULL,11,200,'已登记','2026-11-01','manual','employee-recovery:7'),
+       (43,?,NULL,11,150,'已登记','2026-11-01','manual',NULL)
+      """,org,org,org);
+  jdbc.update("INSERT INTO fr_fin_refund(id,company_id,receipt_id,amount_cents,status,date,refund_direction) VALUES(51,?,41,40,'已核实','2026-11-02','client'),(52,?,42,50,'已核实','2026-11-02','client'),(53,?,43,30,'已核实','2026-11-02','client')",org,org,org);
+  jdbc.update("INSERT INTO fr_sale_stage_receipt VALUES(?,20,32,41,200)",org);
   for(String role:List.of("owner","business")){
    var net=home.detail(boss,role,"2026-11","customerNet",1);
-   assertThat(((Number)net.get("cents")).longValue()).isEqualTo(260L);
-   assertThat((List<?>)net.get("rows")).hasSize(2);
+   assertThat(((Number)net.get("cents")).longValue()).isEqualTo(380L);
+   assertThat((List<Map<String,Object>>)net.get("rows")).extracting(row -> row.get("id")).containsExactlyInAnyOrder("41","43","51","53");
   }
   var dues=(List<Map<String,Object>>)home.detail(boss,"owner","2026-11","projectDue",1).get("rows");
   assertThat(dues).extracting(r->r.get("stage_code"),r->r.get("amount")).containsExactlyInAnyOrder(
-     tuple("tail",500L),tuple("CAP_DONE",850L));
+     tuple("tail",340L),tuple("CAP_DONE",850L));
   var customers=(List<Map<String,Object>>)home.detail(boss,"owner","2026-11","newCustomers",1).get("rows");
   assertThat(customers).extracting(r->r.get("date")).containsExactly("2026-11-01");
  }

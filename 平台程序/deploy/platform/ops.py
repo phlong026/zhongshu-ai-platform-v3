@@ -55,11 +55,13 @@ def validate_model(model, same_host_values=None):
     demand(set(model.get("networks", {})) == {"private"}, "Only the B private network is allowed")
     for name, network in model["networks"].items():
         demand(network.get("name") == f"{PROJECT}_{name}" and not network.get("external"), "Shared network refused")
-    expected_volumes = {"pgdata", "redisdata"}
+    expected_volumes = {"pgdata", "redisdata", "asset-spool"}
     demand(set(model.get("volumes", {})) == expected_volumes, "Unexpected data volumes")
     for name, volume in model["volumes"].items():
         demand(volume.get("name") == f"{PROJECT}_{name}" and not volume.get("external"), "Shared volume refused")
-    same_host.validate_compose_volumes(model, same_host_values, expected_volumes)
+    spool = model["volumes"]["asset-spool"]
+    demand(spool.get("driver", "local") == "local" and not spool.get("driver_opts"), "Only a private local spool volume is allowed")
+    same_host.validate_compose_volumes(model, same_host_values, {"pgdata", "redisdata"})
     allowed_binds = {
         "api": {"/etc/platform/runtime.properties": "runtime.properties"},
         "postgres-b": {"/docker-entrypoint-initdb.d/10-platform.sh": "postgres-init.sh", "/etc/platform/pg_hba.conf": "pg_hba.conf"},
@@ -84,14 +86,19 @@ def validate_model(model, same_host_values=None):
         demand(service.get("healthcheck", {}).get("test") and not service["healthcheck"].get("disable"), "Healthcheck required")
         actual_secrets = {item["source"]: item.get("target", item["source"]).removeprefix("/run/secrets/") for item in service.get("secrets", [])}
         demand(actual_secrets == expected_secrets[name], "Secret mounts violate role separation")
+        required_mount = {"api": ("asset-spool", "/var/lib/platform/asset-spool"),
+                          "postgres-b": ("pgdata", "/var/lib/postgresql/data"), "redis-b": ("redisdata", "/data")}[name]
+        actual_volumes = []
         actual_binds = {}
         for mount in service.get("volumes", []):
             if mount["type"] == "bind":
                 demand(mount.get("read_only"), "Writable host bind refused")
                 actual_binds[mount["target"]] = Path(mount["source"]).resolve()
             else:
-                expected = ("pgdata", "/var/lib/postgresql/data") if name == "postgres-b" else ("redisdata", "/data")
-                demand(name != "api" and (mount["source"], mount["target"]) == expected, "Unexpected persistent mount")
+                demand(mount["type"] == "volume" and not mount.get("read_only")
+                       and not mount.get("volume", {}).get("subpath"), "Unexpected persistent mount")
+                actual_volumes.append((mount["source"], mount["target"]))
+        demand(actual_volumes == [required_mount], "Unexpected persistent mount")
         demand(actual_binds == {target: DIRECTORY / file for target, file in allowed_binds[name].items()}, "Unexpected host file mount")
         if name != "api":
             demand(not service.get("ports"), "Database ports must not be published")
@@ -222,7 +229,7 @@ def inspect_scope(base, model, require_frozen=False):
             demand(container.get("State", {}).get("Health", {}).get("Status") == "healthy", f"{service} is not healthy")
     demand({"postgres-b", "redis-b"} <= seen, "B database containers are missing")
     volume_items = []
-    for kind, names in (("volume", ("pgdata", "redisdata")), ("network", ("private",))):
+    for kind, names in (("volume", tuple(model["volumes"])), ("network", ("private",))):
         for name in names:
             item = json.loads(run(["docker", kind, "inspect", f"{PROJECT}_{name}"], context=f"Inspect B {kind}"))[0]
             labels = item.get("Labels") or {}

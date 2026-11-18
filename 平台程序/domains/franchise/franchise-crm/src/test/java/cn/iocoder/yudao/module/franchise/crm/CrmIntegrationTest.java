@@ -221,6 +221,20 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void twoFieldFollowReplaysOnlyTheOriginalCustomerAndDefaultKind() {
+        long id=capture(salesA1,phone()).customerId(), other=capture(salesA1,phone()).customerId();
+        var command=new FollowCommand("回访",null);
+        as(salesA1,()->customers.follow(salesA1,id,command,"two-fields"));
+        record OldCommand(String note, LocalDate nextVisitDate) {}
+        String old=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(new OldCommand("回访",null));
+        followJdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? WHERE aggregate_id=? AND command='customer-follow'",
+                old,cn.hutool.crypto.digest.DigestUtil.sha256Hex(old),id);
+        assertThat(as(salesA1,()->customers.follow(salesA1,id,command,"two-fields")).follows()).hasSize(1);
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->as(salesA1,()->customers.follow(salesA1,other,command,"two-fields"))).isInstanceOf(RuntimeException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->as(salesA1,()->customers.follow(salesA1,id,new FollowCommand("回访",null,"VISIT",null),"two-fields"))).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
     void editingWithAStaleRevisionIsRejected() {
         long id = capture(salesA1, phone()).customerId();
         UpdateCommand update = new UpdateCommand("陈先生", "chen-wx", "湖北省", "武汉市", "两层乡墅");

@@ -31,6 +31,19 @@ public class CompanyPointController {
         return success(access.activate(currentPost.require()));
     }
 
+    @GetMapping("/simulated-packages")
+    @PreAuthorize("@post.has('platform:wallet:recharge')")
+    public CommonResult<List<OrgPointPort.PackagePlan>> packages() {
+        return success(access.simulatedPackages(currentPost.require()));
+    }
+
+    public record SimulatedPurchase(long planId,long version) {}
+    @PostMapping("/simulated-purchases")
+    @PreAuthorize("@post.has('platform:wallet:recharge')")
+    public CommonResult<OrgPointPort.PackageReceipt> purchase(@RequestBody SimulatedPurchase body,@RequestHeader("Idempotency-Key") String key) {
+        return success(access.purchase(currentPost.require(),body.planId(),body.version(),key));
+    }
+
     @GetMapping("/summary")
     @Operation(summary = "查看当前公司的积分余额和当月总用量")
     public CommonResult<OrgPointPort.PoolSummary> summary() {

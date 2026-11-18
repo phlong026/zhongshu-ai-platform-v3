@@ -14,7 +14,7 @@ final class AssetUploadFile implements AutoCloseable {
     final Path path;
 
     AssetUploadFile(Path directory) throws IOException {
-        path = Files.createTempFile(directory,"fr-asset-", ".tmp");
+        path = Files.createTempFile(directory,"fr-asset-v2-", ".tmp");
     }
 
     record Integrity(long size, String sha) {}

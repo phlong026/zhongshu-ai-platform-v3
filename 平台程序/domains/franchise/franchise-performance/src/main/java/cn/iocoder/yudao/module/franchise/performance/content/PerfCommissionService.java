@@ -100,10 +100,10 @@ public class PerfCommissionService {
             // 无存量事件：新请求继续 canonical 流程
         }
         if (totalCents <= 0 || totalCents > 10_000_000_000L || assigneeUserId <= 0
-                || StrUtil.isBlank(evidenceRef) || StrUtil.isBlank(note)) {
+                || StrUtil.isBlank(evidenceRef) || (StrUtil.isBlank(note) && !evidenceRef.stripLeading().startsWith("{"))) {
             throw exception(PERF_INPUT_INVALID, "请填写提成总额、在岗归属人、凭据与说明");
         }
-        requireVoucher(post,evidenceRef);
+        var proof=resolveVoucher(post,evidenceRef,note);
         FrPerfCommissionPolicyDO current = policies.selectByProject(post.orgId(), projectId);
         // R2 P2-17：policy 行锁前置（硬锁检查与 release 竞争窗口互斥——先锁再查 release）
         if (current != null) {
@@ -126,6 +126,12 @@ public class PerfCommissionService {
         long signAfter = signAfterCents;
         long baseDone = baseDoneCents;
         long topping = capDoneCents;
+        if (signAfter==0 && baseDone==0 && topping==0 && evidenceRef.stripLeading().startsWith("{")) {
+            if(proof.installments()==null) throw exception(PERF_INPUT_INVALID,"请在员工网页「经营看板 → 旧版提成凭据」填写三期金额，使用规则保存凭据码");
+            signAfter=proof.installments()[0];
+            baseDone=proof.installments()[1];
+            topping=proof.installments()[2];
+        }
         if (signAfter < 0 || baseDone < 0 || topping < 0) {
             throw exception(PERF_INPUT_INVALID, "三期提成金额须为不小于 0 的数字");
         }
@@ -141,7 +147,7 @@ public class PerfCommissionService {
                     + "VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,now(),now())",
                     policyRowId, post.orgId(), projectId, totalCents, assigneeUserId,
                     member.name(), signAfter, topping, baseDone,
-                    StrUtil.trim(evidenceRef), StrUtil.trim(note), post.userId());
+                    proof.id(), proof.note(), post.userId());
         } else {
             String history = JsonUtil.append(current.getHistory(), Map.of(
                     "version", current.getVersion(), "totalCents", current.getTotalCents(),
@@ -152,7 +158,7 @@ public class PerfCommissionService {
                     .setAssigneeName(member.name())
                     .setStartCents(signAfter).setToppingCents(topping).setBaseDoneCents(baseDone)
                     .setVersion(current.getVersion() + 1)
-                    .setEvidenceRef(StrUtil.trim(evidenceRef)).setNote(StrUtil.trim(note)));
+                    .setEvidenceRef(proof.id()).setNote(proof.note()));
             JsonUtil.updateJsonb(jdbc, "fr_perf_commission_policy", Map.of("history", history),
                     current.getId(), post.orgId());
             policyRowId = current.getId();
@@ -260,15 +266,15 @@ public class PerfCommissionService {
             throw exception(COMMISSION_NOT_ELIGIBLE,
                     "退款、冲正或更正后净实收仍未足额，" + ("START".equals(stageKey) ? "开工款" : "封顶款"));
         }
-        if (StrUtil.isBlank(evidenceRef) || StrUtil.isBlank(note)) {
+        if (StrUtil.isBlank(evidenceRef) || (StrUtil.isBlank(note) && !evidenceRef.stripLeading().startsWith("{"))) {
             throw exception(PERF_INPUT_INVALID, "请上传人工核对依据并填写说明");
         }
         Map<String, Object> record = new LinkedHashMap<>();
-        requireVoucher(post,evidenceRef);
+        var proof=resolveVoucher(post,evidenceRef,note);
         record.put("previousReceiptSignature", rel.getReceiptSignature());
         record.put("receiptSignature", facts.signature);
-        record.put("evidenceRef", StrUtil.trim(evidenceRef));
-        record.put("note", StrUtil.trim(note));
+        record.put("evidenceRef", proof.id());
+        record.put("note", proof.note());
         record.put("actorUserId", post.userId());
         record.put("at", String.valueOf(java.time.OffsetDateTime.now()));
         // M10-T05：已付留痕核对记录差额（正=少付待补、负=超付异常；无自动扣薪——仅立账展示）
@@ -298,7 +304,21 @@ public class PerfCommissionService {
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.AssetAccessPort assets;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort serviceAccounts;
 
-    private void requireVoucher(PostSnapshot post,String reference) {
+    private record Voucher(String id, String note, long[] installments) {}
+    private static final java.util.regex.Pattern LEGACY_PROOF = java.util.regex.Pattern.compile(
+            "\\s*\\[凭据#([1-9][0-9]{0,18})(?: 分期 ([0-9]{1,11})/([0-9]{1,11})/([0-9]{1,11}))?\\]$");
+    private static final String LEGACY_HELP="请更新小程序，或登录员工网页，在「经营看板 → 旧版提成凭据」上传文件，把生成的凭据码粘贴到小程序的依据说明末尾，再提交。";
+
+    private Voucher resolveVoucher(PostSnapshot post,String reference,String note) {
+        long[] installments=null;
+        if(reference!=null && reference.stripLeading().startsWith("{")) {
+            var marker=LEGACY_PROOF.matcher(StrUtil.nullToEmpty(note).trim());
+            if (!marker.find()) throw exception(PERF_INPUT_INVALID,LEGACY_HELP);
+            reference=marker.group(1);
+            if(marker.group(2)!=null) installments=new long[]{Long.parseLong(marker.group(2)),Long.parseLong(marker.group(3)),Long.parseLong(marker.group(4))};
+            note=note.trim().substring(0,marker.start()).trim();
+            if (note.isEmpty()) throw exception(PERF_INPUT_INVALID,"请在凭据码前填写本次办理说明");
+        }
         long id;
         try { id=Long.parseLong(reference); }
         catch(NumberFormatException error) { throw exception(PERF_INPUT_INVALID,"请上传有效的提成凭据"); }
@@ -306,6 +326,7 @@ public class PerfCommissionService {
                 serviceAccounts.requireServiceAccount(post.orgId()),post.userId(),post.postId());
         if(id<=0 || !assets.validateReference(actor,id,java.util.Set.of("FIN_VOUCHER")))
             throw exception(PERF_INPUT_INVALID,"请上传当前组织可用的财务凭据");
+        return new Voucher(Long.toString(id),note.trim(),installments);
     }
 
     record StageFacts(String stage, long required, long received, boolean eligible,

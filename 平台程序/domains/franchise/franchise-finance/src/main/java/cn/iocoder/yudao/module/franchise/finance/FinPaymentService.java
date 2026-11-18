@@ -59,6 +59,15 @@ public class FinPaymentService {
         }
     }
 
+    public java.util.Map<String,String> registrationResult(PostSnapshot post, String key) {
+        String scoped="franchise:"+post.userId()+":"+commands.requireIdempotencyKey(key);
+        var ids=jdbc.queryForList("""
+                SELECT aggregate_id FROM pf_command_event WHERE domain='franchise' AND command='fin-payment-register'
+                   AND aggregate_type='fin-payment' AND org_id=? AND actor_user_id=? AND actor_post_id=? AND idempotency_key=?
+                """,Long.class,post.orgId(),post.userId(),post.postId(),scoped);
+        return ids.isEmpty() ? java.util.Map.of() : java.util.Map.of("paymentId",Long.toString(ids.get(0)));
+    }
+
     private record LegacyPaymentCommand(long payableId,long amountCents,LocalDate payDate,String transactionNo,Long voucherFileId) {}
 
     public record EngineeringPayableUpdateCommand(long payableId,long projectId,String sourceRef,

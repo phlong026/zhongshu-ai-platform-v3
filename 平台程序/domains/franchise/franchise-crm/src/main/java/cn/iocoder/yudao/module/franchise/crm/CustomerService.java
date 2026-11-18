@@ -49,6 +49,7 @@ public class CustomerService {
         public FollowCommand(String note,LocalDate nextVisitDate){this(note,nextVisitDate,null,null);}
     }
 
+    private record LegacyFollow(String note, LocalDate nextVisitDate) {}
     private record FollowRequest(long customerId,FollowCommand follow) {}
 
     public record UpdateCommand(String name, String wechat, String province, String city, String summary,
@@ -235,7 +236,11 @@ public class CustomerService {
             var event = previous.get();
             // Older clients omitted occurredOn; previous servers hashed their local date into the command.
             Object legacy = null;
-            if (!cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(event.getPayload(),Map.class).containsKey("follow")) {
+            var stored=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(event.getPayload(),Map.class);
+            if (!stored.containsKey("follow") && !stored.containsKey("contactKind") && !stored.containsKey("occurredOn")) {
+                if ("FOLLOW".equals(kind) && input.occurredOn()==null)
+                    legacy=new LegacyFollow(input.note(),input.nextVisitDate());
+            } else if (!stored.containsKey("follow")) {
                 var original=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(event.getPayload(),FollowCommand.class);
                 legacy=input;
                 if (input.occurredOn()==null && original.occurredOn()!=null && event.getOccurredAt()!=null) {

@@ -37,6 +37,7 @@
         show-icon
         class="mb-12px"
       />
+      <LegacyCommissionVoucher v-if="identity.currentPost?.roleCode === 'boss'" :key="String(identity.currentPost.postId)" />
       <!-- 财务概览卡（analytics.totals） -->
       <div class="zs-stat-cards dash-cards">
         <div class="zs-stat-card">
@@ -234,6 +235,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
+import LegacyCommissionVoucher from './LegacyCommissionVoucher.vue'
 import Echart from '@/components/Echart/src/Echart.vue'
 import {
   getDashboard,

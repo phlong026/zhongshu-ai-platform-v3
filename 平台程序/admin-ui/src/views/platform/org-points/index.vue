@@ -66,6 +66,9 @@
           </div>
           <div class="summary-grid">
             <div class="summary-card">
+              <span>套餐模拟收款（元）</span><strong>{{ simulatedYuan }}</strong>
+            </div>
+            <div class="summary-card">
               <span>当前可用</span><strong>{{ formatPoints(summary?.balance) }}</strong>
             </div>
             <div class="summary-card">
@@ -421,6 +424,10 @@ const adjustmentScope = (orgId: string): AdjustmentScope => {
 const sameActor = (left: PriceScope, right: PriceScope) =>
   left.tenantId === right.tenantId && left.actorId === right.actorId
 
+const simulatedYuan = computed(() => {
+  const fen = String(selectedCompany.value?.simulatedReceiptFen || '0').padStart(3, '0')
+  return fen.slice(0, -2) + '.' + fen.slice(-2)
+})
 const selectedCompany = computed(() =>
   companies.value.find((row) => row.orgId === selectedOrgId.value)
 )
@@ -434,6 +441,7 @@ const ledgerTypeText = (value: string) =>
     SETTLE: '结算',
     RELEASE: '释放',
     ADJUST: '总部调点',
+    SIMULATED_PACKAGE: '套餐模拟收款',
     MANUAL_ADJUST: '人工调整',
     GRANT: '开通赠点'
   })[value] || value

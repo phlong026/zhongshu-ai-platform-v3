@@ -68,6 +68,7 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
     public java.util.List<StageBalance> stageBalances(PostSnapshot post, long contractId) {
         return collectService.stageSummary(post, contractId).stream().map(row -> new StageBalance(
                 String.valueOf(row.get("stage")), ((Number)row.get("amountCents")).longValue(),
-                ((Number)row.get("collectedCents")).longValue())).toList();
+                ((Number)row.get("collectedCents")).longValue(),
+                (java.time.LocalDate)row.get("dueDate"),((Number)row.get("stageId")).longValue())).toList();
     }
 }

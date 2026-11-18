@@ -77,6 +77,19 @@ class DeploymentChecks(unittest.TestCase):
             with self.subTest(service=service):
                 self.assertEqual(self.model["services"][service]["tmpfs"], expected)
 
+    def test_spool_mount_is_private_fixed_and_required(self):
+        for change in (
+            lambda m: m["volumes"]["asset-spool"].update(external=True),
+            lambda m: m["volumes"]["asset-spool"].update(driver_opts={"device": "/other"}),
+            lambda m: m["services"]["api"].update(volumes=[x for x in m["services"]["api"]["volumes"] if x["type"] == "bind"]),
+            lambda m: next(x for x in m["services"]["api"]["volumes"] if x["type"] == "volume").update(target="/other"),
+            lambda m: m["services"]["redis-b"]["volumes"].append({"type": "volume", "source": "asset-spool", "target": "/uploads"}),
+        ):
+            model = copy.deepcopy(self.model)
+            change(model)
+            with self.assertRaises(ValueError):
+                self.ops.validate_model(model)
+
     def test_02_missing_configuration_fails_closed(self):
         for key in ("PLATFORM_API_IMAGE", *self.ops.SECRET_VARIABLES):
             with self.subTest(key=key):

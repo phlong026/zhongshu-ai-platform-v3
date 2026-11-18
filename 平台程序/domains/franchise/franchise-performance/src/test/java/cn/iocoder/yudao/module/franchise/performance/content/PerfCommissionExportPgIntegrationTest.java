@@ -506,6 +506,33 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
     // ===================== Codex r1 补测 =====================
 
     @Test
+    void archived0105AndCandidateSaveRulesAndReconcileUsingVerifiedEvidence() {
+        var boss=fixture.post(orgId,"boss",null);
+        var employee=cn.iocoder.yudao.module.franchise.test.FakeSystemDirectory.INSTANCE.createUser("员工","",null);
+        org.mockito.Mockito.when(accounts.requireServiceAccount(orgId)).thenReturn(777L);
+        for(boolean legacy : new boolean[]{true,false}) {
+            long project=nextId(), voucher=nextId();
+            insertProject(orgId,project);
+            var actor=new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(orgId,777L,boss.userId(),boss.postId());
+            org.mockito.Mockito.when(assets.validateReference(actor,voucher,java.util.Set.of("FIN_VOUCHER"))).thenReturn(true);
+            String reference=legacy?"{\"name\":\"proof.pdf\",\"path\":\"wxfile://saved/proof.pdf\"}":Long.toString(voucher);
+            String note=legacy?"规则依据 [凭据#"+voucher+" 分期 400/300/300]":"规则依据";
+            if(legacy) {
+                var error=catchThrowableOfType(()->commissions.policy(boss,project,1000,0,0,0,employee,"员工",reference,"规则依据","missing-"+project),ServiceException.class);
+                assertThat(error.getMessage()).contains("经营看板","旧版提成凭据");
+            }
+            commissions.policy(boss,project,1000,legacy?0:400,legacy?0:300,legacy?0:300,employee,"员工",reference,note,"policy-"+project);
+            var row=jdbc.queryForMap("SELECT id,evidence_ref,start_cents,base_done_cents,topping_cents,note FROM fr_perf_commission_policy WHERE project_id=?",project);
+            assertThat(row).containsEntry("evidence_ref",Long.toString(voucher)).containsEntry("note","规则依据")
+                    .containsEntry("start_cents",400L).containsEntry("base_done_cents",300L).containsEntry("topping_cents",300L);
+            release(orgId,project,((Number)row.get("id")).longValue(),"SIGN_AFTER",400,null,"2026-11-06 10:00:00");
+            commissions.reconcile(boss,project,"SIGN_AFTER",reference,legacy?"复核依据 [凭据#"+voucher+"]":"复核依据","review-"+project);
+            var review=jdbc.queryForMap("SELECT reconciliations->0->>'evidenceRef' proof,reconciliations->0->>'note' note FROM fr_perf_commission_release WHERE project_id=?",project);
+            assertThat(review).containsEntry("proof",Long.toString(voucher)).containsEntry("note","复核依据");
+        }
+    }
+
+    @Test
     void missingPolicyFailsExplicitlyWithoutCsvOrAudit() {
         long orphanProject = nextId();
         long missingPolicyId = 8_888_888_888L;
