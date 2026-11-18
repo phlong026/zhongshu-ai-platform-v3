@@ -48,7 +48,8 @@
             <button wx:else class="eng-row" data-id="{{item.id}}" bindtap="open"><image class="eng-thumb" src="{{item.image}}" mode="aspectFill"/><view class="eng-grow"><text class="eng-name">{{item.name}}</text><text wx:if="{{item.city||item.area}}" class="eng-muted">{{item.city}}{{item.area?' · '+item.area+'㎡':''}}</text><text class="eng-tag">{{item.stage}}</text><view wx:if="{{item.status!=='待开工'&&item.progress>=0}}" class="eng-progress-row"><view class="eng-progress"><view style="width:{{item.progress}}%"/></view><text>{{item.progress}}%</text></view></view><image class="eng-arrow" src="/assets/creation-chevron-muted.png"/></button>
           </view>
           <view wx:if="{{cards.length>1}}" class="eng-project-more"><button class="eng-link" bindtap="toggleProjects">{{expandedProjects?'收起项目':'显示更多'}}<image class="eng-arrow {{expandedProjects?'is-expanded':''}}" src="/assets/creation-chevron-muted.png"/></button></view>
-          <view wx:if="{{!cards.length&&!error}}" class="eng-empty"><text>{{allCount?'暂无符合条件的项目':'暂无项目'}}</text><button wx:if="{{allCount&&(filter!=='全部'||keyword)}}" class="eng-link eng-reset-filter" bindtap="showProjects">清除筛选</button></view>
+          <button wx:if="{{expandedProjects&&hasMoreProjects}}" class="eng-link" bindtap="loadNextProjects">加载下一页</button>
+          <view wx:if="{{!cards.length&&!error}}" class="eng-empty"><text>{{keyword||filter!=='全部'?'暂无符合条件的项目':'暂无项目'}}</text><button wx:if="{{filter!=='全部'||keyword}}" class="eng-link eng-reset-filter" bindtap="showProjects">清除筛选</button></view>
           <button wx:if="{{error}}" class="eng-outline eng-submit" bindtap="refresh">重新加载</button>
         </block>
       </block>

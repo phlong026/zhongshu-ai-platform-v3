@@ -20,7 +20,7 @@ function fixture(file,P){
 }
 test('slow engineering list from old organization cannot replace the new organization list',async()=>{
   const a=deferred(),b=deferred();let n=0;
-  const P={api:{projects:{page:()=>++n===1?a.promise:b.promise}},listCards:r=>r,statusMatches:()=>true,online:()=>true,errorText:e=>e.message};
+  const P={api:{projects:{pageChunk:()=>++n===1?a.promise:b.promise}},listCards:r=>r,statusMatches:()=>true,online:()=>true,errorText:e=>e.message};
   const f=fixture('pages/build/projects/index.js',P);
   const old=f.page.refreshOnline();f.switchPost();const next=f.page.refreshOnline();
   b.resolve([{id:'B'}]);await next;a.resolve([{id:'A'}]);await old;

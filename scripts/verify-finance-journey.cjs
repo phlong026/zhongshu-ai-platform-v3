@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const J=require('../miniprogram/utils/finance-journey-view'),V=require('../miniprogram/utils/finance-workbench-view'),PF=require('../miniprogram/utils/platform-finance');
 const facts={receipts:[{id:'r',status:'已登记',amountCents:100000,sourceType:'business',sourceRef:'sale:c:SIGN_AFTER:r',name:'业主首款',receivedDate:'2026-11-17'}],payables:[{id:'q',projectId:'9007199254740999',stage:'engineering',totalCents:50000,recipient:'材料商',status:'进行中'},{id:'d',projectId:'9007199254740999',stage:'FULL',sourceType:'design',totalCents:240000,status:'进行中'}],payments:[{id:'p',payableId:'q',status:'已核实',amountCents:20000,payDate:'2026-11-17',fundingType:'COMPANY'},{id:'personal',payableId:'d',status:'已核实',amountCents:240000,payDate:'2026-11-17',fundingType:'EMPLOYEE'}],refunds:[{id:'return',status:'已核实',paymentId:'p',refundDirection:'expense',fundingType:'COMPANY',amountCents:5000,date:'2026-11-17'},{id:'personal-return',status:'已核实',paymentId:'personal',refundDirection:'expense',fundingType:'EMPLOYEE',amountCents:10000,date:'2026-11-17'}]};
 const books=[{scope:'company',name:'公司日常账'},{scope:'project:9007199254740999',name:'张先生乡墅'}],stages=[{id:'s',contract_id:'c',project_id:'9007199254740999',customer_name:'张先生',stage:'SIGN_AFTER',amount_cents:200000,collected_cents:100000}];
-function harness(){const dir=path.resolve('miniprogram/pages/admin/finance-desk'),http={get:async()=>({entries:[]}),requestGuard:()=>()=>true,sessionGuard:()=>()=>true,post:async()=>({id:'new-record'})},auth={currentApiPost:()=>({roleCode:'finance',orgType:'store'})};let calls=[];
+function harness(){const dir=path.resolve('miniprogram/pages/admin/finance-desk'),http={currentPostId:()=>123,get:async()=>({entries:[]}),requestGuard:()=>()=>true,sessionGuard:()=>()=>true,post:async()=>({id:'new-record'})},auth={currentApiPost:()=>({roleCode:'finance',orgType:'store'})};let calls=[];
  const wx={pageScrollTo(){},showToast(){},showModal(){}};
  function attach(name){const file=path.join(dir,name+'.js'),real=createRequire(file),mod={exports:{}};vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:mod,require:n=>n.endsWith('/api/http')?http:n.endsWith('/api/auth')?auth:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:real(n),wx,console});return mod.exports;}
  const api={revisions:async()=>[],idemKey:()=> 'sticky-key',registerPayment:async(body,key)=>{calls.push({body,key});return {paymentId:'p-new'}},uploadVoucher:async()=> 'voucher'};
@@ -42,4 +42,36 @@ test('应付列表按原单权限显示操作，按钮保留单据长 ID',()=>{
    assert.equal(buttons.some(n=>n.attrs.bindtap==='openPayableAdjustment'),rows[i].canAdjust);
    assert.equal(buttons.some(n=>n.attrs.bindtap==='paySourceRow'),rows[i].canPay);
   }
+});
+
+test('late commission eligibility cannot register an edited, cancelled or switched entry',async()=>{
+ for(const change of ['cancel','edit','post','hide','unload']){
+  const {page,http,calls}=harness();
+  let release;
+  http.get=()=>new Promise(resolve=>{release=resolve;});
+  page.openRegister(event('payment'));
+  page.data.journeyPayment={sourceType:'performance',remainingCents:10000};
+  Object.assign(page.data.registerForm,{payableId:'A',amount:'10',accountName:'公司',payDate:'2026-11-17'});
+  const request=page.submitJourneyRegister();
+  if(change==='cancel'){page.cancelRegister();page.openRegister(event('payment'));Object.assign(page.data.registerForm,{payableId:'B',amount:'20'});}
+  if(change==='edit') page.data.registerForm.amount='11';
+  if(change==='post') http.currentPostId=()=>456;
+  if(change==='hide') page.__registerValidation=null;
+  if(change==='unload') page.__disposed=true;
+  release([{stages:[{payableId:'A',eligible:true}]}]);await request;
+  assert.equal(calls.length,0,change);
+  if(change==='cancel') assert.equal(page.data.registerForm.payableId,'B');
+ }
+});
+
+test('commission task distinguishes payable, partly paid, and on hold',()=>{
+ const {page}=harness();
+ page.__financeFacts={...facts,payables:[{id:'321',stage:'performance',sourceType:'performance',totalCents:50000,status:'进行中',recipient:'收款人'}],payments:[],refunds:[]};
+ page.__commissionStages=[{payableId:'321',eligible:true}];
+ page.refreshJourney();
+ const status=()=>page.presentFinanceTask({key:'payable:321'}).status;
+ assert.equal(status(),'待付款');
+ page.__financeFacts.payments=[{id:'222',payableId:'321',amountCents:100,status:'已核实',fundingType:'COMPANY'}];
+ page.refreshJourney();assert.equal(status(),'部分付款');
+ page.__commissionStages[0].reviewDue=true;page.refreshJourney();assert.match(status(),/核对/);
 });

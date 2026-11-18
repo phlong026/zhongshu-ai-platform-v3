@@ -15,7 +15,19 @@ const projects = {
   /** 手工新建/增项（查重=同组织未归档项目名唯一 1_115_000_008）{name,customer,city,phone?,floors?,area?,parentProjectId?} */
   create: (data, key) => http.post('/franchise/engineering/projects', data, idem(key, 'create')),
   /** 列表（?status=；工程岗仅本人，财务线全量） */
-  page: (status) => http.get('/franchise/engineering/projects', status ? { status } : undefined),
+  pageChunk(status,keyword,page,pageSize) {
+    return http.get('/franchise/engineering/projects',{status:status||undefined,keyword:keyword||undefined,page,pageSize});
+  },
+  async page(status) {
+    const alive=http.sessionGuard(), rows=[], seen=new Set(), pageSize=100;
+    for(let page=1; ; page++) {
+      const batch=await http.get('/franchise/engineering/projects',{status:status||undefined,page,pageSize});
+      if(!alive()) throw new Error('工作身份已切换');
+      const fresh=batch.filter(row=>!seen.has(String(row.id)));
+      for(const row of fresh){seen.add(String(row.id));rows.push(row);}
+      if(batch.length!==pageSize || !fresh.length)return rows;
+    }
+  },
   /** 详情聚合（档案+计划+文档+尾段，按身份脱敏 D-13） */
   get: (id) => http.get('/franchise/engineering/' + id),
   /** 换负责人（在岗工程线校验 1_115_000_010 + CAS；旧负责人立即失权） */

@@ -108,11 +108,11 @@ module.exports = function attach(page, financeApi, PF) {
       .catch(err => { if (ownsBusy(this, busyToken) && stillSameScope()) wx.showToast({ title: PF.errorMessage(err), icon: 'none' }); })
       .finally(() => finishBusy(this, busyToken));
   };
-  page.submitRegister = function () {
+  page.submitRegister = function (snapshot) {
     // R1 P2-1：更正作废挂起中（busy）同样不许发起新登记——双向互斥防表单互相覆盖
     if (this.data.registerBusy || this.data.busy) return;
-    const type = this.data.registerType;
-    const form = this.data.registerForm || {};
+    const type = snapshot?.form ? snapshot.type : this.data.registerType;
+    const form = snapshot?.form || { ...this.data.registerForm };
     const fail = msg => this.setData({ registerError: msg });
     const amount = PF.toCents(form.amount);
     if (!amount) return fail('请输入正确的金额（最多两位小数）');
@@ -164,12 +164,13 @@ module.exports = function attach(page, financeApi, PF) {
     if (!this.registerIdem) this.registerIdem = financeApi.idemKey(type);
     const idem = this.registerIdem;
     const seq = this._registerSeq = (this._registerSeq || 0) + 1; // R1 P2-1：代次戳——旧登记回调不得覆盖后续更正表单
-    const sessionAlive = httpApi.sessionGuard();
-    const alive = () => sessionAlive() && !this.__disposed && seq === this._registerSeq;
+    const sessionAlive = httpApi.sessionGuard(), post = httpApi.currentPostId(), generation = this.wbGeneration;
+    const alive = () => sessionAlive() && httpApi.currentPostId() === post && !this.__disposed &&
+      seq === this._registerSeq && generation === this.wbGeneration;
     const withVoucher = (form.voucherPath
       ? financeApi.uploadVoucher(form.voucherPath, form.voucherName).then(assetId => { body.voucherFileId = assetId; })
       : Promise.resolve());
-    withVoucher
+    return withVoucher
       .then(() => { if (!alive()) return; return call(body, idem); })
       .then(result => {
         if (!alive()) return; // 身份/代次过期不得清理新表单

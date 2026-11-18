@@ -65,7 +65,7 @@ Page({
   if(this.data.platformApiMode&&this.data.view==='book')this.loadBookLedger();
   PTPage.refresh(this,false);this.syncPlatformTasks();
   },
- onHide(){require('../../../utils/finance-keyboard').stop(this);},
+ onHide(){this.__registerValidation=null;this._registerSeq=(this._registerSeq||0)+1;if(this.data.registerBusy)this.setData({registerBusy:false});require('../../../utils/finance-keyboard').stop(this);},
  onUnload(){this.__disposed=true;require('../../../utils/finance-keyboard').stop(this);},
  showFinanceProfile(){
   this.setData({view:'profile',ready:true,title:'我的',platformApiMode:true,error:''});

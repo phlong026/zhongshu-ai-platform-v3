@@ -29,6 +29,7 @@
   <view wx:for="{{commissionRows}}" wx:key="projectId" class="owner-card commission-card {{item.noPolicy?'commission-unset':''}}">
     <view class="commission-project-heading"><text>{{item.project}}</text><text wx:if="{{item.noPolicy}}" class="commission-state">待设置</text></view>
     <block wx:if="{{!item.noPolicy}}">
+    <button wx:if="{{item.evidenceId}}" class="owner-link" data-id="{{item.evidenceId}}" bindtap="openCommissionEvidence">查看提成依据</button>
     <view class="commission-policy"><view><text class="commission-label">提成总额</text><text class="commission-total">{{item.totalText}}</text></view><text class="commission-assignee">归属 · {{item.assignee||'待确认'}}</text></view>
     <view wx:for="{{item.stages}}" wx:for-item="stage" wx:key="stage" class="commission-stage">
       <view class="commission-stage-heading"><text>{{stage.label}}</text><text class="commission-state {{stage.reviewDue?'warning':''}}">{{stage.status}}</text></view>
@@ -36,6 +37,7 @@
       <view class="commission-money-grid"><view><text class="commission-label">已付</text><text class="commission-money">{{stage.paidText}}</text></view><view><text class="commission-label">未付</text><text class="commission-money">{{stage.outstandingText}}</text></view></view>
       <view class="commission-collection"><text>阶段应收 {{stage.requiredText}}</text><text>净实收 {{stage.receivedText}}</text></view>
       <text wx:if="{{stage.reason}}" class="commission-reason {{stage.reviewDue?'warning':''}}">{{stage.reason}}</text>
+      <button wx:for="{{stage.evidenceIds}}" wx:for-item="fileId" wx:key="*this" class="owner-link" data-id="{{fileId}}" bindtap="openCommissionEvidence">查看核对凭据 {{index+1}}</button>
       <view class="commission-actions"><button wx:if="{{stage.canRelease}}" class="owner-link" data-action="commission-release" data-id="{{item.projectId}}" data-stage="{{stage.stage}}" data-version="{{item.version}}" bindtap="commissionAction">生成应付</button><button wx:if="{{stage.canPay}}" class="owner-link" data-payable="{{stage.payableId}}" bindtap="commissionPay">登记付款</button><button wx:if="{{stage.canReconcile}}" class="owner-link" data-action="commission-reconcile" data-id="{{item.projectId}}" data-stage="{{stage.stage}}" data-version="{{item.version}}" bindtap="commissionAction">人工核对</button></view>
     </view>
     </block>
