@@ -39,7 +39,7 @@ class OrgMemberQuotaIntegrationTest extends PlatformPgIntegrationTest {
         jdbc = new JdbcTemplate(dataSource);
         service = new OrgPointService(dataSource, transactionManager, message -> 0L,
                 new OrgPointPriceService(dataSource, transactionManager));
-        jdbc.execute("TRUNCATE org_point_ledger, org_point_account, org_member_quota, org_member_permission");
+        jdbc.execute("TRUNCATE org_point_simulation_review, org_point_ledger, org_point_account, org_member_quota, org_member_permission");
         service.ensurePool(ORG);
         service.adjust(ORG, 10_000, "adjust:base", "测试充值", 1L);
     }

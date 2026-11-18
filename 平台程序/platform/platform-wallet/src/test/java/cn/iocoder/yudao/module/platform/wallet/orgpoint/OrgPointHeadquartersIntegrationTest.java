@@ -43,8 +43,8 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
         OrgPointPriceService prices = new OrgPointPriceService(dataSource, transactionManager);
         points = new OrgPointService(dataSource, transactionManager, (AuditPort) message -> 0L, prices);
         service = new OrgPointHeadquartersService(dataSource, transactionManager, points, prices, TENANT);
-        jdbc.execute("TRUNCATE org_point_hq_price_request,org_point_price_audit,org_point_hq_adjustment,org_point_ledger,"
-                + "org_point_account,org_point_subject_price");
+        jdbc.execute("TRUNCATE org_point_hq_price_request,org_point_price_audit,org_point_hq_adjustment,org_point_simulation_review, org_point_ledger,"
+                + "org_point_account,org_point_subject_price,org_point_simulated_purchase");
         jdbc.update("INSERT INTO pf_org_type(code,domain,name) VALUES('headquarters','test','总部'),('store','test','门店') ON CONFLICT DO NOTHING");
         jdbc.update("INSERT INTO pf_post_template(role_code,domain,org_types) VALUES('hq-admin','test','headquarters') ON CONFLICT DO NOTHING");
         long headquarters = org("headquarters", "测试总部");

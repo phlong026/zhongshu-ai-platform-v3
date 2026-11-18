@@ -34,7 +34,7 @@ class OrgPointPriceIntegrationTest extends PlatformPgIntegrationTest {
         jdbc = new JdbcTemplate(dataSource);
         prices = new OrgPointPriceService(dataSource, transactionManager);
         orgPoint = new OrgPointService(dataSource, transactionManager, message -> 0L, prices);
-        jdbc.execute("TRUNCATE org_point_ledger, org_point_account, org_member_quota, "
+        jdbc.execute("TRUNCATE org_point_simulation_review, org_point_ledger, org_point_account, org_member_quota, "
                 + "org_member_permission, org_point_subject_price");
         orgPoint.ensurePool(ORG);
         orgPoint.adjust(ORG, 1000, "adjust:price-base", "测试充值", 1L);

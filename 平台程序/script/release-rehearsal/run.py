@@ -26,7 +26,7 @@ delivery = scratch / "delivery"
 delivery.mkdir()
 lab = scratch / "paired-runtime"
 lab.mkdir()
-deploy = lab / "platform"
+deploy = lab / "release" / "deploy" / "platform"
 keys = scratch / "rehearsal-keys"
 keys.mkdir()
 evidence = {}
@@ -125,6 +125,13 @@ shutil.copytree(current/"deploy/platform",package/"deploy/platform")
 run("git","-C",mini,"archive","-o",scratch/"mini.tar","HEAD","--","miniprogram","project.config.json")
 with tarfile.open(scratch/"mini.tar") as archive:
     archive.extractall(package/"wechat-project",filter="data")
+fixtures = package / "acceptance" / "wechat"
+(fixtures / "scripts").mkdir(parents=True)
+for name in ("verify-finance-journey.cjs", "role-page-runtime.cjs"):
+    shutil.copyfile(mini / "scripts" / name, fixtures / "scripts" / name)
+subprocess.run(["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"], cwd=mini, check=True)
+shutil.copytree(mini / "node_modules" / "sax", fixtures / "node_modules" / "sax")
+shutil.copyfile(Path(__file__).with_name("WalletProbe.java"), package / "acceptance" / "WalletProbe.java")
 compose_model = json.loads(run("docker","compose","-f",current/"deploy/platform/compose.yaml",
                                "config","--no-interpolate","--format","json"))
 offline_refs = { "library/postgres":compose_model["services"]["postgres-b"]["image"],
@@ -147,16 +154,11 @@ record("packageSha256",sha(bundle))
 (delivery/"SHA256SUMS").write_text(sha(bundle)+"  "+bundle.name+"\n")
 run("docker","load","-i",unpacked/"api-image.tar")
 assert run("docker","run","--rm","--network","none","--entrypoint","sha256sum",ref,"/opt/platform/app.jar").split()[0]==sha(unpacked/"platform.jar")
-# The page harness imports the actual unpacked files via this sibling path.
-tests = unpacked/"wechat-project/scripts"
-tests.mkdir()
-for name in ("verify-finance-journey.cjs","role-page-runtime.cjs"):
-    shutil.copyfile(mini/"scripts"/name,tests/name)
-subprocess.run(["npm","ci","--ignore-scripts","--no-audit","--no-fund"],cwd=mini,check=True)
-shutil.copytree(mini/"node_modules/sax",tests.parent/"node_modules/sax")
-# The repository and its checkout are absent from the sandbox. All source and
-# relative fs reads resolve inside the verified, unpacked delivery project.
-run("docker","run","--rm","--network","none","--volume",str(tests.parent)+":/work:ro",
+fixtures = unpacked / "acceptance" / "wechat"
+run("docker","run","--rm","--network","none",
+    "--volume",str(unpacked/"wechat-project/miniprogram")+":/work/miniprogram:ro",
+    "--volume",str(fixtures/"scripts")+":/work/scripts:ro",
+    "--volume",str(fixtures/"node_modules")+":/work/node_modules:ro",
     "--workdir","/work","node:24-alpine","node","--test","scripts/verify-finance-journey.cjs",capture=False)
 record("paymentRecoveryPage","passed")
 
@@ -242,7 +244,7 @@ confirm_running(ref)
 assert query("SELECT balance FROM org_point_account WHERE org_id=118;")=="100"
 assert query("SELECT test_points FROM org_point_simulated_purchase WHERE org_id=118;")=="105"
 record("reviewedLegacy",{"issued":120,"reservedThenSpent":15,"formalRecharge":100,"formalRemaining":100,"testRemaining":105})
-probe=Path(__file__).with_name("WalletProbe.java")
+probe=unpacked/"acceptance/WalletProbe.java"
 libs=lab/"libs";libs.mkdir()
 with zipfile.ZipFile(unpacked/"platform.jar") as app:
     for name in app.namelist():
@@ -282,6 +284,12 @@ assert not fresh("ps","-aq")
 run("docker","run","-d","--name","paired-offline-mirror","--network","container:"+daemon,
     "--volume",str(unpacked)+":/delivery:ro","python:3.12-alpine","python3",
     "/delivery/deploy/platform/offline-registry.py","/delivery/offline-images")
+for attempt in range(20):
+    if subprocess.run(["docker","exec",daemon,"wget","-q","-O","/dev/null","http://127.0.0.1:5000/v2/"]).returncode == 0:
+        break
+    time.sleep(1)
+else:
+    raise RuntimeError("Offline registry failed to start")
 for pinned in offline_refs.values():
     fresh("pull","--platform","linux/amd64",pinned)
     fresh("image","inspect",pinned)

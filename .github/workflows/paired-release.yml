@@ -49,6 +49,15 @@ jobs:
           node node_modules/vite/bin/vite.js build --mode layout-release
       - name: Verify immutable package, failed migration recovery and healthy rollbacks
         run: python3 平台程序/script/release-rehearsal/run.py
+      - name: Diagnose fixture boot failure
+        if: failure()
+        shell: bash
+        run: |
+          for service in zhongshu-platform-b-api-1 zhongshu-platform-b-postgres-b-1 zhongshu-platform-b-redis-b-1 paired-empty-engine; do
+            if docker inspect "$service" --format '{{.Name}} {{.State.Status}} {{.State.ExitCode}}' 2>/dev/null; then
+              docker logs --tail 600 "$service" 2>&1 | grep -Ei 'Caused by:|APPLICATION FAILED|permission denied|no space left|fatal:|unhealthy|configuration.*required' | grep -Eiv 'password|secret|credential|token|jdbc:' | tail -12 || true
+            fi
+          done
       - name: Store verified package and evidence
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
