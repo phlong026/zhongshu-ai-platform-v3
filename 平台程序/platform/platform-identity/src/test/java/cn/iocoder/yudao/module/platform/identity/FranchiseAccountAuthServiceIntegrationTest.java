@@ -224,7 +224,10 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
                 "store", "boss", null, false, Set.of()));
         var before = storeProfile.get().getData();
         String taken = jdbc.queryForObject("SELECT name FROM system_dept WHERE id=?", String.class, other.orgId());
-        var duplicate = new StoreProfileController.Update(before.orgId(), before.version(), taken, before.ownerName(), address);
+        jdbc.update("UPDATE pf_franchise_account SET org_name=? WHERE account_id=?", "　"+taken+"　", other.accountId());
+        assertThat(service.matches(taken).items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
+                .containsExactly(other.accountId());
+        var duplicate = new StoreProfileController.Update(before.orgId(), before.version(), "　"+taken+"　", before.ownerName(), address);
         assertCode(() -> storeProfile.update(duplicate), 1_101_000_025);
         // A retired department can still reserve its account name through the unique index.
         jdbc.update("UPDATE system_dept SET deleted=1 WHERE id=?", other.orgId());
@@ -232,11 +235,12 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         assertThat(storeProfile.get().getData()).isEqualTo(before);
 
         var update = new StoreProfileController.Update(before.orgId(), before.version(),
-                "青松 建房（南宁店）", before.ownerName(), address);
+                "　青松建房（南宁店）　", before.ownerName(), address);
         var saved = storeProfile.update(update).getData();
         assertThat(saved.address()).isEqualTo(address);
         assertThat(saved.version()).isEqualTo(before.version() + 1);
-        for (String query : List.of(saved.name(), login)) {
+        assertThat(saved.name()).isEqualTo("青松建房（南宁店）");
+        for (String query : List.of(saved.name(), "　"+saved.name()+"　", login)) {
             assertThat(service.matches(query).items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
                     .containsExactly(account.accountId());
         }

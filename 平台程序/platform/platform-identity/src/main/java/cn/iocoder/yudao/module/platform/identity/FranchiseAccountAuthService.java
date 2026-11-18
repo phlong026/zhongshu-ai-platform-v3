@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.platform.org.AccountDisplay;
+import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
@@ -74,7 +75,7 @@ public class FranchiseAccountAuthService {
                     rs.getString("role_code"), rs.getString("brand"), rs.getString("province"), rs.getString("city"), rs.getString("area"), rs.getString("org_name")));
 
     public MatchResult matches(String query) {
-        String displayName = query == null ? "" : query.trim();
+        String displayName = FranchiseAccountNaming.cleanDisplayName(query);
         if (displayName.isBlank() || displayName.length() > 100 || displayName.indexOf('\0') >= 0) {
             return new MatchResult(List.of(), false);
         }
@@ -88,12 +89,12 @@ public class FranchiseAccountAuthService {
         }
 
         List<AccountRow> exactAliases = jdbc.query(ACTIVE_ACCOUNT_SELECT + """
-                        WHERE a.tenant_id=? AND ((a.account_type='BOSS' AND lower(a.org_name)=lower(?))
+                        WHERE a.tenant_id=? AND ((a.account_type='BOSS' AND lower(btrim(a.org_name,?))=lower(?))
                           OR lower(a.owner_name)=lower(?) OR EXISTS (SELECT 1 FROM pf_franchise_account_alias exact_alias
                           WHERE exact_alias.tenant_id=a.tenant_id AND exact_alias.account_id=a.account_id
                             AND exact_alias.alias=?))
                         ORDER BY a.login_name LIMIT 21
-                        """, ACCOUNT_ROW_MAPPER, tenantId, displayName, displayName, normalized);
+                        """, ACCOUNT_ROW_MAPPER, tenantId, FranchiseAccountNaming.DISPLAY_NAME_EDGE_SPACES, displayName, displayName, normalized);
         if (normalized == null || !exactAliases.isEmpty()) return matchResult(exactAliases);
 
         List<AccountRow> rows = jdbc.query(ACTIVE_ACCOUNT_SELECT + """

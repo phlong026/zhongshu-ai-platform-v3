@@ -14,6 +14,18 @@ import java.util.Set;
 /** 固定品牌和地区规则；拼音数据随制品发布，不依赖在线翻译或额外拼音引擎。 */
 @Component
 public class FranchiseAccountNaming {
+
+    /** ECMAScript trim characters, also bound to PostgreSQL btrim for historical display names. */
+    public static final String DISPLAY_NAME_EDGE_SPACES =
+            "\t\n\u000B\f\r \u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF";
+
+    public static String cleanDisplayName(String value) {
+        if (value == null) return "";
+        int start = 0, end = value.length();
+        while (start < end && DISPLAY_NAME_EDGE_SPACES.indexOf(value.charAt(start)) >= 0) start++;
+        while (end > start && DISPLAY_NAME_EDGE_SPACES.indexOf(value.charAt(end - 1)) >= 0) end--;
+        return value.substring(start, end);
+    }
     private static final Map<String, String> PROVINCES = Map.ofEntries(
             Map.entry("北京", "bj"), Map.entry("天津", "tj"), Map.entry("河北", "hb"),
             Map.entry("山西", "sx"), Map.entry("内蒙古", "nmg"), Map.entry("辽宁", "ln"),

@@ -36,7 +36,7 @@ public class StoreProfileController {
     }
 
     public record Profile(String orgId, String name, String ownerName, String address, long version, boolean editOwnerName) {}
-    public record Update(@NotBlank String orgId, @NotNull Long version, @NotBlank @Size(max=30) String name,
+    public record Update(@NotBlank String orgId, @NotNull Long version, @NotBlank String name,
                          @NotBlank @Size(max=20) String ownerName, @NotNull @Size(max=200) String address) {}
 
     private PostSnapshot boss() {
@@ -71,7 +71,9 @@ public class StoreProfileController {
         var post = boss();
         long tenant = TenantContextHolder.getRequiredTenantId();
         if (!Long.toString(post.orgId()).equals(input.orgId())) throw new ServiceException(409,"工作身份已切换，请重新打开");
-        String name = input.name().trim(), ownerName = input.ownerName().trim(), address = input.address().trim();
+        String name = FranchiseAccountNaming.cleanDisplayName(input.name());
+        if (name.isEmpty() || name.length() > 30) throw new ServiceException(400,"店名须为 1 至 30 个字符");
+        String ownerName = input.ownerName().trim(), address = input.address().trim();
         jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",tenant + ":ops-org:" + post.orgId());
         jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",tenant + ":store-name:" + name);
         var before = read(post,tenant);
@@ -79,8 +81,11 @@ public class StoreProfileController {
         if (!before.editOwnerName() && !before.ownerName().equals(ownerName)) throw new ServiceException(403,"仅主账号可修改本人姓名");
         if (Boolean.TRUE.equals(jdbc.queryForObject("""
                 SELECT EXISTS(SELECT 1 FROM system_dept d JOIN pf_org_unit o ON o.dept_id=d.id AND o.kind='ORG'
-                WHERE d.tenant_id=? AND d.deleted=0 AND d.name=? AND d.id<>?)
-                """,Boolean.class,tenant,name,post.orgId()))) throw exception(STORE_PROFILE_NAME_TAKEN);
+                WHERE d.tenant_id=? AND d.deleted=0 AND btrim(d.name,?)=? AND d.id<>?
+                UNION ALL SELECT 1 FROM pf_franchise_account a WHERE a.tenant_id=? AND a.account_type='BOSS'
+                AND btrim(a.org_name,?)=? AND a.org_id<>?)
+                """,Boolean.class,tenant,FranchiseAccountNaming.DISPLAY_NAME_EDGE_SPACES,name,post.orgId(),
+                tenant,FranchiseAccountNaming.DISPLAY_NAME_EDGE_SPACES,name,post.orgId()))) throw exception(STORE_PROFILE_NAME_TAKEN);
         if (!before.name().equals(name)) {
             jdbc.update("UPDATE system_dept SET name=?, update_time=now() WHERE tenant_id=? AND id=?",name,tenant,post.orgId());
             try {
