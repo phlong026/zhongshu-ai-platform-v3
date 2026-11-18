@@ -3,6 +3,8 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import time
+import urllib.error
 import urllib.request
 
 MEDIA = ", ".join(("application/vnd.oci.image.index.v1+json","application/vnd.oci.image.manifest.v1+json",
@@ -26,12 +28,24 @@ def write_offline_images(directory, images):
         def save(kind, oid):
             if oid in entries:
                 return
-            req=urllib.request.Request(base+kind+"/"+oid,headers=headers)
+            req=urllib.request.Request(base+kind+"/"+oid,headers={"Accept":MEDIA})
+            if "Authorization" in headers:
+                req.add_unredirected_header("Authorization", headers["Authorization"])
             path=directory/oid.split(":")[1]
-            with urllib.request.urlopen(req,timeout=120) as response:
-                mime=response.headers.get_content_type()
-                if not path.exists():
-                    with path.open("wb") as f: shutil.copyfileobj(response,f)
+            for attempt in range(4):
+                try:
+                    with urllib.request.urlopen(req,timeout=120) as response:
+                        mime=response.headers.get_content_type()
+                        if not path.exists():
+                            partial=path.with_suffix(".part")
+                            with partial.open("wb") as f: shutil.copyfileobj(response,f)
+                            partial.replace(path)
+                    break
+                except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                    code=getattr(error,"code",None)
+                    if attempt==3 or code in (401,403,404):
+                        raise RuntimeError(f"Unable to fetch {name}/{kind}/{oid} (HTTP {code})") from error
+                    time.sleep(2**attempt)
             with path.open("rb") as f:
                 if "sha256:"+hashlib.file_digest(f,"sha256").hexdigest()!=oid:
                     raise ValueError("Registry object digest mismatch")

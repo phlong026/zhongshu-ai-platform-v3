@@ -20,6 +20,9 @@ jobs:
   rehearse:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      FRONTEND_REV: 78cde5e3490ad43b81666cffaea6839c9404175e
+      BACKEND_REV: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -37,7 +40,6 @@ jobs:
           node-version: '24'
       - name: Build paired release and pre-spool baseline
         env:
-          FRONTEND_REV: 78cde5e3490ad43b81666cffaea6839c9404175e
           PREVIOUS_REV: ee7f20ff986b4fe0cc45d50b2e38c52a3d840a46
         run: |
           git worktree add --detach "$RUNNER_TEMP/previous" "$PREVIOUS_REV"

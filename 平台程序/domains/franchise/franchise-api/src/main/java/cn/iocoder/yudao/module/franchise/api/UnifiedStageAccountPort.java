@@ -14,6 +14,8 @@ public interface UnifiedStageAccountPort {
 
     String SIGNED_CONTRACT = "SELECT k.id FROM fr_sale_contract k WHERE NOT k.deleted AND k.status='SIGNED' ";
     String LATEST_CONTRACT = " ORDER BY k.id DESC LIMIT 1";
+    String PROJECT_CONTRACT = "COALESCE(p.sale_contract_id,(" + SIGNED_CONTRACT
+            + "AND k.company_id=p.company_id AND k.customer_id=p.customer_id" + LATEST_CONTRACT + "))";
 
     String STAGE_NET = """
         SELECT x.stage_id, x.company_id, SUM(x.amount_cents - COALESCE((

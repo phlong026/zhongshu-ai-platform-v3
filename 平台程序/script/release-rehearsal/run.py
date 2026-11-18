@@ -149,6 +149,11 @@ with tarfile.open(bundle,"w:gz",compresslevel=1) as archive:
 unpacked = scratch / "accepted"
 with tarfile.open(bundle) as archive:
     archive.extractall(unpacked,filter="data")
+manifest = json.loads((unpacked / "manifest.json").read_bytes())
+for field, variable in (("frontendCommit","FRONTEND_REV"), ("backendCommit","BACKEND_REV")):
+    if manifest[field] != os.environ[variable]:
+        raise ValueError(f"Unpacked {field} differs from the pinned release revision")
+    record(field, manifest[field])
 assert all(sha(unpacked/name)==digest for name,digest in manifest["files"].items())
 record("packageSha256",sha(bundle))
 (delivery/"SHA256SUMS").write_text(sha(bundle)+"  "+bundle.name+"\n")

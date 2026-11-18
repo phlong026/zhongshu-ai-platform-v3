@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -109,7 +110,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         }
 
         @Bean
-        UnifiedStageAccountPort unifiedStageAccountPort() {
+        UnifiedStageAccountPort unifiedStageAccountPort(JdbcTemplate jdbc) {
             return new UnifiedStageAccountPort() {
                 @Override
                 public Long activeContractId(PostSnapshot post, long customerId) {
@@ -119,6 +120,19 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 @Override
                 public long stageCollectedCents(PostSnapshot post, long contractId, String stage) {
                     return 0;
+                }
+
+                @Override
+                public List<StageBalance> stageBalances(PostSnapshot post, long contractId) {
+                    return jdbc.query("""
+                            SELECT s.stage,s.amount_cents,coalesce(sum(sr.amount_cents),0),
+                                   coalesce(sum((SELECT sum(g.amount_cents) FROM fr_fin_refund g
+                                       WHERE g.receipt_id=sr.receipt_id AND g.company_id=s.company_id
+                                         AND g.status='已核实' AND g.replaced_by_id IS NULL)),0)
+                            FROM fr_sale_payment_stage s LEFT JOIN fr_sale_stage_receipt sr ON sr.stage_id=s.id
+                            WHERE s.company_id=? AND s.contract_id=? GROUP BY s.stage,s.amount_cents
+                            """, (rs, i) -> new StageBalance(rs.getString(1), rs.getLong(2),
+                            rs.getLong(3)-rs.getLong(4), rs.getLong(4)), post.orgId(), contractId);
                 }
 
                 @Override
@@ -167,6 +181,8 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
                 + "create_time timestamptz NOT NULL DEFAULT now(), update_time timestamptz NOT NULL DEFAULT now())");
         // 其它测试类可能先建了 compat 表（无 customer_id），补列保证 stageFacts 可读
         jdbc.execute("ALTER TABLE fr_eng_project ADD COLUMN IF NOT EXISTS customer_id bigint NULL");
+        jdbc.execute("ALTER TABLE fr_eng_project ADD COLUMN IF NOT EXISTS sale_contract_id bigint NULL");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS fr_fin_receipt(id bigint PRIMARY KEY,company_id bigint NOT NULL)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_collection_term ("
                 + "company_id bigint NOT NULL, project_id bigint NOT NULL, stage varchar(16) NOT NULL,"
                 + "amount_cents bigint NOT NULL)");
@@ -186,6 +202,7 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_contract ("
                 + "id bigint PRIMARY KEY, company_id bigint NOT NULL, customer_id bigint NOT NULL,"
                 + "status varchar(16) NOT NULL)");
+        jdbc.execute("ALTER TABLE fr_sale_contract ADD COLUMN IF NOT EXISTS deleted boolean NOT NULL DEFAULT false");
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_payment_stage ("
                 + "id bigint PRIMARY KEY, company_id bigint NOT NULL, contract_id bigint NOT NULL,"
                 + "stage varchar(16) NOT NULL)");
@@ -193,6 +210,9 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_stage_receipt ("
                 + "id bigint PRIMARY KEY, company_id bigint NOT NULL, stage_id bigint NOT NULL,"
                 + "receipt_id bigint NOT NULL, amount_cents bigint NOT NULL)");
+        jdbc.execute("ALTER TABLE fr_sale_stage_receipt ADD COLUMN IF NOT EXISTS create_time timestamptz DEFAULT now()");
+        jdbc.execute("ALTER TABLE fr_fin_refund ADD COLUMN IF NOT EXISTS create_time timestamptz DEFAULT now(), "
+                + "ADD COLUMN IF NOT EXISTS update_time timestamptz DEFAULT now(), ADD COLUMN IF NOT EXISTS voided_at timestamptz");
     }
 
     // ===================== 主聚合口径 =====================
@@ -473,8 +493,34 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
 
         // 净额已补回，原签名仍需核对。老板保存新签名后恢复。
         assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
+        jdbc.update("UPDATE fr_sale_stage_receipt SET create_time='2026-11-14T00:00:00Z' WHERE stage_id=?",saleStage);
+        jdbc.update("UPDATE fr_fin_refund SET create_time='2026-11-14T01:00:00Z',update_time='2026-11-14T01:00:00Z' WHERE receipt_id=?",receipt);
+        var review = Map.of("receiptSignature",signature,"actorUserId",post.userId(),"stageNetCollectedCents",10000,
+                "evidenceRef","123","note","原退款及补收已核实","at","2026-11-16T12:00:00Z");
+        jdbc.update("UPDATE fr_perf_commission_release SET reconciliations=?::jsonb,update_time='2026-11-16T11:59:59Z' "
+                + "WHERE project_id=? AND company_id=?",JsonUtils.toJsonString(List.of(review)), project,orgId);
+        // A JSON note on its own cannot authorize payment.
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
+        assertThatThrownBy(() -> commissions.requirePayable(post,payable)).isInstanceOf(ServiceException.class);
+        jdbc.update("""
+                INSERT INTO pf_command_event(id,domain,aggregate_type,aggregate_id,revision,command,org_id,actor_user_id,
+                    actor_role_code,payload,payload_hash,occurred_at)
+                SELECT ?,'franchise','fr-perf-commission',id,5,'perf-commission-reconcile',company_id,?,
+                    'boss',?,repeat('0',64),'2026-11-16T12:00:01Z'
+                FROM fr_perf_commission_release WHERE project_id=? AND company_id=?
+                """,nextId(),post.userId(),JsonUtils.toJsonString(Map.of("projectId", project, "stage","SIGN_AFTER",
+                "note","原退款及补收已核实","evidenceRef","123")),project,orgId);
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
+        commissions.requirePayable(post,payable);
+        // A later equal refund and compensating receipt must block the same old review.
+        jdbc.update("INSERT INTO fr_fin_refund(company_id,receipt_id,amount_cents,status,create_time,update_time) "
+                + "VALUES(?,?,100,'已核实','2026-11-17T10:00:00Z','2026-11-17T10:00:00Z')",orgId,receipt);
+        jdbc.update("INSERT INTO fr_sale_stage_receipt(id,company_id,stage_id,receipt_id,amount_cents,create_time) "
+                + "VALUES(?,?,?,?,100,'2026-11-17T11:00:00Z')",nextId(),orgId,saleStage,nextId());
+        assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("1");
+        assertThatThrownBy(() -> commissions.requirePayable(post,payable)).isInstanceOf(ServiceException.class);
         jdbc.update("UPDATE fr_perf_commission_release SET receipt_signature=? WHERE project_id=? AND company_id=?",
-                signature + "|refunded:2000", project, orgId);
+                signature + "|refunded:2100", project, orgId);
         assertThat(bodyRows(export(post, MONTH)).get(0).get(8)).isEqualTo("0");
         jdbc.update("INSERT INTO fr_fin_refund (company_id,receipt_id,amount_cents,status,replaced_by_id) "
                 + "VALUES (?,?,1,'已核实',NULL)", orgId, receipt);

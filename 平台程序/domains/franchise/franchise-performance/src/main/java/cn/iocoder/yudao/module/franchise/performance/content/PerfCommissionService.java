@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.franchise.performance.content;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.franchise.api.PerformancePayablePort;
+import cn.iocoder.yudao.module.franchise.api.CommissionPaymentReviewPort;
+import cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionPolicyDO;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionPolicyMapper;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfCommissionReleaseDO;
@@ -31,7 +33,7 @@ import static cn.iocoder.yudao.module.franchise.performance.enums.FranchisePerfo
  * 合计−fr_fin_refund（关联已核实）；对账状态机五态（F15）。
  */
 @Service
-public class PerfCommissionService {
+public class PerfCommissionService implements CommissionPaymentReviewPort {
 
     public static final String AGGREGATE = "fr-perf-commission";
 
@@ -349,10 +351,8 @@ public class PerfCommissionService {
                 "SELECT amount_cents FROM fr_eng_collection_term WHERE company_id = ? AND project_id = ? AND stage = ?",
                 Long.class, post.orgId(), projectId, engStage);
         long required = termRows.isEmpty() ? 0 : termRows.get(0);
-        Long customerId = jdbc.queryForObject(
-                "SELECT customer_id FROM fr_eng_project WHERE id = ?", Long.class, projectId);
-        Long contractId = customerId == null ? null
-                : unifiedStages.activeContractId(post, customerId);
+        Long contractId = jdbc.queryForObject("SELECT " + UnifiedStageAccountPort.PROJECT_CONTRACT
+                + " FROM fr_eng_project p WHERE p.company_id=? AND p.id=?", Long.class, post.orgId(), projectId);
         long received;
         List<Long> receiptIds = new ArrayList<>();
         List<String> signatureParts = new ArrayList<>();
@@ -500,9 +500,7 @@ public class PerfCommissionService {
                         "SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_payment "
                                 + "WHERE payable_id = ? AND status = '已核实'", Long.class, rel.getPayableId());
             }
-            boolean reviewDue = rel != null && (!facts.eligible
-                    || !sameStageSignature(facts.signature, rel.getReceiptSignature())
-                    || !Objects.equals(rel.getPolicyVersion(), policy.getVersion()));
+            boolean reviewDue = rel != null && needsReview(facts, rel, policy.getVersion());
             String status;
             if (amount <= 0) {
                 status = "未约定"; // R2 P2-9：0=未约定期优先显示（无 release、金额及已付均为零时不显示已付清）
@@ -550,6 +548,41 @@ public class PerfCommissionService {
         }
         view.put("stages", stages);
         return view;
+    }
+
+    private boolean needsReview(StageFacts facts, FrPerfCommissionReleaseDO release, Integer policyVersion) {
+        if (!facts.eligible || !Objects.equals(release.getPolicyVersion(), policyVersion)) return true;
+        String saved = release.getReceiptSignature();
+        if (sameStageSignature(facts.signature, saved)) return false;
+        if (!LegacyCommissionReview.possible(facts.signature, saved)) return true;
+        String proof = jdbc.queryForObject("SELECT (" + LegacyCommissionReview.EVIDENCE
+                        + ") FROM fr_perf_commission_release r WHERE r.company_id=? AND r.id=?",
+                String.class, release.getCompanyId(), release.getId());
+        return !LegacyCommissionReview.covers(facts.signature, saved, proof);
+    }
+
+    @Override
+    @Transactional
+    public void requirePayable(PostSnapshot post, long payableId) {
+        var release = releases.lockByPayable(post.orgId(), payableId);
+        if (release == null) throw exception(COMMISSION_RELEASE_INVALID);
+        var policy = requirePolicy(post, release.getProjectId());
+        String stage = requireStage(release.getStage());
+        // Serialise with finance refund registration, including refunds on engineering-only receipts.
+        jdbc.queryForList("""
+            SELECT f.id FROM fr_fin_receipt f WHERE f.company_id=? AND f.id IN (
+                SELECT c.receipt_id FROM fr_eng_collection c WHERE c.company_id=? AND c.project_id=? AND c.stage=?
+                UNION ALL SELECT sr.receipt_id FROM fr_eng_project p JOIN fr_sale_payment_stage s
+                ON s.company_id=p.company_id AND s.contract_id=
+            """ + UnifiedStageAccountPort.PROJECT_CONTRACT + """
+                JOIN fr_sale_stage_receipt sr ON sr.stage_id=s.id AND sr.company_id=s.company_id
+                WHERE p.company_id=? AND p.id=? AND s.stage=?
+            ) ORDER BY f.id FOR UPDATE
+            """, Long.class, post.orgId(), post.orgId(), release.getProjectId(), stage,
+                post.orgId(), release.getProjectId(), stage);
+        if (needsReview(stageFacts(post, release.getProjectId(), stage), release, policy.getVersion())) {
+            throw exception(COMMISSION_NOT_ELIGIBLE, "回款或提成规则已变化，请先由老板核对原应付");
+        }
     }
 
     /** P1-5：归属人本组织在岗校验（SystemDirectory 真源） */

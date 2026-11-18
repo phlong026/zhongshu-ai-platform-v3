@@ -47,6 +47,7 @@ public class FinPaymentService {
     private cn.iocoder.yudao.module.franchise.finance.dal.FinTxnNoMapper transactionNumbers;
     @Resource private FinTransactionIdentityGuard transactionIdentity;
     @Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Resource private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.CommissionPaymentReviewPort> commissionReviews;
 
     public record PayableCommand(long companyId, Long projectId, String stage, long totalCents,
                                  String recipient, String agreementRef) {
@@ -148,6 +149,12 @@ public class FinPaymentService {
             throw exception(PAYABLE_NOT_FOUND);
         }
         if ("已作废".equals(payable.getStatus())) throw exception(PAYABLE_VOIDED);
+        if ("performance".equals(payable.getStage()) && payable.getAgreementRef() != null
+                && payable.getAgreementRef().startsWith("perf-commission:")) {
+            var review = commissionReviews.getIfAvailable();
+            if (review == null) throw exception(FIN_SOURCE_FORBIDDEN);
+            review.requirePayable(post, payable.getId());
+        }
         if(cmd.amountCents()<=0) throw exception(PAYMENT_EXCEED_PAYABLE);
         String funding=cmd.fundingType()==null?"COMPANY":cmd.fundingType();
         if(!java.util.Set.of("COMPANY","EMPLOYEE").contains(funding)) throw exception(FIN_SOURCE_FORBIDDEN);

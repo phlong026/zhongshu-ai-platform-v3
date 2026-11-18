@@ -9,6 +9,12 @@ import java.util.List;
 @Mapper
 public interface FrPerfCommissionReleaseMapper extends BaseMapperX<FrPerfCommissionReleaseDO> {
 
+    default FrPerfCommissionReleaseDO lockByPayable(long companyId, long payableId) {
+        return selectOne(new LambdaQueryWrapperX<FrPerfCommissionReleaseDO>()
+                .eq(FrPerfCommissionReleaseDO::getCompanyId, companyId)
+                .eq(FrPerfCommissionReleaseDO::getPayableId, payableId).last("FOR UPDATE"));
+    }
+
     default FrPerfCommissionReleaseDO selectByProjectAndStage(long companyId, long projectId, String stage) {
         List<FrPerfCommissionReleaseDO> rows = selectList(new LambdaQueryWrapperX<FrPerfCommissionReleaseDO>()
                 .eq(FrPerfCommissionReleaseDO::getCompanyId, companyId)
