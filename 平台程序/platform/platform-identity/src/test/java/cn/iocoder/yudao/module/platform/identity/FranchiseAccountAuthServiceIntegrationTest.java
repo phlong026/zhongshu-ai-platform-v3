@@ -125,7 +125,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     void setUp() {
         tenantId = IDS.incrementAndGet();
         TenantContextHolder.setTenantId(tenantId);
-        createSystemUsersIfAbsent();
+        createSystemUsersIfAbsent(jdbc);
         jdbc.update("INSERT INTO pf_org_type(code,domain,name) VALUES (?,?,?) ON CONFLICT DO NOTHING",
                 "franchise-auth-test", "test", "加盟商登录测试");
         jdbc.update("INSERT INTO pf_post_template(role_code,domain,org_types,line,lead,inherits_role_code) "
@@ -529,7 +529,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         return users.isEmpty() ? null : users.get(0);
     }
 
-    private void createSystemUsersIfAbsent() {
+    static void createSystemUsersIfAbsent(JdbcTemplate jdbc) {
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS system_users (
                   id BIGINT PRIMARY KEY, username VARCHAR(30) NOT NULL, password VARCHAR(100) NOT NULL,
