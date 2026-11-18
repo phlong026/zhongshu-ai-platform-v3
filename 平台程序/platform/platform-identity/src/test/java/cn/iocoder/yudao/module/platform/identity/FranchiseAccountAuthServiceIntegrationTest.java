@@ -188,6 +188,17 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     }
 
     @Test
+    void findsCurrentStoreAndOwnerNamesAfterAnEditWithoutChangingTheLogin() {
+        Account account = createAccount(tenantId, IDS.incrementAndGet(), "hjmz-profile-rename", 0, "ACTIVE", false);
+        jdbc.update("UPDATE pf_franchise_account SET org_name=?, owner_name=? WHERE tenant_id=? AND account_id=?",
+                "青松建房中心", "方明", tenantId, account.accountId());
+        for (String query : List.of("青松建房中心", "方明", "hjmz-profile-rename")) {
+            assertThat(service.matches(query).items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
+                    .containsExactly(account.accountId());
+        }
+    }
+
+    @Test
     void formalExactWinsThenAliasExactCanReturnMultipleBeforePrefixSearch() {
         Account base = createAccount(tenantId, IDS.incrementAndGet(), "hjmz-jxnc-gaoxin", 0, "ACTIVE", false);
         addAlias(base, "jxnc-gaoxin");
