@@ -99,7 +99,7 @@ jobs:
         run: >-
           mvn -B -ntp -f 平台程序/pom.xml
           -pl yudao-platform-server -am
-          -Dtest=SixRoleCommissionIntegrationTest,PerfFinanceWorkbenchIntegrationTest,FranchiseBusinessMessagesTest,MessageCenterReadSnapshotIntegrationTest,FranchiseAccountAuthServiceIntegrationTest,StaffWechatLoginIntegrationTest,TrainingIntegrationTest,EngMaterialAndPlanGuardIntegrationTest,PublicCaseImageServiceTest,DesignAccessPublicCaseRoutingTest,FileServiceImplTest,LocalAssetServiceTest,CosObjectStorageAdapterTest,LocalAssetWiringTest
+          -Dtest=SixRoleCommissionIntegrationTest,PerfFinanceWorkbenchIntegrationTest,FranchiseBusinessMessagesTest,MessageCenterReadSnapshotIntegrationTest,FranchiseAccountAuthServiceIntegrationTest,StaffWechatLoginIntegrationTest,TrainingIntegrationTest,EngMaterialAndPlanGuardIntegrationTest,PublicCaseImageServiceTest,DesignAccessPublicCaseRoutingTest,FileServiceImplTest,LocalAssetServiceTest,CosObjectStorageAdapterTest,LocalAssetWiringTest,EngProgressCameraIntegrationTest,EngProgressTest,PerfCommissionUnifiedBalanceTest,ContentTaskResultSweepTest
           -Dsurefire.failIfNoSpecifiedTests=false
           -Dplatform.test.jdbc.url=jdbc:postgresql://127.0.0.1:5432/postgres
           -Dplatform.test.jdbc.username=postgres
