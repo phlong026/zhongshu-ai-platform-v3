@@ -12,7 +12,7 @@ protectedPage({
   onLoad(options) {
     this._type = ['projects','favorites'].includes(options.type) ? options.type : null;
     if (!this._type) { this.setData({ error: '记录类型无效，请从「我的」重新进入' }); return; }
-    this.setData({ title: view.titles[this._type], canDelete: this._type === 'projects',
+    this.setData({ title: options.from==='tasks'&&this._type==='projects'?'设计任务':view.titles[this._type], canDelete: this._type === 'projects',
       emptyText: ({ projects: '还没有方案，完成设计后会自动保留在这里', submissions: '还没有投稿，可从已完成的方案提交审核', favorites: '还没有收藏，去户型详情收藏喜欢的设计', orders: '还没有充值订单', points: '还没有点数变动，充值或生成后会记录在这里' })[this._type] });
   },
   onShow() { if (this._type) this.reload(); },

@@ -13,7 +13,7 @@
 
 .account-font{font-family:var(--zs-font-family)}.account-font .title{letter-spacing:0}.account-font .subtitle{font-weight:400}
 
-.header-subpage{position:fixed;top:0;left:0;right:0;z-index:100}
+.header-subpage,.header-fixed{position:fixed;top:0;left:0;right:0;z-index:100}
 
 .header-action{position:fixed;top:0;left:0;right:0;z-index:100}
 .action-row{height:96rpx;min-height:44px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center}

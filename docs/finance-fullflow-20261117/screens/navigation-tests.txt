@@ -1,0 +1,41 @@
+✔ boss: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (3.0582ms)
+✔ owner: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (0.298ms)
+✔ sales: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (0.2191ms)
+✔ sales-lead: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (0.1565ms)
+✔ engineer: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (0.2964ms)
+✔ project-manager: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (0.1662ms)
+✔ finance: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (0.1758ms)
+✔ finance-lead: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (0.1206ms)
+✔ hq-design-admin: 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页 (0.1563ms)
+✔ boss: 旧入口 /pages/admin/profile/index 单向回到原生页 (1.17ms)
+✔ boss: 旧入口 /pages/account/sales/index 单向回到原生页 (0.2291ms)
+✔ owner: 旧入口 /pages/admin/profile/index 单向回到原生页 (0.1245ms)
+✔ owner: 旧入口 /pages/account/sales/index 单向回到原生页 (0.0983ms)
+✔ sales: 旧入口 /pages/admin/profile/index 单向回到原生页 (0.1039ms)
+✔ sales: 旧入口 /pages/account/sales/index 单向回到原生页 (0.0967ms)
+✔ guest: 旧入口 /pages/admin/profile/index 单向回到原生页 (1.7286ms)
+✔ guest: 旧入口 /pages/account/sales/index 单向回到原生页 (0.0986ms)
+✔ boss: 连续往返与重复点击当前我的项，不累积页面或再次重定向 (1.7139ms)
+✔ owner: 连续往返与重复点击当前我的项，不累积页面或再次重定向 (0.9723ms)
+✔ sales: 连续往返与重复点击当前我的项，不累积页面或再次重定向 (1.3222ms)
+✔ 游客直达我的显示登录引导，不触发资料请求 (0.112ms)
+✔ 门店登录后加盟商服务的两个入口仍直达对应展示页 (0.2018ms)
+✔ /pages/admin/profile/index: 兼容入口跳转失败时提示重试并记录错误 (0.2689ms)
+✔ /pages/account/sales/index: 兼容入口跳转失败时提示重试并记录错误 (0.0875ms)
+✔ boss: home() 直达岗位首页，不经中转 tab 二次导航 (0.5932ms)
+✔ owner: home() 直达岗位首页，不经中转 tab 二次导航 (0.0659ms)
+✔ finance: home() 直达岗位首页，不经中转 tab 二次导航 (0.048ms)
+✔ engineer: home() 直达岗位首页，不经中转 tab 二次导航 (0.0403ms)
+✔ hq-design-admin: home() 直达岗位首页，不经中转 tab 二次导航 (0.0331ms)
+✔ sales: home() 直达岗位首页，不经中转 tab 二次导航 (0.0301ms)
+✔ 无 API 会话：home() 保持 switchTab 本地首页 (0.0632ms)
+✔ 我的页未读数响应带会话守卫：换会话后迟到响应不回写旧角标 (3.6808ms)
+✔ 未知岗位 roleCode：workbench-nav 回退本地导航并告警一次 (0.3404ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 79.5074

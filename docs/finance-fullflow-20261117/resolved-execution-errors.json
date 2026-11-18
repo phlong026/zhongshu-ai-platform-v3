@@ -1,0 +1,42 @@
+[
+  {
+    "name": "前期账本流程异常",
+    "passed": false,
+    "message": "Missing button 口径",
+    "resolved": true,
+    "category": "自动化选择器",
+    "explanation": "调整测试为当前账本页面入口；前期收款、修订、关联和抵扣链路续跑通过。"
+  },
+  {
+    "name": "付款报销流程异常",
+    "passed": false,
+    "message": "Missing button[data-id=\"undefined\"]",
+    "resolved": true,
+    "category": "自动化字段映射",
+    "explanation": "报销接口使用payable_id，测试脚本改为读取实际字段；设计费垫付、分次报销与归还链路通过。"
+  },
+  {
+    "name": "费用与更正流程异常",
+    "passed": false,
+    "message": "correction must close original detail overlay\n\ntrue !== false\n",
+    "resolved": true,
+    "category": "产品缺陷 F04",
+    "explanation": "退款更正仍保留旧详情弹层，已修改页面状态切换；两轮修复后更正提交与返回检查通过。"
+  },
+  {
+    "name": "修复及导航复测异常",
+    "passed": false,
+    "message": "Cannot read properties of null (reading 'tap')",
+    "resolved": true,
+    "category": "自动化组件生命周期",
+    "explanation": "月份确认后组件重建，测试重新获取组件再操作；月份确认、取消与历史月检查通过。"
+  },
+  {
+    "name": "最终四端验收异常",
+    "passed": false,
+    "message": "Missing button 登记付款",
+    "resolved": true,
+    "category": "自动化显示格式、会话与渲染等待",
+    "explanation": "先修正工程金额的千分位格式断言；最终版本复测时会话到期，重新登录取得会话；账本返回后的按钮在异步刷新完成后出现，测试增加元素等待。继续复测首页入口、收付款返回及四岗位页面通过。"
+  }
+]

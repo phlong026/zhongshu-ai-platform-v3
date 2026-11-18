@@ -48,8 +48,8 @@ function paymentCopies(customers, actor, reads, checkout) {
       userId: actor.userId,
       personId: actor.personId || actor.staffId,
       type: '业务',
-      title: '设计费模拟支付已完成',
-      description: `${customer.name}项目按 ${order.area}㎡ × ${money(order.rateCents)}/㎡ 计费，已通过${channel}模拟一次性支付 ${money(order.amountCents)}，已同步门店与总部财务。`,
+      title: '付款登记完成（模拟）',
+      description: `${customer.name}项目按 ${order.area}㎡ × ${money(order.rateCents)}/㎡ 计费，已完成${channel}模拟付款登记 ${money(order.amountCents)}，已同步门店与总部财务。`,
       date: localTime(order.paidAt),
       read: reads.has(id),
       route: 'messages',
@@ -94,7 +94,7 @@ function list(state, options = {}) {
         description: dispatched
           ? `${customer.name}项目本版成果已登记下发，可查看办理记录。`
           : checkout.is(customer)
-            ? `${customer.name}项目设计费已一次性模拟支付，可上传并下发正式图纸。`
+            ? `${customer.name}项目设计费已完成一次性模拟付款登记，可上传并下发正式图纸。`
             : `${customer.name}项目首尾款已由总部财务确认到账，可登记下发正式图纸。`,
         date: localTime(release.confirmedAt || customer.businessFlow.completed.at),
         read: reads.has(id),

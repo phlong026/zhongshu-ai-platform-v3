@@ -1,0 +1,52 @@
+/**
+ * 加盟协同域 · 设计赋能接入层（B2 板块 A，对应后端 /franchise/design/**）。
+ * 代理 C 端设计能力给 B 端员工；写命令透传 Idempotency-Key 给 design 自带幂等。
+ */
+
+/** 灵感库列表（游标分页，±1m 尺寸筛选）{styleCode?, floorCount?, faceWidth?, depth?, keyword?, cursor?, limit?} */
+
+/** 风格筛选项 */
+
+/** 案例详情 */
+
+/** A 公开案例图片：由 B 验证图片属于该案例后换取短链，与 B 生成素材分开。 */
+
+/** 收藏/取消（保存在 B，按员工及组织隔离） */
+
+/** 收藏列表 */
+
+/** 上传票据 {assetType:'USER_SKETCH', mimeType, sizeBytes, sha256} → {assetId, uploadUrl}（COS=原始字节 PUT；local=dev 通道） */
+
+/** 完成上传（首次触发审核；终态重放=幂等读）→ {assetId, uploadStatus, rejectedReason?} */
+
+/** 设计候选/结果短期URL（remote固定由能力方读取；B输入预览用franchise/assets）→ {downloadUrl, expiresAt?} */
+
+/** 创建项目（FLAT 线路禁参考/草图；SELF_UPLOAD+FLAT 纯文本输入）→ {projectId, replayed} */
+
+/** 项目列表；customerId 桥接过滤（先 CRM 可读校验） */
+
+/** 详情；jobId 触发拉式晋升（allowedActions 白名单） */
+
+/** 平面任务（无 prompt——需求在创建项目时冻结；服务端内聚取价）{count, resolution, orientation} */
+
+/** 立面任务 {count, resolution, orientation, styleCode, roofType, material, color}（全字段参与指纹） */
+
+/** AI 任务轮询（job.userId 属主校验）→ {jobId, status, acceptedCount, progress, phase, allowedActions} */
+
+/** 请求取消生成任务（QUEUED/RUNNING/VALIDATING → CANCEL_REQUESTED；退点随结算）→ AiJobView */
+
+/** 补充需求 AI 润色 {note, line} → {polished}（限流：10 次/分·100 次/日） */
+
+/** 选定平面候选 {jobId, candidateId} → {resultVersionId?, version?, selectionSaved, replayed} */
+
+/** 选定立面候选 */
+
+/** 结果版本列表 */
+
+/** 调整请求 {reason(必填≤500), configUpdates?, count?} → {requestId, newJobId, replayed} */
+
+/** 回写客户方案 → {schemeId, version, replayed} */
+
+/** 区间规则元数据（三元组选择）→ {ruleVersionId, lowCentsPerSqm, highCentsPerSqm} 或 null */
+
+/** 快速预算（buildingArea 整数 1-10000）→ {estimateId, totalLowCents, totalHighCents, ruleVersionId, disclaimer} */

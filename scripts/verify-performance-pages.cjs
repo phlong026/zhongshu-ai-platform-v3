@@ -146,7 +146,7 @@ ok('commission 页幂等键贯穿（R2 P2-5 键保存+R3 上下文绑定：切�
 const ownerSrc = read('miniprogram/pages/admin/owner-page.js');
 ok('owner-page platSummary 缓存绑定 period+postId（Codex P2-14）',
   ownerSrc.includes('platSummaryKey') && ownerSrc.includes('cacheKey'));
-ok('owner-page 降级本地（P.build 保留）', ownerSrc.includes('P.build(desk'));
+ok('owner-page 未登录显示错误态，不回退本地演示账簿', !ownerSrc.includes('P.build(desk') && ownerSrc.includes("if (!PP.online())") && ownerSrc.includes("error:'请先登录后端账号'"));
 
 console.log('[4] 红线扫描');
 const pfSrc = read('miniprogram/utils/platform-performance.js');

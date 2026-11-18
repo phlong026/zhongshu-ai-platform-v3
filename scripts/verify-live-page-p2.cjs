@@ -11,6 +11,7 @@ function page(file, modules, wx = {}) {
     require(id) {
       if (id==='../../utils/learning-catalog')return require('../miniprogram/utils/learning-catalog');
       if (id in modules) return modules[id];
+      if (id==='./platform-messages-page')return require('../miniprogram/pages/account/platform-messages-page');
       throw Error('Unexpected module ' + id);
     },
     wx, console, Date, Promise, setTimeout, clearTimeout,

@@ -1,7 +1,7 @@
 <template name="collection-commission">
   <view wx:if="{{canEditPolicy}}" class="owner-card">
-    <view class="owner-heading"><text>项目回款提成</text></view>
-    <text class="owner-note">老板确认固定总额及归属人；开工款、封顶款净实收分别足额后解锁一半。退款或冲正后暂停未付，已付差额只列入人工核对。</text>
+    <view class="owner-heading"><text>设置提成</text></view>
+    <text class="owner-note">确认提成总额与归属人，阶段款收齐后由财务办理。</text>
     <picker range="{{commissionProjects}}" range-key="name" value="{{commissionProjectIndex}}" bindchange="commissionProject"><view class="ops-field">项目：{{commissionProjects[commissionProjectIndex].name||'请选择项目'}}</view></picker>
     <picker range="{{commissionStaff}}" range-key="name" value="{{commissionStaffIndex}}" bindchange="commissionStaff"><view class="ops-field">提成归属：{{commissionStaff[commissionStaffIndex].name||'请选择在岗人员'}}</view></picker>
     <input class="ops-field" type="digit" data-key="amount" value="{{commissionForm.amount}}" placeholder="已确认提成总额（元）" bindinput="commissionInput"/>
@@ -10,14 +10,20 @@
     <button class="ops-check" bindtap="commissionToggle">{{commissionForm.checked?'☑':'☐'}} 已核对项目、固定总额、归属人和依据</button>
     <button class="owner-primary owner-save commission-save" data-action="commission-policy" bindtap="commissionAction" loading="{{busy}}" disabled="{{busy}}">保存提成规则</button>
   </view>
-  <view wx:else class="owner-card"><view class="owner-heading"><text>项目回款提成</text><text class="owner-badge">只读</text></view><text class="owner-note">老板确认提成，财务在阶段款收齐后办理付款。</text></view>
-  <view wx:for="{{commissionRows}}" wx:key="id" class="owner-card">
-    <view class="owner-heading"><text>{{item.project}}</text></view>
-    <text class="owner-name">固定总额 {{item.totalText}} · 归属 {{item.assignee}}</text>
-    <view wx:for="{{item.stages}}" wx:for-item="stage" wx:key="stage" class="owner-row">
-      <view class="owner-grow"><text class="owner-name">{{stage.label}} · {{stage.status}}</text><text class="owner-muted">阶段应收 {{stage.requiredText}} · 净实收 {{stage.receivedText}}</text><text class="owner-muted">本期提成 {{stage.amountText}} · 已付 {{stage.paidText}} · 未付 {{stage.outstandingText}}</text><text wx:if="{{stage.reason}}" class="commission-reason {{stage.reviewDue?'warning':''}}">{{stage.reason}}</text></view>
+  <view wx:else class="commission-intro"><text>提成规则由老板设置</text><text class="owner-badge">规则只读</text></view>
+  <view wx:for="{{commissionRows}}" wx:key="projectId" class="owner-card commission-card {{item.noPolicy?'commission-unset':''}}">
+    <view class="commission-project-heading"><text>{{item.project}}</text><text wx:if="{{item.noPolicy}}" class="commission-state">待设置</text></view>
+    <block wx:if="{{!item.noPolicy}}">
+    <view class="commission-policy"><view><text class="commission-label">提成总额</text><text class="commission-total">{{item.totalText}}</text></view><text class="commission-assignee">归属 · {{item.assignee||'待确认'}}</text></view>
+    <view wx:for="{{item.stages}}" wx:for-item="stage" wx:key="stage" class="commission-stage">
+      <view class="commission-stage-heading"><text>{{stage.label}}</text><text class="commission-state {{stage.reviewDue?'warning':''}}">{{stage.status}}</text></view>
+      <view class="commission-stage-amount"><text>本期提成</text><text>{{stage.amountText}}</text></view>
+      <view class="commission-money-grid"><view><text class="commission-label">已付</text><text class="commission-money">{{stage.paidText}}</text></view><view><text class="commission-label">未付</text><text class="commission-money">{{stage.outstandingText}}</text></view></view>
+      <view class="commission-collection"><text>阶段应收 {{stage.requiredText}}</text><text>净实收 {{stage.receivedText}}</text></view>
+      <text wx:if="{{stage.reason}}" class="commission-reason {{stage.reviewDue?'warning':''}}">{{stage.reason}}</text>
       <view class="commission-actions"><button wx:if="{{stage.canRelease}}" class="owner-link" data-action="commission-release" data-id="{{item.projectId}}" data-stage="{{stage.stage}}" data-version="{{item.version}}" bindtap="commissionAction">生成应付</button><button wx:if="{{stage.canPay}}" class="owner-link" data-payable="{{stage.payableId}}" bindtap="commissionPay">登记付款</button><button wx:if="{{stage.canReconcile}}" class="owner-link" data-action="commission-reconcile" data-id="{{item.projectId}}" data-stage="{{stage.stage}}" data-version="{{item.version}}" bindtap="commissionAction">人工核对</button></view>
     </view>
+    </block>
   </view>
   <view wx:if="{{!commissionRows.length}}" class="owner-card owner-empty">暂无已确认的项目提成。</view>
 </template>

@@ -1,4 +1,4 @@
-<view class="commission-card order-context">
+<view wx:if="{{view==='submit'&&!submitPreview}}" class="commission-card order-context">
  <view class="commission-summary-top"><text class="commission-heading">{{orderCustomer.name||customer.name||'客户信息'}}</text><text wx:if="{{budgetReady}}" class="commission-chip">预算 V{{budgetBasis.version}}</text></view>
  <text wx:if="{{showCustomerPhone&&orderCustomer.phone}}" class="commission-muted">{{orderCustomer.phone}}</text>
  <text class="order-address">{{orderCustomer.address||customer.city||'建房地址待核对'}}</text>
@@ -26,7 +26,3 @@
  </view>
  <text wx:if="{{briefStorageError}}" class="commission-error">{{briefStorageError}}</text>
 </block>
-<view wx:if="{{submitPreview||view!=='submit'}}" class="commission-card brief-preview">
- <view class="commission-summary-top"><text class="commission-heading">{{submitPreview?'核对委托单':'设计需求'}}</text><button wx:if="{{submitPreview}}" class="brief-edit" bindtap="editBrief">修改</button></view>
- <text selectable>{{briefSummary}}</text>
-</view>

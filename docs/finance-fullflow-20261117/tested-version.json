@@ -1,0 +1,78 @@
+{
+  "capturedAt": "2026-11-17T19:32:42+08:00",
+  "environment": "微信开发者工具页面与接口验收；按用户最新要求不连接手机",
+  "files": [
+    {
+      "file": "miniprogram/pages/admin/finance-desk/design-finance.js",
+      "sha256": "e10dca28c92229c76b98fd4c4918b46157481099a0bc8b5d00b33f4952c1d187"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/finance-home.wxml",
+      "sha256": "8e6cf79bf80abca0f7488e6426be203d9d8ba44fed616af149463a28f457c4b2"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/index.js",
+      "sha256": "23a25a29e11d83cd18305b5d1ff33fc105c473c612d3b3b8d04aee4430d6d574"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/index.json",
+      "sha256": "ec3d399986040402af3d920a632cc6390288a3391a0dca23b54ff467014d3700"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/index.wxml",
+      "sha256": "a0900870a360571755d75f4cb1cc4ddd59305ebd2d66a193791e88f1871bc8a6"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/index.wxss",
+      "sha256": "d245d4e97f86bc43caaee01515cfd5b8be1c588e5dd702ddda229fe48851d7ca"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/journey-forms.wxml",
+      "sha256": "90024a79b34b2710e22594b499f8184aeaf65f3c35ddb6bb2c6e7416d324053d"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/journey.js",
+      "sha256": "1d30d8e91e3149594b41a1adc2801e5b598b9ea521df19bcc486c3702cf9449c"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/journey.wxml",
+      "sha256": "2dc84a7b705907e6f3cab659143c4594b96299545913819b1c926b84d4f97b2c"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/platform-actions.js",
+      "sha256": "44ed6aef9664edbc593675de77be6bd4d785c0a1038b1404357b5ae577f45ce6"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/project-books.wxml",
+      "sha256": "99e9bf814951be4583fa7e1867a313b2ffbe7e2f8d983c62237cf785093bbc95"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/receipt-revision.wxml",
+      "sha256": "12d247a0bc97927e43971fbdda262a550bb1f12a230853ce7c9d1cad861bad9b"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/workbench.js",
+      "sha256": "b14bf1b4688c5d19c5ae4fc4e4753c24a3c3f1c928ae62338c57df57b95463c3"
+    },
+    {
+      "file": "miniprogram/pages/admin/finance-desk/workbench.wxml",
+      "sha256": "f2846d31ab38e18c0572a54e6655f2422eb1b6857533c077237bfdb9f4b5739e"
+    },
+    {
+      "file": "miniprogram/utils/finance-keyboard.js",
+      "sha256": "f7d3248fc19153ac5ddf78e74227ab64cddeb97d452356b06fc9385252917197"
+    },
+    {
+      "file": "miniprogram/utils/finance-voucher.js",
+      "sha256": "e6307d6c0e37666c938186604ebcc8a2a28aa6f00f3b78121b9d1e76ae1e9e83"
+    },
+    {
+      "file": "miniprogram/api/finance.js",
+      "sha256": "c7156a06b6f1df8d8f595f23cd0cfd6e47313f7111f202c3ffc3fd655e881a52"
+    },
+    {
+      "file": "yudao-platform-server.jar",
+      "sha256": "abeec12c71d23789b8cca28507537c89f4c3a4e5ed1d4852af6c886d583c5ed1"
+    }
+  ]
+}

@@ -180,12 +180,14 @@ async function main() {
     '付款选项 label 含 id+日期可区分（R2 P2-2）');
 
   const wxml = read('miniprogram/pages/admin/finance-desk/index.wxml');
-  assert.equal(wxml.split('data-type="expense-refund"').length - 1, 2, '支出退回入口按钮两处卡片齐备');
-  assert.ok(wxml.includes("registerType==='expense-refund'?'支出退回'"), '表单标题含支出退回');
+  assert.equal(wxml.split('data-type="expense-refund"').length - 1, 1, '总部保留统一退回入口；加盟商沿原付款办理');
+  assert.ok(wxml.includes("registerType==='expense-refund'?'登记退款'"), '支出退回使用统一退款表单标题');
   assert.ok(wxml.includes('range="{{platformRegister.expenseRefundable}}"'), '付款单选择器绑定 expenseRefundable');
   assert.ok(wxml.includes('data-field="paymentId" bindchange="registerPick"'), 'picker 走 paymentId 字段');
-  assert.equal(wxml.split("registerForm.date||'请选择日期'").length - 1, 4, '退款/支出退回日期占位四处统一（批次#34 扩 client 退款）');
+  assert.equal(wxml.split("registerForm.date||'请选择日期'").length - 1, 2, '退款/支出退回日期占位四处统一（批次#34 扩 client 退款）');
 
+  assert.ok(read('miniprogram/pages/admin/finance-desk/project-books.wxml').includes('bindtap="refundBookEntry"'));
+  assert.ok(read('miniprogram/pages/admin/finance-desk/journey-forms.wxml').includes('journeyRefundOptions'));
   console.log('verify-finance-expense-refund: 行为层 A 14 断言 + 行为层 B 14 断言 + 静态层 14 断言 全部 PASS');
 }
 

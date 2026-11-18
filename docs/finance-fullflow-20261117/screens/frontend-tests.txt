@@ -1,0 +1,40 @@
+verify-finance-bank-confirm-idem ✔ 失败重试同键，成功/选择/组织/岗位变化换键
+✔ scripts\verify-finance-bank-confirm-idem.cjs (53.3691ms)
+verify-finance-correction-reconcile: 行为层 30 断言 + 静态层 20 断言 全部 PASS
+✔ scripts\verify-finance-correction-reconcile.cjs (102.7869ms)
+verify-finance-expense-refund: 行为层 A 14 断言 + 行为层 B 14 断言 + 静态层 14 断言 全部 PASS
+✔ scripts\verify-finance-expense-refund.cjs (54.1209ms)
+✔ task targets retain original records and display remaining payment instead of full agreement (17.5233ms)
+✔ home task opens original payment and returns to home; completed task never opens an empty form (3.1182ms)
+✔ cash listing matches company totals and excludes employee advances and personal refunds (0.2812ms)
+✔ cash search, month and direction preserve record identity (0.2034ms)
+✔ engineering uses company payment and snowflake identifiers survive selection (1.6021ms)
+✔ switching an existing payment form to manual creates exactly one active form and returns to the original book tab (1.5727ms)
+✔ receipt cancel and successful result preserve the project return destination (1.6379ms)
+✔ home and reimbursement entry returns do not inherit an earlier form origin (1.7334ms)
+✔ supplement, contract changes and allocation all restore the originating view (7.7337ms)
+✔ validation blocks missing source/account, excess payment and future dates without posting (1.5113ms)
+✔ pending owner declaration blocks a duplicate manual collection but leaves the form open (1.4314ms)
+✔ payment submission retains source and saves a useful result without creating another expense (3.899ms)
+✔ employee advance retains its original payment for a refund and returns to employee tab (1.8307ms)
+✔ receipt revision opens from a book and keeps the original tab, with return blocked while saving (11.4715ms)
+✔ photo/album and chat are available; photo keeps PNG filename (0.9533ms)
+✔ chat PDF retains its original filename even when temporary path has no extension (0.1367ms)
+✔ cancel source chooser and photo chooser leave existing voucher unchanged (0.114ms)
+✔ oversize files and unsupported chat documents are rejected (0.5678ms)
+✔ permission failure gives a useful message; empty selection is cancellation (0.1267ms)
+✔ cancelled payment form ignores a delayed file selection (0.4092ms)
+✔ changed payable and changed identity ignore a delayed file selection (0.1981ms)
+✔ newer selection wins if old chooser returns later (0.1326ms)
+✔ switching the original record while supplement chooser is open ignores the old file (1.7446ms)
+✔ keyboard opens and closes navigation without discarding amount or project (0.1904ms)
+✔ return closes keyboard and unload ignores late keyboard callbacks (0.1107ms)
+✔ voucher upload uses filename MIME for extensionless temporary PDF and retains real upload chain (0.6252ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 111.3129

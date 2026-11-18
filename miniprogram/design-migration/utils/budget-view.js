@@ -120,6 +120,8 @@ function budgetPage(category) {
     data: { title: category ? CATEGORY_NAMES[category] + '明细' : '参考预算', category: category || '', loading: false, error: '', saving: false, saveError: '', estimate: null,
       groups: [], categoryRows: [], basis: [], exact: false, expanded: {}, legacy: false, quoteLoading: false, quoteError: '', quoteStatusText: '', quote: null },
     onLoad(options) {
+      this._sourceCustomer = draftStore.id(options.customerId) || '';
+      this._sourceScope = draftStore.sessionScope();
       this._budgetId = draftStore.id(options.budgetId || options.estimateId);
       this._revisionId = options.revisionId == null ? null : draftStore.id(options.revisionId);
       if (!this._budgetId || (options.revisionId != null && !this._revisionId)) { this._budgetId = null; this.setData({ error: '预算编号无效，请从项目历史重新进入' }); return; }

@@ -52,12 +52,12 @@ test('分类接口格式错误显式失败，不改回硬编码分类',async()=>
  const c=moduleAt('utils/case-classifications.js',{'../../api/franchise/design':{cases:{styles:async()=>({unexpected:true})}},'./design-inputs':{FLOOR_OPTIONS:[]}});await assert.rejects(c.styles(),/风格分类/);
 });
 
-function archive({post, navigationFails=false}={}) {
+function archive({post, customer, navigationFails=false}={}) {
  let page, scope='session-a'; const calls=[], navigations=[], storage=new Map();
  const valid=value=>typeof value==='string'&&/^[1-9]\d{0,18}$/.test(value)?value:null;
  const deps={
   '../../utils/access':{protectedPage:p=>page=p},'../../utils/request':{captureSession:()=>scope,isSameSession:s=>!!s&&s===scope},
-  '../../../api/franchise/crm':{customers:{page:async()=>({list:[{id:'701',name:'测试客户'}],total:1})}},
+  '../../../api/franchise/crm':{customers:{get:async id=>{if(customer===false)throw Error('unavailable');return {customer:customer||{id,name:'原客户'}};},page:async()=>({list:[{id:'701',name:'测试客户'}],total:1})}},
   '../../../api/franchise/design':{projects:{saveToCustomer:async()=>({schemeId:'801',version:1})}},
   '../../../api/http':{post:(route,body,headers)=>{calls.push({route,body:clone(body),headers});return post?post():Promise.resolve({schemeId:'801',version:1});}},
   '../../utils/record-view':{id:valid},'../../utils/context':{scope:()=>scope},
@@ -93,4 +93,14 @@ test('打开委托失败后可直接重试导航，不重复归档',async()=>{
 });
 test('账号变更后的归档响应不打开旧客户的委托',async()=>{
  const w=deferred(),h=archive({post:()=>w.promise});await selectCommission(h);const run=h.page.save();h.changeSession();w.resolve({schemeId:'801',version:1});await run;assert.equal(h.navigations.length,0);assert.equal(h.page.data.saved,false);
+});
+
+test('从客户预算进入预选原客户，用户核对确认前不得归档',async()=>{
+ const h=archive();h.page.onLoad({budgetId:'901',revisionId:'902',next:'commission',customerId:'701'});await flush();await flush();
+ assert.equal(h.calls.length,0);assert.equal(h.navigations.length,0);assert.equal(h.page.data.selected,'701');
+ await h.page.save();assert.equal(h.calls.length,1);assert.equal(h.calls[0].body.customerId,'701');assert.equal(h.navigations.length,1);assert.match(h.navigations[0],/customerId=701/);
+});
+test('原客户不可访问时回到选择列表，不误归档给列表第一人',async()=>{
+ const h=archive({customer:false});h.page.onLoad({budgetId:'901',next:'commission',customerId:'702'});await flush();
+ assert.equal(h.calls.length,0);assert.equal(h.navigations.length,0);assert.equal(h.page.data.selected,'');assert.equal(h.page.data.rowCount,1);
 });

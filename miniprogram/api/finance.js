@@ -126,7 +126,7 @@ function readFileBase64(filePath) {
  * 基-1 票据链凭证上传（21 号 F1 / 14 文档 D-基1-2 切换）：FIN_VOUCHER（jpg/png/pdf ≤20MB 免审）
  * → ticket → B 代理/COS 原始字节 PUT → complete ACCEPTED → 返回 assetId（作 voucherFileId）。
  */
-async function uploadVoucher(filePath) {
+async function uploadVoucher(filePath, fileName) {
   const alive = http.sessionGuard();
   const requireAlive = () => { if (!alive()) throw new Error('身份已切换，请重新选择文件'); };
   const fsData = await readFileBase64(filePath);
@@ -135,12 +135,13 @@ async function uploadVoucher(filePath) {
   const stat = wx.getFileSystemManager().statSync(filePath);
   const sizeBytes = stat.size || bytes.byteLength;
   const sha = sha256Hex(bytes);
+  const mimeType = guessMime(fileName || filePath);
   const ticket = await http.post('/franchise/assets/upload-tickets',
-    { assetType: 'FIN_VOUCHER', mimeType: guessMime(filePath), sizeBytes, sha256: sha });
+    { assetType: 'FIN_VOUCHER', mimeType, sizeBytes, sha256: sha });
   requireAlive();
   const assetId = ticket.assetId;
   await BAsset.putTicketBytes({ http, uploadUrl: ticket.uploadUrl, bytes,
-    mimeType: guessMime(filePath), alive, label: '凭证' });
+    mimeType, alive, label: '凭证' });
   requireAlive();
   const completed = await http.post('/franchise/assets/' + assetId + '/complete');
   requireAlive();

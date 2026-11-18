@@ -3,7 +3,7 @@ function checkVoice(path, size, alive = () => true) {
 if (Number(size) > 20 * 1024 * 1024) return Promise.reject(Error('声音样本须在20MB以内'));
 return new Promise((resolve, reject) => {
 const audio = wx.createInnerAudioContext(); let done = false, retry;
-const finish = error => { if (done) return; done = true; clearTimeout(timeout); clearTimeout(retry); audio.destroy(); error ? reject(error) : resolve(); };
+const finish = error => { if (done) return; done = true; clearTimeout(timeout); clearTimeout(retry); const duration=Number(audio.duration)||0;audio.destroy(); error ? reject(error) : resolve({duration}); };
 const check = () => {
 if (done) return;
 if (!alive()) return finish({ cancelled: true });

@@ -15,6 +15,8 @@ function libraryHarness() {
   vm.runInNewContext(fs.readFileSync(path.join(root, 'miniprogram/design-migration/pages/library/index.js'), 'utf8'), {
     wx: { showToast() {} },
     require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (id.endsWith('/navigation') || id.endsWith('/assets')) return {};
       if (id.endsWith('/design-case-images')) return { watch() {} };
       if (id.endsWith('/context')) return { getApp: () => ({}) };
@@ -76,16 +78,21 @@ test('catalog failure from an old session cannot overwrite the current page', as
 function creationHarness() {
   const state = { scope: 'creation-test-' + (++creationHarnessId), generation: 1 }, requests = [];
   let definition, clipboard;
+  const storage=new Map(),wx={getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),showToast(){},getClipboardData(options){clipboard=options;}};
+  const cache={exports:{}};vm.runInNewContext(fs.readFileSync(path.join(root,'miniprogram/utils/creation-link-draft.js'),'utf8'),{module:cache,require:p=>require('../miniprogram/utils/'+p.slice(2)),wx,Uint8Array,unescape,encodeURIComponent});
   vm.runInNewContext(require('./page-definition-source.cjs')(root,'miniprogram/pages/creation/index.js'), {
     Page(value) { definition = value; }, Date, Math, Promise,
-    wx: { getStorageSync() {}, showToast() {}, getClipboardData(options) { clipboard = options; } },
+    wx,
     require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (id === '../../utils/creation') return { assets: {} };
       if (id === '../../utils/studio') return { guard: () => true, scope: () => state.scope,
         scopedKey: key => key, read: () => ({}), recentItems: () => [] };
       if (id === '../../utils/storage-keys') return { creationDraft: 'test-draft' };
-      if (id === '../../utils/creation-link-draft') return require('../miniprogram/utils/creation-link-draft');
-      if (id === '../../api/http') return { token: () => 'test-session', sessionGeneration: () => state.generation,
+      if (id === '../../utils/creation-link-draft') return cache.exports;
+      if (id === '../../api/auth') return {currentApiPost:()=>({postId:state.scope,userId:'77',orgId:'33'})};
+      if (id === '../../api/http') return { tenantId:()=>1, token: () => 'test-session', sessionGeneration: () => state.generation,
         requestGuard: () => () => true };
       if (id === '../../utils/platform-content') return {
         shareLinkUrl: require('../miniprogram/utils/platform-content').shareLinkUrl,
@@ -111,7 +118,7 @@ test('creation Tab recreation preserves typed link and original extraction idemp
   assert.equal(h.requests[1].key, h.requests[0].key);
 });
 
-test('creation temporary link and request key expire on session or identity change', () => {
+test('creation temporary input clears on session or identity change', () => {
   const h = creationHarness(), page = h.page();
   page.inputLink({ detail: { value: 'https://example.test/private-one' } });
   h.state.generation++; page.onShow();
@@ -140,6 +147,8 @@ test('quote export uses recorded server configuration for its document options',
   vm.runInNewContext(fs.readFileSync(path.join(root, 'miniprogram/pages/workflow/quote-export/index.js'), 'utf8'), {
     Page: value => { definition = value; },
     require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (id === './sheet') return sheet;
       if (id === './render' || id === './pdf') return {};
       if (id === '../../../api/http') return { get: async () => snapshot };
@@ -158,7 +167,9 @@ function load(file, modules, session) {
   const timers = new Map();
   vm.runInNewContext(require('./page-definition-source.cjs')(root,file), {
     Page: value => { definition = value; },
-    require(id) { if (id in modules) return modules[id]; throw Error('Unexpected dependency: ' + id); },
+    require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize"); if (id in modules) return modules[id]; throw Error('Unexpected dependency: ' + id); },
     wx: {}, console, Date, Promise,
     setTimeout(fn) { const id = ++nextTimer; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); }

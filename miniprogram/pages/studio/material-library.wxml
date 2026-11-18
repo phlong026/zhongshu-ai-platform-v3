@@ -1,0 +1,32 @@
+<view class="material-library">
+  <view class="material-search"><image src="/assets/search.png"/><input value="{{materialKeyword}}" bindinput="materialSearchInput" bindconfirm="materialSearch" confirm-type="search" maxlength="100" placeholder="搜索素材名称" aria-label="搜索素材名称"/><button wx:if="{{materialKeyword}}" class="material-clear" bindtap="materialClearSearch" aria-label="清空搜索">清空</button></view>
+  <view class="material-scopes"><button class="{{materialScope==='PERSONAL'?'active':''}}" data-scope="PERSONAL" bindtap="materialScopeChange">我的素材</button><button class="{{materialScope==='COMPANY'?'active':''}}" data-scope="COMPANY" bindtap="materialScopeChange">公司素材</button></view>
+  <view class="material-types"><button wx:for="{{materialTypes}}" wx:key="id" class="{{materialType===item.id?'active':''}}" data-type="{{item.id}}" bindtap="materialTypeChange">{{item.label}}</button></view>
+  <view class="material-heading"><text>{{materialQuery?'搜索结果':'最近上传'}}</text><button bindtap="materialManageToggle" disabled="{{materialBusy}}">{{materialManage?'完成':'管理'}}</button></view>
+  <view wx:if="{{materialUploadName && (materialUploadPhase || materialUploadError)}}" class="material-upload-state"><text>{{materialUploadName}}</text><text class="{{materialUploadError?'material-error':''}}">{{materialUploadError || materialUploadPhase}}</text><view wx:if="{{materialPending && !materialBusy}}"><button bindtap="materialRetryComplete">重试保存</button><button bindtap="materialDiscardPending">放弃本次</button></view></view>
+  <view class="material-grid">
+    <button wx:for="{{materialItems}}" wx:key="id" class="material-card" data-id="{{item.id}}" bindtap="openMaterial" aria-label="{{materialManage?'管理':'预览'}}{{item.name}}">
+      <view class="material-cover">
+        <image wx:if="{{item.coverUrl}}" class="material-photo" src="{{item.coverUrl}}" mode="aspectFill" data-id="{{item.id}}" binderror="materialCoverError"/>
+        <view wx:else class="material-file"><image src="/pages/studio/assets/{{item.type==='audio'?'studio-voice.png':item.type==='video'?'studio-video-play.png':'studio-image.png'}}"/><text>{{item.coverError?'封面暂不可用':item.typeText}}</text></view>
+        <image wx:if="{{item.type==='video' && item.coverUrl}}" class="material-play" src="/pages/studio/assets/studio-play.png"/>
+        <text wx:if="{{item.type==='video' && item.durationSec}}" class="material-duration">{{item.durationText}}</text>
+      </view>
+      <text class="material-name">{{item.name}}</text><text class="material-meta">{{item.typeText}} · {{item.sizeText}} · {{item.dateText}}<text wx:if="{{item.visibility==='COMPANY' && materialScope==='PERSONAL'}}"> · 已共享</text></text>
+      <text wx:if="{{materialManage}}" class="material-manage-label">{{item.canManage?'管理素材':'仅可查看'}}</text>
+    </button>
+  </view>
+  <view wx:if="{{materialError}}" class="material-empty material-error"><text>{{materialError}}</text><button bindtap="loadMaterials">重新加载</button></view>
+  <view wx:elif="{{materialLoading}}" class="material-empty">正在加载素材…</view>
+  <view wx:elif="{{!materialItems.length}}" class="material-empty"><image src="/pages/studio/assets/studio-image.png"/><text class="material-empty-title">{{materialQuery?'没有找到相关素材':materialScope==='COMPANY'?'暂无公司素材':'还没有上传素材'}}</text><text>{{materialQuery?'试试其他关键词':materialScope==='COMPANY'?'上传到公司，与同事一起使用':'上传图片、视频或音频，集中管理创作素材'}}</text><button wx:if="{{!materialQuery}}" bindtap="materialChooseUpload" disabled="{{materialBusy}}">上传第一个素材</button></view>
+  <button wx:elif="{{materialItems.length < materialTotal}}" class="material-more" bindtap="materialMore">加载更多</button>
+  <view class="material-footer"><button class="studio-primary" bindtap="materialChooseUpload" disabled="{{materialBusy}}" loading="{{materialBusy}}"><image wx:if="{{!materialBusy && !materialPending}}" src="/assets/creation-plus.png"/><text>{{materialBusy?'上传处理中':materialPending?'继续保存素材':'上传素材'}}</text></button></view>
+</view>
+<view wx:if="{{materialPreview}}" class="material-overlay" catchtouchmove="noop">
+  <view class="material-dialog"><view class="material-dialog-head"><text>{{materialPreview.name}}</text><button bindtap="closeMaterialPreview">关闭</button></view>
+    <view wx:if="{{materialPreviewLoading}}" class="material-empty">正在打开素材…</view>
+    <view wx:elif="{{materialPreviewError}}" class="material-empty material-error"><text>{{materialPreviewError}}</text><button bindtap="retryMaterialPreview">重新打开</button></view>
+    <video wx:elif="{{materialPreview.type==='video'}}" id="material-video" src="{{materialPreviewUrl}}" controls="{{true}}" autoplay="{{true}}" show-fullscreen-btn="{{true}}" object-fit="contain" binderror="materialMediaError"/>
+    <view wx:elif="{{materialPreview.type==='audio'}}" class="material-audio"><image src="/pages/studio/assets/studio-voice.png"/><text>{{previewAudioError || (previewAudioLoading?'正在加载音频':'音频预览')}}</text><slider value="{{previewAudioProgress}}" bindchange="materialSeekAudio" activeColor="#8b512a" block-size="16"/><view><text>{{previewAudioPosition}}</text><text>{{previewAudioDuration}}</text></view><button class="studio-primary" bindtap="materialToggleAudio">{{previewAudioPlaying?'暂停':'播放'}}</button></view>
+  </view>
+</view>

@@ -1,7 +1,7 @@
-const api=require('../api/franchise/content');
-const finance=require('../api/finance');
+const api=require('../../../api/franchise/content');
+const finance=require('../../../api/finance');
 const media=require('./clone-media');
-const stream=require('./sha256-stream');
+const stream=require('../../../utils/sha256-stream');
 /** 仅向飞影签名地址 PUT；平台只接收元数据。 */
 module.exports=async function upload(path,kind,personaId,alive=()=>true,file={}){
 const ensure=()=>{if(!alive())throw {cancelled:true};};ensure();
@@ -14,6 +14,7 @@ if(!size){bytes=await read();size=bytes.byteLength;}
 ensure();if(!Number.isSafeInteger(size)||size<=0||size>limit)throw Error('素材大小须在'+(video?500:20)+'MB以内');
 if(file.onProgress)file.onProgress('正在校验素材…');
 const sha=bytes?finance.sha256Hex(bytes):await stream.hashFile(fs,path,size,alive);ensure();
+if(file.onProgress)file.onProgress('正在准备上传…');
 const ticket=await api.clones.uploadTicket(personaId,{kind,mimeType:format.mimeType,sizeBytes:size,sha256:sha});ensure();
 const types={mp4:['video/mp4'],mov:['video/mov','video/quicktime'],mp3:['audio/mpeg','audio/mp3'],m4a:['audio/m4a','audio/mp4','audio/x-m4a'],wav:['audio/wav','audio/x-wav','audio/wave']};
 if(!ticket||!/^https:\/\/upload\.hifly\.cc\//i.test(String(ticket.uploadUrl||''))||!ticket.uploadId||!types[format.extension].includes(ticket.contentType))throw Error('素材直传通道不可用');
@@ -23,5 +24,6 @@ if(ArrayBuffer.isView(bytes))bytes=bytes.byteOffset===0&&bytes.byteLength===byte
 if(file.onProgress)file.onProgress('正在上传素材…');
 await new Promise((resolve,reject)=>wx.request({url:ticket.uploadUrl,method:'PUT',data:bytes,header:{'Content-Type':ticket.contentType},timeout:600000,
 success:r=>r.statusCode>=200&&r.statusCode<300?resolve():reject(Error(r.statusCode===403?'上传凭证已失效，请重新上传':'素材上传失败，请重新上传')),fail:()=>reject(Error('上传中断或超时，请检查网络后重试'))}));bytes=null;ensure();
+if(file.onProgress)file.onProgress('正在确认上传结果…');
 const result=await api.clones.completeUpload(ticket.uploadId);ensure();if(!result||result.status!=='UPLOADED')throw Error('素材上传尚未完成，请重试');return String(ticket.uploadId);
 };

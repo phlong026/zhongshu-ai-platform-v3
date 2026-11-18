@@ -17,3 +17,30 @@ test('case parameter transfer includes only real positive values and no made-up 
 
 
 test('a full metadata store falls back to the temporary image without leaving an orphan file',async()=>{const h=harness();h.wx.setStorageSync=()=>{throw Error('quota');};const p=h.api.load('11','22');await h.finish();const result=await p;assert.match(result,/wxfile:\/\/tmp\//);assert(![...h.files.keys()].some(k=>k.includes('case-images-v1')));});
+
+for (const mode of ['missing API', 'observer creation throws', 'observe throws']) {
+  test('viewport fallback loads every card across pages with bounded concurrency: ' + mode, async () => {
+    const h = harness();
+    h.wx.nextTick = callback => callback();
+    if (mode === 'observer creation throws') h.wx.createIntersectionObserver = () => { throw Error('unsupported'); };
+    if (mode === 'observe throws') {
+      h.wx.createIntersectionObserver = () => ({
+        relativeToViewport() { return this; },
+        observe() { throw Error('unsupported selector'); },
+        disconnect() {}
+      });
+    }
+    const page = {}, paths = new Map();
+    const rows = Array.from({ length: 20 }, (_, i) => ({ id: String(i + 1), asset: String(i + 101) }));
+    const visit = row => { paths.set(row.id, h.api.load(row.id, row.asset)); };
+    h.api.watch(page, '.cover', rows.slice(0, 10), visit);
+    await h.finish();
+    assert.equal((await Promise.all(paths.values())).length, 10);
+    assert.equal(h.requests(), 10);
+    h.api.watch(page, '.cover', rows, visit);
+    await h.finish();
+    assert.equal((await Promise.all(paths.values())).length, 20);
+    assert.equal(h.requests(), 20);
+    assert.equal(h.maxActive(), 3);
+  });
+}

@@ -16,7 +16,11 @@ function loadPage(relativePath, modules) {
       showModal() {}, setClipboardData() {}, reLaunch() {}
     },
     require(id) {
-      if(id==='../../utils/content-task-result')return require('../miniprogram/utils/content-task-result');
+      if(id==='./material-library')return {data:{},handlers:{}};
+      if(id==='../../utils/creation-keyboard')return require('../miniprogram/utils/creation-keyboard');
+      if(id==='../../utils/creation-text-resize')return require('../miniprogram/utils/creation-text-resize');
+      if(id==='./content-task-result')return require('../miniprogram/pages/studio/content-task-result');
+      if(id==='./task-display')return require('../miniprogram/pages/studio/task-display');
       if (Object.prototype.hasOwnProperty.call(modules, id)) return modules[id];
       throw new Error('Unexpected require: ' + id);
     },

@@ -6,6 +6,8 @@
  * Long 超出 ±(2^53-1) 输出字符串（边界值本身也是字符串）——ID 一律不透明值，禁止数值化。
  */
 const CRM_ROLES = ['sales', 'sales-lead', 'boss', 'owner'];
+const DESIGN_STATUS_TEXT = {FEE_PENDING:'委托待审核',FEE_RETURNED:'委托待修改',DESIGNING:'设计中',DESIGN_COMPLETED:'设计完成',DISPATCHED:'成果已下发',HANDOVER_SUBMITTED:'待工程接收',HANDOVER_RETURNED:'移交待补充',ACCEPTED:'已移交工程'};
+const customerStatus = c => DESIGN_STATUS_TEXT[c.designStatus] || statusText(c.status);
 const STATUS_TEXT = { REGISTERED: '已登记', FOLLOWING: '跟进中' };
 
 /** 五态判定归并：guest/no-post/non-role → demo；仅 token+销售家族岗位 → api（岗位缓存不作为依据） */
@@ -107,7 +109,7 @@ function customerRow(c, ctx) {
   const id = String(c.id);
   return {
     id, name, initial: name.slice(0, 1),
-    status: statusText(c.status), stageName: statusText(c.status),
+    status: customerStatus(c), stageName: customerStatus(c),
     phone: phoneText, phoneText, dial: c.phone || '',
     searchText, city: c.city || '', summary: c.summary || '',
     brief: [c.city, c.source && c.source !== '未记录' ? c.source : ''].filter(Boolean).join(' · '),
@@ -117,7 +119,7 @@ function customerRow(c, ctx) {
     action: canW ? '写跟进' : '看记录',
     url: '/pages/workflow/index?view=customer&id=' + encodeURIComponent(id) + (fresh && canW ? '&modal=follow' : ''),
     hasPhone: !!c.phone,
-    hasDesign: false, hasPlan: false, hasVisit: false,
+    hasDesign: !!DESIGN_STATUS_TEXT[c.designStatus], hasPlan: false, hasVisit: false,
     ownerUserId: c.ownerUserId == null ? '' : String(c.ownerUserId),
     ownerName: c.ownerName || '', ownerDisplay: c.ownerName || '负责人待核', ownerRoleName: '',
     view: 'customer'
@@ -217,7 +219,7 @@ function detailView(detail, ctx) {
     date: toDate(f.createTime), appointment: f.nextVisitDate ? toDate(f.nextVisitDate) : '',
     content: f.note || '', note: f.note || ''
   }));
-  const status = statusText(c.status);
+  const status = customerStatus(c);
   const id = String(c.id);
   return {
     customer: {

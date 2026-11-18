@@ -1,0 +1,322 @@
+{
+  "requestedAt": "2026-11-17",
+  "authorization": "用户明确要求逐项完成开发、提交、PR及部署前后端",
+  "items": [
+    {
+      "id": "D01",
+      "requirement": "AI平面/立面首次点击立即反馈，受理后自动进入进度",
+      "status": "verified",
+      "commits": [
+        "f4b24a89",
+        "9b1e2cf0"
+      ],
+      "verification": []
+    },
+    {
+      "id": "D02",
+      "requirement": "设计首页最近任务：三条真实记录、进度/结果/失败入口和全部任务",
+      "status": "verified",
+      "commits": [
+        "152b845c"
+      ],
+      "verification": []
+    },
+    {
+      "id": "D03",
+      "requirement": "首页仅四个户型，封面铺满卡片，完整库保留",
+      "status": "verified",
+      "commits": [
+        "152b845c"
+      ],
+      "verification": []
+    },
+    {
+      "id": "C01",
+      "requirement": "预算带入来源客户，无来源则选择；归档前核对客户并明确确认",
+      "status": "verified",
+      "commits": [
+        "f8724eb7"
+      ],
+      "verification": []
+    },
+    {
+      "id": "C02",
+      "requirement": "提交设计委托后客户阶段同步更新",
+      "status": "verified",
+      "commits": [
+        "acfef984",
+        "6179489c"
+      ],
+      "verification": []
+    },
+    {
+      "id": "C03",
+      "requirement": "重做设计委托单页面和可保存图片样式",
+      "status": "verified",
+      "commits": [
+        "ead69f0f"
+      ],
+      "verification": []
+    },
+    {
+      "id": "C04",
+      "requirement": "设计委托单导出PNG到本地相册",
+      "status": "verified",
+      "commits": [
+        "ead69f0f"
+      ],
+      "verification": []
+    },
+    {
+      "id": "A01",
+      "requirement": "李丽组织数字分身和声音克隆能力",
+      "status": "verified",
+      "commits": [
+        "1a45d2c0"
+      ],
+      "verification": []
+    },
+    {
+      "id": "A02",
+      "requirement": "视频及音频上传显示实际阶段与简洁完成状态",
+      "status": "verified",
+      "commits": [
+        "8aab98a4"
+      ],
+      "verification": []
+    },
+    {
+      "id": "A03",
+      "requirement": "视频页内播放与明确返回，保留素材",
+      "status": "verified",
+      "commits": [
+        "8aab98a4"
+      ],
+      "verification": []
+    },
+    {
+      "id": "A04",
+      "requirement": "音频播放暂停进度，多个分身/声音创建命名筛选及选择",
+      "status": "verified",
+      "commits": [
+        "8aab98a4"
+      ],
+      "verification": []
+    },
+    {
+      "id": "A05",
+      "requirement": "人物资源页增加创建口播分身和克隆声音入口；只读人物引导创建本人资源",
+      "status": "verified",
+      "commits": [
+        "8aab98a4"
+      ],
+      "verification": [
+        "verify-persona-self.cjs",
+        "design-commission-native-result.json"
+      ]
+    },
+    {
+      "id": "T01",
+      "requirement": "抖音分享链接使用douyidou解析，修复转写HTTP400",
+      "status": "verified",
+      "commits": [
+        "568fda05"
+      ],
+      "verification": []
+    },
+    {
+      "id": "T02",
+      "requirement": "手动文案键盘避让",
+      "status": "verified",
+      "commits": [
+        "8aab98a4",
+        "a78d69e6"
+      ],
+      "verification": []
+    },
+    {
+      "id": "T03",
+      "requirement": "所有创作长文本右下角拖动展开收起",
+      "status": "verified",
+      "commits": [
+        "8aab98a4",
+        "a78d69e6"
+      ],
+      "verification": []
+    },
+    {
+      "id": "T04",
+      "requirement": "截图标注的登录账号别名和冗余提示删除、人物选项精简、选择器对齐、取消试听及双加载图标",
+      "status": "verified",
+      "commits": [
+        "8aab98a4",
+        "a78d69e6"
+      ],
+      "verification": []
+    },
+    {
+      "id": "V01",
+      "requirement": "MiniMax H3创建和查询契约、参考角色、fast_mode与结果读取",
+      "status": "verified",
+      "commits": [
+        "e94d0c1e",
+        "ee901d6f"
+      ],
+      "verification": []
+    },
+    {
+      "id": "V02",
+      "requirement": "时长4–15秒整数、不提供30秒、正确分辨率和画幅",
+      "status": "verified",
+      "commits": [
+        "ee901d6f"
+      ],
+      "verification": []
+    },
+    {
+      "id": "R01",
+      "requirement": "任务中心排除明确演示任务及假进度、示例封面",
+      "status": "verified",
+      "commits": [
+        "8aab98a4"
+      ],
+      "verification": []
+    },
+    {
+      "id": "A06",
+      "requirement": "人物资源布局优化：人物选择、创建卡片、资源筛选和空状态分层；就绪后显示用于口播",
+      "status": "verified",
+      "commits": [
+        "7d19ffa7",
+        "8aab98a4"
+      ],
+      "verification": [
+        "20-创建口播分身入口.png",
+        "verify-design-commission-native.cjs"
+      ]
+    },
+    {
+      "id": "REL01",
+      "requirement": "逐项验证与功能提交、前后端PR",
+      "status": "verified",
+      "commits": [],
+      "verification": [
+        "release-status.json"
+      ]
+    },
+    {
+      "id": "REL02",
+      "requirement": "服务器前后端部署、小程序上传及上线回读",
+      "status": "verified",
+      "commits": [],
+      "verification": [
+        "release-status.json"
+      ]
+    },
+    {
+      "id": "P2-01",
+      "requirement": "跨客户续提不得改变首次任务来源，归档前核对客户",
+      "status": "verified",
+      "commits": [
+        "e54185df"
+      ],
+      "verification": [
+        "verify-pr-design-recovery.cjs",
+        "23-预算归档前核对客户.png"
+      ]
+    },
+    {
+      "id": "P2-02",
+      "requirement": "已受理任务在报价失败时仍能恢复原任务，不再次扣点",
+      "status": "verified",
+      "commits": [
+        "d38149ff"
+      ],
+      "verification": [
+        "verify-pr-design-recovery.cjs"
+      ]
+    },
+    {
+      "id": "P2-03",
+      "requirement": "重生成未选图时最近任务进入本次候选，确认后查看新版本",
+      "status": "verified",
+      "commits": [
+        "64a5ee79"
+      ],
+      "verification": [
+        "verify-design-recent.cjs"
+      ]
+    },
+    {
+      "id": "P2-04",
+      "requirement": "转写成功但保存失败只在原任务重试本地保存",
+      "status": "verified",
+      "commits": [
+        "9e16d794",
+        "6cc15888"
+      ],
+      "verification": [
+        "verify-business-module-migration.cjs",
+        "ContentResultDeliveryPgIntegrationTest"
+      ]
+    },
+    {
+      "id": "P2-05",
+      "requirement": "重启后同链接恢复持久化原任务，按账号组织隔离，存储失败停止付费提交",
+      "status": "verified",
+      "commits": [
+        "904a8c84"
+      ],
+      "verification": [
+        "extract-restart-native-result.json",
+        "verify-business-module-migration.cjs"
+      ]
+    },
+    {
+      "id": "M01",
+      "requirement": "已确认素材库第一版：个人/公司分类、真实上传、搜索分页、预览、管理",
+      "status": "completed",
+      "commits": [
+        "d70c3ac0",
+        "94dbfe45"
+      ],
+      "verification": [
+        "../material-library-20261118/native-result.json",
+        "../../design-qa.md"
+      ]
+    },
+    {
+      "id": "M02",
+      "requirement": "素材任务授权先于扣点，分页封面延迟与隐藏页面迟到预览修复",
+      "status": "completed",
+      "commits": [
+        "d956d40a",
+        "ee7f20ff"
+      ],
+      "verification": [
+        "../material-library-20261118/review-fixes.md",
+        "../material-library-20261118/server-verification.json"
+      ]
+    }
+  ],
+  "validation": {
+    "frontendFullCheck": "passed",
+    "backendFocusedTests": 34,
+    "crmIntegrationTests": 22,
+    "native": "design-commission-native-result.json",
+    "mediaNative": "multiple-native-result.json",
+    "limitations": [
+      "未重复调用付费生成接口",
+      "物理手机键盘与系统相册权限需实机验收；开发工具已验证布局、媒体播放与实际PNG生成"
+    ],
+    "resultDeliveryTests": 11,
+    "restartNative": "extract-restart-native-result.json",
+    "materialLibrary": {
+      "frontendTests": 9,
+      "backendTests": 159,
+      "nativeTests": 10,
+      "release": "20261118-0105",
+      "oldReleaseWithdrawn": "20261118-0045"
+    }
+  }
+}

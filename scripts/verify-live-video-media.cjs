@@ -7,6 +7,8 @@ function load(modules, wx) {
   let definition;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../miniprogram/pages/ai-video/index.js'), 'utf8'), {
     Page: value => { definition = value; }, require: id => {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (!(id in modules)) throw Error('Unexpected module ' + id);
       return modules[id];
     }, wx, getCurrentPages: () => [], console, Date, Promise
@@ -125,7 +127,7 @@ test('video picker indices resolve to selected parameter labels', () => {
     require: () => ({}), module: { set exports(value) { content = value; } }
   });
   const value = content.mapVideoParameters([
-    { key: 'resolution', options: ['768P', '1080P'], value: 1 },
+    { key: 'resolution', options: ['768P', '2K'], value: 1 },
     { key: 'duration', options: ['8 秒', '10 秒'], value: 1 },
     { key: 'ratio', options: ['9:16', '16:9'], value: 1 }
   ]);

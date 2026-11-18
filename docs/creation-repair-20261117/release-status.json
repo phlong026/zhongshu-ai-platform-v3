@@ -1,0 +1,54 @@
+{
+  "release": "/mnt/datadisk0/zhongshu-platform-b-releases/20261118-0105",
+  "frontendCommit": "d956d40ad3bc8d8e0d952d907fa0d4683bb946ab",
+  "backendCommit": "ee7f20ff986b4fe0cc45d50b2e38c52a3d840a46",
+  "jarSha256": "82b48e5c8387f379d0361929ae407f9f514b4c465b6af6c17383c33e81e5784f",
+  "miniSha256": "5f92f141f7f30ee03aa6551852a79ff48dd2cd9cd0a1a2669341a5d9808006b3",
+  "archiveSha256": "67202ffebd108175fe8b8b1e96c044d028601ecf5a6024bab619278c55c692ba",
+  "migrations": [
+    "20261118.963"
+  ],
+  "wechatVersion": "1.0.20261118.0105",
+  "reviewFixes": [
+    "task-assets-before-reservation",
+    "paged-cover-requests",
+    "cancel-hidden-preview"
+  ],
+  "startedAt": 1794934466.5184088,
+  "previousRuntime": {
+    "pid": "2654943",
+    "jar": "/mnt/datadisk0/zhongshu-platform-b-releases/20261117-2335/platform.jar",
+    "sha256": "2782588ec9380234c992ea555deaa262b9eb3d01c33a02ecce5372a4d830cda9"
+  },
+  "previousWeb": "/mnt/datadisk0/zhongshu-platform-b-releases/20261118-admin-layout-4e1b8e5439e7/web",
+  "backupSha256": "4f969e50e4cb877110cc0d6f526009832651074a33385022d342402fd26a8029",
+  "backupBytes": 2726453,
+  "unverifiedQueuedAssetTasks": 0,
+  "appTablePrivileges": "PASS",
+  "migrationApplied": "20261118.963",
+  "status": "DEPLOYED",
+  "health": "UP",
+  "runtime": {
+    "pid": "2667498",
+    "jar": "/mnt/datadisk0/zhongshu-platform-b-releases/20261118-0105/platform.jar",
+    "sha256": "82b48e5c8387f379d0361929ae407f9f514b4c465b6af6c17383c33e81e5784f"
+  },
+  "web": "/mnt/datadisk0/zhongshu-platform-b-releases/20261118-0105/web",
+  "webIndexSha256": "ba7a7b5f355121b6e603d7340be7be042845a1609ce5b5a6a71fde2e383e80c2",
+  "protectedServicesUnchanged": true,
+  "completedAt": 1794934508.506169,
+  "verified": true,
+  "releaseName": "20261118-0105",
+  "wechatStatus": "DEVELOPMENT_UPLOADED",
+  "wechatProductionPublished": false,
+  "frontendPR": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/11",
+  "backendPR": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/12",
+  "withdrawnRelease": "20261118-0045",
+  "tests": {
+    "frontend": 9,
+    "backend": 159,
+    "native": 10,
+    "frontendFullCheck": "passed",
+    "artifactBoundary": "passed"
+  }
+}

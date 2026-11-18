@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),vm=require('node:vm'),fs=require('node:fs');
-const media=require('../miniprogram/utils/clone-media'),{Sha256,hashFile}=require('../miniprogram/utils/sha256-stream');
+const media=require('../miniprogram/pages/studio/characters/clone-media'),{Sha256,hashFile}=require('../miniprogram/utils/sha256-stream');
 test('incremental SHA agrees with independent crypto across blocks, contexts and partial chunks',async()=>{
  for(const size of [0,1,55,56,63,64,65,127,128,1024*1024+37]){
   const data=Buffer.alloc(size);for(let i=0;i<size;i++)data[i]=i%251;
@@ -26,7 +26,7 @@ function uploadHarness(extension,size=32,wrongType){
  const api={clones:{uploadTicket:async(_,body)=>{calls.push(['ticket',body]);return{uploadId:'99',uploadUrl:'https://upload.hifly.cc/test.'+extension,contentType:wrongType||mime}},completeUpload:async()=>{calls.push(['complete']);return{status:'UPLOADED'}}}};
  const manager={stat:o=>o.success({stats:{size}}),readFile:o=>{reads++;const chunk=o.length?payload.subarray(o.position,o.position+o.length):payload;o.success({data:chunk});}};
  const context={module:{exports:{}},require:p=>p.endsWith('/content')?api:p.endsWith('/clone-media')?media:p.endsWith('/sha256-stream')?{Sha256,hashFile}:require('../miniprogram/api/finance'),wx:{getFileSystemManager:()=>manager,request:o=>{calls.push(['put',o]);o.success({statusCode:200})}}};
- vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/utils/hifly-upload'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/hifly-upload'),'utf8'),context);
  return {calls,reads:()=>reads,run:()=>context.module.exports('/tmp/a.'+extension,['mp4','mov'].includes(extension)?'AVATAR':'VOICE','21')};
 }
 test('MOV M4A WAV upload only to Hifly with exact provider Content-Type and full hash',async()=>{

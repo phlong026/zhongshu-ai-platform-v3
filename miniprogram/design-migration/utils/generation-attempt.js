@@ -23,7 +23,7 @@ function save(slot, attempt) {
   assertCurrent(attempt);
   wx.setStorageSync(storageKey(slot), attempt); return attempt;
 }
-function begin(slot, payload) {
+function begin(slot, payload, sourceCustomerId) {
   const text = JSON.stringify(canonical(payload));
   const fingerprint = sha.sha256Hex(new Uint8Array(Array.from(unescape(encodeURIComponent(text)), char => char.charCodeAt(0))));
   const previous = read(slot);
@@ -31,7 +31,7 @@ function begin(slot, payload) {
     if (previous.fingerprint !== fingerprint) throw { msg: '上次生成结果尚未确认，请恢复原输入继续重试' };
     return previous;
   }
-  return save(slot, { scope: drafts.sessionScope(), state: 'DRAFT', fingerprint, payload: canonical(payload), key: 'generation-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12) });
+  return save(slot, { scope: drafts.sessionScope(), state: 'DRAFT', sourceCustomerId: drafts.id(String(sourceCustomerId || '')) || '', fingerprint, payload: canonical(payload), key: 'generation-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12) });
 }
 function complete(slot, attempt) {
   if (attempt) {

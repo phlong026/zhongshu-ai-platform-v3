@@ -13,7 +13,7 @@ function harness({disk=new Map(),cloud=new Map(),read,save,task}={}){
     const prior=cloud.get(body.draftKey)||{revision:0};if(body.revision!==prior.revision)throw{code:1114000011};
     const result={...body,exists:true,revision:prior.revision+1};cloud.set(body.draftKey,result);return structuredClone(result);
   }},tasks:{create:async body=>{submissions.push(body);return{id:'task'};}}};
-  const modules={'../../utils/creation':{assets:[]},'../../utils/studio':{guard:()=>true,allowed:()=>valid,scope:()=>valid?'actor':'other',scopedKey:k=>'actor:'+k,read:()=>state,write:()=>{}},'../../utils/platform-content':P,'../../api/franchise/content':api,'../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},'../../utils/content-media':{upload:async()=>1},'../../utils/storage-keys':{videoDraft:'legacy'},'./video-draft':Draft};
+  const modules={'../../utils/creation':{assets:[]},'../../utils/studio':{guard:()=>true,allowed:()=>valid,scope:()=>valid?'actor':'other',scopedKey:k=>'actor:'+k,read:()=>state,write:()=>{}},'../../utils/platform-content':P,'../../api/franchise/content':api,'../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},'../../utils/content-media':{upload:async()=>1},'../../utils/storage-keys':{videoDraft:'legacy'},'../../utils/creation-text-resize':require('../miniprogram/utils/creation-text-resize'),'./video-draft':Draft};
   const wx={getStorageSync:k=>disk.get(k),setStorageSync:(k,v)=>disk.set(k,structuredClone(v)),showToast(){},navigateTo(){},redirectTo(){}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/ai-video/index'),'utf8'),{Page:d=>definition=d,require:p=>{assert(p in modules,p);return modules[p]},wx,getCurrentPages:()=>[],console,Date});
   const page={...definition,data:structuredClone(definition.data),setData(values){for(const[k,v]of Object.entries(values)){if(k.startsWith('parameters[')){const i=Number(k.match(/\d+/)[0]);this.data.parameters[i].value=v;}else this.data[k]=v;}}};
@@ -40,9 +40,9 @@ test('a failed load preserves typing locally without cloud writes',async()=>{
   assert.equal(h.writes.length,0);assert.equal(h.disk.get('actor:zs-video-draft-v2:new').form.description,'offline edit');
 });
 test('parameter-only edits during a slow load are preserved with a conflict',async()=>{
-  const read=later(),h=harness({read:()=>read.promise});h.page.changeParameter({currentTarget:{dataset:{index:1}},detail:{value:1}});
+  const read=later(),h=harness({read:()=>read.promise});h.page.inputDuration({detail:{value:'9'}});
   read.resolve({exists:true,revision:2,description:'remote',parameters:{duration:10}});await tick();h.page.onHide();
-  assert.equal(h.page.data.parameters[1].value,1);assert.equal(h.page.__draft.conflicted(),true);assert.equal(h.writes.length,0);
+  assert.equal(h.page.data.parameters[1].value,'9 秒');assert.equal(h.page.__draft.conflicted(),true);assert.equal(h.writes.length,0);
 });
 test('cloud conflict survives reopen; a newer cloud revision needs another confirmation',async()=>{
   const cloud=new Map(),h=harness({cloud});await tick();h.page.inputDescription({detail:{value:'local'}});
@@ -53,9 +53,9 @@ test('cloud conflict survives reopen; a newer cloud revision needs another confi
   await reopened.page.__draft.resolve(false);assert.equal(reopened.page.data.description,'remote2');assert.equal(reopened.writes.length,0);
 });
 test('each supported numeric or legacy duration round-trips through restore and generation',async()=>{
-  for(const duration of [5,8,10,'5','10 秒']){
+  for(const duration of [4,5,8,9,10,12,15,'5','10 秒']){
     const h=harness({cloud:new Map([['new',{exists:true,revision:1,description:'scene',parameters:{duration,resolution:'2K',ratio:'16:9'}}]])});await tick();
-    const expected=Number(String(duration).replace(' 秒',''));const option=h.page.data.parameters[1];assert.equal(option.options[option.value],expected+' 秒');
+    const expected=Number(String(duration).replace(' 秒',''));const option=h.page.data.parameters[1];assert.equal(option.value,expected+' 秒');assert.equal(h.page.data.durationInput,String(expected));
     await h.page.generateOnline();assert.equal(h.submissions[0].duration,expected);assert.equal(h.submissions[0].resolution,'2K');
     h.page.inputDescription({detail:{value:'edited'}});await h.page.saveDraft();assert.equal(h.writes[0].parameters.duration,expected);
   }

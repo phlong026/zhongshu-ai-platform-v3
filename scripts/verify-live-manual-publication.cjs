@@ -31,7 +31,9 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
   };
   const source = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
   const modules = {
-    '../../utils/content-task-result':require('../miniprogram/utils/content-task-result'),
+    './material-library':{data:{},handlers:{}},
+    './task-display':require('../miniprogram/pages/studio/task-display'),
+    './content-task-result':require('../miniprogram/pages/studio/content-task-result'),
     '../../utils/studio': studio,
     '../../utils/creation': { unavailable() {}, assets: [] },
     '../../utils/platform-content': {
@@ -60,6 +62,8 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
     Page(value) { definition = value; },
     wx: { showToast(options) { toasts.push(options.title); }, redirectTo() {}, reLaunch() {} },
     require(id) {
+      if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (Object.prototype.hasOwnProperty.call(modules, id)) return modules[id];
       throw new Error('Unexpected require: ' + id);
     },

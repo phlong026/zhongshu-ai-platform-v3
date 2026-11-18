@@ -38,6 +38,7 @@ Page({
  },
  onShow(){
   this.__disposed=false;if(!this.__designFinance){require('./design-finance')(this,financeApi);this.__designFinance=true;}
+  require('../../../utils/finance-keyboard').start(this);
   const activePost=auth.currentApiPost();this.setData({hq:!!activePost&&activePost.orgType==='headquarters',company:activePost&&activePost.orgName||''});
   const financeIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.syncFinanceIdentity(financeIdentity);
   if(this.data.view==='profile'&&activePost&&['finance','finance-lead'].includes(activePost.roleCode))return this.showFinanceProfile();
@@ -64,7 +65,8 @@ Page({
   if(this.data.platformApiMode&&this.data.view==='book')this.loadBookLedger();
   PTPage.refresh(this,false);this.syncPlatformTasks();
   },
- onUnload(){this.__disposed=true;},
+ onHide(){require('../../../utils/finance-keyboard').stop(this);},
+ onUnload(){this.__disposed=true;require('../../../utils/finance-keyboard').stop(this);},
  showFinanceProfile(){
   this.setData({view:'profile',ready:true,title:'我的',platformApiMode:true,error:''});
   require('../../profile/profile-page')(4).onShow.call(this);

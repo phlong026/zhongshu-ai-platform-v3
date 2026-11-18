@@ -51,9 +51,9 @@ async function main() {
 
   // A1：client 退款更正链全链——作废→预填→提交透传 replacesId
   {
-    const { page, calls } = fakePage({});
+    const { page, calls } = fakePage({bookEntryDetail:{id:'old'}});
     page._refundRows = [{ id: 511, refundDirection: 'client', receiptId: 9001, amountCents: 200000,
-      reason: '录错金额', date: '2026-11-04', transactionNo: 'TXN-C9', status: '已核实' }];
+      reason: '录错金额', date: [2026,11,4], transactionNo: 'TXN-C9', status: '已核实' }];
     page.openCorrection({ currentTarget: { dataset: { id: 'f-511' } } });
     assert.equal(modalQueue.length, 1, 'A1 作废确认弹窗弹出');
     assert.ok(modalQueue[0].content.includes('2000.00'), '弹窗含原金额');
@@ -63,8 +63,10 @@ async function main() {
     assert.equal(String(calls.voids[0].id), '511', '作废 id 正确');
     assert.equal(calls.voids[0].reason, '更正重登', '作废原因留痕');
     assert.equal(page.data.registerType, 'refund', '作废后自动打开退款表单');
+    assert.equal(page.data.bookEntryDetail,null,'更正表单不被旧详情遮挡');
     assert.equal(page.data.registerForm.replacesId, 511, '表单携 replacesId');
     assert.equal(page.data.registerForm.amount, '2000.00', '预填原金额');
+    assert.equal(page.data.registerForm.date,'2026-11-04','后端数组日期统一为日期选择器支持的格式');
     assert.equal(page.data.registerForm.transactionNo, 'TXN-C9', '预填原流水号（同号经后端 owner 切换）');
     assert.equal(page.data.registerForm.date, '2026-11-04', '预填原日期');
     assert.equal(page.loadPlatformFinanceCalls, 1, '作废后刷新一次台账');
@@ -170,7 +172,7 @@ async function main() {
   assert.ok(actions.includes("financeApi.voidRefund(refundId, '更正重登'"), '作废原因固定留痕');
   assert.ok(actions.includes('if (this.data.busy || this.data.registerBusy) return;'), 'R1 P2-1 更正入口双向互斥');
   assert.ok(actions.includes('if (this.data.registerBusy || this.data.busy) return;'), 'R1 P2-1 提交入口双向互斥');
-  assert.ok(actions.includes('if (seq !== this._registerSeq) return;'), 'R1 P2-1 成功回调代次校验');
+  assert.ok(actions.includes('seq === this._registerSeq') && actions.includes('if (!alive()) return;'), 'R1 P2-1 成功回调代次校验');
 
   const indexJs = read('miniprogram/pages/admin/finance-desk/index.js');
   assert.ok(indexJs.includes("['finance-lead','boss','owner'].includes(post.roleCode)"), '作废权限位=lead/boss/owner');
@@ -188,7 +190,7 @@ async function main() {
   assert.equal(wxml.split('bindtap="openCorrection"').length - 1, 1, '作废重登按钮唯一（台账行模板）');
   assert.ok(wxml.includes('wx:if="{{refundVoidable&&item.sourceKind===\'refund\'&&item.status===\'已核实\'}}"'),
     '按钮三重条件（权限+方向+状态）');
-  assert.equal(wxml.split("registerForm.date||'请选择日期'").length - 1, 4, '退款/支出退回日期占位四处统一');
+  assert.equal(wxml.split("registerForm.date||'请选择日期'").length - 1, 2, '退款/支出退回日期占位四处统一');
 
   // 待办标签：异常资金 key 第二段映射
   assert.equal(PT.typeLabelOf('fr-fin:abnormal-link:1', true), '异常资金待关联', 'LABELS abnormal-link');

@@ -1,0 +1,102 @@
+{
+  "passed": true,
+  "home": {
+    "metrics": [
+      {
+        "label": "已登记收款",
+        "value": "128,840.00",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+      },
+      {
+        "label": "已登记付款",
+        "value": "17,793.00",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+      },
+      {
+        "label": "收支净额",
+        "value": "110,885.00",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+      },
+      {
+        "label": "待办事项",
+        "value": 2,
+        "taskMetric": true,
+        "url": "/pages/admin/finance-desk/index?view=tasks"
+      }
+    ],
+    "shortcuts": [
+      {
+        "label": "收款登记",
+        "type": "receipt",
+        "icon": "/assets/money.png",
+        "url": ""
+      },
+      {
+        "label": "登记付款",
+        "type": "payment",
+        "icon": "/assets/money.png",
+        "url": ""
+      },
+      {
+        "label": "报销办理",
+        "type": "reimbursement",
+        "icon": "/assets/money.png",
+        "url": ""
+      },
+      {
+        "label": "收支流水",
+        "icon": "/assets/book.png",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+      }
+    ],
+    "tasks": [
+      {
+        "key": "fr-fin-workbench:reimburse:2122585390925193220",
+        "name": "联调业务 · 设计费报销",
+        "amount": "¥1,000.00",
+        "status": "待报销",
+        "label": "去办理",
+        "url": "/pages/admin/finance-desk/index?view=reimbursements",
+        "icon": "/assets/management-receipt.jpg"
+      },
+      {
+        "key": "fr-fin-workbench:payable:2122610731148333057",
+        "name": "张先生乡墅·财务联调 · 材料采购",
+        "amount": "¥350.00",
+        "status": "部分付款",
+        "label": "去办理",
+        "url": "/pages/admin/finance-desk/index?view=flows&tab=payables",
+        "icon": "/assets/management-receipt.jpg"
+      }
+    ],
+    "period": "2026-11"
+  },
+  "boss": {
+    "readonly": true,
+    "net": "21,560.00",
+    "metrics": [
+      {
+        "key": "received",
+        "label": "累计收款",
+        "value": "26,820.00"
+      },
+      {
+        "key": "paid",
+        "label": "累计付款",
+        "value": "5,150.00"
+      },
+      {
+        "key": "contract",
+        "label": "合同金额",
+        "value": "305,000.00"
+      },
+      {
+        "key": "cost",
+        "label": "费用金额",
+        "value": "4,450.00"
+      }
+    ],
+    "error": ""
+  },
+  "renderer": "微信开发者工具原生模拟器，非物理手机"
+}

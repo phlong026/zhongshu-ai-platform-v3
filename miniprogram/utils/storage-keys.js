@@ -8,6 +8,7 @@ const keys = {
   growth: 'zhongshu-growth-v1',
   studio: 'zhongshu-studio',
   creationDraft: 'zhongshu-creation-draft',
+  creationExtractPrefix: 'zhongshu-creation-extract-v1:',
   videoDraft: 'zhongshu-video-draft',
   financeView: 'zhongshu-finance-view-v1',
   ownerGoals: 'zhongshu-owner-goals-v1',

@@ -143,7 +143,7 @@ function normalize(dto = {}) {
 
 /* ---- 状态推导（优先后端显式提示，缺省按归一化状态推导） ---- */
 function derive(c) {
-  if(c.simulatedPayment&&c.simulatedPayment.status==='PENDING')return{state:'待模拟支付',owner:'经办业务',view:'pay',actionable:c.allowedActions.includes('commission-simulate-pay')};
+  if(c.simulatedPayment&&c.simulatedPayment.status==='PENDING')return{state:'待模拟付款登记',owner:'经办业务',view:'pay',actionable:c.allowedActions.includes('commission-simulate-pay')};
   const summary = { FEE_PENDING: ['费用待老板审批', '门店老板', 'progress'], FEE_RETURNED: ['委托费用待修改', '业务', 'submit'], DESIGNING: [Status.designing, '总部设计行政', 'complete'], DESIGN_COMPLETED: [Status.dispatch, '总部设计行政', 'dispatch'], DISPATCHED: [Status.handover, '业务', 'handover'], HANDOVER_SUBMITTED: [Status.receive, '工程', 'receive'], HANDOVER_RETURNED: [Status.handover, '业务', 'handover'], ACCEPTED: ['业务移交完成', '已完成', 'progress'] }[c.status];
   if (summary) return { state: summary[0], owner: summary[1], view: summary[2], actionable: c.allowedActions.includes(actionFor(summary[2])) };
   const fb = c.feedbacks[c.feedbacks.length - 1];
@@ -187,7 +187,7 @@ function statusOf(c) {
 
 /* ---- 展示行 ---- */
 function feeNotice(c) {
-  if(c.simulatedPayment)return c.simulatedPayment.status==='PAID'?'模拟支付已完成':'委托待模拟支付';
+  if(c.simulatedPayment)return c.simulatedPayment.status==='PAID'?'付款登记完成（模拟）':'委托待模拟付款登记';
   if (!c.request) return '提交委托后费用按授权规则执行；到账登记由财务在财务工作台办理';
   if (c.fee && ['pending', 'pending-approval', 'pending_approval', 'approving'].includes(c.fee.status)) return '委托费用待加盟商老板审批';
   if (c.fee && c.fee.status === 'returned') return '委托费用待修改后重新提交';

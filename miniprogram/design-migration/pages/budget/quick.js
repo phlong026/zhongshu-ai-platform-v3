@@ -18,6 +18,8 @@ protectedPage({
     quantityRows: [], configCells: [], catalogReady: false, catalogLoading: false, catalogError: '', dirty: false, localConflict: false,
     projects: [], projectNames: [], projectCursor: null, projectsLoaded: false, showImport: false, regionIndex: 0, floorIndex: 0 },
   onLoad(options = {}) {
+    this._sourceCustomer = drafts.id(options.customerId) || '';
+    this._sourceScope = drafts.sessionScope();
     this._caseEntry=options.fromCase==='1'?getDesignApp().globalData.budgetCaseEntry:null;
     if(this._caseEntry)getDesignApp().globalData.budgetCaseEntry=null;
     this._requestedId = options.draftId == null ? null : drafts.id(options.draftId);
@@ -287,7 +289,9 @@ protectedPage({
       const response = await api.createIndependentBudget(d.draftId, attempt.body, attempt.key);
       if (!this.current(seq)) return;
       if (!response || !drafts.id(response.budgetId) || response.draftId !== d.draftId || response.projectId !== null) throw Error('预算响应不匹配，请重试读取同一笔测算');
-      wx.navigateTo({ url: '/design-migration/pages/budget/result?budgetId=' + response.budgetId,
+      const customer = this._sourceScope === drafts.sessionScope() ? this._sourceCustomer : '';
+      require('../../utils/customer-context').bind('budget', response.budgetId, customer);
+      wx.navigateTo({ url: '/design-migration/pages/budget/result?budgetId=' + response.budgetId + require('../../utils/customer-context').suffix(customer),
         success: () => { if (this.current(seq)) wx.removeStorageSync(attemptKey); },
         fail: () => { if (this.current(seq)) this.setData({ error: '预算已生成，页面未打开；重试将读取同一预算' }); } });
     } catch (e) { if (this.current(seq) && !e.cancelled) {

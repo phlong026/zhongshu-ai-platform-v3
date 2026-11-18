@@ -1,5 +1,5 @@
 <view wx:if="{{paymentOrder&&(view==='pay'||view==='receipt')}}" class="commission-card simulated-payment">
- <view class="commission-summary-top"><text class="commission-heading">{{paymentOrder.status==='PAID'?'模拟支付成功':'设计服务费'}}</text><text class="commission-chip">模拟</text></view>
+ <view class="commission-summary-top"><text class="commission-heading">{{paymentOrder.status==='PAID'?'付款登记完成':'设计服务费'}}</text><text class="commission-chip">模拟</text></view>
  <view wx:if="{{paymentOrder.status==='PAID'}}" class="payment-success-mark">✓</view>
  <text wx:if="{{view==='pay'||view==='receipt'}}" class="payment-customer">{{paymentOrder.customerName||customer.name}}</text>
  <text wx:if="{{paymentOrder.amountText}}" class="payment-amount">{{paymentOrder.amountText}}</text>
@@ -8,16 +8,16 @@
  <view class="commission-row"><text class="commission-muted">委托版本</text><text>V{{paymentOrder.submissionVersion}}</text></view></block>
  <block wx:if="{{paymentOrder.status==='PAID'}}">
   <view wx:if="{{paymentOrder.channel&&(paymentDetails||view==='receipt')}}" class="commission-row"><text class="commission-muted">模拟方式</text><text>{{paymentOrder.channel==='WECHAT'?'微信':'支付宝'}}</text></view>
-  <view wx:if="{{paymentOrder.timeText&&(paymentDetails||view==='receipt')}}" class="commission-row"><text class="commission-muted">完成时间</text><text>{{paymentOrder.timeText}}</text></view>
-  <text class="commission-muted">凭据已保存</text>
+  <view wx:if="{{paymentOrder.timeText&&(paymentDetails||view==='receipt')}}" class="commission-row"><text class="commission-muted">登记时间</text><text>{{paymentOrder.timeText}}</text></view>
+  <text class="commission-muted">模拟付款登记凭据已保存</text>
   <text wx:if="{{paymentOrder.storeFinanceConfigured===false}}" class="commission-muted">门店财务未配置</text>
   <text wx:if="{{paymentOrder.headquartersFinanceConfigured===false}}" class="commission-muted">总部财务未配置</text>
   <button wx:if="{{view==='pay'}}" class="commission-secondary" bindtap="showProgress">查看委托进度</button>
  </block>
  <view wx:elif="{{view==='pay'&&primary}}" class="payment-options">
-  <button class="commission-secondary {{paymentChannel==='WECHAT'?'payment-selected':''}}" data-channel="WECHAT" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-wechat"><image src="assets/wechat-pay.png"/></view>微信支付</button>
-  <button class="commission-secondary {{paymentChannel==='ALIPAY'?'payment-selected':''}}" data-channel="ALIPAY" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-alipay"><image src="assets/alipay.png"/></view>支付宝</button>
+  <button class="commission-secondary {{paymentChannel==='WECHAT'?'payment-selected':''}}" data-channel="WECHAT" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-wechat"><image src="assets/wechat-pay.png"/></view>微信（模拟）</button>
+  <button class="commission-secondary {{paymentChannel==='ALIPAY'?'payment-selected':''}}" data-channel="ALIPAY" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-alipay"><image src="assets/alipay.png"/></view>支付宝（模拟）</button>
  </view>
- <text class="payment-disclaimer">不发生真实扣款</text>
+ <text class="payment-disclaimer">仅模拟登记，不发生真实扣款，不计入实际收支</text>
 </view>
 <text wx:if="{{view==='pay'&&paymentNotice}}" class="payment-notice" role="status">{{paymentNotice}}</text>

@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "收款选择相册/拍照来源，经真实资产接口上传并登记20元，成功返回原账本",
+      "passed": true
+    },
+    {
+      "name": "键盘高度事件300→0：底部导航隐藏恢复，金额与账本保留",
+      "passed": true,
+      "method": "调用真实页面键盘回调，模拟器不呈现手机系统键盘"
+    },
+    {
+      "name": "公司付款5元与员工垫付6元分别登记，聊天凭证上传，返回原账本",
+      "passed": true
+    },
+    {
+      "name": "员工垫付生成报销，原应付登记6元报销、上传凭证，返回报销列表",
+      "passed": true
+    },
+    {
+      "name": "沿原收款登记2元退款并上传凭证，返回原账本",
+      "passed": true
+    },
+    {
+      "name": "5笔实际登记均关联服务端凭证；新账本结余7元、费用11元，员工垫付与报销不重复计成本",
+      "passed": true
+    },
+    {
+      "name": "原项目收付款表单在键盘状态下返回，保持项目、费用标签和原金额",
+      "passed": true
+    },
+    {
+      "name": "临时文件无扩展名的PDF补充上传，经真实票据、上传、完成、下载接口校验PDF字节和格式",
+      "passed": true
+    }
+  ],
+  "netYuan": 7,
+  "costYuan": 11,
+  "companyNetYuan": 110885,
+  "originalProjectNetYuan": 21560,
+  "originalProjectCostYuan": 4450,
+  "sourceChooser": "自动化提供真实PNG文件；系统相册/相机选择回调模拟；上传票据、字节上传、完成、关联和财务登记均真实执行",
+  "metrics": [
+    {
+      "label": "已登记收款",
+      "value": "128,840.00",
+      "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+    },
+    {
+      "label": "已登记付款",
+      "value": "17,793.00",
+      "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+    },
+    {
+      "label": "收支净额",
+      "value": "110,885.00",
+      "url": "/pages/admin/finance-desk/index?view=flows&tab=ledger"
+    },
+    {
+      "label": "待办事项",
+      "value": 2,
+      "taskMetric": true,
+      "url": "/pages/admin/finance-desk/index?view=tasks"
+    }
+  ],
+  "pdf": {
+    "passed": true,
+    "contentType": "application/pdf;charset=UTF-8",
+    "bytes": 610,
+    "originalFilename": "验收凭证.pdf",
+    "temporaryPathHasExtension": false
+  }
+}

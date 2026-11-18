@@ -1,0 +1,16 @@
+<block wx:if="{{hasOrderSheet&&(submitPreview||view!=='submit')&&view!=='pay'}}">
+ <view class="order-toolbar"><text>委托资料</text><view><button wx:if="{{submitPreview}}" bindtap="editBrief">修改</button><button bindtap="exportOrderImage" loading="{{exporting}}" disabled="{{exporting}}">保存委托单图片</button></view></view>
+ <view class="order-sheet">
+  <view class="order-brand"><text>委托资料 / DESIGN BRIEF</text><text>众墅之家</text></view>
+  <text class="order-title">设计委托单</text><text class="order-project">{{orderSheet.title}}</text>
+  <text class="order-status">{{orderSheet.status}}</text>
+  <view class="order-meta" wx:if="{{orderSheet.number}}">编号 {{orderSheet.number}}<text wx:if="{{orderSheet.version}}"> · 委托 V{{orderSheet.version}}</text></view>
+  <view class="order-metrics"><view wx:for="{{orderSheet.metrics}}" wx:key="label"><text>{{item.value}}<text class="order-unit" wx:if="{{item.value!=='未记录'}}"> {{item.unit}}</text></text><text>{{item.label}}</text></view></view>
+  <view class="order-section"><text class="order-section-title">客户与项目</text><view class="order-row" wx:for="{{orderSheet.customer}}" wx:key="label"><text>{{item.label}}</text><text selectable>{{item.value}}</text></view></view>
+  <view class="order-section" wx:for="{{orderSheet.sections}}" wx:key="title" wx:for-item="section"><text class="order-section-title">{{section.title}}</text><view class="order-row" wx:for="{{section.rows}}" wx:key="label"><text>{{item.label}}</text><text selectable>{{item.value}}</text></view></view>
+  <view wx:if="{{orderSheet.budgetVersion}}" class="order-section"><text class="order-section-title">方案依据</text><view class="order-row"><text>参考预算</text><text>V{{orderSheet.budgetVersion}}</text></view></view>
+  <view wx:if="{{orderSheet.fees.length}}" class="order-section"><text class="order-section-title">费用与交付</text><view class="order-row" wx:for="{{orderSheet.fees}}" wx:key="label"><text>{{item.label}}</text><text>{{item.value}}</text></view></view>
+  <text class="order-note">{{orderSheet.note}}</text>
+ </view>
+</block>
+<canvas type="2d" id="commissionCanvas" class="order-export-canvas"/>

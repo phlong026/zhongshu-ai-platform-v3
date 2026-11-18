@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "runtimeRestarted": true,
+  "parses": 1,
+  "transcriptions": 1,
+  "charges": 1,
+  "retries": 1,
+  "ready": true,
+  "scope": "微信开发者工具重启运行时、保留本地存储；隔离接口和积分计数，未调用供应商"
+}

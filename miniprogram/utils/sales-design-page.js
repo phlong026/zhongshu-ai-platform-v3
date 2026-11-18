@@ -5,6 +5,7 @@ const http = require('../api/http');
 const api = require('../api/franchise/design');
 const PF = require('./platform-design');
 const images = require('./design-case-images');
+const recent = require('./design-recent');
 
 const currentPost = () => {
   try { return http.token() ? auth.currentApiPost() : null; } catch (e) { return null; }
@@ -19,6 +20,7 @@ module.exports=()=>({
       { title: 'AI立面', view: 'ai-facade', icon: 'house', hint: '探索建筑外观方案' },
       { title: '快速预算', view: 'budget', icon: 'contract', hint: '快速估算建造投入' }
     ],
+    recentTasks:[],recentCount:0,recentRunning:0,recentLoading:false,recentError:'',
     entranceEnabled: false,
     catalogCases: [], catalogCount: 0,
     catalogCursor: '',
@@ -31,17 +33,24 @@ module.exports=()=>({
     const enabled = allowed(post);
     const key = enabled ? [http.sessionGeneration(), post.postId].join(':') : '';
     if (!enabled) {
+      recent.stop(this);this.setData({recentTasks:[],recentCount:0,recentRunning:0,recentLoading:false,recentError:''});
       this.__catalogGeneration = (this.__catalogGeneration || 0) + 1;
       this.__catalogKey = '';
       this.setData({ entranceEnabled: false, catalogCases: [], catalogCount: 0, catalogLoading: false, catalogLoaded: false, catalogError: '' });
       return;
     }
     this.setData({ entranceEnabled: true });
+    this.__recentHidden=false;recent.load(this);
     if (this.__catalogKey === key && (this.data.catalogLoaded || this.data.catalogLoading)) { this.watchCatalogCovers(); return; }
     this.__catalogKey = key;
     this.loadCatalog();
   },
+  onHide() { recent.stop(this); },
+  retryRecent() { return recent.load(this); },
+  openRecent(e) { recent.open(this,e); },
+  openAllTasks() { if(allowed(currentPost()))wx.navigateTo({url:'/design-migration/pages/profile/records?type=projects&from=tasks'}); },
   onUnload() {
+    recent.stop(this);
     this.__catalogUnloaded = true;
     this.__caseImageObserver?.disconnect();
     this.__catalogGeneration = (this.__catalogGeneration || 0) + 1;
@@ -54,7 +63,7 @@ module.exports=()=>({
   loadCatalog(reset = true) {
     const post = currentPost();
     if (!allowed(post)) return;
-    if (!reset && (this.data.catalogLoading || !this.data.catalogCursor)) return;
+    if (!reset) return;
     if (reset) this.__catalogGeneration = (this.__catalogGeneration || 0) + 1;
     const generation = this.__catalogGeneration;
     const request = this.__catalogRequest = (this.__catalogRequest || 0) + 1;
@@ -62,16 +71,16 @@ module.exports=()=>({
     const postId = String(post.postId);
     const alive = () => this.catalogAlive(generation, sessionGeneration, postId);
     this.setData(Object.assign({ catalogLoading: true, catalogError: '' }, reset ? { catalogLoaded: false, catalogCases: [], catalogCount: 0, catalogCursor: '' } : {}));
-    const params = { limit: 10 };
+    const params = { limit: 4 };
     if (!reset) params.cursor = this.data.catalogCursor;
     return api.cases.page(params).then(result => {
       if (!alive() || request !== this.__catalogRequest) return;
       if (params.cursor && result && result.nextCursor === params.cursor) throw Error('户型分页暂不可用，请刷新后重试');
       const existing = reset ? [] : this.data.catalogCases;
-      const rows = (result && result.list || []).map(PF.caseRow).filter(row => !existing.some(item => item.id === row.id)).map(row => Object.assign({}, row, {
+      const rows = (result && result.list || []).slice(0, 4).map(PF.caseRow).filter(row => !existing.some(item => item.id === row.id)).map(row => Object.assign({}, row, {
         coverLoading: !!row.coverAssetId, coverError: !row.coverAssetId, coverUrl: ''
       }));
-      this.setData({ catalogCases: existing.concat(rows), catalogCount: existing.length + rows.length, catalogCursor: (result && result.nextCursor) || '', catalogLoading: false, catalogLoaded: true });
+      this.setData({ catalogCases: existing.concat(rows), catalogCount: existing.length + rows.length, catalogCursor: '', catalogLoading: false, catalogLoaded: true });
       this.watchCatalogCovers();
 
     }).catch(error => {
@@ -79,9 +88,7 @@ module.exports=()=>({
       this.setData({ catalogLoading: false, catalogLoaded: true, catalogError: PF.errorMessageDesign(error) });
     });
   },
-  retryCatalog() { this.loadCatalog(!this.data.catalogCases.length); },
-  loadMoreCatalog() { return this.loadCatalog(false); },
-  onReachBottom() { if (this.data.catalogCursor && !this.data.catalogLoading) this.loadMoreCatalog(); },
+  retryCatalog() { return this.loadCatalog(); },
   watchCatalogCovers() {
     images.watch(this,'.case-cover-watch',this.data.catalogCases,row => this.loadCatalogCover(row));
   },

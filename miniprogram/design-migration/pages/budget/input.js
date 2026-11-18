@@ -257,7 +257,9 @@ protectedPage({
       if (generationId !== this._generationId) return;
       if (scope !== draftStore.sessionScope()) { this.invalidateSession(); return; }
       if (!response || !draftStore.id(response.budgetId)) throw Error('预算响应无有效编号，请重试');
-      wx.navigateTo({ url: '/design-migration/pages/budget/result?budgetId=' + encodeURIComponent(response.budgetId),
+      const customer = require('../../utils/customer-context').read('project', attempt.draft.projectId);
+      require('../../utils/customer-context').bind('budget', response.budgetId, customer);
+      wx.navigateTo({ url: '/design-migration/pages/budget/result?budgetId=' + encodeURIComponent(response.budgetId) + require('../../utils/customer-context').suffix(customer),
         success: () => {
           if (scope !== draftStore.sessionScope() || generationId !== this._generationId) return;
           this.setData({ creating: false });

@@ -8,7 +8,7 @@ const today=()=>require('../../../utils/account').localDate();
 const event=(type,extra={})=>({currentTarget:{dataset:{type,...extra}}});
 module.exports=function(page,api){
  page.openMessageSource=function(){
-  const o=this.options||{},id=String(o.messageObject||''),type=o.messageType;if(!/^\d+$/.test(id)||!type||!this.data.journeyEnabled||!this.__financeFacts||!this.data.workbenchBooks||this.__messageSourceOpened)return;
+  const o=this.options||{},id=String(o.messageObject||''),type=o.messageType;if(!/^\d+$/.test(id)||!type||!this.data.journeyEnabled||!this.__financeFacts||!this.__messageWorkbenchReady||this.data.platformFinance?.status!=='ready'||this.__messageSourceOpened)return;
   const event={currentTarget:{dataset:{id}}};
   if(type==='sale_collection_declaration'){
    const d=(this.data.journeyDeclarations||[]).find(r=>String(r.id)===id);
@@ -40,13 +40,14 @@ module.exports=function(page,api){
  page.openFinanceTask=function(e){
   if(!this.data.journeyEnabled)return this.go(e);const target=this.financeTaskTarget(e.currentTarget.dataset.key||e.currentTarget.dataset.id);if(!target)return this.go(e);
   if(this.data.wbBusy||this.data.registerBusy||this.data.busy)return;
+  if(target.kind==='payable'&&!target.row.canPay||target.kind==='employee'&&target.row.remaining===0){wx.showToast({title:'该事项已办结',icon:'none'});this.loadWorkbench();this.loadPlatformFinance();return;}
   this.rememberEntryOrigin();if(this.data.view==='desk')this.setData({view:'flows',flowTab:target.kind==='declaration'?'receivables':'payables'});
   const event={currentTarget:{dataset:{id:target.row.id}}};
   if(target.kind==='employee')return target.row.remaining<0?this.recoverEmployee(event):this.reimburseEmployee(event);
   if(target.kind==='declaration')return this.openJourneyDeclaration(event);
   return this.payJourneyRow(event);
  };
- page.setData({journeyEntryTitles:{receipt:'登记收款',payment:'登记付款',expense:'补记其他支出',payable:'登记待付费用',refund:'登记客户退款','expense-refund':'登记支出退回',revision:'修订收款金额',book:'新建账本',contractchange:'合同金额变更',payablechange:'结算调整',allocation:'抵扣定金',linkbook:'关联工程',assignbook:'账本归属',supplement:'补充资料',recovery:'登记员工归还'}});
+ page.setData({journeyEntryTitles:{receipt:'登记收款',payment:'登记付款',expense:'补记其他支出',payable:'登记待付费用',refund:'登记退款','expense-refund':'登记退款（支出退回）',revision:'修订收款金额',book:'新建账本',contractchange:'合同金额变更',payablechange:'结算调整',allocation:'抵扣定金',linkbook:'关联工程',assignbook:'账本归属',supplement:'补充资料',recovery:'登记员工归还'}});
  page.rememberEntryOrigin=function(){if(!this.__entryOrigin){this.__entryOptions={...this.options};this.__entryScroll=this.__navigationScrollTop||0;this.__entryOrigin={view:this.data.view,title:this.data.title,flowTab:this.data.flowTab,bookScope:this.data.bookScope,bookFlowTab:this.data.bookFlowTab,keyword:this.data.keyword};this.setData({journeyReturnLabel:this.data.view==='book'?'返回项目账本':this.data.view==='desk'?'返回财务首页':this.data.view==='reimbursements'?'返回报销列表':this.data.view==='tasks'?'返回待办列表':'返回上一页'});}};
  page.refreshJourney=function(){
   if(!this.data.journeyEnabled)return;
@@ -67,6 +68,7 @@ module.exports=function(page,api){
   this.ledgerSource=cash.map(r=>({...r,id:r.key,amountText:r.sign+'¥'+r.amount}));
   this.syncJourneyForm();
   if(this.syncPlatformTasks)this.syncPlatformTasks();
+  this.openMessageSource();
  };
  page.syncJourneyForm=function(){
   if(!this.data.journeyEnabled)return;
@@ -87,7 +89,7 @@ module.exports=function(page,api){
   const refunds=(refund?raw.expenseRefundable:raw.refundable)||[];
   const refundOptions=refunds.filter(r=>r.refundableCents>0).map(r=>{const cash=(this.__journeyCash||[]).find(c=>c.sourceKind===(refund?'payment':'receipt')&&c.id===String(r.id));return {...r,label:cash?cash.projectName+' · '+cash.name+' · 可退 ¥'+V.money(r.refundableCents):r.label};});
   const selected=refundOptions.find(r=>String(r.id)===String(refund?form.paymentId:form.receiptId));
-  this.setData({journeyPaymentOptions:options,journeyPayment:q||null,journeyRefundOptions:refundOptions,journeyRefund:selected?{...selected,originalText:V.money(selected.amountCents),remainingText:V.money(selected.refundableCents)}:null,journeyRegisterTitle:form.reimbursement?'办理报销':this.data.registerType==='payment'?'登记付款':refund?'登记支出退回':'登记客户退款'});
+  this.setData({journeyPaymentOptions:options,journeyPayment:q||null,journeyRefundOptions:refundOptions,journeyRefund:selected?{...selected,originalText:V.money(selected.amountCents),remainingText:V.money(selected.refundableCents)}:null,journeyRegisterTitle:form.reimbursement?'办理报销':this.data.registerType==='payment'?'登记付款':refund?'登记退款（支出退回）':'登记退款'});
  };
  const open=page.openRegister;
  page.openRegister=function(e){
@@ -109,6 +111,7 @@ module.exports=function(page,api){
  page.returnFinanceEntry=function(){if(this.data.designReceiptBusy||this.data.revisionBusy)return;if(this.data.designReceiptForm)return this.cancelDesignReceipt();return this.closeFinanceEntry();};
  page.closeFinanceEntry=function(){
   if(this.data.registerBusy||this.data.wbBusy||this.data.revisionBusy||this.data.busy)return;
+  require('../../../utils/finance-keyboard').dismiss(this,wx);
   cancelRegister.call(this);cancelWorkbench.call(this);
   const origin=this.__entryOrigin,scroll=this.__entryScroll||0;if(this.__entryOptions)this.options={...this.__entryOptions};this.__entryOrigin=null;this.__entryOptions=null;
   this.setData({...(origin||{}),journeyResult:null,journeyDeclaration:null,bookEntryDetail:null,journeyErrorField:''});
@@ -159,7 +162,7 @@ module.exports=function(page,api){
  page.financeEntrySaved=function(type,form,result){
   if(!this.data.journeyEnabled)return;
   const id=typeof result==='object'&&result?(result.receiptId||result.paymentId||result.refundId||result.id):result;
-  const labels={receipt:'收款已登记',payment:form.reimbursement?'报销已登记':'付款已登记',expense:form.fundingType==='EMPLOYEE'?'垫付已登记':'支出已登记',refund:'退款已登记','expense-refund':'退回已登记',recovery:'归还已登记'};
+  const labels={receipt:'收款已登记',payment:form.reimbursement?'报销已登记':'付款登记完成',expense:'付款登记完成',refund:'退款登记完成','expense-refund':'退款登记完成',recovery:'归还已登记'};
   if(!labels[type]){this.__entryOrigin=null;this.__entryOptions=null;return;}
   this.setData({journeyDeclaration:null,journeyResult:{title:labels[type],amount:V.money(PF.toCents(form.amount)),name:form.name||form.payableIdLabel||form.receiptIdLabel||form.paymentIdLabel||'',scope:form.scope||'',scopeLabel:form.scopeLabel||'公司收支流水',id:id?String(id):'',key:(type==='receipt'||type==='recovery'?'r-':type==='payment'||type==='expense'?'p-':'f-')+id,employee:form.fundingType==='EMPLOYEE'}});
  };

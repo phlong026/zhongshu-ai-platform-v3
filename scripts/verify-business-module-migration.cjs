@@ -9,12 +9,13 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 const event = (key, value) => ({ currentTarget: { dataset: key }, detail: { value } });
 const plain = value => JSON.parse(JSON.stringify(value));
 
-function harness(file, api = {}, role = 'sales-lead') {
+function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
   if(file==='studio/characters/index.js')api={...api,personas:require('./persona-draft-fixture.cjs')(api.personas)};
+  let linkDraft;
   let page, scope = 'post-1', generation = 1;
-  const seq = {}, storage = new Map(), navigations = [], toasts = [], calls = [];
+  const seq = {}, storage = persistence.storage || new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
-  const studio = { title: '', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
+  const studio = { title: '', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
   const http = { tenantId:()=>1,token: () => 'token', sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
   const utility = { ...P, api, pollTask: async id => {
     calls.push(['poll', id]); return api.poll ? api.poll(id) : { id, status: 'SUCCEEDED', result: { text: '原视频完整文案' } };
@@ -24,20 +25,27 @@ function harness(file, api = {}, role = 'sales-lead') {
     navigateTo: ({ url }) => navigations.push(url), redirectTo: ({ url }) => navigations.push(url),
     showToast: ({ title }) => toasts.push(title), showLoading() {}, hideLoading() {}, pageScrollTo() {}, nextTick(fn) { fn(); }
   };
+  const draftModule={exports:{}};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/utils/creation-link-draft'),'utf8'),{module:draftModule,require:p=>require('../miniprogram/utils/'+p.slice(2)),wx,Uint8Array,unescape,encodeURIComponent});linkDraft=draftModule.exports;
   const source=file==='creation/index.js'?fs.readFileSync(path.resolve(__dirname,'../miniprogram/utils/sales-creation-page.js'),'utf8').replace('module.exports=()=>({','Page({'):fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages', file), 'utf8');
   vm.runInNewContext(source, {
     Page: value => { page = value; }, wx, setTimeout: (fn,ms) => {const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,
     require(name) {
+      if(name==='./material-library')return {data:{},handlers:{}};
+      if(name.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
+      if(name.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
+      if(name==='./content-task-result')return require('../miniprogram/pages/studio/content-task-result');
       if(name==='./draft-api')return ()=>api.personas;
       if(name==='./profile-draft')return require('../miniprogram/pages/studio/characters/profile-draft');
       if(name.startsWith('./'))name='../../utils/'+name.slice(2);
-      if(name.endsWith('/utils/content-task-result'))return require('../miniprogram/utils/content-task-result');
+      if(name.endsWith('/utils/content-task-result'))return require('../miniprogram/pages/studio/content-task-result');
+      if(name.endsWith('/task-display'))return require('../miniprogram/pages/studio/task-display');
       if (name.endsWith('/utils/studio')) return studio;
       if (name.endsWith('/utils/creation')) return { assets: [] };
-      if (name.endsWith('/utils/creation-link-draft')) return require('../miniprogram/utils/creation-link-draft');
+      if (name.endsWith('/utils/creation-link-draft')) return linkDraft;
       if (name.endsWith('/utils/platform-content')) return utility;
       if (name.endsWith('/api/http')) return http;
-      if (name.endsWith('/api/auth')) return { currentApiPost: () => ({ postId: scope, roleCode: role }) };
+      if (name.endsWith('/api/auth')) return { currentApiPost: () => ({ postId: scope, roleCode: role,orgId:persistence.orgId||'33',userId:persistence.userId||'77' }) };
       if (name.endsWith('/api/franchise/content')) return api;
       if (name.endsWith('/utils/storage-keys')) return { creationDraft: 'creation-draft' };
       if (name.endsWith('/utils/page-navigation')) return { open: url => navigations.push(url) };
@@ -224,7 +232,7 @@ for (const kind of ['AVATAR', 'VOICE']) {
     assert.equal(h.page.data.digitalPersona, null);
     h.page.input(event({ key: 'name' }, '新人物')); await h.page.save(); await flush();
     assert.equal(h.page.data.digitalPersona.id, '90071992547409930'); assert.equal(h.page.data.cloneKind, kind);
-    assert.equal(h.page.data.cloneTitle, '新人物'); assert.equal(h.page.data.editing, false);
+    assert.equal(h.page.data.cloneTitle, '新人物 · '+(kind==='AVATAR'?'视频分身':'克隆声音')+' 1'); assert.equal(h.page.data.editing, false);
     assert.deepEqual(quotes, [kind]); assert.deepEqual(listed, ['90071992547409930']);
   });
 }
@@ -420,4 +428,71 @@ test('setting a default reloads authoritative rows and preserves the other resou
   assert.deepEqual(requests,['33']);assert.equal(h.page.data.cloneRows.find(r=>r.id==='33').isDefault,true);
   assert.equal(h.page.data.cloneRows.find(r=>r.id==='31').isDefault,false);assert.equal(h.page.data.cloneRows.find(r=>r.id==='32').isDefault,true);
   h.page.data.canManage=false;await h.page.setDefaultClone(event({id:'31'}));assert.equal(requests.length,1);
+});
+
+
+test('task center hides explicit test records but retains real text and video tasks without fake progress',async()=>{
+ const rows=[{id:'1',kind:'digital',status:'SUCCEEDED',provider:'fake'},{id:'2',kind:'digital',status:'RUNNING',mock:true},{id:'task-complete',kind:'digital',status:'SUCCEEDED'},{id:'3',kind:'asr',status:'SUCCEEDED',provider:'dashscope',result:{text:'真实转写 mock 示例'}},{id:'4',kind:'ai_video',status:'RUNNING',provider:'metaso'}];
+ const h=harness('studio/index.js',{tasks:{page:async()=>rows}});h.page.data.view='tasks';await h.page.syncApiTasks();
+ assert.deepEqual(plain(h.page.data.tasks.map(t=>t.id)),['3','4']);
+ assert.equal(h.page.data.tasks[0].outputType,'text');assert.equal(h.page.data.tasks[1].stageLabel,'正在处理');
+ assert.equal(h.page.data.tasks[1].progress,undefined);assert.match(h.page.data.tasks[1].image,/video-filled/);
+});
+test('task filter switches and account changes reject late task list responses',async()=>{
+ const first=deferred(),second=deferred();let n=0;const h=harness('studio/index.js',{tasks:{page:()=>++n===1?first.promise:second.promise}});h.page.data.view='tasks';
+ const a=h.page.syncApiTasks();h.page.data.taskFilter=2;const b=h.page.syncApiTasks();
+ second.resolve([{id:'2',kind:'digital',status:'SUCCEEDED'}]);await b;
+ first.resolve([{id:'1',kind:'digital',status:'RUNNING'}]);await a;
+ assert.deepEqual(plain(h.page.data.tasks.map(t=>t.id)),['2']);
+});
+
+test('ASR success plus exhausted save retries restores the same task without new transcription or charge',async()=>{
+ let creates=0,charges=0,retries=0,saveState='FAILED';const keys=[];
+ const parsed={id:'parse',kind:'link_parse',status:'SUCCEEDED',result:{videoUrl:'https://media.example/audio'}};
+ const task=()=>({id:'asr',kind:'asr',generationStatus:'SUCCEEDED',status:saveState==='READY'?'SUCCEEDED':'FAILED',resultState:saveState,saveRetryable:saveState==='FAILED',result:{text:'只转写一次的文案'}});
+ const h=harness('creation/index.js',{
+  links:{parse:async()=>({taskId:'parse'})},scripts:{extract:async(body,key)=>{keys.push(key);creates++;charges++;return{taskId:'asr'};}},
+  tasks:{get:async id=>{assert.equal(id,'asr');return task();},retrySave:async id=>{assert.equal(id,'asr');retries++;if(retries===1)throw Error('save endpoint temporarily unavailable');saveState='READY';return task();}},
+  poll:async id=>id==='parse'?parsed:task()
+ });
+ h.page.data.link='https://v.example/save-failure';await h.page.extract();assert.match(h.page.data.extractError,/保存失败/);
+ const key=h.page.__extractAttempt.asrKey;
+ await h.page.extract();assert.equal(h.navigations.length,0);
+ await h.page.extract();assert.equal(h.page.__extractAttempt.asrKey,key);assert.equal(creates,1);assert.equal(charges,1);assert.equal(retries,2);
+ assert.equal(h.state.original,'只转写一次的文案');assert.equal(h.state.extraction.taskId,'asr');assert.equal(h.navigations.length,1);
+});
+test('task center retries local save on the original task instead of offering new generation',async()=>{
+ const calls=[],task={id:'81',kind:'asr',status:'FAILED',generationStatus:'SUCCEEDED',resultState:'FAILED',saveRetryable:true,result:{text:'已完成转写'}};
+ const h=harness('studio/index.js',{tasks:{page:async()=>[task],retrySave:async id=>calls.push(id)}});
+ h.page.data.view='tasks';await h.page.syncApiTasks();assert.equal(h.page.data.tasks[0].stageLabel,'生成完成，保存失败');
+ await h.page.taskAction(event({id:'81'}));assert.deepEqual(calls,['81']);
+});
+
+test('restarting the mini-program restores save-failed ASR by account and organization without parsing or billing again',async()=>{
+ const storage=new Map();let creates=0,charges=0,parses=0,saved=false,retries=0;
+ const task=()=>({id:'restart-asr',kind:'asr',generationStatus:'SUCCEEDED',status:saved?'SUCCEEDED':'FAILED',resultState:saved?'READY':'FAILED',result:{text:'重启后恢复的转写文案'}});
+ const api={links:{parse:async()=>{parses++;return{taskId:'parse'};}},scripts:{extract:async()=>{creates++;charges++;return{taskId:'restart-asr'};}},tasks:{get:async id=>{assert.equal(id,'restart-asr');return task();},retrySave:async id=>{assert.equal(id,'restart-asr');retries++;saved=true;}},poll:async id=>id==='parse'?{status:'SUCCEEDED',result:{audioUrl:'https://media.example/no-hash'}}:task()};
+ const first=harness('creation/index.js',api,'sales',{storage});first.page.data.link='https://v.example/restart';await first.page.extract();
+ const key=first.page.__extractAttempt.asrKey;assert.match(first.page.data.extractError,/保存失败/);
+ const reopened=harness('creation/index.js',api,'sales',{storage});reopened.page.data.link='复制链接 https://v.example/restart';await reopened.page.extract();
+ assert.equal(reopened.page.__extractAttempt.asrKey,key);assert.equal(reopened.state.original,'重启后恢复的转写文案');
+ assert.deepEqual({creates,charges,parses,retries},{creates:1,charges:1,parses:1,retries:1});
+ for(const identity of [{orgId:'34'},{userId:'78'}]){
+  const other=harness('creation/index.js',api,'sales',{storage,...identity});other.page.data.link='https://v.example/restart';await other.page.extract();
+  assert.notEqual(other.page.__extractAttempt.asrKey,key);
+ }
+ assert.equal(creates,3);assert.equal(retries,1,'other account/org must not retry this owner task');
+});
+test('restart after lost ASR creation response replays persisted request key, not a new paid operation',async()=>{
+ const storage=new Map(),requests=new Set();let responseLost=true,charges=0;
+ const api={links:{parse:async()=>({taskId:'parse'})},scripts:{extract:async(body,key)=>{if(!requests.has(key)){requests.add(key);charges++;}if(responseLost)throw Error('response lost after acceptance');return{taskId:'asr'};}},poll:async id=>({id,status:'SUCCEEDED',result:id==='parse'?{videoUrl:'https://media.example/a'}:{text:'已受理原任务'}})};
+ const first=harness('creation/index.js',api,'sales',{storage});first.page.data.link='https://v.example/lost';await first.page.extract();responseLost=false;
+ const second=harness('creation/index.js',api,'sales',{storage});second.page.data.link='https://v.example/lost';await second.page.extract();
+ assert.equal(requests.size,1);assert.equal(charges,1);assert.equal(second.state.original,'已受理原任务');
+});
+test('unreadable or unwritable recovery storage blocks paid extraction instead of silently replacing keys',async()=>{
+ for(const method of ['getStorageSync','setStorageSync']){
+  let creates=0;const h=harness('creation/index.js',{links:{parse:async()=>{creates++;}}});h.wx[method]=()=>{throw Error('storage unavailable');};
+  h.page.data.link='https://v.example/storage';await h.page.extract();assert.equal(creates,0);assert.match(h.page.data.extractError,/任务记录/);assert.equal(h.page.data.extracting,false);
+ }
 });

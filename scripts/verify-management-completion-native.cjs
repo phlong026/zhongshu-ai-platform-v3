@@ -198,18 +198,9 @@ function fixture() {
     } else { await runner.login('finance-dual','finance'); }
 
     data = await open('/pages/profile/index', '.profile-card');
-    const promotion = data.entries.find(row => row.text === '公司费用与推广登记');
-    assert(promotion);
-    await runner.event({ selector:'.service-row.profile-menu', dataset:{ url:promotion.url } }, 'open');
-    await route('pages/admin/operations/index');
-    data = await runner.data();
-    assert.equal(data.view, 'expenses');
-    assert.equal(data.selected.id, 'company:quanzhou');
-    assert.equal(data.form.purpose, '推广获客');
-    assert.equal(data.canSubmitExpense, true);
-    await runner.until(async () => (await runner.rects(['.ops-expense-name','.ops-expense-amount'])).every(Boolean), '公司费用表单输入控件已渲染');
-    await capture('promotion-expense-entry');
-    pass('财务从我的入口进入公司推广获客费用原表单', { projectId:'company:quanzhou', purpose:'推广获客' });
+    assert(!data.entries.some(row => row.text === '公司费用与推广登记'));
+    await capture('finance-profile-clean-entries');
+    pass('财务我的页移除重复公司费用入口；公司费用继续沿现有公司账本登记');
 
     assert.equal(runner.errors.length, 0, JSON.stringify(runner.errors));
     const result = {
