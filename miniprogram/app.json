@@ -42,7 +42,8 @@
         "sales/index",
         "index",
         "training/index",
-        "store-map/index"
+        "store-map/index",
+        "store-profile/index"
       ],
       "root": "pages/account",
       "name": "account-workflow"

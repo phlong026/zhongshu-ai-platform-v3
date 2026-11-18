@@ -29,7 +29,13 @@ function managementEntries(a) {
   if (!a.active) return [];
   const X = require('../../utils/access');
   if (X.isBoss(a)) {
-    if (a.api) return [{ text: '成员与权限', url: account('api-members') }];
+    if (a.api) {
+      const items = [{ text: '成员与权限', url: account('api-members') }];
+      if (a.orgType === 'store' && a.role === 'boss') {
+        items.unshift({ text: '加盟商资料', url: '/pages/account/store-profile/index' });
+      }
+      return items;
+    }
     // Same urls the owner pages build; the admin pages live in a subpackage, so they are spelled out here.
     const admin = view => '/pages/admin/index?view=' + view, detail = view => '/pages/admin/detail/index?view=' + view;
     return [
