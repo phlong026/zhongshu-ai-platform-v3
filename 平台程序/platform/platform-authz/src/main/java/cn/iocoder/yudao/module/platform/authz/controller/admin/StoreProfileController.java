@@ -10,12 +10,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes.STORE_PROFILE_NAME_TAKEN;
 
 @RestController
 @RequestMapping("/platform/org/store-profile")
@@ -77,10 +80,14 @@ public class StoreProfileController {
         if (Boolean.TRUE.equals(jdbc.queryForObject("""
                 SELECT EXISTS(SELECT 1 FROM system_dept d JOIN pf_org_unit o ON o.dept_id=d.id AND o.kind='ORG'
                 WHERE d.tenant_id=? AND d.deleted=0 AND d.name=? AND d.id<>?)
-                """,Boolean.class,tenant,name,post.orgId()))) throw new ServiceException(409,"组织名称已被使用");
+                """,Boolean.class,tenant,name,post.orgId()))) throw exception(STORE_PROFILE_NAME_TAKEN);
         if (!before.name().equals(name)) {
             jdbc.update("UPDATE system_dept SET name=?, update_time=now() WHERE tenant_id=? AND id=?",name,tenant,post.orgId());
-            jdbc.update("UPDATE pf_franchise_account SET org_name=? WHERE tenant_id=? AND org_id=?",name,tenant,post.orgId());
+            try {
+                jdbc.update("UPDATE pf_franchise_account SET org_name=? WHERE tenant_id=? AND org_id=?",name,tenant,post.orgId());
+            } catch (DuplicateKeyException e) {
+                throw exception(STORE_PROFILE_NAME_TAKEN);
+            }
         }
         if (!before.ownerName().equals(ownerName)) {
             FranchiseAccountNaming.Person person;

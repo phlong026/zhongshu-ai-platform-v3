@@ -2,12 +2,15 @@ package cn.iocoder.yudao.module.platform.identity;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.platform.authz.CurrentPost;
+import cn.iocoder.yudao.module.platform.authz.controller.admin.StoreProfileController;
 import cn.iocoder.yudao.module.platform.authz.service.FranchiseOnboardService;
 import cn.iocoder.yudao.module.platform.authz.service.StaffAccountOnboardService;
 import cn.iocoder.yudao.module.platform.identity.dal.WechatBindingMapper;
 import cn.iocoder.yudao.module.platform.identity.wechat.WechatStaffClient;
 import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
 import cn.iocoder.yudao.module.platform.org.OrgServiceImpl;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.StaffPostServiceImpl;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
@@ -60,7 +63,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @Import({FranchiseAccountAuthService.class, FranchiseAccountNaming.class, OrgServiceImpl.class,
-        StaffPostServiceImpl.class, FranchiseOnboardService.class, StaffAccountOnboardService.class,
+        StaffPostServiceImpl.class, FranchiseOnboardService.class, StaffAccountOnboardService.class, StoreProfileController.class,
         StaffWechatBindingServiceImpl.class, StaffWechatExplicitBindingServiceImpl.class,
         StaffWechatBindingCommitService.class, StaffWechatLoginServiceImpl.class,
         FranchiseAccountAuthServiceIntegrationTest.RedisConfig.class})
@@ -104,6 +107,8 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     }
 
     @Resource private FranchiseAccountAuthService service;
+    @Resource private StoreProfileController storeProfile;
+    @MockitoBean private CurrentPost currentPost;
     @Resource private JdbcTemplate jdbc;
     @Resource private StringRedisTemplate redis;
     @Resource private FranchiseOnboardService franchiseOnboardService;
@@ -196,6 +201,55 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
             assertThat(service.matches(query).items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
                     .containsExactly(account.accountId());
         }
+    }
+
+    @Test
+    void retriesDuplicateStoreNameWithOriginalVersionAndFindsTheSavedAccount() {
+        // system_dept is a shim here; the operations module owns pf_org_profile in the full application.
+        jdbc.execute("ALTER TABLE system_dept ADD COLUMN IF NOT EXISTS update_time timestamp");
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS pf_org_profile (tenant_id bigint, org_id bigint, address varchar(300),
+                    version bigint, updated_by bigint, updated_at timestamptz, PRIMARY KEY(tenant_id,org_id))
+                """);
+        String login = "hjmz-profile-retry", address = "南宁市青秀区青松路8号";
+        Account account = createAccount(tenantId, IDS.incrementAndGet(), login, 0, "ACTIVE", false);
+        Account other = createAccount(tenantId, IDS.incrementAndGet(), "hjmz-other", 0, "ACTIVE", false);
+        for (Account row : List.of(account, other)) {
+            jdbc.update("""
+                    INSERT INTO system_dept(id,tenant_id,name)
+                    SELECT org_id,tenant_id,org_name FROM pf_franchise_account WHERE account_id=?
+                    """, row.accountId());
+        }
+        when(currentPost.require()).thenReturn(new PostSnapshot(account.postId(), account.userId(), account.orgId(),
+                "store", "boss", null, false, Set.of()));
+        var before = storeProfile.get().getData();
+        String taken = jdbc.queryForObject("SELECT name FROM system_dept WHERE id=?", String.class, other.orgId());
+        var duplicate = new StoreProfileController.Update(before.orgId(), before.version(), taken, before.ownerName(), address);
+        assertCode(() -> storeProfile.update(duplicate), 1_101_000_025);
+        // A retired department can still reserve its account name through the unique index.
+        jdbc.update("UPDATE system_dept SET deleted=1 WHERE id=?", other.orgId());
+        assertCode(() -> storeProfile.update(duplicate), 1_101_000_025);
+        assertThat(storeProfile.get().getData()).isEqualTo(before);
+
+        var update = new StoreProfileController.Update(before.orgId(), before.version(),
+                "青松 建房（南宁店）", before.ownerName(), address);
+        var saved = storeProfile.update(update).getData();
+        assertThat(saved.address()).isEqualTo(address);
+        assertThat(saved.version()).isEqualTo(before.version() + 1);
+        for (String query : List.of(saved.name(), login)) {
+            assertThat(service.matches(query).items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
+                    .containsExactly(account.accountId());
+        }
+        assertCode(() -> storeProfile.update(duplicate), 409);
+        assertThat(storeProfile.get().getData()).isEqualTo(saved);
+        addAlias(other, "青松 建房");
+        for (String partial : List.of("青松 建房", "hjmz%", "hjmz_", "h")) {
+            assertThat(service.matches(partial).items()).isEmpty();
+        }
+        var single = new StoreProfileController.Update(before.orgId(), saved.version(), "青", before.ownerName(), address);
+        storeProfile.update(single);
+        assertThat(service.matches("青").items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
+                .containsExactly(account.accountId());
     }
 
     @Test
