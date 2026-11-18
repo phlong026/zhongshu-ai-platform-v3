@@ -255,6 +255,7 @@ def inspect_scope(base, model, require_frozen=False, previous_api_image=None):
             if kind == "volume":
                 volume_items.append(item)
     same_host.validate_actual_volumes_against_model(volume_items, model)
+    return legacy_api
 
 
 def pg(base, arguments, **kwargs):
@@ -389,12 +390,14 @@ def main():
         validate_image(args.image)
         demand(args.schema_compatible, "Confirm previous image is compatible with current B schema/data using --schema-compatible")
     if args.previous_api_image:
-        demand(args.action in ("backup", "migrate", "start"), "Pre-spool transition only applies to backup, migrate and start")
+        demand(args.action in ("backup", "migrate", "start", "restore", "rollback"), "Unsupported pre-spool operation")
         validate_image(args.previous_api_image)
+        if args.action == "rollback":
+            demand(args.image == args.previous_api_image, "Legacy recovery requires the inspected previous image digest")
     if not args.execute:
         logging.warning("PLAN ONLY: %s for %s; no Docker daemon call or mutation", args.action, TARGET)
         return
-    inspect_scope(base, model, require_frozen=True, previous_api_image=args.previous_api_image)
+    legacy_api = inspect_scope(base, model, require_frozen=True, previous_api_image=args.previous_api_image)
     logging.warning("Executing explicitly confirmed B operation: %s", args.action)
     if args.action == "backup":
         backup(base, args.backup_dir)
@@ -411,6 +414,12 @@ def main():
         inspect_scope(base, model)
     elif args.action == "rollback":
         run(["docker", "image", "inspect", args.image], context="Verify preloaded rollback image")
+        if legacy_api:
+            # No replacement took place. Restart exactly the inspected container;
+            # recreating it from the candidate model would change its mounts.
+            run(base + ["start", "--wait", "--wait-timeout", "180", "api"],
+                context="Restart the verified previous API", timeout=210)
+            return
         os.environ["PLATFORM_API_IMAGE"] = args.image
         run(base + ["up", "-d", "--no-deps", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "180", "api"],
             context="Replace only B API image", timeout=210)

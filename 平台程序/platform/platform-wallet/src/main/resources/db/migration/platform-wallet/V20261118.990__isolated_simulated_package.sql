@@ -7,23 +7,25 @@ CREATE TABLE org_point_simulated_purchase (
 );
 CREATE INDEX idx_sim_purchase_org ON org_point_simulated_purchase (tenant_id, org_id);
 
--- Preserve receipts and request keys if a previous candidate issued real-pool credits.
--- Never make a negative formal balance or silently write off already consumed credits.
-INSERT INTO org_point_simulated_purchase(id,tenant_id,org_id,biz_key,price_fen,test_points,receipt,create_time)
-SELECT id,split_part(biz_key,':',2)::bigint,org_id,biz_key,(price_snapshot->>'priceFen')::bigint,
-       available_delta,price_snapshot,create_time
-FROM org_point_ledger WHERE type='SIMULATED_PACKAGE';
+-- Only the table owner can enter finance evidence, including on installations
+-- that grant the runtime role DML on public tables.
+CREATE TABLE org_point_simulation_review (
+    source_ledger_id bigint PRIMARY KEY REFERENCES org_point_ledger(id),
+    approved_transfer bigint NOT NULL CHECK (approved_transfer >= 0),
+    reviewed_ledger_count bigint NOT NULL CHECK (reviewed_ledger_count > 0),
+    reviewed_balance bigint NOT NULL CHECK (reviewed_balance >= 0),
+    finance_reviewer text NOT NULL CHECK (length(trim(finance_reviewer)) > 0),
+    evidence_reference text NOT NULL CHECK (length(trim(evidence_reference)) > 0),
+    recorded_at timestamptz NOT NULL DEFAULT now()
+);
 
-DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM org_point_simulated_purchase s LEFT JOIN org_point_account a ON a.org_id=s.org_id
-               GROUP BY s.org_id,a.balance HAVING a.balance IS NULL OR a.balance < sum(s.test_points)) THEN
-        RAISE EXCEPTION 'Historical simulated points already spent: reconcile affected org_point_ledger entries before migrating';
+CREATE FUNCTION require_simulation_review_owner() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN
+        RAISE EXCEPTION 'Recording financial review requires the migration owner';
     END IF;
+    IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
 END $$;
-
-UPDATE org_point_account a SET balance=a.balance-s.points,version=a.version+1,update_time=now()
-FROM (SELECT org_id,sum(test_points) AS points FROM org_point_simulated_purchase GROUP BY org_id) s
-WHERE a.org_id=s.org_id;
-INSERT INTO org_point_ledger(id,org_id,biz_key,operation_time,type,available_delta,ref_type,ref_id,note)
-SELECT -id,org_id,'isolate:'||biz_key,now(),'SIMULATED_PACKAGE_TRANSFER',-test_points,'SIMULATED_PACKAGE',id,'模拟积分转入测试账簿'
-FROM org_point_simulated_purchase;
+CREATE TRIGGER simulation_review_owner BEFORE INSERT OR UPDATE OR DELETE ON org_point_simulation_review
+FOR EACH ROW EXECUTE FUNCTION require_simulation_review_owner();
