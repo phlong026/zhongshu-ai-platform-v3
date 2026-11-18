@@ -1,6 +1,8 @@
 import {parseGrant, validateFile, fileDigest, hasH264, sendFile} from './transfer'
+import {saveSample} from './replay-store'
 
 const el = id => document.getElementById(id)
+const keepPreview = new URLSearchParams(location.search).has('keepPreview')
 const input = el('file'), send = el('send'), back = el('back'), status = el('status')
 let grant, fileUrl, receipt, generation = 0
 try {
@@ -54,6 +56,10 @@ send.onclick = async () => {
     await sendFile(file, grant, alive, () => { status.textContent = '连接中断，正在用原凭证重试…' })
     if (!alive()) return
     receipt = {uploadId:grant.uploadId, sizeBytes:file.size, sha256:digest, name:file.name.slice(0,180)}
+    if (keepPreview) {
+      receipt.previewKey = await saveSample(grant.uploadId, file, grant.contentType).catch(() => '')
+      if (!alive()) return
+    }
     status.textContent = '客户端已上传，返回后可提交制作。'
     send.hidden = true; back.hidden = false
     deliver()

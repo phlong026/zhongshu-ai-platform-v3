@@ -136,3 +136,8 @@ jobs:
           node --test src/clone-upload/transfer.test.mjs
           VITE_BASE_PATH=/admin/ npm run build:prod
           test -s dist/clone-upload.html
+      - name: Play uploaded video and audio in a fresh web view
+        run: |
+          python3 -m pip install playwright==1.65.2
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update && sudo apt-get install -y ffmpeg; fi
+          python3 tests/clone_replay.py
