@@ -90,27 +90,21 @@ function commissionPage(postSubmit, postCommand) {
    form:{__mode:'AREA_FULL',__budgetVersion:1,__pricingVersion:2,text:'建房需求',scope:'设计方案',checked:true,testPayment:true}};
  return {page,withdraw:()=>{delete offer.simulationPaymentMode;}};
 }
-test('接收人单独勾选接任后才能转交原工程',async()=>{
- const calls=[];
+test('原负责人转交后，指定接收人可以在原页面确认移交',async()=>{
+ const calls=[]; let approved=false;
  const {page}=commissionPage(null,async(id,action,payload,key)=>{
   calls.push({id,action,payload,key});
-  if(!payload.confirmManagerTransfer)throw {code:1115000011,message:'合同已关联陈家乡墅，请确认接任'};
+  if(!approved)throw {code:1115000011,message:'请联系现负责人在工程档案中变更负责人'};
   return {};
  });
- page.view='receive';page.id='8001';page.action='packet-receive';
- page.data.form={checked:true};
+ page.view='receive';page.id='8001';page.action='packet-receive';page.data.form={checked:true};
  await page.submit();
  assert.equal(page.view,'receive');
- assert.match(page.data.error,/陈家乡墅/);
- assert.equal(page.data.form.transferRequired,true);
- assert.equal(page.data.form.confirmManagerTransfer,false);
- await page.submit();
- assert.equal(calls.length,1);
- page.check({currentTarget:{dataset:{key:'confirmManagerTransfer'}},detail:{value:['yes']}});
+ assert.match(page.data.error,/联系现负责人/);
+ approved=true;
  await page.submit();
  assert.equal(calls.length,2);
- assert.equal(calls[0].payload.confirmManagerTransfer,undefined);
- assert.equal(calls[1].payload.confirmManagerTransfer,true);
+ for(const call of calls) assert.deepEqual({...call.payload},{confirmed:true});
  assert.equal(calls[1].key,calls[0].key);
  assert.equal(page.view,'progress');
 });

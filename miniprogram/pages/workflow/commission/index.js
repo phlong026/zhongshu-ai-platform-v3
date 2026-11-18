@@ -398,10 +398,6 @@ Page({
     }
     if (action === 'packet-receive') {
       if (!f.checked) throw Error('请核对本次图纸、签认依据和交底资料');
-      if (f.transferRequired) {
-        if (!f.confirmManagerTransfer) throw Error('请确认接任原工程负责人，或退回移交');
-        return { confirmed: true, confirmManagerTransfer: true };
-      }
       return { confirmed: true };
     }
     return copy(f);
@@ -472,11 +468,6 @@ Page({
       this.refresh(true);
     } catch (e) {
       if (!alive()) return;
-      if (this.action === 'packet-receive' && Number(e.code) === 1115000011) {
-        this.setData({ busy: false, error: Presentation.errorMessage(e),
-          'form.transferRequired': true, 'form.confirmManagerTransfer': false });
-        return;
-      }
       const simulationRejected = this.view === 'submit' && this.data.form.testPayment && Number(e?.code) === 1111000022;
       const error = simulationRejected ? '' : Presentation.errorMessage(e);
       this.setData({ error, busy: false, ...(simulationRejected
