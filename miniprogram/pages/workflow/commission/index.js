@@ -198,7 +198,7 @@ Page({
       view, platformStatus: 'ready', error: preservedError,
       customer: c.id || c.name ? { id: c.id, projectId: c.projectId, name: c.name, city: c.city, revision: c.revision } : null,
       form, fields:view==='pay'?[]:fields, rows,
-      simulationAllowed: view === 'submit' && can && this.__context?.feeOffer?.simulationAllowed === true,
+      simulationAllowed: view === 'submit' && can && this.__context?.feeOffer?.simulationPaymentMode === 'TEST_SIMULATION',
       paymentOrder:paymentView(c.simulatedPayment),
       paymentChannel:this.data.paymentChannel||'WECHAT',
       canFeeDecide: c.allowedActions.includes('fee-decide'),
@@ -337,7 +337,7 @@ Page({
       if (!scope) throw Error('请填写本次交付范围');
       if (!f.checked) throw Error('请勾选确认已核对需求、尺寸来源、交付范围及费用约定');
       if (!f.__budgetVersion) throw Error('请先完成有效参考预算');
-      const payload = { ...(f.__mode==='AREA_FULL' && f.testPayment === true && this.__context?.feeOffer?.simulationAllowed === true ? {paymentMode:'SIMULATION'} : {}),...(this.data.designBriefEnabled?{designBrief:this.data.designBrief}:{}), mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
+      const payload = { ...(f.__mode==='AREA_FULL' && f.testPayment === true && this.__context?.feeOffer?.simulationPaymentMode === 'TEST_SIMULATION' ? {paymentMode:'TEST_SIMULATION'} : {}),...(this.data.designBriefEnabled?{designBrief:this.data.designBrief}:{}), mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
       if (f.__mode === 'AREA_FULL') payload.feeRuleVersion = f.__pricingVersion;
       else if (f.__mode === 'LEGACY_SPLIT') {
         payload.totalCents = Money.parseCents(f.total);

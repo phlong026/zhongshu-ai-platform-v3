@@ -52,7 +52,9 @@ test('the commission sends simulation only after explicit opt-in with server aut
  form.testPayment=true;
  assert.equal(payload().paymentMode,undefined);
  ctx.__context.feeOffer.simulationAllowed=true;
- assert.equal(payload().paymentMode,'SIMULATION');
+ assert.equal(payload().paymentMode,undefined,'an older backend cannot authorize the versioned test mode');
+ ctx.__context.feeOffer.simulationPaymentMode='TEST_SIMULATION';
+ assert.equal(payload().paymentMode,'TEST_SIMULATION');
  form.testPayment=false;
  assert.equal(payload().paymentMode,undefined);
 });
