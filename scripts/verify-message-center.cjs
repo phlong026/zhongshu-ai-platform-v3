@@ -57,3 +57,34 @@ test('an invalidated request guard releases busy without opening a message',asyn
     assert.equal(p.data.messageDetail,undefined);assert.equal(p.data.messageBusy,false);
   }finally{H.post=originals.post;H.requestGuard=originals.guard;}
 });
+
+test('load-more and opening the original order can complete in either request order',async()=>{
+  const originals={get:H.get,post:H.post,token:H.token,guard:H.requestGuard,open:N.open};
+  const route='/pages/workflow/index?view=customer&id=1',navigations=[];
+  H.token=()=> 'test';
+  H.requestGuard=()=>()=>true;
+  N.open=url=>navigations.push(url);
+  try {
+    for(const pageFirst of [true,false]){
+      const p=page();
+      H.get=async()=>({items:[message('99')],unread:2,hasMore:true,nextCursor:'99'});
+      await P.sync.call(p);
+      let releaseOpen,releasePage;
+      H.post=()=>new Promise(resolve=>{releaseOpen=resolve;});
+      H.get=()=>new Promise(resolve=>{releasePage=resolve;});
+      const opening=P.read.call(p,p.apiMessages[0],true);
+      const paging=P.sync.call(p,true);
+      const opened=()=>releaseOpen(message('99',{read:true,unread:1,actionPath:route}));
+      const appended=()=>releasePage({items:[message('98')],unread:pageFirst?1:2,hasMore:false});
+      if(pageFirst){appended();await paging;opened();}
+      else{opened();await opening;appended();}
+      await Promise.all([opening,paging]);
+      assert.deepEqual(p.apiMessages.map(row=>[row.id,row.read]),[['99',true],['98',false]]);
+      assert.equal(p.apiUnread,1);
+      assert.equal(p.data.messageBusy,false);
+    }
+    assert.deepEqual(navigations,[route,route]);
+  }finally{
+    H.get=originals.get;H.post=originals.post;H.token=originals.token;H.requestGuard=originals.guard;N.open=originals.open;
+  }
+});

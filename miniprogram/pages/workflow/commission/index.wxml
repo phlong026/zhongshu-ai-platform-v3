@@ -40,6 +40,7 @@
     <view class="commission-row"><text class="commission-heading">设计服务费</text><text class="commission-amount">¥ {{pricingQuote.amountText}}</text></view>
     <text class="commission-muted">{{pricingQuote.area}}㎡ × ¥{{pricingQuote.rateText}}/㎡</text>
     <text class="commission-muted">{{pricingQuote.scope}} · {{pricingQuote.recipient}}</text>
+    <checkbox-group wx:if="{{simulationAllowed}}" data-key="testPayment" bindchange="check"><label class="commission-check"><checkbox value="yes" checked="{{form.testPayment}}" disabled="{{busy}}" color="#824019"/><text>使用模拟付款（测试演练）</text></label></checkbox-group>
    </view>
    <view wx:if="{{fields.length}}" class="commission-card">
     <view wx:for="{{fields}}" wx:key="key" wx:if="{{!(view==='submit'&&designBriefEnabled&&(item.key==='text'||pricingQuote&&(item.key==='scope'||item.key==='recipient')||item.kind==='check'&&!submitPreview))}}" class="commission-field">
