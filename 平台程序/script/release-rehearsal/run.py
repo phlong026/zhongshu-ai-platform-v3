@@ -207,7 +207,7 @@ for service in ("postgres-b","redis-b"):
 compose(oldenv,"up","-d","--wait","postgres-b","redis-b")
 ops(oldenv,"migrate")
 shutil.copyfile(unpacked/"deploy/platform/compose.training.yaml", deploy/"compose.training.yaml")
-compose(oldenv,"create","--no-deps","api")
+compose(oldenv,"up","--no-start","--no-deps","--pull","never","api")
 training_root="/var/lib/platform/training-private"
 run("docker","run","--rm","--network","none","--read-only","--user","0:0",
     "--mount","type=volume,src=zhongshu-platform-b_training-private,dst=/private",
@@ -232,6 +232,20 @@ shutil.copytree(unpacked/"deploy/platform",deploy,dirs_exist_ok=True)
 backup = scratch/"freeze-backup"
 ops(newenv,"backup","--backup-dir",backup,"--previous-api-image",oldref)
 backup_hash=sha(backup/"manifest.json");record("frozenBackup",backup_hash)
+restored_cache=run("docker","run","-d","--rm","--network","none","--read-only",
+    "--user",f"{os.getuid()}:{os.getgid()}","--tmpfs","/tmp:mode=1777",
+    "--mount",f"type=bind,src={backup/'redis.rdb'},dst=/tmp/dump.rdb,readonly",
+    "--entrypoint","redis-server",model["services"]["redis-b"]["image"],
+    "--dir","/tmp","--dbfilename","dump.rdb","--save","","--appendonly","no")
+try:
+    for _ in range(30):
+        probe=subprocess.run(["docker","exec",restored_cache,"redis-cli","--raw","GET","r4:marker"],capture_output=True)
+        if probe.returncode==0 and probe.stdout.strip()==b"118": break
+        time.sleep(1)
+    else: raise AssertionError("The Redis marker did not restore from the delivered backup")
+    record("verifiedRedisSnapshot",True)
+finally:
+    run("docker","stop",restored_cache)
 expect_migration_failure(newenv,oldref)
 ops(newenv,"rollback","--image",oldref,"--previous-api-image",oldref,"--schema-compatible")
 confirm_running(oldref)

@@ -296,17 +296,28 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def backup(base, directory):
+def backup(base, directory, model):
     directory.mkdir(mode=0o700, parents=False, exist_ok=False)
     # A failure leaves an incomplete directory without manifest; it cannot pass restore validation.
     with (directory / "postgres.dump").open("xb") as stream:
         pg(base, ["pg_dump", "-h", "127.0.0.1", "-U", "platform_owner", "-d", DATABASE,
                   "--format=custom", "--no-owner", "--no-privileges"], stdout=stream)
-    redis_script = ('export REDISCLI_AUTH="$(cat /run/secrets/redis_backup_password)"; '
-                    'exec redis-cli --no-auth-warning --user platform_backup --rdb /dev/stdout')
-    with (directory / "redis.rdb").open("xb") as stream:
-        run(base + ["exec", "-T", "redis-b", "sh", "-ec", redis_script],
-            context="B Redis snapshot", timeout=1800, stdout=stream)
+    # redis-cli truncates the replication EOF marker and fsyncs the result.
+    # Docker exec transports stdout over a pipe, so give the client a regular external backup file.
+    snapshot = directory / "redis.rdb"
+    snapshot.touch(mode=0o600, exist_ok=False)
+    redis_id = run(base + ["ps", "-q", "redis-b"], context="Find inspected B Redis").decode().strip()
+    demand(re.fullmatch(r"[0-9a-f]{12,64}", redis_id), "Expected one running B Redis container")
+    secret = Path(model["secrets"]["redis_backup_password"]["file"]).resolve()
+    script = ('export REDISCLI_AUTH="$(cat /run/secrets/redis_backup_password)"; '
+              'redis-cli --no-auth-warning --user platform_backup --rdb /snapshot.rdb; '
+              'exec redis-check-rdb /snapshot.rdb >/dev/null')
+    run(["docker", "run", "--rm", "--pull", "never", "--read-only", "--cap-drop", "ALL",
+         "--security-opt", "no-new-privileges", "--user", f"{os.getuid()}:{os.getgid()}", "--group-add", "20000",
+         "--network", f"container:{redis_id}",
+         "--mount", f"type=bind,src={secret},dst=/run/secrets/redis_backup_password,readonly",
+         "--mount", f"type=bind,src={snapshot},dst=/snapshot.rdb", "--entrypoint", "sh",
+         model["services"]["redis-b"]["image"], "-ec", script], context="B Redis snapshot and validation", timeout=1800)
     manifest = {"project": PROJECT, "database": DATABASE, "writes_frozen": True,
                 "files": {name: sha256(directory / name) for name in ("postgres.dump", "redis.rdb")}}
     (directory / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -415,7 +426,7 @@ def main():
     legacy_api = inspect_scope(base, model, require_frozen=True, previous_api_image=args.previous_api_image)
     logging.warning("Executing explicitly confirmed B operation: %s", args.action)
     if args.action == "backup":
-        backup(base, args.backup_dir)
+        backup(base, args.backup_dir, model)
     elif args.action == "restore":
         restore(base, args.backup_dir)
     elif args.action == "policy":
