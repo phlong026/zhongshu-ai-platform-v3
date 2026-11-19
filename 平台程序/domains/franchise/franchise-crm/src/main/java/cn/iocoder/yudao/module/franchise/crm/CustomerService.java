@@ -116,7 +116,12 @@ public class CustomerService {
     /** Web 客资表格：在可见范围内追加状态/负责人筛选。 */
     public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword,
                                        String status, Long ownerUserId) {
-        PageResult<CustomerDO> result = customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword, status, ownerUserId);
+        return page(post, page, keyword, status, ownerUserId, null);
+    }
+
+    public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword,
+                                       String status, Long ownerUserId, CustomerMapper.FollowFilter followFilter) {
+        PageResult<CustomerDO> result = customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword, status, ownerUserId, followFilter);
         enrichDesignStatus(post, result.getList());
         return result;
     }

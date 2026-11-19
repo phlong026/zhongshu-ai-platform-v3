@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.TransferCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.UpdateCommand;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerMapper.FollowFilter;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import jakarta.annotation.Resource;
@@ -68,14 +69,15 @@ public class CustomerController {
     public CommonResult<PageResult<CustomerRow>> page(@Valid PageParam page,
                                                       @RequestParam(required = false) String keyword,
                                                       @RequestParam(required = false) String status,
-                                                      @RequestParam(required = false) Long ownerUserId) {
+                                                      @RequestParam(required = false) Long ownerUserId,
+                                                      @RequestParam(required = false) FollowFilter followFilter) {
         status = cn.hutool.core.util.StrUtil.trimToNull(status);
         if (status != null
                 && !CustomerDO.STATUS_REGISTERED.equals(status) && !CustomerDO.STATUS_FOLLOWING.equals(status)) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "状态只支持 REGISTERED/FOLLOWING");
         }
         // record 转换必须走显式工厂：BeanUtils(hutool) 对 record 反射拷贝产出全默认值（P1 客户接入前置补丁 S1-11d）
-        PageResult<CustomerDO> result = customerService.page(currentPost.require(), page, keyword, status, ownerUserId);
+        PageResult<CustomerDO> result = customerService.page(currentPost.require(), page, keyword, status, ownerUserId, followFilter);
         var ownerNames = result.getList().isEmpty() ? java.util.Map.<Long, String>of()
                 : systemDirectory.usersByIds(result.getList().stream().map(CustomerDO::getOwnerUserId).distinct().toList())
                         .stream().collect(java.util.stream.Collectors.toMap(

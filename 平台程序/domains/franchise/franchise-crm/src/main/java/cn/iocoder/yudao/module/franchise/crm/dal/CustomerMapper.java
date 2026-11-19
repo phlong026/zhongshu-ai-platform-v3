@@ -16,6 +16,8 @@ import java.util.function.Consumer;
 @Mapper
 public interface CustomerMapper extends BaseMapperX<CustomerDO> {
 
+    enum FollowFilter { DUE, APPOINTMENTS, VISITED }
+
     default CustomerDO selectByPhone(String phone) {
         return selectOne(CustomerDO::getPhone, phone);
     }
@@ -39,6 +41,11 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
      */
     default PageResult<CustomerDO> selectPage(PageParam page, Consumer<LambdaQueryWrapperX<CustomerDO>> visibility,
                                               String keyword, String status, Long ownerUserId) {
+        return selectPage(page, visibility, keyword, status, ownerUserId, null);
+    }
+
+    default PageResult<CustomerDO> selectPage(PageParam page, Consumer<LambdaQueryWrapperX<CustomerDO>> visibility,
+                                              String keyword, String status, Long ownerUserId, FollowFilter followFilter) {
         LambdaQueryWrapperX<CustomerDO> query = new LambdaQueryWrapperX<>();
         visibility.accept(query);
         if (keyword != null && !keyword.isBlank()) {
@@ -50,6 +57,16 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
         }
         query.eqIfPresent(CustomerDO::getStatus, status);
         query.eqIfPresent(CustomerDO::getOwnerUserId, ownerUserId);
+        if (followFilter != null) {
+            LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            switch (followFilter) {
+                case DUE -> query.and(q -> q.isNull(CustomerDO::getLastFollowAt)
+                        .or().le(CustomerDO::getNextVisitDate, today)).orderByAsc(CustomerDO::getNextVisitDate);
+                case APPOINTMENTS -> query.gt(CustomerDO::getNextVisitDate, today).orderByAsc(CustomerDO::getNextVisitDate);
+                case VISITED -> query.exists("SELECT 1 FROM fr_customer_follow f WHERE f.customer_id = fr_customer.id"
+                        + " AND f.company_id = fr_customer.company_id AND f.contact_kind = 'VISIT'");
+            }
+        }
         return selectPage(page, query.orderByDesc(CustomerDO::getUpdateTime).orderByDesc(CustomerDO::getId));
     }
 

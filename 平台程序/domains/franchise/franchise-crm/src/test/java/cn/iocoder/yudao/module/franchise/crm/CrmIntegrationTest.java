@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureOutcome;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureResult;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerMapper.FollowFilter;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerFollowDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.LeadDO;
@@ -487,6 +488,35 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
 
     private CaptureResult capture(PostSnapshot post, String phone) {
         return as(post, () -> leads.capture(post, new CaptureCommand("陈先生", phone, "两层乡墅，先了解方案和费用", "视频号咨询"), null));
+    }
+
+    @Test
+    void followFiltersApplyBeforePaginationAndRespectStoreAndOwnerVisibility() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        long overdue = capture(salesA1, phone()).customerId();
+        as(salesA1, () -> customers.follow(salesA1, overdue, new FollowCommand("已电话联系", today), null));
+        followJdbc.update("UPDATE fr_customer SET next_visit_date=?,update_time=now()-interval '1 day' WHERE id=?", today.minusDays(1), overdue);
+        for (int i = 0; i < 50; i++) {
+            long id = capture(salesA1, phone()).customerId();
+            as(salesA1, () -> customers.follow(salesA1, id, follow("电话已沟通"), null));
+        }
+        long elsewhere = capture(otherStoreSales, phone()).customerId();
+        var first = new PageParam().setPageNo(1).setPageSize(50);
+        assertThat(as(salesA1, () -> customers.page(salesA1, first, null)).getList()).extracting(CustomerDO::getId).doesNotContain(overdue);
+        for (var reader : List.of(salesA1, boss)) {
+            var due = as(reader, () -> customers.page(reader, first, null, null, null, FollowFilter.DUE));
+            assertThat(due.getTotal()).isEqualTo(1L);
+            assertThat(due.getList()).extracting(CustomerDO::getId).containsExactly(overdue).doesNotContain(elsewhere);
+        }
+        assertThat(as(salesA2, () -> customers.page(salesA2, first, null, null, null, FollowFilter.DUE)).getList()).isEmpty();
+        as(salesA1, () -> customers.follow(salesA1, overdue, new FollowCommand("约电话回访", today.plusDays(1), "FOLLOW", today), null));
+        assertThat(as(boss, () -> customers.page(boss, first, null, null, null, FollowFilter.APPOINTMENTS)).getList()).extracting(CustomerDO::getId).containsExactly(overdue);
+        assertThat(as(boss, () -> customers.page(boss, first, null, null, null, FollowFilter.VISITED)).getList()).isEmpty();
+        as(salesA1, () -> customers.follow(salesA1, overdue, new FollowCommand("到店接待", null, "VISIT", today), null));
+        as(otherStoreSales, () -> customers.follow(otherStoreSales, elsewhere, new FollowCommand("他店接待", null, "VISIT", today), null));
+        var visited = as(boss, () -> customers.page(boss, first, null, null, null, FollowFilter.VISITED));
+        assertThat(visited.getTotal()).isEqualTo(1L);
+        assertThat(visited.getList()).extracting(CustomerDO::getId).containsExactly(overdue);
     }
 
     private static FollowCommand follow(String note) {
