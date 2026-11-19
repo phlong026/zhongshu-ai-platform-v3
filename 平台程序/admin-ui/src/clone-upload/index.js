@@ -40,6 +40,7 @@ input.onchange = () => {
   fileUrl = URL.createObjectURL(file)
   preview.preload = 'metadata'; preview.src = fileUrl; preview.hidden = false
 }
+if (grant) input.disabled = false
 
 function deliver() {
   window.wx.miniProgram.postMessage({data:receipt})

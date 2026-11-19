@@ -43,6 +43,7 @@ async function openReplay() {
     if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null }
     input.value = ''
     input.hidden = false
+    input.disabled = false
     status.textContent = '本机暂存不可用，请选择刚上传的原文件回放。'
   }
   window.addEventListener('pagehide', () => { generation++; chooseOriginal() })

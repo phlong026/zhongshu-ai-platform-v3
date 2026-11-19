@@ -4,6 +4,9 @@ on:
     branches: [backend-main]
     paths:
       - '.github/workflows/paired-release.yml'
+      - '平台程序/admin-ui/clone-upload.html'
+      - '平台程序/admin-ui/src/clone-upload/**'
+      - '平台程序/admin-ui/public/clone-replay-worker.js'
   pull_request:
     branches: [backend-main]
     paths:
