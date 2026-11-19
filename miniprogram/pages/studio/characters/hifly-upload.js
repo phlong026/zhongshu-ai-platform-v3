@@ -2,7 +2,7 @@ const api = require('../../../api/franchise/content')
 const types = {mp4:'video/mp4', mov:'video/mov', mp3:'audio/mpeg', m4a:'audio/m4a', wav:'audio/wav'}
 const aliases = {mp4:['video/mp4'], mov:['video/mov','video/quicktime'], mp3:['audio/mp3','audio/mpeg'], m4a:['audio/m4a','audio/mp4','audio/x-m4a'], wav:['audio/wav','audio/x-wav','audio/wave']}
 
-async function upload(kind, persona, alive, progress = () => {}) {
+async function upload(kind, persona, alive, progress = () => {}, remember = () => {}) {
   const options = kind === 'AVATAR' ? ['mp4','mov'] : ['mp3','m4a','wav']
   const extension = await new Promise((resolve, reject) => wx.showActionSheet({
     itemList:options.map(item => item.toUpperCase() + ' 文件'),
@@ -26,8 +26,17 @@ async function upload(kind, persona, alive, progress = () => {}) {
   if (!alive()) throw {cancelled:true}
   if (record.uploadId !== String(ticket.uploadId) || !/^[0-9a-f]{64}$/.test(record.sha256) ||
       !Number.isSafeInteger(record.sizeBytes) || record.sizeBytes <= 0 || record.sizeBytes > 20 * 1024 * 1024) throw Error('上传回执无效')
+  const preview = {uploadId:record.uploadId, name:record.name, extension,
+    sizeBytes:record.sizeBytes, sha256:record.sha256,
+    previewKey:/^[a-f0-9]{32}$/.test(record.previewKey) ? record.previewKey : ''}
+  remember(preview)
+  return confirmReceipt(preview, alive, progress)
+}
+
+async function confirmReceipt(preview, alive, progress) {
+  if (!alive()) throw {cancelled:true}
   progress(3, '正在确认上传回执…')
-  const confirm = () => api.clones.fileReceipt(ticket.uploadId,{sizeBytes:record.sizeBytes,sha256:record.sha256})
+  const confirm = () => api.clones.fileReceipt(preview.uploadId,{sizeBytes:preview.sizeBytes,sha256:preview.sha256})
   let result
   try { result = await confirm() } catch (e) {
     if (!alive() || e.silent || !(e.code === -1 || (e.code >= 500 && e.code < 600))) throw e
@@ -35,10 +44,8 @@ async function upload(kind, persona, alive, progress = () => {}) {
     result = await confirm()
   }
   if (!alive()) throw {cancelled:true}
-  if (result?.status !== 'UPLOADED' || String(result.uploadId) !== record.uploadId) throw Error('上传回执尚未确认')
-  const preview = {uploadId:record.uploadId, name:record.name, extension,
-    sizeBytes:record.sizeBytes, sha256:record.sha256,
-    previewKey:/^[a-f0-9]{32}$/.test(record.previewKey) ? record.previewKey : ''}
-  return {id:record.uploadId, name:record.name, size:record.sizeBytes, preview}
+  if (result?.status !== 'UPLOADED' || String(result.uploadId) !== preview.uploadId) throw Error('上传回执尚未确认')
+  return {id:preview.uploadId, name:preview.name, size:preview.sizeBytes, preview}
 }
 module.exports = upload
+module.exports.confirmReceipt = confirmReceipt

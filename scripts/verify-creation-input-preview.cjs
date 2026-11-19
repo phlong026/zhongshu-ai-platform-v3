@@ -35,13 +35,13 @@ test('editor clears keyboard insets and compensates only the unresized viewport'
 function setup(){
   let definition,chosen,resolveUpload,rejectUpload,onProgress,timer,now=1000;const callbacks=[],patches=[];let active=true;
   const wx={showActionSheet:o=>o.success({tapIndex:0}),chooseMedia:o=>{chosen=o.success;},previewMedia:()=>{throw Error('必须使用可返回的页内预览');},createVideoContext:id=>({pause:()=>callbacks.push([id,'pause']),stop:()=>callbacks.push([id,'stop'])}),pageScrollTo(){},getStorageSync(){},removeStorageSync(){}};
-  const http={token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>active,sessionGuard:()=>()=>active};
+  const http={tenantId:()=>1,token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>active,sessionGuard:()=>()=>active};
   wx.navigateTo=opt=>opt.success({eventChannel:{emit:(event,source)=>callbacks.push([opt.url,event,source])}});
   const modules={};
   const upload=(kind,person,alive,progress)=>{onProgress=progress;return new Promise((resolve,reject)=>{resolveUpload=resolve;rejectUpload=reject;});};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.js'),'utf8'),{Page:p=>definition=p,wx,Date:class extends Date {static now(){return now;}},
     setInterval(fn){timer=fn;return 1;},clearInterval(){timer=null;},setTimeout,clearTimeout,
-    require:p=>p.endsWith('/http')?http:p.endsWith('/studio')?{scope:()=>1,guard:()=>true}:p.endsWith('/auth')?{currentApiPost:()=>null}:p.endsWith('/clone-media')?{checkVideo:async()=>({duration:18,width:1080,height:1920})}:p.endsWith('/hifly-upload')?upload:p.endsWith('/platform-content')?{degradeMessage:e=>e.message}:modules});
+    require:p=>p.endsWith('/http')?http:p.endsWith('/studio')?{scope:()=>1,guard:()=>true}:p.endsWith('/auth')?{currentApiPost:()=>({orgId:1,userId:2,postId:3})}:p.endsWith('/clone-media')?{checkVideo:async()=>({duration:18,width:1080,height:1920})}:p.endsWith('/hifly-upload')?upload:p.endsWith('/platform-content')?{degradeMessage:e=>e.message}:modules});
   const page={...definition,data:structuredClone(definition.data),__scope:1,__generation:1,setData(p){Object.assign(this.data,p);patches.push(p);}};
   Object.assign(page.data,{canManage:true,digitalPersona:{id:'42'},cloneKind:'AVATAR',cloneQuote:{available:true},cloneUploadId:'old',cloneConsented:true});
   return {page,patches,callbacks,advance:ms=>{now+=ms;timer?.();},running:()=>!!timer,phase:(n,text)=>onProgress(n,text),
@@ -81,6 +81,73 @@ test('returning after an account switch cannot restore previous media',async()=>
   const h=setup();const done=h.page.uploadClone();h.inactive();const count=h.patches.length;h.resolve();await done;
   assert.equal(h.patches.length,count);
   assert.equal(h.running(),false);
+});
+
+test('lost confirmations survive reopening the correct persona and resume creation without a second transfer',async()=>{
+  const storage=new Map(), requests=[], creations=[], receipts=new Map();
+  let post={orgId:'1',userId:'2',postId:'3'},tenant='11',online=false,tickets=0,transfers=0,picks=0;
+  const id='90071992547409931',sha='a'.repeat(64);
+  const api={clones:{
+    fileTicket:async()=>{tickets++;return {uploadId:id,uploadUrl:'https://upload.hifly.cc/one',contentType:'video/mp4',expiresAt:Date.now()+60000};},
+    fileReceipt:async(uploadId,body)=>{
+      requests.push([uploadId,body.sizeBytes,body.sha256]);
+      receipts.set(uploadId,body.sha256);
+      if(!online)throw Object.assign(Error('response lost'),{code:-1});
+      return {status:'UPLOADED',uploadId};
+    },
+    create:async(person,body)=>{creations.push([person,body.sourceUploadId]);return {status:'RUNNING'};}
+  }};
+  const wx={getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),removeStorageSync:k=>storage.delete(k),
+    showActionSheet:o=>{picks++;o.success({tapIndex:0});},
+    navigateTo:o=>{o.success({eventChannel:{emit:()=>{transfers++;o.events.transferred({uploadId:id,sizeBytes:75,sha256:sha,name:'样本.mp4'});}}});}};
+  const mod={exports:{}};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/hifly-upload.js'),'utf8'),{
+    module:mod,wx,require:()=>api
+  });
+  function enter(person='42',kind='AVATAR') {
+    let definition;
+    const http={tenantId:()=>tenant,token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>true};
+    const studio={scope:()=>post.postId,scopedKey:k=>k};
+    const deps={'../../../api/http':http,'../../../api/auth':{currentApiPost:()=>post},'../../../api/franchise/content':api,
+      '../../../utils/studio':studio,'./hifly-upload':mod.exports,'../../../utils/platform-content':{degradeMessage:e=>e.message}};
+    vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.js'),'utf8'),{
+      Page:p=>definition=p,wx,require:key=>deps[key]||{},setInterval:()=>1,clearInterval(){}
+    });
+    const page={...definition,data:structuredClone(definition.data),__scope:post.postId,__generation:1,
+      setData(patch){Object.assign(this.data,patch);},loadClones(){},loadQuote(){this.setData({cloneQuote:{available:true,credits:3,consentVersion:'v1'}});}};
+    page.data.rows=[{id:person,name:'人物',enabled:true,canManage:true}];
+    page.openDigital({currentTarget:{dataset:{id:person,kind}}});
+    return page;
+  }
+  const first=enter();
+  await first.uploadClone();
+  assert.equal(first.data.cloneReceiptPending,true);
+  assert.equal(first.data.cloneUploadId,'');
+  assert.equal(requests.length,2);
+  assert.equal(receipts.size,1);
+  for(const field of ['userId','postId','orgId']){
+    const saved=post;post={...saved,[field]:'other'};
+    assert.equal(enter().data.cloneReceiptPending,false);
+    post=saved;
+  }
+  tenant='12';assert.equal(enter().data.cloneReceiptPending,false);tenant='11';
+  assert.equal(enter('43').data.cloneReceiptPending,false);
+  assert.equal(enter('42','VOICE').data.cloneReceiptPending,false);
+  online=true;
+  const same=enter();
+  assert.equal(same.data.cloneReceiptPending,true);
+  same.data.cloneQuote={available:false,message:'网络中断'};
+  await Promise.all([same.uploadClone(),same.uploadClone()]);
+  assert.equal(same.data.cloneReceiptPending,false);
+  assert.equal(same.data.cloneUploadId,id);
+  assert.equal(same.data.cloneConsented,false);
+  assert.equal(same.data.cloneQuote.available,true);
+  same.consent({detail:{value:['authorized']}});
+  await same.createClone();
+  assert.deepEqual(creations,[['42',id]]);
+  assert.deepEqual(requests,Array.from({length:3},()=>[id,75,sha]));
+  assert.deepEqual([picks,tickets,transfers,receipts.size],[1,1,1,1]);
+  assert.equal(storage.size,0);
 });
 test('both native and compatibility manual editors use explicit keyboard avoidance and a bounded input',()=>{
   for(const file of ['templates/sales-creation.wxml','pages/creation/index.wxml','pages/studio/index.wxml']){
