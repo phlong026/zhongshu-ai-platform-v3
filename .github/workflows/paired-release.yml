@@ -54,6 +54,7 @@ jobs:
           npx --yes pnpm@11.19.0 install --frozen-lockfile
           sed '/^NODE_ENV=/d' .env.example > .env.layout-release
           VITE_BASE_PATH=/admin/ node node_modules/vite/bin/vite.js build --mode layout-release
+          cmp public/clone-replay-worker.js dist/clone-replay-worker.js
       - name: Exercise both actors with the pinned mini program and Spring controllers
         run: >-
           mvn -B -ntp -f 平台程序/pom.xml -pl domains/franchise/franchise-commission -am test

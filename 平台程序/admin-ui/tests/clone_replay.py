@@ -6,7 +6,6 @@ import mimetypes
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import tempfile
 import time
 from threading import Thread
@@ -117,13 +116,12 @@ def main():
         Thread(target=server.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{server.server_port}/admin/"
         web = base + "clone-upload.html"
-        wav, mp4 = Path(folder) / "sample.wav", Path(folder) / "sample.mp4"
+        wav = Path(folder) / "sample.wav"
+        # Six seconds of solid black H.264 video at 360x360 and two frames per second.
+        mp4 = Path(__file__).parent / "fixtures" / "clone-sample.mp4"
         with wave.open(str(wav), "wb") as audio:
             audio.setparams((1, 2, 8000, 0, "NONE", ""))
             audio.writeframes(bytes(6 * 8000 * 2))
-        subprocess.run(["ffmpeg", "-loglevel", "error", "-f", "lavfi", "-i",
-                        "color=size=360x360:rate=2:duration=6", "-c:v", "libx264",
-                        "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(mp4)], check=True)
         browser = playwright.chromium.launch(executable_path=os.getenv("CHROME_BIN") or shutil.which("google-chrome"))
         cold = configure(browser)
         exercise(cold, web, mp4, "video/mp4", "90071992547409930")
