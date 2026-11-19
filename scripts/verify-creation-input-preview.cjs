@@ -85,12 +85,13 @@ test('returning after an account switch cannot restore previous media',async()=>
 
 test('lost confirmations survive reopening the correct persona and resume creation without a second transfer',async()=>{
   const storage=new Map(), requests=[], creations=[], receipts=new Map();
-  let post={orgId:'1',userId:'2',postId:'3'},tenant='11',online=false,tickets=0,transfers=0,picks=0;
+  let post={orgId:'1',userId:'2',postId:'3'},tenant='11',online=false,tickets=0,transfers=0,picks=0,rejection;
   const id='90071992547409931',sha='a'.repeat(64);
   const api={clones:{
-    fileTicket:async()=>{tickets++;return {uploadId:id,uploadUrl:'https://upload.hifly.cc/one',contentType:'video/mp4',expiresAt:Date.now()+60000};},
+    fileTicket:async()=>{tickets++;return {uploadId:tickets===1?id:String(tickets),uploadUrl:'https://upload.hifly.cc/one',contentType:'video/mp4',expiresAt:Date.now()+60000};},
     fileReceipt:async(uploadId,body)=>{
       requests.push([uploadId,body.sizeBytes,body.sha256]);
+      if(rejection)throw rejection;
       receipts.set(uploadId,body.sha256);
       if(!online)throw Object.assign(Error('response lost'),{code:-1});
       return {status:'UPLOADED',uploadId};
@@ -99,7 +100,7 @@ test('lost confirmations survive reopening the correct persona and resume creati
   }};
   const wx={getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),removeStorageSync:k=>storage.delete(k),
     showActionSheet:o=>{picks++;o.success({tapIndex:0});},
-    navigateTo:o=>{o.success({eventChannel:{emit:()=>{transfers++;o.events.transferred({uploadId:id,sizeBytes:75,sha256:sha,name:'样本.mp4'});}}});}};
+    navigateTo:o=>{o.success({eventChannel:{emit:(_event,grant)=>{transfers++;o.events.transferred({uploadId:grant.uploadId,sizeBytes:75,sha256:sha,name:'样本.mp4'});}}});}};
   const mod={exports:{}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/hifly-upload.js'),'utf8'),{
     module:mod,wx,require:()=>api
@@ -148,6 +149,28 @@ test('lost confirmations survive reopening the correct persona and resume creati
   assert.deepEqual(requests,Array.from({length:3},()=>[id,75,sha]));
   assert.deepEqual([picks,tickets,transfers,receipts.size],[1,1,1,1]);
   assert.equal(storage.size,0);
+  online=false;
+  await first.uploadClone();
+  assert.equal(first.data.cloneReceiptPending,true);
+  online=true;
+  await first.replaceCloneFile();
+  assert.equal(first.data.cloneReceiptPending,false);
+  assert.equal(first.data.cloneUploadId,'3');
+  assert.deepEqual([picks,tickets,transfers],[3,3,3]);
+  for(const denied of [{code:403,message:'当前岗位没有权限'},{code:1114000001,message:'上传凭证过期或文件已变化'}]){
+    online=false;await first.uploadClone();
+    const count=picks;
+    rejection=denied;await first.uploadClone();
+    assert.equal(first.data.cloneError,denied.message);
+    assert.equal(first.data.cloneReceiptPending,false);
+    assert.equal(picks,count);
+    assert.equal(enter().data.cloneReceiptPending,false);
+    rejection=null;online=true;await first.uploadClone();
+    assert.equal(picks,count+1);
+    assert.equal(first.data.cloneUploadId,String(count+1));
+  }
+  const xml=fs.readFileSync('miniprogram/pages/studio/characters/index.wxml','utf8');
+  assert.match(xml,/wx:if="{{cloneReceiptPending[^"]*}}"[^>]+bindtap="replaceCloneFile">放弃本次，换一个文件/);
 });
 test('both native and compatibility manual editors use explicit keyboard avoidance and a bounded input',()=>{
   for(const file of ['templates/sales-creation.wxml','pages/creation/index.wxml','pages/studio/index.wxml']){

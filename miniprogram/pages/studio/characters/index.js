@@ -228,15 +228,13 @@ Page({
   },
   pendingReceipt(key) {
     if (!key) return null;
-    if (this.__pendingReceipt?.key === key) return this.__pendingReceipt.source;
-    if (key) {
-      try { return wx.getStorageSync(key) || null; } catch {}
-    }
-    return null;
+    const cached = this.__pendingReceipt?.key === key ? this.__pendingReceipt : null;
+    if (cached && !cached.stored) return cached.source;
+    try { return wx.getStorageSync(key) || null; } catch { return cached?.source || null; }
   },
   rememberReceipt(key,source) {
-    this.__pendingReceipt = {key,source};
-    if (key) { try { wx.setStorageSync(key,source); } catch {} }
+    this.__pendingReceipt = {key,source,stored:false};
+    try { wx.setStorageSync(key,source); this.__pendingReceipt.stored = true; } catch {}
   },
   forgetReceipt(key,source) {
     if (!source) return;
@@ -245,15 +243,26 @@ Page({
       try { if (wx.getStorageSync(key)?.uploadId === source.uploadId) wx.removeStorageSync(key); } catch {}
     }
   },
-  async uploadClone() {
-    if(!this.data.canManage||this.data.cloneBusy||this.data.cloneRetry||!this.data.digitalPersona)return;
+  replaceCloneFile() { return this.uploadClone(true); },
+  async uploadClone(discardPending) {
+    if(!this.alive()||!this.data.canManage||this.data.cloneBusy||this.data.cloneRetry||!this.data.digitalPersona)return;
     const kind=this.data.cloneKind,person=this.data.digitalPersona.id;
     const key = this.receiptKey(person,kind);
     if (!key) return this.setData({cloneError:'请重新选择当前岗位再上传素材'});
     let pending = this.pendingReceipt(key);
-    if (!pending && !this.data.cloneQuote?.available) return this.setData({cloneError:this.data.cloneQuote?.message||'正在检查制作服务，请稍后重试'});
     const guard=http.requestGuard('clone-upload');
     const alive=()=>guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person&&this.data.cloneKind===kind;
+    if (discardPending === true) {
+      this.forgetReceipt(key,pending);
+      pending = null;
+      this.setData({cloneReceiptPending:false,cloneFileName:'',cloneError:''});
+    }
+    if (!pending && !this.data.cloneQuote?.available) {
+      this.setData({cloneBusy:true});
+      try { await this.loadQuote(); } finally { if (alive()) this.setData({cloneBusy:false}); }
+      if (!alive()) return;
+      if (!this.data.cloneQuote?.available) return this.setData({cloneError:this.data.cloneQuote?.message||'暂时无法获取制作价格，请重试'});
+    }
     this.resetAudioPreview();
     this.__clonePreview = null;
     this.setData({cloneBusy:true,cloneUploading:true,cloneError:'',cloneUploadId:'',canReplayUpload:false,cloneConsented:false,
@@ -280,8 +289,12 @@ Page({
       }
     } catch (error) {
       if(alive()) {
-        if (Number(error.code) === 1114000001) { this.forgetReceipt(key,pending); pending = null; }
-        this.setData({cloneReceiptPending:!!pending,cloneFileName:pending?.name||'',cloneError:pending?'文件已传完，网络恢复后可重试确认。':error.cancelled?'':P.degradeMessage(error),cloneUploadStatus:''});
+        const code = Number(error.code);
+        const transient = code === -1 || code === 408 || code === 429 || (code >= 500 && code < 600);
+        if (pending && code > 0 && !transient) { this.forgetReceipt(key,pending); pending = null; }
+        const reason = error.cancelled ? '' : P.degradeMessage(error);
+        const message = pending && code === -1 ? '文件已传完，网络恢复后可重试确认。' : reason;
+        this.setData({cloneReceiptPending:!!pending,cloneFileName:pending?.name||'',cloneError:message,cloneUploadStatus:''});
       }
     } finally {
       if (this.__uploadTick === tick) this.stopUploadClock();
