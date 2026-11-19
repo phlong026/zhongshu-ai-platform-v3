@@ -91,7 +91,7 @@ function customerRow(c, ctx) {
   const phoneText = c.phone ? maskPhone(c.phone) : (c.wechat || '暂无联系方式');
   const searchText = [c.name, c.phone, c.province, c.city, c.district, c.town, c.village, c.addressDetail].filter(Boolean).join(' ');
   let cue, cueTone = '', rank, sortKey;
-  if (canW && appointment && appointment < day) {
+  if (appointment && appointment < day) {
     cue = '逾期 ' + daysBetween(appointment, day) + ' 天'; cueTone = 'tone-danger'; rank = 0; sortKey = appointment;
   } else if (appointment && appointment === day) {
     cue = '今天 回访'; cueTone = 'tone-warning'; rank = 1; sortKey = appointment;
@@ -103,8 +103,6 @@ function customerRow(c, ctx) {
     const n = daysBetween(lastDate, day);
     cue = n > 0 ? n + ' 天未跟进' : '今天已跟进'; cueTone = 'customer-cue-muted'; rank = 4; sortKey = String(c.lastFollowAt || 0);
   }
-  // 只读（无 write 能力）压缩为 rank5，保留压缩前 sortKey
-  if (!canW && rank >= 2) rank = 5;
   const detail = fresh ? '待首次沟通' : appointment ? '下次：' + shortDate(appointment) + ' 客户回访' : '上次：' + shortDate(lastDate);
   const id = String(c.id);
   return {
@@ -119,7 +117,7 @@ function customerRow(c, ctx) {
     action: canW ? '写跟进' : '看记录',
     url: '/pages/workflow/index?view=customer&id=' + encodeURIComponent(id) + (fresh && canW ? '&modal=follow' : ''),
     hasPhone: !!c.phone,
-    hasDesign: !!DESIGN_STATUS_TEXT[c.designStatus], hasPlan: false, hasVisit: false,
+    hasDesign: !!DESIGN_STATUS_TEXT[c.designStatus], hasPlan: false, hasVisit: !!ctx?.visited,
     ownerUserId: c.ownerUserId == null ? '' : String(c.ownerUserId),
     ownerName: c.ownerName || '', ownerDisplay: c.ownerName || '负责人待核', ownerRoleName: '',
     view: 'customer'
@@ -132,12 +130,12 @@ function sortRows(rows) {
     String(a.sortKey).localeCompare(String(b.sortKey)) || String(a.id).localeCompare(String(b.id)));
 }
 
-/** tabs 前端内存过滤：due/appointments/visited(恒空)/all */
+/** 首页汇总使用与客户列表查询一致的上海业务日期。 */
 function tabFilter(rows, tab, ctx) {
   const day = (ctx && ctx.today) || today();
-  if (tab === 'visited') return [];
+  if (tab === 'visited') return rows.filter(r => r.hasVisit);
   if (tab === 'due') {
-    return rows.filter(r => r.canFollow && (r.status === '已登记' || r.fresh || (r.appointment && r.appointment <= day)));
+    return rows.filter(r => r.fresh || (r.appointment && r.appointment <= day));
   }
   if (tab === 'appointments') return rows.filter(r => r.appointment && r.appointment > day);
   return rows;
@@ -180,14 +178,14 @@ function homeSummary(customers, commissions, post, day) {
     ? { value: String(Math.round(yuan / 100) / 100), unit: '万元' }
     : { value: yuan.toLocaleString('en-US'), unit: '元' };
   // 统计待跟进客户不受老板的只读权限影响，客户原单仍按 canFollow 控制办理权限。
-  const due = tabFilter(rows.map(row => ({ ...row, canFollow: true })), 'due', { today: day });
+  const due = tabFilter(rows, 'due', { today: day });
   const upcoming = tabFilter(rows, 'appointments', { today: day });
   return {
     rows, monthRows, commission, due, upcoming,
     overdue: rows.filter(row => row.appointment && row.appointment < day),
     metrics: [
       { key: 'due', label: '今日待跟进', value: due.length, unit: '人' },
-      { key: 'appointments', label: '预约到店', value: upcoming.length, unit: '人' },
+      { key: 'appointments', label: '预约回访', value: upcoming.length, unit: '人' },
       { key: 'commission', label: '委托', value: commission.value, unit: commission.unit },
       { key: 'all', label: '全部客户', value: rows.length, unit: '人' }
     ]

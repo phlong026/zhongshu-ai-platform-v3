@@ -33,8 +33,8 @@
     </view>
     <view class="section"><view class="section-heading"><text class="section-title">今天要留意</text></view>
       <view class="boss-biz-card">
-        <view class="boss-biz-alert"><view class="boss-biz-dot {{bossBiz.staleCount?'red':'green'}}"/><text>{{bossBiz.staleCount?bossBiz.staleCount+' 个客户超 7 天没跟进'+(bossBiz.staleNames?' · '+bossBiz.staleNames:''):'没有超 7 天未跟进的客户'}}</text></view>
-        <view class="boss-biz-alert"><view class="boss-biz-dot amber"/><text>今日待跟进 {{bossBiz.due}} 人 · 预约到店 {{bossBiz.appointments}} 人</text></view>
+        <view class="boss-biz-alert"><view class="boss-biz-dot {{bossBiz.staleCount?'red':'green'}}"/><text>{{bossBiz.staleCount?bossBiz.staleCount+' 个客户回访已逾期'+(bossBiz.staleNames?' · '+bossBiz.staleNames:''):'没有回访逾期的客户'}}</text></view>
+        <view class="boss-biz-alert"><view class="boss-biz-dot amber"/><text>今日待跟进 {{bossBiz.due}} 人 · 预约回访 {{bossBiz.appointments}} 人</text></view>
         <view class="boss-biz-alert"><view class="boss-biz-dot green"/><text>价目表内报价自动通过，政策外才需要你确认</text></view>
       </view>
     </view>

@@ -133,7 +133,7 @@ function businessView(source) {
   const available = source.businessStatus === 'ready';
   const definitions = [
     { key: 'due', label: '今日待跟进', url: '/pages/customers/index?focus=due', emptyText: '暂无待跟进客户' },
-    { key: 'appointments', label: '预约到店', url: '/pages/customers/index?focus=appointments', emptyText: '暂无预约到店客户' },
+    { key: 'appointments', label: '预约回访', url: '/pages/customers/index?focus=appointments', emptyText: '暂无预约回访客户' },
     { key: 'commission', label: '委托', url: '/pages/workflow/commission/index?view=projects', emptyText: '暂无委托记录' },
     { key: 'all', label: '全部客户', url: '/pages/customers/index', emptyText: '暂无客户记录' }
   ];
@@ -224,7 +224,7 @@ function view(input) {
           { label: '本月签约', value: business.contracts, unit: business.contracts === dash ? '' : '元' },
           { label: '有效客户', value: business.customers, unit: business.customers === dash ? '' : '人' }
         ],
-        appointments: { label: '预约到店', value: dash, unit: '', url: '/pages/customers/index?focus=appointments' },
+        appointments: { label: '预约回访', value: dash, unit: '', url: '/pages/customers/index?focus=appointments' },
         acquisition: { label: '内容获客', value: business.activity, unit: business.activity === dash ? '' : '条', url: '/pages/business/index' },
         notes: []
       },

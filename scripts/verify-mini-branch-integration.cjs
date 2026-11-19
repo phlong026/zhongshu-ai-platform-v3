@@ -16,7 +16,7 @@ test('老板入口保留当前在线客户与工程路由', async () => {
   assert.match(business, /wx:elif="\{\{isBossBiz\}\}"[\s\S]*data-url="\/pages\/customers\/index" bindtap="openBossLink"/);
   assert.match(home, /data-url="\/pages\/build\/projects\/index"/);
   assert.match(customers, /\['boss','owner'\]\.includes\(post\.roleCode\)/);
-  assert.match(customers, /customers\.page\(pageNo,50,keyword\|\|undefined\)/);
+  assert.match(customers, /customers\.page\(pageNo,50,keyword\|\|undefined,tab==='all'\?undefined:tab\.toUpperCase\(\)\)/);
   assert.match(projects, /\['boss','owner'\]\.includes\(navCtx\.role\)/);
   assert.match(projects, /P\.api\.projects\.page\(\)/);
   const runtime = await require('./role-page-runtime.cjs').connect();

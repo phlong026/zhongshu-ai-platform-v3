@@ -20,8 +20,8 @@ const leads = {
 
 const customers = {
   /** 分页列表；keyword 按称呼、手机号、省市（空关键词不传参——undefined 会被工具端序列化成字面量） */
-  page: (pageNo, pageSize, keyword) =>
-    http.get('/franchise/customers', keyword ? { pageNo, pageSize, keyword } : { pageNo, pageSize }),
+  page: (pageNo, pageSize, keyword, followFilter) =>
+    http.get('/franchise/customers', { pageNo, pageSize, ...(keyword ? {keyword} : {}), ...(followFilter ? {followFilter} : {}) }),
   /** 详情（含跟进与方案版本；follows createTime ASC、schemes kind,version ASC） */
   get: (id) => http.get('/franchise/customers/' + id),
   /** 编辑基本信息（phone/source 不可改，带 revision；幂等键可选） */

@@ -1,11 +1,11 @@
 const Job=require('./organization');
 const PF=require('./platform-crm'),http=require('../api/http');
-const TABS=[['due','今日待跟进'],['appointments','预约到店'],['all','全部'],['visited','已到店']];
-const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约到店的客户',visited:'暂无已到店的客户',all:'当前没有可见客户，可先登记客户。'};
-const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约到店客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'}; // M04-T05：API 态到店口径入口说明
+const TABS=[['due','今日待跟进'],['appointments','预约回访'],['all','全部'],['visited','已到店']];
+const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约回访的客户',visited:'暂无已到店的客户',all:'当前没有可见客户，可先登记客户。'};
+const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约回访客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'}; // M04-T05：API 态到店口径入口说明
 module.exports=()=>({
  data:{keyword:'',tab:'all',tabs:[],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10,platformMode:false,platformStatus:'',platformError:'',authError:false},
- onLoad(o={}){this.setData({intent:o.intent==='commission'?'commission':''});if(['due','appointments'].includes(o.focus))this.setData({tab:o.focus});},
+ onLoad(o={}){this.setData({intent:o.intent==='commission'?'commission':''});if(TABS.some(([key])=>key===o.focus))this.setData({tab:o.focus});},
  onUnload(){this.__unloaded=true;this.cancelSearch();},
  cancelSearch(){if(this.__searchTimer){clearTimeout(this.__searchTimer);this.__searchTimer=null;}},
  onShow(){
@@ -46,18 +46,18 @@ module.exports=()=>({
   const PF=this.__pf,post=this.__post;
   if(!PF||!post)return this.setData({platformStatus:'degraded',platformError:'请先登录后查看客户',authError:true}); // 未具备在线上下文（无 token/岗位）时不再回落本地数据
   if(append&&(this.__searchTimer||this.data.platformStatus==='loading'))return;
-  const keyword=(this.data.keyword||'').trim();
-  if(append&&keyword!==this.__loadedKeyword)append=false;
+  const keyword=(this.data.keyword||'').trim(),tab=this.data.tab;
+  if(append&&(keyword!==this.__loadedKeyword||tab!==this.__loadedTab))append=false;
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   const pageNo=append?(this.__pageNo||0)+1:1;
-  if(!append)this.setData({platformStatus:'loading',platformError:''});
-  this.__crmApi.customers.page(pageNo,50,keyword||undefined).then(res=>{
+  if(!append)this.setData({platformStatus:'loading',platformError:'',customers:[],visibleCustomers:[],filteredCustomers:[],hasMore:false,emptyText:'正在加载客户…'});
+  return this.__crmApi.customers.page(pageNo,50,keyword||undefined,tab==='all'?undefined:tab.toUpperCase()).then(res=>{
    if(this.stale(gen,sessionGen,postKey))return;
-   const rows=(res&&res.list||[]).map(c=>PF.customerRow(c,{today:PF.today(),canWrite:PF.can(post,'write')}));
+   const rows=(res&&res.list||[]).map(c=>PF.customerRow(c,{today:PF.today(),canWrite:PF.can(post,'write'),visited:tab==='visited'}));
    const merged=append?this.data.customers.concat(rows):rows;
    const total=typeof (res&&res.total)==='number'?res.total:merged.length;
-   this.__pageNo=pageNo;this.__loadedKeyword=keyword;this.__total=total;this.__serverHasMore=merged.length<total&&rows.length>0;
-   this.setData({platformStatus:'ready',customers:merged,hasMore:this.__serverHasMore||merged.length>this.data.pageSize});
+   this.__pageNo=pageNo;this.__loadedKeyword=keyword;this.__loadedTab=tab;this.__total=total;this.__serverHasMore=merged.length<total&&rows.length>0;
+   this.setData({platformStatus:'ready',customers:merged,pageSize:append?this.data.pageSize+10:this.data.pageSize});
    this.refreshPlatformTabs();this.filterCustomers();
   }).catch(err=>{
    if(this.handle401(err,sessionGen))return;// 401 四组合先判（内部自带迟到判别）
@@ -66,19 +66,19 @@ module.exports=()=>({
   });
  },
  retryPlatform(){this.cancelSearch();this.loadPlatformList();},
- refreshPlatformTabs(){const PF=this.__pf,ctx={today:PF.today()};const tabs=TABS.map(([key,label])=>{const rows=PF.tabFilter(this.data.customers,key,ctx);const count=key==='all'?this.__total:this.__serverHasMore?(rows.length?'≥'+rows.length:'—'):rows.length;return {key,label,count,dot:key==='due'&&rows.some(r=>r.rank===0)};});this.setData({tabs});},
- filterCustomers(){const keyword=this.data.keyword.trim();const PF=this.__pf;if(!PF)return; // 无在线上下文（未登录/无岗位）时列表已清空，跳过装配
-  const rows=PF.sortRows(PF.tabFilter(this.data.customers,this.data.tab,{today:PF.today()}).filter(c=>c.searchText.includes(keyword)));
+ refreshPlatformTabs(){const tabs=TABS.map(([key,label])=>({key,label,count:key===this.data.tab?this.__total:'—',dot:key==='due'&&this.data.customers.some(r=>r.rank===0)}));this.setData({tabs});},
+ filterCustomers(){const keyword=this.data.keyword.trim();const PF=this.__pf;if(!PF)return;
+  const rows=PF.sortRows(this.data.customers);
   this.setData({filteredCustomers:rows,visibleCustomers:rows.slice(0,this.data.pageSize),
    hasMore:rows.length>this.data.pageSize||!!this.__serverHasMore, // M04-T01：隐藏行或服务端更多都亮按钮
-   emptyText:this.__serverHasMore?'已加载的客户中暂无匹配，请点「查看更多客户」继续查找。':keyword?'暂无符合条件的客户':this.data.isBossView&&this.data.tab==='all'?'当前没有本店客户':(EMPTY_API[this.data.tab]||EMPTY[this.data.tab])});},
- selectTab(e){const tab=e.currentTarget.dataset.tab;if(!TABS.some(([key])=>key===tab)||tab===this.data.tab)return;const hadSearch=!!(this.data.keyword||'').trim();this.cancelSearch();this.setData({tab,keyword:'',pageSize:10});if(hadSearch){this.loadPlatformList();return;}this.refreshPlatformTabs();this.filterCustomers();},
+   emptyText:keyword?'暂无符合条件的客户':this.data.isBossView&&this.data.tab==='all'?'当前没有本店客户':(EMPTY_API[this.data.tab]||EMPTY[this.data.tab])});},
+ selectTab(e){const tab=e.currentTarget.dataset.tab;if(!TABS.some(([key])=>key===tab)||tab===this.data.tab)return;this.cancelSearch();this.setData({tab,keyword:'',pageSize:10});return this.loadPlatformList();},
  search(e){
   const keyword=String(e.detail.value||'');if(keyword===this.data.keyword)return;
   this.cancelSearch();this.setData({keyword,pageSize:10});
   if(!this.__post||!this.__http){this.filterCustomers();return;}
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.setData({platformStatus:'loading',platformError:''});this.filterCustomers();
+  this.setData({platformStatus:'loading',platformError:'',visibleCustomers:[],filteredCustomers:[],hasMore:false,emptyText:'正在加载客户…'});
   this.__searchTimer=setTimeout(()=>{this.__searchTimer=null;if(!this.stale(gen,sessionGen,postKey))this.loadPlatformList();},250);
  },
  more(){

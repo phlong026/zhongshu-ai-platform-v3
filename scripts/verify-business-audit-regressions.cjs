@@ -191,9 +191,16 @@ function customers() {
     nextVisitDate: index === 57 ? CRM.dateToArray(CRM.today()) : null
   }));
   const calls = [];
-  const api = { customers: { page: async (pageNo, pageSize, keyword) => {
-    calls.push({ pageNo, pageSize, keyword });
-    const rows = database.filter(row => !keyword || [row.name, row.phone, row.province, row.city].some(value => value.includes(keyword)));
+  const api = { customers: { page: async (pageNo, pageSize, keyword, followFilter) => {
+    calls.push({ pageNo, pageSize, keyword, ...(followFilter ? {followFilter} : {}) });
+    const rows = database.filter(row => {
+      if (keyword && ![row.name, row.phone, row.province, row.city].some(value => value.includes(keyword))) return false;
+      const date = CRM.toDate(row.nextVisitDate);
+      if (followFilter === 'DUE') return !row.lastFollowAt || !!date && date <= CRM.today();
+      if (followFilter === 'APPOINTMENTS') return date > CRM.today();
+      if (followFilter === 'VISITED') return row.contactKind === 'VISIT';
+      return true;
+    });
     return { list: rows.slice((pageNo - 1) * pageSize, pageNo * pageSize), total: rows.length };
   } } };
   const http = { token: () => 'unit-session', sessionGeneration: () => session.generation };
@@ -237,12 +244,29 @@ test('clearing search through another filter reloads the unfiltered first page',
   assert.equal(c.page.data.customers.length, 50);
 });
 
-test('a partial customer page cannot claim that all follow-ups are completed', async () => {
-  const c = customers(); c.page.onShow(); await flush();
-  c.page.selectTab({ currentTarget: { dataset: { tab: 'due' } } });
-  assert.match(c.page.data.emptyText, /加载|更多/);
-  assert.equal(c.page.data.tabs.find(tab => tab.key === 'all').count, 60);
-  assert.notEqual(c.page.data.tabs.find(tab => tab.key === 'due').count, 0);
+test('the first filtered page includes the 51st customer for sales and read-only bosses', async () => {
+  for (const roleCode of ['boss','sales']) {
+    const c = customers(); c.session.post.roleCode=roleCode;
+    for (const row of c.database) Object.assign(row,{status:'FOLLOWING',lastFollowAt:Date.now(),nextVisitDate:null});
+    c.database[50].nextVisitDate=CRM.toDate(Date.now()-86400000);
+    c.database[52].nextVisitDate=CRM.toDate(Date.now()+86400000);
+    c.database[55].contactKind='VISIT';
+    c.page.onLoad({focus:'due'});c.page.onShow();await flush();
+    const due=c.page.data.visibleCustomers;
+    assert.equal(c.calls.at(-1).followFilter,'DUE');assert.equal(c.calls.at(-1).pageNo,1);
+    assert.deepEqual(Array.from(due,r=>r.id),['51']);
+    assert.equal(due[0].canFollow,roleCode==='sales');assert.match(due[0].cue,/逾期 1 天/);
+    const summary=CRM.homeSummary(c.database,[],c.session.post,CRM.today());
+    assert.deepEqual(summary.due.map(r=>r.id),['51']);assert.equal(summary.overdue[0].id,'51');
+    for (const [tab,filter,id] of [['visited','VISITED','56'],['appointments','APPOINTMENTS','53']]) {
+      await c.page.selectTab({currentTarget:{dataset:{tab}}});
+      assert.equal(c.calls.at(-1).followFilter,filter);assert.equal(c.calls.at(-1).pageNo,1);
+      assert.deepEqual(Array.from(c.page.data.visibleCustomers,r=>r.id),[id]);
+    }
+    assert.equal(c.page.data.tabs.find(t=>t.key==='appointments').label,'预约回访');
+  }
+  const view=fs.readFileSync(root+'/miniprogram/pages/business/index.wxml','utf8');
+  assert.match(view,/回访已逾期/);assert.doesNotMatch(view,/超\s*7\s*天/);
 });
 
 test('rapid typing sends only the final keyword, and unloading cancels pending search', async () => {

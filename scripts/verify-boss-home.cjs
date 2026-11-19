@@ -21,7 +21,7 @@ async function setup() {
   const later = CRM.toDate(Date.now() + 86400000), earlier = CRM.toDate(Date.now() - 86400000);
   const customers = Array.from({ length:135 }, (_, i) => ({
     id:String(i + 1), name:'客户' + i, status:i < 2 ? 'REGISTERED' : 'FOLLOWING',
-    lastFollowAt:'2026-01-01', nextVisitDate:i === 3 ? later : i === 4 ? earlier : null
+    lastFollowAt:i < 2 ? null : '2026-01-01', nextVisitDate:i === 3 ? later : i === 4 ? earlier : null
   }));
   const commissions = Array.from({ length:125 }, (_, i) => ({ id:'m' + i, customerName:'委托客户' + i, createTime:day, totalCents:10000 }));
   commissions.push({ id:'old', createTime:'2025-01-01', totalCents:9999900 });
