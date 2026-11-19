@@ -15,7 +15,7 @@ Page({
   return this.platformLoad(options,post);
  },
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
- onShow(){if(this.id||this.data.platformMode)this.refresh(false);},
+ onShow(){this.__hidden=false;if(this.id||this.data.platformMode)this.refresh(false);},
  // ---- 平台（API）态：分流、加载与乱序隔离（契约=docs/backend-parity/09 阶段1 P1） ----
  stale(gen,sessionGen,postKey){return this.__unloaded||gen!==this.__loadGen||sessionGen!==this.__http.sessionGeneration()||postKey!==this.__postKey;},
  handle401(err,sessionGenAtRequest){
@@ -32,7 +32,7 @@ Page({
  },
  retryPlatform(){this.refresh();},
  onUnload(){this.__unloaded=true;if(this.__keyboardHandler&&wx.offKeyboardHeightChange)wx.offKeyboardHeightChange(this.__keyboardHandler);},
- onHide(){this.setData({keyboardInset:0});},
+ onHide(){this.__hidden=true;this.setData({keyboardInset:0});},
  platformSession(){try{const auth=require('../../api/auth');return http.token()?auth.currentApiPost():null;}catch(e){return null;}},
  platformLoad(options,post){
   this.__post=post;this.__pf=PF;this.__http=http;this.__crmApi=this.__crmApi||require('../../api/franchise/crm');
@@ -113,26 +113,47 @@ Page({
    customerInitial:(model.customer.name||'').slice(0,1),phone:PF.maskPhone(model.customer.phone)||model.customer.wechat||'',
    projectSummary:model.customer.summary||'',error:'',platformStatus:'ready'});
  },
+ openFollowForm(){
+  if(!this.data.canFollow)return this.fail('当前岗位不能办理该客户');
+  this.__followForm={customerId:this.id,postKey:this.__postKey,sessionGen:this.__http.sessionGeneration(),key:PF.commandKey('follow')};
+  this.setData({form:{followContent:'',appointment:'',contactKind:'FOLLOW',occurredOn:PF.today()},modal:'follow',error:''});
+ },
+ currentFollowForm(form,post){
+  return !this.__unloaded&&form===this.__followForm&&form.customerId===this.id&&
+   form.sessionGen===this.__http.sessionGeneration()&&post&&form.postKey===String(post.postId);
+ },
+ showSavedFollow(detail){
+  this.__followForm=null;
+  this.applyDetail(detail);
+  this.setData({busy:false,modal:'',form:{},error:'',activeCustomerTab:1});
+  wx.showToast({title:'已记录跟进',icon:'none'});
+ },
  platformSubmitFollow(){
-  const f=this.data.form,fail=msg=>this.setData({error:msg,busy:false});
-  const note=String(f.followContent||'').trim();
-  if(!note||note.length>500)return fail('请填写沟通内容（500字以内）');
-  const appt=PF.toDate(PF.dateToArray(f.appointment));
+  if(this.data.busy)return;
+  const form=this.__followForm;
+  if(!form||!this.currentFollowForm(form,this.platformSession()))return this.refresh(false);
+  const payload=PF.followPayload(this.data.form);
+  const fail=error=>this.setData({error,busy:false});
+  if(!payload.note||payload.note.length>500)return fail('请填写沟通内容（500字以内）');
+  const appt=PF.toDate(payload.nextVisitDate);
   if(!appt)return fail('请选择下次回访日期');
-  if(appt<PF.today())return fail(PF.errorMessage({code:1110000009}));
-  const key=this.platformCommand('follow');
-  const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
+  // 回执可能在跨日后补收。沿用原命令与原日期，让后端先判定它是否已保存。
+  const signature=JSON.stringify(payload);
+  if(signature!==form.lastSubmission&&appt<PF.today())return fail(PF.errorMessage({code:1110000009}));
+  form.lastSubmission=signature;
+  this.__loadGen=(this.__loadGen||0)+1;
   this.setData({busy:true,error:''});
-  this.__crmApi.customers.follow(this.id,PF.followPayload(f),key).then(detail=>{
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.platformDropCommand('follow');this.setData({busy:false,modal:'',error:''});
-   this.applyDetail(detail);wx.showToast({title:'已记录跟进',icon:'none'});
-  }).catch(err=>{
-   if(this.handle401(err,sessionGen))return;// 401 四组合先判（内部自带迟到判别）
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.setData({busy:false});
-   if((err&&err.code)!==-1)this.platformDropCommand('follow');// 网络失败保留快照重试
-   fail(PF.errorMessage(err,'follow'));
+  return this.__crmApi.customers.follow(form.customerId,payload,form.key).then(detail=>{
+   if(this.__unloaded||this.__followForm!==form)return;
+   if(!this.currentFollowForm(form,this.platformSession()))return this.refresh(false);
+   if(this.__hidden)form.savedDetail=detail;
+   else this.showSavedFollow(detail);
+  },err=>{
+   if(this.__unloaded||this.__followForm!==form)return;
+   if(!this.currentFollowForm(form,this.platformSession()))return this.refresh(false);
+   if(this.handle401(err,form.sessionGen)){this.__followForm=null;return;}
+   const uncertain=err&&(err.code===-1||(err.code>=500&&err.code<600));
+   fail(uncertain?'未收到保存确认，可直接重试同一条跟进':PF.errorMessage(err,'follow'));
   });
  },
  platformSubmitRegister(){
@@ -615,6 +636,19 @@ Page({
  refresh(reset=true){
   // API 态刷新：无会话保持当前态（onLoad 门禁与 401 兜底），不回落本地；切岗清数据；按视图重拉
   const post=this.platformSession();
+  const form=this.__followForm;
+  if(form){
+   if(this.currentFollowForm(form,post)){
+    if(form.savedDetail)this.showSavedFollow(form.savedDetail);
+    return;
+   }
+   this.__followForm=null;
+   this.setData({customer:null,form:{},modal:'',error:'',busy:false,canFollow:false});
+   if(!post||PF.pageMode(http.token(),post)!=='api'){
+    this.setData({platformStatus:'degraded',platformError:post?'当前岗位暂无客户查看权限':'请先登录后查看客户'});
+    return;
+   }
+  }
   if(!post||PF.pageMode(http.token(),post)!=='api')return;
   if(this.__postKey!==String(post.postId)){this.__post=post;this.__postKey=String(post.postId);this.__cmdKeys={};this.__transferStaff=null;this.setData({customer:null,form:{},filteredCustomers:[],modal:'',role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode),saleWrite:PF.can(post,'saleWrite')});}
   const v=this.data.view;
@@ -646,7 +680,7 @@ Page({
  },
  navTap(e){const url=e.currentTarget.dataset.url;if(url)require('../../utils/page-navigation').open(url);},
  openView(view,replace=false,id,record=''){if(view==='commission')return require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id||this.id||''));if(view==='ai-facade')view='facade-config';if(!['customers','customer','arrival','transfer','requirement','budget','contract','delivery','progress'].includes(view)){require('../../utils/page-navigation').open('/pages/workflow/explore/index');return wx.showToast({title:'请在设计页办理',icon:'none'});}if(view==='arrival')view='customer';const target=id||this.id||'';if(view==='customers'&&!target)return this.platformBlocked('customers');return require('../../utils/page-navigation').open('/pages/workflow/index?view='+view+(view!=='customers'?'&id='+encodeURIComponent(target):''),{replace});},
- openModal(name){if(this.data.busy)return;this.prepareFormSheet();this.__cmdKeys={};if(name==='register')return this.setData({form:{name:'',phone:'',source:'',summary:'',province:'',city:'',district:'',town:'',village:'',regionCode:'',addressDetail:''},modal:'register',error:''});if(name==='edit'){const c=this.data.customer;if(!c)return;return this.setData({form:{name:c.name,phone:c.phone,wechat:c.wechat,source:c.source,...PF.addressPayload(c),summary:c.summary},modal:'edit',error:''});}if(name==='follow'){if(!this.data.canFollow)return this.fail('当前岗位不能办理该客户');return this.setData({form:Object.assign({},this.data.form,{followContent:'',appointment:''}),modal:'follow',error:''});}return this.setData({modal:'',error:''});},
+ openModal(name){if(this.data.busy)return;this.__followForm=null;this.prepareFormSheet();this.__cmdKeys={};if(name==='register')return this.setData({form:{name:'',phone:'',source:'',summary:'',province:'',city:'',district:'',town:'',village:'',regionCode:'',addressDetail:''},modal:'register',error:''});if(name==='edit'){const c=this.data.customer;if(!c)return;return this.setData({form:{name:c.name,phone:c.phone,wechat:c.wechat,source:c.source,...PF.addressPayload(c),summary:c.summary},modal:'edit',error:''});}if(name==='follow')return this.openFollowForm();return this.setData({modal:'',error:''});},
  initFormKeyboard(){
   this.__keyboardHandler=event=>this.formKeyboardChanged(event);
   if(wx.onKeyboardHeightChange)wx.onKeyboardHeightChange(this.__keyboardHandler);
@@ -693,7 +727,7 @@ Page({
   this.setData(values);this.saveDraft();
  },
  modal(e){this.openModal(e.currentTarget.dataset.modal);},
- closeModal(){if(this.data.busy)return;if(wx.hideKeyboard)wx.hideKeyboard();this.setData({modal:'',error:'',keyboardInset:0,sheetFocusTarget:''});},
+ closeModal(){if(this.data.busy)return;this.__followForm=null;if(wx.hideKeyboard)wx.hideKeyboard();this.setData({modal:'',error:'',keyboardInset:0,sheetFocusTarget:''});},
  noop(){},
  input(e){const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:e.detail.value,error:''});this.saveDraft();},
  pick(e){const {key,options}=e.currentTarget.dataset;const values=e.currentTarget.dataset.values||this.data[options];this.setData({['form.'+key]:values?values[Number(e.detail.value)]:e.detail.value,error:''});this.saveDraft();},

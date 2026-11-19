@@ -17,7 +17,7 @@ function instance(definition) {
     if(done)done();
   }};
 }
-function pageHarness() {
+function pageHarness(http = {}) {
   let definition,windowHeight=800,listener,unsubscribed=false;
   vm.runInNewContext(fs.readFileSync(path.join(root,'miniprogram/pages/workflow/index.js'),'utf8'),{
     Page(value){definition=value;},Date,Math,Promise,
@@ -26,7 +26,8 @@ function pageHarness() {
       if(id.endsWith('/platform-crm'))return CRM;
       if(id.endsWith('/view-container'))return {routeValue:value=>value,fail(){}};
       if(id==='./views')return {titles:{}};
-      if(id.endsWith('/organization')||id.endsWith('/http'))return {};
+      if(id.endsWith('/http'))return http;
+      if(id.endsWith('/organization'))return {roles:{sales:'销售'}};
       throw Error('Unexpected dependency '+id);
     }
   });
@@ -116,4 +117,121 @@ test('missing village data allows explicit manual entry, while fetch errors rema
   const failure=componentHarness(async()=>{throw Error('网络异常');});
   await failure.component.load({});assert.equal(failure.component.data.error,'网络异常');
   assert.equal(failure.component.data.rows[0].loading,false);
+});
+
+function followHarness() {
+  let generation = 1, post = {postId:'sales',roleCode:'sales'}, reads = 0;
+  const http = {token:()=>post ? 'token' : '',sessionGeneration:()=>generation};
+  const {page} = pageHarness(http);
+  const calls = [], records = new Map();
+  page.id = 'customer-1';
+  page.__http = http;
+  page.platformSession = () => post;
+  page.loadPlatformDetail = () => { reads++; };
+  page.setData({view:'customer',platformMode:true,canFollow:true});
+  page.__crmApi.customers = {follow(id,payload,key) {
+    let resolve, reject;
+    const promise = new Promise((ok,fail)=>{resolve=ok;reject=fail;});
+    function commit() {
+      if(records.has(key)) assert.deepEqual(records.get(key),payload);
+      records.set(key,payload);
+    }
+    calls.push({id,key,payload,commit,reject,acknowledge() {
+      commit();
+      resolve({customer:{id,name:'客户'},follows:[...records.values()].map(row=>({note:row.note,occurredOn:row.occurredOn}))});
+    }});
+    return promise;
+  }};
+  page.openModal('follow');
+  page.input({currentTarget:{dataset:{key:'followContent'}},detail:{value:'约电话沟通方案'}});
+  page.date({currentTarget:{dataset:{key:'appointment'}},detail:{value:CRM.today()}});
+  return {page,calls,records,reads:()=>reads,changePost(next) { generation++; post=next; }};
+}
+
+for(const replyWhileHidden of [false,true]) {
+  test('pending follow displays the saved record when the reply arrives '+(replyWhileHidden?'in background':'after return'),async()=>{
+    const {page,calls,records,reads}=followHarness();
+    const save=page.saveModal();
+    page.onHide();
+    if(!replyWhileHidden) { page.onShow(); page.onShow(); }
+    assert.equal(reads(),0);
+    page.saveModal();
+    assert.equal(calls.length,1);
+    calls[0].acknowledge();
+    await save;
+    if(replyWhileHidden)page.onShow();
+    assert.equal(page.data.busy,false);
+    assert.equal(page.data.modal,'');
+    assert.equal(page.data.activeCustomerTab,1);
+    assert.equal(page.data.customer.follows[0].content,'约电话沟通方案');
+    assert.equal(records.size,1);
+    assert.equal(reads(),0);
+    page.onShow();
+    assert.equal(reads(),1);
+  });
+}
+
+for(const [saved,code] of [[true,-1],[true,504],[false,-1]]) {
+  test('follow retries the same command after '+(saved?'a lost receipt':'a failed write')+' ('+code+')',async()=>{
+    const {page,calls,records,reads}=followHarness();
+    const first=page.saveModal();
+    page.onHide();
+    if(saved)calls[0].commit();
+    if(!saved)page.onShow();
+    calls[0].reject({code});
+    await first;
+    if(saved)page.onShow();
+    assert.equal(reads(),0);
+    assert.equal(page.data.busy,false);
+    assert.equal(page.data.modal,'follow');
+    assert.equal(page.data.form.followContent,'约电话沟通方案');
+    assert.match(page.data.error,/重试/);
+    assert.equal(records.size,saved?1:0);
+    const retry=page.saveModal();
+    assert.equal(calls[0].key,calls[1].key);
+    assert.deepEqual(calls[0].payload,calls[1].payload);
+    calls[1].acknowledge();
+    await retry;
+    assert.equal(page.data.customer.follows.length,1);
+    assert.equal(page.data.modal,'');
+    assert.equal(records.size,1);
+  });
+}
+
+for(const [label,post] of [['account with the same post ID',{postId:'sales',roleCode:'sales'}],['post',{postId:'other',roleCode:'sales'}],['logout',null]]) {
+  test('switching '+label+' discards the follow form and its late reply',async()=>{
+    const {page,calls,changePost}=followHarness();
+    const oldSave=page.saveModal();
+    page.onHide();
+    changePost(post);
+    page.onShow();
+    assert.equal(page.data.modal,'');
+    assert.equal(page.data.busy,false);
+    assert.deepEqual(page.data.form,{});
+    if(post) {
+      page.setData({canFollow:true});
+      page.openModal('follow');
+      page.input({currentTarget:{dataset:{key:'followContent'}},detail:{value:'新身份草稿'}});
+    }
+    if(label==='post')calls[0].reject({code:401});
+    else calls[0].acknowledge();
+    await oldSave;
+    assert.equal(page.data.customer,null);
+    assert.equal(page.data.error,'');
+    assert.equal(page.data.form.followContent,post?'新身份草稿':undefined);
+  });
+}
+
+test('a late follow receipt cannot update a different customer or an unloaded page',async()=>{
+  for(const unload of [false,true]) {
+    const {page,calls}=followHarness();
+    const first=page.saveModal();
+    page.onHide();
+    if(unload)page.onUnload();
+    else { page.id='customer-2'; page.onShow(); }
+    calls[0].acknowledge();
+    await first;
+    assert.equal(page.data.customer,null);
+    if(!unload)assert.equal(page.data.busy,false);
+  }
 });
