@@ -1,3 +1,5 @@
+import './clone-upload/clear-legacy'
+
 // 引入unocss css
 import '@/plugins/unocss'
 

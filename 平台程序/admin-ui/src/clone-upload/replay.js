@@ -11,10 +11,6 @@ back.onclick = () => window.wx?.miniProgram?.navigateBack({delta:1})
 document.title = document.querySelector('h1').textContent = '回放上传素材'
 
 let objectUrl, generation = 0
-window.addEventListener('pagehide', () => {
-  generation++
-  if (objectUrl) URL.revokeObjectURL(objectUrl)
-})
 
 async function openReplay() {
   const raw = location.hash.slice('#replay='.length)
@@ -36,14 +32,24 @@ async function openReplay() {
     status.textContent = ''
   }
   el('instructions').textContent = source.name || '上传素材'
-  const current = generation
-  const blob = await readSample(source.previewKey, source.uploadId).catch(() => null)
-  if (current !== generation) return
-  if (blob && blob.size === source.sizeBytes) return play(blob)
-  // Private browsing, storage eviction and older upload pages can leave a receipt without a local copy.
-  status.textContent = '本机暂存不可用，请选择刚上传的原文件回放。'
+  let expiryTimer, expiresAt
+  function chooseOriginal() {
+    clearTimeout(expiryTimer)
+    expiresAt = null
+    player.pause()
+    player.removeAttribute('src')
+    player.load()
+    player.hidden = true
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null }
+    input.value = ''
+    input.hidden = false
+    status.textContent = '本机暂存不可用，请选择刚上传的原文件回放。'
+  }
+  window.addEventListener('pagehide', () => { generation++; chooseOriginal() })
+  document.addEventListener('visibilitychange', () => {
+    if (expiresAt && Date.now() >= expiresAt) chooseOriginal()
+  })
   input.accept = '.' + source.extension
-  input.hidden = false
   input.onchange = async () => {
     const attempt = ++generation, file = input.files[0]
     if (!file) return
@@ -54,6 +60,15 @@ async function openReplay() {
       if (attempt === generation) play(file)
     } catch (e) { if (attempt === generation) status.textContent = e.message }
   }
+  const current = generation
+  const sample = await readSample(source.previewKey, source.uploadId).catch(() => null)
+  if (current !== generation) return
+  if (sample?.blob?.size === source.sizeBytes && sample.expiresAt > Date.now()) {
+    play(sample.blob)
+    status.textContent = '回放仅临时保存在本机内存，浏览器回收或满 24 小时即清除。'
+    expiresAt = sample.expiresAt
+    expiryTimer = setTimeout(chooseOriginal, expiresAt - Date.now())
+  } else chooseOriginal()
 }
 
 openReplay().catch(e => { status.textContent = e.message })

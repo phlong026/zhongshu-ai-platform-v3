@@ -1,5 +1,5 @@
 import {parseGrant, validateFile, fileDigest, hasH264, sendFile} from './transfer'
-import {saveSample} from './replay-store'
+import {prepareReplay, saveSample} from './replay-store'
 
 const el = id => document.getElementById(id)
 const keepPreview = new URLSearchParams(location.search).has('keepPreview')
@@ -10,6 +10,7 @@ try {
   history.replaceState(null, '', location.pathname)
   input.accept = '.' + grant.extension
   el('instructions').textContent = '选择 ' + grant.extension.toUpperCase() + ' 文件（最多 20 MiB），核对后直传飞影。'
+  if (keepPreview) el('instructions').textContent += '回放样本仅在本机临时保留，最多 24 小时，浏览器可能提前清理。清理后可重新选择原文件回放。'
 } catch (e) { input.disabled = true; status.textContent = e.message }
 window.addEventListener('pagehide', () => { generation++; if (fileUrl) URL.revokeObjectURL(fileUrl) })
 
@@ -21,6 +22,7 @@ input.onchange = () => {
   const preview = el(video ? 'preview' : 'voice')
   preview.hidden = true
   try { validateFile(file, grant) } catch (e) { status.textContent = e.message; return }
+  if (keepPreview) prepareReplay()
   preview.onloadedmetadata = async () => {
     if (current !== generation) return
     try {
@@ -56,14 +58,20 @@ send.onclick = async () => {
     await sendFile(file, grant, alive, () => { status.textContent = '连接中断，正在用原凭证重试…' })
     if (!alive()) return
     receipt = {uploadId:grant.uploadId, sizeBytes:file.size, sha256:digest, name:file.name.slice(0,180)}
-    if (keepPreview) {
-      receipt.previewKey = await saveSample(grant.uploadId, file, grant.contentType).catch(() => '')
-      if (!alive()) return
-    }
+    if (keepPreview) receipt.previewKey = saveSample(grant.uploadId, file, grant.contentType)
     status.textContent = '客户端已上传，返回后可提交制作。'
     send.hidden = true; back.hidden = false
     deliver()
+    const player = el(grant.contentType.startsWith('video/') ? 'preview' : 'voice')
+    player.onloadedmetadata = null
+    player.onerror = null
+    player.pause()
+    player.removeAttribute('src')
+    player.load()
+    player.hidden = true
+    input.value = ''
+    if (fileUrl) { URL.revokeObjectURL(fileUrl); fileUrl = null }
   } catch (e) {
-    if (alive()) { input.disabled = false; send.disabled = false; status.textContent = e.message }
+    if (alive() && !receipt) { input.disabled = false; send.disabled = false; status.textContent = e.message }
   }
 }
