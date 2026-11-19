@@ -32,7 +32,8 @@ function pageHarness(http = {}) {
     }
   });
   const page=instance(definition),requests=[];
-  page.__http={sessionGeneration:()=>1};page.__postKey='sales';
+  page.__http={sessionGeneration:()=>1};page.__postKey='sales';page.__pageSession=1;
+  page.platformSession=()=>({postId:'sales',roleCode:'sales'});
   page.__crmApi={leads:{capture(payload){requests.push(payload);return Promise.resolve({result:'CREATED',customerId:'77'});}}};
   page.openView=(view,replace,id)=>{page.destination={view,id};};
   return {page,requests,setWindowHeight(value){windowHeight=value;},emitKeyboard(height){listener({height});},unsubscribed:()=>unsubscribed};
@@ -235,3 +236,153 @@ test('a late follow receipt cannot update a different customer or an unloaded pa
     if(!unload)assert.equal(page.data.busy,false);
   }
 });
+
+function customerWriteHarness(action) {
+  let generation=1, post={postId:'sales',roleCode:'sales'}, loads=0;
+  const http={sessionGeneration:()=>generation,token:()=>post?'token':''};
+  const {page}=pageHarness(http);
+  const calls=[], effects=new Map(), reads=[];
+  const customer={id:'77',name:'陈客户',revision:4,ownerUserId:'11'};
+  const detail={customer:{...customer,name:'已修改',revision:5},follows:[],schemes:[]};
+  function delayed(calls,extra) {
+    let resolve,reject;
+    const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});
+    calls.push({...extra,resolve,reject});
+    return promise;
+  }
+  function send(id,payload,key) {
+    return delayed(calls,{id,payload,key,commit() {
+      if(effects.has(key)) assert.deepEqual(effects.get(key),{id,payload});
+      effects.set(key,{id,payload});
+    },ack(receipt) {
+      this.commit();
+      this.resolve(receipt|| (action==='capture'?{result:'CREATED',customerId:'99'}:detail));
+    }});
+  }
+  page.id=action==='capture'?'':'77';
+  page.__pageSession=generation;
+  page.__http=http;
+  page.platformSession=()=>post;
+  page.loadPlatformDetail=page.loadPlatformList=()=>{loads++;};
+  page.__crmApi={leads:{capture:(payload,key)=>send('',payload,key)},customers:{update:send,transfer:send,get:id=>delayed(reads,{id})}};
+  page.setData({customer,platformMode:true,view:{capture:'customers',update:'customer',transfer:'transfer'}[action]});
+  if(action==='capture'){
+    page.openModal('register');
+    page.setData({form:{name:'陈客户',phone:'13800000000',summary:'两层自建房',source:'到店咨询',...address}});
+  }else if(action==='update'){
+    page.openModal('edit');
+    page.setData({'form.name':'已修改'});
+  }else{
+    page.__transferCandidates=[{label:'同名 · 一组',userId:'101'},{label:'同名 · 二组',userId:'102'}];
+    page.setData({form:{newOwner:'同名 · 二组',transferReason:'调整分工'}});
+  }
+  return {page,calls,reads,effects,loads:()=>loads,send:()=>action==='transfer'?page.submit():page.saveModal(),
+    switchTo(next){generation++;post=next;}};
+}
+
+for(const action of ['capture','update','transfer']){
+  for(const commitBeforeTimeout of [false,true]){
+    test(action+' retries once after resume when the first request '+(commitBeforeTimeout?'committed':'did not commit'),async()=>{
+      const h=customerWriteHarness(action),{page,calls,effects}=h;
+      const original=copy(page.data.form);
+      const saving=h.send();
+      page.onHide();
+      if(commitBeforeTimeout)calls[0].commit();
+      if(!commitBeforeTimeout)page.onShow();
+      h.send();
+      assert.equal(calls.length,1);
+      calls[0].reject({code:commitBeforeTimeout?504:-1});
+      await saving;
+      if(commitBeforeTimeout)page.onShow();
+      assert.equal(h.loads(),0);
+      assert.equal(page.data.busy,false);
+      assert.equal(page.data.customerRetry,'confirm');
+      page.input({currentTarget:{dataset:{key:'name'}},detail:{value:'迟到的输入事件'}});
+      assert.deepEqual(page.data.form,original);
+      assert.equal(effects.size,commitBeforeTimeout?1:0);
+      const retry=h.send();
+      assert.equal(calls.length,2);
+      assert.equal(calls[1].key,calls[0].key);
+      assert.deepEqual(calls[1].payload,calls[0].payload);
+      if(action!=='capture')assert.equal(calls[1].payload.revision,4);
+      if(action==='transfer')assert.equal(calls[1].payload.targetUserId,'102');
+      calls[1].ack();
+      await retry;
+      assert.equal(effects.size,1);
+      assert.equal(page.data.busy,false);
+      assert.equal(page.data.modal,'');
+      if(action==='update')assert.equal(page.data.customer.name,'已修改');
+      else assert.equal(page.destination.view,'customer');
+    });
+  }
+  for(const replyWhileHidden of [true,false]){
+    test(action+' presents success once when the reply arrives '+(replyWhileHidden?'while hidden':'after resume'),async()=>{
+      const h=customerWriteHarness(action),{page,calls}=h;
+      const results=[];
+      page.openView=(...args)=>results.push(args);
+      const apply=page.applyDetail;
+      page.applyDetail=function(d){results.push(d);return apply.call(this,d);};
+      const saving=h.send();page.onHide();
+      if(!replyWhileHidden)page.onShow();
+      assert.equal(h.loads(),0);
+      calls[0].ack();await saving;
+      if(replyWhileHidden){ assert.equal(results.length,0);page.onShow(); }
+      page.onShow();assert.equal(results.length,1);assert.equal(page.data.busy,false);assert.equal(calls.length,1);
+    });
+  }
+  for(const accountOnly of [false,true]){
+    test(action+' drops the draft and late response on '+(accountOnly?'account':'post')+' switch',async()=>{
+      const h=customerWriteHarness(action),{page,calls}=h;
+      const saving=h.send();page.onHide();
+      h.switchTo({postId:accountOnly?'sales':'new-post',roleCode:'sales'});
+      page.onShow();
+      assert.equal(page.data.busy,false);assert.equal(page.data.modal,'');assert.deepEqual(page.data.form,{});
+      page.setData({form:{name:'新会话草稿'}});
+      if(accountOnly)calls[0].ack();else calls[0].reject({code:401});
+      await saving;
+      assert.equal(page.destination,undefined);assert.equal(page.data.error,'');
+      assert.equal(page.data.form.name,'新会话草稿');assert.equal(page.data.customer,null);
+    });
+  }
+}
+
+test('a saved linked registration retries only the detail read and navigates after returning',async()=>{
+  const h=customerWriteHarness('capture'),{page,calls,reads}=h;
+  const first=h.send();
+  calls[0].ack({result:'LINKED',customerId:'99'});
+  await new Promise(done=>setImmediate(done));
+  page.onHide();page.onShow();
+  reads[0].reject({code:-1});await first;
+  assert.equal(page.data.customerRetry,'view');
+  const retry=h.send();page.onHide();
+  reads[1].resolve({});await retry;
+  assert.equal(page.destination,undefined);
+  page.onShow();assert.equal(page.destination.id,'99');
+  assert.equal(calls.length,1);assert.equal(reads.length,2);
+});
+
+test('confirmed registration with pending association or restricted detail closes the write form',async()=>{
+  for(const result of ['LINK_REQUIRED','LINKED']){
+    const h=customerWriteHarness('capture'),{page,calls,reads}=h;
+    const first=h.send();
+    calls[0].ack({result,customerId:'99'});await new Promise(done=>setImmediate(done));
+    if(result==='LINKED')reads[0].reject({code:403});
+    await first;
+    assert.equal(page.data.modal,'');assert.match(page.data.error,/已登记/);assert.equal(page.data.busy,false);
+    h.send();assert.equal(calls.length,1);
+  }
+});
+
+for(const action of ['update','transfer']){
+  test(action+' reloads an actual version conflict and waits for an explicit new submission',async()=>{
+    const h=customerWriteHarness(action),{page,calls}=h;
+    const original=copy(page.data.form);
+    const first=h.send();calls[0].reject({code:1099000001});await first;
+    assert.match(page.data.error,/刷新/);assert.equal(h.loads(),1);assert.equal(calls.length,1);
+    assert.equal(page.data.busy,false);assert.deepEqual(page.data.form,original);
+    page.setData({'customer.revision':7});
+    const next=h.send();
+    assert.equal(calls[1].payload.revision,7);assert.notEqual(calls[1].key,calls[0].key);
+    calls[1].ack();await next;
+  });
+}

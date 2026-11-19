@@ -128,12 +128,15 @@ function harness(options = {}) {
     id: 'customer-9',
     __post: { postId: 'post-1', roleCode: 'sales' },
     __postKey: 'post-1',
+    __pageSession: sessionGeneration,
+    platformSession() { return this.__post; },
     __http: http,
     __pf: platformCrm,
     __crmSales: sales,
     __crmApi: {
       leads: { capture: () => Promise.resolve(options.leadCapture || { result: 'CREATED', customerId: 'customer-9' }) },
       customers: {
+        page: async () => ({list:[],total:0}),
         get(id) {
           detailCalls.push(id);
           if (typeof options.customerGet === 'function') return options.customerGet(id);
