@@ -52,7 +52,7 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         var design=fixture.post(fixture.headquarters(),"hq-design-admin",null);
         var finance=fixture.post(design.orgId(),"finance",null);
         String prefix="page-"+UUID.randomUUID().toString().substring(0,8)+"-";
-        var before=commissions.workbenchCounts(design);
+        var before=as(design,()->commissions.workbenchCounts(design));
         try {
             for(int i=1;i<=238;i++) {
                 long id=cn.hutool.core.util.IdUtil.getSnowflakeNextId();
@@ -68,19 +68,19 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
             var seen=new java.util.HashSet<Long>();
             var page=new cn.iocoder.yudao.framework.common.pojo.PageParam();page.setPageSize(20);
             for(int number=1;number<=12;number++) {
-                page.setPageNo(number);var result=commissions.page(design,page,prefix,null);
+                page.setPageNo(number);var result=as(design,()->commissions.page(design,page,prefix,null));
                 assertThat(result.getTotal()).isEqualTo(237);
                 result.getList().forEach(row->assertThat(seen.add(row.getId())).isTrue());
             }
             assertThat(seen).hasSize(237);page.setPageNo(1);
             for(String suffix:java.util.List.of("101","237")) {
-                var found=commissions.page(design,page,prefix+suffix,null);
+                var found=as(design,()->commissions.page(design,page,prefix+suffix,null));
                 assertThat(found.getTotal()).isEqualTo(1);
                 assertThat(found.getList().get(0).getCustomerName()).isEqualTo(prefix+suffix);
             }
-            assertThat(commissions.page(design,page,prefix,"DESIGN_COMPLETED").getTotal()).isEqualTo(118);
-            assertThat(commissions.page(design,page,prefix,"DESIGNING,DESIGN_COMPLETED").getTotal()).isEqualTo(237);
-            var counts=commissions.workbenchCounts(design);
+            assertThat(as(design,()->commissions.page(design,page,prefix,"DESIGN_COMPLETED")).getTotal()).isEqualTo(118);
+            assertThat(as(design,()->commissions.page(design,page,prefix,"DESIGNING,DESIGN_COMPLETED")).getTotal()).isEqualTo(237);
+            var counts=as(design,()->commissions.workbenchCounts(design));
             assertThat(counts.get("DESIGNING")-before.getOrDefault("DESIGNING",0L)).isEqualTo(119);
             assertThat(counts.get("DESIGN_COMPLETED")-before.getOrDefault("DESIGN_COMPLETED",0L)).isEqualTo(118);
             assertError(()->commissions.workbenchCounts(finance),COMMISSION_FORBIDDEN);
