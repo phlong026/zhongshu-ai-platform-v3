@@ -27,15 +27,15 @@ import static cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes.T
  * <p>预检严格只读（不建号/不写任职/不写审计）：团队名→teamId、角色码∈既有岗位模板、
  * 手机号→既有账号→同 org+role 任职现状；所有校验均为只读投影。
  *
- * <p>提交逐行调用 {@link StaffPostService#createStaffInOrg}（内部即 findOrAssignValidated：
- * 同 org+role 同 team 幂等、异 team 抛 POST_TEAM_CONFLICT、已有账号保留原资料），
- * 本方法<b>不加事务注解</b>，每次调用经 Spring 代理获得独立事务：单行失败不影响已成功行。
+ * <p>提交复用同一行校验。门店入口提供统一开户回调，非门店沿用
+ * {@link StaffPostService#createStaffInOrg}。本方法<b>不加事务注解</b>，
+ * 每行调用经 Spring 代理获得独立事务：单行失败不影响已成功行。
  *
  * <p>预检与提交共享同一行校验（{@link #checkRow}），提交前不信任预检结果，逐行重新校验。
  * 幂等按业务自然键（手机号+组织+岗位+团队）：重试同一行不会产生重复任职，无需跟踪表。
  *
- * <p>边界：system_users.mobile 为普通索引而非唯一约束（既有 createStaff 同风险）；
- * 并发首次建档的账号级去重不在本批解决（不新增迁移），任职级并发仍由既有唯一索引/冲突语义兜底。
+ * <p>门店开户的手机号去重、账号别名与初始密码策略由统一开户服务处理。
+ * 非门店建档继续沿用原有账号/任职语义。
  *
  * <p>B-only 装配：仅 platform.legacy-design-bridge.enabled=false（B 独立进程）注册。
  */
@@ -54,7 +54,25 @@ public class StaffImportService {
     }
 
     public record RowResult(int line, String name, String mobile, String roleCode, String teamName,
-                            String status, Integer code, String message, Long postId, Long userId, String note) {
+                            String status, Integer code, String message, Long postId, Long userId, String note,
+                            AccountDelivery account) {
+    }
+
+    /** 仅本次响应交付；不写入导入历史、访问日志或异常日志。 */
+    public record AccountDelivery(String accountId, String name, String orgName, String loginName,
+                                  List<String> aliases, String initialPassword, boolean reusedUser) {
+        @Override public String toString() {
+            return "StaffImportAccount[accountId=" + accountId + "]";
+        }
+    }
+
+    public record CreatedStaff(long postId, Long userId, AccountDelivery account) {
+    }
+
+    /** 由上层装配真实、带事务的开户服务，组织模块不反向依赖认证模块。 */
+    @FunctionalInterface
+    public interface RowCreator {
+        CreatedStaff create(RowResult checked, Long teamId);
     }
 
     public record ImportResult(long orgId, int total, int created, int skipped, int failed,
@@ -91,6 +109,8 @@ public class StaffImportService {
             int line = lineOf(row, i);
             try {
                 results.add(checkRow(orgId, row, i + 1, context, seen));
+            } catch (ServiceException e) {
+                results.add(failedRow(line, row, e.getCode(), e.getMessage()));
             } catch (RuntimeException e) {
                 logRowFailure(orgId, line, e);
                 results.add(failedRow(line, row, 500, "该行处理失败，请稍后重试"));
@@ -101,6 +121,11 @@ public class StaffImportService {
 
     /** 提交（逐行独立事务，部分成功）。 */
     public ImportResult submit(long orgId, List<Row> rows, long operatorUserId) {
+        return submit(orgId, rows, operatorUserId, null);
+    }
+
+    /** 已有同岗行也进入统一开户回调，补齐历史导入缺失的别名；不重置已有密码。 */
+    public ImportResult submit(long orgId, List<Row> rows, long operatorUserId, RowCreator accountCreator) {
         requireBatchSize(rows);
         Context context;
         try {
@@ -116,27 +141,34 @@ public class StaffImportService {
             RowResult checked;
             try {
                 checked = checkRow(orgId, row, i + 1, context, seen);
+            } catch (ServiceException e) {
+                results.add(failedRow(line, row, e.getCode(), e.getMessage()));
+                continue;
             } catch (RuntimeException e) {
                 logRowFailure(orgId, line, e);
                 results.add(failedRow(line, row, 500, "该行处理失败，请稍后重试"));
                 continue;
             }
-            if (!"OK".equals(checked.status())) {
+            if (!"OK".equals(checked.status())
+                    && !("SKIPPED".equals(checked.status()) && accountCreator != null)) {
                 results.add(checked);
                 continue;
             }
             try {
-                long postId = staffPostService.createStaffInOrg(orgId, checked.name(), checked.mobile(),
-                        checked.roleCode(), teamIdOf(checked, context, line), operatorUserId);
+                CreatedStaff created = accountCreator == null
+                        ? new CreatedStaff(staffPostService.createStaffInOrg(orgId, checked.name(), checked.mobile(),
+                            checked.roleCode(), teamIdOf(checked, context, line), operatorUserId), checked.userId(), null)
+                        : accountCreator.create(checked, teamIdOf(checked, context, line));
                 results.add(new RowResult(line, checked.name(), checked.mobile(), checked.roleCode(),
-                        checked.teamName(), "CREATED", null, "", postId, checked.userId(), checked.note()));
+                        checked.teamName(), "SKIPPED".equals(checked.status()) ? "SKIPPED" : "CREATED", null, "",
+                        created.postId(), created.userId(), checked.note(), created.account()));
             } catch (ServiceException e) {
                 results.add(new RowResult(line, checked.name(), checked.mobile(), checked.roleCode(),
-                        checked.teamName(), "FAILED", e.getCode(), e.getMessage(), null, checked.userId(), null));
+                        checked.teamName(), "FAILED", e.getCode(), e.getMessage(), null, checked.userId(), null, null));
             } catch (RuntimeException e) {
                 logRowFailure(orgId, line, e);
                 results.add(new RowResult(line, checked.name(), checked.mobile(), checked.roleCode(),
-                        checked.teamName(), "FAILED", 500, "该行处理失败，请稍后重试", null, checked.userId(), null));
+                        checked.teamName(), "FAILED", 500, "该行处理失败，请稍后重试", null, checked.userId(), null, null));
             }
         }
         ImportResult result = summarize(orgId, results);
@@ -220,7 +252,7 @@ public class StaffImportService {
         Long userId = systemDirectory.userIdByMobile(mobile);
         if (userId == null) {
             seen.put(naturalKey, line);
-            return new RowResult(line, name, mobile, roleCode, teamName, "OK", null, "", null, null, null);
+            return new RowResult(line, name, mobile, roleCode, teamName, "OK", null, "", null, null, null, null);
         }
         StaffPostDO existing = staffPostService.listActivePosts(userId).stream()
                 .filter(post -> post.getOrgId() == orgId && roleCode.equals(post.getRoleCode()))
@@ -232,14 +264,14 @@ public class StaffImportService {
             }
             seen.put(naturalKey, line);
             return new RowResult(line, name, mobile, roleCode, teamName, "SKIPPED", null, "",
-                    existing.getId(), userId, null);
+                    existing.getId(), userId, null, null);
         }
         seen.put(naturalKey, line);
         String existingName = systemDirectory.usersByIds(List.of(userId)).stream()
                 .findFirst().map(SystemDirectory.UserBrief::name).orElse(null);
         String note = existingName == null ? "手机号已存在账号，将保留原资料仅追加任职"
                 : "手机号已存在账号（" + existingName + "），将保留原资料仅追加任职";
-        return new RowResult(line, name, mobile, roleCode, teamName, "OK", null, "", null, userId, note);
+        return new RowResult(line, name, mobile, roleCode, teamName, "OK", null, "", null, userId, note, null);
     }
 
     private Context context(long orgId) {
@@ -292,6 +324,6 @@ public class StaffImportService {
     private static RowResult failed(int line, String name, String mobile, String roleCode, String teamName,
                                     int code, String message) {
         return new RowResult(line, name, mobile, roleCode, teamName, "FAILED", code, message,
-                null, null, null);
+                null, null, null, null);
     }
 }

@@ -5,6 +5,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 import cn.iocoder.yudao.module.platform.org.dal.PostTemplateDO;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +17,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes.STAFF_MOBILE_AMBIGUOUS;
 
 /** P1-2：行级未知异常日志不得输出异常 message/Throwable（可能含手机号）；行结果仍为 500 通用消息。 */
 class StaffImportServicePiiLogTest {
@@ -185,5 +187,58 @@ class StaffImportServicePiiLogTest {
             assertThat(event.getFormattedMessage()).doesNotContain(MOBILE);
             assertThat(event.getThrowableProxy()).isNull();
         });
+    }
+
+    @Test
+    void ambiguousPhoneIsAnActionableRowFailureAndDoesNotPreventOtherRows() {
+        StaffPostService posts = mock(StaffPostService.class);
+        OrgService orgs = mock(OrgService.class);
+        SystemDirectory directory = mock(SystemDirectory.class);
+        when(orgs.listTeams(ORG)).thenReturn(List.of(new OrgUnitDO().setDeptId(TEAM)));
+        when(orgs.listPostTemplates(ORG)).thenReturn(List.of(new PostTemplateDO().setRoleCode("sales")));
+        when(directory.deptName(TEAM)).thenReturn("业务一组");
+        when(directory.userIdByMobile(MOBILE)).thenThrow(new ServiceException(STAFF_MOBILE_AMBIGUOUS));
+        var service = new StaffImportService(posts, orgs, directory);
+        var rows = List.of(new StaffImportService.Row(1, "重号员工", MOBILE, "sales", "业务一组"),
+                new StaffImportService.Row(2, "正常员工", "13900138000", "sales", "业务一组"));
+        var preview = service.precheck(ORG, rows);
+        assertThat(preview.rows().get(0).code()).isEqualTo(STAFF_MOBILE_AMBIGUOUS.getCode());
+        assertThat(preview.rows().get(0).message()).contains("多个员工账号");
+        var created = new java.util.concurrent.atomic.AtomicInteger();
+        var result = service.submit(ORG, rows, 99L, (row, team) -> {
+            created.incrementAndGet();
+            return new StaffImportService.CreatedStaff(71L, 81L, null);
+        });
+        assertThat(result.failed()).isEqualTo(1);
+        assertThat(result.created()).isEqualTo(1);
+        assertThat(result.rows().get(0).code()).isEqualTo(STAFF_MOBILE_AMBIGUOUS.getCode());
+        assertThat(created.get()).isEqualTo(1);
+    }
+
+    @Test
+    void accountDeliveryIsExcludedFromSummaryLogsAndNestedToString() {
+        StaffPostService posts = mock(StaffPostService.class);
+        OrgService orgs = mock(OrgService.class);
+        SystemDirectory directory = mock(SystemDirectory.class);
+        when(orgs.listTeams(ORG)).thenReturn(List.of(new OrgUnitDO().setDeptId(TEAM)));
+        when(orgs.listPostTemplates(ORG)).thenReturn(List.of(new PostTemplateDO().setRoleCode("sales")));
+        when(directory.deptName(TEAM)).thenReturn("业务一组");
+        String initial = "FixtureOnlySecret";
+        var account = new StaffImportService.AccountDelivery("a1", "张三", "门店", "zhangsan",
+                List.of("zhangsan", "zs"), initial, false);
+        Logger logger = (Logger) LoggerFactory.getLogger(StaffImportService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start(); logger.addAppender(appender);
+        try {
+            var result = new StaffImportService(posts, orgs, directory).submit(ORG,
+                    List.of(new StaffImportService.Row(1, "张三", MOBILE, "sales", "业务一组")), 99L,
+                    (row, team) -> new StaffImportService.CreatedStaff(71L, 81L, account));
+            assertThat(result.rows().get(0).account().initialPassword()).isEqualTo(initial);
+            assertThat(result.toString()).doesNotContain(initial);
+            assertThat(appender.list).isNotEmpty().allSatisfy(event -> {
+                assertThat(event.getFormattedMessage()).doesNotContain(initial, MOBILE, "张三");
+                assertThat(event.getThrowableProxy()).isNull();
+            });
+        } finally { logger.detachAppender(appender); }
     }
 }

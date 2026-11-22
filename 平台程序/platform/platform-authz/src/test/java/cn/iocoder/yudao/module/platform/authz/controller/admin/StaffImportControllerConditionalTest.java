@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.platform.authz.controller.admin;
 
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
+import cn.iocoder.yudao.module.platform.authz.service.StaffAccountOnboardService;
 import cn.iocoder.yudao.module.platform.org.OrgService;
 import cn.iocoder.yudao.module.platform.org.StaffImportService;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
@@ -59,6 +60,7 @@ class StaffImportControllerConditionalTest {
         if (controller) {
             return runner
                     .withBean(CurrentPost.class, () -> mock(CurrentPost.class))
+                    .withBean(StaffAccountOnboardService.class, () -> mock(StaffAccountOnboardService.class))
                     .withBean(StaffImportService.class, () -> mock(StaffImportService.class));
         }
         return runner

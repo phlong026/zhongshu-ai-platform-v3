@@ -154,6 +154,11 @@ export interface StaffImportRowPayload {
   teamName: string
 }
 
+export type StaffImportAccountDelivery = Pick<
+  StaffAccountResult,
+  'accountId' | 'name' | 'orgName' | 'loginName' | 'aliases' | 'initialPassword' | 'reusedUser'
+>
+
 export interface StaffImportResultRow extends StaffImportRowPayload {
   status: 'OK' | 'SKIPPED' | 'FAILED' | 'CREATED'
   code?: number | null
@@ -161,6 +166,7 @@ export interface StaffImportResultRow extends StaffImportRowPayload {
   postId?: PlatformId | null
   userId?: PlatformId | null
   note?: string | null
+  account?: StaffImportAccountDelivery | null
 }
 
 export interface StaffImportResult {
