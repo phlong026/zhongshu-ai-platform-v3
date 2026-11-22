@@ -6,7 +6,7 @@ const moduleP={exports:{}};
 vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/utils/platform-content'),'utf8'),{module:moduleP,require:()=>({}),setTimeout,Date});
 const P=moduleP.exports;
 const taskInput=(taskId,description,extra={})=>({taskId,kind:'ai_video',mode:'frames',description,firstFrameAssetId:'',lastFrameAssetId:'',references:[],parameters:{duration:8,resolution:'768P',ratio:'9:16'},...extra});
-function harness({disk=new Map(),cloud=new Map(),read,save,task,input,upload,download,preview}={}){
+function harness({disk=new Map(),cloud=new Map(),read,save,task,input,upload,download,preview,create}={}){
   let definition,valid=true;const writes=[],submissions=[],uploads=[],downloads=[],toasts=[],inputReads=[],draftReads=[];
   const state={tasks:[]};
   const originals=new Map([['101',taskInput('101','history A')],['102',taskInput('102','history B')]]);
@@ -14,7 +14,7 @@ function harness({disk=new Map(),cloud=new Map(),read,save,task,input,upload,dow
     writes.push(structuredClone(body));if(save)return save(body);
     const prior=cloud.get(body.draftKey)||{revision:0};if(body.revision!==prior.revision)throw{code:1114000011};
     const result={...prior,...body,exists:true,revision:prior.revision+1};cloud.set(body.draftKey,result);return {id:'draft',mode:body.mode,revision:result.revision};
-  }},assets:{downloadUrl:async id=>{downloads.push(id);return download?download(id):{downloadUrl:'https://signed.example/'+id};}},tasks:{editableInput:async id=>{inputReads.push(id);if(input)return input(id);if(!originals.has(id))throw Error('任务不存在或无权读取');return structuredClone(originals.get(id));},create:async body=>{submissions.push(JSON.parse(JSON.stringify(body)));return{id:'task'};}}};
+  }},assets:{downloadUrl:async id=>{downloads.push(id);return download?download(id):{downloadUrl:'https://signed.example/'+id};}},tasks:{editableInput:async id=>{inputReads.push(id);if(input)return input(id);if(!originals.has(id))throw Error('任务不存在或无权读取');return structuredClone(originals.get(id));},create:async (body,key)=>{submissions.push(JSON.parse(JSON.stringify(body)));return create?create(body,key):{id:'task'};}}};
   const media={upload:async(path,alive)=>{uploads.push(path);return upload?upload(path,alive):String(100+uploads.length);},source:async(id,alive,options={})=>{await api.assets.downloadUrl(id);if(!alive())throw Error('身份已切换');return preview?preview(id,options):options.type==='image'?(options.localPath||'/authorized/'+id+'.png'):'';}};
   const modules={'../../utils/creation':{assets:[]},'../../utils/studio':{guard:()=>true,allowed:()=>valid,scope:()=>valid?'actor':'other',scopedKey:k=>'actor:'+k,read:()=>state,write:()=>{}},'../../utils/platform-content':P,'../../api/franchise/content':api,'../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},'../../utils/content-media':media,'../../utils/storage-keys':{videoDraft:'legacy'},'../../utils/creation-text-resize':require('../miniprogram/utils/creation-text-resize'),'./video-draft':Draft};
   const wx={getStorageSync:k=>disk.get(k),setStorageSync:(k,v)=>disk.set(k,structuredClone(v)),showToast:o=>toasts.push(o.title),navigateTo(){},redirectTo(){}};
@@ -312,4 +312,46 @@ test('an unversioned task draft response stays blocked while a confirmed missing
   const missing=harness({task:'101',read:async()=>({exists:false,revision:0})});await tick();
   assert.equal(missing.page.data.taskDraftBlocked,false);await missing.page.generate();
   assert.equal(missing.submissions[0].description,'history A');
+});
+
+test('a lost task receipt is confirmed with the frozen request before checking revoked material access',async()=>{
+  let revoked=false;const ledger=new Map(),attempts=[],navigations=[];
+  const h=harness({download:async()=>{if(revoked)throw {code:403,message:'素材已撤回'};return{downloadUrl:'https://signed.example/901'};},create:async(body,key)=>{
+    attempts.push({body:structuredClone(body),key});
+    if(ledger.has(key))return ledger.get(key);
+    if(revoked)throw{code:403,message:'素材已撤回'};
+    const task={id:'301'};ledger.set(key,task);throw Error('timeout');
+  }});await tick();h.wx.navigateTo=options=>navigations.push(options.url);
+  h.page.setData({description:'原始文案',firstFrameAssetId:'901'});await h.page.generate();
+  assert.equal(ledger.size,1);revoked=true;await h.page.generate();
+  assert.equal(attempts.length,2);assert.equal(attempts[0].key,attempts[1].key);assert.deepEqual(attempts[0].body,attempts[1].body);
+  assert.deepEqual(h.downloads,['901']);assert.equal(ledger.size,1);assert.equal(h.page.__videoSubmission,null);
+  assert.deepEqual(navigations,['/pages/studio/index?view=tasks']);
+});
+
+test('an unconfirmed request is recovered even after the current description and duration become invalid',async()=>{
+  const attempts=[];const h=harness({create:async(body,key)=>{attempts.push({body:structuredClone(body),key});if(attempts.length===1)throw Error('timeout');return{id:'302'};}});await tick();
+  h.page.inputDescription({detail:{value:'已提交文案'}});await h.page.generate();
+  h.page.inputDescription({detail:{value:''}});h.page.inputDuration({detail:{value:'99'}});await h.page.generate();
+  assert.equal(attempts.length,2);assert.deepEqual(attempts[0],attempts[1]);assert.equal(h.page.data.description,'');
+});
+
+test('new tasks still check material access and uncertain unaccepted requests keep their original key',async()=>{
+  const denied=harness({download:async()=>{throw{code:403,message:'素材已撤回'};}});await tick();
+  denied.page.setData({description:'新任务',firstFrameAssetId:'901'});await denied.page.generate();
+  assert.equal(denied.submissions.length,0);
+  const keys=[];const h=harness({create:async(body,key)=>{keys.push(key);if(keys.length===1)throw Error('timeout');throw{code:403,message:'素材已撤回'};}});await tick();
+  h.page.inputDescription({detail:{value:'尚未确认'}});await h.page.generate();
+  h.page.inputDescription({detail:{value:'后续修改'}});await h.page.generate();await h.page.generate();
+  assert.equal(keys.length,3);assert.equal(new Set(keys).size,1);assert.ok(h.page.__videoSubmission);
+  assert.equal(h.submissions[1].description,'尚未确认');
+});
+
+test('an explicit initial task rejection allows correcting the form while an identity change forbids replay',async()=>{
+  const attempts=[];const h=harness({create:async(body,key)=>{attempts.push({body:structuredClone(body),key});if(attempts.length===1)throw{code:1114000001,message:'输入无效'};return{id:'303'};}});await tick();
+  h.page.inputDescription({detail:{value:'被拒绝的文案'}});await h.page.generate();
+  assert.equal(h.page.__videoSubmission,null);h.page.inputDescription({detail:{value:'更正后的文案'}});await h.page.generate();
+  assert.equal(attempts[1].body.description,'更正后的文案');assert.notEqual(attempts[0].key,attempts[1].key);
+  const stale=harness({create:async()=>{throw Error('timeout');}});await tick();stale.page.inputDescription({detail:{value:'待确认'}});await stale.page.generate();
+  stale.invalidate();await stale.page.generateOnline();assert.equal(stale.submissions.length,1);
 });

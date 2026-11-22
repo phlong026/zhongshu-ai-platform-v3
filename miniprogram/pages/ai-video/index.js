@@ -13,7 +13,7 @@ return {...item,id:item.id||'reference-'+index+'-'+assetId(item.assetId),assetId
 Page({
 ...textResize.handlers,
 data: {
-mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,taskDraftBlocked:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
+mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,taskDraftBlocked:false,submissionPending:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
 parameters: [
 { key: 'resolution', label: '分辨率', options: ['768P', '2K'], value: 0 },
 { key: 'duration', label: '时长', value: '8 秒' },
@@ -162,6 +162,7 @@ retryDraft(){
 async useOriginalTask(){
   const original=this.__originalTaskForm,id=this.data.editingTaskId;
   if(!original||!this.data.taskDraftBlocked||this.data.taskLoading||this.data.generating||!this.videoAlive())return;
+  if(this.__videoSubmission)return this.generateOnline(original);
   const result=await new Promise(resolve=>wx.showModal({title:'用原任务另建',content:'将使用原任务的文案和素材创建新任务，按当前规则计费。尚未读取的修改稿会保留。',confirmText:'用原任务',success:resolve,fail:()=>resolve({confirm:false})}));
   if(!result.confirm||!this.videoAlive()||id!==this.data.editingTaskId||original!==this.__originalTaskForm||!this.data.taskDraftBlocked)return;
   return this.generateOnline(original);
@@ -246,6 +247,7 @@ wx.showToast({ title: '提示词智能优化暂未开通，请手动调整画面
 },
 generate() {
 if (this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked) return;
+if(this.__videoSubmission)return this.generateOnline();
 if(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToast({ title: '请先添加参考素材', icon: 'none' }); return; }
@@ -255,12 +257,17 @@ wx.showToast({ title: '请先登录后端账号后再生成视频', icon: 'none'
 },
 async generateOnline(originalForm) {
 const useOriginal=!!originalForm&&originalForm===this.__originalTaskForm;
-if(this.data.generating||this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked&&!useOriginal)return;
-if(!useOriginal&&(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15)){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
+if(!this.videoAlive()||this.data.generating||this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked&&!useOriginal)return;
+const retrying=!!this.__videoSubmission;
+if(!retrying&&!useOriginal&&(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15)){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 const sessionAlive=http.sessionGuard(),scope=this.actorScope;
 const alive=()=>!this.__closed&&sessionAlive()&&scope===studio.scope();
 this.setData({generating:true});
+let submitted=false;
 try {
+// A replay resolves the frozen request before any new-form or material checks.
+// The server returns an existing task first, and authorizes assets if it must create one.
+if(!retrying){
 const current=useOriginal?JSON.parse(JSON.stringify(originalForm)):this.videoForm();
 // Mode switches retain both drafts, but only the visible mode's media participates in this task.
 const selected=current.mode==='frames'?{...current,references:[]}:{...current,firstFrame:'',lastFrame:'',firstFrameAssetId:'',lastFrameAssetId:''};
@@ -281,25 +288,32 @@ for(const input of inputs){
     if(!ticket?.downloadUrl)throw Error('素材已不可用，请重新选择');
   }
 }
-const signature=JSON.stringify({payload,inputs});
-if(!this.__videoSubmission||this.__videoSubmission.signature!==signature){
   const references=[];
   for(const input of inputs){
     references.push(Object.assign({role:input.role,assetId:String(input.assetId)},input.name?{name:input.name}:{}));
   }
   if(references.length)payload.references=references;
-  this.__videoSubmission={signature,payload,key:'video-'+Date.now()+'-'+Math.floor(Math.random()*1e8)};
+  this.__videoSubmission={payload,key:'video-'+Date.now()+'-'+Math.floor(Math.random()*1e8)};
 }
 if(!alive())return;
+submitted=true;
 const res=await contentApi.tasks.create(this.__videoSubmission.payload,this.__videoSubmission.key);
 if(!alive())return;
 const taskId = res && (res.taskId||res.id) ? String(res.taskId||res.id) : '';
 if (!taskId) throw Error('任务创建失败，请稍后重试');
 this.__videoSubmission=null;
+this.setData({submissionPending:false});
 wx.showToast({ title: '任务已提交，可在任务中心查看进度', icon: 'none' });
 const nav = { url: '/pages/studio/index?view=tasks' };
 if (getCurrentPages().length >= 9) wx.redirectTo(nav); else wx.navigateTo(nav);
-}catch(error){if(alive())wx.showToast({ title: P.degradeMessage(error), icon: 'none' });}
+}catch(error){if(alive()){
+  const code=Number(error&&error.code);
+  // A definite first-attempt rejection allows correction. A later error cannot
+  // prove an uncertain original request was never accepted.
+  if(!retrying&&submitted&&Number.isFinite(code)&&code>0&&code!==429&&(code<500||code>=600))this.__videoSubmission=null;
+  this.setData({submissionPending:!!this.__videoSubmission});
+  wx.showToast({ title: P.degradeMessage(error), icon: 'none' });
+}}
 finally{if(alive())this.setData({generating:false});}
 },
 returnToTasks() { wx.redirectTo({ url: '/pages/studio/index?view=tasks' }); },
