@@ -467,12 +467,16 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("79.999"), "未完成节点允许未到齐"), idem()));
         assertThatThrownBy(() -> as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId,
                 new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("80.001"), "超过计划"), idem())))
-                .isInstanceOf(ServiceException.class).hasMessageContaining("超过计划数量");
+                .isInstanceOfSatisfying(ServiceException.class, error -> assertThat(error.getCode()).isEqualTo(1115000004));
+        assertThat(jdbc.queryForObject("SELECT actual_quantity FROM fr_eng_supply_receipt WHERE id = ?",
+                BigDecimal.class, receiptId)).isEqualByComparingTo("79.999");
 
         jdbc.update("UPDATE fr_eng_plan_node SET status = 'DONE' WHERE id = ?", nodeId);
         assertThatThrownBy(() -> as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId,
                 new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("79.998"), "完成节点不能改为未到齐"), idem())))
-                .isInstanceOf(ServiceException.class).hasMessageContaining("请先撤回节点完成");
+                .isInstanceOfSatisfying(ServiceException.class, error -> assertThat(error.getCode()).isEqualTo(1115000004));
+        assertThat(jdbc.queryForObject("SELECT actual_quantity FROM fr_eng_supply_receipt WHERE id = ?",
+                BigDecimal.class, receiptId)).isEqualByComparingTo("79.999");
         as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId,
                 new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("80.000"), "更正到计划值"), idem()));
         assertThat(jdbc.queryForObject("SELECT SUM(actual_quantity) FROM fr_eng_supply_receipt WHERE supply_id = ?",
