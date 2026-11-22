@@ -96,7 +96,9 @@ jobs:
           cache: maven
           cache-dependency-path: '平台程序/**/pom.xml'
       - name: Validate delivered B Compose and reject unreviewed mounts
-        run: python3 -I 平台程序/script/verify-platform-deploy.py
+        run: |
+          python3 -I 平台程序/script/verify-platform-deploy.py
+          python3 -I 平台程序/deploy/platform/test_capability_deployment.py
       - name: Test release paths and package the platform server
         run: >-
           mvn -B -ntp -f 平台程序/pom.xml

@@ -6,6 +6,8 @@ services:
       PF_DESIGN_ORIGIN: https://design-provider:48443
       JAVA_TOOL_OPTIONS: >-
         -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp
+        -Dplatform.asset.spool-dir=/var/lib/platform/asset-spool
+        -Dplatform.asset.spool-max-bytes=402653184
         -Djavax.net.ssl.trustStore=/run/secrets/design_provider_truststore
         -Djavax.net.ssl.trustStorePassword=changeit
     secrets:
