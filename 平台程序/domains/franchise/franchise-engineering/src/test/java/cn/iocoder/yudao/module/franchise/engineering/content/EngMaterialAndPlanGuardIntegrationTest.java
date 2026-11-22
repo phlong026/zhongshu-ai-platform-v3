@@ -474,6 +474,168 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         assertThat(jdbc.queryForObject("SELECT status FROM fr_eng_plan_node WHERE id=?",String.class,nodeId)).isEqualTo("DONE");
     }
 
+
+    @Test
+    void dateOnlyNodeCorrectionPreservesAllEvidenceAndReplaysWithoutAnotherHistoryEntry() {
+        var completed = completedInspection();
+        var correctedDate = java.time.LocalDate.now();
+        String key = idem();
+        var command = new EngPlanService.NodeCorrectCommand(correctedDate, null, null, "完工日期填错");
+        as(engineer, () -> planService.correctNode(engineer, projectId, nodeId, command, key));
+        as(engineer, () -> planService.correctNode(engineer, projectId, nodeId, command, key));
+        assertCompletion(completed, completed.photos(), "原验收说明", correctedDate);
+        var history = completionHistory(completed.recordId());
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).get("occurredAt")).isEqualTo(completed.date().toString());
+        assertThat(history.get(0).get("note")).isEqualTo("原验收说明");
+        assertThat((java.util.List<?>) history.get(0).get("fileAssetIds"))
+                .extracting(String::valueOf).containsExactlyElementsOf(completed.photos().stream().map(String::valueOf).toList());
+        assertThat(history.get(0).get("reason")).isEqualTo("完工日期填错");
+        assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeCorrectCommand(correctedDate, null, null, "同键改原因"), key)))
+                .isInstanceOf(ServiceException.class);
+        assertThat(completionHistory(completed.recordId())).hasSize(1);
+    }
+
+    @Test
+    void selectedNodePhotoReplacementKeepsOtherPhotosAndExposesOriginalEvidenceInDetail() {
+        var completed = completedInspection();
+        long replacement = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        var body = new java.util.LinkedHashMap<String, Object>(java.util.Map.of(
+                "completedAt", completed.date().toString(), "note", "更正后的说明", "reason", "第二张选错",
+                "replacementRecordId", Long.toString(completed.recordId()),
+                "replaceFileAssetId", Long.toString(completed.photos().get(1)),
+                "fileAssetId", Long.toString(replacement)));
+        String key = idem();
+        correctThroughController(body, key);
+        correctThroughController(body, key);
+        assertCompletion(completed, java.util.List.of(completed.photos().get(0), replacement, completed.photos().get(2)),
+                "更正后的说明", completed.date());
+        var detail = as(engineer, () -> projectService.detail(engineer, projectId));
+        @SuppressWarnings("unchecked")
+        var records = (java.util.List<java.util.Map<String, Object>>) detail.get("siteRecords");
+        var saved = records.stream().filter(row -> Long.toString(completed.recordId()).equals(String.valueOf(row.get("id"))))
+                .findFirst().orElseThrow();
+        var history = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(String.valueOf(saved.get("corrections")), java.util.Map.class);
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).get("note")).isEqualTo("原验收说明");
+        assertThat((java.util.List<?>) history.get(0).get("fileAssetIds"))
+                .extracting(String::valueOf).containsExactlyElementsOf(completed.photos().stream().map(String::valueOf).toList());
+        body.put("replaceFileAssetId", Long.toString(completed.photos().get(0)));
+        assertThatThrownBy(() -> correctThroughController(body, key)).isInstanceOf(ServiceException.class);
+        body.put("replaceFileAssetId", Long.toString(completed.photos().get(1)));
+        body.put("fileAssetId", Long.toString(insertAsset("ENG_SITE_PHOTO", true, store.orgId())));
+        assertThatThrownBy(() -> correctThroughController(body, key)).isInstanceOf(ServiceException.class);
+        assertThat(completionHistory(completed.recordId())).hasSize(1);
+    }
+
+    @Test
+    void nodeCorrectionRejectsAmbiguousOrForeignReplacementWithoutLosingAnyEvidence() {
+        var completed = completedInspection();
+        var valid = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        // A legacy client must never silently shrink an existing multi-photo record to one photo.
+        assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeCorrectCommand(completed.date(), "旧客户端说明", valid, "未指明换哪张"), idem())))
+                .isInstanceOf(ServiceException.class);
+        var body = new java.util.LinkedHashMap<String, Object>(java.util.Map.of(
+                "completedAt", completed.date().toString(), "reason", "替换第二张",
+                "replacementRecordId", Long.toString(completed.recordId()),
+                "replaceFileAssetId", Long.toString(completed.photos().get(1))));
+        for (long invalid : java.util.List.of(
+                insertAsset("ENG_SITE_PHOTO", true, fixture.store().orgId()),
+                insertAsset("ENG_SITE_PHOTO", false, store.orgId()),
+                insertAsset("CONTENT_VIDEO", true, store.orgId()), IDS.incrementAndGet(), completed.photos().get(0))) {
+            body.put("fileAssetId", Long.toString(invalid));
+            assertThatThrownBy(() -> correctThroughController(body, idem())).isInstanceOf(ServiceException.class);
+        }
+        body.put("fileAssetId", Long.toString(valid));
+        body.put("replacementRecordId", Long.toString(IDS.incrementAndGet()));
+        assertThatThrownBy(() -> correctThroughController(body, idem())).isInstanceOf(ServiceException.class);
+        body.put("replacementRecordId", Long.toString(completed.recordId()));
+        body.put("replaceFileAssetId", Long.toString(valid));
+        assertThatThrownBy(() -> correctThroughController(body, idem())).isInstanceOf(ServiceException.class);
+        assertCompletion(completed, completed.photos(), "原验收说明", completed.date());
+        assertThat(completionHistory(completed.recordId())).isEmpty();
+    }
+
+    @Test
+    void dateOnlyCorrectionStillRequiresReasonAndValidNodeChronology() {
+        var completed = completedInspection();
+        assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeCorrectCommand(completed.date(), null, null, ""), idem())))
+                .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeCorrectCommand(completed.date().minusDays(5), null, null, "错误日期"), idem())))
+                .isInstanceOf(ServiceException.class);
+        long next = IDS.incrementAndGet();
+        jdbc.update("INSERT INTO fr_eng_plan_node(id,company_id,project_id,node_index,name,status,create_time) "
+                + "VALUES(?,?,?,2,'下一节点','IN_PROGRESS',now())", next, store.orgId(), projectId);
+        jdbc.update("INSERT INTO fr_eng_site_record(id,company_id,project_id,node_id,occurred_at,note,completion,file_asset_ids,author_user_id) "
+                + "VALUES(?,?,?,?,?,'下一节点已有记录',FALSE,'[]'::jsonb,?)",
+                IDS.incrementAndGet(), store.orgId(), projectId, next, completed.date(), engineer.userId());
+        assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeCorrectCommand(completed.date().plusDays(1), null, null, "晚于下一节点"), idem())))
+                .isInstanceOf(ServiceException.class);
+        assertCompletion(completed, completed.photos(), "原验收说明", completed.date());
+        assertThat(completionHistory(completed.recordId())).isEmpty();
+    }
+
+    @Test
+    void legacySinglePhotoCorrectionRemainsCompatibleAndRetainsItsOriginalEvidence() {
+        var completed = completedInspection();
+        jdbc.update("UPDATE fr_eng_site_record SET file_asset_ids=CAST(? AS jsonb) WHERE id=?",
+                EngPlanService.JsonList.of(Long.toString(completed.photos().get(0))), completed.recordId());
+        long replacement = insertAsset("ENG_DRAWING", true, store.orgId());
+        String key = idem();
+        var command = new EngPlanService.NodeCorrectCommand(completed.date(), "旧单图客户端更正", replacement, "原图不清晰");
+        as(engineer, () -> planService.correctNode(engineer, projectId, nodeId, command, key));
+        as(engineer, () -> planService.correctNode(engineer, projectId, nodeId, command, key));
+        assertCompletion(completed, java.util.List.of(replacement), "旧单图客户端更正", completed.date());
+        assertThat(completionHistory(completed.recordId())).hasSize(1);
+        assertThat((java.util.List<?>) completionHistory(completed.recordId()).get(0).get("fileAssetIds"))
+                .extracting(String::valueOf).containsExactly(Long.toString(completed.photos().get(0)));
+    }
+
+    private record CompletedInspection(long recordId, java.time.LocalDate date, java.util.List<Long> photos) {}
+
+    private CompletedInspection completedInspection() {
+        long startAsset = insertAsset("ENG_DRAWING", true, store.orgId());
+        as(engineer, () -> planService.prepare(engineer, projectId, startCmd(startAsset), idem()));
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE-2,end_date=CURRENT_DATE+30 WHERE project_id=?", projectId);
+        Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
+        var date = java.time.LocalDate.now().minusDays(1);
+        as(engineer, () -> planService.start(engineer, projectId,
+                new EngPlanService.NodeRecordCommand(date.minusDays(1), "实际开工", startAsset, true), idem()));
+        jdbc.update("UPDATE fr_eng_material SET status='CANCELLED' WHERE project_id=?", projectId);
+        var photos = java.util.List.of(insertAsset("ENG_SITE_PHOTO", true, store.orgId()),
+                insertAsset("ENG_SITE_PHOTO", true, store.orgId()), insertAsset("ENG_SITE_PHOTO", true, store.orgId()));
+        as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeRecordCommand(date, "原验收说明", null, true, photos), idem()));
+        return new CompletedInspection(jdbc.queryForObject(
+                "SELECT id FROM fr_eng_site_record WHERE node_id=? AND completion=TRUE", Long.class, nodeId), date, photos);
+    }
+
+    private java.util.Map<String, Object> correctThroughController(java.util.Map<String, Object> body, String key) {
+        var controller = new cn.iocoder.yudao.module.franchise.engineering.controller.admin.EngPlanController();
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "plans", planService);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "currentPost", currentPost);
+        return as(engineer, () -> controller.correct(projectId, nodeId, body, key).getData());
+    }
+
+    private java.util.List<java.util.Map> completionHistory(long recordId) {
+        return cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(jdbc.queryForObject(
+                "SELECT COALESCE(corrections,'[]'::jsonb)::text FROM fr_eng_site_record WHERE id=?", String.class, recordId),
+                java.util.Map.class);
+    }
+
+    private void assertCompletion(CompletedInspection completed, java.util.List<Long> photos, String note, java.time.LocalDate date) {
+        var saved = jdbc.queryForMap("SELECT occurred_at,note,file_asset_ids::text FROM fr_eng_site_record WHERE id=?", completed.recordId());
+        assertThat(saved.get("note")).isEqualTo(note);
+        assertThat(String.valueOf(saved.get("occurred_at"))).isEqualTo(date.toString());
+        assertThat(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(String.valueOf(saved.get("file_asset_ids")), String.class))
+                .containsExactlyElementsOf(photos.stream().map(String::valueOf).toList());
+    }
+
     @Test
     void arrivalCorrectionAcceptsExactPlanAndReplaysWithoutAnotherCorrection() {
         jdbc.update("UPDATE fr_eng_material SET quantity = 100 WHERE id = ?", materialId);
