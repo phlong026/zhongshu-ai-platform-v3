@@ -81,3 +81,13 @@ test('same-revision cloud restore keeps local media file paths',async()=>{
   const cloud=new Map(),h=harness({cloud});await tick();h.page.data.firstFrame='/saved/frame.jpg';h.page.inputDescription({detail:{value:'scene'}});await h.page.saveDraft();h.page.onUnload();
   const reopened=harness({cloud,disk:h.disk});await tick();assert.equal(reopened.page.data.firstFrame,'/saved/frame.jpg');assert.equal(reopened.writes.length,0);
 });
+
+test('local draft reopen retains library IDs even when preview paths are absent',async()=>{
+  const cloud=new Map(),h=harness({cloud});await tick();
+  h.page.setData({firstFrameAssetId:'9007199254740993',references:[{id:'material-101',assetId:'101',type:'audio',mimeType:'audio/mpeg',name:'公司录音',path:''}]});
+  await h.page.saveDraft();h.page.onUnload();
+  const reopened=harness({cloud,disk:h.disk});await tick();
+  assert.equal(reopened.page.data.firstFrameAssetId,'9007199254740993');
+  assert.equal(reopened.page.data.references[0].assetId,'101');
+  assert.equal(reopened.page.data.ratioAutomatic,true);
+});

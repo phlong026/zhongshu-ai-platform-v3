@@ -4,14 +4,7 @@ const { hashFile } = require('../../utils/sha256-stream');
 const { putTicketBytes } = require('../../utils/b-asset-upload');
 const { downloadTicketFile } = require('../../utils/b-asset-download');
 const Audio = require('./characters/audio-preview');
-const base = '/franchise/content/material-library';
-const api = {
-  page: query => http.get(base, query), upload: body => http.post(base + '/upload-tickets', body),
-  complete: id => http.post(base + '/' + encodeURIComponent(id) + '/complete', {}),
-  download: id => http.post(base + '/' + encodeURIComponent(id) + '/download-tickets', {}),
-  update: (id, body) => http.put(base + '/' + encodeURIComponent(id), body),
-  remove: id => http.del(base + '/' + encodeURIComponent(id))
-};
+const api = require('../../api/franchise/content').materials;
 const message = e => e && (e.msg || e.message || e.errMsg) || '暂时无法完成，请重试';
 const call = (method, args) => new Promise((resolve, reject) => wx[method](Object.assign({}, args, {success:resolve, fail:reject})));
 const kind = mime => String(mime).split('/')[0];
@@ -23,14 +16,15 @@ function present(row) {
   return Object.assign({}, row, {id:String(row.id), type, sizeText:size(row.sizeBytes), dateText:String(row.createdAt || '').slice(0,10).replace(/-/g,'.'),
     typeText:{image:'图片',video:'视频',audio:'音频'}[type] || '素材', durationText:Audio.time(row.durationSec), coverUrl:'', coverError:false});
 }
-async function source(page, id, guard) {
-  const ticket = await api.download(id);
+async function source(page, id, guard, suppliedTicket) {
+  const ticket = suppliedTicket || await api.download(id);
   if (!guard()) throw {cancelled:true};
   // B proxy tickets need session headers; a signed external URL must never receive those headers.
   if (/^https:\/\//i.test(ticket.downloadUrl) && !String(ticket.downloadUrl).startsWith(String(http.base()).replace(/\/admin-api\/?$/, '') + '/')) return ticket.downloadUrl;
   return (await downloadTicketFile({http,downloadUrl:ticket.downloadUrl,alive:guard,label:'素材'})).tempFilePath;
 }
 const data = {
+  materialPicker:'', materialSelecting:false,
   materialScope:'PERSONAL', materialType:'ALL', materialKeyword:'', materialQuery:'', materialItems:[], materialPage:0,
   materialTotal:0, materialLoading:false, materialError:'', materialManage:false, materialBusy:false,
   materialUploadPhase:'', materialUploadName:'', materialUploadError:'', materialPending:false,
@@ -39,6 +33,11 @@ const data = {
   previewAudioPlaying:false, previewAudioLoading:false, previewAudioPosition:'00:00', previewAudioDuration:'00:00', previewAudioProgress:0, previewAudioError:''
 };
 const handlers = {
+  materialPickerInit(type) {
+    if(!['IMAGE','ALL'].includes(type))return;
+    this.setData({materialPicker:type,materialType:type,materialManage:false,pageTitle:'选择创作素材',
+      ...(type==='IMAGE'?{materialTypes:[{id:'IMAGE',label:'图片'}]}:{})});
+  },
   materialInit() {
     if (!alive(this)) return;
     const pending = wx.getStorageSync(pendingKey(this));
@@ -80,15 +79,16 @@ const handlers = {
     const scope=e.currentTarget.dataset.scope;if(scope===this.data.materialScope)return;
     this.closeMaterialPreview();this.setData({materialScope:scope,materialManage:false});this.loadMaterials();
   },
-  materialTypeChange(e) {this.setData({materialType:e.currentTarget.dataset.type});this.loadMaterials();},
+  materialTypeChange(e) {const type=e.currentTarget.dataset.type;if(this.data.materialPicker==='IMAGE'&&type!=='IMAGE')return;this.setData({materialType:type});this.loadMaterials();},
   materialSearchInput(e) {this.setData({materialKeyword:e.detail.value});clearTimeout(this.__materialSearch);this.__materialSearch=setTimeout(()=>{if(alive(this))this.materialSearch();},350);},
   materialSearch() {clearTimeout(this.__materialSearch);this.setData({materialQuery:this.data.materialKeyword.trim()});this.loadMaterials();},
   materialClearSearch() {this.setData({materialKeyword:'',materialQuery:''});this.loadMaterials();},
   materialMore() {if(this.data.materialItems.length<this.data.materialTotal)return this.loadMaterials(true);},
-  materialManageToggle() {this.setData({materialManage:!this.data.materialManage});},
+  materialManageToggle() {if(!this.data.materialPicker)this.setData({materialManage:!this.data.materialManage});},
   materialCoverError(e) {const i=this.data.materialItems.findIndex(r=>r.id===String(e.currentTarget.dataset.id));if(i>=0)this.setData({['materialItems['+i+'].coverUrl']:'',['materialItems['+i+'].coverError']:true});},
   async openMaterial(e) {
     const item=this.data.materialItems.find(r=>r.id===String(e.currentTarget.dataset.id));if(!item)return;
+    if(this.data.materialPicker)return this.selectMaterial(item);
     if(this.data.materialManage){if(item.canManage)return this.manageMaterial(item);return;}
     this.closeMaterialPreview();
     const seq=this.__materialPreviewSeq=(this.__materialPreviewSeq||0)+1,valid=()=>alive(this)&&seq===this.__materialPreviewSeq;
@@ -99,6 +99,26 @@ const handlers = {
       this.setData({materialPreviewUrl:url,materialPreviewLoading:false});
       if(item.type==='audio')this.materialToggleAudio();
     } catch(e) {if(valid())this.setData({materialPreviewLoading:false,materialPreviewError:message(e)});}
+  },
+  async selectMaterial(item) {
+    if(!alive(this)||this.data.materialBusy||this.data.materialSelecting)return;
+    this.closeMaterialPreview();
+    const seq=this.__materialPreviewSeq,valid=()=>alive(this)&&seq===this.__materialPreviewSeq;
+    this.setData({materialSelecting:true});
+    try{
+      if(!/^[1-9]\d{0,18}$/.test(item.id)||!['image/jpeg','image/png','video/mp4','audio/mpeg'].includes(item.mimeType))throw Error('素材类型无效，请重新选择');
+      const type=kind(item.mimeType);
+      if(this.data.materialPicker==='IMAGE'&&type!=='image')throw Error('首尾帧请选择图片素材');
+      const ticket=await api.download(item.id);if(!valid())return;
+      if(!ticket?.downloadUrl)throw Error('素材不可用，请重新选择');
+      // Preview bytes are optional; generation always references the original authorized asset.
+      let path='';if(type==='image')try{path=await source(this,item.id,valid,ticket);}catch(e){if(!valid())return;}
+      if(!valid())return;
+      const channel=this.getOpenerEventChannel?.();if(!channel?.emit)throw Error('请从视频编辑页重新选择素材');
+      channel.emit('materialSelected',{assetId:String(item.id),type,mimeType:item.mimeType,name:item.name,path,visibility:item.visibility,canManage:!!item.canManage});
+      wx.navigateBack();
+    }catch(e){if(valid())wx.showToast({title:message(e),icon:'none'});}
+    finally{if(valid())this.setData({materialSelecting:false});}
   },
   retryMaterialPreview() {if(this.data.materialPreview)return this.openMaterial({currentTarget:{dataset:{id:this.data.materialPreview.id}}});},
   materialToggleAudio() {
@@ -111,7 +131,7 @@ const handlers = {
     this.__materialPreviewSeq=(this.__materialPreviewSeq||0)+1;
     if(this.__materialAudio){this.__materialAudio.destroy();this.__materialAudio=null;}
     if(this.data.materialPreview&&this.data.materialPreview.type==='video'){try{wx.createVideoContext('material-video',this).stop();}catch(e){}}
-    this.setData({materialPreview:null,materialPreviewUrl:'',materialPreviewError:'',materialPreviewLoading:false,previewAudioError:'',previewAudioPlaying:false});
+    this.setData({materialPreview:null,materialPreviewUrl:'',materialPreviewError:'',materialPreviewLoading:false,previewAudioError:'',previewAudioPlaying:false,materialSelecting:false});
   },
   materialHide() {this.closeMaterialPreview();},
   materialUnload() {clearTimeout(this.__materialSearch);this.__materialSeq=(this.__materialSeq||0)+1;this.closeMaterialPreview();},
@@ -140,11 +160,11 @@ const handlers = {
     finally {if(valid())this.setData({materialBusy:false});}
   },
   async materialChooseUpload() {
-    if(this.__materialChoosing||this.data.materialBusy||!alive(this))return;
+    if(this.__materialChoosing||this.data.materialBusy||this.data.materialSelecting||!alive(this))return;
     if(this.data.materialPending)return this.materialRetryComplete();
     this.__materialChoosing=true;const valid=()=>alive(this),scope=this.data.materialScope;
     try {
-      const action=await call('showActionSheet',{itemList:['上传图片','上传视频','上传音频（MP3）']});if(!valid())return;
+      const action=await call('showActionSheet',{itemList:this.data.materialPicker==='IMAGE'?['上传图片']:['上传图片','上传视频','上传音频（MP3）']});if(!valid())return;
       if(scope==='COMPANY'){const yes=await call('showModal',{title:'上传到公司素材',content:'同公司成员可以查看本次上传的素材。',confirmText:'继续上传'});if(!valid()||!yes.confirm)return;}
       let file;
       if(action.tapIndex===2){const result=await call('chooseMessageFile',{count:1,type:'file',extension:['mp3']});file=result.tempFiles[0];}
@@ -158,7 +178,7 @@ const handlers = {
       if(!valid())return;
       // The main asset is already saved; optional cover failure must never make it disappear.
       if(type==='video'&&file.thumbTempFilePath){try{await this.materialUploadFile({path:file.thumbTempFilePath},'image','视频封面',scope,valid,id);}catch(e){}}
-      if(valid()){this.setData({materialUploadPhase:'上传完成',materialUploadError:'',materialScope:scope,materialType:'ALL',materialQuery:'',materialKeyword:''});await this.loadMaterials();wx.showToast({title:'上传完成',icon:'success'});}
+      if(valid()){this.setData({materialUploadPhase:'上传完成',materialUploadError:'',materialScope:scope,materialType:this.data.materialPicker==='IMAGE'?'IMAGE':'ALL',materialQuery:'',materialKeyword:''});await this.loadMaterials();wx.showToast({title:'上传完成',icon:'success'});}
     } catch(e) {if(valid()&&!/cancel/i.test(message(e)))this.setData({materialUploadPhase:'',materialUploadError:message(e)});}
     finally {this.__materialChoosing=false;if(valid())this.setData({materialBusy:false});}
   },

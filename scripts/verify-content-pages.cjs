@@ -21,6 +21,7 @@ const API_FACE = {
   tasks: ['create', 'page', 'get', 'saveWork', 'resultUrlStatus'],
   drafts: ['works', 'updateStatus', 'videoDraft', 'saveVideoDraft', 'completeChapter', 'courseProgress'],
   assets: ['uploadTicket', 'complete', 'downloadUrl'],
+  materials: ['page', 'upload', 'complete', 'download', 'update', 'remove'],
   personas: ['page', 'create', 'update', 'remove'],
   clones: ['quote', 'list', 'create', 'refresh', 'setDefault'],
   publications: ['create', 'page', 'verify', 'link', 'fail'],
