@@ -272,3 +272,44 @@ test('editable-input API uses the authorized task route without changing a large
   assert.equal(result.taskId,'9007199254740993');assert.equal(calls[0],'/franchise/content/tasks/9007199254740993/editable-input');
   await module.exports.tasks.editableInput('101/../../secret');assert.equal(calls[1],'/franchise/content/tasks/101%2F..%2F..%2Fsecret/editable-input');
 });
+
+test('task draft read failure blocks ordinary generation until retry loads the latest edit',async()=>{
+  let offline=true;
+  const latest={...taskInput('101','另一设备保存的修改稿'),exists:true,revision:3};
+  const h=harness({task:'101',read:async()=>{if(offline)throw Error('timeout');return structuredClone(latest);}});await tick();
+  assert.equal(h.page.data.taskLoading,false);assert.equal(h.page.data.invalidMessage,'');
+  assert.match(h.page.data.draftStatus,/读取失败/);
+  await h.page.generate();await h.page.generateOnline();
+  assert.equal(h.submissions.length,0,'a failed draft read must not submit the original task text');
+  offline=false;await h.page.retryDraft();await tick();
+  assert.equal(h.page.data.description,latest.description);assert.equal(h.page.data.taskDraftBlocked,false);
+  await h.page.generate();assert.equal(h.submissions.length,1);assert.equal(h.submissions[0].description,latest.description);
+});
+
+test('using the original task after a draft read failure requires confirmation and preserves the unread draft',async()=>{
+  const cloud=new Map([['task:101',{...taskInput('101','最新云端修改稿'),exists:true,revision:7}]]);
+  const h=harness({task:'101',cloud,read:async()=>{throw Error('timeout');}});await tick();
+  h.wx.showModal=options=>options.success({confirm:false});
+  await h.page.useOriginalTask();assert.equal(h.submissions.length,0);
+  h.wx.showModal=options=>options.success({confirm:true});
+  await h.page.useOriginalTask();
+  assert.equal(h.submissions.length,1);assert.equal(h.submissions[0].description,'history A');
+  assert.equal(h.writes.length,0);assert.equal(cloud.get('task:101').description,'最新云端修改稿');
+  assert.equal(h.page.data.taskDraftBlocked,true,'the failed draft read stays unresolved after explicit original-only generation');
+});
+
+test('an original-task confirmation cannot submit after the working identity changes',async()=>{
+  const h=harness({task:'101',read:async()=>{throw Error('timeout');}});await tick();let confirm;
+  h.wx.showModal=options=>{confirm=options.success;};
+  const attempt=h.page.useOriginalTask();h.invalidate();confirm({confirm:true});await attempt;
+  assert.equal(h.submissions.length,0);assert.equal(h.writes.length,0);
+});
+
+test('an unversioned task draft response stays blocked while a confirmed missing draft enables the original form',async()=>{
+  const legacy=harness({task:'101',read:async()=>({exists:true,description:'unknown revision'})});await tick();
+  await legacy.page.generate();assert.equal(legacy.submissions.length,0);
+  assert.equal(legacy.page.data.taskDraftBlocked,true);
+  const missing=harness({task:'101',read:async()=>({exists:false,revision:0})});await tick();
+  assert.equal(missing.page.data.taskDraftBlocked,false);await missing.page.generate();
+  assert.equal(missing.submissions[0].description,'history A');
+});
