@@ -2,19 +2,31 @@ name: Paired release rehearsal
 on:
   push:
     branches: [backend-main]
-    paths:
-      - '.github/workflows/paired-release.yml'
-      - '平台程序/admin-ui/clone-upload.html'
-      - '平台程序/admin-ui/src/clone-upload/**'
-      - '平台程序/admin-ui/public/clone-replay-worker.js'
   pull_request:
     branches: [backend-main]
-    paths:
-      - '.github/workflows/paired-release.yml'
-      - '平台程序/deploy/platform/**'
-      - '平台程序/script/release-rehearsal/**'
-      - '平台程序/platform/platform-wallet/**'
+  workflow_call:
+    inputs:
+      frontend_sha:
+        description: Exact frontend commit selected by the caller
+        required: true
+        type: string
+      backend_sha:
+        description: Exact backend commit, or backend-main to freeze at checkout
+        required: false
+        default: backend-main
+        type: string
   workflow_dispatch:
+    inputs:
+      frontend_sha:
+        description: Exact frontend commit, or main to freeze when this run starts
+        required: true
+        default: main
+        type: string
+      backend_sha:
+        description: Exact backend commit, or backend-main to freeze at checkout
+        required: true
+        default: backend-main
+        type: string
 
 permissions:
   contents: read
@@ -28,14 +40,19 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      FRONTEND_REV: b89d7a994bcdffc97640357b034b993b186cbb56
-      BACKEND_REV: ${{ github.event.pull_request.head.sha || github.sha }}
+      FRONTEND_REF: ${{ inputs.frontend_sha || 'main' }}
+      BACKEND_REF: ${{ inputs.backend_sha || github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ inputs.backend_sha || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Freeze the selected frontend and backend commits
+        run: |
+          test -f 平台程序/script/release-rehearsal/freeze_pair.py || { echo "::error::The selected backend predates the pairing scripts; choose a REL-01-or-newer backend or review its original run evidence."; exit 1; }
+          python3 -I 平台程序/script/release-rehearsal/test_freeze_pair.py
+          python3 -I 平台程序/script/release-rehearsal/freeze_pair.py
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -45,12 +62,16 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '24'
+      - name: Check the frozen mini program
+        working-directory: ${{ runner.temp }}/mini
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run check
       - name: Build paired release and pre-spool baseline
         env:
           PREVIOUS_REV: ee7f20ff986b4fe0cc45d50b2e38c52a3d840a46
         run: |
           git worktree add --detach "$RUNNER_TEMP/previous" "$PREVIOUS_REV"
-          git worktree add --detach "$RUNNER_TEMP/mini" "$FRONTEND_REV"
           mvn -B -ntp -f "$RUNNER_TEMP/previous/平台程序/pom.xml" -pl yudao-platform-server -am -Dmaven.test.skip=true package > "$RUNNER_TEMP/old-build.log" || { tail -60 "$RUNNER_TEMP/old-build.log"; exit 1; }
           mvn -B -ntp -f 平台程序/pom.xml -pl yudao-platform-server -am -Dmaven.test.skip=true package > "$RUNNER_TEMP/build.log" || { tail -60 "$RUNNER_TEMP/build.log"; exit 1; }
           cd 平台程序/admin-ui
@@ -66,6 +87,17 @@ jobs:
           -Dfranchise.handover.client="$RUNNER_TEMP/mini/scripts/verify-paired-handover.cjs"
       - name: Verify immutable package, failed migration recovery and healthy rollbacks
         run: python3 平台程序/script/release-rehearsal/run.py
+      - name: Summarize accepted pair
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          evidence = json.loads((Path(os.environ['RUNNER_TEMP']) / 'delivery' / 'acceptance.json').read_text())
+          assert evidence['frontendCommit'] == os.environ['FRONTEND_REV']
+          assert evidence['backendCommit'] == os.environ['BACKEND_REV']
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('\n配对演练全部通过：上述两个提交的握手、不可变包、迁移恢复和回滚证据已生成。\n')
+          PYTHON
       - name: Diagnose fixture boot failure
         if: failure()
         shell: bash
