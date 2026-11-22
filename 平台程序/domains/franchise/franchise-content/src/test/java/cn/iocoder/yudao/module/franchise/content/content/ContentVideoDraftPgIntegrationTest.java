@@ -32,4 +32,33 @@ class ContentVideoDraftPgIntegrationTest extends FranchisePgIntegrationTest {
         when(tasks.requireOwned(33,103)).thenReturn(new FrContentTaskDO().setCompanyId(33L).setAuthorUserId(88L).setKind("ai_video"));
         assertThatThrownBy(()->drafts.saveVideoDraft(33,77,body("task:103",0,"forbidden"))).isInstanceOf(RuntimeException.class);
     }
+
+    @Test void editableInputUsesTheSameAuthorAndTaskKindBoundaryWithoutMutatingTheTask() {
+        String snapshot="{\"description\":\"original\",\"resolution\":\"768P\",\"duration\":8,\"references\":[]}";
+        var task=new FrContentTaskDO().setId(850101L).setCompanyId(850033L).setAuthorUserId(850077L).setKind("ai_video").setInputSnapshot(snapshot);
+        when(tasks.requireOwned(850033,850101)).thenReturn(task);
+        when(tasks.requireOwned(850034,850101)).thenThrow(new IllegalArgumentException("other company"));
+        assertThat(drafts.videoTaskInput(850033,850077,850101)).containsEntry("description","original").containsEntry("mode","frames");
+        drafts.saveVideoDraft(850033,850077,body("task:850101",0,"edited copy"));
+        assertThat(task.getInputSnapshot()).isEqualTo(snapshot);
+        assertThat(drafts.videoTaskInput(850033,850077,850101)).containsEntry("description","original");
+        assertThatThrownBy(()->drafts.videoTaskInput(850033,850088,850101)).hasMessageContaining("任务不存在");
+        assertThatThrownBy(()->drafts.videoTaskInput(850034,850077,850101)).hasMessageContaining("other company");
+        task.setKind("digital");
+        assertThatThrownBy(()->drafts.videoTaskInput(850033,850077,850101)).hasMessageContaining("任务不存在");
+        assertThatThrownBy(()->drafts.videoTaskInput(850033,850077,0)).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test void unsupportedHistoricalMediaCannotSilentlyBecomeAnEmptyPaidGeneration() {
+        var task=new FrContentTaskDO().setId(101L).setAuthorUserId(77L).setKind("ai_video");
+        when(tasks.requireOwned(33,101)).thenReturn(task);
+        for(String refs:java.util.List.of(
+                "[{\"role\":\"first_frame\",\"url\":\"https://old.example\"}]",
+                "[{\"role\":\"unknown\",\"assetId\":91}]",
+                "[{\"role\":\"first_frame\",\"assetId\":91},{\"role\":\"reference_image\",\"assetId\":92}]",
+                "[{\"role\":\"first_frame\",\"assetId\":91},{\"role\":\"first_frame\",\"assetId\":92}]")) {
+            task.setInputSnapshot("{\"description\":\"old\",\"resolution\":\"768P\",\"duration\":8,\"references\":"+refs+"}");
+            assertThatThrownBy(()->drafts.videoTaskInput(33,77,101)).isInstanceOf(RuntimeException.class);
+        }
+    }
 }

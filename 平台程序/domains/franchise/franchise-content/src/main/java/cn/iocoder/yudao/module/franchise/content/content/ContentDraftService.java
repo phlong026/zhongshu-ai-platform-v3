@@ -143,12 +143,51 @@ public class ContentDraftService {
         return videoDraft(companyId,userId,key);
     }
 
-    private void checkVideoKey(long companyId,long userId,String key) {
-        if("new".equals(key))return;
+    /** Editable input is a projection, never the internal authorization/provider snapshot. */
+    public Map<String,Object> videoTaskInput(long companyId,long userId,long taskId) {
+        var task=checkVideoKey(companyId,userId,"task:"+taskId);
+        Map<String,Object> input=JsonUtils.parseObject(task.getInputSnapshot(),Map.class);
+        if(input==null||!(input.get("description") instanceof String description)
+                ||!(input.get("resolution") instanceof String resolution)||!(input.get("duration") instanceof Number duration)
+                ||(input.get("ratio")!=null&&!(input.get("ratio") instanceof String)))throw exception(INPUT_INVALID);
+        var view=new java.util.LinkedHashMap<String,Object>();
+        view.put("taskId",String.valueOf(task.getId()));
+        view.put("kind","ai_video");
+        view.put("description",description);
+        view.put("parameters",Map.of("resolution",resolution,"duration",duration,"ratio",input.get("ratio")==null?"16:9":input.get("ratio")));
+        String first="",last="";
+        var references=new java.util.ArrayList<Map<String,Object>>();
+        Object raw=input.get("references");
+        if(raw!=null&&!(raw instanceof List<?>))throw exception(INPUT_INVALID);
+        if(raw instanceof List<?> refs)for(Object value:refs) {
+            if(!(value instanceof Map<?,?> ref)||!(ref.get("role") instanceof String role)
+                    ||!java.util.Set.of("first_frame","last_frame","reference_image","reference_video","reference_audio").contains(role))throw exception(INPUT_INVALID);
+            String assetId;
+            try {
+                long id=Long.parseLong(String.valueOf(ref.get("assetId")));
+                if(id<=0)throw new NumberFormatException();
+                assetId=Long.toString(id);
+            } catch(NumberFormatException e){throw exception(INPUT_INVALID);}
+            if("first_frame".equals(role)){if(!first.isEmpty())throw exception(INPUT_INVALID);first=assetId;}
+            else if("last_frame".equals(role)){if(!last.isEmpty())throw exception(INPUT_INVALID);last=assetId;}
+            else references.add(Map.of("assetId",assetId,"role",role,"name",ref.get("name") instanceof String name?name:""));
+        }
+        // The editor has two modes. Reject unsupported historical mixtures instead of silently omitting media.
+        if(!references.isEmpty()&&(!first.isEmpty()||!last.isEmpty()))throw exception(INPUT_INVALID);
+        view.put("mode",references.isEmpty()?"frames":"reference");
+        view.put("firstFrameAssetId",first);
+        view.put("lastFrameAssetId",last);
+        view.put("references",references);
+        return view;
+    }
+
+    private FrContentTaskDO checkVideoKey(long companyId,long userId,String key) {
+        if("new".equals(key))return null;
         if(key==null||!key.matches("task:[1-9][0-9]{0,18}"))throw exception(INPUT_INVALID);
         try {
             var task=tasks.requireOwned(companyId,Long.parseLong(key.substring(5)));
             if(task.getAuthorUserId()!=userId||!"ai_video".equals(task.getKind()))throw exception(TASK_NOT_FOUND);
+            return task;
         } catch(NumberFormatException e){throw exception(INPUT_INVALID);}
     }
 

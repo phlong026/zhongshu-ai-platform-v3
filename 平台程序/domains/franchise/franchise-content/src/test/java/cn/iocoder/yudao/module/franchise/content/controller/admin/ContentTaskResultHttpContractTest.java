@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.content.controller.admin;
 
 import cn.iocoder.yudao.module.franchise.content.content.ContentTaskService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -23,6 +24,7 @@ class ContentTaskResultHttpContractTest {
         var controller=new ContentTaskController();
         ReflectionTestUtils.setField(controller,"currentPost",current);
         ReflectionTestUtils.setField(controller,"tasks",tasks);
+        ReflectionTestUtils.setField(controller,"drafts",new ContentDraftService(null,null,null,tasks,null));
         return MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -59,5 +61,48 @@ class ContentTaskResultHttpContractTest {
         endpoint(task).perform(get("/franchise/content/tasks/123"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("FAILED"))
                 .andExpect(jsonPath("$.data.failedReason").value("链接中没有可用视频"));
+    }
+
+    @Test void editableInputReturnsOnlyTheOriginalVideoFormAndStableAssetIds() throws Exception {
+        var task=new FrContentTaskDO().setId(123L).setAuthorUserId(77L).setKind("ai_video")
+                .setInputSnapshot("""
+                    {"description":"原始画面", "resolution":"2K", "duration":9, "ratio":"adaptive",
+                     "references":[{"role":"first_frame","assetId":9007199254740993,"url":"https://private.example/signed"},
+                                   {"role":"last_frame","assetId":"9007199254740995"}],
+                     "_authorizedAssets":{"tenantId":11,"postId":77,"secret":"proof"},"providerToken":"secret"}
+                    """);
+        endpoint(task).perform(get("/franchise/content/tasks/123/editable-input"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data",org.hamcrest.Matchers.aMapWithSize(8)))
+                .andExpect(jsonPath("$.data.taskId").value("123"))
+                .andExpect(jsonPath("$.data.kind").value("ai_video"))
+                .andExpect(jsonPath("$.data.mode").value("frames"))
+                .andExpect(jsonPath("$.data.description").value("原始画面"))
+                .andExpect(jsonPath("$.data.parameters.duration").value(9))
+                .andExpect(jsonPath("$.data.parameters.resolution").value("2K"))
+                .andExpect(jsonPath("$.data.parameters.ratio").value("adaptive"))
+                .andExpect(jsonPath("$.data.firstFrameAssetId").value("9007199254740993"))
+                .andExpect(jsonPath("$.data.lastFrameAssetId").value("9007199254740995"))
+                .andExpect(jsonPath("$.data.references").isEmpty())
+                .andExpect(jsonPath("$.data._authorizedAssets").doesNotExist())
+                .andExpect(jsonPath("$.data.providerToken").doesNotExist());
+    }
+
+    @Test void referenceInputOmitsPrivateUrlsAndPreservesEachSupportedRole() throws Exception {
+        var task=new FrContentTaskDO().setId(123L).setAuthorUserId(77L).setKind("ai_video")
+                .setInputSnapshot("""
+                    {"description":"参考原片", "resolution":"768P", "duration":5, "ratio":"16:9",
+                     "references":[{"role":"reference_image","assetId":"91","name":"图","url":"https://private.example","_authorizedAssets":{"secret":true}},
+                                   {"role":"reference_video","assetId":"92","name":"视频"},
+                                   {"role":"reference_audio","assetId":"93","name":"音频"}]}
+                    """);
+        endpoint(task).perform(get("/franchise/content/tasks/123/editable-input"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.mode").value("reference"))
+                .andExpect(jsonPath("$.data.firstFrameAssetId").value(""))
+                .andExpect(jsonPath("$.data.references.length()").value(3))
+                .andExpect(jsonPath("$.data.references[0]",org.hamcrest.Matchers.aMapWithSize(3)))
+                .andExpect(jsonPath("$.data.references[0].assetId").value("91"))
+                .andExpect(jsonPath("$.data.references[0].name").value("图"))
+                .andExpect(jsonPath("$.data.references[1].role").value("reference_video"))
+                .andExpect(jsonPath("$.data.references[2].role").value("reference_audio"));
     }
 }

@@ -83,6 +83,14 @@ public class ContentTaskController {
         return success(viewOf(tasks.requireOwned(post.orgId(), id)));
     }
 
+    @GetMapping("{id}/editable-input")
+    @Operation(summary = "读取本人 AI 视频任务的可编辑输入副本")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<Map<String,Object>> editableInput(@PathVariable("id") Long id) {
+        PostSnapshot post=post();
+        return success(drafts.videoTaskInput(post.orgId(),post.userId(),id));
+    }
+
     @PostMapping("{id}/manual-verification")
     @Operation(summary = "人工核验 UNKNOWN 任务是否已交付（结论与积分终态幂等）")
     @PreAuthorize("@post.has('" + ContentPermissions.VERIFY + "')")
