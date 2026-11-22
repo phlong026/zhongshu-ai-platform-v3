@@ -110,6 +110,8 @@ assert.deepEqual(P.mapReferences([
 ], 'role 映射 + 缺名补位 + 未知类型兜底图片');
 assert.deepEqual(P.mapReferences([]), []);
 assert.deepEqual(P.mapReferences(null), []);
+assert.deepEqual(P.mapReferences([{type:'image',name:'已上传图片',assetId:'9007199254740993',mimeType:'image/png',path:'/local/preview.png'}]),
+  [{role:'reference_image',name:'已上传图片',assetId:'9007199254740993',mimeType:'image/png'}], '云草稿保留稳定ID与媒体类型，不保存设备预览路径');
 
 // ===== validateShareLink =====
 assert.equal(P.validateShareLink(''), '请先粘贴视频分享链接');

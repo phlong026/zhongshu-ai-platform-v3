@@ -75,7 +75,7 @@ const assets = {
   /** 上传完成（免审直 ACCEPTED）→ {assetId,status} */
   complete: (assetId) => http.post('/franchise/content/assets/' + assetId + '/complete'),
   /** 下载地址（生产=COS 签名 URL，供生成服务拉取）→ {downloadUrl,expiresAt} */
-  downloadUrl: (assetId) => http.post('/franchise/content/assets/' + assetId + '/download-tickets')
+  downloadUrl: (assetId) => http.post('/franchise/content/assets/' + encodeURIComponent(assetId) + '/download-tickets')
 };
 
 const personas = {

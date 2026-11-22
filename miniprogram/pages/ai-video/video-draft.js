@@ -1,6 +1,13 @@
 // Persist only deliberate edits, using the revision read with their cloud baseline.
 const copy=value=>JSON.parse(JSON.stringify(value));
-const signature=value=>JSON.stringify(value);
+// A signed URL or local preview file is not the identity of an uploaded asset.
+const signature=value=>{
+  const form=copy(value);
+  if(form.firstFrameAssetId)delete form.firstFrame;
+  if(form.lastFrameAssetId)delete form.lastFrame;
+  if(Array.isArray(form.references))form.references.forEach(item=>{if(item.assetId)delete item.path;});
+  return JSON.stringify(form);
+};
 const CONFLICT=1114000011;
 function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,initialDirty=false}) {
   let ready=false,stopped=false,conflict=false,revision=null,observed=null,flight=null,loading=null;
@@ -11,7 +18,7 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
   const initial=signature(getForm());
   const check=()=>{if(!valid())throw Error('工作身份已变化，请重新打开视频编辑');};
   const status=text=>{if(!stopped&&valid())onStatus(text);};
-  function cache(){if(valid())try{const current=storage.getStorageSync(storageKey);if(claimed&&current&&current.owner&&current.owner!==owner)return;storage.setStorageSync(storageKey,{owner,form:copy(getForm()),saved,dirty,revision,conflict,observed});claimed=true;}catch(_){status('本机保存失败，请保持页面打开后重试');}}
+  function cache(){if(valid())try{dirty=dirty||signature(getForm())!==saved;const current=storage.getStorageSync(storageKey);if(claimed&&current&&current.owner&&current.owner!==owner)return;storage.setStorageSync(storageKey,{owner,form:copy(getForm()),saved,dirty,revision,conflict,observed});claimed=true;}catch(_){status('本机保存失败，请保持页面打开后重试');}}
   async function start(){
     if(ready)return;if(loading)return loading;cache();
     loading=(async()=>{
@@ -36,12 +43,12 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
     if(!dirty)return;
     cache();if(!ready||stopped||conflict)return;
     if(flight)return flight;
-    const sent=copy(getForm()),expected=revision,sentSignature=signature(sent);
+    const sent=copy(getForm()),expected=revision;
     flight=(async()=>{
       try{
         const result=await api.save(key,{...sent,revision:expected});check();
         if(Number(result.revision)!==expected+1)throw Error('草稿保存结果待确认');
-        revision=Number(result.revision);observed=revision;saved=sentSignature;dirty=signature(getForm())!==saved;cache();status(dirty?'保存中…':'草稿已保存');
+        revision=Number(result.revision);observed=revision;saved=signature(result.form||sent);dirty=signature(getForm())!==saved;cache();status(dirty?'保存中…':'草稿已保存');
       }catch(e){if(Number(e.code)===CONFLICT)conflict=true;cache();status(conflict?'云端草稿有更新，点此处理':'已存本机，点此重试');throw e;}
       finally{flight=null;}
     })();await flight;if(dirty&&!stopped)return save();
@@ -56,6 +63,6 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
     if(useLocal){dirty=true;cache();await save();}
     else {applyForm(remote.exists?remote:{mode:'frames',description:'',parameters:{resolution:'768P',duration:8,ratio:'9:16'}});saved=signature(getForm());dirty=false;cache();status('已恢复云端草稿');}
   }
-  return{start,save,resolve,stop:()=>{stopped=true;},conflicted:()=>conflict};
+  return{start,save,resolve,cache,stop:()=>{stopped=true;},conflicted:()=>conflict};
 }
 module.exports={create};

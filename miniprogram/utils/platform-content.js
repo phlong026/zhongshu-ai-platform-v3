@@ -79,7 +79,9 @@ function restoreVideoParameters(raw, template) {
 function mapReferences(references) {
   return (references || []).map((item, index) => ({
     role: { image: 'reference_image', video: 'reference_video', audio: 'reference_audio' }[item.type] || 'reference_image',
-    name: item.name || '参考素材' + (index + 1)
+    name: item.name || '参考素材' + (index + 1),
+    ...(item.assetId?{assetId:String(item.assetId)}:{}),
+    ...(item.mimeType?{mimeType:item.mimeType}:{})
   }));
 }
 

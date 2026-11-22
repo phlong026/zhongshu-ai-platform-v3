@@ -26,7 +26,7 @@ test('selected frames are uploaded and included in the paid task; upload failure
     '../../utils/content-media': { upload: async file => {
       uploaded.push(file); if (fail) throw Error('upload failed'); return '9007199254740993';
     } },
-    '../../api/franchise/content': { tasks: { create: async body => { sent.push(body); return { id: 'task' }; } } }
+    '../../api/franchise/content': { assets:{downloadUrl:async()=>({downloadUrl:'https://signed.example/media'})},tasks: { create: async body => { sent.push(body); return { id: 'task' }; } } }
   }, { showToast() {}, navigateTo() {}, redirectTo() {} });
   Object.assign(p.data, { description: '庭院', firstFrame: '/tmp/first.jpg', lastFrame: '/tmp/last.jpg' });
   await p.generateOnline();
@@ -34,7 +34,7 @@ test('selected frames are uploaded and included in the paid task; upload failure
   assert.deepEqual(JSON.parse(JSON.stringify(sent[0].references)), [
     { role: 'first_frame', assetId: '9007199254740993' }, { role: 'last_frame', assetId: '9007199254740993' }
   ]);
-  sent.length = 0; p.__videoSubmission = null; fail = true;
+  sent.length = 0; p.__videoSubmission = null; fail = true;p.setData({firstFrame:'/tmp/replacement.jpg',firstFrameAssetId:''});
   await p.generateOnline();
   assert.equal(sent.length, 0);
 });
@@ -93,7 +93,7 @@ test('task response loss retries the same payload and idempotency key without up
     '../../utils/platform-content': { mapVideoParameters: () => ({}), degradeMessage: e => e.message },
     '../../api/http': { token: () => 'session', sessionGuard: () => () => true },
     '../../utils/content-media': { upload: async file => { uploads.push(file); return 'asset'; } },
-    '../../api/franchise/content': { tasks: { create: async (body, key) => {
+    '../../api/franchise/content': { assets:{downloadUrl:async()=>({downloadUrl:'https://signed.example/media'})},tasks: { create: async (body, key) => {
       calls.push({ body, key }); if (calls.length === 1) throw Error('timeout'); return { id: 'task' };
     } } }
   }, { showToast() {}, navigateTo() {} });
@@ -142,7 +142,7 @@ function libraryVideo({download=async()=>({downloadUrl:'https://cos.example/medi
     '../../utils/platform-content':require('../miniprogram/utils/platform-content'),
     '../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},
     '../../utils/content-media':{upload:async path=>{uploads.push(path);return 'uploaded';}},
-    '../../api/franchise/content':{materials:{download:async id=>{tickets.push(id);return download(id);}},tasks:{create:async body=>{tasks.push(JSON.parse(JSON.stringify(body)));return{id:'task'};}}}
+    '../../api/franchise/content':{assets:{downloadUrl:async id=>{tickets.push(id);return download(id);}},tasks:{create:async body=>{tasks.push(JSON.parse(JSON.stringify(body)));return{id:'task'};}}}
   },wx);
   page.data.description='庭院镜头';
   return{page,wx,navigations,uploads,tickets,tasks,toasts,invalidate:()=>valid=false};
@@ -198,5 +198,34 @@ test('removing or replacing a library frame clears its asset ID so generation us
   h.wx.showActionSheet=o=>o.success({tapIndex:0});h.wx.chooseMedia=o=>o.success({tempFiles:[{tempFilePath:'/tmp/new.jpg'}]});
   h.page.chooseFrame({currentTarget:{dataset:{target:'firstFrame'}}});await new Promise(resolve=>setImmediate(resolve));
   assert.equal(h.page.data.firstFrameAssetId,'');await h.page.generateOnline();
-  assert.deepEqual(h.uploads,['/saved/new.jpg']);assert.deepEqual(h.tickets,[]);
+  assert.deepEqual(h.uploads,['/saved/new.jpg']);assert.deepEqual(h.tickets,['uploaded']);
+});
+
+function mediaSource({ticket=async()=>({downloadUrl:'/admin-api/franchise/assets/901/content?token=t'}),localExists=false}={}){
+  const mod={exports:{}},calls=[];let valid=true;
+  const http={base:()=> 'https://platform.example/admin-api'};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/utils/content-media'),'utf8'),{module:mod,
+    wx:{getFileSystemManager:()=>({accessSync:path=>{if(!localExists)throw Error('file missing');}})},
+    require:id=>{
+      if(id==='../api/http')return http;
+      if(id==='../api/franchise/content')return {assets:{downloadUrl:async id=>{calls.push(['ticket',id]);return ticket(id);}}};
+      if(id==='./b-asset-download')return {downloadTicketFile:async options=>{calls.push(['download',options.downloadUrl]);return{tempFilePath:'/renewed/901.png'};}};
+      throw Error(id);
+    }
+  });return{source:(id,options)=>mod.exports.source(id,()=>valid,options),calls,invalidate:()=>valid=false};
+}
+
+test('asset previews renew missing local files through the authorized B downloader and keep accessible local files',async()=>{
+  const missing=mediaSource();assert.equal(await missing.source('901',{type:'image',localPath:'/expired/901.png'}),'/renewed/901.png');
+  assert.deepEqual(missing.calls,[['ticket','901'],['download','/admin-api/franchise/assets/901/content?token=t']]);
+  const live=mediaSource({localExists:true});assert.equal(await live.source('901',{type:'image',localPath:'/saved/901.png'}),'/saved/901.png');
+  assert.deepEqual(live.calls,[['ticket','901']]);
+  assert.equal(await missing.source('902',{type:'video'}),'');assert.equal(missing.calls.filter(c=>c[0]==='download').length,1);
+});
+
+test('signed preview addresses avoid platform byte headers and denied access cannot fall back to a cached private file',async()=>{
+  const signed=mediaSource({ticket:async()=>({downloadUrl:'https://cos.example/frame.png?signed=t'})});
+  assert.equal(await signed.source('901',{type:'image'}),'https://cos.example/frame.png?signed=t');assert.equal(signed.calls.length,1);
+  const denied=mediaSource({localExists:true,ticket:async()=>{throw {code:403,message:'素材已移除'};}});
+  await assert.rejects(denied.source('901',{type:'image',localPath:'/saved/private.png'}),e=>e.code===403);
 });
