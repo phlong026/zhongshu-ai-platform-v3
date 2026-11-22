@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -47,12 +48,28 @@ def validate_image(image):
     demand(re.fullmatch(r"[^@]+@sha256:[0-9a-f]{64}", image), "An audited @sha256 image digest is required")
 
 
+def validate_asset_spool(service):
+    """Validate the effective JVM options, including after capability overlays."""
+    options = shlex.split(service.get("environment", {}).get("JAVA_TOOL_OPTIONS", ""))
+    for key, expected in (("platform.asset.spool-dir", "/var/lib/platform/asset-spool"),
+                          ("platform.asset.spool-max-bytes", "402653184")):
+        prefix = f"-D{key}="
+        values = [option[len(prefix):] for option in options if option.startswith(prefix)]
+        demand(values == [expected], f"API requires one fixed JVM setting for {key}")
+    mounts = [mount for mount in service.get("volumes", [])
+              if mount.get("target") == "/var/lib/platform/asset-spool"]
+    demand(len(mounts) == 1 and mounts[0].get("type") == "volume"
+           and mounts[0].get("source") == "asset-spool" and not mounts[0].get("read_only"),
+           "API requires its writable private asset-spool mount")
+
+
 def validate_model(model, same_host_values=None):
     same_host_values = same_host_values or {}
     same_host.compose_overlay(same_host_values)
     demand(model.get("name") == PROJECT, "Only the fixed B Compose project is allowed")
     services = model.get("services", {})
     demand(set(services) == {"api", "postgres-b", "redis-b"}, "Unexpected Compose services")
+    validate_asset_spool(services["api"])
     demand(set(model.get("networks", {})) == {"private"}, "Only the B private network is allowed")
     for name, network in model["networks"].items():
         demand(network.get("name") == f"{PROJECT}_{name}" and not network.get("external"), "Shared network refused")

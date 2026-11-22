@@ -4,6 +4,7 @@ import copy
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import subprocess
@@ -101,6 +102,29 @@ class DeploymentChecks(unittest.TestCase):
             change(model)
             with self.assertRaises(ValueError):
                 self.ops.validate_model(model)
+
+    def test_capability_overlays_keep_api_spool_and_tls_jvm_settings(self):
+        capability = DEPLOY / "compose.capabilities.yaml"
+        env = dict(self.env)
+        for key in re.findall(r"\$\{([A-Z][A-Z0-9_]*)", capability.read_text()):
+            env.setdefault(key, str(self.tmp / key.lower()))
+        for key in ("DESIGN_PROVIDER_IMAGE", "AI_RUNTIME_IMAGE"):
+            env[key] = "local/capability@sha256:" + "b" * 64
+        env["B_SAME_HOST_DATA_ROOT"] = str(self.tmp / "data")
+        for same_host in (False, True):
+            with self.subTest(same_host=same_host):
+                command = ["docker", "compose", "--env-file", "/dev/null", "-f", str(DEPLOY / "compose.yaml"),
+                           "-f", str(capability)]
+                if same_host:
+                    command += ["-f", str(DEPLOY / "compose.same-host.yaml")]
+                command += ["config", "--format", "json"]
+                model = json.loads(subprocess.check_output(command, env=env, timeout=30))
+                api = model["services"]["api"]
+                self.ops.validate_asset_spool(api)
+                self.assertTrue(api["read_only"])
+                self.assertEqual(api["user"], "10001:10001")
+                self.assertIn("-Djavax.net.ssl.trustStore=/run/secrets/design_provider_truststore",
+                              api["environment"]["JAVA_TOOL_OPTIONS"].split())
 
     def test_02_missing_configuration_fails_closed(self):
         for key in ("PLATFORM_API_IMAGE", *self.ops.SECRET_VARIABLES):

@@ -1,5 +1,6 @@
 import importlib.util
 import base64
+import copy
 import hashlib
 import json
 import os
@@ -39,7 +40,11 @@ def plain_full_model():
     services = {name: {"image": digest, "pull_policy": "never", "networks": {"private": {}}}
                 for name in verify.EXPECTED}
     services["api"]["environment"] = {"PF_DESIGN_ORIGIN": "https://design-provider:48443",
-                                      "PF_DESIGN_PUBLIC_CASES_ORIGIN": "https://public-a.example.test"}
+                                      "PF_DESIGN_PUBLIC_CASES_ORIGIN": "https://public-a.example.test",
+                                      "JAVA_TOOL_OPTIONS": "-Dplatform.asset.spool-dir=/var/lib/platform/asset-spool "
+                                                           "-Dplatform.asset.spool-max-bytes=402653184"}
+    services["api"]["volumes"] = [{"type": "volume", "source": "asset-spool",
+                                   "target": "/var/lib/platform/asset-spool"}]
     services["ai-runtime"].update({"environment": {"ZS_AI_CORE_URL": "https://design-provider:48443"},
                                    "volumes": [{"type": "bind", "source": "/mnt/runtime-journal",
                                                 "target": "/data"}]})
@@ -68,6 +73,28 @@ def actual_bind_volumes(model):
 
 
 class CapabilityDeploymentTest(unittest.TestCase):
+    def test_effective_api_spool_settings_cannot_be_lost_or_overridden(self):
+        model = plain_full_model()
+        ops.validate_asset_spool(model["services"]["api"])
+        changes = (
+            lambda s: s["environment"].update(JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/run/secrets/truststore"),
+            lambda s: s["environment"].update(JAVA_TOOL_OPTIONS=s["environment"]["JAVA_TOOL_OPTIONS"]
+                                             + " -Dplatform.asset.spool-dir=/tmp"),
+            lambda s: s["environment"].update(JAVA_TOOL_OPTIONS=s["environment"]["JAVA_TOOL_OPTIONS"]
+                                             .replace("402653184", "1")),
+            lambda s: s.update(volumes=[]),
+            lambda s: s["volumes"][0].update(read_only=True),
+            lambda s: s["volumes"][0].update(source="shared-assets"),
+        )
+        for change in changes:
+            with self.subTest(change=changes.index(change)):
+                candidate = copy.deepcopy(model)
+                change(candidate["services"]["api"])
+                with patch.object(verify, "selected_env", return_value=({}, {})), \
+                        patch.object(verify, "run", return_value=json.dumps(candidate).encode()):
+                    with self.assertRaisesRegex(ValueError, "spool"):
+                        verify.validate(Path("/external/deployment.env"), True)
+
     def test_same_host_overlay_is_optional_but_partial_configuration_is_refused(self):
         self.assertEqual(same_host.compose_overlay({}), [])
         self.assertEqual(same_host.compose_overlay({"AI_RUNTIME_JOURNAL_DIR": "/mnt/runtime-journal"}), [])

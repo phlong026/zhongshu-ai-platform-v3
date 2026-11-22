@@ -16,6 +16,7 @@ import tempfile
 from urllib.parse import urlsplit
 import same_host_storage as same_host
 from runtime_storage_proof import validate_runtime_proof
+from ops import validate_asset_spool
 
 HERE = Path(__file__).resolve().parent
 REPO = next(parent for parent in HERE.parents if (parent / ".git").exists())
@@ -297,6 +298,7 @@ def validate(env_file, structure_only):
         if name != "api":
             demand(not service.get("ports"), f"{name} must not publish a host port")
     api_env = services["api"].get("environment", {})
+    validate_asset_spool(services["api"])
     demand(api_env.get("PF_DESIGN_ORIGIN") == "https://design-provider:48443", "B API must call the B Provider over TLS")
     public_origin = api_env.get("PF_DESIGN_PUBLIC_CASES_ORIGIN", "")
     demand(public_origin.startswith("https://") and "design-provider" not in public_origin,
