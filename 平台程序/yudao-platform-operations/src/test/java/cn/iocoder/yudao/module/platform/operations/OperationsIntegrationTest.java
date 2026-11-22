@@ -50,7 +50,7 @@ class OperationsIntegrationTest extends PlatformPgIntegrationTest {
                     jdbc.update("DELETE FROM system_user_role WHERE user_id=?",args[0]);
                     for(Object role:(Set<?>)args[1])jdbc.update("INSERT INTO system_user_role(user_id,role_id,tenant_id,deleted) VALUES(?,?,1,0)",args[0],role);return null;
                 }
-                if(name.equals("roleHasPermission"))return false;
+                if(name.equals("roleHasPermission"))return "boss".equals(args[0])&&"platform:org:manage".equals(args[1]);
                 if(name.equals("deptUnavailable"))return false;
                 return Mockito.RETURNS_DEFAULTS.answer(call);
             });
@@ -125,6 +125,7 @@ class OperationsIntegrationTest extends PlatformPgIntegrationTest {
     }
     @Test void roleAndTenantChecksCannotBeBypassedByCallingServicesDirectly() {
         actor(owner,1);assertThatThrownBy(()->profiles.get(org)).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(()->profiles.transfer(org,new OrganizationProfiles.Transfer(0,String.valueOf(staff),"联调门店"+org,"越权交接",key()))).isInstanceOf(ServiceException.class);
         actor(admin,2);assertThatThrownBy(()->capabilities.get(org)).isInstanceOf(ServiceException.class);
         actor(admin,1);jdbc.update("UPDATE system_users SET status=1 WHERE id=?",admin);
         assertThatThrownBy(()->query.page(null,null,null,true,null,1,20)).isInstanceOf(ServiceException.class);

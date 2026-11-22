@@ -101,10 +101,11 @@
           <el-table-column v-if="canManage" label="操作" min-width="340" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openAssign(row)">追加岗位</el-button>
-              <el-button link @click="openHandover(row)">离职交接</el-button>
-              <el-button link type="warning" @click="emergency(row)">紧急撤权</el-button>
-              <el-button link type="danger" @click="revoke(row)">撤销本岗位</el-button>
-              <el-button link type="danger" @click="stopInOrg(row)">本组织停职</el-button>
+              <el-button v-if="!hasReservedRole(row.userId)" link @click="openHandover(row)">离职交接</el-button>
+              <el-button v-if="!hasReservedRole(row.userId)" link type="warning" @click="emergency(row)">紧急撤权</el-button>
+              <el-button v-if="!isReservedRole(row)" link type="danger" @click="revoke(row)">撤销本岗位</el-button>
+              <el-button v-if="!hasReservedRole(row.userId)" link type="danger" @click="stopInOrg(row)">本组织停职</el-button>
+              <el-text v-if="hasReservedRole(row.userId)" type="info" size="small">{{ reservedRoleReason }}</el-text>
             </template>
           </el-table-column>
         </el-table>
@@ -507,6 +508,14 @@ const pageSize = 20
 const pagedStaff = computed(() =>
   staff.value.slice((staffPage.value - 1) * pageSize, staffPage.value * pageSize)
 )
+const reservedRoleReason = '老板和门店负责人身份由总部维护，请联系总部办理交接或撤权'
+const isReservedRole = (row: StaffRow) => isStoreOrg.value && isRestrictedOwnerRole(row.roleCode)
+const hasReservedRole = (userId: PlatformId) =>
+  staff.value.some((row) => String(row.userId) === String(userId) && isReservedRole(row))
+const blockReservedRemoval = (blocked: boolean) => {
+  if (blocked) actionError.value = reservedRoleReason
+  return blocked
+}
 const teamDialog = ref(false),
   staffDialog = ref(false),
   assignDialog = ref(false),
@@ -918,6 +927,7 @@ const openAssign = (row: StaffRow) => {
   assignDialog.value = true
 }
 const openHandover = (row: StaffRow) => {
+  if (blockReservedRemoval(hasReservedRole(row.userId))) return
   Object.assign(handoverForm, { fromUserId: row.userId, fromName: row.name, toUserId: undefined })
   handoverDialog.value = true
 }
@@ -983,6 +993,7 @@ const saveAssign = async () => {
 }
 const saveHandover = async () => {
   if (!handoverForm.toUserId) return ElMessage.warning('请选择接收人')
+  if (blockReservedRemoval(hasReservedRole(handoverForm.fromUserId))) return
   const scope = actionScope()
   await run(scope, async () => {
     handoverResult.value = await api.handoverStaff({
@@ -995,23 +1006,28 @@ const saveHandover = async () => {
   })
 }
 const revoke = async (row: StaffRow) => {
+  if (blockReservedRemoval(isReservedRole(row))) return
   const scope = actionScope()
   if (!(await confirmed(`仅撤销 ${row.name} 的“${roleLabel(row.roleCode)}”任职？`, '撤销岗位')))
     return
   await run(scope, () => api.revokePost(row.postId))
 }
 const stopInOrg = async (row: StaffRow) => {
+  if (blockReservedRemoval(hasReservedRole(row.userId))) return
   const scope = actionScope()
   if (!(await confirmed(`将撤销 ${row.name} 在本组织的全部任职，其他组织不受影响。`, '本组织停职')))
     return
+  if (blockReservedRemoval(hasReservedRole(row.userId))) return
   await run(scope, () => api.setStaffStatus(row.userId, false))
 }
 const emergency = async (row: StaffRow) => {
+  if (blockReservedRemoval(hasReservedRole(row.userId))) return
   const scope = actionScope()
   if (
     !(await confirmed('将立即撤销本组织权限，再扫描在途事项。扫描失败不代表撤权失败。', '紧急撤权'))
   )
     return
+  if (blockReservedRemoval(hasReservedRole(row.userId))) return
   await run(scope, async () => {
     handoverResult.value = await api.emergencyRevokeStaff({
       orgId: scope.orgId,

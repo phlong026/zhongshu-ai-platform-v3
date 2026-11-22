@@ -14,8 +14,20 @@ public interface StaffPostService {
     /** 分配岗位，返回任职编号 */
     long assignPost(long userId, long orgId, String roleCode, Long teamId, long operatorUserId);
 
-    /** 撤销任职；已撤销或不存在抛 POST_NOT_FOUND */
+    /** 成员管理撤销任职；保护门店总部保留角色及最后有效管理岗位。 */
     void revokePost(long postId, long operatorUserId);
+
+    /**
+     * 总部交接专用：调用方必须已完成总部管理员授权，允许调整门店保留角色，仍保护最后管理岗位。
+     * 交接时应在同一事务内先建立接任人的管理岗位，再调用本方法撤旧岗位。
+     */
+    void revokePostForHeadquarters(long postId, long operatorUserId);
+
+    /**
+     * 正常离职在业务转移前调用：锁定目标用户与组织并校验撤权规则，锁持有至调用方事务提交。
+     * 实际 revokeAllInOrg 仍会重复校验，不能用本方法替代撤权时的检查。
+     */
+    void validateRevokeAllInOrg(long userId, long orgId);
 
     /**
      * 用户删除后的授权回收（M01-T01）：撤销其跨组织全部有效任职（撤销人=系统 0），

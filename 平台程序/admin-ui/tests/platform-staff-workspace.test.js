@@ -718,3 +718,47 @@ test('部门创建超时重试复用键，内容变化或成功后换键', async
   await state.saveTeam()
   assert.notEqual(keys[4], keys[3])
 })
+
+test('门店保留身份及其兼岗用户无法通过普通 Web 四入口撤权', async () => {
+  const calls = []
+  const state = loadOrgStaffView({ api: {
+    revokePost: async () => calls.push('revoke'),
+    setStaffStatus: async () => calls.push('stop'),
+    handoverStaff: async () => calls.push('handover'),
+    emergencyRevokeStaff: async () => calls.push('emergency')
+  } })
+  for (const roleCode of ['boss', 'owner']) {
+    const reserved = { postId: '11', userId: '1', name: '负责人', roleCode, active: true }
+    const employee = { postId: '12', userId: '1', name: '负责人', roleCode: 'sales', active: true }
+    state.staff.value = [employee, reserved]
+    assert.equal(state.isReservedRole(employee), false)
+    assert.equal(state.hasReservedRole(employee.userId), true)
+    state.openHandover(employee)
+    assert.equal(state.handoverDialog.value, false)
+    state.handoverForm.fromUserId = '1'
+    state.handoverForm.toUserId = '2'
+    await state.saveHandover()
+    await state.revoke(reserved)
+    await state.stopInOrg(employee)
+    await state.emergency(employee)
+    assert.match(state.actionError.value, /总部/)
+  }
+  assert.deepEqual(calls, [])
+})
+
+test('Web 保留角色保护不限制独立撤员工兼岗或作为接收人，也不套用到总部成员页', async () => {
+  const calls = []
+  const boss = { postId: '11', userId: '1', name: '老板', roleCode: 'boss', active: true }
+  const employee = { postId: '12', userId: '1', name: '老板', roleCode: 'sales', active: true }
+  const state = loadOrgStaffView({ api: { revokePost: async (id) => calls.push(id) } })
+  state.staff.value = [boss, employee]
+  state.handoverForm.fromUserId = '2'
+  assert.equal(state.receivers.value.length, 1)
+  await state.revoke(employee)
+  assert.deepEqual(calls, ['12'])
+
+  const hq = loadOrgStaffView({ identity: { currentPost: { postId: '1', orgId: '1001', orgType: 'headquarters' } } })
+  hq.staff.value = [boss]
+  assert.equal(hq.isReservedRole(boss), false)
+  assert.equal(hq.hasReservedRole('1'), false)
+})

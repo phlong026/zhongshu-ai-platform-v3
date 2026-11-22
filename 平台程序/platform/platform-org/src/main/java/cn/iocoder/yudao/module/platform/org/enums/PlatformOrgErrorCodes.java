@@ -37,5 +37,7 @@ public interface PlatformOrgErrorCodes {
     ErrorCode STAFF_MOBILE_AMBIGUOUS = new ErrorCode(1_101_000_023, "该手机号对应多个员工账号，请指定员工后重试");
     ErrorCode STAFF_USER_MOBILE_MISMATCH = new ErrorCode(1_101_000_024, "指定员工与手机号不匹配");
     ErrorCode STORE_PROFILE_NAME_TAKEN = new ErrorCode(1_101_000_025, "组织名称已被使用，请更换名称");
+    ErrorCode STAFF_RESERVED_ROLE = new ErrorCode(1_101_000_026, "老板和门店负责人身份由总部维护，请联系总部办理交接或撤权");
+    ErrorCode STAFF_LAST_MANAGER = new ErrorCode(1_101_000_027, "不能移除本组织最后一个有效管理岗位，请先安排接任管理人员");
 
 }

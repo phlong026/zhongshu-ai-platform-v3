@@ -119,8 +119,9 @@ public class OrganizationProfiles {
         Boolean administrator=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM system_user_role ur JOIN system_role r ON r.id=ur.role_id WHERE ur.user_id=? AND ur.tenant_id=? AND ur.deleted=0 AND r.deleted=0 AND r.code='super_admin')",Boolean.class,target,actor.tenantId());
         if(Boolean.TRUE.equals(administrator))throw new ServiceException(400,"请选择加盟商成员账号接任，避免与平台管理身份混用");
         var oldPosts=posts.listActivePostsInOrg(org,"boss");
-        for(var post:oldPosts)if(post.getUserId()!=target)posts.revokePost(post.getId(),actor.userId());
+        // 总部守卫已通过；先建立接任身份，再撤旧身份，避免移除组织最后一个管理岗位。
         posts.assignPostInOrg(target,org,"boss",null,actor.userId());
+        for(var post:oldPosts)if(post.getUserId()!=target)posts.revokePostForHeadquarters(post.getId(),actor.userId());
         jdbc.update("UPDATE pf_franchise_account SET user_id=?,owner_name=? WHERE account_id=? AND tenant_id=?",target,String.valueOf(candidates.get(0).get("nickname")),owner.accountId(),actor.tenantId());
         jdbc.update("INSERT INTO pf_org_profile(tenant_id,org_id,version,updated_by) VALUES(?,?,?,?) ON CONFLICT(tenant_id,org_id) DO UPDATE SET version=excluded.version,updated_by=excluded.updated_by,updated_at=now()",actor.tenantId(),org,before.version()+1,actor.userId());
         sessions.ifAvailable(s->{s.revokeForUserOrgs(owner.userId(),List.of(org));s.revokeForUserOrgs(target,List.of(org));});

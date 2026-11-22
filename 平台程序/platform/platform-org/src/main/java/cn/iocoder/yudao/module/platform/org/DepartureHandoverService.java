@@ -119,6 +119,8 @@ public class DepartureHandoverService {
         Map<String, DepartureHandoverPort> byDomain = portsByDomainOrThrow();
         requireHandoverSource(orgId, fromUserId, byDomain);
         validateTarget(orgId, fromUserId, toUserId);
+        // 保留角色与最后管理员检查必须先于业务转移；组织锁持有至本次交接提交。
+        staffPostService.validateRevokeAllInOrg(fromUserId, orgId);
         // R2 P1：只读快照先行——域级接收资格只校验实际需要承接的域（零在途域不得阻断交接）
         Map<String, Long> snapshots = new LinkedHashMap<>();
         for (DepartureHandoverPort port : byDomain.values()) {
