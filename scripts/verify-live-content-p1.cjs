@@ -6,14 +6,14 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 
-function loadPage(relativePath, modules) {
+function loadPage(relativePath, modules, wxOverrides = {}) {
   let definition;
   const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
   const context = {
     Page(page) { definition = page; },
     wx: {
       showToast() {}, redirectTo() {}, navigateTo() {}, switchTab() {},
-      showModal() {}, setClipboardData() {}, reLaunch() {}
+      showModal() {}, setClipboardData() {}, reLaunch() {}, ...wxOverrides
     },
     require(id) {
       if(id==='./material-library')return {data:{},handlers:{}};
@@ -71,7 +71,7 @@ test('LIVE-03 growth summary aggregates backend status maps and accepts per-publ
   assert.equal(page.data.publishedNames[1], '庭院实拍');
 });
 
-function studioFixture(overrides = {}) {
+function studioFixture(overrides = {}, wxOverrides = {}) {
   let worksResult = Promise.resolve([]);
   let recordsResult = Promise.resolve([]);
   let alive = true;
@@ -97,7 +97,7 @@ function studioFixture(overrides = {}) {
       taskView() { return 'completed'; }, progressOf() { return 100; }, degradeMessage(error) { return error.message || '加载失败'; }
     },
     '../../api/http': { token() { return 'fixture-token'; }, requestGuard() { return () => alive; } }
-  });
+  }, wxOverrides);
   const page = instantiate(definition, Object.assign({ view: 'works' }, overrides));
   page.actorScope = scope;
   return {
@@ -108,6 +108,105 @@ function studioFixture(overrides = {}) {
     switchScope(value) { scope = value; }
   };
 }
+
+const publicationId = '90071992547409931';
+function consultationVisible(detail) {
+  const wxml = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.wxml'), 'utf8');
+  const button = wxml.match(/<button\b[^>]*class="[^"]*\bconsultation-entry\b[^"]*"[^>]*>/);
+  assert.ok(button, 'publication detail has a consultation entry');
+  const condition = button[0].match(/wx:if="\{\{([^}]+)\}\}"/)[1];
+  return !!vm.runInNewContext(condition, { detail });
+}
+
+async function openPublicationConsultation(status = 'published') {
+  const routes = [];
+  const fixture = studioFixture({ view: 'detail', recordId: publicationId }, {
+    navigateTo({ url }) { routes.push(url); }
+  });
+  fixture.setRecords(Promise.resolve([{
+    id: publicationId, workId: '90071992547409930', authorUserId: '42',
+    title: '庭院实拍', publishText: '发布正文', accountId: '真实门店账号', platform: 'douyin',
+    status, publishedUrl: status === 'published' ? 'https://example.test/published/31' : ''
+  }]));
+  fixture.page.refreshData();
+  await flush();
+  fixture.page.registerConsultation();
+  return { ...fixture, routes };
+}
+
+function growthCaptureFixture(entry, { result = 'CREATED', available = true, readable = true } = {}) {
+  const routes = [], captures = [], reads = [];
+  const definition = loadPage('miniprogram/pages/growth/index.js', {
+    '../../utils/organization': { has(role, capability) { return role === 'sales' && capability === 'sales'; } },
+    '../../utils/growth': { load: () => ({ contents: [], leads: [] }), existingCustomer: () => null },
+    '../../utils/platform-content': { degradeMessage: error => error.message || '请求失败' },
+    '../../api/franchise/content': { growth: { summary: async () => ({ publications: { published: 1 }, leads: {}, converted: 0,
+      perPublication: available ? [{ id: publicationId, title: '庭院实拍', leads: 0, converted: 0 }] : [] }) } },
+    '../../api/franchise/crm': {
+      leads: { capture: async (body, key) => { captures.push({ body: plain(body), key }); return { result, customerId: '90071992547409932' }; } },
+      customers: { get: async id => { reads.push(id); if (!readable) throw { code: 403 }; return { id }; } }
+    },
+    '../../api/auth': { currentApiPost: () => ({ postId: 'post-42', orgType: 'store', roleCode: 'sales' }) },
+    '../../api/http': { token: () => 'fixture-token', sessionGeneration: () => 1, requestGuard: () => () => true },
+    '../../utils/view-container': { makeFormHandlers: () => ({}) }
+  }, { navigateTo({ url }) { routes.push(url); } });
+  const page = instantiate(definition);
+  page.onLoad(Object.fromEntries(new URL(entry, 'https://mini.test').searchParams));
+  page.onShow();
+  return { page, routes, captures, reads };
+}
+
+test('published detail exposes consultation using its real publication id instead of work or content id', async () => {
+  const fixture = await openPublicationConsultation();
+  assert.equal(consultationVisible(fixture.page.data.detail), true);
+  assert.equal(fixture.page.data.detail.contentId, undefined);
+  assert.deepEqual(fixture.routes, ['/pages/growth/index?view=capture&publicationId=' + publicationId]);
+});
+
+test('unpublished detail cannot display or invoke the consultation action', async () => {
+  for (const status of ['publishing', 'scheduled', 'verify', 'failed']) {
+    const fixture = await openPublicationConsultation(status);
+    assert.equal(consultationVisible(fixture.page.data.detail), false);
+    assert.deepEqual(fixture.routes, []);
+  }
+});
+
+for (const result of ['CREATED', 'LINKED']) {
+  test('publication entry preserves its source when customer capture returns ' + result, async () => {
+    const publication = await openPublicationConsultation();
+    assert.equal(publication.routes.length, 1);
+    const fixture = growthCaptureFixture(publication.routes[0], { result });
+    await flush();
+    assert.equal(fixture.page.data.form.contentId, publicationId);
+    assert.equal(fixture.page.data.publishedIndex, 1);
+    Object.assign(fixture.page.data.form, { name: '王先生', phone: '13800138000', need: '两层自住' });
+    fixture.page.perform();
+    await flush(); await flush();
+    assert.equal(fixture.captures.length, 1);
+    assert.equal(fixture.captures[0].body.source, '内容发布:' + publicationId);
+    assert.ok(fixture.captures[0].key);
+    assert.deepEqual(fixture.reads, result === 'LINKED' ? ['90071992547409932'] : []);
+    assert.deepEqual(fixture.routes, ['/pages/workflow/index?view=customer&id=90071992547409932']);
+  });
+}
+
+test('publication capture blocks an unavailable source and never bypasses linked customer read permission', async () => {
+  const publication = await openPublicationConsultation();
+  assert.equal(publication.routes.length, 1);
+  const unavailable = growthCaptureFixture(publication.routes[0], { available: false });
+  await flush();
+  Object.assign(unavailable.page.data.form, { name: '王先生', phone: '13800138000', need: '两层自住' });
+  unavailable.page.perform(); await flush();
+  assert.equal(unavailable.captures.length, 0);
+  assert.match(unavailable.page.data.error, /核对发布作品/);
+  const denied = growthCaptureFixture(publication.routes[0], { result: 'LINKED', readable: false });
+  await flush();
+  Object.assign(denied.page.data.form, { name: '王先生', phone: '13800138000', need: '两层自住' });
+  denied.page.perform(); await flush(); await flush();
+  assert.equal(denied.captures[0].body.source, '内容发布:' + publicationId);
+  assert.deepEqual(denied.routes, []);
+  assert.match(denied.page.data.error, /由同事负责/);
+});
 
 test('LIVE-04 works view requests drafts and distinguishes loading, empty and error states', async () => {
   const fixture = studioFixture();
